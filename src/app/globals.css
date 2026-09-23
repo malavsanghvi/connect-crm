@@ -1,26 +1,134 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+/* Connect design tokens (docs/ARCHITECTURE.md, from the prototype). */
+@theme {
+  --color-navy: #1b2c5c;
+  --color-navy-700: #243a74;
+  --color-navy-50: #eef1f8;
+  --color-saffron: #c9731c;
+  --color-saffron-50: #fbf0e3;
+  --color-brown: #8a4608;
+  --color-success: #1f7a4d;
+  --color-success-50: #e7f3ec;
+  --color-maroon: #7a2e1f;
+  --color-maroon-50: #f6e9e5;
+  --color-purple: #5b4b8a;
+  --color-purple-50: #efecf6;
+  --color-store: #2f5d50;
+  --color-ground: #fbf7f0;
+  --color-card: #ffffff;
+  --color-line: #e8e0d2;
+  --color-line-strong: #d6cab5;
+  --color-ink: #1e1c18;
+  --color-muted: #5e5a52;
+  --color-subtle: #f4efe6;
+
+  --font-display: var(--font-fraunces), Georgia, "Times New Roman", serif;
+  --font-sans: var(--font-dm-sans), ui-sans-serif, system-ui, sans-serif;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html {
+  color-scheme: light;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--color-ground);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+}
+
+/* Dense-but-readable tables and form controls used across the console. */
+@layer components {
+  .crm-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    font-size: 0.875rem;
+    line-height: 1.35;
+  }
+  .crm-table thead th {
+    background: var(--color-subtle);
+    color: var(--color-muted);
+    font-weight: 600;
+    font-size: 0.75rem;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    text-align: left;
+    padding: 0.55rem 0.75rem;
+    border-bottom: 1px solid var(--color-line);
+    white-space: nowrap;
+  }
+  .crm-table tbody td {
+    padding: 0.6rem 0.75rem;
+    border-bottom: 1px solid var(--color-line);
+    vertical-align: top;
+  }
+  .crm-table tbody tr:last-child td {
+    border-bottom: 0;
+  }
+  .crm-table tbody tr:hover td {
+    background: #fdfbf7;
+  }
+  /* Identifiers (receipt, pledge and member numbers) never break mid-token. */
+  .crm-table td.font-mono {
+    white-space: nowrap;
+  }
+  .crm-table .num {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+
+  .crm-input {
+    min-height: 2.75rem;
+    width: 100%;
+    border: 1px solid var(--color-line-strong);
+    border-radius: 0.5rem;
+    background: #fff;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.9375rem;
+    color: var(--color-ink);
+  }
+  .crm-input:focus {
+    outline: 2px solid var(--color-navy);
+    outline-offset: 1px;
+    border-color: var(--color-navy);
+  }
+  .crm-input:disabled {
+    background: var(--color-subtle);
+    color: var(--color-muted);
+  }
+  textarea.crm-input {
+    min-height: 6rem;
+  }
+  textarea.crm-input.mono {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.8125rem;
+  }
+  .crm-label {
+    display: block;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: var(--color-ink);
+    margin-bottom: 0.25rem;
+  }
+  .crm-hint {
+    font-size: 0.75rem;
+    color: var(--color-muted);
+    margin-top: 0.25rem;
+  }
+  .crm-link {
+    color: var(--color-navy);
+    text-decoration: underline;
+    text-decoration-color: color-mix(in srgb, var(--color-navy) 35%, transparent);
+    text-underline-offset: 2px;
+  }
+  .crm-link:hover {
+    text-decoration-color: var(--color-navy);
+  }
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-navy);
+  outline-offset: 2px;
 }
