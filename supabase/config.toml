@@ -33,6 +33,16 @@ enable_confirmations = false
 otp_length = 6
 otp_expiry = 600
 
+# The apps sign in with a typed 6-digit code, so both emails show {{ .Token }}.
+# A brand-new address gets the "confirmation" email; an existing one "magic_link".
+[auth.email.template.magic_link]
+subject = "Your Connect sign-in code"
+content_path = "./supabase/templates/otp_code.html"
+
+[auth.email.template.confirmation]
+subject = "Your Connect sign-in code"
+content_path = "./supabase/templates/otp_code.html"
+
 [auth.sms]
 enable_signup = true
 enable_confirmations = false
