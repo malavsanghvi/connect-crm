@@ -10,7 +10,7 @@
 | Design doc | All 9 tabs of *JSH Platform · Recommendations and Roadmap* exported to [`docs/design-doc/`](design-doc/) as the kit's README asks |
 | Builds on it | connect-crm (this repo, owns the database), connect-admin, connect-mobile |
 
-**Legend** — ✅ enforced in the database and covered by tests (`supabase/tests/`, 156 checks) ·
+**Legend** — ✅ enforced in the database and covered by tests (`supabase/tests/`, 166 checks) ·
 📱 member app (connect-mobile) · 🖥 admin console (connect-admin) · 🗂 CRM console (connect-crm) ·
 ⚙️ needs a background worker / edge function (not built yet) · 📄 recorded in docs ·
 ❓ needs a decision · ⏸ parked by JSH.
@@ -81,7 +81,7 @@ sources are **content-identical** to the handoff — nothing in the kit was miss
 | 30 | Membership: community by default; yearly/life need a verified reference at same tier or higher, then center approval; configurable | `membership_types` (reference tier, EC approval), `membership_applications`, `app.my_reference_requests`, `app.decide_reference`; EC role approves life | ✅ 🗂 📱 |
 | 31 | Child login age configurable; shared login with a child → one-time code for every financial transaction | `rules.child_login_age = 13` | ✅ config · **step-up code on money actions ⚙️ (auth hook) — not built** |
 | 32 | Adult children can stay in a household and be primary of their own | `household_members` many-to-many with `is_primary` | ✅ |
-| 33 | Events: waitlists, eligibility (life members only, Pathshala families) | `events.waitlist_enabled`, `eligibility`, `audience`, RSVP status `waitlisted` | ✅ schema 🖥 📱 · **eligibility not enforced in the DB yet** |
+| 33 | Events: waitlists, eligibility (life members only, Pathshala families) | `app.submit_rsvp` enforces audience (members / life members / Pathshala families), capacity and waitlist; `app.cancel_rsvp` releases seats and cancels unpaid commitments | ✅ tested 🖥 📱 |
 | 34 | Anonymous donor recognition; sales tax by center's state | `pledges.anonymous`, `boli_entries.anonymous`; `centers.state_region` | ✅ · tax calc ⚙️ |
 | 35 | Granular entitlements, default roles; super-admin, treasurer and EC edit people-level data | 29 roles, permission strings, 357 policies; treasurer + `executive_committee` have `people.manage` | ✅ tested |
 | 36 | Volunteers sign the center's waiver in the member app; versioned waivers; background checks for work with children; no 1:1 adult-to-minor messaging | `legal_documents` (versioned, yearly re-sign), `consents`, `volunteer_assignments.waiver_consent_id`, `background_checks` (expiry); messaging is member → role inbox only | ✅ 📱 🖥 · **"block assignment until waiver + check are current" not enforced in the DB yet** |
@@ -117,10 +117,10 @@ sources are **content-identical** to the handoff — nothing in the kit was miss
 
 | Prototype | Screens / features | Build | Status |
 |---|---|---|---|
-| `Main.dc.html` (member app) | Home (Today, darshan, My Jain Way, feedback, lunch, labh, confirm, store, opportunity, events, guide), Events (upcoming, calendar layers, photos, RSVP, tickets, confirm, feedback), Give (bolis, in-person, opportunities, pledges, recurring, labh, statements), Jain Way (Today, Learn, Saathi, Library, pachchakhan), Family (members, profile, special days, voting, member card), Store + cart, Niva, Settings, legal, child lock, notifications | 📱 connect-mobile — see its `docs/PROTOTYPE_SPEC.md` | in build |
-| `Onboarding.dc.html` | Email/mobile OTP, family match, "not my family", about you, family review, contact prefs, documents & mail (required) | 📱 | in build |
-| `Welcome.dc.html` | New to JSH guide (9 sections) | 📱 | in build |
-| `GyanPath.dc.html` | Goals, map, lessons (learn / quiz / recite), stars, treasure, teacher sign-off | 📱 (+ 🖥 sign-offs) | in build |
+| `Main.dc.html` (member app) | Home (Today, darshan, My Jain Way, feedback, lunch, labh, confirm, store, opportunity, events, guide), Events (upcoming, calendar layers, photos, RSVP, tickets, confirm, feedback), Give (bolis, in-person, opportunities, pledges, recurring, labh, statements), Jain Way (Today, Learn, Saathi, Library, pachchakhan), Family (members, profile, special days, voting, member card), Store + cart, Niva, Settings, legal, child lock, notifications | 📱 connect-mobile — see its `docs/PROTOTYPE_SPEC.md` | **built** — connect-mobile: tsc, lint, 54 tests, web export pass; signed-in flows await a live backend |
+| `Onboarding.dc.html` | Email/mobile OTP, family match, "not my family", about you, family review, contact prefs, documents & mail (required) | 📱 | **built** — connect-mobile: tsc, lint, 54 tests, web export pass; signed-in flows await a live backend |
+| `Welcome.dc.html` | New to JSH guide (9 sections) | 📱 | **built** — connect-mobile: tsc, lint, 54 tests, web export pass; signed-in flows await a live backend |
+| `GyanPath.dc.html` | Goals, map, lessons (learn / quiz / recite), stars, treasure, teacher sign-off | 📱 (+ 🖥 sign-offs) | **built** — connect-mobile: tsc, lint, 54 tests, web export pass; signed-in flows await a live backend |
 | `CommunityDashboard.dc.html` | Public KPIs, 8 endpoints, k-anonymity | ✅ `app.public_kpis` · page not built | partial |
 | `AdminPortal.dc.html` | Personas, entitlements, every module, audit log | 🗂 connect-crm (19 routes) + 🖥 connect-admin (45 routes) | **built** — lint, typecheck, 85 + 50 unit tests, production builds pass; CRM also exercised against a local PostgREST + headless browser |
 | `Volunteer.dc.html` (deprecated in kit) | Stations, scan, walk-in, family confirm | 🖥 `/ops/[event]/checkin` (camera + keyboard-wedge scanner, legacy QR, kiosk, offline queue) | **built** |

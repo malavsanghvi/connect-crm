@@ -1814,6 +1814,7 @@ export type Database = {
           content_item_id: string | null;
           quiz: Json | null;
           sort_order: number;
+          points: number;
         };
         Insert: {
           id?: string;
@@ -1823,6 +1824,7 @@ export type Database = {
           content_item_id?: string | null;
           quiz?: Json | null;
           sort_order?: number;
+          points?: number;
         };
         Update: {
           id?: string;
@@ -1832,6 +1834,49 @@ export type Database = {
           content_item_id?: string | null;
           quiz?: Json | null;
           sort_order?: number;
+          points?: number;
+        };
+        Relationships: [];
+      };
+      household_change_requests: {
+        Row: {
+          id: string;
+          center_id: string;
+          household_id: string;
+          requested_by: string;
+          kind: string;
+          details: Json;
+          status: string;
+          decided_by: string | null;
+          decided_at: string | null;
+          reason: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          center_id: string;
+          household_id: string;
+          requested_by: string;
+          kind: string;
+          details: Json;
+          status?: string;
+          decided_by?: string | null;
+          decided_at?: string | null;
+          reason?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          center_id?: string;
+          household_id?: string;
+          requested_by?: string;
+          kind?: string;
+          details?: Json;
+          status?: string;
+          decided_by?: string | null;
+          decided_at?: string | null;
+          reason?: string | null;
+          created_at?: string;
         };
         Relationships: [];
       };
@@ -1878,7 +1923,7 @@ export type Database = {
           zone_id: string | null;
           household_number: string | null;
           directory_opt_in: boolean;
-          physical_mail_opt_in: boolean;
+          physical_mail_opt_in: boolean | null;
           notes: string | null;
           merged_into_id: string | null;
           created_at: string;
@@ -1896,7 +1941,7 @@ export type Database = {
           zone_id?: string | null;
           household_number?: string | null;
           directory_opt_in?: boolean;
-          physical_mail_opt_in?: boolean;
+          physical_mail_opt_in?: boolean | null;
           notes?: string | null;
           merged_into_id?: string | null;
           created_at?: string;
@@ -1914,7 +1959,7 @@ export type Database = {
           zone_id?: string | null;
           household_number?: string | null;
           directory_opt_in?: boolean;
-          physical_mail_opt_in?: boolean;
+          physical_mail_opt_in?: boolean | null;
           notes?: string | null;
           merged_into_id?: string | null;
           created_at?: string;
@@ -3310,6 +3355,9 @@ export type Database = {
           merged_into_id: string | null;
           created_at: string;
           updated_at: string;
+          interests: string[];
+          best_call_time: string | null;
+          contact_channels: string[];
         };
         Insert: {
           id?: string;
@@ -3336,6 +3384,9 @@ export type Database = {
           merged_into_id?: string | null;
           created_at?: string;
           updated_at?: string;
+          interests?: string[];
+          best_call_time?: string | null;
+          contact_channels?: string[];
         };
         Update: {
           id?: string;
@@ -3362,6 +3413,39 @@ export type Database = {
           merged_into_id?: string | null;
           created_at?: string;
           updated_at?: string;
+          interests?: string[];
+          best_call_time?: string | null;
+          contact_channels?: string[];
+        };
+        Relationships: [];
+      };
+      person_emails: {
+        Row: {
+          id: string;
+          center_id: string;
+          person_id: string;
+          email: string;
+          label: string;
+          verified: boolean;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          center_id: string;
+          person_id: string;
+          email: string;
+          label?: string;
+          verified?: boolean;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          center_id?: string;
+          person_id?: string;
+          email?: string;
+          label?: string;
+          verified?: boolean;
+          created_at?: string;
         };
         Relationships: [];
       };
@@ -5167,6 +5251,12 @@ export type Database = {
         };
         Returns: boolean;
       };
+      cancel_rsvp: {
+        Args: {
+          p_rsvp: string;
+        };
+        Returns: undefined;
+      };
       canonical_org_id: {
         Args: {
           p_center: string;
@@ -5289,6 +5379,14 @@ export type Database = {
         Args: {
           p_center: string;
           p_household: string;
+        };
+        Returns: boolean;
+      };
+      in_survey_audience: {
+        Args: {
+          p_center: string;
+          p_audience: Json;
+          p_event: string;
         };
         Returns: boolean;
       };
@@ -5456,6 +5554,16 @@ export type Database = {
           p_ids: string[];
         };
         Returns: { person_id: string; name: string; household_id: string; household_name: string }[];
+      };
+      submit_rsvp: {
+        Args: {
+          p_event: string;
+          p_household: string;
+          p_attendees: Json;
+          p_commitment_cents?: number;
+          p_commitment_mode?: string;
+        };
+        Returns: string;
       };
       suggest_bank_matches: {
         Args: {
