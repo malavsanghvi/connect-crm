@@ -480,6 +480,7 @@ export type Database = {
           raw: Json | null;
           is_batch_deposit: boolean;
           originator_kind: string | null;
+          occurrence: number;
         };
         Insert: {
           id?: string;
@@ -493,7 +494,7 @@ export type Database = {
           payer_name?: string | null;
           payer_normalized?: string | null;
           reference?: string | null;
-          fingerprint: string;
+          fingerprint?: string;
           status?: string;
           matched_household_id?: string | null;
           payment_id?: string | null;
@@ -508,6 +509,7 @@ export type Database = {
           raw?: Json | null;
           is_batch_deposit?: boolean;
           originator_kind?: string | null;
+          occurrence?: number;
         };
         Update: {
           id?: string;
@@ -536,6 +538,7 @@ export type Database = {
           raw?: Json | null;
           is_batch_deposit?: boolean;
           originator_kind?: string | null;
+          occurrence?: number;
         };
         Relationships: [];
       };
@@ -1310,6 +1313,7 @@ export type Database = {
           override_reason: string | null;
           override_by: string | null;
           override_second_approver: string | null;
+          override_requested_value: boolean | null;
         };
         Insert: {
           id?: string;
@@ -1322,6 +1326,7 @@ export type Database = {
           override_reason?: string | null;
           override_by?: string | null;
           override_second_approver?: string | null;
+          override_requested_value?: boolean | null;
         };
         Update: {
           id?: string;
@@ -1334,6 +1339,7 @@ export type Database = {
           override_reason?: string | null;
           override_by?: string | null;
           override_second_approver?: string | null;
+          override_requested_value?: boolean | null;
         };
         Relationships: [];
       };
@@ -1558,7 +1564,7 @@ export type Database = {
           kind: Database["app"]["Enums"]["identifier_kind"];
           system: string;
           value: string;
-          normalized: string;
+          normalized?: string;
           label?: string | null;
           is_primary?: boolean;
           valid_from?: string | null;
@@ -3164,6 +3170,8 @@ export type Database = {
           created_at: string;
           updated_at: string;
           deposit_bank_transaction_id: string | null;
+          refund_requested_cents: number | null;
+          refund_reason: string | null;
         };
         Insert: {
           id?: string;
@@ -3194,6 +3202,8 @@ export type Database = {
           created_at?: string;
           updated_at?: string;
           deposit_bank_transaction_id?: string | null;
+          refund_requested_cents?: number | null;
+          refund_reason?: string | null;
         };
         Update: {
           id?: string;
@@ -3224,6 +3234,8 @@ export type Database = {
           created_at?: string;
           updated_at?: string;
           deposit_bank_transaction_id?: string | null;
+          refund_requested_cents?: number | null;
+          refund_reason?: string | null;
         };
         Relationships: [];
       };
@@ -3934,6 +3946,8 @@ export type Database = {
           delegated_from: string | null;
           reason: string | null;
           created_at: string;
+          second_approver: string | null;
+          status: string;
         };
         Insert: {
           id?: string;
@@ -3948,6 +3962,8 @@ export type Database = {
           delegated_from?: string | null;
           reason?: string | null;
           created_at?: string;
+          second_approver?: string | null;
+          status?: string;
         };
         Update: {
           id?: string;
@@ -3962,6 +3978,8 @@ export type Database = {
           delegated_from?: string | null;
           reason?: string | null;
           created_at?: string;
+          second_approver?: string | null;
+          status?: string;
         };
         Relationships: [];
       };
@@ -4402,7 +4420,7 @@ export type Database = {
         Insert: {
           id?: string;
           center_id: string;
-          order_number: string;
+          order_number?: string;
           household_id?: string | null;
           person_id?: string | null;
           guest_name?: string | null;
@@ -5118,6 +5136,12 @@ export type Database = {
         };
         Returns: undefined;
       };
+      approve_role_grant: {
+        Args: {
+          p_grant: string;
+        };
+        Returns: undefined;
+      };
       audit_mask: {
         Args: {
           j: Json;
@@ -5167,7 +5191,14 @@ export type Database = {
           p_device?: string;
           p_offline?: boolean;
         };
-        Returns: { result: string; rsvp_id: string; household_name: string; attendees: Json }[];
+        Returns: { result: string; rsvp_id: string; household_id: string; household_name: string; attendees: Json }[];
+      };
+      checkin_lookup_phone: {
+        Args: {
+          p_event: string;
+          p_phone: string;
+        };
+        Returns: { household_id: string; household_label: string; members_masked: string; rsvp_id: string; rsvp_status: string }[];
       };
       close_boli: {
         Args: {
@@ -5189,7 +5220,7 @@ export type Database = {
         Args: {
           p_template: string;
           p_name: string;
-          p_starts_at: string;
+          p_starts_at?: string;
           p_program_year?: string;
         };
         Returns: string;
@@ -5209,6 +5240,12 @@ export type Database = {
           p_reason?: string;
         };
         Returns: undefined;
+      };
+      ensure_lunch_slots: {
+        Args: {
+          p_event: string;
+        };
+        Returns: number;
       };
       find_my_family: {
         Args: {
@@ -5343,6 +5380,14 @@ export type Database = {
         };
         Returns: string;
       };
+      preview_allocation: {
+        Args: {
+          p_household: string;
+          p_amount_cents: number;
+          p_pledge_ids?: string[];
+        };
+        Returns: { pledge_id: string; pledge_number: string; amount_cents: number; closes: boolean }[];
+      };
       public_kpis: {
         Args: {
           p_slug: string;
@@ -5350,6 +5395,30 @@ export type Database = {
           p_to?: string;
         };
         Returns: Json;
+      };
+      record_offline_payment: {
+        Args: {
+          p_household: string;
+          p_amount_cents: number;
+          p_method: Database["app"]["Enums"]["payment_method"];
+          p_received_on?: string;
+          p_pledge_ids?: string[];
+          p_check_number?: string;
+          p_envelope_number?: string;
+          p_memo?: string;
+          p_payer_person?: string;
+          p_receipt_name?: string;
+          p_joint?: boolean;
+        };
+        Returns: string;
+      };
+      redeem_attendance_qr: {
+        Args: {
+          p_session: string;
+          p_token: string;
+          p_person?: string;
+        };
+        Returns: string;
       };
       resolve_identifier: {
         Args: {
@@ -5374,11 +5443,25 @@ export type Database = {
         };
         Returns: number;
       };
+      staff_household_search: {
+        Args: {
+          p_center: string;
+          p_query: string;
+        };
+        Returns: { household_id: string; household_name: string; household_number: string; org_household_id: string; members: string; city: string }[];
+      };
+      staff_person_names: {
+        Args: {
+          p_center: string;
+          p_ids: string[];
+        };
+        Returns: { person_id: string; name: string; household_id: string; household_name: string }[];
+      };
       suggest_bank_matches: {
         Args: {
           p_txn: string;
         };
-        Returns: { household_id: string; household_name: string; household_number: string; org_household_id: string; members: string; primary_member: string; zone: string; city: string; last_gift_on: string; score: number; reason: string; ambiguous: boolean; open_pledge_cents: number }[];
+        Returns: { household_id: string; household_name: string; household_number: string; org_household_id: string; members: string; primary_member: string; primary_org_member_id: string; zone: string; city: string; last_gift_on: string; score: number; reason: string; ambiguous: boolean; open_pledge_cents: number }[];
       };
       suggest_deposit_payments: {
         Args: {
