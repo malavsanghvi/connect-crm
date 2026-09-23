@@ -79,6 +79,6 @@ volunteers until midnight; EC roles at term end). Delegation is a grant with
 | Identifier kind | Members | People staff | Finance staff |
 |---|---|---|---|
 | Connect member / household number | own household | all | all |
-| `org_member` (register number) | own household | read + write | read |
+| `org_member` (org person ID), `org_household` (org household ID) | own household | read + write | read |
 | `crm` (legacy CRM) | — | read + write | read |
 | `accounting`, `bank_payer`, `payment_provider` | — | — | read; write with `giving.manage` |

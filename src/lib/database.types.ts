@@ -5127,6 +5127,14 @@ export type Database = {
         };
         Returns: boolean;
       };
+      canonical_org_id: {
+        Args: {
+          p_center: string;
+          p_kind: string;
+          p_value: string;
+        };
+        Returns: string;
+      };
       canonical_org_member: {
         Args: {
           p_center: string;
@@ -5211,6 +5219,12 @@ export type Database = {
           p_scope_id: string;
         };
         Returns: boolean;
+      };
+      household_card: {
+        Args: {
+          p_household: string;
+        };
+        Returns: { household_id: string; household_name: string; household_number: string; org_household_id: string; members: string; primary_member: string; primary_org_member_id: string; zone: string; city: string; last_gift_on: string; open_pledge_cents: number }[];
       };
       i_am_adult: {
         Args: {
@@ -5319,7 +5333,7 @@ export type Database = {
           p_center: string;
           p_value: string;
         };
-        Returns: { kind: string; system: string; value: string; person_id: string; household_id: string; display_name: string }[];
+        Returns: { kind: string; system: string; value: string; person_id: string; household_id: string; display_name: string; household_name: string; household_number: string; org_household_id: string; members: string }[];
       };
       same_household_person: {
         Args: {
@@ -5341,7 +5355,7 @@ export type Database = {
         Args: {
           p_txn: string;
         };
-        Returns: { household_id: string; household_name: string; household_number: string; score: number; reason: string; open_pledge_cents: number }[];
+        Returns: { household_id: string; household_name: string; household_number: string; org_household_id: string; members: string; primary_member: string; zone: string; city: string; last_gift_on: string; score: number; reason: string; ambiguous: boolean; open_pledge_cents: number }[];
       };
       suggest_deposit_payments: {
         Args: {
@@ -5360,7 +5374,7 @@ export type Database = {
       application_status: "draft" | "awaiting_reference" | "reference_declined" | "awaiting_center" | "awaiting_ec" | "approved" | "rejected" | "expired" | "withdrawn";
       channel: "push" | "sms" | "whatsapp" | "email" | "in_app";
       event_phase: "pre" | "during" | "after";
-      identifier_kind: "org_member" | "crm" | "accounting" | "bank_payer" | "payment_provider" | "other";
+      identifier_kind: "org_member" | "org_household" | "crm" | "accounting" | "bank_payer" | "payment_provider" | "other";
       membership_status: "pending" | "active" | "lapsed" | "suspended" | "ended";
       membership_tier: "community" | "yearly" | "life";
       payment_method: "card" | "ach" | "apple_pay" | "google_pay" | "check" | "cash" | "stock" | "daf" | "matching_gift" | "zelle" | "other";

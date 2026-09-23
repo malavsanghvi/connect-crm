@@ -46,7 +46,8 @@ flowchart LR
 |---|---|---|
 | Connect member number (permanent) | `people.member_number` | `JSH-10421` |
 | Connect household number | `households.household_number` | `JSH-H-2041` |
-| Org's existing member number (JSH: 4 digits, leading zeros kept; `417` finds `0417`) | `external_ids` kind `org_member`, system `jsh_register` | `0417` |
+| Org's existing **person** ID (JSH: 4 digits, leading zeros kept; `417` finds `0417`) | `external_ids` kind `org_member` — must point at a person | `0417` |
+| Org's existing **household** ID (separate number space — household `0417` ≠ person `0417`) | `external_ids` kind `org_household` — must point at a household only | `0212` |
 | Legacy CRM ids (Neon account / contact) | `external_ids` kind `crm` | `4374` |
 | Accounting customer (QuickBooks) | `external_ids` kind `accounting` | `1187` |
 | Bank payer name (Zelle / ACH originator) | `external_ids` kind `bank_payer` | `RAHUL SHAH`, `K M MEHTA` |
@@ -57,6 +58,14 @@ flowchart LR
 - Real identifiers are unique per center + system; **bank payer names are not**
   (two households may both send as "RAHUL SHAH") — they are matching hints.
 - `app.resolve_identifier(center, value)` finds a member or household by any of them (staff only).
+  A bare number can legitimately hit a person ID **and** a household ID; each hit says
+  which kind it is and carries the household card.
+- **Names are never enough.** Names and household names are often near-identical
+  ("Rahul Shah", "Rahul & Mira Shah Household", "Shah family"). Every picker, search
+  result and suggestion shows `app.household_card(household)` — org household ID,
+  Connect number, primary member + their org person ID, members, zone, city, last gift,
+  open balance. Imports match on IDs, never on names; name matches that fit more than
+  one household are flagged `ambiguous` with low confidence and are never auto-applied.
 - A center may adopt its existing register numbers as Connect numbers at migration
   (insert with `member_number` set); otherwise numbers are issued by trigger and never change.
 
@@ -82,9 +91,12 @@ Other banks use the generic CSV (date, amount, description) plus per-account
 1. Treasurer imports the bank statement (CSV) → `app.bank_transactions`
    (de-duplicated by fingerprint; payer name + confirmation parsed by
    `app.parse_bank_description`, extendable per bank via `bank_accounts.parse_rules`).
-2. `app.suggest_bank_matches(txn)` ranks households: known payer name (0.95) →
-   member/household number in the memo (0.90) → payer name equals a member's name
-   (0.70), +0.04 when an open pledge equals the amount.
+2. `app.suggest_bank_matches(txn)` ranks households: known payer name used by one
+   household (0.95; 0.60 and `ambiguous` if several households used it) → Connect
+   number, org person ID ("member 417") or org household ID ("household 212") in the
+   memo (0.90) → payer name equals a member's name (0.70; 0.45 and `ambiguous` when
+   several households have a member with that name), +0.04 when an open pledge equals
+   the amount. Each row carries the household card for disambiguation.
    A member ID in the memo ("member 417", "#0417") also matches (0.90), though Chase's
    CSV usually omits the Zelle memo, so learned payer names do most of the work.
 3. `app.confirm_bank_match(txn, household, pledges?)` records the payment, allocates

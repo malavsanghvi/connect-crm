@@ -15,6 +15,8 @@ select pg_temp.assert((select payer_name || '|' || reference from app.parse_bank
                       = 'Rahul Shah|Bacw8k3x9p2q', 'Chase Zelle from a Bank of America sender');
 select pg_temp.assert((select payer_name from app.parse_bank_description('Zelle Payment From NEHA P MEHTA Wfct0h7k2m1q', '[]', 'QUICKPAY_CREDIT'))
                       = 'NEHA P MEHTA', 'Chase Zelle from a Wells Fargo sender');
+select pg_temp.assert((select payer_name || '|' || reference from app.parse_bank_description('Zelle Payment From Rahul Shah Jpm55qq66rr8 household 212', '[]', 'QUICKPAY_CREDIT'))
+                      = 'Rahul Shah|Jpm55qq66rr8', 'a memo after the confirmation is not part of the payer name');
 select pg_temp.assert((select payer_name from app.parse_bank_description('Zelle Payment From Anand Parikh', '[]', 'QUICKPAY_CREDIT'))
                       = 'Anand Parikh', 'Chase Zelle without a confirmation token');
 select pg_temp.assert((select payer_name || '|' || channel from app.parse_bank_description(

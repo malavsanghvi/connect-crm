@@ -71,7 +71,7 @@ drop function app.parse_bank_description(text, jsonb);
 create or replace function app.parse_bank_description(p_desc text, p_rules jsonb default '[]'::jsonb, p_bank_type text default null)
 returns table (channel text, payer_name text, reference text, is_batch boolean)
 language plpgsql immutable as $$
-declare m text[]; r jsonb; v_rest text; v_type text := upper(coalesce(p_bank_type, ''));
+declare m text[]; r jsonb; v_rest text; v_words text[]; v_type text := upper(coalesce(p_bank_type, ''));
 begin
   is_batch := false;
   for r in select * from jsonb_array_elements(coalesce(p_rules, '[]'::jsonb)) loop
@@ -89,11 +89,22 @@ begin
     payer_name := trim(regexp_replace(m[1], '\s+on\s+\d{1,2}/\d{1,2}(/\d{2,4})?\s*$', '', 'i'));
     reference := m[2]; return next; return;
   end if;
-  -- Chase: "Zelle Payment From Rahul Shah Jpm99bxk2q1v" — the confirmation is the
-  -- last token; its prefix depends on the sender's bank (JPM, BAC, WFCT, H0, ...).
-  m := regexp_match(p_desc, '^\s*zelle\s+(?:payment\s+)?from\s+(.+?)\s+(\S+)\s*$', 'i');
-  if m is not null and m[2] ~ '[0-9]' and length(m[2]) >= 8 then
-    channel := 'zelle'; payer_name := trim(m[1]); reference := m[2]; return next; return;
+  -- Chase: "Zelle Payment From Rahul Shah Jpm99bxk2q1v [memo]". The confirmation
+  -- is the first word after the name that mixes letters/digits and is 8+ long
+  -- (its prefix depends on the sender's bank: JPM, BAC, WFCT, H0, ...). Words
+  -- before it are the payer name; words after it are the memo. Scanned word by
+  -- word because Postgres regex cannot do a reliable lazy match here.
+  v_rest := substring(p_desc from '(?i)^\s*zelle\s+(?:payment\s+)?from\s+(.*)$');
+  if v_rest is not null then
+    v_words := regexp_split_to_array(trim(v_rest), '\s+');
+    for i in 1 .. coalesce(array_length(v_words, 1), 0) loop
+      if i > 1 and v_words[i] ~ '^[A-Za-z0-9]*[0-9][A-Za-z0-9]*$' and length(v_words[i]) >= 8 then
+        channel := 'zelle';
+        payer_name := array_to_string(v_words[1:i-1], ' ');
+        reference := v_words[i];
+        return next; return;
+      end if;
+    end loop;
   end if;
   if v_type = 'QUICKPAY_CREDIT' or p_desc ~* '^\s*zelle\s+(?:payment\s+)?from\s+' then
     m := regexp_match(p_desc, 'from\s+(.+)$', 'i');
