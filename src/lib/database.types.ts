@@ -4146,6 +4146,7 @@ export type Database = {
           device_id: string | null;
           offline_queued: boolean;
           scanned_at: string;
+          matched_via: string | null;
         };
         Insert: {
           id?: number;
@@ -4159,6 +4160,7 @@ export type Database = {
           device_id?: string | null;
           offline_queued?: boolean;
           scanned_at?: string;
+          matched_via?: string | null;
         };
         Update: {
           id?: number;
@@ -4172,6 +4174,7 @@ export type Database = {
           device_id?: string | null;
           offline_queued?: boolean;
           scanned_at?: string;
+          matched_via?: string | null;
         };
         Relationships: [];
       };
@@ -4516,6 +4519,8 @@ export type Database = {
           status: string;
           created_by: string | null;
           created_at: string;
+          event_id: string | null;
+          kind: string;
         };
         Insert: {
           id?: string;
@@ -4530,6 +4535,8 @@ export type Database = {
           status?: string;
           created_by?: string | null;
           created_at?: string;
+          event_id?: string | null;
+          kind?: string;
         };
         Update: {
           id?: string;
@@ -4544,6 +4551,8 @@ export type Database = {
           status?: string;
           created_by?: string | null;
           created_at?: string;
+          event_id?: string | null;
+          kind?: string;
         };
         Relationships: [];
       };
@@ -5102,6 +5111,13 @@ export type Database = {
         };
         Returns: boolean;
       };
+      approve_as_second: {
+        Args: {
+          p_table: string;
+          p_id: string;
+        };
+        Returns: undefined;
+      };
       audit_mask: {
         Args: {
           j: Json;
@@ -5274,6 +5290,13 @@ export type Database = {
         Args: {
           p_txn: string;
           p_payment_ids: string[];
+        };
+        Returns: number;
+      };
+      move_lunch_slot: {
+        Args: {
+          p_attendee_ids: string[];
+          p_slot: string;
         };
         Returns: number;
       };

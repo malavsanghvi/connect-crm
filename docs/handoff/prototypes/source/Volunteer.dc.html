@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>JSH volunteer check-in</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&amp;family=DM+Sans:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#EDE6DA}
+a{color:#FBEBD7}a:hover{color:#FFFFFF}
+button{font-family:inherit;cursor:pointer}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; position: relative; overflow: hidden; display: flex; flex-direction: column; background: #16140F; font-family: 'DM Sans', system-ui, sans-serif; color: #F4EFE6;">
+<div style="position: absolute; top: 5px; left: 50%; transform: translateX(-50%); z-index: 9999; pointer-events: none; background: #B3261E; color: #FFFFFF; border-radius: 10px; padding: 2px 10px; font-size: 10px; font-weight: 800; letter-spacing: 0.08em; white-space: nowrap;">PROTOTYPE · SAMPLE DATA</div>
+
+<div style="display: flex; align-items: center; gap: 12px; padding: 16px 20px 12px;">
+<a href="Main.dc.html" style="text-decoration: none; min-height: 44px; padding: 0 14px; border-radius: 22px; border: 1px solid #4A443A; display: flex; align-items: center; font-size: 14px; font-weight: 600;">Exit</a>
+<div style="flex-grow: 1;"><div style="font-size: 12px; color: #D7A15F; letter-spacing: 0.06em;">VOLUNTEER MODE</div><div style="font-family: 'Fraunces', Georgia, serif; font-size: 19px; font-weight: 500;">Tapasvi Bahuman</div></div>
+<div style="text-align: right;"><div style="font-size: 22px; font-weight: 700; color: #FFFFFF;">{{checkedIn}}</div><div style="font-size: 11px; color: #B8B0A2;">of 340 RSVP'd</div></div>
+</div>
+
+<div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; margin: 0 20px; background: #26231C; border-radius: 14px; padding: 4px;">
+<sc-for list="{{stations}}" as="st" hint-placeholder-count="3">
+<button onClick="{{st.pick}}" style="border: 0; border-radius: 10px; min-height: 44px; background: {{st.bg}}; color: {{st.fg}}; font-size: 14px; font-weight: 600;">{{st.label}}</button>
+</sc-for>
+</div>
+
+<div style="flex-grow: 1; padding: 16px 20px 24px; display: flex; flex-direction: column; gap: 14px; overflow-y: auto;">
+
+<sc-if value="{{isScan}}" hint-placeholder-val="{{ true }}">
+<div style="display: flex; flex-direction: column; gap: 14px;">
+<div style="height: 360px; border-radius: 24px; background: #0B0A08; position: relative; display: flex; align-items: center; justify-content: center;">
+<div style="width: 220px; height: 220px; border: 3px solid #D7A15F; border-radius: 20px; display: flex; align-items: center; justify-content: center;"><div style="width: 190px; height: 2px; background: #E0533F;"></div></div>
+<div style="position: absolute; bottom: 16px; font-size: 13px; color: #B8B0A2;">{{scanHint}}</div>
+<sc-if value="{{hasToast}}" hint-placeholder-val="{{ false }}">
+<div style="position: absolute; top: 16px; background: #1F7A4D; color: #FFFFFF; border-radius: 12px; padding: 8px 14px; font-size: 14px; font-weight: 600;">{{toast}}</div>
+</sc-if>
+</div>
+<button onClick="{{simulate}}" style="border: 0; background: #D7A15F; color: #1E1508; border-radius: 26px; min-height: 52px; font-size: 16px; font-weight: 700;">Simulate a ticket scan</button>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px;">
+<button onClick="{{openWalkin}}" style="border: 1px solid #4A443A; background: #26231C; color: #F4EFE6; border-radius: 16px; min-height: 64px; font-size: 14px; font-weight: 600;">Walk-in by phone</button>
+<button style="border: 1px solid #4A443A; background: #26231C; color: #F4EFE6; border-radius: 16px; min-height: 64px; font-size: 14px; font-weight: 600;">Kiosk mode</button>
+</div>
+<div style="font-size: 12px; color: #B8B0A2; text-align: center;">Uses phone camera or a paired scanner · keeps working offline and syncs later</div>
+</div>
+</sc-if>
+
+<sc-if value="{{isWalkin}}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; flex-direction: column; gap: 14px;">
+<div style="font-family: 'Fraunces', Georgia, serif; font-size: 22px;">Find a family</div>
+<label style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: #B8B0A2;">Mobile number
+<input type="tel" value="(713) 555-0142" style="min-height: 52px; border-radius: 14px; border: 1px solid #4A443A; background: #26231C; color: #FFFFFF; font-size: 18px; padding: 0 14px; font-family: inherit;">
+</label>
+<button onClick="{{simulate}}" style="border: 0; background: #D7A15F; color: #1E1508; border-radius: 26px; min-height: 52px; font-size: 16px; font-weight: 700;">Find family</button>
+<button onClick="{{toScan}}" style="border: 0; background: transparent; color: #F4EFE6; min-height: 44px; font-size: 14px; font-weight: 600;">Back to scanner</button>
+<div style="font-size: 12px; color: #B8B0A2; line-height: 1.5;">Not in the system? Register a guest with name and phone; they get tickets by WhatsApp and are invited to join JSH.</div>
+</div>
+</sc-if>
+
+<sc-if value="{{isResult}}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; flex-direction: column; gap: 12px;">
+<div style="background: #FBF7F0; color: #1E1C18; border-radius: 22px; padding: 18px; display: flex; flex-direction: column; gap: 10px;">
+<div style="font-size: 12px; font-weight: 700; color: #1F7A4D; letter-spacing: 0.06em;">VALID TICKET · {{stationName}}</div>
+<div style="font-family: 'Fraunces', Georgia, serif; font-size: 24px; font-weight: 500;">Welcome, Shah family</div>
+<div style="font-size: 13px; color: #5E5A52;">Life members · confirm who is here</div>
+<sc-for list="{{fam}}" as="f" hint-placeholder-count="4">
+<button onClick="{{f.toggle}}" style="text-align: left; border: 1px solid {{f.border}}; background: {{f.bg}}; border-radius: 14px; min-height: 56px; padding: 8px 12px; display: flex; align-items: center; gap: 12px;">
+<div style="width: 26px; height: 26px; border-radius: 7px; border: 2px solid #1B2C5C; background: {{f.box}}; color: #FFFFFF; display: flex; align-items: center; justify-content: center; font-weight: 700;">{{f.tick}}</div>
+<div style="flex-grow: 1;"><div style="font-size: 15px; font-weight: 600; color: #1E1C18;">{{f.name}}</div><div style="font-size: 12px; color: {{f.noteColor}};">{{f.note}}</div></div>
+</button>
+</sc-for>
+</div>
+<button onClick="{{confirm}}" style="border: 0; background: #1F7A4D; color: #FFFFFF; border-radius: 26px; min-height: 56px; font-size: 17px; font-weight: 700;">{{confirmLabel}}</button>
+<button onClick="{{toScan}}" style="border: 0; background: transparent; color: #F4EFE6; min-height: 44px; font-size: 14px; font-weight: 600;">Cancel</button>
+</div>
+</sc-if>
+
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { step: 'scan', station: 0, here: [true, true, true, false], count: 212, toast: '' };
+  }
+  renderVals() {
+    const s = this.state;
+    const names = ['Entry', 'Food', 'Gifts'];
+    const fam = [
+      { name: 'Priya Shah', note: 'RSVP’d', rsvp: true },
+      { name: 'Rahul Shah', note: 'RSVP’d · senior seating requested', rsvp: true },
+      { name: 'Dev Shah', note: 'RSVP’d', rsvp: true },
+      { name: 'Anya Shah', note: 'Not on RSVP · add as walk-in', rsvp: false }
+    ].map((f, i) => ({
+      name: f.name, note: f.note, noteColor: f.rsvp ? '#5E5A52' : '#8A4608',
+      tick: s.here[i] ? '✓' : '', box: s.here[i] ? '#1B2C5C' : '#FFFFFF',
+      bg: s.here[i] ? '#EEF1F8' : '#FFFFFF', border: s.here[i] ? '#B8C2DD' : '#E3D9C8',
+      toggle: () => { const h = s.here.slice(); h[i] = !h[i]; this.setState({ here: h }); }
+    }));
+    const n = s.here.filter(Boolean).length;
+    const verb = ['Check in', 'Serve food to', 'Give gifts to'][s.station];
+    return {
+      stations: names.map((l, i) => ({ label: l, bg: s.station === i ? '#D7A15F' : 'transparent', fg: s.station === i ? '#1E1508' : '#F4EFE6', pick: () => this.setState({ station: i, step: 'scan', toast: '' }) })),
+      isScan: s.step === 'scan', isWalkin: s.step === 'walkin', isResult: s.step === 'result',
+      checkedIn: s.count,
+      scanHint: 'Point at a ticket or member card · ' + names[s.station] + ' station',
+      hasToast: !!s.toast, toast: s.toast,
+      stationName: names[s.station].toUpperCase(),
+      fam,
+      confirmLabel: n ? verb + ' ' + n + (n === 1 ? ' person' : ' people') : 'Select who is here',
+      simulate: () => this.setState({ step: 'result', here: [true, true, true, false] }),
+      openWalkin: () => this.setState({ step: 'walkin', toast: '' }),
+      toScan: () => this.setState({ step: 'scan' }),
+      confirm: () => { if (!n) return; this.setState({ step: 'scan', count: s.station === 0 ? s.count + n : s.count, toast: '✓ ' + n + ' done · Shah family' }); }
+    };
+  }
+}
+</script>
+</body>
+</html>

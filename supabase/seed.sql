@@ -11,8 +11,9 @@ insert into app.roles (key, tier, name, default_scope, description, permissions)
 ('platform_support',      'platform',   'Platform support',        'center',   'Time-limited troubleshooting with center approval; every action audited', '["people.view","events.view","giving.view","audit.view","integrations.view"]'),
 ('content_curator',       'platform',   'Content curator',         'platform', 'Shared religious content and Gyan Path templates', '["content.manage","content.approve"]'),
 ('center_admin',          'center',     'Center admin',            'center',   'Configuration, roles, integrations', '["people.view","people.manage","events.view","events.manage","events.confidential","giving.view","bolis.view","store.view","content.view","content.manage","comms.view","comms.send","comms.approve","comms.inbox","pathshala.view","reports.view","settings.manage","roles.manage","audit.view","integrations.view","integrations.manage","volunteers.view","volunteers.manage","safety.view","governance.view"]'),
-('executive_viewer',      'center',     'Executive viewer (EC, Board)', 'center', 'Dashboards and reports, read-only', '["reports.view","events.view","bolis.view","store.view","content.view","comms.view","governance.view"]'),
-('treasurer',             'center',     'Treasurer',               'center',   'Giving, payments, refunds, statements, store finances', '["people.view","events.view","giving.view","giving.manage","giving.approve","giving.record_offline","bolis.view","store.view","reports.view","accounting.manage","accounting.close","integrations.view","audit.view"]'),
+('executive_committee',   'center',     'Executive Committee member', 'center', 'Edits people-level data; approves life memberships; reports', '["people.view","people.manage","people.approve","events.view","giving.view","bolis.view","store.view","content.view","comms.view","reports.view","governance.view","governance.vote"]'),
+('executive_viewer',      'center',     'Executive viewer (Board)', 'center', 'Dashboards and reports, read-only', '["reports.view","events.view","bolis.view","store.view","content.view","comms.view","governance.view"]'),
+('treasurer',             'center',     'Treasurer',               'center',   'Giving, payments, refunds, statements, store finances; edits people-level data', '["people.view","people.manage","events.view","giving.view","giving.manage","giving.approve","giving.record_offline","bolis.view","store.view","reports.view","accounting.manage","accounting.close","integrations.view","audit.view"]'),
 ('finance_volunteer',     'center',     'Finance volunteer',       'center',   'Record offline payments, reminders; no refunds', '["giving.record_offline","bolis.view"]'),
 ('membership_coordinator','center',     'Membership coordinator',  'center',   'Households, memberships, verification, eligibility', '["people.view","people.manage","people.approve","events.view","reports.view"]'),
 ('religious_coordinator', 'center',     'Religious coordinator',   'center',   'Bolis, pujans, practice catalog, Jain calendar, religious content approval', '["events.view","bolis.view","bolis.manage","content.view","content.manage","content.approve","reports.view"]'),
@@ -118,7 +119,9 @@ values ('00000000-0000-4000-8000-000000000001', 'jsh', 'Jain Society of Houston'
     "store":{"gift_pack_cents":299,"cancel_hours_before_pickup":24},
     "accounting":{"basis":"cash"},
     "identifiers":{"org_member_label":"JSH member ID","org_member_system":"jsh_register","org_member_digits":4,
-                   "org_household_label":"JSH household ID","org_household_system":"jsh_register"},
+                   "org_household_label":"JSH household ID","org_household_system":"jsh_register",
+                   "legacy_systems":[{"system":"neon","label":"Neon ID (JSH Connect family QR)"},
+                                     {"system":"namocrm","label":"NamoCRM contact ID (old RSVP tickets: contact_id_<n>)"}]},
     "bank":{"institution":"Chase","statement_format":"chase_csv"}}')
 on conflict (id) do nothing;
 
@@ -192,7 +195,7 @@ insert into app.labh_options (center_id, name, amount_cents, sort_order) values
 insert into app.store_categories (center_id, name, sort_order) values ('00000000-0000-4000-8000-000000000001', 'Mithai', 1), ('00000000-0000-4000-8000-000000000001', 'Namkeen', 2), ('00000000-0000-4000-8000-000000000001', 'Meals', 3);
 insert into app.store_items (center_id, category_id, name, price_cents, status)
 select '00000000-0000-4000-8000-000000000001', c.id, i.name, i.price, 'active' from app.store_categories c join (values
-  ('Mithai','Mohanthal', 899), ('Mithai','Kaju katli', 1299), ('Mithai','Sukhdi', 699),
+  ('Mithai','Mohanthal', 899), ('Mithai','Kaju katli', 999), ('Mithai','Sukhdi', 699),
   ('Namkeen','Farsi puri', 599), ('Namkeen','Chakri', 599), ('Namkeen','Khakhra (methi)', 499),
   ('Meals','Dal dhokli', 899), ('Meals','Khichdi kadhi', 899)
 ) as i(cat, name, price) on i.cat = c.name where c.center_id = '00000000-0000-4000-8000-000000000001';   -- [sample] menu

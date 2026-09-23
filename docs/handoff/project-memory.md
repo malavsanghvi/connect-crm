@@ -1,0 +1,51 @@
+# JSH project memory (decisions and context, Sep 2026)
+
+## Goal and decisions
+- Consolidate all member functions into one new app; retire JSH Connect, the NamoCRM RSVP system and the JSH Events app.
+- Produce handover documents and a technology roadmap for the next lead.
+- Alert members to donation opportunities and let them pay in-app.
+- RSVP donation commitment: per person $3/$5/$7, or lump sum $10/$25/$50 or open amount; written to the household's CRM account as a pledge.
+- Household-level pledge history (open and closed) visible to adult members; children have no RSVP or boli privileges.
+- Digital bolis with a floor minimum and higher pledges until a cutoff, plus in-person bolis; each boli has an explainer video/info. Use "pledge", never "bid".
+- Pachchakhan library; My Jain Way daily practices with reminders, JSH points, category percentiles and streaks; merged with Learn into the Jain Way tab (Today / Learn / Saathi / Library).
+- JSH Niva AI assistant answering from JSH-approved content.
+- Onboarding collects each family member's name, age, gender, profession (adults), contact preferences and emails; explicitly asks for digital-only documents vs physical mail; asks directory and photo opt-in/out.
+- 24-hour RSVP confirmation reminder; per-person preferences editable in each profile.
+- JSH Satvik Store: make-to-order mithai, namkeen and meals at $6.99–$9.99; gift packing $2.99; full inventory management in admin.
+- Giving opportunities: Swamivatsalya tiers Platinum $5,000 / Gold $2,500 / Silver $1,000; Diwali pujans with fixed bolis (multi-select); temple construction $10K/$25K/$50K or open.
+- New to JSH guide (also for existing members): WhatsApp groups, timings, zones and zone leads, volunteer interest, administration roster, membership info, registrations, ask a question.
+- Calendar with layers: Jain tithi, Pathshala, events, Houston ISD calendars.
+- Profile settings: open to contact from members who joined in the last year; advertise expertise.
+- Special days (birthdays, anniversaries, birth tithi, punyatithi) with a labh prompt 2 weeks before; recurring giving.
+- Event lunch slots: families with a child under 12 or a senior eat together at lunch start; other adults slotted by arrival then RSVP order; missed slot → any later slot; notification 5 minutes before.
+- Gyan Path: gamified learning paths (Samayik, Pratikraman, Logassa, Navkar) with levels, stars, teacher sign-off.
+- Saathi: family celebrations with anumodana points; those who cheered someone are asked to help when they fall behind.
+- Event feedback surveys with an anonymous option, admin aggregation and a feedback-request notification.
+- Public community dashboard with aggregated KPIs, no login.
+- Build as a white-label, multi-tenant enterprise platform for any Jain center.
+- The platform replaces Neon One and becomes the CRM; migration from any system with many years of history.
+- QuickBooks Online is the accounting system; all financial data is pushed there; cash basis.
+- Pay-now gifts create a pledge, record the donation against it and close the pledge.
+- Payment allocation: earliest open pledge first unless for a specific invoice; overpayment to the next earliest open pledge; partial payments keep the pledge open; allocation preview with override; allocation shown on receipts.
+- DAF grants and matching-gift checks matched manually and applied by the treasury team.
+- Payment methods: card, ACH, Apple/Google Pay, checks, stock, offline cash/check; donors may cover processing fees if the center chooses to ask.
+- Receipts: standard format with light personalization; payer's name by default with a joint option.
+- Membership: community members by default; yearly/life membership needs a verified reference at the same tier or higher who approves, then center approval; rules configurable per center.
+- Child's own-login age configurable; shared login with a child requires a one-time code for every financial transaction.
+- Adult children can stay in a household and also be primary of their own.
+- Events support waitlists and eligibility controls (e.g., life members only, Pathshala families).
+- Anonymous donor recognition allowed. Sales tax follows the center's state.
+- Granular entitlements in every domain, with default roles; super-admin, treasurer and EC can edit people-level data.
+- Volunteers must sign the center's uploaded legal waiver in the member app before serving; versioned waivers, background checks for work with children, no one-to-one adult-to-minor messaging.
+- In-person payments: tap-to-pay, two-person envelope handling for cash/checks; bhandar two-person counting and a valuables register.
+- Full Pathshala domain; start 10DLC SMS and WhatsApp Business registration early; event-day resilience plan; mobile-only sign-in with in-person recovery.
+- Data backup, governance and auditability in every service domain.
+- Deletion: app data deleted; financial records kept 7 years then anonymized; household stays; audit log kept.
+- Parked: identity across centers, money-approval thresholds, platform ownership entity (likely a new nonprofit).
+- Launch target: Wave 1 within 2 months.
+
+## Legacy systems (current state)
+- Neon One CRM: family tree, donations, event registrations, communications; syncs to QuickBooks; life/yearly memberships (spouse included in life; kids roll off at 18); membership required for Pathshala; yearly maintenance fee; member portal with PayPal.
+- JSH Connect app: email OTP, family QR codes tied to Neon member IDs, live darshan (RTSP.ME), voice lessons, voting eligibility banner, pledges with PayPal, suggestion box (Google Form), photo albums (Linktree).
+- RSVP system on NamoCRM (jsh.namocrm.org): phone lookup, masked family list, attendee flags (child under 12, senior, assistance), SMS/WhatsApp consent, email QR tickets per attendee; not synced with Neon (manual uploads). QR tickets encode plain text `contact_id_<number>`, which differs from JSH Connect member IDs.
+- JSH Events Android app for volunteers: volunteer key/password/QR login, QR or external scanner check-in, phone lookup, walk-ins, food and gift stations, kiosk mode.
