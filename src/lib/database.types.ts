@@ -387,6 +387,7 @@ export type Database = {
           qbo_account_id: string | null;
           parse_rules: Json;
           active: boolean;
+          statement_format: string;
         };
         Insert: {
           id?: string;
@@ -397,6 +398,7 @@ export type Database = {
           qbo_account_id?: string | null;
           parse_rules?: Json;
           active?: boolean;
+          statement_format?: string;
         };
         Update: {
           id?: string;
@@ -407,6 +409,7 @@ export type Database = {
           qbo_account_id?: string | null;
           parse_rules?: Json;
           active?: boolean;
+          statement_format?: string;
         };
         Relationships: [];
       };
@@ -471,6 +474,12 @@ export type Database = {
           matched_at: string | null;
           notes: string | null;
           created_at: string;
+          bank_type: string | null;
+          bank_details: string | null;
+          check_or_slip: string | null;
+          raw: Json | null;
+          is_batch_deposit: boolean;
+          originator_kind: string | null;
         };
         Insert: {
           id?: string;
@@ -493,6 +502,12 @@ export type Database = {
           matched_at?: string | null;
           notes?: string | null;
           created_at?: string;
+          bank_type?: string | null;
+          bank_details?: string | null;
+          check_or_slip?: string | null;
+          raw?: Json | null;
+          is_batch_deposit?: boolean;
+          originator_kind?: string | null;
         };
         Update: {
           id?: string;
@@ -515,6 +530,12 @@ export type Database = {
           matched_at?: string | null;
           notes?: string | null;
           created_at?: string;
+          bank_type?: string | null;
+          bank_details?: string | null;
+          check_or_slip?: string | null;
+          raw?: Json | null;
+          is_batch_deposit?: boolean;
+          originator_kind?: string | null;
         };
         Relationships: [];
       };
@@ -2057,6 +2078,30 @@ export type Database = {
         };
         Relationships: [];
       };
+      known_originators: {
+        Row: {
+          id: string;
+          center_id: string | null;
+          pattern: string;
+          kind: string;
+          label: string;
+        };
+        Insert: {
+          id?: string;
+          center_id?: string | null;
+          pattern: string;
+          kind: string;
+          label: string;
+        };
+        Update: {
+          id?: string;
+          center_id?: string | null;
+          pattern?: string;
+          kind?: string;
+          label?: string;
+        };
+        Relationships: [];
+      };
       labh_options: {
         Row: {
           id: string;
@@ -3118,6 +3163,7 @@ export type Database = {
           refund_second_approver: string | null;
           created_at: string;
           updated_at: string;
+          deposit_bank_transaction_id: string | null;
         };
         Insert: {
           id?: string;
@@ -3147,6 +3193,7 @@ export type Database = {
           refund_second_approver?: string | null;
           created_at?: string;
           updated_at?: string;
+          deposit_bank_transaction_id?: string | null;
         };
         Update: {
           id?: string;
@@ -3176,6 +3223,7 @@ export type Database = {
           refund_second_approver?: string | null;
           created_at?: string;
           updated_at?: string;
+          deposit_bank_transaction_id?: string | null;
         };
         Relationships: [];
       };
@@ -5079,6 +5127,13 @@ export type Database = {
         };
         Returns: boolean;
       };
+      canonical_org_member: {
+        Args: {
+          p_center: string;
+          p_value: string;
+        };
+        Returns: string;
+      };
       check_in: {
         Args: {
           p_event: string;
@@ -5201,6 +5256,13 @@ export type Database = {
         };
         Returns: { points_awarded: number; day_complete: boolean; streak_days: number }[];
       };
+      match_deposit: {
+        Args: {
+          p_txn: string;
+          p_payment_ids: string[];
+        };
+        Returns: number;
+      };
       my_center_ids: {
         Args: Record<PropertyKey, never>;
         Returns: string[];
@@ -5231,8 +5293,9 @@ export type Database = {
         Args: {
           p_desc: string;
           p_rules?: Json;
+          p_bank_type?: string;
         };
-        Returns: { channel: string; payer_name: string; reference: string }[];
+        Returns: { channel: string; payer_name: string; reference: string; is_batch: boolean }[];
       };
       place_boli_entry: {
         Args: {
@@ -5279,6 +5342,12 @@ export type Database = {
           p_txn: string;
         };
         Returns: { household_id: string; household_name: string; household_number: string; score: number; reason: string; open_pledge_cents: number }[];
+      };
+      suggest_deposit_payments: {
+        Args: {
+          p_txn: string;
+        };
+        Returns: { payment_id: string; household_name: string; receipt_number: string; method: Database["app"]["Enums"]["payment_method"]; amount_cents: number; received_on: string; check_number: string; envelope_number: string; exact_total: boolean }[];
       };
       uid: {
         Args: Record<PropertyKey, never>;

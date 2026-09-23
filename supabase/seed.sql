@@ -116,7 +116,9 @@ values ('00000000-0000-4000-8000-000000000001', 'jsh', 'Jain Society of Houston'
     "points":{"anumodana_daily_cap":5,"anumodana_points":5,"support_points":3,"day_complete_bonus":20},
     "rsvp":{"confirmation_hours_before":24,"nudge_hour_local":18},
     "store":{"gift_pack_cents":299,"cancel_hours_before_pickup":24},
-    "accounting":{"basis":"cash"}}')
+    "accounting":{"basis":"cash"},
+    "identifiers":{"org_member_label":"JSH member ID","org_member_system":"jsh_register","org_member_digits":4},
+    "bank":{"institution":"Chase","statement_format":"chase_csv"}}')
 on conflict (id) do nothing;
 
 

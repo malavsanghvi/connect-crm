@@ -18,6 +18,8 @@ enforcing object is named so it can be found.
 | Bank reconciliation | Statement lines are imported and matched to households by known payer name, number in memo, or member name; confirming records the payment, allocates it and queues QuickBooks once | `app.suggest_bank_matches`, `app.confirm_bank_match` |
 | Lunch slots | Slot calculation lives in the database, not in any app | `app.assign_lunch_for_rsvp` |
 | Business rules | Money, bolis, check-in and points go through `security definer` RPCs that re-check rights | `0011_functions.sql` |
+| JSH member ID | Existing JSH IDs are 4-digit numbers with leading zeros (`0417`); kept as issued, `417` and `0417` are the same ID; configured per center (`rules.identifiers.org_member_digits`) | `app.canonical_org_member` |
+| Bank | JSH banks with Chase; Chase CSV is the primary statement format; check/cash deposits match a set of recorded payments; DAF / matching-gift / processor payouts recognized | `0013_chase_and_org_ids.sql` |
 
 ## Decisions made by JSH (design-doc decision log)
 
@@ -82,5 +84,5 @@ enforcing object is named so it can be found.
 | Pathshala fee per child or per family; sibling discounts (schema supports both) | Pathshala principal | Open |
 | Who pays for background checks; which roles require them | EC | Open |
 | Weekend and festival-day on-call staffing | Technology officer | Open |
-| Which identifier systems JSH has today (register format, Neon account vs contact ids, QuickBooks customer naming, bank(s) and statement format) | Treasurer + membership coordinator | Open — needed before the Neon/QuickBooks import |
+| Neon account vs contact ids in use; QuickBooks customer naming; is the JSH member ID per person or per household | Treasurer + membership coordinator | Open — needed before the Neon/QuickBooks import |
 | Yearly membership fee amount (seeded as 0, `[sample]`) | Treasurer | Open |

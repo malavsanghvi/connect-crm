@@ -46,7 +46,7 @@ flowchart LR
 |---|---|---|
 | Connect member number (permanent) | `people.member_number` | `JSH-10421` |
 | Connect household number | `households.household_number` | `JSH-H-2041` |
-| Org's existing member number | `external_ids` kind `org_member` | `LM-0417` |
+| Org's existing member number (JSH: 4 digits, leading zeros kept; `417` finds `0417`) | `external_ids` kind `org_member`, system `jsh_register` | `0417` |
 | Legacy CRM ids (Neon account / contact) | `external_ids` kind `crm` | `4374` |
 | Accounting customer (QuickBooks) | `external_ids` kind `accounting` | `1187` |
 | Bank payer name (Zelle / ACH originator) | `external_ids` kind `bank_payer` | `RAHUL SHAH`, `K M MEHTA` |
@@ -62,12 +62,31 @@ flowchart LR
 
 ## Bank reconciliation (Zelle, checks, ACH)
 
+JSH banks with **Chase**. The importer reads Chase's CSV export
+(`Details, Posting Date, Description, Amount, Type, Balance, Check or Slip #`); the
+Chase `Type` drives the channel (`QUICKPAY_CREDIT` = incoming Zelle, `ACH_CREDIT`,
+`CHECK_DEPOSIT` / `DEPOSIT` / `ATM_DEPOSIT` = batch deposits, `WIRE_INCOMING`).
+Other banks use the generic CSV (date, amount, description) plus per-account
+`parse_rules`.
+
+- **Zelle / ACH / wire** lines are one gift each → matched to a household (below).
+- **Check and cash deposits are batches**: volunteers record each check as an offline
+  payment on the day (numbered envelopes); the Chase deposit line is then matched to
+  that set with `app.suggest_deposit_payments` / `app.match_deposit` (must total
+  exactly) and posts to QuickBooks as one Deposit from undeposited funds.
+- **Donor-advised funds and matching-gift platforms** (Fidelity Charitable, Schwab
+  Charitable, Benevity, YourCause, … in `app.known_originators`) are flagged; they are
+  matched manually and their names are never learned as a family's payer name.
+- **Card-processor payouts** (Stripe, Square, PayPal) are marked `payout`, never gifts.
+
 1. Treasurer imports the bank statement (CSV) → `app.bank_transactions`
    (de-duplicated by fingerprint; payer name + confirmation parsed by
    `app.parse_bank_description`, extendable per bank via `bank_accounts.parse_rules`).
 2. `app.suggest_bank_matches(txn)` ranks households: known payer name (0.95) →
    member/household number in the memo (0.90) → payer name equals a member's name
    (0.70), +0.04 when an open pledge equals the amount.
+   A member ID in the memo ("member 417", "#0417") also matches (0.90), though Chase's
+   CSV usually omits the Zelle memo, so learned payer names do most of the work.
 3. `app.confirm_bank_match(txn, household, pledges?)` records the payment, allocates
    it (earliest open pledge first unless pledges are named; overpayment rolls on;
    partial keeps the pledge open), queues the QuickBooks post once, and **learns the

@@ -30,19 +30,19 @@ select pg_temp.assert(exists (select 1 from app.people where member_number = 'JS
 
 -- ------------------------------------------------------------ registry
 insert into app.external_ids (center_id, person_id, kind, system, value, label, source) values
-  (:jsh, '30000000-0000-4000-8000-000000000001', 'org_member', 'jsh_register', 'LM-0417', 'JSH life member no.', 'import'),
+  (:jsh, '30000000-0000-4000-8000-000000000001', 'org_member', 'jsh_register', '0417', 'JSH member ID', 'import'),
   (:jsh, '30000000-0000-4000-8000-000000000001', 'crm', 'neon', '4374', 'Neon contact id', 'import');
 insert into app.external_ids (center_id, household_id, kind, system, value, label, source) values
   (:jsh, '20000000-0000-4000-8000-000000000001', 'crm', 'neon', 'ACC-4374', 'Neon account id', 'import'),
   (:jsh, '20000000-0000-4000-8000-000000000001', 'accounting', 'quickbooks', '1187', 'QuickBooks customer', 'sync');
-select pg_temp.assert((select household_id from app.external_ids where value = 'LM-0417') = '20000000-0000-4000-8000-000000000001',
+select pg_temp.assert((select household_id from app.external_ids where value = '0417') = '20000000-0000-4000-8000-000000000001',
                       'a person identifier is linked to their household automatically');
 do $$ begin
   insert into app.external_ids (center_id, person_id, kind, system, value)
-    values ('00000000-0000-4000-8000-000000000001', '30000000-0000-4000-8000-000000000005', 'org_member', 'jsh_register', 'lm 0417');
+    values ('00000000-0000-4000-8000-000000000001', '30000000-0000-4000-8000-000000000005', 'org_member', 'jsh_register', '417');
   raise exception 'FAIL: duplicate org member number accepted';
 exception when unique_violation then
-  raise notice 'PASS: an org member number points at exactly one person (normalized: "lm 0417" = "LM-0417")';
+  raise notice 'PASS: a JSH member ID points at exactly one person ("417" = "0417")';
 end $$;
 -- Two households may legitimately share a bank payer name.
 insert into app.external_ids (center_id, household_id, kind, system, value) values
@@ -55,15 +55,17 @@ delete from app.external_ids where kind = 'bank_payer';
 begin;
 set local role authenticated;
 set local request.jwt.claim.sub = '10000000-0000-4000-8000-000000000003';  -- treasurer
-select pg_temp.assert((select count(*) from app.resolve_identifier('00000000-0000-4000-8000-000000000001', 'lm-0417')) = 1,
-                      'staff can find a member by their old register number');
+select pg_temp.assert((select count(*) from app.resolve_identifier('00000000-0000-4000-8000-000000000001', '417')) = 1,
+                      'staff can find a member by JSH member ID typed without the leading zero');
+select pg_temp.assert((select value from app.resolve_identifier('00000000-0000-4000-8000-000000000001', '0417')) = '0417',
+                      'JSH member ID is shown exactly as issued, leading zero kept');
 select pg_temp.assert((select system from app.resolve_identifier('00000000-0000-4000-8000-000000000001', '1187')) = 'quickbooks',
                       'staff can find a household by QuickBooks customer id');
 commit;
 begin;
 set local role authenticated;
 set local request.jwt.claim.sub = '10000000-0000-4000-8000-000000000005';  -- ordinary member
-select pg_temp.assert((select count(*) from app.resolve_identifier('00000000-0000-4000-8000-000000000001', 'LM-0417')) = 0,
+select pg_temp.assert((select count(*) from app.resolve_identifier('00000000-0000-4000-8000-000000000001', '0417')) = 0,
                       'ordinary members cannot resolve other people''s identifiers');
 select pg_temp.assert((select count(*) from app.external_ids) = 0, 'ordinary members see no one else''s identifiers');
 commit;
