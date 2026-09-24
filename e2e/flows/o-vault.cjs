@@ -98,6 +98,19 @@ async function download(token, bucket, name) {
   return { status: r.status, body: await r.text() };
 }
 
+/** The Background service tile's text, reloading until it matches (or 3 tries). */
+async function tileText(p, re) {
+  let t = '';
+  for (let i = 0; i < 3; i++) {
+    await p.goto(BASE + '/settings/integrations', { waitUntil: 'networkidle' });
+    t = await p.locator('section', { hasText: 'Background service' }).first().innerText();
+    if (re.test(t)) return t;
+    console.log('NOTE the tile did not match yet: ' + t.slice(0, 200).replace(/\n/g, ' | '));
+    await sleep(2000);
+  }
+  return t;
+}
+
 /** If the portal asks for a fresh 2FA check (the last one is older than 5 minutes), answer it. */
 async function maybeStepUp(p, secret) {
   const dlg = p.getByRole('dialog').filter({ hasText: 'Confirm it' });
@@ -156,8 +169,7 @@ async function maybeStepUp(p, secret) {
   });
   await p.fill('input[name=code]', await mailCode('admin@jsh.test', t0));
   await p.click('button[type=submit]'); await p.waitForURL((u) => !u.pathname.startsWith('/login'));
-  await p.goto(BASE + '/settings/integrations', { waitUntil: 'networkidle' });
-  const tile0 = await p.locator('section', { hasText: 'Background service' }).first().innerText();
+  const tile0 = await tileText(p, /Background service not configured/);
   ok(/Background service not configured/.test(tile0), 'before the worker ever runs, the tile says "Background service not configured"');
   await p.screenshot({ path: `${OUT}/integrations-1-not-configured.png`, fullPage: true });
 
@@ -238,12 +250,7 @@ async function maybeStepUp(p, secret) {
   ok(asJob >= 3 && all - asJob === 1, 'every status change the worker made is audited as a job (claim, retry, claim, done): ' + jobAudit);
   ok(sql(`select count(*) from app.audit_log where id > ${auditMark} and action = 'secret_access_log.insert' and client_app = 'job'`) !== '0', 'the read is audited too');
 
-  let tile1 = '';
-  for (let i = 0; i < 3 && !/Running/.test(tile1); i++) {
-    await p.goto(BASE + '/settings/integrations', { waitUntil: 'networkidle' });
-    tile1 = await p.locator('section', { hasText: 'Background service' }).first().innerText();
-    if (!/Running/.test(tile1)) { console.log('NOTE tile not showing Running yet: ' + tile1.slice(0, 200).replace(/\n/g, ' | ')); await sleep(2000); }
-  }
+  const tile1 = await tileText(p, /Running/);
   ok(/Running/.test(tile1) && /Last heartbeat/.test(tile1), 'the tile shows the service running with its heartbeat' + (/Running/.test(tile1) ? '' : ': ' + tile1.slice(0, 300)));
   await p.getByRole('button', { name: 'Send a test job' }).click();
   const uiPing = await until(() => sql(`select id from app.jobs where kind = 'demo.ping' and created_by = '${adminUid}' and status = 'done' and id > ${pingId} order by id desc limit 1`), 20000);
@@ -283,6 +290,9 @@ async function maybeStepUp(p, secret) {
     ['imports: a member cannot read an import', await download(priya, 'imports', imp), false],
   ];
   for (const [label, r, allowed] of reads) ok(allowed ? r.status === 200 : r.status >= 400, `${label} (${r.status})`);
+  const priyaUid = sql("select id from auth.users where email = 'priya@jsh.test'");
+  ok(sql(`select count(*) from app.audit_log where action = 'storage.upload' and record_id = 'recordings/${rec}' and actor_user_id = '${priyaUid}' and after->>'mimetype' = 'audio/mp4'`) === '1',
+    'the parent\'s upload is audited with who uploaded which file');
   ok(sql(`select count(*) from app.jobs where kind = 'storage.scan' and status = 'queued' and payload->>'name' = '${imp}'`) === '1',
     'the import upload queued a malware scan that stays pending (no scanner chosen)');
   const off = await rpc(adminAal2, 'set_module_enabled', { p_center: jsh, p_module: 'gyan_path', p_enabled: false, p_reason: `e2e ${run}: recordings closed with the module` });
@@ -312,6 +322,7 @@ async function maybeStepUp(p, secret) {
   else ok(before === 1 && after === 0, `the stored bytes are gone from the storage backend (${before} file before, ${after} after)`);
   ok(sql(`select count(*) from app.audit_log where action = 'storage.retention_delete' and record_id = 'exports/${exp}' and client_app = 'job' and reason like 'Retention: exports files are kept 7 days (job ${retId})%'`) === '1',
     'the removal has an audit entry naming the rule and the job');
+  ok(sql(`select count(*) from app.audit_log where action = 'storage.remove' and record_id = 'exports/${exp}'`) === '1', 'and the file removal itself is audited');
   ok(sql(`select count(*) from storage.objects where bucket_id = 'statements' and name = '${st}'`) === '1', 'files that are not expired stay');
 
   // ── 5. Rotate and Disconnect in the portal ───────────────────────────────
@@ -341,8 +352,7 @@ async function maybeStepUp(p, secret) {
   const code = await Promise.race([exited, sleep(15000).then(() => 'timeout')]);
   ok(code === 0, `the worker stops on SIGTERM (exit ${code})`);
   ok(sql(`select (stopped_at is not null)::text from app.worker_heartbeats where worker = 'e2e-worker-${run}'`) === 'true', 'and records that it stopped cleanly');
-  await p.goto(BASE + '/settings/integrations', { waitUntil: 'networkidle' });
-  const tile2 = await p.locator('section', { hasText: 'Background service' }).first().innerText();
+  const tile2 = await tileText(p, /was stopped/);
   ok(/Not running/.test(tile2) && /was stopped/.test(tile2), 'after the stop, the tile says it is not running (and was stopped)');
   fs.writeFileSync(`${OUT}/worker.log`, logs.join('\n') + '\n');
   ok(logs.every((l) => { try { JSON.parse(l); return true; } catch { return false; } }), 'every worker log line is structured JSON');
