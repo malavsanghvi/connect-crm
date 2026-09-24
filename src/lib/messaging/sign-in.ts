@@ -3,6 +3,7 @@ import "server-only";
 import { brandingUrl, fromHeader, renderEmail } from "./email";
 import { emailKey, sendEmail, sendTwilio, type EmailProvider, type Req } from "./providers";
 import { workerQuery } from "./server-db";
+import { platformEnv } from "@/lib/platform-setup/server-config";
 
 // Branded sign-in codes for the Supabase Auth "send email" and "send SMS" hooks.
 // Sign-in must be synchronous, so the code goes straight to the provider here —
@@ -57,7 +58,7 @@ export function signInEmailText(shortName: string, what: string, code: string): 
 }
 
 export async function sendSignInEmail(user: HookUser, data: { token?: string; token_new?: string; email_action_type?: string }): Promise<HookResult> {
-  const env = process.env;
+  const env = await platformEnv();
   const ctx = await context(user);
   const brand = ctx?.brand ?? null;
   const what = ACTION[data.email_action_type ?? ""] ?? "sign-in";
@@ -104,7 +105,7 @@ export async function sendSignInEmail(user: HookUser, data: { token?: string; to
 }
 
 export async function sendSignInSms(user: HookUser, otp: string): Promise<HookResult> {
-  const env = process.env;
+  const env = await platformEnv();
   const phone = user.phone ? (user.phone.startsWith("+") ? user.phone : `+${user.phone}`) : null;
   if (!phone || !otp) return { ok: false, status: 400, message: "The sign-in request had no phone number or code to send." };
   const ctx = await context(user);

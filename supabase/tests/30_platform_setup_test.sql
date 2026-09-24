@@ -206,3 +206,16 @@ set local role authenticated;
 select pg_temp.assert((select count(*) from app.secret_access_log where name like 'platform:%') = 0,
   'organization staff never see the platform access log');
 rollback;
+
+-- ── Who saved what (0321) ────────────────────────────────────────────────────
+begin;
+select pg_temp.claims(:pa, false);
+set local role authenticated;
+select pg_temp.assert((select count(*) from app.platform_admin_directory() where email = 'setup.platform@example.com') = 1,
+  'a platform admin sees the platform admins by email');
+rollback;
+begin;
+select pg_temp.claims(:staff, true);
+set local role authenticated;
+select pg_temp.assert_state('select * from app.platform_admin_directory()', '42501', 'an organization admin cannot list them');
+rollback;

@@ -9,6 +9,7 @@ import { authorizeUrl, intuitPortalConfig, redirectUri, signState } from "@/lib/
 import { reasonProblem } from "@/lib/qbo/setup";
 import { isUuid } from "@/lib/search-params";
 import { authorizeAction, dbWithReason } from "@/lib/session";
+import { platformEnv } from "@/lib/platform-setup/server-config";
 
 // Accounting › QuickBooks setup (plan §1.7). Every change goes through an RPC
 // that checks the caller, the module switch and (connect, disconnect, approvals)
@@ -40,12 +41,13 @@ export async function startQboConnectAction(_prev: ActionResult<{ url: string }>
   if (bad) return { ok: false, error: bad };
   const auth = await authorizeAction("qbo", doing);
   if (!auth.ok) return auth;
-  const cfg = intuitPortalConfig(process.env, company);
+  const env = await platformEnv();
+  const cfg = intuitPortalConfig(env, company);
   if (!cfg.ok) {
     console.error(`[qbo] cannot start the Intuit sign-in: ${cfg.missing.join(", ")} not set on the portal server`);
     return { ok: false, error: cfg.message };
   }
-  const redirect = redirectUri(process.env, await origin());
+  const redirect = redirectUri(env, await origin());
   const db = await dbWithReason(auth.session, reason);
   const { data, error } = await db.rpc("start_qbo_connect", {
     p_center: auth.session.center.id,

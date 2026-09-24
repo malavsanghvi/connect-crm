@@ -262,7 +262,7 @@ export default async function IntegrationsPage() {
                   {(logRes.data ?? []).map((l) => (
                     <tr key={l.id}>
                       <td className="whitespace-nowrap text-[13px]">{formatDateTime(l.read_at, tz)}</td>
-                      <td>{connectionLabel.get(l.connection_id) ?? "Removed connection"}</td>
+                      <td>{connectionLabel.get(l.connection_id ?? "") ?? "Removed connection"}</td>
                       <td className="font-mono text-[13px]">{l.name}</td>
                       <td className="text-[13px]">{l.reader}</td>
                       <td className="text-[13px]">{l.purpose}</td>

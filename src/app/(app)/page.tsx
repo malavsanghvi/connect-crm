@@ -1,11 +1,15 @@
 import type { Metadata } from "next";
+import { cookies } from "next/headers";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 
 import { approveAsSecondAction } from "@/app/(app)/approvals/actions";
 import { ActionForm } from "@/components/action-form";
 import { BlockGrid, Card, EmptyState, KpiGrid, PageHeader, Stat, Tag, buttonClass, capitalize } from "@/components/ui";
 import { loadHomeKpis } from "@/lib/data/home-kpis";
 import { loadHomeTasks } from "@/lib/data/home-tasks";
+import { SETUP_LATER_COOKIE } from "@/lib/platform-setup/catalog";
+import { isSetupComplete } from "@/lib/platform-setup/view";
 import { getSession } from "@/lib/session";
 import { greetingFor, hourInTz, tasksHint, visibleTaskSources, type HomeTask } from "@/lib/tasks";
 
@@ -13,6 +17,11 @@ export const metadata: Metadata = { title: "Home" };
 
 export default async function HomePage() {
   const session = await getSession();
+  // o-platform-setup: a platform admin lands on the platform setup wizard until it is complete
+  // (required steps done, optional ones done or parked), unless they chose "Continue to the portal".
+  if (session.isPlatformAdmin && !(await cookies()).get(SETUP_LATER_COOKIE) && (await isSetupComplete(session)) === false) {
+    redirect("/platform/setup");
+  }
   const { center } = session;
   const [{ tasks, failures }, kpis] = await Promise.all([loadHomeTasks(session), loadHomeKpis(session)]);
   const hasSources = visibleTaskSources(session).length > 0;

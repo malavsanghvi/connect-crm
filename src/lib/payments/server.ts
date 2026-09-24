@@ -1,6 +1,7 @@
 import "server-only";
 
 import { workerQuery } from "@/lib/messaging/server-db";
+import { loadPlatformConfig, platformValue } from "@/lib/platform-setup/server-config";
 
 // Talking to Stripe and PayPal from the portal server: the checkout the payer
 // is sent to, the connect links, and PayPal's webhook check. Community
@@ -13,6 +14,8 @@ import { workerQuery } from "@/lib/messaging/server-db";
 //   PAYPAL_CLIENT_ID, PAYPAL_CLIENT_SECRET, PAYPAL_SANDBOX_CLIENT_ID, PAYPAL_SANDBOX_CLIENT_SECRET,
 //   PAYPAL_PARTNER_ID, PAYPAL_BN_CODE, PAYPAL_WEBHOOK_ID, PAYPAL_SANDBOX_WEBHOOK_ID,
 //   PAYPAL_API_BASE, PAYPAL_SANDBOX_API_BASE
+//   Each is read from the platform setup wizard first (app.platform_secrets / platform_settings,
+//   src/lib/platform-setup/server-config.ts), then the environment: callers await loadPlatformConfig().
 //   PORTAL_DATABASE_URL         (webhook routes: app.ingest_webhook as connect_worker; falls back to WORKER_DATABASE_URL)
 
 import { createClient } from "@supabase/supabase-js";
@@ -35,7 +38,7 @@ export class ProviderError extends Error {
   override name = "ProviderError";
 }
 
-const val = (name: string) => (process.env[name] ?? "").trim();
+const val = (name: string) => platformValue(name);
 
 // ── Clients ──────────────────────────────────────────────────────────────────
 
@@ -129,6 +132,7 @@ export type CheckoutInfo = {
 export type ProviderCheckout = { providerRef: string; url: string };
 
 async function stripeCheckout(c: CheckoutInfo, successUrl: string, cancelUrl: string): Promise<ProviderCheckout> {
+  await loadPlatformConfig();
   if (!c.account_id) throw new ProviderError("The organization's Stripe account is not connected.");
   const suffix = (c.statement_descriptor ?? "").trim().slice(0, 22);
   const body = formEncode({
@@ -155,7 +159,7 @@ async function stripeCheckout(c: CheckoutInfo, successUrl: string, cancelUrl: st
   return { providerRef: s.id, url: s.url };
 }
 
-/** Stripe Connect (Standard) sign-in link for the organization. */
+/** Stripe Connect (Standard) sign-in link for the organization (await loadPlatformConfig() first). */
 export function stripeAuthorizeUrl(state: string, redirectUri: string): string {
   const client = val("STRIPE_CLIENT_ID");
   if (!client) throw new NotConfigured("Stripe Connect isn't configured on the Community Connect server yet (STRIPE_CLIENT_ID is not set).");
@@ -176,6 +180,7 @@ export function paypalCreds(mode: Mode): { base: string; clientId: string; secre
 }
 
 export async function paypalToken(mode: Mode): Promise<{ base: string; token: string; clientId: string }> {
+  await loadPlatformConfig();
   const c = paypalCreds(mode);
   const t = await send(`${c.base}/v1/oauth2/token`, {
     method: "POST",
@@ -215,6 +220,7 @@ async function paypalCheckout(c: CheckoutInfo, returnUrl: string, cancelUrl: str
 
 /** "Connect with PayPal": a partner-referral link; PayPal sends the merchant back to returnUrl. */
 export async function paypalReferralUrl(mode: Mode, trackingId: string, returnUrl: string): Promise<string> {
+  await loadPlatformConfig();
   if (!val("PAYPAL_PARTNER_ID")) throw new NotConfigured("Connect with PayPal isn't configured on the Community Connect server yet (PAYPAL_PARTNER_ID is not set). Use the PayPal Business email instead.");
   const { base, token } = await paypalToken(mode);
   const r = await send(`${base}/v2/customer/partner-referrals`, {
@@ -235,6 +241,7 @@ export async function paypalReferralUrl(mode: Mode, trackingId: string, returnUr
 
 /** PayPal webhooks are checked by PayPal: try each configured (mode, webhook id). */
 export async function verifyPaypalWebhook(body: (webhookId: string) => Record<string, unknown> | null): Promise<{ ok: boolean; reason: string }> {
+  await loadPlatformConfig();
   const pairs: [Mode, string][] = [];
   if (val("PAYPAL_WEBHOOK_ID") && val("PAYPAL_CLIENT_ID")) pairs.push(["live", val("PAYPAL_WEBHOOK_ID")]);
   if (val("PAYPAL_SANDBOX_WEBHOOK_ID") && val("PAYPAL_SANDBOX_CLIENT_ID")) pairs.push(["test", val("PAYPAL_SANDBOX_WEBHOOK_ID")]);

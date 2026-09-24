@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { verifyTwilio } from "@/lib/messaging/signatures";
 import { ingest, notConfigured, publicUrl } from "@/lib/messaging/webhook-route";
+import { loadPlatformConfig, platformValue } from "@/lib/platform-setup/server-config";
 
 // Twilio status callbacks (delivered / failed) and inbound texts (STOP, START,
 // HELP), signed with X-Twilio-Signature (TWILIO_AUTH_TOKEN). The answer is an
@@ -12,7 +13,8 @@ export const dynamic = "force-dynamic";
 const TWIML = '<?xml version="1.0" encoding="UTF-8"?><Response></Response>';
 
 export async function POST(request: Request) {
-  const token = process.env.TWILIO_AUTH_TOKEN?.trim();
+  await loadPlatformConfig();
+  const token = platformValue("TWILIO_AUTH_TOKEN");
   if (!token) return notConfigured("Twilio webhooks", ["TWILIO_AUTH_TOKEN"]);
   const raw = await request.text();
   const params = Object.fromEntries(new URLSearchParams(raw));

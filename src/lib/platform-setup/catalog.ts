@@ -288,6 +288,9 @@ export function missingFor(step: StepKey, has: Has, value: SettingValue = () => 
   }
 }
 
+/** Set by "Continue to the portal": no redirect to the wizard for the rest of the browser session. */
+export const SETUP_LATER_COOKIE = "cc_platform_setup_later";
+
 // ── The wizard as a whole ────────────────────────────────────────────────────
 export type StepStatus = "not_started" | "done" | "parked";
 export type StepRow = { key: string; required: boolean; status: StepStatus };

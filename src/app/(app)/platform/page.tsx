@@ -6,6 +6,7 @@ import { centerStatusLabel, traditionLabel } from "@/lib/center-wizard";
 import { getSession } from "@/lib/session";
 
 import { PlatformNoAccess } from "./platform-no-access";
+import { SetupReminder } from "./setup-reminder";
 
 export const metadata: Metadata = { title: "Platform" };
 
@@ -58,6 +59,7 @@ export default async function PlatformCentersPage() {
   return (
     <>
       {header}
+      <SetupReminder session={session} />
       <Card padded={false}>
         {centers.length === 0 ? (
           <EmptyState title="No centers yet" />
