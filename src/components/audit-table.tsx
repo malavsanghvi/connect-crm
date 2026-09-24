@@ -21,7 +21,7 @@ export function changedFields(before: Json | null, after: Json | null): string[]
     .sort();
 }
 
-function recordHref(table: string | null, id: string | null): string | null {
+export function recordHref(table: string | null, id: string | null): string | null {
   if (!table || !id) return null;
   if (table === "households") return `/households/${id}`;
   if (table === "people") return `/people/${id}`;

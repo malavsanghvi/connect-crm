@@ -94,15 +94,34 @@ describe("visibleNav (flat module list)", () => {
   });
   it("keeps the prototype's module order", () => {
     const labels = visibleNav({ permissions: [], isPlatformAdmin: true }).map((m) => m.label);
-    expect(labels).toEqual(["Home", "People", "Giving", "Accounting", "Reports", "Settings"]);
+    expect(labels).toEqual(["Home", "People", "Events", "Giving", "Bolis", "Satvik Store", "Pathshala", "Calendar", "Accounting", "Reports", "Settings", "Platform"]);
   });
   it("shows settings to a center admin and opens on the first tab they can use", () => {
     const nav = visibleNav({ permissions: ["roles.manage", "settings.manage"], isPlatformAdmin: false });
     const settings = nav.find((m) => m.key === "settings")!;
-    expect(settings.tabs.map((t) => t.href)).toEqual(["/settings/center", "/settings/roles"]);
+    expect(settings.tabs.map((t) => t.label)).toEqual(["Rules", "Roles & entitlements", "Onboarding fields", "Notifications", "Security"]);
+    expect(nav.some((m) => m.key === "platform")).toBe(false);
     expect(nav.some((m) => m.key === "people")).toBe(false);
     const rolesOnly = visibleNav({ permissions: ["roles.manage"], isPlatformAdmin: false }).find((m) => m.key === "settings")!;
     expect(rolesOnly.href).toBe("/settings/roles");
+  });
+  it("lists the eight Settings tabs in the prototype's order for a platform admin, then Platform", () => {
+    const nav = visibleNav({ permissions: [], isPlatformAdmin: true });
+    expect(nav.find((m) => m.key === "settings")!.tabs.map((t) => t.label)).toEqual([
+      "Rules",
+      "Roles & entitlements",
+      "Integrations",
+      "Privacy",
+      "Onboarding fields",
+      "Notifications",
+      "Security",
+      "Audit log",
+    ]);
+    expect(nav.find((m) => m.key === "platform")!.tabs.map((t) => t.label)).toEqual(["Centers", "New center wizard"]);
+  });
+  it("never shows Platform to a center admin, whatever they hold", () => {
+    const every = ["people.view", "settings.manage", "roles.manage", "audit.view", "integrations.manage", "privacy.manage"];
+    expect(visibleNav({ permissions: every, isPlatformAdmin: false }).some((m) => m.key === "platform")).toBe(false);
   });
   it("puts every page of the old grouped menu under exactly one module", () => {
     const all = visibleNav({ permissions: [], isPlatformAdmin: true }).flatMap((m) => m.tabs.map((t) => t.href));
@@ -116,12 +135,24 @@ describe("visibleNav (flat module list)", () => {
       "/giving/campaigns",
       "/giving/recurring",
       "/giving/statements",
+      "/bolis",
+      "/bolis/upload",
+      "/store",
+      "/store/menu",
+      "/store/orders",
+      "/calendar",
       "/accounting/qbo",
       "/reports",
-      "/audit",
-      "/privacy/requests",
+      "/settings/rules",
       "/settings/roles",
-      "/settings/center",
+      "/settings/integrations",
+      "/settings/privacy",
+      "/settings/onboarding",
+      "/settings/notifications",
+      "/settings/security",
+      "/settings/audit",
+      "/platform",
+      "/platform/new",
     ]) {
       expect(all.filter((h) => h === href)).toHaveLength(1);
     }
@@ -138,6 +169,8 @@ describe("active module and tab", () => {
     expect(activeModule(mods, "/giving/bank")?.key).toBe("giving");
     expect(activeModule(mods, "/audit")?.key).toBe("settings");
     expect(activeModule(mods, "/privacy/requests")?.key).toBe("settings");
+    expect(activeModule(mods, "/settings/center")?.key).toBe("settings");
+    expect(activeModule(mods, "/platform/new")?.key).toBe("platform");
     expect(activeModule(mods, "/nowhere")).toBeUndefined();
   });
   it("never treats a prefix of a word as a match", () => {

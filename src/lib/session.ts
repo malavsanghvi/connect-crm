@@ -13,6 +13,7 @@ import {
   isGrantActive,
   type AccessKey,
   type PermissionContext,
+  type ScopedGrant,
 } from "@/lib/permissions";
 import { createSupabaseServerClient, type AppSupabase } from "@/lib/supabase/server";
 
@@ -37,6 +38,8 @@ export type CrmSession = PermissionContext & {
   person: { id: string; name: string; memberNumber: string | null } | null;
   /** Active grants, for display (includes scoped grants). */
   roles: { key: string; name: string; scopeKind: string }[];
+  /** Active grants with their scope ids, for scoped-role checks (a class teacher, an event lead). */
+  grants: ScopedGrant[];
 };
 
 export type SessionState =
@@ -127,6 +130,9 @@ export const loadSession = cache(async (): Promise<SessionState> => {
       roles: grants
         .filter((g) => isGrantActive(g, now))
         .map((g) => ({ key: g.role_key, name: roleNames.get(g.role_key) ?? g.role_key, scopeKind: g.scope_kind })),
+      grants: grants
+        .filter((g) => isGrantActive(g, now))
+        .map((g) => ({ role_key: g.role_key, scope_kind: g.scope_kind, scope_id: g.scope_id })),
     },
   };
 });

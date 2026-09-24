@@ -32,7 +32,8 @@ export function AppShell({ session, tasks, children }: { session: CrmSession; ta
   const branding = tenantBranding(center);
   const name = session.person?.name ?? session.email ?? "Signed in";
   const roleLabels = session.roles.map((r) => (r.scopeKind === "center" ? r.name : `${r.name} (${r.scopeKind})`));
-  const noStaffRoles = session.permissions.length === 0 && !session.isPlatformAdmin;
+  // A class teacher or event volunteer holds only scoped roles: not "no role".
+  const noStaffRoles = session.permissions.length === 0 && !session.isPlatformAdmin && session.grants.length === 0;
   const home = homeBadge(tasks);
   const canSearch = canAccess(session, "households");
 
@@ -48,9 +49,15 @@ export function AppShell({ session, tasks, children }: { session: CrmSession; ta
               <TenantMark branding={branding} name={center.name} />
               <span className="cc-product hidden sm:inline">{PRODUCT_NAME}</span>
             </Link>
-            <span className="cc-center-pill hidden xl:inline-flex" title={`${center.name} · ${center.time_zone}`}>
-              {center.name}
-            </span>
+            {session.isPlatformAdmin ? (
+              <Link href="/platform" className="cc-center-pill hidden no-underline xl:inline-flex" title="Open Platform › Centers">
+                Center: {center.name} ▾
+              </Link>
+            ) : (
+              <span className="cc-center-pill hidden xl:inline-flex" title={`${center.name} · ${center.time_zone}`}>
+                {center.name}
+              </span>
+            )}
             <div className="hidden min-w-0 flex-1 justify-center md:flex">{canSearch ? <GlobalSearch /> : null}</div>
             <div className="flex-1 md:hidden" />
             <UserMenu

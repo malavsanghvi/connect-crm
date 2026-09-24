@@ -208,7 +208,7 @@ export function NoAccess({ area, access, extra }: { area: string; access: Access
       <p className="font-display text-[22px] font-semibold text-ink">You don&apos;t have access to this area</p>
       <p className="mx-auto mt-2 max-w-lg text-[13px] text-muted">
         {area} needs one of these permissions: <strong className="text-ink">{need.join(", ")}</strong>. Ask your center
-        admin to grant you a role that includes it (Settings → Roles and access).
+        admin to grant you a role that includes it (Settings → Roles &amp; entitlements).
       </p>
       {extra ? <div className="mt-4 text-[13px]">{extra}</div> : null}
     </div>
