@@ -113,7 +113,7 @@ insert into app.setup_steps (key, stage, sort, title, description, help, done_me
   'The owner and every staff member have verified email and phone and have two-factor sign-in turned on.',
   '/settings/security', 'Owner', null, true, false, true),
 ('org.legal_identity', 0, 20, 'Legal identity and non-profit proof',
-  'Legal name, EIN, entity type, state of incorporation, registered address, fiscal year, authorized signer; W-9 and IRS determination letter.',
+  'Legal name, EIN, entity type, state of incorporation, registered address, authorized signer; W-9 and IRS determination letter.',
   'We check the EIN against the IRS exempt-organization list. Houses of worship without a letter can send a board or attorney letter instead. Community Connect reviews the documents.',
   'Community Connect has verified the organization as a non-profit.',
   '/setup/organization', 'Owner', null, true, true, false),
