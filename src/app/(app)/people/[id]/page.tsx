@@ -94,7 +94,7 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
 
       <section aria-label="Identity" className="mb-6 grid grid-cols-2 gap-3 md:grid-cols-4">
         <div className="rounded-lg border border-line bg-card px-3 py-2.5">
-          <p className="text-[0.6875rem] font-semibold uppercase tracking-wide text-muted">Connect member no.</p>
+          <p className="text-[0.6875rem] font-semibold uppercase tracking-wide text-muted">Member no.</p>
           <p className="mt-0.5 font-mono text-[0.9375rem] font-semibold">{person.member_number ?? "—"}</p>
         </div>
         <div className="rounded-lg border border-line bg-card px-3 py-2.5">
@@ -214,7 +214,7 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
           today={today}
           returnPath={`/people/${id}`}
           targets={[{ value: `person:${id}`, label: name, type: "person" }]}
-          connectNumbers={[{ label: "Connect member number", value: person.member_number, owner: name }]}
+          connectNumbers={[{ label: "Member no.", value: person.member_number, owner: name }]}
           personOnly
         />
       )}

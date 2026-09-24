@@ -54,7 +54,7 @@ export async function MembersTab({ session, householdId }: { session: CrmSession
           <thead>
             <tr>
               <th>Name</th>
-              <th>Connect member no.</th>
+              <th>Member no.</th>
               <th>{rules.orgMemberLabel}</th>
               <th>Relationship</th>
               <th className="num">Age</th>

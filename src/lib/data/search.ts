@@ -7,7 +7,7 @@ import type { AppSupabase } from "@/lib/supabase/server";
 
 export type HouseholdSearch = {
   householdIds: string[];
-  /** What the identifier resolver matched (Connect numbers, org IDs, CRM, QuickBooks, payer names…). */
+  /** What the identifier resolver matched (member and household numbers, org IDs, CRM, QuickBooks, payer names…). */
   identifierMatches: ResolvedIdentifier[];
   error: DbErrorLike | null;
 };

@@ -39,7 +39,7 @@ export default async function HouseholdsPage({ searchParams }: { searchParams: P
   const header = (
     <PageHeader
       title="Households"
-      description={`Every family record. Search by name, member name or email — or by any identifier: Connect number, ${rules.orgMemberLabel}, ${rules.orgHouseholdLabel}, legacy CRM id, QuickBooks id or a Zelle payer name.`}
+      description={`Every family record. Search by name, member name or email — or by any identifier: member or household number, ${rules.orgMemberLabel}, ${rules.orgHouseholdLabel}, legacy CRM id, QuickBooks id or a Zelle payer name.`}
     />
   );
   if (!canAccess(session, "households")) {
@@ -161,7 +161,7 @@ export default async function HouseholdsPage({ searchParams }: { searchParams: P
             name="q"
             type="search"
             defaultValue={q ?? ""}
-            placeholder={`Name, email, JSH-H-2041, ${rules.orgMemberLabel} or ${rules.orgHouseholdLabel} (e.g. 417), Neon id, QuickBooks id, Zelle name…`}
+            placeholder={`Name, email, household no., ${rules.orgMemberLabel} or ${rules.orgHouseholdLabel} (e.g. 417), legacy CRM id, QuickBooks id, Zelle name…`}
             className="crm-input"
           />
         </div>
@@ -281,7 +281,7 @@ export default async function HouseholdsPage({ searchParams }: { searchParams: P
                 <thead>
                   <tr>
                     <th>Household</th>
-                    <th>Connect no.</th>
+                    <th>Household no.</th>
                     <th>{rules.orgHouseholdLabel}</th>
                     <th>Members ({rules.orgMemberLabel})</th>
                     <th>Zone</th>

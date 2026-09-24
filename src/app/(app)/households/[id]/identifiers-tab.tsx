@@ -59,8 +59,8 @@ export async function IdentifiersTab({
           })),
       ]}
       connectNumbers={[
-        { label: "Connect household number", value: household.household_number, owner: household.display_name },
-        ...people.map((p) => ({ label: "Connect member number", value: p.member_number, owner: personName(p) })),
+        { label: "Household no.", value: household.household_number, owner: household.display_name },
+        ...people.map((p) => ({ label: "Member no.", value: p.member_number, owner: personName(p) })),
       ]}
     />
   );

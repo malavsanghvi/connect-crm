@@ -96,7 +96,7 @@ export function GrantForm({
             </button>
           </div>
           {searchError ? (
-            <p role="alert" className="mt-2 text-sm text-maroon">
+            <p role="alert" className="mt-2 text-sm text-danger">
               {searchError}
             </p>
           ) : null}
@@ -120,7 +120,7 @@ export function GrantForm({
                         Choose
                       </button>
                     ) : (
-                      <span className="text-xs text-muted">No app login yet — they must sign in to Connect once first</span>
+                      <span className="text-xs text-muted">No app login yet — they must sign in to Community Connect once first</span>
                     )}
                   </li>
                 ))}
