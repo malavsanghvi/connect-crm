@@ -35,24 +35,24 @@ jobs:
     env:
       APP: crm
       SITE: ${{ vars.SITE_DOMAIN || ':80' }}
-      NEXT_PUBLIC_SUPABASE_URL: ${{ vars.SUPABASE_URL }}
-      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ vars.SUPABASE_ANON_KEY }}
+      # JSH's Supabase project. The publishable key is public by design: it ships in every
+      # browser and phone build and row-level security protects the data. Repository
+      # variables SUPABASE_URL / SUPABASE_ANON_KEY override these (e.g. for a staging project).
+      # Never put the secret (sb_secret_… / service_role) key here or anywhere in the apps.
+      NEXT_PUBLIC_SUPABASE_URL: ${{ vars.SUPABASE_URL || 'https://qenubcnvjcmsxhmehvat.supabase.co' }}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ vars.SUPABASE_ANON_KEY || 'sb_publishable_EfX8-WUrsYuSkUB4vAFAIQ_ukUY01jy' }}
       NEXT_PUBLIC_CENTER_SLUG: ${{ vars.CENTER_SLUG || 'jsh' }}
     steps:
       - name: Check settings
         env:
           HOST: ${{ secrets.DROPLET_HOST }}
           KEY: ${{ secrets.DROPLET_SSH_KEY }}
-          URL: ${{ vars.SUPABASE_URL }}
-          ANON: ${{ vars.SUPABASE_ANON_KEY }}
         run: |
           missing=""
-          [ -n "$HOST" ] || missing="$missing secret:DROPLET_HOST"
-          [ -n "$KEY" ]  || missing="$missing secret:DROPLET_SSH_KEY"
-          [ -n "$URL" ]  || missing="$missing variable:SUPABASE_URL"
-          [ -n "$ANON" ] || missing="$missing variable:SUPABASE_ANON_KEY"
+          [ -n "$HOST" ] || missing="$missing DROPLET_HOST"
+          [ -n "$KEY" ]  || missing="$missing DROPLET_SSH_KEY"
           if [ -n "$missing" ]; then
-            echo "::error::Not set in Settings › Secrets and variables › Actions:$missing (see docs/DEPLOY.md in connect-crm)"
+            echo "::error::Not set in Settings › Secrets and variables › Actions › Secrets:$missing (see docs/DEPLOY.md in connect-crm)"
             exit 1
           fi
       - uses: actions/checkout@v4

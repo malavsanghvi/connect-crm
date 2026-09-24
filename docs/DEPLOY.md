@@ -20,27 +20,36 @@ Nothing runs on your computer. You never log into the droplet.
 
 ### 1. Supabase project
 
-Create a project (region: **East US (Ohio)** or **(North Virginia)** is closest to
-Houston). Save the database password in your password manager.
+JSH's project is `qenubcnvjcmsxhmehvat` (`https://qenubcnvjcmsxhmehvat.supabase.co`). Its
+URL and publishable key are committed as defaults in each repo's
+`.github/workflows/deploy.yml`, so they need no GitHub setting. The publishable key is
+public by design: it ships inside every browser and phone build, and row-level security
+protects the data.
 
-Collect three values:
+One value is still needed, and it is sensitive. It contains the database password you set
+when you created the project; if you don't have it, reset it under Project Settings ›
+Database.
 
 | Value | Where in Supabase | Sensitive? |
 |---|---|---|
-| Project URL `https://<ref>.supabase.co` | Project Settings › API (Data API) | No |
-| anon / publishable key | Project Settings › API Keys (`anon` `public`, or the `sb_publishable_…` key) | No, it is public by design |
 | Session pooler connection string | **Connect** button (top of the dashboard) › **Session pooler**; replace `[YOUR-PASSWORD]` with the database password | **Yes**: full database access |
 
 Use the **Session pooler** string (host `…pooler.supabase.com`, port **5432**). The
 "Direct connection" host is IPv6-only and GitHub cannot reach it; the "Transaction
 pooler" (port 6543) breaks migrations.
 
-Never use the `service_role` / secret key anywhere in these apps.
+Never use the secret key (`sb_secret_…`, formerly `service_role`) anywhere in these apps,
+in GitHub, or in a chat. Nothing in Connect needs it; it bypasses every access rule. If it
+may have been exposed, create a new one and delete the old one under Project Settings ›
+API Keys.
 
 ### 2. Supabase settings (dashboard, once)
 
-1. **Expose the app schema**: Project Settings › Data API › **Exposed schemas** › add
-   `app` › Save. Without it every screen shows "could not load".
+1. **Expose the app schema**: the dropdown only lists schemas that exist, and `app` is
+   created by the first deploy. Create it empty now in **SQL Editor**:
+   `create schema if not exists app;` (the first migration uses `if not exists`, so this
+   is safe). Then Project Settings › Data API › **Exposed schemas** › reload › add `app` ›
+   Save. Without it every screen shows "could not load".
 2. **Sign-in emails must show the code**: Authentication › Emails (Email Templates).
    For both **Magic Link** and **Confirm signup**, set the subject to
    `Your Connect sign-in code` and paste the body of `supabase/templates/otp_code.html`.
@@ -68,14 +77,13 @@ Copy the private key to the clipboard:
 - Windows: `Get-Content "$HOME\.ssh\connect_deploy" -Raw | Set-Clipboard`
 - Mac: `pbcopy < ~/.ssh/connect_deploy`
 
-**Variables** tab › New repository variable:
+**Variables** tab › New repository variable (all optional):
 
 | Name | Value | Repos |
 |---|---|---|
-| `SUPABASE_URL` | Project URL | all three |
-| `SUPABASE_ANON_KEY` | anon / publishable key | all three |
-| `SITE_DOMAIN` | optional, see "Domains" below | per repo |
-| `CENTER_SLUG` | optional, defaults to `jsh` | all three |
+| `SITE_DOMAIN` | see "Domains" below | per repo |
+| `CENTER_SLUG` | defaults to `jsh` | all three |
+| `SUPABASE_URL`, `SUPABASE_ANON_KEY` | only to point at a different Supabase project (e.g. staging): set both together, and in connect-crm change the `SUPABASE_DB_URL` secret to that project too. Normally all three repos use the committed defaults | per repo |
 
 ### 4. First deploy
 
@@ -111,7 +119,8 @@ unencrypted. Fine for trying it, not for real use.
 
 The failed step in Actions says what is missing or what broke:
 
-- "Not set in Settings › Secrets and variables" — add the named secret or variable.
+- "Not set in Settings › Secrets and variables › Actions › Secrets" — add the named secret
+  on the Secrets tab.
 - `Permission denied (publickey)` — `DROPLET_SSH_KEY` is not the private half of the key
   added to the droplet, or it was pasted without the BEGIN/END lines.
 - "did not answer on port …" — the app failed to start; the step prints its log.
