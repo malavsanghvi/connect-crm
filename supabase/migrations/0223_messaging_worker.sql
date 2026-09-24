@@ -19,16 +19,17 @@
 --   app.worker_unsubscribe(message)          an unsubscribe link: opt-out recorded
 set client_min_messages = warning;
 
--- The sender for a purpose: the center's own verified sender, else none (the
--- service then uses Community Connect's default address with the center's name).
+-- The sender for a purpose: the center's own verified sender for it, else its
+-- office sender, else any verified sender of its own; else none (the service
+-- then uses Community Connect's default address with the center's name).
 create or replace function app._messaging_sender(p_center uuid, p_purpose text) returns jsonb
 language sql stable security definer set search_path = app, public, extensions as $$
   select to_jsonb(s) - 'center_id' - 'updated_by' - 'updated_at'
     from app.email_senders s
    where s.center_id = p_center and s.verified
-     and s.purpose in (case p_purpose when 'receipt' then 'receipts' when 'campaign' then 'newsletters'
-                                      when 'auth_code' then 'auth' when 'verification_code' then 'auth' else 'office' end, 'office')
-   order by (s.purpose = 'office')
+   order by (s.purpose = case p_purpose when 'receipt' then 'receipts' when 'campaign' then 'newsletters'
+                                        when 'auth_code' then 'auth' when 'verification_code' then 'auth' else 'office' end) desc,
+            (s.purpose = 'office') desc, s.purpose
    limit 1
 $$;
 

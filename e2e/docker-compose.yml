@@ -47,6 +47,17 @@ services:
       GOTRUE_SMS_TWILIO_MESSAGE_SERVICE_SID: MG00000000000000000000000000000000
       GOTRUE_SMS_TEST_OTP: "15555550100:123456,15555550101:123456,15555550102:123456,15555550103:123456"
       GOTRUE_RATE_LIMIT_SMS_SENT: "1000"
+      # o-messaging: the Auth send-email / send-SMS hooks (branded sign-in codes through
+      # the portal's /api/auth-hooks routes). OFF unless the stack is started with
+      # SEND_EMAIL_HOOK_ENABLED=true (see e2e/flows/o-messaging.cjs); every other stack
+      # keeps sending through Mailpit directly.
+      GOTRUE_HOOK_SEND_EMAIL_ENABLED: "${SEND_EMAIL_HOOK_ENABLED:-false}"
+      GOTRUE_HOOK_SEND_EMAIL_URI: "${SEND_EMAIL_HOOK_URI:-}"
+      GOTRUE_HOOK_SEND_EMAIL_SECRETS: "${SEND_EMAIL_HOOK_SECRET:-}"
+      GOTRUE_HOOK_SEND_SMS_ENABLED: "${SEND_SMS_HOOK_ENABLED:-false}"
+      GOTRUE_HOOK_SEND_SMS_URI: "${SEND_SMS_HOOK_URI:-}"
+      GOTRUE_HOOK_SEND_SMS_SECRETS: "${SEND_SMS_HOOK_SECRET:-}"
+    extra_hosts: ["host.docker.internal:host-gateway"]
   rest:
     image: postgrest/postgrest:v12.2.3
     depends_on: { db: { condition: service_healthy } }
