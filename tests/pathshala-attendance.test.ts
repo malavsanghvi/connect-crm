@@ -4,6 +4,7 @@ import {
   formatRate,
   latestClassDay,
   nextClassDay,
+  reportAttendance,
   summarizeAttendance,
 } from "@/lib/logic/attendance";
 
@@ -75,5 +76,13 @@ describe("class days", () => {
       "2026-09-20",
       "2026-09-27",
     ]);
+  });
+});
+
+describe("reportAttendance", () => {
+  it("counts present and late, leaves excused days out of the total", () => {
+    expect(reportAttendance(["present", "late", "absent", "excused", "present"])).toEqual({ present: 2, late: 1, total: 4 });
+    expect(reportAttendance([])).toEqual({ present: 0, late: 0, total: 0 });
+    expect(reportAttendance(["unknown"])).toEqual({ present: 0, late: 0, total: 0 });
   });
 });

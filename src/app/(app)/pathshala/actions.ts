@@ -4,7 +4,7 @@ import { refresh } from "next/cache";
 
 import type { ActionResult } from "@/lib/errors";
 import { bool, cents, dateList, dateTime, FormError, int, isoDate, must, oneOf, reqStr, runAction, str, ok, time } from "@/lib/forms";
-import { isAttendanceStatus, type AttendanceStatus } from "@/lib/logic/attendance";
+import { isAttendanceStatus, reportAttendance, type AttendanceStatus } from "@/lib/logic/attendance";
 import { pathshalaAreas as areas } from "@/lib/pathshala/access";
 import { actionContext, searchPeople, type PersonOption } from "@/lib/pathshala/server";
 import { can, hasScopedRole, type ScopedContext } from "@/lib/permissions";
@@ -444,6 +444,56 @@ export async function saveSessionTopic(classId: string, heldOn: string, _prev: u
     must(await supabase.from("pathshala_sessions").update({ topic: str(fd, "topic") }).eq("id", session.id), "save the topic");
     refresh();
     return ok("Topic saved.");
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Progress reports (teacher of the class, or the principal). Attendance counts
+// are computed from the class register at save time; publishing makes the
+// report visible to the family (RLS progress_household: published only).
+// ---------------------------------------------------------------------------
+export async function saveProgressReport(classId: string, enrollmentId: string, _prev: unknown, fd: FormData): Promise<ActionResult<unknown>> {
+  return runAction("pathshala.saveProgressReport", "save the progress report", async () => {
+    const { supabase, centerId, viewer } = await actionContext(
+      (a) => canTakeAttendance(a, classId),
+      "Only the class teacher or the Pathshala principal can write progress reports.",
+    );
+    const period = reqStr(fd, "period", "Period");
+    const publish = str(fd, "publish") === "yes";
+    const enr = must(
+      await supabase.from("pathshala_enrollments").select("id, term_id, class_id").eq("id", enrollmentId).maybeSingle(),
+      "find the enrollment",
+    );
+    if (!enr || enr.class_id !== classId) throw new FormError("That student is no longer in this class.");
+    const sessions = must(await supabase.from("pathshala_sessions").select("id").eq("class_id", classId), "read the class days") ?? [];
+    const marks = sessions.length
+      ? (must(
+          await supabase.from("pathshala_attendance").select("status").eq("enrollment_id", enrollmentId).in("session_id", sessions.map((x) => x.id)),
+          "read the attendance",
+        ) ?? [])
+      : [];
+    const counts = reportAttendance(marks.map((m) => m.status));
+    must(
+      await supabase.from("pathshala_progress_reports").upsert(
+        {
+          center_id: centerId,
+          enrollment_id: enrollmentId,
+          term_id: enr.term_id,
+          period,
+          attendance_present: counts.present,
+          attendance_late: counts.late,
+          attendance_total: counts.total,
+          teacher_comments: str(fd, "teacher_comments"),
+          recommended_next_level_id: str(fd, "recommended_next_level_id"),
+          authored_by: viewer.userId,
+          published_at: publish ? new Date().toISOString() : null,
+        },
+        { onConflict: "enrollment_id,period" },
+      ),
+      "save the progress report",
+    );
+    refresh();
+    return ok(publish ? "Report published — the family can see it in the app." : "Draft saved. Only staff can see it until you publish.");
   });
 }
 

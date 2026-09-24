@@ -102,3 +102,21 @@ export function classDaysInTerm(startsOn: string, endsOn: string, meetsOn = "sun
   }
   return out;
 }
+
+/**
+ * Counts for a progress report (pathshala_progress_reports.attendance_*):
+ * excused days are left out of the total, as they are for the class rate.
+ */
+export function reportAttendance(statuses: readonly string[]): { present: number; late: number; total: number } {
+  let present = 0;
+  let late = 0;
+  let total = 0;
+  for (const s of statuses) {
+    if (s === "excused") continue;
+    if (s === "present") present += 1;
+    else if (s === "late") late += 1;
+    else if (s !== "absent") continue;
+    total += 1;
+  }
+  return { present, late, total };
+}
