@@ -219,6 +219,60 @@ export async function placeEnrollment(enrollmentId: string, _prev: unknown, fd: 
   });
 }
 
+/**
+ * Staff enroll a student directly (walk-in or phone registration): the
+ * student's household is looked up (the enrollment belongs to it), and the
+ * student is placed straight into a class when one is chosen.
+ */
+export async function enrollStudent(termId: string, _prev: unknown, fd: FormData): Promise<ActionResult<unknown>> {
+  return runAction("pathshala.enrollStudent", "enroll the student", async () => {
+    const { supabase, centerId, viewer } = await actionContext(areas.manage, "Only the Pathshala principal can enroll students.");
+    const personId = reqStr(fd, "person_id", "Student");
+    const classId = str(fd, "class_id");
+    let levelId = str(fd, "requested_level_id");
+    const memberships = (must(
+      await supabase.from("household_members").select("household_id, is_primary, role").eq("person_id", personId).is("left_at", null),
+      "find the student's household",
+    ) ?? []);
+    if (!memberships.length) throw new FormError("This person isn't in a household yet. Add them to their family in People first, then enroll them.");
+    const household = memberships.find((m) => m.is_primary) ?? memberships.find((m) => m.role === "child") ?? memberships[0];
+    const existing = must(
+      await supabase.from("pathshala_enrollments").select("id, status").eq("term_id", termId).eq("student_person_id", personId).maybeSingle(),
+      "check for an existing enrollment",
+    );
+    if (existing) throw new FormError(`This student already has an enrollment this term (${existing.status}). Change it in the list below.`);
+    let className: string | null = null;
+    if (classId) {
+      const cls = must(await supabase.from("pathshala_classes").select("id, name, capacity, level_id, term_id").eq("id", classId).maybeSingle(), "find the class");
+      if (!cls || cls.term_id !== termId) throw new FormError("Choose a class in this term.");
+      if (cls.capacity !== null && !bool(fd, "over_capacity")) {
+        const taken = await seatsTaken(supabase, classId);
+        if (taken >= cls.capacity) throw new FormError(`${cls.name} is full (${taken} of ${cls.capacity}). Tick "Place even if full" or choose another class.`);
+      }
+      levelId = levelId ?? cls.level_id;
+      className = cls.name;
+    }
+    const now = new Date().toISOString();
+    must(
+      await supabase.from("pathshala_enrollments").insert({
+        center_id: centerId,
+        term_id: termId,
+        student_person_id: personId,
+        household_id: household.household_id,
+        requested_level_id: levelId,
+        class_id: classId,
+        status: classId ? "placed" : "requested",
+        placed_at: classId ? now : null,
+        registered_by: viewer.userId,
+        notes: str(fd, "notes"),
+      }),
+      "enroll the student",
+    );
+    refresh();
+    return ok(className ? `Enrolled and placed in ${className}.` : "Enrollment added to Requested.");
+  });
+}
+
 export async function waitlistEnrollment(enrollmentId: string, _prev: unknown, fd: FormData): Promise<ActionResult<unknown>> {
   return runAction("pathshala.waitlistEnrollment", "waitlist the student", async () => {
     const { supabase } = await actionContext(areas.manage, "Only the Pathshala principal can manage the waitlist.");
