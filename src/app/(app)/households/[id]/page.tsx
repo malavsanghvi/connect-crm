@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 
 import { PeopleDrawers, drawerHref } from "@/app/(app)/people/_components/drawers";
 import { MoreDetails } from "@/components/more-details";
+import { QboCustomerLine } from "@/components/qbo-customer-line";
 import { HistoryButton } from "@/components/record-history";
 import { Badge, BlockGrid, Card, KeyValueRow, NoAccess, PageHeader, QueryError, Tabs, buttonClass, capitalize } from "@/components/ui";
 import { loadHouseholdRecord } from "@/lib/data/people-records";
@@ -222,6 +223,7 @@ export default async function HouseholdPage({
         </BlockGrid>
       ) : null}
 
+      <QboCustomerLine session={session} householdIds={[id]} />
       <MoreDetails session={session} entity="households" recordId={id} editable={canAccess(session, "householdsEdit")} variant="card" className="mb-5" />
 
       <Tabs active={tab} tabs={tabs.map((t) => ({ key: t.key, label: t.label, href: `/households/${id}?tab=${t.key}` }))} />

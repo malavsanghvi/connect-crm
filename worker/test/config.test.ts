@@ -6,7 +6,7 @@ describe("platform secrets from env", () => {
   it("a provider is configured only when a full group of variables is set", () => {
     expect(providerStatus({ STRIPE_SECRET_KEY: "sk_test_x", STRIPE_CLIENT_ID: "ca_x" }, "stripe")).toEqual({ configured: true });
     const s = providerStatus({ STRIPE_SECRET_KEY: "sk_test_x" }, "stripe");
-    expect(s).toEqual({ configured: false, reason: "Stripe is not configured on the background service (needs STRIPE_SECRET_KEY + STRIPE_CLIENT_ID)" });
+    expect(s).toEqual({ configured: false, reason: "Stripe is not configured on the background service (needs STRIPE_SECRET_KEY + STRIPE_CLIENT_ID, or STRIPE_TEST_SECRET_KEY + STRIPE_CLIENT_ID)" });
     expect(providerStatus({ POSTMARK_SERVER_TOKEN: "t" }, "email").configured).toBe(true);
     expect(providerStatus({ RESEND_API_KEY: "  " }, "email").configured).toBe(false);
   });

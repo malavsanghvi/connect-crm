@@ -85,6 +85,48 @@ export async function main(env: Env = process.env): Promise<void> {
         log.error("could not queue storage.retention", { error: err });
       }
     }
+    try {
+      const id = await db.schedule("platform.sandbox_expiry", 24 * 3600);
+      if (id) log.info("queued the daily platform.sandbox_expiry pass", { queued_job: id });
+    } catch (err) {
+      log.error("could not queue platform.sandbox_expiry", { error: err });
+    }
+    // o-qbo-match: once a day, one platform-wide job queues a QuickBooks customer pull per connected center.
+    try {
+      const id = await db.schedule("qbo.pull_customers_history", 24 * 3600);
+      if (id) log.info("queued the daily QuickBooks customer pulls", { queued_job: id });
+    } catch (err) {
+      log.error("could not queue the daily QuickBooks customer pulls", { error: err });
+    }
+    // Other recurring platform-wide work: handlers that declare `every` (seconds).
+    for (const h of reg.values()) {
+      if (!h.every || h.kind === "storage.retention") continue;
+      if (!(handlers[h.kind] as { configured: boolean } | undefined)?.configured) continue;
+      try {
+        const id = await db.schedule(h.kind, h.every);
+        if (id) log.info(`queued the recurring ${h.kind} run`, { queued_job: id });
+      } catch (err) {
+        log.error(`could not queue ${h.kind}`, { error: err });
+      }
+    }
+    // o-messaging: the email-domain re-verify sweep (pending domains every 15 minutes).
+    if ((handlers["messaging.domain_verify"] as { configured: boolean } | undefined)?.configured) {
+      try {
+        const id = await db.schedule("messaging.domain_verify", 15 * 60);
+        if (id) log.info("queued the email-domain re-verify sweep", { queued_job: id });
+      } catch (err) {
+        log.error("could not queue messaging.domain_verify", { error: err });
+      }
+    }
+    // o-payments: the daily payout sync across every connected Stripe account.
+    if ((handlers["payments.sync_payouts"] as { configured: boolean } | undefined)?.configured) {
+      try {
+        const id = await db.schedule("payments.sync_payouts", 24 * 3600);
+        if (id) log.info("queued the daily payments.sync_payouts pass", { queued_job: id });
+      } catch (err) {
+        log.error("could not queue payments.sync_payouts", { error: err });
+      }
+    }
   }
 
   let polling = false;

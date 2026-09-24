@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { IdentifiersPanel } from "@/components/identifiers-panel";
+import { QboCustomerLine } from "@/components/qbo-customer-line";
 import { MoreDetails } from "@/components/more-details";
 import { PeopleDrawers, drawerHref } from "@/app/(app)/people/_components/drawers";
 import { HistoryButton } from "@/components/record-history";
@@ -255,6 +256,9 @@ export default async function PersonPage({ params, searchParams }: { params: Pro
         </BlockGrid>
       ) : null}
 
+      <div className="mt-5">
+        <QboCustomerLine session={session} householdIds={links.filter((l) => !l.left_at).map((l) => l.household_id)} personId={id} />
+      </div>
       <MoreDetails session={session} entity="people" recordId={id} editable={canAccess(session, "householdsEdit") && !person.merged_into_id} variant="card" className="mt-5" />
 
       <Card title="Memberships held" padded={false} className="mt-5">

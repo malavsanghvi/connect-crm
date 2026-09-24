@@ -29,12 +29,12 @@ export type IntegrationService = {
 };
 
 export const INTEGRATION_SERVICES: IntegrationService[] = [
-  { key: "qbo", label: "QuickBooks Online", providers: ["quickbooks_online"], owner: "Treasurer", notConnected: "Connect and map accounts on the Accounting › QuickBooks page", href: "/accounting/qbo" },
-  { key: "payments", label: "Payments", providers: ["stripe"], owner: "Treasurer", notConnected: "Card payment is being set up · offline payments are recorded by hand" },
-  { key: "email", label: "Email sending domain", providers: ["sendgrid", "resend"], owner: "Communications", notConnected: "No sending service connected yet" },
-  { key: "sms", label: "US business texting (10DLC)", providers: ["twilio"], owner: "Tech officer", notConnected: "No texting provider connected yet" },
-  { key: "whatsapp", label: "WhatsApp Business", providers: ["whatsapp"], owner: "Communications", notConnected: "No WhatsApp Business number connected yet" },
-  { key: "push", label: "Push notifications", providers: [], owner: "Platform", notConnected: "Managed by the platform · not tracked here yet" },
+  { key: "qbo", label: "QuickBooks Online", providers: ["quickbooks_online", "intuit_sandbox"], owner: "Treasurer", notConnected: "Connect and map accounts in Accounting › QuickBooks setup", href: "/accounting/qbo/setup" },
+  { key: "payments", label: "Payments", providers: ["stripe", "paypal"], owner: "Treasurer", notConnected: "No Stripe or PayPal account connected · offline payments are recorded by hand", href: "/settings/payments" },
+  { key: "email", label: "Email sending domain", providers: ["resend", "postmark", "sendgrid"], owner: "Communications", notConnected: "No sending service chosen yet · set it up in Settings › Email", href: "/settings/email" },
+  { key: "sms", label: "US business texting (10DLC)", providers: ["twilio"], owner: "Tech officer", notConnected: "Not registered yet · Settings › Texting", href: "/settings/texting" },
+  { key: "whatsapp", label: "WhatsApp Business", providers: ["whatsapp"], owner: "Communications", notConnected: "No WhatsApp Business number yet · Settings › WhatsApp", href: "/settings/whatsapp" },
+  { key: "push", label: "Push notifications", providers: ["expo_push"], owner: "Platform", notConnected: "The shared Community Connect app sends pushes · test one in Settings › Notifications", href: "/settings/notifications" },
   { key: "panchang", label: "Panchang source", providers: [], owner: "Religious coordinator", notConnected: "No panchang source chosen yet" },
   { key: "background", label: "Background checks", providers: [], owner: "EC", notConnected: "Choose a screening provider" },
 ];

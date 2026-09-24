@@ -51,6 +51,8 @@ fi
 
 if [ "$kind" = node ]; then
   printf 'PORT=%s\n' "$port" > "/srv/connect/$app.env"
+  # o-messaging: the portal's server-only secrets (Auth hooks, webhooks), installed root-only by the deploy.
+  if [ -s "/srv/connect/$app.secrets.env" ]; then cat "/srv/connect/$app.secrets.env" >> "/srv/connect/$app.env"; fi
   cat > "/etc/caddy/sites/$app.caddy" <<SITE
 $site {
 	encode zstd gzip

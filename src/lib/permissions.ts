@@ -148,6 +148,9 @@ export const ACCESS = {
   qboLedger: ["giving.view", "accounting.manage"],
   qboManage: ["accounting.manage"],
   qbo: ["integrations.view", "integrations.manage", "giving.view", "accounting.manage"],
+  /** QuickBooks donor matching (o-qbo-match, 0240): read accounting.manage or giving.manage; decide accounting.manage. */
+  qboMatch: ["accounting.manage", "giving.manage"],
+  qboMatchManage: ["accounting.manage"],
   audit: ["audit.view"],
   reports: ["reports.view", "people.view", "giving.view"],
   /** Public community dashboard settings (public_kpi_settings: read reports.view, write settings.manage). */
@@ -157,8 +160,15 @@ export const ACCESS = {
   centerSettings: ["settings.manage"],
   /** Setup checklist, Step 0 screens and go-live readiness (settings.manage; the owner too, in the database). */
   setup: ["settings.manage"],
+  /** Settings › Email / Texting / WhatsApp (o-messaging): read by messaging and integrations roles; changed with settings.manage or integrations.manage (the database decides). */
+  messaging: ["settings.manage", "integrations.manage", "integrations.view", "comms.view", "comms.send"],
+  messagingManage: ["settings.manage", "integrations.manage"],
+  /** "Send a test" (app.send_test_message: settings.manage, integrations.manage or comms.send). */
+  messagingTest: ["settings.manage", "integrations.manage", "comms.send"],
   /** Settings › Integrations (reads app.integration_connections). */
   integrations: ["integrations.view", "integrations.manage"],
+  /** Settings › Payments (o-payments): readable with integrations or giving; each app.* function checks its own writer. */
+  paymentSettings: ["integrations.view", "integrations.manage", "giving.view", "giving.manage"],
   /** Settings › Security: readable by rules or roles managers; saving writes centers.rules (settings.manage). */
   security: ["settings.manage", "roles.manage"],
   privacy: ["privacy.manage"],
@@ -419,6 +429,8 @@ export const NAV: NavModule[] = [
     label: "Accounting",
     tabs: [
       { href: "/accounting/qbo", label: "QuickBooks sync", access: "qbo" },
+      { href: "/accounting/qbo/setup", label: "QuickBooks setup", access: "qbo" },
+      { href: "/accounting/qbo/matching", label: "Donor matching", access: "qboMatch" },
       { href: "/accounting/close", label: "Month-end close", access: "close" },
     ],
     paths: ["/accounting"],
@@ -443,6 +455,8 @@ export const NAV: NavModule[] = [
       { href: "/setup/profile", label: "Profile & brand", access: "setup" },
       { href: "/setup/leaders", label: "Leaders", access: "setup" },
       { href: "/setup/readiness", label: "Go-live readiness", access: "setup" },
+      // Onboarding (o-platform): attestations, the go-live request and promotion.
+      { href: "/setup/go-live", label: "Go-live", access: "setup" },
     ],
     paths: ["/setup"],
   },
@@ -453,6 +467,8 @@ export const NAV: NavModule[] = [
       { href: "/settings/rules", label: "Rules", access: "centerSettings" },
       { href: "/settings/roles", label: "Roles & entitlements", access: "roles" },
       { href: "/settings/integrations", label: "Integrations", access: "integrations" },
+      // Onboarding (o-payments): Stripe / PayPal and the offline methods members see.
+      { href: "/settings/payments", label: "Payments", access: "paymentSettings" },
       { href: "/settings/privacy", label: "Privacy", access: "privacy" },
       { href: "/settings/onboarding", label: "Onboarding fields", access: "centerSettings" },
       { href: "/settings/notifications", label: "Notifications", access: "centerSettings" },
@@ -470,6 +486,12 @@ export const NAV: NavModule[] = [
       { href: "/settings/import", label: "Data import", access: "dataImport" },
       { href: "/settings/custom-fields", label: "Custom fields", access: "centerSettings" },
       { href: "/settings/data-quality", label: "Data quality", access: "dataQuality" },
+      // Onboarding (o-platform): the owner's time-boxed support grants to Community Connect.
+      { href: "/settings/support-access", label: "Support access", access: "centerSettings" },
+      // Onboarding (o-messaging): email domain and senders, texting registration, WhatsApp Business.
+      { href: "/settings/email", label: "Email", access: "messaging" },
+      { href: "/settings/texting", label: "Texting", access: "messaging" },
+      { href: "/settings/whatsapp", label: "WhatsApp", access: "messaging", module: "comms" },
     ],
     paths: ["/settings", "/privacy", "/audit", "/approvals"],
   },
@@ -480,6 +502,12 @@ export const NAV: NavModule[] = [
       { href: "/platform", label: "Centers", access: "dashboard", platformOnly: true },
       { href: "/platform/new", label: "New center wizard", access: "dashboard", platformOnly: true },
       { href: "/platform/verification", label: "Verification", access: "dashboard", platformOnly: true },
+      // Onboarding (o-platform): the Community Connect console.
+      { href: "/platform/requests", label: "Requests", access: "dashboard", platformOnly: true },
+      { href: "/platform/codes", label: "Sandbox codes", access: "dashboard", platformOnly: true },
+      { href: "/platform/pipeline", label: "Onboarding", access: "dashboard", platformOnly: true },
+      { href: "/platform/go-live", label: "Go-live approvals", access: "dashboard", platformOnly: true },
+      { href: "/platform/support-access", label: "Support access", access: "dashboard", platformOnly: true },
     ],
     paths: ["/platform"],
   },

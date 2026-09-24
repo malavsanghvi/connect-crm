@@ -65,6 +65,11 @@ export async function PledgesTab({ session, householdId }: { session: CrmSession
                   <td className="font-mono text-[0.8125rem]">
                     {p.pledge_number ?? "—"}
                     {p.dedication ? <div className="font-sans text-xs text-muted">{p.dedication}</div> : null}
+                    {p.crm_external_id?.startsWith("qbo:") ? (
+                      <div className="font-sans text-xs text-muted" title="Brought in from QuickBooks: history, already in the books">
+                        History · QuickBooks {p.crm_external_id.slice(4).replace(":", " #")}
+                      </div>
+                    ) : null}
                   </td>
                   <td>{p.campaign_id ? (campaign.get(p.campaign_id) ?? "—") : "—"}</td>
                   <td className="capitalize">{p.source.replace(/_/g, " ")}</td>

@@ -99,7 +99,7 @@ describe("visibleNav (flat module list)", () => {
   it("shows settings to a center admin and opens on the first tab they can use", () => {
     const nav = visibleNav({ permissions: ["roles.manage", "settings.manage"], isPlatformAdmin: false });
     const settings = nav.find((m) => m.key === "settings")!;
-    expect(settings.tabs.map((t) => t.label)).toEqual(["Rules", "Roles & entitlements", "Onboarding fields", "Notifications", "Security", "Modules", "Team", "Agreements", "Member app", "Limits", "Data import", "Custom fields"]);
+    expect(settings.tabs.map((t) => t.label)).toEqual(["Rules", "Roles & entitlements", "Onboarding fields", "Notifications", "Security", "Modules", "Team", "Agreements", "Member app", "Limits", "Data import", "Custom fields", "Support access", "Email", "Texting", "WhatsApp"]);
     expect(nav.some((m) => m.key === "platform")).toBe(false);
     expect(nav.some((m) => m.key === "people")).toBe(false);
     const rolesOnly = visibleNav({ permissions: ["roles.manage"], isPlatformAdmin: false }).find((m) => m.key === "settings")!;
@@ -111,6 +111,7 @@ describe("visibleNav (flat module list)", () => {
       "Rules",
       "Roles & entitlements",
       "Integrations",
+      "Payments",
       "Privacy",
       "Onboarding fields",
       "Notifications",
@@ -124,14 +125,18 @@ describe("visibleNav (flat module list)", () => {
       "Data import",
       "Custom fields",
       "Data quality",
+      "Support access",
+      "Email",
+      "Texting",
+      "WhatsApp",
     ]);
-    expect(nav.find((m) => m.key === "platform")!.tabs.map((t) => t.label)).toEqual(["Centers", "New center wizard", "Verification"]);
+    expect(nav.find((m) => m.key === "platform")!.tabs.map((t) => t.label)).toEqual(["Centers", "New center wizard", "Verification", "Requests", "Sandbox codes", "Onboarding", "Go-live approvals", "Support access"]);
   });
   it("shows Setup above Settings to settings.manage holders only", () => {
     const admin = visibleNav({ permissions: ["settings.manage"], isPlatformAdmin: false });
     const keys = admin.map((m) => m.key);
     expect(keys.indexOf("setup")).toBe(keys.indexOf("settings") - 1);
-    expect(admin.find((m) => m.key === "setup")!.tabs.map((t) => t.href)).toEqual(["/setup", "/setup/organization", "/setup/profile", "/setup/leaders", "/setup/readiness"]);
+    expect(admin.find((m) => m.key === "setup")!.tabs.map((t) => t.href)).toEqual(["/setup", "/setup/organization", "/setup/profile", "/setup/leaders", "/setup/readiness", "/setup/go-live"]);
     expect(visibleNav({ permissions: ["roles.manage", "people.view"], isPlatformAdmin: false }).some((m) => m.key === "setup")).toBe(false);
   });
   it("never shows Platform to a center admin, whatever they hold", () => {

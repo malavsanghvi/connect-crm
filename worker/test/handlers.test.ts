@@ -32,11 +32,11 @@ describe("oauth.exchange skeleton", () => {
     const j = job({ kind: "oauth.exchange", payload: { provider: "paypal", connection_id: "c" } });
     const err = await oauth.run(j, ctxFor(fakeDb().db, {})).catch((e: unknown) => e);
     expect(err).toBeInstanceOf(NotConfiguredError);
-    expect((err as Error).message).toBe("PayPal is not configured on the background service (needs PAYPAL_CLIENT_ID + PAYPAL_CLIENT_SECRET)");
+    expect((err as Error).message).toBe("PayPal is not configured on the background service (needs PAYPAL_CLIENT_ID + PAYPAL_CLIENT_SECRET, or PAYPAL_SANDBOX_CLIENT_ID + PAYPAL_SANDBOX_CLIENT_SECRET)");
   });
   it("says a provider exchange is not built yet rather than pretending", async () => {
     const j = job({ kind: "oauth.exchange", payload: { provider: "stripe", connection_id: "c" } });
-    await expect(oauth.run(j, ctxFor(fakeDb().db, stripeEnv))).rejects.toThrow(/Connecting stripe is not built yet/);
+    await expect(oauth.run(j, ctxFor(fakeDb().db, stripeEnv), {})).rejects.toThrow(/Connecting stripe is not built yet/);
   });
   it("with an exchanger, reads the code from the vault and stores the tokens", async () => {
     const { db, calls } = fakeDb({ secrets: { "c/oauth.code": "ac_live_code" } });

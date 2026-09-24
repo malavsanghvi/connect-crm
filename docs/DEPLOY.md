@@ -273,3 +273,72 @@ The failed step in Actions says what is missing or what broke:
   The other two repos never pass it, so for them the file behaves as before.
 - `supabase/scripts/migrate.sh`: applies migrations not yet recorded in
   `public.connect_schema_migrations`, and loads `seed.sql` only into an empty database.
+
+## QuickBooks Online (o-quickbooks)
+
+Owner steps (nothing here is in git):
+1. In the Intuit Developer portal create an app with the **Accounting** scope (`com.intuit.quickbooks.accounting`).
+   Add the redirect URI `https://<portal host>/api/oauth/intuit/callback` for every portal address that connects QuickBooks
+   (production keys for real companies; the development keys only reach Intuit sandbox companies).
+2. Portal server env: `INTUIT_CLIENT_ID`, optional `INTUIT_SANDBOX_CLIENT_ID` (development keys), optional
+   `INTUIT_REDIRECT_URI` (else derived from the request host), and `OAUTH_STATE_SECRET` (32+ random characters; signs the
+   OAuth state). Missing ones make Connect say "QuickBooks isn't configured on the Community Connect server yet".
+3. Worker env: `INTUIT_CLIENT_ID`, `INTUIT_CLIENT_SECRET`, optional `INTUIT_SANDBOX_CLIENT_ID` / `INTUIT_SANDBOX_CLIENT_SECRET`.
+   `INTUIT_OAUTH_BASE`, `INTUIT_API_BASE`, `INTUIT_SANDBOX_API_BASE` are for tests only (the local mock `e2e/mocks/intuit.cjs`).
+4. The worker renews every QuickBooks sign-in hourly (`qbo.refresh_token`), pulls the lists daily, and posts as postings queue.
+
+## Messaging: email, texting, WhatsApp, push and branded sign-in (connect-crm, o-messaging)
+
+Community Connect sends for every organization through **its own** provider accounts (O7):
+Resend (default) or Postmark for email, Twilio for texts and WhatsApp, Expo for push. Each
+organization adds its own sending domain in **Settings › Email**, registers texting in
+**Settings › Texting**, and records its WhatsApp number in **Settings › WhatsApp**. A missing
+variable never fakes success: the job or route says "<Provider> isn't configured on the
+Community Connect server yet".
+
+**Owner steps (once, for the platform):**
+
+1. **Resend** (or Postmark): create the account; create an API key with full access (it adds
+   organizations' domains). Add a webhook to `https://<portal>/api/webhooks/resend` for
+   `email.delivered, email.bounced, email.complained, email.opened` and keep its signing
+   secret. Postmark: a server token, an **account** token (domains), and a webhook to
+   `https://<portal>/api/webhooks/postmark` with HTTP Basic credentials whose password is
+   `POSTMARK_WEBHOOK_TOKEN`. Verify Community Connect's own sending domain there and choose
+   its address (`MESSAGING_FROM_ADDRESS`, e.g. `no-reply@mail.communityconnect.app`).
+2. **Twilio**: the account SID and auth token; a number (or messaging service) for Community
+   Connect's own texts (`TWILIO_FROM_NUMBER` / `TWILIO_MESSAGING_SERVICE_SID`); set each
+   number's "A message comes in" webhook to `https://<portal>/api/webhooks/twilio` (POST).
+   Organizations' 10DLC / toll-free registrations are filed in Twilio's console by the
+   Community Connect team, who then records the decision with
+   `app.set_messaging_review_status('texting', <id>, 'approved', <note>, '{"from_number":…,"brand_id":…,"campaign_id":…}')`
+   (platform admin). WhatsApp numbers and templates are submitted to Meta the same way and
+   recorded with `'whatsapp_account'` / `'whatsapp_template'`.
+3. **Expo push**: nothing is required; optionally an access token (`EXPO_ACCESS_TOKEN`) if
+   "enhanced push security" is turned on for the Expo project.
+4. **Supabase Auth hooks** (the sign-in blocker): Supabase › Authentication › Hooks →
+   *Send Email hook* → HTTPS → `https://<portal>/api/auth-hooks/send-email`; *Send SMS hook* →
+   `https://<portal>/api/auth-hooks/send-sms`. Supabase generates each secret
+   (`v1,whsec_…`): copy them into `SEND_EMAIL_HOOK_SECRET` / `SEND_SMS_HOOK_SECRET`.
+   **Deploy the portal with the secrets first, then turn the hooks on** — while a hook is on and
+   the route cannot answer, nobody can sign in. The phone provider set under Auth › Phone is no
+   longer used once the SMS hook is on.
+5. **Links**: `MESSAGING_LINK_SECRET` (any long random string: signs unsubscribe links) and
+   `PORTAL_PUBLIC_URL` (e.g. `https://app.communityconnect.app`, used in links and to check
+   Twilio signatures).
+
+**Where each variable goes** (GitHub › Settings › Secrets and variables › Actions):
+
+| Name | Kind | Used by |
+|---|---|---|
+| `WORKER_DATABASE_URL` | secret | worker; the portal's hook and webhook routes reuse it as `PORTAL_DATABASE_URL` (connect_worker role) |
+| `RESEND_API_KEY` or `POSTMARK_SERVER_TOKEN` (+ `POSTMARK_ACCOUNT_TOKEN`) | secret | worker and portal |
+| `RESEND_WEBHOOK_SECRET` / `POSTMARK_WEBHOOK_TOKEN` | secret | portal |
+| `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN` | secret | worker and portal |
+| `SEND_EMAIL_HOOK_SECRET`, `SEND_SMS_HOOK_SECRET` | secret | portal |
+| `MESSAGING_LINK_SECRET` | secret | worker and portal |
+| `EXPO_ACCESS_TOKEN` | secret (optional) | worker |
+| `MESSAGING_FROM_ADDRESS`, `MESSAGING_FROM_NAME`, `MESSAGING_EMAIL_PROVIDER`, `TWILIO_FROM_NUMBER`, `TWILIO_MESSAGING_SERVICE_SID`, `PORTAL_PUBLIC_URL` | variables | worker and portal |
+
+The portal's values are written to `/srv/connect/crm.secrets.env` (root-only) and appended to
+its env by `deploy/release.sh`. Tests never use these: every provider has a local mock
+(`e2e/mock-providers.cjs`, `*_API_BASE`).

@@ -34,7 +34,8 @@ describe("Setup checklist", () => {
     expect(routeAvailable("/setup/profile#brand")).toBe(true);
     expect(routeAvailable("/giving/bank")).toBe(true);
     expect(routeAvailable("/settings/agreements")).toBe(true); // built by o-security
-    expect(routeAvailable("/settings/payments")).toBe(false);
+    expect(routeAvailable("/settings/payments")).toBe(true); // built by o-payments
+    expect(routeAvailable("/settings/not-a-screen")).toBe(false);
     expect(routeAvailable(null)).toBe(false);
   });
 });

@@ -241,6 +241,11 @@ async function rest(tok, path, o = {}) {
     const months = await staff.getByRole('navigation', { name: 'Month' }).getByRole('link').allInnerTexts().catch(() => []);
     const labels = months.length ? months : await staff.locator('main a').filter({ hasText: /20\d\d$/ }).allInnerTexts();
     let target = null;
+    // Prefer a past month: locking the current month on a shared stack stops every later flow's
+    // payment from posting to QuickBooks (o-quickbooks), so it is the last choice.
+    const nowLabel = new Date().toLocaleString('en-US', { month: 'short', year: 'numeric' }).replace(',', '');
+    const nowLong = new Date().toLocaleString('en-US', { month: 'long', year: 'numeric' }).replace(',', '');
+    labels.sort((a, b) => ([nowLabel, nowLong].includes(a.trim()) ? 1 : 0) - ([nowLabel, nowLong].includes(b.trim()) ? 1 : 0));
     for (const label of labels) {
       const [mon, yr] = label.trim().split(' ');
       const m = String(new Date(`${mon} 1, ${yr}`).getMonth() + 1).padStart(2, '0');
