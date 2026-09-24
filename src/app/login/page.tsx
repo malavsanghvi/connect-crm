@@ -30,7 +30,7 @@ export default async function LoginPage({
           <LoginForm supabaseUrl={check.env.supabaseUrl} supabaseAnonKey={check.env.supabaseAnonKey} next={next} />
         </div>
         <p className="mt-4 text-center text-xs text-muted">
-          Staff sign in with the email on their Connect account. We email a 6-digit code — no password.
+          Staff sign in with the email on their Connect account. We email a sign-in code — no password.
         </p>
       </div>
     </main>
