@@ -2162,6 +2162,42 @@ export type Database = {
         };
         Relationships: [];
       };
+      integration_secrets: {
+        Row: {
+          id: string;
+          center_id: string;
+          connection_id: string;
+          name: string;
+          vault_secret_id: string;
+          fingerprint: string;
+          set_by: string | null;
+          set_at: string;
+          rotated_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          center_id: string;
+          connection_id: string;
+          name: string;
+          vault_secret_id: string;
+          fingerprint: string;
+          set_by?: string | null;
+          set_at?: string;
+          rotated_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          center_id?: string;
+          connection_id?: string;
+          name?: string;
+          vault_secret_id?: string;
+          fingerprint?: string;
+          set_by?: string | null;
+          set_at?: string;
+          rotated_at?: string | null;
+        };
+        Relationships: [];
+      };
       inventory_movements: {
         Row: {
           id: number;
@@ -2192,6 +2228,60 @@ export type Database = {
           order_id?: string | null;
           recorded_by?: string | null;
           recorded_at?: string;
+        };
+        Relationships: [];
+      };
+      jobs: {
+        Row: {
+          id: number;
+          center_id: string | null;
+          kind: string;
+          payload: Json;
+          status: string;
+          run_after: string;
+          attempts: number;
+          max_attempts: number;
+          last_error: string | null;
+          locked_by: string | null;
+          locked_at: string | null;
+          created_by: string | null;
+          created_at: string;
+          finished_at: string | null;
+          result: Json | null;
+        };
+        Insert: {
+          id?: number;
+          center_id?: string | null;
+          kind: string;
+          payload?: Json;
+          status?: string;
+          run_after?: string;
+          attempts?: number;
+          max_attempts?: number;
+          last_error?: string | null;
+          locked_by?: string | null;
+          locked_at?: string | null;
+          created_by?: string | null;
+          created_at?: string;
+          finished_at?: string | null;
+          result?: Json | null;
+        };
+        Update: {
+          id?: number;
+          center_id?: string | null;
+          kind?: string;
+          payload?: Json;
+          status?: string;
+          run_after?: string;
+          attempts?: number;
+          max_attempts?: number;
+          last_error?: string | null;
+          locked_by?: string | null;
+          locked_at?: string | null;
+          created_by?: string | null;
+          created_at?: string;
+          finished_at?: string | null;
+          result?: Json | null;
         };
         Relationships: [];
       };
@@ -4028,6 +4118,27 @@ export type Database = {
         };
         Relationships: [];
       };
+      readiness_checks: {
+        Row: {
+          key: string;
+          title: string;
+          sort: number;
+          check_fn: string;
+        };
+        Insert: {
+          key: string;
+          title: string;
+          sort?: number;
+          check_fn: string;
+        };
+        Update: {
+          key?: string;
+          title?: string;
+          sort?: number;
+          check_fn?: string;
+        };
+        Relationships: [];
+      };
       receipt_templates: {
         Row: {
           id: string;
@@ -4511,6 +4622,42 @@ export type Database = {
           offline_queued?: boolean;
           scanned_at?: string;
           matched_via?: string | null;
+        };
+        Relationships: [];
+      };
+      secret_access_log: {
+        Row: {
+          id: number;
+          center_id: string | null;
+          connection_id: string;
+          name: string;
+          reader: string;
+          purpose: string;
+          job_id: number | null;
+          outcome: string;
+          read_at: string;
+        };
+        Insert: {
+          id?: number;
+          center_id?: string | null;
+          connection_id: string;
+          name: string;
+          reader: string;
+          purpose: string;
+          job_id?: number | null;
+          outcome?: string;
+          read_at?: string;
+        };
+        Update: {
+          id?: number;
+          center_id?: string | null;
+          connection_id?: string;
+          name?: string;
+          reader?: string;
+          purpose?: string;
+          job_id?: number | null;
+          outcome?: string;
+          read_at?: string;
         };
         Relationships: [];
       };
@@ -5411,6 +5558,33 @@ export type Database = {
         };
         Relationships: [];
       };
+      worker_heartbeats: {
+        Row: {
+          worker: string;
+          started_at: string;
+          beat_at: string;
+          version: string | null;
+          kinds: string[];
+          info: Json;
+        };
+        Insert: {
+          worker: string;
+          started_at: string;
+          beat_at?: string;
+          version?: string | null;
+          kinds?: string[];
+          info?: Json;
+        };
+        Update: {
+          worker?: string;
+          started_at?: string;
+          beat_at?: string;
+          version?: string | null;
+          kinds?: string[];
+          info?: Json;
+        };
+        Relationships: [];
+      };
       zones: {
         Row: {
           id: string;
@@ -5479,6 +5653,12 @@ export type Database = {
         };
         Returns: boolean;
       };
+      assert_step_up: {
+        Args: {
+          p_action: string;
+        };
+        Returns: undefined;
+      };
       audit_clean_app: {
         Args: {
           p: string;
@@ -5494,6 +5674,12 @@ export type Database = {
       audit_mask: {
         Args: {
           j: Json;
+        };
+        Returns: Json;
+      };
+      background_service_status: {
+        Args: {
+          p_center: string;
         };
         Returns: Json;
       };
@@ -5516,10 +5702,30 @@ export type Database = {
         };
         Returns: boolean;
       };
+      can_manage_integration_secrets: {
+        Args: {
+          p_center: string;
+        };
+        Returns: boolean;
+      };
+      can_read_object: {
+        Args: {
+          bucket: string;
+          name: string;
+        };
+        Returns: boolean;
+      };
       can_see_event_ops: {
         Args: {
           p_center: string;
           p_event: string;
+        };
+        Returns: boolean;
+      };
+      can_write_object: {
+        Args: {
+          bucket: string;
+          name: string;
         };
         Returns: boolean;
       };
@@ -5558,6 +5764,12 @@ export type Database = {
           p_reason: string;
         };
         Returns: string;
+      };
+      check_background_service: {
+        Args: {
+          p_center: string;
+        };
+        Returns: Json;
       };
       check_in: {
         Args: {
@@ -5649,6 +5861,12 @@ export type Database = {
         };
         Returns: { person_id: string; name: string; household_id: string; household_label: string; zone: string; profession: string; directory_opt_in: boolean; expertise_opt_in: boolean; expertise_tags: string[]; expertise_headline: string; new_member_contact_opt_in: boolean; is_verified: boolean }[];
       };
+      enqueue_worker_test: {
+        Args: {
+          p_center: string;
+        };
+        Returns: number;
+      };
       ensure_lunch_slots: {
         Args: {
           p_event: string;
@@ -5697,6 +5915,12 @@ export type Database = {
         };
         Returns: boolean;
       };
+      has_recent_step_up: {
+        Args: {
+          p_minutes?: number;
+        };
+        Returns: boolean;
+      };
       has_role: {
         Args: {
           p_center: string;
@@ -5734,6 +5958,16 @@ export type Database = {
           p_center: string;
           p_audience: Json;
           p_event: string;
+        };
+        Returns: boolean;
+      };
+      is_aal2: {
+        Args: Record<PropertyKey, never>;
+        Returns: boolean;
+      };
+      is_center_owner: {
+        Args: {
+          p_center: string;
         };
         Returns: boolean;
       };
@@ -5968,6 +6202,14 @@ export type Database = {
         };
         Returns: { kind: string; system: string; value: string; person_id: string; household_id: string; display_name: string; household_name: string; household_number: string; org_household_id: string; members: string }[];
       };
+      revoke_integration_secret: {
+        Args: {
+          p_connection: string;
+          p_name: string;
+          p_reason: string;
+        };
+        Returns: undefined;
+      };
       saathi_feed: {
         Args: {
           p_household: string;
@@ -6010,6 +6252,15 @@ export type Database = {
         };
         Returns: undefined;
       };
+      set_integration_secret: {
+        Args: {
+          p_connection: string;
+          p_name: string;
+          p_value: string;
+          p_reason: string;
+        };
+        Returns: Json;
+      };
       set_module_enabled: {
         Args: {
           p_center: string;
@@ -6046,6 +6297,50 @@ export type Database = {
         };
         Returns: { person_id: string; name: string; household_id: string; household_name: string }[];
       };
+      storage_bucket_module: {
+        Args: {
+          p_bucket: string;
+        };
+        Returns: string;
+      };
+      storage_center: {
+        Args: {
+          name: string;
+        };
+        Returns: string;
+      };
+      storage_module_on: {
+        Args: {
+          p_bucket: string;
+          p_center: string;
+        };
+        Returns: boolean;
+      };
+      storage_retention_days: {
+        Args: {
+          p_bucket: string;
+          p_center: string;
+        };
+        Returns: number;
+      };
+      storage_scan_buckets: {
+        Args: Record<PropertyKey, never>;
+        Returns: string[];
+      };
+      storage_segment: {
+        Args: {
+          p_name: string;
+          p_n: number;
+        };
+        Returns: string;
+      };
+      storage_segment_uuid: {
+        Args: {
+          p_name: string;
+          p_n: number;
+        };
+        Returns: string;
+      };
       submit_membership_application: {
         Args: {
           p_center: string;
@@ -6077,6 +6372,13 @@ export type Database = {
         };
         Returns: { payment_id: string; household_name: string; receipt_number: string; method: Database["app"]["Enums"]["payment_method"]; amount_cents: number; received_on: string; check_number: string; envelope_number: string; exact_total: boolean }[];
       };
+      teaches_person: {
+        Args: {
+          p_center: string;
+          p_person: string;
+        };
+        Returns: boolean;
+      };
       tier_rank: {
         Args: {
           p_tier: Database["app"]["Enums"]["membership_tier"];
@@ -6099,6 +6401,10 @@ export type Database = {
         Args: {
           p: string;
         };
+        Returns: string;
+      };
+      worker_stale_after: {
+        Args: Record<PropertyKey, never>;
         Returns: string;
       };
     };
