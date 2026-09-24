@@ -422,6 +422,7 @@ export const NAV: NavModule[] = [
     label: "Accounting",
     tabs: [
       { href: "/accounting/qbo", label: "QuickBooks sync", access: "qbo" },
+      { href: "/accounting/qbo/setup", label: "QuickBooks setup", access: "qbo" },
       { href: "/accounting/qbo/matching", label: "Donor matching", access: "qboMatch" },
       { href: "/accounting/close", label: "Month-end close", access: "close" },
     ],

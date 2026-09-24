@@ -273,3 +273,16 @@ The failed step in Actions says what is missing or what broke:
   The other two repos never pass it, so for them the file behaves as before.
 - `supabase/scripts/migrate.sh`: applies migrations not yet recorded in
   `public.connect_schema_migrations`, and loads `seed.sql` only into an empty database.
+
+## QuickBooks Online (o-quickbooks)
+
+Owner steps (nothing here is in git):
+1. In the Intuit Developer portal create an app with the **Accounting** scope (`com.intuit.quickbooks.accounting`).
+   Add the redirect URI `https://<portal host>/api/oauth/intuit/callback` for every portal address that connects QuickBooks
+   (production keys for real companies; the development keys only reach Intuit sandbox companies).
+2. Portal server env: `INTUIT_CLIENT_ID`, optional `INTUIT_SANDBOX_CLIENT_ID` (development keys), optional
+   `INTUIT_REDIRECT_URI` (else derived from the request host), and `OAUTH_STATE_SECRET` (32+ random characters; signs the
+   OAuth state). Missing ones make Connect say "QuickBooks isn't configured on the Community Connect server yet".
+3. Worker env: `INTUIT_CLIENT_ID`, `INTUIT_CLIENT_SECRET`, optional `INTUIT_SANDBOX_CLIENT_ID` / `INTUIT_SANDBOX_CLIENT_SECRET`.
+   `INTUIT_OAUTH_BASE`, `INTUIT_API_BASE`, `INTUIT_SANDBOX_API_BASE` are for tests only (the local mock `e2e/mocks/intuit.cjs`).
+4. The worker renews every QuickBooks sign-in hourly (`qbo.refresh_token`), pulls the lists daily, and posts as postings queue.

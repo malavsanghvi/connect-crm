@@ -15,7 +15,8 @@ describe("registry", () => {
   it("has demo.ping, oauth.exchange and storage.retention, and no invented storage.scan", () => {
     expect([...createRegistry(HANDLERS).keys()].sort()).toEqual([
       "demo.ping", "import.suggest_mapping", "oauth.exchange", "platform.promote", "platform.sandbox_expiry",
-      "qbo.bring_in_history", "qbo.match_suggest_ai", "qbo.pull_customers_history", "storage.retention",
+      "qbo.bring_in_history", "qbo.match_suggest_ai", "qbo.post", "qbo.pull_customers_history", "qbo.pull_lists",
+      "qbo.refresh_token", "qbo.test_post", "storage.retention",
     ]);
   });
   it("refuses duplicate or malformed kinds", () => {

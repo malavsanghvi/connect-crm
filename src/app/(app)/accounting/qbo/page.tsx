@@ -17,6 +17,7 @@ import {
   StatusText,
   TableWrap,
   Tabs,
+  buttonClass,
   shortId,
 } from "@/components/ui";
 import { householdsById, userNames } from "@/lib/data/lookups";
@@ -29,7 +30,7 @@ import { canAccess } from "@/lib/permissions";
 import { hrefWith, pageParam, param, type RawSearchParams } from "@/lib/search-params";
 import { getSession } from "@/lib/session";
 
-import { approveMappingAction, retryAllFailedAction, retryPostingAction, saveMappingAction } from "./actions";
+import { retryAllFailedAction, retryPostingAction } from "./actions";
 
 export const metadata: Metadata = { title: "QuickBooks sync" };
 
@@ -66,8 +67,10 @@ export default async function QboPage({ searchParams }: { searchParams: Promise<
         .from("integration_connections")
         .select("status, display_name, external_account_id, settings, token_expires_at, connected_at, last_error, updated_at")
         .eq("center_id", center.id)
-        .eq("provider", "quickbooks_online")
-        .maybeSingle()
+        .in("provider", ["quickbooks_online", "intuit_sandbox"])
+        .order("connected_at", { ascending: false, nullsFirst: false })
+        .limit(2)
+        .then((r) => ({ ...r, data: (r.data ?? []).find((c) => c.status !== "disconnected") ?? r.data?.[0] ?? null }))
     : null;
 
   const [mappings, counts, postings] = canSeeLedger
@@ -242,8 +245,11 @@ export default async function QboPage({ searchParams }: { searchParams: Promise<
             <QueryError what="the QuickBooks connection" error={connection.error} retryHref={retry} />
           ) : !conn ? (
             <Alert tone="warning" title="Not connected">
-              QuickBooks has not been connected for this center. A center admin connects it (OAuth) from the integrations setup; nothing
-              posts until then — postings wait in the queue.
+              QuickBooks has not been connected for this community. The treasurer connects it in{" "}
+              <Link href="/accounting/qbo/setup" className="crm-link">
+                QuickBooks setup
+              </Link>
+              ; nothing posts until then — postings wait in the queue.
             </Alert>
           ) : (
             <>
@@ -296,6 +302,11 @@ export default async function QboPage({ searchParams }: { searchParams: Promise<
           <Card
             title="Account mapping"
             description="Which QuickBooks account each kind of money posts to. The treasurer approves every mapping; a changed mapping needs approval again."
+            actions={
+              <Link href="/accounting/qbo/setup" className={buttonClass(canManage ? "primary" : "ghost", "sm")}>
+                {canManage ? "Map and approve in QuickBooks setup" : "QuickBooks setup"}
+              </Link>
+            }
             padded={false}
             className="mb-6"
           >
@@ -312,7 +323,6 @@ export default async function QboPage({ searchParams }: { searchParams: Promise<
                       <th>QuickBooks account</th>
                       <th>Class</th>
                       <th>Approval</th>
-                      {canManage ? <th>Change</th> : null}
                     </tr>
                   </thead>
                   <tbody>
@@ -345,37 +355,11 @@ export default async function QboPage({ searchParams }: { searchParams: Promise<
                                 </span>
                               </span>
                             ) : m ? (
-                              canManage ? (
-                                <ActionForm action={approveMappingAction} submitLabel="Approve" pendingLabel="Approving…" variant="success" size="sm">
-                                  <input type="hidden" name="id" value={m.id} />
-                                </ActionForm>
-                              ) : (
-                                <Badge tone="warning">Awaiting approval</Badge>
-                              )
+                              <Badge tone="warning">Awaiting approval</Badge>
                             ) : (
                               "—"
                             )}
                           </td>
-                          {canManage ? (
-                            <td>
-                              <details>
-                                <summary className="inline-flex min-h-9 cursor-pointer items-center text-[0.8125rem] font-semibold text-navy">
-                                  {m ? "Change…" : "Map…"}
-                                </summary>
-                                <ActionForm action={saveMappingAction} submitLabel="Save mapping" pendingLabel="Saving…" size="sm" className="mt-2 w-64">
-                                  <input type="hidden" name="purpose" value={p.purpose} />
-                                  <label htmlFor={`qa-${p.purpose}`} className="crm-label">
-                                    QuickBooks account id
-                                  </label>
-                                  <input id={`qa-${p.purpose}`} name="qbo_account_id" defaultValue={m?.qbo_account_id ?? ""} required className="crm-input mb-2" />
-                                  <label htmlFor={`qn-${p.purpose}`} className="crm-label">
-                                    Account name
-                                  </label>
-                                  <input id={`qn-${p.purpose}`} name="qbo_account_name" defaultValue={m?.qbo_account_name ?? ""} className="crm-input mb-2" />
-                                </ActionForm>
-                              </details>
-                            </td>
-                          ) : null}
                         </tr>
                       );
                     })}
