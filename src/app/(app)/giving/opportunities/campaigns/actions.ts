@@ -44,6 +44,7 @@ export async function createCampaignAction(_prev: ActionResult | null, formData:
   });
   if (error) return failure("Could not create the campaign", error);
   revalidatePath("/giving/opportunities/campaigns");
+  revalidatePath("/giving/opportunities");
   return { ok: true, message: `Created "${name}" as a draft. Publish it when it is ready for members.` };
 }
 
@@ -71,5 +72,6 @@ export async function setCampaignStatusAction(_prev: ActionResult | null, formDa
   if (error) return failure(`Could not ${t.label} the campaign`, error);
   if (!data || data.length === 0) return { ok: false, error: `Could not ${t.label} the campaign — its status changed meanwhile. Reload and try again.` };
   revalidatePath("/giving/opportunities/campaigns");
+  revalidatePath("/giving/opportunities");
   return { ok: true, message: `"${data[0].name}" is now ${next}.` };
 }

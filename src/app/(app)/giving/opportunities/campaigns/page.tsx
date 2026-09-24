@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 import { ActionForm } from "@/components/action-form";
-import { Badge, Card, EmptyState, NoAccess, PageHeader, QueryError, TableWrap } from "@/components/ui";
+import { Badge, Card, ChipLinks, EmptyState, NoAccess, PageHeader, QueryError, TableWrap } from "@/components/ui";
 import { fetchAll } from "@/lib/data/fetch-all";
 import { formatDate } from "@/lib/dates";
 import { formatCents } from "@/lib/money";
@@ -17,7 +17,17 @@ const STATUS_TONE = { draft: "neutral", published: "success", closed: "navy", ar
 export default async function CampaignsPage() {
   const session = await getSession();
   const header = (
-    <PageHeader title="Campaigns" description="Giving campaigns and their progress. Drafts are visible to staff only; published campaigns appear in the member app." />
+    <>
+      <PageHeader title="Giving" description="Campaigns group opportunities and carry the goal. Drafts are visible to staff only; published campaigns appear in the member app." />
+      <ChipLinks
+        label="Opportunities views"
+        active="campaigns"
+        items={[
+          { key: "opportunities", label: "Opportunities", href: "/giving/opportunities" },
+          { key: "campaigns", label: "Campaigns", href: "/giving/opportunities/campaigns" },
+        ]}
+      />
+    </>
   );
   if (!canAccess(session, "campaigns")) {
     return (
