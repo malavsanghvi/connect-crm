@@ -94,7 +94,7 @@ export default async function EventPage({ params, searchParams }: { params: Prom
         title={event.name}
         description={
           <span className="flex flex-wrap items-center gap-x-2">
-            <span className="font-mono text-xs">{eventRef(event.id)}</span>
+            <span className="font-mono text-xs">{eventRef(event)}</span>
             <span className={STATUS_TEXT_CLASS[st.tone]}>{st.label}</span>
             <span>· {event.starts_at ? formatDateTime(event.starts_at, tz) : "No date yet"}</span>
             {event.venue ? <span>· {event.venue}</span> : null}

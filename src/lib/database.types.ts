@@ -1508,6 +1508,7 @@ export type Database = {
           created_by: string | null;
           created_at: string;
           updated_at: string;
+          event_number: string;
         };
         Insert: {
           id?: string;
@@ -1544,6 +1545,7 @@ export type Database = {
           created_by?: string | null;
           created_at?: string;
           updated_at?: string;
+          event_number?: string;
         };
         Update: {
           id?: string;
@@ -1580,6 +1582,7 @@ export type Database = {
           created_by?: string | null;
           created_at?: string;
           updated_at?: string;
+          event_number?: string;
         };
         Relationships: [];
       };
