@@ -280,3 +280,29 @@ export function goalLearnerStats(
   }
   return out;
 }
+
+export type QuizQuestion = { question: string; options: string[]; answer: number };
+
+/**
+ * One multiple-choice question from the step form (gyan_steps.quiz jsonb:
+ * {questions:[{question, options, answer}]}, answer = index of the right option,
+ * the shape the member app reads). Options: one per line; answer: 1-based.
+ */
+export function quizFromFields(
+  question: string | null,
+  optionsText: string | null,
+  answerText: string | null,
+): { ok: true; quiz: { questions: QuizQuestion[] } | null } | { ok: false; error: string } {
+  const q = (question ?? "").trim();
+  const options = (optionsText ?? "")
+    .split(/\r?\n/)
+    .map((o) => o.trim())
+    .filter(Boolean);
+  if (!q && options.length === 0) return { ok: true, quiz: null };
+  if (!q) return { ok: false, error: "write the quiz question" };
+  if (options.length < 2) return { ok: false, error: "give at least two answers, one per line" };
+  if (options.length > 6) return { ok: false, error: "use at most six answers" };
+  const n = Number((answerText ?? "").trim());
+  if (!Number.isInteger(n) || n < 1 || n > options.length) return { ok: false, error: `say which answer is right (1 to ${options.length})` };
+  return { ok: true, quiz: { questions: [{ question: q, options, answer: n - 1 }] } };
+}
