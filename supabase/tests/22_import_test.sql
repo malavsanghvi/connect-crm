@@ -47,6 +47,16 @@ select pg_temp.assert_raises($$select app.import_create_run('00000000-0000-4000-
 select pg_temp.assert_raises($$select app.data_quality('00000000-0000-4000-8000-000000000001')$$, 'people.view', 'a member cannot see the data-quality view');
 commit;
 
+-- A switched-off module's data cannot be imported.
+begin;
+set local role authenticated;
+set local request.jwt.claims = '{"sub":"10000000-0000-4000-8000-000000000011","role":"authenticated"}';
+select app.set_module_enabled(:jsh, 'calendar', false, 'import test');
+select pg_temp.assert_raises($$select app.import_create_run('00000000-0000-4000-8000-000000000001', 'calendar_layers', 'csv', 'layers.csv')$$,
+  'switched off', 'a switched-off module refuses its import');
+select app.set_module_enabled(:jsh, 'calendar', true, 'import test done');
+commit;
+
 -- ── Households, then people (Tara) ──────────────────────────────────────────
 begin;
 set local role authenticated;
