@@ -5658,6 +5658,14 @@ export type Database = {
         };
         Returns: { checked_in_at: string; household_label: string; lunch_slot_label: string }[];
       };
+      find_membership_reference: {
+        Args: {
+          p_center: string;
+          p_type: string;
+          p_contact: string;
+        };
+        Returns: { person_id: string; name: string; household_label: string; eligible: boolean; problem: string }[];
+      };
       find_my_family: {
         Args: {
           p_center: string;
@@ -5816,6 +5824,12 @@ export type Database = {
           p_center: string;
         };
         Returns: string[];
+      };
+      my_membership_application: {
+        Args: {
+          p_center: string;
+        };
+        Returns: { application_id: string; type_name: string; tier: Database["app"]["Enums"]["membership_tier"]; status: Database["app"]["Enums"]["application_status"]; reference_name: string; reference_decision: string; fee_cents: number; created_at: string; reference_expires_at: string; center_reason: string }[];
       };
       my_modules: {
         Args: {
@@ -6022,6 +6036,15 @@ export type Database = {
         };
         Returns: { person_id: string; name: string; household_id: string; household_name: string }[];
       };
+      submit_membership_application: {
+        Args: {
+          p_center: string;
+          p_type: string;
+          p_reference: string;
+          p_note: string;
+        };
+        Returns: string;
+      };
       submit_rsvp: {
         Args: {
           p_event: string;
@@ -6043,6 +6066,12 @@ export type Database = {
           p_txn: string;
         };
         Returns: { payment_id: string; household_name: string; receipt_number: string; method: Database["app"]["Enums"]["payment_method"]; amount_cents: number; received_on: string; check_number: string; envelope_number: string; exact_total: boolean }[];
+      };
+      tier_rank: {
+        Args: {
+          p_tier: Database["app"]["Enums"]["membership_tier"];
+        };
+        Returns: number;
       };
       uid: {
         Args: Record<PropertyKey, never>;
