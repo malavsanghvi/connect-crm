@@ -38,7 +38,7 @@ export async function ApprovalsQueue({ session }: { session: CrmSession }) {
     seesGiving
       ? db
           .from("payments")
-          .select("id, receipt_number, household_id, amount_cents, refunded_cents, provider, status, refund_approved_by, refund_second_approver, received_on")
+          .select("id, receipt_number, household_id, amount_cents, refunded_cents, provider, status, refund_approved_by, refund_second_approver, received_on, refund_reason, refund_requested_cents")
           .eq("center_id", center.id)
           .not("refund_approved_by", "is", null)
           .eq("refunded_cents", 0)
@@ -150,6 +150,9 @@ export async function ApprovalsQueue({ session }: { session: CrmSession }) {
                         me={session.userId}
                         canManage={canManage}
                         canApprove={canApproveGiving}
+                        requestedCents={x.refund_requested_cents}
+                        reason={x.refund_reason}
+                        currency={center.currency}
                       />
                     </td>
                   </tr>

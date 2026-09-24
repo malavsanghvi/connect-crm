@@ -7,6 +7,7 @@ import {
   requestWriteOffAction,
 } from "@/app/(app)/approvals/actions";
 import { ActionForm } from "@/components/action-form";
+import { formatCents } from "@/lib/money";
 
 // Per-row controls for the two-person rule. What shows depends on where the
 // request is and who is looking; the database enforces it either way.
@@ -97,10 +98,18 @@ export function RefundControls({
   me,
   canManage,
   canApprove,
+  refundableCents,
+  requestedCents,
+  reason,
+  currency = "USD",
 }: {
   paymentId: string;
   provider: string | null;
   refundable: boolean;
+  refundableCents?: number;
+  requestedCents?: number | null;
+  reason?: string | null;
+  currency?: string;
   requestedBy: string | null;
   secondApprover: string | null;
   requesterName: string | null;
@@ -112,22 +121,34 @@ export function RefundControls({
   if (!requestedBy) {
     if (!canManage) return null;
     return (
-      <ActionForm
-        action={requestRefundAction}
-        submitLabel="Request refund"
-        pendingLabel="Requesting…"
-        variant="ghost"
-        size="sm"
-        confirmMessage="Request a refund of this payment? A second person must approve it."
-      >
-        <input type="hidden" name="id" value={paymentId} />
-      </ActionForm>
+      <details>
+        <summary className="inline-flex min-h-9 cursor-pointer items-center text-[0.8125rem] font-semibold text-navy">Request refund…</summary>
+        <ActionForm action={requestRefundAction} submitLabel="Request refund" pendingLabel="Requesting…" variant="ghost" size="sm" className="mt-2 w-64">
+          <input type="hidden" name="id" value={paymentId} />
+          <label htmlFor={`rfa-${paymentId}`} className="crm-label">
+            Amount to refund ($)
+          </label>
+          <input
+            id={`rfa-${paymentId}`}
+            name="amount"
+            inputMode="decimal"
+            defaultValue={refundableCents !== undefined ? (refundableCents / 100).toFixed(2) : ""}
+            className="crm-input mb-2"
+          />
+          <label htmlFor={`rfr-${paymentId}`} className="crm-label">
+            Reason (the second approver reads this)
+          </label>
+          <textarea id={`rfr-${paymentId}`} name="reason" required maxLength={1000} className="crm-input mb-2 min-h-16" />
+        </ActionForm>
+      </details>
     );
   }
   return (
     <div className="w-56 space-y-1.5 text-[0.8125rem]">
       <p>
-        <span className="font-semibold">Refund requested</span> by {requestedBy === me ? "you" : (requesterName ?? "a colleague")}
+        <span className="font-semibold">Refund{requestedCents ? ` of ${formatCents(requestedCents, currency)}` : ""} requested</span> by{" "}
+        {requestedBy === me ? "you" : (requesterName ?? "a colleague")}
+        {reason ? <span className="block text-muted">“{reason}”</span> : null}
       </p>
       {!secondApprover ? (
         requestedBy !== me && canApprove ? (
@@ -145,7 +166,14 @@ export function RefundControls({
             <label htmlFor={`rf-${paymentId}`} className="crm-label">
               Amount refunded ($)
             </label>
-            <input id={`rf-${paymentId}`} name="amount" inputMode="decimal" required className="crm-input mb-2" />
+            <input
+              id={`rf-${paymentId}`}
+              name="amount"
+              inputMode="decimal"
+              required
+              defaultValue={requestedCents ? (requestedCents / 100).toFixed(2) : ""}
+              className="crm-input mb-2"
+            />
           </ActionForm>
         ) : (
           <p className="text-muted">Approved — a treasurer records the refund.</p>

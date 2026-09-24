@@ -11,6 +11,7 @@ import { authorizeAction } from "@/lib/session";
 
 function refresh() {
   revalidatePath("/giving/payments/bank");
+  revalidatePath("/giving/payments");
   revalidatePath("/");
 }
 

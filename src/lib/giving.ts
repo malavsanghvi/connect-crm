@@ -501,3 +501,49 @@ export function barPercent(value: number, max: number): number {
   if (!(max > 0) || !(value > 0)) return 0;
   return Math.max(1, Math.min(100, Math.round((value * 100) / max)));
 }
+
+// ---------------------------------------------------------------------------
+// Allocation preview copy (prototype green panel, L587)
+// ---------------------------------------------------------------------------
+
+export type PreviewText = { text: string; tone: "ok" | "warn" | "muted" };
+
+/**
+ * Lines for the green Allocation preview. The money rule is unchanged: what
+ * is not applied to a pledge stays UNAPPLIED on the payment (a general gift).
+ * The prototype calls it "recorded as a donation"; that difference is an
+ * owner decision, so the copy says what the system actually does.
+ */
+export function allocationPreviewText(input: {
+  lines: { pledge_id: string; amount_cents: number; closes: boolean }[];
+  unallocatedCents: number;
+  pledges: { id: string; campaign: string | null; source: string; pledged_at: string }[];
+  mode: "auto" | "choose" | "none";
+  hasOpenPledges: boolean;
+  currency: string;
+  timeZone: string;
+}): PreviewText[] {
+  const { currency, timeZone } = input;
+  if (input.mode === "none") return [{ text: "Not applied to any pledge — recorded as an unapplied general gift", tone: "muted" }];
+  if (!input.hasOpenPledges) return [{ text: "No open pledges; the full amount stays unapplied as a general gift", tone: "muted" }];
+  const byId = new Map(input.pledges.map((p) => [p.id, p]));
+  const out: PreviewText[] = input.lines.map((l) => {
+    const p = byId.get(l.pledge_id);
+    const name = p ? (p.campaign ?? p.source.replace(/_/g, " ")) : "Pledge";
+    const when = p ? monthYear(p.pledged_at, timeZone) : "";
+    return {
+      text: `${name}${when ? ` · ${when}` : ""} → ${formatCents(l.amount_cents, currency)}${l.closes ? " · closes" : " · stays open (partial)"}`,
+      tone: "ok",
+    };
+  });
+  if (input.unallocatedCents > 0 && out.length > 0) {
+    out.push({ text: `Remaining ${formatCents(input.unallocatedCents, currency)} stays unapplied as a general gift`, tone: "warn" });
+  }
+  return out;
+}
+
+/** The prototype's success toast, honest about the QuickBooks queue. */
+export function paymentRecordedToast(appliedCount: number, qboQueued: boolean | null): string {
+  const qbo = qboQueued === true ? "QuickBooks sales receipt queued" : qboQueued === false ? "not yet in the QuickBooks queue" : "queued for QuickBooks automatically";
+  return `Payment recorded · ${appliedCount} pledge${appliedCount === 1 ? "" : "s"} updated · ${qbo}`;
+}
