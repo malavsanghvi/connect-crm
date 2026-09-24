@@ -11,9 +11,20 @@ export const PATHNAME_HEADER = "x-pathname";
 export const REASON_MAX = 500;
 export const SCREEN_MAX = 200;
 
-/** A fresh uuid (Web Crypto — available in Node 20+, the edge and browsers). */
+/**
+ * A fresh uuid (Web Crypto — available in Node 20+, the edge and browsers).
+ * Browsers only offer randomUUID() on secure origins (https, localhost); on a
+ * plain-http address (a bare droplet IP, a new <slug>.<domain> before its
+ * certificate) it is built from getRandomValues(), which works everywhere.
+ */
 export function newRequestId(): string {
-  return globalThis.crypto.randomUUID();
+  const c = globalThis.crypto;
+  if (typeof c.randomUUID === "function") return c.randomUUID();
+  const b = c.getRandomValues(new Uint8Array(16));
+  b[6] = (b[6] & 0x0f) | 0x40;
+  b[8] = (b[8] & 0x3f) | 0x80;
+  const h = Array.from(b, (x) => x.toString(16).padStart(2, "0")).join("");
+  return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20)}`;
 }
 
 /** The reason as the database expects it: trimmed, at most 500 characters, then URL-encoded (header-safe). */

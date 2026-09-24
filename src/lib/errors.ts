@@ -49,6 +49,8 @@ export function explainError(error: unknown): string {
     return "you don't have permission to make this change";
   }
   if (code === "23505") return "a record with the same key already exists";
+  // A sandbox or plan limit (app.assert_entitlement): the message is already plain English.
+  if (code === "CCENT") return msg || "this is beyond your community's limits";
   if (code === "23503") {
     return "it refers to a record that does not exist, or other records still depend on it";
   }

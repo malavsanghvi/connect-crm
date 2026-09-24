@@ -99,13 +99,13 @@ describe("visibleNav (flat module list)", () => {
   it("shows settings to a center admin and opens on the first tab they can use", () => {
     const nav = visibleNav({ permissions: ["roles.manage", "settings.manage"], isPlatformAdmin: false });
     const settings = nav.find((m) => m.key === "settings")!;
-    expect(settings.tabs.map((t) => t.label)).toEqual(["Rules", "Roles & entitlements", "Onboarding fields", "Notifications", "Security", "Modules", "Team", "Agreements"]);
+    expect(settings.tabs.map((t) => t.label)).toEqual(["Rules", "Roles & entitlements", "Onboarding fields", "Notifications", "Security", "Modules", "Team", "Agreements", "Member app", "Limits"]);
     expect(nav.some((m) => m.key === "platform")).toBe(false);
     expect(nav.some((m) => m.key === "people")).toBe(false);
     const rolesOnly = visibleNav({ permissions: ["roles.manage"], isPlatformAdmin: false }).find((m) => m.key === "settings")!;
     expect(rolesOnly.href).toBe("/settings/roles");
   });
-  it("lists the eight Settings tabs in the prototype's order (then Modules, Team, Agreements) for a platform admin, then Platform", () => {
+  it("lists the eight Settings tabs in the prototype's order (then Modules, Team, Agreements, Member app, Limits) for a platform admin, then Platform", () => {
     const nav = visibleNav({ permissions: [], isPlatformAdmin: true });
     expect(nav.find((m) => m.key === "settings")!.tabs.map((t) => t.label)).toEqual([
       "Rules",
@@ -119,6 +119,8 @@ describe("visibleNav (flat module list)", () => {
       "Modules",
       "Team",
       "Agreements",
+      "Member app",
+      "Limits",
     ]);
     expect(nav.find((m) => m.key === "platform")!.tabs.map((t) => t.label)).toEqual(["Centers", "New center wizard"]);
   });

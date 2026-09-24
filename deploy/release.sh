@@ -5,6 +5,10 @@
 #     app   crm | admin | mobile
 #     port  local port of the Node server (ignored for static)
 #     site  Caddy site address: a domain (crm.example.org -> HTTPS) or :80 / :8081 / :8082
+# Optional env SITE_WILDCARD_DOMAIN (node apps; the portal): also serve
+# <slug>.<that domain> and organizations' own domains over HTTPS (on-demand
+# certificates, allowed only for real communities by /api/tenancy/tls-ask),
+# and pass it to the app as PORTAL_BASE_DOMAIN. Unset: nothing changes.
 set -euo pipefail
 app=$1 sha=$2 kind=$3 port=$4 site=$5
 base=/srv/connect/$app
@@ -24,6 +28,32 @@ $site {
 	reverse_proxy 127.0.0.1:$port
 }
 SITE
+  wild=${SITE_WILDCARD_DOMAIN:-}
+  if [ -n "$wild" ]; then
+    printf 'PORTAL_BASE_DOMAIN=%s\n' "$wild" >> "/srv/connect/$app.env"
+    # Global options must come first: "00-" sorts before every site file.
+    cat > "/etc/caddy/sites/00-on-demand-$app.caddy" <<SITE
+{
+	on_demand_tls {
+		ask http://127.0.0.1:$port/api/tenancy/tls-ask
+	}
+}
+SITE
+    # Any HTTPS name, but a certificate is issued only when tls-ask says yes
+    # (<slug>.$wild or a registered own domain). No "*.$wild" address: that
+    # would ask for a wildcard certificate, which needs DNS-provider credentials.
+    cat > "/etc/caddy/sites/$app-wildcard.caddy" <<SITE
+https:// {
+	tls {
+		on_demand
+	}
+	encode zstd gzip
+	reverse_proxy 127.0.0.1:$port
+}
+SITE
+  else
+    rm -f "/etc/caddy/sites/00-on-demand-$app.caddy" "/etc/caddy/sites/$app-wildcard.caddy"
+  fi
   systemctl enable "connect@$app" >/dev/null 2>&1
   systemctl restart "connect@$app"
   for i in $(seq 1 30); do

@@ -7,6 +7,7 @@ import { cookies, headers } from "next/headers";
 import type { Database } from "@/lib/database.types";
 import { readPublicEnv } from "@/lib/env";
 import { PATHNAME_HEADER, newRequestId, traceHeaders } from "@/lib/supabase/trace";
+import { normalizeBaseDomain, sharedCookieDomain } from "@/lib/tenancy";
 
 export type AppSupabase = SupabaseClient<Database, "app">;
 
@@ -35,8 +36,11 @@ export async function createSupabaseServerClient(opts: ServerClientOptions = {})
   }
   const cookieStore = await cookies();
   let screen: string | null = null;
+  let host: string | null = null;
   try {
-    screen = (await headers()).get(PATHNAME_HEADER);
+    const h = await headers();
+    screen = h.get(PATHNAME_HEADER);
+    host = h.get("host");
   } catch (error) {
     // Outside a request scope there is no screen to report; the audit row just has none.
     console.error("[supabase] could not read the request pathname for x-client-screen:", error);
@@ -44,6 +48,8 @@ export async function createSupabaseServerClient(opts: ServerClientOptions = {})
   return createServerClient<Database, "app">(check.env.supabaseUrl, check.env.supabaseAnonKey, {
     db: { schema: "app" },
     global: { headers: traceHeaders({ requestId: opts.requestId ?? newRequestId(), screen, reason: opts.reason }) },
+    // One sign-in for every <slug>.<PORTAL_BASE_DOMAIN> portal (the organization switcher); host-only elsewhere.
+    cookieOptions: { domain: sharedCookieDomain(host, normalizeBaseDomain(process.env.PORTAL_BASE_DOMAIN)) },
     cookies: {
       getAll() {
         return cookieStore.getAll();

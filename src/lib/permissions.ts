@@ -431,6 +431,9 @@ export const NAV: NavModule[] = [
       // Not in the prototype (onboarding, o-security): staff invitations, 2FA and the owner; the organization's agreements.
       { href: "/settings/team", label: "Team", access: "roles" },
       { href: "/settings/agreements", label: "Agreements", access: "centerSettings" },
+      // Onboarding (o-tenancy): the member-app join code, and the sandbox / plan limits.
+      { href: "/settings/member-app", label: "Member app", access: "centerSettings" },
+      { href: "/settings/limits", label: "Limits", access: "centerSettings" },
     ],
     paths: ["/settings", "/privacy", "/audit", "/approvals"],
   },

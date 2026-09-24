@@ -44,7 +44,7 @@ export default async function PublicDashboardPage({ params }: { params: Params }
   const c = anonClient();
   if (!c) return <Problem title="This dashboard is not available" body="The site is not configured yet." />;
   if (!/^[a-z0-9][a-z0-9-]{0,62}$/i.test(slug)) return <Problem title="Community not found" body={`There is no community at "/c/${slug}".`} />;
-  const res = await c.db.from("centers").select("id, slug, name, short_name, time_zone, branding, status").eq("slug", slug).maybeSingle();
+  const res = await c.db.from("centers").select("id, slug, name, short_name, time_zone, branding, status, environment").eq("slug", slug).maybeSingle();
   if (res.error) {
     console.error("[public-dashboard] center lookup failed:", res.error);
     return <Problem title="We could not load this dashboard" body={`${explainError(res.error)}. Please try again in a moment.`} retry />;
@@ -52,6 +52,10 @@ export default async function PublicDashboardPage({ params }: { params: Params }
   if (!res.data || res.data.status !== "active") return <Problem title="Community not found" body={`There is no public dashboard at "/c/${slug}".`} />;
   const center = res.data;
   const b = tenantBranding({ ...center, slug: String(center.slug) });
+  // Sandboxes have no public dashboard (entitlement public_dashboard; app.public_kpis refuses them too).
+  if (center.environment === "sandbox") {
+    return <Problem title={`${b.shortName} community dashboard`} body="This is a practice sandbox. Sandboxes have no public community dashboard; it opens once the community goes live." />;
+  }
   // Reports & dashboard switched off (Settings › Modules): say so plainly instead of a load error.
   const on = await c.db.rpc("module_enabled", { p_center: center.id, p_module: "reports" });
   if (on.error) console.error("[public-dashboard] module check failed; loading the dashboard anyway:", on.error);

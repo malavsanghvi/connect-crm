@@ -29,10 +29,13 @@ export function LoginForm({
   supabaseUrl,
   supabaseAnonKey,
   next,
+  cookieDomain,
 }: {
   supabaseUrl: string;
   supabaseAnonKey: string;
   next: string;
+  /** Set on <slug>.<PORTAL_BASE_DOMAIN> portals so one sign-in covers every organization's address. */
+  cookieDomain?: string;
 }) {
   const [step, setStep] = useState<Step>("email");
   const [email, setEmail] = useState("");
@@ -41,7 +44,7 @@ export function LoginForm({
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
-  const supabase = getSupabaseBrowserClient({ supabaseUrl, supabaseAnonKey });
+  const supabase = getSupabaseBrowserClient({ supabaseUrl, supabaseAnonKey }, cookieDomain);
 
   async function sendCode(e?: FormEvent) {
     e?.preventDefault();

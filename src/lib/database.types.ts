@@ -806,6 +806,54 @@ export type Database = {
         };
         Relationships: [];
       };
+      center_domains: {
+        Row: {
+          domain: string;
+          center_id: string;
+          created_by: string | null;
+          created_at: string;
+        };
+        Insert: {
+          domain: string;
+          center_id: string;
+          created_by?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          domain?: string;
+          center_id?: string;
+          created_by?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      center_entitlements: {
+        Row: {
+          center_id: string;
+          key: string;
+          value: Json;
+          set_by: string | null;
+          set_at: string;
+          reason: string;
+        };
+        Insert: {
+          center_id: string;
+          key: string;
+          value: Json;
+          set_by?: string | null;
+          set_at?: string;
+          reason: string;
+        };
+        Update: {
+          center_id?: string;
+          key?: string;
+          value?: Json;
+          set_by?: string | null;
+          set_at?: string;
+          reason?: string;
+        };
+        Relationships: [];
+      };
       center_modules: {
         Row: {
           center_id: string;
@@ -830,27 +878,6 @@ export type Database = {
           changed_by?: string | null;
           changed_at?: string;
           reason?: string | null;
-        };
-        Relationships: [];
-      };
-      center_owners: {
-        Row: {
-          center_id: string;
-          user_id: string;
-          since: string;
-          transferred_from: string | null;
-        };
-        Insert: {
-          center_id: string;
-          user_id: string;
-          since?: string;
-          transferred_from?: string | null;
-        };
-        Update: {
-          center_id?: string;
-          user_id?: string;
-          since?: string;
-          transferred_from?: string | null;
         };
         Relationships: [];
       };
@@ -895,6 +922,8 @@ export type Database = {
           status: string;
           created_at: string;
           updated_at: string;
+          environment: string;
+          sandbox_for: string | null;
         };
         Insert: {
           id?: string;
@@ -912,6 +941,8 @@ export type Database = {
           status?: string;
           created_at?: string;
           updated_at?: string;
+          environment?: string;
+          sandbox_for?: string | null;
         };
         Update: {
           id?: string;
@@ -929,6 +960,8 @@ export type Database = {
           status?: string;
           created_at?: string;
           updated_at?: string;
+          environment?: string;
+          sandbox_for?: string | null;
         };
         Relationships: [];
       };
@@ -1412,6 +1445,24 @@ export type Database = {
           override_by?: string | null;
           override_second_approver?: string | null;
           override_requested_value?: boolean | null;
+        };
+        Relationships: [];
+      };
+      entitlement_defaults: {
+        Row: {
+          environment: string;
+          key: string;
+          value: Json;
+        };
+        Insert: {
+          environment: string;
+          key: string;
+          value: Json;
+        };
+        Update: {
+          environment?: string;
+          key?: string;
+          value?: Json;
         };
         Relationships: [];
       };
@@ -2447,6 +2498,36 @@ export type Database = {
         };
         Relationships: [];
       };
+      member_join_codes: {
+        Row: {
+          id: string;
+          center_id: string;
+          code: string;
+          active: boolean;
+          created_by: string | null;
+          created_at: string;
+          expires_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          center_id: string;
+          code?: string;
+          active?: boolean;
+          created_by?: string | null;
+          created_at?: string;
+          expires_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          center_id?: string;
+          code?: string;
+          active?: boolean;
+          created_by?: string | null;
+          created_at?: string;
+          expires_at?: string | null;
+        };
+        Relationships: [];
+      };
       membership_applications: {
         Row: {
           id: string;
@@ -2975,42 +3056,6 @@ export type Database = {
           kind?: string;
           options?: Json;
           subtitle?: string | null;
-        };
-        Relationships: [];
-      };
-      org_agreements: {
-        Row: {
-          id: string;
-          center_id: string;
-          kind: string;
-          version: string;
-          legal_document_id: string | null;
-          accepted_by: string;
-          accepted_at: string;
-          ip: string | null;
-          user_agent: string | null;
-        };
-        Insert: {
-          id?: string;
-          center_id: string;
-          kind: string;
-          version: string;
-          legal_document_id?: string | null;
-          accepted_by: string;
-          accepted_at?: string;
-          ip?: string | null;
-          user_agent?: string | null;
-        };
-        Update: {
-          id?: string;
-          center_id?: string;
-          kind?: string;
-          version?: string;
-          legal_document_id?: string | null;
-          accepted_by?: string;
-          accepted_at?: string;
-          ip?: string | null;
-          user_agent?: string | null;
         };
         Relationships: [];
       };
@@ -4085,27 +4130,6 @@ export type Database = {
         };
         Relationships: [];
       };
-      readiness_checks: {
-        Row: {
-          key: string;
-          title: string;
-          sort: number;
-          check_fn: string;
-        };
-        Insert: {
-          key: string;
-          title: string;
-          sort?: number;
-          check_fn: string;
-        };
-        Update: {
-          key?: string;
-          title?: string;
-          sort?: number;
-          check_fn?: string;
-        };
-        Relationships: [];
-      };
       receipt_templates: {
         Row: {
           id: string;
@@ -4520,6 +4544,36 @@ export type Database = {
         };
         Relationships: [];
       };
+      sandbox_test_recipients: {
+        Row: {
+          id: string;
+          center_id: string;
+          channel: string;
+          address: string;
+          verified_at: string | null;
+          added_by: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          center_id: string;
+          channel: string;
+          address: string;
+          verified_at?: string | null;
+          added_by?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          center_id?: string;
+          channel?: string;
+          address?: string;
+          verified_at?: string | null;
+          added_by?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
       saved_segments: {
         Row: {
           id: string;
@@ -4636,69 +4690,6 @@ export type Database = {
           reminder_days_before?: number;
           labh_prompt_enabled?: boolean;
           show_on_home?: boolean;
-          created_at?: string;
-        };
-        Relationships: [];
-      };
-      staff_invitations: {
-        Row: {
-          id: string;
-          center_id: string;
-          email: string | null;
-          phone_e164: string | null;
-          person_id: string | null;
-          first_name: string | null;
-          last_name: string | null;
-          role_keys: string[];
-          scope: Json;
-          invited_by: string;
-          token_hash: string;
-          expires_at: string;
-          accepted_by: string | null;
-          accepted_at: string | null;
-          revoked_at: string | null;
-          revoked_by: string | null;
-          last_sent_at: string;
-          created_at: string;
-        };
-        Insert: {
-          id?: string;
-          center_id: string;
-          email?: string | null;
-          phone_e164?: string | null;
-          person_id?: string | null;
-          first_name?: string | null;
-          last_name?: string | null;
-          role_keys: string[];
-          scope?: Json;
-          invited_by: string;
-          token_hash: string;
-          expires_at: string;
-          accepted_by?: string | null;
-          accepted_at?: string | null;
-          revoked_at?: string | null;
-          revoked_by?: string | null;
-          last_sent_at?: string;
-          created_at?: string;
-        };
-        Update: {
-          id?: string;
-          center_id?: string;
-          email?: string | null;
-          phone_e164?: string | null;
-          person_id?: string | null;
-          first_name?: string | null;
-          last_name?: string | null;
-          role_keys?: string[];
-          scope?: Json;
-          invited_by?: string;
-          token_hash?: string;
-          expires_at?: string;
-          accepted_by?: string | null;
-          accepted_at?: string | null;
-          revoked_at?: string | null;
-          revoked_by?: string | null;
-          last_sent_at?: string;
           created_at?: string;
         };
         Relationships: [];
@@ -5593,21 +5584,6 @@ export type Database = {
       };
     };
     Functions: {
-      accept_invitation: {
-        Args: {
-          p_token: string;
-        };
-        Returns: Json;
-      };
-      accept_org_agreement: {
-        Args: {
-          p_center: string;
-          p_document: string;
-          p_ip?: string;
-          p_user_agent?: string;
-        };
-        Returns: string;
-      };
       adult_of_household: {
         Args: {
           p_center: string;
@@ -5628,18 +5604,20 @@ export type Database = {
         };
         Returns: undefined;
       };
+      assert_entitlement: {
+        Args: {
+          p_center: string;
+          p_key: string;
+          p_needed?: Json;
+        };
+        Returns: undefined;
+      };
       assert_module_enabled: {
         Args: {
           p_center: string;
           p_module: string;
         };
         Returns: boolean;
-      };
-      assert_step_up: {
-        Args: {
-          p_action: string;
-        };
-        Returns: undefined;
       };
       audit_clean_app: {
         Args: {
@@ -5713,9 +5691,15 @@ export type Database = {
         };
         Returns: string;
       };
-      center_environment: {
+      center_entitlement_list: {
         Args: {
           p_center: string;
+        };
+        Returns: { key: string; default_value: Json; override_value: Json; effective: Json; set_by_name: string; set_at: string; reason: string }[];
+      };
+      center_slug_for_domain: {
+        Args: {
+          p_domain: string;
         };
         Returns: string;
       };
@@ -5727,12 +5711,6 @@ export type Database = {
         };
         Returns: string;
       };
-      check_agreements_accepted: {
-        Args: {
-          p_center: string;
-        };
-        Returns: Json;
-      };
       check_in: {
         Args: {
           p_event: string;
@@ -5743,12 +5721,6 @@ export type Database = {
           p_offline?: boolean;
         };
         Returns: { result: string; rsvp_id: string; household_id: string; household_name: string; attendees: Json }[];
-      };
-      check_owner_admins_2fa: {
-        Args: {
-          p_center: string;
-        };
-        Returns: Json;
       };
       checkin_lookup_phone: {
         Args: {
@@ -5772,6 +5744,12 @@ export type Database = {
           p_repeat_yearly?: boolean;
         };
         Returns: string[];
+      };
+      community_by_join_code: {
+        Args: {
+          p_code: string;
+        };
+        Returns: { slug: string; name: string; short_name: string; state_region: string; environment: string }[];
       };
       confirm_bank_match: {
         Args: {
@@ -5835,6 +5813,22 @@ export type Database = {
         };
         Returns: number;
       };
+      entitlement: {
+        Args: {
+          p_center: string;
+          p_key: string;
+        };
+        Returns: Json;
+      };
+      entitlement_message: {
+        Args: {
+          p_environment: string;
+          p_key: string;
+          p_value: Json;
+          p_needed: Json;
+        };
+        Returns: string;
+      };
       event_live_stats: {
         Args: {
           p_event: string;
@@ -5847,6 +5841,12 @@ export type Database = {
           p_limit?: number;
         };
         Returns: { checked_in_at: string; household_label: string; lunch_slot_label: string }[];
+      };
+      find_community: {
+        Args: {
+          p_query: string;
+        };
+        Returns: { slug: string; name: string; short_name: string; city: string; state_region: string; environment: string }[];
       };
       find_membership_reference: {
         Args: {
@@ -5874,12 +5874,6 @@ export type Database = {
         Args: {
           p_center: string;
           p_perm: string;
-        };
-        Returns: boolean;
-      };
-      has_recent_step_up: {
-        Args: {
-          p_minutes?: number;
         };
         Returns: boolean;
       };
@@ -5920,36 +5914,6 @@ export type Database = {
           p_center: string;
           p_audience: Json;
           p_event: string;
-        };
-        Returns: boolean;
-      };
-      invitation_preview: {
-        Args: {
-          p_token: string;
-        };
-        Returns: { status: string; center_name: string; center_short_name: string; contact: string; contact_kind: string; role_names: string[]; expires_at: string; invited_by_name: string }[];
-      };
-      invite_staff: {
-        Args: {
-          p_center: string;
-          p_email?: string;
-          p_phone?: string;
-          p_person?: string;
-          p_role_keys?: string[];
-          p_scope?: Json;
-          p_first_name?: string;
-          p_last_name?: string;
-          p_valid_days?: number;
-        };
-        Returns: { invitation_id: string; token: string; expires_at: string }[];
-      };
-      is_aal2: {
-        Args: Record<PropertyKey, never>;
-        Returns: boolean;
-      };
-      is_center_owner: {
-        Args: {
-          p_center: string;
         };
         Returns: boolean;
       };
@@ -6045,6 +6009,10 @@ export type Database = {
         Args: Record<PropertyKey, never>;
         Returns: string[];
       };
+      my_centers: {
+        Args: Record<PropertyKey, never>;
+        Returns: { id: string; slug: string; name: string; short_name: string; environment: string; status: string; portal_domain: string; has_role: boolean }[];
+      };
       my_household_ids: {
         Args: {
           p_center: string;
@@ -6079,15 +6047,26 @@ export type Database = {
         Args: Record<PropertyKey, never>;
         Returns: { application_id: string; applicant_name: string; household_name: string; tier: Database["app"]["Enums"]["membership_tier"]; note: string; requested_at: string; expires_at: string }[];
       };
-      my_security_status: {
-        Args: {
-          p_center: string;
-        };
-        Returns: Json;
+      new_join_code: {
+        Args: Record<PropertyKey, never>;
+        Returns: string;
       };
       normalize_identifier: {
         Args: {
           p: string;
+        };
+        Returns: string;
+      };
+      normalize_join_code: {
+        Args: {
+          p: string;
+        };
+        Returns: string;
+      };
+      normalize_recipient: {
+        Args: {
+          p_channel: string;
+          p_address: string;
         };
         Returns: string;
       };
@@ -6096,18 +6075,6 @@ export type Database = {
           p_opportunity: string;
         };
         Returns: { option_key: string; taken: boolean; taken_count: number; slots_taken: number; slots_total: number; goal_percent: number }[];
-      };
-      org_agreement_doc_kind: {
-        Args: {
-          p_kind: string;
-        };
-        Returns: string;
-      };
-      org_agreement_status: {
-        Args: {
-          p_center: string;
-        };
-        Returns: { kind: string; title: string; required: boolean; document_id: string; version: string; published: boolean; accepted: boolean; accepted_version: string; accepted_at: string; accepted_by_name: string }[];
       };
       parse_bank_description: {
         Args: {
@@ -6164,20 +6131,6 @@ export type Database = {
         };
         Returns: Json;
       };
-      publish_platform_document: {
-        Args: {
-          p_document: string;
-        };
-        Returns: undefined;
-      };
-      record_export: {
-        Args: {
-          p_center: string;
-          p_kind: string;
-          p_detail?: Json;
-        };
-        Returns: undefined;
-      };
       record_history: {
         Args: {
           p_table: string;
@@ -6201,13 +6154,6 @@ export type Database = {
         };
         Returns: string;
       };
-      record_security_event: {
-        Args: {
-          p_center: string;
-          p_event: string;
-        };
-        Returns: undefined;
-      };
       redeem_attendance_qr: {
         Args: {
           p_session: string;
@@ -6216,27 +6162,6 @@ export type Database = {
         };
         Returns: string;
       };
-      require_2fa_for_staff: {
-        Args: {
-          p_center: string;
-        };
-        Returns: boolean;
-      };
-      resend_invitation: {
-        Args: {
-          p_invitation: string;
-          p_valid_days?: number;
-        };
-        Returns: { invitation_id: string; token: string; expires_at: string }[];
-      };
-      reset_staff_2fa: {
-        Args: {
-          p_center: string;
-          p_user: string;
-          p_reason: string;
-        };
-        Returns: number;
-      };
       resolve_identifier: {
         Args: {
           p_center: string;
@@ -6244,12 +6169,13 @@ export type Database = {
         };
         Returns: { kind: string; system: string; value: string; person_id: string; household_id: string; display_name: string; household_name: string; household_number: string; org_household_id: string; members: string }[];
       };
-      revoke_invitation: {
+      rotate_member_join_code: {
         Args: {
-          p_invitation: string;
+          p_center: string;
+          p_expires_at?: string;
           p_reason?: string;
         };
-        Returns: undefined;
+        Returns: string;
       };
       saathi_feed: {
         Args: {
@@ -6289,6 +6215,15 @@ export type Database = {
       };
       set_audit_default_reason: {
         Args: {
+          p_reason: string;
+        };
+        Returns: undefined;
+      };
+      set_center_entitlement: {
+        Args: {
+          p_center: string;
+          p_key: string;
+          p_value: Json;
           p_reason: string;
         };
         Returns: undefined;
@@ -6360,25 +6295,11 @@ export type Database = {
         };
         Returns: { payment_id: string; household_name: string; receipt_number: string; method: Database["app"]["Enums"]["payment_method"]; amount_cents: number; received_on: string; check_number: string; envelope_number: string; exact_total: boolean }[];
       };
-      team_security: {
-        Args: {
-          p_center: string;
-        };
-        Returns: { user_id: string; person_id: string; name: string; email: string; roles: string[]; has_totp: boolean; phone_verified: boolean; is_owner: boolean; is_admin: boolean }[];
-      };
       tier_rank: {
         Args: {
           p_tier: Database["app"]["Enums"]["membership_tier"];
         };
         Returns: number;
-      };
-      transfer_ownership: {
-        Args: {
-          p_center: string;
-          p_to_user: string;
-          p_reason: string;
-        };
-        Returns: undefined;
       };
       uid: {
         Args: Record<PropertyKey, never>;
