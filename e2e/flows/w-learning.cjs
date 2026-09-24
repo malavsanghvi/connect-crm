@@ -47,6 +47,13 @@ const audit = (table, recordId, extra = '') =>
   sql(`select coalesce(client_app,'')||'|'||coalesce(client_screen,'')||'|'||coalesce(module,'')||'|'||coalesce(reason,'') from app.audit_log
        where record_table='${table}' ${recordId ? `and record_id='${recordId}'` : ''} ${extra} order by id desc limit 1`);
 
+/** GoTrue allows one sign-in email per address every few seconds: space requests out. */
+const lastOtp = new Map();
+async function otpGap(email) {
+  const wait = (lastOtp.get(email) ?? 0) + 6000 - Date.now();
+  if (wait > 0) await sleep(wait);
+  lastOtp.set(email, Date.now());
+}
 async function code(email, after) {
   for (let i = 0; i < 60; i++) {
     const r = await fetch(`${MAIL}/api/v1/search?query=${encodeURIComponent('to:' + email)}`).then((x) => x.json());
@@ -71,8 +78,15 @@ function ensureLogin(email, member, roles = '') {
 
 /** An access token for API-level checks (forbidden actions must fail cleanly in the database). */
 async function token(email) {
-  const t0 = Date.now() - 2000;
-  const r = await fetch(`${API}/auth/v1/otp`, { method: 'POST', headers: { apikey: env.ANON_KEY, 'content-type': 'application/json' }, body: JSON.stringify({ email, create_user: false }) });
+  let t0 = Date.now() - 2000;
+  let r;
+  for (let i = 0; i < 20; i++) {
+    await otpGap(email);
+    t0 = Date.now() - 2000;
+    r = await fetch(`${API}/auth/v1/otp`, { method: 'POST', headers: { apikey: env.ANON_KEY, 'content-type': 'application/json' }, body: JSON.stringify({ email, create_user: false }) });
+    if (r.status !== 429) break;
+    await sleep(3000); // GoTrue's per-email send limit
+  }
   if (!r.ok) throw new Error('otp request failed ' + r.status + ' ' + (await r.text()));
   const c = await code(email, t0);
   const v = await fetch(`${API}/auth/v1/verify`, { method: 'POST', headers: { apikey: env.ANON_KEY, 'content-type': 'application/json' }, body: JSON.stringify({ email, token: c, type: 'email' }) }).then((x) => x.json());
@@ -101,6 +115,7 @@ async function portalLogin(browser, email) {
   const p = await ctx.newPage();
   p.on('pageerror', (e) => console.log(`  [portal ${email}] pageerror: ${String(e).slice(0, 200)}`));
   await p.goto(BASE + '/login');
+  await otpGap(email);
   const t0 = Date.now() - 2000;
   await p.fill('input[name=email]', email);
   await p.click('button[type=submit]');
@@ -117,6 +132,7 @@ async function memberLogin(browser, email) {
   p.on('pageerror', (e) => console.log(`  [member ${email}] pageerror: ${String(e).slice(0, 200)}`));
   if (process.env.VERBOSE) p.on('console', (m) => m.type() === 'error' && console.log(`  [member ${email}] console: ${m.text().slice(0, 300)}`));
   await p.goto(MEMBER + '/sign-in', { waitUntil: 'networkidle' });
+  await otpGap(email);
   const t0 = Date.now() - 2000;
   await p.fill('input[placeholder="name@example.com"]', email);
   await p.getByRole('button', { name: /send|code|continue/i }).first().click();
@@ -378,7 +394,7 @@ async function journeyGyan(browser) {
   const teacher = await portalLogin(browser, 'teacher@jsh.test');
   await pgo(teacher, '/pathshala/signoffs');
   await shot(teacher, '2-signoffs');
-  const row = teacher.locator('tr, li').filter({ hasText: 'Dev' }).filter({ hasText: 'Chattari Mangalam' }).first();
+  const row = teacher.locator('tr, li').filter({ hasText: 'Dev' }).filter({ hasText: GOAL }).first();
   await row.getByRole('button', { name: 'Sign off' }).click();
   await teacher.waitForTimeout(2500);
   ok(sql(`select status from app.gyan_signoffs where person_id='${P.dev}' and level_id='${levelId}'`) === 'approved', 'teacher signed off');
