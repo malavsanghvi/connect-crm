@@ -4985,6 +4985,183 @@ export type Database = {
         };
         Relationships: [];
       };
+      qbo_customer_matches: {
+        Row: {
+          id: string;
+          center_id: string;
+          qbo_customer_id: string;
+          household_id: string;
+          person_id: string | null;
+          status: string;
+          confidence: number;
+          method: string;
+          evidence: Json;
+          suggested_at: string;
+          decided_by: string | null;
+          decided_at: string | null;
+          reason: string | null;
+        };
+        Insert: {
+          id?: string;
+          center_id: string;
+          qbo_customer_id: string;
+          household_id: string;
+          person_id?: string | null;
+          status?: string;
+          confidence?: number;
+          method: string;
+          evidence?: Json;
+          suggested_at?: string;
+          decided_by?: string | null;
+          decided_at?: string | null;
+          reason?: string | null;
+        };
+        Update: {
+          id?: string;
+          center_id?: string;
+          qbo_customer_id?: string;
+          household_id?: string;
+          person_id?: string | null;
+          status?: string;
+          confidence?: number;
+          method?: string;
+          evidence?: Json;
+          suggested_at?: string;
+          decided_by?: string | null;
+          decided_at?: string | null;
+          reason?: string | null;
+        };
+        Relationships: [];
+      };
+      qbo_customers: {
+        Row: {
+          center_id: string;
+          qbo_id: string;
+          display_name: string;
+          given_name: string | null;
+          family_name: string | null;
+          company_name: string | null;
+          emails: string[];
+          phones: string[];
+          address: Json;
+          parent_qbo_id: string | null;
+          is_sub_customer: boolean;
+          active: boolean;
+          open_balance_cents: number;
+          raw: Json;
+          synced_at: string;
+          ai_checked_at: string | null;
+        };
+        Insert: {
+          center_id: string;
+          qbo_id: string;
+          display_name: string;
+          given_name?: string | null;
+          family_name?: string | null;
+          company_name?: string | null;
+          emails?: string[];
+          phones?: string[];
+          address?: Json;
+          parent_qbo_id?: string | null;
+          is_sub_customer?: boolean;
+          active?: boolean;
+          open_balance_cents?: number;
+          raw?: Json;
+          synced_at?: string;
+          ai_checked_at?: string | null;
+        };
+        Update: {
+          center_id?: string;
+          qbo_id?: string;
+          display_name?: string;
+          given_name?: string | null;
+          family_name?: string | null;
+          company_name?: string | null;
+          emails?: string[];
+          phones?: string[];
+          address?: Json;
+          parent_qbo_id?: string | null;
+          is_sub_customer?: boolean;
+          active?: boolean;
+          open_balance_cents?: number;
+          raw?: Json;
+          synced_at?: string;
+          ai_checked_at?: string | null;
+        };
+        Relationships: [];
+      };
+      qbo_transactions: {
+        Row: {
+          center_id: string;
+          qbo_type: string;
+          qbo_id: string;
+          customer_qbo_id: string | null;
+          txn_date: string;
+          doc_number: string | null;
+          total_cents: number;
+          open_balance_cents: number;
+          memo: string | null;
+          lines: Json;
+          linked: Json;
+          payment_method: string | null;
+          reference_number: string | null;
+          raw: Json;
+          synced_at: string;
+          cc_status: string;
+          cc_detail: string | null;
+          cc_payment_id: string | null;
+          cc_pledge_id: string | null;
+          cc_fund_id: string | null;
+          cc_at: string | null;
+        };
+        Insert: {
+          center_id: string;
+          qbo_type: string;
+          qbo_id: string;
+          customer_qbo_id?: string | null;
+          txn_date: string;
+          doc_number?: string | null;
+          total_cents?: number;
+          open_balance_cents?: number;
+          memo?: string | null;
+          lines?: Json;
+          linked?: Json;
+          payment_method?: string | null;
+          reference_number?: string | null;
+          raw?: Json;
+          synced_at?: string;
+          cc_status?: string;
+          cc_detail?: string | null;
+          cc_payment_id?: string | null;
+          cc_pledge_id?: string | null;
+          cc_fund_id?: string | null;
+          cc_at?: string | null;
+        };
+        Update: {
+          center_id?: string;
+          qbo_type?: string;
+          qbo_id?: string;
+          customer_qbo_id?: string | null;
+          txn_date?: string;
+          doc_number?: string | null;
+          total_cents?: number;
+          open_balance_cents?: number;
+          memo?: string | null;
+          lines?: Json;
+          linked?: Json;
+          payment_method?: string | null;
+          reference_number?: string | null;
+          raw?: Json;
+          synced_at?: string;
+          cc_status?: string;
+          cc_detail?: string | null;
+          cc_payment_id?: string | null;
+          cc_pledge_id?: string | null;
+          cc_fund_id?: string | null;
+          cc_at?: string | null;
+        };
+        Relationships: [];
+      };
       readiness_checks: {
         Row: {
           key: string;
@@ -6696,6 +6873,13 @@ export type Database = {
         };
         Returns: undefined;
       };
+      approve_qbo_matches: {
+        Args: {
+          p_ids: string[];
+          p_reason: string;
+        };
+        Returns: Json;
+      };
       approve_role_grant: {
         Args: {
           p_grant: string;
@@ -6939,6 +7123,14 @@ export type Database = {
           p_name: string;
           p_starts_at?: string;
           p_program_year?: string;
+        };
+        Returns: string;
+      };
+      create_household_from_qbo: {
+        Args: {
+          p_center: string;
+          p_qbo_customer: string;
+          p_reason: string;
         };
         Returns: string;
       };
@@ -7374,6 +7566,16 @@ export type Database = {
         };
         Returns: string;
       };
+      map_qbo_customer: {
+        Args: {
+          p_center: string;
+          p_qbo_customer: string;
+          p_household: string;
+          p_person?: string;
+          p_reason?: string;
+        };
+        Returns: Json;
+      };
       match_deposit: {
         Args: {
           p_txn: string;
@@ -7604,9 +7806,85 @@ export type Database = {
         };
         Returns: undefined;
       };
+      qbo_core_tokens: {
+        Args: {
+          p: string;
+        };
+        Returns: string[];
+      };
+      qbo_customer_for: {
+        Args: {
+          p_household: string;
+          p_person?: string;
+        };
+        Returns: string;
+      };
       qbo_go_live_date: {
         Args: {
           p_center: string;
+        };
+        Returns: string;
+      };
+      qbo_looks_family: {
+        Args: {
+          p_display: string;
+          p_given: string;
+          p_family: string;
+        };
+        Returns: boolean;
+      };
+      qbo_match_overview: {
+        Args: {
+          p_center: string;
+        };
+        Returns: Json;
+      };
+      qbo_norm: {
+        Args: {
+          p: string;
+        };
+        Returns: string;
+      };
+      qbo_payment_method: {
+        Args: {
+          p: string;
+        };
+        Returns: Database["app"]["Enums"]["payment_method"];
+      };
+      qbo_request_ai: {
+        Args: {
+          p_center: string;
+        };
+        Returns: number;
+      };
+      qbo_request_pull: {
+        Args: {
+          p_center: string;
+        };
+        Returns: number;
+      };
+      qbo_retry_bring_in: {
+        Args: {
+          p_center: string;
+          p_qbo_customer?: string;
+        };
+        Returns: number;
+      };
+      qbo_suggest_matches: {
+        Args: {
+          p_center: string;
+        };
+        Returns: Json;
+      };
+      qbo_type_label: {
+        Args: {
+          p: string;
+        };
+        Returns: string;
+      };
+      qbo_zip5: {
+        Args: {
+          p: string;
         };
         Returns: string;
       };
@@ -7667,6 +7945,13 @@ export type Database = {
           p_person?: string;
         };
         Returns: string;
+      };
+      reject_qbo_match: {
+        Args: {
+          p_id: string;
+          p_reason: string;
+        };
+        Returns: undefined;
       };
       require_2fa_for_staff: {
         Args: {
@@ -7800,6 +8085,15 @@ export type Database = {
           p_center: string;
           p_module: string;
           p_enabled: boolean;
+          p_reason: string;
+        };
+        Returns: undefined;
+      };
+      set_qbo_match_settings: {
+        Args: {
+          p_center: string;
+          p_level: string;
+          p_history_years: number;
           p_reason: string;
         };
         Returns: undefined;
@@ -7980,6 +8274,14 @@ export type Database = {
           p_on?: string;
         };
         Returns: { points_reversed: number; day_complete: boolean; streak_days: number }[];
+      };
+      unmap_qbo_customer: {
+        Args: {
+          p_center: string;
+          p_qbo_customer: string;
+          p_reason: string;
+        };
+        Returns: undefined;
       };
       update_custom_field: {
         Args: {
