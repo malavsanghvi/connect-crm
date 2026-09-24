@@ -118,7 +118,7 @@ export default async function PrivacyRequestsPage({ searchParams }: { searchPara
                         <td className="whitespace-nowrap">
                           {formatDate(r.due_on, tz)}
                           {open ? (
-                            <div className={`text-xs ${left < 0 ? "font-semibold text-maroon" : left <= 7 ? "text-brown" : "text-muted"}`}>
+                            <div className={`text-xs ${left < 0 ? "font-semibold text-danger" : left <= 7 ? "text-brown" : "text-muted"}`}>
                               {left < 0 ? `${-left} days overdue` : left === 0 ? "due today" : `${left} days left`}
                             </div>
                           ) : null}

@@ -53,7 +53,7 @@ export function DepositMatcher({
 
   if (candidateError) {
     return (
-      <p role="alert" className="text-sm text-maroon">
+      <p role="alert" className="text-sm text-danger">
         {candidateError}
       </p>
     );
@@ -123,7 +123,7 @@ export function DepositMatcher({
         {diff === 0 ? "matches exactly" : diff > 0 ? `${formatCents(diff, currency)} still missing` : `${formatCents(-diff, currency)} too much`}
       </p>
       {error ? (
-        <p role="alert" className="rounded-lg border border-maroon/30 bg-maroon-50 px-3 py-2 text-sm text-maroon">
+        <p role="alert" className="rounded-lg border border-danger/30 bg-danger-50 px-3 py-2 text-sm text-danger">
           {error}
         </p>
       ) : null}

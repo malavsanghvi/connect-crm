@@ -130,11 +130,16 @@ closed months post as current-period adjustments. See `FEATURE_TRACEABILITY.md`.
 - **Accessibility and language**: 44px minimum touch targets, large-text mode,
   English / ગુજરાતી / हिन्दी built in; no information by colour alone.
 - **Design tokens** (from the prototype): navy `#1B2C5C` (primary), saffron
-  `#C9731C` / brown `#8A4608` (giving), green `#1F7A4D` (success), maroon `#7A2E1F`
-  (events), purple `#5B4B8A` (Pathshala/feedback), store green `#2F5D50`, ground
-  `#FBF7F0`, card `#FFFFFF`, border `#E8E0D2`, ink `#1E1C18`, muted `#5E5A52`.
-  Fonts: Fraunces (display), DM Sans (body). Tenant branding overrides from
-  `centers.branding`.
+  `#C9731C` / brown `#8A4608` (giving), green `#1F7A4D` (success), danger `#B3261E`
+  (errors, "bad" buttons), maroon `#7A2E1F` (events), purple `#5B4B8A`
+  (Pathshala/feedback), store green `#2F5D50`. Admin portal: canvas `#F6F2EA`,
+  cards white with `#E3D9C8` borders, row dividers `#F1E8D8`, KPI tiles `#FBF7F0`,
+  ink `#1E1C18`, muted `#5E5A52`. Fonts: Fraunces (display), DM Sans (body),
+  JetBrains Mono (IDs). Tenant branding (name, logo) comes from `centers.branding`;
+  the product brand is "Community Connect". Tokens: `src/app/globals.css`;
+  components (PageHeader + module tabs, Card/BlockGrid, Stat, pill buttons, chips,
+  toggle, drawer, modal, toast): `src/components/ui.tsx`, `controls.tsx`,
+  `drawer.tsx`, `modal.tsx`, `toast.tsx`. Spec: `docs/parity/v-visual-system.md`.
 
 ## Working on the schema
 

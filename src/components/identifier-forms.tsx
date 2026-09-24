@@ -84,7 +84,7 @@ export function AddIdentifierForm({
             </p>
           ) : null}
           {allowedTargets.length === 0 ? (
-            <p className="crm-hint text-maroon">
+            <p className="crm-hint text-danger">
               {mustBe === "person" ? "This household has no current members to attach it to." : "Add it from the household page."}
             </p>
           ) : null}

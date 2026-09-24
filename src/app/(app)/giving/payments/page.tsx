@@ -205,7 +205,7 @@ export default async function PaymentsPage({ searchParams }: { searchParams: Pro
                         </td>
                         <td className="num">
                           {formatCents(p.amount_cents, center.currency)}
-                          {p.refunded_cents > 0 ? <div className="text-xs text-maroon">−{formatCents(p.refunded_cents, center.currency)}</div> : null}
+                          {p.refunded_cents > 0 ? <div className="text-xs text-danger">−{formatCents(p.refunded_cents, center.currency)}</div> : null}
                         </td>
                         <td className="text-[0.8125rem]">
                           {applied >= p.amount_cents ? (

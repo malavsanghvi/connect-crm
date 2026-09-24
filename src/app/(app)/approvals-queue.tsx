@@ -3,7 +3,7 @@ import Link from "next/link";
 import { approveAsSecondAction } from "@/app/(app)/approvals/actions";
 import { ActionForm } from "@/components/action-form";
 import { RefundControls, WriteOffControls } from "@/components/two-person-controls";
-import { Badge, Card, EmptyState, QueryError, TableWrap } from "@/components/ui";
+import { Card, EmptyState, QueryError, TableWrap, Tag } from "@/components/ui";
 import { householdsById, peopleById, userNames } from "@/lib/data/lookups";
 import { formatDate } from "@/lib/dates";
 import type { DbErrorLike } from "@/lib/errors";
@@ -70,7 +70,7 @@ export async function ApprovalsQueue({ session }: { session: CrmSession }) {
       title="Waiting for second approval"
       description="Refunds, pledge write-offs and voting-eligibility overrides need two different people. The database refuses the final step until then."
       padded={false}
-      className="mt-6"
+      className="mt-4"
     >
       {error ? (
         <div className="p-4">
@@ -97,7 +97,7 @@ export async function ApprovalsQueue({ session }: { session: CrmSession }) {
                 return (
                   <tr key={`p-${x.id}`}>
                     <td>
-                      <Badge tone="warning">Write-off</Badge> <span className="font-mono text-[0.8125rem]">{x.pledge_number ?? "pledge"}</span>
+                      <Tag color="brown">Write-off</Tag> <span className="font-mono text-[0.8125rem]">{x.pledge_number ?? "pledge"}</span>
                       {x.write_off_reason ? <div className="mt-1 text-xs text-muted">“{x.write_off_reason}”</div> : null}
                     </td>
                     <td>
@@ -128,7 +128,7 @@ export async function ApprovalsQueue({ session }: { session: CrmSession }) {
                 return (
                   <tr key={`r-${x.id}`}>
                     <td>
-                      <Badge tone="danger">Refund</Badge> <span className="font-mono text-[0.8125rem]">{x.receipt_number ?? "payment"}</span>
+                      <Tag color="danger">Refund</Tag> <span className="font-mono text-[0.8125rem]">{x.receipt_number ?? "payment"}</span>
                       <div className="text-xs text-muted">received {formatDate(x.received_on, tz)}</div>
                     </td>
                     <td>
@@ -158,7 +158,7 @@ export async function ApprovalsQueue({ session }: { session: CrmSession }) {
               {o.map((x) => (
                 <tr key={`o-${x.id}`}>
                   <td>
-                    <Badge tone="purple">Voting override</Badge>
+                    <Tag color="purple">Voting override</Tag>
                     {x.override_reason ? <div className="mt-1 text-xs text-muted">“{x.override_reason}”</div> : null}
                   </td>
                   <td>

@@ -257,7 +257,7 @@ export default async function BankPage({ searchParams }: { searchParams: Promise
                 <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,22rem)_minmax(0,1fr)]">
                   <div className="min-w-0">
                     <p className="flex flex-wrap items-baseline gap-x-3">
-                      <span className={`font-display text-2xl font-semibold tabular-nums ${l.amount_cents < 0 ? "text-maroon" : "text-ink"}`}>
+                      <span className={`font-display text-2xl font-semibold tabular-nums ${l.amount_cents < 0 ? "text-danger" : "text-ink"}`}>
                         {formatCents(l.amount_cents, center.currency)}
                       </span>
                       <span className="text-sm text-muted">{formatDate(l.posted_on, tz)}</span>

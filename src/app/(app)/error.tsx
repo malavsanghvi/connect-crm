@@ -16,9 +16,9 @@ export default function ConsoleError({
   }, [error]);
 
   return (
-    <div role="alert" className="rounded-xl border border-maroon/30 bg-maroon-50 px-6 py-8">
-      <h1 className="font-display text-xl font-semibold text-maroon">This page could not be shown</h1>
-      <p className="mt-2 text-sm text-maroon">
+    <div role="alert" className="rounded-xl border border-danger/30 bg-danger-50 px-6 py-8">
+      <h1 className="font-display text-xl font-semibold text-danger">This page could not be shown</h1>
+      <p className="mt-2 text-sm text-danger">
         {error.digest
           ? "Something went wrong on the server while loading this page. The details were logged"
           : error.message || "Something went wrong while loading this page"}

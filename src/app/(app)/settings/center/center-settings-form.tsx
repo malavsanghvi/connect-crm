@@ -121,7 +121,7 @@ export function CenterSettingsForm({ branding, flags, rules }: { branding: Obj; 
           {validation.ok ? (
             <p className="text-success">Valid rules.</p>
           ) : (
-            <ul className="list-disc pl-5 text-maroon">
+            <ul className="list-disc pl-5 text-danger">
               {validation.errors.map((e) => (
                 <li key={e}>{e}</li>
               ))}
