@@ -489,12 +489,37 @@ const journeys = {
     }
     await teacher.context().close();
   },
+
+  async settings(b) {
+    // Rules, Onboarding fields, Notifications and Security all save into centers.rules (versioned, audited).
+    const admin = await portalLogin(b, 'admin@jsh.test');
+    const rulesNow = () => sql(`select (rules - 'version')::text from app.centers where id = '${CENTER}'`);
+    for (const url of ['/settings/rules', '/settings/onboarding', '/settings/notifications', '/settings/security']) {
+      await admin.goto(PORTAL + url, { waitUntil: 'networkidle' });
+      const form = admin.locator('main form').first();
+      const before = rulesNow();
+      const control = form.locator('[role=switch], [role=radio][aria-checked=false]:not([disabled]), button[aria-pressed=false]').first();
+      if (!(await control.count())) { ok(false, `${url}: no editable control found`); continue; }
+      await control.click();
+      const save = form.getByRole('button', { name: /^save/i }).first();
+      await save.click();
+      await admin.waitForTimeout(2500);
+      const after = rulesNow();
+      ok(after !== before, `${url}: a change saved into the center's rules`);
+      ok(lastAudit('centers').startsWith(`portal|${url}|`), `${url}: the change is audited from this screen`);
+      // Put it back (test data only; the portal path was exercised above).
+      if (rulesNow() !== before) sql(`update app.centers set rules = '${before.replace(/'/g, "''")}'::jsonb || jsonb_build_object('version', rules->'version') where id = '${CENTER}'`);
+    }
+    await admin.goto(PORTAL + '/settings/integrations', { waitUntil: 'networkidle' });
+    ok(/not connected|connect/i.test(await admin.innerText('main')), 'Integrations shows each connection honestly');
+    await admin.context().close();
+  },
 };
 
 (async () => {
   const b = await chromium.launch();
   const want = process.argv.slice(2);
-  const order = ['join', 'profile', 'ask', 'whatsapp', 'newsletter', 'roles', 'merge', 'modules', 'permissions'];
+  const order = ['join', 'profile', 'ask', 'whatsapp', 'newsletter', 'roles', 'merge', 'modules', 'permissions', 'settings'];
   for (const name of order) {
     if (want.length && !want.includes(name)) continue;
     if (!journeys[name]) continue;
