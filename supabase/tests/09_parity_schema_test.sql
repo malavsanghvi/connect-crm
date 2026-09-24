@@ -211,7 +211,7 @@ select pg_temp.assert((select string_agg(source || ':' || amount_cents || ':' ||
                       = 'labh:5100:f9000000-0000-4000-8000-000000000010:In honour of Anya,labh:10800:-:In honour of Anya',
                       'labh pledges carry the option amount, campaign and dedication, linked to the special day');
 select pg_temp.assert((select count(*) from app.recurring_gifts where special_day_id = 'f9000000-0000-4000-8000-000000000020'
-                         and frequency = 'yearly' and status = 'paused' and provider_ref is null
+                         and frequency = 'yearly' and status = 'pending_payment_method' and provider_ref is null
                          and starts_on = (current_date + 20 + interval '1 year')::date) = 2,
                       'repeat yearly creates yearly gifts from next year, waiting for a payment method');
 commit;
@@ -223,7 +223,7 @@ set local request.jwt.claim.sub = '10000000-0000-4000-8000-000000000001';
 select app.create_recurring_gift('20000000-0000-4000-8000-000000000001', (select id from app.funds where key = 'general' and center_id = :jsh),
   null, 5100, 'monthly', current_date + 3, 'count', 12, null, null) as rg \gset
 select pg_temp.assert((select status || ':' || end_kind || ':' || end_count || ':' || (next_charge_on = current_date + 3) from app.recurring_gifts where id = :'rg')
-                      = 'paused:count:12:true', 'a new recurring gift waits for a payment method with its end rule');
+                      = 'pending_payment_method:count:12:true', 'a new recurring gift waits for a payment method with its end rule');
 do $$ begin
   perform app.create_recurring_gift('20000000-0000-4000-8000-000000000001', null, null, 5100, 'monthly', current_date, 'until_date', null, null, null);
   raise exception 'FAIL: until_date without a date accepted';
@@ -372,8 +372,19 @@ update app.people set email = 'kiran.mehta@example.com' where id = '30000000-000
 begin;
 set local role authenticated;
 set local request.jwt.claim.sub = '10000000-0000-4000-8000-000000000011';  -- center admin (comms.send)
+select pg_temp.assert(app.segment_recipient_count(:jsh, jsonb_build_object('zone_ids', jsonb_build_array((select id from app.zones where center_id = :jsh and name = 'West')))) = 0,
+                      'without an explicit email opt-in nobody is counted (owner decision 0026)');
+commit;
+insert into app.channel_optins (center_id, person_id, channel, address, opted_in, source)
+  select :jsh, p.id, 'email', p.email, true, 'app'
+    from app.people p join app.household_members hm on hm.person_id = p.id and hm.left_at is null
+   where hm.household_id in ('20000000-0000-4000-8000-000000000001', '20000000-0000-4000-8000-000000000002')
+     and coalesce(p.email::text, '') <> '';
+begin;
+set local role authenticated;
+set local request.jwt.claim.sub = '10000000-0000-4000-8000-000000000011';
 select pg_temp.assert(app.segment_recipient_count(:jsh, jsonb_build_object('zone_ids', jsonb_build_array((select id from app.zones where center_id = :jsh and name = 'West')))) = 2,
-                      'recipient preview counts households with an adult on email');
+                      'recipient preview counts households with an adult who opted in to email');
 commit;
 insert into app.channel_optins (center_id, person_id, channel, address, opted_in, source)
   values (:jsh, '30000000-0000-4000-8000-000000000005', 'email', 'kiran.mehta@example.com', false, 'keyword');

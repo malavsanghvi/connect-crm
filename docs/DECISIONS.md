@@ -21,6 +21,8 @@ enforcing object is named so it can be found.
 | JSH IDs | JSH assigns a person ID and a separate household ID. Person IDs are 4-digit numbers with leading zeros (`0417`). The two are different identifier kinds (`org_member`, `org_household`) because their numbers can overlap. Kept exactly as issued; leading zeros never distinguish two IDs (`417` = `0417`) | `app.canonical_org_id`, `external_ids_org_target` |
 | Similar names | Names and household names are often near-identical, so nothing is matched on a name alone: imports use IDs, suggestions carry the household card and an `ambiguous` flag, and ambiguous matches are never auto-applied | `app.household_card`, `app.suggest_bank_matches` |
 | Bank | JSH banks with Chase; Chase CSV is the primary statement format; check/cash deposits match a set of recorded payments; DAF / matching-gift / processor payouts recognized | `0013_chase_and_org_ids.sql` |
+| Recurring gifts before online payment | Gifts set up in the app before a card or bank account exists get status `pending_payment_method` and are never charged; owner decision 2026-09-24 | `0026_owner_decisions.sql` |
+| Email recipients | Only people with an explicit email opt-in record count as email recipients; no record means not opted in; owner decision 2026-09-24 | `app.segment_recipient_count` (0026) |
 
 ## Decisions made by JSH (design-doc decision log)
 
