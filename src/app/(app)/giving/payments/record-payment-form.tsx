@@ -18,7 +18,7 @@ import { applyPaymentAction, recordOfflinePaymentAction, type RecordPaymentResul
 
 type Mode = "auto" | "choose" | "none";
 
-const PREVIEW_TONE = { ok: "text-[#14502F] font-bold", warn: "text-brown font-semibold", muted: "text-muted font-semibold" } as const;
+const PREVIEW_TONE = { ok: "text-success-900 font-bold", warn: "text-brown font-semibold", muted: "text-muted font-semibold" } as const;
 
 /**
  * Record an offline payment (prototype L585–588): the form (span 7) beside a
@@ -181,7 +181,7 @@ export function RecordPaymentForm({
       title="Allocation preview"
       description={mode === "choose" ? "Applied to the chosen pledge first" : mode === "none" ? "Not applied to pledges" : "Earliest open pledge first"}
     >
-      <div className="flex flex-col gap-1.5 rounded-xl px-3.5 py-3 text-[13px] leading-[1.45]" style={{ background: "#E4F2EA" }}>
+      <div className="flex flex-col gap-1.5 rounded-xl bg-success-50 px-3.5 py-3 text-[13px] leading-[1.45]">
         {!household ? (
           <p className="font-semibold text-muted">Choose a household to see which pledges this payment closes.</p>
         ) : pledgeError ? (

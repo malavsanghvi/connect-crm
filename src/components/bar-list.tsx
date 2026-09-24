@@ -37,7 +37,7 @@ export function BarList({ items, labelWidth = 170, empty }: { items: BarItem[]; 
             {b.label}
           </span>
           <span
-            className="h-3.5 min-w-0 flex-1 rounded-[7px] bg-[#F1E8D8]"
+            className="h-3.5 min-w-0 flex-1 rounded-[7px] bg-track"
             role="img"
             aria-label={`${b.label}: ${Math.round(b.percent)}%`}
           >

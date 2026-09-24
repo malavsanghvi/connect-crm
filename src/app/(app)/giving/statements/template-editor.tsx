@@ -103,7 +103,7 @@ export function ReceiptTemplateEditor({
         </ActionForm>
       </Card>
       <Card span={5} title="Preview">
-        <div className="flex flex-col gap-1.5 rounded-xl px-3.5 py-3 text-[13px] leading-[1.45]" style={{ background: "#FBF7F0" }}>
+        <div className="flex flex-col gap-1.5 rounded-xl bg-ground px-3.5 py-3 text-[13px] leading-[1.45]">
           {lines.map((l, i) => (
             <p key={i} className={`${TONE[l.tone]} ${l.strong ? "font-bold" : "font-medium"}`}>
               {l.text}
