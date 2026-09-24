@@ -37,6 +37,16 @@ services:
       GOTRUE_RATE_LIMIT_VERIFY: "1000"
       GOTRUE_RATE_LIMIT_OTP: "1000"
       GOTRUE_MAILER_URLPATHS_CONFIRMATION: /auth/v1/verify
+      # Phone verification (o-security): a fake Twilio configuration so phone sign-in is
+      # enabled, and fixed test codes for the numbers below, so GoTrue never calls Twilio.
+      # Only these numbers can be verified locally; production needs a real SMS provider.
+      GOTRUE_EXTERNAL_PHONE_ENABLED: "true"
+      GOTRUE_SMS_PROVIDER: twilio
+      GOTRUE_SMS_TWILIO_ACCOUNT_SID: AC00000000000000000000000000000000
+      GOTRUE_SMS_TWILIO_AUTH_TOKEN: local-e2e-not-a-real-token
+      GOTRUE_SMS_TWILIO_MESSAGE_SERVICE_SID: MG00000000000000000000000000000000
+      GOTRUE_SMS_TEST_OTP: "15555550100:123456,15555550101:123456,15555550102:123456,15555550103:123456"
+      GOTRUE_RATE_LIMIT_SMS_SENT: "1000"
   rest:
     image: postgrest/postgrest:v12.2.3
     depends_on: { db: { condition: service_healthy } }

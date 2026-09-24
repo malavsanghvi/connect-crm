@@ -35,3 +35,30 @@ $$;
 grant usage on schema auth to anon, authenticated, service_role;
 grant select on auth.users to authenticated, service_role;
 grant execute on function auth.uid(), auth.jwt() to anon, authenticated, service_role;
+
+-- Supabase Auth MFA and sessions (o-security, 0150+): the columns the step-up and
+-- lost-device reset functions read. Hosted Supabase (GoTrue) owns the real tables.
+alter table auth.users add column if not exists phone_confirmed_at timestamptz;
+do $$ begin
+  create type auth.factor_type as enum ('totp', 'webauthn', 'phone');
+exception when duplicate_object then null; end $$;
+do $$ begin
+  create type auth.factor_status as enum ('unverified', 'verified');
+exception when duplicate_object then null; end $$;
+create table if not exists auth.mfa_factors (
+  id            uuid primary key,
+  user_id       uuid not null references auth.users(id) on delete cascade,
+  friendly_name text,
+  factor_type   auth.factor_type not null,
+  status        auth.factor_status not null,
+  created_at    timestamptz not null default now(),
+  updated_at    timestamptz not null default now(),
+  secret        text,
+  phone         text
+);
+create table if not exists auth.sessions (
+  id         uuid primary key,
+  user_id    uuid not null references auth.users(id) on delete cascade,
+  created_at timestamptz not null default now(),
+  aal        text
+);

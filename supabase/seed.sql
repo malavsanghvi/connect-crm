@@ -133,7 +133,8 @@ values ('00000000-0000-4000-8000-000000000001', 'jsh', 'Jain Society of Houston'
                    "org_household_label":"JSH household ID","org_household_system":"jsh_register",
                    "legacy_systems":[{"system":"neon","label":"Neon ID (JSH Connect family QR)"},
                                      {"system":"namocrm","label":"NamoCRM contact ID (old RSVP tickets: contact_id_<n>)"}]},
-    "bank":{"institution":"Chase","statement_format":"chase_csv"}}')
+    "bank":{"institution":"Chase","statement_format":"chase_csv"},
+    "security":{"require_2fa_for_staff":false}}')
 on conflict (id) do nothing;
 
 
