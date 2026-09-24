@@ -294,8 +294,8 @@ async function answerStepUp(p, secret) {
     'audit: center_owners.update with the reason');
 
   // ── 6. Readiness checks ───────────────────────────────────────────────────
-  const r1 = JSON.parse(sql(`select app.check_owner_admins_2fa('${JSH}')`));
-  ok(r1.ok === true, 'readiness owner_admins_2fa passes: ' + r1.detail);
+  const r1 = JSON.parse(sql(`select app.check_owner_and_second_admin_2fa('${JSH}')`));
+  ok(r1.ok === true, 'readiness owner_and_second_admin_2fa passes: ' + r1.detail);
   const r2 = JSON.parse(sql(`select app.check_agreements_accepted('${JSH}')`));
   ok(r2.ok === true, 'readiness agreements_accepted passes: ' + r2.detail);
 

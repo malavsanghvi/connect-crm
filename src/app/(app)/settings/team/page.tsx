@@ -47,7 +47,7 @@ export default async function TeamPage() {
     db.rpc("team_security", { p_center: center.id }),
     db.from("roles").select("key, name, tier, description").order("name"),
     db.from("center_owners").select("user_id, since").eq("center_id", center.id).maybeSingle(),
-    db.rpc("check_owner_admins_2fa", { p_center: center.id }),
+    db.rpc("check_owner_and_second_admin_2fa", { p_center: center.id }),
   ]);
   const roleName = new Map((roles.data ?? []).map((r) => [r.key, r.name]));
   const members = team.data ?? [];

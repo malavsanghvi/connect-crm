@@ -202,7 +202,7 @@ select pg_temp.assert((select user_id from app.center_owners where center_id = :
   'JSH''s owner is its first administrator (the earliest active center_admin grant)');
 select pg_temp.assert(not exists (select 1 from app.center_owners where center_id = '00000000-0000-4000-8000-000000000018'),
   'a community with no administrator has no owner yet');
-select pg_temp.assert((app.check_owner_admins_2fa('00000000-0000-4000-8000-000000000018')->>'ok')::boolean = false,
+select pg_temp.assert((app.check_owner_and_second_admin_2fa('00000000-0000-4000-8000-000000000018')->>'ok')::boolean = false,
   'the owner readiness check fails without an owner');
 insert into auth.users (id, email) values ('18000000-0000-4000-8000-000000000002', 'owner18@example.com');
 insert into app.role_grants (center_id, user_id, role_key) values ('00000000-0000-4000-8000-000000000018', '18000000-0000-4000-8000-000000000002', 'center_admin');
@@ -234,14 +234,14 @@ select pg_temp.assert(exists (select 1 from app.audit_log where action = 'center
 rollback;
 
 -- ── Readiness: owner and second admin with 2FA ──────────────────────────────
-select pg_temp.assert((app.check_owner_admins_2fa(:jsh)->>'ok')::boolean,
-  'owner_admins_2fa passes for JSH: Ada (owner) and a second admin both have authenticator apps');
+select pg_temp.assert((app.check_owner_and_second_admin_2fa(:jsh)->>'ok')::boolean,
+  'owner_and_second_admin_2fa passes for JSH: Ada (owner) and a second admin both have authenticator apps');
 delete from auth.mfa_factors where id = 'f1800000-0000-4000-8000-0000000000a1';
-select pg_temp.assert((select (r->>'ok')::boolean = false and r->>'detail' like '%second administrator has not set up 2FA%' from app.check_owner_admins_2fa(:jsh) r),
-  'owner_admins_2fa fails, in plain English, when the second admin has no app');
+select pg_temp.assert((select (r->>'ok')::boolean = false and r->>'detail' like '%second administrator has not set up 2FA%' from app.check_owner_and_second_admin_2fa(:jsh) r),
+  'owner_and_second_admin_2fa fails, in plain English, when the second admin has no app');
 insert into auth.mfa_factors (id, user_id, friendly_name, factor_type, status) values
   ('f1800000-0000-4000-8000-0000000000a1', :admin2, 'Admin phone', 'totp', 'verified');
-select pg_temp.assert(exists (select 1 from app.readiness_checks where key = 'owner_admins_2fa' and check_fn = 'app.check_owner_admins_2fa'::regproc)
+select pg_temp.assert(exists (select 1 from app.readiness_checks where key = 'owner_and_second_admin_2fa' and check_fn = 'app.check_owner_and_second_admin_2fa'::regproc)
                   and exists (select 1 from app.readiness_checks where key = 'agreements_accepted' and check_fn = 'app.check_agreements_accepted'::regproc),
   'both o-security readiness checks are registered in app.readiness_checks');
 

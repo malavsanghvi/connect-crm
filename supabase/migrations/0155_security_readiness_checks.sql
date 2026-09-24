@@ -7,7 +7,7 @@
 -- migration must then use `create table if not exists` (or skip the create).
 -- Each check is app.check_<key>(p_center uuid) returns jsonb {ok, detail}.
 --
---   owner_admins_2fa     plan §4 Step 8 check 3: an owner and a second admin, both with 2FA
+--   owner_and_second_admin_2fa     plan §4 Step 8 check 3: an owner and a second admin, both with 2FA
 --   agreements_accepted  plan §4 Step 8 check 2: the current version of every required agreement accepted
 
 create table if not exists app.readiness_checks (
@@ -32,7 +32,7 @@ begin
 end $$;
 insert into app.module_tables (table_name, module_key) values ('readiness_checks', null) on conflict (table_name) do nothing;
 
-create or replace function app.check_owner_admins_2fa(p_center uuid) returns jsonb
+create or replace function app.check_owner_and_second_admin_2fa(p_center uuid) returns jsonb
 language plpgsql stable security definer set search_path = app, public, extensions as $$
 declare v_owner uuid; v_owner_2fa boolean; v_admins int; v_admins_2fa int; v_missing text;
 begin
@@ -91,9 +91,9 @@ end $$;
 
 insert into app.readiness_checks (key, title, sort, check_fn) values
   ('agreements_accepted', 'Agreements accepted', 20, 'app.check_agreements_accepted'::regproc),
-  ('owner_admins_2fa', 'An owner and a second admin, both with 2FA', 30, 'app.check_owner_admins_2fa'::regproc)
+  ('owner_and_second_admin_2fa', 'An owner and a second admin, both with 2FA', 30, 'app.check_owner_and_second_admin_2fa'::regproc)
 on conflict (key) do update set title = excluded.title, sort = excluded.sort, check_fn = excluded.check_fn;
 
-revoke execute on function app.check_owner_admins_2fa(uuid), app.check_agreements_accepted(uuid) from public, anon;
-grant execute on function app.check_owner_admins_2fa(uuid), app.check_agreements_accepted(uuid) to authenticated;
+revoke execute on function app.check_owner_and_second_admin_2fa(uuid), app.check_agreements_accepted(uuid) from public, anon;
+grant execute on function app.check_owner_and_second_admin_2fa(uuid), app.check_agreements_accepted(uuid) to authenticated;
 grant execute on all functions in schema app to service_role;

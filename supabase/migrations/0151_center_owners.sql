@@ -12,7 +12,7 @@
 -- earliest active center_admin grant — as owner, now (for JSH) and whenever its
 -- first center_admin grant becomes active later (a new community). A community
 -- with no administrator stays without an owner; the readiness check
--- `owner_admins_2fa` says so until one exists.
+-- `owner_and_second_admin_2fa` says so until one exists.
 
 create table if not exists app.center_owners (
   center_id        uuid primary key references app.centers(id) on delete cascade,
