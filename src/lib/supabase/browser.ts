@@ -15,7 +15,8 @@ export function getSupabaseBrowserClient(env: Pick<PublicEnv, "supabaseUrl" | "s
     client = createBrowserClient<Database, "app">(env.supabaseUrl, env.supabaseAnonKey, {
       db: { schema: "app" },
       // Shared with every <slug>.<PORTAL_BASE_DOMAIN> portal when the server says so (src/lib/tenancy.ts sharedCookieDomain).
-      cookieOptions: { domain: cookieDomain },
+      // o-https: Secure cookies on an https:// page (the server sets them the same way).
+      cookieOptions: { domain: cookieDomain, secure: typeof window !== "undefined" && window.location.protocol === "https:" },
       // x-client-app, a fresh x-request-id and the current screen on every request.
       global: { fetch: tracingFetch(() => window.location.pathname) },
     });

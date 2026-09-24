@@ -76,7 +76,10 @@ export function decide({ name, publicIp, dns, probe }) {
     }
   }
   if (!probe) return { state: "not_checked", confirmed: false, reason: `HTTPS for ${name} has not been checked yet.` };
-  if (probe.ok) return { state: "https_ok", confirmed: true, reason: `https://${name} has a valid certificate${probe.validTo ? ` (valid until ${probe.validTo})` : ""}.`, validTo: probe.validTo ?? null };
+  if (probe.ok) {
+    const until = probe.validTo && !Number.isNaN(Date.parse(probe.validTo)) ? new Date(probe.validTo).toUTCString().slice(5, 16) : null;
+    return { state: "https_ok", confirmed: true, reason: `https://${name} has a valid certificate${until ? ` (renewed automatically; current one valid until ${until})` : ""}.`, validTo: probe.validTo ?? null };
+  }
   return {
     state: "https_failed",
     confirmed: false,
