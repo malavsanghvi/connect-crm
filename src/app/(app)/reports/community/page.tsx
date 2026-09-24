@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 
 import { ActionForm } from "@/components/action-form";
 import { Card, EmptyState, NoAccess, PageHeader, QueryError, TableWrap, buttonClass } from "@/components/ui";
+import { publicKpiLabel } from "@/lib/community-dashboard";
 import { canAccess } from "@/lib/permissions";
 import { getSession } from "@/lib/session";
 
@@ -67,16 +68,17 @@ export default async function CommunityDashboardSettingsPage() {
               <tbody>
                 {rows.map((k) => {
                   const pub = k.visibility === "public";
+                  const label = publicKpiLabel(k.kpi_key) ?? k.label;
                   return (
                     <tr key={k.kpi_key}>
-                      <td className="font-bold">{k.label}</td>
+                      <td className="font-bold">{label}</td>
                       <td className="text-muted">{SECTION[k.section] ?? k.section}</td>
                       <td className={`font-bold ${pub ? "text-success" : "text-faint"}`}>{pub ? "Public" : "Members only"}</td>
                       {canPublish ? (
                         <td>
                           <ActionForm action={setKpiVisibilityAction} submitLabel={pub ? "Unpublish" : "Publish"} pendingLabel="Saving…" variant={pub ? "bad" : "ok"} size="xs">
                             <input type="hidden" name="key" value={k.kpi_key} />
-                            <input type="hidden" name="label" value={k.label} />
+                            <input type="hidden" name="label" value={label} />
                             <input type="hidden" name="visibility" value={pub ? "members" : "public"} />
                           </ActionForm>
                         </td>

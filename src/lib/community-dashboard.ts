@@ -69,6 +69,16 @@ const PRACTICE: { key: string; label: string; sub: string }[] = [
   { key: "anumodana", label: "Anumodanas sent", sub: "Families cheering each other on" },
 ];
 
+/**
+ * The label a KPI carries on the public dashboard, so the portal's publish list
+ * names each KPI exactly as visitors will see it (prototype: "People in our
+ * community", not the catalog's "Community members"). Null for KPIs whose public
+ * tile has no fixed label (charts, campaign).
+ */
+export function publicKpiLabel(key: string): string | null {
+  return SUMMARY.find((k) => k.key === key)?.label ?? PRACTICE.find((k) => k.key === key)?.label ?? null;
+}
+
 function deltaText(key: string, deltas: Obj, period: Period): string | null {
   const d = obj(deltas[key]);
   if (key === "member_families" || key === "community_people") {

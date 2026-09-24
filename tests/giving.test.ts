@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { buildDashboard, compactCount, compactDollars, formatCount, periods } from "@/lib/community-dashboard";
+import { buildDashboard, compactCount, compactDollars, formatCount, periods, publicKpiLabel } from "@/lib/community-dashboard";
 import {
   addMonths,
   allocationPreviewText,
@@ -18,6 +18,7 @@ import {
   optionRows,
   parseBagNumbers,
   paymentRecordedToast,
+  recurringCause,
   pledgeStatusText,
   pledgeViewFromParam,
   qboClassFor,
@@ -253,5 +254,26 @@ describe("public community dashboard", () => {
     expect(v.months).toBeNull();
     expect(v.campaign).toBeNull();
     expect(buildDashboard({ metrics: {} }, period).empty).toBe(true);
+  });
+});
+
+describe("recurringCause", () => {
+  const camps = new Map([["c1", "Temple construction"]]);
+  const funds = new Map([["f1", "Jeevdaya"]]);
+  it("names the campaign, then the fund, then a labh, then the general fund", () => {
+    expect(recurringCause({ campaign_id: "c1", fund_id: "f1", special_day_id: null }, camps, funds)).toBe("Temple construction");
+    expect(recurringCause({ campaign_id: null, fund_id: "f1", special_day_id: null }, camps, funds)).toBe("Jeevdaya");
+    expect(recurringCause({ campaign_id: null, fund_id: null, special_day_id: "d1" }, camps, funds)).toBe("Special-day labh");
+    expect(recurringCause({ campaign_id: null, fund_id: null, special_day_id: null }, camps, funds)).toBe("General fund");
+    expect(recurringCause({ campaign_id: null, fund_id: "gone", special_day_id: null }, camps, funds)).toBe("Fund");
+  });
+});
+
+describe("publicKpiLabel", () => {
+  it("names KPIs as the public dashboard shows them", () => {
+    expect(publicKpiLabel("community_people")).toBe("People in our community");
+    expect(publicKpiLabel("attendance")).toBe("Event and class visits");
+    expect(publicKpiLabel("navkar_malas")).toBe("Navkar malas counted");
+    expect(publicKpiLabel("campaign")).toBeNull();
   });
 });
