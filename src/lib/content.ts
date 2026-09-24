@@ -247,3 +247,36 @@ export function nextVersion(current: string | null | undefined): string {
 export function compareVersions(a: string, b: string): number {
   return a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" });
 }
+
+// ---------------------------------------------------------------------------
+// Gyan Path learner stats
+// ---------------------------------------------------------------------------
+/**
+ * Per goal: learners = people with any completed step of the goal; completion
+ * = share of those learners who completed every step of it.
+ */
+export function goalLearnerStats(
+  stepsByGoal: Map<string, string[]>,
+  progress: { person_id: string; step_id: string }[],
+): Map<string, { learners: number; completionPct: number | null }> {
+  const goalOfStep = new Map<string, string>();
+  for (const [g, steps] of stepsByGoal) for (const s of steps) goalOfStep.set(s, g);
+  const done = new Map<string, Map<string, Set<string>>>();
+  for (const p of progress) {
+    const g = goalOfStep.get(p.step_id);
+    if (!g) continue;
+    const byPerson = done.get(g) ?? new Map<string, Set<string>>();
+    const set = byPerson.get(p.person_id) ?? new Set<string>();
+    set.add(p.step_id);
+    byPerson.set(p.person_id, set);
+    done.set(g, byPerson);
+  }
+  const out = new Map<string, { learners: number; completionPct: number | null }>();
+  for (const [g, steps] of stepsByGoal) {
+    const byPerson = done.get(g) ?? new Map();
+    const learners = byPerson.size;
+    const complete = steps.length === 0 ? 0 : [...byPerson.values()].filter((s) => s.size >= steps.length).length;
+    out.set(g, { learners, completionPct: learners ? Math.round((complete / learners) * 100) : null });
+  }
+  return out;
+}

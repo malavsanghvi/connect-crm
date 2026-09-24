@@ -164,3 +164,18 @@ describe("content and comms navigation", () => {
     expect(canAccess({ permissions: ["comms.send"], isPlatformAdmin: false }, "commsApprove")).toBe(false);
   });
 });
+
+import { goalLearnerStats } from "@/lib/content";
+
+describe("Gyan Path learner stats", () => {
+  it("counts learners and full completions per goal", () => {
+    const stats = goalLearnerStats(new Map([["g", ["s1", "s2"]], ["h", ["s3"]]]), [
+      { person_id: "a", step_id: "s1" },
+      { person_id: "a", step_id: "s2" },
+      { person_id: "b", step_id: "s1" },
+      { person_id: "x", step_id: "zz" },
+    ]);
+    expect(stats.get("g")).toEqual({ learners: 2, completionPct: 50 });
+    expect(stats.get("h")).toEqual({ learners: 0, completionPct: null });
+  });
+});
