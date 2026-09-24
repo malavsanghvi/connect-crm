@@ -90,3 +90,4 @@ enforcing object is named so it can be found.
 | Weekend and festival-day on-call staffing | Technology officer | Open |
 | Neon account vs contact ids in use; QuickBooks customer naming; JSH household ID format (digits?) | Treasurer + membership coordinator | Open — needed before the Neon/QuickBooks import |
 | Yearly membership fee amount (seeded as 0, `[sample]`) | Treasurer | Open |
+| Organization onboarding: sandbox model, what promotion copies, sandbox limits, non-profit proof, 2FA methods, providers, email editor plugin, custom fields, history depth, portal addresses, Niva, offline-only launch, billing, go-live approvers (O1–O15 in [ONBOARDING_PLAN.md](ONBOARDING_PLAN.md#10-decisions-needed)) | Owner | Open |
