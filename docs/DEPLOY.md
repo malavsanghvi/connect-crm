@@ -4,9 +4,9 @@ Where things run:
 
 | Piece | Runs on | Address before a domain is set up |
 |---|---|---|
-| Connect CRM | droplet, port 3000 behind Caddy | `http://<droplet IP>` |
+| Connect CRM | droplet, port 3000 behind Caddy | `http://<droplet IP>`, and `https://<droplet IP>` once its certificate is confirmed (see "HTTPS for the portal") |
 | Connect Admin | droplet, port 3001 behind Caddy | `http://<droplet IP>:8081` |
-| Member app (web version) | droplet, static files | `http://<droplet IP>:8082` |
+| Member app (web version) | droplet, static files | `http://<droplet IP>:8082`, and `https://<droplet IP>:8443` once the portal's HTTPS is up |
 | Database, sign-in, sign-in emails | Supabase cloud | — |
 | Background service (connect-crm `worker/`) | droplet, systemd unit `connect@worker`, health on `127.0.0.1:3010` only | — (nothing public) |
 
@@ -206,15 +206,57 @@ route. Nothing else in Connect uses it.
 Logs: they are JSON lines in the journal (`journalctl -u connect@worker`), with
 any field that looks like a secret replaced by `[redacted]`.
 
+## HTTPS for the portal (o-https)
+
+Every connect-crm deploy sets this up; there is nothing to switch on. What it does:
+
+- **Port 80 keeps serving the portal, always.** A request is sent on to `https://` only for a
+  name whose certificate the server has *confirmed* (below). Nothing that works on `http://`
+  today stops working because a certificate is missing or late.
+- **The droplet address (no domain needed).** Caddy asks Let's Encrypt for a certificate for
+  the IP address itself. Let's Encrypt issues IP certificates only on its short-lived profile
+  (about 6 days; Caddy renews them on its own), which needs **Caddy 2.10 or later**: the deploy
+  upgrades an older Caddy package once, and if Caddy still refuses the setting the address
+  simply stays on `http://` and Platform › HTTPS says why.
+- **Any domain, with no redeploy.** Caddy serves every HTTPS name "on demand" and asks the
+  portal (`/api/tenancy/tls-ask` → `app.tls_host_allowed`, migration 0330) before requesting a
+  certificate. The portal says yes for the portal domain saved in Platform setup, the
+  organizations' base domain and `<slug>.<base>` of a real community, and organizations'
+  registered own domains; never for anything else.
+- **The HTTPS check** (`connect-https-confirm.timer`, every minute, installed by the deploy):
+  for each of those names it checks that DNS points at the droplet, then connects over HTTPS
+  and verifies the certificate the way a browser does. That first connection is also what
+  makes Caddy fetch a newly saved domain's certificate. Confirmed names get the `http://` →
+  `https://` redirect and HSTS (30 days); a name that stops verifying loses them again within a
+  minute. The result is shown in **Platform › HTTPS** (and the Platform setup wizard).
+- **Session cookies** are marked Secure on HTTPS requests. **The member web app** is also
+  served over HTTPS on port **8443** of the same names (`https://<droplet IP>:8443`).
+- `PORTAL_PUBLIC_URL` (links in messages) follows `SITE_DOMAIN` when it is not set; the
+  background service otherwise uses the portal domain saved in Platform setup (https once
+  confirmed).
+
+**The owner's one manual step:** at your DNS provider, add an **A record** for the portal's name
+(for example `crm.jsh.org`) pointing at the droplet IP, and save the same name in Platform setup
+(Portal address and HTTPS). HTTPS for it starts by itself a few minutes after DNS updates.
+Then update Supabase › Authentication › URL Configuration: Site URL `https://crm.jsh.org`, and add
+it to the redirect URLs. If a DigitalOcean *cloud* firewall is attached to the droplet, it must
+allow 80, 443 and 8443 (the droplet's own firewall is opened by the deploy).
+
+Local checks: `tests/caddy-sites.test.ts`, `tests/https-confirm.test.ts`,
+`supabase/tests/31_https_test.sql`, `e2e/https-release.sh` (release.sh in a sealed namespace with
+a real Caddy) and `e2e/flows/o-https.cjs` (real Caddy + confirmer + portal + browser).
+
 ## Domains (do this before real member data goes in)
 
-Until then the apps are plain `http`: sign-in codes and sessions cross the network
-unencrypted. Fine for trying it, not for real use.
+The portal no longer needs this to get HTTPS (see "HTTPS for the portal": save the domain in
+Platform setup and point DNS at the droplet). `SITE_DOMAIN` still works and is the way to give
+connect-admin and the member web app their own names:
 
 1. At your DNS provider, add **A records** pointing at the droplet IP, for example
    `crm.jsh.org`, `admin.jsh.org`, `app.jsh.org`.
 2. Set the `SITE_DOMAIN` variable in each repo (`crm.jsh.org` in connect-crm, and so on).
-3. Re-run Deploy in each repo. Caddy fetches HTTPS certificates automatically.
+3. Re-run Deploy in each repo. Caddy fetches HTTPS certificates automatically (for connect-crm,
+   `http://` redirects only once the certificate is confirmed).
 4. Update the Supabase Site URL to `https://crm.jsh.org`.
 
 ## Organization addresses (more than one organization)
@@ -266,6 +308,9 @@ The failed step in Actions says what is missing or what broke:
 
 - `deploy/droplet-setup.sh` (same file in all three repos): swap, Node.js 22, Caddy,
   firewall (22, 80, 443, 8081, 8082), user `connect`, systemd unit `connect@.service`.
+- connect-crm only (`PORTAL_HTTPS=1`): `deploy/caddy-sites.mjs` writes the portal's Caddy sites,
+  `deploy/https-confirm.mjs` is installed as `connect-https-confirm.timer`, and 8443 is opened
+  (see "HTTPS for the portal").
 - `deploy/release.sh`: unpacks the build to `/srv/connect/<app>/releases/<commit>`,
   points `current` at it, writes the Caddy site, restarts the service, waits for it to
   answer, keeps the last three releases.
