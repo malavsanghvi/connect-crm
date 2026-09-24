@@ -34,3 +34,11 @@
 - Migrations reach Supabase through `supabase/scripts/migrate.sh` (tracked in
   `public.connect_schema_migrations`, one transaction per file). Never edit an applied migration;
   add a new one.
+
+## Pull requests — standing authorisation (owner, 2026-09-24)
+
+Claude opens a PR for each change, waits for **App checks** (typecheck, lint, test, build;
+plus **Database tests** in connect-crm when `supabase/**` changes) to pass, merges it, then
+confirms the resulting **Deploy** run is green and the app answers. Ask the owner first,
+even with checks green, for anything that changes money rules, permissions/RLS, or deletes
+data. Repository settings, secrets and passwords stay with the owner.
