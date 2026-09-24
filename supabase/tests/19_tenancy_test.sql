@@ -123,6 +123,8 @@ select pg_temp.assert(true, 'at the limit, in the right mode, or with no limit, 
 select pg_temp.assert(app.entitlement_message('sandbox', 'storage.bytes', '2147483648', null) like '%2.0 GB%'
                       and app.entitlement_message('production', 'max_people', '12000', null) like 'This community''s plan can hold up to 12,000 people%',
   'messages are plain English with readable numbers');
+select pg_temp.assert(app.entitlement_message('sandbox', 'max_households', '1', null) like 'This sandbox can hold up to 1 household.%',
+  'a limit of one reads in the singular');
 
 -- ── People and households caps ───────────────────────────────────────────────
 insert into app.households (center_id, display_name) values (:sbx, 'Test family A'), (:sbx, 'Test family B');

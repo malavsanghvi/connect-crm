@@ -148,13 +148,14 @@ declare
                        then 'ask Community Connect to raise the limit'
                        else 'ask Community Connect about a larger plan' end;
   v_n text := case when jsonb_typeof(p_value) = 'number' then to_char((p_value #>> '{}')::numeric, 'FM999,999,999,990') end;
+  v_one boolean := jsonb_typeof(p_value) = 'number' and (p_value #>> '{}')::numeric = 1;
 begin
   return case p_key
     when 'max_people' then
-      format('%s can hold up to %s people. Remove some %speople, or %s.', v_who, v_n,
+      format('%s can hold up to %s %s. Remove some %speople, or %s.', v_who, v_n, case when v_one then 'person' else 'people' end,
              case when p_environment = 'sandbox' then 'test ' else '' end, v_raise)
     when 'max_households' then
-      format('%s can hold up to %s households. Remove some %shouseholds, or %s.', v_who, v_n,
+      format('%s can hold up to %s %s. Remove some %shouseholds, or %s.', v_who, v_n, case when v_one then 'household' else 'households' end,
              case when p_environment = 'sandbox' then 'test ' else '' end, v_raise)
     when 'public_dashboard' then
       case when p_environment = 'sandbox' then 'Sandboxes have no public community dashboard. It opens once the community goes live.'
@@ -219,7 +220,6 @@ language sql stable security definer set search_path = app, public, extensions a
               else coalesce((select coalesce(nullif(p.preferred_name, ''), p.first_name) || ' ' || p.last_name
                                from app.center_users cu join app.people p on p.id = cu.person_id
                               where cu.user_id = ce.set_by limit 1),
-                            (select u.email::text from auth.users u where u.id = ce.set_by),
                             'Platform team') end,
          ce.set_at, ce.reason
     from app.centers c
