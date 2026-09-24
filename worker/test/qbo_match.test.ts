@@ -26,7 +26,7 @@ describe("mapping QuickBooks JSON", () => {
     const shah = mapCustomer(company.Customer[0])!;
     expect(shah).toMatchObject({ qbo_id: "1187", display_name: "Shah Family", emails: ["priya.shah@example.com"], open_balance_cents: 40000, is_sub_customer: false });
     expect(shah.address).toEqual({ line1: "1 Lotus Ct", city: "Katy", state: "TX", zip: "77494" });
-    expect(mapCustomer(company.Customer[1])!.emails).toEqual(["kiran.mehta@example.com"]);
+    expect(mapCustomer(company.Customer[1])!.emails).toEqual(["kiran@jsh.test"]);
     expect(mapCustomer(company.Customer[2])!.phones).toEqual(["+12815550112"]);
     expect(mapCustomer(company.Customer[7])).toMatchObject({ parent_qbo_id: "1187", is_sub_customer: true });
     expect(mapCustomer(company.Customer[8])!.active).toBe(false);

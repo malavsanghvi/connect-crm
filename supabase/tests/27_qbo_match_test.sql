@@ -217,6 +217,8 @@ select pg_temp.assert((select bool_and(is_historical and provider = 'quickbooks'
   'payments and sales receipts → historical payments from the primary member');
 select pg_temp.assert((select method = 'check' and check_number = '887' and memo like '%sales receipt #1001%Fund: General%' from app.payments where crm_external_id = 'qbo:SalesReceipt:9201'),
   'the method, check number and fund are kept');
+select pg_temp.assert((select memo like '%Fund: Construction%' from app.payments where crm_external_id = 'qbo:Payment:9101'),
+  'a payment takes the fund of the invoice it paid');
 select pg_temp.assert((select cc_status = 'brought_in' and cc_detail like '%"Jeevdaya" is not linked to a fund%' from app.qbo_transactions where qbo_id = '9201'),
   'an unmapped class goes to the general fund, with a note');
 select pg_temp.assert((select a.amount_cents = 60000 from app.payment_allocations a join app.payments p on p.id = a.payment_id

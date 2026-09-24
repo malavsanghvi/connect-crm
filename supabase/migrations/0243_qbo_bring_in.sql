@@ -253,7 +253,9 @@ begin
                                                              'reason', left(coalesce(r->>'reason', ''), 300))),
              'qb', jsonb_build_object('display_name', c.display_name, 'company', c.company_name, 'emails', to_jsonb(c.emails),
                                       'phones', to_jsonb(c.phones), 'address', c.address),
-             'cc', jsonb_build_object('household', h.display_name, 'household_number', h.household_number, 'city', h.city, 'zip', h.postal_code))
+             'cc', jsonb_build_object('household', h.display_name, 'household_number', h.household_number, 'city', h.city, 'zip', h.postal_code,
+                                      'primary', (select p.first_name || ' ' || p.last_name from app.household_members hm join app.people p on p.id = hm.person_id
+                                                   where hm.household_id = h.id and hm.is_primary and hm.left_at is null limit 1)))
       from app.qbo_customers c, app.households h
      where c.center_id = p_center and c.qbo_id = r->>'qbo_id' and h.id = v_hh
     on conflict (center_id, qbo_customer_id, household_id) where status = 'suggested'
@@ -422,6 +424,15 @@ begin
       if v_alloc > t.total_cents then
         perform app.qbo_mark(p_center, t, 'needs_review', 'The invoices it paid add up to more than the payment itself.');
         n_review := n_review + 1; continue;
+      end if;
+      -- A payment's fund is the fund of the invoice (pledge) it paid; only an unapplied one falls back.
+      if t.qbo_type = 'Payment' and v_alloc > 0 then
+        select f.id as fund_id, f.name as fund_name, null::text as note into v_fund
+          from jsonb_array_elements(t.linked) l
+          join app.qbo_transactions i on i.center_id = p_center and i.qbo_type = 'Invoice' and i.qbo_id = l->>'id'
+          join app.pledges pl on pl.id = i.cc_pledge_id
+          left join app.funds f on f.id = pl.fund_id
+         where l->>'type' = 'Invoice' order by (l->>'amount_cents')::bigint desc limit 1;
       end if;
       v_method := app.qbo_payment_method(t.payment_method);
       v_memo := concat_ws(' · ', format('QuickBooks %s %s', app.qbo_type_label(t.qbo_type), coalesce('#' || t.doc_number, t.qbo_id)),

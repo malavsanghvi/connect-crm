@@ -368,7 +368,7 @@ async function SuggestedTab({ session, labels, canManage, page, sp }: { session:
                             {ev.cc.household ?? "Household"}
                           </Link>
                         )}
-                        <p className="mt-1 text-[12px] text-muted">{landingText(ev.cc.person, ev.cc.primary)}</p>
+                        <p className="mt-1 text-[12px] text-muted">{landingText(m.person_id ? ev.cc.person : null, ev.cc.primary)}</p>
                       </td>
                       <td className="align-top text-[12px]">
                         <Badge tone={m.method === "ai" ? "purple" : "navy"}>{methodLabel(m.method)}</Badge>

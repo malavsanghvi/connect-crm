@@ -2,7 +2,7 @@
   "_note": "A made-up QuickBooks Online company for the o-qbo-match flow (test data only). Shapes follow the QuickBooks Online v3 API (Customer, SalesReceipt, Payment with LinkedTxn, Invoice with Balance, CreditMemo), keyed to the demo households in supabase/demo/demo.sql.",
   "Customer": [
     { "Id": "1187", "DisplayName": "Shah Family", "PrimaryEmailAddr": { "Address": "priya.shah@example.com" }, "BillAddr": { "Line1": "1 Lotus Ct", "City": "Katy", "CountrySubDivisionCode": "TX", "PostalCode": "77494" }, "Active": true, "Balance": 400.0, "Job": false },
-    { "Id": "2001", "DisplayName": "Kiran Mehta", "GivenName": "Kiran", "FamilyName": "Mehta", "PrimaryEmailAddr": { "Address": "Kiran.Mehta@example.com" }, "Active": true, "Balance": 0, "Job": false },
+    { "Id": "2001", "DisplayName": "Kiran Mehta", "GivenName": "Kiran", "FamilyName": "Mehta", "PrimaryEmailAddr": { "Address": "Kiran@JSH.test" }, "Active": true, "Balance": 0, "Job": false },
     { "Id": "2002", "DisplayName": "Neha M.", "PrimaryPhone": { "FreeFormNumber": "(281) 555-0112" }, "Active": true, "Balance": 0, "Job": false },
     { "Id": "2003", "DisplayName": "Mr & Mrs Rahul Shah", "GivenName": "Rahul", "FamilyName": "Shah", "BillAddr": { "City": "Sugar Land", "CountrySubDivisionCode": "TX", "PostalCode": "77478" }, "Active": true, "Balance": 300.0, "Job": false },
     { "Id": "2004", "DisplayName": "Mehta Family", "Active": true, "Balance": 0, "Job": false },

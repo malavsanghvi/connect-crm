@@ -156,12 +156,7 @@ language sql stable security definer set search_path = app, public, extensions a
            row_number() over (partition by a.qbo_id order by least(0.99, a.top + 0.02 * (a.nsig - 1)) desc, a.household_id) as rn
       from agg a
   )
-  select s.qbo_id, s.household_id,
-         case app.qbo_customer_level(p_center)
-           when 'family' then null
-           when 'person' then s.person_id
-           else case when c.family_like then null else s.person_id end end,
-         s.conf, s.method,
+  select s.qbo_id, s.household_id, f.person_id, s.conf, s.method,
          jsonb_build_object(
            'signals', s.signals,
            'qb', jsonb_build_object('display_name', c.display_name, 'company', c.company_name, 'emails', to_jsonb(c.emails),
@@ -171,10 +166,15 @@ language sql stable security definer set search_path = app, public, extensions a
                                             'members', (select coalesce(jsonb_agg(m.full_name order by m.person_id), '[]'::jsonb) from mem m where m.household_id = h.id),
                                             'primary', (select p.first_name || ' ' || p.last_name from app.household_members hm join app.people p on p.id = hm.person_id
                                                          where hm.household_id = h.id and hm.is_primary and hm.left_at is null limit 1),
-                                            'person', (select p.first_name || ' ' || p.last_name from app.people p where p.id = s.person_id))
+                                            'person', (select p.first_name || ' ' || p.last_name from app.people p where p.id = f.person_id))
                     from hh h where h.id = s.household_id)),
          s.rn::int
     from scored s join cust c on c.qbo_id = s.qbo_id
+    -- Family- or person-level by the center's default; "mixed" decides from the QuickBooks name.
+    cross join lateral (select case app.qbo_customer_level(p_center)
+                                 when 'family' then null
+                                 when 'person' then s.person_id
+                                 else case when c.family_like then null else s.person_id end end as person_id) f
    where s.rn <= 3 and s.conf >= 0.5
 $$;
 
