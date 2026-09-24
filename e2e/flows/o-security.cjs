@@ -89,7 +89,11 @@ async function apiStepUp(token, factorId, secret) {
 }
 const claims = (t) => JSON.parse(Buffer.from(t.split('.')[1], 'base64url'));
 
-async function portalSignIn(browser, email) {
+/**
+ * Email-code sign-in. An account with an authenticator app is then asked for its code:
+ * `totpSecret` answers it; without one the flow clicks "Not now" (allowed while JSH does not require 2FA).
+ */
+async function portalSignIn(browser, email, { totpSecret } = {}) {
   const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } });
   const p = await ctx.newPage();
   const errs = [];
@@ -97,8 +101,24 @@ async function portalSignIn(browser, email) {
   await p.goto(BASE + '/login'); const t0 = Date.now() - 2000;
   await p.fill('input[name=email]', email); await p.click('button[type=submit]');
   await p.waitForSelector('input[name=code]'); await p.fill('input[name=code]', await mailCode(email, t0));
-  await p.click('button[type=submit]'); await p.waitForURL((u) => !u.pathname.startsWith('/login'), { timeout: 30000 });
-  return { ctx, p, errs };
+  await p.click('button[type=submit]');
+  await Promise.race([
+    p.waitForURL((u) => !u.pathname.startsWith('/login'), { timeout: 30000 }),
+    p.waitForSelector('input[name=totp]', { timeout: 30000 }),
+  ]);
+  let askedTotp = false;
+  if (new URL(p.url()).pathname.startsWith('/login')) {
+    askedTotp = true;
+    await shot(p, 'login-2fa-step');
+    if (totpSecret) {
+      await p.fill('input[name=totp]', await totp(totpSecret));
+      await p.getByRole('button', { name: 'Verify' }).click();
+    } else {
+      await p.getByRole('button', { name: 'Not now' }).click();
+    }
+    await p.waitForURL((u) => !u.pathname.startsWith('/login'), { timeout: 30000 });
+  }
+  return { ctx, p, errs, askedTotp };
 }
 
 /** Account › Security: add an authenticator app, reading the setup key off the page. Returns the secret. */
@@ -172,6 +192,7 @@ async function answerStepUp(p, secret) {
   // A new portal session (email code only, aal1) so the step-up modal must appear.
   await admin.ctx.close();
   const admin2 = await portalSignIn(browser, ADMIN);
+  ok(admin2.askedTotp, 'signing in with an authenticator app set up asks for its code (skipped here: JSH does not require 2FA yet)');
   const ap = admin2.p;
   await ap.goto(BASE + '/settings/team', { waitUntil: 'networkidle' });
   await shot(ap, 'team-before');
@@ -244,13 +265,11 @@ async function answerStepUp(p, secret) {
   sql(`update app.legal_documents set published_at = now() where center_id is null and kind in ('org_terms','dpa','children_addendum','order_form')`);
   await ap.goto(BASE + '/settings/agreements', { waitUntil: 'networkidle' });
   await shot(ap, 'agreements-before');
-  for (let i = 0; i < 4; i++) {
-    const cardForm = ap.locator('form').filter({ has: ap.locator('input[name=confirm]') }).first();
-    if (!(await cardForm.count())) break;
-    await cardForm.locator('input[name=confirm]').check();
-    await cardForm.getByRole('button', { name: /^Accept / }).click();
-    await ap.waitForTimeout(1500);
-    await ap.waitForLoadState('networkidle');
+  for (const kind of ['terms', 'dpa', 'children_addendum', 'order_form']) {
+    const card = ap.getByTestId(`agreement-${kind}`);
+    await card.locator('input[name=confirm]').check();
+    await card.getByRole('button', { name: /^Accept / }).click();
+    await card.locator('input[name=confirm]').waitFor({ state: 'detached', timeout: 20000 }); // the form goes once it is accepted
   }
   await shot(ap, 'agreements-after');
   const agreed = sql(`select string_agg(kind||':'||(ip is not null)::text||':'||(user_agent like 'Mozilla%')::text, ',' order by kind) from app.org_agreements where center_id = '${JSH}' and accepted_by = '${adminId}'`);
@@ -297,6 +316,13 @@ async function answerStepUp(p, secret) {
   await shot(teacher.p, 'required-2fa');
   await teacher.ctx.close();
   sql(`update app.centers set rules = jsonb_set(rules, '{security,require_2fa_for_staff}', 'false') where id = '${JSH}'`);
+
+  // Sign-in with the authenticator code gives a 2FA session straight away.
+  const admin3 = await portalSignIn(browser, ADMIN, { totpSecret: adminSecret });
+  await admin3.p.goto(BASE + '/account/security', { waitUntil: 'networkidle' });
+  const acct = await admin3.p.innerText('main');
+  ok(admin3.askedTotp && !acct.includes('This session has not passed 2FA') && /passed/.test(acct), 'a sign-in with the authenticator code is a 2FA (aal2) session');
+  await admin3.ctx.close();
 
   // Give ownership back so the stack stays as the other flows expect (SQL; test stack only).
   sql(`update app.center_owners set user_id = '${adminId}', transferred_from = '${inviteeId}', since = now() where center_id = '${JSH}'`);
