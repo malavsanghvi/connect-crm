@@ -3,6 +3,7 @@
 import { startTransition, useActionState, useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 
 import { Modal, type ModalTone } from "@/components/modal";
+import { needsStepUp, useStepUp } from "@/components/step-up";
 import { useToast } from "@/components/toast";
 import { buttonClass, type ButtonSize, type ButtonVariant } from "@/components/ui";
 import { splitConfirmMessage } from "@/lib/confirm";
@@ -51,6 +52,8 @@ type PendingConfirm = { title: string; body: string | null; confirmLabel: string
  *   prototype's confirmation modal; the question becomes its title.
  * - Success messages show as a green toast (inline when no toast is available).
  * - Errors always show in plain English beside the form, and also as a red toast.
+ * - When the database asks for a fresh 2FA check (CCSTP), the step-up modal
+ *   opens and, once the code is verified, the same submission is sent again.
  */
 export function ActionForm({
   action,
@@ -88,18 +91,30 @@ export function ActionForm({
   const formRef = useRef<HTMLFormElement>(null);
   const toast = useToast();
   const [confirm, setConfirm] = useState<PendingConfirm | null>(null);
+  const stepUp = useStepUp();
+  const lastFd = useRef<FormData | null>(null);
 
   useEffect(() => {
     if (!state) return;
+    if (stepUp && needsStepUp(state) && lastFd.current) {
+      const fd = lastFd.current;
+      void stepUp.request(submitLabel).then((ok) => {
+        if (ok) startTransition(() => formAction(fd));
+      });
+      return;
+    }
     if (state.ok) {
       if (resetOnSuccess) formRef.current?.reset();
       if (state.message) toast?.show(state.message, "ok");
     } else {
       toast?.show(state.error, "bad");
     }
+    // Only a new result should open the step-up modal or toast.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state, resetOnSuccess, toast]);
 
   function run(fd: FormData) {
+    lastFd.current = fd;
     startTransition(() => formAction(fd));
   }
 

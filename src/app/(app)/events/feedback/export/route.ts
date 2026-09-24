@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 
-import { explainError } from "@/lib/errors";
+import { explainError, isStepUpError } from "@/lib/errors";
 import { canAccess } from "@/lib/permissions";
 import { isUuid } from "@/lib/search-params";
 import { loadSession } from "@/lib/session";
@@ -37,6 +37,22 @@ export async function GET(request: NextRequest) {
   if (responses.error || attendees.error) {
     console.error("[feedback export] responses read failed:", responses.error ?? attendees.error);
     return problem(`Could not export the results — ${explainError(responses.error ?? attendees.error)}.`, 500);
+  }
+  // Exports need a fresh 2FA check and are audited (app.record_export, 0154): counts only, never the data.
+  const recorded = await db.rpc("record_export", {
+    p_center: session.center.id,
+    p_kind: "event_feedback",
+    p_detail: { survey_id: s.data.id, responses: (responses.data ?? []).length },
+  });
+  if (recorded.error) {
+    if (isStepUpError(recorded.error)) {
+      return new NextResponse("Could not export the results — this needs a fresh 2FA check.\n", {
+        status: 403,
+        headers: { "content-type": "text/plain; charset=utf-8", "x-step-up": "required" },
+      });
+    }
+    console.error("[feedback export] record_export failed:", recorded.error);
+    return problem(`Could not export the results — ${explainError(recorded.error)}.`, 500);
   }
   // Never pass names: the export is anonymized.
   const results = aggregateFeedback(parseQuestions(s.data.questions), responses.data ?? [], attendees.count ?? 0);

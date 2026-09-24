@@ -98,3 +98,18 @@ schema's keys (no new keys; `src/lib/permissions.ts` ACCESS):
 
 Center-rule forms under Content (daily timing text, points and Saathi rules) and Legal & waivers
 write `centers.rules` / `legal_documents`, which need `settings.manage`.
+
+## Two-step verification, step-up and the owner (onboarding · o-security, 0150–0156)
+
+| Piece | What it does |
+|---|---|
+| `security.require_2fa_for_staff` (centers.rules) | On by default for a new community; recorded **off** for JSH until its staff have enrolled (Settings › Security). When on, a staff session (any active role grant) that has not passed 2FA (`aal2`) opens only Account › Security until it does. Switching it off needs a fresh 2FA check. |
+| `app.is_aal2()`, `app.has_recent_step_up(minutes = 5)` | Read the session JWT: `aal`, and the `totp` time in `amr` (GoTrue refreshes it on every challenge). |
+| `app.assert_step_up(action)` | Raises SQLSTATE `CCSTP` "This needs a fresh 2FA check." unless the session passed a TOTP check in the last 5 minutes. Asked of anyone with an authenticator app, and of staff of a community that requires 2FA; nobody else yet (JSH during its transition). Never asked of the service role. |
+| Where it is enforced (0154) | Role grants (insert/approve/revoke), module switches, write-off and refund requests and approvals, the month lock, person and household merges, switching the 2FA rule off, exports (`app.record_export`), ownership transfer, invitations and 2FA resets. BEFORE triggers, so every route that writes is covered. |
+| Step-up in the portal | A refused action returns `stepUp: true`; `ActionForm` and `StepUpProvider` open the modal, verify the code on the server (Supabase MFA challenge) and retry once. |
+| `app.center_owners`, `app.is_center_owner`, `app.transfer_ownership` | One owner per community (the first active center_admin, automatically). Only the owner accepts the agreements and transfers ownership, to another active center_admin, with a reason and a fresh check. |
+| `app.staff_invitations`, `app.invite_staff` / `resend_invitation` / `revoke_invitation` / `accept_invitation` | Invite people without a login by email or mobile (roles.manage + step-up). Only a SHA-256 of the link token is stored. Accepting links the login to a person and grants the roles **as the inviter's grants**: center_admin, treasurer, finance_volunteer, executive_committee and privacy_officer still wait for a second, different approver. |
+| `app.org_agreements`, `app.accept_org_agreement`, `app.org_agreement_status` | The owner accepts Community Connect's terms (`legal_documents.kind = 'org_terms'`), DPA, children's addendum, order form (production) or sandbox terms (sandbox); who, version, time, IP and browser are kept. Platform admins publish the texts (`app.publish_platform_document`). |
+| `app.reset_staff_2fa(center, user, reason)` | Lost phone: another administrator (roles.manage + an active center_admin grant, never oneself) or a platform admin removes the person's authenticator apps and signs them out everywhere. Audited. This is the recovery path; there are no recovery codes. |
+| Readiness checks | `owner_and_second_admin_2fa` (an owner and a second admin, both with 2FA) and `agreements_accepted`, registered in `app.readiness_checks`. |

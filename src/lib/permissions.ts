@@ -155,6 +155,8 @@ export const ACCESS = {
   publicKpisManage: ["settings.manage"],
   roles: ["roles.manage"],
   centerSettings: ["settings.manage"],
+  /** Setup checklist, Step 0 screens and go-live readiness (settings.manage; the owner too, in the database). */
+  setup: ["settings.manage"],
   /** Settings › Integrations (reads app.integration_connections). */
   integrations: ["integrations.view", "integrations.manage"],
   /** Settings › Security: readable by rules or roles managers; saving writes centers.rules (settings.manage). */
@@ -202,6 +204,23 @@ export const ACCESS = {
   commsSend: ["comms.send"],
   commsApprove: ["comms.approve"],
   commsInbox: ["comms.inbox"],
+  /** Settings › Data import: whoever may write one of the importable data types (each run checks its own). */
+  dataImport: [
+    "people.manage",
+    "giving.manage",
+    "settings.manage",
+    "accounting.manage",
+    "store.manage",
+    "events.manage",
+    "pathshala.manage",
+    "content.manage",
+    "volunteers.manage",
+    "safety.manage",
+    "comms.send",
+    "bolis.manage",
+  ],
+  /** Settings › Data quality (app.data_quality). */
+  dataQuality: ["people.view", "people.manage"],
 } as const satisfies Record<string, readonly string[]>;
 
 export type AccessKey = keyof typeof ACCESS;
@@ -415,6 +434,19 @@ export const NAV: NavModule[] = [
     paths: ["/reports"],
   },
   {
+    // Onboarding (ONBOARDING_PLAN §4): the organization's own Setup checklist.
+    key: "setup",
+    label: "Setup",
+    tabs: [
+      { href: "/setup", label: "Checklist", access: "setup" },
+      { href: "/setup/organization", label: "Legal identity", access: "setup" },
+      { href: "/setup/profile", label: "Profile & brand", access: "setup" },
+      { href: "/setup/leaders", label: "Leaders", access: "setup" },
+      { href: "/setup/readiness", label: "Go-live readiness", access: "setup" },
+    ],
+    paths: ["/setup"],
+  },
+  {
     key: "settings",
     label: "Settings",
     tabs: [
@@ -428,6 +460,16 @@ export const NAV: NavModule[] = [
       { href: "/settings/audit", label: "Audit log", access: "audit" },
       // Not in the prototype: org-level module switches (WAVE2), after the prototype's eight.
       { href: "/settings/modules", label: "Modules", access: "centerSettings" },
+      // Not in the prototype (onboarding, o-security): staff invitations, 2FA and the owner; the organization's agreements.
+      { href: "/settings/team", label: "Team", access: "roles" },
+      { href: "/settings/agreements", label: "Agreements", access: "centerSettings" },
+      // Onboarding (o-tenancy): the member-app join code, and the sandbox / plan limits.
+      { href: "/settings/member-app", label: "Member app", access: "centerSettings" },
+      { href: "/settings/limits", label: "Limits", access: "centerSettings" },
+      // Onboarding (o-import): loading the organization's data, its custom fields and their quality.
+      { href: "/settings/import", label: "Data import", access: "dataImport" },
+      { href: "/settings/custom-fields", label: "Custom fields", access: "centerSettings" },
+      { href: "/settings/data-quality", label: "Data quality", access: "dataQuality" },
     ],
     paths: ["/settings", "/privacy", "/audit", "/approvals"],
   },
@@ -437,6 +479,7 @@ export const NAV: NavModule[] = [
     tabs: [
       { href: "/platform", label: "Centers", access: "dashboard", platformOnly: true },
       { href: "/platform/new", label: "New center wizard", access: "dashboard", platformOnly: true },
+      { href: "/platform/verification", label: "Verification", access: "dashboard", platformOnly: true },
     ],
     paths: ["/platform"],
   },

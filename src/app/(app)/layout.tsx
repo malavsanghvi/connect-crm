@@ -6,7 +6,7 @@ import { AppShell } from "@/components/shell/app-shell";
 import { CenteredPanel, SetupScreen } from "@/components/setup-screen";
 import { PRODUCT_NAME } from "@/lib/brand";
 import { countHomeTasks } from "@/lib/data/home-tasks";
-import { loadSession } from "@/lib/session";
+import { centerMissingHint, enforceStaff2fa, loadSession } from "@/lib/session";
 
 export default async function ConsoleLayout({ children }: { children: ReactNode }) {
   const state = await loadSession();
@@ -19,10 +19,18 @@ export default async function ConsoleLayout({ children }: { children: ReactNode 
       return (
         <CenteredPanel title="Center not found">
           <p>
-            No active center has the slug <code className="rounded bg-subtle px-1">{state.slug}</code>. Check{" "}
-            <code className="rounded bg-subtle px-1">NEXT_PUBLIC_CENTER_SLUG</code>, and that the center exists in{" "}
+            No active center has the slug <code className="rounded bg-subtle px-1">{state.slug}</code>.{" "}
+            {centerMissingHint(state.source)} The center must exist in{" "}
             <code className="rounded bg-subtle px-1">app.centers</code> with status active or onboarding.
           </p>
+          {state.source === "switcher" ? (
+            <p className="mt-4">
+              {/* A route handler, so the switcher cookie is cleared before the portal loads again. */}
+              <a href="/api/tenancy/reset" className="crm-link font-semibold">
+                Go back to the default community
+              </a>
+            </p>
+          ) : null}
         </CenteredPanel>
       );
     case "error":
@@ -39,6 +47,10 @@ export default async function ConsoleLayout({ children }: { children: ReactNode 
         </CenteredPanel>
       );
     case "ok": {
+      // Staff 2FA (security.require_2fa_for_staff): a staff session that has not
+      // passed 2FA goes to Account › Security to set up or enter its code. The
+      // database refuses sensitive changes on its own either way (assert_step_up).
+      await enforceStaff2fa(state.session);
       const tasks = await countHomeTasks(state.session);
       return (
         <AppShell session={state.session} tasks={tasks}>

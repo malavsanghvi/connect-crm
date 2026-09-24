@@ -8,6 +8,7 @@ export const CLIENT_APPS = [
   { key: "member", label: "Member app" },
   { key: "kiosk", label: "Volunteer kiosk" },
   { key: "job", label: "Scheduled job" },
+  { key: "import", label: "Data import" },
 ] as const;
 export type ClientApp = (typeof CLIENT_APPS)[number]["key"];
 

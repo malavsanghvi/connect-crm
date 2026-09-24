@@ -117,7 +117,8 @@ describe("onboarding, notifications and security settings", () => {
     expect(hourLabel(12)).toBe("12 PM");
   });
   it("reads security defaults", () => {
-    expect(readSecuritySettings({})).toEqual({ printedSigninCodes: true, adminSessionHours: 8, adminIdleMinutes: 30 });
+    expect(readSecuritySettings({})).toEqual({ printedSigninCodes: true, adminSessionHours: 8, adminIdleMinutes: 30, require2faForStaff: true });
+    expect(readSecuritySettings({ security: { require_2fa_for_staff: false } }).require2faForStaff).toBe(false);
   });
 });
 
@@ -186,15 +187,12 @@ describe("new center wizard", () => {
     expect(isValidSlug("Bad")).toBe(false);
     expect(isValidSlug("a--b")).toBe(false);
   });
-  it("validates step 1 and keeps existing branding", () => {
-    const ok = parseWizardStep(1, form({ name: "Partner A", slug: "partner-a", primary: "#1B2C5C", time_zone: "America/Chicago", logo_url: "" }), { accent: "#C9731C" });
-    expect(ok).toEqual({
-      ok: true,
-      change: { columns: { name: "Partner A", slug: "partner-a", time_zone: "America/Chicago", branding: { accent: "#C9731C", primary: "#1B2C5C" } }, rules: {} },
-    });
-    const bad = parseWizardStep(1, form({ name: "P", slug: "x y", primary: "red", time_zone: "Mars", logo_url: "http://x" }));
+  it("validates step 1 and leaves the brand kit to Setup", () => {
+    const ok = parseWizardStep(1, form({ name: "Partner A", slug: "partner-a", primary: "#1B2C5C", time_zone: "America/Chicago", logo_url: "https://x.org/l.png" }));
+    expect(ok).toEqual({ ok: true, change: { columns: { name: "Partner A", slug: "partner-a", time_zone: "America/Chicago" }, rules: {} } });
+    const bad = parseWizardStep(1, form({ name: "P", slug: "x y", time_zone: "Mars" }));
     expect(bad.ok).toBe(false);
-    if (!bad.ok) expect(bad.error.split(". ").length).toBeGreaterThanOrEqual(5);
+    if (!bad.ok) expect(bad.error.split(". ").length).toBeGreaterThanOrEqual(3);
   });
   it("never stores admin emails", () => {
     expect(parseWizardStep(5, form({ admin_email: "a@b.org" }))).toEqual({ ok: true, change: { columns: {}, rules: {} } });

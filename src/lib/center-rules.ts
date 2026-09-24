@@ -129,6 +129,7 @@ const RULE_CHECKS: Check[] = [
   { path: "security.printed_signin_codes", kind: "bool" },
   { path: "security.admin_session_hours", kind: "int", min: 1, max: 24 },
   { path: "security.admin_idle_minutes", kind: "int", min: 5, max: 240 },
+  { path: "security.require_2fa_for_staff", kind: "bool" },
   { path: "identifiers", kind: "object" },
   { path: "identifiers.org_member_label", kind: "string" },
   { path: "identifiers.org_member_system", kind: "string" },

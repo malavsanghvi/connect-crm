@@ -44,9 +44,9 @@ export async function setCloseItemAction(_prev: ActionResult | null, formData: F
 
 /**
  * Lock the month. The checklist must be complete (checked again here). The
- * prototype asks for a step-up code; step-up codes are not implemented on the
- * server, so none is collected — the lock is recorded under the user's name
- * in the audit log.
+ * database asks for a fresh 2FA check (app.assert_step_up, 0154); the result
+ * then carries stepUp and the portal's step-up modal retries. The lock is
+ * recorded under the user's name in the audit log.
  */
 export async function lockMonthAction(month: string): Promise<ActionResult> {
   const auth = await authorizeAction("closeManage", "lock the month");

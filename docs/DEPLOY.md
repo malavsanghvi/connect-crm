@@ -8,6 +8,7 @@ Where things run:
 | Connect Admin | droplet, port 3001 behind Caddy | `http://<droplet IP>:8081` |
 | Member app (web version) | droplet, static files | `http://<droplet IP>:8082` |
 | Database, sign-in, sign-in emails | Supabase cloud | — |
+| Background service (connect-crm `worker/`) | droplet, systemd unit `connect@worker`, health on `127.0.0.1:3010` only | — (nothing public) |
 
 Every push to `main` in a repo deploys that app: a GitHub Action builds it, copies
 it to the droplet over SSH, switches to it and checks it answers. The first deploy also
@@ -61,6 +62,21 @@ API Keys.
    signs in, set up custom SMTP (Authentication › Emails › SMTP Settings) with a
    provider such as Resend or SendGrid (both have free tiers).
 
+5. **Two-step verification (staff 2FA)**: Authentication › Multi-Factor (Sign In / Providers
+   › Multi-Factor): **TOTP (App Authenticator)** must be *Enabled* for both enrolment and
+   verification (it is by default). The portal's Account › Security, the step-up modal and the
+   database's `app.assert_step_up` all rely on it. Keep the max enrolled factors at 10 or more.
+6. **Phone verification**: Authentication › Sign In / Providers › **Phone**: enable it and
+   connect an SMS provider (Twilio, MessageBird, Vonage or Textlocal; decision O7 says Twilio).
+   Until it is on, Account › Security says texting is not set up and invitations sent to a
+   mobile number cannot be accepted (email invitations work). Do **not** set test OTPs in
+   production. Staff can already sign in with email codes; the phone is a verified contact
+   and later a backup factor.
+7. **Recovery codes are not offered**: Supabase Auth has no recovery codes. A staff member who
+   loses their phone is reset by another administrator (Settings › Team › Reset 2FA) or by the
+   Community Connect team (`app.reset_staff_2fa`, as a platform admin), after checking who they
+   are. The reset is audited as `security.reset_2fa`.
+
 ### 3. GitHub secrets and variables
 
 In **each of the three repos**: Settings › Secrets and variables › Actions.
@@ -72,6 +88,7 @@ In **each of the three repos**: Settings › Secrets and variables › Actions.
 | `DROPLET_HOST` | droplet IP address | all three |
 | `DROPLET_SSH_KEY` | the **private** key file `connect_deploy` (not `.pub`), whole file including the `-----BEGIN` / `-----END` lines | all three |
 | `SUPABASE_DB_URL` | the Session pooler connection string | connect-crm only |
+| `WORKER_DATABASE_URL` | the background service's connection string (see "Background service" below). Optional: without it the deploy skips the worker | connect-crm only |
 
 Copy the private key to the clipboard:
 - Windows: `Get-Content "$HOME\.ssh\connect_deploy" -Raw | Set-Clipboard`
@@ -104,6 +121,91 @@ To redeploy without a code change: Actions › Deploy › Run workflow.
    in the CRM (Roles) under the two-person rule.
 3. Sign in to the CRM and Admin with the same email.
 
+## Background service (connect-crm)
+
+The background service (`worker/`) runs jobs from `app.jobs`: reading an
+organization's credentials from the vault for the job that needs them, OAuth
+exchanges (once the payment and QuickBooks connections are built), storage
+retention, and the "Test" button in Settings › Integrations. It runs on the
+droplet as `connect@worker` (the same `connect@.service` template as the apps)
+and connects to the database as its own role, **`connect_worker`**, which can
+only call the job and vault-reader functions: it has no table access at all.
+
+Until `WORKER_DATABASE_URL` exists the deploy **skips** the worker (the Actions
+run shows a "Background service skipped" notice) and Settings › Integrations
+shows "Background service not configured".
+
+### One-time setup (the owner does this; the deploy never sets the password)
+
+The first deploy's migration (0170) creates `connect_worker` **without a
+password**, so nothing can sign in as it yet. You set the password once, in
+Supabase, and put the resulting connection string in GitHub. The password never
+passes through the repository, the deploy log or a chat.
+
+1. Make a password with **letters and digits only** (systemd reads the env file,
+   and a connection string needs no escaping this way). For example, in a terminal:
+   `openssl rand -hex 32`. Do not reuse the database password.
+2. Supabase › SQL Editor, run once (paste your password between the quotes):
+   ```sql
+   alter role connect_worker with password '<the password>';
+   ```
+   Running it again later rotates the password; update the secret below right after.
+3. Build the connection string from the **Session pooler** string you already use
+   for `SUPABASE_DB_URL`: change the user from `postgres.<project-ref>` to
+   **`connect_worker.<project-ref>`** and use the new password:
+   `postgresql://connect_worker.<project-ref>:<password>@aws-0-<region>.pooler.supabase.com:5432/postgres`
+4. GitHub (connect-crm) › Settings › Secrets and variables › Actions › Secrets ›
+   New repository secret: **`WORKER_DATABASE_URL`** = that string.
+5. Re-run Deploy. The "Build and release the background service" job checks the
+   worker answers on its health endpoint; Settings › Integrations then shows the
+   background service "Running" with its last heartbeat, and the readiness check
+   "Background service running" passes.
+
+The connection is encrypted (TLS). To also verify the server certificate, download
+the certificate from Supabase › Project Settings › Database › SSL Configuration
+and paste its full text into the repository **variable** `WORKER_DATABASE_CA`
+(it is public, not a secret).
+
+### Optional worker settings
+
+All optional. A handler whose settings are missing reports "not configured"
+(on the status tile and in the job's error) instead of pretending to work.
+
+| GitHub secret | Used for |
+|---|---|
+| `STRIPE_SECRET_KEY`, `STRIPE_CLIENT_ID` | Community Connect's Stripe platform app (Stripe Connect) |
+| `PAYPAL_CLIENT_ID`, `PAYPAL_CLIENT_SECRET` | Community Connect's PayPal partner app |
+| `INTUIT_CLIENT_ID`, `INTUIT_CLIENT_SECRET` | Community Connect's QuickBooks (Intuit) app |
+| `RESEND_API_KEY` or `POSTMARK_SERVER_TOKEN` | the email sending service |
+| `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN` | texting |
+| `ANTHROPIC_API_KEY` | Niva and import mapping suggestions |
+| `WORKER_SUPABASE_SECRET_KEY` | storage retention (see the note below) |
+
+These are Community Connect's own keys. An organization's keys never go here:
+they are entered in Settings › Integrations and kept in the vault.
+
+**Storage retention needs an owner decision.** Deleting a file for real (not just
+its database row) has to go through the Storage API with a key allowed to delete,
+which today means a Supabase secret key (`sb_secret_…`). This guide says never to
+use that key, so the retention job ships **not configured**: expired imports,
+exports and recordings are not removed until you either allow a dedicated secret
+key used only by the worker (Project Settings › API Keys › create one named
+`connect-worker`, store it as `WORKER_SUPABASE_SECRET_KEY`), or choose another
+route. Nothing else in Connect uses it.
+
+### What the worker deploy does
+
+- Builds `worker/` (its own package and lockfile) into one file, `server.js`.
+- Writes `/srv/connect/worker.env` (root only, mode 600) over SSH stdin: the
+  connection string and any optional settings above. It is never printed.
+- `release.sh … worker 3010`: unpacks to `/srv/connect/worker/releases/<commit>`,
+  restarts `connect@worker`, and waits for `http://127.0.0.1:3010/health` to
+  answer 200. A wrong password shows up here as "not healthy", with the log.
+- No Caddy site and no firewall change: the worker serves nothing outside the droplet.
+
+Logs: they are JSON lines in the journal (`journalctl -u connect@worker`), with
+any field that looks like a secret replaced by `[redacted]`.
+
 ## Domains (do this before real member data goes in)
 
 Until then the apps are plain `http`: sign-in codes and sessions cross the network
@@ -114,6 +216,39 @@ unencrypted. Fine for trying it, not for real use.
 2. Set the `SITE_DOMAIN` variable in each repo (`crm.jsh.org` in connect-crm, and so on).
 3. Re-run Deploy in each repo. Caddy fetches HTTPS certificates automatically.
 4. Update the Supabase Site URL to `https://crm.jsh.org`.
+
+## Organization addresses (more than one organization)
+
+The portal picks the organization from the web address (docs/ONBOARDING_PLAN.md §7,
+decision O11). Without any of this it keeps working as today: the bare IP and the
+`SITE_DOMAIN` address open `NEXT_PUBLIC_CENTER_SLUG` (JSH), and people who work with
+several organizations switch with the **Center ▾** pill (remembered in a cookie).
+
+To give every organization its own address (`jsh.communityconnect.app`,
+`jsh-sandbox.communityconnect.app`, …):
+
+1. **DNS** (at the provider of `communityconnect.app`):
+   - `A  *.communityconnect.app  → <droplet IP>` (a wildcard record; one record covers
+     every organization and every sandbox);
+   - optionally `A  communityconnect.app → <droplet IP>` for the bare domain.
+   - An organization's **own domain** (for example `portal.jsh.org`): the organization
+     adds `CNAME portal.jsh.org → jsh.communityconnect.app` (or an A record to the
+     droplet IP) at its DNS provider, and a platform admin registers it in
+     Platform › Centers › *center* › Limits & addresses.
+2. **Repository variable** in connect-crm: `SITE_WILDCARD_DOMAIN = communityconnect.app`.
+   Optionally `MEMBER_APP_URL = https://app.communityconnect.app` (the member web app's
+   address) so Settings › Member app prints an https join link and QR code.
+3. Re-run Deploy. `release.sh` then serves any HTTPS name with **on-demand
+   certificates**: Caddy asks the portal (`/api/tenancy/tls-ask`) before issuing one,
+   and the portal says yes only for `<slug>.communityconnect.app` of a real community
+   or a registered own domain. No DNS-provider credentials are needed (a wildcard
+   certificate would need them). The first visit to a new address takes a few seconds
+   while its certificate is issued.
+4. Supabase › Authentication › URL configuration: add `https://*.communityconnect.app`
+   to the redirect URLs.
+
+One sign-in covers every `<slug>.communityconnect.app` address (the session cookie is
+set for the base domain); an organization's own domain asks for its own sign-in.
 
 ## When a deploy fails
 
@@ -134,5 +269,7 @@ The failed step in Actions says what is missing or what broke:
 - `deploy/release.sh`: unpacks the build to `/srv/connect/<app>/releases/<commit>`,
   points `current` at it, writes the Caddy site, restarts the service, waits for it to
   answer, keeps the last three releases.
+- `release.sh` kind `worker` (connect-crm only): the background service, above.
+  The other two repos never pass it, so for them the file behaves as before.
 - `supabase/scripts/migrate.sh`: applies migrations not yet recorded in
   `public.connect_schema_migrations`, and loads `seed.sql` only into an empty database.

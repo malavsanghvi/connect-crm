@@ -4,7 +4,11 @@ import { notFound } from "next/navigation";
 import { LoadProblem } from "@/components/events/load-problem";
 import { NoAccess } from "@/components/ui";
 import { load, loadEventAccess, loadLiveStats, row } from "@/lib/data/events";
+import { headers } from "next/headers";
+
+import { portalBaseDomain } from "@/lib/center-resolve";
 import { readPublicEnv } from "@/lib/env";
+import { sharedCookieDomain } from "@/lib/tenancy";
 import { eventAreas } from "@/lib/events/access";
 import { isUuid } from "@/lib/search-params";
 import { getSession } from "@/lib/session";
@@ -44,7 +48,11 @@ export default async function CheckInPage({ params }: { params: Promise<{ eventI
       initialCheckedIn={stats.checkedIn}
       expected={stats.confirmed}
       timeZone={session.center.time_zone}
-      supabaseEnv={{ supabaseUrl: env.env.supabaseUrl, supabaseAnonKey: env.env.supabaseAnonKey }}
+      supabaseEnv={{
+        supabaseUrl: env.env.supabaseUrl,
+        supabaseAnonKey: env.env.supabaseAnonKey,
+        cookieDomain: sharedCookieDomain((await headers()).get("host"), portalBaseDomain()),
+      }}
     />
   );
 }

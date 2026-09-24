@@ -16,7 +16,10 @@ import {
   TableWrap,
   buttonClass,
 } from "@/components/ui";
+import { CustomColumnPicker } from "@/components/custom-column-picker";
 import { identifierRules } from "@/lib/center-rules";
+import { formatCustomValue } from "@/lib/custom-fields";
+import { loadCustomColumn, loadCustomFieldDefs } from "@/lib/data/custom-fields";
 import { chunk, fetchAll } from "@/lib/data/fetch-all";
 import { orgIds, personName } from "@/lib/data/lookups";
 import { peopleTotals } from "@/lib/data/people-list";
@@ -169,6 +172,9 @@ export default async function HouseholdsPage({ searchParams }: { searchParams: P
   }
 
   const base = "/households";
+  const defs = await loadCustomFieldDefs(session.db, center.id, "households");
+  const cfDef = defs.defs.find((d) => d.key === param(sp, "cf")) ?? null;
+  const cfValues = cfDef ? await loadCustomColumn(session.db, "households", rows.map((r) => r.id)) : null;
   const openId = param(sp, "hh");
   const chipHref = (t?: string) => hrefWith(base, sp, { tier: t, page: undefined, hh: undefined, person: undefined, mode: undefined });
 
@@ -280,6 +286,10 @@ export default async function HouseholdsPage({ searchParams }: { searchParams: P
               ) : null}
             </form>
           </div>
+          <div className="px-2.5 pb-2">
+            <CustomColumnPicker action={base} sp={sp} defs={defs.defs} current={cfDef?.key ?? null} />
+            {cfValues?.error ? <p className="mt-1 text-xs text-danger">Could not load the “{cfDef?.label}” column. Reload to try again.</p> : null}
+          </div>
           {balanceError ? (
             <div className="p-2.5">
               <QueryError what="open balances" error={balanceError} retryHref={retry} />
@@ -306,6 +316,7 @@ export default async function HouseholdsPage({ searchParams }: { searchParams: P
                     <th className="num">People</th>
                     <th>On app</th>
                     <th className="num">Open balance</th>
+                    {cfDef ? <th>{cfDef.label}</th> : null}
                     <th aria-label="Actions" />
                   </tr>
                 </thead>
@@ -350,6 +361,7 @@ export default async function HouseholdsPage({ searchParams }: { searchParams: P
                             </span>
                           )}
                         </td>
+                        {cfDef ? <td>{formatCustomValue(cfDef, cfValues?.map.get(h.id)?.[cfDef.key], center.currency) || "—"}</td> : null}
                         <td className="row-actions">
                           <Link href={open} scroll={false} className={buttonClass("ghost", "xs")}>
                             Open

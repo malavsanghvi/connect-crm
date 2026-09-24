@@ -95,9 +95,9 @@ describe("NAV with modules switched off", () => {
     expect(canOpenTab({ ...admin, modulesOff: ["surveys"] }, { access: "comms", module: "surveys" })).toBe(false);
     expect(canOpenTab(admin, { access: "comms", module: "surveys" })).toBe(true);
   });
-  it("never hides core areas (Home, Settings, Platform)", () => {
+  it("never hides core areas (Home, Setup, Settings, Platform)", () => {
     const keys = visibleNav({ ...admin, modulesOff: MODULE_KEYS.filter((k) => k !== "people") }).map((m) => m.key);
-    expect(keys).toEqual(["home", "people", "settings", "platform"]);
+    expect(keys).toEqual(["home", "people", "setup", "settings", "platform"]);
   });
   it("Settings has a Modules tab for settings.manage only", () => {
     const s = visibleNav({ permissions: ["settings.manage"], isPlatformAdmin: false }).find((m) => m.key === "settings")!;

@@ -1,26 +1,35 @@
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 
 import { TenantMark } from "@/components/shell/tenant-mark";
 import { SetupScreen } from "@/components/setup-screen";
 import { PRODUCT_NAME } from "@/lib/brand";
+import { centerMissingHint } from "@/lib/session";
+import { portalBaseDomain, resolveCenterChoice, type CenterChoice } from "@/lib/center-resolve";
 import { readPublicEnv } from "@/lib/env";
 import { explainError } from "@/lib/errors";
 import { tenantBranding, type TenantBranding } from "@/lib/shell";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { SANDBOX_WATERMARK, sharedCookieDomain } from "@/lib/tenancy";
 
 import { LoginForm } from "./login-form";
 
 export const metadata: Metadata = { title: "Sign in" };
 
-type Tenant = { name: string; branding: TenantBranding } | null;
+type Tenant = { name: string; branding: TenantBranding; sandbox: boolean } | null;
+
+function readPublicEnvUrl(): string | undefined {
+  const env = readPublicEnv();
+  return env.ok ? env.env.supabaseUrl : undefined;
+}
 
 /** The community this portal serves (centers are readable without signing in). */
-async function loadTenant(slug: string): Promise<{ tenant: Tenant; problem: string | null }> {
+async function loadTenant({ slug, source }: CenterChoice): Promise<{ tenant: Tenant; problem: string | null }> {
   try {
     const db = await createSupabaseServerClient();
     const { data, error } = await db
       .from("centers")
-      .select("name, short_name, slug, branding")
+      .select("name, short_name, slug, branding, environment")
       .eq("slug", slug)
       .maybeSingle();
     if (error) {
@@ -29,9 +38,12 @@ async function loadTenant(slug: string): Promise<{ tenant: Tenant; problem: stri
     }
     if (!data) {
       console.error(`[login] no active center with slug "${slug}"`);
-      return { tenant: null, problem: `No active community is set up with the short name "${slug}". Check NEXT_PUBLIC_CENTER_SLUG.` };
+      return { tenant: null, problem: `No active community is set up with the short name "${slug}". ${centerMissingHint(source)}` };
     }
-    return { tenant: { name: data.name, branding: tenantBranding({ ...data, slug: String(data.slug) }) }, problem: null };
+    return {
+      tenant: { name: data.name, branding: tenantBranding({ ...data, slug: String(data.slug) }, readPublicEnvUrl()), sandbox: data.environment === "sandbox" },
+      problem: null,
+    };
   } catch (error) {
     console.error("[login] loading the center threw:", error);
     return { tenant: null, problem: `Could not load your community's details — ${explainError(error)}. You can still sign in.` };
@@ -48,7 +60,9 @@ export default async function LoginPage({
   const sp = await searchParams;
   const rawNext = Array.isArray(sp.next) ? sp.next[0] : sp.next;
   const next = rawNext && rawNext.startsWith("/") && !rawNext.startsWith("//") ? rawNext : "/";
-  const { tenant, problem } = await loadTenant(check.env.centerSlug);
+  const choice = await resolveCenterChoice(check.env.centerSlug);
+  const { tenant, problem } = await loadTenant(choice);
+  const host = (await headers()).get("host");
   const community = tenant?.name ?? "your community";
 
   return (
@@ -68,6 +82,11 @@ export default async function LoginPage({
           <p className="mt-1 text-base font-semibold text-navy-200">
             Admin portal{tenant ? ` · ${tenant.name}` : ""}
           </p>
+          {tenant?.sandbox ? (
+            <p data-testid="sandbox-watermark" className="mt-3 inline-block rounded-full bg-saffron-50 px-3 py-1 text-[12px] font-bold uppercase tracking-wide text-brown-900">
+              {SANDBOX_WATERMARK}
+            </p>
+          ) : null}
         </div>
         <p className="max-w-[460px] text-base leading-normal text-navy-200">
           Run households, memberships, giving and accounting for {community} in one place. You see only what your role
@@ -88,7 +107,12 @@ export default async function LoginPage({
               {problem}
             </p>
           ) : null}
-          <LoginForm supabaseUrl={check.env.supabaseUrl} supabaseAnonKey={check.env.supabaseAnonKey} next={next} />
+          <LoginForm
+            supabaseUrl={check.env.supabaseUrl}
+            supabaseAnonKey={check.env.supabaseAnonKey}
+            next={next}
+            cookieDomain={sharedCookieDomain(host, portalBaseDomain())}
+          />
         </div>
       </section>
     </main>

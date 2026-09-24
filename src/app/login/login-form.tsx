@@ -3,11 +3,12 @@
 import { useState, type FormEvent } from "react";
 
 import { buttonClass } from "@/components/ui";
+import { explainAuthError } from "@/lib/security";
 import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
 
-type Step = "email" | "code";
+type Step = "email" | "code" | "totp";
 
-function explainAuthError(error: { message?: string; status?: number; code?: string }, stage: Step): string {
+function explainSignInError(error: { message?: string; status?: number; code?: string }, stage: Step): string {
   const msg = error.message ?? "";
   if (error.status === 429 || /rate limit|too many/i.test(msg)) {
     return "Too many codes were requested for this email. Wait a minute, then try again.";
@@ -28,10 +29,13 @@ export function LoginForm({
   supabaseUrl,
   supabaseAnonKey,
   next,
+  cookieDomain,
 }: {
   supabaseUrl: string;
   supabaseAnonKey: string;
   next: string;
+  /** Set on <slug>.<PORTAL_BASE_DOMAIN> portals so one sign-in covers every organization's address. */
+  cookieDomain?: string;
 }) {
   const [step, setStep] = useState<Step>("email");
   const [email, setEmail] = useState("");
@@ -40,7 +44,7 @@ export function LoginForm({
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
-  const supabase = getSupabaseBrowserClient({ supabaseUrl, supabaseAnonKey });
+  const supabase = getSupabaseBrowserClient({ supabaseUrl, supabaseAnonKey }, cookieDomain);
 
   async function sendCode(e?: FormEvent) {
     e?.preventDefault();
@@ -60,7 +64,7 @@ export function LoginForm({
       });
       if (otpError) {
         console.error("[login] signInWithOtp failed:", otpError);
-        setError(`Could not send a sign-in code — ${explainAuthError(otpError, "email")}`);
+        setError(`Could not send a sign-in code — ${explainSignInError(otpError, "email")}`);
         return;
       }
       setEmail(address);
@@ -88,7 +92,17 @@ export function LoginForm({
       const { error: verifyError } = await supabase.auth.verifyOtp({ email, token, type: "email" });
       if (verifyError) {
         console.error("[login] verifyOtp failed:", verifyError);
-        setError(`Could not sign you in — ${explainAuthError(verifyError, "code")}`);
+        setError(`Could not sign you in — ${explainSignInError(verifyError, "code")}`);
+        setPending(false);
+        return;
+      }
+      // Two-step verification at sign-in: an account with an authenticator app is asked for its code.
+      const { data: level, error: levelError } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+      if (levelError) console.error("[login] could not read the assurance level:", levelError);
+      if (level && level.nextLevel === "aal2" && level.currentLevel !== "aal2") {
+        setStep("totp");
+        setCode("");
+        setNotice(null);
         setPending(false);
         return;
       }
@@ -97,6 +111,39 @@ export function LoginForm({
     } catch (err) {
       console.error("[login] verifyOtp threw:", err);
       setError("Could not sign you in — the sign-in service could not be reached. Try again.");
+      setPending(false);
+    }
+  }
+
+  async function verifyTotp(e: FormEvent) {
+    e.preventDefault();
+    setError(null);
+    const token = code.replace(/[\s-]+/g, "");
+    if (!/^\d{6}$/.test(token)) {
+      setError("Enter the 6-digit code from your authenticator app (numbers only).");
+      return;
+    }
+    setPending(true);
+    try {
+      const { data: factors, error: listError } = await supabase.auth.mfa.listFactors();
+      const factor = factors?.totp?.find((f) => f.status === "verified");
+      if (listError || !factor) {
+        console.error("[login] listFactors failed:", listError);
+        setError(explainAuthError(listError, "find your authenticator app"));
+        setPending(false);
+        return;
+      }
+      const { error: mfaError } = await supabase.auth.mfa.challengeAndVerify({ factorId: factor.id, code: token });
+      if (mfaError) {
+        console.error("[login] challengeAndVerify failed:", mfaError);
+        setError(explainAuthError(mfaError, "check the code"));
+        setPending(false);
+        return;
+      }
+      window.location.assign(next);
+    } catch (err) {
+      console.error("[login] 2FA check threw:", err);
+      setError("Could not check the code — the sign-in service could not be reached. Try again.");
       setPending(false);
     }
   }
@@ -134,6 +181,44 @@ export function LoginForm({
         </button>
         <p className="text-xs text-muted">
           Staff sign in with a one-time code sent to the email on their Community Connect account — no password.
+        </p>
+      </form>
+    );
+  }
+
+  if (step === "totp") {
+    return (
+      <form onSubmit={verifyTotp} noValidate className="flex flex-col gap-4">
+        <h2 className="font-display text-[28px] font-semibold text-ink">Two-step verification</h2>
+        <p className="text-[13px] text-muted">Enter the 6-digit code from the authenticator app on your phone.</p>
+        <label htmlFor="totp" className="flex flex-col gap-1.5 text-[13px] text-muted">
+          Code from your authenticator app
+          <input
+            id="totp"
+            name="totp"
+            type="text"
+            inputMode="numeric"
+            autoComplete="one-time-code"
+            maxLength={9}
+            required
+            autoFocus
+            value={code}
+            onChange={(e) => setCode(e.target.value)}
+            className={`${inputClass} font-mono text-xl tracking-[0.2em]`}
+          />
+        </label>
+        {errorBox}
+        <button type="submit" disabled={pending} className={`${buttonClass("primary", "lg")} w-full`}>
+          {pending ? "Checking…" : "Verify"}
+        </button>
+        <div className="flex flex-wrap justify-between gap-2">
+          <button type="button" disabled={pending} onClick={() => window.location.assign(next)} className={buttonClass("ghost", "sm")}>
+            Not now
+          </button>
+        </div>
+        <p className="text-xs text-muted">
+          Lost your phone? Ask another administrator to reset your 2FA, or contact the Community Connect team. &quot;Not now&quot; works only where your
+          community does not require 2FA yet; sensitive changes will still ask for a code.
         </p>
       </form>
     );

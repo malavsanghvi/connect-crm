@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 
 import { makePrimaryAction } from "@/app/(app)/people/actions";
 import { ActionForm } from "@/components/action-form";
+import { MoreDetails } from "@/components/more-details";
 import { DrawerSection, KeyValueRow, QueryError, buttonClass, capitalize } from "@/components/ui";
 import { identifierRules } from "@/lib/center-rules";
 import { loadHouseholdRecord, loadPersonRecord, type Activity, type Section } from "@/lib/data/people-records";
@@ -235,6 +236,8 @@ async function HouseholdDrawerView({ session, id, sp, base, mode }: { session: C
         <KeyValueRow label="Signed in on app" value={members.ok ? (onApp ? "Yes" : "No") : "—"} />
       </DrawerSection>
 
+      <MoreDetails session={session} entity="households" recordId={h.id} editable={canEdit} />
+
       {h.duplicates && (!h.duplicates.ok || h.duplicates.data.length > 0) ? (
         <DrawerSection title="Possible duplicates">
           {!h.duplicates.ok ? (
@@ -308,6 +311,7 @@ async function PersonDrawerView({ session, id, sp, base, mode }: { session: CrmS
           ))
         )}
       </DrawerSection>
+      <MoreDetails session={session} entity="people" recordId={p.id} editable={canEdit} />
       <DrawerSection title="Roles, teams and waivers">
         <KeyValueRow
           label="Roles"

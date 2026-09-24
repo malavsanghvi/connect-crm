@@ -5,6 +5,7 @@ import { useId, useState, useTransition } from "react";
 
 import { Toggle } from "@/components/controls";
 import { Modal } from "@/components/modal";
+import { useStepUp } from "@/components/step-up";
 import { useToast } from "@/components/toast";
 import { StatusText, TableWrap } from "@/components/ui";
 import { switchBlocker, type ModuleRow } from "@/lib/modules";
@@ -18,6 +19,7 @@ type Pending = { key: string; label: string; turnOn: boolean };
 export function ModulesForm({ rows, canSwitch }: { rows: ModuleRowView[]; canSwitch: boolean }) {
   const router = useRouter();
   const toast = useToast();
+  const stepUp = useStepUp();
   const reasonId = useId();
   const [pending, setPending] = useState<Pending | null>(null);
   const [reason, setReason] = useState("");
@@ -47,7 +49,9 @@ export function ModulesForm({ rows, canSwitch }: { rows: ModuleRowView[]; canSwi
     }
     const { key, turnOn } = pending;
     startTransition(async () => {
-      const res = await setModuleEnabledAction(key, turnOn, reason);
+      const call = () => setModuleEnabledAction(key, turnOn, reason);
+      // Module switches need a fresh 2FA check (CCSTP): step-up modal, then one retry.
+      const res = stepUp ? await stepUp.run(call, `Switching ${label(key)} ${turnOn ? "on" : "off"}`) : await call();
       if (!res.ok) {
         setError(res.error);
         toast?.show(res.error, "bad");

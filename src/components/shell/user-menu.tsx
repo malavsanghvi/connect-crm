@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useActionState } from "react";
 
 import { signOutAction } from "@/app/auth-actions";
@@ -36,6 +37,9 @@ export function UserMenu({
         <span className="block max-w-[11rem] truncate text-[13px] font-bold text-ink">{name}</span>
         <span className="block max-w-[11rem] truncate text-[11px] text-muted">{role}</span>
       </span>
+      <Link href="/account/security" className={`${buttonClass("plain")} min-h-9 text-[13px] no-underline`} title="Two-step verification, phone and sessions">
+        Account
+      </Link>
       <form action={action}>
         <button type="submit" disabled={pending} className={`${buttonClass("plain")} min-h-9 text-[13px]`}>
           {pending ? "Signing out…" : "Sign out"}

@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 
 import { ActionForm } from "@/components/action-form";
 import { PersonPicker } from "@/components/person-picker";
+import { MoreDetails } from "@/components/more-details";
 import { HistoryButton } from "@/components/record-history";
 import { buttonClass, Card, EmptyState, TableWrap } from "@/components/ui";
 import { ageFrom, loadLevels, loadTerms } from "@/lib/data/pathshala";
@@ -23,7 +24,8 @@ export const metadata: Metadata = { title: "Class" };
 
 export default async function ClassPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const v = viewerOf(await getSession());
+  const session = await getSession();
+  const v = viewerOf(session);
   const isTeacher = hasScopedRole(v, id, "teacher");
   if (!pathshalaAreas.admin(v) && !isTeacher) return <PNoAccessPage area="this class" />;
   const canManage = pathshalaAreas.manage(v);
@@ -307,6 +309,7 @@ export default async function ClassPage({ params }: { params: Promise<{ id: stri
               </div>
             )}
           </Card>
+          <MoreDetails session={session} entity="pathshala_classes" recordId={cls.id} custom={(cls as { custom?: unknown }).custom} editable={canManage} variant="card" />
           {canManage && (
             <Card title="Class details">
               <ClassForm cls={cls} terms={d.terms} levels={d.levels} defaultTermId={cls.term_id} cols={1} />

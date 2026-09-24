@@ -272,4 +272,17 @@ name, to `audit.view` holders of that center and platform admins only (the same 
 
 centers, roles, role_grants, center_users, accounts, consents, audit_log, legal_documents,
 data_requests, import_runs, integration_connections, webhook_events, number_sequences, modules,
-center_modules, module_tables. Always on, audited, `module` is NULL on their audit entries.
+center_modules, module_tables, center_owners, staff_invitations, org_agreements, readiness_checks
+(o-security, 0150–0156; see ROLES.md for 2FA and step-up). Always on, audited, `module` is NULL on their audit entries.
+
+center_modules, module_tables.
+
+**Setup (onboarding, ONBOARDING_PLAN §4; migrations 0180–0184)** is core too: org_profiles,
+org_documents, org_leaders, irs_exempt_orgs, setup_steps, center_setup_steps, readiness_checks.
+Portal: /setup (checklist), /setup/organization, /setup/profile, /setup/leaders, /setup/readiness
+(settings.manage; the owner also passes in the database) and /platform/verification (platform
+admins). RPCs: setup_checklist, setup_staff_options, readiness, submit_org_verification,
+decide_org_verification, org_verification_queue, set_center_branding, irs_lookup,
+public_org_profile. Steps of a switched-off module show as skipped. Leaders shown publicly are
+mirrored into role_roster (content) by a trigger; role_roster.display_name carries their name.
+IRS data: `node tools/load-irs-eo.mjs --bmf … --pub78 … [--revocations …]`. Always on, audited, `module` is NULL on their audit entries.
