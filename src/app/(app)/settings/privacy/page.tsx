@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { ActionForm } from "@/components/action-form";
-import { Alert, Badge, Card, EmptyState, NoAccess, PageHeader, Pagination, QueryError, TableWrap, Tabs } from "@/components/ui";
+import { Alert, Badge, BlockGrid, Card, EmptyState, NoAccess, PageHeader, Pagination, QueryError, TableWrap, Tabs, shortId } from "@/components/ui";
 import { peopleById, userNames } from "@/lib/data/lookups";
 import { daysBetween, formatDate, todayInTz } from "@/lib/dates";
 import { canAccess } from "@/lib/permissions";
@@ -11,31 +11,28 @@ import { getSession } from "@/lib/session";
 
 import { updateDataRequestAction } from "./actions";
 
-export const metadata: Metadata = { title: "Privacy requests" };
+export const metadata: Metadata = { title: "Privacy · Settings" };
 
 const PAGE_SIZE = 50;
 const VIEWS = { open: ["open", "in_progress"], completed: ["completed"], rejected: ["rejected"], all: [] as string[] } as const;
 type View = keyof typeof VIEWS;
 const KIND_LABEL: Record<string, string> = {
-  export: "Export my data",
-  deletion: "Delete my account",
-  deactivation: "Deactivate my account",
-  reactivation: "Reactivate my account",
+  export: "Export",
+  deletion: "Delete account",
+  deactivation: "Deactivate account",
+  reactivation: "Reactivate account",
 };
 
 export default async function PrivacyRequestsPage({ searchParams }: { searchParams: Promise<RawSearchParams> }) {
   const session = await getSession();
   const header = (
-    <PageHeader
-      title="Privacy requests"
-      description="Data export, deletion and account requests from members. Each must be handled by its due date (30 days). Deletion removes app data; financial records are kept 7 years, then anonymized."
-    />
+    <PageHeader title="Settings" description="Member data rights, retention and legal holds" />
   );
   if (!canAccess(session, "privacy")) {
     return (
       <>
         {header}
-        <NoAccess area="Privacy requests" access="privacy" />
+        <NoAccess area="Privacy and data requests" access="privacy" />
       </>
     );
   }
@@ -75,13 +72,13 @@ export default async function PrivacyRequestsPage({ searchParams }: { searchPara
         tabs={(Object.keys(VIEWS) as View[]).map((v) => ({
           key: v,
           label: v === "open" ? "Open" : v[0].toUpperCase() + v.slice(1),
-          href: hrefWith("/privacy/requests", {}, { view: v }),
+          href: hrefWith("/settings/privacy", {}, { view: v }),
         }))}
       />
       {res.error ? (
-        <QueryError what="privacy requests" error={res.error} retryHref={hrefWith("/privacy/requests", sp, {})} />
+        <QueryError what="privacy requests" error={res.error} retryHref={hrefWith("/settings/privacy", sp, {})} />
       ) : (
-        <Card padded={false}>
+        <Card padded={false} title="Data requests" description="Each request is due 30 days after it arrives">
           {rows.length === 0 ? (
             <EmptyState title="No requests here" />
           ) : (
@@ -89,8 +86,9 @@ export default async function PrivacyRequestsPage({ searchParams }: { searchPara
               <table className="crm-table">
                 <thead>
                   <tr>
-                    <th>Person</th>
-                    <th>Request</th>
+                    <th>ID</th>
+                    <th>Type</th>
+                    <th>Requester</th>
                     <th>Received</th>
                     <th>Due</th>
                     <th>Status</th>
@@ -104,6 +102,10 @@ export default async function PrivacyRequestsPage({ searchParams }: { searchPara
                     const open = r.status === "open" || r.status === "in_progress";
                     return (
                       <tr key={r.id}>
+                        <td className="font-mono text-xs" title={r.id}>
+                          {shortId(r.id)}
+                        </td>
+                        <td className="font-bold">{KIND_LABEL[r.kind] ?? r.kind}</td>
                         <td>
                           <Link href={`/people/${r.person_id}`} className="crm-link">
                             {people.map.get(r.person_id)?.name ?? "Person"}
@@ -113,7 +115,6 @@ export default async function PrivacyRequestsPage({ searchParams }: { searchPara
                             <div className="text-xs text-muted">asked by {handlers.get(r.requested_by)?.name ?? "the account holder"}</div>
                           ) : null}
                         </td>
-                        <td>{KIND_LABEL[r.kind] ?? r.kind}</td>
                         <td className="whitespace-nowrap">{formatDate(r.created_at, tz)}</td>
                         <td className="whitespace-nowrap">
                           {formatDate(r.due_on, tz)}
@@ -162,9 +163,23 @@ export default async function PrivacyRequestsPage({ searchParams }: { searchPara
               </table>
             </TableWrap>
           )}
-          <Pagination page={page} pageSize={PAGE_SIZE} total={res.count ?? null} hrefFor={(n) => hrefWith("/privacy/requests", sp, { page: n })} />
+          <Pagination page={page} pageSize={PAGE_SIZE} total={res.count ?? null} hrefFor={(n) => hrefWith("/settings/privacy", sp, { page: n })} />
         </Card>
       )}
+      <BlockGrid className="mt-4">
+        <Card span={6} title="Deletion policy in effect">
+          <p className="text-[13px] leading-relaxed text-ink-2">
+            App login, preferences, practice history, special days and recordings are deleted. Donations, pledges and receipts are kept 7 years,
+            then anonymized. The household stays for other members. Audit entries are kept. Children&apos;s data is deleted by a parent.
+          </p>
+        </Card>
+        <Card span={6} title="Retention and legal holds">
+          <p className="text-[13px] leading-relaxed text-ink-2">
+            Financial records are kept 7 years, then anonymized; the audit log is kept permanently. Legal holds are not tracked in the app yet:
+            if a hold applies, reject the deletion with the reason and keep a note outside the app until holds can be recorded here.
+          </p>
+        </Card>
+      </BlockGrid>
     </>
   );
 }
