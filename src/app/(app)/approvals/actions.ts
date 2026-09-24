@@ -16,6 +16,7 @@ function refresh() {
   revalidatePath("/");
   revalidatePath("/giving/pledges");
   revalidatePath("/giving/payments");
+  revalidatePath("/people/voting");
 }
 
 const TARGETS = {

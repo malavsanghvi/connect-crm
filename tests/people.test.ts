@@ -126,6 +126,6 @@ describe("validation", () => {
   });
 
   it("counts real changes only", () => {
-    expect(changedKeys({ a: "x", b: null, c: true }, { a: "x", b: "", c: false })).toEqual(["c"]);
+    expect(changedKeys<Record<string, unknown>>({ a: "x", b: null, c: true }, { a: "x", b: "", c: false })).toEqual(["c"]);
   });
 });

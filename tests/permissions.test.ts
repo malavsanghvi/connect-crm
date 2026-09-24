@@ -150,7 +150,8 @@ describe("active module and tab", () => {
     expect(activeTabHref(giving.tabs, "/giving/payments")).toBe("/giving/payments");
     expect(activeTabHref(giving.tabs, "/giving/bank/import")).toBe("/giving/bank");
     const people = mods.find((m) => m.key === "people")!;
-    expect(activeTabHref(people.tabs, "/people/123")).toBeUndefined();
+    expect(activeTabHref(people.tabs, "/people/123")).toBe("/people");
+    expect(activeTabHref(people.tabs, "/people/directory")).toBe("/people/directory");
   });
 });
 
