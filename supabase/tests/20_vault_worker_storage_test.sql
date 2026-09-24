@@ -484,6 +484,26 @@ set local role anon;
 select pg_temp.assert(pg_temp.visible('branding') = 1 and pg_temp.visible('statements') = 0, 'anon reads branding and nothing private');
 rollback;
 
+-- Uploads and removals in the Connect buckets are audited (0174).
+begin;
+select pg_temp.claims('10000000-0000-4000-8000-000000000011');
+set local role authenticated;
+insert into storage.objects (bucket_id, name, metadata)
+values ('imports', '00000000-0000-4000-8000-000000000001/audit/people.csv', '{"size":42,"mimetype":"text/csv"}');
+commit;
+select pg_temp.assert((select actor_user_id = '10000000-0000-4000-8000-000000000011' and center_id = :jsh
+                          and after->>'mimetype' = 'text/csv' and (after->>'size')::int = 42
+                         from app.audit_log where action = 'storage.upload'
+                          and record_id = 'imports/00000000-0000-4000-8000-000000000001/audit/people.csv'),
+  'an upload is audited with who, which file, its size and type');
+delete from storage.objects where name = '00000000-0000-4000-8000-000000000001/audit/people.csv';
+select pg_temp.assert(exists (select 1 from app.audit_log where action = 'storage.remove'
+                                and record_id = 'imports/00000000-0000-4000-8000-000000000001/audit/people.csv'),
+  'a removal is audited');
+update storage.objects set last_accessed_at = now() where bucket_id = 'branding';
+select pg_temp.assert(not exists (select 1 from app.audit_log where action = 'storage.replace'),
+  'touching an object without changing the file is not an audit entry');
+
 -- ── Retention ────────────────────────────────────────────────────────────────
 select pg_temp.assert(app.storage_retention_days('imports', :jsh) = 90 and app.storage_retention_days('exports', :jsh) = 7
                       and app.storage_retention_days('recordings', :jsh) = 90 and app.storage_retention_days('statements', :jsh) is null,

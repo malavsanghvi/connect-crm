@@ -104,6 +104,7 @@ create table if not exists storage.objects (
   last_accessed_at timestamptz default now(),
   metadata         jsonb,
   version          text,
+  owner_id         text,
   unique (bucket_id, name)
 );
 alter table storage.objects enable row level security;
