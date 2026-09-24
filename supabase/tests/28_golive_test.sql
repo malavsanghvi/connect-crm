@@ -189,8 +189,10 @@ select pg_temp.assert((select count(*) from cl28 where route in ('/imports', '/s
 select pg_temp.assert((select route from cl28 where step_key = 'rec.people') = '/settings/import'
                       and (select route from cl28 where step_key = 'test.pilot') = '/setup/go-live'
                       and (select route from cl28 where step_key = 'svc.storage') = '/settings/storage'
-                      and (select route from cl28 where step_key = 'data.numbering') = '/settings/numbering',
-  'records and history → Data import; training/pilot/health check → Go-live; storage and numbering → their screens');
+                      and (select route from cl28 where step_key = 'data.numbering') = '/settings/numbering'
+                      and (select route from cl28 where step_key = 'data.membership_types') = '/setup/lists#membership'
+                      and (select route from cl28 where step_key = 'data.inboxes') = '/setup/lists#inboxes',
+  'records and history → Data import; training/pilot/health check → Go-live; storage, numbering and the lists → their screens');
 select pg_temp.assert((select status from cl28 where step_key = 'org.agreements') = 'not_started'
                       and (select status from cl28 where step_key = 'org.team') = 'not_started'
                       and (select status from cl28 where step_key = 'rec.people') = 'done'
