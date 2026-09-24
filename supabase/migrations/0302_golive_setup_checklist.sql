@@ -6,6 +6,8 @@
 --      test.* (health check, training, pilot) → /setup/go-live, where the owner confirms each one
 --      svc.storage              → /settings/storage (new screen: areas, usage, retention)
 --      data.numbering           → /settings/numbering (new screen: prefixes and next numbers)
+--      data.membership_types, data.funds_campaigns, data.inboxes, data.zones, data.pathshala
+--                               → /setup/lists (new screen: the lists no other screen creates)
 --      tpl.messages             → /settings/email (senders, footer and a test send; the template
 --                                 editor itself is deferred by the owner and the step says so)
 --  * Every step whose completion the database can see is computed from real data
@@ -27,6 +29,14 @@ update app.setup_steps set route = '/settings/storage',
        done_means = 'The storage areas exist, and the retention of uploaded import files and Gyan Path recordings is reviewed.'
  where key = 'svc.storage';
 update app.setup_steps set route = '/settings/numbering' where key = 'data.numbering';
+-- No other screen creates these lists; Setup › Lists does (membership types, funds, inboxes,
+-- zones, Pathshala tracks), and links on to Campaigns and Pathshala terms.
+update app.setup_steps set route = '/setup/lists#membership', help = 'Add each type (tier, fee, period, reference and EC rules, voting wait) in Setup › Lists.'
+ where key = 'data.membership_types';
+update app.setup_steps set route = '/setup/lists#funds' where key = 'data.funds_campaigns';
+update app.setup_steps set route = '/setup/lists#inboxes' where key = 'data.inboxes';
+update app.setup_steps set route = '/setup/lists#zones' where key = 'data.zones';
+update app.setup_steps set route = '/setup/lists#pathshala' where key = 'data.pathshala';
 update app.setup_steps set route = '/settings/email',
        help = 'The built-in Community Connect messages (sign-in code, receipts, invitations, …) are used with your brand and sender. '
               || 'Send yourself a test from Settings › Email. The template editor (customizing each message) comes in a later release.',

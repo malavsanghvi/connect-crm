@@ -454,6 +454,8 @@ export const NAV: NavModule[] = [
       { href: "/setup/organization", label: "Legal identity", access: "setup" },
       { href: "/setup/profile", label: "Profile & brand", access: "setup" },
       { href: "/setup/leaders", label: "Leaders", access: "setup" },
+      // Onboarding (o-golive): membership types, funds, inboxes, zones and Pathshala tracks.
+      { href: "/setup/lists", label: "Lists", access: "setup" },
       { href: "/setup/readiness", label: "Go-live readiness", access: "setup" },
       // Onboarding (o-platform): attestations, the go-live request and promotion.
       { href: "/setup/go-live", label: "Go-live", access: "setup" },
