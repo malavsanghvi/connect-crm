@@ -4,8 +4,8 @@ import { NextResponse, type NextRequest } from "next/server";
 import type { Database } from "@/lib/database.types";
 import type { PublicEnv } from "@/lib/env";
 
-/** Paths reachable without a session. Everything else redirects to /login. */
-export const PUBLIC_PATHS = ["/login"];
+/** Paths reachable without a session (sign-in, the public community dashboard /c/<slug>). Everything else redirects to /login. */
+export const PUBLIC_PATHS = ["/login", "/c"];
 
 export function isPublicPath(pathname: string): boolean {
   return PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`));

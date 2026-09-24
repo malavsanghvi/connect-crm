@@ -136,6 +136,19 @@ export function GiftLineMatcher({
           </p>
         ) : null}
         <HouseholdCard card={choice.card} labels={labels} timeZone={timeZone} currency={currency} tone="selected" href={`/households/${choice.card.household_id}`} />
+        {isPlatformGift ? (
+          <div className="rounded-[10px] bg-subtle px-3 py-2 text-[13px]">
+            <p className="cc-section">RECEIPT</p>
+            <p>
+              <span className="text-muted">Tax receipt:</span>{" "}
+              {originatorKind === "daf" ? "Not issued · the DAF sponsor receipts the donor" : "Not issued · the platform receipts its donor"}
+            </p>
+            <p>
+              <span className="text-muted">Recognition:</span> Credited to the household as a{" "}
+              {originatorKind === "daf" ? "DAF grant" : originatorKind === "matching_gift" ? "matching gift" : "payroll gift"}
+            </p>
+          </div>
+        ) : null}
         <label className="flex min-h-11 items-center gap-2 text-sm">
           <input
             type="checkbox"

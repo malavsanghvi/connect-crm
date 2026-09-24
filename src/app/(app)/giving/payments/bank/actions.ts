@@ -10,7 +10,8 @@ import { isUuid } from "@/lib/search-params";
 import { authorizeAction } from "@/lib/session";
 
 function refresh() {
-  revalidatePath("/giving/bank");
+  revalidatePath("/giving/payments/bank");
+  revalidatePath("/giving/payments");
   revalidatePath("/");
 }
 

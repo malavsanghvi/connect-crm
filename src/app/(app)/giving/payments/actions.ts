@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import { previewAllocation } from "@/lib/allocation";
 import { todayInTz } from "@/lib/dates";
+import { stockMemo } from "@/lib/giving";
 import { explainError, failure, type ActionResult } from "@/lib/errors";
 import { OFFLINE_METHODS } from "@/lib/labels";
 import { formatCents, parseAmountToCents } from "@/lib/money";
@@ -18,7 +19,8 @@ export type RecordPaymentInput = {
   amount: string;
   method: string;
   receivedOn: string;
-  checkNumber?: string;
+  /** Check number (check), shares and value (stock), or a reference (other methods). */
+  reference?: string;
   envelopeNumber?: string;
   memo?: string;
   /** "auto" = earliest open pledge first; "choose" = only pledgeIds, in that order; "none" = leave unallocated. */
@@ -111,6 +113,17 @@ export async function recordOfflinePaymentAction(input: RecordPaymentInput): Pro
     return { ok: false, error: "Could not record the payment — tick the pledges to apply it to, or switch to earliest-first." };
   }
   const clip = (v: string | undefined, n: number) => (v ?? "").trim().slice(0, n) || null;
+  const ref = (input.reference ?? "").trim();
+  // payments has no stock or reference columns: stock details and other references lead the memo.
+  const memo =
+    method === "stock"
+      ? stockMemo(ref, input.memo ?? "")
+      : method !== "check" && ref
+        ? clip(`Ref ${ref}${input.memo?.trim() ? ` · ${input.memo.trim()}` : ""}`, 500)
+        : clip(input.memo, 500);
+  if (method === "stock" && !ref) {
+    return { ok: false, error: "Could not record the payment — for a stock gift, enter the shares and their value on the date received." };
+  }
 
   const ins = await db
     .from("payments")
@@ -123,9 +136,9 @@ export async function recordOfflinePaymentAction(input: RecordPaymentInput): Pro
       provider: "offline",
       received_on: input.receivedOn,
       recorded_by: session.userId,
-      check_number: method === "check" ? clip(input.checkNumber, 40) : null,
+      check_number: method === "check" ? clip(ref.replace(/^#/, ""), 40) : null,
       envelope_number: clip(input.envelopeNumber, 40),
-      memo: clip(input.memo, 500),
+      memo,
     })
     .select("id, receipt_number")
     .single();

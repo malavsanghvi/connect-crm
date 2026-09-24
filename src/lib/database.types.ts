@@ -2180,6 +2180,42 @@ export type Database = {
         };
         Relationships: [];
       };
+      labh_fulfillments: {
+        Row: {
+          id: string;
+          pledge_id: string;
+          center_id: string;
+          labh_option_id: string | null;
+          occasion: string | null;
+          status: string;
+          note: string | null;
+          updated_at: string;
+          updated_by: string | null;
+        };
+        Insert: {
+          id?: string;
+          pledge_id: string;
+          center_id: string;
+          labh_option_id?: string | null;
+          occasion?: string | null;
+          status?: string;
+          note?: string | null;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Update: {
+          id?: string;
+          pledge_id?: string;
+          center_id?: string;
+          labh_option_id?: string | null;
+          occasion?: string | null;
+          status?: string;
+          note?: string | null;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Relationships: [];
+      };
       labh_options: {
         Row: {
           id: string;
@@ -2190,6 +2226,7 @@ export type Database = {
           sort_order: number;
           active: boolean;
           campaign_id: string | null;
+          fulfilled_by: string | null;
         };
         Insert: {
           id?: string;
@@ -2200,6 +2237,7 @@ export type Database = {
           sort_order?: number;
           active?: boolean;
           campaign_id?: string | null;
+          fulfilled_by?: string | null;
         };
         Update: {
           id?: string;
@@ -2210,6 +2248,7 @@ export type Database = {
           sort_order?: number;
           active?: boolean;
           campaign_id?: string | null;
+          fulfilled_by?: string | null;
         };
         Relationships: [];
       };
