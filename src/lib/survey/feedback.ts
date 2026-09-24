@@ -272,3 +272,34 @@ export function formatPct(ratio: number | null): string {
 
 /** Averages below this show in red (prototype bars). */
 export const LOW_AREA_SCORE = 3.8;
+
+function csvCell(v: string | number | null): string {
+  const s = v === null ? "" : String(v);
+  // Neutralise spreadsheet formulas and quote anything with separators.
+  const safe = /^[=+\-@\t\r]/.test(s) ? `'${s}` : s;
+  return /[",\n\r]/.test(safe) ? `"${safe.replace(/"/g, '""')}"` : safe;
+}
+
+/**
+ * The export: combined totals, then anonymized comments (no names, ever).
+ * Comments flagged for follow-up go to the event lead and are left out.
+ */
+export function feedbackCsv(title: string, r: FeedbackResults): string {
+  const lines: (string | number | null)[][] = [
+    ["Survey", title],
+    ["Responses", r.responses],
+    ["Response rate", formatPct(r.rate)],
+    ["Anonymous responses", r.anonymous],
+    ["Overall rating (out of 5)", r.overall === null ? null : r.overall.toFixed(2)],
+    ["Net promoter score", r.nps],
+    ["Promoters", r.promoters],
+    ["Detractors", r.detractors],
+    ...r.areas.map((a) => [`${a.label} (out of 5)`, a.average === null ? null : a.average.toFixed(2)]),
+    ...r.attended.map((a) => [`Attended: ${a.label}`, a.count]),
+    ["Comments flagged to the event lead (not exported)", r.flagged],
+    [],
+    ["Rating", "Area", "Comment"],
+    ...r.comments.filter((c) => !c.flagged).map((c) => [c.rating, c.area, c.text]),
+  ];
+  return lines.map((l) => l.map(csvCell).join(",")).join("\r\n") + "\r\n";
+}
