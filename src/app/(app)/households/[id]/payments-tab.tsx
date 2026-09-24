@@ -1,4 +1,6 @@
+import { CustomDetailsCell } from "@/components/custom-details-cell";
 import { Alert, Badge, Card, EmptyState, NoAccess, QueryError, TableWrap } from "@/components/ui";
+import { loadCustomFieldDefs } from "@/lib/data/custom-fields";
 import { chunk } from "@/lib/data/fetch-all";
 import { formatDate } from "@/lib/dates";
 import { PAYMENT_METHOD_LABEL } from "@/lib/labels";
@@ -14,12 +16,14 @@ export async function PaymentsTab({ session, householdId }: { session: CrmSessio
 
   const pRes = await db
     .from("payments")
-    .select("id, receipt_number, received_on, method, amount_cents, status, provider, check_number, envelope_number, memo, refunded_cents, deposit_bank_transaction_id")
+    .select("id, receipt_number, received_on, method, amount_cents, status, provider, check_number, envelope_number, memo, refunded_cents, deposit_bank_transaction_id, is_historical, crm_external_id, custom")
     .eq("household_id", householdId)
     .order("received_on", { ascending: false })
     .limit(500);
   if (pRes.error) return <QueryError what="payments" error={pRes.error} retryHref={retry} />;
   const payments = pRes.data ?? [];
+  const defs = await loadCustomFieldDefs(db, center.id, "payments", true);
+  const editCustom = canAccess(session, "givingManage");
 
   const allocations: { payment_id: string; pledge_id: string; amount_cents: number }[] = [];
   let allocError: unknown = null;
@@ -73,6 +77,7 @@ export async function PaymentsTab({ session, householdId }: { session: CrmSessio
                 <th>Status</th>
                 <th>Applied to pledges</th>
                 <th>Memo</th>
+                {defs.defs.length ? <th>More details</th> : null}
               </tr>
             </thead>
             <tbody>
@@ -88,6 +93,11 @@ export async function PaymentsTab({ session, householdId }: { session: CrmSessio
                       {p.check_number ? <div className="text-xs text-muted">Check #{p.check_number}</div> : null}
                       {p.envelope_number ? <div className="text-xs text-muted">Envelope {p.envelope_number}</div> : null}
                       <div className="text-xs text-muted">via {p.provider ?? "—"}</div>
+                      {p.is_historical ? (
+                        <div className="text-xs text-muted" title="Imported money history: already in the books, never posted to QuickBooks">
+                          History{p.crm_external_id ? ` · ${p.crm_external_id}` : ""} · not posted to QuickBooks
+                        </div>
+                      ) : null}
                     </td>
                     <td className="num">
                       {formatCents(p.amount_cents, center.currency)}
@@ -116,6 +126,11 @@ export async function PaymentsTab({ session, householdId }: { session: CrmSessio
                       ) : null}
                     </td>
                     <td className="max-w-xs text-[0.8125rem]">{p.memo ?? "—"}</td>
+                    {defs.defs.length ? (
+                      <td>
+                        <CustomDetailsCell defs={defs.defs} entity="payments" recordId={p.id} custom={p.custom} editable={editCustom} currency={center.currency} />
+                      </td>
+                    ) : null}
                   </tr>
                 );
               })}

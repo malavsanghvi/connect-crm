@@ -1,6 +1,8 @@
 import Link from "next/link";
 
+import { CustomDetailsCell } from "@/components/custom-details-cell";
 import { Badge, Card, EmptyState, NoAccess, QueryError, TableWrap } from "@/components/ui";
+import { loadCustomFieldDefs } from "@/lib/data/custom-fields";
 import { peopleById } from "@/lib/data/lookups";
 import { formatDate } from "@/lib/dates";
 import { APPLICATION_STATUS_LABEL, MEMBERSHIP_STATUS_TONE } from "@/lib/labels";
@@ -14,10 +16,10 @@ export async function MembershipsTab({ session, householdId }: { session: CrmSes
   const tz = center.time_zone;
   const retry = `/households/${householdId}?tab=memberships`;
 
-  const [mRes, aRes, typesRes] = await Promise.all([
+  const [mRes, aRes, typesRes, defs] = await Promise.all([
     db
       .from("memberships")
-      .select("id, person_id, membership_type_id, tier, status, starts_on, ends_on, notes, crm_external_id")
+      .select("id, person_id, membership_type_id, tier, status, starts_on, ends_on, notes, crm_external_id, custom")
       .eq("household_id", householdId)
       .order("starts_on", { ascending: false }),
     db
@@ -26,7 +28,9 @@ export async function MembershipsTab({ session, householdId }: { session: CrmSes
       .eq("household_id", householdId)
       .order("created_at", { ascending: false }),
     db.from("membership_types").select("id, name").eq("center_id", center.id),
+    loadCustomFieldDefs(db, center.id, "memberships", true),
   ]);
+  const editCustom = canAccess(session, "householdsEdit");
   if (mRes.error) return <QueryError what="memberships" error={mRes.error} retryHref={retry} />;
   if (aRes.error) return <QueryError what="membership applications" error={aRes.error} retryHref={retry} />;
   const typeName = new Map((typesRes.data ?? []).map((t) => [t.id, t.name]));
@@ -55,6 +59,7 @@ export async function MembershipsTab({ session, householdId }: { session: CrmSes
                   <th>Starts</th>
                   <th>Ends</th>
                   <th>Notes</th>
+                  {defs.defs.length ? <th>More details</th> : null}
                 </tr>
               </thead>
               <tbody>
@@ -77,6 +82,11 @@ export async function MembershipsTab({ session, householdId }: { session: CrmSes
                     <td>{formatDate(m.starts_on, tz)}</td>
                     <td>{m.ends_on ? formatDate(m.ends_on, tz) : "No end (lifetime)"}</td>
                     <td className="text-[0.8125rem]">{m.notes ?? "—"}</td>
+                    {defs.defs.length ? (
+                      <td>
+                        <CustomDetailsCell defs={defs.defs} entity="memberships" recordId={m.id} custom={m.custom} editable={editCustom} currency={center.currency} />
+                      </td>
+                    ) : null}
                   </tr>
                 ))}
               </tbody>

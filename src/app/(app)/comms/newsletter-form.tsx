@@ -17,9 +17,10 @@ import {
 } from "@/lib/comms";
 
 import { previewRecipientsAction, saveCampaignAction, submitNewsletterAction } from "./actions";
+import { CustomSegmentPicker, type CustomFieldOption } from "./custom-segment-picker";
 
 type Opt = { id: string; name: string };
-export type ComposeOptions = { zones: Opt[]; classes: Opt[]; events: Opt[]; unavailable: string[] };
+export type ComposeOptions = { zones: Opt[]; classes: Opt[]; events: Opt[]; unavailable: string[]; customFields?: CustomFieldOption[] };
 
 export type CampaignDraft = {
   id: string;
@@ -191,6 +192,7 @@ export function NewsletterCompose({
                   Not on the app
                 </Chip>
               </div>
+              <CustomSegmentPicker fields={options.customFields ?? []} value={sel.customFields ?? []} onChange={(next) => setSel((s) => ({ ...s, customFields: next }))} />
               {sel.pathshalaClassIds.length > 0 && !pathshalaOn ? (
                 <p className="crm-hint">Parents of {sel.pathshalaClassIds.length} Pathshala class{sel.pathshalaClassIds.length === 1 ? "" : "es"} (from an earlier selection).</p>
               ) : null}

@@ -10,6 +10,7 @@ import { getSession } from "@/lib/session";
 
 import { saveCategoryAction } from "../actions";
 import { ItemForm, MenuTable, StoreSettingsForm, WindowForm } from "./menu-forms";
+import { loadCustomFieldDefs } from "@/lib/data/custom-fields";
 
 export const metadata: Metadata = { title: "Menu & pickup · Satvik Store" };
 
@@ -27,11 +28,11 @@ export default async function StoreMenuPage() {
   const { db, center } = session;
   const tz = center.time_zone;
   const manage = canAccess(session, "storeManage");
-  const [categories, items, windows, events] = await Promise.all([
+  const [categories, items, windows, events, itemDefs] = await Promise.all([
     db.from("store_categories").select("id, name, sort_order").eq("center_id", center.id).order("sort_order").order("name"),
     db
       .from("store_items")
-      .select("id, sku, name, category_id, description, price_cents, pack_size, taxable, track_inventory, gift_pack, low_stock_threshold, status")
+      .select("id, sku, name, category_id, description, price_cents, pack_size, taxable, track_inventory, gift_pack, low_stock_threshold, status, custom")
       .eq("center_id", center.id)
       .order("sku", { nullsFirst: false })
       .order("name"),
@@ -42,6 +43,7 @@ export default async function StoreMenuPage() {
       .order("starts_at", { ascending: false })
       .limit(40),
     db.from("events").select("id, name").eq("center_id", center.id).order("starts_at", { ascending: false, nullsFirst: true }).limit(100),
+    loadCustomFieldDefs(db, center.id, "store_items", true),
   ]);
   if (events.error) console.error("[store] events for pickup slots unavailable:", events.error);
   const cats = categories.data ?? [];
@@ -71,7 +73,7 @@ export default async function StoreMenuPage() {
           ) : menu.length === 0 ? (
             <EmptyState title="No items on the menu yet" />
           ) : (
-            <MenuTable items={menu} categories={cats} currency={center.currency} manage={manage} />
+            <MenuTable items={menu} categories={cats} currency={center.currency} manage={manage} customDefs={itemDefs.defs} />
           )}
         </Card>
 

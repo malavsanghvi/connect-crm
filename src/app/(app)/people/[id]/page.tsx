@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { IdentifiersPanel } from "@/components/identifiers-panel";
+import { MoreDetails } from "@/components/more-details";
 import { PeopleDrawers, drawerHref } from "@/app/(app)/people/_components/drawers";
 import { HistoryButton } from "@/components/record-history";
 import { Badge, BlockGrid, Card, DefinitionList, EmptyState, KeyValueRow, NoAccess, PageHeader, QueryError, TableWrap, buttonClass } from "@/components/ui";
@@ -253,6 +254,8 @@ export default async function PersonPage({ params, searchParams }: { params: Pro
           </Card>
         </BlockGrid>
       ) : null}
+
+      <MoreDetails session={session} entity="people" recordId={id} editable={canAccess(session, "householdsEdit") && !person.merged_into_id} variant="card" className="mt-5" />
 
       <Card title="Memberships held" padded={false} className="mt-5">
         {membershipsRes.error ? (
