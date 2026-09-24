@@ -93,6 +93,20 @@ export const ACCESS = {
   centerSettings: ["settings.manage"],
   privacy: ["privacy.manage"],
   identifierSearch: ["people.view", "giving.view", "giving.record_offline"],
+  bolis: ["bolis.view", "bolis.manage"],
+  bolisManage: ["bolis.manage"],
+  /** Record in-person pledges one by one (boli_entries_recorder policy). */
+  bolisRecord: ["bolis.manage", "bolis.record"],
+  /** Draft messages to families (comms_campaigns staff policy). */
+  commsDraft: ["comms.send"],
+  store: ["store.view", "store.manage"],
+  storeManage: ["store.manage"],
+  storeOrders: ["store.view", "store.manage", "store.pickup"],
+  /** Move orders along (store_orders_pickup_update / staff write). */
+  storePickup: ["store.manage", "store.pickup"],
+  /** Calendar layers are content (0010 calendar_layers_manage needs content.manage). */
+  calendar: ["content.manage", "content.draft", "settings.manage"],
+  calendarManage: ["content.manage"],
 } as const satisfies Record<string, readonly string[]>;
 
 export type AccessKey = keyof typeof ACCESS;
@@ -177,6 +191,31 @@ export const NAV: NavModule[] = [
       { href: "/giving/statements", label: "Statements", access: "statements" },
     ],
     paths: ["/giving"],
+  },
+  {
+    key: "bolis",
+    label: "Bolis",
+    tabs: [
+      { href: "/bolis", label: "Digital bolis", access: "bolis" },
+      { href: "/bolis/upload", label: "In-person upload", access: "bolis" },
+    ],
+    paths: ["/bolis"],
+  },
+  {
+    key: "store",
+    label: "Satvik Store",
+    tabs: [
+      { href: "/store", label: "Inventory", access: "store" },
+      { href: "/store/menu", label: "Menu & pickup", access: "store" },
+      { href: "/store/orders", label: "Orders by pickup", access: "storeOrders" },
+    ],
+    paths: ["/store"],
+  },
+  {
+    key: "calendar",
+    label: "Calendar",
+    tabs: [{ href: "/calendar", label: "Layers", access: "calendar" }],
+    paths: ["/calendar"],
   },
   {
     key: "accounting",

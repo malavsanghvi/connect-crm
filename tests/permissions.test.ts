@@ -94,7 +94,7 @@ describe("visibleNav (flat module list)", () => {
   });
   it("keeps the prototype's module order", () => {
     const labels = visibleNav({ permissions: [], isPlatformAdmin: true }).map((m) => m.label);
-    expect(labels).toEqual(["Home", "People", "Giving", "Accounting", "Reports", "Settings"]);
+    expect(labels).toEqual(["Home", "People", "Giving", "Bolis", "Satvik Store", "Calendar", "Accounting", "Reports", "Settings"]);
   });
   it("shows settings to a center admin and opens on the first tab they can use", () => {
     const nav = visibleNav({ permissions: ["roles.manage", "settings.manage"], isPlatformAdmin: false });
@@ -116,6 +116,12 @@ describe("visibleNav (flat module list)", () => {
       "/giving/campaigns",
       "/giving/recurring",
       "/giving/statements",
+      "/bolis",
+      "/bolis/upload",
+      "/store",
+      "/store/menu",
+      "/store/orders",
+      "/calendar",
       "/accounting/qbo",
       "/reports",
       "/audit",
