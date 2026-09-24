@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
+import { DrawerForm } from "@/components/drawer-form";
 import { RowActions } from "@/components/row-actions";
 import { Card, EmptyState, QueryError, StatusText, TableWrap, buttonClass } from "@/components/ui";
 import { contentKindLabel } from "@/lib/content";
@@ -110,14 +111,18 @@ export default async function ApprovalQueuePage() {
                     </td>
                     <td className="text-right">
                       {r.kind === "item" && canApprove ? (
-                        <RowActions
-                          action={decideContentAction}
-                          fields={{ id: r.id }}
-                          buttons={[
-                            { label: "Return", value: "return", variant: "bad" },
-                            { label: "Approve", value: "approve", variant: "ok" },
-                          ]}
-                        />
+                        <div className="flex flex-wrap items-center justify-end gap-2">
+                          <DrawerForm label="Return" variant="bad" size="xs" kicker={refCode("CT", r.id)} title={`Return “${r.title}”`} subtitle="It goes back to its author as a draft." action={decideContentAction} submitLabel="Return to author">
+                            <input type="hidden" name="id" value={r.id} />
+                            <input type="hidden" name="decision" value="return" />
+                            <label htmlFor={`ret-${r.id}`} className="crm-label">
+                              What should the author change?
+                            </label>
+                            <textarea id={`ret-${r.id}`} name="reason" required rows={3} className="crm-input" />
+                            <p className="crm-hint">Kept with the item&apos;s history.</p>
+                          </DrawerForm>
+                          <RowActions action={decideContentAction} fields={{ id: r.id }} buttons={[{ label: "Approve", value: "approve", variant: "ok" }]} />
+                        </div>
                       ) : null}
                       {r.kind === "photos" && canModerate ? (
                         <div className="flex flex-wrap items-center justify-end gap-2">

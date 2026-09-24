@@ -349,6 +349,7 @@ export const NAV: NavModule[] = [
       { href: "/pathshala/signoffs", label: "Gyan Path sign-offs", access: "pathshalaSignoffs", roles: ["teacher"], module: "gyan_path" },
       { href: "/pathshala/terms", label: "Terms", access: "pathshala" },
       { href: "/pathshala/enrollments", label: "Enrollments", access: "pathshala" },
+      { href: "/pathshala/teachers", label: "Teacher positions", access: "pathshala" },
       { href: "/pathshala/committee", label: "Committee", access: "pathshalaCommittee" },
       { href: "/pathshala/my-classes", label: "My classes", roles: ["teacher"] },
     ],

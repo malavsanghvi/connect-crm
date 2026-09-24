@@ -9,9 +9,10 @@ import { all, bool, FormError, int, isoDate, must, ok, oneOf, reqStr, runAction,
 import { appendStatusUpdate, mergeLessons, type Lesson } from "@/lib/logic/eams";
 import { canStartVoting, nextVoteHistory, periodOpen, toDateRange } from "@/lib/logic/resolutions";
 import { randomToken } from "@/lib/logic/tokens";
-import { formatDateTime, fromDateTimeLocal } from "@/lib/pathshala/format";
+import { formatDateTime, fromDateTimeLocal, todayIso } from "@/lib/pathshala/format";
 import { actionContext } from "@/lib/pathshala/server";
 import { can, hasScopedRole } from "@/lib/permissions";
+import { dbWithReason } from "@/lib/session";
 
 const PHASES = ["pre", "during", "after"] as const;
 const PRIORITIES = ["low", "medium", "high", "critical"] as const;
@@ -477,12 +478,13 @@ export async function saveResolution(resolutionId: string | null, _prev: unknown
 
 export async function setPeriod(resolutionId: string, kind: "comment" | "voting", _prev: unknown, fd: FormData): Promise<ActionResult<unknown>> {
   return runAction("committee.setPeriod", "update the period", async () => {
-    const { supabase } = await actionContext(govManage, "Only committee chairs can open, pause or close periods.");
+    const { supabase, tz } = await actionContext(govManage, "Only committee chairs can open, pause or close periods.");
     const r = must(await supabase.from("resolutions").select("*").eq("id", resolutionId).maybeSingle(), "load the resolution");
     if (!r) throw new FormError("That resolution no longer exists.");
     if (r.withdrawn_at) throw new FormError("This resolution was withdrawn.");
     const to = oneOf(fd, "to", ["started", "paused", "completed"] as const, "Change");
-    const today = new Date().toISOString().slice(0, 10);
+    // The community's calendar day, not UTC (an evening in Houston is already tomorrow in UTC).
+    const today = todayIso(tz);
     const current = kind === "comment" ? r.comment_status : r.voting_status;
     const patch: TablesUpdate<"resolutions"> = kind === "comment" ? { comment_status: to } : { voting_status: to };
     if (to === "started" && current === "not_started") {
@@ -553,14 +555,16 @@ export async function editComment(commentId: string, _prev: unknown, fd: FormDat
 
 export async function castVote(resolutionId: string, _prev: unknown, fd: FormData): Promise<ActionResult<unknown>> {
   return runAction("committee.castVote", "record your vote", async () => {
-    const { supabase, centerId, viewer } = await actionContext((a) => can(a, "governance.vote"), "Only current committee members can vote.");
-    const r = must(await supabase.from("resolutions").select("voting_status, voting_period, withdrawn_at").eq("id", resolutionId).maybeSingle(), "load the resolution");
+    const { supabase: db, centerId, viewer, tz } = await actionContext((a) => can(a, "governance.vote"), "Only current committee members can vote.");
+    const r = must(await db.from("resolutions").select("voting_status, voting_period, withdrawn_at").eq("id", resolutionId).maybeSingle(), "load the resolution");
     if (!r) throw new FormError("That resolution no longer exists.");
-    if (r.withdrawn_at || !periodOpen(r.voting_status, r.voting_period, new Date().toISOString().slice(0, 10))) {
+    if (r.withdrawn_at || !periodOpen(r.voting_status, r.voting_period, todayIso(tz))) {
       throw new FormError("Voting isn't open.");
     }
     const vote = oneOf(fd, "vote", ["yes", "no", "abstain"] as const, "Vote");
     const reason = str(fd, "reason");
+    // The voter's reason also goes on the audit entry of the ballot.
+    const supabase = reason ? await dbWithReason(viewer, reason.slice(0, 500)) : db;
     const existing = must(
       await supabase.from("resolution_votes").select("*").eq("resolution_id", resolutionId).eq("voter_user", viewer.userId).maybeSingle(),
       "load your previous vote",

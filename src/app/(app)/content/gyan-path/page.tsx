@@ -412,6 +412,29 @@ function StepFields({ levelId, nextOrder, items }: { levelId: string; nextOrder:
         </select>
         <p className="crm-hint">Sutra text and audio come from the Library and must be approved there.</p>
       </div>
+      <fieldset className="rounded-xl border border-line p-3">
+        <legend className="px-1 text-[13px] font-bold">Quiz question (quiz steps)</legend>
+        <div className="flex flex-col gap-3">
+          <div>
+            <label htmlFor={`s-${levelId}-qq`} className="crm-label">
+              Question
+            </label>
+            <input id={`s-${levelId}-qq`} name="quiz_question" className="crm-input" placeholder="How many lines does the Navkar Mantra have?" />
+          </div>
+          <div>
+            <label htmlFor={`s-${levelId}-qo`} className="crm-label">
+              Answers, one per line
+            </label>
+            <textarea id={`s-${levelId}-qo`} name="quiz_options" rows={4} className="crm-input" />
+          </div>
+          <div>
+            <label htmlFor={`s-${levelId}-qa`} className="crm-label">
+              Right answer (line number)
+            </label>
+            <input id={`s-${levelId}-qa`} name="quiz_answer" inputMode="numeric" className="crm-input" placeholder="2" />
+          </div>
+        </div>
+      </fieldset>
     </>
   );
 }

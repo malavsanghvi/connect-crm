@@ -93,6 +93,9 @@ export default async function ClassPage({ params }: { params: Promise<{ id: stri
         actions={
           <>
             <HistoryButton table="pathshala_classes" recordId={cls.id} title={cls.name} variant="ghost" size="md" />
+            <Link href={`/pathshala/classes/${cls.id}/reports`} className={buttonClass("ghost")}>
+              Progress reports
+            </Link>
             {isTeacher || canManage ? (
               <Link href={`/pathshala/classes/${cls.id}/attendance`} className={buttonClass("primary")}>
                 Take attendance

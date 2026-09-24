@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 
 import { Alert, BlockGrid, Card, EmptyState, InfoBox, QueryError, StatusText, TableWrap } from "@/components/ui";
 import { addDays, formatMonth, todayInTz } from "@/lib/dates";
+import { isModuleEnabled } from "@/lib/modules";
 import { canAccess } from "@/lib/permissions";
 import { getSession } from "@/lib/session";
 
@@ -26,8 +27,9 @@ export default async function NivaPage() {
   if (gate) return gate;
   const canDraft = canAccess(session, "contentDraft");
   const canManage = canAccess(session, "contentManage");
-  const flags = (center.feature_flags ?? {}) as Record<string, unknown>;
-  const enabled = flags.niva === true;
+  // The Niva module (Settings › Modules) decides whether members see Niva; the old
+  // centers.feature_flags.niva is no longer read by the member app.
+  const enabled = isModuleEnabled(session, "niva");
   const weekAgo = addDays(todayInTz(center.time_zone), -7);
 
   const [sources, unanswered] = await Promise.all([
@@ -53,13 +55,12 @@ export default async function NivaPage() {
   return (
     <>
       <ContentHeader sub={sub} />
-      {!enabled ? (
-        <div className="mb-4">
-          <Alert tone="info" title="Niva is switched off for this center">
-            Members do not see Niva until the &ldquo;niva&rdquo; feature flag is turned on in Settings › Center. You can prepare its sources now.
-          </Alert>
-        </div>
-      ) : null}
+      <div className="mb-4">
+        <Alert tone="info" title="Niva doesn't answer on its own yet">
+          Members can ask Niva in the app. Each question is saved and listed below as unanswered, and the member is told plainly that answers are
+          still being set up — the answering model is not connected yet. Add sources now so they are ready.
+        </Alert>
+      </div>
       <BlockGrid>
         <Card
           title="Knowledge sources"
@@ -119,7 +120,7 @@ export default async function NivaPage() {
               <QueryError what="the unanswered questions" error={unanswered.error} retryHref="/content/niva" />
             </div>
           ) : questions.length === 0 ? (
-            <EmptyState title={enabled ? "No unanswered questions this week" : "No questions yet — Niva is switched off"} />
+            <EmptyState title={enabled ? "No unanswered questions this week" : "No questions — the Niva module is switched off"} />
           ) : (
             <TableWrap>
               <table className="crm-table">
