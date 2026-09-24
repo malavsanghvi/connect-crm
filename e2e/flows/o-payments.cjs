@@ -320,7 +320,8 @@ const card = (p, title) => p.locator('section.cc-card').filter({ has: p.getByRol
     // ── 7. Refund through Stripe (two approvers, fresh 2FA) ───────────────
     sql(`update app.role_grants set ends_at = null where center_id = '${jsh}' and user_id = '${kiranUid}' and role_key = 'treasurer' and reason = 'e2e o-payments second approver';
          insert into app.role_grants (center_id, user_id, role_key, reason) select '${jsh}', '${kiranUid}', 'treasurer', 'e2e o-payments second approver'
-         where not exists (select 1 from app.role_grants where center_id = '${jsh}' and user_id = '${kiranUid}' and role_key = 'treasurer');`);
+         where not exists (select 1 from app.role_grants where center_id = '${jsh}' and user_id = '${kiranUid}' and role_key = 'treasurer'
+                             and starts_at <= now() and (ends_at is null or ends_at > now()));`);   // other flows leave ended / future treasurer terms
     const req = await fetch(`${API}/rest/v1/payments?id=eq.${pay[0]}`, { method: 'PATCH', headers: { ...userH(adminAal2), prefer: 'return=representation', 'x-audit-reason': 'Duplicate%20gift' },
       body: JSON.stringify({ refund_approved_by: adminUid, refund_reason: 'Duplicate gift', refund_requested_cents: 1000 }) });
     ok(req.status === 200, `7 the admin requests a $10.00 refund (${req.status})`);

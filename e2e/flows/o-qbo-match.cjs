@@ -143,6 +143,7 @@ async function mapByCard(p, row, search, householdNumber, reason, personLabel = 
   sql(`update app.jobs set status = 'cancelled' where center_id = '${C}' and kind like 'qbo.%' and status in ('queued','running');
        delete from app.payment_allocations where payment_id in (select id from app.payments where center_id = '${C}' and provider = 'quickbooks');
        delete from app.payments where center_id = '${C}' and provider = 'quickbooks';
+       delete from app.payment_allocations where pledge_id in (select id from app.pledges where center_id = '${C}' and crm_external_id like 'qbo:%');   -- another flow may have paid them
        delete from app.pledges where center_id = '${C}' and crm_external_id like 'qbo:%';
        delete from app.qbo_customer_matches where center_id = '${C}';
        delete from app.qbo_transactions where center_id = '${C}';

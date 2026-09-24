@@ -108,6 +108,26 @@ function audit(table, afterId, extra = '') {
   const jsh = sql("select id from app.centers where slug = 'jsh'");
   const domain = `mail-${run}.jsh-e2e.test`;
   const mark = Number(sql('select coalesce(max(id), 0) from app.audit_log'));
+  // On a shared stack other flows may have linked admin@jsh.test to more communities (o-tenancy: JCNJ)
+  // and given it an authenticator app. Branded sign-in needs a login of exactly one community, and this
+  // flow signs in with the email code only: for this run the admin belongs to JSH only; its other
+  // links are put back when the flow ends (test logins only).
+  const adminId = sql("select id from auth.users where email = 'admin@jsh.test'");
+  for (const f of JSON.parse(sql(`select coalesce(json_agg(id), '[]') from auth.mfa_factors where user_id = '${adminId}'`))) {
+    const fr = await fetch(`${API}/auth/v1/admin/users/${adminId}/factors/${f}`, { method: 'DELETE', headers: { apikey: KEYS.SERVICE_KEY, authorization: `Bearer ${KEYS.SERVICE_KEY}` } });
+    if (!fr.ok) console.log(`NOTE could not remove the admin's authenticator ${f}: ${fr.status}`);
+  }
+  const otherLinks = JSON.parse(sql(`select coalesce(json_agg(row_to_json(cu)), '[]') from app.center_users cu where user_id = '${adminId}' and center_id <> '${jsh}'`));
+  const otherGrants = sql(`select coalesce(string_agg(id::text, ','), '') from app.role_grants where user_id = '${adminId}' and center_id <> '${jsh}'
+                             and center_id not in (select id from app.centers where slug like 'jsh-e2e-%-sandbox') and (ends_at is null or ends_at > now())`);
+  sql(`delete from app.center_users where user_id = '${adminId}' and center_id <> '${jsh}';
+       ${otherGrants ? `update app.role_grants set ends_at = now() where id in ('${otherGrants.split(',').join("','")}');` : ''}`);
+  process.on('exit', () => {
+    try {
+      if (otherGrants) sql(`update app.role_grants set ends_at = null where id in ('${otherGrants.split(',').join("','")}')`);
+      for (const l of otherLinks) sql(`insert into app.center_users (center_id, user_id, person_id, is_default) values ('${l.center_id}', '${l.user_id}', '${l.person_id}', ${l.is_default}) on conflict do nothing`);
+    } catch (e) { console.log('NOTE could not restore the admin\'s other communities:', e.message); }
+  });
   await fetch(`${MOCK}/_mock/reset`, { method: 'POST' });
   // Test data only: start JSH from a clean messaging setup.
   sql(`update app.message_suppressions set lifted_at = now(), lift_reason = 'e2e reset' where lifted_at is null and center_id = '${jsh}';

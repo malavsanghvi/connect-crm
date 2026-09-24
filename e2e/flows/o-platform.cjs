@@ -305,6 +305,12 @@ async function answerStepUp(p, secret) {
     for (const k of ['terms', 'privacy', 'photo_release']) {
       sql(`insert into app.legal_documents (center_id, kind, version, title, body_md, published_at) values ('${sbx}', '${k}', '1', '${k} (test)', 'Test text.', now() - interval '1 minute')`);
     }
+    // Readiness 4 and 5 (o-messaging): a verified sending domain with a sign-in sender and a delivered
+    // test email; phone sign-in switched off, so no texting registration is needed.
+    sql(`insert into app.email_domains (center_id, domain, provider, status, verified_at) values ('${sbx}', '${SLUG}.example.test', 'resend', 'verified', now() - interval '1 minute')`);
+    sql(`insert into app.email_senders (center_id, purpose, from_name, from_address, verified) values ('${sbx}', 'auth', 'Jain Temple', 'codes@${SLUG}.example.test', true)`);
+    sql(`insert into app.messages (center_id, channel, to_address, purpose, subject, body, status, sent_at, sandbox) values ('${sbx}', 'email', '${CONTACT}', 'test', 'Test email', 'e2e test email', 'sent', now(), true)`);
+    sql(`update app.centers set rules = jsonb_set(coalesce(rules, '{}'), '{security}', coalesce(rules->'security', '{}') || '{"phone_sign_in": false}') where id = '${sbx}'`);
     // Test data that must NOT reach production.
     sql(`with h as (insert into app.households (center_id, display_name) values ('${sbx}', 'Test Family household') returning id),
               p as (insert into app.people (center_id, first_name, last_name, email) values ('${sbx}', 'Test', 'Member', 'test.member.${RUN}@example.test') returning id)

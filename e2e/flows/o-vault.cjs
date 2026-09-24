@@ -238,7 +238,7 @@ async function maybeStepUp(p, secret) {
   });
   worker.stdout.on('data', (d) => logs.push(...d.toString().trim().split('\n')));
   worker.stderr.on('data', (d) => logs.push(...d.toString().trim().split('\n')));
-  const health = await until(() => fetch('http://127.0.0.1:3610/health').then((r) => r.status === 200).catch(() => false), 20000);
+  const health = await until(() => fetch(`http://127.0.0.1:${process.env.WORKER_HEALTH_PORT || '3610'}/health`).then((r) => r.status === 200).catch(() => false), 20000);
   ok(health, 'the worker (connect_worker role) starts and its health endpoint answers 200');
   ok(sql(`select count(*) from app.audit_log where id > ${auditMark} and action = 'worker_heartbeats.insert' and record_id = 'e2e-worker-${run}'`) === '1',
     'the worker starting is audited');
