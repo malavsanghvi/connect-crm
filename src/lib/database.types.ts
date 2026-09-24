@@ -5399,6 +5399,90 @@ export type Database = {
         };
         Relationships: [];
       };
+      platform_secrets: {
+        Row: {
+          name: string;
+          vault_secret_id: string;
+          fingerprint: string;
+          set_by: string | null;
+          set_at: string;
+          rotated_at: string | null;
+        };
+        Insert: {
+          name: string;
+          vault_secret_id: string;
+          fingerprint: string;
+          set_by?: string | null;
+          set_at?: string;
+          rotated_at?: string | null;
+        };
+        Update: {
+          name?: string;
+          vault_secret_id?: string;
+          fingerprint?: string;
+          set_by?: string | null;
+          set_at?: string;
+          rotated_at?: string | null;
+        };
+        Relationships: [];
+      };
+      platform_settings: {
+        Row: {
+          key: string;
+          value: Json;
+          set_by: string | null;
+          set_at: string;
+        };
+        Insert: {
+          key: string;
+          value: Json;
+          set_by?: string | null;
+          set_at?: string;
+        };
+        Update: {
+          key?: string;
+          value?: Json;
+          set_by?: string | null;
+          set_at?: string;
+        };
+        Relationships: [];
+      };
+      platform_setup_steps: {
+        Row: {
+          key: string;
+          required: boolean;
+          sort: number;
+          status: string;
+          parked_by: string | null;
+          parked_at: string | null;
+          completed_by: string | null;
+          completed_at: string | null;
+          note: string | null;
+        };
+        Insert: {
+          key: string;
+          required: boolean;
+          sort?: number;
+          status?: string;
+          parked_by?: string | null;
+          parked_at?: string | null;
+          completed_by?: string | null;
+          completed_at?: string | null;
+          note?: string | null;
+        };
+        Update: {
+          key?: string;
+          required?: boolean;
+          sort?: number;
+          status?: string;
+          parked_by?: string | null;
+          parked_at?: string | null;
+          completed_by?: string | null;
+          completed_at?: string | null;
+          note?: string | null;
+        };
+        Relationships: [];
+      };
       pledges: {
         Row: {
           id: string;
@@ -6978,7 +7062,7 @@ export type Database = {
         Row: {
           id: number;
           center_id: string | null;
-          connection_id: string;
+          connection_id: string | null;
           name: string;
           reader: string;
           purpose: string;
@@ -6989,7 +7073,7 @@ export type Database = {
         Insert: {
           id?: number;
           center_id?: string | null;
-          connection_id: string;
+          connection_id?: string | null;
           name: string;
           reader: string;
           purpose: string;
@@ -7000,7 +7084,7 @@ export type Database = {
         Update: {
           id?: number;
           center_id?: string | null;
-          connection_id?: string;
+          connection_id?: string | null;
           name?: string;
           reader?: string;
           purpose?: string;
@@ -8656,6 +8740,13 @@ export type Database = {
         };
         Returns: { slug: string; name: string; short_name: string; state_region: string; environment: string }[];
       };
+      complete_platform_setup_step: {
+        Args: {
+          p_key: string;
+          p_note?: string;
+        };
+        Returns: undefined;
+      };
       complete_qbo_connect: {
         Args: {
           p_nonce: string;
@@ -8880,6 +8971,12 @@ export type Database = {
           p_reason: string;
         };
         Returns: Json;
+      };
+      enqueue_platform_test: {
+        Args: {
+          p_step: string;
+        };
+        Returns: number;
       };
       enqueue_worker_test: {
         Args: {
@@ -9494,6 +9591,13 @@ export type Database = {
         Args: Record<PropertyKey, never>;
         Returns: { center_id: string; center_name: string; center_slug: string; center_status: string; legal_name: string; dba: string; ein: string; entity_type: string; incorporation_state: string; verification_status: string; verification_note: string; submitted_at: string; verified_at: string; documents: number; irs: Json }[];
       };
+      park_platform_setup_step: {
+        Args: {
+          p_key: string;
+          p_reason: string;
+        };
+        Returns: undefined;
+      };
       parse_bank_description: {
         Args: {
           p_desc: string;
@@ -9583,6 +9687,28 @@ export type Database = {
         };
         Returns: string;
       };
+      platform_admin_directory: {
+        Args: Record<PropertyKey, never>;
+        Returns: { user_id: string; email: string }[];
+      };
+      platform_auth_hook_activity: {
+        Args: {
+          p_since?: string;
+        };
+        Returns: Json;
+      };
+      platform_domain_allowed: {
+        Args: {
+          p_domain: string;
+        };
+        Returns: boolean;
+      };
+      platform_domain_ok: {
+        Args: {
+          p: string;
+        };
+        Returns: boolean;
+      };
       platform_onboarding_pipeline: {
         Args: Record<PropertyKey, never>;
         Returns: { center_id: string; slug: string; name: string; environment: string; status: string; stage: string; stage_since: string; steps_done: number; steps_total: number; readiness_ok: number; readiness_total: number; blockers: string[]; owner_name: string; owner_email: string; owner_phone: string; golive_id: string; golive_status: string; promoted_to: string; last_activity_at: string; support_live: boolean }[];
@@ -9590,6 +9716,14 @@ export type Database = {
       platform_public_addresses: {
         Args: Record<PropertyKey, never>;
         Returns: Json;
+      };
+      platform_secret_names: {
+        Args: Record<PropertyKey, never>;
+        Returns: string[];
+      };
+      platform_setting_keys: {
+        Args: Record<PropertyKey, never>;
+        Returns: string[];
       };
       preview_allocation: {
         Args: {
@@ -9839,6 +9973,13 @@ export type Database = {
       reject_qbo_match: {
         Args: {
           p_id: string;
+          p_reason: string;
+        };
+        Returns: undefined;
+      };
+      reopen_platform_setup_step: {
+        Args: {
+          p_key: string;
           p_reason: string;
         };
         Returns: undefined;
@@ -10174,6 +10315,22 @@ export type Database = {
           p_reason: string;
         };
         Returns: undefined;
+      };
+      set_platform_secret: {
+        Args: {
+          p_name: string;
+          p_value: string;
+          p_reason: string;
+        };
+        Returns: Json;
+      };
+      set_platform_setting: {
+        Args: {
+          p_key: string;
+          p_value: string;
+          p_reason: string;
+        };
+        Returns: Json;
       };
       set_qbo_fund_class: {
         Args: {

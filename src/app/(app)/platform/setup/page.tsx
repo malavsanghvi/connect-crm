@@ -13,7 +13,7 @@ import { getSession } from "@/lib/session";
 
 import { PlatformNoAccess } from "../platform-no-access";
 
-import { HttpsStatusSlot } from "./https-status-slot";
+import { HttpsStatusPanel } from "@/components/https/https-status-panel";
 import { AutoRefresh, FieldButton, HookTestButton, LaterButton, StepActions, TestButton } from "./setup-client";
 
 export const metadata: Metadata = { title: "Platform setup" };
@@ -171,7 +171,7 @@ function StepDetail({ step, view, portalUrl, host, tz }: { step: StepView; view:
       {step.test ? <TestCard step={step} tz={tz} /> : null}
       <Instructions step={step.key} view={view} portalUrl={portalUrl} host={host} />
       {step.key === "hooks" ? <HookCard view={view} tz={tz} /> : null}
-      {step.key === "portal" || step.key === "wildcard" ? <HttpsStatusSlot step={step.key} /> : null}
+      {step.key === "portal" || step.key === "wildcard" ? <HttpsStatusPanel timeZone={tz} /> : null}
       <AutoRefresh active={busy} />
     </>
   );
