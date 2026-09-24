@@ -18,6 +18,11 @@ export const metadata: Metadata = { title: "Sign in" };
 
 type Tenant = { name: string; branding: TenantBranding; sandbox: boolean } | null;
 
+function readPublicEnvUrl(): string | undefined {
+  const env = readPublicEnv();
+  return env.ok ? env.env.supabaseUrl : undefined;
+}
+
 /** The community this portal serves (centers are readable without signing in). */
 async function loadTenant({ slug, source }: CenterChoice): Promise<{ tenant: Tenant; problem: string | null }> {
   try {
@@ -36,7 +41,7 @@ async function loadTenant({ slug, source }: CenterChoice): Promise<{ tenant: Ten
       return { tenant: null, problem: `No active community is set up with the short name "${slug}". ${centerMissingHint(source)}` };
     }
     return {
-      tenant: { name: data.name, branding: tenantBranding({ ...data, slug: String(data.slug) }), sandbox: data.environment === "sandbox" },
+      tenant: { name: data.name, branding: tenantBranding({ ...data, slug: String(data.slug) }, readPublicEnvUrl()), sandbox: data.environment === "sandbox" },
       problem: null,
     };
   } catch (error) {

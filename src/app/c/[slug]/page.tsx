@@ -51,7 +51,7 @@ export default async function PublicDashboardPage({ params }: { params: Params }
   }
   if (!res.data || res.data.status !== "active") return <Problem title="Community not found" body={`There is no public dashboard at "/c/${slug}".`} />;
   const center = res.data;
-  const b = tenantBranding({ ...center, slug: String(center.slug) });
+  const b = tenantBranding({ ...center, slug: String(center.slug) }, c.env.supabaseUrl);
   // Sandboxes have no public dashboard (entitlement public_dashboard; app.public_kpis refuses them too).
   if (center.environment === "sandbox") {
     return <Problem title={`${b.shortName} community dashboard`} body="This is a practice sandbox. Sandboxes have no public community dashboard; it opens once the community goes live." />;

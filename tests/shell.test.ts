@@ -41,6 +41,21 @@ describe("shell helpers", () => {
     );
   });
 
+  it("prefers the uploaded brand kit (mark, then logo) from the public branding bucket", () => {
+    const base = { name: "Jain Society of Houston", short_name: "JSH", slug: "jsh" };
+    const id = "00000000-0000-4000-8000-000000000001";
+    const kit = { logo_path: `${id}/brand/logo.png`, mark_path: `${id}/brand/mark.png`, logo_url: "https://x.org/old.png" };
+    expect(tenantBranding({ ...base, branding: kit }, "http://localhost:55721/").logoUrl).toBe(
+      `http://localhost:55721/storage/v1/object/public/branding/${id}/brand/mark.png`,
+    );
+    expect(tenantBranding({ ...base, branding: { logo_path: `${id}/brand/logo.png` } }, "https://p.supabase.co").logoUrl).toBe(
+      `https://p.supabase.co/storage/v1/object/public/branding/${id}/brand/logo.png`,
+    );
+    // Without the Supabase URL, or with a path outside a center folder, the linked logo is used.
+    expect(tenantBranding({ ...base, branding: kit }).logoUrl).toBe("https://x.org/old.png");
+    expect(tenantBranding({ ...base, branding: { logo_path: "../etc/passwd" } }, "https://p.supabase.co").logoUrl).toBeNull();
+  });
+
   it("summarises roles for the top bar and the sidebar footer", () => {
     const roles = [
       { name: "Event lead", scopeKind: "event" },

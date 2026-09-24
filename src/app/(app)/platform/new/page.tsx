@@ -6,6 +6,9 @@ import { isPlainObject } from "@/lib/center-rules";
 import { WIZARD_STEP_COUNT, WIZARD_STEPS, wizardStep } from "@/lib/center-wizard";
 import { isUuid, param, type RawSearchParams } from "@/lib/search-params";
 import { getSession } from "@/lib/session";
+import { mergeReadiness } from "@/lib/setup";
+
+import { ReadinessTable } from "../../setup/readiness/readiness-table";
 
 import { PlatformNoAccess } from "../platform-no-access";
 import { WizardForm, type WizardCenter } from "./wizard-form";
@@ -37,7 +40,7 @@ export default async function NewCenterWizardPage({ searchParams }: { searchPara
   if (centerParam && isUuid(centerParam)) {
     const res = await db
       .from("centers")
-      .select("id, name, slug, branding, time_zone, tradition, state_region, rules, status")
+      .select("id, name, slug, time_zone, tradition, state_region, rules, status")
       .eq("id", centerParam)
       .maybeSingle();
     if (res.error) {
@@ -58,8 +61,6 @@ export default async function NewCenterWizardPage({ searchParams }: { searchPara
         id: r.id,
         name: r.name,
         slug: String(r.slug),
-        primary: str(r.branding, "primary"),
-        logoUrl: str(r.branding, "logo_url"),
         timeZone: r.time_zone,
         tradition: r.tradition,
         stateRegion: r.state_region ?? "",
@@ -74,6 +75,13 @@ export default async function NewCenterWizardPage({ searchParams }: { searchPara
 
   const roles = await db.from("roles").select("key", { count: "exact", head: true }).in("tier", ["center", "operational"]);
   if (roles.error) console.error("[platform] could not count default roles:", roles.error);
+
+  // Step 6 shows the center's own go-live readiness (the same checks as its Setup › Go-live readiness).
+  let readiness: React.ReactNode = null;
+  if (step === WIZARD_STEP_COUNT && center) {
+    const r = await db.rpc("readiness", { p_center: center.id });
+    readiness = r.error ? <QueryError what="the readiness checks" error={r.error} retryHref={`/platform/new?center=${center.id}&step=${step}`} /> : <ReadinessTable rows={mergeReadiness(r.data ?? [])} />;
+  }
 
   const stepHref = (i: number) => `/platform/new?${center ? `center=${center.id}&` : ""}step=${i}`;
 
@@ -120,7 +128,7 @@ export default async function NewCenterWizardPage({ searchParams }: { searchPara
         </nav>
       </Card>
       <Card title={WIZARD_STEPS[step - 1]}>
-        <WizardForm key={`${step}-${center?.id ?? "new"}`} step={step} center={center} roleCount={roles.error ? null : (roles.count ?? null)} locked={Boolean(center && status !== "onboarding")} />
+        <WizardForm key={`${step}-${center?.id ?? "new"}`} step={step} center={center} roleCount={roles.error ? null : (roles.count ?? null)} locked={Boolean(center && status !== "onboarding")} readiness={readiness} />
       </Card>
     </>
   );
