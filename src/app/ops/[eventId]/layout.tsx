@@ -5,6 +5,7 @@ import type { ReactNode } from "react";
 
 import { CenteredPanel, SetupScreen } from "@/components/setup-screen";
 import { ToastProvider } from "@/components/toast";
+import { isModuleEnabled, moduleOffMessage } from "@/lib/modules";
 import { isUuid } from "@/lib/search-params";
 import { loadSession } from "@/lib/session";
 
@@ -22,6 +23,13 @@ export default async function OpsLayout({ children, params }: { children: ReactN
         <p role="alert" className="text-danger">
           {state.status === "center_missing" ? `No center with the slug "${state.slug}" exists.` : `${state.message}.`}
         </p>
+      </CenteredPanel>
+    );
+  }
+  if (!isModuleEnabled(state.session, "events")) {
+    return (
+      <CenteredPanel title="Volunteer mode is not available">
+        <p role="status">{moduleOffMessage("events", state.session.center.short_name || state.session.center.name)}</p>
       </CenteredPanel>
     );
   }

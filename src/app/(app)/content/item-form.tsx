@@ -4,6 +4,7 @@ import { useState } from "react";
 
 import { ActionForm } from "@/components/action-form";
 import { Drawer } from "@/components/drawer";
+import { HistoryButton } from "@/components/record-history";
 import { buttonClass, type ButtonSize, type ButtonVariant } from "@/components/ui";
 
 import { saveContentItemAction } from "./actions";
@@ -78,6 +79,7 @@ export function ContentItemButton({
               <button type="submit" name="submit" value="review" data-variant="primary" className={buttonClass("primary")}>
                 Send for approval
               </button>
+              {item ? <HistoryButton table="content_items" recordId={item.id} title={item.title} size="md" /> : null}
             </>
           }
         >

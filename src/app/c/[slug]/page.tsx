@@ -4,6 +4,7 @@ import type { Metadata } from "next";
 import type { Database } from "@/lib/database.types";
 import { todayInTz } from "@/lib/dates";
 import { readPublicEnv } from "@/lib/env";
+import { newRequestId, traceHeaders } from "@/lib/supabase/trace";
 import { explainError } from "@/lib/errors";
 import { tenantBranding } from "@/lib/shell";
 
@@ -25,6 +26,7 @@ function anonClient() {
     db: createClient<Database, "app">(env.env.supabaseUrl, env.env.supabaseAnonKey, {
       db: { schema: "app" },
       auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+      global: { headers: traceHeaders({ requestId: newRequestId(), screen: "/c" }) },
     }),
   };
 }

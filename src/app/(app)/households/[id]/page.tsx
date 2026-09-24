@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { PeopleDrawers, drawerHref } from "@/app/(app)/people/_components/drawers";
+import { HistoryButton } from "@/components/record-history";
 import { Badge, BlockGrid, Card, KeyValueRow, NoAccess, PageHeader, QueryError, Tabs, buttonClass, capitalize } from "@/components/ui";
 import { loadHouseholdRecord } from "@/lib/data/people-records";
 import { explainError } from "@/lib/errors";
@@ -118,6 +119,7 @@ export default async function HouseholdPage({
         }
         actions={
           <>
+            <HistoryButton table="households" recordId={id} title={household.display_name} variant="ghost" size="md" />
             {canAccess(session, "recordPayment") && !household.merged_into_id ? (
               <Link href={`/giving/payments?household=${id}`} className={buttonClass("primary")}>
                 Record payment

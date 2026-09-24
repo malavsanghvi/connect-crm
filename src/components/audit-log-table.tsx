@@ -4,11 +4,22 @@ import { changedFields, recordHref, type AuditRow } from "@/components/audit-tab
 import { EmptyState, TableWrap, shortId } from "@/components/ui";
 import { auditModule, describeAuditAction, moduleLabel } from "@/lib/audit-labels";
 import { formatDateTime } from "@/lib/dates";
+import { clientLabel } from "@/lib/history";
+import { moduleLabelFor } from "@/lib/modules";
+
+/** A row with the WAVE2 traceability columns when the database has them. */
+export type AuditLogRow = AuditRow & {
+  module?: string | null;
+  client_app?: string | null;
+  client_screen?: string | null;
+  correlation_id?: string | null;
+};
 
 /**
  * Settings › Audit log table, as in the prototype: TIME · WHO · ROLE ·
- * ACTION (a plain sentence) · MODULE. The raw action code, the record and
- * the before/after images stay one click away under each sentence.
+ * ACTION (a plain sentence) · MODULE, plus APP · SCREEN (where the change
+ * came from). The raw action code, the record, the request id and the
+ * before/after images stay one click away under each sentence.
  */
 export function AuditLogTable({
   rows,
@@ -16,7 +27,7 @@ export function AuditLogTable({
   actors,
   roles,
 }: {
-  rows: AuditRow[];
+  rows: AuditLogRow[];
   timeZone: string;
   actors: Map<string, { name: string }>;
   /** Actor user id → role line; null when the viewer cannot read other people's grants. */
@@ -32,7 +43,8 @@ export function AuditLogTable({
             <th>Who</th>
             <th>Role</th>
             <th>Action</th>
-            <th className="w-[100px]">Module</th>
+            <th className="w-[120px]">Module</th>
+            <th className="w-[150px]">App · screen</th>
           </tr>
         </thead>
         <tbody>
@@ -69,10 +81,13 @@ export function AuditLogTable({
                         <pre className="max-h-64 overflow-auto rounded bg-subtle p-2 text-[0.6875rem] leading-snug">{r.after ? JSON.stringify(r.after, null, 2) : "—"}</pre>
                       </div>
                     ) : null}
-                    <p className="mt-1 font-mono text-[0.6875rem] text-muted">hash {r.hash?.slice(0, 16) ?? "—"}…</p>
+                    <p className="mt-1 font-mono text-[0.6875rem] text-muted">
+                      hash {r.hash?.slice(0, 16) ?? "—"}…{r.correlation_id ? ` · request ${shortId(r.correlation_id)}` : ""}
+                    </p>
                   </details>
                 </td>
-                <td>{moduleLabel(auditModule(r.record_table))}</td>
+                <td>{r.module !== undefined ? moduleLabelFor(r.module) : moduleLabel(auditModule(r.record_table))}</td>
+                <td className="break-words text-[12px]">{clientLabel(r.client_app, r.client_screen) ?? <span className="text-muted">—</span>}</td>
               </tr>
             );
           })}

@@ -23,7 +23,7 @@ import { householdIdsFromResolved, type ResolvedIdentifier } from "@/lib/identif
 import { localToUtc } from "@/lib/local-time";
 import { formatCents, parseAmountToCents } from "@/lib/money";
 import { isUuid } from "@/lib/search-params";
-import { authorizeAction, type CrmSession } from "@/lib/session";
+import { authorizeAction, dbWithReason, type CrmSession } from "@/lib/session";
 
 // Founder rule: bolis take "pledges", never "bids".
 
@@ -168,7 +168,9 @@ export async function closeBoliAction(boliId: string, reason: string, early: boo
   const why = String(reason ?? "").trim();
   if (early && !why) return { ok: false, error: "Could not close the boli early — give a reason. It is kept in the audit log." };
   if (why.length > 500) return { ok: false, error: "Could not close the boli — keep the reason under 500 characters." };
-  const { data, error } = await auth.session.db.rpc("close_boli", { p_boli: boliId, p_reason: why || undefined });
+  // With a reason, the close's audit rows carry it too (x-audit-reason).
+  const db = why ? await dbWithReason(auth.session, why) : auth.session.db;
+  const { data, error } = await db.rpc("close_boli", { p_boli: boliId, p_reason: why || undefined });
   if (error) return failure("Could not close the boli", error);
   refresh();
   revalidatePath("/giving/pledges");
@@ -457,6 +459,7 @@ export async function importBoliUploadAction(input: unknown, fileName: string): 
   if (valid.length === 0) return { ok: false, error: "Could not import — no row passed the checks. Fix the file and upload it again." };
   const reason = `In-person result imported from ${String(fileName ?? "a file").slice(0, 120) || "a file"}`;
   const failed: { row: number; reason: string }[] = [];
+  const closeDb = await dbWithReason(auth.session, reason);
   let created = 0;
   for (const r of valid) {
     const local = parseCalledAt(r.calledAt, look.dates.get(r.boli_id!) ?? dateInTz(new Date(), center.time_zone));
@@ -479,7 +482,7 @@ export async function importBoliUploadAction(input: unknown, fileName: string): 
       failed.push({ row: r.row, reason: `the pledge could not be recorded — ${explainError(entry.error)}` });
       continue;
     }
-    const closed = await db.rpc("close_boli", { p_boli: r.boli_id!, p_reason: reason });
+    const closed = await closeDb.rpc("close_boli", { p_boli: r.boli_id!, p_reason: reason });
     if (closed.error) {
       console.error(`[bolis] upload row ${r.row}: closing the boli failed:`, closed.error);
       failed.push({

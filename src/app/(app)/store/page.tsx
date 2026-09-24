@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { ActionForm } from "@/components/action-form";
+import { HistoryButton } from "@/components/record-history";
 import { BlockGrid, Card, EmptyState, NoAccess, PageHeader, QueryError, StatusText, TableWrap } from "@/components/ui";
 import { formatDateTime } from "@/lib/dates";
 import { formatCents } from "@/lib/money";
@@ -79,7 +80,12 @@ export default async function StoreInventoryPage() {
                     return (
                       <tr key={i.id} data-highlight={low ? "" : undefined}>
                         <td className="font-mono text-xs">{i.sku ?? "—"}</td>
-                        <td className="font-bold">{i.name}</td>
+                        <td className="font-bold">
+                          {i.name}
+                          <div className="font-normal">
+                            <HistoryButton table="store_items" recordId={i.id} title={i.name} size="xs" />
+                          </div>
+                        </td>
                         <td className="num">{formatCents(i.price_cents, center.currency)}</td>
                         <td className="num font-bold">{i.track_inventory ? i.stock_on_hand : "—"}</td>
                         <td className="num">{i.track_inventory ? (i.low_stock_threshold ?? "—") : "—"}</td>

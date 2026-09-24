@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { failure, type ActionResult } from "@/lib/errors";
 import { parseAmountToCents, formatCents } from "@/lib/money";
 import { isUuid } from "@/lib/search-params";
-import { authorizeAction } from "@/lib/session";
+import { authorizeAction, dbWithReason } from "@/lib/session";
 
 // Two-person rule (0016): refunds, pledge write-offs and voting-eligibility
 // overrides need a first person to record the request and a DIFFERENT
@@ -44,12 +44,12 @@ export async function approveAsSecondAction(_prev: ActionResult | null, formData
 export async function requestWriteOffAction(_prev: ActionResult | null, formData: FormData): Promise<ActionResult> {
   const auth = await authorizeAction("givingManage", "request the write-off");
   if (!auth.ok) return auth;
-  const { db, center, userId } = auth.session;
+  const { center, userId } = auth.session;
   const id = String(formData.get("id") ?? "");
   const reason = String(formData.get("reason") ?? "").trim();
   if (!isUuid(id)) return { ok: false, error: "Could not request the write-off — the pledge was not found." };
   if (!reason) return { ok: false, error: "Could not request the write-off — give a reason; the second approver will read it." };
-  const { data, error } = await db
+  const { data, error } = await (await dbWithReason(auth.session, reason))
     .from("pledges")
     .update({ written_off_by: userId, written_off_second_approver: null, write_off_reason: reason.slice(0, 1000) })
     .eq("id", id)
@@ -125,7 +125,7 @@ export async function requestRefundAction(_prev: ActionResult | null, formData: 
   if (cents > refundable) {
     return { ok: false, error: `Could not request the refund — at most ${formatCents(refundable, center.currency)} of this payment can be refunded.` };
   }
-  const { data, error } = await db
+  const { data, error } = await (await dbWithReason(auth.session, reason))
     .from("payments")
     .update({ refund_approved_by: userId, refund_second_approver: null, refund_reason: reason.slice(0, 1000), refund_requested_cents: cents })
     .eq("id", id)

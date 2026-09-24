@@ -9,6 +9,7 @@
 // privacy.manage, …). A task only shows when the user can act on it.
 
 import type { TagColor } from "@/components/ui";
+import { isModuleEnabled, moduleForPath, type ModuleContext, type ModuleKey } from "@/lib/modules";
 import { can, type PermissionContext } from "@/lib/permissions";
 
 export type TaskSourceKey =
@@ -40,6 +41,8 @@ export type TaskSource = {
   alsoNeeds?: readonly string[];
   /** Where the task's module lives. */
   href: string;
+  /** Module (src/lib/modules.ts) the task belongs to, when `href` does not say (hidden when it is switched off). */
+  module?: ModuleKey;
 };
 
 /** In the prototype's order (P:494–507); write-offs and voting overrides are app extras kept as tasks. */
@@ -58,7 +61,7 @@ export const TASK_SOURCES: readonly TaskSource[] = [
   { key: "waivers", tag: "Event", color: "maroon", anyOf: ["events.manage"], alsoNeeds: ["volunteers.view", "volunteers.manage"], href: "/events" },
   { key: "feedback", tag: "Feedback", color: "purple", anyOf: ["events.manage"], alsoNeeds: ["comms.view", "comms.send"], href: "/events" },
   { key: "bolis", tag: "Bolis", color: "brown", anyOf: ["bolis.manage"], href: "/bolis" },
-  { key: "pathshala", tag: "Pathshala", color: "purple", anyOf: ["pathshala.manage"], href: "/pathshala/signoffs" },
+  { key: "pathshala", tag: "Pathshala", color: "purple", anyOf: ["pathshala.manage"], href: "/pathshala/signoffs", module: "pathshala" },
   { key: "privacy", tag: "Privacy", color: "muted", anyOf: ["privacy.manage"], href: "/privacy/requests" },
 ];
 
@@ -68,9 +71,13 @@ export function taskSource(key: TaskSourceKey): TaskSource {
   return s;
 }
 
-/** The sources this user can act on AND read. */
-export function visibleTaskSources(ctx: PermissionContext): TaskSource[] {
-  return TASK_SOURCES.filter((s) => can(ctx, s.anyOf) && (!s.alsoNeeds || can(ctx, s.alsoNeeds)));
+/** The sources this user can act on AND read, in modules the center has switched on. */
+export function visibleTaskSources(ctx: PermissionContext & ModuleContext): TaskSource[] {
+  return TASK_SOURCES.filter((s) => {
+    const mod = s.module ?? moduleForPath(s.href.split("?")[0]);
+    if (mod && !isModuleEnabled(ctx, mod)) return false;
+    return can(ctx, s.anyOf) && (!s.alsoNeeds || can(ctx, s.alsoNeeds));
+  });
 }
 
 export function canSeeTask(ctx: PermissionContext, key: TaskSourceKey): boolean {

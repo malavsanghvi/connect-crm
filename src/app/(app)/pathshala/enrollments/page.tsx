@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 
 import { ActionForm } from "@/components/action-form";
+import { HistoryButton } from "@/components/record-history";
 import { Card, EmptyState, TableWrap } from "@/components/ui";
 import { ageFrom, loadClasses, loadLevels, loadTerms, pickTerm } from "@/lib/data/pathshala";
 import { pathshalaAreas } from "@/lib/pathshala/access";
@@ -109,6 +110,7 @@ export default async function EnrollmentsPage({ searchParams }: { searchParams: 
                           <td>
                             {name}
                             {e.notes ? <div className="text-xs font-normal text-muted">Note: {e.notes}</div> : null}
+                            <HistoryButton table="pathshala_enrollments" recordId={e.id} title={`Enrollment · ${name}`} size="xs" />
                           </td>
                           <td>{age ?? "—"}</td>
                           <td>{hh ?? "—"}</td>
