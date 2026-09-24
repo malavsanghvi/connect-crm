@@ -9,7 +9,7 @@ import type { ActionResult } from "@/lib/errors";
 import { eventAreas } from "@/lib/events/access";
 import { all, bool, cents, centsList, dateTime, FormError, int, isoDate, must, oneOf, reqStr, runAction, str } from "@/lib/events/forms";
 import { toE164 } from "@/lib/events/format";
-import { lunchRulesFromCenter } from "@/lib/events/rules";
+import { defaultConfirmationHours, defaultSlotMinutes, lunchRulesFromCenter } from "@/lib/events/rules";
 import { AUDIENCES, parsePartyLines, planLunchSlots } from "@/lib/events/report";
 import { randomToken } from "@/lib/events/tokens";
 import { can } from "@/lib/permissions";
@@ -132,6 +132,16 @@ export async function createEventFromTemplate(_prev: Result | null, fd: FormData
       "create the event from the template",
     );
     if (!id) throw new FormError("the template was not found, or your role can't use it.");
+    // The template carries the checklist, not the event settings: start from the builder's
+    // defaults for a new event (waitlist on, lunch slots on, the center's slot length and reminder).
+    const rules = ctx.session.center.rules;
+    must(
+      await ctx.db
+        .from("events")
+        .update({ waitlist_enabled: true, lunch_enabled: true, lunch_slot_minutes: defaultSlotMinutes(rules), confirmation_hours_before: defaultConfirmationHours(rules) })
+        .eq("id", id),
+      "apply the builder's defaults to the new event",
+    );
     revalidateEvents();
     redirect(`/events/builder?event=${id}&saved=template`);
   });
