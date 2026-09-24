@@ -10,7 +10,24 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 : "${SUPABASE_DB_URL:?set SUPABASE_DB_URL to the session pooler connection string}"
 
-q() { psql "$SUPABASE_DB_URL" -qX -v ON_ERROR_STOP=1 "$@"; }
+# Take the password literally, whatever characters it has (% @ : / # ? ...): split it out
+# of the URL and hand it to psql through PGPASSWORD, so psql never tries to decode it and
+# never echoes any of it in an error message.
+rest=${SUPABASE_DB_URL#*://}
+if [[ $rest == *@* ]]; then
+  userinfo=${rest%@*}            # everything before the LAST @ (hosts never contain @)
+  hostpart=${rest##*@}
+  if [[ $userinfo == *:* ]]; then
+    export PGPASSWORD=${userinfo#*:}
+    userinfo=${userinfo%%:*}     # user names never contain :
+  fi
+  DB_URL="postgresql://$userinfo@$hostpart"
+else
+  DB_URL=$SUPABASE_DB_URL
+fi
+unset rest userinfo hostpart
+
+q() { psql "$DB_URL" -qX -v ON_ERROR_STOP=1 "$@"; }
 
 q -c "set client_min_messages = warning" -c "create table if not exists public.connect_schema_migrations (
         version text primary key, applied_at timestamptz not null default now())" >/dev/null
