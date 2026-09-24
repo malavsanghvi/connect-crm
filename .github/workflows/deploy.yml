@@ -42,6 +42,11 @@ jobs:
       NEXT_PUBLIC_SUPABASE_URL: ${{ vars.SUPABASE_URL || 'https://qenubcnvjcmsxhmehvat.supabase.co' }}
       NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ vars.SUPABASE_ANON_KEY || 'sb_publishable_EfX8-WUrsYuSkUB4vAFAIQ_ukUY01jy' }}
       NEXT_PUBLIC_CENTER_SLUG: ${{ vars.CENTER_SLUG || 'jsh' }}
+      # Optional (onboarding, more than one organization; docs/DEPLOY.md "Organization addresses"):
+      # SITE_WILDCARD_DOMAIN serves <slug>.<domain> and organizations' own domains; MEMBER_APP_URL is
+      # the member web app's address, used for the https join links. Unset: nothing changes.
+      SITE_WILDCARD_DOMAIN: ${{ vars.SITE_WILDCARD_DOMAIN }}
+      NEXT_PUBLIC_MEMBER_APP_URL: ${{ vars.MEMBER_APP_URL }}
     steps:
       - name: Check settings
         env:
@@ -83,7 +88,7 @@ jobs:
           ssh_ "mkdir -p /tmp/connect-deploy"
           scp -i ~/.ssh/deploy -o BatchMode=yes deploy/droplet-setup.sh deploy/release.sh "root@$HOST:/tmp/connect-deploy/"
           scp -i ~/.ssh/deploy -o BatchMode=yes "connect-$APP-$GITHUB_SHA.tgz" "root@$HOST:/tmp/"
-          ssh_ "bash /tmp/connect-deploy/droplet-setup.sh && bash /tmp/connect-deploy/release.sh $APP $GITHUB_SHA node 3000 '$SITE'"
+          ssh_ "bash /tmp/connect-deploy/droplet-setup.sh && SITE_WILDCARD_DOMAIN='$SITE_WILDCARD_DOMAIN' bash /tmp/connect-deploy/release.sh $APP $GITHUB_SHA node 3000 '$SITE'"
           echo "### Released $APP" >> "$GITHUB_STEP_SUMMARY"
           if [[ "$SITE" == :* ]]; then
             port=${SITE#:}

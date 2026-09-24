@@ -115,6 +115,39 @@ unencrypted. Fine for trying it, not for real use.
 3. Re-run Deploy in each repo. Caddy fetches HTTPS certificates automatically.
 4. Update the Supabase Site URL to `https://crm.jsh.org`.
 
+## Organization addresses (more than one organization)
+
+The portal picks the organization from the web address (docs/ONBOARDING_PLAN.md §7,
+decision O11). Without any of this it keeps working as today: the bare IP and the
+`SITE_DOMAIN` address open `NEXT_PUBLIC_CENTER_SLUG` (JSH), and people who work with
+several organizations switch with the **Center ▾** pill (remembered in a cookie).
+
+To give every organization its own address (`jsh.communityconnect.app`,
+`jsh-sandbox.communityconnect.app`, …):
+
+1. **DNS** (at the provider of `communityconnect.app`):
+   - `A  *.communityconnect.app  → <droplet IP>` (a wildcard record; one record covers
+     every organization and every sandbox);
+   - optionally `A  communityconnect.app → <droplet IP>` for the bare domain.
+   - An organization's **own domain** (for example `portal.jsh.org`): the organization
+     adds `CNAME portal.jsh.org → jsh.communityconnect.app` (or an A record to the
+     droplet IP) at its DNS provider, and a platform admin registers it in
+     Platform › Centers › *center* › Limits & addresses.
+2. **Repository variable** in connect-crm: `SITE_WILDCARD_DOMAIN = communityconnect.app`.
+   Optionally `MEMBER_APP_URL = https://app.communityconnect.app` (the member web app's
+   address) so Settings › Member app prints an https join link and QR code.
+3. Re-run Deploy. `release.sh` then serves any HTTPS name with **on-demand
+   certificates**: Caddy asks the portal (`/api/tenancy/tls-ask`) before issuing one,
+   and the portal says yes only for `<slug>.communityconnect.app` of a real community
+   or a registered own domain. No DNS-provider credentials are needed (a wildcard
+   certificate would need them). The first visit to a new address takes a few seconds
+   while its certificate is issued.
+4. Supabase › Authentication › URL configuration: add `https://*.communityconnect.app`
+   to the redirect URLs.
+
+One sign-in covers every `<slug>.communityconnect.app` address (the session cookie is
+set for the base domain); an organization's own domain asks for its own sign-in.
+
 ## When a deploy fails
 
 The failed step in Actions says what is missing or what broke:
