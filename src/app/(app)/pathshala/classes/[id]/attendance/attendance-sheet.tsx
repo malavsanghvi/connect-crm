@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import QRCode from "qrcode";
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { createPortal } from "react-dom";
 
 import { buttonClass } from "@/components/ui";
 import { ATTENDANCE_STATUSES, formatRate, summarizeAttendance, type AttendanceStatus } from "@/lib/logic/attendance";
@@ -315,7 +316,8 @@ function QrButton({
       <button type="button" className={buttonClass("primary")} onClick={show}>
         Show QR for this class
       </button>
-      {open && (
+      {open
+        ? createPortal(
         <div role="dialog" aria-modal="true" aria-label="Class attendance QR code" className="fixed inset-0 z-50 flex items-center justify-center bg-navy-700/90 p-4">
           <div className="w-full max-w-md rounded-2xl bg-white p-5 text-center">
             <p className="text-xs font-bold uppercase tracking-wider text-purple">Scan to mark attendance</p>
@@ -350,8 +352,10 @@ function QrButton({
               </button>
             </div>
           </div>
-        </div>
-      )}
+        </div>,
+          document.body,
+        )
+        : null}
     </>
   );
 }
