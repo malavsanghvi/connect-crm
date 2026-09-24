@@ -5,7 +5,7 @@
 //   MAIL=http://localhost:55624 API=http://localhost:55621 DB=postgres://postgres:postgres@localhost:55732/postgres \
 //   ENVF=e2e/.env.w-people node e2e/flows/w-people.cjs [journey ...]
 //
-// Journeys (all by default, or name some): join · profile · ask · whatsapp · newsletter · roles · merge
+// Journeys (all by default, or name some): join · profile · ask · whatsapp · newsletter · roles · merge · modules · permissions
 //   join        a brand-new email signs up in the member app, starts a new family through onboarding,
 //               applies for Life membership naming a Life member; the reference confirms in their app;
 //               the center approves in the portal; the same person cannot give the EC approval; a second
@@ -22,6 +22,10 @@
 //               does, and it becomes active.
 //   merge       two duplicate households are merged with the wizard; people move, the duplicate points at
 //               the kept one, and the audit entry carries the reason.
+//   modules     Membership and Communications switched off: the portal shows the notice and hides them, the
+//               member app says they aren't offered, the API refuses; switched back on, all audited.
+//   permissions a member's token cannot edit another household, approve applications, create newsletters,
+//               approve or self-grant roles; a teacher sees "no access" in the portal.
 //
 // Test data is created here (a second staff login, a duplicate household); nothing in the apps is faked.
 const { chromium } = require(process.env.PLAYWRIGHT || '/opt/node22/lib/node_modules/playwright');
@@ -114,6 +118,33 @@ async function submitAndConfirm(p, scope, name) {
     await confirmBtn.click();
   }
   await p.waitForTimeout(2500);
+}
+
+
+/** A real user token (email code via Mailpit), for calling the API as that user. */
+async function tokenFor(email) {
+  const t0 = Date.now() - 2000;
+  const h = { apikey: env.ANON_KEY, 'Content-Type': 'application/json' };
+  await fetch(`${API}/auth/v1/otp`, { method: 'POST', headers: h, body: JSON.stringify({ email, create_user: false }) });
+  const r = await fetch(`${API}/auth/v1/verify`, { method: 'POST', headers: h, body: JSON.stringify({ type: 'email', email, token: await code(email, t0) }) }).then((x) => x.json());
+  if (!r.access_token) throw new Error('no token for ' + email + ': ' + JSON.stringify(r).slice(0, 200));
+  return r.access_token;
+}
+async function rest(token, method, pathAndQuery, body) {
+  const res = await fetch(`${API}/rest/v1/${pathAndQuery}`, {
+    method,
+    headers: { apikey: env.ANON_KEY, Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', 'Accept-Profile': 'app', 'Content-Profile': 'app', Prefer: 'return=representation' },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  const text = await res.text();
+  let json = null;
+  try { json = JSON.parse(text); } catch { json = text; }
+  return { status: res.status, json };
+}
+/** Switch a module as the admin, through the same RPC the Settings › Modules tab uses. */
+async function setModule(adminToken, key, enabled, reason) {
+  const r = await rest(adminToken, 'POST', 'rpc/set_module_enabled', { p_center: CENTER, p_module: key, p_enabled: enabled, p_reason: reason });
+  if (r.status >= 300) throw new Error(`set_module_enabled ${key} ${enabled}: ${JSON.stringify(r.json).slice(0, 200)}`);
 }
 
 const lastAudit = (table, where = '') =>
@@ -384,12 +415,86 @@ const journeys = {
     ok(a.startsWith('portal|/people/merge|Registered twice at the Paryushan desk'), 'merge audited with app, screen and the reason given: ' + a);
     await admin.context().close();
   },
+
+  async modules(b) {
+    const adminToken = await tokenFor('admin@jsh.test');
+    const priyaToken = await tokenFor('priya@jsh.test');
+    const lifeType = sql("select id from app.membership_types where key = 'life'");
+    try {
+      await setModule(adminToken, 'membership', false, `e2e: membership off ${RUN}`);
+      await setModule(adminToken, 'comms', false, `e2e: comms off ${RUN}`);
+      ok(sql("select string_agg(module_key||'='||enabled, ',' order by module_key) from app.center_modules where module_key in ('membership','comms')") === 'comms=false,membership=false', 'Membership and Communications switched off (with reasons)');
+      // Portal: direct URLs show the notice; the tab and nav disappear.
+      const admin = await portalLogin(b, 'admin@jsh.test');
+      for (const url of ['/memberships/applications', '/people/voting', '/comms', '/comms/inbox', '/comms/whatsapp', '/comms/newsletters']) {
+        await admin.goto(PORTAL + url, { waitUntil: 'networkidle' });
+        ok(/switched off/i.test(await admin.innerText('main')), `portal ${url} shows the switched-off notice`);
+      }
+      await admin.goto(PORTAL + '/people', { waitUntil: 'networkidle' });
+      ok(!/Membership applications/.test(await admin.innerText('main')), 'People tabs hide Membership applications');
+      ok(!/Communications/.test(await admin.locator('aside, nav').first().innerText()), 'sidebar hides Communications');
+      await shot(admin, 'modules-1-portal');
+      await admin.context().close();
+      // Member app: screens say the community does not offer it.
+      const m = await memberLogin(b, 'priya@jsh.test');
+      for (const url of ['/guide/apply', '/guide/membership', '/reference-requests', '/guide/ask', '/guide/whatsapp']) {
+        await m.goto(MEMBER + url, { waitUntil: 'networkidle' });
+        await m.waitForTimeout(1500);
+        ok(/isn't offered/i.test(await m.innerText('body')), `member app ${url} says it isn't offered`);
+      }
+      await shot(m, 'modules-2-member');
+      await m.context().close();
+      // API: refused for the member.
+      const apply = await rest(priyaToken, 'POST', 'rpc/find_membership_reference', { p_center: CENTER, p_type: lifeType, p_contact: 'kiran@jsh.test' });
+      ok(apply.status >= 400 && /switched off/i.test(JSON.stringify(apply.json)), 'API: reference lookup refused while Membership is off');
+      const apps = await rest(priyaToken, 'GET', 'membership_applications?select=id');
+      ok(apps.status === 200 && Array.isArray(apps.json) && apps.json.length === 0, 'API: applications read as empty (hidden) while Membership is off');
+      const inbox = sql("select id from app.inboxes where key = 'office'");
+      const person = sql("select id from app.people where email = 'priya@jsh.test'");
+      const th = await rest(priyaToken, 'POST', 'threads', { center_id: CENTER, inbox_id: inbox, from_person_id: person, subject: 'blocked?', status: 'open' });
+      ok(th.status >= 400, `API: starting a thread refused while Communications is off (${th.status})`);
+    } finally {
+      await setModule(adminToken, 'comms', true, `e2e: comms back on ${RUN}`).catch((e) => ok(false, 'switch comms back on: ' + e.message));
+      await setModule(adminToken, 'membership', true, `e2e: membership back on ${RUN}`).catch((e) => ok(false, 'switch membership back on: ' + e.message));
+    }
+    ok(sql("select count(*) from app.center_modules where module_key in ('membership','comms') and not enabled") === '0', 'both modules back on');
+    ok(sql(`select count(*) from app.audit_log where record_table = 'center_modules' and reason like 'e2e: % ${RUN}'`) === '4', 'every switch is audited with its reason');
+  },
+
+  async permissions(b) {
+    // A member (Priya) and a teacher try staff actions over the API with their own tokens.
+    const priya = await tokenFor('priya@jsh.test');
+    const mehta = sql("select id from app.households where display_name = 'Mehta family' and merged_into_id is null");
+    const r1 = await rest(priya, 'PATCH', `households?id=eq.${mehta}`, { display_name: 'Hacked' });
+    ok(r1.status === 200 && Array.isArray(r1.json) && r1.json.length === 0 && sql(`select display_name from app.households where id = '${mehta}'`) === 'Mehta family', 'member cannot edit another household (0 rows)');
+    const anyApp = sql("select id from app.membership_applications order by created_at limit 1");
+    const r2 = await rest(priya, 'PATCH', `membership_applications?id=eq.${anyApp}`, { status: 'approved' });
+    ok(r2.status >= 400 || (Array.isArray(r2.json) && r2.json.length === 0), 'member cannot approve a membership application');
+    const r3 = await rest(priya, 'POST', 'comms_campaigns', { center_id: CENTER, kind: 'newsletter', title: 'spam', status: 'scheduled' });
+    ok(r3.status >= 400, `member cannot create a newsletter (${r3.status})`);
+    const pending = sql(`insert into app.role_grants (center_id, user_id, role_key, scope_kind, status, starts_at, granted_by, reason) select '${CENTER}', id, 'treasurer', 'center', 'pending', 'infinity', (select id from auth.users where email = 'admin@jsh.test'), 'e2e ${RUN}' from auth.users where email = 'kiran@jsh.test' returning id`).split('\n')[0];
+    const r4 = await rest(priya, 'POST', 'rpc/approve_role_grant', { p_grant: pending });
+    ok(r4.status >= 400 && /not allowed/i.test(JSON.stringify(r4.json)) && sql(`select status from app.role_grants where id = '${pending}'`) === 'pending', `member cannot approve a pending role grant (${r4.status})`);
+    sql(`update app.role_grants set ends_at = now() where id = '${pending}'`);
+    const priyaUser = sql("select id from auth.users where email = 'priya@jsh.test'");
+    const r5 = await rest(priya, 'POST', 'role_grants', { center_id: CENTER, user_id: priyaUser, role_key: 'center_admin', scope_kind: 'center' });
+    ok(r5.status >= 400, `member cannot grant themselves a role (${r5.status})`);
+    const r6 = await rest(priya, 'PATCH', `whatsapp_join_requests?status=eq.pending`, { status: 'added' });
+    ok(r6.status >= 400 || (Array.isArray(r6.json) && r6.json.length === 0), 'member cannot mark WhatsApp requests added');
+    // The teacher in the portal: no access to People admin, Membership applications or Communications.
+    const teacher = await portalLogin(b, 'teacher@jsh.test');
+    for (const url of ['/memberships/applications', '/settings/roles', '/comms/newsletters']) {
+      await teacher.goto(PORTAL + url, { waitUntil: 'networkidle' });
+      ok(/don't have access|no access|not available to your role/i.test(await teacher.innerText('main')), `teacher sees "no access" on ${url}`);
+    }
+    await teacher.context().close();
+  },
 };
 
 (async () => {
   const b = await chromium.launch();
   const want = process.argv.slice(2);
-  const order = ['join', 'profile', 'ask', 'whatsapp', 'newsletter', 'roles', 'merge'];
+  const order = ['join', 'profile', 'ask', 'whatsapp', 'newsletter', 'roles', 'merge', 'modules', 'permissions'];
   for (const name of order) {
     if (want.length && !want.includes(name)) continue;
     if (!journeys[name]) continue;
