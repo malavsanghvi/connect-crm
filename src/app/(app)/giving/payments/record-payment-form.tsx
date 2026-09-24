@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 
 import { openPledgesAction, type OpenPledge } from "@/app/(app)/giving/actions";
 import { HouseholdCard, type CardLabels, type HouseholdCardData } from "@/components/household-card";
@@ -22,12 +22,15 @@ export function RecordPaymentForm({
   currency,
   today,
   canAllocate,
+  initialHousehold,
 }: {
   labels: CardLabels;
   timeZone: string;
   currency: string;
   today: string;
   canAllocate: boolean;
+  /** Prefilled from ?household= (e.g. "Record payment" on a household). Shown as its card, so it is still checked, never picked by name. */
+  initialHousehold?: HouseholdCardData | null;
 }) {
   const [household, setHousehold] = useState<HouseholdCardData | null>(null);
   const [pledges, setPledges] = useState<OpenPledge[] | null>(null);
@@ -73,6 +76,15 @@ export function RecordPaymentForm({
       }
     });
   }
+
+  const prefilled = useRef(false);
+  useEffect(() => {
+    if (initialHousehold && !prefilled.current) {
+      prefilled.current = true;
+      pick(initialHousehold);
+    }
+    // One-time prefill; pick() only sets state and loads that household's pledges.
+  }, [initialHousehold]);
 
   function toggle(id: string) {
     setChosen((cur) => (cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]));

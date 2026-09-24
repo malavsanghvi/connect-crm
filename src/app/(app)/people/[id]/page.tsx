@@ -3,7 +3,11 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { IdentifiersPanel } from "@/components/identifiers-panel";
-import { Badge, Card, DefinitionList, EmptyState, NoAccess, PageHeader, QueryError, TableWrap } from "@/components/ui";
+import { PeopleDrawers, drawerHref } from "@/app/(app)/people/_components/drawers";
+import { Badge, BlockGrid, Card, DefinitionList, EmptyState, KeyValueRow, NoAccess, PageHeader, QueryError, TableWrap, buttonClass } from "@/components/ui";
+import { loadPersonRecord } from "@/lib/data/people-records";
+import { genderLabel, languageLabel, relationshipLabel, toUsDate } from "@/lib/people";
+import type { RawSearchParams } from "@/lib/search-params";
 import { identifierRules } from "@/lib/center-rules";
 import { householdsById, orgIds, personName } from "@/lib/data/lookups";
 import { ageOn, formatDate, todayInTz } from "@/lib/dates";
@@ -14,7 +18,7 @@ import { getSession } from "@/lib/session";
 
 export const metadata: Metadata = { title: "Person" };
 
-export default async function PersonPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function PersonPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<RawSearchParams> }) {
   const session = await getSession();
   if (!canAccess(session, "households")) {
     return (
@@ -73,6 +77,11 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
   const age = ageOn(person.date_of_birth, today);
   const orgMemberIds = org.byPerson.get(id) ?? [];
   const currentHouseholds = links.filter((l) => l.left_at === null);
+  const sp = await searchParams;
+  const base = `/people/${id}`;
+  const { record } = await loadPersonRecord(session, id);
+  const minor = age !== null && age < 18;
+  const home = currentHouseholds.find((l) => !l.is_primary) ?? currentHouseholds[0];
 
   return (
     <>
@@ -89,7 +98,30 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
           )
         }
         title={name}
-        description={person.preferred_name ? `Legal name: ${person.first_name} ${person.last_name}` : undefined}
+        description={[
+          home ? `${home.is_primary ? "Primary" : relationshipLabel(home.role, person.gender)} · ${households.get(home.household_id)?.display_name ?? "household"}` : null,
+          age !== null ? `age ${age}` : null,
+          person.preferred_name ? `legal name ${person.first_name} ${person.last_name}` : null,
+        ]
+          .filter(Boolean)
+          .join(" · ")}
+        actions={
+          canAccess(session, "householdsEdit") && !person.merged_into_id ? (
+            <>
+              <Link href={drawerHref(base, sp, { person: id })} scroll={false} className={buttonClass("primary")}>
+                Edit profile
+              </Link>
+              {home ? (
+                <Link href={drawerHref(base, sp, { person: id, mode: "move" })} scroll={false} className={buttonClass("ghost")}>
+                  Move household
+                </Link>
+              ) : null}
+              <Link href={`/people/merge?person=${id}`} className={buttonClass("ghost")}>
+                Merge duplicate
+              </Link>
+            </>
+          ) : null
+        }
       />
 
       <section aria-label="Identity" className="mb-6 grid grid-cols-2 gap-3 md:grid-cols-4">
@@ -123,13 +155,24 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
         <Card title="Profile" className="xl:col-span-2">
           <DefinitionList
             items={[
-              { label: "Age", value: age === null ? "Unknown" : age < 18 ? `${age} (minor)` : String(age) },
-              { label: "Gender", value: person.gender ?? "—" },
-              { label: "Email", value: person.email ?? "—" },
-              { label: "Phone", value: person.phone_e164 ?? "—" },
-              { label: "Language", value: { en: "English", gu: "ગુજરાતી (Gujarati)", hi: "हिन्दी (Hindi)" }[person.language] ?? person.language },
-              { label: "Profession", value: person.profession ?? "—" },
-              { label: "Employer", value: person.employer ?? "—" },
+              { label: "Date of birth", value: person.date_of_birth ? `${toUsDate(person.date_of_birth)}${age !== null ? ` · age ${age}` : ""}` : "Not recorded" },
+              { label: "Gender", value: genderLabel(person.gender) },
+              { label: "Relationship", value: home ? (home.is_primary ? "Primary" : relationshipLabel(home.role, person.gender)) : "—" },
+              ...(minor
+                ? [
+                    { label: "Contact", value: "Through parents · no direct messages to minors" },
+                    {
+                      label: "App access",
+                      value: record && age !== null && age < record.childLoginAge ? `No own login yet (from age ${record.childLoginAge})` : "Own login allowed (age rule) · no RSVP, bolis or payments",
+                    },
+                  ]
+                : [
+                    { label: "Email", value: person.email ?? "—" },
+                    { label: "Mobile", value: person.phone_e164 ?? "—" },
+                    { label: "Profession", value: person.profession ?? "—" },
+                    { label: "Employer (matching gifts)", value: person.employer ?? "—" },
+                  ]),
+              { label: "Language", value: <span className="cc-chip pointer-events-none min-h-7" aria-current="page">{languageLabel(person.language)}</span> },
               { label: "Verified", value: person.verified_at ? formatDate(person.verified_at, tz) : "Not yet" },
               { label: "Record created", value: formatDate(person.created_at, tz) },
             ]}
@@ -165,6 +208,47 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
           )}
         </Card>
       </div>
+
+      {record ? (
+        <BlockGrid className="mt-5">
+          <Card span={6} title="Roles, teams and waivers">
+            <div className="flex flex-col gap-1.5">
+              <KeyValueRow
+                label="Roles"
+                value={record.roles === null ? "Visible to role managers" : !record.roles.ok ? "Could not load" : record.roles.data.length ? record.roles.data.join(", ") : "None"}
+                tone={record.roles && !record.roles.ok ? "bad" : "ink"}
+              />
+              <KeyValueRow
+                label="Volunteer waiver"
+                value={minor ? "Parent signs" : record.waiver === null ? "Needs a volunteers permission" : !record.waiver.ok ? "Could not load" : record.waiver.data}
+              />
+              <KeyValueRow
+                label="Background check"
+                value={minor ? "Not applicable" : record.backgroundCheck === null ? "Needs a safety permission" : !record.backgroundCheck.ok ? "Could not load" : record.backgroundCheck.data}
+              />
+            </div>
+          </Card>
+          <Card span={6} title="Account">
+            <div className="flex flex-col gap-1.5">
+              <KeyValueRow
+                label="App account"
+                value={loginRes.error ? "Could not load" : loginRes.data ? `Active · linked ${formatDate(loginRes.data.created_at, tz)}` : minor && age !== null && age < record.childLoginAge ? "Managed by parents" : "Not signed in yet"}
+                tone={loginRes.data ? "ok" : "warn"}
+              />
+              <KeyValueRow label="Member card" value={person.member_number ? `Rotating QR · ${person.member_number}` : "No member number yet"} />
+              <KeyValueRow
+                label="Sign-in methods"
+                value={loginRes.data ? [person.email ? "email" : null, person.phone_e164 ? "mobile" : null].filter(Boolean).join(" and ").replace(/^(.+)$/, "Code by $1") || "—" : "—"}
+              />
+              {record.activity && record.activity.ok
+                ? record.activity.data.slice(0, 3).map((a, i) => (
+                    <KeyValueRow key={i} label={`${formatDate(a.at, tz)} · ${a.what}`} value={a.detail || undefined} />
+                  ))
+                : null}
+            </div>
+          </Card>
+        </BlockGrid>
+      ) : null}
 
       <Card title="Memberships held" padded={false} className="mt-5">
         {membershipsRes.error ? (
@@ -218,6 +302,7 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
           personOnly
         />
       )}
+      <PeopleDrawers session={session} sp={sp} base={base} />
     </>
   );
 }
