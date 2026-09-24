@@ -336,7 +336,9 @@ begin
    where id = c.id;
   v_job := app.enqueue_job(c.center_id, 'oauth.exchange',
                            jsonb_build_object('provider', 'intuit', 'connection_id', c.id, 'redirect_uri', s.redirect_uri,
-                                              'code_secret', 'oauth.code'), now(), 3);
+                                              'code_secret', 'oauth.code',
+                                              'intuit_app', case when c.provider = 'intuit_sandbox' then 'sandbox' else 'production' end),
+                           now(), 3);
   return jsonb_build_object('ok', true, 'connection_id', c.id, 'job_id', v_job, 'center_id', c.center_id);
 end $$;
 

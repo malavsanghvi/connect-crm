@@ -85,6 +85,17 @@ export async function main(env: Env = process.env): Promise<void> {
         log.error("could not queue storage.retention", { error: err });
       }
     }
+    // Other recurring platform-wide work: handlers that declare `every` (seconds).
+    for (const h of reg.values()) {
+      if (!h.every || h.kind === "storage.retention") continue;
+      if (!(handlers[h.kind] as { configured: boolean } | undefined)?.configured) continue;
+      try {
+        const id = await db.schedule(h.kind, h.every);
+        if (id) log.info(`queued the recurring ${h.kind} run`, { queued_job: id });
+      } catch (err) {
+        log.error(`could not queue ${h.kind}`, { error: err });
+      }
+    }
   }
 
   let polling = false;

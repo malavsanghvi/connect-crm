@@ -19,6 +19,7 @@ import { providerStatus, type Env, type Provider, type Readiness } from "../conf
 import { NotConfiguredError, PermanentError } from "../errors";
 import type { Http } from "../http";
 import type { Job, JobContext } from "../types";
+import { intuitAfterExchange, intuitExchanger } from "../qbo/connect";
 
 export const kind = "oauth.exchange";
 
@@ -27,9 +28,22 @@ export type TokenSet = {
   secrets: Record<string, string>;
   expiresAt?: string;
   externalAccountId?: string;
+  /** Anything else the provider's AFTER_EXCHANGE step needs (never a secret). */
+  meta?: Record<string, unknown>;
 };
 
-export type ExchangeInput = { code: string; redirectUri: string | null; connectionId: string; env: Env; http: Http };
+/** After the tokens are stored: a provider's own bookkeeping (mark connected, first sync). Its result joins the job's. */
+export type AfterExchange = (tokens: TokenSet, ctx: JobContext, connectionId: string) => Promise<Record<string, unknown>>;
+
+export type ExchangeInput = {
+  code: string;
+  redirectUri: string | null;
+  connectionId: string;
+  env: Env;
+  http: Http;
+  /** The job's payload (never holds a secret), for provider-specific choices. */
+  payload?: Record<string, unknown>;
+};
 export type Exchanger = (input: ExchangeInput) => Promise<TokenSet>;
 
 const OAUTH_PROVIDERS = ["stripe", "paypal", "intuit"] as const satisfies readonly Provider[];
@@ -43,9 +57,17 @@ export function configured(env: Env): Readiness {
 }
 
 /** Filled in by the o-payments and o-quickbooks streams. */
-export const EXCHANGERS: Partial<Record<OAuthProvider, Exchanger>> = {};
+export const EXCHANGERS: Partial<Record<OAuthProvider, Exchanger>> = { intuit: intuitExchanger };
 
-export async function run(job: Job, ctx: JobContext, exchangers: Partial<Record<OAuthProvider, Exchanger>> = EXCHANGERS) {
+/** Optional per provider: what happens once the tokens are in the vault. */
+export const AFTER_EXCHANGE: Partial<Record<OAuthProvider, AfterExchange>> = { intuit: intuitAfterExchange };
+
+export async function run(
+  job: Job,
+  ctx: JobContext,
+  exchangers: Partial<Record<OAuthProvider, Exchanger>> = EXCHANGERS,
+  after: Partial<Record<OAuthProvider, AfterExchange>> = AFTER_EXCHANGE,
+) {
   const p = job.payload ?? {};
   if ("code" in p) {
     throw new PermanentError("The authorization code must not be put in the job payload; store it in the vault and pass code_secret.");
@@ -70,10 +92,13 @@ export async function run(job: Job, ctx: JobContext, exchangers: Partial<Record<
     connectionId: p.connection_id,
     env: ctx.env,
     http: ctx.http,
+    payload: p,
   });
   const stored: Record<string, string> = {};
   for (const [name, value] of Object.entries(tokens.secrets)) {
     stored[name] = (await ctx.storeSecret(p.connection_id, name, value)).fingerprint;
   }
-  return { provider, stored, expires_at: tokens.expiresAt ?? null, external_account_id: tokens.externalAccountId ?? null };
+  const afterStep = after[provider as OAuthProvider];
+  const extra = afterStep ? await afterStep(tokens, ctx, p.connection_id) : {};
+  return { provider, stored, expires_at: tokens.expiresAt ?? null, external_account_id: tokens.externalAccountId ?? null, ...extra };
 }
