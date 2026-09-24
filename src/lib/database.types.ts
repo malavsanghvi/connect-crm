@@ -611,6 +611,8 @@ export type Database = {
           created_by: string | null;
           created_at: string;
           updated_at: string;
+          hall_display: boolean;
+          closed_reason: string | null;
         };
         Insert: {
           id?: string;
@@ -635,6 +637,8 @@ export type Database = {
           created_by?: string | null;
           created_at?: string;
           updated_at?: string;
+          hall_display?: boolean;
+          closed_reason?: string | null;
         };
         Update: {
           id?: string;
@@ -659,6 +663,8 @@ export type Database = {
           created_by?: string | null;
           created_at?: string;
           updated_at?: string;
+          hall_display?: boolean;
+          closed_reason?: string | null;
         };
         Relationships: [];
       };
@@ -714,6 +720,7 @@ export type Database = {
           source_url: string | null;
           default_on: boolean;
           color: string | null;
+          owner_label: string | null;
         };
         Insert: {
           id?: string;
@@ -724,6 +731,7 @@ export type Database = {
           source_url?: string | null;
           default_on?: boolean;
           color?: string | null;
+          owner_label?: string | null;
         };
         Update: {
           id?: string;
@@ -734,6 +742,7 @@ export type Database = {
           source_url?: string | null;
           default_on?: boolean;
           color?: string | null;
+          owner_label?: string | null;
         };
         Relationships: [];
       };
@@ -956,6 +965,8 @@ export type Database = {
           created_by: string | null;
           created_at: string;
           updated_at: string;
+          name: string | null;
+          opened_count: number | null;
         };
         Insert: {
           id?: string;
@@ -977,6 +988,8 @@ export type Database = {
           created_by?: string | null;
           created_at?: string;
           updated_at?: string;
+          name?: string | null;
+          opened_count?: number | null;
         };
         Update: {
           id?: string;
@@ -998,6 +1011,8 @@ export type Database = {
           created_by?: string | null;
           created_at?: string;
           updated_at?: string;
+          name?: string | null;
+          opened_count?: number | null;
         };
         Relationships: [];
       };
@@ -1682,6 +1697,9 @@ export type Database = {
           name: string;
           description: string | null;
           sort_order: number;
+          recommended: boolean;
+          tint: string | null;
+          mark: string | null;
         };
         Insert: {
           id?: string;
@@ -1691,6 +1709,9 @@ export type Database = {
           name: string;
           description?: string | null;
           sort_order?: number;
+          recommended?: boolean;
+          tint?: string | null;
+          mark?: string | null;
         };
         Update: {
           id?: string;
@@ -1700,6 +1721,9 @@ export type Database = {
           name?: string;
           description?: string | null;
           sort_order?: number;
+          recommended?: boolean;
+          tint?: string | null;
+          mark?: string | null;
         };
         Relationships: [];
       };
@@ -1713,6 +1737,7 @@ export type Database = {
           points: number;
           treasure: string | null;
           requires_teacher_signoff: boolean;
+          chapter: string | null;
         };
         Insert: {
           id?: string;
@@ -1723,6 +1748,7 @@ export type Database = {
           points?: number;
           treasure?: string | null;
           requires_teacher_signoff?: boolean;
+          chapter?: string | null;
         };
         Update: {
           id?: string;
@@ -1733,6 +1759,7 @@ export type Database = {
           points?: number;
           treasure?: string | null;
           requires_teacher_signoff?: boolean;
+          chapter?: string | null;
         };
         Relationships: [];
       };
@@ -2162,6 +2189,7 @@ export type Database = {
           fund_id: string | null;
           sort_order: number;
           active: boolean;
+          campaign_id: string | null;
         };
         Insert: {
           id?: string;
@@ -2171,6 +2199,7 @@ export type Database = {
           fund_id?: string | null;
           sort_order?: number;
           active?: boolean;
+          campaign_id?: string | null;
         };
         Update: {
           id?: string;
@@ -2180,6 +2209,7 @@ export type Database = {
           fund_id?: string | null;
           sort_order?: number;
           active?: boolean;
+          campaign_id?: string | null;
         };
         Relationships: [];
       };
@@ -2761,6 +2791,9 @@ export type Database = {
           sort_order: number;
           status: string;
           created_at: string;
+          kind: string;
+          options: Json;
+          subtitle: string | null;
         };
         Insert: {
           id?: string;
@@ -2778,6 +2811,9 @@ export type Database = {
           sort_order?: number;
           status?: string;
           created_at?: string;
+          kind?: string;
+          options?: Json;
+          subtitle?: string | null;
         };
         Update: {
           id?: string;
@@ -2795,6 +2831,9 @@ export type Database = {
           sort_order?: number;
           status?: string;
           created_at?: string;
+          kind?: string;
+          options?: Json;
+          subtitle?: string | null;
         };
         Relationships: [];
       };
@@ -3358,6 +3397,7 @@ export type Database = {
           interests: string[];
           best_call_time: string | null;
           contact_channels: string[];
+          gyan_daily_minutes: number | null;
         };
         Insert: {
           id?: string;
@@ -3387,6 +3427,7 @@ export type Database = {
           interests?: string[];
           best_call_time?: string | null;
           contact_channels?: string[];
+          gyan_daily_minutes?: number | null;
         };
         Update: {
           id?: string;
@@ -3416,6 +3457,7 @@ export type Database = {
           interests?: string[];
           best_call_time?: string | null;
           contact_channels?: string[];
+          gyan_daily_minutes?: number | null;
         };
         Relationships: [];
       };
@@ -3589,6 +3631,7 @@ export type Database = {
           created_at: string;
           updated_at: string;
           pledge_number: string | null;
+          opportunity_option: string | null;
         };
         Insert: {
           id?: string;
@@ -3618,6 +3661,7 @@ export type Database = {
           created_at?: string;
           updated_at?: string;
           pledge_number?: string | null;
+          opportunity_option?: string | null;
         };
         Update: {
           id?: string;
@@ -3647,6 +3691,7 @@ export type Database = {
           created_at?: string;
           updated_at?: string;
           pledge_number?: string | null;
+          opportunity_option?: string | null;
         };
         Relationships: [];
       };
@@ -3750,6 +3795,7 @@ export type Database = {
           points: number;
           sort_order: number;
           active: boolean;
+          default_time: string | null;
         };
         Insert: {
           id?: string;
@@ -3763,6 +3809,7 @@ export type Database = {
           points?: number;
           sort_order?: number;
           active?: boolean;
+          default_time?: string | null;
         };
         Update: {
           id?: string;
@@ -3776,6 +3823,31 @@ export type Database = {
           points?: number;
           sort_order?: number;
           active?: boolean;
+          default_time?: string | null;
+        };
+        Relationships: [];
+      };
+      public_kpi_settings: {
+        Row: {
+          center_id: string;
+          kpi_key: string;
+          visibility: string;
+          updated_at: string;
+          updated_by: string | null;
+        };
+        Insert: {
+          center_id: string;
+          kpi_key: string;
+          visibility?: string;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Update: {
+          center_id?: string;
+          kpi_key?: string;
+          visibility?: string;
+          updated_at?: string;
+          updated_by?: string | null;
         };
         Relationships: [];
       };
@@ -3836,6 +3908,36 @@ export type Database = {
         };
         Relationships: [];
       };
+      receipt_templates: {
+        Row: {
+          id: string;
+          center_id: string;
+          kind: string;
+          signed_by: string | null;
+          personal_note: string | null;
+          updated_at: string;
+          updated_by: string | null;
+        };
+        Insert: {
+          id?: string;
+          center_id: string;
+          kind: string;
+          signed_by?: string | null;
+          personal_note?: string | null;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Update: {
+          id?: string;
+          center_id?: string;
+          kind?: string;
+          signed_by?: string | null;
+          personal_note?: string | null;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Relationships: [];
+      };
       recurring_gifts: {
         Row: {
           id: string;
@@ -3854,6 +3956,10 @@ export type Database = {
           links_to_pledges: boolean;
           created_at: string;
           updated_at: string;
+          starts_on: string | null;
+          end_kind: string;
+          end_count: number | null;
+          end_on: string | null;
         };
         Insert: {
           id?: string;
@@ -3872,6 +3978,10 @@ export type Database = {
           links_to_pledges?: boolean;
           created_at?: string;
           updated_at?: string;
+          starts_on?: string | null;
+          end_kind?: string;
+          end_count?: number | null;
+          end_on?: string | null;
         };
         Update: {
           id?: string;
@@ -3890,6 +4000,10 @@ export type Database = {
           links_to_pledges?: boolean;
           created_at?: string;
           updated_at?: string;
+          starts_on?: string | null;
+          end_kind?: string;
+          end_count?: number | null;
+          end_on?: string | null;
         };
         Relationships: [];
       };
@@ -4401,6 +4515,7 @@ export type Database = {
           qbo_item_id: string | null;
           created_at: string;
           updated_at: string;
+          gift_pack: boolean;
         };
         Insert: {
           id?: string;
@@ -4420,6 +4535,7 @@ export type Database = {
           qbo_item_id?: string | null;
           created_at?: string;
           updated_at?: string;
+          gift_pack?: boolean;
         };
         Update: {
           id?: string;
@@ -4439,6 +4555,7 @@ export type Database = {
           qbo_item_id?: string | null;
           created_at?: string;
           updated_at?: string;
+          gift_pack?: boolean;
         };
         Relationships: [];
       };
@@ -4623,6 +4740,9 @@ export type Database = {
           created_at: string;
           event_id: string | null;
           kind: string;
+          send_at: string | null;
+          reminder_after_days: number | null;
+          template_key: string | null;
         };
         Insert: {
           id?: string;
@@ -4639,6 +4759,9 @@ export type Database = {
           created_at?: string;
           event_id?: string | null;
           kind?: string;
+          send_at?: string | null;
+          reminder_after_days?: number | null;
+          template_key?: string | null;
         };
         Update: {
           id?: string;
@@ -4655,6 +4778,9 @@ export type Database = {
           created_at?: string;
           event_id?: string | null;
           kind?: string;
+          send_at?: string | null;
+          reminder_after_days?: number | null;
+          template_key?: string | null;
         };
         Relationships: [];
       };
@@ -5251,6 +5377,13 @@ export type Database = {
         };
         Returns: boolean;
       };
+      can_see_event_ops: {
+        Args: {
+          p_center: string;
+          p_event: string;
+        };
+        Returns: boolean;
+      };
       cancel_rsvp: {
         Args: {
           p_rsvp: string;
@@ -5293,8 +5426,18 @@ export type Database = {
       close_boli: {
         Args: {
           p_boli: string;
+          p_reason?: string;
         };
         Returns: string;
+      };
+      commit_labh: {
+        Args: {
+          p_special_day: string;
+          p_option_ids: string[];
+          p_dedication?: string;
+          p_repeat_yearly?: boolean;
+        };
+        Returns: string[];
       };
       confirm_bank_match: {
         Args: {
@@ -5323,6 +5466,21 @@ export type Database = {
         };
         Returns: string;
       };
+      create_recurring_gift: {
+        Args: {
+          p_household: string;
+          p_fund: string;
+          p_campaign: string;
+          p_amount_cents: number;
+          p_frequency: string;
+          p_starts_on?: string;
+          p_end_kind?: string;
+          p_end_count?: number;
+          p_end_on?: string;
+          p_special_day?: string;
+        };
+        Returns: string;
+      };
       decide_reference: {
         Args: {
           p_application: string;
@@ -5331,11 +5489,30 @@ export type Database = {
         };
         Returns: undefined;
       };
+      directory_listing: {
+        Args: {
+          p_center: string;
+        };
+        Returns: { person_id: string; name: string; household_id: string; household_label: string; zone: string; profession: string; directory_opt_in: boolean; expertise_opt_in: boolean; expertise_tags: string[]; expertise_headline: string; new_member_contact_opt_in: boolean; is_verified: boolean }[];
+      };
       ensure_lunch_slots: {
         Args: {
           p_event: string;
         };
         Returns: number;
+      };
+      event_live_stats: {
+        Args: {
+          p_event: string;
+        };
+        Returns: { checked_in: number; confirmed: number; rsvp_people: number; walk_ins: number; waitlist: number; median_checkin_seconds: number }[];
+      };
+      event_recent_checkins: {
+        Args: {
+          p_event: string;
+          p_limit?: number;
+        };
+        Returns: { checked_in_at: string; household_label: string; lunch_slot_label: string }[];
       };
       find_my_family: {
         Args: {
@@ -5451,6 +5628,12 @@ export type Database = {
         };
         Returns: string;
       };
+      my_practice_standing: {
+        Args: {
+          p_person: string;
+        };
+        Returns: { category: string; top_percent: number; practices_count: number; done_today: number }[];
+      };
       my_reference_requests: {
         Args: Record<PropertyKey, never>;
         Returns: { application_id: string; applicant_name: string; household_name: string; tier: Database["app"]["Enums"]["membership_tier"]; note: string; requested_at: string; expires_at: string }[];
@@ -5461,6 +5644,12 @@ export type Database = {
         };
         Returns: string;
       };
+      opportunity_availability: {
+        Args: {
+          p_opportunity: string;
+        };
+        Returns: { option_key: string; taken: boolean; taken_count: number; slots_taken: number; slots_total: number; goal_percent: number }[];
+      };
       parse_bank_description: {
         Args: {
           p_desc: string;
@@ -5468,6 +5657,21 @@ export type Database = {
           p_bank_type?: string;
         };
         Returns: { channel: string; payer_name: string; reference: string; is_batch: boolean }[];
+      };
+      pathshala_term_stats: {
+        Args: {
+          p_term: string;
+        };
+        Returns: { students: number; waitlisted: number; teachers: number; background_checks_expiring: number; attendance_percent: number; signoffs_waiting: number }[];
+      };
+      people_list: {
+        Args: {
+          p_center: string;
+          p_search?: string;
+          p_limit?: number;
+          p_offset?: number;
+        };
+        Returns: { person_id: string; first_name: string; last_name: string; preferred_name: string; email: string; phone_e164: string; member_number: string; household_id: string; household_label: string; household_number: string; relationship: string; age: number; date_of_birth: string; is_minor: boolean; on_app: boolean; is_verified: boolean; total_count: number }[];
       };
       place_boli_entry: {
         Args: {
@@ -5486,11 +5690,18 @@ export type Database = {
         };
         Returns: { pledge_id: string; pledge_number: string; amount_cents: number; closes: boolean }[];
       };
+      public_kpi_catalog: {
+        Args: {
+          p_center: string;
+        };
+        Returns: { kpi_key: string; label: string; section: string; visibility: string }[];
+      };
       public_kpis: {
         Args: {
           p_slug: string;
           p_from?: string;
           p_to?: string;
+          p_campaign?: string;
         };
         Returns: Json;
       };
@@ -5525,12 +5736,25 @@ export type Database = {
         };
         Returns: { kind: string; system: string; value: string; person_id: string; household_id: string; display_name: string; household_name: string; household_number: string; org_household_id: string; members: string }[];
       };
+      saathi_feed: {
+        Args: {
+          p_household: string;
+        };
+        Returns: { kind: string; person_id: string; person_name: string; title: string; detail: string; occurred_at: string; anumodana_count: number; i_sent: boolean }[];
+      };
       same_household_person: {
         Args: {
           p_center: string;
           p_person: string;
         };
         Returns: boolean;
+      };
+      segment_recipient_count: {
+        Args: {
+          p_center: string;
+          p_audience: Json;
+        };
+        Returns: number;
       };
       send_anumodana: {
         Args: {
@@ -5580,6 +5804,14 @@ export type Database = {
       uid: {
         Args: Record<PropertyKey, never>;
         Returns: string;
+      };
+      unlog_practice: {
+        Args: {
+          p_person: string;
+          p_practice: string;
+          p_on?: string;
+        };
+        Returns: { points_reversed: number; day_complete: boolean; streak_days: number }[];
       };
     };
     Enums: {
