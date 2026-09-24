@@ -1,9 +1,13 @@
 import type { Metadata } from "next";
 
-import { Card, EmptyState, NoAccess, PageHeader, QueryError, TableWrap, buttonClass } from "@/components/ui";
+import Link from "next/link";
+
+import { BarList } from "@/components/bar-list";
+import { BlockGrid, Card, EmptyState, KpiGrid, NoAccess, PageHeader, QueryError, Stat, TableWrap, buttonClass } from "@/components/ui";
 import { fetchAll } from "@/lib/data/fetch-all";
 import { campaignsForCenter } from "@/lib/data/lookups";
-import { startOfDayInTz, todayInTz } from "@/lib/dates";
+import { addDays, startOfDayInTz, todayInTz } from "@/lib/dates";
+import { barPercent } from "@/lib/giving";
 import { APPLICATION_STATUS_LABEL, PAYMENT_METHOD_LABEL } from "@/lib/labels";
 import { formatCents } from "@/lib/money";
 import { canAccess } from "@/lib/permissions";
@@ -17,7 +21,7 @@ const MSTATUSES = ["active", "pending", "lapsed", "suspended", "ended"] as const
 
 export default async function ReportsPage({ searchParams }: { searchParams: Promise<RawSearchParams> }) {
   const session = await getSession();
-  const header = <PageHeader title="Reports" description="Simple aggregates from the live records. Totals include only what your roles let you read." />;
+  const header = <PageHeader title="Reports" description="Built on the warehouse and filtered by your permissions" />;
   if (!canAccess(session, "reports")) {
     return (
       <>
@@ -107,6 +111,88 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
     byMethod.set(p.method, t);
   }
 
+  // Center health (prototype L664): six KPIs, giving by campaign, households by zone.
+  const today = todayInTz(tz);
+  const isCurrentYear = year === currentYear;
+  const periodEnd = isCurrentYear ? today : `${year}-12-31`;
+  const prevEnd = `${year - 1}${periodEnd.slice(4)}`;
+  const [hh, zones, links, members, prevPayments, openPledges, visits, prevVisits, renewals] = await Promise.all([
+    seesMembership
+      ? fetchAll((f, t) => db.from("households").select("id, zone_id, created_at").eq("center_id", center.id).is("merged_into_id", null).order("id").range(f, t))
+      : null,
+    seesMembership ? db.from("zones").select("id, name").eq("center_id", center.id) : null,
+    seesMembership
+      ? fetchAll((f, t) => db.from("center_users").select("person_id").eq("center_id", center.id).not("person_id", "is", null).order("user_id").range(f, t))
+      : null,
+    seesMembership
+      ? fetchAll((f, t) => db.from("household_members").select("person_id, household_id").eq("center_id", center.id).is("left_at", null).order("id").range(f, t))
+      : null,
+    seesGiving
+      ? fetchAll((f, t) =>
+          db
+            .from("payments")
+            .select("id, amount_cents, refunded_cents")
+            .eq("center_id", center.id)
+            .gte("received_on", `${year - 1}-01-01`)
+            .lte("received_on", prevEnd)
+            .not("status", "in", "(failed,voided,authorized)")
+            .order("id")
+            .range(f, t),
+        )
+      : null,
+    seesGiving
+      ? fetchAll((f, t) =>
+          db.from("pledges").select("id, amount_cents, paid_cents").eq("center_id", center.id).in("status", ["open", "partially_paid"]).order("id").range(f, t),
+        )
+      : null,
+    db
+      .from("attendees")
+      .select("id", { count: "exact", head: true })
+      .eq("center_id", center.id)
+      .gte("checked_in_at", yearFrom)
+      .lt("checked_in_at", startOfDayInTz(addDays(periodEnd, 1), tz)),
+    db
+      .from("attendees")
+      .select("id", { count: "exact", head: true })
+      .eq("center_id", center.id)
+      .gte("checked_in_at", startOfDayInTz(`${year - 1}-01-01`, tz))
+      .lt("checked_in_at", startOfDayInTz(addDays(prevEnd, 1), tz)),
+    seesMembership
+      ? db
+          .from("memberships")
+          .select("id", { count: "exact", head: true })
+          .eq("center_id", center.id)
+          .eq("status", "active")
+          .gte("ends_on", today)
+          .lte("ends_on", addDays(today, 60))
+      : null,
+  ]);
+  if (visits.error) console.error("[reports] event visits count failed:", visits.error);
+  const hhRows = hh?.data ?? [];
+  const newThisYear = hhRows.filter((h) => h.created_at >= yearFrom && h.created_at < yearTo).length;
+  const linked = new Set((links?.data ?? []).map((l) => l.person_id));
+  const onApp = new Set((members?.data ?? []).filter((m) => linked.has(m.person_id)).map((m) => m.household_id));
+  const hhIds = new Set(hhRows.map((h) => h.id));
+  const onAppPct = hhRows.length ? Math.round((100 * [...onApp].filter((id) => hhIds.has(id)).length) / hhRows.length) : null;
+  const givenYtd = (payments?.data ?? []).reduce((sum, p) => sum + p.amount_cents - p.refunded_cents, 0);
+  const givenPrev = (prevPayments?.data ?? []).reduce((sum, p) => sum + p.amount_cents - p.refunded_cents, 0);
+  const pct = (a: number, b: number) => (b > 0 ? `${a >= b ? "+" : ""}${Math.round(((a - b) * 100) / b)}%` : null);
+  const openCents = (openPledges?.data ?? []).reduce((sum, p) => sum + p.amount_cents - p.paid_cents, 0);
+  const zoneName = new Map((zones?.data ?? []).map((z) => [z.id, z.name]));
+  const byZone = new Map<string, number>();
+  for (const h of hhRows) {
+    const k = h.zone_id ? (zoneName.get(h.zone_id) ?? "Other") : "No zone";
+    byZone.set(k, (byZone.get(k) ?? 0) + 1);
+  }
+  const zoneRows = [...byZone.entries()].sort((a, b) => b[1] - a[1]);
+  const zoneMax = zoneRows[0]?.[1] ?? 0;
+  const campaignBars = campaignRows.slice(0, 6);
+  const campaignMax = campaignBars[0]?.[1].pledged ?? 0;
+  const compact = (cents: number) => {
+    const d = cents / 100;
+    return d >= 1e6 ? `$${(d / 1e6).toFixed(2)}M` : d >= 1e4 ? `$${Math.round(d / 1e3)}K` : formatCents(cents, center.currency).replace(/\.00$/, "");
+  };
+
   return (
     <>
       {header}
@@ -128,6 +214,77 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
         </button>
       </form>
 
+      <div className="mb-4">
+        <KpiGrid cols={3}>
+          <Stat
+            label="Households"
+            value={seesMembership && !hh?.error ? hhRows.length.toLocaleString() : "—"}
+            hint={seesMembership ? (hh?.error ? "could not load" : `+${newThisYear.toLocaleString()} in ${year}`) : "needs people.view"}
+            tone="navy"
+          />
+          <Stat
+            label="On the app"
+            value={onAppPct === null ? "—" : `${onAppPct}%`}
+            hint={seesMembership ? (links?.error || members?.error ? "could not load" : "households with a signed-in member") : "needs people.view"}
+            tone="success"
+          />
+          <Stat
+            label={isCurrentYear ? "Given YTD" : `Given in ${year}`}
+            value={seesGiving && !payments?.error ? compact(givenYtd) : "—"}
+            hint={seesGiving ? (pct(givenYtd, givenPrev) ? `${pct(givenYtd, givenPrev)} vs ${year - 1}` : "no prior-year figure") : "needs giving.view"}
+            tone="brown"
+          />
+          <Stat
+            label="Open pledges"
+            value={seesGiving && !openPledges?.error ? compact(openCents) : "—"}
+            hint={seesGiving ? <Link href="/giving/pledges?status=open" className="crm-link">aging report</Link> : "needs giving.view"}
+            tone="brown"
+          />
+          <Stat
+            label="Event visits"
+            value={visits.error ? "—" : (visits.count ?? 0).toLocaleString()}
+            hint={visits.error ? "needs events.view" : (pct(visits.count ?? 0, prevVisits.count ?? 0) ?? `check-ins in ${year}`)}
+            tone="maroon"
+          />
+          <Stat
+            label="Renewals due"
+            value={seesMembership && !renewals?.error ? (renewals?.count ?? 0).toLocaleString() : "—"}
+            hint={seesMembership ? "next 60 days" : "needs people.view"}
+            tone="purple"
+          />
+        </KpiGrid>
+      </div>
+      <BlockGrid className="mb-5">
+        <Card span={6} title={`Giving by campaign, ${year}`}>
+          {!seesGiving ? (
+            <p className="text-sm text-muted">Needs giving.view.</p>
+          ) : pledges?.error ? (
+            <QueryError what="pledges" error={pledges.error} retryHref="/reports" />
+          ) : (
+            <BarList
+              empty={`No pledges in ${year}`}
+              items={campaignBars.map(([key, t]) => ({
+                label: key === "none" ? "No campaign" : (campaignName.get(key) ?? "Campaign"),
+                percent: barPercent(t.pledged, campaignMax),
+                value: compact(t.pledged),
+                color: "saffron",
+              }))}
+            />
+          )}
+        </Card>
+        <Card span={6} title="Households by zone">
+          {!seesMembership ? (
+            <p className="text-sm text-muted">Needs people.view.</p>
+          ) : hh?.error || zones?.error ? (
+            <QueryError what="households by zone" error={hh?.error ?? zones?.error} retryHref="/reports" />
+          ) : (
+            <BarList
+              empty="No households yet"
+              items={zoneRows.map(([name, n]) => ({ label: name, percent: barPercent(n, zoneMax), value: n.toLocaleString(), color: "navy" }))}
+            />
+          )}
+        </Card>
+      </BlockGrid>
       <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
         <Card title="Membership" description="Memberships by tier and status; households counted once per tier." padded={false}>
           {!seesMembership ? (
@@ -195,7 +352,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
           )}
         </Card>
 
-        <Card title={`Giving by campaign, ${year}`} description="Pledges made in the year (cancelled excluded)." padded={false}>
+        <Card title={`Campaign detail, ${year}`} description="Pledges made in the year (cancelled excluded)." padded={false}>
           {!seesGiving ? (
             <p className="p-5 text-sm text-muted">Needs giving.view.</p>
           ) : pledges?.error ? (

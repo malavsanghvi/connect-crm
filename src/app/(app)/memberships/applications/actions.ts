@@ -9,7 +9,7 @@ import { authorizeAction } from "@/lib/session";
 
 export async function decideApplicationAction(_prev: ActionResult | null, formData: FormData): Promise<ActionResult> {
   const decision = String(formData.get("decision") ?? "") as ApplicationDecision;
-  const doing = decision === "reject" ? "reject the application" : "approve the application";
+  const doing = decision === "reject" ? "decline the application" : "approve the application";
   const auth = await authorizeAction("applicationsDecide", doing);
   if (!auth.ok) return auth;
   const { session } = auth;
@@ -18,9 +18,9 @@ export async function decideApplicationAction(_prev: ActionResult | null, formDa
   const id = String(formData.get("id") ?? "");
   const reason = String(formData.get("reason") ?? "").trim();
   if (!isUuid(id)) return { ok: false, error: `Could not ${doing} — it was not found.` };
-  if (decision !== "approve" && decision !== "reject") return { ok: false, error: "Could not record the decision — choose approve or reject." };
+  if (decision !== "approve" && decision !== "reject") return { ok: false, error: "Could not record the decision — choose approve or decline." };
   if (decision === "reject" && !reason) {
-    return { ok: false, error: "Could not reject the application — give a reason (it is kept for the applicant's record)." };
+    return { ok: false, error: "Could not decline the application — give a reason (it is kept for the applicant's record)." };
   }
   if (reason.length > 1000) return { ok: false, error: `Could not ${doing} — the reason is longer than 1,000 characters.` };
 
@@ -71,12 +71,13 @@ export async function decideApplicationAction(_prev: ActionResult | null, formDa
     return { ok: false, error: `Could not ${doing} — it changed while you were looking (or you lack permission). Reload and try again.` };
   }
   revalidatePath("/memberships/applications");
+  revalidatePath("/");
   revalidatePath(`/households/${app.household_id}`);
   const message =
     plan.next === "awaiting_ec"
       ? "Center review recorded. It now waits for Executive Committee approval."
       : plan.next === "approved"
         ? "Approved. This records the decision only — the membership record and the fee capture are not created automatically yet."
-        : "Rejected. The reason is saved with the application.";
+        : "Declined. The reason is saved with the application.";
   return { ok: true, message };
 }

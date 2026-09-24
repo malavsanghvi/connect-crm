@@ -16,6 +16,7 @@ function refresh() {
   revalidatePath("/");
   revalidatePath("/giving/pledges");
   revalidatePath("/giving/payments");
+  revalidatePath("/people/voting");
 }
 
 const TARGETS = {
@@ -111,10 +112,22 @@ export async function requestRefundAction(_prev: ActionResult | null, formData: 
   if (!auth.ok) return auth;
   const { db, center, userId } = auth.session;
   const id = String(formData.get("id") ?? "");
+  const reason = String(formData.get("reason") ?? "").trim();
+  const amountText = String(formData.get("amount") ?? "").trim();
   if (!isUuid(id)) return { ok: false, error: "Could not request the refund — the payment was not found." };
+  if (!reason) return { ok: false, error: "Could not request the refund — give a reason; the second approver will read it." };
+  const current = await db.from("payments").select("amount_cents, refunded_cents").eq("id", id).eq("center_id", center.id).maybeSingle();
+  if (current.error) return failure("Could not request the refund", current.error);
+  if (!current.data) return { ok: false, error: "Could not request the refund — the payment was not found, or you can't see it." };
+  const refundable = current.data.amount_cents - current.data.refunded_cents;
+  const cents = amountText ? parseAmountToCents(amountText) : refundable;
+  if (cents === null || cents <= 0) return { ok: false, error: "Could not request the refund — enter the amount to refund, e.g. 251.00." };
+  if (cents > refundable) {
+    return { ok: false, error: `Could not request the refund — at most ${formatCents(refundable, center.currency)} of this payment can be refunded.` };
+  }
   const { data, error } = await db
     .from("payments")
-    .update({ refund_approved_by: userId, refund_second_approver: null })
+    .update({ refund_approved_by: userId, refund_second_approver: null, refund_reason: reason.slice(0, 1000), refund_requested_cents: cents })
     .eq("id", id)
     .eq("center_id", center.id)
     .is("refund_approved_by", null)
@@ -124,7 +137,10 @@ export async function requestRefundAction(_prev: ActionResult | null, formData: 
     return { ok: false, error: "Could not request the refund — a request already exists, or you lack permission." };
   }
   refresh();
-  return { ok: true, message: `Refund of ${data[0].receipt_number ?? "the payment"} requested. A different person with giving.approve must approve it.` };
+  return {
+    ok: true,
+    message: `Refund of ${formatCents(cents, center.currency)} on ${data[0].receipt_number ?? "the payment"} requested. A different person with giving.approve must approve it.`,
+  };
 }
 
 export async function recordRefundAction(_prev: ActionResult | null, formData: FormData): Promise<ActionResult> {

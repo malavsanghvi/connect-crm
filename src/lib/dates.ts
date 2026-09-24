@@ -119,3 +119,24 @@ export function addDays(date: string, days: number): string {
   const d = new Date(toUtcDay(date) + days * 86_400_000);
   return d.toISOString().slice(0, 10);
 }
+
+/** A `datetime-local` value ("2026-09-22T07:00") read as wall-clock time in `timeZone` → ISO instant; null when invalid. */
+export function localDateTimeToIso(value: string, timeZone: string): string | null {
+  const m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/.exec(value.trim());
+  if (!m) return null;
+  const guess = Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]), Number(m[4]), Number(m[5]));
+  let ts = guess - tzOffsetMs(guess, timeZone);
+  const second = guess - tzOffsetMs(ts, timeZone);
+  if (second !== ts) ts = second;
+  return Number.isNaN(ts) ? null : new Date(ts).toISOString();
+}
+
+/** ISO instant → `datetime-local` value in `timeZone` ("" when empty). */
+export function isoToLocalDateTime(value: string | null | undefined, timeZone: string): string {
+  if (!value) return "";
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return "";
+  const parts = new Intl.DateTimeFormat("en-CA", { timeZone, year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).formatToParts(d);
+  const g = (t: string) => parts.find((p) => p.type === t)?.value ?? "";
+  return `${g("year")}-${g("month")}-${g("day")}T${g("hour")}:${g("minute")}`;
+}

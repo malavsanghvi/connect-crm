@@ -2,7 +2,11 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
-import { Badge, NoAccess, PageHeader, QueryError, Tabs } from "@/components/ui";
+import { PeopleDrawers, drawerHref } from "@/app/(app)/people/_components/drawers";
+import { Badge, BlockGrid, Card, KeyValueRow, NoAccess, PageHeader, QueryError, Tabs, buttonClass, capitalize } from "@/components/ui";
+import { loadHouseholdRecord } from "@/lib/data/people-records";
+import { explainError } from "@/lib/errors";
+import { householdSubline } from "@/lib/people";
 import { identifierRules } from "@/lib/center-rules";
 import { orgIds } from "@/lib/data/lookups";
 import { formatDate } from "@/lib/dates";
@@ -92,6 +96,10 @@ export default async function HouseholdPage({
     .filter(Boolean)
     .join(", ");
   const canSeeGiving = can(session, ["giving.view", "giving.manage", "giving.record_offline"]);
+  const { record } = await loadHouseholdRecord(session, id);
+  const base = `/households/${id}`;
+  const canEdit = canAccess(session, "householdsEdit") && !household.merged_into_id;
+  const shortDate = (iso: string) => new Intl.DateTimeFormat("en-US", { timeZone: tz, month: "short", day: "numeric" }).format(new Date(iso));
 
   return (
     <>
@@ -102,7 +110,31 @@ export default async function HouseholdPage({
           </Link>
         }
         title={household.display_name}
-        description={address || "No address on file"}
+        description={
+          <>
+            {record ? householdSubline({ tier: record.tier, since: record.since, zone: record.zoneName, phone: record.phone }) : null}
+            <span className="block">{address || "No address on file"}</span>
+          </>
+        }
+        actions={
+          <>
+            {canAccess(session, "recordPayment") && !household.merged_into_id ? (
+              <Link href={`/giving/payments?household=${id}`} className={buttonClass("primary")}>
+                Record payment
+              </Link>
+            ) : null}
+            {canEdit ? (
+              <Link href={`/people/merge?household=${id}`} className={buttonClass("ghost")}>
+                Merge duplicate
+              </Link>
+            ) : null}
+            {canEdit ? (
+              <Link href={drawerHref(base, sp, { hh: id, mode: "edit" })} scroll={false} className={buttonClass("primary")}>
+                Edit household
+              </Link>
+            ) : null}
+          </>
+        }
       />
 
       {household.merged_into_id ? (
@@ -146,6 +178,43 @@ export default async function HouseholdPage({
         />
       </section>
 
+      {record ? (
+        <BlockGrid className="mb-5">
+          <Card span={6} title="Preferences and consent">
+            <div className="flex flex-col gap-1.5">
+              <KeyValueRow label="Directory" value={record.directoryOptIn ? "Opted in" : "Opted out"} />
+              <KeyValueRow
+                label="Photos"
+                value={
+                  record.members.ok && record.members.data.length
+                    ? (() => {
+                        const n = record.members.data.filter((m) => m.photoOptIn).length;
+                        const t = record.members.data.length;
+                        return n === t ? "Opted in" : n === 0 ? "Opted out" : `${n} of ${t} opted in`;
+                      })()
+                    : "—"
+                }
+              />
+              <KeyValueRow label="Physical mail" value={record.physicalMailOptIn ? "Opted in" : "Opted out"} />
+              <KeyValueRow label="Signed in on app" value={record.members.ok ? (record.members.data.some((m) => m.onApp) ? "Yes" : "No") : "—"} />
+            </div>
+          </Card>
+          <Card span={6} title="Recent activity (audit)">
+            <div className="flex flex-col gap-1.5">
+              {record.activity === null ? (
+                <KeyValueRow label="Audit history" value="Needs the audit.view permission" />
+              ) : !record.activity.ok ? (
+                <KeyValueRow label="Could not load recent activity" value={capitalize(explainError(record.activity.error))} tone="bad" />
+              ) : record.activity.data.length === 0 ? (
+                <KeyValueRow label="No recorded changes yet" />
+              ) : (
+                record.activity.data.map((a, i) => <KeyValueRow key={i} label={`${shortDate(a.at)} · ${a.what}`} value={a.detail || undefined} />)
+              )}
+            </div>
+          </Card>
+        </BlockGrid>
+      ) : null}
+
       <Tabs active={tab} tabs={TABS.map((t) => ({ key: t.key, label: t.label, href: `/households/${id}?tab=${t.key}` }))} />
 
       {tab === "members" ? <MembersTab session={session} householdId={id} /> : null}
@@ -154,6 +223,7 @@ export default async function HouseholdPage({
       {tab === "pledges" ? <PledgesTab session={session} householdId={id} /> : null}
       {tab === "payments" ? <PaymentsTab session={session} householdId={id} /> : null}
       {tab === "audit" ? <AuditTab session={session} householdId={id} /> : null}
+      <PeopleDrawers session={session} sp={sp} base={base} />
     </>
   );
 }

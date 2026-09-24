@@ -144,6 +144,7 @@ export async function grantRoleAction(_prev: ActionResult | null, formData: Form
   });
   if (error) return failure(`Could not grant ${role.data.name}`, error);
   revalidatePath("/settings/roles");
+  revalidatePath("/content/guide"); // zone leads are also assigned from Content › Guide & directory
   return { ok: true, message: `Granted ${role.data.name}${endsOn ? ` until ${endsOn}` : ""}.` };
 }
 

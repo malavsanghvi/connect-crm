@@ -2180,6 +2180,42 @@ export type Database = {
         };
         Relationships: [];
       };
+      labh_fulfillments: {
+        Row: {
+          id: string;
+          pledge_id: string;
+          center_id: string;
+          labh_option_id: string | null;
+          occasion: string | null;
+          status: string;
+          note: string | null;
+          updated_at: string;
+          updated_by: string | null;
+        };
+        Insert: {
+          id?: string;
+          pledge_id: string;
+          center_id: string;
+          labh_option_id?: string | null;
+          occasion?: string | null;
+          status?: string;
+          note?: string | null;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Update: {
+          id?: string;
+          pledge_id?: string;
+          center_id?: string;
+          labh_option_id?: string | null;
+          occasion?: string | null;
+          status?: string;
+          note?: string | null;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Relationships: [];
+      };
       labh_options: {
         Row: {
           id: string;
@@ -2190,6 +2226,7 @@ export type Database = {
           sort_order: number;
           active: boolean;
           campaign_id: string | null;
+          fulfilled_by: string | null;
         };
         Insert: {
           id?: string;
@@ -2200,6 +2237,7 @@ export type Database = {
           sort_order?: number;
           active?: boolean;
           campaign_id?: string | null;
+          fulfilled_by?: string | null;
         };
         Update: {
           id?: string;
@@ -2210,6 +2248,7 @@ export type Database = {
           sort_order?: number;
           active?: boolean;
           campaign_id?: string | null;
+          fulfilled_by?: string | null;
         };
         Relationships: [];
       };
@@ -5405,6 +5444,14 @@ export type Database = {
         };
         Returns: string;
       };
+      change_household_tier: {
+        Args: {
+          p_household: string;
+          p_tier: Database["app"]["Enums"]["membership_tier"];
+          p_reason: string;
+        };
+        Returns: string;
+      };
       check_in: {
         Args: {
           p_event: string;
@@ -5598,6 +5645,12 @@ export type Database = {
         };
         Returns: { points_awarded: number; day_complete: boolean; streak_days: number }[];
       };
+      make_primary_of_own_household: {
+        Args: {
+          p_person: string;
+        };
+        Returns: string;
+      };
       match_deposit: {
         Args: {
           p_txn: string;
@@ -5605,12 +5658,36 @@ export type Database = {
         };
         Returns: number;
       };
+      merge_households: {
+        Args: {
+          p_keep: string;
+          p_drop: string;
+        };
+        Returns: undefined;
+      };
+      merge_people: {
+        Args: {
+          p_keep: string;
+          p_drop: string;
+          p_take?: string[];
+        };
+        Returns: undefined;
+      };
       move_lunch_slot: {
         Args: {
           p_attendee_ids: string[];
           p_slot: string;
         };
         Returns: number;
+      };
+      move_person_household: {
+        Args: {
+          p_person: string;
+          p_from: string;
+          p_to: string;
+          p_role?: Database["app"]["Enums"]["person_role_in_household"];
+        };
+        Returns: undefined;
       };
       my_center_ids: {
         Args: Record<PropertyKey, never>;
@@ -5764,6 +5841,19 @@ export type Database = {
           p_message?: string;
         };
         Returns: number;
+      };
+      staff_add_person: {
+        Args: {
+          p_household: string;
+          p_first: string;
+          p_last: string;
+          p_role: Database["app"]["Enums"]["person_role_in_household"];
+          p_dob?: string;
+          p_gender?: string;
+          p_email?: string;
+          p_phone?: string;
+        };
+        Returns: string;
       };
       staff_household_search: {
         Args: {

@@ -12,12 +12,16 @@ import {
   PageHeader,
   Pagination,
   QueryError,
+  KpiGrid,
+  Stat,
+  StatusText,
   TableWrap,
   Tabs,
   shortId,
 } from "@/components/ui";
 import { householdsById, userNames } from "@/lib/data/lookups";
-import { formatDate, formatDateTime, formatMonth } from "@/lib/dates";
+import { formatDate, formatDateTime, formatMonth, startOfDayInTz, todayInTz } from "@/lib/dates";
+import { classifyQboException, qboClassFor } from "@/lib/giving";
 import { isPlainObject } from "@/lib/center-rules";
 import { LEDGER_STATUS_TONE, LEDGER_TXN_LABEL, QBO_PURPOSES } from "@/lib/labels";
 import { formatCents } from "@/lib/money";
@@ -27,7 +31,7 @@ import { getSession } from "@/lib/session";
 
 import { approveMappingAction, retryAllFailedAction, retryPostingAction, saveMappingAction } from "./actions";
 
-export const metadata: Metadata = { title: "QuickBooks" };
+export const metadata: Metadata = { title: "QuickBooks sync" };
 
 const PAGE_SIZE = 50;
 const STATUSES = ["all", "queued", "posting", "posted", "failed", "skipped", "superseded"] as const;
@@ -36,10 +40,7 @@ type StatusFilter = (typeof STATUSES)[number];
 export default async function QboPage({ searchParams }: { searchParams: Promise<RawSearchParams> }) {
   const session = await getSession();
   const header = (
-    <PageHeader
-      title="QuickBooks"
-      description="QuickBooks Online is the accounting record. Every money event is queued once and posted with the approved account mapping; failures land here for the treasurer."
-    />
+    <PageHeader title="Accounting" description="QuickBooks Online is the book of record · cash basis · the platform posts every money event once" />
   );
   if (!canAccess(session, "qbo")) {
     return (
@@ -112,10 +113,126 @@ export default async function QboPage({ searchParams }: { searchParams: Promise<
   const conn = connection?.data;
   const settings = conn && isPlainObject(conn.settings) ? conn.settings : {};
   const failedCount = countOf.get("failed") ?? 0;
+  const pendingCount = (countOf.get("queued") ?? 0) + (countOf.get("posting") ?? 0);
+
+  // KPI tiles, the exceptions list and payouts.
+  const [postedToday, lastPosted, exceptions, payouts] = canSeeLedger
+    ? await Promise.all([
+        db
+          .from("ledger_postings")
+          .select("id", { count: "exact", head: true })
+          .eq("center_id", center.id)
+          .eq("status", "posted")
+          .gte("posted_at", startOfDayInTz(todayInTz(tz), tz)),
+        db.from("ledger_postings").select("posted_at").eq("center_id", center.id).not("posted_at", "is", null).order("posted_at", { ascending: false }).limit(1),
+        db
+          .from("ledger_postings")
+          .select("id, txn_type, amount_cents, source_table, source_id, last_error, created_at")
+          .eq("center_id", center.id)
+          .eq("status", "failed")
+          .order("created_at", { ascending: true })
+          .limit(20),
+        db
+          .from("payouts")
+          .select("id, provider, provider_ref, gross_cents, fee_cents, net_cents, arrives_on, matched, variance_cents")
+          .eq("center_id", center.id)
+          .order("arrives_on", { ascending: false, nullsFirst: false })
+          .limit(10),
+      ])
+    : [null, null, null, null];
+  const mappingState = QBO_PURPOSES.map((p) => {
+    const m = mappingByPurpose.get(p.purpose);
+    return { purpose: p.purpose, label: p.label, mapped: Boolean(m), approved: Boolean(m?.approved_at) };
+  });
+  const lastSync = lastPosted?.data?.[0]?.posted_at ?? null;
 
   return (
     <>
       {header}
+
+      {canSeeLedger ? (
+        <>
+          <div className="mb-4">
+            <KpiGrid cols={4}>
+              <Stat label="Posted today" value={postedToday?.error ? "—" : (postedToday?.count ?? 0).toLocaleString()} hint="sales receipts, deposits, refunds" tone="success" />
+              <Stat label="Pending" value={pendingCount.toLocaleString()} hint="waiting for the QuickBooks poster" tone="brown" />
+              <Stat
+                label="Exceptions"
+                value={failedCount.toLocaleString()}
+                hint={failedCount ? "need a person" : "all clear"}
+                tone={failedCount ? "danger" : "success"}
+                href={failedCount ? "/accounting/qbo?status=failed" : undefined}
+              />
+              <Stat
+                label="Last sync"
+                value={lastSync ? formatDateTime(lastSync, tz).replace(/^[A-Z][a-z]{2} \d+, \d{4}, /, "") : "—"}
+                hint={
+                  !canSeeConnection
+                    ? lastSync
+                      ? formatDate(lastSync, tz)
+                      : "nothing posted yet"
+                    : !conn
+                      ? "not connected"
+                      : conn.status === "connected"
+                        ? `connection healthy${lastSync ? ` · ${formatDate(lastSync, tz)}` : ""}`
+                        : `connection ${conn.status}`
+                }
+                tone="navy"
+              />
+            </KpiGrid>
+          </div>
+          <Card title="Exceptions" padded={false} className="mb-4">
+            {exceptions?.error ? (
+              <div className="p-2.5">
+                <QueryError what="the exceptions" error={exceptions.error} retryHref={retry} />
+              </div>
+            ) : (exceptions?.data ?? []).length === 0 ? (
+              <EmptyState title="All clear — nothing needs a person" />
+            ) : (
+              <TableWrap>
+                <table className="crm-table">
+                  <thead>
+                    <tr>
+                      <th>ID</th>
+                      <th>Transaction</th>
+                      <th>Reason</th>
+                      <th>Suggested fix</th>
+                      {canManage ? <th /> : null}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(exceptions?.data ?? []).map((e) => {
+                      const x = classifyQboException(e.last_error, mappingState);
+                      return (
+                        <tr key={e.id}>
+                          <td className="font-mono text-[0.8125rem]">QB-EX-{shortId(e.id).slice(0, 4).toUpperCase()}</td>
+                          <td className="font-bold">
+                            {LEDGER_TXN_LABEL[e.txn_type] ?? e.txn_type} · {formatCents(e.amount_cents, center.currency)}
+                            <div className="text-xs font-normal text-muted">{formatDateTime(e.created_at, tz)}</div>
+                          </td>
+                          <td className="max-w-sm text-[13px]">{x.reason}</td>
+                          <td className="max-w-sm text-[13px]">{x.fix}</td>
+                          {canManage ? (
+                            <td>
+                              {x.applyPurpose ? (
+                                <ActionForm action={retryPostingAction} submitLabel="Apply fix" pendingLabel="Reposting…" size="xs">
+                                  <input type="hidden" name="id" value={e.id} />
+                                </ActionForm>
+                              ) : (
+                                <span className="text-xs text-muted">Needs a person</span>
+                              )}
+                            </td>
+                          ) : null}
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </TableWrap>
+            )}
+          </Card>
+        </>
+      ) : null}
 
       <div className="mb-6 grid grid-cols-1 gap-5 xl:grid-cols-3">
         <Card title="Connection" className="xl:col-span-1">
@@ -193,6 +310,7 @@ export default async function QboPage({ searchParams }: { searchParams: Promise<
                     <tr>
                       <th>Purpose</th>
                       <th>QuickBooks account</th>
+                      <th>Class</th>
                       <th>Approval</th>
                       {canManage ? <th>Change</th> : null}
                     </tr>
@@ -217,6 +335,7 @@ export default async function QboPage({ searchParams }: { searchParams: Promise<
                               <Badge tone="warning">Not mapped</Badge>
                             )}
                           </td>
+                          <td>{qboClassFor(p.purpose)}</td>
                           <td>
                             {m?.approved_at ? (
                               <span className="text-sm">
@@ -260,6 +379,58 @@ export default async function QboPage({ searchParams }: { searchParams: Promise<
                         </tr>
                       );
                     })}
+                  </tbody>
+                </table>
+              </TableWrap>
+            )}
+          </Card>
+
+          <Card
+            title="Payouts"
+            description="Card-processor payouts matched line for line to bank deposits (the bank's Card payouts view lists the deposit side)"
+            padded={false}
+            className="mb-6"
+          >
+            {payouts?.error ? (
+              <div className="p-2.5">
+                <QueryError what="payouts" error={payouts.error} retryHref={retry} />
+              </div>
+            ) : (payouts?.data ?? []).length === 0 ? (
+              <EmptyState title="No payouts yet">Payouts arrive once the payment provider is connected.</EmptyState>
+            ) : (
+              <TableWrap>
+                <table className="crm-table">
+                  <thead>
+                    <tr>
+                      <th>Payout</th>
+                      <th>Arrives</th>
+                      <th className="num">Gross</th>
+                      <th className="num">Fees</th>
+                      <th className="num">Net</th>
+                      <th>Bank deposit</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(payouts?.data ?? []).map((po) => (
+                      <tr key={po.id}>
+                        <td>
+                          <span className="capitalize">{po.provider}</span> <span className="font-mono text-xs">{po.provider_ref}</span>
+                        </td>
+                        <td>{formatDate(po.arrives_on, tz)}</td>
+                        <td className="num">{formatCents(po.gross_cents, center.currency)}</td>
+                        <td className="num">{formatCents(po.fee_cents, center.currency)}</td>
+                        <td className="num">{formatCents(po.net_cents, center.currency)}</td>
+                        <td>
+                          {po.matched ? (
+                            <StatusText tone={po.variance_cents === 0 ? "ok" : "warn"}>
+                              Matched{po.variance_cents !== 0 ? ` · variance ${formatCents(po.variance_cents, center.currency)}` : ""}
+                            </StatusText>
+                          ) : (
+                            <StatusText tone="warn">Not matched yet</StatusText>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
                   </tbody>
                 </table>
               </TableWrap>

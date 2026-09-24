@@ -103,6 +103,8 @@ export const ACCESS = {
   dashboard: [] as string[],
   households: ["people.view", "people.manage"],
   householdsEdit: ["people.manage"],
+  /** People module: voting eligibility list (read) and the directory listings. */
+  voting: ["people.view", "people.approve"],
   memberships: ["people.view", "people.manage"],
   applications: ["people.view", "people.approve"],
   applicationsDecide: ["people.approve"],
@@ -126,12 +128,26 @@ export const ACCESS = {
   campaignsManage: ["giving.manage"],
   recurring: ["giving.view", "giving.manage"],
   statements: ["giving.view", "giving.manage"],
+  /** Receipt templates (app.receipt_templates write policy). */
+  receiptTemplates: ["giving.manage"],
+  /** Labh fulfillment (labh_options + labh pledges). */
+  labh: ["giving.view", "giving.manage"],
+  labhManage: ["giving.manage"],
+  /** Bhandar counting sessions (counting_sessions: read giving.view, write giving.record_offline). */
+  counting: ["giving.view", "giving.record_offline"],
+  countingRecord: ["giving.record_offline"],
+  /** Month-end close (accounting_periods: read giving.view, write accounting.close). */
+  close: ["giving.view", "accounting.close"],
+  closeManage: ["accounting.close"],
   qboConnection: ["integrations.view", "integrations.manage"],
   qboLedger: ["giving.view", "accounting.manage"],
   qboManage: ["accounting.manage"],
   qbo: ["integrations.view", "integrations.manage", "giving.view", "accounting.manage"],
   audit: ["audit.view"],
   reports: ["reports.view", "people.view", "giving.view"],
+  /** Public community dashboard settings (public_kpi_settings: read reports.view, write settings.manage). */
+  publicKpis: ["reports.view", "settings.manage"],
+  publicKpisManage: ["settings.manage"],
   roles: ["roles.manage"],
   centerSettings: ["settings.manage"],
   /** Settings › Integrations (reads app.integration_connections). */
@@ -169,6 +185,18 @@ export const ACCESS = {
   /** Calendar layers are content (0010 calendar_layers_manage needs content.manage). */
   calendar: ["content.manage", "content.draft", "settings.manage"],
   calendarManage: ["content.manage"],
+  // Content (0010 content_items / photos / gyan_* / practices / guide_sections / daily_timings / niva_*).
+  // The prototype's content.edit maps to content.draft + content.manage; content.approve publishes.
+  content: ["content.view", "content.draft", "content.manage", "content.approve"],
+  contentDraft: ["content.draft", "content.manage"],
+  contentManage: ["content.manage"],
+  contentApprove: ["content.approve"],
+  // Communications (0010 comms_campaigns / whatsapp_* / surveys / alerts / threads).
+  // The prototype's comms.compose maps to comms.send.
+  comms: ["comms.view", "comms.send"],
+  commsSend: ["comms.send"],
+  commsApprove: ["comms.approve"],
+  commsInbox: ["comms.inbox"],
 } as const satisfies Record<string, readonly string[]>;
 
 export type AccessKey = keyof typeof ACCESS;
@@ -248,7 +276,10 @@ export const NAV: NavModule[] = [
     label: "People",
     tabs: [
       { href: "/households", label: "Households", access: "households" },
+      { href: "/people", label: "People", access: "households" },
       { href: "/memberships/applications", label: "Membership applications", access: "applications" },
+      { href: "/people/directory", label: "Directory & expertise", access: "households" },
+      { href: "/people/voting", label: "Voting eligibility", access: "voting" },
     ],
     paths: ["/households", "/people", "/memberships", "/identifiers"],
   },
@@ -268,11 +299,11 @@ export const NAV: NavModule[] = [
     label: "Giving",
     tabs: [
       { href: "/giving/pledges", label: "Pledges", access: "pledges" },
-      { href: "/giving/payments", label: "Payments", access: "payments" },
-      { href: "/giving/bank", label: "Bank reconciliation", access: "bank" },
-      { href: "/giving/campaigns", label: "Campaigns", access: "campaigns" },
-      { href: "/giving/recurring", label: "Recurring gifts", access: "recurring" },
-      { href: "/giving/statements", label: "Statements", access: "statements" },
+      { href: "/giving/payments", label: "Payments & deposits", access: "payments" },
+      { href: "/giving/opportunities", label: "Opportunities", access: "campaigns" },
+      { href: "/giving/recurring", label: "Recurring", access: "recurring" },
+      { href: "/giving/labh", label: "Labh fulfillment", access: "labh" },
+      { href: "/giving/statements", label: "Receipts & statements", access: "statements" },
     ],
     paths: ["/giving"],
   },
@@ -311,21 +342,55 @@ export const NAV: NavModule[] = [
     landing: { href: "/pathshala/my-classes", when: (ctx) => !canAccess(ctx, "pathshala") && hasRole(ctx, "teacher") },
   },
   {
+    key: "content",
+    label: "Content",
+    tabs: [
+      { href: "/content/queue", label: "Approval queue", access: "content" },
+      { href: "/content/today", label: "Today & darshan", access: "content" },
+      { href: "/content/practices", label: "Practices & points", access: "content" },
+      { href: "/content/gyan-path", label: "Gyan Path", access: "content" },
+      { href: "/content/library", label: "Library", access: "content" },
+      { href: "/content/photos", label: "Photo albums", access: "content" },
+      { href: "/content/niva", label: "Niva", access: "content" },
+      { href: "/content/guide", label: "Guide & directory", access: "content" },
+      { href: "/content/legal", label: "Legal & waivers", access: "content" },
+    ],
+    paths: ["/content"],
+  },
+  {
     key: "calendar",
     label: "Calendar",
     tabs: [{ href: "/calendar", label: "Layers", access: "calendar" }],
     paths: ["/calendar"],
   },
   {
+    key: "comms",
+    label: "Communications",
+    tabs: [
+      { href: "/comms/newsletters", label: "Newsletters", access: "comms" },
+      { href: "/comms/inbox", label: "Inbox", access: "commsInbox" },
+      { href: "/comms/whatsapp", label: "WhatsApp queue", access: "comms" },
+      { href: "/comms/surveys", label: "Surveys", access: "comms" },
+      { href: "/comms/alerts", label: "Alerts", access: "comms" },
+    ],
+    paths: ["/comms"],
+  },
+  {
     key: "accounting",
     label: "Accounting",
-    tabs: [{ href: "/accounting/qbo", label: "QuickBooks", access: "qbo" }],
+    tabs: [
+      { href: "/accounting/qbo", label: "QuickBooks sync", access: "qbo" },
+      { href: "/accounting/close", label: "Month-end close", access: "close" },
+    ],
     paths: ["/accounting"],
   },
   {
     key: "reports",
     label: "Reports",
-    tabs: [{ href: "/reports", label: "Reports", access: "reports" }],
+    tabs: [
+      { href: "/reports", label: "Center health", access: "reports" },
+      { href: "/reports/community", label: "Community dashboard", access: "publicKpis" },
+    ],
     paths: ["/reports"],
   },
   {
