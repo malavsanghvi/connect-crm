@@ -108,7 +108,7 @@ begin;
 select pg_temp.claims(:admin);
 set local role authenticated;
 select pg_temp.assert_raises($$select app.approve_niva_content('00000000-0000-4000-8000-000000000001', null)$$,
-  'no approved knowledge source', 'nothing to approve without an approved source');
+  'no published knowledge source', 'nothing to approve without a published source');
 reset role;
 insert into app.content_items (id, center_id, kind, slug, title, body_md, status)
 values ('28000000-0000-4000-8000-00000000c001', :jsh, 'niva_source', 'calendar-28', 'Calendar and timings', 'What Niva may answer from.', 'published');

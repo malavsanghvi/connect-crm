@@ -90,7 +90,7 @@ export default async function GoLivePage() {
                         {r.status === "requested" ? (
                           <DrawerButton label="Review" variant="primary" kicker="Go-live approval" title={centerOf.get(r.center_id)?.name ?? "Organization"} subtitle={goliveProgress(r)}>
                             <div className="flex flex-col gap-4 text-[13px]">
-                              {rows13 ? <ReadinessTable rows={rows13} /> : <p className="text-danger">The readiness checks could not be run. Reload to try again.</p>}
+                              {rows13 ? <ReadinessTable rows={rows13} links={false} /> : <p className="text-danger">The readiness checks could not be run. Reload to try again.</p>}
                               {mine ? (
                                 <p className="rounded-[10px] bg-canvas px-3 py-2 text-muted">You gave the first approval. A second, different Community Connect admin must approve.</p>
                               ) : null}

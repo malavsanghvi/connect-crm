@@ -64,7 +64,7 @@ export function checklistProgress(rows: readonly Pick<ChecklistRow, "status" | "
 
 // ── Linked screens ────────────────────────────────────────────────────────────
 /** Portal screens that exist but are not NAV tabs (detail and sub pages). */
-const EXTRA_ROUTES = ["/giving/bank", "/giving/campaigns", "/setup/profile", "/setup/organization", "/setup/leaders", "/setup/readiness"];
+const EXTRA_ROUTES = ["/giving/bank", "/giving/campaigns", "/setup/profile", "/setup/organization", "/setup/leaders", "/setup/readiness", "/accounting/qbo/setup"];
 
 /**
  * Is the screen a step links to built in this deployment? Every NAV tab counts,
@@ -79,24 +79,67 @@ export function routeAvailable(route: string | null | undefined, extra: readonly
 }
 
 // ── Readiness (plan §4 Step 8) ────────────────────────────────────────────────
-export type ReadinessDef = { n: number; key: string; title: string; proof: string; owner: string };
+export type ReadinessDef = {
+  n: number;
+  key: string;
+  title: string;
+  proof: string;
+  owner: string;
+  /** Where the evidence is produced (a screen the admin can open). */
+  href?: string;
+  /** An interim version of the check: what it proves today, and that the full version comes later. */
+  interim?: string;
+};
 
-/** The plan's 13 checks, with the registry keys each stream registers (see migration 0182). */
+/** The plan's 13 checks, with the registry keys each stream registers (migrations 0182, 0300, 0301). */
 export const READINESS_CHECKS: readonly ReadinessDef[] = [
-  { n: 1, key: "nonprofit_verified", title: "Non-profit status verified", proof: "Community Connect review done (Step 0.2)", owner: "Setup" },
-  { n: 2, key: "agreements_accepted", title: "Agreements accepted", proof: "Records exist (Step 0.7)", owner: "Security" },
-  { n: 3, key: "owner_and_second_admin_2fa", title: "An owner and a second admin, both with 2FA", proof: "Automatic", owner: "Security" },
-  { n: 4, key: "email_domain_verified", title: "Email domain verified, and sign-in codes reach any address", proof: "Automatic test", owner: "Messaging" },
-  { n: 5, key: "texting_registered", title: "Texting registered, or phone sign-in switched off", proof: "Provider status", owner: "Messaging" },
-  { n: 6, key: "payments_live", title: "Payments connected in live mode with a $1 charge and refund, or \"offline only\" chosen", proof: "Automatic", owner: "Payments" },
-  { n: 7, key: "quickbooks_ready", title: "If QuickBooks is used: connected, mapping and test post approved, go-live date set", proof: "Approvals recorded", owner: "QuickBooks" },
-  { n: 8, key: "statement_templates_approved", title: "Statement and receipt templates approved", proof: "Approvals recorded", owner: "Templates" },
-  { n: 9, key: "setup_data_complete", title: "Setup data complete for every module that is on", proof: "Automatic", owner: "Setup" },
-  { n: 10, key: "records_imported_reconciled", title: "Records and history imported into production and reconciled; duplicates reviewed; contact coverage above target", proof: "Sign-offs, plus the data-quality view", owner: "Import" },
-  { n: 11, key: "member_legal_documents_published", title: "Member legal documents published", proof: "Automatic", owner: "Setup" },
-  { n: 12, key: "niva_evaluated", title: "Niva passed its evaluation, or Niva is switched off", proof: "Automatic", owner: "Niva" },
-  { n: 13, key: "staff_trained_pilot_done", title: "Staff trained, health check green, pilot done", proof: "Owner confirms", owner: "Platform" },
+  { n: 1, key: "nonprofit_verified", title: "Non-profit status verified", proof: "Community Connect review done (Step 0.2)", owner: "Setup", href: "/setup/organization" },
+  { n: 2, key: "agreements_accepted", title: "Agreements accepted", proof: "Records exist (Step 0.7)", owner: "Security", href: "/settings/agreements" },
+  { n: 3, key: "owner_and_second_admin_2fa", title: "An owner and a second admin, both with 2FA", proof: "Automatic", owner: "Security", href: "/settings/team" },
+  { n: 4, key: "email_domain_verified", title: "Email domain verified, and sign-in codes reach any address", proof: "Automatic test", owner: "Messaging", href: "/settings/email" },
+  { n: 5, key: "texting_registered", title: "Texting registered, or phone sign-in switched off", proof: "Provider status", owner: "Messaging", href: "/settings/texting" },
+  {
+    n: 6,
+    key: "payments_live",
+    title: "Payments connected with a $1 charge and refund (live in production, test mode in a sandbox), or \"offline only\" chosen",
+    proof: "Automatic",
+    owner: "Payments",
+    href: "/settings/payments",
+  },
+  { n: 7, key: "quickbooks_ready", title: "If QuickBooks is used: connected, mapping and test post approved, go-live date set", proof: "Approvals recorded", owner: "QuickBooks", href: "/accounting/qbo/setup" },
+  {
+    n: 8,
+    key: "statement_templates_approved",
+    title: "Statement and receipt templates approved",
+    proof: "The treasurer's approval (who, when)",
+    owner: "Giving",
+    href: "/giving/statements",
+    interim: "Today the treasurer approves the receipt and year-end statement settings that exist (signer and personal note). Statements built from an uploaded sample come in a later release.",
+  },
+  { n: 9, key: "setup_data_complete", title: "Setup data complete for every module that is on", proof: "Automatic", owner: "Setup", href: "/setup" },
+  {
+    n: 10,
+    key: "records_imported_reconciled",
+    title: "Records and history imported and reconciled; duplicates reviewed; contact coverage above target",
+    proof: "Sign-offs, plus the data-quality view",
+    owner: "Import",
+    href: "/settings/import",
+  },
+  { n: 11, key: "member_legal_documents_published", title: "Member legal documents published", proof: "Automatic", owner: "Setup", href: "/content/legal" },
+  {
+    n: 12,
+    key: "niva_evaluated",
+    title: "Niva's content approved, or Niva switched off",
+    proof: "An administrator's approval (who, when)",
+    owner: "Niva",
+    href: "/content/niva",
+    interim: "Today an administrator approves Niva's knowledge sources. The full evaluation (question bank and pass mark) comes in a later release.",
+  },
+  { n: 13, key: "staff_trained_pilot_done", title: "Staff trained, health check green, pilot done", proof: "Owner confirms", owner: "Platform", href: "/setup/go-live" },
 ];
+
+/** Registered checks beyond the plan's 13, with where their evidence is. */
+const EXTRA_CHECK_HREF: Record<string, string> = { background_service: "/settings/integrations" };
 
 export type ReadinessResult = { key: string; title: string; ok: boolean; detail: string };
 export type ReadinessRow = ReadinessDef & { state: "pass" | "fail" | "not_built"; detail: string; registeredTitle: string | null };
@@ -114,9 +157,181 @@ export function mergeReadiness(results: readonly ReadinessResult[]): ReadinessRo
   for (const r of results) {
     if (known.has(r.key)) continue;
     n += 1;
-    rows.push({ n, key: r.key, title: r.title, proof: "Automatic", owner: "Other", state: r.ok ? "pass" : "fail", detail: r.detail, registeredTitle: r.title });
+    rows.push({
+      n,
+      key: r.key,
+      title: r.title,
+      proof: "Automatic",
+      owner: "Other",
+      href: EXTRA_CHECK_HREF[r.key],
+      state: r.ok ? "pass" : "fail",
+      detail: r.detail,
+      registeredTitle: r.title,
+    });
   }
   return rows;
+}
+
+// ── Go-live approvals (readiness 8 and 12, migration 0300) ─────────────────────
+export type ApprovalState = {
+  state: "none" | "current" | "changed";
+  approved_by_name?: string | null;
+  approved_at?: string | null;
+  approver_role?: string | null;
+  note?: string | null;
+};
+
+export function isApprovalState(v: unknown): v is ApprovalState {
+  if (!v || typeof v !== "object") return false;
+  const s = (v as { state?: unknown }).state;
+  return s === "none" || s === "current" || s === "changed";
+}
+
+/** Plain words and a tone for an approval (never colour alone). */
+export function approvalView(a: ApprovalState | null): { state: ApprovalState["state"]; label: string; tone: "ok" | "warn" | "bad" } {
+  if (!a || a.state === "none") return { state: "none", label: "Not approved yet", tone: "warn" };
+  if (a.state === "changed") return { state: "changed", label: "Changed since approved", tone: "bad" };
+  return { state: "current", label: "Approved", tone: "ok" };
+}
+
+/** The status JSON of app.golive_approval_status, read defensively. */
+export function parseApprovalStatus(v: unknown): {
+  statements: ApprovalState | null;
+  niva: ApprovalState | null;
+  isTreasurer: boolean;
+  canApproveNiva: boolean;
+} {
+  const o = v && typeof v === "object" ? (v as Record<string, unknown>) : {};
+  return {
+    statements: isApprovalState(o.statement_templates) ? o.statement_templates : null,
+    niva: isApprovalState(o.niva_content) ? o.niva_content : null,
+    isTreasurer: o.is_treasurer === true,
+    canApproveNiva: o.can_approve_niva === true,
+  };
+}
+
+// ── Numbering (Settings › Numbering, migration 0302) ───────────────────────────
+export const NUMBER_KINDS = ["member", "household", "pledge", "order", "receipt", "event"] as const;
+export type NumberKind = (typeof NUMBER_KINDS)[number];
+export type NumberingRow = { kind: NumberKind; label: string; prefix: string; next_value: number; started: boolean };
+
+export function parseNumberingOverview(v: unknown): NumberingRow[] {
+  if (!Array.isArray(v)) return [];
+  return v.flatMap((x) => {
+    if (!x || typeof x !== "object") return [];
+    const o = x as Record<string, unknown>;
+    if (!NUMBER_KINDS.includes(o.kind as NumberKind)) return [];
+    return [{ kind: o.kind as NumberKind, label: String(o.label ?? o.kind), prefix: String(o.prefix ?? ""), next_value: Number(o.next_value ?? 1), started: o.started === true }];
+  });
+}
+
+/** The form's prefix_<kind> / next_<kind> fields → items for app.save_numbering, or the plain-English problem. */
+export function parseNumbering(read: Read): { ok: true; value: { kind: NumberKind; prefix: string; next_value: string }[] } | { ok: false; error: string } {
+  const errors: string[] = [];
+  const value: { kind: NumberKind; prefix: string; next_value: string }[] = [];
+  for (const kind of NUMBER_KINDS) {
+    const prefix = (read(`prefix_${kind}`) ?? "").trim().toUpperCase();
+    const next = (read(`next_${kind}`) ?? "").trim().replace(/[,\s]/g, "");
+    if (!prefix && !next) continue;
+    if (!/^[A-Z0-9][A-Z0-9-]{0,15}$/.test(prefix)) errors.push(`The ${kind} prefix can use capital letters, digits and dashes (up to 16), e.g. JSH-.`);
+    if (!/^\d{1,12}$/.test(next) || Number(next) < 1) errors.push(`The next ${kind} number must be a whole number of at least 1.`);
+    value.push({ kind, prefix, next_value: next });
+  }
+  if (errors.length) return { ok: false, error: errors.join(" ") };
+  if (value.length === 0) return { ok: false, error: "there is nothing to save." };
+  return { ok: true, value };
+}
+
+/** "Neon | Neon CRM" lines → legacy identifier systems (centers.rules.identifiers.legacy_systems). */
+export function parseLegacySystems(text: string): { ok: true; value: { system: string; label: string }[] } | { ok: false; error: string } {
+  const out: { system: string; label: string }[] = [];
+  const seen = new Set<string>();
+  for (const [i, raw] of text.split(/\r?\n/).entries()) {
+    const line = raw.trim();
+    if (!line) continue;
+    const [sys, ...rest] = line.split("|");
+    const system = (sys ?? "").trim();
+    const label = rest.join("|").trim() || system;
+    if (!/^[A-Za-z0-9][A-Za-z0-9 ._-]{0,39}$/.test(system)) return { ok: false, error: `line ${i + 1}: the system name uses letters, digits, spaces, dots, dashes or underscores (up to 40).` };
+    if (label.length > 80) return { ok: false, error: `line ${i + 1}: keep the label under 80 characters.` };
+    if (seen.has(system.toLowerCase())) return { ok: false, error: `line ${i + 1}: "${system}" is listed twice.` };
+    seen.add(system.toLowerCase());
+    out.push({ system, label });
+  }
+  if (out.length > 20) return { ok: false, error: "list at most 20 systems." };
+  return { ok: true, value: out };
+}
+
+// ── Storage (Settings › Storage, migration 0302) ──────────────────────────────
+export const STORAGE_AREAS: Record<string, { label: string; holds: string; readers: string; kept: string }> = {
+  branding: { label: "Branding (public)", holds: "Logos, leader photos", readers: "Anyone", kept: "Until replaced" },
+  content: { label: "Content", holds: "Guide media, flyers, library audio", readers: "Your members", kept: "Until removed" },
+  photos: { label: "Photos", holds: "Event albums, member uploads (moderated)", readers: "Members; children's photos per consent", kept: "Until removed" },
+  store: { label: "Store", holds: "Item photos", readers: "Members", kept: "Until replaced" },
+  statements: { label: "Statements", holds: "Receipts and year-end statements", readers: "The household's adults and finance roles", kept: "7 years" },
+  recordings: { label: "Recordings", holds: "Gyan Path recitations", readers: "The child, their parents, their teachers", kept: "Your choice (default 90 days)" },
+  imports: { label: "Imports", holds: "Uploaded source files", readers: "People who may import that data", kept: "Your choice (default 90 days)" },
+  "org-documents": { label: "Organization documents", holds: "W-9, determination letter, agreements", readers: "The owner and Community Connect verification staff", kept: "Life of the account" },
+  exports: { label: "Exports", holds: "Generated exports", readers: "The person who asked", kept: "7 days" },
+};
+
+export type StorageArea = {
+  bucket: string;
+  public: boolean;
+  max_file_bytes: number | null;
+  types: string[];
+  files: number;
+  bytes: number;
+  retention_days: number | null;
+  retention_editable: boolean;
+  module: string | null;
+  module_on: boolean;
+};
+
+export function parseStorageOverview(v: unknown): { available: boolean; areas: StorageArea[]; limitBytes: number | null; usedBytes: number } {
+  const o = v && typeof v === "object" ? (v as Record<string, unknown>) : {};
+  const areas = Array.isArray(o.areas)
+    ? o.areas.flatMap((x) => {
+        if (!x || typeof x !== "object") return [];
+        const a = x as Record<string, unknown>;
+        return [
+          {
+            bucket: String(a.bucket ?? ""),
+            public: a.public === true,
+            max_file_bytes: typeof a.max_file_bytes === "number" ? a.max_file_bytes : null,
+            types: Array.isArray(a.types) ? a.types.map(String) : [],
+            files: Number(a.files ?? 0),
+            bytes: Number(a.bytes ?? 0),
+            retention_days: typeof a.retention_days === "number" ? a.retention_days : null,
+            retention_editable: a.retention_editable === true,
+            module: typeof a.module === "string" ? a.module : null,
+            module_on: a.module_on !== false,
+          },
+        ];
+      })
+    : [];
+  const limit = typeof o.limit_bytes === "number" ? o.limit_bytes : null;
+  return { available: o.available === true, areas, limitBytes: limit, usedBytes: Number(o.used_bytes ?? 0) };
+}
+
+/** 1536 → "1.5 KB"; bytes in plain units. */
+export function formatBytes(n: number): string {
+  if (!Number.isFinite(n) || n < 1024) return `${Math.max(0, Math.round(n || 0))} B`;
+  const units = ["KB", "MB", "GB", "TB"];
+  let v = n / 1024;
+  let i = 0;
+  while (v >= 1024 && i < units.length - 1) {
+    v /= 1024;
+    i += 1;
+  }
+  return `${v >= 10 ? Math.round(v) : Math.round(v * 10) / 10} ${units[i]}`;
+}
+
+/** Retention days typed for imports / recordings: 1–3650, or the problem. */
+export function parseRetentionDays(raw: string | null): { ok: true; value: number } | { ok: false; error: string } {
+  const t = (raw ?? "").trim();
+  if (!/^\d{1,4}$/.test(t) || Number(t) < 1 || Number(t) > 3650) return { ok: false, error: "Enter the number of days to keep files, from 1 to 3,650." };
+  return { ok: true, value: Number(t) };
 }
 
 // ── Step 0.2 · legal identity ─────────────────────────────────────────────────

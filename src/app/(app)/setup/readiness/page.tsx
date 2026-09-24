@@ -9,7 +9,7 @@ import { ReadinessTable } from "./readiness-table";
 
 export const metadata: Metadata = { title: "Go-live readiness · Setup" };
 
-const SUB = "the 13 checks before Community Connect approves going live · automatic where possible, with the evidence";
+const SUB = "the 13 checks before Community Connect approves going live, plus the background service · automatic where possible, with the evidence";
 
 export default async function ReadinessPage() {
   const session = await getSession();
@@ -36,7 +36,12 @@ export default async function ReadinessPage() {
         <KpiGrid cols={3}>
           <Stat label="Pass" value={`${pass} of ${rows.length}`} tone="success" hint="Checked just now" />
           <Stat label="Do not pass yet" value={fail} tone={fail > 0 ? "danger" : "ink"} hint="Each says what is missing" />
-          <Stat label="Not built yet" value={notBuilt} tone="ink" hint="These checks arrive with later releases" />
+          <Stat
+            label={notBuilt > 0 ? "Not built yet" : "Interim checks"}
+            value={notBuilt > 0 ? notBuilt : rows.filter((r) => r.interim).length}
+            tone="ink"
+            hint={notBuilt > 0 ? "These checks arrive with later releases" : "Checks 8 and 12 prove what exists today; their full versions come later"}
+          />
         </KpiGrid>
       </div>
       {notBuilt > 0 ? (

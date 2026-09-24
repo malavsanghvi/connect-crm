@@ -80,7 +80,7 @@ export default async function NewCenterWizardPage({ searchParams }: { searchPara
   let readiness: React.ReactNode = null;
   if (step === WIZARD_STEP_COUNT && center) {
     const r = await db.rpc("readiness", { p_center: center.id });
-    readiness = r.error ? <QueryError what="the readiness checks" error={r.error} retryHref={`/platform/new?center=${center.id}&step=${step}`} /> : <ReadinessTable rows={mergeReadiness(r.data ?? [])} />;
+    readiness = r.error ? <QueryError what="the readiness checks" error={r.error} retryHref={`/platform/new?center=${center.id}&step=${step}`} /> : <ReadinessTable rows={mergeReadiness(r.data ?? [])} links={false} />;
   }
 
   const stepHref = (i: number) => `/platform/new?${center ? `center=${center.id}&` : ""}step=${i}`;

@@ -142,9 +142,9 @@ begin
   end if;
   if v_note is not null and char_length(btrim(p_note)) > 1000 then raise exception 'Keep the note under 1,000 characters.'; end if;
   v_ev := app.niva_content_evidence(p_center);
-  select count(*) into v_n from jsonb_array_elements(v_ev->'sources') s where s->>'status' in ('approved','published');
+  select count(*) into v_n from jsonb_array_elements(v_ev->'sources') s where s->>'status' = 'published';
   if v_n = 0 then
-    raise exception 'Niva has no approved knowledge source to review yet. Add a source and approve it in the Content approval queue, or switch Niva off in Settings › Modules.';
+    raise exception 'Niva has no published knowledge source to approve yet. Add a source in Content › Niva and publish it from the Content approval queue, or switch Niva off in Settings › Modules.';
   end if;
   perform app.set_audit_context(coalesce(v_note, 'Administrator approved Niva''s knowledge sources'));
   insert into app.golive_approvals (center_id, key, approved_by, approver_role, note, evidence, evidence_hash)

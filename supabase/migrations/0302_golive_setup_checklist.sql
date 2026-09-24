@@ -36,7 +36,7 @@ update app.setup_steps set help = 'The owner confirms it in Setup › Go-live af
               || 'A packaged, automatic health check comes in a later release.'
  where key = 'test.health_check';
 update app.setup_steps set auto = true
- where key in ('org.security','org.team','org.agreements','svc.vault','svc.payments','svc.email','svc.texting','svc.whatsapp','svc.push',
+ where key in ('svc.storage','org.security','org.team','org.agreements','svc.vault','svc.payments','svc.email','svc.texting','svc.whatsapp','svc.push',
                'svc.quickbooks','data.payment_methods','data.chart_of_accounts','tpl.statements','tpl.messages',
                'rec.people','rec.memberships','rec.staff','rec.store_items','rec.pathshala','hist.giving','hist.recurring',
                'niva.train','test.health_check','test.training','test.pilot','golive.request');
@@ -102,6 +102,14 @@ begin
   v := v || jsonb_build_object('svc.vault', case when (ck->>'ok')::boolean
     then app._golive_status('done', 'Ready · ' || v_n || ' credential' || case when v_n = 1 then '' else 's' end || ' stored (fingerprints only)')
     else app._golive_status('in_progress', ck->>'detail') end);
+
+  -- 1.9 Storage: the areas exist (Community Connect creates them); the organization's own
+  -- choices (retention of import files and recordings) were reviewed and saved.
+  v := v || jsonb_build_object('svc.storage', case
+    when c.rules #> '{storage,retention_days}' is not null then app._golive_status('done', 'Retention reviewed: import files '
+         || coalesce(app.storage_retention_days('imports', p_center)::text, '—') || ' days, recordings '
+         || coalesce(app.storage_retention_days('recordings', p_center)::text, '—') || ' days')
+    else app._golive_status('not_started', 'The storage areas are ready; review and save the retention in Settings › Storage') end);
 
   -- 1.3 Email.
   ck := app.check_email_domain_verified(p_center);

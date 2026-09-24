@@ -482,6 +482,9 @@ export const NAV: NavModule[] = [
       // Onboarding (o-tenancy): the member-app join code, and the sandbox / plan limits.
       { href: "/settings/member-app", label: "Member app", access: "centerSettings" },
       { href: "/settings/limits", label: "Limits", access: "centerSettings" },
+      // Onboarding (o-golive): number prefixes and the file storage areas (Setup steps data.numbering, svc.storage).
+      { href: "/settings/numbering", label: "Numbering", access: "centerSettings" },
+      { href: "/settings/storage", label: "Storage", access: "centerSettings" },
       // Onboarding (o-import): loading the organization's data, its custom fields and their quality.
       { href: "/settings/import", label: "Data import", access: "dataImport" },
       { href: "/settings/custom-fields", label: "Custom fields", access: "centerSettings" },
