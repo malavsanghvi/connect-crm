@@ -22,6 +22,7 @@ describe("registry", () => {
   it("reports which handlers are configured, with the reason", () => {
     const r = readiness(createRegistry(HANDLERS), {});
     expect(r["demo.ping"]).toEqual({ configured: true });
+    expect(r["oauth.exchange"]).toMatchObject({ configured: false });
     expect(r["storage.retention"]).toMatchObject({ configured: false, reason: expect.stringContaining("SUPABASE_URL, SUPABASE_SECRET_KEY not set") });
   });
 });

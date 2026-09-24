@@ -362,6 +362,13 @@ select pg_temp.assert(app.worker_schedule('storage.retention', interval '1 day')
 select pg_temp.assert(app.worker_schedule('storage.retention', interval '1 day') is null, 'and does not queue it twice');
 select app.worker_stopped('worker-a');
 commit;
+begin;
+select pg_temp.claims('10000000-0000-4000-8000-000000000011');
+set local role authenticated;
+select pg_temp.assert(app.background_service_status(:jsh)->>'state' = 'stopped', 'a worker that shut down cleanly reads "stopped", not "not configured"');
+rollback;
+select pg_temp.assert((select count(*) from app.audit_log where record_table = 'worker_heartbeats' and action = 'worker_heartbeats.update'
+                         and after->>'stopped_at' is not null and id > :audit_mark) = 1, 'the clean stop is audited');
 
 -- ── Storage ──────────────────────────────────────────────────────────────────
 select pg_temp.assert((select array_agg(id order by id) from storage.buckets where id in

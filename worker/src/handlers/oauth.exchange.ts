@@ -15,7 +15,7 @@
 // (STRIPE_*, PAYPAL_*, INTUIT_*). Missing ones fail the job at once with
 // "not configured", naming the variables, never retried.
 
-import { providerStatus, type Env, type Provider } from "../config";
+import { providerStatus, type Env, type Provider, type Readiness } from "../config";
 import { NotConfiguredError, PermanentError } from "../errors";
 import type { Http } from "../http";
 import type { Job, JobContext } from "../types";
@@ -34,6 +34,13 @@ export type Exchanger = (input: ExchangeInput) => Promise<TokenSet>;
 
 const OAUTH_PROVIDERS = ["stripe", "paypal", "intuit"] as const satisfies readonly Provider[];
 type OAuthProvider = (typeof OAUTH_PROVIDERS)[number];
+
+/** Ready when at least one provider's platform keys are set; each job still checks its own provider. */
+export function configured(env: Env): Readiness {
+  const missing = OAUTH_PROVIDERS.map((p) => providerStatus(env, p));
+  if (missing.some((r) => r.configured)) return { configured: true };
+  return { configured: false, reason: "No payment or QuickBooks platform keys are set on the background service (STRIPE_*, PAYPAL_*, INTUIT_*)" };
+}
 
 /** Filled in by the o-payments and o-quickbooks streams. */
 export const EXCHANGERS: Partial<Record<OAuthProvider, Exchanger>> = {};

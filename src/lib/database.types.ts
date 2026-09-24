@@ -5566,6 +5566,7 @@ export type Database = {
           version: string | null;
           kinds: string[];
           info: Json;
+          stopped_at: string | null;
         };
         Insert: {
           worker: string;
@@ -5574,6 +5575,7 @@ export type Database = {
           version?: string | null;
           kinds?: string[];
           info?: Json;
+          stopped_at?: string | null;
         };
         Update: {
           worker?: string;
@@ -5582,6 +5584,7 @@ export type Database = {
           version?: string | null;
           kinds?: string[];
           info?: Json;
+          stopped_at?: string | null;
         };
         Relationships: [];
       };

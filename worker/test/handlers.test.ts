@@ -24,6 +24,10 @@ describe("oauth.exchange skeleton", () => {
     const j = job({ kind: "oauth.exchange", payload: { provider: "stripe", connection_id: "c", code: "ac_123" } });
     await expect(oauth.run(j, ctxFor(fakeDb().db, stripeEnv))).rejects.toBeInstanceOf(PermanentError);
   });
+  it("reports not configured when no provider's platform keys are set", () => {
+    expect(oauth.configured({})).toMatchObject({ configured: false, reason: expect.stringContaining("STRIPE_*, PAYPAL_*, INTUIT_*") });
+    expect(oauth.configured(stripeEnv)).toEqual({ configured: true });
+  });
   it("says honestly when the platform keys are missing", async () => {
     const j = job({ kind: "oauth.exchange", payload: { provider: "paypal", connection_id: "c" } });
     const err = await oauth.run(j, ctxFor(fakeDb().db, {})).catch((e: unknown) => e);

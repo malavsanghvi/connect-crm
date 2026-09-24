@@ -45,7 +45,8 @@ create table if not exists app.worker_heartbeats (
   beat_at    timestamptz not null default now(),
   version    text,
   kinds      text[] not null default '{}',
-  info       jsonb not null default '{}'::jsonb      -- per handler: configured or not, and why; never a secret
+  info       jsonb not null default '{}'::jsonb,     -- per handler: configured or not, and why; never a secret
+  stopped_at timestamptz                              -- set when the worker shut down cleanly
 );
 
 insert into app.module_tables (table_name, module_key) values ('jobs', null), ('worker_heartbeats', null)
@@ -63,7 +64,8 @@ create trigger audit_worker_heartbeats after insert or delete on app.worker_hear
 drop trigger if exists audit_worker_heartbeats_change on app.worker_heartbeats;
 create trigger audit_worker_heartbeats_change after update on app.worker_heartbeats
   for each row when (old.started_at is distinct from new.started_at or old.version is distinct from new.version
-                     or old.kinds is distinct from new.kinds or old.info is distinct from new.info)
+                     or old.kinds is distinct from new.kinds or old.info is distinct from new.info
+                     or old.stopped_at is distinct from new.stopped_at)
   execute function app.audit_row('worker');
 
 alter table app.jobs enable row level security;
@@ -173,16 +175,16 @@ begin
           coalesce(p_kinds, '{}'), coalesce(p_info, '{}'::jsonb))
   on conflict (worker) do update
     set started_at = excluded.started_at, beat_at = now(), version = excluded.version,
-        kinds = excluded.kinds, info = excluded.info;
+        kinds = excluded.kinds, info = excluded.info, stopped_at = null;
 end $$;
 
--- A worker leaving cleanly removes its row, so "stopped" is not confused with "stale".
+-- A worker leaving cleanly says so (audited), so a stop is not mistaken for a crash.
 create or replace function app.worker_stopped(p_worker text)
 returns void language plpgsql security definer set search_path = app, public, extensions as $$
 begin
   perform app.assert_worker();
   perform set_config('app.client_app', 'job', true);
-  delete from app.worker_heartbeats where worker = p_worker;
+  update app.worker_heartbeats set stopped_at = now() where worker = p_worker;
 end $$;
 
 -- Recurring platform work: queue one job of this kind unless one is already
@@ -208,22 +210,22 @@ language sql immutable set search_path = app, public, extensions as $$ select in
 
 create or replace function app.background_service_status(p_center uuid)
 returns jsonb language plpgsql stable security definer set search_path = app, public, extensions as $$
-declare v_last timestamptz; v_workers jsonb; v_jobs jsonb; v_state text;
+declare v_last timestamptz; v_workers jsonb; v_jobs jsonb; v_state text; v_live int;
 begin
   if not (app.has_permission(p_center, 'settings.manage') or app.has_permission(p_center, 'integrations.view')
           or app.has_permission(p_center, 'integrations.manage') or app.is_center_owner(p_center)) then
     raise exception 'Seeing the background service needs settings.manage or integrations.view.' using errcode = 'insufficient_privilege';
   end if;
-  select max(beat_at),
+  select max(beat_at), count(*) filter (where stopped_at is null and beat_at >= now() - app.worker_stale_after()),
          coalesce(jsonb_agg(jsonb_build_object('worker', worker, 'started_at', started_at, 'beat_at', beat_at,
-                                               'version', version, 'kinds', kinds,
+                                               'stopped_at', stopped_at, 'version', version, 'kinds', kinds,
                                                'handlers', coalesce(info->'handlers', '{}'::jsonb))
-                            order by beat_at desc), '[]'::jsonb)
-    into v_last, v_workers
+                            order by (stopped_at is null) desc, beat_at desc), '[]'::jsonb)
+    into v_last, v_live, v_workers
     from app.worker_heartbeats;
   v_state := case when v_last is null then 'not_configured'
-                  when v_last < now() - app.worker_stale_after() then 'stopped'
-                  else 'running' end;
+                  when v_live > 0 then 'running'
+                  else 'stopped' end;
   select jsonb_build_object(
            'queued',     count(*) filter (where status = 'queued'),
            'running',    count(*) filter (where status = 'running'),
@@ -272,12 +274,12 @@ create or replace function app.check_background_service(p_center uuid)
 returns jsonb language sql stable security definer set search_path = app, public, extensions as $$
   select case
     when b.last is null then jsonb_build_object('ok', false, 'detail',
-      'The background service has never reported in. It is set up by the deploy once the WORKER_DATABASE_URL secret is added.')
+      'The background service is not running (never deployed, or stopped). The deploy starts it once the WORKER_DATABASE_URL secret is added.')
     when b.last < now() - app.worker_stale_after() then jsonb_build_object('ok', false, 'detail',
       'The background service last reported in ' || to_char(b.last at time zone 'UTC', 'YYYY-MM-DD HH24:MI') || ' UTC and is not running now.')
     else jsonb_build_object('ok', true, 'detail', 'Running; last reported in ' || extract(epoch from now() - b.last)::int || ' seconds ago.')
   end
-  from (select max(beat_at) as last from app.worker_heartbeats) b
+  from (select max(beat_at) filter (where stopped_at is null) as last from app.worker_heartbeats) b
 $$;
 
 insert into app.readiness_checks (key, title, sort, check_fn)
