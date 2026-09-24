@@ -191,8 +191,10 @@ begin
       from app.modules d
      where p_module = any(d.depends_on) and (d.core or app.module_enabled(p_center, d.key));
     if v_names is not null then
-      raise exception 'The % module cannot be switched off while % %, which depends on it. Switch that off first.',
-        m.label, v_names, case when v_names like '%,%' then 'are on' else 'is on' end;
+      raise exception 'The % module cannot be switched off while % %. %',
+        m.label, v_names,
+        case when v_names like '%,%' then 'are on and depend on it' else 'is on and depends on it' end,
+        case when v_names like '%,%' then 'Switch those off first.' else 'Switch that off first.' end;
     end if;
   else
     select string_agg(d.label, ', ' order by d.sort) into v_names
