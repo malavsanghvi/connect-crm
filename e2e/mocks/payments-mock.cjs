@@ -17,7 +17,9 @@ function createPaymentsMock(opts = {}) {
     requests: [], sessions: new Map(), intents: new Map(), refunds: new Map(), payouts: [], orders: new Map(),
     captures: new Map(), webhooksSent: [], n: 0, idem: new Map(), accounts: new Map(),
   };
-  const id = (p) => `${p}${(++state.n).toString().padStart(6, '0')}`;
+  // Unique across mock restarts (the database keeps provider references from earlier runs).
+  const tag = crypto.randomBytes(3).toString('hex').toUpperCase();
+  const id = (p) => `${p}${tag}${(++state.n).toString().padStart(4, '0')}`;
   let base = '';
   const portal = () => (opts.portal || process.env.PORTAL || '').replace(/\/+$/, '');
 
@@ -97,6 +99,13 @@ function createPaymentsMock(opts = {}) {
           state.accounts.set(acct, { charges_enabled: true });
           return send(res, 200, { access_token: `sk_acct_${crypto.randomBytes(8).toString('hex')}`, refresh_token: `rt_${crypto.randomBytes(8).toString('hex')}`,
                                   stripe_user_id: acct, livemode: false, scope: 'read_write' });
+        }
+        if (p === '/oauth/authorize' && req.method === 'GET') {
+          // The organization "signs in to Stripe and allows access": straight back with a code.
+          const ret = url.searchParams.get('redirect_uri');
+          const sep = ret.includes('?') ? '&' : '?';
+          res.writeHead(302, { location: `${ret}${sep}code=${id('ac_mock')}&state=${encodeURIComponent(url.searchParams.get('state') || '')}&scope=read_write` });
+          return res.end();
         }
         let m;
         if ((m = p.match(/^\/v1\/accounts\/([^/]+)$/))) {

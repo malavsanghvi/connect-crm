@@ -288,7 +288,7 @@ function ProcessorCard({ p, s, tz, run, busy, askReason }: { p: ProcessorSetting
           <p className="font-semibold">$1 charge and refund</p>
           {p.test_pending ? (
             <p className="text-muted">
-              A $1 {p.test_pending.mode} test is {p.test_pending.status === "paid" ? "paid and being refunded" : "waiting to be paid"}
+              A $1 {p.test_pending.mode === "live" ? "live" : "test-mode"} charge is {p.test_pending.status === "paid" ? "paid and being refunded" : "waiting to be paid"}
               {p.test_pending.checkout_url && p.test_pending.status !== "paid" ? (
                 <> · <a className="crm-link" href={p.test_pending.checkout_url} target="_blank" rel="noopener noreferrer">open the payment page</a></>
               ) : null}
