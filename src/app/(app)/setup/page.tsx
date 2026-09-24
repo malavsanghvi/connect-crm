@@ -125,6 +125,11 @@ export default async function SetupChecklistPage() {
                                 Coming soon
                               </span>
                             )}
+                            {s.step_key === "hist.giving" ? (
+                              <Link href="/accounting/qbo/matching" className="crm-link block whitespace-nowrap text-[12px]">
+                                QuickBooks donors
+                              </Link>
+                            ) : null}
                           </td>
                           <td className="text-right">
                             <DrawerForm

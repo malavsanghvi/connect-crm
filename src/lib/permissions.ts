@@ -148,6 +148,9 @@ export const ACCESS = {
   qboLedger: ["giving.view", "accounting.manage"],
   qboManage: ["accounting.manage"],
   qbo: ["integrations.view", "integrations.manage", "giving.view", "accounting.manage"],
+  /** QuickBooks donor matching (o-qbo-match, 0240): read accounting.manage or giving.manage; decide accounting.manage. */
+  qboMatch: ["accounting.manage", "giving.manage"],
+  qboMatchManage: ["accounting.manage"],
   audit: ["audit.view"],
   reports: ["reports.view", "people.view", "giving.view"],
   /** Public community dashboard settings (public_kpi_settings: read reports.view, write settings.manage). */
@@ -419,6 +422,7 @@ export const NAV: NavModule[] = [
     label: "Accounting",
     tabs: [
       { href: "/accounting/qbo", label: "QuickBooks sync", access: "qbo" },
+      { href: "/accounting/qbo/matching", label: "Donor matching", access: "qboMatch" },
       { href: "/accounting/close", label: "Month-end close", access: "close" },
     ],
     paths: ["/accounting"],

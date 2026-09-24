@@ -229,11 +229,14 @@ name, to `audit.view` holders of that center and platform admins only (the same 
 
 ## Accounting & QuickBooks (depends on Giving)
 
-- **Tables:** qbo_account_mappings, ledger_postings, accounting_periods, payouts, sync_log
-- **RPCs guarded:** none of its own. Ledger postings are still queued by the Giving flows
+- **Tables:** qbo_account_mappings, ledger_postings, accounting_periods, payouts, sync_log,
+  qbo_customers, qbo_transactions, qbo_customer_matches (donor matching, 0240)
+- **RPCs guarded:** the donor-matching RPCs (qbo_suggest_matches, approve_qbo_matches, reject_qbo_match,
+  map_qbo_customer, unmap_qbo_customer, create_household_from_qbo, set_qbo_match_settings, qbo_request_pull,
+  qbo_request_ai, qbo_retry_bring_in, qbo_match_overview). Otherwise none of its own. Ledger postings are still queued by the Giving flows
   (`confirm_bank_match`, `match_deposit`, the payments trigger), so switching Accounting back on
   loses nothing.
-- **Portal:** /accounting/qbo, /accounting/close
+- **Portal:** /accounting/qbo, /accounting/qbo/matching (Donor matching), /accounting/close
 - **Member app:** none
 - **Permissions:** accounting.manage, accounting.close, giving.view
 - **Switching off:** mappings, postings, periods, payouts and the sync log are hidden and
