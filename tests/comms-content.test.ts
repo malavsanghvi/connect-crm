@@ -179,3 +179,14 @@ describe("Gyan Path learner stats", () => {
     expect(stats.get("h")).toEqual({ learners: 0, completionPct: null });
   });
 });
+
+import { isoToLocalDateTime, localDateTimeToIso } from "@/lib/dates";
+
+describe("datetime-local in the center's zone", () => {
+  it("reads wall-clock time in the zone and back", () => {
+    expect(localDateTimeToIso("2026-09-22T07:00", "America/Chicago")).toBe("2026-09-22T12:00:00.000Z");
+    expect(localDateTimeToIso("2026-12-22T07:00", "America/Chicago")).toBe("2026-12-22T13:00:00.000Z");
+    expect(localDateTimeToIso("bad", "America/Chicago")).toBeNull();
+    expect(isoToLocalDateTime("2026-09-22T12:00:00.000Z", "America/Chicago")).toBe("2026-09-22T07:00");
+  });
+});
