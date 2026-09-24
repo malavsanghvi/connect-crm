@@ -108,6 +108,9 @@ async function http(pathname, { method = 'GET', token, body, service = false } =
 
 async function portalSignIn(browser, email, name, secret) {
   const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+  // The platform admins here work in organizations, not on the platform setup wizard (o-platform-setup):
+  // the wizard's own "Continue to the portal" choice, so Home is not redirected to /platform/setup.
+  await ctx.addCookies([{ name: 'cc_platform_setup_later', value: '1', url: BASE, httpOnly: true }]);
   const p = await ctx.newPage();
   p.on('pageerror', (e) => console.error(`[${name} page error]`, String(e)));
   await p.goto(BASE + '/login'); const t0 = Date.now() - 2000;
@@ -810,13 +813,13 @@ if (require.main === module) (async () => {
   const auditStart = Number(sql('select coalesce(max(id), 0) from app.audit_log'));
 
   // The background service as connect_worker, pointed at the mock providers.
-  const workerPw = crypto.randomBytes(24).toString('hex');
+  const workerPw = process.env.WORKER_DB_PASSWORD || crypto.randomBytes(24).toString('hex');   // a shared stack passes the portal's connect_worker password
   sql(`alter role connect_worker with password '${workerPw}'`);
   const logs = [];
   const RT = readEnv(process.env.RUNTIME || '/tmp/claude-0/o-golive/runtime.env');
   const worker = spawn(process.execPath, [WORKER_JS], {
     env: { PATH: process.env.PATH, WORKER_DATABASE_URL: `postgres://connect_worker:${workerPw}@${new URL(DB).host}/postgres`, WORKER_ID: `e2e-golive-${RUN}`,
-           WORKER_HEALTH_PORT: '3920', WORKER_POLL_MS: '500', WORKER_HEARTBEAT_MS: '5000',
+           WORKER_HEALTH_PORT: process.env.WORKER_HEALTH_PORT || '3920', WORKER_POLL_MS: '500', WORKER_HEARTBEAT_MS: '5000',
            RESEND_API_KEY: 're_mock_golive', RESEND_API_BASE: MOCK, MESSAGING_FROM_ADDRESS: 'hello@communityconnect.test', MESSAGING_FROM_NAME: 'Community Connect',
            PORTAL_PUBLIC_URL: RT.PORTAL_PUBLIC_URL || BASE, MESSAGING_LINK_SECRET: RT.MESSAGING_LINK_SECRET || 'x' },
   });

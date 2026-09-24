@@ -37,7 +37,8 @@ const OUT = process.env.OUT || '/tmp/claude-0/streams/o-platform-setup';
 const ENVF = process.env.ENVF || path.join(__dirname, '..', '.env.o-platform-setup');
 const MOCK_PORT = Number(process.env.MOCK_PORT || 4191);
 const WORKER_JS = process.env.WORKER_JS || path.join(__dirname, '..', '..', 'worker', 'dist', 'server.js');
-const WORKER_PW = process.env.WORKER_PW;
+const WORKER_PW = process.env.WORKER_PW || process.env.WORKER_DB_PASSWORD;
+const HEALTH_PORT = process.env.WORKER_HEALTH_PORT || '3310';
 const KEYS = Object.fromEntries(fs.readFileSync(ENVF, 'utf8').trim().split('\n').map((l) => { const i = l.indexOf('='); return [l.slice(0, i), l.slice(i + 1)]; }));
 fs.mkdirSync(OUT, { recursive: true });
 if (!WORKER_PW) { console.error('WORKER_PW (the connect_worker password the portal uses) is required'); process.exit(2); }
@@ -161,7 +162,7 @@ async function saveField(p, name, value, reason, totp) {
   const worker = spawn(process.execPath, [WORKER_JS], {
     env: {
       PATH: process.env.PATH, WORKER_DATABASE_URL: `postgres://connect_worker:${WORKER_PW}@${new URL(DB).host}/postgres`, WORKER_ID,
-      WORKER_HEALTH_PORT: '3310', WORKER_POLL_MS: '400', WORKER_HEARTBEAT_MS: '2000',
+      WORKER_HEALTH_PORT: HEALTH_PORT, WORKER_POLL_MS: '400', WORKER_HEARTBEAT_MS: '2000',
       STRIPE_API_BASE: mockBase, RESEND_API_BASE: mockBase, ANTHROPIC_BASE_URL: mockBase, TWILIO_API_BASE: mockBase,
     },
     stdio: ['ignore', 'pipe', 'pipe'],
@@ -169,7 +170,7 @@ async function saveField(p, name, value, reason, totp) {
   worker.stdout.on('data', (d) => logs.push(...d.toString().trim().split('\n')));
   worker.stderr.on('data', (d) => logs.push(...d.toString().trim().split('\n')));
   const stop = async () => { worker.kill('SIGTERM'); await mock.close().catch(() => {}); };
-  ok(await until(() => fetch('http://127.0.0.1:3310/health').then((r) => r.status === 200).catch(() => false), 20000), 'the worker starts with no provider keys in its environment');
+  ok(await until(() => fetch(`http://127.0.0.1:${HEALTH_PORT}/health`).then((r) => r.status === 200).catch(() => false), 20000), 'the worker starts with no provider keys in its environment');
 
   const b = await chromium.launch();
   const pages = [];
@@ -336,6 +337,14 @@ async function saveField(p, name, value, reason, totp) {
   } finally {
     await b.close();
     await stop();
+    if (process.env.KEEP_PLATFORM_SETUP !== '1') {
+      // Test data only: the provider values this run saved go away again (the steps stay done / parked), so the
+      // servers are back on their own environment for whatever runs next on this stack. The portal and the worker
+      // cache saved values for up to 60 s: wait that out.
+      sql(`delete from app.platform_secrets; delete from app.platform_settings;`);
+      console.log('… removed the values this run saved; waiting 65 s for the servers\' 60 s cache');
+      await sleep(65000);
+    }
     fs.writeFileSync(`${OUT}/worker.log`, logs.join('\n'));
   }
   console.log(failures ? `\n${failures} check(s) FAILED` : '\nall checks passed');

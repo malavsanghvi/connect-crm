@@ -166,12 +166,12 @@ const nowCounts = (c) => JSON.parse(sql(`select app.demo_data_counts('${c}')::te
   const jshPeople = sql(`select count(*) from app.people where center_id = '${JSH}'`);
 
   // The background service, as connect_worker.
-  const workerPw = crypto.randomBytes(24).toString('hex');
+  const workerPw = process.env.WORKER_DB_PASSWORD || crypto.randomBytes(24).toString('hex');   // a shared stack passes the portal's connect_worker password
   sql(`alter role connect_worker with password '${workerPw}'`);
   const logs = [];
   const worker = spawn(process.execPath, [WORKER_JS], {
     env: { PATH: process.env.PATH, WORKER_DATABASE_URL: `postgres://connect_worker:${workerPw}@${new URL(DB).host}/postgres`, WORKER_ID: `e2e-demo-${RUN}`,
-           WORKER_HEALTH_PORT: '3739', WORKER_POLL_MS: '500', WORKER_HEARTBEAT_MS: '5000' },
+           WORKER_HEALTH_PORT: process.env.WORKER_HEALTH_PORT || '3739', WORKER_POLL_MS: '500', WORKER_HEARTBEAT_MS: '5000' },
   });
   worker.stdout.on('data', (d) => logs.push(...d.toString().trim().split('\n')));
   worker.stderr.on('data', (d) => logs.push(...d.toString().trim().split('\n')));

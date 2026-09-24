@@ -25,7 +25,10 @@ const CADDY = process.env.CADDY_BIN;
 const WORK = process.env.WORK || '/tmp/claude-0/o-https/e2e';
 const OUT = process.env.OUT || '/tmp/claude-0/streams/o-https';
 const STATUS = process.env.HTTPS_STATUS_FILE || path.join(WORK, 'status.json');
-const HTTP = 18480, HTTPS = 18443, MEMBER = 18444, ADMIN = 'localhost:12419';
+const HTTP = Number(process.env.CADDY_HTTP_PORT || 18480), HTTPS = Number(process.env.CADDY_HTTPS_PORT || 18443);
+const MEMBER = Number(process.env.CADDY_MEMBER_PORT || 18444), ADMIN = process.env.CADDY_ADMIN || 'localhost:12419';
+// The portal's PORTAL_BASE_DOMAIN (a shared stack's portal may already have one).
+const ORGS = process.env.ORGS_DOMAIN || 'orgs-https.test';
 const DOMAIN = 'portal.cc-https.test';
 if (!CADDY) throw new Error('set CADDY_BIN to a caddy binary');
 fs.mkdirSync(OUT, { recursive: true });
@@ -90,6 +93,7 @@ async function confirm(overrides) {
   const caddy = spawn(CADDY, ['run', '--config', path.join(WORK, 'Caddyfile'), '--adapter', 'caddyfile'], { stdio: ['ignore', fs.openSync(path.join(WORK, 'caddy.log'), 'w'), 'pipe'] });
   caddy.stderr.on('data', () => {});
   let browser;
+  let wasPlatformAdmin = null;
   try {
     for (let i = 0; i < 40 && !curl(`-o /dev/null -w '%{http_code}' http://127.0.0.1:${HTTP}/login`).startsWith('200'); i++) await sleep(250);
 
@@ -99,8 +103,8 @@ async function confirm(overrides) {
     ok(/^HTTP\/1.1 200/.test(head(`http://127.0.0.1:${HTTP}/login`, '127.0.0.1')), 'http:// on the bare address serves the portal (no redirect before a certificate is confirmed)');
     const ask = (d) => curl(`-o /dev/null -w '%{http_code}' 'http://127.0.0.1:${PORTAL}/api/tenancy/tls-ask?domain=${d}'`);
     ok(ask(DOMAIN) === '404', 'tls-ask refuses the portal domain before it is saved');
-    ok(ask('jsh.orgs-https.test') === '200', 'tls-ask approves <slug>.<PORTAL_BASE_DOMAIN> of a real community');
-    ok(ask('nobody.orgs-https.test') === '404' && ask('127.0.0.1') === '404' && ask('evil.example.com') === '404', 'tls-ask refuses unknown slugs, IPs and strangers');
+    ok(ask(`jsh.${ORGS}`) === '200', 'tls-ask approves <slug>.<PORTAL_BASE_DOMAIN> of a real community');
+    ok(ask(`nobody.${ORGS}`) === '404' && ask('127.0.0.1') === '404' && ask('evil.example.com') === '404', 'tls-ask refuses unknown slugs, IPs and strangers');
 
     // ── Platform setup saves the portal domain: no redeploy from here on ────────
     sql(`insert into app.platform_settings (key, value) values ('portal_domain', '"${DOMAIN}"') on conflict (key) do update set value = excluded.value`);
@@ -112,22 +116,25 @@ async function confirm(overrides) {
     const byName = (n) => st.names.find((x) => x.name === n);
     ok(byName(DOMAIN)?.confirmed === true, 'the confirmer made Caddy issue the new domain\'s certificate on demand and verified it');
     ok(byName('127.0.0.1')?.confirmed === true, 'the bare address has a verified certificate');
-    ok(byName('orgs-https.test')?.state === 'dns_missing', `a name without DNS says so: ${byName('orgs-https.test')?.reason}`);
+    ok(byName(ORGS)?.state === 'dns_missing', `a name without DNS says so: ${byName(ORGS)?.reason}`);
     ok(fs.existsSync(path.join(confirmedDir, DOMAIN)), 'a confirmation marker exists for the domain');
 
     const r1 = head(`http://127.0.0.1:${HTTP}/people?x=1`, DOMAIN);
     ok(/^HTTP\/1.1 308/.test(r1) && r1.includes(`Location: https://${DOMAIN}:${HTTPS}/people?x=1`), 'http:// now redirects to https:// for the confirmed domain');
-    ok(/^HTTP\/1.1 200/.test(head(`http://127.0.0.1:${HTTP}/login`, 'jsh.orgs-https.test')), 'an unconfirmed organization address is not redirected');
+    ok(/^HTTP\/1.1 200/.test(head(`http://127.0.0.1:${HTTP}/login`, `jsh.${ORGS}`)), 'an unconfirmed organization address is not redirected');
     const h1 = curl(`-k -o /dev/null -D - ${resolve(DOMAIN, HTTPS)} https://${DOMAIN}:${HTTPS}/login`);
     ok(/strict-transport-security: max-age=2592000/i.test(h1), 'HSTS on the confirmed domain');
-    const h2 = curl(`-k -o /dev/null -D - ${resolve('jsh.orgs-https.test', HTTPS)} https://jsh.orgs-https.test:${HTTPS}/login`);
+    const h2 = curl(`-k -o /dev/null -D - ${resolve(`jsh.${ORGS}`, HTTPS)} https://jsh.${ORGS}:${HTTPS}/login`);
     ok(/^HTTP\/[12](\.1)? 200/.test(h2) && !/strict-transport-security/i.test(h2), 'an organization subdomain gets an on-demand certificate, without HSTS until confirmed');
     ok(curl(`-k ${resolve('stranger.test', HTTPS)} https://stranger.test:${HTTPS}/`).startsWith('CURL-ERROR'), 'no certificate for a name the portal did not approve');
     ok(curl(`-k https://127.0.0.1:${MEMBER}/join/ABC`).includes('Member web app'), 'the member web app is served over HTTPS on its own port');
 
     // ── In a browser: secure context, Secure cookie, Platform › HTTPS ───────────
+    // admin@jsh.test is a platform admin for this part only (test login); put back afterwards so the
+    // other flows on a shared stack keep an organization admin.
+    wasPlatformAdmin = sql(`select coalesce((select is_platform_admin::text from app.accounts a join auth.users u on u.id = a.user_id where u.email = 'admin@jsh.test'), 'none')`);
     sql(`insert into app.accounts (user_id, is_platform_admin) select id, true from auth.users where email = 'admin@jsh.test' on conflict (user_id) do update set is_platform_admin = true`);
-    browser = await chromium.launch({ args: ["--proxy-server=direct://", "--proxy-bypass-list=*", `--host-resolver-rules=MAP ${DOMAIN} 127.0.0.1, MAP *.orgs-https.test 127.0.0.1`] });
+    browser = await chromium.launch({ args: ["--proxy-server=direct://", "--proxy-bypass-list=*", `--host-resolver-rules=MAP ${DOMAIN} 127.0.0.1, MAP *.${ORGS} 127.0.0.1`] });
     const ctx = await browser.newContext({ ignoreHTTPSErrors: true, viewport: { width: 1280, height: 900 } });
     const p = await ctx.newPage();
     await p.goto(`http://${DOMAIN}:${HTTP}/login`, { waitUntil: 'networkidle' });
@@ -160,6 +167,7 @@ async function confirm(overrides) {
   } finally {
     if (browser) await browser.close();
     sql(`delete from app.platform_settings where key = 'portal_domain'`);
+    if (wasPlatformAdmin === 'false' || wasPlatformAdmin === 'none') sql(`update app.accounts set is_platform_admin = false where user_id = (select id from auth.users where email = 'admin@jsh.test')`);
     try { execSync(`${CADDY} stop --address ${ADMIN}`, { stdio: 'ignore' }); } catch (e) { console.error('caddy stop failed:', e.message); caddy.kill(); }
   }
 })().catch((e) => { console.error(e); process.exitCode = 1; });
