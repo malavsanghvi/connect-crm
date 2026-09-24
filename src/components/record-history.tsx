@@ -61,6 +61,9 @@ export function HistoryButton({
   );
 }
 
+/** JWT roles (auth.jwt()->>'role') say nothing to a reader; center roles do. */
+const DB_ROLES = new Set(["authenticated", "anon", "service_role"]);
+
 type Load = { state: "loading" } | { state: "error"; error: string } | { state: "done"; result: RecordHistoryResult };
 
 /** The audit trail of one record: when, who, what changed (before → after), app/screen and reason. */
@@ -124,7 +127,7 @@ export function RecordHistory({ table, recordId }: { table: string; recordId: st
             </p>
             <p className="text-xs text-muted">
               {r.actor_name ?? (r.actor_user_id ? "A former user" : "System")}
-              {r.actor_role ? ` (${r.actor_role})` : ""}
+              {r.actor_role && !DB_ROLES.has(r.actor_role) ? ` (${r.actor_role})` : ""}
               {where ? ` · ${where}` : ""}
               {r.module ? ` · ${moduleLabelFor(r.module)}` : ""}
             </p>
