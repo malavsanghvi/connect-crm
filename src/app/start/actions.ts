@@ -10,6 +10,7 @@ import { failure, type ActionResult } from "@/lib/errors";
 import { PRODUCT_NAME } from "@/lib/brand";
 import { checkCodeMessage, clientIpFrom, normalizeSandboxCode, slugProblem } from "@/lib/platform-onboarding";
 import { explainAuthError, normalizePhone } from "@/lib/security";
+import { switchUrl } from "@/lib/tenancy";
 import { createSupabaseServerClient, type AppSupabase } from "@/lib/supabase/server";
 import { newRequestId, traceHeaders } from "@/lib/supabase/trace";
 
@@ -210,8 +211,10 @@ export async function createSandboxAction(rawSlug: string): Promise<ActionResult
     const store = await cookies();
     store.delete(START_COOKIE);
     const origin = await currentOrigin();
-    const base = portalBaseDomain();
-    if (base) return { ok: true, data: { slug, url: `${origin.protocol}://${slug}.${base}/setup` }, message: "Sandbox created" };
+    // The same rule as the organization switcher: its subdomain (keeping the port) only when this
+    // portal is already reached under the base domain; otherwise the organization cookie.
+    const sub = switchUrl({ slug, portal_domain: null }, origin, portalBaseDomain());
+    if (sub) return { ok: true, data: { slug, url: `${sub}setup` }, message: "Sandbox created" };
     store.set(CENTER_COOKIE, slug, { path: "/", httpOnly: true, sameSite: "lax", secure: origin.protocol.startsWith("https"), maxAge: 60 * 60 * 24 * 365 });
   } catch (err) {
     console.error("[start] the sandbox was created but the portal could not switch to it:", err);
