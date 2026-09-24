@@ -46,12 +46,11 @@ begin
     using (bucket_id = 'branding' and app.setup_can_manage(app.setup_path_center(name)))
     with check (bucket_id = 'branding' and app.setup_can_manage(app.setup_path_center(name)))$p$;
 
+  -- org-documents policies are o-vault's (0172): the owner and platform admins only
+  -- (ONBOARDING_CONTRACT). A settings.manage policy here would widen that, so none is added
+  -- and any left from an earlier run is removed.
   execute 'drop policy if exists setup_org_documents_read on storage.objects';
-  execute $p$create policy setup_org_documents_read on storage.objects for select to authenticated
-    using (bucket_id = 'org-documents' and app.setup_can_manage(app.setup_path_center(name)))$p$;
   execute 'drop policy if exists setup_org_documents_write on storage.objects';
-  execute $p$create policy setup_org_documents_write on storage.objects for insert to authenticated
-    with check (bucket_id = 'org-documents' and app.setup_can_manage(app.setup_path_center(name)))$p$;
   -- No update or delete on org-documents: evidence is kept (a new upload supersedes).
   return 'buckets and policies ensured';
 end $$;

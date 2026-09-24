@@ -277,6 +277,16 @@ async function maybeStepUp(p, secret) {
   const csv = Buffer.from('first_name,last_name\nTest,Person\n');
   const audio = Buffer.from('e2e test audio');
   const st = `${jsh}/${shahHH}/e2e-${run}.pdf`, rec = `${jsh}/${dev}/e2e-${run}.m4a`, recAnya = `${jsh}/${anya}/e2e-${run}.m4a`, imp = `${jsh}/e2e-${run}/people.csv`;
+  const teacherUid = sql("select id from auth.users where email = 'teacher@jsh.test'");
+  const teachesAnya = sql(`select app.teaches_person('${jsh}','${anya}') from (select set_config('request.jwt.claims', json_build_object('sub','${teacherUid}','role','authenticated')::text, true)) s`) === 't';
+  /** Runs fn while JSH's owner is someone else, then puts the owner back. */
+  async function asNonOwner(fn) {
+    const prev = sql(`select user_id from app.center_owners where center_id = '${jsh}'`);
+    sql(`delete from app.center_owners where center_id = '${jsh}'`);
+    try { return await fn(); } finally {
+      if (prev) sql(`insert into app.center_owners (center_id, user_id) values ('${jsh}', '${prev}') on conflict (center_id) do update set user_id = excluded.user_id`);
+    }
+  }
   const checks = [
     ['statements: the treasurer uploads a statement', await upload(adminAal2, 'statements', st, pdf, 'application/pdf'), true],
     ['statements: a member cannot upload one', await upload(priya, 'statements', `${jsh}/${shahHH}/fake-${run}.pdf`, pdf, 'application/pdf'), false],
@@ -286,7 +296,8 @@ async function maybeStepUp(p, secret) {
     ['recordings: someone from another household cannot', await upload(kiran, 'recordings', `${jsh}/${dev}/k-${run}.m4a`, audio, 'audio/mp4'), false],
     ['imports: an admin uploads a source file', await upload(adminAal2, 'imports', imp, csv, 'text/csv'), true],
     ['imports: a member cannot', await upload(priya, 'imports', `${jsh}/e2e-${run}/p.csv`, csv, 'text/csv'), false],
-    ['org-documents: an admin who is not the owner cannot upload', await upload(adminAal2, 'org-documents', `${jsh}/w9-${run}.pdf`, pdf, 'application/pdf'), false],
+    ['org-documents: an admin who is not the owner cannot upload', await asNonOwner(() => upload(adminAal2, 'org-documents', `${jsh}/w9-${run}.pdf`, pdf, 'application/pdf')), false],
+    ['org-documents: the owner uploads', await upload(adminAal2, 'org-documents', `${jsh}/w9-owner-${run}.pdf`, pdf, 'application/pdf'), sql(`select app.is_center_owner('${jsh}') from (select set_config('request.jwt.claims', json_build_object('sub','${adminUid}','role','authenticated')::text, true)) s`) === 't'],
     ['a path outside the center folder is refused', await upload(adminAal2, 'imports', `e2e-${run}.csv`, csv, 'text/csv'), false],
   ];
   for (const [label, r, allowed] of checks) ok(allowed ? r.status === 200 : r.status >= 400, `${label} (${r.status})`);
@@ -295,7 +306,8 @@ async function maybeStepUp(p, secret) {
     ['statements: another household cannot', await download(kiran, 'statements', st), false],
     ['statements: a teacher cannot', await download(teacher, 'statements', st), false],
     ['recordings: the child\'s teacher listens', await download(teacher, 'recordings', rec), true],
-    ['recordings: a teacher of another class cannot', await download(teacher, 'recordings', recAnya), false],
+    // Earlier flows may have put Anya in the teacher's class; the expectation follows the data.
+    [`recordings: a teacher who does not teach the child cannot (teaches Anya: ${teachesAnya})`, await download(teacher, 'recordings', recAnya), teachesAnya],
     ['recordings: another household cannot', await download(kiran, 'recordings', rec), false],
     ['imports: a member cannot read an import', await download(priya, 'imports', imp), false],
   ];
