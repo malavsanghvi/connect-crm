@@ -93,6 +93,18 @@ export const ACCESS = {
   centerSettings: ["settings.manage"],
   privacy: ["privacy.manage"],
   identifierSearch: ["people.view", "giving.view", "giving.record_offline"],
+  // Content (0010 content_items / photos / gyan_* / practices / guide_sections / daily_timings / niva_*).
+  // The prototype's content.edit maps to content.draft + content.manage; content.approve publishes.
+  content: ["content.view", "content.draft", "content.manage", "content.approve"],
+  contentDraft: ["content.draft", "content.manage"],
+  contentManage: ["content.manage"],
+  contentApprove: ["content.approve"],
+  // Communications (0010 comms_campaigns / whatsapp_* / surveys / alerts / threads).
+  // The prototype's comms.compose maps to comms.send.
+  comms: ["comms.view", "comms.send"],
+  commsSend: ["comms.send"],
+  commsApprove: ["comms.approve"],
+  commsInbox: ["comms.inbox"],
 } as const satisfies Record<string, readonly string[]>;
 
 export type AccessKey = keyof typeof ACCESS;
@@ -177,6 +189,34 @@ export const NAV: NavModule[] = [
       { href: "/giving/statements", label: "Statements", access: "statements" },
     ],
     paths: ["/giving"],
+  },
+  {
+    key: "content",
+    label: "Content",
+    tabs: [
+      { href: "/content/queue", label: "Approval queue", access: "content" },
+      { href: "/content/today", label: "Today & darshan", access: "content" },
+      { href: "/content/practices", label: "Practices & points", access: "content" },
+      { href: "/content/gyan-path", label: "Gyan Path", access: "content" },
+      { href: "/content/library", label: "Library", access: "content" },
+      { href: "/content/photos", label: "Photo albums", access: "content" },
+      { href: "/content/niva", label: "Niva", access: "content" },
+      { href: "/content/guide", label: "Guide & directory", access: "content" },
+      { href: "/content/legal", label: "Legal & waivers", access: "content" },
+    ],
+    paths: ["/content"],
+  },
+  {
+    key: "comms",
+    label: "Communications",
+    tabs: [
+      { href: "/comms/newsletters", label: "Newsletters", access: "comms" },
+      { href: "/comms/inbox", label: "Inbox", access: "commsInbox" },
+      { href: "/comms/whatsapp", label: "WhatsApp queue", access: "comms" },
+      { href: "/comms/surveys", label: "Surveys", access: "comms" },
+      { href: "/comms/alerts", label: "Alerts", access: "comms" },
+    ],
+    paths: ["/comms"],
   },
   {
     key: "accounting",
