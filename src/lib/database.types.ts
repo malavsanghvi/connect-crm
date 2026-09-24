@@ -297,6 +297,9 @@ export type Database = {
           occurred_at: string;
           prev_hash: string | null;
           hash: string | null;
+          module: string | null;
+          client_app: string | null;
+          client_screen: string | null;
         };
         Insert: {
           id?: number;
@@ -316,6 +319,9 @@ export type Database = {
           occurred_at?: string;
           prev_hash?: string | null;
           hash?: string | null;
+          module?: string | null;
+          client_app?: string | null;
+          client_screen?: string | null;
         };
         Update: {
           id?: number;
@@ -335,6 +341,9 @@ export type Database = {
           occurred_at?: string;
           prev_hash?: string | null;
           hash?: string | null;
+          module?: string | null;
+          client_app?: string | null;
+          client_screen?: string | null;
         };
         Relationships: [];
       };
@@ -794,6 +803,33 @@ export type Database = {
           created_by?: string | null;
           created_at?: string;
           updated_at?: string;
+        };
+        Relationships: [];
+      };
+      center_modules: {
+        Row: {
+          center_id: string;
+          module_key: string;
+          enabled: boolean;
+          changed_by: string | null;
+          changed_at: string;
+          reason: string | null;
+        };
+        Insert: {
+          center_id: string;
+          module_key: string;
+          enabled: boolean;
+          changed_by?: string | null;
+          changed_at?: string;
+          reason?: string | null;
+        };
+        Update: {
+          center_id?: string;
+          module_key?: string;
+          enabled?: boolean;
+          changed_by?: string | null;
+          changed_at?: string;
+          reason?: string | null;
         };
         Relationships: [];
       };
@@ -2708,6 +2744,48 @@ export type Database = {
           failure_reason?: string | null;
           provider_ref?: string | null;
           created_at?: string;
+        };
+        Relationships: [];
+      };
+      module_tables: {
+        Row: {
+          table_name: string;
+          module_key: string | null;
+        };
+        Insert: {
+          table_name: string;
+          module_key?: string | null;
+        };
+        Update: {
+          table_name?: string;
+          module_key?: string | null;
+        };
+        Relationships: [];
+      };
+      modules: {
+        Row: {
+          key: string;
+          label: string;
+          description: string;
+          core: boolean;
+          depends_on: string[];
+          sort: number;
+        };
+        Insert: {
+          key: string;
+          label: string;
+          description?: string;
+          core?: boolean;
+          depends_on?: string[];
+          sort?: number;
+        };
+        Update: {
+          key?: string;
+          label?: string;
+          description?: string;
+          core?: boolean;
+          depends_on?: string[];
+          sort?: number;
         };
         Relationships: [];
       };
@@ -5391,6 +5469,25 @@ export type Database = {
         };
         Returns: undefined;
       };
+      assert_module_enabled: {
+        Args: {
+          p_center: string;
+          p_module: string;
+        };
+        Returns: boolean;
+      };
+      audit_clean_app: {
+        Args: {
+          p: string;
+        };
+        Returns: string;
+      };
+      audit_clean_reason: {
+        Args: {
+          p: string;
+        };
+        Returns: string;
+      };
       audit_mask: {
         Args: {
           j: Json;
@@ -5567,6 +5664,14 @@ export type Database = {
         };
         Returns: { person_id: string; household_id: string; household_name: string; tier: Database["app"]["Enums"]["membership_tier"]; member_names: string[] }[];
       };
+      gyan_off_goal_ids: {
+        Args: Record<PropertyKey, never>;
+        Returns: string[];
+      };
+      gyan_off_level_ids: {
+        Args: Record<PropertyKey, never>;
+        Returns: string[];
+      };
       has_permission: {
         Args: {
           p_center: string;
@@ -5673,6 +5778,19 @@ export type Database = {
         };
         Returns: undefined;
       };
+      module_enabled: {
+        Args: {
+          p_center: string;
+          p_module: string;
+        };
+        Returns: boolean;
+      };
+      module_off_centers: {
+        Args: {
+          p_module: string;
+        };
+        Returns: string[];
+      };
       move_lunch_slot: {
         Args: {
           p_attendee_ids: string[];
@@ -5698,6 +5816,12 @@ export type Database = {
           p_center: string;
         };
         Returns: string[];
+      };
+      my_modules: {
+        Args: {
+          p_center: string;
+        };
+        Returns: { key: string; label: string; enabled: boolean; core: boolean }[];
       };
       my_person_id: {
         Args: {
@@ -5782,6 +5906,13 @@ export type Database = {
         };
         Returns: Json;
       };
+      record_history: {
+        Args: {
+          p_table: string;
+          p_record: string;
+        };
+        Returns: { id: number; occurred_at: string; action: string; center_id: string; actor_user_id: string; actor_name: string; actor_role: string; module: string; client_app: string; client_screen: string; reason: string; correlation_id: string; before: Json; after: Json }[];
+      };
       record_offline_payment: {
         Args: {
           p_household: string;
@@ -5841,6 +5972,28 @@ export type Database = {
           p_message?: string;
         };
         Returns: number;
+      };
+      set_audit_context: {
+        Args: {
+          p_reason: string;
+          p_correlation?: string;
+        };
+        Returns: undefined;
+      };
+      set_audit_default_reason: {
+        Args: {
+          p_reason: string;
+        };
+        Returns: undefined;
+      };
+      set_module_enabled: {
+        Args: {
+          p_center: string;
+          p_module: string;
+          p_enabled: boolean;
+          p_reason: string;
+        };
+        Returns: undefined;
       };
       staff_add_person: {
         Args: {
@@ -5902,6 +6055,12 @@ export type Database = {
           p_on?: string;
         };
         Returns: { points_reversed: number; day_complete: boolean; streak_days: number }[];
+      };
+      url_decode: {
+        Args: {
+          p: string;
+        };
+        Returns: string;
       };
     };
     Enums: {
