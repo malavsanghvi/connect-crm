@@ -83,12 +83,26 @@ export const ACCESS = {
   campaignsManage: ["giving.manage"],
   recurring: ["giving.view", "giving.manage"],
   statements: ["giving.view", "giving.manage"],
+  /** Receipt templates (app.receipt_templates write policy). */
+  receiptTemplates: ["giving.manage"],
+  /** Labh fulfillment (labh_options + labh pledges). */
+  labh: ["giving.view", "giving.manage"],
+  labhManage: ["giving.manage"],
+  /** Bhandar counting sessions (counting_sessions: read giving.view, write giving.record_offline). */
+  counting: ["giving.view", "giving.record_offline"],
+  countingRecord: ["giving.record_offline"],
+  /** Month-end close (accounting_periods: read giving.view, write accounting.close). */
+  close: ["giving.view", "accounting.close"],
+  closeManage: ["accounting.close"],
   qboConnection: ["integrations.view", "integrations.manage"],
   qboLedger: ["giving.view", "accounting.manage"],
   qboManage: ["accounting.manage"],
   qbo: ["integrations.view", "integrations.manage", "giving.view", "accounting.manage"],
   audit: ["audit.view"],
   reports: ["reports.view", "people.view", "giving.view"],
+  /** Public community dashboard settings (public_kpi_settings: read reports.view, write settings.manage). */
+  publicKpis: ["reports.view", "settings.manage"],
+  publicKpisManage: ["settings.manage"],
   roles: ["roles.manage"],
   centerSettings: ["settings.manage"],
   privacy: ["privacy.manage"],
@@ -170,24 +184,30 @@ export const NAV: NavModule[] = [
     label: "Giving",
     tabs: [
       { href: "/giving/pledges", label: "Pledges", access: "pledges" },
-      { href: "/giving/payments", label: "Payments", access: "payments" },
-      { href: "/giving/bank", label: "Bank reconciliation", access: "bank" },
-      { href: "/giving/campaigns", label: "Campaigns", access: "campaigns" },
-      { href: "/giving/recurring", label: "Recurring gifts", access: "recurring" },
-      { href: "/giving/statements", label: "Statements", access: "statements" },
+      { href: "/giving/payments", label: "Payments & deposits", access: "payments" },
+      { href: "/giving/opportunities", label: "Opportunities", access: "campaigns" },
+      { href: "/giving/recurring", label: "Recurring", access: "recurring" },
+      { href: "/giving/labh", label: "Labh fulfillment", access: "labh" },
+      { href: "/giving/statements", label: "Receipts & statements", access: "statements" },
     ],
     paths: ["/giving"],
   },
   {
     key: "accounting",
     label: "Accounting",
-    tabs: [{ href: "/accounting/qbo", label: "QuickBooks", access: "qbo" }],
+    tabs: [
+      { href: "/accounting/qbo", label: "QuickBooks sync", access: "qbo" },
+      { href: "/accounting/close", label: "Month-end close", access: "close" },
+    ],
     paths: ["/accounting"],
   },
   {
     key: "reports",
     label: "Reports",
-    tabs: [{ href: "/reports", label: "Reports", access: "reports" }],
+    tabs: [
+      { href: "/reports", label: "Center health", access: "reports" },
+      { href: "/reports/community", label: "Community dashboard", access: "publicKpis" },
+    ],
     paths: ["/reports"],
   },
   {

@@ -124,7 +124,7 @@ export default async function DashboardPage() {
   const tiles: { label: string; href: string; tile: Tile; tone: StatTone }[] = [
     { label: "Active member households", href: "/households", tile: households, tone: "navy" },
     { label: "Open pledges", href: "/giving/pledges", tile: pledges, tone: "brown" },
-    { label: "Unmatched bank lines", href: "/giving/bank", tile: bank, tone: "success" },
+    { label: "Unmatched bank lines", href: "/giving/payments/bank", tile: bank, tone: "success" },
     { label: "QuickBooks exceptions", href: "/accounting/qbo?status=failed", tile: qbo, tone: "danger" },
     { label: "Pending membership applications", href: "/memberships/applications", tile: applications, tone: "purple" },
   ];

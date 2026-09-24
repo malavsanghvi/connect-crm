@@ -89,7 +89,7 @@ describe("visibleNav (flat module list)", () => {
     const nav = visibleNav({ permissions: ["giving.record_offline"], isPlatformAdmin: false });
     expect(nav.map((m) => m.label)).toEqual(["Home", "Giving"]);
     const giving = nav.find((m) => m.key === "giving")!;
-    expect(giving.tabs.map((t) => t.href)).toEqual(["/giving/pledges", "/giving/payments", "/giving/bank"]);
+    expect(giving.tabs.map((t) => t.href)).toEqual(["/giving/pledges", "/giving/payments"]);
     expect(giving.href).toBe("/giving/pledges");
   });
   it("keeps the prototype's module order", () => {
@@ -112,12 +112,14 @@ describe("visibleNav (flat module list)", () => {
       "/memberships/applications",
       "/giving/pledges",
       "/giving/payments",
-      "/giving/bank",
-      "/giving/campaigns",
+      "/giving/opportunities",
       "/giving/recurring",
+      "/giving/labh",
       "/giving/statements",
       "/accounting/qbo",
+      "/accounting/close",
       "/reports",
+      "/reports/community",
       "/audit",
       "/privacy/requests",
       "/settings/roles",
@@ -135,7 +137,8 @@ describe("active module and tab", () => {
     expect(activeModule(mods, "/households/abc")?.key).toBe("people");
     expect(activeModule(mods, "/people/abc")?.key).toBe("people");
     expect(activeModule(mods, "/memberships/applications")?.key).toBe("people");
-    expect(activeModule(mods, "/giving/bank")?.key).toBe("giving");
+    expect(activeModule(mods, "/giving/payments/bank")?.key).toBe("giving");
+    expect(activeModule(mods, "/giving/opportunities/campaigns")?.key).toBe("giving");
     expect(activeModule(mods, "/audit")?.key).toBe("settings");
     expect(activeModule(mods, "/privacy/requests")?.key).toBe("settings");
     expect(activeModule(mods, "/nowhere")).toBeUndefined();
@@ -148,7 +151,19 @@ describe("active module and tab", () => {
   it("finds the tab a URL is on", () => {
     const giving = mods.find((m) => m.key === "giving")!;
     expect(activeTabHref(giving.tabs, "/giving/payments")).toBe("/giving/payments");
-    expect(activeTabHref(giving.tabs, "/giving/bank/import")).toBe("/giving/bank");
+    expect(activeTabHref(giving.tabs, "/giving/payments/bank")).toBe("/giving/payments");
+    expect(activeTabHref(giving.tabs, "/giving/opportunities/campaigns")).toBe("/giving/opportunities");
+    expect(giving.tabs.map((t) => t.label)).toEqual([
+      "Pledges",
+      "Payments & deposits",
+      "Opportunities",
+      "Recurring",
+      "Labh fulfillment",
+      "Receipts & statements",
+    ]);
+    const reports = mods.find((m) => m.key === "reports")!;
+    expect(activeTabHref(reports.tabs, "/reports/community")).toBe("/reports/community");
+    expect(activeTabHref(reports.tabs, "/reports")).toBe("/reports");
     const people = mods.find((m) => m.key === "people")!;
     expect(activeTabHref(people.tabs, "/people/123")).toBeUndefined();
   });
