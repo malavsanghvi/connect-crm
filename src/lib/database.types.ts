@@ -806,6 +806,54 @@ export type Database = {
         };
         Relationships: [];
       };
+      center_domains: {
+        Row: {
+          domain: string;
+          center_id: string;
+          created_by: string | null;
+          created_at: string;
+        };
+        Insert: {
+          domain: string;
+          center_id: string;
+          created_by?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          domain?: string;
+          center_id?: string;
+          created_by?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      center_entitlements: {
+        Row: {
+          center_id: string;
+          key: string;
+          value: Json;
+          set_by: string | null;
+          set_at: string;
+          reason: string;
+        };
+        Insert: {
+          center_id: string;
+          key: string;
+          value: Json;
+          set_by?: string | null;
+          set_at?: string;
+          reason: string;
+        };
+        Update: {
+          center_id?: string;
+          key?: string;
+          value?: Json;
+          set_by?: string | null;
+          set_at?: string;
+          reason?: string;
+        };
+        Relationships: [];
+      };
       center_modules: {
         Row: {
           center_id: string;
@@ -874,6 +922,8 @@ export type Database = {
           status: string;
           created_at: string;
           updated_at: string;
+          environment: string;
+          sandbox_for: string | null;
         };
         Insert: {
           id?: string;
@@ -891,6 +941,8 @@ export type Database = {
           status?: string;
           created_at?: string;
           updated_at?: string;
+          environment?: string;
+          sandbox_for?: string | null;
         };
         Update: {
           id?: string;
@@ -908,6 +960,8 @@ export type Database = {
           status?: string;
           created_at?: string;
           updated_at?: string;
+          environment?: string;
+          sandbox_for?: string | null;
         };
         Relationships: [];
       };
@@ -1391,6 +1445,24 @@ export type Database = {
           override_by?: string | null;
           override_second_approver?: string | null;
           override_requested_value?: boolean | null;
+        };
+        Relationships: [];
+      };
+      entitlement_defaults: {
+        Row: {
+          environment: string;
+          key: string;
+          value: Json;
+        };
+        Insert: {
+          environment: string;
+          key: string;
+          value: Json;
+        };
+        Update: {
+          environment?: string;
+          key?: string;
+          value?: Json;
         };
         Relationships: [];
       };
@@ -2423,6 +2495,36 @@ export type Database = {
           assigned?: number;
           served?: number;
           status?: string;
+        };
+        Relationships: [];
+      };
+      member_join_codes: {
+        Row: {
+          id: string;
+          center_id: string;
+          code: string;
+          active: boolean;
+          created_by: string | null;
+          created_at: string;
+          expires_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          center_id: string;
+          code?: string;
+          active?: boolean;
+          created_by?: string | null;
+          created_at?: string;
+          expires_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          center_id?: string;
+          code?: string;
+          active?: boolean;
+          created_by?: string | null;
+          created_at?: string;
+          expires_at?: string | null;
         };
         Relationships: [];
       };
@@ -4442,6 +4544,36 @@ export type Database = {
         };
         Relationships: [];
       };
+      sandbox_test_recipients: {
+        Row: {
+          id: string;
+          center_id: string;
+          channel: string;
+          address: string;
+          verified_at: string | null;
+          added_by: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          center_id: string;
+          channel: string;
+          address: string;
+          verified_at?: string | null;
+          added_by?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          center_id?: string;
+          channel?: string;
+          address?: string;
+          verified_at?: string | null;
+          added_by?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
       saved_segments: {
         Row: {
           id: string;
@@ -5472,6 +5604,14 @@ export type Database = {
         };
         Returns: undefined;
       };
+      assert_entitlement: {
+        Args: {
+          p_center: string;
+          p_key: string;
+          p_needed?: Json;
+        };
+        Returns: undefined;
+      };
       assert_module_enabled: {
         Args: {
           p_center: string;
@@ -5551,6 +5691,18 @@ export type Database = {
         };
         Returns: string;
       };
+      center_entitlement_list: {
+        Args: {
+          p_center: string;
+        };
+        Returns: { key: string; default_value: Json; override_value: Json; effective: Json; set_by_name: string; set_at: string; reason: string }[];
+      };
+      center_slug_for_domain: {
+        Args: {
+          p_domain: string;
+        };
+        Returns: string;
+      };
       change_household_tier: {
         Args: {
           p_household: string;
@@ -5592,6 +5744,12 @@ export type Database = {
           p_repeat_yearly?: boolean;
         };
         Returns: string[];
+      };
+      community_by_join_code: {
+        Args: {
+          p_code: string;
+        };
+        Returns: { slug: string; name: string; short_name: string; state_region: string; environment: string }[];
       };
       confirm_bank_match: {
         Args: {
@@ -5655,6 +5813,22 @@ export type Database = {
         };
         Returns: number;
       };
+      entitlement: {
+        Args: {
+          p_center: string;
+          p_key: string;
+        };
+        Returns: Json;
+      };
+      entitlement_message: {
+        Args: {
+          p_environment: string;
+          p_key: string;
+          p_value: Json;
+          p_needed: Json;
+        };
+        Returns: string;
+      };
       event_live_stats: {
         Args: {
           p_event: string;
@@ -5667,6 +5841,12 @@ export type Database = {
           p_limit?: number;
         };
         Returns: { checked_in_at: string; household_label: string; lunch_slot_label: string }[];
+      };
+      find_community: {
+        Args: {
+          p_query: string;
+        };
+        Returns: { slug: string; name: string; short_name: string; city: string; state_region: string; environment: string }[];
       };
       find_membership_reference: {
         Args: {
@@ -5829,6 +6009,10 @@ export type Database = {
         Args: Record<PropertyKey, never>;
         Returns: string[];
       };
+      my_centers: {
+        Args: Record<PropertyKey, never>;
+        Returns: { id: string; slug: string; name: string; short_name: string; environment: string; status: string; portal_domain: string; has_role: boolean }[];
+      };
       my_household_ids: {
         Args: {
           p_center: string;
@@ -5863,9 +6047,26 @@ export type Database = {
         Args: Record<PropertyKey, never>;
         Returns: { application_id: string; applicant_name: string; household_name: string; tier: Database["app"]["Enums"]["membership_tier"]; note: string; requested_at: string; expires_at: string }[];
       };
+      new_join_code: {
+        Args: Record<PropertyKey, never>;
+        Returns: string;
+      };
       normalize_identifier: {
         Args: {
           p: string;
+        };
+        Returns: string;
+      };
+      normalize_join_code: {
+        Args: {
+          p: string;
+        };
+        Returns: string;
+      };
+      normalize_recipient: {
+        Args: {
+          p_channel: string;
+          p_address: string;
         };
         Returns: string;
       };
@@ -5968,6 +6169,14 @@ export type Database = {
         };
         Returns: { kind: string; system: string; value: string; person_id: string; household_id: string; display_name: string; household_name: string; household_number: string; org_household_id: string; members: string }[];
       };
+      rotate_member_join_code: {
+        Args: {
+          p_center: string;
+          p_expires_at?: string;
+          p_reason?: string;
+        };
+        Returns: string;
+      };
       saathi_feed: {
         Args: {
           p_household: string;
@@ -6006,6 +6215,15 @@ export type Database = {
       };
       set_audit_default_reason: {
         Args: {
+          p_reason: string;
+        };
+        Returns: undefined;
+      };
+      set_center_entitlement: {
+        Args: {
+          p_center: string;
+          p_key: string;
+          p_value: Json;
           p_reason: string;
         };
         Returns: undefined;
