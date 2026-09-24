@@ -3,6 +3,7 @@ import Link from "next/link";
 
 import { AuditLogTable } from "@/components/audit-log-table";
 import {
+  Alert,
   Card,
   ChipLinks,
   NoAccess,
@@ -16,8 +17,11 @@ import {
   isAuditModule,
   MODULE_TABLES,
 } from "@/lib/audit-labels";
+import { CLIENT_APPS, needsTraceColumns, parseTraceFilters } from "@/lib/audit-filters";
 import { userNames } from "@/lib/data/lookups";
 import { startOfDayInTz, addDays } from "@/lib/dates";
+import { MODULES } from "@/lib/modules";
+import { isMissingObject, modulesDb, warnMissingOnce } from "@/lib/modules-db";
 import { can, canAccess, isGrantActive } from "@/lib/permissions";
 import {
   hrefWith,
@@ -102,30 +106,42 @@ export default async function AuditPage({
   const validDate = (d?: string) =>
     d && /^\d{4}-\d{2}-\d{2}$/.test(d) ? d : undefined;
 
-  let query = db
-    .from("audit_log")
-    .select(
-      "id, occurred_at, actor_user_id, action, record_table, record_id, before, after, reason, hash",
-      { count: "exact" },
-    )
-    .eq("center_id", center.id);
-  if (action) query = query.ilike("action", `%${safeFilterText(action)}%`);
-  if (table && TABLES.includes(table)) query = query.eq("record_table", table);
-  if (mod)
-    query =
-      MODULE_TABLES[mod].length > 0
-        ? query.in("record_table", MODULE_TABLES[mod])
-        : query.eq("record_table", "__none__");
-  if (record) query = query.eq("record_id", record.trim());
-  if (validDate(fromDate))
-    query = query.gte("occurred_at", startOfDayInTz(fromDate!, tz));
-  if (validDate(toDate))
-    query = query.lt("occurred_at", startOfDayInTz(addDays(toDate!, 1), tz));
+  const trace = parseTraceFilters((k) => param(sp, k));
   const from = (page - 1) * PAGE_SIZE;
-  const res = await query
-    .order("occurred_at", { ascending: false })
-    .order("id", { ascending: false })
-    .range(from, from + PAGE_SIZE - 1);
+  // select("*") so the WAVE2 columns (module, client_app, client_screen) come
+  // back once s-core lands, and nothing breaks before it does.
+  const run = (withTrace: boolean) => {
+    let query = modulesDb(db).from("audit_log").select("*", { count: "exact" }).eq("center_id", center.id);
+    if (action) query = query.ilike("action", `%${safeFilterText(action)}%`);
+    if (table && TABLES.includes(table)) query = query.eq("record_table", table);
+    if (mod)
+      query =
+        MODULE_TABLES[mod].length > 0
+          ? query.in("record_table", MODULE_TABLES[mod])
+          : query.eq("record_table", "__none__");
+    if (record) query = query.eq("record_id", record.trim());
+    if (trace.reason) query = query.ilike("reason", `%${trace.reason}%`);
+    if (withTrace && trace.recordedModule) {
+      query = trace.recordedModule === "core" ? query.is("module", null) : query.eq("module", trace.recordedModule);
+    }
+    if (withTrace && trace.clientApp) query = query.eq("client_app", trace.clientApp);
+    if (validDate(fromDate))
+      query = query.gte("occurred_at", startOfDayInTz(fromDate!, tz));
+    if (validDate(toDate))
+      query = query.lt("occurred_at", startOfDayInTz(addDays(toDate!, 1), tz));
+    return query
+      .order("occurred_at", { ascending: false })
+      .order("id", { ascending: false })
+      .range(from, from + PAGE_SIZE - 1);
+  };
+  let traceNote: string | null = null;
+  let res = await run(true);
+  if (res.error && needsTraceColumns(trace) && isMissingObject(res.error)) {
+    warnMissingOnce("app.audit_log module/client_app columns", res.error);
+    traceNote =
+      "Filtering by module or app needs the next database update, which has not been applied yet — showing results without those two filters.";
+    res = await run(false);
+  }
   const rows = res.data ?? [];
   const actors = await userNames(
     db,
@@ -194,7 +210,7 @@ export default async function AuditPage({
       />
       <details
         className="mb-3"
-        open={Boolean(action || table || record || fromDate || toDate)}
+        open={Boolean(action || table || record || fromDate || toDate || trace.recordedModule || trace.clientApp || trace.reason)}
       >
         <summary className="cursor-pointer text-[13px] font-bold text-navy">
           More filters
@@ -248,6 +264,39 @@ export default async function AuditPage({
             />
           </div>
           <div>
+            <label htmlFor="mod" className="crm-label">
+              Module (recorded)
+            </label>
+            <select id="mod" name="mod" defaultValue={trace.recordedModule ?? ""} className="crm-input min-w-52">
+              <option value="">Any module</option>
+              {MODULES.map((m) => (
+                <option key={m.key} value={m.key}>
+                  {m.label}
+                </option>
+              ))}
+              <option value="core">Core platform (no module)</option>
+            </select>
+          </div>
+          <div>
+            <label htmlFor="app" className="crm-label">
+              App
+            </label>
+            <select id="app" name="app" defaultValue={trace.clientApp ?? ""} className="crm-input min-w-40">
+              <option value="">Any app</option>
+              {CLIENT_APPS.map((a) => (
+                <option key={a.key} value={a.key}>
+                  {a.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label htmlFor="reason" className="crm-label">
+              Reason contains
+            </label>
+            <input id="reason" name="reason" defaultValue={trace.reason ?? ""} placeholder="e.g. duplicate" className="crm-input min-w-56" />
+          </div>
+          <div>
             <label htmlFor="from" className="crm-label">
               From
             </label>
@@ -274,13 +323,18 @@ export default async function AuditPage({
           <button type="submit" className={buttonClass("primary")}>
             Filter
           </button>
-          {action || table || record || fromDate || toDate ? (
+          {action || table || record || fromDate || toDate || trace.recordedModule || trace.clientApp || trace.reason ? (
             <Link href="/settings/audit" className={buttonClass("ghost")}>
               Clear
             </Link>
           ) : null}
         </form>
       </details>
+      {traceNote ? (
+        <div className="mb-3">
+          <Alert tone="warning">{traceNote}</Alert>
+        </div>
+      ) : null}
       {res.error ? (
         <QueryError
           what="the audit log"

@@ -39,12 +39,33 @@ export type HistoryRow = {
 
 type Table<R> = { Row: R; Insert: Partial<R>; Update: Partial<R>; Relationships: [] };
 
+/** app.audit_log with the WAVE2 columns (module, client_app, client_screen). Read-only here. */
+export type AuditLogTraceRow = {
+  id: number;
+  center_id: string | null;
+  actor_user_id: string | null;
+  actor_role: string | null;
+  action: string;
+  record_table: string | null;
+  record_id: string | null;
+  before: Json | null;
+  after: Json | null;
+  reason: string | null;
+  correlation_id: string | null;
+  occurred_at: string;
+  hash: string | null;
+  module?: string | null;
+  client_app?: string | null;
+  client_screen?: string | null;
+};
+
 /** Minimal schema covering only the contract's new objects. */
 export type ModulesDatabase = {
   app: {
     Tables: {
       modules: Table<ModuleCatalogRow>;
       center_modules: Table<CenterModuleRow>;
+      audit_log: Table<AuditLogTraceRow>;
     };
     Views: Record<string, never>;
     Functions: {
