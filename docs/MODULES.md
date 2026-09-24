@@ -143,9 +143,12 @@ name, to `audit.view` holders of that center and platform admins only (the same 
   pathshala_teachers, pathshala_enrollments, pathshala_sessions, pathshala_attendance,
   pathshala_progress_reports, class_announcements, teacher_positions, teacher_applications
 - **RPCs guarded:** pathshala_term_stats, redeem_attendance_qr
-- **Portal:** /pathshala, /pathshala/classes, /pathshala/terms, /pathshala/enrollments,
-  /pathshala/announcements, /pathshala/my-classes, /pathshala/committee/*
-- **Member app:** pathshala-scan
+- **Portal:** /pathshala, /pathshala/classes, /pathshala/classes/[id]/attendance,
+  /pathshala/classes/[id]/reports (progress reports), /pathshala/terms, /pathshala/enrollments
+  (incl. "Enroll a student"), /pathshala/teachers (positions and applications),
+  /pathshala/announcements, /pathshala/my-classes, /pathshala/committee (dashboard)
+- **Member app:** pathshala-scan, pathshala-enroll (enrollment request), pathshala-teach (apply to
+  teach); Jain Way › Learn shows the class, last class attendance and published progress reports
 - **Permissions:** pathshala.view, pathshala.manage, pathshala.teach
 - **Switching off:** classes, enrollments and attendance are hidden; QR attendance refuses.
 
@@ -259,7 +262,8 @@ name, to `audit.view` holders of that center and platform admins only (the same 
 
 - **Tables:** resolutions, resolution_votes, resolution_comments, concerns
 - **RPCs guarded:** none
-- **Portal:** /pathshala/committee/resolutions, /pathshala/committee/concerns
+- **Portal:** /pathshala/committee/resolutions, /pathshala/committee/concerns (each gated by this
+  module; the committee's actions/templates/year sections follow Events)
 - **Member app:** none
 - **Permissions:** governance.view, governance.manage, governance.vote, pathshala.view/manage (concerns)
 - **Switching off:** resolutions, votes, comments and concerns are hidden.

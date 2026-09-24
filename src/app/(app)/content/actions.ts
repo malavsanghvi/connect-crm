@@ -3,11 +3,11 @@
 import { revalidatePath } from "next/cache";
 
 import type { Json, TablesInsert } from "@/lib/database.types";
-import { mergePointsRules, mergeTimingRules, PRACTICE_CATEGORIES, slugify } from "@/lib/content";
+import { mergePointsRules, mergeTimingRules, PRACTICE_CATEGORIES, quizFromFields, slugify } from "@/lib/content";
 import { failure, type ActionResult } from "@/lib/errors";
 import { can } from "@/lib/permissions";
 import { isUuid } from "@/lib/search-params";
-import { authorizeAction } from "@/lib/session";
+import { authorizeAction, dbWithReason } from "@/lib/session";
 
 function text(fd: FormData, key: string): string {
   return String(fd.get(key) ?? "").trim();
@@ -38,11 +38,15 @@ export async function decideContentAction(_prev: ActionResult | null, fd: FormDa
   if (cur.error) return failure(`Could not ${doing}`, cur.error);
   if (!cur.data) return { ok: false, error: `Could not ${doing} — the item no longer exists, or you can't see it.` };
   if (cur.data.status !== "in_review") return { ok: false, error: `Could not ${doing} — "${cur.data.title}" is no longer awaiting approval.` };
+  const reason = text(fd, "reason").slice(0, 500);
+  if (decision === "return" && !reason) return { ok: false, error: `Could not ${doing} — say what the author should change.` };
   const patch =
     decision === "approve"
       ? { status: "published", approved_by: userId, published_at: new Date().toISOString() }
       : { status: "draft", approved_by: null };
-  const { error } = await db.from("content_items").update(patch).eq("id", id).eq("status", "in_review");
+  // A return carries its reason onto the audit entry (x-audit-reason).
+  const writer = decision === "return" ? await dbWithReason(auth.session, reason) : db;
+  const { error } = await writer.from("content_items").update(patch).eq("id", id).eq("status", "in_review");
   if (error) return failure(`Could not ${doing}`, error);
   revalidatePath("/content", "layout");
   return { ok: true, message: decision === "approve" ? `"${cur.data.title}" published.` : `"${cur.data.title}" returned to its author.` };
@@ -358,6 +362,9 @@ export async function addStepAction(_prev: ActionResult | null, fd: FormData): P
   if (!STEP_KINDS.includes(kind)) return { ok: false, error: "Could not add the step — choose learn, listen, quiz, recite, video or practice." };
   if (!title) return { ok: false, error: "Could not add the step — give it a title." };
   if (order === "bad" || points === "bad") return { ok: false, error: "Could not add the step — order and points must be whole numbers." };
+  const quiz = quizFromFields(text(fd, "quiz_question"), text(fd, "quiz_options"), text(fd, "quiz_answer"));
+  if (!quiz.ok) return { ok: false, error: `Could not add the step — ${quiz.error}.` };
+  if (kind === "quiz" && !quiz.quiz) return { ok: false, error: "Could not add the step — a quiz step needs its question and answers." };
   const { error } = await db.from("gyan_steps").insert({
     level_id: levelId,
     kind,
@@ -365,6 +372,7 @@ export async function addStepAction(_prev: ActionResult | null, fd: FormData): P
     content_item_id: isUuid(contentId) ? contentId : null,
     sort_order: order ?? 0,
     points: points ?? 0,
+    quiz: kind === "quiz" ? quiz.quiz : null,
   });
   if (error) return failure("Could not add the step", error);
   revalidatePath("/content/gyan-path");

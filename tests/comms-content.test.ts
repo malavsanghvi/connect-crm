@@ -165,7 +165,7 @@ describe("content and comms navigation", () => {
   });
 });
 
-import { goalLearnerStats } from "@/lib/content";
+import { goalLearnerStats, quizFromFields } from "@/lib/content";
 
 describe("Gyan Path learner stats", () => {
   it("counts learners and full completions per goal", () => {
@@ -188,5 +188,19 @@ describe("datetime-local in the center's zone", () => {
     expect(localDateTimeToIso("2026-12-22T07:00", "America/Chicago")).toBe("2026-12-22T13:00:00.000Z");
     expect(localDateTimeToIso("bad", "America/Chicago")).toBeNull();
     expect(isoToLocalDateTime("2026-09-22T12:00:00.000Z", "America/Chicago")).toBe("2026-09-22T07:00");
+  });
+});
+
+describe("quizFromFields", () => {
+  it("builds the member app's quiz shape with a 0-based answer", () => {
+    expect(quizFromFields("How many lines?", "5\n9\n\n12\n", "2")).toEqual({ ok: true, quiz: { questions: [{ question: "How many lines?", options: ["5", "9", "12"], answer: 1 }] } });
+  });
+  it("is empty when nothing was filled in", () => {
+    expect(quizFromFields("", "", "")).toEqual({ ok: true, quiz: null });
+  });
+  it("explains what is missing", () => {
+    expect(quizFromFields("Q?", "only one", "1")).toEqual({ ok: false, error: "give at least two answers, one per line" });
+    expect(quizFromFields("", "a\nb", "1")).toEqual({ ok: false, error: "write the quiz question" });
+    expect(quizFromFields("Q?", "a\nb", "3")).toEqual({ ok: false, error: "say which answer is right (1 to 2)" });
   });
 });

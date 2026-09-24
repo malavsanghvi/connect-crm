@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 
 import { ActionForm } from "@/components/action-form";
+import { PersonPicker } from "@/components/person-picker";
 import { HistoryButton } from "@/components/record-history";
 import { Card, EmptyState, TableWrap } from "@/components/ui";
 import { ageFrom, loadClasses, loadLevels, loadTerms, pickTerm } from "@/lib/data/pathshala";
@@ -9,8 +10,9 @@ import { formatDate, humanize, todayIso } from "@/lib/pathshala/format";
 import { load, rows, viewerOf } from "@/lib/pathshala/server";
 import { getSession } from "@/lib/session";
 
-import { placeEnrollment, saveEnrollmentNote, setEnrollmentStatus, waitlistEnrollment } from "../actions";
-import { ActionButton, Details, LoadProblemPage, PathshalaHeader, PNoAccessPage, TermSwitcher, ViewChips } from "../ui";
+import { enrollStudent, placeEnrollment, saveEnrollmentNote, searchPeopleAction, setEnrollmentStatus, waitlistEnrollment } from "../actions";
+import { DrawerButton } from "../drawer-button";
+import { ActionButton, Details, LoadProblemPage, PathshalaHeader, PField, PNoAccessPage, TermSwitcher, ViewChips } from "../ui";
 
 export const metadata: Metadata = { title: "Enrollments" };
 
@@ -65,6 +67,44 @@ export default async function EnrollmentsPage({ searchParams }: { searchParams: 
           term
             ? `Enrollments · Term: ${term.name} · place each request into a class, waitlist or withdraw`
             : "Enrollments · no Pathshala term yet"
+        }
+        actions={
+          term && canManage ? (
+            <DrawerButton label="Enroll a student" title="Enroll a student" kicker={`Pathshala · ${term.name}`} size="sm"
+              subtitle="For registrations taken in person or by phone. Families can also ask from the member app.">
+              <ActionForm action={enrollStudent.bind(null, term.id)} submitLabel="Enroll" variant="primary" resetOnSuccess buttonsClassName="mt-3">
+                <div className="space-y-3">
+                  <PersonPicker search={searchPeopleAction} name="person_id" label="Student" required hint="The enrollment is filed under the student's household." />
+                  <PField label="Class" hint="Leave empty to file it under Requested and place it later.">
+                    <select name="class_id" defaultValue="" className="crm-input">
+                      <option value="">Not placed yet</option>
+                      {classes.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {classLabel(c)}
+                        </option>
+                      ))}
+                    </select>
+                  </PField>
+                  <PField label="Level asked for">
+                    <select name="requested_level_id" defaultValue="" className="crm-input">
+                      <option value="">Same as the class</option>
+                      {levels.map((l) => (
+                        <option key={l.id} value={l.id}>
+                          {l.name}
+                        </option>
+                      ))}
+                    </select>
+                  </PField>
+                  <label className="flex items-center gap-1.5 text-xs text-muted">
+                    <input type="checkbox" name="over_capacity" className="h-4 w-4 accent-navy" /> Place even if full
+                  </label>
+                  <PField label="Note">
+                    <textarea name="notes" rows={2} className="crm-input" />
+                  </PField>
+                </div>
+              </ActionForm>
+            </DrawerButton>
+          ) : null
         }
       />
       <TermSwitcher terms={terms} activeId={term?.id ?? null} basePath="/pathshala/enrollments" />

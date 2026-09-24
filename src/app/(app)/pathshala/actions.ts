@@ -4,7 +4,7 @@ import { refresh } from "next/cache";
 
 import type { ActionResult } from "@/lib/errors";
 import { bool, cents, dateList, dateTime, FormError, int, isoDate, must, oneOf, reqStr, runAction, str, ok, time } from "@/lib/forms";
-import { isAttendanceStatus, type AttendanceStatus } from "@/lib/logic/attendance";
+import { isAttendanceStatus, reportAttendance, type AttendanceStatus } from "@/lib/logic/attendance";
 import { pathshalaAreas as areas } from "@/lib/pathshala/access";
 import { actionContext, searchPeople, type PersonOption } from "@/lib/pathshala/server";
 import { can, hasScopedRole, type ScopedContext } from "@/lib/permissions";
@@ -219,6 +219,60 @@ export async function placeEnrollment(enrollmentId: string, _prev: unknown, fd: 
   });
 }
 
+/**
+ * Staff enroll a student directly (walk-in or phone registration): the
+ * student's household is looked up (the enrollment belongs to it), and the
+ * student is placed straight into a class when one is chosen.
+ */
+export async function enrollStudent(termId: string, _prev: unknown, fd: FormData): Promise<ActionResult<unknown>> {
+  return runAction("pathshala.enrollStudent", "enroll the student", async () => {
+    const { supabase, centerId, viewer } = await actionContext(areas.manage, "Only the Pathshala principal can enroll students.");
+    const personId = reqStr(fd, "person_id", "Student");
+    const classId = str(fd, "class_id");
+    let levelId = str(fd, "requested_level_id");
+    const memberships = (must(
+      await supabase.from("household_members").select("household_id, is_primary, role").eq("person_id", personId).is("left_at", null),
+      "find the student's household",
+    ) ?? []);
+    if (!memberships.length) throw new FormError("This person isn't in a household yet. Add them to their family in People first, then enroll them.");
+    const household = memberships.find((m) => m.is_primary) ?? memberships.find((m) => m.role === "child") ?? memberships[0];
+    const existing = must(
+      await supabase.from("pathshala_enrollments").select("id, status").eq("term_id", termId).eq("student_person_id", personId).maybeSingle(),
+      "check for an existing enrollment",
+    );
+    if (existing) throw new FormError(`This student already has an enrollment this term (${existing.status}). Change it in the list below.`);
+    let className: string | null = null;
+    if (classId) {
+      const cls = must(await supabase.from("pathshala_classes").select("id, name, capacity, level_id, term_id").eq("id", classId).maybeSingle(), "find the class");
+      if (!cls || cls.term_id !== termId) throw new FormError("Choose a class in this term.");
+      if (cls.capacity !== null && !bool(fd, "over_capacity")) {
+        const taken = await seatsTaken(supabase, classId);
+        if (taken >= cls.capacity) throw new FormError(`${cls.name} is full (${taken} of ${cls.capacity}). Tick "Place even if full" or choose another class.`);
+      }
+      levelId = levelId ?? cls.level_id;
+      className = cls.name;
+    }
+    const now = new Date().toISOString();
+    must(
+      await supabase.from("pathshala_enrollments").insert({
+        center_id: centerId,
+        term_id: termId,
+        student_person_id: personId,
+        household_id: household.household_id,
+        requested_level_id: levelId,
+        class_id: classId,
+        status: classId ? "placed" : "requested",
+        placed_at: classId ? now : null,
+        registered_by: viewer.userId,
+        notes: str(fd, "notes"),
+      }),
+      "enroll the student",
+    );
+    refresh();
+    return ok(className ? `Enrolled and placed in ${className}.` : "Enrollment added to Requested.");
+  });
+}
+
 export async function waitlistEnrollment(enrollmentId: string, _prev: unknown, fd: FormData): Promise<ActionResult<unknown>> {
   return runAction("pathshala.waitlistEnrollment", "waitlist the student", async () => {
     const { supabase } = await actionContext(areas.manage, "Only the Pathshala principal can manage the waitlist.");
@@ -390,6 +444,98 @@ export async function saveSessionTopic(classId: string, heldOn: string, _prev: u
     must(await supabase.from("pathshala_sessions").update({ topic: str(fd, "topic") }).eq("id", session.id), "save the topic");
     refresh();
     return ok("Topic saved.");
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Progress reports (teacher of the class, or the principal). Attendance counts
+// are computed from the class register at save time; publishing makes the
+// report visible to the family (RLS progress_household: published only).
+// ---------------------------------------------------------------------------
+export async function saveProgressReport(classId: string, enrollmentId: string, _prev: unknown, fd: FormData): Promise<ActionResult<unknown>> {
+  return runAction("pathshala.saveProgressReport", "save the progress report", async () => {
+    const { supabase, centerId, viewer } = await actionContext(
+      (a) => canTakeAttendance(a, classId),
+      "Only the class teacher or the Pathshala principal can write progress reports.",
+    );
+    const period = reqStr(fd, "period", "Period");
+    const publish = str(fd, "publish") === "yes";
+    const enr = must(
+      await supabase.from("pathshala_enrollments").select("id, term_id, class_id").eq("id", enrollmentId).maybeSingle(),
+      "find the enrollment",
+    );
+    if (!enr || enr.class_id !== classId) throw new FormError("That student is no longer in this class.");
+    const sessions = must(await supabase.from("pathshala_sessions").select("id").eq("class_id", classId), "read the class days") ?? [];
+    const marks = sessions.length
+      ? (must(
+          await supabase.from("pathshala_attendance").select("status").eq("enrollment_id", enrollmentId).in("session_id", sessions.map((x) => x.id)),
+          "read the attendance",
+        ) ?? [])
+      : [];
+    const counts = reportAttendance(marks.map((m) => m.status));
+    must(
+      await supabase.from("pathshala_progress_reports").upsert(
+        {
+          center_id: centerId,
+          enrollment_id: enrollmentId,
+          term_id: enr.term_id,
+          period,
+          attendance_present: counts.present,
+          attendance_late: counts.late,
+          attendance_total: counts.total,
+          teacher_comments: str(fd, "teacher_comments"),
+          recommended_next_level_id: str(fd, "recommended_next_level_id"),
+          authored_by: viewer.userId,
+          published_at: publish ? new Date().toISOString() : null,
+        },
+        { onConflict: "enrollment_id,period" },
+      ),
+      "save the progress report",
+    );
+    refresh();
+    return ok(publish ? "Report published — the family can see it in the app." : "Draft saved. Only staff can see it until you publish.");
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Teacher positions and applications (principal)
+// ---------------------------------------------------------------------------
+export async function savePosition(positionId: string | null, _prev: unknown, fd: FormData): Promise<ActionResult<unknown>> {
+  return runAction("pathshala.savePosition", "save the teacher position", async () => {
+    const { supabase, centerId, viewer } = await actionContext(areas.manage, "Only the Pathshala principal can post teacher positions.");
+    const values = {
+      title: reqStr(fd, "title", "Position"),
+      term_id: str(fd, "term_id"),
+      level_id: str(fd, "level_id"),
+      description: str(fd, "description"),
+      min_qualifications: str(fd, "min_qualifications"),
+      status: oneOf(fd, "status", ["open", "closed"] as const, "Status", "open"),
+    };
+    if (positionId) must(await supabase.from("teacher_positions").update(values).eq("id", positionId), "save the teacher position");
+    else must(await supabase.from("teacher_positions").insert({ ...values, center_id: centerId, created_by: viewer.userId }), "post the teacher position");
+    refresh();
+    return ok(positionId ? "Position saved." : values.status === "open" ? "Position posted — members can apply in the app." : "Position saved as closed.");
+  });
+}
+
+export async function setPositionStatus(positionId: string, _prev: unknown, fd: FormData): Promise<ActionResult<unknown>> {
+  return runAction("pathshala.setPositionStatus", "update the teacher position", async () => {
+    const { supabase } = await actionContext(areas.manage, "Only the Pathshala principal can open or close positions.");
+    const status = oneOf(fd, "status", ["open", "closed"] as const, "Status");
+    must(await supabase.from("teacher_positions").update({ status }).eq("id", positionId), "update the teacher position");
+    refresh();
+    return ok(status === "open" ? "Position reopened." : "Position closed — it no longer shows in the app.");
+  });
+}
+
+export async function decideApplication(applicationId: string, _prev: unknown, fd: FormData): Promise<ActionResult<unknown>> {
+  return runAction("pathshala.decideApplication", "record the decision", async () => {
+    const { supabase } = await actionContext(areas.manage, "Only the Pathshala principal can decide on applications.");
+    const outcome = oneOf(fd, "outcome", ["pending", "selected", "not_selected"] as const, "Decision");
+    const note = str(fd, "outcome_note");
+    must(await supabase.from("teacher_applications").update({ outcome, outcome_note: note }).eq("id", applicationId), "record the decision");
+    refresh();
+    return ok(outcome === "selected" ? "Marked selected. Add them to a class from the class page." : outcome === "not_selected" ? "Marked not selected." : "Back to pending.");
   });
 }
 

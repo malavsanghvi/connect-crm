@@ -117,6 +117,9 @@ export default async function MyClassesPage() {
                   <Link href={`/pathshala/announcements?class=${c.id}`} className={buttonClass("ghost")}>
                     Announce to parents
                   </Link>
+                  <Link href={`/pathshala/classes/${c.id}/reports`} className={buttonClass("ghost")}>
+                    Progress reports
+                  </Link>
                 </div>
                 {next !== day && <p className="mt-2 text-xs text-muted">Next class: {formatDate(next)}</p>}
               </Card>

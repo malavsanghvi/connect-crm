@@ -2,12 +2,16 @@
 	@preflight method OPTIONS
 	header {
 		Access-Control-Allow-Origin "*"
-		Access-Control-Allow-Headers "*"
+		Access-Control-Allow-Headers "authorization, *"
 		Access-Control-Allow-Methods "GET, POST, PUT, PATCH, DELETE, OPTIONS"
 		Access-Control-Expose-Headers "*"
 		defer
 	}
-	respond @preflight 204
+	# Answer every CORS preflight here: Storage has no OPTIONS routes of its own
+	# (member photo and recitation uploads from the web app need it).
+	handle @preflight {
+		respond 204
+	}
 	handle_path /auth/v1/* {
 		reverse_proxy auth:9999 {
 			header_down -Access-Control-Allow-Origin
