@@ -129,7 +129,7 @@ async function maybeStepUp(p, secret) {
   const shahHH = 'd0000000-0000-4000-8000-000000000101', dev = 'd0000000-0000-4000-8000-000000000203', anya = 'd0000000-0000-4000-8000-000000000204';
 
   // ── Setup (test data) ─────────────────────────────────────────────────────
-  const workerPw = crypto.randomBytes(24).toString('hex');
+  const workerPw = process.env.WORKER_DB_PASSWORD || crypto.randomBytes(24).toString('hex');   // a shared stack passes the portal's connect_worker password
   sql(`alter role connect_worker with password '${workerPw}'`);
   const conn = sql(`insert into app.integration_connections (center_id, provider, status, display_name)
                     values ('${jsh}', 'stripe', 'connected', 'E2E test account')
@@ -232,7 +232,7 @@ async function maybeStepUp(p, secret) {
   const worker = spawn(process.execPath, [WORKER_JS], {
     env: {
       PATH: process.env.PATH, WORKER_DATABASE_URL: `postgres://connect_worker:${workerPw}@${new URL(DB).host}/postgres`, WORKER_ID: `e2e-worker-${run}`,
-      WORKER_HEALTH_PORT: '3610', WORKER_POLL_MS: '500', WORKER_HEARTBEAT_MS: '2000', SUPABASE_URL: API, SUPABASE_SECRET_KEY: KEYS.SERVICE_KEY,
+      WORKER_HEALTH_PORT: process.env.WORKER_HEALTH_PORT || '3610', WORKER_POLL_MS: '500', WORKER_HEARTBEAT_MS: '2000', SUPABASE_URL: API, SUPABASE_SECRET_KEY: KEYS.SERVICE_KEY,
     },
     stdio: ['ignore', 'pipe', 'pipe'],
   });

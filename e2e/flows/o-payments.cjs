@@ -40,6 +40,7 @@ const DB = process.env.DB || 'postgres://postgres:postgres@localhost:55632/postg
 const OUT = process.env.OUT || '/tmp/claude-0/streams/o-payments';
 const ENVF = process.env.ENVF || path.join(__dirname, '..', '.env.o-payments');
 const MOCK_PORT = Number(process.env.MOCK_PORT || 4390);
+const HEALTH_PORT = process.env.WORKER_HEALTH_PORT || '3510';
 const WORKER_JS = process.env.WORKER_JS || path.join(__dirname, '..', '..', 'worker', 'dist', 'server.js');
 const KEYS = Object.fromEntries(fs.readFileSync(ENVF, 'utf8').trim().split('\n').map((l) => { const i = l.indexOf('='); return [l.slice(0, i), l.slice(i + 1)]; }));
 fs.mkdirSync(OUT, { recursive: true });
@@ -134,13 +135,13 @@ const card = (p, title) => p.locator('section.cc-card').filter({ has: p.getByRol
   // ── Mock providers, and the worker (connect_worker) pointed at them ──────
   const mock = createPaymentsMock({ portal: BASE, stripeWebhookSecret: 'whsec_e2e_fake', paypalWebhookId: 'WH-E2E-FAKE' });
   const mockBase = await mock.listen(MOCK_PORT);
-  const workerPw = crypto.randomBytes(24).toString('hex');
+  const workerPw = process.env.WORKER_DB_PASSWORD || crypto.randomBytes(24).toString('hex');   // a shared stack passes the portal's connect_worker password
   sql(`alter role connect_worker with password '${workerPw}'`);
   const logs = [];
   const worker = spawn(process.execPath, [WORKER_JS], {
     env: {
       PATH: process.env.PATH, WORKER_DATABASE_URL: `postgres://connect_worker:${workerPw}@${new URL(DB).host}/postgres`, WORKER_ID: `e2e-payments-${run}`,
-      WORKER_HEALTH_PORT: '3510', WORKER_POLL_MS: '400', WORKER_HEARTBEAT_MS: '2000',
+      WORKER_HEALTH_PORT: HEALTH_PORT, WORKER_POLL_MS: '400', WORKER_HEARTBEAT_MS: '2000',
       STRIPE_TEST_SECRET_KEY: 'sk_test_e2e_platform_fake', STRIPE_CLIENT_ID: 'ca_e2e_fake', STRIPE_API_BASE: mockBase, STRIPE_CONNECT_BASE: mockBase,
       PAYPAL_SANDBOX_CLIENT_ID: 'sb_e2e_client', PAYPAL_SANDBOX_CLIENT_SECRET: 'sb_e2e_secret', PAYPAL_SANDBOX_API_BASE: mockBase, PAYPAL_PARTNER_ID: 'PARTNERE2E',
     },
@@ -149,7 +150,7 @@ const card = (p, title) => p.locator('section.cc-card').filter({ has: p.getByRol
   worker.stdout.on('data', (d) => logs.push(...d.toString().trim().split('\n')));
   worker.stderr.on('data', (d) => logs.push(...d.toString().trim().split('\n')));
   const stop = async () => { worker.kill('SIGTERM'); await mock.close().catch(() => {}); };
-  ok(await until(() => fetch('http://127.0.0.1:3510/health').then((r) => r.status === 200).catch(() => false), 20000), 'the worker starts against the mock providers');
+  ok(await until(() => fetch(`http://127.0.0.1:${HEALTH_PORT}/health`).then((r) => r.status === 200).catch(() => false), 20000), 'the worker starts against the mock providers');
 
   const b = await chromium.launch();
   try {

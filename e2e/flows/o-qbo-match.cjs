@@ -107,8 +107,9 @@ function setModule(on, reason) {
 async function jobDone(kind, afterId, { byUser = false, ms = 90000 } = {}) {
   const t = Date.now();
   const who = byUser ? ' and created_by is not null' : '';
-  const done = await until(() => sql(`select count(*) from app.jobs where center_id = '${C}' and kind = '${kind}' and id > ${afterId}${who} and status in ('queued','running')`) === '0'
-    && sql(`select count(*) from app.jobs where center_id = '${C}' and kind = '${kind}' and id > ${afterId}${who}`) !== '0', ms);
+  // One statement: two separate counts race with a job queued between them.
+  const done = await until(() => sql(`select count(*) filter (where status in ('queued','running')) = 0 and count(*) > 0 from app.jobs
+                                        where center_id = '${C}' and kind = '${kind}' and id > ${afterId}${who}`) === 't', ms);
   if (!done) console.log(`NOTE ${kind} after job ${afterId} did not finish in ${Math.round((Date.now() - t) / 1000)} s`);
   return done;
 }
@@ -151,8 +152,15 @@ async function mapByCard(p, row, search, householdNumber, reason, personLabel = 
        delete from app.integration_connections where center_id = '${C}' and provider = 'quickbooks_online';
        delete from app.center_modules where center_id = '${C}' and module_key = 'accounting';
        update app.funds set qbo_class_id = 'CL-CON' where center_id = '${C}' and key = 'construction';`);
-  const workerPw = crypto.randomBytes(24).toString('hex');
+  const workerPw = process.env.WORKER_DB_PASSWORD || crypto.randomBytes(24).toString('hex');   // a shared stack passes the portal's connect_worker password
   sql(`grant connect_worker to postgres; alter role connect_worker with password '${workerPw}'`);
+  // Another flow on a shared stack may have given the admin an authenticator app; this flow signs in
+  // with the email code only, so remove it (test logins only).
+  const adminUid = sql("select id from auth.users where email = 'admin@jsh.test'");
+  for (const f of JSON.parse(sql(`select coalesce(json_agg(id), '[]') from auth.mfa_factors where user_id = '${adminUid}'`))) {
+    const r = await fetch(`${API}/auth/v1/admin/users/${adminUid}/factors/${f}`, { method: 'DELETE', headers: { apikey: KEYS.SERVICE_KEY, authorization: `Bearer ${KEYS.SERVICE_KEY}` } });
+    if (!r.ok) console.log(`NOTE could not remove the admin's authenticator ${f}: ${r.status}`);
+  }
   const qbo = await startQbo({ company: COMPANY, token: 'mock-access-token', realm: '9130355' });
   const ai = await startAnthropic();
   const auditMark = Number(sql('select coalesce(max(id), 0) from app.audit_log'));
@@ -161,7 +169,7 @@ async function mapByCard(p, row, search, householdNumber, reason, personLabel = 
   const worker = spawn(process.execPath, [WORKER_JS], {
     env: {
       PATH: process.env.PATH, WORKER_DATABASE_URL: `postgres://connect_worker:${workerPw}@${new URL(DB).host}/postgres`, WORKER_ID: 'e2e-qbo-match',
-      WORKER_POLL_MS: '500', WORKER_HEARTBEAT_MS: '5000', WORKER_HEALTH_PORT: '3711',
+      WORKER_POLL_MS: '500', WORKER_HEARTBEAT_MS: '5000', WORKER_HEALTH_PORT: process.env.WORKER_HEALTH_PORT || '3711',
       INTUIT_API_BASE: qbo.url, ANTHROPIC_API_KEY: 'test-key-not-real', ANTHROPIC_BASE_URL: ai.url,
     },
   });
@@ -291,7 +299,8 @@ async function mapByCard(p, row, search, householdNumber, reason, personLabel = 
     await go(p, `${PORTAL}/accounting/qbo/matching`);
     await p.getByRole('button', { name: 'Pull from QuickBooks now' }).click();
     await jobDone('qbo.pull_customers_history', mark, { byUser: true });
-    ok(JSON.parse(sql(`select result from app.jobs where kind = 'qbo.pull_customers_history' and id > ${mark} and created_by is not null order by id desc limit 1`) || '{}').mode === 'changes', 'a second pull reads only the changes (CDC)');
+    const pull2 = sql(`select result from app.jobs where kind = 'qbo.pull_customers_history' and id > ${mark} and created_by is not null order by id desc limit 1`) || '{}';
+    ok(JSON.parse(pull2).mode === 'changes', `a second pull reads only the changes (CDC): ${pull2.slice(0, 80)}`);
     mark = lastJobId();
     sql(`select app.enqueue_job('${C}', 'qbo.bring_in_history', '{"qbo_customer_id":"1187"}'::jsonb)`);
     await jobDone('qbo.bring_in_history', mark);

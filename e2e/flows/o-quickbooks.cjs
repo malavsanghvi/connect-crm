@@ -125,7 +125,7 @@ async function submit(p, scope, button, expect, allowStepUp = true) {
   const today = sql(`select to_char((now() at time zone (select time_zone from app.centers where slug = 'jsh'))::date, 'YYYY-MM-DD')`);
 
   // ── Setup (test data only) ────────────────────────────────────────────────
-  const workerPw = crypto.randomBytes(24).toString('hex');
+  const workerPw = process.env.WORKER_DB_PASSWORD || crypto.randomBytes(24).toString('hex');   // a shared stack passes the portal's connect_worker password
   sql(`alter role connect_worker with password '${workerPw}'`);
   await fetch(`${MOCK}/__mock/reset`, { method: 'POST' });
   sql(`update app.integration_connections set status = 'disconnected', settings = '{}', external_account_id = null, display_name = null
@@ -201,7 +201,7 @@ async function submit(p, scope, button, expect, allowStepUp = true) {
   const worker = spawn(process.execPath, [WORKER_JS], {
     env: {
       PATH: process.env.PATH, WORKER_DATABASE_URL: `postgres://connect_worker:${workerPw}@${new URL(DB).host}/postgres`, WORKER_ID: `e2e-qbo-${run}`,
-      WORKER_HEALTH_PORT: '3910', WORKER_POLL_MS: '500', WORKER_HEARTBEAT_MS: '2000',
+      WORKER_HEALTH_PORT: process.env.WORKER_HEALTH_PORT || '3910', WORKER_POLL_MS: '500', WORKER_HEARTBEAT_MS: '2000',
       INTUIT_CLIENT_ID: 'intuit-test-client', INTUIT_CLIENT_SECRET: 'intuit-test-secret-000', INTUIT_OAUTH_BASE: MOCK, INTUIT_API_BASE: MOCK,
     },
     stdio: ['ignore', 'pipe', 'pipe'],
@@ -231,7 +231,8 @@ async function submit(p, scope, button, expect, allowStepUp = true) {
   const choices = p.locator('section', { hasText: '3 · Basis, posting and go-live date' });
   await choices.locator('#qbo-golive').fill(today);
   await choices.locator('#qbo-set-reason').fill('Cash basis; books in QuickBooks until today');
-  await submit(p, choices, 'Save choices', 'Only money received on or after the go-live date', false);
+  // Wait for the saved state (the card's own description already says "Only money received on or after…").
+  await submit(p, choices, 'Save choices', () => sql(`select settings->>'go_live_date' from app.integration_connections where center_id = '${jsh}' and provider = 'quickbooks_online'`) === today, false);
   ok(sql(`select settings->>'basis' || '|' || (settings->>'posting') || '|' || (settings->>'go_live_date') from app.integration_connections where id = '${conn}'`) === `cash|per_txn|${today}`,
     'basis, posting and the go-live date are saved');
   const map = [
