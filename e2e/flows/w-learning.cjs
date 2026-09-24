@@ -19,7 +19,7 @@ const MAIL = process.env.MAIL || 'http://localhost:55324';
 const API = process.env.API || 'http://localhost:55321';
 const DB = process.env.DB || 'postgres://postgres:postgres@localhost:55432/postgres';
 const OUT = process.env.OUT || '/tmp/claude-0/streams/w-learning/flows';
-const ONLY = (process.env.ONLY || '1,2,3,4,5,6,7,8').split(',').map(Number);
+const ONLY = (process.env.ONLY || '1,2,3,4,5,6,7,8,9').split(',').map(Number);
 fs.mkdirSync(OUT, { recursive: true });
 const env = Object.fromEntries(
   fs
@@ -812,6 +812,53 @@ async function journeyTeachers(browser) {
 }
 
 // ---------------------------------------------------------------------------
+// 9. Portal → member round trip for My Jain Way settings: a new practice and the bonus rule
+// ---------------------------------------------------------------------------
+async function journeyPracticeSettings(browser) {
+  console.log('\n# 9. Practices & points settings reach the member app');
+  const NAME = `Evening samayik ${RUN}`;
+  const admin = await portalLogin(browser, 'admin@jsh.test');
+  await pgo(admin, '/content/practices');
+  await admin.getByRole('button', { name: 'New practice' }).click();
+  const d = admin.getByRole('dialog');
+  await d.getByLabel('Practice').fill(NAME).catch(async () => d.locator('input[name=name]').fill(NAME));
+  await d.locator('input[name=default_time]').fill('19:30');
+  await d.locator('input[name=points]').fill('12');
+  await submitIn(admin, d, 'Add practice');
+  const pid = sql(`select id from app.practices where name='${NAME}'`);
+  ok(!!pid && sql(`select points||'|'||default_time from app.practices where id='${pid}'`) === '12|19:30:00', 'practice added with its time and points');
+  ok(audit('practices', pid).startsWith('portal|/content/practices|jain_way|'), 'practice audit row: portal · /content/practices · jain_way');
+  const before = sql(`select coalesce(rules->'points'->>'day_complete_bonus','20') from app.centers where id='${CENTER}'`);
+  await pgo(admin, '/content/practices');
+  const form = admin.locator('form').filter({ has: admin.getByRole('button', { name: 'Save rules' }) });
+  await form.locator('input[name=day_complete_bonus]').fill('25');
+  await submitIn(admin, form, 'Save rules');
+  ok(sql(`select rules->'points'->>'day_complete_bonus' from app.centers where id='${CENTER}'`) === '25', 'day-complete bonus saved as 25');
+
+  const priya = await memberLogin(browser, 'priya@jsh.test');
+  await mgo(priya, '/jain-way');
+  await priya.getByRole('button', { name: /Add or remove practices|Choose practices/ }).first().click();
+  await priya.waitForTimeout(800);
+  ok((await priya.getByRole('button', { name: `Add: ${NAME}` }).count()) > 0, 'the member catalog offers the new practice');
+  const t = await priya.innerText('body');
+  ok(/7:30 PM/.test(t) && t.includes('12 points'), 'the catalog row shows its time and points');
+  await shot(priya, '9-catalog');
+  const body = t;
+  ok(!body.includes('Day complete') || body.includes('+25 completion bonus'), 'Today uses the new bonus in its copy');
+  // restore
+  await pgo(admin, '/content/practices');
+  await form.locator('input[name=day_complete_bonus]').fill(before);
+  await submitIn(admin, form, 'Save rules');
+  await pgo(admin, '/content/practices');
+  await admin.locator('tr').filter({ hasText: NAME }).getByRole('button', { name: 'Edit' }).click();
+  const e = admin.getByRole('dialog');
+  await e.getByRole('switch').first().click();
+  await submitIn(admin, e, 'Save practice');
+  ok(sql(`select active::text from app.practices where id='${pid}'`) === 'false', 'practice switched inactive again (hidden from members)');
+  await Promise.all([admin.context().close(), priya.context().close()]);
+}
+
+// ---------------------------------------------------------------------------
 (async () => {
   const browser = await chromium.launch();
   try {
@@ -823,6 +870,7 @@ async function journeyTeachers(browser) {
     if (ONLY.includes(6)) await journeyGovernance(browser);
     if (ONLY.includes(7)) await journeyModules(browser);
     if (ONLY.includes(8)) await journeyTeachers(browser);
+    if (ONLY.includes(9)) await journeyPracticeSettings(browser);
   } finally {
     await browser.close();
   }
