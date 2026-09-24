@@ -149,3 +149,61 @@ export function missingToEnable(key: string, states: readonly ModuleState[]): st
 export function moduleOffMessage(key: ModuleKey, centerName: string): string {
   return `The ${moduleDef(key).label} module is switched off for ${centerName}. An administrator can switch it on in Settings › Modules.`;
 }
+
+// ---------------------------------------------------------------------------
+// Settings › Modules rows: the database catalog (app.modules) with this
+// center's switches (app.center_modules) laid over it. No row = on.
+// ---------------------------------------------------------------------------
+export type CatalogLike = { key: string; label: string; description: string | null; core: boolean; depends_on: string[] | null; sort: number | null };
+export type SwitchLike = { module_key: string; enabled: boolean; changed_by: string | null; changed_at: string | null; reason: string | null };
+export type ModuleRow = {
+  key: string;
+  label: string;
+  description: string;
+  core: boolean;
+  dependsOn: string[];
+  enabled: boolean;
+  changedBy: string | null;
+  changedAt: string | null;
+  reason: string | null;
+};
+
+/** With `catalog` null (not in the database yet), the registry above stands in. */
+export function buildModuleRows(catalog: readonly CatalogLike[] | null, switches: readonly SwitchLike[]): ModuleRow[] {
+  const base: readonly CatalogLike[] =
+    catalog ?? MODULES.map((m, i) => ({ key: m.key, label: m.label, description: m.description, core: m.core, depends_on: [...m.dependsOn], sort: i }));
+  const byKey = new Map(switches.map((s) => [s.module_key, s]));
+  const order = (c: CatalogLike) => c.sort ?? MODULE_KEYS.indexOf(c.key as ModuleKey);
+  return [...base]
+    .sort((a, b) => order(a) - order(b) || a.key.localeCompare(b.key))
+    .map((c) => {
+      const s = byKey.get(c.key);
+      return {
+        key: c.key,
+        label: c.label,
+        description: c.description ?? (isModuleKey(c.key) ? moduleDef(c.key).description : ""),
+        core: c.core,
+        dependsOn: c.depends_on ?? [],
+        enabled: c.core ? true : (s?.enabled ?? true),
+        changedBy: s?.changed_by ?? null,
+        changedAt: s?.changed_at ?? null,
+        reason: s?.reason ?? null,
+      };
+    });
+}
+
+/** Plain-English reason a switch cannot be flipped right now, or null when it can. */
+export function switchBlocker(key: string, turnOn: boolean, rows: readonly ModuleRow[]): string | null {
+  const label = (k: string) => rows.find((r) => r.key === k)?.label ?? moduleLabelFor(k);
+  const states = rows.map((r) => ({ key: r.key, enabled: r.enabled, core: r.core, dependsOn: r.dependsOn }));
+  if (turnOn) {
+    const missing = missingToEnable(key, states);
+    return missing.length > 0 ? `${label(key)} needs ${missing.map(label).join(" and ")} — switch that on first.` : null;
+  }
+  const b = blockersToDisable(key, states);
+  if (b.core) return `${label(key)} is a core module and is always on.`;
+  if (b.dependents.length > 0) {
+    return `${b.dependents.map(label).join(" and ")} ${b.dependents.length === 1 ? "depends" : "depend"} on ${label(key)} — switch ${b.dependents.length === 1 ? "it" : "them"} off first.`;
+  }
+  return null;
+}

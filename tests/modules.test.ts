@@ -154,3 +154,46 @@ describe("moduleOffMessage", () => {
     expect(moduleOffMessage("store", "JSH")).toBe("The Satvik Store module is switched off for JSH. An administrator can switch it on in Settings › Modules.");
   });
 });
+
+describe("Settings › Modules rows", () => {
+  it("falls back to the registry, all on, when the catalog is missing", async () => {
+    const { buildModuleRows } = await import("@/lib/modules");
+    const rows = buildModuleRows(null, []);
+    expect(rows.map((r) => r.key)).toEqual([...MODULE_KEYS]);
+    expect(rows.every((r) => r.enabled)).toBe(true);
+    expect(rows.find((r) => r.key === "bolis")!.dependsOn).toEqual(["giving"]);
+  });
+  it("lays switches over the catalog; missing row = on, core always on", async () => {
+    const { buildModuleRows } = await import("@/lib/modules");
+    const rows = buildModuleRows(
+      [
+        { key: "giving", label: "Pledges & donations", description: null, core: false, depends_on: ["people"], sort: 20 },
+        { key: "people", label: "Members & families", description: "Core", core: true, depends_on: null, sort: 10 },
+        { key: "store", label: "Satvik Store", description: "Shop", core: false, depends_on: ["people"], sort: 30 },
+      ],
+      [
+        { module_key: "store", enabled: false, changed_by: "u1", changed_at: "2026-09-24T10:00:00Z", reason: "Closed for renovation" },
+        { module_key: "people", enabled: false, changed_by: null, changed_at: null, reason: null },
+      ],
+    );
+    expect(rows.map((r) => [r.key, r.enabled])).toEqual([
+      ["people", true],
+      ["giving", true],
+      ["store", false],
+    ]);
+    expect(rows[1].description).toBe(MODULES.find((m) => m.key === "giving")!.description);
+    expect(rows[2].reason).toBe("Closed for renovation");
+  });
+  it("explains blocked switches in plain English", async () => {
+    const { buildModuleRows, switchBlocker } = await import("@/lib/modules");
+    const rows = buildModuleRows(null, [
+      { module_key: "content", enabled: false, changed_by: null, changed_at: null, reason: null },
+      { module_key: "niva", enabled: false, changed_by: null, changed_at: null, reason: null },
+    ]);
+    expect(switchBlocker("people", false, rows)).toBe("Members & families is a core module and is always on.");
+    expect(switchBlocker("giving", false, rows)).toBe("Bolis and Accounting & QuickBooks depend on Pledges & donations — switch them off first.");
+    expect(switchBlocker("bolis", false, rows)).toBeNull();
+    expect(switchBlocker("niva", true, rows)).toBe("Niva assistant needs Content & library — switch that on first.");
+    expect(switchBlocker("content", true, rows)).toBeNull();
+  });
+});
