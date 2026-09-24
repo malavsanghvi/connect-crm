@@ -99,7 +99,7 @@ describe("visibleNav (flat module list)", () => {
   it("shows settings to a center admin and opens on the first tab they can use", () => {
     const nav = visibleNav({ permissions: ["roles.manage", "settings.manage"], isPlatformAdmin: false });
     const settings = nav.find((m) => m.key === "settings")!;
-    expect(settings.tabs.map((t) => t.label)).toEqual(["Rules", "Roles & entitlements", "Onboarding fields", "Notifications", "Security", "Modules", "Team", "Agreements", "Member app", "Limits", "Data import", "Custom fields"]);
+    expect(settings.tabs.map((t) => t.label)).toEqual(["Rules", "Roles & entitlements", "Onboarding fields", "Notifications", "Security", "Modules", "Team", "Agreements", "Member app", "Limits", "Data import", "Custom fields", "Email", "Texting", "WhatsApp"]);
     expect(nav.some((m) => m.key === "platform")).toBe(false);
     expect(nav.some((m) => m.key === "people")).toBe(false);
     const rolesOnly = visibleNav({ permissions: ["roles.manage"], isPlatformAdmin: false }).find((m) => m.key === "settings")!;
@@ -124,6 +124,9 @@ describe("visibleNav (flat module list)", () => {
       "Data import",
       "Custom fields",
       "Data quality",
+      "Email",
+      "Texting",
+      "WhatsApp",
     ]);
     expect(nav.find((m) => m.key === "platform")!.tabs.map((t) => t.label)).toEqual(["Centers", "New center wizard", "Verification"]);
   });

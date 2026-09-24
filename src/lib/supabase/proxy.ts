@@ -7,7 +7,11 @@ import { PATHNAME_HEADER, clientScreen, newRequestId, traceHeaders } from "@/lib
 import { normalizeBaseDomain, sharedCookieDomain } from "@/lib/tenancy";
 
 /** Paths reachable without a session (sign-in, the public community dashboard /c/<slug>, staff invitation links, the TLS check /api/tenancy/tls-ask). Everything else redirects to /login. */
-export const PUBLIC_PATHS = ["/login", "/c", "/invite", "/api/tenancy"];
+export const PUBLIC_PATHS = [
+  "/login", "/c", "/invite", "/api/tenancy",
+  // o-messaging: Supabase Auth hooks, provider webhooks and email unsubscribe links (each checks its own signature).
+  "/api/auth-hooks", "/api/webhooks", "/api/messaging/unsubscribe",
+];
 
 export function isPublicPath(pathname: string): boolean {
   return PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`));

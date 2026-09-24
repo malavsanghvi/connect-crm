@@ -1589,6 +1589,87 @@ export type Database = {
         };
         Relationships: [];
       };
+      email_domains: {
+        Row: {
+          id: string;
+          center_id: string;
+          domain: string;
+          provider: string;
+          provider_domain_id: string | null;
+          dns_records: Json;
+          status: string;
+          last_checked_at: string | null;
+          verified_at: string | null;
+          last_error: string | null;
+          created_by: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          center_id: string;
+          domain: string;
+          provider: string;
+          provider_domain_id?: string | null;
+          dns_records?: Json;
+          status?: string;
+          last_checked_at?: string | null;
+          verified_at?: string | null;
+          last_error?: string | null;
+          created_by?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          center_id?: string;
+          domain?: string;
+          provider?: string;
+          provider_domain_id?: string | null;
+          dns_records?: Json;
+          status?: string;
+          last_checked_at?: string | null;
+          verified_at?: string | null;
+          last_error?: string | null;
+          created_by?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      email_senders: {
+        Row: {
+          id: string;
+          center_id: string;
+          purpose: string;
+          from_name: string;
+          from_address: string;
+          reply_to: string | null;
+          verified: boolean;
+          updated_by: string | null;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          center_id: string;
+          purpose: string;
+          from_name: string;
+          from_address: string;
+          reply_to?: string | null;
+          verified?: boolean;
+          updated_by?: string | null;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          center_id?: string;
+          purpose?: string;
+          from_name?: string;
+          from_address?: string;
+          reply_to?: string | null;
+          verified?: boolean;
+          updated_by?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       entitlement_defaults: {
         Row: {
           environment: string;
@@ -3332,6 +3413,51 @@ export type Database = {
         };
         Relationships: [];
       };
+      message_suppressions: {
+        Row: {
+          id: string;
+          center_id: string | null;
+          channel: string;
+          address: string;
+          reason: string;
+          detail: string | null;
+          message_id: string | null;
+          created_by: string | null;
+          created_at: string;
+          lifted_at: string | null;
+          lifted_by: string | null;
+          lift_reason: string | null;
+        };
+        Insert: {
+          id?: string;
+          center_id?: string | null;
+          channel: string;
+          address: string;
+          reason: string;
+          detail?: string | null;
+          message_id?: string | null;
+          created_by?: string | null;
+          created_at?: string;
+          lifted_at?: string | null;
+          lifted_by?: string | null;
+          lift_reason?: string | null;
+        };
+        Update: {
+          id?: string;
+          center_id?: string | null;
+          channel?: string;
+          address?: string;
+          reason?: string;
+          detail?: string | null;
+          message_id?: string | null;
+          created_by?: string | null;
+          created_at?: string;
+          lifted_at?: string | null;
+          lifted_by?: string | null;
+          lift_reason?: string | null;
+        };
+        Relationships: [];
+      };
       message_templates: {
         Row: {
           id: string;
@@ -3368,7 +3494,7 @@ export type Database = {
       messages: {
         Row: {
           id: string;
-          center_id: string;
+          center_id: string | null;
           campaign_id: string | null;
           person_id: string | null;
           to_address: string | null;
@@ -3386,10 +3512,16 @@ export type Database = {
           failure_reason: string | null;
           provider_ref: string | null;
           created_at: string;
+          purpose: string | null;
+          sandbox: boolean;
+          provider: string | null;
+          segments: number | null;
+          job_id: number | null;
+          created_by: string | null;
         };
         Insert: {
           id?: string;
-          center_id: string;
+          center_id?: string | null;
           campaign_id?: string | null;
           person_id?: string | null;
           to_address?: string | null;
@@ -3407,10 +3539,16 @@ export type Database = {
           failure_reason?: string | null;
           provider_ref?: string | null;
           created_at?: string;
+          purpose?: string | null;
+          sandbox?: boolean;
+          provider?: string | null;
+          segments?: number | null;
+          job_id?: number | null;
+          created_by?: string | null;
         };
         Update: {
           id?: string;
-          center_id?: string;
+          center_id?: string | null;
           campaign_id?: string | null;
           person_id?: string | null;
           to_address?: string | null;
@@ -3428,6 +3566,48 @@ export type Database = {
           failure_reason?: string | null;
           provider_ref?: string | null;
           created_at?: string;
+          purpose?: string | null;
+          sandbox?: boolean;
+          provider?: string | null;
+          segments?: number | null;
+          job_id?: number | null;
+          created_by?: string | null;
+        };
+        Relationships: [];
+      };
+      messaging_settings: {
+        Row: {
+          center_id: string;
+          email_provider: string;
+          footer_postal_address: string | null;
+          footer_note: string | null;
+          last_test_at: string | null;
+          last_test_channel: string | null;
+          last_test_status: string | null;
+          updated_by: string | null;
+          updated_at: string;
+        };
+        Insert: {
+          center_id: string;
+          email_provider?: string;
+          footer_postal_address?: string | null;
+          footer_note?: string | null;
+          last_test_at?: string | null;
+          last_test_channel?: string | null;
+          last_test_status?: string | null;
+          updated_by?: string | null;
+          updated_at?: string;
+        };
+        Update: {
+          center_id?: string;
+          email_provider?: string;
+          footer_postal_address?: string | null;
+          footer_note?: string | null;
+          last_test_at?: string | null;
+          last_test_channel?: string | null;
+          last_test_status?: string | null;
+          updated_by?: string | null;
+          updated_at?: string;
         };
         Relationships: [];
       };
@@ -4936,6 +5116,8 @@ export type Database = {
           platform: string;
           token: string;
           last_seen_at: string;
+          invalid_at: string | null;
+          invalid_reason: string | null;
         };
         Insert: {
           id?: string;
@@ -4944,6 +5126,8 @@ export type Database = {
           platform: string;
           token: string;
           last_seen_at?: string;
+          invalid_at?: string | null;
+          invalid_reason?: string | null;
         };
         Update: {
           id?: string;
@@ -4952,6 +5136,8 @@ export type Database = {
           platform?: string;
           token?: string;
           last_seen_at?: string;
+          invalid_at?: string | null;
+          invalid_reason?: string | null;
         };
         Relationships: [];
       };
@@ -5033,6 +5219,48 @@ export type Database = {
           personal_note?: string | null;
           updated_at?: string;
           updated_by?: string | null;
+        };
+        Relationships: [];
+      };
+      recipient_verifications: {
+        Row: {
+          id: string;
+          center_id: string;
+          recipient_id: string;
+          code_hash: string;
+          expires_at: string;
+          attempts: number;
+          message_id: string | null;
+          sent_by: string | null;
+          created_at: string;
+          confirmed_at: string | null;
+          confirmed_by: string | null;
+        };
+        Insert: {
+          id?: string;
+          center_id: string;
+          recipient_id: string;
+          code_hash: string;
+          expires_at: string;
+          attempts?: number;
+          message_id?: string | null;
+          sent_by?: string | null;
+          created_at?: string;
+          confirmed_at?: string | null;
+          confirmed_by?: string | null;
+        };
+        Update: {
+          id?: string;
+          center_id?: string;
+          recipient_id?: string;
+          code_hash?: string;
+          expires_at?: string;
+          attempts?: number;
+          message_id?: string | null;
+          sent_by?: string | null;
+          created_at?: string;
+          confirmed_at?: string | null;
+          confirmed_by?: string | null;
         };
         Relationships: [];
       };
@@ -6209,6 +6437,51 @@ export type Database = {
         };
         Relationships: [];
       };
+      texting_registrations: {
+        Row: {
+          id: string;
+          center_id: string;
+          kind: string;
+          brand_id: string | null;
+          campaign_id: string | null;
+          status: string;
+          submitted_at: string | null;
+          approved_at: string | null;
+          detail: Json;
+          submitted_by: string | null;
+          updated_by: string | null;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          center_id: string;
+          kind: string;
+          brand_id?: string | null;
+          campaign_id?: string | null;
+          status?: string;
+          submitted_at?: string | null;
+          approved_at?: string | null;
+          detail?: Json;
+          submitted_by?: string | null;
+          updated_by?: string | null;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          center_id?: string;
+          kind?: string;
+          brand_id?: string | null;
+          campaign_id?: string | null;
+          status?: string;
+          submitted_at?: string | null;
+          approved_at?: string | null;
+          detail?: Json;
+          submitted_by?: string | null;
+          updated_by?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       thread_messages: {
         Row: {
           id: string;
@@ -6521,6 +6794,42 @@ export type Database = {
         };
         Relationships: [];
       };
+      whatsapp_accounts: {
+        Row: {
+          id: string;
+          center_id: string;
+          waba_id: string | null;
+          phone_number_id: string | null;
+          display_name: string | null;
+          status: string;
+          detail: Json;
+          updated_by: string | null;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          center_id: string;
+          waba_id?: string | null;
+          phone_number_id?: string | null;
+          display_name?: string | null;
+          status?: string;
+          detail?: Json;
+          updated_by?: string | null;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          center_id?: string;
+          waba_id?: string | null;
+          phone_number_id?: string | null;
+          display_name?: string | null;
+          status?: string;
+          detail?: Json;
+          updated_by?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       whatsapp_groups: {
         Row: {
           id: string;
@@ -6590,6 +6899,51 @@ export type Database = {
           handled_by?: string | null;
           handled_at?: string | null;
           created_at?: string;
+        };
+        Relationships: [];
+      };
+      whatsapp_template_submissions: {
+        Row: {
+          id: string;
+          center_id: string;
+          name: string;
+          language: string;
+          category: string;
+          body: string;
+          status: string;
+          meta_template_id: string | null;
+          rejection_reason: string | null;
+          submitted_by: string | null;
+          submitted_at: string;
+          decided_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          center_id: string;
+          name: string;
+          language?: string;
+          category: string;
+          body: string;
+          status?: string;
+          meta_template_id?: string | null;
+          rejection_reason?: string | null;
+          submitted_by?: string | null;
+          submitted_at?: string;
+          decided_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          center_id?: string;
+          name?: string;
+          language?: string;
+          category?: string;
+          body?: string;
+          status?: string;
+          meta_template_id?: string | null;
+          rejection_reason?: string | null;
+          submitted_by?: string | null;
+          submitted_at?: string;
+          decided_at?: string | null;
         };
         Relationships: [];
       };
@@ -6679,6 +7033,23 @@ export type Database = {
           p_document: string;
           p_ip?: string;
           p_user_agent?: string;
+        };
+        Returns: string;
+      };
+      add_email_domain: {
+        Args: {
+          p_center: string;
+          p_domain: string;
+          p_reason: string;
+        };
+        Returns: string;
+      };
+      add_message_suppression: {
+        Args: {
+          p_center: string;
+          p_channel: string;
+          p_address: string;
+          p_reason: string;
         };
         Returns: string;
       };
@@ -6920,6 +7291,13 @@ export type Database = {
           p_payer_person?: string;
         };
         Returns: string;
+      };
+      confirm_recipient_verification: {
+        Args: {
+          p_recipient: string;
+          p_code: string;
+        };
+        Returns: boolean;
       };
       contact_coverage: {
         Args: {
@@ -7353,6 +7731,13 @@ export type Database = {
         };
         Returns: Json;
       };
+      lift_message_suppression: {
+        Args: {
+          p_id: string;
+          p_reason: string;
+        };
+        Returns: undefined;
+      };
       link_account: {
         Args: {
           p_center: string;
@@ -7395,6 +7780,18 @@ export type Database = {
           p_take?: string[];
         };
         Returns: undefined;
+      };
+      messaging_can_manage: {
+        Args: {
+          p_center: string;
+        };
+        Returns: boolean;
+      };
+      messaging_can_view: {
+        Args: {
+          p_center: string;
+        };
+        Returns: boolean;
       };
       module_enabled: {
         Args: {
@@ -7622,6 +8019,12 @@ export type Database = {
         };
         Returns: boolean;
       };
+      recheck_email_domain: {
+        Args: {
+          p_domain: string;
+        };
+        Returns: number;
+      };
       record_export: {
         Args: {
           p_center: string;
@@ -7665,6 +8068,14 @@ export type Database = {
           p_session: string;
           p_token: string;
           p_person?: string;
+        };
+        Returns: string;
+      };
+      register_push_device: {
+        Args: {
+          p_center: string;
+          p_token: string;
+          p_platform: string;
         };
         Returns: string;
       };
@@ -7732,6 +8143,47 @@ export type Database = {
         };
         Returns: boolean;
       };
+      save_email_footer: {
+        Args: {
+          p_center: string;
+          p_postal_address: string;
+          p_note: string;
+          p_reason: string;
+        };
+        Returns: undefined;
+      };
+      save_email_sender: {
+        Args: {
+          p_center: string;
+          p_purpose: string;
+          p_from_name: string;
+          p_from_address: string;
+          p_reply_to: string;
+          p_reason: string;
+        };
+        Returns: string;
+      };
+      save_texting_registration: {
+        Args: {
+          p_center: string;
+          p_kind: string;
+          p_detail: Json;
+          p_submit: boolean;
+          p_reason: string;
+        };
+        Returns: string;
+      };
+      save_whatsapp_account: {
+        Args: {
+          p_center: string;
+          p_waba_id: string;
+          p_phone_number_id: string;
+          p_display_name: string;
+          p_phone: string;
+          p_reason: string;
+        };
+        Returns: string;
+      };
       segment_recipient_count: {
         Args: {
           p_center: string;
@@ -7747,6 +8199,20 @@ export type Database = {
           p_message?: string;
         };
         Returns: number;
+      };
+      send_recipient_verification: {
+        Args: {
+          p_recipient: string;
+        };
+        Returns: string;
+      };
+      send_test_message: {
+        Args: {
+          p_center: string;
+          p_channel: string;
+          p_to?: string;
+        };
+        Returns: string;
       };
       set_audit_context: {
         Args: {
@@ -7786,6 +8252,14 @@ export type Database = {
         };
         Returns: Json;
       };
+      set_email_provider: {
+        Args: {
+          p_center: string;
+          p_provider: string;
+          p_reason: string;
+        };
+        Returns: undefined;
+      };
       set_integration_secret: {
         Args: {
           p_connection: string;
@@ -7794,6 +8268,16 @@ export type Database = {
           p_reason: string;
         };
         Returns: Json;
+      };
+      set_messaging_review_status: {
+        Args: {
+          p_kind: string;
+          p_id: string;
+          p_status: string;
+          p_note: string;
+          p_refs?: Json;
+        };
+        Returns: undefined;
       };
       set_module_enabled: {
         Args: {
@@ -7833,6 +8317,12 @@ export type Database = {
           p_center: string;
         };
         Returns: { person_id: string; name: string; roles: string }[];
+      };
+      sms_segments: {
+        Args: {
+          p_text: string;
+        };
+        Returns: number;
       };
       staff_add_person: {
         Args: {
@@ -7927,6 +8417,17 @@ export type Database = {
           p_attendees: Json;
           p_commitment_cents?: number;
           p_commitment_mode?: string;
+        };
+        Returns: string;
+      };
+      submit_whatsapp_template: {
+        Args: {
+          p_center: string;
+          p_name: string;
+          p_language: string;
+          p_category: string;
+          p_body: string;
+          p_reason: string;
         };
         Returns: string;
       };

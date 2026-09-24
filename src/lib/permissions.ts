@@ -157,6 +157,11 @@ export const ACCESS = {
   centerSettings: ["settings.manage"],
   /** Setup checklist, Step 0 screens and go-live readiness (settings.manage; the owner too, in the database). */
   setup: ["settings.manage"],
+  /** Settings › Email / Texting / WhatsApp (o-messaging): read by messaging and integrations roles; changed with settings.manage or integrations.manage (the database decides). */
+  messaging: ["settings.manage", "integrations.manage", "integrations.view", "comms.view", "comms.send"],
+  messagingManage: ["settings.manage", "integrations.manage"],
+  /** "Send a test" (app.send_test_message: settings.manage, integrations.manage or comms.send). */
+  messagingTest: ["settings.manage", "integrations.manage", "comms.send"],
   /** Settings › Integrations (reads app.integration_connections). */
   integrations: ["integrations.view", "integrations.manage"],
   /** Settings › Security: readable by rules or roles managers; saving writes centers.rules (settings.manage). */
@@ -470,6 +475,10 @@ export const NAV: NavModule[] = [
       { href: "/settings/import", label: "Data import", access: "dataImport" },
       { href: "/settings/custom-fields", label: "Custom fields", access: "centerSettings" },
       { href: "/settings/data-quality", label: "Data quality", access: "dataQuality" },
+      // Onboarding (o-messaging): email domain and senders, texting registration, WhatsApp Business.
+      { href: "/settings/email", label: "Email", access: "messaging" },
+      { href: "/settings/texting", label: "Texting", access: "messaging" },
+      { href: "/settings/whatsapp", label: "WhatsApp", access: "messaging", module: "comms" },
     ],
     paths: ["/settings", "/privacy", "/audit", "/approvals"],
   },

@@ -85,6 +85,15 @@ export async function main(env: Env = process.env): Promise<void> {
         log.error("could not queue storage.retention", { error: err });
       }
     }
+    // o-messaging: the email-domain re-verify sweep (pending domains every 15 minutes).
+    if ((handlers["messaging.domain_verify"] as { configured: boolean } | undefined)?.configured) {
+      try {
+        const id = await db.schedule("messaging.domain_verify", 15 * 60);
+        if (id) log.info("queued the email-domain re-verify sweep", { queued_job: id });
+      } catch (err) {
+        log.error("could not queue messaging.domain_verify", { error: err });
+      }
+    }
   }
 
   let polling = false;
