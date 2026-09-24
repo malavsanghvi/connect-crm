@@ -197,3 +197,21 @@ describe("Settings › Modules rows", () => {
     expect(switchBlocker("content", true, rows)).toBeNull();
   });
 });
+
+describe("Home tasks follow module switches", () => {
+  it("drops task sources of switched-off modules", async () => {
+    const { visibleTaskSources } = await import("@/lib/tasks");
+    const all = visibleTaskSources(admin).map((s) => s.key);
+    expect(all).toContain("refund");
+    const off = visibleTaskSources({ ...admin, modulesOff: ["giving", "pathshala"] }).map((s) => s.key);
+    expect(off).not.toContain("refund");
+    expect(off).not.toContain("writeoff");
+    expect(off).not.toContain("deposits");
+    expect(off).not.toContain("pathshala");
+    expect(off).toContain("bolis"); // its own module (the database keeps bolis off when giving is off)
+    expect(off).toContain("privacy"); // core platform
+    const noMembership = visibleTaskSources({ ...admin, modulesOff: ["membership"] }).map((s) => s.key);
+    expect(noMembership).not.toContain("membership");
+    expect(noMembership).not.toContain("override");
+  });
+});

@@ -4,6 +4,7 @@ import type { StatTone } from "@/components/ui";
 import { fetchAll } from "@/lib/data/fetch-all";
 import { addDays, formatDate, todayInTz } from "@/lib/dates";
 import { explainError, type DbErrorLike } from "@/lib/errors";
+import { isModuleEnabled } from "@/lib/modules";
 import { can, canAccess } from "@/lib/permissions";
 import type { CrmSession } from "@/lib/session";
 import { compactMoney, percent, plural } from "@/lib/tasks";
@@ -42,7 +43,7 @@ export async function loadHomeKpis(session: CrmSession): Promise<Kpi[]> {
       label: "Households",
       tone: "navy",
       href: "/households",
-      show: canAccess(session, "memberships"),
+      show: canAccess(session, "memberships") && isModuleEnabled(session, "membership"),
       async load() {
         const [all, fresh] = await Promise.all([
           db
@@ -83,7 +84,7 @@ export async function loadHomeKpis(session: CrmSession): Promise<Kpi[]> {
       label: "Given this year",
       tone: "brown",
       href: "/giving/payments",
-      show: can(session, ["giving.view", "giving.manage"]),
+      show: can(session, ["giving.view", "giving.manage"]) && isModuleEnabled(session, "giving"),
       async load() {
         const { data, error, truncated } = await fetchAll((from, to) =>
           db
@@ -104,7 +105,7 @@ export async function loadHomeKpis(session: CrmSession): Promise<Kpi[]> {
       label: "Open pledges",
       tone: "brown",
       href: "/giving/pledges",
-      show: canAccess(session, "pledges"),
+      show: canAccess(session, "pledges") && isModuleEnabled(session, "giving"),
       async load() {
         const { data, error, truncated } = await fetchAll((from, to) =>
           db
@@ -124,7 +125,7 @@ export async function loadHomeKpis(session: CrmSession): Promise<Kpi[]> {
       label: "Next event RSVPs",
       tone: "maroon",
       href: "/events",
-      show: can(session, ["events.view", "events.manage"]),
+      show: can(session, ["events.view", "events.manage"]) && isModuleEnabled(session, "events"),
       async load() {
         const events = ok(
           await db
@@ -152,7 +153,7 @@ export async function loadHomeKpis(session: CrmSession): Promise<Kpi[]> {
       label: "Store orders this cycle",
       tone: "store",
       href: "/store",
-      show: can(session, "store.manage"),
+      show: can(session, "store.manage") && isModuleEnabled(session, "store"),
       async load() {
         const open = n(
           await db.from("store_orders").select("id", { count: "exact", head: true }).eq("center_id", cid).in("status", ["placed", "preparing", "ready"]),
@@ -164,7 +165,7 @@ export async function loadHomeKpis(session: CrmSession): Promise<Kpi[]> {
       label: "Pathshala students",
       tone: "purple",
       href: "/pathshala",
-      show: can(session, "pathshala.manage"),
+      show: can(session, "pathshala.manage") && isModuleEnabled(session, "pathshala"),
       async load() {
         const since = `${addDays(today, -30)}T00:00:00Z`;
         const [students, marks] = await Promise.all([
