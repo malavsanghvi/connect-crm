@@ -70,5 +70,5 @@ export async function run(job: Job, ctx: JobContext) {
     testId, ok, JSON.stringify(results), ok ? null : `${firstError?.entity}: ${firstError?.error}`,
   ]);
   ctx.log.info("QuickBooks test post finished", { test: testId, mode: plan.mode, ok });
-  return { ok, mode: plan.mode, results: results.map(({ body: _b, ...r }) => r) };
+  return { ok, mode: plan.mode, results: results.map((r) => ({ ...r, body: undefined })) };
 }

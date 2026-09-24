@@ -29,7 +29,7 @@ export type IntegrationService = {
 };
 
 export const INTEGRATION_SERVICES: IntegrationService[] = [
-  { key: "qbo", label: "QuickBooks Online", providers: ["quickbooks_online"], owner: "Treasurer", notConnected: "Connect and map accounts on the Accounting › QuickBooks page", href: "/accounting/qbo" },
+  { key: "qbo", label: "QuickBooks Online", providers: ["quickbooks_online", "intuit_sandbox"], owner: "Treasurer", notConnected: "Connect and map accounts in Accounting › QuickBooks setup", href: "/accounting/qbo/setup" },
   { key: "payments", label: "Payments", providers: ["stripe"], owner: "Treasurer", notConnected: "Card payment is being set up · offline payments are recorded by hand" },
   { key: "email", label: "Email sending domain", providers: ["sendgrid", "resend"], owner: "Communications", notConnected: "No sending service connected yet" },
   { key: "sms", label: "US business texting (10DLC)", providers: ["twilio"], owner: "Tech officer", notConnected: "No texting provider connected yet" },

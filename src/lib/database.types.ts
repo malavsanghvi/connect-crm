@@ -2956,6 +2956,8 @@ export type Database = {
           triggered_by: string | null;
           posted_at: string | null;
           created_at: string;
+          claimed_at: string | null;
+          request_id: string | null;
         };
         Insert: {
           id?: string;
@@ -2976,6 +2978,8 @@ export type Database = {
           triggered_by?: string | null;
           posted_at?: string | null;
           created_at?: string;
+          claimed_at?: string | null;
+          request_id?: string | null;
         };
         Update: {
           id?: string;
@@ -2996,6 +3000,8 @@ export type Database = {
           triggered_by?: string | null;
           posted_at?: string | null;
           created_at?: string;
+          claimed_at?: string | null;
+          request_id?: string | null;
         };
         Relationships: [];
       };
@@ -4985,6 +4991,330 @@ export type Database = {
         };
         Relationships: [];
       };
+      qbo_accounts: {
+        Row: {
+          center_id: string;
+          connection_id: string;
+          qbo_id: string;
+          name: string;
+          fully_qualified_name: string | null;
+          account_type: string | null;
+          account_sub_type: string | null;
+          classification: string | null;
+          active: boolean;
+          currency: string | null;
+          raw: Json;
+          synced_at: string;
+        };
+        Insert: {
+          center_id: string;
+          connection_id: string;
+          qbo_id: string;
+          name: string;
+          fully_qualified_name?: string | null;
+          account_type?: string | null;
+          account_sub_type?: string | null;
+          classification?: string | null;
+          active?: boolean;
+          currency?: string | null;
+          raw?: Json;
+          synced_at?: string;
+        };
+        Update: {
+          center_id?: string;
+          connection_id?: string;
+          qbo_id?: string;
+          name?: string;
+          fully_qualified_name?: string | null;
+          account_type?: string | null;
+          account_sub_type?: string | null;
+          classification?: string | null;
+          active?: boolean;
+          currency?: string | null;
+          raw?: Json;
+          synced_at?: string;
+        };
+        Relationships: [];
+      };
+      qbo_classes: {
+        Row: {
+          center_id: string;
+          connection_id: string;
+          qbo_id: string;
+          name: string;
+          active: boolean;
+          raw: Json;
+          synced_at: string;
+        };
+        Insert: {
+          center_id: string;
+          connection_id: string;
+          qbo_id: string;
+          name: string;
+          active?: boolean;
+          raw?: Json;
+          synced_at?: string;
+        };
+        Update: {
+          center_id?: string;
+          connection_id?: string;
+          qbo_id?: string;
+          name?: string;
+          active?: boolean;
+          raw?: Json;
+          synced_at?: string;
+        };
+        Relationships: [];
+      };
+      qbo_items: {
+        Row: {
+          center_id: string;
+          connection_id: string;
+          qbo_id: string;
+          name: string;
+          active: boolean;
+          raw: Json;
+          synced_at: string;
+        };
+        Insert: {
+          center_id: string;
+          connection_id: string;
+          qbo_id: string;
+          name: string;
+          active?: boolean;
+          raw?: Json;
+          synced_at?: string;
+        };
+        Update: {
+          center_id?: string;
+          connection_id?: string;
+          qbo_id?: string;
+          name?: string;
+          active?: boolean;
+          raw?: Json;
+          synced_at?: string;
+        };
+        Relationships: [];
+      };
+      qbo_locations: {
+        Row: {
+          center_id: string;
+          connection_id: string;
+          qbo_id: string;
+          name: string;
+          active: boolean;
+          raw: Json;
+          synced_at: string;
+        };
+        Insert: {
+          center_id: string;
+          connection_id: string;
+          qbo_id: string;
+          name: string;
+          active?: boolean;
+          raw?: Json;
+          synced_at?: string;
+        };
+        Update: {
+          center_id?: string;
+          connection_id?: string;
+          qbo_id?: string;
+          name?: string;
+          active?: boolean;
+          raw?: Json;
+          synced_at?: string;
+        };
+        Relationships: [];
+      };
+      qbo_oauth_states: {
+        Row: {
+          id: string;
+          center_id: string;
+          connection_id: string;
+          user_id: string;
+          nonce_hash: string;
+          company: string;
+          redirect_uri: string;
+          created_at: string;
+          expires_at: string;
+          used_at: string | null;
+          outcome: string | null;
+        };
+        Insert: {
+          id?: string;
+          center_id: string;
+          connection_id: string;
+          user_id: string;
+          nonce_hash: string;
+          company: string;
+          redirect_uri: string;
+          created_at?: string;
+          expires_at?: string;
+          used_at?: string | null;
+          outcome?: string | null;
+        };
+        Update: {
+          id?: string;
+          center_id?: string;
+          connection_id?: string;
+          user_id?: string;
+          nonce_hash?: string;
+          company?: string;
+          redirect_uri?: string;
+          created_at?: string;
+          expires_at?: string;
+          used_at?: string | null;
+          outcome?: string | null;
+        };
+        Relationships: [];
+      };
+      qbo_payment_methods: {
+        Row: {
+          center_id: string;
+          connection_id: string;
+          qbo_id: string;
+          name: string;
+          active: boolean;
+          raw: Json;
+          synced_at: string;
+        };
+        Insert: {
+          center_id: string;
+          connection_id: string;
+          qbo_id: string;
+          name: string;
+          active?: boolean;
+          raw?: Json;
+          synced_at?: string;
+        };
+        Update: {
+          center_id?: string;
+          connection_id?: string;
+          qbo_id?: string;
+          name?: string;
+          active?: boolean;
+          raw?: Json;
+          synced_at?: string;
+        };
+        Relationships: [];
+      };
+      qbo_pull_runs: {
+        Row: {
+          id: string;
+          center_id: string;
+          connection_id: string;
+          job_id: number | null;
+          status: string;
+          counts: Json;
+          changed: Json;
+          warnings: Json;
+          error: string | null;
+          finished_at: string;
+        };
+        Insert: {
+          id?: string;
+          center_id: string;
+          connection_id: string;
+          job_id?: number | null;
+          status: string;
+          counts?: Json;
+          changed?: Json;
+          warnings?: Json;
+          error?: string | null;
+          finished_at?: string;
+        };
+        Update: {
+          id?: string;
+          center_id?: string;
+          connection_id?: string;
+          job_id?: number | null;
+          status?: string;
+          counts?: Json;
+          changed?: Json;
+          warnings?: Json;
+          error?: string | null;
+          finished_at?: string;
+        };
+        Relationships: [];
+      };
+      qbo_tax_codes: {
+        Row: {
+          center_id: string;
+          connection_id: string;
+          qbo_id: string;
+          name: string;
+          active: boolean;
+          raw: Json;
+          synced_at: string;
+        };
+        Insert: {
+          center_id: string;
+          connection_id: string;
+          qbo_id: string;
+          name: string;
+          active?: boolean;
+          raw?: Json;
+          synced_at?: string;
+        };
+        Update: {
+          center_id?: string;
+          connection_id?: string;
+          qbo_id?: string;
+          name?: string;
+          active?: boolean;
+          raw?: Json;
+          synced_at?: string;
+        };
+        Relationships: [];
+      };
+      qbo_test_posts: {
+        Row: {
+          id: string;
+          center_id: string;
+          connection_id: string;
+          job_id: number | null;
+          mode: string;
+          status: string;
+          results: Json;
+          error: string | null;
+          requested_by: string | null;
+          requested_at: string;
+          finished_at: string | null;
+          approved_by: string | null;
+          approved_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          center_id: string;
+          connection_id: string;
+          job_id?: number | null;
+          mode: string;
+          status?: string;
+          results?: Json;
+          error?: string | null;
+          requested_by?: string | null;
+          requested_at?: string;
+          finished_at?: string | null;
+          approved_by?: string | null;
+          approved_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          center_id?: string;
+          connection_id?: string;
+          job_id?: number | null;
+          mode?: string;
+          status?: string;
+          results?: Json;
+          error?: string | null;
+          requested_by?: string | null;
+          requested_at?: string;
+          finished_at?: string | null;
+          approved_by?: string | null;
+          approved_at?: string | null;
+        };
+        Relationships: [];
+      };
       readiness_checks: {
         Row: {
           key: string;
@@ -6696,6 +7026,20 @@ export type Database = {
         };
         Returns: undefined;
       };
+      approve_qbo_mapping: {
+        Args: {
+          p_center: string;
+          p_reason: string;
+        };
+        Returns: Json;
+      };
+      approve_qbo_test_post: {
+        Args: {
+          p_test: string;
+          p_reason: string;
+        };
+        Returns: Json;
+      };
       approve_role_grant: {
         Args: {
           p_grant: string;
@@ -6911,6 +7255,14 @@ export type Database = {
         };
         Returns: { slug: string; name: string; short_name: string; state_region: string; environment: string }[];
       };
+      complete_qbo_connect: {
+        Args: {
+          p_nonce: string;
+          p_code: string;
+          p_realm_id: string;
+        };
+        Returns: Json;
+      };
       confirm_bank_match: {
         Args: {
           p_txn: string;
@@ -7019,6 +7371,13 @@ export type Database = {
         };
         Returns: { person_id: string; name: string; household_id: string; household_label: string; zone: string; profession: string; directory_opt_in: boolean; expertise_opt_in: boolean; expertise_tags: string[]; expertise_headline: string; new_member_contact_opt_in: boolean; is_verified: boolean }[];
       };
+      disconnect_qbo: {
+        Args: {
+          p_center: string;
+          p_reason: string;
+        };
+        Returns: Json;
+      };
       enqueue_worker_test: {
         Args: {
           p_center: string;
@@ -7059,6 +7418,13 @@ export type Database = {
           p_limit?: number;
         };
         Returns: { checked_in_at: string; household_label: string; lunch_slot_label: string }[];
+      };
+      fail_qbo_connect: {
+        Args: {
+          p_nonce: string;
+          p_error: string;
+        };
+        Returns: Json;
       };
       find_community: {
         Args: {
@@ -7604,11 +7970,39 @@ export type Database = {
         };
         Returns: undefined;
       };
+      qbo_can_connect: {
+        Args: {
+          p_center: string;
+        };
+        Returns: boolean;
+      };
+      qbo_can_view: {
+        Args: {
+          p_center: string;
+        };
+        Returns: boolean;
+      };
       qbo_go_live_date: {
         Args: {
           p_center: string;
         };
         Returns: string;
+      };
+      qbo_purposes: {
+        Args: Record<PropertyKey, never>;
+        Returns: Json;
+      };
+      qbo_required_purposes: {
+        Args: {
+          p_center: string;
+        };
+        Returns: string[];
+      };
+      qbo_status: {
+        Args: {
+          p_center: string;
+        };
+        Returns: Json;
       };
       readiness: {
         Args: {
@@ -7665,6 +8059,26 @@ export type Database = {
           p_session: string;
           p_token: string;
           p_person?: string;
+        };
+        Returns: string;
+      };
+      request_qbo_post: {
+        Args: {
+          p_center: string;
+        };
+        Returns: number;
+      };
+      request_qbo_pull: {
+        Args: {
+          p_center: string;
+        };
+        Returns: number;
+      };
+      request_qbo_test_post: {
+        Args: {
+          p_center: string;
+          p_confirm_real: boolean;
+          p_reason: string;
         };
         Returns: string;
       };
@@ -7804,6 +8218,34 @@ export type Database = {
         };
         Returns: undefined;
       };
+      set_qbo_fund_class: {
+        Args: {
+          p_center: string;
+          p_fund: string;
+          p_qbo_class_id: string;
+          p_reason: string;
+        };
+        Returns: Json;
+      };
+      set_qbo_mapping: {
+        Args: {
+          p_center: string;
+          p_purpose: string;
+          p_qbo_account_id: string;
+          p_reason: string;
+        };
+        Returns: Json;
+      };
+      set_qbo_settings: {
+        Args: {
+          p_center: string;
+          p_basis: string;
+          p_posting: string;
+          p_go_live_date: string;
+          p_reason: string;
+        };
+        Returns: Json;
+      };
       setup_can_manage: {
         Args: {
           p_center: string;
@@ -7860,6 +8302,15 @@ export type Database = {
           p_ids: string[];
         };
         Returns: { person_id: string; name: string; household_id: string; household_name: string }[];
+      };
+      start_qbo_connect: {
+        Args: {
+          p_center: string;
+          p_company: string;
+          p_redirect_uri: string;
+          p_reason: string;
+        };
+        Returns: Json;
       };
       storage_bucket_module: {
         Args: {
