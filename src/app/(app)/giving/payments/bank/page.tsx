@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { ActionForm } from "@/components/action-form";
-import { Badge, Card, EmptyState, NoAccess, PageHeader, Pagination, QueryError, TableWrap, Tabs, buttonClass } from "@/components/ui";
+import { Badge, Card, ChipLinks, EmptyState, NoAccess, PageHeader, Pagination, QueryError, TableWrap, Tabs, buttonClass } from "@/components/ui";
 import { identifierRules } from "@/lib/center-rules";
 import { householdsById, toCard, userNames } from "@/lib/data/lookups";
 import { explainError } from "@/lib/errors";
@@ -36,10 +36,20 @@ const VIEW_LABEL: Record<View, string> = {
 export default async function BankPage({ searchParams }: { searchParams: Promise<RawSearchParams> }) {
   const session = await getSession();
   const header = (
-    <PageHeader
-      title="Bank reconciliation"
-      description="Import the bank statement, then match each line: Zelle, ACH and fund grants to a household; check and cash deposits to the payments recorded for them. Card payouts are listed separately and are never gifts."
-    />
+    <>
+      <PageHeader
+        title="Giving"
+        description="Bank reconciliation · import the bank statement, then match each line: Zelle, ACH and fund grants to a household; check and cash deposits to the payments recorded for them. Card payouts are never gifts."
+      />
+      <ChipLinks
+        label="Payments and deposits views"
+        active="bank"
+        items={[
+          { key: "overview", label: "Payments & deposits", href: "/giving/payments" },
+          { key: "bank", label: "Bank reconciliation", href: "/giving/payments/bank" },
+        ]}
+      />
+    </>
   );
   if (!canAccess(session, "bank")) {
     return (
