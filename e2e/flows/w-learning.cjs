@@ -257,10 +257,22 @@ async function journeyPathshala(browser) {
   ok(/^(present|late)\|qr$/.test(anyaMark), 'Anya marked through redeem_attendance_qr: ' + anyaMark);
   ok(audit('pathshala_attendance', null, `and after->>'enrollment_id'='${anyaId}'`).startsWith('member|/pathshala-scan|pathshala|'), 'QR attendance audit row: member · /pathshala-scan');
 
+  // The teacher publishes a progress report for Anya
+  await pgo(teacher, `/pathshala/classes/${classId}/reports?period=${encodeURIComponent('Mid-term ' + RUN)}`);
+  const anyaCard = teacher.locator('section').filter({ hasText: 'Anya Shah' });
+  await anyaCard.locator('textarea[name=teacher_comments]').fill('Learns the Navkar with care');
+  await anyaCard.getByRole('button', { name: 'Publish to family' }).click();
+  await teacher.waitForTimeout(2500);
+  const rep = sql(`select period||'|'||attendance_present||'|'||attendance_total||'|'||(published_at is not null)::text from app.pathshala_progress_reports where enrollment_id='${anyaId}'`);
+  ok(rep === `Mid-term ${RUN}|${anyaMark.startsWith('present') ? 1 : 0}|1|true`, 'progress report published with attendance from the register: ' + rep);
+  ok(audit('pathshala_progress_reports').startsWith(`portal|/pathshala/classes/${classId}/reports|pathshala|`), 'progress report audit row: portal · class reports');
+  await shot(teacher, '1-progress-report');
+
   // The parent sees it in Learn
   await mgo(priya, '/jain-way?tab=learn');
   const learn = await priya.innerText('body');
   ok(/Anya · Jainism 2\s+Placed in a class[\s\S]*?Last class [^\n]*: (present|late)/.test(learn), "Learn shows Anya's class and her last class attendance");
+  ok(learn.includes(`Progress report · Mid-term ${RUN}`) && learn.includes('Learns the Navkar with care'), 'Learn shows the published progress report');
   await shot(priya, '1-learn');
 
   // Roles: a parent cannot place a child or mark attendance over the API
