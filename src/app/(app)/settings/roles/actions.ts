@@ -133,7 +133,7 @@ export async function grantRoleAction(_prev: ActionResult | null, formData: Form
   if ((dup.data ?? []).length > 0) return { ok: false, error: `This person already holds ${role.data.name} for that scope.` };
 
   const writer = reason ? await dbWithReason(auth.session, reason) : db;
-  const { error } = await writer.from("role_grants").insert({
+  const { data: inserted, error } = await writer.from("role_grants").insert({
     center_id: center.id,
     user_id: grantee,
     role_key: roleKey,
@@ -142,10 +142,16 @@ export async function grantRoleAction(_prev: ActionResult | null, formData: Form
     ends_at: endsAt,
     granted_by: userId,
     reason: reason || null,
-  });
+  }).select("status").single();
   if (error) return failure(`Could not grant ${role.data.name}`, error);
   revalidatePath("/settings/roles");
   revalidatePath("/content/guide"); // zone leads are also assigned from Content › Guide & directory
+  if (inserted?.status === "pending") {
+    return {
+      ok: true,
+      message: `${role.data.name} is waiting for a second person: it starts only when a different administrator approves it under "Waiting for approval".`,
+    };
+  }
   return { ok: true, message: `Granted ${role.data.name}${endsOn ? ` until ${endsOn}` : ""}.` };
 }
 
@@ -168,4 +174,23 @@ export async function revokeGrantAction(_prev: ActionResult | null, formData: Fo
   if (!data || data.length === 0) return { ok: false, error: "Could not revoke the role — it changed meanwhile, or you lack permission. Reload and try again." };
   revalidatePath("/settings/roles");
   return { ok: true, message: "Role revoked. It stopped working immediately." };
+}
+
+/** Two-person rule (0017 approve_role_grant): a different person with roles.manage activates a pending grant. */
+export async function approveGrantAction(_prev: ActionResult | null, formData: FormData): Promise<ActionResult> {
+  const auth = await authorizeAction("roles", "approve the role grant");
+  if (!auth.ok) return auth;
+  const id = String(formData.get("id") ?? "");
+  if (!isUuid(id)) return { ok: false, error: "Could not approve the role grant — it was not found." };
+  const { session } = auth;
+  const g = await session.db.from("role_grants").select("status, granted_by, user_id, role_key").eq("id", id).eq("center_id", session.center.id).maybeSingle();
+  if (g.error) return failure("Could not approve the role grant", g.error);
+  if (!g.data || g.data.status !== "pending") return { ok: false, error: "Could not approve the role grant — it is no longer waiting for approval. Reload the page." };
+  if (g.data.granted_by === session.userId) return { ok: false, error: "Could not approve the role grant — you made this grant; the two-person rule needs a different approver." };
+  if (g.data.user_id === session.userId) return { ok: false, error: "Could not approve the role grant — nobody approves a role for themselves." };
+  const writer = await dbWithReason(session, "Second approval of a role grant (two-person rule)");
+  const { error } = await writer.rpc("approve_role_grant", { p_grant: id });
+  if (error) return failure("Could not approve the role grant", error);
+  revalidatePath("/settings/roles");
+  return { ok: true, message: "Approved by a second person. The role works from now on." };
 }

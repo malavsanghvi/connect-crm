@@ -52,6 +52,12 @@ export default async function PublicDashboardPage({ params }: { params: Params }
   if (!res.data || res.data.status !== "active") return <Problem title="Community not found" body={`There is no public dashboard at "/c/${slug}".`} />;
   const center = res.data;
   const b = tenantBranding({ ...center, slug: String(center.slug) });
+  // Reports & dashboard switched off (Settings › Modules): say so plainly instead of a load error.
+  const on = await c.db.rpc("module_enabled", { p_center: center.id, p_module: "reports" });
+  if (on.error) console.error("[public-dashboard] module check failed; loading the dashboard anyway:", on.error);
+  else if (on.data === false) {
+    return <Problem title={`${b.shortName} community dashboard`} body={`${center.name} isn't publishing its community dashboard right now. Please check back later.`} />;
+  }
   const raw = center.branding && typeof center.branding === "object" && !Array.isArray(center.branding) ? (center.branding as Record<string, unknown>) : {};
   const joinUrl = [raw.join_url, raw.website_url, raw.website].find((v): v is string => typeof v === "string" && /^https:\/\//i.test(v)) ?? null;
 

@@ -7,7 +7,7 @@ import { identifierRules } from "@/lib/center-rules";
 import { fetchAll } from "@/lib/data/fetch-all";
 import { campaignsForCenter, householdsById } from "@/lib/data/lookups";
 import { todayInTz } from "@/lib/dates";
-import { firstOfMonth, frequencyText, monthDay, recurringKpis, recurringStatusText } from "@/lib/giving";
+import { firstOfMonth, frequencyText, monthDay, recurringCause, recurringKpis, recurringStatusText } from "@/lib/giving";
 import { PAYMENT_METHOD_LABEL } from "@/lib/labels";
 import { formatCents } from "@/lib/money";
 import { canAccess } from "@/lib/permissions";
@@ -54,7 +54,7 @@ export default async function RecurringPage({ searchParams }: { searchParams: Pr
 
   let q = db
     .from("recurring_gifts")
-    .select("id, household_id, campaign_id, amount_cents, frequency, method, next_charge_on, status, links_to_pledges, special_day_id", { count: "exact" })
+    .select("id, household_id, campaign_id, fund_id, amount_cents, frequency, method, next_charge_on, status, links_to_pledges, special_day_id", { count: "exact" })
     .eq("center_id", center.id);
   if (view !== "all") q = q.eq("status", view);
   const from = (page - 1) * PAGE_SIZE;
@@ -65,8 +65,17 @@ export default async function RecurringPage({ searchParams }: { searchParams: Pr
     ),
   ]);
   const rows = res.data ?? [];
-  const [households, campaigns] = await Promise.all([householdsById(db, rows.map((r) => r.household_id)), campaignsForCenter(db, center.id)]);
+  const fundIds = [...new Set(rows.map((r) => r.fund_id).filter((x): x is string => Boolean(x)))];
+  const [households, campaigns, funds] = await Promise.all([
+    householdsById(db, rows.map((r) => r.household_id)),
+    campaignsForCenter(db, center.id),
+    fundIds.length ? db.from("funds").select("id, name").in("id", fundIds) : Promise.resolve({ data: [] as { id: string; name: string }[], error: null }),
+  ]);
+  if (campaigns.error) console.error("[recurring] campaign names failed; causes show \"Campaign\":", campaigns.error);
+  if (households.error) console.error("[recurring] household names failed:", households.error);
+  if (funds.error) console.error("[recurring] fund names failed; causes show \"Fund\":", funds.error);
   const campaignName = new Map(campaigns.data.map((c) => [c.id, c.name]));
+  const fundName = new Map((funds.data ?? []).map((f) => [f.id, f.name]));
   const k = recurringKpis(all.data, monthStart, tz);
   const hasFailed = rows.some((r) => r.status === "failed");
 
@@ -137,7 +146,7 @@ export default async function RecurringPage({ searchParams }: { searchParams: Pr
                           <div className="font-mono text-xs font-normal text-muted">{h?.household_number ?? ""}</div>
                         </td>
                         <td>
-                          {r.campaign_id ? (campaignName.get(r.campaign_id) ?? "Campaign") : r.special_day_id ? "Special-day labh" : "General fund"}
+                          {recurringCause(r, campaignName, fundName)}
                           {r.links_to_pledges ? <div className="text-xs text-muted">Linked to pledges</div> : null}
                         </td>
                         <td className="num">{formatCents(r.amount_cents, center.currency)}</td>

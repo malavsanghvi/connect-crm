@@ -47,9 +47,19 @@ const ok = (c, m) => { console.log(`${c ? 'PASS' : 'FAIL'} ${m}`); if (!c) proce
   await p.waitForTimeout(2500);
   ok(sql("select enabled::text from app.center_modules where module_key='store'") === 'true', 'store back on');
   const hid = sql("select id from app.households where display_name ilike 'Shah family%' limit 1");
+  // Edit the household's address through the portal, then read it back in History.
+  const street = `${100 + Math.floor(Math.random() * 800)} Lotus Lane`;
+  await p.goto(BASE + '/households/' + hid, { waitUntil: 'networkidle' });
+  await p.getByText('Edit household', { exact: true }).first().click();
+  await p.locator('input[name=address_line1]').first().waitFor();
+  await p.locator('input[name=address_line1]').first().fill(street);
+  await p.getByRole('button', { name: /^Save \d+ change/ }).first().click();
+  await p.waitForTimeout(2500);
+  const e = sql(`select coalesce(after->>'address_line1','')||'|'||coalesce(client_app,'')||'|'||(client_screen like '/households%')::text||'|'||(actor_user_id is not null)::text from app.audit_log where record_table='households' and record_id='${hid}' order by id desc limit 1`);
+  ok(e === `${street}|portal|true|true`, 'address edit audited from the portal: ' + e);
   await p.goto(BASE + '/households/' + hid, { waitUntil: 'networkidle' });
   await p.getByRole('button', { name: /history/i }).first().click(); await p.waitForTimeout(2500);
-  const h = await p.innerText('body'); ok(/12 Lotus Lane/.test(h) && /address/i.test(h), 'household History shows the earlier address change');
+  const h = await p.innerText('body'); ok(h.includes(street) && /address/i.test(h), 'household History shows the address change');
   await p.screenshot({ path: (process.env.OUT || '/tmp') + '/history-1.png', fullPage: true });
   await b.close();
 })().catch((e) => { console.error('FLOW FAILED:', e.message); process.exit(1); });

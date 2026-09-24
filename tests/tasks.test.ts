@@ -33,6 +33,11 @@ describe("task sources", () => {
     expect(keys).toEqual(["membership", "override"]);
   });
 
+  it("shows role-grant approvals only to roles managers", () => {
+    expect(visibleTaskSources(ctx(["roles.manage"])).map((s) => s.key)).toEqual(["roles"]);
+    expect(visibleTaskSources(ctx(["people.approve"])).map((s) => s.key)).not.toContain("roles");
+  });
+
   it("shows a treasurer giving and accounting tasks", () => {
     const keys = visibleTaskSources(ctx(["giving.view", "giving.manage", "giving.approve", "accounting.manage"])).map((s) => s.key);
     expect(keys).toEqual(["refund", "writeoff", "deposits", "quickbooks"]);

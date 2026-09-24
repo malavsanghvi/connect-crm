@@ -130,6 +130,22 @@ export function frequencyText(frequency: string): string {
 }
 
 /**
+ * What a recurring gift goes to, in the order the member chose it: a campaign,
+ * else a fund (the member app's "Give towards" writes fund_id for funds), else a
+ * special-day labh, else the general fund. A name that could not be loaded says so.
+ */
+export function recurringCause(
+  r: { campaign_id: string | null; fund_id: string | null; special_day_id: string | null },
+  campaignName: Map<string, string>,
+  fundName: Map<string, string>,
+): string {
+  if (r.campaign_id) return campaignName.get(r.campaign_id) ?? "Campaign";
+  if (r.fund_id) return fundName.get(r.fund_id) ?? "Fund";
+  if (r.special_day_id) return "Special-day labh";
+  return "General fund";
+}
+
+/**
  * Human status of a recurring gift (prototype: "Payment failed · retry Sep 25",
  * "Paused by donor"). 'pending_payment_method' (0026) is a gift set up in the
  * app that has no card or bank account yet — it is never charged.

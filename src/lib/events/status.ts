@@ -43,7 +43,12 @@ export function eventRowHref(e: { id: string; status: string }): string {
   return `/events/${e.id}`;
 }
 
-/** Short reference shown in the ID column (the id's first 6 characters). */
-export function eventRef(id: string): string {
-  return `EV-${id.replace(/-/g, "").slice(0, 6).toUpperCase()}`;
+/**
+ * Reference shown in the ID column: the event's number ({short_name}-EV-901,
+ * issued by the database, migration 0121); the id's first characters only for
+ * a row that somehow has none.
+ */
+export function eventRef(e: { id: string; event_number?: string | null }): string {
+  if (e.event_number) return e.event_number;
+  return `EV-${e.id.replace(/-/g, "").slice(0, 6).toUpperCase()}`;
 }

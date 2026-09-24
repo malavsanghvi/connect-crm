@@ -291,6 +291,25 @@ const loaders: Record<TaskSourceKey, Loader> = {
     ];
   },
 
+  async roles(session) {
+    // Two-person rule: finance and admin roles wait for a different approver (0017).
+    const rows = must(
+      await session.db
+        .from("role_grants")
+        .select("id, granted_by, user_id, role_key")
+        .eq("center_id", session.center.id)
+        .eq("status", "pending")
+        .is("ends_at", null),
+    );
+    const mine = rows.filter((g) => g.granted_by !== session.userId && g.user_id !== session.userId);
+    if (mine.length === 0) return [];
+    return [
+      makeTask("roles", "pending", plural(mine.length, "role grant") + " waiting for your approval", "Finance and admin roles need a second, different person", [
+        { label: "Review", href: taskSource("roles").href },
+      ]),
+    ];
+  },
+
   async whatsapp(session) {
     const n = count(
       await session.db

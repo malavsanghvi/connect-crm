@@ -65,7 +65,7 @@ export default async function EventsPage({ searchParams }: { searchParams: Promi
     const startOfToday = fromDateTimeLocal(`${todayIso(tz)}T00:00`, tz)!;
     let q = db
       .from("events")
-      .select("id, name, starts_at, ends_at, venue, status, audience, capacity, waitlist_enabled, program_year, confidential")
+      .select("id, event_number, name, starts_at, ends_at, venue, status, audience, capacity, waitlist_enabled, program_year, confidential")
       .eq("center_id", center.id);
     if (view === "upcoming") q = q.gte("starts_at", startOfToday).order("starts_at");
     if (view === "past") q = q.lt("starts_at", startOfToday).order("starts_at", { ascending: false }).limit(60);
@@ -172,7 +172,7 @@ export default async function EventsPage({ searchParams }: { searchParams: Promi
                     const href = eventRowHref(e);
                     return (
                       <ClickableRow key={e.id} href={href}>
-                        <td className="font-mono text-xs">{eventRef(e.id)}</td>
+                        <td className="font-mono text-xs">{eventRef(e)}</td>
                         <td className="max-w-[18rem]">
                           <Link href={href} className="block truncate font-bold text-ink hover:underline">
                             {e.name}

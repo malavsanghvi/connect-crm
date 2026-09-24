@@ -47,8 +47,8 @@ function referenceStatus(a: { reference_person_id: string | null; reference_deci
 function feeText(fee: number, ref: string | null, status: string, currency: string): string {
   if (fee <= 0) return "No fee";
   const amount = formatCents(fee, currency);
-  if (status === "approved") return `${amount} ${ref ? "captured on approval" : "due"}`;
-  return `${amount} ${ref ? "authorized" : "not yet authorized"}`;
+  if (status === "approved") return `${amount} ${ref ? "captured on approval" : "· open pledge"}`;
+  return `${amount} ${ref ? "authorized" : "· pledged on approval"}`;
 }
 
 export default async function ApplicationsPage({ searchParams }: { searchParams: Promise<RawSearchParams> }) {
@@ -206,8 +206,8 @@ export default async function ApplicationsPage({ searchParams }: { searchParams:
         <Card span={12} title="Rules in effect">
           <p className="text-[13px] text-ink-2">
             Yearly: reference must be a verified Yearly or Life member outside the household. Life: reference must be a Life member; after the center
-            review, a different Executive Committee member records the EC approval. Fees are authorized at application and captured only on approval.
-            Configure in Settings › Center settings.
+            review, a different Executive Committee member records the EC approval. On approval the membership becomes active and any fee is recorded as an open
+            membership-fee pledge (card payment is not connected yet, so nothing is charged). Configure in Settings › Rules.
           </p>
         </Card>
       </BlockGrid>
@@ -221,7 +221,7 @@ async function ApplicationDrawer({ session, id, closeHref }: { session: CrmSessi
   const tz = center.time_zone;
   const res = await db
     .from("membership_applications")
-    .select("id, applicant_person_id, household_id, membership_type_id, tier, reference_person_id, reference_note, reference_decision, reference_decided_at, reference_expires_at, fee_cents, fee_authorization_ref, status, center_decided_by, center_reason")
+    .select("id, applicant_person_id, household_id, membership_type_id, tier, reference_person_id, reference_note, reference_decision, reference_reason, reference_decided_at, reference_expires_at, fee_cents, fee_authorization_ref, status, center_decided_by, center_reason, membership_id")
     .eq("id", id)
     .eq("center_id", center.id)
     .maybeSingle();
@@ -266,7 +266,7 @@ async function ApplicationDrawer({ session, id, closeHref }: { session: CrmSessi
       closeHref={closeHref}
       kicker={`Application · ${a.id.slice(0, 8).toUpperCase()}`}
       title={applicant?.name ?? "Applicant"}
-      subtitle={`${tierLabel(a.tier)} membership${type.data?.name ? ` · ${type.data.name}` : ""}`}
+      subtitle={type.data?.name && type.data.name.toLowerCase() !== `${tierLabel(a.tier)} membership`.toLowerCase() ? `${tierLabel(a.tier)} membership · ${type.data.name}` : `${tierLabel(a.tier)} membership`}
       footer={
         <>
           <Link href={`/households/${a.household_id}`} className={buttonClass("ghost")}>
@@ -281,10 +281,10 @@ async function ApplicationDrawer({ session, id, closeHref }: { session: CrmSessi
               confirmKicker="Membership decision"
               confirmMessage={
                 a.status === "awaiting_ec"
-                  ? "Record the Executive Committee approval? The application becomes approved."
+                  ? `Record the Executive Committee approval? The membership becomes active now${a.fee_cents > 0 ? " and the fee is recorded as an open pledge" : ""}.`
                   : ec
                     ? "Approve the center review? A different Executive Committee member then records the EC approval."
-                    : `Approve this ${tierLabel(a.tier)} membership? This records the decision; the membership record and fee capture are not created automatically yet.`
+                    : `Approve this ${tierLabel(a.tier)} membership? The membership becomes active now${a.fee_cents > 0 ? " and the fee is recorded as an open pledge" : ""}.`
               }
             >
               <input type="hidden" name="id" value={a.id} />
@@ -298,7 +298,8 @@ async function ApplicationDrawer({ session, id, closeHref }: { session: CrmSessi
       <DrawerSection title="Reference">
         <KeyValueRow label="Reference" value={reference?.name ?? "None named"} />
         <KeyValueRow label="Decision" value={ref.text} tone={ref.tone} />
-        <KeyValueRow label="Their note" value={a.reference_note ? `“${a.reference_note}”` : "—"} />
+        <KeyValueRow label="Their note" value={a.reference_reason ? `“${a.reference_reason}”` : a.reference_decision ? "No note" : "—"} />
+        <KeyValueRow label="Applicant says" value={a.reference_note ? `“${a.reference_note}”` : "—"} />
       </DrawerSection>
       <DrawerSection title="Checks">
         <KeyValueRow
@@ -317,6 +318,7 @@ async function ApplicationDrawer({ session, id, closeHref }: { session: CrmSessi
         />
         <KeyValueRow label="Status" value={a.status === "rejected" ? "Declined" : (APPLICATION_STATUS_LABEL[a.status] ?? a.status)} tone={a.status === "approved" ? "ok" : a.status === "rejected" ? "bad" : "ink"} />
         {a.center_reason ? <KeyValueRow label="Reason" value={a.center_reason} /> : null}
+        {a.membership_id ? <KeyValueRow label="Membership" value="Active — open the household to see it" tone="ok" href={`/households/${a.household_id}`} /> : null}
         {canDecide && a.status === "awaiting_ec" && !canApprove ? (
           <p className="text-xs text-muted">
             {a.center_decided_by === session.userId
