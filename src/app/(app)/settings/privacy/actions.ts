@@ -37,6 +37,6 @@ export async function updateDataRequestAction(_prev: ActionResult | null, formDa
     .select("id");
   if (error) return failure(`Could not ${move.label} the request`, error);
   if (!data || data.length === 0) return { ok: false, error: `Could not ${move.label} the request — its status changed meanwhile. Reload and try again.` };
-  revalidatePath("/privacy/requests");
+  revalidatePath("/settings/privacy");
   return { ok: true, message: `Request ${next.replace("_", " ")}.` };
 }

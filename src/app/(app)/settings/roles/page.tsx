@@ -1,32 +1,31 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 
 import { ActionForm } from "@/components/action-form";
-import { Badge, Card, EmptyState, NoAccess, PageHeader, QueryError, TableWrap, Tabs } from "@/components/ui";
+import { Alert, Badge, BlockGrid, Card, EmptyState, NoAccess, PageHeader, QueryError, TableWrap, Tabs, buttonClass } from "@/components/ui";
 import { identifierRules } from "@/lib/center-rules";
+import { ENTITLEMENT_GROUPS, rightsCount, rolePermissions, unknownPermissions } from "@/lib/entitlements";
 import { userNames } from "@/lib/data/lookups";
 import { formatDate, todayInTz } from "@/lib/dates";
 import { canAccess, isGrantActive } from "@/lib/permissions";
-import { param, type RawSearchParams } from "@/lib/search-params";
+import { hrefWith, param, type RawSearchParams } from "@/lib/search-params";
 import { getSession } from "@/lib/session";
 
 import { revokeGrantAction } from "./actions";
 import { GrantForm } from "./grant-form";
 
-export const metadata: Metadata = { title: "Roles and access" };
+export const metadata: Metadata = { title: "Roles & entitlements · Settings" };
 
 export default async function RolesPage({ searchParams }: { searchParams: Promise<RawSearchParams> }) {
   const session = await getSession();
   const header = (
-    <PageHeader
-      title="Roles and access"
-      description="Access is role + scope. Center-wide grants carry the role's permissions; a grant for one event, class or zone works only there. The database enforces every permission — this page only manages who holds what."
-    />
+    <PageHeader title="Settings" description="Granular entitlements for every module · default roles out of the box · custom roles for limited access" />
   );
   if (!canAccess(session, "roles")) {
     return (
       <>
         {header}
-        <NoAccess area="Roles and access" access="roles" />
+        <NoAccess area="Roles and entitlements" access="roles" />
       </>
     );
   }
@@ -72,11 +71,132 @@ export default async function RolesPage({ searchParams }: { searchParams: Promis
     .filter((r) => r.tier !== "family" && (r.tier !== "platform" || session.isPlatformAdmin))
     .map((r) => ({ key: r.key, name: r.name, tier: r.tier, default_scope: r.default_scope }));
 
+  // Roles table + entitlement grid (prototype Settings › Roles & entitlements).
+  const staffRoles = roles.filter((r) => r.tier !== "family" && (r.tier !== "platform" || session.isPlatformAdmin));
+  const selectedKey = param(sp, "role");
+  const selected = staffRoles.find((r) => r.key === selectedKey) ?? staffRoles[0];
+  const selectedPerms = selected ? rolePermissions(selected.permissions) : [];
+  const wildcard = selectedPerms.includes("*");
+  const other = unknownPermissions(selectedPerms).filter((p) => p !== "*");
+  const roleHref = (key: string) => hrefWith("/settings/roles", sp, { role: key });
+
   return (
     <>
       {header}
-      <div className="grid grid-cols-1 gap-5 xl:grid-cols-5">
-        <Card title="Grant a role" className="xl:col-span-2">
+      <BlockGrid className="mb-4">
+        <Card span={4} title="Roles" padded={false}>
+          <TableWrap>
+            <table className="crm-table">
+              <thead>
+                <tr>
+                  <th>Role</th>
+                  <th className="w-[70px]">Rights</th>
+                </tr>
+              </thead>
+              <tbody>
+                {staffRoles.map((r) => {
+                  const on = r.key === selected?.key;
+                  return (
+                    <tr key={r.key} className={on ? "bg-highlight" : undefined}>
+                      <td>
+                        <Link href={roleHref(r.key)} aria-current={on ? "true" : undefined} className={`font-bold no-underline ${on ? "text-navy" : "text-ink"}`}>
+                          {r.name}
+                        </Link>
+                      </td>
+                      <td>{rightsCount(rolePermissions(r.permissions))}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </TableWrap>
+          <p className="px-2.5 pb-1 pt-2.5 text-[12px] text-muted">
+            Default roles are read-only. Family roles (primary adult, adult, child) come from household relationships and are not listed.
+          </p>
+        </Card>
+
+        <Card
+          span={8}
+          title={selected?.name ?? "No role selected"}
+          description={
+            selected
+              ? `${selected.description ? `${selected.description} · ` : ""}Default role · ${wildcard ? "every entitlement" : `${selectedPerms.length} entitlements`}`
+              : undefined
+          }
+          actions={
+            <button
+              type="button"
+              disabled
+              className={buttonClass("off", "sm")}
+              title="Custom roles are not available yet: roles are shared by every center today, so a per-center copy needs a database change the owner has to approve."
+            >
+              Clone as custom
+            </button>
+          }
+        >
+          {selected ? (
+            <>
+              <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 xl:grid-cols-3">
+                {ENTITLEMENT_GROUPS.filter((g) => g.name !== "Platform" || wildcard).map((g) => (
+                  <section key={g.name} className="rounded-[12px] bg-ground px-3 py-2.5" aria-label={g.name}>
+                    <p className="cc-section">{g.name.toUpperCase()}</p>
+                    <ul className="mt-1.5 flex flex-col gap-1.5">
+                      {g.items.map((e) => {
+                        const held = !e.planned && (wildcard || selectedPerms.includes(e.key));
+                        return (
+                          <li key={e.key} className={`flex items-start gap-2.5 text-[13px] ${e.planned ? "text-muted" : "text-ink-2"}`}>
+                            <span
+                              aria-hidden
+                              className={`mt-px inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-[6px] border text-[12px] font-bold ${
+                                held ? "border-navy bg-navy text-white" : "border-line-strong bg-white"
+                              }`}
+                            >
+                              {held ? "✓" : ""}
+                            </span>
+                            <span>
+                              <span className="sr-only">{held ? "Granted: " : "Not granted: "}</span>
+                              {e.label}
+                              {e.planned ? <span className="block text-[11px]">Not in the app yet</span> : null}
+                            </span>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </section>
+                ))}
+                {other.length > 0 ? (
+                  <section className="rounded-[12px] bg-ground px-3 py-2.5" aria-label="Other">
+                    <p className="cc-section">OTHER</p>
+                    <ul className="mt-1.5 flex flex-col gap-1 font-mono text-[12px]">
+                      {other.map((p) => (
+                        <li key={p}>{p}</li>
+                      ))}
+                    </ul>
+                  </section>
+                ) : null}
+              </div>
+              {selectedPerms.length === 0 ? (
+                <p className="mt-3 text-[13px] text-muted">
+                  This role carries no center-wide entitlements. It works through its scope (one event, class, zone or the store).
+                </p>
+              ) : null}
+            </>
+          ) : (
+            <EmptyState title="No roles could be shown" />
+          )}
+        </Card>
+
+        <div className="col-span-12">
+          <Alert tone="info" title="Custom roles need an owner decision">
+            The prototype lets an admin clone a default role and tick entitlements on and off. Today every center shares one set of
+            roles, so a center&apos;s own copy needs a database change (a center on each role, with its own access rules). Until then,
+            give people the default role closest to what they need, limited to one event, class or zone where possible.
+          </Alert>
+        </div>
+      </BlockGrid>
+
+      <BlockGrid>
+        <Card span={5} title="Grant a role" description="Center-wide grants carry the role's entitlements; a grant for one event, class or zone works only there.">
           <GrantForm
             roles={grantable}
             orgMemberLabel={rules.orgMemberLabel}
@@ -95,13 +215,13 @@ export default async function RolesPage({ searchParams }: { searchParams: Promis
           ) : null}
         </Card>
 
-        <div className="xl:col-span-3">
+        <div className="col-span-12 lg:col-span-7">
           <Tabs
             active={show}
             tabs={[
-              { key: "active", label: "Active grants", href: "/settings/roles" },
-              { key: "ended", label: "Ended", href: "/settings/roles?show=ended" },
-              { key: "all", label: "All", href: "/settings/roles?show=all" },
+              { key: "active", label: "Active grants", href: hrefWith("/settings/roles", sp, { show: undefined }) },
+              { key: "ended", label: "Ended", href: hrefWith("/settings/roles", sp, { show: "ended" }) },
+              { key: "all", label: "All", href: hrefWith("/settings/roles", sp, { show: "all" }) },
             ]}
           />
           {grantsRes.error ? (
@@ -174,51 +294,7 @@ export default async function RolesPage({ searchParams }: { searchParams: Promis
             </Card>
           )}
         </div>
-      </div>
-
-      <Card title="Role catalog" description="Default roles and the permissions each one carries." padded={false} className="mt-6">
-        <TableWrap>
-          <table className="crm-table">
-            <thead>
-              <tr>
-                <th>Role</th>
-                <th>Tier</th>
-                <th>Default scope</th>
-                <th>Permissions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {roles.map((r) => {
-                const perms = Array.isArray(r.permissions) ? r.permissions.filter((p): p is string => typeof p === "string") : [];
-                return (
-                  <tr key={r.key}>
-                    <td className="min-w-[14rem]">
-                      <span className="font-semibold">{r.name}</span>
-                      <div className="font-mono text-xs text-muted">{r.key}</div>
-                      {r.description ? <div className="text-xs text-muted">{r.description}</div> : null}
-                    </td>
-                    <td className="capitalize">{r.tier}</td>
-                    <td>{r.default_scope}</td>
-                    <td>
-                      {perms.length === 0 ? (
-                        <span className="text-sm text-muted">{r.tier === "family" ? "From household relationships" : "Scoped duties only"}</span>
-                      ) : (
-                        <span className="flex flex-wrap gap-1">
-                          {perms.map((p) => (
-                            <Badge key={p} tone="neutral">
-                              {p}
-                            </Badge>
-                          ))}
-                        </span>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </TableWrap>
-      </Card>
+      </BlockGrid>
     </>
   );
 }
