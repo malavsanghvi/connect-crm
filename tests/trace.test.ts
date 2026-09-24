@@ -10,6 +10,17 @@ describe("traceability headers", () => {
     expect(id).toMatch(UUID);
     expect(traceHeaders({ requestId: id })).toEqual({ "x-client-app": "portal", "x-request-id": id });
   });
+  it("makes a uuid on plain-http pages, where browsers hide randomUUID", () => {
+    const original = globalThis.crypto.randomUUID;
+    Object.defineProperty(globalThis.crypto, "randomUUID", { value: undefined, configurable: true });
+    try {
+      const ids = new Set(Array.from({ length: 20 }, () => newRequestId()));
+      expect(ids.size).toBe(20);
+      for (const id of ids) expect(id).toMatch(UUID);
+    } finally {
+      Object.defineProperty(globalThis.crypto, "randomUUID", { value: original, configurable: true });
+    }
+  });
   it("adds the screen and an encoded reason", () => {
     const h = traceHeaders({ requestId: "r", screen: "/giving/pledges", reason: "  Donor moved away — ask Treasurer  " });
     expect(h["x-client-screen"]).toBe("/giving/pledges");
