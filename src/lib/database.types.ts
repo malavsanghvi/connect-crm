@@ -2165,6 +2165,39 @@ export type Database = {
         };
         Relationships: [];
       };
+      golive_approvals: {
+        Row: {
+          center_id: string;
+          key: string;
+          approved_by: string;
+          approved_at: string;
+          approver_role: string;
+          note: string | null;
+          evidence: Json;
+          evidence_hash: string;
+        };
+        Insert: {
+          center_id: string;
+          key: string;
+          approved_by: string;
+          approved_at?: string;
+          approver_role: string;
+          note?: string | null;
+          evidence?: Json;
+          evidence_hash: string;
+        };
+        Update: {
+          center_id?: string;
+          key?: string;
+          approved_by?: string;
+          approved_at?: string;
+          approver_role?: string;
+          note?: string | null;
+          evidence?: Json;
+          evidence_hash?: string;
+        };
+        Relationships: [];
+      };
       golive_requests: {
         Row: {
           id: string;
@@ -6893,6 +6926,7 @@ export type Database = {
           required: boolean;
           auto: boolean;
           manual: boolean;
+          live: boolean;
         };
         Insert: {
           key: string;
@@ -6908,6 +6942,7 @@ export type Database = {
           required?: boolean;
           auto?: boolean;
           manual?: boolean;
+          live?: boolean;
         };
         Update: {
           key?: string;
@@ -6923,6 +6958,7 @@ export type Database = {
           required?: boolean;
           auto?: boolean;
           manual?: boolean;
+          live?: boolean;
         };
         Relationships: [];
       };
@@ -8205,6 +8241,13 @@ export type Database = {
         };
         Returns: string;
       };
+      approve_niva_content: {
+        Args: {
+          p_center: string;
+          p_note?: string;
+        };
+        Returns: Json;
+      };
       approve_qbo_mapping: {
         Args: {
           p_center: string;
@@ -8231,6 +8274,13 @@ export type Database = {
           p_grant: string;
         };
         Returns: undefined;
+      };
+      approve_statement_templates: {
+        Args: {
+          p_center: string;
+          p_note?: string;
+        };
+        Returns: Json;
       };
       assert_entitlement: {
         Args: {
@@ -8393,6 +8443,12 @@ export type Database = {
           p_domain: string;
         };
         Returns: string;
+      };
+      center_storage_overview: {
+        Args: {
+          p_center: string;
+        };
+        Returns: Json;
       };
       change_household_tier: {
         Args: {
@@ -8740,6 +8796,12 @@ export type Database = {
         };
         Returns: { person_id: string; household_id: string; household_name: string; tier: Database["app"]["Enums"]["membership_tier"]; member_names: string[] }[];
       };
+      golive_approval_status: {
+        Args: {
+          p_center: string;
+        };
+        Returns: Json;
+      };
       grant_support_access: {
         Args: {
           p_center: string;
@@ -9000,6 +9062,12 @@ export type Database = {
         Args: Record<PropertyKey, never>;
         Returns: boolean;
       };
+      is_active_treasurer: {
+        Args: {
+          p_center: string;
+        };
+        Returns: boolean;
+      };
       is_center_owner: {
         Args: {
           p_center: string;
@@ -9224,6 +9292,12 @@ export type Database = {
           p: string;
         };
         Returns: string;
+      };
+      numbering_overview: {
+        Args: {
+          p_center: string;
+        };
+        Returns: Json;
       };
       oauth_store_code: {
         Args: {
@@ -9741,6 +9815,14 @@ export type Database = {
           p_reason: string;
         };
         Returns: string;
+      };
+      save_numbering: {
+        Args: {
+          p_center: string;
+          p_items: Json;
+          p_reason?: string;
+        };
+        Returns: Json;
       };
       save_texting_registration: {
         Args: {
