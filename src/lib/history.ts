@@ -17,6 +17,48 @@ const SKIP = new Set(["id", "center_id", "created_at", "updated_at"]);
 
 export type FieldChange = { field: string; label: string; before: string; after: string; hidden: boolean };
 
+/** Reference columns whose ids are shown as the referenced record's name (table, name column). */
+export const REFERENCE_TABLES: Record<string, { table: string; name: string }> = {
+  zone_id: { table: "zones", name: "name" },
+  household_id: { table: "households", name: "display_name" },
+  person_id: { table: "people", name: "first_name,last_name" },
+  fund_id: { table: "funds", name: "name" },
+  campaign_id: { table: "campaigns", name: "name" },
+  event_id: { table: "events", name: "name" },
+  opportunity_id: { table: "opportunities", name: "name" },
+  boli_id: { table: "bolis", name: "name" },
+  class_id: { table: "pathshala_classes", name: "name" },
+  term_id: { table: "pathshala_terms", name: "name" },
+  inbox_id: { table: "inboxes", name: "name" },
+  membership_type_id: { table: "membership_types", name: "name" },
+  store_item_id: { table: "store_items", name: "name" },
+  item_id: { table: "store_items", name: "name" },
+  category_id: { table: "store_categories", name: "name" },
+  group_id: { table: "volunteer_groups", name: "name" },
+  album_id: { table: "photo_albums", name: "title" },
+  goal_id: { table: "gyan_goals", name: "name" },
+  layer_id: { table: "calendar_layers", name: "name" },
+};
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** Ids to look up, grouped by table, from every before/after image of the given rows. */
+export function referencedIds(rows: { before: Json | null; after: Json | null }[]): Map<string, Set<string>> {
+  const out = new Map<string, Set<string>>();
+  for (const r of rows) {
+    for (const img of [asObject(r.before), asObject(r.after)]) {
+      if (!img) continue;
+      for (const [field, v] of Object.entries(img)) {
+        const ref = REFERENCE_TABLES[field];
+        if (!ref || typeof v !== "string" || !UUID.test(v)) continue;
+        if (!out.has(ref.table)) out.set(ref.table, new Set());
+        out.get(ref.table)!.add(v);
+      }
+    }
+  }
+  return out;
+}
+
 type Obj = Record<string, Json | undefined>;
 function asObject(j: Json | null | undefined): Obj | null {
   return j && typeof j === "object" && !Array.isArray(j) ? (j as Obj) : null;
@@ -44,7 +86,7 @@ export function formatValue(value: Json | undefined, field = "", currency = "USD
  * the fields it set; a delete (no after) lists what was removed. Unchanged
  * fields and bookkeeping columns are left out.
  */
-export function diffRecord(before: Json | null, after: Json | null, currency = "USD"): FieldChange[] {
+export function diffRecord(before: Json | null, after: Json | null, currency = "USD", names: Record<string, string> = {}): FieldChange[] {
   const b = asObject(before);
   const a = asObject(after);
   if (!b && !a) return [];
@@ -62,7 +104,8 @@ export function diffRecord(before: Json | null, after: Json | null, currency = "
     if (!b && (av === null || av === "")) continue;
     if (!a && (bv === null || bv === "")) continue;
     const hidden = MASKED_FIELDS.has(field) || bv === MASK || av === MASK;
-    const show = (v: Json) => (v === null || v === "" ? "—" : hidden ? "hidden" : formatValue(v, field, currency));
+    const show = (v: Json) =>
+      v === null || v === "" ? "—" : hidden ? "hidden" : typeof v === "string" && names[v] ? names[v] : formatValue(v, field, currency);
     out.push({ field, label: fieldLabel(field), before: show(bv), after: show(av), hidden });
   }
   return out;

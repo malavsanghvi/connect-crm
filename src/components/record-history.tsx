@@ -118,7 +118,10 @@ export function RecordHistory({ table, recordId }: { table: string; recordId: st
   return (
     <ol className="flex flex-col gap-3">
       {result.rows.map((r) => {
-        const changes = diffRecord(r.before, r.after, result.currency);
+        const changes = diffRecord(r.before, r.after, result.currency, result.names);
+        // Created: only the new value; deleted: only the old one.
+        const onlyAfter = r.before == null;
+        const onlyBefore = r.after == null;
         const where = clientLabel(r.client_app, r.client_screen);
         return (
           <li key={r.id} className="rounded-[10px] border border-line bg-white px-3 py-2.5">
@@ -141,10 +144,18 @@ export function RecordHistory({ table, recordId }: { table: string; recordId: st
                         {c.label}
                       </th>
                       <td className="break-words py-0.5">
-                        <span className={c.hidden ? "italic text-muted" : "text-muted line-through decoration-muted/60"}>{c.before}</span>
-                        <span aria-hidden> → </span>
-                        <span className="sr-only"> changed to </span>
-                        <span className={c.hidden ? "italic text-muted" : "font-semibold"}>{c.after}</span>
+                        {onlyAfter ? (
+                          <span className={c.hidden ? "italic text-muted" : "font-semibold"}>{c.after}</span>
+                        ) : onlyBefore ? (
+                          <span className={c.hidden ? "italic text-muted" : "text-muted"}>{c.before}</span>
+                        ) : (
+                          <>
+                            <span className={c.hidden ? "italic text-muted" : "text-muted line-through decoration-muted/60"}>{c.before}</span>
+                            <span aria-hidden> → </span>
+                            <span className="sr-only"> changed to </span>
+                            <span className={c.hidden ? "italic text-muted" : "font-semibold"}>{c.after}</span>
+                          </>
+                        )}
                       </td>
                     </tr>
                   ))}

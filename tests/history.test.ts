@@ -84,3 +84,15 @@ describe("normalizeHistoryRows", () => {
     expect(normalizeHistoryRows({})).toEqual([]);
   });
 });
+
+describe("referenced records by name", () => {
+  it("collects ids of known reference columns and shows names in the diff", async () => {
+    const { referencedIds, diffRecord } = await import("@/lib/history");
+    const z = "4efe7cf3-8e3e-4eb1-a0c6-9f3fac1b474d";
+    const ids = referencedIds([{ before: null, after: { zone_id: z, household_id: "not-a-uuid", note: z } }]);
+    expect([...(ids.get("zones") ?? [])]).toEqual([z]);
+    expect(ids.has("households")).toBe(false);
+    const d = diffRecord(null, { zone_id: z }, "USD", { [z]: "West" });
+    expect(d[0].after).toBe("West");
+  });
+});
