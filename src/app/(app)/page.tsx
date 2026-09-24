@@ -8,6 +8,7 @@ import { ACCESS, canAccess, type AccessKey } from "@/lib/permissions";
 import { getSession } from "@/lib/session";
 
 import { ApprovalsQueue } from "./approvals-queue";
+import { PathshalaHomeKpi, PathshalaHomeTask, loadPathshalaHome } from "./pathshala/home";
 
 export const metadata: Metadata = { title: "Dashboard" };
 
@@ -129,6 +130,7 @@ export default async function DashboardPage() {
     { label: "Pending membership applications", href: "/memberships/applications", tile: applications, tone: "purple" },
   ];
 
+  const pathshala = await loadPathshalaHome(session);
   const greeting = session.person?.name.split(" ")[0];
 
   return (
@@ -160,8 +162,10 @@ export default async function DashboardPage() {
             />
           ),
         )}
+        <PathshalaHomeKpi data={pathshala} />
       </KpiGrid>
       </Card>
+      <PathshalaHomeTask data={pathshala} />
       <ApprovalsQueue session={session} />
     </>
   );
