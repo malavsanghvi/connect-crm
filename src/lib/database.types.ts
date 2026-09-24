@@ -5,6 +5,81 @@ export type Json = string | number | boolean | null | { [key: string]: Json | un
 export type Database = {
   app: {
     Tables: {
+      access_requests: {
+        Row: {
+          id: string;
+          org_legal_name: string;
+          org_type: string;
+          city: string;
+          state: string;
+          approx_households: number | null;
+          contact_name: string;
+          contact_email: string;
+          contact_phone: string | null;
+          website: string | null;
+          modules_interested: string[];
+          current_systems: string[];
+          heard_from: string | null;
+          status: string;
+          decided_by: string | null;
+          decided_at: string | null;
+          decision_note: string | null;
+          decision_email_status: string | null;
+          created_at: string;
+          updated_at: string;
+          ip: string | null;
+          user_agent: string | null;
+        };
+        Insert: {
+          id?: string;
+          org_legal_name: string;
+          org_type: string;
+          city: string;
+          state: string;
+          approx_households?: number | null;
+          contact_name: string;
+          contact_email: string;
+          contact_phone?: string | null;
+          website?: string | null;
+          modules_interested?: string[];
+          current_systems?: string[];
+          heard_from?: string | null;
+          status?: string;
+          decided_by?: string | null;
+          decided_at?: string | null;
+          decision_note?: string | null;
+          decision_email_status?: string | null;
+          created_at?: string;
+          updated_at?: string;
+          ip?: string | null;
+          user_agent?: string | null;
+        };
+        Update: {
+          id?: string;
+          org_legal_name?: string;
+          org_type?: string;
+          city?: string;
+          state?: string;
+          approx_households?: number | null;
+          contact_name?: string;
+          contact_email?: string;
+          contact_phone?: string | null;
+          website?: string | null;
+          modules_interested?: string[];
+          current_systems?: string[];
+          heard_from?: string | null;
+          status?: string;
+          decided_by?: string | null;
+          decided_at?: string | null;
+          decision_note?: string | null;
+          decision_email_status?: string | null;
+          created_at?: string;
+          updated_at?: string;
+          ip?: string | null;
+          user_agent?: string | null;
+        };
+        Relationships: [];
+      };
       accounting_periods: {
         Row: {
           center_id: string;
@@ -824,6 +899,30 @@ export type Database = {
           created_at?: string;
           updated_at?: string;
           custom?: Json;
+        };
+        Relationships: [];
+      };
+      center_attestations: {
+        Row: {
+          center_id: string;
+          key: string;
+          attested_by: string;
+          attested_at: string;
+          note: string | null;
+        };
+        Insert: {
+          center_id: string;
+          key: string;
+          attested_by: string;
+          attested_at?: string;
+          note?: string | null;
+        };
+        Update: {
+          center_id?: string;
+          key?: string;
+          attested_by?: string;
+          attested_at?: string;
+          note?: string | null;
         };
         Relationships: [];
       };
@@ -1913,6 +2012,54 @@ export type Database = {
           qbo_class_id?: string | null;
           active?: boolean;
           custom?: Json;
+        };
+        Relationships: [];
+      };
+      golive_requests: {
+        Row: {
+          id: string;
+          center_id: string;
+          requested_by: string;
+          requested_at: string;
+          status: string;
+          first_approver: string | null;
+          first_approved_at: string | null;
+          second_approver: string | null;
+          second_approved_at: string | null;
+          rejected_by: string | null;
+          rejected_at: string | null;
+          note: string | null;
+          readiness: Json;
+        };
+        Insert: {
+          id?: string;
+          center_id: string;
+          requested_by: string;
+          requested_at?: string;
+          status?: string;
+          first_approver?: string | null;
+          first_approved_at?: string | null;
+          second_approver?: string | null;
+          second_approved_at?: string | null;
+          rejected_by?: string | null;
+          rejected_at?: string | null;
+          note?: string | null;
+          readiness?: Json;
+        };
+        Update: {
+          id?: string;
+          center_id?: string;
+          requested_by?: string;
+          requested_at?: string;
+          status?: string;
+          first_approver?: string | null;
+          first_approved_at?: string | null;
+          second_approver?: string | null;
+          second_approved_at?: string | null;
+          rejected_by?: string | null;
+          rejected_at?: string | null;
+          note?: string | null;
+          readiness?: Json;
         };
         Relationships: [];
       };
@@ -4928,6 +5075,27 @@ export type Database = {
         };
         Relationships: [];
       };
+      public_rate_events: {
+        Row: {
+          id: number;
+          kind: string;
+          subject: string;
+          at: string;
+        };
+        Insert: {
+          id?: number;
+          kind: string;
+          subject: string;
+          at?: string;
+        };
+        Update: {
+          id?: number;
+          kind?: string;
+          subject?: string;
+          at?: string;
+        };
+        Relationships: [];
+      };
       push_devices: {
         Row: {
           id: string;
@@ -5426,6 +5594,153 @@ export type Database = {
           person_id?: string;
           opted_in?: boolean;
           share_with_family?: boolean;
+        };
+        Relationships: [];
+      };
+      sandbox_codes: {
+        Row: {
+          id: string;
+          request_id: string;
+          code_hash: string;
+          code_last4: string;
+          email: string;
+          expires_at: string;
+          issued_by: string;
+          issued_at: string;
+          issue_reason: string | null;
+          redeemed_by: string | null;
+          redeemed_at: string | null;
+          revoked_at: string | null;
+          revoked_by: string | null;
+          revoke_reason: string | null;
+          center_id: string | null;
+          terms_document_id: string | null;
+          terms_accepted_by: string | null;
+          terms_accepted_at: string | null;
+          terms_ip: string | null;
+          terms_user_agent: string | null;
+          email_status: string | null;
+          email_message_id: string | null;
+        };
+        Insert: {
+          id?: string;
+          request_id: string;
+          code_hash: string;
+          code_last4: string;
+          email: string;
+          expires_at: string;
+          issued_by: string;
+          issued_at?: string;
+          issue_reason?: string | null;
+          redeemed_by?: string | null;
+          redeemed_at?: string | null;
+          revoked_at?: string | null;
+          revoked_by?: string | null;
+          revoke_reason?: string | null;
+          center_id?: string | null;
+          terms_document_id?: string | null;
+          terms_accepted_by?: string | null;
+          terms_accepted_at?: string | null;
+          terms_ip?: string | null;
+          terms_user_agent?: string | null;
+          email_status?: string | null;
+          email_message_id?: string | null;
+        };
+        Update: {
+          id?: string;
+          request_id?: string;
+          code_hash?: string;
+          code_last4?: string;
+          email?: string;
+          expires_at?: string;
+          issued_by?: string;
+          issued_at?: string;
+          issue_reason?: string | null;
+          redeemed_by?: string | null;
+          redeemed_at?: string | null;
+          revoked_at?: string | null;
+          revoked_by?: string | null;
+          revoke_reason?: string | null;
+          center_id?: string | null;
+          terms_document_id?: string | null;
+          terms_accepted_by?: string | null;
+          terms_accepted_at?: string | null;
+          terms_ip?: string | null;
+          terms_user_agent?: string | null;
+          email_status?: string | null;
+          email_message_id?: string | null;
+        };
+        Relationships: [];
+      };
+      sandbox_expiry_notices: {
+        Row: {
+          center_id: string;
+          threshold_days: number;
+          last_activity_at: string;
+          notified_at: string;
+          email_status: string | null;
+        };
+        Insert: {
+          center_id: string;
+          threshold_days: number;
+          last_activity_at: string;
+          notified_at?: string;
+          email_status?: string | null;
+        };
+        Update: {
+          center_id?: string;
+          threshold_days?: number;
+          last_activity_at?: string;
+          notified_at?: string;
+          email_status?: string | null;
+        };
+        Relationships: [];
+      };
+      sandbox_promotions: {
+        Row: {
+          id: string;
+          sandbox_id: string;
+          golive_id: string;
+          slug: string;
+          reason: string;
+          requested_by: string;
+          requested_at: string;
+          job_id: number | null;
+          status: string;
+          production_id: string | null;
+          result: Json | null;
+          last_error: string | null;
+          finished_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          sandbox_id: string;
+          golive_id: string;
+          slug: string;
+          reason: string;
+          requested_by: string;
+          requested_at?: string;
+          job_id?: number | null;
+          status?: string;
+          production_id?: string | null;
+          result?: Json | null;
+          last_error?: string | null;
+          finished_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          sandbox_id?: string;
+          golive_id?: string;
+          slug?: string;
+          reason?: string;
+          requested_by?: string;
+          requested_at?: string;
+          job_id?: number | null;
+          status?: string;
+          production_id?: string | null;
+          result?: Json | null;
+          last_error?: string | null;
+          finished_at?: string | null;
         };
         Relationships: [];
       };
@@ -5987,6 +6302,42 @@ export type Database = {
           longest_days?: number;
           last_logged_on?: string | null;
           rest_days_used_this_week?: number;
+        };
+        Relationships: [];
+      };
+      support_grants: {
+        Row: {
+          id: string;
+          center_id: string;
+          grantee_user_id: string;
+          granted_by: string;
+          granted_at: string;
+          expires_at: string;
+          revoked_at: string | null;
+          revoked_by: string | null;
+          reason: string;
+        };
+        Insert: {
+          id?: string;
+          center_id: string;
+          grantee_user_id: string;
+          granted_by: string;
+          granted_at?: string;
+          expires_at: string;
+          revoked_at?: string | null;
+          revoked_by?: string | null;
+          reason: string;
+        };
+        Update: {
+          id?: string;
+          center_id?: string;
+          grantee_user_id?: string;
+          granted_by?: string;
+          granted_at?: string;
+          expires_at?: string;
+          revoked_at?: string | null;
+          revoked_by?: string | null;
+          reason?: string;
         };
         Relationships: [];
       };
@@ -6682,6 +7033,15 @@ export type Database = {
         };
         Returns: string;
       };
+      accept_sandbox_terms: {
+        Args: {
+          p_code: string;
+          p_document: string;
+          p_ip?: string;
+          p_user_agent?: string;
+        };
+        Returns: undefined;
+      };
       adult_of_household: {
         Args: {
           p_center: string;
@@ -6695,6 +7055,13 @@ export type Database = {
           p_id: string;
         };
         Returns: undefined;
+      };
+      approve_golive: {
+        Args: {
+          p_request: string;
+          p_note?: string;
+        };
+        Returns: string;
       };
       approve_role_grant: {
         Args: {
@@ -6720,6 +7087,14 @@ export type Database = {
       assert_step_up: {
         Args: {
           p_action: string;
+        };
+        Returns: undefined;
+      };
+      attest_center: {
+        Args: {
+          p_center: string;
+          p_key: string;
+          p_note?: string;
         };
         Returns: undefined;
       };
@@ -6882,6 +7257,13 @@ export type Database = {
         };
         Returns: Json;
       };
+      check_sandbox_code: {
+        Args: {
+          p_code: string;
+          p_ip?: string;
+        };
+        Returns: string;
+      };
       checkin_lookup_phone: {
         Args: {
           p_event: string;
@@ -6979,6 +7361,14 @@ export type Database = {
         Args: {
           p_center: string;
           p_limit?: number;
+        };
+        Returns: Json;
+      };
+      decide_access_request: {
+        Args: {
+          p_request: string;
+          p_decision: string;
+          p_note?: string;
         };
         Returns: Json;
       };
@@ -7080,6 +7470,15 @@ export type Database = {
         };
         Returns: { person_id: string; household_id: string; household_name: string; tier: Database["app"]["Enums"]["membership_tier"]; member_names: string[] }[];
       };
+      grant_support_access: {
+        Args: {
+          p_center: string;
+          p_grantee: string;
+          p_hours: number;
+          p_reason: string;
+        };
+        Returns: string;
+      };
       gyan_off_goal_ids: {
         Args: Record<PropertyKey, never>;
         Returns: string[];
@@ -7111,6 +7510,12 @@ export type Database = {
         Args: {
           p_center: string;
           p_scope_id: string;
+        };
+        Returns: boolean;
+      };
+      has_support_grant: {
+        Args: {
+          p_center: string;
         };
         Returns: boolean;
       };
@@ -7347,6 +7752,13 @@ export type Database = {
         Args: Record<PropertyKey, never>;
         Returns: boolean;
       };
+      issue_sandbox_code: {
+        Args: {
+          p_request: string;
+          p_reason: string;
+        };
+        Returns: { code_id: string; code: string; expires_at: string; email_status: string }[];
+      };
       legal_documents_status: {
         Args: {
           p_center: string;
@@ -7502,6 +7914,12 @@ export type Database = {
         };
         Returns: string;
       };
+      normalize_sandbox_code: {
+        Args: {
+          p: string;
+        };
+        Returns: string;
+      };
       opportunity_availability: {
         Args: {
           p_opportunity: string;
@@ -7569,6 +7987,10 @@ export type Database = {
         };
         Returns: string;
       };
+      platform_onboarding_pipeline: {
+        Args: Record<PropertyKey, never>;
+        Returns: { center_id: string; slug: string; name: string; environment: string; status: string; stage: string; stage_since: string; steps_done: number; steps_total: number; readiness_ok: number; readiness_total: number; blockers: string[]; owner_name: string; owner_email: string; owner_phone: string; golive_id: string; golive_status: string; promoted_to: string; last_activity_at: string; support_live: boolean }[];
+      };
       preview_allocation: {
         Args: {
           p_household: string;
@@ -7576,6 +7998,14 @@ export type Database = {
           p_pledge_ids?: string[];
         };
         Returns: { pledge_id: string; pledge_number: string; amount_cents: number; closes: boolean }[];
+      };
+      promote_sandbox: {
+        Args: {
+          p_sandbox: string;
+          p_slug: string;
+          p_reason: string;
+        };
+        Returns: string;
       };
       public_kpi_catalog: {
         Args: {
@@ -7668,6 +8098,26 @@ export type Database = {
         };
         Returns: string;
       };
+      redeem_sandbox_code: {
+        Args: {
+          p_code: string;
+          p_org_slug: string;
+        };
+        Returns: Json;
+      };
+      reject_golive: {
+        Args: {
+          p_request: string;
+          p_note: string;
+        };
+        Returns: undefined;
+      };
+      request_golive: {
+        Args: {
+          p_center: string;
+        };
+        Returns: string;
+      };
       require_2fa_for_staff: {
         Args: {
           p_center: string;
@@ -7711,6 +8161,20 @@ export type Database = {
         };
         Returns: undefined;
       };
+      revoke_sandbox_code: {
+        Args: {
+          p_id: string;
+          p_reason: string;
+        };
+        Returns: undefined;
+      };
+      revoke_support_access: {
+        Args: {
+          p_grant: string;
+          p_reason?: string;
+        };
+        Returns: undefined;
+      };
       rotate_member_join_code: {
         Args: {
           p_center: string;
@@ -7731,6 +8195,12 @@ export type Database = {
           p_person: string;
         };
         Returns: boolean;
+      };
+      sandbox_start_status: {
+        Args: {
+          p_code: string;
+        };
+        Returns: Json;
       };
       segment_recipient_count: {
         Args: {
@@ -7905,6 +8375,25 @@ export type Database = {
         };
         Returns: string;
       };
+      submit_access_request: {
+        Args: {
+          p_org_legal_name: string;
+          p_org_type: string;
+          p_city: string;
+          p_state: string;
+          p_approx_households: number;
+          p_contact_name: string;
+          p_contact_email: string;
+          p_contact_phone?: string;
+          p_website?: string;
+          p_modules_interested?: string[];
+          p_current_systems?: string[];
+          p_heard_from?: string;
+          p_ip?: string;
+          p_user_agent?: string;
+        };
+        Returns: string;
+      };
       submit_membership_application: {
         Args: {
           p_center: string;
@@ -7941,6 +8430,12 @@ export type Database = {
           p_txn: string;
         };
         Returns: { payment_id: string; household_name: string; receipt_number: string; method: Database["app"]["Enums"]["payment_method"]; amount_cents: number; received_on: string; check_number: string; envelope_number: string; exact_total: boolean }[];
+      };
+      support_staff_options: {
+        Args: {
+          p_center: string;
+        };
+        Returns: { user_id: string; email: string }[];
       };
       teaches_person: {
         Args: {

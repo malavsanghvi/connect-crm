@@ -443,6 +443,8 @@ export const NAV: NavModule[] = [
       { href: "/setup/profile", label: "Profile & brand", access: "setup" },
       { href: "/setup/leaders", label: "Leaders", access: "setup" },
       { href: "/setup/readiness", label: "Go-live readiness", access: "setup" },
+      // Onboarding (o-platform): attestations, the go-live request and promotion.
+      { href: "/setup/go-live", label: "Go-live", access: "setup" },
     ],
     paths: ["/setup"],
   },
@@ -470,6 +472,8 @@ export const NAV: NavModule[] = [
       { href: "/settings/import", label: "Data import", access: "dataImport" },
       { href: "/settings/custom-fields", label: "Custom fields", access: "centerSettings" },
       { href: "/settings/data-quality", label: "Data quality", access: "dataQuality" },
+      // Onboarding (o-platform): the owner's time-boxed support grants to Community Connect.
+      { href: "/settings/support-access", label: "Support access", access: "centerSettings" },
     ],
     paths: ["/settings", "/privacy", "/audit", "/approvals"],
   },
@@ -480,6 +484,12 @@ export const NAV: NavModule[] = [
       { href: "/platform", label: "Centers", access: "dashboard", platformOnly: true },
       { href: "/platform/new", label: "New center wizard", access: "dashboard", platformOnly: true },
       { href: "/platform/verification", label: "Verification", access: "dashboard", platformOnly: true },
+      // Onboarding (o-platform): the Community Connect console.
+      { href: "/platform/requests", label: "Requests", access: "dashboard", platformOnly: true },
+      { href: "/platform/codes", label: "Sandbox codes", access: "dashboard", platformOnly: true },
+      { href: "/platform/pipeline", label: "Onboarding", access: "dashboard", platformOnly: true },
+      { href: "/platform/go-live", label: "Go-live approvals", access: "dashboard", platformOnly: true },
+      { href: "/platform/support-access", label: "Support access", access: "dashboard", platformOnly: true },
     ],
     paths: ["/platform"],
   },

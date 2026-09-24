@@ -85,6 +85,12 @@ export async function main(env: Env = process.env): Promise<void> {
         log.error("could not queue storage.retention", { error: err });
       }
     }
+    try {
+      const id = await db.schedule("platform.sandbox_expiry", 24 * 3600);
+      if (id) log.info("queued the daily platform.sandbox_expiry pass", { queued_job: id });
+    } catch (err) {
+      log.error("could not queue platform.sandbox_expiry", { error: err });
+    }
   }
 
   let polling = false;
