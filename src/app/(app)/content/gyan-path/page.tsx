@@ -8,7 +8,7 @@ import { Card, EmptyState, QueryError, StatusText, TableWrap, buttonClass } from
 import { contentStatusLabel, goalLearnerStats } from "@/lib/content";
 import { fetchAll } from "@/lib/data/fetch-all";
 import { can, canAccess } from "@/lib/permissions";
-import { isUuid, param, type RawSearchParams } from "@/lib/search-params";
+import { param, type RawSearchParams } from "@/lib/search-params";
 import { getSession } from "@/lib/session";
 
 import { addStepAction, deleteStepAction, saveGoalAction, saveLevelAction } from "../actions";

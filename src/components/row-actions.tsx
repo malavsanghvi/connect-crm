@@ -5,9 +5,20 @@ export type RowButton = { label: string; value: string; variant: ButtonVariant; 
 
 /**
  * Right-aligned pill buttons for one table row (Return / Approve, Mark added,
- * Take it). Each button submits `decision=<value>` with the hidden fields.
+ * Take it). Each button submits `<fieldName>=<value>` with the hidden fields.
  */
-export function RowActions({ action, fields, buttons }: { action: FormAction; fields: Record<string, string>; buttons: RowButton[] }) {
+export function RowActions({
+  action,
+  fields,
+  buttons,
+  fieldName = "decision",
+}: {
+  action: FormAction;
+  fields: Record<string, string>;
+  buttons: RowButton[];
+  /** Name of the field each button submits (default "decision"). */
+  fieldName?: string;
+}) {
   return (
     <ActionForm
       action={action}
@@ -19,7 +30,7 @@ export function RowActions({ action, fields, buttons }: { action: FormAction; fi
         <button
           key={b.value}
           type="submit"
-          name="decision"
+          name={fieldName}
           value={b.value}
           data-variant={b.variant}
           data-confirm={b.confirm}
