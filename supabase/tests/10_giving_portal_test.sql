@@ -17,6 +17,9 @@ select pg_temp.assert((select string_agg(lo.name, ',' order by lo.name) from app
                          join app.pledges p on p.id = f.pledge_id
                         where p.source_ref_id = 'f9000000-0000-4000-8000-000000000020') = 'Ashtaprakari puja,Jeevdaya donation',
                       'the fulfillment remembers which labh the family chose');
+select pg_temp.assert((select bool_and(occasion = 'Anya''s birthday') from app.labh_fulfillments f join app.pledges p on p.id = f.pledge_id
+                        where p.source_ref_id = 'f9000000-0000-4000-8000-000000000020'),
+                      'the fulfillment carries the occasion so staff never read the private special day');
 
 -- The family (not staff) cannot read or change fulfillment rows.
 begin;

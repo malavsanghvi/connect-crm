@@ -2,7 +2,8 @@
 -- Admin portal Giving parity (docs/parity/p3-giving-accounting-reports.md §5, §3):
 --   1. Labh fulfillment: which labh a special-day pledge chose and whether it is
 --      scheduled (app.labh_fulfillments), and who fulfils each labh on the menu
---      (labh_options.fulfilled_by). commit_labh records the fulfillment row.
+--      (labh_options.fulfilled_by). commit_labh records the fulfillment row with
+--      the occasion's label (special days stay private to the family).
 --   2. Campaigns and opportunities are audited, so the opportunity builder's
 --      "saved and audited" is true.
 -- Money rules (allocation, write-off, refunds) are unchanged; no permission keys added.
@@ -15,6 +16,7 @@ create table app.labh_fulfillments (
   pledge_id      uuid primary key references app.pledges(id) on delete cascade,
   center_id      uuid not null references app.centers(id) on delete cascade,
   labh_option_id uuid references app.labh_options(id) on delete set null,
+  occasion       text,                                   -- the special day's label, copied so staff never read special_days
   status         text not null default 'to_schedule' check (status in ('to_schedule','scheduled','done','cancelled')),
   note           text,
   updated_at     timestamptz not null default now(),
@@ -77,7 +79,8 @@ begin
       returning id, pledge_number into v_pledge, v_number;
     v_numbers := v_numbers || v_number;
     -- Fulfillment starts "to schedule" and remembers which labh was chosen (0060).
-    insert into app.labh_fulfillments (pledge_id, center_id, labh_option_id) values (v_pledge, d.center_id, o.id);
+    insert into app.labh_fulfillments (pledge_id, center_id, labh_option_id, occasion)
+      values (v_pledge, d.center_id, o.id, coalesce(nullif(trim(d.label), ''), initcap(d.kind)));
     if coalesce(p_repeat_yearly, false) then
       insert into app.recurring_gifts (center_id, household_id, person_id, campaign_id, fund_id, amount_cents, frequency,
                                        special_day_id, status, starts_on, next_charge_on, end_kind)

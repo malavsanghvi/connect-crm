@@ -2186,6 +2186,7 @@ export type Database = {
           pledge_id: string;
           center_id: string;
           labh_option_id: string | null;
+          occasion: string | null;
           status: string;
           note: string | null;
           updated_at: string;
@@ -2196,6 +2197,7 @@ export type Database = {
           pledge_id: string;
           center_id: string;
           labh_option_id?: string | null;
+          occasion?: string | null;
           status?: string;
           note?: string | null;
           updated_at?: string;
@@ -2206,6 +2208,7 @@ export type Database = {
           pledge_id?: string;
           center_id?: string;
           labh_option_id?: string | null;
+          occasion?: string | null;
           status?: string;
           note?: string | null;
           updated_at?: string;
