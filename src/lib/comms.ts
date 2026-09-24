@@ -126,7 +126,8 @@ export function campaignStatusLabel(status: string): string {
     case "pending_approval":
       return "Awaiting second approver";
     case "scheduled":
-      return "Scheduled";
+      // Nothing sends campaigns yet (no email/SMS/WhatsApp/push sender is connected).
+      return "Scheduled · queued until a sender is connected";
     case "sending":
       return "Sending";
     case "sent":
