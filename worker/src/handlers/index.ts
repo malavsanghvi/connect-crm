@@ -6,6 +6,8 @@ import type { HandlerModule } from "../types";
 import * as demoPing from "./demo.ping";
 import * as importSuggestMapping from "./import.suggest_mapping";
 import * as oauthExchange from "./oauth.exchange";
+import * as platformPromote from "./platform.promote";
+import * as platformSandboxExpiry from "./platform.sandbox_expiry";
 import * as storageRetention from "./storage.retention";
 
-export const HANDLERS: HandlerModule[] = [demoPing, importSuggestMapping, oauthExchange, storageRetention];
+export const HANDLERS: HandlerModule[] = [demoPing, importSuggestMapping, oauthExchange, platformPromote, platformSandboxExpiry, storageRetention];
