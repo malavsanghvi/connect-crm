@@ -5520,6 +5520,13 @@ export type Database = {
         };
         Returns: boolean;
       };
+      cancel_my_store_order: {
+        Args: {
+          p_order: string;
+          p_reason?: string;
+        };
+        Returns: undefined;
+      };
       cancel_rsvp: {
         Args: {
           p_rsvp: string;
