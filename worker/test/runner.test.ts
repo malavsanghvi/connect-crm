@@ -14,7 +14,7 @@ const deps = (db: ReturnType<typeof fakeDb>["db"], env: Record<string, string> =
 describe("registry", () => {
   it("has demo.ping, oauth.exchange and storage.retention, and no invented storage.scan", () => {
     expect([...createRegistry(HANDLERS).keys()].sort()).toEqual([
-      "demo.ping", "import.suggest_mapping", "messaging.domain_verify", "messaging.send", "messaging.test_send", "messaging.webhook.email", "messaging.webhook.twilio", "oauth.exchange", "payments.refund", "payments.sync_payouts", "payments.test_charge", "payments.webhook.paypal", "payments.webhook.stripe", "platform.promote", "platform.sandbox_expiry", "platform.test_provider", "qbo.bring_in_history", "qbo.match_suggest_ai", "qbo.post", "qbo.pull_customers_history", "qbo.pull_lists", "qbo.refresh_token", "qbo.test_post", "storage.retention",
+      "demo.clear", "demo.load", "demo.ping", "import.suggest_mapping", "messaging.domain_verify", "messaging.send", "messaging.test_send", "messaging.webhook.email", "messaging.webhook.twilio", "oauth.exchange", "payments.refund", "payments.sync_payouts", "payments.test_charge", "payments.webhook.paypal", "payments.webhook.stripe", "platform.promote", "platform.sandbox_expiry", "platform.test_provider", "qbo.bring_in_history", "qbo.match_suggest_ai", "qbo.post", "qbo.pull_customers_history", "qbo.pull_lists", "qbo.refresh_token", "qbo.test_post", "storage.retention",
     ]);
   });
   it("refuses duplicate or malformed kinds", () => {
