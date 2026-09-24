@@ -20,7 +20,7 @@ export function HouseholdPicker({
   selectLabel = "Choose this household",
   autoFocus = false,
   idPrefix = "hh",
-  find = findHouseholdsAction,
+  finder = findHouseholdsAction,
 }: {
   labels: CardLabels;
   timeZone: string;
@@ -29,8 +29,8 @@ export function HouseholdPicker({
   selectLabel?: string;
   autoFocus?: boolean;
   idPrefix?: string;
-  /** The search to run (defaults to the finance search); a module with its own permission passes its own action. */
-  find?: (query: string) => Promise<ActionResult<HouseholdFinderResult>>;
+  /** The search behind the picker (default: the giving finder). People screens pass their own, gated on people.manage. */
+  finder?: (query: string) => Promise<ActionResult<HouseholdFinderResult>>;
 }) {
   const [query, setQuery] = useState("");
   const [result, setResult] = useState<HouseholdFinderResult | null>(null);
@@ -42,7 +42,7 @@ export function HouseholdPicker({
     setError(null);
     startTransition(async () => {
       try {
-        const res = await find(query);
+        const res = await finder(query);
         if (!res.ok) {
           setResult(null);
           setError(res.error);

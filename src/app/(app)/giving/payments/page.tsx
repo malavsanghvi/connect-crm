@@ -6,12 +6,13 @@ import { Alert, Badge, Card, EmptyState, NoAccess, PageHeader, Pagination, Query
 import { identifierRules } from "@/lib/center-rules";
 import type { Enums } from "@/lib/database.types";
 import { chunk } from "@/lib/data/fetch-all";
-import { householdsById, userNames } from "@/lib/data/lookups";
+import type { HouseholdCardData } from "@/components/household-card";
+import { householdCards, householdsById, userNames } from "@/lib/data/lookups";
 import { formatDate, todayInTz } from "@/lib/dates";
 import { PAYMENT_METHOD_LABEL } from "@/lib/labels";
 import { formatCents } from "@/lib/money";
 import { can, canAccess } from "@/lib/permissions";
-import { hrefWith, pageParam, param, type RawSearchParams } from "@/lib/search-params";
+import { hrefWith, isUuid, pageParam, param, type RawSearchParams } from "@/lib/search-params";
 import { getSession } from "@/lib/session";
 
 import { RecordPaymentForm } from "./record-payment-form";
@@ -84,6 +85,14 @@ export default async function PaymentsPage({ searchParams }: { searchParams: Pro
     userNames(db, center.id, [...rows.map((r) => r.recorded_by), ...rows.map((r) => r.refund_approved_by)]),
   ]);
 
+  const prefillId = param(sp, "household");
+  let prefill: HouseholdCardData | null = null;
+  if (canRecord && isUuid(prefillId)) {
+    const cards = await householdCards(db, [prefillId]);
+    if (cards.error) console.error("[payments] household prefill failed; the form starts empty:", cards.error);
+    prefill = cards.map.get(prefillId) ?? null;
+  }
+
   return (
     <>
       {header}
@@ -99,6 +108,7 @@ export default async function PaymentsPage({ searchParams }: { searchParams: Pro
             currency={center.currency}
             today={today}
             canAllocate={canAccess(session, "allocatePayment")}
+            initialHousehold={prefill}
           />
         </Card>
       ) : null}

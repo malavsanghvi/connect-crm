@@ -255,7 +255,7 @@ export function BoliDrawer({
               onSelect={setFamily}
               selectLabel="Record for this family"
               idPrefix="bd-hh"
-              find={findBoliHouseholdsAction}
+              finder={findBoliHouseholdsAction}
             />
           )}
         </DrawerSection>

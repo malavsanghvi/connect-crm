@@ -103,6 +103,8 @@ export const ACCESS = {
   dashboard: [] as string[],
   households: ["people.view", "people.manage"],
   householdsEdit: ["people.manage"],
+  /** People module: voting eligibility list (read) and the directory listings. */
+  voting: ["people.view", "people.approve"],
   memberships: ["people.view", "people.manage"],
   applications: ["people.view", "people.approve"],
   applicationsDecide: ["people.approve"],
@@ -248,7 +250,10 @@ export const NAV: NavModule[] = [
     label: "People",
     tabs: [
       { href: "/households", label: "Households", access: "households" },
+      { href: "/people", label: "People", access: "households" },
       { href: "/memberships/applications", label: "Membership applications", access: "applications" },
+      { href: "/people/directory", label: "Directory & expertise", access: "households" },
+      { href: "/people/voting", label: "Voting eligibility", access: "voting" },
     ],
     paths: ["/households", "/people", "/memberships", "/identifiers"],
   },
