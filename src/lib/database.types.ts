@@ -231,6 +231,7 @@ export type Database = {
           gift_given_at: string | null;
           lunch_slot_id: string | null;
           created_at: string;
+          custom: Json;
         };
         Insert: {
           id?: string;
@@ -253,6 +254,7 @@ export type Database = {
           gift_given_at?: string | null;
           lunch_slot_id?: string | null;
           created_at?: string;
+          custom?: Json;
         };
         Update: {
           id?: string;
@@ -275,6 +277,7 @@ export type Database = {
           gift_given_at?: string | null;
           lunch_slot_id?: string | null;
           created_at?: string;
+          custom?: Json;
         };
         Relationships: [];
       };
@@ -359,6 +362,7 @@ export type Database = {
           expires_on: string | null;
           recorded_by: string | null;
           created_at: string;
+          custom: Json;
         };
         Insert: {
           id?: string;
@@ -371,6 +375,7 @@ export type Database = {
           expires_on?: string | null;
           recorded_by?: string | null;
           created_at?: string;
+          custom?: Json;
         };
         Update: {
           id?: string;
@@ -383,6 +388,7 @@ export type Database = {
           expires_on?: string | null;
           recorded_by?: string | null;
           created_at?: string;
+          custom?: Json;
         };
         Relationships: [];
       };
@@ -397,6 +403,7 @@ export type Database = {
           parse_rules: Json;
           active: boolean;
           statement_format: string;
+          custom: Json;
         };
         Insert: {
           id?: string;
@@ -408,6 +415,7 @@ export type Database = {
           parse_rules?: Json;
           active?: boolean;
           statement_format?: string;
+          custom?: Json;
         };
         Update: {
           id?: string;
@@ -419,6 +427,7 @@ export type Database = {
           parse_rules?: Json;
           active?: boolean;
           statement_format?: string;
+          custom?: Json;
         };
         Relationships: [];
       };
@@ -565,6 +574,7 @@ export type Database = {
           anonymous: boolean;
           entered_at: string;
           pledge_id: string | null;
+          custom: Json;
         };
         Insert: {
           id?: string;
@@ -579,6 +589,7 @@ export type Database = {
           anonymous?: boolean;
           entered_at?: string;
           pledge_id?: string | null;
+          custom?: Json;
         };
         Update: {
           id?: string;
@@ -593,6 +604,7 @@ export type Database = {
           anonymous?: boolean;
           entered_at?: string;
           pledge_id?: string | null;
+          custom?: Json;
         };
         Relationships: [];
       };
@@ -622,6 +634,7 @@ export type Database = {
           updated_at: string;
           hall_display: boolean;
           closed_reason: string | null;
+          custom: Json;
         };
         Insert: {
           id?: string;
@@ -648,6 +661,7 @@ export type Database = {
           updated_at?: string;
           hall_display?: boolean;
           closed_reason?: string | null;
+          custom?: Json;
         };
         Update: {
           id?: string;
@@ -674,6 +688,7 @@ export type Database = {
           updated_at?: string;
           hall_display?: boolean;
           closed_reason?: string | null;
+          custom?: Json;
         };
         Relationships: [];
       };
@@ -730,6 +745,7 @@ export type Database = {
           default_on: boolean;
           color: string | null;
           owner_label: string | null;
+          custom: Json;
         };
         Insert: {
           id?: string;
@@ -741,6 +757,7 @@ export type Database = {
           default_on?: boolean;
           color?: string | null;
           owner_label?: string | null;
+          custom?: Json;
         };
         Update: {
           id?: string;
@@ -752,6 +769,7 @@ export type Database = {
           default_on?: boolean;
           color?: string | null;
           owner_label?: string | null;
+          custom?: Json;
         };
         Relationships: [];
       };
@@ -771,6 +789,7 @@ export type Database = {
           created_by: string | null;
           created_at: string;
           updated_at: string;
+          custom: Json;
         };
         Insert: {
           id?: string;
@@ -787,6 +806,7 @@ export type Database = {
           created_by?: string | null;
           created_at?: string;
           updated_at?: string;
+          custom?: Json;
         };
         Update: {
           id?: string;
@@ -803,6 +823,7 @@ export type Database = {
           created_by?: string | null;
           created_at?: string;
           updated_at?: string;
+          custom?: Json;
         };
         Relationships: [];
       };
@@ -921,6 +942,7 @@ export type Database = {
           opted_in: boolean;
           source: string;
           recorded_at: string;
+          custom: Json;
         };
         Insert: {
           id?: string;
@@ -931,6 +953,7 @@ export type Database = {
           opted_in: boolean;
           source: string;
           recorded_at?: string;
+          custom?: Json;
         };
         Update: {
           id?: string;
@@ -941,6 +964,7 @@ export type Database = {
           opted_in?: boolean;
           source?: string;
           recorded_at?: string;
+          custom?: Json;
         };
         Relationships: [];
       };
@@ -1271,6 +1295,63 @@ export type Database = {
         };
         Relationships: [];
       };
+      custom_field_definitions: {
+        Row: {
+          id: string;
+          center_id: string;
+          entity: string;
+          key: string;
+          label: string;
+          type: string;
+          choices: Json;
+          sensitivity: string;
+          searchable: boolean;
+          source: string;
+          source_import_run: string | null;
+          status: string;
+          sort: number;
+          created_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          center_id: string;
+          entity: string;
+          key: string;
+          label: string;
+          type: string;
+          choices?: Json;
+          sensitivity?: string;
+          searchable?: boolean;
+          source?: string;
+          source_import_run?: string | null;
+          status?: string;
+          sort?: number;
+          created_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          center_id?: string;
+          entity?: string;
+          key?: string;
+          label?: string;
+          type?: string;
+          choices?: Json;
+          sensitivity?: string;
+          searchable?: boolean;
+          source?: string;
+          source_import_run?: string | null;
+          status?: string;
+          sort?: number;
+          created_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       daily_timings: {
         Row: {
           id: string;
@@ -1407,6 +1488,7 @@ export type Database = {
           offset_days: number | null;
           sort_order: number;
           confidential: boolean;
+          custom: Json;
         };
         Insert: {
           id?: string;
@@ -1420,6 +1502,7 @@ export type Database = {
           offset_days?: number | null;
           sort_order?: number;
           confidential?: boolean;
+          custom?: Json;
         };
         Update: {
           id?: string;
@@ -1433,6 +1516,7 @@ export type Database = {
           offset_days?: number | null;
           sort_order?: number;
           confidential?: boolean;
+          custom?: Json;
         };
         Relationships: [];
       };
@@ -1447,6 +1531,7 @@ export type Database = {
           confidential: boolean;
           created_at: string;
           updated_at: string;
+          custom: Json;
         };
         Insert: {
           id?: string;
@@ -1458,6 +1543,7 @@ export type Database = {
           confidential?: boolean;
           created_at?: string;
           updated_at?: string;
+          custom?: Json;
         };
         Update: {
           id?: string;
@@ -1469,6 +1555,7 @@ export type Database = {
           confidential?: boolean;
           created_at?: string;
           updated_at?: string;
+          custom?: Json;
         };
         Relationships: [];
       };
@@ -1509,6 +1596,7 @@ export type Database = {
           created_at: string;
           updated_at: string;
           event_number: string;
+          custom: Json;
         };
         Insert: {
           id?: string;
@@ -1546,6 +1634,7 @@ export type Database = {
           created_at?: string;
           updated_at?: string;
           event_number?: string;
+          custom?: Json;
         };
         Update: {
           id?: string;
@@ -1583,6 +1672,7 @@ export type Database = {
           created_at?: string;
           updated_at?: string;
           event_number?: string;
+          custom?: Json;
         };
         Relationships: [];
       };
@@ -1609,6 +1699,7 @@ export type Database = {
           verified_at: string | null;
           notes: string | null;
           created_at: string;
+          custom: Json;
         };
         Insert: {
           id?: string;
@@ -1632,6 +1723,7 @@ export type Database = {
           verified_at?: string | null;
           notes?: string | null;
           created_at?: string;
+          custom?: Json;
         };
         Update: {
           id?: string;
@@ -1655,6 +1747,7 @@ export type Database = {
           verified_at?: string | null;
           notes?: string | null;
           created_at?: string;
+          custom?: Json;
         };
         Relationships: [];
       };
@@ -1667,6 +1760,7 @@ export type Database = {
           restricted: boolean;
           qbo_class_id: string | null;
           active: boolean;
+          custom: Json;
         };
         Insert: {
           id?: string;
@@ -1676,6 +1770,7 @@ export type Database = {
           restricted?: boolean;
           qbo_class_id?: string | null;
           active?: boolean;
+          custom?: Json;
         };
         Update: {
           id?: string;
@@ -1685,6 +1780,7 @@ export type Database = {
           restricted?: boolean;
           qbo_class_id?: string | null;
           active?: boolean;
+          custom?: Json;
         };
         Relationships: [];
       };
@@ -1739,6 +1835,7 @@ export type Database = {
           recommended: boolean;
           tint: string | null;
           mark: string | null;
+          custom: Json;
         };
         Insert: {
           id?: string;
@@ -1751,6 +1848,7 @@ export type Database = {
           recommended?: boolean;
           tint?: string | null;
           mark?: string | null;
+          custom?: Json;
         };
         Update: {
           id?: string;
@@ -1763,6 +1861,7 @@ export type Database = {
           recommended?: boolean;
           tint?: string | null;
           mark?: string | null;
+          custom?: Json;
         };
         Relationships: [];
       };
@@ -1777,6 +1876,7 @@ export type Database = {
           treasure: string | null;
           requires_teacher_signoff: boolean;
           chapter: string | null;
+          custom: Json;
         };
         Insert: {
           id?: string;
@@ -1788,6 +1888,7 @@ export type Database = {
           treasure?: string | null;
           requires_teacher_signoff?: boolean;
           chapter?: string | null;
+          custom?: Json;
         };
         Update: {
           id?: string;
@@ -1799,6 +1900,7 @@ export type Database = {
           treasure?: string | null;
           requires_teacher_signoff?: boolean;
           chapter?: string | null;
+          custom?: Json;
         };
         Relationships: [];
       };
@@ -1881,6 +1983,7 @@ export type Database = {
           quiz: Json | null;
           sort_order: number;
           points: number;
+          custom: Json;
         };
         Insert: {
           id?: string;
@@ -1891,6 +1994,7 @@ export type Database = {
           quiz?: Json | null;
           sort_order?: number;
           points?: number;
+          custom?: Json;
         };
         Update: {
           id?: string;
@@ -1901,6 +2005,7 @@ export type Database = {
           quiz?: Json | null;
           sort_order?: number;
           points?: number;
+          custom?: Json;
         };
         Relationships: [];
       };
@@ -1955,6 +2060,7 @@ export type Database = {
           is_primary: boolean;
           joined_at: string | null;
           left_at: string | null;
+          custom: Json;
         };
         Insert: {
           household_id: string;
@@ -1964,6 +2070,7 @@ export type Database = {
           is_primary?: boolean;
           joined_at?: string | null;
           left_at?: string | null;
+          custom?: Json;
         };
         Update: {
           household_id?: string;
@@ -1973,6 +2080,7 @@ export type Database = {
           is_primary?: boolean;
           joined_at?: string | null;
           left_at?: string | null;
+          custom?: Json;
         };
         Relationships: [];
       };
@@ -1994,6 +2102,7 @@ export type Database = {
           merged_into_id: string | null;
           created_at: string;
           updated_at: string;
+          custom: Json;
         };
         Insert: {
           id?: string;
@@ -2012,6 +2121,7 @@ export type Database = {
           merged_into_id?: string | null;
           created_at?: string;
           updated_at?: string;
+          custom?: Json;
         };
         Update: {
           id?: string;
@@ -2030,6 +2140,211 @@ export type Database = {
           merged_into_id?: string | null;
           created_at?: string;
           updated_at?: string;
+          custom?: Json;
+        };
+        Relationships: [];
+      };
+      import_changes: {
+        Row: {
+          id: number;
+          center_id: string;
+          run_id: string;
+          row_no: number | null;
+          table_name: string;
+          record_id: string;
+          op: string;
+          before: Json | null;
+          after: Json | null;
+          undone_at: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: number;
+          center_id: string;
+          run_id: string;
+          row_no?: number | null;
+          table_name: string;
+          record_id: string;
+          op: string;
+          before?: Json | null;
+          after?: Json | null;
+          undone_at?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: number;
+          center_id?: string;
+          run_id?: string;
+          row_no?: number | null;
+          table_name?: string;
+          record_id?: string;
+          op?: string;
+          before?: Json | null;
+          after?: Json | null;
+          undone_at?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      import_entities: {
+        Row: {
+          key: string;
+          label: string;
+          tier: string;
+          sort: number;
+          target_table: string;
+          write_perms: string[];
+          module_key: string | null;
+          columns: string[];
+          extras: string[];
+          natural_key: string[];
+          money_columns: string[];
+          has_center: boolean;
+        };
+        Insert: {
+          key: string;
+          label: string;
+          tier: string;
+          sort: number;
+          target_table: string;
+          write_perms: string[];
+          module_key?: string | null;
+          columns: string[];
+          extras?: string[];
+          natural_key?: string[];
+          money_columns?: string[];
+          has_center?: boolean;
+        };
+        Update: {
+          key?: string;
+          label?: string;
+          tier?: string;
+          sort?: number;
+          target_table?: string;
+          write_perms?: string[];
+          module_key?: string | null;
+          columns?: string[];
+          extras?: string[];
+          natural_key?: string[];
+          money_columns?: string[];
+          has_center?: boolean;
+        };
+        Relationships: [];
+      };
+      import_keys: {
+        Row: {
+          center_id: string;
+          entity: string;
+          source_key: string;
+          table_name: string;
+          record_id: string;
+          run_id: string | null;
+          updated_at: string;
+        };
+        Insert: {
+          center_id: string;
+          entity: string;
+          source_key: string;
+          table_name: string;
+          record_id: string;
+          run_id?: string | null;
+          updated_at?: string;
+        };
+        Update: {
+          center_id?: string;
+          entity?: string;
+          source_key?: string;
+          table_name?: string;
+          record_id?: string;
+          run_id?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      import_mappings: {
+        Row: {
+          id: string;
+          center_id: string;
+          source: string;
+          entity: string;
+          mapping: Json;
+          updated_by: string | null;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          center_id: string;
+          source: string;
+          entity: string;
+          mapping?: Json;
+          updated_by?: string | null;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          center_id?: string;
+          source?: string;
+          entity?: string;
+          mapping?: Json;
+          updated_by?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      import_rows: {
+        Row: {
+          id: number;
+          center_id: string;
+          run_id: string;
+          row_no: number;
+          source_key: string;
+          raw: Json | null;
+          data: Json;
+          extra: Json;
+          custom: Json;
+          problems: Json;
+          action: string | null;
+          decision: string | null;
+          match: Json | null;
+          status: string;
+          target_id: string | null;
+          message: string | null;
+        };
+        Insert: {
+          id?: number;
+          center_id: string;
+          run_id: string;
+          row_no: number;
+          source_key: string;
+          raw?: Json | null;
+          data?: Json;
+          extra?: Json;
+          custom?: Json;
+          problems?: Json;
+          action?: string | null;
+          decision?: string | null;
+          match?: Json | null;
+          status?: string;
+          target_id?: string | null;
+          message?: string | null;
+        };
+        Update: {
+          id?: number;
+          center_id?: string;
+          run_id?: string;
+          row_no?: number;
+          source_key?: string;
+          raw?: Json | null;
+          data?: Json;
+          extra?: Json;
+          custom?: Json;
+          problems?: Json;
+          action?: string | null;
+          decision?: string | null;
+          match?: Json | null;
+          status?: string;
+          target_id?: string | null;
+          message?: string | null;
         };
         Relationships: [];
       };
@@ -2049,6 +2364,26 @@ export type Database = {
           started_by: string | null;
           started_at: string | null;
           finished_at: string | null;
+          run_number: number | null;
+          request_id: string;
+          file_name: string | null;
+          file_fingerprint: string | null;
+          file_size: number | null;
+          tier: string | null;
+          counts: Json;
+          reconciliation: Json | null;
+          signed_off_by: string | null;
+          signed_off_at: string | null;
+          sign_off_note: string | null;
+          committed_at: string | null;
+          undone_by: string | null;
+          undone_at: string | null;
+          undo_reason: string | null;
+          previous_run_id: string | null;
+          options: Json;
+          ai_job_id: number | null;
+          created_at: string;
+          raw_purged_at: string | null;
         };
         Insert: {
           id?: string;
@@ -2065,6 +2400,26 @@ export type Database = {
           started_by?: string | null;
           started_at?: string | null;
           finished_at?: string | null;
+          run_number?: number | null;
+          request_id?: string;
+          file_name?: string | null;
+          file_fingerprint?: string | null;
+          file_size?: number | null;
+          tier?: string | null;
+          counts?: Json;
+          reconciliation?: Json | null;
+          signed_off_by?: string | null;
+          signed_off_at?: string | null;
+          sign_off_note?: string | null;
+          committed_at?: string | null;
+          undone_by?: string | null;
+          undone_at?: string | null;
+          undo_reason?: string | null;
+          previous_run_id?: string | null;
+          options?: Json;
+          ai_job_id?: number | null;
+          created_at?: string;
+          raw_purged_at?: string | null;
         };
         Update: {
           id?: string;
@@ -2081,6 +2436,26 @@ export type Database = {
           started_by?: string | null;
           started_at?: string | null;
           finished_at?: string | null;
+          run_number?: number | null;
+          request_id?: string;
+          file_name?: string | null;
+          file_fingerprint?: string | null;
+          file_size?: number | null;
+          tier?: string | null;
+          counts?: Json;
+          reconciliation?: Json | null;
+          signed_off_by?: string | null;
+          signed_off_at?: string | null;
+          sign_off_note?: string | null;
+          committed_at?: string | null;
+          undone_by?: string | null;
+          undone_at?: string | null;
+          undo_reason?: string | null;
+          previous_run_id?: string | null;
+          options?: Json;
+          ai_job_id?: number | null;
+          created_at?: string;
+          raw_purged_at?: string | null;
         };
         Relationships: [];
       };
@@ -2093,6 +2468,7 @@ export type Database = {
           zone_id: string | null;
           role_key: string | null;
           response_target_hours: number;
+          custom: Json;
         };
         Insert: {
           id?: string;
@@ -2102,6 +2478,7 @@ export type Database = {
           zone_id?: string | null;
           role_key?: string | null;
           response_target_hours?: number;
+          custom?: Json;
         };
         Update: {
           id?: string;
@@ -2111,6 +2488,7 @@ export type Database = {
           zone_id?: string | null;
           role_key?: string | null;
           response_target_hours?: number;
+          custom?: Json;
         };
         Relationships: [];
       };
@@ -2266,6 +2644,7 @@ export type Database = {
           active: boolean;
           campaign_id: string | null;
           fulfilled_by: string | null;
+          custom: Json;
         };
         Insert: {
           id?: string;
@@ -2277,6 +2656,7 @@ export type Database = {
           active?: boolean;
           campaign_id?: string | null;
           fulfilled_by?: string | null;
+          custom?: Json;
         };
         Update: {
           id?: string;
@@ -2288,6 +2668,7 @@ export type Database = {
           active?: boolean;
           campaign_id?: string | null;
           fulfilled_by?: string | null;
+          custom?: Json;
         };
         Relationships: [];
       };
@@ -2525,6 +2906,7 @@ export type Database = {
           ec_approval_required: boolean;
           voting_wait_days: number;
           active: boolean;
+          custom: Json;
         };
         Insert: {
           id?: string;
@@ -2540,6 +2922,7 @@ export type Database = {
           ec_approval_required?: boolean;
           voting_wait_days?: number;
           active?: boolean;
+          custom?: Json;
         };
         Update: {
           id?: string;
@@ -2555,6 +2938,7 @@ export type Database = {
           ec_approval_required?: boolean;
           voting_wait_days?: number;
           active?: boolean;
+          custom?: Json;
         };
         Relationships: [];
       };
@@ -2575,6 +2959,7 @@ export type Database = {
           notes: string | null;
           created_at: string;
           updated_at: string;
+          custom: Json;
         };
         Insert: {
           id?: string;
@@ -2592,6 +2977,7 @@ export type Database = {
           notes?: string | null;
           created_at?: string;
           updated_at?: string;
+          custom?: Json;
         };
         Update: {
           id?: string;
@@ -2609,6 +2995,7 @@ export type Database = {
           notes?: string | null;
           created_at?: string;
           updated_at?: string;
+          custom?: Json;
         };
         Relationships: [];
       };
@@ -2914,6 +3301,7 @@ export type Database = {
           kind: string;
           options: Json;
           subtitle: string | null;
+          custom: Json;
         };
         Insert: {
           id?: string;
@@ -2934,6 +3322,7 @@ export type Database = {
           kind?: string;
           options?: Json;
           subtitle?: string | null;
+          custom?: Json;
         };
         Update: {
           id?: string;
@@ -2954,6 +3343,7 @@ export type Database = {
           kind?: string;
           options?: Json;
           subtitle?: string | null;
+          custom?: Json;
         };
         Relationships: [];
       };
@@ -2968,6 +3358,7 @@ export type Database = {
           marked_via: string;
           marked_at: string;
           note: string | null;
+          custom: Json;
         };
         Insert: {
           id?: string;
@@ -2979,6 +3370,7 @@ export type Database = {
           marked_via?: string;
           marked_at?: string;
           note?: string | null;
+          custom?: Json;
         };
         Update: {
           id?: string;
@@ -2990,6 +3382,7 @@ export type Database = {
           marked_via?: string;
           marked_at?: string;
           note?: string | null;
+          custom?: Json;
         };
         Relationships: [];
       };
@@ -3008,6 +3401,7 @@ export type Database = {
           class_email: string | null;
           waitlist_enabled: boolean;
           created_at: string;
+          custom: Json;
         };
         Insert: {
           id?: string;
@@ -3023,6 +3417,7 @@ export type Database = {
           class_email?: string | null;
           waitlist_enabled?: boolean;
           created_at?: string;
+          custom?: Json;
         };
         Update: {
           id?: string;
@@ -3038,6 +3433,7 @@ export type Database = {
           class_email?: string | null;
           waitlist_enabled?: boolean;
           created_at?: string;
+          custom?: Json;
         };
         Relationships: [];
       };
@@ -3057,6 +3453,7 @@ export type Database = {
           registered_at: string;
           placed_at: string | null;
           notes: string | null;
+          custom: Json;
         };
         Insert: {
           id?: string;
@@ -3073,6 +3470,7 @@ export type Database = {
           registered_at?: string;
           placed_at?: string | null;
           notes?: string | null;
+          custom?: Json;
         };
         Update: {
           id?: string;
@@ -3089,6 +3487,7 @@ export type Database = {
           registered_at?: string;
           placed_at?: string | null;
           notes?: string | null;
+          custom?: Json;
         };
         Relationships: [];
       };
@@ -3103,6 +3502,7 @@ export type Database = {
           min_age: number | null;
           max_age: number | null;
           gyan_path_level_id: string | null;
+          custom: Json;
         };
         Insert: {
           id?: string;
@@ -3114,6 +3514,7 @@ export type Database = {
           min_age?: number | null;
           max_age?: number | null;
           gyan_path_level_id?: string | null;
+          custom?: Json;
         };
         Update: {
           id?: string;
@@ -3125,6 +3526,7 @@ export type Database = {
           min_age?: number | null;
           max_age?: number | null;
           gyan_path_level_id?: string | null;
+          custom?: Json;
         };
         Relationships: [];
       };
@@ -3221,6 +3623,7 @@ export type Database = {
           role: string;
           background_check_id: string | null;
           waiver_consent_id: string | null;
+          custom: Json;
         };
         Insert: {
           id?: string;
@@ -3230,6 +3633,7 @@ export type Database = {
           role?: string;
           background_check_id?: string | null;
           waiver_consent_id?: string | null;
+          custom?: Json;
         };
         Update: {
           id?: string;
@@ -3239,6 +3643,7 @@ export type Database = {
           role?: string;
           background_check_id?: string | null;
           waiver_consent_id?: string | null;
+          custom?: Json;
         };
         Relationships: [];
       };
@@ -3258,6 +3663,7 @@ export type Database = {
           no_class_dates: string[];
           status: string;
           created_at: string;
+          custom: Json;
         };
         Insert: {
           id?: string;
@@ -3274,6 +3680,7 @@ export type Database = {
           no_class_dates?: string[];
           status?: string;
           created_at?: string;
+          custom?: Json;
         };
         Update: {
           id?: string;
@@ -3290,6 +3697,7 @@ export type Database = {
           no_class_dates?: string[];
           status?: string;
           created_at?: string;
+          custom?: Json;
         };
         Relationships: [];
       };
@@ -3299,18 +3707,21 @@ export type Database = {
           center_id: string;
           key: string;
           name: string;
+          custom: Json;
         };
         Insert: {
           id?: string;
           center_id: string;
           key: string;
           name: string;
+          custom?: Json;
         };
         Update: {
           id?: string;
           center_id?: string;
           key?: string;
           name?: string;
+          custom?: Json;
         };
         Relationships: [];
       };
@@ -3323,6 +3734,7 @@ export type Database = {
           amount_cents: number;
           chosen_by_donor: boolean;
           created_at: string;
+          custom: Json;
         };
         Insert: {
           id?: string;
@@ -3332,6 +3744,7 @@ export type Database = {
           amount_cents: number;
           chosen_by_donor?: boolean;
           created_at?: string;
+          custom?: Json;
         };
         Update: {
           id?: string;
@@ -3341,6 +3754,7 @@ export type Database = {
           amount_cents?: number;
           chosen_by_donor?: boolean;
           created_at?: string;
+          custom?: Json;
         };
         Relationships: [];
       };
@@ -3376,6 +3790,9 @@ export type Database = {
           deposit_bank_transaction_id: string | null;
           refund_requested_cents: number | null;
           refund_reason: string | null;
+          custom: Json;
+          is_historical: boolean;
+          crm_external_id: string | null;
         };
         Insert: {
           id?: string;
@@ -3408,6 +3825,9 @@ export type Database = {
           deposit_bank_transaction_id?: string | null;
           refund_requested_cents?: number | null;
           refund_reason?: string | null;
+          custom?: Json;
+          is_historical?: boolean;
+          crm_external_id?: string | null;
         };
         Update: {
           id?: string;
@@ -3440,6 +3860,9 @@ export type Database = {
           deposit_bank_transaction_id?: string | null;
           refund_requested_cents?: number | null;
           refund_reason?: string | null;
+          custom?: Json;
+          is_historical?: boolean;
+          crm_external_id?: string | null;
         };
         Relationships: [];
       };
@@ -3518,6 +3941,7 @@ export type Database = {
           best_call_time: string | null;
           contact_channels: string[];
           gyan_daily_minutes: number | null;
+          custom: Json;
         };
         Insert: {
           id?: string;
@@ -3548,6 +3972,7 @@ export type Database = {
           best_call_time?: string | null;
           contact_channels?: string[];
           gyan_daily_minutes?: number | null;
+          custom?: Json;
         };
         Update: {
           id?: string;
@@ -3578,6 +4003,7 @@ export type Database = {
           best_call_time?: string | null;
           contact_channels?: string[];
           gyan_daily_minutes?: number | null;
+          custom?: Json;
         };
         Relationships: [];
       };
@@ -3695,6 +4121,7 @@ export type Database = {
           orders_count: number;
           location: string | null;
           status: string;
+          custom: Json;
         };
         Insert: {
           id?: string;
@@ -3707,6 +4134,7 @@ export type Database = {
           orders_count?: number;
           location?: string | null;
           status?: string;
+          custom?: Json;
         };
         Update: {
           id?: string;
@@ -3719,6 +4147,7 @@ export type Database = {
           orders_count?: number;
           location?: string | null;
           status?: string;
+          custom?: Json;
         };
         Relationships: [];
       };
@@ -3752,6 +4181,7 @@ export type Database = {
           updated_at: string;
           pledge_number: string | null;
           opportunity_option: string | null;
+          custom: Json;
         };
         Insert: {
           id?: string;
@@ -3782,6 +4212,7 @@ export type Database = {
           updated_at?: string;
           pledge_number?: string | null;
           opportunity_option?: string | null;
+          custom?: Json;
         };
         Update: {
           id?: string;
@@ -3812,6 +4243,7 @@ export type Database = {
           updated_at?: string;
           pledge_number?: string | null;
           opportunity_option?: string | null;
+          custom?: Json;
         };
         Relationships: [];
       };
@@ -3916,6 +4348,7 @@ export type Database = {
           sort_order: number;
           active: boolean;
           default_time: string | null;
+          custom: Json;
         };
         Insert: {
           id?: string;
@@ -3930,6 +4363,7 @@ export type Database = {
           sort_order?: number;
           active?: boolean;
           default_time?: string | null;
+          custom?: Json;
         };
         Update: {
           id?: string;
@@ -3944,6 +4378,7 @@ export type Database = {
           sort_order?: number;
           active?: boolean;
           default_time?: string | null;
+          custom?: Json;
         };
         Relationships: [];
       };
@@ -4028,6 +4463,27 @@ export type Database = {
         };
         Relationships: [];
       };
+      readiness_checks: {
+        Row: {
+          key: string;
+          title: string;
+          sort: number;
+          check_fn: string;
+        };
+        Insert: {
+          key: string;
+          title: string;
+          sort?: number;
+          check_fn: string;
+        };
+        Update: {
+          key?: string;
+          title?: string;
+          sort?: number;
+          check_fn?: string;
+        };
+        Relationships: [];
+      };
       receipt_templates: {
         Row: {
           id: string;
@@ -4080,6 +4536,7 @@ export type Database = {
           end_kind: string;
           end_count: number | null;
           end_on: string | null;
+          custom: Json;
         };
         Insert: {
           id?: string;
@@ -4102,6 +4559,7 @@ export type Database = {
           end_kind?: string;
           end_count?: number | null;
           end_on?: string | null;
+          custom?: Json;
         };
         Update: {
           id?: string;
@@ -4124,6 +4582,7 @@ export type Database = {
           end_kind?: string;
           end_count?: number | null;
           end_on?: string | null;
+          custom?: Json;
         };
         Relationships: [];
       };
@@ -4529,6 +4988,7 @@ export type Database = {
           labh_prompt_enabled: boolean;
           show_on_home: boolean;
           created_at: string;
+          custom: Json;
         };
         Insert: {
           id?: string;
@@ -4544,6 +5004,7 @@ export type Database = {
           labh_prompt_enabled?: boolean;
           show_on_home?: boolean;
           created_at?: string;
+          custom?: Json;
         };
         Update: {
           id?: string;
@@ -4559,6 +5020,7 @@ export type Database = {
           labh_prompt_enabled?: boolean;
           show_on_home?: boolean;
           created_at?: string;
+          custom?: Json;
         };
         Relationships: [];
       };
@@ -4601,18 +5063,21 @@ export type Database = {
           center_id: string;
           name: string;
           sort_order: number;
+          custom: Json;
         };
         Insert: {
           id?: string;
           center_id: string;
           name: string;
           sort_order?: number;
+          custom?: Json;
         };
         Update: {
           id?: string;
           center_id?: string;
           name?: string;
           sort_order?: number;
+          custom?: Json;
         };
         Relationships: [];
       };
@@ -4636,6 +5101,7 @@ export type Database = {
           created_at: string;
           updated_at: string;
           gift_pack: boolean;
+          custom: Json;
         };
         Insert: {
           id?: string;
@@ -4656,6 +5122,7 @@ export type Database = {
           created_at?: string;
           updated_at?: string;
           gift_pack?: boolean;
+          custom?: Json;
         };
         Update: {
           id?: string;
@@ -4676,6 +5143,7 @@ export type Database = {
           created_at?: string;
           updated_at?: string;
           gift_pack?: boolean;
+          custom?: Json;
         };
         Relationships: [];
       };
@@ -5227,6 +5695,7 @@ export type Database = {
           coordinator_person_id: string | null;
           requires_background_check: boolean;
           requires_waiver_kind: string | null;
+          custom: Json;
         };
         Insert: {
           id?: string;
@@ -5235,6 +5704,7 @@ export type Database = {
           coordinator_person_id?: string | null;
           requires_background_check?: boolean;
           requires_waiver_kind?: string | null;
+          custom?: Json;
         };
         Update: {
           id?: string;
@@ -5243,6 +5713,7 @@ export type Database = {
           coordinator_person_id?: string | null;
           requires_background_check?: boolean;
           requires_waiver_kind?: string | null;
+          custom?: Json;
         };
         Relationships: [];
       };
@@ -5254,6 +5725,7 @@ export type Database = {
           group_id: string;
           status: string;
           created_at: string;
+          custom: Json;
         };
         Insert: {
           id?: string;
@@ -5262,6 +5734,7 @@ export type Database = {
           group_id: string;
           status?: string;
           created_at?: string;
+          custom?: Json;
         };
         Update: {
           id?: string;
@@ -5270,6 +5743,7 @@ export type Database = {
           group_id?: string;
           status?: string;
           created_at?: string;
+          custom?: Json;
         };
         Relationships: [];
       };
@@ -5352,6 +5826,7 @@ export type Database = {
           invite_link: string | null;
           audience: string;
           active: boolean;
+          custom: Json;
         };
         Insert: {
           id?: string;
@@ -5362,6 +5837,7 @@ export type Database = {
           invite_link?: string | null;
           audience?: string;
           active?: boolean;
+          custom?: Json;
         };
         Update: {
           id?: string;
@@ -5372,6 +5848,7 @@ export type Database = {
           invite_link?: string | null;
           audience?: string;
           active?: boolean;
+          custom?: Json;
         };
         Relationships: [];
       };
@@ -5418,6 +5895,7 @@ export type Database = {
           name: string;
           zip_codes: string[];
           created_at: string;
+          custom: Json;
         };
         Insert: {
           id?: string;
@@ -5425,6 +5903,7 @@ export type Database = {
           name: string;
           zip_codes?: string[];
           created_at?: string;
+          custom?: Json;
         };
         Update: {
           id?: string;
@@ -5432,6 +5911,7 @@ export type Database = {
           name?: string;
           zip_codes?: string[];
           created_at?: string;
+          custom?: Json;
         };
         Relationships: [];
       };
@@ -5570,6 +6050,12 @@ export type Database = {
         };
         Returns: { result: string; rsvp_id: string; household_id: string; household_name: string; attendees: Json }[];
       };
+      check_records_imported: {
+        Args: {
+          p_center: string;
+        };
+        Returns: Json;
+      };
       checkin_lookup_phone: {
         Args: {
           p_event: string;
@@ -5603,6 +6089,18 @@ export type Database = {
         };
         Returns: string;
       };
+      contact_coverage: {
+        Args: {
+          p_center: string;
+        };
+        Returns: Json;
+      };
+      contact_coverage_target: {
+        Args: {
+          p_center: string;
+        };
+        Returns: number;
+      };
       create_event_from_template: {
         Args: {
           p_template: string;
@@ -5635,6 +6133,23 @@ export type Database = {
         };
         Returns: string;
       };
+      custom_entity_write_perms: {
+        Args: {
+          p_entity: string;
+        };
+        Returns: string[];
+      };
+      custom_field_entities: {
+        Args: Record<PropertyKey, never>;
+        Returns: string[];
+      };
+      data_quality: {
+        Args: {
+          p_center: string;
+          p_limit?: number;
+        };
+        Returns: Json;
+      };
       decide_reference: {
         Args: {
           p_application: string;
@@ -5642,6 +6157,21 @@ export type Database = {
           p_reason?: string;
         };
         Returns: undefined;
+      };
+      define_custom_field: {
+        Args: {
+          p_center: string;
+          p_entity: string;
+          p_label: string;
+          p_type: string;
+          p_choices?: Json;
+          p_sensitivity?: string;
+          p_searchable?: boolean;
+          p_key?: string;
+          p_source?: string;
+          p_import_run?: string;
+        };
+        Returns: string;
       };
       directory_listing: {
         Args: {
@@ -5721,6 +6251,153 @@ export type Database = {
           p_center: string;
         };
         Returns: boolean;
+      };
+      import_ai_mapping_result: {
+        Args: {
+          p_run: string;
+        };
+        Returns: Json;
+      };
+      import_assert_run: {
+        Args: {
+          p_run: string;
+        };
+        Returns: string;
+      };
+      import_cancel: {
+        Args: {
+          p_run: string;
+        };
+        Returns: undefined;
+      };
+      import_commit_batch: {
+        Args: {
+          p_run: string;
+          p_limit?: number;
+        };
+        Returns: Json;
+      };
+      import_create_run: {
+        Args: {
+          p_center: string;
+          p_entity: string;
+          p_source: string;
+          p_file_name: string;
+          p_fingerprint?: string;
+          p_file_size?: number;
+          p_options?: Json;
+        };
+        Returns: Json;
+      };
+      import_decide: {
+        Args: {
+          p_run: string;
+          p_row_no: number;
+          p_decision: string;
+        };
+        Returns: undefined;
+      };
+      import_define_fields: {
+        Args: {
+          p_run: string;
+          p_fields: Json;
+        };
+        Returns: Json;
+      };
+      import_explain: {
+        Args: {
+          p_state: string;
+          p_msg: string;
+        };
+        Returns: string;
+      };
+      import_has_any: {
+        Args: {
+          p_center: string;
+          p_perms: string[];
+        };
+        Returns: boolean;
+      };
+      import_preview: {
+        Args: {
+          p_run: string;
+        };
+        Returns: Json;
+      };
+      import_reconcile: {
+        Args: {
+          p_run: string;
+        };
+        Returns: Json;
+      };
+      import_ref_missing: {
+        Args: {
+          p_ref: Json;
+        };
+        Returns: string;
+      };
+      import_request_ai_mapping: {
+        Args: {
+          p_run: string;
+          p_payload: Json;
+        };
+        Returns: Json;
+      };
+      import_run_allowed: {
+        Args: {
+          p_run: string;
+        };
+        Returns: boolean;
+      };
+      import_run_get: {
+        Args: {
+          p_run: string;
+        };
+        Returns: Json;
+      };
+      import_run_list: {
+        Args: {
+          p_center: string;
+          p_limit?: number;
+        };
+        Returns: { id: string; run_number: number; entity: string; entity_label: string; tier: string; source: string; file_name: string; status: string; rows_total: number; counts: Json; reconciliation: Json; started_by: string; created_at: string; committed_at: string; signed_off_by: string; signed_off_at: string; undone_at: string; undo_reason: string; previous_run_number: number; can_undo: boolean }[];
+      };
+      import_save_mapping: {
+        Args: {
+          p_center: string;
+          p_entity: string;
+          p_source: string;
+          p_mapping: Json;
+        };
+        Returns: undefined;
+      };
+      import_sign_off: {
+        Args: {
+          p_run: string;
+          p_note?: string;
+        };
+        Returns: undefined;
+      };
+      import_stage_rows: {
+        Args: {
+          p_run: string;
+          p_rows: Json;
+          p_mapping?: Json;
+        };
+        Returns: number;
+      };
+      import_step_up: {
+        Args: {
+          p_action: string;
+        };
+        Returns: undefined;
+      };
+      import_undo: {
+        Args: {
+          p_run: string;
+          p_reason: string;
+        };
+        Returns: Json;
       };
       in_my_household: {
         Args: {
@@ -5889,6 +6566,12 @@ export type Database = {
         };
         Returns: { students: number; waitlisted: number; teachers: number; background_checks_expiring: number; attendance_percent: number; signoffs_waiting: number }[];
       };
+      payment_posts_to_qbo: {
+        Args: {
+          p_payment: string;
+        };
+        Returns: boolean;
+      };
       people_list: {
         Args: {
           p_center: string;
@@ -5897,6 +6580,13 @@ export type Database = {
           p_offset?: number;
         };
         Returns: { person_id: string; first_name: string; last_name: string; preferred_name: string; email: string; phone_e164: string; member_number: string; household_id: string; household_label: string; household_number: string; relationship: string; age: number; date_of_birth: string; is_minor: boolean; on_app: boolean; is_verified: boolean; total_count: number }[];
+      };
+      person_custom_fields: {
+        Args: {
+          p_center: string;
+          p_person: string;
+        };
+        Returns: { entity: string; key: string; label: string; type: string; value: Json; sort: number }[];
       };
       place_boli_entry: {
         Args: {
@@ -5929,6 +6619,12 @@ export type Database = {
           p_campaign?: string;
         };
         Returns: Json;
+      };
+      qbo_go_live_date: {
+        Args: {
+          p_center: string;
+        };
+        Returns: string;
       };
       record_history: {
         Args: {
@@ -6009,6 +6705,15 @@ export type Database = {
           p_reason: string;
         };
         Returns: undefined;
+      };
+      set_custom_value: {
+        Args: {
+          p_entity: string;
+          p_record: string;
+          p_key: string;
+          p_value: Json;
+        };
+        Returns: Json;
       };
       set_module_enabled: {
         Args: {
@@ -6094,6 +6799,19 @@ export type Database = {
           p_on?: string;
         };
         Returns: { points_reversed: number; day_complete: boolean; streak_days: number }[];
+      };
+      update_custom_field: {
+        Args: {
+          p_id: string;
+          p_label?: string;
+          p_type?: string;
+          p_choices?: Json;
+          p_sensitivity?: string;
+          p_searchable?: boolean;
+          p_status?: string;
+          p_sort?: number;
+        };
+        Returns: string;
       };
       url_decode: {
         Args: {
