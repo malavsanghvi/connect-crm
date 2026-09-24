@@ -91,6 +91,10 @@ export const ACCESS = {
   reports: ["reports.view", "people.view", "giving.view"],
   roles: ["roles.manage"],
   centerSettings: ["settings.manage"],
+  /** Settings › Integrations (reads app.integration_connections). */
+  integrations: ["integrations.view", "integrations.manage"],
+  /** Settings › Security: readable by rules or roles managers; saving writes centers.rules (settings.manage). */
+  security: ["settings.manage", "roles.manage"],
   privacy: ["privacy.manage"],
   identifierSearch: ["people.view", "giving.view", "giving.record_offline"],
 } as const satisfies Record<string, readonly string[]>;
@@ -145,7 +149,8 @@ export function manageableIdentifierKinds(ctx: PermissionContext): IdentifierKin
 // as they move in from connect-admin. Each module's pages are its tabs.
 // Gating is unchanged: every tab uses the same ACCESS key as before.
 // ---------------------------------------------------------------------------
-export type NavTab = { href: string; label: string; access: AccessKey };
+/** `platformOnly` tabs are shown only to platform admins (session.isPlatformAdmin), whatever the access key says. */
+export type NavTab = { href: string; label: string; access: AccessKey; platformOnly?: boolean };
 export type NavModule = {
   key: string;
   label: string;
@@ -194,12 +199,25 @@ export const NAV: NavModule[] = [
     key: "settings",
     label: "Settings",
     tabs: [
-      { href: "/settings/center", label: "Center settings", access: "centerSettings" },
-      { href: "/settings/roles", label: "Roles and access", access: "roles" },
-      { href: "/privacy/requests", label: "Privacy requests", access: "privacy" },
-      { href: "/audit", label: "Audit log", access: "audit" },
+      { href: "/settings/rules", label: "Rules", access: "centerSettings" },
+      { href: "/settings/roles", label: "Roles & entitlements", access: "roles" },
+      { href: "/settings/integrations", label: "Integrations", access: "integrations" },
+      { href: "/settings/privacy", label: "Privacy", access: "privacy" },
+      { href: "/settings/onboarding", label: "Onboarding fields", access: "centerSettings" },
+      { href: "/settings/notifications", label: "Notifications", access: "centerSettings" },
+      { href: "/settings/security", label: "Security", access: "security" },
+      { href: "/settings/audit", label: "Audit log", access: "audit" },
     ],
     paths: ["/settings", "/privacy", "/audit", "/approvals"],
+  },
+  {
+    key: "platform",
+    label: "Platform",
+    tabs: [
+      { href: "/platform", label: "Centers", access: "dashboard", platformOnly: true },
+      { href: "/platform/new", label: "New center wizard", access: "dashboard", platformOnly: true },
+    ],
+    paths: ["/platform"],
   },
 ];
 
@@ -209,7 +227,9 @@ export type VisibleModule = { key: string; label: string; href: string; tabs: Vi
 /** Modules the user can open, each with only the tabs they can open; a module opens on its first visible tab. */
 export function visibleNav(ctx: PermissionContext): VisibleModule[] {
   return NAV.flatMap((m) => {
-    const tabs = m.tabs.filter((t) => canAccess(ctx, t.access)).map(({ href, label }) => ({ href, label }));
+    const tabs = m.tabs
+      .filter((t) => (t.platformOnly ? ctx.isPlatformAdmin : canAccess(ctx, t.access)))
+      .map(({ href, label }) => ({ href, label }));
     return tabs.length > 0 ? [{ key: m.key, label: m.label, href: tabs[0].href, tabs, paths: m.paths }] : [];
   });
 }
