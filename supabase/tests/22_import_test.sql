@@ -151,6 +151,18 @@ select pg_temp.assert_raises($$select app.set_custom_value('people', '30000000-0
   'only staff', 'a member cannot change custom details, not even on their own family''s profile');
 commit;
 
+-- A searchable custom field is a segment filter; one nobody marked searchable is not.
+begin;
+set local role authenticated;
+set local request.jwt.claims = '{"sub":"10000000-0000-4000-8000-000000000011","role":"authenticated"}';
+select pg_temp.assert(app.segment_recipient_count(:jsh, '{"custom_fields":[{"entity":"people","key":"senior_status","value":true}]}') = 0,
+  'a custom field that is not searchable is not a segment');
+select app.update_custom_field((select id from app.custom_field_definitions where center_id = :jsh and entity = 'people' and key = 'senior_status'),
+                               p_searchable => true);
+select pg_temp.assert(app.segment_recipient_count(:jsh, '{"custom_fields":[{"entity":"people","key":"senior_status","value":true}]}') >= 1,
+  'households with a member whose Senior status is yes form a segment (opted-in adults only)');
+commit;
+
 -- ── Membership types (Ada) and memberships (Tara) ─────────────────────────────
 begin;
 set local role authenticated;

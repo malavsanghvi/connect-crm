@@ -787,7 +787,7 @@ begin
     end if;
   elsif e.key = 'households' then
     perform app.import_add_identifier(r, x.row_no, 'org_household',
-      coalesce(v_rules->'identifiers'->>'org_household_system', 'org_register'), ex->>'legacy_id', null, v_id::uuid);
+      coalesce(v_rules->'identifiers'->>'org_household_system', v_rules->'identifiers'->>'org_member_system', 'org_register'), ex->>'legacy_id', null, v_id::uuid);
     if v_crm is not null then perform app.import_add_identifier(r, x.row_no, 'crm', v_crm, ex->>'crm_id', null, v_id::uuid); end if;
   elsif e.key = 'payments' then
     v_pledge := (ex->>'allocate_to')::uuid;
@@ -1237,7 +1237,9 @@ declare r app.import_runs;
 begin
   r := app.import_assert_run(p_run);
   return to_jsonb(r) || jsonb_build_object('entity_label', (select label from app.import_entities where key = r.entity),
-    'previous_run_number', (select run_number from app.import_runs where id = r.previous_run_id));
+    'previous_run_number', (select run_number from app.import_runs where id = r.previous_run_id),
+    'undo_until', r.committed_at + interval '30 days',
+    'can_undo', r.status in ('committed','reconciled') and r.committed_at >= now() - interval '30 days');
 end $$;
 
 -- Save the column mapping for a source ("Neon export") so the next file maps itself.
