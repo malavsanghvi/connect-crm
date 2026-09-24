@@ -316,6 +316,7 @@ select pg_temp.assert((select revoked_by = :owner and expires_at <= now() + inte
 -- ── Promotion (configuration only) ───────────────────────────────────────────
 -- Sandbox configuration and test data.
 insert into app.zones (center_id, name) values (:'sandbox', 'North zone');
+insert into app.center_modules (center_id, module_key, enabled, reason) values (:'sandbox', 'store', false, 'No store');
 insert into app.funds (id, center_id, key, name) values ('23000000-0000-4000-8000-0000000000d1', :'sandbox', 'general', 'General fund');
 insert into app.campaigns (center_id, fund_id, name, kind, status) values (:'sandbox', '23000000-0000-4000-8000-0000000000d1', 'Paryushan 2026', 'general', 'published');
 insert into app.households (center_id, display_name) values (:'sandbox', 'Test family household');
@@ -358,8 +359,9 @@ select pg_temp.assert((select count(*) from app.zones where center_id = :'prod' 
                             where c.center_id = :'prod' and c.name = 'Paryushan 2026')
                       and (select id from app.funds where center_id = :'prod' and key = 'general') <> '23000000-0000-4000-8000-0000000000d1',
   'configuration is copied with new ids, and references between copied rows follow (campaign → fund)');
-select pg_temp.assert((select legal_name from app.org_profiles where center_id = :'prod') = 'Jain Temple of Example',
-  'the profile / legal identity is copied');
+select pg_temp.assert((select legal_name from app.org_profiles where center_id = :'prod') = 'Jain Temple of Example'
+                      and (select not enabled from app.center_modules where center_id = :'prod' and module_key = 'store'),
+  'the profile / legal identity and the module switches (a platform catalog reference) are copied');
 select pg_temp.assert((select count(*) from app.people where center_id = :'prod') = 1
                       and (select count(*) from app.households where center_id = :'prod') = 1
                       and (select count(*) from app.integration_connections where center_id = :'prod') = 0

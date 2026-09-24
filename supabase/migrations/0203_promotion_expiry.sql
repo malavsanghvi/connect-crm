@@ -112,7 +112,8 @@ end $$;
 -- ── The copy (worker) ────────────────────────────────────────────────────────
 -- Configuration tables in dependency order. Each is copied row by row with new
 -- ids; a foreign key to another copied table is re-pointed, one to centers goes
--- to the production center, one to auth.users is kept (logins are global), and
+-- to the production center, one to auth.users or to a platform-wide catalog (a table
+-- without center_id: modules, roles …) is kept, and
 -- any other reference (people, households, import runs, events …) is cleared
 -- when the column allows it, otherwise the row is skipped and counted.
 create or replace function app.promotion_config_tables() returns text[]
@@ -154,7 +155,10 @@ begin
     loop
       v_val := v_row->>fk.col;
       continue when v_val is null;
-      if fk.ref_schema = 'auth' then
+      if fk.ref_schema = 'auth' or (fk.ref_schema = 'app' and fk.ref_table <> 'centers' and not exists (
+            select 1 from pg_attribute ca where ca.attrelid = format('%I.%I', fk.ref_schema, fk.ref_table)::regclass
+               and ca.attname = 'center_id' and not ca.attisdropped)) then
+        -- Logins and platform-wide catalogs (modules, roles …) are shared: keep the reference.
         continue;
       elsif fk.ref_schema = 'app' and fk.ref_table = 'centers' then
         v_new := v_new || jsonb_build_object(fk.col, p_to);

@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useActionState, type ReactNode } from "react";
 
 import { ActionMessage } from "@/components/action-form";
@@ -18,12 +19,13 @@ type Action = (prev: ActionResult<DecisionResult> | null, fd: FormData) => Promi
  */
 export function CodeForm({ action, children, buttons }: { action: Action; children: ReactNode; buttons: { label: string; value?: string; variant: ButtonVariant }[] }) {
   const [state, formAction, pending] = useActionState(action, null);
+  const router = useRouter();
   const code = state?.ok ? state.data?.code : undefined;
   const mail = state?.ok && state.data?.emailStatus ? emailStatusText(state.data.emailStatus) : null;
   return (
     <form action={formAction} className="flex flex-col gap-3">
       {children}
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap gap-2" hidden={Boolean(code)}>
         {buttons.map((b) => (
           <button key={b.label} type="submit" name="decision" value={b.value} disabled={pending} className={buttonClass(b.variant, "sm")}>
             {pending ? "Working…" : b.label}
@@ -38,6 +40,9 @@ export function CodeForm({ action, children, buttons }: { action: Action; childr
             {code}
           </p>
           <p className="mt-1 text-[12px] text-muted">Valid 14 days, for the contact&apos;s email only, one use. They redeem it at /start.</p>
+          <button type="button" className={`${buttonClass("ghost", "xs")} mt-2`} onClick={() => router.refresh()}>
+            Done — refresh the list
+          </button>
         </div>
       ) : null}
       {mail ? (

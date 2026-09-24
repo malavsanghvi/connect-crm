@@ -50,8 +50,9 @@ export async function decideRequestAction(_prev: ActionResult<DecisionResult> | 
   if (error) return failure(`Could not ${doing}`, error);
   const r = (data ?? {}) as { status?: string; code?: string; expires_at?: string; email_status?: string };
   noteEmailStatus(r.email_status);
-  revalidatePath("/platform/requests");
-  revalidatePath("/platform/codes");
+  // After an approval the list is NOT refreshed here: the new code is on screen
+  // once, in the drawer, and refreshing would close it. "Done" refreshes.
+  if (decision !== "approve") revalidatePath("/platform/requests");
   const message =
     decision === "approve" ? "Approved · sandbox code issued · audit logged" : decision === "decline" ? "Declined · audit logged" : "Question recorded · audit logged";
   return { ok: true, message, data: { status: r.status ?? decision, code: r.code, expiresAt: r.expires_at, emailStatus: r.email_status } };
@@ -72,7 +73,7 @@ export async function reissueCodeAction(_prev: ActionResult<DecisionResult> | nu
   const row = Array.isArray(data) ? data[0] : null;
   if (!row) return { ok: false, error: `Could not ${doing} — the database returned no code. Reload and check the list.` };
   noteEmailStatus(row.email_status);
-  revalidatePath("/platform/codes");
+  // Not refreshed here, so the drawer showing the new code stays open ("Done" refreshes).
   return { ok: true, message: "New code issued · the earlier one no longer works", data: { status: "issued", code: row.code, expiresAt: row.expires_at, emailStatus: row.email_status } };
 }
 
