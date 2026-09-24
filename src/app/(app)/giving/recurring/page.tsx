@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 
 import { HouseholdDrawerProvider, HouseholdRow } from "@/app/(app)/giving/_components/household-drawer";
+import { HistoryButton } from "@/components/record-history";
 import { Alert, Card, ChipLinks, EmptyState, KpiGrid, NoAccess, PageHeader, Pagination, QueryError, Stat, StatusText, TableWrap, buttonClass } from "@/components/ui";
 import { identifierRules } from "@/lib/center-rules";
 import { fetchAll } from "@/lib/data/fetch-all";
@@ -145,6 +146,9 @@ export default async function RecurringPage({ searchParams }: { searchParams: Pr
                         <td className="whitespace-nowrap">{monthDay(r.next_charge_on)}</td>
                         <td>
                           {st.tone === "muted" ? <span className="font-semibold text-muted">{st.label}</span> : <StatusText tone={st.tone}>{st.label}</StatusText>}
+                          <div>
+                            <HistoryButton table="recurring_gifts" recordId={r.id} title={`Recurring gift · ${h?.display_name ?? "household"}`} size="xs" />
+                          </div>
                         </td>
                         {canRetry ? (
                           <td>

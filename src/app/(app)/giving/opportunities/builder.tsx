@@ -5,6 +5,7 @@ import { useEffect, useState, useTransition } from "react";
 
 import { ChipGroup } from "@/components/controls";
 import { Drawer } from "@/components/drawer";
+import { HistoryButton } from "@/components/record-history";
 import { useToast } from "@/components/toast";
 import { Card, InfoBox, StatusText, TableWrap, buttonClass } from "@/components/ui";
 import { ALERT_AUDIENCES, OPPORTUNITY_TYPES, type OptionRow } from "@/lib/giving";
@@ -132,7 +133,11 @@ export function OpportunityBuilder({
 
   return (
     <>
-      <Card span={7} title={initial ? `Edit opportunity · ${initial.name}` : "Opportunity builder"}>
+      <Card
+        span={7}
+        title={initial ? `Edit opportunity · ${initial.name}` : "Opportunity builder"}
+        actions={initial ? <HistoryButton table="opportunities" recordId={initial.id} title={initial.name} size="xs" /> : undefined}
+      >
         <fieldset disabled={!canManage} className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div className="sm:col-span-2">
             <label htmlFor="op-name" className="crm-label">

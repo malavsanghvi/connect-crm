@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 
 import { IdentifiersPanel } from "@/components/identifiers-panel";
 import { PeopleDrawers, drawerHref } from "@/app/(app)/people/_components/drawers";
+import { HistoryButton } from "@/components/record-history";
 import { Badge, BlockGrid, Card, DefinitionList, EmptyState, KeyValueRow, NoAccess, PageHeader, QueryError, TableWrap, buttonClass } from "@/components/ui";
 import { loadPersonRecord } from "@/lib/data/people-records";
 import { genderLabel, languageLabel, relationshipLabel, toUsDate } from "@/lib/people";
@@ -106,21 +107,24 @@ export default async function PersonPage({ params, searchParams }: { params: Pro
           .filter(Boolean)
           .join(" · ")}
         actions={
-          canAccess(session, "householdsEdit") && !person.merged_into_id ? (
-            <>
-              <Link href={drawerHref(base, sp, { person: id })} scroll={false} className={buttonClass("primary")}>
-                Edit profile
-              </Link>
-              {home ? (
-                <Link href={drawerHref(base, sp, { person: id, mode: "move" })} scroll={false} className={buttonClass("ghost")}>
-                  Move household
+          <>
+            <HistoryButton table="people" recordId={id} title={name} variant="ghost" size="md" />
+            {canAccess(session, "householdsEdit") && !person.merged_into_id ? (
+              <>
+                <Link href={drawerHref(base, sp, { person: id })} scroll={false} className={buttonClass("primary")}>
+                  Edit profile
                 </Link>
-              ) : null}
-              <Link href={`/people/merge?person=${id}`} className={buttonClass("ghost")}>
-                Merge duplicate
-              </Link>
-            </>
-          ) : null
+                {home ? (
+                  <Link href={drawerHref(base, sp, { person: id, mode: "move" })} scroll={false} className={buttonClass("ghost")}>
+                    Move household
+                  </Link>
+                ) : null}
+                <Link href={`/people/merge?person=${id}`} className={buttonClass("ghost")}>
+                  Merge duplicate
+                </Link>
+              </>
+            ) : null}
+          </>
         }
       />
 

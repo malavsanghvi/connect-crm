@@ -9,6 +9,7 @@ import { Drawer } from "@/components/drawer";
 import type { CardLabels, HouseholdCardData } from "@/components/household-card";
 import { HouseholdPicker } from "@/components/household-picker";
 import { Modal } from "@/components/modal";
+import { HistoryButton } from "@/components/record-history";
 import { useToast } from "@/components/toast";
 import { buttonClass, DrawerSection, KeyValueRow } from "@/components/ui";
 import { BOLI_STATUS_LABEL, boliRef, closesInFuture, isClosed } from "@/lib/bolis";
@@ -140,6 +141,7 @@ export function BoliDrawer({
       ) : null}
       {can.manage && boli.status === "open" ? <StatusButton boliId={boli.id} status="paused" label="Pause" variant="ghost" /> : null}
       {can.manage && boli.status === "paused" ? <StatusButton boliId={boli.id} status="open" label="Resume" variant="ok" /> : null}
+      <HistoryButton table="bolis" recordId={boli.id} title={boli.name} />
     </>
   );
 

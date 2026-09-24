@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { HouseholdDrawerProvider, HouseholdRow } from "@/app/(app)/giving/_components/household-drawer";
+import { HistoryButton } from "@/components/record-history";
 import { WriteOffControls } from "@/components/two-person-controls";
 import { Card, EmptyState, KpiGrid, NoAccess, PageHeader, Pagination, QueryError, Stat, StatusText, TableWrap, buttonClass } from "@/components/ui";
 import { AGING_BUCKETS, agingBucket, emptyAging } from "@/lib/aging";
@@ -189,7 +190,12 @@ export default async function PledgesPage({ searchParams }: { searchParams: Prom
                     const bucket = outstanding ? agingBucket(p.due_on, dateInTz(p.pledged_at, tz), today) : null;
                     return (
                       <HouseholdRow key={p.id} householdId={p.household_id} label={`Open ${h?.display_name ?? "the household"}`}>
-                        <td className="font-mono text-[0.8125rem]">{p.pledge_number ?? "—"}</td>
+                        <td className="font-mono text-[0.8125rem]">
+                          {p.pledge_number ?? "—"}
+                          <div className="font-sans">
+                            <HistoryButton table="pledges" recordId={p.id} title={`Pledge ${p.pledge_number ?? ""}`.trim()} size="xs" />
+                          </div>
+                        </td>
                         <td className="font-semibold">
                           {h?.display_name ?? "Household"}
                           <div className="font-mono text-xs font-normal text-muted">{h?.household_number ?? ""}</div>
