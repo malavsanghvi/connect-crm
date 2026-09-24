@@ -221,6 +221,25 @@ select pg_temp.assert(not exists (select 1 from app.integration_secrets where co
 select pg_temp.assert((select reason = 'Disconnecting Stripe' from app.audit_log where action = 'integration_secrets.delete' order by id desc limit 1),
   'revoking is audited with the reason');
 
+-- The worker stores what a provider hands back (0173).
+begin;
+set local role connect_worker;
+select pg_temp.assert((app.worker_store_secret('c0170000-0000-4000-8000-000000000001', 'oauth.refresh_token', 'rt_test_TOKEN5678', 'job 5 oauth.exchange')
+                       ->>'fingerprint') = '5678', 'the worker stores a provider token in the vault');
+commit;
+select pg_temp.assert((select i.set_by is null and d.decrypted_secret = 'rt_test_TOKEN5678'
+                         from app.integration_secrets i join vault.decrypted_secrets d on d.id = i.vault_secret_id
+                        where i.name = 'oauth.refresh_token'), 'stored by the service (no person), value in the vault');
+select pg_temp.assert((select reason = 'Background service: job 5 oauth.exchange' and client_app = 'job' and actor_user_id is null
+                         from app.audit_log where action = 'integration_secrets.insert' order by id desc limit 1),
+  'the worker''s write is audited as a job with its purpose');
+begin;
+select pg_temp.claims('10000000-0000-4000-8000-000000000011', true);
+set local role authenticated;
+select pg_temp.assert_raises($s$select app.worker_store_secret('c0170000-0000-4000-8000-000000000001', 'x', 'yyyyyyyyyy', 'x')$s$,
+  'permission denied', 'people cannot use the worker''s store function');
+rollback;
+
 -- ── Job queue ────────────────────────────────────────────────────────────────
 begin;
 select pg_temp.claims('10000000-0000-4000-8000-000000000011');
