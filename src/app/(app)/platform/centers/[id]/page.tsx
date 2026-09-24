@@ -8,7 +8,7 @@ import { portalBaseDomain } from "@/lib/center-resolve";
 import { formatDateTime } from "@/lib/dates";
 import { isUuid } from "@/lib/search-params";
 import { getSession } from "@/lib/session";
-import { ENTITLEMENT_INFO, entitlementLabel, formatEntitlement, formatJoinCode } from "@/lib/tenancy";
+import { ENTITLEMENT_INFO, entitlementLabel, formatEntitlement, formatJoinCode, sortEntitlements } from "@/lib/tenancy";
 
 import { PlatformNoAccess } from "../../platform-no-access";
 import { addDomainAction, removeDomainAction, setEntitlementAction } from "./actions";
@@ -143,7 +143,7 @@ export default async function PlatformCenterPage({ params }: { params: Promise<{
                   </tr>
                 </thead>
                 <tbody>
-                  {(entRes.data ?? []).map((e) => {
+                  {sortEntitlements(entRes.data ?? []).map((e) => {
                     const info = ENTITLEMENT_INFO[e.key];
                     const hint =
                       info?.kind === "flag"

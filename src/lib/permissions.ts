@@ -430,7 +430,7 @@ export const NAV: NavModule[] = [
       { href: "/settings/modules", label: "Modules", access: "centerSettings" },
       // Onboarding (o-tenancy): the member-app join code, and the sandbox / plan limits.
       { href: "/settings/member-app", label: "Member app", access: "centerSettings" },
-      { href: "/settings/limits", label: "Plan & limits", access: "centerSettings" },
+      { href: "/settings/limits", label: "Limits", access: "centerSettings" },
     ],
     paths: ["/settings", "/privacy", "/audit", "/approvals"],
   },

@@ -10,6 +10,7 @@ import {
   parseEntitlementInput,
   resolveHost,
   sharedCookieDomain,
+  sortEntitlements,
   switchUrl,
 } from "@/lib/tenancy";
 
@@ -119,5 +120,12 @@ describe("join codes", () => {
     expect(joinWebLink("7K4MQ2PD", "https://app.communityconnect.app/")).toBe("https://app.communityconnect.app/join/7K4MQ2PD");
     expect(joinWebLink("7K4MQ2PD", "")).toBeNull();
     expect(joinWebLink("7K4MQ2PD", "not a url")).toBeNull();
+  });
+});
+
+describe("sortEntitlements", () => {
+  it("orders limits as the plan lists them, unknown keys last", () => {
+    const rows = [{ key: "storage.bytes" }, { key: "zzz" }, { key: "max_people" }, { key: "public_dashboard" }];
+    expect(sortEntitlements(rows).map((r) => r.key)).toEqual(["max_people", "public_dashboard", "storage.bytes", "zzz"]);
   });
 });

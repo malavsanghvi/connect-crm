@@ -127,7 +127,7 @@ export function SandboxWatermark({ name }: { name: string }) {
       <div role="note" data-testid="sandbox-watermark" className="border-b border-saffron/40 bg-saffron-50 px-4 py-1.5 text-center text-[12px] font-semibold text-brown-900">
         Sandbox · test data — {name} is a practice copy. Messages reach only verified test recipients and payments run in test mode.
       </div>
-      <div aria-hidden className="pointer-events-none fixed bottom-3 left-3 z-40 rounded-full border border-saffron/50 bg-saffron-50/95 px-3 py-1 text-[11px] font-bold uppercase tracking-wide text-brown-900 shadow-sm">
+      <div aria-hidden className="pointer-events-none fixed bottom-3 right-3 z-40 rounded-full border border-saffron/50 bg-saffron-50/95 px-3 py-1 text-[11px] font-bold uppercase tracking-wide text-brown-900 shadow-sm">
         Sandbox · test data
       </div>
     </>

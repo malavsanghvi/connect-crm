@@ -107,6 +107,13 @@ export const ENTITLEMENT_INFO: Record<string, { label: string; kind: Entitlement
   expiry_days_inactive: { label: "Expires after days without activity", kind: "count" },
 };
 
+/** Rows in the order of ENTITLEMENT_INFO (people, households, messaging, …); unknown keys last. */
+export function sortEntitlements<T extends { key: string }>(rows: T[]): T[] {
+  const order = Object.keys(ENTITLEMENT_INFO);
+  const rank = (k: string) => (order.indexOf(k) < 0 ? order.length : order.indexOf(k));
+  return [...rows].sort((a, b) => rank(a.key) - rank(b.key) || a.key.localeCompare(b.key));
+}
+
 export function entitlementLabel(key: string): string {
   return ENTITLEMENT_INFO[key]?.label ?? key;
 }

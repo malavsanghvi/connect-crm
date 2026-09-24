@@ -5,16 +5,16 @@ import { BlockGrid, Card, EmptyState, NoAccess, PageHeader, QueryError, StatusTe
 import { formatDateTime } from "@/lib/dates";
 import { canAccess } from "@/lib/permissions";
 import { getSession } from "@/lib/session";
-import { entitlementLabel, formatEntitlement } from "@/lib/tenancy";
+import { entitlementLabel, formatEntitlement, sortEntitlements } from "@/lib/tenancy";
 
 import { addTestRecipientAction, removeTestRecipientAction } from "./actions";
 
-export const metadata: Metadata = { title: "Plan & limits · Settings" };
+export const metadata: Metadata = { title: "Limits · Settings" };
 
 const CHANNEL_LABEL: Record<string, string> = { email: "Email", sms: "Text", whatsapp: "WhatsApp", push: "Push" };
 
 /**
- * Settings › Plan & limits: what this community may do (entitlements, set by
+ * Settings › Limits: what this community may do (entitlements, set by
  * Community Connect) and, for sandboxes, the verified test recipients that
  * messages may reach.
  */
@@ -36,7 +36,7 @@ export default async function LimitsPage() {
     return (
       <>
         {header}
-        <NoAccess area="Plan & limits" access="centerSettings" />
+        <NoAccess area="Limits" access="centerSettings" />
       </>
     );
   }
@@ -76,7 +76,7 @@ export default async function LimitsPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {(entRes.data ?? []).map((e) => (
+                  {sortEntitlements(entRes.data ?? []).map((e) => (
                     <tr key={e.key}>
                       <td className="font-bold">{entitlementLabel(e.key)}</td>
                       <td>
