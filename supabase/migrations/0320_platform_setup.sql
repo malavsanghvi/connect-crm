@@ -208,7 +208,8 @@ begin
   if v = '' then raise exception 'Enter a value.'; end if;
   if char_length(v) > 500 or v ~ '[[:cntrl:]]' then raise exception 'That value is too long or has line breaks.'; end if;
   if v_key in ('portal_domain','wildcard_domain') then
-    v := lower(regexp_replace(regexp_replace(v, '^https?://', '', 'i'), '/+$', ''));
+    -- A bare lower-case host: no scheme, path, port or trailing dot (o-https reads it as is).
+    v := lower(regexp_replace(regexp_replace(regexp_replace(regexp_replace(v, '^https?://', '', 'i'), '/.*$', ''), ':[0-9]+$', ''), '\.$', ''));
     if v_key = 'wildcard_domain' then v := regexp_replace(v, '^\*\.', ''); end if;
     if not app.platform_domain_ok(v) then
       raise exception 'Enter a domain name only, for example crm.communityconnect.app (no https://, no path).';

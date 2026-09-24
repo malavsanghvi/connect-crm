@@ -119,6 +119,10 @@ select pg_temp.claims(:pa, true);
 set local role authenticated;
 select pg_temp.assert(app.set_platform_setting('portal_domain', 'https://CRM.CommunityConnect.test/', 'Our portal') ->> 'value' = 'crm.communityconnect.test',
   'the portal domain is normalized to a bare lower-case host');
+select pg_temp.assert(app.set_platform_setting('wildcard_domain', 'HTTPS://Communityconnect.test:8443/', 'x') ->> 'value' = 'communityconnect.test',
+  'port, path and case are dropped');
+select pg_temp.assert((select value from app.platform_settings where key = 'wildcard_domain') = '"communityconnect.test"'::jsonb,
+  'the value is stored as a JSON string (o-https reads it)');
 select pg_temp.assert(app.set_platform_setting('wildcard_domain', '*.communityconnect.test', 'Organizations') ->> 'value' = 'communityconnect.test',
   'the wildcard domain drops the "*."');
 select pg_temp.assert_raises($s$select app.set_platform_setting('portal_domain', 'crm example', 'x')$s$, 'domain name only', 'a malformed domain is refused');

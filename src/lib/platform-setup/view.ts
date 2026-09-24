@@ -7,7 +7,6 @@ import type { CrmSession } from "@/lib/session";
 
 import { FIELDS, STEPS, missingFor, setupComplete, type StepKey, type StepRow, type StepStatus } from "./catalog";
 import type { StepTest } from "./checks";
-import { checkPortalDomain, checkWildcardDomain, type DomainCheck } from "./live-checks";
 import { loadPlatformConfig, platformConfigError, platformSources } from "./server-config";
 
 // Everything the platform setup wizard shows, computed on the server from the
@@ -60,8 +59,6 @@ export type SetupView = {
   worker: WorkerState;
   portalDomain: string | null;
   wildcardDomain: string | null;
-  portalCheck: DomainCheck | null;
-  wildcardCheck: DomainCheck | null;
   hookActivity: HookActivity;
   portalDbConfigured: boolean;
   portalConfigError: string | null;
@@ -88,7 +85,7 @@ export async function isSetupComplete(session: CrmSession): Promise<boolean | nu
   return setupComplete(rows);
 }
 
-export async function loadSetupView(session: CrmSession, opts: { liveNetwork?: boolean; hookSince?: string | null } = {}): Promise<{ ok: true; view: SetupView } | { ok: false; error: string }> {
+export async function loadSetupView(session: CrmSession, opts: { hookSince?: string | null } = {}): Promise<{ ok: true; view: SetupView } | { ok: false; error: string }> {
   const { db } = session;
   await loadPlatformConfig(true);
   const [stepsRes, secretsRes, settingsRes, beatsRes, jobsRes, namesRes, hookRes] = await Promise.all([
@@ -133,15 +130,9 @@ export async function loadSetupView(session: CrmSession, opts: { liveNetwork?: b
   const portalSrc = platformSources(Object.keys(FIELDS));
   const has = (n: string) => secrets.has(n) || settings.has(n) || portalSrc[n] === "env" || (wcfg?.env?.includes(n) ?? false);
 
-  // Portal address and wildcard: DNS and HTTPS, checked from this server.
+  // Portal address and wildcard: DNS and certificates are o-https's (its HTTPS status panel), not checked here.
   const portalDomain = settingValue("portal_domain");
   const wildcardDomain = settingValue("wildcard_domain");
-  const [portalCheck, wildcardCheck] = opts.liveNetwork === false
-    ? [null, null]
-    : await Promise.all([
-        portalDomain ? checkPortalDomain(portalDomain) : Promise.resolve(null),
-        wildcardDomain ? checkWildcardDomain(wildcardDomain, session.center.slug) : Promise.resolve(null),
-      ]);
   const hookActivity = (hookRes.data ?? {}) as HookActivity;
 
   const jobs = (jobsRes.data ?? []) as { id: number; status: string; payload: { step?: string } | null; result: StepTest | null; last_error: string | null; created_at: string; finished_at: string | null }[];
@@ -169,7 +160,7 @@ export async function loadSetupView(session: CrmSession, opts: { liveNetwork?: b
     const test: TestView | null = j
       ? { jobId: String(j.id), status: j.status, createdAt: j.created_at, finishedAt: j.finished_at, error: j.last_error, result: j.result && Array.isArray(j.result.lines) ? j.result : null, stale: new Date(j.created_at).getTime() < lastChange }
       : null;
-    const liveCheck = liveFor(s.key, { worker, missing, test, portalCheck, wildcardCheck, portalDomain, wildcardDomain, hookActivity, secrets });
+    const liveCheck = liveFor(s.key, { worker, missing, test, hookActivity, secrets });
     return {
       key: s.key, required: s.required, title: s.title, what: s.what, why: s.why,
       status: (row?.status ?? "not_started") as StepStatus,
@@ -184,7 +175,7 @@ export async function loadSetupView(session: CrmSession, opts: { liveNetwork?: b
     view: {
       steps,
       complete: setupComplete(steps.map((s) => ({ key: s.key, required: s.required, status: s.status }))),
-      worker, portalDomain, wildcardDomain, portalCheck, wildcardCheck, hookActivity,
+      worker, portalDomain, wildcardDomain, hookActivity,
       portalDbConfigured: workerDbConfigured(),
       portalConfigError: platformConfigError(),
     },
@@ -194,8 +185,7 @@ export async function loadSetupView(session: CrmSession, opts: { liveNetwork?: b
 function liveFor(
   key: StepKey,
   c: {
-    worker: WorkerState; missing: string[]; test: TestView | null; portalCheck: DomainCheck | null; wildcardCheck: DomainCheck | null;
-    portalDomain: string | null; wildcardDomain: string | null; hookActivity: HookActivity; secrets: Map<string, { set_at: string }>;
+    worker: WorkerState; missing: string[]; test: TestView | null; hookActivity: HookActivity; secrets: Map<string, { set_at: string }>;
   },
 ): { ok: boolean; summary: string } {
   const needs = (m: string[]) => `Still needed: ${m.join("; ")}.`;
@@ -207,9 +197,8 @@ function liveFor(
     case "portal":
     case "wildcard": {
       if (c.missing.length) return { ok: false, summary: needs(c.missing) };
-      const chk = key === "portal" ? c.portalCheck : c.wildcardCheck;
-      if (!chk) return { ok: false, summary: "Not checked yet." };
-      return { ok: chk.ok, summary: chk.summary };
+      // DNS and the certificate are shown by the HTTPS status panel (o-https) on this step; marking it done is the admin's confirmation.
+      return { ok: true, summary: "Saved. Confirm in the HTTPS status below that the DNS record and the certificate are in place before marking it done." };
     }
     case "hooks": {
       if (c.missing.length) return { ok: false, summary: needs(c.missing) };

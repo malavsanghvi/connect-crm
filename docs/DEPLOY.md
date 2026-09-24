@@ -342,3 +342,25 @@ Community Connect server yet".
 The portal's values are written to `/srv/connect/crm.secrets.env` (root-only) and appended to
 its env by `deploy/release.sh`. Tests never use these: every provider has a local mock
 (`e2e/mock-providers.cjs`, `*_API_BASE`).
+
+## Platform setup wizard (Platform › Platform setup, onboarding Wave D)
+
+A Community Connect platform admin lands on `/platform/setup` at sign-in until it is complete
+(the four required steps done; optional ones done or parked — parked steps stay on the Platform
+home as reminders). Every provider key and setting listed above under Messaging, Payments and
+QuickBooks — plus `ANTHROPIC_API_KEY`, `EXPO_ACCESS_TOKEN`, the Auth hook secrets, the portal
+domain and the organizations' wildcard domain — can be entered there instead of as a GitHub secret:
+
+- Keys go to Supabase Vault (`app.platform_secrets`, `app.set_platform_secret`: platform admin,
+  fresh authenticator check, reason, audited with the last 4 characters only). Settings go to
+  `app.platform_settings` (`portal_domain`, `wildcard_domain` and the env-named settings).
+- The background service and the portal server read them **from the database first, their
+  environment second**, through the `connect_worker` role (`app.worker_platform_config`,
+  `app.worker_read_platform_secret`, every read logged in `app.secret_access_log`), refreshed
+  at most every 60 seconds. No redeploy; existing GitHub secrets keep working as the fallback.
+- **Not in the wizard, by design:** `WORKER_DATABASE_URL` (the app needs it to reach the database
+  at all; the wizard's first step shows the exact steps above), the DNS records, and switching the
+  Supabase Auth hooks on (Supabase › Authentication › Hooks, after the secret is saved).
+- The wizard's Test button queues `platform.test_provider`: the background service calls the
+  provider with the keys it will really use, and for email adds Community Connect's sending
+  domain to Resend/Postmark and lists the DNS records to create.

@@ -13,6 +13,7 @@ import { getSession } from "@/lib/session";
 
 import { PlatformNoAccess } from "../platform-no-access";
 
+import { HttpsStatusSlot } from "./https-status-slot";
 import { AutoRefresh, FieldButton, HookTestButton, LaterButton, StepActions, TestButton } from "./setup-client";
 
 export const metadata: Metadata = { title: "Platform setup" };
@@ -170,8 +171,7 @@ function StepDetail({ step, view, portalUrl, host, tz }: { step: StepView; view:
       {step.test ? <TestCard step={step} tz={tz} /> : null}
       <Instructions step={step.key} view={view} portalUrl={portalUrl} host={host} />
       {step.key === "hooks" ? <HookCard view={view} tz={tz} /> : null}
-      {step.key === "portal" && view.portalCheck ? <CheckLines title="Portal address checks" lines={view.portalCheck.lines} /> : null}
-      {step.key === "wildcard" && view.wildcardCheck ? <CheckLines title="Organization address checks" lines={view.wildcardCheck.lines} /> : null}
+      {step.key === "portal" || step.key === "wildcard" ? <HttpsStatusSlot step={step.key} /> : null}
       <AutoRefresh active={busy} />
     </>
   );
@@ -193,8 +193,7 @@ function FieldsCard({ step, tz }: { step: StepView; tz: string }) {
             <tr>
               <th>Setting</th>
               <th>Saved here</th>
-              <th>Portal server</th>
-              <th>Background service</th>
+              <th>In use by</th>
               <th className="w-[1%]">
                 <span className="sr-only">Actions</span>
               </th>
@@ -211,7 +210,7 @@ function FieldsCard({ step, tz }: { step: StepView; tz: string }) {
                   <td>
                     <div className="font-bold">{f.label}</div>
                     <div className="font-mono text-[11px] text-muted">{f.name}</div>
-                    <div className="max-w-md text-[12px] text-muted">{f.hint}</div>
+                    <div className="max-w-[22rem] text-[12px] text-muted">{f.hint}</div>
                   </td>
                   <td className="text-[13px]">
                     {saved ? (
@@ -226,8 +225,20 @@ function FieldsCard({ step, tz }: { step: StepView; tz: string }) {
                       <span className="text-muted">Not saved</span>
                     )}
                   </td>
-                  <td className="text-[13px]">{envOnly ? <span className="text-muted">—</span> : <StatusText tone={portal.tone}>{portal.text}</StatusText>}</td>
-                  <td className="text-[13px]">{envOnly ? <span className="text-muted">—</span> : <StatusText tone={worker.tone}>{worker.text}</StatusText>}</td>
+                  <td className="text-[12px]">
+                    {envOnly ? (
+                      <span className="text-muted">Checked above</span>
+                    ) : (
+                      <>
+                        <div>
+                          Portal: <StatusText tone={portal.tone}>{portal.text}</StatusText>
+                        </div>
+                        <div>
+                          Background: <StatusText tone={worker.tone}>{worker.text}</StatusText>
+                        </div>
+                      </>
+                    )}
+                  </td>
                   <td>
                     <div className="flex flex-col gap-1">
                       <FieldButton
@@ -309,20 +320,6 @@ function TestCard({ step, tz }: { step: StepView; tz: string }) {
       ) : (
         <p className="px-3 pb-3 text-[14px]">The test finished without a readable result. Test again.</p>
       )}
-    </Card>
-  );
-}
-
-function CheckLines({ title, lines }: { title: string; lines: { label: string; ok: boolean; detail: string }[] }) {
-  return (
-    <Card title={title} description="Checked from this server just now.">
-      <ul className="flex flex-col gap-1">
-        {lines.map((l, i) => (
-          <li key={i} className="text-[14px]">
-            <StatusText tone={l.ok ? "ok" : "bad"}>{l.ok ? "OK" : "Not yet"}</StatusText> <span className="font-bold">{l.label}</span> — {l.detail}
-          </li>
-        ))}
-      </ul>
     </Card>
   );
 }
@@ -415,7 +412,7 @@ function Instructions({ step, view, portalUrl, host }: { step: StepKey; view: Se
           </li>
           <li>
             The server then gets its HTTPS certificate on the first visit to the address (Caddy asks this portal before issuing one, and it says yes for the saved
-            address). No redeploy is needed; this page checks it every time it opens.
+            address). No redeploy is needed; the HTTPS status on this step shows when it is in place.
           </li>
           <li>
             Supabase › Authentication › URL Configuration: set the Site URL to <Code>{`https://${view.portalDomain ?? "crm.communityconnect.app"}`}</Code> and add it to the

@@ -167,7 +167,7 @@ const DOMAIN = /^([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z][a-z0-9-]{0,61}[a-z
 
 /** A bare host from what someone typed ("https://CRM.example.org/" -> "crm.example.org"). */
 export function normalizeDomain(input: string, wildcard = false): string {
-  let v = input.trim().toLowerCase().replace(/^https?:\/\//, "").replace(/\/+$/, "");
+  let v = input.trim().toLowerCase().replace(/^https?:\/\//, "").replace(/\/.*$/, "").replace(/:\d+$/, "").replace(/\.$/, "");
   if (wildcard) v = v.replace(/^\*\./, "");
   return v;
 }
@@ -187,7 +187,6 @@ export function fieldProblem(name: string, raw: string): string | null {
     case "portal_domain":
     case "wildcard_domain": {
       const d = normalizeDomain(v, name === "wildcard_domain");
-      if (d.includes("/")) return "Enter the domain only, without a path.";
       return d === "localhost" || DOMAIN.test(d) ? null : "Enter a domain name only, for example crm.communityconnect.app.";
     }
     case "MESSAGING_EMAIL_PROVIDER":

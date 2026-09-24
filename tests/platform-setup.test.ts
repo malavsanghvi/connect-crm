@@ -43,6 +43,8 @@ describe("platform setup catalog", () => {
     expect(fieldProblem("NOPE", "x")).toMatch(/not a field/);
     expect(normalizeDomain("https://CRM.Example.org/")).toBe("crm.example.org");
     expect(normalizeDomain("*.cc.app", true)).toBe("cc.app");
+    expect(normalizeDomain("HTTPS://App.Example.org:443/login")).toBe("app.example.org");
+    expect(normalizeDomain("app.example.org.")).toBe("app.example.org");
   });
 
   it("says what a step still needs", () => {
