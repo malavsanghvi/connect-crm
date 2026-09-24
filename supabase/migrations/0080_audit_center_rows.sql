@@ -8,7 +8,7 @@
 -- belongs to the center itself. No policy or permission changes.
 
 create or replace function app.audit_row() returns trigger
-language plpgsql security definer set search_path = app, public as $$
+language plpgsql security definer set search_path = app, public, extensions as $$
 declare v_center uuid; v_id text; v_before jsonb; v_after jsonb;
 begin
   v_before := case when tg_op in ('UPDATE','DELETE') then to_jsonb(old) end;
