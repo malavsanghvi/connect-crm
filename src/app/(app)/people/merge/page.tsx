@@ -262,6 +262,11 @@ async function PersonMerge({ session, id, other, q }: { session: CrmSession; id:
       >
         <input type="hidden" name="keep" value={left.id} />
         <input type="hidden" name="drop" value={right.id} />
+        <label className="crm-label mt-2 block" htmlFor="merge-reason-p">
+          Why (optional — kept in the audit log)
+        </label>
+        <input id="merge-reason-p" name="reason" maxLength={500} className="crm-input mb-2" placeholder="e.g. Same family registered twice at the 2026 Paryushan desk" />
+
         <TableWrap>
           <table className="crm-table mb-3">
             <thead>
@@ -424,6 +429,11 @@ async function HouseholdMerge({ session, id, other }: { session: CrmSession; id:
       >
         <input type="hidden" name="keep" value={id} />
         <input type="hidden" name="drop" value={other} />
+        <label className="crm-label mt-2 block" htmlFor="merge-reason-h">
+          Why (optional — kept in the audit log)
+        </label>
+        <input id="merge-reason-h" name="reason" maxLength={500} className="crm-input mb-2" placeholder="e.g. Same family registered twice at the 2026 Paryushan desk" />
+
       </ActionForm>
       {candidate ? (
         <ActionForm action={dismissDuplicateAction} submitLabel="Not a duplicate" variant="ghost" className="mt-2" confirmMessage="Mark these as two different households? The suggestion is closed.">

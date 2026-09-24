@@ -74,6 +74,8 @@ function campaignValues(fd: FormData, tz: string) {
   return { ok: true as const, values: { name, title, body_md: body, channels, translations: translations as Json, scheduled_at: scheduledAt } };
 }
 
+const NOT_SENDING = " It stays queued: email, SMS, WhatsApp and push sending are not connected to this app yet.";
+
 /**
  * One click from the compose form. Under the CURRENT rules (unchanged):
  * an approver (comms.approve) must approve every send — the drafter may be
@@ -115,7 +117,7 @@ export async function submitNewsletterAction(_prev: ActionResult | null, fd: For
     .update({ approved_by: userId, status: "scheduled", scheduled_at: v.values.scheduled_at ?? new Date().toISOString() })
     .eq("id", created.data.id);
   if (error) return failure(`"${v.values.name}" was saved and is awaiting approval, but could not be scheduled`, error);
-  return { ok: true, message: `"${v.values.name}" scheduled${v.values.scheduled_at ? "" : " to go out as soon as the sender runs"}.` };
+  return { ok: true, message: `"${v.values.name}" approved and scheduled.${NOT_SENDING}` };
 }
 
 /** Edit from the detail page; any edit sends it back to "awaiting approval". */
@@ -174,7 +176,7 @@ export async function approveCampaignAction(_prev: ActionResult | null, fd: Form
     const { error } = await db.from("comms_campaigns").update(patch).eq("id", id).eq("status", "draft");
     if (error) return failure("Could not approve the newsletter", error);
     revalidateComms();
-    return { ok: true, message: needsSecond ? `"${label}" approved · waiting for a second approver (all-member send).` : `"${label}" approved and scheduled.` };
+    return { ok: true, message: needsSecond ? `"${label}" approved · waiting for a second approver (all-member send).` : `"${label}" approved and scheduled.${NOT_SENDING}` };
   }
   if (c.data.status === "pending_approval") {
     if (c.data.approved_by === userId) {
@@ -185,7 +187,7 @@ export async function approveCampaignAction(_prev: ActionResult | null, fd: Form
     const { error } = await db.from("comms_campaigns").update({ status: "scheduled", scheduled_at: sendAt }).eq("id", id);
     if (error) return failure(`Your approval of "${label}" was recorded, but it could not be scheduled`, error);
     revalidateComms();
-    return { ok: true, message: `"${label}" approved by two people and scheduled.` };
+    return { ok: true, message: `"${label}" approved by two people and scheduled.${NOT_SENDING}` };
   }
   return { ok: false, error: `Could not approve "${label}" — it is no longer awaiting approval.` };
 }

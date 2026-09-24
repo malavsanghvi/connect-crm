@@ -138,7 +138,10 @@ export async function mergePeopleAction(_prev: ActionResult | null, fd: FormData
   const take = fd.getAll("take").map(String).filter(Boolean);
   const auth = await authorizeAction("householdsEdit", "merge the records");
   if (!auth.ok) return auth;
-  const res = await auth.session.db.rpc("merge_people", { p_keep: keep, p_drop: drop, p_take: take });
+  const reason = String(fd.get("reason") ?? "").trim().slice(0, 500);
+  // Without a reason the RPC records its own ("Merged duplicate person …").
+  const writer = reason ? await dbWithReason(auth.session, reason) : auth.session.db;
+  const res = await writer.rpc("merge_people", { p_keep: keep, p_drop: drop, p_take: take });
   if (res.error) return failure("Could not merge the two records", res.error);
   refresh(keep);
   revalidatePath(`/people/${drop}`);

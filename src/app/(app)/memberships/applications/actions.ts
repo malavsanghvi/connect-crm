@@ -4,8 +4,9 @@ import { revalidatePath } from "next/cache";
 
 import { planDecision, type ApplicationDecision } from "@/lib/applications";
 import { failure, type ActionResult } from "@/lib/errors";
+import { formatCents } from "@/lib/money";
 import { isUuid } from "@/lib/search-params";
-import { authorizeAction, dbWithReason } from "@/lib/session";
+import { authorizeAction, dbWithReason, type CrmSession } from "@/lib/session";
 
 export async function decideApplicationAction(_prev: ActionResult | null, formData: FormData): Promise<ActionResult> {
   const decision = String(formData.get("decision") ?? "") as ApplicationDecision;
@@ -78,7 +79,24 @@ export async function decideApplicationAction(_prev: ActionResult | null, formDa
     plan.next === "awaiting_ec"
       ? "Center review recorded. It now waits for Executive Committee approval."
       : plan.next === "approved"
-        ? "Approved. This records the decision only — the membership record and the fee capture are not created automatically yet."
+        ? await approvedMessage(db, id)
         : "Declined. The reason is saved with the application.";
   return { ok: true, message };
+}
+
+/** What approval created (0130: the membership, and an open fee pledge when the type has a fee). */
+async function approvedMessage(db: CrmSession["db"], id: string): Promise<string> {
+  const appRes = await db.from("membership_applications").select("fee_cents, membership_id").eq("id", id).maybeSingle();
+  const membershipId = appRes.data?.membership_id;
+  const m = membershipId ? await db.from("memberships").select("tier, fee_pledge_id").eq("id", membershipId).maybeSingle() : null;
+  if (appRes.error || !m || m.error || !m.data) {
+    console.error("approved application: could not read the new membership", appRes.error ?? m?.error ?? "no membership_id");
+    return "Approved. The membership record could not be read back — reload the household to check it.";
+  }
+  const fee = appRes.data?.fee_cents ?? 0;
+  const tier = m.data.tier.charAt(0).toUpperCase() + m.data.tier.slice(1);
+  if (fee <= 0) return `Approved · ${tier} membership is now active.`;
+  return m.data.fee_pledge_id
+    ? `Approved · ${tier} membership is now active, and the ${formatCents(fee)} fee is recorded as an open pledge (card payment is not connected yet).`
+    : `Approved · ${tier} membership is now active. The ${formatCents(fee)} fee was not recorded because Pledges & donations is switched off.`;
 }

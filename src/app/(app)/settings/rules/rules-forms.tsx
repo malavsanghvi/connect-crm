@@ -81,7 +81,7 @@ export function MembershipForm({
         </SettingField>
       </FieldGrid>
       <p className="crm-hint mt-3">
-        The reference count and prior-membership rule are recorded for reviewers; the app does not yet block an application on them.
+        The prior-membership rule is checked when a member applies in the app. An application names one reference; when Life needs two, the membership team collects the second.
       </p>
     </SettingsForm>
   );

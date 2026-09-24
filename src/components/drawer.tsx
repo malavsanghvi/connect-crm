@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useRef, type ReactNode } from "react";
+import { useEffect, useId, useRef, useSyncExternalStore, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 
 /**
@@ -46,7 +46,10 @@ export function Drawer({
     };
   }, [open, onClose]);
 
-  if (!open) return null;
+  // A drawer opened by URL (?app=…) renders on the server too, where there is no
+  // document.body to portal into; it appears once the page hydrates.
+  const onClient = useSyncExternalStore(noSubscribe, () => true, () => false);
+  if (!open || !onClient) return null;
 
   return createPortal(
     <>
@@ -71,3 +74,5 @@ export function Drawer({
     document.body,
   );
 }
+
+const noSubscribe = () => () => {};
