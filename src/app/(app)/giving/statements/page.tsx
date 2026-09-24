@@ -3,7 +3,7 @@ import Link from "next/link";
 
 import { BlockGrid, Card, EmptyState, KpiGrid, NoAccess, PageHeader, Pagination, QueryError, Stat, TableWrap, buttonClass } from "@/components/ui";
 import { isPlainObject } from "@/lib/center-rules";
-import { fetchAll } from "@/lib/data/fetch-all";
+import { chunk, fetchAll } from "@/lib/data/fetch-all";
 import { householdsById, userNames } from "@/lib/data/lookups";
 import { formatDateTime, todayInTz } from "@/lib/dates";
 import { RECEIPT_KINDS } from "@/lib/giving";
@@ -71,7 +71,19 @@ export default async function StatementsPage({ searchParams }: { searchParams: P
     ),
     db.from("receipt_templates").select("kind, signed_by, personal_note, updated_at").eq("center_id", center.id),
   ]);
-  const giftHouseholds = new Set(gifts.data.map((g) => g.household_id)).size;
+  const giftIds = [...new Set(gifts.data.map((g) => g.household_id))];
+  const giftHouseholds = giftIds.length;
+  // Households that asked for paper (households.physical_mail_opt_in); needs people.view.
+  let paper: number | null = 0;
+  for (const part of chunk(giftIds)) {
+    const r = await db.from("households").select("id").in("id", part).eq("physical_mail_opt_in", true);
+    if (r.error) {
+      console.error("[statements] paper-mail count failed:", r.error);
+      paper = null;
+      break;
+    }
+    paper += (r.data ?? []).length;
+  }
   const issuedHouseholds = new Set(issued.data.map((g) => g.household_id)).size;
   const reissued = issued.data.length - issuedHouseholds;
   const values = Object.fromEntries(
@@ -109,7 +121,12 @@ export default async function StatementsPage({ searchParams }: { searchParams: P
             <KpiGrid cols={4}>
               <Stat label="Households with gifts" value={giftHouseholds.toLocaleString()} hint={String(lastYear)} tone="navy" />
               <Stat label="Statements issued" value={issuedHouseholds.toLocaleString()} hint="email and in app" tone="success" />
-              <Stat label="Mailed on paper" value="—" hint="mail preferences are not recorded yet" tone="brown" />
+              <Stat
+                label="Mailed on paper"
+                value={paper === null ? "—" : paper.toLocaleString()}
+                hint={paper === null ? "needs people.view" : "opted in to physical mail"}
+                tone="brown"
+              />
               <Stat label="Reissued on request" value={Math.max(0, reissued).toLocaleString()} hint="more than one statement for a household" tone="purple" />
             </KpiGrid>
           )}
