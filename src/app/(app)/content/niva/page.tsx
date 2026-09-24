@@ -6,6 +6,9 @@ import { isModuleEnabled } from "@/lib/modules";
 import { canAccess } from "@/lib/permissions";
 import { getSession } from "@/lib/session";
 
+import { approveNivaContentAction } from "../../setup/approval-actions";
+import { ApprovalCard } from "../../setup/_components/approval-card";
+import { parseApprovalStatus } from "@/lib/setup";
 import { ContentItemButton } from "../item-form";
 import { ContentHeader, contentGate } from "../shared";
 
@@ -32,7 +35,9 @@ export default async function NivaPage() {
   const enabled = isModuleEnabled(session, "niva");
   const weekAgo = addDays(todayInTz(center.time_zone), -7);
 
-  const [sources, unanswered] = await Promise.all([
+  // Readiness check 12: an administrator approves Niva's sources (or Niva is switched off).
+  const showApproval = enabled && (canManage || canAccess(session, "setup"));
+  const [sources, unanswered, approval] = await Promise.all([
     db
       .from("content_items")
       .select("id, center_id, kind, title, body_md, media_url, media_path, metadata, status, updated_at")
@@ -42,7 +47,11 @@ export default async function NivaPage() {
     canManage
       ? db.from("niva_conversations").select("question").eq("center_id", center.id).eq("unanswered", true).gte("created_at", weekAgo).limit(2000)
       : null,
+    showApproval ? db.rpc("golive_approval_status", { p_center: center.id }) : null,
   ]);
+  if (approval?.error) console.error("[content/niva] could not load the go-live approval:", approval.error);
+  const approvals = approval && !approval.error ? parseApprovalStatus(approval.data) : null;
+  const published = (sources.data ?? []).filter((x) => x.status === "published").length;
   const grouped = new Map<string, { text: string; n: number }>();
   for (const u of unanswered?.data ?? []) {
     const k = u.question.trim().toLowerCase().replace(/\s+/g, " ");
@@ -112,6 +121,23 @@ export default async function NivaPage() {
             ))}
           </div>
         </Card>
+        {approval?.error ? (
+          <div className="col-span-12">
+            <QueryError what="the approval of Niva's content" error={approval.error} retryHref="/content/niva" />
+          </div>
+        ) : approvals ? (
+          <ApprovalCard
+            testId="approval-niva-content"
+            title="Administrator's approval of Niva's content"
+            what={`An administrator reads the knowledge sources marked "Included" (${published} published) and approves them for go-live. Editing a source afterwards needs a new approval. Organizations not using Niva switch it off in Settings › Modules instead.`}
+            later="Readiness check 12. The full Niva evaluation (a question bank with a pass mark) comes in a later release; this approval covers the sources as they are today."
+            state={approvals.niva}
+            canApprove={approvals.canApproveNiva}
+            whoMayApprove="An administrator (settings.manage) approves Niva's content."
+            action={approveNivaContentAction}
+            timeZone={center.time_zone}
+          />
+        ) : null}
         <Card title="Unanswered questions this week" description="Add content to answer these" span={12} padded={false}>
           {!canManage ? (
             <p className="px-4 pb-4 text-[13px] text-muted">Members&apos; questions are visible to content managers (content.manage) only.</p>

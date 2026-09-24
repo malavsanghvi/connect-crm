@@ -160,6 +160,8 @@ export const ACCESS = {
   centerSettings: ["settings.manage"],
   /** Setup checklist, Step 0 screens and go-live readiness (settings.manage; the owner too, in the database). */
   setup: ["settings.manage"],
+  /** Setup › Lists (o-golive): each card checks its own writer — settings.manage, giving.manage (funds) or pathshala.manage (tracks). */
+  setupLists: ["settings.manage", "giving.manage", "pathshala.manage"],
   /** Settings › Email / Texting / WhatsApp (o-messaging): read by messaging and integrations roles; changed with settings.manage or integrations.manage (the database decides). */
   messaging: ["settings.manage", "integrations.manage", "integrations.view", "comms.view", "comms.send"],
   messagingManage: ["settings.manage", "integrations.manage"],
@@ -454,6 +456,8 @@ export const NAV: NavModule[] = [
       { href: "/setup/organization", label: "Legal identity", access: "setup" },
       { href: "/setup/profile", label: "Profile & brand", access: "setup" },
       { href: "/setup/leaders", label: "Leaders", access: "setup" },
+      // Onboarding (o-golive): membership types, funds, inboxes, zones and Pathshala tracks.
+      { href: "/setup/lists", label: "Lists", access: "setupLists" },
       { href: "/setup/readiness", label: "Go-live readiness", access: "setup" },
       // Onboarding (o-platform): attestations, the go-live request and promotion.
       { href: "/setup/go-live", label: "Go-live", access: "setup" },
@@ -482,6 +486,9 @@ export const NAV: NavModule[] = [
       // Onboarding (o-tenancy): the member-app join code, and the sandbox / plan limits.
       { href: "/settings/member-app", label: "Member app", access: "centerSettings" },
       { href: "/settings/limits", label: "Limits", access: "centerSettings" },
+      // Onboarding (o-golive): number prefixes and the file storage areas (Setup steps data.numbering, svc.storage).
+      { href: "/settings/numbering", label: "Numbering", access: "centerSettings" },
+      { href: "/settings/storage", label: "Storage", access: "centerSettings" },
       // Onboarding (o-import): loading the organization's data, its custom fields and their quality.
       { href: "/settings/import", label: "Data import", access: "dataImport" },
       { href: "/settings/custom-fields", label: "Custom fields", access: "centerSettings" },
