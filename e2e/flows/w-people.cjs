@@ -87,8 +87,18 @@ async function portalLogin(browser, email) {
   await p.goto(PORTAL + '/login');
   const t0 = Date.now() - 2000;
   await p.fill('input[name=email]', email);
-  await p.click('button[type=submit]');
-  await p.waitForSelector('input[name=code]', { timeout: 30000 });
+  // The sign-in service allows one code per address per second; a token minted a
+  // moment earlier for the same address can make the first request bounce. Retry.
+  for (let attempt = 1; ; attempt++) {
+    await p.click('button[type=submit]');
+    try {
+      await p.waitForSelector('input[name=code]', { timeout: 10000 });
+      break;
+    } catch (e) {
+      if (attempt >= 3) throw e;
+      await p.waitForTimeout(2000);
+    }
+  }
   await p.fill('input[name=code]', await code(email, t0));
   await p.click('button[type=submit]');
   await p.waitForURL((u) => !u.pathname.startsWith('/login'), { timeout: 60000 });
