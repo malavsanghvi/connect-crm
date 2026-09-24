@@ -137,7 +137,7 @@ export function VaultPanel({
               <tbody>
                 {connections.flatMap((c) => {
                   const head = (
-                    <tr key={`${c.id}-head`}>
+                    <tr key={`${c.id}-head`} data-connection={c.id}>
                       <td className="font-bold" rowSpan={Math.max(c.secrets.length, 1) + (canManage ? 1 : 0)}>
                         {c.label}
                         <div className="mt-0.5">
@@ -153,9 +153,9 @@ export function VaultPanel({
                       )}
                     </tr>
                   );
-                  const rest = c.secrets.slice(1).map((s) => <tr key={`${c.id}-${s.name}`}>{secretCells(c, s, canManage, open)}</tr>);
+                  const rest = c.secrets.slice(1).map((s) => <tr key={`${c.id}-${s.name}`} data-connection={c.id}>{secretCells(c, s, canManage, open)}</tr>);
                   const add = canManage ? (
-                    <tr key={`${c.id}-add`}>
+                    <tr key={`${c.id}-add`} data-connection={c.id}>
                       <td colSpan={6}>
                         <button type="button" className={buttonClass("ghost", "xs")} onClick={() => open("add", c)}>
                           + Add a secret

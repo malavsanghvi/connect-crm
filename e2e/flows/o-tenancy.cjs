@@ -41,6 +41,8 @@ async function mailCode(email, after) {
   throw new Error('no code for ' + email);
 }
 async function portalSignIn(p, base, email) {
+  // Other flows' test authenticators (friendly name "e2e …") would add a 2FA step this flow does not test.
+  sql(`delete from auth.mfa_factors where friendly_name like 'e2e %' and user_id = (select id from auth.users where email = '${email}')`);
   await p.goto(base + '/login', { waitUntil: 'networkidle' });
   const t0 = Date.now() - 2000;
   await p.fill('input[name=email]', email); await p.click('button[type=submit]');
@@ -70,6 +72,8 @@ const rest = (path, init, token) => fetch(`${API}/rest/v1/${path}`, {
   sql(`insert into app.centers (slug, name, short_name, state_region, status, environment) values ('jcnj-sandbox','Jain Center of New Jersey (sandbox)','JCNJ','NJ','active','sandbox') on conflict (slug) do nothing`);
   sql(`insert into app.households (center_id, display_name, city) select id, 'Patel family', 'Edison' from app.centers where slug='jcnj' and not exists (select 1 from app.households h where h.center_id = app.centers.id and h.display_name = 'Patel family')`);
   sql(`insert into app.role_grants (center_id, user_id, role_key, scope_kind) select c.id, u.id, 'center_admin', 'center' from app.centers c, auth.users u where c.slug in ('jcnj','jcnj-sandbox') and u.email='admin@jsh.test' and not exists (select 1 from app.role_grants g where g.center_id=c.id and g.user_id=u.id and g.role_key='center_admin' and g.ends_at is null)`);
+  // Test centers: staff 2FA is on by default for new communities (o-security) and is tested there; off here.
+  sql(`update app.centers set rules = jsonb_set(coalesce(rules, '{}'::jsonb), '{security}', coalesce(rules->'security', '{}'::jsonb) || '{"require_2fa_for_staff": false}') where slug in ('jcnj','jcnj-sandbox')`);
   sql(`insert into app.accounts (user_id, is_platform_admin) select id, true from auth.users where email='platform@cc.test' on conflict (user_id) do update set is_platform_admin = true`);
   sql(`delete from app.center_entitlements where center_id = (select id from app.centers where slug='jcnj-sandbox')`);
   sql(`delete from app.center_domains where domain = 'portal.jcnj.test'`);
@@ -113,7 +117,7 @@ const rest = (path, init, token) => fetch(`${API}/rest/v1/${path}`, {
     ok(!p.url().includes('/login'), 'switching to jcnj.cc.test keeps the sign-in (cookie shared across <slug>.cc.test)');
     ok((await p.getByTestId('center-switcher').innerText()).includes('Jain Center of New Jersey'), 'the pill now shows JCNJ');
     await p.goto(host('jcnj.cc.test') + '/households', { waitUntil: 'networkidle' });
-    body = await p.innerText('main');
+    body = await p.innerText('main'); await shot(p, 'portal-jcnj-households');
     ok(body.includes('Patel family') && !body.includes('Shah'), 'at jcnj: only JCNJ households (isolation holds)');
     await shot(p, 'portal-jcnj-households');
     // Sandbox: watermark and its join code.

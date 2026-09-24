@@ -124,6 +124,8 @@ async function maybeStepUp(p, secret) {
   const run = crypto.randomBytes(4).toString('hex');
   const jsh = sql("select id from app.centers where slug = 'jsh'");
   const adminUid = sql("select id from auth.users where email = 'admin@jsh.test'");
+  // A run that stopped halfway can leave its test authenticator behind; start clean.
+  sql(`delete from auth.mfa_factors where user_id = '${adminUid}' and friendly_name like 'e2e %'`);
   const shahHH = 'd0000000-0000-4000-8000-000000000101', dev = 'd0000000-0000-4000-8000-000000000203', anya = 'd0000000-0000-4000-8000-000000000204';
 
   // ── Setup (test data) ─────────────────────────────────────────────────────
@@ -179,16 +181,20 @@ async function maybeStepUp(p, secret) {
 
   const vaultCard = p.locator('section', { hasText: 'Connections and secrets' });
   await vaultCard.locator('tr', { hasText: 'E2E test account' }).first().waitFor();
-  await vaultCard.getByRole('button', { name: '+ Add a secret' }).first().click();
+  await vaultCard.locator(`tr[data-connection="${conn}"]`).getByRole('button', { name: '+ Add a secret' }).click();
   const dlg = p.getByRole('dialog');
   await dlg.getByLabel('Name').fill('api_key');
   await dlg.getByLabel('Value').fill(secretValue);
   await dlg.getByLabel('Reason (kept in the audit log)').fill(`Connecting the test account ${run}`);
   await dlg.getByRole('button', { name: 'Save secret' }).click();
-  await p.getByRole('dialog').filter({ hasText: 'Confirm it' }).waitFor({ timeout: 15000 });
-  await p.screenshot({ path: `${OUT}/integrations-2-step-up.png`, fullPage: true });
-  await p.getByRole('dialog').getByLabel('Code from your authenticator app').fill(await freshTotp(totpSecret));
-  await p.getByRole('dialog').getByRole('button', { name: 'Verify and continue' }).click();
+  // Signing in with the authenticator code is itself a fresh 2FA check, so the
+  // step-up may not be asked for here; answer it when it is.
+  const stepUp = await p.getByRole('dialog').filter({ hasText: 'Confirm it' }).waitFor({ timeout: 8000 }).then(() => true, () => false);
+  if (stepUp) {
+    await p.screenshot({ path: `${OUT}/integrations-2-step-up.png`, fullPage: true });
+    await p.getByRole('dialog').getByLabel('Code from your authenticator app').fill(await freshTotp(totpSecret));
+    await p.getByRole('dialog').getByRole('button', { name: 'Verify and continue' }).click();
+  }
   const saved = await until(() => sql(`select fingerprint from app.integration_secrets where connection_id = '${conn}' and name = 'api_key'`), 20000);
   ok(saved === secretValue.slice(-4), `the portal saved the secret after the step-up; fingerprint ${saved}`);
   await p.waitForTimeout(1500);
@@ -332,7 +338,7 @@ async function maybeStepUp(p, secret) {
   // ── 5. Rotate and Disconnect in the portal ───────────────────────────────
   await p.goto(BASE + '/settings/integrations', { waitUntil: 'networkidle' });
   const rotated = `sk_test_e2e_${run}_ROTATEDW7`;
-  await p.getByRole('button', { name: 'Rotate api_key' }).click();
+  await p.locator(`tr[data-connection="${conn}"]`).getByRole('button', { name: 'Rotate api_key' }).click();
   await p.getByRole('dialog').getByLabel('New value').fill(rotated);
   await p.getByRole('dialog').getByRole('button', { name: 'Rotate' }).click();
   await maybeStepUp(p, totpSecret);
@@ -340,7 +346,7 @@ async function maybeStepUp(p, secret) {
   ok(rot, 'Rotate stores the new value (fingerprint ' + rotated.slice(-4) + ') and stamps rotated_at');
   await p.waitForTimeout(1500);
   const vaultId = sql(`select vault_secret_id from app.integration_secrets where connection_id = '${conn}' and name = 'api_key'`);
-  await p.getByRole('button', { name: 'Disconnect api_key' }).click();
+  await p.locator(`tr[data-connection="${conn}"]`).getByRole('button', { name: 'Disconnect api_key' }).click();
   await p.getByRole('dialog').getByLabel('Reason (kept in the audit log)').fill(`E2E finished ${run}`);
   await p.getByRole('dialog').getByRole('button', { name: 'Remove secret' }).click();
   await maybeStepUp(p, totpSecret);
