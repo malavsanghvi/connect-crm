@@ -1,6 +1,6 @@
 # Community Connect: organization onboarding plan
 
-> **Status: plan for owner review. Nothing in this document is built yet.**
+> **Status: approved for building on 2026-09-24.** The owner asked to build the whole onboarding process; the recommendations in §10 are being used as the defaults unless the owner changes them. Payments: Stripe or PayPal, chosen per organization.
 >
 > Written 2026-09-24. Sources:
 > - the owner's brief;
@@ -215,9 +215,11 @@ Each service shows its status, test or live mode, who connected it and when, the
 - *We read your note on credentials as "they can't be changed or viewed, even by a signed-in admin, without a fresh 2FA check". Tell us if you meant something else.*
 
 **1.2 Card and bank payments** (already decided: one connected payment account per organization, so money never passes through a shared account)
-- **Connect:** the organization connects its own Stripe account through Stripe Connect. The provider verifies the organization, its EIN and its bank. This can take several days, so it starts on day one. Apply for Stripe's non-profit pricing.
-- **Online methods:**
-  - choose from card, ACH bank debit, Apple Pay and Google Pay;
+- **Choose the online processor: Stripe or PayPal** (owner decision 2026-09-24). An organization can connect either, or both, with one set as the default at checkout. Both need the organization's own account:
+  - **Stripe:** the organization connects its own Stripe account through Stripe Connect. Stripe verifies the organization, its EIN and its bank; this can take several days, so it starts on day one. Apply for Stripe's non-profit pricing.
+  - **PayPal:** the organization connects its own PayPal Business account through PayPal's partner sign-up ("Connect with PayPal"), which records its merchant ID and account email. If that isn't available yet, the organization enters its PayPal Business email, which is verified by a code before it is used.
+- **Online methods** (depend on the processor):
+  - card, ACH bank debit, Apple Pay and Google Pay through Stripe; PayPal, Venmo and cards through PayPal;
   - set the statement descriptor;
   - choose whether donors may cover the fee (that rule exists).
 - **Money flow:** provider events arrive in `webhook_events` (exists) and become payments. Payouts arrive in `payouts` (exists) and feed bank reconciliation, which already recognizes payout lines.
@@ -595,7 +597,7 @@ Priority:
 | G17 | Custom fields from extra columns (definitions, values, and the profile, list, segment and export screens) | None | P0 |
 | G18 | Historical payments must never post to QuickBooks | Every inserted offline payment queues a posting | P0 |
 | G19 | QuickBooks: connect; pull the chart of accounts and lists; mapping wizard; test post; go-live date; the poster | Mappings, the posting queue and the exceptions screen only | P0 for organizations using QuickBooks |
-| G20 | Payments: Stripe Connect sign-up, webhooks, payouts, test and live modes, accepted methods and instructions per organization | An honest "being set up" notice; a fixed method list | P0, or launch offline-only |
+| G20 | Payments: processor choice (Stripe or PayPal), connecting the organization's account, webhooks, payouts, test and live modes, accepted methods and instructions per organization | An honest "being set up" notice; a fixed method list | P0, or launch offline-only |
 | G21 | Promotion from sandbox to production (copy configuration, reconnect services, saved mappings) | None | P0 |
 | G22 | Community Connect console: pipeline, verification, go-live approval, support access with consent, entitlements | Centers list, wizard, take live | P0 |
 | G23 | Communications › Templates: editor plugin, merge-field list, preview, test send, versions, approvals, languages, push/text/WhatsApp, Community Connect base library | A `message_templates` table only | P1 |
@@ -627,7 +629,7 @@ Priority:
 | O4 | Non-profit proof accepted | Determination letter or group exemption, plus a W-9. Houses of worship: a board or attorney letter, reviewed by Community Connect. Organizations that aren't 501(c)(3): case by case. |
 | O5 | 2FA methods | Authenticator app required for staff, with a texted code as backup; passkeys later; members unchanged |
 | O6 | Your note on credentials | Read as "no change or view without a fresh 2FA check" |
-| O7 | Providers | Payments: Stripe Connect (Standard accounts). Email: Resend or Postmark. Texting and WhatsApp: Twilio. Vault: Supabase Vault. Files: Supabase Storage. Statements: HTML templates rendered to PDF by a headless browser. |
+| O7 | Providers | Payments: **Stripe or PayPal, chosen by each organization** (owner decision 2026-09-24). Email: Resend or Postmark. Texting and WhatsApp: Twilio. Vault: Supabase Vault. Files: Supabase Storage. Statements: HTML templates rendered to PDF by a headless browser. |
 | O8 | Email editor plugin | EmailBuilder.js (MIT); fallback GrapesJS with MJML |
 | O9 | Custom fields | Keep every extra column by default; staff-only until reviewed; members see their own only when a field is marked for it |
 | O10 | How much history to import | Giving: 7 years (tax and audit retention). Memberships: all. Attendance and learning: optional. |
