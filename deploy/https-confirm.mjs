@@ -37,6 +37,8 @@ export function cleanName(raw) {
  * The names to check, in a stable order: the droplet address (only when it has an
  * IP certificate site), SITE_DOMAIN, the wizard's names, then names Caddy holds a
  * certificate for. Wildcard certificate folders ("wildcard_.x") and junk are dropped.
+ * @param {{ publicIp: string|null, ipCert: boolean, siteDomain: string|null, portalNames?: string[], storedNames?: string[] }} input
+ * @returns {{ name: string, source: string }[]}
  */
 export function candidateNames({ publicIp, ipCert, siteDomain, portalNames = [], storedNames = [] }) {
   const out = [];

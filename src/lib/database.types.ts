@@ -9200,6 +9200,12 @@ export type Database = {
         };
         Returns: string;
       };
+      normalize_host: {
+        Args: {
+          p: string;
+        };
+        Returns: string;
+      };
       normalize_identifier: {
         Args: {
           p: string;
@@ -9346,6 +9352,10 @@ export type Database = {
       platform_onboarding_pipeline: {
         Args: Record<PropertyKey, never>;
         Returns: { center_id: string; slug: string; name: string; environment: string; status: string; stage: string; stage_since: string; steps_done: number; steps_total: number; readiness_ok: number; readiness_total: number; blockers: string[]; owner_name: string; owner_email: string; owner_phone: string; golive_id: string; golive_status: string; promoted_to: string; last_activity_at: string; support_live: boolean }[];
+      };
+      platform_public_addresses: {
+        Args: Record<PropertyKey, never>;
+        Returns: Json;
       };
       preview_allocation: {
         Args: {
@@ -10171,6 +10181,13 @@ export type Database = {
           p_tier: Database["app"]["Enums"]["membership_tier"];
         };
         Returns: number;
+      };
+      tls_host_allowed: {
+        Args: {
+          p_host: string;
+          p_env_base?: string;
+        };
+        Returns: string;
       };
       transfer_ownership: {
         Args: {
