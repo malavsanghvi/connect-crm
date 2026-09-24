@@ -2,6 +2,7 @@
 // provider app keys ("platform secrets") come only from here; an
 // organization's credentials come only from the vault (ctx.secret).
 
+import { readFileSync } from "node:fs";
 import os from "node:os";
 
 export type Provider = "stripe" | "paypal" | "intuit" | "email" | "twilio" | "anthropic";
@@ -58,6 +59,18 @@ function int(env: Env, name: string, dflt: number, min: number, max: number): nu
   return n;
 }
 
+/** WORKER_DATABASE_CA: the CA certificate itself (PEM), or the path of a file holding it. */
+export function readCa(value: string | undefined, read: (path: string) => string = (p) => readFileSync(p, "utf8")): string | undefined {
+  const v = value?.trim();
+  if (!v) return undefined;
+  if (v.startsWith("-----BEGIN")) return v;
+  try {
+    return read(v);
+  } catch (err) {
+    throw new Error(`WORKER_DATABASE_CA points at ${v}, which could not be read (${err instanceof Error ? err.message : String(err)})`);
+  }
+}
+
 /** Reads the worker's own settings; throws a plain sentence when one is missing or wrong. */
 export function loadConfig(env: Env): WorkerConfig {
   const databaseUrl = env.WORKER_DATABASE_URL?.trim();
@@ -68,7 +81,7 @@ export function loadConfig(env: Env): WorkerConfig {
   if (!["debug", "info", "warn", "error"].includes(level)) throw new Error(`WORKER_LOG_LEVEL must be debug, info, warn or error (got "${level}")`);
   return {
     databaseUrl,
-    databaseCa: env.WORKER_DATABASE_CA?.trim() || undefined,
+    databaseCa: readCa(env.WORKER_DATABASE_CA),
     workerId: env.WORKER_ID?.trim() || `${os.hostname()}-${process.pid}`,
     healthPort: int(env, "WORKER_HEALTH_PORT", 3010, 1, 65535),
     healthHost: "127.0.0.1",

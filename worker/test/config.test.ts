@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { loadConfig, providerStatus, requireEnv } from "../src/config";
+import { loadConfig, providerStatus, readCa, requireEnv } from "../src/config";
 
 describe("platform secrets from env", () => {
   it("a provider is configured only when a full group of variables is set", () => {
@@ -19,5 +19,11 @@ describe("platform secrets from env", () => {
     expect(() => loadConfig({ WORKER_DATABASE_URL: "postgres://x", WORKER_CONCURRENCY: "0" })).toThrow(/WORKER_CONCURRENCY must be/);
     const c = loadConfig({ WORKER_DATABASE_URL: "postgres://x", WORKER_ID: "w1" });
     expect(c).toMatchObject({ workerId: "w1", healthHost: "127.0.0.1", healthPort: 3010, concurrency: 4, heartbeatMs: 60000 });
+  });
+  it("takes the database CA as PEM text or as a file path", () => {
+    expect(readCa(undefined)).toBeUndefined();
+    expect(readCa("-----BEGIN CERTIFICATE-----\nabc")).toMatch(/^-----BEGIN/);
+    expect(readCa("/srv/connect/worker-ca.crt", (p) => `read ${p}`)).toBe("read /srv/connect/worker-ca.crt");
+    expect(() => readCa("/nope.crt")).toThrow(/could not be read/);
   });
 });
