@@ -18,6 +18,7 @@
 import { providerStatus, type Env, type Provider, type Readiness } from "../config";
 import { NotConfiguredError, PermanentError } from "../errors";
 import type { Http } from "../http";
+import { paypalExchange, stripeExchange } from "../payments/connect";
 import type { Job, JobContext } from "../types";
 
 export const kind = "oauth.exchange";
@@ -27,9 +28,12 @@ export type TokenSet = {
   secrets: Record<string, string>;
   expiresAt?: string;
   externalAccountId?: string;
+  /** Facts to merge into integration_connections.settings (never a secret). */
+  settings?: Record<string, unknown>;
+  displayName?: string;
 };
 
-export type ExchangeInput = { code: string; redirectUri: string | null; connectionId: string; env: Env; http: Http };
+export type ExchangeInput = { code: string; redirectUri: string | null; connectionId: string; env: Env; http: Http; mode: "test" | "live" };
 export type Exchanger = (input: ExchangeInput) => Promise<TokenSet>;
 
 const OAUTH_PROVIDERS = ["stripe", "paypal", "intuit"] as const satisfies readonly Provider[];
@@ -43,7 +47,7 @@ export function configured(env: Env): Readiness {
 }
 
 /** Filled in by the o-payments and o-quickbooks streams. */
-export const EXCHANGERS: Partial<Record<OAuthProvider, Exchanger>> = {};
+export const EXCHANGERS: Partial<Record<OAuthProvider, Exchanger>> = { stripe: stripeExchange, paypal: paypalExchange };
 
 export async function run(job: Job, ctx: JobContext, exchangers: Partial<Record<OAuthProvider, Exchanger>> = EXCHANGERS) {
   const p = job.payload ?? {};
@@ -70,10 +74,19 @@ export async function run(job: Job, ctx: JobContext, exchangers: Partial<Record<
     connectionId: p.connection_id,
     env: ctx.env,
     http: ctx.http,
+    mode: p.mode === "live" ? "live" : "test",
   });
   const stored: Record<string, string> = {};
   for (const [name, value] of Object.entries(tokens.secrets)) {
     stored[name] = (await ctx.storeSecret(p.connection_id, name, value)).fingerprint;
   }
+  // The connection is connected (and a payment processor moves to test mode): app.worker_connection_connected (0212).
+  await ctx.db.query("select app.worker_connection_connected($1, $2, $3, $4, $5)", [
+    p.connection_id,
+    tokens.externalAccountId ?? null,
+    tokens.displayName ?? null,
+    tokens.expiresAt ?? null,
+    JSON.stringify(tokens.settings ?? {}),
+  ]);
   return { provider, stored, expires_at: tokens.expiresAt ?? null, external_account_id: tokens.externalAccountId ?? null };
 }

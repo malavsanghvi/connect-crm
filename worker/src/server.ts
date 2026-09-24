@@ -85,6 +85,15 @@ export async function main(env: Env = process.env): Promise<void> {
         log.error("could not queue storage.retention", { error: err });
       }
     }
+    // o-payments: the daily payout sync across every connected Stripe account.
+    if ((handlers["payments.sync_payouts"] as { configured: boolean } | undefined)?.configured) {
+      try {
+        const id = await db.schedule("payments.sync_payouts", 24 * 3600);
+        if (id) log.info("queued the daily payments.sync_payouts pass", { queued_job: id });
+      } catch (err) {
+        log.error("could not queue payments.sync_payouts", { error: err });
+      }
+    }
   }
 
   let polling = false;

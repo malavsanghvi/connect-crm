@@ -9,8 +9,8 @@ export type Provider = "stripe" | "paypal" | "intuit" | "email" | "twilio" | "an
 
 /** Env var names each provider needs; "anyOf" groups mean one full group is enough. */
 export const PROVIDERS: Record<Provider, { label: string; anyOf: string[][] }> = {
-  stripe: { label: "Stripe", anyOf: [["STRIPE_SECRET_KEY", "STRIPE_CLIENT_ID"]] },
-  paypal: { label: "PayPal", anyOf: [["PAYPAL_CLIENT_ID", "PAYPAL_CLIENT_SECRET"]] },
+  stripe: { label: "Stripe", anyOf: [["STRIPE_SECRET_KEY", "STRIPE_CLIENT_ID"], ["STRIPE_TEST_SECRET_KEY", "STRIPE_CLIENT_ID"]] },
+  paypal: { label: "PayPal", anyOf: [["PAYPAL_CLIENT_ID", "PAYPAL_CLIENT_SECRET"], ["PAYPAL_SANDBOX_CLIENT_ID", "PAYPAL_SANDBOX_CLIENT_SECRET"]] },
   intuit: { label: "QuickBooks (Intuit)", anyOf: [["INTUIT_CLIENT_ID", "INTUIT_CLIENT_SECRET"]] },
   email: { label: "Email sending", anyOf: [["RESEND_API_KEY"], ["POSTMARK_SERVER_TOKEN"]] },
   twilio: { label: "Twilio", anyOf: [["TWILIO_ACCOUNT_SID", "TWILIO_AUTH_TOKEN"]] },
