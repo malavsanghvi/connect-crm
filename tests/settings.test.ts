@@ -117,7 +117,8 @@ describe("onboarding, notifications and security settings", () => {
     expect(hourLabel(12)).toBe("12 PM");
   });
   it("reads security defaults", () => {
-    expect(readSecuritySettings({})).toEqual({ printedSigninCodes: true, adminSessionHours: 8, adminIdleMinutes: 30 });
+    expect(readSecuritySettings({})).toEqual({ printedSigninCodes: true, adminSessionHours: 8, adminIdleMinutes: 30, require2faForStaff: true });
+    expect(readSecuritySettings({ security: { require_2fa_for_staff: false } }).require2faForStaff).toBe(false);
   });
 });
 

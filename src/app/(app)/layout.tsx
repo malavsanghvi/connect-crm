@@ -6,7 +6,7 @@ import { AppShell } from "@/components/shell/app-shell";
 import { CenteredPanel, SetupScreen } from "@/components/setup-screen";
 import { PRODUCT_NAME } from "@/lib/brand";
 import { countHomeTasks } from "@/lib/data/home-tasks";
-import { loadSession } from "@/lib/session";
+import { enforceStaff2fa, loadSession } from "@/lib/session";
 
 export default async function ConsoleLayout({ children }: { children: ReactNode }) {
   const state = await loadSession();
@@ -39,6 +39,10 @@ export default async function ConsoleLayout({ children }: { children: ReactNode 
         </CenteredPanel>
       );
     case "ok": {
+      // Staff 2FA (security.require_2fa_for_staff): a staff session that has not
+      // passed 2FA goes to Account › Security to set up or enter its code. The
+      // database refuses sensitive changes on its own either way (assert_step_up).
+      await enforceStaff2fa(state.session);
       const tasks = await countHomeTasks(state.session);
       return (
         <AppShell session={state.session} tasks={tasks}>

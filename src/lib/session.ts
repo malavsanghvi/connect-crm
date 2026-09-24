@@ -1,5 +1,6 @@
 import "server-only";
 
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { cache } from "react";
 
@@ -16,8 +17,9 @@ import {
   type ScopedGrant,
 } from "@/lib/permissions";
 import { loadMyModules, modulesOffFrom } from "@/lib/modules-db";
+import { requires2faForStaff, securityRedirect } from "@/lib/security";
 import { createSupabaseServerClient, type AppSupabase } from "@/lib/supabase/server";
-import { newRequestId } from "@/lib/supabase/trace";
+import { PATHNAME_HEADER, newRequestId } from "@/lib/supabase/trace";
 
 export type CenterInfo = {
   id: string;
@@ -48,6 +50,10 @@ export type CrmSession = PermissionContext & {
   modulesOff: string[];
   /** "missing" before the s-core migrations land, "error" when my_modules failed: both mean "treat everything as on". */
   modulesStatus: "ok" | "missing" | "error";
+  /** The session's assurance level from the JWT: "aal2" once it passed 2FA (o-security). */
+  aal: string;
+  /** The JWT's amr (sign-in methods with their times), for step-up freshness. */
+  amr: unknown;
 };
 
 export type SessionState =
@@ -147,6 +153,8 @@ export const loadSession = cache(async (): Promise<SessionState> => {
       requestId,
       modulesOff: modulesRes.status === "ok" ? modulesOffFrom(modulesRes.rows) : [],
       modulesStatus: modulesRes.status,
+      aal: typeof claims.aal === "string" ? claims.aal : "aal1",
+      amr: (claims as { amr?: unknown }).amr ?? null,
     },
   };
 });
@@ -161,11 +169,34 @@ export async function dbWithReason(session: Pick<CrmSession, "requestId">, reaso
   return createSupabaseServerClient({ requestId: session.requestId, reason });
 }
 
-/** For pages: the signed-in session, or a redirect to /login. */
+/**
+ * Staff 2FA (centers.rules.security.require_2fa_for_staff, o-security): a staff
+ * session that has not passed 2FA is sent to Account › Security to set up or
+ * enter its authenticator code. Runs in the portal layout (first load) and in
+ * getSession (every page). The database refuses sensitive changes on its own.
+ */
+export async function enforceStaff2fa(session: CrmSession): Promise<void> {
+  let pathname: string | null = null;
+  try {
+    pathname = (await headers()).get(PATHNAME_HEADER);
+  } catch (error) {
+    console.error("[session] could not read the request pathname for the 2FA check:", error);
+  }
+  const to = securityRedirect({
+    requires: requires2faForStaff(session.center.rules),
+    isStaff: session.grants.length > 0,
+    aal: session.aal,
+    pathname,
+  });
+  if (to) redirect(to);
+}
+
+/** For pages: the signed-in session, or a redirect to /login (or to 2FA, for staff who need it). */
 export async function getSession(): Promise<CrmSession> {
   const state = await loadSession();
   switch (state.status) {
     case "ok":
+      await enforceStaff2fa(state.session);
       return state.session;
     case "signed_out":
       redirect("/login");

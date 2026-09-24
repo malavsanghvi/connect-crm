@@ -2,8 +2,27 @@
 // is logged on the server (docs/ARCHITECTURE.md "Errors").
 
 export type ActionResult<T = undefined> =
-  | { ok: true; error?: undefined; message?: string; data?: T }
-  | { ok: false; error: string; message?: undefined; data?: undefined };
+  | { ok: true; error?: undefined; message?: string; data?: T; stepUp?: undefined }
+  | {
+      ok: false;
+      error: string;
+      message?: undefined;
+      data?: undefined;
+      /** The database asked for a fresh 2FA check (SQLSTATE CCSTP): the portal opens the step-up modal and retries. */
+      stepUp?: boolean;
+    };
+
+/** SQLSTATE raised by app.assert_step_up (ONBOARDING_CONTRACT "Security"). */
+export const STEP_UP_SQLSTATE = "CCSTP";
+
+/** True when an error (or an error sentence) is the database asking for a fresh 2FA check. */
+export function isStepUpError(error: unknown): boolean {
+  if (!error) return false;
+  if (typeof error === "string") return /fresh 2FA check/i.test(error);
+  if (typeof error !== "object") return false;
+  const e = error as DbErrorLike;
+  return e.code === STEP_UP_SQLSTATE || /fresh 2FA check/i.test(e.message ?? "");
+}
 
 export type DbErrorLike = {
   code?: string | null;
@@ -25,6 +44,7 @@ export function explainError(error: unknown): string {
   const code = e.code ?? "";
   const msg = (e.message ?? "").trim();
 
+  if (isStepUpError(e)) return "this needs a fresh 2FA check";
   if (code === "42501" || /row-level security|permission denied/i.test(msg)) {
     return "you don't have permission to make this change";
   }
@@ -63,10 +83,12 @@ export function explainError(error: unknown): string {
  * Log the technical detail and return the user-facing failure:
  * "<what failed> — <why>".
  */
-export function failure(context: string, error: unknown): { ok: false; error: string } {
+export function failure(context: string, error: unknown): { ok: false; error: string; stepUp?: boolean } {
   console.error(`[crm] ${context}:`, error);
   const reason = explainError(error);
-  return { ok: false, error: `${context} — ${reason}${/[.!?]$/.test(reason) ? "" : "."}` };
+  const result: { ok: false; error: string; stepUp?: boolean } = { ok: false, error: `${context} — ${reason}${/[.!?]$/.test(reason) ? "" : "."}` };
+  if (isStepUpError(error)) result.stepUp = true;
+  return result;
 }
 
 export function success<T = undefined>(message?: string, data?: T): ActionResult<T> {

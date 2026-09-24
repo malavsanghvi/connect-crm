@@ -5,8 +5,8 @@ import type { Database } from "@/lib/database.types";
 import type { PublicEnv } from "@/lib/env";
 import { PATHNAME_HEADER, clientScreen, newRequestId, traceHeaders } from "@/lib/supabase/trace";
 
-/** Paths reachable without a session (sign-in, the public community dashboard /c/<slug>). Everything else redirects to /login. */
-export const PUBLIC_PATHS = ["/login", "/c"];
+/** Paths reachable without a session (sign-in, the public community dashboard /c/<slug>, staff invitation links). Everything else redirects to /login. */
+export const PUBLIC_PATHS = ["/login", "/c", "/invite"];
 
 export function isPublicPath(pathname: string): boolean {
   return PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`));

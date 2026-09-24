@@ -247,13 +247,15 @@ export function quietHoursText(s: NotificationSettings): string {
 // ---------------------------------------------------------------------------
 // Security tab
 // ---------------------------------------------------------------------------
-export type SecuritySettings = { printedSigninCodes: boolean; adminSessionHours: number; adminIdleMinutes: number };
+export type SecuritySettings = { printedSigninCodes: boolean; adminSessionHours: number; adminIdleMinutes: number; require2faForStaff: boolean };
 
 export function readSecuritySettings(rules: Json): SecuritySettings {
   return {
     printedSigninCodes: bool(at(rules, ["security", "printed_signin_codes"]), true),
     adminSessionHours: int(at(rules, ["security", "admin_session_hours"]), 8),
     adminIdleMinutes: int(at(rules, ["security", "admin_idle_minutes"]), 30),
+    // Same default as app.require_2fa_for_staff: on unless the community switched it off.
+    require2faForStaff: bool(at(rules, ["security", "require_2fa_for_staff"]), true),
   };
 }
 
@@ -410,7 +412,10 @@ export function parseSection(section: RulesSection, read: Read): ParsedSection {
         admin_idle_minutes: wholeNumber(read, "admin_idle_minutes", "The idle timeout", 5, 240),
       });
       if (errors.length) return fail(errors);
-      return { ok: true, patch: { security: { ...ok, printed_signin_codes: on(read, "printed_signin_codes") } } };
+      return {
+        ok: true,
+        patch: { security: { ...ok, printed_signin_codes: on(read, "printed_signin_codes"), require_2fa_for_staff: on(read, "require_2fa_for_staff") } },
+      };
     }
   }
 }

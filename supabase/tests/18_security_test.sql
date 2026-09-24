@@ -426,3 +426,19 @@ select pg_temp.assert(not exists (select 1 from app.staff_invitations), 'a membe
 rollback;
 -- Leave the platform documents unpublished for anyone who runs later tests.
 update app.legal_documents set published_at = null where center_id is null and kind in ('org_terms','dpa','children_addendum','order_form');
+
+-- ── Security events in the app audit log ────────────────────────────────────
+begin;
+select pg_temp.sign_in(:ada, 5);
+select app.record_security_event(:jsh, 'mfa.enrolled');
+select pg_temp.assert(exists (select 1 from app.audit_log where action = 'security.mfa.enrolled' and actor_user_id = :ada::uuid and after->>'authenticator_apps' = '1'),
+  'an enrolment is written to the community audit log');
+select pg_temp.assert_raises($$select app.record_security_event('00000000-0000-4000-8000-000000000001', 'phone.verified')$$, 'has not been verified',
+  'a phone verification that did not happen cannot be recorded');
+select pg_temp.assert_raises($$select app.record_security_event('00000000-0000-4000-8000-000000000001', 'made.up')$$, 'Unknown security event', 'unknown events are refused');
+rollback;
+begin;
+select pg_temp.sign_in(:priya);
+select pg_temp.assert_raises($$select app.record_security_event('00000000-0000-4000-8000-000000000001', 'mfa.enrolled')$$, 'No authenticator app',
+  'an enrolment that did not happen cannot be recorded');
+rollback;

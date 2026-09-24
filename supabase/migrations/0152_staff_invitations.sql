@@ -138,7 +138,7 @@ end $$;
 
 -- ── Invite ───────────────────────────────────────────────────────────────────
 create or replace function app.invite_staff(
-  p_center uuid, p_email text, p_phone text, p_person uuid, p_role_keys text[],
+  p_center uuid, p_email text default null, p_phone text default null, p_person uuid default null, p_role_keys text[] default null,
   p_scope jsonb default '{"kind":"center"}'::jsonb, p_first_name text default null, p_last_name text default null,
   p_valid_days int default 7)
 returns table (invitation_id uuid, token text, expires_at timestamptz)

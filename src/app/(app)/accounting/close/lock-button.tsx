@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
 import { Modal } from "@/components/modal";
+import { useStepUp } from "@/components/step-up";
 import { useToast } from "@/components/toast";
 import { buttonClass } from "@/components/ui";
 
@@ -13,6 +14,7 @@ import { lockMonthAction } from "./actions";
 export function LockMonthButton({ month, monthLabel, shortLabel, ready, locked }: { month: string; monthLabel: string; shortLabel: string; ready: boolean; locked: boolean }) {
   const router = useRouter();
   const toast = useToast();
+  const stepUp = useStepUp();
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
@@ -46,7 +48,9 @@ export function LockMonthButton({ month, monthLabel, shortLabel, ready, locked }
         onConfirm={() =>
           start(async () => {
             try {
-              const res = await lockMonthAction(month);
+              const call = () => lockMonthAction(month);
+              // The database asks for a fresh 2FA check (CCSTP): the step-up modal, then one retry.
+              const res = stepUp ? await stepUp.run(call, `Locking ${monthLabel}`) : await call();
               if (!res.ok) {
                 setError(res.error);
                 return;
@@ -61,8 +65,8 @@ export function LockMonthButton({ month, monthLabel, shortLabel, ready, locked }
           })
         }
       >
-        No one can change {shortLabel} transactions after locking; later corrections post as adjustments. The prototype asks for a code sent to
-        your phone here — step-up codes are not set up yet, so the lock is recorded under your name in the audit log.
+        No one can change {shortLabel} transactions after locking; later corrections post as adjustments. If you use an authenticator app, you will
+        be asked for a fresh code; the lock is recorded under your name in the audit log.
       </Modal>
     </>
   );

@@ -5930,10 +5930,10 @@ export type Database = {
       invite_staff: {
         Args: {
           p_center: string;
-          p_email: string;
-          p_phone: string;
-          p_person: string;
-          p_role_keys: string[];
+          p_email?: string;
+          p_phone?: string;
+          p_person?: string;
+          p_role_keys?: string[];
           p_scope?: Json;
           p_first_name?: string;
           p_last_name?: string;
@@ -6198,6 +6198,13 @@ export type Database = {
           p_joint?: boolean;
         };
         Returns: string;
+      };
+      record_security_event: {
+        Args: {
+          p_center: string;
+          p_event: string;
+        };
+        Returns: undefined;
       };
       redeem_attendance_qr: {
         Args: {

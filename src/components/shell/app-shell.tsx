@@ -8,6 +8,7 @@ import { ModuleNav } from "@/components/shell/nav-link";
 import { TenantMark } from "@/components/shell/tenant-mark";
 import { UserMenu } from "@/components/shell/user-menu";
 import { HistoryAccessProvider } from "@/components/record-history";
+import { StepUpProvider } from "@/components/step-up";
 import { ToastProvider } from "@/components/toast";
 import { PRODUCT_NAME } from "@/lib/brand";
 import type { TaskCount } from "@/lib/data/home-tasks";
@@ -42,6 +43,7 @@ export function AppShell({ session, tasks, children }: { session: CrmSession; ta
 
   return (
     <ToastProvider>
+      <StepUpProvider>
       <HistoryAccessProvider allowed={canAccess(session, "audit")}>
       <ModulesProvider modules={modules}>
         <div className="flex min-h-screen flex-col">
@@ -91,6 +93,7 @@ export function AppShell({ session, tasks, children }: { session: CrmSession; ta
         </div>
       </ModulesProvider>
       </HistoryAccessProvider>
+      </StepUpProvider>
     </ToastProvider>
   );
 }

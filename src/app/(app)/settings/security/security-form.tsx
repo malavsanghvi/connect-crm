@@ -91,8 +91,22 @@ export function SecurityForm({
                 />
               </div>
             </Field>
+            <Field label="Two-step verification (2FA) for staff">
+              <Toggle
+                name="require_2fa_for_staff"
+                label="Require two-step verification for staff"
+                checked={s.require2faForStaff}
+                onChange={(x) => setS({ ...s, require2faForStaff: x })}
+                onNote="Required: staff set up an authenticator app and enter its code at sign-in"
+                offNote="Not required yet: staff who have set up an app still use it"
+                disabled={!canEdit}
+              />
+            </Field>
             <Field label="Step-up code before">
-              <InfoBox>Exports, refunds, role changes, month lock, bulk views of children’s details</InfoBox>
+              <InfoBox>
+                Role grants, refunds and write-offs, month lock, module switches, merges, exports, ownership transfer — a code from the authenticator app
+                within the last 5 minutes, checked by the database
+              </InfoBox>
             </Field>
             <Field label="Ops devices">
               <InfoBox>Event PIN sign-in · kiosk lock · remote wipe · offline cache encrypted</InfoBox>
@@ -102,8 +116,9 @@ export function SecurityForm({
             </Field>
           </div>
           <p className="crm-hint mt-3">
-            These are the center&apos;s recorded policy. Sessions, step-up codes and printed codes are not yet enforced from this page: the
-            sign-in service still uses its own session length, and saving here does not shorten anyone&apos;s session.
+            2FA and step-up are enforced: with the rule on, a staff session without 2FA opens only Account › Security until it passes, and the database
+            refuses sensitive changes without a fresh code from anyone who has an app. Switching the rule off needs a fresh code too. Session length,
+            idle timeout and printed codes are the center&apos;s recorded policy only: the sign-in service still uses its own session length.
           </p>
           <div className="mt-4 flex justify-end">
             {canEdit ? (
