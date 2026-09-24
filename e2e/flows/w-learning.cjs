@@ -19,7 +19,7 @@ const MAIL = process.env.MAIL || 'http://localhost:55324';
 const API = process.env.API || 'http://localhost:55321';
 const DB = process.env.DB || 'postgres://postgres:postgres@localhost:55432/postgres';
 const OUT = process.env.OUT || '/tmp/claude-0/streams/w-learning/flows';
-const ONLY = (process.env.ONLY || '1,2,3,4,5,6,7').split(',').map(Number);
+const ONLY = (process.env.ONLY || '1,2,3,4,5,6,7,8').split(',').map(Number);
 fs.mkdirSync(OUT, { recursive: true });
 const env = Object.fromEntries(
   fs
@@ -771,6 +771,47 @@ async function journeyModules(browser) {
 }
 
 // ---------------------------------------------------------------------------
+// 8. Teacher applications: the principal posts an opening → a member applies in the app → decision
+// ---------------------------------------------------------------------------
+async function journeyTeachers(browser) {
+  console.log('\n# 8. Teacher position and application');
+  const TITLE = `Gujarati 1 teacher ${RUN}`;
+  const admin = await portalLogin(browser, 'admin@jsh.test');
+  await pgo(admin, '/pathshala/teachers');
+  await admin.getByRole('button', { name: 'New position' }).click();
+  const d = admin.getByRole('dialog');
+  await d.locator('input[name=title]').fill(TITLE);
+  await d.locator('textarea[name=description]').fill('Sunday mornings, ages 6-8');
+  await submitIn(admin, d, 'Post position');
+  const posId = sql(`select id from app.teacher_positions where title='${TITLE}'`);
+  ok(sql(`select status from app.teacher_positions where id='${posId}'`) === 'open', 'position posted (open)');
+  const priya = await memberLogin(browser, 'priya@jsh.test');
+  await mgo(priya, '/pathshala-teach');
+  await priya.getByRole('checkbox', { name: TITLE }).first().click();
+  await priya.getByLabel('Education').fill('M.Sc.');
+  await priya.getByLabel('Why you would like to teach').fill('To pass on what my teachers gave me');
+  await priya.getByRole('button', { name: 'Send application' }).click();
+  await priya.waitForTimeout(2500);
+  const app = sql(`select id||'|'||outcome||'|'||name from app.teacher_applications where position_id='${posId}'`);
+  ok(/\|pending\|Priya Shah$/.test(app), 'application saved from the member app: ' + app);
+  const appId = app.split('|')[0];
+  ok(audit('teacher_applications', appId).startsWith('member|/pathshala-teach|pathshala|'), 'application audit row: member · /pathshala-teach');
+  await shot(priya, '8-applied');
+  await pgo(admin, '/pathshala/teachers');
+  const li = admin.locator('li').filter({ hasText: 'Priya Shah' }).filter({ hasText: TITLE });
+  await li.locator('select[name=outcome]').selectOption('selected');
+  await li.getByRole('button', { name: 'Save decision' }).click();
+  await admin.waitForTimeout(2500);
+  ok(sql(`select outcome from app.teacher_applications where id='${appId}'`) === 'selected', 'principal marked the application selected');
+  await mgo(priya, '/pathshala-teach');
+  ok((await priya.innerText('body')).includes('Selected · anumodana!'), 'the member sees the decision');
+  const ptok = await token('priya@jsh.test');
+  const self = await rest(ptok, 'PATCH', `teacher_applications?id=eq.${appId}`, { outcome: 'selected' });
+  ok(Array.isArray(self.json) ? self.json.length === 0 : self.status >= 400, 'a member cannot decide their own application');
+  await Promise.all([admin.context().close(), priya.context().close()]);
+}
+
+// ---------------------------------------------------------------------------
 (async () => {
   const browser = await chromium.launch();
   try {
@@ -781,6 +822,7 @@ async function journeyModules(browser) {
     if (ONLY.includes(5)) await journeyNiva(browser);
     if (ONLY.includes(6)) await journeyGovernance(browser);
     if (ONLY.includes(7)) await journeyModules(browser);
+    if (ONLY.includes(8)) await journeyTeachers(browser);
   } finally {
     await browser.close();
   }
