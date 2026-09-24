@@ -1,0 +1,69 @@
+services:
+  db:
+    image: public.ecr.aws/supabase/postgres:17.4.1.074
+    command: ["postgres", "-c", "config_file=/etc/postgresql/postgresql.conf"]
+    environment: { POSTGRES_PASSWORD: postgres, JWT_SECRET: "${JWT_SECRET}", JWT_EXP: "3600" }
+    ports: ["${DB_PORT}:5432"]
+    healthcheck: { test: ["CMD", "pg_isready", "-U", "postgres", "-h", "localhost"], interval: 3s, retries: 60 }
+  mail:
+    image: ghcr.io/axllent/mailpit:latest
+    ports: ["${MAIL_PORT}:8025"]
+  auth:
+    image: public.ecr.aws/supabase/gotrue:v2.177.0
+    depends_on: { db: { condition: service_healthy } }
+    environment:
+      GOTRUE_API_HOST: 0.0.0.0
+      GOTRUE_API_PORT: "9999"
+      API_EXTERNAL_URL: http://localhost:${API_PORT}/auth/v1
+      GOTRUE_DB_DRIVER: postgres
+      GOTRUE_DB_DATABASE_URL: postgres://supabase_auth_admin:postgres@db:5432/postgres
+      GOTRUE_SITE_URL: http://localhost:${PORTAL_PORT}
+      GOTRUE_URI_ALLOW_LIST: "*"
+      GOTRUE_DISABLE_SIGNUP: "false"
+      GOTRUE_JWT_SECRET: "${JWT_SECRET}"
+      GOTRUE_JWT_EXP: "3600"
+      GOTRUE_JWT_AUD: authenticated
+      GOTRUE_JWT_DEFAULT_GROUP_NAME: authenticated
+      GOTRUE_JWT_ADMIN_ROLES: service_role
+      GOTRUE_EXTERNAL_EMAIL_ENABLED: "true"
+      GOTRUE_MAILER_AUTOCONFIRM: "false"
+      GOTRUE_MAILER_OTP_LENGTH: "6"
+      GOTRUE_SMTP_HOST: mail
+      GOTRUE_SMTP_PORT: "1025"
+      GOTRUE_SMTP_ADMIN_EMAIL: noreply@example.test
+      GOTRUE_SMTP_SENDER_NAME: Community Connect
+      GOTRUE_RATE_LIMIT_EMAIL_SENT: "1000"
+      GOTRUE_SMTP_MAX_FREQUENCY: 1s
+      GOTRUE_RATE_LIMIT_VERIFY: "1000"
+      GOTRUE_RATE_LIMIT_OTP: "1000"
+      GOTRUE_MAILER_URLPATHS_CONFIRMATION: /auth/v1/verify
+  rest:
+    image: postgrest/postgrest:v12.2.3
+    depends_on: { db: { condition: service_healthy } }
+    environment:
+      PGRST_DB_URI: postgres://authenticator:postgres@db:5432/postgres
+      PGRST_DB_SCHEMAS: public,app,storage,graphql_public
+      PGRST_DB_ANON_ROLE: anon
+      PGRST_JWT_SECRET: "${JWT_SECRET}"
+      PGRST_DB_USE_LEGACY_GUCS: "false"
+  storage:
+    image: public.ecr.aws/supabase/storage-api:v1.25.7
+    depends_on: { db: { condition: service_healthy }, rest: { condition: service_started } }
+    environment:
+      ANON_KEY: "${ANON_KEY}"
+      SERVICE_KEY: "${SERVICE_KEY}"
+      POSTGREST_URL: http://rest:3000
+      PGRST_JWT_SECRET: "${JWT_SECRET}"
+      AUTH_JWT_SECRET: "${JWT_SECRET}"
+      DATABASE_URL: postgres://supabase_storage_admin:postgres@db:5432/postgres
+      FILE_SIZE_LIMIT: "52428800"
+      STORAGE_BACKEND: file
+      FILE_STORAGE_BACKEND_PATH: /var/lib/storage
+      TENANT_ID: stub
+      REGION: local
+      GLOBAL_S3_BUCKET: stub
+  gateway:
+    image: public.ecr.aws/docker/library/caddy:2
+    volumes: ["./Caddyfile:/etc/caddy/Caddyfile:ro"]
+    ports: ["${API_PORT}:8000"]
+    depends_on: [auth, rest, storage]

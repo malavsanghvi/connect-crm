@@ -32,7 +32,7 @@ begin
   delete from app.center_users where center_id = c and (user_id = v_user or person_id = v_person);
   insert into app.center_users (center_id, user_id, person_id) values (c, v_user, v_person);
 
-  foreach r in array string_to_array(nullif(current_setting('demo.roles'), ''), ',') loop
+  foreach r in array coalesce(string_to_array(nullif(current_setting('demo.roles'), ''), ','), '{}'::text[]) loop
     r := trim(r);
     continue when r = '';
     -- teacher: scoped to Jainism 3; check-in / event lead: scoped to the Tapasvi Bahuman
