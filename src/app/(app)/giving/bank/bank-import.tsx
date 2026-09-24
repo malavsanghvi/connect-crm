@@ -103,7 +103,7 @@ export function BankImport({
         </label>
       </div>
       {readError ? (
-        <p role="alert" className="rounded-lg border border-maroon/30 bg-maroon-50 px-3 py-2 text-sm text-maroon">
+        <p role="alert" className="rounded-lg border border-danger/30 bg-danger-50 px-3 py-2 text-sm text-danger">
           {readError}
         </p>
       ) : null}
@@ -126,7 +126,7 @@ export function BankImport({
             {parsed.skippedDebits > 0 && !includeDebits ? ` ${parsed.skippedDebits} money-out line${parsed.skippedDebits === 1 ? "" : "s"} left out.` : ""}
           </p>
           {parsed.errors.length > 0 ? (
-            <div className="mt-2 text-maroon" role="alert">
+            <div className="mt-2 text-danger" role="alert">
               <p className="font-semibold">
                 {parsed.errors.length} line{parsed.errors.length === 1 ? "" : "s"} could not be read and will be skipped:
               </p>
@@ -170,7 +170,7 @@ export function BankImport({
       ) : null}
 
       {error ? (
-        <p role="alert" className="rounded-lg border border-maroon/30 bg-maroon-50 px-3 py-2 text-sm text-maroon">
+        <p role="alert" className="rounded-lg border border-danger/30 bg-danger-50 px-3 py-2 text-sm text-danger">
           {error}
         </p>
       ) : null}
@@ -181,7 +181,7 @@ export function BankImport({
             <p>{result.data.duplicates} line{result.data.duplicates === 1 ? " was" : "s were"} already imported from an earlier statement and skipped.</p>
           ) : null}
           {result.data.failed.length > 0 ? (
-            <ul className="mt-1 list-disc pl-5 text-maroon">
+            <ul className="mt-1 list-disc pl-5 text-danger">
               {result.data.failed.slice(0, 8).map((f) => (
                 <li key={`${f.row}-${f.reason}`}>
                   Row {f.row}: {f.reason}

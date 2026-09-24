@@ -60,7 +60,7 @@ export function HouseholdCard({
           )}
         </p>
         <p className="font-mono text-[0.8125rem] text-muted">
-          {card.household_number ?? "no Connect number"}
+          {card.household_number ?? "no household number"}
           {" · "}
           {labels.orgHouseholdLabel} {card.org_household_id ?? "—"}
         </p>

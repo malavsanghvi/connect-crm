@@ -34,7 +34,7 @@ export function WriteOffControls({
     if (!canManage) return null;
     return (
       <details>
-        <summary className="inline-flex min-h-9 cursor-pointer items-center text-[0.8125rem] font-semibold text-maroon">
+        <summary className="inline-flex min-h-9 cursor-pointer items-center text-[0.8125rem] font-semibold text-danger">
           Write off…
         </summary>
         <ActionForm action={requestWriteOffAction} submitLabel="Request write-off" pendingLabel="Requesting…" variant="danger" size="sm" className="mt-2 w-64">

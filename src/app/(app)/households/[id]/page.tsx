@@ -116,7 +116,7 @@ export default async function HouseholdPage({
       ) : null}
 
       <section aria-label="Identity" className="mb-6 grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
-        <IdentityCell label="Connect household no." value={household.household_number} mono />
+        <IdentityCell label="Household no." value={household.household_number} mono />
         <IdentityCell
           label={rules.orgHouseholdLabel}
           value={orgHouseholdIds.length > 0 ? orgHouseholdIds.join(", ") : null}

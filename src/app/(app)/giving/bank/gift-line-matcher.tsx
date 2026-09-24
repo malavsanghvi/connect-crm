@@ -150,7 +150,7 @@ export function GiftLineMatcher({
         </label>
         {specific ? (
           pledgeError ? (
-            <p role="alert" className="text-sm text-maroon">
+            <p role="alert" className="text-sm text-danger">
               {pledgeError}
             </p>
           ) : pledges === null ? (
@@ -196,7 +196,7 @@ export function GiftLineMatcher({
           </label>
         ) : null}
         {error ? (
-          <p role="alert" className="rounded-lg border border-maroon/30 bg-maroon-50 px-3 py-2 text-sm text-maroon">
+          <p role="alert" className="rounded-lg border border-danger/30 bg-danger-50 px-3 py-2 text-sm text-danger">
             {error}
           </p>
         ) : null}
@@ -220,7 +220,7 @@ export function GiftLineMatcher({
   return (
     <div className="space-y-2">
       {error ? (
-        <p role="alert" className="rounded-lg border border-maroon/30 bg-maroon-50 px-3 py-2 text-sm text-maroon">
+        <p role="alert" className="rounded-lg border border-danger/30 bg-danger-50 px-3 py-2 text-sm text-danger">
           {error}
         </p>
       ) : null}
@@ -293,7 +293,7 @@ function SuggestionList({
 }) {
   if (suggestionError) {
     return (
-      <p role="alert" className="text-sm text-maroon">
+      <p role="alert" className="text-sm text-danger">
         {suggestionError}
       </p>
     );

@@ -70,7 +70,7 @@ export function IdentifiersPanel({
 
   return (
     <div className="space-y-5">
-      <Card title="Connect numbers" description="Issued by Connect when the record was created; they never change.">
+      <Card title="Member and household numbers" description="Issued by Community Connect when the record was created; they never change.">
         <TableWrap>
           <table className="crm-table">
             <thead>

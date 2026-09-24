@@ -92,7 +92,7 @@ export async function PaymentsTab({ session, householdId }: { session: CrmSessio
                     <td className="num">
                       {formatCents(p.amount_cents, center.currency)}
                       {p.refunded_cents > 0 ? (
-                        <div className="text-xs text-maroon">−{formatCents(p.refunded_cents, center.currency)} refunded</div>
+                        <div className="text-xs text-danger">−{formatCents(p.refunded_cents, center.currency)} refunded</div>
                       ) : null}
                     </td>
                     <td>

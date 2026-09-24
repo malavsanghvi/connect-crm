@@ -184,7 +184,7 @@ export function RecordPaymentForm({
           <p className="text-sm text-muted">{formatCents(result.unallocatedCents, currency)} is not applied to any pledge.</p>
         ) : null}
         {result.allocationProblem ? (
-          <div role="alert" className="rounded-lg border border-maroon/30 bg-maroon-50 px-4 py-3 text-sm text-maroon">
+          <div role="alert" className="rounded-lg border border-danger/30 bg-danger-50 px-4 py-3 text-sm text-danger">
             <p>{result.allocationProblem[0].toUpperCase() + result.allocationProblem.slice(1)}.</p>
             {canAllocate ? (
               <button type="button" onClick={retryApply} disabled={pending} className={`${buttonClass("secondary", "sm")} mt-2`}>
@@ -235,7 +235,7 @@ export function RecordPaymentForm({
                 aria-invalid={amount !== "" && (amountCents === null || amountCents <= 0)}
               />
               {amount !== "" && (amountCents === null || amountCents <= 0) ? (
-                <p className="crm-hint text-maroon">Enter dollars and cents, like 251.00.</p>
+                <p className="crm-hint text-danger">Enter dollars and cents, like 251.00.</p>
               ) : null}
             </div>
             <div>
@@ -304,7 +304,7 @@ export function RecordPaymentForm({
               </div>
             )}
             {pledgeError ? (
-              <p role="alert" className="mt-2 text-sm text-maroon">
+              <p role="alert" className="mt-2 text-sm text-danger">
                 {pledgeError}
               </p>
             ) : pledges === null ? (
@@ -375,7 +375,7 @@ export function RecordPaymentForm({
           </fieldset>
 
           {error ? (
-            <p role="alert" className="rounded-lg border border-maroon/30 bg-maroon-50 px-3 py-2 text-sm text-maroon">
+            <p role="alert" className="rounded-lg border border-danger/30 bg-danger-50 px-3 py-2 text-sm text-danger">
               {error}
             </p>
           ) : null}

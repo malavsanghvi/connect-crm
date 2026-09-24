@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 
-import { PageHeader, Stat, capitalize } from "@/components/ui";
+import { Card, KpiGrid, PageHeader, Stat, capitalize, type StatTone } from "@/components/ui";
 import { fetchAll } from "@/lib/data/fetch-all";
 import { explainError, type DbErrorLike } from "@/lib/errors";
 import { formatCents, sumCents } from "@/lib/money";
@@ -121,11 +121,11 @@ export default async function DashboardPage() {
     })(),
   ]);
 
-  const tiles: { label: string; href: string; tile: Tile; tone: "navy" | "saffron" | "success" | "maroon" | "purple" }[] = [
+  const tiles: { label: string; href: string; tile: Tile; tone: StatTone }[] = [
     { label: "Active member households", href: "/households", tile: households, tone: "navy" },
-    { label: "Open pledges", href: "/giving/pledges", tile: pledges, tone: "saffron" },
+    { label: "Open pledges", href: "/giving/pledges", tile: pledges, tone: "brown" },
     { label: "Unmatched bank lines", href: "/giving/bank", tile: bank, tone: "success" },
-    { label: "QuickBooks exceptions", href: "/accounting/qbo?status=failed", tile: qbo, tone: "maroon" },
+    { label: "QuickBooks exceptions", href: "/accounting/qbo?status=failed", tile: qbo, tone: "danger" },
     { label: "Pending membership applications", href: "/memberships/applications", tile: applications, tone: "purple" },
   ];
 
@@ -134,10 +134,11 @@ export default async function DashboardPage() {
   return (
     <>
       <PageHeader
-        title={greeting ? `Welcome, ${greeting}` : "Dashboard"}
+        title={greeting ? `Welcome, ${greeting}` : "Home"}
         description={`What needs attention at ${center.name} today.`}
       />
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
+      <Card title="At a glance" description="Each figure opens the page behind it">
+      <KpiGrid cols={5}>
         {tiles.map(({ label, href, tile, tone }) =>
           tile.state === "ok" ? (
             <Stat key={label} label={label} value={tile.value} hint={tile.hint} href={href} tone={tone} />
@@ -145,9 +146,9 @@ export default async function DashboardPage() {
             <Stat
               key={label}
               label={label}
-              value={<span className="text-xl text-maroon">Could not load</span>}
-              hint={<span className="text-maroon">{tile.message}. Reload to try again.</span>}
-              tone="maroon"
+              value={<span className="text-xl text-danger">Could not load</span>}
+              hint={<span className="text-danger">{tile.message}. Reload to try again.</span>}
+              tone="danger"
             />
           ) : (
             <Stat
@@ -159,7 +160,8 @@ export default async function DashboardPage() {
             />
           ),
         )}
-      </div>
+      </KpiGrid>
+      </Card>
       <ApprovalsQueue session={session} />
     </>
   );

@@ -12,7 +12,7 @@ export const metadata: Metadata = { title: "Center settings" };
 export default async function CenterSettingsPage() {
   const session = await getSession();
   const header = (
-    <PageHeader title="Center settings" description="Tenant configuration: branding, which features are switched on, and the center's rules. A center adopts Connect through configuration, not code." />
+    <PageHeader title="Center settings" description="Tenant configuration: branding, which features are switched on, and the center's rules. A center adopts Community Connect through configuration, not code." />
   );
   if (!canAccess(session, "centerSettings")) {
     return (

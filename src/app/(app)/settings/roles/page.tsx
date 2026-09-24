@@ -88,7 +88,7 @@ export default async function RolesPage({ searchParams }: { searchParams: Promis
             }}
           />
           {zones.error || events.error || classes.error ? (
-            <p className="mt-3 text-sm text-maroon">
+            <p className="mt-3 text-sm text-danger">
               Some scope lists could not be loaded ({[zones.error && "zones", events.error && "events", classes.error && "classes"].filter(Boolean).join(", ")}).
               Reload to try again.
             </p>

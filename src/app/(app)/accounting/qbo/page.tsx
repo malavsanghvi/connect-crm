@@ -163,7 +163,7 @@ export default async function QboPage({ searchParams }: { searchParams: Promise<
                 <Link
                   key={s}
                   href={hrefWith("/accounting/qbo", {}, { status: s })}
-                  className={`min-h-11 rounded-lg border px-3 py-2 hover:bg-subtle ${s === "failed" && (countOf.get(s) ?? 0) > 0 ? "border-maroon/40" : "border-line"}`}
+                  className={`min-h-11 rounded-lg border px-3 py-2 hover:bg-subtle ${s === "failed" && (countOf.get(s) ?? 0) > 0 ? "border-danger/40" : "border-line"}`}
                 >
                   <p className="text-xs font-semibold uppercase tracking-wide text-muted">{s === "failed" ? "Failed (exceptions)" : s}</p>
                   <p className="font-display text-xl font-semibold tabular-nums">{countOf.get(s) ?? "—"}</p>
@@ -335,7 +335,7 @@ export default async function QboPage({ searchParams }: { searchParams: Promise<
                             <td>
                               <Badge tone={LEDGER_STATUS_TONE[r.status as keyof typeof LEDGER_STATUS_TONE] ?? "neutral"}>{r.status}</Badge>
                               {r.attempts > 0 ? <div className="text-xs text-muted">{r.attempts} attempt{r.attempts === 1 ? "" : "s"}</div> : null}
-                              {r.last_error ? <div className="mt-1 max-w-xs text-xs text-maroon">{r.last_error}</div> : null}
+                              {r.last_error ? <div className="mt-1 max-w-xs text-xs text-danger">{r.last_error}</div> : null}
                             </td>
                             <td className="text-[0.8125rem]">
                               {r.qbo_ref ? (

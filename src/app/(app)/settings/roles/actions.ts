@@ -88,7 +88,7 @@ export async function grantRoleAction(_prev: ActionResult | null, formData: Form
   const endsOn = String(formData.get("ends_on") ?? "").trim();
   const reason = String(formData.get("reason") ?? "").trim().slice(0, 500);
 
-  if (!isUuid(grantee)) return { ok: false, error: "Could not grant the role — choose a person who has signed in to Connect at least once." };
+  if (!isUuid(grantee)) return { ok: false, error: "Could not grant the role — choose a person who has signed in to Community Connect at least once." };
   if (!SCOPES.includes(scopeKind)) return { ok: false, error: "Could not grant the role — choose a scope." };
 
   const role = await db.from("roles").select("key, name, tier").eq("key", roleKey).maybeSingle();

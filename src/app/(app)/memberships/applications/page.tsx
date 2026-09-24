@@ -196,7 +196,7 @@ export default async function ApplicationsPage({ searchParams }: { searchParams:
                           {a.center_reason ? <div className="mt-1 text-xs">Reason: {a.center_reason}</div> : null}
                         </td>
                         <td className="num">
-                          <span className={age > 14 ? "font-semibold text-maroon" : ""}>{age}d</span>
+                          <span className={age > 14 ? "font-semibold text-danger" : ""}>{age}d</span>
                         </td>
                         {canDecide ? (
                           <td className="min-w-[15rem]">
@@ -269,7 +269,7 @@ function DecisionControls({
         <p className="text-xs text-muted">Can be approved once the reference approves.</p>
       ) : null}
       <details>
-        <summary className="inline-flex min-h-9 cursor-pointer items-center text-[0.8125rem] font-semibold text-maroon">Reject…</summary>
+        <summary className="inline-flex min-h-9 cursor-pointer items-center text-[0.8125rem] font-semibold text-danger">Reject…</summary>
         <ActionForm action={decideApplicationAction} submitLabel="Reject" pendingLabel="Rejecting…" variant="danger" size="sm" className="mt-2">
           <input type="hidden" name="id" value={id} />
           <input type="hidden" name="decision" value="reject" />

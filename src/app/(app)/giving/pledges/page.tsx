@@ -174,7 +174,7 @@ export default async function PledgesPage({ searchParams }: { searchParams: Prom
             {AGING_BUCKETS.map((b) => (
               <div
                 key={b.key}
-                className={`rounded-lg border bg-card px-4 py-3 ${b.key === "d90_plus" && buckets[b.key].count > 0 ? "border-maroon/40" : "border-line"}`}
+                className={`rounded-lg border bg-card px-4 py-3 ${b.key === "d90_plus" && buckets[b.key].count > 0 ? "border-danger/40" : "border-line"}`}
               >
                 <p className="text-xs font-semibold uppercase tracking-wide text-muted">{b.label}</p>
                 <p className="mt-1 font-display text-xl font-semibold tabular-nums">{formatCents(buckets[b.key].open_cents, center.currency)}</p>
@@ -242,7 +242,7 @@ export default async function PledgesPage({ searchParams }: { searchParams: Prom
                         <td className="whitespace-nowrap">{formatDate(p.due_on, tz)}</td>
                         <td className="whitespace-nowrap">
                           {bucket ? (
-                            <span className={bucket === "d90_plus" ? "font-semibold text-maroon" : ""}>
+                            <span className={bucket === "d90_plus" ? "font-semibold text-danger" : ""}>
                               {AGING_BUCKETS.find((b) => b.key === bucket)?.label}
                             </span>
                           ) : (

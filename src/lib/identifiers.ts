@@ -1,7 +1,7 @@
 import type { IdentifierRules } from "@/lib/center-rules";
 import type { IdentifierKind } from "@/lib/permissions";
 
-// Labels for identifier kinds (app.identifier_kind plus the two Connect
+// Labels for identifier kinds (app.identifier_kind plus the two Community Connect
 // numbers that resolve_identifier returns as pseudo-kinds).
 
 export function identifierKindLabel(
@@ -10,9 +10,9 @@ export function identifierKindLabel(
 ): string {
   switch (kind) {
     case "connect_member":
-      return "Connect member number";
+      return "Member no.";
     case "connect_household":
-      return "Connect household number";
+      return "Household no.";
     case "org_member":
       return rules.orgMemberLabel;
     case "org_household":

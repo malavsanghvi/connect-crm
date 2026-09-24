@@ -10,6 +10,9 @@ import {
   isGrantActive,
   manageableIdentifierKinds,
   visibleNav,
+  activeModule,
+  activeTabHref,
+  pathUnder,
   type GrantLike,
 } from "@/lib/permissions";
 
@@ -81,18 +84,73 @@ describe("can / canAccess", () => {
   });
 });
 
-describe("visibleNav", () => {
-  it("hides what the user cannot open and drops empty sections", () => {
+describe("visibleNav (flat module list)", () => {
+  it("hides what the user cannot open and drops modules with no tabs", () => {
     const nav = visibleNav({ permissions: ["giving.record_offline"], isPlatformAdmin: false });
-    const hrefs = nav.flatMap((s) => s.items.map((i) => i.href));
-    expect(hrefs).toEqual(["/", "/giving/pledges", "/giving/payments", "/giving/bank"]);
-    expect(nav.map((s) => s.title)).toEqual(["Overview", "Giving"]);
+    expect(nav.map((m) => m.label)).toEqual(["Home", "Giving"]);
+    const giving = nav.find((m) => m.key === "giving")!;
+    expect(giving.tabs.map((t) => t.href)).toEqual(["/giving/pledges", "/giving/payments", "/giving/bank"]);
+    expect(giving.href).toBe("/giving/pledges");
   });
-  it("shows settings to a center admin", () => {
-    const hrefs = visibleNav({ permissions: ["roles.manage", "settings.manage"], isPlatformAdmin: false }).flatMap((s) => s.items.map((i) => i.href));
-    expect(hrefs).toContain("/settings/roles");
-    expect(hrefs).toContain("/settings/center");
-    expect(hrefs).not.toContain("/households");
+  it("keeps the prototype's module order", () => {
+    const labels = visibleNav({ permissions: [], isPlatformAdmin: true }).map((m) => m.label);
+    expect(labels).toEqual(["Home", "People", "Giving", "Accounting", "Reports", "Settings"]);
+  });
+  it("shows settings to a center admin and opens on the first tab they can use", () => {
+    const nav = visibleNav({ permissions: ["roles.manage", "settings.manage"], isPlatformAdmin: false });
+    const settings = nav.find((m) => m.key === "settings")!;
+    expect(settings.tabs.map((t) => t.href)).toEqual(["/settings/center", "/settings/roles"]);
+    expect(nav.some((m) => m.key === "people")).toBe(false);
+    const rolesOnly = visibleNav({ permissions: ["roles.manage"], isPlatformAdmin: false }).find((m) => m.key === "settings")!;
+    expect(rolesOnly.href).toBe("/settings/roles");
+  });
+  it("puts every page of the old grouped menu under exactly one module", () => {
+    const all = visibleNav({ permissions: [], isPlatformAdmin: true }).flatMap((m) => m.tabs.map((t) => t.href));
+    for (const href of [
+      "/",
+      "/households",
+      "/memberships/applications",
+      "/giving/pledges",
+      "/giving/payments",
+      "/giving/bank",
+      "/giving/campaigns",
+      "/giving/recurring",
+      "/giving/statements",
+      "/accounting/qbo",
+      "/reports",
+      "/audit",
+      "/privacy/requests",
+      "/settings/roles",
+      "/settings/center",
+    ]) {
+      expect(all.filter((h) => h === href)).toHaveLength(1);
+    }
+  });
+});
+
+describe("active module and tab", () => {
+  const mods = visibleNav({ permissions: [], isPlatformAdmin: true });
+  it("matches detail pages to their module", () => {
+    expect(activeModule(mods, "/")?.key).toBe("home");
+    expect(activeModule(mods, "/households/abc")?.key).toBe("people");
+    expect(activeModule(mods, "/people/abc")?.key).toBe("people");
+    expect(activeModule(mods, "/memberships/applications")?.key).toBe("people");
+    expect(activeModule(mods, "/giving/bank")?.key).toBe("giving");
+    expect(activeModule(mods, "/audit")?.key).toBe("settings");
+    expect(activeModule(mods, "/privacy/requests")?.key).toBe("settings");
+    expect(activeModule(mods, "/nowhere")).toBeUndefined();
+  });
+  it("never treats a prefix of a word as a match", () => {
+    expect(pathUnder("/giving-old", "/giving")).toBe(false);
+    expect(pathUnder("/giving", "/giving")).toBe(true);
+    expect(pathUnder("/anything", "/")).toBe(false);
+  });
+  it("finds the tab a URL is on", () => {
+    const giving = mods.find((m) => m.key === "giving")!;
+    expect(activeTabHref(giving.tabs, "/giving/payments")).toBe("/giving/payments");
+    expect(activeTabHref(giving.tabs, "/giving/bank/import")).toBe("/giving/bank");
+    const people = mods.find((m) => m.key === "people")!;
+    expect(activeTabHref(people.tabs, "/people/123")).toBeUndefined();
   });
 });
 

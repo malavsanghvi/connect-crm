@@ -4,6 +4,8 @@ import type { ReactNode } from "react";
 
 import { AppShell } from "@/components/shell/app-shell";
 import { CenteredPanel, SetupScreen } from "@/components/setup-screen";
+import { PRODUCT_NAME } from "@/lib/brand";
+import { countHomeTasks } from "@/lib/data/home-tasks";
 import { loadSession } from "@/lib/session";
 
 export default async function ConsoleLayout({ children }: { children: ReactNode }) {
@@ -25,8 +27,8 @@ export default async function ConsoleLayout({ children }: { children: ReactNode 
       );
     case "error":
       return (
-        <CenteredPanel title="Connect CRM could not start">
-          <p role="alert" className="text-maroon">
+        <CenteredPanel title={`${PRODUCT_NAME} could not start`}>
+          <p role="alert" className="text-danger">
             {state.message}.
           </p>
           <p className="mt-4">
@@ -36,7 +38,13 @@ export default async function ConsoleLayout({ children }: { children: ReactNode 
           </p>
         </CenteredPanel>
       );
-    case "ok":
-      return <AppShell session={state.session}>{children}</AppShell>;
+    case "ok": {
+      const tasks = await countHomeTasks(state.session);
+      return (
+        <AppShell session={state.session} tasks={tasks}>
+          {children}
+        </AppShell>
+      );
+    }
   }
 }

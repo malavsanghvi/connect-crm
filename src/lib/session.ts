@@ -140,7 +140,7 @@ export async function getSession(): Promise<CrmSession> {
     case "signed_out":
       redirect("/login");
     case "env_missing":
-      throw new Error("Connect CRM is not configured yet. Set the NEXT_PUBLIC_* variables listed on the setup page.");
+      throw new Error("Community Connect is not configured yet. Set the NEXT_PUBLIC_* variables listed on the setup page.");
     case "center_missing":
       throw new Error(`No center with slug "${state.slug}" exists. Check NEXT_PUBLIC_CENTER_SLUG.`);
     case "error":

@@ -77,7 +77,7 @@ export function HouseholdPicker({
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={onKeyDown}
             autoFocus={autoFocus}
-            placeholder={`Name, ${labels.orgMemberLabel}, ${labels.orgHouseholdLabel}, JSH-H-…, Zelle name…`}
+            placeholder={`Name, household no., ${labels.orgMemberLabel}, ${labels.orgHouseholdLabel}, Zelle name…`}
             className="crm-input"
             autoComplete="off"
           />
@@ -87,7 +87,7 @@ export function HouseholdPicker({
         </button>
       </div>
       {error ? (
-        <p role="alert" className="mt-2 rounded-lg border border-maroon/30 bg-maroon-50 px-3 py-2 text-sm text-maroon">
+        <p role="alert" className="mt-2 rounded-lg border border-danger/30 bg-danger-50 px-3 py-2 text-sm text-danger">
           {error}
         </p>
       ) : null}

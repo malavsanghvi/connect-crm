@@ -138,23 +138,37 @@ export function manageableIdentifierKinds(ctx: PermissionContext): IdentifierKin
 }
 
 // ---------------------------------------------------------------------------
-// Navigation
+// Navigation — one flat list of modules in the prototype's order
+// (AdminPortal.dc.html NAV: Home, People, Events, Giving, Bolis, Satvik Store,
+// Pathshala, Content, Calendar, Communications, Accounting, Reports, Settings,
+// Platform). Only modules that exist in this app are listed; the rest arrive
+// as they move in from connect-admin. Each module's pages are its tabs.
+// Gating is unchanged: every tab uses the same ACCESS key as before.
 // ---------------------------------------------------------------------------
-export type NavItem = { href: string; label: string; access: AccessKey };
-export type NavSection = { title: string; items: NavItem[] };
+export type NavTab = { href: string; label: string; access: AccessKey };
+export type NavModule = {
+  key: string;
+  label: string;
+  tabs: NavTab[];
+  /** URL prefixes that belong to this module (detail pages included). */
+  paths: string[];
+};
 
-export const NAV: NavSection[] = [
-  { title: "Overview", items: [{ href: "/", label: "Dashboard", access: "dashboard" }] },
+export const NAV: NavModule[] = [
+  { key: "home", label: "Home", tabs: [{ href: "/", label: "Home", access: "dashboard" }], paths: ["/"] },
   {
-    title: "People",
-    items: [
+    key: "people",
+    label: "People",
+    tabs: [
       { href: "/households", label: "Households", access: "households" },
       { href: "/memberships/applications", label: "Membership applications", access: "applications" },
     ],
+    paths: ["/households", "/people", "/memberships", "/identifiers"],
   },
   {
-    title: "Giving",
-    items: [
+    key: "giving",
+    label: "Giving",
+    tabs: [
       { href: "/giving/pledges", label: "Pledges", access: "pledges" },
       { href: "/giving/payments", label: "Payments", access: "payments" },
       { href: "/giving/bank", label: "Bank reconciliation", access: "bank" },
@@ -162,31 +176,66 @@ export const NAV: NavSection[] = [
       { href: "/giving/recurring", label: "Recurring gifts", access: "recurring" },
       { href: "/giving/statements", label: "Statements", access: "statements" },
     ],
+    paths: ["/giving"],
   },
   {
-    title: "Accounting",
-    items: [{ href: "/accounting/qbo", label: "QuickBooks", access: "qbo" }],
+    key: "accounting",
+    label: "Accounting",
+    tabs: [{ href: "/accounting/qbo", label: "QuickBooks", access: "qbo" }],
+    paths: ["/accounting"],
   },
   {
-    title: "Oversight",
-    items: [
-      { href: "/reports", label: "Reports", access: "reports" },
-      { href: "/audit", label: "Audit log", access: "audit" },
-      { href: "/privacy/requests", label: "Privacy requests", access: "privacy" },
-    ],
+    key: "reports",
+    label: "Reports",
+    tabs: [{ href: "/reports", label: "Reports", access: "reports" }],
+    paths: ["/reports"],
   },
   {
-    title: "Settings",
-    items: [
-      { href: "/settings/roles", label: "Roles and access", access: "roles" },
+    key: "settings",
+    label: "Settings",
+    tabs: [
       { href: "/settings/center", label: "Center settings", access: "centerSettings" },
+      { href: "/settings/roles", label: "Roles and access", access: "roles" },
+      { href: "/privacy/requests", label: "Privacy requests", access: "privacy" },
+      { href: "/audit", label: "Audit log", access: "audit" },
     ],
+    paths: ["/settings", "/privacy", "/audit", "/approvals"],
   },
 ];
 
-/** Nav filtered to what the user can open; empty sections are dropped. */
-export function visibleNav(ctx: PermissionContext): NavSection[] {
-  return NAV.map((s) => ({ ...s, items: s.items.filter((i) => canAccess(ctx, i.access)) })).filter(
-    (s) => s.items.length > 0,
-  );
+export type VisibleTab = { href: string; label: string };
+export type VisibleModule = { key: string; label: string; href: string; tabs: VisibleTab[]; paths: string[] };
+
+/** Modules the user can open, each with only the tabs they can open; a module opens on its first visible tab. */
+export function visibleNav(ctx: PermissionContext): VisibleModule[] {
+  return NAV.flatMap((m) => {
+    const tabs = m.tabs.filter((t) => canAccess(ctx, t.access)).map(({ href, label }) => ({ href, label }));
+    return tabs.length > 0 ? [{ key: m.key, label: m.label, href: tabs[0].href, tabs, paths: m.paths }] : [];
+  });
+}
+
+/** True when `pathname` is `prefix` or below it ("/" matches only itself). */
+export function pathUnder(pathname: string, prefix: string): boolean {
+  if (prefix === "/") return pathname === "/";
+  return pathname === prefix || pathname.startsWith(`${prefix}/`);
+}
+
+/** The module that owns a URL (longest matching prefix wins). */
+export function activeModule<M extends { paths: string[]; tabs: { href: string }[] }>(modules: M[], pathname: string): M | undefined {
+  let best: M | undefined;
+  let bestLen = -1;
+  for (const m of modules) {
+    for (const p of [...m.paths, ...m.tabs.map((t) => t.href)]) {
+      if (pathUnder(pathname, p) && p.length > bestLen) {
+        best = m;
+        bestLen = p.length;
+      }
+    }
+  }
+  return best;
+}
+
+/** The tab of a module that a URL is on (longest matching href), if any. */
+export function activeTabHref(tabs: { href: string }[], pathname: string): string | undefined {
+  return tabs.filter((t) => pathUnder(pathname, t.href)).sort((a, b) => b.href.length - a.href.length)[0]?.href;
 }
