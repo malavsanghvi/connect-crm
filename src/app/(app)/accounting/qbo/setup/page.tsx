@@ -321,7 +321,7 @@ export default async function QboSetupPage({ searchParams }: { searchParams: Pro
                         <tr key={p.purpose}>
                           <td>
                             <span className="font-semibold">{p.label}</span>
-                            {required.has(p.purpose) ? <Badge tone="navy">required</Badge> : null}
+                            {required.has(p.purpose) ? <> <Badge tone="navy">required</Badge></> : null}
                             <div className="text-xs text-muted">{p.hint}</div>
                           </td>
                           <td className="min-w-72">
