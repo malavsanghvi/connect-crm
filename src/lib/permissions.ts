@@ -18,6 +18,12 @@ export type PermissionContext = {
   isPlatformAdmin: boolean;
 };
 
+/** An active role grant with its scope (one class, event or zone — or the whole center). */
+export type ScopedGrant = { role_key: string; scope_kind: string; scope_id: string | null };
+
+/** Permissions plus the active grants, for the scoped-role checks below. */
+export type ScopedContext = PermissionContext & { grants?: readonly ScopedGrant[] };
+
 export function isGrantActive(grant: Pick<GrantLike, "starts_at" | "ends_at">, now: Date = new Date()): boolean {
   const t = now.getTime();
   return new Date(grant.starts_at).getTime() <= t && (grant.ends_at === null || new Date(grant.ends_at).getTime() > t);
@@ -51,6 +57,43 @@ export function can(ctx: PermissionContext, anyOf: string | readonly string[]): 
   const list = typeof anyOf === "string" ? [anyOf] : anyOf;
   return list.some((p) => ctx.permissions.includes(p));
 }
+
+// ---------------------------------------------------------------------------
+// Scoped roles — mirrors app.has_scoped_role(center, scope_id, roles…): the
+// role granted center-wide, or granted for that one class/event/zone. Scoped
+// grants never add center-wide permissions (see computePermissions); these
+// helpers are how a class teacher or an event lead reaches their own records.
+// ---------------------------------------------------------------------------
+
+/** Holds one of the roles center-wide, or scoped to `scopeId` (platform admins hold all). */
+export function hasScopedRole(ctx: ScopedContext, scopeId: string, ...roles: string[]): boolean {
+  if (ctx.isPlatformAdmin) return true;
+  return (ctx.grants ?? []).some((g) => roles.includes(g.role_key) && (g.scope_kind === "center" || g.scope_id === scopeId));
+}
+
+/** Holds one of the roles anywhere (any scope). */
+export function hasRole(ctx: ScopedContext, ...roles: string[]): boolean {
+  if (ctx.isPlatformAdmin) return true;
+  return (ctx.grants ?? []).some((g) => roles.includes(g.role_key));
+}
+
+/** Holds one of the roles center-wide, so it applies to every class, event or zone. */
+export function hasCenterRole(ctx: ScopedContext, ...roles: string[]): boolean {
+  if (ctx.isPlatformAdmin) return true;
+  return (ctx.grants ?? []).some((g) => roles.includes(g.role_key) && g.scope_kind === "center");
+}
+
+/** Scope ids (class, event or zone ids) for which the user holds one of the roles through a scoped grant. */
+export function scopeIdsForRole(ctx: ScopedContext, ...roles: string[]): string[] {
+  const ids = new Set<string>();
+  for (const g of ctx.grants ?? []) {
+    if (roles.includes(g.role_key) && g.scope_id && g.scope_kind !== "center") ids.add(g.scope_id);
+  }
+  return [...ids];
+}
+
+/** Classes the user teaches through a class-scoped Teacher grant. */
+export const teacherClassIds = (ctx: ScopedContext) => scopeIdsForRole(ctx, "teacher");
 
 /**
  * What each area needs, taken from the RLS policies (0010_rls.sql, 0012).
@@ -93,6 +136,13 @@ export const ACCESS = {
   centerSettings: ["settings.manage"],
   privacy: ["privacy.manage"],
   identifierSearch: ["people.view", "giving.view", "giving.record_offline"],
+  // Pathshala (moved from connect-admin; same checks as its access.ts). Class
+  // teachers reach their own classes through a scoped Teacher grant instead —
+  // see pathshalaAreas in src/lib/pathshala/access.ts.
+  pathshala: ["pathshala.view", "pathshala.manage"],
+  pathshalaManage: ["pathshala.manage"],
+  pathshalaSignoffs: ["pathshala.teach", "pathshala.manage"],
+  pathshalaCommittee: ["events.view", "events.manage", "governance.view", "pathshala.view", "pathshala.manage"],
 } as const satisfies Record<string, readonly string[]>;
 
 export type AccessKey = keyof typeof ACCESS;
@@ -145,13 +195,22 @@ export function manageableIdentifierKinds(ctx: PermissionContext): IdentifierKin
 // as they move in from connect-admin. Each module's pages are its tabs.
 // Gating is unchanged: every tab uses the same ACCESS key as before.
 // ---------------------------------------------------------------------------
-export type NavTab = { href: string; label: string; access: AccessKey };
+export type NavTab = {
+  href: string;
+  label: string;
+  /** Center-wide permissions that open the tab (omit when only `roles` open it). */
+  access?: AccessKey;
+  /** Also open to holders of these roles in any scope (e.g. a class-scoped Teacher). */
+  roles?: readonly string[];
+};
 export type NavModule = {
   key: string;
   label: string;
   tabs: NavTab[];
   /** URL prefixes that belong to this module (detail pages included). */
   paths: string[];
+  /** Open the module on this tab instead of the first visible one when `when` holds (e.g. a teacher's landing). */
+  landing?: { href: string; when: (ctx: ScopedContext) => boolean };
 };
 
 export const NAV: NavModule[] = [
@@ -177,6 +236,21 @@ export const NAV: NavModule[] = [
       { href: "/giving/statements", label: "Statements", access: "statements" },
     ],
     paths: ["/giving"],
+  },
+  {
+    key: "pathshala",
+    label: "Pathshala",
+    tabs: [
+      { href: "/pathshala", label: "Classes", access: "pathshala" },
+      { href: "/pathshala/signoffs", label: "Gyan Path sign-offs", access: "pathshalaSignoffs", roles: ["teacher"] },
+      { href: "/pathshala/terms", label: "Terms", access: "pathshala" },
+      { href: "/pathshala/enrollments", label: "Enrollments", access: "pathshala" },
+      { href: "/pathshala/committee", label: "Committee", access: "pathshalaCommittee" },
+      { href: "/pathshala/my-classes", label: "My classes", roles: ["teacher"] },
+    ],
+    paths: ["/pathshala"],
+    // A teacher without the principal's view lands on their own classes.
+    landing: { href: "/pathshala/my-classes", when: (ctx) => !canAccess(ctx, "pathshala") && hasRole(ctx, "teacher") },
   },
   {
     key: "accounting",
@@ -206,11 +280,19 @@ export const NAV: NavModule[] = [
 export type VisibleTab = { href: string; label: string };
 export type VisibleModule = { key: string; label: string; href: string; tabs: VisibleTab[]; paths: string[] };
 
-/** Modules the user can open, each with only the tabs they can open; a module opens on its first visible tab. */
-export function visibleNav(ctx: PermissionContext): VisibleModule[] {
+/** True when the user may open a nav tab: its access key, or one of its roles in any scope. */
+export function canOpenTab(ctx: ScopedContext, tab: Pick<NavTab, "access" | "roles">): boolean {
+  if (tab.access !== undefined && canAccess(ctx, tab.access)) return true;
+  return Boolean(tab.roles && tab.roles.length > 0 && hasRole(ctx, ...tab.roles));
+}
+
+/** Modules the user can open, each with only the tabs they can open; a module opens on its first visible tab (or its landing tab). */
+export function visibleNav(ctx: ScopedContext): VisibleModule[] {
   return NAV.flatMap((m) => {
-    const tabs = m.tabs.filter((t) => canAccess(ctx, t.access)).map(({ href, label }) => ({ href, label }));
-    return tabs.length > 0 ? [{ key: m.key, label: m.label, href: tabs[0].href, tabs, paths: m.paths }] : [];
+    const tabs = m.tabs.filter((t) => canOpenTab(ctx, t)).map(({ href, label }) => ({ href, label }));
+    if (tabs.length === 0) return [];
+    const landing = m.landing && m.landing.when(ctx) && tabs.some((t) => t.href === m.landing?.href) ? m.landing.href : tabs[0].href;
+    return [{ key: m.key, label: m.label, href: landing, tabs, paths: m.paths }];
   });
 }
 

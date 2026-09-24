@@ -32,7 +32,8 @@ export function AppShell({ session, tasks, children }: { session: CrmSession; ta
   const branding = tenantBranding(center);
   const name = session.person?.name ?? session.email ?? "Signed in";
   const roleLabels = session.roles.map((r) => (r.scopeKind === "center" ? r.name : `${r.name} (${r.scopeKind})`));
-  const noStaffRoles = session.permissions.length === 0 && !session.isPlatformAdmin;
+  // A class teacher or event volunteer holds only scoped roles: not "no role".
+  const noStaffRoles = session.permissions.length === 0 && !session.isPlatformAdmin && session.grants.length === 0;
   const home = homeBadge(tasks);
   const canSearch = canAccess(session, "households");
 
