@@ -413,7 +413,7 @@ async function PersonDrawerView({ session, id, sp, base, mode }: { session: CrmS
         gender: p.gender,
         profession: p.profession ?? "",
         employer: p.employer ?? "",
-        phone: p.phone ?? "",
+        phone: formatPhone(p.phone),
         email: p.email ?? "",
         language: p.language,
         photos: p.photoOptIn,

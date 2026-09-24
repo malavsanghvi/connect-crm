@@ -313,7 +313,7 @@ async function ApplicationDrawer({ session, id, closeHref }: { session: CrmSessi
       <DrawerSection title="Final approval">
         <KeyValueRow
           label="Approver"
-          value={ec ? "Center review, then a different EC member records the EC approval" : "Membership coordinator"}
+          value={ec ? "Center, then a second EC member" : "Membership coordinator"}
         />
         <KeyValueRow label="Status" value={a.status === "rejected" ? "Declined" : (APPLICATION_STATUS_LABEL[a.status] ?? a.status)} tone={a.status === "approved" ? "ok" : a.status === "rejected" ? "bad" : "ink"} />
         {a.center_reason ? <KeyValueRow label="Reason" value={a.center_reason} /> : null}
