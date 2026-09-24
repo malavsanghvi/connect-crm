@@ -35,7 +35,7 @@ export default async function InboxPage({ searchParams }: { searchParams: Promis
   const show = param(sp, "show") === "closed" ? "closed" : "open";
 
   const inboxes = await db.from("inboxes").select("id, name, zone_id, response_target_hours").eq("center_id", center.id).order("name");
-  let q = db.from("threads").select("*").eq("center_id", center.id).order("created_at").limit(300);
+  let q = db.from("threads").select("*").eq("center_id", center.id).order("created_at", { ascending: false }).limit(300);
   q = show === "closed" ? q.eq("status", "closed") : q.neq("status", "closed");
   const threads = await q;
   // RLS returns only the threads this user may handle (all, or their zone's).

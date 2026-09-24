@@ -190,10 +190,11 @@ export function translationLanguages(translations: unknown): LanguageCode[] {
 // Small formatting helpers shared by the inbox and WhatsApp queue
 // ---------------------------------------------------------------------------
 
-/** Short reference shown in ID columns, derived from the row's uuid ("NL-3F2A1"). */
+/** Short reference shown in ID columns, derived from the end of the row's uuid ("NL-3F2A1"). */
 export function refCode(prefix: string, id: string | null | undefined): string {
   if (!id) return "—";
-  return `${prefix}-${id.replace(/-/g, "").slice(0, 5).toUpperCase()}`;
+  const hex = id.replace(/-/g, "");
+  return `${prefix}-${hex.slice(-5).toUpperCase()}`;
 }
 
 /** "+18325552291" → "(832) 555-2291"; other numbers are shown as stored. */

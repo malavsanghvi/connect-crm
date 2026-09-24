@@ -93,7 +93,7 @@ describe("campaign list helpers", () => {
     expect(translationLanguages({ gu: { title: "x" } })).toEqual(["gu"]);
   });
   it("formats reference codes, phones and ages", () => {
-    expect(refCode("NL", "3f2a1b4c-0000-0000-0000-000000000000")).toBe("NL-3F2A1");
+    expect(refCode("NL", "00000000-0000-0000-0000-0000003f2a1b")).toBe("NL-F2A1B");
     expect(formatPhone("+18325552291")).toBe("(832) 555-2291");
     expect(formatPhone("+442071234567")).toBe("+442071234567");
     const now = new Date("2026-09-22T12:00:00Z");
