@@ -125,7 +125,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
       ? fetchAll((f, t) => db.from("center_users").select("person_id").eq("center_id", center.id).not("person_id", "is", null).order("user_id").range(f, t))
       : null,
     seesMembership
-      ? fetchAll((f, t) => db.from("household_members").select("person_id, household_id").eq("center_id", center.id).is("left_at", null).order("id").range(f, t))
+      ? fetchAll((f, t) => db.from("household_members").select("person_id, household_id").eq("center_id", center.id).is("left_at", null).order("household_id").order("person_id").range(f, t))
       : null,
     seesGiving
       ? fetchAll((f, t) =>
@@ -168,12 +168,15 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
       : null,
   ]);
   if (visits.error) console.error("[reports] event visits count failed:", visits.error);
+  for (const [what, r] of [["households", hh], ["zones", zones], ["app links", links], ["household members", members], ["prior-year payments", prevPayments], ["open pledges", openPledges], ["prior-year visits", prevVisits], ["renewals", renewals]] as const) {
+    if (r?.error) console.error(`[reports] ${what} failed; the tile shows "could not load" or —:`, r.error);
+  }
   const hhRows = hh?.data ?? [];
   const newThisYear = hhRows.filter((h) => h.created_at >= yearFrom && h.created_at < yearTo).length;
   const linked = new Set((links?.data ?? []).map((l) => l.person_id));
   const onApp = new Set((members?.data ?? []).filter((m) => linked.has(m.person_id)).map((m) => m.household_id));
   const hhIds = new Set(hhRows.map((h) => h.id));
-  const onAppPct = hhRows.length ? Math.round((100 * [...onApp].filter((id) => hhIds.has(id)).length) / hhRows.length) : null;
+  const onAppPct = !links?.error && !members?.error && hhRows.length ? Math.round((100 * [...onApp].filter((id) => hhIds.has(id)).length) / hhRows.length) : null;
   const givenYtd = (payments?.data ?? []).reduce((sum, p) => sum + p.amount_cents - p.refunded_cents, 0);
   const givenPrev = (prevPayments?.data ?? []).reduce((sum, p) => sum + p.amount_cents - p.refunded_cents, 0);
   const pct = (a: number, b: number) => (b > 0 ? `${a >= b ? "+" : ""}${Math.round(((a - b) * 100) / b)}%` : null);

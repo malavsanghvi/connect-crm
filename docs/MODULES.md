@@ -112,8 +112,10 @@ name, to `audit.view` holders of that center and platform admins only (the same 
 - **Member app:** Give tab, pledges, recurring, recurring-setup, opportunity/[id], labh/[dayId]
 - **Permissions:** giving.view, giving.manage, giving.approve, giving.record_offline
 - **Switching off:** refused while Bolis or Accounting is on. Money data is hidden and frozen for
-  everyone but platform admins; recording, matching, labh and recurring set-up refuse. Money rules
-  (allocation, write-off, refunds) are unchanged.
+  everyone but platform admins; recording, matching, labh and recurring set-up refuse. The People
+  household card (`household_card`) keeps identifying the household but returns no open-pledge total
+  or last-gift date (0110), and the household page drops Record payment and its Pledges/Payments tabs.
+  The member app hides "Plan labh". Money rules (allocation, write-off, refunds) are unchanged.
 
 ## Bolis (depends on Giving)
 
@@ -241,7 +243,8 @@ name, to `audit.view` holders of that center and platform admins only (the same 
 - **Portal:** /reports, /reports/community
 - **Member app:** Home dashboard cards
 - **Permissions:** reports.view, settings.manage (publishing KPIs)
-- **Switching off:** the public community dashboard and center health refuse.
+- **Switching off:** center health and the publish list show the switched-off page; the public
+  `/c/<slug>` page says the community isn't publishing its dashboard; `public_kpis` refuses.
 
 ## Niva assistant (depends on Content)
 

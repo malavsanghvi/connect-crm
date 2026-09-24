@@ -12,6 +12,7 @@ import { identifierRules } from "@/lib/center-rules";
 import { orgIds } from "@/lib/data/lookups";
 import { formatDate } from "@/lib/dates";
 import { formatCents } from "@/lib/money";
+import { isModuleEnabled } from "@/lib/modules";
 import { can, canAccess } from "@/lib/permissions";
 import { isUuid, param, type RawSearchParams } from "@/lib/search-params";
 import { getSession } from "@/lib/session";
@@ -55,7 +56,10 @@ export default async function HouseholdPage({
   if (!isUuid(id)) notFound();
   const sp = await searchParams;
   const tabParam = param(sp, "tab");
-  const tab: TabKey = TABS.find((t) => t.key === tabParam)?.key ?? "members";
+  // Pledges & donations switched off (Settings › Modules): no money tabs, stat or Record payment.
+  const givingOn = isModuleEnabled(session, "giving");
+  const tabs = TABS.filter((t) => givingOn || (t.key !== "pledges" && t.key !== "payments"));
+  const tab: TabKey = tabs.find((t) => t.key === tabParam)?.key ?? "members";
 
   const { db, center } = session;
   const rules = identifierRules(center.rules);
@@ -120,7 +124,7 @@ export default async function HouseholdPage({
         actions={
           <>
             <HistoryButton table="households" recordId={id} title={household.display_name} variant="ghost" size="md" />
-            {canAccess(session, "recordPayment") && !household.merged_into_id ? (
+            {givingOn && canAccess(session, "recordPayment") && !household.merged_into_id ? (
               <Link href={`/giving/payments?household=${id}`} className={buttonClass("primary")}>
                 Record payment
               </Link>
@@ -174,9 +178,9 @@ export default async function HouseholdPage({
         />
         <IdentityCell
           label="Open pledges"
-          value={canSeeGiving && card ? formatCents(card.open_pledge_cents ?? 0, center.currency) : null}
-          emptyHint={canSeeGiving ? "—" : "Needs a giving permission"}
-          sub={card?.last_gift_on ? `Last gift ${formatDate(card.last_gift_on, tz)}` : undefined}
+          value={givingOn && canSeeGiving && card ? formatCents(card.open_pledge_cents ?? 0, center.currency) : null}
+          emptyHint={!givingOn ? "Giving is switched off" : canSeeGiving ? "—" : "Needs a giving permission"}
+          sub={givingOn && card?.last_gift_on ? `Last gift ${formatDate(card.last_gift_on, tz)}` : undefined}
         />
       </section>
 
@@ -217,7 +221,7 @@ export default async function HouseholdPage({
         </BlockGrid>
       ) : null}
 
-      <Tabs active={tab} tabs={TABS.map((t) => ({ key: t.key, label: t.label, href: `/households/${id}?tab=${t.key}` }))} />
+      <Tabs active={tab} tabs={tabs.map((t) => ({ key: t.key, label: t.label, href: `/households/${id}?tab=${t.key}` }))} />
 
       {tab === "members" ? <MembersTab session={session} householdId={id} /> : null}
       {tab === "identifiers" ? <IdentifiersTab session={session} householdId={id} household={household} /> : null}
