@@ -96,6 +96,12 @@ const EXTRA_PATHS: readonly [string, ModuleKey][] = [
   ["/events/volunteers", "volunteers"],
   ["/ops", "events"],
   ["/comms/surveys", "surveys"],
+  // The Pathshala committee holds governance (resolutions, concerns) and event planning.
+  ["/pathshala/committee/resolutions", "governance"],
+  ["/pathshala/committee/concerns", "governance"],
+  ["/pathshala/committee/actions", "events"],
+  ["/pathshala/committee/templates", "events"],
+  ["/pathshala/committee/year", "events"],
 ];
 
 function buildPathMap(): [string, ModuleKey][] {
