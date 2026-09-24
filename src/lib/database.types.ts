@@ -926,6 +926,75 @@ export type Database = {
         };
         Relationships: [];
       };
+      center_demo_state: {
+        Row: {
+          center_id: string;
+          pack_key: string | null;
+          version: number | null;
+          status: string;
+          operation: string | null;
+          reason: string | null;
+          requested_by: string | null;
+          requested_at: string | null;
+          job_id: number | null;
+          steps_done: number;
+          steps_total: number;
+          step_label: string | null;
+          load_seed: string | null;
+          loaded_at: string | null;
+          loaded_by: string | null;
+          cleared_at: string | null;
+          cleared_by: string | null;
+          last_error: string | null;
+          detail: Json;
+          updated_at: string;
+        };
+        Insert: {
+          center_id: string;
+          pack_key?: string | null;
+          version?: number | null;
+          status?: string;
+          operation?: string | null;
+          reason?: string | null;
+          requested_by?: string | null;
+          requested_at?: string | null;
+          job_id?: number | null;
+          steps_done?: number;
+          steps_total?: number;
+          step_label?: string | null;
+          load_seed?: string | null;
+          loaded_at?: string | null;
+          loaded_by?: string | null;
+          cleared_at?: string | null;
+          cleared_by?: string | null;
+          last_error?: string | null;
+          detail?: Json;
+          updated_at?: string;
+        };
+        Update: {
+          center_id?: string;
+          pack_key?: string | null;
+          version?: number | null;
+          status?: string;
+          operation?: string | null;
+          reason?: string | null;
+          requested_by?: string | null;
+          requested_at?: string | null;
+          job_id?: number | null;
+          steps_done?: number;
+          steps_total?: number;
+          step_label?: string | null;
+          load_seed?: string | null;
+          loaded_at?: string | null;
+          loaded_by?: string | null;
+          cleared_at?: string | null;
+          cleared_by?: string | null;
+          last_error?: string | null;
+          detail?: Json;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       center_domains: {
         Row: {
           domain: string;
@@ -1711,6 +1780,36 @@ export type Database = {
           handled_by?: string | null;
           completed_at?: string | null;
           export_path?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      demo_packs: {
+        Row: {
+          key: string;
+          version: number;
+          title: string;
+          description: string;
+          contents: Json;
+          active: boolean;
+          created_at: string;
+        };
+        Insert: {
+          key: string;
+          version: number;
+          title: string;
+          description?: string;
+          contents?: Json;
+          active?: boolean;
+          created_at?: string;
+        };
+        Update: {
+          key?: string;
+          version?: number;
+          title?: string;
+          description?: string;
+          contents?: Json;
+          active?: boolean;
           created_at?: string;
         };
         Relationships: [];
@@ -8167,6 +8266,14 @@ export type Database = {
         };
         Returns: undefined;
       };
+      activate_demo_pack: {
+        Args: {
+          p_center: string;
+          p_pack: string;
+          p_reason: string;
+        };
+        Returns: number;
+      };
       add_email_domain: {
         Args: {
           p_center: string;
@@ -8463,6 +8570,14 @@ export type Database = {
         };
         Returns: Json;
       };
+      clear_sandbox: {
+        Args: {
+          p_center: string;
+          p_confirm: string;
+          p_reason: string;
+        };
+        Returns: number;
+      };
       close_boli: {
         Args: {
           p_boli: string;
@@ -8643,6 +8758,51 @@ export type Database = {
           p_import_run?: string;
         };
         Returns: string;
+      };
+      demo_can_manage: {
+        Args: {
+          p_center: string;
+        };
+        Returns: boolean;
+      };
+      demo_center_problem: {
+        Args: {
+          p_center: string;
+        };
+        Returns: string;
+      };
+      demo_confirm_word: {
+        Args: {
+          p_center: string;
+        };
+        Returns: string;
+      };
+      demo_data_counts: {
+        Args: {
+          p_center: string;
+        };
+        Returns: Json;
+      };
+      demo_email_domain: {
+        Args: Record<PropertyKey, never>;
+        Returns: string;
+      };
+      demo_id: {
+        Args: {
+          p_seed: string;
+          p_ref: string;
+        };
+        Returns: string;
+      };
+      demo_keep_tables: {
+        Args: Record<PropertyKey, never>;
+        Returns: string[];
+      };
+      demo_pack_steps: {
+        Args: {
+          p_pack: string;
+        };
+        Returns: Json;
       };
       directory_listing: {
         Args: {
@@ -9650,6 +9810,15 @@ export type Database = {
           p_valid_days?: number;
         };
         Returns: { invitation_id: string; token: string; expires_at: string }[];
+      };
+      reset_sandbox: {
+        Args: {
+          p_center: string;
+          p_pack: string;
+          p_confirm: string;
+          p_reason: string;
+        };
+        Returns: number;
       };
       reset_staff_2fa: {
         Args: {

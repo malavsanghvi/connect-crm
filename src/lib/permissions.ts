@@ -27,6 +27,8 @@ export type ScopedContext = PermissionContext & {
   grants?: readonly ScopedGrant[];
   /** Module keys switched off for the center (src/lib/modules.ts); missing means every module is on. */
   modulesOff?: readonly string[];
+  /** The current organization (only its environment is read here: sandbox-only tabs). */
+  center?: { environment?: string | null };
 };
 
 export function isGrantActive(grant: Pick<GrantLike, "starts_at" | "ends_at">, now: Date = new Date()): boolean {
@@ -294,6 +296,8 @@ export type NavTab = {
   platformOnly?: boolean;
   /** Module (src/lib/modules.ts) this tab belongs to, when it differs from its NAV module's. */
   module?: ModuleKey;
+  /** Shown only in a sandbox (o-demo: Demo data); the database refuses the rest anyway. */
+  sandboxOnly?: boolean;
 };
 export type NavModule = {
   key: string;
@@ -457,6 +461,8 @@ export const NAV: NavModule[] = [
       { href: "/setup/readiness", label: "Go-live readiness", access: "setup" },
       // Onboarding (o-platform): attestations, the go-live request and promotion.
       { href: "/setup/go-live", label: "Go-live", access: "setup" },
+      // Onboarding (o-demo): load, reset or clear the demo pack — sandboxes only.
+      { href: "/setup/demo", label: "Demo data", access: "setup", sandboxOnly: true },
     ],
     paths: ["/setup"],
   },
@@ -522,8 +528,9 @@ function moduleOn(ctx: ScopedContext, key: string): boolean {
 }
 
 /** True when the user may open a nav tab: its access key, or one of its roles in any scope. */
-export function canOpenTab(ctx: ScopedContext, tab: Pick<NavTab, "access" | "roles" | "platformOnly" | "module">): boolean {
+export function canOpenTab(ctx: ScopedContext, tab: Pick<NavTab, "access" | "roles" | "platformOnly" | "module" | "sandboxOnly">): boolean {
   if (tab.module && !moduleOn(ctx, tab.module)) return false;
+  if (tab.sandboxOnly && ctx.center?.environment !== "sandbox") return false;
   if (tab.platformOnly) return Boolean(ctx.isPlatformAdmin);
   if (tab.access !== undefined && canAccess(ctx, tab.access)) return true;
   return Boolean(tab.roles && tab.roles.length > 0 && hasRole(ctx, ...tab.roles));
