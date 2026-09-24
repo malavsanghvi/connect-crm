@@ -124,6 +124,10 @@ closed months post as current-period adjustments. See `FEATURE_TRACEABILITY.md`.
   `boli_summary`, `check_in`, `log_practice`, `send_anumodana`,
   `create_event_from_template`, `decide_reference`, `my_reference_requests`,
   `resolve_identifier`, `suggest_bank_matches`, `confirm_bank_match`, `public_kpis`.
+  Prototype-parity RPCs (migrations 0021–0025): `unlog_practice`, `saathi_feed`,
+  `my_practice_standing`, `opportunity_availability`, `commit_labh`, `create_recurring_gift`,
+  `public_kpi_catalog`, `close_boli(p_boli, p_reason)`, `event_live_stats`, `event_recent_checkins`,
+  `segment_recipient_count`, `pathshala_term_stats`, `people_list`, `directory_listing`.
 - **Money is integer cents** everywhere (`*_cents`). Format only at the edge.
 - **Errors are always shown to the user in plain English** with a retry where one
   exists; never console-only, never a silent fallback. Log the technical detail.

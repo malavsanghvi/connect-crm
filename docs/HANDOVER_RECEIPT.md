@@ -10,7 +10,7 @@
 | Design doc | All 9 tabs of *JSH Platform · Recommendations and Roadmap* exported to [`docs/design-doc/`](design-doc/) as the kit's README asks |
 | Builds on it | connect-crm (this repo, owns the database), connect-admin, connect-mobile |
 
-**Legend** — ✅ enforced in the database and covered by tests (`supabase/tests/`, 166 checks) ·
+**Legend** — ✅ enforced in the database and covered by tests (`supabase/tests/`, 229 checks) ·
 📱 member app (connect-mobile) · 🖥 admin console (connect-admin) · 🗂 CRM console (connect-crm) ·
 ⚙️ needs a background worker / edge function (not built yet) · 📄 recorded in docs ·
 ❓ needs a decision · ⏸ parked by JSH.
@@ -69,7 +69,7 @@ sources are **content-identical** to the handoff — nothing in the kit was miss
 | 18 | Gyan Path: gamified paths (Samayik, Pratikraman, Logassa, Navkar), levels, stars, teacher sign-off | 4 goals / 46 levels seeded, `gyan_steps`, `gyan_progress` (0–3 stars), `gyan_signoffs` | ✅ 📱 🖥 · lesson/quiz content from Pathshala ❓ |
 | 19 | Saathi: celebrations, anumodana points; cheerers asked to help first | `anumodana`, `app.send_anumodana` (+5 / +3, daily cap), family-circle only | ✅ 📱 · "ask cheerers first" notification ⚙️ |
 | 20 | Event feedback surveys, anonymous option, admin aggregation, feedback-request notification | `surveys` (`kind = event_feedback`, `event_id`, `anonymous`), `survey_responses` | ✅ 📱 🖥 · request notification ⚙️ |
-| 21 | Public community dashboard, aggregated KPIs, no login | `app.public_kpis` (anon, groups < 10 suppressed) | ✅ · public page not yet assigned — proposed as a public route in connect-admin |
+| 21 | Public community dashboard, aggregated KPIs, no login | `app.public_kpis` (anon, groups < 10 suppressed; per-KPI publish setting `app.public_kpi_settings`, default members-only, audited — 0023) | ✅ · public page not yet assigned — proposed as a public route in connect-admin |
 | 22 | White-label, multi-tenant for any Jain center | `centers` (branding, flags, rules), `center_id` + RLS everywhere; cross-center isolation tested | ✅ tested |
 | 23 | Replaces Neon One; migration from any system with years of history | Identifier registry (`external_ids`, person + household org IDs, Neon, NamoCRM, QuickBooks, bank payers), `import_runs` | ✅ · importer ⚙️ (needs a Neon export sample ❓) |
 | 24 | QuickBooks Online is the accounting record; push everything; cash basis | `ledger_postings` (idempotent), `qbo_account_mappings`, `accounting_periods`, `payouts`; `rules.accounting.basis = cash` | ✅ tested 🗂 · QuickBooks poster ⚙️ |
@@ -121,7 +121,7 @@ sources are **content-identical** to the handoff — nothing in the kit was miss
 | `Onboarding.dc.html` | Email/mobile OTP, family match, "not my family", about you, family review, contact prefs, documents & mail (required) | 📱 | **built** — connect-mobile: tsc, lint, 54 tests, web export pass; signed-in flows await a live backend |
 | `Welcome.dc.html` | New to JSH guide (9 sections) | 📱 | **built** — connect-mobile: tsc, lint, 54 tests, web export pass; signed-in flows await a live backend |
 | `GyanPath.dc.html` | Goals, map, lessons (learn / quiz / recite), stars, treasure, teacher sign-off | 📱 (+ 🖥 sign-offs) | **built** — connect-mobile: tsc, lint, 54 tests, web export pass; signed-in flows await a live backend |
-| `CommunityDashboard.dc.html` | Public KPIs, 8 endpoints, k-anonymity | ✅ `app.public_kpis` · page not built | partial |
+| `CommunityDashboard.dc.html` | Public KPIs, 8 endpoints, k-anonymity | ✅ `app.public_kpis` (deltas, attendance by month, zones, learning, campaign; 0023) · page not built | partial |
 | `AdminPortal.dc.html` | Personas, entitlements, every module, audit log | 🗂 connect-crm (19 routes) + 🖥 connect-admin (45 routes) | **built** — lint, typecheck, 85 + 50 unit tests, production builds pass; CRM also exercised against a local PostgREST + headless browser |
 | `Volunteer.dc.html` (deprecated in kit) | Stations, scan, walk-in, family confirm | 🖥 `/ops/[event]/checkin` (camera + keyboard-wedge scanner, legacy QR, kiosk, offline queue) | **built** |
 
