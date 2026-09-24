@@ -645,6 +645,22 @@ begin
     'value', btrim(p_value), 'source', 'import', 'created_by', auth.uid(), 'label', 'Imported'));
 end $$;
 
+-- Add an allocation as given, and keep the pledge's balance from before it:
+-- the recompute trigger moves paid_cents / status / closed_at, and undo must put
+-- them back exactly (a delete would otherwise recompute them from what is left).
+create or replace function app.import_add_allocation(r app.import_runs, p_row int, p_data jsonb) returns text
+language plpgsql security definer set search_path = app, public, extensions as $$
+declare v_id text; v_pledge uuid := (p_data->>'pledge_id')::uuid; v_before jsonb; v_after jsonb;
+begin
+  select jsonb_build_object('paid_cents', paid_cents, 'status', status, 'closed_at', closed_at) into v_before from app.pledges where id = v_pledge;
+  v_id := app.import_add(r, p_row, 'payment_allocations', p_data);
+  select jsonb_build_object('paid_cents', paid_cents, 'status', status, 'closed_at', closed_at) into v_after from app.pledges where id = v_pledge;
+  if v_before is distinct from v_after then
+    perform app.import_log(r, p_row, 'pledges', v_pledge::text, 'update', v_before, v_after);
+  end if;
+  return v_id;
+end $$;
+
 -- Apply one staged row. Returns {status, target_id, message}.
 create or replace function app.import_apply_row(r app.import_runs, e app.import_entities, x app.import_rows) returns jsonb
 language plpgsql security definer set search_path = app, public, extensions as $$
@@ -730,7 +746,8 @@ begin
         end if;
       else null;
     end case;
-    v_id := app.import_add(r, x.row_no, e.target_table, d);
+    v_id := case when e.key = 'payment_allocations' then app.import_add_allocation(r, x.row_no, d)
+                 else app.import_add(r, x.row_no, e.target_table, d) end;
     v_status := 'created';
     -- A name-only look-alike is never merged automatically: it goes to merge review.
     if m ? 'lookalikes' then
@@ -799,7 +816,7 @@ begin
       v_amt := coalesce((ex->>'allocation_cents')::bigint, v_pay.amount_cents);
       select coalesce(sum(amount_cents), 0) into v_alloc from app.payment_allocations where payment_id = v_pay.id;
       if v_alloc + v_amt > v_pay.amount_cents then raise exception 'The allocations would add up to more than the payment.'; end if;
-      perform app.import_add(r, x.row_no, 'payment_allocations', jsonb_build_object('center_id', c, 'payment_id', v_id, 'pledge_id', v_pledge, 'amount_cents', v_amt));
+      perform app.import_add_allocation(r, x.row_no, jsonb_build_object('center_id', c, 'payment_id', v_id, 'pledge_id', v_pledge, 'amount_cents', v_amt));
       if v_status = 'unchanged' then v_status := 'updated'; end if;
     end if;
   elsif e.key = 'store_items' and ex ? 'opening_stock' then
@@ -1150,7 +1167,7 @@ end $$;
 create or replace function app.import_undo(p_run uuid, p_reason text) returns jsonb
 language plpgsql security definer set search_path = app, public, extensions as $$
 declare r app.import_runs; ch app.import_changes; v_before jsonb; v_cur jsonb; v_restore jsonb; k text; v_val jsonb;
-        v_removed int := 0; v_restored int := 0; v_kept jsonb := '[]'::jsonb; v_later text;
+        v_removed int := 0; v_restored int := 0; v_kept jsonb := '[]'::jsonb; v_later text; v_balances app.import_changes[] := '{}';
 begin
   r := app.import_assert_run(p_run);
   if r.status not in ('committed','reconciled') then raise exception 'Import #% is %; only a finished import can be undone.', r.run_number, r.status; end if;
@@ -1163,6 +1180,11 @@ begin
   perform set_config('app.client_app', 'import', true);
   begin
     for ch in select * from app.import_changes where run_id = r.id and undone_at is null order by id desc loop
+      -- A pledge balance moved by an allocation goes back after the allocations are gone.
+      if ch.op = 'update' and ch.table_name = 'pledges' and ch.before ? 'paid_cents' and ch.after ? 'paid_cents' and not ch.after ? 'amount_cents' then
+        v_balances := v_balances || ch;
+        continue;
+      end if;
       if ch.op = 'insert' then
         if app.import_delete(ch.table_name, ch.record_id) then v_removed := v_removed + 1; end if;
       else
@@ -1186,6 +1208,13 @@ begin
           perform app.import_set(ch.table_name, ch.record_id, v_restore);
           v_restored := v_restored + 1;
         end if;
+      end if;
+      update app.import_changes set undone_at = now() where id = ch.id;
+    end loop;
+    foreach ch in array v_balances loop   -- newest first, so the oldest "before" is applied last
+      if exists (select 1 from app.pledges where id = ch.record_id::uuid) then
+        perform app.import_set('pledges', ch.record_id, ch.before);
+        v_restored := v_restored + 1;
       end if;
       update app.import_changes set undone_at = now() where id = ch.id;
     end loop;
@@ -1293,7 +1322,7 @@ end $$;
 
 revoke execute on function app.import_insert(text, jsonb), app.import_set(text, text, jsonb), app.import_delete(text, text),
   app.import_add(app.import_runs, int, text, jsonb), app.import_patch(app.import_runs, int, text, text, jsonb, jsonb),
-  app.import_log(app.import_runs, int, text, text, text, jsonb, jsonb),
+  app.import_log(app.import_runs, int, text, text, text, jsonb, jsonb), app.import_add_allocation(app.import_runs, int, jsonb),
   app.import_apply_row(app.import_runs, app.import_entities, app.import_rows),
   app.import_add_identifier(app.import_runs, int, text, text, text, uuid, uuid),
   app.import_current(text, text), app.import_canonical(text, jsonb), app.import_diff(text, text, jsonb, jsonb),

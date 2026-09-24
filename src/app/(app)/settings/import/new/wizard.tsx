@@ -1,6 +1,5 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useMemo, useState, type ChangeEvent } from "react";
 
 import { useToast } from "@/components/toast";
@@ -103,7 +102,6 @@ export function ImportWizard({
   today: string;
   legacySystems: { system: string; label: string }[];
 }) {
-  const router = useRouter();
   const toast = useToast();
   const [step, setStep] = useState<ImportStep>("Upload");
   const [entityKey, setEntityKey] = useState<string>(initialEntity && allowed.includes(initialEntity) ? initialEntity : "");
@@ -266,7 +264,8 @@ export function ImportWizard({
         setError(p.error);
         return;
       }
-      router.push(`/settings/import/${run.runId}`);
+      // A full navigation: the run page is server-rendered from what was just staged.
+      window.location.assign(new URL(`/settings/import/${run.runId}`, window.location.origin).toString());
     } catch (err) {
       console.error("[import] staging failed:", err);
       setError("Could not check the rows — the server did not respond. Nothing has been imported; try again.");
@@ -665,7 +664,7 @@ function enumProblems(entity: EntityDef, parsed: Parsed, mapping: Mapping) {
 function AiNotice({ ai, entity, onUse }: { ai: AiState | null; entity: EntityDef; onUse: (s: AiSuggestion) => void }) {
   if (!ai || ai.status === "none") return null;
   if (ai.status === "unavailable") {
-    return <Alert tone="info">AI suggestions are not available: {ai.reason} Only name-based matching ran; confirm the columns by hand.</Alert>;
+    return <Alert tone="info">AI suggestions are not available: {ai.reason} Confirm the columns by hand.</Alert>;
   }
   if (ai.status === "failed") return <Alert tone="warning">No AI suggestions this time — {ai.reason} Only name-based matching ran.</Alert>;
   if (ai.status === "queued" || ai.status === "running") return <p className="text-[13px] text-muted">Waiting for suggestions (headers and masked samples only)…</p>;

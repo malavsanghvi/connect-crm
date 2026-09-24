@@ -585,11 +585,11 @@ export const ENTITIES: readonly EntityDef[] = [
         ],
         synonyms: ["type", "campaign type"],
       }),
-      lookup("fund_key", "Fund key", "fund_id", "funds", "key", "The fund's key (import funds first).", "general", false, ["fund", "fund code"]),
+      lookup("fund_key", "Fund key", "fund_id", "funds", "key", "The fund's key (import funds first).", "general", false, ["fund", "fund code", "fund key", "fund id"]),
       col("description", "Description", "longtext", "Optional.", "Annual Paryushan appeal"),
       col("goal_cents", "Goal", "money", "Dollars.", "$50,000", { allowZero: true, synonyms: ["goal", "target"] }),
-      col("starts_on", "Starts", "date", "First day.", "2026-08-20"),
-      col("ends_on", "Ends", "date", "Last day.", "2026-09-30"),
+      col("starts_on", "Starts", "date", "First day.", "2026-08-20", { synonyms: ["start date", "start"] }),
+      col("ends_on", "Ends", "date", "Last day.", "2026-09-30", { synonyms: ["end date", "end"] }),
       col("status", "Status", "enum", "Draft, published, closed or archived.", "published", {
         options: [
           { value: "draft", label: "Draft" },
@@ -804,7 +804,7 @@ export const ENTITIES: readonly EntityDef[] = [
     fields: [
       col("name", "Labh", "name", "What members see.", "Aarti labh", { required: true }),
       col("amount_cents", "Amount", "money", "Dollars.", "$151", { required: true }),
-      lookup("fund_key", "Fund key", "fund_id", "funds", "key", "Optional.", "general"),
+      lookup("fund_key", "Fund key", "fund_id", "funds", "key", "Optional.", "general", false, ["fund", "fund code", "fund key", "fund id"]),
       lookup("campaign_name", "Campaign", "campaign_id", "campaigns", "name", "Optional.", "Paryushan 2026"),
       col("sort_order", "Order", "integer", "Position.", "1"),
       col("active", "Active", "boolean", "Yes or no.", "Yes"),
@@ -1269,7 +1269,7 @@ export const ENTITIES: readonly EntityDef[] = [
       householdRef({ column: "household_id" }),
       col("person_legacy_id", "Pledged by (person ID)", "ref", "Optional.", "0417", { column: "pledged_by_person_id", ref: { kind: "person", by: "legacy" } }),
       lookup("campaign_name", "Campaign", "campaign_id", "campaigns", "name", "The campaign's name.", "Paryushan 2026", false, ["campaign", "appeal"]),
-      lookup("fund_key", "Fund key", "fund_id", "funds", "key", "The fund's key.", "general", false, ["fund"]),
+      lookup("fund_key", "Fund key", "fund_id", "funds", "key", "The fund's key.", "general", false, ["fund", "fund code", "fund key", "fund id"]),
       col("source", "Kind", "enum", "What the pledge is for.", "general", { options: PLEDGE_SOURCE, valueMap: { Donation: "general", Sponsorship: "sponsorship", Dues: "membership_fee" } }),
       col("amount_cents", "Amount", "money", "Dollars.", "$5,000.00", { required: true, synonyms: ["amount", "pledge amount", "total"] }),
       extra("paid_so_far", "Paid so far", "money", "What the old system shows as paid; checked at Reconcile against the imported payments.", "$2,500.00", {
@@ -1369,7 +1369,7 @@ export const ENTITIES: readonly EntityDef[] = [
       householdRef({ column: "household_id" }),
       col("person_legacy_id", "Person ID (old system)", "ref", "Optional.", "0417", { column: "person_id", ref: { kind: "person", by: "legacy" } }),
       lookup("campaign_name", "Campaign", "campaign_id", "campaigns", "name", "Optional.", "Paryushan 2026"),
-      lookup("fund_key", "Fund key", "fund_id", "funds", "key", "Optional.", "general"),
+      lookup("fund_key", "Fund key", "fund_id", "funds", "key", "Optional.", "general", false, ["fund", "fund code", "fund key", "fund id"]),
       col("amount_cents", "Amount", "money", "Dollars per gift.", "$51.00", { required: true }),
       col("frequency", "Frequency", "enum", "Weekly, monthly, quarterly or yearly.", "monthly", {
         required: true,

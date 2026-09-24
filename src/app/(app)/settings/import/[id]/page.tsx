@@ -58,7 +58,8 @@ function summaryOf(data: Json): string {
   return Object.entries(data)
     .filter(([k]) => !k.endsWith("_id") || k === "household_id")
     .map(([k, v]) => {
-      const shown = v && typeof v === "object" && !Array.isArray(v) && "value" in v ? String((v as { value: unknown }).value) : String(v);
+      const raw = v && typeof v === "object" && !Array.isArray(v) && "value" in v ? String((v as { value: unknown }).value) : String(v);
+      const shown = raw.replace(/^(\d{4}-\d{2}-\d{2})T00:00:00(\.000)?Z$/, "$1");
       return `${k.replace(/_cents$/, "").replace(/_/g, " ")}: ${k.endsWith("_cents") && typeof v === "number" ? formatCents(v) : shown}`;
     })
     .slice(0, 5)

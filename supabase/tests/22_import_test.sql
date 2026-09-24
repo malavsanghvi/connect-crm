@@ -292,7 +292,8 @@ select pg_temp.assert_raises($$select app.import_undo((select v::uuid from ctx w
 select app.import_undo((select v::uuid from ctx where k = 'pay_run2'), 'Duplicate top-up');
 select app.import_undo((select v::uuid from ctx where k = 'pay_run'), 'Wrong file');
 select pg_temp.assert(not exists (select 1 from app.payments where crm_external_id in ('R-1','R-2','R-3')), 'undo removes the payments it created');
-select pg_temp.assert((select paid_cents = 0 from app.pledges where crm_external_id = 'PL-1'), 'and their allocations (the pledge balance follows)');
+select pg_temp.assert((select paid_cents = 200000 and status = 'partially_paid' from app.pledges where crm_external_id = 'PL-1'),
+  'and their allocations: the pledge is back to the balance it had before the payments import');
 select (app.import_undo((select v::uuid from ctx where k = 'p_run'), 'Test undo'))->>'restored';
 commit;
 select pg_temp.assert(not exists (select 1 from app.people where email = 'neel@example.com'), 'undo removes the people it created');
