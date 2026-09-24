@@ -6,6 +6,18 @@ import type { HandlerModule } from "../types";
 import * as demoPing from "./demo.ping";
 import * as importSuggestMapping from "./import.suggest_mapping";
 import * as oauthExchange from "./oauth.exchange";
+import * as qboBringInHistory from "./qbo.bring_in_history";
+import * as qboMatchSuggestAi from "./qbo.match_suggest_ai";
+import * as qboPullCustomersHistory from "./qbo.pull_customers_history";
 import * as storageRetention from "./storage.retention";
 
-export const HANDLERS: HandlerModule[] = [demoPing, importSuggestMapping, oauthExchange, storageRetention];
+export const HANDLERS: HandlerModule[] = [
+  demoPing,
+  importSuggestMapping,
+  oauthExchange,
+  storageRetention,
+  // o-qbo-match
+  qboPullCustomersHistory,
+  qboMatchSuggestAi,
+  qboBringInHistory,
+];

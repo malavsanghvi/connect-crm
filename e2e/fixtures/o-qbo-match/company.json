@@ -1,0 +1,44 @@
+{
+  "_note": "A made-up QuickBooks Online company for the o-qbo-match flow (test data only). Shapes follow the QuickBooks Online v3 API (Customer, SalesReceipt, Payment with LinkedTxn, Invoice with Balance, CreditMemo), keyed to the demo households in supabase/demo/demo.sql.",
+  "Customer": [
+    { "Id": "1187", "DisplayName": "Shah Family", "PrimaryEmailAddr": { "Address": "priya.shah@example.com" }, "BillAddr": { "Line1": "1 Lotus Ct", "City": "Katy", "CountrySubDivisionCode": "TX", "PostalCode": "77494" }, "Active": true, "Balance": 400.0, "Job": false },
+    { "Id": "2001", "DisplayName": "Kiran Mehta", "GivenName": "Kiran", "FamilyName": "Mehta", "PrimaryEmailAddr": { "Address": "Kiran.Mehta@example.com" }, "Active": true, "Balance": 0, "Job": false },
+    { "Id": "2002", "DisplayName": "Neha M.", "PrimaryPhone": { "FreeFormNumber": "(281) 555-0112" }, "Active": true, "Balance": 0, "Job": false },
+    { "Id": "2003", "DisplayName": "Mr & Mrs Rahul Shah", "GivenName": "Rahul", "FamilyName": "Shah", "BillAddr": { "City": "Sugar Land", "CountrySubDivisionCode": "TX", "PostalCode": "77478" }, "Active": true, "Balance": 300.0, "Job": false },
+    { "Id": "2004", "DisplayName": "Mehta Family", "Active": true, "Balance": 0, "Job": false },
+    { "Id": "2005", "DisplayName": "Shah Household", "Active": true, "Balance": 0, "Job": false },
+    { "Id": "2006", "DisplayName": "Acme Temple Supplies", "CompanyName": "Acme Temple Supplies", "Active": true, "Balance": 150.0, "Job": false },
+    { "Id": "2007", "DisplayName": "Shah Family:Dev Shah", "ParentRef": { "value": "1187" }, "Job": true, "Active": true, "Balance": 0 },
+    { "Id": "2099", "DisplayName": "Closed account", "Active": false, "Balance": 0, "Job": false }
+  ],
+  "Invoice": [
+    { "Id": "6001", "DocNumber": "INV-6001", "TxnDate": "2024-03-01", "DueDate": "2024-12-31", "CustomerRef": { "value": "1187", "name": "Shah Family" }, "TotalAmt": 1000.0, "Balance": 400.0,
+      "Line": [ { "Amount": 1000.0, "DetailType": "SalesItemLineDetail", "Description": "Construction pledge", "SalesItemLineDetail": { "ItemRef": { "name": "Pledge" }, "ClassRef": { "value": "CL-CON", "name": "Construction" } } },
+                { "Amount": 1000.0, "DetailType": "SubTotalLineDetail", "SubTotalLineDetail": {} } ] },
+    { "Id": "6002", "DocNumber": "INV-6002", "TxnDate": "2023-05-01", "CustomerRef": { "value": "1187" }, "TotalAmt": 500.0, "Balance": 0,
+      "Line": [ { "Amount": 500.0, "DetailType": "SalesItemLineDetail", "SalesItemLineDetail": { "ItemRef": { "name": "Pujan" } } } ] },
+    { "Id": "6003", "DocNumber": "INV-6003", "TxnDate": "2025-02-01", "CustomerRef": { "value": "2003" }, "TotalAmt": 300.0, "Balance": 300.0,
+      "Line": [ { "Amount": 300.0, "DetailType": "SalesItemLineDetail", "SalesItemLineDetail": { "ItemRef": { "name": "Pledge" } } } ] }
+  ],
+  "Payment": [
+    { "Id": "7001", "TxnDate": "2024-04-01", "CustomerRef": { "value": "1187" }, "TotalAmt": 600.0, "PaymentMethodRef": { "name": "Check" }, "PaymentRefNum": "1201",
+      "Line": [ { "Amount": 600.0, "LinkedTxn": [ { "TxnId": "6001", "TxnType": "Invoice" } ] } ] },
+    { "Id": "7002", "TxnDate": "2023-06-01", "CustomerRef": { "value": "1187" }, "TotalAmt": 500.0, "PaymentMethodRef": { "name": "Zelle" },
+      "Line": [ { "Amount": 500.0, "LinkedTxn": [ { "TxnId": "6002", "TxnType": "Invoice" } ] } ] }
+  ],
+  "SalesReceipt": [
+    { "Id": "5001", "DocNumber": "1001", "TxnDate": "2022-10-24", "CustomerRef": { "value": "1187" }, "TotalAmt": 251.0, "PaymentMethodRef": { "name": "Check" }, "PaymentRefNum": "887", "PrivateNote": "Paryushan donation",
+      "Line": [ { "Amount": 251.0, "DetailType": "SalesItemLineDetail", "SalesItemLineDetail": { "ItemRef": { "name": "Donation" }, "ClassRef": { "value": "CL-JEEV", "name": "Jeevdaya" } } } ] },
+    { "Id": "5002", "DocNumber": "1002", "TxnDate": "2025-01-15", "CustomerRef": { "value": "2001" }, "TotalAmt": 108.0, "PaymentMethodRef": { "name": "Visa" },
+      "Line": [ { "Amount": 108.0, "DetailType": "SalesItemLineDetail", "SalesItemLineDetail": { "ItemRef": { "name": "Donation" } } } ] },
+    { "Id": "5003", "DocNumber": "1003", "TxnDate": "2025-03-02", "CustomerRef": { "value": "2002" }, "TotalAmt": 51.0, "PaymentMethodRef": { "name": "Cash" },
+      "Line": [ { "Amount": 51.0, "DetailType": "SalesItemLineDetail", "SalesItemLineDetail": { "ItemRef": { "name": "Donation" } } } ] },
+    { "Id": "5004", "DocNumber": "1004", "TxnDate": "2012-01-01", "CustomerRef": { "value": "2001" }, "TotalAmt": 99.0,
+      "Line": [ { "Amount": 99.0, "DetailType": "SalesItemLineDetail", "SalesItemLineDetail": {} } ] }
+  ],
+  "CreditMemo": [
+    { "Id": "8001", "DocNumber": "CM-8001", "TxnDate": "2024-06-01", "CustomerRef": { "value": "1187" }, "TotalAmt": 50.0, "RemainingCredit": 50.0,
+      "Line": [ { "Amount": 50.0, "DetailType": "SalesItemLineDetail", "SalesItemLineDetail": {} } ] }
+  ],
+  "RefundReceipt": []
+}

@@ -85,6 +85,13 @@ export async function main(env: Env = process.env): Promise<void> {
         log.error("could not queue storage.retention", { error: err });
       }
     }
+    // o-qbo-match: once a day, one platform-wide job queues a QuickBooks customer pull per connected center.
+    try {
+      const id = await db.schedule("qbo.pull_customers_history", 24 * 3600);
+      if (id) log.info("queued the daily QuickBooks customer pulls", { queued_job: id });
+    } catch (err) {
+      log.error("could not queue the daily QuickBooks customer pulls", { error: err });
+    }
   }
 
   let polling = false;

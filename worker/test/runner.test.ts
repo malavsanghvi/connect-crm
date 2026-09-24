@@ -13,7 +13,9 @@ const deps = (db: ReturnType<typeof fakeDb>["db"], env: Record<string, string> =
 
 describe("registry", () => {
   it("has demo.ping, oauth.exchange and storage.retention, and no invented storage.scan", () => {
-    expect([...createRegistry(HANDLERS).keys()].sort()).toEqual(["demo.ping", "import.suggest_mapping", "oauth.exchange", "storage.retention"]);
+    expect([...createRegistry(HANDLERS).keys()].sort()).toEqual([
+      "demo.ping", "import.suggest_mapping", "oauth.exchange", "qbo.bring_in_history", "qbo.match_suggest_ai", "qbo.pull_customers_history", "storage.retention",
+    ]);
   });
   it("refuses duplicate or malformed kinds", () => {
     expect(() => createRegistry([demoPing, demoPing])).toThrow(/Two handlers/);
@@ -79,7 +81,7 @@ describe("runner", () => {
     const { d } = deps(db);
     const r = createRunner(d, 2);
     expect(await r.tick()).toBe(2);
-    expect(calls[0]).toEqual({ fn: "claim", args: ["w-test", ["demo.ping", "import.suggest_mapping", "oauth.exchange", "storage.retention"], 2] });
+    expect(calls[0]).toEqual({ fn: "claim", args: ["w-test", ["demo.ping", "import.suggest_mapping", "oauth.exchange", "storage.retention", "qbo.pull_customers_history", "qbo.match_suggest_ai", "qbo.bring_in_history"], 2] });
     expect(await r.drain(1000)).toBe(true);
     expect(calls.filter((c) => c.fn === "finish")).toHaveLength(2);
     r.stop();
