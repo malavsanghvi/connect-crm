@@ -91,3 +91,4 @@ enforcing object is named so it can be found.
 | Neon account vs contact ids in use; QuickBooks customer naming; JSH household ID format (digits?) | Treasurer + membership coordinator | Open — needed before the Neon/QuickBooks import |
 | Yearly membership fee amount (seeded as 0, `[sample]`) | Treasurer | Open |
 | Organization onboarding: sandbox model, what promotion copies, sandbox limits, non-profit proof, 2FA methods, providers, email editor plugin, custom fields, history depth, portal addresses, Niva, offline-only launch, billing, go-live approvers (O1–O15 in [ONBOARDING_PLAN.md](ONBOARDING_PLAN.md#10-decisions-needed)) | Owner | Open |
+| The three apps: connect-crm is the admin portal for everything an organization manages; connect-mobile is the app for all members; connect-admin is only the event-day app and grows only after the first two mature | Owner | Decided 2026-09-24 |

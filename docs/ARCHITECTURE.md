@@ -9,9 +9,9 @@ Source design: *JSH Platform · Recommendations and Roadmap* (Sep 2026) and the
 
 | Repo | What it is | Who uses it | Stack |
 |---|---|---|---|
-| **connect-crm** (this repo) | System of record: households, people, identifiers, memberships, giving, bank reconciliation, QuickBooks, audit, settings, roles. **Owns the database** (`supabase/`). | Treasurer, finance volunteers, membership coordinator, center admin, privacy officer | Next.js (App Router) + Supabase |
-| **connect-admin** | Operations console: Pathshala (classes, rosters, attendance, Gyan Path sign-offs), events (checklists, RSVP, live check-in, lunch slots, volunteers), bolis, Satvik Store, content, communications, surveys. Phone-friendly ops routes for event day. | Office staff, event leads, volunteers, Pathshala principal and teachers, store and kitchen leads, communications officer | Next.js (App Router) + Supabase |
-| **connect-mobile** | Member app: family, events + RSVP + tickets + lunch, giving + bolis + pledges, Satvik Store, My Jain Way + Gyan Path + Saathi, calendar, guide, alerts, surveys, settings. Role-aware volunteer mode (scanner). | Members, families, guests | Expo (React Native) + expo-router + Supabase |
+| **connect-crm** (this repo) | **The admin portal**: everything an organization manages — people and households, memberships, events, giving and bolis, Satvik Store, Pathshala and Gyan Path, content, communications, volunteers, accounting and QuickBooks, reports, setup and onboarding, settings, roles, audit. **Owns the database** (`supabase/`) and the background service (`worker/`). | Everyone who runs the organization: owner, admins, treasurer and finance, membership, Pathshala, event, store, content and communications leads | Next.js (App Router) + Supabase |
+| **connect-mobile** | **The member app** for every member of the organization: family, events + RSVP + tickets + lunch, giving + bolis + pledges, Satvik Store, My Jain Way + Gyan Path + Saathi, calendar, guide, alerts, surveys, settings. Role-aware volunteer mode (scanner). | All members, families, guests | Expo (React Native) + expo-router + Supabase |
+| **connect-admin** | **Event-day app only, for now** (owner decision 2026-09-24): phone-friendly tools for running an event — check-in, kitchen display, day-of. It has no other use; everything else is managed in connect-crm. It grows only after connect-crm and connect-mobile have matured, so new features go to those two first. | Event leads and check-in / kitchen volunteers on event day | Next.js (App Router) + Supabase |
 
 All three talk to **one Supabase project**. There is no app-specific backend;
 business rules that must hold regardless of caller live in Postgres
@@ -20,8 +20,8 @@ business rules that must hold regardless of caller live in Postgres
 ```mermaid
 flowchart LR
   M[connect-mobile<br/>members] --> API
-  A[connect-admin<br/>ops + volunteers] --> API
-  C[connect-crm<br/>records + money] --> API
+  A[connect-admin<br/>event day] --> API
+  C[connect-crm<br/>admin portal] --> API
   API[Supabase<br/>PostgREST + Auth + Storage] --> DB[(Postgres<br/>schema app<br/>RLS on every table)]
   EF[Edge functions<br/>payments, QBO posting,<br/>notifications, imports] --> DB
   EF --> EXT[Stripe · QuickBooks · Twilio/WhatsApp · email]
