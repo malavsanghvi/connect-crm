@@ -55,3 +55,36 @@ begin
   return jsonb_build_object('status', 'queued', 'message_id', v_id);
 end $$;
 revoke execute on function app.platform_send_message(text, text, jsonb, text) from public, anon, authenticated;
+
+-- ── Provider webhooks without a service-role key ─────────────────────────────
+-- The portal never holds the Supabase service-role key (owner rule). Its webhook
+-- routes (Stripe, PayPal) verify the provider's signature and then store the
+-- event as the connect_worker role, the same way the messaging hooks do (0223).
+do $$
+begin
+  if exists (select 1 from pg_roles where rolname = 'connect_worker') then
+    grant execute on function app.ingest_webhook(text, text, text, uuid, jsonb) to connect_worker;
+  end if;
+end $$;
+
+-- ── One reader for stored provider events ────────────────────────────────────
+-- o-payments (0210) and o-messaging (0223) each defined app.worker_webhook_event(uuid);
+-- the later one won and dropped 'event_type', 'error' and 'received_at', which the
+-- payments handlers read. Return every field both sides use ('type' = 'event_type').
+create or replace function app.worker_webhook_event(p_id uuid) returns jsonb
+language plpgsql stable security definer set search_path = app, public, extensions as $$
+begin
+  perform app.assert_worker();
+  return (select jsonb_build_object('id', e.id, 'provider', e.provider, 'event_id', e.event_id,
+                                    'event_type', e.event_type, 'type', e.event_type,
+                                    'center_id', e.center_id, 'payload', e.payload, 'processed_at', e.processed_at,
+                                    'error', e.error, 'received_at', e.received_at)
+            from app.webhook_events e where e.id = p_id);
+end $$;
+revoke execute on function app.worker_webhook_event(uuid) from public, anon, authenticated, service_role;
+do $$
+begin
+  if exists (select 1 from pg_roles where rolname = 'connect_worker') then
+    grant execute on function app.worker_webhook_event(uuid) to connect_worker;
+  end if;
+end $$;

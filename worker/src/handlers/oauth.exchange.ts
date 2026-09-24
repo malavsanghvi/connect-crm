@@ -18,6 +18,7 @@
 import { providerStatus, type Env, type Provider, type Readiness } from "../config";
 import { NotConfiguredError, PermanentError } from "../errors";
 import type { Http } from "../http";
+import { paypalExchange, stripeExchange } from "../payments/connect";
 import type { Job, JobContext } from "../types";
 import { intuitAfterExchange, intuitExchanger } from "../qbo/connect";
 
@@ -30,6 +31,9 @@ export type TokenSet = {
   externalAccountId?: string;
   /** Anything else the provider's AFTER_EXCHANGE step needs (never a secret). */
   meta?: Record<string, unknown>;
+  /** Facts to merge into integration_connections.settings (never a secret). */
+  settings?: Record<string, unknown>;
+  displayName?: string;
 };
 
 /** After the tokens are stored: a provider's own bookkeeping (mark connected, first sync). Its result joins the job's. */
@@ -43,6 +47,7 @@ export type ExchangeInput = {
   http: Http;
   /** The job's payload (never holds a secret), for provider-specific choices. */
   payload?: Record<string, unknown>;
+  mode: "test" | "live";
 };
 export type Exchanger = (input: ExchangeInput) => Promise<TokenSet>;
 
@@ -57,7 +62,7 @@ export function configured(env: Env): Readiness {
 }
 
 /** Filled in by the o-payments and o-quickbooks streams. */
-export const EXCHANGERS: Partial<Record<OAuthProvider, Exchanger>> = { intuit: intuitExchanger };
+export const EXCHANGERS: Partial<Record<OAuthProvider, Exchanger>> = { stripe: stripeExchange, paypal: paypalExchange, intuit: intuitExchanger };
 
 /** Optional per provider: what happens once the tokens are in the vault. */
 export const AFTER_EXCHANGE: Partial<Record<OAuthProvider, AfterExchange>> = { intuit: intuitAfterExchange };
@@ -93,12 +98,25 @@ export async function run(
     env: ctx.env,
     http: ctx.http,
     payload: p,
+    mode: p.mode === "live" ? "live" : "test",
   });
   const stored: Record<string, string> = {};
   for (const [name, value] of Object.entries(tokens.secrets)) {
     stored[name] = (await ctx.storeSecret(p.connection_id, name, value)).fingerprint;
   }
   const afterStep = after[provider as OAuthProvider];
-  const extra = afterStep ? await afterStep(tokens, ctx, p.connection_id) : {};
-  return { provider, stored, expires_at: tokens.expiresAt ?? null, external_account_id: tokens.externalAccountId ?? null, ...extra };
+  if (afterStep) {
+    // A provider with its own bookkeeping (QuickBooks marks the connection connected and queues the first pull).
+    const extra = await afterStep(tokens, ctx, p.connection_id);
+    return { provider, stored, expires_at: tokens.expiresAt ?? null, external_account_id: tokens.externalAccountId ?? null, ...extra };
+  }
+  // Otherwise the connection is connected (and a payment processor moves to test mode): app.worker_connection_connected (0212).
+  await ctx.db.query("select app.worker_connection_connected($1, $2, $3, $4, $5)", [
+    p.connection_id,
+    tokens.externalAccountId ?? null,
+    tokens.displayName ?? null,
+    tokens.expiresAt ?? null,
+    JSON.stringify(tokens.settings ?? {}),
+  ]);
+  return { provider, stored, expires_at: tokens.expiresAt ?? null, external_account_id: tokens.externalAccountId ?? null };
 }

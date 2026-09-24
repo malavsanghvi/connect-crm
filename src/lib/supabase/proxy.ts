@@ -13,6 +13,8 @@ export const PUBLIC_PATHS = [
   "/request-access", "/start",
   // o-messaging: Supabase Auth hooks, provider webhooks and email unsubscribe links (each checks its own signature).
   "/api/auth-hooks", "/api/webhooks", "/api/messaging/unsubscribe",
+  // o-payments: checkout intents and the provider return page (each checks its own session or signature).
+  "/api/payments",
 ];
 
 export function isPublicPath(pathname: string): boolean {

@@ -111,6 +111,7 @@ describe("visibleNav (flat module list)", () => {
       "Rules",
       "Roles & entitlements",
       "Integrations",
+      "Payments",
       "Privacy",
       "Onboarding fields",
       "Notifications",

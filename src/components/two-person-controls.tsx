@@ -3,6 +3,7 @@ import {
   cancelWriteOffRequestAction,
   completeWriteOffAction,
   recordRefundAction,
+  refundThroughProviderAction,
   requestRefundAction,
   requestWriteOffAction,
 } from "@/app/(app)/approvals/actions";
@@ -178,6 +179,10 @@ export function RefundControls({
         ) : (
           <p className="text-muted">Approved — a treasurer records the refund.</p>
         )
+      ) : (provider === "stripe" || provider === "paypal") && canManage ? (
+        <ActionForm action={refundThroughProviderAction} submitLabel={`Refund through ${provider === "paypal" ? "PayPal" : "Stripe"}`} pendingLabel="Sending…" variant="danger" size="sm">
+          <input type="hidden" name="id" value={paymentId} />
+        </ActionForm>
       ) : (
         <p className="text-muted">Approved. Card refunds are issued through the payment provider.</p>
       )}

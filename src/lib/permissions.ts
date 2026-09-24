@@ -167,6 +167,8 @@ export const ACCESS = {
   messagingTest: ["settings.manage", "integrations.manage", "comms.send"],
   /** Settings › Integrations (reads app.integration_connections). */
   integrations: ["integrations.view", "integrations.manage"],
+  /** Settings › Payments (o-payments): readable with integrations or giving; each app.* function checks its own writer. */
+  paymentSettings: ["integrations.view", "integrations.manage", "giving.view", "giving.manage"],
   /** Settings › Security: readable by rules or roles managers; saving writes centers.rules (settings.manage). */
   security: ["settings.manage", "roles.manage"],
   privacy: ["privacy.manage"],
@@ -465,6 +467,8 @@ export const NAV: NavModule[] = [
       { href: "/settings/rules", label: "Rules", access: "centerSettings" },
       { href: "/settings/roles", label: "Roles & entitlements", access: "roles" },
       { href: "/settings/integrations", label: "Integrations", access: "integrations" },
+      // Onboarding (o-payments): Stripe / PayPal and the offline methods members see.
+      { href: "/settings/payments", label: "Payments", access: "paymentSettings" },
       { href: "/settings/privacy", label: "Privacy", access: "privacy" },
       { href: "/settings/onboarding", label: "Onboarding fields", access: "centerSettings" },
       { href: "/settings/notifications", label: "Notifications", access: "centerSettings" },

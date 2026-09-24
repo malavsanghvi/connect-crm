@@ -183,3 +183,29 @@ export async function recordRefundAction(_prev: ActionResult | null, formData: F
   refresh();
   return { ok: true, message: `Refund of ${formatCents(cents, center.currency)} recorded.` };
 }
+
+// ---------------------------------------------------------------------------
+// Refunds through Stripe / PayPal (o-payments): the same two-person approval,
+// then app.request_provider_refund (giving.manage + a fresh 2FA check) queues
+// payments.refund; the background service asks the provider and records the
+// refund exactly as a hand-recorded one. Nothing is recorded until the
+// provider accepts it.
+// ---------------------------------------------------------------------------
+export async function refundThroughProviderAction(_prev: ActionResult | null, formData: FormData): Promise<ActionResult> {
+  const auth = await authorizeAction("givingManage", "refund through the provider");
+  if (!auth.ok) return auth;
+  const id = String(formData.get("id") ?? "");
+  if (!isUuid(id)) return { ok: false, error: "Could not send the refund — the payment was not found." };
+  const current = await auth.session.db.from("payments").select("provider, refund_reason, refund_requested_cents").eq("id", id).maybeSingle();
+  if (current.error) return failure("Could not send the refund", current.error);
+  if (!current.data) return { ok: false, error: "Could not send the refund — the payment was not found, or you can't see it." };
+  const provider = current.data.provider === "paypal" ? "PayPal" : "Stripe";
+  const db = await dbWithReason(auth.session, current.data.refund_reason ?? `Refund through ${provider}`);
+  const { error } = await db.rpc("request_provider_refund", { p_payment: id, p_reason: current.data.refund_reason ?? `Refund through ${provider}` });
+  if (error) return failure("Could not send the refund", error);
+  refresh();
+  return {
+    ok: true,
+    message: `Refund of ${formatCents(current.data.refund_requested_cents ?? 0, auth.session.center.currency)} sent to ${provider}. It shows here once ${provider} accepts it.`,
+  };
+}

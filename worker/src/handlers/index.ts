@@ -20,6 +20,11 @@ import * as qboPullCustomersHistory from "./qbo.pull_customers_history";
 import * as qboPullLists from "./qbo.pull_lists";
 import * as qboRefreshToken from "./qbo.refresh_token";
 import * as qboTestPost from "./qbo.test_post";
+import * as paymentsRefund from "./payments.refund";
+import * as paymentsSyncPayouts from "./payments.sync_payouts";
+import * as paymentsTestCharge from "./payments.test_charge";
+import * as paymentsWebhookPaypal from "./payments.webhook.paypal";
+import * as paymentsWebhookStripe from "./payments.webhook.stripe";
 import * as storageRetention from "./storage.retention";
 
 export const HANDLERS: HandlerModule[] = [
@@ -45,4 +50,10 @@ export const HANDLERS: HandlerModule[] = [
   messagingDomainVerify,
   messagingWebhookEmail,
   messagingWebhookTwilio,
+  // o-payments
+  paymentsWebhookStripe,
+  paymentsWebhookPaypal,
+  paymentsRefund,
+  paymentsTestCharge,
+  paymentsSyncPayouts,
 ];
