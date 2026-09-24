@@ -116,6 +116,27 @@ export async function saveEvent(eventId: string | null, _prev: Result | null, fd
   });
 }
 
+/**
+ * Event builder › "Start from a template": `create_event_from_template` copies
+ * the template's description, owner, confidentiality and checklist (with due
+ * dates offset from the start date), then the builder opens the new draft.
+ */
+export async function createEventFromTemplate(_prev: Result | null, fd: FormData): Promise<Result> {
+  return runAction("events.createEventFromTemplate", "create the event from the template", async () => {
+    const ctx = await eventActionContext((a) => eventAreas.manage(a), "only event managers can create events.");
+    const templateId = reqStr(fd, "template_id", "Template");
+    const name = reqStr(fd, "name", "Event name");
+    const startsAt = dateTime(fd, "starts_at", "Starts", ctx.tz);
+    const id = must(
+      await ctx.db.rpc("create_event_from_template", { p_template: templateId, p_name: name, p_starts_at: startsAt ?? undefined, p_program_year: str(fd, "program_year") ?? undefined }),
+      "create the event from the template",
+    );
+    if (!id) throw new FormError("the template was not found, or your role can't use it.");
+    revalidateEvents();
+    redirect(`/events/builder?event=${id}&saved=template`);
+  });
+}
+
 const STATUS_MESSAGES: Record<(typeof EVENT_STATUSES)[number], string> = {
   draft: "Back to draft.",
   published: "Published · RSVPs open in the member app",

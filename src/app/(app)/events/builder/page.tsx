@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { LoadProblem } from "@/components/events/load-problem";
-import { Alert, NoAccess, PageHeader, buttonClass } from "@/components/ui";
-import { load, loadEventAccess, resolvePeopleNames, row } from "@/lib/data/events";
+import { Alert, Card, NoAccess, PageHeader, buttonClass } from "@/components/ui";
+import { load, loadEventAccess, resolvePeopleNames, row, rows } from "@/lib/data/events";
 import { eventAreas } from "@/lib/events/access";
 import { centsToDollarsInput, formatEventDate, toDateTimeLocal } from "@/lib/events/format";
 import { commitmentEnabled, readCommitment } from "@/lib/events/report";
@@ -13,7 +13,9 @@ import { canAccess } from "@/lib/permissions";
 import { isUuid, param, type RawSearchParams } from "@/lib/search-params";
 import { getSession } from "@/lib/session";
 
-import { saveEvent } from "../actions";
+import { ActionForm } from "@/components/action-form";
+
+import { createEventFromTemplate, saveEvent } from "../actions";
 import { EventBuilder, type BuilderEvent } from "./event-builder";
 
 export const metadata: Metadata = { title: "Event builder" };
@@ -34,6 +36,11 @@ export default async function EventBuilderPage({ searchParams }: { searchParams:
       </>
     );
   }
+
+  // "Start from a template" (new events only): the center's event templates.
+  const templates = !eventId && eventAreas.manage(access)
+    ? await load(async () => rows(await session.db.from("event_templates").select("id, name, description").eq("center_id", session.center.id).order("name"), "the event templates"))
+    : null;
 
   const res = await load(async () => {
     if (!eventId) return null;
@@ -159,6 +166,58 @@ export default async function EventBuilderPage({ searchParams }: { searchParams:
           ) : null
         }
       />
+      {saved === "template" ? (
+        <div className="mb-4">
+          <Alert tone="success" title="Draft created from the template">
+            The template&apos;s checklist was copied to this event. Add the date, venue and lunch settings below, then publish.
+          </Alert>
+        </div>
+      ) : null}
+      {templates ? (
+        templates.ok ? (
+          templates.data.length ? (
+            <div className="mb-4 grid grid-cols-12 gap-4">
+              <Card span={12} title="Start from a template" description="Copies the template's description, event lead and checklist into a new draft">
+                <ActionForm action={createEventFromTemplate} submitLabel="Create draft from template" pendingLabel="Creating…" variant="ghost">
+                  <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+                    <div>
+                      <label htmlFor="tpl-id" className="crm-label">
+                        Template
+                      </label>
+                      <select id="tpl-id" name="template_id" required className="crm-input" defaultValue="">
+                        <option value="" disabled>
+                          Choose a template
+                        </option>
+                        {templates.data.map((t) => (
+                          <option key={t.id} value={t.id}>
+                            {t.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label htmlFor="tpl-name" className="crm-label">
+                        Event name
+                      </label>
+                      <input id="tpl-name" name="name" required maxLength={200} className="crm-input" />
+                    </div>
+                    <div>
+                      <label htmlFor="tpl-starts" className="crm-label">
+                        Starts
+                      </label>
+                      <input id="tpl-starts" type="datetime-local" name="starts_at" className="crm-input" />
+                    </div>
+                  </div>
+                </ActionForm>
+              </Card>
+            </div>
+          ) : null
+        ) : (
+          <div className="mb-4">
+            <LoadProblem message={templates.error} retryHref="/events/builder" />
+          </div>
+        )
+      ) : null}
       {saved === "draft" || saved === "published" ? (
         <div className="mb-4">
           <Alert tone="success" title={saved === "published" ? "Published · RSVPs open in the member app" : "Draft saved"}>
