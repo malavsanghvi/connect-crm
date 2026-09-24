@@ -21,7 +21,7 @@ import {
   slotPreview,
 } from "@/lib/events/report";
 import { lunchRulesFromCenter } from "@/lib/events/rules";
-import { eventRowHref, eventStatusLabel } from "@/lib/events/status";
+import { eventRef, eventRowHref, eventStatusLabel } from "@/lib/events/status";
 import { extractTicketToken } from "@/lib/events/tokens";
 import { NAV } from "@/lib/permissions";
 
@@ -264,5 +264,14 @@ describe("nav", () => {
     const keys = NAV.map((m) => m.key);
     expect(keys.indexOf("events")).toBe(keys.indexOf("people") + 1);
     expect(NAV.find((m) => m.key === "events")!.tabs.map((t) => t.label)).toEqual(["All events", "Event builder", "Live check-in", "Feedback"]);
+  });
+});
+
+describe("eventRef", () => {
+  it("shows the event number issued by the database", () => {
+    expect(eventRef({ id: "d0000000-0000-4000-8000-000000000401", event_number: "JSH-EV-901" })).toBe("JSH-EV-901");
+  });
+  it("falls back to the id's first characters when there is no number", () => {
+    expect(eventRef({ id: "abcdef12-0000-4000-8000-000000000401", event_number: "" })).toBe("EV-ABCDEF");
   });
 });

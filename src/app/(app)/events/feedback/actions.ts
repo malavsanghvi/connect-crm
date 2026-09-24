@@ -153,9 +153,9 @@ export async function setSurveyStatus(surveyId: string, _prev: Result | null, fd
   return runAction("events.setSurveyStatus", "update the survey", async () => {
     const { db } = await eventActionContext(canSend, DENIED);
     const status = oneOf(fd, "status", ["draft", "open", "closed"] as const, "Status");
-    const patch: { status: string; opens_at?: string } = { status };
-    // "Open now" on a scheduled survey opens it immediately.
-    if (status === "open" && str(fd, "now") === "1") patch.opens_at = new Date().toISOString();
+    const patch: { status: string; opens_at?: string; send_at?: string } = { status };
+    // "Open now" on a scheduled survey opens (and sends) it immediately, so the Sent column is truthful.
+    if (status === "open" && str(fd, "now") === "1") patch.opens_at = patch.send_at = new Date().toISOString();
     const res = must(await db.from("surveys").update(patch).eq("id", surveyId).select("id"), "update the survey") ?? [];
     if (!res.length) throw new FormError("you can't change this survey.");
     revalidateFeedback();
