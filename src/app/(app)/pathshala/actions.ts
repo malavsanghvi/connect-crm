@@ -498,6 +498,48 @@ export async function saveProgressReport(classId: string, enrollmentId: string, 
 }
 
 // ---------------------------------------------------------------------------
+// Teacher positions and applications (principal)
+// ---------------------------------------------------------------------------
+export async function savePosition(positionId: string | null, _prev: unknown, fd: FormData): Promise<ActionResult<unknown>> {
+  return runAction("pathshala.savePosition", "save the teacher position", async () => {
+    const { supabase, centerId, viewer } = await actionContext(areas.manage, "Only the Pathshala principal can post teacher positions.");
+    const values = {
+      title: reqStr(fd, "title", "Position"),
+      term_id: str(fd, "term_id"),
+      level_id: str(fd, "level_id"),
+      description: str(fd, "description"),
+      min_qualifications: str(fd, "min_qualifications"),
+      status: oneOf(fd, "status", ["open", "closed"] as const, "Status", "open"),
+    };
+    if (positionId) must(await supabase.from("teacher_positions").update(values).eq("id", positionId), "save the teacher position");
+    else must(await supabase.from("teacher_positions").insert({ ...values, center_id: centerId, created_by: viewer.userId }), "post the teacher position");
+    refresh();
+    return ok(positionId ? "Position saved." : values.status === "open" ? "Position posted — members can apply in the app." : "Position saved as closed.");
+  });
+}
+
+export async function setPositionStatus(positionId: string, _prev: unknown, fd: FormData): Promise<ActionResult<unknown>> {
+  return runAction("pathshala.setPositionStatus", "update the teacher position", async () => {
+    const { supabase } = await actionContext(areas.manage, "Only the Pathshala principal can open or close positions.");
+    const status = oneOf(fd, "status", ["open", "closed"] as const, "Status");
+    must(await supabase.from("teacher_positions").update({ status }).eq("id", positionId), "update the teacher position");
+    refresh();
+    return ok(status === "open" ? "Position reopened." : "Position closed — it no longer shows in the app.");
+  });
+}
+
+export async function decideApplication(applicationId: string, _prev: unknown, fd: FormData): Promise<ActionResult<unknown>> {
+  return runAction("pathshala.decideApplication", "record the decision", async () => {
+    const { supabase } = await actionContext(areas.manage, "Only the Pathshala principal can decide on applications.");
+    const outcome = oneOf(fd, "outcome", ["pending", "selected", "not_selected"] as const, "Decision");
+    const note = str(fd, "outcome_note");
+    must(await supabase.from("teacher_applications").update({ outcome, outcome_note: note }).eq("id", applicationId), "record the decision");
+    refresh();
+    return ok(outcome === "selected" ? "Marked selected. Add them to a class from the class page." : outcome === "not_selected" ? "Marked not selected." : "Back to pending.");
+  });
+}
+
+// ---------------------------------------------------------------------------
 // Gyan Path sign-offs
 // ---------------------------------------------------------------------------
 export async function decideSignoff(signoffId: string, _prev: unknown, fd: FormData): Promise<ActionResult<unknown>> {
