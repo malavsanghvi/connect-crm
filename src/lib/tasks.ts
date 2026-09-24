@@ -28,6 +28,7 @@ export type TaskSourceKey =
   | "feedback"
   | "bolis"
   | "pathshala"
+  | "roles"
   | "privacy";
 
 export type TaskSource = {
@@ -62,6 +63,7 @@ export const TASK_SOURCES: readonly TaskSource[] = [
   { key: "feedback", tag: "Feedback", color: "purple", anyOf: ["events.manage"], alsoNeeds: ["comms.view", "comms.send"], href: "/events" },
   { key: "bolis", tag: "Bolis", color: "brown", anyOf: ["bolis.manage"], href: "/bolis" },
   { key: "pathshala", tag: "Pathshala", color: "purple", anyOf: ["pathshala.manage"], href: "/pathshala/signoffs", module: "pathshala" },
+  { key: "roles", tag: "Roles", color: "navy", anyOf: ["roles.manage"], href: "/settings/roles?show=pending" },
   { key: "privacy", tag: "Privacy", color: "muted", anyOf: ["privacy.manage"], href: "/privacy/requests" },
 ];
 

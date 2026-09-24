@@ -12,7 +12,7 @@ import { canAccess, isGrantActive } from "@/lib/permissions";
 import { hrefWith, param, type RawSearchParams } from "@/lib/search-params";
 import { getSession } from "@/lib/session";
 
-import { revokeGrantAction } from "./actions";
+import { approveGrantAction, revokeGrantAction } from "./actions";
 import { GrantForm } from "./grant-form";
 
 export const metadata: Metadata = { title: "Roles & entitlements · Settings" };
@@ -31,7 +31,8 @@ export default async function RolesPage({ searchParams }: { searchParams: Promis
     );
   }
   const sp = await searchParams;
-  const show = param(sp, "show") === "ended" ? "ended" : param(sp, "show") === "all" ? "all" : "active";
+  const showParam = param(sp, "show");
+  const show = showParam === "ended" || showParam === "all" || showParam === "pending" ? showParam : "active";
   const { db, center } = session;
   const tz = center.time_zone;
   const rules = identifierRules(center.rules);
@@ -40,7 +41,7 @@ export default async function RolesPage({ searchParams }: { searchParams: Promis
     db.from("roles").select("key, tier, name, description, default_scope, permissions").order("tier").order("name"),
     db
       .from("role_grants")
-      .select("id, user_id, role_key, scope_kind, scope_id, starts_at, ends_at, granted_by, reason, created_at")
+      .select("id, user_id, role_key, scope_kind, scope_id, starts_at, ends_at, granted_by, reason, created_at, status")
       .eq("center_id", center.id)
       .order("created_at", { ascending: false })
       .limit(1000),
@@ -59,8 +60,12 @@ export default async function RolesPage({ searchParams }: { searchParams: Promis
   const roles = rolesRes.data ?? [];
   const roleName = new Map(roles.map((r) => [r.key, r.name]));
   const now = new Date();
-  const grants = (grantsRes.data ?? []).filter((g) =>
-    show === "all" ? true : show === "active" ? isGrantActive(g, now) : !isGrantActive(g, now),
+  // Finance and admin roles wait for a second person (status 'pending', starts_at 'infinity') until approved.
+  const isPending = (g: { status: string; ends_at: string | null }) => g.status === "pending" && (g.ends_at === null || new Date(g.ends_at) > now);
+  const allGrants = grantsRes.data ?? [];
+  const pendingCount = allGrants.filter(isPending).length;
+  const grants = allGrants.filter((g) =>
+    show === "all" ? true : show === "pending" ? isPending(g) : show === "active" ? isGrantActive(g, now) && g.status !== "pending" : !isGrantActive(g, now) && !isPending(g),
   );
   const people = await userNames(db, center.id, [...grants.map((g) => g.user_id), ...grants.map((g) => g.granted_by)]);
   const scopeName = new Map<string, string>([
@@ -221,6 +226,7 @@ export default async function RolesPage({ searchParams }: { searchParams: Promis
             active={show}
             tabs={[
               { key: "active", label: "Active grants", href: hrefWith("/settings/roles", sp, { show: undefined }) },
+              { key: "pending", label: `Waiting for approval${pendingCount ? ` (${pendingCount})` : ""}`, href: hrefWith("/settings/roles", sp, { show: "pending" }) },
               { key: "ended", label: "Ended", href: hrefWith("/settings/roles", sp, { show: "ended" }) },
               { key: "all", label: "All", href: hrefWith("/settings/roles", sp, { show: "all" }) },
             ]}
@@ -259,17 +265,33 @@ export default async function RolesPage({ searchParams }: { searchParams: Promis
                             <td>
                               {g.scope_kind === "center" ? "Whole center" : `${g.scope_kind}: ${g.scope_id ? (scopeName.get(g.scope_id) ?? "—") : "—"}`}
                             </td>
-                            <td className="whitespace-nowrap">{formatDate(g.starts_at, tz)}</td>
+                            <td className="whitespace-nowrap">{isPending(g) ? <Badge>Needs a second approver</Badge> : formatDate(g.starts_at, tz)}</td>
                             <td className="whitespace-nowrap">{g.ends_at ? formatDate(g.ends_at, tz) : "No end"}</td>
                             <td className="text-[0.8125rem]">
                               {g.granted_by ? (people.get(g.granted_by)?.name ?? "—") : "—"}
                               {g.reason ? <div className="text-xs text-muted">{g.reason}</div> : null}
                             </td>
                             <td>
-                              {active ? (
+                              {isPending(g) ? (
+                                g.granted_by !== session.userId && g.user_id !== session.userId ? (
+                                  <ActionForm
+                                    action={approveGrantAction}
+                                    submitLabel="Approve"
+                                    pendingLabel="Approving…"
+                                    variant="ok"
+                                    size="sm"
+                                    confirmMessage={`Approve ${roleName.get(g.role_key) ?? "this role"} for ${who?.name ?? "this person"}? It works from now on, and your approval is recorded as the second person.`}
+                                  >
+                                    <input type="hidden" name="id" value={g.id} />
+                                  </ActionForm>
+                                ) : (
+                                  <p className="text-xs text-muted">{g.granted_by === session.userId ? "You made this grant — a different administrator approves it." : "Your own grant — someone else approves it."}</p>
+                                )
+                              ) : null}
+                              {active || isPending(g) ? (
                                 <ActionForm
                                   action={revokeGrantAction}
-                                  submitLabel="Revoke"
+                                  submitLabel={isPending(g) ? "Cancel" : "Revoke"}
                                   pendingLabel="Revoking…"
                                   variant="danger"
                                   size="sm"
