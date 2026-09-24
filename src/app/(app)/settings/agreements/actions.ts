@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { headers } from "next/headers";
 
 import { failure, type ActionResult } from "@/lib/errors";
 import { isUuid } from "@/lib/search-params";
@@ -20,7 +21,17 @@ export async function acceptAgreementAction(_prev: ActionResult | null, formData
   if (formData.get("confirm") !== "on") {
     return { ok: false, error: `Could not accept ${title} — tick the box to confirm you have read it and accept it for ${center.name}.` };
   }
-  const { error } = await db.rpc("accept_org_agreement", { p_center: center.id, p_document: id });
+  // The browser's address and user agent as this server received them (the database would otherwise see the portal server's).
+  let ip: string | undefined;
+  let userAgent: string | undefined;
+  try {
+    const h = await headers();
+    ip = (h.get("x-forwarded-for") ?? "").split(",")[0].trim() || h.get("x-real-ip") || undefined;
+    userAgent = h.get("user-agent") ?? undefined;
+  } catch (error) {
+    console.error("[agreements] could not read the request headers for the acceptance record:", error);
+  }
+  const { error } = await db.rpc("accept_org_agreement", { p_center: center.id, p_document: id, p_ip: ip, p_user_agent: userAgent });
   if (error) return failure(`Could not accept ${title}`, error);
   revalidatePath("/settings/agreements");
   return { ok: true, message: `${title} accepted for ${center.name} · recorded with your name, the version, the time and your IP address` };

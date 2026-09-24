@@ -61,6 +61,21 @@ API Keys.
    signs in, set up custom SMTP (Authentication › Emails › SMTP Settings) with a
    provider such as Resend or SendGrid (both have free tiers).
 
+5. **Two-step verification (staff 2FA)**: Authentication › Multi-Factor (Sign In / Providers
+   › Multi-Factor): **TOTP (App Authenticator)** must be *Enabled* for both enrolment and
+   verification (it is by default). The portal's Account › Security, the step-up modal and the
+   database's `app.assert_step_up` all rely on it. Keep the max enrolled factors at 10 or more.
+6. **Phone verification**: Authentication › Sign In / Providers › **Phone**: enable it and
+   connect an SMS provider (Twilio, MessageBird, Vonage or Textlocal; decision O7 says Twilio).
+   Until it is on, Account › Security says texting is not set up and invitations sent to a
+   mobile number cannot be accepted (email invitations work). Do **not** set test OTPs in
+   production. Staff can already sign in with email codes; the phone is a verified contact
+   and later a backup factor.
+7. **Recovery codes are not offered**: Supabase Auth has no recovery codes. A staff member who
+   loses their phone is reset by another administrator (Settings › Team › Reset 2FA) or by the
+   Community Connect team (`app.reset_staff_2fa`, as a platform admin), after checking who they
+   are. The reset is audited as `security.reset_2fa`.
+
 ### 3. GitHub secrets and variables
 
 In **each of the three repos**: Settings › Secrets and variables › Actions.

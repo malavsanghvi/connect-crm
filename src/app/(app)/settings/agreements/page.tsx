@@ -105,7 +105,11 @@ export default async function AgreementsPage() {
               span={6}
               title={title}
               description={row.version ? `Version ${row.version}${row.required ? "" : " · not required for this organization"}` : undefined}
-              actions={<StatusText tone={STATE_TEXT[st].tone}>{STATE_TEXT[st].label}</StatusText>}
+              actions={
+                <StatusText tone={STATE_TEXT[st].tone}>
+                  {isOwner && (st === "needs_acceptance" || st === "new_version") ? "Needs your acceptance" : STATE_TEXT[st].label}
+                </StatusText>
+              }
             >
               <div className="flex flex-col gap-3" data-testid={`agreement-${row.kind}`}>
                 {row.accepted_at ? (

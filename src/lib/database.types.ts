@@ -5603,6 +5603,8 @@ export type Database = {
         Args: {
           p_center: string;
           p_document: string;
+          p_ip?: string;
+          p_user_agent?: string;
         };
         Returns: string;
       };

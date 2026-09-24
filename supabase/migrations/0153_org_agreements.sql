@@ -121,9 +121,14 @@ begin
      order by k.sort;
 end $$;
 
-create or replace function app.accept_org_agreement(p_center uuid, p_document uuid) returns uuid
+-- p_ip / p_user_agent: the portal server passes the browser's address and user
+-- agent from ITS incoming request (the database otherwise only sees the portal
+-- server's). Without them, the request headers are used.
+drop function if exists app.accept_org_agreement(uuid, uuid);
+create or replace function app.accept_org_agreement(p_center uuid, p_document uuid, p_ip text default null, p_user_agent text default null)
+returns uuid
 language plpgsql security definer set search_path = app, public, extensions as $$
-declare d app.legal_documents; c record; v_id uuid; v_kind text;
+declare d app.legal_documents; c record; v_id uuid; v_kind text; v_ip inet;
 begin
   if auth.uid() is null then raise exception 'Sign in to accept the agreements.' using errcode = 'insufficient_privilege'; end if;
   if not app.is_center_owner(p_center) then
@@ -142,9 +147,14 @@ begin
   select id into v_id from app.org_agreements where center_id = p_center and kind = v_kind and version = d.version;
   if v_id is not null then return v_id; end if;
   select * into c from app.audit_context();
+  begin
+    v_ip := nullif(btrim(p_ip), '')::inet;
+  exception when others then
+    v_ip := null;   -- an unparseable address is not recorded; the header's is used instead
+  end;
   perform app.set_audit_context('Accepted ' || d.title || ' (' || d.version || ')');
   insert into app.org_agreements (center_id, kind, version, legal_document_id, accepted_by, ip, user_agent)
-  values (p_center, v_kind, d.version, d.id, auth.uid(), c.ip, left(c.user_agent, 500))
+  values (p_center, v_kind, d.version, d.id, auth.uid(), coalesce(v_ip, c.ip), left(coalesce(nullif(btrim(p_user_agent), ''), c.user_agent), 500))
   returning id into v_id;
   return v_id;
 end $$;
@@ -161,8 +171,8 @@ end $$;
 
 revoke execute on function app.org_agreement_doc_kind(text) from public, anon;
 grant execute on function app.org_agreement_doc_kind(text) to authenticated;
-revoke execute on function app.center_environment(uuid), app.org_agreement_status(uuid), app.accept_org_agreement(uuid, uuid),
+revoke execute on function app.center_environment(uuid), app.org_agreement_status(uuid), app.accept_org_agreement(uuid, uuid, text, text),
   app.publish_platform_document(uuid) from public, anon;
-grant execute on function app.center_environment(uuid), app.org_agreement_status(uuid), app.accept_org_agreement(uuid, uuid),
+grant execute on function app.center_environment(uuid), app.org_agreement_status(uuid), app.accept_org_agreement(uuid, uuid, text, text),
   app.publish_platform_document(uuid) to authenticated;
 grant execute on all functions in schema app to service_role;

@@ -424,6 +424,12 @@ select pg_temp.sign_in(:priya);
 select pg_temp.assert(not exists (select 1 from app.org_agreements), 'a member cannot read the organization''s agreement records');
 select pg_temp.assert(not exists (select 1 from app.staff_invitations), 'a member cannot read staff invitations');
 rollback;
+begin;
+select pg_temp.sign_in(:ada, null, '{"user-agent":"node","x-forwarded-for":"10.0.0.9"}');
+select app.accept_org_agreement(:jsh, current_setting('test.dpa')::uuid, '203.0.113.5', 'Mozilla/5.0 portal');
+select pg_temp.assert((select ip = '203.0.113.5'::inet and user_agent = 'Mozilla/5.0 portal' from app.org_agreements where center_id = :jsh and kind = 'dpa'),
+  'the portal server can pass the browser''s IP and user agent (the database would otherwise see the server''s)');
+rollback;
 -- Leave the platform documents unpublished for anyone who runs later tests.
 update app.legal_documents set published_at = null where center_id is null and kind in ('org_terms','dpa','children_addendum','order_form');
 

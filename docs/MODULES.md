@@ -272,4 +272,5 @@ name, to `audit.view` holders of that center and platform admins only (the same 
 
 centers, roles, role_grants, center_users, accounts, consents, audit_log, legal_documents,
 data_requests, import_runs, integration_connections, webhook_events, number_sequences, modules,
-center_modules, module_tables. Always on, audited, `module` is NULL on their audit entries.
+center_modules, module_tables, center_owners, staff_invitations, org_agreements, readiness_checks
+(o-security, 0150–0156; see ROLES.md for 2FA and step-up). Always on, audited, `module` is NULL on their audit entries.
