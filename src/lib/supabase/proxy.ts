@@ -3,6 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 
 import type { Database } from "@/lib/database.types";
 import type { PublicEnv } from "@/lib/env";
+import { PATHNAME_HEADER, clientScreen, newRequestId, traceHeaders } from "@/lib/supabase/trace";
 
 /** Paths reachable without a session (sign-in, the public community dashboard /c/<slug>). Everything else redirects to /login. */
 export const PUBLIC_PATHS = ["/login", "/c"];
@@ -17,17 +18,26 @@ export function isPublicPath(pathname: string): boolean {
  * Server Action re-checks the session, and the database enforces RLS.
  */
 export async function updateSession(request: NextRequest, env: PublicEnv): Promise<NextResponse> {
-  let response = NextResponse.next({ request });
+  const { pathname, search } = request.nextUrl;
+  // Pass the pathname to server components and actions (x-client-screen on
+  // their Supabase requests). Always overwritten here, never trusted from the client.
+  const passThrough = () => {
+    const forwarded = new Headers(request.headers);
+    forwarded.set(PATHNAME_HEADER, clientScreen(pathname) ?? "/");
+    return NextResponse.next({ request: { headers: forwarded } });
+  };
+  let response = passThrough();
 
   const supabase = createServerClient<Database, "app">(env.supabaseUrl, env.supabaseAnonKey, {
     db: { schema: "app" },
+    global: { headers: traceHeaders({ requestId: newRequestId(), screen: pathname }) },
     cookies: {
       getAll() {
         return request.cookies.getAll();
       },
       setAll(cookiesToSet, headers) {
         for (const { name, value } of cookiesToSet) request.cookies.set(name, value);
-        response = NextResponse.next({ request });
+        response = passThrough();
         for (const { name, value, options } of cookiesToSet) response.cookies.set(name, value, options);
         for (const [key, value] of Object.entries(headers)) response.headers.set(key, value);
       },
@@ -40,7 +50,6 @@ export async function updateSession(request: NextRequest, env: PublicEnv): Promi
     console.error("[proxy] could not validate the session:", error.message);
   }
   const signedIn = Boolean(data?.claims?.sub);
-  const { pathname, search } = request.nextUrl;
 
   const redirectTo = (target: URL) => {
     const redirect = NextResponse.redirect(target);

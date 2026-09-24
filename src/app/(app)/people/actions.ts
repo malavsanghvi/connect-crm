@@ -15,7 +15,7 @@ import {
   type PersonProfile,
 } from "@/lib/people";
 import { isUuid } from "@/lib/search-params";
-import { authorizeAction } from "@/lib/session";
+import { authorizeAction, dbWithReason } from "@/lib/session";
 
 // Person edits and actions (People › person drawer and page). RLS
 // (people.manage) and the audit triggers apply to every write; multi-row
@@ -160,8 +160,8 @@ export async function requestOverrideAction(_prev: ActionResult | null, fd: Form
   if (reason.length < 5) return { ok: false, error: "Could not request the override — give a reason the second approver can check." };
   const auth = await authorizeAction("peopleApprove", "request the voting override");
   if (!auth.ok) return auth;
-  const { db, center, userId } = auth.session;
-  const res = await db
+  const { center, userId } = auth.session;
+  const res = await (await dbWithReason(auth.session, reason))
     .from("eligibility_snapshots")
     .update({ override_by: userId, override_reason: reason.slice(0, 500), override_requested_value: want === "true", override_second_approver: null })
     .eq("id", id)

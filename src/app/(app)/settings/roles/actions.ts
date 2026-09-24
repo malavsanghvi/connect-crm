@@ -6,7 +6,7 @@ import { householdsById, orgIds, personName } from "@/lib/data/lookups";
 import { addDays, startOfDayInTz, todayInTz } from "@/lib/dates";
 import { failure, type ActionResult } from "@/lib/errors";
 import { isUuid, safeFilterText } from "@/lib/search-params";
-import { authorizeAction } from "@/lib/session";
+import { authorizeAction, dbWithReason } from "@/lib/session";
 
 export type PersonOption = {
   person_id: string;
@@ -132,7 +132,8 @@ export async function grantRoleAction(_prev: ActionResult | null, formData: Form
   if (dup.error) return failure("Could not grant the role", dup.error);
   if ((dup.data ?? []).length > 0) return { ok: false, error: `This person already holds ${role.data.name} for that scope.` };
 
-  const { error } = await db.from("role_grants").insert({
+  const writer = reason ? await dbWithReason(auth.session, reason) : db;
+  const { error } = await writer.from("role_grants").insert({
     center_id: center.id,
     user_id: grantee,
     role_key: roleKey,
