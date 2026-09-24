@@ -147,6 +147,14 @@ export const ACCESS = {
   pathshalaManage: ["pathshala.manage"],
   pathshalaSignoffs: ["pathshala.teach", "pathshala.manage"],
   pathshalaCommittee: ["events.view", "events.manage", "governance.view", "pathshala.view", "pathshala.manage"],
+  // Events (0010: events/rsvps/attendees/lunch_slots/scan_log staff policies).
+  events: ["events.view", "events.manage"],
+  eventsManage: ["events.manage"],
+  /** Event feedback surveys are app.surveys rows: read with comms.view/send, written with comms.send. */
+  eventFeedbackRead: ["comms.view", "comms.send"],
+  eventFeedbackSend: ["comms.send"],
+  /** Volunteer groups, sign-ups and background checks (volunteer_* and background_checks policies). */
+  volunteers: ["volunteers.view", "volunteers.manage", "safety.view", "safety.manage"],
 } as const satisfies Record<string, readonly string[]>;
 
 export type AccessKey = keyof typeof ACCESS;
@@ -229,6 +237,17 @@ export const NAV: NavModule[] = [
       { href: "/memberships/applications", label: "Membership applications", access: "applications" },
     ],
     paths: ["/households", "/people", "/memberships", "/identifiers"],
+  },
+  {
+    key: "events",
+    label: "Events",
+    tabs: [
+      { href: "/events", label: "All events", access: "events" },
+      { href: "/events/builder", label: "Event builder", access: "events" },
+      { href: "/events/live", label: "Live check-in", access: "events" },
+      { href: "/events/feedback", label: "Feedback", access: "events" },
+    ],
+    paths: ["/events"],
   },
   {
     key: "giving",
