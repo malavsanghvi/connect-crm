@@ -52,6 +52,7 @@ export const SECRET_NAME_SUGGESTIONS: Record<string, string[]> = {
 export const PROVIDER_LABELS: Record<string, string> = {
   quickbooks_online: "QuickBooks Online",
   stripe: "Stripe",
+  paypal: "PayPal",
   neon_crm: "Neon CRM",
   whatsapp: "WhatsApp Business",
   twilio: "Twilio",
@@ -170,6 +171,11 @@ export const JOB_KIND_LABELS: Record<string, string> = {
   "oauth.exchange": "Connect a service",
   "storage.retention": "Remove expired files",
   "storage.scan": "Malware scan",
+  "payments.webhook.stripe": "Stripe event",
+  "payments.webhook.paypal": "PayPal event",
+  "payments.refund": "Refund through the provider",
+  "payments.test_charge": "$1 test refund",
+  "payments.sync_payouts": "Payout sync",
 };
 
 export function jobKindLabel(kind: string): string {

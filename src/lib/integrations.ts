@@ -30,7 +30,7 @@ export type IntegrationService = {
 
 export const INTEGRATION_SERVICES: IntegrationService[] = [
   { key: "qbo", label: "QuickBooks Online", providers: ["quickbooks_online"], owner: "Treasurer", notConnected: "Connect and map accounts on the Accounting › QuickBooks page", href: "/accounting/qbo" },
-  { key: "payments", label: "Payments", providers: ["stripe"], owner: "Treasurer", notConnected: "Card payment is being set up · offline payments are recorded by hand" },
+  { key: "payments", label: "Payments", providers: ["stripe", "paypal"], owner: "Treasurer", notConnected: "No Stripe or PayPal account connected · offline payments are recorded by hand", href: "/settings/payments" },
   { key: "email", label: "Email sending domain", providers: ["sendgrid", "resend"], owner: "Communications", notConnected: "No sending service connected yet" },
   { key: "sms", label: "US business texting (10DLC)", providers: ["twilio"], owner: "Tech officer", notConnected: "No texting provider connected yet" },
   { key: "whatsapp", label: "WhatsApp Business", providers: ["whatsapp"], owner: "Communications", notConnected: "No WhatsApp Business number connected yet" },

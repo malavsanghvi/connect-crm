@@ -923,6 +923,75 @@ export type Database = {
         };
         Relationships: [];
       };
+      center_payment_methods: {
+        Row: {
+          center_id: string;
+          method: Database["app"]["Enums"]["payment_method"];
+          accepted: boolean;
+          instructions: Json;
+          sort: number;
+          updated_by: string | null;
+          updated_at: string;
+        };
+        Insert: {
+          center_id: string;
+          method: Database["app"]["Enums"]["payment_method"];
+          accepted?: boolean;
+          instructions?: Json;
+          sort?: number;
+          updated_by?: string | null;
+          updated_at?: string;
+        };
+        Update: {
+          center_id?: string;
+          method?: Database["app"]["Enums"]["payment_method"];
+          accepted?: boolean;
+          instructions?: Json;
+          sort?: number;
+          updated_by?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      center_payment_processors: {
+        Row: {
+          center_id: string;
+          processor: string;
+          connection_id: string | null;
+          is_default: boolean;
+          methods: string[];
+          statement_descriptor: string | null;
+          donor_covers_fee_allowed: boolean;
+          status: string;
+          updated_by: string | null;
+          updated_at: string;
+        };
+        Insert: {
+          center_id: string;
+          processor: string;
+          connection_id?: string | null;
+          is_default?: boolean;
+          methods?: string[];
+          statement_descriptor?: string | null;
+          donor_covers_fee_allowed?: boolean;
+          status?: string;
+          updated_by?: string | null;
+          updated_at?: string;
+        };
+        Update: {
+          center_id?: string;
+          processor?: string;
+          connection_id?: string | null;
+          is_default?: boolean;
+          methods?: string[];
+          statement_descriptor?: string | null;
+          donor_covers_fee_allowed?: boolean;
+          status?: string;
+          updated_by?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       center_setup_steps: {
         Row: {
           center_id: string;
@@ -3575,6 +3644,45 @@ export type Database = {
         };
         Relationships: [];
       };
+      oauth_states: {
+        Row: {
+          id: string;
+          center_id: string;
+          provider: string;
+          connection_id: string;
+          user_id: string;
+          nonce_hash: string;
+          redirect_uri: string | null;
+          created_at: string;
+          expires_at: string;
+          used_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          center_id: string;
+          provider: string;
+          connection_id: string;
+          user_id: string;
+          nonce_hash: string;
+          redirect_uri?: string | null;
+          created_at?: string;
+          expires_at?: string;
+          used_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          center_id?: string;
+          provider?: string;
+          connection_id?: string;
+          user_id?: string;
+          nonce_hash?: string;
+          redirect_uri?: string | null;
+          created_at?: string;
+          expires_at?: string;
+          used_at?: string | null;
+        };
+        Relationships: [];
+      };
       opportunities: {
         Row: {
           id: string;
@@ -4280,6 +4388,120 @@ export type Database = {
         };
         Relationships: [];
       };
+      payment_checkouts: {
+        Row: {
+          id: string;
+          center_id: string;
+          household_id: string | null;
+          person_id: string | null;
+          processor: string;
+          mode: string;
+          context: string;
+          amount_cents: number;
+          currency: string;
+          pledge_ids: string[];
+          for_label: string;
+          status: string;
+          provider_ref: string | null;
+          provider_payment_ref: string | null;
+          checkout_url: string | null;
+          payment_id: string | null;
+          error: string | null;
+          created_by: string | null;
+          created_at: string;
+          updated_at: string;
+          paid_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          center_id: string;
+          household_id?: string | null;
+          person_id?: string | null;
+          processor: string;
+          mode: string;
+          context: string;
+          amount_cents: number;
+          currency?: string;
+          pledge_ids?: string[];
+          for_label: string;
+          status?: string;
+          provider_ref?: string | null;
+          provider_payment_ref?: string | null;
+          checkout_url?: string | null;
+          payment_id?: string | null;
+          error?: string | null;
+          created_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+          paid_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          center_id?: string;
+          household_id?: string | null;
+          person_id?: string | null;
+          processor?: string;
+          mode?: string;
+          context?: string;
+          amount_cents?: number;
+          currency?: string;
+          pledge_ids?: string[];
+          for_label?: string;
+          status?: string;
+          provider_ref?: string | null;
+          provider_payment_ref?: string | null;
+          checkout_url?: string | null;
+          payment_id?: string | null;
+          error?: string | null;
+          created_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+          paid_at?: string | null;
+        };
+        Relationships: [];
+      };
+      payment_processor_tests: {
+        Row: {
+          id: string;
+          center_id: string;
+          processor: string;
+          mode: string;
+          checkout_id: string | null;
+          charge_ref: string | null;
+          refund_ref: string | null;
+          ok: boolean;
+          ran_by: string | null;
+          ran_at: string;
+          detail: string | null;
+        };
+        Insert: {
+          id?: string;
+          center_id: string;
+          processor: string;
+          mode: string;
+          checkout_id?: string | null;
+          charge_ref?: string | null;
+          refund_ref?: string | null;
+          ok: boolean;
+          ran_by?: string | null;
+          ran_at?: string;
+          detail?: string | null;
+        };
+        Update: {
+          id?: string;
+          center_id?: string;
+          processor?: string;
+          mode?: string;
+          checkout_id?: string | null;
+          charge_ref?: string | null;
+          refund_ref?: string | null;
+          ok?: boolean;
+          ran_by?: string | null;
+          ran_at?: string;
+          detail?: string | null;
+        };
+        Relationships: [];
+      };
       payments: {
         Row: {
           id: string;
@@ -4430,6 +4652,45 @@ export type Database = {
           variance_cents?: number;
           ledger_posting_id?: string | null;
           created_at?: string;
+        };
+        Relationships: [];
+      };
+      paypal_email_verifications: {
+        Row: {
+          center_id: string;
+          connection_id: string;
+          email: string;
+          code_hash: string;
+          expires_at: string;
+          attempts: number;
+          message_id: string | null;
+          requested_by: string | null;
+          requested_at: string;
+          used_at: string | null;
+        };
+        Insert: {
+          center_id: string;
+          connection_id: string;
+          email: string;
+          code_hash: string;
+          expires_at: string;
+          attempts?: number;
+          message_id?: string | null;
+          requested_by?: string | null;
+          requested_at?: string;
+          used_at?: string | null;
+        };
+        Update: {
+          center_id?: string;
+          connection_id?: string;
+          email?: string;
+          code_hash?: string;
+          expires_at?: string;
+          attempts?: number;
+          message_id?: string | null;
+          requested_by?: string | null;
+          requested_at?: string;
+          used_at?: string | null;
         };
         Relationships: [];
       };
@@ -6496,6 +6757,7 @@ export type Database = {
           processed_at: string | null;
           error: string | null;
           received_at: string;
+          job_id: number | null;
         };
         Insert: {
           id?: string;
@@ -6507,6 +6769,7 @@ export type Database = {
           processed_at?: string | null;
           error?: string | null;
           received_at?: string;
+          job_id?: number | null;
         };
         Update: {
           id?: string;
@@ -6518,6 +6781,7 @@ export type Database = {
           processed_at?: string | null;
           error?: string | null;
           received_at?: string;
+          job_id?: number | null;
         };
         Relationships: [];
       };
@@ -6723,6 +6987,14 @@ export type Database = {
         };
         Returns: undefined;
       };
+      attach_checkout: {
+        Args: {
+          p_checkout: string;
+          p_provider_ref: string;
+          p_checkout_url: string;
+        };
+        Returns: undefined;
+      };
       audit_clean_app: {
         Args: {
           p: string;
@@ -6744,6 +7016,15 @@ export type Database = {
       background_service_status: {
         Args: {
           p_center: string;
+        };
+        Returns: Json;
+      };
+      begin_payment_connect: {
+        Args: {
+          p_center: string;
+          p_processor: string;
+          p_redirect_uri: string;
+          p_reason: string;
         };
         Returns: Json;
       };
@@ -6876,6 +7157,12 @@ export type Database = {
         };
         Returns: Json;
       };
+      check_payments_live: {
+        Args: {
+          p_center: string;
+        };
+        Returns: Json;
+      };
       check_records_imported: {
         Args: {
           p_center: string;
@@ -6888,6 +7175,12 @@ export type Database = {
           p_phone: string;
         };
         Returns: { household_id: string; household_label: string; members_masked: string; rsvp_id: string; rsvp_status: string }[];
+      };
+      checkout_status: {
+        Args: {
+          p_checkout: string;
+        };
+        Returns: Json;
       };
       close_boli: {
         Args: {
@@ -6921,6 +7214,13 @@ export type Database = {
         };
         Returns: string;
       };
+      confirm_paypal_email: {
+        Args: {
+          p_center: string;
+          p_code: string;
+        };
+        Returns: Json;
+      };
       contact_coverage: {
         Args: {
           p_center: string;
@@ -6932,6 +7232,18 @@ export type Database = {
           p_center: string;
         };
         Returns: number;
+      };
+      create_checkout: {
+        Args: {
+          p_center: string;
+          p_household: string;
+          p_amount_cents: number;
+          p_pledge_ids: string[];
+          p_processor: string;
+          p_context: string;
+          p_for_label: string;
+        };
+        Returns: Json;
       };
       create_event_from_template: {
         Args: {
@@ -6949,6 +7261,13 @@ export type Database = {
           p_last: string;
         };
         Returns: string;
+      };
+      create_processor_test_checkout: {
+        Args: {
+          p_center: string;
+          p_processor: string;
+        };
+        Returns: Json;
       };
       create_recurring_gift: {
         Args: {
@@ -7019,6 +7338,14 @@ export type Database = {
         };
         Returns: { person_id: string; name: string; household_id: string; household_label: string; zone: string; profession: string; directory_opt_in: boolean; expertise_opt_in: boolean; expertise_tags: string[]; expertise_headline: string; new_member_contact_opt_in: boolean; is_verified: boolean }[];
       };
+      disconnect_payment_processor: {
+        Args: {
+          p_center: string;
+          p_processor: string;
+          p_reason: string;
+        };
+        Returns: undefined;
+      };
       enqueue_worker_test: {
         Args: {
           p_center: string;
@@ -7059,6 +7386,13 @@ export type Database = {
           p_limit?: number;
         };
         Returns: { checked_in_at: string; household_label: string; lunch_slot_label: string }[];
+      };
+      fail_checkout: {
+        Args: {
+          p_checkout: string;
+          p_error: string;
+        };
+        Returns: undefined;
       };
       find_community: {
         Args: {
@@ -7381,6 +7715,12 @@ export type Database = {
         };
         Returns: number;
       };
+      member_payment_options: {
+        Args: {
+          p_center: string;
+        };
+        Returns: Json;
+      };
       merge_households: {
         Args: {
           p_keep: string;
@@ -7502,6 +7842,13 @@ export type Database = {
         };
         Returns: string;
       };
+      oauth_store_code: {
+        Args: {
+          p_state: string;
+          p_code: string;
+        };
+        Returns: Json;
+      };
       opportunity_availability: {
         Args: {
           p_opportunity: string;
@@ -7538,9 +7885,53 @@ export type Database = {
         };
         Returns: { students: number; waitlisted: number; teachers: number; background_checks_expiring: number; attendance_percent: number; signoffs_waiting: number }[];
       };
+      payment_api_mode: {
+        Args: {
+          p_center: string;
+          p_processor: string;
+        };
+        Returns: string;
+      };
+      payment_method_instructions_problem: {
+        Args: {
+          p_method: Database["app"]["Enums"]["payment_method"];
+          p: Json;
+        };
+        Returns: string;
+      };
+      payment_method_required_fields: {
+        Args: {
+          p_method: Database["app"]["Enums"]["payment_method"];
+        };
+        Returns: string[];
+      };
       payment_posts_to_qbo: {
         Args: {
           p_payment: string;
+        };
+        Returns: boolean;
+      };
+      payment_settings: {
+        Args: {
+          p_center: string;
+        };
+        Returns: Json;
+      };
+      payments_can_configure: {
+        Args: {
+          p_center: string;
+        };
+        Returns: boolean;
+      };
+      payments_can_connect: {
+        Args: {
+          p_center: string;
+        };
+        Returns: boolean;
+      };
+      payments_can_view: {
+        Args: {
+          p_center: string;
         };
         Returns: boolean;
       };
@@ -7576,6 +7967,12 @@ export type Database = {
           p_pledge_ids?: string[];
         };
         Returns: { pledge_id: string; pledge_number: string; amount_cents: number; closes: boolean }[];
+      };
+      processor_methods: {
+        Args: {
+          p_processor: string;
+        };
+        Returns: string[];
       };
       public_kpi_catalog: {
         Args: {
@@ -7667,6 +8064,19 @@ export type Database = {
           p_person?: string;
         };
         Returns: string;
+      };
+      request_payout_sync: {
+        Args: {
+          p_center: string;
+        };
+        Returns: number;
+      };
+      request_provider_refund: {
+        Args: {
+          p_payment: string;
+          p_reason: string;
+        };
+        Returns: number;
       };
       require_2fa_for_staff: {
         Args: {
@@ -7786,6 +8196,14 @@ export type Database = {
         };
         Returns: Json;
       };
+      set_default_payment_processor: {
+        Args: {
+          p_center: string;
+          p_processor: string;
+          p_reason: string;
+        };
+        Returns: undefined;
+      };
       set_integration_secret: {
         Args: {
           p_connection: string;
@@ -7800,6 +8218,45 @@ export type Database = {
           p_center: string;
           p_module: string;
           p_enabled: boolean;
+          p_reason: string;
+        };
+        Returns: undefined;
+      };
+      set_payment_method: {
+        Args: {
+          p_center: string;
+          p_method: Database["app"]["Enums"]["payment_method"];
+          p_accepted: boolean;
+          p_instructions: Json;
+          p_sort: number;
+          p_reason: string;
+        };
+        Returns: undefined;
+      };
+      set_payment_mode: {
+        Args: {
+          p_center: string;
+          p_processor: string;
+          p_mode: string;
+          p_reason: string;
+        };
+        Returns: undefined;
+      };
+      set_payment_processor: {
+        Args: {
+          p_center: string;
+          p_processor: string;
+          p_methods: string[];
+          p_statement_descriptor: string;
+          p_donor_covers_fee_allowed: boolean;
+          p_reason: string;
+        };
+        Returns: undefined;
+      };
+      set_payments_offline_only: {
+        Args: {
+          p_center: string;
+          p_on: boolean;
           p_reason: string;
         };
         Returns: undefined;
@@ -7860,6 +8317,19 @@ export type Database = {
           p_ids: string[];
         };
         Returns: { person_id: string; name: string; household_id: string; household_name: string }[];
+      };
+      start_paypal_email_verification: {
+        Args: {
+          p_center: string;
+          p_email: string;
+        };
+        Returns: Json;
+      };
+      statement_descriptor_problem: {
+        Args: {
+          p: string;
+        };
+        Returns: string;
       };
       storage_bucket_module: {
         Args: {
@@ -8000,6 +8470,12 @@ export type Database = {
         };
         Returns: string;
       };
+      webhook_job_kind: {
+        Args: {
+          p_provider: string;
+        };
+        Returns: string;
+      };
       worker_stale_after: {
         Args: Record<PropertyKey, never>;
         Returns: string;
@@ -8014,7 +8490,7 @@ export type Database = {
       identifier_kind: "org_member" | "org_household" | "crm" | "accounting" | "bank_payer" | "payment_provider" | "other";
       membership_status: "pending" | "active" | "lapsed" | "suspended" | "ended";
       membership_tier: "community" | "yearly" | "life";
-      payment_method: "card" | "ach" | "apple_pay" | "google_pay" | "check" | "cash" | "stock" | "daf" | "matching_gift" | "zelle" | "other";
+      payment_method: "card" | "ach" | "apple_pay" | "google_pay" | "check" | "cash" | "stock" | "daf" | "matching_gift" | "zelle" | "other" | "paypal" | "venmo";
       payment_status: "authorized" | "captured" | "pending_clearing" | "settled" | "refunded" | "partially_refunded" | "failed" | "voided";
       person_role_in_household: "primary" | "spouse" | "child" | "parent" | "sibling" | "other";
       pledge_source: "rsvp_commitment" | "boli" | "sponsorship" | "pujan" | "labh" | "construction" | "membership_fee" | "pathshala_fee" | "general" | "recurring" | "store" | "other";
