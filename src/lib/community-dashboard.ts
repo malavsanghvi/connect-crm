@@ -139,7 +139,7 @@ export function buildDashboard(raw: Json, period: Period): DashboardView {
   if (Array.isArray(r.attendance_by_month)) {
     const pts = r.attendance_by_month.map(obj);
     const max = Math.max(1, ...pts.map((p) => num(p.value) ?? 0));
-    const peakValue = Math.max(...pts.map((p) => (p.partial === true ? -1 : (num(p.value) ?? -1))));
+    const peakValue = Math.max(...pts.map((p) => num(p.value) ?? -1));
     months = pts.map((p) => {
       const v = num(p.value);
       const partial = p.partial === true && v === null;
