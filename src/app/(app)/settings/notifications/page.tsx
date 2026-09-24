@@ -5,6 +5,10 @@ import { canAccess } from "@/lib/permissions";
 import { getSession } from "@/lib/session";
 import { NOTIFICATION_TRIGGERS, readNotificationSettings, readRuleSettings, rulesVersion } from "@/lib/settings-rules";
 
+import { BlockGrid, Card, QueryError, StatusText } from "@/components/ui";
+import { formatDateTime } from "@/lib/dates";
+
+import { RecentMessages, TestSendCard } from "../_components/messaging-ui";
 import { NotificationsForm } from "./notifications-form";
 
 export const metadata: Metadata = { title: "Notifications · Settings" };
@@ -51,6 +55,45 @@ export default async function NotificationsPage() {
         languages={languages}
         canEdit
       />
+      <PushSection session={session} />
     </>
+  );
+}
+
+/**
+ * Push (ONBOARDING_PLAN §4 Step 1.6, o-messaging): the shared app holds the
+ * Apple and Google credentials, so there is nothing technical to set up — a
+ * test push to your own phone proves it (Setup › Push notifications).
+ */
+async function PushSection({ session }: { session: Awaited<ReturnType<typeof getSession>> }) {
+  const devices = await session.db
+    .from("push_devices")
+    .select("id, platform, last_seen_at, invalid_at")
+    .eq("user_id", session.userId)
+    .order("last_seen_at", { ascending: false });
+  const live = (devices.data ?? []).filter((d) => !d.invalid_at);
+  return (
+    <BlockGrid className="mt-4">
+      <Card span={7} title="Push notifications" description="Members get pushes in the Community Connect app; they choose topics and quiet hours there">
+        {devices.error ? (
+          <QueryError what="your phones" error={devices.error} retryHref="/settings/notifications" />
+        ) : live.length === 0 ? (
+          <p className="text-[13px] text-muted">
+            None of your phones is registered yet. Sign in to the Community Connect app on your phone and allow notifications, then send a test.
+          </p>
+        ) : (
+          <ul className="text-[13px]">
+            {live.map((d) => (
+              <li key={d.id}>
+                <StatusText tone="ok">{d.platform === "ios" ? "iPhone" : d.platform === "android" ? "Android phone" : "Web"}</StatusText>
+                <span className="text-muted"> · last seen {formatDateTime(d.last_seen_at, session.center.time_zone)}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Card>
+      <TestSendCard channel="push" title="Send a test push" hint="To your own phones" canSend={canAccess(session, "messagingTest")} />
+      <RecentMessages session={session} channels={["push"]} title="Recent pushes" />
+    </BlockGrid>
   );
 }

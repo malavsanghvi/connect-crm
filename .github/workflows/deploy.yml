@@ -80,6 +80,23 @@ jobs:
         env:
           HOST: ${{ secrets.DROPLET_HOST }}
           KEY: ${{ secrets.DROPLET_SSH_KEY }}
+          # o-messaging (optional; docs/DEPLOY.md › Messaging)
+          PORTAL_DATABASE_URL: ${{ secrets.WORKER_DATABASE_URL }}
+          SEND_EMAIL_HOOK_SECRET: ${{ secrets.SEND_EMAIL_HOOK_SECRET }}
+          SEND_SMS_HOOK_SECRET: ${{ secrets.SEND_SMS_HOOK_SECRET }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          POSTMARK_SERVER_TOKEN: ${{ secrets.POSTMARK_SERVER_TOKEN }}
+          RESEND_WEBHOOK_SECRET: ${{ secrets.RESEND_WEBHOOK_SECRET }}
+          POSTMARK_WEBHOOK_TOKEN: ${{ secrets.POSTMARK_WEBHOOK_TOKEN }}
+          TWILIO_ACCOUNT_SID: ${{ secrets.TWILIO_ACCOUNT_SID }}
+          TWILIO_AUTH_TOKEN: ${{ secrets.TWILIO_AUTH_TOKEN }}
+          TWILIO_FROM_NUMBER: ${{ vars.TWILIO_FROM_NUMBER }}
+          TWILIO_MESSAGING_SERVICE_SID: ${{ vars.TWILIO_MESSAGING_SERVICE_SID }}
+          MESSAGING_FROM_ADDRESS: ${{ vars.MESSAGING_FROM_ADDRESS }}
+          MESSAGING_FROM_NAME: ${{ vars.MESSAGING_FROM_NAME }}
+          MESSAGING_EMAIL_PROVIDER: ${{ vars.MESSAGING_EMAIL_PROVIDER }}
+          MESSAGING_LINK_SECRET: ${{ secrets.MESSAGING_LINK_SECRET }}
+          PORTAL_PUBLIC_URL: ${{ vars.PORTAL_PUBLIC_URL }}
         run: |
           install -m 700 -d ~/.ssh
           printf '%s\n' "$KEY" > ~/.ssh/deploy && chmod 600 ~/.ssh/deploy
@@ -88,6 +105,17 @@ jobs:
           ssh_ "mkdir -p /tmp/connect-deploy"
           scp -i ~/.ssh/deploy -o BatchMode=yes deploy/droplet-setup.sh deploy/release.sh "root@$HOST:/tmp/connect-deploy/"
           scp -i ~/.ssh/deploy -o BatchMode=yes "connect-$APP-$GITHUB_SHA.tgz" "root@$HOST:/tmp/"
+          # o-messaging: the portal's server-only secrets (Supabase Auth hooks, provider webhooks,
+          # unsubscribe links). Sent over SSH stdin, written root-only; empty values are left out.
+          # Unset: the hook / webhook routes answer 503 "isn't configured" (docs/DEPLOY.md › Messaging).
+          {
+            for v in PORTAL_DATABASE_URL SEND_EMAIL_HOOK_SECRET SEND_SMS_HOOK_SECRET RESEND_API_KEY POSTMARK_SERVER_TOKEN \
+                     RESEND_WEBHOOK_SECRET POSTMARK_WEBHOOK_TOKEN TWILIO_ACCOUNT_SID TWILIO_AUTH_TOKEN TWILIO_FROM_NUMBER \
+                     TWILIO_MESSAGING_SERVICE_SID MESSAGING_FROM_ADDRESS MESSAGING_FROM_NAME MESSAGING_EMAIL_PROVIDER \
+                     MESSAGING_LINK_SECRET PORTAL_PUBLIC_URL; do
+              if [ -n "${!v}" ]; then printf '%s=%s\n' "$v" "${!v}"; fi
+            done
+          } | ssh_ "umask 077 && mkdir -p /srv/connect && cat > /srv/connect/$APP.secrets.env"
           ssh_ "bash /tmp/connect-deploy/droplet-setup.sh && SITE_WILDCARD_DOMAIN='$SITE_WILDCARD_DOMAIN' bash /tmp/connect-deploy/release.sh $APP $GITHUB_SHA node 3000 '$SITE'"
           echo "### Released $APP" >> "$GITHUB_STEP_SUMMARY"
           if [[ "$SITE" == :* ]]; then
@@ -166,6 +194,14 @@ jobs:
           TWILIO_ACCOUNT_SID: ${{ secrets.TWILIO_ACCOUNT_SID }}
           TWILIO_AUTH_TOKEN: ${{ secrets.TWILIO_AUTH_TOKEN }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          # o-messaging (optional)
+          POSTMARK_ACCOUNT_TOKEN: ${{ secrets.POSTMARK_ACCOUNT_TOKEN }}
+          EXPO_ACCESS_TOKEN: ${{ secrets.EXPO_ACCESS_TOKEN }}
+          TWILIO_FROM_NUMBER: ${{ vars.TWILIO_FROM_NUMBER }}
+          MESSAGING_FROM_ADDRESS: ${{ vars.MESSAGING_FROM_ADDRESS }}
+          MESSAGING_FROM_NAME: ${{ vars.MESSAGING_FROM_NAME }}
+          MESSAGING_LINK_SECRET: ${{ secrets.MESSAGING_LINK_SECRET }}
+          PORTAL_PUBLIC_URL: ${{ vars.PORTAL_PUBLIC_URL }}
         run: |
           install -m 700 -d ~/.ssh
           printf '%s\n' "$KEY" > ~/.ssh/deploy && chmod 600 ~/.ssh/deploy
@@ -185,7 +221,9 @@ jobs:
             printf 'SUPABASE_URL=%s\n' "$SUPABASE_URL"
             for v in SUPABASE_SECRET_KEY STRIPE_SECRET_KEY STRIPE_CLIENT_ID PAYPAL_CLIENT_ID PAYPAL_CLIENT_SECRET \
                      INTUIT_CLIENT_ID INTUIT_CLIENT_SECRET RESEND_API_KEY POSTMARK_SERVER_TOKEN \
-                     TWILIO_ACCOUNT_SID TWILIO_AUTH_TOKEN ANTHROPIC_API_KEY; do
+                     TWILIO_ACCOUNT_SID TWILIO_AUTH_TOKEN ANTHROPIC_API_KEY \
+                     POSTMARK_ACCOUNT_TOKEN EXPO_ACCESS_TOKEN TWILIO_FROM_NUMBER MESSAGING_FROM_ADDRESS MESSAGING_FROM_NAME \
+                     MESSAGING_LINK_SECRET PORTAL_PUBLIC_URL; do
               if [ -n "${!v}" ]; then printf '%s=%s\n' "$v" "${!v}"; fi
             done
             if [ -n "$WORKER_DATABASE_CA" ]; then printf 'WORKER_DATABASE_CA=%s\n' /srv/connect/worker-ca.crt; fi

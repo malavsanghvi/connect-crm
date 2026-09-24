@@ -7,6 +7,7 @@ import { canAccess } from "@/lib/permissions";
 import { getSession } from "@/lib/session";
 import { entitlementLabel, formatEntitlement, sortEntitlements } from "@/lib/tenancy";
 
+import { confirmRecipientCodeAction, sendRecipientCodeAction } from "../messaging-actions";
 import { addTestRecipientAction, removeTestRecipientAction } from "./actions";
 
 export const metadata: Metadata = { title: "Limits · Settings" };
@@ -120,7 +121,17 @@ export default async function LimitsPage() {
                   {r.verified_at ? (
                     <StatusText tone="ok">Verified {formatDateTime(r.verified_at, center.time_zone)}</StatusText>
                   ) : (
-                    <StatusText tone="warn">Not verified yet</StatusText>
+                    <>
+                      <StatusText tone="warn">Not verified yet</StatusText>
+                      {/* o-messaging: a code sent to the address verifies it. */}
+                      <ActionForm action={sendRecipientCodeAction} submitLabel="Send code" variant="ghost" size="xs">
+                        <input type="hidden" name="id" value={r.id} />
+                      </ActionForm>
+                      <ActionForm action={confirmRecipientCodeAction} submitLabel="Verify" variant="ghost" size="xs" className="flex items-center gap-1">
+                        <input type="hidden" name="id" value={r.id} />
+                        <input name="code" className="crm-input !h-7 w-20" inputMode="numeric" placeholder="Code" aria-label={`Code sent to ${r.address}`} />
+                      </ActionForm>
+                    </>
                   )}
                   <ActionForm action={removeTestRecipientAction} submitLabel="Remove" variant="bad" size="xs" confirmMessage={`Remove ${r.address} from the test recipients?`}>
                     <input type="hidden" name="id" value={r.id} />
@@ -145,7 +156,8 @@ export default async function LimitsPage() {
             </label>
           </ActionForm>
           <p className="crm-hint mt-2">
-            Verification (a code sent to the address) arrives with the message sender. Until then, messages to unverified addresses are held back.
+            Send a code to a new address and enter it here to verify it. Until then, messages to unverified addresses are held back. A push
+            test recipient is the email the tester signs in to the app with.
           </p>
         </Card>
       </BlockGrid>
