@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 
 import { OnboardingSplit } from "@/components/onboarding-split";
 import { SetupScreen } from "@/components/setup-screen";
@@ -27,7 +28,7 @@ export default function RequestAccessPage() {
       }
       aside={
         <>
-          Already have a sandbox code? <a href="/start" className="font-semibold text-white underline">Redeem it here</a>.
+          Already have a sandbox code? <Link href="/start" className="font-semibold text-white underline">Redeem it here</Link>.
         </>
       }
     >

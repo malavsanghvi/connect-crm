@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 
 import { OnboardingSplit } from "@/components/onboarding-split";
 import { SetupScreen } from "@/components/setup-screen";
@@ -63,7 +64,7 @@ export default async function StartPage() {
       }
       aside={
         <>
-          No code yet? <a href="/request-access" className="font-semibold text-white underline">Request access</a>. The code arrives by email after Community
+          No code yet? <Link href="/request-access" className="font-semibold text-white underline">Request access</Link>. The code arrives by email after Community
           Connect approves your request.
         </>
       }

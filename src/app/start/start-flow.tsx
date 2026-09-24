@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useActionState, useEffect, useState, type FormEvent } from "react";
 
 import { OnboardingError, OnboardingNotice, onboardingInputClass } from "@/components/onboarding-split";
@@ -22,7 +23,7 @@ import {
 } from "./actions";
 
 const label = "flex flex-col gap-1.5 text-[13px] text-muted";
-const reload = () => window.location.assign("/start");
+const reload = () => window.location.reload();
 
 function StartOver({ signOut, text = "Use a different code" }: { signOut: boolean; text?: string }) {
   const [error, setError] = useState<string | null>(null);
@@ -443,9 +444,9 @@ export function StartFlow({
         <div className="flex flex-col gap-4">
           <h2 className="font-display text-[28px] font-semibold text-ink">Your sandbox is ready</h2>
           <OnboardingNotice text={`You already used this code to create ${status?.center_slug}.`} />
-          <a href="/" className={buttonClass("primary", "lg")}>
+          <Link href="/" className={buttonClass("primary", "lg")}>
             Open the portal
-          </a>
+          </Link>
         </div>
       );
     default:
