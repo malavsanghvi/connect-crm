@@ -4,9 +4,10 @@ import { NextResponse, type NextRequest } from "next/server";
 import type { Database } from "@/lib/database.types";
 import type { PublicEnv } from "@/lib/env";
 import { PATHNAME_HEADER, clientScreen, newRequestId, traceHeaders } from "@/lib/supabase/trace";
+import { normalizeBaseDomain, sharedCookieDomain } from "@/lib/tenancy";
 
-/** Paths reachable without a session (sign-in, the public community dashboard /c/<slug>). Everything else redirects to /login. */
-export const PUBLIC_PATHS = ["/login", "/c"];
+/** Paths reachable without a session (sign-in, the public community dashboard /c/<slug>, the TLS check /api/tenancy/tls-ask). Everything else redirects to /login. */
+export const PUBLIC_PATHS = ["/login", "/c", "/api/tenancy"];
 
 export function isPublicPath(pathname: string): boolean {
   return PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`));
@@ -31,6 +32,7 @@ export async function updateSession(request: NextRequest, env: PublicEnv): Promi
   const supabase = createServerClient<Database, "app">(env.supabaseUrl, env.supabaseAnonKey, {
     db: { schema: "app" },
     global: { headers: traceHeaders({ requestId: newRequestId(), screen: pathname }) },
+    cookieOptions: { domain: sharedCookieDomain(request.headers.get("host"), normalizeBaseDomain(process.env.PORTAL_BASE_DOMAIN)) },
     cookies: {
       getAll() {
         return request.cookies.getAll();

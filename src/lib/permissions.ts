@@ -428,6 +428,9 @@ export const NAV: NavModule[] = [
       { href: "/settings/audit", label: "Audit log", access: "audit" },
       // Not in the prototype: org-level module switches (WAVE2), after the prototype's eight.
       { href: "/settings/modules", label: "Modules", access: "centerSettings" },
+      // Onboarding (o-tenancy): the member-app join code, and the sandbox / plan limits.
+      { href: "/settings/member-app", label: "Member app", access: "centerSettings" },
+      { href: "/settings/limits", label: "Plan & limits", access: "centerSettings" },
     ],
     paths: ["/settings", "/privacy", "/audit", "/approvals"],
   },

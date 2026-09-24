@@ -15,6 +15,7 @@ import {
   type PermissionContext,
   type ScopedGrant,
 } from "@/lib/permissions";
+import { resolveCenterChoice, type CenterChoice } from "@/lib/center-resolve";
 import { loadMyModules, modulesOffFrom } from "@/lib/modules-db";
 import { createSupabaseServerClient, type AppSupabase } from "@/lib/supabase/server";
 import { newRequestId } from "@/lib/supabase/trace";
@@ -30,6 +31,19 @@ export type CenterInfo = {
   feature_flags: Json;
   rules: Json;
   status: string;
+  /** "production" or "sandbox" (0160). A sandbox shows the watermark and has sandbox limits. */
+  environment: string;
+};
+
+/** An organization the user can switch to (app.my_centers). */
+export type SwitchableCenter = {
+  id: string;
+  slug: string;
+  name: string;
+  short_name: string | null;
+  environment: string;
+  status: string;
+  portal_domain: string | null;
 };
 
 export type CrmSession = PermissionContext & {
@@ -48,13 +62,17 @@ export type CrmSession = PermissionContext & {
   modulesOff: string[];
   /** "missing" before the s-core migrations land, "error" when my_modules failed: both mean "treat everything as on". */
   modulesStatus: "ok" | "missing" | "error";
+  /** How this request's organization was chosen (web address, switcher, default). */
+  centerSource: CenterChoice["source"];
+  /** Organizations this user works with (the switcher); includes the current one. Empty when they could not be loaded. */
+  switchable: SwitchableCenter[];
 };
 
 export type SessionState =
   | { status: "ok"; session: CrmSession }
   | { status: "env_missing"; problems: EnvProblem[] }
   | { status: "signed_out" }
-  | { status: "center_missing"; slug: string }
+  | { status: "center_missing"; slug: string; source: CenterChoice["source"] }
   | { status: "error"; message: string };
 
 /** Resolve user → center → grants → permissions once per request. */
@@ -74,20 +92,22 @@ export const loadSession = cache(async (): Promise<SessionState> => {
   const userId = claims.sub;
   const email = typeof claims.email === "string" ? claims.email : null;
 
-  const slug = envCheck.env.centerSlug;
+  // The organization comes from the web address, else the switcher, else NEXT_PUBLIC_CENTER_SLUG.
+  const choice = await resolveCenterChoice(envCheck.env.centerSlug);
+  const slug = choice.slug;
   const centerRes = await db
     .from("centers")
-    .select("id, slug, name, short_name, time_zone, currency, branding, feature_flags, rules, status")
+    .select("id, slug, name, short_name, time_zone, currency, branding, feature_flags, rules, status, environment")
     .eq("slug", slug)
     .maybeSingle();
   if (centerRes.error) {
     console.error("[session] could not load the center:", centerRes.error);
     return { status: "error", message: `Could not load the center "${slug}" — ${explainError(centerRes.error)}` };
   }
-  if (!centerRes.data) return { status: "center_missing", slug };
+  if (!centerRes.data) return { status: "center_missing", slug, source: choice.source };
   const center = centerRes.data;
 
-  const [grantsRes, rolesRes, accountRes, linkRes, modulesRes] = await Promise.all([
+  const [grantsRes, rolesRes, accountRes, linkRes, modulesRes, switchRes] = await Promise.all([
     db
       .from("role_grants")
       .select("role_key, scope_kind, scope_id, starts_at, ends_at")
@@ -97,7 +117,10 @@ export const loadSession = cache(async (): Promise<SessionState> => {
     db.from("accounts").select("is_platform_admin").eq("user_id", userId).maybeSingle(),
     db.from("center_users").select("person_id").eq("center_id", center.id).eq("user_id", userId).maybeSingle(),
     loadMyModules(db, center.id),
+    db.rpc("my_centers"),
   ]);
+  // The switcher is a convenience: without it the user still works in this organization.
+  if (switchRes.error) console.error("[session] could not list the organizations for the switcher (showing none):", switchRes.error);
   const firstError = grantsRes.error ?? rolesRes.error ?? accountRes.error ?? linkRes.error;
   if (firstError) {
     console.error("[session] could not load roles and permissions:", firstError);
@@ -147,6 +170,16 @@ export const loadSession = cache(async (): Promise<SessionState> => {
       requestId,
       modulesOff: modulesRes.status === "ok" ? modulesOffFrom(modulesRes.rows) : [],
       modulesStatus: modulesRes.status,
+      centerSource: choice.source,
+      switchable: (switchRes.data ?? []).map((c) => ({
+        id: c.id,
+        slug: c.slug,
+        name: c.name,
+        short_name: c.short_name,
+        environment: c.environment,
+        status: c.status,
+        portal_domain: c.portal_domain,
+      })),
     },
   };
 });
@@ -161,6 +194,20 @@ export async function dbWithReason(session: Pick<CrmSession, "requestId">, reaso
   return createSupabaseServerClient({ requestId: session.requestId, reason });
 }
 
+/** What to check when the organization named by the request does not exist. */
+export function centerMissingHint(source: CenterChoice["source"]): string {
+  switch (source) {
+    case "subdomain":
+      return "Check the web address: the part before the first dot must be a community's short name.";
+    case "domain":
+      return "This web address is registered to a community that is no longer active.";
+    case "switcher":
+      return "The community chosen in the switcher is no longer available. Choose another one.";
+    case "default":
+      return "Check NEXT_PUBLIC_CENTER_SLUG.";
+  }
+}
+
 /** For pages: the signed-in session, or a redirect to /login. */
 export async function getSession(): Promise<CrmSession> {
   const state = await loadSession();
@@ -172,7 +219,7 @@ export async function getSession(): Promise<CrmSession> {
     case "env_missing":
       throw new Error("Community Connect is not configured yet. Set the NEXT_PUBLIC_* variables listed on the setup page.");
     case "center_missing":
-      throw new Error(`No center with slug "${state.slug}" exists. Check NEXT_PUBLIC_CENTER_SLUG.`);
+      throw new Error(`No center with slug "${state.slug}" exists. ${centerMissingHint(state.source)}`);
     case "error":
       throw new Error(state.message);
   }
@@ -194,7 +241,7 @@ export async function authorizeAction(key: AccessKey, doing: string): Promise<Au
       state.status === "env_missing"
         ? "the app is not configured"
         : state.status === "center_missing"
-          ? `center "${state.slug}" was not found`
+          ? `community "${state.slug}" was not found`
           : state.message;
     return { ok: false, error: `Could not ${doing} — ${why}.` };
   }

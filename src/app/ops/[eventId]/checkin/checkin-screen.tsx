@@ -130,9 +130,9 @@ export function CheckInScreen({
   /** People on confirmed RSVPs (the denominator of "N of M checked in"). */
   expected: number;
   timeZone: string;
-  supabaseEnv: { supabaseUrl: string; supabaseAnonKey: string };
+  supabaseEnv: { supabaseUrl: string; supabaseAnonKey: string; cookieDomain?: string };
 }) {
-  const getBrowserClient = useCallback(() => getSupabaseBrowserClient(supabaseEnv), [supabaseEnv]);
+  const getBrowserClient = useCallback(() => getSupabaseBrowserClient(supabaseEnv, supabaseEnv.cookieDomain), [supabaseEnv]);
   const queue = useMemo(() => (typeof window === "undefined" ? null : createScanQueue(safeStorage(), queueKey(eventId))), [eventId]);
   const queued = useSyncExternalStore(
     (cb) => {

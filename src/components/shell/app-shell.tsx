@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 
+import { CenterSwitcher, SandboxWatermark } from "@/components/shell/center-switcher";
 import { GlobalSearch } from "@/components/shell/global-search";
 import { MobileNav } from "@/components/shell/mobile-nav";
 import { ModulesProvider } from "@/components/shell/module-tabs";
@@ -39,19 +40,29 @@ export function AppShell({ session, tasks, children }: { session: CrmSession; ta
   const canSearch = canAccess(session, "households");
 
   const footer = navFooter(session);
+  const sandbox = center.environment === "sandbox";
+  // More than one organization (or a platform admin, who can open any): the pill becomes the switcher.
+  const switchable = session.switchable.some((c) => c.slug !== center.slug);
 
   return (
     <ToastProvider>
       <HistoryAccessProvider allowed={canAccess(session, "audit")}>
       <ModulesProvider modules={modules}>
         <div className="flex min-h-screen flex-col">
+          {sandbox ? <SandboxWatermark name={center.name} /> : null}
           <header className="cc-topbar sticky top-0 z-30 px-3 sm:px-5">
             <MobileNav modules={modules} homeBadge={home.badge} homeBadgeLabel={home.label} footer={footer} />
             <Link href="/" className="flex min-w-0 shrink-0 items-center gap-3.5 no-underline" aria-label={`${PRODUCT_NAME} home`}>
               <TenantMark branding={branding} name={center.name} />
               <span className="cc-product hidden sm:inline">{PRODUCT_NAME}</span>
             </Link>
-            {session.isPlatformAdmin ? (
+            {switchable ? (
+              <CenterSwitcher
+                current={{ slug: center.slug, name: center.name }}
+                centers={session.switchable.map((c) => ({ slug: c.slug, name: c.name, environment: c.environment, status: c.status }))}
+                platformLink={session.isPlatformAdmin}
+              />
+            ) : session.isPlatformAdmin ? (
               <Link href="/platform" className="cc-center-pill hidden no-underline xl:inline-flex" title="Open Platform › Centers">
                 Center: {center.name} ▾
               </Link>

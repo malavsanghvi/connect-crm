@@ -33,7 +33,7 @@ export default async function PlatformCentersPage() {
     );
   }
   const { db } = session;
-  const res = await db.from("centers").select("id, slug, name, status, tradition, rules, created_at").order("created_at", { ascending: true });
+  const res = await db.from("centers").select("id, slug, name, status, tradition, rules, created_at, environment").order("created_at", { ascending: true });
   if (res.error) {
     return (
       <>
@@ -71,11 +71,16 @@ export default async function PlatformCentersPage() {
                   <th>Status</th>
                   <th>Size</th>
                   <th>Tradition pack</th>
+                  <th>
+                    <span className="sr-only">Limits</span>
+                  </th>
                 </tr>
               </thead>
               <tbody>
                 {centers.map((c, i) => {
                   const status = centerStatusLabel(c.status, c.rules);
+                  // The prototype's Centers list shows a sandbox's status as "Sandbox".
+                  const sandbox = c.environment === "sandbox";
                   return (
                     <tr key={c.id}>
                       <td className="font-bold">
@@ -90,10 +95,19 @@ export default async function PlatformCentersPage() {
                       </td>
                       <td className="font-mono text-[12px]">{String(c.slug)}</td>
                       <td>
-                        <StatusText tone={status.live ? "ok" : "warn"}>{status.label}</StatusText>
+                        {sandbox ? (
+                          <StatusText tone="warn">{status.live ? "Sandbox" : `Sandbox · ${status.label}`}</StatusText>
+                        ) : (
+                          <StatusText tone={status.live ? "ok" : "warn"}>{status.label}</StatusText>
+                        )}
                       </td>
                       <td>{sizes[i]}</td>
                       <td>{traditionLabel(c.tradition)}</td>
+                      <td>
+                        <Link href={`/platform/centers/${c.id}`} className="crm-link text-[13px] font-semibold">
+                          Limits &amp; addresses
+                        </Link>
+                      </td>
                     </tr>
                   );
                 })}
