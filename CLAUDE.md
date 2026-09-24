@@ -23,3 +23,14 @@
 - Prototypes are reference only, never shipped: `docs/handoff/prototypes/source/`
 - This repo owns the schema: after any migration run `supabase/tests/run_local.sh`, regenerate `src/lib/database.types.ts` with `supabase/scripts/gen-types.mjs`, and copy it to connect-admin and connect-mobile.
 - Founder rules: bolis say "pledge", never "bid"; money is integer cents; never identify a household by name alone (show `household_card`); every member has several identifiers (Connect number, JSH person ID, JSH household ID, Neon/NamoCRM, QuickBooks, bank payer names); JSH banks with Chase.
+
+## Deploy and migrations
+
+- Deploy: `docs/DEPLOY.md` (DigitalOcean droplet + Supabase cloud, GitHub Actions on push to
+  `main`). Local run: `docs/LOCAL_DEV.md`.
+- Hosted Supabase keeps pgcrypto in the `extensions` schema. Every function that pins a search
+  path must use `set search_path = app, public, extensions` (0019). The test stub mirrors this, so
+  a function that cannot see `digest()` fails in CI, not in production.
+- Migrations reach Supabase through `supabase/scripts/migrate.sh` (tracked in
+  `public.connect_schema_migrations`, one transaction per file). Never edit an applied migration;
+  add a new one.
