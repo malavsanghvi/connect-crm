@@ -3,6 +3,8 @@
 // scan jobs stay queued ("pending") instead of getting an invented result.
 
 import type { HandlerModule } from "../types";
+import * as demoClear from "./demo.clear";
+import * as demoLoad from "./demo.load";
 import * as demoPing from "./demo.ping";
 import * as importSuggestMapping from "./import.suggest_mapping";
 import * as messagingDomainVerify from "./messaging.domain_verify";
@@ -56,4 +58,7 @@ export const HANDLERS: HandlerModule[] = [
   paymentsRefund,
   paymentsTestCharge,
   paymentsSyncPayouts,
+  // o-demo
+  demoLoad,
+  demoClear,
 ];
