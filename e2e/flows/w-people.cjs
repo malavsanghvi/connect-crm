@@ -514,12 +514,51 @@ const journeys = {
     ok(/not connected|connect/i.test(await admin.innerText('main')), 'Integrations shows each connection honestly');
     await admin.context().close();
   },
+
+  async account(b) {
+    // Member settings: data export request, deactivate → reactivate; the privacy team sees the requests.
+    const email = 'kiran@jsh.test';
+    const user = sql(`select id from auth.users where email = '${email}'`);
+    const person = sql(`select person_id from app.center_users where user_id = '${user}'`);
+    const m = await memberLogin(b, email);
+    await m.goto(MEMBER + '/settings', { waitUntil: 'networkidle' });
+    await m.waitForTimeout(2000);
+    await m.getByText('Download my data').click();
+    await m.waitForTimeout(3000);
+    ok(sql(`select count(*) from app.data_requests where person_id = '${person}' and kind = 'export' and status = 'open'`) !== '0', 'data export request recorded');
+    await m.getByRole('button', { name: /^deactivate account$/i }).first().click();
+    await m.getByRole('dialog').last().getByRole('button', { name: /^deactivate account$/i }).click();
+    await m.waitForTimeout(3000);
+    ok(sql(`select status from app.accounts where user_id = '${user}'`) === 'deactivated', 'account deactivated');
+    ok(lastAudit('accounts', `and record_id = '${user}'`).startsWith('member|/settings|'), 'deactivation audited from the member app settings screen');
+    await m.goto(MEMBER + '/settings', { waitUntil: 'networkidle' });
+    await m.waitForTimeout(2000);
+    await shot(m, 'account-1-deactivated');
+    const re = m.getByRole('button', { name: /reactivate/i }).first();
+    ok(await re.isVisible().catch(() => false), 'settings shows the deactivated notice with Reactivate');
+    await re.click();
+    await m.waitForTimeout(3000);
+    ok(sql(`select status from app.accounts where user_id = '${user}'`) === 'active', 'account reactivated from the app');
+    await m.context().close();
+    const admin = await portalLogin(b, 'admin@jsh.test');
+    await admin.goto(PORTAL + '/settings/privacy', { waitUntil: 'networkidle' });
+    ok(/don't have access/i.test(await admin.innerText('main')), 'without privacy.manage the admin is told they have no access to data requests');
+    await admin.context().close();
+    await ensureSecondStaff('neha@jsh.test', 'JSH-90006');
+    sql(`insert into app.role_grants (center_id, user_id, role_key, scope_kind, reason) select '${CENTER}', id, 'privacy_officer', 'center', 'e2e test login' from auth.users where email = 'neha@jsh.test' and not exists (select 1 from app.role_grants g where g.user_id = auth.users.id and g.role_key = 'privacy_officer' and g.ends_at is null)`);
+    const officer = await portalLogin(b, 'neha@jsh.test');
+    await officer.goto(PORTAL + '/settings/privacy', { waitUntil: 'networkidle' });
+    const priv = await officer.innerText('main');
+    await shot(officer, 'account-2-privacy');
+    ok(/Kiran Mehta/.test(priv) && /Deactivate account/.test(priv), 'the privacy officer sees the member\'s requests in Settings › Privacy');
+    await officer.context().close();
+  },
 };
 
 (async () => {
   const b = await chromium.launch();
   const want = process.argv.slice(2);
-  const order = ['join', 'profile', 'ask', 'whatsapp', 'newsletter', 'roles', 'merge', 'modules', 'permissions', 'settings'];
+  const order = ['join', 'profile', 'ask', 'whatsapp', 'newsletter', 'roles', 'merge', 'modules', 'permissions', 'settings', 'account'];
   for (const name of order) {
     if (want.length && !want.includes(name)) continue;
     if (!journeys[name]) continue;
