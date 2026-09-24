@@ -223,6 +223,7 @@ export function buildCaddySites(input) {
 // ── CLI ───────────────────────────────────────────────────────────────────────
 //   node caddy-sites.mjs --out /etc/caddy/sites --app crm --port 3000 --site :80
 //        [--public-ip 1.2.3.4] [--ip-cert 1|0] [--member-root DIR|""] [--hsts-max-age N]
+//   node caddy-sites.mjs --check-public-ip 1.2.3.4      exit 0 when Let's Encrypt can certify it
 function parseArgs(argv) {
   const args = {};
   for (let i = 0; i < argv.length; i += 1) {
@@ -240,6 +241,8 @@ async function main() {
   const { writeFileSync, mkdirSync } = await import("node:fs");
   const { join } = await import("node:path");
   const a = parseArgs(process.argv.slice(2));
+  // release.sh: may Let's Encrypt issue a certificate for this address? (exit 0 = yes)
+  if (a["check-public-ip"] !== undefined) process.exit(isPublicIPv4(a["check-public-ip"]) ? 0 : 1);
   if (!a.out) throw new Error("--out <directory> is required");
   const r = buildCaddySites({
     app: a.app ?? "crm",
