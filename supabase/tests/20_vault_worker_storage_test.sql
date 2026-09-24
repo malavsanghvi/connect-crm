@@ -435,6 +435,8 @@ select pg_temp.assert(pg_temp.visible('statements') = 1 and pg_temp.visible('rec
 insert into storage.objects (bucket_id, name) values ('statements', '00000000-0000-4000-8000-000000000001/20000000-0000-4000-8000-000000000001/2026.pdf');
 select pg_temp.assert(true, 'statements: the treasurer (giving.manage) writes one');
 rollback;
+-- Since o-security (0151) the earliest admin becomes the owner; clear it so Ada is an admin who is not the owner.
+delete from app.center_owners where center_id = '00000000-0000-4000-8000-000000000001';
 begin;   -- Ada, center admin (not the owner)
 select pg_temp.claims('10000000-0000-4000-8000-000000000011');
 set local role authenticated;
@@ -540,3 +542,9 @@ rollback;
 delete from storage.objects;
 delete from app.jobs;
 delete from app.integration_connections where id in ('c0170000-0000-4000-8000-000000000001', 'c0170000-0000-4000-8000-000000000002');
+
+-- Wave A integration (0179): signed-out callers can no longer create events from a template.
+select pg_temp.assert(not has_function_privilege('anon', 'app.create_event_from_template(uuid, text, timestamptz, text)', 'execute'),
+  'anon cannot call create_event_from_template');
+select pg_temp.assert(has_function_privilege('connect_worker', 'app.recipient_allowed(uuid, text, text)', 'execute'),
+  'the worker may check sandbox recipients');

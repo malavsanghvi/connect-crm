@@ -33,7 +33,7 @@ describe("Setup checklist", () => {
     expect(routeAvailable("/settings/modules")).toBe(true);
     expect(routeAvailable("/setup/profile#brand")).toBe(true);
     expect(routeAvailable("/giving/bank")).toBe(true);
-    expect(routeAvailable("/settings/agreements")).toBe(false);
+    expect(routeAvailable("/settings/agreements")).toBe(true); // built by o-security
     expect(routeAvailable("/settings/payments")).toBe(false);
     expect(routeAvailable(null)).toBe(false);
   });

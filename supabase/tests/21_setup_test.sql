@@ -262,7 +262,7 @@ begin;
 set local role authenticated;
 set local request.jwt.claim.sub = '21000000-0000-4000-8000-00000000a001';
 select pg_temp.assert((select not ok and detail like '%could not run: boom%' from app.readiness(:c) where key = 'zz_broken'), 'a failing check shows why and the others still run');
-select pg_temp.assert((select count(*) from app.readiness(:c)) = 4, 'every registered check is listed');
+select pg_temp.assert((select count(*) from app.readiness(:c)) = (select count(*) from app.readiness_checks), 'every registered check is listed');
 commit;
 delete from app.readiness_checks where key = 'zz_broken';
 drop function app.check_zz_broken(uuid);
