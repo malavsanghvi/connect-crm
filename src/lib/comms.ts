@@ -2,7 +2,12 @@
 // Audience JSON is comms_campaigns.audience / surveys.audience / alerts.audience.
 // app.segment_recipient_count (0025) reads the same keys and OR-s them.
 
+/** A custom-field segment: households whose own value (households) or a member's value (people) equals `value`. */
+export type CustomSegment = { entity: "people" | "households"; key: string; value: string | number | boolean; label?: string };
+
 export type AudienceSelection = {
+  /** Custom-field segments (only fields marked searchable count in the database). */
+  customFields?: CustomSegment[];
   allMembers: boolean;
   lifeMembers: boolean;
   pathshalaClassIds: string[];
@@ -45,6 +50,9 @@ export function buildAudience(sel: AudienceSelection): { ok: true; audience: Obj
     a.event_id = sel.eventId;
     a.rsvp_statuses = sel.rsvpStatuses.length ? [...new Set(sel.rsvpStatuses)] : [...DEFAULT_RSVP_STATUSES];
   }
+  if (sel.customFields?.length) {
+    a.custom_fields = sel.customFields.map((c) => ({ entity: c.entity, key: c.key, value: c.value, ...(c.label ? { label: c.label } : {}) }));
+  }
   if (Object.keys(a).length === 0) return { ok: false, error: "Choose at least one audience segment." };
   return { ok: true, audience: a };
 }
@@ -60,13 +68,26 @@ export function parseAudience(audience: unknown): AudienceSelection {
     zoneIds: strings(a.zone_ids),
     eventId: typeof a.event_id === "string" && a.event_id ? a.event_id : null,
     rsvpStatuses: strings(a.rsvp_statuses),
+    ...(customSegments(a.custom_fields).length ? { customFields: customSegments(a.custom_fields) } : {}),
   };
+}
+
+function customSegments(v: unknown): CustomSegment[] {
+  if (!Array.isArray(v)) return [];
+  return v.flatMap((x) => {
+    if (!x || typeof x !== "object") return [];
+    const o = x as Obj;
+    const entity = o.entity === "people" || o.entity === "households" ? o.entity : null;
+    const value = typeof o.value === "string" || typeof o.value === "number" || typeof o.value === "boolean" ? o.value : null;
+    if (!entity || typeof o.key !== "string" || value === null) return [];
+    return [{ entity, key: o.key, value, ...(typeof o.label === "string" ? { label: o.label } : {}) }];
+  });
 }
 
 /** True when the audience JSON uses keys this screen does not build (older custom segments). */
 export function hasUnknownAudienceKeys(audience: unknown): boolean {
   if (!audience || typeof audience !== "object" || Array.isArray(audience)) return false;
-  const known = new Set(["all_members", "membership_tiers", "pathshala_class_ids", "include", "zone_ids", "event_id", "rsvp_statuses"]);
+  const known = new Set(["all_members", "membership_tiers", "pathshala_class_ids", "include", "zone_ids", "event_id", "rsvp_statuses", "custom_fields"]);
   return Object.keys(audience as Obj).some((k) => !known.has(k));
 }
 
@@ -108,6 +129,10 @@ export function describeAudience(audience: unknown, names: AudienceNames = {}): 
     const n = names.events?.get(sel.eventId);
     const attended = sel.rsvpStatuses.length === 1 && sel.rsvpStatuses[0] === "attended";
     parts.push(`${attended ? "Attendees of" : "RSVPs for"} ${n ?? "an event"}`);
+  }
+  for (const c of sel.customFields ?? []) {
+    const v = c.value === true ? "yes" : c.value === false ? "no" : String(c.value);
+    parts.push(`${c.entity === "people" ? "Someone with" : "Households with"} ${c.label ?? c.key}: ${v}`);
   }
   if (parts.length === 0) return hasUnknownAudienceKeys(audience) ? "Custom segment" : "No audience";
   return parts.join(" + ");

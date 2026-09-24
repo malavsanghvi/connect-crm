@@ -2,7 +2,10 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { Card, ChipLinks, EmptyState, NoAccess, PageHeader, Pagination, QueryError, TableWrap, buttonClass } from "@/components/ui";
+import { CustomColumnPicker } from "@/components/custom-column-picker";
 import { identifierRules } from "@/lib/center-rules";
+import { formatCustomValue } from "@/lib/custom-fields";
+import { loadCustomColumn, loadCustomFieldDefs } from "@/lib/data/custom-fields";
 import { listPeople, peopleTotals } from "@/lib/data/people-list";
 import { canAccess } from "@/lib/permissions";
 import { AGE_BANDS, isAgeBand, relationshipLabel, type AgeBand } from "@/lib/people";
@@ -35,6 +38,10 @@ export default async function PeopleListPage({ searchParams }: { searchParams: P
   const rules = identifierRules(session.center.rules);
   const [list, totals] = await Promise.all([listPeople(session, { search: q, band, page, pageSize: PAGE_SIZE }), peopleTotals(session)]);
   if (totals.error) console.error("[people] totals for the sub-line failed; showing none:", totals.error);
+  const defs = await loadCustomFieldDefs(session.db, session.center.id, "people");
+  const cfKey = param(sp, "cf") ?? null;
+  const cfDef = defs.defs.find((d) => d.key === cfKey) ?? null;
+  const cfValues = cfDef ? await loadCustomColumn(session.db, "people", list.rows.map((r) => r.id)) : null;
   const openId = param(sp, "person");
   const retry = hrefWith(base, sp, {});
 
@@ -67,6 +74,10 @@ export default async function PeopleListPage({ searchParams }: { searchParams: P
             items={AGE_BANDS.map((b) => ({ key: b.key, label: b.label, href: hrefWith(base, sp, { band: b.key === "all" ? undefined : b.key, page: undefined, person: undefined, hh: undefined, mode: undefined }) }))}
           />
           {list.note ? <p className="mb-2 text-xs text-muted">{list.note}</p> : null}
+          <div className="mb-2">
+            <CustomColumnPicker action={base} sp={sp} defs={defs.defs} current={cfDef?.key ?? null} />
+          </div>
+          {cfValues?.error ? <p className="mb-2 text-xs text-danger">Could not load the “{cfDef?.label}” column. Reload to try again.</p> : null}
         </div>
         {list.error ? (
           <div className="p-2.5">
@@ -87,6 +98,7 @@ export default async function PeopleListPage({ searchParams }: { searchParams: P
                   <th className="num">Age</th>
                   <th>On app</th>
                   <th>Contact</th>
+                  {cfDef ? <th>{cfDef.label}</th> : null}
                   <th aria-label="Actions" />
                 </tr>
               </thead>
@@ -115,6 +127,7 @@ export default async function PeopleListPage({ searchParams }: { searchParams: P
                       <td className="num">{p.age ?? "—"}</td>
                       <td>{minor ? "—" : p.onApp ? "Yes" : "No"}</td>
                       <td className="max-w-[16rem] truncate">{minor ? "Via parents" : p.email || p.phone || <span className="text-faint">—</span>}</td>
+                      {cfDef ? <td>{formatCustomValue(cfDef, cfValues?.map.get(p.id)?.[cfDef.key], session.center.currency) || "—"}</td> : null}
                       <td className="row-actions">
                         <Link href={open} scroll={false} className={buttonClass("ghost", "xs")}>
                           Open

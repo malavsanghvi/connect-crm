@@ -45,6 +45,8 @@ export type AudienceOptions = {
   events: AudienceOption[];
   /** Lists the user's roles could not read, named for a plain-English note. */
   unavailable: string[];
+  /** Custom fields marked searchable on people and households (segment filters). */
+  customFields?: { entity: "people" | "households"; key: string; label: string; type: string; choices: string[] }[];
 };
 
 /**
@@ -53,12 +55,31 @@ export type AudienceOptions = {
  * so a failure there is logged and named, not fatal.
  */
 export async function audienceOptions(db: AppSupabase, centerId: string): Promise<{ data: AudienceOptions; error: DbErrorLike | null }> {
-  const [zones, terms, events] = await Promise.all([
+  const [zones, terms, events, cfs] = await Promise.all([
     db.from("zones").select("id, name").eq("center_id", centerId).order("name"),
     db.from("pathshala_terms").select("id, status").eq("center_id", centerId).in("status", ["registration", "active"]),
     db.from("events").select("id, name, starts_at").eq("center_id", centerId).order("starts_at", { ascending: false, nullsFirst: true }).limit(50),
+    db
+      .from("custom_field_definitions")
+      .select("entity, key, label, type, choices")
+      .eq("center_id", centerId)
+      .eq("status", "active")
+      .eq("searchable", true)
+      .in("entity", ["people", "households"])
+      .order("label"),
   ]);
   const unavailable: string[] = [];
+  if (cfs.error) {
+    console.error("[content-comms] custom fields unavailable for the audience picker:", cfs.error);
+    unavailable.push("custom fields");
+  }
+  const customFields = (cfs.data ?? []).map((c) => ({
+    entity: c.entity as "people" | "households",
+    key: c.key,
+    label: c.label,
+    type: c.type,
+    choices: Array.isArray(c.choices) ? c.choices.map(String) : [],
+  }));
   let classes: AudienceOption[] = [];
   if (terms.error) {
     console.error("[content-comms] Pathshala terms unavailable for the audience picker:", terms.error);
@@ -78,7 +99,7 @@ export async function audienceOptions(db: AppSupabase, centerId: string): Promis
     unavailable.push("events");
   }
   return {
-    data: { zones: zones.data ?? [], classes, events: (events.data ?? []).map((e) => ({ id: e.id, name: e.name })), unavailable },
+    data: { zones: zones.data ?? [], classes, events: (events.data ?? []).map((e) => ({ id: e.id, name: e.name })), unavailable, customFields },
     error: zones.error,
   };
 }

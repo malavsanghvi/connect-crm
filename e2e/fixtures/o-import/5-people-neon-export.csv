@@ -1,0 +1,7 @@
+Account ID,First Name,Last Name,Email 1,Phone 1 Number,DOB,Household ID,Relationship,Senior status,Email Opt-In,Opt-In Date,Opt-In Source
+7001,Neel,Kapadia,neel.kapadia@example.com,(713) 555-0901,02/03/1950,0901,Head of Household,Yes,Yes,03/01/2024,Website form
+7002,Asha,Kapadia,asha.kapadia@example.com,713-555-0902,06/11/1954,0901,Wife,Yes,Yes,,
+7003,Riya,Kapadia,,,,0901,Daughter,No,,,
+7004,Priya,Shah,PRIYA@jsh.test,,04/12/1986,0212,,Yes,No,01/15/2023,Unsubscribed from newsletter
+7005,Rahul,Shah,,,,0902,Head of Household,No,,,
+7006,Kavya,Doshi,kavya.doshi@example.com,555-0142,11/30/2019,0902,Daughter,No,,,

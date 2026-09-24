@@ -1,4 +1,6 @@
+import { CustomDetailsCell } from "@/components/custom-details-cell";
 import { Badge, Card, EmptyState, NoAccess, QueryError, TableWrap } from "@/components/ui";
+import { loadCustomFieldDefs } from "@/lib/data/custom-fields";
 import { formatDate } from "@/lib/dates";
 import { PLEDGE_STATUS_LABEL, PLEDGE_STATUS_TONE } from "@/lib/labels";
 import { formatCents, sumCents } from "@/lib/money";
@@ -11,15 +13,17 @@ export async function PledgesTab({ session, householdId }: { session: CrmSession
   const tz = center.time_zone;
   const retry = `/households/${householdId}?tab=pledges`;
 
-  const [pRes, cRes] = await Promise.all([
+  const [pRes, cRes, defs] = await Promise.all([
     db
       .from("pledges")
-      .select("id, pledge_number, campaign_id, source, amount_cents, paid_cents, status, pledged_at, due_on, dedication, anonymous")
+      .select("id, pledge_number, crm_external_id, campaign_id, source, amount_cents, paid_cents, status, pledged_at, due_on, dedication, anonymous, custom")
       .eq("household_id", householdId)
       .order("pledged_at", { ascending: false })
       .limit(500),
     db.from("campaigns").select("id, name").eq("center_id", center.id),
+    loadCustomFieldDefs(db, center.id, "pledges", true),
   ]);
+  const editCustom = canAccess(session, "givingManage");
   if (pRes.error) return <QueryError what="pledges" error={pRes.error} retryHref={retry} />;
   const campaign = new Map((cRes.data ?? []).map((c) => [c.id, c.name]));
   const pledges = pRes.data ?? [];
@@ -52,6 +56,7 @@ export async function PledgesTab({ session, householdId }: { session: CrmSession
                 <th className="num">Open</th>
                 <th>Pledged</th>
                 <th>Due</th>
+                {defs.defs.length ? <th>More details</th> : null}
               </tr>
             </thead>
             <tbody>
@@ -73,6 +78,11 @@ export async function PledgesTab({ session, householdId }: { session: CrmSession
                   </td>
                   <td>{formatDate(p.pledged_at, tz)}</td>
                   <td>{formatDate(p.due_on, tz)}</td>
+                  {defs.defs.length ? (
+                    <td>
+                      <CustomDetailsCell defs={defs.defs} entity="pledges" recordId={p.id} custom={p.custom} editable={editCustom} currency={center.currency} />
+                    </td>
+                  ) : null}
                 </tr>
               ))}
             </tbody>

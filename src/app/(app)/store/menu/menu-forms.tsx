@@ -4,8 +4,10 @@ import { useState, type ReactNode } from "react";
 
 import { ActionForm } from "@/components/action-form";
 import { ChipGroup, Toggle } from "@/components/controls";
+import { CustomFieldsEditor } from "@/components/custom-fields-editor";
 import { Drawer } from "@/components/drawer";
-import { buttonClass, InfoBox, StatusText, TableWrap } from "@/components/ui";
+import { customRows, type CustomFieldDef } from "@/lib/custom-fields";
+import { buttonClass, DrawerSection, InfoBox, StatusText, TableWrap } from "@/components/ui";
 import { formatWeeklyCutoff, WEEKDAYS, type StoreRules } from "@/lib/center-rules";
 import { utcToLocal } from "@/lib/local-time";
 import { formatCents } from "@/lib/money";
@@ -14,6 +16,7 @@ import { saveItemAction, saveStoreSettingsAction, saveWindowAction } from "../ac
 
 export type MenuItem = {
   id: string;
+  custom?: unknown;
   sku: string | null;
   name: string;
   category_id: string | null;
@@ -34,7 +37,19 @@ function dollars(cents: number): string {
 }
 
 /** Menu items table (SKU · ITEM · CATEGORY · DESCRIPTION · PRICE · GIFT PACK · ACTIVE); a row opens the item in a drawer. */
-export function MenuTable({ items, categories, currency, manage }: { items: MenuItem[]; categories: Category[]; currency: string; manage: boolean }) {
+export function MenuTable({
+  items,
+  categories,
+  currency,
+  manage,
+  customDefs = [],
+}: {
+  items: MenuItem[];
+  categories: Category[];
+  currency: string;
+  manage: boolean;
+  customDefs?: CustomFieldDef[];
+}) {
   const [open, setOpen] = useState<MenuItem | null>(null);
   const cat = new Map(categories.map((c) => [c.id, c.name]));
   return (
@@ -86,6 +101,11 @@ export function MenuTable({ items, categories, currency, manage }: { items: Menu
       </TableWrap>
       <Drawer open={open !== null} onClose={() => setOpen(null)} kicker={`MENU ITEM${open?.sku ? ` · ${open.sku}` : ""}`} title={open?.name ?? ""}>
         {open ? <ItemForm key={open.id} item={open} categories={categories} /> : null}
+        {open && customRows(customDefs, open.custom).length > 0 ? (
+          <DrawerSection title="More details">
+            <CustomFieldsEditor rows={customRows(customDefs, open.custom)} entity="store_items" recordId={open.id} editable={manage} currency={currency} />
+          </DrawerSection>
+        ) : null}
       </Drawer>
     </>
   );

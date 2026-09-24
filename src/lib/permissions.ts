@@ -204,6 +204,23 @@ export const ACCESS = {
   commsSend: ["comms.send"],
   commsApprove: ["comms.approve"],
   commsInbox: ["comms.inbox"],
+  /** Settings › Data import: whoever may write one of the importable data types (each run checks its own). */
+  dataImport: [
+    "people.manage",
+    "giving.manage",
+    "settings.manage",
+    "accounting.manage",
+    "store.manage",
+    "events.manage",
+    "pathshala.manage",
+    "content.manage",
+    "volunteers.manage",
+    "safety.manage",
+    "comms.send",
+    "bolis.manage",
+  ],
+  /** Settings › Data quality (app.data_quality). */
+  dataQuality: ["people.view", "people.manage"],
 } as const satisfies Record<string, readonly string[]>;
 
 export type AccessKey = keyof typeof ACCESS;
@@ -449,6 +466,10 @@ export const NAV: NavModule[] = [
       // Onboarding (o-tenancy): the member-app join code, and the sandbox / plan limits.
       { href: "/settings/member-app", label: "Member app", access: "centerSettings" },
       { href: "/settings/limits", label: "Limits", access: "centerSettings" },
+      // Onboarding (o-import): loading the organization's data, its custom fields and their quality.
+      { href: "/settings/import", label: "Data import", access: "dataImport" },
+      { href: "/settings/custom-fields", label: "Custom fields", access: "centerSettings" },
+      { href: "/settings/data-quality", label: "Data quality", access: "dataQuality" },
     ],
     paths: ["/settings", "/privacy", "/audit", "/approvals"],
   },

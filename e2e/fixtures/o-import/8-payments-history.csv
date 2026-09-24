@@ -1,0 +1,5 @@
+Payment ID,Receipt #,Household ID,Amount,Payment Method,Date,Check #,Pledge ID,Memo
+R-2019-0331,00331,0901,"$1,500.00",Cheque,09/02/2019,0044,PL-2019-0042,First installment
+R-2020-0012,00412,0901,$500.00,Zelle,01/15/2020,,PL-2019-0042,
+R-2020-0101,00501,0902,"$1,001.00",Credit Card,02/14/2020,,PL-2020-0007,Renovation pledge
+R-2025-0900,00900,0902,$251.00,Cash,12/20/2025,,,Year-end gift
