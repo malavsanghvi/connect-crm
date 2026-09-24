@@ -24,3 +24,16 @@ exception when others then
   raise notice 'PASS: an unknown class code is "not valid"';
 end $$;
 commit;
+
+-- Saathi points follow centers.rules.points; a repeat support message the same day earns nothing.
+update app.centers set rules = jsonb_set(coalesce(rules, '{}'::jsonb), '{points}',
+  coalesce(rules->'points', '{}'::jsonb) || '{"anumodana_points": 7, "support_points": 4, "anumodana_daily_cap": 50}'::jsonb) where id = :jsh;
+begin;
+set local role authenticated;
+set local request.jwt.claim.sub = '10000000-0000-4000-8000-000000000001';
+select pg_temp.assert(app.send_anumodana(:jsh, '30000000-0000-4000-8000-000000000003', 'celebrate', null) = 7, 'anumodana credits the configured points');
+select pg_temp.assert(app.send_anumodana(:jsh, '30000000-0000-4000-8000-000000000004', 'support', 'You can do it') = 4, 'support credits the configured points');
+select pg_temp.assert(app.send_anumodana(:jsh, '30000000-0000-4000-8000-000000000004', 'support', 'Again') = 0, 'a second support to the same person today earns nothing');
+select pg_temp.assert((select count(*) from app.anumodana where to_person_id = '30000000-0000-4000-8000-000000000004' and message = 'Again') = 1, 'the repeat message is still delivered');
+commit;
+update app.centers set rules = rules #- '{points,anumodana_points}' #- '{points,support_points}' #- '{points,anumodana_daily_cap}' where id = :jsh;
