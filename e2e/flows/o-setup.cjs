@@ -206,7 +206,11 @@ const lastAudit = (where) => sql(`select coalesce(client_app,'')||'|'||coalesce(
   for (const k of ['org.legal_identity', 'org.profile', 'org.brand_kit', 'org.leaders']) {
     ok((await p.locator(`tr[data-step="${k}"]`).getAttribute('data-status')) === 'done', `checklist: ${k} is done`);
   }
-  ok((await p.locator('tr[data-step="org.agreements"]').innerText()).includes('Coming soon'), 'a step whose screen is not built says Coming soon');
+  // Agreements shipped with o-security; screens of later waves (e.g. payments) still say Coming soon.
+  ok((await p.locator('tr[data-step="org.agreements"]').getByRole('link', { name: 'Open' }).count()) === 1, 'a step whose screen is built (Agreements) links to it');
+  const soon = await p.locator('tr[data-step]', { hasText: 'Coming soon' }).count();
+  const offScreen = await p.locator('tr[data-step]', { hasText: 'Off-screen' }).count();
+  ok(soon + offScreen + (await p.locator('tr[data-step] a', { hasText: 'Open' }).count()) === (await p.locator('tr[data-step]').count()), `every step either opens, says Coming soon (${soon}) or Off-screen (${offScreen})`);
   const email = p.locator('tr[data-step="svc.email"]');
   await email.getByRole('button', { name: 'Edit' }).click();
   const sd = p.locator('aside[role=dialog]');
@@ -230,7 +234,10 @@ const lastAudit = (where) => sql(`select coalesce(client_app,'')||'|'||coalesce(
   ok((await state('setup_data_complete')) === (dataOk ? 'pass' : 'fail'), `readiness: setup data matches the database (${dataOk ? 'pass' : 'fail'})`);
   const legalOk = sql(`select (app.check_member_legal_documents_published('${JSH}')->>'ok')`) === 'true';
   ok((await state('member_legal_documents_published')) === (legalOk ? 'pass' : 'fail'), `readiness: legal documents match the database (${legalOk ? 'pass' : 'fail'})`);
-  ok((await state('agreements_accepted')) === 'not_built' && (await p.locator('tr[data-state="not_built"]').count()) === 10, 'readiness: the ten checks other streams own show as not built yet');
+  const registered = new Set(sql(`select string_agg(key, ',') from app.readiness_checks`).split(','));
+  const shown = await p.locator('tr[data-check]').evaluateAll((rs) => rs.map((r) => [r.getAttribute('data-check'), r.getAttribute('data-state')]));
+  const wrong = shown.filter(([k, st]) => (st === 'not_built') === registered.has(k));
+  ok((await state('agreements_accepted')) !== 'not_built' && wrong.length === 0, `readiness: exactly the unregistered checks show as not built yet (${shown.filter(([, st]) => st === 'not_built').length} of ${shown.length}; mismatched: ${wrong.map((w) => w[0]).join(',') || 'none'})`);
   await p.screenshot({ path: `${OUT}/readiness.png`, fullPage: true });
 
   // Member cannot open Setup.

@@ -168,7 +168,11 @@ async function maybeStepUp(p, secret) {
     throw new Error(`the portal sign-in did not ask for a code: ${(await p.innerText('body')).slice(0, 600)} (${e.message})`);
   });
   await p.fill('input[name=code]', await mailCode('admin@jsh.test', t0));
-  await p.click('button[type=submit]'); await p.waitForURL((u) => !u.pathname.startsWith('/login'));
+  await p.click('button[type=submit]');
+  // The admin enrolled an authenticator above, so sign-in now asks for its code too.
+  const needTotp = await p.waitForSelector('input[name=totp]', { timeout: 15000 }).then(() => true, () => false);
+  if (needTotp) { await p.fill('input[name=totp]', await freshTotp(totpSecret)); await p.click('button[type=submit]'); }
+  await p.waitForURL((u) => !u.pathname.startsWith('/login'));
   const tile0 = await tileText(p, /Background service not configured/);
   ok(/Background service not configured/.test(tile0), 'before the worker ever runs, the tile says "Background service not configured"');
   await p.screenshot({ path: `${OUT}/integrations-1-not-configured.png`, fullPage: true });
