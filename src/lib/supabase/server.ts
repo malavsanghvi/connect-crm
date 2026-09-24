@@ -6,6 +6,7 @@ import { cookies, headers } from "next/headers";
 
 import type { Database } from "@/lib/database.types";
 import { readPublicEnv } from "@/lib/env";
+import { requestIsHttps } from "@/lib/https";
 import { PATHNAME_HEADER, newRequestId, traceHeaders } from "@/lib/supabase/trace";
 import { normalizeBaseDomain, sharedCookieDomain } from "@/lib/tenancy";
 
@@ -37,10 +38,12 @@ export async function createSupabaseServerClient(opts: ServerClientOptions = {})
   const cookieStore = await cookies();
   let screen: string | null = null;
   let host: string | null = null;
+  let https = false;
   try {
     const h = await headers();
     screen = h.get(PATHNAME_HEADER);
     host = h.get("host");
+    https = requestIsHttps(h.get("x-forwarded-proto"));
   } catch (error) {
     // Outside a request scope there is no screen to report; the audit row just has none.
     console.error("[supabase] could not read the request pathname for x-client-screen:", error);
@@ -49,7 +52,8 @@ export async function createSupabaseServerClient(opts: ServerClientOptions = {})
     db: { schema: "app" },
     global: { headers: traceHeaders({ requestId: opts.requestId ?? newRequestId(), screen, reason: opts.reason }) },
     // One sign-in for every <slug>.<PORTAL_BASE_DOMAIN> portal (the organization switcher); host-only elsewhere.
-    cookieOptions: { domain: sharedCookieDomain(host, normalizeBaseDomain(process.env.PORTAL_BASE_DOMAIN)) },
+    // o-https: Secure session cookies whenever the request came over HTTPS.
+    cookieOptions: { domain: sharedCookieDomain(host, normalizeBaseDomain(process.env.PORTAL_BASE_DOMAIN)), secure: https },
     cookies: {
       getAll() {
         return cookieStore.getAll();
