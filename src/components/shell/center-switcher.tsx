@@ -78,7 +78,7 @@ export function CenterSwitcher({
         Center: {current.name} ▾
       </button>
       {open ? (
-        <div role="menu" aria-label="Switch community" className="absolute left-0 top-[calc(100%+6px)] z-50 w-80 rounded-[12px] border border-line bg-white p-1.5 shadow-lg">
+        <div role="menu" aria-label="Switch community" className="absolute left-0 top-[calc(100%+6px)] z-50 max-h-[70vh] w-80 overflow-y-auto rounded-[12px] border border-line bg-white p-1.5 shadow-lg">
           <p className="px-2.5 pb-1 pt-1.5 text-[11px] font-bold uppercase tracking-wide text-muted">Switch community</p>
           {centers.map((c) => {
             const isCurrent = c.slug === current.slug;

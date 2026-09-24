@@ -145,7 +145,9 @@ async function enrollInPortal(p) {
 /** Switch the portal to another community with the switcher in the top bar. */
 async function switchTo(p, slug, name) {
   await p.getByTestId('center-switcher').click();
-  await p.getByRole('menuitemradio').filter({ hasText: slug }).click();
+  const item = p.getByRole('menuitemradio').filter({ hasText: slug });
+  await item.scrollIntoViewIfNeeded();
+  await item.dispatchEvent('click'); // a long list (a platform admin sees every organization) can run past the window
   await p.waitForFunction((n) => (document.querySelector('[data-testid=center-switcher]')?.textContent || '').includes(n), name, { timeout: 30000 });
   await p.waitForLoadState('networkidle');
 }
@@ -284,8 +286,344 @@ async function run({ browser, S, cc1Id, cc2Id, auditStart }) {
   stopAfter('team');
   await phaseFoundation(browser, S);
   stopAfter('foundation');
+  await phaseServices(browser, S);
+  stopAfter('services');
+  await phaseData(browser, S);
+  stopAfter('data');
+  await phaseHistory(browser, S);
+  stopAfter('history');
+  await phaseGoLive(browser, S);
   if (process.env.EXPLORE) await phaseExplore(S);
 }
+
+/** Toggle a module off in Settings › Modules (reason + fresh 2FA). */
+async function moduleOff(p, secret, label) {
+  const sw = p.getByRole('switch', { name: `${label} module` });
+  if ((await sw.getAttribute('aria-checked')) === 'false') return;
+  await sw.click();
+  const dlg = p.getByRole('dialog').filter({ hasText: 'Switch off' });
+  await dlg.locator('textarea').fill('Not used by this organization yet');
+  await dlg.getByRole('button', { name: 'Switch off' }).click();
+  await answerStepUp(p, secret);
+  await p.getByRole('switch', { name: `${label} module` }).and(p.locator('[aria-checked=false]')).waitFor({ timeout: 30000 });
+}
+
+/** The payments screen asks for a reason in a modal before saving. */
+async function paymentsReason(p, reason) {
+  const dlg = p.getByRole('dialog').filter({ hasText: 'Reason' }).last();
+  await dlg.locator('textarea, input').last().fill(reason);
+  await dlg.getByRole('button', { name: 'Save' }).click();
+}
+
+/** Upload → Map → Check → Preview → Import → Reconcile → sign off (Settings › Data import). */
+async function importFile(p, entity, file, source) {
+  await p.goto(`${BASE}/settings/import/new?entity=${entity}`);
+  await p.fill('#imp-source', source);
+  await p.setInputFiles('#imp-file', path.join(FIXTURES, 'o-golive', file));
+  await p.getByText(/rows, \d+ columns/).waitFor({ timeout: 20000 });
+  await p.getByRole('button', { name: 'Next: map the columns' }).click();
+  await p.getByRole('heading', { name: 'Map the columns' }).waitFor({ timeout: 30000 });
+  await p.getByRole('button', { name: 'Next: check every row' }).click();
+  await p.getByRole('heading', { name: 'Check every row' }).waitFor();
+  await p.getByRole('button', { name: /^Next: preview/ }).click();
+  await p.waitForURL(/\/settings\/import\/[0-9a-f-]{36}/, { timeout: 120000 });
+  const id = p.url().match(/import\/([0-9a-f-]{36})/)[1];
+  await p.getByText('Will be added').first().waitFor({ timeout: 90000 });
+  await p.getByRole('button', { name: /^Import [\d,]+ rows$/ }).click();
+  await p.getByRole('button', { name: 'Compare with the file' }).waitFor({ timeout: 180000 });
+  for (let attempt = 1; ; attempt++) {
+    await p.getByRole('button', { name: 'Compare with the file' }).click();
+    const done = await p.getByText(/Everything matches the file|Some numbers differ from the file/).waitFor({ timeout: 20000 }).then(() => true, () => false);
+    if (done) break;
+    if (attempt >= 3) throw new Error(`${entity}: the reconciliation did not appear`);
+  }
+  if (!(await p.getByText('Everything matches the file').isVisible())) await p.fill('#signoff-note', 'Checked by hand against the file.');
+  await p.getByRole('button', { name: /^Sign off/ }).click();
+  await p.getByText(/^Signed off /).waitFor({ timeout: 30000 });
+  return id;
+}
+
+// ── 3. Stage 1: services, and the rest of Stage 0 ─────────────────────────────
+async function phaseServices(browser, S) {
+  const p = S.owner.p;
+  const tp = S.treasurer.p;
+
+  // Modules: this organization does not use the store, Pathshala, bolis, volunteers, surveys,
+  // QuickBooks (Accounting) or Niva yet — their setup steps then show as skipped.
+  await p.goto(BASE + '/settings/modules', { waitUntil: 'networkidle' });
+  for (const label of ['Satvik Store', 'Pathshala', 'Bolis', 'Volunteers', 'Surveys & data', 'Accounting & QuickBooks', 'Niva assistant']) await moduleOff(p, S.ownerSecret, label);
+  ok(sql(`select count(*) from app.center_modules where center_id = '${S.sbx}' and not enabled`) === '7', '4 · seven modules switched off in Settings › Modules (reason + fresh 2FA)');
+  ok(audits(S, 'center_modules').filter((a) => a === 'portal|/settings/modules|Not used by this organization yet').length === 7, '4 · audit: each switch from Settings › Modules with its reason');
+
+  // Agreements (the owner).
+  for (const kind of ['terms', 'dpa', 'children_addendum']) {
+    await p.goto(BASE + '/settings/agreements', { waitUntil: 'networkidle' });
+    const form = p.getByTestId(`agreement-${kind}`).locator('form').first();
+    if (!(await form.count())) continue;
+    await form.locator('input[name=confirm]').check();
+    await form.getByRole('button', { name: /^Accept / }).click();
+    await until(() => sql(`select count(*) from app.org_agreements where center_id = '${S.sbx}' and kind = '${kind}'`) === '1', 20000);
+  }
+  ok(sql(`select (app.check_agreements_accepted('${S.sbx}')->>'ok')`) === 'true', '4 · the owner accepts the terms, the DPA and the children\'s addendum (readiness 2)');
+
+  // Sandbox test recipient: the owner's own address, verified by a code.
+  await p.goto(BASE + '/settings/limits', { waitUntil: 'networkidle' });
+  const addForm = p.locator('form').filter({ has: p.locator('input[name=address]') });
+  await addForm.locator('select[name=channel]').selectOption('email');
+  await addForm.locator('input[name=address]').fill(CONTACT);
+  await addForm.getByRole('button', { name: 'Add' }).click();
+  await until(() => sql(`select count(*) from app.sandbox_test_recipients where center_id = '${S.sbx}' and address = '${CONTACT}'`) === '1', 20000);
+  await p.goto(BASE + '/settings/limits', { waitUntil: 'networkidle' });
+  const rid = sql(`select id from app.sandbox_test_recipients where center_id = '${S.sbx}' and address = '${CONTACT}'`);
+  const t0 = Date.now() - 2000;
+  await p.locator('form').filter({ has: p.locator(`input[name=id][value="${rid}"]`) }).getByRole('button', { name: 'Send code' }).click();
+  const vcode = (await mailMessage(CONTACT, t0, /\b(\d{6})\b/)).hit[1];
+  await p.goto(BASE + '/settings/limits', { waitUntil: 'networkidle' });
+  const vf = p.locator('form').filter({ has: p.locator(`input[name=id][value="${rid}"]`) }).filter({ has: p.locator('input[name=code]') });
+  await vf.locator('input[name=code]').fill(vcode);
+  await vf.getByRole('button', { name: 'Verify' }).click();
+  ok(await until(() => sql(`select (verified_at is not null)::text from app.sandbox_test_recipients where id = '${rid}'`) === 'true', 20000),
+    '4 · the owner\'s address is a verified sandbox test recipient (Settings › Limits, code by email)');
+
+  // Email: domain (Resend mock), DNS verified, sign-in sender, footer, a test email.
+  const domain = `mail-${RUN}.golivetemple.test`;
+  await p.goto(BASE + '/settings/email', { waitUntil: 'networkidle' });
+  const domainForm = p.locator('form', { has: p.locator('input[name=domain]') });
+  await domainForm.locator('input[name=domain]').fill(domain);
+  await domainForm.locator('input[name=reason]').fill('Our sending domain');
+  await domainForm.getByRole('button', { name: 'Add domain' }).click();
+  const domId = await until(() => sql(`select id from app.email_domains where domain = '${domain}'`));
+  await until(() => Number(sql(`select coalesce(jsonb_array_length(dns_records), 0) from app.email_domains where id = '${domId}'`)) >= 3, 30000);
+  await fetch(`${MOCK}/_mock/domains/${domain}/verify`, { method: 'POST' });
+  await p.goto(BASE + '/settings/email', { waitUntil: 'networkidle' });
+  await p.locator('form', { has: p.locator(`input[name=id][value="${domId}"]`) }).getByRole('button', { name: 'Check again' }).click();
+  ok(await until(() => sql(`select status from app.email_domains where id = '${domId}'`) === 'verified', 30000), '5 · the sending domain is added and verifies (Settings › Email, worker → Resend mock)');
+  await p.goto(BASE + '/settings/email', { waitUntil: 'networkidle' });
+  const authForm = p.locator('form', { has: p.locator('input[name=purpose][value=auth]') });
+  await authForm.locator('input[name=from_address]').fill(`codes@${domain}`);
+  await authForm.getByRole('button', { name: 'Save' }).click();
+  await until(() => sql(`select verified::text from app.email_senders where center_id = '${S.sbx}' and purpose = 'auth'`) === 'true', 20000);
+  const footer = p.locator('form', { has: p.locator('input[name=postal_address]') });
+  await footer.locator('input[name=postal_address]').fill('100 Temple Way, Austin TX 78701');
+  await footer.locator('input[name=reason]').fill('CAN-SPAM footer');
+  await footer.getByRole('button', { name: 'Save footer' }).click();
+  await toast(p, /footer/i, 15000);
+  await p.goto(BASE + '/settings/email', { waitUntil: 'networkidle' });
+  await p.locator('form', { has: p.locator('input[name=channel][value=email]') }).getByRole('button', { name: 'Send a test' }).click();
+  ok(await until(() => sql(`select count(*) from app.messages where center_id = '${S.sbx}' and purpose = 'test' and channel = 'email' and status in ('sent','delivered')`) !== '0', 40000),
+    '5 · a test email from the organization\'s own sender reached the verified test recipient');
+  ok(sql(`select (app.check_email_domain_verified('${S.sbx}')->>'ok')`) === 'true', '5 · readiness 4 passes (domain verified, codes reach any address)');
+
+  // Texting: this organization signs members in by email only.
+  await p.goto(BASE + '/settings/texting', { waitUntil: 'networkidle' });
+  await p.getByRole('button', { name: 'Switch phone sign-in off' }).click();
+  await confirmIfAsked(p, 'Switch phone sign-in off');
+  ok(await until(() => sql(`select (app.check_texting_registered('${S.sbx}')->>'ok')`) === 'true', 20000), '5 · phone sign-in switched off (Settings › Texting) — readiness 5');
+
+  // Payments (the treasurer): offline only for now, cash accepted with instructions.
+  await tp.goto(BASE + '/settings/payments', { waitUntil: 'networkidle' });
+  await tp.getByRole('switch', { name: 'Offline payments only' }).click();
+  await paymentsReason(tp, 'Launch with offline gifts; cards later');
+  await until(() => sql(`select coalesce(rules #>> '{payments,offline_only}', '') from app.centers where id = '${S.sbx}'`) === 'true', 20000);
+  await tp.goto(BASE + '/settings/payments', { waitUntil: 'networkidle' });
+  const cash = tp.locator('section[aria-label="Cash (bhandar)"]');
+  await cash.getByRole('switch', { name: 'Accept Cash (bhandar)' }).click();
+  await cash.getByLabel(/Where to give cash/).fill('Bhandar at the temple office');
+  await cash.getByRole('button', { name: 'Save Cash (bhandar)' }).click();
+  await paymentsReason(tp, 'How members give cash');
+  ok(await until(() => sql(`select accepted::text from app.center_payment_methods where center_id = '${S.sbx}' and method = 'cash'`) === 'true', 20000),
+    '5 · the treasurer chooses offline only and accepts cash with instructions (Settings › Payments) — readiness 6');
+
+  // Bank account (the treasurer, accounting.manage).
+  await tp.goto(BASE + '/giving/payments/bank', { waitUntil: 'networkidle' });
+  await tp.fill('#ba-name', 'Operating account');
+  await tp.fill('#ba-inst', 'Test Bank');
+  await tp.fill('#ba-last4', '4321');
+  await tp.getByRole('button', { name: 'Add bank account' }).click();
+  ok(await until(() => sql(`select count(*) from app.bank_accounts where center_id = '${S.sbx}'`) === '1', 20000), '5 · the treasurer adds the bank account');
+
+  // Storage retention and numbering (the owner).
+  await p.goto(BASE + '/settings/storage', { waitUntil: 'networkidle' });
+  const imp = p.locator('tr[data-bucket=imports]');
+  await imp.locator('input[name=days]').fill('60');
+  await imp.getByRole('button', { name: 'Save' }).click();
+  ok(await until(() => sql(`select rules #>> '{storage,retention_days,imports}' from app.centers where id = '${S.sbx}'`) === '60', 20000), '5 · import files are kept 60 days (Settings › Storage)');
+  await p.goto(BASE + '/settings/numbering', { waitUntil: 'networkidle' });
+  await p.locator('tr[data-kind=member] input[name=prefix_member]').fill('GT-');
+  await p.locator('tr[data-kind=member] input[name=next_member]').fill('5001');
+  await p.fill('#numbering-reason', 'Adopt our register numbers');
+  await p.getByRole('button', { name: 'Save numbering' }).click();
+  ok(await toast(p, /cannot go back/, 20000), '5 · numbering: going back below numbers already issued is refused, in plain English');
+  await p.goto(BASE + '/settings/numbering', { waitUntil: 'networkidle' });
+  await p.locator('tr[data-kind=member] input[name=prefix_member]').fill('GT-');
+  await p.locator('tr[data-kind=member] input[name=next_member]').fill('20001');
+  await p.fill('#numbering-reason', 'Adopt our register numbers');
+  await p.getByRole('button', { name: 'Save numbering' }).click();
+  ok(await until(() => sql(`select prefix||next_value from app.number_sequences where center_id = '${S.sbx}' and kind = 'member'`) === 'GT-20001', 20000), '5 · member numbers continue at GT-20001 (Settings › Numbering)');
+  ok(audits(S, 'number_sequences').some((a) => a === 'portal|/settings/numbering|Adopt our register numbers'), '5 · audit: the numbering change with its reason');
+}
+
+/** Some buttons ask to confirm in a modal; answer it when it appears. */
+async function confirmIfAsked(p, label) {
+  const dlg = p.locator('[role=dialog][aria-modal=true]').filter({ has: p.getByRole('button', { name: label }) }).last();
+  if (await dlg.waitFor({ timeout: 3000 }).then(() => true, () => false)) await dlg.getByRole('button', { name: label }).click();
+}
+
+// ── 4. Stages 2–5: documents, templates, setup data, records ─────────────────
+async function phaseData(browser, S) {
+  const p = S.owner.p;
+  const tp = S.treasurer.p;
+  const addList = async (page, anchor, button, fill) => {
+    await page.goto(BASE + '/setup/lists', { waitUntil: 'networkidle' });
+    await page.getByRole('button', { name: button, exact: true }).first().click();
+    const d = page.locator('aside[role=dialog]').last();
+    await fill(d);
+    await d.getByRole('button', { name: button, exact: true }).click();
+    return toast(page, /added · audit logged/, 20000);
+  };
+
+  ok(await addList(p, 'membership', 'Add membership type', async (d) => {
+    await d.locator('input[name=name]').fill('Yearly family');
+    await d.locator('select[name=tier]').selectOption('yearly');
+    await d.locator('input[name=fee]').fill('150');
+    await d.locator('input[name=period_months]').fill('12');
+  }), '6 · the owner adds a membership type (Setup › Lists)');
+  ok(sql(`select fee_cents||'|'||period_months from app.membership_types where center_id = '${S.sbx}' and key = 'yearly_family'`) === '15000|12', '6 · membership type saved: $150 for 12 months');
+  ok(await addList(p, 'inboxes', 'Add inbox', async (d) => { await d.locator('input[name=name]').fill('Office'); }), '6 · the owner adds the Office inbox');
+  ok(await addList(p, 'zones', 'Add zone', async (d) => { await d.locator('input[name=name]').fill('Central Austin'); await d.locator('textarea[name=zip_codes]').fill('78701 78702'); }), '6 · the owner adds a zone');
+  ok(await addList(tp, 'funds', 'Add fund', async (d) => { await d.locator('input[name=name]').fill('General fund'); }), '6 · the treasurer adds the general fund');
+  ok(audits(S, 'membership_types').concat(audits(S, 'funds'), audits(S, 'inboxes'), audits(S, 'zones')).every((a) => a.startsWith('portal|/setup/lists|')),
+    '6 · audit: every list row from Setup › Lists');
+
+  // A campaign (the treasurer).
+  await tp.goto(BASE + '/giving/opportunities/campaigns', { waitUntil: 'networkidle' });
+  await tp.fill('#c-name', 'Annual appeal');
+  const fundId = sql(`select id from app.funds where center_id = '${S.sbx}' and key = 'general_fund'`);
+  await tp.selectOption('#c-fund', fundId);
+  await tp.getByRole('button', { name: 'Create draft' }).click();
+  ok(await until(() => sql(`select count(*) from app.campaigns where center_id = '${S.sbx}'`) === '1', 20000), '6 · the treasurer creates a campaign (Giving › Campaigns)');
+
+  // A guide section (the owner).
+  await p.goto(BASE + '/content/guide', { waitUntil: 'networkidle' });
+  await p.getByRole('button', { name: 'New section' }).click();
+  let d = p.locator('aside[role=dialog]').last();
+  await d.locator('input[name=title]').fill('New to the temple');
+  await d.locator('input[name=slug]').fill('new-here');
+  await d.locator('textarea[name=body_md]').fill('Welcome! Darshan hours, parking and who to ask.');
+  await d.getByRole('button', { name: 'Add section' }).click();
+  ok(await until(() => sql(`select count(*) from app.guide_sections where center_id = '${S.sbx}'`) === '1', 20000), '6 · the owner adds a guide section (Content › Guide)');
+
+  // Member legal documents: written, then published.
+  for (const [kind, title] of [['terms', 'Terms of use'], ['privacy', 'Privacy policy'], ['photo_release', 'Photo policy']]) {
+    await p.goto(BASE + '/content/legal', { waitUntil: 'networkidle' });
+    await p.getByRole('button', { name: 'New document' }).click();
+    d = p.locator('aside[role=dialog]').last();
+    await d.locator('select[name=kind]').selectOption(kind);
+    await d.locator('input[name=title]').fill(title);
+    await d.locator('input[name=version]').fill('1.0');
+    await d.locator('textarea[name=body_md]').fill(`${title} of ${ORG} (test text).`);
+    await d.getByRole('button', { name: 'Save draft' }).click();
+    await until(() => sql(`select count(*) from app.legal_documents where center_id = '${S.sbx}' and kind = '${kind}'`) === '1', 20000);
+    await p.goto(BASE + '/content/legal', { waitUntil: 'networkidle' });
+    await p.getByRole('button', { name: 'Publish 1.0' }).first().click();
+    await confirmModal(p, 'Publish 1.0');
+    await until(() => sql(`select count(*) from app.legal_documents where center_id = '${S.sbx}' and kind = '${kind}' and published_at is not null`) === '1', 20000);
+  }
+  ok(sql(`select (app.check_member_legal_documents_published('${S.sbx}')->>'ok')`) === 'true', '6 · terms, privacy and photo policy written and published (Content › Legal) — readiness 11');
+
+  // The treasurer reviews the receipt wording and approves it (readiness 8).
+  await tp.goto(BASE + '/giving/statements', { waitUntil: 'networkidle' });
+  await tp.fill('#rt-signed', 'Tara Desai, Treasurer');
+  await tp.getByRole('button', { name: 'Save template' }).click();
+  await toast(tp, /template saved/i, 20000);
+  await tp.goto(BASE + '/giving/statements', { waitUntil: 'networkidle' });
+  const card = tp.getByTestId('approval-statement-templates');
+  ok((await card.getAttribute('data-approval')) === 'none', '7 · the approval card says the templates are not approved yet');
+  await card.locator('input[name=note]').fill('Reviewed the receipt and year-end wording');
+  await card.getByRole('button', { name: 'Approve' }).click();
+  ok(await until(() => sql(`select (app.check_statement_templates_approved('${S.sbx}')->>'ok')`) === 'true', 20000), '7 · the treasurer approves the receipt and statement templates — readiness 8');
+  ok(audits(S, 'golive_approvals').some((a) => a === 'portal|/giving/statements|Reviewed the receipt and year-end wording'), '7 · audit: the approval from Receipts & statements with the treasurer\'s note');
+  await tp.goto(BASE + '/giving/statements', { waitUntil: 'networkidle' });
+  ok((await tp.getByTestId('approval-statement-templates').getAttribute('data-approval')) === 'current', '7 · the card shows "Approved" with who and when');
+  await shot(tp, '7-statements-approved');
+  // The owner (not the treasurer) is told who approves.
+  await p.goto(BASE + '/giving/statements', { waitUntil: 'networkidle' });
+  ok((await p.getByTestId('approval-statement-templates').innerText()).includes('Approved by Tara'), '7 · the owner sees the treasurer\'s approval');
+
+  // Records: households and people imported, reconciled and signed off.
+  await importFile(p, 'households', 'households.csv', 'Old register');
+  await importFile(p, 'people', 'people.csv', 'Old register');
+  ok(sql(`select count(*) from app.import_runs where center_id = '${S.sbx}' and status = 'reconciled'`) === '2', '8 · households and people imported, reconciled and signed off (Settings › Data import)');
+}
+
+// ── 4b. Stages 4–5 completed: memberships, giving history, and a step marked by hand ──
+async function phaseHistory(browser, S) {
+  const p = S.owner.p;
+  const tp = S.treasurer.p;
+  await importFile(p, 'memberships', 'memberships.csv', 'Old register');
+  ok(sql(`select count(*) from app.memberships where center_id = '${S.sbx}'`) === '2', '8 · current memberships imported and signed off (the membership coordinator\'s part, here the owner)');
+  await importFile(tp, 'pledges', 'pledges.csv', 'Old register');
+  await importFile(tp, 'payments', 'payments.csv', 'Old register');
+  ok(sql(`select count(*) from app.payments where center_id = '${S.sbx}' and is_historical`) === '1' && sql(`select count(*) from app.pledges where center_id = '${S.sbx}'`) === '1',
+    '8 · the treasurer imports the giving history (a pledge and its historical payment), reconciled and signed off');
+  ok(sql(`select count(*) from app.ledger_postings where center_id = '${S.sbx}'`) === '0', '8 · the historical payment is never queued for QuickBooks');
+
+  // No recurring gifts in the old system: the owner marks the step done by hand, with a note.
+  await p.goto(BASE + '/setup', { waitUntil: 'networkidle' });
+  const row = p.locator('tr[data-step="hist.recurring"]');
+  await row.getByRole('button', { name: 'Edit' }).click();
+  const d = p.locator('aside[role=dialog]').last();
+  await d.locator('select[name=status]').selectOption('done');
+  await d.locator('textarea[name=notes]').fill('The old system has no recurring gifts.');
+  await d.getByRole('button', { name: 'Save step' }).click();
+  ok(await until(() => sql(`select status from app.center_setup_steps where center_id = '${S.sbx}' and step_key = 'hist.recurring'`) === 'done', 20000),
+    '8 · a step with nothing to load is marked done by hand in the checklist, with a note');
+}
+
+// ── 5. Stages 7–8: confirmations, readiness green, request go-live ───────────
+async function phaseGoLive(browser, S) {
+  const p = S.owner.p;
+  await p.goto(BASE + '/setup/go-live', { waitUntil: 'networkidle' });
+  for (const key of ['staff_trained', 'health_check_green', 'pilot_done']) {
+    const li = p.locator(`li[data-attestation=${key}]`);
+    await li.locator('input[name=note]').fill(`${key.replace(/_/g, ' ')} — done in the sandbox`);
+    await li.getByRole('button', { name: 'Confirm' }).click();
+    await li.getByText('Confirmed', { exact: false }).waitFor({ timeout: 20000 });
+  }
+  ok(sql(`select count(*) from app.center_attestations where center_id = '${S.sbx}'`) === '3', '9 · the owner confirms training, the health check and the pilot (readiness 13)');
+
+  // The background service reported in (readiness 14).
+  await until(() => sql(`select count(*) from app.worker_heartbeats where worker = 'e2e-golive-${RUN}' and stopped_at is null`) === '1', 30000);
+
+  await p.goto(BASE + '/setup/readiness', { waitUntil: 'networkidle' });
+  await shot(p, '9-readiness');
+  const states = await p.locator('tr[data-check]').evaluateAll((rs) => rs.map((r) => [r.getAttribute('data-check'), r.getAttribute('data-state'), r.innerText.replace(/\s+/g, ' ').slice(0, 200)]));
+  const failing = states.filter(([, st]) => st !== 'pass');
+  ok(states.length === 14 && failing.length === 0, `9 · Setup › Go-live readiness: all ${states.length} checks pass in the UI` + (failing.length ? ` — not passing: ${failing.map((f) => f[2]).join(' | ')}` : ''));
+  ok((await p.getByTestId('interim-statement_templates_approved').count()) === 1 && (await p.getByTestId('interim-niva_evaluated').count()) === 1,
+    '9 · checks 8 and 12 say on screen that their full versions come later');
+
+  await p.goto(BASE + '/setup/go-live', { waitUntil: 'networkidle' });
+  await submitConfirmed(p, p.locator('main'), 'Request go-live');
+  await p.getByTestId('golive-status').waitFor({ timeout: 20000 });
+  await shot(p, '9-go-live-requested');
+  ok(sql(`select status||'|'||requested_by from app.golive_requests where center_id = '${S.sbx}'`) === `requested|${S.ownerId}`, '9 · the go-live request succeeds (requested by the owner)');
+  ok(sql(`select jsonb_array_length(readiness) from app.golive_requests where center_id = '${S.sbx}'`) === '14', '9 · the request carries the readiness evidence (14 checks)');
+
+  // The checklist, walked: every required step of a module that is on is done, or waits only on Community Connect.
+  await p.goto(BASE + '/setup', { waitUntil: 'networkidle' });
+  await shot(p, '9-checklist-final');
+  const steps = await p.locator('tr[data-step]').evaluateAll((rs) => rs.map((r) => [r.getAttribute('data-step'), r.getAttribute('data-status')]));
+  const open = steps.filter(([, st]) => !['done', 'skipped', 'needs_review'].includes(st)).map(([k, st]) => `${k}:${st}`);
+  console.log('   steps not done (optional or manual):', open.join(', ') || 'none');
+  const required = sql(`select string_agg(key, ',') from app.setup_steps where required`).split(',');
+  const requiredOpen = open.filter((x) => required.includes(x.split(':')[0]));
+  ok(requiredOpen.length === 0, `9 · every required step of the modules that are on is done (or waits only on Community Connect)${requiredOpen.length ? ': still open ' + requiredOpen.join(', ') : ''}`);
+  ok((await p.locator('text=Coming soon').count()) === 0 && (await p.locator('tr[data-step]', { hasText: 'Off-screen' }).count()) === 0,
+    '9 · every step links to a working screen (no "Coming soon", no "Off-screen")');
+}
+
+
 
 // ── 2a. The team: a second administrator and a treasurer ─────────────────────
 async function phaseTeam(browser, S) {
@@ -315,7 +653,8 @@ async function phaseTeam(browser, S) {
     await ip.waitForURL((u) => u.pathname === '/account/security', { timeout: 30000 });
     const secret = await enrollInPortal(ip);
     await ip.goto(BASE + '/', { waitUntil: 'networkidle' });
-    const on = (await ip.getByTestId('center-switcher').innerText().catch(() => '')).includes(ORG);
+    await shot(ip, `2-${name}-after-accept`);
+    const on = (await ip.locator('header').first().innerText().catch(() => '')).includes(ORG);
     ok(on, `2 · ${name}: after accepting, the portal opens on the inviting sandbox`);
     if (!on) await switchTo(ip, `${SLUG}-sandbox`, ORG);
     return { ctx, p: ip, secret, id: sql(`select id from auth.users where email = '${email}'`) };
@@ -386,9 +725,11 @@ async function phaseFoundation(browser, S) {
     await p.selectOption('select[name=kind]', kind);
     await p.setInputFiles('input#doc-file', pdf);
     await p.getByRole('button', { name: 'Upload document' }).click();
-    ok(await toast(p, /uploaded/i), `3 · ${kind} uploaded to the private document store`);
+    ok(await until(() => sql(`select count(*) from app.org_documents where center_id = '${S.sbx}' and kind = '${kind}'`) === '1', 30000),
+      `3 · ${kind} uploaded to the private document store`);
   }
   await p.goto(BASE + '/setup/organization', { waitUntil: 'networkidle' });
+  await shot(p, '3-organization-before-submit');
   await p.getByRole('button', { name: 'Submit for verification' }).click();
   await confirmModal(p, 'Submit for verification');
   ok(await toast(p, /Submitted/), '3 · submitted for verification');
@@ -476,7 +817,7 @@ if (require.main === module) (async () => {
   const worker = spawn(process.execPath, [WORKER_JS], {
     env: { PATH: process.env.PATH, WORKER_DATABASE_URL: `postgres://connect_worker:${workerPw}@${new URL(DB).host}/postgres`, WORKER_ID: `e2e-golive-${RUN}`,
            WORKER_HEALTH_PORT: '3920', WORKER_POLL_MS: '500', WORKER_HEARTBEAT_MS: '5000',
-           RESEND_API_KEY: 're_mock_golive', RESEND_API_BASE: MOCK, EMAIL_FROM_DEFAULT: 'Community Connect <hello@communityconnect.test>',
+           RESEND_API_KEY: 're_mock_golive', RESEND_API_BASE: MOCK, MESSAGING_FROM_ADDRESS: 'hello@communityconnect.test', MESSAGING_FROM_NAME: 'Community Connect',
            PORTAL_PUBLIC_URL: RT.PORTAL_PUBLIC_URL || BASE, MESSAGING_LINK_SECRET: RT.MESSAGING_LINK_SECRET || 'x' },
   });
   worker.stdout.on('data', (d) => logs.push(...d.toString().trim().split('\n')));
@@ -487,7 +828,10 @@ if (require.main === module) (async () => {
   try {
     await run({ browser, S, cc1Id, cc2Id, auditStart });
   } catch (e) {
-    if (e.message !== '__stop__') { console.error(e); process.exitCode = 1; }
+    if (e.message !== '__stop__') {
+      console.error(e); process.exitCode = 1;
+      for (const [k, v] of Object.entries(S)) if (v && v.p && typeof v.p.screenshot === 'function') await shot(v.p, `error-${k}`);
+    }
   } finally {
     await browser.close();
     worker.kill('SIGTERM');

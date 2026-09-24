@@ -160,6 +160,8 @@ export const ACCESS = {
   centerSettings: ["settings.manage"],
   /** Setup checklist, Step 0 screens and go-live readiness (settings.manage; the owner too, in the database). */
   setup: ["settings.manage"],
+  /** Setup › Lists (o-golive): each card checks its own writer — settings.manage, giving.manage (funds) or pathshala.manage (tracks). */
+  setupLists: ["settings.manage", "giving.manage", "pathshala.manage"],
   /** Settings › Email / Texting / WhatsApp (o-messaging): read by messaging and integrations roles; changed with settings.manage or integrations.manage (the database decides). */
   messaging: ["settings.manage", "integrations.manage", "integrations.view", "comms.view", "comms.send"],
   messagingManage: ["settings.manage", "integrations.manage"],
@@ -455,7 +457,7 @@ export const NAV: NavModule[] = [
       { href: "/setup/profile", label: "Profile & brand", access: "setup" },
       { href: "/setup/leaders", label: "Leaders", access: "setup" },
       // Onboarding (o-golive): membership types, funds, inboxes, zones and Pathshala tracks.
-      { href: "/setup/lists", label: "Lists", access: "setup" },
+      { href: "/setup/lists", label: "Lists", access: "setupLists" },
       { href: "/setup/readiness", label: "Go-live readiness", access: "setup" },
       // Onboarding (o-platform): attestations, the go-live request and promotion.
       { href: "/setup/go-live", label: "Go-live", access: "setup" },
