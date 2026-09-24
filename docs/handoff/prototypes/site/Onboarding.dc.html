@@ -1,0 +1,280 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>JSH onboarding</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1B2C5C"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="JSH onboarding">
+<link rel="manifest" href="manifest.json"><link rel="apple-touch-icon" href="assets/icon-192.png"><link rel="icon" href="assets/icon-192.png">
+<style>html,body{margin:0;background:#1C2433;}body{display:flex;justify-content:center;align-items:flex-start;min-height:100vh;}#proto-home{position:fixed;left:10px;top:10px;z-index:99999;font:600 12px system-ui;background:#FFFFFFE6;color:#1B2C5C;border-radius:14px;padding:6px 10px;text-decoration:none;box-shadow:0 2px 8px rgba(0,0,0,.2)}@media (max-width:450px){#proto-home{display:none}}</style>
+<script>(function(){var W=390,H=844;function fit(){var s=Math.min(innerWidth/W,innerHeight/H);if(innerWidth>=W+40&&(innerHeight>=H+40))s=1;document.documentElement.style.zoom=s;}addEventListener('resize',fit);fit();})();</script>
+<script src="./support.js"></script>
+</head>
+<body>
+<a id="proto-home" href="index.html">‹ All prototypes</a>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&amp;family=DM+Sans:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#EDE6DA}
+a{color:#1B2C5C}a:hover{color:#0F1B3D}
+button{font-family:inherit;cursor:pointer}
+input{font-family:inherit}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; position: relative; overflow: hidden; display: flex; flex-direction: column; background: #FBF7F0; font-family: 'DM Sans', system-ui, sans-serif; color: #1E1C18;">
+<div style="position: absolute; top: 5px; left: 50%; transform: translateX(-50%); z-index: 9999; pointer-events: none; background: #B3261E; color: #FFFFFF; border-radius: 10px; padding: 2px 10px; font-size: 10px; font-weight: 800; letter-spacing: 0.08em; white-space: nowrap;">PROTOTYPE · SAMPLE DATA</div>
+
+<sc-if value="{{showTop}}" hint-placeholder-val="{{ false }}">
+<div style="padding: 16px 20px 8px; display: flex; flex-direction: column; gap: 10px;">
+<div style="display: flex; align-items: center; gap: 12px;">
+<button onClick="{{back}}" aria-label="Back" style="width: 44px; height: 44px; border-radius: 22px; border: 1px solid #E3D9C8; background: #FFFFFF; display: flex; align-items: center; justify-content: center;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1B2C5C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"></path></svg></button>
+<div style="flex-grow: 1; font-size: 13px; color: #5E5A52;">Step {{stepNum}} of 5</div>
+<sc-if value="{{canSkip}}" hint-placeholder-val="{{ false }}">
+<button onClick="{{skip}}" style="border: 0; background: transparent; min-height: 44px; font-size: 14px; font-weight: 600; color: #1B2C5C;">Skip for now</button>
+</sc-if>
+</div>
+<div style="height: 6px; border-radius: 3px; background: #EDE3D2;"><div style="height: 6px; border-radius: 3px; background: #1B2C5C; width: {{pct}};"></div></div>
+</div>
+</sc-if>
+
+<div style="flex-grow: 1; overflow-y: auto; padding: 12px 20px 24px; display: flex; flex-direction: column; gap: 16px;">
+
+<sc-if value="{{s0}}" hint-placeholder-val="{{ true }}">
+<div style="display: flex; flex-direction: column; gap: 18px; padding-top: 40px;">
+<img src="assets/jsh-logo.png" alt="Jain Society of Houston logo" style="width: 150px; height: auto; align-self: center;">
+<div style="font-size: 16px; color: #5E5A52;">Jai Jinendra</div>
+<div style="font-family: 'Fraunces', Georgia, serif; font-size: 34px; font-weight: 600; line-height: 1.15;">Welcome to the Jain Society of Houston</div>
+<div style="font-size: 15px; color: #3D3A33; line-height: 1.5;">Events, giving, learning and your family's membership, all in one place.</div>
+<div style="display: flex; flex-direction: column; gap: 10px; padding-top: 24px;">
+<button onClick="{{next}}" style="border: 0; background: #1B2C5C; color: #FFFFFF; border-radius: 26px; min-height: 52px; font-size: 16px; font-weight: 600;">Continue with email</button>
+<button onClick="{{next}}" style="border: 1px solid #1B2C5C; background: #FFFFFF; color: #1B2C5C; border-radius: 26px; min-height: 52px; font-size: 16px; font-weight: 600;">Continue with mobile number</button>
+<a href="Main.dc.html" style="text-align: center; padding: 14px; font-size: 14px; font-weight: 600; text-decoration: none;">Just visiting? Explore as a guest</a>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{s1}}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; flex-direction: column; gap: 16px;">
+<div style="font-family: 'Fraunces', Georgia, serif; font-size: 26px; font-weight: 600;">Sign in</div>
+<label style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: #5E5A52;">Email
+<input type="email" value="priya.shah@example.com" style="min-height: 52px; border-radius: 14px; border: 1px solid #E3D9C8; background: #FFFFFF; padding: 0 14px; font-size: 16px; color: #1E1C18;">
+</label>
+<label style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: #5E5A52;">6-digit code we sent you
+<input type="text" value="482 917" style="min-height: 52px; border-radius: 14px; border: 1px solid #E3D9C8; background: #FFFFFF; padding: 0 14px; font-size: 22px; letter-spacing: 0.2em; color: #1E1C18;">
+</label>
+<div style="font-size: 13px; color: #5E5A52;">Didn't get it? <a href="#resend">Resend in 0:42</a></div>
+<button onClick="{{next}}" style="border: 0; background: #1B2C5C; color: #FFFFFF; border-radius: 26px; min-height: 52px; font-size: 16px; font-weight: 600;">Verify</button>
+<label style="display: flex; align-items: center; gap: 10px; font-size: 14px; color: #3D3A33;"><input type="checkbox" checked="checked" style="width: 20px; height: 20px;">Use Face ID next time</label>
+</div>
+</sc-if>
+
+<sc-if value="{{s2}}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; flex-direction: column; gap: 16px;">
+<div style="font-family: 'Fraunces', Georgia, serif; font-size: 26px; font-weight: 600;">Is this your family?</div>
+<div style="font-size: 14px; color: #5E5A52;">We matched your email to the JSH membership records.</div>
+<div style="background: #FFFFFF; border: 1px solid #E8E0D2; border-radius: 20px; padding: 16px; display: flex; flex-direction: column; gap: 10px;">
+<div style="display: flex; justify-content: space-between; align-items: baseline;"><div style="font-family: 'Fraunces', Georgia, serif; font-size: 22px; font-weight: 500;">Shah family</div><div style="font-size: 12px; font-weight: 600; color: #1F7A4D;">LIFE MEMBERS</div></div>
+<sc-for list="{{fam}}" as="f" hint-placeholder-count="4">
+<div style="display: flex; align-items: center; gap: 12px; padding: 6px 0; border-top: 1px solid #F1E8D8;">
+<div style="width: 36px; height: 36px; border-radius: 18px; background: #E6E9F3; color: #1B2C5C; display: flex; align-items: center; justify-content: center; font-weight: 600;">{{f.initial}}</div>
+<div><div style="font-weight: 500; font-size: 15px;">{{f.name}}</div><div style="font-size: 12px; color: #5E5A52;">{{f.rel}}</div></div>
+</div>
+</sc-for>
+</div>
+<button onClick="{{next}}" style="border: 0; background: #1B2C5C; color: #FFFFFF; border-radius: 26px; min-height: 52px; font-size: 16px; font-weight: 600;">Yes, that's us</button>
+<button onClick="{{next}}" style="border: 0; background: transparent; color: #1B2C5C; min-height: 44px; font-size: 14px; font-weight: 600;">This isn't my family · start a new profile</button>
+</div>
+</sc-if>
+
+<sc-if value="{{s3}}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; flex-direction: column; gap: 14px;">
+<div style="font-family: 'Fraunces', Georgia, serif; font-size: 26px; font-weight: 600;">About you</div>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px;">
+<label style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: #5E5A52;">First name<input type="text" value="Priya" style="min-height: 48px; border-radius: 12px; border: 1px solid #E3D9C8; background: #FFFFFF; padding: 0 12px; font-size: 15px; color: #1E1C18;"></label>
+<label style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: #5E5A52;">Last name<input type="text" value="Shah" style="min-height: 48px; border-radius: 12px; border: 1px solid #E3D9C8; background: #FFFFFF; padding: 0 12px; font-size: 15px; color: #1E1C18;"></label>
+</div>
+<label style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: #5E5A52;">Date of birth<input type="text" value="03 / 14 / 1985" style="min-height: 48px; border-radius: 12px; border: 1px solid #E3D9C8; background: #FFFFFF; padding: 0 12px; font-size: 15px; color: #1E1C18;"></label>
+<div style="display: flex; flex-direction: column; gap: 6px;">
+<div style="font-size: 13px; color: #5E5A52;">Gender</div>
+<div style="display: flex; gap: 8px; flex-wrap: wrap;">
+<sc-for list="{{genders}}" as="g" hint-placeholder-count="3">
+<button onClick="{{g.pick}}" style="border: 1px solid #1B2C5C; background: {{g.bg}}; color: {{g.fg}}; border-radius: 20px; min-height: 44px; padding: 0 16px; font-size: 14px; font-weight: 500;">{{g.label}}</button>
+</sc-for>
+</div>
+</div>
+<label style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: #5E5A52;">Profession<input type="text" value="Software engineer" style="min-height: 48px; border-radius: 12px; border: 1px solid #E3D9C8; background: #FFFFFF; padding: 0 12px; font-size: 15px; color: #1E1C18;"></label>
+<label style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: #5E5A52;">Employer (optional · checks for donation matching)<input type="text" placeholder="Company name" style="min-height: 48px; border-radius: 12px; border: 1px solid #E3D9C8; background: #FFFFFF; padding: 0 12px; font-size: 15px; color: #1E1C18;"></label>
+<label style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: #5E5A52;">Mobile<input type="tel" value="(713) 555-0142" style="min-height: 48px; border-radius: 12px; border: 1px solid #E3D9C8; background: #FFFFFF; padding: 0 12px; font-size: 15px; color: #1E1C18;"></label>
+<div style="display: flex; flex-direction: column; gap: 6px;">
+<div style="font-size: 13px; color: #5E5A52;">Emails</div>
+<sc-for list="{{emails}}" as="e" hint-placeholder-count="1">
+<div style="min-height: 48px; border-radius: 12px; border: 1px solid #E3D9C8; background: #FFFFFF; padding: 0 12px; font-size: 15px; display: flex; align-items: center; justify-content: space-between;"><span>{{e.addr}}</span><span style="font-size: 12px; color: #1F7A4D; font-weight: 600;">{{e.tag}}</span></div>
+</sc-for>
+<button onClick="{{addEmail}}" style="align-self: flex-start; border: 0; background: transparent; color: #1B2C5C; min-height: 44px; font-size: 14px; font-weight: 600; padding: 0;">+ Add another email</button>
+</div>
+<button onClick="{{next}}" style="border: 0; background: #1B2C5C; color: #FFFFFF; border-radius: 26px; min-height: 52px; font-size: 16px; font-weight: 600;">Continue</button>
+</div>
+</sc-if>
+
+<sc-if value="{{s4}}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; flex-direction: column; gap: 12px;">
+<div style="font-family: 'Fraunces', Georgia, serif; font-size: 26px; font-weight: 600;">Your family</div>
+<div style="font-size: 14px; color: #5E5A52;">Check each person's details. Adults can get their own login later.</div>
+<sc-for list="{{fam}}" as="f" hint-placeholder-count="4">
+<div style="background: #FFFFFF; border: 1px solid {{f.border}}; border-radius: 18px; padding: 12px 14px; display: flex; flex-direction: column; gap: 10px;">
+<div style="display: flex; align-items: center; gap: 12px;">
+<div style="width: 40px; height: 40px; border-radius: 20px; background: #E6E9F3; color: #1B2C5C; display: flex; align-items: center; justify-content: center; font-weight: 600;">{{f.initial}}</div>
+<div style="flex-grow: 1;"><div style="font-weight: 600; font-size: 15px;">{{f.name}}</div><div style="font-size: 12px; color: #5E5A52;">{{f.summary}}</div></div>
+<button onClick="{{f.edit}}" style="border: 1px solid #1B2C5C; background: #FFFFFF; color: #1B2C5C; border-radius: 20px; min-height: 40px; padding: 0 14px; font-size: 13px; font-weight: 600;">{{f.editLabel}}</button>
+</div>
+<sc-if value="{{f.open}}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; flex-direction: column; gap: 10px; border-top: 1px solid #F1E8D8; padding-top: 10px;">
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px;">
+<label style="display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: #5E5A52;">Relationship<input type="text" value="{{f.rel}}" style="min-height: 44px; border-radius: 10px; border: 1px solid #E3D9C8; padding: 0 10px; font-size: 14px; color: #1E1C18;"></label>
+<label style="display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: #5E5A52;">Date of birth<input type="text" value="{{f.dob}}" style="min-height: 44px; border-radius: 10px; border: 1px solid #E3D9C8; padding: 0 10px; font-size: 14px; color: #1E1C18;"></label>
+</div>
+<label style="display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: #5E5A52;">Gender<input type="text" value="{{f.gender}}" style="min-height: 44px; border-radius: 10px; border: 1px solid #E3D9C8; padding: 0 10px; font-size: 14px; color: #1E1C18;"></label>
+<sc-if value="{{f.adult}}" hint-placeholder-val="{{ true }}">
+<div style="display: flex; flex-direction: column; gap: 10px;">
+<label style="display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: #5E5A52;">Profession<input type="text" value="{{f.job}}" style="min-height: 44px; border-radius: 10px; border: 1px solid #E3D9C8; padding: 0 10px; font-size: 14px; color: #1E1C18;"></label>
+<label style="display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: #5E5A52;">Mobile<input type="tel" value="{{f.phone}}" style="min-height: 44px; border-radius: 10px; border: 1px solid #E3D9C8; padding: 0 10px; font-size: 14px; color: #1E1C18;"></label>
+<label style="display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: #5E5A52;">Email<input type="email" value="{{f.email}}" style="min-height: 44px; border-radius: 10px; border: 1px solid #E3D9C8; padding: 0 10px; font-size: 14px; color: #1E1C18;"></label>
+</div>
+</sc-if>
+<sc-if value="{{f.child}}" hint-placeholder-val="{{ false }}">
+<div style="font-size: 12px; color: #5E5A52;">School grade and Pathshala level can be added from the Learn tab.</div>
+</sc-if>
+</div>
+</sc-if>
+</div>
+</sc-for>
+<button onClick="{{addMember}}" style="border: 1px dashed #B9AE99; background: #FBF7F0; border-radius: 16px; min-height: 52px; font-size: 15px; font-weight: 600; color: #1B2C5C;">+ Add family member</button>
+<button onClick="{{next}}" style="border: 0; background: #1B2C5C; color: #FFFFFF; border-radius: 26px; min-height: 52px; font-size: 16px; font-weight: 600;">Looks right</button>
+</div>
+</sc-if>
+
+<sc-if value="{{s5}}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; flex-direction: column; gap: 16px;">
+<div style="font-family: 'Fraunces', Georgia, serif; font-size: 26px; font-weight: 600;">How should we reach you?</div>
+<div style="display: flex; flex-direction: column; gap: 8px;">
+<div style="font-size: 13px; color: #5E5A52;">Contact me by (choose any)</div>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px;">
+<sc-for list="{{channels}}" as="c" hint-placeholder-count="4">
+<button onClick="{{c.pick}}" style="border: 1px solid #1B2C5C; background: {{c.bg}}; color: {{c.fg}}; border-radius: 14px; min-height: 48px; font-size: 14px; font-weight: 600;">{{c.label}}</button>
+</sc-for>
+</div>
+</div>
+<div style="display: flex; flex-direction: column; gap: 8px;">
+<div style="font-size: 13px; color: #5E5A52;">Best time to call</div>
+<div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px;">
+<sc-for list="{{times}}" as="t" hint-placeholder-count="3">
+<button onClick="{{t.pick}}" style="border: 1px solid #1B2C5C; background: {{t.bg}}; color: {{t.fg}}; border-radius: 14px; min-height: 44px; font-size: 14px; font-weight: 500;">{{t.label}}</button>
+</sc-for>
+</div>
+</div>
+<div style="display: flex; flex-direction: column; gap: 8px;">
+<div style="font-size: 13px; color: #5E5A52;">App language</div>
+<div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px;">
+<sc-for list="{{langs}}" as="l" hint-placeholder-count="3">
+<button onClick="{{l.pick}}" style="border: 1px solid #1B2C5C; background: {{l.bg}}; color: {{l.fg}}; border-radius: 14px; min-height: 44px; font-size: 14px; font-weight: 500;">{{l.label}}</button>
+</sc-for>
+</div>
+</div>
+<div style="display: flex; flex-direction: column; gap: 8px;">
+<div style="font-size: 13px; color: #5E5A52;">Interested in (helps us send the right updates)</div>
+<div style="display: flex; flex-wrap: wrap; gap: 8px;">
+<sc-for list="{{topics}}" as="tp" hint-placeholder-count="6">
+<button onClick="{{tp.pick}}" style="border: 1px solid #EFCFA6; background: {{tp.bg}}; color: #5E3106; border-radius: 18px; min-height: 40px; padding: 0 14px; font-size: 13px; font-weight: 500;">{{tp.label}}</button>
+</sc-for>
+</div>
+</div>
+<div style="display: flex; flex-direction: column; gap: 8px; background: #FFFFFF; border: 2px solid {{paperBorder}}; border-radius: 18px; padding: 14px;">
+<div style="font-weight: 700; font-size: 16px;">Documents and mail</div>
+<div style="font-size: 13px; color: #5E5A52; line-height: 1.45;">Receipts, tax statements, pledge confirmations and newsletters. Please choose one.</div>
+<sc-for list="{{paperOpts}}" as="o" hint-placeholder-count="2"><button onClick="{{o.pick}}" style="text-align: left; border: 2px solid {{o.border}}; background: {{o.bg}}; border-radius: 14px; padding: 10px 12px; display: flex; gap: 10px; align-items: flex-start; color: #1E1C18;"><span style="width: 22px; height: 22px; border-radius: 11px; border: 2px solid #1B2C5C; background: {{o.dot}}; flex-shrink: 0; margin-top: 2px;"></span><span><span style="display: block; font-weight: 700; font-size: 14px;">{{o.title}}</span><span style="display: block; font-size: 12px; color: #5E5A52; line-height: 1.4;">{{o.sub}}</span></span></button></sc-for>
+</div>
+<button onClick="{{finish}}" style="border: 0; background: {{finishBg}}; color: #FFFFFF; border-radius: 26px; min-height: 52px; font-size: 16px; font-weight: 600;">{{finishLabel}}</button>
+<div style="font-size: 12px; color: #5E5A52; text-align: center;">Your details update your JSH membership record and are used only by JSH.</div>
+</div>
+</sc-if>
+
+<sc-if value="{{s6}}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; flex-direction: column; gap: 16px; align-items: center; text-align: center; padding-top: 80px;">
+<div style="width: 88px; height: 88px; border-radius: 44px; background: #E4F2EA; color: #1F7A4D; display: flex; align-items: center; justify-content: center; font-size: 44px; font-weight: 700;">✓</div>
+<div style="font-family: 'Fraunces', Georgia, serif; font-size: 28px; font-weight: 600;">You're all set, Priya</div>
+<div style="font-size: 15px; color: #3D3A33; line-height: 1.5;">{{doneLine}}</div>
+<div style="background: #FFFFFF; border: 1px solid #E8E0D2; border-radius: 18px; padding: 14px 16px; text-align: left; width: 100%; box-sizing: border-box; display: flex; flex-direction: column; gap: 6px; font-size: 14px;">
+<div>✓ Signed in with Face ID enabled</div>
+<div>✓ {{famCount}} family members confirmed</div>
+<div>✓ Contact by {{channelSummary}}</div>
+<div>✓ {{paperSummary}}</div>
+</div>
+<a href="Main.dc.html" style="width: 100%; box-sizing: border-box; text-decoration: none; background: #1B2C5C; color: #FFFFFF; border-radius: 26px; min-height: 52px; display: flex; align-items: center; justify-content: center; font-size: 16px; font-weight: 600;">Go to home</a>
+</div>
+</sc-if>
+
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { step: 0, gender: 0, emails: 1, editIdx: 2, extra: 0, ch: [false, true, true, true], time: 2, lang: 0, topics: [true, false, true, false, false, true], skipped: false, paper: null };
+  }
+  renderVals() {
+    const s = this.state;
+    const pickList = (labels, cur, key) => labels.map((l, i) => ({ label: l, bg: cur === i ? '#1B2C5C' : '#FFFFFF', fg: cur === i ? '#FFFFFF' : '#1B2C5C', pick: () => { const o = {}; o[key] = i; this.setState(o); } }));
+    const base = [
+      { name: 'Priya Shah', rel: 'Self', age: 41, dob: '03/14/1985', gender: 'Female', job: 'Software engineer', phone: '(713) 555-0142', email: 'priya.shah@example.com' },
+      { name: 'Rahul Shah', rel: 'Spouse', age: 43, dob: '07/02/1983', gender: 'Male', job: 'Physician', phone: '(713) 555-0188', email: 'rahul.shah@example.com' },
+      { name: 'Dev Shah', rel: 'Son', age: 14, dob: '05/09/2012', gender: 'Male', job: '', phone: '', email: '' },
+      { name: 'Anya Shah', rel: 'Daughter', age: 9, dob: '11/21/2016', gender: 'Female', job: '', phone: '', email: '' }
+    ];
+    for (let k = 0; k < s.extra; k++) base.push({ name: 'New family member', rel: '', age: 0, dob: '', gender: '', job: '', phone: '', email: '', isNew: true });
+    const fam = base.map((f, i) => ({
+      name: f.name, rel: f.rel, dob: f.dob, gender: f.gender, job: f.job, phone: f.phone, email: f.email, initial: f.name[0],
+      adult: f.isNew || f.age >= 18, child: !f.isNew && f.age < 18,
+      summary: f.isNew ? 'Add their details' : f.rel + ' · ' + f.age + ' · ' + f.gender + (f.job ? ' · ' + f.job : ''),
+      open: s.editIdx === i, editLabel: s.editIdx === i ? 'Done' : 'Edit',
+      border: s.editIdx === i ? '#1B2C5C' : '#E8E0D2',
+      edit: () => this.setState({ editIdx: s.editIdx === i ? -1 : i })
+    }));
+    const chLabels = ['Phone call', 'Text / SMS', 'WhatsApp', 'Email'];
+    const topicLabels = ['Events', 'Pathshala', 'Volunteering', 'Youth programs', 'Seniors', 'Giving opportunities'];
+    const emails = [{ addr: 'priya.shah@example.com', tag: 'Primary' }];
+    if (s.emails > 1) emails.push({ addr: 'priya@work-example.com', tag: 'Work' });
+    const chosen = chLabels.filter((l, i) => s.ch[i]);
+    const step = s.step;
+    return {
+      s0: step === 0, s1: step === 1, s2: step === 2, s3: step === 3, s4: step === 4, s5: step === 5, s6: step === 6,
+      showTop: step > 0 && step < 6,
+      stepNum: step, pct: (step * 20) + '%',
+      canSkip: step >= 3 && step <= 5,
+      next: () => this.setState({ step: step + 1 }),
+      back: () => this.setState({ step: Math.max(0, step - 1) }),
+      skip: () => this.setState({ step: 6, skipped: true }),
+      genders: pickList(['Female', 'Male', 'Prefer not to say'], s.gender, 'gender'),
+      emails, addEmail: () => this.setState({ emails: 2 }),
+      fam, famCount: fam.length,
+      addMember: () => this.setState({ extra: s.extra + 1, editIdx: base.length }),
+      channels: chLabels.map((l, i) => ({ label: l, bg: s.ch[i] ? '#1B2C5C' : '#FFFFFF', fg: s.ch[i] ? '#FFFFFF' : '#1B2C5C', pick: () => { const c = s.ch.slice(); c[i] = !c[i]; this.setState({ ch: c }); } })),
+      times: pickList(['Morning', 'Afternoon', 'Evening'], s.time, 'time'),
+      langs: pickList(['English', 'ગુજરાતી', 'हिन्दी'], s.lang, 'lang'),
+      topics: topicLabels.map((l, i) => ({ label: l, bg: s.topics[i] ? '#FBEBD7' : '#FFFFFF', pick: () => { const t = s.topics.slice(); t[i] = !t[i]; this.setState({ topics: t }); } })),
+      channelSummary: chosen.length ? chosen.join(', ') : 'no channel yet',
+      paperOpts: [{ v: true, title: 'Digital only, no physical mail', sub: 'Everything by email and in the app. Faster, and saves paper and postage for JSH.' }, { v: false, title: 'Also send physical mail', sub: 'Year-end statements and important notices by post as well.' }].map((o) => ({ title: o.title, sub: o.sub, bg: s.paper === o.v ? '#EEF1F8' : '#FFFFFF', border: s.paper === o.v ? '#1B2C5C' : '#E3D9C8', dot: s.paper === o.v ? '#1B2C5C' : '#FFFFFF', pick: () => this.setState({ paper: o.v }) })),
+      paperBorder: s.paper === null ? '#C9731C' : '#E3D9C8',
+      finishLabel: s.paper === null ? 'Choose documents and mail to finish' : 'Finish',
+      finishBg: s.paper === null ? '#8A93AE' : '#1B2C5C',
+      finish: () => { if (s.paper === null) return; this.setState({ step: step + 1 }); },
+      paperSummary: s.paper === null ? 'Documents and mail: not chosen yet' : (s.paper ? 'Digital-only documents · no physical mail' : 'Digital documents plus physical mail'),
+      doneLine: s.skipped ? 'You can finish your profile anytime from the Family tab.' : 'Thank you for helping us keep the community connected.'
+    };
+  }
+}
+</script>
+</body>
+</html>

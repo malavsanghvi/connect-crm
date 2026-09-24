@@ -1,0 +1,52 @@
+# Supabase CLI configuration for the Connect platform backend.
+# `supabase start` / `supabase db reset` apply ./migrations then ./seed.sql.
+project_id = "connect"
+
+[api]
+enabled = true
+port = 54321
+# All platform tables live in the `app` schema; PostgREST must expose it.
+schemas = ["public", "graphql_public", "app"]
+extra_search_path = ["public", "extensions", "app"]
+max_rows = 1000
+
+[db]
+port = 54322
+major_version = 16
+
+[db.seed]
+enabled = true
+sql_paths = ["./seed.sql"]
+
+[auth]
+enabled = true
+site_url = "http://localhost:3000"
+additional_redirect_urls = ["http://localhost:3001", "connect://auth-callback"]
+jwt_expiry = 3600
+enable_signup = true
+
+[auth.email]
+enable_signup = true
+double_confirm_changes = true
+enable_confirmations = false
+# Sign-in is passwordless: 6-digit one-time codes by email or SMS.
+otp_length = 6
+otp_expiry = 600
+
+# The apps sign in with a typed 6-digit code, so both emails show {{ .Token }}.
+# A brand-new address gets the "confirmation" email; an existing one "magic_link".
+[auth.email.template.magic_link]
+subject = "Your Connect sign-in code"
+content_path = "./supabase/templates/otp_code.html"
+
+[auth.email.template.confirmation]
+subject = "Your Connect sign-in code"
+content_path = "./supabase/templates/otp_code.html"
+
+[auth.sms]
+enable_signup = true
+enable_confirmations = false
+
+[storage]
+enabled = true
+file_size_limit = "50MiB"

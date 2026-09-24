@@ -1,0 +1,308 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Gyan Path</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&amp;family=DM+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#EDE6DA}
+a{color:#1B2C5C}a:hover{color:#0F1B3D}
+button{font-family:inherit;cursor:pointer}
+@keyframes gpPulse{0%{box-shadow:0 0 0 0 rgba(201,115,28,0.55)}70%{box-shadow:0 0 0 14px rgba(201,115,28,0)}100%{box-shadow:0 0 0 0 rgba(201,115,28,0)}}
+@keyframes gpPop{0%{transform:scale(0.6);opacity:0}100%{transform:scale(1);opacity:1}}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; position: relative; overflow: hidden; display: flex; flex-direction: column; background: #FBF7F0; font-family: 'DM Sans', system-ui, sans-serif; color: #1E1C18;">
+<div style="position: absolute; top: 5px; left: 50%; transform: translateX(-50%); z-index: 9999; pointer-events: none; background: #B3261E; color: #FFFFFF; border-radius: 10px; padding: 2px 10px; font-size: 10px; font-weight: 800; letter-spacing: 0.08em; white-space: nowrap;">PROTOTYPE · SAMPLE DATA</div>
+
+<div style="display: flex; align-items: center; gap: 10px; padding: 16px 16px 10px; background: #FBF7F0;">
+<sc-if value="{{onGoals}}" hint-placeholder-val="{{ true }}">
+<a href="Main.dc.html" aria-label="Back to app" style="width: 44px; height: 44px; border-radius: 22px; border: 1px solid #E3D9C8; background: #FFFFFF; display: flex; align-items: center; justify-content: center; text-decoration: none; flex-shrink: 0;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1B2C5C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"></path></svg></a>
+</sc-if>
+<sc-if value="{{notGoals}}" hint-placeholder-val="{{ false }}">
+<button onClick="{{back}}" aria-label="Back" style="width: 44px; height: 44px; border-radius: 22px; border: 1px solid #E3D9C8; background: #FFFFFF; display: flex; align-items: center; justify-content: center; flex-shrink: 0;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1B2C5C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"></path></svg></button>
+</sc-if>
+<div style="flex-grow: 1; min-width: 0;"><div style="font-family: 'Fraunces', Georgia, serif; font-size: 20px; font-weight: 600; color: #1B2C5C; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{title}}</div></div>
+<div style="display: flex; align-items: center; gap: 4px; background: #FFFFFF; border: 1px solid #E3D9C8; border-radius: 16px; padding: 5px 10px; font-size: 14px; font-weight: 700; color: #C9731C;"><svg width="16" height="16" viewBox="0 0 24 24" fill="#E8892A"><path d="M12 2c1 3.5-1.5 5.2-1.5 7.6 0 1.4.9 2.4 2 2.4 1.5 0 2.3-1.3 2-3.2 2.4 1.8 4 4.6 4 7.4A6.5 6.5 0 0 1 12 22.5 6.5 6.5 0 0 1 5.5 16.2C5.5 10.6 10.4 7.8 12 2z"></path></svg>{{streak}}</div>
+<div style="display: flex; align-items: center; gap: 4px; background: #FFFFFF; border: 1px solid #E3D9C8; border-radius: 16px; padding: 5px 10px; font-size: 14px; font-weight: 700; color: #1B2C5C;"><svg width="16" height="16" viewBox="0 0 24 24" fill="#F2B632"><path d="M12 2l2.9 6.3 6.9.7-5.2 4.6 1.5 6.8L12 17l-6.1 3.4 1.5-6.8L2.2 9l6.9-.7z"></path></svg>{{points}}</div>
+</div>
+
+<sc-if value="{{onGoals}}" hint-placeholder-val="{{ true }}">
+<div style="flex-grow: 1; overflow-y: auto; padding: 4px 20px 28px; display: flex; flex-direction: column; gap: 14px;">
+<div style="background: #1B2C5C; border-radius: 22px; padding: 18px 20px; color: #FFFFFF; display: flex; flex-direction: column; gap: 8px;">
+<div style="font-size: 13px; color: #C9D1EA;">Gyan Path · Jai Jinendra, Priya</div>
+<div style="font-family: 'Fraunces', Georgia, serif; font-size: 24px; font-weight: 500; line-height: 1.2;">Pick a goal. We'll guide you one small level at a time.</div>
+<div style="font-size: 13px; color: #C9D1EA;">Short daily levels with listening, quizzes and recitation. A Pathshala teacher signs off your final level. Points and streak are shared with My Jain Way.</div>
+</div>
+<div style="display: flex; flex-direction: column; gap: 6px;">
+<div style="font-size: 12px; font-weight: 700; color: #5E5A52; letter-spacing: 0.06em;">MY DAILY GOAL</div>
+<div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px;">
+<sc-for list="{{dailies}}" as="dl" hint-placeholder-count="3"><button onClick="{{dl.pick}}" style="border: 1px solid #1B2C5C; background: {{dl.bg}}; color: {{dl.fg}}; border-radius: 14px; min-height: 52px; display: flex; flex-direction: column; align-items: center; justify-content: center;"><span style="font-size: 15px; font-weight: 700;">{{dl.label}}</span><span style="font-size: 11px; opacity: 0.85;">{{dl.sub}}</span></button></sc-for>
+</div>
+</div>
+<div style="font-size: 12px; font-weight: 700; color: #5E5A52; letter-spacing: 0.06em; padding-top: 4px;">LEARNING GOALS</div>
+<sc-for list="{{goals}}" as="g" hint-placeholder-count="4">
+<button onClick="{{g.open}}" style="text-align: left; border: 2px solid {{g.border}}; background: #FFFFFF; border-radius: 20px; padding: 14px; display: flex; gap: 14px; align-items: center; color: #1E1C18;">
+<div style="width: 56px; height: 56px; border-radius: 18px; background: {{g.tint}}; color: #FFFFFF; display: flex; align-items: center; justify-content: center; font-family: 'Fraunces', Georgia, serif; font-size: 22px; font-weight: 600; flex-shrink: 0;">{{g.mark}}</div>
+<div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px;">
+<div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;"><span style="font-weight: 700; font-size: 16px;">{{g.name}}</span><sc-if value="{{g.rec}}" hint-placeholder-val="{{ false }}"><span style="font-size: 10px; font-weight: 700; color: #8A4608; background: #FBEBD7; border-radius: 8px; padding: 2px 6px;">FOR YOU</span></sc-if></div>
+<div style="font-size: 12px; color: #5E5A52;">{{g.sub}}</div>
+<div style="height: 6px; border-radius: 3px; background: #F1E8D8;"><div style="height: 6px; border-radius: 3px; background: {{g.tint}}; width: {{g.pct}};"></div></div>
+<div style="font-size: 11px; color: #5E5A52; font-weight: 600;">{{g.progress}}</div>
+</div>
+</button>
+</sc-for>
+<div style="background: #FFFFFF; border: 1px solid #E8E0D2; border-radius: 18px; padding: 14px 16px; display: flex; flex-direction: column; gap: 8px;">
+<div style="font-weight: 700; font-size: 15px;">Learning with family</div>
+<sc-for list="{{family}}" as="f" hint-placeholder-count="2">
+<div style="display: flex; align-items: center; gap: 10px;"><div style="width: 34px; height: 34px; border-radius: 17px; background: {{f.tint}}; color: #FFFFFF; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px;">{{f.initial}}</div><div style="flex-grow: 1; font-size: 14px;"><span style="font-weight: 600;">{{f.name}}</span> · {{f.goal}}</div><div style="font-size: 12px; font-weight: 700; color: #1F7A4D;">{{f.level}}</div></div>
+</sc-for>
+</div>
+<div style="font-size: 11px; color: #8A8478; text-align: center; line-height: 1.5;">Level order, sutra text and audio would come from JSH Pathshala and may differ by tradition.</div>
+</div>
+</sc-if>
+
+<sc-if value="{{onMap}}" hint-placeholder-val="{{ false }}">
+<div style="flex-grow: 1; overflow-y: auto; background: {{mapBg}}; position: relative;">
+<div style="position: sticky; top: 0; z-index: 2; margin: 8px 16px 0; background: #FFFFFF; border-radius: 16px; padding: 10px 14px; display: flex; align-items: center; gap: 12px; box-shadow: 0 4px 14px rgba(20,18,14,0.08);">
+<div style="flex-grow: 1;"><div style="font-size: 12px; color: #5E5A52;">{{mapChapter}}</div><div style="height: 8px; border-radius: 4px; background: #F1E8D8; margin-top: 4px;"><div style="height: 8px; border-radius: 4px; background: #1F7A4D; width: {{mapPct}};"></div></div></div>
+<div style="font-size: 14px; font-weight: 700; color: #1B2C5C;">{{mapCount}}</div>
+</div>
+<div style="position: relative; width: 390px; height: {{mapH}};">
+<svg width="390" height="{{mapHn}}" viewBox="0 0 390 {{mapHn}}" style="position: absolute; left: 0; top: 0;"><polyline points="{{pathDone}}" fill="none" stroke="#1F7A4D" stroke-width="10" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="1 16"></polyline><polyline points="{{pathAll}}" fill="none" stroke="#D5CBB8" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="1 14"></polyline></svg>
+<sc-for list="{{nodes}}" as="n" hint-placeholder-count="12">
+<sc-if value="{{n.isHeader}}" hint-placeholder-val="{{ false }}">
+<div style="position: absolute; left: 20px; right: 20px; top: {{n.top}}; height: 44px; border-radius: 14px; background: {{n.hBg}}; color: #FFFFFF; display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 13px; font-weight: 700; letter-spacing: 0.04em;">{{n.label}}</div>
+</sc-if>
+<sc-if value="{{n.isNode}}" hint-placeholder-val="{{ true }}">
+<div style="position: absolute; left: {{n.left}}; top: {{n.top}}; width: 120px; display: flex; flex-direction: column; align-items: center; gap: 4px;">
+<button onClick="{{n.tap}}" aria-label="{{n.aria}}" style="width: {{n.size}}; height: {{n.size}}; border-radius: {{n.radius}}; border: 4px solid {{n.ring}}; background: {{n.bg}}; color: {{n.fg}}; display: flex; align-items: center; justify-content: center; font-size: {{n.font}}; font-weight: 800; animation: {{n.anim}}; box-shadow: 0 6px 0 {{n.shadow}}; padding: 0;">{{n.icon}}</button>
+<div style="font-size: 12px; font-weight: 700; color: #F2B632; height: 14px; letter-spacing: 1px;">{{n.stars}}</div>
+<div style="font-size: 11px; font-weight: 600; color: {{n.labelColor}}; text-align: center; line-height: 1.25; background: {{n.labelBg}}; border-radius: 8px; padding: 2px 6px;">{{n.label}}</div>
+</div>
+</sc-if>
+</sc-for>
+</div>
+</div>
+<div style="padding: 12px 16px 20px; background: #FFFFFF; border-top: 1px solid #E8E0D2;">
+<button onClick="{{startCurrent}}" style="width: 100%; border: 0; background: #C9731C; color: #FFFFFF; border-radius: 26px; min-height: 54px; font-size: 16px; font-weight: 700; box-shadow: 0 5px 0 #8A4608;">{{startLabel}}</button>
+</div>
+</sc-if>
+
+<sc-if value="{{onLesson}}" hint-placeholder-val="{{ false }}">
+<div style="flex-grow: 1; display: flex; flex-direction: column; padding: 4px 20px 20px; gap: 14px; overflow-y: auto;">
+<div style="display: flex; align-items: center; gap: 10px;">
+<div style="flex-grow: 1; height: 12px; border-radius: 6px; background: #EDE6DA;"><div style="height: 12px; border-radius: 6px; background: #1F7A4D; width: {{lessonPct}};"></div></div>
+<div style="font-size: 13px; font-weight: 700; color: #5E5A52;">{{lessonStepLabel}}</div>
+</div>
+<div style="font-size: 12px; font-weight: 700; color: #8A4608; letter-spacing: 0.06em;">{{stepKind}}</div>
+
+<sc-if value="{{isLearnStep}}" hint-placeholder-val="{{ true }}">
+<div style="display: flex; flex-direction: column; gap: 12px;">
+<div style="font-family: 'Fraunces', Georgia, serif; font-size: 26px; font-weight: 600; line-height: 1.2;">{{lvName}}</div>
+<div style="font-size: 15px; color: #3D3A33; line-height: 1.55;">{{lvMeaning}}</div>
+<button onClick="{{toggleAudio}}" style="border: 0; background: #1B2C5C; color: #FFFFFF; border-radius: 18px; min-height: 64px; display: flex; align-items: center; gap: 14px; padding: 0 16px; font-size: 15px; font-weight: 600;"><span style="width: 40px; height: 40px; border-radius: 20px; background: #FBF7F0; display: flex; align-items: center; justify-content: center;"><svg width="18" height="18" viewBox="0 0 24 24" fill="#1B2C5C"><path d="{{audioIcon}}"></path></svg></span>{{audioLabel}}</button>
+<div style="background: #FFFFFF; border: 1px dashed #D5CBB8; border-radius: 16px; padding: 14px 16px; display: flex; flex-direction: column; gap: 6px;">
+<div style="font-size: 12px; font-weight: 700; color: #5E5A52;">SUTRA TEXT, LINE BY LINE</div>
+<div style="font-size: 14px; color: #8A8478; font-style: italic; line-height: 1.5;">[Sutra text in Gujarati, Devanagari and transliteration, with word meanings, supplied by JSH Pathshala]</div>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{isQuizStep}}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; flex-direction: column; gap: 10px;">
+<div style="font-family: 'Fraunces', Georgia, serif; font-size: 22px; font-weight: 600; line-height: 1.25;">{{qText}}</div>
+<sc-for list="{{qOpts}}" as="o" hint-placeholder-count="3">
+<button onClick="{{o.pick}}" style="text-align: left; border: 2px solid {{o.border}}; background: {{o.bg}}; color: #1E1C18; border-radius: 16px; min-height: 60px; padding: 10px 14px; font-size: 15px; font-weight: 600; box-shadow: 0 4px 0 {{o.shadow}};">{{o.label}}</button>
+</sc-for>
+</div>
+</sc-if>
+
+<sc-if value="{{isReciteStep}}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; flex-direction: column; gap: 14px; align-items: center; text-align: center;">
+<div style="font-family: 'Fraunces', Georgia, serif; font-size: 24px; font-weight: 600; line-height: 1.25;">Now recite {{lvShort}} aloud</div>
+<div style="font-size: 14px; color: #5E5A52; line-height: 1.5;">Listen once more, then tap the microphone and recite. We'll check your pace and pronunciation.</div>
+<button onClick="{{recite}}" aria-label="Record recitation" style="width: 120px; height: 120px; border-radius: 60px; border: 0; background: {{micBg}}; display: flex; align-items: center; justify-content: center; margin: 12px 0; animation: {{micAnim}};"><svg width="46" height="46" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2" width="6" height="12" rx="3"></rect><path d="M5 11a7 7 0 0 0 14 0M12 18v4"></path></svg></button>
+<div style="font-size: 15px; font-weight: 700; color: {{micColor}};">{{micText}}</div>
+</div>
+</sc-if>
+
+<div style="flex-grow: 1;"></div>
+<sc-if value="{{hasFeedback}}" hint-placeholder-val="{{ false }}">
+<div style="border-radius: 16px; padding: 12px 14px; background: {{fbBg}}; color: {{fbFg}}; font-size: 14px; font-weight: 600; line-height: 1.45; animation: gpPop 0.25s ease-out;">{{fbText}}</div>
+</sc-if>
+<button onClick="{{primary}}" style="border: 0; background: {{primaryBg}}; color: #FFFFFF; border-radius: 26px; min-height: 54px; font-size: 16px; font-weight: 700; box-shadow: 0 5px 0 {{primaryShadow}};">{{primaryLabel}}</button>
+</div>
+</sc-if>
+
+<sc-if value="{{onDone}}" hint-placeholder-val="{{ false }}">
+<div style="flex-grow: 1; display: flex; flex-direction: column; align-items: center; text-align: center; padding: 30px 24px 24px; gap: 14px; background: #1B2C5C; color: #FFFFFF;">
+<div style="font-size: 13px; font-weight: 700; letter-spacing: 0.08em; color: #F2B632;">LEVEL {{doneLevel}} COMPLETE</div>
+<div style="font-family: 'Fraunces', Georgia, serif; font-size: 30px; font-weight: 600; line-height: 1.15;">{{doneTitle}}</div>
+<div style="display: flex; gap: 10px; padding: 8px 0; animation: gpPop 0.4s ease-out;">
+<sc-for list="{{doneStars}}" as="st" hint-placeholder-count="3"><svg width="64" height="64" viewBox="0 0 24 24" fill="{{st}}"><path d="M12 2l2.9 6.3 6.9.7-5.2 4.6 1.5 6.8L12 17l-6.1 3.4 1.5-6.8L2.2 9l6.9-.7z"></path></svg></sc-for>
+</div>
+<div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; width: 100%;">
+<div style="background: #26396E; border-radius: 14px; padding: 12px 6px;"><div style="font-size: 20px; font-weight: 800; color: #F2B632;">+{{donePts}}</div><div style="font-size: 11px; color: #C9D1EA;">JSH points</div></div>
+<div style="background: #26396E; border-radius: 14px; padding: 12px 6px;"><div style="font-size: 20px; font-weight: 800; color: #F2A03D;">{{streak}}</div><div style="font-size: 11px; color: #C9D1EA;">day streak</div></div>
+<div style="background: #26396E; border-radius: 14px; padding: 12px 6px;"><div style="font-size: 20px; font-weight: 800; color: #7FD1A4;">{{doneAcc}}</div><div style="font-size: 11px; color: #C9D1EA;">accuracy</div></div>
+</div>
+<sc-if value="{{doneChest}}" hint-placeholder-val="{{ false }}">
+<div style="background: #F2B632; color: #3A2A06; border-radius: 16px; padding: 12px 14px; font-size: 14px; font-weight: 700; width: 100%; box-sizing: border-box;">Treasure unlocked: {{doneChestText}}</div>
+</sc-if>
+<div style="font-size: 14px; color: #C9D1EA;">{{doneNext}}</div>
+<div style="flex-grow: 1;"></div>
+<button onClick="{{doneContinue}}" style="width: 100%; border: 0; background: #C9731C; color: #FFFFFF; border-radius: 26px; min-height: 54px; font-size: 16px; font-weight: 700; box-shadow: 0 5px 0 #8A4608;">{{doneCta}}</button>
+<button onClick="{{toMap}}" style="border: 0; background: transparent; color: #C9D1EA; min-height: 44px; font-size: 14px; font-weight: 600;">Back to my path</button>
+</div>
+</sc-if>
+
+<sc-if value="{{hasToast}}" hint-placeholder-val="{{ false }}">
+<div style="position: absolute; left: 20px; right: 20px; top: 76px; background: #1B2C5C; color: #FFFFFF; border-radius: 14px; padding: 12px 14px; font-size: 14px; font-weight: 600; text-align: center;">{{toast}}</div>
+</sc-if>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { screen: 'goals', goal: 0, daily: 1, done: [4, 9, 0, 0], stars: [[3, 3, 2, 3], [3, 3, 3, 2, 3, 3, 2, 3, 3], [], []], step: 0, pick: -1, checked: false, wrong: 0, audio: false, mic: 0, points: 1255, streak: 11, earned: 0, toast: '' };
+  }
+  renderVals() {
+    const s = this.state;
+    const set = (o) => () => this.setState(o);
+    const G = [
+      { name: 'Learn Samayik', mark: 'S', tint: '#1B2C5C', bg: '#E9ECF5', sub: '48 minutes of equanimity · 12 levels · about 3 weeks', rec: true,
+        chapters: [{ at: 0, t: 'CHAPTER 1 · FOUNDATIONS', c: '#1B2C5C' }, { at: 4, t: 'CHAPTER 2 · SUTRAS OF SAMAYIK', c: '#5B4B8A' }, { at: 9, t: 'CHAPTER 3 · PERFORM SAMAYIK', c: '#1F7A4D' }],
+        levels: ['What is Samayik', 'Navkar Mantra', 'Panchindiya sutra', 'Khamasamana', 'Iriyavahiyam sutra', 'Tassa Uttari sutra', 'Annattha sutra', 'Logassa sutra', 'Karemi Bhante', 'Samayik vidhi, step by step', 'Completing Samayik (parvani)', 'Perform with your teacher'],
+        chest: { 3: 'Foundations badge', 7: 'Logassa badge + 50 bonus points' } },
+      { name: 'Learn Navkar Mantra', mark: 'N', tint: '#C9731C', bg: '#FBF1E3', sub: 'The first sutra every Jain learns · 9 levels · about 1 week', rec: false,
+        chapters: [{ at: 0, t: 'CHAPTER 1 · FIVE PARAMESHTHIS', c: '#C9731C' }, { at: 5, t: 'CHAPTER 2 · THE CHULIKA', c: '#8A4608' }],
+        levels: ['Arihant', 'Siddha', 'Acharya', 'Upadhyay', 'Sadhu and Sadhvi', 'Eso Panch Namukkaro', 'Savva Pavappanasano', 'Mangalanam cha Savvesim', 'Recite the full Navkar'],
+        chest: { 4: 'Panch Parameshthi badge' } },
+      { name: 'Learn Logassa sutra', mark: 'L', tint: '#5B4B8A', bg: '#EFEBF6', sub: 'Praise of the 24 Tirthankars · 10 levels · about 2 weeks', rec: false,
+        chapters: [{ at: 0, t: 'CHAPTER 1 · THE 24 TIRTHANKARS', c: '#5B4B8A' }, { at: 6, t: 'CHAPTER 2 · RECITE LOGASSA', c: '#1B2C5C' }],
+        levels: ['Who are the Tirthankars', 'Rishabhdev to Chandraprabh', 'Suvidhinath to Anantnath', 'Dharmanath to Naminath', 'Neminath, Parshvanath, Mahavir', 'Meaning of Logassa', 'Verses 1 and 2', 'Verses 3 and 4', 'Verses 5 to 7', 'Recite Logassa in kayotsarg'],
+        chest: { 4: 'Chovisi badge' } },
+      { name: 'Learn Pratikraman', mark: 'P', tint: '#7A2E1F', bg: '#F6ECE9', sub: 'Daily reflection and forgiveness · 15 levels · about 6 weeks', rec: false,
+        chapters: [{ at: 0, t: 'CHAPTER 1 · WHY PRATIKRAMAN', c: '#7A2E1F' }, { at: 5, t: 'CHAPTER 2 · THE SIX AVASHYAKS', c: '#5E3106' }, { at: 11, t: 'CHAPTER 3 · PERFORM', c: '#1F7A4D' }],
+        levels: ['Why we do Pratikraman', 'Devasi, Raisi, Pakkhi, Chaumasi, Samvatsari', 'Michchhami Dukkadam', 'Before you begin', 'Samayik first', 'Chauvisattho', 'Vandan', 'Pratikraman', 'Kayotsarg', 'Pachchakhan', 'Vandittu sutra', 'Evening Pratikraman', 'Morning Pratikraman', 'Pakkhi Pratikraman', 'Perform with the Sangh'],
+        chest: { 4: 'First steps badge', 10: 'Six Avashyaks badge' } }
+    ];
+    const g = G[s.goal];
+    const doneN = s.done[s.goal];
+    const total = g.levels.length;
+    const stars = s.stars[s.goal] || [];
+    // map layout
+    const XS = [195, 280, 195, 110];
+    const items = []; let y = 90; const pts = []; const donePts = [];
+    for (let i = 0; i < total; i++) {
+      const ch = g.chapters.find((c) => c.at === i);
+      if (ch) { items.push({ isHeader: true, isNode: false, label: ch.t, top: y + 'px', hBg: ch.c }); y += 72; }
+      const x = XS[i % 4];
+      const isDone = i < doneN, isCur = i === doneN, isBoss = i === total - 1, isChest = !!g.chest[i];
+      const size = isCur ? 84 : (isBoss ? 76 : 66);
+      pts.push(x + ',' + (y + size / 2));
+      if (i <= doneN) donePts.push(x + ',' + (y + size / 2));
+      const st = stars[i] || 0;
+      items.push({
+        isHeader: false, isNode: true, top: y + 'px', left: (x - 60) + 'px', size: size + 'px', radius: isBoss ? '22px' : (size / 2) + 'px',
+        bg: isDone ? '#1F7A4D' : (isCur ? '#E8892A' : (isBoss ? '#EDE6DA' : '#E3DCCF')),
+        ring: isDone ? '#CFE6DC' : (isCur ? '#FFE3BF' : '#FFFFFF'),
+        shadow: isDone ? '#14502F' : (isCur ? '#8A4608' : '#B9AE99'),
+        fg: isDone || isCur ? '#FFFFFF' : '#8A8478', font: isCur ? '26px' : '20px',
+        icon: isDone ? '✓' : (isCur ? (i + 1) : (isBoss ? '♛' : (isChest ? '◆' : (i + 1)))),
+        anim: isCur ? 'gpPulse 1.6s infinite' : 'none',
+        stars: isDone ? '★★★'.slice(0, st) + '☆☆☆'.slice(0, 3 - st) : '',
+        label: (i + 1) + '. ' + g.levels[i] + (isChest && !isDone ? ' · treasure' : ''),
+        labelColor: isDone || isCur ? '#1E1C18' : '#8A8478', labelBg: isCur ? '#FFFFFF' : 'transparent',
+        aria: 'Level ' + (i + 1) + ': ' + g.levels[i],
+        tap: () => { if (i < doneN) { this.setState({ toast: 'Replay level ' + (i + 1) + ' anytime to earn more stars' }); setTimeout(() => this.setState({ toast: '' }), 1800); } else if (i === doneN) this.setState({ screen: 'lesson', step: 0, pick: -1, checked: false, wrong: 0, audio: false, mic: 0 }); else { this.setState({ toast: 'Finish level ' + (doneN + 1) + ' to unlock this one' }); setTimeout(() => this.setState({ toast: '' }), 1800); } }
+      });
+      y += isCur ? 150 : 132;
+    }
+    const mapH = y + 40;
+    const chNow = g.chapters.filter((c) => c.at <= Math.min(doneN, total - 1)).slice(-1)[0];
+    // lesson content for current level
+    const lvName = g.levels[Math.min(doneN, total - 1)];
+    const LESSON = {
+      'Iriyavahiyam sutra': { meaning: 'Iriyavahiyam asks forgiveness for any harm caused to living beings while moving about, such as walking, so that we begin Samayik with a clear mind.', q: [
+        { t: 'What does Iriyavahiyam ask forgiveness for?', o: ['Harm caused to living beings while moving', 'Forgetting to attend a festival', 'Skipping a meal'], a: 0 },
+        { t: 'In the Samayik vidhi, which sutra comes right after Iriyavahiyam?', o: ['Logassa sutra', 'Tassa Uttari sutra', 'Karemi Bhante'], a: 1 }] }
+    };
+    const L = LESSON[lvName] || { meaning: 'Learn the meaning, listen to the recitation and practice line by line. Content for this level comes from JSH Pathshala.', q: [
+      { t: 'Where does the content for each level come from?', o: ['JSH Pathshala teachers', 'Random websites', 'Social media'], a: 0 },
+      { t: 'What earns you more stars?', o: ['Answering correctly and reciting clearly', 'Skipping steps', 'Playing faster'], a: 0 }] };
+    const STEPS = ['learn', 'quiz', 'quiz', 'recite'];
+    const step = s.step; const kind = STEPS[step];
+    const q = kind === 'quiz' ? L.q[step - 1] : null;
+    const correct = q && s.pick === q.a;
+    const earnedStars = Math.max(1, 3 - s.wrong);
+    const chestText = g.chest[doneN - 1];
+    let primaryLabel = 'Continue', primaryBg = '#1F7A4D', primaryShadow = '#14502F';
+    if (kind === 'quiz' && !s.checked) { primaryLabel = 'Check'; primaryBg = s.pick < 0 ? '#B9AE99' : '#C9731C'; primaryShadow = s.pick < 0 ? '#9A8F7A' : '#8A4608'; }
+    if (kind === 'recite' && s.mic < 2) { primaryLabel = 'Skip recitation for now'; primaryBg = '#8A93AE'; primaryShadow = '#6B7390'; }
+    const finish = () => {
+      const d = s.done.slice(); d[s.goal] = Math.min(total, d[s.goal] + 1);
+      const st = s.stars.map((a) => a.slice()); st[s.goal][doneN] = s.mic < 2 ? Math.min(earnedStars, 2) : earnedStars;
+      const pts = 10 + st[s.goal][doneN] * 10;
+      this.setState({ screen: 'done', done: d, stars: st, earned: pts, points: s.points + pts, streak: s.streak === 11 ? 12 : s.streak });
+    };
+    return {
+      title: s.screen === 'goals' ? 'Gyan Path' : g.name,
+      onGoals: s.screen === 'goals', notGoals: s.screen !== 'goals', onMap: s.screen === 'map', onLesson: s.screen === 'lesson', onDone: s.screen === 'done',
+      back: () => this.setState({ screen: s.screen === 'map' ? 'goals' : 'map' }),
+      toMap: set({ screen: 'map' }),
+      streak: s.streak, points: s.points.toLocaleString('en-US'),
+      dailies: [{ l: '5 min', s: 'Casual' }, { l: '10 min', s: 'Regular' }, { l: '15 min', s: 'Serious' }].map((x, i) => ({ label: x.l, sub: x.s, bg: s.daily === i ? '#1B2C5C' : '#FFFFFF', fg: s.daily === i ? '#FFFFFF' : '#1B2C5C', pick: () => this.setState({ daily: i }) })),
+      goals: G.map((x, i) => { const dn = s.done[i]; return { name: x.name, mark: x.mark, tint: x.tint, sub: x.sub, rec: x.rec, border: x.rec ? x.tint : '#E8E0D2', pct: Math.round(dn * 100 / x.levels.length) + '%', progress: dn ? (dn >= x.levels.length ? 'Completed · all levels done' : 'Level ' + (dn + 1) + ' of ' + x.levels.length + ' · ' + dn + ' done') : 'Not started · already know it? Take a quick check to skip ahead', open: () => this.setState({ goal: i, screen: 'map' }) }; }),
+      family: [{ name: 'Anya', goal: 'Learn Navkar Mantra', level: 'Level 5 of 9', initial: 'A', tint: '#C9731C' }, { name: 'Dev', goal: 'Learn Logassa sutra', level: 'Level 7 of 10', initial: 'D', tint: '#5B4B8A' }],
+      mapBg: g.bg, mapH: mapH + 'px', mapHn: mapH,
+      pathAll: pts.join(' '), pathDone: donePts.join(' '),
+      nodes: items,
+      mapChapter: (chNow ? chNow.t.replace(/^CHAPTER \d · /, '') : '') + ' · ' + ['5', '10', '15'][s.daily] + ' min a day',
+      mapPct: Math.round(doneN * 100 / total) + '%', mapCount: doneN + '/' + total,
+      startLabel: doneN >= total ? 'Goal complete · choose another' : 'Play level ' + (doneN + 1) + ': ' + lvName,
+      startCurrent: () => { if (doneN >= total) { this.setState({ screen: 'goals' }); return; } this.setState({ screen: 'lesson', step: 0, pick: -1, checked: false, wrong: 0, audio: false, mic: 0 }); },
+      lessonPct: Math.round((step + (s.checked || kind === 'learn' ? 1 : 0)) * 25) + '%', lessonStepLabel: (step + 1) + ' / 4',
+      stepKind: kind === 'learn' ? 'LEARN · LEVEL ' + (doneN + 1) : (kind === 'quiz' ? 'QUICK QUIZ' : 'RECITE'),
+      isLearnStep: kind === 'learn', isQuizStep: kind === 'quiz', isReciteStep: kind === 'recite',
+      lvName, lvShort: lvName.replace(' sutra', ''), lvMeaning: L.meaning,
+      audioLabel: s.audio ? 'Playing recitation · 0:42' : 'Listen to the recitation', audioIcon: s.audio ? 'M7 5h4v14H7zM13 5h4v14h-4z' : 'M8 5v14l11-7z',
+      toggleAudio: set({ audio: !s.audio }),
+      qText: q ? q.t : '',
+      qOpts: q ? q.o.map((o, i) => { const sel = s.pick === i; const showRight = s.checked && i === q.a; const showWrong = s.checked && sel && i !== q.a; return { label: o, border: showRight ? '#1F7A4D' : (showWrong ? '#B3261E' : (sel ? '#1B2C5C' : '#E3D9C8')), bg: showRight ? '#E4F2EA' : (showWrong ? '#FBE3E1' : (sel ? '#EEF1F8' : '#FFFFFF')), shadow: showRight ? '#1F7A4D' : (showWrong ? '#B3261E' : (sel ? '#1B2C5C' : '#E3D9C8')), pick: () => { if (!s.checked) this.setState({ pick: i }); } }; }) : [],
+      micBg: s.mic === 2 ? '#1F7A4D' : (s.mic === 1 ? '#B3261E' : '#C9731C'), micAnim: s.mic === 1 ? 'gpPulse 1s infinite' : 'none',
+      micText: s.mic === 0 ? 'Tap to start' : (s.mic === 1 ? 'Listening… tap to stop' : 'Clear recitation · steady pace'),
+      micColor: s.mic === 2 ? '#1F7A4D' : '#5E5A52',
+      recite: () => { if (s.mic === 0) this.setState({ mic: 1 }); else if (s.mic === 1) this.setState({ mic: 2 }); },
+      hasFeedback: (kind === 'quiz' && s.checked) || (kind === 'recite' && s.mic === 2),
+      fbText: kind === 'recite' ? 'Anumodana! Your recitation matched the reference audio well.' : (correct ? 'Correct! Well done.' : 'Not quite. The right answer is highlighted in green.'),
+      fbBg: kind === 'recite' || correct ? '#E4F2EA' : '#FBE3E1', fbFg: kind === 'recite' || correct ? '#14502F' : '#8C1D18',
+      primaryLabel, primaryBg, primaryShadow,
+      primary: () => {
+        if (kind === 'learn') { this.setState({ step: 1, pick: -1, checked: false, audio: false }); return; }
+        if (kind === 'quiz') { if (!s.checked) { if (s.pick < 0) return; this.setState({ checked: true, wrong: s.wrong + (s.pick === q.a ? 0 : 1) }); return; } this.setState({ step: step + 1, pick: -1, checked: false }); return; }
+        finish();
+      },
+      doneLevel: doneN, doneTitle: g.levels[Math.max(0, doneN - 1)],
+      doneStars: [0, 1, 2].map((i) => i < ((stars[doneN - 1]) || 0) ? '#F2B632' : '#3A4B80'),
+      donePts: s.earned, doneAcc: Math.round(((2 - Math.min(2, s.wrong)) / 2) * 100) + '%',
+      doneChest: !!chestText, doneChestText: chestText || '',
+      doneNext: doneN >= total ? 'You completed ' + g.name + '. Your teacher sign-off is next.' : 'Next up: level ' + (doneN + 1) + ' · ' + g.levels[doneN],
+      doneCta: doneN >= total ? 'Choose a new goal' : 'Next level',
+      doneContinue: () => { if (doneN >= total) { this.setState({ screen: 'goals' }); return; } this.setState({ screen: 'lesson', step: 0, pick: -1, checked: false, wrong: 0, audio: false, mic: 0 }); },
+      hasToast: !!s.toast, toast: s.toast
+    };
+  }
+}
+</script>
+</body>
+</html>

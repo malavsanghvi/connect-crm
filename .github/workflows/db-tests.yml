@@ -1,0 +1,31 @@
+name: Database tests
+
+on:
+  push:
+    paths: ["supabase/**", ".github/workflows/db-tests.yml"]
+  pull_request:
+    paths: ["supabase/**", ".github/workflows/db-tests.yml"]
+
+jobs:
+  schema:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Migrations, seed, RLS and rule tests
+        env:
+          PGURL: postgres://postgres:postgres@localhost:5432
+        run: bash supabase/tests/run_local.sh
+      - name: Generated types are up to date
+        env:
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432/connect_test
+        run: |
+          node supabase/scripts/gen-types.mjs > /tmp/database.types.ts
+          diff -u src/lib/database.types.ts /tmp/database.types.ts || (echo "::error::src/lib/database.types.ts is stale — regenerate with supabase/scripts/gen-types.mjs" && exit 1)

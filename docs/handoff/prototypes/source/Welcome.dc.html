@@ -1,0 +1,412 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>New to JSH guide</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&amp;family=DM+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#EDE6DA}
+a{color:#1B2C5C}a:hover{color:#0F1B3D}
+button{font-family:inherit;cursor:pointer}
+input,textarea{font-family:inherit}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; position: relative; overflow: hidden; display: flex; flex-direction: column; background: #FBF7F0; font-family: 'DM Sans', system-ui, sans-serif; color: #1E1C18;">
+<div style="position: absolute; top: 5px; left: 50%; transform: translateX(-50%); z-index: 9999; pointer-events: none; background: #B3261E; color: #FFFFFF; border-radius: 10px; padding: 2px 10px; font-size: 10px; font-weight: 800; letter-spacing: 0.08em; white-space: nowrap;">PROTOTYPE · SAMPLE DATA</div>
+
+<div style="display: flex; align-items: center; gap: 12px; padding: 16px 20px 10px;">
+<sc-if value="{{atHub}}" hint-placeholder-val="{{ true }}">
+<a href="Main.dc.html" aria-label="Back to app" style="width: 44px; height: 44px; border-radius: 22px; border: 1px solid #E3D9C8; background: #FFFFFF; display: flex; align-items: center; justify-content: center; text-decoration: none;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1B2C5C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"></path></svg></a>
+</sc-if>
+<sc-if value="{{inSection}}" hint-placeholder-val="{{ false }}">
+<button onClick="{{toHub}}" aria-label="Back to guide" style="width: 44px; height: 44px; border-radius: 22px; border: 1px solid #E3D9C8; background: #FFFFFF; display: flex; align-items: center; justify-content: center;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1B2C5C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"></path></svg></button>
+</sc-if>
+<div style="flex-grow: 1; font-family: 'Fraunces', Georgia, serif; font-size: 22px; font-weight: 600; color: #1B2C5C;">{{title}}</div>
+</div>
+
+<div style="flex-grow: 1; overflow-y: auto; padding: 4px 20px 28px; display: flex; flex-direction: column; gap: 14px;">
+
+<sc-if value="{{atHub}}" hint-placeholder-val="{{ true }}">
+<div style="display: flex; flex-direction: column; gap: 14px;">
+<div style="background: #1B2C5C; border-radius: 22px; padding: 18px 20px; color: #FFFFFF; display: flex; flex-direction: column; gap: 10px;">
+<div style="font-size: 13px; color: #C9D1EA;">Jai Jinendra and welcome</div>
+<div style="font-family: 'Fraunces', Georgia, serif; font-size: 24px; font-weight: 500; line-height: 1.2;">Everything you need to get connected with JSH</div>
+<div style="font-size: 13px; color: #C9D1EA;">New families start here. Longtime members can use it as the JSH directory.</div>
+<div style="display: flex; justify-content: space-between; font-size: 13px; font-weight: 600;"><span>Your first steps</span><span>{{stepsDone}} of 5 done</span></div>
+<div style="height: 6px; border-radius: 3px; background: #33467A;"><div style="height: 6px; border-radius: 3px; background: #7FD1A4; width: {{stepsPct}};"></div></div>
+</div>
+<div style="background: #FFFFFF; border: 1px solid #E8E0D2; border-radius: 18px; padding: 4px 14px;">
+<sc-for list="{{steps}}" as="st" hint-placeholder-count="5">
+<button onClick="{{st.go}}" style="width: 100%; text-align: left; border: 0; border-bottom: 1px solid #F1E8D8; background: transparent; min-height: 52px; display: flex; align-items: center; gap: 12px; padding: 6px 0; color: #1E1C18;">
+<span style="width: 26px; height: 26px; border-radius: 13px; border: 2px solid #1F7A4D; background: {{st.bg}}; color: #FFFFFF; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; flex-shrink: 0;">{{st.tick}}</span>
+<span style="flex-grow: 1; font-size: 15px; font-weight: 500; color: {{st.color}};">{{st.label}}</span>
+<span style="font-size: 18px; color: #8A8478;">›</span>
+</button>
+</sc-for>
+</div>
+<div style="font-weight: 600; font-size: 16px; padding-top: 4px;">Explore JSH</div>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px;">
+<sc-for list="{{tiles}}" as="t" hint-placeholder-count="10">
+<button onClick="{{t.go}}" style="text-align: left; border: 1px solid #E8E0D2; background: #FFFFFF; border-radius: 18px; padding: 14px; min-height: 104px; display: flex; flex-direction: column; gap: 6px; color: #1E1C18;">
+<span style="width: 36px; height: 36px; border-radius: 10px; background: {{t.tint}}; color: {{t.ink}}; display: flex; align-items: center; justify-content: center; font-size: 15px; font-weight: 700;">{{t.mark}}</span>
+<span style="font-weight: 600; font-size: 15px;">{{t.label}}</span>
+<span style="font-size: 12px; color: #5E5A52; line-height: 1.35;">{{t.sub}}</span>
+</button>
+</sc-for>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{secWhatsapp}}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; flex-direction: column; gap: 12px;">
+<div style="font-size: 14px; color: #3D3A33; line-height: 1.5;">JSH shares news, timings and event updates on WhatsApp. Request to join and an admin adds the mobile number on your profile, usually within a day.</div>
+<div style="background: #FFFFFF; border: 1px solid #E8E0D2; border-radius: 14px; padding: 10px 14px; font-size: 13px; color: #5E5A52;">Adding: <span style="font-weight: 600; color: #1E1C18;">(713) 555-0142</span> · <a href="#change">Change number</a></div>
+<sc-for list="{{groups}}" as="g" hint-placeholder-count="6">
+<div style="background: #FFFFFF; border: 1px solid #E8E0D2; border-radius: 16px; padding: 12px 14px; display: flex; align-items: center; gap: 12px;">
+<div style="flex-grow: 1;"><div style="font-weight: 600; font-size: 15px;">{{g.name}}</div><div style="font-size: 12px; color: #5E5A52;">{{g.sub}}</div></div>
+<button onClick="{{g.toggle}}" style="border: 1px solid #1F7A4D; background: {{g.bg}}; color: {{g.fg}}; border-radius: 20px; min-height: 44px; padding: 0 12px; font-size: 13px; font-weight: 600; white-space: nowrap;">{{g.label}}</button>
+</div>
+</sc-for>
+<div style="font-size: 12px; color: #5E5A52; text-align: center;">Groups follow JSH's WhatsApp guidelines: announcements only, no forwards.</div>
+</div>
+</sc-if>
+
+<sc-if value="{{secTimings}}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; flex-direction: column; gap: 12px;">
+<div style="background: #FFFFFF; border: 1px solid #E8E0D2; border-radius: 18px; padding: 6px 16px;">
+<sc-for list="{{timings}}" as="tm" hint-placeholder-count="7">
+<div style="display: flex; justify-content: space-between; gap: 10px; padding: 11px 0; border-bottom: 1px solid #F1E8D8; font-size: 14px;"><span style="color: #3D3A33;">{{tm.what}}</span><span style="font-weight: 600; text-align: right;">{{tm.when}}</span></div>
+</sc-for>
+</div>
+<div style="background: #FFFFFF; border: 1px solid #E8E0D2; border-radius: 18px; padding: 14px 16px; display: flex; flex-direction: column; gap: 6px;">
+<div style="font-weight: 600; font-size: 15px;">Jain Center of Houston</div>
+<div style="font-size: 14px; color: #3D3A33;">3905 Arc St, Houston, TX 77063</div>
+<div style="font-size: 13px; color: #5E5A52;">Parking in the main lot and overflow lot across the street on festival days. Please remove leather items before entering the derasar.</div>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; padding-top: 6px;">
+<button style="border: 0; background: #1B2C5C; color: #FFFFFF; border-radius: 22px; min-height: 44px; font-size: 14px; font-weight: 600;">Directions</button>
+<button style="border: 1px solid #1B2C5C; background: #FFFFFF; color: #1B2C5C; border-radius: 22px; min-height: 44px; font-size: 14px; font-weight: 600;">Call the office</button>
+</div>
+</div>
+<div style="font-size: 12px; color: #5E5A52; text-align: center;">Timings shown are sample data; festival days follow the event calendar.</div>
+</div>
+</sc-if>
+
+<sc-if value="{{secLinks}}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; flex-direction: column; gap: 10px;">
+<sc-for list="{{links}}" as="lk" hint-placeholder-count="6">
+<a href="#link" style="text-decoration: none; background: #FFFFFF; border: 1px solid #E8E0D2; border-radius: 16px; padding: 12px 14px; display: flex; align-items: center; gap: 12px; color: #1E1C18;">
+<span style="width: 40px; height: 40px; border-radius: 12px; background: #EEF1F8; color: #1B2C5C; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700; flex-shrink: 0;">{{lk.mark}}</span>
+<span style="flex-grow: 1;"><span style="display: block; font-weight: 600; font-size: 15px;">{{lk.name}}</span><span style="display: block; font-size: 12px; color: #5E5A52;">{{lk.sub}}</span></span>
+<span style="font-size: 18px; color: #8A8478;">›</span>
+</a>
+</sc-for>
+</div>
+</sc-if>
+
+<sc-if value="{{secZone}}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; flex-direction: column; gap: 12px;">
+<div style="font-size: 14px; color: #3D3A33; line-height: 1.5;">Greater Houston is divided into zones. Each zone has a lead who welcomes new families, shares local news and organizes carpools and home events.</div>
+<label style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: #5E5A52;">Your ZIP code
+<div style="display: flex; gap: 8px;">
+<input type="text" inputmode="numeric" value="{{zipRaw}}" onChange="{{setZip}}" style="flex-grow: 1; min-height: 50px; border-radius: 12px; border: 1px solid #E3D9C8; background: #FFFFFF; padding: 0 14px; font-size: 17px; color: #1E1C18;">
+<button onClick="{{findZone}}" style="border: 0; background: #1B2C5C; color: #FFFFFF; border-radius: 12px; min-height: 50px; padding: 0 16px; font-size: 14px; font-weight: 600;">Find my zone</button>
+</div>
+</label>
+<sc-if value="{{hasZone}}" hint-placeholder-val="{{ false }}">
+<div style="background: #FFFFFF; border: 2px solid #1B2C5C; border-radius: 20px; padding: 16px; display: flex; flex-direction: column; gap: 10px;">
+<div style="font-size: 12px; font-weight: 700; color: #1B2C5C; letter-spacing: 0.06em;">YOUR ZONE</div>
+<div style="font-family: 'Fraunces', Georgia, serif; font-size: 22px; font-weight: 500;">{{zName}}</div>
+<div style="font-size: 13px; color: #5E5A52;">{{zAreas}} · about {{zFam}} JSH families</div>
+<div style="display: flex; align-items: center; gap: 12px; background: #F6EFE3; border-radius: 14px; padding: 10px 12px;">
+<div style="width: 44px; height: 44px; border-radius: 22px; background: #1B2C5C; color: #FFFFFF; display: flex; align-items: center; justify-content: center; font-weight: 700;">ZL</div>
+<div style="flex-grow: 1;"><div style="font-weight: 600; font-size: 15px;">[Zone lead name]</div><div style="font-size: 12px; color: #5E5A52;">{{zName}} lead · replies within a day</div></div>
+</div>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px;">
+<button onClick="{{msgLead}}" style="border: 0; background: #1B2C5C; color: #FFFFFF; border-radius: 22px; min-height: 46px; font-size: 14px; font-weight: 600;">Message lead</button>
+<button onClick="{{joinZoneGroup}}" style="border: 1px solid #1F7A4D; background: {{zgBg}}; color: {{zgFg}}; border-radius: 22px; min-height: 46px; font-size: 13px; font-weight: 600;">{{zgLabel}}</button>
+</div>
+</div>
+</sc-if>
+<div style="font-weight: 600; font-size: 15px; padding-top: 4px;">All zones</div>
+<sc-for list="{{zones}}" as="z" hint-placeholder-count="7">
+<button onClick="{{z.pick}}" style="text-align: left; border: 1px solid {{z.border}}; background: {{z.bg}}; border-radius: 14px; min-height: 56px; padding: 8px 14px; display: flex; flex-direction: column; justify-content: center; color: #1E1C18;">
+<span style="font-weight: 600; font-size: 15px;">{{z.name}}</span><span style="font-size: 12px; color: #5E5A52;">{{z.areas}}</span>
+</button>
+</sc-for>
+</div>
+</sc-if>
+
+<sc-if value="{{secVolunteer}}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; flex-direction: column; gap: 12px;">
+<div style="font-size: 14px; color: #3D3A33; line-height: 1.5;">Seva is at the heart of JSH. Pick the groups that interest you and the right coordinator will reach out.</div>
+<sc-if value="{{volNotSent}}" hint-placeholder-val="{{ true }}">
+<div style="display: flex; flex-direction: column; gap: 10px;">
+<sc-for list="{{volGroups}}" as="v" hint-placeholder-count="8">
+<button onClick="{{v.toggle}}" style="text-align: left; border: 1px solid {{v.border}}; background: {{v.bg}}; border-radius: 16px; padding: 12px 14px; display: flex; align-items: center; gap: 12px; color: #1E1C18;">
+<span style="width: 26px; height: 26px; border-radius: 7px; border: 2px solid #1B2C5C; background: {{v.box}}; color: #FFFFFF; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; flex-shrink: 0;">{{v.tick}}</span>
+<span style="flex-grow: 1;"><span style="display: block; font-weight: 600; font-size: 15px;">{{v.name}}</span><span style="display: block; font-size: 12px; color: #5E5A52;">{{v.sub}}</span></span>
+</button>
+</sc-for>
+<div style="font-weight: 600; font-size: 14px;">When can you help?</div>
+<div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px;">
+<sc-for list="{{avail}}" as="av" hint-placeholder-count="3">
+<button onClick="{{av.toggle}}" style="border: 1px solid #1B2C5C; background: {{av.bg}}; color: {{av.fg}}; border-radius: 12px; min-height: 44px; font-size: 13px; font-weight: 600;">{{av.label}}</button>
+</sc-for>
+</div>
+<button onClick="{{sendVol}}" style="border: 0; background: {{volBtnBg}}; color: #FFFFFF; border-radius: 26px; min-height: 52px; font-size: 16px; font-weight: 600;">{{volBtn}}</button>
+</div>
+</sc-if>
+<sc-if value="{{volSent}}" hint-placeholder-val="{{ false }}">
+<div style="background: #E4F2EA; border: 1px solid #B7DCC6; border-radius: 18px; padding: 16px; display: flex; flex-direction: column; gap: 6px;">
+<div style="font-weight: 700; font-size: 16px; color: #14502F;">Thank you for offering seva</div>
+<div style="font-size: 14px; color: #2E5D43; line-height: 1.5;">{{volSummary}}</div>
+<button onClick="{{volReset}}" style="align-self: flex-start; border: 0; background: transparent; padding: 0; min-height: 40px; font-size: 14px; font-weight: 600; color: #14502F;">Update my interests</button>
+</div>
+</sc-if>
+</div>
+</sc-if>
+
+<sc-if value="{{secAdmin}}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; flex-direction: column; gap: 12px;">
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px; background: #F6EFE3; border-radius: 14px; padding: 4px;">
+<sc-for list="{{adminTabs}}" as="at" hint-placeholder-count="2">
+<button onClick="{{at.pick}}" style="border: 0; border-radius: 10px; min-height: 44px; background: {{at.bg}}; color: {{at.fg}}; font-size: 14px; font-weight: 600;">{{at.label}}</button>
+</sc-for>
+</div>
+<sc-for list="{{admins}}" as="ad" hint-placeholder-count="6">
+<div style="background: #FFFFFF; border: 1px solid #E8E0D2; border-radius: 16px; padding: 12px 14px; display: flex; align-items: center; gap: 12px;">
+<div style="width: 44px; height: 44px; border-radius: 22px; background: #E6E9F3; color: #1B2C5C; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; flex-shrink: 0;">{{ad.mark}}</div>
+<div style="flex-grow: 1;"><div style="font-weight: 600; font-size: 15px;">{{ad.role}}</div><div style="font-size: 12px; color: #5E5A52;">[Name from JSH] · {{ad.area}}</div></div>
+<button onClick="{{ad.msg}}" style="border: 1px solid #1B2C5C; background: #FFFFFF; color: #1B2C5C; border-radius: 20px; min-height: 44px; padding: 0 12px; font-size: 13px; font-weight: 600;">Message</button>
+</div>
+</sc-for>
+<div style="font-size: 12px; color: #5E5A52; text-align: center;">Names and terms are maintained by the JSH office and update after each election.</div>
+</div>
+</sc-if>
+
+<sc-if value="{{secMembership}}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; flex-direction: column; gap: 12px;">
+<sc-for list="{{memTypes}}" as="mt" hint-placeholder-count="3">
+<div style="background: #FFFFFF; border: 1px solid #E8E0D2; border-radius: 18px; padding: 14px 16px; display: flex; flex-direction: column; gap: 6px;">
+<div style="display: flex; justify-content: space-between; align-items: baseline;"><div style="font-weight: 700; font-size: 16px;">{{mt.name}}</div><div style="font-weight: 700; font-size: 16px; color: #8A4608;">{{mt.fee}}</div></div>
+<div style="font-size: 13px; color: #3D3A33; line-height: 1.5;">{{mt.what}}</div>
+</div>
+</sc-for>
+<div style="background: #F6EFE3; border-radius: 16px; padding: 14px 16px; font-size: 13px; color: #3D3A33; line-height: 1.6;">
+<div style="font-weight: 700; margin-bottom: 4px;">Good to know</div>
+Membership is needed to register children for Pathshala.<br>Life members can vote in JSH elections after one year, and their spouse is also a life member.<br>Children roll off a family's life membership at 18 and can apply on their own.
+</div>
+<button style="border: 0; background: #1B2C5C; color: #FFFFFF; border-radius: 26px; min-height: 52px; font-size: 16px; font-weight: 600;">Become a member</button>
+<div style="font-size: 12px; color: #5E5A52; text-align: center;">Life membership fee from the JSH website; yearly and maintenance amounts are placeholders.</div>
+</div>
+</sc-if>
+
+<sc-if value="{{secRegister}}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; flex-direction: column; gap: 10px;">
+<sc-for list="{{regs}}" as="rg" hint-placeholder-count="6">
+<a href="{{rg.href}}" style="text-decoration: none; background: #FFFFFF; border: 1px solid #E8E0D2; border-radius: 16px; padding: 12px 14px; display: flex; align-items: center; gap: 12px; color: #1E1C18;">
+<span style="flex-grow: 1;"><span style="display: block; font-weight: 600; font-size: 15px;">{{rg.name}}</span><span style="display: block; font-size: 12px; color: #5E5A52;">{{rg.sub}}</span></span>
+<span style="font-size: 12px; font-weight: 700; color: {{rg.stColor}}; background: {{rg.stBg}}; border-radius: 8px; padding: 3px 8px;">{{rg.status}}</span>
+</a>
+</sc-for>
+</div>
+</sc-if>
+
+<sc-if value="{{secAsk}}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; flex-direction: column; gap: 12px;">
+<sc-if value="{{askNotSent}}" hint-placeholder-val="{{ true }}">
+<div style="display: flex; flex-direction: column; gap: 12px;">
+<div style="font-size: 14px; color: #3D3A33; line-height: 1.5;">Send your question to the right JSH team. We reply within 3–5 business days. For quick answers, try Niva in the app.</div>
+<div style="font-weight: 600; font-size: 14px;">Topic</div>
+<div style="display: flex; flex-wrap: wrap; gap: 6px;">
+<sc-for list="{{topics}}" as="tp" hint-placeholder-count="6">
+<button onClick="{{tp.pick}}" style="border: 1px solid #1B2C5C; background: {{tp.bg}}; color: {{tp.fg}}; border-radius: 18px; min-height: 40px; padding: 0 14px; font-size: 13px; font-weight: 600;">{{tp.label}}</button>
+</sc-for>
+</div>
+<label style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: #5E5A52;">Your question
+<textarea rows="5" placeholder="Type your question" defaultValue="We just moved to Katy. How do we register our 9-year-old for Pathshala this year?" style="border-radius: 14px; border: 1px solid #E3D9C8; background: #FFFFFF; padding: 12px 14px; font-size: 15px; color: #1E1C18; resize: none;"></textarea>
+</label>
+<label style="display: flex; align-items: center; gap: 10px; font-size: 14px; color: #3D3A33;"><input type="checkbox" checked="checked" style="width: 20px; height: 20px;">Reply by WhatsApp as well as email</label>
+<button onClick="{{sendAsk}}" style="border: 0; background: #1B2C5C; color: #FFFFFF; border-radius: 26px; min-height: 52px; font-size: 16px; font-weight: 600;">Send question</button>
+</div>
+</sc-if>
+<sc-if value="{{askSent}}" hint-placeholder-val="{{ false }}">
+<div style="background: #E4F2EA; border: 1px solid #B7DCC6; border-radius: 18px; padding: 16px; display: flex; flex-direction: column; gap: 6px;">
+<div style="font-weight: 700; font-size: 16px; color: #14502F;">Question sent · Q-3021</div>
+<div style="font-size: 14px; color: #2E5D43; line-height: 1.5;">Routed to the {{askTeam}} team. You'll get a reply within 3–5 business days, and can follow it under Help and requests.</div>
+<button onClick="{{askReset}}" style="align-self: flex-start; border: 0; background: transparent; padding: 0; min-height: 40px; font-size: 14px; font-weight: 600; color: #14502F;">Ask another question</button>
+</div>
+</sc-if>
+</div>
+</sc-if>
+
+</div>
+
+<sc-if value="{{composeOpen}}" hint-placeholder-val="{{ false }}">
+<div style="position: absolute; left: 0; top: 0; width: 390px; height: 844px; background: rgba(20,18,14,0.5); display: flex; flex-direction: column; justify-content: flex-end;">
+<div style="background: #FFFFFF; border-radius: 24px 24px 0 0; padding: 20px 20px 34px; display: flex; flex-direction: column; gap: 12px;">
+<div style="display: flex; justify-content: space-between; align-items: center;"><div style="font-weight: 700; font-size: 17px;">Message {{composeTo}}</div><button onClick="{{closeCompose}}" style="border: 0; background: #F1EEE8; border-radius: 20px; min-height: 36px; padding: 0 14px; font-size: 14px;">Cancel</button></div>
+<label style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: #5E5A52;">Message
+<textarea rows="5" defaultValue="{{composeText}}" style="border-radius: 14px; border: 1px solid #E3D9C8; padding: 12px 14px; font-size: 15px; color: #1E1C18; resize: none;"></textarea>
+</label>
+<div style="font-size: 12px; color: #5E5A52;">Sent through the JSH app. Your mobile and email are shared so they can reply.</div>
+<button onClick="{{sendCompose}}" style="border: 0; background: #1B2C5C; color: #FFFFFF; border-radius: 26px; min-height: 52px; font-size: 16px; font-weight: 600;">Send</button>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{hasToast}}" hint-placeholder-val="{{ false }}">
+<div style="position: absolute; left: 20px; right: 20px; top: 76px; background: #1F7A4D; color: #FFFFFF; border-radius: 14px; padding: 12px 14px; font-size: 14px; font-weight: 600; text-align: center;">{{toast}}</div>
+</sc-if>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { sec: 'hub', wa: [false, false, false, false, false, false], zip: '77494', zipRaw: '77494', zone: -1, zoneGroup: false, vol: [false, false, false, false, false, false, false, false], av: [true, false, true], volSent: false, adminTab: 0, memSeen: false, topic: 2, askSent: false, compose: null, toast: '' };
+  }
+  renderVals() {
+    const s = this.state;
+    const set = (o) => () => this.setState(o);
+    const flash = (t) => { this.setState({ toast: t }); setTimeout(() => this.setState({ toast: '' }), 2400); };
+    const ZONES = [
+      { name: 'North', areas: 'Spring, The Woodlands, Conroe', fam: 140, zips: ['77379', '77380', '77381', '77382', '77388', '77389', '77373'] },
+      { name: 'Northwest', areas: 'Cypress, Jersey Village, Tomball', fam: 165, zips: ['77433', '77429', '77095', '77070', '77375'] },
+      { name: 'West', areas: 'Katy, Fulshear, Energy Corridor', fam: 210, zips: ['77494', '77450', '77493', '77441', '77084', '77079'] },
+      { name: 'Southwest', areas: 'Sugar Land, Missouri City, Stafford, Richmond', fam: 260, zips: ['77479', '77478', '77459', '77477', '77498', '77406', '77407'] },
+      { name: 'South', areas: 'Pearland, Clear Lake, League City', fam: 120, zips: ['77584', '77581', '77546', '77573', '77598', '77062'] },
+      { name: 'Northeast', areas: 'Humble, Kingwood, Atascocita', fam: 70, zips: ['77346', '77339', '77345', '77396', '77338'] },
+      { name: 'Central', areas: 'Bellaire, Galleria, Medical Center, Downtown', fam: 95, zips: ['77401', '77081', '77002', '77005', '77025', '77063', '77056'] }
+    ];
+    const z = s.zone >= 0 ? ZONES[s.zone] : null;
+    const GROUPS = [
+      { name: 'JSH Announcements', sub: 'Official news and timings · admins only post' },
+      { name: 'Your zone group', sub: z ? z.name + ' zone · local news and carpools' : 'Find your zone first' },
+      { name: 'Pathshala parents', sub: 'Class updates and schedules' },
+      { name: 'Youth (YJA and YJP)', sub: 'Ages 14–30 · events and seva' },
+      { name: 'Seniors', sub: 'Swadhyay, outings and rides' },
+      { name: 'Volunteers', sub: 'Seva shifts and sign-ups' }
+    ];
+    const VOL = [
+      { name: 'Bhojanshala and kitchen', sub: 'Cooking, serving and cleanup' },
+      { name: 'Pathshala teaching', sub: 'Teach or assist Sunday classes' },
+      { name: 'Events and decoration', sub: 'Setup, rangoli, stage and flowers' },
+      { name: 'Derasar and puja seva', sub: 'Help with pujas and upkeep' },
+      { name: 'Tech and media', sub: 'Livestream, photos, app and website' },
+      { name: 'Youth mentoring', sub: 'Guide YJA and YJP members' },
+      { name: 'Seniors care', sub: 'Rides and companionship' },
+      { name: 'Parking and security', sub: 'Festival days and large events' }
+    ];
+    const AV = ['Weekends', 'Weekday evenings', 'Festivals'];
+    const EC = [
+      { role: 'President', area: 'Executive Committee', mark: 'P' },
+      { role: 'Vice President', area: 'Executive Committee', mark: 'VP' },
+      { role: 'Secretary', area: 'Executive Committee', mark: 'S' },
+      { role: 'Treasurer', area: 'Finance and donations', mark: 'T' },
+      { role: 'Religious coordinator', area: 'Pujas and festivals', mark: 'RC' },
+      { role: 'Pathshala coordinator', area: 'Pathshala and education', mark: 'PC' },
+      { role: 'Technology officer', area: 'App, website and livestream', mark: 'TO' },
+      { role: 'Membership coordinator', area: 'Memberships and records', mark: 'MC' }
+    ];
+    const BOT = [
+      { role: 'Chair, Board of Trustees', area: 'Board of Trustees', mark: 'C' },
+      { role: 'Trustee', area: 'Temple construction', mark: 'TR' },
+      { role: 'Trustee', area: 'Finance and investments', mark: 'TR' },
+      { role: 'Trustee', area: 'Facilities', mark: 'TR' }
+    ];
+    const TOPICS = ['Membership', 'Events', 'Pathshala', 'Donations', 'Temple and pujas', 'Other'];
+    const joinedAny = s.wa.some(Boolean);
+    const stepsState = [joinedAny, s.zone >= 0, s.memSeen, s.volSent, s.askSent];
+    const STEP_LABELS = ['Join JSH WhatsApp groups', 'Find your zone and zone lead', 'Learn about membership', 'Share your seva interests', 'Ask us anything'];
+    const STEP_SEC = ['whatsapp', 'zone', 'membership', 'volunteer', 'ask'];
+    const doneN = stepsState.filter(Boolean).length;
+    const titles = { hub: 'New to JSH', whatsapp: 'WhatsApp groups', timings: 'Timings and visiting', links: 'Website and links', zone: 'Your zone', volunteer: 'Volunteer', admin: 'Administration', membership: 'Membership', register: 'Registrations', ask: 'Ask a question' };
+    const go = (sec) => () => this.setState(sec === 'membership' ? { sec, memSeen: true } : { sec });
+    const selVol = VOL.filter((v, i) => s.vol[i]).map((v) => v.name);
+    return {
+      title: titles[s.sec], atHub: s.sec === 'hub', inSection: s.sec !== 'hub', toHub: set({ sec: 'hub' }),
+      secWhatsapp: s.sec === 'whatsapp', secTimings: s.sec === 'timings', secLinks: s.sec === 'links', secZone: s.sec === 'zone', secVolunteer: s.sec === 'volunteer', secAdmin: s.sec === 'admin', secMembership: s.sec === 'membership', secRegister: s.sec === 'register', secAsk: s.sec === 'ask',
+      stepsDone: doneN, stepsPct: (doneN * 20) + '%',
+      steps: STEP_LABELS.map((l, i) => ({ label: l, tick: stepsState[i] ? '✓' : '', bg: stepsState[i] ? '#1F7A4D' : '#FFFFFF', color: stepsState[i] ? '#8A8478' : '#1E1C18', go: go(STEP_SEC[i]) })),
+      tiles: [
+        { label: 'WhatsApp groups', sub: 'Join announcements and your zone', mark: 'WA', tint: '#E4F2EA', ink: '#1F7A4D', sec: 'whatsapp' },
+        { label: 'Timings and visiting', sub: 'Derasar hours, aarti, address', mark: 'TM', tint: '#EEF1F8', ink: '#1B2C5C', sec: 'timings' },
+        { label: 'Your zone', sub: 'Find your zone lead nearby', mark: 'ZN', tint: '#FBEBD7', ink: '#8A4608', sec: 'zone' },
+        { label: 'Volunteer', sub: 'Send your seva interests', mark: 'VO', tint: '#E4F2EA', ink: '#1F7A4D', sec: 'volunteer' },
+        { label: 'Membership', sub: 'Types, fees and benefits', mark: 'MB', tint: '#FBEBD7', ink: '#8A4608', sec: 'membership' },
+        { label: 'Registrations', sub: 'Pathshala, events, seva', mark: 'RG', tint: '#EEF1F8', ink: '#1B2C5C', sec: 'register' },
+        { label: 'Administration', sub: 'Executive Committee and trustees', mark: 'AD', tint: '#EEF1F8', ink: '#1B2C5C', sec: 'admin' },
+        { label: 'Website and links', sub: 'Website, YouTube, social', mark: 'WB', tint: '#E4F2EA', ink: '#1F7A4D', sec: 'links' },
+        { label: 'Ask a question', sub: 'Reach the right team', mark: '?', tint: '#FBEBD7', ink: '#8A4608', sec: 'ask' }
+      ].map((t) => Object.assign({}, t, { go: go(t.sec) })),
+      groups: GROUPS.map((g, i) => ({ name: g.name, sub: g.sub, label: s.wa[i] ? 'Requested ✓' : 'Request to join', bg: s.wa[i] ? '#1F7A4D' : '#FFFFFF', fg: s.wa[i] ? '#FFFFFF' : '#1F7A4D', toggle: () => { if (i === 1 && s.zone < 0) { this.setState({ sec: 'zone' }); return; } const a = s.wa.slice(); a[i] = !a[i]; this.setState({ wa: a }); if (a[i]) flash('Request sent · an admin will add you soon'); } })),
+      timings: [
+        { what: 'Derasar', when: '7:30 AM – 6:00 PM daily' },
+        { what: 'Aarti', when: '12:30 PM and 4:30 PM' },
+        { what: 'Snatra puja', when: 'Sundays 9:30 AM' },
+        { what: 'Pathshala', when: 'Sundays 10:00 AM – 12:00 PM' },
+        { what: 'Bhojanshala', when: 'Sundays 12:15 PM · festival days' },
+        { what: 'Swadhyay', when: 'Wednesdays 7:30 PM (Zoom)' },
+        { what: 'Office', when: 'Sat–Sun 10:00 AM – 2:00 PM' }
+      ],
+      links: [
+        { name: 'JSH website', sub: 'jain-houston.org · news, calendar, forms', mark: 'W' },
+        { name: 'YouTube', sub: 'Pravachans, events and live darshan', mark: 'YT' },
+        { name: 'Facebook', sub: 'Community updates and photos', mark: 'F' },
+        { name: 'Instagram', sub: 'Event highlights and youth', mark: 'IG' },
+        { name: 'Event photo albums', sub: 'Past events in the app', mark: 'PH' },
+        { name: 'JSH Constitution and bylaws', sub: 'Membership, voting and governance', mark: 'C' }
+      ],
+      zipRaw: s.zipRaw,
+      setZip: (e) => this.setState({ zipRaw: e && e.target ? e.target.value : '' }),
+      findZone: () => { const zp = (s.zipRaw || '').trim(); let k = ZONES.findIndex((x) => x.zips.indexOf(zp) >= 0); if (k < 0) k = 6; this.setState({ zone: k }); },
+      hasZone: !!z, zName: z ? z.name + ' zone' : '', zAreas: z ? z.areas : '', zFam: z ? z.fam : 0,
+      zones: ZONES.map((x, i) => ({ name: x.name, areas: x.areas, bg: s.zone === i ? '#EEF1F8' : '#FFFFFF', border: s.zone === i ? '#1B2C5C' : '#E8E0D2', pick: () => this.setState({ zone: i }) })),
+      msgLead: () => this.setState({ compose: { to: z ? z.name + ' zone lead' : 'zone lead', text: 'Jai Jinendra! We are the Shah family, new to the ' + (z ? z.name : '') + ' zone. We would love to connect with families nearby.' } }),
+      joinZoneGroup: () => { const a = s.wa.slice(); a[1] = true; this.setState({ zoneGroup: true, wa: a }); flash('Request sent to join the ' + (z ? z.name : '') + ' zone group'); },
+      zgLabel: s.zoneGroup ? 'Group requested ✓' : 'Join zone WhatsApp', zgBg: s.zoneGroup ? '#1F7A4D' : '#FFFFFF', zgFg: s.zoneGroup ? '#FFFFFF' : '#1F7A4D',
+      volNotSent: !s.volSent, volSent: s.volSent,
+      volGroups: VOL.map((v, i) => ({ name: v.name, sub: v.sub, tick: s.vol[i] ? '✓' : '', box: s.vol[i] ? '#1B2C5C' : '#FFFFFF', bg: s.vol[i] ? '#EEF1F8' : '#FFFFFF', border: s.vol[i] ? '#1B2C5C' : '#E8E0D2', toggle: () => { const a = s.vol.slice(); a[i] = !a[i]; this.setState({ vol: a }); } })),
+      avail: AV.map((l, i) => ({ label: l, bg: s.av[i] ? '#1B2C5C' : '#FFFFFF', fg: s.av[i] ? '#FFFFFF' : '#1B2C5C', toggle: () => { const a = s.av.slice(); a[i] = !a[i]; this.setState({ av: a }); } })),
+      volBtn: selVol.length ? 'Send interest in ' + selVol.length + (selVol.length === 1 ? ' group' : ' groups') : 'Select at least one group',
+      volBtnBg: selVol.length ? '#1B2C5C' : '#8A93AE',
+      sendVol: () => { if (selVol.length) this.setState({ volSent: true }); },
+      volSummary: 'Your interest in ' + selVol.join(', ') + ' was sent to the coordinators. They will contact you by WhatsApp or email.',
+      volReset: set({ volSent: false }),
+      adminTabs: ['Executive Committee', 'Trustees'].map((l, i) => ({ label: l, bg: s.adminTab === i ? '#FFFFFF' : 'transparent', fg: s.adminTab === i ? '#1B2C5C' : '#5E5A52', pick: () => this.setState({ adminTab: i }) })),
+      admins: (s.adminTab === 0 ? EC : BOT).map((a) => ({ role: a.role, area: a.area, mark: a.mark, msg: () => this.setState({ compose: { to: 'the ' + a.role, text: 'Jai Jinendra! ' } }) })),
+      memTypes: [
+        { name: 'Yearly membership', fee: '[$ per year]', what: 'For the whole family for one calendar year. Renew each January in the app.' },
+        { name: 'Life membership', fee: '$501 one time', what: 'Lifetime membership for you and your spouse. Reviewed and approved by the Executive Committee.' },
+        { name: 'Yearly maintenance fee', fee: '[$ per family]', what: 'Supports upkeep of the Jain Center and derasar. Paid by every member family each year.' }
+      ],
+      regs: [
+        { name: 'Pathshala enrollment', sub: 'Classes for ages 5–18 · membership required', status: 'Open', stColor: '#1F7A4D', stBg: '#E4F2EA', href: 'Main.dc.html' },
+        { name: 'Upcoming event RSVPs', sub: 'Tapasvi Bahuman, Diwali and more', status: 'Open', stColor: '#1F7A4D', stBg: '#E4F2EA', href: 'Main.dc.html' },
+        { name: 'Membership application', sub: 'Yearly or life membership', status: 'Open', stColor: '#1F7A4D', stBg: '#E4F2EA', href: '#membership' },
+        { name: 'Youth programs (YJA and YJP)', sub: 'Convention and local events', status: 'Opens Jan', stColor: '#8A4608', stBg: '#FBEBD7', href: '#youth' },
+        { name: 'Puja and hall bookings', sub: 'Snatra puja, family pujas, hall use', status: 'Open', stColor: '#1F7A4D', stBg: '#E4F2EA', href: '#booking' },
+        { name: 'Paryushan tapasya registration', sub: 'For recognition at Tapasvi Bahuman', status: 'Closed', stColor: '#5E5A52', stBg: '#EDE6DA', href: '#tapasya' }
+      ],
+      topics: TOPICS.map((l, i) => ({ label: l, bg: s.topic === i ? '#1B2C5C' : '#FFFFFF', fg: s.topic === i ? '#FFFFFF' : '#1B2C5C', pick: () => this.setState({ topic: i }) })),
+      askNotSent: !s.askSent, askSent: s.askSent,
+      askTeam: TOPICS[s.topic] === 'Other' ? 'JSH office' : TOPICS[s.topic],
+      sendAsk: set({ askSent: true }), askReset: set({ askSent: false }),
+      composeOpen: !!s.compose, composeTo: s.compose ? s.compose.to : '', composeText: s.compose ? s.compose.text : '',
+      closeCompose: set({ compose: null }),
+      sendCompose: () => { const to = s.compose ? s.compose.to : ''; this.setState({ compose: null }); flash('Message sent to ' + to); },
+      hasToast: !!s.toast, toast: s.toast
+    };
+  }
+}
+</script>
+</body>
+</html>

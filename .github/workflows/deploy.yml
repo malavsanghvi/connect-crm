@@ -1,0 +1,93 @@
+# Deploy to the DigitalOcean droplet. Runs on every push to main, or by hand from
+# Actions › Deploy › Run workflow. Setup and the list of secrets: docs/DEPLOY.md
+# (in connect-crm).
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-crm
+  cancel-in-progress: false
+
+jobs:
+  database:
+    name: Database migrations
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply migrations to Supabase
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          if [ -z "$SUPABASE_DB_URL" ]; then
+            echo "::error::Missing secret SUPABASE_DB_URL (Supabase › Connect › Session pooler). See docs/DEPLOY.md."
+            exit 1
+          fi
+          bash supabase/scripts/migrate.sh
+
+  deploy:
+    name: Build and release crm
+    needs: database
+    runs-on: ubuntu-latest
+    env:
+      APP: crm
+      SITE: ${{ vars.SITE_DOMAIN || ':80' }}
+      # JSH's Supabase project. The publishable key is public by design: it ships in every
+      # browser and phone build and row-level security protects the data. Repository
+      # variables SUPABASE_URL / SUPABASE_ANON_KEY override these (e.g. for a staging project).
+      # Never put the secret (sb_secret_… / service_role) key here or anywhere in the apps.
+      NEXT_PUBLIC_SUPABASE_URL: ${{ vars.SUPABASE_URL || 'https://qenubcnvjcmsxhmehvat.supabase.co' }}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ vars.SUPABASE_ANON_KEY || 'sb_publishable_EfX8-WUrsYuSkUB4vAFAIQ_ukUY01jy' }}
+      NEXT_PUBLIC_CENTER_SLUG: ${{ vars.CENTER_SLUG || 'jsh' }}
+    steps:
+      - name: Check settings
+        env:
+          HOST: ${{ secrets.DROPLET_HOST }}
+          KEY: ${{ secrets.DROPLET_SSH_KEY }}
+        run: |
+          missing=""
+          [ -n "$HOST" ] || missing="$missing DROPLET_HOST"
+          [ -n "$KEY" ]  || missing="$missing DROPLET_SSH_KEY"
+          if [ -n "$missing" ]; then
+            echo "::error::Not set in Settings › Secrets and variables › Actions › Secrets:$missing (see docs/DEPLOY.md in connect-crm)"
+            exit 1
+          fi
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Build
+        run: pnpm build
+      - name: Package
+        run: |
+          mkdir -p out
+          cp -r .next/standalone/. out/
+          mkdir -p out/.next && cp -r .next/static out/.next/static
+          if [ -d public ]; then cp -r public out/public; fi
+          tar -czf "connect-$APP-$GITHUB_SHA.tgz" -C out .
+      - name: Release on the droplet
+        env:
+          HOST: ${{ secrets.DROPLET_HOST }}
+          KEY: ${{ secrets.DROPLET_SSH_KEY }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/deploy && chmod 600 ~/.ssh/deploy
+          ssh-keyscan -T 15 "$HOST" >> ~/.ssh/known_hosts 2>/dev/null
+          ssh_() { ssh -i ~/.ssh/deploy -o BatchMode=yes "root@$HOST" "$@"; }
+          ssh_ "mkdir -p /tmp/connect-deploy"
+          scp -i ~/.ssh/deploy -o BatchMode=yes deploy/droplet-setup.sh deploy/release.sh "root@$HOST:/tmp/connect-deploy/"
+          scp -i ~/.ssh/deploy -o BatchMode=yes "connect-$APP-$GITHUB_SHA.tgz" "root@$HOST:/tmp/"
+          ssh_ "bash /tmp/connect-deploy/droplet-setup.sh && bash /tmp/connect-deploy/release.sh $APP $GITHUB_SHA node 3000 '$SITE'"
+          echo "### Released $APP" >> "$GITHUB_STEP_SUMMARY"
+          if [[ "$SITE" == :* ]]; then
+            port=${SITE#:}
+            if [ "$port" = 80 ]; then echo "Open http://$HOST" >> "$GITHUB_STEP_SUMMARY"; else echo "Open http://$HOST:$port" >> "$GITHUB_STEP_SUMMARY"; fi
+          else
+            echo "Open https://$SITE" >> "$GITHUB_STEP_SUMMARY"
+          fi
