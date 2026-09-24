@@ -66,6 +66,7 @@ export function ActionForm({
   buttonsClassName = "",
   extraButtons,
   hideSubmit = false,
+  submitDisabled = false,
 }: {
   action: FormAction;
   children?: ReactNode;
@@ -80,6 +81,8 @@ export function ActionForm({
   buttonsClassName?: string;
   extraButtons?: ReactNode;
   hideSubmit?: boolean;
+  /** Disable the submit button (e.g. "No changes" on a settings form). */
+  submitDisabled?: boolean;
 }) {
   const [state, formAction, pending] = useActionState(action, null);
   const formRef = useRef<HTMLFormElement>(null);
@@ -120,7 +123,7 @@ export function ActionForm({
       {children}
       <div className={`flex flex-wrap items-center gap-2 ${buttonsClassName}`}>
         {hideSubmit ? null : (
-          <button type="submit" disabled={pending} data-variant={variant} className={buttonClass(variant, size)}>
+          <button type="submit" disabled={pending || submitDisabled} data-variant={variant} className={buttonClass(submitDisabled ? "off" : variant, size)}>
             {pending ? (pendingLabel ?? "Working…") : submitLabel}
           </button>
         )}
