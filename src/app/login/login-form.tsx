@@ -13,7 +13,7 @@ function explainAuthError(error: { message?: string; status?: number; code?: str
     return "Too many codes were requested for this email. Wait a minute, then try again.";
   }
   if (/signups? not allowed|user not found|otp_disabled/i.test(msg) || error.code === "otp_disabled") {
-    return "No Connect account uses this email. Use the email on your Connect account, or ask your center admin to set one up.";
+    return "No Community Connect account uses this email. Use the email on your Community Connect account, or ask your center admin to set one up.";
   }
   if (stage === "code" && (/expired|invalid|token/i.test(msg) || error.code === "otp_expired")) {
     return "That code is wrong or has expired. Check the most recent email, or send a new code.";
@@ -101,71 +101,78 @@ export function LoginForm({
     }
   }
 
+  const inputClass =
+    "min-h-[50px] w-full rounded-xl border border-line-input bg-white px-3.5 text-base text-ink placeholder:text-faint focus:border-navy focus:outline-2 focus:outline-offset-1 focus:outline-navy";
+  const errorBox = error ? (
+    <p role="alert" className="rounded-[10px] border border-danger/30 bg-danger-50 px-3 py-2 text-[13px] text-danger">
+      {error}
+    </p>
+  ) : null;
+
   if (step === "email") {
     return (
-      <form onSubmit={sendCode} noValidate>
-        <h2 className="font-display text-xl font-semibold text-ink">Sign in</h2>
-        <label htmlFor="email" className="crm-label mt-4">
-          Email
+      <form onSubmit={sendCode} noValidate className="flex flex-col gap-4">
+        <h2 className="font-display text-[28px] font-semibold text-ink">Sign in</h2>
+        <label htmlFor="email" className="flex flex-col gap-1.5 text-[13px] text-muted">
+          Work email
+          <input
+            id="email"
+            name="email"
+            type="email"
+            autoComplete="email"
+            inputMode="email"
+            required
+            autoFocus
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            className={inputClass}
+          />
         </label>
-        <input
-          id="email"
-          name="email"
-          type="email"
-          autoComplete="email"
-          inputMode="email"
-          required
-          autoFocus
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          className="crm-input"
-        />
-        {error ? (
-          <p role="alert" className="mt-3 rounded-lg border border-maroon/30 bg-maroon-50 px-3 py-2 text-sm text-maroon">
-            {error}
-          </p>
-        ) : null}
-        <button type="submit" disabled={pending} className={`${buttonClass("primary")} mt-5 w-full`}>
-          {pending ? "Sending code…" : "Email me a code"}
+        {errorBox}
+        <button type="submit" disabled={pending} className={`${buttonClass("primary", "lg")} w-full`}>
+          {pending ? "Sending code…" : "Send code"}
         </button>
+        <p className="text-xs text-muted">
+          Staff sign in with a one-time code sent to the email on their Community Connect account — no password.
+        </p>
       </form>
     );
   }
 
   return (
-    <form onSubmit={verify} noValidate>
-      <h2 className="font-display text-xl font-semibold text-ink">Enter your code</h2>
+    <form onSubmit={verify} noValidate className="flex flex-col gap-4">
+      <h2 className="font-display text-[28px] font-semibold text-ink">Sign in</h2>
+      <div className="flex flex-col gap-1.5 text-[13px] text-muted">
+        <span>Work email</span>
+        <p className="flex min-h-[50px] items-center rounded-xl bg-canvas px-3.5 text-base text-ink ring-1 ring-line-input">{email}</p>
+      </div>
       {notice ? (
-        <p role="status" className="mt-2 text-sm text-muted">
+        <p role="status" className="text-[13px] text-muted">
           {notice}
         </p>
       ) : null}
-      <label htmlFor="code" className="crm-label mt-4">
-        Code from the email
+      <label htmlFor="code" className="flex flex-col gap-1.5 text-[13px] text-muted">
+        Code sent to your email (6–10 digits)
+        <input
+          id="code"
+          name="code"
+          type="text"
+          inputMode="numeric"
+          autoComplete="one-time-code"
+          pattern="[0-9 ]{6,12}"
+          maxLength={12}
+          required
+          autoFocus
+          value={code}
+          onChange={(e) => setCode(e.target.value)}
+          className={`${inputClass} font-mono text-xl tracking-[0.2em]`}
+        />
       </label>
-      <input
-        id="code"
-        name="code"
-        type="text"
-        inputMode="numeric"
-        autoComplete="one-time-code"
-        pattern="[0-9 ]{6,12}"
-        maxLength={12}
-        required
-        autoFocus
-        value={code}
-        onChange={(e) => setCode(e.target.value)}
-        className="crm-input text-center font-mono text-2xl tracking-[0.4em]"
-      />
-      {error ? (
-        <p role="alert" className="mt-3 rounded-lg border border-maroon/30 bg-maroon-50 px-3 py-2 text-sm text-maroon">
-          {error}
-        </p>
-      ) : null}
-      <button type="submit" disabled={pending} className={`${buttonClass("primary")} mt-5 w-full`}>
-        {pending ? "Checking…" : "Sign in"}
+      {errorBox}
+      <button type="submit" disabled={pending} className={`${buttonClass("primary", "lg")} w-full`}>
+        {pending ? "Checking…" : "Verify and sign in"}
       </button>
-      <div className="mt-3 flex flex-wrap justify-between gap-2">
+      <div className="flex flex-wrap justify-between gap-2">
         <button
           type="button"
           disabled={pending}
