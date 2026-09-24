@@ -104,22 +104,26 @@ select pg_temp.assert_raises(format($$select app.decide_access_request(%L, 'decl
   'declining needs a reason (the contact receives it)');
 select pg_temp.assert_raises(format($$select app.issue_sandbox_code(%L, 'early')$$, :'request_id'), 'Approve the request',
   'no code before the request is approved');
-select pg_temp.assert((app.decide_access_request(:'request_id', 'more_info', 'Which city is the temple in, exactly?'))->>'email_status' = 'not_set_up',
-  'asking for more information works; without the messaging stream the email status says "not_set_up"');
+select pg_temp.assert((app.decide_access_request(:'request_id', 'more_info', 'Which city is the temple in, exactly?'))->>'email_status' = 'queued',
+  'asking for more information works and the email is queued (messaging is present)');
 commit;
 select pg_temp.assert((select status = 'more_info' and decision_note = 'Which city is the temple in, exactly?' and decided_by = :cc1
-                              and decision_email_status = 'not_set_up' from app.access_requests where id = :'request_id'),
+                              and decision_email_status = 'queued' from app.access_requests where id = :'request_id'),
   'the request records the question, who asked and that the email was not sent');
 select pg_temp.assert((select count(*) from app.audit_log where record_table = 'access_requests' and record_id = :'request_id'
                           and action = 'access_requests.update' and reason = 'Which city is the temple in, exactly?' and actor_user_id = :cc1) = 1,
   'audit: the decision with its note as the reason');
 
--- With the messaging function present, the email is queued.
+-- With messaging present (0220+), the email is queued, with the templates' names filled in (0290).
 begin;
-create function app.enqueue_message(p_center uuid, p_channel text, p_to text, p_template_key text, p_vars jsonb, p_purpose text)
-returns uuid language sql as $$ select '23000000-0000-4000-8000-00000000e001'::uuid $$;
-select pg_temp.assert(app.platform_send_message('x@y.test', 'sandbox_code', '{}', 'sandbox_code') = '{"status":"queued","message_id":"23000000-0000-4000-8000-00000000e001"}'::jsonb,
-  'platform emails go through app.enqueue_message when it exists');
+select (app.platform_send_message('x@y.test', 'sandbox_code',
+          jsonb_build_object('code', 'CC-SBX-TEST-TEST', 'contact_name', 'Asha', 'org_name', 'Test Temple',
+                             'expires_at', now() + interval '14 days', 'start_path', '/start'), 'sandbox_code')) as sent \gset
+select pg_temp.assert((:'sent'::jsonb)->>'status' = 'queued', 'platform emails go through app.enqueue_message: ' || :'sent');
+select pg_temp.assert((select body like '%Hello Asha,%' and body like '%only for x@y.test%' and body like '%Start here: \%PORTAL\_URL\%/start%'
+                              and body not like '%CC-SBX-TEST-TEST%'
+                         from app.messages where id = ((:'sent'::jsonb)->>'message_id')::uuid),
+  'the sandbox-code email names the contact and address, links to /start through the portal marker, and does not store the code');
 rollback;
 
 begin;
@@ -128,10 +132,10 @@ select pg_temp.claims(:cc1);
 select (app.decide_access_request(:'request_id', 'approve', 'Looks like a real temple')) as approval \gset
 commit;
 select :'approval'::jsonb->>'code' as code, :'approval'::jsonb->>'code_id' as code_id \gset
-select pg_temp.assert(:'code' ~ '^CC-SBX-' and (:'approval'::jsonb)->>'email_status' = 'not_set_up', 'approving returns the plain code once, and says the email was not sent');
+select pg_temp.assert(:'code' ~ '^CC-SBX-' and (:'approval'::jsonb)->>'email_status' = 'queued', 'approving returns the plain code once, and says the email was queued');
 select pg_temp.assert((select code_hash = encode(extensions.digest(:'code', 'sha256'), 'hex') and code_last4 = right(:'code', 4)
                               and email = 'asha@templeexample.org' and expires_at between now() + interval '13 days 23 hours' and now() + interval '14 days 1 minute'
-                              and issued_by = :cc1 and email_status = 'not_set_up'
+                              and issued_by = :cc1 and email_status = 'queued'
                          from app.sandbox_codes where id = :'code_id'),
   'the code is stored as its sha-256 hash with the last 4 characters, bound to the contact email, for 14 days');
 select pg_temp.assert(not exists (select 1 from app.sandbox_codes where to_jsonb(sandbox_codes)::text like '%' || :'code' || '%')
@@ -406,7 +410,7 @@ set local role connect_worker;
 select pg_temp.assert(((app.worker_sandbox_expiry())->>'warnings')::int >= 1, 'the expiry job warns a sandbox inactive for 65 days');
 select pg_temp.assert(((app.worker_sandbox_expiry())->>'warnings')::int = 0, 'and does not warn twice for the same threshold');
 commit;
-select pg_temp.assert((select threshold_days = 60 and email_status = 'not_set_up' from app.sandbox_expiry_notices
+select pg_temp.assert((select threshold_days = 60 and email_status = 'queued' from app.sandbox_expiry_notices
                         where center_id = '23000000-0000-4000-8000-0000000000e9'),
   'the 60-day notice is recorded (email not set up yet)');
 select pg_temp.assert(not exists (select 1 from app.sandbox_expiry_notices where center_id = :'sandbox'), 'a promoted sandbox gets no warnings');

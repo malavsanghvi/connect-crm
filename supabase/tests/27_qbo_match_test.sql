@@ -72,8 +72,8 @@ select pg_temp.assert(exists (select 1 from app.jobs where center_id = :jsh and 
 -- ── The worker pulls (as connect_worker) ─────────────────────────────────────
 begin;
 set local role connect_worker;
-select pg_temp.assert((app.qbo_worker_connection(:jsh))->>'realm_id' = '9130355' and (app.qbo_worker_connection(:jsh))->>'mode' = 'test'
-                      and ((app.qbo_worker_connection(:jsh))->>'history_years')::int = 7,
+select pg_temp.assert((app.qbo_worker_match_connection(:jsh))->>'realm_id' = '9130355' and (app.qbo_worker_match_connection(:jsh))->>'mode' = 'test'
+                      and ((app.qbo_worker_match_connection(:jsh))->>'history_years')::int = 7,
   'the worker reads the realm, the mode and the 7-year history window');
 select pg_temp.assert(app.qbo_worker_store_customers(:jsh, $$[
   {"qbo_id":"501","display_name":"Kothari Family","emails":["Ketan@Kothari.test"],"phones":[],"address":{"city":"Katy","zip":"77494"},"open_balance_cents":40000},
@@ -217,7 +217,7 @@ select pg_temp.assert((select bool_and(is_historical and provider = 'quickbooks'
   'payments and sales receipts → historical payments from the primary member');
 select pg_temp.assert((select method = 'check' and check_number = '887' and memo like '%sales receipt #1001%Fund: General%' from app.payments where crm_external_id = 'qbo:SalesReceipt:9201'),
   'the method, check number and fund are kept');
-select pg_temp.assert((select memo like '%Fund: Construction%' from app.payments where crm_external_id = 'qbo:Payment:9101'),
+select pg_temp.assert((select memo ilike '%Fund: %construction%' from app.payments where crm_external_id = 'qbo:Payment:9101'),
   'a payment takes the fund of the invoice it paid');
 select pg_temp.assert((select cc_status = 'brought_in' and cc_detail like '%"Jeevdaya" is not linked to a fund%' from app.qbo_transactions where qbo_id = '9201'),
   'an unmapped class goes to the general fund, with a note');

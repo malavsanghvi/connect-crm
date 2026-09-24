@@ -2,7 +2,7 @@
 -- remainder, and bringing an approved customer's history into Community Connect.
 --
 -- Worker side (connect_worker only; each asserts app.assert_worker()):
---   app.qbo_worker_connection(p_center)                  realm, mode, history window, last pull
+--   app.qbo_worker_match_connection(p_center)                  realm, mode, history window, last pull
 --   app.qbo_worker_store_customers(p_center, p_rows)     upsert the customer copies
 --   app.qbo_worker_store_transactions(p_center, p_rows)  upsert the history copies
 --   app.qbo_worker_finish_pull(p_center, p_stats)        re-suggest, queue bring-ins for approved customers
@@ -31,7 +31,7 @@
 -- Idempotent on (center, type, id): a re-run links to the record already there.
 
 -- ── Worker: connection ──────────────────────────────────────────────────────
-create or replace function app.qbo_worker_connection(p_center uuid) returns jsonb
+create or replace function app.qbo_worker_match_connection(p_center uuid) returns jsonb
 language plpgsql stable security definer set search_path = app, public, extensions as $$
 declare c app.integration_connections;
 begin
@@ -583,7 +583,7 @@ create trigger qbo_pull_on_connect after insert or update of status on app.integ
   for each row execute function app.qbo_on_connected();
 
 -- ── Grants ──────────────────────────────────────────────────────────────────
-revoke execute on function app.qbo_worker_connection(uuid), app.qbo_worker_store_customers(uuid, jsonb),
+revoke execute on function app.qbo_worker_match_connection(uuid), app.qbo_worker_store_customers(uuid, jsonb),
   app.qbo_worker_store_transactions(uuid, jsonb), app.qbo_worker_finish_pull(uuid, jsonb), app.qbo_worker_daily_pulls(),
   app.qbo_worker_ai_input(uuid, int), app.qbo_worker_store_ai(uuid, jsonb, text, text[]), app.qbo_worker_bring_in(uuid, text),
   app.qbo_bring_in_customer(uuid, text), app.qbo_queue_job(uuid, text, jsonb), app.qbo_queue_pending_bring_ins(uuid),
@@ -594,7 +594,7 @@ grant execute on function app.qbo_request_pull(uuid), app.qbo_request_ai(uuid), 
   app.qbo_match_overview(uuid), app.qbo_payment_method(text), app.qbo_type_label(text) to authenticated;
 do $$ begin
   if exists (select 1 from pg_roles where rolname = 'connect_worker') then
-    grant execute on function app.qbo_worker_connection(uuid), app.qbo_worker_store_customers(uuid, jsonb),
+    grant execute on function app.qbo_worker_match_connection(uuid), app.qbo_worker_store_customers(uuid, jsonb),
       app.qbo_worker_store_transactions(uuid, jsonb), app.qbo_worker_finish_pull(uuid, jsonb), app.qbo_worker_daily_pulls(),
       app.qbo_worker_ai_input(uuid, int), app.qbo_worker_store_ai(uuid, jsonb, text, text[]), app.qbo_worker_bring_in(uuid, text)
       to connect_worker;

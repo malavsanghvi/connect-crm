@@ -27,6 +27,8 @@ type ToSend = {
   brand: Brand; route: Record<string, unknown>;
 };
 
+export const PORTAL_URL_MARK = "%PORTAL_URL%";
+
 const str = (v: unknown): string | null => (typeof v === "string" && v.trim() !== "" ? v : null);
 
 async function record(ctx: JobContext, id: string, status: string, provider: string | null, ref: string | null, error: string | null, segments: number | null) {
@@ -45,6 +47,14 @@ export async function sendMessage(ctx: JobContext, messageId: string, job: Pick<
   }
   const req = reqFrom(ctx.http);
   const env = ctx.env;
+  // Community Connect's own emails carry their links as %PORTAL_URL%<path> (0290): the
+  // database does not know the portal's public address; this service does.
+  if (`${m.subject ?? ""}${m.body}`.includes(PORTAL_URL_MARK)) {
+    const base = str(env.PORTAL_PUBLIC_URL)?.replace(/\/+$/, "") ?? null;
+    if (!base) ctx.log.warn("PORTAL_PUBLIC_URL is not set: links in this message stay relative", { message: m.id });
+    m.body = m.body.split(PORTAL_URL_MARK).join(base ?? "");
+    if (m.subject) m.subject = m.subject.split(PORTAL_URL_MARK).join(base ?? "");
+  }
   let provider = String(m.route.provider ?? m.channel);
   try {
     if (m.channel === "email") {

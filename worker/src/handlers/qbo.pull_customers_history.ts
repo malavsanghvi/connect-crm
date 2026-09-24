@@ -66,7 +66,7 @@ export async function run(job: Job, ctx: JobContext) {
     return { queued: n ?? 0 };
   }
   const center = job.center_id;
-  const conn = await one<Connection>(ctx, "select app.qbo_worker_connection($1) as r", [center]);
+  const conn = await one<Connection>(ctx, "select app.qbo_worker_match_connection($1) as r", [center]);
   if (!conn) throw new PermanentError("QuickBooks is not connected for this organization. Connect QuickBooks first.");
   if (!conn.accounting_on) throw new PermanentError("Accounting & QuickBooks is switched off for this organization, so nothing was pulled.");
   if (!["connected", "expiring"].includes(conn.status)) {

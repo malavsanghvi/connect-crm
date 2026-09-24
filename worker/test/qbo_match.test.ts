@@ -84,7 +84,7 @@ describe("qbo.pull_customers_history against the mock QuickBooks", () => {
     const f = fakeDb({
       secrets: { "conn-1/access_token": secret },
       query: (text, params) => {
-        if (text.includes("qbo_worker_connection")) return [{ r: conn }];
+        if (text.includes("qbo_worker_match_connection")) return [{ r: conn }];
         if (text.includes("qbo_worker_store_customers")) {
           const rows = JSON.parse(String(params[1]));
           stored.customers.push(...rows);
