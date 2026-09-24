@@ -8,6 +8,7 @@ import { ACCESS, canAccess, type AccessKey } from "@/lib/permissions";
 import { getSession } from "@/lib/session";
 
 import { ApprovalsQueue } from "./approvals-queue";
+import { CommsContentTasks } from "./comms-content-tasks";
 
 export const metadata: Metadata = { title: "Dashboard" };
 
@@ -163,6 +164,7 @@ export default async function DashboardPage() {
       </KpiGrid>
       </Card>
       <ApprovalsQueue session={session} />
+      <CommsContentTasks session={session} />
     </>
   );
 }

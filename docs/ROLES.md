@@ -82,3 +82,19 @@ volunteers until midnight; EC roles at term end). Delegation is a grant with
 | `org_member` (org person ID), `org_household` (org household ID) | own household | read + write | read |
 | `crm` (legacy CRM) | — | read + write | read |
 | `accounting`, `bank_payer`, `payment_provider` | — | — | read; write with `giving.manage` |
+
+## Prototype permission names → schema permissions (Content and Communications)
+
+The AdminPortal prototype uses shorthand permission names. The portal maps them to the
+schema's keys (no new keys; `src/lib/permissions.ts` ACCESS):
+
+| Prototype | Schema | What it allows in the portal |
+|---|---|---|
+| `content.edit` | `content.draft` (drafts, send for approval) or `content.manage` (edit every Content area) | Content tabs; `content.view` alone is read-only |
+| `content.approve` | `content.approve` **and** `content.manage` | Approve/Return in the Approval queue (RLS lets only content managers change an item's status) |
+| `comms.compose` | `comms.send` | Write newsletters, surveys, alerts; WhatsApp queue |
+| `comms.approve` | `comms.approve` | Approve newsletters (all-member sends need two different approvers) |
+| `comms.inbox` | `comms.inbox` (zone leads see their zone's inbox) | Inbox |
+
+Center-rule forms under Content (daily timing text, points and Saathi rules) and Legal & waivers
+write `centers.rules` / `legal_documents`, which need `settings.manage`.
