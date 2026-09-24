@@ -833,45 +833,6 @@ export type Database = {
         };
         Relationships: [];
       };
-      center_setup_steps: {
-        Row: {
-          center_id: string;
-          step_key: string;
-          status: string;
-          owner_person_id: string | null;
-          due_on: string | null;
-          notes: string | null;
-          completed_by: string | null;
-          completed_at: string | null;
-          updated_at: string;
-          updated_by: string | null;
-        };
-        Insert: {
-          center_id: string;
-          step_key: string;
-          status?: string;
-          owner_person_id?: string | null;
-          due_on?: string | null;
-          notes?: string | null;
-          completed_by?: string | null;
-          completed_at?: string | null;
-          updated_at?: string;
-          updated_by?: string | null;
-        };
-        Update: {
-          center_id?: string;
-          step_key?: string;
-          status?: string;
-          owner_person_id?: string | null;
-          due_on?: string | null;
-          notes?: string | null;
-          completed_by?: string | null;
-          completed_at?: string | null;
-          updated_at?: string;
-          updated_by?: string | null;
-        };
-        Relationships: [];
-      };
       center_users: {
         Row: {
           center_id: string;
@@ -2201,6 +2162,42 @@ export type Database = {
         };
         Relationships: [];
       };
+      integration_secrets: {
+        Row: {
+          id: string;
+          center_id: string;
+          connection_id: string;
+          name: string;
+          vault_secret_id: string;
+          fingerprint: string;
+          set_by: string | null;
+          set_at: string;
+          rotated_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          center_id: string;
+          connection_id: string;
+          name: string;
+          vault_secret_id: string;
+          fingerprint: string;
+          set_by?: string | null;
+          set_at?: string;
+          rotated_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          center_id?: string;
+          connection_id?: string;
+          name?: string;
+          vault_secret_id?: string;
+          fingerprint?: string;
+          set_by?: string | null;
+          set_at?: string;
+          rotated_at?: string | null;
+        };
+        Relationships: [];
+      };
       inventory_movements: {
         Row: {
           id: number;
@@ -2234,45 +2231,57 @@ export type Database = {
         };
         Relationships: [];
       };
-      irs_exempt_orgs: {
+      jobs: {
         Row: {
-          ein: string;
-          name: string;
-          city: string | null;
-          state: string | null;
-          subsection: string | null;
-          deductibility: string | null;
+          id: number;
+          center_id: string | null;
+          kind: string;
+          payload: Json;
           status: string;
-          source: string;
-          in_pub78: boolean;
-          revoked_on: string | null;
-          loaded_at: string;
+          run_after: string;
+          attempts: number;
+          max_attempts: number;
+          last_error: string | null;
+          locked_by: string | null;
+          locked_at: string | null;
+          created_by: string | null;
+          created_at: string;
+          finished_at: string | null;
+          result: Json | null;
         };
         Insert: {
-          ein: string;
-          name: string;
-          city?: string | null;
-          state?: string | null;
-          subsection?: string | null;
-          deductibility?: string | null;
+          id?: number;
+          center_id?: string | null;
+          kind: string;
+          payload?: Json;
           status?: string;
-          source: string;
-          in_pub78?: boolean;
-          revoked_on?: string | null;
-          loaded_at?: string;
+          run_after?: string;
+          attempts?: number;
+          max_attempts?: number;
+          last_error?: string | null;
+          locked_by?: string | null;
+          locked_at?: string | null;
+          created_by?: string | null;
+          created_at?: string;
+          finished_at?: string | null;
+          result?: Json | null;
         };
         Update: {
-          ein?: string;
-          name?: string;
-          city?: string | null;
-          state?: string | null;
-          subsection?: string | null;
-          deductibility?: string | null;
+          id?: number;
+          center_id?: string | null;
+          kind?: string;
+          payload?: Json;
           status?: string;
-          source?: string;
-          in_pub78?: boolean;
-          revoked_on?: string | null;
-          loaded_at?: string;
+          run_after?: string;
+          attempts?: number;
+          max_attempts?: number;
+          last_error?: string | null;
+          locked_by?: string | null;
+          locked_at?: string | null;
+          created_by?: string | null;
+          created_at?: string;
+          finished_at?: string | null;
+          result?: Json | null;
         };
         Relationships: [];
       };
@@ -3035,198 +3044,6 @@ export type Database = {
           kind?: string;
           options?: Json;
           subtitle?: string | null;
-        };
-        Relationships: [];
-      };
-      org_documents: {
-        Row: {
-          id: string;
-          center_id: string;
-          kind: string;
-          storage_path: string;
-          file_name: string | null;
-          content_type: string | null;
-          size_bytes: number | null;
-          uploaded_by: string | null;
-          uploaded_at: string;
-          note: string | null;
-        };
-        Insert: {
-          id?: string;
-          center_id: string;
-          kind: string;
-          storage_path: string;
-          file_name?: string | null;
-          content_type?: string | null;
-          size_bytes?: number | null;
-          uploaded_by?: string | null;
-          uploaded_at?: string;
-          note?: string | null;
-        };
-        Update: {
-          id?: string;
-          center_id?: string;
-          kind?: string;
-          storage_path?: string;
-          file_name?: string | null;
-          content_type?: string | null;
-          size_bytes?: number | null;
-          uploaded_by?: string | null;
-          uploaded_at?: string;
-          note?: string | null;
-        };
-        Relationships: [];
-      };
-      org_leaders: {
-        Row: {
-          id: string;
-          center_id: string;
-          person_id: string | null;
-          full_name: string;
-          title: string;
-          body: string;
-          term_start: string | null;
-          term_end: string | null;
-          photo_path: string | null;
-          show_publicly: boolean;
-          sort: number;
-          created_at: string;
-          updated_at: string;
-        };
-        Insert: {
-          id?: string;
-          center_id: string;
-          person_id?: string | null;
-          full_name: string;
-          title: string;
-          body?: string;
-          term_start?: string | null;
-          term_end?: string | null;
-          photo_path?: string | null;
-          show_publicly?: boolean;
-          sort?: number;
-          created_at?: string;
-          updated_at?: string;
-        };
-        Update: {
-          id?: string;
-          center_id?: string;
-          person_id?: string | null;
-          full_name?: string;
-          title?: string;
-          body?: string;
-          term_start?: string | null;
-          term_end?: string | null;
-          photo_path?: string | null;
-          show_publicly?: boolean;
-          sort?: number;
-          created_at?: string;
-          updated_at?: string;
-        };
-        Relationships: [];
-      };
-      org_profiles: {
-        Row: {
-          center_id: string;
-          legal_name: string | null;
-          dba: string | null;
-          ein: string | null;
-          entity_type: string | null;
-          incorporation_state: string | null;
-          registered_address: Json | null;
-          fiscal_year_start_month: number | null;
-          authorized_signer_name: string | null;
-          authorized_signer_title: string | null;
-          sales_tax_id: string | null;
-          mission: string | null;
-          about: string | null;
-          website: string | null;
-          social: Json;
-          public_email: string | null;
-          public_email_verified_at: string | null;
-          public_phone: string | null;
-          public_phone_verified_at: string | null;
-          office_hours: string | null;
-          latitude: number | null;
-          longitude: number | null;
-          languages: string[];
-          verification_status: string;
-          verified_by: string | null;
-          verified_at: string | null;
-          verification_note: string | null;
-          submitted_by: string | null;
-          submitted_at: string | null;
-          created_at: string;
-          updated_at: string;
-          updated_by: string | null;
-        };
-        Insert: {
-          center_id: string;
-          legal_name?: string | null;
-          dba?: string | null;
-          ein?: string | null;
-          entity_type?: string | null;
-          incorporation_state?: string | null;
-          registered_address?: Json | null;
-          fiscal_year_start_month?: number | null;
-          authorized_signer_name?: string | null;
-          authorized_signer_title?: string | null;
-          sales_tax_id?: string | null;
-          mission?: string | null;
-          about?: string | null;
-          website?: string | null;
-          social?: Json;
-          public_email?: string | null;
-          public_email_verified_at?: string | null;
-          public_phone?: string | null;
-          public_phone_verified_at?: string | null;
-          office_hours?: string | null;
-          latitude?: number | null;
-          longitude?: number | null;
-          languages?: string[];
-          verification_status?: string;
-          verified_by?: string | null;
-          verified_at?: string | null;
-          verification_note?: string | null;
-          submitted_by?: string | null;
-          submitted_at?: string | null;
-          created_at?: string;
-          updated_at?: string;
-          updated_by?: string | null;
-        };
-        Update: {
-          center_id?: string;
-          legal_name?: string | null;
-          dba?: string | null;
-          ein?: string | null;
-          entity_type?: string | null;
-          incorporation_state?: string | null;
-          registered_address?: Json | null;
-          fiscal_year_start_month?: number | null;
-          authorized_signer_name?: string | null;
-          authorized_signer_title?: string | null;
-          sales_tax_id?: string | null;
-          mission?: string | null;
-          about?: string | null;
-          website?: string | null;
-          social?: Json;
-          public_email?: string | null;
-          public_email_verified_at?: string | null;
-          public_phone?: string | null;
-          public_phone_verified_at?: string | null;
-          office_hours?: string | null;
-          latitude?: number | null;
-          longitude?: number | null;
-          languages?: string[];
-          verification_status?: string;
-          verified_by?: string | null;
-          verified_at?: string | null;
-          verification_note?: string | null;
-          submitted_by?: string | null;
-          submitted_at?: string | null;
-          created_at?: string;
-          updated_at?: string;
-          updated_by?: string | null;
         };
         Relationships: [];
       };
@@ -4311,7 +4128,7 @@ export type Database = {
         Insert: {
           key: string;
           title: string;
-          sort: number;
+          sort?: number;
           check_fn: string;
         };
         Update: {
@@ -4606,8 +4423,6 @@ export type Database = {
           term_ends_on: string | null;
           contact_role_email: string | null;
           sort_order: number;
-          org_leader_id: string | null;
-          display_name: string | null;
         };
         Insert: {
           id?: string;
@@ -4619,8 +4434,6 @@ export type Database = {
           term_ends_on?: string | null;
           contact_role_email?: string | null;
           sort_order?: number;
-          org_leader_id?: string | null;
-          display_name?: string | null;
         };
         Update: {
           id?: string;
@@ -4632,8 +4445,6 @@ export type Database = {
           term_ends_on?: string | null;
           contact_role_email?: string | null;
           sort_order?: number;
-          org_leader_id?: string | null;
-          display_name?: string | null;
         };
         Relationships: [];
       };
@@ -4814,51 +4625,39 @@ export type Database = {
         };
         Relationships: [];
       };
-      setup_steps: {
+      secret_access_log: {
         Row: {
-          key: string;
-          stage: number;
-          title: string;
-          description: string;
-          help: string;
-          done_means: string;
-          route: string | null;
-          owner_role: string | null;
-          module_key: string | null;
-          sort: number;
-          required: boolean;
-          auto: boolean;
-          manual: boolean;
+          id: number;
+          center_id: string | null;
+          connection_id: string;
+          name: string;
+          reader: string;
+          purpose: string;
+          job_id: number | null;
+          outcome: string;
+          read_at: string;
         };
         Insert: {
-          key: string;
-          stage: number;
-          title: string;
-          description?: string;
-          help?: string;
-          done_means?: string;
-          route?: string | null;
-          owner_role?: string | null;
-          module_key?: string | null;
-          sort: number;
-          required?: boolean;
-          auto?: boolean;
-          manual?: boolean;
+          id?: number;
+          center_id?: string | null;
+          connection_id: string;
+          name: string;
+          reader: string;
+          purpose: string;
+          job_id?: number | null;
+          outcome?: string;
+          read_at?: string;
         };
         Update: {
-          key?: string;
-          stage?: number;
-          title?: string;
-          description?: string;
-          help?: string;
-          done_means?: string;
-          route?: string | null;
-          owner_role?: string | null;
-          module_key?: string | null;
-          sort?: number;
-          required?: boolean;
-          auto?: boolean;
-          manual?: boolean;
+          id?: number;
+          center_id?: string | null;
+          connection_id?: string;
+          name?: string;
+          reader?: string;
+          purpose?: string;
+          job_id?: number | null;
+          outcome?: string;
+          read_at?: string;
         };
         Relationships: [];
       };
@@ -5759,6 +5558,36 @@ export type Database = {
         };
         Relationships: [];
       };
+      worker_heartbeats: {
+        Row: {
+          worker: string;
+          started_at: string;
+          beat_at: string;
+          version: string | null;
+          kinds: string[];
+          info: Json;
+          stopped_at: string | null;
+        };
+        Insert: {
+          worker: string;
+          started_at: string;
+          beat_at?: string;
+          version?: string | null;
+          kinds?: string[];
+          info?: Json;
+          stopped_at?: string | null;
+        };
+        Update: {
+          worker?: string;
+          started_at?: string;
+          beat_at?: string;
+          version?: string | null;
+          kinds?: string[];
+          info?: Json;
+          stopped_at?: string | null;
+        };
+        Relationships: [];
+      };
       zones: {
         Row: {
           id: string;
@@ -5827,6 +5656,12 @@ export type Database = {
         };
         Returns: boolean;
       };
+      assert_step_up: {
+        Args: {
+          p_action: string;
+        };
+        Returns: undefined;
+      };
       audit_clean_app: {
         Args: {
           p: string;
@@ -5842,6 +5677,12 @@ export type Database = {
       audit_mask: {
         Args: {
           j: Json;
+        };
+        Returns: Json;
+      };
+      background_service_status: {
+        Args: {
+          p_center: string;
         };
         Returns: Json;
       };
@@ -5864,10 +5705,30 @@ export type Database = {
         };
         Returns: boolean;
       };
+      can_manage_integration_secrets: {
+        Args: {
+          p_center: string;
+        };
+        Returns: boolean;
+      };
+      can_read_object: {
+        Args: {
+          bucket: string;
+          name: string;
+        };
+        Returns: boolean;
+      };
       can_see_event_ops: {
         Args: {
           p_center: string;
           p_event: string;
+        };
+        Returns: boolean;
+      };
+      can_write_object: {
+        Args: {
+          bucket: string;
+          name: string;
         };
         Returns: boolean;
       };
@@ -5906,6 +5767,12 @@ export type Database = {
           p_reason: string;
         };
         Returns: string;
+      };
+      check_background_service: {
+        Args: {
+          p_center: string;
+        };
+        Returns: Json;
       };
       check_in: {
         Args: {
@@ -5983,14 +5850,6 @@ export type Database = {
         };
         Returns: string;
       };
-      decide_org_verification: {
-        Args: {
-          p_center: string;
-          p_verified: boolean;
-          p_note?: string;
-        };
-        Returns: Json;
-      };
       decide_reference: {
         Args: {
           p_application: string;
@@ -6004,6 +5863,12 @@ export type Database = {
           p_center: string;
         };
         Returns: { person_id: string; name: string; household_id: string; household_label: string; zone: string; profession: string; directory_opt_in: boolean; expertise_opt_in: boolean; expertise_tags: string[]; expertise_headline: string; new_member_contact_opt_in: boolean; is_verified: boolean }[];
+      };
+      enqueue_worker_test: {
+        Args: {
+          p_center: string;
+        };
+        Returns: number;
       };
       ensure_lunch_slots: {
         Args: {
@@ -6053,6 +5918,12 @@ export type Database = {
         };
         Returns: boolean;
       };
+      has_recent_step_up: {
+        Args: {
+          p_minutes?: number;
+        };
+        Returns: boolean;
+      };
       has_role: {
         Args: {
           p_center: string;
@@ -6093,18 +5964,15 @@ export type Database = {
         };
         Returns: boolean;
       };
-      irs_lookup: {
-        Args: {
-          p_ein: string;
-          p_name?: string;
-        };
-        Returns: Json;
+      is_aal2: {
+        Args: Record<PropertyKey, never>;
+        Returns: boolean;
       };
-      irs_name_key: {
+      is_center_owner: {
         Args: {
-          p: string;
+          p_center: string;
         };
-        Returns: string;
+        Returns: boolean;
       };
       is_center_staff: {
         Args: {
@@ -6121,12 +5989,6 @@ export type Database = {
       is_platform_admin: {
         Args: Record<PropertyKey, never>;
         Returns: boolean;
-      };
-      legal_documents_status: {
-        Args: {
-          p_center: string;
-        };
-        Returns: Json;
       };
       link_account: {
         Args: {
@@ -6238,12 +6100,6 @@ export type Database = {
         Args: Record<PropertyKey, never>;
         Returns: { application_id: string; applicant_name: string; household_name: string; tier: Database["app"]["Enums"]["membership_tier"]; note: string; requested_at: string; expires_at: string }[];
       };
-      normalize_ein: {
-        Args: {
-          p: string;
-        };
-        Returns: string;
-      };
       normalize_identifier: {
         Args: {
           p: string;
@@ -6255,10 +6111,6 @@ export type Database = {
           p_opportunity: string;
         };
         Returns: { option_key: string; taken: boolean; taken_count: number; slots_taken: number; slots_total: number; goal_percent: number }[];
-      };
-      org_verification_queue: {
-        Args: Record<PropertyKey, never>;
-        Returns: { center_id: string; center_name: string; center_slug: string; center_status: string; legal_name: string; dba: string; ein: string; entity_type: string; incorporation_state: string; verification_status: string; verification_note: string; submitted_at: string; verified_at: string; documents: number; irs: Json }[];
       };
       parse_bank_description: {
         Args: {
@@ -6315,24 +6167,6 @@ export type Database = {
         };
         Returns: Json;
       };
-      public_org_profile: {
-        Args: {
-          p_center: string;
-        };
-        Returns: { center_id: string; legal_name: string; mission: string; about: string; website: string; social: Json; public_email: string; public_phone: string; office_hours: string; latitude: number; longitude: number; languages: string[]; verified_nonprofit: boolean }[];
-      };
-      readiness: {
-        Args: {
-          p_center: string;
-        };
-        Returns: { key: string; title: string; ok: boolean; detail: string }[];
-      };
-      readiness_all_ok: {
-        Args: {
-          p_center: string;
-        };
-        Returns: boolean;
-      };
       record_history: {
         Args: {
           p_table: string;
@@ -6370,6 +6204,14 @@ export type Database = {
           p_value: string;
         };
         Returns: { kind: string; system: string; value: string; person_id: string; household_id: string; display_name: string; household_name: string; household_number: string; org_household_id: string; members: string }[];
+      };
+      revoke_integration_secret: {
+        Args: {
+          p_connection: string;
+          p_name: string;
+          p_reason: string;
+        };
+        Returns: undefined;
       };
       saathi_feed: {
         Args: {
@@ -6413,10 +6255,12 @@ export type Database = {
         };
         Returns: undefined;
       };
-      set_center_branding: {
+      set_integration_secret: {
         Args: {
-          p_center: string;
-          p_patch: Json;
+          p_connection: string;
+          p_name: string;
+          p_value: string;
+          p_reason: string;
         };
         Returns: Json;
       };
@@ -6428,36 +6272,6 @@ export type Database = {
           p_reason: string;
         };
         Returns: undefined;
-      };
-      setup_can_manage: {
-        Args: {
-          p_center: string;
-        };
-        Returns: boolean;
-      };
-      setup_checklist: {
-        Args: {
-          p_center: string;
-        };
-        Returns: { step_key: string; stage: number; sort: number; title: string; description: string; help: string; done_means: string; route: string; owner_role: string; module_key: string; required: boolean; auto: boolean; manual: boolean; status: string; computed_status: string; stored_status: string; detail: string; owner_person_id: string; owner_name: string; due_on: string; notes: string; completed_by: string; completed_at: string; updated_at: string }[];
-      };
-      setup_is_owner: {
-        Args: {
-          p_center: string;
-        };
-        Returns: boolean;
-      };
-      setup_path_center: {
-        Args: {
-          p_name: string;
-        };
-        Returns: string;
-      };
-      setup_staff_options: {
-        Args: {
-          p_center: string;
-        };
-        Returns: { person_id: string; name: string; roles: string }[];
       };
       staff_add_person: {
         Args: {
@@ -6486,6 +6300,50 @@ export type Database = {
         };
         Returns: { person_id: string; name: string; household_id: string; household_name: string }[];
       };
+      storage_bucket_module: {
+        Args: {
+          p_bucket: string;
+        };
+        Returns: string;
+      };
+      storage_center: {
+        Args: {
+          name: string;
+        };
+        Returns: string;
+      };
+      storage_module_on: {
+        Args: {
+          p_bucket: string;
+          p_center: string;
+        };
+        Returns: boolean;
+      };
+      storage_retention_days: {
+        Args: {
+          p_bucket: string;
+          p_center: string;
+        };
+        Returns: number;
+      };
+      storage_scan_buckets: {
+        Args: Record<PropertyKey, never>;
+        Returns: string[];
+      };
+      storage_segment: {
+        Args: {
+          p_name: string;
+          p_n: number;
+        };
+        Returns: string;
+      };
+      storage_segment_uuid: {
+        Args: {
+          p_name: string;
+          p_n: number;
+        };
+        Returns: string;
+      };
       submit_membership_application: {
         Args: {
           p_center: string;
@@ -6494,12 +6352,6 @@ export type Database = {
           p_note: string;
         };
         Returns: string;
-      };
-      submit_org_verification: {
-        Args: {
-          p_center: string;
-        };
-        Returns: Json;
       };
       submit_rsvp: {
         Args: {
@@ -6523,6 +6375,13 @@ export type Database = {
         };
         Returns: { payment_id: string; household_name: string; receipt_number: string; method: Database["app"]["Enums"]["payment_method"]; amount_cents: number; received_on: string; check_number: string; envelope_number: string; exact_total: boolean }[];
       };
+      teaches_person: {
+        Args: {
+          p_center: string;
+          p_person: string;
+        };
+        Returns: boolean;
+      };
       tier_rank: {
         Args: {
           p_tier: Database["app"]["Enums"]["membership_tier"];
@@ -6545,6 +6404,10 @@ export type Database = {
         Args: {
           p: string;
         };
+        Returns: string;
+      };
+      worker_stale_after: {
+        Args: Record<PropertyKey, never>;
         Returns: string;
       };
     };

@@ -18,6 +18,8 @@ const eslintConfig = defineConfig([
     "src/lib/database.types.ts",
     // Node scripts for the local end-to-end backend (CommonJS on purpose).
     "e2e/**",
+    // The background service's bundle (worker/ source is linted here too).
+    "worker/dist/**",
   ]),
 ]);
 

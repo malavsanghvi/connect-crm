@@ -36,3 +36,10 @@ jobs:
         env:
           NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-placeholder
+      # The background service (worker/) is its own package with its own lockfile.
+      - name: Background service (typecheck, test, build)
+        run: |
+          pnpm --dir worker install --frozen-lockfile --ignore-workspace
+          pnpm --dir worker typecheck
+          pnpm --dir worker test
+          pnpm --dir worker build

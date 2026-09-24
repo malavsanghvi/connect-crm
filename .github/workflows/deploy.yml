@@ -96,3 +96,103 @@ jobs:
           else
             echo "Open https://$SITE" >> "$GITHUB_STEP_SUMMARY"
           fi
+
+  # connect-crm only: the background service (docs/DEPLOY.md › Background service).
+  # Skipped, with a notice, until the WORKER_DATABASE_URL secret exists; the portal
+  # then shows "Background service not configured".
+  worker:
+    name: Build and release the background service
+    needs: [database, deploy]
+    runs-on: ubuntu-latest
+    env:
+      APP: worker
+      HEALTH_PORT: "3010"
+    steps:
+      - name: Check settings
+        id: check
+        env:
+          WORKER_DATABASE_URL: ${{ secrets.WORKER_DATABASE_URL }}
+        run: |
+          if [ -z "$WORKER_DATABASE_URL" ]; then
+            echo "::notice title=Background service skipped::WORKER_DATABASE_URL is not set in Settings › Secrets and variables › Actions › Secrets, so the background service (connect@worker) was not deployed. Background jobs, the secret vault's readers and storage retention do not run until it is. See docs/DEPLOY.md › Background service."
+            echo "### Background service skipped" >> "$GITHUB_STEP_SUMMARY"
+            echo "WORKER_DATABASE_URL is not set (docs/DEPLOY.md › Background service)." >> "$GITHUB_STEP_SUMMARY"
+            echo "run=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          case "$WORKER_DATABASE_URL" in
+            postgres://*|postgresql://*) ;;
+            *) echo "::error::WORKER_DATABASE_URL must be a postgresql:// connection string for the connect_worker role"; exit 1 ;;
+          esac
+          if printf '%s' "$WORKER_DATABASE_URL" | grep -q "[[:space:]\"'\\\\]"; then
+            echo "::error::WORKER_DATABASE_URL contains a space, quote or backslash; generate the connect_worker password with letters and digits only (docs/DEPLOY.md)"
+            exit 1
+          fi
+          echo "run=true" >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@v4
+        if: steps.check.outputs.run == 'true'
+      - uses: pnpm/action-setup@v4
+        if: steps.check.outputs.run == 'true'
+      - uses: actions/setup-node@v4
+        if: steps.check.outputs.run == 'true'
+        with:
+          node-version: 22
+      - name: Build
+        if: steps.check.outputs.run == 'true'
+        run: |
+          pnpm --dir worker install --frozen-lockfile --ignore-workspace
+          pnpm --dir worker test
+          pnpm --dir worker build
+          tar -czf "connect-$APP-$GITHUB_SHA.tgz" -C worker/dist .
+      - name: Release on the droplet
+        if: steps.check.outputs.run == 'true'
+        env:
+          HOST: ${{ secrets.DROPLET_HOST }}
+          KEY: ${{ secrets.DROPLET_SSH_KEY }}
+          WORKER_DATABASE_URL: ${{ secrets.WORKER_DATABASE_URL }}
+          WORKER_DATABASE_CA: ${{ vars.WORKER_DATABASE_CA }}
+          SUPABASE_URL: ${{ vars.SUPABASE_URL || 'https://qenubcnvjcmsxhmehvat.supabase.co' }}
+          # Optional platform secrets: a handler whose variables are missing reports
+          # "not configured" in Settings › Integrations instead of pretending.
+          SUPABASE_SECRET_KEY: ${{ secrets.WORKER_SUPABASE_SECRET_KEY }}
+          STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
+          STRIPE_CLIENT_ID: ${{ secrets.STRIPE_CLIENT_ID }}
+          PAYPAL_CLIENT_ID: ${{ secrets.PAYPAL_CLIENT_ID }}
+          PAYPAL_CLIENT_SECRET: ${{ secrets.PAYPAL_CLIENT_SECRET }}
+          INTUIT_CLIENT_ID: ${{ secrets.INTUIT_CLIENT_ID }}
+          INTUIT_CLIENT_SECRET: ${{ secrets.INTUIT_CLIENT_SECRET }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          POSTMARK_SERVER_TOKEN: ${{ secrets.POSTMARK_SERVER_TOKEN }}
+          TWILIO_ACCOUNT_SID: ${{ secrets.TWILIO_ACCOUNT_SID }}
+          TWILIO_AUTH_TOKEN: ${{ secrets.TWILIO_AUTH_TOKEN }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/deploy && chmod 600 ~/.ssh/deploy
+          ssh-keyscan -T 15 "$HOST" >> ~/.ssh/known_hosts 2>/dev/null
+          ssh_() { ssh -i ~/.ssh/deploy -o BatchMode=yes "root@$HOST" "$@"; }
+          ssh_ "mkdir -p /tmp/connect-deploy"
+          scp -i ~/.ssh/deploy -o BatchMode=yes deploy/droplet-setup.sh deploy/release.sh "root@$HOST:/tmp/connect-deploy/"
+          scp -i ~/.ssh/deploy -o BatchMode=yes "connect-$APP-$GITHUB_SHA.tgz" "root@$HOST:/tmp/"
+          ssh_ "bash /tmp/connect-deploy/droplet-setup.sh"
+          # The env file carries the database password: sent over SSH stdin (never on a
+          # command line), written root-only (600); systemd reads it before dropping to
+          # the connect user. Empty optional values are left out.
+          {
+            printf 'WORKER_DATABASE_URL=%s\n' "$WORKER_DATABASE_URL"
+            printf 'WORKER_HEALTH_PORT=%s\n' "$HEALTH_PORT"
+            printf 'WORKER_ID=%s\n' "droplet-worker"
+            printf 'SUPABASE_URL=%s\n' "$SUPABASE_URL"
+            for v in SUPABASE_SECRET_KEY STRIPE_SECRET_KEY STRIPE_CLIENT_ID PAYPAL_CLIENT_ID PAYPAL_CLIENT_SECRET \
+                     INTUIT_CLIENT_ID INTUIT_CLIENT_SECRET RESEND_API_KEY POSTMARK_SERVER_TOKEN \
+                     TWILIO_ACCOUNT_SID TWILIO_AUTH_TOKEN ANTHROPIC_API_KEY; do
+              if [ -n "${!v}" ]; then printf '%s=%s\n' "$v" "${!v}"; fi
+            done
+            if [ -n "$WORKER_DATABASE_CA" ]; then printf 'WORKER_DATABASE_CA=%s\n' /srv/connect/worker-ca.crt; fi
+          } | ssh_ "umask 077 && mkdir -p /srv/connect && cat > /srv/connect/$APP.env.new && mv -f /srv/connect/$APP.env.new /srv/connect/$APP.env"
+          if [ -n "$WORKER_DATABASE_CA" ]; then
+            printf '%s\n' "$WORKER_DATABASE_CA" | ssh_ "cat > /srv/connect/worker-ca.crt && chmod 644 /srv/connect/worker-ca.crt"
+          fi
+          ssh_ "bash /tmp/connect-deploy/release.sh $APP $GITHUB_SHA worker $HEALTH_PORT -"
+          echo "### Released the background service" >> "$GITHUB_STEP_SUMMARY"
+          echo "connect@worker is running; Settings › Integrations shows its heartbeat." >> "$GITHUB_STEP_SUMMARY"

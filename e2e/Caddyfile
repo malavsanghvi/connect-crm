@@ -20,6 +20,11 @@
 	handle_path /rest/v1/* {
 		reverse_proxy rest:3000 {
 			header_down -Access-Control-Allow-Origin
+			# PostgREST closes idle keep-alive connections; Caddy does not retry a POST
+			# on one it just lost (a random 502 with an empty body on RPCs). Local only.
+			transport http {
+				keepalive off
+			}
 		}
 	}
 	handle_path /storage/v1/* {
