@@ -26,6 +26,12 @@ create or replace function auth.uid() returns uuid language sql stable as $$
                          (nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'sub')), '')::uuid
 $$;
 
+-- Same contract as Supabase: the whole claims object (role, sub, ...).
+create or replace function auth.jwt() returns jsonb language sql stable as $$
+  select coalesce(nullif(current_setting('request.jwt.claim', true), ''),
+                  nullif(current_setting('request.jwt.claims', true), ''))::jsonb
+$$;
+
 grant usage on schema auth to anon, authenticated, service_role;
 grant select on auth.users to authenticated, service_role;
-grant execute on function auth.uid() to anon, authenticated, service_role;
+grant execute on function auth.uid(), auth.jwt() to anon, authenticated, service_role;
