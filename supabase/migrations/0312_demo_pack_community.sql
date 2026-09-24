@@ -86,6 +86,9 @@ begin
   values (v, p_center, app.demo_h(p_seed, p_household), app.demo_p(p_seed, p_payer), p_amount, p_method, 'offline', 'settled',
           p_check, app.demo_today(p_center) - p_days_ago, p_actor, coalesce(p_memo, 'Demo data'), true, 'demo:' || p_ref);
   perform app.allocate_payment(v, p_pledges, true);
+  -- A pledge this payment closed was closed on the day it was paid (the recompute stamps "now").
+  update app.pledges pl set closed_at = (app.demo_today(p_center) - p_days_ago)::timestamp + time '12:00'
+   where pl.id in (select a.pledge_id from app.payment_allocations a where a.payment_id = v) and pl.status = 'paid';
   return v;
 end $$;
 

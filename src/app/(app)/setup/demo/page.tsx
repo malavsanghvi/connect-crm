@@ -204,7 +204,7 @@ export default async function DemoDataPage() {
             </div>
             <div className="flex flex-col gap-2" data-testid="demo-reset">
               <h3 className="font-bold">Reset the sandbox</h3>
-              <p className="text-[13px] text-muted">Clears everything below, then loads the demo pack again, so every count returns to the pack&apos;s. Needs a fresh 2FA check.</p>
+              <p className="text-[13px] text-muted">Clears the sandbox (see what clearing keeps), then loads the demo pack again, so every count returns to the pack&apos;s. Needs a fresh 2FA check.</p>
               <ActionForm
                 action={resetSandboxAction}
                 submitLabel="Reset sandbox"
