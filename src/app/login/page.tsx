@@ -14,6 +14,11 @@ export const metadata: Metadata = { title: "Sign in" };
 
 type Tenant = { name: string; branding: TenantBranding } | null;
 
+function readPublicEnvUrl(): string | undefined {
+  const env = readPublicEnv();
+  return env.ok ? env.env.supabaseUrl : undefined;
+}
+
 /** The community this portal serves (centers are readable without signing in). */
 async function loadTenant(slug: string): Promise<{ tenant: Tenant; problem: string | null }> {
   try {
@@ -31,7 +36,7 @@ async function loadTenant(slug: string): Promise<{ tenant: Tenant; problem: stri
       console.error(`[login] no active center with slug "${slug}"`);
       return { tenant: null, problem: `No active community is set up with the short name "${slug}". Check NEXT_PUBLIC_CENTER_SLUG.` };
     }
-    return { tenant: { name: data.name, branding: tenantBranding({ ...data, slug: String(data.slug) }) }, problem: null };
+    return { tenant: { name: data.name, branding: tenantBranding({ ...data, slug: String(data.slug) }, readPublicEnvUrl()) }, problem: null };
   } catch (error) {
     console.error("[login] loading the center threw:", error);
     return { tenant: null, problem: `Could not load your community's details — ${explainError(error)}. You can still sign in.` };

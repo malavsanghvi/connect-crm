@@ -34,9 +34,9 @@ export async function saveWizardStepAction(_prev: ActionResult | null, formData:
   if (centerId && !isUuid(centerId)) return { ok: false, error: "Could not save — the center in the address is not valid. Start again from step 1." };
   if (!centerId && step !== 1) return { ok: false, error: "Could not save — start with step 1, where the center is created." };
 
-  let current: { id: string; rules: Json; branding: Json; status: string } | null = null;
+  let current: { id: string; rules: Json; status: string } | null = null;
   if (centerId) {
-    const res = await db.from("centers").select("id, rules, branding, status").eq("id", centerId).maybeSingle();
+    const res = await db.from("centers").select("id, rules, status").eq("id", centerId).maybeSingle();
     if (res.error) return failure("Could not save this step", res.error);
     if (!res.data) return { ok: false, error: "Could not save — that center was not found." };
     if (res.data.status !== "onboarding") return { ok: false, error: "Could not save — this center is no longer onboarding, so the wizard cannot change it." };
@@ -46,7 +46,7 @@ export async function saveWizardStepAction(_prev: ActionResult | null, formData:
   const parsed = parseWizardStep(step, (n) => {
     const v = formData.get(n);
     return typeof v === "string" ? v : null;
-  }, current?.branding ?? {});
+  });
   if (!parsed.ok) return { ok: false, error: `Could not save this step — ${parsed.error}` };
 
   const nextStep = Math.min(step + 1, WIZARD_STEP_COUNT);

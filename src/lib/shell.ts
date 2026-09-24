@@ -26,14 +26,28 @@ function httpsUrl(value: unknown): string | null {
   return /^https:\/\/[^\s]+$/i.test(v) ? v : null;
 }
 
+/** A brand-kit file path (<center_id>/…) in the public `branding` bucket, as a URL under the configured Supabase URL. */
+function brandingFileUrl(value: unknown, storageBase: string | undefined): string | null {
+  if (!storageBase || typeof value !== "string") return null;
+  const path = value.trim();
+  if (!/^[0-9a-f-]{36}\/[^\s]+$/i.test(path) || path.includes("..")) return null;
+  const base = storageBase.replace(/\/+$/, "");
+  if (!/^https?:\/\//i.test(base)) return null;
+  return `${base}/storage/v1/object/public/branding/${path.split("/").map(encodeURIComponent).join("/")}`;
+}
+
 /**
- * The tenant's branding from centers.branding (never hard-coded). Prefers
- * branding.mark_url (the logo without words, as in the prototype top bar),
- * then branding.logo_url. Only https URLs are used.
+ * The tenant's branding from centers.branding (never hard-coded). An uploaded
+ * brand kit wins (Setup › Profile & brand: branding.mark_path, then
+ * branding.logo_path, served from the public `branding` bucket under
+ * `storageBase`, the Supabase URL). Otherwise branding.mark_url (the logo
+ * without words, as in the prototype top bar), then branding.logo_url; only
+ * https URLs are used for those.
  */
-export function tenantBranding(center: { name: string; short_name: string | null; slug: string; branding: Json }): TenantBranding {
-  const b = center.branding && typeof center.branding === "object" && !Array.isArray(center.branding) ? center.branding : {};
-  const logoUrl = httpsUrl((b as Record<string, Json | undefined>).mark_url) ?? httpsUrl((b as Record<string, Json | undefined>).logo_url);
+export function tenantBranding(center: { name: string; short_name: string | null; slug: string; branding: Json }, storageBase?: string): TenantBranding {
+  const b = (center.branding && typeof center.branding === "object" && !Array.isArray(center.branding) ? center.branding : {}) as Record<string, Json | undefined>;
+  const logoUrl =
+    brandingFileUrl(b.mark_path, storageBase) ?? brandingFileUrl(b.logo_path, storageBase) ?? httpsUrl(b.mark_url) ?? httpsUrl(b.logo_url);
   const shortName = (center.short_name ?? "").trim() || center.slug.toUpperCase();
   const monogram = /^[A-Za-z0-9]{1,4}$/.test(shortName) ? shortName.toUpperCase() : initials(center.name);
   return { logoUrl, monogram, shortName };

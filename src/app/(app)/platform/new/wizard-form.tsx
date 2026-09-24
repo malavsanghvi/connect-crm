@@ -6,7 +6,7 @@ import { useState } from "react";
 import { ActionForm } from "@/components/action-form";
 import { ChipGroup } from "@/components/controls";
 import { InfoBox, buttonClass } from "@/components/ui";
-import { IMPORT_SOURCES, PRIMARY_COLORS, slugify, TIME_ZONES, TRADITIONS } from "@/lib/center-wizard";
+import { IMPORT_SOURCES, slugify, TIME_ZONES, TRADITIONS } from "@/lib/center-wizard";
 
 import { goLiveAction, saveWizardStepAction } from "../actions";
 
@@ -14,8 +14,6 @@ export type WizardCenter = {
   id: string;
   name: string;
   slug: string;
-  primary: string;
-  logoUrl: string;
   timeZone: string;
   tradition: string;
   stateRegion: string;
@@ -33,7 +31,20 @@ function Field({ label, wide = false, hint, children }: { label: string; wide?: 
   );
 }
 
-export function WizardForm({ step, center, roleCount, locked }: { step: number; center: WizardCenter | null; roleCount: number | null; locked: boolean }) {
+export function WizardForm({
+  step,
+  center,
+  roleCount,
+  locked,
+  readiness,
+}: {
+  step: number;
+  center: WizardCenter | null;
+  roleCount: number | null;
+  locked: boolean;
+  /** Step 6: the center's go-live readiness checks (Setup › Go-live readiness), rendered on the server. */
+  readiness?: React.ReactNode;
+}) {
   const [name, setName] = useState(center?.name ?? "");
   const [slug, setSlug] = useState(center?.slug ?? "");
   const [slugTouched, setSlugTouched] = useState(Boolean(center));
@@ -60,15 +71,15 @@ export function WizardForm({ step, center, roleCount, locked }: { step: number; 
         submitLabel="Go live"
         pendingLabel="Going live…"
         confirmKicker="Go live"
-        confirmMessage={`Take ${center?.name ?? "this center"} live?\nIts members can find it and sign in. The app does not run the checks above — confirm the platform team has done them.`}
+        confirmMessage={`Take ${center?.name ?? "this center"} live?\nIts members can find it and sign in. Checks that are not built yet are the platform team's to confirm.`}
         buttonsClassName="mt-4 justify-end"
         submitDisabled={blocked}
         extraButtons={back}
       >
         {hidden}
         <div className="grid grid-cols-1 gap-3">
-          <Field label="Checks" wide>
-            <InfoBox>Login success above 95% · check-in rehearsal · test QuickBooks posts approved · pilot with 30–50 families</InfoBox>
+          <Field label="Go-live readiness" wide>
+            {readiness ?? <InfoBox>Start with step 1, where the center is created; its readiness checks appear here.</InfoBox>}
           </Field>
         </div>
         {needsCenter ? <p className="crm-hint mt-3">Start with step 1, where the center is created.</p> : null}
@@ -120,17 +131,6 @@ export function WizardForm({ step, center, roleCount, locked }: { step: number; 
                 />
               </div>
             </Field>
-            <Field label="Logo" hint="Upload PNG or SVG to your file host, then paste its https address. Optional.">
-              <input name="logo_url" aria-label="Logo address" className="crm-input" defaultValue={center?.logoUrl ?? ""} placeholder="https://…" />
-            </Field>
-            <Field label="Primary color">
-              <ChipGroup
-                name="primary"
-                label="Primary color"
-                defaultValue={center?.primary || PRIMARY_COLORS[0].value}
-                options={PRIMARY_COLORS.map((c) => ({ value: c.value, label: c.label }))}
-              />
-            </Field>
             <Field label="Time zone">
               <select name="time_zone" aria-label="Time zone" className="crm-input" defaultValue={center?.timeZone ?? "America/Chicago"}>
                 {TIME_ZONES.map((z) => (
@@ -139,6 +139,17 @@ export function WizardForm({ step, center, roleCount, locked }: { step: number; 
                   </option>
                 ))}
               </select>
+            </Field>
+            <Field label="Logo, colors and profile" wide>
+              <InfoBox>
+                Set by the center itself in Setup › Profile &amp; brand (uploaded logos, brand colors with a readability check, map pin, leaders).
+                {center ? (
+                  <>
+                    {" "}
+                    Its checklist is Setup › Checklist in {center.name}&apos;s portal.
+                  </>
+                ) : null}
+              </InfoBox>
             </Field>
           </>
         ) : null}

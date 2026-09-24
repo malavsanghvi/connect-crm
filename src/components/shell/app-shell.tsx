@@ -10,6 +10,7 @@ import { UserMenu } from "@/components/shell/user-menu";
 import { HistoryAccessProvider } from "@/components/record-history";
 import { ToastProvider } from "@/components/toast";
 import { PRODUCT_NAME } from "@/lib/brand";
+import { readPublicEnv } from "@/lib/env";
 import type { TaskCount } from "@/lib/data/home-tasks";
 import { canAccess, visibleNav } from "@/lib/permissions";
 import type { CrmSession } from "@/lib/session";
@@ -30,7 +31,8 @@ function homeBadge(tasks: TaskCount): { badge: string | null; label?: string } {
 export function AppShell({ session, tasks, children }: { session: CrmSession; tasks: TaskCount; children: ReactNode }) {
   const modules = visibleNav(session);
   const center = session.center;
-  const branding = tenantBranding(center);
+  const env = readPublicEnv();
+  const branding = tenantBranding(center, env.ok ? env.env.supabaseUrl : undefined);
   const name = session.person?.name ?? session.email ?? "Signed in";
   const roleLabels = session.roles.map((r) => (r.scopeKind === "center" ? r.name : `${r.name} (${r.scopeKind})`));
   // A class teacher or event volunteer holds only scoped roles: not "no role".

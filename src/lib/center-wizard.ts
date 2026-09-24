@@ -1,19 +1,17 @@
 // Platform › New center wizard (prototype AdminPortal Platform sub 1): the six
 // steps, the choices on each, and the helpers that turn them into a
 // centers row. Pure, shared by the page, the actions and the tests.
+//
+// Since the Setup module (ONBOARDING_PLAN §4), the wizard only creates the
+// center: the logo, colors and the rest of the profile are the organization's
+// own Setup › Profile & brand, and the go-live checks are Setup › Go-live
+// readiness. The fields it duplicated are retired here.
 
 import { isPlainObject } from "@/lib/center-rules";
 import type { Json } from "@/lib/database.types";
 
 export const WIZARD_STEPS = ["Branding", "Tradition pack", "Payments & QuickBooks", "Import data", "Roles & admins", "Go-live checks"] as const;
 export const WIZARD_STEP_COUNT = WIZARD_STEPS.length;
-
-export const PRIMARY_COLORS = [
-  { value: "#1B2C5C", label: "Navy" },
-  { value: "#7A2E1F", label: "Maroon" },
-  { value: "#1F7A4D", label: "Green" },
-  { value: "#C9731C", label: "Saffron" },
-] as const;
 
 export const TRADITIONS = [
   { value: "shvetambar_murtipujak", label: "Shvetambar Murtipujak" },
@@ -96,30 +94,20 @@ export type ParsedWizardStep = { ok: true; change: WizardChange } | { ok: false;
  * never stored: centers are readable by anyone, and inviting by email is
  * not available yet.
  */
-export function parseWizardStep(step: number, read: Read, branding: Json = {}): ParsedWizardStep {
+export function parseWizardStep(step: number, read: Read): ParsedWizardStep {
   const text = (n: string) => (read(n) ?? "").trim();
   switch (step) {
     case 1: {
       const name = text("name");
       const slug = text("slug").toLowerCase();
-      const color = text("primary");
-      const logo = text("logo_url");
       const tz = text("time_zone");
       const errors: string[] = [];
       if (name.length < 3 || name.length > 120) errors.push("Enter the center's name (3 to 120 characters).");
       if (!isValidSlug(slug)) errors.push("The public URL may use lowercase letters, digits and single hyphens (up to 40), e.g. partner-a.");
-      if (!PRIMARY_COLORS.some((c) => c.value === color)) errors.push("Choose a primary colour.");
-      if (logo && !/^https:\/\/\S+$/i.test(logo)) errors.push("The logo address must start with https://.");
       if (!(TIME_ZONES as readonly string[]).includes(tz)) errors.push("Choose the center's time zone.");
       if (errors.length) return { ok: false, error: errors.join(" ") };
-      const base = isPlainObject(branding) ? branding : {};
-      return {
-        ok: true,
-        change: {
-          columns: { name, slug, time_zone: tz, branding: { ...base, primary: color, ...(logo ? { logo_url: logo } : {}) } },
-          rules: {},
-        },
-      };
+      // Branding is the organization's Setup › Profile & brand now; whatever is there is kept.
+      return { ok: true, change: { columns: { name, slug, time_zone: tz }, rules: {} } };
     }
     case 2: {
       const t = text("tradition");
