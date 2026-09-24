@@ -65,7 +65,7 @@ export function LoginForm({
       }
       setEmail(address);
       setStep("code");
-      setNotice(`We emailed a 6-digit code to ${address}. It expires in a few minutes.`);
+      setNotice(`We emailed a sign-in code to ${address}. It expires in a few minutes.`);
     } catch (err) {
       console.error("[login] signInWithOtp threw:", err);
       setError("Could not send a sign-in code — the sign-in service could not be reached. Try again.");
@@ -78,8 +78,9 @@ export function LoginForm({
     e.preventDefault();
     setError(null);
     const token = code.replace(/\s+/g, "");
-    if (!/^\d{6}$/.test(token)) {
-      setError("Enter the 6-digit code from the email.");
+    // Supabase's code length is a project setting (6–10 digits); accept any of them.
+    if (!/^\d{6,10}$/.test(token)) {
+      setError("Enter the code from the email (numbers only).");
       return;
     }
     setPending(true);
@@ -140,7 +141,7 @@ export function LoginForm({
         </p>
       ) : null}
       <label htmlFor="code" className="crm-label mt-4">
-        6-digit code
+        Code from the email
       </label>
       <input
         id="code"
@@ -148,8 +149,8 @@ export function LoginForm({
         type="text"
         inputMode="numeric"
         autoComplete="one-time-code"
-        pattern="[0-9]{6}"
-        maxLength={7}
+        pattern="[0-9 ]{6,12}"
+        maxLength={12}
         required
         autoFocus
         value={code}
