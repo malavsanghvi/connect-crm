@@ -16,6 +16,8 @@ const eslintConfig = defineConfig([
     // generated database types.
     "docs/**",
     "src/lib/database.types.ts",
+    // Node scripts for the local end-to-end backend (CommonJS on purpose).
+    "e2e/**",
   ]),
 ]);
 

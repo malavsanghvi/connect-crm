@@ -1,0 +1,26 @@
+:8000 {
+	@preflight method OPTIONS
+	header {
+		Access-Control-Allow-Origin "*"
+		Access-Control-Allow-Headers "*"
+		Access-Control-Allow-Methods "GET, POST, PUT, PATCH, DELETE, OPTIONS"
+		Access-Control-Expose-Headers "*"
+		defer
+	}
+	respond @preflight 204
+	handle_path /auth/v1/* {
+		reverse_proxy auth:9999 {
+			header_down -Access-Control-Allow-Origin
+		}
+	}
+	handle_path /rest/v1/* {
+		reverse_proxy rest:3000 {
+			header_down -Access-Control-Allow-Origin
+		}
+	}
+	handle_path /storage/v1/* {
+		reverse_proxy storage:5000 {
+			header_down -Access-Control-Allow-Origin
+		}
+	}
+}
