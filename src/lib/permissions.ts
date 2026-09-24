@@ -155,6 +155,8 @@ export const ACCESS = {
   publicKpisManage: ["settings.manage"],
   roles: ["roles.manage"],
   centerSettings: ["settings.manage"],
+  /** Setup checklist, Step 0 screens and go-live readiness (settings.manage; the owner too, in the database). */
+  setup: ["settings.manage"],
   /** Settings › Integrations (reads app.integration_connections). */
   integrations: ["integrations.view", "integrations.manage"],
   /** Settings › Security: readable by rules or roles managers; saving writes centers.rules (settings.manage). */
@@ -415,6 +417,19 @@ export const NAV: NavModule[] = [
     paths: ["/reports"],
   },
   {
+    // Onboarding (ONBOARDING_PLAN §4): the organization's own Setup checklist.
+    key: "setup",
+    label: "Setup",
+    tabs: [
+      { href: "/setup", label: "Checklist", access: "setup" },
+      { href: "/setup/organization", label: "Legal identity", access: "setup" },
+      { href: "/setup/profile", label: "Profile & brand", access: "setup" },
+      { href: "/setup/leaders", label: "Leaders", access: "setup" },
+      { href: "/setup/readiness", label: "Go-live readiness", access: "setup" },
+    ],
+    paths: ["/setup"],
+  },
+  {
     key: "settings",
     label: "Settings",
     tabs: [
@@ -437,6 +452,7 @@ export const NAV: NavModule[] = [
     tabs: [
       { href: "/platform", label: "Centers", access: "dashboard", platformOnly: true },
       { href: "/platform/new", label: "New center wizard", access: "dashboard", platformOnly: true },
+      { href: "/platform/verification", label: "Verification", access: "dashboard", platformOnly: true },
     ],
     paths: ["/platform"],
   },
