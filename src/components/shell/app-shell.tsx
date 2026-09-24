@@ -7,6 +7,7 @@ import { ModulesProvider } from "@/components/shell/module-tabs";
 import { ModuleNav } from "@/components/shell/nav-link";
 import { TenantMark } from "@/components/shell/tenant-mark";
 import { UserMenu } from "@/components/shell/user-menu";
+import { HistoryAccessProvider } from "@/components/record-history";
 import { ToastProvider } from "@/components/toast";
 import { PRODUCT_NAME } from "@/lib/brand";
 import type { TaskCount } from "@/lib/data/home-tasks";
@@ -41,6 +42,7 @@ export function AppShell({ session, tasks, children }: { session: CrmSession; ta
 
   return (
     <ToastProvider>
+      <HistoryAccessProvider allowed={canAccess(session, "audit")}>
       <ModulesProvider modules={modules}>
         <div className="flex min-h-screen flex-col">
           <header className="cc-topbar sticky top-0 z-30 px-3 sm:px-5">
@@ -88,6 +90,7 @@ export function AppShell({ session, tasks, children }: { session: CrmSession; ta
           </div>
         </div>
       </ModulesProvider>
+      </HistoryAccessProvider>
     </ToastProvider>
   );
 }

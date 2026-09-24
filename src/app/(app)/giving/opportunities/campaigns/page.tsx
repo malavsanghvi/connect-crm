@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 
 import { ActionForm } from "@/components/action-form";
+import { HistoryButton } from "@/components/record-history";
 import { Badge, Card, ChipLinks, EmptyState, NoAccess, PageHeader, QueryError, TableWrap } from "@/components/ui";
 import { fetchAll } from "@/lib/data/fetch-all";
 import { formatDate } from "@/lib/dates";
@@ -108,6 +109,7 @@ export default async function CampaignsPage() {
                         <td className="min-w-[14rem]">
                           <span className="font-semibold">{c.name}</span>
                           <div className="text-xs capitalize text-muted">{c.kind}</div>
+                          <HistoryButton table="campaigns" recordId={c.id} title={c.name} size="xs" />
                           {c.description ? <div className="mt-1 max-w-md text-xs text-muted">{c.description}</div> : null}
                         </td>
                         <td>{c.fund_id ? (fundName.get(c.fund_id) ?? "—") : "—"}</td>

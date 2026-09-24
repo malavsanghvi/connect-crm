@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 
 import { ActionForm } from "@/components/action-form";
 import { PersonPicker } from "@/components/person-picker";
+import { HistoryButton } from "@/components/record-history";
 import { buttonClass, Card, EmptyState, TableWrap } from "@/components/ui";
 import { ageFrom, loadLevels, loadTerms } from "@/lib/data/pathshala";
 import { formatRate, summarizeAttendance } from "@/lib/logic/attendance";
@@ -90,11 +91,14 @@ export default async function ClassPage({ params }: { params: Promise<{ id: stri
           .join(" · ")}
         back={pathshalaAreas.admin(v) ? { href: "/pathshala", label: "Pathshala" } : { href: "/pathshala/my-classes", label: "My classes" }}
         actions={
-          (isTeacher || canManage) && (
-            <Link href={`/pathshala/classes/${cls.id}/attendance`} className={buttonClass("primary")}>
-              Take attendance
-            </Link>
-          )
+          <>
+            <HistoryButton table="pathshala_classes" recordId={cls.id} title={cls.name} variant="ghost" size="md" />
+            {isTeacher || canManage ? (
+              <Link href={`/pathshala/classes/${cls.id}/attendance`} className={buttonClass("primary")}>
+                Take attendance
+              </Link>
+            ) : null}
+          </>
         }
       />
 

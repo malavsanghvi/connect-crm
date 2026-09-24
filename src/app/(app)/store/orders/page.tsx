@@ -3,6 +3,7 @@ import Link from "next/link";
 
 import { ActionForm } from "@/components/action-form";
 import { ClickableRow } from "@/components/clickable-row";
+import { HistoryButton } from "@/components/record-history";
 import { BlockGrid, buttonClass, Card, EmptyState, NoAccess, PageHeader, QueryError, StatusText, TableWrap } from "@/components/ui";
 import { chunk } from "@/lib/data/fetch-all";
 import { formatDate, formatDateTime, startOfDayInTz, todayInTz } from "@/lib/dates";
@@ -226,6 +227,7 @@ export default async function StoreOrdersPage({ searchParams }: { searchParams: 
                               {o.guest_name ?? "Member order"}
                               {o.placed_at ? ` · placed ${formatDateTime(o.placed_at, tz)}` : ""}
                             </p>
+                            <HistoryButton table="store_orders" recordId={o.id} title={`Order #${o.order_number}`} size="xs" />
                             <ul className="mt-1.5">
                               {lines
                                 .filter((l) => l.order_id === o.id)

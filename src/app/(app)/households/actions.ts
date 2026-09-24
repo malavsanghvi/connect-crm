@@ -20,7 +20,7 @@ import {
   type Tier,
 } from "@/lib/people";
 import { isUuid } from "@/lib/search-params";
-import { authorizeAction } from "@/lib/session";
+import { authorizeAction, dbWithReason } from "@/lib/session";
 import { todayInTz } from "@/lib/dates";
 import { can } from "@/lib/permissions";
 
@@ -95,7 +95,7 @@ export async function updateHouseholdAction(_prev: ActionResult | null, fd: Form
     if ((upd.data ?? []).length === 0) return { ok: false, error: "Could not save the household — nothing was changed (you may not have permission to edit it)." };
   }
   if (tierChanged && tier) {
-    const t = await db.rpc("change_household_tier", { p_household: id, p_tier: tier, p_reason: reason });
+    const t = await (await dbWithReason(auth.session, reason)).rpc("change_household_tier", { p_household: id, p_tier: tier, p_reason: reason });
     if (t.error) {
       const saved = keys.length ? ` The other ${keys.length === 1 ? "change was" : "changes were"} saved.` : "";
       return { ok: false, error: `${failure("Could not change the membership tier", t.error).error}${saved}` };

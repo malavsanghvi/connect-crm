@@ -8,6 +8,7 @@ import { buildDashboard, periods, type DashboardView, type PeriodKey } from "@/l
 import type { Database } from "@/lib/database.types";
 import { explainError } from "@/lib/errors";
 import type { TenantBranding } from "@/lib/shell";
+import { tracingFetch } from "@/lib/supabase/trace";
 
 const TINTS = [
   ["#EEF1F8", "#1B2C5C"],
@@ -53,6 +54,7 @@ export function CommunityDashboard({
       client.current ??= createClient<Database, "app">(env.supabaseUrl, env.supabaseAnonKey, {
         db: { schema: "app" },
         auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+        global: { fetch: tracingFetch(() => window.location.pathname) },
       });
       const my = ++seq.current;
       client.current

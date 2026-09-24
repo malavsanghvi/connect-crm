@@ -15,7 +15,9 @@ import {
   type PermissionContext,
   type ScopedGrant,
 } from "@/lib/permissions";
+import { loadMyModules, modulesOffFrom } from "@/lib/modules-db";
 import { createSupabaseServerClient, type AppSupabase } from "@/lib/supabase/server";
+import { newRequestId } from "@/lib/supabase/trace";
 
 export type CenterInfo = {
   id: string;
@@ -40,6 +42,12 @@ export type CrmSession = PermissionContext & {
   roles: { key: string; name: string; scopeKind: string }[];
   /** Active grants with their scope ids, for scoped-role checks (a class teacher, an event lead). */
   grants: ScopedGrant[];
+  /** x-request-id of this server request / action: every change it makes shares it in the audit log. */
+  requestId: string;
+  /** Module keys switched off for the center (app.my_modules); empty when all are on or unknown. */
+  modulesOff: string[];
+  /** "missing" before the s-core migrations land, "error" when my_modules failed: both mean "treat everything as on". */
+  modulesStatus: "ok" | "missing" | "error";
 };
 
 export type SessionState =
@@ -54,7 +62,9 @@ export const loadSession = cache(async (): Promise<SessionState> => {
   const envCheck = readPublicEnv();
   if (!envCheck.ok) return { status: "env_missing", problems: envCheck.problems };
 
-  const db = await createSupabaseServerClient();
+  // One id per server request; a Server Action is its own request, so it gets a fresh one.
+  const requestId = newRequestId();
+  const db = await createSupabaseServerClient({ requestId });
   const { data: claimsData, error: claimsError } = await db.auth.getClaims();
   if (claimsError && claimsError.name !== "AuthSessionMissingError") {
     console.error("[session] could not validate the session:", claimsError);
@@ -77,7 +87,7 @@ export const loadSession = cache(async (): Promise<SessionState> => {
   if (!centerRes.data) return { status: "center_missing", slug };
   const center = centerRes.data;
 
-  const [grantsRes, rolesRes, accountRes, linkRes] = await Promise.all([
+  const [grantsRes, rolesRes, accountRes, linkRes, modulesRes] = await Promise.all([
     db
       .from("role_grants")
       .select("role_key, scope_kind, scope_id, starts_at, ends_at")
@@ -86,6 +96,7 @@ export const loadSession = cache(async (): Promise<SessionState> => {
     db.from("roles").select("key, name, tier, permissions"),
     db.from("accounts").select("is_platform_admin").eq("user_id", userId).maybeSingle(),
     db.from("center_users").select("person_id").eq("center_id", center.id).eq("user_id", userId).maybeSingle(),
+    loadMyModules(db, center.id),
   ]);
   const firstError = grantsRes.error ?? rolesRes.error ?? accountRes.error ?? linkRes.error;
   if (firstError) {
@@ -133,9 +144,22 @@ export const loadSession = cache(async (): Promise<SessionState> => {
       grants: grants
         .filter((g) => isGrantActive(g, now))
         .map((g) => ({ role_key: g.role_key, scope_kind: g.scope_kind, scope_id: g.scope_id })),
+      requestId,
+      modulesOff: modulesRes.status === "ok" ? modulesOffFrom(modulesRes.rows) : [],
+      modulesStatus: modulesRes.status,
     },
   };
 });
+
+/**
+ * A client for a change the user gave a reason for (write-off, refund,
+ * override, tier change, boli close, role grant, module switch…): the same
+ * user and request id, plus x-audit-reason, so the audit rows of this change
+ * carry the reason. Use it only for the write(s) the reason explains.
+ */
+export async function dbWithReason(session: Pick<CrmSession, "requestId">, reason: string): Promise<AppSupabase> {
+  return createSupabaseServerClient({ requestId: session.requestId, reason });
+}
 
 /** For pages: the signed-in session, or a redirect to /login. */
 export async function getSession(): Promise<CrmSession> {

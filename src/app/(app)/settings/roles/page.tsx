@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { ActionForm } from "@/components/action-form";
+import { HistoryButton } from "@/components/record-history";
 import { Alert, Badge, BlockGrid, Card, EmptyState, NoAccess, PageHeader, QueryError, TableWrap, Tabs, buttonClass } from "@/components/ui";
 import { identifierRules } from "@/lib/center-rules";
 import { ENTITLEMENT_GROUPS, rightsCount, rolePermissions, unknownPermissions } from "@/lib/entitlements";
@@ -283,6 +284,12 @@ export default async function RolesPage({ searchParams }: { searchParams: Promis
                               ) : (
                                 <Badge>Ended</Badge>
                               )}
+                              <HistoryButton
+                                table="role_grants"
+                                recordId={g.id}
+                                title={`${roleName.get(g.role_key) ?? g.role_key} · ${who?.name ?? "person"}`}
+                                size="xs"
+                              />
                             </td>
                           </tr>
                         );

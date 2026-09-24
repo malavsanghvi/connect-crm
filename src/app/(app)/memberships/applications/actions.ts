@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { planDecision, type ApplicationDecision } from "@/lib/applications";
 import { failure, type ActionResult } from "@/lib/errors";
 import { isUuid } from "@/lib/search-params";
-import { authorizeAction } from "@/lib/session";
+import { authorizeAction, dbWithReason } from "@/lib/session";
 
 export async function decideApplicationAction(_prev: ActionResult | null, formData: FormData): Promise<ActionResult> {
   const decision = String(formData.get("decision") ?? "") as ApplicationDecision;
@@ -60,7 +60,8 @@ export async function decideApplicationAction(_prev: ActionResult | null, formDa
           ? { status: plan.next, ec_decided_by: session.userId, ec_decided_at: now, center_reason: reason }
           : { status: plan.next, center_decided_by: session.userId, center_decided_at: now, center_reason: reason };
 
-  const { data, error } = await db
+  const writer = reason ? await dbWithReason(session, reason) : db;
+  const { data, error } = await writer
     .from("membership_applications")
     .update(update)
     .eq("id", id)

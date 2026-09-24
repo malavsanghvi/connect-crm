@@ -3,6 +3,7 @@
 // the database is the enforcement.
 
 import type { Json } from "@/lib/database.types";
+import type { ModuleKey } from "@/lib/modules";
 
 export type GrantLike = {
   role_key: string;
@@ -22,7 +23,11 @@ export type PermissionContext = {
 export type ScopedGrant = { role_key: string; scope_kind: string; scope_id: string | null };
 
 /** Permissions plus the active grants, for the scoped-role checks below. */
-export type ScopedContext = PermissionContext & { grants?: readonly ScopedGrant[] };
+export type ScopedContext = PermissionContext & {
+  grants?: readonly ScopedGrant[];
+  /** Module keys switched off for the center (src/lib/modules.ts); missing means every module is on. */
+  modulesOff?: readonly string[];
+};
 
 export function isGrantActive(grant: Pick<GrantLike, "starts_at" | "ends_at">, now: Date = new Date()): boolean {
   const t = now.getTime();
@@ -258,6 +263,8 @@ export type NavTab = {
   roles?: readonly string[];
   /** Shown only to platform admins (session.isPlatformAdmin), whatever the access key says. */
   platformOnly?: boolean;
+  /** Module (src/lib/modules.ts) this tab belongs to, when it differs from its NAV module's. */
+  module?: ModuleKey;
 };
 export type NavModule = {
   key: string;
@@ -265,6 +272,8 @@ export type NavModule = {
   tabs: NavTab[];
   /** URL prefixes that belong to this module (detail pages included). */
   paths: string[];
+  /** Module (src/lib/modules.ts) that owns it; hidden when that module is switched off. Omit for core areas. */
+  module?: ModuleKey;
   /** Open the module on this tab instead of the first visible one when `when` holds (e.g. a teacher's landing). */
   landing?: { href: string; when: (ctx: ScopedContext) => boolean };
 };
@@ -273,18 +282,20 @@ export const NAV: NavModule[] = [
   { key: "home", label: "Home", tabs: [{ href: "/", label: "Home", access: "dashboard" }], paths: ["/"] },
   {
     key: "people",
+    module: "people",
     label: "People",
     tabs: [
       { href: "/households", label: "Households", access: "households" },
       { href: "/people", label: "People", access: "households" },
-      { href: "/memberships/applications", label: "Membership applications", access: "applications" },
+      { href: "/memberships/applications", label: "Membership applications", access: "applications", module: "membership" },
       { href: "/people/directory", label: "Directory & expertise", access: "households" },
-      { href: "/people/voting", label: "Voting eligibility", access: "voting" },
+      { href: "/people/voting", label: "Voting eligibility", access: "voting", module: "membership" },
     ],
     paths: ["/households", "/people", "/memberships", "/identifiers"],
   },
   {
     key: "events",
+    module: "events",
     label: "Events",
     tabs: [
       { href: "/events", label: "All events", access: "events" },
@@ -296,6 +307,7 @@ export const NAV: NavModule[] = [
   },
   {
     key: "giving",
+    module: "giving",
     label: "Giving",
     tabs: [
       { href: "/giving/pledges", label: "Pledges", access: "pledges" },
@@ -309,6 +321,7 @@ export const NAV: NavModule[] = [
   },
   {
     key: "bolis",
+    module: "bolis",
     label: "Bolis",
     tabs: [
       { href: "/bolis", label: "Digital bolis", access: "bolis" },
@@ -318,6 +331,7 @@ export const NAV: NavModule[] = [
   },
   {
     key: "store",
+    module: "store",
     label: "Satvik Store",
     tabs: [
       { href: "/store", label: "Inventory", access: "store" },
@@ -328,10 +342,11 @@ export const NAV: NavModule[] = [
   },
   {
     key: "pathshala",
+    module: "pathshala",
     label: "Pathshala",
     tabs: [
       { href: "/pathshala", label: "Classes", access: "pathshala" },
-      { href: "/pathshala/signoffs", label: "Gyan Path sign-offs", access: "pathshalaSignoffs", roles: ["teacher"] },
+      { href: "/pathshala/signoffs", label: "Gyan Path sign-offs", access: "pathshalaSignoffs", roles: ["teacher"], module: "gyan_path" },
       { href: "/pathshala/terms", label: "Terms", access: "pathshala" },
       { href: "/pathshala/enrollments", label: "Enrollments", access: "pathshala" },
       { href: "/pathshala/committee", label: "Committee", access: "pathshalaCommittee" },
@@ -343,15 +358,16 @@ export const NAV: NavModule[] = [
   },
   {
     key: "content",
+    module: "content",
     label: "Content",
     tabs: [
       { href: "/content/queue", label: "Approval queue", access: "content" },
       { href: "/content/today", label: "Today & darshan", access: "content" },
-      { href: "/content/practices", label: "Practices & points", access: "content" },
-      { href: "/content/gyan-path", label: "Gyan Path", access: "content" },
+      { href: "/content/practices", label: "Practices & points", access: "content", module: "jain_way" },
+      { href: "/content/gyan-path", label: "Gyan Path", access: "content", module: "gyan_path" },
       { href: "/content/library", label: "Library", access: "content" },
       { href: "/content/photos", label: "Photo albums", access: "content" },
-      { href: "/content/niva", label: "Niva", access: "content" },
+      { href: "/content/niva", label: "Niva", access: "content", module: "niva" },
       { href: "/content/guide", label: "Guide & directory", access: "content" },
       { href: "/content/legal", label: "Legal & waivers", access: "content" },
     ],
@@ -359,24 +375,27 @@ export const NAV: NavModule[] = [
   },
   {
     key: "calendar",
+    module: "calendar",
     label: "Calendar",
     tabs: [{ href: "/calendar", label: "Layers", access: "calendar" }],
     paths: ["/calendar"],
   },
   {
     key: "comms",
+    module: "comms",
     label: "Communications",
     tabs: [
       { href: "/comms/newsletters", label: "Newsletters", access: "comms" },
       { href: "/comms/inbox", label: "Inbox", access: "commsInbox" },
       { href: "/comms/whatsapp", label: "WhatsApp queue", access: "comms" },
-      { href: "/comms/surveys", label: "Surveys", access: "comms" },
+      { href: "/comms/surveys", label: "Surveys", access: "comms", module: "surveys" },
       { href: "/comms/alerts", label: "Alerts", access: "comms" },
     ],
     paths: ["/comms"],
   },
   {
     key: "accounting",
+    module: "accounting",
     label: "Accounting",
     tabs: [
       { href: "/accounting/qbo", label: "QuickBooks sync", access: "qbo" },
@@ -386,6 +405,7 @@ export const NAV: NavModule[] = [
   },
   {
     key: "reports",
+    module: "reports",
     label: "Reports",
     tabs: [
       { href: "/reports", label: "Center health", access: "reports" },
@@ -405,6 +425,8 @@ export const NAV: NavModule[] = [
       { href: "/settings/notifications", label: "Notifications", access: "centerSettings" },
       { href: "/settings/security", label: "Security", access: "security" },
       { href: "/settings/audit", label: "Audit log", access: "audit" },
+      // Not in the prototype: org-level module switches (WAVE2), after the prototype's eight.
+      { href: "/settings/modules", label: "Modules", access: "centerSettings" },
     ],
     paths: ["/settings", "/privacy", "/audit", "/approvals"],
   },
@@ -422,8 +444,14 @@ export const NAV: NavModule[] = [
 export type VisibleTab = { href: string; label: string };
 export type VisibleModule = { key: string; label: string; href: string; tabs: VisibleTab[]; paths: string[] };
 
+/** False only when the center switched the module off (same rule as isModuleEnabled in src/lib/modules.ts). */
+function moduleOn(ctx: ScopedContext, key: string): boolean {
+  return !(ctx.modulesOff ?? []).includes(key);
+}
+
 /** True when the user may open a nav tab: its access key, or one of its roles in any scope. */
-export function canOpenTab(ctx: ScopedContext, tab: Pick<NavTab, "access" | "roles" | "platformOnly">): boolean {
+export function canOpenTab(ctx: ScopedContext, tab: Pick<NavTab, "access" | "roles" | "platformOnly" | "module">): boolean {
+  if (tab.module && !moduleOn(ctx, tab.module)) return false;
   if (tab.platformOnly) return Boolean(ctx.isPlatformAdmin);
   if (tab.access !== undefined && canAccess(ctx, tab.access)) return true;
   return Boolean(tab.roles && tab.roles.length > 0 && hasRole(ctx, ...tab.roles));
@@ -432,6 +460,7 @@ export function canOpenTab(ctx: ScopedContext, tab: Pick<NavTab, "access" | "rol
 /** Modules the user can open, each with only the tabs they can open; a module opens on its first visible tab (or its landing tab). */
 export function visibleNav(ctx: ScopedContext): VisibleModule[] {
   return NAV.flatMap((m) => {
+    if (m.module && !moduleOn(ctx, m.module)) return [];
     const tabs = m.tabs.filter((t) => canOpenTab(ctx, t)).map(({ href, label }) => ({ href, label }));
     if (tabs.length === 0) return [];
     const landing = m.landing && m.landing.when(ctx) && tabs.some((t) => t.href === m.landing?.href) ? m.landing.href : tabs[0].href;

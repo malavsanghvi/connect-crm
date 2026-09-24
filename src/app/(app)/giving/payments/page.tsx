@@ -3,6 +3,7 @@ import Link from "next/link";
 
 import { HouseholdDrawerProvider, HouseholdRow } from "@/app/(app)/giving/_components/household-drawer";
 import { ActionForm } from "@/components/action-form";
+import { HistoryButton } from "@/components/record-history";
 import { RefundControls } from "@/components/two-person-controls";
 import {
   Alert,
@@ -542,7 +543,12 @@ export default async function PaymentsPage({ searchParams }: { searchParams: Pro
                     const applied = allocated.get(p.id) ?? 0;
                     return (
                       <HouseholdRow key={p.id} householdId={p.household_id} label={`Open ${h?.display_name ?? "the household"}`}>
-                        <td className="font-mono text-[0.8125rem]">{p.receipt_number ?? "—"}</td>
+                        <td className="font-mono text-[0.8125rem]">
+                          {p.receipt_number ?? "—"}
+                          <div className="font-sans">
+                            <HistoryButton table="payments" recordId={p.id} title={`Payment ${p.receipt_number ?? ""}`.trim()} size="xs" />
+                          </div>
+                        </td>
                         <td className="whitespace-nowrap">{formatDate(p.received_on, tz)}</td>
                         <td>
                           <span className="font-semibold">{h?.display_name ?? "Household"}</span>

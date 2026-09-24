@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 
 import { ActionButton } from "@/components/events/action-button";
 import { LoadProblem } from "@/components/events/load-problem";
+import { HistoryButton } from "@/components/record-history";
 import { NoAccess, PageHeader, Tabs, buttonClass, type ButtonVariant } from "@/components/ui";
 import { load, loadEventAccess, resolvePeopleNames, row } from "@/lib/data/events";
 import { eventAreas } from "@/lib/events/access";
@@ -116,6 +117,7 @@ export default async function EventPage({ params, searchParams }: { params: Prom
             <Link href={`/events/live?event=${id}`} className={buttonClass("ghost")}>
               Live check-in
             </Link>
+            <HistoryButton table="events" recordId={id} title={event.name} variant="ghost" size="md" />
             {canEdit ? (
               <Link href={`/events/builder?event=${id}`} className={buttonClass("primary")}>
                 Edit in builder
