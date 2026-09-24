@@ -13,6 +13,7 @@ import * as messagingWebhookTwilio from "./messaging.webhook.twilio";
 import * as oauthExchange from "./oauth.exchange";
 import * as platformPromote from "./platform.promote";
 import * as platformSandboxExpiry from "./platform.sandbox_expiry";
+import * as platformTestProvider from "./platform.test_provider";
 import * as qboBringInHistory from "./qbo.bring_in_history";
 import * as qboMatchSuggestAi from "./qbo.match_suggest_ai";
 import * as qboPost from "./qbo.post";
@@ -35,6 +36,8 @@ export const HANDLERS: HandlerModule[] = [
   // o-platform
   platformPromote,
   platformSandboxExpiry,
+  // o-platform-setup: the setup wizard's Test button
+  platformTestProvider,
   // o-quickbooks
   qboPullLists,
   qboPost,

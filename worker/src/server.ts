@@ -19,6 +19,7 @@ import { createDb, type WorkerDb } from "./db";
 import { HANDLERS } from "./handlers";
 import { createHttp } from "./http";
 import { createLogger, type Logger } from "./log";
+import { createPlatformConfig } from "./platform-config";
 import { createRegistry, createRunner, readiness, type Registry } from "./runner";
 
 const VERSION = process.env.WORKER_VERSION_BUILT ?? "dev";
@@ -54,22 +55,31 @@ export async function main(env: Env = process.env): Promise<void> {
   const log = createLogger({ service: "connect-worker", worker: config.workerId }, { level: config.logLevel });
   const reg: Registry = createRegistry(HANDLERS);
   const db: WorkerDb = createDb(config.databaseUrl, config.databaseCa, log);
-  const runner = createRunner({ db, reg, env, http: createHttp(), log, workerId: config.workerId }, config.concurrency);
+  // Community Connect's provider keys: saved in the setup wizard first, this process's env second.
+  const platform = createPlatformConfig(env, db, { workerId: config.workerId, log });
+  await platform.refresh(true);
+  const penv = platform.env;
+  const runner = createRunner({ db, reg, env: penv, http: createHttp(), log, workerId: config.workerId }, config.concurrency);
   const startedAt = new Date();
   const state = { stopping: false, lastBeatOk: null as Date | null, lastBeatError: null as string | null };
 
   const handlerInfo = () => {
-    const r = readiness(reg, env);
+    const r = readiness(reg, penv);
     return Object.fromEntries(Object.entries(r).map(([k, v]) => [k, v.configured ? { configured: true } : { configured: false, reason: v.reason }]));
   };
-  for (const [kind, v] of Object.entries(readiness(reg, env))) {
+  for (const [kind, v] of Object.entries(readiness(reg, penv))) {
     if (!v.configured) log.warn("handler not configured", { handler: kind, reason: v.reason });
   }
 
   async function beat(): Promise<void> {
+    await platform.refresh();
     const handlers = handlerInfo();
     try {
-      await db.heartbeat(config.workerId, startedAt, VERSION, [...reg.keys()], { handlers, host: os.hostname(), pid: process.pid, node: process.version });
+      await db.heartbeat(config.workerId, startedAt, VERSION, [...reg.keys()], {
+        handlers, host: os.hostname(), pid: process.pid, node: process.version,
+        // Names only (never a value): where each platform key comes from, for the setup wizard.
+        platform_config: platform.report(),
+      });
       state.lastBeatOk = new Date();
       state.lastBeatError = null;
     } catch (err) {
@@ -134,6 +144,7 @@ export async function main(env: Env = process.env): Promise<void> {
     if (polling || state.stopping) return;
     polling = true;
     try {
+      await platform.refresh();
       // Keep claiming while there is work and room.
       while (!state.stopping && (await runner.tick()) > 0) {
         /* claimed a batch; look again */

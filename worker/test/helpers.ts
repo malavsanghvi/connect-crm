@@ -11,7 +11,12 @@ export function job(over: Partial<Job> = {}): Job {
 export type Call = { fn: string; args: unknown[] };
 
 /** An in-memory WorkerDb that records every call. */
-export function fakeDb(opts: { claim?: Job[][]; secrets?: Record<string, string>; query?: (text: string, params: unknown[]) => unknown[] } = {}) {
+export function fakeDb(opts: {
+  claim?: Job[][];
+  secrets?: Record<string, string>;
+  query?: (text: string, params: unknown[]) => unknown[];
+  platform?: { settings?: Record<string, unknown>; secrets?: Record<string, { value: string; version?: string }> } | null;
+} = {}) {
   const calls: Call[] = [];
   const claims = [...(opts.claim ?? [])];
   const db: WorkerDb = {
@@ -23,6 +28,19 @@ export function fakeDb(opts: { claim?: Job[][]; secrets?: Record<string, string>
     async schedule(...args) { calls.push({ fn: "schedule", args }); return null; },
     async readSecret(ctx: ReadContext, c: string, n: string) { calls.push({ fn: "readSecret", args: [ctx, c, n] }); return opts.secrets?.[`${c}/${n}`] ?? null; },
     async storeSecret(ctx: ReadContext, c: string, n: string, v: string) { calls.push({ fn: "storeSecret", args: [ctx, c, n, "[value]"] }); return { fingerprint: v.slice(-4) }; },
+    async platformConfig() {
+      calls.push({ fn: "platformConfig", args: [] });
+      if (opts.platform === null) return null;
+      const p = opts.platform ?? {};
+      return {
+        settings: p.settings ?? {},
+        secrets: Object.fromEntries(Object.entries(p.secrets ?? {}).map(([n, s]) => [n, { fingerprint: s.value.slice(-4), version: s.version ?? "1" }])),
+      };
+    },
+    async readPlatformSecret(ctx: ReadContext, name: string) {
+      calls.push({ fn: "readPlatformSecret", args: [ctx, name] });
+      return opts.platform?.secrets?.[name]?.value ?? null;
+    },
     async query<T extends Record<string, unknown>>(text: string, params: unknown[] = []) {
       calls.push({ fn: "query", args: [text, params] });
       return (opts.query?.(text, params) ?? []) as T[];
