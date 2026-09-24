@@ -152,7 +152,10 @@ export async function mergeHouseholdsAction(_prev: ActionResult | null, fd: Form
   if (!isUuid(keep) || !isUuid(drop)) return { ok: false, error: "Could not merge — choose both households first." };
   const auth = await authorizeAction("householdsEdit", "merge the households");
   if (!auth.ok) return auth;
-  const res = await auth.session.db.rpc("merge_households", { p_keep: keep, p_drop: drop });
+  const reason = String(fd.get("reason") ?? "").trim().slice(0, 500);
+  // Without a reason the RPC records its own ("Merged duplicate household …").
+  const writer = reason ? await dbWithReason(auth.session, reason) : auth.session.db;
+  const res = await writer.rpc("merge_households", { p_keep: keep, p_drop: drop });
   if (res.error) return failure("Could not merge the households", res.error);
   refresh(keep);
   revalidatePath(`/households/${drop}`);
