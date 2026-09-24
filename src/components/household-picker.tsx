@@ -5,6 +5,7 @@ import { useState, useTransition, type FormEvent, type KeyboardEvent } from "rea
 import { findHouseholdsAction, type HouseholdFinderResult } from "@/app/(app)/giving/actions";
 import { HouseholdCard, type CardLabels, type HouseholdCardData } from "@/components/household-card";
 import { buttonClass } from "@/components/ui";
+import type { ActionResult } from "@/lib/errors";
 import { identifierKindLabel } from "@/lib/identifiers";
 
 /**
@@ -19,6 +20,7 @@ export function HouseholdPicker({
   selectLabel = "Choose this household",
   autoFocus = false,
   idPrefix = "hh",
+  find = findHouseholdsAction,
 }: {
   labels: CardLabels;
   timeZone: string;
@@ -27,6 +29,8 @@ export function HouseholdPicker({
   selectLabel?: string;
   autoFocus?: boolean;
   idPrefix?: string;
+  /** The search to run (defaults to the finance search); a module with its own permission passes its own action. */
+  find?: (query: string) => Promise<ActionResult<HouseholdFinderResult>>;
 }) {
   const [query, setQuery] = useState("");
   const [result, setResult] = useState<HouseholdFinderResult | null>(null);
@@ -38,7 +42,7 @@ export function HouseholdPicker({
     setError(null);
     startTransition(async () => {
       try {
-        const res = await findHouseholdsAction(query);
+        const res = await find(query);
         if (!res.ok) {
           setResult(null);
           setError(res.error);
