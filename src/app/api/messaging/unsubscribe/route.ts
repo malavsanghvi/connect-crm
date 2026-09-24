@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { workerQuery } from "@/lib/messaging/server-db";
 import { verifyLink } from "@/lib/messaging/signatures";
+import { loadPlatformConfig, platformValue } from "@/lib/platform-setup/server-config";
 
 // The "Unsubscribe" link in every newsletter / notification email (and the
 // List-Unsubscribe one-click POST). The link carries the message id and an HMAC
@@ -21,9 +22,10 @@ function page(status: number, title: string, text: string) {
 async function handle(request: Request) {
   const url = new URL(request.url);
   const m = url.searchParams.get("m") ?? "";
-  const secret = process.env.MESSAGING_LINK_SECRET?.trim();
+  await loadPlatformConfig();
+  const secret = platformValue("MESSAGING_LINK_SECRET");
   if (!secret) {
-    console.error("[unsubscribe] MESSAGING_LINK_SECRET is not set on the portal server");
+    console.error("[unsubscribe] MESSAGING_LINK_SECRET is not set (Platform › Setup, or the portal server's environment)");
     return page(503, "Could not unsubscribe", "Unsubscribing isn't configured on the Community Connect server yet. Reply to the email and ask to be removed.");
   }
   if (!/^[0-9a-f-]{36}$/i.test(m) || !verifyLink(secret, m, url.searchParams.get("s"))) {

@@ -3,6 +3,7 @@ import "server-only";
 import { NextResponse } from "next/server";
 
 import { verifyStandardWebhook } from "./signatures";
+import { loadPlatformConfig, platformValue } from "@/lib/platform-setup/server-config";
 
 // Shared by the two Supabase Auth hook routes: read the raw body, check the
 // standard-webhooks signature with the hook secret, answer in the shape GoTrue
@@ -15,9 +16,10 @@ export function hookError(status: number, message: string): NextResponse {
 
 export async function verifiedHookBody(request: Request, secretName: "SEND_EMAIL_HOOK_SECRET" | "SEND_SMS_HOOK_SECRET"):
   Promise<{ ok: true; body: Record<string, unknown> } | { ok: false; response: NextResponse }> {
-  const secret = process.env[secretName]?.trim();
+  await loadPlatformConfig();
+  const secret = platformValue(secretName);
   if (!secret) {
-    console.error(`[auth-hook] ${secretName} is not set on the portal server`);
+    console.error(`[auth-hook] ${secretName} is not set (Platform › Setup, or the portal server's environment)`);
     return { ok: false, response: hookError(503, "Sign-in messages aren't configured on the Community Connect server yet.") };
   }
   const raw = await request.text();

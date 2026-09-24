@@ -500,6 +500,8 @@ export const NAV: NavModule[] = [
     label: "Platform",
     tabs: [
       { href: "/platform", label: "Centers", access: "dashboard", platformOnly: true },
+      // Onboarding Wave D (o-platform-setup): the super admin's platform setup wizard.
+      { href: "/platform/setup", label: "Platform setup", access: "dashboard", platformOnly: true },
       { href: "/platform/new", label: "New center wizard", access: "dashboard", platformOnly: true },
       { href: "/platform/verification", label: "Verification", access: "dashboard", platformOnly: true },
       // Onboarding (o-platform): the Community Connect console.

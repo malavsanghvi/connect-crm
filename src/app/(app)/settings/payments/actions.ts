@@ -6,6 +6,7 @@ import { headers } from "next/headers";
 import { failure, isStepUpError, type ActionResult } from "@/lib/errors";
 import { startProviderCheckout } from "@/lib/payments/checkout";
 import { NotConfigured, ProviderError, originOf, paypalReferralUrl, stripeAuthorizeUrl, type CheckoutInfo } from "@/lib/payments/server";
+import { loadPlatformConfig } from "@/lib/platform-setup/server-config";
 import { PROCESSOR_LABEL, statementDescriptorProblem, type Processor } from "@/lib/payments/view";
 import { authorizeAction, dbWithReason } from "@/lib/session";
 
@@ -101,6 +102,7 @@ export async function startConnectAction(processor: string, reason: string): Pro
   });
   if (error) return dbFailure(doing, error);
   const d = data as { state: string; mode: "test" | "live" };
+  await loadPlatformConfig();
   try {
     const url =
       processor === "stripe"

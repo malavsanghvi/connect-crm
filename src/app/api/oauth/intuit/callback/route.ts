@@ -3,6 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { explainError } from "@/lib/errors";
 import { verifyState } from "@/lib/qbo/oauth";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { loadPlatformConfig, platformValue } from "@/lib/platform-setup/server-config";
 
 // Intuit sends the person back here after they signed in and chose a company
 // (ONBOARDING_WAVE_B "OAuth"): ?code&state&realmId, or ?error&state.
@@ -24,9 +25,10 @@ function back(request: NextRequest, outcome: "ok" | "error", message: string) {
 
 export async function GET(request: NextRequest) {
   const q = request.nextUrl.searchParams;
-  const secret = process.env.OAUTH_STATE_SECRET?.trim() ?? "";
+  await loadPlatformConfig();
+  const secret = platformValue("OAUTH_STATE_SECRET");
   if (secret.length < 32) {
-    console.error("[qbo-callback] OAUTH_STATE_SECRET is not set on the portal server; the sign-in cannot be checked");
+    console.error("[qbo-callback] OAUTH_STATE_SECRET is not set (Platform › Setup, or the portal server's environment); the sign-in cannot be checked");
     return back(request, "error", "QuickBooks isn't configured on the Community Connect server yet (OAUTH_STATE_SECRET is not set). Nothing was connected.");
   }
 

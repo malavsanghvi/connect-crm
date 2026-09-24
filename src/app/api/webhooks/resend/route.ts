@@ -2,13 +2,15 @@ import { NextResponse } from "next/server";
 
 import { verifyStandardWebhook } from "@/lib/messaging/signatures";
 import { ingest, notConfigured } from "@/lib/messaging/webhook-route";
+import { loadPlatformConfig, platformValue } from "@/lib/platform-setup/server-config";
 
 // Resend delivery events (Svix-signed): delivered, opened, bounced, complained.
 // Bounces and complaints suppress the address (messaging.webhook.email).
 export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {
-  const secret = process.env.RESEND_WEBHOOK_SECRET?.trim();
+  await loadPlatformConfig();
+  const secret = platformValue("RESEND_WEBHOOK_SECRET");
   if (!secret) return notConfigured("Resend webhooks", ["RESEND_WEBHOOK_SECRET"]);
   const raw = await request.text();
   const id = request.headers.get("svix-id");

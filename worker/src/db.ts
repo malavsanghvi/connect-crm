@@ -5,6 +5,7 @@
 import pg from "pg";
 
 import type { Logger } from "./log";
+import type { PlatformSnapshot } from "./platform-config";
 
 export type Job = {
   id: string; // bigint: pg returns it as text
@@ -32,6 +33,10 @@ export interface WorkerDb {
   schedule(kind: string, everySeconds: number): Promise<string | null>;
   readSecret(ctx: ReadContext, connectionId: string, name: string): Promise<string | null>;
   storeSecret(ctx: ReadContext, connectionId: string, name: string, value: string): Promise<{ fingerprint: string }>;
+  /** The platform setup wizard's settings and key names/versions (never a value); null before migration 0320. */
+  platformConfig(): Promise<PlatformSnapshot | null>;
+  /** One of Community Connect's own keys (app.worker_read_platform_secret, logged). */
+  readPlatformSecret(ctx: ReadContext, name: string): Promise<string | null>;
   /** For handlers (ctx.db): a query as connect_worker. */
   query<T extends Record<string, unknown> = Record<string, unknown>>(text: string, params?: unknown[]): Promise<T[]>;
   close(): Promise<void>;
@@ -117,6 +122,21 @@ export function createDb(databaseUrl: string, ca: string | undefined, log: Logge
       return asReader(ctx, async (c) => {
         const r = await c.query("select app.worker_store_secret($1, $2, $3, $4) as v", [connectionId, name, value, ctx.purpose]);
         return { fingerprint: String((r.rows[0]?.v as { fingerprint?: string } | undefined)?.fingerprint ?? "") };
+      });
+    },
+    async platformConfig() {
+      try {
+        const row = await one<{ c: PlatformSnapshot | null }>("select app.worker_platform_config() as c", []);
+        return row?.c ?? { settings: {}, secrets: {} };
+      } catch (err) {
+        if ((err as { code?: string }).code === "42883") return null; // the function is not there yet
+        throw err;
+      }
+    },
+    readPlatformSecret(ctx, name) {
+      return asReader(ctx, async (c) => {
+        const r = await c.query("select app.worker_read_platform_secret($1, $2) as v", [name, ctx.purpose]);
+        return (r.rows[0]?.v as string | null | undefined) ?? null;
       });
     },
     async query(text, params = []) {

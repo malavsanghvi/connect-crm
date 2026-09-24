@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 
 import { secretsFrom, verifyStripeSignature } from "@/lib/payments/signature";
 import { ingestWebhook } from "@/lib/payments/server";
+import { loadPlatformConfig, platformValue } from "@/lib/platform-setup/server-config";
 
 // Stripe → Community Connect. The signature is checked with STRIPE_WEBHOOK_SECRET
 // (comma-separated when the platform and Connect endpoints have different
@@ -12,9 +13,10 @@ import { ingestWebhook } from "@/lib/payments/server";
 export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
-  const secrets = secretsFrom(process.env.STRIPE_WEBHOOK_SECRET);
+  await loadPlatformConfig();
+  const secrets = secretsFrom(platformValue("STRIPE_WEBHOOK_SECRET"));
   if (secrets.length === 0) {
-    console.error("[webhooks/stripe] STRIPE_WEBHOOK_SECRET is not set; the event was refused");
+    console.error("[webhooks/stripe] STRIPE_WEBHOOK_SECRET is not set (Platform › Setup, or the portal server's environment); the event was refused");
     return new NextResponse("Stripe isn't configured on the Community Connect server yet (STRIPE_WEBHOOK_SECRET is not set).", { status: 503 });
   }
   const raw = await req.text();
