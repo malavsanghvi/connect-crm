@@ -144,3 +144,8 @@ export function missingToEnable(key: string, states: readonly ModuleState[]): st
   if (!me) return [];
   return me.dependsOn.filter((d) => states.find((s) => s.key === d)?.enabled === false);
 }
+
+/** The contract's wording for a direct URL to a switched-off module. */
+export function moduleOffMessage(key: ModuleKey, centerName: string): string {
+  return `The ${moduleDef(key).label} module is switched off for ${centerName}. An administrator can switch it on in Settings › Modules.`;
+}

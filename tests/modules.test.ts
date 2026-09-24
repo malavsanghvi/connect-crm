@@ -147,3 +147,10 @@ describe("modules-db helpers", () => {
     ).toEqual(["bolis", "store"]);
   });
 });
+
+describe("moduleOffMessage", () => {
+  it("uses the contract's wording", async () => {
+    const { moduleOffMessage } = await import("@/lib/modules");
+    expect(moduleOffMessage("store", "JSH")).toBe("The Satvik Store module is switched off for JSH. An administrator can switch it on in Settings › Modules.");
+  });
+});
