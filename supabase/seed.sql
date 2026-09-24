@@ -54,24 +54,25 @@ on conflict (key) do nothing;
 -- ---------------------------------------------------------------------------
 -- Shared tradition pack (Shvetambar Murtipujak): practices, Gyan Path goals
 -- ---------------------------------------------------------------------------
-insert into app.practices (center_id, tradition, category, key, name, default_minutes, points, sort_order) values
-(null,'shvetambar_murtipujak','mantra_jaap',         'navkar_waking',  'Navkar Mantra on waking', 2, 5, 10),
-(null,'shvetambar_murtipujak','tapasya_pachchakhan', 'navkarsi',       'Navkarsi pachchakhan', null, 10, 20),
-(null,'shvetambar_murtipujak','darshan_puja',        'darshan',        'Darshan at derasar', 15, 10, 30),
-(null,'shvetambar_murtipujak','darshan_puja',        'ashtaprakari',   'Ashtaprakari puja', 45, 20, 40),
-(null,'shvetambar_murtipujak','samayik_pratikraman', 'samayik',        'Samayik (48 min)', 48, 20, 50),
-(null,'shvetambar_murtipujak','swadhyay_learning',   'swadhyay',       'Swadhyay reading', 20, 10, 60),
-(null,'shvetambar_murtipujak','tapasya_pachchakhan', 'chauvihar',      'Chauvihar', null, 15, 70),
-(null,'shvetambar_murtipujak','samayik_pratikraman', 'pratikraman',    'Evening pratikraman', 60, 25, 80),
-(null,'shvetambar_murtipujak','mantra_jaap',         'navkarvali',     'Navkarvali (108 mala)', 15, 15, 90),
-(null,'shvetambar_murtipujak','swadhyay_learning',   'gyan_path',      'Gyan Path lesson (10 min)', 10, 20, 100);
+-- default_time: time of day shown in My Jain Way (null = anytime or sun-relative, e.g. Navkarsi = sunrise + 48 min).
+insert into app.practices (center_id, tradition, category, key, name, default_minutes, points, sort_order, default_time) values
+(null,'shvetambar_murtipujak','mantra_jaap',         'navkar_waking',  'Navkar Mantra on waking', 2, 5, 10, '06:45'),
+(null,'shvetambar_murtipujak','tapasya_pachchakhan', 'navkarsi',       'Navkarsi pachchakhan', null, 10, 20, null),
+(null,'shvetambar_murtipujak','darshan_puja',        'darshan',        'Darshan at derasar', 15, 10, 30, '08:30'),
+(null,'shvetambar_murtipujak','darshan_puja',        'ashtaprakari',   'Ashtaprakari puja', 45, 20, 40, '09:00'),
+(null,'shvetambar_murtipujak','samayik_pratikraman', 'samayik',        'Samayik (48 min)', 48, 20, 50, '18:00'),
+(null,'shvetambar_murtipujak','swadhyay_learning',   'swadhyay',       'Swadhyay reading', 20, 10, 60, '18:30'),
+(null,'shvetambar_murtipujak','tapasya_pachchakhan', 'chauvihar',      'Chauvihar', null, 15, 70, null),
+(null,'shvetambar_murtipujak','samayik_pratikraman', 'pratikraman',    'Evening pratikraman', 60, 25, 80, '19:45'),
+(null,'shvetambar_murtipujak','mantra_jaap',         'navkarvali',     'Navkarvali (108 mala)', 15, 15, 90, '21:30'),
+(null,'shvetambar_murtipujak','swadhyay_learning',   'gyan_path',      'Gyan Path lesson (10 min)', 10, 20, 100, '20:30');
 
 with g as (
-  insert into app.gyan_goals (center_id, tradition, key, name, description, sort_order) values
-  (null,'shvetambar_murtipujak','samayik',     'Learn Samayik',       'Foundations, the sutras of Samayik, and performing it with your teacher (~3 weeks)', 10),
-  (null,'shvetambar_murtipujak','navkar',      'Learn Navkar Mantra', 'The five Parameshthis and the Chulika (~1 week)', 20),
-  (null,'shvetambar_murtipujak','logassa',     'Learn Logassa sutra', 'The 24 Tirthankars and reciting Logassa (~2 weeks)', 30),
-  (null,'shvetambar_murtipujak','pratikraman', 'Learn Pratikraman',   'Why Pratikraman, the six Avashyaks, and performing it (~6 weeks)', 40)
+  insert into app.gyan_goals (center_id, tradition, key, name, description, sort_order, tint, mark, recommended) values
+  (null,'shvetambar_murtipujak','samayik',     'Learn Samayik',       'Foundations, the sutras of Samayik, and performing it with your teacher (~3 weeks)', 10, '#1B2C5C', 'S', true),
+  (null,'shvetambar_murtipujak','navkar',      'Learn Navkar Mantra', 'The five Parameshthis and the Chulika (~1 week)', 20, '#C9731C', 'N', false),
+  (null,'shvetambar_murtipujak','logassa',     'Learn Logassa sutra', 'The 24 Tirthankars and reciting Logassa (~2 weeks)', 30, '#5B4B8A', 'L', false),
+  (null,'shvetambar_murtipujak','pratikraman', 'Learn Pratikraman',   'Why Pratikraman, the six Avashyaks, and performing it (~6 weeks)', 40, '#7A2E1F', 'P', false)
   returning id, key
 )
 insert into app.gyan_levels (goal_id, key, name, sort_order, points, treasure, requires_teacher_signoff)
@@ -93,6 +94,16 @@ from g join (values
   ('pratikraman','11','Vandittu sutra',11,'Six Avashyaks badge',false),('pratikraman','12','Evening Pratikraman',12,null,false),('pratikraman','13','Morning Pratikraman',13,null,false),
   ('pratikraman','14','Pakkhi Pratikraman',14,null,false),('pratikraman','15','Perform with the Sangh',15,null,true)
 ) as l(goal, key, name, ord, treasure, signoff) on l.goal = g.key;
+
+-- Gyan Path chapters (prototype catalog): levels sort_order lo..hi.
+update app.gyan_levels l set chapter = v.chapter
+  from app.gyan_goals g, (values
+    ('samayik', 1, 4, 'Chapter 1 · Foundations'), ('samayik', 5, 9, 'Chapter 2 · Sutras of Samayik'), ('samayik', 10, 99, 'Chapter 3 · Perform Samayik'),
+    ('navkar', 1, 5, 'Chapter 1 · Five Parameshthis'), ('navkar', 6, 99, 'Chapter 2 · The Chulika'),
+    ('logassa', 1, 6, 'Chapter 1 · The 24 Tirthankars'), ('logassa', 7, 99, 'Chapter 2 · Recite Logassa'),
+    ('pratikraman', 1, 5, 'Chapter 1 · Why Pratikraman'), ('pratikraman', 6, 11, 'Chapter 2 · The six Avashyaks'), ('pratikraman', 12, 99, 'Chapter 3 · Perform')
+  ) as v(goal, lo, hi, chapter)
+ where g.id = l.goal_id and g.center_id is null and g.key = v.goal and l.sort_order between v.lo and v.hi;
 
 insert into app.calendar_layers (center_id, key, name, kind, default_on, color) values
 (null, 'tithi_smp', 'Jain tithi', 'tithi', true, '#C9731C'),
