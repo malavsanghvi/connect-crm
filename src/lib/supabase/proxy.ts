@@ -3,6 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 
 import type { Database } from "@/lib/database.types";
 import type { PublicEnv } from "@/lib/env";
+import { requestIsHttps } from "@/lib/https";
 import { PATHNAME_HEADER, clientScreen, newRequestId, traceHeaders } from "@/lib/supabase/trace";
 import { normalizeBaseDomain, sharedCookieDomain } from "@/lib/tenancy";
 
@@ -40,7 +41,11 @@ export async function updateSession(request: NextRequest, env: PublicEnv): Promi
   const supabase = createServerClient<Database, "app">(env.supabaseUrl, env.supabaseAnonKey, {
     db: { schema: "app" },
     global: { headers: traceHeaders({ requestId: newRequestId(), screen: pathname }) },
-    cookieOptions: { domain: sharedCookieDomain(request.headers.get("host"), normalizeBaseDomain(process.env.PORTAL_BASE_DOMAIN)) },
+    // o-https: Secure session cookies whenever the request came over HTTPS (Caddy sets X-Forwarded-Proto).
+    cookieOptions: {
+      domain: sharedCookieDomain(request.headers.get("host"), normalizeBaseDomain(process.env.PORTAL_BASE_DOMAIN)),
+      secure: requestIsHttps(request.headers.get("x-forwarded-proto")),
+    },
     cookies: {
       getAll() {
         return request.cookies.getAll();
