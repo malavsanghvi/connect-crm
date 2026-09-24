@@ -18,7 +18,7 @@ function homeBadge(tasks: TaskCount): { badge: string | null; label?: string } {
   if (!tasks) return { badge: null };
   if (!tasks.ok) return { badge: "!", label: tasks.error };
   if (tasks.count === 0) return { badge: null };
-  return { badge: tasks.count > 99 ? "99+" : String(tasks.count), label: `${tasks.count} waiting for a second approver` };
+  return { badge: tasks.count > 99 ? "99+" : String(tasks.count), label: `${tasks.count} task${tasks.count === 1 ? "" : "s"} waiting` };
 }
 
 /**
