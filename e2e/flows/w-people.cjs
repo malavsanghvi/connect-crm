@@ -24,6 +24,9 @@
 //               the kept one, and the audit entry carries the reason.
 //   modules     Membership and Communications switched off: the portal shows the notice and hides them, the
 //               member app says they aren't offered, the API refuses; switched back on, all audited.
+//   voting      a voting-eligibility override is requested with a reason, approved by someone else, applied.
+//   settings    Rules, Onboarding fields, Notifications and Security save into the versioned, audited rules.
+//   account     member settings: data export request, deactivate and reactivate; the privacy officer sees them.
 //   permissions a member's token cannot edit another household, approve applications, create newsletters,
 //               approve or self-grant roles; a teacher sees "no access" in the portal.
 //
@@ -553,12 +556,39 @@ const journeys = {
     ok(/Kiran Mehta/.test(priv) && /Deactivate account/.test(priv), 'the privacy officer sees the member\'s requests in Settings › Privacy');
     await officer.context().close();
   },
+
+  async voting(b) {
+    // Voting eligibility override: requested by one person with a reason, approved by a different one, applied.
+    await ensureSecondStaff('neha@jsh.test', 'JSH-90006');
+    sql("update app.eligibility_snapshots set override_by = null, override_reason = null, override_requested_value = null, override_second_approver = null, override_can_vote = null");
+    const admin = await portalLogin(b, 'admin@jsh.test');
+    await admin.goto(PORTAL + '/people/voting', { waitUntil: 'networkidle' });
+    const details = admin.locator('main details').first();
+    await details.locator('summary').click();
+    await details.locator('textarea[name=reason]').fill(`Paid maintenance in cash at the office ${RUN}`);
+    await submitAndConfirm(admin, details, /request override/i);
+    const snap = sql("select id from app.eligibility_snapshots where override_by is not null limit 1");
+    ok(!!snap, 'override requested with its reason');
+    ok(lastAudit('eligibility_snapshots', `and record_id = '${snap}'`).startsWith(`portal|/people/voting|Paid maintenance in cash at the office ${RUN}|membership`), 'request audited with the reason');
+    await admin.goto(PORTAL + '/people/voting', { waitUntil: 'networkidle' });
+    ok((await admin.getByRole('button', { name: /approve override/i }).count()) === 0, 'the requester gets no Approve button');
+    await admin.context().close();
+    const neha = await portalLogin(b, 'neha@jsh.test');
+    await neha.goto(PORTAL + '/people/voting', { waitUntil: 'networkidle' });
+    await submitAndConfirm(neha, neha.locator('main'), /approve override/i);
+    ok(sql(`select (override_second_approver is not null)::text from app.eligibility_snapshots where id = '${snap}'`) === 'true', 'a different person approved it');
+    await neha.goto(PORTAL + '/people/voting', { waitUntil: 'networkidle' });
+    await submitAndConfirm(neha, neha.locator('main'), /apply · mark/i);
+    ok(sql(`select (override_can_vote is not null)::text from app.eligibility_snapshots where id = '${snap}'`) === 'true', 'the override is applied');
+    await shot(neha, 'voting-1-applied');
+    await neha.context().close();
+  },
 };
 
 (async () => {
   const b = await chromium.launch();
   const want = process.argv.slice(2);
-  const order = ['join', 'profile', 'ask', 'whatsapp', 'newsletter', 'roles', 'merge', 'modules', 'permissions', 'settings', 'account'];
+  const order = ['join', 'profile', 'ask', 'whatsapp', 'newsletter', 'roles', 'merge', 'modules', 'permissions', 'settings', 'account', 'voting'];
   for (const name of order) {
     if (want.length && !want.includes(name)) continue;
     if (!journeys[name]) continue;
