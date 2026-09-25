@@ -683,6 +683,7 @@ export default async function PaymentsPage({ searchParams }: { searchParams: Pro
                               currency={center.currency}
                               paypalEmailOnly={paypalEmailOnly}
                               today={today}
+                              refundedCents={p.refunded_cents}
                             />
                           </td>
                         ) : null}

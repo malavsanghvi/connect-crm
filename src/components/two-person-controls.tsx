@@ -107,6 +107,7 @@ export function RefundControls({
   currency = "USD",
   paypalEmailOnly = false,
   today,
+  refundedCents = 0,
 }: {
   paymentId: string;
   provider: string | null;
@@ -115,6 +116,8 @@ export function RefundControls({
   paypalEmailOnly?: boolean;
   /** The community's today (YYYY-MM-DD), the default refund date. */
   today?: string;
+  /** Already refunded on this payment: an online refund is never sent or recorded twice (one request per payment, #8). */
+  refundedCents?: number;
   refundableCents?: number;
   requestedCents?: number | null;
   reason?: string | null;
@@ -127,6 +130,13 @@ export function RefundControls({
   canApprove: boolean;
 }) {
   if (!refundable) return null;
+  if (requestedBy && secondApprover && refundedCents > 0 && (provider === "stripe" || provider === "paypal")) {
+    return (
+      <p className="w-56 text-[0.8125rem] text-muted">
+        Refund of {formatCents(refundedCents, currency)} recorded. One refund request per payment for now.
+      </p>
+    );
+  }
   if (!requestedBy) {
     if (!canManage) return null;
     return (

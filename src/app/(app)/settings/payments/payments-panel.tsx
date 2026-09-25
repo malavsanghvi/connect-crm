@@ -305,6 +305,11 @@ function ProcessorCard({ p, s, tz, run, busy, askReason }: { p: ProcessorSetting
           {!s.forced_test && !lastLive?.ok ? <p className="text-muted">Go-live needs a passing live-mode test on the default processor.</p> : null}
         </div>
 
+        <p className="text-[13px]" data-testid={`donor-fee-${p.processor}`}>
+          <span className="font-semibold">Donors covering the processing fee:</span> <StatusText tone="warn">Not offered yet</StatusText>{" "}
+          <span className="text-muted">No fee is ever added to a gift: the donor pays exactly the amount they choose.</span>
+        </p>
+
         {connected && s.can_configure ? (
           <div className="flex flex-col gap-2 border-t border-line pt-3">
             <fieldset>
@@ -325,12 +330,6 @@ function ProcessorCard({ p, s, tz, run, busy, askReason }: { p: ProcessorSetting
               <input id={descId} className="crm-input mt-1 w-64" maxLength={22} value={descriptor} onChange={(e) => setDescriptor(e.target.value)} />
             </label>
             {descProblem ? <p className="text-danger">{descProblem}</p> : null}
-            <div>
-              <p className="font-semibold">Donors covering the processing fee</p>
-              <p className="text-muted">
-                <StatusText tone="warn">Not offered yet</StatusText> No fee is ever added to a gift: the donor pays exactly the amount they choose.
-              </p>
-            </div>
             <div className="flex flex-wrap gap-2">
               <button type="button" className={buttonClass("primary", "sm")} disabled={busy !== null || !!descProblem || methods.length === 0}
                 onClick={() => askReason({

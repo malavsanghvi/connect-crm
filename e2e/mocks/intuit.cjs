@@ -9,7 +9,8 @@
 //   POST /v3/company/:realm/<salesreceipt|refundreceipt|deposit|journalentry|creditmemo|payment>?requestid=
 //        (the same requestid answers the first result again, as Intuit does)
 //   GET  /__mock/state  (created entities, token calls, request log) · POST /__mock/reset · POST /__mock/set
-//        (/__mock/set {addAccount, addItem} adds a chart row, e.g. a "Pledge write-offs" account and its item)
+//        (/__mock/set {addAccount, addItem} adds a chart row, e.g. a "Pledge write-offs" account and its item;
+//         {lists: {Customer: [...], Invoice: [...], ...}} sets whole lists, e.g. a donor's history)
 //
 //   node e2e/mocks/intuit.cjs <port>   (or require it and call startIntuitMock)
 const http = require('http');
@@ -112,6 +113,7 @@ function startIntuitMock({ port = 0, clientId = 'intuit-test-client', clientSecr
           if (b.failNextCreate) state.failNextCreate = b.failNextCreate;
           if (b.addAccount && !state.lists.Account.some((x) => x.Id === b.addAccount.Id)) state.lists.Account.push({ Active: true, CurrencyRef: { value: 'USD' }, ...b.addAccount });
           if (b.addItem && !state.lists.Item.some((x) => x.Id === b.addItem.Id)) state.lists.Item.push({ Active: true, Type: 'Service', ...b.addItem });
+          if (b.lists) for (const [k, rows] of Object.entries(b.lists)) state.lists[k] = rows;   // e.g. Customer / Invoice / SalesReceipt history
           if (b.revokeAll) { state.refresh.clear(); state.access.clear(); }
           return send(res, 200, { ok: true });
         }

@@ -191,6 +191,12 @@ select pg_temp.assert((select count(*) = 2 from app.audit_log where action = 'pa
                          and client_app = 'portal' and module = 'giving' and reason in ('Donor asked in person; confirmed with the office', 'Checked the Stripe dashboard')),
   '#6 both approvals are audited with their reasons');
 begin;
+set local role authenticated;
+select pg_temp.as_user(:tara);
+select pg_temp.assert_raises($$select app.request_provider_refund('e3300000-0000-4000-8000-0000000000b1', 'again')$$, 'already recorded',
+  '#6/#8 (0415) the approvals left on the payment cannot send a second refund to Stripe');
+rollback;
+begin;
 set local role connect_worker;
 select pg_temp.assert((app.worker_flag_provider_refund('stripe', 'pi_e33_1', 2500, 're_dash_1', current_date, 'charge.refunded')->>'outcome') = 'already_recorded',
   '#6 the same Stripe total after recording flags nothing');
@@ -237,6 +243,8 @@ select pg_temp.assert(((app.record_manual_paypal_refund('e3300000-0000-4000-8000
   '#7 after both approvals the treasurer records the PayPal refund by hand');
 select pg_temp.assert_raises($$select app.record_manual_paypal_refund('e3300000-0000-4000-8000-0000000000b7', 100, current_date, '1AB23456CD789012E', 'again')$$,
   'already recorded', '#7 the same PayPal transaction cannot be recorded twice');
+select pg_temp.assert_raises($$select app.record_manual_paypal_refund('e3300000-0000-4000-8000-0000000000b7', 100, current_date, '7ZZ23456CD789012E', 'again')$$,
+  'One refund request per payment', '#7/#8 (0415) nor a second PayPal refund under the same approvals');
 commit;
 select pg_temp.assert((select p.status = 'refunded' and r.source = 'manual_paypal' and r.provider_ref = '1AB23456CD789012E' and r.refunded_on = current_date - 1
                               and r.first_approver = :tara::uuid and r.second_approver = :sam::uuid
