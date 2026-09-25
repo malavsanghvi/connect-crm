@@ -122,9 +122,13 @@ commit;
 select pg_temp.assert((select array_agg(status order by row_no) from app.import_rows where run_id = (select v::uuid from ctx where k = 'p_run'))
                        = array['created','updated','created','updated','failed'],
   'rows: created, updated by email, look-alike created (for merge review), same-file email repeat updated, error failed');
-select pg_temp.assert((select custom = '{"senior_status": true}'::jsonb from app.people where email = 'neel@example.com'),
+-- A staff-only field is kept off the member-readable record (0401, owner decision 22).
+select pg_temp.assert((select p.custom || coalesce((select s.custom from app.custom_staff_values s where s.entity = 'people' and s.record_key = p.id::text), '{}')
+                                = '{"senior_status": true}'::jsonb from app.people p where p.email = 'neel@example.com'),
   '"Senior status" is kept on the person as a custom field');
-select pg_temp.assert((select phone_e164 = '+17135550199' and custom ->> 'senior_status' = 'false' from app.people where id = '30000000-0000-4000-8000-000000000003'),
+select pg_temp.assert((select phone_e164 = '+17135550199'
+                              and (select s.custom ->> 'senior_status' from app.custom_staff_values s where s.entity = 'people' and s.record_key = p.id::text) = 'false'
+                         from app.people p where id = '30000000-0000-4000-8000-000000000003'),
   'the matched person was updated');
 select pg_temp.assert(exists (select 1 from app.merge_candidates m join app.import_rows x on x.target_id = m.left_id::text
                                where x.run_id = (select v::uuid from ctx where k = 'p_run') and x.row_no = 4 and m.kind = 'person' and m.status = 'open'),

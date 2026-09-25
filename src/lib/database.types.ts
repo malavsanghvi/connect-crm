@@ -1703,6 +1703,33 @@ export type Database = {
         };
         Relationships: [];
       };
+      custom_staff_values: {
+        Row: {
+          id: string;
+          center_id: string;
+          entity: string;
+          record_key: string;
+          custom: Json;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          center_id: string;
+          entity: string;
+          record_key: string;
+          custom?: Json;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          center_id?: string;
+          entity?: string;
+          record_key?: string;
+          custom?: Json;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       daily_timings: {
         Row: {
           id: string;
@@ -8617,6 +8644,10 @@ export type Database = {
         };
         Returns: string;
       };
+      cc_first_admin_reason: {
+        Args: Record<PropertyKey, never>;
+        Returns: string;
+      };
       center_entitlement_list: {
         Args: {
           p_center: string;
@@ -8850,6 +8881,12 @@ export type Database = {
         };
         Returns: string;
       };
+      custom_entity_read_perms: {
+        Args: {
+          p_entity: string;
+        };
+        Returns: string[];
+      };
       custom_entity_write_perms: {
         Args: {
           p_entity: string;
@@ -8859,6 +8896,20 @@ export type Database = {
       custom_field_entities: {
         Args: Record<PropertyKey, never>;
         Returns: string[];
+      };
+      custom_record_key: {
+        Args: {
+          p_table: string;
+          p_row: Json;
+        };
+        Returns: string;
+      };
+      custom_values: {
+        Args: {
+          p_entity: string;
+          p_ids: string[];
+        };
+        Returns: { record_key: string; custom: Json }[];
       };
       data_quality: {
         Args: {
@@ -9334,6 +9385,12 @@ export type Database = {
       is_center_staff: {
         Args: {
           p_center: string;
+        };
+        Returns: boolean;
+      };
+      is_first_second_admin_grant: {
+        Args: {
+          p_grant: string;
         };
         Returns: boolean;
       };
