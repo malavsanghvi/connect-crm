@@ -366,5 +366,6 @@ const navText = async (p) => (await p.locator('nav').first().innerText().catch((
   await browser.close();
   // Leave JSH as it was: its owner and the test fund / field definitions stay test data on this stack only.
   if (prevOwner) sql(`update app.center_owners set user_id = '${prevOwner}' where center_id = '${JSH}'`);
+  else sql(`delete from app.center_owners where center_id = '${JSH}' and user_id = '${ownerId}'`);   // JSH had no owner before this run (test data only)
   console.log(process.exitCode ? 'e-access: FAILED' : 'e-access: all checks passed');
 })().catch((e) => { console.error(e); process.exit(1); });

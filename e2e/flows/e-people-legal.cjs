@@ -433,6 +433,14 @@ const journeys = {
 (async () => {
   const want = process.argv.slice(2);
   const order = ['agreements', 'memberdocs', 'newmember', 'deceased', 'unsubscribe'];
+  // Test logins only: this flow signs admin@jsh.test in with the email code alone. On a shared stack another
+  // flow may have given it an authenticator app, which adds the 2FA step at sign-in and (#23) the fresh
+  // 2FA check on every protected action — remove it, as the other flows that sign in by code do.
+  const adminUid = sql("select id from auth.users where email = 'admin@jsh.test'");
+  for (const f of JSON.parse(sql(`select coalesce(json_agg(id), '[]') from auth.mfa_factors where user_id = '${adminUid}'`))) {
+    const r = await fetch(`${API}/auth/v1/admin/users/${adminUid}/factors/${f}`, { method: 'DELETE', headers: { apikey: env.SERVICE_KEY, authorization: `Bearer ${env.SERVICE_KEY}` } });
+    if (!r.ok) console.log(`NOTE could not remove the admin's authenticator ${f}: ${r.status}`);
+  }
   const browser = await chromium.launch({ executablePath: process.env.CHROME || undefined });
   try {
     for (const name of order) {
