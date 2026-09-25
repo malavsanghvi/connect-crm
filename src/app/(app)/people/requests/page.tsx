@@ -27,7 +27,9 @@ function detailsSummary(kind: string, details: unknown): string {
     const name = [text(d.first_name), text(d.last_name)].filter(Boolean).join(" ") || "New person";
     const rel = text(d.relationship);
     const dob = text(d.dob);
-    return [name, rel ? `as their ${rel}` : null, dob ? `DOB ${dob}` : null].filter(Boolean).join(" · ");
+    const phone = text(d.phone);
+    const email = text(d.email);
+    return [name, rel ? `as their ${rel}` : null, dob ? `DOB ${dob}` : null, phone, email].filter(Boolean).join(" · ");
   }
   if (kind === "change_relationship") {
     const from = text(d.relationship_from);

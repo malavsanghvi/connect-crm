@@ -9313,6 +9313,12 @@ export type Database = {
         };
         Returns: { person_id: string; household_id: string; household_name: string; tier: Database["app"]["Enums"]["membership_tier"]; member_names: string[] }[];
       };
+      find_pending_family_add_requests: {
+        Args: {
+          p_center: string;
+        };
+        Returns: { request_id: string; household_name: string; requested_by_name: string; first_name: string; last_name: string; requested_at: string }[];
+      };
       flagged_refund_count: {
         Args: {
           p_center: string;
@@ -10385,6 +10391,18 @@ export type Database = {
           p_reason: string;
         };
         Returns: undefined;
+      };
+      request_add_family_member: {
+        Args: {
+          p_household: string;
+          p_first: string;
+          p_last: string;
+          p_relationship?: string;
+          p_dob?: string;
+          p_phone?: string;
+          p_email?: string;
+        };
+        Returns: string;
       };
       request_golive: {
         Args: {
