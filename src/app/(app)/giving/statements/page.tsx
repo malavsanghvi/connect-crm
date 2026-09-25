@@ -6,7 +6,7 @@ import { isPlainObject } from "@/lib/center-rules";
 import { chunk, fetchAll } from "@/lib/data/fetch-all";
 import { householdsById, userNames } from "@/lib/data/lookups";
 import { formatDateTime, todayInTz } from "@/lib/dates";
-import { RECEIPT_KINDS } from "@/lib/giving";
+import { OPENING_BALANCE_LABEL, RECEIPT_KINDS } from "@/lib/giving";
 import { canAccess } from "@/lib/permissions";
 import { hrefWith, pageParam, param, type RawSearchParams } from "@/lib/search-params";
 import { getSession } from "@/lib/session";
@@ -68,6 +68,8 @@ export default async function StatementsPage({ searchParams }: { searchParams: P
         .gte("received_on", `${lastYear}-01-01`)
         .lte("received_on", `${lastYear}-12-31`)
         .not("status", "in", "(failed,voided,authorized)")
+        // Year-end statements leave out opening-balance lines (0522): they are not gifts received that year.
+        .eq("is_opening_balance", false)
         .order("id")
         .range(f, t),
     ),
@@ -127,7 +129,7 @@ export default async function StatementsPage({ searchParams }: { searchParams: P
             <QueryError what="the year-end figures" error={gifts.error ?? issued.error} retryHref="/giving/statements" />
           ) : (
             <KpiGrid cols={4}>
-              <Stat label="Households with gifts" value={giftHouseholds.toLocaleString()} hint={String(lastYear)} tone="navy" />
+              <Stat label="Households with gifts" value={giftHouseholds.toLocaleString()} hint={`${lastYear} · opening balances left out`} tone="navy" />
               <Stat label="Statements issued" value={issuedHouseholds.toLocaleString()} hint="email and in app" tone="success" />
               <Stat
                 label="Mailed on paper"
@@ -138,6 +140,10 @@ export default async function StatementsPage({ searchParams }: { searchParams: P
               <Stat label="Reissued on request" value={Math.max(0, reissued).toLocaleString()} hint="more than one statement for a household" tone="purple" />
             </KpiGrid>
           )}
+          <p className="mt-2 text-xs text-muted" data-testid="statements-opening-balance-rule">
+            Year-end statements and their tax-deductible totals leave out opening-balance lines (what was paid on a pledge before the imported
+            payment history begins); each household&apos;s giving history still shows them, labelled {OPENING_BALANCE_LABEL.toLowerCase()}.
+          </p>
           <p className="mt-2 text-xs text-muted">
             Generating and sending statements runs in the statements service (a backend job), which is not connected to the console yet — the
             button stays off until it is.
