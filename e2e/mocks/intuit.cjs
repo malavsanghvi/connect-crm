@@ -6,9 +6,10 @@
 //   POST /oauth2/v1/tokens/bearer   authorization_code | refresh_token (Basic auth checked)
 //   GET  /v3/company/:realm/companyinfo/:realm
 //   GET  /v3/company/:realm/query?query=select * from <Entity> [where ...] STARTPOSITION n MAXRESULTS m
-//   POST /v3/company/:realm/<salesreceipt|refundreceipt|deposit|journalentry>?requestid=
+//   POST /v3/company/:realm/<salesreceipt|refundreceipt|deposit|journalentry|creditmemo|payment>?requestid=
 //        (the same requestid answers the first result again, as Intuit does)
 //   GET  /__mock/state  (created entities, token calls, request log) · POST /__mock/reset · POST /__mock/set
+//        (/__mock/set {addAccount, addItem} adds a chart row, e.g. a "Pledge write-offs" account and its item)
 //
 //   node e2e/mocks/intuit.cjs <port>   (or require it and call startIntuitMock)
 const http = require('http');
@@ -109,6 +110,8 @@ function startIntuitMock({ port = 0, clientId = 'intuit-test-client', clientSecr
           const b = JSON.parse(body || '{}');
           if (b.renameAccount) { const a = state.lists.Account.find((x) => x.Id === b.renameAccount.id); a.Name = b.renameAccount.name; a.FullyQualifiedName = b.renameAccount.name; }
           if (b.failNextCreate) state.failNextCreate = b.failNextCreate;
+          if (b.addAccount && !state.lists.Account.some((x) => x.Id === b.addAccount.Id)) state.lists.Account.push({ Active: true, CurrencyRef: { value: 'USD' }, ...b.addAccount });
+          if (b.addItem && !state.lists.Item.some((x) => x.Id === b.addItem.Id)) state.lists.Item.push({ Active: true, Type: 'Service', ...b.addItem });
           if (b.revokeAll) { state.refresh.clear(); state.access.clear(); }
           return send(res, 200, { ok: true });
         }
@@ -139,7 +142,8 @@ function startIntuitMock({ port = 0, clientId = 'intuit-test-client', clientSecr
           const page = out.slice(start - 1, start - 1 + max);
           return send(res, 200, { QueryResponse: page.length ? { [entity]: page, startPosition: start, maxResults: page.length } : {}, time: new Date().toISOString() });
         }
-        const ENT = { salesreceipt: 'SalesReceipt', refundreceipt: 'RefundReceipt', deposit: 'Deposit', journalentry: 'JournalEntry' }[m[2]];
+        const ENT = { salesreceipt: 'SalesReceipt', refundreceipt: 'RefundReceipt', deposit: 'Deposit', journalentry: 'JournalEntry',
+                      creditmemo: 'CreditMemo', payment: 'Payment' }[m[2]];
         if (req.method === 'POST' && ENT) {
           const rid = url.searchParams.get('requestid');
           if (rid && state.byRequest.has(rid)) return send(res, 200, state.byRequest.get(rid));
@@ -151,12 +155,20 @@ function startIntuitMock({ port = 0, clientId = 'intuit-test-client', clientSecr
             const acc = (l.DepositLineDetail && l.DepositLineDetail.AccountRef) || (l.JournalEntryLineDetail && l.JournalEntryLineDetail.AccountRef);
             if (acc && !state.lists.Account.some((a) => a.Id === acc.value && a.Active)) return fault(res, 400, 'Invalid Reference Id', `Account ${acc.value} not found`, '2500');
           }
+          if (ENT === 'CreditMemo' && !(doc.CustomerRef && doc.CustomerRef.value)) return fault(res, 400, 'Required param missing', 'CustomerRef is required', '2020');
+          if (ENT === 'Payment') {
+            // Applying a credit memo: a $0 payment whose lines link an invoice and a credit memo created here.
+            const links = (doc.Line || []).flatMap((l) => l.LinkedTxn || []);
+            const cm = links.find((x) => x.TxnType === 'CreditMemo');
+            if (cm && !state.created.some((c) => c.entity === 'CreditMemo' && c.doc.Id === cm.TxnId)) return fault(res, 400, 'Invalid Reference Id', `CreditMemo ${cm.TxnId} not found`, '2500');
+          }
           if (ENT === 'JournalEntry') {
             const sum = (t) => (doc.Line || []).filter((l) => l.JournalEntryLineDetail.PostingType === t).reduce((s, l) => s + l.Amount, 0);
             if (Math.abs(sum('Debit') - sum('Credit')) > 0.001) return fault(res, 400, 'Business Validation Error', 'Transaction must balance', '6060');
           }
           const id = String(state.nextId++);
-          const total = (doc.Line || []).filter((l) => ENT !== 'JournalEntry' || l.JournalEntryLineDetail.PostingType === 'Debit').reduce((s, l) => s + l.Amount, 0);
+          const total = ENT === 'Payment' ? Number(doc.TotalAmt || 0)
+            : (doc.Line || []).filter((l) => ENT !== 'JournalEntry' || l.JournalEntryLineDetail.PostingType === 'Debit').reduce((s, l) => s + l.Amount, 0);
           const saved = { ...doc, Id: id, SyncToken: '0', TotalAmt: Math.round(total * 100) / 100, MetaData: { CreateTime: new Date().toISOString() } };
           const answer = { [ENT]: saved, time: new Date().toISOString() };
           state.created.push({ entity: ENT, requestId: rid, doc: saved });

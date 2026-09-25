@@ -4,8 +4,7 @@
 // so whichever arrives first wins and the other is a duplicate.
 
 import { providerStatus, type Env, type Readiness } from "../config";
-import { PermanentError } from "../errors";
-import { capturePaypalOrder, closeCheckout, dbValue, loadCheckout, recordPaypalCapture } from "../payments/core";
+import { capturePaypalOrder, closeCheckout, flagProviderRefund, loadCheckout, recordPaypalCapture } from "../payments/core";
 import { decimalToCents } from "../payments/providers";
 import { runWebhook, type EventOutcome, type StoredEvent } from "../payments/webhook";
 import type { Job, JobContext } from "../types";
@@ -48,17 +47,19 @@ export async function handle(ev: StoredEvent, ctx: JobContext): Promise<EventOut
       return { outcome: "checkout failed", center: checkout.center_id };
     }
     case "PAYMENT.CAPTURE.REFUNDED": {
+      // A refund made in PayPal (owner decision 2026-09-25 #6): flagged until two people approve it.
       const up = ((r.links as Obj[] | undefined) ?? []).find((l) => l.rel === "up");
       const captureId = typeof up?.href === "string" ? up.href.split("/").pop() ?? "" : "";
-      const pay = captureId ? await dbValue<{ center_id: string; refunded_cents: number }>(ctx, "select app.worker_payment_by_ref('paypal', $1) as v", [captureId]) : null;
-      if (!pay) return { outcome: "ignored: not a Community Connect payment" };
+      if (!captureId) return { outcome: "ignored: the refund names no capture" };
       const total = decimalToCents(obj(obj(r.seller_payable_breakdown).total_refunded_amount).value) ?? decimalToCents(obj(r.amount).value) ?? 0;
-      if (total > pay.refunded_cents) {
-        throw new PermanentError(
-          `PayPal reports a refund on capture ${captureId} that Community Connect did not record. A refund made in PayPal is not recorded automatically (it skips the two-person approval); it needs an owner decision.`,
-        );
+      const on = typeof r.create_time === "string" ? r.create_time.slice(0, 10) : null;
+      const res = await flagProviderRefund(ctx, "paypal", captureId, total, typeof r.id === "string" ? r.id : null, on, ev.event_type);
+      if (!res) return { outcome: "ignored: not a Community Connect payment" };
+      if (res.outcome === "flagged") {
+        ctx.log.warn("a refund made in PayPal was flagged for two approvals", { payment: res.payment_id, amount_cents: res.amount_cents });
+        return { outcome: "refund made in PayPal flagged for approval", center: res.center_id, refund_id: res.refund_id, payment_id: res.payment_id, amount_cents: res.amount_cents };
       }
-      return { outcome: "refund already recorded", center: pay.center_id };
+      return { outcome: res.outcome === "already_flagged" ? "refund already flagged" : "refund already recorded", payment_id: res.payment_id };
     }
     case "MERCHANT.ONBOARDING.COMPLETED":
     case "MERCHANT.PARTNER-CONSENT.REVOKED": {
