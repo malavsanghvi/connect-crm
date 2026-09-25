@@ -4,7 +4,7 @@ import Link from "next/link";
 import { HouseholdDrawerProvider, HouseholdRow } from "@/app/(app)/giving/_components/household-drawer";
 import { ActionForm } from "@/components/action-form";
 import { HistoryButton } from "@/components/record-history";
-import { RefundControls } from "@/components/two-person-controls";
+import { FlaggedRefundControls, RefundControls } from "@/components/two-person-controls";
 import {
   Alert,
   Badge,
@@ -215,6 +215,22 @@ export default async function PaymentsPage({ searchParams }: { searchParams: Pro
         .limit(10)
     : null;
   const refundRows = refunds?.data ?? [];
+
+  // Refunds made in the Stripe / PayPal dashboard, flagged until two people approve them (#6),
+  // and whether PayPal is connected by email only (its refunds are recorded by hand, #7).
+  type Flagged = {
+    id: string; payment_id: string; provider: string; amount_cents: number; refunded_on: string | null; provider_ref: string;
+    detail: string | null; first_approver: string | null; first_approver_name: string | null; receipt_number: string | null;
+    household_id: string; payment_amount_cents: number; refunded_cents: number;
+  };
+  const [flaggedRes, paypalEmailRes] = seesAll || canManage || canApprove
+    ? await Promise.all([db.rpc("flagged_refunds", { p_center: center.id }), db.rpc("paypal_email_only", { p_center: center.id })])
+    : [null, null];
+  if (flaggedRes?.error) console.error("[payments] flagged_refunds failed:", flaggedRes.error);
+  if (paypalEmailRes?.error) console.error("[payments] paypal_email_only failed; PayPal refunds are offered through PayPal:", paypalEmailRes.error);
+  const flagged = ((flaggedRes?.data ?? []) as unknown as Flagged[]);
+  const paypalEmailOnly = paypalEmailRes?.data === true;
+  const flaggedHouseholds = await householdsById(db, flagged.map((f) => f.household_id));
   const [refundHouseholds, refundPeople, dafHouseholds] = await Promise.all([
     householdsById(db, refundRows.map((r) => r.household_id)),
     userNames(db, center.id, refundRows.map((r) => r.refund_approved_by)),
@@ -394,6 +410,68 @@ export default async function PaymentsPage({ searchParams }: { searchParams: Pro
           </Card>
         ) : null}
 
+        {flaggedRes && (flaggedRes.error || flagged.length > 0) ? (
+          <Card
+            span={12}
+            title="Refunds made in Stripe or PayPal — need approval"
+            description="The provider reported these refunds. Nothing changes on the payment until two different people approve each one."
+            padded={false}
+          >
+            {flaggedRes.error ? (
+              <div className="p-2.5">
+                <QueryError what="refunds made in Stripe or PayPal" error={flaggedRes.error} retryHref="/giving/payments" />
+              </div>
+            ) : (
+              <TableWrap>
+                <table className="crm-table" data-testid="flagged-refunds">
+                  <thead>
+                    <tr>
+                      <th>Payment</th>
+                      <th>Household</th>
+                      <th className="num">Refunded</th>
+                      <th>In</th>
+                      <th>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {flagged.map((f) => {
+                      const h = flaggedHouseholds.map.get(f.household_id);
+                      return (
+                        <tr key={f.id} data-refund={f.id}>
+                          <td className="font-mono text-[0.8125rem]">
+                            {f.receipt_number ?? "—"}
+                            <div className="font-sans text-xs text-muted">of {formatCents(f.payment_amount_cents, center.currency)}</div>
+                          </td>
+                          <td>{h?.display_name ?? "Household"}</td>
+                          <td className="num">{formatCents(f.amount_cents, center.currency)}</td>
+                          <td className="text-[0.8125rem]">
+                            {f.provider === "paypal" ? "PayPal" : "Stripe"} dashboard
+                            {f.refunded_on ? <div className="text-xs text-muted">{formatDate(f.refunded_on, tz)}</div> : null}
+                            <div className="font-mono text-xs text-muted">{f.provider_ref}</div>
+                          </td>
+                          <td>
+                            <StatusText tone="warn">Flagged · needs approval</StatusText>
+                            <div className="mt-1">
+                              <FlaggedRefundControls
+                                refundId={f.id}
+                                firstApprover={f.first_approver}
+                                firstApproverName={f.first_approver_name}
+                                me={session.userId}
+                                canManage={canManage}
+                                canApprove={canApprove}
+                              />
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </TableWrap>
+            )}
+          </Card>
+        ) : null}
+
         {seesAll ? (
           <Card span={seesCounting ? 5 : 12} title="Refund requests" description="Two-person rule: the requester cannot approve" padded={false}>
             {refunds?.error ? (
@@ -440,7 +518,10 @@ export default async function PaymentsPage({ searchParams }: { searchParams: Pro
                                   canManage={canManage}
                                   canApprove={canApprove}
                                   requestedCents={r.refund_requested_cents}
+                                  reason={r.refund_reason}
                                   currency={center.currency}
+                                  paypalEmailOnly={paypalEmailOnly}
+                                  today={today}
                                 />
                               </div>
                             ) : null}
@@ -486,6 +567,7 @@ export default async function PaymentsPage({ searchParams }: { searchParams: Pro
             <option value="offline">Recorded offline</option>
             <option value="bank">Matched from the bank</option>
             <option value="stripe">Online (Stripe)</option>
+            <option value="paypal">Online (PayPal)</option>
           </select>
         </div>
         <div>
@@ -599,6 +681,9 @@ export default async function PaymentsPage({ searchParams }: { searchParams: Pro
                               canApprove={canApprove}
                               refundableCents={p.amount_cents - p.refunded_cents}
                               currency={center.currency}
+                              paypalEmailOnly={paypalEmailOnly}
+                              today={today}
+                              refundedCents={p.refunded_cents}
                             />
                           </td>
                         ) : null}

@@ -136,10 +136,13 @@ describe("mapping", () => {
     expect(r.data).toMatchObject({ first_name: "Mira", last_name: "Shah" });
   });
 
-  it("stops written-off pledges and over-applied payments with a plain error", () => {
-    const ph = ["Pledge number", "Household ID", "Amount", "Status"];
-    const p = buildRow("pledges", autoMap("pledges", ph, []), ph, ["PL-1", "0212", "$100", "Written off"], 2, TODAY);
-    expect(p.problems[0]).toMatchObject({ level: "error", message: expect.stringMatching(/two approvers/) });
+  it("imports written-off pledges as written off (owner decision #24) and stops over-applied payments with a plain error", () => {
+    const ph = ["Pledge number", "Household ID", "Amount", "Status", "Paid so far", "Written off by", "Write-off reason"];
+    const p = buildRow("pledges", autoMap("pledges", ph, []), ph, ["PL-1", "0212", "$100", "Written off", "$20", "R. Mehta", "Moved away"], 2, TODAY);
+    expect(p.data).toMatchObject({ status: "written_off", written_off_by_name: "R. Mehta", write_off_reason: "Moved away" });
+    expect(p.problems.some((x) => /written off|two approvers/i.test(x.message))).toBe(false);
+    const paid = buildRow("pledges", autoMap("pledges", ph, []), ph, ["PL-2", "0212", "$100", "Write-off", "$100", "", ""], 3, TODAY);
+    expect(paid.problems).toContainEqual(expect.objectContaining({ level: "error", message: expect.stringMatching(/paid in full cannot be imported as written off/) }));
     const yh = ["Payment number", "Household ID", "Amount", "Method", "Received on", "Pledge number", "Amount applied to the pledge"];
     const y = buildRow("payments", autoMap("payments", yh, []), yh, ["R-1", "0212", "$100", "Cheque", "1/2/2020", "PL-1", "$150"], 2, TODAY);
     expect(y.data.method).toBe("check");

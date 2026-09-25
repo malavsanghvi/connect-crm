@@ -10,7 +10,7 @@ import * as pull from "../src/handlers/qbo.pull_lists";
 import * as refresh from "../src/handlers/qbo.refresh_token";
 import * as testPost from "../src/handlers/qbo.test_post";
 import { createHttp } from "../src/http";
-import { checkDoc, dollars, references, toQbo, totalCents, type QboDoc } from "../src/qbo/documents";
+import { applyCreditMemo, checkDoc, dollars, references, toQbo, totalCents, type QboDoc } from "../src/qbo/documents";
 import { apiBase, appKeys, faultMessage, ReconnectNeededError, tokenRequest, tokenUrl } from "../src/qbo/intuit";
 import { createRegistry, jobContext } from "../src/runner";
 import { captureLog, fakeDb, job } from "./helpers";
@@ -93,6 +93,21 @@ describe("documents", () => {
     const dep: QboDoc = { entity: "Deposit", txn_date: "2026-03-03", deposit_account: "2", lines: [{ amount_cents: 100, account_id: "3" }] };
     expect(toQbo(dep)).toMatchObject({ DepositToAccountRef: { value: "2" }, Line: [{ DetailType: "DepositLineDetail", DepositLineDetail: { AccountRef: { value: "3" } } }] });
     expect(references(dep)).toEqual({ accounts: ["2", "3"], items: [], classes: [] });
+  });
+  it("a pledge write-off credit memo goes to the customer, and is applied to its invoice with a $0 payment", () => {
+    const cm: QboDoc = { entity: "CreditMemo", txn_date: "2026-09-25", doc_number: "WO-P-1", customer_ref: "701", apply_to_invoice: "7401",
+      lines: [{ amount_cents: 50000, description: "Pledge write-off", item_id: "23", account_id: "10" }] };
+    expect(toQbo(cm)).toEqual({ TxnDate: "2026-09-25", DocNumber: "WO-P-1", CustomerRef: { value: "701" },
+      Line: [{ Amount: 500, Description: "Pledge write-off", DetailType: "SalesItemLineDetail", SalesItemLineDetail: { ItemRef: { value: "23" }, Qty: 1, UnitPrice: 500 } }] });
+    expect(applyCreditMemo(cm, "3001")).toEqual({ TxnDate: "2026-09-25", CustomerRef: { value: "701" }, TotalAmt: 0,
+      Line: [{ Amount: 500, LinkedTxn: [{ TxnId: "7401", TxnType: "Invoice" }] }, { Amount: 500, LinkedTxn: [{ TxnId: "3001", TxnType: "CreditMemo" }] }] });
+    expect(() => checkDoc({ ...cm, customer_ref: null })).toThrow(/customer/);
+  });
+  it("a receivable journal line carries its customer", () => {
+    const je: QboDoc = { entity: "JournalEntry", txn_date: "2026-09-25", lines: [
+      { amount_cents: 100, posting: "Debit", account_id: "10" }, { amount_cents: 100, posting: "Credit", account_id: "11", customer_ref: "701" }] };
+    const line = (toQbo(je).Line as { JournalEntryLineDetail: Record<string, unknown> }[])[1]!;
+    expect(line.JournalEntryLineDetail.Entity).toEqual({ Type: "Customer", EntityRef: { value: "701" } });
   });
   it("refuses a sales line without an item", () => {
     expect(() => checkDoc({ ...sr, lines: [{ amount_cents: 1, account_id: "1" }] })).toThrow(/item/);
@@ -192,6 +207,25 @@ describe("qbo.post", () => {
     expect(await post.run(j, ctxOf(db, j).ctx)).toMatchObject({ posted: 0, failed: 1 });
     const failed = calls.find((c) => c.fn === "query" && String(c.args[0]).includes("qbo_worker_posting_failed"));
     expect(failed?.args[1]).toEqual([[id], expect.stringContaining("Invalid Reference Id"), false, "1"]);
+  });
+  it("a pledge write-off posts its credit memo once and applies it to the invoice once", async () => {
+    const id = "11111111-0000-4000-8000-0000000000c1";
+    const cmUnit = { unit_id: id, posting_ids: [id], doc: { entity: "CreditMemo", txn_date: "2026-09-25", doc_number: "WO-1", customer_ref: "701",
+      customer_status: "matched", apply_to_invoice: "7401", lines: [{ amount_cents: 50000, description: "Pledge write-off", item_id: "20", account_id: "1" }] } };
+    const { db, calls } = qboDb({ secrets: await signedIn(), claims: [{ ready: true, realm_connection: CONN, units: [cmUnit] }] });
+    const j = job({ kind: "qbo.post", payload: {} });
+    expect(await post.run(j, ctxOf(db, j).ctx)).toMatchObject({ posted: 1, failed: 0 });
+    const made = mock.state.created.filter((c) => c.requestId === id || c.requestId === `${id}-apply`);
+    expect(made.map((c) => c.entity)).toEqual(["CreditMemo", "Payment"]);
+    const cmId = made[0]!.doc.Id as string;
+    expect((made[1]!.doc.Line as { LinkedTxn: { TxnId: string; TxnType: string }[] }[]).map((l) => l.LinkedTxn[0])).toEqual([
+      { TxnId: "7401", TxnType: "Invoice" }, { TxnId: cmId, TxnType: "CreditMemo" }]);
+    const done = calls.find((c) => c.fn === "query" && String(c.args[0]).includes("qbo_worker_posting_done"));
+    expect((done?.args[1] as unknown[]).slice(1, 3)).toEqual(["CreditMemo", cmId]);
+    // Retried (a lost answer): QuickBooks returns the first ones; nothing is created twice.
+    const again = qboDb({ secrets: await signedIn(), claims: [{ ready: true, realm_connection: CONN, units: [cmUnit] }] });
+    await post.run(j, ctxOf(again.db, j).ctx);
+    expect(mock.state.created.filter((c) => c.requestId === id || c.requestId === `${id}-apply`).length).toBe(2);
   });
   it("not ready: says why and posts nothing", async () => {
     const { db } = qboDb({ claims: [{ ready: false, reason: "The test post is not approved.", units: [] }] });

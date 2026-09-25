@@ -5,6 +5,10 @@
 // in QuickBooks once: requestid = the posting's id, so a retry after a lost
 // answer gets the first result back instead of a second entry.
 //
+// A pledge write-off from a QuickBooks invoice posts a CreditMemo and then
+// applies it to that invoice with a $0 Payment (requestid = the posting id +
+// "-apply"), as QuickBooks applies credits.
+//
 // CustomerRef comes from the donor matching stream's app.qbo_customer_for; when
 // that is not built yet the entries post without a customer and this says so
 // once in the log.
@@ -12,7 +16,7 @@
 import { providerStatus, type Env } from "../config";
 import { isRetryable, messageOf } from "../errors";
 import { QboClient, QboRejectedError } from "../qbo/client";
-import { toQbo, type QboDoc } from "../qbo/documents";
+import { applyCreditMemo, toQbo, type QboDoc } from "../qbo/documents";
 import { ReconnectNeededError } from "../qbo/intuit";
 import type { Job, JobContext } from "../types";
 
@@ -51,6 +55,18 @@ export async function run(job: Job, ctx: JobContext) {
       noteCustomerStatus(ctx, u.doc.customer_status);
       try {
         const saved = await qbo.create(u.doc.entity, toQbo(u.doc), u.unit_id);
+        // A pledge write-off's credit memo is applied to the invoice it came from (same requestid rule:
+        // a retry after a lost answer gets the first Payment back, never a second).
+        if (u.doc.entity === "CreditMemo" && u.doc.apply_to_invoice) {
+          try {
+            await qbo.create("Payment", applyCreditMemo(u.doc, saved.Id), `${u.unit_id}-apply`);
+          } catch (err) {
+            if (err instanceof QboRejectedError) {
+              throw new QboRejectedError(`QuickBooks created credit memo ${saved.Id} but would not apply it to invoice ${u.doc.apply_to_invoice}: ${messageOf(err)}`);
+            }
+            throw err;
+          }
+        }
         await ctx.db.query("select app.qbo_worker_posting_done($1::uuid[], $2, $3, $4)", [u.posting_ids, u.doc.entity, saved.Id, job.id]);
         totals.posted += u.posting_ids.length;
       } catch (err) {

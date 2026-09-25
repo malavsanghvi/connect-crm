@@ -10,7 +10,8 @@ import { identifierRules } from "@/lib/center-rules";
 import { fetchAll } from "@/lib/data/fetch-all";
 import { campaignsForCenter, householdsById, userNames } from "@/lib/data/lookups";
 import { dateInTz, startOfDayInTz, todayInTz } from "@/lib/dates";
-import { PLEDGE_VIEWS, monthYear, pledgeStatusText, pledgeViewFromParam } from "@/lib/giving";
+import { explainError } from "@/lib/errors";
+import { PLEDGE_VIEWS, monthYear, pledgeStatusText, pledgeViewFromParam, writeOffPostingText, type WriteOffPosting } from "@/lib/giving";
 import { formatCents } from "@/lib/money";
 import { canAccess } from "@/lib/permissions";
 import { hrefWith, isUuid, pageParam, param, type RawSearchParams } from "@/lib/search-params";
@@ -61,7 +62,7 @@ export default async function PledgesPage({ searchParams }: { searchParams: Prom
   let tableQuery = db
     .from("pledges")
     .select(
-      "id, pledge_number, household_id, campaign_id, source, amount_cents, paid_cents, status, pledged_at, due_on, written_off_by, written_off_second_approver, write_off_reason",
+      "id, pledge_number, household_id, campaign_id, source, amount_cents, paid_cents, status, pledged_at, due_on, written_off_by, written_off_second_approver, write_off_reason, written_off_by_name, closed_at",
       { count: "exact" },
     )
     .eq("center_id", center.id);
@@ -98,6 +99,11 @@ export default async function PledgesPage({ searchParams }: { searchParams: Prom
     userNames(db, center.id, rows.map((r) => r.written_off_by)),
   ]);
   const showWriteOff = canManage || canApprove;
+  // What each written-off pledge became in QuickBooks (0412), shown on its row.
+  const writtenOffIds = rows.filter((r) => r.status === "written_off").map((r) => r.id);
+  const woPostings = writtenOffIds.length ? await db.rpc("pledge_writeoff_postings", { p_pledges: writtenOffIds }) : null;
+  if (woPostings?.error) console.error("[pledges] pledge_writeoff_postings failed:", woPostings.error);
+  const woByPledge = (woPostings?.data ?? {}) as Record<string, WriteOffPosting>;
   const filtered = Boolean(campaign || year);
 
   const chips = (
@@ -210,6 +216,22 @@ export default async function PledgesPage({ searchParams }: { searchParams: Prom
                           ) : (
                             <StatusText tone={st.tone}>{st.label}</StatusText>
                           )}
+                          {p.status === "written_off" ? (
+                            <div className="text-xs text-muted">
+                              {p.write_off_reason ? `“${p.write_off_reason}”` : null}
+                              {p.written_off_by_name ? ` · written off by ${p.written_off_by_name} (imported)` : null}
+                              {woPostings?.error ? (
+                                <div className="text-danger">Could not load the QuickBooks status — {explainError(woPostings.error)}.</div>
+                              ) : (() => {
+                                const q = writeOffPostingText(woByPledge[p.id]);
+                                return q ? (
+                                  <div data-testid="writeoff-qbo">
+                                    <StatusText tone={q.tone === "muted" ? "warn" : q.tone}>{q.label}</StatusText>
+                                  </div>
+                                ) : null;
+                              })()}
+                            </div>
+                          ) : null}
                           {bucket && bucket !== "not_due" ? (
                             <div className={`text-xs ${bucket === "d90_plus" ? "font-semibold text-danger" : "text-muted"}`}>
                               {AGING_BUCKETS.find((b) => b.key === bucket)?.label}

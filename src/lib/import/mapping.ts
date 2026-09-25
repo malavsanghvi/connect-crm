@@ -312,14 +312,6 @@ export function buildRow(
     if (!f) return;
     const blank = cleanText(cell instanceof Date ? cell.toISOString() : cell) === "";
     if (blank) return;
-    if (entity.key === "pledges" && f.key === "status" && /writ/i.test(String(cell))) {
-      row.problems.push({
-        level: "error",
-        column: header,
-        message: "Written-off pledges cannot be imported as written off: a write-off needs two approvers. Import it as cancelled, or leave it out.",
-      });
-      return;
-    }
     const v = transformField(f, cell, mapping);
     if (!v.ok) {
       const lvl = f.required ? "error" : "warning";
@@ -416,6 +408,11 @@ function applyEntityRules(entity: EntityDef, row: StagedRow, byField: Map<string
     row.data.address = row.data.address.toLowerCase();
   }
 
+  // Written-off pledges (owner decision 2026-09-25 #24): a fully paid pledge cannot have been written off.
+  if (entity.key === "pledges" && row.data.status === "written_off" && row.extra.paid_so_far !== undefined && row.data.amount_cents !== undefined
+      && Number(row.extra.paid_so_far) >= Number(row.data.amount_cents)) {
+    error(byField.get("status")?.header ?? null, "A pledge that was paid in full cannot be imported as written off.");
+  }
   if (entity.key === "pledges" && row.extra.paid_so_far !== undefined && row.data.amount_cents !== undefined) {
     if (Number(row.extra.paid_so_far) > Number(row.data.amount_cents)) {
       warn(byField.get("paid_so_far")?.header ?? null, "Paid so far is more than the pledge amount.");

@@ -47,6 +47,41 @@ export function recordPayment(ctx: JobContext, checkout: Checkout, ref: string, 
   ]).then((v) => v ?? {});
 }
 
+export type FlaggedRefund = {
+  outcome: "flagged" | "already_recorded" | "already_flagged" | "not_ours";
+  refund_id?: string;
+  payment_id?: string;
+  amount_cents?: number;
+  center_id?: string;
+};
+
+/**
+ * The provider says a charge was refunded (running total). Anything Community Connect did not record
+ * becomes ONE flagged refund needing two approvals (app.worker_flag_provider_refund). Null when the
+ * charge is not a Community Connect payment. While a refund we sent is still being recorded the
+ * database refuses, and the webhook job is retried.
+ */
+export async function flagProviderRefund(
+  ctx: JobContext,
+  provider: "stripe" | "paypal",
+  paymentRef: string,
+  totalRefundedCents: number,
+  refundRef: string | null,
+  refundedOn: string | null,
+  eventType: string,
+): Promise<FlaggedRefund | null> {
+  const v = await dbValue<FlaggedRefund>(ctx, "select app.worker_flag_provider_refund($1, $2, $3, $4, $5::date, $6) as v", [
+    provider,
+    paymentRef,
+    Math.max(0, Math.round(totalRefundedCents)),
+    refundRef || null,
+    refundedOn && /^\d{4}-\d{2}-\d{2}$/.test(refundedOn) ? refundedOn : null,
+    eventType,
+  ]);
+  if (!v || v.outcome === "not_ours") return null;
+  return v;
+}
+
 export function closeCheckout(ctx: JobContext, checkoutId: string, status: "failed" | "cancelled" | "expired", error: string) {
   return ctx.db.query("select app.worker_checkout_closed($1, $2, $3)", [checkoutId, status, error]);
 }
@@ -154,7 +189,7 @@ export async function capturePaypalOrder(ctx: JobContext, checkout: Checkout, or
 export async function paypalRefund(ctx: JobContext, mode: Mode, connectMethod: string | null, merchantId: string | null, captureId: string, amountCents: number, requestId: string, currency = "USD") {
   if (connectMethod === "email") {
     throw new PermanentError(
-      "This PayPal account is connected by its Business email only, so Community Connect has no permission to refund through it. Refund it in PayPal; recording that refund here needs an owner decision.",
+      "This PayPal account is connected by its Business email only, so Community Connect has no permission to refund through it. Refund it in PayPal, then record it in Giving › Payments (Record the PayPal refund).",
     );
   }
   const r = await paypalRequest<Obj>(ctx.http, ctx.env, mode, `/v2/payments/captures/${encodeURIComponent(captureId)}/refund`, {
