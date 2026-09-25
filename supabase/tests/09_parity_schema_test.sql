@@ -100,6 +100,10 @@ end $$;
 commit;
 
 -- =================================================================== 5. my_practice_standing
+-- Standing counts the community's own day (0391). The logs in these files are on the database's day
+-- (log_practice's default, current_date), so the community keeps UTC for this section.
+select time_zone as jsh_tz from app.centers where id = :jsh \gset
+update app.centers set time_zone = 'UTC' where id = :jsh;
 -- 11 more people log darshan_puja practices this month: 3 score 20, 8 score 10. Priya scores 10.
 insert into app.people (id, center_id, first_name, last_name)
   select ('39000000-0000-4000-8000-0000000000' || lpad(i::text, 2, '0'))::uuid, :jsh, 'Sadhak' || i, 'Test' from generate_series(1, 11) i;
@@ -129,6 +133,37 @@ exception when others then
   raise notice 'PASS: practice standing is private';
 end $$;
 commit;
+-- "Done today" is the community's local day, not the database's: at any moment UTC+14 and UTC-12 are on
+-- different dates, so at least one of these is not the UTC date (0391).
+do $$
+declare z text; v_local date; v_expect int; v_got int;
+begin
+  -- Only this check's own log in the category, so a log on the database's day cannot make it pass by chance.
+  create temp table saved_darshan_logs on commit drop as
+    select l.* from app.practice_logs l join app.practices pr on pr.id = l.practice_id
+     where l.person_id = '30000000-0000-4000-8000-000000000001' and pr.category = 'darshan_puja';
+  delete from app.practice_logs where id in (select id from saved_darshan_logs);
+  foreach z in array array['Etc/GMT-14', 'Etc/GMT+12'] loop
+    update app.centers set time_zone = z where id = '00000000-0000-4000-8000-000000000001';
+    v_local := (now() at time zone z)::date;
+    delete from app.practice_logs where person_id = '30000000-0000-4000-8000-000000000001'
+       and practice_id = (select id from app.practices where center_id is null and key = 'ashtaprakari');
+    insert into app.practice_logs (center_id, person_id, practice_id, logged_on)
+      values ('00000000-0000-4000-8000-000000000001', '30000000-0000-4000-8000-000000000001',
+              (select id from app.practices where center_id is null and key = 'ashtaprakari'), v_local);
+    v_expect := 1;
+    perform set_config('request.jwt.claim.sub', '10000000-0000-4000-8000-000000000001', true);
+    perform set_config('role', 'authenticated', true);
+    select done_today into v_got from app.my_practice_standing('30000000-0000-4000-8000-000000000001') where category = 'darshan_puja';
+    perform set_config('role', 'postgres', true);
+    if v_got is distinct from v_expect then raise exception 'FAIL: done today in % counts the local day % (expected %, got %)', z, v_local, v_expect, v_got; end if;
+  end loop;
+  delete from app.practice_logs where person_id = '30000000-0000-4000-8000-000000000001'
+     and practice_id = (select id from app.practices where center_id is null and key = 'ashtaprakari');
+  insert into app.practice_logs select * from saved_darshan_logs;
+  raise notice 'PASS: standing counts "done today" on the community''s own day, not the database''s';
+end $$;
+update app.centers set time_zone = :'jsh_tz' where id = :jsh;
 
 -- =================================================================== 6. opportunity kinds and availability
 insert into app.campaigns (id, center_id, name, kind, status, goal_cents) values

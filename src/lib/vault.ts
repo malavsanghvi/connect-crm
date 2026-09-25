@@ -176,6 +176,8 @@ export const JOB_KIND_LABELS: Record<string, string> = {
   "payments.refund": "Refund through the provider",
   "payments.test_charge": "$1 test refund",
   "payments.sync_payouts": "Payout sync",
+  "demo.load": "Load demo data",
+  "demo.clear": "Clear the sandbox",
 };
 
 export function jobKindLabel(kind: string): string {

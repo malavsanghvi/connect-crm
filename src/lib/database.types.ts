@@ -926,6 +926,75 @@ export type Database = {
         };
         Relationships: [];
       };
+      center_demo_state: {
+        Row: {
+          center_id: string;
+          pack_key: string | null;
+          version: number | null;
+          status: string;
+          operation: string | null;
+          reason: string | null;
+          requested_by: string | null;
+          requested_at: string | null;
+          job_id: number | null;
+          steps_done: number;
+          steps_total: number;
+          step_label: string | null;
+          load_seed: string | null;
+          loaded_at: string | null;
+          loaded_by: string | null;
+          cleared_at: string | null;
+          cleared_by: string | null;
+          last_error: string | null;
+          detail: Json;
+          updated_at: string;
+        };
+        Insert: {
+          center_id: string;
+          pack_key?: string | null;
+          version?: number | null;
+          status?: string;
+          operation?: string | null;
+          reason?: string | null;
+          requested_by?: string | null;
+          requested_at?: string | null;
+          job_id?: number | null;
+          steps_done?: number;
+          steps_total?: number;
+          step_label?: string | null;
+          load_seed?: string | null;
+          loaded_at?: string | null;
+          loaded_by?: string | null;
+          cleared_at?: string | null;
+          cleared_by?: string | null;
+          last_error?: string | null;
+          detail?: Json;
+          updated_at?: string;
+        };
+        Update: {
+          center_id?: string;
+          pack_key?: string | null;
+          version?: number | null;
+          status?: string;
+          operation?: string | null;
+          reason?: string | null;
+          requested_by?: string | null;
+          requested_at?: string | null;
+          job_id?: number | null;
+          steps_done?: number;
+          steps_total?: number;
+          step_label?: string | null;
+          load_seed?: string | null;
+          loaded_at?: string | null;
+          loaded_by?: string | null;
+          cleared_at?: string | null;
+          cleared_by?: string | null;
+          last_error?: string | null;
+          detail?: Json;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       center_domains: {
         Row: {
           domain: string;
@@ -1715,6 +1784,36 @@ export type Database = {
         };
         Relationships: [];
       };
+      demo_packs: {
+        Row: {
+          key: string;
+          version: number;
+          title: string;
+          description: string;
+          contents: Json;
+          active: boolean;
+          created_at: string;
+        };
+        Insert: {
+          key: string;
+          version: number;
+          title: string;
+          description?: string;
+          contents?: Json;
+          active?: boolean;
+          created_at?: string;
+        };
+        Update: {
+          key?: string;
+          version?: number;
+          title?: string;
+          description?: string;
+          contents?: Json;
+          active?: boolean;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
       eligibility_snapshots: {
         Row: {
           id: string;
@@ -2162,6 +2261,39 @@ export type Database = {
           qbo_class_id?: string | null;
           active?: boolean;
           custom?: Json;
+        };
+        Relationships: [];
+      };
+      golive_approvals: {
+        Row: {
+          center_id: string;
+          key: string;
+          approved_by: string;
+          approved_at: string;
+          approver_role: string;
+          note: string | null;
+          evidence: Json;
+          evidence_hash: string;
+        };
+        Insert: {
+          center_id: string;
+          key: string;
+          approved_by: string;
+          approved_at?: string;
+          approver_role: string;
+          note?: string | null;
+          evidence?: Json;
+          evidence_hash: string;
+        };
+        Update: {
+          center_id?: string;
+          key?: string;
+          approved_by?: string;
+          approved_at?: string;
+          approver_role?: string;
+          note?: string | null;
+          evidence?: Json;
+          evidence_hash?: string;
         };
         Relationships: [];
       };
@@ -5267,6 +5399,90 @@ export type Database = {
         };
         Relationships: [];
       };
+      platform_secrets: {
+        Row: {
+          name: string;
+          vault_secret_id: string;
+          fingerprint: string;
+          set_by: string | null;
+          set_at: string;
+          rotated_at: string | null;
+        };
+        Insert: {
+          name: string;
+          vault_secret_id: string;
+          fingerprint: string;
+          set_by?: string | null;
+          set_at?: string;
+          rotated_at?: string | null;
+        };
+        Update: {
+          name?: string;
+          vault_secret_id?: string;
+          fingerprint?: string;
+          set_by?: string | null;
+          set_at?: string;
+          rotated_at?: string | null;
+        };
+        Relationships: [];
+      };
+      platform_settings: {
+        Row: {
+          key: string;
+          value: Json;
+          set_by: string | null;
+          set_at: string;
+        };
+        Insert: {
+          key: string;
+          value: Json;
+          set_by?: string | null;
+          set_at?: string;
+        };
+        Update: {
+          key?: string;
+          value?: Json;
+          set_by?: string | null;
+          set_at?: string;
+        };
+        Relationships: [];
+      };
+      platform_setup_steps: {
+        Row: {
+          key: string;
+          required: boolean;
+          sort: number;
+          status: string;
+          parked_by: string | null;
+          parked_at: string | null;
+          completed_by: string | null;
+          completed_at: string | null;
+          note: string | null;
+        };
+        Insert: {
+          key: string;
+          required: boolean;
+          sort?: number;
+          status?: string;
+          parked_by?: string | null;
+          parked_at?: string | null;
+          completed_by?: string | null;
+          completed_at?: string | null;
+          note?: string | null;
+        };
+        Update: {
+          key?: string;
+          required?: boolean;
+          sort?: number;
+          status?: string;
+          parked_by?: string | null;
+          parked_at?: string | null;
+          completed_by?: string | null;
+          completed_at?: string | null;
+          note?: string | null;
+        };
+        Relationships: [];
+      };
       pledges: {
         Row: {
           id: string;
@@ -6846,7 +7062,7 @@ export type Database = {
         Row: {
           id: number;
           center_id: string | null;
-          connection_id: string;
+          connection_id: string | null;
           name: string;
           reader: string;
           purpose: string;
@@ -6857,7 +7073,7 @@ export type Database = {
         Insert: {
           id?: number;
           center_id?: string | null;
-          connection_id: string;
+          connection_id?: string | null;
           name: string;
           reader: string;
           purpose: string;
@@ -6868,7 +7084,7 @@ export type Database = {
         Update: {
           id?: number;
           center_id?: string | null;
-          connection_id?: string;
+          connection_id?: string | null;
           name?: string;
           reader?: string;
           purpose?: string;
@@ -6893,6 +7109,7 @@ export type Database = {
           required: boolean;
           auto: boolean;
           manual: boolean;
+          live: boolean;
         };
         Insert: {
           key: string;
@@ -6908,6 +7125,7 @@ export type Database = {
           required?: boolean;
           auto?: boolean;
           manual?: boolean;
+          live?: boolean;
         };
         Update: {
           key?: string;
@@ -6923,6 +7141,7 @@ export type Database = {
           required?: boolean;
           auto?: boolean;
           manual?: boolean;
+          live?: boolean;
         };
         Relationships: [];
       };
@@ -8167,6 +8386,14 @@ export type Database = {
         };
         Returns: undefined;
       };
+      activate_demo_pack: {
+        Args: {
+          p_center: string;
+          p_pack: string;
+          p_reason: string;
+        };
+        Returns: number;
+      };
       add_email_domain: {
         Args: {
           p_center: string;
@@ -8205,6 +8432,13 @@ export type Database = {
         };
         Returns: string;
       };
+      approve_niva_content: {
+        Args: {
+          p_center: string;
+          p_note?: string;
+        };
+        Returns: Json;
+      };
       approve_qbo_mapping: {
         Args: {
           p_center: string;
@@ -8231,6 +8465,13 @@ export type Database = {
           p_grant: string;
         };
         Returns: undefined;
+      };
+      approve_statement_templates: {
+        Args: {
+          p_center: string;
+          p_note?: string;
+        };
+        Returns: Json;
       };
       assert_entitlement: {
         Args: {
@@ -8394,6 +8635,12 @@ export type Database = {
         };
         Returns: string;
       };
+      center_storage_overview: {
+        Args: {
+          p_center: string;
+        };
+        Returns: Json;
+      };
       change_household_tier: {
         Args: {
           p_household: string;
@@ -8463,6 +8710,14 @@ export type Database = {
         };
         Returns: Json;
       };
+      clear_sandbox: {
+        Args: {
+          p_center: string;
+          p_confirm: string;
+          p_reason: string;
+        };
+        Returns: number;
+      };
       close_boli: {
         Args: {
           p_boli: string;
@@ -8484,6 +8739,13 @@ export type Database = {
           p_code: string;
         };
         Returns: { slug: string; name: string; short_name: string; state_region: string; environment: string }[];
+      };
+      complete_platform_setup_step: {
+        Args: {
+          p_key: string;
+          p_note?: string;
+        };
+        Returns: undefined;
       };
       complete_qbo_connect: {
         Args: {
@@ -8644,6 +8906,51 @@ export type Database = {
         };
         Returns: string;
       };
+      demo_can_manage: {
+        Args: {
+          p_center: string;
+        };
+        Returns: boolean;
+      };
+      demo_center_problem: {
+        Args: {
+          p_center: string;
+        };
+        Returns: string;
+      };
+      demo_confirm_word: {
+        Args: {
+          p_center: string;
+        };
+        Returns: string;
+      };
+      demo_data_counts: {
+        Args: {
+          p_center: string;
+        };
+        Returns: Json;
+      };
+      demo_email_domain: {
+        Args: Record<PropertyKey, never>;
+        Returns: string;
+      };
+      demo_id: {
+        Args: {
+          p_seed: string;
+          p_ref: string;
+        };
+        Returns: string;
+      };
+      demo_keep_tables: {
+        Args: Record<PropertyKey, never>;
+        Returns: string[];
+      };
+      demo_pack_steps: {
+        Args: {
+          p_pack: string;
+        };
+        Returns: Json;
+      };
       directory_listing: {
         Args: {
           p_center: string;
@@ -8664,6 +8971,12 @@ export type Database = {
           p_reason: string;
         };
         Returns: Json;
+      };
+      enqueue_platform_test: {
+        Args: {
+          p_step: string;
+        };
+        Returns: number;
       };
       enqueue_worker_test: {
         Args: {
@@ -8739,6 +9052,12 @@ export type Database = {
           p_center: string;
         };
         Returns: { person_id: string; household_id: string; household_name: string; tier: Database["app"]["Enums"]["membership_tier"]; member_names: string[] }[];
+      };
+      golive_approval_status: {
+        Args: {
+          p_center: string;
+        };
+        Returns: Json;
       };
       grant_support_access: {
         Args: {
@@ -9000,6 +9319,12 @@ export type Database = {
         Args: Record<PropertyKey, never>;
         Returns: boolean;
       };
+      is_active_treasurer: {
+        Args: {
+          p_center: string;
+        };
+        Returns: boolean;
+      };
       is_center_owner: {
         Args: {
           p_center: string;
@@ -9200,6 +9525,12 @@ export type Database = {
         };
         Returns: string;
       };
+      normalize_host: {
+        Args: {
+          p: string;
+        };
+        Returns: string;
+      };
       normalize_identifier: {
         Args: {
           p: string;
@@ -9224,6 +9555,12 @@ export type Database = {
           p: string;
         };
         Returns: string;
+      };
+      numbering_overview: {
+        Args: {
+          p_center: string;
+        };
+        Returns: Json;
       };
       oauth_store_code: {
         Args: {
@@ -9253,6 +9590,13 @@ export type Database = {
       org_verification_queue: {
         Args: Record<PropertyKey, never>;
         Returns: { center_id: string; center_name: string; center_slug: string; center_status: string; legal_name: string; dba: string; ein: string; entity_type: string; incorporation_state: string; verification_status: string; verification_note: string; submitted_at: string; verified_at: string; documents: number; irs: Json }[];
+      };
+      park_platform_setup_step: {
+        Args: {
+          p_key: string;
+          p_reason: string;
+        };
+        Returns: undefined;
       };
       parse_bank_description: {
         Args: {
@@ -9343,9 +9687,43 @@ export type Database = {
         };
         Returns: string;
       };
+      platform_admin_directory: {
+        Args: Record<PropertyKey, never>;
+        Returns: { user_id: string; email: string }[];
+      };
+      platform_auth_hook_activity: {
+        Args: {
+          p_since?: string;
+        };
+        Returns: Json;
+      };
+      platform_domain_allowed: {
+        Args: {
+          p_domain: string;
+        };
+        Returns: boolean;
+      };
+      platform_domain_ok: {
+        Args: {
+          p: string;
+        };
+        Returns: boolean;
+      };
       platform_onboarding_pipeline: {
         Args: Record<PropertyKey, never>;
         Returns: { center_id: string; slug: string; name: string; environment: string; status: string; stage: string; stage_since: string; steps_done: number; steps_total: number; readiness_ok: number; readiness_total: number; blockers: string[]; owner_name: string; owner_email: string; owner_phone: string; golive_id: string; golive_status: string; promoted_to: string; last_activity_at: string; support_live: boolean }[];
+      };
+      platform_public_addresses: {
+        Args: Record<PropertyKey, never>;
+        Returns: Json;
+      };
+      platform_secret_names: {
+        Args: Record<PropertyKey, never>;
+        Returns: string[];
+      };
+      platform_setting_keys: {
+        Args: Record<PropertyKey, never>;
+        Returns: string[];
       };
       preview_allocation: {
         Args: {
@@ -9599,6 +9977,13 @@ export type Database = {
         };
         Returns: undefined;
       };
+      reopen_platform_setup_step: {
+        Args: {
+          p_key: string;
+          p_reason: string;
+        };
+        Returns: undefined;
+      };
       request_golive: {
         Args: {
           p_center: string;
@@ -9650,6 +10035,15 @@ export type Database = {
           p_valid_days?: number;
         };
         Returns: { invitation_id: string; token: string; expires_at: string }[];
+      };
+      reset_sandbox: {
+        Args: {
+          p_center: string;
+          p_pack: string;
+          p_confirm: string;
+          p_reason: string;
+        };
+        Returns: number;
       };
       reset_staff_2fa: {
         Args: {
@@ -9741,6 +10135,14 @@ export type Database = {
           p_reason: string;
         };
         Returns: string;
+      };
+      save_numbering: {
+        Args: {
+          p_center: string;
+          p_items: Json;
+          p_reason?: string;
+        };
+        Returns: Json;
       };
       save_texting_registration: {
         Args: {
@@ -9913,6 +10315,22 @@ export type Database = {
           p_reason: string;
         };
         Returns: undefined;
+      };
+      set_platform_secret: {
+        Args: {
+          p_name: string;
+          p_value: string;
+          p_reason: string;
+        };
+        Returns: Json;
+      };
+      set_platform_setting: {
+        Args: {
+          p_key: string;
+          p_value: string;
+          p_reason: string;
+        };
+        Returns: Json;
       };
       set_qbo_fund_class: {
         Args: {
@@ -10171,6 +10589,13 @@ export type Database = {
           p_tier: Database["app"]["Enums"]["membership_tier"];
         };
         Returns: number;
+      };
+      tls_host_allowed: {
+        Args: {
+          p_host: string;
+          p_env_base?: string;
+        };
+        Returns: string;
       };
       transfer_ownership: {
         Args: {

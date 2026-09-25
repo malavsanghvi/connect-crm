@@ -289,3 +289,20 @@ decide_org_verification, org_verification_queue, set_center_branding, irs_lookup
 public_org_profile. Steps of a switched-off module show as skipped. Leaders shown publicly are
 mirrored into role_roster (content) by a trigger; role_roster.display_name carries their name.
 IRS data: `node tools/load-irs-eo.mjs --bmf … --pub78 … [--revocations …]`. Always on, audited, `module` is NULL on their audit entries.
+
+**Demo data (onboarding stream o-demo; migrations 0310–0312)** is core too: demo_packs (the catalog),
+center_demo_state (one row per center: pack, status empty/loading/loaded/clearing/failed, progress, last run).
+RPCs: activate_demo_pack(center, pack, reason), reset_sandbox(center, pack, confirm, reason),
+clear_sandbox(center, confirm, reason) — owner or settings.manage, a reason, the short name typed for
+reset/clear and a fresh 2FA check for them; demo_data_counts, demo_center_problem, demo_pack_steps.
+Worker jobs demo.load (app.worker_demo_load_next, one step per transaction) and demo.clear
+(app.worker_demo_clear, one transaction). **Sandboxes only, enforced in the database:**
+app.demo_center_problem refuses production, promoted, live, suspended and exited centers (SQLSTATE
+CCDMO, "Demo data is only for sandboxes."), and app.demo_clear_center re-checks it with the center row
+locked. Clearing keeps app.demo_keep_tables() (the organization, its owner and staff logins with a role,
+grants, agreements, connections and secrets, profile/brand/leaders, module switches, numbering,
+templates, legal documents, saved import mappings, the Setup checklist, jobs and the audit log) and
+removes every other row of the center, children first in foreign-key order; a new center table is
+cleared unless it is added to that list. points_ledger stays append-only except inside that clear.
+Portal: /setup/demo (tab shown in sandboxes only) and a card on /setup. The community pack's contents
+per module are in demo_packs.contents; DB test 29 checks a load produces exactly those rows.

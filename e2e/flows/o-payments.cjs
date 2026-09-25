@@ -374,7 +374,8 @@ const card = (p, title) => p.locator('section.cc-card').filter({ has: p.getByRol
     ok(st['svc.payments'] === 'done' && st['data.payment_methods'] === 'done', `9 Setup: svc.payments ${st['svc.payments']}, data.payment_methods ${st['data.payment_methods']}`);
     const ready = await rpc(adminAal2, 'readiness', { p_center: jsh });
     const r6 = (ready.body || []).find((r) => r.key === 'payments_live');
-    ok(r6 && r6.ok === false && /test mode|live/.test(r6.detail), `9 readiness 6 does not pass in a sandbox (test mode): ${r6 && r6.detail}`);
+    // o-golive (0301): in a sandbox check 6 passes on the default processor's passing TEST-mode $1 test and says live mode comes in production.
+    ok(r6 && r6.ok === true && /TEST-mode/.test(r6.detail) && /in production after promotion/.test(r6.detail), `9 readiness 6 in a sandbox passes on the test-mode $1 test and says live comes later: ${r6 && r6.detail}`);
     await p.goto(BASE + '/setup/readiness', { waitUntil: 'networkidle' });
     await shot(p, '9-readiness');
     sql(`insert into app.center_modules (center_id, module_key, enabled, reason) values ('${jsh}', 'giving', false, 'e2e o-payments')

@@ -10,7 +10,9 @@ import { MissingConfigError, ProviderError, sendEmail, emailKey, sendExpoPush, s
 import { unsubscribeUrl } from "../../src/lib/messaging/signatures";
 import { smsLength } from "../../src/lib/messaging/sms";
 import { NotConfiguredError, PermanentError, messageOf } from "./errors";
+import type { Env } from "./config";
 import type { Http } from "./http";
+import { portalPublicUrl } from "./portal-url";
 import type { Job, JobContext } from "./types";
 
 export function reqFrom(http: Http): Req {
@@ -46,7 +48,9 @@ export async function sendMessage(ctx: JobContext, messageId: string, job: Pick<
     return { message_id: m.id, status: "suppressed", reason: m.skip };
   }
   const req = reqFrom(ctx.http);
-  const env = ctx.env;
+  // o-https: PORTAL_PUBLIC_URL, else the portal domain saved in Platform setup.
+  const portalUrl = await portalPublicUrl(ctx);
+  const env: Env = { ...ctx.env, PORTAL_PUBLIC_URL: portalUrl ?? undefined };
   // Community Connect's own emails carry their links as %PORTAL_URL%<path> (0290): the
   // database does not know the portal's public address; this service does.
   if (`${m.subject ?? ""}${m.body}`.includes(PORTAL_URL_MARK)) {

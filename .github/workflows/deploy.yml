@@ -103,7 +103,8 @@ jobs:
           ssh-keyscan -T 15 "$HOST" >> ~/.ssh/known_hosts 2>/dev/null
           ssh_() { ssh -i ~/.ssh/deploy -o BatchMode=yes "root@$HOST" "$@"; }
           ssh_ "mkdir -p /tmp/connect-deploy"
-          scp -i ~/.ssh/deploy -o BatchMode=yes deploy/droplet-setup.sh deploy/release.sh "root@$HOST:/tmp/connect-deploy/"
+          # o-https: the portal's Caddy sites and the HTTPS confirmer travel with release.sh.
+          scp -i ~/.ssh/deploy -o BatchMode=yes deploy/droplet-setup.sh deploy/release.sh deploy/caddy-sites.mjs deploy/https-confirm.mjs "root@$HOST:/tmp/connect-deploy/"
           scp -i ~/.ssh/deploy -o BatchMode=yes "connect-$APP-$GITHUB_SHA.tgz" "root@$HOST:/tmp/"
           # o-messaging: the portal's server-only secrets (Supabase Auth hooks, provider webhooks,
           # unsubscribe links). Sent over SSH stdin, written root-only; empty values are left out.
@@ -116,11 +117,15 @@ jobs:
               if [ -n "${!v}" ]; then printf '%s=%s\n' "$v" "${!v}"; fi
             done
           } | ssh_ "umask 077 && mkdir -p /srv/connect && cat > /srv/connect/$APP.secrets.env"
-          ssh_ "bash /tmp/connect-deploy/droplet-setup.sh && SITE_WILDCARD_DOMAIN='$SITE_WILDCARD_DOMAIN' bash /tmp/connect-deploy/release.sh $APP $GITHUB_SHA node 3000 '$SITE'"
+          # o-https (docs/DEPLOY.md › HTTPS for the portal): PORTAL_HTTPS=1 serves HTTPS without a
+          # redeploy per name; PUBLIC_IP is only a fallback for the droplet's metadata service
+          # (used when DROPLET_HOST is an IPv4 address).
+          public_ip=""; if [[ "$HOST" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then public_ip=$HOST; fi
+          ssh_ "bash /tmp/connect-deploy/droplet-setup.sh && PORTAL_HTTPS=1 PUBLIC_IP='$public_ip' SITE_WILDCARD_DOMAIN='$SITE_WILDCARD_DOMAIN' bash /tmp/connect-deploy/release.sh $APP $GITHUB_SHA node 3000 '$SITE'"
           echo "### Released $APP" >> "$GITHUB_STEP_SUMMARY"
           if [[ "$SITE" == :* ]]; then
             port=${SITE#:}
-            if [ "$port" = 80 ]; then echo "Open http://$HOST" >> "$GITHUB_STEP_SUMMARY"; else echo "Open http://$HOST:$port" >> "$GITHUB_STEP_SUMMARY"; fi
+            if [ "$port" = 80 ]; then echo "Open http://$HOST (https://$HOST once its certificate is confirmed; Platform › Setup shows the HTTPS status)" >> "$GITHUB_STEP_SUMMARY"; else echo "Open http://$HOST:$port" >> "$GITHUB_STEP_SUMMARY"; fi
           else
             echo "Open https://$SITE" >> "$GITHUB_STEP_SUMMARY"
           fi
@@ -201,7 +206,8 @@ jobs:
           MESSAGING_FROM_ADDRESS: ${{ vars.MESSAGING_FROM_ADDRESS }}
           MESSAGING_FROM_NAME: ${{ vars.MESSAGING_FROM_NAME }}
           MESSAGING_LINK_SECRET: ${{ secrets.MESSAGING_LINK_SECRET }}
-          PORTAL_PUBLIC_URL: ${{ vars.PORTAL_PUBLIC_URL }}
+          # o-https: follows SITE_DOMAIN (https) when PORTAL_PUBLIC_URL is not set.
+          PORTAL_PUBLIC_URL: ${{ vars.PORTAL_PUBLIC_URL || (vars.SITE_DOMAIN && format('https://{0}', vars.SITE_DOMAIN)) || '' }}
         run: |
           install -m 700 -d ~/.ssh
           printf '%s\n' "$KEY" > ~/.ssh/deploy && chmod 600 ~/.ssh/deploy

@@ -27,6 +27,8 @@ export type ScopedContext = PermissionContext & {
   grants?: readonly ScopedGrant[];
   /** Module keys switched off for the center (src/lib/modules.ts); missing means every module is on. */
   modulesOff?: readonly string[];
+  /** The current organization (only its environment is read here: sandbox-only tabs). */
+  center?: { environment?: string | null };
 };
 
 export function isGrantActive(grant: Pick<GrantLike, "starts_at" | "ends_at">, now: Date = new Date()): boolean {
@@ -160,6 +162,8 @@ export const ACCESS = {
   centerSettings: ["settings.manage"],
   /** Setup checklist, Step 0 screens and go-live readiness (settings.manage; the owner too, in the database). */
   setup: ["settings.manage"],
+  /** Setup › Lists (o-golive): each card checks its own writer — settings.manage, giving.manage (funds) or pathshala.manage (tracks). */
+  setupLists: ["settings.manage", "giving.manage", "pathshala.manage"],
   /** Settings › Email / Texting / WhatsApp (o-messaging): read by messaging and integrations roles; changed with settings.manage or integrations.manage (the database decides). */
   messaging: ["settings.manage", "integrations.manage", "integrations.view", "comms.view", "comms.send"],
   messagingManage: ["settings.manage", "integrations.manage"],
@@ -294,6 +298,8 @@ export type NavTab = {
   platformOnly?: boolean;
   /** Module (src/lib/modules.ts) this tab belongs to, when it differs from its NAV module's. */
   module?: ModuleKey;
+  /** Shown only in a sandbox (o-demo: Demo data); the database refuses the rest anyway. */
+  sandboxOnly?: boolean;
 };
 export type NavModule = {
   key: string;
@@ -454,9 +460,13 @@ export const NAV: NavModule[] = [
       { href: "/setup/organization", label: "Legal identity", access: "setup" },
       { href: "/setup/profile", label: "Profile & brand", access: "setup" },
       { href: "/setup/leaders", label: "Leaders", access: "setup" },
+      // Onboarding (o-golive): membership types, funds, inboxes, zones and Pathshala tracks.
+      { href: "/setup/lists", label: "Lists", access: "setupLists" },
       { href: "/setup/readiness", label: "Go-live readiness", access: "setup" },
       // Onboarding (o-platform): attestations, the go-live request and promotion.
       { href: "/setup/go-live", label: "Go-live", access: "setup" },
+      // Onboarding (o-demo): load, reset or clear the demo pack — sandboxes only.
+      { href: "/setup/demo", label: "Demo data", access: "setup", sandboxOnly: true },
     ],
     paths: ["/setup"],
   },
@@ -482,6 +492,9 @@ export const NAV: NavModule[] = [
       // Onboarding (o-tenancy): the member-app join code, and the sandbox / plan limits.
       { href: "/settings/member-app", label: "Member app", access: "centerSettings" },
       { href: "/settings/limits", label: "Limits", access: "centerSettings" },
+      // Onboarding (o-golive): number prefixes and the file storage areas (Setup steps data.numbering, svc.storage).
+      { href: "/settings/numbering", label: "Numbering", access: "centerSettings" },
+      { href: "/settings/storage", label: "Storage", access: "centerSettings" },
       // Onboarding (o-import): loading the organization's data, its custom fields and their quality.
       { href: "/settings/import", label: "Data import", access: "dataImport" },
       { href: "/settings/custom-fields", label: "Custom fields", access: "centerSettings" },
@@ -500,6 +513,8 @@ export const NAV: NavModule[] = [
     label: "Platform",
     tabs: [
       { href: "/platform", label: "Centers", access: "dashboard", platformOnly: true },
+      // Onboarding Wave D (o-platform-setup): the super admin's platform setup wizard.
+      { href: "/platform/setup", label: "Platform setup", access: "dashboard", platformOnly: true },
       { href: "/platform/new", label: "New center wizard", access: "dashboard", platformOnly: true },
       { href: "/platform/verification", label: "Verification", access: "dashboard", platformOnly: true },
       // Onboarding (o-platform): the Community Connect console.
@@ -508,6 +523,8 @@ export const NAV: NavModule[] = [
       { href: "/platform/pipeline", label: "Onboarding", access: "dashboard", platformOnly: true },
       { href: "/platform/go-live", label: "Go-live approvals", access: "dashboard", platformOnly: true },
       { href: "/platform/support-access", label: "Support access", access: "dashboard", platformOnly: true },
+      // o-https: portal address and HTTPS status.
+      { href: "/platform/https", label: "HTTPS", access: "dashboard", platformOnly: true },
     ],
     paths: ["/platform"],
   },
@@ -522,8 +539,9 @@ function moduleOn(ctx: ScopedContext, key: string): boolean {
 }
 
 /** True when the user may open a nav tab: its access key, or one of its roles in any scope. */
-export function canOpenTab(ctx: ScopedContext, tab: Pick<NavTab, "access" | "roles" | "platformOnly" | "module">): boolean {
+export function canOpenTab(ctx: ScopedContext, tab: Pick<NavTab, "access" | "roles" | "platformOnly" | "module" | "sandboxOnly">): boolean {
   if (tab.module && !moduleOn(ctx, tab.module)) return false;
+  if (tab.sandboxOnly && ctx.center?.environment !== "sandbox") return false;
   if (tab.platformOnly) return Boolean(ctx.isPlatformAdmin);
   if (tab.access !== undefined && canAccess(ctx, tab.access)) return true;
   return Boolean(tab.roles && tab.roles.length > 0 && hasRole(ctx, ...tab.roles));

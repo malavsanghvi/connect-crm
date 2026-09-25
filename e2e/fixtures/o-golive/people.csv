@@ -1,0 +1,4 @@
+Account ID,First Name,Last Name,Email 1,Phone 1 Number,DOB,Household ID,Relationship
+P-201,Demo,Parikh,demo.parikh@golive.example.test,(512) 555-0201,04/05/1970,G-101,Head of Household
+P-202,Mira,Parikh,mira.parikh@golive.example.test,,08/09/1972,G-101,Wife
+P-203,Demo,Vora,demo.vora@golive.example.test,(512) 555-0203,01/02/1965,G-102,Head of Household

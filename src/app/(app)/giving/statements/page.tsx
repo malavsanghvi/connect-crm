@@ -11,6 +11,9 @@ import { canAccess } from "@/lib/permissions";
 import { hrefWith, pageParam, param, type RawSearchParams } from "@/lib/search-params";
 import { getSession } from "@/lib/session";
 
+import { approveStatementTemplatesAction } from "../../setup/approval-actions";
+import { ApprovalCard } from "../../setup/_components/approval-card";
+import { parseApprovalStatus } from "@/lib/setup";
 import { ReceiptTemplateEditor, type TemplateValues } from "./template-editor";
 
 export const metadata: Metadata = { title: "Receipts & statements" };
@@ -54,7 +57,9 @@ export default async function StatementsPage({ searchParams }: { searchParams: P
 
   // Year-end KPIs for the last full year.
   const lastYear = currentYear - 1;
-  const [gifts, issued, templates] = await Promise.all([
+  // Readiness check 8: the treasurer's approval of these templates (shown to those who edit them or run Setup).
+  const showApproval = canAccess(session, "receiptTemplates") || canAccess(session, "setup");
+  const [gifts, issued, templates, approval] = await Promise.all([
     fetchAll((f, t) =>
       db
         .from("payments")
@@ -70,7 +75,10 @@ export default async function StatementsPage({ searchParams }: { searchParams: P
       db.from("statements").select("id, household_id").eq("center_id", center.id).eq("kind", "tax_year").eq("tax_year", lastYear).order("id").range(f, t),
     ),
     db.from("receipt_templates").select("kind, signed_by, personal_note, updated_at").eq("center_id", center.id),
+    showApproval ? db.rpc("golive_approval_status", { p_center: center.id }) : null,
   ]);
+  if (approval?.error) console.error("[statements] could not load the go-live approval:", approval.error);
+  const approvals = approval && !approval.error ? parseApprovalStatus(approval.data) : null;
   const giftIds = [...new Set(gifts.data.map((g) => g.household_id))];
   const giftHouseholds = giftIds.length;
   // Households that asked for paper (households.physical_mail_opt_in); needs people.view.
@@ -149,6 +157,23 @@ export default async function StatementsPage({ searchParams }: { searchParams: P
             currency={center.currency}
           />
         )}
+        {approval?.error ? (
+          <div className="col-span-12">
+            <QueryError what="the treasurer's approval of these templates" error={approval.error} retryHref="/giving/statements" />
+          </div>
+        ) : approvals ? (
+          <ApprovalCard
+            testId="approval-statement-templates"
+            title="Treasurer's approval of the receipt and statement templates"
+            what="The treasurer reviews the donation receipt, the pledge confirmation and the year-end statement as they are set above (signer and personal note, with the standard IRS wording) and approves them. Any later change needs a new approval."
+            later="Readiness check 8. Statements and receipts built from an uploaded sample (with the compliance check) come in a later release; this approval covers today's templates."
+            state={approvals.statements}
+            canApprove={approvals.isTreasurer}
+            whoMayApprove="Only the person with the Treasurer role can approve these."
+            action={approveStatementTemplatesAction}
+            timeZone={tz}
+          />
+        ) : null}
       </BlockGrid>
       <h2 className="cc-card-title mb-2">Issued statements</h2>
       <form method="get" action="/giving/statements" className="mb-4 flex flex-wrap items-end gap-3">

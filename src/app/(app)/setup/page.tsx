@@ -8,6 +8,7 @@ import { getSession } from "@/lib/session";
 import { checklistProgress, MANUAL_STATUSES, routeAvailable, SETUP_STAGES, stepStatusLabel } from "@/lib/setup";
 
 import { saveSetupStepAction } from "./actions";
+import { DemoDataCard } from "./_components/demo-card";
 import { ProgressBar, SetupHeader, StepStatus, setupGate } from "./_components/setup-ui";
 
 export const metadata: Metadata = { title: "Checklist · Setup" };
@@ -60,6 +61,7 @@ export default async function SetupChecklistPage() {
           <Stat label="Overdue" value={overdue} hint="Past their due date and not done" tone={overdue > 0 ? "danger" : "ink"} />
         </KpiGrid>
       </div>
+      <DemoDataCard session={session} />
       {staff.error ? (
         <div className="mb-4">
           <Alert tone="warning" title="Could not load the staff list">
