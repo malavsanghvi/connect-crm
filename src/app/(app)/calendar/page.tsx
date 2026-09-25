@@ -2,14 +2,16 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { ActionForm } from "@/components/action-form";
-import { BlockGrid, buttonClass, Card, EmptyState, NoAccess, PageHeader, QueryError, TableWrap } from "@/components/ui";
-import { layerDefault, layerOwner, layerSource, sortLayers, TRADITION_LABEL } from "@/lib/calendar";
-import { addDays, formatDate, formatMonth, todayInTz } from "@/lib/dates";
+import { BlockGrid, buttonClass, Card, EmptyState, NoAccess, PageHeader, QueryError, StatusText, TableWrap } from "@/components/ui";
+import { DrawerForm } from "@/components/drawer-form";
+import { feedHost, feedStatusLine, LAYER_KINDS, layerDefault, layerOwner, layerSource, sortLayers, TRADITION_LABEL } from "@/lib/calendar";
+import { addDays, formatDate, formatDateTime, formatMonth, todayInTz } from "@/lib/dates";
 import { canAccess } from "@/lib/permissions";
 import { param, type RawSearchParams } from "@/lib/search-params";
 import { getSession } from "@/lib/session";
 
-import { deleteCalendarEntryAction, saveCalendarEntryAction } from "./actions";
+import { createLayerAction, deleteCalendarEntryAction, saveCalendarEntryAction } from "./actions";
+import { LayerFeed } from "./layer-feed";
 import { LayerEdit } from "./layer-row";
 
 export const metadata: Metadata = { title: "Calendar" };
@@ -40,7 +42,10 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
 
   const [centerRow, layersRes, tithiRes] = await Promise.all([
     db.from("centers").select("tradition").eq("id", center.id).maybeSingle(),
-    db.from("calendar_layers").select("id, center_id, key, name, kind, source_url, default_on, color, owner_label").or(`center_id.eq.${center.id},center_id.is.null`),
+    db
+      .from("calendar_layers")
+      .select("id, center_id, key, name, kind, source_url, default_on, color, owner_label, feed_subscribed, feed_creates_events, feed_status, feed_synced_at, feed_error, feed_result")
+      .or(`center_id.eq.${center.id},center_id.is.null`),
     db
       .from("tithi_days")
       .select("id, center_id, tradition, gregorian, tithi, month_name, paksha, is_parva, notes")
@@ -57,7 +62,7 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
     mine.length > 0
       ? await db
           .from("calendar_entries")
-          .select("id, layer_id, title, starts_on, ends_on, event_id")
+          .select("id, layer_id, title, starts_on, ends_on, event_id, source_uid")
           .in(
             "layer_id",
             mine.map((l) => l.id),
@@ -81,7 +86,62 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
     <>
       {header}
       <BlockGrid>
-        <Card span={12} title="Layers" padded={false}>
+        <Card
+          span={12}
+          title="Layers"
+          padded={false}
+          actions={
+            manage ? (
+              <DrawerForm
+                label="New layer"
+                size="sm"
+                kicker="Calendar"
+                title="New layer"
+                subtitle="A set of dates members can switch on in the app's calendar."
+                action={createLayerAction}
+                submitLabel="Add layer"
+              >
+                <div>
+                  <label htmlFor="nl-name" className="crm-label">
+                    Name
+                  </label>
+                  <input id="nl-name" name="name" required maxLength={80} placeholder="e.g. School calendar (Katy ISD)" className="crm-input" />
+                </div>
+                <div>
+                  <label htmlFor="nl-kind" className="crm-label">
+                    Kind of dates
+                  </label>
+                  <select id="nl-kind" name="kind" defaultValue="custom" className="crm-input">
+                    {LAYER_KINDS.map((k) => (
+                      <option key={k.kind} value={k.kind}>
+                        {k.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label htmlFor="nl-color" className="crm-label">
+                    Colour (optional)
+                  </label>
+                  <input id="nl-color" name="color" type="color" defaultValue="#1B5E9C" className="crm-input h-10 w-20 p-1" />
+                </div>
+                <div>
+                  <label htmlFor="nl-link" className="crm-label">
+                    Calendar link (ICS, optional)
+                  </label>
+                  <input id="nl-link" name="source_url" type="url" placeholder="https://…/basic.ics" className="crm-input" />
+                  <p className="crm-hint">Subscribe to a published calendar: its dates are brought in now and refreshed every day.</p>
+                </div>
+                <label className="flex items-center gap-2 text-[13px]">
+                  <input type="checkbox" name="create_events" /> Also create an event for each date from the link
+                </label>
+                <label className="flex items-center gap-2 text-[13px]">
+                  <input type="checkbox" name="default_on" /> On by default in the member app
+                </label>
+              </DrawerForm>
+            ) : null
+          }
+        >
           {layersRes.error ? (
             <div className="p-2">
               <QueryError what="calendar layers" error={layersRes.error} retryHref="/calendar" />
@@ -90,11 +150,12 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
             <EmptyState title="No calendar layers yet" />
           ) : (
             <TableWrap>
-              <table className="crm-table min-w-[760px]">
+              <table className="crm-table min-w-[960px]">
                 <thead>
                   <tr>
                     <th>Layer</th>
                     <th>Source</th>
+                    <th>Calendar link</th>
                     <th>Owner</th>
                     <th>Default</th>
                     {manage ? <th>Change owner / default</th> : null}
@@ -107,13 +168,30 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
                         {l.color ? <span aria-hidden className="mr-1.5 inline-block h-2.5 w-2.5 rounded-full align-middle" style={{ background: l.color }} /> : null}
                         {l.name}
                       </td>
-                      <td>{layerSource(l, tradition)}</td>
+                      <td>{l.feed_subscribed ? `Calendar link · ${feedHost(l.source_url)}` : layerSource(l, tradition)}</td>
+                      <td className="max-w-[280px]">
+                        {(() => {
+                          const st = feedStatusLine(l, (iso) => formatDateTime(iso, tz));
+                          return st ? <StatusText tone={st.tone}>{st.text}</StatusText> : <span className="text-muted">—</span>;
+                        })()}
+                      </td>
                       <td>{layerOwner(l)}</td>
                       <td>{layerDefault(l)}</td>
                       {manage ? (
                         <td>
                           {l.center_id === center.id ? (
-                            <LayerEdit layerId={l.id} name={l.name} defaultOn={l.default_on} owner={l.owner_label ?? ""} />
+                            <div className="flex flex-wrap items-center gap-2">
+                              <LayerEdit layerId={l.id} name={l.name} defaultOn={l.default_on} owner={l.owner_label ?? ""} />
+                              <LayerFeed
+                                layerId={l.id}
+                                name={l.name}
+                                sourceUrl={l.source_url}
+                                subscribed={l.feed_subscribed}
+                                createsEvents={l.feed_creates_events}
+                                canCreateEvents
+                                status={feedStatusLine(l, (iso) => formatDateTime(iso, tz))}
+                              />
+                            </div>
                           ) : (
                             <span className="text-xs text-muted">Shared layer · set by the platform</span>
                           )}
@@ -158,6 +236,8 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
                         <td>
                           {e.event_id ? (
                             <span className="text-xs text-muted">From Events</span>
+                          ) : e.source_uid ? (
+                            <span className="text-xs text-muted">From the calendar link</span>
                           ) : (
                             <ActionForm
                               action={deleteCalendarEntryAction.bind(null, e.id)}

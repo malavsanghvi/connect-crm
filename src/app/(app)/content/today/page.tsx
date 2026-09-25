@@ -171,6 +171,26 @@ export default async function TodayPage() {
               </table>
             </TableWrap>
           )}
+          {liveStream?.media_url && /^https:\/\//i.test(liveStream.media_url) ? (
+            <div className="border-t border-line p-4">
+              <p className="crm-label">Preview · {liveStream.title}</p>
+              <iframe
+                src={liveStream.media_url}
+                title={`${liveStream.title} (preview)`}
+                allow="autoplay; fullscreen; picture-in-picture"
+                allowFullScreen
+                referrerPolicy="no-referrer"
+                sandbox="allow-scripts allow-same-origin allow-presentation"
+                className="aspect-video w-full max-w-[640px] rounded-lg border border-line bg-black"
+              />
+              <p className="mt-1 text-xs text-muted">
+                Members watch this from Home › Watch live darshan and Learn › Library.{" "}
+                <a href={liveStream.media_url} target="_blank" rel="noreferrer" className="text-navy underline">
+                  Open the stream
+                </a>
+              </p>
+            </div>
+          ) : null}
         </Card>
 
         <Card title="Timings by day" description="Sunrise and sunset for the next 30 days. A day entered here overrides the rules above." span={canManage ? 8 : 12} padded={false}>

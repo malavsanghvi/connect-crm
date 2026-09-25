@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 
+import { LAYER_KINDS, layerKey, parseFeedUrl } from "@/lib/calendar";
 import { failure, type ActionResult } from "@/lib/errors";
 import { isUuid } from "@/lib/search-params";
 import { authorizeAction } from "@/lib/session";
@@ -73,4 +74,81 @@ export async function deleteCalendarEntryAction(entryId: string, _prev: ActionRe
   if (!data?.length) return { ok: false, error: "Could not remove the calendar entry — it comes from an event (change the event instead) or it no longer exists." };
   revalidatePath("/calendar");
   return { ok: true, message: `Removed "${data[0].title}".` };
+}
+
+// ---------------------------------------------------------------------------
+// Calendar subscriptions (0510): a layer follows a calendar link (ICS).
+// ---------------------------------------------------------------------------
+
+/** Subscribe a layer to a calendar link (or change the link); the first refresh is queued at once. */
+export async function subscribeLayerFeedAction(layerId: string, _prev: ActionResult | null, fd: FormData): Promise<ActionResult> {
+  const auth = await authorizeAction("calendarManage", "subscribe the layer to the calendar");
+  if (!auth.ok) return auth;
+  if (!isUuid(layerId)) return { ok: false, error: "Could not subscribe the layer — unknown layer." };
+  const parsed = parseFeedUrl(text(fd, "source_url"));
+  if (!parsed.ok) return { ok: false, error: `Could not subscribe the layer — ${parsed.error}` };
+  const { error } = await auth.session.db.rpc("subscribe_calendar_layer", {
+    p_layer: layerId,
+    p_url: parsed.url,
+    p_create_events: Boolean(fd.get("create_events")),
+  });
+  if (error) return failure("Could not subscribe the layer", error);
+  revalidatePath("/calendar");
+  return { ok: true, message: "Subscribed. The background service is fetching the calendar now, and will refresh it every day." };
+}
+
+export async function refreshLayerFeedAction(layerId: string, _prev: ActionResult | null, _fd: FormData): Promise<ActionResult> {
+  void _fd;
+  const auth = await authorizeAction("calendarManage", "refresh the calendar");
+  if (!auth.ok) return auth;
+  if (!isUuid(layerId)) return { ok: false, error: "Could not refresh the calendar — unknown layer." };
+  const { error } = await auth.session.db.rpc("refresh_calendar_layer", { p_layer: layerId });
+  if (error) return failure("Could not refresh the calendar", error);
+  revalidatePath("/calendar");
+  return { ok: true, message: "Refresh queued. Reload this page in a minute to see the result." };
+}
+
+export async function unsubscribeLayerFeedAction(layerId: string, _prev: ActionResult | null, _fd: FormData): Promise<ActionResult> {
+  void _fd;
+  const auth = await authorizeAction("calendarManage", "stop following the calendar");
+  if (!auth.ok) return auth;
+  if (!isUuid(layerId)) return { ok: false, error: "Could not stop following the calendar — unknown layer." };
+  const { error } = await auth.session.db.rpc("unsubscribe_calendar_layer", { p_layer: layerId });
+  if (error) return failure("Could not stop following the calendar", error);
+  revalidatePath("/calendar");
+  return { ok: true, message: "Stopped following the calendar. Its dates stay on the layer; remove any you no longer want." };
+}
+
+/** A new layer of this organization, optionally following a calendar link from the start. */
+export async function createLayerAction(_prev: ActionResult | null, fd: FormData): Promise<ActionResult> {
+  const auth = await authorizeAction("calendarManage", "add the layer");
+  if (!auth.ok) return auth;
+  const { db, center } = auth.session;
+  const name = text(fd, "name");
+  const kind = text(fd, "kind") || "custom";
+  const color = text(fd, "color");
+  const link = text(fd, "source_url");
+  if (!name) return { ok: false, error: "Could not add the layer — give it a name." };
+  if (name.length > 80) return { ok: false, error: "Could not add the layer — keep the name under 80 characters." };
+  if (!LAYER_KINDS.some((k) => k.kind === kind)) return { ok: false, error: "Could not add the layer — choose what kind of dates it holds." };
+  if (color && !/^#[0-9A-Fa-f]{6}$/.test(color)) return { ok: false, error: "Could not add the layer — the colour must look like #1B5E9C." };
+  const parsed = link ? parseFeedUrl(link) : null;
+  if (parsed && !parsed.ok) return { ok: false, error: `Could not add the layer — ${parsed.error}` };
+  const existing = await db.from("calendar_layers").select("key").eq("center_id", center.id);
+  if (existing.error) return failure("Could not add the layer", existing.error);
+  const key = layerKey(name, new Set((existing.data ?? []).map((l) => l.key)));
+  const ins = await db
+    .from("calendar_layers")
+    .insert({ center_id: center.id, key, name, kind, color: color || null, default_on: Boolean(fd.get("default_on")) })
+    .select("id")
+    .single();
+  if (ins.error) return failure("Could not add the layer", ins.error);
+  if (parsed?.ok) {
+    const sub = await db.rpc("subscribe_calendar_layer", { p_layer: ins.data.id, p_url: parsed.url, p_create_events: Boolean(fd.get("create_events")) });
+    revalidatePath("/calendar");
+    if (sub.error) return failure(`The layer "${name}" was added, but could not be subscribed to the calendar`, sub.error);
+    return { ok: true, message: `Added "${name}". The background service is fetching the calendar now.` };
+  }
+  revalidatePath("/calendar");
+  return { ok: true, message: `Added the layer "${name}".` };
 }
