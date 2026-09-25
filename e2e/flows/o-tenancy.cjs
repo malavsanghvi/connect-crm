@@ -235,7 +235,7 @@ const rest = (path, init, token) => fetch(`${API}/rest/v1/${path}`, {
     await p.getByRole('button', { name: 'Check code' }).click();
     await p.getByText('Open Jain Center of New Jersey (sandbox)').waitFor({ timeout: 15000 });
     body = await p.innerText('body');
-    ok(body.includes('This is a practice sandbox'), 'the join code finds the sandbox and says it is one');
+    ok(body.includes('This community is a sandbox'), 'the join code finds the sandbox and says it is one');
     await shot(p, 'member-code-found');
     await p.getByText('Open Jain Center of New Jersey (sandbox)').click();
     await p.getByText(/Jain Center of New Jersey \(sandbox\)/).first().waitFor({ timeout: 20000 });

@@ -60,7 +60,7 @@ describe("New sandbox form", () => {
 
   it("a new owner lands in Setup, through 2FA when required", () => {
     expect(acceptedPath({ owner: true, requires2fa: false })).toBe("/setup");
-    expect(acceptedPath({ owner: true, requires2fa: true })).toBe("/account/security?welcome=1&next=%2Fsetup");
+    expect(acceptedPath({ owner: true, requires2fa: true })).toBe("/account/security?welcome=1&required=1&next=%2Fsetup");
     expect(acceptedPath({ owner: false, requires2fa: true })).toBe("/account/security?welcome=1");
     expect(acceptedPath(null)).toBe("/account/security?welcome=1");
   });

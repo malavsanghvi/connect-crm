@@ -101,7 +101,7 @@ export function invitationLink(origin: string, token: string): string {
  */
 export function acceptedPath(r: { owner?: boolean; requires2fa?: boolean } | null | undefined): string {
   if (!r?.owner) return "/account/security?welcome=1";
-  return r.requires2fa ? `/account/security?welcome=1&next=${encodeURIComponent("/setup")}` : "/setup";
+  return r.requires2fa ? `/account/security?welcome=1&required=1&next=${encodeURIComponent("/setup")}` : "/setup";
 }
 
 /** Plain-English messages for the sign-in service's MFA and phone errors. */
