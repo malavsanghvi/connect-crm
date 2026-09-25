@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { layerDefault, layerOwner, layerSource, sortLayers } from "@/lib/calendar";
+import { feedHost, feedStatusLine, layerDefault, layerKey, layerOwner, layerSource, parseFeedUrl, sortLayers } from "@/lib/calendar";
 import { visibleNav } from "@/lib/permissions";
 
 const layer = (o: Partial<{ center_id: string | null; kind: string; source_url: string | null; default_on: boolean; owner_label: string | null; name: string }>) => ({
@@ -46,5 +46,35 @@ describe("module gating", () => {
   it("calendar is for content staff", () => {
     expect(visibleNav({ permissions: ["content.manage"], isPlatformAdmin: false }).some((m) => m.key === "calendar")).toBe(true);
     expect(visibleNav({ permissions: ["bolis.view"], isPlatformAdmin: false }).map((m) => m.key)).toEqual(["home", "bolis"]);
+  });
+});
+
+describe("calendar subscriptions", () => {
+  it("takes a public calendar link, reading webcal:// as https://", () => {
+    expect(parseFeedUrl(" webcal://calendar.google.com/calendar/ical/x/public/basic.ics ")).toEqual({ ok: true, url: "https://calendar.google.com/calendar/ical/x/public/basic.ics" });
+    expect(parseFeedUrl("https://example.org/a.ics")).toEqual({ ok: true, url: "https://example.org/a.ics" });
+    expect(parseFeedUrl("")).toMatchObject({ ok: false });
+    expect(parseFeedUrl("ftp://example.org/a.ics")).toMatchObject({ ok: false, error: expect.stringContaining("https://") });
+    expect(parseFeedUrl("https://me:pw@example.org/a.ics")).toMatchObject({ ok: false, error: expect.stringContaining("password") });
+    expect(parseFeedUrl("not a link")).toMatchObject({ ok: false });
+    expect(feedHost("https://calendar.google.com/x")).toBe("calendar.google.com");
+  });
+  it("says where a subscription stands", () => {
+    const base = { source_url: "https://x.org/a.ics", feed_subscribed: true, feed_synced_at: "2026-09-25T10:00:00Z", feed_error: null, feed_result: {} };
+    const when = () => "Sep 25";
+    expect(feedStatusLine({ ...base, feed_subscribed: false, feed_status: "none" }, when)).toBeNull();
+    expect(feedStatusLine({ ...base, feed_status: "pending" }, when)).toMatchObject({ tone: "warn" });
+    expect(feedStatusLine({ ...base, feed_status: "error", feed_error: "The calendar link was not found." }, when)).toEqual({ tone: "bad", text: "Last refresh failed — The calendar link was not found." });
+    expect(feedStatusLine({ ...base, feed_status: "ok", feed_result: { inserted: 3, updated: 0, removed: 1, events_created: 2 } }, when)).toEqual({
+      tone: "ok",
+      text: "Refreshed Sep 25 · 3 added, 1 removed, 2 events created · daily",
+    });
+    expect(feedStatusLine({ ...base, feed_status: "ok", feed_result: { inserted: 0 } }, when)?.text).toBe("Refreshed Sep 25 · no changes · daily");
+  });
+  it("makes unique layer keys from names", () => {
+    expect(layerKey("School calendar (FBISD)", new Set())).toBe("school_calendar_fbisd");
+    expect(layerKey("Events", new Set(["events"]))).toBe("events_2");
+    expect(layerKey("!!!", new Set())).toBe("layer");
+    expect(layerSource(layer({ kind: "custom", source_url: "https://x/ics" }), null)).toBe("Calendar link");
   });
 });
