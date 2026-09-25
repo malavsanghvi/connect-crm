@@ -291,7 +291,7 @@ Each service shows its status, test or live mode, who connected it and when, the
    - funds to classes.
 
    `qbo_account_mappings` and `funds.qbo_class_id` exist. The treasurer approves the mapping.
-5. **Test post.** Post one of each type (to the sandbox company, or approved in a test period) and approve the result.
+5. **Test post.** Post one of each type (to the sandbox company, or approved in a test period) and approve the result. **Before a live test post (owner decision 2026-09-25 #10):** it creates four real $1.00 entries in the real QuickBooks company — a sales receipt, a refund receipt, a deposit and a journal entry, each marked "Community Connect test post". The treasurer voids them in QuickBooks afterwards: search for "Community Connect test post", open each entry and choose More › Void (a deposit or journal entry that has no Void is deleted with More › Delete). The Setup checklist step, the QuickBooks setup screen and the confirmation all say this before it runs, and the message after it is queued says it again. Automatic voiding is backlog B9.
 6. **In the sandbox,** connect an Intuit sandbox company, or the real company **read-only**. Read-only lets the real chart of accounts be mapped without posting; the approved mapping carries over at promotion.
 
 Today: the mapping rows, the posting queue (`ledger_postings`) and the exceptions screen exist. The connection, the pull, the copies of the lists and the poster itself do not.
