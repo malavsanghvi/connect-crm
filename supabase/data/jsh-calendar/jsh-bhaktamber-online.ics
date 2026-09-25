@@ -1,0 +1,62 @@
+BEGIN:VCALENDAR
+PRODID:-//Google Inc//Google Calendar 70.9054//EN
+VERSION:2.0
+CALSCALE:GREGORIAN
+METHOD:PUBLISH
+X-WR-CALNAME:JSH Bhaktamber Sessions (Online)
+X-WR-TIMEZONE:America/Chicago
+BEGIN:VTIMEZONE
+TZID:America/Chicago
+X-LIC-LOCATION:America/Chicago
+BEGIN:DAYLIGHT
+TZOFFSETFROM:-0600
+TZOFFSETTO:-0500
+TZNAME:CDT
+DTSTART:19700308T020000
+RRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=2SU
+END:DAYLIGHT
+BEGIN:STANDARD
+TZOFFSETFROM:-0500
+TZOFFSETTO:-0600
+TZNAME:CST
+DTSTART:19701101T020000
+RRULE:FREQ=YEARLY;BYMONTH=11;BYDAY=1SU
+END:STANDARD
+END:VTIMEZONE
+BEGIN:VEVENT
+DTSTART;TZID=America/Chicago:20260228T092000
+DTEND;TZID=America/Chicago:20260228T100000
+RRULE:FREQ=WEEKLY;WKST=SU;BYDAY=SA
+DTSTAMP:20260925T133644Z
+UID:5i2a1l7k69gl43dcl6gmrnfjsq@google.com
+CREATED:20260224T182249Z
+DESCRIPTION:Bhaktamar meditation and manifestation sessions. Here\, I will 
+ post the Shlokas &amp\; Mantras as a remedy for our problems as well as Spi
+ ritual well being. Online Meditation/Healing sessions will start from April
+  2025. <br>Session will be 40 minutes. <br><br><a href="https://chat.whatsa
+ pp.com/CvaMgWQmOs26Muj3PEDksA">https://chat.whatsapp.com/CvaMgWQmOs26Muj3PE
+ DksA</a><br><br>Zoom Link:  <a href="https://bit.ly/jshzoom">https://bit.ly
+ /jshzoom</a> <br>Meeting ID: 343 341 0593<br>Passcode: 108<br><br>Link to R
+ egister:<br><a href="https://bit.ly/Form2register">https://bit.ly/Form2regi
+ ster</a>
+LAST-MODIFIED:20260425T045731Z
+LOCATION:https://bit.ly/jshzoom
+SEQUENCE:1
+STATUS:CONFIRMED
+SUMMARY:JSH Bhaktamber Sessions (Saturday-Online)
+TRANSP:OPAQUE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART;TZID=America/Chicago:20260224T200000
+DTEND;TZID=America/Chicago:20260224T204000
+RRULE:FREQ=WEEKLY;WKST=SU;BYDAY=TU
+DTSTAMP:20260925T133644Z
+UID:0vsmiq5hgfkpv4d8b2poe9621f@google.com
+CREATED:20260224T184120Z
+LAST-MODIFIED:20260425T045719Z
+SEQUENCE:1
+STATUS:CONFIRMED
+SUMMARY:JSH Bhaktamber Session (Tuesday-Online)
+TRANSP:OPAQUE
+END:VEVENT
+END:VCALENDAR

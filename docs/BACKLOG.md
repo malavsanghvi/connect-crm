@@ -16,4 +16,5 @@ New items go at the bottom with the date and who parked them.
 | B9 | **Live QuickBooks test post** | Today it creates four real $1.00 entries the treasurer voids by hand (after explicit confirmation). Revisit: void them automatically, or test without posting. | Owner, 2026-09-25 |
 | B10 | **Push-token claim** | Holding a push token lets a login claim it. Tighten (e.g. bind a token to its first login, device attestation). | Owner, 2026-09-25 |
 | B11 | **Automate texting and WhatsApp registrations** | Today a platform admin records 10DLC/toll-free and Meta decisions by hand. Automate through Twilio Trust Hub and the Meta Cloud API when volume justifies it. | Owner, 2026-09-25 |
+| B12 | **Hide sandboxes from direct address lookup** | Sandboxes are already out of community search, but anyone who knows a sandbox's slug or address can open its sign-in page (the public read of centers). Closing it needs an RPC-based "open community" for the sign-in page, invitations and the member app, and an access-rule change. | Owner, 2026-09-25 |
 
