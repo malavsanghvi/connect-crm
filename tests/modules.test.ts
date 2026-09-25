@@ -89,7 +89,7 @@ describe("NAV with modules switched off", () => {
     expect(hrefs).not.toContain("/content/niva");
     expect(hrefs).toContain("/content/library");
     const people = visibleNav({ ...admin, modulesOff: ["membership"] }).find((m) => m.key === "people")!;
-    expect(people.tabs.map((t) => t.href)).toEqual(["/households", "/people", "/people/directory"]);
+    expect(people.tabs.map((t) => t.href)).toEqual(["/households", "/people", "/people/requests", "/people/directory"]);
   });
   it("canOpenTab refuses a tab of a switched-off module", () => {
     expect(canOpenTab({ ...admin, modulesOff: ["surveys"] }, { access: "comms", module: "surveys" })).toBe(false);
