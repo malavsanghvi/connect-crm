@@ -224,8 +224,8 @@ select pg_temp.assert((select cc_status = 'brought_in' and cc_detail like '%"Jee
 select pg_temp.assert((select a.amount_cents = 60000 from app.payment_allocations a join app.payments p on p.id = a.payment_id
                          join app.pledges pl on pl.id = a.pledge_id where p.crm_external_id = 'qbo:Payment:9101' and pl.crm_external_id = 'qbo:Invoice:9001'),
   'the payment is allocated to the invoice exactly as QuickBooks applied it');
-select pg_temp.assert((select cc_status = 'needs_review' and cc_detail like 'Refunds from QuickBooks need an owner decision%' from app.qbo_transactions where qbo_id = '9301'),
-  'a credit memo waits: refunds from QuickBooks need an owner decision');
+select pg_temp.assert((select cc_status = 'needs_review' and cc_detail like '3 payments from this customer on or before June 1, 2024 could each cover the $50.00 refund%' from app.qbo_transactions where qbo_id = '9301'),
+  'a credit memo that three payments could each cover waits, with the reason (0411: refunds come in only against one clear payment)');
 select pg_temp.assert((select cc_status = 'needs_review' and cc_detail like '%$300.00 paid on invoice INV-9003%$0.00%' from app.qbo_transactions where qbo_id = '9003'),
   'a paid invoice whose payments were not pulled waits instead of showing a wrong balance');
 select pg_temp.assert(not exists (select 1 from app.ledger_postings l join app.payments p on p.id = l.source_id where p.provider = 'quickbooks'),

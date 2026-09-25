@@ -4967,6 +4967,66 @@ export type Database = {
         };
         Relationships: [];
       };
+      payment_refunds: {
+        Row: {
+          id: string;
+          center_id: string;
+          payment_id: string;
+          source: string;
+          provider: string;
+          amount_cents: number;
+          refunded_on: string | null;
+          provider_ref: string;
+          reason: string | null;
+          status: string;
+          first_approver: string | null;
+          first_approved_at: string | null;
+          second_approver: string | null;
+          second_approved_at: string | null;
+          applied_at: string | null;
+          detail: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          center_id: string;
+          payment_id: string;
+          source: string;
+          provider: string;
+          amount_cents: number;
+          refunded_on?: string | null;
+          provider_ref: string;
+          reason?: string | null;
+          status?: string;
+          first_approver?: string | null;
+          first_approved_at?: string | null;
+          second_approver?: string | null;
+          second_approved_at?: string | null;
+          applied_at?: string | null;
+          detail?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          center_id?: string;
+          payment_id?: string;
+          source?: string;
+          provider?: string;
+          amount_cents?: number;
+          refunded_on?: string | null;
+          provider_ref?: string;
+          reason?: string | null;
+          status?: string;
+          first_approver?: string | null;
+          first_approved_at?: string | null;
+          second_approver?: string | null;
+          second_approved_at?: string | null;
+          applied_at?: string | null;
+          detail?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
       payments: {
         Row: {
           id: string;
@@ -5002,6 +5062,7 @@ export type Database = {
           custom: Json;
           is_historical: boolean;
           crm_external_id: string | null;
+          is_opening_balance: boolean;
         };
         Insert: {
           id?: string;
@@ -5037,6 +5098,7 @@ export type Database = {
           custom?: Json;
           is_historical?: boolean;
           crm_external_id?: string | null;
+          is_opening_balance?: boolean;
         };
         Update: {
           id?: string;
@@ -5072,6 +5134,7 @@ export type Database = {
           custom?: Json;
           is_historical?: boolean;
           crm_external_id?: string | null;
+          is_opening_balance?: boolean;
         };
         Relationships: [];
       };
@@ -5514,6 +5577,7 @@ export type Database = {
           pledge_number: string | null;
           opportunity_option: string | null;
           custom: Json;
+          written_off_by_name: string | null;
         };
         Insert: {
           id?: string;
@@ -5545,6 +5609,7 @@ export type Database = {
           pledge_number?: string | null;
           opportunity_option?: string | null;
           custom?: Json;
+          written_off_by_name?: string | null;
         };
         Update: {
           id?: string;
@@ -5576,6 +5641,7 @@ export type Database = {
           pledge_number?: string | null;
           opportunity_option?: string | null;
           custom?: Json;
+          written_off_by_name?: string | null;
         };
         Relationships: [];
       };
@@ -8425,6 +8491,13 @@ export type Database = {
         };
         Returns: undefined;
       };
+      approve_flagged_refund: {
+        Args: {
+          p_refund: string;
+          p_reason: string;
+        };
+        Returns: Json;
+      };
       approve_golive: {
         Args: {
           p_request: string;
@@ -9053,6 +9126,18 @@ export type Database = {
         };
         Returns: { person_id: string; household_id: string; household_name: string; tier: Database["app"]["Enums"]["membership_tier"]; member_names: string[] }[];
       };
+      flagged_refund_count: {
+        Args: {
+          p_center: string;
+        };
+        Returns: number;
+      };
+      flagged_refunds: {
+        Args: {
+          p_center: string;
+        };
+        Returns: Json;
+      };
       golive_approval_status: {
         Args: {
           p_center: string;
@@ -9185,6 +9270,19 @@ export type Database = {
           p_perms: string[];
         };
         Returns: boolean;
+      };
+      import_opening_balance_plan: {
+        Args: {
+          p_run: string;
+        };
+        Returns: Json;
+      };
+      import_pledge_opening_balances: {
+        Args: {
+          p_run: string;
+          p_reason: string;
+        };
+        Returns: Json;
       };
       import_preview: {
         Args: {
@@ -9662,6 +9760,12 @@ export type Database = {
         };
         Returns: boolean;
       };
+      paypal_email_only: {
+        Args: {
+          p_center: string;
+        };
+        Returns: boolean;
+      };
       people_list: {
         Args: {
           p_center: string;
@@ -9724,6 +9828,12 @@ export type Database = {
       platform_setting_keys: {
         Args: Record<PropertyKey, never>;
         Returns: string[];
+      };
+      pledge_writeoff_postings: {
+        Args: {
+          p_pledges: string[];
+        };
+        Returns: Json;
       };
       preview_allocation: {
         Args: {
@@ -9872,6 +9982,10 @@ export type Database = {
         };
         Returns: Json;
       };
+      qbo_test_post_explained: {
+        Args: Record<PropertyKey, never>;
+        Returns: string;
+      };
       qbo_type_label: {
         Args: {
           p: string;
@@ -9916,6 +10030,16 @@ export type Database = {
           p_record: string;
         };
         Returns: { id: number; occurred_at: string; action: string; center_id: string; actor_user_id: string; actor_name: string; actor_role: string; module: string; client_app: string; client_screen: string; reason: string; correlation_id: string; before: Json; after: Json }[];
+      };
+      record_manual_paypal_refund: {
+        Args: {
+          p_payment: string;
+          p_amount_cents: number;
+          p_refunded_on: string;
+          p_paypal_txn: string;
+          p_reason: string;
+        };
+        Returns: Json;
       };
       record_offline_payment: {
         Args: {

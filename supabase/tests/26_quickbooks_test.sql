@@ -252,7 +252,7 @@ select app.approve_qbo_mapping(:jsh, 'Renamed account accepted');
 select pg_temp.assert((select qbo_account_name = 'Donations - General' from app.qbo_account_mappings where center_id = :jsh and purpose = 'income.general'),
   'approving again accepts the new name');
 select app.set_qbo_settings(:jsh, 'cash', 'per_txn', '2026-01-01', 'Cash basis; books in QuickBooks until the end of 2025');
-select pg_temp.assert_raises($$select app.request_qbo_test_post('00000000-0000-4000-8000-000000000001', false, 'Test')$$, 'real QuickBooks company',
+select pg_temp.assert_raises($$select app.request_qbo_test_post('00000000-0000-4000-8000-000000000001', false, 'Test')$$, 'four real $1.00 entries in your QuickBooks company',
   'a test post to a live company''s real books needs an explicit confirmation');
 insert into ctx select 'test', app.request_qbo_test_post(:jsh, true, 'Test post before go-live')::text;
 commit;

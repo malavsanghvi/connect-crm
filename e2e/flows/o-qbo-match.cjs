@@ -14,7 +14,7 @@
 //      ambiguous → AI (mock; only names, city/ZIP and email domains leave), no match → Not mapped yet
 //   3. bulk approve ≥ 90% (reason), approve one, reject one, map one by its household card
 //   4. history comes in: family-level → PRIMARY member; open invoice → open pledge with its balance;
-//      paid invoice → pledge + allocated payments; a credit memo waits (owner decision); nothing is
+//      paid invoice → pledge + allocated payments; a credit memo that no single payment matches waits (0411); nothing is
 //      queued for posting; household giving summary, pledges and payments show it in the portal
 //   5. re-pull and re-run the bring-in: nothing is duplicated
 //   6. remap moves the records; undoing a mapping with history is blocked (owner decision)
@@ -271,7 +271,7 @@ async function mapByCard(p, row, search, householdNumber, reason, personLabel = 
     ok(sql(`select a.amount_cents from app.payment_allocations a join app.payments p on p.id = a.payment_id join app.pledges pl on pl.id = a.pledge_id where p.crm_external_id = 'qbo:Payment:7001' and pl.crm_external_id = 'qbo:Invoice:6001'`) === '60000',
       'the payment is allocated exactly as QuickBooks applied it');
     ok(/Jeevdaya/.test(sql(`select cc_detail from app.qbo_transactions where qbo_id = '5001'`)), 'an unmapped class went to the general fund with a note');
-    ok(/owner decision/.test(sql(`select cc_status || ' ' || cc_detail from app.qbo_transactions where qbo_id = '8001'`)), 'the credit memo waits: refunds need an owner decision');
+    ok(/^needs_review .*could each cover/.test(sql(`select cc_status || ' ' || cc_detail from app.qbo_transactions where qbo_id = '8001'`)), 'the credit memo waits: three payments could each be the one refunded (0411)');
     ok(sql(`select payer_person_id || '|' || household_id from app.payments where crm_external_id = 'qbo:SalesReceipt:5002'`) === `${KIRAN}|${H_MEHTA}`, 'person-level: Kiran\'s receipt is Kiran\'s');
     ok(sql(`select amount_cents - paid_cents || '|' || pledged_by_person_id from app.pledges where crm_external_id = 'qbo:Invoice:6003'`) === `30000|${RAHUL2}`, 'Rahul & Mira\'s open invoice → open $300 pledge on their primary member');
     ok(sql(`select count(*) from app.ledger_postings l join app.payments p on p.id = l.source_id where p.provider = 'quickbooks'`) === '0', 'none of it is queued for posting to QuickBooks');
@@ -325,7 +325,7 @@ async function mapByCard(p, row, search, householdNumber, reason, personLabel = 
     ok(/needs an owner decision/.test(await p.locator('main').innerText()) && sql(`select status from app.qbo_customer_matches where qbo_customer_id = '1187' and household_id = '${H_SHAH}' and method = 'crm_id'`) === 'approved',
       'undoing a mapping whose history is in is blocked with a plain message (deleting data is an owner decision)');
     await go(p, `${PORTAL}/accounting/qbo/matching?tab=review`);
-    ok(/Refunds from QuickBooks need an owner decision/.test(await p.locator('main').innerText()), 'Needs review lists the credit memo with the reason');
+    ok(/could each cover/.test(await p.locator('main').innerText()), 'Needs review lists the credit memo with the reason');
     await shot(p, '06-review');
 
     // ── 7. Audit + module switch ──────────────────────────────────────────
