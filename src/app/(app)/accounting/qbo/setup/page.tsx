@@ -8,7 +8,10 @@ import { QBO_PURPOSES } from "@/lib/labels";
 import { canAccess } from "@/lib/permissions";
 import {
   accountChoices,
+  ACCRUAL_WAITING,
+  BASIS_LABEL,
   COMPANY_LABEL,
+  isBasis,
   connectionSummary,
   setupSteps,
   TEST_POST_EXPLAINED,
@@ -27,6 +30,7 @@ import {
   pullQboListsAction,
   runQboTestPostAction,
   saveFundClassAction,
+  saveQboBasisAction,
   saveQboMappingAction,
   saveQboSettingsAction,
 } from "./actions";
@@ -65,7 +69,7 @@ export default async function QboSetupPage({ searchParams }: { searchParams: Pro
   const header = (
     <PageHeader
       title="Accounting"
-      description="QuickBooks setup: connect the company, pull its chart of accounts, choose the basis and go-live date, map and approve, test-post"
+      description="QuickBooks setup: connect the company, choose the accounting basis, pull its chart of accounts, set posting and the go-live date, map and approve, test-post"
     />
   );
   if (!canAccess(session, "qbo")) {
@@ -115,6 +119,8 @@ export default async function QboSetupPage({ searchParams }: { searchParams: Pro
   const pulled = accounts.length > 0;
   const test = s.test_post;
   const errors = s.warnings.filter((w) => w.level === "error");
+  const basis = isBasis(s.settings.basis) ? s.settings.basis : null;
+  const accrualWaiting = basis === "accrual";
 
   return (
     <>
@@ -221,7 +227,16 @@ export default async function QboSetupPage({ searchParams }: { searchParams: Pro
           <p className="text-sm">{s.readiness.detail}</p>
           <div className="mt-4 border-t border-line pt-3">
             <p className="text-sm font-semibold">Posting</p>
-            <p className="text-sm">{s.post_ready.ok ? "The poster is on: money events post to QuickBooks as they happen." : s.post_ready.reason}</p>
+            {accrualWaiting ? (
+              <div data-testid="qbo-accrual-waiting">
+                <Alert tone="warning" title="Accrual posting isn't available yet">
+                  {ACCRUAL_WAITING}
+                  {typeof s.postings_waiting === "number" ? ` ${s.postings_waiting.toLocaleString()} posting${s.postings_waiting === 1 ? "" : "s"} waiting.` : ""}
+                </Alert>
+              </div>
+            ) : (
+              <p className="text-sm">{s.post_ready.ok ? "The poster is on: money events post to QuickBooks as they happen." : s.post_ready.reason}</p>
+            )}
             {s.post_ready.ok && canManage ? (
               <div className="mt-2">
                 <ActionForm action={postQboNowAction} submitLabel="Post now" pendingLabel="Queuing…" variant="secondary" size="sm" />
@@ -236,8 +251,82 @@ export default async function QboSetupPage({ searchParams }: { searchParams: Pro
 
       {conn && conn.status !== "disconnected" ? (
         <>
+          <Card
+            title="2 · Accounting basis"
+            description="The first choice after connecting: how your books count pledges. It decides which accounts the mapping needs."
+            className="mb-4"
+          >
+            {basis ? (
+              <div data-testid="qbo-basis-chosen">
+                <p className="mb-2 text-sm">
+                  <StatusText tone={accrualWaiting ? "warn" : "ok"}>{BASIS_LABEL[basis]} basis</StatusText>
+                  {s.settings.basis_changed_at
+                    ? ` · changed from ${s.settings.basis_changed_from ?? "the earlier basis"} ${formatDateTime(s.settings.basis_changed_at, tz)}${s.settings.basis_changed_by ? ` by ${s.settings.basis_changed_by}` : ""}`
+                    : s.settings.basis_chosen_at
+                      ? ` · chosen ${formatDateTime(s.settings.basis_chosen_at, tz)}${s.settings.basis_chosen_by ? ` by ${s.settings.basis_chosen_by}` : ""}`
+                      : ""}
+                </p>
+                {s.settings.basis_note ? <p className="mb-2 text-xs text-muted">{s.settings.basis_note}</p> : null}
+                {accrualWaiting ? (
+                  <div className="mb-3">
+                    <Alert tone="warning" title="Accrual posting isn't available yet">
+                      {ACCRUAL_WAITING}
+                    </Alert>
+                  </div>
+                ) : (
+                  <p className="mb-3 text-sm text-muted">Money is posted to QuickBooks when it is received (cash basis).</p>
+                )}
+                {canManage ? (
+                  <details className="text-sm">
+                    <summary className="cursor-pointer font-semibold">Change the basis</summary>
+                    <p className="my-2 text-xs text-muted">
+                      Changing it needs the treasurer, a reason and a fresh 2FA check. The mapping and the test post must then be approved again.
+                    </p>
+                    <ActionForm action={saveQboBasisAction} submitLabel="Change basis" pendingLabel="Changing…" variant="danger" size="sm"
+                      confirmMessage="Change the accounting basis? The mapping and the test post must be approved again before anything posts.">
+                      <input type="hidden" name="changing" value="1" />
+                      <div className="mb-2">
+                        <label htmlFor="qbo-basis-change" className="crm-label">New basis</label>
+                        <select id="qbo-basis-change" name="basis" defaultValue={basis === "cash" ? "accrual" : "cash"} className="crm-input">
+                          <option value="cash">Cash</option>
+                          <option value="accrual">Accrual</option>
+                        </select>
+                      </div>
+                      <ReasonField id="qbo-basis-change-reason" placeholder="e.g. Our auditor asked us to keep pledges receivable" />
+                    </ActionForm>
+                  </details>
+                ) : null}
+              </div>
+            ) : canManage ? (
+              <ActionForm action={saveQboBasisAction} submitLabel="Save basis" pendingLabel="Saving…" size="sm">
+                <fieldset className="mb-3">
+                  <legend className="crm-label">Accounting basis</legend>
+                  <label className="mb-2 flex items-start gap-2 text-sm">
+                    <input type="radio" name="basis" value="cash" required defaultChecked={s.suggested_basis === "cash"} className="mt-1" />
+                    <span>
+                      <span className="font-semibold">Cash basis</span> — money counts when it is received. Pledges are not in QuickBooks until paid.
+                    </span>
+                  </label>
+                  <label className="flex items-start gap-2 text-sm">
+                    <input type="radio" name="basis" value="accrual" required defaultChecked={s.suggested_basis === "accrual"} className="mt-1" />
+                    <span>
+                      <span className="font-semibold">Accrual basis</span> — pledges are receivables when made. Accrual posting isn&apos;t available yet: postings wait
+                      until it is.
+                    </span>
+                  </label>
+                  {s.suggested_basis ? (
+                    <p className="mt-2 text-xs text-muted">Your organization&apos;s setup says {s.suggested_basis} basis; confirm it here.</p>
+                  ) : null}
+                </fieldset>
+                <ReasonField id="qbo-basis-reason" placeholder="e.g. Our books are kept on cash basis" />
+              </ActionForm>
+            ) : (
+              <p className="text-sm text-muted">Not chosen yet. The treasurer (accounting.manage) chooses it first, before the mapping.</p>
+            )}
+          </Card>
+
           <BlockGrid className="mb-4">
-            <Card span={7} title="2 · Chart of accounts and lists" description="Pulled from QuickBooks, read-only here, refreshed daily. Never uploaded by hand."
+            <Card span={7} title="3 · Chart of accounts and lists" description="Pulled from QuickBooks, read-only here, refreshed daily. Never uploaded by hand."
               actions={connected && canConnect ? <ActionForm action={pullQboListsAction} submitLabel="Pull now" pendingLabel="Queuing…" variant="secondary" size="sm" /> : null}>
               <div className="mb-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
                 {Object.entries(LIST_LABEL).map(([k, label]) => (
@@ -265,36 +354,30 @@ export default async function QboSetupPage({ searchParams }: { searchParams: Pro
               ) : null}
             </Card>
 
-            <Card span={5} title="3 · Basis, posting and go-live date" description="Only money received on or after the go-live date posts">
-              {canManage ? (
+            <Card span={5} title="4 · Posting and go-live date" description="Only money received on or after the go-live date posts">
+              {!basis ? (
+                <p className="text-sm text-muted">Choose the accounting basis first (step 2).</p>
+              ) : canManage ? (
                 <ActionForm action={saveQboSettingsAction} submitLabel="Save choices" pendingLabel="Saving…" size="sm">
-                  <div className="mb-2 grid grid-cols-2 gap-2">
-                    <div>
-                      <label htmlFor="qbo-basis" className="crm-label">Basis</label>
-                      <select id="qbo-basis" name="basis" defaultValue={s.settings.basis ?? "cash"} className="crm-input">
-                        <option value="cash">Cash</option>
-                        <option value="accrual">Accrual</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label htmlFor="qbo-posting" className="crm-label">Posting</label>
-                      <select id="qbo-posting" name="posting" defaultValue={s.settings.posting ?? "per_txn"} className="crm-input">
-                        <option value="per_txn">Each transaction</option>
-                        <option value="daily_summary">A daily summary</option>
-                      </select>
-                    </div>
+                  <input type="hidden" name="basis" value={basis} />
+                  <div className="mb-2">
+                    <label htmlFor="qbo-posting" className="crm-label">Posting</label>
+                    <select id="qbo-posting" name="posting" defaultValue={s.settings.posting ?? "per_txn"} className="crm-input">
+                      <option value="per_txn">Each transaction</option>
+                      <option value="daily_summary">A daily summary</option>
+                    </select>
                   </div>
                   <div className="mb-2">
                     <label htmlFor="qbo-golive" className="crm-label">QuickBooks go-live date</label>
                     <input id="qbo-golive" name="go_live_date" type="date" required defaultValue={s.settings.go_live_date ?? ""} className="crm-input" />
                   </div>
-                  <ReasonField id="qbo-set-reason" placeholder="e.g. Cash basis; books kept in QuickBooks until June 30" />
-                  <p className="mb-2 text-xs text-muted">Accrual basis needs the pledges receivable account; posting on accrual basis is not built yet, so nothing posts until cash basis is chosen.</p>
+                  <ReasonField id="qbo-set-reason" placeholder="e.g. Books kept in QuickBooks until June 30" />
+                  <p className="mb-2 text-xs text-muted">Basis: {BASIS_LABEL[basis]} (step 2).</p>
                 </ActionForm>
               ) : (
                 <DefinitionList
                   items={[
-                    { label: "Basis", value: s.settings.basis ?? "—" },
+                    { label: "Basis", value: BASIS_LABEL[basis] },
                     { label: "Posting", value: s.settings.posting?.replace(/_/g, " ") ?? "—" },
                     { label: "Go-live date", value: s.settings.go_live_date ?? "—" },
                   ]}
@@ -304,12 +387,14 @@ export default async function QboSetupPage({ searchParams }: { searchParams: Pro
           </BlockGrid>
 
           <Card
-            title="4 · Account mapping"
+            title="5 · Account mapping"
             description="Choose, from the chart pulled from QuickBooks, where each kind of money posts. The treasurer approves the whole mapping; any change needs approval again."
             padded={false}
             className="mb-4"
           >
-            {!pulled ? (
+            {!basis ? (
+              <EmptyState title="Choose the accounting basis first">It decides which accounts the mapping needs (step 2).</EmptyState>
+            ) : !pulled ? (
               <EmptyState title="Pull the chart of accounts first">The accounts to choose from come from QuickBooks.</EmptyState>
             ) : (
               <TableWrap>
@@ -437,7 +522,7 @@ export default async function QboSetupPage({ searchParams }: { searchParams: Pro
                       : "Everything required is mapped. Check it against your books, then approve."}
                 </p>
               )}
-              {canManage && !s.settings.mapping_approved_at ? (
+              {canManage && !s.settings.mapping_approved_at && basis ? (
                 <ActionForm action={approveQboMappingAction} submitLabel="Approve mapping" pendingLabel="Approving…" variant="success" size="sm"
                   submitDisabled={s.missing_purposes.length > 0 || errors.length > 0}>
                   <ReasonField id="qbo-approve-reason" placeholder="e.g. Checked against the chart of accounts" />
@@ -445,7 +530,7 @@ export default async function QboSetupPage({ searchParams }: { searchParams: Pro
               ) : null}
             </Card>
 
-            <Card span={6} title="5 · Test post" description={conn.read_only ? "Read-only company: checks every account, item and class in QuickBooks without posting" : "One $1.00 sales receipt, refund receipt, deposit and journal entry"}>
+            <Card span={6} title="6 · Test post" description={conn.read_only ? "Read-only company: checks every account, item and class in QuickBooks without posting" : "One $1.00 sales receipt, refund receipt, deposit and journal entry"}>
               {test ? (
                 <div className="mb-3">
                   <p className="text-sm">

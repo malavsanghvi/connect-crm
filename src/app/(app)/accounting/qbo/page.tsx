@@ -27,6 +27,7 @@ import { isPlainObject } from "@/lib/center-rules";
 import { LEDGER_STATUS_TONE, LEDGER_TXN_LABEL, QBO_PURPOSES } from "@/lib/labels";
 import { formatCents } from "@/lib/money";
 import { canAccess } from "@/lib/permissions";
+import { ACCRUAL_WAITING, BASIS_LABEL } from "@/lib/qbo/setup";
 import { hrefWith, pageParam, param, type RawSearchParams } from "@/lib/search-params";
 import { getSession } from "@/lib/session";
 
@@ -262,10 +263,17 @@ export default async function QboPage({ searchParams }: { searchParams: Promise<
                   { label: "Realm id", value: conn.external_account_id ?? "—" },
                   { label: "Connected", value: formatDateTime(conn.connected_at, tz) },
                   { label: "Token expires", value: formatDateTime(conn.token_expires_at, tz) },
-                  { label: "Basis", value: typeof settings.basis === "string" ? settings.basis : "—" },
+                  { label: "Basis", value: typeof settings.basis === "string" ? (BASIS_LABEL[settings.basis] ?? settings.basis) : "Not chosen yet" },
                   { label: "Posting", value: typeof settings.posting === "string" ? settings.posting.replace(/_/g, " ") : "—" },
                 ]}
               />
+              {settings.basis === "accrual" ? (
+                <div className="mt-3">
+                  <Alert tone="warning" title="Accrual posting isn't available yet">
+                    {ACCRUAL_WAITING}
+                  </Alert>
+                </div>
+              ) : null}
               {conn.last_error ? (
                 <div className="mt-3">
                   <Alert tone="danger" title="Last error">
