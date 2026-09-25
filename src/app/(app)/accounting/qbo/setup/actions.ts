@@ -6,7 +6,7 @@ import { headers } from "next/headers";
 import { failure, type ActionResult } from "@/lib/errors";
 import { QBO_PURPOSES } from "@/lib/labels";
 import { authorizeUrl, intuitPortalConfig, redirectUri, signState } from "@/lib/qbo/oauth";
-import { reasonProblem, TEST_POST_HOW_TO_VOID } from "@/lib/qbo/setup";
+import { ACCRUAL_WAITING, BASIS_LABEL, isBasis, reasonProblem, TEST_POST_HOW_TO_VOID } from "@/lib/qbo/setup";
 import { isUuid } from "@/lib/search-params";
 import { authorizeAction, dbWithReason } from "@/lib/session";
 import { platformEnv } from "@/lib/platform-setup/server-config";
@@ -79,12 +79,44 @@ export async function disconnectQboAction(_prev: ActionResult | null, fd: FormDa
   return { ok: true, message: "QuickBooks is disconnected and its sign-in removed from the vault. Nothing posts until it is connected again." };
 }
 
+/**
+ * The accounting basis: the first choice after connecting (the treasurer, with a reason). Changing it later
+ * also needs a fresh 2FA check (the RPC refuses with CCSTP and the form asks for the code). Posting stays
+ * cash-only, so on accrual postings wait — said here, on the screen and in readiness.
+ */
+export async function saveQboBasisAction(_prev: ActionResult | null, fd: FormData): Promise<ActionResult> {
+  const basis = text(fd, "basis");
+  const changing = text(fd, "changing") === "1";
+  const doing = changing ? "change the accounting basis" : "choose the accounting basis";
+  if (!isBasis(basis)) return { ok: false, error: `Could not ${doing} — choose cash or accrual.` };
+  const reason = text(fd, "reason");
+  const bad = reasonProblem(reason, doing);
+  if (bad) return { ok: false, error: bad };
+  const auth = await authorizeAction("qboManage", doing);
+  if (!auth.ok) return auth;
+  const db = await dbWithReason(auth.session, reason);
+  const { data, error } = await db.rpc("set_qbo_basis", { p_center: auth.session.center.id, p_basis: basis, p_reason: reason });
+  if (error) return failure(`Could not ${doing}`, error);
+  refresh();
+  const r = data && typeof data === "object" && !Array.isArray(data) ? (data as Record<string, unknown>) : {};
+  if (r.changed === false) return { ok: true, message: `The basis is already ${BASIS_LABEL[basis]!.toLowerCase()}; nothing changed.` };
+  const then = basis === "accrual" ? ` ${ACCRUAL_WAITING}` : " Postings go to QuickBooks on cash basis.";
+  return {
+    ok: true,
+    message: r.first
+      ? `${BASIS_LABEL[basis]} basis chosen · audit logged. Next: the chart of accounts, then posting and the go-live date.${then}`
+      : `Basis changed to ${BASIS_LABEL[basis]!.toLowerCase()} · audit logged. Approve the mapping and the test post again.${then}`,
+  };
+}
+
 export async function saveQboSettingsAction(_prev: ActionResult | null, fd: FormData): Promise<ActionResult> {
-  const doing = "save the QuickBooks choices";
+  const doing = "save the posting and go-live date";
+  // The basis has its own step (saveQboBasisAction); this form carries the chosen one unchanged.
   const basis = text(fd, "basis");
   const posting = text(fd, "posting");
   const goLive = text(fd, "go_live_date");
   const reason = text(fd, "reason");
+  if (!isBasis(basis)) return { ok: false, error: `Could not ${doing} — choose the accounting basis first (step 2).` };
   if (!/^\d{4}-\d{2}-\d{2}$/.test(goLive)) return { ok: false, error: `Could not ${doing} — choose the go-live date.` };
   const bad = reasonProblem(reason, doing);
   if (bad) return { ok: false, error: bad };
@@ -100,7 +132,10 @@ export async function saveQboSettingsAction(_prev: ActionResult | null, fd: Form
   });
   if (error) return failure(`Could not ${doing}`, error);
   refresh();
-  return { ok: true, message: "Saved. Only money received on or after the go-live date posts to QuickBooks." };
+  return {
+    ok: true,
+    message: `Saved. Only money received on or after the go-live date posts to QuickBooks.${basis === "accrual" ? ` ${ACCRUAL_WAITING}` : ""}`,
+  };
 }
 
 export async function pullQboListsAction(): Promise<ActionResult> {

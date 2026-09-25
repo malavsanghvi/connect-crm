@@ -14,6 +14,8 @@ export type HttpOptions = {
   retries?: number;
   /** Base delay between retries (doubles each time). */
   backoffMs?: number;
+  /** "manual" hands a 3xx back instead of following it (calendar feeds re-check each hop). */
+  redirect?: "follow" | "manual" | "error";
 };
 export type Http = { request(url: string, opts?: HttpOptions): Promise<HttpResponse> };
 
@@ -33,9 +35,9 @@ export function backoffDelay(attempt: number, baseMs: number): number {
 export function createHttp(fetchImpl: typeof fetch = fetch, sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))): Http {
   return {
     async request(url, opts = {}) {
-      const { method = "GET", headers = {}, body, timeoutMs = 10000, retries = 2, backoffMs = 500 } = opts;
+      const { method = "GET", headers = {}, body, timeoutMs = 10000, retries = 2, backoffMs = 500, redirect } = opts;
       const where = `${method} ${scrubText(url.split("?")[0] ?? url)}`;
-      const init: RequestInit = { method, headers: { ...headers } };
+      const init: RequestInit = { method, headers: { ...headers }, ...(redirect ? { redirect } : {}) };
       if (body !== undefined) {
         init.body = typeof body === "string" ? body : JSON.stringify(body);
         if (typeof body !== "string" && !Object.keys(headers).some((h) => h.toLowerCase() === "content-type")) {

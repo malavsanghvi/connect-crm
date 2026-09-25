@@ -6,7 +6,7 @@ import { Card, ChipLinks, EmptyState, NoAccess, QueryError, TableWrap } from "@/
 import { ageLabel, refCode } from "@/lib/comms";
 import { personNames } from "@/lib/data/content-comms";
 import { userNames } from "@/lib/data/lookups";
-import { can } from "@/lib/permissions";
+import { can, passesRoleChecks } from "@/lib/permissions";
 import { param, type RawSearchParams } from "@/lib/search-params";
 import { getSession } from "@/lib/session";
 
@@ -20,7 +20,7 @@ const SUB = "Questions and zone messages land here, never on personal phones";
 export default async function InboxPage({ searchParams }: { searchParams: Promise<RawSearchParams> }) {
   const session = await getSession();
   const all = can(session, "comms.inbox");
-  const zoneLead = session.roles.some((r) => r.key === "zone_lead");
+  const zoneLead = passesRoleChecks(session) || session.roles.some((r) => r.key === "zone_lead");
   if (!all && !zoneLead) {
     return (
       <>

@@ -7,7 +7,7 @@ import { failure, type ActionResult } from "@/lib/errors";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 /** Accept a staff invitation as the signed-in user (app.accept_invitation links the login and grants the roles). */
-export async function acceptInvitationAction(token: string): Promise<ActionResult<{ pendingRoles: string[]; requires2fa: boolean }>> {
+export async function acceptInvitationAction(token: string): Promise<ActionResult<{ pendingRoles: string[]; requires2fa: boolean; owner: boolean }>> {
   let db;
   try {
     db = await createSupabaseServerClient();
@@ -18,7 +18,7 @@ export async function acceptInvitationAction(token: string): Promise<ActionResul
   if (claimsError || !claims?.claims?.sub) return { ok: false, error: "Could not accept the invitation — sign in first." };
   const { data, error } = await db.rpc("accept_invitation", { p_token: String(token ?? "") });
   if (error) return failure("Could not accept the invitation", error);
-  const r = (data ?? {}) as { pending_roles?: string[]; requires_2fa?: boolean; center_id?: string };
+  const r = (data ?? {}) as { pending_roles?: string[]; requires_2fa?: boolean; center_id?: string; owner?: boolean };
   // Open the portal on the community that invited them (a sandbox or a second organization
   // is not the address's default one). The switcher still lists every community they work with.
   if (typeof r.center_id === "string") {
@@ -42,7 +42,7 @@ export async function acceptInvitationAction(token: string): Promise<ActionResul
   }
   return {
     ok: true,
-    message: "Invitation accepted",
-    data: { pendingRoles: Array.isArray(r.pending_roles) ? r.pending_roles : [], requires2fa: r.requires_2fa === true },
+    message: r.owner === true ? "Invitation accepted · you are the organization's owner" : "Invitation accepted",
+    data: { pendingRoles: Array.isArray(r.pending_roles) ? r.pending_roles : [], requires2fa: r.requires_2fa === true, owner: r.owner === true },
   };
 }

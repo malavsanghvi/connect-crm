@@ -33,6 +33,8 @@ export interface WorkerDb {
   schedule(kind: string, everySeconds: number): Promise<string | null>;
   readSecret(ctx: ReadContext, connectionId: string, name: string): Promise<string | null>;
   storeSecret(ctx: ReadContext, connectionId: string, name: string, value: string): Promise<{ fingerprint: string }>;
+  /** Remove a used (or no longer usable) OAuth authorization code from the vault (app.worker_remove_oauth_code, audited). True when one was there. */
+  removeOauthCode(ctx: ReadContext, connectionId: string, name: string, outcome: "exchanged" | "unusable"): Promise<boolean>;
   /** The platform setup wizard's settings and key names/versions (never a value); null before migration 0320. */
   platformConfig(): Promise<PlatformSnapshot | null>;
   /** One of Community Connect's own keys (app.worker_read_platform_secret, logged). */
@@ -122,6 +124,12 @@ export function createDb(databaseUrl: string, ca: string | undefined, log: Logge
       return asReader(ctx, async (c) => {
         const r = await c.query("select app.worker_store_secret($1, $2, $3, $4) as v", [connectionId, name, value, ctx.purpose]);
         return { fingerprint: String((r.rows[0]?.v as { fingerprint?: string } | undefined)?.fingerprint ?? "") };
+      });
+    },
+    removeOauthCode(ctx, connectionId, name, outcome) {
+      return asReader(ctx, async (c) => {
+        const r = await c.query("select app.worker_remove_oauth_code($1, $2, $3) as v", [connectionId, name, outcome]);
+        return r.rows[0]?.v === true;
       });
     },
     async platformConfig() {

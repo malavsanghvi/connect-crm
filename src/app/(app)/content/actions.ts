@@ -134,6 +134,9 @@ export async function saveContentItemAction(_prev: ActionResult | null, fd: Form
   if (!ITEM_KINDS.includes(kind)) return { ok: false, error: `Could not ${doing} — choose what kind of item it is.` };
   if (!title) return { ok: false, error: `Could not ${doing} — give it a title.` };
   if (mediaUrl && !/^https?:\/\//i.test(mediaUrl)) return { ok: false, error: `Could not ${doing} — the media link must start with https://.` };
+  if (kind === "darshan_stream" && mediaUrl && !/^https:\/\/\S+$/i.test(mediaUrl)) {
+    return { ok: false, error: `Could not ${doing} — a live stream link must be a secure https:// address (the member app plays it in a secure page).` };
+  }
   const metadata: Record<string, Json> = {};
   for (const k of META_KEYS) {
     const v = text(fd, `meta_${k}`);

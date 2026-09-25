@@ -13,6 +13,8 @@ export type JobContext = {
   secret(connectionId: string, name: string): Promise<string | null>;
   /** Store a secret a provider handed back (OAuth tokens); audited, never logged. */
   storeSecret(connectionId: string, name: string, value: string): Promise<{ fingerprint: string }>;
+  /** Remove an OAuth authorization code once exchanged, or once a retry could no longer use it; audited, never logged. */
+  removeOauthCode(connectionId: string, name: string, outcome: "exchanged" | "unusable"): Promise<boolean>;
   http: Http;
   log: Logger;
   /** The worker's environment: Community Connect's own provider keys live here. */

@@ -94,6 +94,16 @@ export function invitationLink(origin: string, token: string): string {
   return `${origin.replace(/\/+$/, "")}/invite/${encodeURIComponent(token)}`;
 }
 
+/**
+ * Where the portal opens after an invitation is accepted: staff go to Account › Security to set up
+ * 2FA; a new owner (a sandbox Community Connect created, f-sandbox) goes to the organization's Setup —
+ * through Account › Security first when the organization requires 2FA for staff.
+ */
+export function acceptedPath(r: { owner?: boolean; requires2fa?: boolean } | null | undefined): string {
+  if (!r?.owner) return "/account/security?welcome=1";
+  return r.requires2fa ? `/account/security?welcome=1&required=1&next=${encodeURIComponent("/setup")}` : "/setup";
+}
+
 /** Plain-English messages for the sign-in service's MFA and phone errors. */
 export function explainAuthError(error: { message?: string; code?: string; status?: number } | null | undefined, doing: string): string {
   const msg = error?.message ?? "";

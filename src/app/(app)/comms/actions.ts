@@ -6,7 +6,7 @@ import { buildAudience, buildTranslations, composeAction, parseAudience, require
 import type { Database, Json, TablesUpdate } from "@/lib/database.types";
 import { localDateTimeToIso } from "@/lib/dates";
 import { failure, type ActionResult } from "@/lib/errors";
-import { can } from "@/lib/permissions";
+import { can, passesRoleChecks } from "@/lib/permissions";
 import { isUuid } from "@/lib/search-params";
 import { authorizeAction, loadSession, type CrmSession } from "@/lib/session";
 
@@ -215,7 +215,7 @@ async function inboxSession(doing: string): Promise<{ ok: true; session: CrmSess
   if (state.status !== "ok") return { ok: false, error: `Could not ${doing} — your session has expired or the app is not configured. Sign in again.` };
   const s = state.session;
   // comms.inbox holders see every inbox; zone leads their zone's (RLS checks the zone).
-  if (!can(s, "comms.inbox") && !s.roles.some((r) => r.key === "zone_lead")) {
+  if (!can(s, "comms.inbox") && !(passesRoleChecks(s) || s.roles.some((r) => r.key === "zone_lead"))) {
     return { ok: false, error: `Could not ${doing} — you don't handle any inbox (needs comms.inbox or a zone lead role).` };
   }
   return { ok: true, session: s };

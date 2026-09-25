@@ -11,12 +11,17 @@
 //                  to administrators.
 //   redirect_uri   the redirect URI used in the authorization request
 //
+// Once exchanged, the code is removed from the vault (owner decision #12); a
+// failed exchange removes it too unless a retry of this job could still use it
+// (retryCouldUseCode). Audited as "used authorization code removed after
+// exchange"; the value is never logged.
+//
 // Community Connect's own client id / secret come from the worker's env
 // (STRIPE_*, PAYPAL_*, INTUIT_*). Missing ones fail the job at once with
 // "not configured", naming the variables, never retried.
 
 import { providerStatus, type Env, type Provider, type Readiness } from "../config";
-import { NotConfiguredError, PermanentError } from "../errors";
+import { isRetryable, messageOf, NotConfiguredError, PermanentError } from "../errors";
 import type { Http } from "../http";
 import { paypalExchange, stripeExchange } from "../payments/connect";
 import type { Job, JobContext } from "../types";
@@ -67,6 +72,16 @@ export const EXCHANGERS: Partial<Record<OAuthProvider, Exchanger>> = { stripe: s
 /** Optional per provider: what happens once the tokens are in the vault. */
 export const AFTER_EXCHANGE: Partial<Record<OAuthProvider, AfterExchange>> = { intuit: intuitAfterExchange };
 
+/**
+ * Whether the same job could still use the code after this failure: the
+ * failure is temporary (a network blip, the provider's 5xx) and the job has
+ * attempts left. Anything else (the provider refused the code, not
+ * configured, a used or expired code, the last attempt) cannot.
+ */
+export function retryCouldUseCode(err: unknown, job: Pick<Job, "attempts" | "max_attempts">, exchanged: boolean): boolean {
+  return !exchanged && isRetryable(err) && job.attempts < job.max_attempts;
+}
+
 export async function run(
   job: Job,
   ctx: JobContext,
@@ -77,46 +92,78 @@ export async function run(
   if ("code" in p) {
     throw new PermanentError("The authorization code must not be put in the job payload; store it in the vault and pass code_secret.");
   }
-  const provider = p.provider;
-  if (typeof provider !== "string" || !(OAUTH_PROVIDERS as readonly string[]).includes(provider)) {
-    throw new PermanentError(`oauth.exchange: provider must be one of ${OAUTH_PROVIDERS.join(", ")}.`);
-  }
   if (typeof p.connection_id !== "string") throw new PermanentError("oauth.exchange: connection_id is required.");
-  const status = providerStatus(ctx.env, provider as OAuthProvider);
-  if (!status.configured) throw new NotConfiguredError(status.reason);
-  const exchange = exchangers[provider as OAuthProvider];
-  if (!exchange) throw new PermanentError(`Connecting ${provider} is not built yet, so the authorization code was not used.`);
-
+  const connectionId = p.connection_id;
   const codeName = typeof p.code_secret === "string" ? p.code_secret : "oauth.code";
-  const code = await ctx.secret(p.connection_id, codeName);
-  if (!code) throw new PermanentError(`No authorization code is stored on the connection (secret "${codeName}"). Start the connection again.`);
 
-  const tokens = await exchange({
-    code,
-    redirectUri: typeof p.redirect_uri === "string" ? p.redirect_uri : null,
-    connectionId: p.connection_id,
-    env: ctx.env,
-    http: ctx.http,
-    payload: p,
-    mode: p.mode === "live" ? "live" : "test",
-  });
+  // Owner decision #12: a used code leaves the vault. Returns whether it did (never throws: the
+  // exchange's own outcome is what the job reports; a removal that failed is logged and reported).
+  const removeCode = async (outcome: "exchanged" | "unusable"): Promise<{ removed: boolean; error?: string }> => {
+    try {
+      return { removed: await ctx.removeOauthCode(connectionId, codeName, outcome) };
+    } catch (err) {
+      const error = messageOf(err);
+      ctx.log.error("could not remove the authorization code from the vault", { connection: connectionId, secret: codeName, outcome, error });
+      return { removed: false, error };
+    }
+  };
+
+  let exchanged = false;
+  let tokens: TokenSet;
   const stored: Record<string, string> = {};
-  for (const [name, value] of Object.entries(tokens.secrets)) {
-    stored[name] = (await ctx.storeSecret(p.connection_id, name, value)).fingerprint;
+  let provider: OAuthProvider;
+  try {
+    const raw = p.provider;
+    if (typeof raw !== "string" || !(OAUTH_PROVIDERS as readonly string[]).includes(raw)) {
+      throw new PermanentError(`oauth.exchange: provider must be one of ${OAUTH_PROVIDERS.join(", ")}.`);
+    }
+    provider = raw as OAuthProvider;
+    const status = providerStatus(ctx.env, provider);
+    if (!status.configured) throw new NotConfiguredError(status.reason);
+    const exchange = exchangers[provider];
+    if (!exchange) throw new PermanentError(`Connecting ${provider} is not built yet, so the authorization code was not used.`);
+
+    const code = await ctx.secret(connectionId, codeName);
+    if (!code) throw new PermanentError(`No authorization code is stored on the connection (secret "${codeName}"). Start the connection again.`);
+
+    tokens = await exchange({
+      code,
+      redirectUri: typeof p.redirect_uri === "string" ? p.redirect_uri : null,
+      connectionId,
+      env: ctx.env,
+      http: ctx.http,
+      payload: p,
+      mode: p.mode === "live" ? "live" : "test",
+    });
+    exchanged = true;
+    for (const [name, value] of Object.entries(tokens.secrets)) {
+      stored[name] = (await ctx.storeSecret(connectionId, name, value)).fingerprint;
+    }
+  } catch (err) {
+    if (!retryCouldUseCode(err, job, exchanged)) {
+      const r = await removeCode(exchanged ? "exchanged" : "unusable");
+      if (r.removed) ctx.log.info("authorization code removed from the vault: a retry could not use it", { connection: connectionId, secret: codeName });
+    }
+    throw err;
   }
-  const afterStep = after[provider as OAuthProvider];
+
+  const removal = await removeCode("exchanged");
+  const codeResult = { code_removed: removal.removed, ...(removal.error ? { code_remove_error: removal.error } : {}) };
+  const base = { provider, stored, expires_at: tokens.expiresAt ?? null, external_account_id: tokens.externalAccountId ?? null, ...codeResult };
+
+  const afterStep = after[provider];
   if (afterStep) {
     // A provider with its own bookkeeping (QuickBooks marks the connection connected and queues the first pull).
-    const extra = await afterStep(tokens, ctx, p.connection_id);
-    return { provider, stored, expires_at: tokens.expiresAt ?? null, external_account_id: tokens.externalAccountId ?? null, ...extra };
+    const extra = await afterStep(tokens, ctx, connectionId);
+    return { ...base, ...extra };
   }
   // Otherwise the connection is connected (and a payment processor moves to test mode): app.worker_connection_connected (0212).
   await ctx.db.query("select app.worker_connection_connected($1, $2, $3, $4, $5)", [
-    p.connection_id,
+    connectionId,
     tokens.externalAccountId ?? null,
     tokens.displayName ?? null,
     tokens.expiresAt ?? null,
     JSON.stringify(tokens.settings ?? {}),
   ]);
-  return { provider, stored, expires_at: tokens.expiresAt ?? null, external_account_id: tokens.externalAccountId ?? null };
+  return base;
 }

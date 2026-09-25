@@ -7,7 +7,7 @@ import { bool, cents, dateList, dateTime, FormError, int, isoDate, must, oneOf, 
 import { isAttendanceStatus, reportAttendance, type AttendanceStatus } from "@/lib/logic/attendance";
 import { pathshalaAreas as areas } from "@/lib/pathshala/access";
 import { actionContext, searchPeople, type PersonOption } from "@/lib/pathshala/server";
-import { can, hasScopedRole, type ScopedContext } from "@/lib/permissions";
+import { can, hasScopedRole, passesRoleChecks, type ScopedContext } from "@/lib/permissions";
 import type { AppSupabase } from "@/lib/supabase/server";
 
 const TERM_STATUSES = ["draft", "registration", "active", "closed"] as const;
@@ -363,7 +363,7 @@ export async function markAttendance(input: {
           status: input.status,
           note: input.note?.trim() || null,
           marked_by: viewer.userId,
-          marked_via: hasScopedRole(viewer, input.classId, "teacher") && !viewer.isPlatformAdmin ? "teacher" : "admin",
+          marked_via: hasScopedRole(viewer, input.classId, "teacher") && !passesRoleChecks(viewer) ? "teacher" : "admin",
           marked_at: new Date().toISOString(),
         },
         { onConflict: "session_id,enrollment_id" },
@@ -383,7 +383,7 @@ export async function markAllPresent(input: { classId: string; heldOn: string; e
     if (!input.enrollmentIds.length) return ok("Everyone is already marked.");
     const session = await ensureSession(supabase, centerId, input.classId, validDate(input.heldOn), viewer.userId);
     const now = new Date().toISOString();
-    const via = hasScopedRole(viewer, input.classId, "teacher") && !viewer.isPlatformAdmin ? "teacher" : "admin";
+    const via = hasScopedRole(viewer, input.classId, "teacher") && !passesRoleChecks(viewer) ? "teacher" : "admin";
     must(
       await supabase.from("pathshala_attendance").upsert(
         input.enrollmentIds.map((enrollment_id) => ({

@@ -347,7 +347,7 @@ const card = (p, title) => p.locator('section.cc-card').filter({ has: p.getByRol
       `4 the mapping, with "Pledge write-offs", is approved (${approved.status} ${approved.status >= 300 ? JSON.stringify(approved.body) : ''})`);
 
     await p.goto(BASE + '/accounting/qbo/setup', { waitUntil: 'networkidle' });
-    const testCard = p.locator('section', { hasText: '5 · Test post' });
+    const testCard = p.locator('section', { hasText: '6 · Test post' });
     const explained = await testCard.getByTestId('qbo-test-post-explained').innerText().catch(() => '');
     ok(/four real \$1\.00 entries/.test(explained) && /sales receipt, a refund receipt, a deposit and a journal entry/.test(explained) && /More › Void/.test(explained),
       '4 #10 before the test post, the screen explains the four real $1.00 entries and how to void them');

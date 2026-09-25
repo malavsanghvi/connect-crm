@@ -7,6 +7,8 @@ import { Alert, Card, KpiGrid, QueryError, Stat, StatusText, TableWrap } from "@
 import type { Json } from "@/lib/database.types";
 import { formatDateTime } from "@/lib/dates";
 import {
+  clearConfirmMessage,
+  clearScope,
   countsOf,
   DEMO_ONLY_SANDBOX,
   DEMO_STATUS_LABEL,
@@ -66,11 +68,12 @@ export default async function DemoDataPage() {
     );
   }
 
-  const [packs, state, counts, service] = await Promise.all([
+  const [packs, state, counts, service, inPlace] = await Promise.all([
     db.from("demo_packs").select("key, version, title, description, contents").eq("active", true).order("key"),
     db.from("center_demo_state").select("*").eq("center_id", center.id).maybeSingle(),
     db.rpc("demo_data_counts", { p_center: center.id }),
     db.rpc("background_service_status", { p_center: center.id }),
+    db.rpc("promotes_in_place", { p_center: center.id }),
   ]);
   const firstError = packs.error ?? state.error ?? counts.error;
   if (firstError) {
@@ -82,6 +85,9 @@ export default async function DemoDataPage() {
     );
   }
   if (service.error) console.error("[setup/demo] could not read the background service status:", service.error);
+  // Unknown means "say the stronger thing": a sandbox that may hold the organization's own records.
+  if (inPlace.error) console.error("[setup/demo] could not read whether this sandbox holds the organization's own records (showing the stronger warning):", inPlace.error);
+  const holdsOwnRecords = inPlace.error ? true : inPlace.data === true;
   const pack = packs.data?.find((p) => p.key === (state.data?.pack_key ?? "community")) ?? packs.data?.[0] ?? null;
   const s = state.data;
   const status = demoStatus(s?.status);
@@ -95,6 +101,8 @@ export default async function DemoDataPage() {
   const word = demoConfirmWord(center);
   const svc = service.error ? null : backgroundServiceView(service.data);
   const off = new Set(session.modulesOff);
+  const orgName = center.short_name || center.name;
+  const scope = clearScope(orgName, now, holdsOwnRecords);
   const lastRun = s?.loaded_at && (!s.cleared_at || s.loaded_at > s.cleared_at) ? `Loaded ${formatDateTime(s.loaded_at, tz)}` : s?.cleared_at ? `Cleared ${formatDateTime(s.cleared_at, tz)}` : "Never";
 
   return (
@@ -115,6 +123,11 @@ export default async function DemoDataPage() {
       </div>
 
       <div className="flex flex-col gap-4">
+        <div data-testid="demo-clear-scope">
+          <Alert tone={holdsOwnRecords ? "danger" : "warning"} title={scope.title}>
+            {scope.body}
+          </Alert>
+        </div>
         {busy ? (
           <Card title={status === "clearing" ? "Clearing the sandbox" : "Loading the demo pack"} description={s?.step_label ?? undefined}>
             <div data-testid="demo-progress" data-status={status} className="flex flex-col gap-2 text-[13px]">
@@ -187,7 +200,10 @@ export default async function DemoDataPage() {
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
             <div className="flex flex-col gap-2" data-testid="demo-activate">
               <h3 className="font-bold">Load the demo pack</h3>
-              <p className="text-[13px] text-muted">Adds the demo community next to anything you have entered. Loading takes about a minute.</p>
+              <p className="text-[13px] text-muted">
+                Adds the demo community next to anything you have entered. Loading takes about a minute.
+                {holdsOwnRecords ? " The demo records mix with your own, and only Clear removes them again — and Clear removes your own records too." : ""}
+              </p>
               {status === "loaded" ? (
                 <p className="text-[13px]">
                   <StatusText tone="ok">Loaded.</StatusText> To start over, reset the sandbox.
@@ -204,13 +220,16 @@ export default async function DemoDataPage() {
             </div>
             <div className="flex flex-col gap-2" data-testid="demo-reset">
               <h3 className="font-bold">Reset the sandbox</h3>
-              <p className="text-[13px] text-muted">Clears the sandbox (see what clearing keeps), then loads the demo pack again, so every count returns to the pack&apos;s. Needs a fresh 2FA check.</p>
+              <p className="text-[13px] text-muted">
+                Removes every record the organization entered, not only the demo data (see what clearing keeps), then loads the demo pack again, so every count returns to the pack&apos;s. Needs a
+                fresh 2FA check.
+              </p>
               <ActionForm
                 action={resetSandboxAction}
                 submitLabel="Reset sandbox"
                 variant="bad"
                 submitDisabled={busy || !pack}
-                confirmMessage={`Reset ${center.short_name || center.name}?\nEvery person, household, payment and setting typed into this sandbox is removed, then the demo pack is loaded again. This cannot be undone.`}
+                confirmMessage={clearConfirmMessage("reset", orgName)}
               >
                 <input type="hidden" name="pack" value={pack?.key ?? ""} />
                 <label className="crm-label" htmlFor="demo-reset-confirm">
@@ -225,13 +244,13 @@ export default async function DemoDataPage() {
             </div>
             <div className="flex flex-col gap-2" data-testid="demo-clear">
               <h3 className="font-bold">Clear the sandbox</h3>
-              <p className="text-[13px] text-muted">Removes the demo data and everything else entered here, and loads nothing, ready for your own data. Needs a fresh 2FA check.</p>
+              <p className="text-[13px] text-muted">Removes every record the organization entered, and the demo data, and loads nothing. Needs a fresh 2FA check.</p>
               <ActionForm
                 action={clearSandboxAction}
                 submitLabel="Clear sandbox"
                 variant="bad"
                 submitDisabled={busy}
-                confirmMessage={`Clear ${center.short_name || center.name}?\nEvery person, household, payment and setting typed into this sandbox is removed. This cannot be undone.`}
+                confirmMessage={clearConfirmMessage("clear", orgName)}
               >
                 <label className="crm-label" htmlFor="demo-clear-confirm">
                   Type <span className="font-mono">{word}</span> to confirm

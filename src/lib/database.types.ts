@@ -780,6 +780,7 @@ export type Database = {
           ends_at: string | null;
           event_id: string | null;
           metadata: Json;
+          source_uid: string | null;
         };
         Insert: {
           id?: string;
@@ -793,6 +794,7 @@ export type Database = {
           ends_at?: string | null;
           event_id?: string | null;
           metadata?: Json;
+          source_uid?: string | null;
         };
         Update: {
           id?: string;
@@ -806,6 +808,7 @@ export type Database = {
           ends_at?: string | null;
           event_id?: string | null;
           metadata?: Json;
+          source_uid?: string | null;
         };
         Relationships: [];
       };
@@ -821,6 +824,13 @@ export type Database = {
           color: string | null;
           owner_label: string | null;
           custom: Json;
+          feed_subscribed: boolean;
+          feed_creates_events: boolean;
+          feed_status: string;
+          feed_synced_at: string | null;
+          feed_checked_at: string | null;
+          feed_error: string | null;
+          feed_result: Json;
         };
         Insert: {
           id?: string;
@@ -833,6 +843,13 @@ export type Database = {
           color?: string | null;
           owner_label?: string | null;
           custom?: Json;
+          feed_subscribed?: boolean;
+          feed_creates_events?: boolean;
+          feed_status?: string;
+          feed_synced_at?: string | null;
+          feed_checked_at?: string | null;
+          feed_error?: string | null;
+          feed_result?: Json;
         };
         Update: {
           id?: string;
@@ -845,6 +862,13 @@ export type Database = {
           color?: string | null;
           owner_label?: string | null;
           custom?: Json;
+          feed_subscribed?: boolean;
+          feed_creates_events?: boolean;
+          feed_status?: string;
+          feed_synced_at?: string | null;
+          feed_checked_at?: string | null;
+          feed_error?: string | null;
+          feed_result?: Json;
         };
         Relationships: [];
       };
@@ -7405,6 +7429,7 @@ export type Database = {
           revoked_by: string | null;
           last_sent_at: string;
           created_at: string;
+          makes_owner: boolean;
         };
         Insert: {
           id?: string;
@@ -7425,6 +7450,7 @@ export type Database = {
           revoked_by?: string | null;
           last_sent_at?: string;
           created_at?: string;
+          makes_owner?: boolean;
         };
         Update: {
           id?: string;
@@ -7445,6 +7471,7 @@ export type Database = {
           revoked_by?: string | null;
           last_sent_at?: string;
           created_at?: string;
+          makes_owner?: boolean;
         };
         Relationships: [];
       };
@@ -8607,6 +8634,10 @@ export type Database = {
         };
         Returns: boolean;
       };
+      apply_jsh_sandbox_switch: {
+        Args: Record<PropertyKey, never>;
+        Returns: undefined;
+      };
       approve_as_second: {
         Args: {
           p_table: string;
@@ -9594,6 +9625,12 @@ export type Database = {
         };
         Returns: boolean;
       };
+      is_owner_for_roles: {
+        Args: {
+          p_center: string;
+        };
+        Returns: boolean;
+      };
       is_platform_admin: {
         Args: Record<PropertyKey, never>;
         Returns: boolean;
@@ -9987,6 +10024,21 @@ export type Database = {
         };
         Returns: Json;
       };
+      platform_create_sandbox: {
+        Args: {
+          p_name: string;
+          p_slug: string;
+          p_org_type: string;
+          p_city: string;
+          p_state: string;
+          p_owner_first_name: string;
+          p_owner_last_name: string;
+          p_owner_email: string;
+          p_reason: string;
+          p_link_base?: string;
+        };
+        Returns: Json;
+      };
       platform_domain_allowed: {
         Args: {
           p_domain: string;
@@ -10043,6 +10095,12 @@ export type Database = {
         };
         Returns: string;
       };
+      promotes_in_place: {
+        Args: {
+          p_center: string;
+        };
+        Returns: boolean;
+      };
       public_kpi_catalog: {
         Args: {
           p_center: string;
@@ -10069,6 +10127,10 @@ export type Database = {
           p_document: string;
         };
         Returns: undefined;
+      };
+      qbo_accrual_waiting_text: {
+        Args: Record<PropertyKey, never>;
+        Returns: string;
       };
       qbo_can_connect: {
         Args: {
@@ -10273,6 +10335,12 @@ export type Database = {
           p_org_slug: string;
         };
         Returns: Json;
+      };
+      refresh_calendar_layer: {
+        Args: {
+          p_layer: string;
+        };
+        Returns: number;
       };
       register_push_device: {
         Args: {
@@ -10676,6 +10744,14 @@ export type Database = {
         };
         Returns: Json;
       };
+      set_qbo_basis: {
+        Args: {
+          p_center: string;
+          p_basis: string;
+          p_reason: string;
+        };
+        Returns: Json;
+      };
       set_qbo_fund_class: {
         Args: {
           p_center: string;
@@ -10792,6 +10868,12 @@ export type Database = {
         };
         Returns: Json;
       };
+      statement_counted_status: {
+        Args: {
+          p_status: Database["app"]["Enums"]["payment_status"];
+        };
+        Returns: boolean;
+      };
       statement_descriptor_problem: {
         Args: {
           p: string;
@@ -10897,6 +10979,14 @@ export type Database = {
         };
         Returns: string;
       };
+      subscribe_calendar_layer: {
+        Args: {
+          p_layer: string;
+          p_url: string;
+          p_create_events?: boolean;
+        };
+        Returns: number;
+      };
       suggest_bank_matches: {
         Args: {
           p_txn: string;
@@ -10976,6 +11066,12 @@ export type Database = {
         };
         Returns: undefined;
       };
+      unsubscribe_calendar_layer: {
+        Args: {
+          p_layer: string;
+        };
+        Returns: undefined;
+      };
       update_custom_field: {
         Args: {
           p_id: string;
@@ -11004,6 +11100,13 @@ export type Database = {
       worker_stale_after: {
         Args: Record<PropertyKey, never>;
         Returns: string;
+      };
+      year_end_statement: {
+        Args: {
+          p_household: string;
+          p_year: number;
+        };
+        Returns: Json;
       };
     };
     Enums: {
