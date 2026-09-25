@@ -18,9 +18,14 @@ export default async function PlatformCentersPage() {
       description="Super-admin console · support access is time-limited, needs center consent and is audited"
       actions={
         session.isPlatformAdmin ? (
-          <Link href="/platform/new" className={buttonClass("primary")}>
-            New center
-          </Link>
+          <>
+            <Link href="/platform/new-sandbox" className={buttonClass("ghost")}>
+              New sandbox
+            </Link>
+            <Link href="/platform/new" className={buttonClass("primary")}>
+              New center
+            </Link>
+          </>
         ) : null
       }
     />

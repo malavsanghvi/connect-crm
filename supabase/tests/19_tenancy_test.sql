@@ -82,7 +82,7 @@ select pg_temp.assert_raises($$select app.set_center_entitlement('19000000-0000-
   'Only the Community Connect team', 'a center admin cannot raise their own limit');
 select pg_temp.assert_raises($$insert into app.center_entitlements (center_id, key, value, reason) values ('19000000-0000-4000-8000-0000000000c3', 'max_people', '5000', 'x')$$,
   'row-level security', 'nor write the override table directly');
-select pg_temp.assert((select count(*) from app.center_entitlement_list(:sbx)) = 9, 'the sandbox admin reads the sandbox''s limits');
+select pg_temp.assert((select count(*) from app.center_entitlement_list(:sbx)) = 10, 'the sandbox admin reads the sandbox''s limits (ten keys since 0500)');
 select pg_temp.assert((select count(*) from app.center_entitlement_list(:jsh)) = 0, 'but not another center''s');
 commit;
 

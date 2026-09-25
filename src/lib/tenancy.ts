@@ -105,6 +105,8 @@ export const ENTITLEMENT_INFO: Record<string, { label: string; kind: Entitlement
   "niva.monthly_questions": { label: "Niva questions per month", kind: "count" },
   "storage.bytes": { label: "File storage", kind: "bytes" },
   expiry_days_inactive: { label: "Expires after days without activity", kind: "count" },
+  // f-sandbox (0500): a sandbox that holds the organization's own records (JSH) goes live in place.
+  "promotion.in_place": { label: "Going live keeps this organization and its records", kind: "flag" },
 };
 
 /** Rows in the order of ENTITLEMENT_INFO (people, households, messaging, …); unknown keys last. */
@@ -127,7 +129,7 @@ function formatBytes(n: number): string {
 /** "2,000", "2 GB", "On", "Verified test recipients only", "No limit". */
 export function formatEntitlement(key: string, value: Json | undefined): string {
   if (value === undefined) return "—";
-  if (value === null) return "No limit";
+  if (value === null) return key === "expiry_days_inactive" ? "Never expires" : "No limit";
   const info = ENTITLEMENT_INFO[key];
   if (typeof value === "boolean") return value ? "On" : "Off";
   if (typeof value === "number") return info?.kind === "bytes" ? formatBytes(value) : value.toLocaleString("en-US");

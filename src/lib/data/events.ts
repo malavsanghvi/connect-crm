@@ -81,7 +81,7 @@ export async function loadEventAccess(session: CrmSession): Promise<EventAccess>
     console.error("[events] could not load event-scoped roles; using center-wide permissions only:", error);
   }
   const grants: ScopedGrant[] = data ?? [];
-  return { permissions: session.permissions, isPlatformAdmin: session.isPlatformAdmin, grants };
+  return { permissions: session.permissions, isPlatformAdmin: session.isPlatformAdmin, isOwner: session.isOwner, grants };
 }
 
 /** Names for person ids (people the user may see, then the opt-in directory). Missing names stay absent. */

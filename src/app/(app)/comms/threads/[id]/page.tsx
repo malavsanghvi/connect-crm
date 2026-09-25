@@ -10,7 +10,7 @@ import { refCode } from "@/lib/comms";
 import { personNames } from "@/lib/data/content-comms";
 import { userNames } from "@/lib/data/lookups";
 import { formatDateTime } from "@/lib/dates";
-import { can } from "@/lib/permissions";
+import { can, passesRoleChecks } from "@/lib/permissions";
 import { isUuid } from "@/lib/search-params";
 import { getSession } from "@/lib/session";
 
@@ -27,7 +27,7 @@ export default async function ThreadPage({ params }: { params: Promise<{ id: str
       ← Inbox
     </Link>
   );
-  if (!can(session, "comms.inbox") && !session.roles.some((r) => r.key === "zone_lead")) {
+  if (!can(session, "comms.inbox") && !(passesRoleChecks(session) || session.roles.some((r) => r.key === "zone_lead"))) {
     return (
       <>
         <PageHeader title="Communications" eyebrow={back} />

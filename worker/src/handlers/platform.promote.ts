@@ -3,7 +3,9 @@
 // app.promote_sandbox (fresh 2FA, an approved go-live); the copy itself runs in
 // the database as one transaction (app.worker_promote_sandbox): configuration
 // only — never people, transactions, files, connections or secrets — with the
-// staff re-invited. A refusal from the database (the web name was taken
+// staff re-invited. A sandbox that holds the organization's own records (JSH;
+// entitlement promotion.in_place, 0500) instead becomes production in place,
+// keeping every record. A refusal from the database (the web name was taken
 // meanwhile, the approval was withdrawn) cannot get better by retrying, so it
 // fails the job and the promotion at once with the database's plain message.
 

@@ -3,7 +3,7 @@
 // center-wide, or granted for that event. Convenience only — RLS enforces.
 // Pure module (the grants come from lib/data/events.ts).
 
-import { can, isGrantActive, type PermissionContext } from "@/lib/permissions";
+import { can, isGrantActive, passesRoleChecks, type PermissionContext } from "@/lib/permissions";
 
 export type ScopedGrant = { role_key: string; scope_kind: string; scope_id: string | null; starts_at: string; ends_at: string | null };
 
@@ -12,7 +12,7 @@ export type EventAccess = PermissionContext & { grants: ScopedGrant[] };
 export const EVENT_ROLES = ["event_lead", "checkin_volunteer", "kitchen_lead", "boli_recorder"] as const;
 
 export function hasScopedRole(a: EventAccess, eventId: string, ...roles: string[]): boolean {
-  if (a.isPlatformAdmin) return true;
+  if (passesRoleChecks(a)) return true;
   const now = new Date();
   return a.grants.some(
     (g) => roles.includes(g.role_key) && isGrantActive(g, now) && (g.scope_kind === "center" || g.scope_id === eventId),
@@ -20,7 +20,7 @@ export function hasScopedRole(a: EventAccess, eventId: string, ...roles: string[
 }
 
 export function hasRoleAnywhere(a: EventAccess, ...roles: string[]): boolean {
-  if (a.isPlatformAdmin) return true;
+  if (passesRoleChecks(a)) return true;
   const now = new Date();
   return a.grants.some((g) => roles.includes(g.role_key) && isGrantActive(g, now));
 }

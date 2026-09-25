@@ -11,7 +11,7 @@ import { daysBetween, formatDate, todayInTz, dateInTz } from "@/lib/dates";
 import type { Enums } from "@/lib/database.types";
 import { APPLICATION_STATUS_LABEL } from "@/lib/labels";
 import { formatCents } from "@/lib/money";
-import { canAccess } from "@/lib/permissions";
+import { canAccess, passesRoleChecks } from "@/lib/permissions";
 import { tierLabel } from "@/lib/people";
 import { hrefWith, isUuid, pageParam, param, type RawSearchParams } from "@/lib/search-params";
 import { getSession, type CrmSession } from "@/lib/session";
@@ -254,7 +254,8 @@ async function ApplicationDrawer({ session, id, closeHref }: { session: CrmSessi
   const applicant = people.map.get(a.applicant_person_id);
   const reference = a.reference_person_id ? people.map.get(a.reference_person_id) : null;
   const ec = needsEcApproval(a.tier, type.data?.ec_approval_required ?? false);
-  const isEc = session.isPlatformAdmin || session.roles.some((r) => r.key === "executive_committee" && r.scopeKind === "center");
+  // The owner passes the Executive Committee check too (0501; owner decision 2026-09-25, second batch).
+  const isEc = passesRoleChecks(session) || session.roles.some((r) => r.key === "executive_committee" && r.scopeKind === "center");
   const ref = referenceStatus(a, tz);
   const canDecide = canAccess(session, "applicationsDecide") && OPEN.includes(a.status);
   const canApprove = a.status === "awaiting_center" || (a.status === "awaiting_ec" && isEc && a.center_decided_by !== session.userId);
