@@ -235,3 +235,8 @@ insert into app.content_items (center_id, tradition, kind, slug, title, metadata
 (null, 'shvetambar_murtipujak', 'pachchakhan', 'ayambil', 'Ayambil', '{"when":"One meal of plain, boiled food"}', 'published', now()),
 (null, 'shvetambar_murtipujak', 'pachchakhan', 'upvas', 'Upvas', '{"when":"Full-day fast"}', 'published', now()),
 (null, 'shvetambar_murtipujak', 'pachchakhan', 'chauvihar', 'Chauvihar', '{"when":"Before sunset"}', 'published', now());
+
+-- JSH sandbox content (0511–0513: live stream, calendars and events, Jain donation opportunities).
+-- The migrations add it where JSH already exists (production); a new database loads this seed
+-- after the migrations, so it applies the same, idempotent content here.
+do $$ begin perform app.seed_jsh_live_stream(id), app.seed_jsh_calendars(id), app.seed_jsh_giving(id) from app.centers where slug = 'jsh'; end $$;

@@ -780,6 +780,7 @@ export type Database = {
           ends_at: string | null;
           event_id: string | null;
           metadata: Json;
+          source_uid: string | null;
         };
         Insert: {
           id?: string;
@@ -793,6 +794,7 @@ export type Database = {
           ends_at?: string | null;
           event_id?: string | null;
           metadata?: Json;
+          source_uid?: string | null;
         };
         Update: {
           id?: string;
@@ -806,6 +808,7 @@ export type Database = {
           ends_at?: string | null;
           event_id?: string | null;
           metadata?: Json;
+          source_uid?: string | null;
         };
         Relationships: [];
       };
@@ -821,6 +824,13 @@ export type Database = {
           color: string | null;
           owner_label: string | null;
           custom: Json;
+          feed_subscribed: boolean;
+          feed_creates_events: boolean;
+          feed_status: string;
+          feed_synced_at: string | null;
+          feed_checked_at: string | null;
+          feed_error: string | null;
+          feed_result: Json;
         };
         Insert: {
           id?: string;
@@ -833,6 +843,13 @@ export type Database = {
           color?: string | null;
           owner_label?: string | null;
           custom?: Json;
+          feed_subscribed?: boolean;
+          feed_creates_events?: boolean;
+          feed_status?: string;
+          feed_synced_at?: string | null;
+          feed_checked_at?: string | null;
+          feed_error?: string | null;
+          feed_result?: Json;
         };
         Update: {
           id?: string;
@@ -845,6 +862,13 @@ export type Database = {
           color?: string | null;
           owner_label?: string | null;
           custom?: Json;
+          feed_subscribed?: boolean;
+          feed_creates_events?: boolean;
+          feed_status?: string;
+          feed_synced_at?: string | null;
+          feed_checked_at?: string | null;
+          feed_error?: string | null;
+          feed_result?: Json;
         };
         Relationships: [];
       };
@@ -10247,6 +10271,12 @@ export type Database = {
         };
         Returns: Json;
       };
+      refresh_calendar_layer: {
+        Args: {
+          p_layer: string;
+        };
+        Returns: number;
+      };
       register_push_device: {
         Args: {
           p_center: string;
@@ -10864,6 +10894,14 @@ export type Database = {
         };
         Returns: string;
       };
+      subscribe_calendar_layer: {
+        Args: {
+          p_layer: string;
+          p_url: string;
+          p_create_events?: boolean;
+        };
+        Returns: number;
+      };
       suggest_bank_matches: {
         Args: {
           p_txn: string;
@@ -10940,6 +10978,12 @@ export type Database = {
           p_center: string;
           p_qbo_customer: string;
           p_reason: string;
+        };
+        Returns: undefined;
+      };
+      unsubscribe_calendar_layer: {
+        Args: {
+          p_layer: string;
         };
         Returns: undefined;
       };

@@ -3,6 +3,8 @@
 // scan jobs stay queued ("pending") instead of getting an invented result.
 
 import type { HandlerModule } from "../types";
+import * as calendarImportFeed from "./calendar.import_feed";
+import * as calendarRefreshFeeds from "./calendar.refresh_feeds";
 import * as demoClear from "./demo.clear";
 import * as demoLoad from "./demo.load";
 import * as demoPing from "./demo.ping";
@@ -64,4 +66,7 @@ export const HANDLERS: HandlerModule[] = [
   // o-demo
   demoLoad,
   demoClear,
+  // f-jsh-content: calendar subscriptions (ICS links)
+  calendarImportFeed,
+  calendarRefreshFeeds,
 ];
