@@ -8634,6 +8634,10 @@ export type Database = {
         };
         Returns: boolean;
       };
+      apply_jsh_sandbox_switch: {
+        Args: Record<PropertyKey, never>;
+        Returns: undefined;
+      };
       approve_as_second: {
         Args: {
           p_table: string;
