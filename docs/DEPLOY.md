@@ -5,7 +5,7 @@ Where things run:
 | Piece | Runs on | Address before a domain is set up |
 |---|---|---|
 | Connect CRM | droplet, port 3000 behind Caddy | `http://<droplet IP>`, and `https://<droplet IP>` once its certificate is confirmed (see "HTTPS for the portal") |
-| Connect Admin | droplet, port 3001 behind Caddy | `http://<droplet IP>:8081` |
+| Connect Admin (the event-day app) | droplet, port 3001 behind Caddy | `http://<droplet IP>:8081`, and `https://<droplet IP>:8444` (also `https://<portal domain>:8444`) once the portal's HTTPS is up (see "HTTPS for the event-day app") |
 | Member app (web version) | droplet, static files | `http://<droplet IP>:8082`, and `https://<droplet IP>:8443` once the portal's HTTPS is up |
 | Database, sign-in, sign-in emails | Supabase cloud | — |
 | Background service (connect-crm `worker/`) | droplet, systemd unit `connect@worker`, health on `127.0.0.1:3010` only | — (nothing public) |
@@ -240,11 +240,59 @@ Every connect-crm deploy sets this up; there is nothing to switch on. What it do
 (Portal address and HTTPS). HTTPS for it starts by itself a few minutes after DNS updates.
 Then update Supabase › Authentication › URL Configuration: Site URL `https://crm.jsh.org`, and add
 it to the redirect URLs. If a DigitalOcean *cloud* firewall is attached to the droplet, it must
-allow 80, 443 and 8443 (the droplet's own firewall is opened by the deploy).
+allow 80, 443, 8443 and 8444 (the droplet's own firewall is opened by the deploy).
 
 Local checks: `tests/caddy-sites.test.ts`, `tests/https-confirm.test.ts`,
 `supabase/tests/31_https_test.sql`, `e2e/https-release.sh` (release.sh in a sealed namespace with
 a real Caddy) and `e2e/flows/o-https.cjs` (real Caddy + confirmer + portal + browser).
+
+## HTTPS for the event-day app (connect-admin, owner decision #17)
+
+HSTS is per *host*, not per port: once a confirmed domain has sent it, a browser turns
+`http://<domain>:8081` into `https://<domain>:8081` — and 8081 speaks plain HTTP, so that address
+stops loading. The event-day app therefore gets **its own HTTPS port, 8444**, on the same names as
+the portal. Addresses:
+
+| When | Event-day app |
+|---|---|
+| Always (never broken by HTTPS or HSTS: browsers never pin an IP address) | `http://<droplet IP>:8081` |
+| Once the portal's HTTPS is set up | `https://<droplet IP>:8444`, `https://<portal domain>:8444`, `https://<org>.<base domain>:8444` |
+| After a name is confirmed by the HTTPS check | `http://<that name>:8081` redirects to `https://<that name>:8444` |
+| With `SITE_DOMAIN` set in connect-admin (e.g. `admin.jsh.org`) | `https://admin.jsh.org` (and 8444 as above) |
+
+How it fits on the one droplet (nothing to switch on; connect-admin's deploy passes `PORTAL_HTTPS=1`):
+
+- **Each app's deploy writes only its own site file.** connect-admin writes `admin.caddy` (with the
+  same `deploy/caddy-sites.mjs`, `--role app`; connect-admin carries an identical copy, as it does
+  of `release.sh`). The **portal owns the shared pieces**: the global on-demand options
+  (`00-on-demand-crm.caddy`, whose `/api/tenancy/tls-ask` approves the names), the IP-certificate
+  decision and confirmed directory (`/etc/connect/https.json`) and the HTTPS check. connect-admin
+  only reads them; the portal's deploy never touches `admin.caddy`.
+- **Until the portal's HTTPS is set up** (no `/etc/connect/https.json` or no on-demand options),
+  connect-admin's deploy writes exactly today's `:8081` site and says so in the log. If Caddy
+  refuses the HTTPS site for any reason, the deploy puts the plain site back and warns with
+  Caddy's reason; it never fails because of HTTPS.
+- **Port 8081 keeps serving.** It redirects to `https://<name>:8444` only for names the HTTPS check
+  has confirmed (the same marker files as the portal), and never to the portal's 443. HSTS on 8444
+  is sent only for confirmed names, like the portal.
+- A certificate belongs to a name, not a port, so a name the check confirmed on 443 works on 8444
+  too; the check itself needs no change.
+- Deploys of the two repos take a lock (`/var/lib/connect/caddy-sites.lock`) around their Caddy
+  changes, and connect-admin uploads to its own directory (`/tmp/connect-deploy-admin`), so the two
+  never validate each other's half-written files. A portal deploy without `PORTAL_HTTPS` (an old
+  workflow) keeps the on-demand options while `admin.caddy` still uses them.
+- Session cookies of the event-day app are marked Secure on HTTPS requests; on 8444 the browser
+  treats the app as a secure context (camera for check-in scanning, `crypto.randomUUID`).
+
+**Owner step:** if a DigitalOcean *cloud* firewall is attached to the droplet, also allow **8444**
+(the droplet's own firewall is opened by the deploy). Then give event-day volunteers
+`https://<portal domain>:8444` (or `https://<droplet IP>:8444`).
+
+Local checks: `tests/caddy-sites.test.ts` (here) and `tests/https.test.ts` (connect-admin),
+`sudo CADDY_BIN=… [ADMIN_REPO=…/connect-admin] bash e2e/https-release.sh all` (both deploys in a
+sealed namespace with a real Caddy: `admin`, `admin-first`, `admin-domain`, `admin-legacy`,
+`admin-no-ip`, `admin-refused`, `portal-legacy-after-admin`) and `e2e/flows/e-https-admin.cjs`
+(real Caddy + confirmer + portal + connect-admin + browser).
 
 ## Domains (do this before real member data goes in)
 
@@ -308,9 +356,11 @@ The failed step in Actions says what is missing or what broke:
 
 - `deploy/droplet-setup.sh` (same file in all three repos): swap, Node.js 22, Caddy,
   firewall (22, 80, 443, 8081, 8082), user `connect`, systemd unit `connect@.service`.
-- connect-crm only (`PORTAL_HTTPS=1`): `deploy/caddy-sites.mjs` writes the portal's Caddy sites,
+- connect-crm (`PORTAL_HTTPS=1`): `deploy/caddy-sites.mjs` writes the portal's Caddy sites,
   `deploy/https-confirm.mjs` is installed as `connect-https-confirm.timer`, and 8443 is opened
   (see "HTTPS for the portal").
+- connect-admin (`PORTAL_HTTPS=1`, once the portal's HTTPS exists): `deploy/caddy-sites.mjs --role app`
+  writes `admin.caddy` (8081 + 8444) and 8444 is opened (see "HTTPS for the event-day app").
 - `deploy/release.sh`: unpacks the build to `/srv/connect/<app>/releases/<commit>`,
   points `current` at it, writes the Caddy site, restarts the service, waits for it to
   answer, keeps the last three releases.
