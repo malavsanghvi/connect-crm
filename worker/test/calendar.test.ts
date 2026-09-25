@@ -205,5 +205,6 @@ function ctx(db: ReturnType<typeof fakeDb>["db"], http: Http, log: ReturnType<ty
     db, http, log, env: { CALENDAR_FEEDS_ALLOW_PRIVATE: "1" }, workerId: "t",
     secret: async () => null,
     storeSecret: async () => ({ fingerprint: "" }),
+    removeOauthCode: async () => false,
   };
 }
