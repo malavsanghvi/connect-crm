@@ -239,4 +239,12 @@ insert into app.content_items (center_id, tradition, kind, slug, title, metadata
 -- JSH sandbox content (0511–0513: live stream, calendars and events, Jain donation opportunities).
 -- The migrations add it where JSH already exists (production); a new database loads this seed
 -- after the migrations, so it applies the same, idempotent content here.
+--
+-- The sandbox switch itself (0503, app.apply_jsh_sandbox_switch) is DELIBERATELY NOT called here.
+-- It is a one-time real-deploy migration against the actual production JSH organization; every
+-- local/test/e2e database is meant to keep seeding JSH as a normal production organization (the
+-- baseline fixture the rest of the suite — DB tests 01, 09, 18, 19, 24, 26, 29 and most e2e flows
+-- — assumes), and exercise the sandbox switch explicitly where that transition is the point of the
+-- test (DB test 36, e2e flow f-sandbox), the same way a real deploy exercises it against the one
+-- real JSH once.
 do $$ begin perform app.seed_jsh_live_stream(id), app.seed_jsh_calendars(id), app.seed_jsh_giving(id) from app.centers where slug = 'jsh'; end $$;

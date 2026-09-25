@@ -46,6 +46,11 @@ const sqlErr = (q) => {
   try { execSync(`psql "${DB}" -Atc "${q.replace(/"/g, '\\"')}"`, { stdio: 'pipe' }); return ''; } catch (e) { return String(e.stderr || e.message); }
 };
 const ok = (c, m) => { console.log(`${c ? 'PASS' : 'FAIL'} ${m}`); if (!c) process.exitCode = 1; };
+// Section A deliberately re-applies the real production→sandbox switch (0503) to JSH itself — the
+// one durable, shared side effect any of this flow's checks needs. Every other flow on a shared
+// stack assumes JSH is a normal production organization (the baseline fixture, per the flows'
+// "tolerate each other's leftovers" convention), so restore it on the way out — pass, fail or crash.
+process.on('exit', () => { try { sql(`update app.centers set environment = 'production' where id = '${JSH}' and environment = 'sandbox' and sandbox_for is null`); } catch {} });
 const shot = (p, name) => p.screenshot({ path: `${OUT}/${name}.png`, fullPage: true });
 const until = async (fn, ms = 20000) => { const t = Date.now(); while (Date.now() - t < ms) { if (await fn()) return true; await new Promise((r) => setTimeout(r, 400)); } return false; };
 

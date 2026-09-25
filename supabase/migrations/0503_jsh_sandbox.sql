@@ -1,9 +1,17 @@
 -- Wave F (stream f-sandbox) · 4 of 4: JSH's organization is a sandbox.
 -- Owner decisions (2026-09-25, second batch): "JSH's current organization is a sandbox".
 --
--- Keyed on slug 'jsh'; does nothing where that organization does not exist (a new
--- database gets JSH from seed.sql AFTER the migrations, as production). Idempotent.
+-- Keyed on slug 'jsh'; does nothing where that organization does not exist. Idempotent.
 -- NOTHING IS DELETED: every person, household, payment, setting and connection stays.
+--
+-- A fresh database's app.centers gets its JSH row from seed.sql, which runs AFTER migrations —
+-- so on a from-scratch dev/test database this migration is a real no-op the first time (nothing to
+-- switch yet). That is deliberate, not a bug to route around here: seed.sql keeps seeding JSH as a
+-- normal production organization on every local/test/e2e database, because that is the baseline
+-- fixture the rest of the suite assumes. The switch itself is exposed as app.apply_jsh_sandbox_switch()
+-- so DB test 36 and e2e flow f-sandbox can call it directly to exercise the production→sandbox
+-- transition where that transition is the point of the test — the same way a real deploy exercises
+-- it exactly once, against the one real JSH that already exists.
 --
 -- What changes for JSH, and why each is sensible for an organization that is in use:
 --   environment = 'sandbox'            the watermark "Sandbox · test data" on every screen and every
@@ -27,7 +35,8 @@
 --   status stays 'active', the staff 2FA rule stays as JSH set it, the audit log records the switch.
 set client_min_messages = warning;
 
-do $$
+create or replace function app.apply_jsh_sandbox_switch() returns void
+language plpgsql security definer set search_path = app, public, extensions as $$
 declare v_center uuid; v_reason text := 'Owner decision 2026-09-25: JSH''s organization is a sandbox (holds its own records)';
 begin
   select id into v_center from app.centers where slug = 'jsh';
@@ -65,3 +74,5 @@ begin
     insert into app.member_join_codes (center_id) values (v_center);
   end if;
 end $$;
+
+select app.apply_jsh_sandbox_switch();
