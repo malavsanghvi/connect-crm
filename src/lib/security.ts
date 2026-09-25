@@ -164,6 +164,33 @@ export function needsSecondApprover(roleKey: string): boolean {
   return (TWO_PERSON_ROLES as readonly string[]).includes(roleKey);
 }
 
+/** The audit reason of Community Connect's approval of an organization's first second administrator (0400, owner decision 1). */
+export const CC_FIRST_ADMIN_REASON = "Community Connect approval (two-person rule, first second admin)";
+
+/**
+ * Mirrors app.is_first_second_admin_grant: a pending center_admin grant, in an organization with no
+ * other active administrator besides the grantee and the owner. When Community Connect approves it,
+ * the audit names the platform admin with CC_FIRST_ADMIN_REASON.
+ */
+export function isFirstSecondAdminGrant(
+  grant: { role_key: string; user_id: string },
+  grants: readonly { role_key: string; user_id: string; status: string; starts_at: string; ends_at: string | null }[],
+  ownerUserId: string | null,
+  now: Date = new Date(),
+): boolean {
+  if (grant.role_key !== "center_admin") return false;
+  const t = now.getTime();
+  return !grants.some(
+    (o) =>
+      o.role_key === "center_admin" &&
+      o.status === "active" &&
+      new Date(o.starts_at).getTime() <= t &&
+      (o.ends_at === null || new Date(o.ends_at).getTime() > t) &&
+      o.user_id !== grant.user_id &&
+      o.user_id !== ownerUserId,
+  );
+}
+
 export type InvitationRow = { expires_at: string; accepted_at: string | null; revoked_at: string | null };
 export type InvitationStatus = "accepted" | "revoked" | "expired" | "pending";
 

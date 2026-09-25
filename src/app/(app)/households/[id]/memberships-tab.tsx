@@ -2,7 +2,7 @@ import Link from "next/link";
 
 import { CustomDetailsCell } from "@/components/custom-details-cell";
 import { Badge, Card, EmptyState, NoAccess, QueryError, TableWrap } from "@/components/ui";
-import { loadCustomFieldDefs } from "@/lib/data/custom-fields";
+import { loadCustomFieldDefs, withCustomValues } from "@/lib/data/custom-fields";
 import { peopleById } from "@/lib/data/lookups";
 import { formatDate } from "@/lib/dates";
 import { APPLICATION_STATUS_LABEL, MEMBERSHIP_STATUS_TONE } from "@/lib/labels";
@@ -34,7 +34,9 @@ export async function MembershipsTab({ session, householdId }: { session: CrmSes
   if (mRes.error) return <QueryError what="memberships" error={mRes.error} retryHref={retry} />;
   if (aRes.error) return <QueryError what="membership applications" error={aRes.error} retryHref={retry} />;
   const typeName = new Map((typesRes.data ?? []).map((t) => [t.id, t.name]));
-  const memberships = mRes.data ?? [];
+  const withCustom = defs.defs.length ? await withCustomValues(db, "memberships", mRes.data ?? []) : { rows: mRes.data ?? [], error: null };
+  if (withCustom.error) return <QueryError what="the memberships' custom details" error={withCustom.error} retryHref={retry} />;
+  const memberships = withCustom.rows;
   const applications = aRes.data ?? [];
   const { map: people } = await peopleById(db, [
     ...memberships.map((m) => m.person_id),

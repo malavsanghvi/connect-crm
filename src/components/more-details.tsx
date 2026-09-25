@@ -17,7 +17,6 @@ export async function MoreDetails({
   session,
   entity,
   recordId,
-  custom,
   editable,
   path,
   title = "More details",
@@ -27,8 +26,6 @@ export async function MoreDetails({
   session: CrmSession;
   entity: string;
   recordId: string;
-  /** The row's custom column when the caller already has it (saves a read). */
-  custom?: unknown;
   editable: boolean;
   path?: string;
   title?: string;
@@ -52,17 +49,15 @@ export async function MoreDetails({
     );
   }
   if (loaded.defs.length === 0) return null;
-  let values = custom;
-  if (values === undefined) {
-    const v = await loadCustomValues(session.db, entity, recordId);
-    if (v.error) {
-      return (
-        wrap(<KeyValueRow label="Could not load these details" value={capitalize(explainError(v.error))} tone="bad" />)
-      );
-    }
-    values = v.custom;
+  // Always read through app.custom_values: the row's own `custom` column no longer holds the
+  // staff-only values (0401), so a value the caller already has may be incomplete.
+  const v = await loadCustomValues(session.db, entity, recordId);
+  if (v.error) {
+    return (
+      wrap(<KeyValueRow label="Could not load these details" value={capitalize(explainError(v.error))} tone="bad" />)
+    );
   }
-  const rows = customRows(loaded.defs, values);
+  const rows = customRows(loaded.defs, v.custom);
   if (rows.length === 0) return null;
   return (
     wrap(

@@ -58,6 +58,22 @@ export function computePermissions(grants: GrantLike[], roles: RoleLike[], now: 
   return [...out].sort();
 }
 
+/**
+ * Every permission key the roles define ("*" excluded: the database checks keys by name).
+ * The organization's owner holds all of them (app.has_permission, 0400 — owner decision
+ * 2026-09-25: the owner can do every task in their organization).
+ */
+export function allPermissionKeys(roles: RoleLike[]): string[] {
+  const out = new Set<string>();
+  for (const r of roles) for (const p of permissionList(r.permissions)) if (p !== "*") out.add(p);
+  return [...out].sort();
+}
+
+/** The session's permission set: the owner's is every key; everyone else's comes from their active grants. */
+export function sessionPermissions(grants: GrantLike[], roles: RoleLike[], isOwner: boolean, now: Date = new Date()): string[] {
+  return isOwner ? allPermissionKeys(roles) : computePermissions(grants, roles, now);
+}
+
 /** True when the user holds ANY of the listed permissions (platform admins hold all). */
 export function can(ctx: PermissionContext, anyOf: string | readonly string[]): boolean {
   if (ctx.isPlatformAdmin) return true;

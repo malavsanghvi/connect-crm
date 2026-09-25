@@ -155,7 +155,7 @@ export default async function EventPage({ params, searchParams }: { params: Prom
       <Tabs active={tab} tabs={TABS.map((t) => ({ key: t.key, label: t.label, href: `/events/${event.id}${t.key === "details" ? "" : `?tab=${t.key}`}` }))} />
       {tab === "details" ? <DetailsTab event={event} tz={tz} currency={session.center.currency} ownerName={ownerName} canEdit={canEdit} /> : null}
       {tab === "details" ? (
-        <MoreDetails session={session} entity="events" recordId={event.id} custom={(event as { custom?: unknown }).custom} editable={canEdit} variant="card" className="mt-4" />
+        <MoreDetails session={session} entity="events" recordId={event.id} editable={canEdit} variant="card" className="mt-4" />
       ) : null}
       {tab === "checklist" ? <ChecklistTab event={event} session={session} access={access} /> : null}
       {tab === "rsvps" ? <RsvpsTab event={event} session={session} access={access} status={param(sp, "rsvp") ?? null} /> : null}

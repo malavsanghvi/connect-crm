@@ -10,7 +10,7 @@ import { getSession } from "@/lib/session";
 
 import { saveCategoryAction } from "../actions";
 import { ItemForm, MenuTable, StoreSettingsForm, WindowForm } from "./menu-forms";
-import { loadCustomFieldDefs } from "@/lib/data/custom-fields";
+import { loadCustomFieldDefs, withCustomValues } from "@/lib/data/custom-fields";
 
 export const metadata: Metadata = { title: "Menu & pickup · Satvik Store" };
 
@@ -48,7 +48,9 @@ export default async function StoreMenuPage() {
   if (events.error) console.error("[store] events for pickup slots unavailable:", events.error);
   const cats = categories.data ?? [];
   const catOrder = new Map(cats.map((c, i) => [c.id, i]));
-  const menu = [...(items.data ?? [])].sort(
+  // Staff-only custom values are kept apart from the row (0401); read them for "More details".
+  const withCustom = itemDefs.defs.length ? await withCustomValues(db, "store_items", items.data ?? []) : { rows: items.data ?? [], error: null };
+  const menu = [...withCustom.rows].sort(
     (a, b) => (catOrder.get(a.category_id ?? "") ?? 999) - (catOrder.get(b.category_id ?? "") ?? 999) || a.name.localeCompare(b.name),
   );
   const openSlots = (windows.data ?? []).filter((w) => w.status === "open").sort((a, b) => a.starts_at.localeCompare(b.starts_at));
@@ -66,9 +68,9 @@ export default async function StoreMenuPage() {
       {header}
       <BlockGrid>
         <Card span={12} title="Menu items" padded={false}>
-          {items.error || categories.error ? (
+          {items.error || categories.error || withCustom.error ? (
             <div className="p-2">
-              <QueryError what="the menu" error={items.error ?? categories.error} retryHref="/store/menu" />
+              <QueryError what="the menu" error={items.error ?? categories.error ?? withCustom.error} retryHref="/store/menu" />
             </div>
           ) : menu.length === 0 ? (
             <EmptyState title="No items on the menu yet" />

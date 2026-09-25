@@ -263,6 +263,12 @@ export function SecurityPanel({
             <p className="text-[13px] text-muted">
               {stepUpFresh ? "You passed a 2FA check in the last 5 minutes." : "This session passed 2FA."} Sensitive changes — role grants, refunds
               and write-offs, the month lock, module switches, merges, exports — ask for a fresh code when your last one is more than 5 minutes old.
+              {status.isStaff && !status.policyRequires ? (
+                <span data-testid="step-up-with-app-note">
+                  {" "}
+                  {community} does not require 2FA for staff yet, but because you have an authenticator app, those changes still ask for your code.
+                </span>
+              ) : null}
             </p>
           ) : (
             <p className="text-[13px] text-muted">
