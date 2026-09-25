@@ -282,3 +282,17 @@ select pg_temp.sign_in(:plainstaff);
 select app.assert_step_up('export.people');
 select pg_temp.assert(true, '(23) a staff member without one keeps today''s behaviour (not asked while the rule is off)');
 rollback;
+
+-- ══ (22) The import engine sees and restores a record's custom values as one object (0402) ═
+select pg_temp.assert((app.import_current('people', '32000000-0000-4000-8000-0000000000b1') -> 'custom')
+                        = '{"tshirt":"M","hometown":"Palitana","pastoral_note":"Called in May"}',
+  '(22) import_current: a record''s custom values include the staff-only ones');
+select app.import_set('people', '32000000-0000-4000-8000-0000000000b1', '{"custom":{"tshirt":"L","hometown":"Palitana"}}');
+select pg_temp.assert((select custom from app.people where id = '32000000-0000-4000-8000-0000000000b1') = '{"tshirt":"L","hometown":"Palitana"}'
+                      and not exists (select 1 from app.custom_staff_values where record_key = '32000000-0000-4000-8000-0000000000b1' and custom ? 'pastoral_note'),
+  '(22) import_set sets the whole object: a staff-only value left out is removed (as undo needs)');
+select app.import_set('people', '32000000-0000-4000-8000-0000000000b1', '{"custom":{"tshirt":"M","hometown":"Palitana","pastoral_note":"Called in May"}}');
+select pg_temp.assert((app.import_current('people', '32000000-0000-4000-8000-0000000000b1') -> 'custom')
+                        = '{"tshirt":"M","hometown":"Palitana","pastoral_note":"Called in May"}'
+                      and (select custom from app.people where id = '32000000-0000-4000-8000-0000000000b1') = '{"tshirt":"M","hometown":"Palitana"}',
+  '(22) …and restores it, still kept apart from the row');
