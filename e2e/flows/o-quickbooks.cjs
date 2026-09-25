@@ -212,7 +212,7 @@ async function submit(p, scope, button, expect, allowStepUp = true) {
   const connected = await until(() => sql(`select status from app.integration_connections where id = '${conn}'`) === 'connected', 30000);
   ok(connected, 'the worker swaps the code for tokens and the connection is connected');
   ok(sql(`select display_name from app.integration_connections where id = '${conn}'`) === 'Jain Society of Houston (Intuit test company)', 'with the company name from Intuit');
-  ok(sql(`select string_agg(name, ',' order by name) from app.integration_secrets where connection_id = '${conn}'`) === 'access_token,oauth.code,refresh_token', 'both tokens are in the vault');
+  ok(sql(`select string_agg(name, ',' order by name) from app.integration_secrets where connection_id = '${conn}'`) === 'access_token,refresh_token', 'both tokens are in the vault; the used code was removed (#12)');
   const pulled = await until(() => sql(`select status from app.qbo_pull_runs where connection_id = '${conn}' order by finished_at desc limit 1`) === 'succeeded', 30000);
   ok(pulled, 'the first pull of the lists succeeds');
   ok(sql(`select (select count(*) from app.qbo_accounts where connection_id = '${conn}') || '/' || (select count(*) from app.qbo_classes where connection_id = '${conn}') || '/' ||
@@ -228,9 +228,15 @@ async function submit(p, scope, button, expect, allowStepUp = true) {
   ok(/Jain Society of Houston \(Intuit test company\)/.test(await p.innerText('body')), 'the setup screen shows the connected company');
 
   // ── 3. Choices and mapping ────────────────────────────────────────────────
-  const choices = p.locator('section', { hasText: '3 · Basis, posting and go-live date' });
+  // The accounting basis is the first choice after connecting (f-money); the mapping waits for it.
+  const basisCard = p.locator('section', { hasText: '2 · Accounting basis' });
+  await basisCard.locator('input[name=basis][value=cash]').check();
+  await basisCard.locator('#qbo-basis-reason').fill('Our books are kept on cash basis');
+  await submit(p, basisCard, 'Save basis', () => sql(`select settings->>'basis' from app.integration_connections where id = '${conn}'`) === 'cash', false);
+  await p.goto(BASE + '/accounting/qbo/setup', { waitUntil: 'networkidle' });
+  const choices = p.locator('section', { hasText: '4 · Posting and go-live date' });
   await choices.locator('#qbo-golive').fill(today);
-  await choices.locator('#qbo-set-reason').fill('Cash basis; books in QuickBooks until today');
+  await choices.locator('#qbo-set-reason').fill('Books in QuickBooks until today');
   // Wait for the saved state (the card's own description already says "Only money received on or after…").
   await submit(p, choices, 'Save choices', () => sql(`select settings->>'go_live_date' from app.integration_connections where center_id = '${jsh}' and provider = 'quickbooks_online'`) === today, false);
   ok(sql(`select settings->>'basis' || '|' || (settings->>'posting') || '|' || (settings->>'go_live_date') from app.integration_connections where id = '${conn}'`) === `cash|per_txn|${today}`,
@@ -271,7 +277,7 @@ async function submit(p, scope, button, expect, allowStepUp = true) {
     'the approval is audited on every mapping row: portal, screen, module, reason, actor');
   await p.screenshot({ path: `${OUT}/qbo-setup-2-mapped.png`, fullPage: true });
 
-  const testCard = p.locator('section', { hasText: '5 · Test post' });
+  const testCard = p.locator('section', { hasText: '6 · Test post' });
   await testCard.locator('input[name=confirm_real]').check();
   await testCard.locator('#qbo-test-reason').fill('Checking the mapping before go-live');
   await submit(p, testCard, 'Run the test post', () => sql(`select count(*) from app.qbo_test_posts where connection_id = '${conn}'`) !== '0', false);
@@ -285,7 +291,7 @@ async function submit(p, scope, button, expect, allowStepUp = true) {
   const staleAt = signedInAt + 5.5 * 60000;
   if (Date.now() < staleAt) { console.log(`… waiting ${Math.round((staleAt - Date.now()) / 1000)} s for the sign-in's 2FA check to go stale`); await sleep(staleAt - Date.now()); }
   await p.goto(BASE + '/accounting/qbo/setup', { waitUntil: 'networkidle' });
-  const testCard2 = p.locator('section', { hasText: '5 · Test post' });
+  const testCard2 = p.locator('section', { hasText: '6 · Test post' });
   const stepUpsBeforeTest = stepUps;
   await testCard2.locator('#qbo-test-approve-reason').fill('All four entries checked in QuickBooks');
   await submit(p, testCard2, 'Approve test post', () => sql(`select settings ? 'test_post_approved_at' from app.integration_connections where id = '${conn}'`) === 't');

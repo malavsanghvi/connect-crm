@@ -362,6 +362,54 @@ export function mergeAudience(keys: readonly string[]): Record<string, unknown> 
 }
 
 // ---------------------------------------------------------------------------
+// Opening balances (0413) and year-end statements (0522)
+// ---------------------------------------------------------------------------
+
+/** How an imported opening-balance line is labelled wherever the giving history shows it. */
+export const OPENING_BALANCE_LABEL = "Opening balance";
+export const OPENING_BALANCE_HINT =
+  "Paid on the pledge before the imported payment history begins. Not a gift receipt, and left out of year-end statements and tax-deductible totals.";
+
+export type YearEndStatement = {
+  tax_year: number;
+  gift_count: number;
+  total_cents: number;
+  left_out: { opening_balance_count: number; opening_balance_cents: number; reason: string | null };
+};
+
+/** Reads app.year_end_statement's answer; null when it is not the expected shape. */
+export function parseYearEndStatement(v: unknown): YearEndStatement | null {
+  if (!v || typeof v !== "object" || Array.isArray(v)) return null;
+  const o = v as Record<string, unknown>;
+  const lo = (o.left_out && typeof o.left_out === "object" ? o.left_out : {}) as Record<string, unknown>;
+  const n = (x: unknown) => (typeof x === "number" && Number.isFinite(x) ? x : typeof x === "string" && /^-?\d+$/.test(x) ? Number(x) : null);
+  const year = n(o.tax_year), count = n(o.gift_count), total = n(o.total_cents);
+  if (year === null || count === null || total === null) return null;
+  return {
+    tax_year: year,
+    gift_count: count,
+    total_cents: total,
+    left_out: {
+      opening_balance_count: n(lo.opening_balance_count) ?? 0,
+      opening_balance_cents: n(lo.opening_balance_cents) ?? 0,
+      reason: typeof lo.reason === "string" ? lo.reason : null,
+    },
+  };
+}
+
+/** Totals for the giving history: everything received, and the opening balances within it (never on a statement). */
+export function givingHistoryTotals(rows: { amount_cents: number; is_opening_balance?: boolean | null }[]): { receivedCents: number; openingCents: number; openingCount: number } {
+  let receivedCents = 0, openingCents = 0, openingCount = 0;
+  for (const r of rows) {
+    if (r.is_opening_balance) {
+      openingCents += r.amount_cents;
+      openingCount += 1;
+    } else receivedCents += r.amount_cents;
+  }
+  return { receivedCents, openingCents, openingCount };
+}
+
+// ---------------------------------------------------------------------------
 // Receipt templates (0022 receipt_templates)
 // ---------------------------------------------------------------------------
 

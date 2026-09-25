@@ -10124,6 +10124,10 @@ export type Database = {
         };
         Returns: undefined;
       };
+      qbo_accrual_waiting_text: {
+        Args: Record<PropertyKey, never>;
+        Returns: string;
+      };
       qbo_can_connect: {
         Args: {
           p_center: string;
@@ -10736,6 +10740,14 @@ export type Database = {
         };
         Returns: Json;
       };
+      set_qbo_basis: {
+        Args: {
+          p_center: string;
+          p_basis: string;
+          p_reason: string;
+        };
+        Returns: Json;
+      };
       set_qbo_fund_class: {
         Args: {
           p_center: string;
@@ -10851,6 +10863,12 @@ export type Database = {
           p_reason: string;
         };
         Returns: Json;
+      };
+      statement_counted_status: {
+        Args: {
+          p_status: Database["app"]["Enums"]["payment_status"];
+        };
+        Returns: boolean;
       };
       statement_descriptor_problem: {
         Args: {
@@ -11078,6 +11096,13 @@ export type Database = {
       worker_stale_after: {
         Args: Record<PropertyKey, never>;
         Returns: string;
+      };
+      year_end_statement: {
+        Args: {
+          p_household: string;
+          p_year: number;
+        };
+        Returns: Json;
       };
     };
     Enums: {

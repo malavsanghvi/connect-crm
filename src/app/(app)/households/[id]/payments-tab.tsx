@@ -2,7 +2,8 @@ import { CustomDetailsCell } from "@/components/custom-details-cell";
 import { Alert, Badge, Card, EmptyState, NoAccess, QueryError, TableWrap } from "@/components/ui";
 import { loadCustomFieldDefs, withCustomValues } from "@/lib/data/custom-fields";
 import { chunk } from "@/lib/data/fetch-all";
-import { formatDate } from "@/lib/dates";
+import { formatDate, todayInTz } from "@/lib/dates";
+import { givingHistoryTotals, OPENING_BALANCE_HINT, OPENING_BALANCE_LABEL, parseYearEndStatement, type YearEndStatement } from "@/lib/giving";
 import { PAYMENT_METHOD_LABEL } from "@/lib/labels";
 import { formatCents, sumCents } from "@/lib/money";
 import { can, canAccess } from "@/lib/permissions";
@@ -16,7 +17,7 @@ export async function PaymentsTab({ session, householdId }: { session: CrmSessio
 
   const pRes = await db
     .from("payments")
-    .select("id, receipt_number, received_on, method, amount_cents, status, provider, check_number, envelope_number, memo, refunded_cents, deposit_bank_transaction_id, is_historical, crm_external_id, custom")
+    .select("id, receipt_number, received_on, method, amount_cents, status, provider, check_number, envelope_number, memo, refunded_cents, deposit_bank_transaction_id, is_historical, is_opening_balance, crm_external_id, custom")
     .eq("household_id", householdId)
     .order("received_on", { ascending: false })
     .limit(500);
@@ -50,11 +51,39 @@ export async function PaymentsTab({ session, householdId }: { session: CrmSessio
   const byPayment = new Map<string, typeof allocations>();
   for (const a of allocations) byPayment.set(a.payment_id, [...(byPayment.get(a.payment_id) ?? []), a]);
 
+  // Year-end statements (0522): the last three tax years with gifts, without opening-balance lines.
+  const totals = givingHistoryTotals(payments);
+  const thisYear = Number(todayInTz(tz).slice(0, 4));
+  const years = [...new Set(payments.filter((p) => !p.is_opening_balance).map((p) => Number(p.received_on.slice(0, 4))))]
+    .filter((y) => y <= thisYear)
+    .sort((a, b) => b - a)
+    .slice(0, 3);
+  const statements: YearEndStatement[] = [];
+  let statementError: unknown = null;
+  for (const y of years) {
+    const r = await db.rpc("year_end_statement", { p_household: householdId, p_year: y });
+    if (r.error) {
+      statementError = r.error;
+      break;
+    }
+    const st = parseYearEndStatement(r.data);
+    if (!st) {
+      console.error(`[household] year_end_statement(${householdId}, ${y}) returned an unexpected shape`);
+      statementError = new Error("The year-end statement came back in an unexpected shape.");
+      break;
+    }
+    statements.push(st);
+  }
+
   return (
     <Card
       padded={false}
       title="Payments"
-      description={`${payments.length} payments · ${formatCents(sumCents(payments.map((p) => p.amount_cents)), center.currency)} received`}
+      description={`${payments.length} payments · ${formatCents(totals.receivedCents, center.currency)} received${
+        totals.openingCount > 0
+          ? ` · ${formatCents(totals.openingCents, center.currency)} opening balance${totals.openingCount === 1 ? "" : "s"} (paid before the imported history)`
+          : ""
+      }`}
     >
       {!can(session, ["giving.view", "giving.manage"]) ? (
         <div className="p-4">
@@ -64,6 +93,32 @@ export async function PaymentsTab({ session, householdId }: { session: CrmSessio
       {allocError ? (
         <div className="p-4">
           <QueryError what="allocations" error={allocError} retryHref={retry} />
+        </div>
+      ) : null}
+      {statementError ? (
+        <div className="p-4">
+          <QueryError what="the year-end statement totals" error={statementError} retryHref={retry} />
+        </div>
+      ) : statements.length > 0 ? (
+        <div className="border-b border-line p-4" data-testid="year-end-statements">
+          <p className="mb-2 text-sm font-semibold">Year-end statements</p>
+          <ul className="space-y-1 text-sm">
+            {statements.map((st) => (
+              <li key={st.tax_year}>
+                <span className="font-semibold">{st.tax_year}</span>: {formatCents(st.total_cents, center.currency)} in {st.gift_count} gift
+                {st.gift_count === 1 ? "" : "s"}
+                {st.left_out.opening_balance_count > 0 ? (
+                  <span className="text-muted">
+                    {" "}
+                    · {formatCents(st.left_out.opening_balance_cents, center.currency)} opening balance left out
+                  </span>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+          {statements.some((st) => st.left_out.opening_balance_count > 0) ? (
+            <p className="mt-2 text-xs text-muted">{OPENING_BALANCE_HINT}</p>
+          ) : null}
         </div>
       ) : null}
       {payments.length === 0 ? (
@@ -89,7 +144,15 @@ export async function PaymentsTab({ session, householdId }: { session: CrmSessio
                 const unallocated = p.amount_cents - sumCents(allocs.map((a) => a.amount_cents));
                 return (
                   <tr key={p.id}>
-                    <td className="font-mono text-[0.8125rem]">{p.receipt_number ?? "—"}</td>
+                    <td className="font-mono text-[0.8125rem]">
+                      {p.receipt_number ?? "—"}
+                      {p.is_opening_balance ? (
+                        <div className="font-sans">
+                          <Badge tone="purple">{OPENING_BALANCE_LABEL}</Badge>
+                          <div className="text-xs text-muted">Not a gift receipt · left out of year-end statements</div>
+                        </div>
+                      ) : null}
+                    </td>
                     <td>{formatDate(p.received_on, tz)}</td>
                     <td>
                       {PAYMENT_METHOD_LABEL[p.method] ?? p.method}

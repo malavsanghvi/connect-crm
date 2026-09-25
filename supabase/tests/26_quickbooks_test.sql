@@ -189,6 +189,10 @@ select pg_temp.assert_raises($$select app.set_qbo_mapping('00000000-0000-4000-80
   'an account of the wrong type is refused');
 select pg_temp.assert_raises($$insert into app.qbo_account_mappings (center_id, purpose, qbo_account_id) values ('00000000-0000-4000-8000-000000000001', 'stock_clearing', '77')$$,
   'pulled from QuickBooks', 'a direct insert must also come from the chart');
+-- The accounting basis is the first choice after connecting (f-money, 0521).
+select pg_temp.assert_raises($$select app.set_qbo_mapping('00000000-0000-4000-8000-000000000001', 'income.general', '1', 'x')$$, 'accounting basis',
+  'nothing is mapped before the accounting basis is chosen');
+select app.set_qbo_basis(:jsh, 'cash', 'Our books are kept on cash basis');
 select app.set_qbo_mapping(:jsh, 'income.general', '1', 'Initial mapping');
 select app.set_qbo_mapping(:jsh, 'bank', '2', 'Initial mapping');
 select app.set_qbo_mapping(:jsh, 'undeposited_funds', '3', 'Initial mapping');

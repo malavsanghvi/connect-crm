@@ -27,7 +27,7 @@ import type { HouseholdCardData } from "@/components/household-card";
 import { householdCards, householdsById, personName, toCard, userNames } from "@/lib/data/lookups";
 import { formatDate, todayInTz } from "@/lib/dates";
 import { explainError } from "@/lib/errors";
-import { countingStatusText, monthDay, refundStatusText } from "@/lib/giving";
+import { countingStatusText, monthDay, OPENING_BALANCE_HINT, OPENING_BALANCE_LABEL, refundStatusText } from "@/lib/giving";
 import { ORIGINATOR_LABEL, PAYMENT_METHOD_LABEL } from "@/lib/labels";
 import { formatCents } from "@/lib/money";
 import { can, canAccess } from "@/lib/permissions";
@@ -86,7 +86,7 @@ export default async function PaymentsPage({ searchParams }: { searchParams: Pro
   let query = db
     .from("payments")
     .select(
-      "id, receipt_number, household_id, received_on, method, amount_cents, status, provider, check_number, envelope_number, memo, recorded_by, refunded_cents, refund_approved_by, refund_second_approver, deposit_bank_transaction_id",
+      "id, receipt_number, household_id, received_on, method, amount_cents, status, provider, check_number, envelope_number, memo, recorded_by, refunded_cents, refund_approved_by, refund_second_approver, deposit_bank_transaction_id, is_opening_balance",
       { count: "exact" },
     )
     .eq("center_id", center.id);
@@ -627,6 +627,11 @@ export default async function PaymentsPage({ searchParams }: { searchParams: Pro
                       <HouseholdRow key={p.id} householdId={p.household_id} label={`Open ${h?.display_name ?? "the household"}`}>
                         <td className="font-mono text-[0.8125rem]">
                           {p.receipt_number ?? "—"}
+                          {p.is_opening_balance ? (
+                            <div className="font-sans" title={OPENING_BALANCE_HINT}>
+                              <Badge tone="purple">{OPENING_BALANCE_LABEL}</Badge>
+                            </div>
+                          ) : null}
                           <div className="font-sans">
                             <HistoryButton table="payments" recordId={p.id} title={`Payment ${p.receipt_number ?? ""}`.trim()} size="xs" />
                           </div>

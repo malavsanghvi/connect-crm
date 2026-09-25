@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { authorizeUrl, intuitPortalConfig, redirectUri, signState, verifyState } from "@/lib/qbo/oauth";
-import { accountChoices, connectionSummary, reasonProblem, setupSteps, type QboStatus } from "@/lib/qbo/setup";
+import { accountChoices, ACCRUAL_WAITING, connectionSummary, isBasis, reasonProblem, setupSteps, type QboStatus } from "@/lib/qbo/setup";
 
 const SECRET = "a-test-secret-that-is-at-least-32-characters";
 const CENTER = "00000000-0000-4000-8000-000000000001";
@@ -66,12 +66,22 @@ describe("QuickBooks setup helpers", () => {
     expect(accountChoices("income.general", accounts).map((a) => a.qbo_id)).toEqual(["1"]);
     expect(accountChoices("bank", accounts).map((a) => a.qbo_id)).toEqual(["2"]);
   });
-  it("walks the five steps", () => {
+  it("walks the six steps", () => {
     const base = { connection: null, last_pull: null, test_post: null,
       settings: { basis: null, posting: null, go_live_date: null, mapping_approved_at: null, mapping_approved_by: null, test_post_approved_at: null, test_post_approved_by: null } } as unknown as QboStatus;
-    expect(setupSteps(base).map((s) => s.state)).toEqual(["current", "blocked", "blocked", "blocked", "blocked"]);
+    expect(setupSteps(base).map((s) => s.state)).toEqual(["current", "blocked", "blocked", "blocked", "blocked", "blocked"]);
     const connected = { ...base, connection: { status: "connected" } as QboStatus["connection"], last_pull: { status: "succeeded", counts: { accounts: 3 } } as unknown as QboStatus["last_pull"] };
-    expect(setupSteps(connected).map((s) => s.state)).toEqual(["done", "done", "current", "todo", "todo"]);
+    // The accounting basis is the first choice after connecting; mapping waits for it.
+    expect(setupSteps(connected).map((s) => s.key)).toEqual(["connect", "basis", "pull", "choose", "map", "test"]);
+    expect(setupSteps(connected).map((s) => s.state)).toEqual(["done", "current", "done", "todo", "blocked", "todo"]);
+    const withBasis = { ...connected, settings: { ...connected.settings, basis: "accrual" } };
+    expect(setupSteps(withBasis).map((s) => s.state)).toEqual(["done", "done", "done", "current", "todo", "todo"]);
+  });
+  it("knows a basis when it sees one", () => {
+    expect(isBasis("cash") && isBasis("accrual")).toBe(true);
+    expect(isBasis(null) || isBasis("") || isBasis("modified_cash")).toBe(false);
+    expect(ACCRUAL_WAITING).toMatch(/^Accrual-basis posting isn't available yet/);
+    expect(ACCRUAL_WAITING).toMatch(/Postings wait in the queue/);
   });
   it("says what is connected and in which mode", () => {
     const c = { status: "connected", display_name: "JSH", realm_id: "1", read_only: true, provider: "quickbooks_online", mode: "test" } as NonNullable<QboStatus["connection"]>;

@@ -33,6 +33,12 @@ export type QboStatus = {
   other_connection: null | { provider: string; status: string; display_name: string | null };
   settings: {
     basis: string | null;
+    basis_chosen_at?: string | null;
+    basis_chosen_by?: string | null;
+    basis_changed_at?: string | null;
+    basis_changed_by?: string | null;
+    basis_changed_from?: string | null;
+    basis_note?: string | null;
     posting: string | null;
     go_live_date: string | null;
     mapping_approved_at: string | null;
@@ -40,6 +46,12 @@ export type QboStatus = {
     test_post_approved_at: string | null;
     test_post_approved_by: string | null;
   };
+  /** The basis the organization's setup (center rules accounting.basis) suggests; a hint, never chosen for them. */
+  suggested_basis?: "cash" | "accrual" | null;
+  /** Accrual chosen: posting is cash-only for now, so postings wait. */
+  accrual_waiting?: boolean;
+  /** Postings waiting in the queue for QuickBooks. */
+  postings_waiting?: number;
   lists: Record<string, number>;
   last_pull: null | { status: string; finished_at: string; error: string | null; counts: Record<string, number>; changed: Record<string, number> };
   warnings: QboWarning[];
@@ -98,18 +110,34 @@ export function accountChoices(purpose: string, accounts: PulledAccount[]): Pull
 
 export type StepState = "done" | "current" | "todo" | "blocked";
 
-/** The five steps of plan §1.7 with where the treasurer is. */
+/** The accounting basis, in words. */
+export const BASIS_LABEL: Record<string, string> = { cash: "Cash", accrual: "Accrual" };
+
+/**
+ * What the screen and readiness say when accrual is chosen (mirrors app.qbo_accrual_waiting_text()):
+ * posting is cash-only for now, so postings wait and nothing is posted wrongly.
+ */
+export const ACCRUAL_WAITING =
+  "Accrual-basis posting isn't available yet: Community Connect posts on cash basis only. Postings wait in the queue and nothing is posted until accrual posting is available or the basis is changed to cash.";
+
+export function isBasis(v: string | null | undefined): v is "cash" | "accrual" {
+  return v === "cash" || v === "accrual";
+}
+
+/** The six steps of plan §1.7 with where the treasurer is. The accounting basis is the first choice after connecting. */
 export function setupSteps(s: Pick<QboStatus, "connection" | "last_pull" | "settings" | "test_post">): { key: string; label: string; state: StepState }[] {
   const connected = Boolean(s.connection && (s.connection.status === "connected" || s.connection.status === "expiring"));
+  const basis = isBasis(s.settings.basis);
   const pulled = s.last_pull?.status === "succeeded" || Object.keys(s.last_pull?.counts ?? {}).length > 0;
-  const chosen = Boolean(s.settings.basis && s.settings.posting && s.settings.go_live_date);
+  const chosen = Boolean(basis && s.settings.posting && s.settings.go_live_date);
   const mapped = Boolean(s.settings.mapping_approved_at);
   const tested = Boolean(s.settings.test_post_approved_at);
-  const flags = [connected, connected && pulled, chosen, mapped, tested];
+  const flags = [connected, connected && basis, connected && pulled, chosen, mapped, tested];
   const labels = [
     ["connect", "Connect"],
+    ["basis", "Accounting basis"],
     ["pull", "Pull the chart and lists"],
-    ["choose", "Basis, posting, go-live date"],
+    ["choose", "Posting and go-live date"],
     ["map", "Map and approve"],
     ["test", "Test post"],
   ];
@@ -117,7 +145,7 @@ export function setupSteps(s: Pick<QboStatus, "connection" | "last_pull" | "sett
   return labels.map(([key, label], i) => ({
     key: key!,
     label: label!,
-    state: flags[i] ? "done" : i === firstTodo ? "current" : !connected && i > 0 ? "blocked" : "todo",
+    state: flags[i] ? "done" : i === firstTodo ? "current" : !connected && i > 0 ? "blocked" : key === "map" && !basis ? "blocked" : "todo",
   }));
 }
 
