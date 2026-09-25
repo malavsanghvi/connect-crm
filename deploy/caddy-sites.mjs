@@ -277,12 +277,12 @@ export function buildAppSites(input) {
   const summary = [];
   const out = [`# Managed by deploy/caddy-sites.mjs (e-https-admin; the same file ships in connect-crm and connect-${o.app}). Do not edit on the droplet.`];
   const body = portalBody(o);
-  // The portal may have confirmed the droplet address; when this app has no IP site
-  // (release.sh retried without it), never redirect the address to an https:// that
-  // has no certificate here.
-  const matcher = ip && !withIpCert
-    ? ["\t@https_ready {", "\t\tfile {", `\t\t\troot ${o.confirmedDir}`, "\t\t\ttry_files /{host}", "\t\t}", `\t\tnot host ${ip}`, "\t}"]
-    : confirmedMatcher("https_ready", o.confirmedDir);
+  // Without an IP site of its own (address unknown, or release.sh retried without it)
+  // an IP address is never redirected, even when the portal has confirmed it since:
+  // https://<ip>:<port> would have no certificate here.
+  const matcher = withIpCert
+    ? confirmedMatcher("https_ready", o.confirmedDir)
+    : ["\t@https_ready {", "\t\tfile {", `\t\t\troot ${o.confirmedDir}`, "\t\t\ttry_files /{host}", "\t\t}", "\t\tnot header_regexp Host ^[0-9.]+(:[0-9]+)?$", "\t}"];
   const plain = (redirectTo) => [...matcher, `\tredir @https_ready ${redirectTo} 308`, "\tencode zstd gzip", `\treverse_proxy 127.0.0.1:${o.port}`];
 
   if (domain) {

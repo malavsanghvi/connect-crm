@@ -132,7 +132,7 @@ describe("buildAppSites", () => {
   it("keeps http://…:8081 serving, and redirects to its own HTTPS port only for confirmed hosts", () => {
     const main = buildAppSites({ ...admin, site: ":8081" }).files["admin.caddy"];
     expect(APP_HTTPS_PORTS.admin).toBe(8444);
-    expect(main).toMatch(/^:8081 \{\n\t@https_ready file \{\n\t\troot \/var\/lib\/connect-https\/confirmed\n\t\ttry_files \/\{host\}\n\t\}\n\tredir @https_ready https:\/\/\{host\}:8444\{uri\} 308\n\tencode zstd gzip\n\treverse_proxy 127.0.0.1:3001\n\}/m);
+    expect(main).toMatch(/^:8081 \{\n\t@https_ready \{\n\t\tfile \{\n\t\t\troot \/var\/lib\/connect-https\/confirmed\n\t\t\ttry_files \/\{host\}\n\t\t\}\n\t\tnot header_regexp Host \^\[0-9\.\]\+\(:\[0-9\]\+\)\?\$\n\t\}\n\tredir @https_ready https:\/\/\{host\}:8444\{uri\} 308\n\tencode zstd gzip\n\treverse_proxy 127.0.0.1:3001\n\}/m);
     expect(main.match(/redir /g)).toHaveLength(1);
     // Never onto the portal's :443 (HSTS would then pin the admin to the portal) nor :8081 itself.
     expect(main).not.toContain("https://{host}{uri}");
@@ -149,8 +149,11 @@ describe("buildAppSites", () => {
     const noIp = buildAppSites({ ...admin, site: ":8081", publicIp: "134.122.25.56", ipCert: false }).files["admin.caddy"];
     expect(noIp).not.toContain("https://134.122.25.56");
     // …and a confirmed droplet address is then never sent to an https:// that has no certificate here.
-    expect(noIp).toContain("\t@https_ready {\n\t\tfile {\n\t\t\troot /var/lib/connect-https/confirmed\n\t\t\ttry_files /{host}\n\t\t}\n\t\tnot host 134.122.25.56\n\t}");
-    expect(buildAppSites({ ...admin, site: ":8081", publicIp: null, ipCert: false }).files["admin.caddy"]).not.toContain("not host");
+    expect(noIp).toContain("\t\tnot header_regexp Host ^[0-9.]+(:[0-9]+)?$\n\t}\n\tredir @https_ready");
+    // With its own IP site, a confirmed address is redirected like any name.
+    const withIp = buildAppSites({ ...admin, site: ":8081", publicIp: "134.122.25.56", ipCert: true }).files["admin.caddy"];
+    expect(withIp).not.toContain("not header_regexp");
+    expect(withIp).toContain("\t@https_ready file {");
   });
 
   it("HSTS only for confirmed hosts, on every HTTPS site of the app", () => {
