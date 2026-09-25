@@ -9126,6 +9126,15 @@ export type Database = {
         };
         Returns: Json;
       };
+      decide_household_change_request: {
+        Args: {
+          p_request: string;
+          p_decision: string;
+          p_role?: Database["app"]["Enums"]["person_role_in_household"];
+          p_reason?: string;
+        };
+        Returns: string;
+      };
       decide_org_verification: {
         Args: {
           p_center: string;

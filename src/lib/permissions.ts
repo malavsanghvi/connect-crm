@@ -141,6 +141,9 @@ export const ACCESS = {
   memberships: ["people.view", "people.manage"],
   applications: ["people.view", "people.approve"],
   applicationsDecide: ["people.approve"],
+  /** Family change requests from onboarding / the Family tab (add a member, change a relationship). */
+  householdRequests: ["people.view", "people.manage"],
+  householdRequestsDecide: ["people.manage"],
   pledges: ["giving.view", "giving.manage", "giving.record_offline"],
   payments: ["giving.view", "giving.manage", "giving.record_offline"],
   paymentsAll: ["giving.view", "giving.manage"],
@@ -349,6 +352,7 @@ export const NAV: NavModule[] = [
       { href: "/households", label: "Households", access: "households" },
       { href: "/people", label: "People", access: "households" },
       { href: "/memberships/applications", label: "Membership applications", access: "applications", module: "membership" },
+      { href: "/people/requests", label: "Family change requests", access: "householdRequests" },
       { href: "/people/directory", label: "Directory & expertise", access: "households" },
       { href: "/people/voting", label: "Voting eligibility", access: "voting", module: "membership" },
     ],
