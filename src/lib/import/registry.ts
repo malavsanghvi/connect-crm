@@ -968,6 +968,9 @@ export const ENTITIES: readonly EntityDef[] = [
       col("profession", "Profession", "text", "Optional.", "Physician", { synonyms: ["occupation", "job title"] }),
       col("employer", "Employer", "text", "Optional.", "Memorial Hermann", { synonyms: ["company", "organization"] }),
       col("is_deceased", "Deceased", "boolean", "Yes when the person has passed away.", "No", { synonyms: ["deceased"] }),
+      col("deceased_on", "Date of death", "date", "When the person passed away, if known. A date also marks them deceased.", "2024-11-02", {
+        synonyms: ["date of death", "died on", "deceased date", "death date", "dod"],
+      }),
       col("member_number", "Connect member number", "id", "Only when adopting your existing numbers as Connect numbers; otherwise leave blank.", "JSH-10421"),
       extra("email_opt_in", "Email opt-in", "boolean", "Yes only when they explicitly opted in. No (or unsubscribed) is always imported.", "Yes", {
         synonyms: ["email opt in", "subscribed", "email subscription", "opt in", "newsletter"],

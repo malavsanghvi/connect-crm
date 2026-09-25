@@ -1,7 +1,7 @@
 // o-demo flow (the Demo data pack), against a real local stack:
 //   1. a sandbox's owner opens Setup › Demo data (card on the Setup home, tab in the module),
 //      sees what the pack contains and loads it; the background service (worker, as
-//      connect_worker) runs the ten steps and the page shows the progress;
+//      connect_worker) runs the eleven steps and the page shows the progress;
 //   2. every module shows demo data in the portal;
 //   3. a demo member (priya.shah@demo.communityconnect.test) signs in to the member app with a
 //      real emailed code (Mailpit) through the sandbox's join code and sees her family, events,
@@ -196,7 +196,7 @@ const nowCounts = (c) => JSON.parse(sql(`select app.demo_data_counts('${c}')::te
     await shot(o.p, '1-setup-home');
     await o.p.goto(BASE + '/setup/demo', { waitUntil: 'networkidle' });
     let body = await o.p.innerText('main');
-    ok(body.includes('What the demo community pack contains') && body.includes('Members & families') && body.includes('76 people') && body.includes('No demo data'),
+    ok(body.includes('What the demo community pack contains') && body.includes('Members & families') && body.includes('77 people') && body.includes('No demo data'),
       'the page shows what the pack contains per module, and that nothing is loaded yet');
     await shot(o.p, '1-demo-before');
     const t0 = Date.now();
@@ -208,7 +208,7 @@ const nowCounts = (c) => JSON.parse(sql(`select app.demo_data_counts('${c}')::te
     ok(loadedRows(sbx) === packRows(), 'the rows loaded are exactly the pack\'s contents, table by table');
     await o.p.reload({ waitUntil: 'networkidle' });
     body = await o.p.innerText('main');
-    ok(body.includes('Demo pack loaded') && /People in this sandbox\s*77\b/.test(body), 'the page shows it loaded; 77 people now (the pack\'s 76 and the owner)');
+    ok(body.includes('Demo pack loaded') && /People in this sandbox\s*78\b/.test(body), 'the page shows it loaded; 78 people now (the pack\'s 77 and the owner)');
     await shot(o.p, '1-demo-loaded');
     ok(sql(`select count(*) from app.audit_log where id > ${auditStart} and record_table = 'center_demo_state' and actor_user_id = '${ownerId}'
             and client_app = 'portal' and client_screen = '/setup/demo' and reason like 'Demo data · load Demo community: Show the committee every module'`) !== '0',
@@ -310,9 +310,9 @@ const nowCounts = (c) => JSON.parse(sql(`select app.demo_data_counts('${c}')::te
     ok(await waitStatus(sbx, 'loaded') === 'loaded', `the reset cleared and loaded the pack again (${Math.round((Date.now() - t1) / 1000)} s)`);
     ok(loadedRows(sbx) === packRows(), 'after the reset the counts are the pack\'s again, table by table');
     const after = nowCounts(sbx);
-    ok(after.households === 26 && after.people === 77 && sql(`select count(*) from app.households where center_id = '${sbx}' and display_name like 'Typed-in family%'`) === '0'
+    ok(after.households === 26 && after.people === 78 && sql(`select count(*) from app.households where center_id = '${sbx}' and display_name like 'Typed-in family%'`) === '0'
        && sql(`select count(*) from app.funds where center_id = '${sbx}' and key like 'typed_%'`) === '0',
-      'the typed-in household and fund are gone; 26 households and 77 people again');
+      'the typed-in household and fund are gone; 26 households and 78 people again');
     ok(sql(`select count(*) from app.center_owners where center_id = '${sbx}' and user_id = '${ownerId}'`) === '1'
        && sql(`select count(*) from app.role_grants where center_id = '${sbx}' and user_id = '${ownerId}' and status = 'active'`) === '1'
        && sql(`select count(*) from app.people where center_id = '${sbx}' and email = '${OWNER}'`) === '1',
