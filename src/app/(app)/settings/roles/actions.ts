@@ -30,7 +30,7 @@ export async function searchPeopleAction(query: string): Promise<ActionResult<Pe
   const tokens = safe.split(" ").filter(Boolean);
 
   const ids = new Set<string>();
-  const base = db.from("people").select("id").eq("center_id", center.id).is("merged_into_id", null).limit(25);
+  const base = db.from("people").select("id").eq("center_id", center.id).is("merged_into_id", null).eq("is_deceased", false).limit(25);
   const byName =
     tokens.length >= 2
       ? base.ilike("first_name", `${tokens[0]}%`).ilike("last_name", `${tokens[tokens.length - 1]}%`)

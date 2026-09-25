@@ -232,8 +232,39 @@ export const LEGAL_KIND_LABEL: Record<string, string> = {
   volunteer_waiver: "Volunteer waiver",
   pathshala_waiver: "Pathshala waiver (parent signs)",
   photo_release: "Photo consent",
+  children_consent: "Children's photo consent",
+  disclaimer: "Notices and disclaimers",
   other: "Other document",
 };
+
+/** The member kinds a community can publish, in the order the portal lists them. */
+export const MEMBER_LEGAL_KINDS = ["privacy", "terms", "disclaimer", "photo_release", "children_consent", "volunteer_waiver", "pathshala_waiver", "other"] as const;
+
+/** How the member app's first-sign-in legal step asks for a document (legal_documents.member_step, 0422). */
+export type MemberStep = "accept" | "consent" | "none";
+export const MEMBER_STEP_LABEL: Record<MemberStep, string> = {
+  accept: "Must accept to use the app",
+  consent: "Asked yes or no (the answer is recorded)",
+  none: "Not asked at sign-in",
+};
+
+export function isMemberStep(x: unknown): x is MemberStep {
+  return x === "accept" || x === "consent" || x === "none";
+}
+
+/** The database's default for a kind (0422): privacy/terms/notices must be accepted; photo and children consent are a yes/no. */
+export function defaultMemberStep(kind: string): MemberStep {
+  if (kind === "privacy" || kind === "terms" || kind === "disclaimer") return "accept";
+  if (kind === "photo_release" || kind === "children_consent") return "consent";
+  return "none";
+}
+
+/** Plain-English note on what publishing a version does in the member app. */
+export function publishEffect(step: MemberStep): string {
+  if (step === "accept") return "Members are asked to accept it the next time they open the app, before they continue.";
+  if (step === "consent") return "Members are asked yes or no the next time they open the app; their answer is recorded.";
+  return "It is not asked at sign-in; signers are asked for the new version where it is required.";
+}
 
 /** "v3" → "v4", "3" → "4", "2026.1" → "2026.2"; unknown shapes get "-2". */
 export function nextVersion(current: string | null | undefined): string {

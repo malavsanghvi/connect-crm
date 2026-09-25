@@ -523,6 +523,8 @@ export const NAV: NavModule[] = [
       { href: "/platform/pipeline", label: "Onboarding", access: "dashboard", platformOnly: true },
       { href: "/platform/go-live", label: "Go-live approvals", access: "dashboard", platformOnly: true },
       { href: "/platform/support-access", label: "Support access", access: "dashboard", platformOnly: true },
+      // Wave E (e-people-legal, #19): Community Connect's agreements as versions.
+      { href: "/platform/agreements", label: "Agreements", access: "dashboard", platformOnly: true },
       // o-https: portal address and HTTPS status.
       { href: "/platform/https", label: "HTTPS", access: "dashboard", platformOnly: true },
     ],

@@ -104,7 +104,7 @@ export async function SuppressionsCard({ session, channels, canManage }: { sessi
     .order("created_at", { ascending: false })
     .limit(50);
   return (
-    <Card span={7} title="Suppressed addresses" description="Bounces, spam complaints and STOP replies stop all messages to an address; lifting one is audited">
+    <Card span={7} title="Suppressed addresses" description="Bounces, spam complaints and STOP replies stop all messages to an address. An unsubscribe by someone who is not a member stops newsletters only. Lifting one is audited">
       {res.error ? (
         <QueryError what="the suppressed addresses" error={res.error} />
       ) : (res.data ?? []).length === 0 ? (
