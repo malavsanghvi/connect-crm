@@ -84,6 +84,7 @@ export const SUPPRESSION_REASON: Record<string, string> = {
   complaint: "Marked as spam",
   stop: "Replied STOP",
   manual: "Added by staff",
+  unsubscribe: "Unsubscribed from newsletters (not a member on file) — receipts still go",
 };
 
 export const CHANNEL_LABEL: Record<string, string> = { email: "Email", sms: "Text", whatsapp: "WhatsApp", push: "Push", in_app: "In-app" };

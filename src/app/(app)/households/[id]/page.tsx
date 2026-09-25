@@ -25,6 +25,7 @@ import { MembersTab } from "./members-tab";
 import { MembershipsTab } from "./memberships-tab";
 import { PaymentsTab } from "./payments-tab";
 import { PledgesTab } from "./pledges-tab";
+import { PrimaryPrompt } from "./primary-prompt";
 
 export const metadata: Metadata = { title: "Household" };
 
@@ -154,6 +155,8 @@ export default async function HouseholdPage({
           . Its history is kept here.
         </p>
       ) : null}
+
+      {!household.merged_into_id ? <PrimaryPrompt session={session} householdId={id} /> : null}
 
       <section aria-label="Identity" className="mb-6 grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
         <IdentityCell label="Household no." value={household.household_number} mono />

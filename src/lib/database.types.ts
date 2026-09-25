@@ -3472,6 +3472,10 @@ export type Database = {
           requires_yearly_resign: boolean;
           published_at: string | null;
           created_at: string;
+          member_step: string;
+          updated_at: string | null;
+          updated_by: string | null;
+          published_by: string | null;
         };
         Insert: {
           id?: string;
@@ -3483,6 +3487,10 @@ export type Database = {
           requires_yearly_resign?: boolean;
           published_at?: string | null;
           created_at?: string;
+          member_step: string;
+          updated_at?: string | null;
+          updated_by?: string | null;
+          published_by?: string | null;
         };
         Update: {
           id?: string;
@@ -3494,6 +3502,10 @@ export type Database = {
           requires_yearly_resign?: boolean;
           published_at?: string | null;
           created_at?: string;
+          member_step?: string;
+          updated_at?: string | null;
+          updated_by?: string | null;
+          published_by?: string | null;
         };
         Relationships: [];
       };
@@ -3808,6 +3820,7 @@ export type Database = {
           lifted_at: string | null;
           lifted_by: string | null;
           lift_reason: string | null;
+          scope: string;
         };
         Insert: {
           id?: string;
@@ -3822,6 +3835,7 @@ export type Database = {
           lifted_at?: string | null;
           lifted_by?: string | null;
           lift_reason?: string | null;
+          scope?: string;
         };
         Update: {
           id?: string;
@@ -3836,6 +3850,7 @@ export type Database = {
           lifted_at?: string | null;
           lifted_by?: string | null;
           lift_reason?: string | null;
+          scope?: string;
         };
         Relationships: [];
       };
@@ -5217,6 +5232,10 @@ export type Database = {
           contact_channels: string[];
           gyan_daily_minutes: number | null;
           custom: Json;
+          deceased_on: string | null;
+          deceased_recorded_by: string | null;
+          deceased_recorded_at: string | null;
+          deceased_note: string | null;
         };
         Insert: {
           id?: string;
@@ -5248,6 +5267,10 @@ export type Database = {
           contact_channels?: string[];
           gyan_daily_minutes?: number | null;
           custom?: Json;
+          deceased_on?: string | null;
+          deceased_recorded_by?: string | null;
+          deceased_recorded_at?: string | null;
+          deceased_note?: string | null;
         };
         Update: {
           id?: string;
@@ -5279,6 +5302,52 @@ export type Database = {
           contact_channels?: string[];
           gyan_daily_minutes?: number | null;
           custom?: Json;
+          deceased_on?: string | null;
+          deceased_recorded_by?: string | null;
+          deceased_recorded_at?: string | null;
+          deceased_note?: string | null;
+        };
+        Relationships: [];
+      };
+      person_deceased_events: {
+        Row: {
+          id: string;
+          center_id: string;
+          person_id: string;
+          action: string;
+          deceased_on: string | null;
+          note: string | null;
+          reason: string;
+          ended_memberships: Json;
+          primary_of: string[];
+          recorded_by: string | null;
+          recorded_at: string;
+        };
+        Insert: {
+          id?: string;
+          center_id: string;
+          person_id: string;
+          action: string;
+          deceased_on?: string | null;
+          note?: string | null;
+          reason: string;
+          ended_memberships?: Json;
+          primary_of?: string[];
+          recorded_by?: string | null;
+          recorded_at?: string;
+        };
+        Update: {
+          id?: string;
+          center_id?: string;
+          person_id?: string;
+          action?: string;
+          deceased_on?: string | null;
+          note?: string | null;
+          reason?: string;
+          ended_memberships?: Json;
+          primary_of?: string[];
+          recorded_by?: string | null;
+          recorded_at?: string;
         };
         Relationships: [];
       };
@@ -9455,12 +9524,33 @@ export type Database = {
         };
         Returns: Json;
       };
+      mark_person_deceased: {
+        Args: {
+          p_person: string;
+          p_deceased_on: string;
+          p_note: string;
+          p_reason: string;
+        };
+        Returns: Json;
+      };
       match_deposit: {
         Args: {
           p_txn: string;
           p_payment_ids: string[];
         };
         Returns: number;
+      };
+      member_legal_acceptance_counts: {
+        Args: {
+          p_center: string;
+        };
+        Returns: { document_id: string; accepted: number; declined: number }[];
+      };
+      member_legal_steps: {
+        Args: {
+          p_center: string;
+        };
+        Returns: { document_id: string; kind: string; title: string; version: string; body_md: string; mode: string; published_at: string; requires_yearly_resign: boolean; answered: boolean; granted: boolean; answered_version: string; answered_at: string }[];
       };
       member_payment_options: {
         Args: {
@@ -9735,6 +9825,12 @@ export type Database = {
         };
         Returns: { entity: string; key: string; label: string; type: string; value: Json; sort: number }[];
       };
+      person_is_deceased: {
+        Args: {
+          p_person: string;
+        };
+        Returns: boolean;
+      };
       place_boli_entry: {
         Args: {
           p_boli: string;
@@ -9747,6 +9843,12 @@ export type Database = {
       platform_admin_directory: {
         Args: Record<PropertyKey, never>;
         Returns: { user_id: string; email: string }[];
+      };
+      platform_agreement_acceptance: {
+        Args: {
+          p_document: string;
+        };
+        Returns: { accepted: number; organizations: number }[];
       };
       platform_auth_hook_activity: {
         Args: {
@@ -9973,6 +10075,15 @@ export type Database = {
           p_record: string;
         };
         Returns: { id: number; occurred_at: string; action: string; center_id: string; actor_user_id: string; actor_name: string; actor_role: string; module: string; client_app: string; client_screen: string; reason: string; correlation_id: string; before: Json; after: Json }[];
+      };
+      record_member_legal_answers: {
+        Args: {
+          p_center: string;
+          p_answers: Json;
+          p_ip?: string;
+          p_user_agent?: string;
+        };
+        Returns: number;
       };
       record_offline_payment: {
         Args: {
@@ -10201,6 +10312,17 @@ export type Database = {
         };
         Returns: Json;
       };
+      save_platform_document: {
+        Args: {
+          p_document: string;
+          p_kind: string;
+          p_title: string;
+          p_body_md: string;
+          p_version: string;
+          p_reason: string;
+        };
+        Returns: string;
+      };
       save_texting_registration: {
         Args: {
           p_center: string;
@@ -10302,6 +10424,14 @@ export type Database = {
         Args: {
           p_center: string;
           p_provider: string;
+          p_reason: string;
+        };
+        Returns: undefined;
+      };
+      set_household_primary: {
+        Args: {
+          p_household: string;
+          p_person: string;
           p_reason: string;
         };
         Returns: undefined;
@@ -10665,6 +10795,13 @@ export type Database = {
       uid: {
         Args: Record<PropertyKey, never>;
         Returns: string;
+      };
+      undo_person_deceased: {
+        Args: {
+          p_person: string;
+          p_reason: string;
+        };
+        Returns: Json;
       };
       unlog_practice: {
         Args: {

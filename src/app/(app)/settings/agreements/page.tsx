@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 
 import { ActionForm } from "@/components/action-form";
 import { Alert, BlockGrid, Card, NoAccess, PageHeader, QueryError, StatusText } from "@/components/ui";
@@ -6,7 +7,7 @@ import { canAccess } from "@/lib/permissions";
 import { AGREEMENT_LABEL, agreementState, type AgreementKind } from "@/lib/security";
 import { getSession } from "@/lib/session";
 
-import { acceptAgreementAction, publishPlatformDocumentAction } from "./actions";
+import { acceptAgreementAction } from "./actions";
 
 export const metadata: Metadata = { title: "Agreements · Settings" };
 
@@ -144,29 +145,15 @@ export default async function AgreementsPage() {
             </Card>
           );
         })}
-        {drafts.length > 0 ? (
-          <Card span={12} title="Community Connect team · drafts" description="Only platform admins see this. Publishing makes a version acceptable by every organization.">
-            <div className="flex flex-col gap-3">
-              {drafts.map((d) => (
-                <div key={d.id} className="rounded-[10px] border border-line p-3">
-                  <p className="text-[13px] font-bold">
-                    {d.title} · {d.version}
-                  </p>
-                  <div className="my-2 max-h-40 overflow-y-auto">
-                    <Body md={d.body_md} />
-                  </div>
-                  <ActionForm
-                    action={publishPlatformDocumentAction}
-                    submitLabel="Publish"
-                    pendingLabel="Publishing…"
-                    size="sm"
-                    confirmMessage="Publish this agreement? Every organization's owner will be asked to accept this text."
-                  >
-                    <input type="hidden" name="document_id" value={d.id} />
-                  </ActionForm>
-                </div>
-              ))}
-            </div>
+        {session.isPlatformAdmin ? (
+          <Card span={12} title="Community Connect team" description="Only platform admins see this.">
+            <p className="text-[13px] text-ink-2">
+              {drafts.length > 0 ? `${drafts.length} draft${drafts.length === 1 ? "" : "s"} waiting to be published. ` : ""}Edit the texts and publish new versions on{" "}
+              <Link href="/platform/agreements" className="crm-link font-semibold">
+                Platform › Agreements
+              </Link>
+              .
+            </p>
           </Card>
         ) : null}
       </BlockGrid>

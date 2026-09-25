@@ -99,7 +99,7 @@ select pg_temp.assert((select version = 1 and jsonb_array_length(contents) >= 15
   'the community pack is in the catalog with its contents per module');
 select pg_temp.assert((select count(distinct m->>'module') from app.demo_packs p, jsonb_array_elements(p.contents) m where p.key = 'community')
                       = (select count(*) from app.modules), 'the pack has data for every module');
-select pg_temp.assert(jsonb_array_length(app.demo_pack_steps('community')) = 10, 'a load runs in ten steps');
+select pg_temp.assert(jsonb_array_length(app.demo_pack_steps('community')) = 11, 'a load runs in eleven steps');
 select pg_temp.assert(app.demo_id('29000000-0000-4000-8000-000000000099', 'x') = app.demo_id('29000000-0000-4000-8000-000000000099', 'x')
                       and app.demo_id('29000000-0000-4000-8000-000000000099', 'x') <> app.demo_id('29000000-0000-4000-8000-000000000098', 'x'),
   'record ids are stable within a load and differ between loads');
@@ -173,7 +173,7 @@ begin;
 select pg_temp.claims(:owner);
 select app.activate_demo_pack(:sbx, 'community', 'Show the team every module') as job \gset
 commit;
-select pg_temp.assert((select status = 'loading' and operation = 'activate' and steps_total = 10 and job_id = :job and requested_by = :owner
+select pg_temp.assert((select status = 'loading' and operation = 'activate' and steps_total = 11 and job_id = :job and requested_by = :owner
                          and reason = 'Show the team every module' from app.center_demo_state where center_id = :sbx),
   'activating queues a load: status loading, 10 steps, the job and who asked');
 select pg_temp.assert((select kind = 'demo.load' and status = 'queued' and payload->>'pack' = 'community' from app.jobs where id = :job), 'a demo.load job is queued');
@@ -190,8 +190,8 @@ begin;
 set local role connect_worker;
 select (pg_temp.run_load(:sbx))->>'status' as st \gset
 commit;
-select pg_temp.assert(:'st' = 'loaded', 'the worker runs the ten steps and the pack is loaded');
-select pg_temp.assert((select status = 'loaded' and steps_done = 10 and loaded_by = :owner and loaded_at is not null from app.center_demo_state where center_id = :sbx),
+select pg_temp.assert(:'st' = 'loaded', 'the worker runs the eleven steps and the pack is loaded');
+select pg_temp.assert((select status = 'loaded' and steps_done = 11 and loaded_by = :owner and loaded_at is not null from app.center_demo_state where center_id = :sbx),
   'the state shows loaded, by whom and when');
 select pg_temp.assert((select detail->'loaded' from app.center_demo_state where center_id = :sbx) = pg_temp.pack_rows(),
   'the rows loaded are exactly the pack''s contents, table by table');
@@ -274,7 +274,7 @@ select pg_temp.assert((select mission from app.org_profiles where center_id = :s
   'kept: the profile, connections, legal documents, module switches, the owner and the role grants');
 select pg_temp.assert((select count(*) from app.audit_log) > :audit_before
                       and (select count(*) from app.audit_log where center_id = :sbx and action = 'people.delete'
-                             and reason = 'Demo data · reset the sandbox: Start the training again' and client_app = 'job') = 77,
+                             and reason = 'Demo data · reset the sandbox: Start the training again' and client_app = 'job') = 78,
   'audit: every removed person is logged with the reason; the audit log itself only grows');
 begin;
 set local role connect_worker;
@@ -282,7 +282,7 @@ select (pg_temp.run_load(:sbx))->>'status' as st2 \gset
 commit;
 select pg_temp.assert(:'st2' = 'loaded' and (select detail->'loaded' from app.center_demo_state where center_id = :sbx) = pg_temp.pack_rows(),
   'after the reset the counts are the pack''s again, table by table');
-select pg_temp.assert((select count(*) from app.people where center_id = :sbx) = 78, 'people: the pack''s 76 plus the two kept staff');
+select pg_temp.assert((select count(*) from app.people where center_id = :sbx) = 79, 'people: the pack''s 77 plus the two kept staff');
 
 -- ── Clear only ───────────────────────────────────────────────────────────────
 begin;

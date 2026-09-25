@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import type { Json, TablesInsert } from "@/lib/database.types";
-import { mergePointsRules, mergeTimingRules, PRACTICE_CATEGORIES, quizFromFields, slugify } from "@/lib/content";
+import { defaultMemberStep, isMemberStep, MEMBER_LEGAL_KINDS, mergePointsRules, mergeTimingRules, PRACTICE_CATEGORIES, publishEffect, quizFromFields, slugify } from "@/lib/content";
 import { failure, type ActionResult } from "@/lib/errors";
 import { can } from "@/lib/permissions";
 import { isUuid } from "@/lib/search-params";
@@ -419,27 +419,35 @@ export async function saveGuideSectionAction(_prev: ActionResult | null, fd: For
 // ---------------------------------------------------------------------------
 // Legal & waivers (legal_documents; writes need settings.manage)
 // ---------------------------------------------------------------------------
-const LEGAL_KINDS = ["privacy", "terms", "volunteer_waiver", "pathshala_waiver", "photo_release", "other"];
+const LEGAL_KINDS: readonly string[] = MEMBER_LEGAL_KINDS;
 
+/**
+ * Save a member document version as a draft: a new version, or (with `id`) an edit of a draft
+ * that is not published yet. A published text is frozen in the database (0422), so a change
+ * to it is always a new version and every acceptance keeps the words that were accepted.
+ */
 export async function newLegalVersionAction(_prev: ActionResult | null, fd: FormData): Promise<ActionResult> {
-  const auth = await authorizeAction("centerSettings", "save the new version");
+  const id = text(fd, "id");
+  const auth = await authorizeAction("centerSettings", isUuid(id) ? "save the draft" : "save the new version");
   if (!auth.ok) return auth;
   const { db, center } = auth.session;
   const kind = text(fd, "kind");
   const title = text(fd, "title");
   const version = text(fd, "version");
   const body = text(fd, "body_md");
-  if (!LEGAL_KINDS.includes(kind)) return { ok: false, error: "Could not save the new version — choose the document." };
-  if (!title || !version || !body) return { ok: false, error: "Could not save the new version — title, version and text are all required." };
-  const { error } = await db.from("legal_documents").insert({
-    center_id: center.id,
-    kind,
-    title,
-    version,
-    body_md: body,
-    requires_yearly_resign: fd.get("requires_yearly_resign") === "on",
-    published_at: null,
-  });
+  const stepRaw = text(fd, "member_step");
+  const step = isMemberStep(stepRaw) ? stepRaw : defaultMemberStep(kind);
+  if (!LEGAL_KINDS.includes(kind)) return { ok: false, error: "Could not save the version — choose the document." };
+  if (!title || !version || !body) return { ok: false, error: "Could not save the version — title, version and text are all required." };
+  const values = { title, version, body_md: body, member_step: step, requires_yearly_resign: fd.get("requires_yearly_resign") === "on" };
+  if (isUuid(id)) {
+    const { data, error } = await db.from("legal_documents").update(values).eq("id", id).eq("center_id", center.id).is("published_at", null).select("id");
+    if (error) return failure("Could not save the draft", error);
+    if (!data?.length) return { ok: false, error: "Could not save the draft — it was published in the meantime (start a new version), or you can't change it." };
+    revalidatePath("/content/legal");
+    return { ok: true, message: `Draft ${title} ${version} saved. Review it, then publish.` };
+  }
+  const { error } = await db.from("legal_documents").insert({ center_id: center.id, kind, ...values, published_at: null });
   if (error) return failure("Could not save the new version", error);
   revalidatePath("/content/legal");
   return { ok: true, message: `${title} ${version} saved as a draft. Review it, then publish.` };
@@ -455,9 +463,10 @@ export async function publishLegalAction(_prev: ActionResult | null, fd: FormDat
     .update({ published_at: new Date().toISOString() })
     .eq("id", id)
     .is("published_at", null)
-    .select("title, version");
+    .select("title, version, member_step");
   if (error) return failure("Could not publish the document", error);
   if (!data?.length) return { ok: false, error: "Could not publish the document — it is already published, or you can't change it." };
   revalidatePath("/content/legal");
-  return { ok: true, message: `${data[0].title} ${data[0].version} published. Members accept it at their next sign-in.` };
+  const step = isMemberStep(data[0].member_step) ? data[0].member_step : "none";
+  return { ok: true, message: `${data[0].title} ${data[0].version} published. ${publishEffect(step)}` };
 }

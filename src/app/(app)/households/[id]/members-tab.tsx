@@ -29,7 +29,7 @@ export async function MembersTab({ session, householdId }: { session: CrmSession
   const [peopleRes, org] = await Promise.all([
     db
       .from("people")
-      .select("id, first_name, last_name, preferred_name, member_number, date_of_birth, email, phone_e164, is_verified, is_deceased")
+      .select("id, first_name, last_name, preferred_name, member_number, date_of_birth, email, phone_e164, is_verified, is_deceased, deceased_on")
       .in("id", personIds),
     orgIds(db, center.id, { personIds }),
   ]);
@@ -38,6 +38,7 @@ export async function MembersTab({ session, householdId }: { session: CrmSession
   const rows = [...(links.data ?? [])].sort(
     (a, b) =>
       Number(a.left_at !== null) - Number(b.left_at !== null) ||
+      Number(Boolean(people.get(a.person_id)?.is_deceased)) - Number(Boolean(people.get(b.person_id)?.is_deceased)) ||
       Number(b.is_primary) - Number(a.is_primary) ||
       (ageOn(people.get(b.person_id)?.date_of_birth, today) ?? 0) - (ageOn(people.get(a.person_id)?.date_of_birth, today) ?? 0),
   );
@@ -105,7 +106,7 @@ export async function MembersTab({ session, householdId }: { session: CrmSession
                     {l.left_at ? (
                       <Badge>Left {formatDate(l.left_at, tz)}</Badge>
                     ) : p?.is_deceased ? (
-                      <Badge>Deceased</Badge>
+                      <Badge>In memory{p.deceased_on ? ` · ${formatDate(p.deceased_on, tz)}` : ""}</Badge>
                     ) : p?.is_verified ? (
                       <Badge tone="success">Verified</Badge>
                     ) : (

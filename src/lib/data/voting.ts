@@ -95,6 +95,7 @@ export async function loadVoting(session: CrmSession): Promise<VotingData> {
   const adultsBy = new Map<string, string[]>();
   const personHousehold = new Map<string, string>();
   const priorOpen = new Set<string>();
+  const deceased = new Set<string>();
   for (const part of chunk(hhIds)) {
     const [hh, links, pledges] = await Promise.all([
       db.from("households").select("id, display_name, household_number").in("id", part).is("merged_into_id", null),
@@ -107,11 +108,13 @@ export async function loadVoting(session: CrmSession): Promise<VotingData> {
     hhRows.push(...(hh.data ?? []));
     for (const p of pledges?.data ?? []) priorOpen.add(p.household_id);
     const ids = (links.data ?? []).map((l) => l.person_id);
-    const people = ids.length ? await db.from("people").select("id, date_of_birth").in("id", ids) : null;
+    const people = ids.length ? await db.from("people").select("id, date_of_birth, is_deceased").in("id", ids) : null;
     error ??= people?.error ?? null;
     const dob = new Map((people?.data ?? []).map((p) => [p.id, p.date_of_birth]));
+    for (const p of people?.data ?? []) if (p.is_deceased) deceased.add(p.id);
     for (const l of links.data ?? []) {
       personHousehold.set(l.person_id, l.household_id);
+      if (deceased.has(l.person_id)) continue; // not a voter (0420)
       const age = ageOn(dob.get(l.person_id), today);
       if (age === null || age >= 18) adultsBy.set(l.household_id, [...(adultsBy.get(l.household_id) ?? []), l.person_id]);
     }
@@ -138,9 +141,12 @@ export async function loadVoting(session: CrmSession): Promise<VotingData> {
   const personIds = [...latest.keys()];
   const names = new Map<string, string>();
   for (const part of chunk(personIds)) {
-    const r = await db.from("people").select("id, first_name, last_name, preferred_name").in("id", part);
+    const r = await db.from("people").select("id, first_name, last_name, preferred_name, is_deceased").in("id", part);
     error ??= r.error ?? null;
-    for (const p of r.data ?? []) names.set(p.id, personName(p));
+    for (const p of r.data ?? []) {
+      names.set(p.id, personName(p));
+      if (p.is_deceased) deceased.add(p.id);
+    }
   }
   const missingHh = personIds.filter((id) => !personHousehold.has(id));
   const extraNames = new Map<string, string>();
@@ -154,7 +160,9 @@ export async function loadVoting(session: CrmSession): Promise<VotingData> {
   }
   const hhName = new Map(hhRows.map((h) => [h.id, h.display_name]));
 
+  // Someone recorded as deceased is not a voter at all (not "not eligible").
   const voters: VoterRow[] = [...latest.values()]
+    .filter((s) => !deceased.has(s.person_id))
     .map((s) => {
       const hid = personHousehold.get(s.person_id);
       return {
