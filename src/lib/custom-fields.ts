@@ -43,7 +43,7 @@ export const CUSTOM_ENTITY_LABELS: Record<string, string> = {
 };
 
 export const SENSITIVITY_LABELS: Record<CustomFieldDef["sensitivity"], string> = {
-  staff: "Staff only",
+  staff: "Staff only (never sent to members)",
   member_self: "Staff and the member themselves",
   directory: "Also in the member directory",
 };

@@ -10,6 +10,7 @@ import { userNames } from "@/lib/data/lookups";
 import { formatDate, todayInTz } from "@/lib/dates";
 import { canAccess, isGrantActive } from "@/lib/permissions";
 import { hrefWith, param, type RawSearchParams } from "@/lib/search-params";
+import { CC_FIRST_ADMIN_REASON, isFirstSecondAdminGrant } from "@/lib/security";
 import { getSession } from "@/lib/session";
 
 import { approveGrantAction, revokeGrantAction } from "./actions";
@@ -37,7 +38,7 @@ export default async function RolesPage({ searchParams }: { searchParams: Promis
   const tz = center.time_zone;
   const rules = identifierRules(center.rules);
 
-  const [rolesRes, grantsRes, zones, events, classes] = await Promise.all([
+  const [rolesRes, grantsRes, zones, events, classes, ownerRes] = await Promise.all([
     db.from("roles").select("key, tier, name, description, default_scope, permissions").order("tier").order("name"),
     db
       .from("role_grants")
@@ -48,7 +49,11 @@ export default async function RolesPage({ searchParams }: { searchParams: Promis
     db.from("zones").select("id, name").eq("center_id", center.id).order("name"),
     db.from("events").select("id, name, starts_at").eq("center_id", center.id).order("starts_at", { ascending: false }).limit(200),
     db.from("pathshala_classes").select("id, name").eq("center_id", center.id).order("name").limit(300),
+    db.from("center_owners").select("user_id").eq("center_id", center.id).maybeSingle(),
   ]);
+  // Only changes the wording of Community Connect's approval of the first second admin; the database decides.
+  if (ownerRes.error) console.error("[roles] could not read the owner (the Community Connect approval note is left out):", ownerRes.error);
+  const ownerUserId = ownerRes.data?.user_id ?? null;
   if (rolesRes.error) {
     return (
       <>
@@ -274,16 +279,32 @@ export default async function RolesPage({ searchParams }: { searchParams: Promis
                             <td>
                               {isPending(g) ? (
                                 g.granted_by !== session.userId && g.user_id !== session.userId ? (
-                                  <ActionForm
-                                    action={approveGrantAction}
-                                    submitLabel="Approve"
-                                    pendingLabel="Approving…"
-                                    variant="ok"
-                                    size="sm"
-                                    confirmMessage={`Approve ${roleName.get(g.role_key) ?? "this role"} for ${who?.name ?? "this person"}? It works from now on, and your approval is recorded as the second person.`}
-                                  >
-                                    <input type="hidden" name="id" value={g.id} />
-                                  </ActionForm>
+                                  session.isPlatformAdmin && !ownerRes.error && isFirstSecondAdminGrant(g, allGrants, ownerUserId, now) ? (
+                                    <ActionForm
+                                      action={approveGrantAction}
+                                      submitLabel="Approve as Community Connect"
+                                      pendingLabel="Approving…"
+                                      variant="ok"
+                                      size="sm"
+                                      confirmMessage={`Approve ${who?.name ?? "this person"} as ${center.short_name ?? center.name}'s first administrator besides the owner? Community Connect is the second person here: the audit log records you as the approver with the reason "${CC_FIRST_ADMIN_REASON}".`}
+                                    >
+                                      <input type="hidden" name="id" value={g.id} />
+                                      <p className="mt-1 text-xs text-muted" data-testid="cc-first-admin-note">
+                                        First second administrator — Community Connect approves it.
+                                      </p>
+                                    </ActionForm>
+                                  ) : (
+                                    <ActionForm
+                                      action={approveGrantAction}
+                                      submitLabel="Approve"
+                                      pendingLabel="Approving…"
+                                      variant="ok"
+                                      size="sm"
+                                      confirmMessage={`Approve ${roleName.get(g.role_key) ?? "this role"} for ${who?.name ?? "this person"}? It works from now on, and your approval is recorded as the second person.`}
+                                    >
+                                      <input type="hidden" name="id" value={g.id} />
+                                    </ActionForm>
+                                  )
                                 ) : (
                                   <p className="text-xs text-muted">{g.granted_by === session.userId ? "You made this grant — a different administrator approves it." : "Your own grant — someone else approves it."}</p>
                                 )

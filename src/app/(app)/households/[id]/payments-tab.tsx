@@ -1,6 +1,6 @@
 import { CustomDetailsCell } from "@/components/custom-details-cell";
 import { Alert, Badge, Card, EmptyState, NoAccess, QueryError, TableWrap } from "@/components/ui";
-import { loadCustomFieldDefs } from "@/lib/data/custom-fields";
+import { loadCustomFieldDefs, withCustomValues } from "@/lib/data/custom-fields";
 import { chunk } from "@/lib/data/fetch-all";
 import { formatDate } from "@/lib/dates";
 import { PAYMENT_METHOD_LABEL } from "@/lib/labels";
@@ -21,8 +21,11 @@ export async function PaymentsTab({ session, householdId }: { session: CrmSessio
     .order("received_on", { ascending: false })
     .limit(500);
   if (pRes.error) return <QueryError what="payments" error={pRes.error} retryHref={retry} />;
-  const payments = pRes.data ?? [];
   const defs = await loadCustomFieldDefs(db, center.id, "payments", true);
+  // Staff-only custom values are kept apart from the row (0401); read them for "More details".
+  const withCustom = defs.defs.length ? await withCustomValues(db, "payments", pRes.data ?? []) : { rows: pRes.data ?? [], error: null };
+  if (withCustom.error) return <QueryError what="the payments' custom details" error={withCustom.error} retryHref={retry} />;
+  const payments = withCustom.rows;
   const editCustom = canAccess(session, "givingManage");
 
   const allocations: { payment_id: string; pledge_id: string; amount_cents: number }[] = [];

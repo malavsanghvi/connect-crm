@@ -10,8 +10,8 @@ import { explainError } from "@/lib/errors";
 import {
   ACCESS,
   canAccess,
-  computePermissions,
   isGrantActive,
+  sessionPermissions,
   type AccessKey,
   type PermissionContext,
   type ScopedGrant,
@@ -58,6 +58,11 @@ export type CrmSession = PermissionContext & {
   roles: { key: string; name: string; scopeKind: string }[];
   /** Active grants with their scope ids, for scoped-role checks (a class teacher, an event lead). */
   grants: ScopedGrant[];
+  /**
+   * The organization's owner (app.is_center_owner). The owner holds every permission in their
+   * organization, grant or not (0400, owner decision 2026-09-25), and counts as staff for 2FA.
+   */
+  isOwner: boolean;
   /** x-request-id of this server request / action: every change it makes shares it in the audit log. */
   requestId: string;
   /** Module keys switched off for the center (app.my_modules); empty when all are on or unknown. */
@@ -113,7 +118,7 @@ export const loadSession = cache(async (): Promise<SessionState> => {
   if (!centerRes.data) return { status: "center_missing", slug, source: choice.source };
   const center = centerRes.data;
 
-  const [grantsRes, rolesRes, accountRes, linkRes, modulesRes, switchRes] = await Promise.all([
+  const [grantsRes, rolesRes, accountRes, linkRes, modulesRes, switchRes, ownerRes] = await Promise.all([
     db
       .from("role_grants")
       .select("role_key, scope_kind, scope_id, starts_at, ends_at")
@@ -124,10 +129,11 @@ export const loadSession = cache(async (): Promise<SessionState> => {
     db.from("center_users").select("person_id").eq("center_id", center.id).eq("user_id", userId).maybeSingle(),
     loadMyModules(db, center.id),
     db.rpc("my_centers"),
+    db.rpc("is_center_owner", { p_center: center.id }),
   ]);
   // The switcher is a convenience: without it the user still works in this organization.
   if (switchRes.error) console.error("[session] could not list the organizations for the switcher (showing none):", switchRes.error);
-  const firstError = grantsRes.error ?? rolesRes.error ?? accountRes.error ?? linkRes.error;
+  const firstError = grantsRes.error ?? rolesRes.error ?? accountRes.error ?? linkRes.error ?? ownerRes.error;
   if (firstError) {
     console.error("[session] could not load roles and permissions:", firstError);
     return { status: "error", message: `Could not load your roles and permissions — ${explainError(firstError)}` };
@@ -136,7 +142,8 @@ export const loadSession = cache(async (): Promise<SessionState> => {
   const grants = grantsRes.data ?? [];
   const roles = rolesRes.data ?? [];
   const now = new Date();
-  const permissions = computePermissions(grants, roles, now);
+  const isOwner = ownerRes.data === true;
+  const permissions = sessionPermissions(grants, roles, isOwner, now);
   const roleNames = new Map(roles.map((r) => [r.key, r.name]));
 
   let person: CrmSession["person"] = null;
@@ -165,6 +172,7 @@ export const loadSession = cache(async (): Promise<SessionState> => {
       email,
       center: { ...center, slug: String(center.slug) },
       isPlatformAdmin: accountRes.data?.is_platform_admin ?? false,
+      isOwner,
       permissions,
       person,
       roles: grants
@@ -231,7 +239,7 @@ export async function enforceStaff2fa(session: CrmSession): Promise<void> {
   }
   const to = securityRedirect({
     requires: requires2faForStaff(session.center.rules),
-    isStaff: session.grants.length > 0,
+    isStaff: session.grants.length > 0 || session.isOwner,
     aal: session.aal,
     pathname,
   });
