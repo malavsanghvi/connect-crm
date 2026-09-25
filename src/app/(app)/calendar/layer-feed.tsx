@@ -4,7 +4,7 @@ import { useState } from "react";
 
 import { ActionForm } from "@/components/action-form";
 import { Drawer } from "@/components/drawer";
-import { buttonClass, DrawerSection, Field, StatusText } from "@/components/ui";
+import { buttonClass, DrawerSection, Field } from "@/components/ui";
 
 import { refreshLayerFeedAction, subscribeLayerFeedAction, unsubscribeLayerFeedAction } from "./actions";
 
@@ -46,7 +46,7 @@ export function LayerFeed({
         {subscribed ? (
           <DrawerSection title="Now following">
             <p className="mb-1 break-all text-[13px]">{sourceUrl}</p>
-            {status ? <StatusText tone={status.tone}>{status.text}</StatusText> : null}
+            {status ? <p className={`cc-status-${status.tone} text-[13px]`}>{status.text}</p> : null}
             <div className="mt-3 flex flex-wrap gap-2">
               <ActionForm action={refreshLayerFeedAction.bind(null, layerId)} submitLabel="Refresh now" pendingLabel="Queuing…" variant="ghost" size="sm" />
               <ActionForm

@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { ActionForm } from "@/components/action-form";
-import { BlockGrid, buttonClass, Card, EmptyState, NoAccess, PageHeader, QueryError, StatusText, TableWrap } from "@/components/ui";
+import { BlockGrid, buttonClass, Card, EmptyState, NoAccess, PageHeader, QueryError, TableWrap } from "@/components/ui";
 import { DrawerForm } from "@/components/drawer-form";
 import { feedHost, feedStatusLine, LAYER_KINDS, layerDefault, layerOwner, layerSource, sortLayers, TRADITION_LABEL } from "@/lib/calendar";
 import { addDays, formatDate, formatDateTime, formatMonth, todayInTz } from "@/lib/dates";
@@ -172,7 +172,7 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
                       <td className="max-w-[280px]">
                         {(() => {
                           const st = feedStatusLine(l, (iso) => formatDateTime(iso, tz));
-                          return st ? <StatusText tone={st.tone}>{st.text}</StatusText> : <span className="text-muted">—</span>;
+                          return st ? <span className={`cc-status-${st.tone} text-[13px]`}>{st.text}</span> : <span className="text-muted">—</span>;
                         })()}
                       </td>
                       <td>{layerOwner(l)}</td>
