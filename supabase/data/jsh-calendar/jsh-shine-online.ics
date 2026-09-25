@@ -1,0 +1,47 @@
+BEGIN:VCALENDAR
+PRODID:-//Google Inc//Google Calendar 70.9054//EN
+VERSION:2.0
+CALSCALE:GREGORIAN
+METHOD:PUBLISH
+X-WR-CALNAME:JSH SHINE Online Sessions
+X-WR-TIMEZONE:America/Chicago
+BEGIN:VTIMEZONE
+TZID:America/Chicago
+X-LIC-LOCATION:America/Chicago
+BEGIN:DAYLIGHT
+TZOFFSETFROM:-0600
+TZOFFSETTO:-0500
+TZNAME:CDT
+DTSTART:19700308T020000
+RRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=2SU
+END:DAYLIGHT
+BEGIN:STANDARD
+TZOFFSETFROM:-0500
+TZOFFSETTO:-0600
+TZNAME:CST
+DTSTART:19701101T020000
+RRULE:FREQ=YEARLY;BYMONTH=11;BYDAY=1SU
+END:STANDARD
+END:VTIMEZONE
+BEGIN:VEVENT
+DTSTART;TZID=America/Chicago:20260225T200000
+DTEND;TZID=America/Chicago:20260225T210000
+RRULE:FREQ=WEEKLY;WKST=SU;BYDAY=TH,MO,WE
+DTSTAMP:20260925T133644Z
+UID:41gsovigvlghochm53830uc4hq@google.com
+CREATED:20260224T175203Z
+DESCRIPTION:<a href="https://tinyurl.com/jshshine">https://tinyurl.com/jshs
+ hine</a><br>Meeting id: 343-341-0593<br>Pass code:108<br><br>Please join th
+ is link  for exercise sessions. <br><br>Those who are new please buy a set 
+ of resistance band similar to the links below. <br><br>Link for the long re
+ sistance band:<br><a href="https://a.co/d/3TODdaS">https://a.co/d/3TODdaS</
+ a><br><br>Link for the  small resistance band<br><a href="https://a.co/d/dw
+ YhfSd">https://a.co/d/dwYhfSd</a>
+LAST-MODIFIED:20260224T175745Z
+LOCATION:https://tinyurl.com/jshshine
+SEQUENCE:0
+STATUS:CONFIRMED
+SUMMARY:Online Health Session (JSH SHINE)
+TRANSP:OPAQUE
+END:VEVENT
+END:VCALENDAR
