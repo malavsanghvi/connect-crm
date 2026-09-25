@@ -146,7 +146,11 @@ describe("buildAppSites", () => {
     expect(main).toContain("profile shortlived");
     // No http:// block for the IP on port 80: that is the portal's.
     expect(main).not.toMatch(/^http:\/\//m);
-    expect(buildAppSites({ ...admin, site: ":8081", publicIp: "134.122.25.56", ipCert: false }).files["admin.caddy"]).not.toContain("134.122.25.56");
+    const noIp = buildAppSites({ ...admin, site: ":8081", publicIp: "134.122.25.56", ipCert: false }).files["admin.caddy"];
+    expect(noIp).not.toContain("https://134.122.25.56");
+    // …and a confirmed droplet address is then never sent to an https:// that has no certificate here.
+    expect(noIp).toContain("\t@https_ready {\n\t\tfile {\n\t\t\troot /var/lib/connect-https/confirmed\n\t\t\ttry_files /{host}\n\t\t}\n\t\tnot host 134.122.25.56\n\t}");
+    expect(buildAppSites({ ...admin, site: ":8081", publicIp: null, ipCert: false }).files["admin.caddy"]).not.toContain("not host");
   });
 
   it("HSTS only for confirmed hosts, on every HTTPS site of the app", () => {

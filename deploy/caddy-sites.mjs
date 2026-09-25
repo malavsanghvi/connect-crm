@@ -277,7 +277,13 @@ export function buildAppSites(input) {
   const summary = [];
   const out = [`# Managed by deploy/caddy-sites.mjs (e-https-admin; the same file ships in connect-crm and connect-${o.app}). Do not edit on the droplet.`];
   const body = portalBody(o);
-  const plain = (redirectTo) => [...confirmedMatcher("https_ready", o.confirmedDir), `\tredir @https_ready ${redirectTo} 308`, "\tencode zstd gzip", `\treverse_proxy 127.0.0.1:${o.port}`];
+  // The portal may have confirmed the droplet address; when this app has no IP site
+  // (release.sh retried without it), never redirect the address to an https:// that
+  // has no certificate here.
+  const matcher = ip && !withIpCert
+    ? ["\t@https_ready {", "\t\tfile {", `\t\t\troot ${o.confirmedDir}`, "\t\t\ttry_files /{host}", "\t\t}", `\t\tnot host ${ip}`, "\t}"]
+    : confirmedMatcher("https_ready", o.confirmedDir);
+  const plain = (redirectTo) => [...matcher, `\tredir @https_ready ${redirectTo} 308`, "\tencode zstd gzip", `\treverse_proxy 127.0.0.1:${o.port}`];
 
   if (domain) {
     // Its own name, like SITE_DOMAIN for the portal: http:// keeps serving until confirmed.

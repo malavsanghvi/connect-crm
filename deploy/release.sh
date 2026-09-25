@@ -14,8 +14,13 @@
 # organizations' addresses) gets an on-demand certificate; http:// redirects and
 # HSTS start only once a name's certificate is confirmed. Optional PUBLIC_IP: the
 # droplet's public IPv4 when the DigitalOcean metadata service does not answer.
-# Without PORTAL_HTTPS (connect-admin, connect-mobile, older workflows) nothing
-# below changes.
+# Without PORTAL_HTTPS (connect-mobile, older workflows) nothing below changes.
+# PORTAL_HTTPS=1 for another Node app (connect-admin, the event-day app; needs
+# caddy-sites.mjs next to this file) JOINS the portal's HTTPS instead: its http://
+# site (:8081) keeps serving, and it gets its own HTTPS port (admin: 8444) on the
+# names the portal serves, written to <app>.caddy only. It reads the portal's
+# /etc/connect/https.json and needs the portal's on-demand options; until the
+# portal's HTTPS is set up it stays exactly as without PORTAL_HTTPS.
 # Optional env SITE_WILDCARD_DOMAIN (node apps; the portal): also serve
 # <slug>.<that domain> and organizations' own domains over HTTPS (on-demand
 # certificates, allowed only for real communities by /api/tenancy/tls-ask),
@@ -59,6 +64,23 @@ if [ "$kind" = worker ]; then
   exit 0
 fi
 
+# One deploy at a time edits /etc/caddy/sites: connect-crm and connect-admin deploy
+# independently (separate concurrency groups), and each validates the WHOLE Caddyfile,
+# so a half-written file of the other app must never be what it validates.
+mkdir -p /var/lib/connect
+exec 9>/var/lib/connect/caddy-sites.lock
+if command -v flock >/dev/null && ! flock -w 600 9; then
+  echo "::warning::another Connect deploy held the Caddy sites for 10 minutes; continuing"
+fi
+
+# Prints Caddy's error and fails when the whole Caddyfile (every app's sites) is refused.
+caddy_validate() {
+  local out
+  out=$(caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile 2>&1) && return 0
+  printf '%s' "$out" | grep -E 'Error' | tail -1 | cut -c1-300
+  return 1
+}
+
 # ── HTTPS for the portal (PORTAL_HTTPS=1) ────────────────────────────────────
 # Writes the portal's Caddy sites with deploy/caddy-sites.mjs, validates them, and
 # installs the HTTPS confirmer. Every failure leaves the site on plain HTTP as it
@@ -98,18 +120,11 @@ portal_https_sites() {
   bk=$(mktemp -d)
   for f in "00-on-demand-$app.caddy" "$app.caddy" "$app-wildcard.caddy"; do [ -f "$sites/$f" ] && cp -p "$sites/$f" "$bk/"; done
   gen() { node "$here/caddy-sites.mjs" --out "$sites" --app "$app" --port "$port" --site "$site" --public-ip "$ip" --ip-cert "$1"; }
-  # Prints Caddy's error and fails when the whole Caddyfile (every app's sites) is refused.
-  validate() {
-    local out
-    out=$(caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile 2>&1) && return 0
-    printf '%s' "$out" | grep -E 'Error' | tail -1 | cut -c1-300
-    return 1
-  }
   local err="" err2=""
   rm -f "$sites/_placeholder.caddy"
-  if gen "$ip_cert" && err=$(validate); then
+  if gen "$ip_cert" && err=$(caddy_validate); then
     :
-  elif [ "$ip_cert" = 1 ] && gen 0 && err2=$(validate); then
+  elif [ "$ip_cert" = 1 ] && gen 0 && err2=$(caddy_validate); then
     note="Caddy $cv refused the IP-certificate site (${err:-no detail}); the droplet address stays on http://."
     echo "::warning::$note"; ip_cert=0
   else
@@ -157,14 +172,51 @@ UNIT
   if command -v ufw >/dev/null && ufw status | grep -q 'Status: active' && ! ufw status | grep -qE '^8443/tcp'; then ufw allow 8443/tcp >/dev/null; fi
 }
 
+# ── Another Node app joins the portal's HTTPS (PORTAL_HTTPS=1, app ≠ crm) ─────
+# e-https-admin. Writes <app>.caddy only; returns 1 (and changes nothing) when the
+# portal's HTTPS is not set up yet or Caddy refuses the result, so the caller writes
+# the plain site exactly as before.
+app_https=0 app_https_port=""
+app_https_sites() {
+  local sites=/etc/caddy/sites ip ip_cert dir err="" bk out
+  case "$app" in admin) app_https_port=${APP_HTTPS_PORT:-8444} ;; *) echo "release: no HTTPS port is assigned to $app; it stays on $site"; return 1 ;; esac
+  if [ ! -s "$https_conf" ] || [ ! -f "$sites/00-on-demand-crm.caddy" ]; then
+    echo "::notice::HTTPS for $app starts after the portal's HTTPS is set up (deploy connect-crm, then re-run this deploy); $app stays on $site"
+    return 1
+  fi
+  ip=$(node "$here/caddy-sites.mjs" --https-config "$https_conf" --field publicIp) || { echo "::warning::could not read $https_conf; $app stays on $site"; return 1; }
+  ip_cert=$(node "$here/caddy-sites.mjs" --https-config "$https_conf" --field ipCert) || return 1
+  dir=$(node "$here/caddy-sites.mjs" --https-config "$https_conf" --field confirmedDir) || return 1
+  bk=$(mktemp -d)
+  [ -f "$sites/$app.caddy" ] && cp -p "$sites/$app.caddy" "$bk/"
+  gen() { node "$here/caddy-sites.mjs" --role app --out "$sites" --app "$app" --port "$port" --site "$site" --https-port "$app_https_port" --public-ip "$ip" --ip-cert "$1" --confirmed-dir "$dir"; }
+  if out=$(gen "$ip_cert" 2>&1) && err=$(caddy_validate); then
+    :
+  elif [ "$ip_cert" = 1 ] && out=$(gen 0 2>&1) && err=$(caddy_validate); then
+    echo "::warning::Caddy refused $app's IP-certificate site; https://$ip:$app_https_port is not served (names still are)"
+  else
+    echo "::warning::HTTPS for $app was not set up (${err:-${out:-no detail}}); $app stays on $site"
+    rm -f "$sites/$app.caddy"
+    cp -p "$bk"/* "$sites/" 2>/dev/null || true
+    rm -rf "$bk"; return 1
+  fi
+  rm -rf "$bk"
+  printf '%s\n' "$out" | grep '^caddy-sites:' || true
+  if command -v ufw >/dev/null && ufw status | grep -q 'Status: active' && ! ufw status | grep -qE "^$app_https_port/tcp"; then ufw allow "$app_https_port/tcp" >/dev/null; fi
+  app_https=1
+  return 0
+}
+
 if [ "$kind" = node ]; then
   printf 'PORT=%s\n' "$port" > "/srv/connect/$app.env"
   # o-messaging: the portal's server-only secrets (Auth hooks, webhooks), installed root-only by the deploy.
   if [ -s "/srv/connect/$app.secrets.env" ]; then cat "/srv/connect/$app.secrets.env" >> "/srv/connect/$app.env"; fi
   here=$(cd "$(dirname "$0")" && pwd)
-  if [ "${PORTAL_HTTPS:-}" = 1 ] && [ -f "$here/caddy-sites.mjs" ] && [ -f "$here/https-confirm.mjs" ]; then
+  if [ "${PORTAL_HTTPS:-}" = 1 ] && [ "$app" = crm ] && [ -f "$here/caddy-sites.mjs" ] && [ -f "$here/https-confirm.mjs" ]; then
     portal_https=1
     portal_https_sites
+  elif [ "${PORTAL_HTTPS:-}" = 1 ] && [ "$app" != crm ] && [ -f "$here/caddy-sites.mjs" ] && app_https_sites; then
+    portal_https=0
   else
     portal_https=0
   cat > "/etc/caddy/sites/$app.caddy" <<SITE
@@ -197,7 +249,16 @@ https:// {
 }
 SITE
   else
-    rm -f "/etc/caddy/sites/00-on-demand-$app.caddy" "/etc/caddy/sites/$app-wildcard.caddy"
+    rm -f "/etc/caddy/sites/$app-wildcard.caddy"
+    # Another app's HTTPS site (connect-admin on 8444) needs the global on-demand
+    # options; removing them would make the whole Caddyfile invalid.
+    others=""
+    [ -f "/etc/caddy/sites/00-on-demand-$app.caddy" ] && others=$(grep -l 'on_demand$' /etc/caddy/sites/*.caddy 2>/dev/null || true)
+    if [ -n "$others" ]; then
+      echo "::warning::keeping 00-on-demand-$app.caddy: on-demand certificates are still used by $(echo $others | tr ' ' ',')"
+    else
+      rm -f "/etc/caddy/sites/00-on-demand-$app.caddy"
+    fi
   fi
   fi
   systemctl enable "connect@$app" >/dev/null 2>&1
@@ -235,4 +296,8 @@ fi
 
 # Keep the three newest releases
 ls -1dt "$base"/releases/* | tail -n +4 | xargs -r rm -rf
-echo "release: $app $sha live at $site"
+if [ "$app_https" = 1 ]; then
+  echo "release: $app $sha live at $site and on HTTPS port $app_https_port (https://<address>:$app_https_port; http:// redirects there once a name is confirmed)"
+else
+  echo "release: $app $sha live at $site"
+fi
