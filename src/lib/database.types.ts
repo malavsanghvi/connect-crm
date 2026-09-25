@@ -6650,6 +6650,33 @@ export type Database = {
         };
         Relationships: [];
       };
+      relationship_options: {
+        Row: {
+          id: string;
+          center_id: string;
+          name: string;
+          sort: number;
+          created_at: string;
+          created_by: string | null;
+        };
+        Insert: {
+          id?: string;
+          center_id: string;
+          name: string;
+          sort?: number;
+          created_at?: string;
+          created_by?: string | null;
+        };
+        Update: {
+          id?: string;
+          center_id?: string;
+          name?: string;
+          sort?: number;
+          created_at?: string;
+          created_by?: string | null;
+        };
+        Relationships: [];
+      };
       resolution_comments: {
         Row: {
           id: string;
@@ -10268,6 +10295,12 @@ export type Database = {
           p_reason: string;
         };
         Returns: undefined;
+      };
+      relationship_options: {
+        Args: {
+          p_center: string;
+        };
+        Returns: { id: string; name: string }[];
       };
       reopen_platform_setup_step: {
         Args: {
