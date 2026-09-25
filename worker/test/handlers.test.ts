@@ -44,8 +44,67 @@ describe("oauth.exchange skeleton", () => {
     const out = await oauth.run(j, ctxFor(db, stripeEnv, j), {
       stripe: async ({ code }) => ({ secrets: { access_token: `tok_for_${code}_ABCD`, refresh_token: "rt_WXYZ1234" }, externalAccountId: "acct_1" }),
     });
-    expect(out).toEqual({ provider: "stripe", stored: { access_token: "ABCD", refresh_token: "1234" }, expires_at: null, external_account_id: "acct_1" });
+    expect(out).toEqual({ provider: "stripe", stored: { access_token: "ABCD", refresh_token: "1234" }, expires_at: null, external_account_id: "acct_1", code_removed: true });
     expect(calls.filter((c) => c.fn === "storeSecret").map((c) => c.args[2])).toEqual(["access_token", "refresh_token"]);
+    // Owner decision #12: the used code leaves the vault, after the tokens are stored.
+    const order = calls.map((c) => c.fn).filter((f) => f === "storeSecret" || f === "removeOauthCode");
+    expect(order).toEqual(["storeSecret", "storeSecret", "removeOauthCode"]);
+    expect(calls.find((c) => c.fn === "removeOauthCode")?.args.slice(1)).toEqual(["c", "oauth.code", "exchanged"]);
+  });
+  it("removes the job's own code_secret, whatever it is called", async () => {
+    const { db, calls } = fakeDb({ secrets: { "c/paypal.code": "MERCHANT0001" } });
+    const j = job({ kind: "oauth.exchange", payload: { provider: "stripe", connection_id: "c", code_secret: "paypal.code" } });
+    await oauth.run(j, ctxFor(db, stripeEnv, j), { stripe: async () => ({ secrets: {}, externalAccountId: "acct_2" }) });
+    expect(calls.find((c) => c.fn === "removeOauthCode")?.args.slice(1)).toEqual(["c", "paypal.code", "exchanged"]);
+  });
+  it("keeps the code after a temporary failure while the job has attempts left", async () => {
+    const { db, calls } = fakeDb({ secrets: { "c/oauth.code": "ac_live_code" } });
+    const j = job({ kind: "oauth.exchange", payload: { provider: "stripe", connection_id: "c" }, attempts: 1, max_attempts: 3 });
+    await expect(oauth.run(j, ctxFor(db, stripeEnv, j), { stripe: async () => { throw new Error("socket hang up"); } })).rejects.toThrow("socket hang up");
+    expect(calls.some((c) => c.fn === "removeOauthCode")).toBe(false);
+  });
+  it("removes the code when the provider refuses it (a retry could not use it)", async () => {
+    const { db, calls } = fakeDb({ secrets: { "c/oauth.code": "ac_live_code" } });
+    const j = job({ kind: "oauth.exchange", payload: { provider: "stripe", connection_id: "c" }, attempts: 1, max_attempts: 3 });
+    await expect(oauth.run(j, ctxFor(db, stripeEnv, j), { stripe: async () => { throw new PermanentError("Stripe refused the request: invalid_grant"); } })).rejects.toThrow(/invalid_grant/);
+    expect(calls.find((c) => c.fn === "removeOauthCode")?.args.slice(1)).toEqual(["c", "oauth.code", "unusable"]);
+  });
+  it("removes the code after a temporary failure on the last attempt", async () => {
+    const { db, calls } = fakeDb({ secrets: { "c/oauth.code": "ac_live_code" } });
+    const j = job({ kind: "oauth.exchange", payload: { provider: "stripe", connection_id: "c" }, attempts: 3, max_attempts: 3 });
+    await expect(oauth.run(j, ctxFor(db, stripeEnv, j), { stripe: async () => { throw new Error("socket hang up"); } })).rejects.toThrow();
+    expect(calls.find((c) => c.fn === "removeOauthCode")?.args.slice(1)).toEqual(["c", "oauth.code", "unusable"]);
+  });
+  it("removes the code when the provider is not configured (the job is not retried)", async () => {
+    const { db, calls } = fakeDb({ secrets: { "c/oauth.code": "MERCHANT0001" } });
+    const j = job({ kind: "oauth.exchange", payload: { provider: "paypal", connection_id: "c" } });
+    await expect(oauth.run(j, ctxFor(db, {}, j))).rejects.toBeInstanceOf(NotConfiguredError);
+    expect(calls.find((c) => c.fn === "removeOauthCode")?.args.slice(1)).toEqual(["c", "oauth.code", "unusable"]);
+  });
+  it("once exchanged, a failure storing the tokens still removes the code (it is used)", async () => {
+    const { db, calls } = fakeDb({ secrets: { "c/oauth.code": "ac_live_code" } });
+    db.storeSecret = async () => { throw new Error("database went away"); };
+    const j = job({ kind: "oauth.exchange", payload: { provider: "stripe", connection_id: "c" }, attempts: 1, max_attempts: 3 });
+    await expect(oauth.run(j, ctxFor(db, stripeEnv, j), { stripe: async () => ({ secrets: { access_token: "tok_ABCDEFGH" } }) })).rejects.toThrow("database went away");
+    expect(calls.find((c) => c.fn === "removeOauthCode")?.args.slice(1)).toEqual(["c", "oauth.code", "exchanged"]);
+  });
+  it("a removal that fails is logged and reported, never hidden, and the connection still completes", async () => {
+    const { db } = fakeDb({ secrets: { "c/oauth.code": "ac_live_code" } });
+    db.removeOauthCode = async () => { throw new Error("permission denied"); };
+    const j = job({ kind: "oauth.exchange", payload: { provider: "stripe", connection_id: "c" } });
+    const { log, lines } = captureLog();
+    const ctx = jobContext({ db, reg: createRegistry(HANDLERS), env: stripeEnv, http: createHttp(fetch, async () => {}), log, workerId: "w" }, j, log);
+    const out = (await oauth.run(j, ctx, { stripe: async () => ({ secrets: {}, externalAccountId: "acct_3" }) })) as Record<string, unknown>;
+    expect(out).toMatchObject({ code_removed: false, code_remove_error: "permission denied" });
+    expect(lines.some((l) => l.level === "error" && /could not remove the authorization code/.test(String(l.msg)))).toBe(true);
+    expect(JSON.stringify(lines)).not.toContain("ac_live_code");
+  });
+  it("retryCouldUseCode: only a temporary failure before the exchange, with attempts left", () => {
+    expect(oauth.retryCouldUseCode(new Error("x"), { attempts: 1, max_attempts: 3 }, false)).toBe(true);
+    expect(oauth.retryCouldUseCode(new Error("x"), { attempts: 3, max_attempts: 3 }, false)).toBe(false);
+    expect(oauth.retryCouldUseCode(new PermanentError("x"), { attempts: 1, max_attempts: 3 }, false)).toBe(false);
+    expect(oauth.retryCouldUseCode(new NotConfiguredError("x"), { attempts: 1, max_attempts: 3 }, false)).toBe(false);
+    expect(oauth.retryCouldUseCode(new Error("x"), { attempts: 1, max_attempts: 3 }, true)).toBe(false);
   });
 });
 

@@ -28,6 +28,13 @@ export function fakeDb(opts: {
     async schedule(...args) { calls.push({ fn: "schedule", args }); return null; },
     async readSecret(ctx: ReadContext, c: string, n: string) { calls.push({ fn: "readSecret", args: [ctx, c, n] }); return opts.secrets?.[`${c}/${n}`] ?? null; },
     async storeSecret(ctx: ReadContext, c: string, n: string, v: string) { calls.push({ fn: "storeSecret", args: [ctx, c, n, "[value]"] }); return { fingerprint: v.slice(-4) }; },
+    async removeOauthCode(ctx: ReadContext, c: string, n: string, outcome: "exchanged" | "unusable") {
+      calls.push({ fn: "removeOauthCode", args: [ctx, c, n, outcome] });
+      const key = `${c}/${n}`;
+      const had = opts.secrets ? key in opts.secrets : false;
+      if (opts.secrets) delete opts.secrets[key];
+      return had;
+    },
     async platformConfig() {
       calls.push({ fn: "platformConfig", args: [] });
       if (opts.platform === null) return null;

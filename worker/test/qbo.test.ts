@@ -52,6 +52,8 @@ function qboDb(opts: { settings?: Record<string, unknown>; claims?: unknown[]; s
   const origRead = db.readSecret.bind(db), origStore = db.storeSecret.bind(db);
   db.readSecret = async (ctx, c, n) => { await origRead(ctx, c, n); return secrets[`${c}/${n}`] ?? null; };
   db.storeSecret = async (ctx, c, n, v) => { secrets[`${c}/${n}`] = v; return origStore(ctx, c, n, v); };
+  const origRemove = db.removeOauthCode.bind(db);
+  db.removeOauthCode = async (ctx, c, n, o) => { const had = `${c}/${n}` in secrets; delete secrets[`${c}/${n}`]; await origRemove(ctx, c, n, o); return had; };
   return { db, calls, secrets, stored };
 }
 function ctxOf(db: ReturnType<typeof fakeDb>["db"], j = job(), e = env) {

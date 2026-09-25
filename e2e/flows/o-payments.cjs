@@ -195,8 +195,8 @@ const card = (p, title) => p.locator('section.cc-card').filter({ has: p.getByRol
     ok(Boolean(stripeOk), '1 the worker exchanged the code: Stripe connected in test mode with the connected account id');
     const stripeConn = sql(`select id from app.integration_connections where center_id = '${jsh}' and provider = 'stripe'`);
     const acct = sql(`select external_account_id from app.integration_connections where id = '${stripeConn}'`);
-    ok(sql(`select string_agg(name, ',' order by name) from app.integration_secrets where connection_id = '${stripeConn}'`) === 'access_token,oauth.code,refresh_token',
-      '1 the code and the tokens are in the vault (fingerprints only)');
+    ok(sql(`select string_agg(name, ',' order by name) from app.integration_secrets where connection_id = '${stripeConn}'`) === 'access_token,refresh_token',
+      '1 the tokens are in the vault (fingerprints only); the used code was removed (#12)');
     ok(sql(`select count(*) from app.jobs where kind = 'oauth.exchange' and payload::text like '%ac_mock%'`) === '0', '1 the code was never in a job payload');
     ok(audit(mark, 'oauth_states.insert').includes(`|portal|/settings/payments|Connect our Stripe account ${run}`), '1 audit: the connect started from the portal with its reason');
     await p.reload({ waitUntil: 'networkidle' });

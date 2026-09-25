@@ -65,6 +65,7 @@ function ctxFor(db: ReturnType<typeof fakeDb>["db"], env: Record<string, string>
     db,
     secret: (c, n) => db.readSecret({ workerId: "t", jobId: "1", purpose: "test" }, c, n),
     storeSecret: async () => ({ fingerprint: "" }),
+    removeOauthCode: async () => false,
     http: createHttp(fetch, async () => {}),
     log,
     env,

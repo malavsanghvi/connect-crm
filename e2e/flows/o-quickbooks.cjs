@@ -212,7 +212,7 @@ async function submit(p, scope, button, expect, allowStepUp = true) {
   const connected = await until(() => sql(`select status from app.integration_connections where id = '${conn}'`) === 'connected', 30000);
   ok(connected, 'the worker swaps the code for tokens and the connection is connected');
   ok(sql(`select display_name from app.integration_connections where id = '${conn}'`) === 'Jain Society of Houston (Intuit test company)', 'with the company name from Intuit');
-  ok(sql(`select string_agg(name, ',' order by name) from app.integration_secrets where connection_id = '${conn}'`) === 'access_token,oauth.code,refresh_token', 'both tokens are in the vault');
+  ok(sql(`select string_agg(name, ',' order by name) from app.integration_secrets where connection_id = '${conn}'`) === 'access_token,refresh_token', 'both tokens are in the vault; the used code was removed (#12)');
   const pulled = await until(() => sql(`select status from app.qbo_pull_runs where connection_id = '${conn}' order by finished_at desc limit 1`) === 'succeeded', 30000);
   ok(pulled, 'the first pull of the lists succeeds');
   ok(sql(`select (select count(*) from app.qbo_accounts where connection_id = '${conn}') || '/' || (select count(*) from app.qbo_classes where connection_id = '${conn}') || '/' ||

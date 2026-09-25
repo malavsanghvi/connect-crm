@@ -35,6 +35,7 @@ export function jobContext(deps: RunnerDeps, job: Job, log: Logger): JobContext 
     db: { query: (text, params) => deps.db.query(text, params) },
     secret: (connectionId, name) => deps.db.readSecret(reader, connectionId, name),
     storeSecret: (connectionId, name, value) => deps.db.storeSecret(reader, connectionId, name, value),
+    removeOauthCode: (connectionId, name, outcome) => deps.db.removeOauthCode(reader, connectionId, name, outcome),
     http: deps.http,
     log,
     env: deps.env,
