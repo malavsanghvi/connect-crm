@@ -31,6 +31,12 @@ dc exec -T -e PGPASSWORD=postgres db psql -h localhost -U supabase_admin -d post
 dc up -d >/dev/null
 until curl -sf "http://localhost:$API_PORT/auth/v1/health" >/dev/null; do sleep 1; done
 db="postgres://postgres:postgres@localhost:$DB_PORT/postgres"
+# The storage service creates its own schema on start; 0172_storage writes to storage.buckets, so wait
+# for it (a cold start, e.g. after a reboot, can finish after the API is already healthy).
+for i in $(seq 1 120); do
+  [ "$(psql "$db" -Atc "select count(*) from information_schema.columns where table_schema = 'storage' and table_name = 'buckets' and column_name = 'public'" 2>/dev/null)" = 1 ] && break
+  sleep 1
+done
 SUPABASE_DB_URL="$db" bash "$repo/supabase/scripts/migrate.sh" | tail -2
 if [ "$(psql "$db" -Atc "select count(*) from app.people where member_number = 'JSH-90009'")" = 0 ]; then
   psql "$db" -q -v ON_ERROR_STOP=1 -f "$repo/supabase/demo/demo.sql"
