@@ -52,12 +52,19 @@ export async function promoteAction(_prev: ActionResult | null, fd: FormData): P
   if (!auth.ok) return auth;
   const slug = String(fd.get("slug") ?? "").trim().toLowerCase();
   const reason = String(fd.get("reason") ?? "").trim();
-  const problem = slugProblem(slug);
+  // A sandbox that holds the organization's own records (0500, promotion.in_place) goes live
+  // under its own web name; the database keeps that name whatever is sent.
+  const inPlace = await auth.session.db.rpc("promotes_in_place", { p_center: auth.session.center.id });
+  if (inPlace.error) return failure(`Could not ${doing}`, inPlace.error);
+  const problem = inPlace.data === true ? null : slugProblem(slug);
   if (problem) return { ok: false, error: `Could not ${doing} — ${problem}` };
   if (!reason) return { ok: false, error: `Could not ${doing} — give a reason (it goes in the audit log).` };
   const db = await dbWithReason(auth.session, reason);
-  const { error } = await db.rpc("promote_sandbox", { p_sandbox: auth.session.center.id, p_slug: slug, p_reason: reason });
+  const { error } = await db.rpc("promote_sandbox", { p_sandbox: auth.session.center.id, p_slug: inPlace.data === true ? "" : slug, p_reason: reason });
   if (error) return failure(`Could not ${doing}`, error);
   revalidatePath("/setup/go-live");
-  return { ok: true, message: `Promotion to ${slug} started · the background service copies the configuration` };
+  return {
+    ok: true,
+    message: inPlace.data === true ? "Going live started · the background service switches this organization to production, keeping every record" : `Promotion to ${slug} started · the background service copies the configuration`,
+  };
 }

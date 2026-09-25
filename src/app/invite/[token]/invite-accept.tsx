@@ -5,7 +5,7 @@ import { useState, type FormEvent } from "react";
 import { signOutAction } from "@/app/auth-actions";
 import { buttonClass } from "@/components/ui";
 import { PRODUCT_NAME } from "@/lib/brand";
-import { explainAuthError, normalizePhone } from "@/lib/security";
+import { acceptedPath, explainAuthError, normalizePhone } from "@/lib/security";
 import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
 
 import { acceptInvitationAction } from "./actions";
@@ -64,8 +64,9 @@ export function InviteAccept({
         setPending(false);
         return;
       }
-      // A full navigation, so the portal renders with the new session cookie.
-      window.location.assign(new URL("/account/security?welcome=1", window.location.origin).toString());
+      // A full navigation, so the portal renders with the new session cookie. A new owner
+      // (a sandbox Community Connect created) lands in its Setup, after 2FA when it is required.
+      window.location.assign(new URL(acceptedPath(res.data), window.location.origin).toString());
     } catch (err) {
       console.error("[invite] accept failed:", err);
       setError("Could not accept the invitation — the server did not respond. Try again.");

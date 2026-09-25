@@ -61,9 +61,10 @@ select pg_temp.assert((select sandbox_for from app.centers where id = :sbx) = :p
 rollback;
 
 -- ── Defaults and overrides ───────────────────────────────────────────────────
-select pg_temp.assert((select count(*) from app.entitlement_defaults where environment = 'sandbox') = 9
-                      and (select count(*) from app.entitlement_defaults where environment = 'production') = 9,
-  'the nine contract keys have a sandbox and a production default');
+-- Ten since 0500 (f-sandbox): promotion.in_place joined the nine contract keys.
+select pg_temp.assert((select count(*) from app.entitlement_defaults where environment = 'sandbox') = 10
+                      and (select count(*) from app.entitlement_defaults where environment = 'production') = 10,
+  'the ten keys (nine contract keys + promotion.in_place) have a sandbox and a production default');
 select pg_temp.assert(app.entitlement(:sbx, 'max_people') = '2000' and app.entitlement(:sbx, 'max_households') = '800'
                       and app.entitlement(:sbx, 'messaging.recipients') = '"test_only"' and app.entitlement(:sbx, 'payments.mode') = '"test"'
                       and app.entitlement(:sbx, 'qbo.mode') = '"sandbox_or_read_only"' and app.entitlement(:sbx, 'public_dashboard') = 'false'
@@ -81,7 +82,7 @@ select pg_temp.assert_raises($$select app.set_center_entitlement('19000000-0000-
   'Only the Community Connect team', 'a center admin cannot raise their own limit');
 select pg_temp.assert_raises($$insert into app.center_entitlements (center_id, key, value, reason) values ('19000000-0000-4000-8000-0000000000c3', 'max_people', '5000', 'x')$$,
   'row-level security', 'nor write the override table directly');
-select pg_temp.assert((select count(*) from app.center_entitlement_list(:sbx)) = 9, 'the sandbox admin reads the sandbox''s limits');
+select pg_temp.assert((select count(*) from app.center_entitlement_list(:sbx)) = 10, 'the sandbox admin reads the sandbox''s limits (ten keys since 0500)');
 select pg_temp.assert((select count(*) from app.center_entitlement_list(:jsh)) = 0, 'but not another center''s');
 commit;
 

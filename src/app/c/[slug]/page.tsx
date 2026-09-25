@@ -54,7 +54,7 @@ export default async function PublicDashboardPage({ params }: { params: Params }
   const b = tenantBranding({ ...center, slug: String(center.slug) }, c.env.supabaseUrl);
   // Sandboxes have no public dashboard (entitlement public_dashboard; app.public_kpis refuses them too).
   if (center.environment === "sandbox") {
-    return <Problem title={`${b.shortName} community dashboard`} body="This is a practice sandbox. Sandboxes have no public community dashboard; it opens once the community goes live." />;
+    return <Problem title={`${b.shortName} community dashboard`} body={`${b.shortName} is a sandbox. Sandboxes have no public community dashboard; it opens once the community goes live.`} />;
   }
   // Reports & dashboard switched off (Settings › Modules): say so plainly instead of a load error.
   const on = await c.db.rpc("module_enabled", { p_center: center.id, p_module: "reports" });

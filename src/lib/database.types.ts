@@ -7405,6 +7405,7 @@ export type Database = {
           revoked_by: string | null;
           last_sent_at: string;
           created_at: string;
+          makes_owner: boolean;
         };
         Insert: {
           id?: string;
@@ -7425,6 +7426,7 @@ export type Database = {
           revoked_by?: string | null;
           last_sent_at?: string;
           created_at?: string;
+          makes_owner?: boolean;
         };
         Update: {
           id?: string;
@@ -7445,6 +7447,7 @@ export type Database = {
           revoked_by?: string | null;
           last_sent_at?: string;
           created_at?: string;
+          makes_owner?: boolean;
         };
         Relationships: [];
       };
@@ -9594,6 +9597,12 @@ export type Database = {
         };
         Returns: boolean;
       };
+      is_owner_for_roles: {
+        Args: {
+          p_center: string;
+        };
+        Returns: boolean;
+      };
       is_platform_admin: {
         Args: Record<PropertyKey, never>;
         Returns: boolean;
@@ -9987,6 +9996,21 @@ export type Database = {
         };
         Returns: Json;
       };
+      platform_create_sandbox: {
+        Args: {
+          p_name: string;
+          p_slug: string;
+          p_org_type: string;
+          p_city: string;
+          p_state: string;
+          p_owner_first_name: string;
+          p_owner_last_name: string;
+          p_owner_email: string;
+          p_reason: string;
+          p_link_base?: string;
+        };
+        Returns: Json;
+      };
       platform_domain_allowed: {
         Args: {
           p_domain: string;
@@ -10042,6 +10066,12 @@ export type Database = {
           p_reason: string;
         };
         Returns: string;
+      };
+      promotes_in_place: {
+        Args: {
+          p_center: string;
+        };
+        Returns: boolean;
       };
       public_kpi_catalog: {
         Args: {

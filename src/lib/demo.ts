@@ -33,6 +33,39 @@ export function demoConfirmWord(center: { short_name: string | null; slug: strin
   return s || center.slug;
 }
 
+function plural(n: number, one: string, many: string): string {
+  return `${n.toLocaleString("en-US")} ${n === 1 ? one : many}`;
+}
+
+/**
+ * What Reset and Clear remove, said plainly: everything the organization entered, not only
+ * the demo data. A sandbox that holds the organization's own records (JSH, entitlement
+ * promotion.in_place) is told that those records go too, with the current counts.
+ */
+export function clearScope(orgName: string, counts: Record<string, number>, holdsOwnRecords: boolean): { title: string; body: string } {
+  const people = counts.people ?? 0;
+  const households = counts.households ?? 0;
+  if (holdsOwnRecords) {
+    return {
+      title: `${orgName}'s own records are not demo data — clearing removes them too`,
+      body:
+        `${orgName} holds ${plural(people, "person", "people")} and ${plural(households, "household", "households")} entered by the organization. ` +
+        "Reset and Clear remove every record the organization entered — people, households, giving history, events, classes and setup lists — not only the demo data. " +
+        "Loading the demo pack adds demo records next to yours, and the only way to remove them again is Clear. This cannot be undone.",
+    };
+  }
+  return {
+    title: "Reset and Clear remove everything entered here",
+    body: "Every person, household, payment, event and setup list the organization entered or loaded is removed — not only the demo data. This cannot be undone.",
+  };
+}
+
+/** The confirmation text for Reset ("reset") or Clear ("clear"). */
+export function clearConfirmMessage(kind: "reset" | "clear", orgName: string): string {
+  const what = `Every record ${orgName} entered — people, households, payments and setup lists, not only the demo data — is removed`;
+  return kind === "reset" ? `Reset ${orgName}?\n${what}, then the demo pack is loaded again. This cannot be undone.` : `Clear ${orgName}?\n${what}. This cannot be undone.`;
+}
+
 /** The typed confirmation matches, ignoring case and spaces around it (as the database does). */
 export function confirmMatches(typed: string | null | undefined, word: string): boolean {
   return (typed ?? "").trim().toLowerCase() === word.trim().toLowerCase() && word.trim() !== "";

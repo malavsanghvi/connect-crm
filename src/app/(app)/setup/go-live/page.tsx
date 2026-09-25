@@ -19,13 +19,15 @@ export default async function GoLiveSetupPage() {
   const gate = setupGate(session, SUB, "Go-live");
   if (gate) return gate;
   const { db, center, userId } = session;
-  const [ready, att, owner, golive, promos, notices] = await Promise.all([
+  const [ready, att, owner, golive, promos, notices, expiry, inPlace] = await Promise.all([
     db.rpc("readiness", { p_center: center.id }),
     db.from("center_attestations").select("key, attested_at, note").eq("center_id", center.id),
     db.from("center_owners").select("user_id").eq("center_id", center.id).maybeSingle(),
     db.from("golive_requests").select("*").eq("center_id", center.id).order("requested_at", { ascending: false }).limit(1),
     db.from("sandbox_promotions").select("*").eq("sandbox_id", center.id).order("requested_at", { ascending: false }).limit(1),
     db.from("sandbox_expiry_notices").select("threshold_days, notified_at").eq("center_id", center.id).order("notified_at", { ascending: false }).limit(1),
+    db.rpc("entitlement", { p_center: center.id, p_key: "expiry_days_inactive" }),
+    db.rpc("promotes_in_place", { p_center: center.id }),
   ]);
   const firstError = ready.error ?? att.error ?? owner.error ?? golive.error ?? promos.error;
   if (firstError) {
@@ -37,6 +39,17 @@ export default async function GoLiveSetupPage() {
     );
   }
   if (notices.error) console.error("[setup/go-live] could not load the expiry notices:", notices.error);
+  if (expiry.error) console.error("[setup/go-live] could not read the sandbox expiry (the inactivity warning is shown if one was sent):", expiry.error);
+  if (inPlace.error) return (
+    <>
+      <SetupHeader session={session} sub={SUB} />
+      <QueryError what="how this sandbox goes live" error={inPlace.error} retryHref="/setup/go-live" />
+    </>
+  );
+  // expiry_days_inactive: a number of days, or JSON null = never expires (Community Connect's exemption, e.g. JSH).
+  const expiryDays = expiry.error ? null : typeof expiry.data === "number" ? expiry.data : null;
+  const neverExpires = !expiry.error && expiry.data === null;
+  const promotesInPlace = inPlace.data === true;
   const rows = mergeReadiness(ready.data ?? []);
   const failing = rows.filter((r) => r.state === "fail");
   const isOwner = owner.data?.user_id === userId;
@@ -50,18 +63,28 @@ export default async function GoLiveSetupPage() {
   return (
     <>
       <SetupHeader session={session} sub={SUB} />
-      {lastNotice ? (
+      {lastNotice && !neverExpires ? (
         <div className="mb-4">
           <Alert tone="warning" title="This sandbox has been inactive">
-            Warned on {formatDateTime(lastNotice.notified_at, tz)} ({lastNotice.threshold_days} days without activity). Sandboxes inactive for 90 days may be removed after the warnings.
+            Warned on {formatDateTime(lastNotice.notified_at, tz)} ({lastNotice.threshold_days} days without activity). Sandboxes inactive for {expiryDays ?? 90} days may be removed after the warnings.
           </Alert>
         </div>
+      ) : null}
+      {sandbox && neverExpires ? (
+        <p className="mb-4 text-[13px] text-muted" data-testid="sandbox-never-expires">
+          Community Connect has exempted this sandbox from inactivity expiry: it gets no inactivity warnings and is never removed for being quiet.
+        </p>
       ) : null}
       <div className="mb-4">
         <KpiGrid cols={3}>
           <Stat label="Readiness checks passing" value={`${rows.filter((r) => r.state === "pass").length} of ${rows.length}`} tone="success" hint="Setup › Go-live readiness" href="/setup/readiness" />
           <Stat label="Go-live request" value={g ? (GOLIVE_STATUS_LABEL[g.status] ?? g.status) : "Not requested"} tone={g?.status === "approved" || g?.status === "live" ? "success" : "ink"} hint={g ? goliveProgress(g) : "Every check must pass first"} />
-          <Stat label="Production" value={promo?.status === "done" ? promo.slug : promo ? "Promotion running" : "Not promoted"} tone="ink" hint={sandbox ? "Configuration only; data is loaded fresh" : "This is a production organization"} />
+          <Stat
+            label="Production"
+            value={promo?.status === "done" ? promo.slug : promo && promo.status !== "failed" ? "Promotion running" : "Not promoted"}
+            tone="ink"
+            hint={sandbox ? (promotesInPlace ? "Goes live in place; every record is kept" : "Configuration only; data is loaded fresh") : "This is a production organization"}
+          />
         </KpiGrid>
       </div>
 
@@ -136,7 +159,45 @@ export default async function GoLiveSetupPage() {
           )}
         </Card>
 
-        {sandbox ? (
+        {sandbox && promotesInPlace ? (
+          <Card
+            title="Go live in place"
+            description={`${center.name} holds its own records, so going live switches this organization itself to production: same web name, every person, household, payment and setting kept, and the same staff. Nothing is copied or removed.`}
+          >
+            <div data-testid="promote-in-place" className="text-[13px]">
+              {promo && promo.status !== "failed" ? (
+                promo.status === "done" ? (
+                  <StatusText tone="ok">Went live on {formatDateTime(promo.finished_at, tz)}</StatusText>
+                ) : (
+                  <StatusText tone="warn">
+                    Going live is running in the background{promo.last_error ? ` (last try failed: ${promo.last_error}; it will retry)` : ""}. Reload to see progress.
+                  </StatusText>
+                )
+              ) : g?.status === "approved" && isOwner ? (
+                <>
+                  {promo?.status === "failed" ? (
+                    <p className="mb-2">
+                      <StatusText tone="bad">The last try failed: {promo.last_error ?? "no reason recorded"}</StatusText>
+                    </p>
+                  ) : null}
+                  <p className="mb-2 text-muted">
+                    After going live: messages reach every member who opted in, payments and QuickBooks can be switched to live mode (Settings › Payments, Accounting › QuickBooks), the public dashboard opens and the
+                    sandbox watermark disappears. Demo data must not be loaded.
+                  </p>
+                  <ActionForm action={promoteAction} submitLabel="Go live in place" variant="ok" confirmMessage={`Switch ${center.name} to production?\nEvery record is kept. Sandbox limits end and messages reach real members.`}>
+                    <input type="hidden" name="slug" value={center.slug} />
+                    <label className="crm-label" htmlFor="promote-reason">
+                      Reason
+                    </label>
+                    <input id="promote-reason" name="reason" className="crm-input mb-3" maxLength={500} defaultValue="Go-live approved by Community Connect" />
+                  </ActionForm>
+                </>
+              ) : (
+                <p className="text-muted">Available to the owner once Community Connect has approved go-live.</p>
+              )}
+            </div>
+          </Card>
+        ) : sandbox ? (
           <Card title="Promote to production" description="Copies the configuration — profile, brand, rules, modules, setup data, templates, legal documents, custom fields and saved import mappings. Never test people, transactions or credentials. Staff are invited again.">
             {promo ? (
               <div className="text-[13px]" data-testid="promotion-status">

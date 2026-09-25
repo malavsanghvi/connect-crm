@@ -17,7 +17,17 @@ export type RoleLike = { key: string; permissions: Json };
 export type PermissionContext = {
   permissions: readonly string[];
   isPlatformAdmin: boolean;
+  /**
+   * The organization's owner: holds every permission (0400) and passes role-based checks too
+   * (app.has_role / app.has_scoped_role, 0501 — owner decision 2026-09-25, second batch).
+   */
+  isOwner?: boolean;
 };
+
+/** Platform admins and the organization's owner pass every "holds role X" check (mirrors app.has_scoped_role, 0501). */
+export function passesRoleChecks(ctx: { isPlatformAdmin: boolean; isOwner?: boolean }): boolean {
+  return ctx.isPlatformAdmin || ctx.isOwner === true;
+}
 
 /** An active role grant with its scope (one class, event or zone — or the whole center). */
 export type ScopedGrant = { role_key: string; scope_kind: string; scope_id: string | null };
@@ -90,19 +100,19 @@ export function can(ctx: PermissionContext, anyOf: string | readonly string[]): 
 
 /** Holds one of the roles center-wide, or scoped to `scopeId` (platform admins hold all). */
 export function hasScopedRole(ctx: ScopedContext, scopeId: string, ...roles: string[]): boolean {
-  if (ctx.isPlatformAdmin) return true;
+  if (passesRoleChecks(ctx)) return true;
   return (ctx.grants ?? []).some((g) => roles.includes(g.role_key) && (g.scope_kind === "center" || g.scope_id === scopeId));
 }
 
 /** Holds one of the roles anywhere (any scope). */
 export function hasRole(ctx: ScopedContext, ...roles: string[]): boolean {
-  if (ctx.isPlatformAdmin) return true;
+  if (passesRoleChecks(ctx)) return true;
   return (ctx.grants ?? []).some((g) => roles.includes(g.role_key));
 }
 
 /** Holds one of the roles center-wide, so it applies to every class, event or zone. */
 export function hasCenterRole(ctx: ScopedContext, ...roles: string[]): boolean {
-  if (ctx.isPlatformAdmin) return true;
+  if (passesRoleChecks(ctx)) return true;
   return (ctx.grants ?? []).some((g) => roles.includes(g.role_key) && g.scope_kind === "center");
 }
 

@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { planDecision, type ApplicationDecision } from "@/lib/applications";
 import { failure, type ActionResult } from "@/lib/errors";
 import { formatCents } from "@/lib/money";
+import { passesRoleChecks } from "@/lib/permissions";
 import { isUuid } from "@/lib/search-params";
 import { authorizeAction, dbWithReason, type CrmSession } from "@/lib/session";
 
@@ -38,7 +39,8 @@ export async function decideApplicationAction(_prev: ActionResult | null, formDa
   const typeRes = await db.from("membership_types").select("ec_approval_required").eq("id", app.membership_type_id).maybeSingle();
   if (typeRes.error) return failure(`Could not ${doing}`, typeRes.error);
 
-  const isEc = session.isPlatformAdmin || session.roles.some((r) => r.key === "executive_committee" && r.scopeKind === "center");
+  // The owner passes the Executive Committee check too (0501; owner decision 2026-09-25, second batch).
+  const isEc = passesRoleChecks(session) || session.roles.some((r) => r.key === "executive_committee" && r.scopeKind === "center");
   const plan = planDecision(
     {
       status: app.status,

@@ -198,6 +198,11 @@ export default async function TeamPage() {
             Lost phone: another administrator (not the person themselves) resets their 2FA here after checking who they are; the Community Connect team
             can do it too. The reset removes their authenticator apps, signs them out everywhere and is recorded in the audit log.
           </p>
+          {isOwner && !iAmAdmin && !session.isPlatformAdmin ? (
+            <p className="crm-hint mt-1" data-testid="owner-no-2fa-reset">
+              As the owner you can do every task, but resetting someone&apos;s 2FA needs a separate administrator (an active Center admin role) or the Community Connect team.
+            </p>
+          ) : null}
         </Card>
 
         <Card span={12} title="Owner" description={`The owner accepts the agreements and can hand ${community} over to another administrator`}>
