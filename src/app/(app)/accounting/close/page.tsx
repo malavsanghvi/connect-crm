@@ -35,12 +35,14 @@ export default async function ClosePage({ searchParams }: { searchParams: Promis
     );
   }
   const canClose = canAccess(session, "closeManage");
-  const [period, ex] = await Promise.all([
+  const [period, ex, flagged] = await Promise.all([
     db.from("accounting_periods").select("status, checklist, closed_by, closed_at").eq("center_id", center.id).eq("period_month", month).maybeSingle(),
     db.from("ledger_postings").select("id", { count: "exact", head: true }).eq("center_id", center.id).eq("status", "failed").lte("period_month", month),
+    db.rpc("flagged_refund_count", { p_center: center.id }),
   ]);
   if (ex.error) console.error("[close] exception count failed:", ex.error);
-  const items = closeChecklist(period.data?.checklist ?? {}, ex.error ? null : (ex.count ?? 0));
+  if (flagged.error) console.error("[close] flagged refund count failed; the refunds item shows no count:", flagged.error);
+  const items = closeChecklist(period.data?.checklist ?? {}, ex.error ? null : (ex.count ?? 0), flagged.data ?? 0);
   const ready = items.every((i) => i.done);
   const locked = period.data?.status === "closed";
   const closer = locked ? await userNames(db, center.id, [period.data?.closed_by]) : new Map();

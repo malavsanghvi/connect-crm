@@ -7,7 +7,17 @@ import { Modal } from "@/components/modal";
 import { useToast } from "@/components/toast";
 import { Alert, buttonClass } from "@/components/ui";
 
-import { cancelImportAction, commitBatchAction, decideAction, previewAction, reconcileAction, signOffAction, undoAction, type CommitProgress } from "../actions";
+import {
+  cancelImportAction,
+  commitBatchAction,
+  decideAction,
+  openingBalancesAction,
+  previewAction,
+  reconcileAction,
+  signOffAction,
+  undoAction,
+  type CommitProgress,
+} from "../actions";
 
 function useRun() {
   const router = useRouter();
@@ -143,6 +153,35 @@ export function ReconcileButton({ runId, again }: { runId: string; again: boolea
       </button>
       <ErrorLine error={error} />
     </>
+  );
+}
+
+/** Pledges import: bring in what was paid before the imported payment history, one line per pledge (#24). */
+export function OpeningBalancesForm({ runId, count, total }: { runId: string; count: number; total: string }) {
+  const { error, pending, run } = useRun();
+  const [reason, setReason] = useState("");
+  return (
+    <div className="space-y-2" data-testid="opening-balances">
+      <p className="text-[13px]">
+        {count} pledge{count === 1 ? " was" : "s were"} paid partly before the imported payment history ({total} in all). Bring that in as one
+        historical opening-balance line per pledge, allocated to it. Do this after importing the payment history. Opening-balance lines are history:
+        they are never posted to QuickBooks, and undoing this import removes them.
+      </p>
+      <label htmlFor="opening-reason" className="crm-label">
+        Why (kept in the audit log)
+      </label>
+      <input id="opening-reason" className="crm-input" maxLength={500} value={reason} onChange={(e) => setReason(e.target.value)}
+        placeholder="e.g. Paid before our 2023 payment history" />
+      <button
+        type="button"
+        className={buttonClass(!reason.trim() ? "off" : "primary", "sm")}
+        disabled={pending || !reason.trim()}
+        onClick={() => run(() => openingBalancesAction(runId, reason), "Could not bring in the opening balances")}
+      >
+        {pending ? "Adding…" : "Bring in opening balances"}
+      </button>
+      <ErrorLine error={error} />
+    </div>
   );
 }
 

@@ -6,7 +6,7 @@ import { headers } from "next/headers";
 import { failure, type ActionResult } from "@/lib/errors";
 import { QBO_PURPOSES } from "@/lib/labels";
 import { authorizeUrl, intuitPortalConfig, redirectUri, signState } from "@/lib/qbo/oauth";
-import { reasonProblem } from "@/lib/qbo/setup";
+import { reasonProblem, TEST_POST_HOW_TO_VOID } from "@/lib/qbo/setup";
 import { isUuid } from "@/lib/search-params";
 import { authorizeAction, dbWithReason } from "@/lib/session";
 import { platformEnv } from "@/lib/platform-setup/server-config";
@@ -175,7 +175,13 @@ export async function runQboTestPostAction(_prev: ActionResult | null, fd: FormD
   });
   if (error) return failure(`Could not ${doing}`, error);
   refresh();
-  return { ok: true, message: "Test post queued. The result appears here within a minute; reload to see it." };
+  const real = fd.get("confirm_real") === "on";
+  return {
+    ok: true,
+    message: real
+      ? `Test post queued: it creates four real $1.00 entries in QuickBooks. When they are there, void them: ${TEST_POST_HOW_TO_VOID} The result appears here within a minute; reload to see it.`
+      : "Test post queued. The result appears here within a minute; reload to see it.",
+  };
 }
 
 export async function approveQboTestPostAction(_prev: ActionResult | null, fd: FormData): Promise<ActionResult> {

@@ -83,6 +83,7 @@ export const PURPOSE_TYPES: Record<string, string[]> = {
   undeposited_funds: ["Other Current Asset", "Bank"],
   pledges_receivable: ["Accounts Receivable", "Other Current Asset"],
   stock_clearing: ["Other Current Asset", "Bank", "Other Asset"],
+  pledge_writeoffs: ["Expense", "Other Expense", "Income", "Other Income"],
 };
 
 export type PulledAccount = { qbo_id: string; name: string; fully_qualified_name: string | null; account_type: string | null; active: boolean };
@@ -136,3 +137,14 @@ export function reasonProblem(reason: string, doing: string): string | null {
   if (r.length > 500) return `Could not ${doing} — keep the reason under 500 characters.`;
   return null;
 }
+
+/**
+ * What a live test post does, said before it runs and again once it is queued (owner decision
+ * 2026-09-25 #10; mirrors app.qbo_test_post_explained()). Backlog B9 keeps "void them automatically".
+ */
+export const TEST_POST_EXPLAINED =
+  "The live test post creates four real $1.00 entries in your QuickBooks company — a sales receipt, a refund receipt, a deposit and a journal entry, " +
+  "each marked “Community Connect test post”. Afterwards the treasurer voids them in QuickBooks.";
+export const TEST_POST_HOW_TO_VOID =
+  "In QuickBooks, search for “Community Connect test post”, open each of the four entries and choose More › Void " +
+  "(a deposit or journal entry that has no Void is deleted with More › Delete).";

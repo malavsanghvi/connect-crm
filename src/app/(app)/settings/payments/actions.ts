@@ -40,7 +40,9 @@ async function origin(): Promise<string> {
   return originOf(h, "http://localhost:3000");
 }
 
-export async function saveProcessorAction(processor: string, methods: string[], descriptor: string, coverFee: boolean, reason: string): Promise<PayResult> {
+// Donors covering the fee is not offered (owner decision 2026-09-25 #5): no fee is ever added, so
+// the setting is always saved off and the database refuses switching it on.
+export async function saveProcessorAction(processor: string, methods: string[], descriptor: string, reason: string): Promise<PayResult> {
   const doing = `save the ${PROCESSOR_LABEL[processor as Processor] ?? processor} settings`;
   if (!isProcessor(processor)) return { ok: false, error: `Could not ${doing} — choose Stripe or PayPal.` };
   const bad = statementDescriptorProblem(descriptor ?? "") ?? needReason(reason, doing);
@@ -51,7 +53,7 @@ export async function saveProcessorAction(processor: string, methods: string[], 
   const db = await dbWithReason(auth.session, reason);
   const { error } = await db.rpc("set_payment_processor", {
     p_center: auth.session.center.id, p_processor: processor, p_methods: methods, p_statement_descriptor: descriptor.trim(),
-    p_donor_covers_fee_allowed: Boolean(coverFee), p_reason: reason.trim(),
+    p_donor_covers_fee_allowed: false, p_reason: reason.trim(),
   });
   if (error) return dbFailure(doing, error);
   revalidatePath(PATH);

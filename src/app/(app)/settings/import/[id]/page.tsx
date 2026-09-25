@@ -6,6 +6,7 @@ import { Alert, BlockGrid, Card, ChipLinks, EmptyState, KpiGrid, NoAccess, PageH
 import type { Json } from "@/lib/database.types";
 import { userNames } from "@/lib/data/lookups";
 import { formatDateTime } from "@/lib/dates";
+import { explainError } from "@/lib/errors";
 import { entityDef } from "@/lib/import/registry";
 import { ROW_FILTERS, asReconciliation, matchLabel, moneyLabel, rowStateLabel, runStatusLabel, runStatusTone, type PreviewCounts, type RunCounts } from "@/lib/import/runs";
 import { formatCents } from "@/lib/money";
@@ -14,7 +15,7 @@ import { isUuid, param, type RawSearchParams } from "@/lib/search-params";
 import { getSession } from "@/lib/session";
 
 import { ImportSteps, type ImportStep } from "../steps";
-import { CancelButton, CommitButton, DecisionButtons, RebuildPreviewButton, ReconcileButton, SignOffForm, UndoButton } from "./run-controls";
+import { CancelButton, CommitButton, DecisionButtons, OpeningBalancesForm, RebuildPreviewButton, ReconcileButton, SignOffForm, UndoButton } from "./run-controls";
 
 export const metadata: Metadata = { title: "Import · Data import · Settings" };
 
@@ -111,6 +112,19 @@ export default async function ImportRunPage({ params, searchParams }: { params: 
   const step = stepFor(run.status);
   const canUndo = run.can_undo;
   const decisionsOpen = run.status === "previewed" || run.status === "committing";
+  // A pledges import: what was paid before the imported payment history (owner decision 2026-09-25 #24).
+  let opening: { rows: { opening_cents: number }[]; done: number } | null = null;
+  let openingError: string | null = null;
+  if (run.entity === "pledges" && (run.status === "committed" || run.status === "reconciled")) {
+    const plan = await session.db.rpc("import_opening_balance_plan", { p_run: id });
+    if (plan.error) {
+      console.error("[import] opening balance plan failed:", plan.error);
+      openingError = `${explainError(plan.error)}.`;
+    } else {
+      const all = ((plan.data as { rows?: { opening_cents: number; already: boolean }[] } | null)?.rows ?? []);
+      opening = { rows: all.filter((r) => !r.already && r.opening_cents > 0), done: all.filter((r) => r.already).length };
+    }
+  }
 
   return (
     <>
@@ -250,6 +264,18 @@ export default async function ImportRunPage({ params, searchParams }: { params: 
                     sign-off note.
                   </Alert>
                 ) : null}
+                {opening && opening.rows.length > 0 ? (
+                  <OpeningBalancesForm
+                    runId={id}
+                    count={opening.rows.length}
+                    total={formatCents(opening.rows.reduce((t, r) => t + r.opening_cents, 0), session.center.currency)}
+                  />
+                ) : opening && opening.done > 0 ? (
+                  <p className="text-[13px] text-muted">
+                    Opening balances are in: {opening.done} pledge{opening.done === 1 ? "" : "s"} carr{opening.done === 1 ? "ies" : "y"} one historical opening-balance line.
+                  </p>
+                ) : null}
+                {openingError ? <Alert tone="warning">Could not check for opening balances — {openingError}</Alert> : null}
                 <ReconcileButton runId={id} again />
                 {run.status === "committed" ? (
                   <SignOffForm runId={id} needsNote={!rec.ok} />

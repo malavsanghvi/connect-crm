@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { failure, type ActionResult } from "@/lib/errors";
+import { writeOffPostingText, type WriteOffPosting } from "@/lib/giving";
 import { parseAmountToCents, formatCents } from "@/lib/money";
 import { isUuid } from "@/lib/search-params";
 import { authorizeAction, dbWithReason } from "@/lib/session";
@@ -101,7 +102,15 @@ export async function completeWriteOffAction(_prev: ActionResult | null, formDat
   if (error) return failure("Could not write off the pledge", error);
   if (!data || data.length === 0) return { ok: false, error: "Could not write off the pledge — it is no longer open, or you lack permission." };
   refresh();
-  return { ok: true, message: `${data[0].pledge_number ?? "Pledge"} written off.` };
+  revalidatePath("/accounting/qbo");
+  // The write-off is synced to QuickBooks (0412): say what happens there.
+  const q = await db.rpc("pledge_writeoff_postings", { p_pledges: [id] });
+  if (q.error) {
+    console.error("[write-off] could not read the QuickBooks posting:", q.error);
+    return { ok: true, message: `${data[0].pledge_number ?? "Pledge"} written off. Its QuickBooks status could not be read; see Accounting › QuickBooks.` };
+  }
+  const posting = writeOffPostingText((q.data as Record<string, WriteOffPosting> | null)?.[id]);
+  return { ok: true, message: `${data[0].pledge_number ?? "Pledge"} written off.${posting ? ` ${posting.label.replace(/\.$/, "")}.` : ""}` };
 }
 
 // ---------------------------------------------------------------------------
@@ -208,4 +217,57 @@ export async function refundThroughProviderAction(_prev: ActionResult | null, fo
     ok: true,
     message: `Refund of ${formatCents(current.data.refund_requested_cents ?? 0, auth.session.center.currency)} sent to ${provider}. It shows here once ${provider} accepts it.`,
   };
+}
+
+// ---------------------------------------------------------------------------
+// Refunds made in the Stripe / PayPal dashboard (owner decision 2026-09-25 #6):
+// the provider's webhook records them as FLAGGED; nothing changes until a person
+// with giving.manage approves first and a DIFFERENT person with giving.approve
+// approves second (app.approve_flagged_refund: reason + fresh 2FA check each).
+// ---------------------------------------------------------------------------
+export async function approveFlaggedRefundAction(_prev: ActionResult | null, formData: FormData): Promise<ActionResult> {
+  const stage = String(formData.get("stage") ?? "first") === "second" ? "second" : "first";
+  const auth = await authorizeAction(stage === "first" ? "givingManage" : "givingApprove", "approve the refund");
+  if (!auth.ok) return auth;
+  const id = String(formData.get("id") ?? "");
+  const reason = String(formData.get("reason") ?? "").trim();
+  if (!isUuid(id)) return { ok: false, error: "Could not approve the refund — it was not found." };
+  if (!reason) return { ok: false, error: "Could not approve the refund — say why (it is kept in the audit log)." };
+  const { data, error } = await (await dbWithReason(auth.session, reason)).rpc("approve_flagged_refund", { p_refund: id, p_reason: reason.slice(0, 1000) });
+  if (error) return failure("Could not approve the refund", error);
+  refresh();
+  const applied = (data as { stage?: string } | null)?.stage === "applied";
+  return {
+    ok: true,
+    message: applied
+      ? "Second approval recorded: the refund is now recorded on the payment."
+      : "First approval recorded. A different person with giving.approve must approve it before it is recorded.",
+  };
+}
+
+// ---------------------------------------------------------------------------
+// PayPal connected by email only (owner decision 2026-09-25 #7): Community
+// Connect cannot refund through it. After the usual two-person approval, the
+// refund made in PayPal is recorded here by hand: amount, date, PayPal
+// transaction id and reason (app.record_manual_paypal_refund, fresh 2FA check).
+// ---------------------------------------------------------------------------
+export async function recordPaypalRefundAction(_prev: ActionResult | null, formData: FormData): Promise<ActionResult> {
+  const auth = await authorizeAction("givingManage", "record the PayPal refund");
+  if (!auth.ok) return auth;
+  const id = String(formData.get("id") ?? "");
+  const cents = parseAmountToCents(String(formData.get("amount") ?? ""));
+  const on = String(formData.get("refunded_on") ?? "").trim();
+  const txn = String(formData.get("paypal_txn") ?? "").trim();
+  const reason = String(formData.get("reason") ?? "").trim();
+  if (!isUuid(id)) return { ok: false, error: "Could not record the PayPal refund — the payment was not found." };
+  if (cents === null || cents <= 0) return { ok: false, error: "Could not record the PayPal refund — enter the amount PayPal refunded, e.g. 51.00." };
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(on)) return { ok: false, error: "Could not record the PayPal refund — enter the date PayPal made the refund." };
+  if (!txn) return { ok: false, error: "Could not record the PayPal refund — enter the PayPal transaction id of the refund." };
+  const db = reason ? await dbWithReason(auth.session, reason) : auth.session.db;
+  const { error } = await db.rpc("record_manual_paypal_refund", {
+    p_payment: id, p_amount_cents: cents, p_refunded_on: on, p_paypal_txn: txn, p_reason: reason.slice(0, 1000),
+  });
+  if (error) return failure("Could not record the PayPal refund", error);
+  refresh();
+  return { ok: true, message: `PayPal refund of ${formatCents(cents, auth.session.center.currency)} recorded (${txn.toUpperCase()}).` };
 }

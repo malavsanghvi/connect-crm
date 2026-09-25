@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import type { Json } from "@/lib/database.types";
 import { todayInTz } from "@/lib/dates";
 import { failure, type ActionResult } from "@/lib/errors";
+import { formatCents } from "@/lib/money";
 import { buildRow, customKeyFor, savedMappingOf, type ColumnTarget, type Mapping } from "@/lib/import/mapping";
 import { maskedSamples } from "@/lib/import/mask";
 import { canImportEntity, entityDef } from "@/lib/import/registry";
@@ -261,6 +262,30 @@ export async function reconcileAction(runId: string): Promise<ActionResult> {
   if (error) return failure("Could not reconcile the import", error);
   refresh(runId);
   return { ok: true, message: "Totals compared with the file." };
+}
+
+/**
+ * Opening balances (owner decision 2026-09-25 #24): for each pledge of a pledges import, what the
+ * file says was paid beyond what the imported payment history applied comes in as ONE historical
+ * opening-balance line (app.import_pledge_opening_balances). Run it after the payment history.
+ */
+export async function openingBalancesAction(runId: string, reason: string): Promise<ActionResult> {
+  const a = await authorizeRun(runId, "bring in the opening balances");
+  if (!a.ok) return a;
+  const clean = String(reason ?? "").trim();
+  if (!clean) return { ok: false, error: "Could not bring in the opening balances — say why. The reason is kept in the audit log." };
+  const db = await dbWithReason(a.session, clean.slice(0, 500));
+  const { data, error } = await db.rpc("import_pledge_opening_balances", { p_run: runId, p_reason: clean.slice(0, 500) });
+  if (error) return failure("Could not bring in the opening balances", error);
+  const d = data as { added: number; already: number; total_cents: number };
+  refresh(runId);
+  if (d.added === 0) {
+    return { ok: true, message: d.already ? "The opening balances are already in; nothing was added." : "Nothing to add: the imported payments account for everything paid." };
+  }
+  return {
+    ok: true,
+    message: `${d.added} opening-balance line${d.added === 1 ? "" : "s"} added (${formatCents(d.total_cents)} paid before the imported history). They are history: never posted to QuickBooks. Compare with the file again.`,
+  };
 }
 
 export async function signOffAction(runId: string, note: string): Promise<ActionResult> {

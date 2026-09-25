@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync } from "node:fs";
+import { readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
 import { describe, expect, it } from "vitest";
@@ -6,9 +6,18 @@ import { describe, expect, it } from "vitest";
 import { importEntitiesSeedSql } from "@/lib/import/entities-sql";
 import { ENTITIES, NATURAL_KEYS, entityColumns } from "@/lib/import/registry";
 
-const MIGRATION = fileURLToPath(new URL("../supabase/migrations/0192_import_engine.sql", import.meta.url));
 const BEGIN = "-- BEGIN import_entities seed (generated from src/lib/import/registry.ts)";
 const END = "-- END import_entities seed";
+// The allow-list is seeded in 0192 and re-seeded by later migrations that change it (0413,
+// written-off pledges); the NEWEST migration carrying the generated block is the one in force.
+const DIR = fileURLToPath(new URL("../supabase/migrations/", import.meta.url));
+const MIGRATION =
+  DIR +
+  readdirSync(DIR)
+    .filter((f) => f.endsWith(".sql"))
+    .sort()
+    .filter((f) => readFileSync(DIR + f, "utf8").includes(BEGIN))
+    .pop();
 
 function seedBlock(sql: string): string {
   const a = sql.indexOf(BEGIN);
@@ -18,7 +27,7 @@ function seedBlock(sql: string): string {
 }
 
 describe("import registry", () => {
-  it("matches the database allow-list in migration 0192", () => {
+  it("matches the database allow-list in the newest migration that seeds it", () => {
     const sql = readFileSync(MIGRATION, "utf8");
     const want = importEntitiesSeedSql();
     if (process.env.GEN_IMPORT_SEED === "1") {
