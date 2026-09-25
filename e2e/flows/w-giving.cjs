@@ -18,6 +18,7 @@
 //           9 roles: a member's token cannot record payments, close bolis, publish, lock or publish KPIs
 // ONLY=2,5 runs a subset. Re-runnable: each run uses its own names and amounts; it only needs the demo data from e2e/up.sh.
 const { chromium } = require(process.env.PLAYWRIGHT || 'playwright');
+const { acceptLegalStep } = require('../legal-step.cjs');
 const { execSync } = require('child_process');
 const fs = require('fs');
 const BASE = process.env.BASE || 'http://localhost:3100';
@@ -69,6 +70,7 @@ async function memberLogin(b, email) {
   await box.fill(await code(email, t0));
   const v = p.getByRole('button', { name: /verify|sign in|continue/i }).first(); if (await v.isVisible().catch(() => false)) await v.click();
   await p.waitForTimeout(4000);
+  await acceptLegalStep(p, sql);   // the first-sign-in legal step, when the community has published member documents
   return p;
 }
 async function mgo(p, path) { await p.goto(MEMBER + path, { waitUntil: 'networkidle' }); await p.waitForTimeout(1500); }

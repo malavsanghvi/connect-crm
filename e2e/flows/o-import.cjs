@@ -26,6 +26,7 @@
 //   - undo (payments, then people) restores the prior state, audited with its reason.
 // The AI mapping button is pressed once: without the background service it says so honestly.
 const { chromium } = require(process.env.PLAYWRIGHT || '/opt/node22/lib/node_modules/playwright');
+const { acceptLegalStep } = require('../legal-step.cjs');
 const { execSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
@@ -94,6 +95,7 @@ async function memberLogin(browser, email) {
   const verify = p.getByRole('button', { name: /verify/i }).first();
   if (await verify.isVisible().catch(() => false)) await verify.click();
   await p.waitForURL((u) => !/sign-in|verify/.test(u.pathname), { timeout: 60000 });
+  await acceptLegalStep(p, sql);   // the first-sign-in legal step, when the community has published member documents
   return p;
 }
 

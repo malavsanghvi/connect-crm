@@ -169,7 +169,11 @@ async function seedFamily() {
 
 const journeys = {
   async agreements(b) {
+    // admin@jsh.test acts as a platform admin for this journey only (test login); put back at the end so the
+    // other flows on a shared stack keep an organization admin.
+    const wasPlatformAdmin = sql(`select coalesce((select is_platform_admin::text from app.accounts where user_id = (select id from auth.users where email = 'admin@jsh.test')), 'false')`);
     sql(`update app.accounts set is_platform_admin = true where user_id = (select id from auth.users where email = 'admin@jsh.test')`);
+    try {
     const p = await portalLogin(b, 'admin@jsh.test');
     await p.goto(PORTAL + '/platform/agreements', { waitUntil: 'networkidle' });
     const card = p.getByTestId('platform-agreement-dpa');
@@ -185,8 +189,11 @@ const journeys = {
     await drawer.getByRole('button', { name: 'Save draft' }).click();
     await p.waitForTimeout(2500);
     const v1 = sql(`select id from app.legal_documents where center_id is null and kind = 'dpa' and version = '2026-09-${RUN}'`);
-    ok(!!v1 && sql(`select published_at is null and body_md like '%first edition%' and updated_by is not null from app.legal_documents where id = '${v1}'`) === 't',
-      'the draft is edited (still unpublished)');
+    // Editing an existing draft records updated_by; a new version (when a shared stack has no draft left) is a
+    // new row whose author is its audit insert.
+    ok(!!v1 && sql(`select published_at is null and body_md like '%first edition%' and (updated_by is not null or ${hasDraft ? 'false' : 'true'}) from app.legal_documents where id = '${v1}'`) === 't'
+       && (hasDraft || sql(`select count(*) from app.audit_log where record_table = 'legal_documents' and record_id = '${v1}' and action = 'legal_documents.insert' and actor_user_id is not null`) === '1'),
+      hasDraft ? 'the draft is edited (still unpublished)' : 'a new draft version is saved by the platform admin (still unpublished)');
     ok(lastAudit('legal_documents', `and record_id = '${v1}'`).endsWith('|Counsel supplied the first text'), 'the draft edit is audited with the reason');
     await p.keyboard.press('Escape');
     await p.goto(PORTAL + '/platform/agreements', { waitUntil: 'networkidle' });
@@ -222,9 +229,12 @@ const journeys = {
     await dpa.getByRole('checkbox').check();
     await dpa.getByRole('button', { name: /Accept/ }).click();
     await p.waitForTimeout(2500);
-    ok(sql(`select string_agg(version, ',' order by accepted_at) from app.org_agreements where center_id = '${CENTER}' and kind = 'dpa'`) === `2026-09-${RUN},2026-10-${RUN}`,
+    ok(sql(`select string_agg(version, ',' order by accepted_at) from app.org_agreements where center_id = '${CENTER}' and kind = 'dpa' and version like '%-${RUN}'`) === `2026-09-${RUN},2026-10-${RUN}`,
       'both acceptances are kept, each with its version');
     await p.context().close();
+    } finally {
+      if (wasPlatformAdmin !== 'true') sql(`update app.accounts set is_platform_admin = false where user_id = (select id from auth.users where email = 'admin@jsh.test')`);
+    }
   },
 
   async memberdocs(b) {

@@ -21,6 +21,7 @@
 //
 // Test data only: a fresh sandbox per run (its name carries a run id), so it can be re-run.
 const { chromium } = require(process.env.PLAYWRIGHT || '/opt/node22/lib/node_modules/playwright');
+const { acceptLegalStep } = require('../legal-step.cjs');
 const { execSync, spawn } = require('child_process');
 const crypto = require('crypto');
 const fs = require('fs');
@@ -271,6 +272,7 @@ const nowCounts = (c) => JSON.parse(sql(`select app.demo_data_counts('${c}')::te
       await p.getByRole('button', { name: /verify|sign in|continue/i }).first().click();
       await p.waitForURL((u) => !u.pathname.startsWith('/sign-in'), { timeout: 30000 });
       await sleep(2500);
+      await acceptLegalStep(p, sql);   // the first-sign-in legal step, when the sandbox has published member documents
       await shot(p, '3-member-home');
       const screens = [['/family', 'Anya', 'Family'], ['/events', 'Tapasvi Bahuman', 'Events'], ['/give', 'Construction', 'Give'],
                        ['/pledges', 'Annual appeal', 'Pledges'], ['/jain-way', 'Navkarsi', 'Jain Way'], ['/gyan', 'Uvasaggaharam', 'Gyan Path'],

@@ -137,6 +137,8 @@ function audit(table, afterId, extra = '') {
        update app.integration_connections set status = 'disconnected' where center_id = '${jsh}' and provider = 'twilio';
        update app.role_grants set ends_at = now() where user_id = (select id from auth.users where email = 'admin@jsh.test')
           and center_id in (select id from app.centers where slug like 'jsh-e2e-%-sandbox') and (ends_at is null or ends_at > now());
+       delete from app.center_owners where user_id = (select id from auth.users where email = 'admin@jsh.test')
+          and center_id in (select id from app.centers where slug like 'jsh-e2e-%-sandbox');
        update app.centers set rules = jsonb_set(rules, '{notifications}', coalesce(rules->'notifications', '{}') || '{"quiet_start_hour": 3, "quiet_end_hour": 3}') where id = '${jsh}';`);
 
   // ── 1. Sign-in through the Auth send-email hook ─────────────────────────────
@@ -367,6 +369,10 @@ function audit(table, afterId, extra = '') {
   await b.close();
   // The admin is back to one community, so the next run's sign-in is JSH-branded again.
   sql(`update app.role_grants set ends_at = now() where center_id = '${sbx}' and user_id = '${adminUid}'`);
+  // Granting center_admin on a center with no owner made the admin its owner (0151): take that back too, or
+  // the admin stays the owner of a sandbox that requires staff 2FA, and every later flow's step-up asks the
+  // admin for a 2FA check (test data only; the sandbox is this run's own).
+  sql(`delete from app.center_owners where center_id = '${sbx}' and user_id = '${adminUid}'`);
   sql(`update app.centers set rules = rules #- '{notifications,quiet_start_hour}' #- '{notifications,quiet_end_hour}' where id = '${jsh}'`);
   console.log(failures === 0 ? 'ALL PASS' : `${failures} FAILED`);
 })().catch((e) => { console.error(e); process.exit(1); });
