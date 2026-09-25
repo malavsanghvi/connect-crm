@@ -6,7 +6,16 @@ import { Alert, Badge, BlockGrid, Card, DefinitionList, EmptyState, NoAccess, Pa
 import { formatDate, formatDateTime } from "@/lib/dates";
 import { QBO_PURPOSES } from "@/lib/labels";
 import { canAccess } from "@/lib/permissions";
-import { accountChoices, COMPANY_LABEL, connectionSummary, setupSteps, type PulledAccount, type QboStatus } from "@/lib/qbo/setup";
+import {
+  accountChoices,
+  COMPANY_LABEL,
+  connectionSummary,
+  setupSteps,
+  TEST_POST_EXPLAINED,
+  TEST_POST_HOW_TO_VOID,
+  type PulledAccount,
+  type QboStatus,
+} from "@/lib/qbo/setup";
 import { param, type RawSearchParams } from "@/lib/search-params";
 import { getSession } from "@/lib/session";
 
@@ -475,12 +484,29 @@ export default async function QboSetupPage({ searchParams }: { searchParams: Pro
                 </ActionForm>
               ) : null}
               {canManage && s.settings.mapping_approved_at && connected ? (
-                <ActionForm action={runQboTestPostAction} submitLabel={test ? "Run the test post again" : "Run the test post"} pendingLabel="Queuing…" variant="secondary" size="sm">
+                <ActionForm
+                  action={runQboTestPostAction}
+                  submitLabel={test ? "Run the test post again" : "Run the test post"}
+                  pendingLabel="Queuing…"
+                  variant="secondary"
+                  size="sm"
+                  confirmMessage={!conn.read_only && conn.provider === "quickbooks_online"
+                    ? `Post four real $1.00 entries to your QuickBooks company?\n${TEST_POST_EXPLAINED} ${TEST_POST_HOW_TO_VOID}`
+                    : undefined}
+                >
                   {!conn.read_only && conn.provider === "quickbooks_online" ? (
-                    <label className="mb-2 flex items-start gap-2 text-sm">
-                      <input type="checkbox" name="confirm_real" className="mt-1" />
-                      <span>I understand this creates four $1.00 entries marked “Community Connect test post” in our real QuickBooks company; I will void them there.</span>
-                    </label>
+                    <>
+                      <div className="mb-2" data-testid="qbo-test-post-explained">
+                        <Alert tone="warning">
+                          <span className="font-semibold">Before you run it: </span>
+                          {TEST_POST_EXPLAINED} {TEST_POST_HOW_TO_VOID}
+                        </Alert>
+                      </div>
+                      <label className="mb-2 flex items-start gap-2 text-sm">
+                        <input type="checkbox" name="confirm_real" className="mt-1" />
+                        <span>I understand this creates four real $1.00 entries marked “Community Connect test post” in our QuickBooks company, and I will void them there.</span>
+                      </label>
+                    </>
                   ) : null}
                   <ReasonField id="qbo-test-reason" placeholder="e.g. Checking the mapping before go-live" />
                 </ActionForm>

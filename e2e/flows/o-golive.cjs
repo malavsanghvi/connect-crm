@@ -150,7 +150,11 @@ async function switchTo(p, slug, name) {
   await p.getByTestId('center-switcher').click();
   const item = p.getByRole('menuitemradio').filter({ hasText: slug });
   await item.scrollIntoViewIfNeeded();
+  // The switcher shows the chosen name at once and then reloads the whole page (window.location.assign):
+  // wait for that load, or the next goto is interrupted by it.
+  const reloaded = p.waitForEvent('load', { timeout: 30000 });
   await item.dispatchEvent('click'); // a long list (a platform admin sees every organization) can run past the window
+  await reloaded;
   await p.waitForFunction((n) => (document.querySelector('[data-testid=center-switcher]')?.textContent || '').includes(n), name, { timeout: 30000 });
   await p.waitForLoadState('networkidle');
 }

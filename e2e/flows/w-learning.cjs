@@ -9,6 +9,7 @@
 // audit trail (module, client_app, client_screen). Test data it needs (a teen's own login, a local
 // storage bucket) is created here, never in app code. Journeys are re-runnable on the same stack.
 const { chromium } = require(process.env.PLAYWRIGHT || '/opt/node22/lib/node_modules/playwright');
+const { acceptLegalStep } = require('../legal-step.cjs');
 const { execSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
@@ -143,6 +144,7 @@ async function memberLogin(browser, email) {
   if (await verify.isVisible().catch(() => false)) await verify.click();
   await p.waitForURL((u) => !u.pathname.startsWith('/sign-in'), { timeout: 60000 });
   await p.waitForTimeout(2500);
+  await acceptLegalStep(p, sql);   // the first-sign-in legal step, when the community has published member documents
   return p;
 }
 /** Open a member route and wait for the screen to settle. */

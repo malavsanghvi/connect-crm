@@ -57,13 +57,32 @@ const loaders: Record<TaskSourceKey, Loader> = {
         .order("updated_at")
         .limit(25),
     );
-    if (rows.length === 0) return [];
+    // Refunds made in the Stripe / PayPal dashboard wait for two approvals (owner decision 2026-09-25 #6).
+    const flagged = must(await db.rpc("flagged_refunds", { p_center: center.id })) as unknown as {
+      id: string; provider: string; amount_cents: number; household_id: string; receipt_number: string | null;
+      first_approver: string | null; first_approver_name: string | null;
+    }[];
+    if (rows.length === 0 && flagged.length === 0) return [];
+    const flaggedHh = await householdsById(db, flagged.map((f) => f.household_id));
+    const flaggedTasks = flagged.map((f) =>
+      makeTask(
+        "refund",
+        f.id,
+        `Approve refund made in ${f.provider === "paypal" ? "PayPal" : "Stripe"} · ${formatCents(f.amount_cents, center.currency)} · ${
+          flaggedHh.map.get(f.household_id)?.display_name ?? "household"}`,
+        f.first_approver
+          ? `Approved first by ${f.first_approver === session.userId ? "you" : (f.first_approver_name ?? "a colleague")} · a second, different person approves`
+          : `Refunded outside Community Connect on ${f.receipt_number ?? "a payment"} · nothing changes until two people approve`,
+        [{ label: "Review", href: "/giving/payments" }],
+      ),
+    );
+    if (rows.length === 0) return flaggedTasks;
     const [hh, names] = await Promise.all([
       householdsById(db, rows.map((r) => r.household_id)),
       userNames(db, center.id, rows.map((r) => r.refund_approved_by)),
     ]);
     const canApprove = can(session, "giving.approve");
-    return rows.map((r) => {
+    return [...flaggedTasks, ...rows.map((r) => {
       const amount = formatCents(r.refund_requested_cents ?? r.amount_cents, center.currency);
       const household = hh.map.get(r.household_id)?.display_name ?? "household";
       const mine = r.refund_approved_by === session.userId;
@@ -92,7 +111,7 @@ const loaders: Record<TaskSourceKey, Loader> = {
             }
           : undefined,
       );
-    });
+    })];
   },
 
   async writeoff(session) {

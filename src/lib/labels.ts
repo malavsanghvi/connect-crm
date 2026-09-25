@@ -100,6 +100,11 @@ export const QBO_PURPOSES: { purpose: string; label: string; hint: string }[] = 
   { purpose: "undeposited_funds", label: "Undeposited funds", hint: "Checks and cash until the deposit" },
   { purpose: "pledges_receivable", label: "Pledges receivable", hint: "Only used on accrual basis" },
   { purpose: "stock_clearing", label: "Stock clearing", hint: "Stock gifts until sold" },
+  {
+    purpose: "pledge_writeoffs",
+    label: "Pledge write-offs",
+    hint: "Written-off pledge balances (bad debt expense, or a contra-income account); a QuickBooks item must post to it",
+  },
 ];
 
 export const LEDGER_TXN_LABEL: Record<string, string> = {
@@ -114,6 +119,7 @@ export const LEDGER_TXN_LABEL: Record<string, string> = {
   bank_receipt: "Bank receipt",
   stock_gift: "Stock gift",
   pledge_receivable: "Pledge receivable",
+  pledge_writeoff: "Pledge write-off",
   membership_fee: "Membership fee",
   adjustment: "Adjustment",
 };

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { buildCaddySites, isPublicIPv4, normalizeDomain, parseSite } from "../deploy/caddy-sites.mjs";
+import { APP_HTTPS_PORTS, buildAppSites, buildCaddySites, isPublicIPv4, normalizeDomain, parseSite } from "../deploy/caddy-sites.mjs";
 
 const base = { app: "crm", port: 3000 };
 
@@ -115,5 +115,94 @@ describe("buildCaddySites", () => {
     expect(files["00-on-demand-crm.caddy"]).toContain("local_certs");
     expect(files["crm.caddy"]).toContain("redir @https_ready https://{host}:18443{uri} 308");
     expect(files["crm.caddy"]).not.toContain("profile shortlived");
+  });
+});
+
+// e-https-admin: connect-admin (the event-day app) on its own HTTPS port, next to the portal.
+describe("buildAppSites", () => {
+  const admin = { app: "admin", port: 3001 };
+
+  it("writes only the app's own file; the portal's shared pieces are never touched", () => {
+    const { files } = buildAppSites({ ...admin, site: ":8081" });
+    expect(Object.keys(files)).toEqual(["admin.caddy"]);
+    expect(files["admin.caddy"]).not.toMatch(/^\{/m); // no global options block: those are the portal's
+    expect(files["admin.caddy"]).not.toContain("on_demand_tls");
+  });
+
+  it("keeps http://…:8081 serving, and redirects to its own HTTPS port only for confirmed hosts", () => {
+    const main = buildAppSites({ ...admin, site: ":8081" }).files["admin.caddy"];
+    expect(APP_HTTPS_PORTS.admin).toBe(8444);
+    expect(main).toMatch(/^:8081 \{\n\t@https_ready \{\n\t\tfile \{\n\t\t\troot \/var\/lib\/connect-https\/confirmed\n\t\t\ttry_files \/\{host\}\n\t\t\}\n\t\tnot header_regexp Host \^\[0-9\.\]\+\(:\[0-9\]\+\)\?\$\n\t\}\n\tredir @https_ready https:\/\/\{host\}:8444\{uri\} 308\n\tencode zstd gzip\n\treverse_proxy 127.0.0.1:3001\n\}/m);
+    expect(main.match(/redir /g)).toHaveLength(1);
+    // Never onto the portal's :443 (HSTS would then pin the admin to the portal) nor :8081 itself.
+    expect(main).not.toContain("https://{host}{uri}");
+    expect(main).toContain("https://:8444 {\n\ttls {\n\t\ton_demand\n\t}");
+    expect(main).not.toContain("profile shortlived");
+  });
+
+  it("the droplet address gets the same short-lived IP certificate on 8444 when the portal has one", () => {
+    const main = buildAppSites({ ...admin, site: ":8081", publicIp: "134.122.25.56", ipCert: true }).files["admin.caddy"];
+    expect(main).toContain("https://134.122.25.56:8444 {\n\ttls {\n\t\tissuer acme {");
+    expect(main).toContain("profile shortlived");
+    // No http:// block for the IP on port 80: that is the portal's.
+    expect(main).not.toMatch(/^http:\/\//m);
+    const noIp = buildAppSites({ ...admin, site: ":8081", publicIp: "134.122.25.56", ipCert: false }).files["admin.caddy"];
+    expect(noIp).not.toContain("https://134.122.25.56");
+    // …and a confirmed droplet address is then never sent to an https:// that has no certificate here.
+    expect(noIp).toContain("\t\tnot header_regexp Host ^[0-9.]+(:[0-9]+)?$\n\t}\n\tredir @https_ready");
+    // With its own IP site, a confirmed address is redirected like any name.
+    const withIp = buildAppSites({ ...admin, site: ":8081", publicIp: "134.122.25.56", ipCert: true }).files["admin.caddy"];
+    expect(withIp).not.toContain("not header_regexp");
+    expect(withIp).toContain("\t@https_ready file {");
+  });
+
+  it("HSTS only for confirmed hosts, on every HTTPS site of the app", () => {
+    for (const site of [":8081", "admin.jsh.org"]) {
+      const main = buildAppSites({ ...admin, site, publicIp: "134.122.25.56", ipCert: true, hstsMaxAge: 600 }).files["admin.caddy"];
+      const httpsSites = main.match(/^https:\/\/[^\n]*\{$/gm) ?? [];
+      expect(httpsSites.length).toBe(site === ":8081" ? 2 : 3);
+      expect((main.match(/header @hsts Strict-Transport-Security "max-age=600"/g) ?? []).length).toBe(httpsSites.length);
+      expect(main).not.toContain("includeSubDomains");
+    }
+  });
+
+  it("an app SITE_DOMAIN gets its own http:// (conditional redirect) and https:// sites, plus 8444", () => {
+    const main = buildAppSites({ ...admin, site: "Admin.JSH.org" }).files["admin.caddy"];
+    expect(main).toContain("http://admin.jsh.org {");
+    expect(main).toContain("redir @https_ready https://{host}{uri} 308");
+    expect(main).toContain("https://admin.jsh.org {");
+    expect(main).toContain("https://:8444 {");
+    expect(main).not.toContain(":8081");
+  });
+
+  it("refuses ports that belong to the portal, and the portal's own name", () => {
+    expect(() => buildAppSites({ ...admin, site: ":80" })).toThrow(/portal/);
+    expect(() => buildAppSites({ ...admin, site: ":443" })).toThrow(/portal/);
+    expect(() => buildAppSites({ ...admin, site: ":8081", httpsPort: 443 })).toThrow(/already used/);
+    expect(() => buildAppSites({ ...admin, site: ":8081", httpsPort: 8443 })).toThrow(/already used/);
+    expect(() => buildAppSites({ ...admin, site: ":8081", httpsPort: 8081 })).toThrow(/already used/);
+    expect(() => buildAppSites({ app: "crm", port: 3000, site: ":80" })).toThrow(/buildCaddySites/);
+    expect(() => buildAppSites({ app: "mobile", port: 3002, site: ":8082" })).toThrow(/HTTPS port/);
+    expect(() => buildAppSites({ ...admin, site: "admin.jsh.org {\n}" })).toThrow();
+    expect(() => buildAppSites({ ...admin, site: ":8081", confirmedDir: "../x" })).toThrow(/confirmed/);
+  });
+
+  it("validates together with the portal's files: no port or name is defined twice", () => {
+    const portal = buildCaddySites({ ...base, site: ":80", publicIp: "134.122.25.56", ipCert: true }).files;
+    const app = buildAppSites({ ...admin, site: ":8081", publicIp: "134.122.25.56", ipCert: true }).files;
+    const addr = (text: string) => (text.match(/^[^\s#{}][^\n]*\{$/gm) ?? []).flatMap((l) => l.replace(/ \{$/, "").split(", "));
+    const portalAddrs = Object.values(portal).flatMap(addr);
+    for (const a of Object.values(app).flatMap(addr)) expect(portalAddrs).not.toContain(a);
+  });
+
+  it("test mode moves 80/443 and uses Caddy's local CA", () => {
+    const main = buildAppSites({
+      ...admin, site: "admin.cc-https.test", httpsPort: 18545, publicIp: "127.0.0.1", ipCert: true,
+      testing: { httpPort: 18580, httpsPort: 18543, localCerts: true },
+    }).files["admin.caddy"];
+    expect(main).toContain("http://admin.cc-https.test:18580 {");
+    expect(main).toContain("redir @https_ready https://{host}:18543{uri} 308");
+    expect(main).toContain("https://127.0.0.1:18545 {");
+    expect(main).not.toContain("profile shortlived");
   });
 });

@@ -7,7 +7,8 @@ import { QboCustomerLine } from "@/components/qbo-customer-line";
 import { MoreDetails } from "@/components/more-details";
 import { PeopleDrawers, drawerHref } from "@/app/(app)/people/_components/drawers";
 import { HistoryButton } from "@/components/record-history";
-import { Badge, BlockGrid, Card, DefinitionList, EmptyState, KeyValueRow, NoAccess, PageHeader, QueryError, TableWrap, buttonClass } from "@/components/ui";
+import { DrawerForm } from "@/components/drawer-form";
+import { Alert, Badge, BlockGrid, Card, DefinitionList, EmptyState, KeyValueRow, NoAccess, PageHeader, QueryError, TableWrap, buttonClass } from "@/components/ui";
 import { loadPersonRecord } from "@/lib/data/people-records";
 import { genderLabel, languageLabel, relationshipLabel, toUsDate } from "@/lib/people";
 import type { RawSearchParams } from "@/lib/search-params";
@@ -18,6 +19,8 @@ import { MEMBERSHIP_STATUS_TONE } from "@/lib/labels";
 import { canAccess } from "@/lib/permissions";
 import { isUuid } from "@/lib/search-params";
 import { getSession } from "@/lib/session";
+
+import { markDeceasedAction, undoDeceasedAction } from "../deceased-actions";
 
 export const metadata: Metadata = { title: "Person" };
 
@@ -42,7 +45,7 @@ export default async function PersonPage({ params, searchParams }: { params: Pro
   const personRes = await db
     .from("people")
     .select(
-      "id, first_name, last_name, preferred_name, member_number, date_of_birth, gender, email, phone_e164, language, profession, employer, is_verified, verified_at, is_deceased, merged_into_id, created_at",
+      "id, first_name, last_name, preferred_name, member_number, date_of_birth, gender, email, phone_e164, language, profession, employer, is_verified, verified_at, is_deceased, deceased_on, deceased_note, deceased_recorded_at, merged_into_id, created_at",
     )
     .eq("id", id)
     .eq("center_id", center.id)
@@ -124,11 +127,93 @@ export default async function PersonPage({ params, searchParams }: { params: Pro
                 <Link href={`/people/merge?person=${id}`} className={buttonClass("ghost")}>
                   Merge duplicate
                 </Link>
+                {person.is_deceased ? (
+                  <DrawerForm
+                    label="Undo deceased"
+                    variant="ghost"
+                    kicker="Deceased"
+                    title={`Undo "deceased" for ${name}`}
+                    subtitle="For a mistake, or the wrong person"
+                    action={undoDeceasedAction}
+                    submitLabel="Undo"
+                    confirmMessage={`Undo "deceased" for ${name}? They come back in the directory, lists and messages. Memberships ended by the mark are restored.`}
+                  >
+                    <input type="hidden" name="id" value={id} />
+                    <input type="hidden" name="name" value={name} />
+                    <input type="hidden" name="household_ids" value={currentHouseholds.map((l) => l.household_id).join(",")} />
+                    <div>
+                      <label htmlFor="undo-reason" className="crm-label">
+                        Reason (goes in the audit log)
+                      </label>
+                      <textarea id="undo-reason" name="reason" required maxLength={1000} className="crm-input min-h-16" />
+                    </div>
+                  </DrawerForm>
+                ) : (
+                  <DrawerForm
+                    label="Mark as deceased"
+                    variant="ghost"
+                    kicker="Deceased"
+                    title={`Mark ${name} as deceased`}
+                    subtitle="Their giving history and household records are kept"
+                    action={markDeceasedAction}
+                    submitLabel="Mark as deceased"
+                    confirmMessage={`Mark ${name} as deceased? No messages will be sent to them, they leave the directory, pickers and active counts, and memberships they hold end. It can be undone.`}
+                  >
+                    <input type="hidden" name="id" value={id} />
+                    <input type="hidden" name="name" value={name} />
+                    <input type="hidden" name="date_of_birth" value={person.date_of_birth ?? ""} />
+                    <input type="hidden" name="household_ids" value={currentHouseholds.map((l) => l.household_id).join(",")} />
+                    <div>
+                      <label htmlFor="dec-on" className="crm-label">
+                        Date of death
+                      </label>
+                      <input id="dec-on" name="deceased_on" type="date" required max={today} className="crm-input" />
+                    </div>
+                    <div>
+                      <label htmlFor="dec-note" className="crm-label">
+                        Note (optional)
+                      </label>
+                      <textarea id="dec-note" name="note" maxLength={2000} className="crm-input min-h-16" placeholder="For example: date approximate; the family marks the punyatithi." />
+                    </div>
+                    <div>
+                      <label htmlFor="dec-reason" className="crm-label">
+                        Reason (goes in the audit log)
+                      </label>
+                      <textarea id="dec-reason" name="reason" required maxLength={1000} className="crm-input min-h-16" placeholder="For example: their son called the office." />
+                    </div>
+                    <label className="flex items-start gap-2 text-[13px]">
+                      <input type="checkbox" name="confirm" className="mt-0.5" />
+                      <span>
+                        I confirm {name} has passed away. No messages of any kind will be sent to them; their pledges and payments stay on record.
+                      </span>
+                    </label>
+                  </DrawerForm>
+                )}
               </>
             ) : null}
           </>
         }
       />
+
+      {person.is_deceased ? (
+        <div className="mb-4" data-testid="deceased-banner">
+          <Alert tone="info" title={`In memory · ${name}${person.deceased_on ? ` · passed away ${formatDate(person.deceased_on, tz)}` : ""}`}>
+            Recorded as deceased{person.deceased_recorded_at ? ` on ${formatDate(person.deceased_recorded_at, tz)}` : ""}. No messages are sent to them; they are not in
+            the directory, pickers or active counts. Their giving history, household records and statements are kept.
+            {person.deceased_note ? <span className="mt-1 block">Note: {person.deceased_note}</span> : null}
+            {currentHouseholds.some((l) => l.is_primary) ? (
+              <span className="mt-1 block font-semibold">
+                They are still the primary member of{" "}
+                {currentHouseholds
+                  .filter((l) => l.is_primary)
+                  .map((l) => households.get(l.household_id)?.display_name ?? "a household")
+                  .join(" and ")}
+                . Open the household to choose a new primary member.
+              </span>
+            ) : null}
+          </Alert>
+        </div>
+      ) : null}
 
       <section aria-label="Identity" className="mb-6 grid grid-cols-2 gap-3 md:grid-cols-4">
         <div className="rounded-lg border border-line bg-card px-3 py-2.5">
@@ -144,7 +229,7 @@ export default async function PersonPage({ params, searchParams }: { params: Pro
         <div className="rounded-lg border border-line bg-card px-3 py-2.5">
           <p className="text-[0.6875rem] font-semibold uppercase tracking-wide text-muted">Status</p>
           <p className="mt-1 flex flex-wrap gap-1">
-            {person.is_deceased ? <Badge>Deceased</Badge> : null}
+            {person.is_deceased ? <Badge>Deceased{person.deceased_on ? ` · ${formatDate(person.deceased_on, tz)}` : ""}</Badge> : null}
             {person.merged_into_id ? <Badge tone="warning">Merged</Badge> : null}
             {person.is_verified ? <Badge tone="success">Verified</Badge> : <Badge tone="warning">Not verified</Badge>}
           </p>

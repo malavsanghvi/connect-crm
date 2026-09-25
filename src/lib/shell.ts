@@ -75,9 +75,13 @@ export function roleSummary(ctx: { roles: RoleLikeForShell[]; isPlatformAdmin: b
  * The sidebar footer, as in the prototype: "{role} · {n} permissions. Menus,
  * data and buttons follow your role, and the server enforces the same rules."
  */
-export function navFooter(ctx: { roles: RoleLikeForShell[]; isPlatformAdmin: boolean; permissions: readonly string[] }): string {
-  const role = roleSummary(ctx);
+export function navFooter(ctx: { roles: RoleLikeForShell[]; isPlatformAdmin: boolean; isOwner?: boolean; permissions: readonly string[] }): string {
+  const role = ctx.isOwner && ctx.roles.length === 0 && !ctx.isPlatformAdmin ? "Owner" : roleSummary(ctx);
   const n = ctx.permissions.length;
-  const count = ctx.isPlatformAdmin ? "all permissions (platform admin)" : `${n} permission${n === 1 ? "" : "s"}`;
+  const count = ctx.isPlatformAdmin
+    ? "all permissions (platform admin)"
+    : ctx.isOwner
+      ? "all permissions (owner)"
+      : `${n} permission${n === 1 ? "" : "s"}`;
   return `${role} · ${count}. Menus, data and buttons follow your role, and the server enforces the same rules.`;
 }

@@ -22,6 +22,7 @@
 //
 // STEPS=1,2,3 runs a subset (later steps look up what earlier ones created by name).
 const { chromium } = require(process.env.PLAYWRIGHT || '/opt/node22/lib/node_modules/playwright');
+const { acceptLegalStep } = require('../legal-step.cjs');
 const { execSync } = require('child_process');
 const fs = require('fs');
 
@@ -97,6 +98,7 @@ async function memberLogin(ctx, email) {
   await p.getByRole('button', { name: /verify/i }).first().click();
   await p.waitForURL((u) => !u.pathname.startsWith('/sign-in'), { timeout: 30000 });
   await p.waitForTimeout(2500);
+  await acceptLegalStep(p, sql);   // the first-sign-in legal step, when the community has published member documents
   return p;
 }
 

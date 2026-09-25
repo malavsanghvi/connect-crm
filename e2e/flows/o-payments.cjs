@@ -26,6 +26,7 @@
 //      route is captured by the worker from the approval webhook.
 //   9. A payout webhook → app.payouts and the payments carry it; Setup steps; readiness 6; Giving switch.
 const { chromium } = require(process.env.PLAYWRIGHT || '/opt/node22/lib/node_modules/playwright');
+const { acceptLegalStep } = require('../legal-step.cjs');
 const { execSync, spawn } = require('child_process');
 const crypto = require('crypto');
 const fs = require('fs');
@@ -272,6 +273,7 @@ const card = (p, title) => p.locator('section.cc-card').filter({ has: p.getByRol
     const v = m.getByRole('button', { name: /verify/i }).first(); if (await v.isVisible().catch(() => false)) await v.click();
     await m.waitForURL((u) => !/sign-in|verify/.test(u.pathname), { timeout: 60000 });
     await m.waitForTimeout(3000);
+    await acceptLegalStep(m, sql);   // the first-sign-in legal step, when the community has published member documents
     await m.goto(MEMBER + '/give', { waitUntil: 'networkidle' });
     await m.getByText('How to give').first().waitFor({ timeout: 20000 });
     const giveText = await m.innerText('body');

@@ -114,6 +114,8 @@ export async function searchPeople(db: AppSupabase, centerId: string, query: str
     .select("id, first_name, last_name, preferred_name, email, member_number")
     .eq("center_id", centerId)
     .is("merged_into_id", null)
+    // Pickers never offer someone recorded as deceased (0420; the database refuses them too).
+    .eq("is_deceased", false)
     .limit(20);
   const digits = q.replace(/\D/g, "");
   if (digits.length >= 7) builder = builder.like("phone_e164", `%${digits.slice(-10)}`);

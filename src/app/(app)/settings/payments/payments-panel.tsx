@@ -133,7 +133,6 @@ function ProcessorCard({ p, s, tz, run, busy, askReason }: { p: ProcessorSetting
   const connected = p.status === "test" || p.status === "live";
   const [methods, setMethods] = useState<string[]>(p.methods.length ? p.methods : [ONLINE_METHODS[p.processor][0].key]);
   const [descriptor, setDescriptor] = useState(p.statement_descriptor ?? "");
-  const [coverFee, setCoverFee] = useState(p.donor_covers_fee_allowed);
   const [email, setEmail] = useState(s.paypal_email_pending?.email ?? "");
   const [code, setCode] = useState("");
   const descId = useId();
@@ -306,6 +305,11 @@ function ProcessorCard({ p, s, tz, run, busy, askReason }: { p: ProcessorSetting
           {!s.forced_test && !lastLive?.ok ? <p className="text-muted">Go-live needs a passing live-mode test on the default processor.</p> : null}
         </div>
 
+        <p className="text-[13px]" data-testid={`donor-fee-${p.processor}`}>
+          <span className="font-semibold">Donors covering the processing fee:</span> <StatusText tone="warn">Not offered yet</StatusText>{" "}
+          <span className="text-muted">No fee is ever added to a gift: the donor pays exactly the amount they choose.</span>
+        </p>
+
         {connected && s.can_configure ? (
           <div className="flex flex-col gap-2 border-t border-line pt-3">
             <fieldset>
@@ -326,16 +330,11 @@ function ProcessorCard({ p, s, tz, run, busy, askReason }: { p: ProcessorSetting
               <input id={descId} className="crm-input mt-1 w-64" maxLength={22} value={descriptor} onChange={(e) => setDescriptor(e.target.value)} />
             </label>
             {descProblem ? <p className="text-danger">{descProblem}</p> : null}
-            <div>
-              <Toggle label="Donors may cover the processing fee" checked={coverFee} onChange={setCoverFee}
-                onNote="Donors may cover the fee" offNote="Donors are not asked to cover the fee" />
-              <p className="text-muted">Saved as the organization&apos;s choice. Checkout does not add the fee yet: how a covered fee is recorded against pledges is waiting for an owner decision.</p>
-            </div>
             <div className="flex flex-wrap gap-2">
               <button type="button" className={buttonClass("primary", "sm")} disabled={busy !== null || !!descProblem || methods.length === 0}
                 onClick={() => askReason({
                   title: `Save the ${label} settings`, confirmLabel: "Save", body: null,
-                  run: async (reason) => void (await run(`save-${p.processor}`, `save the ${label} settings`, () => saveProcessorAction(p.processor, methods, descriptor, coverFee, reason))),
+                  run: async (reason) => void (await run(`save-${p.processor}`, `save the ${label} settings`, () => saveProcessorAction(p.processor, methods, descriptor, reason))),
                 })}>
                 Save {label} settings
               </button>

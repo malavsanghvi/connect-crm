@@ -32,6 +32,7 @@
 //
 // Test data is created here (a second staff login, a duplicate household); nothing in the apps is faked.
 const { chromium } = require(process.env.PLAYWRIGHT || '/opt/node22/lib/node_modules/playwright');
+const { acceptLegalStep } = require('../legal-step.cjs');
 const { execSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
@@ -119,6 +120,7 @@ async function memberLogin(browser, email) {
   const verify = p.getByRole('button', { name: /verify/i }).first();
   if (await verify.isVisible().catch(() => false)) await verify.click();
   await p.waitForTimeout(3500);
+  await acceptLegalStep(p, sql);   // the first-sign-in legal step, when the community has published member documents
   return p;
 }
 
@@ -175,6 +177,7 @@ const journeys = {
     await m.getByLabel('Last name').fill(`Kothari${RUN.slice(-3)}`);
     await m.getByRole('button', { name: /start my family/i }).click();
     await m.waitForURL(/\/about/, { timeout: 20000 });
+    await acceptLegalStep(m, sql);   // a new member answers the community's published documents first (#20)
     state.person = sql(`select p.id from app.people p join app.center_users cu on cu.person_id = p.id join auth.users u on u.id = cu.user_id where u.email = '${state.email}'`);
     state.household = sql(`select household_id from app.household_members where person_id = '${state.person}' and left_at is null`);
     ok(!!state.person && !!state.household, 'a person and a new household exist for the new login');
@@ -436,7 +439,7 @@ const journeys = {
     try {
       await setModule(adminToken, 'membership', false, `e2e: membership off ${RUN}`);
       await setModule(adminToken, 'comms', false, `e2e: comms off ${RUN}`);
-      ok(sql("select string_agg(module_key||'='||enabled, ',' order by module_key) from app.center_modules where module_key in ('membership','comms')") === 'comms=false,membership=false', 'Membership and Communications switched off (with reasons)');
+      ok(sql(`select string_agg(module_key||'='||enabled, ',' order by module_key) from app.center_modules where center_id = '${CENTER}' and module_key in ('membership','comms')`) === 'comms=false,membership=false', 'Membership and Communications switched off (with reasons)');
       // Portal: direct URLs show the notice; the tab and nav disappear.
       const admin = await portalLogin(b, 'admin@jsh.test');
       for (const url of ['/memberships/applications', '/people/voting', '/comms', '/comms/inbox', '/comms/whatsapp', '/comms/newsletters']) {
@@ -470,7 +473,7 @@ const journeys = {
       await setModule(adminToken, 'comms', true, `e2e: comms back on ${RUN}`).catch((e) => ok(false, 'switch comms back on: ' + e.message));
       await setModule(adminToken, 'membership', true, `e2e: membership back on ${RUN}`).catch((e) => ok(false, 'switch membership back on: ' + e.message));
     }
-    ok(sql("select count(*) from app.center_modules where module_key in ('membership','comms') and not enabled") === '0', 'both modules back on');
+    ok(sql(`select count(*) from app.center_modules where center_id = '${CENTER}' and module_key in ('membership','comms') and not enabled`) === '0', 'both modules back on');
     ok(sql(`select count(*) from app.audit_log where record_table = 'center_modules' and reason like 'e2e: % ${RUN}'`) === '4', 'every switch is audited with its reason');
   },
 
@@ -555,7 +558,12 @@ const journeys = {
     await m.context().close();
     const admin = await portalLogin(b, 'admin@jsh.test');
     await admin.goto(PORTAL + '/settings/privacy', { waitUntil: 'networkidle' });
-    ok(/don't have access/i.test(await admin.innerText('main')), 'without privacy.manage the admin is told they have no access to data requests');
+    // Owner decision #2 (2026-09-25): the organization's owner holds every permission. The demo's admin@jsh.test
+    // is JSH's owner, so it opens Settings › Privacy; a center admin who is not the owner still has no access.
+    const adminIsOwner = sql(`select count(*) from app.center_owners co join auth.users u on u.id = co.user_id where co.center_id = '${CENTER}' and u.email = 'admin@jsh.test'`) === '1';
+    const adminPriv = await admin.innerText('main');
+    ok(adminIsOwner ? !/don't have access/i.test(adminPriv) && /Kiran Mehta/.test(adminPriv) : /don't have access/i.test(adminPriv),
+      adminIsOwner ? 'the owner (every permission, decision #2) sees the data requests in Settings › Privacy' : 'without privacy.manage the admin is told they have no access to data requests');
     await admin.context().close();
     await ensureSecondStaff('neha@jsh.test', 'JSH-90006');
     sql(`insert into app.role_grants (center_id, user_id, role_key, scope_kind, reason) select '${CENTER}', id, 'privacy_officer', 'center', 'e2e test login' from auth.users where email = 'neha@jsh.test' and not exists (select 1 from app.role_grants g where g.user_id = auth.users.id and g.role_key = 'privacy_officer' and g.ends_at is null)`);

@@ -1,6 +1,6 @@
 import { CustomDetailsCell } from "@/components/custom-details-cell";
 import { Badge, Card, EmptyState, NoAccess, QueryError, TableWrap } from "@/components/ui";
-import { loadCustomFieldDefs } from "@/lib/data/custom-fields";
+import { loadCustomFieldDefs, withCustomValues } from "@/lib/data/custom-fields";
 import { formatDate } from "@/lib/dates";
 import { PLEDGE_STATUS_LABEL, PLEDGE_STATUS_TONE } from "@/lib/labels";
 import { formatCents, sumCents } from "@/lib/money";
@@ -26,7 +26,9 @@ export async function PledgesTab({ session, householdId }: { session: CrmSession
   const editCustom = canAccess(session, "givingManage");
   if (pRes.error) return <QueryError what="pledges" error={pRes.error} retryHref={retry} />;
   const campaign = new Map((cRes.data ?? []).map((c) => [c.id, c.name]));
-  const pledges = pRes.data ?? [];
+  const withCustom = defs.defs.length ? await withCustomValues(db, "pledges", pRes.data ?? []) : { rows: pRes.data ?? [], error: null };
+  if (withCustom.error) return <QueryError what="the pledges' custom details" error={withCustom.error} retryHref={retry} />;
+  const pledges = withCustom.rows;
   const outstanding = pledges.filter((p) => p.status === "open" || p.status === "partially_paid");
 
   return (

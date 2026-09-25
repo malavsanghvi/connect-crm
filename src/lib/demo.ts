@@ -65,6 +65,7 @@ const TABLE_LABEL: Record<string, string> = {
   household_change_requests: "Family change requests",
   staff_invitations: "Staff invitations",
   custom_field_definitions: "Custom fields",
+  custom_staff_values: "Staff-only custom values",
   memberships: "Memberships",
   membership_types: "Membership types",
   membership_applications: "Applications",

@@ -1,0 +1,284 @@
+-- Wave E · stream e-money · 4 of 5: pledge history import rules (owner decision
+-- 2026-09-25 #24).
+--
+--   Opening balances. When a pledge was paid partly before the payment history
+--   being imported begins, what was paid before it comes in as ONE historical
+--   opening-balance line per pledge: a payment marked is_historical (never posted
+--   to QuickBooks) and is_opening_balance, allocated to the pledge. It is created
+--   after the payment history is imported (Settings › Import › the pledges import ›
+--   "Bring in opening balances"): for each pledge of the run, the file's
+--   "paid so far" minus what the imported payments already applied to it. Its
+--   date is the day before the pledge's earliest imported payment (else the
+--   pledge date). Running it again adds nothing; undoing the pledges import
+--   removes the lines with it.
+--
+--   Written-off pledges import as written off: status written_off, closed (the
+--   file's closed / written-off date, else the day of the import) and unpaid (the
+--   written-off balance is never counted as paid), with who wrote it off
+--   (pledges.written_off_by_name, a name from the old system — not a login) and
+--   why (write_off_reason) when the file has them. It is history: an insert, so
+--   the two-person rule (which guards changing a pledge to written off) and the
+--   QuickBooks write-off posting (0412) do not apply. An import can never write
+--   off a pledge that already exists open in Community Connect: that stays a
+--   two-person write-off on the Pledges screen.
+set client_min_messages = warning;
+
+alter table app.payments add column if not exists is_opening_balance boolean not null default false;
+comment on column app.payments.is_opening_balance is
+  'An imported opening-balance line: what was paid on a pledge before the imported payment history begins (owner decision 2026-09-25 #24). Always historical.';
+alter table app.payments drop constraint if exists payments_opening_balance_historical;
+alter table app.payments add constraint payments_opening_balance_historical check (not is_opening_balance or is_historical);
+
+alter table app.pledges add column if not exists written_off_by_name text;
+alter table app.pledges drop constraint if exists pledges_written_off_by_name_len;
+alter table app.pledges add constraint pledges_written_off_by_name_len
+  check (written_off_by_name is null or char_length(written_off_by_name) <= 200);
+comment on column app.pledges.written_off_by_name is
+  'Who wrote the pledge off in the system it was imported from (a name, not a login). Written-off pledges imported as history (owner decision 2026-09-25 #24).';
+
+-- The import may write these pledge columns now (write_off_reason, written_off_by_name): the
+-- allow-list, re-seeded from src/lib/import/registry.ts (tests/import-registry.test.ts checks it).
+-- BEGIN import_entities seed (generated from src/lib/import/registry.ts)
+insert into app.import_entities (key, label, tier, sort, target_table, write_perms, module_key, columns, extras, natural_key, money_columns, has_center) values
+  ('zones', 'Zones and ZIP codes', 'setup', 30, 'zones', array['settings.manage'], 'people',
+   array['name','zip_codes'],
+   '{}'::text[], array['name'], '{}'::text[], true),
+  ('inboxes', 'Inboxes', 'setup', 31, 'inboxes', array['settings.manage'], 'comms',
+   array['key','name','response_target_hours'],
+   '{}'::text[], array['key'], '{}'::text[], true),
+  ('bank_accounts', 'Bank accounts', 'setup', 32, 'bank_accounts', array['accounting.manage'], 'giving',
+   array['active','institution','last4','name','statement_format'],
+   '{}'::text[], array['name'], '{}'::text[], true),
+  ('funds', 'Funds', 'setup', 33, 'funds', array['giving.manage'], 'giving',
+   array['active','key','name','qbo_class_id','restricted'],
+   '{}'::text[], array['key'], '{}'::text[], true),
+  ('membership_types', 'Membership types', 'setup', 34, 'membership_types', array['settings.manage'], 'membership',
+   array['active','ec_approval_required','fee_cents','includes_spouse','key','name','period_months','reference_required','tier','voting_wait_days'],
+   '{}'::text[], array['key'], '{}'::text[], true),
+  ('store_categories', 'Store categories', 'setup', 35, 'store_categories', array['store.manage'], 'store',
+   array['name','sort_order'],
+   '{}'::text[], array['name'], '{}'::text[], true),
+  ('calendar_layers', 'Calendar layers', 'setup', 36, 'calendar_layers', array['content.manage'], 'calendar',
+   array['color','default_on','key','kind','name','source_url'],
+   '{}'::text[], array['key'], '{}'::text[], true),
+  ('pathshala_tracks', 'Pathshala tracks', 'setup', 37, 'pathshala_tracks', array['pathshala.manage'], 'pathshala',
+   array['key','name'],
+   '{}'::text[], array['key'], '{}'::text[], true),
+  ('pathshala_terms', 'Pathshala terms', 'setup', 38, 'pathshala_terms', array['pathshala.manage'], 'pathshala',
+   array['ends_on','fee_per_child_cents','fee_per_family_cap_cents','membership_required','name','registration_closes_at','registration_opens_at','sibling_discount_pct','starts_on','status'],
+   '{}'::text[], array['name'], '{}'::text[], true),
+  ('practices', 'Practices (My Jain Way)', 'setup', 39, 'practices', array['content.manage'], 'jain_way',
+   array['active','category','default_minutes','description','key','name','points','sort_order'],
+   '{}'::text[], array['key'], '{}'::text[], true),
+  ('gyan_goals', 'Gyan Path goals', 'setup', 40, 'gyan_goals', array['content.manage'], 'gyan_path',
+   array['description','key','name','recommended','sort_order'],
+   '{}'::text[], array['key'], '{}'::text[], true),
+  ('campaigns', 'Campaigns', 'setup', 50, 'campaigns', array['giving.manage'], 'giving',
+   array['description','ends_on','fund_id','goal_cents','kind','name','starts_on','status'],
+   '{}'::text[], array['name'], array['goal_cents'], true),
+  ('event_templates', 'Event templates', 'setup', 51, 'event_templates', array['events.manage'], 'events',
+   array['description','name'],
+   '{}'::text[], array['name'], '{}'::text[], true),
+  ('event_template_items', 'Event template checklist items', 'setup', 52, 'event_template_items', array['events.manage'], 'events',
+   array['name','offset_days','phase','priority','sort_order','template_id'],
+   '{}'::text[], array['template_id','name'], '{}'::text[], true),
+  ('volunteer_groups', 'Volunteer groups', 'setup', 53, 'volunteer_groups', array['volunteers.manage'], 'volunteers',
+   array['name','requires_background_check','requires_waiver_kind'],
+   '{}'::text[], array['name'], '{}'::text[], true),
+  ('pathshala_levels', 'Pathshala levels', 'setup', 54, 'pathshala_levels', array['pathshala.manage'], 'pathshala',
+   array['key','max_age','min_age','name','sort_order','track_id'],
+   '{}'::text[], array['track_id','key'], '{}'::text[], true),
+  ('gyan_levels', 'Gyan Path levels', 'setup', 55, 'gyan_levels', array['content.manage'], 'gyan_path',
+   array['chapter','goal_id','key','name','points','requires_teacher_signoff','sort_order'],
+   '{}'::text[], array['goal_id','key'], '{}'::text[], false),
+  ('gyan_steps', 'Gyan Path steps', 'setup', 60, 'gyan_steps', array['content.manage'], 'gyan_path',
+   array['kind','level_id','points','sort_order','title'],
+   '{}'::text[], array['level_id','title'], '{}'::text[], false),
+  ('opportunities', 'Opportunities and sponsorships', 'setup', 70, 'opportunities', array['giving.manage'], 'giving',
+   array['amount_cents','campaign_id','description','kind','min_amount_cents','name','quantity_available','sort_order','status'],
+   '{}'::text[], array['campaign_id','name'], array['amount_cents'], true),
+  ('labh_options', 'Labh options', 'setup', 71, 'labh_options', array['giving.manage'], 'giving',
+   array['active','amount_cents','campaign_id','fund_id','name','sort_order'],
+   '{}'::text[], array['name'], array['amount_cents'], true),
+  ('pickup_windows', 'Store pickup windows', 'setup', 72, 'pickup_windows', array['store.manage'], 'store',
+   array['capacity','ends_at','location','order_cutoff_at','starts_at'],
+   '{}'::text[], array['starts_at'], '{}'::text[], true),
+  ('pathshala_classes', 'Pathshala classes', 'setup', 73, 'pathshala_classes', array['pathshala.manage'], 'pathshala',
+   array['capacity','ends_time','level_id','meets_on','name','room','starts_time','term_id'],
+   '{}'::text[], array['term_id','name'], '{}'::text[], true),
+  ('whatsapp_groups', 'WhatsApp groups', 'setup', 74, 'whatsapp_groups', array['comms.send'], 'comms',
+   array['active','audience','description','name','zone_id'],
+   '{}'::text[], array['name'], '{}'::text[], true),
+  ('households', 'Households', 'records', 100, 'households', array['people.manage'], 'people',
+   array['address_line1','address_line2','city','directory_opt_in','display_name','household_number','notes','physical_mail_opt_in','postal_code','state_region','zone_id'],
+   array['crm_id','legacy_id'], '{}'::text[], '{}'::text[], true),
+  ('people', 'People', 'records', 101, 'people', array['people.manage'], 'people',
+   array['date_of_birth','email','employer','first_name','gender','is_deceased','language','last_name','member_number','phone_e164','preferred_name','profession'],
+   array['crm_id','email_opt_in','email_opt_in_date','email_opt_in_source','full_name','household_id','is_primary','legacy_id','other_emails','relationship'], '{}'::text[], '{}'::text[], true),
+  ('household_members', 'Household members and relationships', 'records', 110, 'household_members', array['people.manage'], 'people',
+   array['household_id','is_primary','joined_at','left_at','person_id','role'],
+   '{}'::text[], '{}'::text[], '{}'::text[], true),
+  ('external_ids', 'Identifiers', 'records', 111, 'external_ids', array['people.manage','giving.manage'], 'people',
+   array['household_id','kind','label','person_id','system','value'],
+   '{}'::text[], '{}'::text[], '{}'::text[], true),
+  ('channel_optins', 'Consents, opt-ins and opt-outs', 'records', 112, 'channel_optins', array['comms.send'], 'comms',
+   array['address','channel','opted_in','person_id','recorded_at','source'],
+   '{}'::text[], '{}'::text[], '{}'::text[], true),
+  ('special_days', 'Special days', 'records', 120, 'special_days', array['people.manage'], 'people',
+   array['calendar_date','household_id','kind','label','person_id','tithi','tithi_month'],
+   '{}'::text[], '{}'::text[], '{}'::text[], true),
+  ('memberships', 'Memberships (current and past)', 'records', 121, 'memberships', array['people.manage'], 'membership',
+   array['crm_external_id','ends_on','household_id','membership_type_id','notes','person_id','starts_on','status'],
+   '{}'::text[], '{}'::text[], '{}'::text[], true),
+  ('pathshala_enrollments', 'Pathshala enrollments', 'records', 122, 'pathshala_enrollments', array['pathshala.manage'], 'pathshala',
+   array['class_id','household_id','notes','status','student_person_id','term_id'],
+   '{}'::text[], array['term_id','student_person_id'], '{}'::text[], true),
+  ('pathshala_teachers', 'Pathshala teachers', 'records', 123, 'pathshala_teachers', array['pathshala.manage'], 'pathshala',
+   array['class_id','person_id','role'],
+   '{}'::text[], array['class_id','person_id'], '{}'::text[], true),
+  ('volunteer_interests', 'Volunteer interests', 'records', 124, 'volunteer_interests', array['volunteers.manage'], 'volunteers',
+   array['group_id','person_id','status'],
+   '{}'::text[], array['person_id','group_id'], '{}'::text[], true),
+  ('background_checks', 'Background checks', 'records', 125, 'background_checks', array['safety.manage'], 'volunteers',
+   array['cleared_on','expires_on','person_id','provider','status'],
+   '{}'::text[], '{}'::text[], '{}'::text[], true),
+  ('store_items', 'Store items and opening stock', 'records', 130, 'store_items', array['store.manage'], 'store',
+   array['category_id','description','low_stock_threshold','name','pack_size','price_cents','qbo_item_id','sku','status','taxable','track_inventory'],
+   array['opening_stock'], array['sku'], array['price_cents'], true),
+  ('pledges', 'Pledges', 'history', 200, 'pledges', array['giving.manage'], 'giving',
+   array['amount_cents','anonymous','campaign_id','closed_at','crm_external_id','dedication','due_on','fund_id','household_id','pledge_number','pledged_at','pledged_by_person_id','source','status','write_off_reason','written_off_by_name'],
+   array['paid_so_far'], '{}'::text[], array['amount_cents','paid_so_far'], true),
+  ('payments', 'Payments (history)', 'history', 210, 'payments', array['giving.manage'], 'giving',
+   array['amount_cents','check_number','crm_external_id','household_id','memo','method','payer_person_id','provider_ref','receipt_number','received_on','status'],
+   array['allocate_to','allocation_cents'], '{}'::text[], array['amount_cents'], true),
+  ('payment_allocations', 'Payment allocations', 'history', 220, 'payment_allocations', array['giving.manage'], 'giving',
+   array['amount_cents','payment_id','pledge_id'],
+   '{}'::text[], array['payment_id','pledge_id'], array['amount_cents'], true),
+  ('recurring_gifts', 'Recurring gifts', 'history', 230, 'recurring_gifts', array['giving.manage'], 'giving',
+   array['amount_cents','campaign_id','frequency','fund_id','household_id','method','next_charge_on','person_id','starts_on'],
+   array['legacy_id'], '{}'::text[], array['amount_cents'], true),
+  ('bolis', 'Past bolis', 'history', 240, 'bolis', array['bolis.manage'], 'bolis',
+   array['campaign_id','closes_at','event_id','kind','name'],
+   '{}'::text[], array['name'], '{}'::text[], true),
+  ('boli_entries', 'Boli results', 'history', 241, 'boli_entries', array['bolis.manage'], 'bolis',
+   array['amount_cents','boli_id','display_name','entered_at','household_id','person_id'],
+   array['legacy_id'], '{}'::text[], array['amount_cents'], true),
+  ('events', 'Past events', 'history', 242, 'events', array['events.manage'], 'events',
+   array['description','ends_at','name','program_year','starts_at','venue'],
+   array['legacy_id'], '{}'::text[], '{}'::text[], true),
+  ('attendees', 'Event attendance', 'history', 243, 'attendees', array['events.manage'], 'events',
+   array['checked_in_at','event_id','person_id'],
+   array['household_id'], '{}'::text[], '{}'::text[], true),
+  ('pathshala_attendance', 'Pathshala attendance', 'history', 244, 'pathshala_attendance', array['pathshala.manage'], 'pathshala',
+   array['note','status'],
+   array['class_id','held_on','student_person_id'], '{}'::text[], '{}'::text[], true)
+on conflict (key) do update set label = excluded.label, tier = excluded.tier, sort = excluded.sort, target_table = excluded.target_table,
+  write_perms = excluded.write_perms, module_key = excluded.module_key, columns = excluded.columns, extras = excluded.extras,
+  natural_key = excluded.natural_key, money_columns = excluded.money_columns, has_center = excluded.has_center;
+-- END import_entities seed
+
+-- ── Written-off pledges: prepared before the engine's own row logic ─────────
+do $$ begin
+  if to_regprocedure('app._import_apply_row_before_0413(app.import_runs,app.import_entities,app.import_rows)') is null then
+    alter function app.import_apply_row(app.import_runs, app.import_entities, app.import_rows) rename to _import_apply_row_before_0413;
+  end if;
+end $$;
+create or replace function app.import_apply_row(r app.import_runs, e app.import_entities, x app.import_rows) returns jsonb
+language plpgsql security definer set search_path = app, public, extensions as $$
+declare v_existing app.pledges; v_paid bigint;
+begin
+  if e.key = 'pledges' then
+    if x.data->>'status' = 'written_off' then
+      select * into v_existing from app.pledges
+       where center_id = r.center_id and x.data ? 'crm_external_id' and crm_external_id = x.data->>'crm_external_id';
+      if v_existing.id is null then
+        select p.* into v_existing from app.import_keys k join app.pledges p on p.id::text = k.record_id
+         where k.center_id = r.center_id and k.entity = 'pledges' and k.source_key = x.source_key;
+      end if;
+      if v_existing.id is not null and v_existing.status <> 'written_off' then
+        raise exception 'Pledge % is already in Community Connect and not written off. An import cannot write it off: write it off on the Pledges screen (two people approve it).',
+          coalesce(v_existing.pledge_number, v_existing.crm_external_id);
+      end if;
+      v_paid := coalesce((x.extra->>'paid_so_far')::bigint, 0);
+      if v_paid >= coalesce((x.data->>'amount_cents')::bigint, 0) then
+        raise exception 'A pledge that was paid in full cannot be imported as written off.';
+      end if;
+      if coalesce(x.data->>'closed_at', '') = '' then
+        x.data := x.data || jsonb_build_object('closed_at', now());
+      end if;
+    elsif coalesce(x.data->>'written_off_by_name', '') <> '' or coalesce(x.data->>'write_off_reason', '') <> '' then
+      -- Who / why only belong on a written-off pledge.
+      x.data := x.data - 'written_off_by_name' - 'write_off_reason';
+    end if;
+  end if;
+  return app._import_apply_row_before_0413(r, e, x);
+end $$;
+
+-- ── Opening balances ─────────────────────────────────────────────────────────
+-- What a pledges run would bring in: one row per pledge of the run whose file
+-- "paid so far" is more than what payments already applied to it.
+create or replace function app.import_opening_balance_plan(p_run uuid) returns jsonb
+language plpgsql stable security definer set search_path = app, public, extensions as $$
+declare r app.import_runs;
+begin
+  r := app.import_assert_run(p_run);
+  if r.entity <> 'pledges' then return jsonb_build_object('applies', false, 'rows', '[]'::jsonb); end if;
+  return jsonb_build_object('applies', true, 'rows', coalesce((
+    select jsonb_agg(jsonb_build_object('row', q.row_no, 'pledge_id', q.id, 'pledge', coalesce(q.crm_external_id, q.pledge_number),
+                                        'paid_so_far_cents', q.paid_so_far, 'applied_cents', q.applied, 'opening_cents', q.opening,
+                                        'already', q.already) order by q.row_no)
+      from (
+        select x.row_no, p.id, p.crm_external_id, p.pledge_number, (x.extra->>'paid_so_far')::bigint as paid_so_far,
+               coalesce((select sum(a.amount_cents) from app.payment_allocations a where a.pledge_id = p.id), 0)::bigint as applied,
+               least((x.extra->>'paid_so_far')::bigint, p.amount_cents)
+                 - coalesce((select sum(a.amount_cents) from app.payment_allocations a where a.pledge_id = p.id), 0)::bigint as opening,
+               exists (select 1 from app.payment_allocations a join app.payments pa on pa.id = a.payment_id
+                        where a.pledge_id = p.id and pa.is_opening_balance) as already
+          from app.import_rows x join app.pledges p on p.id::text = x.target_id
+         where x.run_id = r.id and x.status in ('created','updated','unchanged') and x.extra ? 'paid_so_far'
+           and p.status <> 'cancelled') q
+     where q.opening > 0 or q.already), '[]'::jsonb));
+end $$;
+
+create or replace function app.import_pledge_opening_balances(p_run uuid, p_reason text) returns jsonb
+language plpgsql security definer set search_path = app, public, extensions as $$
+declare r app.import_runs; q record; p app.pledges; v_on date; v_pay text; n_added int := 0; n_already int := 0; v_total bigint := 0;
+begin
+  r := app.import_assert_run(p_run);
+  if r.entity <> 'pledges' then raise exception 'Opening balances come from a pledges import (Import #% is %).', r.run_number, r.entity; end if;
+  if r.status not in ('committed','reconciled') then raise exception 'Import #% has not finished importing yet.', r.run_number; end if;
+  if app.audit_clean_reason(p_reason) is null then
+    raise exception 'Say why the opening balances are being brought in; the reason is kept in the audit log.';
+  end if;
+  perform app.set_audit_context(format('Opening balances · Import #%s · %s — %s', r.run_number, coalesce(r.file_name, r.entity), btrim(p_reason)),
+                                r.request_id);
+  perform set_config('app.client_app', 'import', true);
+  for q in select * from jsonb_to_recordset(app.import_opening_balance_plan(p_run)->'rows')
+             as t("row" int, pledge_id uuid, opening_cents bigint, already boolean) loop
+    if q.already then n_already := n_already + 1; continue; end if;
+    select * into p from app.pledges where id = q.pledge_id for update;
+    select min(pa.received_on) - 1 into v_on from app.payment_allocations a join app.payments pa on pa.id = a.payment_id
+     where a.pledge_id = p.id;
+    v_on := coalesce(v_on, p.pledged_at::date, current_date);
+    if p.pledged_at is not null and v_on < p.pledged_at::date then v_on := p.pledged_at::date; end if;
+    v_pay := app.import_add(r, q."row", 'payments', jsonb_build_object(
+      'center_id', r.center_id, 'household_id', p.household_id, 'payer_person_id', p.pledged_by_person_id,
+      'amount_cents', q.opening_cents, 'method', 'other', 'status', 'settled', 'provider', 'offline',
+      'is_historical', true, 'is_opening_balance', true, 'received_on', v_on, 'recorded_by', auth.uid(),
+      'crm_external_id', left('opening:' || coalesce(p.crm_external_id, p.pledge_number, p.id::text), 200),
+      'memo', left(format('Opening balance: paid on pledge %s before the imported payment history (Import #%s)',
+                          coalesce(p.crm_external_id, p.pledge_number, ''), r.run_number), 500)));
+    perform app.import_add_allocation(r, q."row", jsonb_build_object('center_id', r.center_id, 'payment_id', v_pay, 'pledge_id', p.id,
+                                                                     'amount_cents', q.opening_cents));
+    n_added := n_added + 1; v_total := v_total + q.opening_cents;
+  end loop;
+  return jsonb_build_object('added', n_added, 'already', n_already, 'total_cents', v_total);
+end $$;
+
+revoke execute on function app._import_apply_row_before_0413(app.import_runs, app.import_entities, app.import_rows),
+  app.import_apply_row(app.import_runs, app.import_entities, app.import_rows),
+  app.import_opening_balance_plan(uuid), app.import_pledge_opening_balances(uuid, text)
+  from public, anon;
+revoke execute on function app._import_apply_row_before_0413(app.import_runs, app.import_entities, app.import_rows),
+  app.import_apply_row(app.import_runs, app.import_entities, app.import_rows) from authenticated;
+grant execute on function app.import_opening_balance_plan(uuid), app.import_pledge_opening_balances(uuid, text) to authenticated, service_role;

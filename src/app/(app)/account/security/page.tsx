@@ -32,7 +32,7 @@ export default async function AccountSecurityPage({ searchParams }: { searchPara
     hasTotp: raw?.has_totp === true,
     phone: typeof raw?.phone === "string" && raw.phone ? `+${String(raw.phone).replace(/^\+/, "")}` : null,
     phoneVerified: raw?.phone_verified === true,
-    isStaff: raw?.is_staff === true || session.grants.length > 0,
+    isStaff: raw?.is_staff === true || session.grants.length > 0 || session.isOwner,
     required: raw?.required === true,
     policyRequires: raw?.policy_requires_2fa === true,
   };

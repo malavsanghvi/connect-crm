@@ -11,7 +11,7 @@ import { isRefusal, recordFailure, requireCenter } from "../demo/common";
 
 export const kind = "demo.load";
 
-/** A pack has ten steps; this bounds a runaway loop if a step ever stops advancing. */
+/** A pack has eleven steps; this bounds a runaway loop if a step ever stops advancing. */
 export const MAX_STEPS = 50;
 
 export type LoadStep = { done?: boolean; status?: string; steps_done?: number; steps_total?: number; step?: string; loaded?: Record<string, number> };

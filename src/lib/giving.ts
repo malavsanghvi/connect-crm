@@ -490,8 +490,16 @@ export function isCloseItem(k: string): k is Exclude<CloseItemKey, "exceptions_c
   return CLOSE_ITEMS.some((i) => i.key === k && !i.automatic);
 }
 
-/** Checklist state: manual items from the JSON, the exceptions item from the live count. */
-export function closeChecklist(checklist: unknown, exceptionsLeft: number | null): { key: CloseItemKey; label: string; done: boolean; sub: string }[] {
+/**
+ * Checklist state: manual items from the JSON, the exceptions item from the live count.
+ * `flaggedRefunds` (refunds made in the Stripe/PayPal dashboard still waiting for their two
+ * approvals, owner decision 2026-09-25 #6) is named on the refunds item so it is never missed.
+ */
+export function closeChecklist(
+  checklist: unknown,
+  exceptionsLeft: number | null,
+  flaggedRefunds = 0,
+): { key: CloseItemKey; label: string; done: boolean; sub: string }[] {
   const c = typeof checklist === "object" && checklist !== null && !Array.isArray(checklist) ? (checklist as Record<string, unknown>) : {};
   return CLOSE_ITEMS.map((i) => {
     if (i.automatic) {
@@ -504,6 +512,10 @@ export function closeChecklist(checklist: unknown, exceptionsLeft: number | null
       };
     }
     const done = c[i.key] === true;
+    if (i.key === "refunds_reviewed" && flaggedRefunds > 0) {
+      const waiting = `${flaggedRefunds} refund${flaggedRefunds === 1 ? "" : "s"} made in Stripe or PayPal ${flaggedRefunds === 1 ? "waits" : "wait"} for two approvals (Giving › Payments)`;
+      return { key: i.key, label: i.label, done, sub: done ? `Marked done · ${waiting}` : waiting };
+    }
     return { key: i.key, label: i.label, done, sub: done ? "Done" : "Mark done" };
   });
 }
@@ -562,4 +574,30 @@ export function allocationPreviewText(input: {
 export function paymentRecordedToast(appliedCount: number, qboQueued: boolean | null): string {
   const qbo = qboQueued === true ? "QuickBooks sales receipt queued" : qboQueued === false ? "not yet in the QuickBooks queue" : "queued for QuickBooks automatically";
   return `Payment recorded · ${appliedCount} pledge${appliedCount === 1 ? "" : "s"} updated · ${qbo}`;
+}
+
+// ---------------------------------------------------------------------------
+// A pledge write-off in QuickBooks (0412): what the pledge row says about it.
+// ---------------------------------------------------------------------------
+export type WriteOffPosting = {
+  status: string;
+  qbo_entity: string | null;
+  qbo_ref: string | null;
+  last_error: string | null;
+};
+
+/** Plain words for a write-off's QuickBooks posting (null: none was queued, e.g. imported history). */
+export function writeOffPostingText(p: WriteOffPosting | null | undefined): { tone: "ok" | "warn" | "bad" | "muted"; label: string } | null {
+  if (!p) return null;
+  const what = p.qbo_entity === "JournalEntry" ? "journal entry" : p.qbo_entity === "CreditMemo" ? "credit memo" : "entry";
+  switch (p.status) {
+    case "posted":
+      return { tone: "ok", label: `QuickBooks: ${what}${p.qbo_ref ? ` #${p.qbo_ref}` : ""} posted` };
+    case "skipped":
+      return { tone: "muted", label: `QuickBooks: nothing posted — ${p.last_error ?? "nothing to post"}` };
+    case "failed":
+      return { tone: "bad", label: `QuickBooks: not posted — ${p.last_error ?? "QuickBooks refused it"}` };
+    default:
+      return { tone: "warn", label: "QuickBooks: waiting to post" };
+  }
 }

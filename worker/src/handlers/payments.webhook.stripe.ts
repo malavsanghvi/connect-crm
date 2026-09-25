@@ -1,12 +1,12 @@
 // payments.webhook.stripe: one verified Stripe event (the portal route checked
 // its signature and stored it through app.ingest_webhook). Payments are
 // recorded through app.worker_record_online_payment (existing allocation and
-// posting rules); refunds made outside Community Connect are reported, never
-// recorded silently.
+// posting rules); refunds made outside Community Connect (the Stripe dashboard)
+// are recorded as FLAGGED refunds that change nothing until two people approve
+// them (app.worker_flag_provider_refund, owner decision 2026-09-25 #6).
 
 import { providerStatus, type Env, type Readiness } from "../config";
-import { PermanentError } from "../errors";
-import { closeCheckout, dbValue, loadCheckout, recordStripeSession, syncStripePayout } from "../payments/core";
+import { closeCheckout, dbValue, flagProviderRefund, loadCheckout, recordStripeSession, syncStripePayout } from "../payments/core";
 import { asMode } from "../payments/providers";
 import { runWebhook, type EventOutcome, type StoredEvent } from "../payments/webhook";
 import type { Job, JobContext } from "../types";
@@ -52,17 +52,21 @@ export async function handle(ev: StoredEvent, ctx: JobContext): Promise<EventOut
       return { outcome: "checkout failed", center: checkout.center_id };
     }
     case "charge.refunded": {
+      // A refund made in the Stripe dashboard (owner decision 2026-09-25 #6): recorded as a FLAGGED
+      // refund that changes nothing until two people approve it; ours are already recorded.
       const pi = typeof o.payment_intent === "string" ? o.payment_intent : null;
-      const pay = pi ? await dbValue<{ id: string; center_id: string; refunded_cents: number }>(ctx, "select app.worker_payment_by_ref('stripe', $1) as v", [pi]) : null;
-      if (!pay) return { outcome: "ignored: not a Community Connect payment" };
-      const refunded = Number(o.amount_refunded ?? 0);
-      if (refunded > pay.refunded_cents) {
-        throw new PermanentError(
-          `Stripe reports ${dollars(refunded)} refunded on payment ${pi}, but Community Connect recorded ${dollars(pay.refunded_cents)}. ` +
-            "A refund made in the Stripe dashboard is not recorded automatically (it skips the two-person approval); record it through Giving › Payments after an owner decision.",
-        );
+      if (!pi) return { outcome: "ignored: the charge names no payment" };
+      const refunds = (obj(o.refunds).data as Obj[] | undefined) ?? [];
+      const latest = refunds.reduce<Obj | null>((a, r) => (!a || Number(r.created ?? 0) > Number(a.created ?? 0) ? r : a), null);
+      const created = Number(latest?.created ?? event.created ?? 0);
+      const on = created > 0 ? new Date(created * 1000).toISOString().slice(0, 10) : null;
+      const res = await flagProviderRefund(ctx, "stripe", pi, Number(o.amount_refunded ?? 0), latest ? String(latest.id ?? "") : null, on, ev.event_type);
+      if (!res) return { outcome: "ignored: not a Community Connect payment" };
+      if (res.outcome === "flagged") {
+        ctx.log.warn("a refund made in the Stripe dashboard was flagged for two approvals", { payment: res.payment_id, amount_cents: res.amount_cents });
+        return { outcome: `refund made in Stripe flagged for approval (${dollars(Number(res.amount_cents))})`, center: res.center_id, refund_id: res.refund_id, payment_id: res.payment_id, amount_cents: res.amount_cents };
       }
-      return { outcome: "refund already recorded", center: pay.center_id };
+      return { outcome: res.outcome === "already_flagged" ? "refund already flagged" : "refund already recorded", payment_id: res.payment_id };
     }
     case "payout.paid":
     case "payout.updated":

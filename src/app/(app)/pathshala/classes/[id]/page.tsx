@@ -309,7 +309,7 @@ export default async function ClassPage({ params }: { params: Promise<{ id: stri
               </div>
             )}
           </Card>
-          <MoreDetails session={session} entity="pathshala_classes" recordId={cls.id} custom={(cls as { custom?: unknown }).custom} editable={canManage} variant="card" />
+          <MoreDetails session={session} entity="pathshala_classes" recordId={cls.id} editable={canManage} variant="card" />
           {canManage && (
             <Card title="Class details">
               <ClassForm cls={cls} terms={d.terms} levels={d.levels} defaultTermId={cls.term_id} cols={1} />

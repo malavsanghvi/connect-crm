@@ -129,6 +129,7 @@ const PLEDGE_STATUS = [
   { value: "partially_paid", label: "Partially paid" },
   { value: "paid", label: "Paid" },
   { value: "cancelled", label: "Cancelled" },
+  { value: "written_off", label: "Written off" },
 ] as const;
 
 const PLEDGE_SOURCE = [
@@ -968,6 +969,9 @@ export const ENTITIES: readonly EntityDef[] = [
       col("profession", "Profession", "text", "Optional.", "Physician", { synonyms: ["occupation", "job title"] }),
       col("employer", "Employer", "text", "Optional.", "Memorial Hermann", { synonyms: ["company", "organization"] }),
       col("is_deceased", "Deceased", "boolean", "Yes when the person has passed away.", "No", { synonyms: ["deceased"] }),
+      col("deceased_on", "Date of death", "date", "When the person passed away, if known. A date also marks them deceased.", "2024-11-02", {
+        synonyms: ["date of death", "died on", "deceased date", "death date", "dod"],
+      }),
       col("member_number", "Connect member number", "id", "Only when adopting your existing numbers as Connect numbers; otherwise leave blank.", "JSH-10421"),
       extra("email_opt_in", "Email opt-in", "boolean", "Yes only when they explicitly opted in. No (or unsubscribed) is always imported.", "Yes", {
         synonyms: ["email opt in", "subscribed", "email subscription", "opt in", "newsletter"],
@@ -1276,17 +1280,30 @@ export const ENTITIES: readonly EntityDef[] = [
         allowZero: true,
         synonyms: ["paid", "amount paid", "total paid"],
       }),
-      col("status", "Status", "enum", "Open, partially paid, paid or cancelled.", "partially_paid", {
+      col("status", "Status", "enum", "Open, partially paid, paid, cancelled or written off.", "partially_paid", {
         options: PLEDGE_STATUS,
-        valueMap: { Fulfilled: "paid", Complete: "paid", Completed: "paid", Partial: "partially_paid", Outstanding: "open", Void: "cancelled" },
+        valueMap: {
+          Fulfilled: "paid", Complete: "paid", Completed: "paid", Partial: "partially_paid", Outstanding: "open", Void: "cancelled",
+          "Written off": "written_off", "Written-off": "written_off", "Write-off": "written_off", "Write off": "written_off", "Bad debt": "written_off",
+        },
       }),
       col("pledged_at", "Pledged on", "datetime", "Date.", "2019-08-30", { synonyms: ["pledge date", "date"] }),
       col("due_on", "Due", "date", "Optional.", "2020-08-30", { synonyms: ["due date"] }),
-      col("closed_at", "Closed on", "datetime", "Optional.", "2020-06-01"),
+      col("closed_at", "Closed / written off on", "datetime", "Optional. For a written-off pledge, the day it was written off.", "2020-06-01", {
+        synonyms: ["closed on", "write-off date", "written off on", "date written off"],
+      }),
+      col("written_off_by_name", "Written off by", "text", "Written-off pledges: who wrote it off in the old system (a name).", "R. Mehta", {
+        synonyms: ["written off by", "write-off by", "approved by"],
+      }),
+      col("write_off_reason", "Write-off reason", "text", "Written-off pledges: why it was written off.", "Family moved away", {
+        synonyms: ["write-off reason", "reason written off", "write off reason"],
+      }),
       col("dedication", "Dedication", "text", "Optional.", "In memory of Ba"),
       col("anonymous", "Anonymous", "boolean", "Yes or no.", "No"),
     ],
-    note: "Written-off pledges are not imported as written off (a write-off needs two approvers here); import them as cancelled or leave them out.",
+    note:
+      "Written-off pledges import as written off: closed and unpaid, with who wrote them off and why when the file says so (history: nothing is posted to QuickBooks). " +
+      "What was paid before your payment history starts comes in as one opening-balance line per pledge — after importing the payments, use Bring in opening balances on this import.",
   },
   {
     key: "payments",

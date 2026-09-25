@@ -157,16 +157,64 @@ describe("payments.webhook.stripe", () => {
     expect(await stripeHook.run(job({ payload: { webhook_event_id: "we1" } }), ctx)).toMatchObject({ outcome: "already processed" });
     expect(queries().some(([t]) => t.includes("worker_record_online_payment"))).toBe(false);
   });
-  it("reports a refund made in the Stripe dashboard instead of recording it", async () => {
-    const event = { id: "evt_r", type: "charge.refunded", data: { object: { payment_intent: "pi_x", amount_refunded: 1000 } } };
+  it("flags a refund made in the Stripe dashboard for two approvals instead of recording it (owner decision #6)", async () => {
+    const event = { id: "evt_r", type: "charge.refunded", created: 1790000000,
+      data: { object: { payment_intent: "pi_x", amount_refunded: 1000, refunds: { data: [{ id: "re_old", created: 1780000000 }, { id: "re_dash", created: 1790000000 }] } } } };
     const { ctx, queries } = ctxWith((t) => {
       if (t.includes("worker_webhook_event")) return v({ id: "we2", event_type: event.type, payload: event, processed_at: null });
-      if (t.includes("worker_payment_by_ref")) return v({ id: "p", center_id: CENTER, refunded_cents: 0 });
+      if (t.includes("worker_flag_provider_refund")) return v({ outcome: "flagged", refund_id: "r1", payment_id: "p", amount_cents: 1000, center_id: CENTER });
       return [];
     });
-    await expect(stripeHook.run(job({ payload: { webhook_event_id: "we2" } }), ctx)).rejects.toBeInstanceOf(PermanentError);
+    const out = await stripeHook.run(job({ payload: { webhook_event_id: "we2" } }), ctx);
+    expect(out).toMatchObject({ outcome: expect.stringContaining("flagged for approval ($10.00)"), refund_id: "r1" });
+    const flag = queries().find(([t]) => t.includes("worker_flag_provider_refund"))!;
+    expect(flag[1]).toEqual(["stripe", "pi_x", 1000, "re_dash", "2026-09-21", "charge.refunded"]);
+    expect(queries().some(([t]) => t.includes("worker_record_provider_refund"))).toBe(false);
     const done = queries().find(([t]) => t.includes("worker_webhook_done"))!;
-    expect(String(done[1][1])).toMatch(/not recorded automatically/);
+    expect(done[0]).toContain("worker_webhook_done($1, null, $2)");
+  });
+  it("a refund already recorded (ours) or a charge that is not ours changes nothing", async () => {
+    const event = { id: "evt_r2", type: "charge.refunded", data: { object: { payment_intent: "pi_y", amount_refunded: 500 } } };
+    const { ctx } = ctxWith((t) => {
+      if (t.includes("worker_webhook_event")) return v({ id: "we3", event_type: event.type, payload: event, processed_at: null });
+      if (t.includes("worker_flag_provider_refund")) return v({ outcome: "already_recorded", payment_id: "p" });
+      return [];
+    });
+    expect(await stripeHook.run(job({ payload: { webhook_event_id: "we3" } }), ctx)).toMatchObject({ outcome: "refund already recorded" });
+    const other = ctxWith((t) => {
+      if (t.includes("worker_webhook_event")) return v({ id: "we4", event_type: event.type, payload: event, processed_at: null });
+      if (t.includes("worker_flag_provider_refund")) return v({ outcome: "not_ours" });
+      return [];
+    });
+    expect(await stripeHook.run(job({ payload: { webhook_event_id: "we4" } }), other.ctx)).toMatchObject({ outcome: "ignored: not a Community Connect payment" });
+  });
+  it("while our own refund is still being recorded the event fails and is retried", async () => {
+    const event = { id: "evt_r3", type: "charge.refunded", data: { object: { payment_intent: "pi_z", amount_refunded: 500 } } };
+    const { ctx, queries } = ctxWith((t) => {
+      if (t.includes("worker_webhook_event")) return v({ id: "we5", event_type: event.type, payload: event, processed_at: null });
+      if (t.includes("worker_flag_provider_refund")) throw new Error("A refund Community Connect sent to Stripe for this payment is still being recorded");
+      return [];
+    });
+    const err = await stripeHook.run(job({ payload: { webhook_event_id: "we5" } }), ctx).catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(Error);
+    expect(err).not.toBeInstanceOf(PermanentError);
+    const done = queries().find(([t]) => t.includes("worker_webhook_done"))!;
+    expect(String(done[1][1])).toMatch(/still being recorded/);
+  });
+});
+
+describe("payments.webhook.paypal refunds", () => {
+  it("flags a refund made in PayPal for two approvals (owner decision #6)", async () => {
+    const event = { id: "WH-R", event_type: "PAYMENT.CAPTURE.REFUNDED", resource: { id: "7RF123", create_time: "2026-09-20T10:00:00Z",
+      amount: { value: "15.00" }, seller_payable_breakdown: { total_refunded_amount: { value: "15.00" } },
+      links: [{ rel: "up", href: "https://api.paypal.test/v2/payments/captures/CAP-1" }] } };
+    const { ctx, queries } = ctxWith((t) => {
+      if (t.includes("worker_webhook_event")) return v({ id: "wp1", event_type: event.event_type, payload: event, processed_at: null });
+      if (t.includes("worker_flag_provider_refund")) return v({ outcome: "flagged", refund_id: "r2", payment_id: "p", amount_cents: 1500, center_id: CENTER });
+      return [];
+    });
+    expect(await paypalHook.run(job({ payload: { webhook_event_id: "wp1" } }), ctx)).toMatchObject({ outcome: "refund made in PayPal flagged for approval" });
+    expect(queries().find(([t]) => t.includes("worker_flag_provider_refund"))![1]).toEqual(["paypal", "CAP-1", 1500, "7RF123", "2026-09-20", "PAYMENT.CAPTURE.REFUNDED"]);
   });
 });
 
@@ -226,7 +274,7 @@ describe("payments.refund and the $1 test", () => {
   });
   it("says honestly that an email-connected PayPal account cannot be refunded from here", async () => {
     const { ctx } = ctxWith((t) => (t.includes("worker_payment_json") ? v({ id: "p", provider: "paypal", provider_ref: "CAP1", approved: true, refunded_cents: 0, mode: "test", connection: { connect_method: "email", account_id: null } }) : []));
-    await expect(refund.run(job({ payload: { payment_id: "p", amount_cents: 100, refunded_before: 0 } }), ctx)).rejects.toThrow(/Business email only/);
+    await expect(refund.run(job({ payload: { payment_id: "p", amount_cents: 100, refunded_before: 0 } }), ctx)).rejects.toThrow(/Business email only.*record it in Giving › Payments/);
   });
   it("refunds the paid $1 test and records it as a passing test", async () => {
     const session = await stripeSession(100);

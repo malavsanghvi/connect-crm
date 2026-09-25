@@ -26,6 +26,7 @@
 //   - undo (payments, then people) restores the prior state, audited with its reason.
 // The AI mapping button is pressed once: without the background service it says so honestly.
 const { chromium } = require(process.env.PLAYWRIGHT || '/opt/node22/lib/node_modules/playwright');
+const { acceptLegalStep } = require('../legal-step.cjs');
 const { execSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
@@ -94,6 +95,7 @@ async function memberLogin(browser, email) {
   const verify = p.getByRole('button', { name: /verify/i }).first();
   if (await verify.isVisible().catch(() => false)) await verify.click();
   await p.waitForURL((u) => !/sign-in|verify/.test(u.pathname), { timeout: 60000 });
+  await acceptLegalStep(p, sql);   // the first-sign-in legal step, when the community has published member documents
   return p;
 }
 
@@ -207,7 +209,9 @@ async function importFile(p, entity, file, source, opts = {}) {
   const rahulNew = sql(`select target_id from app.import_rows where run_id = '${people.id}' and source_key = '7005'`);
   ok(Number(sql(`select count(*) from app.merge_candidates where status = 'open' and kind = 'person' and left_id = '${rahulNew}'`)) >= 1, 'the name-only look-alike went to merge review (not merged)');
   ok(sql(`select count(*) from app.people where email = 'priya@jsh.test'`) === '1', 'the duplicate by email did not create a second Priya');
-  ok(sql(`select custom::text from app.people where member_number = 'JSH-90001'`) === '{"senior_status": true}', '"Senior status" is kept on Priya as a custom value');
+  // A staff-only value is kept apart from the member-readable row (0401): read the record's full set.
+  ok(sql(`select app.import_current('people', id::text) -> 'custom' ->> 'senior_status' from app.people where member_number = 'JSH-90001'`) === 'true', '"Senior status" is kept on Priya as a custom value');
+  ok(sql(`select (custom ? 'senior_status')::text from app.people where member_number = 'JSH-90001'`) === 'false', 'staff-only until reviewed, so it is not on the row members can read');
   ok(sql(`select type || '|' || sensitivity || '|' || source from app.custom_field_definitions where entity = 'people' and key = 'senior_status'`) === 'boolean|staff|import', 'the custom field is boolean, staff-only until reviewed, from the import');
   ok(sql(`select count(*) from app.channel_optins o join app.people p on p.id = o.person_id where p.email = 'neel.kapadia@example.com' and o.opted_in and o.source = 'Website form'`) === '1', 'an explicit opt-in with date and source is recorded');
   ok(sql(`select count(*) from app.channel_optins o join app.people p on p.id = o.person_id where p.email = 'asha.kapadia@example.com'`) === '0', 'an opt-in without its source is not counted');
@@ -230,7 +234,7 @@ async function importFile(p, entity, file, source, opts = {}) {
   await md.locator('select').selectOption('No');
   await md.getByRole('button', { name: 'Save' }).click();
   await p.getByText('Senior status saved.').waitFor();
-  ok(sql(`select custom->>'senior_status' from app.people where id = '${priyaId}'`) === 'false', 'the custom value is editable in place');
+  ok(sql(`select app.import_current('people', '${priyaId}') -> 'custom' ->> 'senior_status'`) === 'false', 'the custom value is editable in place');
   await p.reload();
   await md.getByRole('button', { name: 'Edit Senior status' }).click();
   await md.locator('select').selectOption('Yes');

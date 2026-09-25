@@ -274,6 +274,13 @@ export function SecurityPanel({
             </p>
           )}
 
+          {has2fa && status.isStaff && !status.policyRequires ? (
+            <p className="text-[13px] text-muted" data-testid="step-up-with-app-note">
+              {community} does not require 2FA for staff yet, but because you have an authenticator app, sensitive changes still ask for a
+              fresh code from it.
+            </p>
+          ) : null}
+
           {factors.length > 0 ? (
             <ul className="flex flex-col gap-2">
               {factors.map((f) => (
