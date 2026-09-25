@@ -311,6 +311,9 @@ async function answerStepUp(p, secret) {
     sql(`insert into app.email_senders (center_id, purpose, from_name, from_address, verified) values ('${sbx}', 'auth', 'Jain Temple', 'codes@${SLUG}.example.test', true)`);
     sql(`insert into app.messages (center_id, channel, to_address, purpose, subject, body, status, sent_at, sandbox) values ('${sbx}', 'email', '${CONTACT}', 'test', 'Test email', 'e2e test email', 'sent', now(), true)`);
     sql(`update app.centers set rules = jsonb_set(coalesce(rules, '{}'), '{security}', coalesce(rules->'security', '{}') || '{"phone_sign_in": false}') where id = '${sbx}'`);
+    // Readiness 10 (o-golive): a household/people import reconciled and signed off, as test data.
+    sql(`insert into app.import_runs (center_id, source, entity, status, rows_total, rows_ok, rows_failed, started_by, started_at, finished_at, committed_at, signed_off_by, signed_off_at, sign_off_note)
+         values ('${sbx}', 'csv', 'households', 'reconciled', 1, 1, 0, '${ownerId}', now(), now(), now(), '${ownerId}', now(), 'e2e: reconciled')`);
     // Test data that must NOT reach production.
     sql(`with h as (insert into app.households (center_id, display_name) values ('${sbx}', 'Test Family household') returning id),
               p as (insert into app.people (center_id, first_name, last_name, email) values ('${sbx}', 'Test', 'Member', 'test.member.${RUN}@example.test') returning id)
