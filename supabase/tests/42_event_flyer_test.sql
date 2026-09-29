@@ -26,19 +26,19 @@ begin
 end $$;
 
 -- ── Fixtures ────────────────────────────────────────────────────────────────
-\set c '''42000000-0000-4000-8000-0000000000c1'''
-\set manager '''42000000-0000-4000-8000-000000000001'''
-\set lead '''42000000-0000-4000-8000-000000000002'''
-\set member '''42000000-0000-4000-8000-000000000003'''
-\set contentmgr '''42000000-0000-4000-8000-000000000004'''
-\set event1 '''42000000-0000-4000-8000-0000000000e1'''
-\set event2 '''42000000-0000-4000-8000-0000000000e2'''
+\set c '''45000000-0000-4000-8000-0000000000c1'''
+\set manager '''45000000-0000-4000-8000-000000000001'''
+\set lead '''45000000-0000-4000-8000-000000000002'''
+\set member '''45000000-0000-4000-8000-000000000003'''
+\set contentmgr '''45000000-0000-4000-8000-000000000004'''
+\set event1 '''45000000-0000-4000-8000-0000000000e1'''
+\set event2 '''45000000-0000-4000-8000-0000000000e2'''
 insert into auth.users (id, email, phone) values
-  (:manager, 'manager42@example.com', null),
-  (:lead, 'lead42@example.com', null),
-  (:member, 'member42@example.com', null),
-  (:contentmgr, 'contentmgr42@example.com', null);
-insert into app.centers (id, slug, name, short_name, state_region, status) values (:c, 'orbit42', 'Orbit Test Community', 'OTC', 'TX', 'active');
+  (:manager, 'manager45@example.com', null),
+  (:lead, 'lead45@example.com', null),
+  (:member, 'member45@example.com', null),
+  (:contentmgr, 'contentmgr45@example.com', null);
+insert into app.centers (id, slug, name, short_name, state_region, status) values (:c, 'orbit45', 'Orbit Test Community', 'OTC', 'TX', 'active');
 insert into app.role_grants (center_id, user_id, role_key) values
   (:c, :manager, 'pathshala_committee'),   -- has events.manage, NOT content.manage
   (:c, :contentmgr, 'religious_coordinator'); -- has content.manage, NOT events.manage

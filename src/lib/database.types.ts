@@ -889,6 +889,9 @@ export type Database = {
           created_at: string;
           updated_at: string;
           custom: Json;
+          active: boolean;
+          visible_from: string | null;
+          visible_until: string | null;
         };
         Insert: {
           id?: string;
@@ -906,6 +909,9 @@ export type Database = {
           created_at?: string;
           updated_at?: string;
           custom?: Json;
+          active?: boolean;
+          visible_from?: string | null;
+          visible_until?: string | null;
         };
         Update: {
           id?: string;
@@ -923,6 +929,9 @@ export type Database = {
           created_at?: string;
           updated_at?: string;
           custom?: Json;
+          active?: boolean;
+          visible_from?: string | null;
+          visible_until?: string | null;
         };
         Relationships: [];
       };
@@ -4247,6 +4256,12 @@ export type Database = {
           options: Json;
           subtitle: string | null;
           custom: Json;
+          allow_recurring: boolean;
+          recurring_frequencies: string[];
+          notification_template_key: string | null;
+          active: boolean;
+          visible_from: string | null;
+          visible_until: string | null;
         };
         Insert: {
           id?: string;
@@ -4268,6 +4283,12 @@ export type Database = {
           options?: Json;
           subtitle?: string | null;
           custom?: Json;
+          allow_recurring?: boolean;
+          recurring_frequencies?: string[];
+          notification_template_key?: string | null;
+          active?: boolean;
+          visible_from?: string | null;
+          visible_until?: string | null;
         };
         Update: {
           id?: string;
@@ -4289,6 +4310,12 @@ export type Database = {
           options?: Json;
           subtitle?: string | null;
           custom?: Json;
+          allow_recurring?: boolean;
+          recurring_frequencies?: string[];
+          notification_template_key?: string | null;
+          active?: boolean;
+          visible_from?: string | null;
+          visible_until?: string | null;
         };
         Relationships: [];
       };
@@ -6637,6 +6664,7 @@ export type Database = {
           end_count: number | null;
           end_on: string | null;
           custom: Json;
+          opportunity_id: string | null;
         };
         Insert: {
           id?: string;
@@ -6660,6 +6688,7 @@ export type Database = {
           end_count?: number | null;
           end_on?: string | null;
           custom?: Json;
+          opportunity_id?: string | null;
         };
         Update: {
           id?: string;
@@ -6683,6 +6712,7 @@ export type Database = {
           end_count?: number | null;
           end_on?: string | null;
           custom?: Json;
+          opportunity_id?: string | null;
         };
         Relationships: [];
       };
@@ -9090,6 +9120,7 @@ export type Database = {
           p_end_count?: number;
           p_end_on?: string;
           p_special_day?: string;
+          p_opportunity?: string;
         };
         Returns: string;
       };
@@ -9355,6 +9386,14 @@ export type Database = {
           p_center: string;
         };
         Returns: Json;
+      };
+      giving_row_visible: {
+        Args: {
+          p_active: boolean;
+          p_visible_from: string;
+          p_visible_until: string;
+        };
+        Returns: boolean;
       };
       golive_approval_status: {
         Args: {
@@ -9866,6 +9905,19 @@ export type Database = {
       };
       new_join_code: {
         Args: Record<PropertyKey, never>;
+        Returns: string;
+      };
+      niva_ask: {
+        Args: {
+          p_center: string;
+          p_question: string;
+        };
+        Returns: string;
+      };
+      niva_regenerate: {
+        Args: {
+          p_id: string;
+        };
         Returns: string;
       };
       normalize_ein: {

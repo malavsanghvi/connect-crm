@@ -29,6 +29,11 @@ export async function createCampaignAction(_prev: ActionResult | null, formData:
   if (goalText && (goal === null || goal <= 0)) return { ok: false, error: "Could not create the campaign — the goal must be an amount like 25000.00." };
   if ((startsOn && !DATE.test(startsOn)) || (endsOn && !DATE.test(endsOn))) return { ok: false, error: "Could not create the campaign — a date is not valid." };
   if (startsOn && endsOn && endsOn < startsOn) return { ok: false, error: "Could not create the campaign — it ends before it starts." };
+  const visibleFrom = String(formData.get("visible_from") ?? "").trim();
+  const visibleUntil = String(formData.get("visible_until") ?? "").trim();
+  if (visibleFrom && visibleUntil && new Date(visibleUntil).getTime() <= new Date(visibleFrom).getTime()) {
+    return { ok: false, error: "Could not create the campaign — \"visible until\" must be after \"visible from\"." };
+  }
 
   const { error } = await db.from("campaigns").insert({
     center_id: center.id,
@@ -41,6 +46,8 @@ export async function createCampaignAction(_prev: ActionResult | null, formData:
     description: description || null,
     status: "draft",
     created_by: userId,
+    visible_from: visibleFrom ? new Date(visibleFrom).toISOString() : null,
+    visible_until: visibleUntil ? new Date(visibleUntil).toISOString() : null,
   });
   if (error) return failure("Could not create the campaign", error);
   revalidatePath("/giving/opportunities/campaigns");
@@ -74,4 +81,19 @@ export async function setCampaignStatusAction(_prev: ActionResult | null, formDa
   revalidatePath("/giving/opportunities/campaigns");
   revalidatePath("/giving/opportunities");
   return { ok: true, message: `"${data[0].name}" is now ${next}.` };
+}
+
+/** Admin kill switch, independent of status (0526) — hides a campaign (and every opportunity in it) from members. */
+export async function setCampaignActiveAction(_prev: ActionResult | null, formData: FormData): Promise<ActionResult> {
+  const active = formData.get("active") === "true";
+  const id = String(formData.get("id") ?? "");
+  const auth = await authorizeAction("campaignsManage", active ? "reactivate the campaign" : "hide the campaign");
+  if (!auth.ok) return auth;
+  if (!isUuid(id)) return { ok: false, error: "Could not change the campaign — it was not found." };
+  const { data, error } = await auth.session.db.from("campaigns").update({ active }).eq("id", id).eq("center_id", auth.session.center.id).select("name");
+  if (error) return failure(`Could not ${active ? "reactivate" : "hide"} the campaign`, error);
+  if (!data || data.length === 0) return { ok: false, error: "Could not change the campaign — it was not found, or you lack permission." };
+  revalidatePath("/giving/opportunities/campaigns");
+  revalidatePath("/giving/opportunities");
+  return { ok: true, message: `"${data[0].name}" is now ${active ? "active" : "hidden from members (inactive)"} · audit logged.` };
 }

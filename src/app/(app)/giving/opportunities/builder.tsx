@@ -14,6 +14,7 @@ import { formatCents, parseAmountToCents } from "@/lib/money";
 import { previewAudienceAction, saveOpportunityAction } from "./actions";
 
 export type BuilderCampaign = { id: string; name: string; status: string; fund: string | null; restricted: boolean };
+export type EmailTemplateOption = { key: string; label: string };
 export type BuilderInitial = {
   id: string;
   name: string;
@@ -24,7 +25,29 @@ export type BuilderInitial = {
   rows: OptionRow[];
   taken: Record<string, number>;
   status: string;
+  active: boolean;
+  allowRecurring: boolean;
+  recurringFrequencies: string[];
+  notificationTemplateKey: string;
+  visibleFrom: string;
+  visibleUntil: string;
 };
+
+const RECURRING_FREQUENCIES = [
+  { value: "weekly", label: "Weekly" },
+  { value: "monthly", label: "Monthly" },
+  { value: "quarterly", label: "Quarterly" },
+  { value: "yearly", label: "Yearly" },
+];
+
+/** For a <input type="datetime-local"> from a stored timestamptz (or the reverse on save). */
+function toLocalInput(iso: string): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
 
 const EMPTY_ROWS: Record<string, OptionRow[]> = {
   tier: [{ label: "", amount: "", recognition: "" }],
@@ -40,12 +63,14 @@ export function OpportunityBuilder({
   canManage,
   currency,
   centerName,
+  emailTemplates,
 }: {
   campaigns: BuilderCampaign[];
   initial: BuilderInitial | null;
   canManage: boolean;
   currency: string;
   centerName: string;
+  emailTemplates: EmailTemplateOption[];
 }) {
   const router = useRouter();
   const toast = useToast();
@@ -58,6 +83,11 @@ export function OpportunityBuilder({
     ...EMPTY_ROWS,
     ...(initial ? { [initial.kind]: initial.rows.length ? initial.rows : EMPTY_ROWS[initial.kind] ?? [] } : {}),
   }));
+  const [allowRecurring, setAllowRecurring] = useState(initial?.allowRecurring ?? false);
+  const [recurringFrequencies, setRecurringFrequencies] = useState<string[]>(initial?.recurringFrequencies ?? []);
+  const [templateKey, setTemplateKey] = useState(initial?.notificationTemplateKey ?? emailTemplates[0]?.key ?? "");
+  const [visibleFrom, setVisibleFrom] = useState(initial ? toLocalInput(initial.visibleFrom) : "");
+  const [visibleUntil, setVisibleUntil] = useState(initial ? toLocalInput(initial.visibleUntil) : "");
   const [audience, setAudience] = useState<string[]>(["all_members"]);
   const [recipients, setRecipients] = useState<{ count: number | null; note: string | null; error: string | null } | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -94,6 +124,9 @@ export function OpportunityBuilder({
   function toggleAudience(key: string) {
     setAudience((cur) => (cur.includes(key) ? cur.filter((k) => k !== key) : [...cur, key]));
   }
+  function toggleFrequency(f: string) {
+    setRecurringFrequencies((cur) => (cur.includes(f) ? cur.filter((k) => k !== f) : [...cur, f]));
+  }
 
   function save(publish: boolean) {
     setError(null);
@@ -109,6 +142,12 @@ export function OpportunityBuilder({
           rows,
           audience,
           publish,
+          allowRecurring,
+          recurringFrequencies,
+          notificationTemplateKey: templateKey,
+          active: initial?.active ?? true,
+          visibleFrom: visibleFrom ? new Date(visibleFrom).toISOString() : "",
+          visibleUntil: visibleUntil ? new Date(visibleUntil).toISOString() : "",
         });
         if (!res.ok) {
           setError(res.error);
@@ -217,6 +256,61 @@ export function OpportunityBuilder({
           <div>
             <p className="crm-label">Explainer</p>
             <InfoBox>Video and text from Content (approved)</InfoBox>
+          </div>
+          <div className="sm:col-span-2">
+            <p className="crm-label">Recurring</p>
+            <label className="flex min-h-[34px] items-center gap-2 text-[13px]">
+              <input type="checkbox" checked={allowRecurring} onChange={(e) => setAllowRecurring(e.target.checked)} className="h-4 w-4" />
+              Members may make this opportunity recurring
+            </label>
+            {allowRecurring ? (
+              <div className="mt-2 flex flex-col gap-2">
+                <div role="group" aria-label="Frequencies offered" className="flex flex-wrap gap-1.5">
+                  {RECURRING_FREQUENCIES.map((f) => (
+                    <button
+                      key={f.value}
+                      type="button"
+                      className="cc-chip min-h-[34px]"
+                      aria-pressed={recurringFrequencies.includes(f.value)}
+                      onClick={() => toggleFrequency(f.value)}
+                    >
+                      {f.label}
+                    </button>
+                  ))}
+                </div>
+                <div>
+                  <label htmlFor="op-template" className="crm-label">
+                    Confirmation email template
+                  </label>
+                  {emailTemplates.length === 0 ? (
+                    <p className="crm-hint">No email templates exist yet — add one in Communications first.</p>
+                  ) : (
+                    <select id="op-template" value={templateKey} onChange={(e) => setTemplateKey(e.target.value)} className="crm-input">
+                      {emailTemplates.map((t) => (
+                        <option key={t.key} value={t.key}>
+                          {t.label}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                  <p className="crm-hint">Sent on each recurring cycle&apos;s auto-pledge. Tokens: {"{{amount}} {{frequency}} {{next_date}} {{opportunity_name}}"}</p>
+                </div>
+              </div>
+            ) : null}
+          </div>
+          <div>
+            <label htmlFor="op-visible-from" className="crm-label">
+              Visible from (optional)
+            </label>
+            <input id="op-visible-from" type="datetime-local" value={visibleFrom} onChange={(e) => setVisibleFrom(e.target.value)} className="crm-input" />
+            <p className="crm-hint">Leave blank to show as soon as it publishes.</p>
+          </div>
+          <div>
+            <label htmlFor="op-visible-until" className="crm-label">
+              Visible until (optional)
+            </label>
+            <input id="op-visible-until" type="datetime-local" value={visibleUntil} onChange={(e) => setVisibleUntil(e.target.value)} className="crm-input" />
+            <p className="crm-hint">Leave blank for no scheduled end.</p>
           </div>
         </fieldset>
         {error ? (

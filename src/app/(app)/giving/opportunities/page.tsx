@@ -11,7 +11,7 @@ import { canAccess } from "@/lib/permissions";
 import { isUuid, param, type RawSearchParams } from "@/lib/search-params";
 import { getSession } from "@/lib/session";
 
-import { setOpportunityStatusAction } from "./actions";
+import { setOpportunityActiveAction, setOpportunityStatusAction } from "./actions";
 import { OpportunityBuilder, type BuilderInitial } from "./builder";
 
 export const metadata: Metadata = { title: "Opportunities" };
@@ -35,15 +35,18 @@ export default async function OpportunitiesPage({ searchParams }: { searchParams
   const { db, center } = session;
   const canManage = canAccess(session, "campaignsManage");
 
-  const [campaigns, funds, opps, pledges] = await Promise.all([
+  const [campaigns, funds, opps, templates, pledges] = await Promise.all([
     db.from("campaigns").select("id, name, status, fund_id, goal_cents").eq("center_id", center.id).neq("status", "archived").order("name"),
     db.from("funds").select("id, name, restricted").eq("center_id", center.id),
     db
       .from("opportunities")
-      .select("id, name, subtitle, kind, options, campaign_id, status, allow_anonymous, quantity_available, created_at")
+      .select(
+        "id, name, subtitle, kind, options, campaign_id, status, allow_anonymous, quantity_available, created_at, active, allow_recurring, recurring_frequencies, notification_template_key, visible_from, visible_until",
+      )
       .eq("center_id", center.id)
       .order("created_at", { ascending: false })
       .limit(60),
+    db.from("message_templates").select("key, subject").eq("channel", "email").or(`center_id.eq.${center.id},center_id.is.null`).order("key"),
     fetchAll((f, t) =>
       db
         .from("pledges")
@@ -57,6 +60,8 @@ export default async function OpportunitiesPage({ searchParams }: { searchParams
   ]);
   const fundBy = new Map((funds.data ?? []).map((f) => [f.id, f]));
   const campaignName = new Map((campaigns.data ?? []).map((c) => [c.id, c.name]));
+  if (templates.error) console.error("[opportunities] email templates failed:", templates.error);
+  const emailTemplates = Array.from(new Map((templates.data ?? []).map((t) => [t.key, { key: t.key, label: t.subject?.trim() || t.key }])).values());
   const pledged = new Map<string, number>();
   for (const p of pledges.data) if (p.campaign_id) pledged.set(p.campaign_id, (pledged.get(p.campaign_id) ?? 0) + p.amount_cents);
 
@@ -94,6 +99,12 @@ export default async function OpportunitiesPage({ searchParams }: { searchParams
         rows: optionRows(editing.kind, editing.options),
         taken: availability.get(editing.id)?.taken ?? {},
         status: editing.status,
+        active: editing.active,
+        allowRecurring: editing.allow_recurring,
+        recurringFrequencies: editing.recurring_frequencies ?? [],
+        notificationTemplateKey: editing.notification_template_key ?? "",
+        visibleFrom: editing.visible_from ?? "",
+        visibleUntil: editing.visible_until ?? "",
       }
     : null;
 
@@ -135,6 +146,7 @@ export default async function OpportunitiesPage({ searchParams }: { searchParams
           canManage={canManage}
           currency={center.currency}
           centerName={center.short_name || center.name}
+          emailTemplates={emailTemplates}
         />
       </BlockGrid>
 
@@ -155,6 +167,7 @@ export default async function OpportunitiesPage({ searchParams }: { searchParams
                   <th>Type</th>
                   <th>Taken</th>
                   <th>Status</th>
+                  <th>Visible</th>
                   {canManage ? <th /> : null}
                 </tr>
               </thead>
@@ -186,6 +199,18 @@ export default async function OpportunitiesPage({ searchParams }: { searchParams
                           <StatusText tone="warn">{o.status === "taken" ? "Taken" : "Closed"}</StatusText>
                         )}
                       </td>
+                      <td>
+                        {!o.active ? (
+                          <StatusText tone="bad">Hidden</StatusText>
+                        ) : o.visible_from && new Date(o.visible_from) > new Date() ? (
+                          <StatusText tone="warn">Scheduled</StatusText>
+                        ) : o.visible_until && new Date(o.visible_until) < new Date() ? (
+                          <StatusText tone="bad">Expired</StatusText>
+                        ) : (
+                          <StatusText tone="ok">Visible</StatusText>
+                        )}
+                        {o.allow_recurring ? <div className="text-xs text-muted">Recurring allowed</div> : null}
+                      </td>
                       {canManage ? (
                         <td>
                           <div className="flex flex-wrap gap-1.5">
@@ -197,6 +222,7 @@ export default async function OpportunitiesPage({ searchParams }: { searchParams
                             ) : (
                               <StatusButton id={o.id} status="open" label={o.status === "draft" ? "Publish" : "Reopen"} />
                             )}
+                            <ActiveButton id={o.id} active={o.active} />
                           </div>
                         </td>
                       ) : null}
@@ -209,6 +235,15 @@ export default async function OpportunitiesPage({ searchParams }: { searchParams
         )}
       </Card>
     </>
+  );
+}
+
+function ActiveButton({ id, active }: { id: string; active: boolean }) {
+  return (
+    <ActionForm action={setOpportunityActiveAction} submitLabel={active ? "Hide" : "Reactivate"} pendingLabel="Saving…" variant={active ? "bad" : "ok"} size="xs">
+      <input type="hidden" name="id" value={id} />
+      <input type="hidden" name="active" value={active ? "false" : "true"} />
+    </ActionForm>
   );
 }
 

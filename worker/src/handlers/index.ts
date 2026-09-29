@@ -15,6 +15,8 @@ import * as messagingSend from "./messaging.send";
 import * as messagingTestSend from "./messaging.test_send";
 import * as messagingWebhookEmail from "./messaging.webhook.email";
 import * as messagingWebhookTwilio from "./messaging.webhook.twilio";
+import * as nivaAnswer from "./niva.answer";
+import * as nivaRetention from "./niva.retention";
 import * as oauthExchange from "./oauth.exchange";
 import * as platformPromote from "./platform.promote";
 import * as platformSandboxExpiry from "./platform.sandbox_expiry";
@@ -71,4 +73,7 @@ export const HANDLERS: HandlerModule[] = [
   // f-jsh-content: calendar subscriptions (ICS links)
   calendarImportFeed,
   calendarRefreshFeeds,
+  // B14: Niva answering
+  nivaAnswer,
+  nivaRetention,
 ];
