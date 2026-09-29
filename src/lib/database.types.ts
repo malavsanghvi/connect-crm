@@ -9882,6 +9882,19 @@ export type Database = {
         Args: Record<PropertyKey, never>;
         Returns: string;
       };
+      niva_ask: {
+        Args: {
+          p_center: string;
+          p_question: string;
+        };
+        Returns: string;
+      };
+      niva_regenerate: {
+        Args: {
+          p_id: string;
+        };
+        Returns: string;
+      };
       normalize_ein: {
         Args: {
           p: string;
