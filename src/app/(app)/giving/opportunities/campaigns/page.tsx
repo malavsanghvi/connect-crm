@@ -9,7 +9,7 @@ import { formatCents } from "@/lib/money";
 import { canAccess } from "@/lib/permissions";
 import { getSession } from "@/lib/session";
 
-import { createCampaignAction, setCampaignStatusAction } from "./actions";
+import { createCampaignAction, setCampaignActiveAction, setCampaignStatusAction } from "./actions";
 
 export const metadata: Metadata = { title: "Campaigns" };
 
@@ -45,7 +45,7 @@ export default async function CampaignsPage() {
   const [campaigns, funds, pledges] = await Promise.all([
     db
       .from("campaigns")
-      .select("id, name, kind, fund_id, goal_cents, starts_on, ends_on, status, description, created_at")
+      .select("id, name, kind, fund_id, goal_cents, starts_on, ends_on, status, description, created_at, active, visible_from, visible_until")
       .eq("center_id", center.id)
       .order("created_at", { ascending: false }),
     db.from("funds").select("id, name, restricted").eq("center_id", center.id).order("name"),
@@ -97,6 +97,7 @@ export default async function CampaignsPage() {
                     <th className="num">Pledged</th>
                     <th className="num">Paid</th>
                     <th>Status</th>
+                    <th>Visible</th>
                     {canManage ? <th /> : null}
                   </tr>
                 </thead>
@@ -128,6 +129,17 @@ export default async function CampaignsPage() {
                         <td>
                           <Badge tone={STATUS_TONE[c.status as keyof typeof STATUS_TONE] ?? "neutral"}>{c.status}</Badge>
                         </td>
+                        <td>
+                          {!c.active ? (
+                            <Badge tone="danger">Hidden</Badge>
+                          ) : c.visible_from && new Date(c.visible_from) > new Date() ? (
+                            <Badge tone="warning">Scheduled</Badge>
+                          ) : c.visible_until && new Date(c.visible_until) < new Date() ? (
+                            <Badge tone="danger">Expired</Badge>
+                          ) : (
+                            <Badge tone="success">Visible</Badge>
+                          )}
+                        </td>
                         {canManage ? (
                           <td className="space-y-1">
                             {c.status === "draft" || c.status === "closed" ? (
@@ -135,6 +147,7 @@ export default async function CampaignsPage() {
                             ) : null}
                             {c.status === "published" ? <StatusButton id={c.id} status="closed" label="Close" /> : null}
                             {c.status === "closed" || c.status === "draft" ? <StatusButton id={c.id} status="archived" label="Archive" /> : null}
+                            <ActiveButton id={c.id} active={c.active} />
                           </td>
                         ) : null}
                       </tr>
@@ -201,6 +214,18 @@ export default async function CampaignsPage() {
                 </label>
                 <input id="c-end" name="ends_on" type="date" className="crm-input" />
               </div>
+              <div>
+                <label htmlFor="c-visible-from" className="crm-label">
+                  Visible from (optional)
+                </label>
+                <input id="c-visible-from" name="visible_from" type="datetime-local" className="crm-input" />
+              </div>
+              <div>
+                <label htmlFor="c-visible-until" className="crm-label">
+                  Visible until (optional)
+                </label>
+                <input id="c-visible-until" name="visible_until" type="datetime-local" className="crm-input" />
+              </div>
               <div className="md:col-span-2 xl:col-span-3">
                 <label htmlFor="c-desc" className="crm-label">
                   Description
@@ -220,6 +245,15 @@ function StatusButton({ id, status, label }: { id: string; status: string; label
     <ActionForm action={setCampaignStatusAction} submitLabel={label} pendingLabel="Saving…" variant={status === "archived" ? "ghost" : "secondary"} size="sm">
       <input type="hidden" name="id" value={id} />
       <input type="hidden" name="status" value={status} />
+    </ActionForm>
+  );
+}
+
+function ActiveButton({ id, active }: { id: string; active: boolean }) {
+  return (
+    <ActionForm action={setCampaignActiveAction} submitLabel={active ? "Hide" : "Reactivate"} pendingLabel="Saving…" variant={active ? "bad" : "ok"} size="sm">
+      <input type="hidden" name="id" value={id} />
+      <input type="hidden" name="active" value={active ? "false" : "true"} />
     </ActionForm>
   );
 }
