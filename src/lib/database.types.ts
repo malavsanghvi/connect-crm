@@ -2137,6 +2137,10 @@ export type Database = {
           updated_at: string;
           event_number: string;
           custom: Json;
+          flyer_source: string | null;
+          flyer_prompt: string | null;
+          flyer_generated_at: string | null;
+          flyer_job_id: number | null;
         };
         Insert: {
           id?: string;
@@ -2175,6 +2179,10 @@ export type Database = {
           updated_at?: string;
           event_number?: string;
           custom?: Json;
+          flyer_source?: string | null;
+          flyer_prompt?: string | null;
+          flyer_generated_at?: string | null;
+          flyer_job_id?: number | null;
         };
         Update: {
           id?: string;
@@ -2213,6 +2221,10 @@ export type Database = {
           updated_at?: string;
           event_number?: string;
           custom?: Json;
+          flyer_source?: string | null;
+          flyer_prompt?: string | null;
+          flyer_generated_at?: string | null;
+          flyer_job_id?: number | null;
         };
         Relationships: [];
       };
@@ -9309,6 +9321,19 @@ export type Database = {
           p_limit?: number;
         };
         Returns: { checked_in_at: string; household_label: string; lunch_slot_label: string }[];
+      };
+      events_flyer_result: {
+        Args: {
+          p_event: string;
+        };
+        Returns: Json;
+      };
+      events_request_flyer: {
+        Args: {
+          p_event: string;
+          p_prompt: string;
+        };
+        Returns: Json;
       };
       fail_checkout: {
         Args: {

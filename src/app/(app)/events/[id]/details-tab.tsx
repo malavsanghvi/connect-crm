@@ -11,20 +11,24 @@ export function DetailsTab({
   currency,
   ownerName,
   canEdit,
+  flyerUrl,
+  flyerError,
 }: {
   event: Tables<"events">;
   tz: string;
   currency: string;
   ownerName: string | null;
   canEdit: boolean;
+  /** Signed URL for the private "content" bucket flyer object, resolved server-side (events/[id]/page.tsx). */
+  flyerUrl: string | null;
+  flyerError: string | null;
 }) {
   const commit = readCommitment(event.commitment_options);
-  const flyerUrl = event.flyer_path && /^https?:\/\//.test(event.flyer_path) ? event.flyer_path : null;
   const flags = Array.isArray(event.attendee_flags) ? event.attendee_flags.filter((f): f is string => typeof f === "string") : [];
   return (
     <BlockGrid>
       <Card
-        span={flyerUrl ? 8 : 12}
+        span={event.flyer_path ? 8 : 12}
         title="Details"
         actions={
           canEdit ? (
@@ -70,10 +74,18 @@ export function DetailsTab({
           ]}
         />
       </Card>
-      {flyerUrl ? (
+      {event.flyer_path ? (
         <Card span={4} title="Flyer">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={flyerUrl} alt={`Flyer for ${event.name}`} className="w-full rounded-[10px] border border-line" />
+          {flyerUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={flyerUrl} alt={`Flyer for ${event.name}`} className="w-full rounded-[10px] border border-line" />
+          ) : flyerError ? (
+            <p role="alert" className="rounded-[10px] border border-danger/30 bg-danger-50 px-3 py-2 text-[13px] text-danger">
+              {flyerError}
+            </p>
+          ) : (
+            <p className="crm-hint">Loading…</p>
+          )}
         </Card>
       ) : null}
     </BlockGrid>

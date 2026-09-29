@@ -6,7 +6,10 @@ import { ActionForm, type FormAction } from "@/components/action-form";
 import { ChipGroup, Toggle } from "@/components/controls";
 import { PersonPicker } from "@/components/events/person-picker";
 import { Card, InfoBox, buttonClass } from "@/components/ui";
+import { buildFlyerPrompt } from "@/lib/events/flyer";
 import { audienceChips, commitmentSummary, lunchPriorityText, slotPreview, type CommitmentOptions, type LunchRules } from "@/lib/events/report";
+
+import { FlyerPanel } from "./flyer-panel";
 
 export type BuilderEvent = {
   id: string | null;
@@ -14,6 +17,8 @@ export type BuilderEvent = {
   name: string;
   description: string;
   flyer_path: string;
+  flyer_source: "manual" | "ai" | null;
+  flyer_prompt: string | null;
   venue: string;
   /** datetime-local values in the center's zone */
   starts_at: string;
@@ -37,6 +42,9 @@ export type BuilderEvent = {
   guest_price: string;
   confidential: boolean;
   owner: { id: string; name: string; detail: string | null } | null;
+  center_name: string;
+  starts_at_text: string | null;
+  audience_text: string;
 };
 
 const SLOT_CHOICES = [15, 20, 30];
@@ -82,12 +90,15 @@ export function EventBuilder({
   lunchRules,
   editable,
   canPublish,
+  flyerPreview,
 }: {
   action: FormAction;
   event: BuilderEvent;
   lunchRules: LunchRules;
   editable: boolean;
   canPublish: boolean;
+  /** Signed URL (private "content" bucket) for the current flyer, resolved server-side; only meaningful once event.id exists. */
+  flyerPreview: { url: string | null; error: string | null };
 }) {
   const [audience, setAudience] = useState(event.audience);
   const [waitlist, setWaitlist] = useState(event.waitlist_enabled);
@@ -128,8 +139,18 @@ export function EventBuilder({
     formatMinutes: clock,
   });
 
+  const promptSeed = buildFlyerPrompt({
+    name: event.name,
+    description: event.description,
+    venue: event.venue,
+    startsAtText: event.starts_at_text,
+    audienceText: event.audience_text,
+    centerName: event.center_name,
+  });
+
   return (
-    <ActionForm action={action} submitLabel="Save draft" hideSubmit>
+    <>
+      <ActionForm action={action} submitLabel="Save draft" hideSubmit>
       <fieldset disabled={!editable} className="contents">
         <div className="grid grid-cols-12 items-start gap-4">
           <Card span={7} title="Details and audience">
@@ -283,7 +304,7 @@ export function EventBuilder({
             </p>
           </Card>
 
-          <Card span={12} title="More settings" description="RSVP window, attendee questions, amounts, tickets, owner and flyer">
+          <Card span={12} title="More settings" description="RSVP window, attendee questions, amounts, tickets and owner">
             <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
               <div>
                 <label htmlFor="ev-ro" className="crm-label">
@@ -399,12 +420,6 @@ export function EventBuilder({
                 <input id="ev-py" name="program_year" defaultValue={event.program_year} placeholder="e.g. 2026-2027" className="crm-input" />
               </div>
               <div>
-                <label htmlFor="ev-fl" className="crm-label">
-                  Flyer
-                </label>
-                <input id="ev-fl" name="flyer_path" defaultValue={event.flyer_path} placeholder="https:// link or storage path" className="crm-input" />
-              </div>
-              <div>
                 <PersonPicker name="owner_person_id" label="Owner (event lead)" initial={event.owner ? [event.owner] : []} />
               </div>
               <div className="md:col-span-2 xl:col-span-3">
@@ -450,6 +465,29 @@ export function EventBuilder({
           ) : null}
         </div>
       </fieldset>
-    </ActionForm>
+      </ActionForm>
+
+      {/* Outside the form above: it holds its own upload/remove forms, and a <form> cannot nest inside another. */}
+      {event.id ? (
+        <div className="mt-4 grid grid-cols-12 items-start gap-4">
+          <FlyerPanel
+            eventId={event.id}
+            flyerPath={event.flyer_path}
+            flyerSource={event.flyer_source}
+            flyerPrompt={event.flyer_prompt}
+            promptSeed={promptSeed}
+            previewUrl={flyerPreview.url}
+            previewError={flyerPreview.error}
+            editable={editable}
+          />
+        </div>
+      ) : editable ? (
+        <div className="mt-4 grid grid-cols-12 items-start gap-4">
+          <Card span={4} title="Flyer">
+            <p className="crm-hint">Save this event as a draft first, then come back here to generate or upload a flyer.</p>
+          </Card>
+        </div>
+      ) : null}
+    </>
   );
 }
