@@ -171,3 +171,45 @@ select pg_temp.assert(not has_function_privilege('authenticated', 'app.niva_expi
 select pg_temp.assert(has_function_privilege('connect_worker', 'app.niva_worker_get_conversation(uuid)', 'execute'), 'connect_worker can execute niva_worker_get_conversation');
 select pg_temp.assert(has_function_privilege('authenticated', 'app.niva_ask(uuid,text)', 'execute'), 'authenticated can execute niva_ask');
 select pg_temp.assert(not has_function_privilege('anon', 'app.niva_ask(uuid,text)', 'execute'), 'anon cannot execute niva_ask');
+
+-- 0531: the niva.monthly_questions entitlement (sandbox: 300/month) is enforced
+-- by app.niva_ask itself — a running count of this center's niva_conversations
+-- created since the start of the current calendar month, +1 for the question
+-- about to be asked, against app.entitlement_defaults('sandbox','niva.monthly_questions').
+\set c3 '''42000000-0000-4000-8000-0000000000c3'''
+\set member2 '''42000000-0000-4000-8000-000000000004'''
+insert into auth.users (id, email) values (:member2, 'member2-42@example.com');
+insert into app.centers (id, slug, name, short_name, state_region, status, environment) values
+  (:c3, 'orbit42c', 'Sandbox Test Community', 'OTC3', 'TX', 'active', 'sandbox');
+insert into app.households (id, center_id, display_name) values ('42000000-0000-4000-8000-0000000000b1', :c3, 'Mehta household');
+insert into app.people (id, center_id, first_name, last_name) values ('42000000-0000-4000-8000-0000000000b2', :c3, 'Neha', 'Mehta');
+insert into app.household_members (household_id, person_id, center_id, role, is_primary) values
+  ('42000000-0000-4000-8000-0000000000b1', '42000000-0000-4000-8000-0000000000b2', :c3, 'primary', true);
+insert into app.center_users (center_id, user_id, person_id) values (:c3, :member2, '42000000-0000-4000-8000-0000000000b2');
+
+-- 299 questions already asked this month — one short of the sandbox's 300 cap.
+insert into app.niva_conversations (center_id, user_id, question, unanswered, created_at)
+select :c3::uuid, :member2::uuid, 'Filler question ' || gs, true, now() - (gs || ' seconds')::interval
+  from generate_series(1, 299) gs;
+
+-- The 300th question this month is still allowed (299 + 1 = 300, at the cap, not over it).
+begin;
+select pg_temp.sign_in(:member2);
+select (app.niva_ask(:c3::uuid, 'This is question number three hundred')).id as conv300 \gset
+commit;
+select pg_temp.assert(:'conv300' is not null, 'the 300th question this month is allowed (300 is not over the 300 cap)');
+
+-- The 301st question this month is refused with the entitlement's own plain-English message.
+begin;
+select pg_temp.sign_in(:member2);
+select pg_temp.assert_raises($$select app.niva_ask('42000000-0000-4000-8000-0000000000c3'::uuid, 'This is question number three hundred and one')$$,
+  'niva questions a month, and they are used up', 'the 301st question this month is refused once the sandbox cap is used up');
+commit;
+select pg_temp.assert((select count(*) from app.niva_conversations where center_id = :c3::uuid
+  and question = 'This is question number three hundred and one') = 0, 'the refused 301st question was never saved');
+select pg_temp.assert((select count(*) from app.jobs where kind = 'niva.answer' and center_id = :c3::uuid
+  and payload->>'conversation_id' in (select id::text from app.niva_conversations where center_id = :c3::uuid and question like '%three hundred and one%')) = 0,
+  'no answering job was enqueued for the refused question');
+
+-- A production-environment center (the default, e.g. center :c above) has no monthly cap.
+select pg_temp.assert(jsonb_typeof(app.entitlement(:c::uuid, 'niva.monthly_questions')) = 'null', 'a production center has no niva.monthly_questions limit (null = unlimited)');
