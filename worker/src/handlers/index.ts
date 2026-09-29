@@ -8,6 +8,7 @@ import * as calendarRefreshFeeds from "./calendar.refresh_feeds";
 import * as demoClear from "./demo.clear";
 import * as demoLoad from "./demo.load";
 import * as demoPing from "./demo.ping";
+import * as eventsGenerateFlyer from "./events.generate_flyer";
 import * as importSuggestMapping from "./import.suggest_mapping";
 import * as messagingDomainVerify from "./messaging.domain_verify";
 import * as messagingSend from "./messaging.send";
@@ -35,6 +36,7 @@ import * as storageRetention from "./storage.retention";
 export const HANDLERS: HandlerModule[] = [
   demoPing,
   importSuggestMapping,
+  eventsGenerateFlyer,
   oauthExchange,
   storageRetention,
   // o-platform

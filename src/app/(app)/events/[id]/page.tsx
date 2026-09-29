@@ -17,6 +17,7 @@ import { getSession } from "@/lib/session";
 import { setEventStatus } from "../actions";
 import { ChecklistTab } from "./checklist-tab";
 import { DetailsTab } from "./details-tab";
+import { flyerPreviewUrlAction } from "../builder/flyer-actions";
 import { LunchTab } from "./lunch-tab";
 import { ReportTab } from "./report-tab";
 import { RsvpsTab } from "./rsvps-tab";
@@ -83,6 +84,13 @@ export default async function EventPage({ params, searchParams }: { params: Prom
   const { event, ownerName } = res.data;
   const canEdit = eventAreas.edit(access, id);
   const st = eventStatusLabel(event.status);
+  const flyer =
+    tab === "details" && event.flyer_path
+      ? await (async () => {
+          const r = await flyerPreviewUrlAction(id);
+          return r.ok ? { url: r.data!.url, error: null } : { url: null, error: r.error };
+        })()
+      : { url: null, error: null };
 
   return (
     <>
@@ -153,7 +161,9 @@ export default async function EventPage({ params, searchParams }: { params: Prom
         </div>
       ) : null}
       <Tabs active={tab} tabs={TABS.map((t) => ({ key: t.key, label: t.label, href: `/events/${event.id}${t.key === "details" ? "" : `?tab=${t.key}`}` }))} />
-      {tab === "details" ? <DetailsTab event={event} tz={tz} currency={session.center.currency} ownerName={ownerName} canEdit={canEdit} /> : null}
+      {tab === "details" ? (
+        <DetailsTab event={event} tz={tz} currency={session.center.currency} ownerName={ownerName} canEdit={canEdit} flyerUrl={flyer.url} flyerError={flyer.error} />
+      ) : null}
       {tab === "details" ? (
         <MoreDetails session={session} entity="events" recordId={event.id} editable={canEdit} variant="card" className="mt-4" />
       ) : null}

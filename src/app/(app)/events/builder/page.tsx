@@ -5,8 +5,9 @@ import { LoadProblem } from "@/components/events/load-problem";
 import { Alert, Card, NoAccess, PageHeader, buttonClass } from "@/components/ui";
 import { load, loadEventAccess, resolvePeopleNames, row, rows } from "@/lib/data/events";
 import { eventAreas } from "@/lib/events/access";
-import { centsToDollarsInput, formatEventDate, toDateTimeLocal } from "@/lib/events/format";
-import { commitmentEnabled, readCommitment } from "@/lib/events/report";
+import { readFlyerSource } from "@/lib/events/flyer";
+import { centsToDollarsInput, formatDateTime, formatEventDate, toDateTimeLocal } from "@/lib/events/format";
+import { audienceLabel, commitmentEnabled, readCommitment } from "@/lib/events/report";
 import { defaultConfirmationHours, defaultSlotMinutes, lunchRulesFromCenter } from "@/lib/events/rules";
 import { eventStatusLabel } from "@/lib/events/status";
 import { canAccess } from "@/lib/permissions";
@@ -17,6 +18,7 @@ import { ActionForm } from "@/components/action-form";
 
 import { createEventFromTemplate, saveEvent } from "../actions";
 import { EventBuilder, type BuilderEvent } from "./event-builder";
+import { flyerPreviewUrlAction } from "./flyer-actions";
 
 export const metadata: Metadata = { title: "Event builder" };
 
@@ -84,6 +86,8 @@ export default async function EventBuilderPage({ searchParams }: { searchParams:
       name: e.name,
       description: e.description ?? "",
       flyer_path: e.flyer_path ?? "",
+      flyer_source: readFlyerSource(e.flyer_source),
+      flyer_prompt: e.flyer_prompt ?? null,
       venue: e.venue ?? "",
       starts_at: toDateTimeLocal(e.starts_at, tz),
       ends_at: toDateTimeLocal(e.ends_at, tz),
@@ -106,6 +110,9 @@ export default async function EventBuilderPage({ searchParams }: { searchParams:
       guest_price: centsToDollarsInput(e.guest_price_cents),
       confidential: e.confidential,
       owner: e.owner_person_id ? { id: e.owner_person_id, name: found.ownerName ?? "Event lead", detail: null } : null,
+      center_name: session.center.name,
+      starts_at_text: e.starts_at ? formatDateTime(e.starts_at, tz) : null,
+      audience_text: audienceLabel(e.audience),
     };
     subtitle = [e.name, e.starts_at ? formatEventDate(e.starts_at, tz) : "No date yet", eventStatusLabel(e.status).label.toLowerCase()].join(" · ");
   } else {
@@ -116,6 +123,8 @@ export default async function EventBuilderPage({ searchParams }: { searchParams:
       name: "",
       description: "",
       flyer_path: "",
+      flyer_source: null,
+      flyer_prompt: null,
       venue: "",
       starts_at: "",
       ends_at: "",
@@ -138,6 +147,9 @@ export default async function EventBuilderPage({ searchParams }: { searchParams:
       guest_price: "",
       confidential: false,
       owner: null,
+      center_name: session.center.name,
+      starts_at_text: null,
+      audience_text: audienceLabel("members_and_guests"),
     };
     subtitle = "New event · draft";
   }
@@ -145,6 +157,12 @@ export default async function EventBuilderPage({ searchParams }: { searchParams:
   const editable = event.id ? eventAreas.edit(access, event.id) : eventAreas.manage(access);
   const canPublish = eventAreas.manage(access) || (event.id !== null && eventAreas.edit(access, event.id));
   const saved = param(sp, "saved");
+  const flyerPreview = event.id
+    ? await (async () => {
+        const res = await flyerPreviewUrlAction(event.id!);
+        return res.ok ? { url: res.data!.url, error: null } : { url: null, error: res.error };
+      })()
+    : { url: null, error: null };
 
   return (
     <>
@@ -234,6 +252,7 @@ export default async function EventBuilderPage({ searchParams }: { searchParams:
         lunchRules={lunchRules}
         editable={editable}
         canPublish={editable && canPublish}
+        flyerPreview={flyerPreview}
       />
     </>
   );

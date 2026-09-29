@@ -42,7 +42,11 @@ function eventValues(fd: FormData, tz: string, rules: unknown, publishing: boole
   return {
     name: reqStr(fd, "name", "Event name"),
     description: str(fd, "description"),
-    flyer_path: str(fd, "flyer_path"),
+    // flyer_path/flyer_source/flyer_prompt are NOT touched here: they are owned by the
+    // Flyer panel's own actions (events/builder/flyer-actions.ts), the same way a
+    // leader's photo_path is set by uploadLeaderPhotoAction, never by saveLeaderAction.
+    // Including flyer_path here (even as "unchanged") would null it out on every
+    // unrelated save, since a removed form field reads as null via str().
     venue: str(fd, "venue"),
     starts_at: startsAt,
     ends_at: endsAt,

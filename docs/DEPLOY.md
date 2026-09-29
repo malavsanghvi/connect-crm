@@ -179,6 +179,7 @@ All optional. A handler whose settings are missing reports "not configured"
 | `RESEND_API_KEY` or `POSTMARK_SERVER_TOKEN` | the email sending service |
 | `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN` | texting |
 | `ANTHROPIC_API_KEY` | Niva and import mapping suggestions |
+| `OPENAI_API_KEY` | AI event flyer images (events.generate_flyer). Without it, "Generate flyer with AI" in the event builder says so plainly; uploading a flyer by hand keeps working |
 | `WORKER_SUPABASE_SECRET_KEY` | storage retention (see the note below) |
 
 These are Community Connect's own keys. An organization's keys never go here:
