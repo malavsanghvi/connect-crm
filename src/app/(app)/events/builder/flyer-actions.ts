@@ -2,12 +2,12 @@
 
 // Event flyers: "Generate flyer with AI" alongside manual upload.
 //
-// The image call needs a provider key (OPENAI_API_KEY) that this app never
-// holds — see docs/DEPLOY.md, "Nothing in Connect needs it" — so it goes
-// through the background service's job queue (worker/src/handlers/
-// events.generate_flyer.ts), the same shape as the import module's mapping
-// suggestions (settings/import/actions.ts requestAiMappingAction /
-// aiMappingResultAction). This file only asks for a job and polls it; the
+// The image call goes through the background service's job queue
+// (worker/src/handlers/events.generate_flyer.ts, calling Pollinations.ai —
+// no provider key needed, unlike this app's other AI features), the same
+// shape as the import module's mapping suggestions (settings/import/
+// actions.ts requestAiMappingAction / aiMappingResultAction). This file
+// only asks for a job and polls it; the
 // ACTUAL Storage write happens here too, but only once an admin accepts a
 // preview, and through the signed-in admin's own session (the same
 // db.storage.from(...).upload(...) pattern as setup/actions.ts) — never
@@ -67,7 +67,7 @@ export async function flyerGenerationResultAction(eventId: string): Promise<Acti
  * asks the admin to confirm before overwriting an existing flyer — this
  * action itself always does what it's told, once.
  */
-export async function applyGeneratedFlyerAction(eventId: string, imageB64: string, model: string, prompt: string): Promise<ActionResult> {
+export async function applyGeneratedFlyerAction(eventId: string, imageB64: string, contentType: string, model: string, prompt: string): Promise<ActionResult> {
   return runAction("events.flyer.apply", "save the generated flyer", async () => {
     if (!imageB64) throw new FormError("there is no image to save.");
     const { db, centerId } = await flyerEventContext(eventId, "only event managers and this event's lead can set this event's flyer.");
@@ -79,8 +79,9 @@ export async function applyGeneratedFlyerAction(eventId: string, imageB64: strin
       throw new FormError("the generated image was not readable.");
     }
     if (bytes.length === 0) throw new FormError("the generated image was empty.");
-    const path = `${centerId}/events/${eventId}/flyer-${Date.now()}.png`;
-    const up = await db.storage.from("content").upload(path, bytes, { contentType: "image/png", upsert: false });
+    const type = FLYER_TYPES.includes(contentType as (typeof FLYER_TYPES)[number]) ? contentType : "image/png";
+    const path = `${centerId}/events/${eventId}/flyer-${Date.now()}.${extensionFor(type)}`;
+    const up = await db.storage.from("content").upload(path, bytes, { contentType: type, upsert: false });
     if (up.error) {
       console.error(`[events/flyer] upload to content/${path} failed:`, up.error);
       if (/bucket not found/i.test(up.error.message)) {

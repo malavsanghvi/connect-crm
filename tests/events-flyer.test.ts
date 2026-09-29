@@ -48,10 +48,21 @@ describe("readFlyerState", () => {
   });
 
   it("reads a finished job's image", () => {
-    expect(readFlyerState({ status: "done", result: { image_b64: "abc", model: "gpt-image-1", prompt: "a flyer" } })).toEqual({
+    expect(readFlyerState({ status: "done", result: { image_b64: "abc", content_type: "image/jpeg", model: "pollinations-flux", prompt: "a flyer" } })).toEqual({
       status: "done",
       imageB64: "abc",
-      model: "gpt-image-1",
+      contentType: "image/jpeg",
+      model: "pollinations-flux",
+      prompt: "a flyer",
+    });
+  });
+
+  it("defaults a finished job's content type to image/png when the result omits it", () => {
+    expect(readFlyerState({ status: "done", result: { image_b64: "abc", model: "pollinations-flux", prompt: "a flyer" } })).toEqual({
+      status: "done",
+      imageB64: "abc",
+      contentType: "image/png",
+      model: "pollinations-flux",
       prompt: "a flyer",
     });
   });

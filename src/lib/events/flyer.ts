@@ -39,7 +39,7 @@ export function buildFlyerPrompt(e: FlyerPromptInput): string {
 export type FlyerState =
   | { status: "unavailable"; reason: string }
   | { status: "queued" | "running"; jobId?: string }
-  | { status: "done"; imageB64: string; model: string; prompt: string }
+  | { status: "done"; imageB64: string; contentType: string; model: string; prompt: string }
   | { status: "failed"; reason: string }
   | { status: "none" };
 
@@ -54,7 +54,8 @@ export function readFlyerState(d: unknown): FlyerState {
     const r = (o.result ?? {}) as Record<string, unknown>;
     const imageB64 = typeof r.image_b64 === "string" ? r.image_b64 : "";
     if (!imageB64) return { status: "failed", reason: "The background service finished but did not return an image." };
-    return { status: "done", imageB64, model: typeof r.model === "string" ? r.model : "", prompt: typeof r.prompt === "string" ? r.prompt : "" };
+    const contentType = typeof r.content_type === "string" && r.content_type ? r.content_type : "image/png";
+    return { status: "done", imageB64, contentType, model: typeof r.model === "string" ? r.model : "", prompt: typeof r.prompt === "string" ? r.prompt : "" };
   }
   return { status: "none" };
 }
