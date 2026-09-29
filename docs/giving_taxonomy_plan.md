@@ -99,6 +99,32 @@ Already covers most of this — the gaps are listed below, not a rebuild:
 - Auction close job — unchanged, existing.
 - No new job for visibility scheduling (query-time filter only).
 
+## Build status (2026-09-29 pass, B16)
+
+Shipped: gaps #1 (`recurring_gifts.opportunity_id` + `app.create_recurring_gift(..., p_opportunity)`
++ the notification-template reference + `app.run_recurring_gift_cycle`, the worker-only unit of
+work for one cycle), #7 (`active` on campaigns and opportunities) and #8 (`visible_from`/
+`visible_until` on both — this also answers the open question below: campaigns get the same
+treatment as opportunities). Migrations `0525_giving_recurring_opportunity_link.sql` and
+`0526_giving_active_visibility.sql`, admin UI in the opportunity builder and both list pages,
+`supabase/tests/42_giving_recurring_opportunity_test.sql`. Also fixed the immediate bug below.
+
+Deferred, not started:
+- **The actual recurring-cycle scheduler.** `app.run_recurring_gift_cycle` is written and tested,
+  but nothing in this repository calls it when a gift's `next_charge_on` comes due — there is no
+  pg_cron, no `connect_worker` job handler for it, and no scheduled route. Wiring "on
+  `next_charge_on`, run a cycle" into a real trigger (most likely a new job kind polling due
+  `recurring_gifts` rows, alongside `app.claim_jobs` in 0171) is the next step before this is
+  live end-to-end.
+- Gap #3 (media attachments) — worth checking whether Events' photo-album infrastructure
+  generalizes before building a second one, as the plan already notes; not investigated this pass.
+- Gap #4 (live/in-person `fulfillment_mode` column + contact-office routing) — not started.
+- Gap #5 (templates: save/start-from for campaigns and opportunities) — not started.
+- Gap #6 (bulk upload) — not started; the plan's open question about CSV vs. "duplicate N times"
+  is still open.
+- Auction (bolis) reachability from the same opportunity picker — not started; `app.bolis` itself
+  is untouched, as intended.
+
 ## Ideas raised but not yet decided (flag for the owner when resuming)
 
 - **Tiered amounts** within one opportunity card (e.g. $51/$101/$251) vs. just creating three
@@ -112,7 +138,12 @@ Already covers most of this — the gaps are listed below, not a rebuild:
   "featured" pin, QR/short-link per opportunity for event-day tablets, localized (Gujarati/Hindi)
   opportunity text, recurring-gift reminder cadence (expiring card / missed cycle).
 
-## Immediate, separate bug (not part of this taxonomy work)
+## Immediate, separate bug (not part of this taxonomy work) — FIXED 2026-09-29
 
-The "New recurring gift" screen's fund list renders duplicated entries — worth a quick,
-standalone fix whenever this wave starts, since it's the same screen this plan touches anyway.
+The "New recurring gift" screen's fund list rendered duplicated entries. Root cause: a fund and a
+published campaign that shared the exact same name (e.g. fund "Dev Dravya" + campaign "Dev
+Dravya") were both listed as separate purpose rows — the same giving target appeared twice under
+an identical label. `listGivingPurposes()` (connect-mobile `src/lib/api/giving.ts`) now drops the
+bare-fund row when a published campaign already carries that exact name. Verified against the
+seeded demo data (Dev Dravya, Sadhu-Sadhvi Vaiyavach) before and after the fix; regression test in
+`src/lib/__tests__/giving.test.ts`.
