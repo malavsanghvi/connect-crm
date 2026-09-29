@@ -25,27 +25,27 @@ end $$;
 grant connect_worker to postgres;
 
 -- ── Fixtures ────────────────────────────────────────────────────────────────
-\set c '''42000000-0000-4000-8000-0000000000c1'''
-\set c2 '''42000000-0000-4000-8000-0000000000c2'''
-\set admin '''42000000-0000-4000-8000-000000000001'''
-\set member '''42000000-0000-4000-8000-000000000002'''
-\set outsider '''42000000-0000-4000-8000-000000000003'''
-insert into auth.users (id, email) values (:admin, 'admin42@example.com'), (:member, 'member42@example.com'), (:outsider, 'outsider42@example.com');
+\set c '''44000000-0000-4000-8000-0000000000c1'''
+\set c2 '''44000000-0000-4000-8000-0000000000c2'''
+\set admin '''44000000-0000-4000-8000-000000000001'''
+\set member '''44000000-0000-4000-8000-000000000002'''
+\set outsider '''44000000-0000-4000-8000-000000000003'''
+insert into auth.users (id, email) values (:admin, 'admin44@example.com'), (:member, 'member44@example.com'), (:outsider, 'outsider44@example.com');
 insert into app.centers (id, slug, name, short_name, state_region, status) values
-  (:c, 'orbit42', 'Orbit Test Community', 'OTC', 'TX', 'active'),
-  (:c2, 'orbit42b', 'Other Test Community', 'OTC2', 'TX', 'active');
+  (:c, 'orbit44', 'Orbit Test Community', 'OTC', 'TX', 'active'),
+  (:c2, 'orbit44b', 'Other Test Community', 'OTC2', 'TX', 'active');
 insert into app.role_grants (center_id, user_id, role_key) values (:c, :admin, 'center_admin');
-insert into app.households (id, center_id, display_name) values ('42000000-0000-4000-8000-0000000000a1', :c, 'Shah household');
-insert into app.people (id, center_id, first_name, last_name) values ('42000000-0000-4000-8000-0000000000a2', :c, 'Asha', 'Shah');
+insert into app.households (id, center_id, display_name) values ('44000000-0000-4000-8000-0000000000a1', :c, 'Shah household');
+insert into app.people (id, center_id, first_name, last_name) values ('44000000-0000-4000-8000-0000000000a2', :c, 'Asha', 'Shah');
 insert into app.household_members (household_id, person_id, center_id, role, is_primary) values
-  ('42000000-0000-4000-8000-0000000000a1', '42000000-0000-4000-8000-0000000000a2', :c, 'primary', true);
-insert into app.center_users (center_id, user_id, person_id) values (:c, :member, '42000000-0000-4000-8000-0000000000a2');
+  ('44000000-0000-4000-8000-0000000000a1', '44000000-0000-4000-8000-0000000000a2', :c, 'primary', true);
+insert into app.center_users (center_id, user_id, person_id) values (:c, :member, '44000000-0000-4000-8000-0000000000a2');
 
 insert into app.content_items (id, center_id, kind, slug, title, body_md, status) values
-  ('42000000-0000-4000-8000-00000000000a', :c, 'niva_source', 'timings', 'Derasar timings', 'The derasar is open every day from 6 AM to 12 PM and 4 PM to 8 PM.', 'published'),
-  ('42000000-0000-4000-8000-00000000000b', :c, 'niva_source', 'draft-only', 'Unapproved draft', 'This mentions timings too but is only a draft.', 'draft'),
-  ('42000000-0000-4000-8000-00000000000c', :c2, 'niva_source', 'other-center', 'Another center''s timings', 'A different center''s derasar timings, never this member''s.', 'published'),
-  ('42000000-0000-4000-8000-00000000000d', null, 'niva_source', 'shared-pack', 'Shared Jainism basics', 'Ahimsa is the practice of non-violence, central to Jain philosophy.', 'published');
+  ('44000000-0000-4000-8000-00000000000a', :c, 'niva_source', 'timings', 'Derasar timings', 'The derasar is open every day from 6 AM to 12 PM and 4 PM to 8 PM.', 'published'),
+  ('44000000-0000-4000-8000-00000000000b', :c, 'niva_source', 'draft-only', 'Unapproved draft', 'This mentions timings too but is only a draft.', 'draft'),
+  ('44000000-0000-4000-8000-00000000000c', :c2, 'niva_source', 'other-center', 'Another center''s timings', 'A different center''s derasar timings, never this member''s.', 'published'),
+  ('44000000-0000-4000-8000-00000000000d', null, 'niva_source', 'shared-pack', 'Shared Jainism basics', 'Ahimsa is the practice of non-violence, central to Jain philosophy.', 'published');
 
 -- ── A member asks a question: saved unanswered, and a job is enqueued ───────
 begin;
@@ -62,20 +62,20 @@ select pg_temp.assert((select count(*) from app.jobs where kind = 'niva.answer' 
 -- ── A blank question is refused ──────────────────────────────────────────────
 begin;
 select pg_temp.sign_in(:member);
-select pg_temp.assert_raises($$select app.niva_ask('42000000-0000-4000-8000-0000000000c1'::uuid, '   ')$$, 'type a question', 'a blank question is refused');
+select pg_temp.assert_raises($$select app.niva_ask('44000000-0000-4000-8000-0000000000c1'::uuid, '   ')$$, 'type a question', 'a blank question is refused');
 commit;
 
 -- ── Someone who is not a member of the center cannot ask ────────────────────
 begin;
 select pg_temp.sign_in(:outsider);
-select pg_temp.assert_raises($$select app.niva_ask('42000000-0000-4000-8000-0000000000c1'::uuid, 'Am I eligible to vote?')$$, 'not a member', 'a non-member cannot ask Niva for this center');
+select pg_temp.assert_raises($$select app.niva_ask('44000000-0000-4000-8000-0000000000c1'::uuid, 'Am I eligible to vote?')$$, 'not a member', 'a non-member cannot ask Niva for this center');
 commit;
 
 -- ── The niva module can be switched off ──────────────────────────────────────
 insert into app.center_modules (center_id, module_key, enabled) values (:c, 'niva', false);
 begin;
 select pg_temp.sign_in(:member);
-select pg_temp.assert_raises($$select app.niva_ask('42000000-0000-4000-8000-0000000000c1'::uuid, 'When is the derasar open?')$$, 'switched off', 'asking is refused once the niva module is switched off');
+select pg_temp.assert_raises($$select app.niva_ask('44000000-0000-4000-8000-0000000000c1'::uuid, 'When is the derasar open?')$$, 'switched off', 'asking is refused once the niva module is switched off');
 commit;
 delete from app.center_modules where center_id = :c and module_key = 'niva';
 
@@ -95,14 +95,14 @@ begin;
 set local role connect_worker;
 select app.niva_worker_search_sources(:c::uuid, 'derasar timings', 6) as found \gset
 commit;
-select pg_temp.assert((:'found'::jsonb @> '[{"id":"42000000-0000-4000-8000-00000000000a"}]'::jsonb), 'the published, matching source for this center is found');
+select pg_temp.assert((:'found'::jsonb @> '[{"id":"44000000-0000-4000-8000-00000000000a"}]'::jsonb), 'the published, matching source for this center is found');
 select pg_temp.assert(not (:'found'::jsonb::text like '%00000000000b%'), 'a draft source is never offered, even if it matches');
 select pg_temp.assert(not (:'found'::jsonb::text like '%00000000000c%'), 'a published source belonging to a different center is never offered');
 begin;
 set local role connect_worker;
 select app.niva_worker_search_sources(:c::uuid, 'ahimsa non-violence', 6) as shared \gset
 commit;
-select pg_temp.assert((:'shared'::jsonb @> '[{"id":"42000000-0000-4000-8000-00000000000d"}]'::jsonb), 'the shared platform-pack source (center_id null) is offered to any center');
+select pg_temp.assert((:'shared'::jsonb @> '[{"id":"44000000-0000-4000-8000-00000000000d"}]'::jsonb), 'the shared platform-pack source (center_id null) is offered to any center');
 begin;
 set local role connect_worker;
 select app.niva_worker_search_sources(:c::uuid, 'quantum astrophysics blockchain', 6) as nothing \gset
@@ -117,7 +117,7 @@ select pg_temp.assert_raises($$select app.niva_worker_store_answer('$$ || :'conv
 commit;
 begin;
 set local role connect_worker;
-select app.niva_worker_store_answer(:'conv'::uuid, 'The derasar is open 6 AM-12 PM and 4-8 PM.', '[{"content_item_id":"42000000-0000-4000-8000-00000000000a","title":"Derasar timings"}]'::jsonb, 'claude-opus-5');
+select app.niva_worker_store_answer(:'conv'::uuid, 'The derasar is open 6 AM-12 PM and 4-8 PM.', '[{"content_item_id":"44000000-0000-4000-8000-00000000000a","title":"Derasar timings"}]'::jsonb, 'claude-opus-5');
 commit;
 select pg_temp.assert((select unanswered from app.niva_conversations where id = :'conv'::uuid) = false, 'the conversation is now answered');
 select pg_temp.assert((select answer from app.niva_conversations where id = :'conv'::uuid) = 'The derasar is open 6 AM-12 PM and 4-8 PM.', 'the answer text is stored');
@@ -149,8 +149,8 @@ select pg_temp.assert((select answer from app.niva_conversations where id = :'co
 
 -- ── 30-day retention: only the background service, and it actually deletes ──
 insert into app.niva_conversations (id, center_id, user_id, question, answer, created_at) values
-  ('42000000-0000-4000-8000-00000000000e', :c, :member, 'An old question', 'An old answer', now() - interval '31 days'),
-  ('42000000-0000-4000-8000-00000000000f', :c, :member, 'A recent question', 'A recent answer', now() - interval '2 days');
+  ('44000000-0000-4000-8000-00000000000e', :c, :member, 'An old question', 'An old answer', now() - interval '31 days'),
+  ('44000000-0000-4000-8000-00000000000f', :c, :member, 'A recent question', 'A recent answer', now() - interval '2 days');
 begin;
 select pg_temp.sign_in(:member);
 select pg_temp.assert_raises($$select app.niva_expired_conversations(100)$$, 'permission denied', 'only the background service runs retention');
@@ -160,8 +160,8 @@ set local role connect_worker;
 select app.niva_expired_conversations(1000) as n \gset
 commit;
 select pg_temp.assert(:n::int >= 1, 'at least the 31-day-old conversation was removed');
-select pg_temp.assert((select count(*) from app.niva_conversations where id = '42000000-0000-4000-8000-00000000000e') = 0, 'the 31-day-old conversation is gone');
-select pg_temp.assert((select count(*) from app.niva_conversations where id = '42000000-0000-4000-8000-00000000000f') = 1, 'the 2-day-old conversation stays');
+select pg_temp.assert((select count(*) from app.niva_conversations where id = '44000000-0000-4000-8000-00000000000e') = 0, 'the 31-day-old conversation is gone');
+select pg_temp.assert((select count(*) from app.niva_conversations where id = '44000000-0000-4000-8000-00000000000f') = 1, 'the 2-day-old conversation stays');
 
 -- ── Grants: the worker-only functions really are worker-only ────────────────
 select pg_temp.assert(not has_function_privilege('authenticated', 'app.niva_worker_get_conversation(uuid)', 'execute'), 'authenticated cannot execute niva_worker_get_conversation');
@@ -176,16 +176,16 @@ select pg_temp.assert(not has_function_privilege('anon', 'app.niva_ask(uuid,text
 -- by app.niva_ask itself — a running count of this center's niva_conversations
 -- created since the start of the current calendar month, +1 for the question
 -- about to be asked, against app.entitlement_defaults('sandbox','niva.monthly_questions').
-\set c3 '''42000000-0000-4000-8000-0000000000c3'''
-\set member2 '''42000000-0000-4000-8000-000000000004'''
-insert into auth.users (id, email) values (:member2, 'member2-42@example.com');
+\set c3 '''44000000-0000-4000-8000-0000000000c3'''
+\set member2 '''44000000-0000-4000-8000-000000000004'''
+insert into auth.users (id, email) values (:member2, 'member2-44@example.com');
 insert into app.centers (id, slug, name, short_name, state_region, status, environment) values
-  (:c3, 'orbit42c', 'Sandbox Test Community', 'OTC3', 'TX', 'active', 'sandbox');
-insert into app.households (id, center_id, display_name) values ('42000000-0000-4000-8000-0000000000b1', :c3, 'Mehta household');
-insert into app.people (id, center_id, first_name, last_name) values ('42000000-0000-4000-8000-0000000000b2', :c3, 'Neha', 'Mehta');
+  (:c3, 'orbit44c', 'Sandbox Test Community', 'OTC3', 'TX', 'active', 'sandbox');
+insert into app.households (id, center_id, display_name) values ('44000000-0000-4000-8000-0000000000b1', :c3, 'Mehta household');
+insert into app.people (id, center_id, first_name, last_name) values ('44000000-0000-4000-8000-0000000000b2', :c3, 'Neha', 'Mehta');
 insert into app.household_members (household_id, person_id, center_id, role, is_primary) values
-  ('42000000-0000-4000-8000-0000000000b1', '42000000-0000-4000-8000-0000000000b2', :c3, 'primary', true);
-insert into app.center_users (center_id, user_id, person_id) values (:c3, :member2, '42000000-0000-4000-8000-0000000000b2');
+  ('44000000-0000-4000-8000-0000000000b1', '44000000-0000-4000-8000-0000000000b2', :c3, 'primary', true);
+insert into app.center_users (center_id, user_id, person_id) values (:c3, :member2, '44000000-0000-4000-8000-0000000000b2');
 
 -- 299 questions already asked this month — one short of the sandbox's 300 cap.
 insert into app.niva_conversations (center_id, user_id, question, unanswered, created_at)
@@ -202,7 +202,7 @@ select pg_temp.assert(:'conv300' is not null, 'the 300th question this month is 
 -- The 301st question this month is refused with the entitlement's own plain-English message.
 begin;
 select pg_temp.sign_in(:member2);
-select pg_temp.assert_raises($$select app.niva_ask('42000000-0000-4000-8000-0000000000c3'::uuid, 'This is question number three hundred and one')$$,
+select pg_temp.assert_raises($$select app.niva_ask('44000000-0000-4000-8000-0000000000c3'::uuid, 'This is question number three hundred and one')$$,
   'niva questions a month, and they are used up', 'the 301st question this month is refused once the sandbox cap is used up');
 commit;
 select pg_temp.assert((select count(*) from app.niva_conversations where center_id = :c3::uuid

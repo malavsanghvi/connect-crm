@@ -10,6 +10,8 @@ import { can } from "@/lib/permissions";
 import { isUuid } from "@/lib/search-params";
 import { authorizeAction } from "@/lib/session";
 
+const RECURRING_FREQUENCIES = ["weekly", "monthly", "quarterly", "yearly"] as const;
+
 export type OpportunityInput = {
   id?: string | null;
   name: string;
@@ -20,6 +22,12 @@ export type OpportunityInput = {
   rows: OptionRow[];
   audience: string[];
   publish: boolean;
+  allowRecurring: boolean;
+  recurringFrequencies: string[];
+  notificationTemplateKey: string;
+  active: boolean;
+  visibleFrom: string;
+  visibleUntil: string;
 };
 
 function refresh() {
@@ -48,6 +56,18 @@ export async function saveOpportunityAction(input: OpportunityInput): Promise<Ac
     return { ok: false, error: `${doing} — its campaign is ${camp.data.status}; publish the campaign first (Opportunities › Campaigns).` };
   }
 
+  const allowRecurring = Boolean(input.allowRecurring);
+  const recurringFrequencies = (Array.isArray(input.recurringFrequencies) ? input.recurringFrequencies : []).filter((f) => RECURRING_FREQUENCIES.includes(f as (typeof RECURRING_FREQUENCIES)[number]));
+  const notificationTemplateKey = (input.notificationTemplateKey ?? "").trim() || null;
+  if (allowRecurring && (recurringFrequencies.length === 0 || !notificationTemplateKey)) {
+    return { ok: false, error: `${doing} — to allow recurring giving, choose at least one frequency and a confirmation email template.` };
+  }
+  const visibleFrom = (input.visibleFrom ?? "").trim() || null;
+  const visibleUntil = (input.visibleUntil ?? "").trim() || null;
+  if (visibleFrom && visibleUntil && new Date(visibleUntil).getTime() <= new Date(visibleFrom).getTime()) {
+    return { ok: false, error: `${doing} — "visible until" must be after "visible from".` };
+  }
+
   const row = {
     center_id: center.id,
     campaign_id: input.campaignId,
@@ -59,6 +79,12 @@ export async function saveOpportunityAction(input: OpportunityInput): Promise<Ac
     amount_cents: null,
     min_amount_cents: null,
     status: input.publish ? "open" : "draft",
+    allow_recurring: allowRecurring,
+    recurring_frequencies: recurringFrequencies,
+    notification_template_key: notificationTemplateKey,
+    active: input.active === undefined ? true : Boolean(input.active),
+    visible_from: visibleFrom,
+    visible_until: visibleUntil,
   };
 
   let id: string;
@@ -147,4 +173,18 @@ export async function setOpportunityStatusAction(_prev: ActionResult | null, for
   if (!data || data.length === 0) return { ok: false, error: `Could not ${verb} the opportunity — it was not found, or you lack permission.` };
   refresh();
   return { ok: true, message: `"${data[0].name}" is now ${next === "open" ? "open to members" : next} · audit logged.` };
+}
+
+/** Admin kill switch, independent of status (0526) — hides an opportunity from members without changing its open/taken/closed lifecycle. */
+export async function setOpportunityActiveAction(_prev: ActionResult | null, formData: FormData): Promise<ActionResult> {
+  const active = formData.get("active") === "true";
+  const id = String(formData.get("id") ?? "");
+  const auth = await authorizeAction("campaignsManage", active ? "reactivate the opportunity" : "hide the opportunity");
+  if (!auth.ok) return auth;
+  if (!isUuid(id)) return { ok: false, error: "Could not change the opportunity — it was not found." };
+  const { data, error } = await auth.session.db.from("opportunities").update({ active }).eq("id", id).eq("center_id", auth.session.center.id).select("name");
+  if (error) return failure(`Could not ${active ? "reactivate" : "hide"} the opportunity`, error);
+  if (!data || data.length === 0) return { ok: false, error: "Could not change the opportunity — it was not found, or you lack permission." };
+  refresh();
+  return { ok: true, message: `"${data[0].name}" is now ${active ? "active" : "hidden from members (inactive)"} · audit logged.` };
 }
