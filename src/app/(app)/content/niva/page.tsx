@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 import { Alert, BlockGrid, Card, EmptyState, InfoBox, QueryError, StatusText, TableWrap } from "@/components/ui";
-import { addDays, formatMonth, todayInTz } from "@/lib/dates";
+import { addDays, formatDateTime, formatMonth, todayInTz } from "@/lib/dates";
 import { isModuleEnabled } from "@/lib/modules";
 import { canAccess } from "@/lib/permissions";
 import { getSession } from "@/lib/session";
@@ -10,6 +10,7 @@ import { approveNivaContentAction } from "../../setup/approval-actions";
 import { ApprovalCard } from "../../setup/_components/approval-card";
 import { parseApprovalStatus } from "@/lib/setup";
 import { ContentItemButton } from "../item-form";
+import { RegenerateNivaAnswerButton } from "./regenerate-button";
 import { ContentHeader, contentGate } from "../shared";
 
 export const metadata: Metadata = { title: "Content · Niva" };
@@ -37,7 +38,7 @@ export default async function NivaPage() {
 
   // Readiness check 12: an administrator approves Niva's sources (or Niva is switched off).
   const showApproval = enabled && (canManage || canAccess(session, "setup"));
-  const [sources, unanswered, approval] = await Promise.all([
+  const [sources, unanswered, recent, approval] = await Promise.all([
     db
       .from("content_items")
       .select("id, center_id, kind, title, body_md, media_url, media_path, metadata, status, updated_at")
@@ -47,6 +48,9 @@ export default async function NivaPage() {
     canManage
       ? db.from("niva_conversations").select("question").eq("center_id", center.id).eq("unanswered", true).gte("created_at", weekAgo).limit(2000)
       : null,
+    // Answered by the worker (or still pending it): the most recent 30, so staff can see what Niva is
+    // actually saying and, once a source is edited or freshly approved, regenerate a stale answer.
+    canManage ? db.from("niva_conversations").select("id, question, answer, sources, unanswered, created_at").eq("center_id", center.id).order("created_at", { ascending: false }).limit(30) : null,
     showApproval ? db.rpc("golive_approval_status", { p_center: center.id }) : null,
   ]);
   if (approval?.error) console.error("[content/niva] could not load the go-live approval:", approval.error);
@@ -60,14 +64,17 @@ export default async function NivaPage() {
     grouped.set(k, g);
   }
   const questions = [...grouped.values()].sort((a, b) => b.n - a.n).slice(0, 25);
+  const recentRows = recent?.data ?? [];
 
   return (
     <>
       <ContentHeader sub={sub} />
       <div className="mb-4">
-        <Alert tone="info" title="Niva doesn't answer on its own yet">
-          Members can ask Niva in the app. Each question is saved and listed below as unanswered, and the member is told plainly that answers are
-          still being set up — the answering model is not connected yet. Add sources now so they are ready.
+        <Alert tone="info" title="Niva answers from your approved sources only">
+          A member&apos;s question is checked against the sources marked &ldquo;Included&rdquo; below; when one clearly answers it, Niva replies
+          with that source cited. When none does, or Niva isn&apos;t confident, the question is saved as unanswered and the member is told
+          honestly that it&apos;s still being looked into — never a guess. Doctrinal questions are always referred on to Pathshala teachers as
+          well. Editing a source? Regenerate the affected answers below.
         </Alert>
       </div>
       <BlockGrid>
@@ -163,6 +170,48 @@ export default async function NivaPage() {
                       <td className="num">{q.n}</td>
                     </tr>
                   ))}
+                </tbody>
+              </table>
+            </TableWrap>
+          )}
+        </Card>
+        <Card title="Recent questions & answers" description="What Niva is actually saying, most recent first" span={12} padded={false}>
+          {!canManage ? (
+            <p className="px-4 pb-4 text-[13px] text-muted">Members&apos; questions are visible to content managers (content.manage) only.</p>
+          ) : recent?.error ? (
+            <div className="p-4">
+              <QueryError what="Niva's recent questions" error={recent.error} retryHref="/content/niva" />
+            </div>
+          ) : recentRows.length === 0 ? (
+            <EmptyState title={enabled ? "No questions yet" : "No questions — the Niva module is switched off"} />
+          ) : (
+            <TableWrap>
+              <table className="crm-table">
+                <thead>
+                  <tr>
+                    <th>Question</th>
+                    <th>Answer</th>
+                    <th>Sources</th>
+                    <th>Status</th>
+                    <th>Asked</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {recentRows.map((r) => {
+                    const cited = Array.isArray(r.sources) ? (r.sources as unknown as { title?: string }[]) : [];
+                    const citedTitles = cited.map((s) => s.title).filter((t): t is string => Boolean(t));
+                    return (
+                      <tr key={r.id}>
+                        <td className="max-w-[280px]">{r.question}</td>
+                        <td className="max-w-[360px] text-muted">{r.answer ?? "—"}</td>
+                        <td className="max-w-[200px] text-[12px] text-muted">{citedTitles.length ? citedTitles.join(" · ") : "—"}</td>
+                        <td>{r.unanswered ? <StatusText tone="warn">Unanswered</StatusText> : <StatusText tone="ok">Answered</StatusText>}</td>
+                        <td className="whitespace-nowrap">{formatDateTime(r.created_at, center.time_zone)}</td>
+                        <td>{r.answer ? <RegenerateNivaAnswerButton conversationId={r.id} /> : null}</td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </TableWrap>
