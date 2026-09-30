@@ -163,6 +163,37 @@ const loaders: Record<TaskSourceKey, Loader> = {
     });
   },
 
+  // Credit a member asked to hold after cancelling a paid RSVP pledge. Nothing is applied automatically:
+  // the treasurer decides (apply to the family's other pledges with the usual tools), then marks it handled.
+  async credit(session) {
+    const { db, center } = session;
+    const rows = must(
+      await db.from("rsvp_credit_releases").select("id, household_id, released_cents, created_at").eq("center_id", center.id).eq("status", "pending").order("created_at").limit(25),
+    );
+    if (rows.length === 0) return [];
+    const hh = await householdsById(db, rows.map((r) => r.household_id));
+    return rows.map((r) => {
+      const amount = formatCents(r.released_cents, center.currency);
+      const household = hh.map.get(r.household_id)?.display_name ?? "household";
+      return makeTask(
+        "credit",
+        r.id,
+        `Credit to handle · ${amount} · ${household}`,
+        "The family cancelled a paid RSVP pledge and asked to keep the money as credit. Apply it to their open pledges or as they ask, then mark it handled.",
+        [{ label: "Open", href: `/households/${r.household_id}?tab=pledges` }],
+        can(session, "giving.manage")
+          ? {
+              table: "rsvp_credit_releases",
+              id: r.id,
+              label: "Mark handled",
+              confirmTitle: "Mark this credit as handled?",
+              confirmBody: `${amount} for ${household}. Only confirm once you have applied it as the family asked.`,
+            }
+          : undefined,
+      );
+    });
+  },
+
   async override(session) {
     const { db, center } = session;
     const rows = must(
