@@ -10,7 +10,7 @@ import { approveNivaContentAction } from "../../setup/approval-actions";
 import { ApprovalCard } from "../../setup/_components/approval-card";
 import { parseApprovalStatus } from "@/lib/setup";
 import { ContentItemButton } from "../item-form";
-import { ImportPagesForm } from "./import-form";
+import { ImportPagesForm, SendImportedDraftsForm } from "./import-form";
 import { RegenerateNivaAnswerButton } from "./regenerate-button";
 import { ContentHeader, contentGate } from "../shared";
 
@@ -78,6 +78,7 @@ export default async function NivaPage() {
   if (approval?.error) console.error("[content/niva] could not load the go-live approval:", approval.error);
   const approvals = approval && !approval.error ? parseApprovalStatus(approval.data) : null;
   const published = (sources.data ?? []).filter((x) => x.status === "published").length;
+  const importedDrafts = (sources.data ?? []).filter((x) => x.status === "draft" && x.center_id !== null && (x.metadata as Record<string, unknown> | null)?.imported === true).length;
   const grouped = new Map<string, { text: string; n: number }>();
   for (const u of unanswered?.data ?? []) {
     const k = u.question.trim().toLowerCase().replace(/\s+/g, " ");
@@ -104,7 +105,14 @@ export default async function NivaPage() {
           title="Knowledge sources"
           span={7}
           padded={false}
-          actions={canDraft ? <ContentItemButton kind="niva_source" kindLabel="Niva source" meta={["items_count"]} label="Add source" bodyLabel="What this source covers" showMedia={false} /> : null}
+          actions={
+            canDraft ? (
+              <div className="flex flex-wrap items-center gap-2">
+                {importedDrafts > 0 ? <SendImportedDraftsForm count={importedDrafts} /> : null}
+                <ContentItemButton kind="niva_source" kindLabel="Niva source" meta={["items_count"]} label="Add source" bodyLabel="What this source covers" showMedia={false} />
+              </div>
+            ) : null
+          }
         >
           {sources.error ? (
             <div className="p-4">
@@ -121,6 +129,7 @@ export default async function NivaPage() {
                     <th className="num">Items</th>
                     <th>Updated</th>
                     <th>Status</th>
+                    {canDraft ? <th /> : null}
                   </tr>
                 </thead>
                 <tbody>
@@ -134,7 +143,16 @@ export default async function NivaPage() {
                         </td>
                         <td className="num">{typeof m.items_count === "number" ? m.items_count : "—"}</td>
                         <td>{formatMonth(s.updated_at.slice(0, 7) + "-01")}</td>
-                        <td>{s.status === "published" ? <StatusText tone="ok">Included</StatusText> : <StatusText tone="warn">Not included yet</StatusText>}</td>
+                        <td>{s.status === "published" ? <StatusText tone="ok">Included</StatusText> : s.status === "in_review" ? <StatusText tone="warn">Waiting for approval</StatusText> : <StatusText tone="warn">Not included yet</StatusText>}</td>
+                        {canDraft ? (
+                          <td className="whitespace-nowrap text-right">
+                            {s.center_id ? (
+                              <ContentItemButton kind="niva_source" kindLabel="Niva source" meta={["items_count"]} label="Edit" variant="ghost" size="xs" bodyLabel="What this source covers" showMedia={false} item={{ ...s, metadata: m }} />
+                            ) : (
+                              <span className="text-xs text-muted">Shared</span>
+                            )}
+                          </td>
+                        ) : null}
                       </tr>
                     );
                   })}
