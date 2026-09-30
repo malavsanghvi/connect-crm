@@ -12,6 +12,21 @@ This document is the plan; backlog B25 (office side) and B26 (member side) track
 - **Payment/pledge imports** keyed to a household by legacy ID or household number.
 - **Member app**: join link/QR (`Settings › Member app`), "Find your community", "find my family" matching.
 
+## Rule for every upload step (owner, 2026-09-30)
+Every step that accepts a bulk upload uses the SAME uploader, so each has:
+1. **A downloadable template** for that step's data (CSV/XLSX, example row, column dictionary), from
+   `src/lib/import/templates.ts`; the file is filled in and uploaded back.
+2. **Field mapping on upload**: the owner maps each file column to a field (auto-matched by header and
+   synonyms, with AI suggestions), so files from QuickBooks, Neon or a spreadsheet work without re-typing.
+3. **Validation by the field's type and intent**: email, phone (E.164), date, money (cents), integer, enum,
+   identifier (leading zeros kept), required-ness; per-row problems are listed in plain English and downloadable
+   as a problems file, and the run is checked before anything is saved.
+4. **Extra columns become custom data**: any column the owner does not map to a built-in field is kept as a
+   custom field on the record with a type guessed from its values (`CUSTOM_TYPES`), visible on the profile.
+   Nothing uploaded is thrown away.
+These four already exist in the import tool (`/settings/import/new`, `src/lib/import/mapping.ts`,
+`transforms.ts`, `registry.ts`); the onboarding work embeds that tool step by step rather than building another.
+
 ## The flow (owner's screens, one step each)
 1. **Welcome.** What we will do, how long, that nothing is final until they confirm; Skip/Back on every step.
 2. **Past donations and invoices (optional).** Upload a CSV or Excel (QuickBooks, Neon, bank export). Map
