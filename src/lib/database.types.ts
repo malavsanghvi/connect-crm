@@ -9420,6 +9420,12 @@ export type Database = {
         };
         Returns: { checked_in_at: string; household_label: string; lunch_slot_label: string }[];
       };
+      event_survey_stats: {
+        Args: {
+          p_survey: string;
+        };
+        Returns: Json;
+      };
       events_flyer_result: {
         Args: {
           p_event: string;
@@ -9825,6 +9831,12 @@ export type Database = {
         };
         Returns: { code_id: string; code: string; expires_at: string; email_status: string }[];
       };
+      launch_event_survey_now: {
+        Args: {
+          p_survey: string;
+        };
+        Returns: number;
+      };
       legal_documents_status: {
         Args: {
           p_center: string;
@@ -9858,6 +9870,13 @@ export type Database = {
           p_person: string;
         };
         Returns: string;
+      };
+      manages_event_surveys: {
+        Args: {
+          p_center: string;
+          p_event?: string;
+        };
+        Returns: boolean;
       };
       map_qbo_customer: {
         Args: {
@@ -10587,6 +10606,12 @@ export type Database = {
           p_center: string;
         };
         Returns: { id: string; name: string }[];
+      };
+      remove_event_survey: {
+        Args: {
+          p_survey: string;
+        };
+        Returns: undefined;
       };
       reopen_platform_setup_step: {
         Args: {
@@ -11329,6 +11354,17 @@ export type Database = {
           p_sort?: number;
         };
         Returns: string;
+      };
+      update_event_survey: {
+        Args: {
+          p_survey: string;
+          p_title?: string;
+          p_questions?: Json;
+          p_points?: number;
+          p_auto?: boolean;
+          p_anonymous?: boolean;
+        };
+        Returns: undefined;
       };
       url_decode: {
         Args: {
