@@ -10,6 +10,7 @@ import { approveNivaContentAction } from "../../setup/approval-actions";
 import { ApprovalCard } from "../../setup/_components/approval-card";
 import { parseApprovalStatus } from "@/lib/setup";
 import { ContentItemButton } from "../item-form";
+import { ImportPagesForm } from "./import-form";
 import { RegenerateNivaAnswerButton } from "./regenerate-button";
 import { ContentHeader, contentGate } from "../shared";
 
@@ -21,6 +22,26 @@ const GUARDRAILS: [string, string][] = [
   ["When unsure", "Say so and offer Ask a question"],
   ["Conversation logs", "Kept 30 days · never used to train models"],
 ];
+
+type ImportRow = { job_id: number; url: string; status: string; attempts: number; last_error: string | null; result: unknown; created_at: string; finished_at: string | null };
+
+/** One line, in plain English, for an import job: what it did, or why it could not. */
+function importOutcome(r: ImportRow): { tone: "ok" | "warn" | "bad"; label: string; detail: string } {
+  if (r.status === "done") {
+    const x = (r.result ?? {}) as Record<string, unknown>;
+    const n = Number(x.sections ?? 0);
+    const kept = Number(x.kept_as_approved ?? 0);
+    const parts = [`${n} section${n === 1 ? "" : "s"} read`, `${Number(x.created ?? 0)} new draft${Number(x.created ?? 0) === 1 ? "" : "s"}`];
+    if (Number(x.updated ?? 0) > 0) parts.push(`${Number(x.updated)} draft${Number(x.updated) === 1 ? "" : "s"} refreshed`);
+    if (kept > 0) parts.push(`${kept} already approved, left as approved`);
+    if (x.truncated === true) parts.push("page was long, only the first part was kept");
+    return { tone: "ok", label: "Done", detail: parts.join(" · ") };
+  }
+  if (r.status === "failed") return { tone: "bad", label: "Could not import", detail: r.last_error || "The page could not be read." };
+  if (r.status === "running") return { tone: "warn", label: "Reading…", detail: "" };
+  if (r.attempts > 0 && r.last_error) return { tone: "warn", label: "Will try again", detail: r.last_error };
+  return { tone: "warn", label: "Waiting", detail: "Queued; pages are read a few seconds apart." };
+}
 
 export default async function NivaPage() {
   const session = await getSession();
@@ -38,7 +59,7 @@ export default async function NivaPage() {
 
   // Readiness check 12: an administrator approves Niva's sources (or Niva is switched off).
   const showApproval = enabled && (canManage || canAccess(session, "setup"));
-  const [sources, unanswered, recent, approval] = await Promise.all([
+  const [sources, unanswered, recent, approval, imports] = await Promise.all([
     db
       .from("content_items")
       .select("id, center_id, kind, title, body_md, media_url, media_path, metadata, status, updated_at")
@@ -52,6 +73,7 @@ export default async function NivaPage() {
     // actually saying and, once a source is edited or freshly approved, regenerate a stale answer.
     canManage ? db.from("niva_conversations").select("id, question, answer, sources, unanswered, created_at").eq("center_id", center.id).order("created_at", { ascending: false }).limit(30) : null,
     showApproval ? db.rpc("golive_approval_status", { p_center: center.id }) : null,
+    canDraft ? db.rpc("niva_import_status", { p_center: center.id, p_limit: 15 }) : null,
   ]);
   if (approval?.error) console.error("[content/niva] could not load the go-live approval:", approval.error);
   const approvals = approval && !approval.error ? parseApprovalStatus(approval.data) : null;
@@ -106,7 +128,10 @@ export default async function NivaPage() {
                     const m = (s.metadata ?? {}) as Record<string, unknown>;
                     return (
                       <tr key={s.id}>
-                        <td className="font-bold">{s.title}</td>
+                        <td>
+                          <span className="font-bold">{s.title}</span>
+                          {typeof m.source_url === "string" ? <span className="block text-[12px] font-normal text-muted">Imported from {m.source_url}</span> : null}
+                        </td>
                         <td className="num">{typeof m.items_count === "number" ? m.items_count : "—"}</td>
                         <td>{formatMonth(s.updated_at.slice(0, 7) + "-01")}</td>
                         <td>{s.status === "published" ? <StatusText tone="ok">Included</StatusText> : <StatusText tone="warn">Not included yet</StatusText>}</td>
@@ -128,6 +153,51 @@ export default async function NivaPage() {
             ))}
           </div>
         </Card>
+        {canDraft ? (
+          <Card
+            title="Import from a web page"
+            span={12}
+            description="Paste public web page addresses. Each page is read, cleaned up and saved as draft sources; nothing reaches members until you approve it."
+          >
+            <div className="flex flex-col gap-4">
+              <ImportPagesForm />
+              <p className="text-[13px] text-muted">
+                Only public pages are read, and a site&apos;s robots.txt is respected. Pages built entirely by scripts, PDFs and files can&apos;t be read yet; add those by hand with Add source.
+                Importing a page again refreshes its drafts and never changes a section that has already been approved.
+              </p>
+              {imports?.error ? (
+                <QueryError what="the recent imports" error={imports.error} retryHref="/content/niva" />
+              ) : imports && (imports.data ?? []).length > 0 ? (
+                <TableWrap>
+                  <table className="crm-table">
+                    <thead>
+                      <tr>
+                        <th>Page</th>
+                        <th>Asked</th>
+                        <th>Result</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {((imports.data ?? []) as ImportRow[]).map((r) => {
+                        const o = importOutcome(r);
+                        return (
+                          <tr key={r.job_id}>
+                            <td className="max-w-[320px] break-all">{r.url}</td>
+                            <td className="whitespace-nowrap">{formatDateTime(r.created_at, center.time_zone)}</td>
+                            <td>
+                              <StatusText tone={o.tone}>{o.label}</StatusText>
+                              {o.detail ? <span className="block text-[12px] text-muted">{o.detail}</span> : null}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </TableWrap>
+              ) : null}
+            </div>
+          </Card>
+        ) : null}
         {approval?.error ? (
           <div className="col-span-12">
             <QueryError what="the approval of Niva's content" error={approval.error} retryHref="/content/niva" />
