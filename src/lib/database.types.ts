@@ -8680,6 +8680,13 @@ export type Database = {
         Args: Record<PropertyKey, never>;
         Returns: undefined;
       };
+      apply_my_credit: {
+        Args: {
+          p_household: string;
+          p_pledge_ids: string[];
+        };
+        Returns: number;
+      };
       approve_as_second: {
         Args: {
           p_table: string;
@@ -9462,6 +9469,12 @@ export type Database = {
           p_household: string;
         };
         Returns: { household_id: string; household_name: string; household_number: string; org_household_id: string; members: string; primary_member: string; primary_org_member_id: string; zone: string; city: string; last_gift_on: string; open_pledge_cents: number }[];
+      };
+      household_credit: {
+        Args: {
+          p_household: string;
+        };
+        Returns: number;
       };
       i_am_adult: {
         Args: {

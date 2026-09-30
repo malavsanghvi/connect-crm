@@ -51,8 +51,32 @@ reset role;
 update app.pledges set paid_cents = 300, status = 'partially_paid' where id = :'pledge3';
 set local role authenticated;
 set local request.jwt.claim.sub = '10000000-0000-4000-8000-000000000001';
-select pg_temp.assert(not (app.cancel_my_rsvp(:'rsvp3', true)->>'pledge_cancelled')::boolean, 'a pledge with money paid is never cancelled here');
-select pg_temp.assert((select status from app.pledges where id = :'pledge3') = 'partially_paid', 'the partly paid pledge is untouched');
+-- 0543: money paid toward a cancelled pledge becomes credit; it can then be applied to another open pledge.
+reset role;
+insert into app.payments (id, center_id, household_id, amount_cents, status, method)
+  values ('60000000-0000-4000-8000-0000000000a1', :jsh, '20000000-0000-4000-8000-000000000001', 300, 'captured', 'card');
+insert into app.payment_allocations (center_id, payment_id, pledge_id, amount_cents) values (:jsh, '60000000-0000-4000-8000-0000000000a1', :'pledge3', 300);
+set local role authenticated;
+set local request.jwt.claim.sub = '10000000-0000-4000-8000-000000000001';
+select app.household_credit('20000000-0000-4000-8000-000000000001') as base \gset
+select pg_temp.assert(true, 'credit before: ' || :base);
+select pg_temp.assert((app.cancel_my_rsvp(:'rsvp3', true)->>'credit_cents')::bigint = 300, 'cancelling with the pledge releases what was paid as credit');
+select pg_temp.assert((select status from app.pledges where id = :'pledge3') = 'cancelled', 'the paid pledge is cancelled');
+select pg_temp.assert(app.household_credit('20000000-0000-4000-8000-000000000001') = :base + 300, 'the household now has 300 more in credit');
+reset role;
+insert into app.pledges (id, center_id, household_id, source, amount_cents) values ('61000000-0000-4000-8000-0000000000a1', :jsh, '20000000-0000-4000-8000-000000000001', 'general', 1000);
+set local role authenticated;
+set local request.jwt.claim.sub = '10000000-0000-4000-8000-000000000001';
+select pg_temp.assert(app.apply_my_credit('20000000-0000-4000-8000-000000000001', array['61000000-0000-4000-8000-0000000000a1'::uuid]) > 0, 'applying credit reports the amount applied');
+select pg_temp.assert((select paid_cents from app.pledges where id = '61000000-0000-4000-8000-0000000000a1') > 0, 'the chosen pledge received credit');
+select pg_temp.assert(app.household_credit('20000000-0000-4000-8000-000000000001') < :base + 300, 'the credit went down');
+do $$ begin
+  perform app.apply_my_credit('20000000-0000-4000-8000-000000000001', array[gen_random_uuid()]);
+  raise exception 'FAIL: credit applied to a pledge that is not the household''s';
+exception when others then
+  if sqlerrm like 'FAIL:%' then raise; end if;
+  raise notice 'PASS: credit only goes to open pledges of the household';
+end $$;
 commit;
 
 begin;
