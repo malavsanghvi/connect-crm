@@ -7859,6 +7859,30 @@ export type Database = {
         };
         Relationships: [];
       };
+      survey_completions: {
+        Row: {
+          survey_id: string;
+          person_id: string;
+          center_id: string;
+          completed_at: string;
+          points_awarded: number;
+        };
+        Insert: {
+          survey_id: string;
+          person_id: string;
+          center_id: string;
+          completed_at?: string;
+          points_awarded?: number;
+        };
+        Update: {
+          survey_id?: string;
+          person_id?: string;
+          center_id?: string;
+          completed_at?: string;
+          points_awarded?: number;
+        };
+        Relationships: [];
+      };
       survey_responses: {
         Row: {
           id: string;
@@ -7905,6 +7929,9 @@ export type Database = {
           send_at: string | null;
           reminder_after_days: number | null;
           template_key: string | null;
+          reward_points: number;
+          auto_on_complete: boolean;
+          completion_started_at: string | null;
         };
         Insert: {
           id?: string;
@@ -7924,6 +7951,9 @@ export type Database = {
           send_at?: string | null;
           reminder_after_days?: number | null;
           template_key?: string | null;
+          reward_points?: number;
+          auto_on_complete?: boolean;
+          completion_started_at?: string | null;
         };
         Update: {
           id?: string;
@@ -7943,6 +7973,9 @@ export type Database = {
           send_at?: string | null;
           reminder_after_days?: number | null;
           template_key?: string | null;
+          reward_points?: number;
+          auto_on_complete?: boolean;
+          completion_started_at?: string | null;
         };
         Relationships: [];
       };
@@ -8815,6 +8848,18 @@ export type Database = {
           p_checkout_url: string;
         };
         Returns: undefined;
+      };
+      attach_event_survey: {
+        Args: {
+          p_event: string;
+          p_template?: string;
+          p_title?: string;
+          p_questions?: Json;
+          p_points?: number;
+          p_auto?: boolean;
+          p_anonymous?: boolean;
+        };
+        Returns: string;
       };
       attest_center: {
         Args: {
@@ -11159,6 +11204,14 @@ export type Database = {
           p_commitment_mode?: string;
         };
         Returns: string;
+      };
+      submit_survey: {
+        Args: {
+          p_survey: string;
+          p_answers: Json;
+          p_anonymous?: boolean;
+        };
+        Returns: Json;
       };
       submit_whatsapp_template: {
         Args: {
