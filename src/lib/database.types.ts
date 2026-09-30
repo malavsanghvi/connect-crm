@@ -9914,6 +9914,20 @@ export type Database = {
         };
         Returns: string;
       };
+      niva_import_pages: {
+        Args: {
+          p_center: string;
+          p_urls: string[];
+        };
+        Returns: number;
+      };
+      niva_import_status: {
+        Args: {
+          p_center: string;
+          p_limit?: number;
+        };
+        Returns: { job_id: number; url: string; status: string; attempts: number; last_error: string; result: Json; created_at: string; finished_at: string }[];
+      };
       niva_regenerate: {
         Args: {
           p_id: string;
