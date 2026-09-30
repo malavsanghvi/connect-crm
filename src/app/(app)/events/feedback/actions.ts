@@ -42,7 +42,10 @@ export async function requestFeedback(_prev: Result | null, fd: FormData): Promi
         await db.from("surveys").select("id, status").eq("center_id", centerId).eq("kind", "event_feedback").eq("event_id", eventId).limit(1),
         "check for an existing feedback survey",
       ) ?? [];
-    if (existing.length) throw new FormError(`${event.name} already has a feedback survey. Open it from the Surveys table.`);
+    // An event has one survey. The event's Survey tab is where it is attached, edited and launched.
+    if (existing.length) {
+      throw new FormError(`the event "${event.name}" already has a survey, so a second one was not created. Open the event and use its Survey tab to see or change it.`);
+    }
     const templateRow = (
       must(
         await db.from("surveys").select("*").eq("center_id", centerId).eq("kind", "event_feedback").is("event_id", null).limit(1),

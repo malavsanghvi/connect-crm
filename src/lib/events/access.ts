@@ -50,6 +50,12 @@ export const eventAreas = {
   runLunch: (a: EventAccess, eventId: string) => can(a, "events.manage") || hasScopedRole(a, eventId, "event_lead", "kitchen_lead"),
   volunteers: (a: EventAccess, eventId: string) => can(a, ["events.manage", "volunteers.manage"]) || hasScopedRole(a, eventId, "event_lead"),
   grantRoles: (a: EventAccess) => can(a, "roles.manage"),
+  /**
+   * The Survey tab and a survey's results: the people who may attach and change it (event managers, this event's
+   * lead: app.manages_event_surveys) and communications staff, who already read every survey (comms.view / comms.send).
+   */
+  survey: (a: EventAccess, eventId: string) =>
+    can(a, ["events.manage", "comms.view", "comms.send"]) || hasScopedRole(a, eventId, "event_lead"),
 };
 
 /** Pick the event a dashboard or volunteer most likely means: live, else today's, else the next upcoming, else the latest. */

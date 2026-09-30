@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState, useTransition } from "react";
 
 import { Modal } from "@/components/modal";
@@ -106,6 +107,15 @@ export function RequestFeedbackButton({
           <p>
             Sends a push notification to the {chosen.checkedIn} checked-in attendees (SMS or WhatsApp for guests) {timingText}
             {reminderText}. {anonymousAllowed ? "Anonymous answers are allowed." : "All answers are anonymous."}
+          </p>
+        ) : null}
+        {chosen ? (
+          <p className="mt-2 text-[13px] text-muted">
+            Want points for answering, or the survey sent automatically when the event is marked completed? Set it up on the event&apos;s{" "}
+            <Link href={`/events/${chosen.id}?tab=survey`} className="crm-link">
+              Survey tab
+            </Link>{" "}
+            instead. An event has one survey.
           </p>
         ) : null}
       </Modal>

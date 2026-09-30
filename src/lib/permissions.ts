@@ -216,7 +216,11 @@ export const ACCESS = {
   // Events (0010: events/rsvps/attendees/lunch_slots/scan_log staff policies).
   events: ["events.view", "events.manage"],
   eventsManage: ["events.manage"],
-  /** Event feedback surveys are app.surveys rows: read with comms.view/send, written with comms.send. */
+  /**
+   * Event feedback surveys are app.surveys rows: read with comms.view/send, written with comms.send. The Events list
+   * and overview need this; an event's manager or lead also reads and manages THEIR event's survey without it (0547,
+   * eventAreas.survey), through the event's Survey tab.
+   */
   eventFeedbackRead: ["comms.view", "comms.send"],
   eventFeedbackSend: ["comms.send"],
   /** Volunteer groups, sign-ups and background checks (volunteer_* and background_checks policies). */

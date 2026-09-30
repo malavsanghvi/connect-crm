@@ -21,6 +21,7 @@ import { flyerPreviewUrlAction } from "../builder/flyer-actions";
 import { LunchTab } from "./lunch-tab";
 import { ReportTab } from "./report-tab";
 import { RsvpsTab } from "./rsvps-tab";
+import { SurveyTab } from "./survey-tab";
 import { VolunteersTab } from "./volunteers-tab";
 
 export const metadata: Metadata = { title: "Event" };
@@ -31,6 +32,7 @@ const TABS = [
   { key: "rsvps", label: "RSVPs" },
   { key: "volunteers", label: "Volunteers" },
   { key: "lunch", label: "Lunch" },
+  { key: "survey", label: "Survey" },
   { key: "report", label: "Report" },
 ] as const;
 type TabKey = (typeof TABS)[number]["key"];
@@ -171,6 +173,7 @@ export default async function EventPage({ params, searchParams }: { params: Prom
       {tab === "rsvps" ? <RsvpsTab event={event} session={session} access={access} status={param(sp, "rsvp") ?? null} /> : null}
       {tab === "volunteers" ? <VolunteersTab event={event} session={session} access={access} /> : null}
       {tab === "lunch" ? <LunchTab event={event} session={session} access={access} /> : null}
+      {tab === "survey" ? <SurveyTab event={event} session={session} access={access} /> : null}
       {tab === "report" ? <ReportTab event={event} session={session} /> : null}
     </>
   );
