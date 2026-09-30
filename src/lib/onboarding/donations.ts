@@ -187,14 +187,21 @@ export type TableFile = { headers: string[]; rows: string[][] };
 
 const dollars = (cents: number) => `${Math.floor(cents / 100)}.${String(cents % 100).padStart(2, "0")}`;
 
-/** One row per household: the address from the first row that has one, every name it paid under kept as custom data. */
-export function buildHouseholdFile(groups: readonly Group[], rows: readonly ParsedDonation[]): TableFile {
-  const byRow = new Map(rows.map((r) => [r.rowNo, r]));
+export type AddressSource = { rowNo: number; address1: string | null; address2: string | null; city: string | null; state: string | null; zip: string | null };
+
+/**
+ * One row per household: the address from the first row that has one (a donation or a person), and every name a
+ * donor paid under kept as custom data ("Also paid as").
+ */
+export function buildHouseholdFile(groups: readonly Group[], sources: readonly AddressSource[], donations: readonly ParsedDonation[] = []): TableFile {
+  const byRow = new Map(sources.map((r) => [r.rowNo, r]));
+  const donorNames = new Map(donations.map((d) => [d.rowNo, d.name.trim()]));
   const headers = ["Household ID (old system)", "Household name", "Address", "Address line 2", "City", "State", "ZIP", "Also paid as"];
   const out = groups.map((g) => {
-    const members = g.rows.map((n) => byRow.get(n)).filter((r): r is ParsedDonation => !!r);
+    const members = g.rows.map((n) => byRow.get(n)).filter((r): r is AddressSource => !!r);
     const withAddr = members.find((m) => m.address1) ?? null;
-    return [householdLegacyId(g), g.displayName, withAddr?.address1 ?? "", withAddr?.address2 ?? "", withAddr?.city ?? "", withAddr?.state ?? "", withAddr?.zip ?? "", g.names.join("; ")];
+    const paidAs = [...new Set(g.rows.map((n) => donorNames.get(n)).filter((x): x is string => !!x))];
+    return [householdLegacyId(g), g.displayName, withAddr?.address1 ?? "", withAddr?.address2 ?? "", withAddr?.city ?? "", withAddr?.state ?? "", withAddr?.zip ?? "", paidAs.join("; ")];
   });
   return { headers, rows: out };
 }
