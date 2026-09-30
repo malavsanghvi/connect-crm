@@ -181,33 +181,49 @@ export function toPayerInputs(rows: readonly ParsedDonation[]): PayerInput[] {
   return rows.map((r) => ({ rowNo: r.rowNo, name: r.name, email: r.email, phone: r.phone, address1: r.address1, address2: r.address2, zip: r.zip }));
 }
 
-export const householdLegacyId = (g: Group): string => `ONB-H-${String(g.id + 1).padStart(5, "0")}`;
+/**
+ * The ID the people and donation files use for a group's household, in the "Household ID (old system)" column.
+ * A household already in the records is named by its Connect household number (the import tool resolves that
+ * already: app.import_ref), so nothing is created and no ID is added to it. A new household gets an ID of this
+ * onboarding's own (`prefix` is unique to one draft), so a second onboarding in the same organization can never
+ * mistake it for one of the first's.
+ */
+export const householdLegacyId = (g: Group, prefix = "ONB"): string => g.existing?.number ?? `${prefix}-H-${String(g.id + 1).padStart(5, "0")}`;
 
 export type TableFile = { headers: string[]; rows: string[][] };
+
+/** The token that keeps one onboarding's generated IDs apart from another's: "ONB-7F3A2C" from the draft's id. */
+export function idPrefixOf(progressId: string): string {
+  const hex = /^[0-9a-f]{6}/i.exec(progressId.replace(/-/g, ""))?.[0] ?? "000000";
+  return `ONB-${hex.toUpperCase()}`;
+}
 
 const dollars = (cents: number) => `${Math.floor(cents / 100)}.${String(cents % 100).padStart(2, "0")}`;
 
 export type AddressSource = { rowNo: number; address1: string | null; address2: string | null; city: string | null; state: string | null; zip: string | null };
 
 /**
- * One row per household: the address from the first row that has one (a donation or a person), and every name a
- * donor paid under kept as custom data ("Also paid as").
+ * One row per NEW household: the address from the first row that has one (a donation or a person), and every name
+ * a donor paid under kept as custom data ("Also paid as"). A group that is a household already in the records
+ * gets no row: it is never created again, and the files that follow attach to it.
  */
-export function buildHouseholdFile(groups: readonly Group[], sources: readonly AddressSource[], donations: readonly ParsedDonation[] = []): TableFile {
+export function buildHouseholdFile(groups: readonly Group[], sources: readonly AddressSource[], donations: readonly ParsedDonation[] = [], prefix = "ONB"): TableFile {
   const byRow = new Map(sources.map((r) => [r.rowNo, r]));
   const donorNames = new Map(donations.map((d) => [d.rowNo, d.name.trim()]));
   const headers = ["Household ID (old system)", "Household name", "Address", "Address line 2", "City", "State", "ZIP", "Also paid as"];
-  const out = groups.map((g) => {
-    const members = g.rows.map((n) => byRow.get(n)).filter((r): r is AddressSource => !!r);
-    const withAddr = members.find((m) => m.address1) ?? null;
-    const paidAs = [...new Set(g.rows.map((n) => donorNames.get(n)).filter((x): x is string => !!x))];
-    return [householdLegacyId(g), g.displayName, withAddr?.address1 ?? "", withAddr?.address2 ?? "", withAddr?.city ?? "", withAddr?.state ?? "", withAddr?.zip ?? "", paidAs.join("; ")];
-  });
+  const out = groups
+    .filter((g) => !g.existing)
+    .map((g) => {
+      const members = g.rows.map((n) => byRow.get(n)).filter((r): r is AddressSource => !!r);
+      const withAddr = members.find((m) => m.address1) ?? null;
+      const paidAs = [...new Set(g.rows.map((n) => donorNames.get(n)).filter((x): x is string => !!x))];
+      return [householdLegacyId(g, prefix), g.displayName, withAddr?.address1 ?? "", withAddr?.address2 ?? "", withAddr?.city ?? "", withAddr?.state ?? "", withAddr?.zip ?? "", paidAs.join("; ")];
+    });
   return { headers, rows: out };
 }
 
 /** One row per donation, linked to its household, plus the file's extra columns as custom data. */
-export function buildPaymentFile(groups: readonly Group[], rows: readonly ParsedDonation[]): TableFile {
+export function buildPaymentFile(groups: readonly Group[], rows: readonly ParsedDonation[], prefix = "ONB"): TableFile {
   const groupOfRow = new Map<number, Group>();
   groups.forEach((g) => g.rows.forEach((n) => groupOfRow.set(n, g)));
   const extraHeaders = [...new Set(rows.flatMap((r) => Object.keys(r.extras)))];
@@ -217,11 +233,12 @@ export function buildPaymentFile(groups: readonly Group[], rows: readonly Parsed
   for (const r of rows) {
     const g = groupOfRow.get(r.rowNo);
     if (!g) continue;
-    // The payment's own number: the receipt number when the file has one (unique), else the row.
-    let id = r.receipt ? `ONB-R-${r.receipt}` : `ONB-P-${String(r.rowNo).padStart(6, "0")}`;
+    // The payment's own number: the receipt number when the file has one (unique, and the same in a file sent again,
+    // so sending it again updates instead of duplicating), else this onboarding's own number for the row.
+    let id = r.receipt ? `ONB-R-${r.receipt}` : `${prefix}-P-${String(r.rowNo).padStart(6, "0")}`;
     if (used.has(id)) id = `${id}-${r.rowNo}`;
     used.add(id);
-    out.push([id, householdLegacyId(g), dollars(r.amountCents), r.method, r.receivedOn, r.receipt ?? "", r.memo ?? "", ...extraHeaders.map((h) => r.extras[h] ?? "")]);
+    out.push([id, householdLegacyId(g, prefix), dollars(r.amountCents), r.method, r.receivedOn, r.receipt ?? "", r.memo ?? "", ...extraHeaders.map((h) => r.extras[h] ?? "")]);
   }
   return { headers, rows: out };
 }
