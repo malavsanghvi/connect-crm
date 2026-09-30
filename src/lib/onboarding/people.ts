@@ -213,10 +213,16 @@ export function personToInput(p: ParsedPerson): PayerInput {
 export type PeopleFile = { headers: string[]; rows: string[][] };
 
 /**
- * One row per person. In each household exactly one person is primary: the one the file calls primary/self,
+ * One row per person. In each NEW household exactly one person is primary: the one the file calls primary/self,
  * else the first listed member. Everyone else keeps the relationship the file gave, or "other".
+ *
+ * In a household that is already in the records it already has its primary contact, and a person the file lists
+ * may well be one of the people there (matched by email or mobile and updated, not duplicated). So nobody is
+ * marked primary, and a relationship is sent only when the file says spouse, child, parent or sibling: a blank
+ * relationship leaves the office's own record of an existing member untouched, and a new member joins as "other".
+ * `idPrefix` keeps one onboarding's generated person IDs apart from another's.
  */
-export function buildPeopleFile(groups: readonly Group[], people: readonly ParsedPerson[], householdId: (g: Group) => string): PeopleFile {
+export function buildPeopleFile(groups: readonly Group[], people: readonly ParsedPerson[], householdId: (g: Group) => string, idPrefix = "ONB"): PeopleFile {
   const byRow = new Map(people.map((p) => [p.rowNo, p]));
   const extraHeaders = [...new Set(people.flatMap((p) => [...(p.membership ? ["Membership type"] : []), ...Object.keys(p.extras)]))];
   const headers = ["Person ID (old system)", "Household ID (old system)", "Relationship", "Primary contact", "First name", "Last name", "Birth date", "Gender", "Email", "Mobile", "Language", ...extraHeaders];
@@ -225,16 +231,22 @@ export function buildPeopleFile(groups: readonly Group[], people: readonly Parse
   for (const g of groups) {
     const members = g.rows.map((n) => byRow.get(n)).filter((p): p is ParsedPerson => !!p);
     if (members.length === 0) continue;
-    const primary = members.find((m) => m.relationship === "primary") ?? members[0]!;
+    const primary = g.existing ? null : (members.find((m) => m.relationship === "primary") ?? members[0]!);
     for (const m of members) {
       seq++;
       const isPrimary = m === primary;
-      const rel = isPrimary ? "primary" : m.relationship && m.relationship !== "primary" ? m.relationship : "other";
+      const rel = g.existing
+        ? m.relationship && m.relationship !== "primary" && m.relationship !== "other" ? m.relationship : ""
+        : isPrimary
+          ? "primary"
+          : m.relationship && m.relationship !== "primary"
+            ? m.relationship
+            : "other";
       out.push([
-        m.memberId ? `ONB-M-${m.memberId}` : `ONB-M-${String(seq).padStart(6, "0")}`,
+        m.memberId ? `ONB-M-${m.memberId}` : `${idPrefix}-M-${String(seq).padStart(6, "0")}`,
         householdId(g),
         rel,
-        isPrimary ? "Yes" : "No",
+        g.existing ? "" : isPrimary ? "Yes" : "No",
         m.firstName || m.lastName,
         m.firstName ? m.lastName || m.firstName : m.lastName,
         m.dob ?? "",

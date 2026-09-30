@@ -5,6 +5,8 @@
 const TITLES = new Set(["mr", "mrs", "ms", "miss", "mx", "dr", "prof", "shri", "smt", "sri", "shree", "kum", "pt", "rev", "sir"]);
 const SUFFIXES = new Set(["jr", "sr", "ii", "iii", "iv", "md", "phd", "cpa", "esq"]);
 const JOINERS = new Set(["and", "&", "+"]);
+/** Household names end in a word that is not a name: "Shah family", "Rahul & Mira Shah Household". */
+const FAMILY_WORDS = new Set(["family", "families", "household", "residence", "fam", "hh"]);
 
 /** Common nicknames to one canonical given name, so "Mike" and "Michael" compare equal. */
 const NICKNAMES: Record<string, string> = {
@@ -109,7 +111,7 @@ export function parseName(raw: unknown): ParsedName {
     .replace(/\+/g, " + ")
     .split(/\s+/)
     .filter(Boolean)
-    .filter((w) => !TITLES.has(cleanToken(w).replace(/'/g, "")) && !SUFFIXES.has(cleanToken(w)));
+    .filter((w) => !TITLES.has(cleanToken(w).replace(/'/g, "")) && !SUFFIXES.has(cleanToken(w)) && !FAMILY_WORDS.has(cleanToken(w)));
   const givens: string[] = [];
   const names = words.filter((w) => !JOINERS.has(w.toLowerCase()));
   if (surname === null) {

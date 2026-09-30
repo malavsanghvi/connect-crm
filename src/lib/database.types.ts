@@ -4271,6 +4271,87 @@ export type Database = {
         };
         Relationships: [];
       };
+      onboarding_progress: {
+        Row: {
+          id: string;
+          center_id: string;
+          status: string;
+          stage: string;
+          state: Json;
+          merge_answers: Json;
+          outcomes: Json;
+          version: number;
+          created_by: string | null;
+          updated_by: string | null;
+          created_at: string;
+          updated_at: string;
+          finished_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          center_id: string;
+          status?: string;
+          stage?: string;
+          state?: Json;
+          merge_answers?: Json;
+          outcomes?: Json;
+          version?: number;
+          created_by?: string | null;
+          updated_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+          finished_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          center_id?: string;
+          status?: string;
+          stage?: string;
+          state?: Json;
+          merge_answers?: Json;
+          outcomes?: Json;
+          version?: number;
+          created_by?: string | null;
+          updated_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+          finished_at?: string | null;
+        };
+        Relationships: [];
+      };
+      onboarding_rows: {
+        Row: {
+          id: number;
+          center_id: string;
+          progress_id: string;
+          dataset: string;
+          chunk_no: number;
+          row_count: number;
+          staged_rows: Json;
+          created_at: string;
+        };
+        Insert: {
+          id?: number;
+          center_id: string;
+          progress_id: string;
+          dataset: string;
+          chunk_no: number;
+          row_count: number;
+          staged_rows: Json;
+          created_at?: string;
+        };
+        Update: {
+          id?: number;
+          center_id?: string;
+          progress_id?: string;
+          dataset?: string;
+          chunk_no?: number;
+          row_count?: number;
+          staged_rows?: Json;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
       opportunities: {
         Row: {
           id: string;
@@ -10182,6 +10263,60 @@ export type Database = {
         Args: {
           p_state: string;
           p_code: string;
+        };
+        Returns: Json;
+      };
+      onboarding_close: {
+        Args: {
+          p_id: string;
+          p_status: string;
+          p_outcomes?: Json;
+        };
+        Returns: undefined;
+      };
+      onboarding_current: {
+        Args: {
+          p_center: string;
+        };
+        Returns: Json;
+      };
+      onboarding_dataset_allowed: {
+        Args: {
+          p_center: string;
+          p_dataset?: string;
+        };
+        Returns: boolean;
+      };
+      onboarding_perms: {
+        Args: {
+          p_dataset: string;
+        };
+        Returns: string[];
+      };
+      onboarding_put_rows: {
+        Args: {
+          p_id: string;
+          p_dataset: string;
+          p_chunk: number;
+          p_rows: Json;
+          p_first?: boolean;
+        };
+        Returns: Json;
+      };
+      onboarding_save: {
+        Args: {
+          p_id: string;
+          p_version?: number;
+          p_stage?: string;
+          p_state?: Json;
+          p_answers?: Json;
+          p_outcomes?: Json;
+        };
+        Returns: Json;
+      };
+      onboarding_start: {
+        Args: {
+          p_center: string;
         };
         Returns: Json;
       };
