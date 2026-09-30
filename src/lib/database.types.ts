@@ -8858,6 +8858,13 @@ export type Database = {
         };
         Returns: boolean;
       };
+      cancel_my_rsvp: {
+        Args: {
+          p_rsvp: string;
+          p_cancel_pledge?: boolean;
+        };
+        Returns: Json;
+      };
       cancel_my_store_order: {
         Args: {
           p_order: string;
@@ -10349,6 +10356,14 @@ export type Database = {
       qbo_zip5: {
         Args: {
           p: string;
+        };
+        Returns: string;
+      };
+      raise_rsvp_commitment: {
+        Args: {
+          p_rsvp: string;
+          p_add_cents: number;
+          p_mode?: string;
         };
         Returns: string;
       };
