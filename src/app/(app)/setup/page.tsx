@@ -48,9 +48,14 @@ export default async function SetupChecklistPage() {
         session={session}
         sub={SUB}
         actions={
-          <Link href="/setup/readiness" className={buttonClass("primary")}>
-            Go-live readiness
-          </Link>
+          <div className="flex flex-wrap gap-2">
+            <Link href="/setup/onboarding" className={buttonClass("ghost")}>
+              Guided onboarding
+            </Link>
+            <Link href="/setup/readiness" className={buttonClass("primary")}>
+              Go-live readiness
+            </Link>
+          </div>
         }
       />
       <div className="mb-4">
