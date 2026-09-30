@@ -24,11 +24,12 @@ import { NoAccess } from "@/components/ui";
 
 import { SetupHeader } from "../_components/setup-ui";
 import { saveListItemAction } from "./actions";
+import { saveDietaryOptionAction } from "./dietary-actions";
 
 export const metadata: Metadata = { title: "Lists · Setup" };
 
 const SUB =
-  "the lists the modules use that no other screen creates · membership types, funds, inboxes, zones and Pathshala tracks";
+  "the lists the modules use that no other screen creates · membership types, funds, inboxes, zones, Pathshala tracks and dietary options";
 
 type Row = Record<string, unknown> & { id: string };
 
@@ -199,7 +200,7 @@ export default async function SetupListsPage() {
     );
   }
   const { db, center } = session;
-  const [types, funds, inboxes, zones, tracks] = await Promise.all([
+  const [types, funds, inboxes, zones, tracks, dietary] = await Promise.all([
     db
       .from("membership_types")
       .select(
@@ -227,6 +228,12 @@ export default async function SetupListsPage() {
       .select("id, key, name")
       .eq("center_id", center.id)
       .order("name"),
+    db
+      .from("dietary_options")
+      .select("id, key, label, active")
+      .eq("center_id", center.id)
+      .order("sort")
+      .order("label"),
   ]);
   const off = (m: string) => !isModuleEnabled(session, m);
   const canSettings = can(session, ["settings.manage"]);
@@ -735,6 +742,105 @@ export default async function SetupListsPage() {
               >
                 Terms (Pathshala › Terms)
               </Link>
+            ) : null}
+          </div>
+        </Card>
+
+        <Card
+          span={6}
+          title="Dietary options"
+          description="What members can pick under “Dietary needs” in the app · they tell the office once, and can change it any time"
+          actions={
+            canSettings ? (
+              <DrawerForm
+                label="Add dietary option"
+                size="sm"
+                title="New dietary option"
+                action={saveDietaryOptionAction}
+                submitLabel="Add option"
+                resetOnSuccess
+              >
+                <Field
+                  label="Name"
+                  htmlFor="dietary-label"
+                  hint="For example Dairy-free, Halal, No onion or garlic."
+                >
+                  <input
+                    id="dietary-label"
+                    name="label"
+                    className="crm-input"
+                    maxLength={60}
+                    required
+                  />
+                </Field>
+                <Reason id="dietary-reason" />
+              </DrawerForm>
+            ) : null
+          }
+        >
+          <div id="dietary" data-list="dietary_options">
+            {dietary.error ? (
+              <QueryError
+                what="the dietary options"
+                error={dietary.error}
+                retryHref="/setup/lists"
+              />
+            ) : (dietary.data ?? []).length === 0 ? (
+              <EmptyState title="No dietary options yet" />
+            ) : (
+              <ul className="flex flex-col gap-1.5 text-[13px]">
+                {(dietary.data ?? []).map((o) => (
+                  <li
+                    key={o.id}
+                    data-row={o.key}
+                    className="flex items-center justify-between gap-2 border-b border-line pb-1.5 last:border-0"
+                  >
+                    <span>
+                      <strong>{o.label}</strong>
+                      {o.key === "other" ? (
+                        <span className="text-muted"> · members add their own words</span>
+                      ) : null}
+                      {!o.active ? (
+                        <span className="text-muted"> · switched off</span>
+                      ) : null}
+                    </span>
+                    {canSettings ? (
+                      <DrawerForm
+                        label="Edit"
+                        variant="ghost"
+                        size="xs"
+                        title={o.label}
+                        action={saveDietaryOptionAction}
+                        submitLabel="Save"
+                      >
+                        <input type="hidden" name="id" value={o.id} />
+                        <Field label="Name" htmlFor={`dietary-label-${o.id}`}>
+                          <input
+                            id={`dietary-label-${o.id}`}
+                            name="label"
+                            className="crm-input"
+                            maxLength={60}
+                            required
+                            defaultValue={o.label}
+                          />
+                        </Field>
+                        <Check
+                          name="active"
+                          label="Offered to members (switch off to stop offering it; members who already picked it keep it)"
+                          defaultChecked={o.active}
+                        />
+                        <input type="hidden" name="active" value="false" />
+                        <Reason id={`dietary-reason-${o.id}`} />
+                      </DrawerForm>
+                    ) : null}
+                  </li>
+                ))}
+              </ul>
+            )}
+            {!canSettings ? (
+              <p className="text-[12px] text-muted">
+                Dietary options are changed by whoever manages settings (settings.manage).
+              </p>
             ) : null}
           </div>
         </Card>

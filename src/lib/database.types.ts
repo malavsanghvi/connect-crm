@@ -1874,6 +1874,42 @@ export type Database = {
         };
         Relationships: [];
       };
+      dietary_options: {
+        Row: {
+          id: string;
+          center_id: string;
+          key: string;
+          label: string;
+          sort: number;
+          active: boolean;
+          created_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          center_id: string;
+          key: string;
+          label: string;
+          sort?: number;
+          active?: boolean;
+          created_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          center_id?: string;
+          key?: string;
+          label?: string;
+          sort?: number;
+          active?: boolean;
+          created_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       eligibility_snapshots: {
         Row: {
           id: string;
@@ -5504,6 +5540,48 @@ export type Database = {
           label?: string;
           verified?: boolean;
           created_at?: string;
+        };
+        Relationships: [];
+      };
+      person_profile_details: {
+        Row: {
+          person_id: string;
+          center_id: string;
+          anniversary: string | null;
+          dietary: string[];
+          dietary_other: string | null;
+          emergency_contact_name: string | null;
+          emergency_contact_relationship: string | null;
+          emergency_contact_phone: string | null;
+          created_at: string;
+          updated_at: string;
+          updated_by: string | null;
+        };
+        Insert: {
+          person_id: string;
+          center_id: string;
+          anniversary?: string | null;
+          dietary?: string[];
+          dietary_other?: string | null;
+          emergency_contact_name?: string | null;
+          emergency_contact_relationship?: string | null;
+          emergency_contact_phone?: string | null;
+          created_at?: string;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Update: {
+          person_id?: string;
+          center_id?: string;
+          anniversary?: string | null;
+          dietary?: string[];
+          dietary_other?: string | null;
+          emergency_contact_name?: string | null;
+          emergency_contact_relationship?: string | null;
+          emergency_contact_phone?: string | null;
+          created_at?: string;
+          updated_at?: string;
+          updated_by?: string | null;
         };
         Relationships: [];
       };
@@ -10315,6 +10393,13 @@ export type Database = {
           p_processor: string;
         };
         Returns: string[];
+      };
+      profile_keys_ok: {
+        Args: {
+          p_keys: string[];
+          p_max: number;
+        };
+        Returns: boolean;
       };
       promote_sandbox: {
         Args: {
