@@ -6986,6 +6986,51 @@ export type Database = {
         };
         Relationships: [];
       };
+      rsvp_credit_releases: {
+        Row: {
+          id: string;
+          center_id: string;
+          household_id: string;
+          rsvp_id: string;
+          pledge_id: string;
+          released_cents: number;
+          status: string;
+          created_by: string | null;
+          created_at: string;
+          handled_by: string | null;
+          handled_at: string | null;
+          handled_note: string | null;
+        };
+        Insert: {
+          id?: string;
+          center_id: string;
+          household_id: string;
+          rsvp_id: string;
+          pledge_id: string;
+          released_cents: number;
+          status?: string;
+          created_by?: string | null;
+          created_at?: string;
+          handled_by?: string | null;
+          handled_at?: string | null;
+          handled_note?: string | null;
+        };
+        Update: {
+          id?: string;
+          center_id?: string;
+          household_id?: string;
+          rsvp_id?: string;
+          pledge_id?: string;
+          released_cents?: number;
+          status?: string;
+          created_by?: string | null;
+          created_at?: string;
+          handled_by?: string | null;
+          handled_at?: string | null;
+          handled_note?: string | null;
+        };
+        Relationships: [];
+      };
       rsvps: {
         Row: {
           id: string;
@@ -8680,13 +8725,6 @@ export type Database = {
         Args: Record<PropertyKey, never>;
         Returns: undefined;
       };
-      apply_my_credit: {
-        Args: {
-          p_household: string;
-          p_pledge_ids: string[];
-        };
-        Returns: number;
-      };
       approve_as_second: {
         Args: {
           p_table: string;
@@ -8869,6 +8907,7 @@ export type Database = {
         Args: {
           p_rsvp: string;
           p_cancel_pledge?: boolean;
+          p_release_credit?: boolean;
         };
         Returns: Json;
       };
@@ -10598,6 +10637,13 @@ export type Database = {
           p_value: string;
         };
         Returns: { kind: string; system: string; value: string; person_id: string; household_id: string; display_name: string; household_name: string; household_number: string; org_household_id: string; members: string }[];
+      };
+      resolve_rsvp_credit: {
+        Args: {
+          p_id: string;
+          p_note?: string;
+        };
+        Returns: undefined;
       };
       revoke_integration_secret: {
         Args: {

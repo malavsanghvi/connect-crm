@@ -15,6 +15,7 @@ import { can, type PermissionContext } from "@/lib/permissions";
 export type TaskSourceKey =
   | "refund"
   | "writeoff"
+  | "credit"
   | "override"
   | "deposits"
   | "membership"
@@ -50,6 +51,7 @@ export type TaskSource = {
 export const TASK_SOURCES: readonly TaskSource[] = [
   { key: "refund", tag: "Refund", color: "danger", anyOf: ["giving.approve", "giving.manage"], href: "/giving/payments" },
   { key: "writeoff", tag: "Write-off", color: "brown", anyOf: ["giving.approve", "giving.manage"], href: "/giving/pledges" },
+  { key: "credit", tag: "Credit", color: "brown", anyOf: ["giving.manage"], href: "/giving/payments" },
   { key: "deposits", tag: "Deposits", color: "brown", anyOf: ["giving.record_offline", "giving.manage"], href: "/giving/bank" },
   { key: "membership", tag: "Membership", color: "navy", anyOf: ["people.approve"], href: "/memberships/applications" },
   { key: "override", tag: "Voting", color: "navy", anyOf: ["people.approve"], href: "/people/voting" },
@@ -93,7 +95,7 @@ export type TaskLink = { label: string; href: string; primary?: boolean };
 
 /** A two-person approval the viewer can give right on Home. */
 export type TaskApproval = {
-  table: "payments" | "pledges" | "eligibility_snapshots";
+  table: "payments" | "pledges" | "eligibility_snapshots" | "rsvp_credit_releases";
   id: string;
   label: string;
   confirmTitle: string;

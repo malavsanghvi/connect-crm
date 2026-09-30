@@ -60,23 +60,43 @@ set local role authenticated;
 set local request.jwt.claim.sub = '10000000-0000-4000-8000-000000000001';
 select app.household_credit('20000000-0000-4000-8000-000000000001') as base \gset
 select pg_temp.assert(true, 'credit before: ' || :base);
-select pg_temp.assert((app.cancel_my_rsvp(:'rsvp3', true)->>'credit_cents')::bigint = 300, 'cancelling with the pledge releases what was paid as credit');
+select pg_temp.assert((app.cancel_my_rsvp(:'rsvp3', true, true)->>'credit_cents')::bigint = 300, 'cancelling with the pledge releases what was paid as credit');
 select pg_temp.assert((select status from app.pledges where id = :'pledge3') = 'cancelled', 'the paid pledge is cancelled');
 select pg_temp.assert(app.household_credit('20000000-0000-4000-8000-000000000001') = :base + 300, 'the household now has 300 more in credit');
+select pg_temp.assert((select count(*) from app.rsvp_credit_releases where pledge_id = :'pledge3' and released_cents = 300 and status = 'pending') = 0, 'a member cannot read the treasurer queue');
 reset role;
-insert into app.pledges (id, center_id, household_id, source, amount_cents) values ('61000000-0000-4000-8000-0000000000a1', :jsh, '20000000-0000-4000-8000-000000000001', 'general', 1000);
+select pg_temp.assert((select count(*) from app.rsvp_credit_releases where pledge_id = :'pledge3' and released_cents = 300 and status = 'pending') = 1, 'the release is queued for the treasurer, not applied to any pledge');
+select pg_temp.assert(not exists (select 1 from app.payment_allocations where payment_id = '60000000-0000-4000-8000-0000000000a1'), 'nothing was applied to another pledge');
+select id as rel from app.rsvp_credit_releases where pledge_id = :'pledge3' \gset
 set local role authenticated;
 set local request.jwt.claim.sub = '10000000-0000-4000-8000-000000000001';
-select pg_temp.assert(app.apply_my_credit('20000000-0000-4000-8000-000000000001', array['61000000-0000-4000-8000-0000000000a1'::uuid]) > 0, 'applying credit reports the amount applied');
-select pg_temp.assert((select paid_cents from app.pledges where id = '61000000-0000-4000-8000-0000000000a1') > 0, 'the chosen pledge received credit');
-select pg_temp.assert(app.household_credit('20000000-0000-4000-8000-000000000001') < :base + 300, 'the credit went down');
 do $$ begin
-  perform app.apply_my_credit('20000000-0000-4000-8000-000000000001', array[gen_random_uuid()]);
-  raise exception 'FAIL: credit applied to a pledge that is not the household''s';
+  perform app.resolve_rsvp_credit((select id from app.rsvp_credit_releases limit 1));
+  raise exception 'FAIL: a member marked credit handled';
 exception when others then
   if sqlerrm like 'FAIL:%' then raise; end if;
-  raise notice 'PASS: credit only goes to open pledges of the household';
+  raise notice 'PASS: only giving staff can mark credit handled';
 end $$;
+reset role;
+commit;
+
+-- The member said NO to credit: only the RSVP is cancelled; the paid pledge and its payment stay.
+begin;
+set local role authenticated;
+set local request.jwt.claim.sub = '10000000-0000-4000-8000-000000000001';
+select app.submit_rsvp('50000000-0000-4000-8000-0000000000a1', '20000000-0000-4000-8000-000000000001',
+  '[{"person_id":"30000000-0000-4000-8000-000000000001","name":"Priya Shah"}]', 800, 'lump_sum') as rsvp4 \gset
+select commitment_pledge_id as pledge4 from app.rsvps where id = :'rsvp4' \gset
+reset role;
+insert into app.payments (id, center_id, household_id, amount_cents, status, method)
+  values ('60000000-0000-4000-8000-0000000000a2', :jsh, '20000000-0000-4000-8000-000000000001', 800, 'captured', 'card');
+insert into app.payment_allocations (center_id, payment_id, pledge_id, amount_cents) values (:jsh, '60000000-0000-4000-8000-0000000000a2', :'pledge4', 800);
+set local role authenticated;
+set local request.jwt.claim.sub = '10000000-0000-4000-8000-000000000001';
+select pg_temp.assert((app.cancel_my_rsvp(:'rsvp4', true, false)->>'pledge_cancelled')::boolean = false, 'without asking for credit a paid pledge is not cancelled');
+select pg_temp.assert((select status from app.pledges where id = :'pledge4') = 'paid', 'the paid pledge and its payment stay');
+reset role;
+select pg_temp.assert(not exists (select 1 from app.rsvp_credit_releases where pledge_id = :'pledge4'), 'nothing is sent to the treasurer');
 commit;
 
 begin;
