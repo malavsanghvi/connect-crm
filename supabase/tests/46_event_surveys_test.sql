@@ -68,3 +68,7 @@ end $$;
 commit;
 select pg_temp.assert((select count(*) from app.survey_responses where survey_id = :'sv' and person_id is null) = 1, 'an anonymous answer stores no person');
 select pg_temp.assert((select count(*) from app.points_ledger where ref_id = :'sv') = 1, 'points were given once');
+
+-- 0549: the anonymous answer, its completion and its points share only the day.
+select pg_temp.assert((select submitted_at from app.survey_responses where survey_id = :'sv' and person_id is null) = date_trunc('day', (select completed_at from app.survey_completions where survey_id = :'sv' limit 1)), 'an anonymous answer and its completion carry only the day');
+select pg_temp.assert((select completed_at from app.survey_completions where survey_id = :'sv' limit 1) = date_trunc('day', (select completed_at from app.survey_completions where survey_id = :'sv' limit 1)), 'the completion time of an anonymous answer is midnight');
