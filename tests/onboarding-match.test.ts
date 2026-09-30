@@ -87,6 +87,12 @@ describe("matchPayers", () => {
     expect(r.groups).toHaveLength(1);
   });
 
+  it("rows the file puts in one household (a family ID) are linked whatever the names", () => {
+    const r = matchPayers([row(1, "Malav Sanghvi", { groupKey: "F-9" }), row(2, "Palak Sheth", { groupKey: "F-9" }), row(3, "Arav Sanghvi", { groupKey: "F-10" })]);
+    expect(r.groups.map((g) => g.rows)).toEqual([[1, 2], [3]]);
+    expect(r.questions).toHaveLength(0);
+  });
+
   it("keeps every name a household was recorded under", () => {
     const r = matchPayers([row(1, "M Sanghvi", { email: "m@x.com" }), row(2, "Malav Sanghvi", { email: "m@x.com" })]);
     expect(r.groups[0]!.names.sort()).toEqual(["M Sanghvi", "Malav Sanghvi"]);

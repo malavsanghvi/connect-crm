@@ -60,7 +60,7 @@ describe("onboarding files for the import tool", () => {
   const groups = applyDecisions(m, new Set());
   it("two spellings of one family become one household with both names kept", () => {
     expect(groups).toHaveLength(1);
-    const h = buildHouseholdFile(groups, v.rows);
+    const h = buildHouseholdFile(groups, v.rows, v.rows);
     expect(h.rows).toHaveLength(1);
     expect(h.rows[0]![0]).toBe("ONB-H-00001");
     expect(h.rows[0]![7]).toContain("Malav Sanghvi");

@@ -22,6 +22,8 @@ export type PayerInput = {
   address1?: string | null;
   address2?: string | null;
   zip?: string | null;
+  /** Rows that share a group key are the same household without asking (the file said so: a family ID). */
+  groupKey?: string | null;
 };
 
 type Prepared = {
@@ -31,6 +33,7 @@ type Prepared = {
   phone: string | null;
   email: string | null;
   addr: { key: string; unit: string | null } | null;
+  groupKey: string | null;
 };
 
 export type Evidence = "phone" | "email" | "address" | "name";
@@ -39,7 +42,7 @@ export type PairVerdict = { verdict: "auto" | "ask" | "separate"; evidence: Evid
 
 function prepare(p: PayerInput): Prepared {
   const a = addressKey(p.address1, p.address2, p.zip);
-  return { rowNo: p.rowNo, name: p.name, parsed: parseName(p.name), phone: phoneKey(p.phone), email: emailKey(p.email), addr: a ? { key: a.key, unit: a.unit } : null };
+  return { rowNo: p.rowNo, name: p.name, parsed: parseName(p.name), phone: phoneKey(p.phone), email: emailKey(p.email), addr: a ? { key: a.key, unit: a.unit } : null, groupKey: p.groupKey ? String(p.groupKey) : null };
 }
 
 function nameStrong(a: ParsedName, b: ParsedName): boolean {
@@ -69,6 +72,7 @@ export function comparePair(a: Prepared, b: Prepared): PairVerdict {
   if (strongName) evidence.push("name");
   const contact = phone || email;
 
+  if (a.groupKey && a.groupKey === b.groupKey) return { verdict: "auto", evidence, note: "the file puts them in the same household" };
   if (contact && sameSurname) return { verdict: "auto", evidence, note: "same phone or email and the same family name" };
   if (address && sameSurname) return { verdict: "auto", evidence, note: "same address and the same family name" };
   if (contact && address) return { verdict: "auto", evidence, note: "same phone or email and the same address" };
@@ -158,6 +162,7 @@ export function matchPayers(input: readonly PayerInput[]): MatchResult {
     add(r.phone && `p:${r.phone}`, i);
     add(r.email && `e:${r.email}`, i);
     add(r.addr && `a:${r.addr.key}`, i);
+    add(r.groupKey && `g:${r.groupKey}`, i);
     add(r.parsed.surname && `s:${r.parsed.surname}`, i);
   });
 
