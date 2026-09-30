@@ -16,10 +16,23 @@ This document is the plan; backlog B25 (office side) and B26 (member side) track
 1. **Welcome.** What we will do, how long, that nothing is final until they confirm; Skip/Back on every step.
 2. **Past donations and invoices (optional).** Upload a CSV or Excel (QuickBooks, Neon, bank export). Map
    columns (payer name, amount, date, fund/pledge, receipt, payer email/phone when present).
-3. **Look-alike payer names.** Group names that look alike (case, punctuation, "Mr./Mrs.", initials, spouse
-   order "Malav & Palak Sanghvi" vs "Sanghvi, Malav"). Show each group with its payments; the owner chooses
-   **Merge** or **Keep separate**. Names are only a *suggestion*: the owner confirms every merge; email or phone
-   in the file raises confidence but still needs the owner's click for merges across different names.
+3. **Smart matching of payers (minimal intervention).** Matching is a scored search over every signal in the
+   file, not a name comparison. Names alone still never merge (ARCHITECTURE), but a name that is *compatible*
+   plus an agreeing identifier is not "name alone".
+   - **Signals and weights:** normalized **mobile/phone** (digits only, country code, last 10), **email**
+     (lower-cased, Gmail dots/plus removed), **street address** (USPS-style normalization: St/Street, Apt,
+     unit, ZIP+4; same ZIP and house number + street), and **name** (case, punctuation, titles, initials,
+     nicknames, spouse order and "&": "Sanghvi, Malav" = "Malav & Palak Sanghvi").
+   - **Auto-link (no question):** a phone or email match AND a compatible name; or the same normalized
+     address AND the same surname AND a compatible first name or spouse pair. Shown afterwards in a summary
+     the owner can open and undo.
+   - **Ask (one question per group):** a strong identifier matches but the names disagree (a parent paying for a
+     child, a shared family phone), or name + address agree but nothing else, or only a close name with a
+     partial address. The card shows both records side by side with the evidence ("same mobile, different
+     surname") and **Merge / Keep separate**.
+   - **Stay separate silently:** name-only likeness with no other signal, or conflicting strong identifiers.
+   - Each decision is learned for the rest of the file ("same rule for the other 14 like this") and every
+     auto-link and merge is audited and reversible.
 4. **Households established.** One household per confirmed group, payer names kept as aliases (they are
    the bank/payer names `ARCHITECTURE` already lists as identifiers). Payments load as history linked to it.
 5. **Member list.** Upload members/families (names, email, mobile, relationships, birthdays, membership).
@@ -40,7 +53,6 @@ This document is the plan; backlog B25 (office side) and B26 (member side) track
 - **P3** Step 8 sending the join link; step 9 first-sign-in enrichment in the member app (B26).
 
 ## Decisions needed before P1
-1. Look-alike rule strictness (suggest: normalize case/punctuation/titles; group on surname + first-name
-   initial or spouse pair; never auto-merge).
+1. Confirm the auto-link / ask / separate rules above (thresholds are tunable per organization).
 2. Bank/payer names as household aliases: store them on the household (new table) or as custom identifiers.
 3. Which donation files first: QuickBooks export, Neon export, or a plain spreadsheet template.
