@@ -125,8 +125,15 @@ export default async function MemberAppSettingsPage() {
         </Card>
         <Card span={5} title="QR code for posters" description="Scanning it opens the app on this community">
           {qr ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={`data:image/svg+xml;utf8,${encodeURIComponent(qr)}`} alt={`QR code for join code ${code ? formatJoinCode(code) : ""}`} className="mx-auto h-56 w-56" />
+            <>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={`data:image/svg+xml;utf8,${encodeURIComponent(qr)}`} alt={`QR code for join code ${code ? formatJoinCode(code) : ""}`} className="mx-auto h-56 w-56" />
+              <p className="mt-2 text-center text-[13px]">
+                <a className="underline" href={`data:image/svg+xml;utf8,${encodeURIComponent(qr)}`} download={`${center.slug}-join-qr.svg`}>
+                  Download the QR code (SVG, prints sharp at any size)
+                </a>
+              </p>
+            </>
           ) : code ? (
             <p role="alert" className="text-[13px] text-danger">
               Could not draw the QR code. The join code above still works; reload to try again.
