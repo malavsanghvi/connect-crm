@@ -25,6 +25,18 @@ function revalidateEvents() {
   revalidatePath("/ops", "layout");
 }
 
+/** Donation commitment at RSVP. Switched on with nothing to offer is refused, not saved as Off (it reads back as Off). */
+function commitmentOptions(fd: FormData) {
+  if (!bool(fd, "commitments_enabled")) return { per_person: [], lump_sum: [], open: false };
+  const per_person = centsList(str(fd, "commit_per_person"), "Per-person amounts");
+  const lump_sum = centsList(str(fd, "commit_lump_sum"), "Lump-sum amounts");
+  const open = bool(fd, "commit_open");
+  if (per_person.length + lump_sum.length === 0 && !open) {
+    throw new FormError("Donation commitment is on but has no amounts. Enter per-person or lump-sum amounts (for example 3, 5, 7), allow an open amount, or turn it off.");
+  }
+  return { per_person, lump_sum, open };
+}
+
 function eventValues(fd: FormData, tz: string, rules: unknown, publishing: boolean) {
   const startsAt = dateTime(fd, "starts_at", "Starts", tz);
   const endsAt = dateTime(fd, "ends_at", "Ends", tz);
@@ -59,13 +71,7 @@ function eventValues(fd: FormData, tz: string, rules: unknown, publishing: boole
     // 0 = no confirmation reminder.
     confirmation_hours_before: reminderOn ? (int(fd, "confirmation_hours_before", "Confirmation reminder", { min: 1, max: 336 }) ?? 24) : 0,
     attendee_flags: all(fd, "attendee_flags").filter((f) => (FLAGS as readonly string[]).includes(f)),
-    commitment_options: bool(fd, "commitments_enabled")
-      ? {
-          per_person: centsList(str(fd, "commit_per_person"), "Per-person amounts"),
-          lump_sum: centsList(str(fd, "commit_lump_sum"), "Lump-sum amounts"),
-          open: bool(fd, "commit_open"),
-        }
-      : { per_person: [], lump_sum: [], open: false },
+    commitment_options: commitmentOptions(fd),
     lunch_enabled: lunchEnabled,
     lunch_starts_at: lunchStarts,
     lunch_slot_minutes: int(fd, "lunch_slot_minutes", "Slot length", { min: 5, max: 120 }) ?? 15,
