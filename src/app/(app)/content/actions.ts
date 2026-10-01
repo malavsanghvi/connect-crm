@@ -479,17 +479,15 @@ export async function addStepAction(_prev: ActionResult | null, fd: FormData): P
   const contentId = text(fd, "content_item_id");
   const order = intOrNull(fd, "sort_order");
   const points = intOrNull(fd, "points");
-  const repeatPoints = intOrNull(fd, "repeat_points");
   if (!isUuid(levelId)) return { ok: false, error: "Could not add the step — choose the level." };
   if (!STEP_KINDS.includes(kind)) return { ok: false, error: "Could not add the step — choose learn, listen, quiz, recite, video or practice." };
   if (!title) return { ok: false, error: "Could not add the step — give it a title." };
   if (order === "bad" || points === "bad") return { ok: false, error: "Could not add the step — order and points must be whole numbers." };
-  if (repeatPoints === "bad" || (repeatPoints !== null && (repeatPoints < 0 || repeatPoints > 1000))) {
-    return { ok: false, error: "Could not add the step — points for each try must be a whole number from 0 to 1,000." };
-  }
   const quiz = quizFromFields(text(fd, "quiz_question"), text(fd, "quiz_options"), text(fd, "quiz_answer"));
   if (!quiz.ok) return { ok: false, error: `Could not add the step — ${quiz.error}.` };
   if (kind === "quiz" && !quiz.quiz) return { ok: false, error: "Could not add the step — a quiz step needs its question and answers." };
+  // No repeat_points: only tap-the-spots practice and voice steps earn points for each try (0570's
+  // gyan_steps_repeat_points_kind), and those come from the lesson packs, not from this form.
   const { error } = await db.from("gyan_steps").insert({
     level_id: levelId,
     kind,
@@ -497,7 +495,6 @@ export async function addStepAction(_prev: ActionResult | null, fd: FormData): P
     content_item_id: isUuid(contentId) ? contentId : null,
     sort_order: order ?? 0,
     points: points ?? 0,
-    repeat_points: repeatPoints ?? 0,
     quiz: kind === "quiz" ? quiz.quiz : null,
   });
   if (error) return failure("Could not add the step", error);

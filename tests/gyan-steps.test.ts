@@ -1,6 +1,17 @@
 import { describe, expect, it } from "vitest";
 
-import { gyanNeedsReview, gyanStepDetail, gyanStepKindLabel, gyanStepPointsText, quizQuestionCount, quizTypeCounts } from "@/lib/content";
+import {
+  gyanLevelAudio,
+  gyanLevelHasLessonContent,
+  gyanNeedsReview,
+  gyanStepDetail,
+  gyanStepKindLabel,
+  gyanStepPointsText,
+  quizFromFields,
+  quizQuestionCount,
+  quizTypeCounts,
+  QUIZ_OPTIONS_TEXT_MAX,
+} from "@/lib/content";
 
 describe("Gyan Path step summaries (0570 kinds, activities and quiz types)", () => {
   it("labels every kind, the new ones included", () => {
@@ -59,5 +70,48 @@ describe("Gyan Path step summaries (0570 kinds, activities and quiz types)", () 
     expect(gyanNeedsReview({ review: "needs_pathshala_review" })).toBe(true);
     expect(gyanNeedsReview({ review: "reviewed" })).toBe(false);
     expect(gyanNeedsReview(null)).toBe(false);
+  });
+});
+
+describe("Gyan Path level readiness (Text and Audio columns)", () => {
+  const cards = { kind: "read", activity: { cards: [{ title: "a", body_md: "b" }] } };
+  const spotsLearn = { kind: "hotspot", activity: { mode: "learn", image: "asset:mahavir-murti", spots: [{ key: "toes" }] } };
+  const spotsPractice = { kind: "hotspot", activity: { mode: "practice", image: "asset:mahavir-murti", spots: [{ key: "toes" }] } };
+  const verses = { kind: "voice", activity: { lang: "hi-IN", verses: [{ text: "णमो अरिहंताणं" }] } };
+  const quiz = { kind: "quiz", quiz: { questions: [{ question: "Q", options: ["a", "b"], answer: 0 }] } };
+
+  it("counts cards, tap-the-spots pictures and voice verses as text in the lesson", () => {
+    expect(gyanLevelHasLessonContent([cards])).toBe(true);
+    expect(gyanLevelHasLessonContent([spotsLearn, spotsPractice])).toBe(true);
+    expect(gyanLevelHasLessonContent([verses])).toBe(true);
+    expect(gyanLevelHasLessonContent([{ kind: "read", activity: {} }, quiz])).toBe(false);
+    expect(gyanLevelHasLessonContent([{ kind: "voice", activity: { verses: [] } }])).toBe(false);
+    expect(gyanLevelHasLessonContent([])).toBe(false);
+  });
+
+  it("asks for a recording only where a listen or recite step plays one", () => {
+    expect(gyanLevelAudio([{ kind: "listen" }, quiz], false)).toBe("to_record");
+    expect(gyanLevelAudio([{ kind: "recite" }], true)).toBe("recorded");
+    expect(gyanLevelAudio([verses, quiz], false)).toBe("in_lesson");
+    expect(gyanLevelAudio([spotsLearn, spotsPractice], false)).toBe("not_needed");
+    expect(gyanLevelAudio([cards, quiz], false)).toBe("not_needed");
+    expect(gyanLevelAudio([{ kind: "listen" }, verses], false)).toBe("to_record");
+  });
+});
+
+describe("quizFromFields length limits (the database's, 0570)", () => {
+  it("says the limit instead of failing in the database", () => {
+    expect(quizFromFields("x".repeat(500), "a\nb", "1").ok).toBe(true);
+    expect(quizFromFields("x".repeat(501), "a\nb", "1")).toEqual({ ok: false, error: "shorten the question to at most 500 characters (it has 501)" });
+    expect(quizFromFields("Q?", `a\n${"b".repeat(201)}`, "1")).toEqual({ ok: false, error: "shorten answer 2 to at most 200 characters (it has 201)" });
+    expect(quizFromFields("Q?", `${"a".repeat(200)}\nb`, "1").ok).toBe(true);
+    // Characters are counted as the database counts them: an emoji is one.
+    expect(quizFromFields("🪔".repeat(500), "a\nb", "1").ok).toBe(true);
+  });
+
+  it("fits six answers at the limit in the answers box", () => {
+    const six = Array.from({ length: 6 }, (_, i) => String(i).repeat(200)).join("\n");
+    expect(six.length).toBeLessThanOrEqual(QUIZ_OPTIONS_TEXT_MAX);
+    expect(quizFromFields("Q?", six, "1").ok).toBe(true);
   });
 });
