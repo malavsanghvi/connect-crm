@@ -248,3 +248,7 @@ insert into app.content_items (center_id, tradition, kind, slug, title, metadata
 -- test (DB test 36, e2e flow f-sandbox), the same way a real deploy exercises it against the one
 -- real JSH once.
 do $$ begin perform app.seed_jsh_live_stream(id), app.seed_jsh_calendars(id), app.seed_jsh_giving(id) from app.centers where slug = 'jsh'; end $$;
+
+-- The Gyan Path content pack (0571) into the shared goals above. On a database that already had them, migration 0571
+-- did this; on a new one the migrations ran before this seed, so the pack is applied here (idempotent).
+select app.apply_gyan_content_pack();
