@@ -1,0 +1,3721 @@
+{
+  "goals": [
+    {
+      "goal_key": "samayik",
+      "goal_name": "Learn Samayik",
+      "new": false,
+      "tradition": "shvetambar_murtipujak",
+      "levels": [
+        {
+          "level_key": "1",
+          "level_name": "What is Samayik",
+          "chapter": "Chapter 1 · Foundations",
+          "points": 20,
+          "treasure_points": 0,
+          "steps": [
+            {
+              "kind": "read",
+              "title": "Samayik: 48 calm minutes",
+              "points": 5,
+              "repeat_points": 0,
+              "activity": {
+                "cards": [
+                  {
+                    "title": "A calm break for your soul",
+                    "body_md": "**Samayik** (સામાયિક · सामायिक) is a special time when you set the busy world aside and practise **samta** (સમતા) — staying calm, peaceful and equal towards everyone, whether things feel nice or not so nice.",
+                    "emoji": "🧘"
+                  },
+                  {
+                    "title": "Why 48 minutes?",
+                    "body_md": "One Samayik lasts **48 minutes** — one *muhurta* (મુહૂર્ત). In the old way of counting time that is two *ghadi* of 24 minutes each. Long enough for your mind to settle, short enough for anyone to try!",
+                    "emoji": "⏳"
+                  },
+                  {
+                    "title": "A little like a sadhu",
+                    "body_md": "For those 48 minutes a shravak or shravika lives almost like a sadhu or sadhvi: no worldly work and no harm to any living being — not in thought, word or action.",
+                    "emoji": "🙏"
+                  },
+                  {
+                    "title": "What do you do inside?",
+                    "body_md": "Read a Jain book (*swadhyay*), say Navkar on a navkarvali — one Navkar for each bead (*jaap*) — sit quietly in meditation (*dhyan*), or do Pratikraman. Screens, snacks and chit-chat can wait outside. 😊",
+                    "emoji": "📖"
+                  }
+                ],
+                "fun_fact": "Sadhus and sadhvis live in Samayik their whole life. A householder's Samayik is a 48-minute taste of that life.",
+                "review": "needs_pathshala_review"
+              },
+              "quiz": null
+            },
+            {
+              "kind": "read",
+              "title": "Story: Puniya Shravak's priceless Samayik",
+              "points": 5,
+              "repeat_points": 0,
+              "activity": {
+                "cards": [
+                  {
+                    "title": "A happy, simple life",
+                    "body_md": "In King Shrenik's time, in the city of Rajgruhi, lived **Puniya Shravak**. He earned his living by spinning cotton and chose to earn only a tiny amount each day. Even so, he and his wife took turns fasting so that every day they could feed a fellow Jain guest (*sadharmik bhakti*).",
+                    "emoji": "🧵"
+                  },
+                  {
+                    "title": "The king's big question",
+                    "body_md": "King Shrenik wanted to change a hard future that his past karma had made. Bhagwan Mahavir told him: if you can get the fruit of just **one** of Puniya's Samayiks, it can help.",
+                    "emoji": "👑"
+                  },
+                  {
+                    "title": "Not for sale!",
+                    "body_md": "The king offered Puniya riches for just one Samayik. But all the treasure in the kingdom could not pay for it — a Samayik's fruit cannot be bought or sold. Each of us earns it by doing it ourselves.",
+                    "emoji": "💎"
+                  },
+                  {
+                    "title": "What we learn",
+                    "body_md": "Your own calm, honest effort is the real treasure — no amount of gold can buy it. Even one sincere Samayik matters!",
+                    "emoji": "🌟"
+                  }
+                ],
+                "review": "needs_pathshala_review"
+              },
+              "quiz": null
+            },
+            {
+              "kind": "read",
+              "title": "Your Samayik kit (upkaran)",
+              "points": 5,
+              "repeat_points": 0,
+              "activity": {
+                "cards": [
+                  {
+                    "title": "Katasanu (કટાસણું)",
+                    "body_md": "A small mat (*asan*) to sit on, traditionally white wool. It marks your Samayik spot.",
+                    "emoji": "🧺"
+                  },
+                  {
+                    "title": "Charavalo (ચરવળો)",
+                    "body_md": "A soft broom on a short handle. Before you sit or move, you sweep gently so no tiny creature is hurt. Kindness in a broom!",
+                    "emoji": "🪶"
+                  },
+                  {
+                    "title": "Muhapatti (મુહપત્તિ)",
+                    "body_md": "A folded white cloth held in front of the mouth while reciting sutras. It protects tiny beings in the air and reminds us to speak carefully.",
+                    "emoji": "😷"
+                  },
+                  {
+                    "title": "Sthapanaji (સ્થાપનાજી)",
+                    "body_md": "If no sadhu or sadhvi is present, a book with the Navkar Mantra is placed on a stand with a navkarvali on top. It stands for the guru.",
+                    "emoji": "📚"
+                  }
+                ],
+                "tip": "Wear clean, simple clothes for Samayik — white or light colours are best.",
+                "review": "needs_pathshala_review"
+              },
+              "quiz": null
+            },
+            {
+              "kind": "quiz",
+              "title": "Quick quiz: Samayik basics",
+              "points": 10,
+              "repeat_points": 0,
+              "activity": {
+                "review": "needs_pathshala_review"
+              },
+              "quiz": {
+                "questions": [
+                  {
+                    "type": "choice",
+                    "question": "How long does one Samayik last?",
+                    "options": [
+                      "24 minutes",
+                      "48 minutes",
+                      "2 hours"
+                    ],
+                    "answer": 1,
+                    "explain": "One Samayik is one muhurta — 48 minutes. You may sit longer, but not shorter.",
+                    "review": "needs_pathshala_review"
+                  },
+                  {
+                    "type": "truefalse",
+                    "statement": "During Samayik it is fine to snack quietly.",
+                    "answer": false,
+                    "explain": "Samayik is time away from worldly activity, so there is no eating, drinking or chewing until it is complete.",
+                    "review": "needs_pathshala_review"
+                  },
+                  {
+                    "type": "match",
+                    "prompt": "Match each item with its job",
+                    "pairs": [
+                      [
+                        "Katasanu",
+                        "The mat you sit on"
+                      ],
+                      [
+                        "Charavalo",
+                        "Sweeps gently so tiny beings stay safe"
+                      ],
+                      [
+                        "Muhapatti",
+                        "Cloth held in front of the mouth"
+                      ],
+                      [
+                        "Navkarvali",
+                        "Mala for counting Navkar"
+                      ]
+                    ],
+                    "explain": "Every item in the Samayik kit helps us be careful and calm.",
+                    "review": "needs_pathshala_review"
+                  },
+                  {
+                    "type": "fill",
+                    "sentence": "Samayik is practice in ___ — staying calm and equal towards everyone.",
+                    "answer": "samta",
+                    "options": [
+                      "speed",
+                      "samta",
+                      "sleep"
+                    ],
+                    "explain": "Samta (equanimity) is the heart of Samayik.",
+                    "review": "needs_pathshala_review"
+                  },
+                  {
+                    "type": "choice",
+                    "question": "What did King Shrenik learn about Puniya's Samayik?",
+                    "options": [
+                      "It could be bought for a bag of gold",
+                      "Only kings can do Samayik",
+                      "No treasure can buy it — you have to do it yourself"
+                    ],
+                    "answer": 2,
+                    "explain": "Even all the king's treasure could not buy one Samayik. Its fruit comes only from doing it yourself.",
+                    "review": "needs_pathshala_review"
+                  }
+                ]
+              }
+            },
+            {
+              "kind": "practice",
+              "title": "Try five calm minutes",
+              "points": 10,
+              "repeat_points": 0,
+              "activity": {
+                "cards": [
+                  {
+                    "title": "Set up",
+                    "body_md": "Pick a quiet corner. Sit on a mat with your back straight and hands resting in your lap. Set a timer for 5 minutes.",
+                    "emoji": "⏲️"
+                  },
+                  {
+                    "title": "Breathe and count",
+                    "body_md": "Notice your breath going in and out, and count each breath up to ten, then start again. If you already know the Navkar Mantra, say it slowly in your mind instead. If your mind runs off, smile and bring it back.",
+                    "emoji": "📿"
+                  },
+                  {
+                    "title": "Done!",
+                    "body_md": "How did it feel? That was a mini-Samayik warm-up. Tap the button when you have tried it.",
+                    "emoji": "🎉"
+                  }
+                ],
+                "confirm_label": "I sat calmly for 5 minutes",
+                "review": "needs_pathshala_review"
+              },
+              "quiz": null
+            }
+          ]
+        },
+        {
+          "level_key": "2",
+          "level_name": "Navkar Mantra",
+          "chapter": "Chapter 1 · Foundations",
+          "points": 20,
+          "treasure_points": 0,
+          "steps": [
+            {
+              "kind": "read",
+              "title": "The first sutra every Jain learns",
+              "points": 5,
+              "repeat_points": 0,
+              "activity": {
+                "cards": [
+                  {
+                    "title": "Nine lines, five bows",
+                    "body_md": "The **Navkar Mantra** (નવકાર · नवकार) has nine lines (*pada*). The first five bow to the **Panch Parameshthi** — Arihant, Siddha, Acharya, Upadhyay and all sadhus and sadhvis. The last four lines (the *chulika*) tell us why this bow is so special.",
+                    "emoji": "🙏"
+                  },
+                  {
+                    "title": "Qualities, not names",
+                    "body_md": "The Navkar does not name any one person. We bow to the *qualities* — so anyone, anywhere, who has them is included.",
+                    "emoji": "💡"
+                  },
+                  {
+                    "title": "Why 108 beads?",
+                    "body_md": "Arihant 12 + Siddha 8 + Acharya 36 + Upadhyay 25 + Sadhu 27 = **108** qualities. That is why a navkarvali has 108 beads!",
+                    "emoji": "📿"
+                  },
+                  {
+                    "title": "Navkar in Samayik",
+                    "body_md": "We say Navkar when we set up the sthapanaji, before Karemi Bhante, three times before swadhyay, and again when we complete Samayik. It opens and closes every Jain practice.",
+                    "emoji": "🧭"
+                  }
+                ],
+                "review": "needs_pathshala_review"
+              },
+              "quiz": null
+            },
+            {
+              "kind": "voice",
+              "title": "Say the whole Navkar",
+              "points": 15,
+              "repeat_points": 3,
+              "activity": {
+                "lang": "hi-IN",
+                "mode": "listen_repeat_say",
+                "pass_ratio": 0.66,
+                "verses": [
+                  {
+                    "text": "नमो अरिहंताणं",
+                    "translit": "Namo Arihantanam",
+                    "meaning": "I bow to the Arihants, who have won over their inner enemies and show everyone the path."
+                  },
+                  {
+                    "text": "नमो सिद्धाणं",
+                    "translit": "Namo Siddhanam",
+                    "meaning": "I bow to the Siddhas, the souls that are free from every karma, forever."
+                  },
+                  {
+                    "text": "नमो आयरियाणं",
+                    "translit": "Namo Ayariyanam",
+                    "meaning": "I bow to the Acharyas, who lead the sangh and live the five achar: in knowledge, faith, conduct, austerity and energy."
+                  },
+                  {
+                    "text": "नमो उवज्झायाणं",
+                    "translit": "Namo Uvajjhayanam",
+                    "meaning": "I bow to the Upadhyays, who teach the scriptures."
+                  },
+                  {
+                    "text": "नमो लोए सव्वसाहूणं",
+                    "translit": "Namo Loe Savva Sahunam",
+                    "meaning": "I bow to all the sadhus and sadhvis everywhere in the world."
+                  },
+                  {
+                    "text": "एसो पंच नमुक्कारो",
+                    "translit": "Eso Panch Namukkaro",
+                    "meaning": "This bow to the five great ones…"
+                  },
+                  {
+                    "text": "सव्वपावप्पणासणो",
+                    "translit": "Savva Pavappanasano",
+                    "meaning": "…destroys all sins (paap, the karma that brings suffering)."
+                  },
+                  {
+                    "text": "मंगलाणं च सव्वेसिं",
+                    "translit": "Mangalanam cha Savvesim",
+                    "meaning": "And among all auspicious things…"
+                  },
+                  {
+                    "text": "पढमं हवइ मंगलं",
+                    "translit": "Padhamam Havai Mangalam",
+                    "meaning": "…it is the first and highest auspicious one."
+                  }
+                ],
+                "tip": "Listen first, then repeat one line at a time. Clear and steady is better than fast.",
+                "review": "needs_pathshala_review"
+              },
+              "quiz": null
+            },
+            {
+              "kind": "quiz",
+              "title": "Quiz: the five bows",
+              "points": 10,
+              "repeat_points": 0,
+              "activity": {
+                "review": "needs_pathshala_review"
+              },
+              "quiz": {
+                "questions": [
+                  {
+                    "type": "order",
+                    "prompt": "Put the five bows in order",
+                    "items": [
+                      "Namo Arihantanam",
+                      "Namo Siddhanam",
+                      "Namo Ayariyanam",
+                      "Namo Uvajjhayanam",
+                      "Namo Loe Savva Sahunam"
+                    ],
+                    "explain": "We bow first to the Arihants — they show us the path, and it is from them that we learn about the Siddhas. Then come the Siddhas, Acharyas, Upadhyays and all sadhus and sadhvis.",
+                    "review": "needs_pathshala_review"
+                  },
+                  {
+                    "type": "match",
+                    "prompt": "Match each Parameshthi",
+                    "pairs": [
+                      [
+                        "Arihant",
+                        "Won over inner enemies and shows the path"
+                      ],
+                      [
+                        "Siddha",
+                        "Free soul — no body, no karma"
+                      ],
+                      [
+                        "Acharya",
+                        "Leader of the sangh"
+                      ],
+                      [
+                        "Upadhyay",
+                        "Teacher of the scriptures"
+                      ],
+                      [
+                        "Sadhu / Sadhvi",
+                        "All monks and nuns everywhere in the world"
+                      ]
+                    ],
+                    "explain": "These five are the Panch Parameshthi — the five supreme ones.",
+                    "review": "needs_pathshala_review"
+                  },
+                  {
+                    "type": "fill",
+                    "sentence": "Eso Panch ___",
+                    "answer": "Namukkaro",
+                    "options": [
+                      "Mangalam",
+                      "Namukkaro",
+                      "Siddhanam"
+                    ],
+                    "explain": "“Eso panch namukkaro” means “this five-fold bow”.",
+                    "review": "needs_pathshala_review"
+                  },
+                  {
+                    "type": "truefalse",
+                    "statement": "The Navkar Mantra bows to one particular Tirthankar by name.",
+                    "answer": false,
+                    "explain": "It names no person. It honours the qualities that every Arihant, Siddha, Acharya, Upadhyay, sadhu and sadhvi has.",
+                    "review": "needs_pathshala_review"
+                  },
+                  {
+                    "type": "choice",
+                    "question": "How many beads does a navkarvali have?",
+                    "options": [
+                      "27",
+                      "1,000",
+                      "108"
+                    ],
+                    "answer": 2,
+                    "explain": "108 beads — one for each quality of the five Parameshthis.",
+                    "review": "needs_pathshala_review"
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "level_key": "3",
+          "level_name": "Panchindiya sutra",
+          "chapter": "Chapter 1 · Foundations",
+          "points": 20,
+          "treasure_points": 0,
+          "steps": [
+            {
+              "kind": "read",
+              "title": "Setting up the guru's place",
+              "points": 5,
+              "repeat_points": 0,
+              "activity": {
+                "cards": [
+                  {
+                    "title": "Guru sthapana",
+                    "body_md": "Samayik is done in front of a guru. If no sadhu or sadhvi is there, we set up a **sthapanaji**: a book with the Navkar Mantra on a stand (*sapdo*), with a navkarvali on top. Facing East or North is traditional.",
+                    "emoji": "📚"
+                  },
+                  {
+                    "title": "How to say it",
+                    "body_md": "Hold the muhapatti in your left hand and stretch your right palm towards the sthapanaji. Recite Navkar, then **Panchindiya** (પંચિંદિય).",
+                    "emoji": "✋"
+                  },
+                  {
+                    "title": "First line and meaning",
+                    "body_md": "It begins: *“Panchindiya samvarano, taha navaviha bambhachera guttidharo…”* In our words: my guru keeps the five senses in check and guards brahmacharya in nine careful ways.",
+                    "emoji": "🔤"
+                  },
+                  {
+                    "title": "36 shining qualities",
+                    "body_md": "Five senses (*indriya*) kept in check + nine guards of brahmacharya + free of the four *kashay* (anger, pride, deceit, greed) = 18. Five great vows (*mahavrat*) + five *achar* + five *samiti* + three *gupti* (guarding mind, speech and body) = 18 more. Total: **36**!",
+                    "emoji": "🔢"
+                  }
+                ],
+                "review": "needs_pathshala_review"
+              },
+              "quiz": null
+            },
+            {
+              "kind": "quiz",
+              "title": "Quiz: the guru's 36 qualities",
+              "points": 10,
+              "repeat_points": 0,
+              "activity": {
+                "review": "needs_pathshala_review"
+              },
+              "quiz": {
+                "questions": [
+                  {
+                    "type": "choice",
+                    "question": "How many qualities of a guru does Panchindiya describe?",
+                    "options": [
+                      "36",
+                      "12",
+                      "108"
+                    ],
+                    "answer": 0,
+                    "explain": "Panchindiya lists the 36 qualities of an Acharya — the guru we invite into the sthapanaji: 18 in its first verse and 18 in its second. Remember “Acharya 36” from the 108 beads?",
+                    "review": "needs_pathshala_review"
+                  },
+                  {
+                    "type": "match",
+                    "prompt": "Match the group with its meaning",
+                    "pairs": [
+                      [
+                        "5 indriya",
+                        "Five senses kept in check"
+                      ],
+                      [
+                        "4 kashay",
+                        "Anger, pride, deceit, greed — given up"
+                      ],
+                      [
+                        "5 mahavrat",
+                        "Five great vows"
+                      ],
+                      [
+                        "3 gupti",
+                        "Guarding mind, speech and body"
+                      ]
+                    ],
+                    "explain": "Together with the other groups these add up to 36 qualities.",
+                    "review": "needs_pathshala_review"
+                  },
+                  {
+                    "type": "truefalse",
+                    "statement": "We recite Panchindiya with the right palm stretched towards the sthapanaji.",
+                    "answer": true,
+                    "explain": "The open right palm invites the guru's presence into the sthapanaji, while the left hand holds the muhapatti.",
+                    "review": "needs_pathshala_review"
+                  },
+                  {
+                    "type": "fill",
+                    "sentence": "Panchindiya ___ — the guru keeps the five senses in check.",
+                    "answer": "samvarano",
+                    "options": [
+                      "vandami",
+                      "mangalam",
+                      "samvarano"
+                    ],
+                    "explain": "“Samvarano” means one who restrains — here, the five senses.",
+                    "review": "needs_pathshala_review"
+                  },
+                  {
+                    "type": "order",
+                    "prompt": "Put the sthapana steps in order",
+                    "items": [
+                      "Place a book with the Navkar on a stand",
+                      "Put a navkarvali on top",
+                      "Muhapatti in your left hand, right palm towards the sthapanaji",
+                      "Recite Navkar",
+                      "Recite Panchindiya"
+                    ],
+                    "explain": "First the place is made ready, then we recite Navkar and Panchindiya.",
+                    "review": "needs_pathshala_review"
+                  }
+                ]
+              }
+            },
+            {
+              "kind": "practice",
+              "title": "Set up your sthapanaji",
+              "points": 10,
+              "repeat_points": 0,
+              "activity": {
+                "cards": [
+                  {
+                    "title": "Make the spot ready",
+                    "body_md": "Sweep the floor gently (a charavalo is perfect) and lay your katasanu.",
+                    "emoji": "🧹"
+                  },
+                  {
+                    "title": "Place the guru",
+                    "body_md": "Put a clean book that has the Navkar on a stand in front of you, with a navkarvali on top.",
+                    "emoji": "📚"
+                  },
+                  {
+                    "title": "Say it",
+                    "body_md": "Muhapatti in your left hand, right palm towards the sthapanaji: recite Navkar and Panchindiya. Ask an elder to listen and help.",
+                    "emoji": "✋"
+                  }
+                ],
+                "confirm_label": "I set up a sthapanaji",
+                "review": "needs_pathshala_review"
+              },
+              "quiz": null
+            }
+          ]
+        },
+        {
+          "level_key": "4",
+          "level_name": "Khamasamana",
+          "chapter": "Chapter 1 · Foundations",
+          "points": 20,
+          "treasure_points": 50,
+          "steps": [
+            {
+              "kind": "read",
+              "title": "The five-limb bow",
+              "points": 5,
+              "repeat_points": 0,
+              "activity": {
+                "cards": [
+                  {
+                    "title": "Khamasamana (ખમાસમણ)",
+                    "body_md": "A bow of deep respect. Its sutra is also called the **Panchang Pranipat sutra** — the “five-limb bow” — because two knees, two hands and the forehead touch the floor.",
+                    "emoji": "🙇"
+                  },
+                  {
+                    "title": "The whole sutra is one sentence",
+                    "body_md": "*“Ichchhami khamasamano! Vandium javanijjae nisihiae, matthaena vandami.”* In our words: forgiving one, setting aside wrong activity, with all my strength I wish to bow to you — I bow with my head. Say the first part standing with hands joined. Then kneel, put both hands on the floor and touch your forehead down as you say *“matthaena vandami”*.",
+                    "emoji": "🗣️"
+                  },
+                  {
+                    "title": "How many times?",
+                    "body_md": "Before Bhagwan at the derasar: **three** khamasamanas. Before a guru: two. In the Samayik vidhi a khamasamana comes before each request for permission (*adesh*).",
+                    "emoji": "🔁"
+                  },
+                  {
+                    "title": "Why bow?",
+                    "body_md": "Bowing low helps pride (*maan*) melt and humility (*vinay*) grow. A small bow, a big heart!",
+                    "emoji": "🌈"
+                  }
+                ],
+                "tip": "Finish this level to unlock your Foundations badge! 🏅",
+                "review": "needs_pathshala_review"
+              },
+              "quiz": null
+            },
+            {
+              "kind": "quiz",
+              "title": "Quiz: the five-limb bow",
+              "points": 10,
+              "repeat_points": 0,
+              "activity": {
+                "review": "needs_pathshala_review"
+              },
+              "quiz": {
+                "questions": [
+                  {
+                    "type": "order",
+                    "prompt": "Put the steps of one khamasamana in order",
+                    "items": [
+                      "Stand straight with hands joined",
+                      "Say “Ichchhami khamasamano, vandium javanijjae nisihiae”",
+                      "Kneel and place both hands on the floor",
+                      "Touch your forehead down and say “matthaena vandami”",
+                      "Rise slowly"
+                    ],
+                    "explain": "Stand and say the first part, kneel with both hands on the floor, touch your forehead down with “matthaena vandami”, then rise slowly.",
+                    "review": "needs_pathshala_review"
+                  },
+                  {
+                    "type": "choice",
+                    "question": "Which five body parts touch the floor?",
+                    "options": [
+                      "Two feet, two elbows and the chin",
+                      "Two knees, two hands and the forehead",
+                      "Only the forehead"
+                    ],
+                    "answer": 1,
+                    "explain": "That is why it is called the five-limb (panchang) bow.",
+                    "review": "needs_pathshala_review"
+                  },
+                  {
+                    "type": "truefalse",
+                    "statement": "At the derasar we do three khamasamanas before Bhagwan.",
+                    "answer": true,
+                    "explain": "Three before Bhagwan; two before a guru.",
+                    "review": "needs_pathshala_review"
+                  },
+                  {
+                    "type": "fill",
+                    "sentence": "“Matthaena vandami” means “I bow with my ___”.",
+                    "answer": "head",
+                    "options": [
+                      "hands",
+                      "head",
+                      "feet"
+                    ],
+                    "explain": "Matthaena means “with the head” — that is why we touch our forehead down as we say it.",
+                    "review": "needs_pathshala_review"
+                  }
+                ]
+              }
+            },
+            {
+              "kind": "practice",
+              "title": "Three khamasamanas",
+              "points": 10,
+              "repeat_points": 0,
+              "activity": {
+                "cards": [
+                  {
+                    "title": "Get ready",
+                    "body_md": "Stand facing Bhagwan — at the derasar or your home mandir — with your hands joined. If you have them, hold the charavalo and muhapatti.",
+                    "emoji": "🧍"
+                  },
+                  {
+                    "title": "Bow slowly",
+                    "body_md": "Do one full khamasamana — gently, with care, no rushing.",
+                    "emoji": "🙇"
+                  },
+                  {
+                    "title": "Three times",
+                    "body_md": "Do it three times — the number we do before Bhagwan — counting “1… 2… 3…” in your head. Ask a grown-up to check your posture.",
+                    "emoji": "🔁"
+                  }
+                ],
+                "confirm_label": "I did three khamasamanas",
+                "review": "needs_pathshala_review"
+              },
+              "quiz": null
+            },
+            {
+              "kind": "quiz",
+              "title": "Foundations check 🏅",
+              "points": 10,
+              "repeat_points": 0,
+              "activity": {
+                "review": "needs_pathshala_review"
+              },
+              "quiz": {
+                "questions": [
+                  {
+                    "type": "match",
+                    "prompt": "Match what you have learned",
+                    "pairs": [
+                      [
+                        "Samayik",
+                        "48 minutes of samta"
+                      ],
+                      [
+                        "Navkar",
+                        "Bows to the five Parameshthis"
+                      ],
+                      [
+                        "Panchindiya",
+                        "36 qualities of the guru"
+                      ],
+                      [
+                        "Khamasamana",
+                        "The five-limb bow"
+                      ]
+                    ],
+                    "explain": "These four are the foundations of every Samayik.",
+                    "review": "needs_pathshala_review"
+                  },
+                  {
+                    "type": "truefalse",
+                    "statement": "The sthapanaji stands for the guru when no sadhu or sadhvi is present.",
+                    "answer": true,
+                    "explain": "It lets us do Samayik respectfully “in front of” a guru wherever we are.",
+                    "review": "needs_pathshala_review"
+                  },
+                  {
+                    "type": "fill",
+                    "sentence": "In the Samayik vidhi, we bow with a ___ before asking the guru for permission.",
+                    "answer": "khamasamana",
+                    "options": [
+                      "story",
+                      "khamasamana",
+                      "snack"
+                    ],
+                    "explain": "We bow first, then ask — that is how a respectful student asks a teacher.",
+                    "review": "needs_pathshala_review"
+                  },
+                  {
+                    "type": "choice",
+                    "question": "How many lines of the Navkar are bows to the Panch Parameshthi?",
+                    "options": [
+                      "Nine",
+                      "Four",
+                      "Five"
+                    ],
+                    "answer": 2,
+                    "explain": "The first five lines are the five bows. The last four lines (the chulika) tell us why this bow is so special.",
+                    "review": "needs_pathshala_review"
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "level_key": "5",
+          "level_name": "Iriyavahiyam sutra",
+          "chapter": "Chapter 2 · Sutras of Samayik",
+          "points": 20,
+          "treasure_points": 0,
+          "steps": [
+            {
+              "kind": "read",
+              "title": "Sorry to the smallest friends",
+              "points": 5,
+              "repeat_points": 0,
+              "activity": {
+                "cards": [
+                  {
+                    "title": "What it is for",
+                    "body_md": "Whenever we move about — walking, coming and going — we might hurt tiny living beings without noticing. **Iriyavahiyam** (ઇરિયાવહિયં) is how we say sorry for that before we begin Samayik. Right after it come **Tassa Uttari** and **Annattha** — you will meet them in the next two levels.",
+                    "emoji": "🐜"
+                  },
+                  {
+                    "title": "Little lives on the path",
+                    "body_md": "It names them: seeds, green sprouts, dew drops, ant hills, moss, water, damp earth and spider webs. Each one is alive, or is a home full of tiny living beings.",
+                    "emoji": "🌿"
+                  },
+                  {
+                    "title": "Counting by senses",
+                    "body_md": "One sense (*ekendriya*): earth, water, fire, air and plants. Two: worms and shell creatures. Three: ants. Four: bees and flies. Five: fish, birds, cows and people.",
+                    "emoji": "🔢"
+                  },
+                  {
+                    "title": "First line and ending",
+                    "body_md": "It starts by asking permission: *“Ichchhakarena sandisaha bhagavan! Iriyavahiyam padikkamami? Ichchham.”* It ends with *“tassa michchhami dukkadam”* — may that wrong be undone.",
+                    "emoji": "🕊️"
+                  }
+                ],
+                "fun_fact": "We do Iriyavahiyam before Samayik, Pratikraman and Chaityavandan — like wiping the slate clean before writing.",
+                "review": "needs_pathshala_review"
+              },
+              "quiz": null
+            },
+            {
+              "kind": "quiz",
+              "title": "Quiz: Iriyavahiyam",
+              "points": 10,
+              "repeat_points": 0,
+              "activity": {
+                "review": "needs_pathshala_review"
+              },
+              "quiz": {
+                "questions": [
+                  {
+                    "type": "choice",
+                    "question": "What does Iriyavahiyam ask forgiveness for?",
+                    "options": [
+                      "Harm caused to living beings while moving about",
+                      "Forgetting homework",
+                      "Spending too much money"
+                    ],
+                    "answer": 0,
+                    "explain": "It is about the tiny beings we may have hurt while walking or moving around.",
+                    "review": "needs_pathshala_review"
+                  },
+                  {
+                    "type": "match",
+                    "prompt": "How many senses? Match each group to who has it",
+                    "pairs": [
+                      [
+                        "One sense",
+                        "Plants, water, earth"
+                      ],
+                      [
+                        "Two senses",
+                        "Worms and shell creatures"
+                      ],
+                      [
+                        "Three senses",
+                        "Ants"
+                      ],
+                      [
+                        "Four senses",
+                        "Bees and flies"
+                      ],
+                      [
+                        "Five senses",
+                        "Fish, birds, cows and people"
+                      ]
+                    ],
+                    "explain": "Jains group living beings by how many senses they have — and care for all of them.",
+                    "review": "needs_pathshala_review"
+                  },
+                  {
+                    "type": "truefalse",
+                    "statement": "We say Iriyavahiyam only before Samayik.",
+                    "answer": false,
+                    "explain": "We also say it before Pratikraman and Chaityavandan — like wiping the slate clean before writing.",
+                    "review": "needs_pathshala_review"
+                  },
+                  {
+                    "type": "choice",
+                    "question": "In the Samayik vidhi, which sutra comes right after Iriyavahiyam?",
+                    "options": [
+                      "Logassa",
+                      "Tassa Uttari",
+                      "Karemi Bhante"
+                    ],
+                    "answer": 1,
+                    "explain": "Iriyavahiyam → Tassa Uttari → Annattha → kayotsarg.",
+                    "review": "needs_pathshala_review"
+                  },
+                  {
+                    "type": "fill",
+                    "sentence": "Ekendriya beings have ___.",
+                    "answer": "one sense",
+                    "options": [
+                      "three senses",
+                      "five senses",
+                      "one sense"
+                    ],
+                    "explain": "“Eka” means one — they have only the sense of touch, like earth, water and plants.",
+                    "review": "needs_pathshala_review"
+                  }
+                ]
+              }
+            },
+            {
+              "kind": "practice",
+              "title": "Gentle-steps walk",
+              "points": 10,
+              "repeat_points": 0,
+              "activity": {
+                "cards": [
+                  {
+                    "title": "Look down",
+                    "body_md": "Next time you walk outside or to the derasar, watch your step: ants, sprouts, puddles, webs.",
+                    "emoji": "👀"
+                  },
+                  {
+                    "title": "Step around",
+                    "body_md": "Walk around them, not over them. In Samayik, if you need to move, first brush the floor softly with your charavalo so no tiny being is hurt.",
+                    "emoji": "🦶"
+                  },
+                  {
+                    "title": "Think it",
+                    "body_md": "If you think you may have hurt something, say *michchhami dukkadam* in your heart.",
+                    "emoji": "💭"
+                  }
+                ],
+                "confirm_label": "I took a gentle-steps walk",
+                "review": "needs_pathshala_review"
+              },
+              "quiz": null
+            }
+          ]
+        },
+        {
+          "level_key": "6",
+          "level_name": "Tassa Uttari sutra",
+          "chapter": "Chapter 2 · Sutras of Samayik",
+          "points": 20,
+          "treasure_points": 0,
+          "steps": [
+            {
+              "kind": "read",
+              "title": "From sorry to clean",
+              "points": 5,
+              "repeat_points": 0,
+              "activity": {
+                "cards": [
+                  {
+                    "title": "The next step",
+                    "body_md": "Iriyavahiyam says sorry. **Tassa Uttari** (તસ્સ ઉત્તરી) says *why* we are now going to be still in kayotsarg: to clean the soul even more.",
+                    "emoji": "🧼"
+                  },
+                  {
+                    "title": "Four reasons",
+                    "body_md": "For extra cleansing (*uttari karan*), for atonement (*prayashchitt*), for purity (*vishodhi*) and to pull out inner thorns (*vishalli*) — so that our *paap* (harmful karma) can be destroyed. Then: *“thami kaussaggam”* — I now stay still in kayotsarg.",
+                    "emoji": "🎯"
+                  },
+                  {
+                    "title": "Inner thorns (shalya)",
+                    "body_md": "A thorn in your foot keeps hurting until it comes out. The soul has three such thorns: hidden deceit (*maya*), wanting worldly rewards for good deeds (*niyana*) and wrong belief (*mithyatva*).",
+                    "emoji": "🌵"
+                  },
+                  {
+                    "title": "First line",
+                    "body_md": "*“Tassa uttari-karanenam, payachchhitta-karanenam…”*",
+                    "emoji": "🔤"
+                  }
+                ],
+                "review": "needs_pathshala_review"
+              },
+              "quiz": null
+            },
+            {
+              "kind": "quiz",
+              "title": "Quiz: Tassa Uttari",
+              "points": 10,
+              "repeat_points": 0,
+              "activity": {
+                "review": "needs_pathshala_review"
+              },
+              "quiz": {
+                "questions": [
+                  {
+                    "type": "choice",
+                    "question": "Which of these is one of the soul's three inner thorns (shalya)?",
+                    "options": [
+                      "A sneeze during kayotsarg",
+                      "Hidden deceit (maya)",
+                      "Walking to the derasar"
+                    ],
+                    "answer": 1,
+                    "explain": "The three inner thorns are hidden deceit (maya), wanting worldly rewards for good deeds (niyana) and wrong belief (mithyatva). Like a thorn in the foot, they keep hurting until they are pulled out.",
+                    "review": "needs_pathshala_review"
+                  },
+                  {
+                    "type": "match",
+                    "prompt": "Match the word to its meaning",
+                    "pairs": [
+                      [
+                        "Uttari karan",
+                        "Extra cleansing, one step further"
+                      ],
+                      [
+                        "Prayashchitt",
+                        "Making up for a mistake (atonement)"
+                      ],
+                      [
+                        "Vishodhi",
+                        "Purity of the soul"
+                      ],
+                      [
+                        "Vishalli",
+                        "Pulling out inner thorns"
+                      ]
+                    ],
+                    "explain": "Uttari means “further” — extra cleansing on top of saying sorry. These are the four reasons Tassa Uttari gives for kayotsarg.",
+                    "review": "needs_pathshala_review"
+                  },
+                  {
+                    "type": "choice",
+                    "question": "What does “thami kaussaggam” mean?",
+                    "options": [
+                      "I eat my meal",
+                      "I bow to the guru",
+                      "I stay still in kayotsarg"
+                    ],
+                    "answer": 2,
+                    "explain": "“Thami” means I stay, and “kaussaggam” is the Prakrit word for kayotsarg — so: I now stay still in kayotsarg, sitting or standing.",
+                    "review": "needs_pathshala_review"
+                  },
+                  {
+                    "type": "fill",
+                    "sentence": "Tassa Uttari prepares us for ___ — being still and letting go of the body.",
+                    "answer": "kayotsarg",
+                    "options": [
+                      "kayotsarg",
+                      "pachchakhan",
+                      "prakshal"
+                    ],
+                    "explain": "Kayotsarg means “letting go of the body” while the mind rests on the soul.",
+                    "review": "needs_pathshala_review"
+                  }
+                ]
+              }
+            },
+            {
+              "kind": "practice",
+              "title": "Thorn check",
+              "points": 10,
+              "repeat_points": 0,
+              "activity": {
+                "cards": [
+                  {
+                    "title": "A quiet minute",
+                    "body_md": "Sit still for one minute. Ask yourself: did I tell a small fib today and keep it hidden, or do something good just to be praised?",
+                    "emoji": "🌵"
+                  },
+                  {
+                    "title": "Let it go",
+                    "body_md": "Say *michchhami dukkadam* in your heart and decide to do better next time.",
+                    "emoji": "💧"
+                  },
+                  {
+                    "title": "Lighter!",
+                    "body_md": "Feeling lighter is the whole point. If something keeps bothering you, tell a parent or your Pathshala teacher — owning up honestly is how the thorn of hidden deceit comes out.",
+                    "emoji": "😊"
+                  }
+                ],
+                "confirm_label": "I did my thorn check",
+                "review": "needs_pathshala_review"
+              },
+              "quiz": null
+            }
+          ]
+        },
+        {
+          "level_key": "7",
+          "level_name": "Annattha sutra",
+          "chapter": "Chapter 2 · Sutras of Samayik",
+          "points": 20,
+          "treasure_points": 0,
+          "steps": [
+            {
+              "kind": "read",
+              "title": "Still as a statue (almost!)",
+              "points": 5,
+              "repeat_points": 0,
+              "activity": {
+                "cards": [
+                  {
+                    "title": "Kayotsarg",
+                    "body_md": "**Kayotsarg** (કાઉસ્સગ્ગ) means being completely still — letting go of the body and resting the mind on the soul, often with a silent Logassa or Navkar.",
+                    "emoji": "🧍"
+                  },
+                  {
+                    "title": "The body's own moves",
+                    "body_md": "Some things the body does by itself! **Annattha** (અન્નત્થ) lists these exceptions (*agar*): breathing in and out, coughing, sneezing, yawning, burping, passing gas, dizziness, fainting, and tiny movements of the body, of phlegm in the throat and of the eyes. They do not break your kayotsarg.",
+                    "emoji": "🤧"
+                  },
+                  {
+                    "title": "Real emergencies",
+                    "body_md": "If there is real danger — like a fire or a snake — you may move to stay safe. Kayotsarg never asks you to be unsafe.",
+                    "emoji": "🔥"
+                  },
+                  {
+                    "title": "How long?",
+                    "body_md": "In Samayik: one Logassa silently up to *“chandesu nimmalayara”* (or four Navkar). You finish by saying *“Namo Arihantanam”*. The sutra begins: *“Annattha usasienam, nisasienam…”*",
+                    "emoji": "⏱️"
+                  }
+                ],
+                "review": "needs_pathshala_review"
+              },
+              "quiz": null
+            },
+            {
+              "kind": "quiz",
+              "title": "Quiz: Annattha and kayotsarg",
+              "points": 10,
+              "repeat_points": 0,
+              "activity": {
+                "review": "needs_pathshala_review"
+              },
+              "quiz": {
+                "questions": [
+                  {
+                    "type": "choice",
+                    "question": "Which of these does NOT break your kayotsarg?",
+                    "options": [
+                      "Getting up for a snack",
+                      "A sneeze",
+                      "Chatting with a friend"
+                    ],
+                    "answer": 1,
+                    "explain": "A sneeze is one of the exceptions Annattha already allows.",
+                    "review": "needs_pathshala_review"
+                  },
+                  {
+                    "type": "truefalse",
+                    "statement": "We complete a kayotsarg by saying “Namo Arihantanam”.",
+                    "answer": true,
+                    "explain": "Those words mark the end of the kayotsarg.",
+                    "review": "needs_pathshala_review"
+                  },
+                  {
+                    "type": "fill",
+                    "sentence": "In Samayik's kayotsarg we silently recite Logassa up to “chandesu ___”.",
+                    "answer": "nimmalayara",
+                    "options": [
+                      "vandami",
+                      "nimmalayara",
+                      "mangalam"
+                    ],
+                    "explain": "The silent Logassa stops at “chandesu nimmalayara”.",
+                    "review": "needs_pathshala_review"
+                  },
+                  {
+                    "type": "order",
+                    "prompt": "Put these Samayik steps in order",
+                    "items": [
+                      "Iriyavahiyam",
+                      "Tassa Uttari",
+                      "Annattha",
+                      "Kayotsarg (silent Logassa or four Navkar)",
+                      "“Namo Arihantanam”, then Logassa aloud"
+                    ],
+                    "explain": "Sorry → why → exceptions → stillness → finish and praise.",
+                    "review": "needs_pathshala_review"
+                  }
+                ]
+              }
+            },
+            {
+              "kind": "practice",
+              "title": "Statue challenge 🗿",
+              "points": 10,
+              "repeat_points": 0,
+              "activity": {
+                "cards": [
+                  {
+                    "title": "Stand tall",
+                    "body_md": "Stand in *Jin mudra*: feet about four fingers apart at the toes and a little closer at the heels, arms hanging straight by your sides, eyes half-open and resting on the tip of your nose (in Samayik, on the sthapanaji).",
+                    "emoji": "🧍"
+                  },
+                  {
+                    "title": "Silent Navkar",
+                    "body_md": "Silently say the Navkar four times without moving.",
+                    "emoji": "📿"
+                  },
+                  {
+                    "title": "Oops, a sneeze?",
+                    "body_md": "No problem — Annattha already allows it! Finish by saying “Namo Arihantanam”.",
+                    "emoji": "🤧"
+                  }
+                ],
+                "confirm_label": "I did the statue challenge",
+                "review": "needs_pathshala_review"
+              },
+              "quiz": null
+            }
+          ]
+        },
+        {
+          "level_key": "8",
+          "level_name": "Logassa sutra",
+          "chapter": "Chapter 2 · Sutras of Samayik",
+          "points": 20,
+          "treasure_points": 50,
+          "steps": [
+            {
+              "kind": "read",
+              "title": "Praise of the 24 Tirthankars",
+              "points": 5,
+              "repeat_points": 0,
+              "activity": {
+                "cards": [
+                  {
+                    "title": "What is Logassa?",
+                    "body_md": "**Logassa** (લોગસ્સ) praises all 24 Tirthankars of our time by name. It is also called *Chauvisattho* (Chaturvimshati stava) — “praise of the twenty-four”. It is the sutra of the second of the six daily avashyaks.",
+                    "emoji": "☀️"
+                  },
+                  {
+                    "title": "First line and meaning",
+                    "body_md": "*“Logassa ujjoagare, dhamma-titthayare jine…”* In our words: I praise the Jinas who light up the whole universe and found the *tirth* of dharma — the “ford” (the fourfold sangh) that helps souls cross the ocean of birth and death — all twenty-four kevalis.",
+                    "emoji": "🔤"
+                  },
+                  {
+                    "title": "Brighter than the sun",
+                    "body_md": "The last verse praises the Siddhas — our Tirthankars and all liberated souls — as purer than the moons, brighter than the suns and deeper than the greatest ocean, and asks them to grant us *siddhi*: liberation.",
+                    "emoji": "🌙"
+                  },
+                  {
+                    "title": "Breathe with Logassa",
+                    "body_md": "In kayotsarg we say Logassa silently up to *“chandesu nimmalayara”* — 25 short phrases, one per breath. That is 25 calm breaths!",
+                    "emoji": "🫁"
+                  }
+                ],
+                "tip": "Finish this level for the Logassa badge and 50 bonus points! 🏆",
+                "review": "needs_pathshala_review"
+              },
+              "quiz": null
+            },
+            {
+              "kind": "read",
+              "title": "Meet the 24",
+              "points": 5,
+              "repeat_points": 0,
+              "activity": {
+                "cards": [
+                  {
+                    "title": "1 to 8",
+                    "body_md": "Rishabhdev (Adinath), Ajitnath, Sambhavnath, Abhinandan Swami, Sumatinath, Padmaprabh, Suparshvanath, Chandraprabh.",
+                    "emoji": "1️⃣"
+                  },
+                  {
+                    "title": "9 to 16",
+                    "body_md": "Suvidhinath (Pushpadant), Shitalnath, Shreyansnath, Vasupujya Swami, Vimalnath, Anantnath, Dharmanath, Shantinath.",
+                    "emoji": "2️⃣"
+                  },
+                  {
+                    "title": "17 to 24",
+                    "body_md": "Kunthunath, Arnath, Mallinath, Munisuvrat Swami, Naminath, Neminath (Arishtanemi), Parshvanath, Mahavir Swami (Vardhaman).",
+                    "emoji": "3️⃣"
+                  },
+                  {
+                    "title": "Spot the symbol (lanchhan)",
+                    "body_md": "Each Tirthankar has a symbol on the murti's seat: Rishabhdev 🐂 bull, Shantinath 🦌 deer, Neminath 🐚 conch, Parshvanath 🐍 snake, Mahavir Swami 🦁 lion. Look for them at the derasar!",
+                    "emoji": "🦁"
+                  }
+                ],
+                "review": "needs_pathshala_review"
+              },
+              "quiz": null
+            },
+            {
+              "kind": "quiz",
+              "title": "Quiz: Logassa",
+              "points": 10,
+              "repeat_points": 0,
+              "activity": {
+                "review": "needs_pathshala_review"
+              },
+              "quiz": {
+                "questions": [
+                  {
+                    "type": "choice",
+                    "question": "How many Tirthankars does Logassa praise by name?",
+                    "options": [
+                      "24",
+                      "12",
+                      "108"
+                    ],
+                    "answer": 0,
+                    "explain": "All 24 Tirthankars of our time are named in Logassa.",
+                    "review": "needs_pathshala_review"
+                  },
+                  {
+                    "type": "order",
+                    "prompt": "Put the first six Tirthankars in order",
+                    "items": [
+                      "Rishabhdev",
+                      "Ajitnath",
+                      "Sambhavnath",
+                      "Abhinandan Swami",
+                      "Sumatinath",
+                      "Padmaprabh"
+                    ],
+                    "explain": "Logassa names them in this order in its second verse.",
+                    "review": "needs_pathshala_review"
+                  },
+                  {
+                    "type": "match",
+                    "prompt": "Match the Tirthankar to the symbol",
+                    "pairs": [
+                      [
+                        "Rishabhdev",
+                        "Bull"
+                      ],
+                      [
+                        "Shantinath",
+                        "Deer"
+                      ],
+                      [
+                        "Neminath",
+                        "Conch"
+                      ],
+                      [
+                        "Parshvanath",
+                        "Snake"
+                      ],
+                      [
+                        "Mahavir Swami",
+                        "Lion"
+                      ]
+                    ],
+                    "explain": "The symbol (lanchhan) on the seat tells you which Tirthankar a murti is.",
+                    "review": "needs_pathshala_review"
+                  },
+                  {
+                    "type": "truefalse",
+                    "statement": "Logassa says the Tirthankars are brighter than the sun.",
+                    "answer": true,
+                    "explain": "Its last verse calls them purer than the moons and brighter than the suns.",
+                    "review": "needs_pathshala_review"
+                  },
+                  {
+                    "type": "fill",
+                    "sentence": "Logassa ujjoagare, dhamma-___ jine",
+                    "answer": "titthayare",
+                    "options": [
+                      "mangalam",
+                      "vandami",
+                      "titthayare"
+                    ],
+                    "explain": "“Dhamma-titthayare” — those who found the tirth of dharma: a ford (the fourfold sangh) for crossing the ocean of birth and death.",
+                    "review": "needs_pathshala_review"
+                  }
+                ]
+              }
+            },
+            {
+              "kind": "quiz",
+              "title": "Logassa badge check 🏆",
+              "points": 10,
+              "repeat_points": 0,
+              "activity": {
+                "review": "needs_pathshala_review"
+              },
+              "quiz": {
+                "questions": [
+                  {
+                    "type": "order",
+                    "prompt": "Put the last five Tirthankars in order",
+                    "items": [
+                      "Munisuvrat Swami",
+                      "Naminath",
+                      "Neminath (Arishtanemi)",
+                      "Parshvanath",
+                      "Mahavir Swami"
+                    ],
+                    "explain": "Munisuvrat Swami is 20th, Naminath 21st, Neminath (Arishtanemi) 22nd, Parshvanath 23rd and Mahavir Swami 24th — the last Tirthankar of our time.",
+                    "review": "needs_pathshala_review"
+                  },
+                  {
+                    "type": "choice",
+                    "question": "Who is the 16th Tirthankar?",
+                    "options": [
+                      "Parshvanath",
+                      "Rishabhdev",
+                      "Shantinath"
+                    ],
+                    "answer": 2,
+                    "explain": "Shantinath is the 16th; his symbol is the deer.",
+                    "review": "needs_pathshala_review"
+                  },
+                  {
+                    "type": "truefalse",
+                    "statement": "Logassa is also called Chauvisattho.",
+                    "answer": true,
+                    "explain": "Chauvisa means twenty-four, so Chauvisattho is the praise of the twenty-four. It is also the name of the second of the six daily avashyaks — and Logassa is its sutra.",
+                    "review": "needs_pathshala_review"
+                  }
+                ]
+              }
+            },
+            {
+              "kind": "practice",
+              "title": "Logassa, verse by verse",
+              "points": 10,
+              "repeat_points": 0,
+              "activity": {
+                "cards": [
+                  {
+                    "title": "Listen",
+                    "body_md": "Ask your Pathshala teacher or a family elder to recite Logassa for you, or play your Pathshala recording.",
+                    "emoji": "🎧"
+                  },
+                  {
+                    "title": "Repeat",
+                    "body_md": "Repeat it verse by verse. Seven verses — take your time.",
+                    "emoji": "🗣️"
+                  },
+                  {
+                    "title": "Silent version",
+                    "body_md": "Then try it silently up to “chandesu nimmalayara”, one phrase per breath.",
+                    "emoji": "🫁"
+                  }
+                ],
+                "confirm_label": "I recited Logassa with a teacher or elder",
+                "review": "needs_pathshala_review"
+              },
+              "quiz": null
+            }
+          ]
+        },
+        {
+          "level_key": "9",
+          "level_name": "Karemi Bhante",
+          "chapter": "Chapter 2 · Sutras of Samayik",
+          "points": 20,
+          "treasure_points": 0,
+          "steps": [
+            {
+              "kind": "read",
+              "title": "The promise of Samayik",
+              "points": 5,
+              "repeat_points": 0,
+              "activity": {
+                "cards": [
+                  {
+                    "title": "The vow",
+                    "body_md": "**Karemi Bhante** (કરેમિ ભંતે) is the promise (*pratigna*) that begins your Samayik. Just before it you ask: *“Ichchhakari bhagavan! Pasay kari samayik dandak uchcharavoji”* — please kindly give me the Samayik vow. A guru gives it; if none is present, an elder can — or you say it yourself.",
+                    "emoji": "📜"
+                  },
+                  {
+                    "title": "First line",
+                    "body_md": "*“Karemi bhante! Samaiyam savajjam jogam pachchakkhami…”* — Revered one, I take up Samayik and give up all harmful activity (*savadya yog*).",
+                    "emoji": "🔤"
+                  },
+                  {
+                    "title": "Two ways × three means",
+                    "body_md": "The vow works in **two ways**: I won't do anything harmful myself, and I won't get anyone else to do it for me. And with **three means**: not with my mind, not with my words, not with my body. Two ways × three means = six doors closed to harm! Your teacher will teach you the sutra's own words.",
+                    "emoji": "✖️"
+                  },
+                  {
+                    "title": "For how long?",
+                    "body_md": "The vow lasts for as long as you have promised to stay in Samayik — at least 48 minutes. It ends by turning away from past wrongs, feeling sorry for them and letting them go.",
+                    "emoji": "⏳"
+                  }
+                ],
+                "review": "needs_pathshala_review"
+              },
+              "quiz": null
+            },
+            {
+              "kind": "quiz",
+              "title": "Quiz: Karemi Bhante",
+              "points": 10,
+              "repeat_points": 0,
+              "activity": {
+                "review": "needs_pathshala_review"
+              },
+              "quiz": {
+                "questions": [
+                  {
+                    "type": "fill",
+                    "sentence": "Karemi Bhante! Samaiyam savajjam jogam ___",
+                    "answer": "pachchakkhami",
+                    "options": [
+                      "vandami",
+                      "pachchakkhami",
+                      "mangalam"
+                    ],
+                    "explain": "“Pachchakkhami” means “I give up” — here, all harmful activity.",
+                    "review": "needs_pathshala_review"
+                  },
+                  {
+                    "type": "choice",
+                    "question": "The Samayik vow is made in “two ways”. What are they?",
+                    "options": [
+                      "Not doing harm myself, and not getting others to do it",
+                      "Doing it fast, and doing it slowly",
+                      "Doing it at home, and doing it at the derasar"
+                    ],
+                    "answer": 0,
+                    "explain": "Two ways: you don't do anything harmful yourself, and you don't get anyone else to do it for you.",
+                    "review": "needs_pathshala_review"
+                  },
+                  {
+                    "type": "match",
+                    "prompt": "Match the parts of the vow",
+                    "pairs": [
+                      [
+                        "Karemi Bhante",
+                        "The promise that begins Samayik"
+                      ],
+                      [
+                        "Savadya yog",
+                        "Harmful activity"
+                      ],
+                      [
+                        "Three means",
+                        "Mind, speech and body"
+                      ],
+                      [
+                        "How long?",
+                        "At least 48 minutes"
+                      ]
+                    ],
+                    "explain": "The vow keeps harm away in thought, word and action for the whole Samayik.",
+                    "review": "needs_pathshala_review"
+                  },
+                  {
+                    "type": "truefalse",
+                    "statement": "If no guru is present, you can still take the Samayik vow.",
+                    "answer": true,
+                    "explain": "An elder can give it, or you can recite Karemi Bhante yourself.",
+                    "review": "needs_pathshala_review"
+                  }
+                ]
+              }
+            },
+            {
+              "kind": "practice",
+              "title": "Plan your first full Samayik",
+              "points": 10,
+              "repeat_points": 0,
+              "activity": {
+                "cards": [
+                  {
+                    "title": "Pick a time",
+                    "body_md": "With a grown-up, choose a quiet 48-minute slot this week.",
+                    "emoji": "🗓️"
+                  },
+                  {
+                    "title": "Gather your kit",
+                    "body_md": "Katasanu, charavalo, muhapatti, a book with the Navkar and a stand for the sthapanaji (with a navkarvali on top), a Jain book to read or a navkarvali for jaap, and a clock to note the time.",
+                    "emoji": "🧺"
+                  },
+                  {
+                    "title": "Tell the family",
+                    "body_md": "Let everyone know you will be in Samayik so no one needs you for 48 minutes. Choose what you will read or recite.",
+                    "emoji": "🔕"
+                  },
+                  {
+                    "title": "Say it with a grown-up",
+                    "body_md": "Ask a grown-up or your teacher to say Karemi Bhante with you, line by line, until it feels easy.",
+                    "emoji": "🗣️"
+                  }
+                ],
+                "confirm_label": "I have planned my Samayik",
+                "review": "needs_pathshala_review"
+              },
+              "quiz": null
+            }
+          ]
+        },
+        {
+          "level_key": "10",
+          "level_name": "Samayik vidhi, step by step",
+          "chapter": "Chapter 3 · Perform Samayik",
+          "points": 20,
+          "treasure_points": 0,
+          "steps": [
+            {
+              "kind": "read",
+              "title": "Taking Samayik 1: get ready 🧹",
+              "points": 5,
+              "repeat_points": 0,
+              "activity": {
+                "cards": [
+                  {
+                    "title": "Get ready",
+                    "body_md": "Clean clothes. Sweep your spot gently with the charavalo, lay the katasanu, and set up the sthapanaji with Navkar and Panchindiya.",
+                    "emoji": "🧹"
+                  },
+                  {
+                    "title": "Say sorry and be still",
+                    "body_md": "Khamasamana → Iriyavahiyam → Tassa Uttari → Annattha → kayotsarg (silent Logassa to “chandesu nimmalayara”, or four Navkar) → “Namo Arihantanam” → Logassa aloud.",
+                    "emoji": "🙇"
+                  },
+                  {
+                    "title": "Check the muhapatti",
+                    "body_md": "Khamasamana, ask permission (*“Samayik muhapatti padilehu?”*, then *“Ichchham”*), then do *muhapatti padilehan*: open it, look carefully so no tiny being is trapped, and fold it back while reflecting on the *bol*: 50 in all, and girls and women usually say 40 of them. Your teacher will teach these.",
+                    "emoji": "😷"
+                  }
+                ],
+                "review": "needs_pathshala_review"
+              },
+              "quiz": null
+            },
+            {
+              "kind": "read",
+              "title": "Taking Samayik 2: ask and promise 🙋",
+              "points": 5,
+              "repeat_points": 0,
+              "activity": {
+                "cards": [
+                  {
+                    "title": "Ask, then take the vow",
+                    "body_md": "With a khamasamana before each request: *“Samayik sandisahu?”* (may I ask to take Samayik?) → *“Samayik thau?”* (may I be in Samayik?) → Navkar → ask for the vow → **Karemi Bhante**.",
+                    "emoji": "🙋"
+                  },
+                  {
+                    "title": "Ask to sit and study",
+                    "body_md": "Again with a khamasamana before each: *“Besane sandisahu?”* (may I ask to sit?) → *“Besane thau?”* (may I sit?) → *“Sajjhay sandisahu?”* (may I ask to study? — *sajjhay* means swadhyay) → *“Sajjhay karu?”* (may I begin swadhyay?) → three Navkar.",
+                    "emoji": "🪑"
+                  },
+                  {
+                    "title": "Ichchham!",
+                    "body_md": "After each request you say *“Ichchham”*, which means “I accept, as you wish”. If a guru is present, they give permission first. Now your 48 minutes of swadhyay, jaap or dhyan begin! 🎉",
+                    "emoji": "✅"
+                  }
+                ],
+                "review": "needs_pathshala_review"
+              },
+              "quiz": null
+            },
+            {
+              "kind": "quiz",
+              "title": "Quiz: the Samayik vidhi 🧩",
+              "points": 10,
+              "repeat_points": 0,
+              "activity": {
+                "review": "needs_pathshala_review"
+              },
+              "quiz": {
+                "questions": [
+                  {
+                    "type": "order",
+                    "prompt": "Put the Samayik vidhi in order",
+                    "items": [
+                      "Set up the sthapanaji (Navkar + Panchindiya)",
+                      "Khamasamana, then Iriyavahiyam to Logassa",
+                      "Muhapatti padilehan",
+                      "“Samayik sandisahu?” and “Samayik thau?”",
+                      "Navkar and Karemi Bhante",
+                      "“Besane sandisahu?” and “Besane thau?”",
+                      "“Sajjhay sandisahu?”, “Sajjhay karu?” and three Navkar"
+                    ],
+                    "explain": "Get ready → say sorry and be still → check the muhapatti → take the vow → ask to sit and study.",
+                    "review": "needs_pathshala_review"
+                  },
+                  {
+                    "type": "match",
+                    "prompt": "Match the request with its meaning",
+                    "pairs": [
+                      [
+                        "Samayik sandisahu?",
+                        "May I ask to take Samayik?"
+                      ],
+                      [
+                        "Samayik thau?",
+                        "May I be in Samayik?"
+                      ],
+                      [
+                        "Besane sandisahu?",
+                        "May I ask to sit?"
+                      ],
+                      [
+                        "Sajjhay karu?",
+                        "May I begin swadhyay?"
+                      ]
+                    ],
+                    "explain": "Every step is done with the guru's permission.",
+                    "review": "needs_pathshala_review"
+                  },
+                  {
+                    "type": "choice",
+                    "question": "What do you say after each request when taking Samayik?",
+                    "options": [
+                      "Tahatti",
+                      "Ichchham",
+                      "Jai Jinendra"
+                    ],
+                    "answer": 1,
+                    "explain": "“Ichchham” means “I accept, as you wish”. (“Yathashakti” and “Tahatti” are the answers given when completing Samayik.)",
+                    "review": "needs_pathshala_review"
+                  },
+                  {
+                    "type": "truefalse",
+                    "statement": "Muhapatti padilehan means washing the muhapatti in water.",
+                    "answer": false,
+                    "explain": "It means inspecting the muhapatti carefully, so no tiny being is trapped, while reflecting on the bol (50 in all; girls and women usually say 40).",
+                    "review": "needs_pathshala_review"
+                  }
+                ]
+              }
+            },
+            {
+              "kind": "practice",
+              "title": "Dry run of the vidhi 🚶",
+              "points": 10,
+              "repeat_points": 0,
+              "activity": {
+                "cards": [
+                  {
+                    "title": "Walk through it",
+                    "body_md": "With a grown-up or your Pathshala book, walk through each part slowly as practice. This is a rehearsal, not a real Samayik: read Karemi Bhante but do not take the vow. When you really take Karemi Bhante, you stay the full 48 minutes and complete it with parvani.",
+                    "emoji": "📋"
+                  },
+                  {
+                    "title": "Tick it off",
+                    "body_md": "On paper or in your Pathshala book, tick each part as you practise it: sthapana, Iriyavahiyam, kayotsarg, muhapatti, the requests, Karemi Bhante (just read it; you take the vow only on a real Samayik day), besane, sajjhay.",
+                    "emoji": "✔️"
+                  },
+                  {
+                    "title": "Questions?",
+                    "body_md": "Write down anything you are unsure about and ask your teacher.",
+                    "emoji": "❓"
+                  }
+                ],
+                "confirm_label": "I did a dry run",
+                "review": "needs_pathshala_review"
+              },
+              "quiz": null
+            }
+          ]
+        },
+        {
+          "level_key": "11",
+          "level_name": "Completing Samayik (parvani)",
+          "chapter": "Chapter 3 · Perform Samayik",
+          "points": 20,
+          "treasure_points": 0,
+          "steps": [
+            {
+              "kind": "read",
+              "title": "Completing Samayik",
+              "points": 5,
+              "repeat_points": 0,
+              "activity": {
+                "cards": [
+                  {
+                    "title": "Only after 48 minutes",
+                    "body_md": "When at least 48 minutes are done, you complete (*parvu*) the Samayik.",
+                    "emoji": "⏰"
+                  },
+                  {
+                    "title": "The same opening",
+                    "body_md": "Khamasamana → Iriyavahiyam → Tassa Uttari → Annattha → kayotsarg → Logassa aloud → khamasamana → *“Muhapatti padilehu?”*, then *“Ichchham”* → muhapatti padilehan.",
+                    "emoji": "🔁"
+                  },
+                  {
+                    "title": "Two requests",
+                    "body_md": "Khamasamana → *“Samayik paru?”* (may I complete the Samayik?). If a guru is present, they say *“Puno vi kayavvam”* (do it again!) and you answer *“Yathashakti”* (as my strength allows). Khamasamana → *“Samayik paryu?”* (I have completed the Samayik). The guru says *“Ayaro na mottavvo”* (don't give up this practice) and you answer *“Tahatti”* (so be it). With no guru, you just give your answers.",
+                    "emoji": "🙋"
+                  },
+                  {
+                    "title": "Close it",
+                    "body_md": "With your right hand resting on the charavalo or katasanu: Navkar, then **Samaiya vaya jutto**. Last, if you set up the sthapanaji yourself, say one Navkar with your right palm turned towards your face to close it.",
+                    "emoji": "✊"
+                  }
+                ],
+                "review": "needs_pathshala_review"
+              },
+              "quiz": null
+            },
+            {
+              "kind": "read",
+              "title": "Samaiya vaya jutto",
+              "points": 5,
+              "repeat_points": 0,
+              "activity": {
+                "cards": [
+                  {
+                    "title": "First line and meaning",
+                    "body_md": "*“Samaiya vaya jutto, java mane hoi niyama sanjutto…”* In our words: as long as the mind stays with the Samayik vow, bad karma keeps getting cut away — every single time you do it.",
+                    "emoji": "🔤"
+                  },
+                  {
+                    "title": "Like a monk",
+                    "body_md": "It also says that in Samayik a shravak or shravika becomes like a *shraman* — a sadhu or sadhvi — so do Samayik often!",
+                    "emoji": "🙏"
+                  },
+                  {
+                    "title": "32 slips",
+                    "body_md": "We ask forgiveness for 32 possible faults: 10 of the mind (like doing it to show off), 10 of speech (like gossip) and 12 of the body (like leaning on a wall, cracking knuckles or dozing off). Then: *michchhami dukkadam*.",
+                    "emoji": "🧾"
+                  }
+                ],
+                "review": "needs_pathshala_review"
+              },
+              "quiz": null
+            },
+            {
+              "kind": "quiz",
+              "title": "Quiz: completing Samayik",
+              "points": 10,
+              "repeat_points": 0,
+              "activity": {
+                "review": "needs_pathshala_review"
+              },
+              "quiz": {
+                "questions": [
+                  {
+                    "type": "match",
+                    "prompt": "Match each reply with its meaning",
+                    "pairs": [
+                      [
+                        "Yathashakti",
+                        "As my strength allows"
+                      ],
+                      [
+                        "Tahatti",
+                        "So be it"
+                      ],
+                      [
+                        "Puno vi kayavvam",
+                        "Do it again"
+                      ],
+                      [
+                        "Ayaro na mottavvo",
+                        "Don't give up this practice"
+                      ]
+                    ],
+                    "explain": "These short replies are part of completing Samayik.",
+                    "review": "needs_pathshala_review"
+                  },
+                  {
+                    "type": "choice",
+                    "question": "How many faults (dosh) do we say sorry for in Samaiya vaya jutto?",
+                    "options": [
+                      "48",
+                      "32",
+                      "108"
+                    ],
+                    "answer": 1,
+                    "explain": "10 of the mind + 10 of speech + 12 of the body = 32.",
+                    "review": "needs_pathshala_review"
+                  },
+                  {
+                    "type": "truefalse",
+                    "statement": "You may complete a Samayik after 30 minutes if you are bored.",
+                    "answer": false,
+                    "explain": "A Samayik is complete only after at least 48 minutes. Feeling restless is normal — pick up a Jain book or turn your navkarvali, and the time will fly!",
+                    "review": "needs_pathshala_review"
+                  },
+                  {
+                    "type": "fill",
+                    "sentence": "In Samayik a shravak or shravika lives almost like a ___.",
+                    "answer": "sadhu or sadhvi",
+                    "options": [
+                      "king or queen",
+                      "sadhu or sadhvi",
+                      "shopkeeper"
+                    ],
+                    "explain": "Samaiya vaya jutto says that in Samayik a householder becomes like a shraman — a sadhu or sadhvi. That is why it tells us to do Samayik often.",
+                    "review": "needs_pathshala_review"
+                  },
+                  {
+                    "type": "order",
+                    "prompt": "Put the steps of completing Samayik in order",
+                    "items": [
+                      "Khamasamana, then Iriyavahiyam to Logassa (just like taking Samayik)",
+                      "Muhapatti padilehan",
+                      "“Samayik paru?” → “Yathashakti”",
+                      "“Samayik paryu?” → “Tahatti”",
+                      "Navkar and Samaiya vaya jutto",
+                      "One Navkar to close the sthapanaji"
+                    ],
+                    "explain": "Completing Samayik starts like taking it. Then come the two requests and the closing sutra, and last the sthapanaji is closed.",
+                    "review": "needs_pathshala_review"
+                  }
+                ]
+              }
+            },
+            {
+              "kind": "practice",
+              "title": "Practise parvani 🔁",
+              "points": 10,
+              "repeat_points": 0,
+              "activity": {
+                "cards": [
+                  {
+                    "title": "Walk through it",
+                    "body_md": "With a grown-up or your Pathshala book, go through completing Samayik slowly — from Iriyavahiyam to the last Navkar.",
+                    "emoji": "📋"
+                  },
+                  {
+                    "title": "Practise the replies",
+                    "body_md": "Say *“Samayik paru?”* → *“Yathashakti”*, then *“Samayik paryu?”* → *“Tahatti”*. Ask a grown-up to say the guru's replies.",
+                    "emoji": "🗣️"
+                  },
+                  {
+                    "title": "Close gently",
+                    "body_md": "Right hand on the charavalo or katasanu for Navkar and Samaiya vaya jutto, then one Navkar to close the sthapanaji.",
+                    "emoji": "🙏"
+                  }
+                ],
+                "confirm_label": "I practised parvani",
+                "review": "needs_pathshala_review"
+              },
+              "quiz": null
+            }
+          ]
+        },
+        {
+          "level_key": "12",
+          "level_name": "Perform with your teacher",
+          "chapter": "Chapter 3 · Perform Samayik",
+          "points": 20,
+          "treasure_points": 0,
+          "steps": [
+            {
+              "kind": "read",
+              "title": "Your big day 🌟",
+              "points": 5,
+              "repeat_points": 0,
+              "activity": {
+                "cards": [
+                  {
+                    "title": "What your teacher looks for",
+                    "body_md": "That you know the order of the vidhi, recite the sutras clearly, sit calmly for 48 minutes and complete the Samayik correctly.",
+                    "emoji": "🎯"
+                  },
+                  {
+                    "title": "Practise at home first",
+                    "body_md": "Do at least one full Samayik at home with your kit, following the steps from the “Samayik vidhi, step by step” level or your Pathshala book.",
+                    "emoji": "🏠"
+                  },
+                  {
+                    "title": "It is okay to ask",
+                    "body_md": "Forgot a step? Ask! Teachers love helping. Samayik is about samta — stay calm, even about mistakes.",
+                    "emoji": "🤝"
+                  }
+                ],
+                "review": "needs_pathshala_review"
+              },
+              "quiz": null
+            },
+            {
+              "kind": "quiz",
+              "title": "Final check",
+              "points": 10,
+              "repeat_points": 0,
+              "activity": {
+                "review": "needs_pathshala_review"
+              },
+              "quiz": {
+                "questions": [
+                  {
+                    "type": "choice",
+                    "question": "Which sutra is the vow that begins Samayik?",
+                    "options": [
+                      "Logassa",
+                      "Samaiya vaya jutto",
+                      "Karemi Bhante"
+                    ],
+                    "answer": 2,
+                    "explain": "Karemi Bhante is the promise; Samaiya vaya jutto is said when completing.",
+                    "review": "needs_pathshala_review"
+                  },
+                  {
+                    "type": "order",
+                    "prompt": "The big picture — put it in order",
+                    "items": [
+                      "Set up the sthapanaji (Navkar + Panchindiya)",
+                      "Say sorry and be still (Iriyavahiyam to Logassa)",
+                      "Check the muhapatti, then take the vow (Karemi Bhante)",
+                      "Ask to sit and study (besane, sajjhay)",
+                      "48 minutes of swadhyay, jaap or dhyan",
+                      "Complete it (parvani and Samaiya vaya jutto)"
+                    ],
+                    "explain": "Get ready, say sorry, take the vow, settle in, practise for 48 minutes, and complete.",
+                    "review": "needs_pathshala_review"
+                  },
+                  {
+                    "type": "truefalse",
+                    "statement": "A cough or a sneeze breaks your kayotsarg, so you must start again.",
+                    "answer": false,
+                    "explain": "Annattha already allows them — they are the exceptions (agar).",
+                    "review": "needs_pathshala_review"
+                  },
+                  {
+                    "type": "fill",
+                    "sentence": "At the very end, one Navkar with your right palm towards your face closes the ___.",
+                    "answer": "sthapanaji",
+                    "options": [
+                      "katasanu",
+                      "sthapanaji",
+                      "navkarvali"
+                    ],
+                    "explain": "That last Navkar closes the sthapanaji, the guru's place you set up at the start.",
+                    "review": "needs_pathshala_review"
+                  },
+                  {
+                    "type": "match",
+                    "prompt": "Match the sutra to its job",
+                    "pairs": [
+                      [
+                        "Iriyavahiyam",
+                        "Sorry for harm while moving"
+                      ],
+                      [
+                        "Tassa Uttari",
+                        "Why we do kayotsarg"
+                      ],
+                      [
+                        "Logassa",
+                        "Praise of the 24 Tirthankars"
+                      ],
+                      [
+                        "Samaiya vaya jutto",
+                        "Completing Samayik"
+                      ]
+                    ],
+                    "explain": "You now know the job of the main sutras of Samayik!",
+                    "review": "needs_pathshala_review"
+                  }
+                ]
+              }
+            },
+            {
+              "kind": "practice",
+              "title": "A full Samayik at home",
+              "points": 10,
+              "repeat_points": 0,
+              "activity": {
+                "cards": [
+                  {
+                    "title": "Set up",
+                    "body_md": "Kit ready, sthapanaji set, family told.",
+                    "emoji": "🧺"
+                  },
+                  {
+                    "title": "Take Samayik",
+                    "body_md": "Follow the steps from the “Samayik vidhi, step by step” level (or your Pathshala book), then spend 48 minutes in swadhyay, jaap or dhyan.",
+                    "emoji": "🧘"
+                  },
+                  {
+                    "title": "Complete it",
+                    "body_md": "Do the parvani carefully. Well done! 🎉",
+                    "emoji": "✅"
+                  }
+                ],
+                "confirm_label": "I did a full Samayik at home",
+                "review": "needs_pathshala_review"
+              },
+              "quiz": null
+            },
+            {
+              "kind": "practice",
+              "title": "Perform with your teacher",
+              "points": 10,
+              "repeat_points": 0,
+              "activity": {
+                "cards": [
+                  {
+                    "title": "Ask for a time",
+                    "body_md": "Ask your Pathshala teacher when you can perform Samayik with them.",
+                    "emoji": "📅"
+                  },
+                  {
+                    "title": "Perform",
+                    "body_md": "Take Samayik, sit for 48 minutes and complete it while your teacher watches and helps.",
+                    "emoji": "🧘"
+                  },
+                  {
+                    "title": "Get signed off",
+                    "body_md": "Request your teacher's sign-off in the app. Anumodana — we celebrate your effort! 🙏",
+                    "emoji": "✍️"
+                  }
+                ],
+                "confirm_label": "I performed with my teacher",
+                "review": "needs_pathshala_review"
+              },
+              "quiz": null
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "goal_key": "navkar",
+      "goal_name": "Learn Navkar Mantra",
+      "new": false,
+      "tradition": "shvetambar_murtipujak",
+      "levels": [
+        {
+          "level_key": "1",
+          "level_name": "Arihant",
+          "chapter": "Chapter 1 · Five Parameshthis",
+          "points": 20,
+          "treasure_points": 0,
+          "steps": [
+            {
+              "kind": "read",
+              "title": "Who is an Arihant?",
+              "points": 5,
+              "repeat_points": 0,
+              "activity": {
+                "cards": [
+                  {
+                    "title": "Winner of the inner battle",
+                    "body_md": "*Ari* means enemy and *hant* means destroyer. An Arihant has defeated the enemies *inside* — anger, pride, deceit, greed, attachment and aversion. No weapons needed!",
+                    "emoji": "⚔️"
+                  },
+                  {
+                    "title": "Living teachers of the path",
+                    "body_md": "Arihants have perfect knowledge (*kevalgyan*) while still living in a human body, and they teach everyone the path to freedom. Our 24 Tirthankars, like Mahavir Swami, were Arihants and are Siddhas now. Today Simandhar Swami and 19 other Tirthankars teach as Arihants in Mahavideh Kshetra.",
+                    "emoji": "🌞"
+                  },
+                  {
+                    "title": "Why first?",
+                    "body_md": "Siddhas are even more complete — so why bow to Arihants first? Because Arihants *show us* the path. Without their teaching we would not even know about the Siddhas.",
+                    "emoji": "💡"
+                  }
+                ],
+                "review": "needs_pathshala_review"
+              },
+              "quiz": null
+            },
+            {
+              "kind": "voice",
+              "title": "Say: Namo Arihantanam",
+              "points": 15,
+              "repeat_points": 3,
+              "activity": {
+                "lang": "hi-IN",
+                "mode": "listen_repeat_say",
+                "pass_ratio": 0.66,
+                "verses": [
+                  {
+                    "text": "नमो अरिहंताणं",
+                    "translit": "Namo Arihantanam",
+                    "meaning": "I bow to the Arihants, who have won over their inner enemies and show everyone the path."
+                  }
+                ],
+                "tip": "Listen first, then say it back. Clear and steady is better than fast.",
+                "review": "needs_pathshala_review"
+              },
+              "quiz": null
+            },
+            {
+              "kind": "quiz",
+              "title": "Quiz: Arihant",
+              "points": 10,
+              "repeat_points": 0,
+              "activity": {
+                "review": "needs_pathshala_review"
+              },
+              "quiz": {
+                "questions": [
+                  {
+                    "type": "choice",
+                    "question": "What enemies does an Arihant defeat?",
+                    "options": [
+                      "Enemy armies",
+                      "Inner enemies like anger and greed",
+                      "Wild animals"
+                    ],
+                    "answer": 1,
+                    "explain": "The real enemies are inside us — anger, pride, deceit and greed.",
+                    "review": "needs_pathshala_review"
+                  },
+                  {
+                    "type": "truefalse",
+                    "statement": "We bow to the Arihants first because they show us the path.",
+                    "answer": true,
+                    "explain": "Their teaching is how we learn about everything else, even the Siddhas.",
+                    "review": "needs_pathshala_review"
+                  },
+                  {
+                    "type": "fill",
+                    "sentence": "Line 1: Namo ___",
+                    "answer": "Arihantanam",
+                    "options": [
+                      "Siddhanam",
+                      "Arihantanam",
+                      "Ayariyanam"
+                    ],
+                    "explain": "The first line is “Namo Arihantanam” — I bow to the Arihants.",
+                    "review": "needs_pathshala_review"
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "level_key": "2",
+          "level_name": "Siddha",
+          "chapter": "Chapter 1 · Five Parameshthis",
+          "points": 20,
+          "treasure_points": 0,
+          "steps": [
+            {
+              "kind": "read",
+              "title": "Who is a Siddha?",
+              "points": 5,
+              "repeat_points": 0,
+              "activity": {
+                "cards": [
+                  {
+                    "title": "Completely free",
+                    "body_md": "A Siddha is a soul that is free from *all* karma — no body, no birth and no death, ever again.",
+                    "emoji": "🏔️"
+                  },
+                  {
+                    "title": "At the top of the universe",
+                    "body_md": "Siddhas rest at **Siddhashila**, at the very top of the universe, in endless knowledge, perception, bliss and energy.",
+                    "emoji": "✨"
+                  },
+                  {
+                    "title": "The Diwali connection",
+                    "body_md": "When an Arihant's life ends, they become a Siddha, and so does every soul that sheds all its karma. Mahavir Swami attained nirvana at Pavapuri, and Jains remember it on Diwali.",
+                    "emoji": "🪔"
+                  }
+                ],
+                "review": "needs_pathshala_review"
+              },
+              "quiz": null
+            },
+            {
+              "kind": "voice",
+              "title": "Say: Namo Siddhanam",
+              "points": 15,
+              "repeat_points": 3,
+              "activity": {
+                "lang": "hi-IN",
+                "mode": "listen_repeat_say",
+                "pass_ratio": 0.66,
+                "verses": [
+                  {
+                    "text": "नमो सिद्धाणं",
+                    "translit": "Namo Siddhanam",
+                    "meaning": "I bow to the Siddhas, the souls that are free from every karma, forever."
+                  }
+                ],
+                "tip": "Listen first, then say it back. Clear and steady is better than fast.",
+                "review": "needs_pathshala_review"
+              },
+              "quiz": null
+            },
+            {
+              "kind": "quiz",
+              "title": "Quiz: Siddha",
+              "points": 10,
+              "repeat_points": 0,
+              "activity": {
+                "review": "needs_pathshala_review"
+              },
+              "quiz": {
+                "questions": [
+                  {
+                    "type": "choice",
+                    "question": "Where do the Siddhas rest?",
+                    "options": [
+                      "At Siddhashila, at the top of the universe",
+                      "In the derasar",
+                      "In heaven with the devas"
+                    ],
+                    "answer": 0,
+                    "explain": "Devas are still in the cycle of birth; Siddhas are beyond it, at Siddhashila.",
+                    "review": "needs_pathshala_review"
+                  },
+                  {
+                    "type": "truefalse",
+                    "statement": "Siddhas have a body.",
+                    "answer": false,
+                    "explain": "Siddhas are pure souls with no body at all.",
+                    "review": "needs_pathshala_review"
+                  },
+                  {
+                    "type": "match",
+                    "prompt": "Match the pairs",
+                    "pairs": [
+                      [
+                        "Arihant",
+                        "Still has a body and teaches"
+                      ],
+                      [
+                        "Siddha",
+                        "No body, free from all karma"
+                      ],
+                      [
+                        "Siddhashila",
+                        "Where the Siddhas rest"
+                      ],
+                      [
+                        "Diwali",
+                        "Remembers Mahavir Swami's nirvana"
+                      ]
+                    ],
+                    "explain": "Arihants still have a body and teach. At nirvana they become Siddhas and rest at Siddhashila. Diwali remembers the day Mahavir Swami became a Siddha.",
+                    "review": "needs_pathshala_review"
+                  },
+                  {
+                    "type": "fill",
+                    "sentence": "Line 2: Namo ___",
+                    "answer": "Siddhanam",
+                    "options": [
+                      "Siddhanam",
+                      "Sahunam",
+                      "Arihantanam"
+                    ],
+                    "explain": "The second line is “Namo Siddhanam”.",
+                    "review": "needs_pathshala_review"
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "level_key": "3",
+          "level_name": "Acharya",
+          "chapter": "Chapter 1 · Five Parameshthis",
+          "points": 20,
+          "treasure_points": 0,
+          "steps": [
+            {
+              "kind": "read",
+              "title": "Who is an Acharya?",
+              "points": 5,
+              "repeat_points": 0,
+              "activity": {
+                "cards": [
+                  {
+                    "title": "Leader of the sangh",
+                    "body_md": "An Acharya is the head of a group of sadhus and sadhvis and guides the whole sangh — monks, nuns, shravaks and shravikas.",
+                    "emoji": "🧑‍🏫"
+                  },
+                  {
+                    "title": "36 qualities",
+                    "body_md": "The **Panchindiya** sutra (you meet it in Learn Samayik) lists the Acharya's 36 qualities. In Prakrit, Acharya becomes *Ayariya* — so we say “Namo Ayariyanam”.",
+                    "emoji": "🔢"
+                  },
+                  {
+                    "title": "The five achar",
+                    "body_md": "An Acharya lives and teaches the five *achar* (ways of right living): *gyan* (knowledge), *darshan* (faith), *charitra* (conduct), *tap* (austerity) and *virya* (energy).",
+                    "emoji": "🌟"
+                  }
+                ],
+                "review": "needs_pathshala_review"
+              },
+              "quiz": null
+            },
+            {
+              "kind": "voice",
+              "title": "Say: Namo Ayariyanam",
+              "points": 15,
+              "repeat_points": 3,
+              "activity": {
+                "lang": "hi-IN",
+                "mode": "listen_repeat_say",
+                "pass_ratio": 0.66,
+                "verses": [
+                  {
+                    "text": "नमो आयरियाणं",
+                    "translit": "Namo Ayariyanam",
+                    "meaning": "I bow to the Acharyas, who lead the sangh and live the five achar: in knowledge, faith, conduct, austerity and energy."
+                  }
+                ],
+                "tip": "Listen first, then say it back. Clear and steady is better than fast.",
+                "review": "needs_pathshala_review"
+              },
+              "quiz": null
+            },
+            {
+              "kind": "quiz",
+              "title": "Quiz: Acharya",
+              "points": 10,
+              "repeat_points": 0,
+              "activity": {
+                "review": "needs_pathshala_review"
+              },
+              "quiz": {
+                "questions": [
+                  {
+                    "type": "choice",
+                    "question": "How many qualities does an Acharya have?",
+                    "options": [
+                      "8",
+                      "108",
+                      "36"
+                    ],
+                    "answer": 2,
+                    "explain": "Panchindiya lists the 36 qualities of an Acharya.",
+                    "review": "needs_pathshala_review"
+                  },
+                  {
+                    "type": "truefalse",
+                    "statement": "An Acharya is a soul with no body, resting at Siddhashila.",
+                    "answer": false,
+                    "explain": "That describes a Siddha. An Acharya is a monk who leads the sangh.",
+                    "review": "needs_pathshala_review"
+                  },
+                  {
+                    "type": "match",
+                    "prompt": "Match the five achar",
+                    "pairs": [
+                      [
+                        "Gyan achar",
+                        "Right knowledge"
+                      ],
+                      [
+                        "Darshan achar",
+                        "Right faith"
+                      ],
+                      [
+                        "Charitra achar",
+                        "Right conduct"
+                      ],
+                      [
+                        "Tap achar",
+                        "Austerity"
+                      ],
+                      [
+                        "Virya achar",
+                        "Using your energy well"
+                      ]
+                    ],
+                    "explain": "An Acharya practises all five and teaches them.",
+                    "review": "needs_pathshala_review"
+                  },
+                  {
+                    "type": "fill",
+                    "sentence": "Line 3: Namo ___",
+                    "answer": "Ayariyanam",
+                    "options": [
+                      "Ayariyanam",
+                      "Uvajjhayanam",
+                      "Siddhanam"
+                    ],
+                    "explain": "The third line is “Namo Ayariyanam”.",
+                    "review": "needs_pathshala_review"
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "level_key": "4",
+          "level_name": "Upadhyay",
+          "chapter": "Chapter 1 · Five Parameshthis",
+          "points": 20,
+          "treasure_points": 0,
+          "steps": [
+            {
+              "kind": "read",
+              "title": "Who is an Upadhyay?",
+              "points": 5,
+              "repeat_points": 0,
+              "activity": {
+                "cards": [
+                  {
+                    "title": "The scripture teacher",
+                    "body_md": "An Upadhyay is a sadhu who has studied the scriptures (*agam*) deeply and teaches them to other monks and nuns.",
+                    "emoji": "📚"
+                  },
+                  {
+                    "title": "25 qualities",
+                    "body_md": "Upadhyays have 25 qualities. In Prakrit the word is *Uvajjhaya* — so we say “Namo Uvajjhayanam”.",
+                    "emoji": "🔢"
+                  },
+                  {
+                    "title": "Always learning",
+                    "body_md": "Every great teacher was once a student. Upadhyays never stop learning — just like you in Pathshala!",
+                    "emoji": "💬"
+                  }
+                ],
+                "review": "needs_pathshala_review"
+              },
+              "quiz": null
+            },
+            {
+              "kind": "voice",
+              "title": "Say: Namo Uvajjhayanam",
+              "points": 15,
+              "repeat_points": 3,
+              "activity": {
+                "lang": "hi-IN",
+                "mode": "listen_repeat_say",
+                "pass_ratio": 0.66,
+                "verses": [
+                  {
+                    "text": "नमो उवज्झायाणं",
+                    "translit": "Namo Uvajjhayanam",
+                    "meaning": "I bow to the Upadhyays, who teach the scriptures."
+                  }
+                ],
+                "tip": "Listen first, then say it back. Clear and steady is better than fast.",
+                "review": "needs_pathshala_review"
+              },
+              "quiz": null
+            },
+            {
+              "kind": "quiz",
+              "title": "Quiz: Upadhyay",
+              "points": 10,
+              "repeat_points": 0,
+              "activity": {
+                "review": "needs_pathshala_review"
+              },
+              "quiz": {
+                "questions": [
+                  {
+                    "type": "choice",
+                    "question": "What does an Upadhyay mainly do?",
+                    "options": [
+                      "Teaches the scriptures to monks and nuns",
+                      "Leads the whole sangh",
+                      "Builds derasars"
+                    ],
+                    "answer": 0,
+                    "explain": "Upadhyays are the teachers of the agam. Leading the whole sangh is the Acharya's job.",
+                    "review": "needs_pathshala_review"
+                  },
+                  {
+                    "type": "truefalse",
+                    "statement": "Upadhyays have 25 qualities.",
+                    "answer": true,
+                    "explain": "Yes — 25 qualities! All five: Arihant 12, Siddha 8, Acharya 36, Upadhyay 25, Sadhu 27. You will add them up in the next level.",
+                    "review": "needs_pathshala_review"
+                  },
+                  {
+                    "type": "fill",
+                    "sentence": "Line 4: Namo ___",
+                    "answer": "Uvajjhayanam",
+                    "options": [
+                      "Ayariyanam",
+                      "Sahunam",
+                      "Uvajjhayanam"
+                    ],
+                    "explain": "The fourth line is “Namo Uvajjhayanam”.",
+                    "review": "needs_pathshala_review"
+                  },
+                  {
+                    "type": "order",
+                    "prompt": "Put the first four lines in order",
+                    "items": [
+                      "Namo Arihantanam",
+                      "Namo Siddhanam",
+                      "Namo Ayariyanam",
+                      "Namo Uvajjhayanam"
+                    ],
+                    "explain": "Arihant, Siddha, Acharya, then Upadhyay.",
+                    "review": "needs_pathshala_review"
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "level_key": "5",
+          "level_name": "Sadhu and Sadhvi",
+          "chapter": "Chapter 1 · Five Parameshthis",
+          "points": 20,
+          "treasure_points": 50,
+          "steps": [
+            {
+              "kind": "read",
+              "title": "Sadhus and sadhvis everywhere",
+              "points": 5,
+              "repeat_points": 0,
+              "activity": {
+                "cards": [
+                  {
+                    "title": "Living the five great vows",
+                    "body_md": "Sadhus (monks) and sadhvis (nuns) fully keep the five great vows (*mahavrat*): *ahimsa* (non-violence), *satya* (truth), *achaurya* (not stealing), *brahmacharya* (celibacy) and *aparigraha* (non-possession).",
+                    "emoji": "🚶"
+                  },
+                  {
+                    "title": "All, everywhere",
+                    "body_md": "*Loe* means “in the world” and *savva* means “all”. We bow to every true sadhu and sadhvi everywhere — even those we have never met.",
+                    "emoji": "🌍"
+                  },
+                  {
+                    "title": "27 qualities — and 108!",
+                    "body_md": "Sadhus have 27 qualities. Now add up all five Parameshthis: Arihant 12 + Siddha 8 + Acharya 36 + Upadhyay 25 + Sadhu 27 = **108**!",
+                    "emoji": "🔢"
+                  }
+                ],
+                "fun_fact": "A navkarvali has 108 beads — one for each quality of the five Parameshthis. Finish this level to unlock the Panch Parameshthi badge! 🏅",
+                "review": "needs_pathshala_review"
+              },
+              "quiz": null
+            },
+            {
+              "kind": "voice",
+              "title": "Say: Namo Loe Savva Sahunam",
+              "points": 15,
+              "repeat_points": 3,
+              "activity": {
+                "lang": "hi-IN",
+                "mode": "listen_repeat_say",
+                "pass_ratio": 0.66,
+                "verses": [
+                  {
+                    "text": "नमो लोए सव्वसाहूणं",
+                    "translit": "Namo Loe Savva Sahunam",
+                    "meaning": "I bow to all the sadhus and sadhvis everywhere in the world."
+                  }
+                ],
+                "tip": "Listen first, then say it back. Clear and steady is better than fast.",
+                "review": "needs_pathshala_review"
+              },
+              "quiz": null
+            },
+            {
+              "kind": "quiz",
+              "title": "Quiz: Sadhus and sadhvis",
+              "points": 10,
+              "repeat_points": 0,
+              "activity": {
+                "review": "needs_pathshala_review"
+              },
+              "quiz": {
+                "questions": [
+                  {
+                    "type": "match",
+                    "prompt": "Match the vow",
+                    "pairs": [
+                      [
+                        "Ahimsa",
+                        "Non-violence"
+                      ],
+                      [
+                        "Satya",
+                        "Truth"
+                      ],
+                      [
+                        "Achaurya",
+                        "Not stealing"
+                      ],
+                      [
+                        "Brahmacharya",
+                        "Celibacy"
+                      ],
+                      [
+                        "Aparigraha",
+                        "Non-possession"
+                      ]
+                    ],
+                    "explain": "Sadhus and sadhvis keep all five completely; householders keep smaller versions of them.",
+                    "review": "needs_pathshala_review"
+                  },
+                  {
+                    "type": "choice",
+                    "question": "What does “savva” mean?",
+                    "options": [
+                      "Five",
+                      "All",
+                      "First"
+                    ],
+                    "answer": 1,
+                    "explain": "“Savva sahunam” — all the sadhus.",
+                    "review": "needs_pathshala_review"
+                  },
+                  {
+                    "type": "choice",
+                    "question": "Add up the qualities of all five Parameshthis. What is the total?",
+                    "options": [
+                      "27",
+                      "100",
+                      "108"
+                    ],
+                    "answer": 2,
+                    "explain": "12 + 8 + 36 + 25 + 27 = 108. That is why a navkarvali has 108 beads!",
+                    "review": "needs_pathshala_review"
+                  },
+                  {
+                    "type": "fill",
+                    "sentence": "Namo Loe Savva ___",
+                    "answer": "Sahunam",
+                    "options": [
+                      "Sahunam",
+                      "Siddhanam",
+                      "Mangalam"
+                    ],
+                    "explain": "The fifth line is “Namo Loe Savva Sahunam”.",
+                    "review": "needs_pathshala_review"
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "level_key": "6",
+          "level_name": "Eso Panch Namukkaro",
+          "chapter": "Chapter 2 · The Chulika",
+          "points": 20,
+          "treasure_points": 0,
+          "steps": [
+            {
+              "kind": "read",
+              "title": "The chulika begins",
+              "points": 5,
+              "repeat_points": 0,
+              "activity": {
+                "cards": [
+                  {
+                    "title": "A crown on the mantra",
+                    "body_md": "The last four lines are called the **chulika** — like a crown on top of the mantra. They explain why the five bows are so powerful.",
+                    "emoji": "👑"
+                  },
+                  {
+                    "title": "Eso Panch Namukkaro",
+                    "body_md": "*Eso* = this, *panch* = five, *namukkaro* = bow. “This five-fold bow…” — and the sentence continues in the next line!",
+                    "emoji": "🖐️"
+                  }
+                ],
+                "review": "needs_pathshala_review"
+              },
+              "quiz": null
+            },
+            {
+              "kind": "voice",
+              "title": "Say: Eso Panch Namukkaro",
+              "points": 15,
+              "repeat_points": 3,
+              "activity": {
+                "lang": "hi-IN",
+                "mode": "listen_repeat_say",
+                "pass_ratio": 0.66,
+                "verses": [
+                  {
+                    "text": "एसो पंच नमुक्कारो",
+                    "translit": "Eso Panch Namukkaro",
+                    "meaning": "This bow to the five great ones…"
+                  }
+                ],
+                "tip": "Listen first, then say it back. Clear and steady is better than fast.",
+                "review": "needs_pathshala_review"
+              },
+              "quiz": null
+            },
+            {
+              "kind": "quiz",
+              "title": "Quiz: Eso Panch Namukkaro",
+              "points": 10,
+              "repeat_points": 0,
+              "activity": {
+                "review": "needs_pathshala_review"
+              },
+              "quiz": {
+                "questions": [
+                  {
+                    "type": "choice",
+                    "question": "What does “panch” mean?",
+                    "options": [
+                      "Five",
+                      "Nine",
+                      "Bow"
+                    ],
+                    "answer": 0,
+                    "explain": "Panch = five, for the five Parameshthis.",
+                    "review": "needs_pathshala_review"
+                  },
+                  {
+                    "type": "truefalse",
+                    "statement": "The last four lines of the Navkar are called the chulika.",
+                    "answer": true,
+                    "explain": "The chulika explains the benefit of the five bows.",
+                    "review": "needs_pathshala_review"
+                  },
+                  {
+                    "type": "fill",
+                    "sentence": "___ Panch Namukkaro",
+                    "answer": "Eso",
+                    "options": [
+                      "Eso",
+                      "Namo",
+                      "Savva"
+                    ],
+                    "explain": "“Eso” means “this” — “Eso Panch Namukkaro”, this five-fold bow.",
+                    "review": "needs_pathshala_review"
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "level_key": "7",
+          "level_name": "Savva Pavappanasano",
+          "chapter": "Chapter 2 · The Chulika",
+          "points": 20,
+          "treasure_points": 0,
+          "steps": [
+            {
+              "kind": "read",
+              "title": "Wipes away all wrong",
+              "points": 5,
+              "repeat_points": 0,
+              "activity": {
+                "cards": [
+                  {
+                    "title": "Word by word",
+                    "body_md": "*Savva* = all, *pava* = sin (wrong karma), *panasano* = destroyer. With the line before it: “This five-fold bow destroys all sins.”",
+                    "emoji": "🧽"
+                  },
+                  {
+                    "title": "Like a torch",
+                    "body_md": "Darkness cannot stay when you switch on a light. When we sincerely remember great souls, wrong thoughts start to fade.",
+                    "emoji": "🔦"
+                  }
+                ],
+                "review": "needs_pathshala_review"
+              },
+              "quiz": null
+            },
+            {
+              "kind": "voice",
+              "title": "Say: Savva Pavappanasano",
+              "points": 15,
+              "repeat_points": 3,
+              "activity": {
+                "lang": "hi-IN",
+                "mode": "listen_repeat_say",
+                "pass_ratio": 0.66,
+                "verses": [
+                  {
+                    "text": "सव्वपावप्पणासणो",
+                    "translit": "Savva Pavappanasano",
+                    "meaning": "…destroys all sins (paap, the karma that brings suffering)."
+                  }
+                ],
+                "tip": "Listen first, then say it back. Clear and steady is better than fast.",
+                "review": "needs_pathshala_review"
+              },
+              "quiz": null
+            },
+            {
+              "kind": "quiz",
+              "title": "Quiz: Savva Pavappanasano",
+              "points": 10,
+              "repeat_points": 0,
+              "activity": {
+                "review": "needs_pathshala_review"
+              },
+              "quiz": {
+                "questions": [
+                  {
+                    "type": "choice",
+                    "question": "What does “pava” (pap) mean?",
+                    "options": [
+                      "All",
+                      "Destroyer",
+                      "Sin — wrong karma"
+                    ],
+                    "answer": 2,
+                    "explain": "Pava (pap) means sin — wrong karma. Savva means all, and panasano means destroyer.",
+                    "review": "needs_pathshala_review"
+                  },
+                  {
+                    "type": "truefalse",
+                    "statement": "“Savva pavappanasano” means “brings lots of money”.",
+                    "answer": false,
+                    "explain": "It means “destroys all sins”. With line 6: this five-fold bow destroys all sins.",
+                    "review": "needs_pathshala_review"
+                  },
+                  {
+                    "type": "fill",
+                    "sentence": "Eso Panch Namukkaro, Savva ___",
+                    "answer": "Pavappanasano",
+                    "options": [
+                      "Sahunam",
+                      "Pavappanasano",
+                      "Mangalam"
+                    ],
+                    "explain": "The seventh line is “Savva Pavappanasano”.",
+                    "review": "needs_pathshala_review"
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "level_key": "8",
+          "level_name": "Mangalanam cha Savvesim",
+          "chapter": "Chapter 2 · The Chulika",
+          "points": 20,
+          "treasure_points": 0,
+          "steps": [
+            {
+              "kind": "read",
+              "title": "The best of the best",
+              "points": 5,
+              "repeat_points": 0,
+              "activity": {
+                "cards": [
+                  {
+                    "title": "Word by word",
+                    "body_md": "*Mangalanam* = of auspicious things, *cha* = and, *savvesim* = of all → “and of all auspicious things”. *Padhamam* = first, *havai* = is, *mangalam* = auspicious → “it is the first (highest) auspicious one”.",
+                    "emoji": "🌸"
+                  },
+                  {
+                    "title": "The most auspicious of all",
+                    "body_md": "Before a happy event people use auspicious (*mangal*) things: a lamp, kumkum, a coconut. The Navkar says the most auspicious thing of all is this bow to the five great souls, because it wipes away wrong karma.",
+                    "emoji": "🎈"
+                  },
+                  {
+                    "title": "Two lines, one sentence",
+                    "body_md": "These last two lines go together, so you will practise both in this level.",
+                    "emoji": "🧩"
+                  }
+                ],
+                "review": "needs_pathshala_review"
+              },
+              "quiz": null
+            },
+            {
+              "kind": "voice",
+              "title": "Say the last two lines",
+              "points": 15,
+              "repeat_points": 3,
+              "activity": {
+                "lang": "hi-IN",
+                "mode": "listen_repeat_say",
+                "pass_ratio": 0.66,
+                "verses": [
+                  {
+                    "text": "मंगलाणं च सव्वेसिं",
+                    "translit": "Mangalanam cha Savvesim",
+                    "meaning": "And among all auspicious things…"
+                  },
+                  {
+                    "text": "पढमं हवइ मंगलं",
+                    "translit": "Padhamam Havai Mangalam",
+                    "meaning": "…it is the first and highest auspicious one."
+                  }
+                ],
+                "tip": "Listen first, then repeat one line at a time. Clear and steady is better than fast.",
+                "review": "needs_pathshala_review"
+              },
+              "quiz": null
+            },
+            {
+              "kind": "quiz",
+              "title": "Quiz: the last two lines",
+              "points": 10,
+              "repeat_points": 0,
+              "activity": {
+                "review": "needs_pathshala_review"
+              },
+              "quiz": {
+                "questions": [
+                  {
+                    "type": "choice",
+                    "question": "What does “padhamam” mean?",
+                    "options": [
+                      "First",
+                      "Five",
+                      "Sin"
+                    ],
+                    "answer": 0,
+                    "explain": "Padhamam = first. (Panch means five, and pava means sin.)",
+                    "review": "needs_pathshala_review"
+                  },
+                  {
+                    "type": "fill",
+                    "sentence": "Padhamam Havai ___",
+                    "answer": "Mangalam",
+                    "options": [
+                      "Namukkaro",
+                      "Mangalam",
+                      "Sahunam"
+                    ],
+                    "explain": "“Padhamam Havai Mangalam” — it is the first auspicious one.",
+                    "review": "needs_pathshala_review"
+                  },
+                  {
+                    "type": "order",
+                    "prompt": "Put the chulika in order",
+                    "items": [
+                      "Eso Panch Namukkaro",
+                      "Savva Pavappanasano",
+                      "Mangalanam cha Savvesim",
+                      "Padhamam Havai Mangalam"
+                    ],
+                    "explain": "These four lines complete the Navkar.",
+                    "review": "needs_pathshala_review"
+                  },
+                  {
+                    "type": "truefalse",
+                    "statement": "The Navkar calls itself the first and highest of all auspicious things.",
+                    "answer": true,
+                    "explain": "That is the message of its last two lines.",
+                    "review": "needs_pathshala_review"
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "level_key": "9",
+          "level_name": "Recite the full Navkar",
+          "chapter": "Chapter 2 · The Chulika",
+          "points": 20,
+          "treasure_points": 0,
+          "steps": [
+            {
+              "kind": "read",
+              "title": "Ready for the full Navkar",
+              "points": 5,
+              "repeat_points": 0,
+              "activity": {
+                "cards": [
+                  {
+                    "title": "Navkar all day",
+                    "body_md": "Many Jains say Navkar on waking up, before meals, before travel or a test, and before sleep.",
+                    "emoji": "🌅"
+                  },
+                  {
+                    "title": "Clear and steady",
+                    "body_md": "Your teacher listens for clear words and a steady pace — not speed. Breathe between lines.",
+                    "emoji": "🗣️"
+                  },
+                  {
+                    "title": "Almost there!",
+                    "body_md": "Say the full Navkar here first, then recite it for your Pathshala teacher to get your sign-off.",
+                    "emoji": "🏅"
+                  }
+                ],
+                "fun_fact": "The Navkar has 9 lines (pada) and 68 letters (akshar): 35 in the five bows and 33 in the four lines of the chulika.",
+                "review": "needs_pathshala_review"
+              },
+              "quiz": null
+            },
+            {
+              "kind": "voice",
+              "title": "Say the whole Navkar",
+              "points": 15,
+              "repeat_points": 3,
+              "activity": {
+                "lang": "hi-IN",
+                "mode": "listen_repeat_say",
+                "pass_ratio": 0.66,
+                "verses": [
+                  {
+                    "text": "नमो अरिहंताणं",
+                    "translit": "Namo Arihantanam",
+                    "meaning": "I bow to the Arihants, who have won over their inner enemies and show everyone the path."
+                  },
+                  {
+                    "text": "नमो सिद्धाणं",
+                    "translit": "Namo Siddhanam",
+                    "meaning": "I bow to the Siddhas, the souls that are free from every karma, forever."
+                  },
+                  {
+                    "text": "नमो आयरियाणं",
+                    "translit": "Namo Ayariyanam",
+                    "meaning": "I bow to the Acharyas, who lead the sangh and live the five achar: in knowledge, faith, conduct, austerity and energy."
+                  },
+                  {
+                    "text": "नमो उवज्झायाणं",
+                    "translit": "Namo Uvajjhayanam",
+                    "meaning": "I bow to the Upadhyays, who teach the scriptures."
+                  },
+                  {
+                    "text": "नमो लोए सव्वसाहूणं",
+                    "translit": "Namo Loe Savva Sahunam",
+                    "meaning": "I bow to all the sadhus and sadhvis everywhere in the world."
+                  },
+                  {
+                    "text": "एसो पंच नमुक्कारो",
+                    "translit": "Eso Panch Namukkaro",
+                    "meaning": "This bow to the five great ones…"
+                  },
+                  {
+                    "text": "सव्वपावप्पणासणो",
+                    "translit": "Savva Pavappanasano",
+                    "meaning": "…destroys all sins (paap, the karma that brings suffering)."
+                  },
+                  {
+                    "text": "मंगलाणं च सव्वेसिं",
+                    "translit": "Mangalanam cha Savvesim",
+                    "meaning": "And among all auspicious things…"
+                  },
+                  {
+                    "text": "पढमं हवइ मंगलं",
+                    "translit": "Padhamam Havai Mangalam",
+                    "meaning": "…it is the first and highest auspicious one."
+                  }
+                ],
+                "tip": "Listen first, then repeat one line at a time. Clear and steady is better than fast.",
+                "review": "needs_pathshala_review"
+              },
+              "quiz": null
+            },
+            {
+              "kind": "quiz",
+              "title": "Quiz: the whole Navkar",
+              "points": 10,
+              "repeat_points": 0,
+              "activity": {
+                "review": "needs_pathshala_review"
+              },
+              "quiz": {
+                "questions": [
+                  {
+                    "type": "match",
+                    "prompt": "Match each line to its meaning",
+                    "pairs": [
+                      [
+                        "Namo Arihantanam",
+                        "I bow to those who beat their inner enemies"
+                      ],
+                      [
+                        "Namo Siddhanam",
+                        "I bow to the souls free of all karma"
+                      ],
+                      [
+                        "Namo Ayariyanam",
+                        "I bow to the leaders of the sangh"
+                      ],
+                      [
+                        "Namo Uvajjhayanam",
+                        "I bow to the teachers of the scriptures"
+                      ],
+                      [
+                        "Namo Loe Savva Sahunam",
+                        "I bow to all monks and nuns everywhere"
+                      ]
+                    ],
+                    "explain": "The first five lines are bows to the five Parameshthis.",
+                    "review": "needs_pathshala_review"
+                  },
+                  {
+                    "type": "order",
+                    "prompt": "Put all nine lines in order",
+                    "items": [
+                      "Namo Arihantanam",
+                      "Namo Siddhanam",
+                      "Namo Ayariyanam",
+                      "Namo Uvajjhayanam",
+                      "Namo Loe Savva Sahunam",
+                      "Eso Panch Namukkaro",
+                      "Savva Pavappanasano",
+                      "Mangalanam cha Savvesim",
+                      "Padhamam Havai Mangalam"
+                    ],
+                    "explain": "Five bows, then the four lines of the chulika.",
+                    "review": "needs_pathshala_review"
+                  },
+                  {
+                    "type": "choice",
+                    "question": "How many lines (pada) does the Navkar have?",
+                    "options": [
+                      "5",
+                      "9",
+                      "12"
+                    ],
+                    "answer": 1,
+                    "explain": "Nine lines (pada): five bows, then the four lines of the chulika. Navkar is another name for the Namaskar Mantra — the mantra of bowing.",
+                    "review": "needs_pathshala_review"
+                  }
+                ]
+              }
+            },
+            {
+              "kind": "practice",
+              "title": "Recite for your teacher",
+              "points": 10,
+              "repeat_points": 0,
+              "activity": {
+                "cards": [
+                  {
+                    "title": "Ask your teacher",
+                    "body_md": "Ask your Pathshala teacher for a moment to listen to you.",
+                    "emoji": "📅"
+                  },
+                  {
+                    "title": "Recite",
+                    "body_md": "Say the whole Navkar clearly and calmly.",
+                    "emoji": "🗣️"
+                  },
+                  {
+                    "title": "Sign-off",
+                    "body_md": "Request your teacher's sign-off in the app. Anumodana — we celebrate your effort! 🙏",
+                    "emoji": "✍️"
+                  }
+                ],
+                "confirm_label": "I recited for my teacher",
+                "review": "needs_pathshala_review"
+              },
+              "quiz": null
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "goal_key": "navang_puja",
+      "goal_name": "Learn Puja: Navang puja of Mahavir Swami",
+      "new": true,
+      "tradition": "shvetambar_murtipujak",
+      "description": "The nine-limb chandan puja of Mahavir Swami, touch by touch, with what and why",
+      "sort_order": 50,
+      "tint": "#1F7A4D",
+      "mark": "Pu",
+      "recommended": false,
+      "levels": [
+        {
+          "level_key": "1",
+          "level_name": "Navang puja: the nine places",
+          "chapter": "Chapter 1 · Chandan puja",
+          "points": 20,
+          "treasure_points": 0,
+          "steps": [
+            {
+              "kind": "hotspot",
+              "title": "Learn: touch by touch",
+              "points": 10,
+              "repeat_points": 0,
+              "activity": {
+                "image": "asset:mahavir-murti",
+                "mode": "learn",
+                "intro": "Touch the glowing spots in order: big toes, knees, wrists, shoulders, top of the head, forehead, throat, heart, navel — nine pujas, thirteen touches. For each pair, Bhagwan's right comes first, then his left. Bhagwan faces you, so his right wrist, knee and shoulder are on your left. The toes are the one surprise: his legs are crossed (padmasana), so his right foot rests on his left thigh and his right big toe is on your right.\n\n🙏 Before you begin: bathe and wear clean clothes that are used only for puja. Put a tilak on your own forehead. Tie a mukhkosh — a folded cloth over your nose and mouth — so your breath does not touch Bhagwan.\n\nChandan puja comes after jal puja (prakshal), once Bhagwan has been gently dried with soft cloths. Take chandan mixed with kesar in a clean bowl and use the ring finger (anamika) of your right hand. Never let your nail touch the murti.\n\nMany people say a short doha in their mind at each place — your Pathshala teacher can teach them. Until then, some families silently say one line of the Navkar at each of the nine places (the same line for both toes, both knees, and so on), from “Namo Arihantanam” at the toes to “Padhamam Havai Mangalam” at the navel.",
+                "spots": [
+                  {
+                    "key": "toe_right",
+                    "order": 1,
+                    "puja": 1,
+                    "label": "Angutho (અંગૂઠો) · right big toe",
+                    "x": 0.706,
+                    "y": 0.807,
+                    "r": 0.03,
+                    "say": "Touch Bhagwan's right big toe first. In padmasana his right foot rests on his left thigh, so this toe is on your right.",
+                    "why": "Long ago, when Rishabhdev, the first Tirthankar, was made the first king, the devs had already bathed him and dressed him in jewels. The simple people of that time (the yugaliks) arrived with water carried in lotus leaves and, out of respect, offered it on his big toes. That is why the first puja is at the toes. Bhagwan also walked barefoot from village to village to share the path of peace. We wish for feet that walk towards goodness."
+                  },
+                  {
+                    "key": "toe_left",
+                    "order": 2,
+                    "puja": 1,
+                    "label": "Angutho (અંગૂઠો) · left big toe",
+                    "x": 0.274,
+                    "y": 0.805,
+                    "r": 0.03,
+                    "say": "Now his left big toe, on your left.",
+                    "why": "Same wish as the right toe: may my feet always walk towards what is good."
+                  },
+                  {
+                    "key": "knee_right",
+                    "order": 3,
+                    "puja": 2,
+                    "label": "Janu / Dhinchan (જાનુ / ઢીંચણ) · right knee",
+                    "x": 0.171,
+                    "y": 0.795,
+                    "r": 0.045,
+                    "say": "Touch Bhagwan's right knee. From here on, his right side is on your left.",
+                    "why": "With the strength of these knees Bhagwan stood still in kayotsarg for hours and even days, meditating deeply on his way to perfect knowledge (kevalgyan), and then walked far and wide to teach. We wish for the strength to stay steady in our own meditation."
+                  },
+                  {
+                    "key": "knee_left",
+                    "order": 4,
+                    "puja": 2,
+                    "label": "Janu / Dhinchan (જાનુ / ઢીંચણ) · left knee",
+                    "x": 0.821,
+                    "y": 0.79,
+                    "r": 0.045,
+                    "say": "Now the left knee.",
+                    "why": "Same wish: steady strength for meditation and for doing good."
+                  },
+                  {
+                    "key": "wrist_right",
+                    "order": 5,
+                    "puja": 3,
+                    "label": "Kandu (કાંડું) · right wrist",
+                    "x": 0.383,
+                    "y": 0.705,
+                    "r": 0.035,
+                    "say": "Touch Bhagwan's right wrist.",
+                    "why": "Before taking diksha, a Tirthankar gives gifts to everyone with his own hands for a whole year (varshidan), and he never harms any living being. We wish for generous, gentle hands that are not attached to things."
+                  },
+                  {
+                    "key": "wrist_left",
+                    "order": 6,
+                    "puja": 3,
+                    "label": "Kandu (કાંડું) · left wrist",
+                    "x": 0.616,
+                    "y": 0.702,
+                    "r": 0.035,
+                    "say": "Now the left wrist.",
+                    "why": "Same wish: hands that give and never hurt."
+                  },
+                  {
+                    "key": "shoulder_right",
+                    "order": 7,
+                    "puja": 4,
+                    "label": "Khabho (ખભો) · right shoulder",
+                    "x": 0.329,
+                    "y": 0.51,
+                    "r": 0.04,
+                    "say": "Touch Bhagwan's right shoulder.",
+                    "why": "Bhagwan's inner strength had no limit, yet pride never touched him. He used that strength to swim across the ocean of birth and death, and to help others across. We wish to let go of pride (maan) and to use our strength for good."
+                  },
+                  {
+                    "key": "shoulder_left",
+                    "order": 8,
+                    "puja": 4,
+                    "label": "Khabho (ખભો) · left shoulder",
+                    "x": 0.667,
+                    "y": 0.505,
+                    "r": 0.04,
+                    "say": "Now the left shoulder.",
+                    "why": "Same wish: strength without pride."
+                  },
+                  {
+                    "key": "shikha",
+                    "order": 9,
+                    "puja": 5,
+                    "label": "Shikha (શિખા) · top of the head",
+                    "x": 0.496,
+                    "y": 0.288,
+                    "r": 0.04,
+                    "say": "Touch the top of Bhagwan's head.",
+                    "why": "Siddhashila, where liberated souls rest, is at the very top of the universe — just as the top of the head is the top of the body. We wish to reach there one day."
+                  },
+                  {
+                    "key": "forehead",
+                    "order": 10,
+                    "puja": 6,
+                    "label": "Bhal / Lalat (ભાલ) · forehead",
+                    "x": 0.495,
+                    "y": 0.348,
+                    "r": 0.035,
+                    "say": "Touch the centre of Bhagwan's forehead.",
+                    "why": "The three worlds honour the Tirthankar — he is like the tilak, the shining mark, of the whole universe. We wish for his calm in joy and in pain to shine in us too."
+                  },
+                  {
+                    "key": "throat",
+                    "order": 11,
+                    "puja": 7,
+                    "label": "Kanth (કંઠ) · throat",
+                    "x": 0.497,
+                    "y": 0.479,
+                    "r": 0.035,
+                    "say": "Touch the centre of Bhagwan's throat.",
+                    "why": "From here came Bhagwan's sweet, kind sermons (deshna). Just before his nirvana at Pavapuri, Mahavir Swami taught for sixteen prahar — about two days and nights — without a break, and devs and people listened with joy. We wish that our words, too, are kind and helpful."
+                  },
+                  {
+                    "key": "heart",
+                    "order": 12,
+                    "puja": 8,
+                    "label": "Hriday (હૃદય) · heart",
+                    "x": 0.498,
+                    "y": 0.572,
+                    "r": 0.04,
+                    "say": "Touch the centre of Bhagwan's chest.",
+                    "why": "In Bhagwan's calm heart, attachment and anger melted away, leaving friendship and compassion for every living being. We wish for a heart like that."
+                  },
+                  {
+                    "key": "navel",
+                    "order": 13,
+                    "puja": 9,
+                    "label": "Nabhi (નાભિ) · navel",
+                    "x": 0.497,
+                    "y": 0.705,
+                    "r": 0.045,
+                    "say": "Last, touch Bhagwan's navel. In this photo it is under the flowers, just above his hands.",
+                    "why": "We finish at the navel, the centre of the body. It stands for the three jewels — right faith, right knowledge and right conduct (ratnatrayi) — where every good quality comes to rest. We wish that these three jewels carry us to moksha, the home that never changes."
+                  }
+                ],
+                "tip": "Move slowly and silently. Puja is done with a calm heart, not in a hurry.",
+                "review": "needs_pathshala_review"
+              },
+              "quiz": null
+            },
+            {
+              "kind": "hotspot",
+              "title": "Practice: tap in order",
+              "points": 10,
+              "repeat_points": 3,
+              "activity": {
+                "image": "asset:mahavir-murti",
+                "mode": "practice",
+                "intro": "Tap the places in the right order, just like at the derasar: toes, knees, wrists, shoulders, top of the head, forehead, throat, heart, navel — Bhagwan's right before his left. Remember: his right side is on your left, except his crossed feet — his right big toe is on your right. A wrong tap? No worries, the right spot will glow. Try as many times as you like!",
+                "spots": [
+                  {
+                    "key": "toe_right",
+                    "order": 1,
+                    "puja": 1,
+                    "label": "Angutho (અંગૂઠો) · right big toe",
+                    "x": 0.706,
+                    "y": 0.807,
+                    "r": 0.03,
+                    "say": "Touch Bhagwan's right big toe first. In padmasana his right foot rests on his left thigh, so this toe is on your right.",
+                    "why": "Long ago, when Rishabhdev, the first Tirthankar, was made the first king, the devs had already bathed him and dressed him in jewels. The simple people of that time (the yugaliks) arrived with water carried in lotus leaves and, out of respect, offered it on his big toes. That is why the first puja is at the toes. Bhagwan also walked barefoot from village to village to share the path of peace. We wish for feet that walk towards goodness."
+                  },
+                  {
+                    "key": "toe_left",
+                    "order": 2,
+                    "puja": 1,
+                    "label": "Angutho (અંગૂઠો) · left big toe",
+                    "x": 0.274,
+                    "y": 0.805,
+                    "r": 0.03,
+                    "say": "Now his left big toe, on your left.",
+                    "why": "Same wish as the right toe: may my feet always walk towards what is good."
+                  },
+                  {
+                    "key": "knee_right",
+                    "order": 3,
+                    "puja": 2,
+                    "label": "Janu / Dhinchan (જાનુ / ઢીંચણ) · right knee",
+                    "x": 0.171,
+                    "y": 0.795,
+                    "r": 0.045,
+                    "say": "Touch Bhagwan's right knee. From here on, his right side is on your left.",
+                    "why": "With the strength of these knees Bhagwan stood still in kayotsarg for hours and even days, meditating deeply on his way to perfect knowledge (kevalgyan), and then walked far and wide to teach. We wish for the strength to stay steady in our own meditation."
+                  },
+                  {
+                    "key": "knee_left",
+                    "order": 4,
+                    "puja": 2,
+                    "label": "Janu / Dhinchan (જાનુ / ઢીંચણ) · left knee",
+                    "x": 0.821,
+                    "y": 0.79,
+                    "r": 0.045,
+                    "say": "Now the left knee.",
+                    "why": "Same wish: steady strength for meditation and for doing good."
+                  },
+                  {
+                    "key": "wrist_right",
+                    "order": 5,
+                    "puja": 3,
+                    "label": "Kandu (કાંડું) · right wrist",
+                    "x": 0.383,
+                    "y": 0.705,
+                    "r": 0.035,
+                    "say": "Touch Bhagwan's right wrist.",
+                    "why": "Before taking diksha, a Tirthankar gives gifts to everyone with his own hands for a whole year (varshidan), and he never harms any living being. We wish for generous, gentle hands that are not attached to things."
+                  },
+                  {
+                    "key": "wrist_left",
+                    "order": 6,
+                    "puja": 3,
+                    "label": "Kandu (કાંડું) · left wrist",
+                    "x": 0.616,
+                    "y": 0.702,
+                    "r": 0.035,
+                    "say": "Now the left wrist.",
+                    "why": "Same wish: hands that give and never hurt."
+                  },
+                  {
+                    "key": "shoulder_right",
+                    "order": 7,
+                    "puja": 4,
+                    "label": "Khabho (ખભો) · right shoulder",
+                    "x": 0.329,
+                    "y": 0.51,
+                    "r": 0.04,
+                    "say": "Touch Bhagwan's right shoulder.",
+                    "why": "Bhagwan's inner strength had no limit, yet pride never touched him. He used that strength to swim across the ocean of birth and death, and to help others across. We wish to let go of pride (maan) and to use our strength for good."
+                  },
+                  {
+                    "key": "shoulder_left",
+                    "order": 8,
+                    "puja": 4,
+                    "label": "Khabho (ખભો) · left shoulder",
+                    "x": 0.667,
+                    "y": 0.505,
+                    "r": 0.04,
+                    "say": "Now the left shoulder.",
+                    "why": "Same wish: strength without pride."
+                  },
+                  {
+                    "key": "shikha",
+                    "order": 9,
+                    "puja": 5,
+                    "label": "Shikha (શિખા) · top of the head",
+                    "x": 0.496,
+                    "y": 0.288,
+                    "r": 0.04,
+                    "say": "Touch the top of Bhagwan's head.",
+                    "why": "Siddhashila, where liberated souls rest, is at the very top of the universe — just as the top of the head is the top of the body. We wish to reach there one day."
+                  },
+                  {
+                    "key": "forehead",
+                    "order": 10,
+                    "puja": 6,
+                    "label": "Bhal / Lalat (ભાલ) · forehead",
+                    "x": 0.495,
+                    "y": 0.348,
+                    "r": 0.035,
+                    "say": "Touch the centre of Bhagwan's forehead.",
+                    "why": "The three worlds honour the Tirthankar — he is like the tilak, the shining mark, of the whole universe. We wish for his calm in joy and in pain to shine in us too."
+                  },
+                  {
+                    "key": "throat",
+                    "order": 11,
+                    "puja": 7,
+                    "label": "Kanth (કંઠ) · throat",
+                    "x": 0.497,
+                    "y": 0.479,
+                    "r": 0.035,
+                    "say": "Touch the centre of Bhagwan's throat.",
+                    "why": "From here came Bhagwan's sweet, kind sermons (deshna). Just before his nirvana at Pavapuri, Mahavir Swami taught for sixteen prahar — about two days and nights — without a break, and devs and people listened with joy. We wish that our words, too, are kind and helpful."
+                  },
+                  {
+                    "key": "heart",
+                    "order": 12,
+                    "puja": 8,
+                    "label": "Hriday (હૃદય) · heart",
+                    "x": 0.498,
+                    "y": 0.572,
+                    "r": 0.04,
+                    "say": "Touch the centre of Bhagwan's chest.",
+                    "why": "In Bhagwan's calm heart, attachment and anger melted away, leaving friendship and compassion for every living being. We wish for a heart like that."
+                  },
+                  {
+                    "key": "navel",
+                    "order": 13,
+                    "puja": 9,
+                    "label": "Nabhi (નાભિ) · navel",
+                    "x": 0.497,
+                    "y": 0.705,
+                    "r": 0.045,
+                    "say": "Last, touch Bhagwan's navel. In this photo it is under the flowers, just above his hands.",
+                    "why": "We finish at the navel, the centre of the body. It stands for the three jewels — right faith, right knowledge and right conduct (ratnatrayi) — where every good quality comes to rest. We wish that these three jewels carry us to moksha, the home that never changes."
+                  }
+                ],
+                "fun_fact": "Navang means “nine limbs” — nav (nine) + ang (limb).",
+                "review": "needs_pathshala_review"
+              },
+              "quiz": null
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "sources": [
+    {
+      "claim": "Navkar Mantra full text, Shvetambar reading in Devanagari (नमो … नमुक्कारो … पढमं हवइ मंगलं) and transliteration",
+      "urls": [
+        "https://binajesal.wordpress.com/2019/10/01/01-navkar-mantra/",
+        "https://www.jainstutistavan.com/2023/05/navkar-mantra-lyrics-meaning-Importance.html",
+        "https://jcgb.org/wp-content/uploads/2025/09/jes931_english_pratikramana_color_000241_data.pdf",
+        "https://jcgb.org/wp-content/uploads/2025/09/jes933_jain_svetambar_rituals_000247_data.pdf",
+        "https://vitraagjainsangh.org/wp-content/uploads/2014/07/Samayik1.pdf"
+      ]
+    },
+    {
+      "claim": "Shvetambars prefer नमो, Digambars mostly use णमो (and अरहंताणं / आइरियाणं / होइ variants)",
+      "urls": [
+        "https://en.wikipedia.org/wiki/Namokar_Mantra",
+        "https://jinvani.in/namokar-mantra/"
+      ]
+    },
+    {
+      "claim": "108 qualities: Arihant 12, Siddha 8, Acharya 36, Upadhyay 25, Sadhu 27; navkarvali has 108 beads; Navkar bows to qualities, not names",
+      "urls": [
+        "https://jcgb.org/wp-content/uploads/2025/09/jes931_english_pratikramana_color_000241_data.pdf",
+        "https://vitraagjainsangh.org/wp-content/uploads/2014/07/Samayik1.pdf"
+      ]
+    },
+    {
+      "claim": "Samayik lasts 48 minutes (one muhurta = 2 ghadi of 24 minutes); a householder is like an ascetic during Samayik",
+      "urls": [
+        "https://en.wikipedia.org/wiki/S%C4%81m%C4%81yika",
+        "https://en.wikipedia.org/wiki/Muhurta",
+        "https://jcgb.org/wp-content/uploads/2025/09/jes931_english_pratikramana_color_000241_data.pdf"
+      ]
+    },
+    {
+      "claim": "Samayik upkaran (katasanu, charavalo, muhapatti, sthapanacharya = book with Navkar + navkarvali on a stand), clean white clothes, facing East or North, no eating, silence",
+      "urls": [
+        "https://vitraagjainsangh.org/wp-content/uploads/2014/07/Samayik1.pdf",
+        "https://jcgb.org/wp-content/uploads/2025/09/jes931_english_pratikramana_color_000241_data.pdf"
+      ]
+    },
+    {
+      "claim": "Samayik vidhi order (sthapana; khamasamana; Iriyavahiyam, Tassa Uttari, Annattha; kayotsarg of one Logassa to “chandesu nimmalayara” or 4 Navkar; Logassa; muhapatti padilehan; Samayik sandisahu / thau; Navkar; Karemi Bhante; Besane sandisahu / thau; Sajjhay sandisahu / karu; 3 Navkar)",
+      "urls": [
+        "https://vitraagjainsangh.org/wp-content/uploads/2014/07/Samayik1.pdf",
+        "https://jcgb.org/wp-content/uploads/2025/09/jes931_english_pratikramana_color_000241_data.pdf",
+        "https://jainworld.com/library/jain-books/books-on-line/jainworld-books-in-indian-languages/samayik/procedure-to-start-samayik/"
+      ]
+    },
+    {
+      "claim": "Parvani order (Iriyavahiyam … Logassa; muhapatti; Samayik paru? Yathashakti / Samayik paryu? Tahatti; guru replies Puno vi kayavvam / Ayaro na mottavvo; right hand on charavalo: Navkar + Samaiya vaya jutto; Navkar with palm towards face for utthapan)",
+      "urls": [
+        "https://vitraagjainsangh.org/wp-content/uploads/2014/07/Samayik1.pdf",
+        "https://jcgb.org/wp-content/uploads/2025/09/jes931_english_pratikramana_color_000241_data.pdf"
+      ]
+    },
+    {
+      "claim": "Panchindiya first line; 36 qualities (5 senses, 9 guards of celibacy, 4 kashay, 5 mahavrat, 5 achar, 5 samiti, 3 gupti); recited with muhapatti in left hand and right palm toward the sthapana",
+      "urls": [
+        "https://jcgb.org/wp-content/uploads/2025/09/jes931_english_pratikramana_color_000241_data.pdf",
+        "https://vitraagjainsangh.org/wp-content/uploads/2014/07/Samayik1.pdf"
+      ]
+    },
+    {
+      "claim": "Khamasamana sutra (one sentence); Panchang Pranipat — two knees, two hands, forehead; three times before a Tirthankar murti, two before a guru",
+      "urls": [
+        "https://jcgb.org/wp-content/uploads/2025/09/jes931_english_pratikramana_color_000241_data.pdf",
+        "https://vitraagjainsangh.org/wp-content/uploads/2014/07/Samayik1.pdf"
+      ]
+    },
+    {
+      "claim": "Iriyavahiyam first line and meaning (harm while moving; seeds, sprouts, dew, ant hills, moss, water, earth, spider webs; one- to five-sensed beings; tassa michchhami dukkadam)",
+      "urls": [
+        "https://jcgb.org/wp-content/uploads/2025/09/jes931_english_pratikramana_color_000241_data.pdf",
+        "https://vitraagjainsangh.org/wp-content/uploads/2014/07/Samayik1.pdf"
+      ]
+    },
+    {
+      "claim": "Tassa Uttari first line and meaning (uttari karan, prayashchitt, vishodhi, vishalli; three shalya: deceit, desire for worldly reward, wrong belief)",
+      "urls": [
+        "https://jcgb.org/wp-content/uploads/2025/09/jes931_english_pratikramana_color_000241_data.pdf",
+        "https://vitraagjainsangh.org/wp-content/uploads/2014/07/Samayik1.pdf"
+      ]
+    },
+    {
+      "claim": "Annattha first line and the exceptions (breathing, coughing, sneezing, yawning, belching, passing gas, dizziness, fainting, subtle movements; emergencies such as fire or snake); kayotsarg ends with Namo Arihantanam; 25 breaths for Logassa to chandesu nimmalayara",
+      "urls": [
+        "https://jcgb.org/wp-content/uploads/2025/09/jes931_english_pratikramana_color_000241_data.pdf",
+        "https://vitraagjainsangh.org/wp-content/uploads/2014/07/Samayik1.pdf"
+      ]
+    },
+    {
+      "claim": "Logassa first line and meaning; names all 24 Tirthankars; Chaturvimshati stava (2nd avashyak); purer than moons, brighter than suns, deeper than the ocean",
+      "urls": [
+        "https://jcgb.org/wp-content/uploads/2025/09/jes931_english_pratikramana_color_000241_data.pdf",
+        "https://vitraagjainsangh.org/wp-content/uploads/2014/07/Samayik1.pdf"
+      ]
+    },
+    {
+      "claim": "Tirthankar order and symbols (Rishabh bull, Shanti deer — 16th, Nemi conch — 22nd, Parshva snake — 23rd, Mahavir lion — 24th)",
+      "urls": [
+        "https://en.wikipedia.org/wiki/Tirthankara",
+        "https://en.wikipedia.org/wiki/Mahavira"
+      ]
+    },
+    {
+      "claim": "Karemi Bhante first line and meaning (savajjam jogam pachchakkhami; duviham tivihenam; manenam vayae kayenam; na karemi na karavemi); vow requested with “Ichchhakari bhagavan pasay kari samayik dandak uchcharavoji”; given by guru, elder or self",
+      "urls": [
+        "https://jcgb.org/wp-content/uploads/2025/09/jes931_english_pratikramana_color_000241_data.pdf",
+        "https://vitraagjainsangh.org/wp-content/uploads/2014/07/Samayik1.pdf"
+      ]
+    },
+    {
+      "claim": "Samaiya vaya jutto first line and meaning; shravak like a shraman during Samayik; 32 faults (10 mind, 10 speech, 12 body)",
+      "urls": [
+        "https://jcgb.org/wp-content/uploads/2025/09/jes931_english_pratikramana_color_000241_data.pdf",
+        "https://vitraagjainsangh.org/wp-content/uploads/2014/07/Samayik1.pdf",
+        "https://jainuniversity.org/pathshala/samaiya-vaya-jutto-sootra/"
+      ]
+    },
+    {
+      "claim": "Puniya Shravak story (simple earnings by spinning cotton, alternate fasting to host a guest, King Shrenik told to obtain one Samayik, Puniya says it cannot be sold)",
+      "urls": [
+        "https://vitraagjainsangh.org/wp-content/uploads/2014/07/Samayik1.pdf",
+        "https://jainworld.com/education/jain-education-material/jain-stories/punia-shravak/",
+        "http://www.jaina.org/resource/resmgr/031816_eblast/Puniya_Shravak.pdf"
+      ]
+    },
+    {
+      "claim": "Arihant = ari (enemy) + hant (destroyer) of inner enemies; Siddhas formless, free of all karma, at Siddhashila at the top of the universe",
+      "urls": [
+        "https://vitraagjainsangh.org/wp-content/uploads/2014/07/Samayik1.pdf",
+        "https://jcgb.org/wp-content/uploads/2025/09/jes931_english_pratikramana_color_000241_data.pdf",
+        "https://jcgb.org/wp-content/uploads/2025/09/jes933_jain_svetambar_rituals_000247_data.pdf"
+      ]
+    },
+    {
+      "claim": "Mahavir Swami attained nirvana at Pavapuri; Jains remember it on Diwali",
+      "urls": [
+        "https://en.wikipedia.org/wiki/Mahavira"
+      ]
+    },
+    {
+      "claim": "Navang puja order (toes, knees, wrists/forearms, shoulders, top of head, forehead, throat, chest, navel); right then left of the idol (not of the worshipper); right-hand ring finger; nail must not touch the murti",
+      "urls": [
+        "https://jcgb.org/wp-content/uploads/2025/09/jes933_jain_svetambar_rituals_000247_data.pdf",
+        "https://jainsamajofli.org/how-to-do-puja/",
+        "https://navkarsadhana.com/services/9-anga-puja/",
+        "https://www.jaincentreleicester.com/resources/puja/"
+      ]
+    },
+    {
+      "claim": "Meaning of each of the nine places (walking to teach; standing kayotsarg and kevalgyan; giving with the hands / varshidan; strength without pride; Siddhashila at the top; tilak of the three worlds; sermons from the throat; heart free of attachment and aversion, full of compassion; navel as centre of meditation and the three jewels)",
+      "urls": [
+        "https://jcgb.org/wp-content/uploads/2025/09/jes933_jain_svetambar_rituals_000247_data.pdf",
+        "https://jintirthdarshan.blogspot.com/2019/01/blog-post_31.html",
+        "https://jainsamajofli.org/how-to-do-puja/",
+        "https://navkarsadhana.com/services/9-anga-puja/"
+      ]
+    },
+    {
+      "claim": "One line of Navkar per place (toes Namo Arihantanam … navel Padhamam Havai Mangalam) as an alternative recitation",
+      "urls": [
+        "https://jainsamajofli.org/how-to-do-puja/",
+        "https://navkarsadhana.com/services/9-anga-puja/"
+      ]
+    },
+    {
+      "claim": "Puja preparation: bath, clothes used only for puja (dhoti and khes for men), vertical tilak on own forehead, cover mouth and nose with a cloth before entering the sanctum, wipe the murti dry with cloths before chandan, nissihi",
+      "urls": [
+        "https://www.jaincentreleicester.com/resources/puja/",
+        "https://www.jainpuja.com/jin_puja.htm"
+      ]
+    },
+    {
+      "claim": "At Rishabhdev's coronation the yugalik twins poured water on his feet from lotus-leaf cups",
+      "urls": [
+        "https://jainworld.com/library/jain-books/books-on-line/jainworld-books-in-indian-languages/24-tirthankaras/rishabhdev-bhagavan-the-first-tirhankar-1/"
+      ]
+    },
+    {
+      "claim": "Seated Tirthankars are shown in padmasana (lotus): each foot rests on the opposite thigh, sole up",
+      "urls": [
+        "https://en.wikipedia.org/wiki/Lotus_position"
+      ]
+    },
+    {
+      "claim": "Digambar worship differs (ashtadravya offerings; practices vary between Bispanth and Terapanth; no Shvetambar-style nine-limb chandan puja)",
+      "urls": [
+        "https://en.wikipedia.org/wiki/Digambara_Terapanth",
+        "https://www.jainpuja.com/jin_puja.htm"
+      ]
+    }
+  ],
+  "notes": "DRAFT for Pathshala review — every step activity and every quiz question carries review = \"needs_pathshala_review\". All explanations are written in our own words; no stavan/doha text is included.\n\nSutra text policy: the full Navkar Mantra is given in Devanagari in the Shvetambar Murtipujak reading (नमो, नमुक्कारो, हवइ), checked against two independent web sources plus the JAINA Education books (JES 931, JES 933) and the JCNC Samayik booklet. The spec example used the Digambar spelling णमो; we deliberately use नमो (hi-IN speech recognition also handles it better). For every other sutra only the first line is given, in Roman transliteration (checked against JES 931 and the JCNC booklet); the Khamasamana sutra is a single sentence and is given whole.\n\nSamayik vidhi follows the common Tapagachha-style sequence used by Gujarati Shvetambar Murtipujak families. Details differ between books and gachchhs: some start with three khamasamanas before the sthapana (the JCNC booklet does); some books show one khamasamana before a pair of requests rather than before each one. JSH Pathshala should confirm its own sequence. The 50 bol of muhapatti padilehan are deliberately not included — the teacher teaches them.\n\nPoints follow the spec table: read 5, quiz 10, practice 10, hotspot learn 10, hotspot practice 10 + repeat 3, voice 15 + repeat 3, level points 20. treasure_points 50 on Samayik levels 4 and 8. We ALSO set 50 on Navkar level 5 (Panch Parameshthi badge) because the table says \"badge levels\"; set it to 0 if only the two Samayik levels were meant. Navang puja level: treasure 0.\n\nPractice steps (kind \"practice\") have no payload in the 0570 contract, so we used the read-card shape: { cards: [...], confirm_label: \"I did it…\" } — the app can show the cards and a done button. \"Order\" activities are quiz questions of type \"order\". Quiz steps carry activity = { review } only. Choice answers are spread across positions (the app does not shuffle choice options).\n\nNavang puja hotspot: nine pujas but THIRTEEN touches (toes, knees, wrists and shoulders are pairs, right then left of the murti, as JAINA JES 933 and Jain Samaj of Long Island state). Each spot has an extra optional field \"puja\" (1–9) so the app can show \"puja 3 of 9\"; drop it if unwanted. If the app should treat each pair as one tap, merge pairs (keep 9 spots).\n\nCoordinates are for a placeholder seated padmasana, front-facing murti in a portrait 3:4 frame (x of width, y of height, r of width): head top y 0.062 (spread from the forehead at 0.16 so the app's 22 px minimum tap circles do not overlap), navel 0.62, knees/toes ~0.86–0.89. Bhagwan faces the viewer, so his right shoulder/knee/wrist are on the viewer's LEFT. In padmasana each foot rests on the opposite thigh, so his RIGHT big toe is placed on the viewer's RIGHT (near his left knee). Some teachers instead teach \"start with the toe on Bhagwan's right side\" — CONFIRM WITH PATHSHALA and swap toe_right/toe_left x if needed. Re-place all spots on the real derasar photo.\n\nKnee meaning: some sources say Bhagwan reached kevalgyan \"standing\"; Shvetambar accounts place Mahavir Swami's kevalgyan in a squatting (godohika) posture, so the knee \"why\" only says he stood long in kayotsarg on his way to kevalgyan. Teacher to confirm wording.\n\nMukhkosh: we say \"a folded cloth over your nose and mouth\"; many families use an eight-fold cloth, but we could not confirm that number from two sources, so it is left out. The chandan doha for each place is not quoted; each \"why\" paraphrases the commonly taught meaning.\n\nDigambar practice differs: there is no Shvetambar-style nine-limb chandan puja on the murti (offerings are made in front of the murti, and practice varies between Digambar groups). Sthanakvasi and Terapanthi Shvetambars do not do murti puja. This module is for Shvetambar Murtipujak families only.\n\nSuggested metadata for the new goal (not binding): description, sort_order 50, tint #1F7A4D, mark \"Pu\", recommended false. Level chapter \"Chapter 1 · Chandan puja\".\n\nStories used: Puniya Shravak (Samayik level 1) and the yugalik coronation (toes \"why\"). Both are told gently; the \"hell\" detail of King Shrenik's story is softened to \"a hard future his past karma had made\".\n\nFor the Pathshala teacher\n\nThese points were raised in review and are left for JSH Pathshala (or the owner) to decide. The content was not changed for them, except where a separate reviewer fix is noted below.\n\n- Khamasamana in the Samayik vidhi (samayik L4 step 0 card 2; L4 step 3 Q2; L10 step 1 cards 0–1): books differ. Tapagachchh vidhi books put one khamasamana before every request; the JCNC booklet puts one before each pair or group of requests and three before the sthapana; and the vow request comes after a Navkar, not a khamasamana. Please confirm JSH's sequence and keep L4 and L10 in step. Suggested card line if needed: “In the Samayik vidhi we bow with a khamasamana before asking the guru's permission (adesh). Books differ on exactly where the bows come, so follow your Pathshala teacher.” (The L4 badge fill question has already been reworded so it holds either way; you may add “Your Pathshala will show you exactly where the bows come” to its explanation.) Also: the L4 practice step now has the learner do three khamasamanas facing Bhagwan; if JSH uses the JCNC opening of three before the sthapana, it can say “facing the sthapanaji” again.\n- Puniya Shravak (samayik L1 step 1, and Q4 of step 3): tellings differ. In JCNC and Jainworld, Puniya himself says a Samayik cannot be sold; in JAINA's story sheet he sends the king to Bhagwan, who says the king's whole treasury would not pay even for the horse's rein. The card and quiz now give only the shared lesson (no treasure can buy a Samayik); tell the fuller version your Pathshala uses.\n- Duplicate voice step: samayik L2 step 1 is identical to navkar L9 step 1 (“Say the whole Navkar”), both with repeat_points 3, and the daily cap counts per activity, so a learner on both paths earns repeat points twice a day for the same recitation. Decided by the owner (2026-10-01): keep both; both copies earn practice points.\n- Sutra text beyond the first line (policy): short cue phrases remain, each checked against JES 931 and the JCNC booklet and needed for the vidhi: “tassa michchhami dukkadam” (samayik L5 card 3), “thami kaussaggam” (L6 card 1, L6 step 1 Q2), “chandesu nimmalayara” (L7 card 3, L7 step 1 Q2, L8 card 3, L8 step 4, L10 step 0 card 1) and the Tirthankar order of Logassa's second verse (L8 step 2 Q1). Please confirm these are allowed and update the “only the first line is given” sentence above, or reword L7 step 1 Q2 around “the line about the moon”. The Karemi Bhante phrases from its later lines (L9: duviham tivihenam, na karemi na karavemi, java niyamam pajjuvasami, appanam vosirami, manenam/vayae/kayenam) were replaced by our own words in this version; restore them only if short phrases are allowed.\n- When do the 48 minutes start? (samayik L10 step 1 card 2; L11 card 0 and Q2): from reciting Karemi Bhante, or from the end of the taking vidhi (after the three Navkar)? Please say which moment to note on the clock.\n- The name “Navkar” (navkar L9 step 2 Q2): the explanation no longer says “nav = nine”, because the name comes from namaskar (Prakrit namukkaro, a bow); some books (e.g. Jainworld) do teach the “nine lines” reading. If wanted, approve: “Nine lines (pada). The name Navkar comes from namaskar (Prakrit namukkaro), a bow; many people also remember it by its nine lines.”\n- Navkar level 5 treasure_points 50 (Panch Parameshthi badge): the spec's points table names only Samayik levels 4 and 8 as treasure levels. Decided by the owner (2026-10-01): 50.\n- Voice pass_ratio 0.7 (navkar L6 step 1, and both lines of L8): a three-word line passes only when all three words are heard (2/3 = 0.67). Decided by the owner (2026-10-01): 0.66 on every voice step, so one slip on a short line is allowed (the app still highlights it).\n- Puja 3 placement (navang_puja wrist_right / wrist_left, both steps): the Gujarati doha (“kar kande”) and Gujarati guides use the wrist; the JAINA Puja Book (JES 933), Jain Samaj of Long Island and Jain Society of Greater Cleveland say the middle of the forearm. On the JSH derasar photo the murti's own kanda tilak discs sit on the forearm just above the wrist, and both spots are on them (x 0.383 / 0.616, y about 0.70). If JSH teaches the middle of the forearm, move both spots a little up the forearm towards the elbows (the elbows are at about x 0.31 / 0.69, y 0.67) and change the label and say text.\n- Which toe first (navang_puja toe_right / toe_left, both steps): Bhagwan's own right big toe is placed on the viewer's right (in padmasana his right foot rests on his left thigh), and both intros and the toe/knee “say” lines now explain this. If JSH teaches “start with the toe on Bhagwan's right side” as the viewer's left toe, swap the two toe spots' positions (x 0.274, y 0.805 and x 0.706, y 0.807) in both steps, drop the toe-exception sentences from both intros and from the toe and knee “say” lines, and use “Touch Bhagwan's right big toe first, on your left.” / “Now his left big toe, on your right.”\n- Navang puja picture (2026-10-01): the JSH derasar photo of Mahavir Swami is bundled in the member app as asset:mahavir-murti for every community (owner decision). The 13 spots were re-measured on it by three independent measurements (the derasar's own tilak pieces, anatomy, how a pujari touches this decorated murti), reconciled and checked by three reviewers. The navel is hidden by flowers in the photo, so it is placed from proportion (on the midline, level with the wrists, just above the hands), as the owner decided."
+}
