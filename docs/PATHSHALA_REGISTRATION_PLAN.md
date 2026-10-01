@@ -1,6 +1,6 @@
 # Pathshala registration with level-based fees: plan
 
-**Status: plan for owner review, 2026-10-01. Nothing here is built.** Owner request (BACKLOG B41): *"Parents register kids for Pathshala; it has level-based fees."* The owner decided to plan now and build right after the current learning work. Every claim about today's code names the file it came from.
+**Status: plan accepted 2026-10-01 — the owner took every recommended default (P1–P14, §4). The build is parked (BACKLOG B41) until the other open work is fixed. Finding F1 is already fixed (migration 0565).** Owner request (BACKLOG B41): *"Parents register kids for Pathshala; it has level-based fees."* The owner first planned to build it right after the learning work, then parked the build until everything else is fixed (2026-10-01). Every claim about today's code names the file it came from.
 
 **Rules already decided (this plan does not reopen them)**
 
@@ -39,7 +39,7 @@
 | Classes | Per term and level: room, `capacity`, day and time, `waitlist_enabled` (default true) | `0006` |
 | Enrollments | One per child per term (`unique (term_id, student_person_id)`): `requested_level_id`, `class_id`, status `requested / waitlisted / placed / active / withdrawn / completed`, `fee_pledge_id`, `waiver_consent_id`, `registered_by/at`, `placed_at`, notes | `0006` |
 | Progress reports | Per enrollment and period, with `recommended_next_level_id` | `0006` |
-| Access rules | Members read non-draft terms, classes and teachers; anyone reads tracks and levels; household members (children too) read their enrollments (`enrollments_household`); an adult may insert a `requested` enrollment with no class (`enrollments_household_insert`); teachers read their class roster; staff `pathshala.view` / `pathshala.manage` | `0010_rls.sql` lines 383-400 |
+| Access rules | Members read non-draft terms, classes and teachers; anyone reads tracks and levels; household members (children too) read their enrollments (`enrollments_household`); an adult may insert a `requested` enrollment with no class (`enrollments_household_insert`; tightened in 0565: a current member of that household, an open term and level of the same community, no class, placement, fee pledge or waiver, registered by the caller at the time of the insert); teachers read their class roster; staff `pathshala.view` / `pathshala.manage` | `0010_rls.sql` lines 383-400 |
 | Pledges | Source enum includes `pathshala_fee`; adults may insert their own open pledges with that source; staff need `giving.manage` | `0003_giving.sql`, `0010` lines 204-215 |
 | Module | Pathshala depends on People only (not Giving); all Pathshala tables are module tables | `docs/MODULES.md`, `0101` |
 | Portal: Terms | Create and edit a term, including the three fee fields, any time, by `pathshala.manage` | `src/app/(app)/pathshala/terms/*`, `saveTerm` in `src/app/(app)/pathshala/actions.ts` |
@@ -78,7 +78,7 @@
 
 | # | Finding | Evidence | Fixed in |
 |---|---|---|---|
-| F1 | **A parent can enroll any person under their household.** `enrollments_household_insert` checks the household and status only, not that the student belongs to that household; `fee_pledge_id`, `waiver_consent_id`, `registered_by` and `registered_at` are caller-set. | `0010` line 396 | PR 1 (tighten), PR 7 (drop) |
+| F1 | **A parent can enroll any person under their household.** `enrollments_household_insert` checks the household and status only, not that the student belongs to that household; `fee_pledge_id`, `waiver_consent_id`, `registered_by` and `registered_at` are caller-set. | `0010` line 396 | **Fixed in 0565** (2026-10-01): the student must be a current member of that household; no fee pledge, waiver, other registrant or back-dated time; term and level of the same community. PR 7 (drop) still applies |
 | F2 | **Fee amounts cannot live on the enrollment row**: children of the household read it (`enrollments_household` uses `in_my_household`). | `0010` line 394 | PR 1 (separate fee table) |
 | F3 | **Members can create `pathshala_fee` pledges of any amount**, and a member pledge to any campaign of kind `pathshala` is recorded as `pathshala_fee` (`pledgeSourceFor` in `connect-mobile/src/lib/api/giving.ts`). Fee reports must key on the enrollment link, not on the source. | `0010` line 210 | PR 7 |
 | F4 | The portal shows a household by `display_name` only on Enrollments. | `enrollments/page.tsx` | PR 4 |
@@ -179,7 +179,7 @@ All are `security definer`, `set search_path = app, public, extensions`, call `a
 
 ### 2.5 Access rules, audit, module
 
-- **Enrollments:** PR 1 tightens `enrollments_household_insert` (the student must be a current member of that household; `fee_pledge_id` and `waiver_consent_id` null; `registered_by = auth.uid()`), so the shipped app keeps working. PR 7 drops it once the app registers through the function.
+- **Enrollments:** `enrollments_household_insert` was tightened in **0565 (2026-10-01)**: the student must be a current member of that household; the term open and of the same community; no class, placement, `fee_pledge_id` or `waiver_consent_id`; `registered_by = auth.uid()` and `registered_at` the time of the insert. The shipped app keeps working. PR 7 drops it once the app registers through the function.
 - **New tables:** no direct writes from any app; reads: level fees like terms (members when the term is not a draft, staff); enrollment fees and pending registrations: adults of the household (`app.adult_of_household`), `pathshala.manage`, `giving.view`/`giving.manage`. Children and teachers never read fees. A restrictive `module_switch` policy and an `app.module_tables` row (module `pathshala`) for each.
 - **Audit:** an `audit_<table>` trigger on each new table; every function sets a reason ("Parent registered 2 children for Pathshala 2026-27, quote $315.00"). The assistance note is masked in the audit trail (`app.audit_mask`).
 - **Giving switched off:** registration still works; quotes are kept and marked not billed; the fee setup screen warns that fees will not be billed while Pledges & donations is off.
@@ -255,7 +255,7 @@ Errors follow the house rule: "Could not register Riya: registration closed on S
 
 ---
 
-## 4. Decisions the owner must make
+## 4. Decisions (accepted 2026-10-01: every recommended default)
 
 | # | Decision | Recommended default |
 |---|---|---|
@@ -282,7 +282,7 @@ Sizes: S under 300 changed lines, M 300-800, L over 800. Every database PR runs 
 
 | # | Repo | PR | Size | Needs | Owner sign-off |
 |---|---|---|---|---|---|
-| 1 | connect-crm | **DB 1: fee setup and quotes.** `pathshala_level_fees`, term columns, `pathshala_enrollment_fees`, `pathshala_quote`, options, preview and example functions, fee set and lock, tightened `enrollments_household_insert` (F1). No money moves | M | P1-P3, P9-P11 decided | **Yes**: pricing rules and an access-rule change |
+| 1 | connect-crm | **DB 1: fee setup and quotes.** `pathshala_level_fees`, term columns, `pathshala_enrollment_fees`, `pathshala_quote`, options, preview and example functions, fee set and lock (the `enrollments_household_insert` tightening, F1, is already done in 0565). No money moves | M | P1-P3, P9-P11 decided | **Yes**: pricing rules and an access-rule change |
 | 2 | connect-crm | **DB 2: register, place and bill.** `register_pathshala_children`, place / place-next / release hold, billing, waitlist, membership hold, pending children (trigger on change-request approval), waiver consents, term campaign and fund, message templates, Home task data | L | PR 1; P6, P7, P12, P14 | **Yes**: creates pledges |
 | 3 | connect-crm | **DB 3: withdrawal, late fee, assistance.** Withdraw with credit (generalized credit queue), late window, two-person fee assistance | M | PR 2; P4, P5, P8 | **Yes**: money rules |
 | 4 | connect-crm | **Portal: Fees and Registrations.** Terms › Fees, Registrations queue with household card and fee status, Classes "Place next", Approvals, Home tasks; actions return `{ ok, error }` with plain-English errors | L | PR 2 (PR 3 for withdraw and assistance) | No (screens over approved rules) |
