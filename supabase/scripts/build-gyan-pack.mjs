@@ -1,15 +1,18 @@
 #!/usr/bin/env node
 // Builds supabase/migrations/0571_gyan_content_pack.sql from the content pack JSON (the content workstream's
-// verified file). No hand-escaping: the pack goes into the migration verbatim as one dollar-quoted jsonb literal.
-//   node supabase/scripts/build-gyan-pack.mjs <pack.json> [out.sql]
+// verified file, kept at supabase/content/gyan_pack_0571.json with its sources and review notes). No hand-escaping:
+// the pack's goals go into the migration as one dollar-quoted jsonb literal; `sources` and `notes` are documentation
+// and stay in the JSON file only.
+//   node supabase/scripts/build-gyan-pack.mjs supabase/content/gyan_pack_0571.json [out.sql]
 //
 // Pack shape: { goals: [ { goal_key, goal_name, new, tradition, description?, sort_order?, tint?, mark?, recommended?,
 //   levels: [ { level_key, level_name, chapter?, points?, treasure?, treasure_points?, requires_teacher_signoff?,
 //   steps: [ { kind, title, points, repeat_points, activity, quiz? } ] } ] } ], sources?, notes? }
 //
-// Points follow the shared spec's table (they are set here, whatever the file says, and every change is reported):
+// Points must follow the shared spec's table (SPEC_POINTS below); a step that differs stops the build, so a change
+// the owner decides is made here on purpose, not slipped in through the file:
 //   read 5 · quiz 10 · practice 10 · hotspot learn 10 · hotspot practice 10 + 3 a try · voice 15 + 3 a try.
-// Every step is marked as needing Pathshala review (activity.review = "needs_pathshala_review").
+// Every step must be marked as needing Pathshala review (activity.review = "needs_pathshala_review").
 import { readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -25,19 +28,13 @@ const pack = JSON.parse(readFileSync(input, 'utf8'));
 const KINDS = new Set(['read', 'listen', 'recite', 'quiz', 'video', 'practice', 'hotspot', 'voice']);
 const TRADITIONS = new Set(['shvetambar_murtipujak', 'sthanakvasi', 'terapanthi', 'digambar', 'other']);
 const problems = [];
-const changes = [];
 const fail = (msg) => problems.push(msg);
 
+// [points, repeat_points] by kind (and a hotspot's mode).
+const SPEC_POINTS = { read: [5, 0], quiz: [10, 0], practice: [10, 0], 'hotspot:learn': [10, 0], 'hotspot:practice': [10, 3], voice: [15, 3] };
 function specPoints(step) {
-  const mode = step.activity?.mode;
-  switch (step.kind) {
-    case 'read': return [5, 0];
-    case 'quiz': return [10, 0];
-    case 'practice': return [10, 0];
-    case 'hotspot': return mode === 'practice' ? [10, 3] : [10, 0];
-    case 'voice': return [15, 3];
-    default: return [step.points ?? 0, step.repeat_points ?? 0];
-  }
+  const key = step.kind === 'hotspot' ? `hotspot:${step.activity?.mode}` : step.kind;
+  return SPEC_POINTS[key] ?? [step.points ?? 0, step.repeat_points ?? 0];
 }
 
 if (!Array.isArray(pack.goals) || pack.goals.length === 0) fail('the pack has no goals');
@@ -70,18 +67,14 @@ for (const g of pack.goals ?? []) {
       if (typeof s.title !== 'string' || !s.title.trim()) fail(`${at} has no title`);
       if (s.activity == null) s.activity = {};
       if (typeof s.activity !== 'object' || Array.isArray(s.activity)) fail(`${at}: activity must be an object`);
-      if (s.activity.review !== 'needs_pathshala_review') {
-        changes.push(`${at}: marked as needing Pathshala review`);
-        s.activity.review = 'needs_pathshala_review';
-      }
+      if (s.activity.review !== 'needs_pathshala_review') fail(`${at}: activity.review must be "needs_pathshala_review"`);
       if (s.kind === 'quiz' && !(s.quiz && Array.isArray(s.quiz.questions) && s.quiz.questions.length)) fail(`${at}: a quiz step needs quiz.questions`);
       if (s.kind !== 'quiz' && s.quiz != null) fail(`${at}: only quiz steps carry a quiz`);
       const [p, r] = specPoints(s);
       if (s.points !== p || (s.repeat_points ?? 0) !== r) {
-        changes.push(`${at}: points ${s.points ?? '-'}/${s.repeat_points ?? '-'} -> ${p}/${r} (spec)`);
+        fail(`${at} (${s.kind}): points ${s.points ?? '-'} + ${s.repeat_points ?? '-'} a try, the spec says ${p} + ${r} (change SPEC_POINTS if the owner decided otherwise)`);
       }
-      s.points = p;
-      s.repeat_points = r;
+      s.repeat_points ??= 0;
       steps++;
     });
   }
@@ -92,7 +85,7 @@ if (problems.length) {
 }
 
 const TAG = '$gyan_pack_0571$';
-const json = JSON.stringify(pack, null, 1);
+const json = JSON.stringify({ goals: pack.goals }, null, 1);
 if (json.includes(TAG) || json.includes('$gyan_pack_fn$')) {
   console.error(`The pack contains the dollar-quote tag ${TAG}; pick another tag.`);
   process.exit(1);
@@ -101,7 +94,8 @@ if (json.includes(TAG) || json.includes('$gyan_pack_fn$')) {
 const plural = (n, one) => `${n} ${one}${n === 1 ? '' : 's'}`;
 const summary = pack.goals.map((g) => `${g.goal_key} (${plural(g.levels.length, 'level')}, ${plural(g.levels.reduce((n, l) => n + l.steps.length, 0), 'step')}${g.new ? ', new' : ''})`).join(', ');
 const sql = `-- 0571_gyan_content_pack.sql: the Gyan Path content pack in the SHARED platform library (center_id null).
--- GENERATED by supabase/scripts/build-gyan-pack.mjs from the content workstream's verified JSON; do not edit by hand.
+-- GENERATED by supabase/scripts/build-gyan-pack.mjs from supabase/content/gyan_pack_0571.json (the content workstream's
+-- verified pack; its sources and review notes are kept there); do not edit by hand.
 -- Contents: ${summary}; ${steps} steps in all.
 --
 -- What it does (app.apply_gyan_content_pack, idempotent):
@@ -119,7 +113,7 @@ const sql = `-- 0571_gyan_content_pack.sql: the Gyan Path content pack in the SH
 -- activity.review = "needs_pathshala_review" (doctrinal care: the Pathshala reviews before it is relied on).
 set client_min_messages = warning;
 
--- The pack itself, with its sources and notes: the JSON as given, with the spec's points and the review mark applied.
+-- The pack's goals, levels and steps exactly as in the JSON file (its sources and notes stay in the file).
 create or replace function app.gyan_content_pack() returns jsonb
 language sql immutable set search_path = app, public, extensions as $gyan_pack_fn$
 select ${TAG}
@@ -191,7 +185,7 @@ begin
 end $$;
 
 comment on function app.gyan_content_pack() is
-  'The Gyan Path content pack of 0571 (goals, levels, steps, sources, notes), as built by supabase/scripts/build-gyan-pack.mjs.';
+  'The Gyan Path content pack of 0571 (goals, levels, steps) from supabase/content/gyan_pack_0571.json, as built by supabase/scripts/build-gyan-pack.mjs.';
 comment on function app.apply_gyan_content_pack() is
   'Platform only: put the 0571 content pack into the shared library. Idempotent; never changes or deletes a step it did not add, never overwrites a level''s treasure points. Returns what it added. seed.sql calls it again on a new database.';
 
@@ -203,4 +197,4 @@ select app.apply_gyan_content_pack();
 `;
 writeFileSync(out, sql);
 console.log(`wrote ${out}: ${pack.goals.length} goals, ${steps} steps (${(sql.length / 1024).toFixed(0)} KB)`);
-for (const c of changes) console.log(`  changed: ${c}`);
+

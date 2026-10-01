@@ -58,8 +58,10 @@ select pg_temp.assert(not exists (select 1 from pg_temp.pack_levels() pl cross j
                                       or s.quiz is distinct from (case when jsonb_typeof(e.x->'quiz') = 'object' then e.x->'quiz' end)),
   'each step carries the pack''s kind, title, order, activity and quiz exactly');
 select pg_temp.assert((select count(*) from pg_temp.pack_steps()) = (select sum(jsonb_array_length(steps)) from pg_temp.pack_levels())
-                      and (select count(*) from pg_temp.pack_steps()) >= 70,
-  'all of the pack''s steps are stored');
+                      and (select count(*) from pg_temp.pack_steps()) = 74
+                      and (select sum(jsonb_array_length(quiz->'questions')) from pg_temp.pack_steps() where kind = 'quiz') = 94
+                      and (select sum(jsonb_array_length(activity->'spots')) from pg_temp.pack_steps() where kind = 'hotspot') = 26,
+  'all of the pack''s steps are stored: 74 steps, 94 quiz questions, 26 spots to tap');
 
 -- Every level of Samayik (12) and of Navkar (9) is playable: it has steps.
 select pg_temp.assert((select count(*) from app.gyan_levels l join app.gyan_goals g on g.id = l.goal_id where g.center_id is null and g.key = 'samayik') = 12
