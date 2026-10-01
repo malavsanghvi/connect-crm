@@ -410,6 +410,15 @@ begin
   return new;
 end $$;
 
+-- The demo pack (0312): levels 1 and 2 of its lessons need no sign-off, so the demo learners who finished them
+-- (nine and five of them) now also earn the level's points on completion: 14 more points entries than before.
+update app.demo_packs p
+   set contents = (select jsonb_agg(case when m->'rows' ? 'points_ledger'
+                                         then jsonb_set(m, '{rows,points_ledger}', to_jsonb((m #>> '{rows,points_ledger}')::int + 14))
+                                         else m end order by o)
+                     from jsonb_array_elements(p.contents) with ordinality x(m, o))
+ where p.key = 'community';
+
 -- ── Recording a try ──────────────────────────────────────────────────────────
 create or replace function app.record_gyan_attempt(p_center uuid, p_step uuid, p_success boolean,
                                                    p_score integer default null, p_detail jsonb default '{}'::jsonb)
