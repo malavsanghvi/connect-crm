@@ -43,6 +43,9 @@ begin
                 else json_build_array(json_build_object('method','otp','timestamp',extract(epoch from now())::bigint)) end)::text, true);
   perform set_config('request.headers', '{"x-client-app":"portal","x-client-screen":"/giving/payments"}', true);
 end $$;
+-- The organization's own day (America/Chicago). Refund dates are checked against it, not UTC, so
+-- a test that used current_date failed whenever UTC had already reached tomorrow (00:00-05:00 UTC).
+create or replace function pg_temp.center_today() returns date language sql stable as $$ select (now() at time zone 'America/Chicago')::date $$;
 grant connect_worker to postgres;
 create temp table ctx (k text primary key, v text);
 grant all on ctx to public;
@@ -214,12 +217,12 @@ insert into app.center_payment_processors (center_id, processor, connection_id, 
 values (:c, 'paypal', 'e3300000-0000-4000-8000-0000000000c7', 'live', array['paypal']);
 insert into app.payments (id, center_id, household_id, amount_cents, method, status, provider, provider_ref, received_on)
 values ('e3300000-0000-4000-8000-0000000000b7', :c, 'e3300000-0000-4000-8000-000000000001', 5100, 'paypal', 'captured', 'paypal', 'CAP-E33-7',
-        current_date - 5);
+        pg_temp.center_today() - 5);
 begin;
 set local role authenticated;
 select pg_temp.as_user(:tara);
 select pg_temp.assert(app.paypal_email_only('00000000-0000-4000-8000-0000000000e3'), '#7 the PayPal account is connected by email only');
-select pg_temp.assert_raises($$select app.record_manual_paypal_refund('e3300000-0000-4000-8000-0000000000b7', 5100, current_date, '1AB23456CD789012E', 'Duplicate')$$,
+select pg_temp.assert_raises($$select app.record_manual_paypal_refund('e3300000-0000-4000-8000-0000000000b7', 5100, pg_temp.center_today(), '1AB23456CD789012E', 'Duplicate')$$,
   'two different approvers', '#7 nothing is recorded before the two-person approval');
 update app.payments set refund_approved_by = :tara, refund_reason = 'Duplicate gift', refund_requested_cents = 5100
  where id = 'e3300000-0000-4000-8000-0000000000b7';
@@ -232,21 +235,21 @@ commit;
 begin;
 set local role authenticated;
 select pg_temp.as_user(:tara);
-select pg_temp.assert_raises($$select app.record_manual_paypal_refund('e3300000-0000-4000-8000-0000000000b7', 5100, current_date, 'x', 'Duplicate')$$,
+select pg_temp.assert_raises($$select app.record_manual_paypal_refund('e3300000-0000-4000-8000-0000000000b7', 5100, pg_temp.center_today(), 'x', 'Duplicate')$$,
   'transaction id', '#7 the PayPal transaction id is required and checked');
-select pg_temp.assert_raises($$select app.record_manual_paypal_refund('e3300000-0000-4000-8000-0000000000b7', 5100, current_date + 2, '1AB23456CD789012E', 'Duplicate')$$,
+select pg_temp.assert_raises($$select app.record_manual_paypal_refund('e3300000-0000-4000-8000-0000000000b7', 5100, pg_temp.center_today() + 2, '1AB23456CD789012E', 'Duplicate')$$,
   'not in the future', '#7 the date cannot be in the future');
-select pg_temp.assert_raises($$select app.record_manual_paypal_refund('e3300000-0000-4000-8000-0000000000b7', 9900, current_date, '1AB23456CD789012E', 'Duplicate')$$,
+select pg_temp.assert_raises($$select app.record_manual_paypal_refund('e3300000-0000-4000-8000-0000000000b7', 9900, pg_temp.center_today(), '1AB23456CD789012E', 'Duplicate')$$,
   'more than what is left', '#7 not more than the payment');
-select pg_temp.assert(((app.record_manual_paypal_refund('e3300000-0000-4000-8000-0000000000b7', 5100, current_date - 1, '1ab23456cd789012e',
+select pg_temp.assert(((app.record_manual_paypal_refund('e3300000-0000-4000-8000-0000000000b7', 5100, pg_temp.center_today() - 1, '1ab23456cd789012e',
                                                         'Refunded in PayPal on the donor''s request'))->>'refunded_cents')::int = 5100,
   '#7 after both approvals the treasurer records the PayPal refund by hand');
-select pg_temp.assert_raises($$select app.record_manual_paypal_refund('e3300000-0000-4000-8000-0000000000b7', 100, current_date, '1AB23456CD789012E', 'again')$$,
+select pg_temp.assert_raises($$select app.record_manual_paypal_refund('e3300000-0000-4000-8000-0000000000b7', 100, pg_temp.center_today(), '1AB23456CD789012E', 'again')$$,
   'already recorded', '#7 the same PayPal transaction cannot be recorded twice');
-select pg_temp.assert_raises($$select app.record_manual_paypal_refund('e3300000-0000-4000-8000-0000000000b7', 100, current_date, '7ZZ23456CD789012E', 'again')$$,
+select pg_temp.assert_raises($$select app.record_manual_paypal_refund('e3300000-0000-4000-8000-0000000000b7', 100, pg_temp.center_today(), '7ZZ23456CD789012E', 'again')$$,
   'One refund request per payment', '#7/#8 (0415) nor a second PayPal refund under the same approvals');
 commit;
-select pg_temp.assert((select p.status = 'refunded' and r.source = 'manual_paypal' and r.provider_ref = '1AB23456CD789012E' and r.refunded_on = current_date - 1
+select pg_temp.assert((select p.status = 'refunded' and r.source = 'manual_paypal' and r.provider_ref = '1AB23456CD789012E' and r.refunded_on = pg_temp.center_today() - 1
                               and r.first_approver = :tara::uuid and r.second_approver = :sam::uuid
                          from app.payments p join app.payment_refunds r on r.payment_id = p.id where p.id = 'e3300000-0000-4000-8000-0000000000b7'),
   '#7 recorded: payment refunded, the PayPal id, date and both approvers kept');
@@ -257,7 +260,7 @@ update app.integration_connections set settings = settings || '{"connect_method"
 begin;
 set local role authenticated;
 select pg_temp.as_user(:tara);
-select pg_temp.assert_raises($$select app.record_manual_paypal_refund('e3300000-0000-4000-8000-0000000000b7', 100, current_date, '9ZZ23456CD789012E', 'x')$$,
+select pg_temp.assert_raises($$select app.record_manual_paypal_refund('e3300000-0000-4000-8000-0000000000b7', 100, pg_temp.center_today(), '9ZZ23456CD789012E', 'x')$$,
   'Refund through PayPal', '#7 a PayPal account connected with refund permission refunds through PayPal instead');
 rollback;
 
@@ -380,7 +383,7 @@ select pg_temp.as_user(:tara);
 update app.pledges set status = 'written_off', closed_at = now() where id in (:'inv_pledge', 'e3300000-0000-4000-8000-0000000000a2');
 commit;
 select pg_temp.assert((select status = 'queued' and amount_cents = 50000 and idempotency_key = 'writeoff:' || :'inv_pledge'
-                              and period_month = date_trunc('month', current_date)::date and triggered_by = :tara::uuid
+                              and period_month = date_trunc('month', pg_temp.center_today())::date and triggered_by = :tara::uuid
                          from app.ledger_postings where source_id = :'inv_pledge' and txn_type = 'pledge_writeoff'),
   'write-off: a pledge from a QuickBooks invoice queues one posting for the written-off balance');
 select pg_temp.assert((select status = 'skipped' and last_error like 'Nothing to post: the books are on cash basis and the pledge never was in QuickBooks%'
