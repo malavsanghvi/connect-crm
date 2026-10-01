@@ -2502,6 +2502,8 @@ export type Database = {
           score: number | null;
           detail: Json;
           points: number;
+          try_id: string | null;
+          result: Json | null;
           created_at: string;
         };
         Insert: {
@@ -2513,6 +2515,8 @@ export type Database = {
           score?: number | null;
           detail?: Json;
           points?: number;
+          try_id?: string | null;
+          result?: Json | null;
           created_at?: string;
         };
         Update: {
@@ -2524,6 +2528,8 @@ export type Database = {
           score?: number | null;
           detail?: Json;
           points?: number;
+          try_id?: string | null;
+          result?: Json | null;
           created_at?: string;
         };
         Relationships: [];
