@@ -41,7 +41,7 @@ so the member app, sender and sign-in service can adopt them.
 | `points.day_complete_bonus` / `anumodana_points` / `anumodana_daily_cap` / `support_points` | 20 / 5 / 5 / 3 | Rules › Points | existing key |
 | `points.streak_rest_days_per_month` | 1 | Rules › Points | **new**: member app streaks (not read yet) |
 | `points.behind_after_days` | 3 | Rules › Points | **new**: Saathi "behind" (not read yet) |
-| `points.gyan_practice_daily_cap` | 10 | Rules › Points | **new** (0570), **read by the database**: `app.record_gyan_attempt` pays a Gyan Path step's `repeat_points` for each successful practice try while the member's successful tries of that step today (the community's local day, `centers.time_zone`) are below this number; 0 switches try points off. Whole number 0–1000 |
+| `points.gyan_practice_daily_cap` | 10 | Rules › Points | **new** (0570), **read by the database**: `app.record_gyan_attempt` pays a Gyan Path step's `repeat_points` for each successful practice try while the member's successful tries of that step today (the community's local day, `centers.time_zone`) are below this number; 0 switches try points off. Whole number 0–1000 (a value stored some other way is read the same way: not a number = 10, below 0 = 0, a fraction = its whole part, above 1000 = 1000) |
 | `onboarding.fields.<field>` | see below | Onboarding fields | **new**: member app onboarding (not read yet) |
 | `notifications.quiet_start_hour` / `quiet_end_hour` | 21 / 7 | Notifications | **new**: automatic sender (not built yet) |
 | `notifications.event_day_during_quiet_hours` | true | Notifications | **new**: automatic sender (not built yet) |
