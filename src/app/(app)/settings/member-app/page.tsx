@@ -2,7 +2,8 @@ import type { Metadata } from "next";
 import QRCode from "qrcode";
 
 import { ActionForm } from "@/components/action-form";
-import { BlockGrid, Card, NoAccess, PageHeader, QueryError } from "@/components/ui";
+import { CopyButton } from "@/components/copy-button";
+import { BlockGrid, Card, NoAccess, PageHeader, QueryError, buttonClass } from "@/components/ui";
 import { formatDate } from "@/lib/dates";
 import { canAccess } from "@/lib/permissions";
 import { getSession } from "@/lib/session";
@@ -64,10 +65,35 @@ export default async function MemberAppSettingsPage() {
     }
   }
 
+  const shareLink = webLink ?? appLink;
+  const message = shareLink
+    ? `Welcome to ${name}! Get the ${name} app and find your family in one minute: ${shareLink}${code ? ` (or enter the join code ${formatJoinCode(code)} in the app)` : ""}`
+    : null;
   return (
     <>
       {header}
       <BlockGrid>
+        {message ? (
+          <Card span={12} title="Invite your members" description="Send this to your members by WhatsApp, text or email. Nothing is sent from here: you choose who gets it, so only people who asked to hear from you do.">
+            <label className="crm-label" htmlFor="invite-message">
+              Message
+            </label>
+            <textarea id="invite-message" readOnly rows={3} className="crm-input" value={message} />
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <CopyButton value={message} label="Copy message" />
+              <a className={buttonClass("ghost", "xs")} target="_blank" rel="noreferrer" href={`https://wa.me/?text=${encodeURIComponent(message)}`}>
+                WhatsApp
+              </a>
+              <a className={buttonClass("ghost", "xs")} href={`sms:?&body=${encodeURIComponent(message)}`}>
+                Text message
+              </a>
+              <a className={buttonClass("ghost", "xs")} href={`mailto:?subject=${encodeURIComponent(`Join ${name} on the Community Connect app`)}&body=${encodeURIComponent(message)}`}>
+                Email
+              </a>
+            </div>
+            <p className="crm-hint mt-2">Members sign in, find their family (we match the records you loaded), then add their own details one question at a time.</p>
+          </Card>
+        ) : null}
         <Card
           span={7}
           title="Join code"
@@ -125,8 +151,15 @@ export default async function MemberAppSettingsPage() {
         </Card>
         <Card span={5} title="QR code for posters" description="Scanning it opens the app on this community">
           {qr ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={`data:image/svg+xml;utf8,${encodeURIComponent(qr)}`} alt={`QR code for join code ${code ? formatJoinCode(code) : ""}`} className="mx-auto h-56 w-56" />
+            <>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={`data:image/svg+xml;utf8,${encodeURIComponent(qr)}`} alt={`QR code for join code ${code ? formatJoinCode(code) : ""}`} className="mx-auto h-56 w-56" />
+              <p className="mt-2 text-center text-[13px]">
+                <a className="underline" href={`data:image/svg+xml;utf8,${encodeURIComponent(qr)}`} download={`${center.slug}-join-qr.svg`}>
+                  Download the QR code (SVG, prints sharp at any size)
+                </a>
+              </p>
+            </>
           ) : code ? (
             <p role="alert" className="text-[13px] text-danger">
               Could not draw the QR code. The join code above still works; reload to try again.

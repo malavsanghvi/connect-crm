@@ -5,11 +5,13 @@ import { notFound } from "next/navigation";
 import { IdentifiersPanel } from "@/components/identifiers-panel";
 import { QboCustomerLine } from "@/components/qbo-customer-line";
 import { MoreDetails } from "@/components/more-details";
+import { ProfileDetailsCard } from "@/components/profile-details-card";
 import { PeopleDrawers, drawerHref } from "@/app/(app)/people/_components/drawers";
 import { HistoryButton } from "@/components/record-history";
 import { DrawerForm } from "@/components/drawer-form";
 import { Alert, Badge, BlockGrid, Card, DefinitionList, EmptyState, KeyValueRow, NoAccess, PageHeader, QueryError, TableWrap, buttonClass } from "@/components/ui";
 import { loadPersonRecord } from "@/lib/data/people-records";
+import { loadProfileDetails } from "@/lib/data/profile-details";
 import { genderLabel, languageLabel, relationshipLabel, toUsDate } from "@/lib/people";
 import type { RawSearchParams } from "@/lib/search-params";
 import { identifierRules } from "@/lib/center-rules";
@@ -45,7 +47,7 @@ export default async function PersonPage({ params, searchParams }: { params: Pro
   const personRes = await db
     .from("people")
     .select(
-      "id, first_name, last_name, preferred_name, member_number, date_of_birth, gender, email, phone_e164, language, profession, employer, is_verified, verified_at, is_deceased, deceased_on, deceased_note, deceased_recorded_at, merged_into_id, created_at",
+      "id, first_name, last_name, preferred_name, member_number, date_of_birth, gender, email, phone_e164, language, profession, employer, is_verified, verified_at, is_deceased, deceased_on, deceased_note, deceased_recorded_at, merged_into_id, created_at, interests",
     )
     .eq("id", id)
     .eq("center_id", center.id)
@@ -87,6 +89,7 @@ export default async function PersonPage({ params, searchParams }: { params: Pro
   const base = `/people/${id}`;
   const { record } = await loadPersonRecord(session, id);
   const minor = age !== null && age < 18;
+  const profileDetails = await loadProfileDetails(session, { id, interests: person.interests, isMinor: minor });
   const home = currentHouseholds.find((l) => !l.is_primary) ?? currentHouseholds[0];
 
   return (
@@ -344,6 +347,7 @@ export default async function PersonPage({ params, searchParams }: { params: Pro
       <div className="mt-5">
         <QboCustomerLine session={session} householdIds={links.filter((l) => !l.left_at).map((l) => l.household_id)} personId={id} />
       </div>
+      <ProfileDetailsCard firstName={person.preferred_name || person.first_name} minor={minor} result={profileDetails} retryHref={retry} className="mt-5" />
       <MoreDetails session={session} entity="people" recordId={id} editable={canAccess(session, "householdsEdit") && !person.merged_into_id} variant="card" className="mt-5" />
 
       <Card title="Memberships held" padded={false} className="mt-5">

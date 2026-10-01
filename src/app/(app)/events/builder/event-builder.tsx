@@ -199,7 +199,15 @@ export function EventBuilder({
                   name="commitments_enabled"
                   label="Donation commitment at RSVP"
                   checked={commitOn}
-                  onChange={setCommitOn}
+                  onChange={(on) => {
+                    setCommitOn(on);
+                    // Switching on with nothing entered starts from the usual amounts, so it cannot save as Off.
+                    if (on && !perPerson.trim() && !lumpSum.trim() && !commitOpen) {
+                      setPerPerson("3, 5, 7");
+                      setLumpSum("10, 25, 50");
+                      setCommitOpen(true);
+                    }
+                  }}
                   onNote={commitNote}
                   offNote="Off"
                   disabled={!editable}

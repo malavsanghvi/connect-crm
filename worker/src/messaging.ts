@@ -24,7 +24,7 @@ export function reqFrom(http: Http): Req {
 
 type Brand = { name: string; short_name: string; logo_path: string | null; primary_color: string | null; public_email: string | null } | null;
 type ToSend = {
-  id: string; center_id: string | null; channel: "email" | "sms" | "push" | "whatsapp"; to: string; purpose: string;
+  id: string; center_id: string | null; channel: "email" | "sms" | "push" | "whatsapp"; to: string; purpose: string; template_key?: string | null;
   subject: string | null; body: string; sandbox: boolean; skip: string | null; payload: Record<string, unknown>;
   brand: Brand; route: Record<string, unknown>;
 };
@@ -35,6 +35,22 @@ const str = (v: unknown): string | null => (typeof v === "string" && v.trim() !=
 
 async function record(ctx: JobContext, id: string, status: string, provider: string | null, ref: string | null, error: string | null, segments: number | null) {
   await ctx.db.query("select app.worker_message_result($1, $2, $3, $4, $5, $6)", [id, status, provider, ref, error, segments]);
+}
+
+/**
+ * What a tapped push needs to open the right screen in the member app: the message's template as `type` and
+ * a small allow-list of routing ids from its payload (never the whole payload: it can hold other data).
+ */
+export function pushRouting(m: Pick<ToSend, "template_key" | "payload">): Record<string, string | number> {
+  const out: Record<string, string | number> = {};
+  if (m.template_key) out.type = m.template_key;
+  for (const k of ["survey_id", "event_id", "deep_link"] as const) {
+    const v = m.payload?.[k];
+    if (typeof v === "string" && v.length <= 200) out[k] = v;
+  }
+  const points = m.payload?.reward_points;
+  if (typeof points === "number" && Number.isFinite(points)) out.reward_points = points;
+  return out;
 }
 
 /** Sends one queued message; returns what happened. Throws for the queue to retry or fail the job. */
@@ -103,7 +119,7 @@ export async function sendMessage(ctx: JobContext, messageId: string, job: Pick<
     provider = "expo_push";
     const tokens = Array.isArray(m.route.tokens) ? (m.route.tokens as string[]) : [];
     if (tokens.length === 0) throw new PermanentError("No phone is registered for notifications for this member, so nothing was sent.");
-    const tickets = await sendExpoPush(req, env, tokens, m.subject, m.body, { message_id: m.id, center_id: m.center_id, purpose: m.purpose });
+    const tickets = await sendExpoPush(req, env, tokens, m.subject, m.body, { message_id: m.id, center_id: m.center_id, purpose: m.purpose, ...pushRouting(m) });
     const dead = tickets.filter((t) => t.dead).map((t) => t.token);
     if (dead.length > 0) await ctx.db.query("select app.worker_push_result($1, $2, $3)", [m.id, dead, "DeviceNotRegistered"]);
     const ok = tickets.filter((t) => t.ok);

@@ -186,7 +186,10 @@ export default async function FeedbackPage({ searchParams }: { searchParams: Pro
                               {r.event}
                             </Link>
                           ) : (
-                            r.event
+                            // No survey yet: the event's Survey tab is where one is attached (with points and automatic sending).
+                            <Link href={`/events/${r.eventId}?tab=survey`} className="hover:underline" title="Attach a survey on the event's Survey tab">
+                              {r.event}
+                            </Link>
                           )}
                         </td>
                         <td className="whitespace-nowrap">{shortDate(r.sent, tz)}</td>
@@ -224,6 +227,11 @@ export default async function FeedbackPage({ searchParams }: { searchParams: Pro
                   <Link href={`/events/feedback/${selected.id}`} className={buttonClass("ghost", "sm")}>
                     All responses and settings
                   </Link>
+                  {selected.event_id ? (
+                    <Link href={`/events/${selected.event_id}?tab=survey`} className={buttonClass("ghost", "sm")}>
+                      Event&apos;s Survey tab
+                    </Link>
+                  ) : null}
                 </>
               }
             >

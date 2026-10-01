@@ -16,6 +16,7 @@ import * as messagingTestSend from "./messaging.test_send";
 import * as messagingWebhookEmail from "./messaging.webhook.email";
 import * as messagingWebhookTwilio from "./messaging.webhook.twilio";
 import * as nivaAnswer from "./niva.answer";
+import * as nivaImportPage from "./niva.import_page";
 import * as nivaRetention from "./niva.retention";
 import * as oauthExchange from "./oauth.exchange";
 import * as platformPromote from "./platform.promote";
@@ -75,5 +76,6 @@ export const HANDLERS: HandlerModule[] = [
   calendarRefreshFeeds,
   // B14: Niva answering
   nivaAnswer,
+  nivaImportPage,
   nivaRetention,
 ];

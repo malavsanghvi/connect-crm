@@ -1874,6 +1874,42 @@ export type Database = {
         };
         Relationships: [];
       };
+      dietary_options: {
+        Row: {
+          id: string;
+          center_id: string;
+          key: string;
+          label: string;
+          sort: number;
+          active: boolean;
+          created_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          center_id: string;
+          key: string;
+          label: string;
+          sort?: number;
+          active?: boolean;
+          created_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          center_id?: string;
+          key?: string;
+          label?: string;
+          sort?: number;
+          active?: boolean;
+          created_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       eligibility_snapshots: {
         Row: {
           id: string;
@@ -4235,6 +4271,87 @@ export type Database = {
         };
         Relationships: [];
       };
+      onboarding_progress: {
+        Row: {
+          id: string;
+          center_id: string;
+          status: string;
+          stage: string;
+          state: Json;
+          merge_answers: Json;
+          outcomes: Json;
+          version: number;
+          created_by: string | null;
+          updated_by: string | null;
+          created_at: string;
+          updated_at: string;
+          finished_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          center_id: string;
+          status?: string;
+          stage?: string;
+          state?: Json;
+          merge_answers?: Json;
+          outcomes?: Json;
+          version?: number;
+          created_by?: string | null;
+          updated_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+          finished_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          center_id?: string;
+          status?: string;
+          stage?: string;
+          state?: Json;
+          merge_answers?: Json;
+          outcomes?: Json;
+          version?: number;
+          created_by?: string | null;
+          updated_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+          finished_at?: string | null;
+        };
+        Relationships: [];
+      };
+      onboarding_rows: {
+        Row: {
+          id: number;
+          center_id: string;
+          progress_id: string;
+          dataset: string;
+          chunk_no: number;
+          row_count: number;
+          staged_rows: Json;
+          created_at: string;
+        };
+        Insert: {
+          id?: number;
+          center_id: string;
+          progress_id: string;
+          dataset: string;
+          chunk_no: number;
+          row_count: number;
+          staged_rows: Json;
+          created_at?: string;
+        };
+        Update: {
+          id?: number;
+          center_id?: string;
+          progress_id?: string;
+          dataset?: string;
+          chunk_no?: number;
+          row_count?: number;
+          staged_rows?: Json;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
       opportunities: {
         Row: {
           id: string;
@@ -5504,6 +5621,48 @@ export type Database = {
           label?: string;
           verified?: boolean;
           created_at?: string;
+        };
+        Relationships: [];
+      };
+      person_profile_details: {
+        Row: {
+          person_id: string;
+          center_id: string;
+          anniversary: string | null;
+          dietary: string[];
+          dietary_other: string | null;
+          emergency_contact_name: string | null;
+          emergency_contact_relationship: string | null;
+          emergency_contact_phone: string | null;
+          created_at: string;
+          updated_at: string;
+          updated_by: string | null;
+        };
+        Insert: {
+          person_id: string;
+          center_id: string;
+          anniversary?: string | null;
+          dietary?: string[];
+          dietary_other?: string | null;
+          emergency_contact_name?: string | null;
+          emergency_contact_relationship?: string | null;
+          emergency_contact_phone?: string | null;
+          created_at?: string;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Update: {
+          person_id?: string;
+          center_id?: string;
+          anniversary?: string | null;
+          dietary?: string[];
+          dietary_other?: string | null;
+          emergency_contact_name?: string | null;
+          emergency_contact_relationship?: string | null;
+          emergency_contact_phone?: string | null;
+          created_at?: string;
+          updated_at?: string;
+          updated_by?: string | null;
         };
         Relationships: [];
       };
@@ -6986,6 +7145,51 @@ export type Database = {
         };
         Relationships: [];
       };
+      rsvp_credit_releases: {
+        Row: {
+          id: string;
+          center_id: string;
+          household_id: string;
+          rsvp_id: string;
+          pledge_id: string;
+          released_cents: number;
+          status: string;
+          created_by: string | null;
+          created_at: string;
+          handled_by: string | null;
+          handled_at: string | null;
+          handled_note: string | null;
+        };
+        Insert: {
+          id?: string;
+          center_id: string;
+          household_id: string;
+          rsvp_id: string;
+          pledge_id: string;
+          released_cents: number;
+          status?: string;
+          created_by?: string | null;
+          created_at?: string;
+          handled_by?: string | null;
+          handled_at?: string | null;
+          handled_note?: string | null;
+        };
+        Update: {
+          id?: string;
+          center_id?: string;
+          household_id?: string;
+          rsvp_id?: string;
+          pledge_id?: string;
+          released_cents?: number;
+          status?: string;
+          created_by?: string | null;
+          created_at?: string;
+          handled_by?: string | null;
+          handled_at?: string | null;
+          handled_note?: string | null;
+        };
+        Relationships: [];
+      };
       rsvps: {
         Row: {
           id: string;
@@ -7814,6 +8018,30 @@ export type Database = {
         };
         Relationships: [];
       };
+      survey_completions: {
+        Row: {
+          survey_id: string;
+          person_id: string;
+          center_id: string;
+          completed_at: string;
+          points_awarded: number;
+        };
+        Insert: {
+          survey_id: string;
+          person_id: string;
+          center_id: string;
+          completed_at?: string;
+          points_awarded?: number;
+        };
+        Update: {
+          survey_id?: string;
+          person_id?: string;
+          center_id?: string;
+          completed_at?: string;
+          points_awarded?: number;
+        };
+        Relationships: [];
+      };
       survey_responses: {
         Row: {
           id: string;
@@ -7860,6 +8088,9 @@ export type Database = {
           send_at: string | null;
           reminder_after_days: number | null;
           template_key: string | null;
+          reward_points: number;
+          auto_on_complete: boolean;
+          completion_started_at: string | null;
         };
         Insert: {
           id?: string;
@@ -7879,6 +8110,9 @@ export type Database = {
           send_at?: string | null;
           reminder_after_days?: number | null;
           template_key?: string | null;
+          reward_points?: number;
+          auto_on_complete?: boolean;
+          completion_started_at?: string | null;
         };
         Update: {
           id?: string;
@@ -7898,6 +8132,9 @@ export type Database = {
           send_at?: string | null;
           reminder_after_days?: number | null;
           template_key?: string | null;
+          reward_points?: number;
+          auto_on_complete?: boolean;
+          completion_started_at?: string | null;
         };
         Relationships: [];
       };
@@ -8771,6 +9008,18 @@ export type Database = {
         };
         Returns: undefined;
       };
+      attach_event_survey: {
+        Args: {
+          p_event: string;
+          p_template?: string;
+          p_title?: string;
+          p_questions?: Json;
+          p_points?: number;
+          p_auto?: boolean;
+          p_anonymous?: boolean;
+        };
+        Returns: string;
+      };
       attest_center: {
         Args: {
           p_center: string;
@@ -8857,6 +9106,14 @@ export type Database = {
           name: string;
         };
         Returns: boolean;
+      };
+      cancel_my_rsvp: {
+        Args: {
+          p_rsvp: string;
+          p_cancel_pledge?: boolean;
+          p_release_credit?: boolean;
+        };
+        Returns: Json;
       };
       cancel_my_store_order: {
         Args: {
@@ -9322,6 +9579,12 @@ export type Database = {
         };
         Returns: { checked_in_at: string; household_label: string; lunch_slot_label: string }[];
       };
+      event_survey_stats: {
+        Args: {
+          p_survey: string;
+        };
+        Returns: Json;
+      };
       events_flyer_result: {
         Args: {
           p_event: string;
@@ -9455,6 +9718,12 @@ export type Database = {
           p_household: string;
         };
         Returns: { household_id: string; household_name: string; household_number: string; org_household_id: string; members: string; primary_member: string; primary_org_member_id: string; zone: string; city: string; last_gift_on: string; open_pledge_cents: number }[];
+      };
+      household_credit: {
+        Args: {
+          p_household: string;
+        };
+        Returns: number;
       };
       i_am_adult: {
         Args: {
@@ -9721,6 +9990,12 @@ export type Database = {
         };
         Returns: { code_id: string; code: string; expires_at: string; email_status: string }[];
       };
+      launch_event_survey_now: {
+        Args: {
+          p_survey: string;
+        };
+        Returns: number;
+      };
       legal_documents_status: {
         Args: {
           p_center: string;
@@ -9754,6 +10029,13 @@ export type Database = {
           p_person: string;
         };
         Returns: string;
+      };
+      manages_event_surveys: {
+        Args: {
+          p_center: string;
+          p_event?: string;
+        };
+        Returns: boolean;
       };
       map_qbo_customer: {
         Args: {
@@ -9914,6 +10196,20 @@ export type Database = {
         };
         Returns: string;
       };
+      niva_import_pages: {
+        Args: {
+          p_center: string;
+          p_urls: string[];
+        };
+        Returns: number;
+      };
+      niva_import_status: {
+        Args: {
+          p_center: string;
+          p_limit?: number;
+        };
+        Returns: { job_id: number; url: string; status: string; attempts: number; last_error: string; result: Json; created_at: string; finished_at: string }[];
+      };
       niva_regenerate: {
         Args: {
           p_id: string;
@@ -9967,6 +10263,60 @@ export type Database = {
         Args: {
           p_state: string;
           p_code: string;
+        };
+        Returns: Json;
+      };
+      onboarding_close: {
+        Args: {
+          p_id: string;
+          p_status: string;
+          p_outcomes?: Json;
+        };
+        Returns: undefined;
+      };
+      onboarding_current: {
+        Args: {
+          p_center: string;
+        };
+        Returns: Json;
+      };
+      onboarding_dataset_allowed: {
+        Args: {
+          p_center: string;
+          p_dataset?: string;
+        };
+        Returns: boolean;
+      };
+      onboarding_perms: {
+        Args: {
+          p_dataset: string;
+        };
+        Returns: string[];
+      };
+      onboarding_put_rows: {
+        Args: {
+          p_id: string;
+          p_dataset: string;
+          p_chunk: number;
+          p_rows: Json;
+          p_first?: boolean;
+        };
+        Returns: Json;
+      };
+      onboarding_save: {
+        Args: {
+          p_id: string;
+          p_version?: number;
+          p_stage?: string;
+          p_state?: Json;
+          p_answers?: Json;
+          p_outcomes?: Json;
+        };
+        Returns: Json;
+      };
+      onboarding_start: {
+        Args: {
+          p_center: string;
         };
         Returns: Json;
       };
@@ -10179,6 +10529,13 @@ export type Database = {
         };
         Returns: string[];
       };
+      profile_keys_ok: {
+        Args: {
+          p_keys: string[];
+          p_max: number;
+        };
+        Returns: boolean;
+      };
       promote_sandbox: {
         Args: {
           p_sandbox: string;
@@ -10338,6 +10695,14 @@ export type Database = {
         };
         Returns: string;
       };
+      raise_rsvp_commitment: {
+        Args: {
+          p_rsvp: string;
+          p_add_cents: number;
+          p_mode?: string;
+        };
+        Returns: string;
+      };
       readiness: {
         Args: {
           p_center: string;
@@ -10462,6 +10827,12 @@ export type Database = {
         };
         Returns: { id: string; name: string }[];
       };
+      remove_event_survey: {
+        Args: {
+          p_survey: string;
+        };
+        Returns: undefined;
+      };
       reopen_platform_setup_step: {
         Args: {
           p_key: string;
@@ -10556,6 +10927,13 @@ export type Database = {
           p_value: string;
         };
         Returns: { kind: string; system: string; value: string; person_id: string; household_id: string; display_name: string; household_name: string; household_number: string; org_household_id: string; members: string }[];
+      };
+      resolve_rsvp_credit: {
+        Args: {
+          p_id: string;
+          p_note?: string;
+        };
+        Returns: undefined;
       };
       revoke_integration_secret: {
         Args: {
@@ -11072,6 +11450,14 @@ export type Database = {
         };
         Returns: string;
       };
+      submit_survey: {
+        Args: {
+          p_survey: string;
+          p_answers: Json;
+          p_anonymous?: boolean;
+        };
+        Returns: Json;
+      };
       submit_whatsapp_template: {
         Args: {
           p_center: string;
@@ -11188,6 +11574,17 @@ export type Database = {
           p_sort?: number;
         };
         Returns: string;
+      };
+      update_event_survey: {
+        Args: {
+          p_survey: string;
+          p_title?: string;
+          p_questions?: Json;
+          p_points?: number;
+          p_auto?: boolean;
+          p_anonymous?: boolean;
+        };
+        Returns: undefined;
       };
       url_decode: {
         Args: {

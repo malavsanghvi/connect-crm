@@ -3,6 +3,7 @@
 // comments). Pure functions, unit-tested.
 
 import { answerText, type SurveyQuestion } from "./questions";
+import type { DayCount, QuestionResult, SurveyStats } from "./results";
 
 export const FEEDBACK_TEMPLATE_KEY = "event_feedback";
 
@@ -172,6 +173,11 @@ export function shouldFlagComment(text: string): boolean {
   return SAFETY_WORDS.test(text) || NAMES_SOMEONE.test(text);
 }
 
+/** The question whose answers are the "comments": the standard template's, else the first written answer. */
+export function commentQuestionId(questions: SurveyQuestion[]): string | null {
+  return (questions.find((q) => q.id === "comment") ?? questions.find((q) => q.type === "text"))?.id ?? null;
+}
+
 function num(v: unknown): number | null {
   const n = typeof v === "number" ? v : typeof v === "string" && v.trim() !== "" ? Number(v) : NaN;
   return Number.isFinite(n) ? n : null;
@@ -270,36 +276,85 @@ export function formatPct(ratio: number | null): string {
   return ratio === null ? "—" : `${Math.round(ratio * 100)}%`;
 }
 
+/** People who answered ÷ people invited, 0..1; null when nobody was invited. Never above 100%. */
+export function responseRate(answered: number, invited: number): number | null {
+  if (!(invited > 0)) return null;
+  return Math.min(1, Math.max(0, answered) / invited);
+}
+
 /** Averages below this show in red (prototype bars). */
 export const LOW_AREA_SCORE = 3.8;
 
 function csvCell(v: string | number | null): string {
-  const s = v === null ? "" : String(v);
+  if (typeof v === "number") return String(v);
+  const s = v === null ? "" : v;
   // Neutralise spreadsheet formulas and quote anything with separators.
   const safe = /^[=+\-@\t\r]/.test(s) ? `'${s}` : s;
   return /[",\n\r]/.test(safe) ? `"${safe.replace(/"/g, '""')}"` : safe;
 }
 
+/** Extra numbers for the export, from the survey analytics (app.event_survey_stats and per-question results). */
+export type FeedbackCsvExtras = { stats?: SurveyStats; questions?: QuestionResult[]; byDay?: DayCount[]; commentQuestion?: string | null };
+
+type CsvLine = (string | number | null)[];
+
+function questionLines(results: QuestionResult[], skipTextFor: string | null): CsvLine[] {
+  const lines: CsvLine[] = [["Question", "Answer type", "People who answered", "Result"]];
+  for (const q of results) {
+    if (q.type === "rating") {
+      lines.push([q.label, "Rating 1-5", q.answers, q.average === null ? null : q.average.toFixed(2)]);
+      for (const d of [...q.distribution].reverse()) lines.push([`  ${d.value} star${d.value === 1 ? "" : "s"}`, null, d.count, null]);
+    } else if (q.type === "nps") {
+      lines.push([q.label, "Likelihood to recommend 0-10", q.answers, q.nps]);
+      lines.push(["  Promoters (9-10)", null, q.promoters, null], ["  Passives (7-8)", null, q.passives, null], ["  Detractors (0-6)", null, q.detractors, null]);
+    } else if (q.type === "single" || q.type === "multi") {
+      lines.push([q.label, q.type === "single" ? "Pick one" : "Pick any", q.answers, null]);
+      for (const o of q.options) lines.push([`  ${o.label}`, null, o.count, null]);
+    } else {
+      lines.push([q.label, "Written answer", q.answers, null]);
+      // Flagged answers go to the event lead, not into a file. The comment question is listed in the comments table below.
+      if (q.id !== skipTextFor) for (const c of q.comments.filter((x) => !x.flagged)) lines.push([`  ${c.text}`, null, null, null]);
+    }
+  }
+  return lines;
+}
+
 /**
  * The export: combined totals, then anonymized comments (no names, ever).
  * Comments flagged for follow-up go to the event lead and are left out.
+ * `extras` adds the audience numbers, responses by day and the results of every question.
  */
-export function feedbackCsv(title: string, r: FeedbackResults): string {
-  const lines: (string | number | null)[][] = [
+export function feedbackCsv(title: string, r: FeedbackResults, extras: FeedbackCsvExtras = {}): string {
+  const { stats } = extras;
+  const rate = stats ? responseRate(stats.answered, stats.invited) : r.rate;
+  const audience: CsvLine[] = stats
+    ? [
+        ["Invited (adults with an active RSVP or who attended)", stats.invited],
+        ["People who answered", stats.answered],
+        ["Completions", stats.completions],
+        ["Points awarded in total", stats.pointsAwarded],
+      ]
+    : [];
+  const byDay: CsvLine[] = extras.byDay?.length ? [[], ["Responses by day"], ["Date", "Responses"], ...extras.byDay.map((d): CsvLine => [d.date, d.count])] : [];
+  const perQuestion: CsvLine[] = extras.questions?.length ? [[], ["Results by question"], ...questionLines(extras.questions, extras.commentQuestion ?? null)] : [];
+  const lines: CsvLine[] = [
     ["Survey", title],
+    ...audience,
     ["Responses", r.responses],
-    ["Response rate", formatPct(r.rate)],
+    ["Response rate", formatPct(rate)],
     ["Anonymous responses", r.anonymous],
     ["Overall rating (out of 5)", r.overall === null ? null : r.overall.toFixed(2)],
     ["Net promoter score", r.nps],
     ["Promoters", r.promoters],
     ["Detractors", r.detractors],
-    ...r.areas.map((a) => [`${a.label} (out of 5)`, a.average === null ? null : a.average.toFixed(2)]),
-    ...r.attended.map((a) => [`Attended: ${a.label}`, a.count]),
+    ...r.areas.map((a): CsvLine => [`${a.label} (out of 5)`, a.average === null ? null : a.average.toFixed(2)]),
+    ...r.attended.map((a): CsvLine => [`Attended: ${a.label}`, a.count]),
     ["Comments flagged to the event lead (not exported)", r.flagged],
+    ...byDay,
+    ...perQuestion,
     [],
     ["Rating", "Area", "Comment"],
-    ...r.comments.filter((c) => !c.flagged).map((c) => [c.rating, c.area, c.text]),
+    ...r.comments.filter((c) => !c.flagged).map((c): CsvLine => [c.rating, c.area, c.text]),
   ];
   return lines.map((l) => l.map(csvCell).join(",")).join("\r\n") + "\r\n";
 }

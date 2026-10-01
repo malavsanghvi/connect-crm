@@ -24,6 +24,7 @@ const TARGETS = {
   pledges: { access: "givingApprove", what: "the pledge write-off" },
   payments: { access: "givingApprove", what: "the refund" },
   eligibility_snapshots: { access: "peopleApprove", what: "the voting-eligibility override" },
+  rsvp_credit_releases: { access: "givingManage", what: "the credit" },
 } as const;
 
 export async function approveAsSecondAction(_prev: ActionResult | null, formData: FormData): Promise<ActionResult> {
@@ -33,6 +34,13 @@ export async function approveAsSecondAction(_prev: ActionResult | null, formData
   if (!target || !isUuid(id)) return { ok: false, error: "Could not approve — the request was not found." };
   const auth = await authorizeAction(target.access, `approve ${target.what}`);
   if (!auth.ok) return auth;
+  // Credit is not a two-person approval: the treasurer marks it handled after acting on it.
+  if (table === "rsvp_credit_releases") {
+    const done = await auth.session.db.rpc("resolve_rsvp_credit", { p_id: id });
+    if (done.error) return failure("Could not mark the credit as handled", done.error);
+    refresh();
+    return { ok: true, message: "Credit marked as handled." };
+  }
   const { error } = await auth.session.db.rpc("approve_as_second", { p_table: table, p_id: id });
   if (error) return failure(`Could not approve ${target.what}`, error);
   refresh();
