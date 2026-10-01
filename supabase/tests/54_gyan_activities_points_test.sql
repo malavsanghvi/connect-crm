@@ -4,9 +4,11 @@
 -- successful tries pay repeat_points up to the daily cap (default 10, rules.points.gyan_practice_daily_cap, clamped to
 -- 0-1000) per person per step per COMMUNITY-LOCAL day, then 0; failed tries are recorded and pay nothing; a success
 -- completes the step (step points still once ever); a level pays its points (no sign-off) and its treasure once, also
--- under a SHARED goal; sign-off levels keep paying on approval only; a progress row for another community's lesson is
--- refused and stars / completions never go backwards; a try sent twice (same try_id) is recorded and paid once; at most
--- 200 tries per step and day are stored; who reads the tries (class teachers only while the learner is in the class).
+-- under a SHARED goal; sign-off levels keep paying on approval only, and never for another community's level; a
+-- progress row for another community's lesson is refused, a row cannot be moved to another person or step, and stars /
+-- completions never go backwards; a try sent twice (same try_id) is recorded and paid once; at most 200 tries per step
+-- and day are stored (twice the cap when that is more), and a success past that still completes the step; who reads
+-- the tries (class teachers only while the learner is in the class).
 -- Not covered here: two connections racing (the per person+step and per person+level locks are never contended in a
 -- single-session test); see BACKLOG B44.
 \set ON_ERROR_STOP 1
@@ -321,6 +323,22 @@ update app.gyan_progress set completed_at = now() + interval '1 day' where perso
 commit;
 select pg_temp.assert((select stars = 3 and completed_at = :'s1_done'::timestamptz from app.gyan_progress where person_id = :p_kid and step_id = :s1),
   'a member cannot lower the stars or clear (or move) the completion of their own step');
+-- Nor move the row: onto another step of the same community (that step's awards would never fire), or, as a parent
+-- (who may update a child's row), onto themselves.
+begin;
+select pg_temp.sign_in(:kid);
+select pg_temp.assert_raises($$update app.gyan_progress set step_id = '54000000-0000-4000-8000-000000000d02' where person_id = '54000000-0000-4000-8000-0000000000a2' and step_id = '54000000-0000-4000-8000-000000000d01'$$,
+  'cannot be moved to another one', 'a member cannot move a completed step''s progress onto another step of the same community');
+commit;
+begin;
+select pg_temp.sign_in(:mom);
+select pg_temp.assert_raises($$update app.gyan_progress set person_id = '54000000-0000-4000-8000-0000000000a1' where person_id = '54000000-0000-4000-8000-0000000000a2' and step_id = '54000000-0000-4000-8000-000000000d01'$$,
+  'cannot be moved to someone else', 'a parent cannot move their child''s progress onto themselves');
+commit;
+select pg_temp.assert((select stars = 3 and completed_at = :'s1_done'::timestamptz from app.gyan_progress where person_id = :p_kid and step_id = :s1)
+                      and not exists (select 1 from app.gyan_progress where person_id = :p_kid and step_id = :s2)
+                      and not exists (select 1 from app.gyan_progress where person_id = :p_mom),
+  'the child''s completed step stays theirs and stays on its step');
 
 begin;
 select pg_temp.sign_in(:kid);
@@ -528,6 +546,12 @@ select pg_temp.rows('level', :l4) + pg_temp.rows('gyan_treasure', :l4) as foreig
 rollback;
 select pg_temp.assert(:'foreign_bonus'::int = 0 and :'foreign_rows'::int = 0,
   'the level award pays nothing for another community''s level, whatever the progress rows say');
+-- A sign-off request is checked only for the person, so one can name another community's level; approved here, it
+-- pays nothing.
+insert into app.gyan_signoffs (center_id, person_id, level_id) values (:c1, :p_kid, :l4);
+update app.gyan_signoffs set status = 'approved' where person_id = :p_kid and level_id = :l4;
+select pg_temp.assert(pg_temp.rows('level', :l4) = 0,
+  'approving a sign-off for another community''s level pays its points into no ledger');
 
 -- A SHARED goal: the community is the person's; one try can pay the try, the step, the level and its treasure.
 begin;
@@ -576,12 +600,24 @@ select app.record_gyan_attempt(:c1::uuid, :s9::uuid, true, 100) as m201 \gset
 commit;
 select pg_temp.assert((select count(*) from app.gyan_attempts where person_id = :p_kid and step_id = :s9) = 200,
   'the 200th try of a step in a day is stored, the 201st is not');
-select pg_temp.assert(:'m201'::jsonb = '{"points_awarded": 0, "tries_today": 0, "cap": 10, "first_time": false, "try_points": 0, "step_points": 0, "level_points": 0, "treasure_points": 0, "level_complete": false, "replayed": false}'::jsonb
-                      and (select array_agg(k order by k) from jsonb_object_keys(:'m201'::jsonb) k) = (select array_agg(k order by k) from jsonb_object_keys(:'t1'::jsonb) k),
-  'past the limit even a success answers in the usual shape, with every points figure 0');
-select pg_temp.assert(not exists (select 1 from app.gyan_progress where person_id = :p_kid and step_id = :s9)
-                      and pg_temp.rows('gyan_try', :s9) = 0 and pg_temp.rows('level', :s9) = 0,
-  'and pays and completes nothing');
+-- S9's level also holds S10, completed by the try sent twice above, so this success finishes the level (no points).
+select pg_temp.assert(:'m201'::jsonb = '{"points_awarded": 5, "tries_today": 0, "cap": 10, "first_time": true, "try_points": 0, "step_points": 5, "level_points": 0, "treasure_points": 0, "level_complete": true, "replayed": false}'::jsonb,
+  'past the limit a success earns no try points, but still completes the step (its own 5 points, the first time)');
+select pg_temp.assert((select completed_at is not null and stars = 3 from app.gyan_progress where person_id = :p_kid and step_id = :s9)
+                      and pg_temp.rows('gyan_try', :s9) = 0 and pg_temp.rows('level', :s9) = 1,
+  'so the app, which counts on a saved success having completed the step, never shows "done" for a step that is not');
+-- A community whose cap is above 100 keeps twice its cap: with a cap of 150 the 201st try is stored and paid.
+begin;
+update app.centers set rules = jsonb_set(coalesce(rules, '{}'::jsonb), '{points}', coalesce(rules->'points', '{}'::jsonb) || '{"gyan_practice_daily_cap": 150}') where id = :c1;
+insert into app.gyan_attempts (center_id, person_id, step_id, success, created_at)
+select :c1, :p_kid, :s5, false, now() from generate_series(1, 200);
+select pg_temp.sign_in(:kid);
+select app.record_gyan_attempt(:c1::uuid, :s5::uuid, true) as big201 \gset
+select count(*) as big_stored from app.gyan_attempts where person_id = :p_kid and step_id = :s5 \gset
+rollback;
+select pg_temp.assert((:'big201'::jsonb->>'try_points')::int = 2 and (:'big201'::jsonb->>'tries_today')::int = 1
+                      and (:'big201'::jsonb->>'cap')::int = 150 and :'big_stored'::int = 201,
+  'with a cap of 150 a step keeps up to 300 tries a day, so the 201st is stored and paid');
 
 -- The RPC pays try points only on tap-the-spots practice and voice, even for a step that somehow carries them (the
 -- table check is dropped here, inside a transaction that is rolled back).

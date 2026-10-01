@@ -113,6 +113,17 @@ export function readRuleSettings(rules: Json): RuleSettings {
   };
 }
 
+/**
+ * The Gyan Path practice cap that app.record_gyan_attempt actually applies (0570), for pages that describe it: any
+ * JSON number, rounded down and kept within 0-1000 (a value stored outside Settings › Rules, such as 2.7 or 1e10,
+ * included); anything else (missing, text) means the default of 10. The Rules form keeps using readRuleSettings, which
+ * shows only what the form itself can save.
+ */
+export function gyanPracticeDailyCap(rules: Json): number {
+  const v = at(rules, ["points", "gyan_practice_daily_cap"]);
+  return typeof v === "number" && Number.isFinite(v) ? Math.min(Math.max(Math.floor(v), 0), 1000) : RULE_DEFAULTS.points.gyanPracticeDailyCap;
+}
+
 /** The rules' version number; null when no structured save has happened yet. */
 export function rulesVersion(rules: Json): number | null {
   const v = at(rules, ["version"]);

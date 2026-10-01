@@ -25,7 +25,7 @@ import { fetchAll } from "@/lib/data/fetch-all";
 import { can, canAccess } from "@/lib/permissions";
 import { param, type RawSearchParams } from "@/lib/search-params";
 import { getSession } from "@/lib/session";
-import { readRuleSettings } from "@/lib/settings-rules";
+import { gyanPracticeDailyCap } from "@/lib/settings-rules";
 
 import { addStepAction, deleteStepAction, saveGoalAction, saveLevelAction } from "../actions";
 import { ContentHeader, contentGate } from "../shared";
@@ -138,8 +138,9 @@ export default async function GyanPathPage({ searchParams }: { searchParams: Pro
   const linkable = linkableRes?.data ?? [];
   const editable = Boolean(selected && selected.center_id !== null && canManage);
   const error = goals.error ?? levels.error ?? steps.error ?? items?.error ?? linkableRes?.error ?? null;
-  // Clamped to 0-1000 as app.record_gyan_attempt reads it, for a value stored outside Settings › Rules.
-  const tryCap = Math.min(Math.max(readRuleSettings(center.rules).points.gyanPracticeDailyCap, 0), 1000);
+  // Read as app.record_gyan_attempt reads it (a number rounded down, kept within 0-1000; anything else is 10), so a
+  // value stored outside Settings › Rules shows what members are really paid for.
+  const tryCap = gyanPracticeDailyCap(center.rules);
 
   return (
     <>

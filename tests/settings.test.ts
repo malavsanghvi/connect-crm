@@ -7,6 +7,7 @@ import { ENTITLEMENT_GROUPS, entitlementLabel, rightsCount, unknownPermissions }
 import { integrationRows } from "@/lib/integrations";
 import {
   applyRulesPatch,
+  gyanPracticeDailyCap,
   hourLabel,
   lunchRulesText,
   mergeRules,
@@ -105,6 +106,22 @@ describe("rule settings", () => {
       if (!v.ok) expect(v.errors.join(" ")).toContain("points.gyan_practice_daily_cap");
     }
     expect(validateRulesJson(JSON.stringify({ points: { gyan_practice_daily_cap: 0 } })).ok).toBe(true);
+  });
+  it("describes the Gyan Path practice cap the way app.record_gyan_attempt applies it", () => {
+    expect(gyanPracticeDailyCap(SEED_RULES)).toBe(10);
+    expect(gyanPracticeDailyCap(null)).toBe(10);
+    const cap = (v: unknown) => gyanPracticeDailyCap(JSON.parse(JSON.stringify({ points: { gyan_practice_daily_cap: v } })));
+    expect(cap(4)).toBe(4);
+    expect(cap(0)).toBe(0);
+    expect(cap(2.7)).toBe(2);
+    expect(cap(-3)).toBe(0);
+    expect(cap(-0.5)).toBe(0);
+    expect(cap(1e10)).toBe(1000);
+    expect(cap(1e300)).toBe(1000);
+    expect(cap("5")).toBe(10);
+    expect(cap(true)).toBe(10);
+    // The Rules form still shows only what it can save.
+    expect(readRuleSettings({ points: { gyan_practice_daily_cap: 2.7 } }).points.gyanPracticeDailyCap).toBe(10);
   });
   it("rejects bad values for the new keys in the JSON editor", () => {
     const bad = validateRulesJson(JSON.stringify({ onboarding: { fields: { gender: "maybe" } }, notifications: { triggers: { x: "yes" } }, points: { behind_after_days: 0 } }));

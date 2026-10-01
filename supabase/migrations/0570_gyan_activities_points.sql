@@ -21,14 +21,18 @@
 --     records the try; a successful try pays repeat_points while the person's successful tries of that step TODAY
 --     (the community's local day, centers.time_zone) are below centers.rules.points.gyan_practice_daily_cap
 --     (default 10). A success also completes the step (gyan_progress), so the first one pays the step's points.
---     Limits: detail at most 2 KB; at most 200 stored tries per person, step and community day (past that a call
---     stores, pays and completes nothing); detail.try_id (a UUID the app makes once per try) makes a retry safe:
---     the same try is answered from its first recording and never paid twice.
+--     Limits: detail at most 2 KB; at most 200 stored tries per person, step and community day, or twice the cap when
+--     that is more (past that a try is not stored and earns no try points, but a success still completes the step);
+--     detail.try_id (a UUID the app makes once per try) makes a retry safe: the same try is answered from its first
+--     recording and never paid twice.
 --   Level completion bonus (trigger on gyan_progress): when a person has completed every step of a level, once:
 --     the level's points if the level does NOT need a teacher sign-off (sign-off levels keep paying on approval, 0017)
 --     plus treasure_points. Steps of SHARED goals (center_id null) pay into the community of the progress row.
+--     A teacher's sign-off approval (0017) likewise pays only for a level of the community's own goal or the shared
+--     library.
 --   app.gyan_progress guard (members still write their own progress rows): a step of another community's goal is
---     refused, stars never go down and a completed step stays completed.
+--     refused, a row cannot be moved to another person or step, stars never go down and a completed step stays
+--     completed.
 --
 -- Points ledger reasons: 'gyan_try' (a practice try) and 'gyan_treasure' (a level's treasure) are new. Step points
 -- and level points keep 'level' (ref_id = step / level), so the existing once-only guards, and this migration's,
@@ -38,11 +42,12 @@ set client_min_messages = warning;
 
 -- ── Locks first ──────────────────────────────────────────────────────────────
 -- A deploy applies this file as ONE transaction (migrate.sh --single-transaction) and it changes four tables that a
--- member completing a step also uses. Take them all now, in the order a live completion takes them (gyan_progress,
--- then gyan_steps and gyan_levels, then points_ledger), so the two cannot deadlock; and wait at most 10 seconds, so
--- a busy moment fails the deploy cleanly (run it again) instead of queueing every member behind it. Inside a DO block
--- because LOCK TABLE needs a transaction: where files are applied statement by statement (supabase/tests/
--- run_local.sh) the locks end with the block and change nothing.
+-- member completing a step also uses. Take them all at once, before changing anything, in the order a member's own
+-- completion takes them (the gyan_progress write, whose triggers then read gyan_steps and gyan_levels and write
+-- points_ledger; app.record_gyan_attempt, new here, also writes gyan_progress before points_ledger), and wait at most
+-- 10 seconds, so a busy moment fails the deploy cleanly (run it again) instead of queueing every member behind it.
+-- Inside a DO block because LOCK TABLE needs a transaction: where files are applied statement by statement
+-- (supabase/tests/run_local.sh) the locks end with the block and change nothing.
 do $$
 begin
   set local lock_timeout = '10s';
@@ -371,7 +376,7 @@ create index if not exists gyan_attempts_person_step_idx on app.gyan_attempts (p
 create index if not exists gyan_attempts_center_idx on app.gyan_attempts (center_id, created_at desc);
 create unique index if not exists gyan_attempts_try_idx on app.gyan_attempts (person_id, try_id) where try_id is not null;
 comment on table app.gyan_attempts is
-  'Gyan Path practice tries (0570): one row per try, successful or not, with an optional 0-100 score, what the app wants to remember (detail: e.g. the words to fix, at most 2 KB) and the repeat points the try earned. At most 200 are kept per person, step and community-local day. Written only by app.record_gyan_attempt; read by the person, the adults of their household and Pathshala teachers.';
+  'Gyan Path practice tries (0570): one row per try, successful or not, with an optional 0-100 score, what the app wants to remember (detail: e.g. the words to fix, at most 2 KB) and the repeat points the try earned. At most 200 are kept per person, step and community-local day (twice the daily cap when that is more). Written only by app.record_gyan_attempt; read by the person, the adults of their household and Pathshala teachers.';
 comment on column app.gyan_attempts.center_id is 'The community the try was made in (for a shared goal, the person''s community).';
 comment on column app.gyan_attempts.points is 'Repeat points this try earned (0 when it failed or the daily cap was reached).';
 comment on column app.gyan_attempts.try_id is
@@ -412,11 +417,15 @@ grant all on app.gyan_attempts to service_role;
 -- Members write their own gyan_progress rows (gyan_progress_own, 0010: the member app completes a step that way),
 -- and the step points (0018) and the level bonus (below) are paid from this table, so the row itself is checked:
 --   * a step of another community's goal is refused (a step of the shared library, goal center_id null, is anyone's);
+--   * on an update, a row stays with its person and its step: moving it (a parent may update a child's row, and
+--     gyan_progress_own only checks the new person is the writer) would take a completion away from one person or
+--     step and give it to another without the awards, which fire on completed_at only;
 --   * on an update, the stars never go down and a completed step stays completed, so clearing completed_at and
 --     setting it again cannot be used to re-run the awards.
--- Nothing in the platform lowers stars or clears completed_at on purpose (looked for in every migration, seed.sql,
--- the RPCs, the portal, connect-admin and the member app), so there is no exempt path. A row can still be deleted;
--- whatever it paid stays paid once (the ledger's once-only keys).
+-- Nothing in the platform moves a row, lowers stars or clears completed_at on purpose (looked for in every migration,
+-- seed.sql, the RPCs and the person merge, the portal, connect-admin and the member app, whose upserts write the same
+-- person and step back), so there is no exempt path. A row can still be deleted; whatever it paid stays paid once
+-- (the ledger's once-only keys).
 create or replace function app.gyan_progress_guard() returns trigger
 language plpgsql security definer set search_path = app, public, extensions as $$
 declare v_goal_center uuid;
@@ -428,13 +437,20 @@ begin
     raise exception 'That lesson belongs to another community.' using errcode = 'insufficient_privilege';
   end if;
   if tg_op = 'UPDATE' then
+    if new.person_id is distinct from old.person_id then
+      raise exception 'Lesson progress stays with the person who made it; it cannot be moved to someone else.'
+        using errcode = 'insufficient_privilege';
+    end if;
+    if new.step_id is distinct from old.step_id then
+      raise exception 'Lesson progress stays with its own step; it cannot be moved to another one.' using errcode = '22023';
+    end if;
     new.stars := greatest(old.stars, new.stars);
     new.completed_at := coalesce(old.completed_at, new.completed_at);
   end if;
   return new;
 end $$;
 drop trigger if exists gyan_progress_guard on app.gyan_progress;
-create trigger gyan_progress_guard before insert or update of step_id, center_id, completed_at, stars on app.gyan_progress
+create trigger gyan_progress_guard before insert or update of person_id, step_id, center_id, completed_at, stars on app.gyan_progress
   for each row execute function app.gyan_progress_guard();
 
 -- ── Completing a level: its points (no sign-off) and its treasure, once ──────
@@ -486,7 +502,9 @@ drop trigger if exists gyan_progress_level_bonus on app.gyan_progress;
 create trigger gyan_progress_level_bonus after insert or update of completed_at on app.gyan_progress
   for each row execute function app.gyan_progress_level_bonus();
 
--- 0017's sign-off award, unchanged except that it takes the same per-person-and-level lock.
+-- 0017's sign-off award. It now takes the same per-person-and-level lock, and pays only for a level of this
+-- community's own goal or of the shared library, like the level bonus above: a sign-off request is checked only for
+-- the person (gyan_signoffs_request), so a request for another community's level, once approved, must pay nothing.
 create or replace function app.award_signoff_points() returns trigger
 language plpgsql security definer set search_path = app, public, extensions as $$
 begin
@@ -494,7 +512,9 @@ begin
     perform pg_advisory_xact_lock(hashtextextended('app.gyan_level_award:' || new.person_id::text || ':' || new.level_id::text, 0));
     insert into app.points_ledger (center_id, person_id, points, reason, ref_id, note)
     select new.center_id, new.person_id, coalesce(l.points, 0), 'level', new.level_id, 'Teacher sign-off: ' || l.name
-      from app.gyan_levels l where l.id = new.level_id and coalesce(l.points, 0) > 0
+      from app.gyan_levels l join app.gyan_goals g on g.id = l.goal_id
+     where l.id = new.level_id and coalesce(l.points, 0) > 0
+       and (g.center_id is null or g.center_id = new.center_id)
        and not exists (select 1 from app.points_ledger p where p.person_id = new.person_id and p.reason = 'level' and p.ref_id = new.level_id);
   end if;
   return new;
@@ -513,12 +533,15 @@ update app.demo_packs p
 -- Limits, so a script (or a stuck button) cannot fill the database: every stored try is also copied into the
 -- append-only audit log, so each one is kept for good.
 --   * p_detail: at most 2 KB.
---   * At most 200 tries of one step are stored per person per community-local day, successful or not. Past that a
---     call stores nothing, pays nothing and completes nothing; it answers in the usual shape, with every points
---     figure 0 (a learner practising normally never gets near it; the points cap is far lower).
+--   * At most 200 tries of one step are stored per person per community-local day, successful or not, or twice the
+--     daily cap when the community set it above 100 (so every try the cap pays for still fits). Past that the try is
+--     not stored and earns no try points (a learner practising normally never gets near it). A success still
+--     completes the step, with its once-only awards, because the app counts on a saved success having done that;
+--     it is one progress row per person and step, so storage stays bounded.
 --   * p_detail.try_id (optional): a UUID the app makes once for each try and sends again, unchanged, when it retries.
 --     A try that is already recorded is answered with what it got the first time plus "replayed": true; nothing is
---     recorded or paid again. The same try_id on another step is refused.
+--     recorded or paid again. The same try_id on another step is refused. (A try past the storage limit is not
+--     kept, so neither is its try_id; sent again, it again stores and pays nothing.)
 create or replace function app.record_gyan_attempt(p_center uuid, p_step uuid, p_success boolean,
                                                    p_score integer default null, p_detail jsonb default '{}'::jsonb)
 returns jsonb
@@ -589,47 +612,48 @@ begin
   v_to := (v_today + 1)::timestamp at time zone c.time_zone;
   select count(*) filter (where a.success), count(*) into v_tries, v_stored from app.gyan_attempts a
    where a.person_id = v_person and a.step_id = p_step and a.created_at >= v_from and a.created_at < v_to;
-  v_store := v_stored < 200;
+  -- The storage limit (see above): 200 tries a day, or twice the cap when that is more.
+  v_store := v_stored < greatest(200, 2 * v_cap);
 
-  if v_store then
-    -- Repeat points only for the kinds the app offers tries for (gyan_steps_repeat_points_kind, checked again here).
-    if p_success and v_tries < v_cap and coalesce(s.repeat_points, 0) > 0
-       and (s.kind = 'voice' or (s.kind = 'hotspot' and coalesce(s.activity->>'mode', '') = 'practice')) then
-      v_try_pts := s.repeat_points;
-    end if;
+  perform set_config('app.audit_reason', 'Gyan Path practice try', true);
 
-    perform set_config('app.audit_reason', 'Gyan Path practice try', true);
-    if v_try_pts > 0 then
-      insert into app.points_ledger (center_id, person_id, points, reason, ref_id, note)
-        values (p_center, v_person, v_try_pts, 'gyan_try', p_step, 'Gyan Path practice: ' || s.title);
-    end if;
+  if p_success then
+    -- A success completes the step, also past the storage limit: the first one pays the step's points (0018) and,
+    -- when it finishes the level, the level bonus (above). What those once-only awards paid in this call is read back
+    -- from the ledger.
+    select coalesce(sum(p.points) filter (where p.reason = 'level' and p.ref_id = p_step), 0),
+           coalesce(sum(p.points) filter (where p.reason = 'level' and p.ref_id = l.id), 0),
+           coalesce(sum(p.points) filter (where p.reason = 'gyan_treasure' and p.ref_id = l.id), 0)
+      into b_step, b_level, b_treasure
+      from app.points_ledger p
+     where p.center_id = p_center and p.person_id = v_person and p.ref_id in (p_step, l.id) and p.reason in ('level', 'gyan_treasure');
 
-    if p_success then
-      -- A success completes the step: the first one pays the step's points (0018) and, when it finishes the level,
-      -- the level bonus (above). What those once-only awards paid in this call is read back from the ledger.
-      select coalesce(sum(p.points) filter (where p.reason = 'level' and p.ref_id = p_step), 0),
-             coalesce(sum(p.points) filter (where p.reason = 'level' and p.ref_id = l.id), 0),
-             coalesce(sum(p.points) filter (where p.reason = 'gyan_treasure' and p.ref_id = l.id), 0)
-        into b_step, b_level, b_treasure
-        from app.points_ledger p
-       where p.center_id = p_center and p.person_id = v_person and p.ref_id in (p_step, l.id) and p.reason in ('level', 'gyan_treasure');
+    select gp.completed_at into v_prev_done from app.gyan_progress gp where gp.person_id = v_person and gp.step_id = p_step for update;
+    v_first := v_prev_done is null;
+    v_stars := case when p_score is null then 0 when p_score >= 90 then 3 when p_score >= 60 then 2 else 1 end;
+    insert into app.gyan_progress (center_id, person_id, step_id, stars, completed_at)
+      values (p_center, v_person, p_step, v_stars, now())
+    on conflict (person_id, step_id) do update
+      set stars = greatest(app.gyan_progress.stars, excluded.stars),
+          completed_at = coalesce(app.gyan_progress.completed_at, excluded.completed_at);
 
-      select gp.completed_at into v_prev_done from app.gyan_progress gp where gp.person_id = v_person and gp.step_id = p_step for update;
-      v_first := v_prev_done is null;
-      v_stars := case when p_score is null then 0 when p_score >= 90 then 3 when p_score >= 60 then 2 else 1 end;
-      insert into app.gyan_progress (center_id, person_id, step_id, stars, completed_at)
-        values (p_center, v_person, p_step, v_stars, now())
-      on conflict (person_id, step_id) do update
-        set stars = greatest(app.gyan_progress.stars, excluded.stars),
-            completed_at = coalesce(app.gyan_progress.completed_at, excluded.completed_at);
+    select coalesce(sum(p.points) filter (where p.reason = 'level' and p.ref_id = p_step), 0) - b_step,
+           coalesce(sum(p.points) filter (where p.reason = 'level' and p.ref_id = l.id), 0) - b_level,
+           coalesce(sum(p.points) filter (where p.reason = 'gyan_treasure' and p.ref_id = l.id), 0) - b_treasure
+      into a_step, a_level, a_treasure
+      from app.points_ledger p
+     where p.center_id = p_center and p.person_id = v_person and p.ref_id in (p_step, l.id) and p.reason in ('level', 'gyan_treasure');
+  end if;
 
-      select coalesce(sum(p.points) filter (where p.reason = 'level' and p.ref_id = p_step), 0) - b_step,
-             coalesce(sum(p.points) filter (where p.reason = 'level' and p.ref_id = l.id), 0) - b_level,
-             coalesce(sum(p.points) filter (where p.reason = 'gyan_treasure' and p.ref_id = l.id), 0) - b_treasure
-        into a_step, a_level, a_treasure
-        from app.points_ledger p
-       where p.center_id = p_center and p.person_id = v_person and p.ref_id in (p_step, l.id) and p.reason in ('level', 'gyan_treasure');
-    end if;
+  -- Repeat points: a stored success below the cap, and only for the kinds the app offers tries for
+  -- (gyan_steps_repeat_points_kind, checked again here). Written after the progress row, so this call takes
+  -- gyan_progress before points_ledger, as a member's own completion does. (The read-back above only looks at
+  -- 'level' and 'gyan_treasure' rows, so this row is never counted twice.)
+  if v_store and p_success and v_tries < v_cap and coalesce(s.repeat_points, 0) > 0
+     and (s.kind = 'voice' or (s.kind = 'hotspot' and coalesce(s.activity->>'mode', '') = 'practice')) then
+    v_try_pts := s.repeat_points;
+    insert into app.points_ledger (center_id, person_id, points, reason, ref_id, note)
+      values (p_center, v_person, v_try_pts, 'gyan_try', p_step, 'Gyan Path practice: ' || s.title);
   end if;
 
   select count(*), count(gp.completed_at) into v_total, v_done
@@ -663,11 +687,11 @@ begin
 end $$;
 
 comment on function app.record_gyan_attempt(uuid, uuid, boolean, integer, jsonb) is
-  'Member (of p_center, Gyan Path on): record one try of a lesson step for yourself. A success earns the step''s repeat_points (hotspot practice and voice steps only) while your successful tries of that step today (community-local day) are below rules.points.gyan_practice_daily_cap (default 10, clamped to 0-1000), and completes the step (first time: the step''s points; last step of a level: the level bonus). Returns {points_awarded, tries_today, cap, first_time, try_points, step_points, level_points, treasure_points, level_complete, replayed}; points_awarded is everything this call paid. Limits: p_detail at most 2 KB; at most 200 tries stored per person, step and community-local day (past that nothing is stored, paid or completed, and every points figure is 0); p_detail.try_id (a UUID made once per try) makes a retry safe: the same try returns its first answer with replayed = true and pays nothing.';
+  'Member (of p_center, Gyan Path on): record one try of a lesson step for yourself. A success earns the step''s repeat_points (hotspot practice and voice steps only) while your successful tries of that step today (community-local day) are below rules.points.gyan_practice_daily_cap (default 10, clamped to 0-1000), and completes the step (first time: the step''s points; last step of a level: the level bonus). Returns {points_awarded, tries_today, cap, first_time, try_points, step_points, level_points, treasure_points, level_complete, replayed}; points_awarded is everything this call paid. Limits: p_detail at most 2 KB; at most 200 tries stored per person, step and community-local day, or twice the cap when that is more (past that the try is not stored and earns no try points, but a success still completes the step); p_detail.try_id (a UUID made once per try) makes a retry safe: the same try returns its first answer with replayed = true and pays nothing.';
 comment on function app.gyan_award_level_bonus(uuid, uuid, uuid) is
   'Internal: once every step of the level is complete for the person, pay the level''s points (only when it needs no teacher sign-off) and its treasure_points, each once ever. Pays nothing for a level of another community''s goal. Returns what it paid now.';
 comment on function app.gyan_progress_guard() is
-  'Internal (trigger on app.gyan_progress): refuses a step of another community''s goal ("That lesson belongs to another community."); on an update keeps the higher stars and the first completed_at.';
+  'Internal (trigger on app.gyan_progress): refuses a step of another community''s goal ("That lesson belongs to another community."); on an update refuses moving the row to another person or step, and keeps the higher stars and the first completed_at.';
 comment on function app.gyan_activity_problems(text, jsonb) is
   'Plain-English problems with a Gyan Path step''s activity payload for its kind (empty = fine). Used on every write of app.gyan_steps.';
 comment on function app.gyan_quiz_problems(jsonb) is
