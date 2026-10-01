@@ -2,7 +2,7 @@
 // app shows on Home, under the "Today at {center}" card. Pure — the Settings ›
 // Member app card, its Server Action, the rules validation and the tests share it.
 //
-// Stored as an ordered list of keys. Key absent → all five, in the order below.
+// Stored as an ordered list of keys. Key absent → all six, in the order below.
 // Empty list → no strip. Unknown keys are ignored when read (the member app does
 // the same), so an older app never breaks on a newer key.
 
@@ -12,6 +12,7 @@ export const HOME_SHORTCUTS = [
   { key: "photos", label: "Event photos", module: "content", opens: "Events › Photos" },
   { key: "recipe", label: "Jain recipe", module: "content", opens: "A random fully Jain recipe from the media library" },
   { key: "podcast", label: "Podcast", module: "content", opens: "Starts a random podcast from the media library" },
+  { key: "guide", label: "New to the community", module: null, opens: "The welcome guide (\"New to {community}? Start here\": WhatsApp groups, zones, timings, volunteering)" },
 ] as const;
 
 export type HomeShortcutKey = (typeof HOME_SHORTCUTS)[number]["key"];
@@ -31,7 +32,7 @@ function isObj(v: unknown): v is Record<string, unknown> {
   return typeof v === "object" && v !== null && !Array.isArray(v);
 }
 
-/** The shortcuts members see, in order (absent → all five; unknown and repeated keys ignored). */
+/** The shortcuts members see, in order (absent → all six; unknown and repeated keys ignored). */
 export function readHomeShortcuts(rules: unknown): HomeShortcutKey[] {
   const home = isObj(rules) ? rules.home : undefined;
   const stored = isObj(home) ? home.shortcuts : undefined;

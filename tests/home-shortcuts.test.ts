@@ -14,11 +14,11 @@ import {
 import { applyRulesPatch } from "@/lib/settings-rules";
 
 describe("reading rules.home.shortcuts", () => {
-  it("shows all five in the default order when the key is absent", () => {
-    expect(HOME_SHORTCUT_KEYS).toEqual(["learn", "playlist", "photos", "recipe", "podcast"]);
-    expect(readHomeShortcuts(null)).toEqual(["learn", "playlist", "photos", "recipe", "podcast"]);
-    expect(readHomeShortcuts({ home: {} })).toEqual(["learn", "playlist", "photos", "recipe", "podcast"]);
-    expect(readHomeShortcuts({ home: { shortcuts: "learn" } })).toEqual(["learn", "playlist", "photos", "recipe", "podcast"]);
+  it("shows all six in the default order when the key is absent", () => {
+    expect(HOME_SHORTCUT_KEYS).toEqual(["learn", "playlist", "photos", "recipe", "podcast", "guide"]);
+    expect(readHomeShortcuts(null)).toEqual(["learn", "playlist", "photos", "recipe", "podcast", "guide"]);
+    expect(readHomeShortcuts({ home: {} })).toEqual(["learn", "playlist", "photos", "recipe", "podcast", "guide"]);
+    expect(readHomeShortcuts({ home: { shortcuts: "learn" } })).toEqual(["learn", "playlist", "photos", "recipe", "podcast", "guide"]);
   });
   it("keeps the stored order, shows nothing for an empty list, ignores unknown and repeated keys", () => {
     expect(readHomeShortcuts({ home: { shortcuts: ["podcast", "learn"] } })).toEqual(["podcast", "learn"]);
@@ -32,6 +32,7 @@ describe("reading rules.home.shortcuts", () => {
       { key: "playlist", on: false },
       { key: "photos", on: false },
       { key: "recipe", on: false },
+      { key: "guide", on: false },
     ]);
     expect(shownShortcuts(homeShortcutRows(null))).toEqual(HOME_SHORTCUT_KEYS);
   });
@@ -40,10 +41,10 @@ describe("reading rules.home.shortcuts", () => {
 describe("editing the shortcuts", () => {
   const rows = homeShortcutRows(null);
   it("moves a row up or down and ignores moves past either end", () => {
-    expect(shownShortcuts(moveShortcut(rows, 4, -1))).toEqual(["learn", "playlist", "photos", "podcast", "recipe"]);
-    expect(shownShortcuts(moveShortcut(rows, 0, 1))).toEqual(["playlist", "learn", "photos", "recipe", "podcast"]);
+    expect(shownShortcuts(moveShortcut(rows, 4, -1))).toEqual(["learn", "playlist", "photos", "podcast", "recipe", "guide"]);
+    expect(shownShortcuts(moveShortcut(rows, 0, 1))).toEqual(["playlist", "learn", "photos", "recipe", "podcast", "guide"]);
     expect(moveShortcut(rows, 0, -1)).toEqual(rows);
-    expect(moveShortcut(rows, 4, 1)).toEqual(rows);
+    expect(moveShortcut(rows, 5, 1)).toEqual(rows);
   });
   it("counts changes for the Save button", () => {
     expect(homeShortcutChanges(["learn", "playlist"], ["learn", "playlist"])).toBe(0);
@@ -61,6 +62,7 @@ describe("editing the shortcuts", () => {
   it("describes the saved strip", () => {
     expect(describeShortcuts(["learn", "recipe", "podcast"])).toBe("Learn, Jain recipe and Podcast");
     expect(describeShortcuts(["photos"])).toBe("Event photos");
+    expect(describeShortcuts(["guide", "podcast"])).toBe("New to the community and Podcast");
     expect(describeShortcuts([])).toBe("none");
   });
 });

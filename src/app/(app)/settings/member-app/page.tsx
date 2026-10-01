@@ -46,7 +46,7 @@ export default async function MemberAppSettingsPage() {
   // A shortcut whose module is switched off is not shown to members, whatever is saved here.
   const moduleNotes: Partial<Record<HomeShortcutKey, string>> = {};
   for (const s of HOME_SHORTCUTS) {
-    if (!isModuleEnabled(session, s.module)) moduleNotes[s.key] = `${moduleLabelFor(s.module)} is switched off (Settings › Modules), so members do not see this shortcut.`;
+    if (s.module && !isModuleEnabled(session, s.module)) moduleNotes[s.key] = `${moduleLabelFor(s.module)} is switched off (Settings › Modules), so members do not see this shortcut.`;
   }
   const homeShortcuts = (
     <HomeShortcutsCard initial={homeShortcutRows(center.rules)} version={rulesVersion(center.rules)} centerName={name} moduleNotes={moduleNotes} canEdit />
