@@ -61,7 +61,7 @@ describe("rule settings", () => {
     expect(bs).toEqual({ ok: true, patch: { boli: { step_cents: 2100 }, store: { gift_pack_cents: 299, cancel_hours_before_pickup: 24 } } });
   });
   it("refuses bad input in plain English", () => {
-    const r = parseSection("points", form({ day_complete_bonus: "x", streak_rest_days_per_month: "1", anumodana_points: "5", anumodana_daily_cap: "5", support_points: "3", behind_after_days: "0" }));
+    const r = parseSection("points", form({ day_complete_bonus: "x", streak_rest_days_per_month: "1", anumodana_points: "5", anumodana_daily_cap: "5", support_points: "3", behind_after_days: "0", gyan_practice_daily_cap: "10" }));
     expect(r.ok).toBe(false);
     if (!r.ok) {
       expect(r.error).toContain("day-complete bonus must be a whole number");
@@ -80,6 +80,31 @@ describe("rule settings", () => {
       expect(p.ok).toBe(true);
       if (p.ok) expect(validateRulesJson(JSON.stringify(applyRulesPatch(SEED_RULES, p.patch).rules)).ok).toBe(true);
     }
+  });
+  it("reads, edits and checks the Gyan Path practice tries a day (default 10, as app.record_gyan_attempt)", () => {
+    expect(RULE_DEFAULTS.points.gyanPracticeDailyCap).toBe(10);
+    expect(readRuleSettings(SEED_RULES).points.gyanPracticeDailyCap).toBe(10);
+    expect(readRuleSettings({ points: { gyan_practice_daily_cap: 4 } }).points.gyanPracticeDailyCap).toBe(4);
+    const points = { day_complete_bonus: "20", streak_rest_days_per_month: "1", anumodana_points: "5", anumodana_daily_cap: "5", support_points: "3", behind_after_days: "3" };
+    const ok = parseSection("points", form({ ...points, gyan_practice_daily_cap: "12" }));
+    expect(ok).toEqual({
+      ok: true,
+      patch: { points: { day_complete_bonus: 20, streak_rest_days_per_month: 1, anumodana_points: 5, anumodana_daily_cap: 5, support_points: 3, behind_after_days: 3, gyan_practice_daily_cap: 12 } },
+    });
+    if (ok.ok) expect(validateRulesJson(JSON.stringify(applyRulesPatch(SEED_RULES, ok.patch).rules)).ok).toBe(true);
+    const zero = parseSection("points", form({ ...points, gyan_practice_daily_cap: "0" }));
+    expect(zero.ok && zero.patch.points).toMatchObject({ gyan_practice_daily_cap: 0 });
+    for (const bad of ["", "-1", "2.5", "1001", "ten"]) {
+      const r = parseSection("points", form({ ...points, gyan_practice_daily_cap: bad }));
+      expect(r.ok).toBe(false);
+      if (!r.ok) expect(r.error).toContain("Gyan Path practice tries a day");
+    }
+    for (const bad of [-1, 1001, 2.5, "10"]) {
+      const v = validateRulesJson(JSON.stringify({ points: { gyan_practice_daily_cap: bad } }));
+      expect(v.ok).toBe(false);
+      if (!v.ok) expect(v.errors.join(" ")).toContain("points.gyan_practice_daily_cap");
+    }
+    expect(validateRulesJson(JSON.stringify({ points: { gyan_practice_daily_cap: 0 } })).ok).toBe(true);
   });
   it("rejects bad values for the new keys in the JSON editor", () => {
     const bad = validateRulesJson(JSON.stringify({ onboarding: { fields: { gender: "maybe" } }, notifications: { triggers: { x: "yes" } }, points: { behind_after_days: 0 } }));

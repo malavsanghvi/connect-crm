@@ -2492,6 +2492,42 @@ export type Database = {
         };
         Relationships: [];
       };
+      gyan_attempts: {
+        Row: {
+          id: string;
+          center_id: string;
+          person_id: string;
+          step_id: string;
+          success: boolean;
+          score: number | null;
+          detail: Json;
+          points: number;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          center_id: string;
+          person_id: string;
+          step_id: string;
+          success: boolean;
+          score?: number | null;
+          detail?: Json;
+          points?: number;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          center_id?: string;
+          person_id?: string;
+          step_id?: string;
+          success?: boolean;
+          score?: number | null;
+          detail?: Json;
+          points?: number;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
       gyan_goals: {
         Row: {
           id: string;
@@ -2546,6 +2582,7 @@ export type Database = {
           requires_teacher_signoff: boolean;
           chapter: string | null;
           custom: Json;
+          treasure_points: number;
         };
         Insert: {
           id?: string;
@@ -2558,6 +2595,7 @@ export type Database = {
           requires_teacher_signoff?: boolean;
           chapter?: string | null;
           custom?: Json;
+          treasure_points?: number;
         };
         Update: {
           id?: string;
@@ -2570,6 +2608,7 @@ export type Database = {
           requires_teacher_signoff?: boolean;
           chapter?: string | null;
           custom?: Json;
+          treasure_points?: number;
         };
         Relationships: [];
       };
@@ -2653,6 +2692,8 @@ export type Database = {
           sort_order: number;
           points: number;
           custom: Json;
+          activity: Json;
+          repeat_points: number;
         };
         Insert: {
           id?: string;
@@ -2664,6 +2705,8 @@ export type Database = {
           sort_order?: number;
           points?: number;
           custom?: Json;
+          activity?: Json;
+          repeat_points?: number;
         };
         Update: {
           id?: string;
@@ -2675,6 +2718,8 @@ export type Database = {
           sort_order?: number;
           points?: number;
           custom?: Json;
+          activity?: Json;
+          repeat_points?: number;
         };
         Relationships: [];
       };
@@ -9740,12 +9785,50 @@ export type Database = {
         };
         Returns: string;
       };
+      gyan_activity_problems: {
+        Args: {
+          p_kind: string;
+          p_activity: Json;
+        };
+        Returns: string[];
+      };
+      gyan_is_text: {
+        Args: {
+          p: Json;
+          p_max?: number;
+        };
+        Returns: boolean;
+      };
+      gyan_list_len: {
+        Args: {
+          p: Json;
+        };
+        Returns: number;
+      };
+      gyan_media_ref_ok: {
+        Args: {
+          p: Json;
+        };
+        Returns: boolean;
+      };
+      gyan_num: {
+        Args: {
+          p: Json;
+        };
+        Returns: number;
+      };
       gyan_off_goal_ids: {
         Args: Record<PropertyKey, never>;
         Returns: string[];
       };
       gyan_off_level_ids: {
         Args: Record<PropertyKey, never>;
+        Returns: string[];
+      };
+      gyan_quiz_problems: {
+        Args: {
+          p_quiz: Json;
+        };
         Returns: string[];
       };
       has_permission: {
@@ -10844,6 +10927,16 @@ export type Database = {
           p_detail?: Json;
         };
         Returns: undefined;
+      };
+      record_gyan_attempt: {
+        Args: {
+          p_center: string;
+          p_step: string;
+          p_success: boolean;
+          p_score?: number;
+          p_detail?: Json;
+        };
+        Returns: Json;
       };
       record_history: {
         Args: {

@@ -103,6 +103,8 @@ const RULE_CHECKS: Check[] = [
   { path: "points.day_complete_bonus", kind: "int", min: 0, max: 1000 },
   { path: "points.streak_rest_days_per_month", kind: "int", min: 0, max: 31 },
   { path: "points.behind_after_days", kind: "int", min: 1, max: 60 },
+  // Gyan Path: successful practice tries per person per activity per community day that earn repeat points (0570).
+  { path: "points.gyan_practice_daily_cap", kind: "int", min: 0, max: 1000 },
   { path: "timings", kind: "object" },
   { path: "timings.derasar_hours", kind: "string" },
   { path: "timings.aarti", kind: "string" },

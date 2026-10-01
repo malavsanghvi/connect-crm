@@ -9,6 +9,8 @@
 //   membership.life_prior_yearly_months     0 | 12 | 24  prior Yearly membership before Life
 //   points.streak_rest_days_per_month       rest days that keep a streak alive
 //   points.behind_after_days                days without practice before a member is "behind"
+//   points.gyan_practice_daily_cap          Gyan Path tries a day per activity that earn points (0570; read by
+//                                           app.record_gyan_attempt, default 10)
 //   onboarding.fields.<field>               "required" | "optional" | "hidden"
 //   notifications.quiet_start_hour / quiet_end_hour / event_day_during_quiet_hours / triggers.<key>
 //   security.printed_signin_codes / admin_session_hours / admin_idle_minutes
@@ -54,6 +56,8 @@ export type RuleSettings = {
     dayCompleteBonus: number;
     streakRestDaysPerMonth: number;
     behindAfterDays: number;
+    /** Successful Gyan Path practice tries per person, per activity, per community day that earn points. */
+    gyanPracticeDailyCap: number;
   };
 };
 
@@ -69,7 +73,7 @@ export const RULE_DEFAULTS: RuleSettings = {
   lunch: { slotMinutes: 15, familyWithChildUnder12AtStart: true, seniorAtStart: true, reminderMinutesBefore: 5 },
   rsvp: { confirmationHoursBefore: 24, nudgeHourLocal: 18 },
   store: { giftPackCents: 299, cancelHoursBeforePickup: 24 },
-  points: { anumodanaPoints: 5, anumodanaDailyCap: 5, supportPoints: 3, dayCompleteBonus: 20, streakRestDaysPerMonth: 1, behindAfterDays: 3 },
+  points: { anumodanaPoints: 5, anumodanaDailyCap: 5, supportPoints: 3, dayCompleteBonus: 20, streakRestDaysPerMonth: 1, behindAfterDays: 3, gyanPracticeDailyCap: 10 },
 };
 
 export function readRuleSettings(rules: Json): RuleSettings {
@@ -104,6 +108,7 @@ export function readRuleSettings(rules: Json): RuleSettings {
       dayCompleteBonus: int(r("points", "day_complete_bonus"), d.points.dayCompleteBonus),
       streakRestDaysPerMonth: int(r("points", "streak_rest_days_per_month"), d.points.streakRestDaysPerMonth),
       behindAfterDays: int(r("points", "behind_after_days"), d.points.behindAfterDays),
+      gyanPracticeDailyCap: int(r("points", "gyan_practice_daily_cap"), d.points.gyanPracticeDailyCap),
     },
   };
 }
@@ -377,6 +382,7 @@ export function parseSection(section: RulesSection, read: Read): ParsedSection {
         anumodana_daily_cap: wholeNumber(read, "anumodana_daily_cap", "The anumodana daily limit", 0, 1000),
         support_points: wholeNumber(read, "support_points", "Saathi support points", 0, 1000),
         behind_after_days: wholeNumber(read, "behind_after_days", "\"Behind\" after", 1, 60),
+        gyan_practice_daily_cap: wholeNumber(read, "gyan_practice_daily_cap", "The Gyan Path practice tries a day", 0, 1000),
       });
       if (errors.length) return fail(errors);
       return { ok: true, patch: { points: ok } };

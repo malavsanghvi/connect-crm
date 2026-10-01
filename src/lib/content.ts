@@ -823,3 +823,93 @@ export function quizFromFields(
   if (!Number.isInteger(n) || n < 1 || n > options.length) return { ok: false, error: `say which answer is right (1 to ${options.length})` };
   return { ok: true, quiz: { questions: [{ question: q, options, answer: n - 1 }] } };
 }
+
+// ---------------------------------------------------------------------------
+// Gyan Path steps: kinds, activity payloads and quiz types (0570). Read-only
+// summaries for the editor; the database checks the shapes on every write
+// (app.gyan_activity_problems / app.gyan_quiz_problems).
+// ---------------------------------------------------------------------------
+const GYAN_KIND_LABEL: Record<string, string> = {
+  read: "Learn",
+  listen: "Listen",
+  recite: "Recite",
+  quiz: "Quiz",
+  video: "Video",
+  practice: "Practice",
+  hotspot: "Tap the spots",
+  voice: "Say it aloud",
+};
+
+/** "Learn", "Quiz", "Tap the spots · practice", "Say it aloud"; an unknown kind is shown as stored. */
+export function gyanStepKindLabel(kind: string, activity?: unknown): string {
+  const base = GYAN_KIND_LABEL[kind] ?? kind.replace(/_/g, " ");
+  if (kind === "hotspot" && isObj(activity) && (activity.mode === "learn" || activity.mode === "practice")) return `${base} · ${activity.mode}`;
+  return base;
+}
+
+const QUIZ_TYPE_LABEL: Record<string, string> = {
+  choice: "multiple choice",
+  truefalse: "true or false",
+  order: "put in order",
+  match: "match the pairs",
+  fill: "fill the gap",
+};
+
+/** The quiz's questions by type, in first-seen order: {questions:[...]} or the older bare list; no type = choice. */
+export function quizTypeCounts(quiz: unknown): { type: string; label: string; count: number }[] {
+  const list = Array.isArray(quiz) ? quiz : isObj(quiz) && Array.isArray(quiz.questions) ? quiz.questions : [];
+  const counts = new Map<string, number>();
+  for (const q of list) {
+    if (!isObj(q)) continue;
+    const t = typeof q.type === "string" && q.type ? q.type : "choice";
+    counts.set(t, (counts.get(t) ?? 0) + 1);
+  }
+  return [...counts].map(([type, count]) => ({ type, label: QUIZ_TYPE_LABEL[type] ?? type, count }));
+}
+
+function listLength(v: unknown): number {
+  return Array.isArray(v) ? v.length : 0;
+}
+const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
+
+/** What a step holds, in a few words: "3 questions: 2 multiple choice, 1 put in order", "4 cards", "9 spots", "5 verses · hi-IN". */
+export function gyanStepDetail(step: { kind: string; activity?: unknown; quiz?: unknown }): string | null {
+  const a = isObj(step.activity) ? step.activity : {};
+  if (step.kind === "quiz") {
+    const types = quizTypeCounts(step.quiz);
+    const total = types.reduce((s, t) => s + t.count, 0);
+    if (!total) return null;
+    return `${plural(total, "question")}: ${types.map((t) => `${t.count} ${t.label}`).join(", ")}`;
+  }
+  if (step.kind === "hotspot") {
+    const n = listLength(a.spots);
+    return n ? plural(n, "spot") : null;
+  }
+  if (step.kind === "voice") {
+    const n = listLength(a.verses);
+    if (!n) return null;
+    return typeof a.lang === "string" && a.lang ? `${plural(n, "verse")} · ${a.lang}` : plural(n, "verse");
+  }
+  const cards = listLength(a.cards);
+  return cards ? plural(cards, "card") : null;
+}
+
+/** Marked by its author as waiting for the Pathshala's review (activity.review). */
+export function gyanNeedsReview(activity: unknown): boolean {
+  return isObj(activity) && activity.review === "needs_pathshala_review";
+}
+
+/** "10 points + 3 a try", "5 points", "3 a try" or "" (no points). */
+export function gyanStepPointsText(points: number | null | undefined, repeatPoints: number | null | undefined): string {
+  const p = points ?? 0;
+  const r = repeatPoints ?? 0;
+  if (p > 0 && r > 0) return `${plural(p, "point")} + ${r} a try`;
+  if (p > 0) return plural(p, "point");
+  if (r > 0) return `${r} a try`;
+  return "";
+}
+
+/** Questions across a level's quiz steps (each step can hold several). */
+export function quizQuestionCount(steps: { kind: string; quiz?: unknown }[]): number {
+  return steps.filter((s) => s.kind === "quiz").reduce((sum, s) => sum + quizTypeCounts(s.quiz).reduce((n, t) => n + t.count, 0), 0);
+}

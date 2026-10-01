@@ -441,10 +441,14 @@ export async function saveLevelAction(_prev: ActionResult | null, fd: FormData):
   const goalId = text(fd, "goal_id");
   const name = text(fd, "name");
   const points = intOrNull(fd, "points");
+  const treasurePoints = intOrNull(fd, "treasure_points");
   const order = intOrNull(fd, "sort_order");
   if (!isUuid(goalId)) return { ok: false, error: `Could not ${doing} — choose the goal first.` };
   if (!name) return { ok: false, error: `Could not ${doing} — give the level a name.` };
   if (points === "bad" || (points !== null && points < 0)) return { ok: false, error: `Could not ${doing} — points must be a whole number.` };
+  if (treasurePoints === "bad" || (treasurePoints !== null && (treasurePoints < 0 || treasurePoints > 10000))) {
+    return { ok: false, error: `Could not ${doing} — treasure points must be a whole number from 0 to 10,000.` };
+  }
   if (order === "bad") return { ok: false, error: `Could not ${doing} — the order must be a whole number.` };
   const values = {
     goal_id: goalId,
@@ -454,6 +458,7 @@ export async function saveLevelAction(_prev: ActionResult | null, fd: FormData):
     points: points ?? 0,
     sort_order: order ?? 0,
     treasure: text(fd, "treasure") || null,
+    treasure_points: treasurePoints ?? 0,
     requires_teacher_signoff: fd.get("requires_teacher_signoff") === "on",
   };
   const { error } = isUuid(id) ? await db.from("gyan_levels").update(values).eq("id", id) : await db.from("gyan_levels").insert(values);
@@ -474,10 +479,14 @@ export async function addStepAction(_prev: ActionResult | null, fd: FormData): P
   const contentId = text(fd, "content_item_id");
   const order = intOrNull(fd, "sort_order");
   const points = intOrNull(fd, "points");
+  const repeatPoints = intOrNull(fd, "repeat_points");
   if (!isUuid(levelId)) return { ok: false, error: "Could not add the step — choose the level." };
   if (!STEP_KINDS.includes(kind)) return { ok: false, error: "Could not add the step — choose learn, listen, quiz, recite, video or practice." };
   if (!title) return { ok: false, error: "Could not add the step — give it a title." };
   if (order === "bad" || points === "bad") return { ok: false, error: "Could not add the step — order and points must be whole numbers." };
+  if (repeatPoints === "bad" || (repeatPoints !== null && (repeatPoints < 0 || repeatPoints > 1000))) {
+    return { ok: false, error: "Could not add the step — points for each try must be a whole number from 0 to 1,000." };
+  }
   const quiz = quizFromFields(text(fd, "quiz_question"), text(fd, "quiz_options"), text(fd, "quiz_answer"));
   if (!quiz.ok) return { ok: false, error: `Could not add the step — ${quiz.error}.` };
   if (kind === "quiz" && !quiz.quiz) return { ok: false, error: "Could not add the step — a quiz step needs its question and answers." };
@@ -488,6 +497,7 @@ export async function addStepAction(_prev: ActionResult | null, fd: FormData): P
     content_item_id: isUuid(contentId) ? contentId : null,
     sort_order: order ?? 0,
     points: points ?? 0,
+    repeat_points: repeatPoints ?? 0,
     quiz: kind === "quiz" ? quiz.quiz : null,
   });
   if (error) return failure("Could not add the step", error);
