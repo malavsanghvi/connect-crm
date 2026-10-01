@@ -32,7 +32,7 @@ platform and People RPCs (`bootstrap_first_admin`, `approve_role_grant`, `next_n
 `log_audit`, `link_account`, `create_my_household`, `find_my_family`, `directory_listing`,
 `people_list`, `person_from_scan`, `resolve_identifier`, `household_card`,
 `staff_household_search`, `staff_person_names`, `canonical_org_id`, `canonical_org_member`,
-`next_special_day_on`).
+`next_special_day_on`, `address_suggestions`).
 
 ## Traceability (every module)
 
@@ -61,7 +61,8 @@ name, to `audit.view` holders of that center and platform admins only (the same 
 - **RPCs:** people_list, directory_listing, find_my_family, link_account, create_my_household,
   staff_add_person, move_person_household, make_primary_of_own_household, merge_people,
   merge_households, household_card, resolve_identifier, person_from_scan, staff_household_search,
-  staff_person_names (not guarded: core)
+  staff_person_names, address_suggestions (0561: ZIP / city / state shared by at least two
+  households, plus the zones' ZIP codes; members only) (not guarded: core)
 - **Portal:** /households, /households/[id], /people, /people/[id], /people/directory, /people/merge
 - **Member app:** Family tab, person/[id], family-review, special-days, member-card, onboarding
 - **Permissions:** people.view, people.manage, people.approve
@@ -177,12 +178,18 @@ name, to `audit.view` holders of that center and platform admins only (the same 
 
 ## Content & library (no dependency)
 
-- **Tables:** content_items, photo_albums, photos, guide_sections, role_roster
-- **RPCs guarded:** none (content is written through RLS)
+- **Tables:** content_items, photo_albums, photos, guide_sections, role_roster, media_likes and
+  media_playlist_items (0560: a member's likes and their one playlist, read by that person only)
+- **RPCs guarded:** the media library (0560): media_library, media_item, random_media,
+  toggle_media_like, my_playlist, add_to_playlist, remove_from_playlist, reorder_playlist,
+  media_like_counts (staff, counts only). Content itself is written through RLS.
 - **Portal:** /content/queue, /content/library, /content/photos, /content/guide, /content/today
-- **Member app:** guide, guide/[slug], album/[id]
-- **Permissions:** content.view, content.draft, content.manage, content.approve, settings.manage (roster)
-- **Switching off:** refused while Niva is on. Library, guide, roster and photos are hidden.
+- **Member app:** guide, guide/[slug], album/[id], My Jain Way › 3L (stavans, videos, podcasts,
+  recipes, My playlist)
+- **Permissions:** content.view, content.draft, content.manage, content.approve, settings.manage
+  (roster); content.view or content.manage for the like and playlist counts
+- **Switching off:** refused while Niva is on. Library, guide, roster and photos are hidden; likes
+  and playlists are hidden and the media library RPCs refuse.
   `legal_documents` stays readable: it backs the consent flow, which is core platform.
 
 ## Calendar (no dependency)

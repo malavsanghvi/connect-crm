@@ -23,9 +23,19 @@ jobs:
         env:
           PGURL: postgres://postgres:postgres@localhost:5432
         run: bash supabase/tests/run_local.sh
-      - name: Generated types are up to date
+      - name: Generate types
         env:
           DATABASE_URL: postgres://postgres:postgres@localhost:5432/connect_test
+        run: node supabase/scripts/gen-types.mjs > /tmp/database.types.ts
+      # The generated file as an artifact, so a machine without Postgres can take it verbatim
+      # (gh run download <run id> -n database-types) for src/lib/database.types.ts here and in
+      # connect-admin and connect-mobile.
+      - name: Upload generated types
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: database-types
+          path: /tmp/database.types.ts
+      - name: Generated types are up to date
         run: |
-          node supabase/scripts/gen-types.mjs > /tmp/database.types.ts
-          diff -u src/lib/database.types.ts /tmp/database.types.ts || (echo "::error::src/lib/database.types.ts is stale — regenerate with supabase/scripts/gen-types.mjs" && exit 1)
+          diff -u src/lib/database.types.ts /tmp/database.types.ts || (echo "::error::src/lib/database.types.ts is stale — regenerate with supabase/scripts/gen-types.mjs, or download this run's database-types artifact" && exit 1)

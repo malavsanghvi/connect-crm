@@ -3626,6 +3626,51 @@ export type Database = {
         };
         Relationships: [];
       };
+      media_likes: {
+        Row: {
+          center_id: string;
+          person_id: string;
+          item_id: string;
+          created_at: string;
+        };
+        Insert: {
+          center_id: string;
+          person_id: string;
+          item_id: string;
+          created_at?: string;
+        };
+        Update: {
+          center_id?: string;
+          person_id?: string;
+          item_id?: string;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      media_playlist_items: {
+        Row: {
+          center_id: string;
+          person_id: string;
+          item_id: string;
+          position: number;
+          added_at: string;
+        };
+        Insert: {
+          center_id: string;
+          person_id: string;
+          item_id: string;
+          position: number;
+          added_at?: string;
+        };
+        Update: {
+          center_id?: string;
+          person_id?: string;
+          item_id?: string;
+          position?: number;
+          added_at?: string;
+        };
+        Relationships: [];
+      };
       member_join_codes: {
         Row: {
           id: string;
@@ -8906,6 +8951,19 @@ export type Database = {
         };
         Returns: string;
       };
+      add_to_playlist: {
+        Args: {
+          p_item: string;
+          p_center?: string;
+        };
+        Returns: undefined;
+      };
+      address_suggestions: {
+        Args: {
+          p_center: string;
+        };
+        Returns: { postal_code: string; city: string; state_region: string; households: number; from_zone: boolean }[];
+      };
       adult_of_household: {
         Args: {
           p_center: string;
@@ -10063,6 +10121,29 @@ export type Database = {
         };
         Returns: number;
       };
+      media_item: {
+        Args: {
+          p_item: string;
+          p_center?: string;
+        };
+        Returns: { id: string; kind: string; title: string; body_md: string; language: string; media_path: string; media_url: string; metadata: Json; published_at: string; like_count: number; liked_by_me: boolean; in_my_playlist: boolean }[];
+      };
+      media_library: {
+        Args: {
+          p_center: string;
+          p_kinds: string[];
+          p_query?: string;
+          p_sort?: string;
+          p_limit?: number;
+        };
+        Returns: { id: string; kind: string; title: string; body_md: string; language: string; media_path: string; media_url: string; metadata: Json; published_at: string; like_count: number; liked_by_me: boolean; in_my_playlist: boolean }[];
+      };
+      media_like_counts: {
+        Args: {
+          p_center: string;
+        };
+        Returns: { item_id: string; like_count: number; playlist_count: number }[];
+      };
       member_legal_acceptance_counts: {
         Args: {
           p_center: string;
@@ -10168,6 +10249,12 @@ export type Database = {
           p_center: string;
         };
         Returns: string;
+      };
+      my_playlist: {
+        Args: {
+          p_center: string;
+        };
+        Returns: { id: string; kind: string; title: string; body_md: string; language: string; media_path: string; media_url: string; metadata: Json; published_at: string; like_count: number; liked_by_me: boolean; in_my_playlist: boolean; position: number }[];
       };
       my_practice_standing: {
         Args: {
@@ -10703,6 +10790,14 @@ export type Database = {
         };
         Returns: string;
       };
+      random_media: {
+        Args: {
+          p_center: string;
+          p_kind: string;
+          p_fully_jain?: boolean;
+        };
+        Returns: { id: string; kind: string; title: string; body_md: string; language: string; media_path: string; media_url: string; metadata: Json; published_at: string; like_count: number; liked_by_me: boolean; in_my_playlist: boolean }[];
+      };
       readiness: {
         Args: {
           p_center: string;
@@ -10833,10 +10928,24 @@ export type Database = {
         };
         Returns: undefined;
       };
+      remove_from_playlist: {
+        Args: {
+          p_item: string;
+          p_center?: string;
+        };
+        Returns: undefined;
+      };
       reopen_platform_setup_step: {
         Args: {
           p_key: string;
           p_reason: string;
+        };
+        Returns: undefined;
+      };
+      reorder_playlist: {
+        Args: {
+          p_center: string;
+          p_items: string[];
         };
         Returns: undefined;
       };
@@ -11520,6 +11629,13 @@ export type Database = {
           p_env_base?: string;
         };
         Returns: string;
+      };
+      toggle_media_like: {
+        Args: {
+          p_item: string;
+          p_center?: string;
+        };
+        Returns: boolean;
       };
       transfer_ownership: {
         Args: {
