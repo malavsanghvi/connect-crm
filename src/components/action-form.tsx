@@ -70,6 +70,7 @@ export function ActionForm({
   extraButtons,
   hideSubmit = false,
   submitDisabled = false,
+  onSuccess,
 }: {
   action: FormAction;
   children?: ReactNode;
@@ -86,6 +87,8 @@ export function ActionForm({
   hideSubmit?: boolean;
   /** Disable the submit button (e.g. "No changes" on a settings form). */
   submitDisabled?: boolean;
+  /** Called once per successful submission, after the toast (e.g. to close the drawer the form is in). */
+  onSuccess?: () => void;
 }) {
   const [state, formAction, pending] = useActionState(action, null);
   const formRef = useRef<HTMLFormElement>(null);
@@ -106,6 +109,7 @@ export function ActionForm({
     if (state.ok) {
       if (resetOnSuccess) formRef.current?.reset();
       if (state.message) toast?.show(state.message, "ok");
+      onSuccess?.();
     } else {
       toast?.show(state.error, "bad");
     }

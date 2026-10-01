@@ -3,11 +3,25 @@
 import { revalidatePath } from "next/cache";
 
 import type { Json, TablesInsert } from "@/lib/database.types";
-import { defaultMemberStep, isMemberStep, MEMBER_LEGAL_KINDS, mergePointsRules, mergeTimingRules, PRACTICE_CATEGORIES, publishEffect, quizFromFields, slugify } from "@/lib/content";
+import {
+  defaultMemberStep,
+  isMediaKind,
+  isMemberStep,
+  mediaReadyProblem,
+  MEMBER_LEGAL_KINDS,
+  mergePointsRules,
+  mergeTimingRules,
+  parseMediaForm,
+  PRACTICE_CATEGORIES,
+  publishEffect,
+  quizFromFields,
+  slugify,
+  type MediaKind,
+} from "@/lib/content";
 import { failure, type ActionResult } from "@/lib/errors";
 import { can } from "@/lib/permissions";
 import { isUuid } from "@/lib/search-params";
-import { authorizeAction, dbWithReason } from "@/lib/session";
+import { authorizeAction, dbWithReason, type CrmSession } from "@/lib/session";
 
 function text(fd: FormData, key: string): string {
   return String(fd.get(key) ?? "").trim();
@@ -114,19 +128,29 @@ export async function createAlbumAction(_prev: ActionResult | null, fd: FormData
 }
 
 // ---------------------------------------------------------------------------
-// Content items (Library, live darshan, Niva sources)
+// Content items (Library, live darshan, Niva sources, media library)
 // ---------------------------------------------------------------------------
-const ITEM_KINDS = ["sutra", "pachchakhan", "audio_lesson", "video", "guide_page", "explainer", "darshan_stream", "niva_source", "faq", "other"];
+// stavan, podcast and recipe need migration 0560 (content_items_kind_check).
+const ITEM_KINDS = ["sutra", "pachchakhan", "audio_lesson", "video", "stavan", "podcast", "recipe", "guide_page", "explainer", "darshan_stream", "niva_source", "faq", "other"];
 const META_KEYS = ["when", "series", "length_minutes", "source", "schedule", "stream_status", "items_count"] as const;
+
+/** An update that matched no row: RLS hid it (a published item needs content.manage) or it is gone. */
+function noRowSaved(doing: string): ActionResult {
+  return {
+    ok: false,
+    error: `Could not ${doing} — nothing was saved. A published item can only be changed by a content manager (content.manage), or the item no longer exists. Reload and try again.`,
+  };
+}
 
 export async function saveContentItemAction(_prev: ActionResult | null, fd: FormData): Promise<ActionResult> {
   const submit = text(fd, "submit") === "review";
   const doing = submit ? "send the item for approval" : "save the item";
   const auth = await authorizeAction("contentDraft", doing);
   if (!auth.ok) return auth;
+  const kind = text(fd, "kind");
+  if (isMediaKind(kind)) return saveMediaItem(auth.session, fd, kind, submit, doing);
   const { db, userId, center } = auth.session;
   const id = text(fd, "id");
-  const kind = text(fd, "kind");
   const title = text(fd, "title");
   const bodyMd = text(fd, "body_md");
   const mediaUrl = text(fd, "media_url");
@@ -155,11 +179,13 @@ export async function saveContentItemAction(_prev: ActionResult | null, fd: Form
     const merged = { ...((cur.data.metadata ?? {}) as Record<string, Json>), ...metadata };
     for (const k of META_KEYS) if (fd.has(`meta_${k}`) && !text(fd, `meta_${k}`)) delete merged[k];
     // Any edit of a published item goes back through approval.
-    const { error } = await db
+    const { data, error } = await db
       .from("content_items")
       .update({ kind, title, body_md: bodyMd || null, media_url: mediaUrl || null, media_path: mediaPath || null, metadata: merged, status, approved_by: null })
-      .eq("id", id);
+      .eq("id", id)
+      .select("id");
     if (error) return failure(`Could not ${doing}`, error);
+    if (!data?.length) return noRowSaved(doing);
   } else {
     const row: TablesInsert<"content_items"> = {
       center_id: center.id,
@@ -178,6 +204,76 @@ export async function saveContentItemAction(_prev: ActionResult | null, fd: Form
   }
   revalidatePath("/content", "layout");
   return { ok: true, message: submit ? `"${title}" sent for approval. It appears in the Approval queue.` : `"${title}" saved as a draft.` };
+}
+
+const MEDIA_NOUN: Record<MediaKind, string> = { stavan: "stavan", video: "video", podcast: "podcast", recipe: "recipe" };
+
+/**
+ * Content › Media library drawer (stavan, video, podcast, recipe): the same draft → approval →
+ * publish flow as every content item, with the metadata conventions of migration 0560. Files are
+ * uploaded from the browser straight to storage beforehand (media/actions.ts); this saves the path.
+ */
+async function saveMediaItem(session: CrmSession, fd: FormData, kind: MediaKind, submit: boolean, doing: string): Promise<ActionResult> {
+  const { db, userId, center } = session;
+  const noun = MEDIA_NOUN[kind];
+  const id = text(fd, "id");
+  const title = text(fd, "title");
+  if (!title) return { ok: false, error: `Could not ${doing} — give the ${noun} a title.` };
+  if (title.length > 200) return { ok: false, error: `Could not ${doing} — keep the title to 200 characters.` };
+
+  let current: { metadata: Json; center_id: string | null; media_path: string | null } | null = null;
+  if (isUuid(id)) {
+    const cur = await db.from("content_items").select("metadata, center_id, media_path, kind").eq("id", id).maybeSingle();
+    if (cur.error) return failure(`Could not ${doing}`, cur.error);
+    if (!cur.data) return { ok: false, error: `Could not ${doing} — the ${noun} no longer exists, or you can't edit it.` };
+    if (cur.data.center_id === null) return { ok: false, error: `Could not ${doing} — shared items come from the platform library and can't be edited here.` };
+    if (cur.data.kind !== kind) return { ok: false, error: `Could not ${doing} — this item is not a ${noun} any more. Reload and try again.` };
+    current = cur.data;
+  }
+  const stored = current && current.metadata && typeof current.metadata === "object" && !Array.isArray(current.metadata) ? (current.metadata as Record<string, Json>) : {};
+  const parsed = parseMediaForm(
+    kind,
+    (name) => {
+      const v = fd.get(name);
+      return typeof v === "string" ? v : null;
+    },
+    center.id,
+    { mediaPath: current?.media_path ?? null, photoPath: typeof stored.photo_path === "string" ? stored.photo_path : null },
+  );
+  if (!parsed.ok) return { ok: false, error: `Could not ${doing} — ${parsed.error}` };
+  const f = parsed.fields;
+  if (submit) {
+    const problem = mediaReadyProblem(kind, f);
+    if (problem) return { ok: false, error: `Could not send the ${noun} for approval — ${problem}` };
+  }
+  const status = submit ? "in_review" : "draft";
+  const values = { title, body_md: f.bodyMd, language: f.language, media_url: f.mediaUrl, media_path: f.mediaPath, status, approved_by: null };
+
+  if (current) {
+    const metadata: Record<string, Json> = { ...stored, ...f.set };
+    for (const k of f.clear) delete metadata[k];
+    // Any edit of a published item goes back through approval.
+    const { data, error } = await db.from("content_items").update({ ...values, metadata }).eq("id", id).select("id");
+    if (error) return failure(`Could not ${doing}`, error);
+    if (!data?.length) return noRowSaved(doing);
+  } else {
+    // Two recordings may share a title (one stavan, two singers): the slug gets a short unique tail.
+    const row: TablesInsert<"content_items"> = {
+      ...values,
+      center_id: center.id,
+      kind,
+      slug: `${slugify(title) || kind}-${crypto.randomUUID().slice(0, 8)}`,
+      metadata: f.set,
+      created_by: userId,
+    };
+    const { error } = await db.from("content_items").insert(row);
+    if (error) return failure(`Could not ${doing}`, error);
+  }
+  revalidatePath("/content", "layout");
+  return {
+    ok: true,
+    message: submit ? `"${title}" sent for approval. It appears in the Approval queue; members see it once it is approved.` : `"${title}" saved as a draft.`,
+  };
 }
 
 // ---------------------------------------------------------------------------

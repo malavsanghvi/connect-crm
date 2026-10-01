@@ -5,11 +5,15 @@ import { ActionForm } from "@/components/action-form";
 import { CopyButton } from "@/components/copy-button";
 import { BlockGrid, Card, NoAccess, PageHeader, QueryError, buttonClass } from "@/components/ui";
 import { formatDate } from "@/lib/dates";
+import { HOME_SHORTCUTS, homeShortcutRows, type HomeShortcutKey } from "@/lib/home-shortcuts";
+import { isModuleEnabled, moduleLabelFor } from "@/lib/modules";
 import { canAccess } from "@/lib/permissions";
 import { getSession } from "@/lib/session";
+import { rulesVersion } from "@/lib/settings-rules";
 import { formatJoinCode, joinAppLink, joinWebLink } from "@/lib/tenancy";
 
 import { rotateJoinCodeAction } from "./actions";
+import { HomeShortcutsCard } from "./home-shortcuts-form";
 
 export const metadata: Metadata = { title: "Member app · Settings" };
 
@@ -17,6 +21,7 @@ export const metadata: Metadata = { title: "Member app · Settings" };
  * Settings › Member app: the join code that opens this community in the
  * member app ("Find your community" → code, or a QR code on a poster). A
  * sandbox is reached only this way; a live community can also be found by name.
+ * Also the Home shortcuts strip (centers.rules.home.shortcuts).
  */
 export default async function MemberAppSettingsPage() {
   const session = await getSession();
@@ -26,7 +31,7 @@ export default async function MemberAppSettingsPage() {
   const header = (
     <PageHeader
       title="Settings"
-      description={`How members find ${name} in the Community Connect app`}
+      description={`How members find ${name} in the Community Connect app, and the shortcuts on its Home`}
     />
   );
   if (!canAccess(session, "centerSettings")) {
@@ -37,6 +42,16 @@ export default async function MemberAppSettingsPage() {
       </>
     );
   }
+
+  // A shortcut whose module is switched off is not shown to members, whatever is saved here.
+  const moduleNotes: Partial<Record<HomeShortcutKey, string>> = {};
+  for (const s of HOME_SHORTCUTS) {
+    if (!isModuleEnabled(session, s.module)) moduleNotes[s.key] = `${moduleLabelFor(s.module)} is switched off (Settings › Modules), so members do not see this shortcut.`;
+  }
+  const homeShortcuts = (
+    <HomeShortcutsCard initial={homeShortcutRows(center.rules)} version={rulesVersion(center.rules)} centerName={name} moduleNotes={moduleNotes} canEdit />
+  );
+
   const res = await session.db
     .from("member_join_codes")
     .select("code, expires_at, created_at")
@@ -49,7 +64,10 @@ export default async function MemberAppSettingsPage() {
     return (
       <>
         {header}
-        <QueryError what="the join code" error={res.error} retryHref="/settings/member-app" />
+        <div className="mb-4">
+          <QueryError what="the join code" error={res.error} retryHref="/settings/member-app" />
+        </div>
+        <BlockGrid>{homeShortcuts}</BlockGrid>
       </>
     );
   }
@@ -168,6 +186,7 @@ export default async function MemberAppSettingsPage() {
             <p className="text-[13px] text-muted">Make a join code first.</p>
           )}
         </Card>
+        {homeShortcuts}
       </BlockGrid>
     </>
   );

@@ -2,7 +2,7 @@
 
 import { useId, useState, type ReactNode } from "react";
 
-export type ChipOption = { value: string; label: ReactNode };
+export type ChipOption = { value: string; label: ReactNode; disabled?: boolean };
 
 /**
  * Enum input as a row of chips (the prototype's form chips): navy outline
@@ -39,7 +39,7 @@ export function ChipGroup({
             type="button"
             role="radio"
             aria-checked={on}
-            disabled={disabled}
+            disabled={disabled || o.disabled}
             onClick={() => {
               if (value === undefined) setInner(o.value);
               onChange?.(o.value);

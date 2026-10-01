@@ -436,6 +436,8 @@ export const NAV: NavModule[] = [
       { href: "/content/practices", label: "Practices & points", access: "content", module: "jain_way" },
       { href: "/content/gyan-path", label: "Gyan Path", access: "content", module: "gyan_path" },
       { href: "/content/library", label: "Library", access: "content" },
+      // Stavans, videos, podcasts and recipes for the member app's 3L (migration 0560).
+      { href: "/content/media", label: "Media library", access: "content" },
       { href: "/content/photos", label: "Photo albums", access: "content" },
       { href: "/content/niva", label: "Niva", access: "content", module: "niva" },
       { href: "/content/guide", label: "Guide & directory", access: "content" },
