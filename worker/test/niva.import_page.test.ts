@@ -139,7 +139,7 @@ function fakeHttp(routes: Record<string, Route>): Http & { seen: string[] } {
   };
 }
 function response(status: number, type: string, text: string): HttpResponse {
-  return { status, ok: status < 400, headers: new Headers({ "content-type": type }), text, json: () => JSON.parse(text) };
+  return { status, ok: status < 400, headers: new Headers({ "content-type": type }), text, json: () => JSON.parse(text), bytes: () => new TextEncoder().encode(text) };
 }
 const PUBLIC = async () => ["93.184.216.34"];
 const ok = { allowPrivate: false, resolve: PUBLIC };
