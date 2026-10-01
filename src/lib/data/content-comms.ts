@@ -4,6 +4,7 @@ import { photoLocation } from "@/lib/content";
 import { chunk } from "@/lib/data/fetch-all";
 import { personName } from "@/lib/data/lookups";
 import type { DbErrorLike } from "@/lib/errors";
+import { googlePhotoUrl } from "@/lib/google-photos";
 import type { AppSupabase } from "@/lib/supabase/server";
 
 function uniq(ids: Array<string | null | undefined>): string[] {
@@ -116,7 +117,7 @@ export async function signedPhotoUrls(db: AppSupabase, photos: { id: string; sto
   for (const p of photos) {
     const loc = photoLocation(p.storage_path);
     if (!loc) out.set(p.id, { url: null, problem: "No file is attached to this photo." });
-    else if (loc.kind === "url") out.set(p.id, { url: loc.url, problem: null });
+    else if (loc.kind === "url") out.set(p.id, { url: googlePhotoUrl(loc.url, "thumb"), problem: null });
     else byBucket.set(loc.bucket, [...(byBucket.get(loc.bucket) ?? []), { id: p.id, key: loc.key }]);
   }
   for (const [bucket, items] of byBucket) {

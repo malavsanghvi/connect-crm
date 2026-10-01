@@ -81,6 +81,7 @@ export default async function PhotoAlbumsPage() {
                   External album link (optional)
                 </label>
                 <input id="al-url" name="external_url" placeholder="https://" className="crm-input" />
+                <p className="crm-hint">A shared Google Photos album link (photos.app.goo.gl/…) can be imported into the album afterwards: open the album and choose Import photos from Google Photos.</p>
               </div>
             </DrawerForm>
           ) : null
