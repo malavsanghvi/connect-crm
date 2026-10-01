@@ -213,8 +213,8 @@ select '00000000-0000-4000-8000-000000000001', c.id, i.name, i.price, 'active' f
 ) as i(cat, name, price) on i.cat = c.name where c.center_id = '00000000-0000-4000-8000-000000000001';   -- [sample] menu
 
 insert into app.guide_sections (center_id, slug, title, body_md, sort_order, is_checklist) values
-('00000000-0000-4000-8000-000000000001', 'first-steps', 'Your first steps', '1. Join JSH WhatsApp groups\n2. Find your zone and zone lead\n3. Learn about membership\n4. Share your seva interests\n5. Ask us anything', 1, true),
-('00000000-0000-4000-8000-000000000001', 'timings', 'Timings and visiting', '| What | When |\n|---|---|\n| Derasar | 7:30 AM – 6:00 PM daily |\n| Aarti | 12:30 PM and 4:30 PM |\n| Snatra puja | Sundays 9:30 AM |\n| Pathshala | Sundays 10:00 AM – 12:00 PM |\n| Bhojanshala | Sundays 12:15 PM · festival days |\n| Swadhyay | Wednesdays 7:30 PM (Zoom) |\n| Office | Sat–Sun 10:00 AM – 2:00 PM |\n\nPlease remove leather items before entering the derasar. [sample — confirm with office]', 2, false),
+('00000000-0000-4000-8000-000000000001', 'first-steps', 'Your first steps', E'1. Join JSH WhatsApp groups\n2. Find your zone and zone lead\n3. Learn about membership\n4. Share your seva interests\n5. Ask us anything', 1, true),
+('00000000-0000-4000-8000-000000000001', 'timings', 'Timings and visiting', E'| What | When |\n|---|---|\n| Derasar | 7:30 AM – 6:00 PM daily |\n| Aarti | 12:30 PM and 4:30 PM |\n| Snatra puja | Sundays 9:30 AM |\n| Pathshala | Sundays 10:00 AM – 12:00 PM |\n| Bhojanshala | Sundays 12:15 PM · festival days |\n| Swadhyay | Wednesdays 7:30 PM (Zoom) |\n| Office | Sat–Sun 10:00 AM – 2:00 PM |\n\nPlease remove leather items before entering the derasar. [sample — confirm with office]', 2, false),
 ('00000000-0000-4000-8000-000000000001', 'membership', 'Membership', 'Membership is required to register children for Pathshala. Life members can vote in JSH elections after the waiting period, and their spouse is also a life member. Children roll off a family''s life membership at 18 and can apply on their own.', 3, false);
 
 insert into app.role_roster (center_id, body, title, sort_order) values

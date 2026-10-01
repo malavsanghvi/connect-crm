@@ -11712,6 +11712,14 @@ export type Database = {
         };
         Returns: { payment_id: string; household_name: string; receipt_number: string; method: Database["app"]["Enums"]["payment_method"]; amount_cents: number; received_on: string; check_number: string; envelope_number: string; exact_total: boolean }[];
       };
+      sun_times: {
+        Args: {
+          p_date: string;
+          p_lat: number;
+          p_lng: number;
+        };
+        Returns: { sunrise: string; sunset: string };
+      };
       support_staff_options: {
         Args: {
           p_center: string;

@@ -8,17 +8,24 @@ import { Card, EmptyState, QueryError, StatusText, TableWrap, buttonClass } from
 import {
   contentStatusLabel,
   goalLearnerStats,
+  gyanLevelAudio,
+  gyanLevelHasLessonContent,
   gyanNeedsReview,
   gyanStepDetail,
   gyanStepKindLabel,
   gyanStepPointsText,
   quizQuestionCount,
+  QUIZ_MAX_OPTIONS,
+  QUIZ_OPTION_MAX,
+  QUIZ_OPTIONS_TEXT_MAX,
+  QUIZ_QUESTION_MAX,
+  type GyanLevelAudio,
 } from "@/lib/content";
 import { fetchAll } from "@/lib/data/fetch-all";
 import { can, canAccess } from "@/lib/permissions";
 import { param, type RawSearchParams } from "@/lib/search-params";
 import { getSession } from "@/lib/session";
-import { readRuleSettings } from "@/lib/settings-rules";
+import { gyanPracticeDailyCap } from "@/lib/settings-rules";
 
 import { addStepAction, deleteStepAction, saveGoalAction, saveLevelAction } from "../actions";
 import { ContentHeader, contentGate } from "../shared";
@@ -131,7 +138,9 @@ export default async function GyanPathPage({ searchParams }: { searchParams: Pro
   const linkable = linkableRes?.data ?? [];
   const editable = Boolean(selected && selected.center_id !== null && canManage);
   const error = goals.error ?? levels.error ?? steps.error ?? items?.error ?? linkableRes?.error ?? null;
-  const tryCap = readRuleSettings(center.rules).points.gyanPracticeDailyCap;
+  // Read as app.record_gyan_attempt reads it (a number rounded down, kept within 0-1000; anything else is 10), so a
+  // value stored outside Settings › Rules shows what members are really paid for.
+  const tryCap = gyanPracticeDailyCap(center.rules);
 
   return (
     <>
@@ -241,12 +250,12 @@ export default async function GyanPathPage({ searchParams }: { searchParams: Pro
                   {selLevels.map((l, i) => {
                     const ls = stepList.filter((s) => s.level_id === l.id);
                     const textItems = ls.filter((s) => (s.kind === "read" || s.kind === "recite") && s.content_item_id).map((s) => itemById.get(s.content_item_id as string));
-                    // Learn steps written as cards in the lesson itself (0570) need no Library text.
-                    const cardSteps = ls.filter((s) => s.kind === "read" && gyanStepDetail(s)).length;
+                    // Learn cards, tap-the-spots pictures and voice verses (0570) are in the lesson itself: no Library text needed.
+                    const lessonContent = gyanLevelHasLessonContent(ls);
                     const quizzes = quizQuestionCount(ls);
                     const audio = ls.filter((s) => s.kind === "listen" || s.kind === "recite").map((s) => (s.content_item_id ? itemById.get(s.content_item_id) : undefined));
                     const textStatus = textItems.find(Boolean)?.status;
-                    const recorded = audio.some((a) => a && (a.media_path || a.media_url));
+                    const audioStatus = gyanLevelAudio(ls, audio.some((a) => a && (a.media_path || a.media_url)));
                     return (
                       <tr key={l.id}>
                         <td className="num">{i + 1}</td>
@@ -265,13 +274,15 @@ export default async function GyanPathPage({ searchParams }: { searchParams: Pro
                             <StatusText tone={textStatus === "published" || textStatus === "approved" ? "ok" : "warn"}>
                               {textStatus === "published" ? "Approved" : contentStatusLabel(textStatus)}
                             </StatusText>
-                          ) : cardSteps ? (
+                          ) : lessonContent ? (
                             <StatusText tone="ok">In the lesson</StatusText>
                           ) : (
                             <StatusText tone="warn">No text linked</StatusText>
                           )}
                         </td>
-                        <td>{recorded ? <StatusText tone="ok">Recorded</StatusText> : <StatusText tone="warn">To record</StatusText>}</td>
+                        <td>
+                          <AudioStatus status={audioStatus} />
+                        </td>
                         <td>{quizzes ? `${quizzes} question${quizzes === 1 ? "" : "s"}` : "—"}</td>
                         <td>{l.requires_teacher_signoff ? <span className="font-bold text-purple">Teacher</span> : "—"}</td>
                         {editable ? (
@@ -297,9 +308,10 @@ export default async function GyanPathPage({ searchParams }: { searchParams: Pro
             <p className="px-4 pb-3 pt-1 text-xs text-muted">Shared goals come from the platform library; only the platform team can change them.</p>
           ) : null}
           <p className="px-4 pb-3 pt-1 text-xs text-muted">
-            Practice tries earn their &ldquo;a try&rdquo; points up to {tryCap} successful tr{tryCap === 1 ? "y" : "ies"} a day per activity, per member
-            (Settings › Rules › Points). Tap-the-spots and voice steps, and quiz questions other than multiple choice, are shown here but are edited in the shared
-            lesson library for now.
+            {tryCap === 0
+              ? "Practice tries earn no points (Settings › Rules › Points)."
+              : `Practice tries earn their “a try” points up to ${tryCap} successful tr${tryCap === 1 ? "y" : "ies"} a day per activity, per member (Settings › Rules › Points).`}{" "}
+            {"Tap-the-spots and voice steps, and quiz questions other than multiple choice, come from the platform's lesson packs and can't be added or changed here yet."}
           </p>
         </Card>
       ) : null}
@@ -386,6 +398,14 @@ function LevelFields({
   );
 }
 
+/** A level's Audio column: a Library recording for listen/recite steps; otherwise in the lesson, or nothing to record. */
+function AudioStatus({ status }: { status: GyanLevelAudio }) {
+  if (status === "recorded") return <StatusText tone="ok">Recorded</StatusText>;
+  if (status === "to_record") return <StatusText tone="warn">To record</StatusText>;
+  if (status === "in_lesson") return <StatusText tone="ok">In the lesson</StatusText>;
+  return <span className="text-muted">Not needed</span>;
+}
+
 type StepRow = { id: string; kind: string; title: string; points: number; repeat_points: number; activity: unknown; quiz: unknown };
 
 /** One line per step: kind, title, what it holds, its points, and the review mark. */
@@ -470,13 +490,8 @@ function StepFields({ levelId, nextOrder, items }: { levelId: string; nextOrder:
           <input id={`s-${levelId}-pts`} name="points" inputMode="numeric" defaultValue={0} className="crm-input" />
         </div>
       </div>
-      <div>
-        <label htmlFor={`s-${levelId}-rpts`} className="crm-label">
-          Points for each practice try
-        </label>
-        <input id={`s-${levelId}-rpts`} name="repeat_points" inputMode="numeric" defaultValue={0} className="crm-input" />
-        <p className="crm-hint">Points are paid once, the first time; points for each try are paid for every successful try, up to the daily limit.</p>
-      </div>
+      {/* Points for each try belong only to tap-the-spots practice and voice steps (0570), which come from the lesson packs. */}
+      <p className="crm-hint">Points are paid once, the first time a member completes the step.</p>
       <div>
         <label htmlFor={`s-${levelId}-ci`} className="crm-label">
           Linked text or audio
@@ -498,13 +513,22 @@ function StepFields({ levelId, nextOrder, items }: { levelId: string; nextOrder:
             <label htmlFor={`s-${levelId}-qq`} className="crm-label">
               Question
             </label>
-            <input id={`s-${levelId}-qq`} name="quiz_question" className="crm-input" placeholder="How many lines does the Navkar Mantra have?" />
+            <input
+              id={`s-${levelId}-qq`}
+              name="quiz_question"
+              maxLength={QUIZ_QUESTION_MAX}
+              className="crm-input"
+              placeholder="How many lines does the Navkar Mantra have?"
+            />
           </div>
           <div>
             <label htmlFor={`s-${levelId}-qo`} className="crm-label">
               Answers, one per line
             </label>
-            <textarea id={`s-${levelId}-qo`} name="quiz_options" rows={4} className="crm-input" />
+            <textarea id={`s-${levelId}-qo`} name="quiz_options" rows={4} maxLength={QUIZ_OPTIONS_TEXT_MAX} className="crm-input" />
+            <p className="crm-hint">
+              Up to {QUIZ_MAX_OPTIONS} answers of at most {QUIZ_OPTION_MAX} characters each; the question can have up to {QUIZ_QUESTION_MAX}.
+            </p>
           </div>
           <div>
             <label htmlFor={`s-${levelId}-qa`} className="crm-label">
