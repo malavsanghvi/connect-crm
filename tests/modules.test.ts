@@ -48,6 +48,7 @@ describe("moduleForPath", () => {
     expect(moduleForPath("/giving")).toBe("giving");
     expect(moduleForPath("/bolis/upload")).toBe("bolis");
     expect(moduleForPath("/content/library")).toBe("content");
+    expect(moduleForPath("/content/media")).toBe("content");
     expect(moduleForPath("/content/practices")).toBe("jain_way");
     expect(moduleForPath("/content/gyan-path")).toBe("gyan_path");
     expect(moduleForPath("/content/niva")).toBe("niva");
@@ -88,6 +89,9 @@ describe("NAV with modules switched off", () => {
     expect(hrefs).not.toContain("/content/practices");
     expect(hrefs).not.toContain("/content/niva");
     expect(hrefs).toContain("/content/library");
+    expect(hrefs).toContain("/content/media");
+    // The media library is part of Content: it goes when Content is switched off.
+    expect(visibleNav({ ...admin, modulesOff: ["content"] }).some((m) => m.key === "content")).toBe(false);
     const people = visibleNav({ ...admin, modulesOff: ["membership"] }).find((m) => m.key === "people")!;
     expect(people.tabs.map((t) => t.href)).toEqual(["/households", "/people", "/people/requests", "/people/directory"]);
   });

@@ -1,4 +1,5 @@
 import type { Json } from "@/lib/database.types";
+import { HOME_SHORTCUT_KEYS } from "@/lib/home-shortcuts";
 
 // centers.rules is a per-center rule bag (0001 comment + seed). Helpers here
 // read it defensively and validate edits made in Settings → Center.
@@ -66,7 +67,8 @@ function legacySystems(v: Json | undefined): { system: string; label: string }[]
 // ---------------------------------------------------------------------------
 // Rules JSON validation (Settings → Center)
 // ---------------------------------------------------------------------------
-type Check = { path: string; kind: "int" | "bool" | "string" | "object"; min?: number; max?: number };
+/** `list`: an array of names, each one of `of`, none repeated. */
+type Check = { path: string; kind: "int" | "bool" | "string" | "object" | "list"; min?: number; max?: number; of?: readonly string[] };
 
 /** Known keys and their types. Unknown keys are allowed (centers extend the bag). */
 const RULE_CHECKS: Check[] = [
@@ -140,6 +142,9 @@ const RULE_CHECKS: Check[] = [
   { path: "bank", kind: "object" },
   { path: "bank.institution", kind: "string" },
   { path: "bank.statement_format", kind: "string" },
+  // Member app Home strip, in order (Settings › Member app › Home shortcuts; src/lib/home-shortcuts.ts).
+  { path: "home", kind: "object" },
+  { path: "home.shortcuts", kind: "list", of: HOME_SHORTCUT_KEYS },
 ];
 
 export type RulesValidation = { ok: true; value: Obj } | { ok: false; errors: string[] };
@@ -160,6 +165,7 @@ export function validateRulesJson(text: string): RulesValidation {
     if (c.kind === "object" && !isPlainObject(v)) errors.push(`"${c.path}" must be an object.`);
     if (c.kind === "bool" && typeof v !== "boolean") errors.push(`"${c.path}" must be true or false.`);
     if (c.kind === "string" && typeof v !== "string") errors.push(`"${c.path}" must be text.`);
+    if (c.kind === "list") errors.push(...listProblems(c.path, v, c.of));
     if (c.kind === "int") {
       if (typeof v !== "number" || !Number.isInteger(v)) {
         errors.push(`"${c.path}" must be a whole number.`);
@@ -201,6 +207,19 @@ export function validateRulesJson(text: string): RulesValidation {
     errors.push(`"accounting.basis" must be "cash" or "accrual".`);
   }
   return errors.length > 0 ? { ok: false, errors } : { ok: true, value: parsed };
+}
+
+function listProblems(path: string, v: Json, of: readonly string[] | undefined): string[] {
+  const names = of ? of.map((k) => `"${k}"`).join(", ") : "";
+  if (!Array.isArray(v) || v.some((x) => typeof x !== "string")) {
+    return [`"${path}" must be a list of names in quotes${names ? `, from ${names}` : ""} (an empty list [] is allowed).`];
+  }
+  const errors: string[] = [];
+  const unknown = of ? v.filter((x) => !of.includes(x as string)) : [];
+  if (unknown.length) errors.push(`"${path}" can only hold ${names} — not ${unknown.map((x) => `"${x}"`).join(", ")}.`);
+  const repeated = v.filter((x, i) => v.indexOf(x) !== i);
+  if (repeated.length) errors.push(`"${path}" lists ${[...new Set(repeated)].map((x) => `"${x}"`).join(", ")} more than once.`);
+  return errors;
 }
 
 /** Feature flags must be a flat object of booleans. */

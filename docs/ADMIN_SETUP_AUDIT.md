@@ -41,6 +41,7 @@ connected yet. **Not built** — says why. **Owner decision** — waits for a ru
 | Security (staff 2FA policy, admin session length and idle timeout, printed sign-in codes) | `/settings/security` | settings.manage | Works | o-security flow. |
 | Agreements (terms, DPA, children's addendum; sandbox terms at `/start`) | `/settings/agreements` | owner | Works | **e2e** |
 | Member app: join code (rotate, expiry), QR poster | `/settings/member-app` | settings.manage | Works · Honest limit | The web link needs the `MEMBER_APP_URL` repository variable (says so). The app's look comes from the brand kit. |
+| Member app: Home shortcuts (Learn, Playlist, Event photos, Jain recipe, Podcast; on/off and order) | `/settings/member-app` | settings.manage | **Built now** | `rules.home.shortcuts`, versioned like every rules save (docs/SETTINGS_RULES.md). Says when a shortcut's module is switched off. |
 | Notifications (automatic messages, quiet hours) | `/settings/notifications` | settings.manage | Honest limit | Saves the rules; the page says the automatic sender is not switched on yet. Test push lives here (o-messaging). |
 | Onboarding fields | `/settings/onboarding` | settings.manage | Honest limit | Saves the rules; the page says the member app does not read them yet. |
 | Custom fields | `/settings/custom-fields` | settings.manage | Works | o-import flow. |
@@ -58,6 +59,7 @@ connected yet. **Not built** — says why. **Owner decision** — waits for a ru
 | Data quality | `/settings/data-quality` | people.view | Works | o-import flow. |
 | Member legal documents (terms, privacy, photo policy, waivers; versions, publish) | `/content/legal` | content.manage | Works · Not built (templates) | **e2e**. Community Connect base texts to start from do not exist yet; each organization writes its own. |
 | Guide sections | `/content/guide` | content.manage | Works | **e2e** |
+| Media library: stavans, videos, podcasts, recipes (draft → approval → publish; like and playlist counts) | `/content/media` | content.draft (drafts, links) / content.manage (uploads, published items) | **Built now** | Files go from the browser straight to the `content` store through a signed upload address (50 MB); bigger videos are linked from YouTube. Counts need content.view or content.manage (migration 0560). |
 | Receipt and year-end statement templates + the treasurer's approval (readiness 8) | `/giving/statements` | giving.manage / treasurer | Works · **Built now** (approval) | Statements from an uploaded sample are deferred by the owner; the approval covers today's templates and says so. **e2e** |
 | Niva sources + the administrator's approval (readiness 12) | `/content/niva` | content.* / settings.manage | Works · **Built now** (approval) | The Niva training workflow is deferred by the owner; the approval covers today's sources and says so. DB test 28. |
 | Message templates | `/settings/email` (built-in library) | — | Not built (deferred) | Communications › Templates is deferred by the owner. The step now points to the email test send and says the editor comes later. |

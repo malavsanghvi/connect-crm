@@ -1,8 +1,9 @@
 # Center rules (`app.centers.rules`)
 
 `centers.rules` is each center's rule bag (JSON). The portal edits it in **Settings**:
-Rules, Onboarding fields, Notifications and Security each save only the keys they show,
-merged into the bag. **Settings › Rules › Advanced** edits the whole bag as JSON.
+Rules, Onboarding fields, Notifications, Security and Member app (Home shortcuts) each save
+only the keys they show, merged into the bag. **Settings › Rules › Advanced** edits the whole
+bag as JSON.
 
 - Reading and defaults: `src/lib/settings-rules.ts` (`readRuleSettings`, `RULE_DEFAULTS`, …).
 - Type and range checks for every known key: `RULE_CHECKS` in `src/lib/center-rules.ts`.
@@ -48,6 +49,16 @@ so the member app, sender and sign-in service can adopt them.
 | `security.admin_session_hours` / `admin_idle_minutes` | 8 / 30 | Security | **new**: policy only; the sign-in service keeps its own session length |
 | `onboarding.wizard_step` | — | Platform › New center | **new**: next wizard step while a center is onboarding |
 | `onboarding.import_source` | — | Platform › New center | **new**: neon / salesforce / bloomerang / spreadsheet |
+| `home.shortcuts` | absent = all five: `["learn","playlist","photos","recipe","podcast"]` | Member app › Home shortcuts | **new**: the member app's Home strip, in order (below) |
+
+`home.shortcuts` is the ordered list of round shortcuts the member app shows on Home, under the
+"Today at {center}" card: `learn` (the member's next Gyan Path lesson), `playlist` (plays My
+playlist, or the most-liked stavans when it is empty), `photos` (Events › Photos), `recipe` (a
+random fully Jain recipe) and `podcast` (a random podcast). Key absent → all five in that order;
+`[]` → no strip; unknown keys are ignored when read. The card stores only the shortcuts switched
+on; a save refuses unknown or repeated names (`RULE_CHECKS`, `list` check). A shortcut whose
+module is switched off is hidden in the app whatever is stored (`learn` → gyan_path; the others →
+content), and the card says so. Helpers: `src/lib/home-shortcuts.ts`.
 
 `onboarding.fields` keys: `name_relationship`, `date_of_birth`, `mobile_emails` (default
 required); `gender`, `profession`, `employer`, `contact_channels`, `language`, `interests`

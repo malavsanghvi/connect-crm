@@ -1,5 +1,7 @@
 // Pure helpers for the Content module (approval queue, practices, timings,
-// Gyan Path, library, photos, legal documents).
+// Gyan Path, library, media library, photos, legal documents).
+
+import type { Json } from "@/lib/database.types";
 
 type Obj = Record<string, unknown>;
 
@@ -15,6 +17,9 @@ export const CONTENT_KIND_LABEL: Record<string, string> = {
   pachchakhan: "Religious content · pachchakhan",
   audio_lesson: "Audio lesson",
   video: "Video",
+  stavan: "Stavan",
+  podcast: "Podcast",
+  recipe: "Recipe",
   guide_page: "Guide page",
   explainer: "Explainer",
   darshan_stream: "Live darshan stream",
@@ -59,6 +64,487 @@ export function slugify(text: string): string {
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "")
     .slice(0, 80);
+}
+
+// ---------------------------------------------------------------------------
+// Media library (0560): stavans, videos, podcasts and recipes. Members find
+// them in the member app's 3L (Look, Listen, Learn); metadata conventions are
+// documented on content_items.metadata.
+// ---------------------------------------------------------------------------
+export const MEDIA_KINDS = ["stavan", "video", "podcast", "recipe"] as const;
+export type MediaKind = (typeof MEDIA_KINDS)[number];
+
+export function isMediaKind(v: unknown): v is MediaKind {
+  return typeof v === "string" && (MEDIA_KINDS as readonly string[]).includes(v);
+}
+
+/** Kinds a member can add to My playlist (app.add_to_playlist). Recipes are liked, not played. */
+export const PLAYLIST_KINDS: readonly MediaKind[] = ["stavan", "video", "podcast"];
+
+export type MediaSource = "upload" | "youtube" | "link";
+export const MEDIA_SOURCE_LABEL: Record<MediaSource, string> = { upload: "Uploaded file", youtube: "YouTube", link: "Web link" };
+
+/** Where an item's recording comes from: metadata.source when it is set, else what is filled in. */
+export function mediaSourceOf(item: { media_path: string | null; media_url: string | null; metadata: unknown }): MediaSource | null {
+  const s = isObj(item.metadata) ? item.metadata.source : undefined;
+  if (s === "upload" || s === "youtube" || s === "link") return s;
+  if (item.media_path) return "upload";
+  if (item.media_url) {
+    const yt = parseYouTubeUrl(item.media_url);
+    return yt && !("error" in yt) ? "youtube" : "link";
+  }
+  return null;
+}
+
+/** The content bucket's limit per file (0172): bigger videos go to YouTube and are linked. */
+export const MEDIA_MAX_BYTES = 50 * 1024 * 1024;
+
+/** What an uploaded file of each kind is: the recording, or (recipes) the photo. */
+export type MediaFileRole = "audio" | "video" | "image";
+
+export function mediaFileRole(kind: MediaKind): MediaFileRole {
+  if (kind === "video") return "video";
+  if (kind === "recipe") return "image";
+  return "audio";
+}
+
+/** File types the content bucket stores for each role (0172 + 0560), with the extension each is saved under. */
+const MEDIA_TYPES: Record<MediaFileRole, Record<string, string>> = {
+  audio: { "audio/mpeg": "mp3", "audio/mp4": "m4a", "audio/aac": "aac", "audio/ogg": "ogg", "audio/wav": "wav", "audio/webm": "webm" },
+  video: { "video/mp4": "mp4", "video/webm": "webm", "video/quicktime": "mov" },
+  image: { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp", "image/gif": "gif" },
+};
+
+/** Other names browsers give the same formats; the file is stored under the standard type. */
+const TYPE_ALIASES: Record<string, string> = {
+  "audio/mp3": "audio/mpeg",
+  "audio/x-mp3": "audio/mpeg",
+  "audio/mpeg3": "audio/mpeg",
+  "audio/x-mpeg": "audio/mpeg",
+  "audio/x-mpeg-3": "audio/mpeg",
+  "audio/x-m4a": "audio/mp4",
+  "audio/m4a": "audio/mp4",
+  "audio/x-aac": "audio/aac",
+  "audio/aacp": "audio/aac",
+  "audio/x-wav": "audio/wav",
+  "audio/wave": "audio/wav",
+  "audio/vnd.wave": "audio/wav",
+  "image/jpg": "image/jpeg",
+  "image/pjpeg": "image/jpeg",
+};
+
+/** For a file the browser reports without a type (or as application/octet-stream). */
+const EXTENSION_TYPES: Record<string, string> = {
+  mp3: "audio/mpeg",
+  m4a: "audio/mp4",
+  aac: "audio/aac",
+  ogg: "audio/ogg",
+  oga: "audio/ogg",
+  opus: "audio/ogg",
+  wav: "audio/wav",
+  weba: "audio/webm",
+  mp4: "video/mp4",
+  m4v: "video/mp4",
+  webm: "video/webm",
+  mov: "video/quicktime",
+  jpg: "image/jpeg",
+  jpeg: "image/jpeg",
+  png: "image/png",
+  webp: "image/webp",
+  gif: "image/gif",
+};
+
+function extensionOf(name: string): string {
+  const m = /\.([a-z0-9]{1,5})$/i.exec(name.trim());
+  return m ? m[1].toLowerCase() : "";
+}
+
+/** obj[key] for the table's own keys only (never Object.prototype's). */
+function own(table: Record<string, string>, key: string): string | undefined {
+  return Object.prototype.hasOwnProperty.call(table, key) ? table[key] : undefined;
+}
+
+/** The type a chosen file is stored as, or null when it is not a file this role takes. */
+export function mediaContentType(role: MediaFileRole, file: { name: string; type: string }): string | null {
+  const reported = file.type.trim().toLowerCase().split(";")[0];
+  let type = own(TYPE_ALIASES, reported) ?? reported;
+  if (!type || type === "application/octet-stream") type = own(EXTENSION_TYPES, extensionOf(file.name)) ?? "";
+  // Browsers report a .webm sound recording as video/webm (the extension says nothing more).
+  if (role === "audio" && type === "video/webm") type = "audio/webm";
+  return own(MEDIA_TYPES[role], type) ? type : null;
+}
+
+export const MEDIA_ACCEPT: Record<MediaFileRole, string> = {
+  audio: "audio/mpeg,audio/mp4,audio/x-m4a,audio/aac,audio/ogg,audio/wav,audio/webm,.mp3,.m4a,.aac,.ogg,.opus,.wav,.weba",
+  video: "video/mp4,video/webm,video/quicktime,.mp4,.m4v,.webm,.mov",
+  image: "image/jpeg,image/png,image/webp,image/gif,.jpg,.jpeg,.png,.webp,.gif",
+};
+
+function megabytes(bytes: number): string {
+  const mb = bytes / (1024 * 1024);
+  return `${mb < 10 ? mb.toFixed(1) : Math.round(mb)} MB`;
+}
+
+/**
+ * A file the content bucket takes for this role (type and the 50 MB limit), with the type to
+ * store it as, or the plain-English reason it can't be uploaded.
+ */
+export function checkMediaFile(
+  role: MediaFileRole,
+  file: { name: string; type: string; size: number },
+): { ok: true; contentType: string } | { ok: false; error: string } {
+  if (!Number.isFinite(file.size) || file.size <= 0) return { ok: false, error: "That file is empty. Choose it again." };
+  const contentType = mediaContentType(role, file);
+  if (!contentType) {
+    if (role === "audio") return { ok: false, error: "That is not an audio file the library can store. Use MP3, M4A, AAC, OGG, WAV or WebM audio." };
+    if (role === "video") return { ok: false, error: "That is not a video the library can store. Use MP4, WebM or MOV, or put it on YouTube and paste the link." };
+    return { ok: false, error: "The photo must be a JPEG, PNG, WebP or GIF image (an iPhone HEIC photo can be exported as JPEG)." };
+  }
+  if (file.size > MEDIA_MAX_BYTES) {
+    const size = megabytes(file.size);
+    if (role === "video") return { ok: false, error: `This video is ${size}, over the 50 MB limit. Upload big videos to YouTube (unlisted is fine) and paste the link instead.` };
+    if (role === "audio") {
+      return { ok: false, error: `This recording is ${size}, over the 50 MB limit. Save it as MP3 at a lower quality, or upload it to YouTube and paste the link instead.` };
+    }
+    return { ok: false, error: `This photo is ${size}, over the 50 MB limit. Use a smaller photo.` };
+  }
+  return { ok: true, contentType };
+}
+
+/** "Navkār Mantra (live).MP3" → "navkar-mantra-live" (storage-safe, no extension). */
+function safeBaseName(name: string): string {
+  const base = name.trim().replace(/\.[a-z0-9]{1,5}$/i, "");
+  return (
+    base
+      .normalize("NFKD")
+      .replace(/[̀-ͯ]/g, "")
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 60)
+      .replace(/-+$/, "") || "file"
+  );
+}
+
+/** Where an uploaded media file is stored: <center_id>/media/<kind>/<uuid>-<safe-name>.<ext> (0560). */
+export function mediaObjectPath(centerId: string, kind: MediaKind, id: string, fileName: string, contentType: string): string {
+  const ext = own(MEDIA_TYPES[mediaFileRole(kind)], contentType) ?? (extensionOf(fileName) || "bin");
+  return `${centerId}/media/${kind}/${id}-${safeBaseName(fileName)}.${ext}`;
+}
+
+const UUID = "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}";
+
+/** True when `path` is a file uploaded for this center and kind (what the save accepts as a new media_path or photo_path). */
+export function isMediaObjectPath(centerId: string, kind: MediaKind, path: string): boolean {
+  if (!new RegExp(`^${UUID}$`, "i").test(centerId)) return false;
+  return new RegExp(`^${centerId}/media/${kind}/${UUID}-[a-z0-9-]+\\.[a-z0-9]{1,5}$`, "i").test(path);
+}
+
+/** The file name a member would recognize: "<uuid>-navkar-mantra.mp3" → "navkar-mantra.mp3". */
+export function mediaFileLabel(path: string): string {
+  const last = path.split("/").pop() ?? path;
+  return last.replace(new RegExp(`^${UUID}-`, "i"), "");
+}
+
+// --- Links: YouTube and other web addresses --------------------------------
+
+const YOUTUBE_ID = /^[A-Za-z0-9_-]{11}$/;
+const YOUTUBE_HOSTS = new Set(["youtube.com", "www.youtube.com", "m.youtube.com", "music.youtube.com", "youtube-nocookie.com", "www.youtube-nocookie.com"]);
+
+export type YouTubeLink = { youtubeId: string; url: string };
+
+/**
+ * A YouTube video link → its 11-character id and the canonical address
+ * https://www.youtube.com/watch?v=<id>. Reads watch?v=, youtu.be/<id>, /shorts/, /embed/,
+ * /live/ and /v/ links on youtube.com (www., m., music.) and youtube-nocookie.com, with or
+ * without https:// in front. null when the text is not a YouTube address at all; { error } when
+ * it is one but does not name a single video (a playlist, a channel).
+ */
+export function parseYouTubeUrl(input: string): YouTubeLink | { error: string } | null {
+  const raw = input.trim();
+  if (!raw || /\s/.test(raw)) return null;
+  let url: URL;
+  try {
+    url = new URL(/^[a-z][a-z0-9+.-]*:\/\//i.test(raw) ? raw : `https://${raw}`);
+  } catch {
+    return null;
+  }
+  if (url.protocol !== "https:" && url.protocol !== "http:") return null;
+  const host = url.hostname.toLowerCase();
+  const parts = url.pathname.split("/").filter(Boolean);
+  let id: string | null = null;
+  if (host === "youtu.be" || host === "www.youtu.be") {
+    id = parts[0] ?? null;
+  } else if (YOUTUBE_HOSTS.has(host)) {
+    const first = parts[0] ?? "";
+    if (first === "watch" || (first === "" && url.searchParams.has("v"))) id = url.searchParams.get("v");
+    else if (["shorts", "embed", "live", "v", "e"].includes(first)) id = parts[1] ?? null;
+    else if (first === "playlist") return { error: "that is a YouTube playlist. Open one video in it and copy that video's link" };
+    else return { error: "that YouTube link does not point to one video. Open the video and copy its link (Share › Copy link)" };
+  } else {
+    return null;
+  }
+  if (!id || !YOUTUBE_ID.test(id)) return { error: "that YouTube link does not name a video. Open the video and copy its link (Share › Copy link)" };
+  return { youtubeId: id, url: `https://www.youtube.com/watch?v=${id}` };
+}
+
+export type MediaLink = { ok: true; source: "youtube"; url: string; youtubeId: string } | { ok: true; source: "link"; url: string } | { ok: false; error: string };
+
+/** What an editor pasted as the recording: a YouTube video (normalized) or another secure web address. */
+export function parseMediaLink(input: string): MediaLink {
+  const raw = input.trim();
+  if (!raw) return { ok: false, error: "paste the YouTube or web link" };
+  const yt = parseYouTubeUrl(raw);
+  if (yt && "error" in yt) return { ok: false, error: yt.error };
+  if (yt) return { ok: true, source: "youtube", url: yt.url, youtubeId: yt.youtubeId };
+  if (raw.length > 2000) return { ok: false, error: "that link is too long (2,000 characters at most)" };
+  let url: URL;
+  try {
+    url = new URL(raw);
+  } catch {
+    return { ok: false, error: "the link must be a web address starting with https://" };
+  }
+  if (url.protocol !== "https:" || /\s/.test(raw) || !url.hostname.includes(".")) {
+    return { ok: false, error: "the link must be a secure web address starting with https://" };
+  }
+  return { ok: true, source: "link", url: raw };
+}
+
+/** Whether a web link points straight at an audio or video file (so the drawer can play it). */
+export function linkPlaysAs(url: string): "audio" | "video" | null {
+  let path: string;
+  try {
+    path = new URL(url).pathname;
+  } catch {
+    return null;
+  }
+  const type = own(EXTENSION_TYPES, extensionOf(path)) ?? "";
+  if (type.startsWith("audio/")) return "audio";
+  if (type.startsWith("video/")) return "video";
+  return null;
+}
+
+/** The privacy-enhanced embed address for a YouTube video id. */
+export function youtubeEmbedUrl(youtubeId: string): string {
+  return `https://www.youtube-nocookie.com/embed/${youtubeId}`;
+}
+
+// --- Lengths and lists ------------------------------------------------------
+
+/** "4:05" → 245, "1:02:03" → 3723, "12" (minutes) → 720; "" → null; anything else → "bad". At most 24 hours. */
+export function parseDuration(text: string): number | null | "bad" {
+  const v = text.trim();
+  if (!v) return null;
+  let seconds: number;
+  if (/^\d{1,4}$/.test(v)) seconds = Number(v) * 60;
+  else {
+    const m = /^(?:(\d{1,2}):)?(\d{1,3}):([0-5]\d)$/.exec(v);
+    if (!m) return "bad";
+    if (m[1] !== undefined && Number(m[2]) > 59) return "bad";
+    seconds = Number(m[1] ?? 0) * 3600 + Number(m[2]) * 60 + Number(m[3]);
+  }
+  return seconds > 0 && seconds <= 24 * 3600 ? seconds : "bad";
+}
+
+/** 245 → "4:05", 3723 → "1:02:03"; nothing for a missing or broken value. */
+export function formatDuration(seconds: unknown): string {
+  if (typeof seconds !== "number" || !Number.isFinite(seconds) || seconds <= 0) return "";
+  const s = Math.round(seconds);
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const ss = String(s % 60).padStart(2, "0");
+  return h > 0 ? `${h}:${String(m).padStart(2, "0")}:${ss}` : `${m}:${ss}`;
+}
+
+/**
+ * Text typed as a list → its entries, trimmed, inner spaces collapsed. "comma" splits on commas and
+ * new lines and drops repeats (any case); "line" splits on new lines only (an ingredient may hold a
+ * comma), strips leading bullets and keeps repeats.
+ */
+export function parseTextList(text: string, by: "comma" | "line"): string[] {
+  const parts = text
+    .split(by === "line" ? /\r?\n/ : /[,\r\n]/)
+    .map((s) => (by === "line" ? s.replace(/^\s*(?:[-•*·]|\d+[.)])\s+/, "") : s).trim().replace(/\s+/g, " "))
+    .filter(Boolean);
+  if (by === "line") return parts;
+  const seen = new Set<string>();
+  return parts.filter((p) => {
+    const k = p.toLowerCase();
+    if (seen.has(k)) return false;
+    seen.add(k);
+    return true;
+  });
+}
+
+/** A metadata value that should be a list of text → its entries (anything else → none). */
+export function metaList(v: unknown): string[] {
+  return Array.isArray(v) ? v.filter((x): x is string => typeof x === "string" && x.trim() !== "") : [];
+}
+
+// --- The media drawer's form → the item's columns and metadata -------------
+
+/** Languages offered for a media item (content_items.language; the member app's languages). */
+export const MEDIA_LANGUAGES = [
+  { value: "en", label: "English" },
+  { value: "gu", label: "Gujarati" },
+  { value: "hi", label: "Hindi" },
+] as const;
+
+/** Metadata keys the media drawer edits, per kind; other keys (thumbnail_path, …) are kept as they are. */
+export const MEDIA_META_KEYS: Record<MediaKind, readonly string[]> = {
+  stavan: ["source", "youtube_id", "duration_seconds", "artist", "aliases", "tags"],
+  video: ["source", "youtube_id", "duration_seconds", "artist", "aliases", "tags"],
+  podcast: ["source", "youtube_id", "duration_seconds", "artist", "aliases", "tags", "series", "episode"],
+  recipe: ["fully_jain", "ingredients", "servings", "prep_minutes", "cook_minutes", "photo_path", "aliases", "tags"],
+};
+
+export type MediaFields = {
+  language: string;
+  bodyMd: string | null;
+  mediaUrl: string | null;
+  mediaPath: string | null;
+  /** Metadata keys to write. */
+  set: Record<string, Json>;
+  /** Keys this form manages that are now empty: removed from the stored metadata. */
+  clear: string[];
+};
+
+type FormRead = (name: string) => string | null;
+
+function wholeNumberIn(read: FormRead, name: string, min: number, max: number): number | null | "bad" {
+  const raw = (read(name) ?? "").trim();
+  if (!raw) return null;
+  if (!/^\d+$/.test(raw)) return "bad";
+  const n = Number(raw);
+  return n >= min && n <= max ? n : "bad";
+}
+
+/**
+ * Read the media drawer (stavan, video, podcast, recipe) into the item's columns and metadata.
+ * `current` is what the item holds now: a stored file that is kept as it is is always accepted;
+ * a new one must be an upload of this center and kind. Errors read after "Could not save the item — ".
+ */
+export function parseMediaForm(
+  kind: MediaKind,
+  read: FormRead,
+  centerId: string,
+  current: { mediaPath: string | null; photoPath: string | null } = { mediaPath: null, photoPath: null },
+): { ok: true; fields: MediaFields } | { ok: false; error: string } {
+  const str = (name: string) => (read(name) ?? "").trim();
+  const set: Record<string, Json> = {};
+  const language = str("language") || "en";
+  if (!/^[a-z]{2,3}(-[a-z0-9]{2,8})?$/i.test(language)) return { ok: false, error: "choose the language." };
+  const bodyMd = str("body_md") || null;
+
+  const aliases = parseTextList(str("aliases"), "comma");
+  if (aliases.length > 20) return { ok: false, error: "list at most 20 other names or spellings." };
+  if (aliases.some((a) => a.length > 120)) return { ok: false, error: "each other name or spelling must be 120 characters or fewer." };
+  if (aliases.length) set.aliases = aliases;
+  const tags = parseTextList(str("tags"), "comma");
+  if (tags.length > 20) return { ok: false, error: "use at most 20 tags." };
+  if (tags.some((t) => t.length > 60)) return { ok: false, error: "each tag must be 60 characters or fewer." };
+  if (tags.length) set.tags = tags;
+
+  let mediaUrl: string | null = null;
+  let mediaPath: string | null = null;
+
+  if (kind === "recipe") {
+    if (read("fully_jain") === "on") set.fully_jain = true;
+    else set.fully_jain = false;
+    const ingredients = parseTextList(read("ingredients") ?? "", "line");
+    if (ingredients.length > 80) return { ok: false, error: "list at most 80 ingredients." };
+    if (ingredients.some((i) => i.length > 200)) return { ok: false, error: "each ingredient must be 200 characters or fewer (one per line)." };
+    if (ingredients.length) set.ingredients = ingredients;
+    const servings = wholeNumberIn(read, "servings", 1, 100);
+    if (servings === "bad") return { ok: false, error: "servings must be a whole number from 1 to 100." };
+    if (servings !== null) set.servings = servings;
+    const prep = wholeNumberIn(read, "prep_minutes", 0, 1440);
+    if (prep === "bad") return { ok: false, error: "the preparation time must be a whole number of minutes (up to 1,440)." };
+    if (prep !== null) set.prep_minutes = prep;
+    const cook = wholeNumberIn(read, "cook_minutes", 0, 1440);
+    if (cook === "bad") return { ok: false, error: "the cooking time must be a whole number of minutes (up to 1,440)." };
+    if (cook !== null) set.cook_minutes = cook;
+    const photo = str("photo_path");
+    if (photo && photo !== current.photoPath && !isMediaObjectPath(centerId, kind, photo)) {
+      return { ok: false, error: "the photo is not one uploaded for this community's recipes. Upload it again." };
+    }
+    if (photo) set.photo_path = photo;
+  } else {
+    const artist = str("artist");
+    if (artist.length > 120) return { ok: false, error: "the name of the singer or speaker must be 120 characters or fewer." };
+    if (artist) set.artist = artist;
+    const duration = parseDuration(str("duration"));
+    if (duration === "bad") return { ok: false, error: "the length must look like 4:05 (minutes:seconds) or 1:02:03." };
+    if (duration !== null) set.duration_seconds = duration;
+    if (kind === "podcast") {
+      const series = str("series");
+      if (series.length > 120) return { ok: false, error: "the series name must be 120 characters or fewer." };
+      if (series) set.series = series;
+      const episode = wholeNumberIn(read, "episode", 1, 99999);
+      if (episode === "bad") return { ok: false, error: "the episode must be a whole number (1, 2, 3…)." };
+      if (episode !== null) set.episode = episode;
+    }
+    const source = str("source");
+    if (source === "upload") {
+      const path = str("media_path");
+      if (path && path !== current.mediaPath && !isMediaObjectPath(centerId, kind, path)) {
+        return { ok: false, error: "the file is not one uploaded for this community's library. Upload it again." };
+      }
+      if (path) {
+        mediaPath = path;
+        set.source = "upload";
+      }
+    } else if (source === "link") {
+      if (str("media_url")) {
+        const link = parseMediaLink(str("media_url"));
+        if (!link.ok) return { ok: false, error: `${link.error}.` };
+        mediaUrl = link.url;
+        set.source = link.source;
+        if (link.source === "youtube") set.youtube_id = link.youtubeId;
+      }
+    } else if (source) {
+      return { ok: false, error: "choose where the recording comes from: an uploaded file or a link." };
+    }
+  }
+
+  const clear = MEDIA_META_KEYS[kind].filter((k) => !(k in set));
+  return { ok: true, fields: { language, bodyMd, mediaUrl, mediaPath, set, clear } };
+}
+
+/** What still stops an item from going to the approval queue (null = ready). Drafts may be incomplete. */
+export function mediaReadyProblem(kind: MediaKind, f: Pick<MediaFields, "bodyMd" | "mediaUrl" | "mediaPath" | "set">): string | null {
+  const hasRecording = Boolean(f.mediaUrl || f.mediaPath);
+  if (kind === "stavan" && !hasRecording && !f.bodyMd) return "add the recording or the lyrics before sending it for approval.";
+  if ((kind === "video" || kind === "podcast") && !hasRecording) return "add the recording (upload a file or paste a link) before sending it for approval.";
+  if (kind === "recipe" && (!Array.isArray(f.set.ingredients) || f.set.ingredients.length === 0 || !f.bodyMd)) {
+    return "add the ingredients and the method before sending it for approval.";
+  }
+  return null;
+}
+
+/** Plain-English reason a browser upload to a signed storage address failed (status 0: it never reached the server). */
+export function explainUploadFailure(status: number, body: string): string {
+  let message = "";
+  let code = status;
+  try {
+    const j: unknown = JSON.parse(body);
+    if (isObj(j)) {
+      message = String(j.message ?? j.error ?? "");
+      const inner = Number(j.statusCode);
+      if (Number.isInteger(inner) && inner >= 400) code = inner;
+    }
+  } catch {
+    message = body.slice(0, 200).trim();
+  }
+  if (status === 0) return "the upload could not reach the storage service — check your connection and try again";
+  if (code === 413 || /maximum allowed size|too large/i.test(message)) {
+    return "the file is larger than the storage area takes (50 MB). Upload big videos to YouTube and paste the link instead";
+  }
+  if (code === 415 || /mime ?type|not supported/i.test(message)) return "the storage area does not take this type of file";
+  if (code === 409 || /already exists|duplicate/i.test(message)) return "a file with the same name was stored a moment ago — try again";
+  if (code === 401 || code === 403 || /jwt|token|signature|expired/i.test(message)) return "the upload link expired or was refused — try again";
+  if (code >= 500) return "the storage service had a problem — try again in a moment";
+  return message ? message.replace(/[.\s]+$/, "") : `the storage service answered with status ${status}`;
 }
 
 // ---------------------------------------------------------------------------

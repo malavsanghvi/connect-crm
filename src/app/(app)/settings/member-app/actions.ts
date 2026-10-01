@@ -2,8 +2,10 @@
 
 import { revalidatePath } from "next/cache";
 
+import { expectedVersion, writeCenterRules } from "@/lib/data/center-rules-write";
 import { addDays, startOfDayInTz, todayInTz } from "@/lib/dates";
 import { failure, type ActionResult } from "@/lib/errors";
+import { describeShortcuts, parseHomeShortcuts } from "@/lib/home-shortcuts";
 import { authorizeAction, dbWithReason } from "@/lib/session";
 import { formatJoinCode } from "@/lib/tenancy";
 
@@ -32,4 +34,24 @@ export async function rotateJoinCodeAction(_prev: ActionResult | null, formData:
   if (error) return failure("Could not make a new join code", error);
   revalidatePath("/settings/member-app");
   return { ok: true, message: `New join code ${formatJoinCode(String(data))} · the old one no longer works` };
+}
+
+/**
+ * Settings › Member app › Home shortcuts: the member app's Home strip, in order
+ * (centers.rules.home.shortcuts — src/lib/home-shortcuts.ts). Only the shortcuts switched on are
+ * stored; an empty list means no strip. Versioned like every rules save.
+ */
+export async function saveHomeShortcutsAction(_prev: ActionResult | null, formData: FormData): Promise<ActionResult> {
+  const what = "Home shortcuts";
+  const auth = await authorizeAction("centerSettings", `save the ${what}`);
+  if (!auth.ok) return auth;
+  const expected = expectedVersion(formData.get("version"));
+  if (expected === "invalid") return { ok: false, error: `Could not save the ${what} — the page is out of date. Reload and try again.` };
+  const parsed = parseHomeShortcuts(formData.getAll("shortcut").map((v) => String(v)));
+  if (!parsed.ok) return { ok: false, error: `Could not save the ${what} — ${parsed.error}` };
+  return writeCenterRules(auth.session, { mode: "patch", rules: { home: { shortcuts: parsed.shortcuts } } }, expected, what, (v) =>
+    parsed.shortcuts.length
+      ? `Home shortcuts saved · ${describeShortcuts(parsed.shortcuts)} · rules version ${v} · audit logged`
+      : `Home shortcuts saved · none shown, so Home has no strip · rules version ${v} · audit logged`,
+  );
 }
