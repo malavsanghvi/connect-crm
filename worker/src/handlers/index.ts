@@ -34,6 +34,7 @@ import * as paymentsSyncPayouts from "./payments.sync_payouts";
 import * as paymentsTestCharge from "./payments.test_charge";
 import * as paymentsWebhookPaypal from "./payments.webhook.paypal";
 import * as paymentsWebhookStripe from "./payments.webhook.stripe";
+import * as photosImportAlbum from "./photos.import_album";
 import * as storageRetention from "./storage.retention";
 
 export const HANDLERS: HandlerModule[] = [
@@ -78,4 +79,6 @@ export const HANDLERS: HandlerModule[] = [
   nivaAnswer,
   nivaImportPage,
   nivaRetention,
+  // Google Photos albums: bring a shared album's photos in as photos waiting for approval
+  photosImportAlbum,
 ];

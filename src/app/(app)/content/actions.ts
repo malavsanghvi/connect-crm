@@ -103,6 +103,23 @@ export async function moderatePhotoAction(_prev: ActionResult | null, fd: FormDa
   return { ok: true, message: status === "approved" ? "Photo approved." : status === "rejected" ? "Photo rejected." : "Photo removed." };
 }
 
+/**
+ * Bring the photos of an album's Google Photos link into the album (app.import_external_album, migration 0564).
+ * The background service reads the shared album and adds each photo WAITING for approval, so nothing reaches
+ * members until a content manager approves it. Running it again only adds photos that are new.
+ */
+export async function importAlbumPhotosAction(_prev: ActionResult | null, fd: FormData): Promise<ActionResult> {
+  const doing = "import the photos from Google Photos";
+  const auth = await authorizeAction("contentManage", doing);
+  if (!auth.ok) return auth;
+  const albumId = text(fd, "album_id");
+  if (!isUuid(albumId)) return { ok: false, error: `Could not ${doing} — the request was incomplete. Reload the page and try again.` };
+  const { error } = await auth.session.db.rpc("import_external_album", { p_album: albumId });
+  if (error) return failure(`Could not ${doing}`, error);
+  revalidatePath(`/content/photos/${albumId}`);
+  return { ok: true, message: "Import started. The photos arrive in a minute or two, waiting for your approval. Reload this page to see how it went." };
+}
+
 export async function createAlbumAction(_prev: ActionResult | null, fd: FormData): Promise<ActionResult> {
   const auth = await authorizeAction("contentManage", "create the album");
   if (!auth.ok) return auth;

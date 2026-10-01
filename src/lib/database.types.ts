@@ -5721,6 +5721,9 @@ export type Database = {
           visibility: string;
           created_by: string | null;
           created_at: string;
+          external_synced_at: string | null;
+          external_photo_count: number | null;
+          external_sync_error: string | null;
         };
         Insert: {
           id?: string;
@@ -5731,6 +5734,9 @@ export type Database = {
           visibility?: string;
           created_by?: string | null;
           created_at?: string;
+          external_synced_at?: string | null;
+          external_photo_count?: number | null;
+          external_sync_error?: string | null;
         };
         Update: {
           id?: string;
@@ -5741,6 +5747,9 @@ export type Database = {
           visibility?: string;
           created_by?: string | null;
           created_at?: string;
+          external_synced_at?: string | null;
+          external_photo_count?: number | null;
+          external_sync_error?: string | null;
         };
         Relationships: [];
       };
@@ -9848,6 +9857,12 @@ export type Database = {
         };
         Returns: string;
       };
+      import_external_album: {
+        Args: {
+          p_album: string;
+        };
+        Returns: number;
+      };
       import_has_any: {
         Args: {
           p_center: string;
@@ -10527,6 +10542,12 @@ export type Database = {
           p_person: string;
         };
         Returns: boolean;
+      };
+      photo_album_import_status: {
+        Args: {
+          p_album: string;
+        };
+        Returns: Json;
       };
       place_boli_entry: {
         Args: {
