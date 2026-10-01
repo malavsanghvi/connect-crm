@@ -292,7 +292,7 @@ select $gyan_pack_0571$
        "activity": {
         "lang": "hi-IN",
         "mode": "listen_repeat_say",
-        "pass_ratio": 0.7,
+        "pass_ratio": 0.66,
         "verses": [
          {
           "text": "नमो अरिहंताणं",
@@ -2138,7 +2138,7 @@ select $gyan_pack_0571$
        "activity": {
         "lang": "hi-IN",
         "mode": "listen_repeat_say",
-        "pass_ratio": 0.7,
+        "pass_ratio": 0.66,
         "verses": [
          {
           "text": "नमो अरिहंताणं",
@@ -2239,7 +2239,7 @@ select $gyan_pack_0571$
        "activity": {
         "lang": "hi-IN",
         "mode": "listen_repeat_say",
-        "pass_ratio": 0.7,
+        "pass_ratio": 0.66,
         "verses": [
          {
           "text": "नमो सिद्धाणं",
@@ -2364,7 +2364,7 @@ select $gyan_pack_0571$
        "activity": {
         "lang": "hi-IN",
         "mode": "listen_repeat_say",
-        "pass_ratio": 0.7,
+        "pass_ratio": 0.66,
         "verses": [
          {
           "text": "नमो आयरियाणं",
@@ -2493,7 +2493,7 @@ select $gyan_pack_0571$
        "activity": {
         "lang": "hi-IN",
         "mode": "listen_repeat_say",
-        "pass_ratio": 0.7,
+        "pass_ratio": 0.66,
         "verses": [
          {
           "text": "नमो उवज्झायाणं",
@@ -2607,7 +2607,7 @@ select $gyan_pack_0571$
        "activity": {
         "lang": "hi-IN",
         "mode": "listen_repeat_say",
-        "pass_ratio": 0.7,
+        "pass_ratio": 0.66,
         "verses": [
          {
           "text": "नमो लोए सव्वसाहूणं",
@@ -2736,7 +2736,7 @@ select $gyan_pack_0571$
        "activity": {
         "lang": "hi-IN",
         "mode": "listen_repeat_say",
-        "pass_ratio": 0.7,
+        "pass_ratio": 0.66,
         "verses": [
          {
           "text": "एसो पंच नमुक्कारो",
@@ -2832,7 +2832,7 @@ select $gyan_pack_0571$
        "activity": {
         "lang": "hi-IN",
         "mode": "listen_repeat_say",
-        "pass_ratio": 0.7,
+        "pass_ratio": 0.66,
         "verses": [
          {
           "text": "सव्वपावप्पणासणो",
@@ -2933,7 +2933,7 @@ select $gyan_pack_0571$
        "activity": {
         "lang": "hi-IN",
         "mode": "listen_repeat_say",
-        "pass_ratio": 0.7,
+        "pass_ratio": 0.66,
         "verses": [
          {
           "text": "मंगलाणं च सव्वेसिं",
@@ -3052,7 +3052,7 @@ select $gyan_pack_0571$
        "activity": {
         "lang": "hi-IN",
         "mode": "listen_repeat_say",
-        "pass_ratio": 0.7,
+        "pass_ratio": 0.66,
         "verses": [
          {
           "text": "नमो अरिहंताणं",
