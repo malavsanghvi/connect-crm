@@ -183,7 +183,7 @@ name, to `audit.view` holders of that center and platform admins only (the same 
 - **RPCs guarded:** the media library (0560): media_library, media_item, random_media,
   toggle_media_like, my_playlist, add_to_playlist, remove_from_playlist, reorder_playlist,
   media_like_counts (staff, counts only). Content itself is written through RLS.
-- **Portal:** /content/queue, /content/library, /content/photos, /content/guide, /content/today
+- **Portal:** /content/queue, /content/library, /content/media (stavans, videos, podcasts, recipes), /content/photos, /content/guide, /content/today
 - **Member app:** guide, guide/[slug], album/[id], My Jain Way › 3L (stavans, videos, podcasts,
   recipes, My playlist)
 - **Permissions:** content.view, content.draft, content.manage, content.approve, settings.manage

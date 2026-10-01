@@ -112,8 +112,18 @@ export default async function MediaLibraryPage() {
     }
   }
 
+  // Likes and playlist adds per item (app.media_like_counts, 0560): counts only, never who. The
+  // database gives them to content.view and content.manage; items nobody likes are left out (0).
+  const canSeeCounts = can(session, ["content.view", "content.manage"]);
   const counts = new Map<string, { likes: number; playlists: number }>();
-  const countsError: unknown = null;
+  let countsError: unknown = null;
+  if (canSeeCounts && rows.length) {
+    const c = await db.rpc("media_like_counts", { p_center: center.id });
+    if (c.error) {
+      console.error("[content/media] could not load the like counts:", c.error);
+      countsError = c.error;
+    } else for (const x of c.data ?? []) counts.set(x.item_id, { likes: x.like_count, playlists: x.playlist_count });
+  }
 
   const toItem = (r: Row): MediaItem => {
     const file = storedFile(r);
@@ -145,6 +155,7 @@ export default async function MediaLibraryPage() {
     ) : null;
 
   const likesCells = (r: Row, playlists: boolean) => {
+    if (!canSeeCounts) return null;
     const c = counts.get(r.id);
     const shown = (n: number | undefined) => (countsError ? "—" : String(n ?? 0));
     return (
@@ -167,6 +178,9 @@ export default async function MediaLibraryPage() {
         <div className="mb-4">
           <QueryError what="the like and playlist counts" error={countsError} retryHref="/content/media" />
         </div>
+      ) : null}
+      {!canSeeCounts ? (
+        <p className="mb-3 text-[13px] text-muted">Like and playlist counts need content.view or content.manage, so they are not shown for your role.</p>
       ) : null}
       {canDraft && !canManage ? (
         <div className="mb-4">
@@ -210,8 +224,8 @@ export default async function MediaLibraryPage() {
                         </>
                       )}
                       <th>Status</th>
-                      <th className="num">Likes</th>
-                      {playlists ? <th className="num">In playlists</th> : null}
+                      {canSeeCounts ? <th className="num">Likes</th> : null}
+                      {canSeeCounts && playlists ? <th className="num">In playlists</th> : null}
                       {canDraft ? <th /> : null}
                     </tr>
                   </thead>
