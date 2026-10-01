@@ -258,6 +258,7 @@ export function PointsForm({ settings, ...c }: Common & { settings: RuleSettings
     anumodana_daily_cap: String(p.anumodanaDailyCap),
     support_points: String(p.supportPoints),
     behind_after_days: String(p.behindAfterDays),
+    gyan_practice_daily_cap: String(p.gyanPracticeDailyCap),
   };
   const [v, setV] = useState(initial);
   const field = (k: keyof typeof initial, label: string, suffix: string) => (
@@ -285,6 +286,7 @@ export function PointsForm({ settings, ...c }: Common & { settings: RuleSettings
         {field("anumodana_daily_cap", "Anumodana daily limit", "a day")}
         {field("support_points", "Saathi support", "points · once per person per day")}
         {field("behind_after_days", "“Behind” after", "days without practice")}
+        {field("gyan_practice_daily_cap", "Gyan Path practice tries", "a day per activity earn points")}
       </FieldGrid>
     </SettingsForm>
   );

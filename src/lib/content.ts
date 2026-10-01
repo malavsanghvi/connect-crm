@@ -800,6 +800,16 @@ export function goalLearnerStats(
 
 export type QuizQuestion = { question: string; options: string[]; answer: number };
 
+/** Lengths the database allows in a quiz question (0570, app.gyan_quiz_problems); the step form uses the same. */
+export const QUIZ_QUESTION_MAX = 500;
+export const QUIZ_OPTION_MAX = 200;
+export const QUIZ_MAX_OPTIONS = 6;
+/** The answers box: up to QUIZ_MAX_OPTIONS lines of up to QUIZ_OPTION_MAX characters. */
+export const QUIZ_OPTIONS_TEXT_MAX = QUIZ_MAX_OPTIONS * (QUIZ_OPTION_MAX + 1);
+
+/** Characters as the database counts them (char_length: code points, so an emoji is one). */
+const charCount = (s: string) => Array.from(s).length;
+
 /**
  * One multiple-choice question from the step form (gyan_steps.quiz jsonb:
  * {questions:[{question, options, answer}]}, answer = index of the right option,
@@ -817,9 +827,125 @@ export function quizFromFields(
     .filter(Boolean);
   if (!q && options.length === 0) return { ok: true, quiz: null };
   if (!q) return { ok: false, error: "write the quiz question" };
+  if (charCount(q) > QUIZ_QUESTION_MAX) {
+    return { ok: false, error: `shorten the question to at most ${QUIZ_QUESTION_MAX} characters (it has ${charCount(q)})` };
+  }
   if (options.length < 2) return { ok: false, error: "give at least two answers, one per line" };
-  if (options.length > 6) return { ok: false, error: "use at most six answers" };
+  if (options.length > QUIZ_MAX_OPTIONS) return { ok: false, error: "use at most six answers" };
+  const long = options.findIndex((o) => charCount(o) > QUIZ_OPTION_MAX);
+  if (long >= 0) {
+    return { ok: false, error: `shorten answer ${long + 1} to at most ${QUIZ_OPTION_MAX} characters (it has ${charCount(options[long])})` };
+  }
   const n = Number((answerText ?? "").trim());
   if (!Number.isInteger(n) || n < 1 || n > options.length) return { ok: false, error: `say which answer is right (1 to ${options.length})` };
   return { ok: true, quiz: { questions: [{ question: q, options, answer: n - 1 }] } };
+}
+
+// ---------------------------------------------------------------------------
+// Gyan Path steps: kinds, activity payloads and quiz types (0570). Read-only
+// summaries for the editor; the database checks the shapes on every write
+// (app.gyan_activity_problems / app.gyan_quiz_problems).
+// ---------------------------------------------------------------------------
+const GYAN_KIND_LABEL: Record<string, string> = {
+  read: "Learn",
+  listen: "Listen",
+  recite: "Recite",
+  quiz: "Quiz",
+  video: "Video",
+  practice: "Practice",
+  hotspot: "Tap the spots",
+  voice: "Say it aloud",
+};
+
+/** "Learn", "Quiz", "Tap the spots · practice", "Say it aloud"; an unknown kind is shown as stored. */
+export function gyanStepKindLabel(kind: string, activity?: unknown): string {
+  const base = GYAN_KIND_LABEL[kind] ?? kind.replace(/_/g, " ");
+  if (kind === "hotspot" && isObj(activity) && (activity.mode === "learn" || activity.mode === "practice")) return `${base} · ${activity.mode}`;
+  return base;
+}
+
+const QUIZ_TYPE_LABEL: Record<string, string> = {
+  choice: "multiple choice",
+  truefalse: "true or false",
+  order: "put in order",
+  match: "match the pairs",
+  fill: "fill the gap",
+};
+
+/** The quiz's questions by type, in first-seen order: {questions:[...]} or the older bare list; no type = choice. */
+export function quizTypeCounts(quiz: unknown): { type: string; label: string; count: number }[] {
+  const list = Array.isArray(quiz) ? quiz : isObj(quiz) && Array.isArray(quiz.questions) ? quiz.questions : [];
+  const counts = new Map<string, number>();
+  for (const q of list) {
+    if (!isObj(q)) continue;
+    const t = typeof q.type === "string" && q.type ? q.type : "choice";
+    counts.set(t, (counts.get(t) ?? 0) + 1);
+  }
+  return [...counts].map(([type, count]) => ({ type, label: QUIZ_TYPE_LABEL[type] ?? type, count }));
+}
+
+function listLength(v: unknown): number {
+  return Array.isArray(v) ? v.length : 0;
+}
+const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
+
+/** What a step holds, in a few words: "3 questions: 2 multiple choice, 1 put in order", "4 cards", "9 spots", "5 verses · hi-IN". */
+export function gyanStepDetail(step: { kind: string; activity?: unknown; quiz?: unknown }): string | null {
+  const a = isObj(step.activity) ? step.activity : {};
+  if (step.kind === "quiz") {
+    const types = quizTypeCounts(step.quiz);
+    const total = types.reduce((s, t) => s + t.count, 0);
+    if (!total) return null;
+    return `${plural(total, "question")}: ${types.map((t) => `${t.count} ${t.label}`).join(", ")}`;
+  }
+  if (step.kind === "hotspot") {
+    const n = listLength(a.spots);
+    return n ? plural(n, "spot") : null;
+  }
+  if (step.kind === "voice") {
+    const n = listLength(a.verses);
+    if (!n) return null;
+    return typeof a.lang === "string" && a.lang ? `${plural(n, "verse")} · ${a.lang}` : plural(n, "verse");
+  }
+  const cards = listLength(a.cards);
+  return cards ? plural(cards, "card") : null;
+}
+
+/** Marked by its author as waiting for the Pathshala's review (activity.review). */
+export function gyanNeedsReview(activity: unknown): boolean {
+  return isObj(activity) && activity.review === "needs_pathshala_review";
+}
+
+/** "10 points + 3 a try", "5 points", "3 a try" or "" (no points). */
+export function gyanStepPointsText(points: number | null | undefined, repeatPoints: number | null | undefined): string {
+  const p = points ?? 0;
+  const r = repeatPoints ?? 0;
+  if (p > 0 && r > 0) return `${plural(p, "point")} + ${r} a try`;
+  if (p > 0) return plural(p, "point");
+  if (r > 0) return `${r} a try`;
+  return "";
+}
+
+/** Questions across a level's quiz steps (each step can hold several). */
+export function quizQuestionCount(steps: { kind: string; quiz?: unknown }[]): number {
+  return steps.filter((s) => s.kind === "quiz").reduce((sum, s) => sum + quizTypeCounts(s.quiz).reduce((n, t) => n + t.count, 0), 0);
+}
+
+type GyanStepContent = { kind: string; activity?: unknown; quiz?: unknown };
+
+/** The level carries its own text in the lesson (0570): learn cards, a tap-the-spots picture, or voice verses. */
+export function gyanLevelHasLessonContent(steps: GyanStepContent[]): boolean {
+  return steps.some((s) => (s.kind === "read" || s.kind === "hotspot" || s.kind === "voice") && gyanStepDetail(s) !== null);
+}
+
+export type GyanLevelAudio = "recorded" | "to_record" | "in_lesson" | "not_needed";
+
+/**
+ * The levels table's Audio column. Listen and recite steps play a Library recording, so they need one ("recorded",
+ * "to_record"). Without them there is nothing to record: voice verses play in the lesson (their own audio, or the
+ * phone reads them aloud), and any other level has no audio at all.
+ */
+export function gyanLevelAudio(steps: GyanStepContent[], recorded: boolean): GyanLevelAudio {
+  if (steps.some((s) => s.kind === "listen" || s.kind === "recite")) return recorded ? "recorded" : "to_record";
+  return steps.some((s) => s.kind === "voice" && gyanStepDetail(s) !== null) ? "in_lesson" : "not_needed";
 }

@@ -441,10 +441,14 @@ export async function saveLevelAction(_prev: ActionResult | null, fd: FormData):
   const goalId = text(fd, "goal_id");
   const name = text(fd, "name");
   const points = intOrNull(fd, "points");
+  const treasurePoints = intOrNull(fd, "treasure_points");
   const order = intOrNull(fd, "sort_order");
   if (!isUuid(goalId)) return { ok: false, error: `Could not ${doing} — choose the goal first.` };
   if (!name) return { ok: false, error: `Could not ${doing} — give the level a name.` };
   if (points === "bad" || (points !== null && points < 0)) return { ok: false, error: `Could not ${doing} — points must be a whole number.` };
+  if (treasurePoints === "bad" || (treasurePoints !== null && (treasurePoints < 0 || treasurePoints > 10000))) {
+    return { ok: false, error: `Could not ${doing} — treasure points must be a whole number from 0 to 10,000.` };
+  }
   if (order === "bad") return { ok: false, error: `Could not ${doing} — the order must be a whole number.` };
   const values = {
     goal_id: goalId,
@@ -454,6 +458,7 @@ export async function saveLevelAction(_prev: ActionResult | null, fd: FormData):
     points: points ?? 0,
     sort_order: order ?? 0,
     treasure: text(fd, "treasure") || null,
+    treasure_points: treasurePoints ?? 0,
     requires_teacher_signoff: fd.get("requires_teacher_signoff") === "on",
   };
   const { error } = isUuid(id) ? await db.from("gyan_levels").update(values).eq("id", id) : await db.from("gyan_levels").insert(values);
@@ -481,6 +486,8 @@ export async function addStepAction(_prev: ActionResult | null, fd: FormData): P
   const quiz = quizFromFields(text(fd, "quiz_question"), text(fd, "quiz_options"), text(fd, "quiz_answer"));
   if (!quiz.ok) return { ok: false, error: `Could not add the step — ${quiz.error}.` };
   if (kind === "quiz" && !quiz.quiz) return { ok: false, error: "Could not add the step — a quiz step needs its question and answers." };
+  // No repeat_points: only tap-the-spots practice and voice steps earn points for each try (0570's
+  // gyan_steps_repeat_points_kind), and those come from the lesson packs, not from this form.
   const { error } = await db.from("gyan_steps").insert({
     level_id: levelId,
     kind,
