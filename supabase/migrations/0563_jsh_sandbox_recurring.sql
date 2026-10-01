@@ -37,9 +37,9 @@ begin
     values (p_center, 'recurring_gift_confirmation', 'email', 'en',
             'Your {{frequency}} gift to {{opportunity_name}}',
             E'Thank you for giving to {{opportunity_name}} at {{center_name}}.\n\n'
-            E'Your {{frequency}} gift of ${{amount}} has been added to your pledges. The next one is on {{next_date}}.\n\n'
-            E'You can pause, change or stop it at any time in the app under Give › Your recurring gifts.\n\n'
-            E'Jai Jinendra,\n{{center_name}}');
+            || E'Your {{frequency}} gift of ${{amount}} has been added to your pledges. The next one is on {{next_date}}.\n\n'
+            || E'You can pause, change or stop it at any time in the app under Give › Your recurring gifts.\n\n'
+            || E'Jai Jinendra,\n{{center_name}}');
     v_tpl := 1;
   end if;
 
