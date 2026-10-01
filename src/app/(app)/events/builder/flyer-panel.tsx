@@ -11,7 +11,7 @@ import type { FlyerState } from "@/lib/events/flyer";
 
 import { applyGeneratedFlyerAction, flyerGenerationResultAction, removeEventFlyerAction, requestEventFlyerAction, uploadEventFlyerAction } from "./flyer-actions";
 
-type Pending = { imageB64: string; model: string; prompt: string };
+type Pending = { imageB64: string; contentType: string; model: string; prompt: string };
 
 /**
  * Event builder › Flyer: generate one with AI (editable prompt, preview,
@@ -90,7 +90,7 @@ export function FlyerPanel({
           return;
         }
         if (state.status === "done") {
-          setPendingPreview({ imageB64: state.imageB64, model: state.model, prompt: state.prompt });
+          setPendingPreview({ imageB64: state.imageB64, contentType: state.contentType, model: state.model, prompt: state.prompt });
         }
       } catch (err) {
         console.error("[events/flyer] generate failed:", err);
@@ -102,7 +102,7 @@ export function FlyerPanel({
   function applyPending(p: Pending) {
     start(async () => {
       try {
-        const res = await applyGeneratedFlyerAction(eventId, p.imageB64, p.model, p.prompt);
+        const res = await applyGeneratedFlyerAction(eventId, p.imageB64, p.contentType, p.model, p.prompt);
         if (!res.ok) {
           setError(res.error);
           toast?.show(res.error, "bad");
@@ -174,7 +174,7 @@ export function FlyerPanel({
             <div className="mt-3">
               <p className="crm-hint mb-1">Preview — not saved yet</p>
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={`data:image/png;base64,${pending.imageB64}`} alt="Generated flyer preview" className="w-full rounded-[10px] border border-line" />
+              <img src={`data:${pending.contentType};base64,${pending.imageB64}`} alt="Generated flyer preview" className="w-full rounded-[10px] border border-line" />
               <div className="mt-2 flex flex-wrap gap-2">
                 <button type="button" className={buttonClass("ok", "sm")} onClick={() => acceptFlyer(pending)} disabled={busy}>
                   Use this flyer

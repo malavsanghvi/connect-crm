@@ -194,7 +194,14 @@ function fakeHttp(responses: Canned[]): Http & { calls: string[] } {
     async request(url) {
       calls.push(url);
       const r = queue.shift() ?? { status: 500, text: "" };
-      const res: HttpResponse = { status: r.status, ok: r.status >= 200 && r.status < 300, headers: new Headers(r.headers ?? {}), text: r.text, json: () => JSON.parse(r.text) };
+      const res: HttpResponse = {
+        status: r.status,
+        ok: r.status >= 200 && r.status < 300,
+        headers: new Headers(r.headers ?? {}),
+        text: r.text,
+        json: () => JSON.parse(r.text),
+        bytes: () => new TextEncoder().encode(r.text),
+      };
       return res;
     },
   };

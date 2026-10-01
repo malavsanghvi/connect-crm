@@ -179,8 +179,15 @@ All optional. A handler whose settings are missing reports "not configured"
 | `RESEND_API_KEY` or `POSTMARK_SERVER_TOKEN` | the email sending service |
 | `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN` | texting |
 | `ANTHROPIC_API_KEY` | Niva and import mapping suggestions |
-| `OPENAI_API_KEY` | AI event flyer images (events.generate_flyer). Without it, "Generate flyer with AI" in the event builder says so plainly; uploading a flyer by hand keeps working |
 | `WORKER_SUPABASE_SECRET_KEY` | storage retention (see the note below) |
+
+AI event flyer images (`events.generate_flyer`) call Pollinations.ai and need **no key at all** —
+it is a free, unauthenticated image API. The tradeoff: it is a shared, rate-limited community
+pool (an occasional transient error under load, retried automatically like any other 5xx), and
+`nologo=true` only suppresses its watermark for accounts on its paid/registered tier, so
+generated flyers may carry a small "pollinations.ai" watermark in a corner. Uploading a flyer by
+hand always works regardless. `POLLINATIONS_BASE_URL` exists only to point tests at a local mock
+server — do not set it in a real deploy.
 
 These are Community Connect's own keys. An organization's keys never go here:
 they are entered in Settings › Integrations and kept in the vault.

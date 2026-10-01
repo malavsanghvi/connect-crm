@@ -4,7 +4,7 @@
 
 import { scrubText } from "./log";
 
-export type HttpResponse = { status: number; ok: boolean; headers: Headers; text: string; json<T = unknown>(): T };
+export type HttpResponse = { status: number; ok: boolean; headers: Headers; text: string; json<T = unknown>(): T; bytes(): Uint8Array };
 export type HttpOptions = {
   method?: string;
   headers?: Record<string, string>;
@@ -58,7 +58,10 @@ export function createHttp(fetchImpl: typeof fetch = fetch, sleep = (ms: number)
           );
           continue;
         }
-        const text = await res.text();
+        // Buffer raw bytes once (binary responses, e.g. a generated image, need them intact —
+        // res.text() alone would lossily decode them); text is derived from the same bytes.
+        const buf = new Uint8Array(await res.arrayBuffer());
+        const text = new TextDecoder().decode(buf);
         const response: HttpResponse = {
           status: res.status,
           ok: res.ok,
@@ -71,6 +74,7 @@ export function createHttp(fetchImpl: typeof fetch = fetch, sleep = (ms: number)
               throw new HttpError(`${where} answered ${res.status} with a body that is not JSON`, res.status);
             }
           },
+          bytes: () => buf,
         };
         if (RETRY_STATUS.has(res.status) && attempt < retries) {
           lastError = new HttpError(`${where} answered ${res.status}`, res.status);
