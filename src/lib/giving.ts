@@ -649,3 +649,47 @@ export function writeOffPostingText(p: WriteOffPosting | null | undefined): { to
       return { tone: "warn", label: "QuickBooks: waiting to post" };
   }
 }
+
+// ── Recurring-gift confirmation email (opportunities with "Members may make this recurring") ──────────────────
+// Each recurring cycle fills these fields into the opportunity's chosen email template (app.run_recurring_gift_cycle,
+// 0525); every message also has the center names. A template that uses any other field ({{code}}, {{name}}, ...) would
+// go out with raw placeholders, so the opportunity form offers only templates that fit.
+export const RECURRING_EMAIL_FIELDS = ["amount", "frequency", "next_date", "opportunity_name", "center_name", "center_short_name"] as const;
+/** The organization template 0563 adds for the sandbox; offered first and chosen for a new opportunity when it exists. */
+export const RECOMMENDED_RECURRING_TEMPLATE = "recurring_gift_confirmation";
+
+export type EmailTemplateRow = { key: string; subject: string | null; body?: string | null };
+export type RecurringTemplateOption = { key: string; label: string };
+
+/** The names used inside {{...}} in a text, once each. */
+export function templateFields(text: string | null | undefined): string[] {
+  const found = new Set<string>();
+  for (const m of (text ?? "").matchAll(/\{\{\s*([A-Za-z0-9_]+)\s*\}\}/g)) found.add(m[1]);
+  return [...found];
+}
+
+/** True when every field the template uses is one the recurring cycle fills in (a template with no fields fits). */
+export function fitsRecurringConfirmation(row: Pick<EmailTemplateRow, "subject" | "body">): boolean {
+  const allowed: readonly string[] = RECURRING_EMAIL_FIELDS;
+  return [...templateFields(row.subject), ...templateFields(row.body)].every((f) => allowed.includes(f));
+}
+
+/**
+ * The templates the opportunity form offers: email templates that fit, one per key, the recommended one first, then by key.
+ * Labels carry the key because two templates can share a subject. An opportunity's current choice is always listed (marked
+ * when it no longer fits), so the control never shows something other than its real value.
+ */
+export function recurringTemplateOptions(rows: readonly EmailTemplateRow[], currentKey: string | null = null): RecurringTemplateOption[] {
+  const byKey = new Map<string, EmailTemplateRow>();
+  for (const r of rows) if (!byKey.has(r.key)) byKey.set(r.key, r);
+  const label = (r: EmailTemplateRow) => {
+    const subject = r.subject?.trim();
+    return subject && subject !== r.key ? `${subject} (${r.key})` : r.key;
+  };
+  const options = [...byKey.values()]
+    .filter((r) => fitsRecurringConfirmation(r) || r.key === currentKey)
+    .sort((a, b) => Number(b.key === RECOMMENDED_RECURRING_TEMPLATE) - Number(a.key === RECOMMENDED_RECURRING_TEMPLATE) || a.key.localeCompare(b.key))
+    .map((r) => ({ key: r.key, label: fitsRecurringConfirmation(r) ? label(r) : `${label(r)} — uses fields this email does not fill in` }));
+  if (currentKey && !options.some((o) => o.key === currentKey)) options.unshift({ key: currentKey, label: `${currentKey} — no longer exists` });
+  return options;
+}
