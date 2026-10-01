@@ -383,7 +383,7 @@ select pg_temp.as_user(:tara);
 update app.pledges set status = 'written_off', closed_at = now() where id in (:'inv_pledge', 'e3300000-0000-4000-8000-0000000000a2');
 commit;
 select pg_temp.assert((select status = 'queued' and amount_cents = 50000 and idempotency_key = 'writeoff:' || :'inv_pledge'
-                              and period_month = date_trunc('month', current_date)::date and triggered_by = :tara::uuid
+                              and period_month = date_trunc('month', pg_temp.center_today())::date and triggered_by = :tara::uuid
                          from app.ledger_postings where source_id = :'inv_pledge' and txn_type = 'pledge_writeoff'),
   'write-off: a pledge from a QuickBooks invoice queues one posting for the written-off balance');
 select pg_temp.assert((select status = 'skipped' and last_error like 'Nothing to post: the books are on cash basis and the pledge never was in QuickBooks%'
