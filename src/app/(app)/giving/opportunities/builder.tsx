@@ -8,7 +8,7 @@ import { Drawer } from "@/components/drawer";
 import { HistoryButton } from "@/components/record-history";
 import { useToast } from "@/components/toast";
 import { Card, InfoBox, StatusText, TableWrap, buttonClass } from "@/components/ui";
-import { ALERT_AUDIENCES, OPPORTUNITY_TYPES, type OptionRow } from "@/lib/giving";
+import { ALERT_AUDIENCES, OPPORTUNITY_TYPES, RECOMMENDED_RECURRING_TEMPLATE, type OptionRow } from "@/lib/giving";
 import { formatCents, parseAmountToCents } from "@/lib/money";
 
 import { previewAudienceAction, saveOpportunityAction } from "./actions";
@@ -85,7 +85,16 @@ export function OpportunityBuilder({
   }));
   const [allowRecurring, setAllowRecurring] = useState(initial?.allowRecurring ?? false);
   const [recurringFrequencies, setRecurringFrequencies] = useState<string[]>(initial?.recurringFrequencies ?? []);
-  const [templateKey, setTemplateKey] = useState(initial?.notificationTemplateKey ?? emailTemplates[0]?.key ?? "");
+  // The saved choice (an empty string means none), else the recommended template, else the only one that fits, else nothing:
+  // never the first row of a list, which the dropdown would then show as chosen while the form still held no value.
+  const [templateKey, setTemplateKey] = useState(
+    initial?.notificationTemplateKey ||
+      emailTemplates.find((t) => t.key === RECOMMENDED_RECURRING_TEMPLATE)?.key ||
+      (emailTemplates.length === 1 ? emailTemplates[0].key : ""),
+  );
+  // A saved choice the list no longer offers is still shown, so the control never displays something other than its value.
+  const templateChoices =
+    templateKey && !emailTemplates.some((t) => t.key === templateKey) ? [{ key: templateKey, label: `${templateKey} — no longer offered` }, ...emailTemplates] : emailTemplates;
   const [visibleFrom, setVisibleFrom] = useState(initial ? toLocalInput(initial.visibleFrom) : "");
   const [visibleUntil, setVisibleUntil] = useState(initial ? toLocalInput(initial.visibleUntil) : "");
   const [audience, setAudience] = useState<string[]>(["all_members"]);
@@ -282,17 +291,19 @@ export function OpportunityBuilder({
                   <label htmlFor="op-template" className="crm-label">
                     Confirmation email template
                   </label>
-                  {emailTemplates.length === 0 ? (
-                    <p className="crm-hint">No email templates exist yet — add one in Communications first.</p>
+                  {templateChoices.length === 0 ? (
+                    <p className="crm-hint">No email template fits yet — add one in Communications that uses only the fields below.</p>
                   ) : (
-                    <select id="op-template" value={templateKey} onChange={(e) => setTemplateKey(e.target.value)} className="crm-input">
-                      {emailTemplates.map((t) => (
+                    <select id="op-template" value={templateKey} onChange={(e) => setTemplateKey(e.target.value)} className="crm-input" aria-invalid={templateKey === ""}>
+                      {templateKey === "" ? <option value="">Choose a template…</option> : null}
+                      {templateChoices.map((t) => (
                         <option key={t.key} value={t.key}>
                           {t.label}
                         </option>
                       ))}
                     </select>
                   )}
+                  {templateKey === "" ? <p className="crm-hint text-danger">Choose a template: recurring cannot be switched on without one.</p> : null}
                   <p className="crm-hint">Sent on each recurring cycle&apos;s auto-pledge. Tokens: {"{{amount}} {{frequency}} {{next_date}} {{opportunity_name}}"}</p>
                 </div>
               </div>

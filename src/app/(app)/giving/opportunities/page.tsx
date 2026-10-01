@@ -5,7 +5,7 @@ import { ActionForm } from "@/components/action-form";
 import { BarList, type BarColor } from "@/components/bar-list";
 import { BlockGrid, Card, ChipLinks, EmptyState, NoAccess, PageHeader, QueryError, StatusText, TableWrap, buttonClass } from "@/components/ui";
 import { fetchAll } from "@/lib/data/fetch-all";
-import { OPPORTUNITY_TYPES, barPercent, optionRows } from "@/lib/giving";
+import { OPPORTUNITY_TYPES, barPercent, optionRows, recurringTemplateOptions } from "@/lib/giving";
 import { formatCents } from "@/lib/money";
 import { canAccess } from "@/lib/permissions";
 import { isUuid, param, type RawSearchParams } from "@/lib/search-params";
@@ -46,7 +46,7 @@ export default async function OpportunitiesPage({ searchParams }: { searchParams
       .eq("center_id", center.id)
       .order("created_at", { ascending: false })
       .limit(60),
-    db.from("message_templates").select("key, subject").eq("channel", "email").or(`center_id.eq.${center.id},center_id.is.null`).order("key"),
+    db.from("message_templates").select("key, subject, body").eq("channel", "email").or(`center_id.eq.${center.id},center_id.is.null`).order("key"),
     fetchAll((f, t) =>
       db
         .from("pledges")
@@ -61,7 +61,7 @@ export default async function OpportunitiesPage({ searchParams }: { searchParams
   const fundBy = new Map((funds.data ?? []).map((f) => [f.id, f]));
   const campaignName = new Map((campaigns.data ?? []).map((c) => [c.id, c.name]));
   if (templates.error) console.error("[opportunities] email templates failed:", templates.error);
-  const emailTemplates = Array.from(new Map((templates.data ?? []).map((t) => [t.key, { key: t.key, label: t.subject?.trim() || t.key }])).values());
+  const emailTemplates = recurringTemplateOptions(templates.data ?? []);
   const pledged = new Map<string, number>();
   for (const p of pledges.data) if (p.campaign_id) pledged.set(p.campaign_id, (pledged.get(p.campaign_id) ?? 0) + p.amount_cents);
 
