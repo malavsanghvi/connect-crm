@@ -9789,6 +9789,16 @@ export type Database = {
         };
         Returns: Json;
       };
+      events_request_flyer_art: {
+        Args: {
+          p_event: string;
+          p_occasion: string;
+          p_layer: string;
+          p_seed: number;
+          p_prompt: string;
+        };
+        Returns: Json;
+      };
       fail_checkout: {
         Args: {
           p_checkout: string;
@@ -9836,6 +9846,12 @@ export type Database = {
         Returns: number;
       };
       flagged_refunds: {
+        Args: {
+          p_center: string;
+        };
+        Returns: Json;
+      };
+      flyer_art_status: {
         Args: {
           p_center: string;
         };

@@ -1,95 +1,280 @@
-// events.generate_flyer: ask Pollinations.ai's free image API for a flyer's
-// BACKGROUND ART (owner decision 2026-10-01). The flyer itself — headline,
-// date, venue, QR code, logo — is laid out by the portal's flyer maker
-// (src/lib/events/flyer-render.tsx); this job only makes the picture behind
-// it. Enqueued by app.events_request_flyer.
+// events.generate_flyer: ask Google Gemini for flyer ART (owner decision
+// 2026-10-02, "approach C" of Flyers v2). The flyer itself — every word, the
+// logos, icons, agenda, QR code and the layout — is drawn by the portal
+// (src/lib/events/flyer-render.tsx, flyer-poster.tsx); this job only makes a
+// picture with no text in it. Two kinds of request reach it:
 //
-// Background art only, never people, deities or lettering: the payload's
-// prompt is refused (permanently) when it names a blocked word, and the
-// guardrail (flyer-guard.ts, identical to the portal's copy) is always sent
-// with it exactly once. The request also asks Pollinations not to rewrite the
-// prompt (enhance=false), to apply its safety filter (safe=true) and to keep
-// the image out of its public feed (private=true).
+//   a Poster layer   { event_id, occasion, layer: "frame" | "scene", seed, prompt }
+//                    app.events_request_flyer_art (0585); the prompt is code-set
+//                    by the portal and must END with FLYER_LAYER_GUARDRAIL
+//   a background     { event_id, prompt }  app.events_request_flyer (0578): the
+//                    organizer's own words, abstract or decorative only, with
+//                    FLYER_ART_GUARDRAIL appended
 //
-// What leaves the database: only the art prompt the organizer approved (a
-// description of colours and ornaments — it never includes the event name).
-// Nothing about members, RSVPs or money.
+// Both are refused (permanently) when they name a blocked word, and the right
+// guardrail is sent exactly once (flyer-guard.ts, identical to the portal's
+// copy). Pollinations.ai, the free service this job used to call, is retired:
+// it now answers HTTP 402 Payment Required most of the time, caps images at
+// ~0.6 megapixels and ignores nologo (a watermark).
+//
+// Gemini, as Google's public docs describe it on 2026-10-02
+// (ai.google.dev/gemini-api/docs/image-generation, .../pricing, .../models):
+//
+//   1. The Interactions API, the current way: POST {base}/v1beta/interactions,
+//      key in the x-goog-api-key header, body { model, input: [{ type: "text",
+//      text }], response_format: { type: "image", mime_type, aspect_ratio } };
+//      the picture comes back in steps[].content[] as { type: "image",
+//      mime_type, data (base64) }.
+//   2. generateContent, which Google now calls legacy but still documents for
+//      the image models: POST {base}/v1/models/{model}:generateContent, body
+//      { contents, generationConfig: { responseModalities, responseFormat:
+//      { image: { aspectRatio } } } } (or the older generationConfig.imageConfig);
+//      the picture comes back in candidates[].content.parts[].inlineData.
+//
+// The first is asked first. When Google answers it with a 4xx that is not about
+// the key (the request shape was not accepted for this model or account), the
+// others are tried in turn — nothing was made, so nothing was charged. A 200
+// answer without a picture is NEVER asked again (that could charge twice). The
+// answer is read by looking for the image block wherever it is, so a change
+// in Google's envelope does not break it. There is no seed: Google's pages for
+// these models do not list one; the portal's seed is only the picture's name in
+// the community's art library, so "Generate another" is a new picture.
+//
+// The model is GEMINI_IMAGE_MODEL (Platform › Setup › AI flyer art) when it is
+// one of src/lib/events/flyer-art.ts's models, else that file's default; the
+// pictures are 1K, the only size the default model makes, and cost about 4¢
+// (shown to the organizer before they ask). Every picture carries Google's
+// SynthID watermark.
+//
+// The key: GEMINI_API_KEY, saved by the owner in Platform › Setup (Supabase
+// Vault, read through platform-config.ts) or in this service's environment.
+// It is sent only in the request header, never logged, never in a result.
+//
+// What leaves the database: only the art prompt (colours and ornaments — never
+// the event's name) and the aspect ratio. Nothing about members.
 //
 // Result (app.jobs.result, read by app.events_flyer_result): { image_b64,
-// content_type, model, prompt }. The PORTAL stores the bytes as
-// content/<center>/events/<event>/art-<ms>.<ext> as the signed-in organizer,
-// then app.events_flyer_art_taken removes image_b64 from this result and
-// records the stored path (0578), so app.jobs does not keep a copy. The worker
-// never touches Storage for this job.
-//
-// Pollinations.ai (2026-09-29, owner decision — free, no API key, no signup,
-// so this handler is always "configured"). The tradeoff, spelled out rather
-// than hidden: it is a shared, rate-limited community pool (a burst of
-// requests can return a transient error — retried like any other 5xx), it may
-// still draw a figure or letters despite the guardrail (the organizer always
-// looks at the preview), and `nologo=true` only removes the watermark for
-// registered accounts, so free art may carry a small mark in a corner (the
-// portal says so).
+// content_type, model, prompt, provider, api, layer?, occasion?, seed? }. The
+// PORTAL stores the bytes as the organizer — a layer at its cache key
+// content/<center>/flyer-art/<occasion>/<layer>-<seed>.<ext>, a background at
+// content/<center>/events/<event>/art-<ms>.<ext> — then
+// app.events_flyer_art_taken removes image_b64 from this result (0578/0585),
+// and app.audit_mask keeps the bytes out of the audit log.
 
-import { PermanentError } from "../errors";
-import type { Readiness } from "../config";
-import { findBlockedArtTerm, withArtGuardrail } from "../flyer-guard";
+import { FLYER_LAYER_ASPECT, NO_GEMINI_KEY, flyerArtModel, type FlyerArtModel } from "../../../src/lib/events/flyer-art";
+import type { Env, Readiness } from "../config";
+import { NotConfiguredError, PermanentError } from "../errors";
+import { findBlockedArtTerm, withArtGuardrail, withLayerGuardrail } from "../flyer-guard";
+import type { HttpResponse } from "../http";
 import type { Job, JobContext } from "../types";
 
 export const kind = "events.generate_flyer";
-
-export const MODEL = "pollinations-flux";
-const WIDTH = 1024;
-const HEIGHT = 1536; // portrait, close to a flyer's aspect ratio
+export const PROVIDER = "gemini";
 const MAX_PROMPT_CHARS = 2000;
+const OCCASIONS = new Set(["garba", "paryushan", "diwali", "mahavir", "convention", "pathshala", "bhakti", "general"]);
+/** The most a picture may weigh (base64 goes into app.jobs.result until the portal has stored it). */
+const MAX_IMAGE_BYTES = 6 * 1024 * 1024;
 
-export function configured(): Readiness {
-  return { configured: true }; // no platform key needed — see file header
+function hasKey(env: Env): boolean {
+  return Boolean((env.GEMINI_API_KEY ?? "").trim());
 }
 
-export function readPayload(p: unknown): { prompt: string } {
+export function configured(env: Env): Readiness {
+  return hasKey(env) ? { configured: true } : { configured: false, reason: NO_GEMINI_KEY };
+}
+
+/** What the heartbeat says beside "configured": the provider and the model (names only, never the key). */
+export function info(env: Env): Record<string, string> {
+  return { provider: PROVIDER, model: flyerArtModel(env.GEMINI_IMAGE_MODEL) };
+}
+
+export type FlyerArtPayload =
+  | { kind: "layer"; prompt: string; layer: "frame" | "scene"; occasion: string; seed: number }
+  | { kind: "background"; prompt: string };
+
+export function readPayload(p: unknown): FlyerArtPayload {
   const o = (p ?? {}) as Record<string, unknown>;
   const prompt = typeof o.prompt === "string" ? o.prompt.trim() : "";
   if (!prompt) throw new PermanentError("events.generate_flyer: the payload needs a prompt.");
   const blocked = findBlockedArtTerm(prompt);
-  if (blocked) throw new PermanentError(`AI backgrounds are abstract or decorative only: the request mentioned "${blocked}".`);
-  return { prompt: withArtGuardrail(prompt, MAX_PROMPT_CHARS) };
+  if (blocked) throw new PermanentError(`AI flyer art never shows people up close, deities or lettering: the request mentioned "${blocked}".`);
+  if (o.layer === undefined) return { kind: "background", prompt: withArtGuardrail(prompt, MAX_PROMPT_CHARS) };
+  if (o.layer !== "frame" && o.layer !== "scene") throw new PermanentError("events.generate_flyer: the layer must be a frame or a scene.");
+  if (typeof o.occasion !== "string" || !OCCASIONS.has(o.occasion)) throw new PermanentError("events.generate_flyer: the payload names no occasion.");
+  const seed = Number(o.seed);
+  if (!Number.isInteger(seed) || seed < 1 || seed > 2_147_483_647) throw new PermanentError("events.generate_flyer: the seed is out of range.");
+  return { kind: "layer", prompt: withLayerGuardrail(prompt, MAX_PROMPT_CHARS), layer: o.layer, occasion: o.occasion, seed };
 }
 
-type ErrorBody = { error?: string; message?: string };
+// ── The requests ─────────────────────────────────────────────────────────────
+
+export type GeminiApi = "interactions" | "generateContent" | "generateContent (imageConfig)";
+
+export type GeminiRequest = { api: GeminiApi; path: string; body: Record<string, unknown> };
+
+/** The requests to try, in order, for one picture. Pure, so the tests can check the exact shapes. */
+export function geminiRequests(model: FlyerArtModel, prompt: string, aspectRatio: string): GeminiRequest[] {
+  const contents = [{ role: "user", parts: [{ text: prompt }] }];
+  return [
+    {
+      api: "interactions",
+      path: "/v1beta/interactions",
+      body: {
+        model,
+        input: [{ type: "text", text: prompt }],
+        response_format: { type: "image", mime_type: "image/jpeg", aspect_ratio: aspectRatio },
+      },
+    },
+    {
+      api: "generateContent",
+      path: `/v1/models/${encodeURIComponent(model)}:generateContent`,
+      body: { contents, generationConfig: { responseModalities: ["TEXT", "IMAGE"], responseFormat: { image: { aspectRatio } } } },
+    },
+    {
+      api: "generateContent (imageConfig)",
+      path: `/v1beta/models/${encodeURIComponent(model)}:generateContent`,
+      body: { contents, generationConfig: { responseModalities: ["TEXT", "IMAGE"], imageConfig: { aspectRatio } } },
+    },
+  ];
+}
+
+// ── The answer ───────────────────────────────────────────────────────────────
+
+type Found = { data: string; mimeType: string };
+
+/**
+ * Every picture in an answer of either API, in order, wherever it is: any
+ * object with a base64 `data` string and an image/* `mime_type` (Interactions,
+ * snake_case) or `mimeType` (generateContent's inlineData). Interim "thought"
+ * pictures of a reasoning model are skipped.
+ */
+export function imagesIn(node: unknown, out: Found[] = [], depth = 0): Found[] {
+  if (depth > 10 || node === null || typeof node !== "object") return out;
+  if (Array.isArray(node)) {
+    for (const n of node) imagesIn(n, out, depth + 1);
+    return out;
+  }
+  const o = node as Record<string, unknown>;
+  if (o.thought === true || o.type === "thought") return out;
+  const mime = typeof o.mime_type === "string" ? o.mime_type : typeof o.mimeType === "string" ? o.mimeType : "";
+  if (mime.toLowerCase().startsWith("image/") && typeof o.data === "string" && o.data.length > 64) {
+    out.push({ data: o.data, mimeType: mime.toLowerCase() });
+    return out;
+  }
+  for (const v of Object.values(o)) imagesIn(v, out, depth + 1);
+  return out;
+}
+
+function textIn(node: unknown, out: string[] = [], depth = 0): string[] {
+  if (depth > 10 || node === null || typeof node !== "object") return out;
+  if (Array.isArray(node)) {
+    for (const n of node) textIn(n, out, depth + 1);
+    return out;
+  }
+  const o = node as Record<string, unknown>;
+  if (o.thought === true || o.type === "thought") return out;
+  if (typeof o.text === "string" && o.text.trim() && (o.type === undefined || o.type === "text")) out.push(o.text.trim());
+  for (const v of Object.values(o)) if (typeof v === "object") textIn(v, out, depth + 1);
+  return out;
+}
+
+type GeminiAnswer = {
+  status?: string;
+  candidates?: { finishReason?: string }[];
+  promptFeedback?: { blockReason?: string };
+  error?: { code?: number; message?: string; status?: string };
+};
+
+/** The (last, i.e. final) picture in an answer, or why there is none, in plain English. */
+export function pictureFrom(body: unknown): Found | { reason: string } {
+  const answer = (body && typeof body === "object" ? body : {}) as GeminiAnswer;
+  const last = imagesIn(body).at(-1);
+  if (last) return last;
+  if (answer.promptFeedback?.blockReason) return { reason: `Gemini refused the request (${answer.promptFeedback.blockReason}). Try again, or use the drawn art.` };
+  const finish = answer.candidates?.[0]?.finishReason;
+  if (finish && finish !== "STOP") return { reason: `Gemini did not make a picture (${finish}). Try again, or use the drawn art.` };
+  if (answer.status && answer.status !== "completed") return { reason: `Gemini did not make a picture (${answer.status}). Try again, or use the drawn art.` };
+  const said = textIn(body).join(" ").replace(/\s+/g, " ").slice(0, 160);
+  return { reason: `Gemini answered without a picture${said ? ` ("${said}")` : ""}. Try again, or use the drawn art.` };
+}
+
+function bodyOf(res: Pick<HttpResponse, "json">): GeminiAnswer {
+  try {
+    const v = res.json<GeminiAnswer>();
+    return v && typeof v === "object" ? v : {};
+  } catch {
+    return {};
+  }
+}
+
+function why(answer: GeminiAnswer): string {
+  const m = answer.error?.message;
+  return m ? `: ${m.replace(/\s+/g, " ").slice(0, 300)}` : "";
+}
+
+/** The kinds of "no" that mean this request SHAPE was not accepted (try the next one), not that the key or the service is the problem. */
+function isShapeProblem(status: number): boolean {
+  return status >= 400 && status < 500 && status !== 401 && status !== 403 && status !== 408 && status !== 429;
+}
 
 export async function run(job: Job, ctx: JobContext) {
-  const { prompt } = readPayload(job.payload);
+  if (!hasKey(ctx.env)) throw new NotConfiguredError(NO_GEMINI_KEY);
+  const payload = readPayload(job.payload);
+  const key = ctx.env.GEMINI_API_KEY!.trim();
+  const model = flyerArtModel(ctx.env.GEMINI_IMAGE_MODEL);
+  // GEMINI_API_BASE only points tests at a local mock server.
+  const base = (ctx.env.GEMINI_API_BASE || "https://generativelanguage.googleapis.com").replace(/\/+$/, "");
+  const aspectRatio = FLYER_LAYER_ASPECT[payload.kind === "layer" ? payload.layer : "background"];
 
-  // POLLINATIONS_BASE_URL only points tests at a local mock server.
-  const base = (ctx.env.POLLINATIONS_BASE_URL || "https://image.pollinations.ai").replace(/\/+$/, "");
-  const seed = Math.floor(Math.random() * 1_000_000_000);
-  const query = new URLSearchParams({
-    width: String(WIDTH),
-    height: String(HEIGHT),
-    nologo: "true",
-    private: "true",
-    enhance: "false",
-    safe: "true",
-    seed: String(seed),
-  });
-  const url = `${base}/prompt/${encodeURIComponent(prompt)}?${query.toString()}`;
-  const res = await ctx.http.request(url, { method: "GET", timeoutMs: 120000, retries: 1 });
+  let res: HttpResponse | null = null;
+  let used: GeminiRequest | null = null;
+  const refused: string[] = [];
+  for (const req of geminiRequests(model, payload.prompt, aspectRatio)) {
+    used = req;
+    res = await ctx.http.request(`${base}${req.path}`, {
+      method: "POST",
+      headers: { "x-goog-api-key": key, "content-type": "application/json" },
+      body: req.body,
+      timeoutMs: 120000,
+      retries: 1,
+    });
+    if (res.ok || !isShapeProblem(res.status)) break;
+    refused.push(`${req.api}: HTTP ${res.status}${why(bodyOf(res))}`);
+    ctx.log.warn("gemini did not accept the request; trying the next shape", { api: req.api, status: res.status, model });
+  }
+  if (!res || !used) throw new Error("Gemini was not asked.");
 
-  const contentType = res.headers.get("content-type") ?? "";
-  if (!res.ok || !contentType.startsWith("image/")) {
-    const body = contentType.includes("json") ? res.json<ErrorBody>() : {};
-    const reason = body.message || body.error || `Pollinations answered ${res.status}`;
-    // 400s (a refused/empty prompt) will not succeed on retry; everything else (429s wrapped as
-    // 500 by Pollinations' own gateway, real 5xx) is the shared pool being busy — the queue retries.
-    if (res.status >= 400 && res.status < 500) throw new PermanentError(`Could not generate the flyer art: ${reason}`);
-    throw new Error(`Could not generate the flyer art: ${reason}`);
+  const answer = bodyOf(res);
+  if (!res.ok) {
+    if (res.status === 401 || res.status === 403) throw new PermanentError(`Gemini refused the key (HTTP ${res.status}). A platform administrator needs to check GEMINI_API_KEY in Platform › Setup › AI flyer art${why(answer)}`);
+    if (res.status === 404) throw new PermanentError(`The Gemini model ${model} is not available to this key (HTTP 404). Choose another model in Platform › Setup › AI flyer art${why(answer)}`);
+    if (res.status === 429) throw new Error(`Gemini is rate limiting or the account's quota ran out (HTTP 429); the request is tried again${why(answer)}`);
+    if (res.status >= 500) throw new Error(`Gemini had a problem (HTTP ${res.status}); the request is tried again${why(answer)}`);
+    throw new PermanentError(`Gemini did not accept the request (${refused.join("; ")}).`);
   }
 
-  const bytes = res.bytes();
-  if (bytes.length === 0) throw new PermanentError("Pollinations did not return an image for this prompt.");
-  const image_b64 = Buffer.from(bytes).toString("base64");
+  const picture = pictureFrom(answer);
+  if ("reason" in picture) throw new PermanentError(picture.reason);
+  const bytes = Buffer.from(picture.data, "base64");
+  if (bytes.length === 0) throw new PermanentError("Gemini answered with an empty picture. Try again, or use the drawn art.");
+  if (bytes.length > MAX_IMAGE_BYTES) throw new PermanentError("Gemini sent a picture too large to keep. Try again, or use the drawn art.");
 
-  ctx.log.info("flyer art generated", { event: (job.payload as { event_id?: string } | null)?.event_id ?? null, bytes: bytes.length, content_type: contentType });
-  return { image_b64, content_type: contentType, model: MODEL, prompt };
+  ctx.log.info("flyer art generated", {
+    event: (job.payload as { event_id?: string } | null)?.event_id ?? null,
+    kind: payload.kind,
+    layer: payload.kind === "layer" ? payload.layer : null,
+    model,
+    api: used.api,
+    bytes: bytes.length,
+    content_type: picture.mimeType,
+  });
+  return {
+    image_b64: bytes.toString("base64"),
+    content_type: picture.mimeType,
+    model,
+    provider: PROVIDER,
+    api: used.api,
+    prompt: payload.prompt,
+    ...(payload.kind === "layer" ? { layer: payload.layer, occasion: payload.occasion, seed: payload.seed } : {}),
+  };
 }

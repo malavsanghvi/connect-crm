@@ -204,12 +204,21 @@ AI model Niva uses (…) is not available to this Anthropic account". The value 
 background service on the next deploy (any push to `main`, or run **Deploy** by hand). Editing
 `/srv/connect/worker.env` on the droplet does not last, because every deploy rewrites that file.
 
-AI event flyer images (`events.generate_flyer`) call Pollinations.ai and need **no key at all** —
-it is a free, unauthenticated image API. The tradeoff: it is a shared, rate-limited community
-pool (an occasional transient error under load, retried automatically like any other 5xx), and
-`nologo=true` only suppresses its watermark for accounts on its paid/registered tier, so
-generated flyers may carry a small "pollinations.ai" watermark in a corner. Uploading a flyer by
-hand always works regardless. `POLLINATIONS_BASE_URL` exists only to point tests at a local mock
+AI flyer art (`events.generate_flyer`, Flyers v2) calls **Google Gemini** and needs a **Gemini API key**:
+**Platform › Setup › AI flyer art** (saved in the vault like every other platform key, never in this repository
+or a log). Create it in Google AI Studio (aistudio.google.com › Get API key) on a Google Cloud project **with
+billing turned on**: Gemini's image models have no free tier. Press **Test** in the wizard: it looks the model up
+with the key (a free call, no picture is made). The same page can choose the image model; without a choice it
+uses **Gemini 3.1 Flash Lite Image** (about 4¢ a picture; Flash Image about 7¢, Pro Image about 14¢; prices from
+ai.google.dev/gemini-api/docs/pricing, 2026-10-02). `gemini-2.5-flash-image` is not offered: Google shuts it down
+on 2026-10-02. Organizers see the price on the button before every picture; each picture is made once and kept for
+the whole community (`content/<center>/flyer-art/…`), a community can ask for at most 30 a day, and every flyer
+has code-drawn art that costs nothing and always works. **Without a key** the flyer maker says "AI art needs a
+Gemini key — ask your Community Connect admin (Platform › Setup)" and uses the drawn art; a background service
+deployed before this change shows "needs updating" until the next deploy. A worker environment variable
+`GEMINI_API_KEY` (and `GEMINI_IMAGE_MODEL`) also works, for a machine with no vault. Pollinations.ai, which this
+job called before, is retired: it now answers HTTP 402 Payment Required most of the time, caps images at about
+0.6 megapixels and ignores `nologo` (a watermark). `GEMINI_API_BASE` exists only to point tests at a local mock
 server — do not set it in a real deploy.
 
 These are Community Connect's own keys. An organization's keys never go here:

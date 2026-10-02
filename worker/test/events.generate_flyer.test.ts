@@ -1,56 +1,104 @@
-import { createServer, type Server } from "node:http";
+import { createServer, type IncomingHttpHeaders, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
 
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
-import { PermanentError } from "../src/errors";
-import { FLYER_ART_GUARDRAIL, findBlockedArtTerm, withArtGuardrail } from "../src/flyer-guard";
-import { configured, readPayload, run } from "../src/handlers/events.generate_flyer";
+import { DEFAULT_FLYER_ART_MODEL, FLYER_LAYER_ASPECT, FLYER_LAYER_PROMPTS, FLYER_OCCASIONS, NO_GEMINI_KEY } from "../../src/lib/events/flyer-art";
+import { NotConfiguredError, PermanentError, isRetryable } from "../src/errors";
+import { FLYER_ART_GUARDRAIL, FLYER_LAYER_GUARDRAIL, findBlockedArtTerm, withArtGuardrail, withLayerGuardrail } from "../src/flyer-guard";
+import { configured, geminiRequests, imagesIn, info, pictureFrom, readPayload, run } from "../src/handlers/events.generate_flyer";
 import { createHttp } from "../src/http";
 import { captureLog } from "./helpers";
 
 const http = createHttp(fetch, async () => {});
-const FAKE_JPEG = Buffer.from("fake-image-bytes");
+
+/** A made-up picture: 100 bytes of base64 is the least the reader accepts as an image block. */
+const FAKE = Buffer.from("fake-image-bytes-".repeat(20));
+const KEY = "AIzaSy-test-key-123456789012345678901234";
+
+type Seen = { method: string; url: string; headers: IncomingHttpHeaders; body: Record<string, unknown> };
+type Scripted = { status: number; body: unknown };
 
 let server: Server;
-let url = "";
-let status = 200;
-let contentType = "image/jpeg";
-let responseBody: Buffer | string = FAKE_JPEG;
-let lastPath = "";
+let base = "";
+const seen: Seen[] = [];
+let script: Scripted[] = [];
 beforeAll(async () => {
   server = createServer((req, res) => {
-    lastPath = req.url ?? "";
-    res.statusCode = status;
-    res.setHeader("content-type", contentType);
-    res.end(responseBody);
+    const chunks: Buffer[] = [];
+    req.on("data", (c: Buffer) => chunks.push(c));
+    req.on("end", () => {
+      let body: Record<string, unknown> = {};
+      try {
+        body = JSON.parse(Buffer.concat(chunks).toString("utf8")) as Record<string, unknown>;
+      } catch {
+        // an empty or non-JSON body stays {}
+      }
+      seen.push({ method: req.method ?? "", url: req.url ?? "", headers: req.headers, body });
+      const next = script.shift() ?? { status: 500, body: { error: { message: "no scripted answer" } } };
+      res.statusCode = next.status;
+      res.setHeader("content-type", "application/json");
+      res.end(JSON.stringify(next.body));
+    });
   });
   await new Promise<void>((r) => server.listen(0, "127.0.0.1", r));
-  url = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+  base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
 });
 afterAll(() => server.close());
+beforeEach(() => {
+  seen.length = 0;
+  script = [];
+});
 
 const ctx = (env: Record<string, string> = {}) => {
-  const { log } = captureLog();
-  return { env: { ...env, POLLINATIONS_BASE_URL: url }, log, http } as unknown as Parameters<typeof run>[1];
+  const { log, lines } = captureLog();
+  return { c: { env: { GEMINI_API_KEY: KEY, GEMINI_API_BASE: base, ...env }, log, http } as unknown as Parameters<typeof run>[1], lines };
 };
 const jobOf = (payload: unknown) => ({ id: 1, payload, attempts: 1 }) as unknown as Parameters<typeof run>[0];
-
-/** The prompt as Pollinations received it (the path segment after /prompt/). */
-function sentPrompt(): string {
-  const path = lastPath.split("?")[0] ?? "";
-  return decodeURIComponent(path.replace(/^\/prompt\//, ""));
-}
-function sentQuery(): URLSearchParams {
-  return new URLSearchParams(lastPath.split("?")[1] ?? "");
-}
 const count = (haystack: string, needle: string) => haystack.split(needle).length - 1;
 
-describe("events.generate_flyer", () => {
-  it("is always configured — no platform key is needed", () => {
-    expect(configured()).toEqual({ configured: true });
+/** Interactions API answer with one picture (steps[].content[]). */
+const interactionsAnswer = (data = FAKE.toString("base64"), mime = "image/jpeg") => ({
+  id: "v1_x",
+  status: "completed",
+  steps: [{ type: "model_output", content: [{ type: "image", mime_type: mime, data }] }],
+});
+/** generateContent answer with one picture (candidates[].content.parts[].inlineData). */
+const generateAnswer = (data = FAKE.toString("base64"), mime = "image/png") => ({
+  candidates: [{ content: { parts: [{ text: "Here is your picture." }, { inlineData: { mimeType: mime, data } }] }, finishReason: "STOP" }],
+});
+
+const layerJob = (over: Record<string, unknown> = {}) =>
+  jobOf({ event_id: "e1", occasion: "garba", layer: "frame", seed: 12345, prompt: "A decorative border frame with gold mandalas in the corners.", ...over });
+
+describe("events.generate_flyer: readiness", () => {
+  it("needs a Gemini key, and says so in plain English", () => {
+    expect(configured({})).toEqual({ configured: false, reason: NO_GEMINI_KEY });
+    expect(configured({ GEMINI_API_KEY: "  " })).toEqual({ configured: false, reason: NO_GEMINI_KEY });
+    expect(configured({ GEMINI_API_KEY: KEY })).toEqual({ configured: true });
+    expect(NO_GEMINI_KEY).toBe("AI art needs a Gemini key — ask your Community Connect admin (Platform › Setup).");
   });
 
+  it("reports the provider and the model to the heartbeat, never the key", () => {
+    expect(info({ GEMINI_API_KEY: KEY })).toEqual({ provider: "gemini", model: DEFAULT_FLYER_ART_MODEL });
+    expect(info({ GEMINI_IMAGE_MODEL: "gemini-3.1-flash-image" })).toEqual({ provider: "gemini", model: "gemini-3.1-flash-image" });
+    // gemini-2.5-flash-image is shut down on 2026-10-02, and an unknown name is never sent to Google.
+    expect(info({ GEMINI_IMAGE_MODEL: "gemini-2.5-flash-image" }).model).toBe(DEFAULT_FLYER_ART_MODEL);
+    expect(info({ GEMINI_IMAGE_MODEL: "something-else" }).model).toBe(DEFAULT_FLYER_ART_MODEL);
+    expect(JSON.stringify(info({ GEMINI_API_KEY: KEY }))).not.toContain(KEY);
+  });
+
+  it("fails a job without a key at once, as not configured (never retried)", async () => {
+    const { c } = ctx({ GEMINI_API_KEY: "" });
+    const err = await run(layerJob(), c).catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(NotConfiguredError);
+    expect(isRetryable(err)).toBe(false);
+    expect((err as Error).message).toBe(NO_GEMINI_KEY);
+    expect(seen).toHaveLength(0);
+  });
+});
+
+describe("events.generate_flyer: the payload", () => {
   it("refuses a payload with no prompt", () => {
     expect(() => readPayload({})).toThrow(PermanentError);
     expect(() => readPayload({ prompt: "  " })).toThrow(PermanentError);
@@ -58,81 +106,267 @@ describe("events.generate_flyer", () => {
 
   it("refuses a prompt that asks for people, deities or lettering, permanently", () => {
     expect(() => readPayload({ prompt: "Mahavir seated in a temple" })).toThrow(PermanentError);
-    expect(() => readPayload({ prompt: "A murti with flowers" })).toThrow(/abstract or decorative only: the request mentioned "murti"/);
+    expect(() => readPayload({ prompt: "A murti with flowers" })).toThrow(/never shows people up close, deities or lettering: the request mentioned "murti"/);
     expect(() => readPayload({ prompt: "Happy Diwali text in gold letters" })).toThrow(PermanentError);
     expect(() => readPayload({ prompt: "A crowd of people dancing" })).toThrow(PermanentError);
     expect(() => readPayload({ prompt: "Garba dancers around Ambe Mataji" })).toThrow(/the request mentioned "dancers"/);
-    expect(() => readPayload({ prompt: "Goddesses in a lotus pond" })).toThrow(PermanentError);
+    expect(() => readPayload({ prompt: "Goddesses in a lotus pond", layer: "scene", occasion: "diwali", seed: 4 })).toThrow(PermanentError);
   });
 
   it("does not mistake ornament words for blocked ones", () => {
     expect(readPayload({ prompt: "Lotus and mandala patterns with diya light, rangoli dots, for Paryushan context" }).prompt).toContain("Lotus and mandala");
   });
 
-  it("adds the guardrail exactly once, even when the portal already added it", () => {
-    const once = readPayload({ prompt: "Soft saffron mandala" }).prompt;
-    expect(count(once, FLYER_ART_GUARDRAIL)).toBe(1);
-    const again = readPayload({ prompt: withArtGuardrail("Soft saffron mandala") }).prompt;
-    expect(again).toBe(once);
-    expect(findBlockedArtTerm(once)).toBeNull();
+  it("a background gets the background guardrail exactly once, even when the portal already added it", () => {
+    const once = readPayload({ prompt: "Soft saffron mandala" });
+    expect(once.kind).toBe("background");
+    expect(count(once.prompt, FLYER_ART_GUARDRAIL)).toBe(1);
+    expect(readPayload({ prompt: withArtGuardrail("Soft saffron mandala") }).prompt).toBe(once.prompt);
+    expect(findBlockedArtTerm(once.prompt)).toBeNull();
   });
 
-  it("never cuts the guardrail off a long prompt", () => {
-    const long = readPayload({ prompt: "golden lotus petals ".repeat(200) }).prompt;
+  it("a layer ENDS with the layer guardrail (no text, no deities, no close-up faces), exactly once", () => {
+    const p = readPayload({ prompt: "A border of gold mandalas.", layer: "frame", occasion: "garba", seed: 7 });
+    expect(p).toMatchObject({ kind: "layer", layer: "frame", occasion: "garba", seed: 7 });
+    expect(p.prompt.endsWith(FLYER_LAYER_GUARDRAIL)).toBe(true);
+    expect(count(p.prompt, FLYER_LAYER_GUARDRAIL)).toBe(1);
+    expect(p.prompt).toMatch(/No text of any kind/);
+    expect(p.prompt).toMatch(/No deities/);
+    expect(p.prompt).toMatch(/No close-up faces/);
+    // The portal already added it: still once.
+    expect(readPayload({ prompt: withLayerGuardrail("A border of gold mandalas."), layer: "frame", occasion: "garba", seed: 7 }).prompt).toBe(p.prompt);
+    expect(findBlockedArtTerm(p.prompt)).toBeNull();
+  });
+
+  it("never cuts a guardrail off a long prompt", () => {
+    const long = readPayload({ prompt: "golden lotus petals ".repeat(200), layer: "scene", occasion: "paryushan", seed: 9 }).prompt;
     expect(long.length).toBeLessThanOrEqual(2000);
-    expect(long.endsWith(FLYER_ART_GUARDRAIL)).toBe(true);
+    expect(long.endsWith(FLYER_LAYER_GUARDRAIL)).toBe(true);
+    const bg = readPayload({ prompt: "golden lotus petals ".repeat(200) }).prompt;
+    expect(bg.length).toBeLessThanOrEqual(2000);
+    expect(bg.endsWith(FLYER_ART_GUARDRAIL)).toBe(true);
   });
 
-  it("sends the guarded prompt with private, no enhancement and the safety filter, and returns the bytes as base64", async () => {
-    status = 200;
-    contentType = "image/jpeg";
-    responseBody = FAKE_JPEG;
-    const res = (await run(jobOf({ prompt: "Warm saffron and navy mandala rings" }), ctx())) as {
-      image_b64: string;
-      content_type: string;
-      model: string;
-      prompt: string;
+  it("accepts every prompt the portal builds (its own frame and scene descriptions, for every occasion)", () => {
+    for (const occasion of FLYER_OCCASIONS) {
+      for (const layer of ["frame", "scene"] as const) {
+        const p = readPayload({ prompt: FLYER_LAYER_PROMPTS[occasion][layer], layer, occasion, seed: 1 });
+        expect(p, `${occasion} ${layer}`).toMatchObject({ kind: "layer", layer, occasion });
+        expect(p.prompt.endsWith(FLYER_LAYER_GUARDRAIL)).toBe(true);
+      }
+    }
+  });
+
+  it("checks the layer, the occasion and the seed", () => {
+    const base = { prompt: "Gold border", layer: "frame", occasion: "garba", seed: 5 };
+    expect(() => readPayload({ ...base, layer: "background" })).toThrow(/frame or a scene/);
+    expect(() => readPayload({ ...base, occasion: "birthday" })).toThrow(/no occasion/);
+    expect(() => readPayload({ ...base, seed: 0 })).toThrow(/seed/);
+    expect(() => readPayload({ ...base, seed: 2 ** 31 })).toThrow(/seed/);
+    expect(() => readPayload({ ...base, seed: 1.5 })).toThrow(/seed/);
+  });
+});
+
+describe("events.generate_flyer: what is sent to Google", () => {
+  it("builds the Interactions API request first, as Google's image page shows it", () => {
+    const [first] = geminiRequests("gemini-3.1-flash-lite-image", "A prompt.", "2:3");
+    expect(first).toEqual({
+      api: "interactions",
+      path: "/v1beta/interactions",
+      body: {
+        model: "gemini-3.1-flash-lite-image",
+        input: [{ type: "text", text: "A prompt." }],
+        response_format: { type: "image", mime_type: "image/jpeg", aspect_ratio: "2:3" },
+      },
+    });
+  });
+
+  it("then falls back to generateContent, in the shape the legacy page shows and the older imageConfig one", () => {
+    const all = geminiRequests("gemini-3.1-flash-image", "A prompt.", "21:9");
+    const second = all[1]!;
+    const third = all[2]!;
+    expect(second.path).toBe("/v1/models/gemini-3.1-flash-image:generateContent");
+    expect(second.body).toEqual({
+      contents: [{ role: "user", parts: [{ text: "A prompt." }] }],
+      generationConfig: { responseModalities: ["TEXT", "IMAGE"], responseFormat: { image: { aspectRatio: "21:9" } } },
+    });
+    expect(third.path).toBe("/v1beta/models/gemini-3.1-flash-image:generateContent");
+    expect(third.body.generationConfig).toEqual({ responseModalities: ["TEXT", "IMAGE"], imageConfig: { aspectRatio: "21:9" } });
+  });
+
+  it("asks for a tall frame and a wide scene strip", () => {
+    expect(FLYER_LAYER_ASPECT).toEqual({ frame: "2:3", scene: "21:9", background: "2:3" });
+  });
+});
+
+describe("events.generate_flyer: reading an answer", () => {
+  it("finds the picture in an Interactions answer, a generateContent answer (camelCase or snake_case) and the older outputs shape", () => {
+    expect(pictureFrom(interactionsAnswer())).toMatchObject({ mimeType: "image/jpeg" });
+    expect(pictureFrom(generateAnswer())).toMatchObject({ mimeType: "image/png" });
+    const snake = { candidates: [{ content: { parts: [{ inline_data: { mime_type: "image/png", data: FAKE.toString("base64") } }] } }] };
+    expect(pictureFrom(snake)).toMatchObject({ mimeType: "image/png" });
+    expect(pictureFrom({ outputs: [{ type: "image", mime_type: "image/png", data: FAKE.toString("base64") }] })).toMatchObject({ mimeType: "image/png" });
+  });
+
+  it("takes the last picture and skips interim 'thought' pictures", () => {
+    const first = Buffer.from("first-".repeat(40)).toString("base64");
+    const last = Buffer.from("last--".repeat(40)).toString("base64");
+    const answer = {
+      candidates: [
+        {
+          content: {
+            parts: [
+              { thought: true, inlineData: { mimeType: "image/png", data: first } },
+              { inlineData: { mimeType: "image/png", data: last } },
+            ],
+          },
+        },
+      ],
     };
-    expect(sentPrompt()).toContain("Warm saffron and navy mandala rings");
-    expect(count(sentPrompt(), FLYER_ART_GUARDRAIL)).toBe(1);
-    const q = sentQuery();
-    expect(q.get("nologo")).toBe("true");
-    expect(q.get("private")).toBe("true");
-    expect(q.get("enhance")).toBe("false");
-    expect(q.get("safe")).toBe("true");
-    expect(q.get("width")).toBe("1024");
-    expect(q.get("height")).toBe("1536");
-    expect(q.get("seed")).toMatch(/^\d+$/);
-    expect(res.image_b64).toBe(FAKE_JPEG.toString("base64"));
-    expect(res.content_type).toBe("image/jpeg");
-    expect(res.model).toBe("pollinations-flux");
+    expect(imagesIn(answer)).toHaveLength(1);
+    expect(pictureFrom(answer)).toMatchObject({ data: last });
+    const steps = { steps: [{ type: "thought", content: [{ type: "image", mime_type: "image/png", data: first }] }, { type: "model_output", content: [{ type: "image", mime_type: "image/png", data: last }] }] };
+    expect(pictureFrom(steps)).toMatchObject({ data: last });
+  });
+
+  it("says why there is no picture, in plain English", () => {
+    expect(pictureFrom({ promptFeedback: { blockReason: "PROHIBITED_CONTENT" } })).toEqual({
+      reason: "Gemini refused the request (PROHIBITED_CONTENT). Try again, or use the drawn art.",
+    });
+    expect(pictureFrom({ candidates: [{ finishReason: "IMAGE_SAFETY" }] })).toEqual({ reason: "Gemini did not make a picture (IMAGE_SAFETY). Try again, or use the drawn art." });
+    expect(pictureFrom({ status: "failed", steps: [] })).toEqual({ reason: "Gemini did not make a picture (failed). Try again, or use the drawn art." });
+    expect(pictureFrom({ candidates: [{ finishReason: "STOP", content: { parts: [{ text: "I can't help with that." }] } }] })).toEqual({
+      reason: 'Gemini answered without a picture ("I can\'t help with that."). Try again, or use the drawn art.',
+    });
+    expect(pictureFrom(null)).toEqual({ reason: "Gemini answered without a picture. Try again, or use the drawn art." });
+    // Data that is not an image, or too short to be one, is not a picture.
+    expect(pictureFrom({ steps: [{ content: [{ type: "image", mime_type: "text/plain", data: FAKE.toString("base64") }] }] })).toHaveProperty("reason");
+    expect(pictureFrom({ steps: [{ content: [{ type: "image", mime_type: "image/png", data: "AAAA" }] }] })).toHaveProperty("reason");
+  });
+});
+
+describe("events.generate_flyer: run", () => {
+  it("makes a layer through the Interactions API and returns the bytes with the cache key's parts", async () => {
+    script = [{ status: 200, body: interactionsAnswer() }];
+    const { c, lines } = ctx();
+    const res = (await run(layerJob(), c)) as Record<string, unknown>;
+    expect(seen).toHaveLength(1);
+    const req = seen[0]!;
+    expect(req.method).toBe("POST");
+    expect(req.url).toBe("/v1beta/interactions");
+    expect(req.headers["x-goog-api-key"]).toBe(KEY);
+    expect(req.headers["content-type"]).toMatch(/application\/json/);
+    expect(req.body).toMatchObject({ model: DEFAULT_FLYER_ART_MODEL, response_format: { type: "image", mime_type: "image/jpeg", aspect_ratio: "2:3" } });
+    // No seed goes to Google: it is only the picture's name in the art library.
+    expect(JSON.stringify(req.body)).not.toMatch(/seed/i);
+    const sent = ((req.body.input as { text: string }[])[0] ?? { text: "" }).text;
+    expect(sent).toContain("A decorative border frame");
+    expect(count(sent, FLYER_LAYER_GUARDRAIL)).toBe(1);
+    expect(sent.endsWith(FLYER_LAYER_GUARDRAIL)).toBe(true);
+    expect(res).toMatchObject({ content_type: "image/jpeg", model: DEFAULT_FLYER_ART_MODEL, provider: "gemini", api: "interactions", layer: "frame", occasion: "garba", seed: 12345 });
+    expect(res.image_b64).toBe(FAKE.toString("base64"));
+    expect(res.prompt).toBe(sent);
+    // The key is in the header only: never in the result, never in a log line.
+    expect(JSON.stringify(res)).not.toContain(KEY);
+    expect(JSON.stringify(lines)).not.toContain(KEY);
+  });
+
+  it("asks a wide strip for a scene, with the model the platform chose", async () => {
+    script = [{ status: 200, body: interactionsAnswer(FAKE.toString("base64"), "image/png") }];
+    const { c } = ctx({ GEMINI_IMAGE_MODEL: "gemini-3.1-flash-image" });
+    const res = (await run(layerJob({ layer: "scene", prompt: "A skyline at dusk." }), c)) as Record<string, unknown>;
+    expect(seen[0]!.body).toMatchObject({ model: "gemini-3.1-flash-image", response_format: { aspect_ratio: "21:9" } });
+    expect(res).toMatchObject({ layer: "scene", content_type: "image/png", model: "gemini-3.1-flash-image" });
+  });
+
+  it("makes a background from the organizer's own words, with the background guardrail", async () => {
+    script = [{ status: 200, body: interactionsAnswer() }];
+    const { c } = ctx();
+    const res = (await run(jobOf({ event_id: "e1", prompt: "Warm saffron and navy mandala rings" }), c)) as Record<string, unknown>;
+    const sent = ((seen[0]!.body.input as { text: string }[])[0] ?? { text: "" }).text;
+    expect(sent.startsWith("Warm saffron and navy mandala rings")).toBe(true);
+    expect(count(sent, FLYER_ART_GUARDRAIL)).toBe(1);
+    expect(res).not.toHaveProperty("layer");
     expect(res.prompt).toBe(withArtGuardrail("Warm saffron and navy mandala rings"));
   });
 
-  it("refuses a blocked prompt before calling Pollinations", async () => {
-    lastPath = "";
-    await expect(run(jobOf({ prompt: "Portrait of Bhagwan" }), ctx())).rejects.toBeInstanceOf(PermanentError);
-    expect(lastPath).toBe("");
+  it("refuses a blocked prompt before calling Google", async () => {
+    const { c } = ctx();
+    await expect(run(jobOf({ prompt: "Portrait of Bhagwan" }), c)).rejects.toBeInstanceOf(PermanentError);
+    expect(seen).toHaveLength(0);
   });
 
-  it("treats a JSON error response (the shared pool refusing) as retryable, not permanent", async () => {
-    status = 500;
-    contentType = "application/json";
-    responseBody = JSON.stringify({ error: "Internal Server Error", message: "429: rate limit exceeded" });
-    await expect(run(jobOf({ prompt: "A mandala" }), ctx())).rejects.not.toBeInstanceOf(PermanentError);
+  it("tries the next request shape when Google does not accept the first (nothing was made, so nothing was charged)", async () => {
+    script = [
+      { status: 400, body: { error: { message: 'Invalid JSON payload received. Unknown name "response_format".' } } },
+      { status: 200, body: generateAnswer() },
+    ];
+    const { c, lines } = ctx();
+    const res = (await run(layerJob(), c)) as Record<string, unknown>;
+    expect(seen.map((s) => s.url)).toEqual(["/v1beta/interactions", `/v1/models/${DEFAULT_FLYER_ART_MODEL}:generateContent`]);
+    expect(res).toMatchObject({ api: "generateContent", content_type: "image/png" });
+    expect(lines.some((l) => l.level === "warn")).toBe(true);
   });
 
-  it("treats a 4xx as permanent, not retried", async () => {
-    status = 400;
-    contentType = "application/json";
-    responseBody = JSON.stringify({ message: "invalid prompt" });
-    await expect(run(jobOf({ prompt: "A mandala" }), ctx())).rejects.toBeInstanceOf(PermanentError);
+  it("tries all three shapes, then says what each answered", async () => {
+    script = [
+      { status: 400, body: { error: { message: "first no" } } },
+      { status: 400, body: { error: { message: "second no" } } },
+      { status: 422, body: { error: { message: "third no" } } },
+    ];
+    const { c } = ctx();
+    const err = await run(layerJob(), c).catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(PermanentError);
+    expect(isRetryable(err)).toBe(false);
+    expect((err as Error).message).toMatch(/interactions: HTTP 400: first no; generateContent: HTTP 400: second no; generateContent \(imageConfig\): HTTP 422: third no/);
+    expect(seen).toHaveLength(3);
   });
 
-  it("fails permanently when an ok response comes back with no image bytes", async () => {
-    status = 200;
-    contentType = "image/jpeg";
-    responseBody = "";
-    await expect(run(jobOf({ prompt: "A mandala" }), ctx())).rejects.toBeInstanceOf(PermanentError);
+  it("never asks again after an answer that came without a picture (that could charge twice)", async () => {
+    script = [{ status: 200, body: { status: "completed", steps: [{ type: "model_output", content: [{ type: "text", text: "Sorry." }] }] } }];
+    const { c } = ctx();
+    const err = await run(layerJob(), c).catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(PermanentError);
+    expect((err as Error).message).toMatch(/answered without a picture \("Sorry\."\)/);
+    expect(seen).toHaveLength(1);
+  });
+
+  it("explains a refused request, and a refused picture, permanently", async () => {
+    script = [{ status: 200, body: { promptFeedback: { blockReason: "SAFETY" } } }];
+    await expect(run(layerJob(), ctx().c)).rejects.toThrow(/Gemini refused the request \(SAFETY\)/);
+    script = [{ status: 200, body: { candidates: [{ finishReason: "IMAGE_PROHIBITED_CONTENT" }] } }];
+    await expect(run(layerJob(), ctx().c)).rejects.toBeInstanceOf(PermanentError);
+  });
+
+  it("treats a refused key as permanent, and does not try other shapes (the key is the problem)", async () => {
+    script = [{ status: 403, body: { error: { message: "API key not valid. Please pass a valid API key." } } }];
+    const err = await run(layerJob(), ctx().c).catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(PermanentError);
+    expect((err as Error).message).toMatch(/Gemini refused the key \(HTTP 403\).*Platform › Setup › AI flyer art/);
+    expect(seen).toHaveLength(1);
+  });
+
+  it("says when the model is not available to the key (after trying every shape)", async () => {
+    script = [404, 404, 404].map((status) => ({ status, body: { error: { message: "models/x is not found" } } }));
+    const err = await run(layerJob(), ctx().c).catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(PermanentError);
+    expect((err as Error).message).toMatch(new RegExp(`The Gemini model ${DEFAULT_FLYER_ART_MODEL} is not available to this key \\(HTTP 404\\)`));
+  });
+
+  it("treats rate limits and Google's own errors as retryable, not permanent", async () => {
+    script = [429, 429].map((status) => ({ status, body: { error: { message: "quota" } } }));
+    const limited = await run(layerJob(), ctx().c).catch((e: unknown) => e);
+    expect(limited).toBeInstanceOf(Error);
+    expect(isRetryable(limited)).toBe(true);
+    seen.length = 0;
+    script = [503, 503].map((status) => ({ status, body: { error: { message: "overloaded" } } }));
+    const down = await run(layerJob(), ctx().c).catch((e: unknown) => e);
+    expect(isRetryable(down)).toBe(true);
+    expect((down as Error).message).toMatch(/Gemini had a problem \(HTTP 503\)/);
+  });
+
+  it("fails permanently when a picture is too large to keep", async () => {
+    script = [{ status: 200, body: interactionsAnswer(Buffer.alloc(6 * 1024 * 1024 + 1, 1).toString("base64")) }];
+    await expect(run(layerJob(), ctx().c)).rejects.toThrow(/too large to keep/);
   });
 });

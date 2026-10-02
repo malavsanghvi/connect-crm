@@ -6,9 +6,12 @@ import QRCode from "qrcode";
 import { createElement } from "react";
 import { describe, expect, it } from "vitest";
 
-import { FLYER_LIMITS, FLYER_SIZE_KEYS, FLYER_TEMPLATES, type FlyerDesign, type FlyerSize, type FlyerTemplate } from "@/lib/events/flyer";
+import { FLYER_LIMITS, FLYER_SIZE_KEYS, FLYER_TEMPLATES, POSTER_AGENDA_MAX, POSTER_LIMITS, type FlyerDesign, type FlyerSize, type FlyerTemplate, type PosterContent } from "@/lib/events/flyer";
+import { FLYER_OCCASIONS, type FlyerOccasion } from "@/lib/events/flyer-art";
+import { artPack } from "@/lib/events/flyer-art-packs";
 import { readFlyerBrand } from "@/lib/events/flyer-brand";
 import { BUNDLED_FONT_FILES, flyerFontPath, getFlyerFonts } from "@/lib/events/flyer-fonts";
+import { POSTER_ICONS } from "@/lib/events/flyer-icons";
 import { patternSvg } from "@/lib/events/flyer-patterns";
 import {
   backgroundBox,
@@ -223,7 +226,7 @@ function longest(headline = "Paryushan Mahaparva Pratikraman and Samvatsari Cele
 
 /** The flyer drawn on a magenta stage with a quarter of its size free on every side. */
 async function renderOnStage(inp: FlyerRenderInput, dims: FlyerDims): Promise<{ img: Pixels; mx: number; my: number }> {
-  const set = await getFlyerFonts(inp.brand, flyerText(inp));
+  const set = await getFlyerFonts(inp.brand, flyerText(inp), { poster: inp.design.template === "poster" });
   const qr = inp.qrLink ? await QRCode.toDataURL(inp.qrLink, { errorCorrectionLevel: "M", margin: 1, width: Math.round((220 * dims.w) / 1080) }) : null;
   const mx = Math.round(dims.w / 4);
   const my = Math.round(dims.h / 4);
@@ -336,4 +339,211 @@ describe("flyer layout: nothing is cut off, nothing is drawn over the picture", 
       });
     }, 60_000);
   }
+});
+
+// ── The Poster template (Flyers v2) ──────────────────────────────────────────
+// The same magenta stage: every poster is drawn on it with a quarter of its size free on every side, so anything the
+// poster pushes out of the picture (a footer shoved down by a long agenda) shows up as pixels on the stage.
+
+const GREEN_RGB = [0, 255, 0] as const;
+const hexRgb = (hex: string): [number, number, number] => {
+  const n = parseInt(hex.replace("#", ""), 16);
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+};
+
+/** Every field at its limit, in ordinary words (so they wrap like real text). */
+function fullPoster(occasion: FlyerOccasion, over: Partial<PosterContent> = {}): PosterContent {
+  const fill = (s: string, n: number) => `${s} ${"and more ".repeat(40)}`.slice(0, n).trimEnd();
+  return {
+    occasion,
+    frame: { source: "code" },
+    scene: { source: "code" },
+    logo: true,
+    partner: { on: true, label: "PARTNERLOGO", sub: "20272027", logo_path: null },
+    subhead: fill("Houston Host City Kick-Off Celebration", POSTER_LIMITS.subhead),
+    slogan: fill("Let's make our whole community proud together", POSTER_LIMITS.slogan),
+    stat: { on: true, icon: "people", label: fill("More than", POSTER_LIMITS.stat_label), value: "100K+", caption: fill("Of convention registrations are filled so far this year", POSTER_LIMITS.stat_caption) },
+    ribbon: { on: true, date: fill("Thursday, Sept 10 – Thursday, Sept 17", POSTER_LIMITS.ribbon_date), time: fill("6:00 PM–9:30 PM each evening of the week", POSTER_LIMITS.ribbon_time) },
+    agenda: Array.from({ length: POSTER_AGENDA_MAX }, (_, i) => ({
+      icon: POSTER_ICONS[i]!,
+      time: fill("5:00–6:00 PM onwards", POSTER_LIMITS.agenda_time),
+      text: fill("Convention kick-off and meet and greet with the leaders", POSTER_LIMITS.agenda_text),
+    })),
+    paragraph: fill("Connect with Jains nationwide and help our community reach more families worldwide.", POSTER_LIMITS.paragraph),
+    footer: fill("JAINA 2027 Host City Team and volunteers", POSTER_LIMITS.footer),
+    ...over,
+  };
+}
+
+/** The reference poster: the owner's JAINA 2027 Houston Host City Kick-Off. */
+function jainaPoster(over: Partial<PosterContent> = {}): PosterContent {
+  return {
+    occasion: "convention",
+    frame: { source: "code" },
+    scene: { source: "code" },
+    logo: true,
+    partner: { on: true, label: "JAINA", sub: "2027", logo_path: null },
+    subhead: "HOUSTON HOST CITY KICK-OFF",
+    slogan: "LET'S MAKE JSH PROUD!",
+    stat: { on: true, icon: "people", label: "MORE THAN", value: "80%", caption: "OF CONVENTION REGISTRATIONS ARE FILLED!" },
+    ribbon: { on: true, date: "Saturday, October 3, 2026", time: "5:00 PM onwards" },
+    agenda: [
+      { icon: "clock", time: "5:00–6:00 PM", text: "Convention Kick-Off & Meet and Greet with JAINA Leaders" },
+      { icon: "dinner", time: "6:00 PM onwards", text: "Dinner & Fellowship" },
+      { icon: "dancers", time: "After Dinner", text: "Garba Night!" },
+    ],
+    paragraph: "Connect with Jains nationwide. Be part of 60+ teams across the country. Help JSH reach 100K+ Jains worldwide.",
+    footer: "JAINA 2027 Host City Team",
+    ...over,
+  };
+}
+
+const posterOff: Partial<PosterContent> = {
+  logo: false,
+  partner: { on: false, label: "", sub: "", logo_path: null },
+  subhead: "",
+  slogan: "",
+  stat: { on: false, icon: "people", label: "", value: "", caption: "" },
+  ribbon: { on: false, date: "", time: "" },
+  agenda: [],
+  paragraph: "",
+  footer: "",
+};
+
+const posterDesign = (poster: PosterContent, over: Partial<FlyerDesign> = {}): FlyerDesign => ({
+  v: 1,
+  template: "poster",
+  size: "tall",
+  headline: "JAINA 2027",
+  tagline: "",
+  date_line: "",
+  venue_line: "JSH Main Hall",
+  show_qr: true,
+  background: { source: "plain" },
+  poster,
+  ...over,
+});
+
+/** Render a poster on the stage and check nothing is outside it and the footer band is still at the bottom. */
+async function expectPosterFits(
+  label: string,
+  poster: PosterContent,
+  over: { design?: Partial<FlyerDesign>; size?: FlyerSize; assets?: FlyerRenderInput["posterAssets"]; logo?: FlyerRenderInput["logo"]; qrLink?: string | null; scale?: "preview" | "full" } = {},
+) {
+  const size = over.size ?? "tall";
+  const d = posterDesign(poster, { size, ...over.design });
+  const dims = flyerDims(size, over.scale ?? "preview");
+  const { img, mx, my } = await renderOnStage(
+    input({ design: d, background: null, logo: over.logo === undefined ? logo : over.logo, qrLink: over.qrLink === undefined ? "https://app.example.org/e/22222222-2222-4222-8222-222222222222" : over.qrLink, posterAssets: over.assets }),
+    dims,
+  );
+  const outside = drawnOutside(img, mx, my, dims);
+  expect(outside.count, `${label} (${size}): something is drawn ${outside.first}`).toBe(0);
+  // The footer band stays on the bottom edge (a long agenda would shove it out of the picture).
+  const footerBg = hexRgb(artPack(poster.occasion, brand).palette.footerBg);
+  const band = Math.max(3, Math.round(dims.w / 54));
+  for (const x of [mx + 8, mx + dims.w - 9]) expect(near(pixel(img, x, my + dims.h - band), footerBg), `${label} (${size}): the footer band is at the bottom edge`).toBe(true);
+}
+
+const sizeDims = (size: FlyerSize) => flyerDims(size, "preview");
+
+describe("poster layout: nothing is cut off, whatever is switched on or off", () => {
+  it("has the Poster among the templates, and Tall among the sizes", () => {
+    expect([...FLYER_TEMPLATES]).toContain("poster");
+    expect([...FLYER_SIZE_KEYS]).toEqual(["post", "tall", "story", "print"]);
+    expect(flyerDims("tall", "full")).toEqual({ w: 1080, h: 1620 });
+    expect(flyerDims("tall", "preview")).toEqual({ w: 540, h: 810 });
+  });
+
+  for (const occasion of FLYER_OCCASIONS) {
+    it(`${occasion}: every section on at its longest (tall)`, async () => {
+      await expectPosterFits(`${occasion} longest`, fullPoster(occasion), { design: { headline: "Paryushan Mahaparva Pratikraman and Samvatsari Celebration for the Whole Jain Community".slice(0, 90), venue_line: "Jain Society of Greater Houston Main Prayer Hall and Community Centre, 3905 Arc Street, Sugar Land, Texas".slice(0, FLYER_LIMITS.venue_line) } });
+    }, 60_000);
+  }
+
+  for (const size of FLYER_SIZE_KEYS) {
+    it(`every section on at its longest at ${size} size`, async () => {
+      await expectPosterFits("longest", fullPoster("convention"), { size, design: { headline: "PARYUSHAN MAHAPARVA PRATIKRAMAN AND SAMVATSARI CELEBRATION FOR THE WHOLE JAIN COMMUNITY" } });
+    }, 60_000);
+    it(`the reference poster at ${size} size`, async () => {
+      await expectPosterFits("jaina", jainaPoster(), { size });
+    }, 60_000);
+  }
+
+  it("the reference poster at full Tall size (what Use this flyer saves)", async () => {
+    await expectPosterFits("jaina full", jainaPoster(), { scale: "full" });
+  }, 60_000);
+
+  const sections: [string, Partial<PosterContent>][] = [
+    ["the logos", { logo: false, partner: { on: false, label: "", sub: "", logo_path: null } }],
+    ["the partner", { partner: { on: false, label: "", sub: "", logo_path: null } }],
+    ["the subhead", { subhead: "" }],
+    ["the slogan", { slogan: "" }],
+    ["the highlight box", { stat: { on: false, icon: "people", label: "", value: "", caption: "" } }],
+    ["the date ribbon", { ribbon: { on: false, date: "", time: "" } }],
+    ["the agenda", { agenda: [] }],
+    ["the paragraph", { paragraph: "" }],
+    ["the footer credit (the community's name shows)", { footer: "" }],
+    ["the frame", { frame: { source: "none" } }],
+    ["the bottom scene", { scene: { source: "none" } }],
+    ["every optional section", posterOff],
+    ["every optional section and both art layers", { ...posterOff, frame: { source: "none" }, scene: { source: "none" } }],
+  ];
+  for (const [what, off] of sections) {
+    for (const size of ["tall", "post"] as const) {
+      it(`without ${what} (${size})`, async () => {
+        await expectPosterFits(what, jainaPoster(off), { size });
+      }, 60_000);
+    }
+  }
+
+  it("without the QR code, and without a logo file", async () => {
+    await expectPosterFits("no qr", jainaPoster(), { design: { show_qr: false }, logo: null });
+    await expectPosterFits("no link", jainaPoster(), { qrLink: null });
+  }, 60_000);
+
+  it("with AI art for the frame and the scene (pictures of their own shape), the long way and the short way", async () => {
+    const frame = solid(GREEN_RGB, 1024, 1536);
+    const scene = solid(GREEN_RGB, 1536, 658);
+    const poster = (p: Partial<PosterContent>) => fullPoster("garba", { frame: { source: "ai", path: "x" }, scene: { source: "ai", path: "x" }, ...p });
+    for (const size of ["tall", "post", "story"] as const) {
+      await expectPosterFits(`AI art ${size}`, poster({}), { size, assets: { frame, scene, partnerLogo: null } });
+    }
+    await expectPosterFits("AI frame only", poster({ scene: { source: "code" } }), { assets: { frame, scene: null, partnerLogo: null } });
+    await expectPosterFits("AI scene only, reference content", jainaPoster({ occasion: "garba", frame: { source: "code" }, scene: { source: "ai", path: "x" } }), { assets: { frame: null, scene, partnerLogo: null } });
+  }, 120_000);
+
+  it("a layer that could not be loaded falls back to the drawn art (no picture, no gap)", async () => {
+    await expectPosterFits("fallback", jainaPoster({ frame: { source: "ai", path: "x" }, scene: { source: "ai", path: "x" } }), { assets: { frame: null, scene: null, partnerLogo: null } });
+  }, 60_000);
+
+  it("with the partner's own logo, wide or square, in place of the drawn badge", async () => {
+    for (const [w, h] of [[600, 200], [200, 200], [120, 400]] as const) {
+      await expectPosterFits(`partner ${w}x${h}`, jainaPoster(), { assets: { frame: null, scene: null, partnerLogo: solid(GREEN_RGB, w, h) } });
+    }
+  }, 60_000);
+
+  it("draws the poster's own words on its pixels (something is on the page, in the pack's ink)", async () => {
+    const r = await renderFlyerPng(input({ design: posterDesign(jainaPoster()), background: null }), "preview");
+    expect(isPng(r.png)).toBe(true);
+    expect(r.dims).toEqual(sizeDims("tall"));
+    expect(r.notes).toEqual([]);
+    const { w, h, px } = decodePng(r.png);
+    const ink = hexRgb(artPack("convention", brand).palette.ink);
+    let inkPixels = 0;
+    for (let i = 0; i < w * h; i++) if (Math.abs(px[i * 4]! - ink[0]) + Math.abs(px[i * 4 + 1]! - ink[1]) + Math.abs(px[i * 4 + 2]! - ink[2]) < 30) inkPixels++;
+    expect(inkPixels).toBeGreaterThan(w * h * 0.01);
+  }, 60_000);
+
+  it("renders the Print size as a sharp PDF (a letter page, the picture drawn edge to edge)", async () => {
+    const r = await renderFlyerPng(input({ design: posterDesign(jainaPoster(), { size: "print" }), background: null }), "preview", { w: 255, h: 330 });
+    const pdf = await renderFlyerPdf(r.png, "JAINA 2027");
+    expect(Buffer.from(pdf.subarray(0, 5)).toString("latin1")).toBe("%PDF-");
+    expect(flyerDims("print", "full")).toEqual({ w: 2550, h: 3300 });
+  }, 60_000);
+
+  it("a poster's words reach the font chooser (Gujarati and the like)", () => {
+    expect(flyerText(input({ design: posterDesign(jainaPoster({ subhead: "ગુજરાતી ઉપશીર્ષક" })) }))).toContain("ગુજરાતી ઉપશીર્ષક");
+    expect(flyerText(input({ design: design() }))).not.toContain("ગુજરાતી");
+  });
 });

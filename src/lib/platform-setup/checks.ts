@@ -3,12 +3,14 @@
 // environment second) and reports plain lines. Pure over an injected request,
 // like src/lib/messaging/providers.ts; base URLs can point at local mocks:
 //   RESEND_API_BASE, POSTMARK_API_BASE, STRIPE_API_BASE, PAYPAL_API_BASE,
-//   PAYPAL_SANDBOX_API_BASE, TWILIO_API_BASE, ANTHROPIC_BASE_URL.
+//   PAYPAL_SANDBOX_API_BASE, TWILIO_API_BASE, ANTHROPIC_BASE_URL, GEMINI_API_BASE.
 // A result never carries a key: every configured secret value is blanked out of
 // the provider's answer before it is stored (app.jobs.result).
 
 import { anthropicErrorBody, anthropicErrorKind, regainAccessAt } from "../anthropic-errors";
 import { createDomain, verifyDomain, type DnsRecord, type Env, type Req } from "../messaging/providers";
+
+import { FLYER_ART_MODELS, flyerArtModel } from "../events/flyer-art";
 
 import { SECRET_NAMES, type StepKey } from "./catalog";
 
@@ -244,6 +246,46 @@ async function testAi(req: Req, env: Env): Promise<StepTest> {
   return { ok: line.ok, lines: [line] };
 }
 
+/**
+ * What Gemini's answer to "tell me about this model" means for the owner. Google answers a key it does not
+ * know with HTTP 400 ("API key not valid"), not 401, so that is read as a refused key too.
+ */
+export function geminiTestLine(status: number, text: string, model: string, env: Env): CheckLine {
+  const label = `Gemini knows the key and the model ${model}`;
+  if (status >= 200 && status < 300) {
+    const name = flyerArtModel(model);
+    return { label, ok: true, detail: `accepted: ${FLYER_ART_MODELS[name].label} is available to this key (no picture was made, so the test is free)` };
+  }
+  const why = providerMessage(text);
+  const note = why ? ` (${why})` : "";
+  let detail: string;
+  if (status === 401 || status === 403 || (status === 400 && /api key|api_key/i.test(why))) detail = `the key was refused${note}`;
+  else if (status === 404) detail = `Google does not offer the model ${model} to this key${note}; choose another image model above`;
+  else if (status === 429) detail = "Google is rate limiting this key right now; test again in a minute";
+  else if (status >= 500) detail = `Google had a problem (HTTP ${status}); test again in a few minutes${note}`;
+  else detail = `the provider answered HTTP ${status}${note}`;
+  return { label, ok: false, detail: redactSecrets(detail, env) };
+}
+
+/**
+ * AI flyer art: GET the model with the key — free (no picture is made) and it
+ * says both whether Google accepts the key and whether this key can use the model.
+ */
+async function testArt(req: Req, env: Env): Promise<StepTest> {
+  const key = v(env, "GEMINI_API_KEY");
+  if (!key) return { ok: false, lines: [missing("Gemini API key", ["GEMINI_API_KEY"])] };
+  const model = flyerArtModel(v(env, "GEMINI_IMAGE_MODEL"));
+  const url = `${base(env, "GEMINI_API_BASE", "https://generativelanguage.googleapis.com")}/v1beta/models/${encodeURIComponent(model)}`;
+  let line: CheckLine;
+  try {
+    const r = await req(url, { method: "GET", headers: { "x-goog-api-key": key } });
+    line = geminiTestLine(r.status, r.text, model, env);
+  } catch (err) {
+    line = { label: `Gemini knows the key and the model ${model}`, ok: false, detail: redactSecrets(`could not reach the provider: ${err instanceof Error ? err.message : String(err)}`, env) };
+  }
+  return { ok: line.ok, lines: [line] };
+}
+
 function testPush(env: Env): StepTest {
   return {
     ok: true,
@@ -263,6 +305,8 @@ export async function testStep(step: StepKey, req: Req, env: Env): Promise<StepT
       return testQuickbooks(env);
     case "ai":
       return testAi(req, env);
+    case "art":
+      return testArt(req, env);
     case "push":
       return testPush(env);
     default:

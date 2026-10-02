@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   FLYER_ART_BLOCKED_TERMS,
   FLYER_ART_GUARDRAIL,
+  FLYER_LAYER_GUARDRAIL,
   buildFlyerArtPrompt,
   colorWord,
   defaultFlyerDesign,
@@ -21,6 +22,7 @@ import {
   readFlyerMadeFor,
   readFlyerSource,
   withArtGuardrail,
+  withLayerGuardrail,
 } from "@/lib/events/flyer";
 import { LOGO_NOTE, LOGO_WEBP_NOTE, flyerBrandSummary, logoTypeNote, readFlyerBrand } from "@/lib/events/flyer-brand";
 import { patternSvg } from "@/lib/events/flyer-patterns";
@@ -70,8 +72,8 @@ describe("parseFlyerDesign", () => {
   });
 
   it("refuses unknown templates, sizes and backgrounds", () => {
-    expect(parseFlyerDesign(design({ template: "neon" }))).toEqual({ ok: false, error: "Choose a template: Classic, Festival, Minimal or Photo." });
-    expect(parseFlyerDesign(design({ size: "a3" }))).toEqual({ ok: false, error: "Choose a size: Post, Story or Print." });
+    expect(parseFlyerDesign(design({ template: "neon" }))).toEqual({ ok: false, error: "Choose a template: Poster, Classic, Festival, Minimal or Photo." });
+    expect(parseFlyerDesign(design({ size: "a3" }))).toEqual({ ok: false, error: "Choose a size: Post, Tall, Story or Print." });
     expect(parseFlyerDesign(design({ background: { source: "pattern", pattern: "paisley" } })).ok).toBe(false);
     expect(parseFlyerDesign(design({ background: { source: "photo", photo_id: "nope" } })).ok).toBe(false);
     expect(parseFlyerDesign(design({ background: { source: "ai", path: "https://evil.example/x.jpg", prompt: "" } })).ok).toBe(false);
@@ -126,9 +128,10 @@ describe("flyerDateLine", () => {
 
 describe("defaultFlyerDesign", () => {
   const base = { description: "An evening of lights. Bring your family.", venue: "JSH temple hall", startsAt: "2026-11-08T00:00:00Z", endsAt: null, tz: "UTC" };
-  it("starts from the event's own words, with a motif chosen from the name", () => {
+  it("starts as a Poster at its own 2:3 size, from the event's own words, with a motif chosen from the name", () => {
     const d = defaultFlyerDesign({ ...base, name: "Diwali Mela 2026", qrAvailable: true });
-    expect(d).toMatchObject({ v: 1, template: "classic", size: "post", headline: "Diwali Mela 2026", tagline: "An evening of lights.", venue_line: "JSH temple hall", show_qr: true });
+    expect(d).toMatchObject({ v: 1, template: "poster", size: "tall", headline: "Diwali Mela 2026", tagline: "An evening of lights.", venue_line: "JSH temple hall", show_qr: true });
+    expect(d.poster).toMatchObject({ occasion: "diwali", frame: { source: "code" }, scene: { source: "code" } });
     expect(d.background).toEqual({ source: "pattern", pattern: "diya" });
     expect(d.date_line).toContain("Nov 8");
     expect(parseFlyerDesign(d).ok).toBe(true);
@@ -232,9 +235,11 @@ describe("AI background art", () => {
   it("holds exactly the worker's blocked words and guardrail", () => {
     expect([...FLYER_ART_BLOCKED_TERMS]).toEqual([...workerGuard.FLYER_ART_BLOCKED_TERMS]);
     expect(FLYER_ART_GUARDRAIL).toBe(workerGuard.FLYER_ART_GUARDRAIL);
-    for (const t of ["Portrait of Bhagwan", "lotus", "text and letters", "garba dancers", "amber glow", withArtGuardrail("soft mandala")]) {
+    expect(FLYER_LAYER_GUARDRAIL).toBe(workerGuard.FLYER_LAYER_GUARDRAIL);
+    for (const t of ["Portrait of Bhagwan", "lotus", "text and letters", "garba dancers", "amber glow", withArtGuardrail("soft mandala"), withLayerGuardrail("soft mandala")]) {
       expect(findBlockedArtTerm(t)).toBe(workerGuard.findBlockedArtTerm(t));
       expect(withArtGuardrail(t)).toBe(workerGuard.withArtGuardrail(t));
+      expect(withLayerGuardrail(t)).toBe(workerGuard.withLayerGuardrail(t));
     }
   });
 
@@ -287,8 +292,9 @@ describe("readArtJob", () => {
       imageB64: "ZmFrZQ==",
       contentType: "image/jpeg",
       prompt: "p",
+      layer: null,
     });
-    expect(readArtJob({ status: "done", result: { stored_path: ART, prompt: "p" } })).toEqual({ status: "stored", storedPath: ART, prompt: "p" });
+    expect(readArtJob({ status: "done", result: { stored_path: ART, prompt: "p" } })).toEqual({ status: "stored", storedPath: ART, prompt: "p", layer: null });
     expect(readArtJob({ status: "done", result: { stored_path: ART, image_b64: "x" } })).toMatchObject({ status: "stored" });
   });
 
@@ -296,7 +302,7 @@ describe("readArtJob", () => {
     expect(readArtJob({ status: "queued", job_id: "4" })).toEqual({ status: "queued" });
     expect(readArtJob({ status: "running" })).toEqual({ status: "running" });
     expect(readArtJob({ status: "unavailable", reason: "Off" })).toEqual({ status: "unavailable", reason: "Off" });
-    expect(readArtJob({ status: "failed", error: "Pollinations answered 500" })).toEqual({ status: "failed", reason: "Pollinations answered 500" });
+    expect(readArtJob({ status: "failed", error: "Gemini had a problem (HTTP 500)" })).toEqual({ status: "failed", reason: "Gemini had a problem (HTTP 500)" });
     expect(readArtJob({ status: "done", result: {} })).toMatchObject({ status: "failed" });
     expect(readArtJob({ status: "missing" })).toMatchObject({ status: "failed" });
     expect(readArtJob({ status: "none" })).toEqual({ status: "none" });

@@ -5,9 +5,9 @@
 import { readFileSync } from "node:fs";
 import os from "node:os";
 
-// "openai" was removed 2026-09-29: events.generate_flyer now calls Pollinations.ai, which
-// needs no platform key at all (see that handler for why, and the tradeoff that comes with it).
-export type Provider = "stripe" | "paypal" | "intuit" | "email" | "twilio" | "anthropic";
+// "openai" was removed 2026-09-29. events.generate_flyer called Pollinations.ai (no key) until
+// 2026-10-02 and now calls Google Gemini with GEMINI_API_KEY (Flyers v2; see that handler).
+export type Provider = "stripe" | "paypal" | "intuit" | "email" | "twilio" | "anthropic" | "gemini";
 
 /** Env var names each provider needs; "anyOf" groups mean one full group is enough. */
 export const PROVIDERS: Record<Provider, { label: string; anyOf: string[][] }> = {
@@ -17,6 +17,7 @@ export const PROVIDERS: Record<Provider, { label: string; anyOf: string[][] }> =
   email: { label: "Email sending", anyOf: [["RESEND_API_KEY"], ["POSTMARK_SERVER_TOKEN"]] },
   twilio: { label: "Twilio", anyOf: [["TWILIO_ACCOUNT_SID", "TWILIO_AUTH_TOKEN"]] },
   anthropic: { label: "Anthropic (Niva, mapping suggestions)", anyOf: [["ANTHROPIC_API_KEY"]] },
+  gemini: { label: "Google Gemini (AI flyer art)", anyOf: [["GEMINI_API_KEY"]] },
 };
 
 export type Env = Readonly<Record<string, string | undefined>>;

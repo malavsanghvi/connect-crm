@@ -10,10 +10,12 @@
 // as the signed-in organizer, so app.can_write_object (0578) decides.
 //
 // AI background art goes through the background service's job queue
-// (worker/src/handlers/events.generate_flyer.ts, Pollinations.ai, free). The
-// image bytes never reach the browser: when the job is done, the server
-// stores them as content/<center>/events/<event>/art-<ms>.<ext> and
-// app.events_flyer_art_taken removes them from the job.
+// (worker/src/handlers/events.generate_flyer.ts, Google Gemini: about 4¢ a
+// picture, with a Gemini key in Platform › Setup; Flyers v2 retired
+// Pollinations.ai). The image bytes never reach the browser: when the job is
+// done, the server stores them as content/<center>/events/<event>/art-<ms>.<ext>
+// and app.events_flyer_art_taken removes them from the job. The Poster
+// template's art layers and the partner logo are in flyer-art-actions.ts.
 //
 // After a save, replace or remove, the event's older flyer and art files are
 // removed (app.event_flyer_leftovers); a removal that fails is said in the
@@ -36,6 +38,7 @@ import {
   withArtGuardrail,
   type FlyerArtState,
 } from "@/lib/events/flyer";
+import { flyerArtReadiness } from "@/lib/events/flyer-art-library";
 import { FlyerBackgroundError, composeFlyer, sniffImage } from "@/lib/events/flyer-assets";
 import { FlyerFontsMissingError } from "@/lib/events/flyer-fonts";
 import { FlyerBusyError } from "@/lib/events/flyer-render";
@@ -126,7 +129,10 @@ export async function requestEventFlyerAction(eventId: string, prompt: string): 
         error: `AI backgrounds are abstract or decorative only. Please take out "${blocked}" — no people, deities or murtis, and no lettering (the flyer adds the words itself).`,
       };
     }
-    const { db } = await flyerEventContext(eventId, "only event managers and this event's lead can make this event's flyer.");
+    const { db, centerId } = await flyerEventContext(eventId, "only event managers and this event's lead can make this event's flyer.");
+    // AI art costs money and needs a Gemini key: say so now, plainly, rather than queueing a job that cannot run.
+    const ready = await flyerArtReadiness(db, centerId);
+    if (ready.state !== "ready") return { ok: true, data: { status: "unavailable", reason: ready.message } };
     const { data, error } = await db.rpc("events_request_flyer", { p_event: eventId, p_prompt: withArtGuardrail(text) });
     if (error) throw new DbFailure(error, "ask for AI art");
     const job = readArtJob(data);
@@ -148,6 +154,8 @@ export async function flyerGenerationResultAction(eventId: string): Promise<Acti
     if (error) throw new DbFailure(error, "check the AI art");
     const job = readArtJob(data);
     if (job.status !== "image" && job.status !== "stored") return { ok: true, data: job };
+    // A finished Poster layer is kept by the art library (flyer-art-actions.ts), never as this event's background.
+    if (job.layer) return { ok: true, data: { status: "none" } };
 
     let artPath: string;
     if (job.status === "stored") {

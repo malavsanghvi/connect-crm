@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
@@ -6,12 +6,20 @@ import { describe, expect, it } from "vitest";
 import {
   FIELDS, SECRET_NAMES, SETTING_KEYS, STEPS, callbackUrls, fieldProblem, isEnvName, missingFor, normalizeDomain, setupComplete, setupProgress,
 } from "@/lib/platform-setup/catalog";
-import { ANTHROPIC_FALLBACK_BETA, ANTHROPIC_TEST_MODEL, anthropicTestLine, redactSecrets, testStep } from "@/lib/platform-setup/checks";
+import { ANTHROPIC_FALLBACK_BETA, ANTHROPIC_TEST_MODEL, anthropicTestLine, geminiTestLine, redactSecrets, testStep } from "@/lib/platform-setup/checks";
 
-const migration = readFileSync(join(__dirname, "..", "supabase", "migrations", "0320_platform_setup.sql"), "utf8");
+// The LATEST migration that defines each list: 0320 made them and 0585 added the Gemini names, so a later one that copies
+// an older list would be caught here.
+const migrationsDir = join(__dirname, "..", "supabase", "migrations");
 const sqlList = (fn: string) => {
-  const m = migration.match(new RegExp(`function app\\.${fn}\\(\\)[\\s\\S]*?select array\\[([\\s\\S]*?)\\]`));
-  return [...(m?.[1] ?? "").matchAll(/'([^']+)'/g)].map((x) => x[1]).sort();
+  const files = readdirSync(migrationsDir).filter((f) => f.endsWith(".sql")).sort();
+  const re = new RegExp(`function app\\.${fn}\\(\\)[\\s\\S]*?select array\\[([\\s\\S]*?)\\]`);
+  let found: string[] = [];
+  for (const f of files) {
+    const m = readFileSync(join(migrationsDir, f), "utf8").match(re);
+    if (m) found = [...(m[1] ?? "").matchAll(/'([^']+)'/g)].map((x) => x[1] as string).sort();
+  }
+  return found;
 };
 
 describe("platform setup catalog", () => {
@@ -22,7 +30,7 @@ describe("platform setup catalog", () => {
 
   it("has the four required steps of the contract and never the bootstrap connection", () => {
     expect(STEPS.filter((s) => s.required).map((s) => s.key)).toEqual(["background", "portal", "email", "hooks"]);
-    expect(STEPS).toHaveLength(10);
+    expect(STEPS).toHaveLength(11);
     expect(Object.keys(FIELDS)).not.toContain("WORKER_DATABASE_URL");
     expect(isEnvName("WORKER_DATABASE_URL")).toBe(false);
     expect(isEnvName("portal_domain")).toBe(false);
@@ -40,6 +48,11 @@ describe("platform setup catalog", () => {
     expect(fieldProblem("SEND_EMAIL_HOOK_SECRET", "not-a-hook-secret")).toMatch(/hook secret/);
     expect(fieldProblem("TWILIO_FROM_NUMBER", "832-555-0100")).toMatch(/international/);
     expect(fieldProblem("OAUTH_STATE_SECRET", "short-but-8+")).toMatch(/32 characters/);
+    expect(fieldProblem("GEMINI_API_KEY", "AIzaSyD-9tSrke72PouQMnMX-a7eZSW0jkFMBWY")).toBeNull();
+    expect(fieldProblem("GEMINI_API_KEY", "short")).toMatch(/too short/);
+    expect(fieldProblem("GEMINI_API_KEY", "AIzaSy!!!!!!!!!!!!!!!!!!!!!!!!!!!")).toMatch(/does not look like a Gemini API key/);
+    expect(fieldProblem("GEMINI_IMAGE_MODEL", "gemini-3.1-flash-image")).toBeNull();
+    expect(fieldProblem("GEMINI_IMAGE_MODEL", "gemini-2.5-flash-image")).toMatch(/Choose one of the listed models/);
     expect(fieldProblem("NOPE", "x")).toMatch(/not a field/);
     expect(normalizeDomain("https://CRM.Example.org/")).toBe("crm.example.org");
     expect(normalizeDomain("*.cc.app", true)).toBe("cc.app");
@@ -55,6 +68,8 @@ describe("platform setup catalog", () => {
     expect(missingFor("payments", has(["PAYPAL_SANDBOX_CLIENT_ID"]))).toHaveLength(2);
     expect(missingFor("texting", has(["TWILIO_ACCOUNT_SID", "TWILIO_AUTH_TOKEN"]))).toEqual(["a number or a messaging service"]);
     expect(missingFor("push", has([]))).toEqual([]);
+    expect(missingFor("art", has([]))).toEqual(["Gemini API key"]);
+    expect(missingFor("art", has(["GEMINI_API_KEY"]))).toEqual([]);
   });
 
   it("is complete only when required steps are done and optional ones done or parked", () => {
@@ -155,5 +170,76 @@ describe("the AI test: a one-token message, read the way the worker reads a fail
   it("never lets the key into the line", () => {
     const line = anthropicTestLine(401, apiError("authentication_error", `invalid x-api-key ${env.ANTHROPIC_API_KEY}`), "claude-opus-5-5", env);
     expect(line.detail).not.toContain(env.ANTHROPIC_API_KEY);
+  });
+});
+
+describe("the AI flyer art test (Gemini): a free model lookup, never a picture", () => {
+  const env = { GEMINI_API_KEY: "AIzaSy-test-key-123456789012345678901234", GEMINI_API_BASE: "http://mock/" };
+
+  it("is a step, optional, with the key and the model as its fields", () => {
+    const step = STEPS.find((x) => x.key === "art");
+    expect(step).toMatchObject({ required: false, workerTest: true });
+    expect(step?.fields.map((f) => f.name)).toEqual(["GEMINI_API_KEY", "GEMINI_IMAGE_MODEL"]);
+    expect(FIELDS.GEMINI_API_KEY.kind).toBe("secret");
+    expect(FIELDS.GEMINI_IMAGE_MODEL.kind).toBe("setting");
+    // The model list shows the price before anything is asked, and never offers a model Google shuts down today.
+    const options = FIELDS.GEMINI_IMAGE_MODEL.options?.map((o) => o.label) ?? [];
+    expect(options.join(" | ")).toMatch(/Gemini 3\.1 Flash Lite Image — about 4¢ a picture/);
+    expect(options.join(" | ")).not.toMatch(/2\.5/);
+  });
+
+  it("looks the model up with the key in a header (GET, so no picture is made)", async () => {
+    const sent: { url: string; init: { method: string; headers: Record<string, string>; body?: string } }[] = [];
+    const res = await testStep("art", async (url, init) => {
+      sent.push({ url, init });
+      return { status: 200, text: JSON.stringify({ name: "models/gemini-3.1-flash-lite-image" }) };
+    }, env);
+    expect(res).toEqual({
+      ok: true,
+      lines: [{ label: "Gemini knows the key and the model gemini-3.1-flash-lite-image", ok: true, detail: "accepted: Gemini 3.1 Flash Lite Image is available to this key (no picture was made, so the test is free)" }],
+    });
+    expect(sent).toHaveLength(1);
+    expect(sent[0]!.url).toBe("http://mock/v1beta/models/gemini-3.1-flash-lite-image");
+    expect(sent[0]!.init).toEqual({ method: "GET", headers: { "x-goog-api-key": env.GEMINI_API_KEY } });
+  });
+
+  it("asks about the model the platform chose", async () => {
+    let url = "";
+    await testStep("art", async (u) => {
+      url = u;
+      return { status: 200, text: "{}" };
+    }, { ...env, GEMINI_IMAGE_MODEL: "gemini-3-pro-image" });
+    expect(url).toBe("http://mock/v1beta/models/gemini-3-pro-image");
+  });
+
+  it("says the key is not set without calling anything", async () => {
+    const res = await testStep("art", async () => {
+      throw new Error("must not be called");
+    }, {});
+    expect(res).toEqual({ ok: false, lines: [{ label: "Gemini API key", ok: false, detail: "not set (GEMINI_API_KEY)" }] });
+  });
+
+  const table: [string, number, string, RegExp][] = [
+    ["a key Google does not know (it answers 400, not 401)", 400, JSON.stringify({ error: { code: 400, message: "API key not valid. Please pass a valid API key.", status: "INVALID_ARGUMENT" } }), /^the key was refused \(API key not valid\. Please pass a valid API key\.\)$/],
+    ["a key without permission", 403, JSON.stringify({ error: { message: "Requests from this API key are blocked." } }), /^the key was refused \(Requests from this API key are blocked\.\)$/],
+    ["a model Google does not offer to this key", 404, JSON.stringify({ error: { message: "models/gemini-3.1-flash-lite-image is not found" } }), /^Google does not offer the model gemini-3\.1-flash-lite-image to this key \(models\/gemini-3\.1-flash-lite-image is not found\); choose another image model above$/],
+    ["rate limited", 429, "{}", /^Google is rate limiting this key right now; test again in a minute$/],
+    ["a Google error", 503, JSON.stringify({ error: { message: "The model is overloaded." } }), /^Google had a problem \(HTTP 503\); test again in a few minutes \(The model is overloaded\.\)$/],
+    ["anything else", 400, JSON.stringify({ error: { message: "Bad request." } }), /^the provider answered HTTP 400 \(Bad request\.\)$/],
+  ];
+  it.each(table)("%s", async (_label, status, text, detail) => {
+    const res = await testStep("art", async () => ({ status, text }), env);
+    expect(res.ok).toBe(false);
+    expect(res.lines[0]?.detail).toMatch(detail);
+    expect(geminiTestLine(status, text, "gemini-3.1-flash-lite-image", env)).toEqual(res.lines[0]);
+  });
+
+  it("reports a network failure plainly, and never lets the key into a line", async () => {
+    const res = await testStep("art", async () => {
+      throw new Error(`connect ECONNREFUSED (key ${env.GEMINI_API_KEY})`);
+    }, env);
+    expect(res.lines[0]?.detail).toMatch(/^could not reach the provider: connect ECONNREFUSED/);
+    expect(JSON.stringify(res)).not.toContain(env.GEMINI_API_KEY);
+    expect(geminiTestLine(400, JSON.stringify({ error: { message: `API key not valid: ${env.GEMINI_API_KEY}` } }), "gemini-3.1-flash-lite-image", env).detail).not.toContain(env.GEMINI_API_KEY);
   });
 });

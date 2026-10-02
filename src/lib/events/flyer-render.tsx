@@ -22,9 +22,10 @@ import QRCode from "qrcode";
 
 import { contrastRatio, parseHexColor, textOn } from "@/lib/setup";
 
-import { FLYER_SIZES, fitFontSize, flyerTextRoom, type FlyerDesign, type FlyerSize, type FlyerTemplate } from "./flyer";
+import { FLYER_SIZES, defaultPoster, fitFontSize, flyerTextRoom, type FlyerDesign, type FlyerSize, type FlyerTemplate } from "./flyer";
 import type { FlyerBrand } from "./flyer-brand";
 import { getFlyerFonts } from "./flyer-fonts";
+import { posterElement, posterNotes, posterText, type PosterAssets } from "./flyer-poster";
 
 export type FlyerImage = { dataUri: string; w: number; h: number };
 
@@ -39,6 +40,8 @@ export type FlyerRenderInput = {
   logoDark: FlyerImage | null;
   /** What the QR code opens (the member app's event page), or null when there is none. */
   qrLink: string | null;
+  /** The Poster template's pictures that are not drawn in code (AI layers, the partner's logo); none for the other templates. */
+  posterAssets?: PosterAssets;
 };
 
 export type FlyerDims = { w: number; h: number };
@@ -52,7 +55,7 @@ export class FlyerBusyError extends Error {
   }
 }
 
-/** The pixel size of a flyer: full size, or the scaled-down preview (half for Post and Story, a quarter for Print). */
+/** The pixel size of a flyer: full size, or the scaled-down preview (half for Post, Tall and Story, a quarter for Print). */
 export function flyerDims(size: FlyerSize, scale: "preview" | "full"): FlyerDims {
   const s = FLYER_SIZES[size];
   const k = scale === "full" ? 1 : size === "print" ? 0.25 : 0.5;
@@ -193,6 +196,16 @@ export function flyerElement(input: FlyerRenderInput, dims: FlyerDims, fonts: Fo
   const qr = design.show_qr && qrDataUri ? qrDataUri : null;
   const bg = input.background;
   const darkLogo = input.logoDark ?? null;
+  if (design.template === "poster") {
+    // A design always carries its poster content when the Poster is chosen (parseFlyerDesign); this fallback only guards the type.
+    const poster = design.poster ?? defaultPoster({ name: design.headline, description: design.tagline, startsAt: null, endsAt: null, tz: "UTC" });
+    return posterElement(
+      { design, poster, brand, centerName: input.centerName, logo: input.logo, assets: input.posterAssets ?? { frame: null, scene: null, partnerLogo: null } },
+      dims,
+      fonts,
+      qrDataUri,
+    );
+  }
   const root = { width: w, height: h, display: "flex", fontFamily: fonts.body, fontSize: px(30) } as const;
   const headline = (base: number, comfortable: number, color: string, align: "left" | "center" = "left") => (
     <Line style={{ fontFamily: fonts.display, fontWeight: 700, fontSize: px(fitFontSize(design.headline, comfortable, base, 0.5)), lineHeight: 1.06, color, textAlign: align }}>
@@ -391,7 +404,7 @@ export function isPng(b: Uint8Array): boolean {
 /** Every word on the flyer (for choosing fonts). */
 export function flyerText(input: Pick<FlyerRenderInput, "design" | "centerName">): string {
   const d = input.design;
-  return [d.headline, d.tagline, d.date_line, d.venue_line, input.centerName, "Scan to RSVP"].join(" ");
+  return [d.headline, d.tagline, d.date_line, d.venue_line, input.centerName, "Scan to RSVP", d.template === "poster" && d.poster ? posterText(d.poster) : ""].join(" ");
 }
 
 /**
@@ -409,8 +422,14 @@ export async function renderFlyerPng(
   try {
     const dims = dimsOverride ?? flyerDims(input.design.size, scale);
     const notes: string[] = [];
-    const set = await getFlyerFonts(input.brand, flyerText(input));
+    const set = await getFlyerFonts(input.brand, flyerText(input), { poster: input.design.template === "poster" });
     notes.push(...set.notes);
+    // The Poster says so when it is too full for its size: a section left out, or the words set small.
+    if (input.design.template === "poster" && input.design.poster) {
+      notes.push(
+        ...posterNotes({ design: input.design, poster: input.design.poster, brand: input.brand, logo: input.logo, assets: input.posterAssets ?? { frame: null, scene: null, partnerLogo: null } }, dims),
+      );
+    }
     let qr: string | null = null;
     if (input.design.show_qr) {
       if (input.qrLink) {
