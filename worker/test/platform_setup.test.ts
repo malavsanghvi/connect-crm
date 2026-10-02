@@ -2,13 +2,16 @@ import { createRequire } from "node:module";
 
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
+import { createAiStatus } from "../src/ai-status";
+import { CLAUDE_MODEL, FALLBACK_BETA } from "../src/anthropic";
 import { PermanentError } from "../src/errors";
 import { HANDLERS } from "../src/handlers";
 import * as testProvider from "../src/handlers/platform.test_provider";
+import { recordingReq } from "../src/handlers/platform.test_provider";
 import { createHttp } from "../src/http";
 import { createPlatformConfig, overlayable } from "../src/platform-config";
 import { createRegistry, jobContext, readiness } from "../src/runner";
-import { redactSecrets } from "../../src/lib/platform-setup/checks";
+import { ANTHROPIC_FALLBACK_BETA, ANTHROPIC_TEST_MODEL, redactSecrets } from "../../src/lib/platform-setup/checks";
 import { captureLog, fakeDb, job } from "./helpers";
 
 const require = createRequire(import.meta.url);
@@ -128,12 +131,41 @@ describe("platform.test_provider", () => {
   it("checks Twilio, Anthropic and email, and adds the platform's sending domain with its DNS records", async () => {
     expect((await run("texting", { TWILIO_ACCOUNT_SID: "AC00000000000000000000000000000001", TWILIO_AUTH_TOKEN: "mock_twilio_token", TWILIO_FROM_NUMBER: "+18325550100", TWILIO_API_BASE: base })).ok).toBe(true);
     expect((await run("ai", { ANTHROPIC_API_KEY: "sk-ant-mock-key-000", ANTHROPIC_BASE_URL: base })).ok).toBe(true);
+    expect(mock.state.requests.at(-1)).toMatchObject({ method: "POST", path: "/v1/messages", auth: "sk-ant-mock-key-000" });
     expect((await run("ai", { ANTHROPIC_API_KEY: "sk-ant-bad", ANTHROPIC_BASE_URL: base })).ok).toBe(false);
     const email = await run("email", { RESEND_API_KEY: "re_mock_key_0001", RESEND_API_BASE: base, MESSAGING_FROM_ADDRESS: "no-reply@mail.cc.test" });
     expect(email.lines[0]?.ok).toBe(true);
     expect(email.ok).toBe(false); // the domain was just added and is not verified yet
     expect(JSON.stringify(email.records)).toContain("resend._domainkey.mail.cc.test");
     expect((await run("email", { RESEND_API_KEY: "re_mock_key_0001", RESEND_API_BASE: base })).ok).toBe(false);
+  });
+
+  it("tests AI with a real one-token message, so a key blocked by its spending limit fails the test", async () => {
+    const limited = await run("ai", { ANTHROPIC_API_KEY: "sk-ant-mock-limited-000", ANTHROPIC_BASE_URL: base });
+    expect(limited.ok).toBe(false);
+    expect(limited.lines[0]?.detail).toMatch(/^the key works, but the account's spending limit or credit ran out, so Niva and the suggestions are paused until 2026-11-01 00:00 UTC/);
+    expect(JSON.stringify(limited)).not.toContain("sk-ant-mock-limited-000");
+  });
+
+  it("asks the model Niva uses, with the beta Niva sends", () => {
+    expect(ANTHROPIC_TEST_MODEL).toBe(CLAUDE_MODEL);
+    expect(ANTHROPIC_FALLBACK_BETA).toBe(FALLBACK_BETA);
+  });
+
+  it("records what the AI test got in the service's AI status", async () => {
+    const status = createAiStatus(() => new Date("2026-10-02T10:00:00Z"));
+    const limit = JSON.stringify({ type: "error", error: { type: "invalid_request_error", message: "You have reached your specified API usage limits." } });
+    const answers = [{ status: 400, text: limit }, { status: 200, text: "{}" }];
+    const req = recordingReq(async () => answers.shift()!, status);
+    await req("http://mock/v1/messages", { method: "POST", headers: {} });
+    expect(status.report().state).toBe("paused");
+    await req("http://mock/v1/messages", { method: "POST", headers: {} });
+    expect(status.report().state).toBe("ok");
+    const down = recordingReq(async () => {
+      throw new Error("connect ECONNREFUSED");
+    }, status);
+    await expect(down("http://mock/v1/messages", { method: "POST", headers: {} })).rejects.toThrow("ECONNREFUSED");
+    expect(status.report().state).toBe("unreachable");
   });
 
   it("refuses a payload without a testable step", async () => {

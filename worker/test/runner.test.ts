@@ -3,7 +3,9 @@ import { describe, expect, it } from "vitest";
 import * as demoPing from "../src/handlers/demo.ping";
 import { HANDLERS } from "../src/handlers";
 import { createHttp } from "../src/http";
-import { createRegistry, createRunner, processJob, readiness } from "../src/runner";
+import type { Job } from "../src/db";
+import { createRegistry, createRunner, PRIORITY_KINDS, processJob, readiness } from "../src/runner";
+import type { HandlerModule } from "../src/types";
 import { captureLog, fakeDb, job } from "./helpers";
 
 const deps = (db: ReturnType<typeof fakeDb>["db"], env: Record<string, string> = {}) => {
@@ -78,14 +80,102 @@ describe("processJob", () => {
 
 describe("runner", () => {
   it("claims only up to the free concurrency and drains", async () => {
-    const { db, calls } = fakeDb({ claim: [[job({ id: "1" }), job({ id: "2" })], []] });
+    // Niva first (none due), then the rest into all but the slot kept for Niva.
+    const { db, calls } = fakeDb({ claim: [[], [job({ id: "1" })], []] });
     const { d } = deps(db);
     const r = createRunner(d, 2);
-    expect(await r.tick()).toBe(2);
-    expect(calls[0]).toEqual({ fn: "claim", args: ["w-test", HANDLERS.map((h) => h.kind), 2] });
+    expect(await r.tick()).toBe(1);
+    expect(calls[0]).toEqual({ fn: "claim", args: ["w-test", ["niva.answer"], 2] });
+    expect(calls[1]).toEqual({ fn: "claim", args: ["w-test", HANDLERS.map((h) => h.kind).filter((k) => k !== "niva.answer"), 1] });
     expect(await r.drain(1000)).toBe(true);
-    expect(calls.filter((c) => c.fn === "finish")).toHaveLength(2);
+    expect(calls.filter((c) => c.fn === "finish")).toHaveLength(1);
     r.stop();
     expect(await r.tick()).toBe(0);
+  });
+});
+
+describe("runner: a slot kept for Niva", () => {
+  /** Handlers that wait until the test lets them finish, and a queue the claims take from by kind, in order. */
+  function setup(queued: Job[]) {
+    const release: (() => void)[] = [];
+    const slow = (kind: string): HandlerModule => ({ kind, run: () => new Promise((r) => release.push(() => r({ ok: true }))) });
+    const reg = createRegistry([slow("niva.answer"), slow("photos.import_album"), slow("qbo.bring_in_history")]);
+    const { db, calls } = fakeDb();
+    const queue = [...queued];
+    db.claim = async (worker, kinds, limit) => {
+      calls.push({ fn: "claim", args: [worker, kinds, limit] });
+      const out: Job[] = [];
+      for (let i = 0; i < queue.length && out.length < limit; ) {
+        if (kinds.includes(queue[i]!.kind)) out.push(...queue.splice(i, 1));
+        else i++;
+      }
+      return out;
+    };
+    const { log } = captureLog();
+    const runner = createRunner({ db, reg, env: {}, http: createHttp(), log, workerId: "w" }, 4);
+    const releaseAll = () => release.splice(0).forEach((f) => f());
+    return { runner, calls, queue, releaseAll };
+  }
+  const claims = (calls: { fn: string; args: unknown[] }[]) => calls.filter((c) => c.fn === "claim").map((c) => c.args.slice(1));
+
+  it("is niva.answer by default", () => {
+    expect(PRIORITY_KINDS).toEqual(["niva.answer"]);
+  });
+
+  it("claims niva.answer first, and long jobs never take the last slot", async () => {
+    const long = Array.from({ length: 6 }, (_, i) => job({ id: `L${i}`, kind: i % 2 ? "qbo.bring_in_history" : "photos.import_album" }));
+    const { runner, calls, queue, releaseAll } = setup(long);
+    expect(await runner.tick()).toBe(3);
+    expect(claims(calls)).toEqual([
+      [["niva.answer"], 4],
+      [["photos.import_album", "qbo.bring_in_history"], 3],
+    ]);
+    expect(runner.inFlight()).toBe(3);
+    // Three long jobs running: the fourth slot stays free, and the next tick asks only for answers.
+    calls.length = 0;
+    expect(await runner.tick()).toBe(0);
+    expect(claims(calls)).toEqual([[["niva.answer"], 1]]);
+    // A question arrives: it gets the kept slot at once, though long jobs are still queued.
+    queue.push(job({ id: "N1", kind: "niva.answer" }));
+    calls.length = 0;
+    expect(await runner.tick()).toBe(1);
+    expect(claims(calls)).toEqual([[["niva.answer"], 1]]);
+    expect(runner.inFlight()).toBe(4);
+    expect(queue.map((j) => j.id)).toEqual(["L3", "L4", "L5"]);
+    releaseAll();
+    expect(await runner.drain(1000)).toBe(true);
+  });
+
+  it("answers may use every slot, and long jobs get theirs back as answers finish", async () => {
+    const answers = Array.from({ length: 5 }, (_, i) => job({ id: `N${i}`, kind: "niva.answer" }));
+    const { runner, calls, queue, releaseAll } = setup([...answers, job({ id: "L0", kind: "photos.import_album" })]);
+    expect(await runner.tick()).toBe(4);
+    expect(claims(calls)).toEqual([[["niva.answer"], 4]]);
+    expect(queue.map((j) => j.id)).toEqual(["N4", "L0"]);
+    releaseAll();
+    expect(await runner.drain(1000)).toBe(true);
+    calls.length = 0;
+    expect(await runner.tick()).toBe(2);
+    expect(claims(calls)).toEqual([
+      [["niva.answer"], 4],
+      [["photos.import_album", "qbo.bring_in_history"], 3],
+    ]);
+    releaseAll();
+    expect(await runner.drain(1000)).toBe(true);
+  });
+
+  it("keeps no slot with a single slot, or when this service does not run niva.answer", async () => {
+    const { db, calls } = fakeDb();
+    const { log } = captureLog();
+    const one = createRunner({ db, reg: createRegistry(HANDLERS), env: {}, http: createHttp(), log, workerId: "w" }, 1);
+    await one.tick();
+    expect(claims(calls)).toEqual([
+      [["niva.answer"], 1],
+      [HANDLERS.map((h) => h.kind).filter((k) => k !== "niva.answer"), 1],
+    ]);
+    calls.length = 0;
+    const noNiva = createRunner({ db, reg: createRegistry([demoPing]), env: {}, http: createHttp(), log, workerId: "w" }, 4);
+    await noNiva.tick();
+    expect(claims(calls)).toEqual([[["demo.ping"], 4]]);
   });
 });

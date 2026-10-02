@@ -5,7 +5,11 @@
 // Every WORKER_POLL_MS it claims due jobs (app.claim_jobs) and runs them; every
 // WORKER_HEARTBEAT_MS it writes its heartbeat (app.worker_heartbeat), which the
 // portal's "Background service" tile and the readiness check read, and queues
-// the daily storage.retention pass when that handler is configured.
+// the daily storage.retention pass when that handler is configured. The
+// heartbeat's info.handlers says, per job kind, whether it is configured; the kinds
+// that call Anthropic also carry what the last Anthropic calls got (ai-status.ts),
+// so Settings › Integrations and Content › Niva can say "Niva paused: AI spending
+// limit until …" or that the key was refused, and where the key comes from.
 // GET http://127.0.0.1:WORKER_HEALTH_PORT/health answers 200 while the last
 // heartbeat reached the database, 503 otherwise (the deploy checks it).
 // SIGTERM / SIGINT: stop claiming, let running jobs finish (WORKER_SHUTDOWN_MS),
@@ -14,19 +18,28 @@
 import http from "node:http";
 import os from "node:os";
 
-import { loadConfig, type Env, type WorkerConfig } from "./config";
+import { aiStatus, ANTHROPIC_KINDS, anthropicKeySource, type AiStatus, type AiStatusReport } from "./ai-status";
+import { loadConfig, type Env, type Readiness, type WorkerConfig } from "./config";
 import { createDb, type WorkerDb } from "./db";
 import { HANDLERS } from "./handlers";
 import { createHttp } from "./http";
 import { createLogger, type Logger } from "./log";
 import { createPlatformConfig } from "./platform-config";
-import { createRegistry, createRunner, readiness, type Registry } from "./runner";
+import { createRegistry, createRunner, PRIORITY_KINDS, readiness, type Registry } from "./runner";
 
 const VERSION = process.env.WORKER_VERSION_BUILT ?? "dev";
 
 export type Health = { ok: boolean; status: number; body: Record<string, unknown> };
 
-export function healthOf(state: { stopping: boolean; lastBeatOk: Date | null; lastBeatError: string | null; heartbeatMs: number; inFlight: number; now: Date }): Health {
+export function healthOf(state: {
+  stopping: boolean;
+  lastBeatOk: Date | null;
+  lastBeatError: string | null;
+  heartbeatMs: number;
+  inFlight: number;
+  now: Date;
+  ai?: AiStatusReport;
+}): Health {
   const fresh = state.lastBeatOk !== null && state.now.getTime() - state.lastBeatOk.getTime() <= state.heartbeatMs * 2 + 5000;
   const ok = fresh && !state.stopping;
   return {
@@ -39,8 +52,28 @@ export function healthOf(state: { stopping: boolean; lastBeatOk: Date | null; la
       last_heartbeat_at: state.lastBeatOk?.toISOString() ?? null,
       problem: ok ? null : state.stopping ? "shutting down" : (state.lastBeatError ?? "no heartbeat has reached the database yet"),
       in_flight: state.inFlight,
+      ...(state.ai ? { ai: state.ai } : {}),
     },
   };
+}
+
+/** What the heartbeat says about Anthropic: the last calls' outcome and where the key comes from (names only). */
+export type HeartbeatAi = AiStatusReport & ReturnType<typeof anthropicKeySource>;
+
+export function heartbeatAi(status: AiStatus, platform: { saved: string[]; env: string[] }): HeartbeatAi {
+  return { ...status.report(), ...anthropicKeySource(platform) };
+}
+
+export type HandlerInfo = { configured: true; ai?: HeartbeatAi } | { configured: false; reason: string; ai?: HeartbeatAi };
+
+/** info.handlers: each kind's readiness; each kind that calls Anthropic (ANTHROPIC_KINDS) also carries `ai`. */
+export function handlerInfo(ready: Record<string, Readiness>, ai: HeartbeatAi): Record<string, HandlerInfo> {
+  return Object.fromEntries(
+    Object.entries(ready).map(([kind, v]): [string, HandlerInfo] => {
+      const base: HandlerInfo = v.configured ? { configured: true } : { configured: false, reason: v.reason };
+      return [kind, ANTHROPIC_KINDS.has(kind) ? { ...base, ai } : base];
+    }),
+  );
 }
 
 export async function main(env: Env = process.env): Promise<void> {
@@ -63,17 +96,14 @@ export async function main(env: Env = process.env): Promise<void> {
   const startedAt = new Date();
   const state = { stopping: false, lastBeatOk: null as Date | null, lastBeatError: null as string | null };
 
-  const handlerInfo = () => {
-    const r = readiness(reg, penv);
-    return Object.fromEntries(Object.entries(r).map(([k, v]) => [k, v.configured ? { configured: true } : { configured: false, reason: v.reason }]));
-  };
+  const handlersNow = () => handlerInfo(readiness(reg, penv), heartbeatAi(aiStatus, platform.report()));
   for (const [kind, v] of Object.entries(readiness(reg, penv))) {
     if (!v.configured) log.warn("handler not configured", { handler: kind, reason: v.reason });
   }
 
   async function beat(): Promise<void> {
     await platform.refresh();
-    const handlers = handlerInfo();
+    const handlers = handlersNow();
     try {
       await db.heartbeat(config.workerId, startedAt, VERSION, [...reg.keys()], {
         handlers, host: os.hostname(), pid: process.pid, node: process.version,
@@ -158,7 +188,7 @@ export async function main(env: Env = process.env): Promise<void> {
 
   const server = http.createServer((req, res) => {
     if (req.method === "GET" && (req.url === "/health" || req.url === "/")) {
-      const h = healthOf({ ...state, heartbeatMs: config.heartbeatMs, inFlight: runner.inFlight(), now: new Date() });
+      const h = healthOf({ ...state, heartbeatMs: config.heartbeatMs, inFlight: runner.inFlight(), now: new Date(), ai: aiStatus.report() });
       res.writeHead(h.status, { "content-type": "application/json" }).end(JSON.stringify(h.body));
       return;
     }
@@ -167,7 +197,7 @@ export async function main(env: Env = process.env): Promise<void> {
   server.on("error", (err) => log.error("health endpoint failed", { error: err }));
   server.listen(config.healthPort, config.healthHost, () => log.info("health endpoint listening", { at: `http://${config.healthHost}:${config.healthPort}/health` }));
 
-  log.info("background service starting", { version: VERSION, handlers: Object.keys(handlerInfo()), concurrency: config.concurrency });
+  log.info("background service starting", { version: VERSION, handlers: [...reg.keys()], concurrency: config.concurrency, priority: PRIORITY_KINDS });
   await beat();
   const beatTimer = setInterval(() => void beat(), config.heartbeatMs);
   const pollTimer = setInterval(() => void poll(), config.pollMs);

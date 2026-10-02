@@ -178,7 +178,27 @@ describe("qbo.match_suggest_ai", () => {
     expect(stored).toEqual([expect.objectContaining({ qbo_id: "2005", household_id: "d0000000-0000-4000-8000-000000000101", confidence: 0.85 })]);
     expect(checked).toEqual(["2005", "2006"]);
     expect(ai.requests.at(-1)).not.toMatch(/@/);
-    expect(ai.requests.at(-1)).toContain("claude-opus-5");
+    const sent = JSON.parse(ai.requests.at(-1)!) as { model: string; fallbacks: string };
+    expect(sent.model).toBe("claude-opus-5-5");
+    expect(sent.fallbacks).toBe("default");
+    expect(r.model).toBe("claude-opus-5-5");
+  });
+
+  it("records the model it would use when no customer needs asking (CLAUDE_MODEL overrides it, like Niva)", async () => {
+    const lonely = [customers[1]!];
+    const models: unknown[] = [];
+    const d = fakeDb({
+      query: (text, params) => {
+        if (text.includes("qbo_worker_ai_input")) return [{ r: lonely }];
+        if (text.includes("qbo_worker_store_ai")) models.push(params[1]);
+        return [];
+      },
+    });
+    const before = ai.requests.length;
+    await suggestAi(job({ kind: "qbo.match_suggest_ai" }), ctxFor(d.db, { ANTHROPIC_API_KEY: "test", ANTHROPIC_BASE_URL: ai.url }));
+    await suggestAi(job({ kind: "qbo.match_suggest_ai" }), ctxFor(d.db, { ANTHROPIC_API_KEY: "test", ANTHROPIC_BASE_URL: ai.url, CLAUDE_MODEL: "claude-opus-5" }));
+    expect(models).toEqual(["claude-opus-5-5", "claude-opus-5"]);
+    expect(ai.requests.length).toBe(before);
   });
 
   it("keeps only households offered to that customer", () => {
