@@ -1,6 +1,8 @@
 -- 0540: Niva web import — staff queue pages, only the background service can write the
 -- sections, everything lands as DRAFT, a re-import never touches approved text, and
--- Niva still answers from published sources only.
+-- Niva still answers from published sources only. Since 0576 (test 63 has the rest): addresses are
+-- written one way before duplicates are removed, and an approved section whose page changed is
+-- flagged for a person instead of being skipped silently.
 \set ON_ERROR_STOP 1
 create or replace function pg_temp.assert(cond boolean, label text) returns void language plpgsql as $$
 begin
@@ -39,9 +41,9 @@ insert into app.role_grants (center_id, user_id, role_key) values (:c, :admin, '
 -- ── Staff queue pages: duplicates and #fragments collapse, one job each ─────
 begin;
 select pg_temp.sign_in(:admin);
-select app.niva_import_pages(:c::uuid, array['https://example.org/relocation', '  https://example.org/relocation#faq ', 'https://example.org/pathshala', '', null]) as n \gset
+select app.niva_import_pages(:c::uuid, array['https://example.org/relocation', '  https://example.org/relocation#faq ', 'https://www.example.org/relocation/', 'https://example.org/pathshala', '', null]) as n \gset
 commit;
-select pg_temp.assert(:'n'::int = 2, 'two distinct pages are queued (the duplicate, the #fragment and blanks collapse)');
+select pg_temp.assert(:'n'::int = 2, 'two distinct pages are queued (the duplicate, the #fragment, the www form with a trailing slash and blanks collapse)');
 select pg_temp.assert((select count(*) from app.jobs where kind = 'niva.import_page' and center_id = :c::uuid) = 2, 'one niva.import_page job per page');
 select pg_temp.assert((select bool_and(created_by = :admin::uuid) from app.jobs where kind = 'niva.import_page' and center_id = :c::uuid), 'the job records who asked for the import');
 select pg_temp.assert((select count(distinct run_after) from app.jobs where kind = 'niva.import_page' and center_id = :c::uuid) = 2, 'the jobs are staggered, not all due at the same instant');
@@ -80,7 +82,8 @@ select app.niva_worker_save_import(:c::uuid, 'https://example.org/relocation', '
   '[{"title":"Relocation: the new facility","body":"The new facility has 13 pathshala rooms and a kitchen."},{"title":"Relocation: donating","body":"Donations to the new facility are tax deductible."}]'::jsonb,
   :admin::uuid) as r1 \gset
 commit;
-select pg_temp.assert((:'r1'::jsonb->>'created')::int = 2 and (:'r1'::jsonb->>'updated')::int = 0, 'two sections are created on the first import');
+select pg_temp.assert((:'r1'::jsonb->>'created')::int = 2 and (:'r1'::jsonb->>'updated')::int = 0 and (:'r1'::jsonb->>'changed')::int = 0
+                      and :'r1'::jsonb->>'url' = 'https://example.org/relocation', 'two sections are created on the first import');
 select pg_temp.assert((select count(*) from app.content_items where center_id = :c::uuid and kind = 'niva_source' and status = 'draft' and metadata->>'imported' = 'true') = 2, 'they are saved as DRAFT niva_source items');
 select pg_temp.assert((select bool_and(metadata->>'source_url' = 'https://example.org/relocation' and created_by = :admin::uuid) from app.content_items where center_id = :c::uuid and metadata->>'imported' = 'true'), 'each remembers its page address and who imported it');
 
@@ -102,6 +105,10 @@ select app.niva_worker_save_import(:c::uuid, 'https://example.org/relocation', '
 commit;
 select pg_temp.assert((:'r2'::jsonb->>'updated')::int = 1 and (:'r2'::jsonb->>'kept_as_approved')::int = 1 and (:'r2'::jsonb->>'created')::int = 0, 'a re-import updates the draft section and keeps the published one');
 select pg_temp.assert((select body_md from app.content_items where center_id = :c::uuid and metadata->>'section' = '1' and metadata->>'imported' = 'true') like '%13 pathshala rooms%', 'the published section still says exactly what was approved');
+select pg_temp.assert((:'r2'::jsonb->>'changed')::int = 1
+                      and (select metadata->>'page_changed' = 'true' and metadata->>'page_text_now' like '%20 rooms%'
+                             from app.content_items where center_id = :c::uuid and metadata->>'section' = '1' and metadata->>'imported' = 'true'),
+  'the published section is flagged with the page''s new text for a person to decide (0576)');
 select pg_temp.assert((select body_md from app.content_items where center_id = :c::uuid and metadata->>'section' = '2' and metadata->>'imported' = 'true') like '%talk to your CPA%', 'the draft section carries the new text');
 select pg_temp.assert((select count(*) from app.content_items where center_id = :c::uuid and metadata->>'imported' = 'true') = 2, 'a re-import creates no duplicates');
 

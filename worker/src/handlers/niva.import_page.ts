@@ -1,11 +1,15 @@
 // niva.import_page: read one public web page and save it as DRAFT Niva sources.
-// Queued by app.niva_import_pages (Content › Niva › Import from a web page) with { url }.
-// The page is fetched safely (worker/src/web/fetch_page.ts), reduced to readable text and
-// split into sections (worker/src/web/page_text.ts), and saved through
+// Queued by app.niva_import_pages (Content › Niva › Import from a web page, or pages ticked in
+// Find a website's pages) with { url }. The page is fetched safely (worker/src/web/fetch_page.ts),
+// reduced to readable text and split into sections (worker/src/web/page_text.ts), and saved through
 // app.niva_worker_save_import as draft niva_source items carrying their page address.
-// Nothing is published here: an administrator still approves each section in the
-// approval queue, and Niva answers only from approved ones. Running it again for the
-// same page refreshes its draft sections and leaves approved ones untouched.
+// Nothing is published here: an administrator still approves each section in the approval queue,
+// and Niva answers only from approved ones.
+//
+// Since 0576 the page's FINAL address (after redirects: jainsocietyhouston.org answers with a 301
+// to www) is what is saved, and the address that was asked for goes along so sections saved under
+// it are found again. A re-import refreshes the page's drafts; a section in review, approved or
+// published keeps its text and is flagged when the page now says something else, or no longer has it.
 
 import { PermanentError } from "../errors";
 import type { Job, JobContext } from "../types";
@@ -26,14 +30,24 @@ export async function run(job: Job, ctx: JobContext) {
     throw new PermanentError(`No readable text was found on ${url}. The page may be built with scripts the importer cannot run, or be mostly images; paste its text in by hand instead.`);
   }
 
-  const rows = await ctx.db.query<{ r: Record<string, unknown> }>("select app.niva_worker_save_import($1::uuid, $2, $3, $4::jsonb, $5::uuid) as r", [
+  const rows = await ctx.db.query<{ r: Record<string, unknown> }>("select app.niva_worker_save_import($1::uuid, $2, $3, $4::jsonb, $5::uuid, $6) as r", [
     job.center_id,
-    url,
+    finalUrl,
     pageTitle,
     JSON.stringify(sections),
     job.created_by,
+    url,
   ]);
-  const saved = rows[0]?.r ?? {};
+  // The database answers with the address it saved (written one way) and its counts.
+  const { url: savedAs, ...counts } = rows[0]?.r ?? {};
   ctx.log.info("niva page imported", { url, sections: sections.length, chars, truncated });
-  return { url, ...(finalUrl !== url ? { final_url: finalUrl } : {}), page_title: pageTitle, chars, truncated, ...saved };
+  return {
+    url,
+    ...(finalUrl !== url ? { final_url: finalUrl } : {}),
+    ...(typeof savedAs === "string" && savedAs !== url ? { saved_as: savedAs } : {}),
+    page_title: pageTitle,
+    chars,
+    truncated,
+    ...counts,
+  };
 }
