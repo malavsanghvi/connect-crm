@@ -39,10 +39,16 @@ What counts as an active membership (`app.my_access`):
   the household's level. Someone who left the household (`left_at`) is not. A person in two households gets
   the highest of them.
 - Another community's memberships never count.
-- **While the Membership module is switched off, nobody counts as a member** (its data is switched off), so
-  everyone linked is at the community level. The settings page says so.
+- **Switching the Membership module off does not change anyone's level.** The module hides the membership
+  screens and data, not the memberships, so a Life member stays a Life member and an area chosen for Life
+  members keeps working for them (a yearly membership still ends on its end date). Counting nobody while the
+  module was off would have locked members out of their own area just because a module was switched off.
 - Staff and platform admins are judged like anyone else, by their own link and household, not by role. (They
   pass the staff policies of each table separately.)
+- **The public level only reaches communities that are listed to guests**: status `active` or `onboarding`,
+  the same rule as the center picker (`centers_public_read`, 0010). A suspended or exited community is open
+  only to the people linked to it and to platform admins, so a guest or a stranger gets neither its public areas
+  nor its ladder (`app.access_center_open`).
 
 ### Areas
 
@@ -63,6 +69,8 @@ choice is a row in `app.center_feature_access`; **no row means the catalog defau
 
 - **Defaults are today's behaviour**, except `darshan` and `puja`, which become public (the owner's request).
   Before this change a guest could not watch the live stream.
+- **`guide` is the newcomer guide and the "who to ask" roster** (`guide_sections`, `role_roster`), not the member
+  directory: the directory of families always needs a signed-in community member and is not in the catalog.
 - **Floors**: listen, look, learn and Niva can never be opened to the public, because their files are
   members-only in storage and their data is personal. The database refuses a choice below the floor and
   ignores one that somehow got into the table (it is lifted to the floor).
@@ -75,13 +83,14 @@ choice is a row in `app.center_feature_access`; **no row means the catalog defau
 `app.can_use_feature(center, area)`: **false** when the area's module is off, otherwise **true when the
 caller's level rank is at least the area's minimum rank**. It is the member-facing rule: staff are not special
 in it (a policy adds a staff bypass where one is needed). It never raises, because row level security calls it;
-an unknown area or community is simply false.
+an unknown area or community is simply false, and so is a **public** area of a community that is not open to the
+caller (a suspended or exited community, for anyone who is not part of it: `app.access_center_open`).
 
 ## Where it is enforced
 
 | | What the database does | What only the app does |
 |---|---|---|
-| **Live darshan** | Row level security on `app.content_items`: a published `darshan_stream` is readable by anyone (guests included) whose level meets the community's darshan level. A closed stream is **not returned** to others, so a hand-made API call gets nothing | Hides the buttons and shows "Sign in to watch…" |
+| **Live darshan** | Row level security on `app.content_items`: a published `darshan_stream` is readable by anyone (guests included) whose level meets the community's darshan level. A closed stream's **row is not returned** to others, so a hand-made API call gets no link, notes or stored-file path. **It cannot make the link itself private**: the stream plays from the link's own site (JSH's is a public `rtsp.me` embed), so anyone who already has the link can still watch it. Use a private or unlisted link where that matters. A stream shared by every community (`center_id` null) is readable by everyone as before, whatever any community chose | Hides the buttons and shows "Sign in to watch…" |
 | **Puja, timings, guide** | Nothing new: the lesson tables, daily timings and guide pages were already readable by guests | Shows or hides the entry points and screens |
 | **Listen, look, learn, Niva** | Nothing new: stavans, videos, podcasts and recipes (`content_items`) are readable by every member of the community; lessons by everyone; the files are members-only in storage | Hides them from people below the level |
 
@@ -102,14 +111,17 @@ using (status = 'published'
 and two policies for the stream itself:
 
 - `content_darshan_feature` (select, `anon` and `authenticated`): `kind = 'darshan_stream' and status =
-  'published' and center_id is not null and app.can_use_feature(center_id, 'darshan')`.
+  'published' and center_id is not null and app.can_use_feature(center_id, 'darshan')`. A suspended or exited
+  community's stream is not handed to guests or strangers even while its level is public (the community has to
+  be open to the caller, see "Who is at which level").
 - `content_darshan_staff` (select, `authenticated`): the same rows for anyone with `content.view`, so staff
   who could read the stream before (as members) still can in Content › Today & darshan, whatever level they
   hold. People who manage content read every row through `content_manage` as before; drafts are unchanged.
 
 **What changes for users:** with the default (public), **a guest can now read a community's published live
-stream**. Everything else `content_published` allowed it still allows. A community that closes the area gets
-the old behaviour or stricter (members, Members, Life members only).
+stream** (the whole row: title, link, notes and stored-file path, so the Notes box of a stream is written for
+everyone who may watch). Everything else `content_published` allowed it still allows. A community that closes
+the area gets the old behaviour or stricter (members, Members, Life members only).
 
 ## The database objects
 
@@ -120,10 +132,11 @@ the old behaviour or stricter (members, Members, Life members only).
 | `app.center_feature_access` | A community's choice per area: `(center_id, feature_key, level_key, changed_by, changed_at, reason)`. The level must be one of the community's (a foreign key, so a level an area uses cannot be removed). Readable like the ladder; written only by `set_feature_access` |
 | `app.my_access(center)` | The caller's level: `(key, label, rank, signed_in)`. Callable by guests |
 | `app.can_use_feature(center, area)` | Boolean, as above. Callable by guests |
-| `app.feature_access_for_me(center)` | What the member app asks once per community (below). Callable by guests; raises "That community was not found." for an unknown one |
-| `app.access_settings(center)` | Everything the settings page needs: levels, areas, membership types, `membership_on`. `settings.manage` |
+| `app.feature_access_for_me(center)` | What the member app asks once per community (below). Callable by guests; raises "That community was not found." for an unknown one, and for one that is not open to the caller (suspended or exited, caller not part of it), so a guest is not shown its ladder |
+| `app.access_center_open(center)` | Internal (not callable over the API): is this community open to the caller at the public level? Active or onboarding (the center picker's rule), or the caller is linked to it, or a platform admin |
+| `app.access_settings(center)` | Everything the settings page needs: levels, areas, membership types. `settings.manage` |
 | `app.set_feature_access(center, area, level, reason)` | Choose an area's level. Refuses a level below the floor, one that does not exist, and one **nobody can reach** (a membership level whose only rule is membership types that are no longer offered) |
-| `app.save_access_levels(center, levels, base_labels, reason)` | Replace the membership levels and the two base names in one go. Refuses a bad key, rank, name or rule, a type the community does not have, more than 10 levels, and **removing a level an area still uses (the error names the areas)** |
+| `app.save_access_levels(center, levels, base_labels, reason)` | Replace the membership levels and the two base names in one go. Refuses a bad key, rank, name or rule (every entry of a rule must be a tier or type name: a null, a number or a nested list is refused, and the table's check keeps one out of the data too), a type the community does not have, more than 10 levels, and **removing a level an area still uses (the error names the areas)** |
 | `app.access_seed_center(center)` + trigger on `app.centers` | Gives every community the four starting levels; run once for the existing communities by the migration |
 
 All three tables are audited (`audit_<table>` on `app.audit_row`, keyed by their primary key) and mapped to the
@@ -198,6 +211,11 @@ Money and personal areas are **not** added here: they always need a signed-in co
 
 ## What is not enforced yet
 
+- A live stream's **link** is only as private as the site it points to. The database withholds the stream's row
+  from people below the level, but the stream plays from that link's own site, so anyone who already has the
+  link (every member who ever opened it, or anyone it was shared with) can still watch it. JSH's stream is a
+  public `rtsp.me` embed. Closing Live darshan stops the app and the API handing the link out; it does not
+  make the stream private. A private or unlisted link does.
 - Listen, look, learn and Niva are hidden by the app, not by the database (BACKLOG **B45**): a community
   member who calls the API directly can still read those rows. Their files are members-only in storage whatever
   level is chosen, which is why they cannot be opened to the public.

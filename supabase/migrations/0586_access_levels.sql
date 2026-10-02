@@ -12,8 +12,9 @@
 --   (community, yearly, life) and/or this community's membership TYPE keys. A level is met when the person's
 --   household has an ACTIVE membership (status active, today between starts_on and ends_on) of such a tier or
 --   type. Children and other household members share the household's membership. "Today" is the community's
---   own date. Lapsed, ended, pending, suspended and not-yet-started memberships never count, and nobody counts
---   as a member while the Membership module is switched off.
+--   own date. Lapsed, ended, pending, suspended and not-yet-started memberships never count. Switching the
+--   Membership module off does not change anyone's level: it hides the membership screens and data, not the
+--   memberships themselves (a yearly membership still ends on its end date).
 --   Every community starts with: member ("Member", rank 20, tiers yearly and life) and life ("Life member",
 --   rank 30, tier life). They can be renamed, re-ordered, changed or removed like any other level.
 --
@@ -22,9 +23,14 @@
 -- means the catalog default. The defaults are today's behaviour, except darshan and puja, which become
 -- public (the owner's request). Money and personal areas (giving, RSVP, store, family, Pathshala, directory)
 -- are not in the catalog: they always need at least a signed-in community member.
+-- The public level only reaches communities that are listed to guests (status active or onboarding, as
+-- centers_public_read lists them): a suspended or exited community is open only to the people linked to it
+-- and to platform admins.
 --
 -- WHERE IT IS ENFORCED. enforced_by says it: 'database' for darshan (the live stream row is protected by RLS,
--- below); 'app' for the rest (the member app hides them; lesson, media and Niva content stays readable by
+-- below: the database only hands the stream's row, and with it the link, to people at or above the level; the
+-- stream itself plays from that link's own site, so anyone who already has the link can still watch it);
+-- 'app' for the rest (the member app hides them; lesson, media and Niva content stays readable by
 -- community members in the database, and the Settings page says so). Database enforcement for those is
 -- BACKLOG B45.
 --
@@ -55,10 +61,10 @@ comment on table app.access_features is
   'Areas of the member app whose access level a community can choose (0586). default_level is what a community gets until it chooses; floor_level is the lowest level it may choose (public or community). module_key: the area is off while that module is switched off. enforced_by: database = row level security protects the data, app = the member app hides it.';
 
 insert into app.access_features (key, label, description, default_level, floor_level, module_key, enforced_by, sort) values
-('darshan', 'Live darshan', 'The live stream from the derasar, on Home and in the library. The database protects the stream itself, so only people at or above this level can open it.', 'public', 'public', 'content', 'database', 10),
+('darshan', 'Live darshan', 'The live stream from the derasar, on Home and in the library. The database only gives the stream''s link to people at or above this level. The stream plays from that link''s own site, so anyone who already has the link can still watch it (use a private or unlisted link if that matters).', 'public', 'public', 'content', 'database', 10),
 ('puja', 'Virtual puja', 'The guided virtual puja (the Navang puja lesson). Anyone at or above this level can open it; progress and points are only kept for people who are signed in.', 'public', 'public', 'gyan_path', 'app', 20),
 ('timings', 'Today''s timings', 'Sunrise, navkarsi, chauvihar and aarti for today, on Home. The timings are readable by everyone in the database; this choice is for the member app.', 'public', 'public', null, 'app', 30),
-('guide', 'New to the community guide and directory', 'The guide for newcomers: first steps, the community directory pages and who to ask.', 'public', 'public', null, 'app', 40),
+('guide', 'New to the community guide and directory', 'The guide for newcomers: first steps and who to ask (who looks after what). The member directory of families is not part of this area: it always needs a signed-in community member.', 'public', 'public', null, 'app', 40),
 ('listen', 'Stavans, podcasts and playlist', 'Listen in the member app: stavans, podcast episodes and My playlist. The files are kept for community members only, so this cannot be opened to the public.', 'community', 'community', 'content', 'app', 50),
 ('look', 'Videos and recipes', 'Look in the member app: videos and recipes. The files are kept for community members only, so this cannot be opened to the public.', 'community', 'community', 'content', 'app', 60),
 ('learn', 'Gyan Path lessons and progress', 'Learn in the member app: Gyan Path lessons and each person''s progress. Progress is personal, so this cannot be opened to the public.', 'community', 'community', 'gyan_path', 'app', 70),
@@ -78,12 +84,14 @@ create table if not exists app.access_levels (
   primary key (center_id, key),
   -- deferred, so a save can swap two levels' places inside one transaction
   constraint access_levels_rank_unique unique (center_id, rank) deferrable initially deferred,
-  -- the two base levels are fixed; the others sit above them and say who they are for
+  -- the two base levels are fixed; the others sit above them and say who they are for (a rule is a list of real
+  -- tiers and types: a null inside it would be a level nobody can ever meet)
   constraint access_levels_shape check (
        (kind = 'public'     and key = 'public'    and rank = 0  and tiers is null and membership_type_keys is null)
     or (kind = 'community'  and key = 'community' and rank = 10 and tiers is null and membership_type_keys is null)
     or (kind = 'membership' and key not in ('public', 'community') and rank >= 20
-        and coalesce(cardinality(tiers), 0) + coalesce(cardinality(membership_type_keys), 0) > 0))
+        and coalesce(cardinality(tiers), 0) + coalesce(cardinality(membership_type_keys), 0) > 0
+        and array_position(tiers, null) is null and array_position(membership_type_keys, null) is null))
 );
 comment on table app.access_levels is
   'A community''s ordered access levels (0586). public (rank 0) and community (rank 10) are fixed and only their label changes; membership levels (rank 20 and up) are the community''s own, each with a rule: tiers and/or membership_type_keys, met by an active membership of the person''s household. Written only by app.save_access_levels.';
@@ -184,7 +192,9 @@ $$;
 -- One row: the level (key, label, rank) and whether anyone is signed in. Guests and signed-in people who are
 -- not linked to the community are public. A platform admin is judged like anyone else: by their own link and
 -- household (they pass the staff policies of the tables separately). Several memberships: the highest level
--- wins. Another community's memberships never count.
+-- wins. Another community's memberships never count. The Membership module's switch does not matter here: a
+-- membership a household holds counts while the module is off too (the module hides the membership screens and
+-- data, not the memberships; switching it off must not lock members out of an area chosen for them).
 create or replace function app.my_access(p_center uuid)
 returns table (key text, label text, rank integer, signed_in boolean)
 language plpgsql stable security definer set search_path = app, public, extensions as $$
@@ -210,7 +220,7 @@ begin
     v_rank  := case v_key when 'community' then 10 else 0 end;
   end if;
 
-  if v_linked and app.module_enabled(p_center, 'membership') then
+  if v_linked then
     begin
       select (now() at time zone coalesce(c.time_zone, 'UTC'))::date into v_today from app.centers c where c.id = p_center;
     exception when others then
@@ -264,10 +274,20 @@ language sql stable security definer set search_path = app, public, extensions a
    limit 1
 $$;
 
+-- Is this community open to the caller at the public level? The communities the center picker lists to guests
+-- (centers_public_read, 0010: status active or onboarding), and, whatever its status, a community the caller
+-- is linked to (and platform admins: app.is_member_of). A suspended or exited community is therefore not open
+-- to guests or to people who are not part of it, so a public area does not hand out its rows or its ladder.
+create or replace function app.access_center_open(p_center uuid) returns boolean
+language sql stable security definer set search_path = app, public, extensions as $$
+  select exists (select 1 from app.centers c
+                  where c.id = p_center and (c.status in ('active', 'onboarding') or app.is_member_of(p_center)))
+$$;
+
 -- May the caller use this area in this community? The member-facing rule: false when the area's module is
 -- off, else true when the caller's level reaches the area's minimum. Staff are not special here (policies add
 -- their own staff access). Never raises: it runs inside row level security policies. An unknown area or
--- community is false.
+-- community is false, and so is a public area of a community that is not open to the caller (above).
 create or replace function app.can_use_feature(p_center uuid, p_feature text) returns boolean
 language plpgsql stable security definer set search_path = app, public, extensions as $$
 declare f app.access_features; v_min integer; v_rank integer;
@@ -278,7 +298,7 @@ begin
   select m.rank into v_min from app.feature_min_level(p_center, f.key) m;
   v_min := coalesce(v_min, case f.default_level when 'public' then 0 else 10 end);
   if v_min <= 0 then                                   -- open to everyone: no membership lookup needed
-    return exists (select 1 from app.centers c where c.id = p_center);
+    return app.access_center_open(p_center);
   end if;
   select a.rank into v_rank from app.my_access(p_center) a;
   return coalesce(v_rank, 0) >= v_min;
@@ -290,12 +310,14 @@ end $$;
 --                            "min_level": {"key","label","rank"}}}}
 -- reason: module_off = the area's module is switched off; sign_in = the caller is not signed in and the area
 -- needs more than public; level = signed in but below the minimum.
+-- A community that does not exist, or is not open to the caller (suspended or exited, and the caller is not part
+-- of it: app.access_center_open), is "not found": its ladder and its open areas are not shown to guests.
 create or replace function app.feature_access_for_me(p_center uuid) returns jsonb
 language plpgsql stable security definer set search_path = app, public, extensions as $$
 declare me record; f record; v_out jsonb := '{}'::jsonb; v_on boolean; v_ok boolean; v_reason text;
         v_min_key text; v_min_label text; v_min_rank integer;
 begin
-  if p_center is null or not exists (select 1 from app.centers where id = p_center) then
+  if p_center is null or not app.access_center_open(p_center) then
     raise exception 'That community was not found.';
   end if;
   select * into me from app.my_access(p_center);
@@ -337,7 +359,6 @@ $$;
 --   features          [{key,label,description,default_level,floor_level,level_key,enforced_by,module_key,module_on}]
 --                     level_key is the level the area needs now (the choice, else the default)
 --   membership_types  [{key,name,tier,active}]
---   membership_on     false while the Membership module is off (then nobody reaches a membership level)
 create or replace function app.access_settings(p_center uuid) returns jsonb
 language plpgsql stable security definer set search_path = app, public, extensions as $$
 begin
@@ -363,8 +384,7 @@ begin
                  from app.access_features f), '[]'::jsonb),
     'membership_types', coalesce((select jsonb_agg(jsonb_build_object('key', t.key, 'name', t.name, 'tier', t.tier, 'active', t.active)
                                                    order by t.active desc, t.tier, t.name)
-                                    from app.membership_types t where t.center_id = p_center), '[]'::jsonb),
-    'membership_on', app.module_enabled(p_center, 'membership'));
+                                    from app.membership_types t where t.center_id = p_center), '[]'::jsonb));
 end $$;
 
 -- Choose the lowest level that may use an area. Refuses a level below the area's floor, one that does not
@@ -489,6 +509,16 @@ begin
     if v_item->'membership_type_keys' is not null and jsonb_typeof(v_item->'membership_type_keys') not in ('array', 'null') then
       raise exception 'The membership types of "%" must be a list.', v_label;
     end if;
+    -- Every entry of a rule is a name (a JSON string). A null, a number or a nested list would otherwise be stored as
+    -- a rule nobody can meet (or converted to text and refused with a confusing message).
+    if exists (select 1 from jsonb_array_elements(case when jsonb_typeof(v_item->'tiers') = 'array' then v_item->'tiers' else '[]'::jsonb end) e
+                where jsonb_typeof(e) <> 'string') then
+      raise exception 'Each membership tier of "%" must be a name: community, yearly or life.', v_label;
+    end if;
+    if exists (select 1 from jsonb_array_elements(case when jsonb_typeof(v_item->'membership_type_keys') = 'array' then v_item->'membership_type_keys' else '[]'::jsonb end) e
+                where jsonb_typeof(e) <> 'string') then
+      raise exception 'Each membership type of "%" must be the key of one of this community''s membership types.', v_label;
+    end if;
     v_txt := coalesce(array(select distinct t from jsonb_array_elements_text(
                               case when jsonb_typeof(v_item->'tiers') = 'array' then v_item->'tiers' else '[]'::jsonb end) t), '{}');
     select string_agg(t, ', ') into v_bad from unnest(v_txt) t where t <> all (enum_range(null::app.membership_tier)::text[]);
@@ -569,7 +599,8 @@ create policy content_published on app.content_items for select to anon, authent
               or (kind <> 'darshan_stream' and app.is_member_of(center_id))));
 
 -- The member-facing rule, for guests and members alike: the published stream of a community whose darshan
--- level the caller meets (and whose Content module is on: can_use_feature checks it).
+-- level the caller meets (and whose Content module is on, and which is open to the caller: a suspended or
+-- exited community is not open to guests; can_use_feature checks all of that).
 drop policy if exists content_darshan_feature on app.content_items;
 create policy content_darshan_feature on app.content_items for select to anon, authenticated
   using (kind = 'darshan_stream' and status = 'published' and center_id is not null
@@ -588,18 +619,18 @@ revoke execute on function app.my_access(uuid), app.can_use_feature(uuid, text),
 grant execute on function app.my_access(uuid), app.can_use_feature(uuid, text), app.feature_access_for_me(uuid) to anon, authenticated;
 -- Internal: not callable over the API.
 revoke execute on function app.feature_min_level(uuid, text), app.access_level_reachable(uuid, text),
-  app.access_seed_center(uuid), app.access_seed_new_center() from public, anon, authenticated;
+  app.access_center_open(uuid), app.access_seed_center(uuid), app.access_seed_new_center() from public, anon, authenticated;
 -- Settings › Access levels.
 revoke execute on function app.access_settings(uuid), app.set_feature_access(uuid, text, text, text),
   app.save_access_levels(uuid, jsonb, jsonb, text) from public, anon;
 grant execute on function app.access_settings(uuid), app.set_feature_access(uuid, text, text, text),
   app.save_access_levels(uuid, jsonb, jsonb, text) to authenticated;
--- The service role gets exactly these ten functions. (Not "all functions in the schema": later migrations took some
+-- The service role gets exactly these eleven functions. (Not "all functions in the schema": later migrations took some
 -- worker-only functions away from it on purpose, and a blanket grant here would give them back.)
 grant execute on function app.my_access(uuid), app.can_use_feature(uuid, text), app.feature_access_for_me(uuid),
-  app.feature_min_level(uuid, text), app.access_level_reachable(uuid, text), app.access_seed_center(uuid),
-  app.access_seed_new_center(), app.access_settings(uuid), app.set_feature_access(uuid, text, text, text),
-  app.save_access_levels(uuid, jsonb, jsonb, text) to service_role;
+  app.feature_min_level(uuid, text), app.access_level_reachable(uuid, text), app.access_center_open(uuid),
+  app.access_seed_center(uuid), app.access_seed_new_center(), app.access_settings(uuid),
+  app.set_feature_access(uuid, text, text, text), app.save_access_levels(uuid, jsonb, jsonb, text) to service_role;
 
 -- ── The communities that exist today get the starting ladder ─────────────────
 -- Last on purpose (see above). Recorded in the audit log as the system's own change, with its reason.

@@ -136,7 +136,6 @@ const rawSettings = {
     { key: "yearly", name: "Yearly membership", tier: "yearly", active: true },
     { key: "senior_yearly", name: "Senior yearly", tier: "yearly", active: false },
   ],
-  membership_on: false,
 };
 
 const parsed = (() => {
@@ -153,12 +152,10 @@ describe("parseAccessSettings", () => {
     expect(parsed.features[0]).toMatchObject({ key: "darshan", levelKey: "life", enforcedBy: "database", moduleKey: "content", moduleOn: true });
     expect(parsed.features[1].moduleOn).toBe(false);
     expect(parsed.membershipTypes[1]).toMatchObject({ key: "senior_yearly", active: false });
-    expect(parsed.membershipOn).toBe(false);
   });
 
-  it("is on unless the database says the Membership module is off, and ignores tiers it does not know", () => {
-    const r = parseAccessSettings({ ...rawSettings, membership_on: undefined, levels: [{ ...rawSettings.levels[3], tiers: ["yearly", "platinum"] }] });
-    expect(r.ok && r.value.membershipOn).toBe(true);
+  it("ignores tiers it does not know", () => {
+    const r = parseAccessSettings({ ...rawSettings, levels: [{ ...rawSettings.levels[3], tiers: ["yearly", "platinum"] }] });
     expect(r.ok && r.value.levels[0].tiers).toEqual(["yearly"]);
   });
 

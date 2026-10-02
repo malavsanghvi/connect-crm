@@ -65,10 +65,10 @@ export type AccessFeatureDef = {
 };
 
 export const ACCESS_FEATURES: readonly AccessFeatureDef[] = [
-  { key: "darshan", label: "Live darshan", description: "The live stream from the derasar, on Home and in the library. The database protects the stream itself, so only people at or above this level can open it.", defaultLevel: "public", floorLevel: "public", moduleKey: "content", enforcedBy: "database", sort: 10 },
+  { key: "darshan", label: "Live darshan", description: "The live stream from the derasar, on Home and in the library. The database only gives the stream's link to people at or above this level. The stream plays from that link's own site, so anyone who already has the link can still watch it (use a private or unlisted link if that matters).", defaultLevel: "public", floorLevel: "public", moduleKey: "content", enforcedBy: "database", sort: 10 },
   { key: "puja", label: "Virtual puja", description: "The guided virtual puja (the Navang puja lesson). Anyone at or above this level can open it; progress and points are only kept for people who are signed in.", defaultLevel: "public", floorLevel: "public", moduleKey: "gyan_path", enforcedBy: "app", sort: 20 },
   { key: "timings", label: "Today's timings", description: "Sunrise, navkarsi, chauvihar and aarti for today, on Home. The timings are readable by everyone in the database; this choice is for the member app.", defaultLevel: "public", floorLevel: "public", moduleKey: null, enforcedBy: "app", sort: 30 },
-  { key: "guide", label: "New to the community guide and directory", description: "The guide for newcomers: first steps, the community directory pages and who to ask.", defaultLevel: "public", floorLevel: "public", moduleKey: null, enforcedBy: "app", sort: 40 },
+  { key: "guide", label: "New to the community guide and directory", description: "The guide for newcomers: first steps and who to ask (who looks after what). The member directory of families is not part of this area: it always needs a signed-in community member.", defaultLevel: "public", floorLevel: "public", moduleKey: null, enforcedBy: "app", sort: 40 },
   { key: "listen", label: "Stavans, podcasts and playlist", description: "Listen in the member app: stavans, podcast episodes and My playlist. The files are kept for community members only, so this cannot be opened to the public.", defaultLevel: "community", floorLevel: "community", moduleKey: "content", enforcedBy: "app", sort: 50 },
   { key: "look", label: "Videos and recipes", description: "Look in the member app: videos and recipes. The files are kept for community members only, so this cannot be opened to the public.", defaultLevel: "community", floorLevel: "community", moduleKey: "content", enforcedBy: "app", sort: 60 },
   { key: "learn", label: "Gyan Path lessons and progress", description: "Learn in the member app: Gyan Path lessons and each person's progress. Progress is personal, so this cannot be opened to the public.", defaultLevel: "community", floorLevel: "community", moduleKey: "gyan_path", enforcedBy: "app", sort: 70 },
@@ -120,8 +120,6 @@ export type AccessSettings = {
   levels: AccessLevel[];
   features: AccessFeatureRow[];
   membershipTypes: MembershipTypeRow[];
-  /** False while the Membership module is switched off: memberships are not counted, so nobody is above the community level. */
-  membershipOn: boolean;
 };
 
 export type Parsed<T> = { ok: true; value: T } | { ok: false; error: string };
@@ -194,7 +192,6 @@ export function parseAccessSettings(raw: unknown): Parsed<AccessSettings> {
       levels: [...levels].sort((a, b) => a.rank - b.rank),
       features,
       membershipTypes: types,
-      membershipOn: raw.membership_on !== false,
     },
   };
 }
@@ -234,9 +231,6 @@ export function moduleOffNote(f: Pick<AccessFeatureRow, "moduleOn" | "moduleKey"
   if (f.moduleOn) return null;
   return `${moduleLabel} is switched off (Settings › Modules), so nobody can use this area until it is switched back on.`;
 }
-
-export const MEMBERSHIP_OFF_NOTE =
-  "The Membership module is switched off (Settings › Modules): memberships are not counted, so nobody is above the community level until it is switched back on.";
 
 /** Labels of the areas that use a level (the database refuses to remove a level an area still uses). */
 export function removalBlockers(levelKey: string, features: readonly Pick<AccessFeatureRow, "label" | "levelKey">[]): string[] {

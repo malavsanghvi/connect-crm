@@ -39,7 +39,6 @@ const raw = {
     { key: "old_life", name: "Old life membership", tier: "life", active: false },
     { key: "senior_yearly", name: "Senior yearly", tier: "yearly", active: true },
   ],
-  membership_on: true,
 };
 const parsed = parseAccessSettings(raw);
 if (!parsed.ok) throw new Error(parsed.error);
@@ -62,7 +61,19 @@ describe("Settings › Access levels · Who can use each area", () => {
     }
     expect(html.match(/Applies in the app/g)!.length).toBeGreaterThanOrEqual(7);
     expect(html).toContain("Also enforced by the database");
-    expect(html).toContain("The areas that are not listed here (giving, RSVPs, the store, family, Pathshala and the directory) always need a signed-in community member.");
+    expect(html).toContain("The areas that are not listed here (giving, RSVPs, the store, family, Pathshala and the member directory) always need a signed-in community member.");
+  });
+
+  it("does not claim the database makes a stream private: it only withholds the link", () => {
+    // What the database withholds is the stream's row, and with it the link; the stream plays from the link's own site.
+    expect(html).toContain("the database only hands the data to people at or above the level");
+    expect(html).toContain("It cannot make a link private");
+    expect(html).toContain("anyone who already has the link can still watch it");
+    expect(html).toContain("A stream shared by every community is not affected by this choice.");
+    expect(html).not.toContain("refuses the data to anyone below the level");
+    expect(html).not.toContain("protects the stream itself");
+    // The newcomer guide is not the member directory.
+    expect(html).toContain("The member directory of families is not part of this area");
   });
 
   it("offers each area only the levels at or above its floor, and marks the platform default", () => {
@@ -91,7 +102,7 @@ describe("Settings › Access levels · Who can use each area", () => {
 });
 
 describe("Settings › Access levels · Levels for the community", () => {
-  const props = { centerName: "JSH", levels: settings.levels, features: settings.features, types: settings.membershipTypes, membershipOn: true };
+  const props = { centerName: "JSH", levels: settings.levels, features: settings.features, types: settings.membershipTypes };
   const html = render(createElement(LevelsCard, props));
 
   it("lists the ladder: the two fixed levels with editable names, then the community's own levels", () => {
@@ -128,9 +139,7 @@ describe("Settings › Access levels · Levels for the community", () => {
     expect(html).toContain('name="base_community" value="Community member"');
   });
 
-  it("warns when the Membership module is off", () => {
-    const off = render(createElement(LevelsCard, { ...props, membershipOn: false }));
-    expect(off).toContain("The Membership module is switched off (Settings › Modules): memberships are not counted");
-    expect(html).not.toContain("The Membership module is switched off");
+  it("has no warning about the Membership module: switching it off does not change anyone's level", () => {
+    expect(html).not.toContain("Membership module");
   });
 });

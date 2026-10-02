@@ -3,12 +3,11 @@
 import { useId, useMemo, useRef, useState } from "react";
 
 import { ActionForm } from "@/components/action-form";
-import { Alert, Card, StatusText, TableWrap, buttonClass } from "@/components/ui";
+import { Card, StatusText, TableWrap, buttonClass } from "@/components/ui";
 import {
   BASE_LEVELS,
   LEVEL_LABEL_MAX,
   MAX_MEMBERSHIP_LEVELS,
-  MEMBERSHIP_OFF_NOTE,
   MEMBERSHIP_TIERS,
   TIER_LABEL,
   describeLevel,
@@ -133,9 +132,10 @@ export function AreasCard({
         </TableWrap>
         <p className="crm-hint mt-2">
           <strong>Applies in the app</strong> means the member app hides the area from people below the level. The content itself stays readable by every
-          community member in the database. <strong>Also enforced by the database</strong> means the database refuses the data to anyone below the level,
-          guests included. The areas that are not listed here (giving, RSVPs, the store, family, Pathshala and the directory) always need a signed-in
-          community member.
+          community member in the database. <strong>Also enforced by the database</strong> means the database only hands the data to people at or above the
+          level, guests included; for live darshan that is the stream&rsquo;s link. It cannot make a link private: the stream plays from the link&rsquo;s own
+          site, so anyone who already has the link can still watch it. A stream shared by every community is not affected by this choice. The areas that
+          are not listed here (giving, RSVPs, the store, family, Pathshala and the member directory) always need a signed-in community member.
         </p>
         {changes.length > 0 ? (
           <div className="mt-3 max-w-xl">
@@ -165,13 +165,11 @@ export function LevelsCard({
   levels,
   features,
   types,
-  membershipOn,
 }: {
   centerName: string;
   levels: AccessLevel[];
   features: AccessFeatureRow[];
   types: MembershipTypeRow[];
-  membershipOn: boolean;
 }) {
   const counter = useRef(0);
   const nextUid = () => `row-${(counter.current += 1)}`;
@@ -214,11 +212,6 @@ export function LevelsCard({
       title={`Levels for ${centerName}`}
       description="A person is at the highest level whose rule they meet. Public and the community level are fixed (you can rename them); add your own membership levels above them, in order. Members of a household share its membership; a lapsed, ended or pending membership does not count."
     >
-      {!membershipOn ? (
-        <div className="mb-3">
-          <Alert tone="warning">{MEMBERSHIP_OFF_NOTE}</Alert>
-        </div>
-      ) : null}
       <ActionForm
         action={saveAccessLevelsAction}
         submitLabel={saveLabel("Save levels", dirty)}

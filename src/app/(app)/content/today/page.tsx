@@ -13,6 +13,10 @@ import { ContentHeader, contentGate } from "../shared";
 
 export const metadata: Metadata = { title: "Content · Today & darshan" };
 
+// The whole stream row (notes and stored-file path included) is what the database hands to anyone who may watch,
+// guests too while Live darshan is public (Settings › Access levels), so the notes box says who reads it.
+const STREAM_NOTES_LABEL = "Notes (shown to anyone who can watch)";
+
 function weekdayLine(date: string): string {
   const [y, m, d] = date.split("-").map(Number);
   return new Intl.DateTimeFormat("en-US", { timeZone: "UTC", weekday: "short", month: "short", day: "numeric" }).format(new Date(Date.UTC(y, m - 1, d)));
@@ -107,7 +111,7 @@ export default async function TodayPage() {
           title="Live darshan"
           span={12}
           padded={false}
-          actions={canDraft ? <ContentItemButton kind="darshan_stream" kindLabel="Live darshan stream" meta={["source", "schedule", "stream_status"]} label="Add stream" bodyLabel="Notes" /> : null}
+          actions={canDraft ? <ContentItemButton kind="darshan_stream" kindLabel="Live darshan stream" meta={["source", "schedule", "stream_status"]} label="Add stream" bodyLabel={STREAM_NOTES_LABEL} /> : null}
         >
           {streams.error ? (
             <div className="p-4">
@@ -156,7 +160,7 @@ export default async function TodayPage() {
                                 label="Edit"
                                 variant="ghost"
                                 size="xs"
-                                bodyLabel="Notes"
+                                bodyLabel={STREAM_NOTES_LABEL}
                                 item={{ ...s, metadata: meta }}
                               />
                             ) : (

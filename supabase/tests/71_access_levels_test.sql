@@ -1,7 +1,7 @@
 -- 0586: access levels. Each community has an ordered ladder (public, community, then its own membership
 -- levels) and chooses the lowest level that may use each area (darshan, puja, listen, ...). A person's level
--- is the highest rung they meet in that community; the live darshan stream is protected by row level
--- security, so guests can watch it by default and a community can close it to signed-in members, Members or
+-- is the highest rung they meet in that community; the live darshan stream's row (its link) is protected by row
+-- level security, so guests can watch it by default and a community can close it to signed-in members, Members or
 -- Life members. Settings are changed through RPCs that need settings.manage, a reason and a fresh 2FA check.
 \set ON_ERROR_STOP 1
 create or replace function pg_temp.assert(cond boolean, label text) returns void language plpgsql as $$
@@ -271,6 +271,10 @@ select pg_temp.assert_raises($$insert into app.access_levels (center_id, key, la
   'access_levels_label_check', 'a name is at most 40 characters');
 select pg_temp.assert_raises($$insert into app.access_levels (center_id, key, label, rank, kind, tiers) values ('71000000-0000-4000-8000-0000000000c1', 'twin', 'Twin', 20, 'membership', '{life}'); set constraints access_levels_rank_unique immediate$$,
   'access_levels_rank_unique', 'two levels cannot share a rank');
+select pg_temp.assert_raises($$insert into app.access_levels (center_id, key, label, rank, kind, tiers) values ('71000000-0000-4000-8000-0000000000c1', 'nulltier', 'Null tier', 40, 'membership', array[null]::app.membership_tier[])$$,
+  'access_levels_shape', 'a rule cannot hold a null tier (a level nobody can ever meet)');
+select pg_temp.assert_raises($$insert into app.access_levels (center_id, key, label, rank, kind, tiers, membership_type_keys) values ('71000000-0000-4000-8000-0000000000c1', 'nulltype', 'Null type', 40, 'membership', '{life}', array[null]::text[])$$,
+  'access_levels_shape', 'nor a null membership type, even next to a real tier');
 select pg_temp.assert_raises($$insert into app.access_features (key, label, default_level, floor_level, enforced_by) values ('lowdefault', 'Low default', 'public', 'community', 'app')$$,
   'access_features_default_at_floor', 'an area cannot start below its own floor');
 select pg_temp.assert_raises($$insert into app.center_feature_access (center_id, feature_key, level_key) values ('71000000-0000-4000-8000-0000000000c1', 'darshan', 'nope')$$,
@@ -395,6 +399,67 @@ select pg_temp.assert(pg_temp.seen_as(:u_none) = 'darshan darshan-c2 faq guide n
 select pg_temp.assert(pg_temp.seen_as(:u_admin2) = 'darshan darshan-c2 faq guide stavan-c2 video-shared',
   'another community''s member reads their own community''s items and, by default, this one''s stream');
 
+-- ── A community that is not open to guests ───────────────────────────────────
+-- centers_public_read (0010) lists only active and onboarding communities to people who are not part of them. The
+-- public level follows it: the public areas of a suspended or exited community are open to its own people and to
+-- platform admins, not to guests or strangers (so its stream row and its ladder are not handed out).
+\set c5 '''71000000-0000-4000-8000-0000000000c5'''
+\set c6 '''71000000-0000-4000-8000-0000000000c6'''
+\set c7 '''71000000-0000-4000-8000-0000000000c7'''
+\set u_sm '''71000000-0000-4000-8000-000000000018'''
+insert into auth.users (id, email) values (:u_sm, 'u0018-71@example.com');
+insert into app.centers (id, slug, name, short_name, state_region, status) values
+  (:c5, 'orbit71e', 'Suspended 71 Community',  'O71E', 'TX', 'suspended'),
+  (:c6, 'orbit71f', 'Exited 71 Community',     'O71F', 'TX', 'exited'),
+  (:c7, 'orbit71g', 'Onboarding 71 Community', 'O71G', 'TX', 'onboarding');
+insert into app.people (id, center_id, first_name, last_name, date_of_birth) values (:u_sm, :c5, 'Sue', 'Acc71', date '1995-01-01');
+insert into app.center_users (center_id, user_id, person_id) values (:c5, :u_sm, :u_sm);
+insert into app.content_items (id, center_id, kind, slug, title, media_url, status, published_at) values
+  ('71000000-0000-4000-8000-0000000000f5', :c5, 'darshan_stream', 'acc71s-susp',    'Suspended live 71',  'https://example.org/live71e', 'published', now()),
+  ('71000000-0000-4000-8000-0000000000f6', :c6, 'darshan_stream', 'acc71s-exited',  'Exited live 71',     'https://example.org/live71f', 'published', now()),
+  ('71000000-0000-4000-8000-0000000000f7', :c7, 'darshan_stream', 'acc71s-onboard', 'Onboarding live 71', 'https://example.org/live71g', 'published', now());
+-- Which of these three streams the user can read through row level security (slugs without the acc71s- prefix).
+create or replace function pg_temp.seen_s_as(p_user uuid) returns text language plpgsql as $$
+declare r text;
+begin
+  perform set_config('request.jwt.claims', case when p_user is null then jsonb_build_object('role', 'anon')
+                                                else jsonb_build_object('sub', p_user, 'role', 'authenticated') end::text, true);
+  perform set_config('role', case when p_user is null then 'anon' else 'authenticated' end, true);
+  select coalesce(string_agg(replace(c.slug, 'acc71s-', ''), ' ' order by c.slug), '') into r
+    from app.content_items c where c.slug like 'acc71s-%';
+  perform set_config('role', 'none', true);
+  perform set_config('request.jwt.claims', '', true);
+  return r;
+end $$;
+begin;
+select set_config('request.jwt.claims', '{"role":"anon"}', true), set_config('role', 'anon', true);
+select pg_temp.assert((select count(*) from app.centers where id in (:c5, :c6)) = 0 and (select count(*) from app.centers where id = :c7) = 1,
+  'the center picker lists an onboarding community to a guest, and neither a suspended nor an exited one (the public level follows the same rule)');
+commit;
+select pg_temp.assert(not pg_temp.can_as(null, :c5, 'darshan') and not pg_temp.can_as(null, :c6, 'darshan')
+                      and not pg_temp.can_as(null, :c5, 'puja') and not pg_temp.can_as(null, :c6, 'timings') and not pg_temp.can_as(null, :c5, 'guide'),
+  'a guest cannot use the public areas of a suspended or exited community');
+select pg_temp.assert(not pg_temp.can_as(:u_stranger, :c5, 'darshan') and not pg_temp.can_as(:u_stranger, :c6, 'darshan')
+                      and not pg_temp.can_as(:u_none, :c5, 'darshan'),
+  'nor can someone signed in who is not part of it');
+select pg_temp.assert(pg_temp.can_as(null, :c7, 'darshan') and pg_temp.can_as(:u_stranger, :c7, 'puja'),
+  'an onboarding community is open to guests, as the picker lists it');
+select pg_temp.assert(pg_temp.can_as(:u_sm, :c5, 'darshan') and pg_temp.can_as(:u_sm, :c5, 'puja') and pg_temp.can_as(:u_sm, :c5, 'listen'),
+  'a person linked to a suspended community keeps its areas, as before');
+select pg_temp.assert(pg_temp.can_as(:u_padmin, :c5, 'darshan') and pg_temp.can_as(:u_padmin, :c6, 'darshan'),
+  'and so does a platform admin');
+select pg_temp.assert(pg_temp.seen_s_as(null) = 'onboard' and pg_temp.seen_s_as(:u_stranger) = 'onboard' and pg_temp.seen_s_as(:u_none) = 'onboard',
+  'row level security gives a guest or a stranger the stream of the onboarding community only, not the suspended or exited ones');
+select pg_temp.assert(pg_temp.seen_s_as(:u_sm) = 'onboard susp', 'a member of the suspended community reads its stream (and the onboarding one)');
+select pg_temp.assert(pg_temp.seen_s_as(:u_padmin) = 'exited onboard susp', 'a platform admin reads them all');
+select pg_temp.assert_raises($$select pg_temp.access_as(null, '71000000-0000-4000-8000-0000000000c5')$$, 'not found',
+  'a guest asking for the access of a suspended community is told it was not found (its ladder is not shown)');
+select pg_temp.assert_raises($$select pg_temp.access_as('71000000-0000-4000-8000-000000000004', '71000000-0000-4000-8000-0000000000c6')$$, 'not found',
+  'so is someone signed in who is not part of an exited community');
+select pg_temp.assert(pg_temp.access_as(:u_sm, :c5)->'level'->>'key' = 'community' and pg_temp.access_as(:u_padmin, :c6)->>'signed_in' = 'true'
+                      and pg_temp.access_as(null, :c7)->'features'->'darshan'->>'allowed' = 'true',
+  'while a member of it, a platform admin and a guest asking about an onboarding community get their answer');
+
 -- ── Choosing a level for an area ─────────────────────────────────────────────
 begin;
 select pg_temp.sign_in(:u_treas);
@@ -514,19 +579,27 @@ select app.set_module_enabled(:c, 'gyan_path', true, 'Test: Gyan Path back on');
 commit;
 select pg_temp.assert(pg_temp.can_as(null, :c, 'puja') and pg_temp.can_as(:u_none, :c, 'learn'), 'switched back on, they work again');
 
--- The Membership module: while it is off nobody counts as a member (its data is hidden), and back on they do.
+-- The Membership module hides the membership screens and data; it does not take anyone's membership away, so
+-- switching it off must not lock members out of an area chosen for them (darshan is Life member only here).
 begin;
 select pg_temp.sign_in(:u_admin);
 select app.set_module_enabled(:c, 'membership', false, 'Test: Membership off');
 commit;
-select pg_temp.assert(pg_temp.level_as(:u_life, :c) = 'community:10:true' and not pg_temp.can_as(:u_life, :c, 'darshan'),
-  'with Membership off a Life member is a community member, so a Life-only area is closed to them');
+select pg_temp.assert(pg_temp.level_as(:u_life, :c) = 'life:30:true' and pg_temp.level_as(:u_child, :c) = 'life:30:true'
+                      and pg_temp.level_as(:u_yearly, :c) = 'member:20:true' and pg_temp.level_as(:u_none, :c) = 'community:10:true'
+                      and pg_temp.level_as(:u_lapsed, :c) = 'community:10:true' and pg_temp.level_as(:u_ended, :c) = 'community:10:true',
+  'with Membership off everyone keeps the level their memberships give them (lapsed and ended ones still do not count)');
+select pg_temp.assert(pg_temp.can_as(:u_life, :c, 'darshan') and pg_temp.can_as(:u_child, :c, 'darshan')
+                      and not pg_temp.can_as(:u_yearly, :c, 'darshan') and not pg_temp.can_as(:u_none, :c, 'darshan'),
+  'so a Life member still reaches the Life-only darshan, and a Member still does not');
+select pg_temp.assert(pg_temp.access_as(:u_life, :c)->'features'->'darshan'->>'allowed' = 'true'
+                      and pg_temp.access_as(:u_yearly, :c)->'features'->'darshan'->>'reason' = 'level',
+  'and the member app is told the same');
 begin;
 select pg_temp.sign_in(:u_admin);
-select pg_temp.assert(not (app.access_settings(:c)->>'membership_on')::boolean, 'and the settings say so');
 select app.set_module_enabled(:c, 'membership', true, 'Test: Membership back on');
 commit;
-select pg_temp.assert(pg_temp.level_as(:u_life, :c) = 'life:30:true' and pg_temp.can_as(:u_life, :c, 'darshan'), 'and back on, they are a Life member again');
+select pg_temp.assert(pg_temp.level_as(:u_life, :c) = 'life:30:true' and pg_temp.can_as(:u_life, :c, 'darshan'), 'and back on nothing changed');
 
 -- An area other than darshan: the app decides, the database only answers.
 begin;
@@ -559,7 +632,7 @@ select pg_temp.assert(jsonb_array_length(app.access_settings(:c)->'features') = 
   'and every area with the level it has now (the choice, else the default), whether its module is on, and where it is enforced');
 select pg_temp.assert((select array_agg(e->>'key' order by e->>'key') from jsonb_array_elements(app.access_settings(:c)->'membership_types') e)
                         = array['community','life','senior_yearly','yearly']
-                      and (app.access_settings(:c)->>'membership_on')::boolean,
+                      and not (app.access_settings(:c) ? 'membership_on'),
   'and the community''s membership types, for the rule picker');
 
 select pg_temp.assert_raises($$select app.save_access_levels('71000000-0000-4000-8000-0000000000c1', '[]'::jsonb, null, '  ')$$, 'Give a reason', 'saving needs a reason');
@@ -581,6 +654,14 @@ select pg_temp.assert_raises($$select app.save_access_levels('71000000-0000-4000
 select pg_temp.assert_raises($$select app.save_access_levels('71000000-0000-4000-8000-0000000000c1', '[{"key":"a_one","label":"A","rank":20,"tiers":["gold"]}]'::jsonb, null, 'because')$$, 'no membership tier called', 'a tier must exist');
 select pg_temp.assert_raises($$select app.save_access_levels('71000000-0000-4000-8000-0000000000c1', '[{"key":"a_one","label":"A","rank":20,"membership_type_keys":["platinum"]}]'::jsonb, null, 'because')$$, 'no membership type called', 'a membership type must exist in this community');
 select pg_temp.assert_raises($$select app.save_access_levels('71000000-0000-4000-8000-0000000000c1', '[{"key":"a_one","label":"A","rank":20,"tiers":"life"}]'::jsonb, null, 'because')$$, 'must be a list', 'tiers must be a list');
+-- A rule is a list of names: a null (or a number, or a nested list) inside it is refused, not stored as a level nobody can meet.
+select pg_temp.assert_raises($$select app.save_access_levels('71000000-0000-4000-8000-0000000000c1', '[{"key":"a_one","label":"A","rank":20,"tiers":[null]}]'::jsonb, null, 'because')$$, 'Each membership tier', 'a null tier is refused');
+select pg_temp.assert_raises($$select app.save_access_levels('71000000-0000-4000-8000-0000000000c1', '[{"key":"a_one","label":"A","rank":20,"tiers":["life",null]}]'::jsonb, null, 'because')$$, 'Each membership tier', 'even next to a real one');
+select pg_temp.assert_raises($$select app.save_access_levels('71000000-0000-4000-8000-0000000000c1', '[{"key":"a_one","label":"A","rank":20,"tiers":[1]}]'::jsonb, null, 'because')$$, 'Each membership tier', 'a number is not a tier');
+select pg_temp.assert_raises($$select app.save_access_levels('71000000-0000-4000-8000-0000000000c1', '[{"key":"a_one","label":"A","rank":20,"tiers":[["life"]]}]'::jsonb, null, 'because')$$, 'Each membership tier', 'nor a nested list');
+select pg_temp.assert_raises($$select app.save_access_levels('71000000-0000-4000-8000-0000000000c1', '[{"key":"a_one","label":"A","rank":20,"membership_type_keys":[null]}]'::jsonb, null, 'because')$$, 'Each membership type', 'a null membership type is refused');
+select pg_temp.assert_raises($$select app.save_access_levels('71000000-0000-4000-8000-0000000000c1', '[{"key":"a_one","label":"A","rank":20,"tiers":["life"],"membership_type_keys":["yearly",null]}]'::jsonb, null, 'because')$$, 'Each membership type', 'even next to a real one');
+select pg_temp.assert_raises($$select app.save_access_levels('71000000-0000-4000-8000-0000000000c1', '[{"key":"a_one","label":"A","rank":20,"membership_type_keys":[{"a":1}]}]'::jsonb, null, 'because')$$, 'Each membership type', 'nor an object');
 select pg_temp.assert_raises($$select app.save_access_levels('71000000-0000-4000-8000-0000000000c1', (select jsonb_agg(jsonb_build_object('key','lvl_' || chr(96 + g),'label','Level ' || g,'rank',20 + g,'tiers',jsonb_build_array('life'))) from generate_series(1, 11) g), null, 'because')$$, 'at most 10', 'at most ten membership levels');
 select pg_temp.assert_raises($$select app.save_access_levels('71000000-0000-4000-8000-0000000000c1', '[]'::jsonb, '{"public":"","community":"Community"}'::jsonb, 'because')$$, 'Public level', 'the Public level needs a name');
 select pg_temp.assert_raises($$select app.save_access_levels('71000000-0000-4000-8000-0000000000c1', '[]'::jsonb, jsonb_build_object('community', repeat('c', 41)), 'because')$$, 'community level', 'and the community level too (1 to 40 characters)');
@@ -736,18 +817,22 @@ select pg_temp.assert(not has_function_privilege('anon', 'app.access_settings(uu
   'only signed-in people can reach the settings RPCs (which then check settings.manage)');
 select pg_temp.assert(not has_function_privilege('authenticated', 'app.feature_min_level(uuid,text)', 'execute')
                       and not has_function_privilege('authenticated', 'app.access_level_reachable(uuid,text)', 'execute')
+                      and not has_function_privilege('authenticated', 'app.access_center_open(uuid)', 'execute')
+                      and not has_function_privilege('anon', 'app.access_center_open(uuid)', 'execute')
                       and not has_function_privilege('authenticated', 'app.access_seed_center(uuid)', 'execute')
                       and not has_function_privilege('anon', 'app.access_seed_center(uuid)', 'execute'),
   'the helpers are not callable over the API');
 select pg_temp.assert(has_function_privilege('service_role', 'app.can_use_feature(uuid,text)', 'execute')
                       and has_function_privilege('service_role', 'app.save_access_levels(uuid,jsonb,jsonb,text)', 'execute')
+                      and has_function_privilege('service_role', 'app.access_center_open(uuid)', 'execute')
                       and has_function_privilege('service_role', 'app.access_seed_center(uuid)', 'execute'),
   'the service role can run them too');
 select pg_temp.assert((select bool_and(p.prosecdef and exists (select 1 from unnest(p.proconfig) as g(setting)
                                                                  where g.setting ~ '^search_path=app, *public, *extensions$'))
                          from pg_proc p where p.oid in ('app.my_access(uuid)'::regprocedure, 'app.feature_min_level(uuid,text)'::regprocedure,
                                                        'app.can_use_feature(uuid,text)'::regprocedure, 'app.feature_access_for_me(uuid)'::regprocedure,
-                                                       'app.access_level_reachable(uuid,text)'::regprocedure, 'app.access_settings(uuid)'::regprocedure,
+                                                       'app.access_level_reachable(uuid,text)'::regprocedure, 'app.access_center_open(uuid)'::regprocedure,
+                                                       'app.access_settings(uuid)'::regprocedure,
                                                        'app.set_feature_access(uuid,text,text,text)'::regprocedure,
                                                        'app.save_access_levels(uuid,jsonb,jsonb,text)'::regprocedure,
                                                        'app.access_seed_center(uuid)'::regprocedure, 'app.access_seed_new_center()'::regprocedure)),

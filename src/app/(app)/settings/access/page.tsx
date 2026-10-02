@@ -78,7 +78,7 @@ export default async function AccessLevelsPage() {
     );
   }
 
-  const { levels, features, membershipTypes, membershipOn } = loaded.settings;
+  const { levels, features, membershipTypes } = loaded.settings;
   const moduleNotes: Record<string, string> = {};
   for (const f of features) {
     const note = moduleOffNote(f, moduleLabelFor(f.moduleKey));
@@ -90,7 +90,7 @@ export default async function AccessLevelsPage() {
       {header}
       <BlockGrid>
         <AreasCard centerName={center} levels={levels} features={features} types={membershipTypes} moduleNotes={moduleNotes} />
-        <LevelsCard centerName={center} levels={levels} features={features} types={membershipTypes} membershipOn={membershipOn} />
+        <LevelsCard centerName={center} levels={levels} features={features} types={membershipTypes} />
       </BlockGrid>
     </>
   );
