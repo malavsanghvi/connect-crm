@@ -14,14 +14,16 @@
 // fails at once as "not configured" and the screen says AI suggestions are off;
 // deterministic matching keeps working.
 
-import Anthropic from "@anthropic-ai/sdk";
+//
+// The model, the client and what a failed call means come from worker/src/anthropic.ts, shared
+// with niva.answer and import.suggest_mapping (the CLAUDE_MODEL variable overrides the model).
 
+import { anthropicClient, classifyAnthropicError, claudeModel, FALLBACK_BETA, staffJobFailure } from "../anthropic";
 import { providerStatus, type Env, type Readiness } from "../config";
 import { NotConfiguredError, PermanentError } from "../errors";
 import type { Job, JobContext } from "../types";
 
 export const kind = "qbo.match_suggest_ai";
-export const MODEL = "claude-opus-5";
 export const MAX_CONFIDENCE = 0.85;
 
 export function configured(env: Env): Readiness {
@@ -119,30 +121,33 @@ export async function run(job: Job, ctx: JobContext) {
   const all = rows[0]?.r ?? [];
   const ask = all.filter((c) => c.candidates.length > 0);
   const checked = all.map((c) => c.qbo_id);
+  const model = claudeModel(ctx.env);
   if (ask.length === 0) {
-    if (checked.length) await ctx.db.query("select app.qbo_worker_store_ai($1, '[]'::jsonb, $2, $3) as r", [job.center_id, MODEL, checked]);
+    if (checked.length) await ctx.db.query("select app.qbo_worker_store_ai($1, '[]'::jsonb, $2, $3) as r", [job.center_id, model, checked]);
     return { asked: 0, checked: checked.length, stored: 0 };
   }
 
-  // ANTHROPIC_BASE_URL only points tests at a local mock server.
-  const client = new Anthropic({ apiKey: ctx.env.ANTHROPIC_API_KEY, baseURL: ctx.env.ANTHROPIC_BASE_URL || undefined, timeout: 120_000, maxRetries: 2 });
+  // Fifty customers with their candidates is a long prompt: two minutes per try (the default is 30 s).
+  const client = anthropicClient(ctx.env, { timeoutMs: 120_000, maxRetries: 2 });
   const householdIds = [...new Set(ask.flatMap((c) => c.candidates.map((h) => h.household_id)))];
   let response;
   try {
     response = await client.beta.messages.create({
-      model: MODEL,
+      model,
       max_tokens: 16000,
       output_config: { effort: "low", format: { type: "json_schema", schema: answerSchema(ask.map((c) => c.qbo_id), householdIds) } },
-      betas: ["server-side-fallback-2026-07-01"],
+      betas: [FALLBACK_BETA],
       fallbacks: "default",
       messages: [{ role: "user", content: prompt(ask) }],
-    } as Anthropic.Beta.Messages.MessageCreateParamsNonStreaming);
+    });
   } catch (err) {
-    if (err instanceof Anthropic.AuthenticationError || err instanceof Anthropic.PermissionDeniedError) {
-      throw new NotConfiguredError("The Anthropic key on the background service was refused (ANTHROPIC_API_KEY).");
-    }
-    if (err instanceof Anthropic.BadRequestError) throw new PermanentError(`The matching request was not accepted: ${err.message}`);
-    throw err;
+    // A refused key fails at once as not configured. A spending limit, a model or beta the account
+    // lacks, or a request the API rejects fails for good (deterministic matching keeps working).
+    // Busy, rate limited, timed out or unreachable: the queue tries again.
+    const f = staffJobFailure(classifyAnthropicError(err), model, "the matching suggestions");
+    if (f.notConfigured) throw new NotConfiguredError(f.message);
+    if (!f.retry) throw new PermanentError(f.message);
+    throw new Error(f.message, { cause: err });
   }
   if (response.stop_reason === "refusal") throw new PermanentError("The model declined to suggest matches; match these customers by hand.");
   if (response.stop_reason === "max_tokens") throw new PermanentError("The suggestions were cut off; match these customers by hand.");

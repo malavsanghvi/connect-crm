@@ -2180,6 +2180,7 @@ export type Database = {
           flyer_prompt: string | null;
           flyer_generated_at: string | null;
           flyer_job_id: number | null;
+          flyer_design: Json | null;
         };
         Insert: {
           id?: string;
@@ -2222,6 +2223,7 @@ export type Database = {
           flyer_prompt?: string | null;
           flyer_generated_at?: string | null;
           flyer_job_id?: number | null;
+          flyer_design?: Json | null;
         };
         Update: {
           id?: string;
@@ -2264,6 +2266,7 @@ export type Database = {
           flyer_prompt?: string | null;
           flyer_generated_at?: string | null;
           flyer_job_id?: number | null;
+          flyer_design?: Json | null;
         };
         Relationships: [];
       };
@@ -9702,6 +9705,12 @@ export type Database = {
         };
         Returns: string;
       };
+      event_flyer_leftovers: {
+        Args: {
+          p_event: string;
+        };
+        Returns: { name: string }[];
+      };
       event_live_stats: {
         Args: {
           p_event: string;
@@ -9720,6 +9729,13 @@ export type Database = {
           p_survey: string;
         };
         Returns: Json;
+      };
+      events_flyer_art_taken: {
+        Args: {
+          p_event: string;
+          p_path: string;
+        };
+        Returns: undefined;
       };
       events_flyer_result: {
         Args: {
