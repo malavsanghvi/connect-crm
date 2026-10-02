@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { Card, NoAccess, PageHeader, QueryError, StatusText, TableWrap } from "@/components/ui";
+import { aiServiceFromStatus } from "@/lib/ai-service";
 import { formatDateTime } from "@/lib/dates";
 import { readPublicEnv } from "@/lib/env";
 import { explainError } from "@/lib/errors";
@@ -99,6 +100,8 @@ export default async function IntegrationsPage() {
   const isOwner = ownerRes.error ? false : Boolean(ownerRes.data);
   const canManage = can(session, "integrations.manage") || isOwner;
   const service = statusRes.error ? null : backgroundServiceView(statusRes.data);
+  // What the last Anthropic calls got (a key that is set can still be blocked or refused), from the heartbeat.
+  const ai = statusRes.error ? null : aiServiceFromStatus(statusRes.data, tz);
   if (statusRes.error) console.error("[integrations] could not load the background service status:", statusRes.error);
   if (logRes.error) console.error("[integrations] could not load the secret access log:", logRes.error);
   if (jobsRes.error) console.error("[integrations] could not load the recent jobs:", jobsRes.error);
@@ -139,6 +142,21 @@ export default async function IntegrationsPage() {
                     </li>
                   ))}
                 </ul>
+              ) : null}
+              {ai ? (
+                <div className="text-[13px]">
+                  <p>
+                    <span className="font-semibold">AI service (Anthropic):</span>{" "}
+                    {ai.tone ? <StatusText tone={ai.tone}>{ai.label}</StatusText> : ai.label}
+                  </p>
+                  <p className="mt-0.5 text-muted">{ai.detail}</p>
+                  {ai.key ? <p className="mt-0.5 text-muted">{ai.key}</p> : null}
+                  {ai.lastError ? (
+                    <p className="mt-0.5 text-muted">
+                      Last problem ({ai.lastError.at}): {ai.lastError.text}
+                    </p>
+                  ) : null}
+                </div>
               ) : null}
               <p className="text-[13px]">
                 <span className="font-semibold">Malware scanning of uploads:</span> no scanning service has been chosen yet, so uploads are not

@@ -7,6 +7,7 @@
 // A result never carries a key: every configured secret value is blanked out of
 // the provider's answer before it is stored (app.jobs.result).
 
+import { anthropicErrorBody, anthropicErrorKind, regainAccessAt } from "../anthropic-errors";
 import { createDomain, verifyDomain, type DnsRecord, type Env, type Req } from "../messaging/providers";
 
 import { SECRET_NAMES, type StepKey } from "./catalog";
@@ -171,10 +172,75 @@ function testQuickbooks(env: Env): StepTest {
   return { ok: lines.every((l) => l.ok), lines };
 }
 
+/**
+ * The model the AI test asks: the one Niva and the suggestions use (worker/src/anthropic.ts
+ * CLAUDE_MODEL; worker/test/platform_setup.test.ts keeps the two equal). The CLAUDE_MODEL variable
+ * overrides both.
+ */
+export const ANTHROPIC_TEST_MODEL = "claude-opus-5-5";
+/** The beta Niva's requests carry (fallbacks: "default"); an account without it fails every answer. */
+export const ANTHROPIC_FALLBACK_BETA = "server-side-fallback-2026-07-01";
+const AI_LABEL = "Anthropic answers a test message";
+
+const utcMinute = (d: Date) => `${d.toISOString().slice(0, 10)} ${d.toISOString().slice(11, 16)} UTC`;
+
+/** What the one-token test call's answer means, in a plain line. Exported for its tests. */
+export function anthropicTestLine(status: number, text: string, model: string, env: Env): CheckLine {
+  if (status >= 200 && status < 300) {
+    const served = json(text).model;
+    return { label: AI_LABEL, ok: true, detail: `accepted: ${typeof served === "string" && served ? served : model} answered` };
+  }
+  const { type, message } = anthropicErrorBody(text);
+  const why = message ? ` (${message})` : "";
+  let detail: string;
+  switch (anthropicErrorKind(status, type, message)) {
+    case "auth":
+      detail = `the key was refused${why}`;
+      break;
+    case "quota": {
+      const at = regainAccessAt(message);
+      detail = `the key works, but the account's spending limit or credit ran out, so Niva and the suggestions are paused${
+        at ? ` until ${utcMinute(at)}` : ""
+      }; raise the limit in the Anthropic console or wait for it to reset${why}`;
+      break;
+    }
+    case "config":
+      detail = status === 404 ? `the model ${model} is not available to this account${why}` : `the account is not set up for the server-side fallback Niva uses${why}`;
+      break;
+    case "transient":
+      detail = status === 429 ? `Anthropic is rate limiting this key right now; test again in a minute${why}` : `Anthropic is busy or had a problem (HTTP ${status}); test again in a few minutes${why}`;
+      break;
+    default:
+      detail = `the provider answered HTTP ${status}${why}`;
+  }
+  return { label: AI_LABEL, ok: false, detail: redactSecrets(detail, env) };
+}
+
+/**
+ * A real one-token messages call with the model and beta Niva uses, not GET /v1/models: listing
+ * models still works when the spending limit blocks every message, and says nothing about the
+ * model or the beta.
+ */
 async function testAi(req: Req, env: Env): Promise<StepTest> {
-  if (!v(env, "ANTHROPIC_API_KEY")) return { ok: false, lines: [missing("Anthropic API key", ["ANTHROPIC_API_KEY"])] };
-  const line = await call(req, env, "Anthropic accepts the API key", `${base(env, "ANTHROPIC_BASE_URL", "https://api.anthropic.com")}/v1/models?limit=1`,
-    { method: "GET", headers: { "x-api-key": v(env, "ANTHROPIC_API_KEY"), "anthropic-version": "2023-06-01" } }, () => "accepted");
+  const key = v(env, "ANTHROPIC_API_KEY");
+  if (!key) return { ok: false, lines: [missing("Anthropic API key", ["ANTHROPIC_API_KEY"])] };
+  const model = v(env, "CLAUDE_MODEL") || ANTHROPIC_TEST_MODEL;
+  let line: CheckLine;
+  try {
+    const r = await req(`${base(env, "ANTHROPIC_BASE_URL", "https://api.anthropic.com")}/v1/messages`, {
+      method: "POST",
+      headers: {
+        "x-api-key": key,
+        "anthropic-version": "2023-06-01",
+        "anthropic-beta": ANTHROPIC_FALLBACK_BETA,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({ model, max_tokens: 1, fallbacks: "default", messages: [{ role: "user", content: "Reply with OK." }] }),
+    });
+    line = anthropicTestLine(r.status, r.text, model, env);
+  } catch (err) {
+    line = { label: AI_LABEL, ok: false, detail: redactSecrets(`could not reach the provider: ${err instanceof Error ? err.message : String(err)}`, env) };
+  }
   return { ok: line.ok, lines: [line] };
 }
 

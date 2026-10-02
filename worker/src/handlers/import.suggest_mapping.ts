@@ -17,18 +17,15 @@
 // key). Without it the job fails at once as "not configured" and the screen
 // says only name-based matching ran.
 //
-// The Anthropic SDK (@anthropic-ai/sdk) is a dependency of the worker package
-// (o-vault owns worker/package.json; see worker/README-import.md).
+// The model, the client and what a failed call means come from worker/src/anthropic.ts, shared
+// with niva.answer and qbo.match_suggest_ai (the CLAUDE_MODEL variable overrides the model).
 
-import Anthropic from "@anthropic-ai/sdk";
-
+import { anthropicClient, classifyAnthropicError, claudeModel, FALLBACK_BETA, staffJobFailure } from "../anthropic";
 import { providerStatus, type Env, type Readiness } from "../config";
 import { NotConfiguredError, PermanentError } from "../errors";
 import type { Job, JobContext } from "../types";
 
 export const kind = "import.suggest_mapping";
-
-export const MODEL = "claude-opus-5";
 
 export function configured(env: Env): Readiness {
   return providerStatus(env, "anthropic");
@@ -123,26 +120,29 @@ export async function run(job: Job, ctx: JobContext) {
   const ready = configured(ctx.env);
   if (!ready.configured) throw new NotConfiguredError(ready.reason);
   const { entityLabel, columns, fields } = readPayload(job.payload);
-  // ANTHROPIC_BASE_URL only points tests at a local mock server.
-  const client = new Anthropic({ apiKey: ctx.env.ANTHROPIC_API_KEY, baseURL: ctx.env.ANTHROPIC_BASE_URL || undefined, timeout: 60_000, maxRetries: 2 });
+  const model = claudeModel(ctx.env);
+  // A whole file's columns can take a while to think about: a minute per try (the default is 30 s).
+  const client = anthropicClient(ctx.env, { timeoutMs: 60_000, maxRetries: 2 });
 
   let response;
   try {
     response = await client.beta.messages.create({
-      model: MODEL,
+      model,
       max_tokens: 16000,
       output_config: { effort: "low", format: { type: "json_schema", schema: answerSchema(fields.map((f) => f.key)) } },
       // A policy decline is re-run on Anthropic's recommended fallback model.
-      betas: ["server-side-fallback-2026-07-01"],
+      betas: [FALLBACK_BETA],
       fallbacks: "default",
       messages: [{ role: "user", content: prompt(entityLabel, columns, fields) }],
-    } as Anthropic.Beta.Messages.MessageCreateParamsNonStreaming);
+    });
   } catch (err) {
-    if (err instanceof Anthropic.AuthenticationError || err instanceof Anthropic.PermissionDeniedError) {
-      throw new NotConfiguredError("The Anthropic key on the background service was refused (ANTHROPIC_API_KEY).");
-    }
-    if (err instanceof Anthropic.BadRequestError) throw new PermanentError(`The mapping request was not accepted: ${err.message}`);
-    throw err; // rate limits, 5xx and network errors: the queue retries
+    // A refused key fails at once as not configured. A spending limit, a model or beta the account
+    // lacks, or a request the API rejects fails for good (the person maps by hand). Busy, rate
+    // limited, timed out or unreachable: the queue tries again.
+    const f = staffJobFailure(classifyAnthropicError(err), model, "the mapping suggestions");
+    if (f.notConfigured) throw new NotConfiguredError(f.message);
+    if (!f.retry) throw new PermanentError(f.message);
+    throw new Error(f.message, { cause: err });
   }
   if (response.stop_reason === "refusal") throw new PermanentError("The model declined to suggest a mapping for this file.");
   if (response.stop_reason === "max_tokens") throw new PermanentError("The suggestion was cut off; map the columns by hand.");

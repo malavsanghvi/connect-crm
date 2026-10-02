@@ -6,7 +6,8 @@ import { ActionForm, type FormAction } from "@/components/action-form";
 import { ChipGroup, Toggle } from "@/components/controls";
 import { PersonPicker } from "@/components/events/person-picker";
 import { Card, InfoBox, buttonClass } from "@/components/ui";
-import { buildFlyerPrompt } from "@/lib/events/flyer";
+import type { FlyerDesign, FlyerSource } from "@/lib/events/flyer";
+import type { FlyerBrand } from "@/lib/events/flyer-brand";
 import { audienceChips, commitmentSummary, lunchPriorityText, slotPreview, type CommitmentOptions, type LunchRules } from "@/lib/events/report";
 
 import { FlyerPanel } from "./flyer-panel";
@@ -17,8 +18,7 @@ export type BuilderEvent = {
   name: string;
   description: string;
   flyer_path: string;
-  flyer_source: "manual" | "ai" | null;
-  flyer_prompt: string | null;
+  flyer_source: FlyerSource | null;
   venue: string;
   /** datetime-local values in the center's zone */
   starts_at: string;
@@ -42,9 +42,24 @@ export type BuilderEvent = {
   guest_price: string;
   confidential: boolean;
   owner: { id: string; name: string; detail: string | null } | null;
-  center_name: string;
-  starts_at_text: string | null;
-  audience_text: string;
+};
+
+/** Everything the flyer maker needs from the server (events/builder/page.tsx), once the event is saved. */
+export type FlyerSetup = {
+  design: FlyerDesign;
+  brand: FlyerBrand;
+  /** The member app's page for this event (the QR code), or null when the member web app's address is not set. */
+  memberAppLink: string | null;
+  /** Guests can see this event (public or members and guests, not confidential), so they will see its flyer. */
+  isGuestVisible: boolean;
+  defaultTagline: string;
+  /** The event's own date and venue lines now (defaultFlyerDesign). */
+  eventLines: { date_line: string; venue_line: string };
+  /** The event's date or venue changed after the saved flyer was made. */
+  outOfDate: { date: boolean; venue: boolean };
+  artPromptSeed: string;
+  /** A signed URL for the design's AI art, when the saved design uses it. */
+  artPreview: { url: string | null; error: string | null };
 };
 
 const SLOT_CHOICES = [15, 20, 30];
@@ -91,6 +106,7 @@ export function EventBuilder({
   editable,
   canPublish,
   flyerPreview,
+  flyer,
 }: {
   action: FormAction;
   event: BuilderEvent;
@@ -99,6 +115,8 @@ export function EventBuilder({
   canPublish: boolean;
   /** Signed URL (private "content" bucket) for the current flyer, resolved server-side; only meaningful once event.id exists. */
   flyerPreview: { url: string | null; error: string | null };
+  /** The flyer maker's starting point; null until the event is saved. */
+  flyer: FlyerSetup | null;
 }) {
   const [audience, setAudience] = useState(event.audience);
   const [waitlist, setWaitlist] = useState(event.waitlist_enabled);
@@ -137,15 +155,6 @@ export function EventBuilder({
     seatsPerSlot: seats.trim() ? Number(seats) : null,
     rules: lunchRules,
     formatMinutes: clock,
-  });
-
-  const promptSeed = buildFlyerPrompt({
-    name: event.name,
-    description: event.description,
-    venue: event.venue,
-    startsAtText: event.starts_at_text,
-    audienceText: event.audience_text,
-    centerName: event.center_name,
   });
 
   return (
@@ -476,24 +485,34 @@ export function EventBuilder({
       </ActionForm>
 
       {/* Outside the form above: it holds its own upload/remove forms, and a <form> cannot nest inside another. */}
-      {event.id ? (
+      {event.id && flyer ? (
         <div className="mt-4 grid grid-cols-12 items-start gap-4">
           <FlyerPanel
             eventId={event.id}
+            eventName={event.name}
             flyerPath={event.flyer_path}
             flyerSource={event.flyer_source}
-            flyerPrompt={event.flyer_prompt}
-            promptSeed={promptSeed}
             previewUrl={flyerPreview.url}
             previewError={flyerPreview.error}
             editable={editable}
+            initialDesign={flyer.design}
+            brand={flyer.brand}
+            memberAppLink={flyer.memberAppLink}
+            isGuestVisible={flyer.isGuestVisible}
+            defaultTagline={flyer.defaultTagline}
+            eventLines={flyer.eventLines}
+            outOfDate={flyer.outOfDate}
+            artPromptSeed={flyer.artPromptSeed}
+            artPreview={flyer.artPreview}
           />
         </div>
       ) : editable ? (
         <div className="mt-4 grid grid-cols-12 items-start gap-4">
-          <Card span={4} title="Flyer">
-            <p className="crm-hint">Save this event as a draft first, then come back here to generate or upload a flyer.</p>
-          </Card>
+          <div id="flyer" className="col-span-12 scroll-mt-24 md:col-span-6">
+            <Card title="Flyer maker">
+              <p className="crm-hint">Save this event as a draft first, then come back here to design or upload its flyer.</p>
+            </Card>
+          </div>
         </div>
       ) : null}
     </>
