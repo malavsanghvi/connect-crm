@@ -7,7 +7,7 @@
 -- timings and the address only; never RSVPs, pledges, payments or people. Giving items (campaigns, opportunities,
 -- bolis) stay out: they are a separate owner decision and would have to say "pledge", never "bid".
 --
---   1. app.niva_worker_center_facts(center, days default 14)                          connect_worker only
+--   1. app.niva_worker_center_facts(center, days default 14, from default null)       connect_worker only
 --      What a member of the community can already see in the app, in the community's own time zone:
 --        { center_name, time_zone, local_now 'YYYY-MM-DDTHH:MI:SS', local_today 'YYYY-MM-DD',
 --          today_label 'Friday, 2 October 2026', time_label '10:05 AM', days,
@@ -15,31 +15,38 @@
 --                           (the guide's own fields; the website only when it is an http(s) address);
 --          regular_timings: { derasar_hours, aarti, snatra_puja } from centers.rules.timings, or null;
 --          daily_timings:   [{ on_date, day_label, sunrise, sunset, navkarsi, chauvihar, aarti, temple_open,
---                              temple_close }] from today to today + 7 (times as '7:14 AM'; a missing time is left out);
+--                              temple_close }] from today to today + 7 (times as '7:14 AM'; a missing time is left out),
+--                           and from 'from' to from + 7 as well when that is set;
 --          events:          [{ id, name, venue, starts_local, ends_local, starts_label, ends_label, happening_now, ended,
 --                              rsvp ('open' | 'closed' | 'not_open_yet'), rsvp_opens_label, rsvp_closes_label }] }
 --                           (an event is over once it ended, or six hours after its start when it has no end, as the
 --                           member app counts it; its RSVP then reads closed)
 --      Events: at most 25, in start order, that are not confidential, have status published, rsvp_closed or live,
 --      audience members_only, members_and_guests or public, and start before now + days (and have not ended, or
---      started today). These are the member read policy's own predicates (0010 events_member_read), narrowed to the
---      audiences every member is in, so Niva never mentions an event a member could not see or is not invited to.
+--      started today, or start in the week from 'from'). These are the member read policy's own predicates (0010
+--      events_member_read), narrowed to the audiences every member is in, so Niva never mentions an event a member
+--      could not see or is not invited to.
 --      Daily timings only while the community has My Jain Way on, events only while it has Events on (the module
 --      switches of 0101/0103 hide those tables from members otherwise).
+--      'from' is the day the member asked, which the worker passes when that was before today (a question paused by
+--      the AI service's spending limit, or staff's Try again): the prompt tells the model to read "today", "tomorrow"
+--      or "this weekend" from that day, so that day's week is offered too. Ignored unless it is before today and at
+--      most 31 days back (questions are kept 30 days).
 --      Nothing else is read: no RSVPs, attendees, pledges, payments, people, households, prices, descriptions,
 --      eligibility rules or event owners. The worker offers these as "live" sources (event:<id>, timings:<date>,
 --      center:address, center:hours) next to the approved ones, and stores a cited one as {kind, id, title}.
 --   2. niva_worker_set_outcome (0572) keeps an answer on a regenerate that ends without one while a live item it
---      cited is still current (an event still on the schedule and not over, a day's timings for today or later, the
---      address or regular timings still set), exactly as it already does for a published source. Same signature and
---      grants; only the "is a cited source still current?" test changed (app.niva_live_ref_current, internal).
+--      cited is still current (an event still on the schedule and not over, a day's timings for today or later that
+--      are still offered, the address or regular timings still set: each by the same test the facts use), exactly as
+--      it already does for a published source. Same signature and grants; only the "is a cited source still
+--      current?" test changed (app.niva_live_ref_current, internal).
 --
 -- 0572 is applied and untouched; niva_worker_set_outcome is replaced with create or replace.
 
 set client_min_messages = warning;
 
 -- ── 1. The live schedule ─────────────────────────────────────────────────────
-create or replace function app.niva_worker_center_facts(p_center uuid, p_days int default 14)
+create or replace function app.niva_worker_center_facts(p_center uuid, p_days int default 14, p_from date default null)
 returns jsonb language plpgsql stable security definer set search_path = app, public, extensions as $$
 declare
   v_days int := least(greatest(coalesce(p_days, 14), 1), 60);
@@ -51,6 +58,7 @@ declare
   v_local timestamp;
   v_today date;
   v_day_start timestamptz;
+  v_from date;
   v_contact jsonb;
   v_hours jsonb;
   v_timings jsonb := '[]'::jsonb;
@@ -70,6 +78,8 @@ begin
   end;
   v_today := v_local::date;
   v_day_start := v_today::timestamp at time zone v_tz;
+  -- The day the member asked, when that was before today (and at most 31 days back): that day's week is offered too.
+  v_from := case when p_from < v_today and p_from >= v_today - 31 then p_from else v_today end;
 
   -- Contact details: the keys the member app's guide shows (connect-mobile readCenterContact), text only; the
   -- website only when it is a web address, as the guide requires.
@@ -87,7 +97,7 @@ begin
    cross join (select case when jsonb_typeof(v_rules -> 'timings') = 'object' then v_rules -> 'timings' else '{}'::jsonb end as val) t
    where jsonb_typeof(t.val -> k.key) = 'string' and btrim(t.val ->> k.key) <> '';
 
-  -- Today and the next seven days.
+  -- Today and the next seven days (and the week from the day the member asked, when that was earlier).
   if app.module_enabled(p_center, 'jain_way') then
     select coalesce(jsonb_agg(jsonb_strip_nulls(jsonb_build_object(
              'on_date',      to_char(d.on_date, 'YYYY-MM-DD'),
@@ -102,10 +112,11 @@ begin
            order by d.on_date), '[]'::jsonb)
       into v_timings
       from app.daily_timings d
-     where d.center_id = p_center and d.on_date between v_today and v_today + 7;
+     where d.center_id = p_center
+       and (d.on_date between v_today and v_today + 7 or d.on_date between v_from and v_from + 7);
   end if;
 
-  -- Upcoming events every member can see.
+  -- Upcoming events every member can see (and those of the week the member asked in, when that was earlier).
   if app.module_enabled(p_center, 'events') then
     select coalesce(jsonb_agg(x.j order by x.starts_at, x.id), '[]'::jsonb)
       into v_events
@@ -145,7 +156,8 @@ begin
            and e.audience in ('members_only', 'members_and_guests', 'public')
            and e.starts_at is not null
            and e.starts_at < v_now + make_interval(days => v_days)
-           and (e.starts_at >= v_day_start or coalesce(e.ends_at, e.starts_at + interval '6 hours') >= v_now)
+           and (e.starts_at >= v_day_start or coalesce(e.ends_at, e.starts_at + interval '6 hours') >= v_now
+                or (e.starts_at at time zone v_tz)::date between v_from and v_from + 7)
          order by e.starts_at, e.id
          limit 25) x;
   end if;
@@ -163,8 +175,8 @@ begin
     'daily_timings', v_timings,
     'events', v_events);
 end $$;
-comment on function app.niva_worker_center_facts(uuid, int) is
-  'Worker only (0574). The live schedule Niva may answer from: the community''s local date and time, contact details, regular and daily timings (today + 7 days) and up to 25 upcoming events every member can see. Never RSVPs, giving, payments or people.';
+comment on function app.niva_worker_center_facts(uuid, int, date) is
+  'Worker only (0574). The live schedule Niva may answer from: the community''s local date and time, contact details, regular and daily timings (today + 7 days, and the week from p_from when the member asked on an earlier day) and up to 25 events every member can see. Never RSVPs, giving, payments or people.';
 
 -- ── 2. Is a live item an answer cited still current? ─────────────────────────
 -- p_kind/p_id as the worker stores a cited live item: event/<uuid>, timings/<YYYY-MM-DD>, center/address, center/hours.
@@ -197,15 +209,19 @@ begin
     exception when others then               -- a time zone Postgres does not know: UTC, as the facts use
       v_today := (now() at time zone 'UTC')::date;
     end;
-    return v_day >= v_today;
+    -- Offered only while My Jain Way is on and that day's row exists, as in the facts.
+    return v_day >= v_today and app.module_enabled(p_center, 'jain_way')
+       and exists (select 1 from app.daily_timings d where d.center_id = p_center and d.on_date = v_day);
   elsif p_kind = 'center' and p_id = 'address' then
-    return jsonb_typeof(v_branding) = 'object'
-       and exists (select 1 from unnest(array['place_name', 'address', 'phone']) k
-                    where jsonb_typeof(v_branding -> k) = 'string' and btrim(v_branding ->> k) <> '');
+    -- The five keys the facts offer (the website only when it is a web address).
+    return coalesce(jsonb_typeof(v_branding) = 'object'
+       and exists (select 1 from unnest(array['place_name', 'address', 'address_note', 'phone', 'website']) k
+                    where jsonb_typeof(v_branding -> k) = 'string' and btrim(v_branding ->> k) <> ''
+                      and (k <> 'website' or btrim(v_branding ->> k) ~* '^https?://')), false);
   elsif p_kind = 'center' and p_id = 'hours' then
-    return jsonb_typeof(v_rules -> 'timings') = 'object'
+    return coalesce(jsonb_typeof(v_rules -> 'timings') = 'object'
        and exists (select 1 from unnest(array['derasar_hours', 'aarti', 'snatra_puja']) k
-                    where jsonb_typeof(v_rules -> 'timings' -> k) = 'string' and btrim(v_rules -> 'timings' ->> k) <> '');
+                    where jsonb_typeof(v_rules -> 'timings' -> k) = 'string' and btrim(v_rules -> 'timings' ->> k) <> ''), false);
   end if;
   return false;
 end $$;
@@ -290,6 +306,6 @@ end $$;
 
 -- ── Grants ───────────────────────────────────────────────────────────────────
 -- niva_worker_set_outcome keeps its 0572 grants (same signature).
-revoke execute on function app.niva_worker_center_facts(uuid, int), app.niva_live_ref_current(uuid, text, text)
+revoke execute on function app.niva_worker_center_facts(uuid, int, date), app.niva_live_ref_current(uuid, text, text)
   from public, anon, authenticated, service_role;
-grant execute on function app.niva_worker_center_facts(uuid, int) to connect_worker;
+grant execute on function app.niva_worker_center_facts(uuid, int, date) to connect_worker;

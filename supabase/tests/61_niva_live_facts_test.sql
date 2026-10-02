@@ -2,7 +2,8 @@
 -- time (in its own time zone), contact details, regular and daily timings (today + 7 days) and the upcoming events
 -- every member can see (not confidential, not draft, cancelled or completed, not for life members or Pathshala
 -- families only, within the window); no RSVP, giving or people data ever appears in it; the module switches hide
--- events and timings; and a regenerate keeps an answer while a live item it cited is still current.
+-- events and timings; a question asked on an earlier day also gets that day's week; and a regenerate keeps an answer
+-- while a live item it cited is still current, judged by the same tests the facts use.
 \set ON_ERROR_STOP 1
 create or replace function pg_temp.assert(cond boolean, label text) returns void language plpgsql as $$
 begin
@@ -27,14 +28,19 @@ end $$;
 grant connect_worker to postgres;
 
 -- The facts, read as the background service.
-create or replace function pg_temp.facts(p_center uuid, p_days int default null) returns jsonb language plpgsql as $$
+create or replace function pg_temp.facts(p_center uuid, p_days int default null, p_from date default null) returns jsonb language plpgsql as $$
 declare r jsonb;
 begin
   set local role connect_worker;
-  if p_days is null then r := app.niva_worker_center_facts(p_center); else r := app.niva_worker_center_facts(p_center, p_days); end if;
+  if p_days is null and p_from is null then r := app.niva_worker_center_facts(p_center);
+  else r := app.niva_worker_center_facts(p_center, coalesce(p_days, 14), p_from); end if;
   reset role;
   return r;
 end $$;
+-- The dates of the daily timings in the facts, in order.
+create or replace function pg_temp.timing_dates(r jsonb) returns text[] language sql as $$
+  select coalesce(array_agg(d->>'on_date' order by n), '{}') from jsonb_array_elements(r->'daily_timings') with ordinality as x(d, n)
+$$;
 -- The event ids in the facts, in order.
 create or replace function pg_temp.event_ids(r jsonb) returns text[] language sql as $$
   select coalesce(array_agg(e->>'id' order by n), '{}') from jsonb_array_elements(r->'events') with ordinality as x(e, n)
@@ -61,6 +67,8 @@ $$;
 \set c2 '''61000000-0000-4000-8000-0000000000c2'''
 \set c3 '''61000000-0000-4000-8000-0000000000c3'''
 \set c4 '''61000000-0000-4000-8000-0000000000c4'''
+\set c5 '''61000000-0000-4000-8000-0000000000c5'''
+\set c6 '''61000000-0000-4000-8000-0000000000c6'''
 \set member '''61000000-0000-4000-8000-000000000002'''
 \set admin '''61000000-0000-4000-8000-000000000001'''
 insert into auth.users (id, email) values (:admin, 'admin61@example.com'), (:member, 'member61@example.com');
@@ -72,7 +80,9 @@ insert into app.centers (id, slug, name, short_name, state_region, status, time_
    '{"version":3,"timings":{"derasar_hours":"7:30 AM – 6:00 PM daily","aarti":"12:30 PM and 4:30 PM","snatra_puja":""},"lunch":{"slot_minutes":15}}'),
   (:c2, 'orbit61b', 'Kiritimati Sangh', 'KS', 'TX', 'active', 'Pacific/Kiritimati', '{}', '{}'),
   (:c3, 'orbit61c', 'Pago Pago Sangh', 'PPS', 'TX', 'active', 'Pacific/Pago_Pago', '{"address":"   ","website":"javascript:alert(61)"}', '{"timings":"not an object"}'),
-  (:c4, 'orbit61d', 'Modules Off Sangh', 'MOS', 'TX', 'active', 'America/Chicago', '{}', '{}');
+  (:c4, 'orbit61d', 'Modules Off Sangh', 'MOS', 'TX', 'active', 'America/Chicago', '{}', '{}'),
+  (:c5, 'orbit61e', 'Note Only Sangh', 'NOS', 'TX', 'active', 'America/Chicago', '{"address_note":"Use the side gate on Arc St"}', '{}'),
+  (:c6, 'orbit61f', 'Website Only Sangh', 'WOS', 'TX', 'active', 'America/Chicago', '{"website":"https://example.org/sixty-one-f"}', '{}');
 insert into app.role_grants (center_id, user_id, role_key) values (:c, :admin, 'center_admin');
 insert into app.people (id, center_id, first_name, last_name) values
   ('61000000-0000-4000-8000-0000000000a1', :c, 'Zubin', 'Hiddenname61');
@@ -115,7 +125,11 @@ insert into app.events (id, center_id, name, description, venue, starts_at, ends
   ('61000000-0000-4000-8000-000000000e16', :c, 'Diwali', null, null, now() + interval '20 days', null, 'published', 'members_only', false, null, null, null, null, '{}', null),
   ('61000000-0000-4000-8000-000000000e17', :c, 'Yesterday''s puja', null, null, now() - interval '2 days', now() - interval '1 day', 'published', 'members_only', false, null, null, null, null, '{}', null),
   ('61000000-0000-4000-8000-000000000e18', :c2, 'Another community''s event', null, null, now() + interval '2 days', null, 'published', 'public', false, null, null, null, null, '{}', null),
-  ('61000000-0000-4000-8000-000000000e19', :c4, 'Event while Events is off', null, null, now() + interval '2 days', null, 'published', 'public', false, null, null, null, null, '{}', null);
+  ('61000000-0000-4000-8000-000000000e19', :c4, 'Event while Events is off', null, null, now() + interval '2 days', null, 'published', 'public', false, null, null, null, null, '{}', null),
+  -- yesterday, 10 to 11 AM in Houston: only when the member asked on an earlier day
+  ('61000000-0000-4000-8000-000000000e20', :c, 'Puja the day before', null, 'Derasar',
+   ((:'today'::date - 1)::timestamp + time '10:00') at time zone 'America/Chicago',
+   ((:'today'::date - 1)::timestamp + time '11:00') at time zone 'America/Chicago', 'published', 'members_only', false, null, null, null, null, '{}', null);
 -- Thirty more events at another community: at most 25 come back.
 insert into app.events (center_id, name, starts_at, status, audience)
 select :c2, 'Daily puja ' || g, now() + make_interval(hours => g), 'published', 'members_and_guests' from generate_series(1, 30) g;
@@ -126,10 +140,10 @@ values (:c, '61000000-0000-4000-8000-000000000e01', '61000000-0000-4000-8000-000
 insert into app.center_modules (center_id, module_key, enabled, reason) values (:c4, 'events', false, 'test 61'), (:c4, 'jain_way', false, 'test 61');
 
 -- ── Only the background service ─────────────────────────────────────────────
-select pg_temp.assert(has_function_privilege('connect_worker', 'app.niva_worker_center_facts(uuid,int)', 'execute')
-                      and not has_function_privilege('authenticated', 'app.niva_worker_center_facts(uuid,int)', 'execute')
-                      and not has_function_privilege('anon', 'app.niva_worker_center_facts(uuid,int)', 'execute')
-                      and not has_function_privilege('service_role', 'app.niva_worker_center_facts(uuid,int)', 'execute'),
+select pg_temp.assert(has_function_privilege('connect_worker', 'app.niva_worker_center_facts(uuid,int,date)', 'execute')
+                      and not has_function_privilege('authenticated', 'app.niva_worker_center_facts(uuid,int,date)', 'execute')
+                      and not has_function_privilege('anon', 'app.niva_worker_center_facts(uuid,int,date)', 'execute')
+                      and not has_function_privilege('service_role', 'app.niva_worker_center_facts(uuid,int,date)', 'execute'),
   'the live schedule is granted to connect_worker only');
 begin;
 select pg_temp.sign_in(:member);
@@ -192,7 +206,8 @@ select pg_temp.assert(pg_temp.event_ids(:'f'::jsonb) = array[
 select pg_temp.assert(not (pg_temp.event_ids(:'f'::jsonb) && array[
                         '61000000-0000-4000-8000-000000000e10', '61000000-0000-4000-8000-000000000e11', '61000000-0000-4000-8000-000000000e12',
                         '61000000-0000-4000-8000-000000000e13', '61000000-0000-4000-8000-000000000e14', '61000000-0000-4000-8000-000000000e15',
-                        '61000000-0000-4000-8000-000000000e16', '61000000-0000-4000-8000-000000000e17', '61000000-0000-4000-8000-000000000e18']),
+                        '61000000-0000-4000-8000-000000000e16', '61000000-0000-4000-8000-000000000e17', '61000000-0000-4000-8000-000000000e18',
+                        '61000000-0000-4000-8000-000000000e20']),
   'draft, cancelled, completed, confidential, life-member-only, Pathshala-family-only, too-far-off, past and other communities'' events are left out');
 select pg_temp.assert(pg_temp.event_ids(pg_temp.facts(:c, 30)) @> array['61000000-0000-4000-8000-000000000e16']
                       and (pg_temp.facts(:c, 30)->>'days') = '30' and (pg_temp.facts(:c, 1000)->>'days') = '60',
@@ -227,6 +242,26 @@ select pg_temp.assert((select ((:'e5'::jsonb->>'ended') = 'true') = (e.ends_at <
                       and not (pg_temp.event(:'f'::jsonb, '61000000-0000-4000-8000-000000000e01') ? 'ended'),
   'an event that ended earlier today is over: its RSVP reads closed and it is not happening now, as in the member app');
 
+-- ── A question asked on an earlier day (paused, or staff's Try again) ────────
+select pg_temp.facts(:c, null, :'today'::date - 1) as fy \gset
+select pg_temp.assert(pg_temp.timing_dates(:'fy'::jsonb) = array(select to_char(:'today'::date + g, 'YYYY-MM-DD') from generate_series(-1, 7) g)
+                      and (:'fy'::jsonb->>'local_today') = to_char(:'today'::date, 'YYYY-MM-DD'),
+  'asked yesterday: the timings start at that day (and still run to today + 7)');
+select pg_temp.assert(pg_temp.event_ids(:'fy'::jsonb) = array[
+                        '61000000-0000-4000-8000-000000000e20', '61000000-0000-4000-8000-000000000e05', '61000000-0000-4000-8000-000000000e04',
+                        '61000000-0000-4000-8000-000000000e01', '61000000-0000-4000-8000-000000000e03', '61000000-0000-4000-8000-000000000e02']
+                      and (pg_temp.event(:'fy'::jsonb, '61000000-0000-4000-8000-000000000e20')->>'ended') = 'true'
+                      and (pg_temp.event(:'fy'::jsonb, '61000000-0000-4000-8000-000000000e20')->>'rsvp') = 'closed'
+                      and not (pg_temp.event_ids(:'fy'::jsonb) && array['61000000-0000-4000-8000-000000000e13', '61000000-0000-4000-8000-000000000e14']),
+  'asked yesterday: that day''s event is offered too, read as over, and the same events stay left out');
+select pg_temp.assert(pg_temp.timing_dates(pg_temp.facts(:c, null, :'today'::date)) = pg_temp.timing_dates(:'f'::jsonb)
+                      and pg_temp.event_ids(pg_temp.facts(:c, null, :'today'::date + 3)) = pg_temp.event_ids(:'f'::jsonb)
+                      and pg_temp.timing_dates(pg_temp.facts(:c, null, :'today'::date - 40)) = pg_temp.timing_dates(:'f'::jsonb)
+                      and pg_temp.event_ids(pg_temp.facts(:c, null, :'today'::date - 40)) = pg_temp.event_ids(:'f'::jsonb),
+  'a day that is today, later, or more than 31 days back changes nothing');
+select pg_temp.assert((pg_temp.facts(:c4, null, :'today'::date - 1)->'daily_timings') = '[]'::jsonb,
+  'an earlier day still has no timings while My Jain Way is off');
+
 -- ── Never RSVPs, giving or people ───────────────────────────────────────────
 select pg_temp.assert(pg_temp.all_keys(:'f'::jsonb) <@ array[
                         'center_name', 'time_zone', 'local_now', 'local_today', 'today_label', 'time_label', 'days',
@@ -242,7 +277,7 @@ select pg_temp.assert(position('Hiddenname61' in :'f') = 0 and position('RSVP-GU
                       and position('SECRET-LOGO' in :'f') = 0 and position('Board retreat' in :'f') = 0,
   'no person, household, RSVP, description, eligibility, price, logo or confidential event reaches the output');
 select pg_temp.assert((select p.prosrc !~* '\m(rsvps|attendees|pledges|payments|payment_allocations|people|households|household_members|campaigns|opportunities|bolis|boli_entries|giving_row_visible)\M'
-                         from pg_proc p where p.oid = 'app.niva_worker_center_facts(uuid,int)'::regprocedure),
+                         from pg_proc p where p.oid = 'app.niva_worker_center_facts(uuid,int,date)'::regprocedure),
   'the function never mentions an RSVP, giving or people table');
 
 -- ── Module switches ─────────────────────────────────────────────────────────
@@ -251,14 +286,17 @@ select pg_temp.assert((:'f4'::jsonb->'events') = '[]'::jsonb and (:'f4'::jsonb->
   'with Events and My Jain Way off, no events and no daily timings');
 
 -- ── The worker's call ───────────────────────────────────────────────────────
+select to_char(:'today'::date - 1, 'YYYY-MM-DD') as yday \gset
 begin;
 set local role connect_worker;
--- Exactly what worker/src/niva/facts.ts sends (an untyped parameter).
-prepare niva61_worker_call as select app.niva_worker_center_facts($1, 14) as r;
-execute niva61_worker_call('61000000-0000-4000-8000-0000000000c1') \gset w_
+-- Exactly what worker/src/niva/facts.ts sends (untyped parameters; the asked day null, or a 'YYYY-MM-DD' string).
+prepare niva61_worker_call as select app.niva_worker_center_facts($1, $2, $3::date) as r;
+execute niva61_worker_call('61000000-0000-4000-8000-0000000000c1', 14, null) \gset w_
+execute niva61_worker_call('61000000-0000-4000-8000-0000000000c1', 14, :'yday') \gset wy_
 deallocate niva61_worker_call;
 commit;
-select pg_temp.assert(jsonb_array_length(:'w_r'::jsonb->'events') = 5, 'the worker''s call works with an untyped center id');
+select pg_temp.assert(jsonb_array_length(:'w_r'::jsonb->'events') = 5 and jsonb_array_length(:'wy_r'::jsonb->'events') = 6,
+  'the worker''s call works with untyped parameters, with and without the day the member asked');
 
 -- ── A regenerate keeps an answer while a cited live item is still current ────
 insert into app.niva_conversations (id, center_id, user_id, question, answer, sources, unanswered, answer_status) values
@@ -271,7 +309,17 @@ insert into app.niva_conversations (id, center_id, user_id, question, answer, so
   ('61000000-0000-4000-8000-0000000000d4', :c, :member, 'Where is the derasar?', 'At 3905 Arc St.',
    '[{"kind":"center","id":"address","title":"Address and contact"}]', false, 'answered'),
   ('61000000-0000-4000-8000-0000000000d5', :c3, null, 'Where is the derasar?', 'Somewhere.',
-   '[{"kind":"center","id":"address","title":"Address and contact"},{"kind":"center","id":"hours","title":"Regular timings"},{"kind":"timings","id":"2026-13-45","title":"Bad date"},{"kind":"timings","id":"infinity","title":"Forever"},{"kind":"event","id":"not-a-uuid","title":"Bad"}]', false, 'answered');
+   '[{"kind":"center","id":"address","title":"Address and contact"},{"kind":"center","id":"hours","title":"Regular timings"},{"kind":"timings","id":"2026-13-45","title":"Bad date"},{"kind":"timings","id":"infinity","title":"Forever"},{"kind":"event","id":"not-a-uuid","title":"Bad"}]', false, 'answered'),
+  -- today's timings where My Jain Way is off (its row exists), and where that day has no row: neither is offered
+  ('61000000-0000-4000-8000-0000000000d7', :c4, null, 'When is sunrise today?', 'At 7:14 AM.',
+   jsonb_build_array(jsonb_build_object('kind', 'timings', 'id', to_char(:'today'::date, 'YYYY-MM-DD'), 'title', 'Timings for today')), false, 'answered'),
+  ('61000000-0000-4000-8000-0000000000d8', :c5, null, 'When is sunrise today?', 'At 7:14 AM.',
+   jsonb_build_array(jsonb_build_object('kind', 'timings', 'id', to_char(:'today'::date, 'YYYY-MM-DD'), 'title', 'Timings for today')), false, 'answered'),
+  -- the address item built from the note alone, or from the website alone: both are offered
+  ('61000000-0000-4000-8000-0000000000d9', :c5, null, 'How do I get in?', 'Use the side gate on Arc St.',
+   '[{"kind":"center","id":"address","title":"Address and contact"}]', false, 'answered'),
+  ('61000000-0000-4000-8000-0000000000da', :c6, null, 'Do you have a website?', 'Yes.',
+   '[{"kind":"center","id":"address","title":"Address and contact"}]', false, 'answered');
 begin;
 set local role connect_worker;
 select app.niva_worker_set_outcome('61000000-0000-4000-8000-0000000000d1', 'unsure', 'Niva found sources, but none of them clearly answers the question.', true) as k1 \gset
@@ -279,6 +327,10 @@ select app.niva_worker_set_outcome('61000000-0000-4000-8000-0000000000d2', 'unsu
 select app.niva_worker_set_outcome('61000000-0000-4000-8000-0000000000d3', 'unsure', 'x', true) as k3 \gset
 select app.niva_worker_set_outcome('61000000-0000-4000-8000-0000000000d4', 'unsure', 'x', true) as k4 \gset
 select app.niva_worker_set_outcome('61000000-0000-4000-8000-0000000000d5', 'no_source', 'x', true) as k5 \gset
+select app.niva_worker_set_outcome('61000000-0000-4000-8000-0000000000d7', 'unsure', 'x', true) as k7 \gset
+select app.niva_worker_set_outcome('61000000-0000-4000-8000-0000000000d8', 'unsure', 'x', true) as k8 \gset
+select app.niva_worker_set_outcome('61000000-0000-4000-8000-0000000000d9', 'unsure', 'x', true) as k9 \gset
+select app.niva_worker_set_outcome('61000000-0000-4000-8000-0000000000da', 'unsure', 'x', true) as k10 \gset
 commit;
 select pg_temp.assert((:'k1'::jsonb->>'cleared') = 'false' and (:'k1'::jsonb->>'status') = 'answered'
                       and (select answer is not null from app.niva_conversations where id = '61000000-0000-4000-8000-0000000000d1'),
@@ -289,6 +341,12 @@ select pg_temp.assert((:'k4'::jsonb->>'cleared') = 'false' and (:'k5'::jsonb->>'
                       and (select answer is null and answer_status = 'no_source' and unanswered
                              from app.niva_conversations where id = '61000000-0000-4000-8000-0000000000d5'),
   'the address counts while it is set; a blank address, unset hours and malformed ids do not');
+select pg_temp.assert((:'k7'::jsonb->>'cleared') = 'true' and (:'k8'::jsonb->>'cleared') = 'true',
+  'a day''s timings count only while they are offered: not with My Jain Way off, nor once that day''s row is gone');
+select pg_temp.assert((:'k9'::jsonb->>'cleared') = 'false' and (:'k10'::jsonb->>'cleared') = 'false'
+                      and (pg_temp.facts(:c5)->'contact') = '{"address_note":"Use the side gate on Arc St"}'::jsonb
+                      and (pg_temp.facts(:c6)->'contact') = '{"website":"https://example.org/sixty-one-f"}'::jsonb,
+  'the address counts by the same five fields the facts offer (a note alone, or a web address alone)');
 update app.events set status = 'cancelled' where id = '61000000-0000-4000-8000-000000000e01';
 begin;
 set local role connect_worker;
@@ -302,8 +360,8 @@ select pg_temp.assert((:'k6'::jsonb->>'cleared') = 'true'
 -- ── Search path ─────────────────────────────────────────────────────────────
 select pg_temp.assert((select bool_and(exists (select 1 from unnest(p.proconfig) as g(setting)
                                                 where g.setting ~ '^search_path=app, *public, *extensions$'))
-                         from pg_proc p where p.oid in ('app.niva_worker_center_facts(uuid,int)'::regprocedure,
+                         from pg_proc p where p.oid in ('app.niva_worker_center_facts(uuid,int,date)'::regprocedure,
                                                        'app.niva_live_ref_current(uuid,text,text)'::regprocedure,
                                                        'app.niva_worker_set_outcome(uuid,text,text,boolean,timestamptz)'::regprocedure))
-                      and (select prosecdef from pg_proc where oid = 'app.niva_worker_center_facts(uuid,int)'::regprocedure),
+                      and (select prosecdef from pg_proc where oid = 'app.niva_worker_center_facts(uuid,int,date)'::regprocedure),
   'the new functions pin search_path = app, public, extensions');

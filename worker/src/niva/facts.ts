@@ -1,6 +1,7 @@
 // The live schedule Niva may answer from (migration 0574, app.niva_worker_center_facts): the community's local date
-// and time, its address and phone, regular and daily timings for today and the next seven days, and the upcoming
-// events every member can already see in the app. Owner decision 2026-10-01: published events, daily timings and
+// and time, its address and phone, regular and daily timings for today and the next seven days (and for the week the
+// member asked in, when a paused or retried question was asked on an earlier day), and the upcoming events every
+// member can already see in the app (with that week's, in the same case). Owner decision 2026-10-01: published events, daily timings and
 // the address only. Nothing here is about a person: no RSVPs, pledges, payments, people or households reach the
 // database function's output, so none can reach the prompt. Giving items (campaigns, opportunities, bolis) are
 // deliberately left out.
@@ -110,10 +111,15 @@ export function namesAnEvent(text: string, facts: CenterFacts | null): boolean {
   );
 }
 
-/** app.niva_worker_center_facts, or null when the database does not have it yet (0574 not applied). */
-export async function loadCenterFacts(ctx: JobContext, centerId: string, conversationId: string): Promise<CenterFacts | null> {
+/**
+ * app.niva_worker_center_facts, or null when the database does not have it yet (0574 not applied). `askedDay`
+ * ('YYYY-MM-DD') is the day the member asked when that was before today: that day's week is read as well.
+ */
+export async function loadCenterFacts(ctx: JobContext, centerId: string, conversationId: string, askedDay: string | null = null): Promise<CenterFacts | null> {
   try {
-    const rows = await ctx.db.query<{ r: CenterFacts | null }>("select app.niva_worker_center_facts($1, $2) as r", [centerId, FACT_DAYS]);
+    const rows = await ctx.db.query<{ r: CenterFacts | null }>("select app.niva_worker_center_facts($1, $2, $3::date) as r", [
+      centerId, FACT_DAYS, askedDay,
+    ]);
     return rows[0]?.r ?? null;
   } catch (err) {
     // 42883: the function is not on this database yet; Niva answers from its sources alone.

@@ -10,18 +10,26 @@
 // (center_id null); since 0573 also the center's public Guide sections and
 // published FAQ when it has chosen to answer from them. A staff test
 // ({include_in_review: true}) also searches sources waiting for approval.
-//   * Follow-ups: the member's own last questions (at most 2, from the 15
-//     minutes before, niva_worker_get_conversation's "recent") are added to the
-//     search text and passed to the model as earlier turns, so "and on Sunday?"
-//     is understood. Only the asking member's own turns, never anyone else's.
-//   * When the search finds fewer than 2 sources, one small extra call turns the
+//   * The first search is the question alone, so an unrelated earlier question
+//     can neither crowd out its sources nor hide that it found too little.
+//   * When that search finds fewer than 2 sources, one small extra call turns the
 //     question into a standalone English question and search words (this also
-//     translates Gujarati and Hindi), and the search runs again with those; the
-//     sources of both searches are offered. At most one extra call per question.
-//   * The live schedule (0574, worker/src/niva/facts.ts): today's and the next
-//     seven days' timings, the address and the upcoming events every member can
-//     see are offered as live sources when the question is about a time, a day, a
-//     place or an event, or names one, or when fewer than 2 sources were found.
+//     translates Gujarati and Hindi, and completes a follow-up such as "and on
+//     Sunday?" from the member's earlier questions), and the search runs again
+//     with those; the sources of both searches are offered, the question's own
+//     first. At most one extra call per question. When the rewrite gives nothing
+//     usable, the question is searched again together with the member's earlier
+//     questions instead (their quotes and -words dropped).
+//   * Follow-ups: the member's own last questions (at most 2, from the 15
+//     minutes before, niva_worker_get_conversation's "recent") go to the rewrite
+//     and are passed to the model as earlier turns. Only the asking member's own
+//     turns, never anyone else's.
+//   * The live schedule (0574, worker/src/niva/facts.ts): the timings for today
+//     and the next seven days (and for the week the member asked in, when that was
+//     an earlier day), the address and the upcoming events every member can see
+//     are offered as live sources when the question, or one of the member's
+//     earlier questions, is about a time, a day, a place or an event, or names
+//     one, or when the question alone found fewer than 2 sources.
 // Nothing else is ever read here — in particular, NO individual member data
 // (eligibility, RSVPs, payment status, another household's anything) reaches
 // the prompt. That is what makes "only the asking member's own data, never
@@ -218,6 +226,17 @@ export function promptDate(
   return when;
 }
 
+/**
+ * The center-local day the member asked ('YYYY-MM-DD', from niva_worker_get_conversation), when that is before today:
+ * a paused question or staff's Try again. The live schedule then also covers that day's week, because the prompt tells
+ * the model to read "today" from the day the member asked.
+ */
+export function askedDayIfEarlier(conversation: Pick<Conversation, "asked_local" | "local_now">): string | null {
+  const asked = dateOnly(conversation.asked_local);
+  const today = dateOnly(conversation.local_now);
+  return asked && today && asked < today ? asked : null;
+}
+
 function sourceBlock(s: Source): string {
   const attrs = [`id="${attr(s.id)}"`, `title="${attr(s.title ?? "")}"`];
   if (s.source_url) attrs.push(`url="${attr(s.source_url)}"`);
@@ -263,13 +282,21 @@ export function recentTurns(conversation: Pick<Conversation, "recent">): RecentT
   return turns.slice(-2);
 }
 
+const oneLine = (s: string) => s.replace(/\s+/g, " ").trim();
+
+/** Plain search words: quotes and -words narrow a search (0573), and only the member's current question may do that. */
+function plainWords(s: string): string {
+  return oneLine(s.replace(/"/g, " ").replace(/(^|\s)-+/g, "$1"));
+}
+
 /**
- * What is searched: the question, then the member's earlier questions (newest first), so "and on Sunday?" also
- * finds what the earlier question was about. The question comes first because the search reads at most 2000
- * characters: what gets cut is the oldest context.
+ * The question, then the member's earlier questions (newest first, as plain words), so "and on Sunday?" also finds
+ * what the earlier question was about. Searched only when the question alone found too little and the rewrite gave
+ * nothing usable (the first search is always the question alone); the live schedule's word test also reads it. The
+ * question comes first because the search reads at most 2000 characters: what gets cut is the oldest context.
  */
 export function searchText(question: string, recent: RecentTurn[]): string {
-  return [question, ...recent.map((t) => t.question).reverse()].join("\n");
+  return [question, ...recent.map((t) => plainWords(t.question)).reverse()].filter(Boolean).join("\n");
 }
 
 /** The member's earlier turns as messages before the one with the sources (user, assistant, user, assistant). */
@@ -306,8 +333,6 @@ export function rewritePrompt(question: string, recent: RecentTurn[]): string {
   return blocks.join("\n\n");
 }
 
-const oneLine = (s: string) => s.replace(/\s+/g, " ").trim();
-
 /** At most 12 keywords of up to 60 characters (the API's schemas cannot say so), never a blank rewrite. */
 export function cleanRewrite(raw: unknown): Rewrite | null {
   const x = (raw ?? {}) as Record<string, unknown>;
@@ -328,7 +353,7 @@ export function cleanRewrite(raw: unknown): Rewrite | null {
 
 /** The second search's text. Quotes and -words are the member's to use, so the rewrite's are dropped. */
 export function rewriteSearchText(r: Rewrite): string {
-  return oneLine([r.english_question, ...r.keywords].join(" ").replace(/"/g, " ").replace(/(^|\s)-+/g, "$1"));
+  return plainWords([r.english_question, ...r.keywords].join(" "));
 }
 
 /** Both searches' sources, the first search's first, each once. */
@@ -499,40 +524,46 @@ async function answer(job: Job, ctx: JobContext, conversation: Conversation) {
   const regenerate = job.payload?.regenerate === true;
   const includeInReview = job.payload?.include_in_review === true;
   const recent = recentTurns(conversation);
-  const asked = searchText(conversation.question, recent);
 
-  const first = await searchSources(ctx, conversation, asked, includeInReview);
-  const facts = await loadCenterFacts(ctx, conversation.center_id, id);
+  // The question alone: an earlier, unrelated question must neither crowd out this one's sources nor count towards
+  // "enough found" (which would skip the rewrite and its translation).
+  const first = await searchSources(ctx, conversation, conversation.question, includeInReview);
+  const facts = await loadCenterFacts(ctx, conversation.center_id, id, askedDayIfEarlier(conversation));
   const model = claudeModel(ctx.env);
   const client = anthropicClient(ctx.env);
 
   // Too little found: one small call rewrites the question (a standalone English question and search words, which
-  // also translates a Gujarati or Hindi one), and the search runs again with those. At most once per question.
+  // also translates a Gujarati or Hindi one and completes a follow-up from the earlier questions), and the search
+  // runs again with those. At most once per question. When the rewrite gives nothing usable, a follow-up still gets
+  // its context: the question is searched again together with the member's earlier questions.
   let approved = first;
   let rewrite: Rewrite | null = null;
+  let withContext = false;
   if (first.length < FEW_SOURCES) {
     const r = await rewriteQuestion(ctx, client, model, conversation, recent);
     if ("error" in r) return await onModelError(job, ctx, conversation, model, r.error, r.cause);
     rewrite = r.rewrite;
-    if (rewrite) {
-      const text = rewriteSearchText(rewrite);
-      if (text) approved = union(first, await searchSources(ctx, conversation, text, includeInReview));
+    const text = rewrite ? rewriteSearchText(rewrite) : "";
+    if (text) {
+      approved = union(first, await searchSources(ctx, conversation, text, includeInReview));
+    } else if (recent.length > 0) {
+      approved = union(first, await searchSources(ctx, conversation, searchText(conversation.question, recent), includeInReview));
+      withContext = true;
     }
   }
 
-  // The live schedule, when the question is about a time, a day, a place or an event (or names one), or when
-  // the first search found too little.
-  const offerLive =
-    first.length < FEW_SOURCES ||
-    asksAboutTimeOrPlace(asked) ||
-    (rewrite !== null && asksAboutTimeOrPlace(rewrite.english_question)) ||
-    namesAnEvent(rewrite ? `${asked}\n${rewrite.english_question}` : asked, facts);
+  // The live schedule, when the question alone found too little, or when the question or one of the member's
+  // earlier questions (so a follow-up such as "is lunch included?" after "when is the Tapasvi Bahuman?") is about a
+  // time, a day, a place or an event, or names one. (The rewrite's question needs no test of its own: a rewrite only
+  // runs when the question alone found too little, which already offers the live schedule.)
+  const conversationText = searchText(conversation.question, recent);
+  const offerLive = first.length < FEW_SOURCES || asksAboutTimeOrPlace(conversationText) || namesAnEvent(conversationText, facts);
   const live: Source[] = offerLive ? liveSources(facts) : [];
   const sources = [...approved, ...live];
 
   if (sources.length === 0) {
     await setOutcome(ctx, id, "no_source", "No approved source mentions what was asked.", { clearAnswer: regenerate });
-    ctx.log.info("niva.answer: no approved source matched this question", { conversation_id: id, rewritten: rewrite !== null });
+    ctx.log.info("niva.answer: no approved source matched this question", { conversation_id: id, rewritten: rewrite !== null, with_context: withContext });
     return { answered: false, reason: "no_matching_source", ...(rewrite ? { rewritten: true } : {}) };
   }
 
@@ -604,7 +635,9 @@ async function answer(job: Job, ctx: JobContext, conversation: Conversation) {
   // response.model is the model that actually answered (a server-side fallback may have stepped in).
   const served = response.model || model;
   await ctx.db.query("select app.niva_worker_store_answer($1, $2, $3::jsonb, $4)", [id, parsed.answer, JSON.stringify(sourcesJson), served]);
-  ctx.log.info("niva.answer: answered", { conversation_id: id, sources: cited.length, live: liveCited, model: served, rewritten: rewrite !== null });
+  ctx.log.info("niva.answer: answered", {
+    conversation_id: id, sources: cited.length, live: liveCited, model: served, rewritten: rewrite !== null, with_context: withContext,
+  });
   return { answered: true, sources: cited.length, model: served, ...(liveCited > 0 ? { live: liveCited } : {}), ...(rewrite ? { rewritten: true } : {}) };
 }
 
