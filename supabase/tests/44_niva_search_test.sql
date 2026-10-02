@@ -36,7 +36,9 @@ select pg_temp.assert(pg_temp.search('how many pathshala rooms will there be') @
 select pg_temp.assert(pg_temp.search('is my donation tax deductible') @> '[{"title":"Donations and tax"}]'::jsonb, 'a keyword-style question still works');
 select pg_temp.assert((pg_temp.search('new facility rooms kitchen')->0->>'title') = 'Facility features',
   'the source matching more of the words ranks first');
-select pg_temp.assert((pg_temp.search('facility')->0->>'title') = 'Why JSH needs a new facility',
+-- 0573: 'facility' is in two of the titles, so it no longer decides between them (the shorter source wins);
+-- 'new' is in one title and in the text of all three.
+select pg_temp.assert((pg_temp.search('new')->0->>'title') = 'Why JSH needs a new facility',
   'a word in the title outranks the same word once in the text');
 select pg_temp.assert(pg_temp.search('quantum astrophysics blockchain') = '[]'::jsonb, 'an unrelated question matches nothing');
 select pg_temp.assert(pg_temp.search('why is it being done to the') = '[]'::jsonb, 'a question made only of filler words matches nothing and does not fail');
