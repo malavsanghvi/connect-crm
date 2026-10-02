@@ -144,7 +144,7 @@ select pg_temp.sign_in(:member);
 select pg_temp.assert_raises($$select app.niva_regenerate('$$ || :'conv' || $$'::uuid)$$, 'content.manage', 'a plain member cannot regenerate an answer');
 commit;
 -- The first job has finished (the worker stored the answer above). Since 0572 a regenerate adds
--- nothing while a job for the same question is still queued or running.
+-- nothing while a job for the same question is running or already due.
 update app.jobs set status = 'done', finished_at = now() where kind = 'niva.answer' and payload->>'conversation_id' = :'conv';
 begin;
 select pg_temp.sign_in(:admin);
@@ -153,7 +153,8 @@ commit;
 select pg_temp.assert((select count(*) from app.jobs where kind = 'niva.answer' and (payload->>'conversation_id')::uuid = :'conv'::uuid) = 2,
   'regenerate enqueues a second niva.answer job, keeping the first');
 select pg_temp.assert((select answer from app.niva_conversations where id = :'conv'::uuid) is not null, 'the existing answer stays visible until the new job finishes');
-select pg_temp.assert((select answer_status from app.niva_conversations where id = :'conv'::uuid) = 'pending', 'regenerate sets the question back to pending (0572)');
+select pg_temp.assert((select answer_status from app.niva_conversations where id = :'conv'::uuid) = 'answered',
+  'a question that still shows its answer stays answered while it is regenerated (0572)');
 
 -- ── 30-day retention: only the background service, and it actually deletes ──
 insert into app.niva_conversations (id, center_id, user_id, question, answer, created_at) values

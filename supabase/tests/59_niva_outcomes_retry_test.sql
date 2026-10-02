@@ -180,13 +180,42 @@ select pg_temp.assert((select answer_status = 'paused' and outcome_detail like '
 update app.jobs set status = 'done', finished_at = now(), result = '{"answered":false,"reason":"ai_spending_limit"}'
  where kind = 'niva.answer' and status = 'running' and payload->>'conversation_id' = :'qp';
 
--- ── Regenerate never queues a second job while one is on its way ────────────
+-- ── Regenerate never queues a second job; a retry queued for later is brought forward ──
+-- The owner raised the spending limit and presses Try again: the paused question's retry (an hour
+-- away here, possibly next month for a monthly limit) runs now instead.
 begin;
 select pg_temp.sign_in(:admin);
 select app.niva_regenerate(:'qp'::uuid);
 commit;
-select pg_temp.assert(pg_temp.jobs_of(:'qp'::uuid) = 2, 'regenerate adds nothing while the retry is queued');
-update app.jobs set status = 'cancelled', finished_at = now() where kind = 'niva.answer' and status = 'queued' and payload->>'conversation_id' = :'qp';
+select pg_temp.assert(pg_temp.jobs_of(:'qp'::uuid) = 2 and pg_temp.jobs_of(:'qp'::uuid, 'queued') = 1,
+  'regenerate adds no job while the retry is queued');
+select pg_temp.assert((select run_after <= now() and payload->>'regenerate' = 'true' and payload->>'deferrals' = '1'
+                         from app.jobs where kind = 'niva.answer' and status = 'queued' and payload->>'conversation_id' = :'qp'),
+  'Try again brings the paused question''s retry forward to now, as a regenerate');
+select pg_temp.assert((select answer_status = 'pending' and outcome_detail is null from app.niva_conversations where id = :'qp'::uuid),
+  'the paused question reads pending again');
+begin;
+select pg_temp.sign_in(:admin);
+select app.niva_regenerate(:'qp'::uuid);
+commit;
+select pg_temp.assert(pg_temp.jobs_of(:'qp'::uuid) = 2 and pg_temp.jobs_of(:'qp'::uuid, 'queued') = 1,
+  'a second press while the job is due adds nothing');
+-- The worker takes it: still nothing more while it runs.
+update app.jobs set status = 'running', attempts = 1, locked_by = 'worker-59', locked_at = now()
+ where kind = 'niva.answer' and status = 'queued' and payload->>'conversation_id' = :'qp';
+begin;
+select pg_temp.sign_in(:admin);
+select app.niva_regenerate(:'qp'::uuid);
+commit;
+select pg_temp.assert(pg_temp.jobs_of(:'qp'::uuid) = 2 and pg_temp.jobs_of(:'qp'::uuid, 'running') = 1,
+  'regenerate adds nothing while a job is running');
+begin;
+set local role connect_worker;
+select app.niva_worker_set_outcome(:'qp'::uuid, 'no_source', 'No approved source mentions these words.');
+commit;
+update app.jobs set status = 'done', finished_at = now(), locked_by = null, locked_at = null,
+                    result = '{"answered":false,"reason":"no_matching_source"}'
+ where kind = 'niva.answer' and status = 'running' and payload->>'conversation_id' = :'qp';
 begin;
 select pg_temp.sign_in(:admin);
 select app.niva_regenerate(:'qp'::uuid);
@@ -207,11 +236,13 @@ insert into app.niva_conversations (id, center_id, user_id, question, answer, un
   ('59000000-0000-4000-8000-0000000000d3', :c, :member, 'Question three', 'Answer three', false, 'answered', now() - interval '6 minutes'),
   ('59000000-0000-4000-8000-0000000000d4', :c, :member, 'Question four, no answer', null, true, 'no_source', now() - interval '5 minutes'),
   ('59000000-0000-4000-8000-0000000000d5', :c, :member_b, 'Another member asks', 'Another member''s answer', false, 'answered', now() - interval '4 minutes'),
-  ('59000000-0000-4000-8000-0000000000d6', :c, :member, 'And on Sunday?', null, true, 'pending', now() - interval '1 minute');
+  ('59000000-0000-4000-8000-0000000000d6', :c, :member, 'And on Sunday?', null, true, 'pending', now() - interval '1 minute'),
+  ('59000000-0000-4000-8000-0000000000d7', :c, :member, 'Is the derasar open today?', null, true, 'paused', now() - interval '3 days');
 begin;
 set local role connect_worker;
 select app.niva_worker_get_conversation('59000000-0000-4000-8000-0000000000d6'::uuid) as g \gset
 select app.niva_worker_get_conversation('59000000-0000-4000-8000-0000000000d5'::uuid) as gb \gset
+select app.niva_worker_get_conversation('59000000-0000-4000-8000-0000000000d7'::uuid) as gold \gset
 commit;
 select pg_temp.assert((:'g'::jsonb->>'time_zone') = 'Asia/Kolkata' and (:'g'::jsonb->>'center_name') = 'Orbit Outcomes Community',
   'the read names the center and its time zone');
@@ -222,6 +253,15 @@ select pg_temp.assert((:'g'::jsonb->>'local_today') = to_char((:'g'::jsonb->>'lo
   'local_today spells out the center''s date');
 select pg_temp.assert((:'g'::jsonb->>'answer_status') = 'pending' and (:'g'::jsonb->>'has_answer') = 'false' and (:'g'::jsonb->>'created_at') is not null,
   'the read carries the status and when it was asked');
+select pg_temp.assert((:'g'::jsonb->>'asked_local') = (select to_char(created_at at time zone 'Asia/Kolkata', 'YYYY-MM-DD"T"HH24:MI:SS')
+                                                        from app.niva_conversations where id = '59000000-0000-4000-8000-0000000000d6')
+                      and (:'g'::jsonb->>'asked_today') = (select to_char(created_at at time zone 'Asia/Kolkata', 'FMDay, FMDD FMMonth YYYY')
+                                                            from app.niva_conversations where id = '59000000-0000-4000-8000-0000000000d6'),
+  'asked_local and asked_today give when the member asked, in the center''s time zone');
+select pg_temp.assert((:'gold'::jsonb->>'asked_today') = (select to_char(created_at at time zone 'Asia/Kolkata', 'FMDay, FMDD FMMonth YYYY')
+                                                            from app.niva_conversations where id = '59000000-0000-4000-8000-0000000000d7')
+                      and (:'gold'::jsonb->>'asked_today') <> (:'gold'::jsonb->>'local_today'),
+  'a question answered days later still says the day it was asked');
 select pg_temp.assert(jsonb_array_length(:'g'::jsonb->'recent') = 2
                       and (:'g'::jsonb->'recent'->0->>'question') = 'Question two'
                       and (:'g'::jsonb->'recent'->1->>'question') = 'Question three'
@@ -232,7 +272,8 @@ select pg_temp.assert(:'g'::text not like '%Another member%' and :'g'::text not 
 select pg_temp.assert(:'gb'::jsonb->'recent' = '[]'::jsonb, 'another member''s read sees none of this member''s turns');
 
 -- ── Try all unanswered questions again ───────────────────────────────────────
--- q1: no source matched. q2: paused, its retry already queued.
+-- q1: no source matched. q2: paused, its retry queued an hour from now (the owner has since raised
+-- the AI service's limit, so it should not wait).
 begin;
 select pg_temp.sign_in(:member3);
 select (app.niva_ask(:c3::uuid, 'Can non-members attend pathshala?')).id as q1 \gset
@@ -257,6 +298,13 @@ insert into app.niva_conversations (id, center_id, user_id, question, unanswered
 commit;
 insert into app.niva_conversations (id, center_id, user_id, question, answer, unanswered, answer_status, created_at) values
   ('59000000-0000-4000-8000-0000000000e3', :c3, :member3, 'An answered question', 'An answer', false, 'answered', now() - interval '1 hour');
+-- On its way already: e4's job is running; e5's job is queued again in a minute (the queue's own back-off).
+insert into app.niva_conversations (id, center_id, user_id, question, unanswered, answer_status, created_at) values
+  ('59000000-0000-4000-8000-0000000000e4', :c3, :member3, 'Being answered right now', true, 'unsure', now() - interval '1 hour'),
+  ('59000000-0000-4000-8000-0000000000e5', :c3, :member3, 'Retrying in a minute', true, 'failed', now() - interval '1 hour');
+insert into app.jobs (center_id, kind, payload, status, run_after, attempts, max_attempts, locked_by, locked_at) values
+  (:c3, 'niva.answer', '{"conversation_id":"59000000-0000-4000-8000-0000000000e4"}', 'running', now() - interval '1 minute', 1, 3, 'worker-59', now()),
+  (:c3, 'niva.answer', '{"conversation_id":"59000000-0000-4000-8000-0000000000e5"}', 'queued', now() + interval '1 minute', 1, 3, null, null);
 
 begin;
 select pg_temp.sign_in(:member3);
@@ -291,20 +339,31 @@ begin;
 select pg_temp.sign_in(:admin);
 select app.niva_retry_unanswered(:c3::uuid) as n1 \gset
 commit;
-select pg_temp.assert(:n1::int = 2, 'two questions are queued again (no source, and the orphan)');
+select pg_temp.assert(:n1::int = 3, 'three questions are tried again (no source, the orphan, and the paused one)');
 select pg_temp.assert((select bool_and(answer_status = 'pending' and outcome_detail is null) from app.niva_conversations
-                        where id in (:'q1'::uuid, '59000000-0000-4000-8000-0000000000e1'::uuid)), 'they are back to pending');
-select pg_temp.assert(pg_temp.jobs_of(:'q1'::uuid, 'queued') = 1 and pg_temp.jobs_of('59000000-0000-4000-8000-0000000000e1'::uuid, 'queued') = 1,
-  'each gets exactly one job');
+                        where id in (:'q1'::uuid, :'q2'::uuid, '59000000-0000-4000-8000-0000000000e1'::uuid)), 'they are back to pending');
+select pg_temp.assert(pg_temp.jobs_of(:'q1'::uuid, 'queued') = 1 and pg_temp.jobs_of('59000000-0000-4000-8000-0000000000e1'::uuid, 'queued') = 1
+                      and pg_temp.jobs_of(:'q2'::uuid, 'queued') = 1 and pg_temp.jobs_of(:'q2'::uuid) = 2,
+  'each has exactly one job queued (the paused one keeps its retry; no second job)');
 select pg_temp.assert((select bool_and(payload->>'retry' = 'true' and max_attempts = 3) from app.jobs
-                        where kind = 'niva.answer' and status = 'queued' and payload->>'conversation_id' in (:'q1', '59000000-0000-4000-8000-0000000000e1')),
+                        where kind = 'niva.answer' and status = 'queued'
+                          and payload->>'conversation_id' in (:'q1', :'q2', '59000000-0000-4000-8000-0000000000e1')),
   'the jobs are marked as a retry');
 select pg_temp.assert((select max(run_after) - min(run_after) from app.jobs
-                        where kind = 'niva.answer' and status = 'queued' and payload->>'conversation_id' in (:'q1', '59000000-0000-4000-8000-0000000000e1'))
-                      = interval '2 seconds', 'the retries are spaced 2 seconds apart');
-select pg_temp.assert(pg_temp.jobs_of(:'q2'::uuid, 'queued') = 1
-                      and (select answer_status from app.niva_conversations where id = :'q2'::uuid) = 'paused',
-  'a question whose retry is already queued is skipped');
+                        where kind = 'niva.answer' and status = 'queued'
+                          and payload->>'conversation_id' in (:'q1', :'q2', '59000000-0000-4000-8000-0000000000e1'))
+                      = interval '4 seconds', 'the retries are spaced 2 seconds apart');
+select pg_temp.assert((select run_after < now() + interval '1 minute' and payload->>'deferrals' = '1'
+                         from app.jobs where kind = 'niva.answer' and status = 'queued' and payload->>'conversation_id' = :'q2'),
+  'Try all brings the paused question''s retry forward (an hour away before), keeping its deferral count');
+select pg_temp.assert(pg_temp.jobs_of('59000000-0000-4000-8000-0000000000e4'::uuid) = 1
+                      and (select answer_status from app.niva_conversations where id = '59000000-0000-4000-8000-0000000000e4') = 'unsure',
+  'a question whose job is running is left to it');
+select pg_temp.assert(pg_temp.jobs_of('59000000-0000-4000-8000-0000000000e5'::uuid) = 1
+                      and (select run_after > now() + interval '30 seconds' from app.jobs
+                            where kind = 'niva.answer' and payload->>'conversation_id' = '59000000-0000-4000-8000-0000000000e5')
+                      and (select answer_status from app.niva_conversations where id = '59000000-0000-4000-8000-0000000000e5') = 'failed',
+  'a question whose job is due within 5 minutes is on its way and left alone');
 select pg_temp.assert(pg_temp.jobs_of('59000000-0000-4000-8000-0000000000e2'::uuid) = 0, 'a question asked under 5 minutes ago is left alone');
 select pg_temp.assert(pg_temp.jobs_of('59000000-0000-4000-8000-0000000000e3'::uuid) = 0, 'an answered question is never retried');
 select pg_temp.assert((select count(*) from app.niva_conversations where center_id = :c3::uuid) = :c3_count, 'retrying adds no question');
@@ -467,19 +526,44 @@ select pg_temp.assert((select count(*) from app.content_items where kind = 'niva
 select pg_temp.assert(pg_get_functiondef('app.demo_community_community'::regproc)
                         like '%''demo-bylaws-summary'', ''Bylaws summary'', ''Membership tiers, voting and elections in brief. (Demo.)'', ''published''%',
   'the demo pack writes its Niva source as published');
+-- What the migration did to 'approved' rows, run here on fixtures: the demo pack's own rows (slug
+-- demo-…, in a center with a demo pack) are published; every other approved niva_source waits in the
+-- approval queue; other kinds are left alone.
+insert into app.center_demo_state (center_id, pack_key, status) values (:cb, 'community', 'loaded');
+insert into app.content_items (id, center_id, kind, slug, title, body_md, status) values
+  ('59000000-0000-4000-8000-0000000005a1', :cb, 'niva_source', 'demo-59-sample', 'Demo sample', 'Sample data.', 'approved'),
+  ('59000000-0000-4000-8000-0000000005a2', :cb, 'niva_source', 'web-59-approved', 'A real page', 'Real text.', 'approved'),
+  ('59000000-0000-4000-8000-0000000005a3', :c, 'niva_source', 'demo-59-not-a-demo-center', 'Named like a demo row', 'Real text.', 'approved'),
+  ('59000000-0000-4000-8000-0000000005a4', null, 'niva_source', 'demo-59-shared', 'A shared source', 'Shared text.', 'approved'),
+  ('59000000-0000-4000-8000-0000000005a5', :cb, 'faq', 'demo-59-faq', 'Not a Niva source', 'An FAQ.', 'approved');
+select app.niva_settle_approved_sources() as settle \gset
+select pg_temp.assert(:'settle'::jsonb = '{"published":1,"in_review":3}'::jsonb, 'settling reports one published and three sent for approval');
+select pg_temp.assert((select status = 'published' and published_at is not null from app.content_items where id = '59000000-0000-4000-8000-0000000005a1'),
+  'a demo pack''s approved Niva source becomes published');
+select pg_temp.assert((select bool_and(status = 'in_review') from app.content_items
+                        where id in ('59000000-0000-4000-8000-0000000005a2', '59000000-0000-4000-8000-0000000005a3', '59000000-0000-4000-8000-0000000005a4')),
+  'any other approved Niva source (a real page, a demo-named row outside a demo center, a shared one) waits for approval');
+select pg_temp.assert((select status from app.content_items where id = '59000000-0000-4000-8000-0000000005a5') = 'approved',
+  'other kinds of content are left alone');
+select pg_temp.assert((app.niva_settle_approved_sources()) = '{"published":0,"in_review":0}'::jsonb, 'settling again changes nothing');
+delete from app.content_items where id in ('59000000-0000-4000-8000-0000000005a1', '59000000-0000-4000-8000-0000000005a2',
+  '59000000-0000-4000-8000-0000000005a3', '59000000-0000-4000-8000-0000000005a4', '59000000-0000-4000-8000-0000000005a5');
+delete from app.center_demo_state where center_id = :cb;
 
 -- ── Grants and search paths ──────────────────────────────────────────────────
 select pg_temp.assert(has_function_privilege('authenticated', 'app.niva_retry_unanswered(uuid,interval,int)', 'execute')
                       and has_function_privilege('authenticated', 'app.niva_health(uuid)', 'execute')
                       and not has_function_privilege('anon', 'app.niva_retry_unanswered(uuid,interval,int)', 'execute')
                       and not has_function_privilege('anon', 'app.niva_health(uuid)', 'execute')
-                      and not has_function_privilege('authenticated', 'app.niva_scrub_text(text)', 'execute'),
-  'retry and health are for signed-in staff (checked inside), never anon; the scrub helper is internal');
-select pg_temp.assert((select count(distinct p.proname) = 9 and bool_and(p.prosecdef and exists (select 1 from unnest(p.proconfig) as g(setting)
+                      and not has_function_privilege('authenticated', 'app.niva_scrub_text(text)', 'execute')
+                      and not has_function_privilege('authenticated', 'app.niva_settle_approved_sources()', 'execute')
+                      and not has_function_privilege('connect_worker', 'app.niva_settle_approved_sources()', 'execute'),
+  'retry and health are for signed-in staff (checked inside), never anon; the scrub and settle helpers are internal');
+select pg_temp.assert((select count(distinct p.proname) = 10 and bool_and(p.prosecdef and exists (select 1 from unnest(p.proconfig) as g(setting)
                                                           where g.setting ~ '^search_path=app, *public, *extensions$'))
                          from pg_proc p
                         where p.pronamespace = 'app'::regnamespace
                           and p.proname in ('niva_ask','niva_regenerate','niva_worker_get_conversation','niva_worker_store_answer',
                                             'niva_worker_set_outcome','niva_retry_unanswered','niva_health','niva_outcome_backfill',
-                                            'niva_content_evidence')),
+                                            'niva_content_evidence','niva_settle_approved_sources')),
   'every Niva function is security definer with search_path app, public, extensions');

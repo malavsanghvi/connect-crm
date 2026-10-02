@@ -10,8 +10,12 @@
 --       attempted_at. Existing rows are filled in from their latest niva.answer job
 --       (app.niva_outcome_backfill, run once below).
 --   (2) niva_ask saves a question as 'pending' (same signature and the same 0531 monthly cap);
---       niva_regenerate sets 'pending' and does not queue a second job while one is queued or
---       running; niva_worker_store_answer records 'answered', the model and answered_at.
+--       niva_worker_store_answer records 'answered', the model and answered_at.
+--       niva_regenerate never queues a second job: while one is running or due it does nothing more;
+--       a job queued for later (a paused question waiting out the AI service's limit) is brought
+--       forward to now instead. A question with no answer goes back to 'pending'; one that still
+--       shows its answer stays 'answered' (what the member sees decides the status, so a job that
+--       ends without an outcome can never leave an answered question reading "waiting").
 --   (3) app.niva_worker_set_outcome(id, status, detail, clear_answer, retry_at)   connect_worker only
 --       Records why a question was not answered. clear_answer removes a stale answer only when none
 --       of the sources it cited is still published. retry_at (with 'paused') queues the question
@@ -19,8 +23,11 @@
 --       A conversation that still shows an answer keeps answer_status 'answered' (what the member
 --       sees decides the status); the attempt's detail and time are still recorded.
 --   (4) app.niva_retry_unanswered(center, since, limit)                           content.manage
---       Queues every unanswered question again (not pending, or pending for over 5 minutes, and no
---       job queued or running), 2 seconds apart. It adds no question, so it never counts against
+--       Queues every unanswered question again (not pending, or pending for over 5 minutes), 2
+--       seconds apart, at most 150 at a time (so a whole batch is due within 5 minutes). A question
+--       whose job is running, or queued and due within 5 minutes, is on its way and left alone; a
+--       job queued for later (a paused question's retry, possibly weeks away) is brought forward
+--       instead of a second one being queued. It adds no question, so it never counts against
 --       niva.monthly_questions. It also picks up questions inserted directly (the niva_insert policy,
 --       left in place) that never had a job.
 --   (5) app.niva_health(center)                                     content.draft or content.manage
@@ -28,22 +35,26 @@
 --       (scrubbed), which until now only settings or integrations staff could see. Returns
 --         { state, last_beat_at, age_seconds,            -- same rule as background_service_status (0171)
 --           module_on,
---           handler,                                    -- latest heartbeat's info.handlers."niva.answer"
+--           handler,                                    -- info.handlers."niva.answer" of the newest live worker
+--                                                       -- that runs niva.answer (else the newest heartbeat)
 --           jobs: { queued, running, failed_24h, done_24h, next_run_after,
 --                   last_error, last_error_at, last_error_status },   -- niva.answer jobs of this center
 --           month: { used, limit },                     -- questions this month vs niva.monthly_questions (null = no limit)
 --           outcomes_7d: { pending, answered, no_source, unsure, refused, paused, failed } }
 --   (6) niva_worker_get_conversation also returns created_at, answer_status, has_answer, center_name,
 --       time_zone, local_now (center-local 'YYYY-MM-DDTHH:MI:SS'), local_today ('Thursday, 1 October
---       2026') and recent: the same member's last 2 answered questions in this center from the 15
---       minutes before this one, oldest first ([{question, answer, created_at}]).
+--       2026'), asked_local and asked_today (the same two for when the member asked: a paused or
+--       retried question can be answered days later, and "today" in the question means the day it
+--       was asked), and recent: the same member's last 2 answered questions in this center from the
+--       15 minutes before this one, oldest first ([{question, answer, created_at}]).
 --   (7) niva_content_evidence (0300) fingerprints published sources only, so importing or editing
 --       drafts no longer flips go-live check 12 to "changed". The fingerprint changes once with
 --       this migration, so an existing 'Niva content' approval reads "changed" once and is
 --       approved again.
 --   (8) 'approved' is a dead status for a niva_source (Niva answers from 'published' only): the demo
 --       pack's own rows become 'published' (sample data) and the demo pack now writes 'published';
---       any other 'approved' niva_source goes to 'in_review', so a person approves it in the queue.
+--       any other 'approved' niva_source goes to 'in_review', so a person approves it in the queue
+--       (app.niva_settle_approved_sources, internal, run once below).
 --
 -- The applied migrations (0300, 0312, 0530, 0531, 0540, 0541) are untouched; their functions are
 -- replaced here with create or replace (same signatures, so their grants stay). The niva_insert
@@ -181,7 +192,7 @@ end $$;
 -- another member's rows.
 create or replace function app.niva_worker_get_conversation(p_id uuid)
 returns jsonb language plpgsql stable security definer set search_path = app, public, extensions as $$
-declare v app.niva_conversations; v_name text; v_tz text; v_local timestamp; v_recent jsonb;
+declare v app.niva_conversations; v_name text; v_tz text; v_local timestamp; v_asked timestamp; v_recent jsonb;
 begin
   perform app.assert_worker();
   select * into v from app.niva_conversations where id = p_id;
@@ -191,9 +202,11 @@ begin
   v_tz := coalesce(nullif(btrim(v_tz), ''), 'UTC');
   begin
     v_local := now() at time zone v_tz;
+    v_asked := v.created_at at time zone v_tz;
   exception when others then                -- a time zone Postgres does not know: fall back to UTC
     v_tz := 'UTC';
     v_local := now() at time zone 'UTC';
+    v_asked := v.created_at at time zone 'UTC';
   end;
 
   select coalesce(jsonb_agg(jsonb_build_object('question', r.question, 'answer', r.answer, 'created_at', r.created_at)
@@ -213,6 +226,8 @@ begin
     'center_name', v_name, 'time_zone', v_tz,
     'local_now', to_char(v_local, 'YYYY-MM-DD"T"HH24:MI:SS'),
     'local_today', to_char(v_local, 'FMDay, FMDD FMMonth YYYY'),
+    'asked_local', to_char(v_asked, 'YYYY-MM-DD"T"HH24:MI:SS'),
+    'asked_today', to_char(v_asked, 'FMDay, FMDD FMMonth YYYY'),
     'recent', v_recent);
 end $$;
 
@@ -313,12 +328,18 @@ end $$;
 
 -- ── (2) Staff: regenerate an answer ──────────────────────────────────────────
 -- content/niva "Regenerate" / "Try again" on one question. The existing answer (if any) stays
--- visible to the member until the job finishes. When a niva.answer job for this question is already
--- queued or running, nothing more is queued.
+-- visible to the member until the job finishes. Never a second job for the same question:
+--   * a job running now, or queued and already due: it is on its way; nothing changes;
+--   * a job queued for later (a paused question waiting out the AI service's limit, possibly until
+--     next month): it is brought forward to now and marked a regenerate, so "Try again" after the
+--     limit was raised really tries again;
+--   * no job: one is queued now.
+-- When something was queued or brought forward, a question with no answer reads 'pending'; one that
+-- still shows its answer stays 'answered' until the job replaces or clears it.
 create or replace function app.niva_regenerate(p_id uuid)
 returns app.niva_conversations
 language plpgsql security definer set search_path = app, public, extensions as $$
-declare v app.niva_conversations;
+declare v app.niva_conversations; v_job bigint; v_run_after timestamptz;
 begin
   select * into v from app.niva_conversations where id = p_id;
   if not found then raise exception 'That Niva question was not found.'; end if;
@@ -327,29 +348,50 @@ begin
   end if;
   -- Lock the question first, so two presses at once cannot both queue it.
   select * into v from app.niva_conversations where id = p_id for update;
-  if exists (select 1 from app.jobs j where j.kind = 'niva.answer' and j.status in ('queued','running')
+  if exists (select 1 from app.jobs j where j.kind = 'niva.answer' and j.status = 'running'
                and j.payload->>'conversation_id' = p_id::text) then
     return v;
   end if;
-  update app.niva_conversations set answer_status = 'pending', outcome_detail = null where id = p_id
+  select j.id, j.run_after into v_job, v_run_after
+    from app.jobs j
+   where j.kind = 'niva.answer' and j.status = 'queued' and j.payload->>'conversation_id' = p_id::text
+   order by j.id desc
+   limit 1;
+  if v_job is not null then
+    if v_run_after <= now() then return v; end if;
+    update app.jobs set run_after = now(), payload = payload || '{"regenerate": true}'::jsonb
+     where id = v_job and status = 'queued';
+    if not found then return v; end if;     -- the worker took it in the meantime: it is running now
+  else
+    perform app.enqueue_job(v.center_id, 'niva.answer', jsonb_build_object('conversation_id', v.id, 'regenerate', true), now(), 3);
+  end if;
+  update app.niva_conversations
+     set answer_status = case when answer is null then 'pending' else 'answered' end, outcome_detail = null
+   where id = p_id
   returning * into v;
-  perform app.enqueue_job(v.center_id, 'niva.answer', jsonb_build_object('conversation_id', v.id, 'regenerate', true), now(), 3);
   return v;
 end $$;
 
 -- ── (4) Staff: try every unanswered question again ───────────────────────────
--- For Content › Niva "Try all unanswered questions again". Picks this center's questions from the
--- last p_since that have no answer, are not waiting for a first try (pending for under 5 minutes),
--- and have no niva.answer job queued or running. They go back to 'pending' and are queued 2 seconds
--- apart. No question is added, so this never counts toward niva.monthly_questions. Returns how many
--- were queued.
+-- For Content › Niva "Try all unanswered questions again", and after a source is published. Picks
+-- this center's questions from the last p_since that have no answer and are not waiting for a first
+-- try (pending for under 5 minutes). A question whose niva.answer job is running, or queued and due
+-- within 5 minutes, is on its way and left alone. A job queued for later than that (a paused
+-- question's retry, which can be weeks away when the AI service's monthly limit was hit) is brought
+-- forward; otherwise a job is queued. They go back to 'pending', 2 seconds apart, at most 150 at a
+-- time (150 x 2 s is under the 5 minutes, so pressing it again soon after queues nothing twice).
+-- No question is added, so this never counts toward niva.monthly_questions. Returns how many were
+-- queued or brought forward.
 create or replace function app.niva_retry_unanswered(p_center uuid, p_since interval default interval '30 days', p_limit int default 100)
 returns integer
 language plpgsql security definer set search_path = app, public, extensions as $$
 declare
   v_since interval := coalesce(p_since, interval '30 days');
-  v_limit int := least(greatest(coalesce(p_limit, 100), 1), 500);
+  v_limit int := least(greatest(coalesce(p_limit, 100), 1), 150);
+  v_soon timestamptz := now() + interval '5 minutes';
   v_id uuid;
+  v_job bigint;
+  v_at timestamptz;
   v_n int := 0;
 begin
   if auth.uid() is null then raise exception 'Sign in first.' using errcode = 'insufficient_privilege'; end if;
@@ -370,18 +412,30 @@ begin
      where c.center_id = p_center and c.answer is null
        and c.created_at >= now() - v_since
        and (c.answer_status <> 'pending' or c.created_at < now() - interval '5 minutes')
-       and not exists (select 1 from app.jobs j where j.kind = 'niva.answer' and j.status in ('queued','running')
-                         and j.payload->>'conversation_id' = c.id::text)
+       and not exists (select 1 from app.jobs j where j.kind = 'niva.answer' and j.payload->>'conversation_id' = c.id::text
+                         and (j.status = 'running' or (j.status = 'queued' and j.run_after <= v_soon)))
      order by c.created_at, c.id
      limit v_limit
      for update of c skip locked              -- a question being regenerated right now is left to that
   loop
     -- Checked again now that the row is locked: a regenerate may have queued it in the meantime.
-    continue when exists (select 1 from app.jobs j where j.kind = 'niva.answer' and j.status in ('queued','running')
-                            and j.payload->>'conversation_id' = v_id::text);
+    continue when exists (select 1 from app.jobs j where j.kind = 'niva.answer' and j.payload->>'conversation_id' = v_id::text
+                            and (j.status = 'running' or (j.status = 'queued' and j.run_after <= v_soon)));
+    v_at := now() + (v_n * interval '2 seconds');
+    select j.id into v_job
+      from app.jobs j
+     where j.kind = 'niva.answer' and j.status = 'queued' and j.payload->>'conversation_id' = v_id::text
+     order by j.id desc
+     limit 1;
+    if v_job is not null then
+      -- A retry queued for later: bring it forward (its payload, deferrals included, is kept).
+      update app.jobs set run_after = v_at, payload = payload || '{"retry": true}'::jsonb
+       where id = v_job and status = 'queued';
+      continue when not found;               -- the worker took it in the meantime: it is on its way
+    else
+      perform app.enqueue_job(p_center, 'niva.answer', jsonb_build_object('conversation_id', v_id, 'retry', true), v_at, 3);
+    end if;
     update app.niva_conversations set answer_status = 'pending', outcome_detail = null where id = v_id;
-    perform app.enqueue_job(p_center, 'niva.answer', jsonb_build_object('conversation_id', v_id, 'retry', true),
-                            now() + (v_n * interval '2 seconds'), 3);
     v_n := v_n + 1;
   end loop;
   return v_n;
@@ -408,9 +462,12 @@ begin
   v_state := case when v_last is null then 'not_configured'
                   when v_live > 0 then 'running'
                   else 'stopped' end;
+  -- What niva.answer reports: from the newest live worker that runs it; with none, the newest heartbeat
+  -- (a stopped worker, or one that does not run niva.answer, must not hide a live one that does).
   select h.info->'handlers'->'niva.answer' into v_handler
     from app.worker_heartbeats h
-   order by h.beat_at desc
+   order by (h.stopped_at is null and h.beat_at >= now() - app.worker_stale_after() and 'niva.answer' = any (h.kinds)) desc,
+            h.beat_at desc
    limit 1;
 
   -- This center's niva.answer jobs.
@@ -474,17 +531,24 @@ $$;
 -- ── (8) 'approved' niva_source rows ──────────────────────────────────────────
 -- The demo pack's own rows are sample data: they become 'published', as the demo pack now writes
 -- them (below). Any other 'approved' niva_source goes to the approval queue, so a person decides.
-do $$
+-- Internal: run once by this migration (and by the DB test). Returns {published, in_review}.
+create or replace function app.niva_settle_approved_sources() returns jsonb
+language plpgsql security definer set search_path = app, public, extensions as $$
+declare v_pub int; v_rev int;
 begin
   perform app.set_audit_context('Niva answers from published sources only; "approved" sources become published (demo pack) or wait in the approval queue (0572)');
   update app.content_items c
      set status = 'published', published_at = coalesce(c.published_at, now())
    where c.kind = 'niva_source' and c.status = 'approved' and c.slug like 'demo-%'
      and c.center_id in (select d.center_id from app.center_demo_state d where d.pack_key is not null);
+  get diagnostics v_pub = row_count;
   update app.content_items c
      set status = 'in_review'
    where c.kind = 'niva_source' and c.status = 'approved';
+  get diagnostics v_rev = row_count;
+  return jsonb_build_object('published', v_pub, 'in_review', v_rev);
 end $$;
+select app.niva_settle_approved_sources();
 
 -- The demo pack's step 9 (0312), unchanged except: its niva_source is written 'published', and
 -- its sample questions carry their answer_status.
@@ -608,7 +672,7 @@ select app.niva_outcome_backfill();
 -- ── Grants ───────────────────────────────────────────────────────────────────
 -- niva_ask, niva_regenerate, niva_worker_get_conversation, niva_worker_store_answer,
 -- niva_content_evidence and demo_community_community keep their grants (same signatures).
-revoke execute on function app.niva_scrub_text(text), app.niva_outcome_backfill(uuid),
+revoke execute on function app.niva_scrub_text(text), app.niva_outcome_backfill(uuid), app.niva_settle_approved_sources(),
   app.niva_worker_set_outcome(uuid, text, text, boolean, timestamptz),
   app.niva_retry_unanswered(uuid, interval, int), app.niva_health(uuid)
   from public, anon, authenticated, service_role;
