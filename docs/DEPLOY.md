@@ -161,6 +161,21 @@ passes through the repository, the deploy log or a chat.
    background service "Running" with its last heartbeat, and the readiness check
    "Background service running" passes.
 
+**What it reports.** Each heartbeat lists, per job kind, whether it is configured. The kinds that
+call Anthropic (`niva.answer`, `import.suggest_mapping`, `qbo.match_suggest_ai`) also carry what
+the last Anthropic calls got (`info.handlers.<kind>.ai`: working, paused by the spending limit and
+until when, key refused, model or beta not available, unreachable) and whether
+`ANTHROPIC_API_KEY` comes from Platform › Setup or the environment. Settings › Integrations shows
+it as "AI service (Anthropic)", for example "Niva paused: AI spending limit until …", or "No AI
+key" when neither has one. A busy moment the Anthropic client's own retry gets past is not
+reported (only what each call finally got), so the heartbeat stays the same while calls work. It
+is kept in memory, so it starts as "Not used yet" after every restart.
+
+**Slots.** It runs up to `WORKER_CONCURRENCY` jobs at once (default 4). One slot is kept for
+`niva.answer`, which is claimed first, so a long photo-album or QuickBooks import cannot keep a
+member waiting for an answer; the other kinds share the rest. While there is no Anthropic key
+(Niva cannot run) no slot is kept, and saving one in Platform › Setup brings it back.
+
 The connection is encrypted (TLS). To also verify the server certificate, download
 the certificate from Supabase › Project Settings › Database › SSL Configuration
 and paste its full text into the repository **variable** `WORKER_DATABASE_CA`
@@ -182,7 +197,8 @@ All optional. A handler whose settings are missing reports "not configured"
 | `WORKER_SUPABASE_SECRET_KEY` | storage retention (see the note below) |
 
 `CLAUDE_MODEL` (a repository **variable**, not a secret) changes the Claude model Niva answers
-with. Leave it unset to use the default in `worker/src/anthropic.ts` (`claude-opus-5-5`). Set it
+with, and the one the import-mapping and donor-matching suggestions and the setup wizard's AI Test
+use. Leave it unset to use the default in `worker/src/anthropic.ts` (`claude-opus-5-5`). Set it
 only if the Anthropic account cannot use that model: Niva then marks questions failed with "The
 AI model Niva uses (…) is not available to this Anthropic account". The value reaches the
 background service on the next deploy (any push to `main`, or run **Deploy** by hand). Editing
@@ -473,4 +489,7 @@ domain and the organizations' wildcard domain — can be entered there instead o
   Supabase Auth hooks on (Supabase › Authentication › Hooks, after the secret is saved).
 - The wizard's Test button queues `platform.test_provider`: the background service calls the
   provider with the keys it will really use, and for email adds Community Connect's sending
-  domain to Resend/Postmark and lists the DNS records to create.
+  domain to Resend/Postmark and lists the DNS records to create. For AI it sends one real
+  one-token message with the model and beta Niva uses, so a key that is valid but blocked by the
+  account's spending limit (or an account without the model) fails the Test; a passing Test also
+  clears "Niva paused" in Settings › Integrations on the next heartbeat.
