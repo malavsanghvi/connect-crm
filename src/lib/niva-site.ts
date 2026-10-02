@@ -10,6 +10,12 @@
 /** app.niva_import_pages takes at most 50 addresses per call. */
 export const IMPORT_BATCH = 50;
 
+/**
+ * app.niva_discover_site lets a new search start once the last one was queued this long ago and never finished
+ * (the background service was down); the screen stops waiting for it at the same point.
+ */
+export const DISCOVERY_STALE_MS = 15 * 60_000;
+
 export type SiteJob = {
   id: number;
   url: string;
@@ -31,6 +37,11 @@ export type SitePage = {
   included: number;
   /** In review or published sections whose text the page has changed since (metadata.page_changed). */
   changed: number;
+  /** In review or published sections the page no longer has (metadata.orphaned): Niva may still answer from them. */
+  orphaned: number;
+  /** Up to 5 titles of each, to find them under Sources. */
+  changedTitles: string[];
+  orphanedTitles: string[];
   importedAt: string | null;
   importStatus: string | null;
   importError: string | null;
@@ -47,6 +58,9 @@ function str(v: unknown): string | null {
 function num(v: unknown): number {
   const n = typeof v === "number" ? v : typeof v === "string" ? Number(v) : NaN;
   return Number.isFinite(n) ? n : 0;
+}
+function strs(v: unknown): string[] {
+  return Array.isArray(v) ? v.filter((x): x is string => typeof x === "string" && x !== "") : [];
 }
 
 /** app.niva_discovery_status's answer, or null when it is not the shape this screen expects. */
@@ -79,6 +93,9 @@ export function parseDiscoveryStatus(data: unknown): DiscoveryStatus | null {
       sections: num(p.sections),
       included: num(p.included),
       changed: num(p.changed),
+      orphaned: num(p.orphaned),
+      changedTitles: strs(p.changed_titles),
+      orphanedTitles: strs(p.orphaned_titles),
       importedAt: str(p.imported_at),
       importStatus: str(p.import_status),
       importError: str(p.import_error),
@@ -87,16 +104,35 @@ export function parseDiscoveryStatus(data: unknown): DiscoveryStatus | null {
   return { job, pages };
 }
 
+/**
+ * A search that was queued more than 15 minutes ago and is still not finished: the background service never got
+ * to it (or stopped). The database lets a new search start then, so the screen does too.
+ */
+export function discoveryStale(job: SiteJob | null, now: Date = new Date()): boolean {
+  if (job === null || (job.status !== "queued" && job.status !== "running") || !job.createdAt) return false;
+  const created = Date.parse(job.createdAt);
+  return Number.isFinite(created) && now.getTime() - created >= DISCOVERY_STALE_MS;
+}
+
 /** Whether the latest search is still on its way (the screen keeps checking). */
-export function discoveryBusy(job: SiteJob | null): boolean {
-  return job !== null && (job.status === "queued" || job.status === "running");
+export function discoveryBusy(job: SiteJob | null, now: Date = new Date()): boolean {
+  return job !== null && (job.status === "queued" || job.status === "running") && !discoveryStale(job, now);
 }
 
 const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 
 /** The latest search, in plain English. */
-export function discoveryJobLine(job: SiteJob | null): { tone: "ok" | "warn" | "bad"; label: string; detail: string } | null {
+export function discoveryJobLine(job: SiteJob | null, now: Date = new Date()): { tone: "ok" | "warn" | "bad"; label: string; detail: string } | null {
   if (!job) return null;
+  if (discoveryStale(job, now)) {
+    return job.status === "queued" && job.attempts === 0
+      ? {
+          tone: "bad",
+          label: "Not started",
+          detail: `The background service has not picked up the search for ${job.url}. Ask an administrator to check Settings › Integrations › Background service, then press Find pages again.`,
+        }
+      : { tone: "bad", label: "Did not finish", detail: `The search for ${job.url} has not finished after 15 minutes. Press Find pages to start it again.` };
+  }
   if (job.status === "running") return { tone: "warn", label: "Looking…", detail: `Reading ${job.url}'s sitemap.` };
   if (job.status === "queued" && job.attempts > 0) {
     return { tone: "warn", label: "Will try again", detail: job.lastError ?? "The last try did not finish; the background service tries again shortly." };
@@ -111,6 +147,18 @@ export function discoveryJobLine(job: SiteJob | null): { tone: "ok" | "warn" | "
     if (r.truncated === true) parts.push("the sitemap lists more; the first 500 are shown");
     const removed = num(r.removed);
     if (removed > 0) parts.push(`${plural(removed, "page")} the sitemap no longer lists left the list`);
+    // An incomplete search (worker niva.discover_site): say what is missing, and that nothing was taken off the list.
+    const unreadable = num(r.unreadable);
+    const tooBig = num(r.too_big);
+    const missing: string[] = [];
+    if (unreadable > 0) missing.push(`${plural(unreadable, "sitemap")} could not be read right now`);
+    if (r.stopped === true) missing.push("Niva stopped after reading as many sitemaps as one search may");
+    if (tooBig > 0) missing.push(`${plural(tooBig, "sitemap")} larger than 5 MB ${tooBig === 1 ? "was" : "were"} not read`);
+    if (missing.length > 0) {
+      const kept = r.complete === false ? " Pages already on the list were kept." : "";
+      const again = unreadable > 0 ? " Press Find pages again later to complete the list." : "";
+      return { tone: "warn", label: "Done, list incomplete", detail: `${parts.join(" · ")} · ${missing.join(" · ")}. Some pages may be missing.${kept}${again}` };
+    }
     return { tone: "ok", label: "Done", detail: parts.join(" · ") };
   }
   return { tone: "warn", label: job.status, detail: "" };
@@ -122,9 +170,34 @@ export function sitePageLine(p: SitePage): { tone: "ok" | "warn" | "bad" | "mute
   if (p.importStatus === "queued") return p.importError ? { tone: "warn", label: "Will try again", detail: p.importError } : { tone: "warn", label: "Import waiting" };
   if (p.importStatus === "failed") return { tone: "bad", label: "Could not import", detail: p.importError ?? undefined };
   if (p.sections === 0) return { tone: "muted", label: "Not imported" };
-  if (p.changed > 0) return { tone: "warn", label: `${plural(p.changed, "approved section")} changed on the page`, detail: "Check them in the Sources list or the Approval queue." };
+  // Sections in review or published keep their text when the page changes; a person decides. Name them, and say
+  // where to act: open the page to compare, then edit (or retire) the section under Sources.
+  if (p.changed > 0 || p.orphaned > 0) {
+    const labels: string[] = [];
+    const named: string[] = [];
+    if (p.changed > 0) {
+      labels.push(`${plural(p.changed, "section")} in review or published ${p.changed === 1 ? "differs" : "differ"} from the page now`);
+      named.push(`Changed: ${titleList(p.changedTitles, p.changed)}.`);
+    }
+    if (p.orphaned > 0) {
+      labels.push(`${plural(p.orphaned, "section")} in review or published ${p.orphaned === 1 ? "is" : "are"} no longer on the page`);
+      named.push(`No longer on the page: ${titleList(p.orphanedTitles, p.orphaned)}.`);
+    }
+    return {
+      tone: "warn",
+      label: labels.join(" · "),
+      detail: `${named.join(" ")} Niva still answers from their approved text. Open the page to compare, then edit or retire them under Sources.`,
+    };
+  }
   if (p.included > 0) return { tone: "ok", label: `${p.included} of ${plural(p.sections, "section")} included` };
   return { tone: "muted", label: `${plural(p.sections, "section")}, none included yet` };
+}
+
+/** "“A”, “B” and 3 more": the titles the status sends (at most 5) and how many there are in all. */
+function titleList(titles: readonly string[], count: number): string {
+  if (titles.length === 0) return plural(count, "section");
+  const shown = titles.map((t) => `“${t}”`).join(", ");
+  return count > titles.length ? `${shown} and ${count - titles.length} more` : shown;
 }
 
 /**

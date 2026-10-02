@@ -14,9 +14,10 @@
 export type Block = { text: string; heading: boolean; list: boolean };
 export type PageText = { title: string; blocks: Block[] };
 /**
- * title: "<page title>: <heading>" (what staff and Niva see). heading: the section's own heading (or its first
- * line), without the page title: app.niva_worker_save_import (0576) finds a section again by page + heading, so a
- * changed page title or a heading added above does not move text between sections.
+ * title: "<page title>: <heading>" (what staff and Niva see). heading: the section's own heading, without the page
+ * title; a section split off for size has none, so it is the heading it continues with its part number ("Dues
+ * (part 2)"). app.niva_worker_save_import (0576) finds a section again by page + heading, so a changed page title,
+ * a heading added above or text added above a split does not move text between sections.
  */
 export type Section = { title: string; body: string; heading: string };
 export type Sections = { pageTitle: string; sections: Section[]; truncated: boolean; chars: number };
@@ -31,7 +32,8 @@ const HEADING = /^h[1-6]$/;
 
 // Collapsed panels: an accordion or tab panel is hidden until a visitor opens it, but its text is the page's content.
 const PANEL_ROLE = /\brole\s*=\s*["']?(?:tabpanel|region)\b/i;
-const PANEL_WORDS = /accordion|collaps|tab-?pane|tabpanel|tab-?content|faq|answer|disclosure|expand|toggle/i;
+// Not "toggle" or "expand": those name menus and pop-ups ("mobile-menu-toggle", "expand-popup") as often as panels.
+const PANEL_WORDS = /accordion|collaps|tab-?pane|tabpanel|tab-?content|faq|answer|disclosure/i;
 const CONTAINER_WORDS = /accordion|collaps|faq|disclosure|\btabs?\b|tabset|tab-?content/i;
 
 /** class, id and data-hook / data-testid values (Wix names its FAQ parts in data-hook). */
@@ -247,6 +249,11 @@ export function sectionize(page: PageText): Sections {
   }
 
   let chars = 0;
+  // A section split off for size has no heading of its own. Its key is the heading it continues plus its part
+  // number ("Dues (part 2)"; the page's name before the first heading), never its first line: an edit above the
+  // split moves that line into another section, and the section would come back as a new one.
+  let lastHead: string | null = null;
+  let part = 0;
   const sections: Section[] = groups.map((g) => {
     let body = "";
     g.lines.forEach((b, i) => {
@@ -255,8 +262,17 @@ export function sectionize(page: PageText): Sections {
     });
     const label = shorten(g.head ?? g.lines[0]!.text, 90);
     const title = label.toLowerCase() === pageTitle.toLowerCase() || label.toLowerCase().startsWith(pageTitle.toLowerCase()) ? label : `${pageTitle}: ${label}`;
+    let heading: string;
+    if (g.head !== null) {
+      lastHead = label;
+      part = 1;
+      heading = label;
+    } else {
+      part += 1;
+      heading = lastHead === null && part === 1 ? pageTitle : `${lastHead ?? pageTitle} (part ${part})`;
+    }
     chars += body.length;
-    return { title: shorten(title, 200), body, heading: label };
+    return { title: shorten(title, 200), body, heading };
   });
   const truncated = sections.length > MAX_SECTIONS;
   return { pageTitle, sections: sections.slice(0, MAX_SECTIONS), truncated, chars };

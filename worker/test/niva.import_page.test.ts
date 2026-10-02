@@ -121,6 +121,33 @@ describe("htmlToBlocks / sectionize", () => {
       ["Membership: Voting", "Voting"],
     ]);
   });
+  it("keys a section split off for size on the heading it continues and its part, not its first line", () => {
+    const filler = "This sentence is here to give the answer some length. ".repeat(10).trim();
+    const page = (extra: string) => {
+      let html = `<main><h1>Big FAQ</h1>${extra}`;
+      for (let i = 1; i <= 12; i++) html += `<p>Question number ${i}?</p><p>${filler} Answer ${i}.</p>`;
+      return sectionize(htmlToBlocks(html + "<h2>Contact</h2><p>Write to the office.</p></main>"));
+    };
+    const before = page("");
+    expect(before.sections.length).toBeGreaterThan(2);
+    // The title still names the question that opens the part (what staff see); the key does not depend on it.
+    expect(before.sections[1]!.title).toMatch(/^Big FAQ: Question number \d+\?$/);
+    expect(before.sections.map((x) => x.heading)).toEqual(["Big FAQ", ...before.sections.slice(1, -1).map((_, i) => `Big FAQ (part ${i + 2})`), "Contact"]);
+    // A new question near the top moves which question opens each part; the parts keep their keys.
+    const after = page(`<p>A new first question?</p><p>${filler} A new answer.</p>`);
+    expect(after.sections[1]!.title).not.toBe(before.sections[1]!.title);
+    expect(after.sections[1]!.heading).toBe("Big FAQ (part 2)");
+    // Text before the first heading is keyed on the page's name.
+    const lead = sectionize(htmlToBlocks(`<title>Parking</title><main><p>${"Park in the north lot. ".repeat(30)}</p><h2>Shoes</h2><p>${"Leave shoes at the door. ".repeat(30)}</p></main>`));
+    expect(lead.sections.map((x) => x.heading)).toEqual(["Parking", "Shoes"]);
+  });
+  it("does not take a hidden menu toggle or pop-up for a collapsed panel", () => {
+    const html = `<main><h2>About</h2><p>We are a community.</p>
+      <div class="mobile-menu-toggle" style="display:none"><p>Home / Donate / Contact Us Today</p></div>
+      <div class="modal expand-popup" hidden><p>Sign up for our newsletter</p></div></main>`;
+    const text = htmlToBlocks(html).blocks.map((b) => b.text).join(" | ");
+    expect(text).toBe("About | We are a community.");
+  });
   it("yields no sections for a page with no text", () => {
     expect(sectionize(htmlToBlocks("<html><body><div id='root'></div><script>render()</script></body></html>")).sections).toEqual([]);
   });

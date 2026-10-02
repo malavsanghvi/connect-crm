@@ -68,11 +68,15 @@ export function DiscoverSitePages({ timeZone, defaultUrl = "" }: { timeZone: str
   const [importing, setImporting] = useState<string | null>(null);
   const [polls, setPolls] = useState(0);
   const [loaded, setLoaded] = useState(false);
+  // When the status was last read: a search queued 15 minutes before that and never finished is stale (the
+  // background service did not run it), and the screen stops waiting for it.
+  const [readAt, setReadAt] = useState(0);
   const listFor = useRef<string | null>(null);
   const urlTouched = useRef(false);
 
   const apply = useCallback((s: DiscoveryStatus) => {
     setStatus(s);
+    setReadAt(Date.now());
     // A new list (a search that finished) resets the ticks; a refresh of the same list keeps what staff ticked.
     const key = s.job ? `${s.job.id}:${s.job.status}:${s.pages.length}` : `none:${s.pages.length}`;
     if (key !== listFor.current && !discoveryBusy(s.job)) {
@@ -101,7 +105,8 @@ export function DiscoverSitePages({ timeZone, defaultUrl = "" }: { timeZone: str
 
   // Load the list once, then keep checking while a search, or an import of a listed page, is on its way.
   const pages = status?.pages ?? [];
-  const working = discoveryBusy(status?.job ?? null) || pages.some((p) => p.importStatus === "queued" || p.importStatus === "running");
+  const now = new Date(readAt);
+  const working = discoveryBusy(status?.job ?? null, now) || pages.some((p) => p.importStatus === "queued" || p.importStatus === "running");
   useEffect(() => {
     const first = !loaded;
     if (!first && (!working || polls >= MAX_POLLS)) return;
@@ -191,8 +196,9 @@ export function DiscoverSitePages({ timeZone, defaultUrl = "" }: { timeZone: str
   }
 
   const job = status?.job ?? null;
-  const jobLine = discoveryJobLine(job);
-  const busy = finding || discoveryBusy(job);
+  const jobLine = discoveryJobLine(job, now);
+  const searching = discoveryBusy(job, now);
+  const busy = finding || searching;
   const tickedCount = pages.filter((p) => ticked.has(p.url)).length;
   const allTicked = pages.length > 0 && tickedCount === pages.length;
   const toggle = (u: string) =>
@@ -228,7 +234,7 @@ export function DiscoverSitePages({ timeZone, defaultUrl = "" }: { timeZone: str
             className="crm-input min-w-0 flex-1 font-mono text-[13px]"
           />
           <button type="submit" className={buttonClass("primary")} disabled={busy}>
-            {finding ? "Asking…" : discoveryBusy(job) ? "Looking…" : "Find pages"}
+            {finding ? "Asking…" : searching ? "Looking…" : "Find pages"}
           </button>
         </div>
       </form>
@@ -259,7 +265,7 @@ export function DiscoverSitePages({ timeZone, defaultUrl = "" }: { timeZone: str
         <div className="mt-4 flex flex-col gap-2">
           <div className="flex flex-wrap items-center gap-2">
             <p className="min-w-0 flex-1 text-[13px] text-muted">
-              {pages.length} page{pages.length === 1 ? "" : "s"} · {tickedCount} ticked. Copies, old versions, members-only, legal and event pages start unticked; pages Niva already has start unticked too (importing one again refreshes its drafts and flags approved sections the page has changed).
+              {pages.length} page{pages.length === 1 ? "" : "s"} · {tickedCount} ticked. Copies, old versions, members-only, legal and event pages start unticked; pages Niva already has start unticked too. Importing one again refreshes its drafts and removes drafts the page no longer has; a section in review or published keeps its text and is flagged here when the page changed it or dropped it.
             </p>
             <button type="button" className={buttonClass("primary", "sm")} disabled={tickedCount === 0 || importing !== null} onClick={() => void importTicked()}>
               {importing ?? `Import ${tickedCount} ticked page${tickedCount === 1 ? "" : "s"}`}

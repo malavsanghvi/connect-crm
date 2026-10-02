@@ -26,8 +26,8 @@ export function ImportPagesForm() {
       />
       <p id="niva-import-urls-hint" className="mt-1 text-[12px] text-muted">
         example.org/faq, www.example.org/faq/ and the same address with tracking tags (utm_…) are one page, imported once. Importing a page again
-        refreshes its drafts; a section already sent for approval or approved keeps its text and is flagged when the page now says something else
-        or no longer has it.
+        refreshes its drafts and removes drafts the page no longer has. A section already sent for approval or published is never changed by an
+        import: when the page now says something else, edit the section yourself.
       </p>
     </ActionForm>
   );

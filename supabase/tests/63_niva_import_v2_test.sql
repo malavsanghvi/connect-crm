@@ -1,11 +1,13 @@
 -- 0576: Niva web import v2. One way to write a page's address (the apex and www forms are one page, and one job);
 -- the final address is saved and earlier forms of it are found again; a section is found by its heading, not its
 -- place on the page, and keeps its slug; a section in review, approved or published is never overwritten, but
--- flagged when the page now says something else (and unflagged when it goes back); sections the page no longer has
--- are deleted when they are drafts and flagged when they are not; a retired section is left alone; a re-import that
--- finds nothing new does not touch a published row. Discovery: content staff queue a search for a site's pages, the
--- worker saves the sitemap's list (same site only, once per page), content staff of that community alone read it,
--- and the status shows what Niva already has from each page.
+-- flagged when the page now says something else (and unflagged when it goes back, or when a person takes the page's
+-- text); sections the page no longer has are deleted when they are drafts and flagged when they are not; a retired
+-- section is left alone; a re-import that finds nothing new does not touch a published row, and no flag gives a
+-- published row a new updated_at or changes go-live check 12's evidence. Discovery: content staff queue a search for
+-- a site's pages, the worker saves the sitemap's list (same site only, once per page; nothing removed when the search
+-- was incomplete; a date-only lastmod in the community's zone), content staff of that community alone read it, and
+-- the status shows what Niva already has from each page and names the sections flagged.
 \set ON_ERROR_STOP 1
 create or replace function pg_temp.assert(cond boolean, label text) returns void language plpgsql as $$
 begin
@@ -39,12 +41,12 @@ begin
   reset role;
   return r;
 end $$;
-create or replace function pg_temp.discover(p_center uuid, p_root text, p_pages jsonb)
+create or replace function pg_temp.discover(p_center uuid, p_root text, p_pages jsonb, p_complete boolean default true)
 returns jsonb language plpgsql as $$
 declare r jsonb;
 begin
   set local role connect_worker;
-  r := app.niva_worker_save_discovery(p_center, p_root, p_pages);
+  r := app.niva_worker_save_discovery(p_center, p_root, p_pages, p_complete);
   reset role;
   return r;
 end $$;
@@ -132,9 +134,12 @@ select pg_temp.assert((:'r1'::jsonb->>'created')::int = 1 and (:'r1'::jsonb->>'u
   'counts: the new heading is created, the draft refreshed, the published section kept, the www duplicate removed');
 select pg_temp.assert((select count(*) from app.content_items where center_id = :c::uuid and title = 'Relocation FAQs: The new facility') = 1,
   'normalisation dedupes the apex and www imports of one page: the duplicate draft is gone, the published section stays');
-select pg_temp.assert((pg_temp.sec(:c::uuid, 'Relocation FAQs: The new facility')).id = :'facility_id'::uuid
-                      and (pg_temp.sec(:c::uuid, 'Relocation FAQs: The new facility')).updated_at = :'facility_touched'::timestamptz,
-  'the published section is found again by its title and not written at all (its text matches the page)');
+select pg_temp.assert((select id = :'facility_id'::uuid and body_md = 'The new facility has 13 pathshala rooms.' and status = 'published'
+                              and updated_at = :'facility_touched'::timestamptz
+                              and metadata->>'source_url' = 'https://example.org/relocation' and metadata->>'page_key' = 'example.org/relocation'
+                              and metadata ? 'section_key' and metadata->>'body_hash' = md5(body_md)
+                         from app.content_items where id = :'facility_id'::uuid),
+  'the published section is found again by its title; its text, its cited address and updated_at stay, and it takes its page key and key once');
 select pg_temp.assert((pg_temp.sec(:c::uuid, 'Relocation FAQs: Donating')).id = :'donating_id'::uuid
                       and (pg_temp.sec(:c::uuid, 'Relocation FAQs: Donating')).slug = :'donating_slug'
                       and (pg_temp.sec(:c::uuid, 'Relocation FAQs: Donating')).body_md like '%ask your CPA%',
@@ -179,9 +184,11 @@ select pg_temp.assert((select body_md = 'The new facility has 13 pathshala rooms
                               and metadata ? 'page_changed_at' and metadata->>'section_key' is not null
                          from app.content_items where id = :'facility_id'::uuid),
   'the published section still says what was approved, and carries the page''s new text for a person to decide');
-select updated_at as flagged_at from app.content_items where id = :'facility_id'::uuid \gset
+select pg_temp.assert((select updated_at from app.content_items where id = :'facility_id'::uuid) = :'facility_touched'::timestamptz,
+  'flagging a published section leaves its updated_at alone (the date Niva is shown and go-live check 12 read it)');
+select xmin::text as flagged_xmin from app.content_items where id = :'facility_id'::uuid \gset
 select pg_temp.save(:c::uuid, 'https://www.example.org/relocation', :changed_page::jsonb) as r5 \gset
-select pg_temp.assert((:'r5'::jsonb->>'changed')::int = 1 and (select updated_at from app.content_items where id = :'facility_id'::uuid) = :'flagged_at'::timestamptz,
+select pg_temp.assert((:'r5'::jsonb->>'changed')::int = 1 and (select xmin::text from app.content_items where id = :'facility_id'::uuid) = :'flagged_xmin',
   'importing the same changed page again keeps the flag without writing the published row again');
 begin;
 set local role connect_worker;
@@ -237,6 +244,65 @@ select pg_temp.assert((select status = 'in_review' and body_md = 'Park in the no
                               and metadata->>'page_key' = 'example.org/parking' and metadata ? 'section_key' and metadata->>'body_hash' = md5(body_md)
                          from app.content_items where id = :'parking_id'::uuid),
   'and takes the final address and its key, so the approval queue shows the page''s sections under one address');
+
+-- ── A person takes the page's new text; flags never move go-live check 12 ─────
+create or replace function pg_temp.timings_new() returns jsonb language sql as $$
+  select jsonb_build_array(
+    jsonb_build_object('title', 'Timings: Derasar', 'heading', 'Derasar', 'body', E'Open 6 am to 9 pm.\n\nClosed on Mondays.'),
+    jsonb_build_object('title', 'Timings: Office', 'heading', 'Office', 'body', 'Office hours are 10 am to 2 pm.'))
+$$;
+select pg_temp.save(:c::uuid, 'https://www.example.org/timings', '[
+  {"title":"Timings: Derasar","heading":"Derasar","body":"Open 7 am to 9 pm."},
+  {"title":"Timings: Office","heading":"Office","body":"Office hours are 10 am to 2 pm."}]'::jsonb) as t0 \gset
+update app.content_items set status = 'published', published_at = now()
+ where center_id = :c::uuid and title in ('Timings: Derasar', 'Timings: Office');
+select id as derasar_id, updated_at as derasar_touched from app.content_items where center_id = :c::uuid and title = 'Timings: Derasar' \gset
+select id as office_id, updated_at as office_touched from app.content_items where center_id = :c::uuid and title = 'Timings: Office' \gset
+select app.golive_evidence_hash(app.niva_content_evidence(:c::uuid)) as ev_pub \gset
+select pg_temp.save(:c::uuid, 'https://www.example.org/timings', pg_temp.timings_new()) as t1 \gset
+select pg_temp.assert((:'t1'::jsonb->>'changed')::int = 1
+                      and (select metadata->>'page_changed' = 'true' and body_md = 'Open 7 am to 9 pm.' and updated_at = :'derasar_touched'::timestamptz
+                             from app.content_items where id = :'derasar_id'::uuid),
+  'the page changed: the published section is flagged and keeps its text and its updated_at');
+select pg_temp.assert(app.golive_evidence_hash(app.niva_content_evidence(:c::uuid)) = :'ev_pub',
+  'flagging a published section does not change what go-live check 12 approved');
+-- The content editor keeps metadata it does not show (src/app/(app)/content/actions.ts): the old body_hash and the
+-- flag ride along. A textarea sends CR LF line ends; the editor trims.
+update app.content_items set body_md = E'Open 6 am to 9 pm.\r\n\r\nClosed on Mondays.', status = 'in_review', approved_by = null
+ where id = :'derasar_id'::uuid;
+update app.content_items set status = 'published', published_at = now() where id = :'derasar_id'::uuid;
+select updated_at as derasar_edited from app.content_items where id = :'derasar_id'::uuid \gset
+select pg_temp.assert(:'derasar_edited'::timestamptz > :'derasar_touched'::timestamptz
+                      and (select metadata->>'page_changed' = 'true' from app.content_items where id = :'derasar_id'::uuid),
+  'a person''s edit still sets updated_at (and, as the editor saves it, the flag is still there)');
+select pg_temp.save(:c::uuid, 'https://www.example.org/timings', pg_temp.timings_new()) as t2 \gset
+select pg_temp.assert((:'t2'::jsonb->>'changed')::int = 0 and (:'t2'::jsonb->>'kept_as_approved')::int = 2
+                      and (select not (metadata ?| array['page_changed', 'page_text_now', 'page_title_now', 'page_hash_now', 'page_changed_at'])
+                                  and metadata->>'body_hash' = md5(E'Open 6 am to 9 pm.\n\nClosed on Mondays.')
+                                  and body_md = E'Open 6 am to 9 pm.\r\n\r\nClosed on Mondays.' and status = 'published'
+                                  and updated_at = :'derasar_edited'::timestamptz
+                             from app.content_items where id = :'derasar_id'::uuid),
+  'once the section says what the page says, the next import clears the flag and records the page''s hash (not counted as changed)');
+select xmin::text as derasar_xmin from app.content_items where id = :'derasar_id'::uuid \gset
+select pg_temp.save(:c::uuid, 'https://www.example.org/timings', pg_temp.timings_new()) as t3 \gset
+select pg_temp.assert((:'t3'::jsonb->>'changed')::int = 0 and (select xmin::text from app.content_items where id = :'derasar_id'::uuid) = :'derasar_xmin',
+  'and after that, the same page changes nothing');
+select app.golive_evidence_hash(app.niva_content_evidence(:c::uuid)) as ev_edit \gset
+select pg_temp.save(:c::uuid, 'https://www.example.org/timings',
+  '[{"title":"Timings: Office","heading":"Office","body":"Office hours are 9 am to 1 pm."}]'::jsonb) as t4 \gset
+select pg_temp.assert((:'t4'::jsonb->>'changed')::int = 1 and (:'t4'::jsonb->>'orphaned')::int = 1
+                      and (select metadata->>'orphaned' = 'true' and updated_at = :'derasar_edited'::timestamptz from app.content_items where id = :'derasar_id'::uuid)
+                      and (select metadata->>'page_changed' = 'true' and updated_at = :'office_touched'::timestamptz from app.content_items where id = :'office_id'::uuid),
+  'a section the page dropped is flagged orphaned and one it changed is flagged, neither with a new updated_at');
+select pg_temp.assert(app.golive_evidence_hash(app.niva_content_evidence(:c::uuid)) = :'ev_edit',
+  'nor do those flags change what go-live check 12 approved');
+-- The address Niva cites is not bookkeeping: changing it is a change (updated_at moves, so check 12 sees it).
+select updated_at as office_flagged from app.content_items where id = :'office_id'::uuid \gset
+update app.content_items set metadata = metadata || '{"source_url": "https://elsewhere.example.net/timings"}'::jsonb where id = :'office_id'::uuid;
+select pg_temp.assert((select updated_at > :'office_flagged'::timestamptz from app.content_items where id = :'office_id'::uuid)
+                      and app.golive_evidence_hash(app.niva_content_evidence(:c::uuid)) <> :'ev_edit',
+  'changing a published section''s cited address still sets updated_at and changes go-live check 12''s evidence');
+update app.content_items set metadata = metadata || '{"source_url": "https://www.example.org/timings"}'::jsonb where id = :'office_id'::uuid;
 
 -- ── The worker refuses malformed input; staff cannot write sections ─────────
 begin;
@@ -298,10 +364,14 @@ select pg_temp.assert((:'d1'::jsonb->>'pages')::int = 5 and (:'d1'::jsonb->>'add
   'the list keeps each page of the site once (apex and www as one) and leaves out other sites and non-addresses');
 select pg_temp.assert((select count(*) from app.niva_site_pages where center_id = :c::uuid) = 5
                       and (select url from app.niva_site_pages where center_id = :c::uuid and url_key = 'example.org/relocation') = 'https://www.example.org/relocation'
-                      and (select lastmod from app.niva_site_pages where center_id = :c::uuid and url_key = 'example.org') = '2026-09-18'::timestamptz
                       and (select lastmod is null from app.niva_site_pages where center_id = :c::uuid and url_key = 'example.org/pathshala')
                       and (select lastmod is null from app.niva_site_pages where center_id = :c::uuid and url_key = 'example.org/membership'),
   'pages are saved written one way, with the sitemap''s lastmod when it is a real date');
+select pg_temp.assert((select lastmod from app.niva_site_pages where center_id = :c::uuid and url_key = 'example.org')
+                        = '2026-09-18 00:00'::timestamp at time zone 'America/Chicago'
+                      and (select lastmod from app.niva_site_pages where center_id = :c::uuid and url_key = 'example.org/relocation')
+                        = '2026-09-01T10:00:00+00:00'::timestamptz,
+  'a date-only lastmod is that day in the community''s time zone (not UTC midnight, the day before in Houston); one with a zone is kept as it is');
 
 -- RLS: content staff of this community read the list; nobody else does; nobody writes it directly.
 begin;
@@ -367,6 +437,25 @@ select pg_temp.sign_in(:editor);
 select app.niva_discover_site(:c::uuid, 'https://example.org') as djob2 \gset
 commit;
 select pg_temp.assert(:'djob2'::bigint > :'djob'::bigint, 'once the first search finished, a new one can be queued');
+
+-- A search that could not read every sitemap adds what it saw and takes nothing off the list.
+select pg_temp.discover(:c::uuid, 'https://www.example.org', '[{"url":"https://www.example.org/timings","lastmod":"2026-09-18"}]'::jsonb, false) as d3 \gset
+select pg_temp.assert((:'d3'::jsonb->>'added')::int = 1 and (:'d3'::jsonb->>'removed')::int = 0 and (:'d3'::jsonb->>'complete')::boolean = false
+                      and (select array_agg(url_key order by url_key) from app.niva_site_pages where center_id = :c::uuid)
+                          = array['example.org/events', 'example.org/relocation', 'example.org/timings'],
+  'an incomplete search (a sitemap could not be read) removes no page from the list');
+begin;
+select pg_temp.sign_in(:editor);
+select app.niva_discovery_status(:c::uuid) as st2 \gset
+commit;
+select pg_temp.assert((select (p->>'sections')::int = 2 and (p->>'included')::int = 2
+                              and (p->>'changed')::int = 1 and p->'changed_titles' = '["Timings: Office"]'::jsonb
+                              and (p->>'orphaned')::int = 1 and p->'orphaned_titles' = '["Timings: Derasar"]'::jsonb
+                         from jsonb_array_elements(:'st2'::jsonb->'pages') p where p->>'url' = 'https://www.example.org/timings'),
+  'the status names the sections the page has changed and the ones it no longer has, so staff can find them');
+select pg_temp.assert((select p->'changed_titles' = '[]'::jsonb and p->'orphaned_titles' = '[]'::jsonb and (p->>'orphaned')::int = 0
+                         from jsonb_array_elements(:'st2'::jsonb->'pages') p where p->>'url' = 'https://www.example.org/relocation'),
+  'a page with nothing flagged lists no titles');
 
 -- With the Niva module switched off, nobody searches or reads the list (as the table's module_switch says).
 insert into app.center_modules (center_id, module_key, enabled) values (:c, 'niva', false);

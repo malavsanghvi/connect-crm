@@ -30,19 +30,28 @@
 --        - A section in review, approved or published keeps its text. Each section's text is hashed when imported
 --          (metadata.body_hash); when the page's text no longer matches, the section gets metadata.page_changed =
 --          true, page_text_now / page_title_now (what the page says now) and page_changed_at, for a person to
---          decide. If the page goes back to the approved text, the flag is cleared. A section saved before this
---          migration has no hash; its current text stands in for it once.
+--          decide. The flag is cleared when the page goes back to the approved text, or when a person takes the
+--          page's new text (the section's own text now matches the page; the content editor keeps the metadata it
+--          does not show, so the import is what clears it). A section saved before this migration has no hash; its
+--          current text stands in for it once.
 --        - A retired section is left alone (a person took it out of Niva).
 --        - A section the page no longer has: a draft is deleted (nobody approved it and the page no longer says
 --          it); a section in review, approved or published is flagged metadata.orphaned = true (orphaned_at), never
 --          deleted. If the section comes back, the flag is cleared.
---        - Published and approved rows are written only when one of these flags changes, so a re-import that finds
---          nothing new does not make go-live check 12 (0572: published sources' updated_at) look stale. A section
---          waiting in review whose text matches takes the final address and its key (nothing of it is live yet), so
---          the approval queue shows a page's sections together under one address.
+--        - A section in review, approved or published is written only when its import bookkeeping (page key, place,
+--          key, hash) or one of these flags changes; a section saved before 0576 takes its page key and key once. A
+--          section waiting in review also takes the final address, so the approval queue shows a page's sections
+--          under one address; an approved or published one keeps the address it was approved with (the link Niva
+--          cites); its metadata.page_key says which page it is (group Sources by it).
 --      It returns {url, sections, created, updated, unchanged, kept_as_approved, changed, orphaned, removed,
 --      retired}: kept_as_approved counts sections in review, approved or published that were left as they are
 --      (0540's meaning); changed is how many of them now differ from the page.
+--   3b. app.content_items' touch trigger (app.touch_content_items) leaves updated_at alone when the only change to a
+--      niva_source row is to those import bookkeeping keys of its metadata (never source_url, the link Niva cites).
+--      Nothing a member or Niva reads changed:
+--      go-live check 12 (app.niva_content_evidence fingerprints published sources' updated_at, 0572) stays
+--      current, the "updated" date Niva is shown for a source (niva.answer) stays the date its text changed, and
+--      the search's tie-break (most recently updated first, 0573) does not move. Any other change still sets it.
 --   4. app.niva_site_pages: the pages a site's sitemap lists, per community (center_id, site, url, url_key,
 --      lastmod, discovered_at, last_import_job, last_hash). Owner decision 2026-10-01: content staff (content.draft
 --      or content.manage) read it; nobody writes it directly (RLS select only; the functions below write). It belongs
@@ -50,12 +59,16 @@
 --   5. app.niva_discover_site(center, url) (content.draft, Niva module on): queues niva.discover_site, which reads
 --      the site's robots.txt and sitemap (worker/src/handlers/niva.discover_site.ts). One search at a time per
 --      community.
---      app.niva_worker_save_discovery(center, root, pages) (worker): saves the list; pages the site no longer lists
---      leave it (the list is a copy of the sitemap; imported sources are not touched).
---      app.niva_discovery_status(center) (content.draft, Niva module on): the latest search and the list, each page with how many
---      sections it has in Niva, how many are published, how many differ from the page now, and its last import.
+--      app.niva_worker_save_discovery(center, root, pages, complete) (worker): saves the list; when the search read
+--      every sitemap (complete), pages the site no longer lists leave it (the list is a copy of the sitemap;
+--      imported sources are not touched). When some sitemaps could not be read, nothing is removed. A <lastmod>
+--      without a time zone (Wix writes "2026-09-18") is read in the community's time zone, so it shows as that day.
+--      app.niva_discovery_status(center) (content.draft, Niva module on): the latest search and the list, each page
+--      with how many sections it has in Niva, how many are published, which ones in review or published differ from
+--      the page now and which ones the page no longer has (counts and up to 5 titles each), and its last import.
 --
--- 0540 is applied and untouched; its functions are replaced with create or replace (same signatures).
+-- 0540 is applied and untouched; its functions are replaced with create or replace (same signatures). The touch
+-- trigger of content_items (0007, app.touch_updated_at) gets its own function (3b).
 
 set client_min_messages = warning;
 
@@ -207,7 +220,7 @@ declare
   v_matched uuid[] := '{}';
   v_heads text[] := '{}';
   v_i int := 0; v_sec jsonb; v_title text; v_body text; v_head text; v_n int; v_skey text; v_hash text; v_old_hash text;
-  v_slug text; v_id uuid; v_meta jsonb; v_page_hash text := '';
+  v_slug text; v_id uuid; v_meta jsonb; v_page_hash text := ''; v_book jsonb;
   v_row app.content_items%rowtype;
   v_created int := 0; v_updated int := 0; v_unchanged int := 0; v_kept int := 0; v_changed int := 0;
   v_orphaned int := 0; v_removed int := 0; v_retired int := 0;
@@ -303,22 +316,23 @@ begin
       -- In review, approved or published: the text stays as it is; a person decides about a change on the page.
       v_kept := v_kept + 1;
       v_old_hash := coalesce(v_row.metadata->>'body_hash', md5(coalesce(v_row.body_md, '')));
-      if v_old_hash = v_hash then
-        if v_row.metadata ?| array['orphaned', 'page_changed'] then
+      -- The import's bookkeeping on it: page key, place and key, and (only while it waits in review) the final
+      -- address. An approved or published section keeps the address it was approved with: that is the link Niva
+      -- cites, so changing it would be a change a person approves (and it would set updated_at, 3b).
+      v_book := jsonb_build_object('page_key', v_key, 'section', v_i, 'section_key', v_skey)
+                || case when v_row.status = 'in_review' then jsonb_build_object('source_url', v_url) else '{}'::jsonb end;
+      -- It matches the page when the page has not changed since it was imported, or when its own text is what the
+      -- page says now: a person took the page's new text (the content editor keeps the old body_hash and flags in
+      -- metadata, so this is what clears them). The editor trims what it saves; a textarea may send \r\n.
+      if v_old_hash = v_hash or md5(replace(btrim(coalesce(v_row.body_md, '')), E'\r\n', E'\n')) = v_hash then
+        -- Only the bookkeeping is written (touch_content_items keeps updated_at, 3b), and only when it moves: a
+        -- section saved before 0576 takes its key once; a cleared flag goes.
+        v_book := v_book || jsonb_build_object('body_hash', v_hash);
+        if v_row.metadata ?| array['orphaned', 'orphaned_at', 'page_changed', 'page_text_now', 'page_title_now', 'page_hash_now', 'page_changed_at']
+           or not (v_row.metadata @> v_book) then
           update app.content_items
              set metadata = (metadata - 'orphaned' - 'orphaned_at' - 'page_changed' - 'page_text_now' - 'page_title_now'
-                                      - 'page_hash_now' - 'page_changed_at')
-                            || jsonb_build_object('source_url', v_url, 'page_key', v_key, 'section', v_i,
-                                                  'section_key', v_skey, 'body_hash', v_hash)
-           where id = v_row.id;
-        elsif v_row.status = 'in_review'
-              and (v_row.metadata->>'source_url' is distinct from v_url or v_row.metadata->>'section_key' is distinct from v_skey
-                   or v_row.metadata->>'section' is distinct from v_i::text or v_row.metadata->>'body_hash' is distinct from v_hash) then
-          -- Waiting in the approval queue (nothing live, so no go-live evidence moves): it takes the final address and
-          -- its key, so the queue shows a page's sections together under one address.
-          update app.content_items
-             set metadata = metadata || jsonb_build_object('source_url', v_url, 'page_key', v_key, 'section', v_i,
-                                                           'section_key', v_skey, 'body_hash', v_hash)
+                                      - 'page_hash_now' - 'page_changed_at') || v_book
            where id = v_row.id;
         end if;
       else
@@ -328,8 +342,8 @@ begin
                 and coalesce(v_row.metadata->>'page_title_now', '') = v_title and not (v_row.metadata ? 'orphaned')) then
           update app.content_items
              set metadata = (metadata - 'orphaned' - 'orphaned_at')
-                            || jsonb_build_object('source_url', v_url, 'page_key', v_key, 'section', v_i,
-                                                  'section_key', v_skey, 'body_hash', v_old_hash,
+                            || v_book
+                            || jsonb_build_object('body_hash', v_old_hash,
                                                   'page_changed', true, 'page_text_now', v_body, 'page_title_now', v_title,
                                                   'page_hash_now', v_hash, 'page_changed_at', now())
            where id = v_row.id;
@@ -370,6 +384,33 @@ language sql security definer set search_path = app, public, extensions as $$
   select app.niva_worker_save_import(p_center, p_url, p_page_title, p_sections, p_created_by, null::text)
 $$;
 
+-- ── 3b. updated_at is when the item changed, not when the import looked at it ──
+-- 0007's touch_content_items (app.touch_updated_at) set updated_at on every update. For a niva_source whose only
+-- change is to the import's bookkeeping in metadata (above), it now stays: the text, title, status, address and
+-- everything else a member or Niva reads are the same (nothing reads these keys but the import and the page list,
+-- niva_discovery_status). source_url is not one of them: it is the link Niva cites. niva_tsv (0573) is generated
+-- and left out of the comparison.
+create or replace function app.touch_content_items() returns trigger
+language plpgsql set search_path = app, public, extensions as $$
+declare
+  k constant text[] := array['page_key', 'section', 'section_key', 'body_hash', 'page_changed', 'page_text_now',
+                             'page_title_now', 'page_hash_now', 'page_changed_at', 'orphaned', 'orphaned_at'];
+begin
+  if new.kind = 'niva_source' and old.kind = 'niva_source'
+     and new.metadata is distinct from old.metadata
+     and (coalesce(new.metadata, '{}'::jsonb) - k) = (coalesce(old.metadata, '{}'::jsonb) - k)
+     and (to_jsonb(new) - array['metadata', 'updated_at', 'niva_tsv']) = (to_jsonb(old) - array['metadata', 'updated_at', 'niva_tsv']) then
+    new.updated_at := old.updated_at;
+  else
+    new.updated_at := now();
+  end if;
+  return new;
+end $$;
+comment on function app.touch_content_items() is
+  'content_items'' updated_at (0576): set on every update, except a niva_source update that changes only the web import''s bookkeeping keys of metadata (page key, place, key, hash, page_changed / orphaned flags; not source_url).';
+drop trigger if exists touch_content_items on app.content_items;
+create trigger touch_content_items before update on app.content_items for each row execute function app.touch_content_items();
+
 -- ── 5. Finding a site's pages ────────────────────────────────────────────────
 create or replace function app.niva_discover_site(p_center uuid, p_url text)
 returns bigint
@@ -395,13 +436,15 @@ begin
   return app.enqueue_job(p_center, 'niva.discover_site', jsonb_build_object('url', app.niva_page_address(v_url)), now(), 3);
 end $$;
 
--- p_pages: [{"url": "...", "lastmod": "2026-09-18T00:00:00.000Z" | null}, ...], at most 500. Only pages of the
--- root's site are kept (the apex and www forms are one site); the same page twice is saved once.
-create or replace function app.niva_worker_save_discovery(p_center uuid, p_root text, p_pages jsonb)
+-- p_pages: [{"url": "...", "lastmod": "2026-09-18" | "2026-09-18T10:00:00+00:00" | null}, ...], at most 500. Only
+-- pages of the root's site are kept (the apex and www forms are one site); the same page twice is saved once.
+-- p_complete: the search read every sitemap it found. Only then do pages it did not see leave the list; when a
+-- sitemap could not be read (or the search stopped at its limits), the pages it would have listed stay.
+create or replace function app.niva_worker_save_discovery(p_center uuid, p_root text, p_pages jsonb, p_complete boolean default true)
 returns jsonb
 language plpgsql security definer set search_path = app, public, extensions as $$
 declare
-  v_site text; v_p jsonb; v_url text; v_key text; v_lastmod timestamptz; v_raw text; v_new boolean;
+  v_site text; v_p jsonb; v_url text; v_key text; v_lastmod timestamptz; v_raw text; v_new boolean; v_tz text;
   v_keys text[] := '{}'; v_added int := 0; v_kept int := 0; v_removed int := 0; v_other int := 0;
 begin
   perform app.assert_worker();
@@ -415,6 +458,7 @@ begin
     raise exception 'A website''s page list is saved with at most 500 pages (got %).', jsonb_array_length(p_pages);
   end if;
   v_site := regexp_replace(app.niva_page_key(p_root), '[/?].*$', '');
+  select coalesce(nullif(c.time_zone, ''), 'America/Chicago') into v_tz from app.centers c where c.id = p_center;
 
   for v_p in select value from jsonb_array_elements(p_pages) loop
     v_url := nullif(btrim(coalesce(v_p->>'url', '')), '');
@@ -431,7 +475,10 @@ begin
     v_raw := nullif(btrim(coalesce(v_p->>'lastmod', '')), '');
     if v_raw ~ '^\d{4}-\d{2}-\d{2}' then
       begin
-        v_lastmod := v_raw::timestamptz;
+        -- A date (Wix writes "2026-09-18") or a time without a zone is the community's local day and time: read as
+        -- UTC midnight it would show as the day before in America/Chicago.
+        v_lastmod := case when v_raw ~ '[Tt ][0-9:.]+([Zz]|[+-]\d{2}(:?\d{2})?)$' then v_raw::timestamptz
+                          else v_raw::timestamp at time zone coalesce(v_tz, 'America/Chicago') end;
       exception when others then
         v_lastmod := null;                -- an impossible date in the sitemap is just not shown
       end;
@@ -447,13 +494,16 @@ begin
     if v_new then v_added := v_added + 1; else v_kept := v_kept + 1; end if;
   end loop;
 
-  -- The list is a copy of what the sitemap says: a page it no longer lists leaves the list. Sources imported from
-  -- that page are not touched.
-  delete from app.niva_site_pages where center_id = p_center and site = v_site and not (url_key = any (v_keys));
-  get diagnostics v_removed = row_count;
+  -- The list is a copy of what the sitemap says: a page it no longer lists leaves the list (only when the search
+  -- read every sitemap; a sitemap it could not read says nothing about its pages). Sources imported from that page
+  -- are not touched.
+  if coalesce(p_complete, true) then
+    delete from app.niva_site_pages where center_id = p_center and site = v_site and not (url_key = any (v_keys));
+    get diagnostics v_removed = row_count;
+  end if;
 
   return jsonb_build_object('site', v_site, 'pages', cardinality(v_keys), 'added', v_added, 'kept', v_kept,
-                            'removed', v_removed, 'other_site', v_other);
+                            'removed', v_removed, 'other_site', v_other, 'complete', coalesce(p_complete, true));
 end $$;
 
 -- The latest search for pages and the list, for Content › Niva. Each page carries what Niva already has from it.
@@ -477,8 +527,12 @@ begin
    order by j.id desc
    limit 1;
 
+  -- Per page: its sections, how many are published, and which sections in review or published the page has changed
+  -- (page_changed) or no longer has (orphaned), with up to 5 titles each so staff can find them under Sources.
   with src as (
-    select app.niva_page_key(c.metadata->>'source_url') as k, c.status, c.metadata
+    select app.niva_page_key(c.metadata->>'source_url') as k, c.status, c.title, c.metadata,
+           c.status in ('in_review', 'approved', 'published') and c.metadata->>'page_changed' = 'true' as is_changed,
+           c.status in ('in_review', 'approved', 'published') and c.metadata->>'orphaned' = 'true' as is_orphaned
       from app.content_items c
      where c.center_id = p_center and c.kind = 'niva_source' and c.version = 1
        and c.metadata->>'imported' = 'true' and c.metadata ? 'source_url'
@@ -486,7 +540,10 @@ begin
     select k,
            count(*) filter (where status <> 'retired') as sections,
            count(*) filter (where status = 'published') as included,
-           count(*) filter (where status in ('in_review', 'approved', 'published') and metadata->>'page_changed' = 'true') as changed,
+           count(*) filter (where is_changed) as changed,
+           count(*) filter (where is_orphaned) as orphaned,
+           (array_agg(title order by title) filter (where is_changed))[1:5] as changed_titles,
+           (array_agg(title order by title) filter (where is_orphaned))[1:5] as orphaned_titles,
            max((metadata->>'imported_at')::timestamptz) as imported_at
       from src
      group by k
@@ -494,6 +551,9 @@ begin
   select coalesce(jsonb_agg(jsonb_build_object(
            'url', sp.url, 'lastmod', sp.lastmod, 'discovered_at', sp.discovered_at,
            'sections', coalesce(per.sections, 0), 'included', coalesce(per.included, 0), 'changed', coalesce(per.changed, 0),
+           'orphaned', coalesce(per.orphaned, 0),
+           'changed_titles', to_jsonb(coalesce(per.changed_titles, '{}'::text[])),
+           'orphaned_titles', to_jsonb(coalesce(per.orphaned_titles, '{}'::text[])),
            'imported_at', per.imported_at,
            'import_status', j.status,
            'import_error', case when j.status = 'failed' or (j.status = 'queued' and j.attempts > 0) then j.last_error end)
@@ -511,8 +571,8 @@ end $$;
 -- niva_import_pages, the 5-argument niva_worker_save_import and niva_import_status keep 0540's grants.
 revoke execute on function app.niva_page_address(text), app.niva_page_key(text),
   app.niva_worker_save_import(uuid, text, text, jsonb, uuid, text),
-  app.niva_discover_site(uuid, text), app.niva_worker_save_discovery(uuid, text, jsonb), app.niva_discovery_status(uuid)
+  app.niva_discover_site(uuid, text), app.niva_worker_save_discovery(uuid, text, jsonb, boolean), app.niva_discovery_status(uuid)
   from public, anon, authenticated, service_role;
 grant execute on function app.niva_discover_site(uuid, text), app.niva_discovery_status(uuid) to authenticated;
 grant execute on function app.niva_worker_save_import(uuid, text, text, jsonb, uuid, text),
-  app.niva_worker_save_discovery(uuid, text, jsonb) to connect_worker;
+  app.niva_worker_save_discovery(uuid, text, jsonb, boolean) to connect_worker;

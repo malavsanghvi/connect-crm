@@ -1,10 +1,15 @@
 // Finding a website's pages for Niva (niva.discover_site, Content › Niva › Find a website's pages).
 //
-// Where the list comes from: the "Sitemap:" lines of the site's robots.txt; when those give no pages,
-// /sitemap.xml, /sitemap_index.xml and /wp-sitemap.xml (WordPress), in that order, until one does. A
-// <sitemapindex> is followed one level down (at most 10 of its sitemaps); a gzipped sitemap (.xml.gz) is
-// unpacked. Every request goes through fetch_page's get(): public addresses only, every redirect checked
-// again, a timeout, and a sitemap over 5 MB is not read.
+// Where the list comes from: the "Sitemap:" lines of the site's robots.txt (the first 10 of this site); when
+// those give no pages, /sitemap.xml, /sitemap_index.xml and /wp-sitemap.xml (WordPress), in that order, until
+// one does. A <sitemapindex> is followed one level down (at most 10 of its sitemaps); a gzipped sitemap
+// (.xml.gz) is unpacked. Every request goes through fetch_page's get(): public addresses only, every redirect
+// checked again, a timeout, and a sitemap over 5 MB is not read. One search reads at most 25 sitemaps and
+// 20 MB, and starts none after 5 minutes (DISCOVERY_LIMITS), so it ends well inside the job's lease.
+//
+// A sitemap that cannot be read right now (5xx, 429, a timeout) while others could is not dropped quietly:
+// Discovery.unreadable says so, the job tries again, and on its last try the list is saved as incomplete
+// (pages already on it are kept; app.niva_worker_save_discovery's p_complete).
 //
 // What is kept: pages of the same site (the apex and www forms are one site, as in app.niva_page_key), that
 // robots.txt lets us read, that are web pages (not PDFs, images, documents or media), each once, at most 500.
@@ -24,7 +29,17 @@ import { robotsAllows } from "./robots";
 export const MAX_SITEMAP_BYTES = 5 * 1024 * 1024;
 export const MAX_DISCOVERED_PAGES = 500;
 export const MAX_CHILD_SITEMAPS = 10;
+/** The first this many same-site "Sitemap:" lines of robots.txt are read; the rest are not. */
+export const MAX_ROBOTS_SITEMAPS = 10;
 export const FALLBACK_SITEMAPS = ["/sitemap.xml", "/sitemap_index.xml", "/wp-sitemap.xml"];
+
+/**
+ * What one search may spend, so it always ends well inside the job's 15-minute lease (one sitemap request can take
+ * about 40 seconds: a 20-second timeout and one retry): at most 25 sitemap files, 20 MB read in all, and no new
+ * sitemap is started after 5 minutes. A search that stops early says so (Discovery.stopped).
+ */
+export type DiscoveryLimits = { fetches: number; bytes: number; deadlineMs: number; now: () => number };
+export const DISCOVERY_LIMITS: DiscoveryLimits = { fetches: 25, bytes: 20 * 1024 * 1024, deadlineMs: 5 * 60_000, now: () => Date.now() };
 
 // ── One way to write an address (mirrors app.niva_page_address / app.niva_page_key, 0576) ─────────────────────
 const ADDRESS = /^([A-Za-z][A-Za-z0-9+.-]*):\/\/([^/?]*)([^?]*)(?:\?(.*))?$/;
@@ -142,10 +157,20 @@ export type Discovery = {
   /** The sitemaps list more than 500 pages; the first 500 are kept. */
   truncated: boolean;
   skipped: { other_site: number; files: number; robots: number; duplicates: number };
+  /**
+   * Sitemaps that could not be read right now (5xx, 429, a timeout), one line each. When there are any, the list is
+   * not complete: the pages those sitemaps list are missing from it, and the search is worth running again.
+   */
+  unreadable: string[];
+  /** The search stopped at its limits (DISCOVERY_LIMITS) before reading every sitemap: the list may be missing pages. */
+  stopped: boolean;
+  /** Sitemaps over 5 MB, which were not read. */
+  tooBig: number;
 };
 
 /** Read a site's sitemaps and list its pages. Throws in plain English: PermanentError when there is nothing to find. */
-export async function discoverPages(http: Http, root: string, opts: FetchOpts): Promise<Discovery> {
+export async function discoverPages(http: Http, root: string, opts: FetchOpts, limits: DiscoveryLimits = DISCOVERY_LIMITS): Promise<Discovery> {
+  const started = limits.now();
   const start = await assertPublicPage(root, opts);
   const robots = await readRobots(http, start, opts);
   const origin = new URL(robots.origin);
@@ -156,7 +181,10 @@ export async function discoverPages(http: Http, root: string, opts: FetchOpts): 
   const read: string[] = [];
   const tried = new Set<string>();
   const trouble: string[] = []; // temporary problems: worth trying again later
-  let tooBig = false;
+  let tooBig = 0;
+  let fetches = 0;
+  let bytesRead = 0;
+  let stopped = false;
   const pages = new Map<string, DiscoveredPage>();
   const skipped = { other_site: 0, files: 0, robots: 0, duplicates: 0 };
   let truncated = false;
@@ -201,7 +229,15 @@ export async function discoverPages(http: Http, root: string, opts: FetchOpts): 
   };
 
   /** One sitemap file, or null when it is not there, not readable, not of this site or not allowed. */
+  const spent = () => fetches >= limits.fetches || bytesRead >= limits.bytes || limits.now() - started >= limits.deadlineMs;
   const readOne = async (raw: string): Promise<ParsedSitemap | null> => {
+    const asked = URL.canParse(raw) ? new URL(raw) : null;
+    if (!asked || tried.has(asked.toString()) || !sameSite(asked)) return null;
+    // Checked before the address is even looked up: a search that has spent its limits starts nothing new.
+    if (spent()) {
+      stopped = true;
+      return null;
+    }
     let url: URL;
     try {
       url = await assertPublicPage(raw, opts);
@@ -212,6 +248,7 @@ export async function discoverPages(http: Http, root: string, opts: FetchOpts): 
     const key = url.toString();
     if (tried.has(key) || !sameSite(url) || !robotsAllows(robots.rules, url.pathname + url.search)) return null;
     tried.add(key);
+    fetches++;
     let res: Got;
     try {
       res = await get(http, url, XML_ACCEPT, opts);
@@ -225,17 +262,19 @@ export async function discoverPages(http: Http, root: string, opts: FetchOpts): 
     }
     if (res.status !== 200) return null;
     const bytes = res.bytes();
+    bytesRead += bytes.length;
     if (Number(res.headers.get("content-length") ?? "0") > MAX_SITEMAP_BYTES || bytes.length > MAX_SITEMAP_BYTES) {
-      tooBig = true;
+      tooBig++;
       return null;
     }
     let text = res.text;
     if (bytes[0] === 0x1f && bytes[1] === 0x8b) {
       try {
         text = gunzipSync(bytes, { maxOutputLength: MAX_SITEMAP_BYTES }).toString("utf8");
+        bytesRead += text.length;
       } catch (err) {
         // More than 5 MB unpacked, or a broken file.
-        if ((err as NodeJS.ErrnoException).code === "ERR_BUFFER_TOO_LARGE") tooBig = true;
+        if ((err as NodeJS.ErrnoException).code === "ERR_BUFFER_TOO_LARGE") tooBig++;
         return null;
       }
     }
@@ -247,7 +286,7 @@ export async function discoverPages(http: Http, root: string, opts: FetchOpts): 
 
   const readList = async (list: string[], untilFound: boolean) => {
     for (const raw of list) {
-      if (truncated || (untilFound && pages.size > 0)) return;
+      if (truncated || stopped || (untilFound && pages.size > 0)) return;
       const sm = await readOne(raw);
       if (!sm) continue;
       if (sm.kind !== "index") {
@@ -257,7 +296,7 @@ export async function discoverPages(http: Http, root: string, opts: FetchOpts): 
       // One level down: an index inside an index is not followed.
       let children = 0;
       for (const child of sm.entries) {
-        if (children >= MAX_CHILD_SITEMAPS || truncated) break;
+        if (children >= MAX_CHILD_SITEMAPS || truncated || stopped) break;
         const u = URL.canParse(child.loc) ? new URL(child.loc) : null;
         if (!u || !sameSite(u)) continue;
         children++;
@@ -267,14 +306,16 @@ export async function discoverPages(http: Http, root: string, opts: FetchOpts): 
     }
   };
 
-  await readList(robots.sitemaps, false);
+  // Only this site's sitemaps count, and only the first few: a robots.txt can list hundreds.
+  const listed = robots.sitemaps.filter((s) => URL.canParse(s) && sameSite(new URL(s))).slice(0, MAX_ROBOTS_SITEMAPS);
+  await readList(listed, false);
   if (pages.size === 0) await readList(FALLBACK_SITEMAPS.map((p) => new URL(p, origin).toString()), true);
 
   if (pages.size === 0) {
     if (trouble.length > 0) {
       throw new Error(`Could not read ${host}'s sitemap right now (${trouble[0]}); it will be tried again.`);
     }
-    if (read.length === 0 && tooBig) {
+    if (read.length === 0 && tooBig > 0) {
       throw new PermanentError(`${host}'s sitemap is larger than 5 MB, which is more than Niva reads. Paste the page addresses into "Import from a web page" instead.`);
     }
     if (read.length === 0) {
@@ -291,5 +332,5 @@ export async function discoverPages(http: Http, root: string, opts: FetchOpts): 
       `${host}'s sitemap lists no web pages Niva can read${why.length ? ` (it lists ${why.join(", ")})` : ""}. Paste the page addresses into "Import from a web page" instead.`,
     );
   }
-  return { root: origin.origin, site, sitemaps: read, pages: [...pages.values()], truncated, skipped };
+  return { root: origin.origin, site, sitemaps: read, pages: [...pages.values()], truncated, skipped, unreadable: trouble, stopped, tooBig };
 }

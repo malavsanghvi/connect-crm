@@ -8,9 +8,11 @@ import type { Http, HttpResponse } from "../src/http";
 import { parseSitemaps } from "../src/web/robots";
 import {
   discoverPages,
+  DISCOVERY_LIMITS,
   isFileAddress,
   MAX_CHILD_SITEMAPS,
   MAX_DISCOVERED_PAGES,
+  MAX_ROBOTS_SITEMAPS,
   MAX_SITEMAP_BYTES,
   pageAddress,
   pageKey,
@@ -266,6 +268,72 @@ describe("discoverPages", () => {
     expect((err as Error).message).toMatch(/Could not read www\.example\.org's sitemap right now \(\/sitemap\.xml answered 503\); it will be tried again/);
   });
 
+  it(`reads only the first ${MAX_ROBOTS_SITEMAPS} of this site's sitemaps that robots.txt lists, however many it lists`, async () => {
+    const lines = Array.from({ length: 50 }, (_, i) => `Sitemap: ${W}/s${i}.xml`);
+    lines.splice(1, 0, ...Array.from({ length: 30 }, (_, i) => `Sitemap: https://cdn${i}.example.net/sitemap.xml`));
+    const routes: Record<string, Route> = { [`${W}/robots.txt`]: { type: "text/plain", body: lines.join("\n") } };
+    for (let i = 0; i < 50; i++) routes[`${W}/s${i}.xml`] = { body: urlset([`${W}/page-${i}`]) };
+    const http = fakeHttp(routes);
+    const d = await discoverPages(http, W, ok);
+    expect(http.seen).toHaveLength(1 + MAX_ROBOTS_SITEMAPS);
+    expect(d.pages).toHaveLength(MAX_ROBOTS_SITEMAPS);
+    expect(http.seen.some((u) => u.includes("example.net"))).toBe(false);
+    expect(d.stopped).toBe(false);
+  });
+
+  it(`stops after ${DISCOVERY_LIMITS.fetches} sitemap files in all, and says the list may be missing pages`, async () => {
+    const routes: Record<string, Route> = { [`${W}/robots.txt`]: { type: "text/plain", body: [0, 1, 2].map((k) => `Sitemap: ${W}/index-${k}.xml`).join("\n") } };
+    for (const k of [0, 1, 2]) {
+      const kids = Array.from({ length: 10 }, (_, i) => `${W}/i${k}-s${i}.xml`);
+      routes[`${W}/index-${k}.xml`] = { body: index(kids) };
+      kids.forEach((c, i) => (routes[c] = { body: urlset([`${W}/p-${k}-${i}`]) }));
+    }
+    const http = fakeHttp(routes);
+    const d = await discoverPages(http, W, ok);
+    expect(http.seen).toHaveLength(1 + DISCOVERY_LIMITS.fetches);
+    expect(d.stopped).toBe(true);
+    expect(d.pages.length).toBe(DISCOVERY_LIMITS.fetches - 3);
+  });
+
+  it("starts no new sitemap once the search has run out of time, or has read its share of bytes", async () => {
+    let t = 0;
+    const slow = { ...DISCOVERY_LIMITS, deadlineMs: 1000, now: () => t };
+    const routes: Record<string, Route> = { [`${W}/robots.txt`]: { type: "text/plain", body: `Sitemap: ${W}/a.xml\nSitemap: ${W}/b.xml` } };
+    routes[`${W}/a.xml`] = { body: urlset([`${W}/a`]) };
+    routes[`${W}/b.xml`] = { body: urlset([`${W}/b`]) };
+    const http = fakeHttp(routes);
+    const clocked: Http & { seen: string[] } = {
+      seen: http.seen,
+      async request(url, o) {
+        const r = await http.request(url, o);
+        if (url.endsWith("/a.xml")) t = 5000;
+        return r;
+      },
+    };
+    const d = await discoverPages(clocked, W, ok, slow);
+    expect(d.pages.map((p) => p.url)).toEqual([`${W}/a`]);
+    expect(d.stopped).toBe(true);
+    expect(http.seen).not.toContain(`${W}/b.xml`);
+
+    const small = { ...DISCOVERY_LIMITS, bytes: 10 };
+    const d2 = await discoverPages(fakeHttp(routes), W, ok, small);
+    expect(d2.pages.map((p) => p.url)).toEqual([`${W}/a`]);
+    expect(d2.stopped).toBe(true);
+  });
+
+  it("says which sitemaps could not be read right now when others could, instead of dropping them quietly", async () => {
+    const http = fakeHttp({
+      [`${W}/robots.txt`]: { type: "text/plain", body: `Sitemap: ${W}/sitemap.xml` },
+      [`${W}/sitemap.xml`]: { body: index([`${W}/a.xml`, `${W}/b.xml`]) },
+      [`${W}/a.xml`]: { status: 503 },
+      [`${W}/b.xml`]: { body: urlset([`${W}/b`]) },
+    });
+    const d = await discoverPages(http, W, ok);
+    expect(d.pages.map((p) => p.url)).toEqual([`${W}/b`]);
+    expect(d.unreadable).toEqual(["/a.xml answered 503"]);
+    expect(d.stopped).toBe(false);
+  });
+
   it("refuses a private address and a robots.txt outage the same way page imports do", async () => {
     await expect(discoverPages(fakeHttp({}), "http://localhost/", ok)).rejects.toThrow(/private network/);
     const down = fakeHttp({ [`${W}/robots.txt`]: { status: 503 } });
@@ -287,7 +355,7 @@ describe("niva.discover_site", () => {
     const http = fakeHttp({ [`${W}/robots.txt`]: { type: "text/plain", body: `Sitemap: ${W}/sitemap.xml` }, [`${W}/sitemap.xml`]: { body: urlset([`${W}/a`, `${W}/b/`]) } });
     const out = (await run(job({ kind: "niva.discover_site", payload: { url: W } }), ctxWith(http, f.db))) as Record<string, unknown>;
     const call = f.calls.find((c) => c.fn === "query")!;
-    expect(String(call.args[0])).toContain("app.niva_worker_save_discovery($1::uuid, $2, $3::jsonb)");
+    expect(String(call.args[0])).toContain("app.niva_worker_save_discovery($1::uuid, $2, $3::jsonb, $4::boolean)");
     const params = call.args[1] as unknown[];
     expect(params[0]).toBe("00000000-0000-4000-8000-000000000001");
     expect(params[1]).toBe(W);
@@ -295,7 +363,29 @@ describe("niva.discover_site", () => {
       { url: `${W}/a`, lastmod: null },
       { url: `${W}/b`, lastmod: null },
     ]);
-    expect(out).toMatchObject({ url: W, root: W, found: 2, truncated: false, site: "example.org", added: 2, sitemaps: [`${W}/sitemap.xml`] });
+    expect(params[3]).toBe(true);
+    expect(out).toMatchObject({ url: W, root: W, found: 2, truncated: false, complete: true, unreadable: 0, stopped: false, site: "example.org", added: 2, sitemaps: [`${W}/sitemap.xml`] });
+  });
+  it("tries the search again while a sitemap cannot be read right now, and on the last try saves the list as incomplete", async () => {
+    const partial = () =>
+      fakeHttp({
+        [`${W}/robots.txt`]: { type: "text/plain", body: `Sitemap: ${W}/sitemap.xml` },
+        [`${W}/sitemap.xml`]: { body: index([`${W}/a.xml`, `${W}/b.xml`]) },
+        [`${W}/a.xml`]: { status: 503 },
+        [`${W}/b.xml`]: { body: urlset([`${W}/b`]) },
+      });
+    const early = fakeDb();
+    const err = await run(job({ kind: "niva.discover_site", attempts: 1, max_attempts: 3, payload: { url: W } }), ctxWith(partial(), early.db)).catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(Error);
+    expect(err).not.toBeInstanceOf(PermanentError);
+    expect((err as Error).message).toMatch(/Could not read 1 of www\.example\.org's sitemaps right now \(\/a\.xml answered 503\); the search will be tried again/);
+    expect(early.calls.filter((c) => c.fn === "query")).toHaveLength(0);
+
+    const last = fakeDb({ query: () => [{ r: { site: "example.org", pages: 1, added: 0, kept: 1, removed: 0, other_site: 0 } }] });
+    const out = (await run(job({ kind: "niva.discover_site", attempts: 3, max_attempts: 3, payload: { url: W } }), ctxWith(partial(), last.db))) as Record<string, unknown>;
+    const params = last.calls.find((c) => c.fn === "query")!.args[1] as unknown[];
+    expect(params[3]).toBe(false);
+    expect(out).toMatchObject({ found: 1, complete: false, unreadable: 1, unreadable_detail: ["/a.xml answered 503"], removed: 0 });
   });
   it("fails permanently, in plain English, without a website or a community, and saves nothing when nothing is found", async () => {
     await expect(run(job({ payload: {} }), ctxWith(fakeHttp({})))).rejects.toThrow(/does not say which website/);
