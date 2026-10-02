@@ -7,14 +7,19 @@ import { HouseholdCard, type CardLabels, type HouseholdCardData } from "@/compon
 import { HouseholdPicker } from "@/components/household-picker";
 import { Badge, buttonClass } from "@/components/ui";
 import { previewAllocation } from "@/lib/allocation";
+import { formatDate } from "@/lib/dates";
 import { formatCents } from "@/lib/money";
 
-import { confirmBankMatchAction } from "./actions";
+import { attachBankLineAction, confirmBankMatchAction, type ConfirmResult, type DuplicateZelle } from "./actions";
 import { useReportOutcome } from "./bank-results";
 
-export type Suggestion = HouseholdCardData & { score: number; reason: string; ambiguous: boolean };
+/** reportId: the member's Zelle report behind the suggestion (app.suggest_bank_matches.report_id, 0583), else null. */
+export type Suggestion = HouseholdCardData & { score: number; reason: string; ambiguous: boolean; reportId?: string | null };
 
-type Choice = { card: HouseholdCardData; ambiguous: boolean; fromSuggestion: boolean };
+type Choice = { card: HouseholdCardData; ambiguous: boolean; fromSuggestion: boolean; reportId: string | null };
+
+/** The G6 guard refused the match: the same Zelle may already be recorded by hand for this family. */
+type Duplicate = DuplicateZelle & { card: HouseholdCardData; pledgeIds: string[] | null; reportId: string | null };
 
 /**
  * Match one incoming bank line (Zelle, ACH, wire, DAF…) to a household.
@@ -54,11 +59,13 @@ export function GiftLineMatcher({
   const [learn, setLearn] = useState(originatorKind === null);
   const [checked, setChecked] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [duplicate, setDuplicate] = useState<Duplicate | null>(null);
+  const [separateReason, setSeparateReason] = useState("");
   const [pending, startTransition] = useTransition();
   const isPlatformGift = originatorKind === "daf" || originatorKind === "matching_gift" || originatorKind === "payroll_giving";
 
-  function open(card: HouseholdCardData, ambiguous: boolean, fromSuggestion: boolean) {
-    setChoice({ card, ambiguous, fromSuggestion });
+  function open(card: HouseholdCardData, ambiguous: boolean, fromSuggestion: boolean, reportId: string | null = null) {
+    setChoice({ card, ambiguous, fromSuggestion, reportId });
     setSearching(false);
     setSpecific(false);
     setPledges(null);
@@ -81,35 +88,135 @@ export function GiftLineMatcher({
     });
   }
 
-  function confirm(card: HouseholdCardData, pledgeIds: string[] | null) {
+  function reportMatched(d: ConfirmResult, reportId: string | null, extra: string | null) {
+    report({
+      id: txnId,
+      title: `${formatCents(d.amountCents, currency)} matched to ${d.householdName} — receipt ${d.receiptNumber ?? "pending"}`,
+      lines: [
+        ...(extra ? [extra] : []),
+        ...(reportId ? ["The member's Zelle report is matched; it no longer waits for the bank."] : []),
+        d.applied.length > 0
+          ? `Applied to ${d.applied.map((a) => `${a.pledge_number ?? "pledge"} (${formatCents(a.amount_cents, currency)})`).join(", ")}.`
+          : "Not applied to a pledge (no open pledges).",
+        d.learnedPayer
+          ? `Learned payer name "${d.learnedPayer.value}" for this household (seen ${d.learnedPayer.times}×) — next time it is suggested first.`
+          : isPlatformGift
+            ? "Payer name not learned: it is a fund or platform, not the family."
+            : "Payer name not learned.",
+      ],
+    });
+  }
+
+  function confirm(card: HouseholdCardData, pledgeIds: string[] | null, reportId: string | null, separate: string | null = null) {
     setError(null);
     startTransition(async () => {
       try {
-        const res = await confirmBankMatchAction({ txnId, householdId: card.household_id, pledgeIds, learnPayer: learn && !isPlatformGift });
+        const res = await confirmBankMatchAction({
+          txnId,
+          householdId: card.household_id,
+          pledgeIds,
+          learnPayer: learn && !isPlatformGift,
+          reportId,
+          separateReason: separate,
+        });
         if (!res.ok) {
           setError(res.error);
+          if (res.duplicate) {
+            setDuplicate({ ...res.duplicate, card, pledgeIds, reportId });
+            setSeparateReason("");
+          }
           return;
         }
-        const d = res.data!;
-        report({
-          id: txnId,
-          title: `${formatCents(d.amountCents, currency)} matched to ${d.householdName} — receipt ${d.receiptNumber ?? "pending"}`,
-          lines: [
-            d.applied.length > 0
-              ? `Applied to ${d.applied.map((a) => `${a.pledge_number ?? "pledge"} (${formatCents(a.amount_cents, currency)})`).join(", ")}.`
-              : "Not applied to a pledge (no open pledges).",
-            d.learnedPayer
-              ? `Learned payer name "${d.learnedPayer.value}" for this household (seen ${d.learnedPayer.times}×) — next time it is suggested first.`
-              : isPlatformGift
-                ? "Payer name not learned: it is a fund or platform, not the family."
-                : "Payer name not learned.",
-          ],
-        });
+        setDuplicate(null);
+        reportMatched(res.data!, reportId, separate ? `Recorded as a separate gift: "${separate}".` : null);
       } catch (err) {
         console.error("[bank] confirm failed:", err);
         setError("Could not confirm the match — the server did not respond. Reload the page to see whether it went through before trying again.");
       }
     });
+  }
+
+  function attach(paymentId: string, reportId: string | null) {
+    setError(null);
+    startTransition(async () => {
+      try {
+        const res = await attachBankLineAction({ txnId, paymentId, reportId });
+        if (!res.ok) {
+          setError(res.error);
+          return;
+        }
+        setDuplicate(null);
+        reportMatched(res.data!, reportId, "Attached to the payment recorded by hand: no second payment, one QuickBooks deposit.");
+      } catch (err) {
+        console.error("[bank] attach failed:", err);
+        setError("Could not attach the bank line — the server did not respond. Reload the page to see whether it went through before trying again.");
+      }
+    });
+  }
+
+  if (duplicate && canConfirm) {
+    const sepId = `sep-${txnId.slice(0, 8)}`;
+    return (
+      <div className="space-y-3 rounded-lg border border-saffron/60 bg-saffron-50 p-3" role="region" aria-label="Possible double count">
+        <p className="text-sm font-semibold text-brown" role="alert">
+          {error ?? "This family already has this Zelle recorded by hand."}
+        </p>
+        <HouseholdCard card={duplicate.card} labels={labels} timeZone={timeZone} currency={currency} tone="warning" href={`/households/${duplicate.card.household_id}`} />
+        <div className="space-y-2">
+          <p className="cc-section">THE SAME GIFT? ATTACH THE LINE TO IT</p>
+          {duplicate.payments.length === 0 ? (
+            <p className="text-sm text-muted">The payment recorded by hand could not be loaded. Open the household&apos;s payments to find it, then reload this page.</p>
+          ) : (
+            duplicate.payments.map((p) => (
+              <div key={p.id} className="flex flex-wrap items-center gap-2 text-sm">
+                <span>
+                  Receipt <span className="font-mono">{p.receipt_number ?? "not numbered yet"}</span> · {formatCents(p.amount_cents, currency)} recorded on{" "}
+                  {formatDate(p.received_on, timeZone)}
+                </span>
+                <button type="button" disabled={pending} onClick={() => attach(p.id, duplicate.reportId)} className={buttonClass("primary", "sm")}>
+                  {pending ? "Attaching…" : `Attach to receipt ${p.receipt_number ?? "(not numbered yet)"}`}
+                </button>
+              </div>
+            ))
+          )}
+        </div>
+        <div className="space-y-2 border-t border-saffron/40 pt-3">
+          <p className="cc-section">A DIFFERENT GIFT? RECORD IT SEPARATELY</p>
+          <label htmlFor={sepId} className="crm-label">
+            Why is this a separate gift? (kept in the audit log)
+          </label>
+          <input
+            id={sepId}
+            value={separateReason}
+            onChange={(e) => setSeparateReason(e.target.value)}
+            maxLength={500}
+            className="crm-input"
+            placeholder="e.g. two gifts the same week: Paryushan and the general fund"
+          />
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              disabled={pending || separateReason.trim() === ""}
+              onClick={() => confirm(duplicate.card, duplicate.pledgeIds, duplicate.reportId, separateReason.trim())}
+              className={buttonClass("secondary", "sm")}
+            >
+              {pending ? "Recording…" : "Record as a separate gift"}
+            </button>
+            <button
+              type="button"
+              disabled={pending}
+              onClick={() => {
+                setDuplicate(null);
+                setError(null);
+              }}
+              className={buttonClass("ghost", "sm")}
+            >
+              Back
+            </button>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   if (!canConfirm) {
@@ -217,7 +324,7 @@ export function GiftLineMatcher({
           <button
             type="button"
             disabled={pending || (needsCheck && !checked) || (specific && chosen.length === 0 && (pledges?.length ?? 0) > 0)}
-            onClick={() => confirm(choice.card, specific && chosen.length > 0 ? chosen : null)}
+            onClick={() => confirm(choice.card, specific && chosen.length > 0 ? chosen : null, choice.reportId)}
             className={buttonClass("primary", "sm")}
           >
             {pending ? "Confirming…" : `Confirm ${formatCents(amountCents, currency)} for this household`}
@@ -245,7 +352,7 @@ export function GiftLineMatcher({
         suggestionError={suggestionError}
         renderActions={(s) =>
           s.ambiguous ? (
-            <button type="button" onClick={() => open(s, true, true)} className={buttonClass("secondary", "sm")}>
+            <button type="button" onClick={() => open(s, true, true, s.reportId ?? null)} className={buttonClass("secondary", "sm")}>
               Review this household…
             </button>
           ) : (
@@ -253,13 +360,17 @@ export function GiftLineMatcher({
               <button
                 type="button"
                 disabled={pending}
-                onClick={() => confirm(s, null)}
+                onClick={() => confirm(s, null, s.reportId ?? null)}
                 className={buttonClass("primary", "sm")}
-                title="Records the payment, applies it to the earliest open pledge and learns the payer name"
+                title={
+                  s.reportId
+                    ? "Records the payment, applies it to the pledges the member named (else the earliest open pledge), matches the member's report and learns the payer name"
+                    : "Records the payment, applies it to the earliest open pledge and learns the payer name"
+                }
               >
                 {pending ? "Confirming…" : "Confirm match"}
               </button>
-              <button type="button" onClick={() => open(s, false, true)} className={buttonClass("ghost", "sm")}>
+              <button type="button" onClick={() => open(s, false, true, s.reportId ?? null)} className={buttonClass("ghost", "sm")}>
                 Options…
               </button>
             </span>
@@ -335,6 +446,13 @@ function SuggestionList({
               {s.ambiguous ? "Ambiguous · " : ""}
               {Math.round(Number(s.score) * 100)}% match
             </Badge>{" "}
+            {s.reportId ? (
+              <>
+                <Badge tone="purple" title="A member of this household reported sending this Zelle; confirming matches the report">
+                  Member reported
+                </Badge>{" "}
+              </>
+            ) : null}
             <span className="text-muted">{s.reason}</span>
           </p>
           {renderActions(s)}

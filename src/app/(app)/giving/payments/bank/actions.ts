@@ -4,10 +4,18 @@ import { revalidatePath } from "next/cache";
 
 import type { Json } from "@/lib/database.types";
 import { bankTransactionInsert } from "@/lib/db-inserts";
-import { explainError, failure, type ActionResult } from "@/lib/errors";
+import { explainError, failure, type ActionResult, type DbErrorLike } from "@/lib/errors";
 import { formatCents } from "@/lib/money";
+import { parseDuplicateError } from "@/lib/payments/zelle";
 import { isUuid } from "@/lib/search-params";
-import { authorizeAction } from "@/lib/session";
+import { authorizeAction, type CrmSession } from "@/lib/session";
+import type { AppSupabase } from "@/lib/supabase/server";
+
+// confirm_bank_match gained p_report and p_separate_reason in 0583, and attach_bank_line_to_payment
+// is new there: until the generated types include them they are called through the untyped
+// signature (as src/app/(app)/content/niva/actions.ts does).
+type RpcCaller = (fn: string, args: Record<string, unknown>) => PromiseLike<{ data: unknown; error: DbErrorLike | null }>;
+const untypedRpc = (db: AppSupabase) => db.rpc.bind(db) as unknown as RpcCaller;
 
 function refresh() {
   revalidatePath("/giving/payments/bank");
@@ -146,45 +154,33 @@ export type ConfirmResult = {
   learnedPayer: { value: string; times: number } | null;
 };
 
-export async function confirmBankMatchAction(input: {
-  txnId: string;
-  householdId: string;
-  pledgeIds: string[] | null;
-  learnPayer: boolean;
-}): Promise<ActionResult<ConfirmResult>> {
-  const auth = await authorizeAction("bankConfirm", "confirm the match");
-  if (!auth.ok) return auth;
-  const { db, center } = auth.session;
-  if (!isUuid(input.txnId) || !isUuid(input.householdId)) return { ok: false, error: "Could not confirm the match — choose a household first." };
-  const pledgeIds = input.pledgeIds && input.pledgeIds.length > 0 ? input.pledgeIds.filter(isUuid) : null;
+/** A Zelle of this family and amount already recorded by hand (the G6 double-count guard, SQLSTATE CCDUP). */
+export type DuplicateZelle = {
+  paymentIds: string[];
+  payments: { id: string; receipt_number: string | null; received_on: string | null; amount_cents: number | null }[];
+};
 
-  const txn = await db.from("bank_transactions").select("id, payer_normalized, amount_cents").eq("id", input.txnId).maybeSingle();
-  if (txn.error) return failure("Could not confirm the match", txn.error);
-  if (!txn.data) return { ok: false, error: "Could not confirm the match — the bank line was not found." };
+export type ConfirmBankMatchResult = ActionResult<ConfirmResult> & { duplicate?: DuplicateZelle };
 
-  const rpc = await db.rpc("confirm_bank_match", {
-    p_txn: input.txnId,
-    p_household: input.householdId,
-    ...(pledgeIds ? { p_pledge_ids: pledgeIds } : {}),
-    p_learn_payer: Boolean(input.learnPayer),
-  });
-  if (rpc.error) return failure("Could not confirm the match", rpc.error);
-  const paymentId = rpc.data;
-
-  // Report what happened: receipt, allocation, learned payer name.
+/** What happened after a gift line was recorded: receipt, allocation, learned payer name. */
+async function describeMatch(
+  session: CrmSession,
+  input: { txnId: string; householdId: string; learnPayer: boolean; paymentId: string; amountCents: number; payerNormalized: string | null },
+): Promise<ConfirmResult> {
+  const { db, center } = session;
   const [pay, allocs, hh, learned] = await Promise.all([
-    db.from("payments").select("receipt_number, amount_cents").eq("id", paymentId).maybeSingle(),
-    db.from("payment_allocations").select("pledge_id, amount_cents").eq("payment_id", paymentId),
+    db.from("payments").select("receipt_number, amount_cents").eq("id", input.paymentId).maybeSingle(),
+    db.from("payment_allocations").select("pledge_id, amount_cents").eq("payment_id", input.paymentId),
     // household_card is readable with giving.record_offline too (households RLS is not).
     db.rpc("household_card", { p_household: input.householdId }),
-    txn.data.payer_normalized
+    input.payerNormalized
       ? db
           .from("external_ids")
           .select("value, times_matched")
           .eq("center_id", center.id)
           .eq("household_id", input.householdId)
           .eq("kind", "bank_payer")
-          .eq("normalized", txn.data.payer_normalized)
+          .eq("normalized", input.payerNormalized)
           .limit(1)
       : Promise.resolve({ data: [], error: null }),
   ]);
@@ -197,18 +193,130 @@ export async function confirmBankMatchAction(input: {
   const learnedRow = input.learnPayer ? (learned.data ?? [])[0] : undefined;
   const card = hh.data?.[0];
   const householdName = card ? `${card.household_name}${card.household_number ? ` (${card.household_number})` : ""}` : "the household";
+  return {
+    txnId: input.txnId,
+    householdName,
+    receiptNumber: pay.data?.receipt_number ?? null,
+    amountCents: pay.data?.amount_cents ?? input.amountCents,
+    applied: allocRows.map((a) => ({ pledge_number: pledgeNumbers.get(a.pledge_id) ?? null, amount_cents: a.amount_cents })),
+    learnedPayer: learnedRow ? { value: learnedRow.value, times: learnedRow.times_matched } : null,
+  };
+}
+
+export async function confirmBankMatchAction(input: {
+  txnId: string;
+  householdId: string;
+  pledgeIds: string[] | null;
+  learnPayer: boolean;
+  /** The member's Zelle report this line is (from the suggestion), or null. */
+  reportId?: string | null;
+  /** Set when the treasurer records the line as a separate gift although a Zelle is already recorded by hand. */
+  separateReason?: string | null;
+}): Promise<ConfirmBankMatchResult> {
+  const auth = await authorizeAction("bankConfirm", "confirm the match");
+  if (!auth.ok) return auth;
+  const { session } = auth;
+  const { db, center } = session;
+  if (!isUuid(input.txnId) || !isUuid(input.householdId)) return { ok: false, error: "Could not confirm the match — choose a household first." };
+  const pledgeIds = input.pledgeIds && input.pledgeIds.length > 0 ? input.pledgeIds.filter(isUuid) : null;
+  const reportId = input.reportId && isUuid(input.reportId) ? input.reportId : null;
+  const separateReason = (input.separateReason ?? "").trim() || null;
+  if (typeof input.separateReason === "string" && !separateReason) {
+    return { ok: false, error: "Could not record it as a separate gift — say why it is a separate gift; the reason is kept in the audit log." };
+  }
+
+  const txn = await db.from("bank_transactions").select("id, payer_normalized, amount_cents").eq("id", input.txnId).maybeSingle();
+  if (txn.error) return failure("Could not confirm the match", txn.error);
+  if (!txn.data) return { ok: false, error: "Could not confirm the match — the bank line was not found." };
+
+  const rpc = await untypedRpc(db)("confirm_bank_match", {
+    p_txn: input.txnId,
+    p_household: input.householdId,
+    ...(pledgeIds ? { p_pledge_ids: pledgeIds } : {}),
+    p_learn_payer: Boolean(input.learnPayer),
+    ...(reportId ? { p_report: reportId } : {}),
+    ...(separateReason ? { p_separate_reason: separateReason } : {}),
+  });
+  if (rpc.error) {
+    const dup = parseDuplicateError(rpc.error);
+    if (dup) {
+      console.error("[crm] Could not confirm the match (possible double count):", rpc.error);
+      const found =
+        dup.paymentIds.length > 0
+          ? await db.from("payments").select("id, receipt_number, received_on, amount_cents").in("id", dup.paymentIds)
+          : { data: [], error: null };
+      if (found.error) console.error("[bank] loading the hand-recorded payments failed:", found.error);
+      return {
+        ok: false,
+        error: `Could not confirm the match — ${dup.message || "this family already has this Zelle recorded by hand."}`,
+        duplicate: { paymentIds: dup.paymentIds, payments: found.data ?? [] },
+      };
+    }
+    return failure("Could not confirm the match", rpc.error);
+  }
+  const paymentId = typeof rpc.data === "string" ? rpc.data : null;
+  if (!paymentId) {
+    console.error("[bank] confirm_bank_match returned no payment id:", rpc.data);
+    refresh();
+    return {
+      ok: false,
+      error: "Could not confirm the match — the database did not say which payment it recorded. Reload the page to check before trying again.",
+    };
+  }
+
+  const data = await describeMatch(session, {
+    txnId: input.txnId,
+    householdId: input.householdId,
+    learnPayer: input.learnPayer,
+    paymentId,
+    amountCents: txn.data.amount_cents,
+    payerNormalized: txn.data.payer_normalized,
+  });
   refresh();
   return {
     ok: true,
-    message: `Matched ${formatCents(txn.data.amount_cents, center.currency)} to ${householdName}.`,
-    data: {
-      txnId: input.txnId,
-      householdName,
-      receiptNumber: pay.data?.receipt_number ?? null,
-      amountCents: pay.data?.amount_cents ?? txn.data.amount_cents,
-      applied: allocRows.map((a) => ({ pledge_number: pledgeNumbers.get(a.pledge_id) ?? null, amount_cents: a.amount_cents })),
-      learnedPayer: learnedRow ? { value: learnedRow.value, times: learnedRow.times_matched } : null,
-    },
+    message: `Matched ${formatCents(txn.data.amount_cents, center.currency)} to ${data.householdName}${separateReason ? " as a separate gift" : ""}.`,
+    data,
+  };
+}
+
+/** G6: the bank line settles the Zelle (or ACH) already recorded by hand, instead of a second payment. */
+export async function attachBankLineAction(input: { txnId: string; paymentId: string; reportId?: string | null }): Promise<ActionResult<ConfirmResult>> {
+  const doing = "attach the bank line to the recorded payment";
+  const auth = await authorizeAction("bankConfirm", doing);
+  if (!auth.ok) return auth;
+  const { session } = auth;
+  const { db, center } = session;
+  if (!isUuid(input.txnId) || !isUuid(input.paymentId)) return { ok: false, error: `Could not ${doing} — choose the payment first.` };
+  const reportId = input.reportId && isUuid(input.reportId) ? input.reportId : null;
+  const txn = await db.from("bank_transactions").select("id, payer_normalized, amount_cents").eq("id", input.txnId).maybeSingle();
+  if (txn.error) return failure(`Could not ${doing}`, txn.error);
+  if (!txn.data) return { ok: false, error: `Could not ${doing} — the bank line was not found.` };
+  const pay = await db.from("payments").select("household_id").eq("id", input.paymentId).maybeSingle();
+  if (pay.error) return failure(`Could not ${doing}`, pay.error);
+  if (!pay.data) return { ok: false, error: `Could not ${doing} — the payment was not found.` };
+
+  const { data, error } = await untypedRpc(db)("attach_bank_line_to_payment", {
+    p_txn: input.txnId,
+    p_payment: input.paymentId,
+    ...(reportId ? { p_report: reportId } : {}),
+    p_learn_payer: true,
+  });
+  if (error) return failure(`Could not ${doing}`, error);
+  if (data !== input.paymentId) console.error("[bank] attach_bank_line_to_payment returned another payment id:", data);
+  const outcome = await describeMatch(session, {
+    txnId: input.txnId,
+    householdId: pay.data.household_id,
+    learnPayer: true,
+    paymentId: input.paymentId,
+    amountCents: txn.data.amount_cents,
+    payerNormalized: txn.data.payer_normalized,
+  });
+  refresh();
+  return {
+    ok: true,
+    message: `Attached ${formatCents(txn.data.amount_cents, center.currency)} to receipt ${outcome.receiptNumber ?? "already recorded"}: no second payment, and one QuickBooks deposit is queued.`,
+    data: outcome,
   };
 }
 

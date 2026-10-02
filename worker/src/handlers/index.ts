@@ -31,6 +31,7 @@ import * as qboPullLists from "./qbo.pull_lists";
 import * as qboRefreshToken from "./qbo.refresh_token";
 import * as qboTestPost from "./qbo.test_post";
 import * as paymentsRefund from "./payments.refund";
+import * as paymentsReportsSweep from "./payments.reports_sweep";
 import * as paymentsSyncPayouts from "./payments.sync_payouts";
 import * as paymentsTestCharge from "./payments.test_charge";
 import * as paymentsWebhookPaypal from "./payments.webhook.paypal";
@@ -70,6 +71,8 @@ export const HANDLERS: HandlerModule[] = [
   paymentsRefund,
   paymentsTestCharge,
   paymentsSyncPayouts,
+  // Payments plan PR 3: Zelle reports not seen at the bank within their window (0582)
+  paymentsReportsSweep,
   // o-demo
   demoLoad,
   demoClear,

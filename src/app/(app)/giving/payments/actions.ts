@@ -5,12 +5,19 @@ import { revalidatePath } from "next/cache";
 import { previewAllocation } from "@/lib/allocation";
 import { todayInTz } from "@/lib/dates";
 import { stockMemo } from "@/lib/giving";
-import { explainError, failure, type ActionResult } from "@/lib/errors";
+import { explainError, failure, type ActionResult, type DbErrorLike } from "@/lib/errors";
 import { OFFLINE_METHODS } from "@/lib/labels";
 import { formatCents, parseAmountToCents } from "@/lib/money";
+import { parsePossibleDuplicates, type RecordedZelle } from "@/lib/payments/zelle";
 import { canAccess } from "@/lib/permissions";
 import { isUuid } from "@/lib/search-params";
 import { authorizeAction, type CrmSession } from "@/lib/session";
+import type { AppSupabase } from "@/lib/supabase/server";
+
+// app.possible_duplicate_zelle is new in 0583: until the generated types include it, it is called
+// through the untyped signature (as src/app/(app)/content/niva/actions.ts does).
+type RpcCaller = (fn: string, args: Record<string, unknown>) => PromiseLike<{ data: unknown; error: DbErrorLike | null }>;
+const untypedRpc = (db: AppSupabase) => db.rpc.bind(db) as unknown as RpcCaller;
 
 type OfflineMethod = (typeof OFFLINE_METHODS)[number];
 
@@ -207,4 +214,28 @@ export async function applyPaymentAction(input: {
     message: r.applied.length > 0 ? "Applied to pledges." : "Nothing left to apply — no open pledges, or the payment is fully applied.",
     data: { applied: r.applied, unallocatedCents: r.unallocated },
   };
+}
+
+/**
+ * Before a Zelle is recorded by hand: is a Zelle of this family and amount already recorded (by hand,
+ * from the bank statement) or reported by a member around that date? A warning only; recording is unchanged.
+ */
+export async function possibleDuplicateZelleAction(input: {
+  householdId: string;
+  amountCents: number;
+  receivedOn: string;
+}): Promise<ActionResult<RecordedZelle[]>> {
+  const doing = "check for a Zelle already recorded";
+  const auth = await authorizeAction("recordPayment", doing);
+  if (!auth.ok) return auth;
+  if (!isUuid(input.householdId)) return { ok: false, error: `Could not ${doing} — choose the household first.` };
+  if (!Number.isSafeInteger(input.amountCents) || input.amountCents <= 0) return { ok: true, data: [] };
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(input.receivedOn)) return { ok: true, data: [] };
+  const { data, error } = await untypedRpc(auth.session.db)("possible_duplicate_zelle", {
+    p_household: input.householdId,
+    p_amount_cents: input.amountCents,
+    p_on: input.receivedOn,
+  });
+  if (error) return failure(`Could not ${doing}`, error);
+  return { ok: true, data: parsePossibleDuplicates(data) };
 }
