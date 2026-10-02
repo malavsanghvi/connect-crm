@@ -1,8 +1,9 @@
 // What this background service last saw from Anthropic, in memory, for the heartbeat.
 //
 // Every Anthropic call goes through anthropicClient() (worker/src/anthropic.ts), whose fetch
-// records each HTTP answer here, and the setup wizard's AI test (platform.test_provider) records
-// its call too. The heartbeat reports it inside info.handlers[kind].ai for each kind that calls
+// records here what each call finally got (a try the SDK makes again by itself is not recorded,
+// only the next one), and the setup wizard's AI test (platform.test_provider) records its call
+// too. The heartbeat reports it inside info.handlers[kind].ai for each kind that calls
 // Anthropic (ANTHROPIC_KINDS), because that is the part of the heartbeat that
 // app.background_service_status (Settings › Integrations) and app.niva_health (Content › Niva)
 // already return. A key that is present but blocked (spending limit, refused) is then visible

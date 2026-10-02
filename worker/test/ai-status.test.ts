@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { ANTHROPIC_KINDS, anthropicKeySource, createAiStatus, recordAnthropicNoAnswer, recordAnthropicResponse } from "../src/ai-status";
-import { recordingFetch } from "../src/anthropic";
+import { anthropicClient, attemptOf, recordingFetch, sdkRetries } from "../src/anthropic";
 import { HANDLERS } from "../src/handlers";
 import { createRegistry, readiness } from "../src/runner";
 import { handlerInfo, healthOf, heartbeatAi } from "../src/server";
@@ -105,6 +105,93 @@ describe("recordingFetch", () => {
     });
     await expect(f("https://api.anthropic.com/v1/messages")).rejects.toThrow("fetch failed");
     expect(status.report()).toMatchObject({ state: "unreachable", last_error: "no connection: fetch failed" });
+  });
+});
+
+describe("recordingFetch with the SDK's own retry", () => {
+  const MESSAGE = JSON.stringify({
+    id: "msg_1", type: "message", role: "assistant", model: "claude-opus-5-5",
+    content: [{ type: "text", text: "OK" }], stop_reason: "end_turn", stop_sequence: null, usage: { input_tokens: 1, output_tokens: 1 },
+  });
+  const ok = () => new Response(MESSAGE, { status: 200, headers: { "content-type": "application/json" } });
+  // retry-after-ms keeps the SDK's wait before its retry to a millisecond.
+  const busy = (extra: Record<string, string> = {}) =>
+    new Response(body(529, "overloaded_error", "Overloaded"), { status: 529, headers: { "content-type": "application/json", "retry-after-ms": "1", ...extra } });
+
+  /** A real SDK client (the handlers' anthropicClient) over answers the test hands out in order. */
+  function client(answers: (() => Response | Promise<Response>)[], maxRetries = 1) {
+    const { status, advance } = clocked();
+    const tries: (number | null)[] = [];
+    const fetch = async (input: string | URL | Request, init?: RequestInit) => {
+      tries.push(attemptOf(input, init));
+      const next = answers.shift();
+      if (!next) throw new Error("no more answers");
+      return next();
+    };
+    const c = anthropicClient({ ANTHROPIC_API_KEY: "sk-ant-test" }, { status, fetch, maxRetries });
+    const ask = () => c.messages.create({ model: "claude-opus-5-5", max_tokens: 1, messages: [{ role: "user", content: "Reply with OK." }] });
+    return { status, advance, tries, ask };
+  }
+
+  it("a busy moment the SDK's retry gets past leaves the report as it was", async () => {
+    const { status, advance, tries, ask } = client([ok, () => busy(), ok]);
+    await ask();
+    const before = status.report();
+    advance(60_000);
+    await ask();
+    expect(tries).toEqual([0, 0, 1]);
+    // No blip in the audited heartbeat: same state, same "since", no new last error.
+    expect(status.report()).toEqual(before);
+  });
+
+  it("so does a dropped connection the retry gets past", async () => {
+    const { status, advance, ask } = client([ok, () => Promise.reject(new TypeError("fetch failed")), ok]);
+    await ask();
+    const before = status.report();
+    advance(60_000);
+    await ask();
+    expect(status.report()).toEqual(before);
+  });
+
+  it("a call that fails on every try is recorded once, by its last", async () => {
+    const { status, advance, tries, ask } = client([ok, () => busy(), () => busy()]);
+    await ask();
+    advance(60_000);
+    await expect(ask()).rejects.toThrow();
+    expect(tries).toEqual([0, 0, 1]);
+    expect(status.report()).toMatchObject({
+      state: "unreachable", since: "2026-10-02T10:01:00.000Z", last_ok_at: "2026-10-02T10:00:00.000Z",
+      last_error_kind: "transient", last_error: "529 overloaded_error: Overloaded",
+    });
+  });
+
+  it("a try the SDK will not repeat is recorded at once", async () => {
+    // Anthropic says not to retry it.
+    const said = client([() => busy({ "x-should-retry": "false" })]);
+    await expect(said.ask()).rejects.toThrow();
+    expect(said.tries).toEqual([0]);
+    expect(said.status.report().state).toBe("unreachable");
+    // A spending limit is never retried by the SDK.
+    const limited = client([() => new Response(body(400, "invalid_request_error", LIMIT), { status: 400, headers: { "content-type": "application/json" } })]);
+    await expect(limited.ask()).rejects.toThrow();
+    expect(limited.tries).toEqual([0]);
+    expect(limited.status.report()).toMatchObject({ state: "paused", paused_until: "2026-11-01T00:00:00.000Z" });
+    // A client that does not retry at all.
+    const once = client([() => busy()], 0);
+    await expect(once.ask()).rejects.toThrow();
+    expect(once.status.report().state).toBe("unreachable");
+  });
+
+  it("reads the try's number and the SDK's retry rule", () => {
+    expect(attemptOf("https://x", { headers: { "X-Stainless-Retry-Count": "2" } })).toBe(2);
+    expect(attemptOf(new Request("https://x", { headers: { "x-stainless-retry-count": "0" } }))).toBe(0);
+    expect(attemptOf("https://x", {})).toBeNull();
+    expect(attemptOf("https://x", { headers: { "x-stainless-retry-count": "one" } })).toBeNull();
+    const res = (status: number, h: Record<string, string> = {}) => new Response(null, { status, headers: h });
+    expect([408, 409, 429, 500, 529].map((s) => sdkRetries(res(s)))).toEqual([true, true, true, true, true]);
+    expect([400, 401, 402, 404, 413].map((s) => sdkRetries(res(s)))).toEqual([false, false, false, false, false]);
+    expect(sdkRetries(res(529, { "x-should-retry": "false" }))).toBe(false);
+    expect(sdkRetries(res(400, { "x-should-retry": "true" }))).toBe(true);
   });
 });
 

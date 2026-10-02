@@ -166,12 +166,15 @@ call Anthropic (`niva.answer`, `import.suggest_mapping`, `qbo.match_suggest_ai`)
 the last Anthropic calls got (`info.handlers.<kind>.ai`: working, paused by the spending limit and
 until when, key refused, model or beta not available, unreachable) and whether
 `ANTHROPIC_API_KEY` comes from Platform › Setup or the environment. Settings › Integrations shows
-it as "AI service (Anthropic)", for example "Niva paused: AI spending limit until …". It is kept
-in memory, so it starts as "Not used yet" after every restart.
+it as "AI service (Anthropic)", for example "Niva paused: AI spending limit until …", or "No AI
+key" when neither has one. A busy moment the Anthropic client's own retry gets past is not
+reported (only what each call finally got), so the heartbeat stays the same while calls work. It
+is kept in memory, so it starts as "Not used yet" after every restart.
 
 **Slots.** It runs up to `WORKER_CONCURRENCY` jobs at once (default 4). One slot is kept for
 `niva.answer`, which is claimed first, so a long photo-album or QuickBooks import cannot keep a
-member waiting for an answer; the other kinds share the rest.
+member waiting for an answer; the other kinds share the rest. While there is no Anthropic key
+(Niva cannot run) no slot is kept, and saving one in Platform › Setup brings it back.
 
 The connection is encrypted (TLS). To also verify the server certificate, download
 the certificate from Supabase › Project Settings › Database › SSL Configuration

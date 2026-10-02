@@ -2,8 +2,9 @@
 // built, and what a failed call means for the job that made it.
 //
 // niva.answer, import.suggest_mapping and qbo.match_suggest_ai all build their client here and
-// read a failure with classifyAnthropicError. Every HTTP answer a client built here gets is also
-// recorded in the service's AI status (worker/src/ai-status.ts), which the heartbeat reports.
+// read a failure with classifyAnthropicError. What each call by a client built here finally gets
+// is also recorded in the service's AI status (worker/src/ai-status.ts), which the heartbeat
+// reports.
 
 import Anthropic from "@anthropic-ai/sdk";
 
@@ -32,22 +33,56 @@ export const FALLBACK_BETA = "server-side-fallback-2026-07-01";
 export type Fetch = (input: string | URL | Request, init?: RequestInit) => Promise<Response>;
 
 /**
- * A fetch that records every answer in `status` before the SDK sees it: a 2xx as working, an
- * error status by what its body says (the body is read from a clone, so the SDK still gets it
- * whole), and no answer at all (no connection, the client's timeout) as unreachable. The SDK's
- * own retry is a second fetch, so the status ends on what the last attempt got.
+ * Which try of one SDK call this fetch is (0 = the first), from the X-Stainless-Retry-Count header
+ * the SDK sends with every try; null when the header is not there.
  */
-export function recordingFetch(status: AiStatus, inner: Fetch = (input, init) => globalThis.fetch(input, init)): Fetch {
+export function attemptOf(input: string | URL | Request, init?: RequestInit): number | null {
+  let raw: string | null;
+  try {
+    raw = new Headers(init?.headers ?? (input instanceof Request ? input.headers : undefined)).get("x-stainless-retry-count");
+  } catch {
+    return null;
+  }
+  const n = raw === null ? Number.NaN : Number(raw);
+  return Number.isInteger(n) && n >= 0 ? n : null;
+}
+
+/**
+ * Whether the SDK tries this answer again by itself (its shouldRetry for a call made with an API
+ * key): what Anthropic's x-should-retry says when it is sent, else a 408, 409, 429 or any 5xx.
+ */
+export function sdkRetries(res: Response): boolean {
+  const said = res.headers.get("x-should-retry");
+  if (said === "true") return true;
+  if (said === "false") return false;
+  return res.status === 408 || res.status === 409 || res.status === 429 || res.status >= 500;
+}
+
+/**
+ * A fetch that records in `status` what each call to Anthropic finally got, before the SDK sees
+ * it: a 2xx as working, an error status by what its body says (the body is read from a clone, so
+ * the SDK still gets it whole), and no answer at all (no connection, the client's timeout) as
+ * unreachable.
+ *
+ * A try the SDK makes again by itself (a 529 or 429, a 5xx, no connection or its own timeout,
+ * while it has retries left of `maxRetries`, the client's own) is not recorded: the next try's
+ * answer is. So a busy moment the SDK's retry gets past leaves the status, and with it the
+ * audited heartbeat, as it was, and a call that fails on every try is recorded once, by its last
+ * try. A fetch the SDK does not number counts as a last try.
+ */
+export function recordingFetch(status: AiStatus, inner: Fetch = (input, init) => globalThis.fetch(input, init), maxRetries = 0): Fetch {
   return async (input, init) => {
+    const attempt = attemptOf(input, init);
+    const triesLeft = attempt !== null && attempt < maxRetries;
     let res: Response;
     try {
       res = await inner(input, init);
     } catch (err) {
-      recordAnthropicNoAnswer(status, err);
+      if (!triesLeft) recordAnthropicNoAnswer(status, err);
       throw err;
     }
     if (res.ok) recordAnthropicResponse(status, res.status, "");
-    else recordAnthropicResponse(status, res.status, await res.clone().text().catch(() => ""));
+    else if (!(triesLeft && sdkRetries(res))) recordAnthropicResponse(status, res.status, await res.clone().text().catch(() => ""));
     return res;
   };
 }
@@ -62,12 +97,13 @@ export function anthropicClient(
   env: Env,
   opts: { timeoutMs?: number; maxRetries?: number; status?: AiStatus; fetch?: Fetch } = {},
 ): Anthropic {
+  const maxRetries = opts.maxRetries ?? 1;
   return new Anthropic({
     apiKey: env.ANTHROPIC_API_KEY,
     baseURL: env.ANTHROPIC_BASE_URL || undefined,
     timeout: opts.timeoutMs ?? 30_000,
-    maxRetries: opts.maxRetries ?? 1,
-    fetch: recordingFetch(opts.status ?? aiStatus, opts.fetch),
+    maxRetries,
+    fetch: recordingFetch(opts.status ?? aiStatus, opts.fetch, maxRetries),
   });
 }
 

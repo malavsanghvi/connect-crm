@@ -82,7 +82,7 @@ describe("runner", () => {
   it("claims only up to the free concurrency and drains", async () => {
     // Niva first (none due), then the rest into all but the slot kept for Niva.
     const { db, calls } = fakeDb({ claim: [[], [job({ id: "1" })], []] });
-    const { d } = deps(db);
+    const { d } = deps(db, { ANTHROPIC_API_KEY: "sk-ant-test" });
     const r = createRunner(d, 2);
     expect(await r.tick()).toBe(1);
     expect(calls[0]).toEqual({ fn: "claim", args: ["w-test", ["niva.answer"], 2] });
@@ -161,6 +161,39 @@ describe("runner: a slot kept for Niva", () => {
       [["photos.import_album", "qbo.bring_in_history"], 3],
     ]);
     releaseAll();
+    expect(await runner.drain(1000)).toBe(true);
+  });
+
+  it("keeps no slot while niva.answer cannot run (no Anthropic key), and keeps it again once a key is saved", async () => {
+    const release: (() => void)[] = [];
+    const slow = (kind: string): HandlerModule => ({ kind, run: () => new Promise((r) => release.push(() => r({ ok: true }))) });
+    const env: Record<string, string> = {};
+    const niva: HandlerModule = { ...slow("niva.answer"), configured: (e) => (e.ANTHROPIC_API_KEY ? { configured: true } : { configured: false, reason: "no key" }) };
+    const reg = createRegistry([niva, slow("photos.import_album")]);
+    const { db, calls } = fakeDb();
+    const queue = Array.from({ length: 6 }, (_, i) => job({ id: `L${i}`, kind: "photos.import_album" }));
+    db.claim = async (worker, kinds, limit) => {
+      calls.push({ fn: "claim", args: [worker, kinds, limit] });
+      return kinds.includes("photos.import_album") ? queue.splice(0, limit) : [];
+    };
+    const { log } = captureLog();
+    // deps.env is the platform overlay: the test changes it as a key saved in the wizard would.
+    const runner = createRunner({ db, reg, env, http: createHttp(), log, workerId: "w" }, 4);
+    expect(await runner.tick()).toBe(4);
+    expect(claims(calls)).toEqual([
+      [["niva.answer"], 4],
+      [["photos.import_album"], 4],
+    ]);
+    release.splice(0).forEach((f) => f());
+    expect(await runner.drain(1000)).toBe(true);
+    env.ANTHROPIC_API_KEY = "sk-ant-saved";
+    calls.length = 0;
+    expect(await runner.tick()).toBe(2);
+    expect(claims(calls)).toEqual([
+      [["niva.answer"], 4],
+      [["photos.import_album"], 3],
+    ]);
+    release.splice(0).forEach((f) => f());
     expect(await runner.drain(1000)).toBe(true);
   });
 

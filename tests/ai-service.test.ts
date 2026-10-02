@@ -64,11 +64,23 @@ describe("aiServiceFromHandler", () => {
       label: "AI service unreachable",
       detail: expect.stringContaining("Calls are tried again automatically."),
     });
-    expect(aiServiceFromHandler(entry({ state: "untested", key_source: "none" }), TZ, now)).toMatchObject({
+    expect(aiServiceFromHandler(entry({ state: "untested" }), TZ, now)).toMatchObject({
       tone: null,
       label: "Not used yet",
-      key: "Key: none is set, in Platform › Setup or in the background service's environment.",
+      detail: expect.stringContaining("The next question or suggestion shows whether the key works"),
     });
+  });
+
+  it("with no key, says one is needed instead of waiting for a call that cannot happen", () => {
+    const noKey = {
+      tone: "warn",
+      label: "No AI key",
+      detail: "No Anthropic key is set, so Niva and the suggestions cannot run. A platform administrator needs to add ANTHROPIC_API_KEY in Platform › Setup › AI, then use Test there.",
+      key: "Key: none is set, in Platform › Setup or in the background service's environment.",
+    };
+    expect(aiServiceFromHandler(entry({ state: "untested", key_source: "none" }), TZ, now)).toMatchObject(noKey);
+    // A key removed after it was refused: what to do now is still to add one.
+    expect(aiServiceFromHandler(entry({ state: "key_refused", key_source: "none", since: "2026-10-02T14:30:00Z" }), TZ, now)).toMatchObject(noKey);
   });
 
   it("shows nothing for a worker from before this report, or a state it does not know", () => {

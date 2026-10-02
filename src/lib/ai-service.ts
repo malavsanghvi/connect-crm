@@ -58,6 +58,15 @@ export function aiServiceFromHandler(handler: unknown, timeZone: string, now: Da
   });
   const lastOk = str(ai.last_ok_at) ? ` The last call that worked was at ${at(ai.last_ok_at)}.` : "";
 
+  // With no key nothing can run, whatever the last call got: say what to do, not "wait and see".
+  if (str(ai.key_source) === "none") {
+    return view(
+      "warn",
+      "No AI key",
+      "No Anthropic key is set, so Niva and the suggestions cannot run. A platform administrator needs to add ANTHROPIC_API_KEY in Platform › Setup › AI, then use Test there.",
+    );
+  }
+
   switch (ai.state) {
     case "ok":
       return view("ok", "Working", `Niva and the suggestions reach Anthropic${since ? ` (working since ${at(since)})` : ""}.`);
