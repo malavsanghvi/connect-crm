@@ -79,12 +79,10 @@ insert into app.center_users (center_id, user_id, person_id) values
   (:c, :member, '62000000-0000-4000-8000-0000000000a2'),
   (:cs, :member, '62000000-0000-4000-8000-0000000000a4'),
   (:c, :admin, '62000000-0000-4000-8000-0000000000a6');
-insert into app.content_items (id, center_id, kind, slug, title, body_md, status, metadata) values
-  (:src_pub, :c, 'niva_source', 'timings-62', 'Derasar timings', 'The derasar is open every day from 6 AM to 12 PM.', 'published', '{}'),
-  (:src_rev, :c, 'niva_source', 'parking-62', 'Parking', 'Park in the east lot on festival days.', 'in_review',
-   '{"source_url":"https://example.org/visit"}');
-insert into app.guide_sections (id, center_id, slug, title, body_md, public) values
-  (:guide, :c, 'visiting-62', 'Visiting the derasar', 'Remove your shoes before entering.', true);
+-- 0579: Niva answers from the community's own content first, and queues a niva.answer job only while AI answers
+-- are on (centers.rules.niva.ai = 'haiku'). This test covers the job path, so its communities have AI answers on and
+-- :c's sources are added after the first two tests (test 69 covers the own answers).
+update app.centers set rules = coalesce(rules, '{}'::jsonb) || '{"niva": {"ai": "haiku"}}'::jsonb where id in (:c::uuid, :cs::uuid, :c2::uuid);
 
 -- ── Who may test ─────────────────────────────────────────────────────────────
 begin;
@@ -130,6 +128,13 @@ select pg_temp.assert((:'t2'::jsonb->>'include_in_review') = 'true' and (:'t2'::
 select pg_temp.assert((select payload->'include_in_review' = 'true'::jsonb from app.jobs
                         where kind = 'niva.answer' and payload->>'conversation_id' = :'t2_id'),
   'the job carries include_in_review true, for the worker to search sources waiting for approval');
+
+insert into app.content_items (id, center_id, kind, slug, title, body_md, status, metadata) values
+  (:src_pub, :c, 'niva_source', 'timings-62', 'Derasar timings', 'The derasar is open every day from 6 AM to 12 PM.', 'published', '{}'),
+  (:src_rev, :c, 'niva_source', 'parking-62', 'Parking', 'Park in the east lot on festival days.', 'in_review',
+   '{"source_url":"https://example.org/visit"}');
+insert into app.guide_sections (id, center_id, slug, title, body_md, public) values
+  (:guide, :c, 'visiting-62', 'Visiting the derasar', 'Remove your shoes before entering.', true);
 
 begin;
 select pg_temp.sign_in(:editor);

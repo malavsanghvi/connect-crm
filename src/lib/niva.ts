@@ -29,6 +29,13 @@ function withDetail(label: string, detail: string | null | undefined): string {
 const UNCITED_ANSWER = /could not point to an approved source/i;
 
 /**
+ * 0579: Niva's own answers never take a question about the member's own details, and with AI answers off a question
+ * nothing approved answers reads no_source at once (app.niva_own_outcome_detail). Staff fix the two differently.
+ */
+const PERSONAL_QUESTION = /does not look up a member's own details/i;
+const AI_OFF = /AI answers are off/i;
+
+/**
  * The "Why" of a question, in plain English. The fixed outcomes have fixed wording; a paused or
  * failed question carries the worker's own plain-English detail (never a secret: 0572 scrubs it).
  */
@@ -39,6 +46,8 @@ export function nivaOutcomeLabel(status: string | null | undefined, detail?: str
     case "answered":
       return "Answered";
     case "no_source":
+      if (PERSONAL_QUESTION.test(detail ?? "")) return "About the member's own details, which Niva never looks up";
+      if (AI_OFF.test(detail ?? "")) return "No approved source answers it (AI answers are off)";
       return "No approved source mentions these words";
     case "unsure":
       return UNCITED_ANSWER.test(detail ?? "")
@@ -284,6 +293,10 @@ export type NivaHealthView = {
   usage: NivaUsage | null;
   /** Staff tests used today against the daily allowance (0575); null before 0575. */
   testsToday: NivaTestsToday | null;
+  /** The community's AI answers setting (rules.niva.ai, 0579); null before 0579. */
+  ai: NivaAiMode | null;
+  /** Members' answers of the last 7 days by how they were made (0579); null before 0579. */
+  answeredBy7d: { cache: number; faq: number; extract: number; ai: number } | null;
 };
 
 const num = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? v : 0);
@@ -331,9 +344,15 @@ export function nivaHealthView(raw: Json | null | undefined, opts: { canRetry?: 
   const usage = m ? nivaUsage(num(m.used), typeof m.limit === "number" ? m.limit : null) : null;
   const t = isPlainObject(s.tests_today) ? s.tests_today : null;
   const testsToday = t ? nivaTestsToday(num(t.used), typeof t.limit === "number" ? t.limit : NIVA_TEST_DAILY_LIMIT) : null;
+  const ai: NivaAiMode | null = s.ai === "off" || s.ai === "haiku" ? s.ai : null;
+  const by = isPlainObject(s.answered_by_7d) ? s.answered_by_7d : null;
+  const answeredBy7d = by ? { cache: num(by.cache), faq: num(by.faq), extract: num(by.extract), ai: num(by.ai) } : null;
+  // 0579: with AI answers off, Niva answers inside the database as the member asks; the background service and its
+  // AI key play no part in answering, so their state is not a reason Niva cannot answer.
+  const needsService = ai !== "off";
 
   const problems: NivaHealthProblem[] = [];
-  if (moduleOn) {
+  if (moduleOn && needsService) {
     if (state === "not_configured") {
       problems.push({
         tone: "danger",
@@ -359,6 +378,8 @@ export function nivaHealthView(raw: Json | null | undefined, opts: { canRetry?: 
         retry: true,
       });
     }
+  }
+  if (moduleOn) {
     // Questions that are failed now, not failed jobs: a question answered by a later try leaves this
     // count (its answer_status changes), while jobs.failed_24h would keep the alert up for a day and
     // count a question that failed twice twice.
@@ -381,7 +402,7 @@ export function nivaHealthView(raw: Json | null | undefined, opts: { canRetry?: 
       });
     }
   }
-  return { moduleOn, state, problems, jobs, outcomes7d, usage, testsToday };
+  return { moduleOn, state, problems, jobs, outcomes7d, usage, testsToday, ai, answeredBy7d };
 }
 
 // ── Staff tests (app.niva_test_ask and app.niva_test_result, 0575) ──────────
@@ -411,8 +432,8 @@ export function nivaTestsToday(used: number, limit: number = NIVA_TEST_DAILY_LIM
   };
 }
 
-/** What app.niva_test_ask returns. */
-export type NivaTestAsked = { id: string; question: string; includeInReview: boolean; testsToday: NivaTestsToday };
+/** What app.niva_test_ask returns. answerStatus (0579): 'answered' or 'no_source' when Niva already has the outcome, else 'pending'. */
+export type NivaTestAsked = { id: string; question: string; includeInReview: boolean; testsToday: NivaTestsToday; answerStatus: string };
 
 export function parseNivaTestAsked(raw: unknown): NivaTestAsked | null {
   if (!isPlainObject(raw)) return null;
@@ -423,6 +444,7 @@ export function parseNivaTestAsked(raw: unknown): NivaTestAsked | null {
     question: typeof raw.question === "string" ? raw.question : "",
     includeInReview: raw.include_in_review === true,
     testsToday: nivaTestsToday(num(raw.tests_today), typeof raw.daily_limit === "number" ? raw.daily_limit : NIVA_TEST_DAILY_LIMIT),
+    answerStatus: str(raw.answer_status) ?? "pending",
   };
 }
 
@@ -580,4 +602,44 @@ export function nivaAnswerFromLine(a: NivaAnswerFrom): string {
   const extra = [a.guide ? "the Guide's public sections" : null, a.faq ? "published FAQ items" : null].filter((x): x is string => x !== null);
   if (extra.length === 0) return "Niva answers from its approved sources only.";
   return `Niva answers from its approved sources${extra.length === 2 ? `, ${extra[0]} and ${extra[1]}` : ` and ${extra[0]}`}.`;
+}
+
+// ── AI answers (centers.rules.niva.ai, 0579) ─────────────────────────────────
+
+/** 'off': Niva answers only from approved content, at no AI cost. 'haiku': when nothing approved answers, Claude Haiku writes one. */
+export type NivaAiMode = "off" | "haiku";
+
+/** Read centers.rules.niva.ai: anything but 'haiku' (or nothing) is off, as app.niva_ai_mode reads it. */
+export function nivaAiMode(rules: unknown): NivaAiMode {
+  const r = isPlainObject(rules) ? rules : {};
+  const n = isPlainObject(r.niva) ? r.niva : {};
+  return n.ai === "haiku" ? "haiku" : "off";
+}
+
+/** The two choices on Content › Niva's "AI answers" card. */
+export const NIVA_AI_CHOICES: { value: NivaAiMode; label: string; detail: string }[] = [
+  { value: "off", label: "Off", detail: "Niva answers only from your approved content, at no AI cost." },
+  { value: "haiku", label: "On", detail: "When your content has no match, Claude Haiku writes an answer (small per-question cost)." },
+];
+
+/** The card's one-line summary of the setting. */
+export function nivaAiLine(mode: NivaAiMode): string {
+  return mode === "haiku"
+    ? "AI answers are on: when your content has no match, Claude Haiku writes an answer (small per-question cost)."
+    : "AI answers are off: Niva answers only from your approved content, at no AI cost.";
+}
+
+/**
+ * How an answer was made, from niva_conversations.model: own:cache, own:faq and own:extract are Niva's own answers
+ * (0579, no AI); any other model wrote it. Null when there is no answer.
+ */
+export function nivaAnswerMadeBy(model: string | null | undefined, sources: unknown): string | null {
+  const m = (model ?? "").trim();
+  if (m === "own:cache") return "From an earlier answer";
+  if (m === "own:faq") return "From the FAQ";
+  if (m === "own:extract") {
+    const first = Array.isArray(sources) && isPlainObject(sources[0]) ? str(sources[0].title) : null;
+    return first ? `From ${first}` : "From an approved source";
+  }
+  return m ? "Written by AI" : null;
 }

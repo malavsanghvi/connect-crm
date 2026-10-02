@@ -26,6 +26,14 @@ export function claudeModel(env: Env): string {
   return env.CLAUDE_MODEL?.trim() || CLAUDE_MODEL;
 }
 
+/**
+ * Niva's model (owner decision 2026-10-02). Niva answers from each community's own content in the database first, at
+ * no AI cost (migration 0579); only a community that turned AI answers on (rules.niva.ai = 'haiku') ever reaches the
+ * AI, and then this small model writes the answer. CLAUDE_MODEL does not change it: it is for the staff-side
+ * suggestions, which still use the current Opus.
+ */
+export const NIVA_MODEL = "claude-haiku-4-5-20251001";
+
 /** A policy decline is re-run on Anthropic's recommended fallback model (fallbacks: "default"). */
 export const FALLBACK_BETA = "server-side-fallback-2026-07-01";
 

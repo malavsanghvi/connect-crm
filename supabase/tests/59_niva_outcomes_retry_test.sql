@@ -75,8 +75,10 @@ insert into app.center_users (center_id, user_id, person_id) values
   (:c, :member_b, '59000000-0000-4000-8000-0000000000a4'),
   (:c3, :member3, '59000000-0000-4000-8000-0000000000a6'),
   (:ch, :member, '59000000-0000-4000-8000-0000000000a8');
-insert into app.content_items (id, center_id, kind, slug, title, body_md, status) values
-  (:src_p, :c, 'niva_source', 'timings-59', 'Derasar timings', 'The derasar is open every day from 6 AM to 12 PM.', 'published');
+-- 0579: Niva answers from the community's own content first, and queues a niva.answer job only while AI answers
+-- are on (centers.rules.niva.ai = 'haiku'). This test covers the job path, so :c and :c3 have AI answers on and
+-- :c's source is added after its first question (test 69 covers the own answers).
+update app.centers set rules = coalesce(rules, '{}'::jsonb) || '{"niva": {"ai": "haiku"}}'::jsonb where id in (:c::uuid, :c3::uuid);
 
 -- ── Asking saves the question as pending ─────────────────────────────────────
 begin;
@@ -86,6 +88,9 @@ commit;
 select pg_temp.assert((select answer_status = 'pending' and unanswered and answered_at is null and model is null and attempted_at is null
                          from app.niva_conversations where id = :'qa'::uuid), 'a new question is saved as pending');
 select pg_temp.assert(pg_temp.jobs_of(:'qa'::uuid, 'queued') = 1, 'asking queues one niva.answer job');
+
+insert into app.content_items (id, center_id, kind, slug, title, body_md, status) values
+  (:src_p, :c, 'niva_source', 'timings-59', 'Derasar timings', 'The derasar is open every day from 6 AM to 12 PM.', 'published');
 
 -- ── Storing an answer records answered, the model and when ───────────────────
 begin;

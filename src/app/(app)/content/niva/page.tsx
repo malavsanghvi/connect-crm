@@ -6,8 +6,11 @@ import { addDays, formatDateTime, formatMonth, todayInTz } from "@/lib/dates";
 import { isModuleEnabled } from "@/lib/modules";
 import {
   groupUnanswered,
+  nivaAiLine,
+  nivaAiMode,
   nivaAnswerFrom,
   nivaAnswerFromLine,
+  nivaAnswerMadeBy,
   nivaBodyPreview,
   nivaConversationView,
   nivaHealthView,
@@ -26,12 +29,14 @@ import {
 import { canAccess } from "@/lib/permissions";
 import { hrefWith, pageParam, param, type RawSearchParams } from "@/lib/search-params";
 import { getSession, type CrmSession } from "@/lib/session";
+import { rulesVersion } from "@/lib/settings-rules";
 
 import { approveNivaContentAction } from "../../setup/approval-actions";
 import { ApprovalCard } from "../../setup/_components/approval-card";
 import { parseApprovalStatus } from "@/lib/setup";
 import { ContentItemButton } from "../item-form";
 import { NivaHealthAlert, NivaUsageLine } from "./health-alert";
+import { NivaAiForm } from "./ai-settings";
 import { ImportPagesForm, SendImportedDraftsForm } from "./import-form";
 import { RegenerateNivaAnswerButton } from "./regenerate-button";
 import { RetryAllUnansweredButton, RetryQuestionGroupButton } from "./retry-buttons";
@@ -163,7 +168,7 @@ export default async function NivaPage({ searchParams }: { searchParams: Promise
     canManage
       ? db
           .from("niva_conversations")
-          .select("id, question, answer, sources, unanswered, answer_status, outcome_detail, created_at")
+          .select("id, question, answer, sources, unanswered, answer_status, outcome_detail, model, created_at")
           .eq("center_id", center.id)
           .eq(IS_TEST, false)
           .order("created_at", { ascending: false })
@@ -173,7 +178,7 @@ export default async function NivaPage({ searchParams }: { searchParams: Promise
     canDraft
       ? db
           .from("niva_conversations")
-          .select("id, question, answer, sources, answer_status, outcome_detail, created_at")
+          .select("id, question, answer, sources, answer_status, outcome_detail, model, created_at")
           .eq("center_id", center.id)
           .eq(IS_TEST, true)
           .gte("created_at", weekAgo)
@@ -201,6 +206,7 @@ export default async function NivaPage({ searchParams }: { searchParams: Promise
   const recentRows = recent?.data ?? [];
   const testRows = tests?.data ?? [];
   const answerFrom = nivaAnswerFrom(center.rules);
+  const aiMode = nivaAiMode(center.rules);
 
   return (
     <>
@@ -209,12 +215,13 @@ export default async function NivaPage({ searchParams }: { searchParams: Promise
         {health?.error ? <QueryError what="how Niva is doing" error={health.error} retryHref="/content/niva" /> : null}
         {healthView ? <NivaHealthAlert view={healthView} canRetry={canManage} canIntegrations={canAccess(session, "integrations")} /> : null}
         <Alert tone="info" title="Niva answers from your approved sources only">
-          A member&apos;s question is checked against the sources marked &ldquo;Included&rdquo; below
-          {answerFrom.guide || answerFrom.faq ? ` (and ${[answerFrom.guide ? "the Guide's public sections" : null, answerFrom.faq ? "published FAQ items" : null].filter(Boolean).join(" and ")})` : ""};
-          when one clearly answers it, Niva replies with that source cited. When none does, or Niva isn&apos;t confident, the question is saved
-          as unanswered and the member is told honestly that it&apos;s still being looked into — never a guess. Doctrinal questions are always
-          referred on to Pathshala teachers as well. Added or approved a source? Press Try again on the unanswered questions below; edited one?
-          Regenerate the answers that cite it.{canDraft ? " To see what Niva would say, ask it in Test Niva." : ""}
+          A member&apos;s question is answered from the sources marked &ldquo;Included&rdquo; below
+          {answerFrom.guide || answerFrom.faq ? ` (and ${[answerFrom.guide ? "the Guide's public sections" : null, answerFrom.faq ? "published FAQ items" : null].filter(Boolean).join(" and ")})` : ""}
+          : an earlier answer to the same question, a matching FAQ, or the sentences of the source that answers it, shown at once with that
+          source cited and at no AI cost. {nivaAiLine(aiMode)} When nothing answers it, the member is told so honestly and can send the question
+          to the team — never a guess. Doctrinal answers always refer on to Pathshala teachers as well, and Niva never answers questions about a
+          member&apos;s own details. Added or approved a source? Press Try again on the unanswered questions below; edited one? Regenerate the
+          answers that cite it.{canDraft ? " To see what Niva would say, ask it in Test Niva." : ""}
         </Alert>
         {healthView?.usage ? <NivaUsageLine usage={healthView.usage} /> : null}
       </div>
@@ -404,7 +411,10 @@ export default async function NivaPage({ searchParams }: { searchParams: Promise
             </div>
           </Card>
         ) : null}
-        <Card title="Guardrails" span={canDraft ? 5 : 12} description="How Niva is built to behave; these are fixed, not settings.">
+        <Card title="AI answers" span={canDraft ? 5 : 12} description={nivaAiLine(aiMode)}>
+          <NivaAiForm current={aiMode} version={rulesVersion(center.rules)} canChange={canAccess(session, "centerSettings")} />
+        </Card>
+        <Card title="Guardrails" span={12} description="How Niva is built to behave; these are fixed, not settings.">
           <div className="flex flex-col gap-3">
             {GUARDRAILS.map(([label, value]) => (
               <div key={label}>
@@ -495,6 +505,7 @@ export default async function NivaPage({ searchParams }: { searchParams: Promise
                     <th>Question</th>
                     <th>Answer</th>
                     <th>Sources</th>
+                    <th>How</th>
                     <th>Status</th>
                     <th>Why</th>
                     <th>Asked</th>
@@ -512,6 +523,7 @@ export default async function NivaPage({ searchParams }: { searchParams: Promise
                         <td className="max-w-[280px]">{r.question}</td>
                         <td className="max-w-[360px] text-muted">{r.answer ?? "—"}</td>
                         <td className="max-w-[200px] text-[12px] text-muted">{citedTitles.length ? citedTitles.join(" · ") : "—"}</td>
+                        <td className="max-w-[180px] text-[12px] text-muted">{(r.answer ? nivaAnswerMadeBy(r.model, r.sources) : null) ?? "—"}</td>
                         <td>
                           <StatusText tone={v.status.tone}>{v.status.label}</StatusText>
                         </td>
@@ -551,6 +563,7 @@ export default async function NivaPage({ searchParams }: { searchParams: Promise
                       <th>Question</th>
                       <th>Answer</th>
                       <th>Sources</th>
+                      <th>How</th>
                       <th>Status</th>
                       <th>Why</th>
                       <th>Asked</th>
@@ -566,6 +579,7 @@ export default async function NivaPage({ searchParams }: { searchParams: Promise
                           <td className="max-w-[280px]">{r.question}</td>
                           <td className="max-w-[360px] text-muted">{r.answer ?? "—"}</td>
                           <td className="max-w-[200px] text-[12px] text-muted">{citedTitles.length ? citedTitles.join(" · ") : "—"}</td>
+                          <td className="max-w-[180px] text-[12px] text-muted">{(r.answer ? nivaAnswerMadeBy(r.model, r.sources) : null) ?? "—"}</td>
                           <td>
                             <StatusText tone={v.status.tone}>{v.status.label}</StatusText>
                           </td>
