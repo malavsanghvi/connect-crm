@@ -3,8 +3,10 @@
 -- include_in_review; the daily allowance of 100 tests per community (the community's own day);
 -- tests stay out of the monthly question limit, Niva health's question counts, "Try all unanswered
 -- questions again" and a member's follow-up context; the test result for the portal's test box
--- (who may read it, the job, each cited source's current status); only content staff can save a
--- question marked as a test (the niva_insert policy stays); grants and search paths.
+-- (who may read it, the job, each cited source's current status, live items from the schedule); a
+-- staff test previews only the community's own sources waiting for approval, never the shared
+-- library's; only content staff can save a question marked as a test (the niva_insert policy stays);
+-- grants and search paths.
 \set ON_ERROR_STOP 1
 create or replace function pg_temp.assert(cond boolean, label text) returns void language plpgsql as $$
 begin
@@ -310,6 +312,64 @@ select pg_temp.assert_raises($$select app.niva_test_result('$$ || :'t2_id' || $$
   'a content editor cannot read a test someone else asked, even an answered one');
 commit;
 
+-- A test that cites live items from the schedule (0574's worker stores them as {kind, id, title}).
+-- The event's id is a content item's on purpose: a live item is never looked up as a content item.
+-- 0574 (the live schedule) may be applied before or after 0575: with it, each item is checked by its
+-- own "still current" test (an address that is set: live; regular timings that are not, or an event
+-- that is not on the schedule: missing); without it, a live item reads live.
+update app.centers set branding = coalesce(branding, '{}'::jsonb) || '{"address": "1 Orbit Way, Austin TX"}'::jsonb
+ where id = :c::uuid;
+insert into app.niva_conversations (id, center_id, user_id, question, answer, unanswered, answer_status, is_test, sources, model) values
+  ('62000000-0000-4000-8000-0000000000e1', :c, :admin, 'Where is the derasar, and what is on?', 'At 1 Orbit Way.', false, 'answered', true,
+   jsonb_build_array(
+     jsonb_build_object('kind', 'center', 'id', 'address', 'title', 'Address'),
+     jsonb_build_object('kind', 'center', 'id', 'hours', 'title', 'Regular timings'),
+     jsonb_build_object('kind', 'event', 'id', '62000000-0000-4000-8000-00000000000a', 'title', 'Paryushan pratikraman'),
+     jsonb_build_object('content_item_id', '62000000-0000-4000-8000-00000000000a', 'title', 'Derasar timings')),
+   'claude-opus-5-5');
+select to_regprocedure('app.niva_live_ref_current(uuid,text,text)') is not null as has_live_check \gset
+begin;
+select pg_temp.sign_in(:admin);
+select app.niva_test_result('62000000-0000-4000-8000-0000000000e1'::uuid) as rl \gset
+commit;
+select pg_temp.assert(:'rl'::jsonb->'sources' = jsonb_build_array(
+    jsonb_build_object('id', 'center:address', 'title', 'Address', 'url', null, 'kind', 'center', 'status', 'live'),
+    jsonb_build_object('id', 'center:hours', 'title', 'Regular timings', 'url', null, 'kind', 'center',
+                       'status', case when :'has_live_check'::boolean then 'missing' else 'live' end),
+    jsonb_build_object('id', 'event:62000000-0000-4000-8000-00000000000a', 'title', 'Paryushan pratikraman', 'url', null, 'kind', 'event',
+                       'status', case when :'has_live_check'::boolean then 'missing' else 'live' end),
+    jsonb_build_object('id', '62000000-0000-4000-8000-00000000000a', 'title', 'Derasar timings', 'url', null, 'kind', 'niva_source', 'status', 'published')),
+  'a cited live item comes back as <kind>:<id> with its kind and status live (missing once it is off the schedule), never as a missing content item');
+
+-- ── A staff test previews only the community's own sources waiting for approval ──
+-- The shared library's sources (center_id null) are the platform's to approve: before that only platform
+-- admins can read them (RLS 0010), so a community's staff test never answers from one.
+update app.centers set rules = coalesce(rules, '{}'::jsonb) || '{"niva": {"answer_from": ["faq"]}}'::jsonb where id = :c::uuid;
+insert into app.content_items (id, center_id, tradition, kind, slug, title, body_md, status) values
+  ('62000000-0000-4000-8000-0000000000f1', :c, null, 'niva_source', 'palanquin-own-62', 'Palanquin procession (ours, waiting)',
+   'The palanquin procession leaves the derasar at 9 AM.', 'in_review'),
+  ('62000000-0000-4000-8000-0000000000f2', null, null, 'niva_source', 'palanquin-shared-62', 'Palanquin procession (shared, waiting)',
+   'A palanquin procession is part of many festivals.', 'in_review'),
+  ('62000000-0000-4000-8000-0000000000f3', null, null, 'niva_source', 'palanquin-shared-pub-62', 'Palanquin procession (shared, published)',
+   'The palanquin procession carries the idol around the town.', 'published'),
+  ('62000000-0000-4000-8000-0000000000f4', :c, null, 'faq', 'palanquin-faq-own-62', 'Who carries the palanquin? (ours, waiting)',
+   'Volunteers carry the palanquin procession.', 'in_review'),
+  ('62000000-0000-4000-8000-0000000000f5', null, null, 'faq', 'palanquin-faq-shared-62', 'Who carries the palanquin? (shared, waiting)',
+   'Anyone may carry the palanquin procession.', 'in_review');
+begin;
+set local role connect_worker;
+select app.niva_worker_search_sources(:c::uuid, 'palanquin procession', 20, array['published', 'in_review']) as sr \gset
+select app.niva_worker_search_sources(:c::uuid, 'palanquin procession', 20, array['published']) as sp \gset
+commit;
+select pg_temp.assert((select array_agg(e->>'id' order by e->>'id') from jsonb_array_elements(:'sr'::jsonb) e where e->>'id' like '62000000-%')
+                      = array['62000000-0000-4000-8000-0000000000f1', '62000000-0000-4000-8000-0000000000f3', '62000000-0000-4000-8000-0000000000f4'],
+  'a staff test with sources waiting for approval gets the community''s own (a Niva source and an FAQ item) and the shared published one, never a shared one waiting for approval');
+select pg_temp.assert((select array_agg(e->>'id' order by e->>'id') from jsonb_array_elements(:'sp'::jsonb) e where e->>'id' like '62000000-%')
+                      = array['62000000-0000-4000-8000-0000000000f3'],
+  'a member''s question still gets published sources only, the shared library''s included');
+delete from app.content_items where id in ('62000000-0000-4000-8000-0000000000f2', '62000000-0000-4000-8000-0000000000f3',
+                                           '62000000-0000-4000-8000-0000000000f5');
+
 -- ── Only content staff save a question marked as a test ──────────────────────
 begin;
 select pg_temp.sign_in(:member);
@@ -333,25 +393,30 @@ select pg_temp.assert(has_function_privilege('authenticated', 'app.niva_test_ask
 select pg_temp.assert(not has_function_privilege('authenticated', 'app.niva_tests_today(uuid)', 'execute')
                       and not has_function_privilege('authenticated', 'app.niva_center_day_start(uuid)', 'execute')
                       and not has_function_privilege('authenticated', 'app.niva_test_daily_limit()', 'execute')
-                      and not has_function_privilege('authenticated', 'app.niva_conversations_guard_test()', 'execute'),
+                      and not has_function_privilege('authenticated', 'app.niva_conversations_guard_test()', 'execute')
+                      and not has_function_privilege('authenticated', 'app.niva_test_live_status(uuid,text,text)', 'execute'),
   'the helpers are internal');
 select pg_temp.assert(has_function_privilege('authenticated', 'app.niva_ask(uuid,text)', 'execute')
                       and has_function_privilege('authenticated', 'app.niva_health(uuid)', 'execute')
                       and has_function_privilege('authenticated', 'app.niva_retry_unanswered(uuid,interval,int)', 'execute')
                       and not has_function_privilege('authenticated', 'app.niva_worker_get_conversation(uuid)', 'execute')
-                      and has_function_privilege('connect_worker', 'app.niva_worker_get_conversation(uuid)', 'execute'),
+                      and has_function_privilege('connect_worker', 'app.niva_worker_get_conversation(uuid)', 'execute')
+                      and has_function_privilege('connect_worker', 'app.niva_worker_search_sources(uuid,text,int,text[])', 'execute')
+                      and not has_function_privilege('authenticated', 'app.niva_worker_search_sources(uuid,text,int,text[])', 'execute'),
   'the replaced functions keep their grants');
-select pg_temp.assert((select count(distinct p.proname) = 10 and bool_and(exists (select 1 from unnest(p.proconfig) as g(setting)
+select pg_temp.assert((select count(distinct p.proname) = 12 and bool_and(exists (select 1 from unnest(p.proconfig) as g(setting)
                                                           where g.setting ~ '^search_path=app, *public, *extensions$'))
                          from pg_proc p
                         where p.pronamespace = 'app'::regnamespace
                           and p.proname in ('niva_test_ask','niva_test_result','niva_conversations_guard_test','niva_test_daily_limit',
-                                            'niva_center_day_start','niva_tests_today','niva_ask','niva_worker_get_conversation',
-                                            'niva_retry_unanswered','niva_health')),
+                                            'niva_center_day_start','niva_tests_today','niva_test_live_status','niva_ask',
+                                            'niva_worker_get_conversation','niva_retry_unanswered','niva_health',
+                                            'niva_worker_search_sources')),
   'every new or replaced function pins search_path app, public, extensions');
-select pg_temp.assert((select count(distinct p.proname) = 7 and bool_and(p.prosecdef)
+select pg_temp.assert((select count(distinct p.proname) = 8 and bool_and(p.prosecdef)
                          from pg_proc p
                         where p.pronamespace = 'app'::regnamespace
                           and p.proname in ('niva_test_ask','niva_test_result','niva_conversations_guard_test','niva_ask',
-                                            'niva_worker_get_conversation','niva_retry_unanswered','niva_health')),
+                                            'niva_worker_get_conversation','niva_retry_unanswered','niva_health',
+                                            'niva_worker_search_sources')),
   'the functions that read or write for the caller are security definer');

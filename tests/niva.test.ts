@@ -418,6 +418,21 @@ describe("staff tests (app.niva_test_ask and app.niva_test_result, 0575)", () =>
     expect(nivaTestSourceStatus({ kind: "niva_source", status: "retired" }).tone).toBe("bad");
     expect(nivaTestSourceStatus({ kind: null, status: "missing" })).toEqual({ label: "No longer exists", tone: "bad" });
   });
+
+  it("labels a live item from the schedule, and does not warn about one that is still on it", () => {
+    for (const kind of ["event", "timings", "center"]) {
+      expect(nivaTestSourceStatus({ kind, status: "live" })).toEqual({ label: "Live schedule", tone: "ok" });
+      expect(nivaTestSourceStatus({ kind, status: "missing" })).toEqual({ label: "No longer on the schedule", tone: "warn" });
+    }
+    const pub = { id: "a", title: "Timings", url: null, kind: "niva_source", status: "published" };
+    const event = { id: "event:e1", title: "Paryushan pratikraman", url: null, kind: "event", status: "live" };
+    const address = { id: "center:address", title: "Address", url: null, kind: "center", status: "live" };
+    const parsed = parse({ answer: "At 6:30 PM in the main hall.", answer_status: "answered", sources: [pub, event, address] });
+    expect(parsed.sources.map((s) => s.id)).toEqual(["a", "event:e1", "center:address"]);
+    expect(nivaTestOutcome(parsed)).toEqual({ status: { label: "Answered", tone: "ok" }, why: null, note: null });
+    const over = nivaTestOutcome(parse({ answer: "At 6:30 PM.", answer_status: "answered", sources: [pub, { ...event, status: "missing" }] }));
+    expect(over.note).toMatch(/^Members would not get this answer yet: it uses a source that is not included in Niva/);
+  });
 });
 
 describe("what Niva also answers from (centers.rules.niva.answer_from)", () => {

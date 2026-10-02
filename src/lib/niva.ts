@@ -426,7 +426,10 @@ export function parseNivaTestAsked(raw: unknown): NivaTestAsked | null {
   };
 }
 
-/** A source a test answer cites, with its status now (a content status, or 'hidden' / 'missing'). */
+/**
+ * A source a test answer cites, with its status now (a content status, or 'hidden' / 'missing'). A live
+ * item from the schedule (0574) has kind 'event', 'timings' or 'center' and status 'live' or 'missing'.
+ */
 export type NivaTestSource = { id: string; title: string; url: string | null; kind: string | null; status: string };
 /** The test's latest niva.answer job. */
 export type NivaTestJob = { status: string; attempts: number; maxAttempts: number | null; runAfter: string | null };
@@ -506,8 +509,15 @@ export function nivaTestWaitingLine(r: NivaTestResult | null, elapsedMs: number)
   return `${what}… (${Math.max(0, Math.round(elapsedMs / 1000))} s)`;
 }
 
+/** The live schedule's items a Niva answer can cite (0574): an event, a day's timings, the address or regular timings. */
+const NIVA_LIVE_KINDS: ReadonlySet<string> = new Set(["event", "timings", "center"]);
+
 /** A cited source's status in a test: whether members would get an answer from it. */
 export function nivaTestSourceStatus(s: Pick<NivaTestSource, "kind" | "status">): { label: string; tone: Tone } {
+  // Members' questions read the same live schedule, so a live item holds an answer back only once it is off it.
+  if (s.kind !== null && NIVA_LIVE_KINDS.has(s.kind)) {
+    return s.status === "missing" ? { label: "No longer on the schedule", tone: "warn" } : { label: "Live schedule", tone: "ok" };
+  }
   if (s.status === "missing") return { label: "No longer exists", tone: "bad" };
   if (s.kind === "guide_section") {
     return s.status === "published" ? { label: "Guide section, public", tone: "ok" } : { label: "Guide section, not public", tone: "warn" };
@@ -525,7 +535,7 @@ export function nivaTestOutcome(r: NivaTestResult): { status: { label: string; t
       why: null,
       note:
         notYet > 0
-          ? `Members would not get this answer yet: it uses ${notYet === 1 ? "a source that is" : `${notYet} sources that are`} not included in Niva (waiting for approval, a draft, or no longer public).`
+          ? `Members would not get this answer yet: it uses ${notYet === 1 ? "a source that is" : `${notYet} sources that are`} not included in Niva (waiting for approval, a draft, no longer public or no longer on the schedule).`
           : null,
     };
   }

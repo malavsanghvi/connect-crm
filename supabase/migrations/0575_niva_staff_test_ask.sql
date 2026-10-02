@@ -26,6 +26,11 @@
 --          sources: [{id, title, url, kind, status}]}
 --       where a cited source's status is its current one: a content item's status (published,
 --       in_review, ...), 'published' or 'hidden' for a Guide section, 'missing' when it is gone.
+--       A live item from the schedule (0574's worker stores a cited one as {kind: event | timings |
+--       center, id, title}, with no content_item_id) comes back as {id: '<kind>:<id>', kind, status
+--       'live'}, or 'missing' once 0574's own test (app.niva_live_ref_current) says it is no longer
+--       on the schedule. 0574 and this migration may land in either order, so that test is looked
+--       up when a result is read (app.niva_test_live_status).
 --   (4) Tests stay out of the members' numbers:
 --         niva_ask           the monthly count leaves tests out (otherwise as 0572);
 --         niva_health        month.used and outcomes_7d leave tests out, and tests_today
@@ -35,9 +40,15 @@
 --         niva_worker_get_conversation  "recent" (the follow-up context) holds only turns of the
 --                            same kind: a member's real question never reads a staff test as
 --                            context, nor a test a member's question; it also returns is_test.
+--   (5) app.niva_worker_search_sources(center, question, limit, statuses), the 0573 search the worker
+--       runs: with {published,in_review} (a staff test with include_in_review) the sources waiting for
+--       approval it adds are the community's own only. Shared sources (center_id null) that are not
+--       published are readable only by platform admins (RLS 0010, content_platform), so a community's
+--       staff never get an answer from, or the title of, a shared source the platform has not
+--       approved. Otherwise as 0573.
 --
--- 0572 is applied and untouched; its functions are replaced here with create or replace (same
--- signatures, so their grants stay).
+-- 0572 and 0573 are applied and untouched; their functions are replaced here with create or replace
+-- (same signatures, so their grants stay).
 
 set client_min_messages = warning;
 
@@ -130,6 +141,18 @@ comment on function app.niva_test_ask(uuid, text, boolean) is
   'content.draft or content.manage (0575): ask Niva as a staff test. No membership needed and not counted in niva.monthly_questions; at most app.niva_test_daily_limit() tests per community per day. include_in_review: also answer from sources waiting for approval.';
 
 -- ── (3) Staff: one test's result, for the test box ───────────────────────────
+-- A cited live item (event / <uuid>, timings / <YYYY-MM-DD>, center / address or hours): 'live' while it
+-- is still on the schedule, 'missing' once it is not, by 0574's own test. Until 0574 is applied no worker
+-- cites a live item, and one that is there anyway reads 'live'.
+create or replace function app.niva_test_live_status(p_center uuid, p_kind text, p_id text) returns text
+language plpgsql stable set search_path = app, public, extensions as $$
+declare v_current boolean;
+begin
+  if to_regprocedure('app.niva_live_ref_current(uuid,text,text)') is null then return 'live'; end if;
+  execute 'select app.niva_live_ref_current($1, $2, $3)' into v_current using p_center, p_kind, p_id;
+  return case when coalesce(v_current, false) then 'live' else 'missing' end;
+end $$;
+
 create or replace function app.niva_test_result(p_id uuid)
 returns jsonb
 language plpgsql stable security definer set search_path = app, public, extensions as $$
@@ -157,10 +180,14 @@ begin
    limit 1;
 
   -- Each cited source with its status now: a test may cite a source that is still waiting for approval.
+  -- A live item has no content_item_id (the same test as 0574's niva_worker_set_outcome).
   select coalesce(jsonb_agg(jsonb_build_object(
-           'id', r.ref, 'title', coalesce(nullif(s.src->>'title', ''), g.title, c.title), 'url', s.src->>'url',
-           'kind', case when r.ref like 'guide_section:%' then 'guide_section' else c.kind end,
-           'status', case when r.ref like 'guide_section:%'
+           'id', case when r.live_kind is not null then r.live_kind || ':' || coalesce(s.src->>'id', '') else r.ref end,
+           'title', coalesce(nullif(s.src->>'title', ''), g.title, c.title), 'url', s.src->>'url',
+           'kind', coalesce(r.live_kind, case when r.ref like 'guide_section:%' then 'guide_section' else c.kind end),
+           'status', case when r.live_kind is not null
+                          then app.niva_test_live_status(v.center_id, r.live_kind, s.src->>'id')
+                          when r.ref like 'guide_section:%'
                           then case when g.id is null then 'missing' when g.public then 'published' else 'hidden' end
                           else coalesce(c.status, 'missing') end)
            order by s.n), '[]'::jsonb)
@@ -169,10 +196,12 @@ begin
          with ordinality as s(src, n)
     cross join lateral (
       select coalesce(s.src->>'content_item_id', s.src->>'id') as ref,
+             case when s.src->>'content_item_id' is null and s.src->>'kind' in ('event', 'timings', 'center')
+                  then s.src->>'kind' end as live_kind,
              substring(coalesce(s.src->>'content_item_id', s.src->>'id')
                        from '([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})$') as ref_id) r
-    left join app.guide_sections g on r.ref like 'guide_section:%' and g.id = r.ref_id::uuid
-    left join app.content_items c on r.ref not like 'guide_section:%' and c.id = r.ref_id::uuid;
+    left join app.guide_sections g on r.live_kind is null and r.ref like 'guide_section:%' and g.id = r.ref_id::uuid
+    left join app.content_items c on r.live_kind is null and r.ref not like 'guide_section:%' and c.id = r.ref_id::uuid;
 
   return jsonb_build_object(
     'id', v.id, 'question', v.question, 'answer', v.answer, 'answer_status', v.answer_status,
@@ -402,10 +431,100 @@ begin
     'tests_today', jsonb_build_object('used', app.niva_tests_today(p_center), 'limit', app.niva_test_daily_limit()));
 end $$;
 
+-- ── (5) Worker: the search (0573; a staff test previews only the community's own sources waiting for approval) ──
+-- As 0573 (see the comment there), except that a source with a status other than published is offered only when it
+-- is the community's own: the shared library's (center_id null) are the platform's to approve, and only platform
+-- admins can read them before that (RLS 0010). Anyone who changes this search again must start from THIS definition.
+create or replace function app.niva_worker_search_sources(p_center uuid, p_query text, p_limit int, p_statuses text[])
+returns jsonb language plpgsql stable security definer set search_path = app, public, extensions as $$
+declare
+  v_limit int := least(greatest(coalesce(p_limit, 6), 1), 20);
+  v_statuses text[] := case when cardinality(p_statuses) > 0 then p_statuses else array['published'] end;
+  v_tradition app.tradition;
+  v_from text[];
+  v_guide boolean;
+  v_faq boolean;
+  v_tsq tsquery;
+  v_out jsonb;
+begin
+  perform app.assert_worker();
+  if exists (select 1 from unnest(v_statuses) s where s is null or s not in ('published', 'in_review')) then
+    raise exception 'Niva answers only from published sources, or also from sources waiting for approval in a staff test (asked for: %).',
+      array_to_string(v_statuses, ', ', '(none)') using errcode = '22023';
+  end if;
+
+  select c.tradition into v_tradition from app.centers c where c.id = p_center;
+  if not found then return '[]'::jsonb; end if;
+  v_tsq := app.niva_search_tsquery(p_center, p_query);
+  if v_tsq is null then return '[]'::jsonb; end if;
+  v_from := app.niva_answer_from(p_center);
+  v_guide := 'guide' = any (v_from);
+  v_faq := 'faq' = any (v_from);
+
+  with cand as (
+    -- The community's own sources, and the shared pack for its tradition (or for every tradition).
+    select c.id::text as ref, c.kind, c.title, coalesce(c.body_md, '') as body, c.metadata->>'source_url' as source_url,
+           c.updated_at, ts_rank_cd(c.niva_tsv, v_tsq, 1 | 32) as score
+      from app.content_items c
+     where c.kind = 'niva_source'
+       and c.status = any (v_statuses)
+       and (c.status = 'published' or c.center_id = p_center)   -- 0575: never a shared source the platform has not approved
+       and (c.center_id = p_center or (c.center_id is null and (c.tradition is null or c.tradition = v_tradition)))
+       and c.niva_tsv @@ v_tsq
+    union all
+    -- FAQ, when the community answers from it.
+    select c.id::text, c.kind, c.title, coalesce(c.body_md, ''), c.metadata->>'source_url',
+           c.updated_at, ts_rank_cd(c.niva_tsv, v_tsq, 1 | 32)
+      from app.content_items c
+     where v_faq and c.kind = 'faq'
+       and c.status = any (v_statuses)
+       and (c.status = 'published' or c.center_id = p_center)   -- 0575: never a shared source the platform has not approved
+       and (c.center_id = p_center or (c.center_id is null and (c.tradition is null or c.tradition = v_tradition)))
+       and c.niva_tsv @@ v_tsq
+    union all
+    -- Public Guide sections, when the community answers from them. Weighed like a hand-written source.
+    select 'guide_section:' || g.id::text, 'guide_section', g.title, g.body_md, null,
+           g.updated_at, ts_rank_cd(v.tsv, v_tsq, 1 | 32)
+      from app.guide_sections g
+     cross join lateral (select setweight(to_tsvector('english', g.title), 'A')
+                                || setweight(to_tsvector('english', g.body_md), 'B')
+                                || setweight(to_tsvector('simple', g.body_md), 'D') as tsv) v
+     where v_guide and g.center_id = p_center and g.public
+       and v.tsv @@ v_tsq
+  ), ranked as (
+    select cand.*, row_number() over (order by cand.score desc, cand.updated_at desc, cand.ref collate "C") as rn
+      from cand
+  ), picked as (
+    -- A long text: its first 1500 characters, then excerpts from the rest when the rest holds matching words.
+    -- When it does not (the match is in the heading, keywords or page title, or only in those first 1500
+    -- characters) ts_headline would find nothing and repeat the opening, so the first 4000 characters come back
+    -- instead, as in 0541. The rest is read up to character 100000, as far as niva_tsv indexes.
+    select r.*, case when char_length(r.body) <= 4000 then r.body
+                     when to_tsvector('english', substr(r.body, 1501, 98500)) @@ v_tsq
+                       then left(r.body, 1500) || E'\n\n[…]\n\n' || app.niva_excerpt(substr(r.body, 1501, 98500), v_tsq)
+                     else left(r.body, 4000) end as excerpt
+      from ranked r
+     where r.rn <= v_limit
+  ), budget as (
+    select p.*, sum(char_length(p.title) + char_length(p.excerpt)) over (order by p.rn) as used
+      from picked p
+  )
+  select coalesce(jsonb_agg(jsonb_build_object('id', b.ref, 'kind', b.kind, 'title', b.title, 'body_md', b.excerpt,
+                                               'rank', b.score, 'source_url', b.source_url, 'updated_at', b.updated_at)
+                            order by b.rn), '[]'::jsonb)
+    into v_out
+    from budget b
+   where b.rn = 1 or b.used <= 24000;
+  return v_out;
+end $$;
+comment on function app.niva_worker_search_sources(uuid, text, int, text[]) is
+  'Worker only (0573; 0575: sources waiting for approval are the community''s own only). Ranked sources for a Niva question: [{id, kind, title, body_md, rank, source_url, updated_at}], at most about 24000 characters in all. statuses: {published} or {published,in_review} (staff test).';
+
 -- ── Grants ───────────────────────────────────────────────────────────────────
--- niva_ask, niva_worker_get_conversation, niva_retry_unanswered and niva_health keep their grants
--- (same signatures).
+-- niva_ask, niva_worker_get_conversation, niva_retry_unanswered, niva_health and the 4-argument
+-- niva_worker_search_sources keep their grants (same signatures).
 revoke execute on function app.niva_conversations_guard_test(), app.niva_test_daily_limit(), app.niva_center_day_start(uuid),
-  app.niva_tests_today(uuid), app.niva_test_ask(uuid, text, boolean), app.niva_test_result(uuid)
+  app.niva_tests_today(uuid), app.niva_test_live_status(uuid, text, text), app.niva_test_ask(uuid, text, boolean),
+  app.niva_test_result(uuid)
   from public, anon, authenticated, service_role;
 grant execute on function app.niva_test_ask(uuid, text, boolean), app.niva_test_result(uuid) to authenticated;
