@@ -6,8 +6,9 @@ written against the o-vault worker contract (`{ kind, configured, run(job, ctx) 
 `worker/`. When the branches are integrated:
 
 1. Add `"@anthropic-ai/sdk"` to `worker/package.json` dependencies (the handler uses the
-   official SDK: `claude-opus-5`, structured outputs via `output_config.format`,
-   server-side refusal fallbacks `fallbacks: "default"`).
+   official SDK through `src/anthropic.ts`, shared with Niva: `CLAUDE_MODEL` (`claude-opus-5-5`,
+   or the `CLAUDE_MODEL` variable), structured outputs via `output_config.format`, server-side
+   refusal fallbacks `fallbacks: "default"`, and `staffJobFailure` for what a failed call means).
 2. Register it in `src/handlers/index.ts`: `import * as importSuggestMapping from "./import.suggest_mapping";`
    and add it to `HANDLERS`.
 3. Set `ANTHROPIC_API_KEY` on the background service. Without it the job fails at once as

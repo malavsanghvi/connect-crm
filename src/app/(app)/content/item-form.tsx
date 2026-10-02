@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { ActionForm } from "@/components/action-form";
 import { Drawer } from "@/components/drawer";
 import { HistoryButton } from "@/components/record-history";
-import { buttonClass, type ButtonSize, type ButtonVariant } from "@/components/ui";
+import { Alert, buttonClass, type ButtonSize, type ButtonVariant } from "@/components/ui";
+import { nivaBodyCounter, NIVA_SOURCE_MAX_CHARS } from "@/lib/niva-queue";
 
 import { saveContentItemAction } from "./actions";
 
@@ -29,12 +30,63 @@ export type ItemValues = {
   media_url: string | null;
   media_path: string | null;
   metadata: Record<string, unknown>;
+  /** When given, an edit of a published item says that saving takes it out of what members see. */
+  status?: string | null;
 };
+
+const COUNTER_TONE = { ok: "text-muted", warn: "text-brown", bad: "font-bold text-danger" } as const;
+
+/**
+ * A Niva source's text, with a live character counter (the same count the save checks). Mounted with
+ * the drawer, so it starts from the saved text each time the drawer opens; a form reset (after a new
+ * source is saved) brings the counter back to the empty box.
+ */
+function NivaBodyField({ id, defaultValue }: { id: string; defaultValue: string }) {
+  const [value, setValue] = useState(defaultValue);
+  const ref = useRef<HTMLTextAreaElement>(null);
+  useEffect(() => {
+    const form = ref.current?.form;
+    if (!form) return;
+    const onReset = () => setTimeout(() => setValue(ref.current?.value ?? ""), 0);
+    form.addEventListener("reset", onReset);
+    return () => form.removeEventListener("reset", onReset);
+  }, []);
+  const counter = nivaBodyCounter(value);
+  return (
+    <div>
+      <label htmlFor={id} className="crm-label">
+        The text Niva answers from
+      </label>
+      <textarea
+        ref={ref}
+        id={id}
+        name="body_md"
+        rows={10}
+        defaultValue={defaultValue}
+        onChange={(e) => setValue(e.currentTarget.value)}
+        aria-describedby={`${id}-hint ${id}-count`}
+        aria-invalid={counter.tone === "bad" || undefined}
+        className="crm-input font-mono text-[13px]"
+      />
+      <p id={`${id}-count`} aria-live="polite" className={`mt-1 text-right text-[12px] ${COUNTER_TONE[counter.tone]}`}>
+        {counter.label}
+      </p>
+      <p id={`${id}-hint`} className="crm-hint">
+        Niva quotes only this text, so write it out in full: one topic per source, {NIVA_SOURCE_MAX_CHARS.toLocaleString("en-US")} characters at most. A
+        description of the source is not enough.
+      </p>
+    </div>
+  );
+}
 
 /**
  * "New …" / "Edit" for a content item in a right-hand drawer. Saving keeps a
  * draft; "Send for approval" puts it in the Approval queue (status in_review).
- * Editing a published item sends it back through approval.
+ * Editing a published item sends it back through approval, and the drawer says so.
+ *
+ * A Niva source (kind "niva_source") gets its own text box, whatever `bodyLabel` says: the label
+ * names it as the text Niva answers from, with a live counter against the 4,000-character limit
+ * the save enforces (saveContentItemAction).
  */
 export function ContentItemButton({
   kind,
@@ -60,6 +112,8 @@ export function ContentItemButton({
   const [open, setOpen] = useState(false);
   const idp = item ? `ci-${item.id.slice(0, 8)}` : `ci-new-${kind}`;
   const m = item?.metadata ?? {};
+  const isNiva = kind === "niva_source";
+  const published = item?.status === "published";
   return (
     <>
       <button type="button" onClick={() => setOpen(true)} className={buttonClass(variant, size)}>
@@ -86,6 +140,13 @@ export function ContentItemButton({
           <input type="hidden" name="kind" value={kind} />
           {item ? <input type="hidden" name="id" value={item.id} /> : null}
           <div className="mb-3 flex flex-col gap-3">
+            {published ? (
+              <Alert tone="warning" title={isNiva ? "This source is in Niva now" : "This item is published"}>
+                {isNiva
+                  ? "Saving takes this source out of Niva until it is approved again."
+                  : "Saving takes this item off the member app until it is approved again."}
+              </Alert>
+            ) : null}
             <div>
               <label htmlFor={`${idp}-title`} className="crm-label">
                 Title
@@ -119,12 +180,16 @@ export function ContentItemButton({
                 </div>
               );
             })}
-            <div>
-              <label htmlFor={`${idp}-body`} className="crm-label">
-                {bodyLabel}
-              </label>
-              <textarea id={`${idp}-body`} name="body_md" rows={6} defaultValue={item?.body_md ?? ""} className="crm-input font-mono text-[13px]" />
-            </div>
+            {isNiva ? (
+              <NivaBodyField id={`${idp}-body`} defaultValue={item?.body_md ?? ""} />
+            ) : (
+              <div>
+                <label htmlFor={`${idp}-body`} className="crm-label">
+                  {bodyLabel}
+                </label>
+                <textarea id={`${idp}-body`} name="body_md" rows={6} defaultValue={item?.body_md ?? ""} className="crm-input font-mono text-[13px]" />
+              </div>
+            )}
             {showMedia ? (
               <>
                 <div>

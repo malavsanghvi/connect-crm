@@ -1,6 +1,7 @@
 // A local stand-in for the providers the platform setup wizard tests (o-platform-setup):
 // Stripe (GET /v1/balance), PayPal (POST /v1/oauth2/token), Twilio (GET /2010-04-01/Accounts/<sid>.json),
-// Anthropic (GET /v1/models), Resend (/domains), Postmark (/server, /domains). Fake keys only, no network.
+// Anthropic (POST /v1/messages, the wizard's one-token test; GET /v1/models), Resend (/domains), Postmark
+// (/server, /domains). Fake keys only, no network.
 // Keys it accepts are passed in; everything else answers 401. Every request is recorded, with the
 // credential it carried, so a test can prove WHICH key the caller used.
 const http = require('http');
@@ -11,6 +12,8 @@ function createPlatformMock(opts = {}) {
     paypal: new Set(opts.paypalPairs || ['sb_mock_client:sb_mock_secret']),
     twilio: new Set(opts.twilioPairs || ['AC00000000000000000000000000000001:mock_twilio_token']),
     anthropic: new Set(opts.anthropicKeys || ['sk-ant-mock-key-000']),
+    // Accepted keys whose account has hit its spending limit: every message answers 400, as the real API does.
+    anthropicLimited: new Set(opts.anthropicLimitedKeys || ['sk-ant-mock-limited-000']),
     resend: new Set(opts.resendKeys || ['re_mock_key_0001']),
     postmark: new Set(opts.postmarkTokens || ['pm-server-mock', 'pm-account-mock']),
   };
@@ -56,6 +59,18 @@ function createPlatformMock(opts = {}) {
         return send(res, 200, { sid: tw[1], friendly_name: 'Community Connect (mock)', status: 'active' });
       }
       // Anthropic
+      if (req.method === 'POST' && p === '/v1/messages') {
+        const k = String(req.headers['x-api-key'] || '');
+        const body = JSON.parse(raw || '{}');
+        if (keys.anthropicLimited.has(k)) {
+          return send(res, 400, { type: 'error', error: { type: 'invalid_request_error', message: 'You have reached your specified API usage limits. You will regain access on 2026-11-01 at 00:00 UTC.' } });
+        }
+        if (!keys.anthropic.has(k)) return send(res, 401, { type: 'error', error: { type: 'authentication_error', message: 'invalid x-api-key' } });
+        return send(res, 200, {
+          id: `msg_mock_${++seq}`, type: 'message', role: 'assistant', model: body.model || 'claude-opus-5-5',
+          content: [{ type: 'text', text: 'OK' }], stop_reason: 'max_tokens', usage: { input_tokens: 12, output_tokens: 1 },
+        });
+      }
       if (req.method === 'GET' && p === '/v1/models') {
         if (!keys.anthropic.has(String(req.headers['x-api-key'] || ''))) return send(res, 401, { type: 'error', error: { type: 'authentication_error', message: 'invalid x-api-key' } });
         return send(res, 200, { data: [{ id: 'claude-opus-5', type: 'model' }], has_more: false });

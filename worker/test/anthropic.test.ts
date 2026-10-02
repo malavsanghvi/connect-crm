@@ -1,7 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { describe, expect, it } from "vitest";
 
-import { apiErrorMessage, CLAUDE_MODEL, classifyAnthropicError, claudeModel, errorLabel, regainAccessAt } from "../src/anthropic";
+import { apiErrorMessage, CLAUDE_MODEL, classifyAnthropicError, claudeModel, errorLabel, regainAccessAt, staffJobFailure } from "../src/anthropic";
 
 /** The error the SDK throws for a response with this status and API error body. */
 const apiError = (status: number, type: string, message: string) =>
@@ -73,5 +73,38 @@ describe("regainAccessAt", () => {
   it("is null when there is no such date, or it is not a real one", () => {
     expect(regainAccessAt("Your credit balance is too low.")).toBeNull();
     expect(regainAccessAt("You will regain access on 2026-13-40 at 00:00 UTC.")).toBeNull();
+  });
+});
+
+describe("staffJobFailure", () => {
+  const model = "claude-opus-5-5";
+  it("fails a refused key at once as not configured", () => {
+    expect(staffJobFailure(classifyAnthropicError(apiError(401, "authentication_error", "invalid x-api-key")), model, "the mapping suggestions")).toEqual({
+      message: "The Anthropic key on the background service was refused (ANTHROPIC_API_KEY; 401 authentication_error).",
+      retry: false,
+      notConfigured: true,
+    });
+  });
+  it("does not retry a spending limit, a missing model or beta, or a rejected request", () => {
+    const quota = staffJobFailure(classifyAnthropicError(apiError(402, "billing_error", "Your credit balance is too low.")), model, "the matching suggestions");
+    expect(quota).toMatchObject({ retry: false, notConfigured: false });
+    expect(quota.message).toBe(
+      "The AI service's spending limit was reached, so the matching suggestions could not be made (402 billing_error: Your credit balance is too low.). Try again once the limit resets or is raised.",
+    );
+    expect(staffJobFailure(classifyAnthropicError(apiError(404, "not_found_error", "model: claude-opus-5-5")), model, "x").message).toBe(
+      "The AI model (claude-opus-5-5) is not available to this Anthropic account (404 not_found_error: model: claude-opus-5-5).",
+    );
+    expect(staffJobFailure(classifyAnthropicError(apiError(400, "invalid_request_error", "Unexpected value(s) `x` for the `anthropic-beta` header.")), model, "x").message).toMatch(
+      /not set up for a feature the request for x uses \(the server-side fallback/,
+    );
+    expect(staffJobFailure(classifyAnthropicError(apiError(400, "invalid_request_error", "messages: too long")), model, "x")).toMatchObject({ retry: false, notConfigured: false });
+  });
+  it("retries busy, rate limited, timed out and unreachable", () => {
+    expect(staffJobFailure(classifyAnthropicError(apiError(429, "rate_limit_error", "slow down")), model, "x")).toEqual({
+      message: "The AI service was busy or could not be reached (429 rate_limit_error: slow down).",
+      retry: true,
+      notConfigured: false,
+    });
+    expect(staffJobFailure(classifyAnthropicError(new Anthropic.APIConnectionTimeoutError()), model, "x").message).toMatch(/^The AI service did not answer in time \(timed out/);
   });
 });

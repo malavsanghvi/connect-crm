@@ -6,7 +6,7 @@ import { describe, expect, it } from "vitest";
 import {
   FIELDS, SECRET_NAMES, SETTING_KEYS, STEPS, callbackUrls, fieldProblem, isEnvName, missingFor, normalizeDomain, setupComplete, setupProgress,
 } from "@/lib/platform-setup/catalog";
-import { redactSecrets, testStep } from "@/lib/platform-setup/checks";
+import { ANTHROPIC_FALLBACK_BETA, ANTHROPIC_TEST_MODEL, anthropicTestLine, redactSecrets, testStep } from "@/lib/platform-setup/checks";
 
 const migration = readFileSync(join(__dirname, "..", "supabase", "migrations", "0320_platform_setup.sql"), "utf8");
 const sqlList = (fn: string) => {
@@ -89,5 +89,71 @@ describe("platform setup tests (the worker runs them)", () => {
       throw new Error("connect ECONNREFUSED");
     }, { ANTHROPIC_API_KEY: "sk-ant-abc12345" });
     expect(res.lines[0]?.detail).toMatch(/could not reach the provider/);
+  });
+});
+
+describe("the AI test: a one-token message, read the way the worker reads a failed call", () => {
+  const env = { ANTHROPIC_API_KEY: "sk-ant-api03-secretsecret", ANTHROPIC_BASE_URL: "http://mock/" };
+  const apiError = (type: string, message: string) => JSON.stringify({ type: "error", error: { type, message }, request_id: "req_1" });
+
+  it("sends one real message with the model and beta Niva uses, not a model listing", async () => {
+    const sent: { url: string; init: { method: string; headers: Record<string, string>; body?: string } }[] = [];
+    const res = await testStep("ai", async (url, init) => {
+      sent.push({ url, init });
+      return { status: 200, text: JSON.stringify({ id: "msg_1", type: "message", model: "claude-opus-5-5", content: [], stop_reason: "max_tokens" }) };
+    }, env);
+    expect(res).toEqual({ ok: true, lines: [{ label: "Anthropic answers a test message", ok: true, detail: "accepted: claude-opus-5-5 answered" }] });
+    expect(sent).toHaveLength(1);
+    expect(sent[0]!.url).toBe("http://mock/v1/messages");
+    expect(sent[0]!.init.method).toBe("POST");
+    expect(sent[0]!.init.headers).toMatchObject({ "x-api-key": env.ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01", "anthropic-beta": ANTHROPIC_FALLBACK_BETA });
+    expect(JSON.parse(sent[0]!.init.body!)).toEqual({ model: ANTHROPIC_TEST_MODEL, max_tokens: 1, fallbacks: "default", messages: [{ role: "user", content: "Reply with OK." }] });
+    expect(ANTHROPIC_TEST_MODEL).toBe("claude-opus-5-5");
+  });
+
+  it("asks the CLAUDE_MODEL override when one is set", async () => {
+    let body = "";
+    await testStep("ai", async (_url, init) => {
+      body = init.body ?? "";
+      return { status: 200, text: "{}" };
+    }, { ...env, CLAUDE_MODEL: "claude-opus-5" });
+    expect(JSON.parse(body).model).toBe("claude-opus-5");
+  });
+
+  it("says the key is not set without calling anything", async () => {
+    const res = await testStep("ai", async () => {
+      throw new Error("must not be called");
+    }, {});
+    expect(res).toEqual({ ok: false, lines: [{ label: "Anthropic API key", ok: false, detail: "not set (ANTHROPIC_API_KEY)" }] });
+  });
+
+  const table: [string, number, string, RegExp][] = [
+    ["a refused key", 401, apiError("authentication_error", "invalid x-api-key"), /^the key was refused \(invalid x-api-key\)$/],
+    ["a key without permission", 403, apiError("permission_error", "Your API key does not have permission to use the specified resource."), /^the key was refused/],
+    [
+      "a spending limit (which a model listing would pass)",
+      400,
+      apiError("invalid_request_error", "You have reached your specified API usage limits. You will regain access on 2026-11-01 at 00:00 UTC."),
+      /^the key works, but the account's spending limit or credit ran out, so Niva and the suggestions are paused until 2026-11-01 00:00 UTC; raise the limit in the Anthropic console or wait for it to reset \(You have reached/,
+    ],
+    ["no credit", 402, apiError("billing_error", "Your credit balance is too low to access the Anthropic API."), /^the key works, but the account's spending limit or credit ran out, so Niva and the suggestions are paused; raise/],
+    ["a model the account cannot use", 404, apiError("not_found_error", "model: claude-opus-5-5"), /^the model claude-opus-5-5 is not available to this account \(model: claude-opus-5-5\)$/],
+    ["no fallback beta", 400, apiError("invalid_request_error", "Unexpected value(s) `server-side-fallback-2026-07-01` for the `anthropic-beta` header."), /^the account is not set up for the server-side fallback Niva uses/],
+    ["rate limited", 429, apiError("rate_limit_error", "Number of request tokens has exceeded your per-minute rate limit"), /^Anthropic is rate limiting this key right now; test again in a minute/],
+    ["overloaded", 529, apiError("overloaded_error", "Overloaded"), /^Anthropic is busy or had a problem \(HTTP 529\); test again in a few minutes \(Overloaded\)$/],
+    ["anything else", 400, apiError("invalid_request_error", "messages: at least one message is required"), /^the provider answered HTTP 400 \(messages: at least one message is required\)$/],
+    ["a body that is not JSON", 502, "<html>Bad gateway</html>", /^Anthropic is busy or had a problem \(HTTP 502\); test again in a few minutes \(<html>Bad gateway<\/html>\)$/],
+  ];
+  it.each(table)("%s", async (_label, status, text, detail) => {
+    const res = await testStep("ai", async () => ({ status, text }), env);
+    expect(res.ok).toBe(false);
+    expect(res.lines[0]?.label).toBe("Anthropic answers a test message");
+    expect(res.lines[0]?.detail).toMatch(detail);
+    expect(anthropicTestLine(status, text, "claude-opus-5-5", env)).toEqual(res.lines[0]);
+  });
+
+  it("never lets the key into the line", () => {
+    const line = anthropicTestLine(401, apiError("authentication_error", `invalid x-api-key ${env.ANTHROPIC_API_KEY}`), "claude-opus-5-5", env);
+    expect(line.detail).not.toContain(env.ANTHROPIC_API_KEY);
   });
 });

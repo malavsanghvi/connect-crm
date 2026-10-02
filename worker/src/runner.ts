@@ -82,22 +82,68 @@ export type Runner = {
   stop(): void;
 };
 
-/** Claims up to the free concurrency each tick; jobs run in the background. */
-export function createRunner(deps: RunnerDeps, concurrency: number): Runner {
+/**
+ * Kinds someone is waiting on right now (a member watching for Niva's answer): claimed first each
+ * tick, and one slot is kept for them that the other kinds never take, so a photo-album or
+ * QuickBooks history import filling the other slots cannot hold an answer back.
+ */
+export const PRIORITY_KINDS: readonly string[] = ["niva.answer"];
+
+/**
+ * Claims up to the free concurrency each tick; jobs run in the background. The priority kinds are
+ * claimed first and may use any free slot; the rest may use all but one slot (the reserved one),
+ * unless there is only one slot or no priority kind here can run. Whether one can is read each
+ * tick from its readiness on deps.env (the platform overlay): with no Anthropic key, niva.answer
+ * jobs fail at once as not configured, so no slot is kept for them, and a key saved later in
+ * Platform › Setup brings the kept slot back on the next tick.
+ */
+export function createRunner(deps: RunnerDeps, concurrency: number, opts: { priority?: readonly string[] } = {}): Runner {
   const running = new Set<Promise<Outcome>>();
+  let others = 0;
   let stopping = false;
-  const kinds = [...deps.reg.keys()];
+  const priority = (opts.priority ?? PRIORITY_KINDS).filter((k) => deps.reg.has(k));
+  const rest = [...deps.reg.keys()].filter((k) => !priority.includes(k));
+  const reserved = (): number => {
+    if (concurrency <= 1) return 0;
+    const ready = priority.some((k) => {
+      const h = deps.reg.get(k);
+      try {
+        return !h?.configured || h.configured(deps.env).configured;
+      } catch {
+        return true; // when in doubt, keep the slot
+      }
+    });
+    return ready ? 1 : 0;
+  };
+
+  const start = (job: Job, isPriority: boolean) => {
+    if (!isPriority) others += 1;
+    const p = processJob(deps, job).finally(() => {
+      running.delete(p);
+      if (!isPriority) others -= 1;
+    });
+    running.add(p);
+  };
+
   return {
     async tick() {
       if (stopping) return 0;
-      const free = concurrency - running.size;
+      let free = concurrency - running.size;
       if (free <= 0) return 0;
-      const jobs = await deps.db.claim(deps.workerId, kinds, free);
-      for (const job of jobs) {
-        const p = processJob(deps, job).finally(() => running.delete(p));
-        running.add(p);
+      let claimed = 0;
+      if (priority.length > 0) {
+        const jobs = await deps.db.claim(deps.workerId, priority, free);
+        for (const job of jobs) start(job, true);
+        claimed += jobs.length;
+        free -= jobs.length;
       }
-      return jobs.length;
+      const room = Math.min(free, concurrency - reserved() - others);
+      if (room > 0 && rest.length > 0 && !stopping) {
+        const jobs = await deps.db.claim(deps.workerId, rest, room);
+        for (const job of jobs) start(job, false);
+        claimed += jobs.length;
+      }
+      return claimed;
     },
     inFlight: () => running.size,
     async drain(timeoutMs) {
