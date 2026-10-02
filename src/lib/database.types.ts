@@ -4283,6 +4283,42 @@ export type Database = {
         };
         Relationships: [];
       };
+      niva_site_pages: {
+        Row: {
+          id: string;
+          center_id: string;
+          site: string;
+          url: string;
+          url_key: string;
+          lastmod: string | null;
+          discovered_at: string;
+          last_import_job: number | null;
+          last_hash: string | null;
+        };
+        Insert: {
+          id?: string;
+          center_id: string;
+          site: string;
+          url: string;
+          url_key: string;
+          lastmod?: string | null;
+          discovered_at?: string;
+          last_import_job?: number | null;
+          last_hash?: string | null;
+        };
+        Update: {
+          id?: string;
+          center_id?: string;
+          site?: string;
+          url?: string;
+          url_key?: string;
+          lastmod?: string | null;
+          discovered_at?: string;
+          last_import_job?: number | null;
+          last_hash?: string | null;
+        };
+        Relationships: [];
+      };
       notification_preferences: {
         Row: {
           center_id: string;
@@ -10423,6 +10459,19 @@ export type Database = {
           p_question: string;
         };
         Returns: string;
+      };
+      niva_discover_site: {
+        Args: {
+          p_center: string;
+          p_url: string;
+        };
+        Returns: number;
+      };
+      niva_discovery_status: {
+        Args: {
+          p_center: string;
+        };
+        Returns: Json;
       };
       niva_health: {
         Args: {
