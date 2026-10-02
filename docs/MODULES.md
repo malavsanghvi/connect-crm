@@ -22,6 +22,8 @@ Owner decision recorded in [DECISIONS.md](DECISIONS.md).
 | RPC guards | Every security-definer RPC of a module calls `assert_module_enabled` once the center is known (listed per module below). |
 
 Switching off never deletes or changes data. Switching back on restores access exactly as it was.
+Access levels (0586, [ACCESS_LEVELS.md](ACCESS_LEVELS.md)) build on this: an area of the member app (live darshan,
+virtual puja, listen, look, learn, Ask Niva) is closed to everyone while its module is off, whatever level the community chose.
 Background work that runs as `service_role` (webhooks, workers) bypasses RLS as before; the
 Giving triggers keep posting a card payment that settles after Giving was switched off.
 
