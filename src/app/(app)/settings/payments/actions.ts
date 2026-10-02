@@ -3,12 +3,14 @@
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 
-import { failure, isStepUpError, type ActionResult } from "@/lib/errors";
+import { failure, isStepUpError, type ActionResult, type DbErrorLike } from "@/lib/errors";
 import { startProviderCheckout } from "@/lib/payments/checkout";
 import { NotConfigured, ProviderError, originOf, paypalReferralUrl, stripeAuthorizeUrl, type CheckoutInfo } from "@/lib/payments/server";
 import { loadPlatformConfig } from "@/lib/platform-setup/server-config";
+import { pluginByKey } from "@/lib/payments/plugins/catalog";
 import { PROCESSOR_LABEL, statementDescriptorProblem, type Processor } from "@/lib/payments/view";
 import { authorizeAction, dbWithReason } from "@/lib/session";
+import type { AppSupabase } from "@/lib/supabase/server";
 
 // Settings › Payments. Every write is an app.* function that checks the caller
 // (owner / integrations.manage for connecting and live; giving.manage too for
@@ -18,6 +20,11 @@ import { authorizeAction, dbWithReason } from "@/lib/session";
 export type PayResult<T = undefined> = ActionResult<T> & { stepUp?: boolean };
 
 const PATH = "/settings/payments";
+
+// app.set_payment_plugin is new in 0580: until the generated types include it, it is called through
+// the untyped signature (as src/app/(app)/content/niva/actions.ts does).
+type RpcCaller = (fn: string, args: Record<string, unknown>) => PromiseLike<{ data: unknown; error: DbErrorLike | null }>;
+const untypedRpc = (db: AppSupabase) => db.rpc.bind(db) as unknown as RpcCaller;
 
 function isProcessor(p: string): p is Processor {
   return p === "stripe" || p === "paypal";
@@ -220,4 +227,42 @@ export async function syncPayoutsAction(): Promise<PayResult> {
   if (error) return dbFailure(doing, error);
   revalidatePath(PATH);
   return { ok: true, message: "Payout sync queued for the background service" };
+}
+
+/**
+ * A payment plugin's switch, or its name and order (docs/PAYMENTS_PLAN.md §2.3). Writes through
+ * app.set_payment_plugin (0580), which turns the plugin on or off with the same database functions
+ * the old checkboxes used (the Stripe/PayPal method list, the offline method rows). A null name or
+ * order goes back to the catalog's. Live mode is not switched here (setModeAction).
+ */
+export async function setPluginAction(
+  key: string, enabled: boolean, labelOverride: string | null, sort: number | null, reason: string, change: "switch" | "rename" = "switch",
+): Promise<PayResult> {
+  const plugin = pluginByKey(key);
+  const name = String(labelOverride ?? "").trim() || null;
+  const label = name ?? plugin?.label ?? String(key).replace(/_/g, " ");
+  const on = enabled === true;
+  const doing = change === "rename" ? `save the name and order of ${label}` : `turn ${on ? "on" : "off"} ${label}`;
+  if (!plugin) return { ok: false, error: `Could not ${doing} — that is not a payment method Community Connect offers.` };
+  if (name && name.length > 40) return { ok: false, error: `Could not ${doing} — the name members see can be at most 40 characters.` };
+  if (sort !== null && (!Number.isInteger(sort) || sort < 0 || sort > 999)) {
+    return { ok: false, error: `Could not ${doing} — the order is a whole number from 0 to 999.` };
+  }
+  const bad = needReason(reason, doing);
+  if (bad) return { ok: false, error: bad };
+  const auth = await authorizeAction("paymentSettings", doing);
+  if (!auth.ok) return auth;
+  const db = await dbWithReason(auth.session, reason);
+  const { error } = await untypedRpc(db)("set_payment_plugin", {
+    p_center: auth.session.center.id, p_key: plugin.key, p_enabled: on, p_config: null, p_label_override: name, p_sort: sort, p_reason: reason.trim(),
+  });
+  if (error) {
+    if (isStepUpError(error)) return { ok: false, stepUp: true, error: `Could not ${doing} — this needs a fresh 2FA check.` };
+    return failure(change === "rename" ? `Could not ${doing}` : `Could not turn ${on ? "on" : "off"} ${label}`, error);
+  }
+  revalidatePath(PATH);
+  return {
+    ok: true,
+    message: change === "rename" ? `${label} saved · audit logged` : `${label} is ${on ? "on" : "off"} · audit logged`,
+  };
 }
