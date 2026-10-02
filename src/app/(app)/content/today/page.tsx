@@ -13,6 +13,10 @@ import { ContentHeader, contentGate } from "../shared";
 
 export const metadata: Metadata = { title: "Content · Today & darshan" };
 
+// The whole stream row (notes and stored-file path included) is what the database hands to anyone who may watch,
+// guests too while Live darshan is public (Settings › Access levels), so the notes box says who reads it.
+const STREAM_NOTES_LABEL = "Notes (shown to anyone who can watch)";
+
 function weekdayLine(date: string): string {
   const [y, m, d] = date.split("-").map(Number);
   return new Intl.DateTimeFormat("en-US", { timeZone: "UTC", weekday: "short", month: "short", day: "numeric" }).format(new Date(Date.UTC(y, m - 1, d)));
@@ -107,7 +111,7 @@ export default async function TodayPage() {
           title="Live darshan"
           span={12}
           padded={false}
-          actions={canDraft ? <ContentItemButton kind="darshan_stream" kindLabel="Live darshan stream" meta={["source", "schedule", "stream_status"]} label="Add stream" bodyLabel="Notes" /> : null}
+          actions={canDraft ? <ContentItemButton kind="darshan_stream" kindLabel="Live darshan stream" meta={["source", "schedule", "stream_status"]} label="Add stream" bodyLabel={STREAM_NOTES_LABEL} /> : null}
         >
           {streams.error ? (
             <div className="p-4">
@@ -156,7 +160,7 @@ export default async function TodayPage() {
                                 label="Edit"
                                 variant="ghost"
                                 size="xs"
-                                bodyLabel="Notes"
+                                bodyLabel={STREAM_NOTES_LABEL}
                                 item={{ ...s, metadata: meta }}
                               />
                             ) : (
@@ -184,7 +188,15 @@ export default async function TodayPage() {
                 className="aspect-video w-full max-w-[640px] rounded-lg border border-line bg-black"
               />
               <p className="mt-1 text-xs text-muted">
-                Members watch this from Home › Watch live darshan and Learn › Library.{" "}
+                People watch this from Home › Watch live darshan and Learn › Library. Who may watch is set in{" "}
+                {canSaveRules ? (
+                  <a href="/settings/access" className="text-navy underline">
+                    Settings › Access levels
+                  </a>
+                ) : (
+                  "Settings › Access levels"
+                )}
+                .{" "}
                 <a href={liveStream.media_url} target="_blank" rel="noreferrer" className="text-navy underline">
                   Open the stream
                 </a>

@@ -5,6 +5,69 @@ export type Json = string | number | boolean | null | { [key: string]: Json | un
 export type Database = {
   app: {
     Tables: {
+      access_features: {
+        Row: {
+          key: string;
+          label: string;
+          description: string;
+          default_level: string;
+          floor_level: string;
+          module_key: string | null;
+          enforced_by: string;
+          sort: number;
+        };
+        Insert: {
+          key: string;
+          label: string;
+          description?: string;
+          default_level: string;
+          floor_level: string;
+          module_key?: string | null;
+          enforced_by: string;
+          sort?: number;
+        };
+        Update: {
+          key?: string;
+          label?: string;
+          description?: string;
+          default_level?: string;
+          floor_level?: string;
+          module_key?: string | null;
+          enforced_by?: string;
+          sort?: number;
+        };
+        Relationships: [];
+      };
+      access_levels: {
+        Row: {
+          center_id: string;
+          key: string;
+          label: string;
+          rank: number;
+          kind: string;
+          tiers: Database["app"]["Enums"]["membership_tier"][] | null;
+          membership_type_keys: string[] | null;
+        };
+        Insert: {
+          center_id: string;
+          key: string;
+          label: string;
+          rank: number;
+          kind: string;
+          tiers?: Database["app"]["Enums"]["membership_tier"][] | null;
+          membership_type_keys?: string[] | null;
+        };
+        Update: {
+          center_id?: string;
+          key?: string;
+          label?: string;
+          rank?: number;
+          kind?: string;
+          tiers?: Database["app"]["Enums"]["membership_tier"][] | null;
+          membership_type_keys?: string[] | null;
+        };
+        Relationships: [];
+      };
       access_requests: {
         Row: {
           id: string;
@@ -1073,6 +1136,33 @@ export type Database = {
           set_by?: string | null;
           set_at?: string;
           reason?: string;
+        };
+        Relationships: [];
+      };
+      center_feature_access: {
+        Row: {
+          center_id: string;
+          feature_key: string;
+          level_key: string;
+          changed_by: string | null;
+          changed_at: string;
+          reason: string | null;
+        };
+        Insert: {
+          center_id: string;
+          feature_key: string;
+          level_key: string;
+          changed_by?: string | null;
+          changed_at?: string;
+          reason?: string | null;
+        };
+        Update: {
+          center_id?: string;
+          feature_key?: string;
+          level_key?: string;
+          changed_by?: string | null;
+          changed_at?: string;
+          reason?: string | null;
         };
         Relationships: [];
       };
@@ -9046,6 +9136,12 @@ export type Database = {
         };
         Returns: undefined;
       };
+      access_settings: {
+        Args: {
+          p_center: string;
+        };
+        Returns: Json;
+      };
       activate_demo_pack: {
         Args: {
           p_center: string;
@@ -9275,6 +9371,13 @@ export type Database = {
         Args: {
           p_center: string;
           p_event: string;
+        };
+        Returns: boolean;
+      };
+      can_use_feature: {
+        Args: {
+          p_center: string;
+          p_feature: string;
         };
         Returns: boolean;
       };
@@ -9800,6 +9903,12 @@ export type Database = {
         Args: {
           p_nonce: string;
           p_error: string;
+        };
+        Returns: Json;
+      };
+      feature_access_for_me: {
+        Args: {
+          p_center: string;
         };
         Returns: Json;
       };
@@ -10394,6 +10503,12 @@ export type Database = {
           p_role?: Database["app"]["Enums"]["person_role_in_household"];
         };
         Returns: undefined;
+      };
+      my_access: {
+        Args: {
+          p_center: string;
+        };
+        Returns: { key: string; label: string; rank: number; signed_in: boolean }[];
       };
       my_center_ids: {
         Args: Record<PropertyKey, never>;
@@ -11341,6 +11456,15 @@ export type Database = {
         };
         Returns: Json;
       };
+      save_access_levels: {
+        Args: {
+          p_center: string;
+          p_levels: Json;
+          p_base_labels: Json;
+          p_reason: string;
+        };
+        Returns: undefined;
+      };
       save_email_footer: {
         Args: {
           p_center: string;
@@ -11481,6 +11605,15 @@ export type Database = {
         Args: {
           p_center: string;
           p_provider: string;
+          p_reason: string;
+        };
+        Returns: undefined;
+      };
+      set_feature_access: {
+        Args: {
+          p_center: string;
+          p_feature: string;
+          p_level_key: string;
           p_reason: string;
         };
         Returns: undefined;
