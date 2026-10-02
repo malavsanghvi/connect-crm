@@ -181,6 +181,13 @@ All optional. A handler whose settings are missing reports "not configured"
 | `ANTHROPIC_API_KEY` | Niva and import mapping suggestions |
 | `WORKER_SUPABASE_SECRET_KEY` | storage retention (see the note below) |
 
+`CLAUDE_MODEL` (a repository **variable**, not a secret) changes the Claude model Niva answers
+with. Leave it unset to use the default in `worker/src/anthropic.ts` (`claude-opus-5-5`). Set it
+only if the Anthropic account cannot use that model: Niva then marks questions failed with "The
+AI model Niva uses (…) is not available to this Anthropic account". The value reaches the
+background service on the next deploy (any push to `main`, or run **Deploy** by hand). Editing
+`/srv/connect/worker.env` on the droplet does not last, because every deploy rewrites that file.
+
 AI event flyer images (`events.generate_flyer`) call Pollinations.ai and need **no key at all** —
 it is a free, unauthenticated image API. The tradeoff: it is a shared, rate-limited community
 pool (an occasional transient error under load, retried automatically like any other 5xx), and

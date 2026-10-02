@@ -52,10 +52,15 @@ describe("classifyAnthropicError", () => {
     expect(apiErrorMessage(new Error("plain"))).toBe("plain");
   });
 
-  it("a connection failure has no status", () => {
+  it("a connection failure has no status, and a timeout says so rather than 'no connection'", () => {
     const c = classifyAnthropicError(new Anthropic.APIConnectionError({ message: "Connection error." }));
     expect(c.status).toBeNull();
+    expect(c.timedOut).toBe(false);
     expect(errorLabel(c)).toBe("no connection");
+
+    const t = classifyAnthropicError(new Anthropic.APIConnectionTimeoutError());
+    expect(t).toMatchObject({ kind: "transient", status: null, timedOut: true });
+    expect(errorLabel(t)).toBe("timed out");
   });
 });
 

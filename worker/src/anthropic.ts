@@ -8,7 +8,12 @@ import Anthropic from "@anthropic-ai/sdk";
 
 import type { Env } from "./config";
 
-/** The current Opus. CLAUDE_MODEL on the background service overrides it (for a model switch without a deploy). */
+/**
+ * The current Opus. The CLAUDE_MODEL repository variable overrides it (for example when the
+ * account cannot use this model): deploy.yml writes it into the background service's env, so it
+ * takes effect on the next deploy and survives the ones after. A value typed into
+ * /srv/connect/worker.env by hand is overwritten by the next deploy.
+ */
 export const CLAUDE_MODEL = "claude-opus-5-5";
 
 export function claudeModel(env: Env): string {
@@ -55,6 +60,8 @@ export type ClassifiedError = {
   message: string;
   /** quota only: when the API said access comes back ("You will regain access on …"), else null. */
   regainAt: Date | null;
+  /** The call got no answer within the client's timeout (rather than no connection at all). */
+  timedOut?: boolean;
 };
 
 // The API has no separate error type for a spending limit: it is a 400 invalid_request_error whose
@@ -87,8 +94,12 @@ export function regainAccessAt(message: string): Date | null {
 
 export function classifyAnthropicError(err: unknown): ClassifiedError {
   const message = apiErrorMessage(err);
-  // No response at all (DNS, refused connection, the 30 s timeout): APIConnectionError extends APIError.
-  if (err instanceof Anthropic.APIConnectionError) return { kind: "transient", status: null, type: null, message, regainAt: null };
+  // No response at all (DNS, refused connection, the 30 s timeout): APIConnectionError extends APIError,
+  // and APIConnectionTimeoutError extends APIConnectionError.
+  if (err instanceof Anthropic.APIConnectionError) {
+    const timedOut = err instanceof Anthropic.APIConnectionTimeoutError;
+    return { kind: "transient", status: null, type: null, message, regainAt: null, timedOut };
+  }
   if (!(err instanceof Anthropic.APIError)) return { kind: "bad_request", status: null, type: null, message, regainAt: null };
 
   const status = typeof err.status === "number" ? err.status : null;
@@ -106,8 +117,8 @@ export function classifyAnthropicError(err: unknown): ClassifiedError {
   return out("bad_request");
 }
 
-/** A short label for logs and job errors: "429 rate_limit_error", "no connection". */
+/** A short label for logs and job errors: "429 rate_limit_error", "timed out", "no connection". */
 export function errorLabel(c: ClassifiedError): string {
-  if (c.status === null) return "no connection";
+  if (c.status === null) return c.timedOut ? "timed out" : "no connection";
   return c.type ? `${c.status} ${c.type}` : String(c.status);
 }
