@@ -54,6 +54,8 @@ select (app.niva_ask(:c::uuid, '  What time is the derasar open   today?  ')).id
 commit;
 select pg_temp.assert(:'conv' is not null, 'the question is saved');
 select pg_temp.assert((select unanswered from app.niva_conversations where id = :'conv'::uuid) = true, 'saved as unanswered');
+select pg_temp.assert((select answer_status = 'pending' and answered_at is null from app.niva_conversations where id = :'conv'::uuid),
+  'saved with answer_status pending (0572)');
 select pg_temp.assert((select user_id from app.niva_conversations where id = :'conv'::uuid) = :member::uuid, 'user_id is the asker, from auth.uid()');
 select pg_temp.assert((select question from app.niva_conversations where id = :'conv'::uuid) = 'What time is the derasar open today?', 'the question is trimmed and whitespace-normalised');
 select pg_temp.assert((select count(*) from app.jobs where kind = 'niva.answer' and center_id = :c::uuid and (payload->>'conversation_id')::uuid = :'conv'::uuid) = 1,
@@ -122,6 +124,8 @@ commit;
 select pg_temp.assert((select unanswered from app.niva_conversations where id = :'conv'::uuid) = false, 'the conversation is now answered');
 select pg_temp.assert((select answer from app.niva_conversations where id = :'conv'::uuid) = 'The derasar is open 6 AM-12 PM and 4-8 PM.', 'the answer text is stored');
 select pg_temp.assert((select sources->0->>'title' from app.niva_conversations where id = :'conv'::uuid) = 'Derasar timings', 'the cited source is stored');
+select pg_temp.assert((select answer_status = 'answered' and model = 'claude-opus-5' and answered_at is not null
+                         from app.niva_conversations where id = :'conv'::uuid), 'answer_status, the model and answered_at are stored (0572)');
 begin;
 set local role connect_worker;
 select pg_temp.assert_raises($$select app.niva_worker_store_answer('$$ || :'conv' || $$'::uuid, '   ', '[]'::jsonb, 'claude-opus-5')$$,
@@ -139,6 +143,9 @@ begin;
 select pg_temp.sign_in(:member);
 select pg_temp.assert_raises($$select app.niva_regenerate('$$ || :'conv' || $$'::uuid)$$, 'content.manage', 'a plain member cannot regenerate an answer');
 commit;
+-- The first job has finished (the worker stored the answer above). Since 0572 a regenerate adds
+-- nothing while a job for the same question is running or already due.
+update app.jobs set status = 'done', finished_at = now() where kind = 'niva.answer' and payload->>'conversation_id' = :'conv';
 begin;
 select pg_temp.sign_in(:admin);
 select app.niva_regenerate(:'conv'::uuid);
@@ -146,6 +153,8 @@ commit;
 select pg_temp.assert((select count(*) from app.jobs where kind = 'niva.answer' and (payload->>'conversation_id')::uuid = :'conv'::uuid) = 2,
   'regenerate enqueues a second niva.answer job, keeping the first');
 select pg_temp.assert((select answer from app.niva_conversations where id = :'conv'::uuid) is not null, 'the existing answer stays visible until the new job finishes');
+select pg_temp.assert((select answer_status from app.niva_conversations where id = :'conv'::uuid) = 'answered',
+  'a question that still shows its answer stays answered while it is regenerated (0572)');
 
 -- ── 30-day retention: only the background service, and it actually deletes ──
 insert into app.niva_conversations (id, center_id, user_id, question, answer, created_at) values
