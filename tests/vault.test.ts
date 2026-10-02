@@ -1,9 +1,14 @@
+import { readdirSync, readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+
 import { describe, expect, it } from "vitest";
 
 import {
   backgroundServiceView,
   fingerprintLabel,
   isStepUpError,
+  JOB_KIND_LABELS,
+  jobKindLabel,
   jobStatusView,
   secretNameProblem,
   secretValueProblem,
@@ -72,5 +77,25 @@ describe("background service tile", () => {
     expect(jobStatusView("queued", 1, 3)).toEqual({ label: "Retrying (attempt 2 of 3)", tone: "warn" });
     expect(jobStatusView("queued", 0, 3).label).toBe("Waiting");
     expect(jobStatusView("failed", 3, 3).tone).toBe("bad");
+  });
+});
+
+describe("job kind labels", () => {
+  it("names Niva's jobs in plain English", () => {
+    expect(jobKindLabel("niva.answer")).toBe("Niva answer");
+    expect(jobKindLabel("niva.import_page")).toBe("Niva page import");
+    expect(jobKindLabel("niva.retention")).toBe("Remove Niva questions older than 30 days");
+    expect(jobKindLabel("calendar.refresh_feeds")).toBe("Daily calendar feed refresh");
+    expect(jobKindLabel("qbo.post")).toBe("Post to QuickBooks");
+    expect(jobKindLabel("something.new")).toBe("something.new");
+  });
+  it("has a label for every job kind the background service runs", () => {
+    const dir = fileURLToPath(new URL("../worker/src/handlers/", import.meta.url));
+    const kinds = readdirSync(dir)
+      .filter((f) => f.endsWith(".ts") && f !== "index.ts")
+      .map((f) => /export const kind = "([^"]+)"/.exec(readFileSync(dir + f, "utf8"))?.[1])
+      .filter((k): k is string => Boolean(k));
+    expect(kinds.length).toBeGreaterThan(20);
+    expect(kinds.filter((k) => !JOB_KIND_LABELS[k])).toEqual([]);
   });
 });

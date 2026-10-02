@@ -166,8 +166,15 @@ export function backgroundServiceView(status: Json | null | undefined): Backgrou
   }
 }
 
+/**
+ * What each background job is, in plain English (Settings › Integrations shows these instead of the
+ * raw kind). One entry per worker/src/handlers/<kind>.ts (tests/vault.test.ts checks it), plus
+ * storage.scan, which waits in the queue until a malware scanner is chosen.
+ */
 export const JOB_KIND_LABELS: Record<string, string> = {
   "demo.ping": "Test job",
+  "demo.load": "Load demo data",
+  "demo.clear": "Clear the sandbox",
   "oauth.exchange": "Connect a service",
   "storage.retention": "Remove expired files",
   "storage.scan": "Malware scan",
@@ -176,8 +183,30 @@ export const JOB_KIND_LABELS: Record<string, string> = {
   "payments.refund": "Refund through the provider",
   "payments.test_charge": "$1 test refund",
   "payments.sync_payouts": "Payout sync",
-  "demo.load": "Load demo data",
-  "demo.clear": "Clear the sandbox",
+  "niva.answer": "Niva answer",
+  "niva.import_page": "Niva page import",
+  "niva.discover_site": "Find a website's pages for Niva",
+  "niva.retention": "Remove Niva questions older than 30 days",
+  "calendar.import_feed": "Calendar feed import",
+  "calendar.refresh_feeds": "Daily calendar feed refresh",
+  "events.generate_flyer": "Event flyer",
+  "photos.import_album": "Google Photos album import",
+  "import.suggest_mapping": "Suggest column matches for an import",
+  "messaging.send": "Send a message",
+  "messaging.test_send": "Test message",
+  "messaging.domain_verify": "Email sending domain check",
+  "messaging.webhook.email": "Email delivery event",
+  "messaging.webhook.twilio": "Text message event",
+  "platform.promote": "Copy the sandbox into production",
+  "platform.sandbox_expiry": "Sandbox expiry reminders",
+  "platform.test_provider": "Test a platform service",
+  "qbo.pull_lists": "Pull QuickBooks lists",
+  "qbo.post": "Post to QuickBooks",
+  "qbo.test_post": "QuickBooks $1 test posting",
+  "qbo.refresh_token": "Renew the QuickBooks sign-in",
+  "qbo.pull_customers_history": "Copy QuickBooks customers and history",
+  "qbo.match_suggest_ai": "Suggest QuickBooks donor matches",
+  "qbo.bring_in_history": "Bring in a QuickBooks customer's history",
 };
 
 export function jobKindLabel(kind: string): string {
