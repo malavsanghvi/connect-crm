@@ -28,6 +28,10 @@ describe("why a Niva question has no answer", () => {
     expect(nivaOutcomeLabel("answered")).toBe("Answered");
     expect(nivaOutcomeLabel("no_source")).toBe("No approved source mentions these words");
     expect(nivaOutcomeLabel("unsure")).toBe("Sources found but none clearly answers it");
+    expect(nivaOutcomeLabel("unsure", "Niva found sources, but none of them clearly answers the question.")).toBe("Sources found but none clearly answers it");
+    expect(nivaOutcomeLabel("unsure", "Niva wrote an answer but could not point to an approved source for it, so it was not shown.")).toBe(
+      "Niva wrote an answer but could not point to an approved source for it, so it was not shown",
+    );
     expect(nivaOutcomeLabel("refused")).toBe("Niva declined");
     expect(nivaOutcomeLabel("paused", "The AI service's spending limit was reached; Niva will try again at 3:00 pm.")).toBe(
       "AI service paused — The AI service's spending limit was reached; Niva will try again at 3:00 pm.",
@@ -156,7 +160,7 @@ describe("Niva sources grouped by imported page", () => {
   it("labels statuses from the content statuses, with Included for what Niva answers from", () => {
     expect(nivaSourceStatus("published")).toEqual({ label: "Included", tone: "ok" });
     expect(nivaSourceStatus("in_review")).toEqual({ label: "Awaiting approval", tone: "warn" });
-    expect(nivaSourceStatus("approved")).toEqual({ label: "Approved", tone: "warn" });
+    expect(nivaSourceStatus("approved")).toEqual({ label: "Approved, not included yet", tone: "warn" });
     expect(nivaSourceStatus("draft")).toEqual({ label: "Draft", tone: "warn" });
     expect(nivaSourceStatus("retired")).toEqual({ label: "Retired", tone: "bad" });
   });
@@ -218,24 +222,41 @@ describe("Niva health (app.niva_health)", () => {
     expect(stopped.problems[0].detail).toMatch(/2 hours ago/);
   });
   it("speaks up when Niva's answering job is not set up, with the service's reason", () => {
-    const v = nivaHealthView({ ...healthy, handler: { configured: false, reason: "ANTHROPIC_API_KEY is not set" } });
+    const v = nivaHealthView({ ...healthy, handler: { configured: false, reason: "ANTHROPIC_API_KEY is not set" } }, { canRetry: true });
     expect(v.problems).toHaveLength(1);
     expect(v.problems[0]).toMatchObject({ tone: "danger", retry: true });
     expect(v.problems[0].detail).toMatch(/^The background service says: ANTHROPIC_API_KEY is not set\. /);
+    expect(v.problems[0].detail).toMatch(/Press "Try all unanswered questions again" once it is fixed\.$/);
   });
-  it("speaks up when questions failed in the last 24 hours, with the last error", () => {
-    const v = nivaHealthView({ ...healthy, jobs: { ...healthy.jobs, failed_24h: 3, last_error: "The Anthropic key on the background service was refused (401)" } });
-    expect(v.problems[0].title).toBe("3 questions could not be answered in the last 24 hours");
+  it("speaks up while questions of the last 7 days are failed, with the last error", () => {
+    const failed = { ...healthy, jobs: { ...healthy.jobs, failed_24h: 3, last_error: "The Anthropic key on the background service was refused (401)" }, outcomes_7d: { ...healthy.outcomes_7d, failed: 3 } };
+    const v = nivaHealthView(failed, { canRetry: true });
+    expect(v.problems[0].title).toBe("3 questions from the last 7 days could not be answered");
     expect(v.problems[0].detail).toMatch(/^The last error: The Anthropic key on the background service was refused \(401\)\. /);
     expect(v.problems[0].retry).toBe(true);
-    expect(nivaHealthView({ ...healthy, jobs: { ...healthy.jobs, failed_24h: 1 } }).problems[0].title).toBe("1 question could not be answered in the last 24 hours");
+    // A question that failed twice is one question.
+    expect(nivaHealthView({ ...failed, outcomes_7d: { ...healthy.outcomes_7d, failed: 1 } }).problems[0].title).toBe("1 question from the last 7 days could not be answered");
+  });
+  it("says nothing about failures once every failed question was answered by a later try", () => {
+    const fixed = { ...healthy, jobs: { ...healthy.jobs, failed_24h: 5, last_error: "The Anthropic key on the background service was refused (401)" } };
+    expect(nivaHealthView(fixed, { canRetry: true }).problems).toEqual([]);
   });
   it("speaks up when questions are paused by the AI service's spending limit", () => {
-    const v = nivaHealthView({ ...healthy, outcomes_7d: { ...healthy.outcomes_7d, paused: 4 } });
+    const v = nivaHealthView({ ...healthy, outcomes_7d: { ...healthy.outcomes_7d, paused: 4 } }, { canRetry: true });
     expect(v.problems).toEqual([expect.objectContaining({ tone: "warning", retry: true, title: "4 questions are waiting for the AI service" })]);
+    expect(v.problems[0].detail).toMatch(/Once the limit is raised, press "Try all/);
+  });
+  it("tells staff without the button that a content manager can press it", () => {
+    const bad = { ...healthy, handler: { configured: false }, outcomes_7d: { ...healthy.outcomes_7d, failed: 2, paused: 1 } };
+    const details = nivaHealthView(bad).problems.map((p) => p.detail);
+    expect(details).toHaveLength(3);
+    for (const d of details) expect(d).toMatch(/a content manager can press "Try all unanswered questions again"/);
+    expect(details[0]).toMatch(/Once it is fixed, a content manager can press/);
+    expect(details[1]).toMatch(/Once the cause is fixed, a content manager can press/);
+    for (const d of details) expect(d).not.toMatch(/Press "Try all/);
   });
   it("lists several problems together, and none while Niva is switched off", () => {
-    const bad = { ...healthy, state: "stopped", handler: { configured: false }, jobs: { ...healthy.jobs, failed_24h: 2 }, outcomes_7d: { ...healthy.outcomes_7d, paused: 1 } };
+    const bad = { ...healthy, state: "stopped", handler: { configured: false }, jobs: { ...healthy.jobs, failed_24h: 2 }, outcomes_7d: { ...healthy.outcomes_7d, failed: 2, paused: 1 } };
     expect(nivaHealthView(bad).problems.map((p) => p.tone)).toEqual(["danger", "danger", "danger", "warning"]);
     expect(nivaHealthView({ ...bad, module_on: false }).problems).toEqual([]);
   });

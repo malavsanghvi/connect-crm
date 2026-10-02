@@ -23,6 +23,12 @@ function withDetail(label: string, detail: string | null | undefined): string {
 }
 
 /**
+ * The worker's "unsure" when the model wrote an answer that cited no approved source
+ * (worker/src/handlers/niva.answer.ts): staff fix that differently from "no source answers it".
+ */
+const UNCITED_ANSWER = /could not point to an approved source/i;
+
+/**
  * The "Why" of a question, in plain English. The fixed outcomes have fixed wording; a paused or
  * failed question carries the worker's own plain-English detail (never a secret: 0572 scrubs it).
  */
@@ -35,7 +41,9 @@ export function nivaOutcomeLabel(status: string | null | undefined, detail?: str
     case "no_source":
       return "No approved source mentions these words";
     case "unsure":
-      return "Sources found but none clearly answers it";
+      return UNCITED_ANSWER.test(detail ?? "")
+        ? "Niva wrote an answer but could not point to an approved source for it, so it was not shown"
+        : "Sources found but none clearly answers it";
     case "refused":
       return "Niva declined";
     case "paused":
@@ -217,9 +225,13 @@ export function splitIntoGroups<T extends { center_id: string | null; metadata: 
   return out;
 }
 
-/** A source's status on Content › Niva: "Included" when Niva answers from it, else the content status. */
+/**
+ * A source's status on Content › Niva: "Included" when Niva answers from it, else the content status.
+ * 'approved' is not one Niva answers from (published only, 0572), so it never reads as plain "Approved".
+ */
 export function nivaSourceStatus(status: string): { label: string; tone: Tone } {
   if (status === "published") return { label: "Included", tone: "ok" };
+  if (status === "approved") return { label: "Approved, not included yet", tone: "warn" };
   return { label: contentStatusLabel(status), tone: status === "retired" ? "bad" : "warn" };
 }
 
@@ -283,13 +295,20 @@ function ago(seconds: number): string {
 const questions = (n: number) => `${n} question${n === 1 ? "" : "s"}`;
 
 const SAVED = "Members' questions are saved, so nothing is lost.";
+const TRY_ALL = '"Try all unanswered questions again"';
 
 /**
  * What the alert at the top of Content › Niva says. It shows when the background service is not
- * running, Niva's answering job is not set up there, a question failed in the last 24 hours, or
- * questions are waiting out the AI service's spending limit. Nothing shows while Niva is switched off.
+ * running, Niva's answering job is not set up there, questions of the last 7 days are still failed,
+ * or questions are waiting out the AI service's spending limit. Nothing shows while Niva is switched off.
+ *
+ * `canRetry`: the reader has the "Try all unanswered questions again" button (content.manage). Without
+ * it the alert says a content manager can press it, rather than pointing at a button that is not there.
  */
-export function nivaHealthView(raw: Json | null | undefined): NivaHealthView {
+export function nivaHealthView(raw: Json | null | undefined, opts: { canRetry?: boolean } = {}): NivaHealthView {
+  const canRetry = opts.canRetry === true;
+  /** "Press … once it is fixed." / "Once it is fixed, a content manager can press …." */
+  const tryAllOnce = (when: string) => (canRetry ? `Press ${TRY_ALL} ${when}.` : `${when.charAt(0).toUpperCase()}${when.slice(1)}, a content manager can press ${TRY_ALL}.`);
   const s = isPlainObject(raw) ? raw : {};
   const j = isPlainObject(s.jobs) ? s.jobs : {};
   const o = isPlainObject(s.outcomes_7d) ? s.outcomes_7d : {};
@@ -330,15 +349,18 @@ export function nivaHealthView(raw: Json | null | undefined): NivaHealthView {
       problems.push({
         tone: "danger",
         title: "Niva can't answer right now — its answering job is not set up on the background service",
-        detail: `${reason ? `The background service says: ${reason.replace(/\.?$/, ".")} ` : ""}${SAVED} Press "Try all unanswered questions again" once it is fixed.`,
+        detail: `${reason ? `The background service says: ${reason.replace(/\.?$/, ".")} ` : ""}${SAVED} ${tryAllOnce("once it is fixed")}`,
         retry: true,
       });
     }
-    if (jobs.failed24h > 0) {
+    // Questions that are failed now, not failed jobs: a question answered by a later try leaves this
+    // count (its answer_status changes), while jobs.failed_24h would keep the alert up for a day and
+    // count a question that failed twice twice.
+    if (outcomes7d.failed > 0) {
       problems.push({
         tone: "danger",
-        title: `${questions(jobs.failed24h)} could not be answered in the last 24 hours`,
-        detail: `${jobs.lastError ? `The last error: ${jobs.lastError.replace(/\.?$/, ".")} ` : ""}${SAVED} Press "Try all unanswered questions again" once the cause is fixed.`,
+        title: `${questions(outcomes7d.failed)} from the last 7 days could not be answered`,
+        detail: `${jobs.lastError ? `The last error: ${jobs.lastError.replace(/\.?$/, ".")} ` : ""}${SAVED} ${tryAllOnce("once the cause is fixed")}`,
         retry: true,
       });
     }
@@ -346,8 +368,9 @@ export function nivaHealthView(raw: Json | null | undefined): NivaHealthView {
       problems.push({
         tone: "warning",
         title: `${questions(outcomes7d.paused)} ${outcomes7d.paused === 1 ? "is" : "are"} waiting for the AI service`,
-        detail:
-          "The AI service's spending limit was reached, so Niva tries again by itself later (each question says when). Once the limit is raised, press \"Try all unanswered questions again\" to answer them now.",
+        detail: `The AI service's spending limit was reached, so Niva tries again by itself later (each question says when). Once the limit is raised, ${
+          canRetry ? "press" : "a content manager can press"
+        } ${TRY_ALL} to answer them now.`,
         retry: true,
       });
     }

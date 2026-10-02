@@ -164,7 +164,7 @@ export default async function NivaPage({ searchParams }: { searchParams: Promise
   if (approval?.error) console.error("[content/niva] could not load the go-live approval:", approval.error);
   if (health?.error) console.error("[content/niva] could not load Niva's health:", health.error);
   const approvals = approval && !approval.error ? parseApprovalStatus(approval.data) : null;
-  const healthView = health && !health.error ? nivaHealthView(health.data) : null;
+  const healthView = health && !health.error ? nivaHealthView(health.data, { canRetry: canManage }) : null;
 
   const totals = nivaSourceTotals(index.rows);
   const groups = summarizeSourceGroups(index.rows);
@@ -181,7 +181,7 @@ export default async function NivaPage({ searchParams }: { searchParams: Promise
       <ContentHeader sub={sub} />
       <div className="mb-4 flex flex-col gap-3">
         {health?.error ? <QueryError what="how Niva is doing" error={health.error} retryHref="/content/niva" /> : null}
-        {healthView ? <NivaHealthAlert view={healthView} canRetry={canManage} /> : null}
+        {healthView ? <NivaHealthAlert view={healthView} canRetry={canManage} canIntegrations={canAccess(session, "integrations")} /> : null}
         <Alert tone="info" title="Niva answers from your approved sources only">
           A member&apos;s question is checked against the sources marked &ldquo;Included&rdquo; below; when one clearly answers it, Niva replies
           with that source cited. When none does, or Niva isn&apos;t confident, the question is saved as unanswered and the member is told

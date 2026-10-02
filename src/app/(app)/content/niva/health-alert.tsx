@@ -7,10 +7,14 @@ import { RetryAllUnansweredButton } from "./retry-buttons";
 
 /**
  * The top of Content › Niva, from app.niva_health (0572): an alert when the background service is
- * not running, Niva's answering job is not set up, questions failed in the last 24 hours or are
- * waiting out the AI service's spending limit. Nothing when all is well.
+ * not running, Niva's answering job is not set up, questions of the last 7 days are still failed or
+ * are waiting out the AI service's spending limit. Nothing when all is well.
+ *
+ * `canRetry` (content.manage) shows "Try all unanswered questions again"; build `view` with the same
+ * flag so its wording matches. `canIntegrations` links to Settings › Integrations; without that access
+ * the page would only say "You don't have access to this area", so the alert says who to ask instead.
  */
-export function NivaHealthAlert({ view, canRetry }: { view: NivaHealthView; canRetry: boolean }) {
+export function NivaHealthAlert({ view, canRetry, canIntegrations }: { view: NivaHealthView; canRetry: boolean; canIntegrations: boolean }) {
   if (view.problems.length === 0) return null;
   const danger = view.problems.some((p) => p.tone === "danger");
   const retry = canRetry && view.problems.some((p) => p.retry);
@@ -20,12 +24,16 @@ export function NivaHealthAlert({ view, canRetry }: { view: NivaHealthView; canR
       tone={danger ? "danger" : "warning"}
       title={first.title}
       action={
-        <div className="flex flex-wrap items-center gap-2">
-          {retry ? <RetryAllUnansweredButton size="xs" /> : null}
-          <Link href="/settings/integrations" className={buttonClass(danger ? "bad" : "ghost", "xs")}>
-            Background service in Settings › Integrations
-          </Link>
-        </div>
+        retry || canIntegrations ? (
+          <div className="flex flex-wrap items-center gap-2">
+            {retry ? <RetryAllUnansweredButton size="xs" /> : null}
+            {canIntegrations ? (
+              <Link href="/settings/integrations" className={buttonClass(danger ? "bad" : "ghost", "xs")}>
+                Background service in Settings › Integrations
+              </Link>
+            ) : null}
+          </div>
+        ) : undefined
       }
     >
       <p>{first.detail}</p>
@@ -34,6 +42,7 @@ export function NivaHealthAlert({ view, canRetry }: { view: NivaHealthView; canR
           <span className="font-bold">{p.title}.</span> {p.detail}
         </p>
       ))}
+      {canIntegrations ? null : <p className="mt-2">Ask a platform administrator to check the background service in Settings › Integrations.</p>}
     </Alert>
   );
 }
