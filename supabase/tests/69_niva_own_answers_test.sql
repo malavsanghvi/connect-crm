@@ -506,17 +506,23 @@ select pg_temp.assert_raises($$select app.niva_worker_search_sources('69000000-0
 commit;
 
 -- ── Grants and search paths ──────────────────────────────────────────────────
-select pg_temp.assert(not has_function_privilege('authenticated', 'app.niva_own_answer(uuid,boolean)', 'execute')
-                      and not has_function_privilege('connect_worker', 'app.niva_own_answer(uuid,boolean)', 'execute')
+select pg_temp.assert(not has_function_privilege('authenticated', 'app.niva_own_answer(uuid,boolean,boolean)', 'execute')
+                      and not has_function_privilege('connect_worker', 'app.niva_own_answer(uuid,boolean,boolean)', 'execute')
+                      and not has_function_privilege('authenticated', 'app.niva_own_answer_for(uuid,text,boolean,uuid,boolean,text)', 'execute')
+                      and not has_function_privilege('anon', 'app.niva_own_answer_for(uuid,text,boolean,uuid,boolean,text)', 'execute')
                       and not has_function_privilege('authenticated', 'app.niva_search_core(uuid,text,int,text[])', 'execute')
                       and not has_function_privilege('authenticated', 'app.niva_own_no_answer(uuid,text,boolean)', 'execute')
                       and not has_function_privilege('authenticated', 'app.niva_store_own_answer(uuid,text,jsonb,text)', 'execute')
                       and not has_function_privilege('authenticated', 'app.niva_ai_mode(uuid)', 'execute')
                       and not has_function_privilege('authenticated', 'app.seed_jsh_niva_ai_off()', 'execute')
-                      and not has_function_privilege('anon', 'app.niva_own_answer(uuid,boolean)', 'execute'),
+                      and not has_function_privilege('anon', 'app.niva_own_answer(uuid,boolean,boolean)', 'execute'),
   'the own-answer functions are internal');
-select pg_temp.assert(has_function_privilege('connect_worker', 'app.niva_worker_own_answer(uuid,boolean)', 'execute')
-                      and not has_function_privilege('authenticated', 'app.niva_worker_own_answer(uuid,boolean)', 'execute'),
+select pg_temp.assert(has_function_privilege('authenticated', 'app.niva_normalize_question(text)', 'execute')
+                      and has_function_privilege('service_role', 'app.niva_normalize_question(text)', 'execute')
+                      and has_function_privilege('connect_worker', 'app.niva_normalize_question(text)', 'execute'),
+  'every role that may write the table can run the answer cache index''s text function');
+select pg_temp.assert(has_function_privilege('connect_worker', 'app.niva_worker_own_answer(uuid,boolean,boolean)', 'execute')
+                      and not has_function_privilege('authenticated', 'app.niva_worker_own_answer(uuid,boolean,boolean)', 'execute'),
   'the worker''s own try is connect_worker only');
 select pg_temp.assert(has_function_privilege('authenticated', 'app.niva_ask(uuid,text)', 'execute')
                       and has_function_privilege('authenticated', 'app.niva_test_ask(uuid,text,boolean)', 'execute')
@@ -527,7 +533,7 @@ select pg_temp.assert(has_function_privilege('authenticated', 'app.niva_ask(uuid
                       and has_function_privilege('connect_worker', 'app.niva_worker_search_sources(uuid,text,int,text[])', 'execute')
                       and has_function_privilege('connect_worker', 'app.niva_worker_get_conversation(uuid)', 'execute'),
   'the replaced functions keep their grants');
-select pg_temp.assert((select count(*) = 30 and bool_and(exists (select 1 from unnest(p.proconfig) as g(setting)
+select pg_temp.assert((select count(*) = 34 and bool_and(exists (select 1 from unnest(p.proconfig) as g(setting)
                                                  where g.setting ~ '^search_path=app, *public, *extensions$'))
                          from pg_proc p
                         where p.pronamespace = 'app'::regnamespace
@@ -536,6 +542,7 @@ select pg_temp.assert((select count(*) = 30 and bool_and(exists (select 1 from u
                                             'niva_question_terms','niva_terms_covered','niva_plain_text','niva_sentence_fits','niva_sentence_terms','niva_extract_sentences',
                                             'niva_search_core','niva_cache_sources_ok','niva_cites_current','niva_store_own_answer',
                                             'niva_own_outcome_detail','niva_own_no_answer','niva_own_answer','niva_worker_own_answer',
+                                            'niva_glossary_map','niva_own_answer_for','niva_own_retry_batch','niva_conversations_guard_answer',
                                             'niva_ask','niva_test_ask','niva_regenerate','niva_retry_unanswered','niva_worker_get_conversation',
                                             'niva_health')),
   'every new or replaced function pins search_path app, public, extensions');

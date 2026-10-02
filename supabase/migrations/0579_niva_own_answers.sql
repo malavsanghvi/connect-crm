@@ -6,35 +6,56 @@
 -- is saved and before any job is queued, so the row niva_ask returns already carries the answer (the member app shows
 -- an answered row at once: connect-mobile learning.ts nivaPhase). No model is called.
 --
---   1. app.niva_own_answer(conversation, include_in_review default false)            internal, security definer
+--   1. app.niva_own_answer_for(center, question, include_in_review, exclude, use_cache, current_answer)
+--                     internal, read only: {answer, sources, model} or {reason}. niva_ask and niva_test_ask run it
+--                     BEFORE they take the community's cap lock, so one member's answer never waits for another's.
+--      app.niva_own_answer(conversation, include_in_review default false, use_cache default true)
+--                     internal, security definer: the same for a saved question, written on it (regenerate, Try
+--                     again, the worker's own try).
 --      Three tiers, the first that answers wins:
 --        (a) cache    an earlier answered member question of the same community with the same normalised question
 --                     (app.niva_normalize_question: lower case, punctuation and extra spaces removed) whose cited
 --                     sources are all still published (or, for a Guide section, public), still answered from
 --                     (centers.rules.niva.answer_from) and unchanged since that answer: its answer and sources are
---                     copied. An answer that cited a live item (an event, a day's timings, the address) is never
---                     copied: "today" or "tomorrow" in it was about the day it was written.
+--                     copied. Never copied: an answer that cited a live item (an event, a day's timings, the
+--                     address: "today" in it was about the day it was written); an AI answer to a follow-up (the
+--                     member had another answered question in the 15 minutes before, which the AI read as context:
+--                     niva_worker_get_conversation's 'recent'), since the same words from another member may be about
+--                     something else; any answer to a question about today, tomorrow, tonight, now or this / next
+--                     week (an AI answer may cite only the regular timings while its text is about one day); an answer
+--                     Niva did not write (no model) or dated in the future; the question's own current answer. A
+--                     regenerate never uses the cache: it would hand back the answer it is meant to replace.
 --        (b) faq      an approved FAQ item (kind 'faq', when the community answers from its FAQ), a Niva source whose
 --                     heading is a question, or a public Guide section titled as a question (when the community
---                     answers from its Guide) that closely matches the question: the same kind of question (when,
---                     where, who, how much ...) and a Dice similarity of at least 0.75 over the two questions' key
---                     words (English stems without filler words or the community's own name, the glossary's synonyms
---                     folded together: app.niva_question_terms). pg_trgm is not installed in this database (neither
---                     the migrations nor tests/stub_supabase.sql create it), so the match is word based and strict.
---                     Its answer text is used as written (markdown marks removed), with that source cited.
+--                     answers from its Guide) that asks the same thing: the same kind of question (when, where, who,
+--                     how much ...), EVERY key word of the member's question among the candidate question's, and a
+--                     Dice similarity of at least 0.75 over the two (key words: English stems without filler words or
+--                     the community's own name, the glossary's synonyms folded together: app.niva_question_terms). So
+--                     "Saturday" is never answered with a Sunday FAQ, nor "non-members" with a members' one. The 60
+--                     candidates whose question best matches the search are scored (a large library cannot push the
+--                     right one out). pg_trgm is not installed in this database (neither the migrations nor
+--                     tests/stub_supabase.sql create it), so the match is word based and strict. Its answer text is
+--                     used as written (markdown marks removed), with that source cited.
 --        (c) extract  the best of the top three results of the search Niva has always used (app.niva_search_core,
 --                     the body of 0575's niva_worker_search_sources) whose rank is at least 0.01 and which holds at
---                     least 60 % of the question's key words (a question with one key word: that word in the
---                     source's title): its one to three most relevant sentences (plain text, at most about 600
---                     characters; for a when / where / how much question at least one of them must hold a time, a
---                     place or an amount), then the source's title, citing it with its address. The sentences
---                     themselves must hold 60 % of the key words; the heading may supply the rest only when it is
---                     wholly about the question ("Derasar timings"), never one about something else.
+--                     least half of the question's key words (a question with one key word: that word in the
+--                     source's title). ONE of its sentences must answer the question: it holds every key word of a
+--                     question with up to four of them (80 % of a longer one), with the heading's words only when the
+--                     heading is wholly about the question ("Derasar timings"), and a weekday counted only when the
+--                     sentence says daily or every day; for a when / where / how much question it gives a time, a
+--                     place or an amount. That sentence, and up to two more of the source's that hold at least half as
+--                     many key words, in the order they come (plain text, at most about 600 characters), then the
+--                     source's title, citing it with its address. Sentences that each hold one key word never add up
+--                     to an answer, and a question about Diwali, today or tomorrow is not answered with the regular
+--                     hours.
 --      Answers are recorded as answer_status 'answered', model 'own:cache' | 'own:faq' | 'own:extract', answered_at.
 --      Doctrinal questions keep the existing rule (answer from approved content, refer to Pathshala teachers): an own
---      answer to a doctrinal question or from a doctrinal source (app.niva_is_doctrinal, a small keyword list; no
---      classification existed) ends with a fixed referral line. A question about the member's own details
---      (eligibility, my pledges, am I ..., app.niva_is_personal) is never answered by these tiers: it goes on as today.
+--      answer to a doctrinal question or from a doctrinal source (app.niva_is_doctrinal, a keyword list with the food
+--      rules and "why don't / can we eat / is it allowed" questions; no classification existed) ends with a fixed
+--      referral line. A question about the member's own details (eligibility, what did I pledge, am I registered, do I
+--      have unpaid pledges, my membership ..., app.niva_is_personal) is never answered by these tiers: it goes on as
+--      today.
+--      The key words of the glossary are worked out once per answer (app.niva_glossary_map), not once per sentence.
 --   2. centers.rules.niva.ai = 'off' | 'haiku' (app.niva_ai_mode; 'off' when not set, for every community; JSH is set
 --      'off' explicitly by app.seed_jsh_niva_ai_off). When the own tiers find nothing:
 --        off    answer_status 'no_source' at once, with a plain outcome, and NO job: the member app then shows the
@@ -45,7 +66,14 @@
 --      Staff tests (niva_test_ask) follow the same tiers and setting. niva_regenerate and niva_retry_unanswered try
 --      the own tiers at once, with no job, while AI answers are off (a regenerate that finds nothing keeps the old
 --      answer while a source it cited is still current, as the worker's regenerate does); while they are on they
---      queue jobs as before.
+--      queue jobs as before. While AI answers are off, Try all answers at most 25 questions per press and stops after
+--      about 4 seconds (Supabase cancels a member-facing statement after 8), the least recently tried first, so
+--      pressing it again goes on with the rest; it still returns how many it tried.
+--   5. Answers are written only by Niva: a BEFORE INSERT trigger (app.niva_conversations_guard_answer) saves a question
+--      inserted straight into the table through the API (0010's niva_insert policy) as a plain unanswered question,
+--      whatever answer, sources, status or model it carried, so nobody can plant an answer for the cache to copy.
+--      niva_normalize_question (a pure text function) can be run by the API roles, so the answer cache's index never
+--      refuses a legitimate write.
 --   3. niva_health also returns ai and answered_by_7d {cache, faq, extract, ai} (members' answers of the last 7 days
 --      by how they were made). Everything else in it is as 0575.
 --   4. niva_worker_search_sources (4 arguments) keeps its signature, grants and results: its body moves to
@@ -114,15 +142,24 @@ create index if not exists niva_conversations_answer_cache_idx
 
 -- A question about the member's own details: their eligibility, pledges, payments, RSVPs, registration or account.
 -- Niva has no access to them, so its own tiers never answer one (the AI path, when it is on, answers only the general
--- part a source covers, as before). A small keyword list, strict on purpose: "How do I register my son for Pathshala?"
--- is not one; "Am I eligible to vote?", "Did I pay my pledge?" and "What is my balance?" are.
+-- part a source covers, as before). A keyword list that errs towards "personal" (such a question then goes to the
+-- team): "How do I register my son for Pathshala?", "Do I have to register?" and "Do we have parking?" are not one;
+-- "Am I eligible to vote?", "Did I pay my pledge?", "What did I pledge for Paryushan?", "Which events am I
+-- registered for?", "Do I have any unpaid pledges?", "What is my membership number?" and "What is my balance?" are.
 create or replace function app.niva_is_personal(p text) returns boolean
 language sql immutable set search_path = app, public, extensions as $$
   select q ~ '^(am|are|was|were|have|has|did) (i|we)\M'
       or q ~ '^(is|are|was|were|has|have|did) (my|our)\M'
+      -- "What did I pledge?", "Which events am I registered for?", "When was I last …?"
+      or q ~ '\m(did|have|has|am|was|were) i\M'
+      or q ~ '\m(did|have|has) we (already |ever |last |still )?(pledge|pledged|pay|paid|donate|donated|give|given|gave|register|registered|rsvp|rsvped|book|booked|sign|signed|buy|bought|renew|renewed|submit|submitted)\M'
+      -- "Do I have any unpaid pledges?" (not "Do I have to …?"), "Do we have any open pledges?"
+      or q ~ '^(do|does) i (still )?have\M(?! to\M)'
+      or q ~ '\m(do|does|did) (i|we) (still )?have (any |a |an )?(unpaid |outstanding |pending |open )?(pledges?|payments?|dues|balance|receipts?|rsvps?|tickets?|bookings?|registrations?|seats?|points|refunds?|invoices?|donations?)\M'
       or q ~ '\m(do|does|did|can|could|will|would|should) (i|we) (still )?(owe|qualify)\M'
       or q ~ '\mhow (much|many)( [[:alpha:]]+){0,2} (do|did|have|will|should|can) (i|we)\M'
-      or q ~ '\m(my|our) (own )?(pledges?|payments?|donations?|contributions?|giving|dues|balance|account|status|receipts?|rsvps?|tickets?|bookings?|orders?|points|refunds?|invoices?|records?|profile|eligibility|subscriptions?|tax receipts?)\M'
+      or q ~ '\m(my|our) (own )?(pledges?|payments?|donations?|contributions?|giving|dues|balance|account|status|receipts?|rsvps?|tickets?|bookings?|orders?|points|refunds?|invoices?|records?|profile|eligibility|subscriptions?|tax receipts?|membership|member number|member id|connect number|connect id)\M'
+      or q ~ '\m(my|our) (household|family)( s)? (members?|details|number|id|status|records?|address|contact|membership|pledges?|payments?|registrations?|rsvps?)\M'
       or (q ~ '\meligib' and q ~ '\m(i|me|my|we|us|our)\M')
       or q ~ '\m(i|we) (am|are|was|were)( not)? (eligible|registered|enrolled|signed up|a member|members|paid up|on the list)\M'
     from (select app.niva_normalize_question(p) as q) x
@@ -131,12 +168,16 @@ comment on function app.niva_is_personal(text) is
   'A question about the asking member''s own details (eligibility, pledges, payments, RSVPs, account): Niva''s own answers never take it (0579).';
 
 -- Doctrine and practice: what Jain teaching says, what is permitted, the meaning behind a practice. No classification
--- existed (the AI's own rule 3 decided), so this is a small keyword list over the question and the source's title.
+-- existed (the AI's own rule 3 decided), so this is a keyword list over the question and the source's title. It errs
+-- towards "doctrinal": a referral line too many is harmless, one too few is not. The question is normalised first,
+-- so "don't" reads "don t".
 create or replace function app.niva_is_doctrinal(p text) returns boolean
 language sql immutable set search_path = app, public, extensions as $$
-  select q ~ '\m(karmas?|ahimsa|aparigraha|anekant[[:alpha:]]*|syadvad[[:alpha:]]*|moksh|moksha|nirvana|kevali|kevalgyan|keval gyan|jiva|jeev|ajiva|atma|soul|tirthankar[[:alpha:]]*|mahavir[[:alpha:]]*|parshvanath|parshwanath|navkar|namokar|mantras?|sutras?|stotras?|agams?|agamas?|scriptures?|samayik[[:alpha:]]*|pratikraman[[:alpha:]]*|tapasya|upvas|upwas|ayambil|aayambil|ekasan[[:alpha:]]*|biyasan[[:alpha:]]*|pachchakhan[[:alpha:]]*|pachakkhan[[:alpha:]]*|paccakkhan[[:alpha:]]*|vrat|vratas|vows?|dharma|dharm|sins?|paap|punya|meditation|dhyan|doctrines?|philosophy|jainism|santhara|sallekhana|kshamapana|micchami)\M'
-      or q ~ '\m(why do|why does|why should|should) (jains?|we|i)\M'
-      or q ~ '\m(is it|are we|am i) (allowed|permitted|ok|okay|wrong|a sin)\M'
+  select q ~ '\m(karmas?|ahimsa|aparigraha|anekant[[:alpha:]]*|syadvad[[:alpha:]]*|moksh|moksha|nirvana|kevali|kevalgyan|keval gyan|jiva|jeev|ajiva|atma|soul|tirthankar[[:alpha:]]*|mahavir[[:alpha:]]*|parshvanath|parshwanath|navkar|namokar|mantras?|sutras?|stotras?|agams?|agamas?|scriptures?|samayik[[:alpha:]]*|pratikraman[[:alpha:]]*|tapasya|upvas|upwas|ayambil|aayambil|ekasan[[:alpha:]]*|biyasan[[:alpha:]]*|pachchakhan[[:alpha:]]*|pachakkhan[[:alpha:]]*|paccakkhan[[:alpha:]]*|vrat|vratas|vows?|dharma|dharm|sins?|sinful|paap|punya|meditation|dhyan|doctrines?|philosophy|jainism|santhara|sallekhana|kshamapana|micchami|chauvihar|chovihar|navkarsi|navkarshi|kandmul|kandmool|kand mool|root vegetables?|onions?|garlic|potato|potatoes|honey|after sunset|before sunrise|ratri bhojan)\M'
+      or q ~ '\mwhy (do|does|don t|doesn t|should|shouldn t|can t|cannot|can|must|mustn t|are we|are jains|is it)\M'
+      or q ~ '\m(should|must) (jains?|we|i)\M'
+      or q ~ '\m(is it|are we|am i|are jains|is|are) [[:alpha:] ]{0,30}(allowed|permitted|forbidden|prohibited|ok|okay|wrong|a sin|sinful)\M'
+      or q ~ '\m(can|may|should|must|do|does) (jains?|we|i) (eat|drink|wear|touch|cook|consume)\M'
       or q ~ '\m(can|may|do) jains?\M'
       or q ~ '\m(meaning|significance|importance|purpose) of\M'
     from (select app.niva_normalize_question(p) as q) x
@@ -181,22 +222,30 @@ language sql immutable set search_path = app, public, extensions as $$
    order by s.stem, s.n
 $$;
 
--- A text's key words: its English stems without filler words, single letters and the like, glossary words folded.
-create or replace function app.niva_text_terms(p text) returns text[]
+-- The same as one jsonb object {stem: group stem}, worked out once per answer and handed to every key-word lookup
+-- (stemming the glossary for each sentence made an answer from a large library take most of a second).
+create or replace function app.niva_glossary_map() returns jsonb
 language sql immutable set search_path = app, public, extensions as $$
-  select coalesce(array_agg(distinct coalesce(g.canon, l.l) order by coalesce(g.canon, l.l)), '{}')
+  select coalesce(jsonb_object_agg(g.stem, g.canon), '{}'::jsonb) from app.niva_glossary_stems() g
+$$;
+
+-- A text's key words: its English stems without filler words, single letters and the like, glossary words folded
+-- (p_map: app.niva_glossary_map()).
+create or replace function app.niva_text_terms(p text, p_map jsonb) returns text[]
+language sql immutable set search_path = app, public, extensions as $$
+  select coalesce(array_agg(distinct coalesce(p_map ->> l.l, l.l) order by coalesce(p_map ->> l.l, l.l)), '{}')
     from unnest(tsvector_to_array(to_tsvector('english', left(coalesce(p, ''), 100000)))) as l(l)
-    left join app.niva_glossary_stems() g on g.stem = l.l
    where char_length(l.l) > 1 or l.l ~ '^[0-9]$'
 $$;
 
 -- A question's key words: its text's, without the community's own name, short name and slug (nearly every source of
--- a community names it); a name word that is a glossary word ("Temple" in "Jain Temple of X") stays.
+-- a community names it); a name word that is a glossary word ("Temple" in "Jain Temple of X") stays. niva_own_answer_for
+-- does the same with the name's words and the glossary worked out once.
 create or replace function app.niva_question_terms(p_center uuid, p text) returns text[]
 language sql stable set search_path = app, public, extensions as $$
   select coalesce(array_agg(t order by t), '{}')
-    from unnest(app.niva_text_terms(p)) as t
-   where t in (select g.canon from app.niva_glossary_stems() g)
+    from unnest(app.niva_text_terms(p, app.niva_glossary_map())) as t
+   where t in (select e.value from jsonb_each_text(app.niva_glossary_map()) e)
       or t <> all (coalesce((select tsvector_to_array(to_tsvector('english', concat_ws(' ', c.name, c.short_name, c.slug::text)))
                                from app.centers c where c.id = p_center), '{}'::text[]))
 $$;
@@ -248,18 +297,20 @@ $$;
 
 -- A sentence's key words for a question: its own, plus the timings key word ('time': timings, hours, open) when the
 -- question has it and the sentence gives a time ("Derasar: 7:30 AM – 6:00 PM daily" answers "When does it open?").
-create or replace function app.niva_sentence_terms(p text, p_q text[]) returns text[]
+create or replace function app.niva_sentence_terms(p text, p_q text[], p_map jsonb) returns text[]
 language sql immutable set search_path = app, public, extensions as $$
-  select app.niva_text_terms(p)
+  select app.niva_text_terms(p, p_map)
          || case when 'time' = any (coalesce(p_q, '{}'::text[])) and app.niva_sentence_fits('when', p) then array['time'] else '{}'::text[] end
 $$;
 
--- The one to three sentences of a text that hold most of the question's key words, in the order they come, at most
--- p_max characters (the first one is cut at a word when it alone is longer), each ending in punctuation. A sentence
--- of fewer than three words (a heading) is left out, and so is one holding no more than half as many key words as
--- the best one. Null when no sentence holds a key word, or (when / where / how much) none of them a time, place or
--- amount.
-create or replace function app.niva_extract_sentences(p_body text, p_q text[], p_kind text default null, p_max int default 600)
+-- The sentences of a text that answer a question, in the order they come, at most p_max characters (the first one
+-- is cut at a word when it alone is longer), each ending in punctuation. ONE sentence must answer it: with p_lend
+-- (the heading's key words, when the heading is wholly about the question) and, when it says daily or every day, the
+-- question's weekdays, it holds at least p_need of the question's key words, at least one of them its own, and (when
+-- / where / how much) a time, place or amount. Up to two more sentences go with it that hold more than half as many
+-- key words as the best one. A sentence of fewer than three words (a heading) is never one of them. Null when no
+-- sentence answers the question.
+create or replace function app.niva_extract_sentences(p_body text, p_q text[], p_kind text, p_max int, p_lend text[], p_need int, p_map jsonb)
 returns text language plpgsql stable set search_path = app, public, extensions as $$
 declare
   r record;
@@ -267,7 +318,9 @@ declare
   v_ts text[] := '{}';
   v_len int := 0;
   v_t text;
-  v_fits boolean := false;
+  v_answered boolean := false;
+  v_days text[] := array(select d from unnest(coalesce(p_q, '{}'::text[])) d
+                          where d in ('monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday', 'weekday', 'weekend'));
 begin
   if p_body is null or cardinality(coalesce(p_q, '{}'::text[])) = 0 then return null; end if;
   for r in
@@ -279,15 +332,23 @@ begin
        where btrim(t.x) <> ''
        limit 400
     ), scored as (
-      select s.n, s.txt, app.niva_terms_covered(p_q, app.niva_sentence_terms(s.txt, p_q)) as score
+      select s.n, s.txt, x.terms, app.niva_terms_covered(p_q, x.terms) as score
         from s
+       cross join lateral (select app.niva_sentence_terms(s.txt, p_q, p_map) as terms) x
        where cardinality(regexp_split_to_array(s.txt, '[[:space:]]+')) >= 3
+    ), judged as (
+      select sc.*,
+             sc.score > 0 and app.niva_sentence_fits(p_kind, sc.txt)
+             and app.niva_terms_covered(p_q, sc.terms || coalesce(p_lend, '{}'::text[])
+                                             || case when sc.txt ~* '\m(daily|every day|everyday|all week|seven days a week)\M'
+                                                     then v_days else '{}'::text[] end) >= greatest(coalesce(p_need, 1), 1) as answers
+        from scored sc
     ), ranked as (
-      select sc.*, max(sc.score) over () as best from scored sc
+      select j.*, max(j.score) over () as best, bool_or(j.answers) over () as any_answers from judged j
     )
-    select ranked.n, ranked.txt, ranked.score from ranked
-     where ranked.score > 0 and ranked.score * 2 > ranked.best
-     order by ranked.score desc, ranked.n
+    select ranked.n, ranked.txt, ranked.score, ranked.answers from ranked
+     where ranked.any_answers and ranked.score > 0 and (ranked.answers or ranked.score * 2 > ranked.best)
+     order by ranked.answers desc, ranked.score desc, ranked.n
      limit 3
   loop
     v_t := r.txt || case when r.txt ~ '[.!?:;…)"”]$' then '' else '.' end;
@@ -301,9 +362,9 @@ begin
     v_ns := v_ns || r.n;
     v_ts := v_ts || v_t;
     v_len := v_len + char_length(v_t) + 1;
-    v_fits := v_fits or app.niva_sentence_fits(p_kind, v_t);
+    v_answered := v_answered or r.answers;
   end loop;
-  if cardinality(v_ns) = 0 or not v_fits then return null; end if;
+  if cardinality(v_ns) = 0 or not v_answered then return null; end if;
   return (select string_agg(x.t, ' ' order by x.n) from unnest(v_ns, v_ts) as x(n, t));
 end $$;
 
@@ -493,13 +554,20 @@ begin
 end $$;
 
 -- ── 1. Answering from the community's own content ────────────────────────────
--- Returns {answered: true, model: 'own:cache' | 'own:faq' | 'own:extract'} after writing the answer on the question,
--- or {answered: false, reason: 'personal' | 'no_match' | 'not_found'} and writes nothing.
-create or replace function app.niva_own_answer(p_conversation uuid, p_include_in_review boolean default false)
-returns jsonb language plpgsql security definer set search_path = app, public, extensions as $$
+-- Read only: what the own tiers say about a question of a community. Returns {answer, sources, model: 'own:cache' |
+-- 'own:faq' | 'own:extract'} or {reason: 'personal' | 'no_match'}; writes nothing, takes no lock, so niva_ask and
+-- niva_test_ask run it before the community's cap lock. p_exclude: the question's own row (never its own cache);
+-- p_use_cache false: a regenerate (it would copy back the answer it is meant to replace); p_current_answer: the
+-- question's answer now, never copied back either.
+create or replace function app.niva_own_answer_for(p_center uuid, p_question text, p_include_in_review boolean default false,
+                                                   p_exclude uuid default null, p_use_cache boolean default true,
+                                                   p_current_answer text default null)
+returns jsonb language plpgsql stable set search_path = app, public, extensions as $$
 declare
-  v app.niva_conversations;
   v_statuses text[] := case when coalesce(p_include_in_review, false) then array['published', 'in_review'] else array['published'] end;
+  v_map jsonb := app.niva_glossary_map();
+  v_canon text[];
+  v_name text[];
   v_tradition app.tradition;
   v_from text[];
   v_norm text;
@@ -517,7 +585,8 @@ declare
   v_src record;
   v_cov numeric;
   v_head text[];
-  v_sent text[];
+  v_head_q boolean;
+  v_need int;
   v_best_cov numeric := 0;
   v_best_ref text;
   v_best_title text;
@@ -526,73 +595,96 @@ declare
   v_text text;
   v_answer text;
 begin
-  select * into v from app.niva_conversations where id = p_conversation for update;
-  if not found then return jsonb_build_object('answered', false, 'reason', 'not_found'); end if;
-  if app.niva_is_personal(v.question) then return jsonb_build_object('answered', false, 'reason', 'personal'); end if;
-  v_norm := app.niva_normalize_question(v.question);
-  if v_norm = '' then return jsonb_build_object('answered', false, 'reason', 'no_match'); end if;
-  select c.tradition into v_tradition from app.centers c where c.id = v.center_id;
-  v_from := app.niva_answer_from(v.center_id);
+  if app.niva_is_personal(p_question) then return jsonb_build_object('reason', 'personal'); end if;
+  v_norm := app.niva_normalize_question(p_question);
+  if v_norm = '' then return jsonb_build_object('reason', 'no_match'); end if;
+  select c.tradition, tsvector_to_array(to_tsvector('english', concat_ws(' ', c.name, c.short_name, c.slug::text)))
+    into v_tradition, v_name
+    from app.centers c where c.id = p_center;
+  if not found then return jsonb_build_object('reason', 'no_match'); end if;
+  v_from := app.niva_answer_from(p_center);
+  v_canon := array(select distinct e.value from jsonb_each_text(v_map) e);
 
   -- (a) The same question, answered before, from sources that still stand. Members' answers only: a staff test's
-  -- answer may come from a source waiting for approval.
-  select c.answer, c.sources into v_hit
-    from app.niva_conversations c
-   where c.center_id = v.center_id and app.niva_normalize_question(c.question) = v_norm
-     and c.answer is not null and not c.is_test and c.id <> v.id and c.answer_status = 'answered'
-     and app.niva_cache_sources_ok(v.center_id, v_tradition, c.sources, coalesce(c.answered_at, c.created_at), v_from)
-   order by coalesce(c.answered_at, c.created_at) desc, c.id
-   limit 1;
-  if found then
-    perform app.niva_store_own_answer(v.id, v_hit.answer, v_hit.sources, 'own:cache');
-    return jsonb_build_object('answered', true, 'model', 'own:cache');
+  -- answer may come from a source waiting for approval. Never for a question about a particular day, and never an
+  -- AI answer to a follow-up: the AI read the member's earlier question as context, so the same words from
+  -- someone else may be about something else ("And on Sunday?").
+  if coalesce(p_use_cache, true)
+     and v_norm !~ '\m(today|tonight|tomorrow|yesterday|now|this (morning|afternoon|evening|week|weekend|month|year)|next (week|weekend|month|year))\M' then
+    select c.answer, c.sources into v_hit
+      from app.niva_conversations c
+     where c.center_id = p_center and app.niva_normalize_question(c.question) = v_norm
+       and c.answer is not null and not c.is_test and c.answer_status = 'answered'
+       and (p_exclude is null or c.id <> p_exclude)
+       and c.answer is distinct from p_current_answer
+       and c.model is not null                                   -- written by Niva (its own tiers or the AI)
+       and coalesce(c.answered_at, c.created_at) <= now()
+       and app.niva_cache_sources_ok(p_center, v_tradition, c.sources, coalesce(c.answered_at, c.created_at), v_from)
+       and (c.model like 'own:%' or not exists (
+             select 1 from app.niva_conversations x
+              where c.user_id is not null and x.user_id = c.user_id and x.center_id = c.center_id and x.id <> c.id
+                and x.is_test = c.is_test and x.answer is not null
+                and x.created_at < c.created_at and x.created_at >= c.created_at - interval '15 minutes'))
+     order by coalesce(c.answered_at, c.created_at) desc, c.id
+     limit 1;
+    if found then
+      return jsonb_build_object('answer', v_hit.answer, 'sources', v_hit.sources, 'model', 'own:cache');
+    end if;
   end if;
 
-  v_tsq := app.niva_search_tsquery(v.center_id, v.question);
-  v_q := app.niva_question_terms(v.center_id, v.question);
-  if v_tsq is null or cardinality(v_q) = 0 then return jsonb_build_object('answered', false, 'reason', 'no_match'); end if;
-  v_kind := app.niva_question_kind(v.question);
+  v_tsq := app.niva_search_tsquery(p_center, p_question);
+  v_q := array(select t from unnest(app.niva_text_terms(p_question, v_map)) as t
+                where t = any (v_canon) or t <> all (coalesce(v_name, '{}'::text[])) order by t);
+  if v_tsq is null or cardinality(v_q) = 0 then return jsonb_build_object('reason', 'no_match'); end if;
+  v_kind := app.niva_question_kind(p_question);
 
-  -- (b) A question-and-answer the community approved that asks the same thing.
+  -- (b) A question-and-answer the community approved that asks the same thing: the 60 whose question best matches
+  -- the search, each scored only when every key word of the member's question is among its own.
   for v_hit in
     select x.ref, x.qtext, x.title, x.body, x.url
       from (
         -- FAQ items, while the community answers from its FAQ: the title is the question, the text its answer.
-        select c.id::text as ref, c.title as qtext, c.title, c.body_md as body, c.metadata->>'source_url' as url, c.updated_at
+        select c.id::text as ref, c.title as qtext, c.title, c.body_md as body, c.metadata->>'source_url' as url, c.updated_at,
+               ts_rank_cd(setweight(to_tsvector('english', c.title), 'A'), v_tsq) as rk
           from app.content_items c
          where 'faq' = any (v_from) and c.kind = 'faq'
-           and c.status = any (v_statuses) and (c.status = 'published' or c.center_id = v.center_id)
-           and (c.center_id = v.center_id or (c.center_id is null and (c.tradition is null or c.tradition = v_tradition)))
+           and c.status = any (v_statuses) and (c.status = 'published' or c.center_id = p_center)
+           and (c.center_id = p_center or (c.center_id is null and (c.tradition is null or c.tradition = v_tradition)))
            and c.niva_tsv @@ v_tsq
         union all
         -- Niva sources whose heading is a question (an imported FAQ page's sections: "<page title>: <question>").
-        select c.id::text, h.heading, c.title, c.body_md, c.metadata->>'source_url', c.updated_at
+        select c.id::text, h.heading, c.title, c.body_md, c.metadata->>'source_url', c.updated_at,
+               ts_rank_cd(setweight(to_tsvector('english', h.heading), 'A'), v_tsq)
           from app.content_items c
          cross join lateral (
            select case when coalesce(c.metadata->>'page_title', '') <> ''
                             and left(c.title, char_length(c.metadata->>'page_title') + 2) = (c.metadata->>'page_title') || ': '
                        then substr(c.title, char_length(c.metadata->>'page_title') + 3) else c.title end as heading) h
          where c.kind = 'niva_source'
-           and c.status = any (v_statuses) and (c.status = 'published' or c.center_id = v.center_id)
-           and (c.center_id = v.center_id or (c.center_id is null and (c.tradition is null or c.tradition = v_tradition)))
+           and c.status = any (v_statuses) and (c.status = 'published' or c.center_id = p_center)
+           and (c.center_id = p_center or (c.center_id is null and (c.tradition is null or c.tradition = v_tradition)))
            and h.heading ~ '\?[[:space:]]*$'
            and c.niva_tsv @@ v_tsq
         union all
         -- Public Guide sections titled as a question, while the community answers from its Guide.
-        select 'guide_section:' || g.id::text, g.title, g.title, g.body_md, null, g.updated_at
+        select 'guide_section:' || g.id::text, g.title, g.title, g.body_md, null, g.updated_at,
+               ts_rank_cd(setweight(to_tsvector('english', g.title), 'A'), v_tsq)
           from app.guide_sections g
-         where 'guide' = any (v_from) and g.center_id = v.center_id and g.public
+         where 'guide' = any (v_from) and g.center_id = p_center and g.public
            and g.title ~ '\?[[:space:]]*$'
            and (to_tsvector('english', g.title) || to_tsvector('english', g.body_md)) @@ v_tsq
       ) x
-     order by x.updated_at desc, x.ref collate "C"
-     limit 200
+     order by x.rk desc, x.updated_at desc, x.ref collate "C"
+     limit 60
   loop
     v_cand_kind := app.niva_question_kind(v_hit.qtext);
     continue when v_kind is not null and v_cand_kind is not null and v_kind <> v_cand_kind;
-    v_terms := app.niva_question_terms(v.center_id, v_hit.qtext);
-    continue when cardinality(v_terms) = 0;
-    v_score := 2.0 * (select count(*) from unnest(v_q) as t where t = any (v_terms)) / (cardinality(v_q) + cardinality(v_terms));
+    v_terms := array(select t from unnest(app.niva_text_terms(v_hit.qtext, v_map)) as t
+                      where t = any (v_canon) or t <> all (coalesce(v_name, '{}'::text[])) order by t);
+    -- Every key word of the member's question must be in the approved one: "Saturday" is not "Sunday", and
+    -- "non-members" is not "members".
+    continue when cardinality(v_terms) = 0 or not (v_q <@ v_terms);
+    v_score := 2.0 * cardinality(v_q) / (cardinality(v_q) + cardinality(v_terms));
     if v_score > v_best_score then
       v_best := v_hit;
       v_best_score := v_score;
@@ -601,18 +693,18 @@ begin
   if v_best_score >= 0.75 then
     v_answer := left(app.niva_plain_text(v_best.body), 3800);
     if v_answer <> '' then
-      if app.niva_is_doctrinal(v.question || ' ' || v_best.title) then
+      if app.niva_is_doctrinal(p_question || ' ' || v_best.title) then
         v_answer := v_answer || E'\n\n' || app.niva_referral_line();
       end if;
-      perform app.niva_store_own_answer(v.id, v_answer,
-        jsonb_build_array(jsonb_strip_nulls(jsonb_build_object('content_item_id', v_best.ref, 'title', v_best.title, 'url', v_best.url))),
-        'own:faq');
-      return jsonb_build_object('answered', true, 'model', 'own:faq');
+      return jsonb_build_object('answer', v_answer, 'model', 'own:faq',
+        'sources', jsonb_build_array(jsonb_strip_nulls(jsonb_build_object('content_item_id', v_best.ref, 'title', v_best.title, 'url', v_best.url))));
     end if;
   end if;
 
-  -- (c) The sentences of the best matching source that answer it.
-  v_results := app.niva_search_core(v.center_id, v.question, 3, v_statuses);
+  -- (c) The sentences of the best matching source that answer it: one sentence must hold every key word (80 % of
+  -- a question with more than four).
+  v_need := case when cardinality(v_q) <= 4 then cardinality(v_q) else ceil(0.8 * cardinality(v_q))::int end;
+  v_results := app.niva_search_core(p_center, p_question, 3, v_statuses);
   for v_r in select e from jsonb_array_elements(v_results) as e loop
     continue when coalesce((v_r->>'rank')::numeric, 0) < 0.01;
     if (v_r->>'id') like 'guide_section:%' then
@@ -627,65 +719,84 @@ begin
         from app.content_items c where c.id = (v_r->>'id')::uuid;
     end if;
     continue when not found;
-    v_terms := app.niva_text_terms(concat_ws(' ', v_src.title, v_src.keywords, v_src.body));
+    v_terms := app.niva_text_terms(concat_ws(' ', v_src.title, v_src.keywords, v_src.body), v_map);
     v_cov := app.niva_terms_covered(v_q, v_terms)::numeric / cardinality(v_q);
-    v_head := app.niva_text_terms(concat_ws(' ', v_src.heading, v_src.keywords));
-    -- One key word is too little to go on unless the source is about it.
-    continue when cardinality(v_q) = 1 and app.niva_terms_covered(v_q, v_head) = 0;
-    if v_cov >= 0.6 and v_cov > v_best_cov then
-      v_text := app.niva_extract_sentences(v_src.body, v_q, v_kind, 600);
-      -- The sentences themselves must hold most of the key words. The heading may lend the rest only when it is
-      -- wholly about the question ("Derasar timings" for "When is the derasar open?"), never a heading about
-      -- something else ("Is there parking at the derasar?" does not make "Overflow parking opens at 8 AM" the
-      -- derasar's opening time).
-      if v_text is not null then
-        v_sent := app.niva_sentence_terms(v_text, v_q);
-        if not (app.niva_terms_covered(v_q, v_sent)::numeric / cardinality(v_q) >= 0.6
-                or (v_head <@ v_q and app.niva_terms_covered(v_q, v_sent) >= 1
-                    and app.niva_terms_covered(v_q, v_sent || v_head)::numeric / cardinality(v_q) >= 0.6)) then
-          v_text := null;
-        end if;
-      end if;
-      if v_text is not null then
-        v_best_cov := v_cov;
-        v_best_ref := v_r->>'id';
-        v_best_title := v_src.title;
-        v_best_body := v_text;
-        v_best_url := v_src.url;
-      end if;
+    v_head := app.niva_text_terms(concat_ws(' ', v_src.heading, v_src.keywords), v_map);
+    -- A heading that is itself a question (an FAQ item, an imported FAQ section) was judged by tier (b): it is the
+    -- question its text answers, not a topic.
+    v_head_q := (v_r->>'kind') = 'faq' or coalesce(v_src.heading, '') ~ '\?[[:space:]]*$';
+    -- One key word is too little to go on unless the source is about it ("And on Sunday?" is not answered by
+    -- "What time does Pathshala start on Sunday?").
+    continue when cardinality(v_q) = 1 and (v_head_q or app.niva_terms_covered(v_q, v_head) = 0);
+    continue when v_cov < 0.5 or v_cov <= v_best_cov;
+    -- The heading may lend its words only when it is a topic wholly about the question ("Derasar timings" for "When
+    -- is the derasar open?"), never a heading about something else ("Is there parking at the derasar?" does not make
+    -- "Overflow parking opens at 8 AM" the derasar's opening time) and never an approved question ("Can children
+    -- attend the pratikraman?" does not answer "… online?").
+    v_text := app.niva_extract_sentences(v_src.body, v_q, v_kind, 600,
+                                         case when not v_head_q and v_head <@ v_q then v_head else '{}'::text[] end, v_need, v_map);
+    if v_text is not null then
+      v_best_cov := v_cov;
+      v_best_ref := v_r->>'id';
+      v_best_title := v_src.title;
+      v_best_body := v_text;
+      v_best_url := v_src.url;
     end if;
   end loop;
   if v_best_ref is not null then
     v_answer := v_best_body || E'\n\n— ' || v_best_title;
-    if app.niva_is_doctrinal(v.question || ' ' || v_best_title) then
+    if app.niva_is_doctrinal(p_question || ' ' || v_best_title) then
       v_answer := v_answer || E'\n\n' || app.niva_referral_line();
     end if;
-    perform app.niva_store_own_answer(v.id, v_answer,
-      jsonb_build_array(jsonb_strip_nulls(jsonb_build_object('content_item_id', v_best_ref, 'title', v_best_title, 'url', v_best_url))),
-      'own:extract');
-    return jsonb_build_object('answered', true, 'model', 'own:extract');
+    return jsonb_build_object('answer', v_answer, 'model', 'own:extract',
+      'sources', jsonb_build_array(jsonb_strip_nulls(jsonb_build_object('content_item_id', v_best_ref, 'title', v_best_title, 'url', v_best_url))));
   end if;
 
-  return jsonb_build_object('answered', false, 'reason', 'no_match');
+  return jsonb_build_object('reason', 'no_match');
 end $$;
-comment on function app.niva_own_answer(uuid, boolean) is
-  'Internal (0579): answer a Niva question from the community''s own approved content, with no AI: an earlier answer to the same question, a matching FAQ, or the sentences of the best matching source. Writes the answer (model own:cache, own:faq or own:extract) and returns {answered, model} or {answered: false, reason}.';
+comment on function app.niva_own_answer_for(uuid, text, boolean, uuid, boolean, text) is
+  'Internal, read only (0579): what the community''s own approved content answers to a question, with no AI: an earlier answer to the same question, a matching FAQ, or the sentences of the best matching source. Returns {answer, sources, model} (model own:cache, own:faq or own:extract) or {reason: personal | no_match}.';
 
--- The worker's own try (a regenerate, a retry or a paused question's next try may find a source approved since), and
--- the community's AI setting with it.
-create or replace function app.niva_worker_own_answer(p_id uuid, p_include_in_review boolean default false) returns jsonb
+-- The same for a saved question, written on it: {answered: true, model} after writing the answer, or
+-- {answered: false, reason: 'personal' | 'no_match' | 'not_found'} and nothing written. p_use_cache false for a
+-- regenerate.
+create or replace function app.niva_own_answer(p_conversation uuid, p_include_in_review boolean default false, p_use_cache boolean default true)
+returns jsonb language plpgsql security definer set search_path = app, public, extensions as $$
+declare
+  v app.niva_conversations;
+  v_own jsonb;
+begin
+  select * into v from app.niva_conversations where id = p_conversation for update;
+  if not found then return jsonb_build_object('answered', false, 'reason', 'not_found'); end if;
+  v_own := app.niva_own_answer_for(v.center_id, v.question, p_include_in_review, v.id, p_use_cache, v.answer);
+  if v_own ? 'answer' then
+    perform app.niva_store_own_answer(v.id, v_own->>'answer', v_own->'sources', v_own->>'model');
+    return jsonb_build_object('answered', true, 'model', v_own->>'model');
+  end if;
+  return jsonb_build_object('answered', false, 'reason', coalesce(v_own->>'reason', 'no_match'));
+end $$;
+comment on function app.niva_own_answer(uuid, boolean, boolean) is
+  'Internal (0579): app.niva_own_answer_for for a saved question, written on it (model own:cache, own:faq or own:extract). Returns {answered, model} or {answered: false, reason}. use_cache false: a regenerate, which must not copy back the answer it replaces.';
+
+-- The worker's own try (a retry or a paused question's next try may find a source approved since; a regenerate
+-- passes use_cache false, so it never copies back the answer it is meant to replace), and the community's AI setting
+-- with it.
+create or replace function app.niva_worker_own_answer(p_id uuid, p_include_in_review boolean default false, p_use_cache boolean default true)
+returns jsonb
 language plpgsql security definer set search_path = app, public, extensions as $$
 declare v_center uuid;
 begin
   perform app.assert_worker();
   select center_id into v_center from app.niva_conversations where id = p_id;
   if not found then return jsonb_build_object('answered', false, 'reason', 'not_found', 'ai', 'off'); end if;
-  return app.niva_own_answer(p_id, p_include_in_review) || jsonb_build_object('ai', app.niva_ai_mode(v_center));
+  return app.niva_own_answer(p_id, p_include_in_review, p_use_cache) || jsonb_build_object('ai', app.niva_ai_mode(v_center));
 end $$;
-comment on function app.niva_worker_own_answer(uuid, boolean) is
-  'Worker only (0579): app.niva_own_answer for a niva.answer job, plus ai (the community''s setting: ''off'' means do not call the AI).';
+comment on function app.niva_worker_own_answer(uuid, boolean, boolean) is
+  'Worker only (0579): app.niva_own_answer for a niva.answer job (use_cache false for a regenerate), plus ai (the community''s setting: ''off'' means do not call the AI).';
 
 -- ── Member: ask a question (0575, answered at once when the own content answers) ──
+-- The own content is read BEFORE the community's cap lock: that lock is held until the question is saved, so an
+-- answer worked out inside it would make every member of the community wait for the one before.
 create or replace function app.niva_ask(p_center uuid, p_question text)
 returns app.niva_conversations
 language plpgsql security definer set search_path = app, public, extensions as $$
@@ -700,6 +811,9 @@ begin
   if v_q is null then raise exception 'Type a question first.'; end if;
   v_q := left(v_q, 1000);
 
+  -- 0579: the community's own content first, with no AI and no wait (and no lock held).
+  v_own := app.niva_own_answer_for(p_center, v_q, false, null, true, null);
+
   -- One writer per center at a time, so two parallel asks near the boundary
   -- cannot both slip in under the cap (same pattern as enforce_people_cap).
   perform pg_advisory_xact_lock(hashtextextended('app.niva_conversations.cap:' || p_center::text, 0));
@@ -707,21 +821,26 @@ begin
    where center_id = p_center and not is_test and created_at >= date_trunc('month', current_date)::timestamptz;
   perform app.assert_entitlement(p_center, 'niva.monthly_questions', to_jsonb(v_count + 1));
 
-  insert into app.niva_conversations (center_id, user_id, question, unanswered, answer_status)
-  values (p_center, auth.uid(), v_q, true, 'pending')
-  returning * into v_row;
-
-  -- 0579: the community's own content first, with no AI and no wait.
-  v_own := app.niva_own_answer(v_row.id, false);
-  if v_own->>'answered' = 'true' then
-    select * into v_row from app.niva_conversations where id = v_row.id;
+  if v_own ? 'answer' then
+    insert into app.niva_conversations (center_id, user_id, question, answer, sources, unanswered, answer_status, model,
+                                        answered_at, attempted_at)
+    values (p_center, auth.uid(), v_q, left(btrim(v_own->>'answer'), 4000), coalesce(v_own->'sources', '[]'::jsonb), false,
+            'answered', v_own->>'model', now(), now())
+    returning * into v_row;
     return v_row;
   end if;
   if app.niva_ai_mode(p_center) = 'haiku' then
+    insert into app.niva_conversations (center_id, user_id, question, unanswered, answer_status)
+    values (p_center, auth.uid(), v_q, true, 'pending')
+    returning * into v_row;
     perform app.enqueue_job(p_center, 'niva.answer', jsonb_build_object('conversation_id', v_row.id), now(), 3);
     return v_row;
   end if;
-  return app.niva_own_no_answer(v_row.id, v_own->>'reason', false);
+  -- AI answers off and nothing approved answers: no_source at once, and no job (the member is offered Send to the team).
+  insert into app.niva_conversations (center_id, user_id, question, unanswered, answer_status, outcome_detail, attempted_at)
+  values (p_center, auth.uid(), v_q, true, 'no_source', app.niva_own_outcome_detail(v_own->>'reason'), now())
+  returning * into v_row;
+  return v_row;
 end $$;
 
 -- ── Staff: test Niva (0575, the same tiers and setting as a member's question) ──
@@ -745,6 +864,9 @@ begin
   if v_q is null then raise exception 'Type a question first.'; end if;
   v_q := left(v_q, 1000);
 
+  -- 0579: the own content first, before the test lock (as niva_ask).
+  v_own := app.niva_own_answer_for(p_center, v_q, v_review, null, true, null);
+
   -- One tester per community at a time, so two tests at once cannot both slip in under the limit.
   perform pg_advisory_xact_lock(hashtextextended('app.niva_conversations.test_cap:' || p_center::text, 0));
   v_used := app.niva_tests_today(p_center);
@@ -752,18 +874,22 @@ begin
     raise exception 'Staff can test Niva % times a day in this community, and today''s tests are used up. Try again tomorrow; members can still ask Niva as usual.', v_limit;
   end if;
 
-  insert into app.niva_conversations (center_id, user_id, question, unanswered, answer_status, is_test)
-  values (p_center, auth.uid(), v_q, true, 'pending', true)
-  returning * into v_row;
-
-  v_own := app.niva_own_answer(v_row.id, v_review);
-  if v_own->>'answered' = 'true' then
-    select * into v_row from app.niva_conversations where id = v_row.id;
+  if v_own ? 'answer' then
+    insert into app.niva_conversations (center_id, user_id, question, answer, sources, unanswered, answer_status, model,
+                                        answered_at, attempted_at, is_test)
+    values (p_center, auth.uid(), v_q, left(btrim(v_own->>'answer'), 4000), coalesce(v_own->'sources', '[]'::jsonb), false,
+            'answered', v_own->>'model', now(), now(), true)
+    returning * into v_row;
   elsif app.niva_ai_mode(p_center) = 'haiku' then
+    insert into app.niva_conversations (center_id, user_id, question, unanswered, answer_status, is_test)
+    values (p_center, auth.uid(), v_q, true, 'pending', true)
+    returning * into v_row;
     perform app.enqueue_job(p_center, 'niva.answer',
                             jsonb_build_object('conversation_id', v_row.id, 'include_in_review', v_review), now(), 3);
   else
-    v_row := app.niva_own_no_answer(v_row.id, v_own->>'reason', false);
+    insert into app.niva_conversations (center_id, user_id, question, unanswered, answer_status, outcome_detail, attempted_at, is_test)
+    values (p_center, auth.uid(), v_q, true, 'no_source', app.niva_own_outcome_detail(v_own->>'reason'), now(), true)
+    returning * into v_row;
   end if;
 
   return jsonb_build_object('id', v_row.id, 'question', v_row.question, 'created_at', v_row.created_at,
@@ -790,9 +916,10 @@ begin
                and j.payload->>'conversation_id' = p_id::text) then
     return v;
   end if;
-  -- 0579: no AI for this community: the own content is tried now, and nothing is queued.
+  -- 0579: no AI for this community: the own content is tried now, and nothing is queued. Never from the answer
+  -- cache: it would copy back the very answer staff want replaced (or a copy of it given to another member).
   if app.niva_ai_mode(v.center_id) = 'off' then
-    v_own := app.niva_own_answer(p_id, false);
+    v_own := app.niva_own_answer(p_id, false, false);
     if v_own->>'answered' = 'true' then
       select * into v from app.niva_conversations where id = p_id;
       return v;
@@ -821,7 +948,13 @@ end $$;
 
 -- ── Staff: try every unanswered question again (0575; at once from the own content while AI answers are off) ──
 -- As 0575, except that with AI answers off each question is tried against the community's own content right away
--- (no job; those still unanswered read no_source). Returns how many were tried (off) or queued (on).
+-- (no job; those still unanswered read no_source). Each of those is answered in this one statement, and Supabase
+-- cancels an API statement after 8 seconds, so while AI answers are off at most app.niva_own_retry_batch() (25)
+-- questions are tried per call and it stops after about 4 seconds, the least recently tried first: calling it again
+-- goes on with the rest. Returns how many were tried (off) or queued (on).
+create or replace function app.niva_own_retry_batch() returns integer
+language sql immutable set search_path = app, public, extensions as $$ select 25 $$;
+
 create or replace function app.niva_retry_unanswered(p_center uuid, p_since interval default interval '30 days', p_limit int default 100)
 returns integer
 language plpgsql security definer set search_path = app, public, extensions as $$
@@ -829,6 +962,7 @@ declare
   v_since interval := coalesce(p_since, interval '30 days');
   v_limit int := least(greatest(coalesce(p_limit, 100), 1), 150);
   v_soon timestamptz := now() + interval '5 minutes';
+  v_started timestamptz := clock_timestamp();
   v_off boolean;
   v_own jsonb;
   v_id uuid;
@@ -845,6 +979,7 @@ begin
     raise exception 'Choose a period that goes back in time, for example the last 30 days.';
   end if;
   v_off := app.niva_ai_mode(p_center) = 'off';
+  if v_off then v_limit := least(v_limit, app.niva_own_retry_batch()); end if;
 
   -- One run per center at a time, so two people pressing it together do not queue a question twice.
   perform pg_advisory_xact_lock(hashtextextended('app.niva_retry_unanswered:' || p_center::text, 0));
@@ -857,7 +992,7 @@ begin
        and (c.answer_status <> 'pending' or c.created_at < now() - interval '5 minutes')
        and not exists (select 1 from app.jobs j where j.kind = 'niva.answer' and j.payload->>'conversation_id' = c.id::text
                          and (j.status = 'running' or (j.status = 'queued' and j.run_after <= v_soon)))
-     order by c.created_at, c.id
+     order by case when v_off then c.attempted_at end asc nulls first, c.created_at, c.id
      limit v_limit
      for update of c skip locked              -- a question being regenerated right now is left to that
   loop
@@ -865,7 +1000,9 @@ begin
     continue when exists (select 1 from app.jobs j where j.kind = 'niva.answer' and j.payload->>'conversation_id' = v_id::text
                             and (j.status = 'running' or (j.status = 'queued' and j.run_after <= v_soon)));
     if v_off then
-      v_own := app.niva_own_answer(v_id, false);
+      -- Answered here and now: keep well inside the statement timeout; the rest wait for the next press.
+      exit when v_n > 0 and clock_timestamp() - v_started > interval '4 seconds';
+      v_own := app.niva_own_answer(v_id, false, true);
       if v_own->>'answered' is distinct from 'true' then
         perform app.niva_own_no_answer(v_id, v_own->>'reason', false);
       end if;
@@ -891,6 +1028,34 @@ begin
   end loop;
   return v_n;
 end $$;
+
+-- ── 5. Answers are written only by Niva ──────────────────────────────────────
+-- 0010's niva_insert policy lets a member insert a question straight into the table (kept by owner decision, 0572).
+-- Saved through the API, it is a plain unanswered question whatever else it carried: nobody can plant an answer for
+-- the answer cache to copy to other members. Niva's own functions are security definer (current_user is their
+-- owner) and the background service is connect_worker, so their writes are untouched. Not security definer itself:
+-- it reads current_user, the role that runs the insert.
+create or replace function app.niva_conversations_guard_answer() returns trigger
+language plpgsql set search_path = app, public, extensions as $$
+begin
+  if current_user in ('authenticated', 'anon') then
+    new.answer := null;
+    new.sources := '[]'::jsonb;
+    new.unanswered := true;
+    new.answer_status := 'pending';
+    new.model := null;
+    new.outcome_detail := null;
+    new.answered_at := null;
+    new.attempted_at := null;
+  end if;
+  return new;
+end $$;
+comment on function app.niva_conversations_guard_answer() is
+  'Trigger (0579): a Niva question inserted straight into the table through the API (authenticated or anon) is saved unanswered; only Niva writes answers.';
+
+drop trigger if exists niva_conversations_guard_answer on app.niva_conversations;
+create trigger niva_conversations_guard_answer before insert on app.niva_conversations
+  for each row execute function app.niva_conversations_guard_answer();
 
 -- ── Worker: read one conversation (0575, plus the community's AI setting) ──────
 create or replace function app.niva_worker_get_conversation(p_id uuid)
@@ -1030,15 +1195,23 @@ end $$;
 -- niva_ask, niva_test_ask, niva_regenerate, niva_retry_unanswered, niva_worker_get_conversation, niva_health and the
 -- 4-argument niva_worker_search_sources keep their grants (same signatures).
 revoke execute on function app.niva_ai_mode(uuid), app.niva_rules_with(jsonb, text, jsonb), app.seed_jsh_niva_ai_off(),
-  app.niva_normalize_question(text), app.niva_is_personal(text), app.niva_is_doctrinal(text), app.niva_referral_line(),
-  app.niva_question_kind(text), app.niva_glossary_stems(), app.niva_text_terms(text), app.niva_question_terms(uuid, text),
-  app.niva_terms_covered(text[], text[]), app.niva_plain_text(text), app.niva_sentence_fits(text, text), app.niva_sentence_terms(text, text[]),
-  app.niva_extract_sentences(text, text[], text, int), app.niva_search_core(uuid, text, int, text[]),
+  app.niva_is_personal(text), app.niva_is_doctrinal(text), app.niva_referral_line(),
+  app.niva_question_kind(text), app.niva_glossary_stems(), app.niva_glossary_map(), app.niva_text_terms(text, jsonb),
+  app.niva_question_terms(uuid, text), app.niva_terms_covered(text[], text[]), app.niva_plain_text(text),
+  app.niva_sentence_fits(text, text), app.niva_sentence_terms(text, text[], jsonb),
+  app.niva_extract_sentences(text, text[], text, int, text[], int, jsonb), app.niva_search_core(uuid, text, int, text[]),
   app.niva_cache_sources_ok(uuid, app.tradition, jsonb, timestamptz, text[]), app.niva_cites_current(uuid, jsonb),
   app.niva_store_own_answer(uuid, text, jsonb, text), app.niva_own_outcome_detail(text),
-  app.niva_own_no_answer(uuid, text, boolean), app.niva_own_answer(uuid, boolean), app.niva_worker_own_answer(uuid, boolean)
+  app.niva_own_no_answer(uuid, text, boolean), app.niva_own_answer_for(uuid, text, boolean, uuid, boolean, text),
+  app.niva_own_answer(uuid, boolean, boolean), app.niva_worker_own_answer(uuid, boolean, boolean), app.niva_own_retry_batch(),
+  app.niva_conversations_guard_answer()
   from public, anon, authenticated, service_role;
-grant execute on function app.niva_worker_own_answer(uuid, boolean) to connect_worker;
+grant execute on function app.niva_worker_own_answer(uuid, boolean, boolean) to connect_worker;
 grant execute on function app.seed_jsh_niva_ai_off() to service_role;
+-- The answer cache's index (niva_conversations_answer_cache_idx) runs niva_normalize_question on every write of an
+-- answered row, as the role that writes it: a pure text function, so every role that may write the table can run it
+-- (revoked, it made a content manager's or the service role's direct update of an answered row fail with
+-- "permission denied for function niva_normalize_question").
+grant execute on function app.niva_normalize_question(text) to anon, authenticated, service_role, connect_worker;
 
 select app.seed_jsh_niva_ai_off();
