@@ -11,17 +11,19 @@
 // still draw a figure or letters, so the organizer always looks at the
 // preview before using the art.
 
-/** Whole words, matched case-insensitively. */
+/** Whole words, matched case-insensitively, each also with a plural ending (-s or -es). */
 export const FLYER_ART_BLOCKED_TERMS: readonly string[] = [
   // People
   "people", "person", "persons", "man", "men", "woman", "women", "child", "children", "kid", "kids",
-  "boy", "boys", "girl", "girls", "baby", "family", "families", "face", "faces", "portrait", "crowd",
-  "human", "humans", "monk", "monks", "nun", "sadhu", "sadhvi", "maharaj", "maharajsaheb",
+  "boy", "boys", "girl", "girls", "baby", "babies", "family", "families", "face", "faces", "portrait", "crowd",
+  "human", "humans", "monk", "monks", "nun", "sadhu", "sadhvi", "maharaj", "maharajsaheb", "muni", "acharya",
+  "guru", "saint", "devotee", "dancer", "lady", "ladies", "figurine",
   // Deities and idols
   "god", "gods", "goddess", "deity", "deities", "idol", "idols", "murti", "murtis", "statue", "statues",
   "bhagwan", "bhagavan", "prabhu", "tirthankar", "tirthankara", "jina", "mahavir", "mahavira",
-  "parshvanath", "parasnath", "adinath", "rishabhdev", "neminath", "shantinath", "buddha", "krishna",
-  "shiva", "ganesh", "ganesha", "lakshmi", "saraswati", "jesus",
+  "parshvanath", "parasnath", "adinath", "rishabhdev", "neminath", "shantinath", "padmavati", "buddha", "krishna",
+  "shiva", "ganesh", "ganesha", "lakshmi", "saraswati", "durga", "amba", "ambe", "ambaji", "mataji", "devi",
+  "hanuman", "vishnu", "jesus",
   // Lettering
   "text", "letter", "letters", "lettering", "word", "words", "typography", "caption", "logo", "writing",
   "calligraphy", "font", "quote",
@@ -33,7 +35,7 @@ export const FLYER_ART_GUARDRAIL =
   "No people, no human figures, no faces, no hands. No deities, no gods, no idols, no murtis, no religious figures or statues. " +
   "Soft, elegant, festive ornamental patterns and light, with calm open space for text to be added later.";
 
-const BLOCKED = new RegExp(`\\b(?:${FLYER_ART_BLOCKED_TERMS.join("|")})\\b`, "i");
+const BLOCKED = new RegExp(`\\b(?:${FLYER_ART_BLOCKED_TERMS.join("|")})(?:e?s)?\\b`, "i");
 
 /** The prompt without any copy of the guardrail (the guardrail itself names the blocked words). */
 export function stripArtGuardrail(text: string): string {

@@ -5,7 +5,7 @@ import { LoadProblem } from "@/components/events/load-problem";
 import { Alert, Card, NoAccess, PageHeader, buttonClass } from "@/components/ui";
 import { load, loadEventAccess, resolvePeopleNames, row, rows } from "@/lib/data/events";
 import { eventAreas } from "@/lib/events/access";
-import { buildFlyerArtPrompt, defaultFlyerDesign, memberAppEventLink, parseFlyerDesign, readFlyerSource } from "@/lib/events/flyer";
+import { buildFlyerArtPrompt, defaultFlyerDesign, flyerOutOfDate, memberAppEventLink, parseFlyerDesign, readFlyerSource } from "@/lib/events/flyer";
 import { readFlyerBrand } from "@/lib/events/flyer-brand";
 import { centsToDollarsInput, formatEventDate, toDateTimeLocal } from "@/lib/events/format";
 import { commitmentEnabled, readCommitment } from "@/lib/events/report";
@@ -191,6 +191,10 @@ export default async function EventBuilderPage({ searchParams }: { searchParams:
           memberAppLink,
           isGuestVisible: (e.audience === "public" || e.audience === "members_and_guests") && !e.confidential,
           defaultTagline: defaults.tagline,
+          eventLines: { date_line: defaults.date_line, venue_line: defaults.venue_line },
+          // The saved flyer's date and venue lines are frozen text: say so when the event changed after it was made.
+          outOfDate:
+            savedDesign.ok && readFlyerSource(e.flyer_source) === "designed" && e.flyer_path ? flyerOutOfDate(e.flyer_design, e) : { date: false, venue: false },
           artPromptSeed: buildFlyerArtPrompt({ eventName: e.name, primary: brand.primary, accent: brand.accent }),
           artPreview,
         };

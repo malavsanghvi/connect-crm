@@ -11,14 +11,18 @@ import {
   fitFontSize,
   flyerDateLine,
   flyerFileName,
+  flyerMadeFor,
+  flyerOutOfDate,
   isFlyerArtPath,
   memberAppEventLink,
+  outOfDateWhat,
   parseFlyerDesign,
   readArtJob,
+  readFlyerMadeFor,
   readFlyerSource,
   withArtGuardrail,
 } from "@/lib/events/flyer";
-import { flyerBrandSummary, readFlyerBrand } from "@/lib/events/flyer-brand";
+import { LOGO_NOTE, LOGO_WEBP_NOTE, flyerBrandSummary, logoTypeNote, readFlyerBrand } from "@/lib/events/flyer-brand";
 import { patternSvg } from "@/lib/events/flyer-patterns";
 
 import * as workerGuard from "../worker/src/flyer-guard";
@@ -175,8 +179,38 @@ describe("AI background art", () => {
     expect(findBlockedArtTerm("gold LETTERS")).toBe("LETTERS");
   });
 
+  it("finds plurals and the names this community would type", () => {
+    expect(findBlockedArtTerm("goddesses in a garden")).toBe("goddesses");
+    expect(findBlockedArtTerm("tirthankaras in a row")).toBe("tirthankaras");
+    expect(findBlockedArtTerm("sadhus walking")).toBe("sadhus");
+    expect(findBlockedArtTerm("the 24 Jinas")).toBe("Jinas");
+    expect(findBlockedArtTerm("garba dancers in a circle")).toBe("dancers");
+    expect(findBlockedArtTerm("Durga and Amba for Navratri")).toBe("Durga");
+    expect(findBlockedArtTerm("Ambe Mataji aarti")).toBe("Ambe");
+    expect(findBlockedArtTerm("Mataji")).toBe("Mataji");
+    expect(findBlockedArtTerm("Padmavati devi")).toBe("Padmavati");
+    expect(findBlockedArtTerm("devotees with diyas")).toBe("devotees");
+    expect(findBlockedArtTerm("two gurus")).toBe("gurus");
+  });
+
   it("does not flag ornament words that only contain a blocked word", () => {
-    for (const ok of ["lotus petals", "diya flames", "a mandala", "in context", "Paryushan", "rangoli dots", "surface texture", "manuscript borders", "goldenrod"]) {
+    for (const ok of [
+      "lotus petals",
+      "diya flames",
+      "a mandala",
+      "mandalas and lotuses",
+      "in context",
+      "Paryushan",
+      "rangoli dots",
+      "surface texture",
+      "manuscript borders",
+      "goldenrod",
+      "amber glow",
+      "ambient light",
+      "community colours",
+      "crystal facets",
+      "dance of light",
+    ]) {
       expect(findBlockedArtTerm(ok), ok).toBeNull();
     }
   });
@@ -198,7 +232,7 @@ describe("AI background art", () => {
   it("holds exactly the worker's blocked words and guardrail", () => {
     expect([...FLYER_ART_BLOCKED_TERMS]).toEqual([...workerGuard.FLYER_ART_BLOCKED_TERMS]);
     expect(FLYER_ART_GUARDRAIL).toBe(workerGuard.FLYER_ART_GUARDRAIL);
-    for (const t of ["Portrait of Bhagwan", "lotus", "text and letters", withArtGuardrail("soft mandala")]) {
+    for (const t of ["Portrait of Bhagwan", "lotus", "text and letters", "garba dancers", "amber glow", withArtGuardrail("soft mandala")]) {
       expect(findBlockedArtTerm(t)).toBe(workerGuard.findBlockedArtTerm(t));
       expect(withArtGuardrail(t)).toBe(workerGuard.withArtGuardrail(t));
     }
@@ -209,6 +243,40 @@ describe("AI background art", () => {
     expect(isFlyerArtPath(`${C}/events/${E}/flyer-1.png`, C, E)).toBe(false);
     expect(isFlyerArtPath(`${C}/events/${C}/art-1.jpg`, C, E)).toBe(false);
     expect(isFlyerArtPath(`${C}/events/${E}/art-1.webp`, C, E)).toBe(false);
+  });
+});
+
+describe("flyerOutOfDate", () => {
+  const ev = { starts_at: "2026-11-08T23:00:00+00:00", ends_at: "2026-11-09T02:00:00+00:00", venue: "Main hall" };
+  const saved = { ...design(), made_for: flyerMadeFor(ev) };
+
+  it("records the event's start, end and venue, and the design parser leaves them out", () => {
+    expect(flyerMadeFor({ ...ev, venue: "  Main   hall " })).toEqual({ starts_at: ev.starts_at, ends_at: ev.ends_at, venue: "Main hall" });
+    expect(flyerMadeFor({ starts_at: "not a date", ends_at: null, venue: null })).toEqual({ starts_at: null, ends_at: null, venue: "" });
+    expect(readFlyerMadeFor(saved)).toEqual(flyerMadeFor(ev));
+    const parsed = parseFlyerDesign(saved);
+    expect(parsed.ok && "made_for" in parsed.design).toBe(false);
+  });
+
+  it("is not out of date while the event is unchanged, whatever the time zone of the stored times", () => {
+    expect(flyerOutOfDate(saved, ev)).toEqual({ date: false, venue: false });
+    expect(flyerOutOfDate(saved, { ...ev, starts_at: "2026-11-08T17:00:00-06:00" })).toEqual({ date: false, venue: false });
+    expect(flyerOutOfDate(saved, { ...ev, venue: "Main  hall " })).toEqual({ date: false, venue: false });
+  });
+
+  it("says which of the date and venue changed after the flyer was made", () => {
+    expect(flyerOutOfDate(saved, { ...ev, starts_at: "2026-11-15T23:00:00+00:00" })).toEqual({ date: true, venue: false });
+    expect(flyerOutOfDate(saved, { ...ev, ends_at: null })).toEqual({ date: true, venue: false });
+    expect(flyerOutOfDate(saved, { ...ev, venue: "Upashray" })).toEqual({ date: false, venue: true });
+    expect(outOfDateWhat(flyerOutOfDate(saved, { ...ev, starts_at: null, venue: null }))).toBe("date and venue");
+    expect(outOfDateWhat({ date: false, venue: true })).toBe("venue");
+    expect(outOfDateWhat({ date: false, venue: false })).toBeNull();
+  });
+
+  it("flags nothing for a design with no record of what it was made for", () => {
+    expect(readFlyerMadeFor(design())).toBeNull();
+    expect(readFlyerMadeFor(null)).toBeNull();
+    expect(flyerOutOfDate(design(), { ...ev, venue: "Elsewhere" })).toEqual({ date: false, venue: false });
   });
 });
 
@@ -276,6 +344,10 @@ describe("small helpers", () => {
     expect(longer).toBeLessThan(92);
     expect(longer).toBeGreaterThan(fitFontSize("x".repeat(90), 30, 92));
     expect(fitFontSize("x".repeat(900), 30, 92)).toBeCloseTo(92 * 0.55, 1);
+    // Capitals take about a third more room, and a lower floor can be asked for.
+    expect(fitFontSize("x".repeat(30), 30, 92)).toBe(92);
+    expect(fitFontSize("X".repeat(30), 30, 92)).toBeLessThan(92);
+    expect(fitFontSize("x".repeat(900), 30, 92, 0.5)).toBeCloseTo(46, 1);
   });
 });
 
@@ -315,6 +387,7 @@ describe("readFlyerBrand", () => {
       bodyFont: "DM Sans",
       logoUrl: null,
       logoDarkUrl: null,
+      markUrl: null,
     });
   });
 
@@ -339,6 +412,15 @@ describe("readFlyerBrand", () => {
     expect(readFlyerBrand({ mark_url: "https://cdn.example.org/mark.png" }, url).logoUrl).toBe("https://cdn.example.org/mark.png");
     expect(readFlyerBrand({ logo_path: `${C}/../x.png` }, url).logoUrl).toBeNull();
     expect(readFlyerBrand({ logo_path: `${C}/logo.png` }, undefined).logoUrl).toBeNull();
+    expect(readFlyerBrand({ logo_path: `${C}/logo.webp`, mark_path: `${C}/mark.png` }, url).markUrl).toBe(`${url}/storage/v1/object/public/branding/${C}/mark.png`);
+  });
+
+  it("says what to do when the logo is a WebP file the flyer maker can't draw", () => {
+    for (const ok of ["image/png", "image/jpeg", "image/svg+xml"]) expect(logoTypeNote(ok)).toBeNull();
+    expect(logoTypeNote("image/webp")).toBe(LOGO_WEBP_NOTE);
+    expect(LOGO_WEBP_NOTE).toMatch(/WebP.*upload a PNG or SVG version in Setup › Profile & brand/);
+    expect(logoTypeNote("image/heic")).toBe(LOGO_NOTE);
+    expect(logoTypeNote(null)).toBe(LOGO_NOTE);
   });
 
   it("refuses font names that could not be a font family", () => {

@@ -53,6 +53,10 @@ export type FlyerSetup = {
   /** Guests can see this event (public or members and guests, not confidential), so they will see its flyer. */
   isGuestVisible: boolean;
   defaultTagline: string;
+  /** The event's own date and venue lines now (defaultFlyerDesign). */
+  eventLines: { date_line: string; venue_line: string };
+  /** The event's date or venue changed after the saved flyer was made. */
+  outOfDate: { date: boolean; venue: boolean };
   artPromptSeed: string;
   /** A signed URL for the design's AI art, when the saved design uses it. */
   artPreview: { url: string | null; error: string | null };
@@ -496,6 +500,8 @@ export function EventBuilder({
             memberAppLink={flyer.memberAppLink}
             isGuestVisible={flyer.isGuestVisible}
             defaultTagline={flyer.defaultTagline}
+            eventLines={flyer.eventLines}
+            outOfDate={flyer.outOfDate}
             artPromptSeed={flyer.artPromptSeed}
             artPreview={flyer.artPreview}
           />

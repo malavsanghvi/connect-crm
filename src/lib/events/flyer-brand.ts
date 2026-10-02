@@ -17,7 +17,28 @@ export type FlyerBrand = {
   logoUrl: string | null;
   /** https URL of the logo for dark backgrounds (logo_dark_path), or null. */
   logoDarkUrl: string | null;
+  /** https URL of the square mark (mark_path), tried when the logo is a WebP file the renderer can't draw; or null. */
+  markUrl: string | null;
 };
+
+export const LOGO_NOTE = "Your logo couldn't be loaded, so the flyer has no logo — check Setup › Profile & brand.";
+export const LOGO_WEBP_NOTE = "Your logo is a WebP file, which the flyer maker can't draw, so the flyer has no logo — upload a PNG or SVG version in Setup › Profile & brand.";
+export const LOGO_WEBP_MARK_NOTE =
+  "Your logo is a WebP file, which the flyer maker can't draw, so your square mark was used — upload a PNG or SVG version of the logo in Setup › Profile & brand.";
+export const LOGO_DARK_NOTE = "Your logo for dark backgrounds couldn't be loaded, so the regular logo was used.";
+export const LOGO_DARK_WEBP_NOTE =
+  "Your logo for dark backgrounds is a WebP file, which the flyer maker can't draw, so the regular logo was used — upload a PNG or SVG version in Setup › Profile & brand.";
+
+/**
+ * Whether the flyer maker can draw a logo whose bytes are of this type (read
+ * from the bytes themselves), and if not, the note for the organizer. Setup ›
+ * Profile & brand accepts WebP, which next/og can't draw, so a WebP logo gets
+ * a sentence that says what to upload instead.
+ */
+export function logoTypeNote(kind: string | null): string | null {
+  if (kind === "image/svg+xml" || kind === "image/png" || kind === "image/jpeg") return null;
+  return kind === "image/webp" ? LOGO_WEBP_NOTE : LOGO_NOTE;
+}
 
 export const FLYER_BRAND_DEFAULTS = {
   primary: "#1B2C5C",
@@ -65,6 +86,7 @@ export function readFlyerBrand(branding: Json | null | undefined, supabaseUrl: s
     logoUrl:
       brandingFile(b.logo_path, supabaseUrl) ?? httpsUrl(b.logo_url) ?? brandingFile(b.mark_path, supabaseUrl) ?? httpsUrl(b.mark_url),
     logoDarkUrl: brandingFile(b.logo_dark_path, supabaseUrl) ?? httpsUrl(b.logo_dark_url),
+    markUrl: brandingFile(b.mark_path, supabaseUrl) ?? httpsUrl(b.mark_url),
   };
 }
 

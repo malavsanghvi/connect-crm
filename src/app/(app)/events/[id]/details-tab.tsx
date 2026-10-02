@@ -2,7 +2,7 @@ import Link from "next/link";
 
 import { BlockGrid, Card, DefinitionList, buttonClass } from "@/components/ui";
 import type { Tables } from "@/lib/database.types";
-import { FLYER_SOURCE_LABEL, readFlyerSource } from "@/lib/events/flyer";
+import { FLYER_SOURCE_LABEL, flyerOutOfDate, outOfDateWhat, readFlyerSource } from "@/lib/events/flyer";
 import { formatDateTime, formatShortCents, humanize } from "@/lib/events/format";
 import { audienceLabel, commitmentSummary, readCommitment, commitmentEnabled } from "@/lib/events/report";
 
@@ -28,6 +28,8 @@ export function DetailsTab({
   const flags = Array.isArray(event.attendee_flags) ? event.attendee_flags.filter((f): f is string => typeof f === "string") : [];
   const flyerSource = readFlyerSource(event.flyer_source);
   const flyerMaker = `/events/builder?event=${event.id}#flyer`;
+  // A designed flyer's date and venue are frozen text: say so when the event changed after it was made.
+  const flyerStale = flyerSource === "designed" ? outOfDateWhat(flyerOutOfDate(event.flyer_design, event)) : null;
   return (
     <BlockGrid>
       <Card
@@ -107,6 +109,19 @@ export function DetailsTab({
             <p className="crm-hint">Loading…</p>
           )}
           {flyerSource ? <p className="crm-hint mt-1">{FLYER_SOURCE_LABEL[flyerSource]}</p> : null}
+          {flyerStale ? (
+            <p role="status" className="mt-2 rounded-[10px] border border-saffron/40 bg-saffron-50 px-3 py-2 text-[12px] text-brown-900">
+              The event&apos;s {flyerStale} changed after this flyer was made, so the flyer still shows the old {flyerStale}.
+              {canEdit ? (
+                <>
+                  {" "}
+                  <Link href={flyerMaker} className="font-bold underline">
+                    Update the flyer
+                  </Link>
+                </>
+              ) : null}
+            </p>
+          ) : null}
         </Card>
       ) : null}
     </BlockGrid>

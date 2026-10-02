@@ -22,7 +22,7 @@ import QRCode from "qrcode";
 
 import { contrastRatio, parseHexColor, textOn } from "@/lib/setup";
 
-import { FLYER_SIZES, fitFontSize, type FlyerDesign, type FlyerSize, type FlyerTemplate } from "./flyer";
+import { FLYER_SIZES, fitFontSize, flyerTextRoom, type FlyerDesign, type FlyerSize, type FlyerTemplate } from "./flyer";
 import type { FlyerBrand } from "./flyer-brand";
 import { getFlyerFonts } from "./flyer-fonts";
 
@@ -59,7 +59,12 @@ export function flyerDims(size: FlyerSize, scale: "preview" | "full"): FlyerDims
   return { w: Math.round(s.w * k), h: Math.round(s.h * k) };
 }
 
-/** Where a template draws the background, so a pattern can be drawn at exactly that size. */
+/**
+ * Where a template draws the background, so a pattern can be drawn at exactly
+ * that size. Classic's top box (and Minimal's photo corner) can give way to
+ * the words when they need the room — down to `pictureMinHeight` — and the
+ * picture is then cropped to fit (object-fit: cover), never squashed.
+ */
 export function backgroundBox(template: FlyerTemplate, dims: FlyerDims): FlyerDims {
   if (template === "classic") return { w: dims.w, h: Math.round(dims.h * 0.55) };
   if (template === "minimal") {
@@ -67,6 +72,24 @@ export function backgroundBox(template: FlyerTemplate, dims: FlyerDims): FlyerDi
     return { w: side, h: side };
   }
   return dims;
+}
+
+/** The smallest height Classic's top box and Minimal's photo corner shrink to when the words need the room. */
+export function pictureMinHeight(template: FlyerTemplate, dims: FlyerDims): number {
+  return Math.round(dims.h * (template === "classic" ? 0.28 : 0.16));
+}
+
+/**
+ * The font sizes (in units) of the date, venue and tagline lines: the
+ * template's own size for ordinary lengths, smaller as a line nears its limit
+ * (FLYER_LIMITS), so a flyer with every field at its longest still fits.
+ */
+export function lineSizes(design: Pick<FlyerDesign, "date_line" | "venue_line" | "tagline">, base: { date: number; venue: number; tagline: number }) {
+  return {
+    date: fitFontSize(design.date_line, 40, base.date),
+    venue: fitFontSize(design.venue_line, 64, base.venue),
+    tagline: fitFontSize(design.tagline, 110, base.tagline),
+  };
 }
 
 /**
@@ -135,11 +158,11 @@ function Line({ children, style }: { children: ReactNode; style: Record<string, 
   return <div style={{ display: "flex", ...style }}>{children}</div>;
 }
 
-function Ornament({ u, color }: { u: number; color: string }) {
+function Ornament({ u, color, compact = false }: { u: number; color: string; compact?: boolean }) {
   const rule = { display: "flex", width: Math.round(120 * u), height: Math.max(1, Math.round(3 * u)), backgroundColor: color };
   const d = Math.round(18 * u);
   return (
-    <div style={{ display: "flex", alignItems: "center", margin: `${Math.round(26 * u)}px 0` }}>
+    <div style={{ display: "flex", alignItems: "center", flexShrink: 0, margin: `${Math.round((compact ? 14 : 26) * u)}px 0` }}>
       <div style={rule} />
       <div style={{ display: "flex", width: d, height: d, margin: `0 ${Math.round(16 * u)}px`, backgroundColor: color, transform: "rotate(45deg)" }} />
       <div style={rule} />
@@ -147,7 +170,16 @@ function Ornament({ u, color }: { u: number; color: string }) {
   );
 }
 
-/** The flyer as JSX for next/og, at `dims` pixels. */
+/**
+ * The flyer as JSX for next/og, at `dims` pixels.
+ *
+ * Satori does not shrink a flex item unless told to (its default flexShrink
+ * is 0), so each template says which part gives way when the words are long:
+ * the picture in Classic and in Minimal's photo corner, never the words, the
+ * QR code or the centre's name. The secondary lines also get smaller near
+ * their limits (lineSizes). tests/events-flyer-render.test.ts renders every
+ * template with every field at its longest and checks nothing is cut off.
+ */
 export function flyerElement(input: FlyerRenderInput, dims: FlyerDims, fonts: Fonts, qrDataUri: string | null): ReactElement {
   const { design, brand } = input;
   const { w, h } = dims;
@@ -163,7 +195,7 @@ export function flyerElement(input: FlyerRenderInput, dims: FlyerDims, fonts: Fo
   const darkLogo = input.logoDark ?? null;
   const root = { width: w, height: h, display: "flex", fontFamily: fonts.body, fontSize: px(30) } as const;
   const headline = (base: number, comfortable: number, color: string, align: "left" | "center" = "left") => (
-    <Line style={{ fontFamily: fonts.display, fontWeight: 700, fontSize: px(fitFontSize(design.headline, comfortable, base)), lineHeight: 1.06, color, textAlign: align }}>
+    <Line style={{ fontFamily: fonts.display, fontWeight: 700, fontSize: px(fitFontSize(design.headline, comfortable, base, 0.5)), lineHeight: 1.06, color, textAlign: align }}>
       {design.headline}
     </Line>
   );
@@ -172,9 +204,18 @@ export function flyerElement(input: FlyerRenderInput, dims: FlyerDims, fonts: Fo
       // eslint-disable-next-line @next/next/no-img-element
       <img alt="" src={bg.dataUri} width={bw} height={bh} style={{ width: bw, height: bh, objectFit: "cover", ...extra }} />
     ) : null;
+  /** The background filling a box that may have shrunk: full width, the box's height, cropped to fit. */
+  const coverImg = (bw: number, bh: number) =>
+    bg ? (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img alt="" src={bg.dataUri} width={bw} height={bh} style={{ position: "absolute", top: 0, left: 0, width: bw, height: "100%", objectFit: "cover" }} />
+    ) : null;
 
   if (design.template === "festival") {
     const pillText = textOn(accent);
+    const size = lineSizes(design, { date: 38, venue: 34, tagline: 30 });
+    // A long headline (over twice the comfortable length) brings the ornaments closer, to leave the words room.
+    const compact = flyerTextRoom(design.headline) > 56;
     return (
       <div style={{ ...root, position: "relative", backgroundColor: primary, color: onPrimary }}>
         {bgImg(w, h, { position: "absolute", top: 0, left: 0 })}
@@ -194,16 +235,16 @@ export function flyerElement(input: FlyerRenderInput, dims: FlyerDims, fonts: Fo
             {darkLogo ? <Logo img={darkLogo} u={u} onLight={false} /> : input.logo ? <Logo img={input.logo} u={u} onLight /> : null}
           </div>
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", width: w - px(144) }}>
-            <Ornament u={u} color={accent} />
+            <Ornament u={u} color={accent} compact={compact} />
             {headline(112, 28, onPrimary, "center")}
-            <Ornament u={u} color={accent} />
+            <Ornament u={u} color={accent} compact={compact} />
             {design.date_line ? (
-              <Line style={{ backgroundColor: accent, color: pillText, borderRadius: px(999), padding: `${px(14)}px ${px(36)}px`, fontSize: px(38), fontWeight: 700, textAlign: "center" }}>
+              <Line style={{ backgroundColor: accent, color: pillText, borderRadius: px(999), padding: `${px(14)}px ${px(36)}px`, fontSize: px(size.date), fontWeight: 700, textAlign: "center" }}>
                 {design.date_line}
               </Line>
             ) : null}
-            {design.venue_line ? <Line style={{ marginTop: px(22), fontSize: px(34), fontWeight: 700, textAlign: "center" }}>{design.venue_line}</Line> : null}
-            {design.tagline ? <Line style={{ marginTop: px(18), fontSize: px(30), lineHeight: 1.35, textAlign: "center", maxWidth: px(860) }}>{design.tagline}</Line> : null}
+            {design.venue_line ? <Line style={{ marginTop: px(22), fontSize: px(size.venue), fontWeight: 700, textAlign: "center" }}>{design.venue_line}</Line> : null}
+            {design.tagline ? <Line style={{ marginTop: px(18), fontSize: px(size.tagline), lineHeight: 1.35, textAlign: "center", maxWidth: px(860) }}>{design.tagline}</Line> : null}
           </div>
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
             {qr ? <Qr src={qr} u={u} color={onPrimary} accent={accent} /> : null}
@@ -217,30 +258,54 @@ export function flyerElement(input: FlyerRenderInput, dims: FlyerDims, fonts: Fo
   if (design.template === "minimal") {
     const box = backgroundBox("minimal", dims);
     const head = readable(primary, paper);
+    const pad = px(96);
+    // A photo or AI art is part of the layout (the words start below it, so they never run over a busy picture);
+    // a pattern is drawn faintly, so it stays a corner behind the words.
+    const picture = bg !== null && design.background.source !== "pattern";
+    const size = lineSizes(design, { date: 40, venue: 32, tagline: 30 });
+    const spacer = <div style={{ display: "flex", flexGrow: 1, flexShrink: 1 }} />;
     return (
-      <div style={{ ...root, position: "relative", flexDirection: "column", justifyContent: "space-between", backgroundColor: paper, color: onPaper, padding: px(96) }}>
-        {bg ? (
-          <div style={{ position: "absolute", top: 0, right: 0, display: "flex", width: box.w, height: box.h, overflow: "hidden", borderBottomLeftRadius: design.background.source === "pattern" ? 0 : px(48) }}>
-            {bgImg(box.w, box.h)}
-          </div>
+      <div style={{ ...root, position: "relative", flexDirection: "column", backgroundColor: paper, color: onPaper }}>
+        {bg && !picture ? (
+          <div style={{ position: "absolute", top: 0, right: 0, display: "flex", width: box.w, height: box.h, overflow: "hidden" }}>{bgImg(box.w, box.h)}</div>
         ) : null}
-        <div style={{ display: "flex", minHeight: px(84) }}>{input.logo ? <Logo img={input.logo} u={u} onLight={false} /> : null}</div>
-        <div style={{ display: "flex", flexDirection: "column" }}>
-          <div style={{ display: "flex", width: px(96), height: px(6), backgroundColor: accent, marginBottom: px(36) }} />
-          {headline(124, 26, head)}
-          {design.date_line ? <Line style={{ marginTop: px(36), fontSize: px(40), fontWeight: 700, color: head }}>{design.date_line}</Line> : null}
-          {design.venue_line ? <Line style={{ marginTop: px(12), fontSize: px(32) }}>{design.venue_line}</Line> : null}
-          {design.tagline ? <Line style={{ marginTop: px(28), fontSize: px(30), lineHeight: 1.4, maxWidth: px(820) }}>{design.tagline}</Line> : null}
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "row",
+            justifyContent: "space-between",
+            flexGrow: 0,
+            ...(picture ? { flexBasis: box.h, flexShrink: 1, minHeight: pictureMinHeight("minimal", dims) } : { flexShrink: 0 }),
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "flex-start", padding: `${pad}px ${px(48)}px 0 ${pad}px`, minHeight: pad + px(84) }}>
+            {input.logo ? <Logo img={input.logo} u={u} onLight={false} /> : null}
+          </div>
+          {picture ? (
+            <div style={{ position: "relative", display: "flex", width: box.w, flexShrink: 0, overflow: "hidden", borderBottomLeftRadius: px(48) }}>{coverImg(box.w, box.h)}</div>
+          ) : null}
         </div>
-        <div style={{ display: "flex", flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between" }}>
-          <Line style={{ fontSize: px(26), fontWeight: 700 }}>{input.centerName}</Line>
-          {qr ? <Qr src={qr} u={u} color={onPaper} accent={accent} /> : null}
+        <div style={{ display: "flex", flexDirection: "column", flexGrow: 1, flexShrink: 0, padding: `${picture ? px(48) : 0}px ${pad}px ${pad}px` }}>
+          {spacer}
+          <div style={{ display: "flex", flexDirection: "column", flexShrink: 0 }}>
+            <div style={{ display: "flex", width: px(96), height: px(6), backgroundColor: accent, marginBottom: px(36) }} />
+            {headline(picture ? 112 : 124, 26, head)}
+            {design.date_line ? <Line style={{ marginTop: px(36), fontSize: px(size.date), fontWeight: 700, color: head }}>{design.date_line}</Line> : null}
+            {design.venue_line ? <Line style={{ marginTop: px(12), fontSize: px(size.venue) }}>{design.venue_line}</Line> : null}
+            {design.tagline ? <Line style={{ marginTop: px(28), fontSize: px(size.tagline), lineHeight: 1.4, maxWidth: px(820) }}>{design.tagline}</Line> : null}
+          </div>
+          {spacer}
+          <div style={{ display: "flex", flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between", flexShrink: 0, marginTop: px(28) }}>
+            <Line style={{ fontSize: px(26), fontWeight: 700 }}>{input.centerName}</Line>
+            {qr ? <Qr src={qr} u={u} color={onPaper} accent={accent} /> : null}
+          </div>
         </div>
       </div>
     );
   }
 
   if (design.template === "photo") {
+    const size = lineSizes(design, { date: 38, venue: 30, tagline: 28 });
     return (
       <div style={{ ...root, position: "relative", backgroundColor: primary, color: onPrimary }}>
         {bgImg(w, h, { position: "absolute", top: 0, left: 0 })}
@@ -253,9 +318,9 @@ export function flyerElement(input: FlyerRenderInput, dims: FlyerDims, fonts: Fo
           <div style={{ display: "flex", flexDirection: "column", flexGrow: 1, flexShrink: 1, marginRight: qr ? px(40) : 0 }}>
             <div style={{ display: "flex", width: px(110), height: px(7), backgroundColor: accent, marginBottom: px(24) }} />
             {headline(88, 32, onPrimary)}
-            {design.date_line ? <Line style={{ marginTop: px(22), fontSize: px(38), fontWeight: 700 }}>{design.date_line}</Line> : null}
-            {design.venue_line ? <Line style={{ marginTop: px(8), fontSize: px(30) }}>{design.venue_line}</Line> : null}
-            {design.tagline ? <Line style={{ marginTop: px(16), fontSize: px(28), lineHeight: 1.35 }}>{design.tagline}</Line> : null}
+            {design.date_line ? <Line style={{ marginTop: px(22), fontSize: px(size.date), fontWeight: 700 }}>{design.date_line}</Line> : null}
+            {design.venue_line ? <Line style={{ marginTop: px(8), fontSize: px(size.venue) }}>{design.venue_line}</Line> : null}
+            {design.tagline ? <Line style={{ marginTop: px(16), fontSize: px(size.tagline), lineHeight: 1.35 }}>{design.tagline}</Line> : null}
             <Line style={{ marginTop: px(22), fontSize: px(24), fontWeight: 700 }}>{input.centerName}</Line>
           </div>
           {qr ? <Qr src={qr} u={u} color={onPrimary} accent={accent} /> : null}
@@ -267,6 +332,7 @@ export function flyerElement(input: FlyerRenderInput, dims: FlyerDims, fonts: Fo
   // classic
   const top = backgroundBox("classic", dims);
   const head = readable(primary, paper);
+  const size = lineSizes(design, { date: 40, venue: 32, tagline: 30 });
   return (
     <div style={{ ...root, flexDirection: "column", backgroundColor: paper, color: onPaper }}>
       <div
@@ -274,33 +340,37 @@ export function flyerElement(input: FlyerRenderInput, dims: FlyerDims, fonts: Fo
           position: "relative",
           display: "flex",
           width: top.w,
-          height: top.h,
+          // The picture gives way to the words: it starts at 55% of the height and shrinks (cropped, not squashed) when they need the room.
+          flexBasis: top.h,
+          flexGrow: 0,
+          flexShrink: 1,
+          minHeight: pictureMinHeight("classic", dims),
           overflow: "hidden",
           backgroundColor: accent,
           // A plain colour still gets a soft depth: the primary colour, warming slightly towards the accent.
           backgroundImage: `linear-gradient(165deg, ${rgba(primary, 1)} 35%, ${rgba(primary, 0.82)} 100%)`,
         }}
       >
-        {bgImg(top.w, top.h)}
+        {coverImg(top.w, top.h)}
         {input.logo ? (
           <div style={{ position: "absolute", top: px(48), left: px(48), display: "flex" }}>
             <Logo img={input.logo} u={u} onLight />
           </div>
         ) : null}
       </div>
-      <div style={{ display: "flex", flexDirection: "row", flexGrow: 1, padding: `${px(52)}px ${px(64)}px ${px(48)}px` }}>
+      <div style={{ display: "flex", flexDirection: "row", flexGrow: 1, flexShrink: 0, padding: `${px(52)}px ${px(64)}px ${px(48)}px` }}>
         <div style={{ display: "flex", flexDirection: "column", justifyContent: "space-between", flexGrow: 1, flexShrink: 1, marginRight: qr ? px(40) : 0 }}>
           <div style={{ display: "flex", flexDirection: "column" }}>
             <div style={{ display: "flex", width: px(120), height: px(8), backgroundColor: accent, borderRadius: px(4), marginBottom: px(26) }} />
             {headline(92, 34, head)}
-            {design.date_line ? <Line style={{ marginTop: px(24), fontSize: px(40), fontWeight: 700, color: head }}>{design.date_line}</Line> : null}
-            {design.venue_line ? <Line style={{ marginTop: px(10), fontSize: px(32) }}>{design.venue_line}</Line> : null}
-            {design.tagline ? <Line style={{ marginTop: px(20), fontSize: px(30), lineHeight: 1.35 }}>{design.tagline}</Line> : null}
+            {design.date_line ? <Line style={{ marginTop: px(24), fontSize: px(size.date), fontWeight: 700, color: head }}>{design.date_line}</Line> : null}
+            {design.venue_line ? <Line style={{ marginTop: px(10), fontSize: px(size.venue) }}>{design.venue_line}</Line> : null}
+            {design.tagline ? <Line style={{ marginTop: px(20), fontSize: px(size.tagline), lineHeight: 1.35 }}>{design.tagline}</Line> : null}
           </div>
           <Line style={{ marginTop: px(22), fontSize: px(26), fontWeight: 700 }}>{input.centerName}</Line>
         </div>
         {qr ? (
-          <div style={{ display: "flex", alignItems: "flex-end" }}>
+          <div style={{ display: "flex", alignItems: "flex-end", flexShrink: 0 }}>
             <Qr src={qr} u={u} color={onPaper} accent={accent} />
           </div>
         ) : null}

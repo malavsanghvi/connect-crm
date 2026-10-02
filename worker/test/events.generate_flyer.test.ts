@@ -61,6 +61,8 @@ describe("events.generate_flyer", () => {
     expect(() => readPayload({ prompt: "A murti with flowers" })).toThrow(/abstract or decorative only: the request mentioned "murti"/);
     expect(() => readPayload({ prompt: "Happy Diwali text in gold letters" })).toThrow(PermanentError);
     expect(() => readPayload({ prompt: "A crowd of people dancing" })).toThrow(PermanentError);
+    expect(() => readPayload({ prompt: "Garba dancers around Ambe Mataji" })).toThrow(/the request mentioned "dancers"/);
+    expect(() => readPayload({ prompt: "Goddesses in a lotus pond" })).toThrow(PermanentError);
   });
 
   it("does not mistake ornament words for blocked ones", () => {

@@ -29,6 +29,7 @@ import { eventAreas } from "@/lib/events/access";
 import {
   FLYER_ART_PROMPT_MAX,
   findBlockedArtTerm,
+  flyerMadeFor,
   isFlyerArtPath,
   parseFlyerDesign,
   readArtJob,
@@ -180,7 +181,7 @@ export async function flyerGenerationResultAction(eventId: string): Promise<Acti
 // ── Album photos ─────────────────────────────────────────────────────────────
 
 export type FlyerPhotoAlbum = { id: string; title: string; visibility: string; isEventAlbum: boolean };
-export type FlyerPhotoChoice = { id: string; thumbUrl: string | null; problem: string | null };
+export type FlyerPhotoChoice = { id: string; caption: string | null; thumbUrl: string | null; problem: string | null };
 export type FlyerPhotoList = { albums: FlyerPhotoAlbum[]; albumId: string | null; photos: FlyerPhotoChoice[] };
 
 /** Albums members can see, and one album's usable photos (approved, no children, a format the renderer can draw). */
@@ -205,7 +206,7 @@ export async function listFlyerPhotosAction(eventId: string, albumId: string | n
     const chosen = (albumId && list.find((a) => a.id === albumId)) || list.find((a) => a.isEventAlbum) || list[0];
     const photos = await db
       .from("photos")
-      .select("id, storage_path, created_at")
+      .select("id, storage_path, caption, created_at")
       .eq("album_id", chosen.id)
       .eq("status", "approved")
       .eq("contains_children", false)
@@ -224,7 +225,7 @@ export async function listFlyerPhotosAction(eventId: string, albumId: string | n
       data: {
         albums: list,
         albumId: chosen.id,
-        photos: rows.map((p) => ({ id: p.id, thumbUrl: urls.get(p.id)?.url ?? null, problem: urls.get(p.id)?.problem ?? null })),
+        photos: rows.map((p) => ({ id: p.id, caption: p.caption?.trim() || null, thumbUrl: urls.get(p.id)?.url ?? null, problem: urls.get(p.id)?.problem ?? null })),
       },
     };
   });
@@ -240,7 +241,7 @@ export async function saveDesignedFlyerAction(eventId: string, rawDesign: unknow
     const design = parsed.design;
     if (design.size === "print") throw new FormError("Print size is for downloading — switch to Post or Story to use it as the event's flyer.");
     const { db, centerId, session } = await flyerEventContext(eventId, "only event managers and this event's lead can set this event's flyer.");
-    const ev = await db.from("events").select("id, center_id, flyer_path").eq("id", eventId).maybeSingle();
+    const ev = await db.from("events").select("id, center_id, flyer_path, starts_at, ends_at, venue").eq("id", eventId).maybeSingle();
     if (ev.error) throw new DbFailure(ev.error, "load the event");
     if (!ev.data || ev.data.center_id !== centerId) throw new FormError("that event was not found.");
 
@@ -272,7 +273,8 @@ export async function saveDesignedFlyerAction(eventId: string, rawDesign: unknow
     const patch: TablesUpdate<"events"> = {
       flyer_path: path,
       flyer_source: "designed",
-      flyer_design: design as unknown as Json,
+      // made_for: the event's start, end and venue now, so a later change to the event is flagged (flyerOutOfDate).
+      flyer_design: { ...design, made_for: flyerMadeFor(ev.data) } as unknown as Json,
       flyer_prompt: design.background.source === "ai" ? withArtGuardrail(design.background.prompt) : null,
       flyer_generated_at: new Date().toISOString(),
     };

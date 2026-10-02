@@ -322,6 +322,26 @@ select pg_temp.assert((select not (result ? 'image_b64') and result ->> 'stored_
                          from app.jobs where id = :job_pub),
   'the image bytes are removed from the job, the stored path is recorded, and the rest of the result is kept');
 
+-- ── 13b. The audit log never keeps the image bytes ──────────────────────────
+select pg_temp.assert((select count(*) from app.audit_log where record_table = 'jobs' and record_id = :'job_pub') >= 2,
+  'the AI art job''s insert and its "art taken" update are both in the audit log');
+select pg_temp.assert(not exists (select 1 from app.audit_log
+                                   where record_table = 'jobs' and record_id = :'job_pub'
+                                     and (coalesce(before #>> '{result,image_b64}', '***') <> '***'
+                                          or coalesce(after #>> '{result,image_b64}', '***') <> '***')),
+  'no audit entry of the job holds the image bytes, before or after the strip');
+select pg_temp.assert((select after #>> '{result,image_b64}' = '***' and after #>> '{result,content_type}' = 'image/jpeg'
+                         from app.audit_log where record_table = 'jobs' and record_id = :'job_pub' and action = 'jobs.insert'
+                        order by id limit 1),
+  'the insert''s entry shows the image as *** and keeps the rest of the result');
+select pg_temp.assert(app.audit_mask('{"result": {"image_b64": "ZmFrZQ==", "prompt": "x"}, "status": "done"}'::jsonb)
+                        = '{"result": {"image_b64": "***", "prompt": "x"}, "status": "done"}'::jsonb
+                      and app.audit_mask('{"result": "plain text"}'::jsonb) = '{"result": "plain text"}'::jsonb
+                      and app.audit_mask('{"result": {"stored_path": "a/b"}}'::jsonb) = '{"result": {"stored_path": "a/b"}}'::jsonb
+                      and app.audit_mask('{"date_of_birth": "1980-01-01", "token": "t", "niva_tsv": "x"}'::jsonb)
+                        = '{"date_of_birth": "***", "token": "***"}'::jsonb,
+  'audit_mask masks result.image_b64 only, and keeps the earlier rules');
+
 -- ── 14. A new request strips older image bytes ──────────────────────────────
 insert into app.jobs (center_id, kind, payload, status, result, finished_at)
 values (:c, 'events.generate_flyer', jsonb_build_object('event_id', :e_mag, 'prompt', 'x'), 'done', jsonb_build_object('image_b64', 'ZmFrZQ=='), now())

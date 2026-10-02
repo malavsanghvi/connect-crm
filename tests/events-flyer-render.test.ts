@@ -1,12 +1,27 @@
 import { readFile } from "node:fs/promises";
+import { inflateSync } from "node:zlib";
 
+import { ImageResponse } from "next/og";
+import QRCode from "qrcode";
+import { createElement } from "react";
 import { describe, expect, it } from "vitest";
 
-import { FLYER_TEMPLATES, type FlyerDesign } from "@/lib/events/flyer";
+import { FLYER_LIMITS, FLYER_SIZE_KEYS, FLYER_TEMPLATES, type FlyerDesign, type FlyerSize, type FlyerTemplate } from "@/lib/events/flyer";
 import { readFlyerBrand } from "@/lib/events/flyer-brand";
-import { BUNDLED_FONT_FILES, flyerFontPath } from "@/lib/events/flyer-fonts";
+import { BUNDLED_FONT_FILES, flyerFontPath, getFlyerFonts } from "@/lib/events/flyer-fonts";
 import { patternSvg } from "@/lib/events/flyer-patterns";
-import { backgroundBox, flyerDims, flyerElement, isPng, renderFlyerPdf, renderFlyerPng, type FlyerRenderInput } from "@/lib/events/flyer-render";
+import {
+  backgroundBox,
+  flyerDims,
+  flyerElement,
+  flyerText,
+  isPng,
+  pictureMinHeight,
+  renderFlyerPdf,
+  renderFlyerPng,
+  type FlyerDims,
+  type FlyerRenderInput,
+} from "@/lib/events/flyer-render";
 
 const brand = readFlyerBrand(null, undefined);
 const svgUri = (svg: string) => `data:image/svg+xml;base64,${Buffer.from(svg).toString("base64")}`;
@@ -113,4 +128,212 @@ describe("renderFlyerPdf", () => {
     expect(Buffer.from(pdf.subarray(0, 5)).toString("latin1")).toBe("%PDF-");
     expect(pdf.length).toBeGreaterThan(png.length);
   }, 30_000);
+});
+
+// ── Nothing is cut off ───────────────────────────────────────────────────────
+// Satori does not shrink a box unless told to, so long words used to push the
+// QR code and the centre's name past the bottom edge. Each flyer is drawn on a
+// magenta stage a quarter of its size larger on every side: anything drawn on
+// the stage is outside the flyer, i.e. cut off in the real image. The picture
+// in Classic and in Minimal's photo corner is a plain green photo, so words
+// drawn over it show up as pixels that are not green.
+
+/** RGBA pixels of an 8-bit, non-interlaced RGB or RGBA PNG (what next/og writes). */
+function decodePng(png: Uint8Array): { w: number; h: number; px: Uint8Array } {
+  const dv = new DataView(png.buffer, png.byteOffset, png.byteLength);
+  let at = 8;
+  let w = 0;
+  let h = 0;
+  let depth = 0;
+  let type = 0;
+  let interlace = 0;
+  const idat: Uint8Array[] = [];
+  while (at + 8 <= png.length) {
+    const len = dv.getUint32(at);
+    const kind = String.fromCharCode(...png.subarray(at + 4, at + 8));
+    if (kind === "IHDR") {
+      w = dv.getUint32(at + 8);
+      h = dv.getUint32(at + 12);
+      depth = png[at + 16];
+      type = png[at + 17];
+      interlace = png[at + 20];
+    } else if (kind === "IDAT") idat.push(png.subarray(at + 8, at + 8 + len));
+    else if (kind === "IEND") break;
+    at += 12 + len;
+  }
+  if (depth !== 8 || interlace !== 0 || (type !== 2 && type !== 6)) throw new Error(`unexpected PNG format (depth ${depth}, colour type ${type}, interlace ${interlace})`);
+  const bpp = type === 6 ? 4 : 3;
+  const raw = inflateSync(Buffer.concat(idat));
+  const stride = w * bpp;
+  const px = new Uint8Array(w * h * 4);
+  let prev = new Uint8Array(stride);
+  for (let y = 0; y < h; y++) {
+    const filter = raw[y * (stride + 1)];
+    const line = raw.subarray(y * (stride + 1) + 1, (y + 1) * (stride + 1));
+    const cur = new Uint8Array(stride);
+    for (let x = 0; x < stride; x++) {
+      const a = x >= bpp ? cur[x - bpp] : 0;
+      const b = prev[x];
+      const c = x >= bpp ? prev[x - bpp] : 0;
+      let v = line[x];
+      if (filter === 1) v += a;
+      else if (filter === 2) v += b;
+      else if (filter === 3) v += (a + b) >> 1;
+      else if (filter === 4) {
+        const p = a + b - c;
+        const pa = Math.abs(p - a);
+        const pb = Math.abs(p - b);
+        const pc = Math.abs(p - c);
+        v += pa <= pb && pa <= pc ? a : pb <= pc ? b : c;
+      }
+      cur[x] = v & 255;
+    }
+    for (let x = 0; x < w; x++) {
+      px.set([cur[x * bpp], cur[x * bpp + 1], cur[x * bpp + 2], bpp === 4 ? cur[x * bpp + 3] : 255], (y * w + x) * 4);
+    }
+    prev = cur;
+  }
+  return { w, h, px };
+}
+
+type Pixels = { w: number; h: number; px: Uint8Array };
+const STAGE = [255, 0, 255] as const;
+const GREEN = [0, 255, 0] as const;
+const solid = (rgb: readonly number[], w: number, h: number) => ({
+  dataUri: svgUri(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}" width="${w}" height="${h}"><rect width="${w}" height="${h}" fill="rgb(${rgb.join(",")})"/></svg>`),
+  w,
+  h,
+});
+
+type Words = Pick<FlyerDesign, "headline" | "tagline" | "date_line" | "venue_line">;
+
+/** Every field at its limit, in ordinary words (so they wrap like real text). */
+function longest(headline = "Paryushan Mahaparva Pratikraman and Samvatsari Celebration for the Whole Jain Community"): Words {
+  const fill = (s: string, n: number) => `${s} ${"and more ".repeat(40)}`.slice(0, n).trimEnd();
+  return {
+    headline: fill(headline, FLYER_LIMITS.headline),
+    tagline: fill(
+      "Join us for eight days of reflection, swadhyay, pratikraman and community meals, with special programmes for young families, seniors and first-time visitors from every centre.",
+      FLYER_LIMITS.tagline,
+    ),
+    date_line: fill("Thursday, September 10 – Thursday, September 17, 2026 · 6:00 PM–9:30 PM each evening", FLYER_LIMITS.date_line),
+    venue_line: fill("Jain Society of Greater Houston Main Prayer Hall and Community Centre, 3905 Arc Street, Sugar Land, Texas", FLYER_LIMITS.venue_line),
+  };
+}
+
+/** The flyer drawn on a magenta stage with a quarter of its size free on every side. */
+async function renderOnStage(inp: FlyerRenderInput, dims: FlyerDims): Promise<{ img: Pixels; mx: number; my: number }> {
+  const set = await getFlyerFonts(inp.brand, flyerText(inp));
+  const qr = inp.qrLink ? await QRCode.toDataURL(inp.qrLink, { errorCorrectionLevel: "M", margin: 1, width: Math.round((220 * dims.w) / 1080) }) : null;
+  const mx = Math.round(dims.w / 4);
+  const my = Math.round(dims.h / 4);
+  const stage = createElement(
+    "div",
+    { style: { display: "flex", width: dims.w + 2 * mx, height: dims.h + 2 * my, padding: `${my}px ${mx}px`, backgroundColor: `rgb(${STAGE.join(",")})` } },
+    flyerElement(inp, dims, { display: set.display, body: set.body }, qr),
+  );
+  const res = new ImageResponse(stage, { width: dims.w + 2 * mx, height: dims.h + 2 * my, fonts: set.fonts });
+  return { img: decodePng(new Uint8Array(await res.arrayBuffer())), mx, my };
+}
+
+function pixel(img: Pixels, x: number, y: number): [number, number, number] {
+  const i = (y * img.w + x) * 4;
+  return [img.px[i], img.px[i + 1], img.px[i + 2]];
+}
+const near = (p: readonly number[], q: readonly number[]) => Math.abs(p[0] - q[0]) + Math.abs(p[1] - q[1]) + Math.abs(p[2] - q[2]) <= 12;
+
+/** How many stage pixels outside the flyer were drawn on, and where the first one is. */
+function drawnOutside(img: Pixels, mx: number, my: number, dims: FlyerDims): { count: number; first: string | null } {
+  let count = 0;
+  let first: string | null = null;
+  for (let y = 0; y < img.h; y++) {
+    for (let x = 0; x < img.w; x++) {
+      if (x >= mx && x < mx + dims.w && y >= my && y < my + dims.h) continue;
+      if (!near(pixel(img, x, y), STAGE)) {
+        count++;
+        first ??= `${x < mx ? "left of" : x >= mx + dims.w ? "right of" : y < my ? "above" : "below"} the flyer, at (${x - mx}, ${y - my})`;
+      }
+    }
+  }
+  return { count, first };
+}
+
+/** The green picture's height inside the flyer, and how many pixels inside it are not green (words drawn over it). */
+function pictureBox(img: Pixels, mx: number, my: number, dims: FlyerDims, roundedBottomLeft: number): { h: number; covered: number } {
+  let x0 = Infinity;
+  let y0 = Infinity;
+  let x1 = -1;
+  let y1 = -1;
+  for (let y = my; y < my + dims.h; y++) {
+    for (let x = mx; x < mx + dims.w; x++) {
+      if (!near(pixel(img, x, y), GREEN)) continue;
+      x0 = Math.min(x0, x);
+      y0 = Math.min(y0, y);
+      x1 = Math.max(x1, x);
+      y1 = Math.max(y1, y);
+    }
+  }
+  if (x1 < 0) return { h: 0, covered: 0 };
+  let covered = 0;
+  // The inside of the box, two pixels in from its edges (anti-aliasing), less the rounded corner.
+  for (let y = y0 + 2; y <= y1 - 2; y++) {
+    for (let x = x0 + 2; x <= x1 - 2; x++) {
+      if (roundedBottomLeft && x - x0 < roundedBottomLeft && y1 - y < roundedBottomLeft) continue;
+      if (!near(pixel(img, x, y), GREEN)) covered++;
+    }
+  }
+  return { h: y1 - y0 + 1, covered };
+}
+
+const stageCases: { template: FlyerTemplate; source: "photo" | "pattern" }[] = [
+  { template: "classic", source: "photo" },
+  { template: "festival", source: "pattern" },
+  { template: "minimal", source: "photo" },
+  { template: "minimal", source: "pattern" },
+  { template: "photo", source: "photo" },
+];
+
+async function expectFits(template: FlyerTemplate, source: "photo" | "pattern", size: FlyerSize, words: Words, scale: "preview" | "full" = "preview") {
+  const dims = flyerDims(size, scale);
+  const box = backgroundBox(template, dims);
+  const background = source === "photo" ? solid(GREEN, box.w, box.h) : { dataUri: svgUri(patternSvg("mandala", { w: box.w, h: box.h, ...brand })), w: box.w, h: box.h };
+  const d = design({
+    template,
+    size,
+    ...words,
+    background: source === "photo" ? { source: "photo", photo_id: "33333333-3333-4333-8333-333333333333" } : { source: "pattern", pattern: "mandala" },
+  });
+  // Classic draws the logo over its picture on purpose; every other template keeps it beside the words.
+  const { img, mx, my } = await renderOnStage(input({ design: d, background, logo: template === "classic" ? null : logo }), dims);
+  const outside = drawnOutside(img, mx, my, dims);
+  expect(outside.count, `${template} ${size}: something is drawn ${outside.first}`).toBe(0);
+  if (source === "photo" && (template === "classic" || template === "minimal")) {
+    const pic = pictureBox(img, mx, my, dims, template === "minimal" ? Math.ceil((48 * dims.w) / 1080) + 2 : 0);
+    expect(pic.h, `${template} ${size}: the picture keeps at least its smallest height`).toBeGreaterThanOrEqual(pictureMinHeight(template, dims) - 2);
+    expect(pic.covered, `${template} ${size}: words are drawn over the picture`).toBe(0);
+  }
+}
+
+describe("flyer layout: nothing is cut off, nothing is drawn over the picture", () => {
+  for (const { template, source } of stageCases) {
+    for (const size of FLYER_SIZE_KEYS) {
+      it(`${template} (${source}) at ${size} size with every field at its longest`, async () => {
+        await expectFits(template, source, size, longest());
+      }, 60_000);
+    }
+    it(`${template} (${source}) with an ALL-CAPS headline at its longest`, async () => {
+      await expectFits(template, source, "post", longest("PARYUSHAN MAHAPARVA PRATIKRAMAN AND SAMVATSARI CELEBRATION FOR THE WHOLE JAIN COMMUNITY"));
+    }, 60_000);
+    it(`${template} (${source}) at full Post size (what "Use this flyer" saves) with every field at its longest`, async () => {
+      await expectFits(template, source, "post", longest(), "full");
+    }, 60_000);
+    it(`${template} (${source}) with ordinary words`, async () => {
+      await expectFits(template, source, "post", {
+        headline: "Diwali Mela & Annakut",
+        tagline: "Celebrate the festival of lights with the whole community: an evening of aarti, garba, a children's rangoli contest and a shared vegetarian dinner.",
+        date_line: "Sat, Nov 8 · 6:00 PM–9:30 PM",
+        venue_line: "JSGH Community Hall, 3905 Arc Street, Sugar Land",
+      });
+    }, 60_000);
+  }
 });

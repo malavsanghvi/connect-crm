@@ -18,6 +18,7 @@ import {
   FLYER_TEMPLATE_LABEL,
   flyerFileName,
   flyerTextLength,
+  outOfDateWhat,
   parseFlyerDesign,
   type FlyerBackground,
   type FlyerDesign,
@@ -106,22 +107,35 @@ function TextField({
 }) {
   const used = flyerTextLength(value);
   const over = used > max;
+  // The counter is read with the field (aria-describedby), not after every keystroke; going over the limit is announced once.
+  const counterId = `${id}-count`;
+  const describedBy = hint ? `${counterId} ${id}-hint` : counterId;
   return (
     <div>
       <div className="flex items-baseline justify-between gap-2">
         <label htmlFor={id} className="crm-label">
           {label}
         </label>
-        <span className={`text-[11px] font-bold ${over ? "text-danger" : "text-muted"}`} aria-live="polite">
-          {used}/{max}
+        <span id={counterId} className={`text-[11px] font-bold ${over ? "text-danger" : "text-muted"}`}>
+          <span className="sr-only">{`${used} of ${max} characters used`}</span>
+          <span aria-hidden="true">
+            {used}/{max}
+          </span>
         </span>
       </div>
       {multiline ? (
-        <textarea id={id} rows={2} value={value} onChange={(e) => onChange(e.target.value)} className="crm-input" disabled={disabled} aria-invalid={over} />
+        <textarea id={id} rows={2} value={value} onChange={(e) => onChange(e.target.value)} className="crm-input" disabled={disabled} aria-invalid={over} aria-describedby={describedBy} />
       ) : (
-        <input id={id} value={value} onChange={(e) => onChange(e.target.value)} className="crm-input" disabled={disabled} aria-invalid={over} />
+        <input id={id} value={value} onChange={(e) => onChange(e.target.value)} className="crm-input" disabled={disabled} aria-invalid={over} aria-describedby={describedBy} />
       )}
-      {hint ? <p className="crm-hint">{hint}</p> : null}
+      {hint ? (
+        <p id={`${id}-hint`} className="crm-hint">
+          {hint}
+        </p>
+      ) : null}
+      <span role="status" className="sr-only">
+        {over ? `The ${label.toLowerCase()} is longer than ${max} characters.` : ""}
+      </span>
     </div>
   );
 }
@@ -147,6 +161,8 @@ export function FlyerPanel({
   memberAppLink,
   isGuestVisible,
   defaultTagline,
+  eventLines,
+  outOfDate,
   artPromptSeed,
   artPreview,
 }: {
@@ -162,6 +178,10 @@ export function FlyerPanel({
   memberAppLink: string | null;
   isGuestVisible: boolean;
   defaultTagline: string;
+  /** The event's own date and venue lines now (what "Use the event's date / venue" puts back). */
+  eventLines: { date_line: string; venue_line: string };
+  /** The event's date or venue changed after the saved flyer was made (flyerOutOfDate). */
+  outOfDate: { date: boolean; venue: boolean };
   artPromptSeed: string;
   artPreview: { url: string | null; error: string | null };
 }) {
@@ -287,6 +307,7 @@ export function FlyerPanel({
   const designOk = check.ok;
   const label = flyerSource ? FLYER_SOURCE_LABEL[flyerSource] : null;
   const busy = saving || downloading !== null;
+  const stale = hasFlyer && flyerSource === "designed" ? outOfDateWhat(outOfDate) : null;
 
   return (
     <div id="flyer" className="col-span-12 scroll-mt-24">
@@ -372,6 +393,14 @@ export function FlyerPanel({
               <h3 id="flyer-words" className="text-[13px] font-bold sm:col-span-2">
                 Words
               </h3>
+              {stale ? (
+                <div className="sm:col-span-2">
+                  <Alert tone="warning" title={`The event's ${stale} changed after this flyer was made`}>
+                    The saved flyer still shows the old {stale}. Update the {outOfDate.date && outOfDate.venue ? "date and venue lines" : `${stale} line`} below, then
+                    choose Use this flyer.
+                  </Alert>
+                </div>
+              ) : null}
               <div className="sm:col-span-2">
                 <TextField id="flyer-headline" label="Headline" value={design.headline} max={FLYER_LIMITS.headline} onChange={(v) => patch({ headline: v })} disabled={busy} />
               </div>
@@ -392,8 +421,22 @@ export function FlyerPanel({
                   </button>
                 ) : null}
               </div>
-              <TextField id="flyer-date" label="Date line" value={design.date_line} max={FLYER_LIMITS.date_line} onChange={(v) => patch({ date_line: v })} disabled={busy} />
-              <TextField id="flyer-venue" label="Venue line" value={design.venue_line} max={FLYER_LIMITS.venue_line} onChange={(v) => patch({ venue_line: v })} disabled={busy} />
+              <div>
+                <TextField id="flyer-date" label="Date line" value={design.date_line} max={FLYER_LIMITS.date_line} onChange={(v) => patch({ date_line: v })} disabled={busy} />
+                {eventLines.date_line && design.date_line !== eventLines.date_line ? (
+                  <button type="button" className={`${buttonClass("ghost", "xs")} mt-1`} onClick={() => patch({ date_line: eventLines.date_line })} disabled={busy}>
+                    Use the event&apos;s date
+                  </button>
+                ) : null}
+              </div>
+              <div>
+                <TextField id="flyer-venue" label="Venue line" value={design.venue_line} max={FLYER_LIMITS.venue_line} onChange={(v) => patch({ venue_line: v })} disabled={busy} />
+                {eventLines.venue_line && design.venue_line !== eventLines.venue_line ? (
+                  <button type="button" className={`${buttonClass("ghost", "xs")} mt-1`} onClick={() => patch({ venue_line: eventLines.venue_line })} disabled={busy}>
+                    Use the event&apos;s venue
+                  </button>
+                ) : null}
+              </div>
             </section>
 
             <section aria-labelledby="flyer-qr">

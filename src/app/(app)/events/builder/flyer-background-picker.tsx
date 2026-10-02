@@ -246,13 +246,16 @@ export function FlyerBackgroundPicker({
                 <div className="mt-2 grid max-h-[280px] grid-cols-4 gap-2 overflow-y-auto sm:grid-cols-5" role="radiogroup" aria-label="Photo">
                   {photos.photos.map((p, i) => {
                     const on = value.source === "photo" && value.photo_id === p.id;
+                    const albumTitle = photos.albums.find((a) => a.id === photos.albumId)?.title ?? "Album";
+                    // A name a screen reader can tell apart: the caption when there is one, else the album and position.
+                    const name = `${p.caption ? `${p.caption} — ` : ""}${albumTitle}, photo ${i + 1} of ${photos.photos.length}${p.problem ? ` (${p.problem})` : ""}`;
                     return (
                       <button
                         key={p.id}
                         type="button"
                         role="radio"
                         aria-checked={on}
-                        aria-label={`Photo ${i + 1}`}
+                        aria-label={name}
                         title={p.problem ?? undefined}
                         disabled={disabled || !p.thumbUrl}
                         onClick={() => {

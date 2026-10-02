@@ -24,7 +24,15 @@ import { isGoogleImageBase } from "@/lib/google-photos";
 import type { AppSupabase } from "@/lib/supabase/server";
 
 import { isFlyerArtPath, memberAppEventLink, type FlyerBackground, type FlyerDesign, type FlyerSize, type FlyerTemplate } from "./flyer";
-import { readFlyerBrand, type FlyerBrand } from "./flyer-brand";
+import {
+  LOGO_DARK_NOTE,
+  LOGO_DARK_WEBP_NOTE,
+  LOGO_NOTE,
+  LOGO_WEBP_MARK_NOTE,
+  logoTypeNote,
+  readFlyerBrand,
+  type FlyerBrand,
+} from "./flyer-brand";
 import { patternSvg } from "./flyer-patterns";
 import { backgroundBox, flyerDims, patternColorsFor, renderFlyerPng, type FlyerDims, type FlyerImage } from "./flyer-render";
 
@@ -253,24 +261,35 @@ export async function loadBackground(
 }
 
 // ── Logo ─────────────────────────────────────────────────────────────────────
-export const LOGO_NOTE = "Your logo couldn't be loaded, so the flyer has no logo — check Setup › Profile & brand.";
+type LoadedLogo = { image: FlyerImage | null; note: string | null; webp: boolean };
 
-/** The brand logo as a data URI (SVG, PNG or JPEG), or null with a note. No logo configured is not a problem. */
-export async function loadLogo(url: string | null): Promise<{ image: FlyerImage | null; note: string | null }> {
-  if (!url) return { image: null, note: null };
+/** The brand logo as a data URI (SVG, PNG or JPEG), or null with a note (a WebP file says so). No logo configured is not a problem. */
+export async function loadLogo(url: string | null): Promise<LoadedLogo> {
+  if (!url) return { image: null, note: null, webp: false };
   if (!isFetchableLogoUrl(url)) {
     console.error(`[events/flyer] the logo address is not one the flyer maker fetches: ${url}`);
-    return { image: null, note: LOGO_NOTE };
+    return { image: null, note: LOGO_NOTE, webp: false };
   }
   try {
     const bytes = await cachedFetch(url, { maxBytes: 5 * 1024 * 1024, timeoutMs: 5000, accept: "image/svg+xml,image/png,image/jpeg", allow: isFetchableLogoUrl });
     const kind = sniffImage(bytes);
-    if (kind !== "image/svg+xml" && kind !== "image/png" && kind !== "image/jpeg") throw new Error(`the logo is ${kind ?? "not a picture"}`);
-    return { image: { dataUri: dataUri(bytes, kind), ...imageSize(bytes, kind) }, note: null };
+    if (kind !== "image/svg+xml" && kind !== "image/png" && kind !== "image/jpeg") {
+      console.error(`[events/flyer] the logo ${url} is ${kind ?? "not a picture"}, which the flyer maker can't draw`);
+      return { image: null, note: logoTypeNote(kind) ?? LOGO_NOTE, webp: kind === "image/webp" };
+    }
+    return { image: { dataUri: dataUri(bytes, kind), ...imageSize(bytes, kind) }, note: null, webp: false };
   } catch (err) {
     console.error(`[events/flyer] could not load the logo ${url}:`, err);
-    return { image: null, note: LOGO_NOTE };
+    return { image: null, note: LOGO_NOTE, webp: false };
   }
+}
+
+/** The logo for light backgrounds; a WebP logo falls back to the square mark when that is a file the renderer can draw. */
+async function loadMainLogo(brand: FlyerBrand): Promise<LoadedLogo> {
+  const logo = await loadLogo(brand.logoUrl);
+  if (!logo.webp || !brand.markUrl || brand.markUrl === brand.logoUrl) return logo;
+  const mark = await loadLogo(brand.markUrl);
+  return mark.image ? { image: mark.image, note: LOGO_WEBP_MARK_NOTE, webp: false } : logo;
 }
 
 // ── The whole flyer ──────────────────────────────────────────────────────────
@@ -293,12 +312,12 @@ export async function composeFlyer(a: ComposeArgs): Promise<{ png: Uint8Array; n
   const wantsDarkLogo = a.design.template === "festival" && Boolean(brand.logoDarkUrl);
   const [bg, logo, logoDark] = await Promise.all([
     loadBackground(a.db, a.centerId, a.eventId, a.design.background, { box, template: a.design.template, size: a.design.size, brand, contentModuleOn: a.contentModuleOn }),
-    loadLogo(brand.logoUrl),
-    wantsDarkLogo ? loadLogo(brand.logoDarkUrl) : Promise.resolve({ image: null, note: null }),
+    loadMainLogo(brand),
+    wantsDarkLogo ? loadLogo(brand.logoDarkUrl) : Promise.resolve<LoadedLogo>({ image: null, note: null, webp: false }),
   ]);
   const notes = [...bg.notes];
   if (logo.note) notes.push(logo.note);
-  if (wantsDarkLogo && logoDark.note) notes.push("Your logo for dark backgrounds couldn't be loaded, so the regular logo was used.");
+  if (wantsDarkLogo && logoDark.note) notes.push(logoDark.webp ? LOGO_DARK_WEBP_NOTE : LOGO_DARK_NOTE);
   const r = await renderFlyerPng(
     {
       design: a.design,

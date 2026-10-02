@@ -223,20 +223,62 @@ export function defaultFlyerDesign(e: {
   };
 }
 
+// ── What the saved flyer was made for ────────────────────────────────────────
+// The date and venue lines on a saved flyer are frozen text. When the flyer is
+// saved, the portal also stores the event's own start, end and venue beside
+// the design (events.flyer_design.made_for), so a later change to the event
+// can be flagged: the flyer maker and the event's Details tab then say the
+// flyer still shows the old date or venue.
+
+export type FlyerMadeFor = { starts_at: string | null; ends_at: string | null; venue: string };
+
+type EventWhenWhere = { starts_at: string | null; ends_at: string | null; venue: string | null };
+
+/** The event's start, end and venue as they are now (what a flyer saved now is made for). */
+export function flyerMadeFor(e: EventWhenWhere): FlyerMadeFor {
+  const ts = (v: string | null) => (v && !Number.isNaN(Date.parse(v)) ? v : null);
+  return { starts_at: ts(e.starts_at), ends_at: ts(e.ends_at), venue: (e.venue ?? "").replace(/\s+/g, " ").trim() };
+}
+
+/** flyer_design.made_for, read defensively; null when the design has none. */
+export function readFlyerMadeFor(rawDesign: unknown): FlyerMadeFor | null {
+  const o = rawDesign && typeof rawDesign === "object" && !Array.isArray(rawDesign) ? (rawDesign as Record<string, unknown>).made_for : null;
+  if (!o || typeof o !== "object" || Array.isArray(o)) return null;
+  const m = o as Record<string, unknown>;
+  const str = (v: unknown) => (typeof v === "string" ? v : null);
+  return flyerMadeFor({ starts_at: str(m.starts_at), ends_at: str(m.ends_at), venue: str(m.venue) });
+}
+
+/** Which of the event's date and venue changed after its designed flyer was saved (both false when there is no record). */
+export function flyerOutOfDate(rawDesign: unknown, e: EventWhenWhere): { date: boolean; venue: boolean } {
+  const made = readFlyerMadeFor(rawDesign);
+  if (!made) return { date: false, venue: false };
+  const now = flyerMadeFor(e);
+  const same = (a: string | null, b: string | null) => (a === null || b === null ? a === b : Date.parse(a) === Date.parse(b));
+  return { date: !same(made.starts_at, now.starts_at) || !same(made.ends_at, now.ends_at), venue: made.venue !== now.venue };
+}
+
+/** "date", "venue" or "date and venue" — what changed, for a sentence. */
+export function outOfDateWhat(o: { date: boolean; venue: boolean }): string | null {
+  return o.date && o.venue ? "date and venue" : o.date ? "date" : o.venue ? "venue" : null;
+}
+
 // ── AI background art ────────────────────────────────────────────────────────
 // ── Identical copy of worker/src/flyer-guard.ts (kept equal by a test) ──────
 
-/** Whole words, matched case-insensitively. */
+/** Whole words, matched case-insensitively, each also with a plural ending (-s or -es). */
 export const FLYER_ART_BLOCKED_TERMS: readonly string[] = [
   // People
   "people", "person", "persons", "man", "men", "woman", "women", "child", "children", "kid", "kids",
-  "boy", "boys", "girl", "girls", "baby", "family", "families", "face", "faces", "portrait", "crowd",
-  "human", "humans", "monk", "monks", "nun", "sadhu", "sadhvi", "maharaj", "maharajsaheb",
+  "boy", "boys", "girl", "girls", "baby", "babies", "family", "families", "face", "faces", "portrait", "crowd",
+  "human", "humans", "monk", "monks", "nun", "sadhu", "sadhvi", "maharaj", "maharajsaheb", "muni", "acharya",
+  "guru", "saint", "devotee", "dancer", "lady", "ladies", "figurine",
   // Deities and idols
   "god", "gods", "goddess", "deity", "deities", "idol", "idols", "murti", "murtis", "statue", "statues",
   "bhagwan", "bhagavan", "prabhu", "tirthankar", "tirthankara", "jina", "mahavir", "mahavira",
-  "parshvanath", "parasnath", "adinath", "rishabhdev", "neminath", "shantinath", "buddha", "krishna",
-  "shiva", "ganesh", "ganesha", "lakshmi", "saraswati", "jesus",
+  "parshvanath", "parasnath", "adinath", "rishabhdev", "neminath", "shantinath", "padmavati", "buddha", "krishna",
+  "shiva", "ganesh", "ganesha", "lakshmi", "saraswati", "durga", "amba", "ambe", "ambaji", "mataji", "devi",
+  "hanuman", "vishnu", "jesus",
   // Lettering
   "text", "letter", "letters", "lettering", "word", "words", "typography", "caption", "logo", "writing",
   "calligraphy", "font", "quote",
@@ -248,7 +290,7 @@ export const FLYER_ART_GUARDRAIL =
   "No people, no human figures, no faces, no hands. No deities, no gods, no idols, no murtis, no religious figures or statues. " +
   "Soft, elegant, festive ornamental patterns and light, with calm open space for text to be added later.";
 
-const BLOCKED = new RegExp(`\\b(?:${FLYER_ART_BLOCKED_TERMS.join("|")})\\b`, "i");
+const BLOCKED = new RegExp(`\\b(?:${FLYER_ART_BLOCKED_TERMS.join("|")})(?:e?s)?\\b`, "i");
 
 /** The prompt without any copy of the guardrail (the guardrail itself names the blocked words). */
 export function stripArtGuardrail(text: string): string {
@@ -392,15 +434,23 @@ export function memberAppEventLink(base: string | null | undefined, eventId: str
   return `${b}/e/${eventId}`;
 }
 
+/** How many ordinary letters' room a text takes: a capital counts as 1.3 (an ALL-CAPS headline is about a third wider). */
+export function flyerTextRoom(s: string): number {
+  let room = 0;
+  for (const ch of s) room += ch !== ch.toLowerCase() ? 1.3 : 1;
+  return room;
+}
+
 /**
  * A font size (in the flyer's units) that keeps longer text inside its box:
- * `base` up to `comfortableChars` characters, then scaled down by the square
- * root of the overflow (text wraps onto more lines, so area is what grows),
- * never below 55% of `base`. A length heuristic, not a measurement.
+ * `base` up to `comfortableChars` characters' room (flyerTextRoom), then
+ * scaled down by the square root of the overflow (text wraps onto more lines,
+ * so area is what grows), never below `floor` (55%) of `base`. A length
+ * heuristic, not a measurement.
  */
-export function fitFontSize(text: string, comfortableChars: number, base: number): number {
-  const len = flyerTextLength(text.trim());
+export function fitFontSize(text: string, comfortableChars: number, base: number, floor = 0.55): number {
+  const len = flyerTextRoom(text.trim());
   if (len <= comfortableChars || comfortableChars <= 0) return base;
   const size = base * Math.sqrt(comfortableChars / len);
-  return Math.round(Math.max(base * 0.55, size) * 10) / 10;
+  return Math.round(Math.max(base * floor, size) * 10) / 10;
 }

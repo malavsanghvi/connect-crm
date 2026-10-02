@@ -26,6 +26,8 @@
 --       of orphaned flyer and art files (runs only where the worker holds
 --       WORKER_SUPABASE_SECRET_KEY, docs/DEPLOY.md).
 --   A9  events_public_read gains `not confidential` (owner sign-off needed).
+--   A10 app.audit_mask: a job's result.image_b64 (the AI art bytes) is masked,
+--       so the append-only audit log never keeps a copy of the image.
 --
 -- 0172 and 0535 are applied migrations and are never edited: every function
 -- and policy below is redefined in full.
@@ -41,7 +43,8 @@ comment on column app.events.flyer_design is
   '{v: 1, template: classic|festival|minimal|photo, size: post|story|print, headline (1-90 chars), '
   'tagline (0-180), date_line (0-90), venue_line (0-120), show_qr: boolean, background: '
   '{source: pattern, pattern: lotus|rangoli|diya|mandala} | {source: photo, photo_id: uuid} | '
-  '{source: ai, path: <center>/events/<event>/art-<ms>.jpg|png, prompt: text} | {source: plain}}. '
+  '{source: ai, path: <center>/events/<event>/art-<ms>.jpg|png, prompt: text} | {source: plain}, '
+  'made_for: {starts_at, ends_at, venue} (the event''s own values when the flyer was saved, so a later change is flagged)}. '
   'Written only by the portal (connect-crm). NULL for an uploaded or older AI flyer.';
 
 -- 0535 declared the flyer_source check inline (manual, ai), so its name is
@@ -339,3 +342,39 @@ grant execute on function app.storage_expired_objects(int), app.record_storage_d
 drop policy if exists events_public_read on app.events;
 create policy events_public_read on app.events for select to anon
   using (audience in ('public', 'members_and_guests') and status in ('published', 'rsvp_closed', 'live') and not confidential);
+
+-- ── A10. The AI art bytes never reach the audit log ─────────────────────────
+-- app.jobs is audited row by row (0171), and app.audit_log is append-only and
+-- hash-chained, so a finished events.generate_flyer job used to keep its
+-- base64 image (a few hundred KB) in the entry's after-image for ever, and the
+-- strip in A6/A7 added a second copy in the before-image. Masking
+-- result.image_b64 keeps both out; the rest of the result (content type,
+-- model, prompt, stored_path) stays in the log.
+-- Starts from 0573's definition (see the note there) and adds result.image_b64.
+-- Anyone who changes app.audit_mask again must start from THIS definition
+-- (0578), including the Niva migrations numbered 0574–0577 that may be merged
+-- after it.
+--   0102   date_of_birth and the secrets / tokens
+--   0546   the emergency contact's name and number, both dietary fields
+--   0545   staged_rows (the uploaded rows, personal data) and merge_answers (they grow with the file)
+--   0573   niva_tsv (derived search vector, dropped rather than masked)
+--   0578   result.image_b64 (AI flyer art bytes in app.jobs.result)
+create or replace function app.audit_mask(j jsonb) returns jsonb
+language sql immutable as $$
+  select case when j is null then null else
+    j - 'date_of_birth' - 'provider_ref' - 'fee_authorization_ref' - 'secret_ref' - 'niva_tsv'
+      || case when j ? 'date_of_birth' then jsonb_build_object('date_of_birth', '***') else '{}'::jsonb end
+      || case when j->>'ticket_token' is not null then jsonb_build_object('ticket_token', '***') else '{}'::jsonb end
+      || case when j->>'attendance_token' is not null then jsonb_build_object('attendance_token', '***') else '{}'::jsonb end
+      || case when j->>'token' is not null then jsonb_build_object('token', '***') else '{}'::jsonb end
+      || case when j->>'emergency_contact_name' is not null then jsonb_build_object('emergency_contact_name', '***') else '{}'::jsonb end
+      || case when j->>'emergency_contact_phone' is not null then jsonb_build_object('emergency_contact_phone', '***') else '{}'::jsonb end
+      || case when j->>'dietary_other' is not null then jsonb_build_object('dietary_other', '***') else '{}'::jsonb end
+      || case when j->'dietary' is not null and j->'dietary' <> '[]'::jsonb and j->'dietary' <> 'null'::jsonb
+              then jsonb_build_object('dietary', '***') else '{}'::jsonb end
+      || case when j ? 'staged_rows' then jsonb_build_object('staged_rows', '***') else '{}'::jsonb end
+      || case when j ? 'merge_answers' then jsonb_build_object('merge_answers', '***') else '{}'::jsonb end
+      || case when jsonb_typeof(j->'result') = 'object' and (j->'result') ? 'image_b64'
+              then jsonb_build_object('result', (j->'result') || jsonb_build_object('image_b64', '***')) else '{}'::jsonb end
+  end
+$$;
