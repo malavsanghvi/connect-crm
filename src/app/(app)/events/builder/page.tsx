@@ -5,9 +5,10 @@ import { LoadProblem } from "@/components/events/load-problem";
 import { Alert, Card, NoAccess, PageHeader, buttonClass } from "@/components/ui";
 import { load, loadEventAccess, resolvePeopleNames, row, rows } from "@/lib/data/events";
 import { eventAreas } from "@/lib/events/access";
-import { readFlyerSource } from "@/lib/events/flyer";
-import { centsToDollarsInput, formatDateTime, formatEventDate, toDateTimeLocal } from "@/lib/events/format";
-import { audienceLabel, commitmentEnabled, readCommitment } from "@/lib/events/report";
+import { buildFlyerArtPrompt, defaultFlyerDesign, memberAppEventLink, parseFlyerDesign, readFlyerSource } from "@/lib/events/flyer";
+import { readFlyerBrand } from "@/lib/events/flyer-brand";
+import { centsToDollarsInput, formatEventDate, toDateTimeLocal } from "@/lib/events/format";
+import { commitmentEnabled, readCommitment } from "@/lib/events/report";
 import { defaultConfirmationHours, defaultSlotMinutes, lunchRulesFromCenter } from "@/lib/events/rules";
 import { eventStatusLabel } from "@/lib/events/status";
 import { canAccess } from "@/lib/permissions";
@@ -17,7 +18,7 @@ import { getSession } from "@/lib/session";
 import { ActionForm } from "@/components/action-form";
 
 import { createEventFromTemplate, saveEvent } from "../actions";
-import { EventBuilder, type BuilderEvent } from "./event-builder";
+import { EventBuilder, type BuilderEvent, type FlyerSetup } from "./event-builder";
 import { flyerPreviewUrlAction } from "./flyer-actions";
 
 export const metadata: Metadata = { title: "Event builder" };
@@ -87,7 +88,6 @@ export default async function EventBuilderPage({ searchParams }: { searchParams:
       description: e.description ?? "",
       flyer_path: e.flyer_path ?? "",
       flyer_source: readFlyerSource(e.flyer_source),
-      flyer_prompt: e.flyer_prompt ?? null,
       venue: e.venue ?? "",
       starts_at: toDateTimeLocal(e.starts_at, tz),
       ends_at: toDateTimeLocal(e.ends_at, tz),
@@ -110,9 +110,6 @@ export default async function EventBuilderPage({ searchParams }: { searchParams:
       guest_price: centsToDollarsInput(e.guest_price_cents),
       confidential: e.confidential,
       owner: e.owner_person_id ? { id: e.owner_person_id, name: found.ownerName ?? "Event lead", detail: null } : null,
-      center_name: session.center.name,
-      starts_at_text: e.starts_at ? formatDateTime(e.starts_at, tz) : null,
-      audience_text: audienceLabel(e.audience),
     };
     subtitle = [e.name, e.starts_at ? formatEventDate(e.starts_at, tz) : "No date yet", eventStatusLabel(e.status).label.toLowerCase()].join(" · ");
   } else {
@@ -124,7 +121,6 @@ export default async function EventBuilderPage({ searchParams }: { searchParams:
       description: "",
       flyer_path: "",
       flyer_source: null,
-      flyer_prompt: null,
       venue: "",
       starts_at: "",
       ends_at: "",
@@ -147,9 +143,6 @@ export default async function EventBuilderPage({ searchParams }: { searchParams:
       guest_price: "",
       confidential: false,
       owner: null,
-      center_name: session.center.name,
-      starts_at_text: null,
-      audience_text: audienceLabel("members_and_guests"),
     };
     subtitle = "New event · draft";
   }
@@ -163,6 +156,46 @@ export default async function EventBuilderPage({ searchParams }: { searchParams:
         return res.ok ? { url: res.data!.url, error: null } : { url: null, error: res.error };
       })()
     : { url: null, error: null };
+
+  // The flyer maker starts from the saved design, or from the event's own words and the brand kit.
+  const flyer: FlyerSetup | null = found
+    ? await (async () => {
+        const e = found.e;
+        const brand = readFlyerBrand(session.center.branding, process.env.NEXT_PUBLIC_SUPABASE_URL);
+        const memberAppLink = memberAppEventLink(process.env.NEXT_PUBLIC_MEMBER_APP_URL, e.id);
+        const defaults = defaultFlyerDesign({
+          name: e.name,
+          description: e.description,
+          venue: e.venue,
+          startsAt: e.starts_at,
+          endsAt: e.ends_at,
+          tz,
+          qrAvailable: memberAppLink !== null,
+        });
+        const savedDesign = parseFlyerDesign(e.flyer_design);
+        const design = savedDesign.ok ? savedDesign.design : defaults;
+        let artPreview: FlyerSetup["artPreview"] = { url: null, error: null };
+        if (design.background.source === "ai") {
+          const signed = await session.db.storage.from("content").createSignedUrl(design.background.path, 600);
+          if (signed.error || !signed.data?.signedUrl) {
+            console.error(`[events/flyer] could not sign the design's AI art content/${design.background.path}:`, signed.error);
+            artPreview = {
+              url: null,
+              error: `The saved AI art could not be shown — ${signed.error?.message || "storage refused the request"}. Generate it again, or choose another background.`,
+            };
+          } else artPreview = { url: signed.data.signedUrl, error: null };
+        }
+        return {
+          design,
+          brand,
+          memberAppLink,
+          isGuestVisible: (e.audience === "public" || e.audience === "members_and_guests") && !e.confidential,
+          defaultTagline: defaults.tagline,
+          artPromptSeed: buildFlyerArtPrompt({ eventName: e.name, primary: brand.primary, accent: brand.accent }),
+          artPreview,
+        };
+      })()
+    : null;
 
   return (
     <>
@@ -253,6 +286,7 @@ export default async function EventBuilderPage({ searchParams }: { searchParams:
         editable={editable}
         canPublish={editable && canPublish}
         flyerPreview={flyerPreview}
+        flyer={flyer}
       />
     </>
   );
