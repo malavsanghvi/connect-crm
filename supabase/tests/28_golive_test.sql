@@ -122,6 +122,16 @@ set local role authenticated;
 select pg_temp.assert(app.approve_niva_content(:jsh, 'Sources read end to end')->>'state' = 'current', 'an administrator approves Niva''s sources');
 commit;
 select pg_temp.assert((pg_temp.check('niva_evaluated', :jsh)->>'ok')::boolean, 'check 12 passes after the approval');
+-- 0572: a web import adds DRAFT sections. Niva cannot answer from a draft, so the approval stays current.
+insert into app.content_items (id, center_id, kind, slug, title, body_md, status, metadata)
+values ('28000000-0000-4000-8000-00000000c002', :jsh, 'niva_source', 'web-28-draft-01', 'Imported page: a section', 'An imported draft.', 'draft',
+        '{"imported": true, "source_url": "https://example.org/page"}');
+select pg_temp.assert((pg_temp.check('niva_evaluated', :jsh)->>'ok')::boolean
+                      and app.golive_approval_state(:jsh, 'niva_content')->>'state' = 'current',
+  'importing a draft source leaves check 12 current');
+update app.content_items set body_md = 'A refreshed import.' where id = '28000000-0000-4000-8000-00000000c002';
+select pg_temp.assert(app.golive_approval_state(:jsh, 'niva_content')->>'state' = 'current', 'refreshing a draft import leaves check 12 current');
+delete from app.content_items where id = '28000000-0000-4000-8000-00000000c002';
 update app.content_items set body_md = 'Changed text.', version = version + 1, updated_at = now() where id = '28000000-0000-4000-8000-00000000c001';
 select pg_temp.assert(not (pg_temp.check('niva_evaluated', :jsh)->>'ok')::boolean, 'editing a source afterwards makes check 12 fail again');
 update app.center_modules set enabled = false where center_id = :jsh and module_key = 'niva';

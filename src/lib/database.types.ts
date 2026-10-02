@@ -4236,6 +4236,11 @@ export type Database = {
           sources: Json;
           unanswered: boolean;
           created_at: string;
+          answer_status: string;
+          outcome_detail: string | null;
+          model: string | null;
+          answered_at: string | null;
+          attempted_at: string | null;
         };
         Insert: {
           id?: string;
@@ -4246,6 +4251,11 @@ export type Database = {
           sources?: Json;
           unanswered?: boolean;
           created_at?: string;
+          answer_status?: string;
+          outcome_detail?: string | null;
+          model?: string | null;
+          answered_at?: string | null;
+          attempted_at?: string | null;
         };
         Update: {
           id?: string;
@@ -4256,6 +4266,11 @@ export type Database = {
           sources?: Json;
           unanswered?: boolean;
           created_at?: string;
+          answer_status?: string;
+          outcome_detail?: string | null;
+          model?: string | null;
+          answered_at?: string | null;
+          attempted_at?: string | null;
         };
         Relationships: [];
       };
@@ -10387,6 +10402,12 @@ export type Database = {
         };
         Returns: string;
       };
+      niva_health: {
+        Args: {
+          p_center: string;
+        };
+        Returns: Json;
+      };
       niva_import_pages: {
         Args: {
           p_center: string;
@@ -10406,6 +10427,14 @@ export type Database = {
           p_id: string;
         };
         Returns: string;
+      };
+      niva_retry_unanswered: {
+        Args: {
+          p_center: string;
+          p_since?: string;
+          p_limit?: number;
+        };
+        Returns: number;
       };
       normalize_ein: {
         Args: {
