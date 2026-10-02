@@ -4247,6 +4247,7 @@ export type Database = {
           model: string | null;
           answered_at: string | null;
           attempted_at: string | null;
+          is_test: boolean;
         };
         Insert: {
           id?: string;
@@ -4262,6 +4263,7 @@ export type Database = {
           model?: string | null;
           answered_at?: string | null;
           attempted_at?: string | null;
+          is_test?: boolean;
         };
         Update: {
           id?: string;
@@ -4277,6 +4279,7 @@ export type Database = {
           model?: string | null;
           answered_at?: string | null;
           attempted_at?: string | null;
+          is_test?: boolean;
         };
         Relationships: [];
       };
@@ -10461,6 +10464,20 @@ export type Database = {
           p_kinds: string[];
         };
         Returns: string[];
+      };
+      niva_test_ask: {
+        Args: {
+          p_center: string;
+          p_question: string;
+          p_include_in_review?: boolean;
+        };
+        Returns: Json;
+      };
+      niva_test_result: {
+        Args: {
+          p_id: string;
+        };
+        Returns: Json;
       };
       normalize_ein: {
         Args: {
