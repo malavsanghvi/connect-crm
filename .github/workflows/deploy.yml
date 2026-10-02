@@ -199,6 +199,8 @@ jobs:
           TWILIO_ACCOUNT_SID: ${{ secrets.TWILIO_ACCOUNT_SID }}
           TWILIO_AUTH_TOKEN: ${{ secrets.TWILIO_AUTH_TOKEN }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          # Optional: the Claude model Niva uses (worker/src/anthropic.ts); unset means its default.
+          CLAUDE_MODEL: ${{ vars.CLAUDE_MODEL }}
           # o-messaging (optional)
           POSTMARK_ACCOUNT_TOKEN: ${{ secrets.POSTMARK_ACCOUNT_TOKEN }}
           EXPO_ACCESS_TOKEN: ${{ secrets.EXPO_ACCESS_TOKEN }}
@@ -227,7 +229,7 @@ jobs:
             printf 'SUPABASE_URL=%s\n' "$SUPABASE_URL"
             for v in SUPABASE_SECRET_KEY STRIPE_SECRET_KEY STRIPE_CLIENT_ID PAYPAL_CLIENT_ID PAYPAL_CLIENT_SECRET \
                      INTUIT_CLIENT_ID INTUIT_CLIENT_SECRET RESEND_API_KEY POSTMARK_SERVER_TOKEN \
-                     TWILIO_ACCOUNT_SID TWILIO_AUTH_TOKEN ANTHROPIC_API_KEY \
+                     TWILIO_ACCOUNT_SID TWILIO_AUTH_TOKEN ANTHROPIC_API_KEY CLAUDE_MODEL \
                      POSTMARK_ACCOUNT_TOKEN EXPO_ACCESS_TOKEN TWILIO_FROM_NUMBER MESSAGING_FROM_ADDRESS MESSAGING_FROM_NAME \
                      MESSAGING_LINK_SECRET PORTAL_PUBLIC_URL; do
               if [ -n "${!v}" ]; then printf '%s=%s\n' "$v" "${!v}"; fi
