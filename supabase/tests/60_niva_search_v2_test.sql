@@ -1,9 +1,10 @@
--- 0573: Niva's search v2. A hyphenated question still matches any word; the glossary, the prefix and the word as
--- written catch synonyms and spellings; the community's own name matches nothing; the page title of an imported
+-- 0573: Niva's search v2. A hyphenated question still matches any word, quoted or not; search operators narrow the
+-- search without making every word required; the glossary, the prefix and the word as written catch synonyms and
+-- spellings; the community's own name matches nothing (but still brings in its glossary words); the page title of an imported
 -- section no longer lifts every section of the page; equal scores come back in a fixed order; a long source comes
--- back with the part that matches; shared rows follow the community's tradition; sources waiting for approval
--- only when asked for; Guide sections and FAQ only when the community turned them on (and JSH has them on); the
--- worker's 3-argument call is unchanged.
+-- back with the part that matches (or its first 4000 characters when only the heading matched); shared rows follow the community's tradition; sources waiting for approval
+-- only when asked for; Guide sections and FAQ only when the community turned them on (and JSH has them on), and the
+-- setting moves rules.version on; the worker's 3-argument call is unchanged.
 \set ON_ERROR_STOP 1
 create or replace function pg_temp.assert(cond boolean, label text) returns void language plpgsql as $$
 begin
@@ -52,14 +53,16 @@ $$;
 \set c '''60000000-0000-4000-8000-0000000000c1'''
 \set c2 '''60000000-0000-4000-8000-0000000000c2'''
 \set c3 '''60000000-0000-4000-8000-0000000000c3'''
+\set c4 '''60000000-0000-4000-8000-0000000000c4'''
 \set jsh '''00000000-0000-4000-8000-000000000001'''
 \set admin '''60000000-0000-4000-8000-000000000001'''
 \set member '''60000000-0000-4000-8000-000000000002'''
 insert into auth.users (id, email) values (:admin, 'admin60@example.com'), (:member, 'member60@example.com');
 insert into app.centers (id, slug, name, short_name, state_region, status, rules) values
-  (:c, 'orbit60', 'Sixty Search Sangh', 'SSS', 'TX', 'active', '{"lunch":{"slot_minutes":15}}'),
+  (:c, 'orbit60', 'Sixty Search Sangh', 'SSS', 'TX', 'active', '{"lunch":{"slot_minutes":15},"version":4}'),
   (:c2, 'orbit60b', 'Other Sixty Sangh', 'OSS', 'TX', 'active', '{}'),
-  (:c3, 'orbit60c', 'Long Text Sangh', 'LTS', 'TX', 'active', '{}');
+  (:c3, 'orbit60c', 'Long Text Sangh', 'LTS', 'TX', 'active', '{}'),
+  (:c4, 'orbit60d', 'Sixty Jain Temple', 'SJT', 'TX', 'active', '{}');
 insert into app.role_grants (center_id, user_id, role_key) values (:c, :admin, 'center_admin');
 insert into app.people (id, center_id, first_name, last_name) values ('60000000-0000-4000-8000-0000000000a9', :c, 'Mira', 'Shah');
 insert into app.center_users (center_id, user_id, person_id) values (:c, :member, '60000000-0000-4000-8000-0000000000a9');
@@ -129,6 +132,13 @@ insert into app.content_items (id, center_id, tradition, kind, slug, title, body
   ('60000000-0000-4000-8000-000000000e03', null, 'shvetambar_murtipujak', 'niva_source', 'ekasana-60-shvetambar', 'Ekasana (Shvetambar)',
    'Ekasana as the Shvetambar tradition keeps it.', 'published');
 
+-- A community named for its temple: its name words match nothing, but "temple" still brings in "derasar".
+insert into app.content_items (id, center_id, kind, slug, title, body_md, status) values
+  ('60000000-0000-4000-8000-000000000c41', :c4, 'niva_source', 'etiquette', 'Derasar etiquette',
+   'Please remove leather items before entering the derasar.', 'published'),
+  ('60000000-0000-4000-8000-000000000c42', :c4, 'niva_source', 'welcome', 'Welcome',
+   'Sixty Jain Temple welcomes every family.', 'published');
+
 -- A long source whose answer sits past character 4000, and ten sources that together are far over the budget.
 insert into app.content_items (id, center_id, kind, slug, title, body_md, status) values
   ('60000000-0000-4000-8000-000000000101', :c3, 'niva_source', 'long', 'Hall and kitchen',
@@ -139,6 +149,16 @@ insert into app.content_items (id, center_id, kind, slug, title, body_md, status
 select ('60000000-0000-4000-8000-0000000002' || lpad(n::text, 2, '0'))::uuid, :c3, 'niva_source', 'swadhyay-' || n, 'Swadhyay notes ' || n,
        'Swadhyay meets on Wednesdays. ' || left(repeat('Members gather in the hall for the evening programme. ', 80), 3870), 'published'
   from generate_series(1, 10) n;
+-- Two more long sources. One is matched only by its heading (its text says "sign up", not "register"), the other
+-- only in its first 1500 characters; both come back as their first 4000 characters, not 1500 plus a repeat.
+insert into app.content_items (id, center_id, kind, slug, title, body_md, status, metadata) values
+  ('60000000-0000-4000-8000-000000000301', :c3, 'niva_source', 'web-pathshala-registration', 'Pathshala FAQs: Registration',
+   left(left(repeat('Members gather in the hall for the evening programme. ', 60), 3000)
+        || 'Families sign up at the Pathshala desk on the first Sunday. ' || repeat('Members gather in the hall for the evening programme. ', 60), 6000),
+   'published', '{"imported":true,"page_title":"Pathshala FAQs","source_url":"https://example.org/pathshala"}'),
+  ('60000000-0000-4000-8000-000000000302', :c3, 'niva_source', 'helpers', 'Helpers',
+   left('Volunteers check in at the side door. ' || repeat('Members gather in the hall for the evening programme. ', 120), 6000),
+   'published', '{}');
 
 -- ── Why 0541 missed the hyphenated question ─────────────────────────────────
 select pg_temp.assert(position('<->' in websearch_to_tsquery('english', 'Can non-members attend pathshala?')::text) > 0,
@@ -168,6 +188,30 @@ select pg_temp.assert(pg_temp.search(:c, 'SSS') = '[]', 'the short name alone ma
 select pg_temp.assert(pg_temp.search(:c, 'what is the') = '[]', 'filler words alone match nothing');
 select pg_temp.assert(pg_temp.search(:c, '-kitchen') = '[]', 'an exclusion alone matches nothing');
 select pg_temp.assert(pg_temp.search(:c, '"tax deductible"') @> '[{"id":"60000000-0000-4000-8000-000000000a02"}]', 'a quoted phrase still works');
+
+-- ── Quotes and dashes narrow the search; they do not make every word required ──
+select pg_temp.assert(pg_temp.search(:c, 'Can "non-members" attend pathshala?') @> '[{"id":"60000000-0000-4000-8000-000000000a01"}]',
+  'with "non-members" in quotes the question still finds the Pathshala source (one quoted word is just the word)');
+select pg_temp.assert(pg_temp.search(:c, 'When is the "temple" open?') @> '[{"title":"Derasar timings"}]',
+  'a quoted word still brings in its glossary group');
+select pg_temp.assert(pg_temp.search(:c, 'When is "derasar open?') @> '[{"title":"Derasar timings"}]', 'a quote without its pair is ignored');
+select pg_temp.assert(pg_temp.search(:c, 'Is a "tax deductible" receipt emailed quickly?') @> '[{"id":"60000000-0000-4000-8000-000000000a02"}]',
+  'a quoted phrase with other words: the phrase must appear, the other words need not all be there');
+select pg_temp.assert(not (pg_temp.search(:c, '"tax deductible" pathshala') @> '[{"id":"60000000-0000-4000-8000-000000000a01"}]'),
+  'a source without the quoted phrase is not offered');
+select pg_temp.assert(pg_temp.search(:c, 'Is the derasar open Mon -Fri?') @> '[{"title":"Derasar timings"}]',
+  'an excluded word does not make the rest of the question required');
+select pg_temp.assert(not (pg_temp.search(:c, 'derasar timings -aarti') @> '[{"title":"Derasar timings"}]'),
+  'an excluded word still removes the sources that have it');
+select pg_temp.assert(position('!' in app.niva_search_tsquery(:c, 'Is the office open 9am -5pm?')::text) = 0
+                      and position('!' in app.niva_search_tsquery(:c, 'Is the hall free - or booked?')::text) = 0,
+  'a dash before a number, or on its own, excludes nothing');
+
+-- ── A community named for its temple ─────────────────────────────────────────
+select pg_temp.assert(pg_temp.ids(pg_temp.search(:c4, 'Where is the temple?'), '60000000-%') = array['60000000-0000-4000-8000-000000000c41'],
+  'at "Sixty Jain Temple", "Where is the temple?" finds the Derasar source and not the one that only names the community');
+select pg_temp.assert(not (pg_temp.search(:c4, 'Sixty Jain Temple') @> '[{"id":"60000000-0000-4000-8000-000000000c42"}]'),
+  'its name alone does not bring back a source just for naming the community');
 
 -- ── Ranking: page title, ties ────────────────────────────────────────────────
 select (pg_temp.search(:c, 'New campus FAQs: is there valet parking?', null, 20)) as campus \gset
@@ -204,6 +248,15 @@ select pg_temp.assert(:'long_body' like '%The kitchen closes at 9 PM on Fridays%
 select pg_temp.assert(char_length(:'long_body') < 6000 and :'long_body' like 'Members gather in the hall%',
   'it is the start of the text plus the excerpt, not the whole text');
 select pg_temp.assert(position('<b>' in :'long_body') = 0, 'the excerpt carries no highlighting marks');
+select coalesce((select e->>'body_md' from jsonb_array_elements(pg_temp.search(:c3, 'How do I register?')) e
+                  where e->>'id' = '60000000-0000-4000-8000-000000000301'), '(not found)') as reg_body \gset
+select pg_temp.assert(:'reg_body' = (select left(body_md, 4000) from app.content_items where id = '60000000-0000-4000-8000-000000000301'),
+  'a long source matched only by its heading comes back as its first 4000 characters, nothing repeated');
+select pg_temp.assert(:'reg_body' like '%Families sign up at the Pathshala desk%', 'so an answer past character 1500 still reaches the model');
+select coalesce((select e->>'body_md' from jsonb_array_elements(pg_temp.search(:c3, 'Where do volunteers check in?')) e
+                  where e->>'id' = '60000000-0000-4000-8000-000000000302'), '(not found)') as help_body \gset
+select pg_temp.assert(:'help_body' = (select left(body_md, 4000) from app.content_items where id = '60000000-0000-4000-8000-000000000302'),
+  'a long source matched only in its first 1500 characters comes back as its first 4000 characters');
 select pg_temp.search(:c3, 'swadhyay', null, 10) as many \gset
 select pg_temp.assert(jsonb_array_length(:'many'::jsonb) between 1 and 9, 'results stop before the character budget is used up (fewer than the 10 asked for)');
 select pg_temp.assert((select sum(char_length(e->>'title') + char_length(e->>'body_md')) from jsonb_array_elements(:'many'::jsonb) e) <= 24000,
@@ -258,6 +311,8 @@ commit;
 select pg_temp.assert((select rules #> '{niva,answer_from}' = '["niva_source","guide"]' and rules #> '{lunch,slot_minutes}' = '15'
                          from app.centers where id = :c),
   'the choice is stored in rules.niva.answer_from and the community''s other rules are kept');
+select pg_temp.assert((select rules -> 'version' = '5' from app.centers where id = :c),
+  'the rules version moves on by one, so a rules form opened before the change cannot save over it');
 
 begin;
 select pg_temp.search(:c, 'Where should I park?') as park \gset
@@ -290,9 +345,15 @@ commit;
 select id as jsh_timings from app.guide_sections where center_id = :jsh and slug = 'timings' \gset
 select id as jsh_membership from app.guide_sections where center_id = :jsh and slug = 'membership' \gset
 begin;
+create temp table niva60_jsh_before as select rules -> 'version' as v from app.centers where id = :jsh;
 select pg_temp.assert(app.seed_jsh_niva_answer_from() ? 'updated', 'the JSH setting runs once JSH exists');
 select pg_temp.assert((select rules #> '{niva,answer_from}' = '["niva_source","guide","faq"]' from app.centers where id = :jsh),
   'JSH answers from its Guide sections and FAQ');
+select pg_temp.assert((select c.rules -> 'version' is not distinct from
+                               case when jsonb_typeof(b.v) = 'number' and b.v #>> '{}' ~ '^[0-9]+$'
+                                    then to_jsonb((b.v #>> '{}')::bigint + 1) else b.v end
+                          from app.centers c cross join niva60_jsh_before b where c.id = :jsh),
+  'JSH''s rules version moves on by one when it has one, and none is made up when it has not');
 select pg_temp.assert(app.seed_jsh_niva_answer_from() = '{"updated": false}', 'running it again changes nothing');
 select pg_temp.assert(pg_temp.ids(pg_temp.search(:jsh, 'When does the temple open?')) @> array['guide_section:' || :'jsh_timings'],
   'JSH: "When does the temple open?" finds the Timings and visiting guide section');

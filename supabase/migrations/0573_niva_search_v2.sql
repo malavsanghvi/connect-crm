@@ -23,8 +23,10 @@
 --   2. app.niva_search_tsquery(center, question): ANY word of the question, as its English stem and as written
 --      ('simple'), each word of four letters or more also as a prefix (Paryushan finds Paryushana), plus the whole
 --      glossary group of any word the question uses. English filler words and the community's own name, short name
---      and slug are left out (nearly every source of a community names it). A question with a "quoted phrase" or a
---      -word keeps its exact websearch meaning, as in 0541.
+--      and slug are left out (nearly every source of a community names it); a name word still brings in its
+--      glossary group. Search operators narrow the search instead of making every word required (0541's websearch
+--      path did, so a single pair of quotes brought the hyphen failure back): a "quoted phrase" of two or more words
+--      must appear, a -word must not, one quoted word ("non-members") is just the word, and a stray quote is ignored.
 --   3. app.content_items.niva_tsv: a stored, generated search vector for niva_source and faq rows (null for every
 --      other kind): the section heading and metadata.keywords weigh most (A), the text next (B), the page title
 --      least of the words (C), and the text as written (D, for spellings the English stemmer changes). A partial
@@ -32,14 +34,17 @@
 --   4. What Niva answers from (owner decision 2026-10-01: yes for JSH). centers.rules.niva.answer_from lists it;
 --      niva_source is always included, 'guide' adds the community's public Guide sections and 'faq' its published
 --      FAQ items. Off by default for every community. app.niva_set_answer_from(center, kinds[]) changes it
---      (content.manage); the portal toggle is PR H. A Guide section comes back with the id 'guide_section:<uuid>'
+--      (content.manage) and moves rules.version on when the rules carry one, so a rules form opened earlier cannot
+--      save over it; the portal toggle is PR H. A Guide section comes back with the id 'guide_section:<uuid>'
 --      (it is not a content item), so the worker's list of offered ids still decides what may be cited. A FAQ item
 --      is a content item and keeps its uuid.
 --   5. app.niva_worker_search_sources(center, question, limit, statuses): ranked by ts_rank_cd (normalised for
 --      length), then most recently updated, then id, so equal scores always come back in the same order. A source
---      over 4000 characters comes back as its first 1500 characters plus up to three excerpts around the matching
---      words, and the results together stay within about 24000 characters. Each result also carries kind,
---      source_url and updated_at. Shared rows are offered only when they have no tradition or the community's own.
+--      over 4000 characters comes back as its first 1500 characters plus up to three excerpts of the rest around the
+--      matching words; when the rest holds none of them (the match was the heading, keywords or page title) it is
+--      the first 4000 characters, as in 0541. The results together stay within about 24000 characters. Each result
+--      also carries kind, source_url and updated_at. Shared rows are offered only when they have no tradition or the
+--      community's own.
 --      statuses is {published} (members) or {published,in_review} (a staff test, PR H); nothing else is accepted.
 --      The worker's 3-argument call (worker/src/handlers/niva.answer.ts) keeps its exact signature and grants and
 --      now runs the 4-argument search over published sources. It stays a function of its own rather than becoming
@@ -79,10 +84,15 @@ create or replace function app.niva_search_tsquery(p_center uuid, p_query text)
 returns tsquery language plpgsql stable set search_path = app, public, extensions as $$
 declare
   v_q text := left(btrim(coalesce(p_query, '')), 2000);
+  v_must tsquery;
+  v_not tsquery;
+  v_part tsquery;
+  v_m text[];
   v_tsq tsquery;
   v_phrases tsquery;
   v_qvec tsvector;
   v_drop text[];
+  v_all text[];
   v_lex text[];
   v_add text[] := '{}';
   v_group text[];
@@ -93,17 +103,28 @@ declare
 begin
   if v_q = '' then return null; end if;
 
-  -- A "quoted phrase" or a -word: the member used search operators; keep their exact meaning (as 0541 did).
-  if position('"' in v_q) > 0 or v_q ~ '(^|\s)-\w' then
-    begin
-      v_tsq := websearch_to_tsquery('english', v_q);
-    exception when others then
-      v_tsq := plainto_tsquery('english', v_q);
-    end;
-    -- Nothing left, or only exclusions (which would match almost everything): no search.
-    if v_tsq is null or numnode(v_tsq) = 0 or querytree(v_tsq) = 'T' then return null; end if;
-    return v_tsq;
-  end if;
+  -- Search operators narrow the search; they never turn the rest of the question into "every word must appear"
+  -- (0541's websearch path did, so one pair of quotes brought back the hyphen failure).
+  --   * One word in quotes is just that word: members quote "non-members" or "derasar" for emphasis.
+  --   * A "quoted phrase" of two or more words must appear, in that order.
+  --   * A -word (a dash right before a letter: not "9am -5pm", not a dash on its own) must not appear.
+  --   * A quote left without its pair is ignored.
+  -- Everything else in the question is the any-word search below.
+  v_q := regexp_replace(v_q, '"([^"[:space:]]+)"', '\1', 'g');
+  for v_m in select regexp_matches(v_q, '"([^"]*)"', 'g') loop
+    if length(to_tsvector('english', v_m[1])) > 0 then
+      v_part := phraseto_tsquery('english', v_m[1]);
+      v_must := case when v_must is null then v_part else v_must && v_part end;
+    end if;
+  end loop;
+  v_q := replace(regexp_replace(v_q, '"[^"]*"', ' ', 'g'), '"', ' ');
+  for v_m in select regexp_matches(v_q, '(^|[[:space:]])-([[:alpha:]][^[:space:]]*)', 'g') loop
+    if length(to_tsvector('english', v_m[2])) > 0 then
+      v_part := !! phraseto_tsquery('english', v_m[2]);
+      v_not := case when v_not is null then v_part else v_not && v_part end;
+    end if;
+  end loop;
+  v_q := regexp_replace(v_q, '(^|[[:space:]])-[[:alpha:]][^[:space:]]*', '\1', 'g');
 
   -- The community's own name, short name and slug are in nearly every one of its sources: they rank nothing.
   select coalesce(tsvector_to_array(to_tsvector('english', x.s) || to_tsvector('simple', x.s)), '{}')
@@ -114,17 +135,20 @@ begin
   -- Every word of the question, stemmed (english) and as written (simple). The parser splits "non-members" into
   -- the whole word and its parts, so each part is a word of its own here. English filler words (which the
   -- 'simple' configuration keeps) are left out, as are single letters and anything that cannot be quoted safely.
+  -- v_all still has the community's own words (the glossary looks at them); v_lex, which is searched, does not.
   v_qvec := to_tsvector('english', v_q) || to_tsvector('simple', v_q);
   select coalesce(array_agg(distinct l), '{}')
-    into v_lex
+    into v_all
     from unnest(tsvector_to_array(v_qvec)) as l
-   where l <> all (v_drop)
-     and (char_length(l) > 1 or l ~ '^[0-9]$')
+   where (char_length(l) > 1 or l ~ '^[0-9]$')
      and position('''' in l) = 0 and position(chr(92) in l) = 0
      and cardinality(ts_lexize('english_stem', l)) > 0;
+  v_lex := array(select l from unnest(v_all) as l where l <> all (v_drop));
 
   -- Glossary: a group joins the search when the question uses one of its words (a word of four letters or more
-  -- also matches a longer form: "paryushan" is used by "Paryushana").
+  -- also matches a longer form: "paryushan" is used by "Paryushana"). A word of the community's own name still
+  -- counts here, so at "Jain Temple of X" the question "When is the temple open?" also looks for derasar and
+  -- mandir; the name word itself stays out of the search.
   for v_group in select g.terms from app.niva_glossary() as g(terms) loop
     v_hit := false;
     foreach v_term in array v_group loop
@@ -133,7 +157,7 @@ begin
       else
         v_glex := (tsvector_to_array(to_tsvector('english', v_term)))[1];
         v_hit := v_glex is not null and exists (
-          select 1 from unnest(v_lex) as l
+          select 1 from unnest(v_all) as l
            where l = v_glex or (char_length(v_glex) >= 4 and left(l, char_length(v_glex)) = v_glex));
       end if;
       exit when v_hit;
@@ -159,11 +183,17 @@ begin
   if v_phrases is not null and numnode(v_phrases) > 0 then
     v_tsq := case when v_tsq is null then v_phrases else v_tsq || v_phrases end;
   end if;
+  -- The quoted phrases must appear as well.
+  if v_must is not null and numnode(v_must) > 0 then
+    v_tsq := case when v_tsq is null then v_must else v_must && v_tsq end;
+  end if;
+  -- Nothing left (or only exclusions, which would match almost everything): no search.
   if v_tsq is null or numnode(v_tsq) = 0 then return null; end if;
+  if v_not is not null and numnode(v_not) > 0 then v_tsq := v_tsq && v_not; end if;
   return v_tsq;
 end $$;
 comment on function app.niva_search_tsquery(uuid, text) is
-  'The search for a Niva question (0573): any word (English stem and as written, prefix for 4+ letters), plus glossary groups, without filler words or the community''s own name. A "quoted phrase" or -word keeps exact websearch semantics. Null: nothing to search for.';
+  'The search for a Niva question (0573): any word (English stem and as written, prefix for 4+ letters), plus glossary groups, without filler words or the community''s own name. A "quoted phrase" of two or more words must also appear and a -word must not; one quoted word is just the word. Null: nothing to search for.';
 
 -- ── 3. A stored search vector for Niva's sources ─────────────────────────────
 -- Heading: an imported section's title is "<page title>: <heading>" (page_text.ts); the page title is weighed on
@@ -295,8 +325,14 @@ begin
     select cand.*, row_number() over (order by cand.score desc, cand.updated_at desc, cand.ref collate "C") as rn
       from cand
   ), picked as (
+    -- A long text: its first 1500 characters, then excerpts from the rest when the rest holds matching words.
+    -- When it does not (the match is in the heading, keywords or page title, or only in those first 1500
+    -- characters) ts_headline would find nothing and repeat the opening, so the first 4000 characters come back
+    -- instead, as in 0541. The rest is read up to character 100000, as far as niva_tsv indexes.
     select r.*, case when char_length(r.body) <= 4000 then r.body
-                     else left(r.body, 1500) || E'\n\n[…]\n\n' || app.niva_excerpt(r.body, v_tsq) end as excerpt
+                     when to_tsvector('english', substr(r.body, 1501, 98500)) @@ v_tsq
+                       then left(r.body, 1500) || E'\n\n[…]\n\n' || app.niva_excerpt(substr(r.body, 1501, 98500), v_tsq)
+                     else left(r.body, 4000) end as excerpt
       from ranked r
      where r.rn <= v_limit
   ), budget as (
@@ -323,6 +359,22 @@ comment on function app.niva_worker_search_sources(uuid, text, int) is
   'Worker only. The search over published sources (0573); the same as the 4-argument form with statuses {published}.';
 
 -- ── 6. Staff: choose what Niva also answers from ─────────────────────────────
+-- centers.rules with niva.answer_from set. When the rules carry a version (every save from the portal's settings
+-- pages adds one) it moves on by one, so a rules form opened before this change (the Advanced editor saves the
+-- whole set of rules, guarded by that version) is told that someone else saved, instead of silently putting the
+-- old answer_from back. Rules without a version are left without one: the setup checklist reads a version as
+-- "Rules and policies saved", which a Niva setting alone should not claim.
+create or replace function app.niva_rules_with_answer_from(p_rules jsonb, p_kinds jsonb) returns jsonb
+language sql immutable set search_path = app, public, extensions as $$
+  select r || jsonb_build_object('niva', case when jsonb_typeof(r -> 'niva') = 'object' then r -> 'niva' else '{}'::jsonb end
+                                         || jsonb_build_object('answer_from', p_kinds))
+           || case when jsonb_typeof(r -> 'version') = 'number' and (r ->> 'version') ~ '^[0-9]+$'
+                   then jsonb_build_object('version', (r ->> 'version')::bigint + 1) else '{}'::jsonb end
+    from (select coalesce(p_rules, '{}'::jsonb) as r) x
+$$;
+comment on function app.niva_rules_with_answer_from(jsonb, jsonb) is
+  'centers.rules with niva.answer_from set and rules.version (when present) moved on by one (0573).';
+
 -- p_kinds: any of 'guide' (public Guide sections) and 'faq' (published FAQ items); 'niva_source' is always on and
 -- may be listed. An empty list goes back to niva_source only. Returns what is now stored.
 create or replace function app.niva_set_answer_from(p_center uuid, p_kinds text[])
@@ -342,9 +394,7 @@ begin
   v_kinds := array['niva_source']
              || array(select t.k from unnest(array['guide', 'faq']) with ordinality as t(k, n) where t.k = any (v_in) order by t.n);
   update app.centers
-     set rules = jsonb_set(coalesce(rules, '{}'::jsonb), '{niva}',
-                           case when jsonb_typeof(rules -> 'niva') = 'object' then rules -> 'niva' else '{}'::jsonb end
-                           || jsonb_build_object('answer_from', to_jsonb(v_kinds)))
+     set rules = app.niva_rules_with_answer_from(rules, to_jsonb(v_kinds))
    where id = p_center;
   if not found then raise exception 'That community was not found.' using errcode = 'P0002'; end if;
   return v_kinds;
@@ -364,9 +414,7 @@ begin
   end if;
   -- Only when JSH has not chosen yet: a later choice in the portal is never undone.
   update app.centers
-     set rules = jsonb_set(coalesce(rules, '{}'::jsonb), '{niva}',
-                           case when jsonb_typeof(rules -> 'niva') = 'object' then rules -> 'niva' else '{}'::jsonb end
-                           || jsonb_build_object('answer_from', jsonb_build_array('niva_source', 'guide', 'faq')))
+     set rules = app.niva_rules_with_answer_from(rules, jsonb_build_array('niva_source', 'guide', 'faq'))
    where id = v_jsh and rules #> '{niva,answer_from}' is null;
   get diagnostics v_n = row_count;
   return jsonb_build_object('updated', v_n = 1);
@@ -376,7 +424,7 @@ comment on function app.seed_jsh_niva_answer_from() is
 
 -- ── Grants ───────────────────────────────────────────────────────────────────
 revoke execute on function app.niva_glossary(), app.niva_search_tsquery(uuid, text), app.niva_answer_from(uuid),
-  app.niva_excerpt(text, tsquery),
+  app.niva_excerpt(text, tsquery), app.niva_rules_with_answer_from(jsonb, jsonb),
   app.niva_worker_search_sources(uuid, text, int, text[]), app.niva_worker_search_sources(uuid, text, int),
   app.niva_set_answer_from(uuid, text[]), app.seed_jsh_niva_answer_from()
   from public, anon, authenticated, service_role;
