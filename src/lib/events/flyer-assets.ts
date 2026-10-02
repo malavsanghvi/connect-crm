@@ -34,7 +34,7 @@ import {
   readFlyerBrand,
   type FlyerBrand,
 } from "./flyer-brand";
-import { imageSize, sniffImage, type ImageKind } from "./flyer-image";
+import { MAX_PICTURE_PIXELS, MAX_PICTURE_SIDE, imageSize, oversizePicture, sniffImage, type ImageKind } from "./flyer-image";
 import { patternSvg } from "./flyer-patterns";
 import type { PosterAssets } from "./flyer-poster";
 import { backgroundBox, flyerDims, patternColorsFor, renderFlyerPng, type FlyerDims, type FlyerImage } from "./flyer-render";
@@ -229,6 +229,13 @@ async function contentPicture(db: AppSupabase, path: string): Promise<{ image: F
   if (kind !== "image/png" && kind !== "image/jpeg") {
     console.error(`[events/flyer] content/${path} is ${kind ?? "not a picture"}`);
     return { problem: "it is not a PNG or JPEG picture" };
+  }
+  // Any event lead may put a file in these folders (0585 A3), and a small file can declare a huge picture: look at the header
+  // before the renderer decodes anything.
+  const big = oversizePicture(bytes, kind);
+  if (big) {
+    console.error(`[events/flyer] content/${path} measures ${big.w} × ${big.h} pixels`);
+    return { problem: `it measures ${big.w} × ${big.h} pixels, more than the flyer maker draws (up to ${MAX_PICTURE_SIDE} on a side and ${MAX_PICTURE_PIXELS / 1_000_000} megapixels)` };
   }
   return { image: { dataUri: dataUri(bytes, kind), ...imageSize(bytes, kind) } };
 }

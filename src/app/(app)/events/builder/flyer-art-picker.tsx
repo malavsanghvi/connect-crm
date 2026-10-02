@@ -13,6 +13,7 @@ import {
   FLYER_OCCASION_LABEL,
   artCostSentence,
   formatArtCost,
+  isNewPicture,
   type FlyerArtEntry,
   type FlyerArtSetup,
   type FlyerLayer,
@@ -80,6 +81,15 @@ export function FlyerArtPicker({
   useEffect(() => {
     occasionRef.current = poster.occasion;
   }, [poster.occasion]);
+  // What the picture list and the poster hold now, for the checks that run after a wait (a state value in a closure would be stale).
+  const setupRef = useRef(setup);
+  const posterRef = useRef(poster);
+  useEffect(() => {
+    setupRef.current = setup;
+  }, [setup]);
+  useEffect(() => {
+    posterRef.current = poster;
+  }, [poster]);
   // After a picture is discarded (its button and the dialog are gone) focus goes to the layer's first picture, once the dialog has closed.
   const focusAfterDiscard = useRef<string | null>(null);
   useEffect(() => {
@@ -228,7 +238,11 @@ export function FlyerArtPicker({
         setProgress("A picture is still being made. It will be added to the pictures here when it is done.");
         await waitForPicture(() => setProgress("A new picture is ready. It is with the other pictures: choose it to use it."));
       } else if (s.status === "ready") {
-        if (addEntry(s.entry)) setProgress("A picture you asked for earlier is ready. It is with the other pictures: choose it to use it.");
+        // Opening the panel again finds the last picture asked for every time (the job keeps its stored file): one that is already
+        // listed, already on the poster or kept for another occasion is nothing new, so say nothing (a screen reader would announce
+        // it on every visit). Asked to check ("Try again"), the person gets an answer either way.
+        const news = isNewPicture(s.entry, { occasion: occasionRef.current, listed: setupRef.current.entries, poster: posterRef.current });
+        if ((news || !quiet) && addEntry(s.entry)) setProgress("A picture you asked for earlier is ready. It is with the other pictures: choose it to use it.");
       } else {
         setProgress("");
       }

@@ -38,6 +38,7 @@ import {
   withArtGuardrail,
   type FlyerArtState,
 } from "@/lib/events/flyer";
+import { englishOnlyNote, firstNonEnglishLetter } from "@/lib/events/flyer-art";
 import { flyerArtReadiness } from "@/lib/events/flyer-art-library";
 import { FlyerBackgroundError, composeFlyer, sniffImage } from "@/lib/events/flyer-assets";
 import { FlyerFontsMissingError } from "@/lib/events/flyer-fonts";
@@ -122,6 +123,8 @@ export async function requestEventFlyerAction(eventId: string, prompt: string): 
     const text = (prompt ?? "").replace(/\s+/g, " ").trim();
     if (!text) throw new FormError("describe the background art you want, in a sentence or two.");
     if (text.length > FLYER_ART_PROMPT_MAX) throw new FormError(`keep the description under ${FLYER_ART_PROMPT_MAX.toLocaleString("en-US")} characters.`);
+    const foreign = firstNonEnglishLetter(text);
+    if (foreign) return { ok: false, error: englishOnlyNote(foreign) };
     const blocked = findBlockedArtTerm(text);
     if (blocked) {
       return {
@@ -247,7 +250,7 @@ export async function saveDesignedFlyerAction(eventId: string, rawDesign: unknow
     const parsed = parseFlyerDesign(rawDesign);
     if (!parsed.ok) throw new FormError(parsed.error);
     const design = parsed.design;
-    if (design.size === "print") throw new FormError("Print size is for downloading — switch to Post or Story to use it as the event's flyer.");
+    if (design.size === "print") throw new FormError("Print size is for downloading — switch to Post, Tall or Story to use it as the event's flyer.");
     const { db, centerId, session } = await flyerEventContext(eventId, "only event managers and this event's lead can set this event's flyer.");
     const ev = await db.from("events").select("id, center_id, flyer_path, starts_at, ends_at, venue").eq("id", eventId).maybeSingle();
     if (ev.error) throw new DbFailure(ev.error, "load the event");

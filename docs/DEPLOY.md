@@ -208,7 +208,8 @@ AI flyer art (`events.generate_flyer`, Flyers v2) calls **Google Gemini** and ne
 **Platform › Setup › AI flyer art** (saved in the vault like every other platform key, never in this repository
 or a log). Create it in Google AI Studio (aistudio.google.com › Get API key) on a Google Cloud project **with
 billing turned on**: Gemini's image models have no free tier. Press **Test** in the wizard: it looks the model up
-with the key (a free call, no picture is made). The same page can choose the image model; without a choice it
+with the key (a free call, no picture is made, so it cannot see billing: a key whose project has none passes the Test
+and fails on the first picture with "no quota", which the flyer maker says in plain words). The same page can choose the image model; without a choice it
 uses **Gemini 3.1 Flash Lite Image** (about 4¢ a picture; Flash Image about 7¢, Pro Image about 14¢; prices from
 ai.google.dev/gemini-api/docs/pricing, 2026-10-02). `gemini-2.5-flash-image` is not offered: Google shuts it down
 on 2026-10-02. Organizers see the price on the button before every picture; each picture is made once and kept for

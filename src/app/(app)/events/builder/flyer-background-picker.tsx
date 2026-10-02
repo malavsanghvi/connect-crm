@@ -13,7 +13,7 @@ import {
   type FlyerBackground,
   type FlyerPattern,
 } from "@/lib/events/flyer";
-import { FLYER_ART_MODELS, formatArtCost, type FlyerArtReadiness } from "@/lib/events/flyer-art";
+import { artPriceSentence, englishOnlyNote, firstNonEnglishLetter, formatArtCost, type FlyerArtReadiness } from "@/lib/events/flyer-art";
 import type { FlyerBrand } from "@/lib/events/flyer-brand";
 import { patternDataUri } from "@/lib/events/flyer-patterns";
 
@@ -135,6 +135,11 @@ export function FlyerBackgroundPicker({
     const text = prompt.replace(/\s+/g, " ").trim();
     if (!text) {
       setArtError("Describe the background art you want, in a sentence or two.");
+      return;
+    }
+    const foreign = firstNonEnglishLetter(text);
+    if (foreign) {
+      setArtError(englishOnlyNote(foreign));
       return;
     }
     const blocked = findBlockedArtTerm(text);
@@ -310,10 +315,10 @@ export function FlyerBackgroundPicker({
             className="crm-input"
             disabled={disabled || artBusy}
           />
-          <p className="crm-hint">Always added: no text, letters, people, deities or murtis — abstract or decorative only.</p>
+          <p className="crm-hint">Describe it in English. Always added: no text, letters, people, deities or murtis — abstract or decorative only.</p>
           {artReadiness.state === "ready" ? (
             <p className="crm-hint">
-              Each picture costs {formatArtCost(artReadiness.cents)} ({FLYER_ART_MODELS[artReadiness.model].label}), paid by your community&apos;s Community Connect account.
+              {artPriceSentence(artReadiness.model)}
             </p>
           ) : (
             <p className="mt-1 rounded-[10px] border border-navy/20 bg-navy-50 px-3 py-2 text-[13px] text-navy">{artReadiness.message} Choose a pattern, a photo or a plain colour instead.</p>

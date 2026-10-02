@@ -105,8 +105,9 @@ export type PosterContent = {
 export const POSTER_LIMITS = {
   subhead: 48,
   slogan: 60,
-  partner_label: 12,
-  partner_sub: 10,
+  // The badge is a disc about 90 units across inside: a longer line is set smaller to fit, and these are about the smallest it stays readable at.
+  partner_label: 10,
+  partner_sub: 8,
   stat_label: 24,
   stat_value: 10,
   stat_caption: 80,
@@ -389,41 +390,50 @@ function cut(s: string, max: number): string {
   return chars.length <= max ? chars.join("") : chars.slice(0, max).join("").trim();
 }
 
-/** "5:00 PM–9:00 PM" → "5:00–9:00 PM" when both are in the same half of the day; no end: "5:00 PM onwards". */
-function timeRange(start: string, end: string | null): string {
-  if (!end) return `${start} onwards`;
+/** "5:00 PM" and "9:00 PM" of one day → "5:00–9:00 PM" (AM or PM written once when both are in the same half of the day). */
+function timeRange(start: string, end: string): string {
   const a = /^(.*)\s([AP]M)$/i.exec(start);
   const b = /^(.*)\s([AP]M)$/i.exec(end);
   return a && b && a[2].toUpperCase() === b[2].toUpperCase() ? `${a[1]}–${b[1]} ${b[2]}` : `${start}–${end}`;
 }
 
+/** An event that ends after midnight but within this many hours of its start is one evening (a Garba night), not two days. */
+const ONE_EVENING_HOURS = 14;
+
 /**
- * The ribbon's two lines in the community's time zone: "Saturday, October 3, 2026"
- * and "5:00 PM onwards" / "5:00–9:00 PM"; several days: "September 10–17, 2026"
- * and "6:00–9:30 PM each day". Empty without a start.
+ * The ribbon's two lines in the community's time zone, from the event's start and end:
+ *   no end (or an end that is not after the start)   "Saturday, October 3, 2026" / "5:00 PM onwards"
+ *   one day                                         "Saturday, October 3, 2026" / "5:00–8:30 PM"
+ *   one evening that runs past midnight             "Friday, October 16, 2026" / "7:00 PM–12:30 AM"
+ *   several days                                    "September 10–16, 2026" / "6:00 PM onwards"
+ * For several days the event records only the first day's start and the last day's end, so the time line gives
+ * the start and nothing it cannot know (no "each day" and no end time). Empty without a start.
  */
 export function posterWhen(startsAt: string | null | undefined, endsAt: string | null | undefined, tz: string): { date: string; time: string } {
   if (!startsAt || Number.isNaN(Date.parse(startsAt))) return { date: "", time: "" };
-  const end = endsAt && !Number.isNaN(Date.parse(endsAt)) ? endsAt : null;
-  const parts = (v: string) =>
+  const startMs = Date.parse(startsAt);
+  const endMs = endsAt && !Number.isNaN(Date.parse(endsAt)) && Date.parse(endsAt) > startMs ? Date.parse(endsAt) : null;
+  const parts = (ms: number) =>
     Object.fromEntries(
       new Intl.DateTimeFormat("en-US", { timeZone: tz, weekday: "long", year: "numeric", month: "long", day: "numeric" })
-        .formatToParts(new Date(v))
+        .formatToParts(new Date(ms))
         .map((p) => [p.type, p.value]),
     ) as Record<string, string>;
-  const s = parts(startsAt);
-  const clock = (v: string) => formatTime(v, tz).replace(/[\u00A0\u202F]/g, " ");
-  const time = timeRange(clock(startsAt), end ? clock(end) : null);
-  if (!end) return { date: `${s.weekday}, ${s.month} ${s.day}, ${s.year}`, time };
-  const e = parts(end);
-  if (s.year === e.year && s.month === e.month && s.day === e.day) return { date: `${s.weekday}, ${s.month} ${s.day}, ${s.year}`, time };
+  const clock = (ms: number) => formatTime(new Date(ms).toISOString(), tz).replace(/[\u00A0\u202F]/g, " ");
+  const s = parts(startMs);
+  const startDate = `${s.weekday}, ${s.month} ${s.day}, ${s.year}`;
+  const onwards = `${clock(startMs)} onwards`;
+  if (endMs === null) return { date: startDate, time: onwards };
+  const e = parts(endMs);
+  if (s.year === e.year && s.month === e.month && s.day === e.day) return { date: startDate, time: timeRange(clock(startMs), clock(endMs)) };
+  if (endMs - startMs <= ONE_EVENING_HOURS * 3_600_000) return { date: startDate, time: `${clock(startMs)}–${clock(endMs)}` };
   const date =
     s.year !== e.year
       ? `${s.month} ${s.day}, ${s.year} – ${e.month} ${e.day}, ${e.year}`
       : s.month === e.month
         ? `${s.month} ${s.day}–${e.day}, ${s.year}`
         : `${s.month} ${s.day} – ${e.month} ${e.day}, ${s.year}`;
-  return { date, time: `${time} each day` };
+  return { date, time: onwards };
 }
 
 /** The description, cut at a sentence end (or a word) to fit `max` characters. */

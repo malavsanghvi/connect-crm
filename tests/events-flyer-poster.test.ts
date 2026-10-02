@@ -18,7 +18,7 @@ import { FLYER_OCCASIONS, flyerArtPath, type FlyerOccasion } from "@/lib/events/
 import { artPack, brandPalette, flattenOpacity, frameEdgeSvg, mix, packLayerThumbnailSvg, packThumbnailSvg, plainPaperSvg, ribbonSvg, svgDataUri } from "@/lib/events/flyer-art-packs";
 import { readFlyerBrand } from "@/lib/events/flyer-brand";
 import { POSTER_ICONS, POSTER_ICON_LABEL, isPosterIcon, posterIconSvg, posterIconUri } from "@/lib/events/flyer-icons";
-import { SECTION_LABEL, headlineFit, lineCount, planPoster, posterNotes, posterText, textWidth, type PosterSection } from "@/lib/events/flyer-poster";
+import { POSTER_UNITS, SECTION_LABEL, badgeSizes, headlineFit, lineCount, planPoster, posterNotes, posterText, textWidth, type PosterSection } from "@/lib/events/flyer-poster";
 import { contrastRatio } from "@/lib/setup";
 
 const C = "11111111-1111-4111-8111-111111111111";
@@ -109,8 +109,8 @@ describe("parsePosterContent", () => {
     over("stat", { on: true, icon: "people", label: "", value: "1", caption: "x".repeat(81) }, "The highlight's caption is longer than 80 characters.");
     over("ribbon", { on: true, date: "x".repeat(45), time: "" }, "The ribbon's date is longer than 44 characters.");
     over("ribbon", { on: true, date: "", time: "x".repeat(37) }, "The ribbon's time is longer than 36 characters.");
-    over("partner", { on: true, label: "x".repeat(13), sub: "" }, "The partner badge's first line is longer than 12 characters.");
-    over("partner", { on: true, label: "", sub: "x".repeat(11) }, "The partner badge's second line is longer than 10 characters.");
+    over("partner", { on: true, label: "x".repeat(11), sub: "" }, "The partner badge's first line is longer than 10 characters.");
+    over("partner", { on: true, label: "", sub: "x".repeat(9) }, "The partner badge's second line is longer than 8 characters.");
     over("agenda", [{ icon: "clock", time: "x".repeat(23), text: "a" }], "The agenda time is longer than 22 characters.");
     over("agenda", [{ icon: "clock", time: "6 PM", text: "x".repeat(81) }], "The agenda line is longer than 80 characters.");
     // At the limit is fine, counted as a person counts (a Gujarati letter with its sign is one symbol).
@@ -251,12 +251,39 @@ describe("posterWhen: the ribbon's date and time, from the event, in the communi
     expect(posterWhen("2026-10-03T15:00:00Z", "2026-10-03T18:00:00Z", tz)).toEqual({ date: "Saturday, October 3, 2026", time: "10:00 AM–1:00 PM" });
   });
 
-  it("writes several days as a range, with 'each day' for the times", () => {
-    expect(posterWhen("2026-09-10T23:00:00Z", "2026-09-17T02:30:00Z", tz)).toEqual({ date: "September 10–16, 2026", time: "6:00–9:30 PM each day" });
-    // The clocks go back on November 1: 02:30 UTC on the 2nd is 8:30 PM that evening in Houston, not 9:30.
-    expect(posterWhen("2026-10-30T23:00:00Z", "2026-11-02T02:30:00Z", tz)).toEqual({ date: "October 30 – November 1, 2026", time: "6:00–8:30 PM each day" });
+  it("writes several days as a range, with the first day's start (an event records no daily end time, so none is invented)", () => {
+    expect(posterWhen("2026-09-10T23:00:00Z", "2026-09-17T02:30:00Z", tz)).toEqual({ date: "September 10–16, 2026", time: "6:00 PM onwards" });
+    // The clocks go back on November 1: 02:30 UTC on the 2nd is 8:30 PM on the 1st in Houston, so the range ends on November 1.
+    expect(posterWhen("2026-10-30T23:00:00Z", "2026-11-02T02:30:00Z", tz)).toEqual({ date: "October 30 – November 1, 2026", time: "6:00 PM onwards" });
     // In December Houston is on standard time (UTC-6): 23:00 UTC is 5:00 PM.
-    expect(posterWhen("2026-12-30T23:00:00Z", "2027-01-02T02:30:00Z", tz)).toEqual({ date: "December 30, 2026 – January 1, 2027", time: "5:00–8:30 PM each day" });
+    expect(posterWhen("2026-12-30T23:00:00Z", "2027-01-02T02:30:00Z", tz)).toEqual({ date: "December 30, 2026 – January 1, 2027", time: "5:00 PM onwards" });
+  });
+
+  it("never writes an impossible range for a weekend that ends earlier in the day than it starts", () => {
+    // A retreat from Friday 6 PM to Sunday 12 PM is not "6:00–12:00 PM each day".
+    expect(posterWhen("2026-10-16T23:00:00Z", "2026-10-18T17:00:00Z", tz)).toEqual({ date: "October 16–18, 2026", time: "6:00 PM onwards" });
+  });
+
+  it("keeps an evening that runs past midnight as one date, with both times written in full", () => {
+    // A Garba night: Friday 7:00 PM to Saturday 12:30 AM (Houston) is one evening, not two days "each day".
+    expect(posterWhen("2026-10-17T00:00:00Z", "2026-10-17T05:30:00Z", tz)).toEqual({ date: "Friday, October 16, 2026", time: "7:00 PM–12:30 AM" });
+    // Overnight, and ending exactly at midnight.
+    expect(posterWhen("2026-10-17T02:00:00Z", "2026-10-17T11:00:00Z", tz)).toEqual({ date: "Friday, October 16, 2026", time: "9:00 PM–6:00 AM" });
+    expect(posterWhen("2026-10-17T02:00:00Z", "2026-10-17T05:00:00Z", tz)).toEqual({ date: "Friday, October 16, 2026", time: "9:00 PM–12:00 AM" });
+    // Fourteen hours is the longest "evening"; a minute more is a second day.
+    expect(posterWhen("2026-10-17T00:00:00Z", "2026-10-17T14:00:00Z", tz)).toEqual({ date: "Friday, October 16, 2026", time: "7:00 PM–9:00 AM" });
+    expect(posterWhen("2026-10-17T00:00:00Z", "2026-10-17T14:01:00Z", tz)).toEqual({ date: "October 16–17, 2026", time: "7:00 PM onwards" });
+  });
+
+  it("treats an end that is not after the start as no end at all", () => {
+    expect(posterWhen("2026-10-03T22:00:00Z", "2026-10-03T22:00:00Z", tz)).toEqual({ date: "Saturday, October 3, 2026", time: "5:00 PM onwards" });
+    expect(posterWhen("2026-10-03T22:00:00Z", "2026-10-03T21:00:00Z", tz)).toEqual({ date: "Saturday, October 3, 2026", time: "5:00 PM onwards" });
+    expect(posterWhen("2026-10-03T22:00:00Z", "not a date", tz)).toEqual({ date: "Saturday, October 3, 2026", time: "5:00 PM onwards" });
+  });
+
+  it("writes AM and PM on both ends when a day starts before noon and ends after it", () => {
+    expect(posterWhen("2026-10-03T15:30:00Z", "2026-10-03T19:00:00Z", tz)).toEqual({ date: "Saturday, October 3, 2026", time: "10:30 AM–2:00 PM" });
+    expect(posterWhen("2026-10-03T15:00:00Z", "2026-10-03T16:30:00Z", tz)).toEqual({ date: "Saturday, October 3, 2026", time: "10:00–11:30 AM" });
   });
 
   it("uses the community's zone, not the server's", () => {
@@ -282,7 +309,7 @@ describe("defaultPoster", () => {
       subhead: "",
       slogan: "",
       stat: { on: false, icon: "people", label: "", value: "", caption: "" },
-      ribbon: { on: true, date: "September 10–16, 2026", time: "6:00–9:30 PM each day" },
+      ribbon: { on: true, date: "September 10–16, 2026", time: "6:00 PM onwards" },
       agenda: [],
       paragraph: "Eight days of reflection. Everyone is welcome.",
       footer: "",
@@ -562,6 +589,16 @@ describe("the poster's layout plan", () => {
     expect(plan({ size: "post" }).sceneScale).toBeLessThan(plan({ size: "story" }).sceneScale);
   });
 
+  it("reserves room above the footer for the RSVP card, which is big enough to scan (the first one was 120 units wide and could not be read below 900 pixels)", () => {
+    expect(POSTER_UNITS.qrCard).toBeGreaterThan(250);
+    for (const size of ["tall", "post", "story"] as const) {
+      const withQr = plan({ size, design: { show_qr: true } });
+      const without = plan({ size, design: { show_qr: false }, poster: { scene: { source: "none" } } });
+      expect(withQr.reserve, size).toBeGreaterThanOrEqual(POSTER_UNITS.qrCard * Math.max(withQr.sceneScale, 0.8) + 18);
+      expect(without.reserve, size).toBeLessThan(withQr.reserve);
+    }
+  });
+
   it("starts the words below a toran that hangs down the middle (Diwali, Mahavir)", () => {
     expect(plan({ poster: { occasion: "diwali" } }).top).toBeGreaterThan(plan({ poster: { occasion: "paryushan" } }).top);
   });
@@ -577,8 +614,38 @@ describe("estimating text", () => {
 
   it("counts lines: none for nothing, one when it fits, more when it wraps", () => {
     expect(lineCount("", 30, 800)).toBe(0);
+    expect(lineCount("   ", 30, 800)).toBe(0);
     expect(lineCount("Short", 30, 800)).toBe(1);
     expect(lineCount("word ".repeat(60), 30, 800)).toBeGreaterThan(2);
+  });
+
+  it("counts lines word by word, the way the renderer wraps (an average over the whole text hides words that cannot sit side by side)", () => {
+    // Each word is a little over half a line wide (560 of 1000): never two on a line, so four words take four lines. Dividing the
+    // total width by the line width said three, and the poster's last lines ran into the footer.
+    const word = "a".repeat(10);
+    expect(textWidth(word, 100)).toBeGreaterThan(500);
+    expect(textWidth(word, 100)).toBeLessThan(600);
+    expect(lineCount(Array(4).fill(word).join(" "), 100, 1000)).toBe(4);
+    // A word that fits the line by itself starts a new one rather than hanging over; short words pack into one.
+    expect(lineCount("a b c d e f g h", 100, 1000)).toBe(1);
+    expect(lineCount(`${word} ${"a".repeat(6)}`, 100, 1000)).toBe(1);
+  });
+
+  it("breaks a word that is wider than a whole line across lines, as the poster's word-break does, and counts the lines it takes", () => {
+    expect(lineCount("a".repeat(40), 100, 1000)).toBe(3);
+    // The pieces carry on into the next word.
+    expect(lineCount(`${"a".repeat(40)} b`, 100, 1000)).toBe(3);
+    // Spaces in the text collapse like they do on the page.
+    expect(lineCount("  one   two  ", 30, 800)).toBe(1);
+  });
+
+  it("leaves a few percent of each line free, because the estimate of a word's width can be a few percent low (capitals)", () => {
+    // 95% of a 1000-wide line: a text that is 98% of it wraps; one that is 90% of it does not.
+    const w = (n: number) => textWidth("a".repeat(n), 100);
+    expect(w(17)).toBeGreaterThan(950);
+    expect(lineCount("a".repeat(17), 100, 1000)).toBeGreaterThan(1);
+    expect(w(16)).toBeLessThan(950);
+    expect(lineCount("a".repeat(16), 100, 1000)).toBe(1);
   });
 
   it("sets a short headline as big as possible on one line and gives a long one more lines at smaller sizes", () => {
@@ -592,6 +659,59 @@ describe("estimating text", () => {
     expect(long.lines).toBeGreaterThan(mid.lines - 1);
     expect(long.size).toBeLessThanOrEqual(mid.size);
     expect(long.size).toBeGreaterThanOrEqual(44);
+  });
+
+  it("sets a headline of long words smaller, on more lines, than its total width suggests (the headlines that overflowed the poster)", () => {
+    // Four long words that cannot pair up on a line at the sizes the first estimate chose: three or four lines, never fewer than the words need.
+    for (const h of [
+      "Pathshala Orientation Registration Celebration",
+      "Swamivatsalya Pratikraman Celebration Programme",
+      "Samvatsari Pratikraman Kshamapana Celebration",
+      "Diwali Annakut Mahotsav Celebration Programme",
+    ]) {
+      const fit = headlineFit(h);
+      expect(fit.lines, h).toBeGreaterThanOrEqual(3);
+      expect(fit.size, h).toBeLessThan(100);
+      // Every word fits its line at that size (the real renderer is checked in tests/events-flyer-render.test.ts).
+      for (const word of h.split(" ")) expect(textWidth(word, fit.size, { serif: true }), `${h}: ${word}`).toBeLessThanOrEqual(920);
+    }
+  });
+
+  it("never sets a word wider than the line: a long single word makes the headline's type smaller until it fits on its line", () => {
+    for (const word of ["Dasalakshanaparva", "Pratishthamahotsav", "Samvatsaripratikraman", "Mahamastakabhisheka", "SWAMIVATSALYA"]) {
+      const fit = headlineFit(word);
+      expect(fit.lines, word).toBe(1);
+      expect(textWidth(word, fit.size, { serif: true }), word).toBeLessThanOrEqual(920);
+      expect(fit.size, word).toBeGreaterThanOrEqual(44);
+    }
+    // A word that cannot fit even at the smallest size is broken, so the headline takes more lines, never overflows.
+    const wide = headlineFit("Abcdefghijklmnopqrstuvwxyzabcdefghijklmn");
+    expect(wide.size).toBe(44);
+    expect(wide.lines).toBeGreaterThan(1);
+  });
+
+  it("sets every line of the partner badge as large as fits across the disc, and no larger than its usual size", () => {
+    // A short acronym and a year barely need to give way.
+    expect(badgeSizes("JAINA", "2027").sub).toBe(18);
+    expect(badgeSizes("JAINA", "2027").label).toBeGreaterThan(20);
+    const fits = (label: string, sub: string) => {
+      const b = badgeSizes(label, sub);
+      expect(b.label).toBeLessThanOrEqual(26);
+      expect(b.sub).toBeLessThanOrEqual(18);
+      expect(textWidth(label, b.label, { caps: true, serif: true, spacing: b.labelGap }), `${label}`).toBeLessThanOrEqual(92 + 0.5);
+      if (sub) expect(textWidth(sub, b.sub, { caps: true, spacing: b.subGap }), `${sub}`).toBeLessThanOrEqual(92 + 0.5);
+      return b;
+    };
+    // The default label, long ones, the widest letters, and a short acronym that keeps its full size.
+    fits("PARTNER", "");
+    fits("WELCOME", "2027");
+    fits("FEDERATION", "OF JAINS");
+    fits("MMMMMMMMMM", "WWWWWWWW");
+    fits("Jaina", "Houston");
+    expect(fits("YJP", "").label).toBe(26);
+    // A longer line is smaller than a shorter one.
+    expect(badgeSizes("FEDERATION", "").label).toBeLessThan(badgeSizes("JAINA", "").label);
+    expect(badgeSizes("", "ABCDEFGH").sub).toBeLessThan(18);
   });
 
   it("lists every word on the poster, for choosing fonts", () => {

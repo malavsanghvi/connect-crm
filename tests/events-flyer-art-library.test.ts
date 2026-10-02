@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { FLYER_LAYER_GUARDRAIL, findBlockedArtTerm } from "@/lib/events/flyer";
 import { NO_GEMINI_KEY, flyerArtPath } from "@/lib/events/flyer-art";
 import { PARTNER_LOGO_MAX_BYTES, collectFlyerArt, discardFlyerArt, flyerArtReadiness, listFlyerArt, requestFlyerArt, storePartnerLogo } from "@/lib/events/flyer-art-library";
-import { sniffImage } from "@/lib/events/flyer-image";
+import { MAX_PICTURE_PIXELS, MAX_PICTURE_SIDE, oversizePicture, sniffImage } from "@/lib/events/flyer-image";
 import { DbFailure, FormError } from "@/lib/events/forms";
 import type { AppSupabase } from "@/lib/supabase/server";
 
@@ -15,6 +15,17 @@ const PNG = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2
 const JPEG = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 0, 16, 74, 70, 73, 70, 0, 1, 1, 0, 0, 1]);
 const WEBP = new Uint8Array([0x52, 0x49, 0x46, 0x46, 0, 0, 0, 0, 0x57, 0x45, 0x42, 0x50, 1, 2, 3, 4]);
 const b64 = (b: Uint8Array) => Buffer.from(b).toString("base64");
+/** A PNG that is only a header claiming this size (the renderer decodes at the claimed size: a few KB can claim 8,000 × 8,000). */
+const pngOf = (w: number, h: number) => {
+  const b = new Uint8Array(33);
+  b.set([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 13, 0x49, 0x48, 0x44, 0x52]);
+  const dv = new DataView(b.buffer);
+  dv.setUint32(16, w);
+  dv.setUint32(20, h);
+  return b;
+};
+/** A JPEG that is only a header with a start-of-frame marker claiming this size. */
+const jpegOf = (w: number, h: number) => new Uint8Array([0xff, 0xd8, 0xff, 0xc0, 0, 17, 8, h >> 8, h & 255, w >> 8, w & 255, 3, 1, 0x22, 0, 2, 0x11, 1, 3, 0x11, 1]);
 
 type Answer = { data?: unknown; error?: { message: string; code?: string; statusCode?: string } | null };
 
@@ -26,6 +37,8 @@ function fake(
     signed?: (paths: string[]) => { path: string; signedUrl: string | null; error: string | null }[] | { error: { message: string } };
     upload?: Answer;
     remove?: Answer;
+    /** What storage says about a file's existence: true or false, or "throws" for a call that fails outright. */
+    exists?: boolean | "throws";
   } = {},
 ) {
   const calls: { fn: string; args: unknown[] }[] = [];
@@ -55,6 +68,11 @@ function fake(
           async upload(path: string, bytes: Uint8Array, opts: unknown) {
             calls.push({ fn: `upload:${bucket}`, args: [path, bytes.length, opts] });
             return { data: o.upload?.error ? null : { path }, error: o.upload?.error ?? null };
+          },
+          async exists(path: string) {
+            calls.push({ fn: `exists:${bucket}`, args: [path] });
+            if (o.exists === "throws") throw new Error("fetch failed");
+            return { data: o.exists ?? true, error: null };
           },
           async remove(paths: string[]) {
             calls.push({ fn: `remove:${bucket}`, args: [paths] });
@@ -209,6 +227,36 @@ describe("collectFlyerArt (the worker's picture, kept once, at its cache key)", 
     expect(called(calls, "rpc:events_flyer_art_taken")).toHaveLength(0);
   });
 
+  describe("a picture that was discarded (the job still remembers where it was kept)", () => {
+    const path = `${C}/flyer-art/garba/frame-777.jpg`;
+    const stored = { data: { status: "done", result: { stored_path: path, prompt: "p", layer: "frame", occasion: "garba", seed: 777 } } };
+    const unsigned = (paths: string[]) => paths.map((p) => ({ path: p, signedUrl: null, error: "Object not found" }));
+
+    it("is nothing to collect: it does not come back as a picture with no preview every time the panel opens", async () => {
+      const { db, calls } = fake({ rpc: { events_flyer_result: stored }, signed: unsigned, exists: false });
+      expect(await collectFlyerArt(db, args)).toEqual({ status: "none" });
+      expect(called(calls, "exists:content")[0]!.args).toEqual([path]);
+      expect(called(calls, "upload:content")).toHaveLength(0);
+    });
+
+    it("is still kept when the file exists but its preview could not be made (the picture is not lost)", async () => {
+      const { db } = fake({ rpc: { events_flyer_result: stored }, signed: unsigned, exists: true });
+      expect(await collectFlyerArt(db, args)).toEqual({ status: "ready", entry: { path, layer: "frame", occasion: "garba", seed: 777, url: null } });
+    });
+
+    it("is not taken for gone when the check itself fails (only 'not there' means gone)", async () => {
+      const { db } = fake({ rpc: { events_flyer_result: stored }, signed: unsigned, exists: "throws" });
+      const r = await collectFlyerArt(db, args);
+      expect(r.status).toBe("ready");
+    });
+
+    it("costs no extra call when the picture is there and its preview was made", async () => {
+      const { db, calls } = fake({ rpc: { events_flyer_result: stored } });
+      expect((await collectFlyerArt(db, args)).status).toBe("ready");
+      expect(called(calls, "exists:content")).toHaveLength(0);
+    });
+  });
+
   it("will not take another community's stored picture", async () => {
     const path = `${OTHER}/flyer-art/garba/frame-777.jpg`;
     const { db } = fake({ rpc: { events_flyer_result: { data: { status: "done", result: { stored_path: path, layer: "frame", occasion: "garba", seed: 777 } } } } });
@@ -352,5 +400,38 @@ describe("storePartnerLogo", () => {
   it("says so when storage refuses the file", async () => {
     const { db } = fake({ upload: { error: { message: "new row violates row-level security policy" } } });
     await expect(storePartnerLogo(db, { centerId: C, eventId: E, bytes: PNG })).rejects.toBeInstanceOf(DbFailure);
+  });
+
+  it("refuses a picture that claims more pixels than the flyer maker draws, before anything is stored (a few KB of PNG can claim 8,000 × 8,000)", async () => {
+    const { db, calls } = fake();
+    await expect(storePartnerLogo(db, { centerId: C, eventId: E, bytes: pngOf(8000, 8000) })).rejects.toThrow(
+      /that picture measures 8000 × 8000 pixels, more than the flyer maker draws \(up to 4096 pixels on a side and 12 megapixels\)\. Make it smaller and upload it again\./,
+    );
+    // One side too long, and too many pixels with both sides in range (4,000 × 4,000 is 16 megapixels), and a JPEG as well.
+    await expect(storePartnerLogo(db, { centerId: C, eventId: E, bytes: pngOf(5000, 100) })).rejects.toThrow(/5000 × 100 pixels/);
+    await expect(storePartnerLogo(db, { centerId: C, eventId: E, bytes: pngOf(4000, 4000) })).rejects.toThrow(/4000 × 4000 pixels/);
+    await expect(storePartnerLogo(db, { centerId: C, eventId: E, bytes: jpegOf(100, 9000) })).rejects.toThrow(/100 × 9000 pixels/);
+    expect(called(calls, "upload:content")).toHaveLength(0);
+  });
+
+  it("keeps a big logo that is still within the limit (4,000 × 3,000 is exactly 12 megapixels), and any ordinary one", async () => {
+    const { db, calls } = fake();
+    for (const bytes of [pngOf(4000, 3000), pngOf(4096, 2900), pngOf(600, 200), jpegOf(1200, 400)]) await storePartnerLogo(db, { centerId: C, eventId: E, bytes });
+    expect(called(calls, "upload:content")).toHaveLength(4);
+  });
+});
+
+describe("oversizePicture", () => {
+  it("reads only the header: the size a PNG or JPEG claims, against the limits", () => {
+    expect(MAX_PICTURE_SIDE).toBe(4096);
+    expect(MAX_PICTURE_PIXELS).toBe(12_000_000);
+    expect(oversizePicture(pngOf(8000, 8000), "image/png")).toEqual({ w: 8000, h: 8000 });
+    expect(oversizePicture(jpegOf(5000, 500), "image/jpeg")).toEqual({ w: 5000, h: 500 });
+    expect(oversizePicture(pngOf(4096, 2930), "image/png")).toEqual({ w: 4096, h: 2930 });
+    expect(oversizePicture(pngOf(4096, 2929), "image/png")).toBeNull();
+    expect(oversizePicture(pngOf(1024, 1536), "image/png")).toBeNull();
+    // A header too short to say anything is not a reason to refuse (the renderer cannot decode it either).
+    expect(oversizePicture(PNG, "image/png")).toBeNull();
+    expect(oversizePicture(JPEG, "image/jpeg")).toBeNull();
   });
 });

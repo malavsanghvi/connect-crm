@@ -51,3 +51,17 @@ export function imageSize(b: Uint8Array, kind: ImageKind): { w: number; h: numbe
   }
   return { w: 300, h: 100 };
 }
+
+/**
+ * The most a picture drawn on a flyer may measure. A small file can declare enormous dimensions (a few dozen KB of PNG can
+ * claim 8,000 × 8,000 pixels), and the renderer decodes at the declared size, in the portal's own process: an 8,000-pixel
+ * square made one preview take eight seconds and 220 MB. Logos and AI art are never anywhere near this big.
+ */
+export const MAX_PICTURE_SIDE = 4096;
+export const MAX_PICTURE_PIXELS = 12_000_000;
+
+/** The picture's size when a PNG or JPEG is bigger than the flyer maker will draw, else null (read from the header only: nothing is decoded). */
+export function oversizePicture(b: Uint8Array, kind: ImageKind): { w: number; h: number } | null {
+  const { w, h } = imageSize(b, kind);
+  return w > MAX_PICTURE_SIDE || h > MAX_PICTURE_SIDE || w * h > MAX_PICTURE_PIXELS ? { w, h } : null;
+}

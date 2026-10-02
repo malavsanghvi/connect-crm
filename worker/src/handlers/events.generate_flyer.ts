@@ -5,11 +5,16 @@
 // picture with no text in it. Two kinds of request reach it:
 //
 //   a Poster layer   { event_id, occasion, layer: "frame" | "scene", seed, prompt }
-//                    app.events_request_flyer_art (0585); the prompt is code-set
-//                    by the portal and must END with FLYER_LAYER_GUARDRAIL
+//                    app.events_request_flyer_art (0585). The picture's description is
+//                    NEVER read from the payload: the database takes any text from an
+//                    organizer who calls it directly, and these pictures are made on the
+//                    owner's key and shared with the whole community. The worker builds it
+//                    itself from the occasion and layer (FLYER_LAYER_PROMPTS, the same
+//                    table the portal sends from), ending with FLYER_LAYER_GUARDRAIL
 //   a background     { event_id, prompt }  app.events_request_flyer (0578): the
-//                    organizer's own words, abstract or decorative only, with
-//                    FLYER_ART_GUARDRAIL appended
+//                    organizer's own words (English only: the blocked-word check reads
+//                    English), abstract or decorative only, with FLYER_ART_GUARDRAIL
+//                    appended
 //
 // Both are refused (permanently) when they name a blocked word, and the right
 // guardrail is sent exactly once (flyer-guard.ts, identical to the portal's
@@ -61,7 +66,7 @@
 // app.events_flyer_art_taken removes image_b64 from this result (0578/0585),
 // and app.audit_mask keeps the bytes out of the audit log.
 
-import { FLYER_LAYER_ASPECT, NO_GEMINI_KEY, flyerArtModel, type FlyerArtModel } from "../../../src/lib/events/flyer-art";
+import { FLYER_LAYER_ASPECT, FLYER_LAYER_PROMPTS, NO_GEMINI_KEY, firstNonEnglishLetter, flyerArtModel, isFlyerOccasion, type FlyerArtModel } from "../../../src/lib/events/flyer-art";
 import type { Env, Readiness } from "../config";
 import { NotConfiguredError, PermanentError } from "../errors";
 import { findBlockedArtTerm, withArtGuardrail, withLayerGuardrail } from "../flyer-guard";
@@ -71,7 +76,6 @@ import type { Job, JobContext } from "../types";
 export const kind = "events.generate_flyer";
 export const PROVIDER = "gemini";
 const MAX_PROMPT_CHARS = 2000;
-const OCCASIONS = new Set(["garba", "paryushan", "diwali", "mahavir", "convention", "pathshala", "bhakti", "general"]);
 /** The most a picture may weigh (base64 goes into app.jobs.result until the portal has stored it). */
 const MAX_IMAGE_BYTES = 6 * 1024 * 1024;
 
@@ -94,16 +98,25 @@ export type FlyerArtPayload =
 
 export function readPayload(p: unknown): FlyerArtPayload {
   const o = (p ?? {}) as Record<string, unknown>;
+  if (o.layer !== undefined) {
+    if (o.layer !== "frame" && o.layer !== "scene") throw new PermanentError("events.generate_flyer: the layer must be a frame or a scene.");
+    if (!isFlyerOccasion(o.occasion)) throw new PermanentError("events.generate_flyer: the payload names no occasion.");
+    const seed = Number(o.seed);
+    if (!Number.isInteger(seed) || seed < 1 || seed > 2_147_483_647) throw new PermanentError("events.generate_flyer: the seed is out of range.");
+    // The description is ours, whatever text came with the request (see the top of this file).
+    const prompt = withLayerGuardrail(FLYER_LAYER_PROMPTS[o.occasion][o.layer], MAX_PROMPT_CHARS);
+    // Our own descriptions never name a blocked word (a test checks every one); this stays as a second lock.
+    const blocked = findBlockedArtTerm(prompt);
+    if (blocked) throw new PermanentError(`AI flyer art never shows people up close, deities or lettering: the built-in description mentioned "${blocked}".`);
+    return { kind: "layer", prompt, layer: o.layer, occasion: o.occasion, seed };
+  }
   const prompt = typeof o.prompt === "string" ? o.prompt.trim() : "";
   if (!prompt) throw new PermanentError("events.generate_flyer: the payload needs a prompt.");
+  const foreign = firstNonEnglishLetter(prompt);
+  if (foreign) throw new PermanentError(`AI background art is described in English: the check for people, deities and lettering reads English words only, and the description has "${foreign}".`);
   const blocked = findBlockedArtTerm(prompt);
   if (blocked) throw new PermanentError(`AI flyer art never shows people up close, deities or lettering: the request mentioned "${blocked}".`);
-  if (o.layer === undefined) return { kind: "background", prompt: withArtGuardrail(prompt, MAX_PROMPT_CHARS) };
-  if (o.layer !== "frame" && o.layer !== "scene") throw new PermanentError("events.generate_flyer: the layer must be a frame or a scene.");
-  if (typeof o.occasion !== "string" || !OCCASIONS.has(o.occasion)) throw new PermanentError("events.generate_flyer: the payload names no occasion.");
-  const seed = Number(o.seed);
-  if (!Number.isInteger(seed) || seed < 1 || seed > 2_147_483_647) throw new PermanentError("events.generate_flyer: the seed is out of range.");
-  return { kind: "layer", prompt: withLayerGuardrail(prompt, MAX_PROMPT_CHARS), layer: o.layer, occasion: o.occasion, seed };
+  return { kind: "background", prompt: withArtGuardrail(prompt, MAX_PROMPT_CHARS) };
 }
 
 // ── The requests ─────────────────────────────────────────────────────────────
@@ -212,6 +225,15 @@ function why(answer: GeminiAnswer): string {
   return m ? `: ${m.replace(/\s+/g, " ").slice(0, 300)}` : "";
 }
 
+/**
+ * Is this a 429 that waiting cannot fix? Google names the free tier in its quota message ("Quota exceeded for metric:
+ * ...generate_content_free_tier_requests, limit: 0"): a project with billing is never held to the free tier's limits, so
+ * seeing them means the project has no billing (and image models have no free tier). A true rate limit says neither.
+ */
+export function isNoQuota(text: string): boolean {
+  return /\blimit:\s*0\b/i.test(text) || /free[_\s-]?tier/i.test(text);
+}
+
 /** The kinds of "no" that mean this request SHAPE was not accepted (try the next one), not that the key or the service is the problem. */
 function isShapeProblem(status: number): boolean {
   return status >= 400 && status < 500 && status !== 401 && status !== 403 && status !== 408 && status !== 429;
@@ -248,8 +270,18 @@ export async function run(job: Job, ctx: JobContext) {
   if (!res.ok) {
     if (res.status === 401 || res.status === 403) throw new PermanentError(`Gemini refused the key (HTTP ${res.status}). A platform administrator needs to check GEMINI_API_KEY in Platform › Setup › AI flyer art${why(answer)}`);
     if (res.status === 404) throw new PermanentError(`The Gemini model ${model} is not available to this key (HTTP 404). Choose another model in Platform › Setup › AI flyer art${why(answer)}`);
-    if (res.status === 429) throw new Error(`Gemini is rate limiting or the account's quota ran out (HTTP 429); the request is tried again${why(answer)}`);
-    if (res.status >= 500) throw new Error(`Gemini had a problem (HTTP ${res.status}); the request is tried again${why(answer)}`);
+    if (res.status === 429) {
+      // The usual mistake: the key's Google Cloud project has no billing. Image models have no free tier, so Google answers
+      // "quota exceeded, limit: 0" at once, and asking again in a minute would only wait for nothing.
+      if (isNoQuota(res.text)) {
+        throw new PermanentError(
+          "Google says this key's project has no quota for image models (HTTP 429): they have no free tier. A platform administrator needs to turn on billing for the Google Cloud project that owns GEMINI_API_KEY " +
+            "(Platform › Setup › AI flyer art), then ask again. The drawn art works meanwhile.",
+        );
+      }
+      throw new Error(`Gemini is rate limiting this key right now (HTTP 429)${why(answer)}`);
+    }
+    if (res.status >= 500) throw new Error(`Gemini had a problem (HTTP ${res.status})${why(answer)}`);
     throw new PermanentError(`Gemini did not accept the request (${refused.join("; ")}).`);
   }
 

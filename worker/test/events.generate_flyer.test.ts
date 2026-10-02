@@ -6,7 +6,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { DEFAULT_FLYER_ART_MODEL, FLYER_LAYER_ASPECT, FLYER_LAYER_PROMPTS, FLYER_OCCASIONS, NO_GEMINI_KEY } from "../../src/lib/events/flyer-art";
 import { NotConfiguredError, PermanentError, isRetryable } from "../src/errors";
 import { FLYER_ART_GUARDRAIL, FLYER_LAYER_GUARDRAIL, findBlockedArtTerm, withArtGuardrail, withLayerGuardrail } from "../src/flyer-guard";
-import { configured, geminiRequests, imagesIn, info, pictureFrom, readPayload, run } from "../src/handlers/events.generate_flyer";
+import { configured, geminiRequests, imagesIn, info, isNoQuota, pictureFrom, readPayload, run } from "../src/handlers/events.generate_flyer";
 import { createHttp } from "../src/http";
 import { captureLog } from "./helpers";
 
@@ -110,7 +110,13 @@ describe("events.generate_flyer: the payload", () => {
     expect(() => readPayload({ prompt: "Happy Diwali text in gold letters" })).toThrow(PermanentError);
     expect(() => readPayload({ prompt: "A crowd of people dancing" })).toThrow(PermanentError);
     expect(() => readPayload({ prompt: "Garba dancers around Ambe Mataji" })).toThrow(/the request mentioned "dancers"/);
-    expect(() => readPayload({ prompt: "Goddesses in a lotus pond", layer: "scene", occasion: "diwali", seed: 4 })).toThrow(PermanentError);
+  });
+
+  it("asks for a background in English: the blocked-word check cannot read another script, so a Gujarati or Hindi description is refused", () => {
+    expect(() => readPayload({ prompt: "સુંદર ફૂલોની ડિઝાઇન" })).toThrow(PermanentError);
+    expect(() => readPayload({ prompt: "सुंदर रंगोली and mandala" })).toThrow(/described in English.*has "स"/);
+    // English with accents, symbols and numbers is fine.
+    expect(readPayload({ prompt: "Café-style ornaments — 3 rings of gold, ★ sparkles" }).kind).toBe("background");
   });
 
   it("does not mistake ornament words for blocked ones", () => {
@@ -138,23 +144,26 @@ describe("events.generate_flyer: the payload", () => {
     expect(findBlockedArtTerm(p.prompt)).toBeNull();
   });
 
-  it("never cuts a guardrail off a long prompt", () => {
-    const long = readPayload({ prompt: "golden lotus petals ".repeat(200), layer: "scene", occasion: "paryushan", seed: 9 }).prompt;
-    expect(long.length).toBeLessThanOrEqual(2000);
-    expect(long.endsWith(FLYER_LAYER_GUARDRAIL)).toBe(true);
+  it("builds a layer's description itself from the occasion and layer, whatever text came with the request (the database takes any text from a caller)", () => {
+    for (const occasion of FLYER_OCCASIONS) {
+      for (const layer of ["frame", "scene"] as const) {
+        const own = withLayerGuardrail(FLYER_LAYER_PROMPTS[occasion][layer], 2000);
+        // The portal's own text, a different text, a very long text, a blocked one, one in another script, and none at all: always ours.
+        for (const prompt of [FLYER_LAYER_PROMPTS[occasion][layer], "A swami giving a blessing", "golden lotus ".repeat(300), "Lord Rama and Sita in a forest", "ભગવાન", undefined]) {
+          const p = readPayload({ prompt, layer, occasion, seed: 1 });
+          expect(p, `${occasion} ${layer}`).toMatchObject({ kind: "layer", layer, occasion, prompt: own });
+          expect(p.prompt.length).toBeLessThanOrEqual(2000);
+          expect(p.prompt.endsWith(FLYER_LAYER_GUARDRAIL)).toBe(true);
+          expect(findBlockedArtTerm(p.prompt), `${occasion} ${layer}`).toBeNull();
+        }
+      }
+    }
+  });
+
+  it("never cuts a guardrail off a long background description", () => {
     const bg = readPayload({ prompt: "golden lotus petals ".repeat(200) }).prompt;
     expect(bg.length).toBeLessThanOrEqual(2000);
     expect(bg.endsWith(FLYER_ART_GUARDRAIL)).toBe(true);
-  });
-
-  it("accepts every prompt the portal builds (its own frame and scene descriptions, for every occasion)", () => {
-    for (const occasion of FLYER_OCCASIONS) {
-      for (const layer of ["frame", "scene"] as const) {
-        const p = readPayload({ prompt: FLYER_LAYER_PROMPTS[occasion][layer], layer, occasion, seed: 1 });
-        expect(p, `${occasion} ${layer}`).toMatchObject({ kind: "layer", layer, occasion });
-        expect(p.prompt.endsWith(FLYER_LAYER_GUARDRAIL)).toBe(true);
-      }
-    }
   });
 
   it("checks the layer, the occasion and the seed", () => {
@@ -271,6 +280,16 @@ describe("events.generate_flyer: run", () => {
     expect(JSON.stringify(lines)).not.toContain(KEY);
   });
 
+  it("sends Google the occasion's own description even when the job's payload carries other words", async () => {
+    script = [{ status: 200, body: interactionsAnswer() }];
+    const { c } = ctx();
+    const res = (await run(layerJob({ prompt: "A swami giving a blessing to the crowd, Lord Rama and Sita" }), c)) as Record<string, unknown>;
+    const sent = ((seen[0]!.body.input as { text: string }[])[0] ?? { text: "" }).text;
+    expect(sent).toBe(withLayerGuardrail(FLYER_LAYER_PROMPTS.garba.frame, 2000));
+    expect(sent).not.toMatch(/swami|Rama|Sita|crowd/i);
+    expect(res.prompt).toBe(sent);
+  });
+
   it("asks a wide strip for a scene, with the model the platform chose", async () => {
     script = [{ status: 200, body: interactionsAnswer(FAKE.toString("base64"), "image/png") }];
     const { c } = ctx({ GEMINI_IMAGE_MODEL: "gemini-3.1-flash-image" });
@@ -354,7 +373,7 @@ describe("events.generate_flyer: run", () => {
   });
 
   it("treats rate limits and Google's own errors as retryable, not permanent", async () => {
-    script = [429, 429].map((status) => ({ status, body: { error: { message: "quota" } } }));
+    script = [429, 429].map((status) => ({ status, body: { error: { code: 429, status: "RESOURCE_EXHAUSTED", message: "Too many requests, please slow down." } } }));
     const limited = await run(layerJob(), ctx().c).catch((e: unknown) => e);
     expect(limited).toBeInstanceOf(Error);
     expect(isRetryable(limited)).toBe(true);
@@ -363,6 +382,47 @@ describe("events.generate_flyer: run", () => {
     const down = await run(layerJob(), ctx().c).catch((e: unknown) => e);
     expect(isRetryable(down)).toBe(true);
     expect((down as Error).message).toMatch(/Gemini had a problem \(HTTP 503\)/);
+  });
+
+  it("does not promise a retry in a message that may be the job's last word (the job may already have given up)", async () => {
+    script = [429, 429].map((status) => ({ status, body: { error: { message: "Too many requests" } } }));
+    const limited = (await run(layerJob(), ctx().c).catch((e: unknown) => e)) as Error;
+    expect(limited.message).toMatch(/^Gemini is rate limiting this key right now \(HTTP 429\): Too many requests/);
+    script = [500, 500].map((status) => ({ status, body: {} }));
+    const down = (await run(layerJob(), ctx().c).catch((e: unknown) => e)) as Error;
+    expect(`${limited.message} ${down.message}`).not.toMatch(/tried again|try again/i);
+  });
+
+  describe("a key whose Google Cloud project has no billing (image models have no free tier)", () => {
+    // What Google answers: HTTP 429 RESOURCE_EXHAUSTED naming the free tier, with a limit of zero.
+    const noQuota = {
+      error: {
+        code: 429,
+        status: "RESOURCE_EXHAUSTED",
+        message:
+          "You exceeded your current quota, please check your plan and billing details. * Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 0, model: gemini-3.1-flash-lite-image Please retry in 40s.",
+        details: [{ "@type": "type.googleapis.com/google.rpc.QuotaFailure", violations: [{ quotaMetric: "generativelanguage.googleapis.com/generate_content_free_tier_requests", quotaId: "GenerateRequestsPerDayPerProjectPerModel-FreeTier" }] }],
+      },
+    };
+
+    it("fails at once and for good, saying what to do, instead of waiting out three attempts for nothing", async () => {
+      script = [429, 429].map((status) => ({ status, body: noQuota }));
+      const err = (await run(layerJob(), ctx().c).catch((e: unknown) => e)) as Error;
+      expect(err).toBeInstanceOf(PermanentError);
+      expect(isRetryable(err)).toBe(false);
+      expect(err.message).toMatch(/no quota for image models \(HTTP 429\): they have no free tier/);
+      expect(err.message).toMatch(/turn on billing for the Google Cloud project that owns GEMINI_API_KEY \(Platform › Setup › AI flyer art\)/);
+      expect(err.message).toMatch(/drawn art works meanwhile/);
+    });
+
+    it("is told apart from a rate limit by what Google says, not by the status number alone", () => {
+      expect(isNoQuota(JSON.stringify(noQuota))).toBe(true);
+      expect(isNoQuota("Quota exceeded for metric: x, limit: 0, model: y")).toBe(true);
+      expect(isNoQuota("Quota exceeded for metric: generate_content_free_tier_requests, limit: 10")).toBe(true);
+      expect(isNoQuota('{"error":{"message":"Resource has been exhausted (e.g. check quota)."}}')).toBe(false);
+      expect(isNoQuota("limit: 20, model: y")).toBe(false);
+      expect(isNoQuota("")).toBe(false);
+    });
   });
 
   it("fails permanently when a picture is too large to keep", async () => {

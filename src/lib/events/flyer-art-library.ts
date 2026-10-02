@@ -34,7 +34,7 @@ import {
   type FlyerLayerKind,
   type FlyerOccasion,
 } from "./flyer-art";
-import { sniffImage } from "./flyer-image";
+import { MAX_PICTURE_PIXELS, MAX_PICTURE_SIDE, oversizePicture, sniffImage } from "./flyer-image";
 
 const BUCKET = "content";
 /** How long a picture's signed URL works (an hour: the panel is open while the organizer chooses). */
@@ -159,7 +159,22 @@ export async function collectFlyerArt(db: AppSupabase, a: { eventId: string; cen
     const taken = await db.rpc("events_flyer_art_taken", { p_event: a.eventId, p_path: path });
     if (taken.error) throw new DbFailure(taken.error, "the picture was kept, but the background job could not be updated");
   }
-  return { status: "ready", entry: await entryFor(db, a.centerId, path) };
+  const entry = await entryFor(db, a.centerId, path);
+  // A job keeps its stored_path after its picture is discarded. A file that is gone is nothing to collect: answering `ready` for it
+  // would put a picture with no preview back among the community's pictures every time the panel opens.
+  if (job.status === "stored" && entry.url === null && (await isGone(db, path))) return { status: "none" };
+  return { status: "ready", entry };
+}
+
+/** True only when storage says the file is not there (a missing file, or one this person may not see); any other trouble says false. */
+async function isGone(db: AppSupabase, path: string): Promise<boolean> {
+  try {
+    const res = await db.storage.from(BUCKET).exists(path);
+    return res.data === false;
+  } catch (err) {
+    console.error(`[events/flyer] could not check whether content/${path} still exists:`, err);
+    return false;
+  }
 }
 
 /**
@@ -224,6 +239,12 @@ export async function storePartnerLogo(db: AppSupabase, a: { centerId: string; e
   if (a.bytes.length > PARTNER_LOGO_MAX_BYTES) throw new FormError(`the partner logo is larger than ${PARTNER_LOGO_MAX_BYTES / 1024 / 1024} MB.`);
   const kind = sniffImage(a.bytes);
   if (kind !== "image/png" && kind !== "image/jpeg") throw new FormError("the partner logo must be a PNG or JPEG picture (WebP and HEIC can't be drawn on a flyer).");
+  const big = oversizePicture(a.bytes, kind);
+  if (big) {
+    throw new FormError(
+      `that picture measures ${big.w} × ${big.h} pixels, more than the flyer maker draws (up to ${MAX_PICTURE_SIDE} pixels on a side and ${MAX_PICTURE_PIXELS / 1_000_000} megapixels). Make it smaller and upload it again.`,
+    );
+  }
   const path = `${a.centerId.toLowerCase()}/events/${a.eventId.toLowerCase()}/partner-${a.now ?? Date.now()}.${kind === "image/png" ? "png" : "jpg"}`;
   const up = await db.storage.from(BUCKET).upload(path, a.bytes, { contentType: kind, upsert: false });
   if (up.error) {

@@ -1,3 +1,6 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+
 import { describe, expect, it } from "vitest";
 
 import { FLYER_LAYER_GUARDRAIL, findBlockedArtTerm, withLayerGuardrail } from "@/lib/events/flyer";
@@ -5,6 +8,7 @@ import {
   ART_SERVICE_DOWN,
   ART_SERVICE_OLD,
   DEFAULT_FLYER_ART_MODEL,
+  FLYER_ART_DAILY_LIMIT,
   FLYER_ART_MODELS,
   FLYER_ART_MODEL_IDS,
   FLYER_ART_SEED_MAX,
@@ -14,6 +18,9 @@ import {
   FLYER_OCCASIONS,
   NO_GEMINI_KEY,
   artCostSentence,
+  artPriceSentence,
+  englishOnlyNote,
+  firstNonEnglishLetter,
   flyerArtFolder,
   flyerArtModel,
   flyerArtPath,
@@ -21,10 +28,12 @@ import {
   isCenterArtPath,
   isFlyerArtModel,
   isFlyerOccasion,
+  isNewPicture,
   newArtSeed,
   occasionFor,
   parseFlyerArtPath,
   readFlyerArtStatus,
+  type FlyerArtEntry,
 } from "@/lib/events/flyer-art";
 
 const C = "11111111-1111-4111-8111-111111111111";
@@ -163,9 +172,72 @@ describe("what a picture costs, shown before anything is asked", () => {
     expect(formatArtCost(140)).toBe("about $1.40");
     expect(formatArtCost(-5)).toBe("about 0¢");
     expect(artCostSentence("gemini-3.1-flash-lite-image")).toBe(
-      "Each new picture costs about 4¢ (Gemini 3.1 Flash Lite Image), paid by your community's Community Connect account. Pictures already made for this occasion are free to reuse.",
+      "Each new picture costs about 4¢ (Gemini 3.1 Flash Lite Image). Community Connect pays for it; nothing is charged to your community. A community can make 30 pictures a day. Pictures already made for this occasion are free to reuse.",
     );
     expect(artCostSentence("gemini-3-pro-image")).toMatch(/about 14¢ \(Gemini 3 Pro Image\)/);
+  });
+
+  it("says who pays: Community Connect does, never the community (the owner's Google account is billed)", () => {
+    for (const model of FLYER_ART_MODEL_IDS) {
+      const s = artPriceSentence(model);
+      expect(s).toMatch(/Community Connect pays for it; nothing is charged to your community\./);
+      expect(s).not.toMatch(/paid by your community/i);
+      // The price sentence alone is for a picture that is not reused (a background); the layer sentence adds the reuse.
+      expect(s).not.toMatch(/free to reuse/);
+      expect(artCostSentence(model)).toMatch(/free to reuse/);
+    }
+  });
+
+  it("keeps the daily limit it tells people about equal to the database's (app.flyer_art_daily_limit, 0585)", () => {
+    const sql = readFileSync(join(__dirname, "..", "supabase", "migrations", "0585_flyers_v2.sql"), "utf8");
+    const limit = /flyer_art_daily_limit\(\)[^;]*select\s+(\d+)/i.exec(sql);
+    expect(limit, "0585 defines app.flyer_art_daily_limit()").not.toBeNull();
+    expect(FLYER_ART_DAILY_LIMIT).toBe(Number(limit![1]));
+  });
+});
+
+describe("isNewPicture: what is worth announcing when the flyer panel opens", () => {
+  const entry = (over: Partial<FlyerArtEntry> = {}): FlyerArtEntry => ({ path: flyerArtPath(C, "garba", "frame", 7, "jpg"), layer: "frame", occasion: "garba", seed: 7, url: "https://x/y", ...over });
+  const drawn = { frame: { source: "code" }, scene: { source: "code" } } as const;
+
+  it("is news when it is for the occasion on screen and neither listed nor on the poster", () => {
+    expect(isNewPicture(entry(), { occasion: "garba", listed: [], poster: drawn })).toBe(true);
+  });
+
+  it("is not news when it is already among the pictures listed (the panel finds the last picture asked for on every visit)", () => {
+    expect(isNewPicture(entry(), { occasion: "garba", listed: [entry()], poster: drawn })).toBe(false);
+  });
+
+  it("is not news when it is already on the poster, as the frame or as the scene it was made for", () => {
+    const frame = entry();
+    expect(isNewPicture(frame, { occasion: "garba", listed: [], poster: { ...drawn, frame: { source: "ai", path: frame.path } } })).toBe(false);
+    const scene = entry({ layer: "scene", path: flyerArtPath(C, "garba", "scene", 8, "png") });
+    expect(isNewPicture(scene, { occasion: "garba", listed: [], poster: { ...drawn, scene: { source: "ai", path: scene.path } } })).toBe(false);
+    // Another picture on the layer does not hide it.
+    expect(isNewPicture(frame, { occasion: "garba", listed: [], poster: { ...drawn, frame: { source: "ai", path: flyerArtPath(C, "garba", "frame", 9, "jpg") } } })).toBe(true);
+  });
+
+  it("is not news for another occasion (it is kept there; the person is told when they ask, not on every visit)", () => {
+    expect(isNewPicture(entry({ occasion: "diwali" }), { occasion: "garba", listed: [], poster: drawn })).toBe(false);
+  });
+});
+
+describe("the safety check for a free-text description reads English only", () => {
+  it("finds a letter that is not Latin, in any script the check cannot read", () => {
+    expect(firstNonEnglishLetter("Warm saffron and navy mandala rings")).toBeNull();
+    expect(firstNonEnglishLetter("Café lights, naïve ornaments — 100% “festive” ★ 2026 …")).toBeNull();
+    expect(firstNonEnglishLetter("")).toBeNull();
+    expect(firstNonEnglishLetter("સુંદર ફૂલોની ડિઝાઇન")).toBe("સ");
+    expect(firstNonEnglishLetter("diya लैंप light")).toBe("ल");
+    expect(firstNonEnglishLetter("лотос")).toBe("л");
+    expect(firstNonEnglishLetter("gold 金色 rings")).toBe("金");
+  });
+
+  it("tells the organizer which letter and what to do, in plain English", () => {
+    const note = englishOnlyNote("સ");
+    expect(note).toMatch(/^Please describe the background art in English/);
+    expect(note).toContain('"સ"');
+    expect(note).toMatch(/flyer's own words can be in any language/);
   });
 });
 

@@ -196,7 +196,7 @@ describe("the AI flyer art test (Gemini): a free model lookup, never a picture",
     }, env);
     expect(res).toEqual({
       ok: true,
-      lines: [{ label: "Gemini knows the key and the model gemini-3.1-flash-lite-image", ok: true, detail: "accepted: Gemini 3.1 Flash Lite Image is available to this key (no picture was made, so the test is free)" }],
+      lines: [{ label: "Gemini knows the key and the model gemini-3.1-flash-lite-image", ok: true, detail: "accepted: Gemini 3.1 Flash Lite Image is available to this key (no picture was made, so the test is free). It does not check billing: image models have no free tier, so the Google Cloud project behind the key needs billing turned on, or pictures fail with a quota message" }],
     });
     expect(sent).toHaveLength(1);
     expect(sent[0]!.url).toBe("http://mock/v1beta/models/gemini-3.1-flash-lite-image");

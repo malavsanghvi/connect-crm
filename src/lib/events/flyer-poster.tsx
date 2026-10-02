@@ -11,11 +11,14 @@
 // and an RSVP QR code in the bottom-left corner. Every section is optional.
 //
 // Satori cannot measure text, so planPoster() ESTIMATES each section's height
-// from its words (generously) and shrinks the whole stack (k, down to 0.6)
-// until it fits between the top and the scene's busy part; the bottom spacer
-// takes what is left. The content column never shrinks: if an estimate were
-// ever too small, the footer would be pushed out of the image, and
-// tests/events-flyer-poster.test.ts (the magenta stage) fails.
+// from its words (wrapping them word by word, a little generously: lineCount)
+// and shrinks the whole stack (k, down to 0.58, then a section at a time is
+// left out) until it fits between the top and the scene's busy part. The
+// content column never shrinks. The footer band and the QR card are pinned to
+// the picture's bottom edge, so even a wrong estimate can only let the last
+// line touch the scene, never push the footer out of the image;
+// tests/events-flyer-render.test.ts (the magenta stage, and a strip left clear
+// above the footer) fails when an estimate is wrong.
 
 import type { ReactElement, ReactNode } from "react";
 
@@ -45,6 +48,8 @@ const W = 1080;
 const FOOTER = 66;
 const SIDE = 70; // the frame's ornaments: words stay inside this margin
 const COL = W - 2 * SIDE;
+/** How wide a line of the partner badge's text may be: the disc's inner ring is about 106 across, narrower where the lines sit. */
+const BADGE_TEXT_WIDTH = 92;
 /** The smallest scale the words are asked to take before something is left out. */
 const K_MIN = 0.58;
 /** The smallest scale there ever is: only when everything that can be left out has been. */
@@ -70,24 +75,74 @@ export function textWidth(s: string, size: number, o: { caps?: boolean; spacing?
   return em * size * (o.serif ? 1.06 : 1) + (o.spacing ?? 0) * count;
 }
 
-/** How many lines a text wraps to in `width` units (wrapping wastes some of each line it breaks). */
-export function lineCount(s: string, size: number, width: number, o: { caps?: boolean; spacing?: number; serif?: boolean } = {}): number {
-  if (!s.trim()) return 0;
-  const tw = textWidth(s, size, o);
-  if (tw <= width * 0.97) return 1;
-  return Math.max(2, Math.ceil(tw / (width * 0.86)));
+/**
+ * How much of a line's width the words may take before the next word wraps. textWidth() runs within a few percent of the
+ * real fonts (a hair low for capitals), so a line is counted a little shorter than it is: an estimate that is too high only
+ * leaves air, one that is too low pushes the poster's last lines into the scene.
+ */
+const FILL = 0.95;
+
+/**
+ * How many lines a text wraps to in `width` units, wrapping it word by word the way the renderer does: a word goes on
+ * the line when it fits, else it starts the next one. A word wider than a whole line is broken across lines (the poster
+ * sets word-break: break-word, so nothing is ever drawn past its box). `fill` is the share of each line the words may take.
+ */
+export function lineCount(s: string, size: number, width: number, o: { caps?: boolean; spacing?: number; serif?: boolean; fill?: number } = {}): number {
+  const text = s.trim();
+  if (!text) return 0;
+  const room = width * (o.fill ?? FILL);
+  const space = textWidth(" ", size, o);
+  let lines = 1;
+  let used = 0;
+  for (const word of text.split(/\s+/)) {
+    const w = textWidth(word, size, o);
+    if (used > 0 && used + space + w <= room) {
+      used += space + w;
+      continue;
+    }
+    if (used > 0) lines++;
+    // The word starts a line; if it is wider than a line, the rest of it carries on over the next ones.
+    const more = Math.max(0, Math.ceil(w / room) - 1);
+    lines += more;
+    used = w - more * room;
+  }
+  return lines;
 }
 
-/** The headline's size and lines: as big as 142 on one line, giving way to two, three or four lines for long ones. */
+/** The headline's own measure: it is the biggest type on the poster, so it gets the widest safety margin. */
+const HEADLINE_FILL = 0.95;
+
+/**
+ * The headline's size and lines: as big as 142 on one line, giving way to two, three or four lines (and smaller type)
+ * for long ones. The lines are counted word by word (lineCount), and no word is ever wider than a line: a long word
+ * ("Dasalakshanaparva") makes the type smaller until it fits.
+ */
 export function headlineFit(text: string, maxWidth = COL - 20): { size: number; lines: number } {
-  const w142 = textWidth(text, 142, { serif: true });
   const floors = [100, 74, 58, 44];
+  const measure = (size: number) => lineCount(text, size, maxWidth, { serif: true, fill: HEADLINE_FILL });
+  // The biggest type at which the longest word still fits on one line.
+  const longest = Math.max(1, ...text.split(/\s+/).map((word) => textWidth(word, 100, { serif: true })));
+  const widest = Math.floor((maxWidth * HEADLINE_FILL * 100) / longest);
   for (let lines = 1; lines <= 4; lines++) {
-    // One line wastes nothing to wrapping; several lines rarely fill every line.
-    const size = Math.min(142, (142 * lines * (lines === 1 ? 0.97 : 0.84) * maxWidth) / w142);
-    if (size >= floors[lines - 1] || lines === 4) return { size: Math.floor(size), lines: lines === 1 ? 1 : Math.max(lines, lineCount(text, Math.floor(size), maxWidth, { serif: true })) };
+    for (let size = Math.min(142, widest); size >= floors[lines - 1]!; size--) {
+      const n = measure(size);
+      if (n <= lines) return { size, lines: n };
+    }
   }
-  return { size: 44, lines: 4 };
+  // Even four lines at the smallest size are not enough: the smallest size, the lines it takes (a very long word is broken).
+  return { size: 44, lines: Math.max(1, measure(44)) };
+}
+
+/**
+ * The partner badge's two lines, each set as large as fits across the disc's inner ring (BADGE_TEXT_WIDTH units): a longer
+ * line is set smaller, never cut off or left hanging over the paper. The letters of the second line are spaced out in
+ * proportion to its size (and shifted back by one gap to centre the text).
+ */
+export function badgeSizes(label: string, sub: string): { label: number; labelGap: number; sub: number; subGap: number } {
+  const fit = (size: number, width: number) => Math.min(size, (size * BADGE_TEXT_WIDTH) / Math.max(BADGE_TEXT_WIDTH, width));
+  const labelSize = fit(26, textWidth(label, 26, { caps: true, serif: true, spacing: 0.5 }));
+  const subSize = fit(18, textWidth(sub, 18, { caps: true, spacing: 4 }));
+  return { label: labelSize, labelGap: labelSize * (0.5 / 26), sub: subSize, subGap: subSize * (4 / 18) };
 }
 
 /** The ribbon: one row (date and time | venue) when it fits at scale `k`, else the venue on its own line(s) below. */
@@ -139,7 +194,18 @@ export const SECTION_LABEL: Record<PosterSection, string> = {
 /** The least important go first when a poster is too full for its size. */
 const DROP_ORDER: PosterSection[] = ["paragraph", "slogan", "subhead", "stat"];
 
-const QR_CARD = 186;
+/**
+ * The RSVP card in the bottom-left corner (units at scale 1): the QR code itself is 190 wide (a little over 17% of the
+ * poster's width; the other templates draw 220), so a phone can scan it from a poster shown at ordinary sizes.
+ */
+const QR_IMAGE = 190;
+const QR_PAD = 12;
+const QR_BORDER = 3;
+const QR_CARD_WIDTH = QR_IMAGE + 2 * (QR_PAD + QR_BORDER);
+/** The card's height: padding, the code, "RSVP" and "Scan to reply" (their line heights are set), padding. */
+const QR_CARD = QR_PAD + QR_IMAGE + 6 + 24 + 16 + 8 + 2 * QR_BORDER;
+/** The poster's fixed measures in units (the poster is 1080 wide), for the tests that look at its pixels. */
+export const POSTER_UNITS = { width: W, footer: FOOTER, side: SIDE, qrCard: QR_CARD } as const;
 /** The subhead's text box between its two rules (units at k = 1; it scales with the words). */
 const SUBHEAD_W = COL - 200;
 
@@ -394,13 +460,14 @@ export function posterElement(input: PosterInput, dims: { w: number; h: number }
       } else {
         const b = 122;
         const label = poster.partner.label || "PARTNER";
-        const labelSize = Math.min(26, (26 * 7) / Math.max(5, flyerTextLength(label)));
+        const sub = poster.partner.sub;
+        const { label: labelSize, labelGap, sub: subSize, subGap } = badgeSizes(label, sub);
         items.push(
           box(
             { width: px(b), height: px(b), borderRadius: px(b / 2), backgroundColor: pal.ink, border: `${Math.max(1, px(4))}px solid ${pal.gold}`, alignItems: "center", justifyContent: "center", flexDirection: "column", position: "relative" },
             box({ position: "absolute", left: px(4), top: px(4), width: px(b - 16), height: px(b - 16), borderRadius: px((b - 16) / 2), border: `${Math.max(1, px(1.5))}px solid ${pal.gold}` }),
-            txt({ fontFamily: fonts.display, fontWeight: 800, fontSize: px(labelSize), color: pal.paper, lineHeight: 1, letterSpacing: px(0.5) }, label),
-            poster.partner.sub ? txt({ fontWeight: 800, fontSize: px(18), color: pal.gold, letterSpacing: px(4), marginTop: px(5), marginLeft: px(4) }, poster.partner.sub) : null,
+            txt({ fontFamily: fonts.display, fontWeight: 800, fontSize: px(labelSize), color: pal.paper, lineHeight: 1, letterSpacing: px(labelGap) }, label),
+            sub ? txt({ fontWeight: 800, fontSize: px(subSize), color: pal.gold, letterSpacing: px(subGap), marginTop: px(5), marginLeft: px(subGap) }, sub) : null,
           ),
         );
       }
@@ -561,31 +628,31 @@ export function posterElement(input: PosterInput, dims: { w: number; h: number }
   const footerText = poster.footer || input.centerName;
 
   return (
-    <div style={{ width: w, height: h, display: "flex", flexDirection: "column", position: "relative", backgroundColor: pal.paper, fontFamily: fonts.body, color: pal.ink }}>
+    <div style={{ width: w, height: h, display: "flex", flexDirection: "column", position: "relative", backgroundColor: pal.paper, fontFamily: fonts.body, color: pal.ink, wordBreak: "break-word" }}>
       {layers}
       {column}
-      <div style={{ display: "flex", height: ux(plan.reserve), flexShrink: 0 }} />
       {qr
         ? box(
-            { position: "absolute", left: ux(40), bottom: ux(FOOTER + 18), width: q(150) },
+            { position: "absolute", left: ux(40), bottom: ux(FOOTER + 18), width: q(QR_CARD_WIDTH) },
             ...haloLayers({ rgb: "27,44,92", alpha: 0.25, radius: q(16), spread: q(12), dy: q(6) }),
             box(
               {
-                width: q(150),
-                padding: `${q(12)}px ${q(12)}px ${q(8)}px`,
+                width: q(QR_CARD_WIDTH),
+                padding: `${q(QR_PAD)}px ${q(QR_PAD)}px ${q(8)}px`,
                 backgroundColor: "#FFFFFF",
                 borderRadius: q(16),
-                border: `${Math.max(1, q(3))}px solid ${pal.gold}`,
+                border: `${Math.max(1, q(QR_BORDER))}px solid ${pal.gold}`,
                 flexDirection: "column",
                 alignItems: "center",
               },
-              image(qr, q(120), q(120)),
-              txt({ fontWeight: 800, fontSize: q(20), letterSpacing: q(5), color: pal.ink, marginTop: q(6), marginLeft: q(5) }, "RSVP"),
-              txt({ fontWeight: 500, fontSize: q(13), color: pal.body }, "Scan to reply"),
+              image(qr, q(QR_IMAGE), q(QR_IMAGE)),
+              txt({ fontWeight: 800, fontSize: q(20), lineHeight: 1.2, letterSpacing: q(5), color: pal.ink, marginTop: q(6), marginLeft: q(5) }, "RSVP"),
+              txt({ fontWeight: 500, fontSize: q(13), lineHeight: 1.2, color: pal.body }, "Scan to reply"),
             ),
           )
         : null}
-      <div style={{ display: "flex", position: "relative", width: w, height: ux(FOOTER), flexShrink: 0, backgroundColor: pal.footerBg, borderTop: `${Math.max(1, ux(3))}px solid ${pal.gold}`, alignItems: "center", justifyContent: "center", gap: ux(18) }}>
+      {/* Pinned to the bottom edge, after everything else: a wrong estimate above can never push it out of the picture. */}
+      <div style={{ display: "flex", position: "absolute", left: 0, bottom: 0, width: w, height: ux(FOOTER), backgroundColor: pal.footerBg, borderTop: `${Math.max(1, ux(3))}px solid ${pal.gold}`, alignItems: "center", justifyContent: "center", gap: ux(18) }}>
         {diamond(ux(9), pal.gold)}
         <div style={{ display: "flex", fontFamily: fonts.display, fontWeight: 600, fontSize: ux(Math.min(30, (30 * 34) / Math.max(20, flyerTextLength(footerText)))), color: pal.footerText, letterSpacing: ux(1.5), maxWidth: ux(W - 340) }}>{footerText}</div>
         {diamond(ux(9), pal.gold)}

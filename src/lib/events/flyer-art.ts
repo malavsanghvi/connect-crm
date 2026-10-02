@@ -140,10 +140,36 @@ export function formatArtCost(cents: number): string {
   return c < 100 ? `about ${c}¢` : `about $${(c / 100).toFixed(2)}`;
 }
 
-/** The sentence shown before anything is generated. */
-export function artCostSentence(model: FlyerArtModel): string {
+/**
+ * At most this many AI pictures a day per community, layers and backgrounds together (app.flyer_art_daily_limit, 0585:
+ * a runaway page cannot run up the bill; tests/events-flyer-art.test.ts keeps the two numbers equal).
+ */
+export const FLYER_ART_DAILY_LIMIT = 30;
+
+/** What a picture costs and who pays, before anything is generated: the owner's Google account pays, never the community. */
+export function artPriceSentence(model: FlyerArtModel): string {
   const m = FLYER_ART_MODELS[model];
-  return `Each new picture costs ${formatArtCost(m.cents)} (${m.label}), paid by your community's Community Connect account. Pictures already made for this occasion are free to reuse.`;
+  return `Each new picture costs ${formatArtCost(m.cents)} (${m.label}). Community Connect pays for it; nothing is charged to your community. A community can make ${FLYER_ART_DAILY_LIMIT} pictures a day.`;
+}
+
+/** The sentence shown before a layer is generated: the price, and that pictures already made are free to reuse. */
+export function artCostSentence(model: FlyerArtModel): string {
+  return `${artPriceSentence(model)} Pictures already made for this occasion are free to reuse.`;
+}
+
+/**
+ * The first letter of a free-text art description that is not Latin (a Gujarati or Devanagari letter, say), or null. The
+ * blocked-word check (FLYER_ART_BLOCKED_TERMS) reads English words only, so a description in another script would get past
+ * it: backgrounds are described in English (the flyer's own words can be in any language).
+ */
+export function firstNonEnglishLetter(text: string): string | null {
+  const m = /(?!\p{Script=Latin})\p{L}/u.exec(text);
+  return m ? m[0] : null;
+}
+
+/** The sentence for an organizer whose description has a letter `foreign` that the safety check cannot read. */
+export function englishOnlyNote(foreign: string): string {
+  return `Please describe the background art in English: the check that keeps people, deities and lettering out of AI art reads English words only, and the description has "${foreign}". The flyer's own words can be in any language.`;
 }
 
 // ── Is AI art available? (app.flyer_art_status, 0585) ────────────────────────
@@ -178,6 +204,18 @@ export type FlyerArtEntry = {
   /** A short-lived signed URL, or null when it could not be made. */
   url: string | null;
 };
+
+/**
+ * Opening the flyer panel again finds the last picture asked for, every time (the job keeps its stored file). It is worth
+ * saying "a picture you asked for earlier is ready" only when it is news: made for the occasion on screen, not already
+ * among the pictures listed and not already on the poster.
+ */
+export function isNewPicture(entry: FlyerArtEntry, on: { occasion: FlyerOccasion; listed: readonly { path: string }[]; poster: Record<FlyerLayerKind, FlyerLayer> }): boolean {
+  if (entry.occasion !== on.occasion) return false;
+  if (on.listed.some((e) => e.path === entry.path)) return false;
+  const chosen = on.poster[entry.layer];
+  return !(chosen.source === "ai" && chosen.path === entry.path);
+}
 
 /** What the flyer panel knows about AI art when it opens (and after each change). */
 export type FlyerArtSetup = {

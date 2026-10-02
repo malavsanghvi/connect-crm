@@ -254,7 +254,12 @@ export function geminiTestLine(status: number, text: string, model: string, env:
   const label = `Gemini knows the key and the model ${model}`;
   if (status >= 200 && status < 300) {
     const name = flyerArtModel(model);
-    return { label, ok: true, detail: `accepted: ${FLYER_ART_MODELS[name].label} is available to this key (no picture was made, so the test is free)` };
+    // The free call cannot see billing: image models have no free tier, so a key whose project has none passes here and fails on the first picture.
+    return {
+      label,
+      ok: true,
+      detail: `accepted: ${FLYER_ART_MODELS[name].label} is available to this key (no picture was made, so the test is free). It does not check billing: image models have no free tier, so the Google Cloud project behind the key needs billing turned on, or pictures fail with a quota message`,
+    };
   }
   const why = providerMessage(text);
   const note = why ? ` (${why})` : "";
