@@ -16,6 +16,7 @@ import * as messagingTestSend from "./messaging.test_send";
 import * as messagingWebhookEmail from "./messaging.webhook.email";
 import * as messagingWebhookTwilio from "./messaging.webhook.twilio";
 import * as nivaAnswer from "./niva.answer";
+import * as nivaDiscoverSite from "./niva.discover_site";
 import * as nivaImportPage from "./niva.import_page";
 import * as nivaRetention from "./niva.retention";
 import * as oauthExchange from "./oauth.exchange";
@@ -79,6 +80,8 @@ export const HANDLERS: HandlerModule[] = [
   nivaAnswer,
   nivaImportPage,
   nivaRetention,
+  // B20: list a website's pages from its sitemap (0576)
+  nivaDiscoverSite,
   // Google Photos albums: bring a shared album's photos in as photos waiting for approval
   photosImportAlbum,
 ];

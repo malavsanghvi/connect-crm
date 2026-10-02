@@ -1,10 +1,12 @@
-// A small robots.txt reader: whether one path may be fetched by our importer.
+// A small robots.txt reader: whether one path may be fetched by our importer, and
+// which sitemaps the site lists.
 //
 // Rules are taken from the group that names our agent, else from "*". The longest
 // matching Allow/Disallow wins and Allow wins a tie (the usual crawler reading);
 // "*" and a trailing "$" work in a pattern. An empty Disallow allows everything.
 // Anything that cannot be read as a robots file allows the page: a missing or
-// broken robots.txt is not a "no".
+// broken robots.txt is not a "no". "Sitemap:" lines belong to no group: every one
+// in the file counts (parseSitemaps).
 
 export type RobotsRule = { allow: boolean; pattern: string };
 
@@ -37,6 +39,26 @@ export function parseRobots(text: string, agent: string): RobotsRule[] {
   const named = groups.filter((g) => g.agents.some((a) => a !== "*" && me.includes(a)));
   const chosen = named.length > 0 ? named : groups.filter((g) => g.agents.includes("*"));
   return chosen.flatMap((g) => g.rules);
+}
+
+/** The sitemap addresses a robots.txt lists ("Sitemap: https://…"), in file order, each once. Only absolute http(s) addresses count. */
+export function parseSitemaps(text: string): string[] {
+  const out: string[] = [];
+  for (const rawLine of text.split(/\r?\n/)) {
+    const m = /^\s*sitemap\s*:\s*(\S+)/i.exec(rawLine);
+    if (!m) continue;
+    let url: URL;
+    try {
+      url = new URL(m[1]!);
+    } catch {
+      continue;
+    }
+    if (url.protocol !== "https:" && url.protocol !== "http:") continue;
+    url.hash = "";
+    const s = url.toString();
+    if (!out.includes(s)) out.push(s);
+  }
+  return out;
 }
 
 function matches(pattern: string, path: string): boolean {

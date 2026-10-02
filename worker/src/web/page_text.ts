@@ -2,7 +2,10 @@
 //
 // What is kept: the text inside <main> when the page has one, else the whole
 // body minus site furniture (<nav>, <header>, <footer>, <aside>, forms, buttons,
-// scripts, styles, hidden elements). Paragraphs, list items and headings become
+// scripts, styles, hidden elements). A collapsed accordion or tab panel is not
+// furniture: FAQ answers often sit in one (hidden, aria-hidden or display:none
+// until a visitor opens it), so its text is kept (isPanel, inside a <details> or
+// an accordion/FAQ/tabs container). Paragraphs, list items and headings become
 // blocks; blocks are grouped into sections of a size Niva can search and cite
 // (its search reads the first 4000 characters of a source, so sections stay under
 // that). A page that has no readable text yields no sections: the caller says
@@ -10,7 +13,12 @@
 
 export type Block = { text: string; heading: boolean; list: boolean };
 export type PageText = { title: string; blocks: Block[] };
-export type Section = { title: string; body: string };
+/**
+ * title: "<page title>: <heading>" (what staff and Niva see). heading: the section's own heading (or its first
+ * line), without the page title: app.niva_worker_save_import (0576) finds a section again by page + heading, so a
+ * changed page title or a heading added above does not move text between sections.
+ */
+export type Section = { title: string; body: string; heading: string };
 export type Sections = { pageTitle: string; sections: Section[]; truncated: boolean; chars: number };
 
 export const MAX_SECTION_CHARS = 3600;
@@ -20,6 +28,30 @@ const MIN_SECTION_CHARS = 400;
 const SKIP = new Set(["script", "style", "noscript", "template", "svg", "iframe", "head", "nav", "header", "footer", "aside", "form", "select", "button", "dialog", "canvas", "object", "embed", "textarea"]);
 const BLOCK = new Set(["p", "div", "li", "ul", "ol", "tr", "td", "th", "table", "section", "article", "main", "blockquote", "pre", "dt", "dd", "dl", "figure", "figcaption", "address", "details", "summary", "fieldset", "h1", "h2", "h3", "h4", "h5", "h6", "br", "hr"]);
 const HEADING = /^h[1-6]$/;
+
+// Collapsed panels: an accordion or tab panel is hidden until a visitor opens it, but its text is the page's content.
+const PANEL_ROLE = /\brole\s*=\s*["']?(?:tabpanel|region)\b/i;
+const PANEL_WORDS = /accordion|collaps|tab-?pane|tabpanel|tab-?content|faq|answer|disclosure|expand|toggle/i;
+const CONTAINER_WORDS = /accordion|collaps|faq|disclosure|\btabs?\b|tabset|tab-?content/i;
+
+/** class, id and data-hook / data-testid values (Wix names its FAQ parts in data-hook). */
+function namesOf(attrs: string): string {
+  const out: string[] = [];
+  const re = /\b(?:class|id|data-hook|data-testid)\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(attrs))) out.push(m[1]!.replace(/^["']|["']$/g, ""));
+  return out.join(" ");
+}
+
+/** An accordion or tab panel (its own attributes say so): kept even while collapsed. */
+export function isPanel(attrs: string): boolean {
+  return PANEL_ROLE.test(attrs) || PANEL_WORDS.test(namesOf(attrs));
+}
+
+/** An element whose collapsed children are panels: <details>, or an accordion / FAQ / tabs block. */
+function isPanelContainer(tag: string, attrs: string): boolean {
+  return tag === "details" || /\brole\s*=\s*["']?tablist\b/i.test(attrs) || CONTAINER_WORDS.test(namesOf(attrs));
+}
 
 const NAMED: Record<string, string> = {
   amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", nbsp: " ", ndash: "–", mdash: "—", hellip: "…", rsquo: "’", lsquo: "‘", ldquo: "“", rdquo: "”",
@@ -73,6 +105,9 @@ export function htmlToBlocks(html: string): PageText {
   let skipTag: string | null = null;
   let skipDepth = 0;
   let mainDepth = 0;
+  // The outermost accordion / FAQ / tabs block we are inside (by tag name and depth, as skipTag).
+  let boxTag: string | null = null;
+  let boxDepth = 0;
 
   const flush = () => {
     const text = tidy(buf);
@@ -99,8 +134,18 @@ export function htmlToBlocks(html: string): PageText {
       continue;
     }
     if (open) {
-      const hidden = /\shidden(\s|=|$)/i.test(" " + attrs) || /\saria-hidden\s*=\s*["']true["']/i.test(attrs) || /display\s*:\s*none/i.test(attrs);
-      if (SKIP.has(open) || (hidden && !["br", "hr", "img", "input", "meta", "link"].includes(open))) {
+      const hiddenAttr = /\shidden(\s|=|$)/i.test(" " + attrs);
+      const untilFound = /\shidden\s*=\s*["']?until-found/i.test(attrs);
+      const ariaHidden = /\saria-hidden\s*=\s*["']true["']/i.test(attrs);
+      const displayNone = /display\s*:\s*none/i.test(attrs);
+      // Collapsed is not furniture: a panel keeps its text however it is hidden; inside an accordion, FAQ or tabs
+      // block (or <details>) "hidden" and display:none mean "not opened yet". aria-hidden alone (an icon, a
+      // decorative duplicate) is still dropped there. hidden="until-found" is collapsed content by definition.
+      const hidden =
+        !untilFound && (hiddenAttr || ariaHidden || displayNone) && !isPanel(attrs) && !(boxTag !== null && !(ariaHidden && !hiddenAttr && !displayNone));
+      // An accordion's header is often a <button> ("What are the timings?"): it is the question, so its text stays.
+      const accordionButton = open === "button" && (boxTag !== null || /\saria-(?:expanded|controls)\s*=/i.test(attrs));
+      if ((SKIP.has(open) && !accordionButton) || (hidden && !["br", "hr", "img", "input", "meta", "link"].includes(open))) {
         flush();
         skipTag = open;
         skipDepth = 1;
@@ -114,6 +159,12 @@ export function htmlToBlocks(html: string): PageText {
         flush();
         mainDepth++;
       }
+      if (boxTag) {
+        if (open === boxTag) boxDepth++;
+      } else if (isPanelContainer(open, attrs)) {
+        boxTag = open;
+        boxDepth = 1;
+      }
       if (BLOCK.has(open)) {
         flush();
         if (HEADING.test(open)) heading = true;
@@ -124,6 +175,7 @@ export function htmlToBlocks(html: string): PageText {
     if (close) {
       if (BLOCK.has(close)) flush();
       if (close === "main") mainDepth--;
+      if (boxTag && close === boxTag && --boxDepth === 0) boxTag = null;
       continue;
     }
     if (m[4] !== undefined) buf += decodeEntities(m[4]);
@@ -204,7 +256,7 @@ export function sectionize(page: PageText): Sections {
     const label = shorten(g.head ?? g.lines[0]!.text, 90);
     const title = label.toLowerCase() === pageTitle.toLowerCase() || label.toLowerCase().startsWith(pageTitle.toLowerCase()) ? label : `${pageTitle}: ${label}`;
     chars += body.length;
-    return { title: shorten(title, 200), body };
+    return { title: shorten(title, 200), body, heading: label };
   });
   const truncated = sections.length > MAX_SECTIONS;
   return { pageTitle, sections: sections.slice(0, MAX_SECTIONS), truncated, chars };

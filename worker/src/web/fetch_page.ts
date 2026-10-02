@@ -1,4 +1,5 @@
-// Fetching one web page for Niva to learn from (niva.import_page).
+// Fetching one web page for Niva to learn from (niva.import_page), and the same safe GET for a
+// site's robots.txt and sitemaps (niva.discover_site, worker/src/web/sitemap.ts).
 //
 // Only public pages are read: the host must resolve to public IP addresses (the same
 // rule calendar subscriptions use: no loopback, private, link-local or carrier-grade NAT
@@ -15,7 +16,7 @@ import net from "node:net";
 import { isPrivateAddress, type Resolve } from "../calendar/feed";
 import { PermanentError } from "../errors";
 import type { Http } from "../http";
-import { parseRobots, robotsAllows } from "./robots";
+import { parseRobots, parseSitemaps, robotsAllows, type RobotsRule } from "./robots";
 
 export const MAX_PAGE_BYTES = 2 * 1024 * 1024;
 export const IMPORT_AGENT = "CommunityConnect-Niva/1.0";
@@ -55,9 +56,17 @@ export async function assertPublicPage(raw: string, opts: FetchOpts): Promise<UR
   return url;
 }
 
-type Got = { status: number; headers: Headers; text: string; url: URL };
+export type Got = { status: number; headers: Headers; text: string; bytes(): Uint8Array; url: URL };
 
-async function get(http: Http, first: URL, accept: string, opts: FetchOpts): Promise<Got> {
+/** What a sitemap request asks for (niva.discover_site, worker/src/web/sitemap.ts). */
+export const XML_ACCEPT = "application/xml, text/xml;q=0.9, application/x-gzip;q=0.5, */*;q=0.1";
+
+/**
+ * GET one address the safe way: redirects followed by hand (at most 5), every hop checked to be a public address
+ * again, a timeout and one retry per request. `accept` is the request's Accept header (HTML for a page, XML_ACCEPT
+ * for a sitemap). The caller reads the status: anything but a redirect comes back as it is.
+ */
+export async function get(http: Http, first: URL, accept: string, opts: FetchOpts): Promise<Got> {
   let url = first;
   for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
     const res = await http.request(url.toString(), { headers: { accept, "user-agent": IMPORT_AGENT }, timeoutMs: 20000, retries: 1, redirect: "manual" });
@@ -67,13 +76,20 @@ async function get(http: Http, first: URL, accept: string, opts: FetchOpts): Pro
       url = await assertPublicPage(new URL(to, url).toString(), opts);
       continue;
     }
-    return { status: res.status, headers: res.headers, text: res.text, url };
+    return { status: res.status, headers: res.headers, text: res.text, bytes: () => res.bytes(), url };
   }
   throw new Error(`The page redirected more than ${MAX_REDIRECTS} times.`);
 }
 
-/** Whether the site's robots.txt lets us fetch this address. A missing robots.txt allows it. */
-async function robotsAllowsUrl(http: Http, url: URL, opts: FetchOpts): Promise<boolean> {
+/** `origin`: where robots.txt was read in the end (after redirects): a site that moved to www or to a new domain says so here. */
+export type Robots = { rules: RobotsRule[]; sitemaps: string[]; origin: string };
+
+/**
+ * The site's robots.txt: the rules for our agent and the sitemaps it lists. A missing (or unreadable) robots.txt
+ * allows everything and lists nothing; one the site cannot serve right now (5xx, 429, no connection) is a
+ * try-again error, never a "yes".
+ */
+export async function readRobots(http: Http, url: URL, opts: FetchOpts): Promise<Robots> {
   let res: Got;
   try {
     res = await get(http, new URL("/robots.txt", url.origin), "text/plain, */*;q=0.1", opts);
@@ -82,8 +98,14 @@ async function robotsAllowsUrl(http: Http, url: URL, opts: FetchOpts): Promise<b
     throw new Error(`Could not read the website's robots.txt (${err instanceof Error ? err.message : String(err)}); it will be tried again.`);
   }
   if (res.status >= 500 || res.status === 429) throw new Error(`The website's robots.txt is unavailable right now (${res.status}); it will be tried again.`);
-  if (res.status !== 200) return true;
-  return robotsAllows(parseRobots(res.text, IMPORT_AGENT), url.pathname + url.search);
+  if (res.status !== 200) return { rules: [], sitemaps: [], origin: res.url.origin };
+  return { rules: parseRobots(res.text, IMPORT_AGENT), sitemaps: parseSitemaps(res.text), origin: res.url.origin };
+}
+
+/** Whether the site's robots.txt lets us fetch this address. A missing robots.txt allows it. */
+async function robotsAllowsUrl(http: Http, url: URL, opts: FetchOpts): Promise<boolean> {
+  const { rules } = await readRobots(http, url, opts);
+  return robotsAllows(rules, url.pathname + url.search);
 }
 
 /** GET a page's HTML: public addresses only, robots.txt honoured, redirects re-checked, size-limited. */

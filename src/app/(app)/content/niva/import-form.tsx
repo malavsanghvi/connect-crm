@@ -4,7 +4,11 @@ import { ActionForm } from "@/components/action-form";
 
 import { importNivaPagesAction, submitImportedNivaDraftsAction } from "./actions";
 
-/** content.draft: give Niva web pages to learn from (app.niva_import_pages). Sections arrive as drafts. */
+/**
+ * content.draft: give Niva web pages to learn from (app.niva_import_pages). Sections arrive as drafts.
+ * Since 0576 an address is written one way before duplicates are removed, and a page is saved under the
+ * address it ends up at (after a redirect), so the www and plain forms of a page are one set of sources.
+ */
 export function ImportPagesForm() {
   return (
     <ActionForm action={importNivaPagesAction} submitLabel="Import pages" pendingLabel="Queuing…">
@@ -16,9 +20,15 @@ export function ImportPagesForm() {
         name="urls"
         rows={5}
         required
+        aria-describedby="niva-import-urls-hint"
         placeholder={"https://www.example.org/about-us\nhttps://www.example.org/faq"}
         className="crm-input font-mono text-[13px]"
       />
+      <p id="niva-import-urls-hint" className="mt-1 text-[12px] text-muted">
+        example.org/faq, www.example.org/faq/ and the same address with tracking tags (utm_…) are one page, imported once. Importing a page again
+        refreshes its drafts; a section already sent for approval or approved keeps its text and is flagged when the page now says something else
+        or no longer has it.
+      </p>
     </ActionForm>
   );
 }

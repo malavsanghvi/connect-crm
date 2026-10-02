@@ -4,7 +4,7 @@ import { PermanentError } from "../src/errors";
 import type { Http, HttpResponse } from "../src/http";
 import { run } from "../src/handlers/niva.import_page";
 import { assertPublicPage, fetchPage, MAX_PAGE_BYTES } from "../src/web/fetch_page";
-import { decodeEntities, htmlToBlocks, MAX_SECTION_CHARS, MAX_SECTIONS, sectionize } from "../src/web/page_text";
+import { decodeEntities, htmlToBlocks, isPanel, MAX_SECTION_CHARS, MAX_SECTIONS, sectionize } from "../src/web/page_text";
 import { parseRobots, robotsAllows } from "../src/web/robots";
 import { captureLog, fakeDb, job } from "./helpers";
 
@@ -112,8 +112,60 @@ describe("htmlToBlocks / sectionize", () => {
     expect(s.sections).toHaveLength(MAX_SECTIONS);
     expect(s.truncated).toBe(true);
   });
+  it("gives each section its own heading, without the page title, so a re-import finds it again (0576)", () => {
+    const html = "<main><h1>Membership</h1><p>Who can join.</p><h2>Dues</h2><p>" + "Dues are paid every year. ".repeat(30) + "</p><h2>Voting</h2><p>" + "Voting is for adults. ".repeat(30) + "</p></main>";
+    const s = sectionize(htmlToBlocks(html));
+    // "Who can join." is too short to stand alone, so Dues joins the first section; Voting starts the next.
+    expect(s.sections.map((x) => [x.title, x.heading])).toEqual([
+      ["Membership", "Membership"],
+      ["Membership: Voting", "Voting"],
+    ]);
+  });
   it("yields no sections for a page with no text", () => {
     expect(sectionize(htmlToBlocks("<html><body><div id='root'></div><script>render()</script></body></html>")).sections).toEqual([]);
+  });
+  it("keeps the text of collapsed accordion and tab panels (FAQ answers), and drops other hidden things", () => {
+    const html = `<main>
+      <h2>FAQ</h2>
+      <div class="accordion">
+        <h3><button aria-expanded="false" aria-controls="a1">When is the derasar open?</button></h3>
+        <div id="a1" class="accordion-panel" hidden><p>Every day from 7 am to 9 pm.</p></div>
+        <div style="display:none"><p>Parking is in the north lot.</p></div>
+        <span aria-hidden="true">Decorative plus sign text</span>
+      </div>
+      <div role="tabpanel" aria-hidden="true"><p>Pathshala meets on Sundays.</p></div>
+      <details><summary>Can guests attend?</summary><div style="display: none">Guests are always welcome.</div></details>
+      <div hidden="until-found">Found by searching the page.</div>
+      <p hidden>A hidden notice outside any accordion.</p>
+      <ul aria-hidden="true" style="display:none"><li>Menu item</li></ul>
+      <div class="cookie-banner" style="display:none">We use cookies.</div>
+      <button>Donate now</button>
+      <p>After the accordion.</p>
+    </main>`;
+    const text = htmlToBlocks(html).blocks.map((b) => b.text);
+    expect(text).toEqual([
+      "FAQ",
+      "When is the derasar open?",
+      "Every day from 7 am to 9 pm.",
+      "Parking is in the north lot.",
+      "Pathshala meets on Sundays.",
+      "Can guests attend?",
+      "Guests are always welcome.",
+      "Found by searching the page.",
+      "After the accordion.",
+    ]);
+  });
+  it("knows a panel by its role, class, id or data-hook", () => {
+    expect(isPanel(' role="tabpanel"')).toBe(true);
+    expect(isPanel(' class="faq-answer collapsed"')).toBe(true);
+    expect(isPanel(" id=collapseTwo")).toBe(true);
+    expect(isPanel(' data-hook="faq-item-answer"')).toBe(true);
+    expect(isPanel(' class="site-menu" style="display:none"')).toBe(false);
+    expect(isPanel(' aria-hidden="true"')).toBe(false);
+  });
+  it("an accordion block ends where its element ends: hidden text after it is dropped again", () => {
+    const html = `<main><div class="faq"><div><div hidden>Inside, kept.</div></div><div aria-hidden="true">icon</div></div><div hidden>Outside, dropped.</div><p>End.</p></main>`;
+    expect(htmlToBlocks(html).blocks.map((b) => b.text)).toEqual(["Inside, kept.", "End."]);
   });
   it("decodes named, decimal and hex entities and leaves unknown ones alone", () => {
     expect(decodeEntities("a&amp;b &lt;i&gt; &#65;&#x42; &bogus; &#0;")).toBe("a&b <i> AB &bogus;  ");
@@ -199,18 +251,34 @@ function ctxWith(http: Http, db = fakeDb().db) {
 describe("niva.import_page", () => {
   const good = "<main><h1>Membership</h1><p>Membership is open to every family in the Houston area.</p></main>";
   it("reads the page and saves its sections as drafts through the worker function", async () => {
-    const f = fakeDb({ query: () => [{ r: { sections: 1, created: 1, updated: 0, kept_as_approved: 0 } }] });
+    const f = fakeDb({ query: () => [{ r: { url: "https://example.org/membership", sections: 1, created: 1, updated: 0, kept_as_approved: 0, changed: 0 } }] });
     const http = fakeHttp({ "https://example.org/membership": { body: good } });
     const j = job({ kind: "niva.import_page", payload: { url: "https://example.org/membership" }, created_by: "u-1" });
     const out = (await run(j, ctxWith(http, f.db))) as Record<string, unknown>;
-    expect(out).toMatchObject({ url: "https://example.org/membership", page_title: "Membership", sections: 1, created: 1, truncated: false });
+    expect(out).toMatchObject({ url: "https://example.org/membership", page_title: "Membership", sections: 1, created: 1, changed: 0, truncated: false });
+    expect(out).not.toHaveProperty("final_url");
+    expect(out).not.toHaveProperty("saved_as");
     const call = f.calls.find((c) => c.fn === "query")!;
-    expect(String(call.args[0])).toContain("app.niva_worker_save_import");
+    expect(String(call.args[0])).toContain("app.niva_worker_save_import($1::uuid, $2, $3, $4::jsonb, $5::uuid, $6)");
     const params = call.args[1] as unknown[];
     expect(params[0]).toBe(j.center_id);
     expect(params[1]).toBe("https://example.org/membership");
     expect(params[4]).toBe("u-1");
-    expect(JSON.parse(params[3] as string)).toEqual([{ title: "Membership", body: expect.stringContaining("open to every family") }]);
+    expect(params[5]).toBe("https://example.org/membership");
+    expect(JSON.parse(params[3] as string)).toEqual([{ title: "Membership", heading: "Membership", body: expect.stringContaining("open to every family") }]);
+  });
+  it("saves the page under its final address after a redirect, with the address that was asked for (0576)", async () => {
+    const f = fakeDb({ query: () => [{ r: { url: "https://www.example.org/membership", sections: 1, created: 0, updated: 1 } }] });
+    const http = fakeHttp({
+      "https://example.org/membership": { status: 301, location: "https://www.example.org/membership/" },
+      "https://www.example.org/membership/": { body: good },
+    });
+    const j = job({ kind: "niva.import_page", payload: { url: "https://example.org/membership" } });
+    const out = (await run(j, ctxWith(http, f.db))) as Record<string, unknown>;
+    const params = f.calls.find((c) => c.fn === "query")!.args[1] as unknown[];
+    expect(params[1]).toBe("https://www.example.org/membership/");
+    expect(params[5]).toBe("https://example.org/membership");
+    expect(out).toMatchObject({ url: "https://example.org/membership", final_url: "https://www.example.org/membership/", saved_as: "https://www.example.org/membership", updated: 1 });
   });
   it("fails permanently, in plain English, without a page address or a community", async () => {
     await expect(run(job({ payload: {} }), ctxWith(fakeHttp({})))).rejects.toThrow(/does not say which web page/);
