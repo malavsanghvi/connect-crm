@@ -1586,6 +1586,7 @@ export type Database = {
           created_by: string | null;
           created_at: string;
           updated_at: string;
+          niva_tsv: string | null;
         };
         Insert: {
           id?: string;
@@ -1607,6 +1608,7 @@ export type Database = {
           created_by?: string | null;
           created_at?: string;
           updated_at?: string;
+          niva_tsv?: string | null;
         };
         Update: {
           id?: string;
@@ -1628,6 +1630,7 @@ export type Database = {
           created_by?: string | null;
           created_at?: string;
           updated_at?: string;
+          niva_tsv?: string | null;
         };
         Relationships: [];
       };
@@ -10435,6 +10438,13 @@ export type Database = {
           p_limit?: number;
         };
         Returns: number;
+      };
+      niva_set_answer_from: {
+        Args: {
+          p_center: string;
+          p_kinds: string[];
+        };
+        Returns: string[];
       };
       normalize_ein: {
         Args: {
