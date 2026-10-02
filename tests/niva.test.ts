@@ -3,7 +3,13 @@ import { describe, expect, it } from "vitest";
 import {
   groupUnanswered,
   NIVA_OUTCOMES,
+  NIVA_TEST_DAILY_LIMIT,
+  NIVA_TEST_MAX_WAIT_MS,
+  NIVA_TEST_POLL_MS,
   NIVA_USAGE_WARN_AT,
+  nivaAnswerFrom,
+  nivaAnswerFromKinds,
+  nivaAnswerFromLine,
   nivaBodyPreview,
   nivaConversationView,
   nivaHealthView,
@@ -12,7 +18,15 @@ import {
   nivaSourceGroupKey,
   nivaSourceStatus,
   nivaSourceTotals,
+  nivaTestFinished,
+  nivaTestOutcome,
+  nivaTestPhase,
+  nivaTestSourceStatus,
+  nivaTestsToday,
+  nivaTestWaitingLine,
   nivaUsage,
+  parseNivaTestAsked,
+  parseNivaTestResult,
   sourceCountsLine,
   splitIntoGroups,
   summarizeSourceGroups,
@@ -262,7 +276,168 @@ describe("Niva health (app.niva_health)", () => {
   });
   it("reads a missing or odd answer safely", () => {
     const v = nivaHealthView(null);
-    expect(v).toMatchObject({ state: "unknown", problems: [], usage: null, jobs: { queued: 0, failed24h: 0, lastError: null } });
+    expect(v).toMatchObject({ state: "unknown", problems: [], usage: null, testsToday: null, jobs: { queued: 0, failed24h: 0, lastError: null } });
     expect(nivaHealthView({ ...healthy, month: { used: 5, limit: "300" } }).usage?.limit).toBeNull();
+  });
+  it("reads today's staff tests (0575), and nothing before 0575", () => {
+    expect(nivaHealthView(healthy).testsToday).toBeNull();
+    expect(nivaHealthView({ ...healthy, tests_today: { used: 12, limit: 100 } }).testsToday).toMatchObject({ used: 12, limit: 100, left: 88, full: false, label: "12 of 100 staff tests today" });
+    expect(nivaHealthView({ ...healthy, tests_today: { used: 100, limit: 100 } }).testsToday?.full).toBe(true);
+  });
+});
+
+describe("staff tests (app.niva_test_ask and app.niva_test_result, 0575)", () => {
+  const T = "11111111-1111-4111-8111-111111111111";
+  const base = {
+    id: T,
+    question: "Where do I park?",
+    answer: null,
+    answer_status: "pending",
+    outcome_detail: null,
+    created_at: "2026-10-02T12:00:00Z",
+    answered_at: null,
+    attempted_at: null,
+    model: null,
+    include_in_review: false,
+    job: { status: "queued", attempts: 0, max_attempts: 3, run_after: "2026-10-02T12:00:00Z" },
+    sources: [],
+  };
+  const parse = (over: Record<string, unknown> = {}) => {
+    const r = parseNivaTestResult({ ...base, ...over });
+    if (!r) throw new Error("did not parse");
+    return r;
+  };
+
+  it("keeps a daily allowance of 100 tests per community, and says when it is used up", () => {
+    expect(NIVA_TEST_DAILY_LIMIT).toBe(100);
+    expect(nivaTestsToday(0)).toEqual({ used: 0, limit: 100, left: 100, full: false, label: "0 of 100 staff tests today" });
+    expect(nivaTestsToday(99).full).toBe(false);
+    expect(nivaTestsToday(100)).toMatchObject({ left: 0, full: true });
+    expect(nivaTestsToday(100).label).toMatch(/^All 100 of today's staff tests are used\. Testing opens again tomorrow/);
+    expect(nivaTestsToday(Number.NaN, 0)).toMatchObject({ used: 0, limit: 100 });
+  });
+
+  it("reads what niva_test_ask returns", () => {
+    expect(parseNivaTestAsked({ id: T, question: "Where do I park?", created_at: "x", include_in_review: true, tests_today: 3, daily_limit: 100 })).toEqual({
+      id: T,
+      question: "Where do I park?",
+      includeInReview: true,
+      testsToday: nivaTestsToday(3, 100),
+    });
+    expect(parseNivaTestAsked(null)).toBeNull();
+    expect(parseNivaTestAsked({ question: "no id" })).toBeNull();
+  });
+
+  it("reads what niva_test_result returns, and an odd answer safely", () => {
+    const r = parse({
+      answer: "Park in the east lot.",
+      answer_status: "answered",
+      model: "claude-opus-5-5",
+      include_in_review: true,
+      job: { status: "done", attempts: 1, max_attempts: 3, run_after: "2026-10-02T12:00:00Z" },
+      sources: [
+        { id: "a", title: "Parking", url: "https://example.org/visit", kind: "niva_source", status: "in_review" },
+        { id: "guide_section:b", title: "Visiting", url: null, kind: "guide_section", status: "published" },
+        { title: "no id" },
+        "junk",
+      ],
+    });
+    expect(r).toMatchObject({ answer: "Park in the east lot.", answerStatus: "answered", model: "claude-opus-5-5", includeInReview: true });
+    expect(r.job).toEqual({ status: "done", attempts: 1, maxAttempts: 3, runAfter: "2026-10-02T12:00:00Z" });
+    expect(r.sources).toEqual([
+      { id: "a", title: "Parking", url: "https://example.org/visit", kind: "niva_source", status: "in_review" },
+      { id: "guide_section:b", title: "Visiting", url: null, kind: "guide_section", status: "published" },
+    ]);
+    expect(parse({ job: null, sources: null })).toMatchObject({ job: null, sources: [] });
+    expect(parseNivaTestResult({ ...base, id: null })).toBeNull();
+    expect(parseNivaTestResult("nope")).toBeNull();
+  });
+
+  it("keeps checking while the test waits, and stops after 90 seconds", () => {
+    expect(NIVA_TEST_POLL_MS).toBeGreaterThanOrEqual(2000);
+    expect(NIVA_TEST_POLL_MS).toBeLessThanOrEqual(3000);
+    expect(NIVA_TEST_MAX_WAIT_MS).toBe(90_000);
+    expect(nivaTestPhase(null, 0)).toBe("waiting");
+    expect(nivaTestPhase(parse(), 30_000)).toBe("waiting");
+    expect(nivaTestPhase(parse({ job: { status: "running", attempts: 1 } }), 89_999)).toBe("waiting");
+    expect(nivaTestPhase(parse(), 90_000)).toBe("timed_out");
+    expect(nivaTestPhase(null, 95_000)).toBe("timed_out");
+    // "answered" with no answer to show is not an outcome yet.
+    expect(nivaTestPhase(parse({ answer_status: "answered" }), 5_000)).toBe("waiting");
+  });
+
+  it("stops as soon as the test has an answer or an outcome, or its job ended without one", () => {
+    expect(nivaTestFinished(parse({ answer: "Yes.", answer_status: "answered" }))).toBe(true);
+    for (const s of ["no_source", "unsure", "refused", "paused", "failed"]) expect(nivaTestPhase(parse({ answer_status: s }), 1_000)).toBe("done");
+    // The AI service is not set up: the job fails before Niva runs, and the question stays pending.
+    expect(nivaTestPhase(parse({ job: { status: "failed", attempts: 1 } }), 1_000)).toBe("done");
+    expect(nivaTestPhase(parse({ job: { status: "done", attempts: 1 } }), 1_000)).toBe("done");
+    expect(nivaTestFinished(parse({ job: null }))).toBe(false);
+  });
+
+  it("says what is happening while it waits", () => {
+    expect(nivaTestWaitingLine(null, 2_400)).toBe("Niva is looking this up… (2 s)");
+    expect(nivaTestWaitingLine(parse(), 5_000)).toBe("Waiting for the background service to pick the question up… (5 s)");
+    expect(nivaTestWaitingLine(parse({ job: { status: "running", attempts: 1 } }), 7_500)).toBe("Niva is reading the sources and writing an answer… (8 s)");
+    expect(nivaTestWaitingLine(parse({ job: { status: "queued", attempts: 1 } }), 20_000)).toBe("The first try ran into a problem; Niva is trying again… (20 s)");
+  });
+
+  it("shows an answer, and warns when members would not get it yet", () => {
+    const pub = { id: "a", title: "Timings", url: null, kind: "niva_source", status: "published" };
+    const ok = nivaTestOutcome(parse({ answer: "6 AM.", answer_status: "answered", sources: [pub] }));
+    expect(ok).toEqual({ status: { label: "Answered", tone: "ok" }, why: null, note: null });
+    const waiting = nivaTestOutcome(parse({ answer: "East lot.", answer_status: "answered", sources: [pub, { ...pub, id: "b", status: "in_review" }] }));
+    expect(waiting.note).toMatch(/^Members would not get this answer yet: it uses a source that is not included in Niva/);
+    const two = nivaTestOutcome(
+      parse({ answer: "East lot.", answer_status: "answered", sources: [{ ...pub, status: "draft" }, { ...pub, id: "g", kind: "guide_section", status: "hidden" }] }),
+    );
+    expect(two.note).toMatch(/it uses 2 sources that are not included/);
+  });
+
+  it("says why a test has no answer", () => {
+    expect(nivaTestOutcome(parse({ answer_status: "no_source" }))).toMatchObject({ why: "No approved source mentions these words" });
+    expect(nivaTestOutcome(parse({ answer_status: "no_source", include_in_review: true })).why).toBe("No source mentions these words, approved or waiting for approval");
+    expect(nivaTestOutcome(parse({ answer_status: "unsure" })).why).toBe("Sources found but none clearly answers it");
+    expect(nivaTestOutcome(parse({ answer_status: "paused", outcome_detail: "Niva will try again at 3:00 PM." }))).toMatchObject({
+      status: { label: "Paused", tone: "warn" },
+      why: "AI service paused — Niva will try again at 3:00 PM.",
+    });
+    const jobFailed = nivaTestOutcome(parse({ job: { status: "failed", attempts: 1 } }));
+    expect(jobFailed.status).toEqual({ label: "Failed", tone: "bad" });
+    expect(jobFailed.why).toMatch(/^The background service could not run Niva's answering job/);
+    expect(nivaTestOutcome(parse({ job: { status: "done", attempts: 1 } })).why).toMatch(/^Niva finished without saying why/);
+    expect(nivaTestOutcome(parse()).why).toBe("Waiting for Niva");
+  });
+
+  it("labels each cited source by whether members get answers from it", () => {
+    expect(nivaTestSourceStatus({ kind: "niva_source", status: "published" })).toEqual({ label: "Included", tone: "ok" });
+    expect(nivaTestSourceStatus({ kind: "faq", status: "published" })).toEqual({ label: "FAQ, published", tone: "ok" });
+    expect(nivaTestSourceStatus({ kind: "guide_section", status: "published" })).toEqual({ label: "Guide section, public", tone: "ok" });
+    expect(nivaTestSourceStatus({ kind: "guide_section", status: "hidden" })).toEqual({ label: "Guide section, not public", tone: "warn" });
+    expect(nivaTestSourceStatus({ kind: "niva_source", status: "in_review" })).toEqual({ label: "Awaiting approval", tone: "warn" });
+    expect(nivaTestSourceStatus({ kind: "niva_source", status: "retired" }).tone).toBe("bad");
+    expect(nivaTestSourceStatus({ kind: null, status: "missing" })).toEqual({ label: "No longer exists", tone: "bad" });
+  });
+});
+
+describe("what Niva also answers from (centers.rules.niva.answer_from)", () => {
+  it("reads the rules: approved sources always, the Guide and FAQ when listed", () => {
+    expect(nivaAnswerFrom(null)).toEqual({ guide: false, faq: false });
+    expect(nivaAnswerFrom({ version: 3 })).toEqual({ guide: false, faq: false });
+    expect(nivaAnswerFrom({ niva: { answer_from: ["niva_source"] } })).toEqual({ guide: false, faq: false });
+    expect(nivaAnswerFrom({ niva: { answer_from: ["niva_source", "guide", "faq"] } })).toEqual({ guide: true, faq: true });
+    expect(nivaAnswerFrom({ niva: { answer_from: ["faq"] } })).toEqual({ guide: false, faq: true });
+    expect(nivaAnswerFrom({ niva: { answer_from: "guide" } })).toEqual({ guide: false, faq: false });
+  });
+  it("sends only the optional kinds, in a fixed order", () => {
+    expect(nivaAnswerFromKinds({ guide: false, faq: false })).toEqual([]);
+    expect(nivaAnswerFromKinds({ guide: true, faq: true })).toEqual(["guide", "faq"]);
+    expect(nivaAnswerFromKinds({ guide: false, faq: true })).toEqual(["faq"]);
+  });
+  it("says it in a sentence", () => {
+    expect(nivaAnswerFromLine({ guide: false, faq: false })).toBe("Niva answers from its approved sources only.");
+    expect(nivaAnswerFromLine({ guide: true, faq: false })).toBe("Niva answers from its approved sources and the Guide's public sections.");
+    expect(nivaAnswerFromLine({ guide: false, faq: true })).toBe("Niva answers from its approved sources and published FAQ items.");
+    expect(nivaAnswerFromLine({ guide: true, faq: true })).toBe("Niva answers from its approved sources, the Guide's public sections and published FAQ items.");
   });
 });

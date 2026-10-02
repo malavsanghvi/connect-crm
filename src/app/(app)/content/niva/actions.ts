@@ -2,10 +2,26 @@
 
 import { revalidatePath } from "next/cache";
 
-import { failure, type ActionResult } from "@/lib/errors";
-import { NIVA_GROUP_RETRY_MAX } from "@/lib/niva";
+import { failure, type ActionResult, type DbErrorLike } from "@/lib/errors";
+import {
+  NIVA_GROUP_RETRY_MAX,
+  nivaAnswerFromKinds,
+  nivaAnswerFromLine,
+  parseNivaTestAsked,
+  parseNivaTestResult,
+  type NivaTestAsked,
+  type NivaTestResult,
+} from "@/lib/niva";
 import { isUuid } from "@/lib/search-params";
 import { authorizeAction, dbWithReason, loadSession } from "@/lib/session";
+import type { AppSupabase } from "@/lib/supabase/server";
+
+// app.niva_test_ask and app.niva_test_result are new in 0575: until the generated types include them,
+// they are called through the untyped signature (as discover-actions.ts and lib/data/pathshala.ts do).
+type RpcCaller = (fn: string, args: Record<string, unknown>) => PromiseLike<{ data: unknown; error: DbErrorLike | null }>;
+const untypedRpc = (db: AppSupabase) => db.rpc.bind(db) as unknown as RpcCaller;
+
+const UNEXPECTED_SHAPE = "the database answered in a shape this screen does not understand (has the latest migration been applied?).";
 
 // B14: re-run Niva's answering job (app.niva_regenerate, 0530; since 0572 it never queues a
 // second job for a question already on its way, and brings forward a paused question's retry).
@@ -78,6 +94,65 @@ export async function retryAllUnansweredNivaAction(): Promise<ActionResult> {
   return {
     ok: true,
     message: `${questions(n)} will be tried again, a couple of seconds apart. Reload in a few minutes to see the answers.${n >= limit ? " Press it again in five minutes for the rest." : ""}`,
+  };
+}
+
+// G17 / G20: the staff test box (app.niva_test_ask, 0575; owner-approved 2026-10-01). Content staff
+// ask without being members, optionally including sources waiting for approval; tests have their
+// own daily allowance and never count toward the members' monthly question limit. The test box
+// then asks getNivaTestResultAction every few seconds until Niva has an outcome.
+export async function askNivaTestAction(_prev: ActionResult<NivaTestAsked> | null, fd: FormData): Promise<ActionResult<NivaTestAsked>> {
+  const doing = "send the test question to Niva";
+  const auth = await authorizeAction("contentDraft", doing);
+  if (!auth.ok) return auth;
+  const question = String(fd.get("question") ?? "").trim();
+  if (!question) return { ok: false, error: `Could not ${doing} — type a question first.` };
+  const includeInReview = String(fd.get("include_in_review") ?? "") === "1";
+  const { data, error } = await untypedRpc(auth.session.db)("niva_test_ask", {
+    p_center: auth.session.center.id,
+    p_question: question,
+    p_include_in_review: includeInReview,
+  });
+  if (error) return failure(`Could not ${doing}`, error);
+  const asked = parseNivaTestAsked(data);
+  if (!asked) {
+    console.error("[content/niva] niva_test_ask returned an unexpected shape:", data);
+    return { ok: false, error: `Could not ${doing} — ${UNEXPECTED_SHAPE}` };
+  }
+  return { ok: true, data: asked };
+}
+
+/** One staff test as it stands (app.niva_test_result): the test box calls this while it waits. Reads only; nothing is re-rendered. */
+export async function getNivaTestResultAction(id: string): Promise<ActionResult<NivaTestResult>> {
+  const doing = "check for Niva's answer";
+  const auth = await authorizeAction("contentDraft", doing);
+  if (!auth.ok) return auth;
+  if (typeof id !== "string" || !isUuid(id)) return { ok: false, error: `Could not ${doing} — no test was given. Ask the question again.` };
+  const { data, error } = await untypedRpc(auth.session.db)("niva_test_result", { p_id: id });
+  if (error) return failure(`Could not ${doing}`, error);
+  const result = parseNivaTestResult(data);
+  if (!result) {
+    console.error("[content/niva] niva_test_result returned an unexpected shape:", data);
+    return { ok: false, error: `Could not ${doing} — ${UNEXPECTED_SHAPE}` };
+  }
+  return { ok: true, data: result };
+}
+
+// G6: what Niva also answers from (app.niva_set_answer_from, 0573; content.manage). Approved Niva
+// sources are always on; the Guide's public sections and published FAQ items are optional.
+export async function setNivaAnswerFromAction(_prev: ActionResult | null, fd: FormData): Promise<ActionResult> {
+  const doing = "change what Niva answers from";
+  const auth = await authorizeAction("contentManage", doing);
+  if (!auth.ok) return auth;
+  const choice = { guide: String(fd.get("guide") ?? "") === "1", faq: String(fd.get("faq") ?? "") === "1" };
+  const writer = await dbWithReason(auth.session, "Changed what Niva answers from on Content › Niva");
+  const { data, error } = await writer.rpc("niva_set_answer_from", { p_center: auth.session.center.id, p_kinds: nivaAnswerFromKinds(choice) });
+  if (error) return failure(`Could not ${doing}`, error);
+  const stored = Array.isArray(data) ? data : [];
+  revalidatePath("/content/niva");
+  return {
+    ok: true,
+    message: `Saved. ${nivaAnswerFromLine({ guide: stored.includes("guide"), faq: stored.includes("faq") })} New questions use this straight away; answers given before stay until you regenerate them.`,
   };
 }
 

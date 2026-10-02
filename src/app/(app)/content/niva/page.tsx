@@ -6,6 +6,8 @@ import { addDays, formatDateTime, formatMonth, todayInTz } from "@/lib/dates";
 import { isModuleEnabled } from "@/lib/modules";
 import {
   groupUnanswered,
+  nivaAnswerFrom,
+  nivaAnswerFromLine,
   nivaBodyPreview,
   nivaConversationView,
   nivaHealthView,
@@ -34,6 +36,8 @@ import { ImportPagesForm, SendImportedDraftsForm } from "./import-form";
 import { RegenerateNivaAnswerButton } from "./regenerate-button";
 import { RetryAllUnansweredButton, RetryQuestionGroupButton } from "./retry-buttons";
 import { RetireNivaSourceButton, SendPageForApprovalButton } from "./source-buttons";
+import { NivaAnswerFromForm } from "./sources-settings";
+import { NivaTestBox } from "./test-ask";
 import { ContentHeader, contentGate } from "../shared";
 
 export const metadata: Metadata = { title: "Content · Niva" };
@@ -44,6 +48,12 @@ const GUARDRAILS: [string, string][] = [
   ["When unsure", "Say so and offer Ask a question"],
   ["Conversation logs", "Kept 30 days · never used to train models"],
 ];
+
+/**
+ * niva_conversations.is_test (0575): a staff test from the test box. Typed as a plain string because
+ * the generated database types gain the column only when CI regenerates them after the migration.
+ */
+const IS_TEST: string = "is_test";
 
 /** Sources shown per page of the Knowledge sources list (grouped by imported page). */
 const SOURCES_PAGE_SIZE = 100;
@@ -125,7 +135,7 @@ export default async function NivaPage({ searchParams }: { searchParams: Promise
     .eq("kind", "niva_source")
     .or(`center_id.eq.${center.id},center_id.is.null`);
   if (!showRetired) detailQuery = detailQuery.neq("status", "retired");
-  const [index, sources, unanswered, recent, approval, imports, health] = await Promise.all([
+  const [index, sources, unanswered, recent, tests, approval, imports, health] = await Promise.all([
     loadSourceIndex(db, center.id),
     // One page of sources, in group order: shared first, then those written here, then each imported page.
     detailQuery
@@ -135,24 +145,38 @@ export default async function NivaPage({ searchParams }: { searchParams: Promise
       .order("title")
       .order("id")
       .range((sourcesPage - 1) * SOURCES_PAGE_SIZE, sourcesPage * SOURCES_PAGE_SIZE - 1),
-    // No answer yet (waiting, no source, unsure, declined, paused or failed): what "Try again" is for.
+    // Members' questions with no answer yet (waiting, no source, unsure, declined, paused or
+    // failed): what "Try again" is for. Staff tests are listed on their own (0575).
     canManage
       ? db
           .from("niva_conversations")
           .select("id, question, answer_status, outcome_detail, created_at")
           .eq("center_id", center.id)
+          .eq(IS_TEST, false)
           .is("answer", null)
           .gte("created_at", weekAgo)
           .order("created_at", { ascending: false })
           .limit(1000)
       : null,
-    // The most recent 30, so staff can see what Niva is actually saying, why a question has no
+    // Members' most recent 30, so staff can see what Niva is actually saying, why a question has no
     // answer, and try it again (or regenerate a stale answer) once a source is edited or approved.
     canManage
       ? db
           .from("niva_conversations")
           .select("id, question, answer, sources, unanswered, answer_status, outcome_detail, created_at")
           .eq("center_id", center.id)
+          .eq(IS_TEST, false)
+          .order("created_at", { ascending: false })
+          .limit(30)
+      : null,
+    // Staff tests of the last week: everyone's for content.manage; content.draft sees its own (RLS niva_own).
+    canDraft
+      ? db
+          .from("niva_conversations")
+          .select("id, question, answer, sources, answer_status, outcome_detail, created_at")
+          .eq("center_id", center.id)
+          .eq(IS_TEST, true)
+          .gte("created_at", weekAgo)
           .order("created_at", { ascending: false })
           .limit(30)
       : null,
@@ -175,6 +199,8 @@ export default async function NivaPage({ searchParams }: { searchParams: Promise
 
   const questions = groupUnanswered((unanswered?.data ?? []) as UnansweredRow[], 25);
   const recentRows = recent?.data ?? [];
+  const testRows = tests?.data ?? [];
+  const answerFrom = nivaAnswerFrom(center.rules);
 
   return (
     <>
@@ -183,10 +209,12 @@ export default async function NivaPage({ searchParams }: { searchParams: Promise
         {health?.error ? <QueryError what="how Niva is doing" error={health.error} retryHref="/content/niva" /> : null}
         {healthView ? <NivaHealthAlert view={healthView} canRetry={canManage} canIntegrations={canAccess(session, "integrations")} /> : null}
         <Alert tone="info" title="Niva answers from your approved sources only">
-          A member&apos;s question is checked against the sources marked &ldquo;Included&rdquo; below; when one clearly answers it, Niva replies
-          with that source cited. When none does, or Niva isn&apos;t confident, the question is saved as unanswered and the member is told
-          honestly that it&apos;s still being looked into — never a guess. Doctrinal questions are always referred on to Pathshala teachers as
-          well. Added or approved a source? Press Try again on the unanswered questions below; edited one? Regenerate the answers that cite it.
+          A member&apos;s question is checked against the sources marked &ldquo;Included&rdquo; below
+          {answerFrom.guide || answerFrom.faq ? ` (and ${[answerFrom.guide ? "the Guide's public sections" : null, answerFrom.faq ? "published FAQ items" : null].filter(Boolean).join(" and ")})` : ""};
+          when one clearly answers it, Niva replies with that source cited. When none does, or Niva isn&apos;t confident, the question is saved
+          as unanswered and the member is told honestly that it&apos;s still being looked into — never a guess. Doctrinal questions are always
+          referred on to Pathshala teachers as well. Added or approved a source? Press Try again on the unanswered questions below; edited one?
+          Regenerate the answers that cite it.{canDraft ? " To see what Niva would say, ask it in Test Niva." : ""}
         </Alert>
         {healthView?.usage ? <NivaUsageLine usage={healthView.usage} /> : null}
       </div>
@@ -317,6 +345,20 @@ export default async function NivaPage({ searchParams }: { searchParams: Promise
             </div>
           )}
         </Card>
+        {canDraft && enabled ? (
+          <Card
+            title="Test Niva"
+            span={7}
+            description="Ask a question as a member would and see Niva's answer and its sources. Tests are kept apart from members' questions and don't count toward the monthly question limit."
+          >
+            <NivaTestBox initialTests={healthView?.testsToday ?? null} />
+          </Card>
+        ) : null}
+        {canDraft ? (
+          <Card title="What Niva answers from" span={enabled ? 5 : 12} description={nivaAnswerFromLine(answerFrom)}>
+            <NivaAnswerFromForm current={answerFrom} canManage={canManage} />
+          </Card>
+        ) : null}
         {canDraft ? (
           <Card
             title="Import from a web page"
@@ -484,6 +526,60 @@ export default async function NivaPage({ searchParams }: { searchParams: Promise
             </TableWrap>
           )}
         </Card>
+        {canDraft ? (
+          <Card
+            title="Staff tests this week"
+            description={
+              canManage
+                ? "Questions content staff asked in Test Niva. They are kept out of the members' questions above and don't count toward the monthly question limit."
+                : "The questions you asked in Test Niva. Content managers see everyone's."
+            }
+            span={12}
+            padded={false}
+          >
+            {tests?.error ? (
+              <div className="p-4">
+                <QueryError what="the staff tests" error={tests.error} retryHref="/content/niva" />
+              </div>
+            ) : testRows.length === 0 ? (
+              <EmptyState title="No staff tests this week">Ask Niva something in Test Niva to see how it answers.</EmptyState>
+            ) : (
+              <TableWrap>
+                <table className="crm-table">
+                  <thead>
+                    <tr>
+                      <th>Question</th>
+                      <th>Answer</th>
+                      <th>Sources</th>
+                      <th>Status</th>
+                      <th>Why</th>
+                      <th>Asked</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {testRows.map((r) => {
+                      const cited = Array.isArray(r.sources) ? (r.sources as unknown as { title?: string }[]) : [];
+                      const citedTitles = cited.map((s) => s.title).filter((t): t is string => Boolean(t));
+                      const v = nivaConversationView(r);
+                      return (
+                        <tr key={r.id}>
+                          <td className="max-w-[280px]">{r.question}</td>
+                          <td className="max-w-[360px] text-muted">{r.answer ?? "—"}</td>
+                          <td className="max-w-[200px] text-[12px] text-muted">{citedTitles.length ? citedTitles.join(" · ") : "—"}</td>
+                          <td>
+                            <StatusText tone={v.status.tone}>{v.status.label}</StatusText>
+                          </td>
+                          <td className="max-w-[320px] text-[12px] text-muted">{v.why}</td>
+                          <td className="whitespace-nowrap">{formatDateTime(r.created_at, center.time_zone)}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </TableWrap>
+            )}
+          </Card>
+        ) : null}
       </BlockGrid>
     </>
   );

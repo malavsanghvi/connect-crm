@@ -278,8 +278,12 @@ export type NivaHealthView = {
   state: "running" | "stopped" | "not_configured" | "unknown";
   problems: NivaHealthProblem[];
   jobs: { queued: number; running: number; failed24h: number; done24h: number; lastError: string | null };
+  /** Members' questions of the last 7 days by outcome (staff tests are left out, 0575). */
   outcomes7d: Record<NivaOutcome, number>;
+  /** Members' questions this month against niva.monthly_questions (staff tests are left out, 0575). */
   usage: NivaUsage | null;
+  /** Staff tests used today against the daily allowance (0575); null before 0575. */
+  testsToday: NivaTestsToday | null;
 };
 
 const num = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? v : 0);
@@ -325,6 +329,8 @@ export function nivaHealthView(raw: Json | null | undefined, opts: { canRetry?: 
   };
   const outcomes7d = Object.fromEntries(NIVA_OUTCOMES.map((k) => [k, num(o[k])])) as Record<NivaOutcome, number>;
   const usage = m ? nivaUsage(num(m.used), typeof m.limit === "number" ? m.limit : null) : null;
+  const t = isPlainObject(s.tests_today) ? s.tests_today : null;
+  const testsToday = t ? nivaTestsToday(num(t.used), typeof t.limit === "number" ? t.limit : NIVA_TEST_DAILY_LIMIT) : null;
 
   const problems: NivaHealthProblem[] = [];
   if (moduleOn) {
@@ -375,5 +381,193 @@ export function nivaHealthView(raw: Json | null | undefined, opts: { canRetry?: 
       });
     }
   }
-  return { moduleOn, state, problems, jobs, outcomes7d, usage };
+  return { moduleOn, state, problems, jobs, outcomes7d, usage, testsToday };
+}
+
+// ── Staff tests (app.niva_test_ask and app.niva_test_result, 0575) ──────────
+
+/** Staff tests allowed per community per day (app.niva_test_daily_limit). */
+export const NIVA_TEST_DAILY_LIMIT = 100;
+/** The test box asks for the result this often… */
+export const NIVA_TEST_POLL_MS = 2500;
+/** …for up to this long, then says Niva has not answered yet and offers Check again. */
+export const NIVA_TEST_MAX_WAIT_MS = 90_000;
+
+export type NivaTestsToday = { used: number; limit: number; left: number; full: boolean; label: string };
+
+/** "12 of 100 staff tests today", or, once they are used up, when testing opens again. */
+export function nivaTestsToday(used: number, limit: number = NIVA_TEST_DAILY_LIMIT): NivaTestsToday {
+  const u = Number.isFinite(used) && used > 0 ? Math.floor(used) : 0;
+  const l = Number.isFinite(limit) && limit > 0 ? Math.floor(limit) : NIVA_TEST_DAILY_LIMIT;
+  const full = u >= l;
+  return {
+    used: u,
+    limit: l,
+    left: Math.max(0, l - u),
+    full,
+    label: full
+      ? `All ${l} of today's staff tests are used. Testing opens again tomorrow; members can still ask Niva as usual.`
+      : `${u} of ${l} staff tests today`,
+  };
+}
+
+/** What app.niva_test_ask returns. */
+export type NivaTestAsked = { id: string; question: string; includeInReview: boolean; testsToday: NivaTestsToday };
+
+export function parseNivaTestAsked(raw: unknown): NivaTestAsked | null {
+  if (!isPlainObject(raw)) return null;
+  const id = str(raw.id);
+  if (!id) return null;
+  return {
+    id,
+    question: typeof raw.question === "string" ? raw.question : "",
+    includeInReview: raw.include_in_review === true,
+    testsToday: nivaTestsToday(num(raw.tests_today), typeof raw.daily_limit === "number" ? raw.daily_limit : NIVA_TEST_DAILY_LIMIT),
+  };
+}
+
+/** A source a test answer cites, with its status now (a content status, or 'hidden' / 'missing'). */
+export type NivaTestSource = { id: string; title: string; url: string | null; kind: string | null; status: string };
+/** The test's latest niva.answer job. */
+export type NivaTestJob = { status: string; attempts: number; maxAttempts: number | null; runAfter: string | null };
+/** What app.niva_test_result returns. */
+export type NivaTestResult = {
+  id: string;
+  question: string;
+  answer: string | null;
+  answerStatus: string;
+  outcomeDetail: string | null;
+  createdAt: string | null;
+  answeredAt: string | null;
+  model: string | null;
+  includeInReview: boolean;
+  job: NivaTestJob | null;
+  sources: NivaTestSource[];
+};
+
+export function parseNivaTestResult(raw: unknown): NivaTestResult | null {
+  if (!isPlainObject(raw)) return null;
+  const id = str(raw.id);
+  if (!id || typeof raw.question !== "string") return null;
+  const j = isPlainObject(raw.job) ? raw.job : null;
+  const sources = (Array.isArray(raw.sources) ? raw.sources : []).flatMap((s): NivaTestSource[] => {
+    if (!isPlainObject(s)) return [];
+    const sid = str(s.id);
+    if (!sid) return [];
+    return [{ id: sid, title: str(s.title) ?? "Untitled source", url: str(s.url), kind: str(s.kind), status: str(s.status) ?? "missing" }];
+  });
+  return {
+    id,
+    question: raw.question,
+    answer: str(raw.answer),
+    answerStatus: str(raw.answer_status) ?? "pending",
+    outcomeDetail: str(raw.outcome_detail),
+    createdAt: str(raw.created_at),
+    answeredAt: str(raw.answered_at),
+    model: str(raw.model),
+    includeInReview: raw.include_in_review === true,
+    job: j
+      ? { status: str(j.status) ?? "queued", attempts: num(j.attempts), maxAttempts: typeof j.max_attempts === "number" ? j.max_attempts : null, runAfter: str(j.run_after) }
+      : null,
+    sources,
+  };
+}
+
+/**
+ * True once nothing more will happen to the test by itself: it has an answer or an outcome (no
+ * source, unsure, declined, paused, failed), or its job ended without one (a job that fails before
+ * Niva runs, for example when the AI service is not set up, leaves the question pending).
+ */
+export function nivaTestFinished(r: NivaTestResult): boolean {
+  if (r.answer) return true;
+  if (r.answerStatus !== "pending" && r.answerStatus !== "answered") return true;
+  return r.job?.status === "failed" || r.job?.status === "done";
+}
+
+export type NivaTestPhase = "waiting" | "done" | "timed_out";
+
+/** Whether the test box keeps asking (waiting), shows the outcome (done), or stops and offers Check again (timed_out). */
+export function nivaTestPhase(r: NivaTestResult | null, elapsedMs: number): NivaTestPhase {
+  if (r && nivaTestFinished(r)) return "done";
+  return elapsedMs >= NIVA_TEST_MAX_WAIT_MS ? "timed_out" : "waiting";
+}
+
+/** While the test box waits: what is happening, from the job. */
+export function nivaTestWaitingLine(r: NivaTestResult | null, elapsedMs: number): string {
+  const job = r?.job ?? null;
+  const what =
+    job?.status === "running"
+      ? "Niva is reading the sources and writing an answer"
+      : job?.status === "queued" && job.attempts > 0
+        ? "The first try ran into a problem; Niva is trying again"
+        : job?.status === "queued"
+          ? "Waiting for the background service to pick the question up"
+          : "Niva is looking this up";
+  return `${what}… (${Math.max(0, Math.round(elapsedMs / 1000))} s)`;
+}
+
+/** A cited source's status in a test: whether members would get an answer from it. */
+export function nivaTestSourceStatus(s: Pick<NivaTestSource, "kind" | "status">): { label: string; tone: Tone } {
+  if (s.status === "missing") return { label: "No longer exists", tone: "bad" };
+  if (s.kind === "guide_section") {
+    return s.status === "published" ? { label: "Guide section, public", tone: "ok" } : { label: "Guide section, not public", tone: "warn" };
+  }
+  if (s.status === "published") return { label: s.kind === "faq" ? "FAQ, published" : "Included", tone: "ok" };
+  return nivaSourceStatus(s.status);
+}
+
+/** A test's outcome: its short status, its "Why", and a note when members would not get this answer yet. */
+export function nivaTestOutcome(r: NivaTestResult): { status: { label: string; tone: Tone }; why: string | null; note: string | null } {
+  if (r.answer) {
+    const notYet = r.sources.filter((s) => nivaTestSourceStatus(s).tone !== "ok").length;
+    return {
+      status: nivaOutcomeStatus("answered"),
+      why: null,
+      note:
+        notYet > 0
+          ? `Members would not get this answer yet: it uses ${notYet === 1 ? "a source that is" : `${notYet} sources that are`} not included in Niva (waiting for approval, a draft, or no longer public).`
+          : null,
+    };
+  }
+  if (r.answerStatus === "pending" || r.answerStatus === "answered") {
+    if (r.job?.status === "failed") {
+      return {
+        status: nivaOutcomeStatus("failed"),
+        why: "The background service could not run Niva's answering job. Niva's status at the top of this page says why; once it is fixed, ask again.",
+        note: null,
+      };
+    }
+    if (r.job?.status === "done") {
+      return { status: { label: "Unanswered", tone: "warn" }, why: "Niva finished without saying why there is no answer. Ask again; if it keeps happening, check Niva's status at the top of this page.", note: null };
+    }
+    return { status: nivaOutcomeStatus("pending"), why: nivaOutcomeLabel("pending"), note: null };
+  }
+  if (r.answerStatus === "no_source" && r.includeInReview) {
+    return { status: nivaOutcomeStatus("no_source"), why: "No source mentions these words, approved or waiting for approval", note: null };
+  }
+  return { status: nivaOutcomeStatus(r.answerStatus), why: nivaOutcomeLabel(r.answerStatus, r.outcomeDetail), note: null };
+}
+
+// ── What Niva also answers from (centers.rules.niva.answer_from, 0573) ──────
+
+export type NivaAnswerFrom = { guide: boolean; faq: boolean };
+
+/** Read centers.rules.niva.answer_from: approved Niva sources always, plus the Guide and/or FAQ when listed. */
+export function nivaAnswerFrom(rules: unknown): NivaAnswerFrom {
+  const r = isPlainObject(rules) ? rules : {};
+  const n = isPlainObject(r.niva) ? r.niva : {};
+  const list = Array.isArray(n.answer_from) ? n.answer_from : [];
+  return { guide: list.includes("guide"), faq: list.includes("faq") };
+}
+
+/** What app.niva_set_answer_from takes (niva_source is always on and is not listed). */
+export function nivaAnswerFromKinds(a: NivaAnswerFrom): ("guide" | "faq")[] {
+  return [...(a.guide ? (["guide"] as const) : []), ...(a.faq ? (["faq"] as const) : [])];
+}
+
+/** "Niva answers from its approved sources, the Guide's public sections and published FAQ items." */
+export function nivaAnswerFromLine(a: NivaAnswerFrom): string {
+  const extra = [a.guide ? "the Guide's public sections" : null, a.faq ? "published FAQ items" : null].filter((x): x is string => x !== null);
+  if (extra.length === 0) return "Niva answers from its approved sources only.";
+  return `Niva answers from its approved sources${extra.length === 2 ? `, ${extra[0]} and ${extra[1]}` : ` and ${extra[0]}`}.`;
 }
