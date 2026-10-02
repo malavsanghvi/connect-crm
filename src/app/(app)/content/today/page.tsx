@@ -184,7 +184,15 @@ export default async function TodayPage() {
                 className="aspect-video w-full max-w-[640px] rounded-lg border border-line bg-black"
               />
               <p className="mt-1 text-xs text-muted">
-                Members watch this from Home › Watch live darshan and Learn › Library.{" "}
+                People watch this from Home › Watch live darshan and Learn › Library. Who may watch is set in{" "}
+                {canSaveRules ? (
+                  <a href="/settings/access" className="text-navy underline">
+                    Settings › Access levels
+                  </a>
+                ) : (
+                  "Settings › Access levels"
+                )}
+                .{" "}
                 <a href={liveStream.media_url} target="_blank" rel="noreferrer" className="text-navy underline">
                   Open the stream
                 </a>
