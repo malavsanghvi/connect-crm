@@ -222,8 +222,14 @@ export function queuePageSummary(p: Pick<QueuePage<unknown>, "from" | "to" | "to
 // Publishing to Niva: the confirmation and the result
 // ---------------------------------------------------------------------------
 
-/** How many unanswered questions one publish queues again at most (app.niva_retry_unanswered caps at 150). */
-export const NIVA_RETRY_LIMIT = 150;
+/**
+ * How many unanswered questions a publish queues again at most: app.niva_retry_unanswered's own default
+ * (0572). Each one may ask the model again, and a run of publishes repeats it, so a publish stays at the
+ * default; only the explicit "Try the questions again" asks for the function's ceiling.
+ */
+export const NIVA_AUTO_RETRY_LIMIT = 100;
+/** app.niva_retry_unanswered's ceiling (0572): "Try the questions again" in the queue's banner. */
+export const NIVA_RETRY_MAX = 150;
 
 export function publishPageConfirm(n: number): string {
   return n === 1
@@ -231,18 +237,23 @@ export function publishPageConfirm(n: number): string {
     : `Publish all ${fmt(n)} sections of this page to Niva? Niva repeats whatever is approved.`;
 }
 
+/**
+ * The question comes first: the confirmation modal takes everything up to the first "?" as its title
+ * (splitConfirmMessage), and a source's title is often a question itself.
+ */
 export function publishSourceConfirm(title: string): string {
-  return `Publish “${title}” to Niva? Niva repeats whatever is approved.`;
+  return `Publish this source to Niva? “${title}” — Niva repeats whatever is approved.`;
 }
 
 /**
  * What happens to Niva's unanswered questions after a source is published. `retried` is what
- * app.niva_retry_unanswered returned, or null when the Niva module is switched off (nothing to try).
+ * app.niva_retry_unanswered returned, or null when the Niva module is switched off (nothing to try);
+ * `limit` is the p_limit it was called with.
  */
-export function retrySentence(retried: number | null): string {
+export function retrySentence(retried: number | null, limit: number): string {
   if (retried === null) return "";
   if (retried <= 0) return "No unanswered questions were waiting.";
-  if (retried >= NIVA_RETRY_LIMIT) {
+  if (retried >= limit) {
     return `${fmt(retried)} unanswered questions will be tried again, the most at one time; any others are tried the next time a source is published.`;
   }
   return `${fmt(retried)} unanswered question${retried === 1 ? "" : "s"} will be tried again.`;
@@ -264,16 +275,56 @@ export function retryFailedContext(what: string, one: boolean): string {
 }
 
 /** `"Timings" published. 3 unanswered questions will be tried again.` */
-export function publishedMessage(what: string, retried: number | null): string {
-  const tail = retrySentence(retried);
+export function publishedMessage(what: string, retried: number | null, limit = NIVA_AUTO_RETRY_LIMIT): string {
+  const tail = retrySentence(retried, limit);
   return tail ? `${what} published. ${tail}` : `${what} published.`;
 }
 
 /**
  * What a page publish (or return) did, given how many sections it changed of how many were shown. The
- * phrase is plural unless it is "The one section of …".
+ * phrase is plural unless it is "The one section of …". A section the decision left alone was changed
+ * after the queue showed it (so it was not what the approver read), or had already been decided.
  */
 export function pageDecisionWhat(changed: number, shown: number, title: string): string {
   if (changed >= shown) return shown === 1 ? `The one section of “${title}”` : `All ${fmt(shown)} sections of “${title}”`;
-  return `${fmt(changed)} of the ${fmt(shown)} sections of “${title}” (the other ${fmt(shown - changed)} ${shown - changed === 1 ? "was" : "were"} no longer waiting)`;
+  const left = shown - changed;
+  return `${fmt(changed)} of the ${fmt(shown)} sections of “${title}” (the other ${fmt(left)} ${left === 1 ? "was" : "were"} changed after you opened the queue or no longer waiting; reload the queue to read ${left === 1 ? "it" : "them"} again)`;
+}
+
+// ---------------------------------------------------------------------------
+// What the approver read: each row's updated_at when its text was shown
+// ---------------------------------------------------------------------------
+
+/** A timestamp as PostgREST writes one: "2026-10-01T10:00:00.123456+00:00". */
+const DB_TIMESTAMP = /^(\d{4}-\d{2}-\d{2})[T ](\d{2}:\d{2}:\d{2})(?:\.(\d{1,6}))?(Z|[+-]\d{2}(?::?\d{2})?)$/;
+
+/** Whole seconds (as epoch milliseconds) and the microseconds after them; Date alone keeps only milliseconds. */
+function instantOf(ts: string): { ms: number; micro: number } | null {
+  const m = DB_TIMESTAMP.exec(ts);
+  if (!m) return null;
+  const off = m[4];
+  const zone = off === "Z" ? "Z" : off.length === 3 ? `${off}:00` : off.includes(":") ? off : `${off.slice(0, 3)}:${off.slice(3)}`;
+  const ms = Date.parse(`${m[1]}T${m[2]}${zone}`);
+  if (!Number.isFinite(ms)) return null;
+  return { ms, micro: Number((m[3] ?? "").padEnd(6, "0")) };
+}
+
+/**
+ * A row's updated_at as the queue showed it, checked before it goes into a filter; null when it is not
+ * a timestamp. content_items.updated_at moves on every edit (touch_updated_at, 0007), so "updated_at is
+ * still what the approver saw" means "the text is still what the approver read".
+ */
+export function parseSeen(raw: string | null | undefined): string | null {
+  const s = String(raw ?? "").trim();
+  return instantOf(s) ? s : null;
+}
+
+/** The latest of the timestamps, exactly as written (no precision lost), or null when there is none. */
+export function latestTimestamp(list: readonly (string | null | undefined)[]): string | null {
+  let best: { ts: string; ms: number; micro: number } | null = null;
+  for (const ts of list) {
+    const at = ts ? instantOf(ts) : null;
+    if (ts && at && (!best || at.ms > best.ms || (at.ms === best.ms && at.micro > best.micro))) best = { ts, ...at };
+  }
+  return best?.ts ?? null;
 }

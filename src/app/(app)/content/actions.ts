@@ -22,10 +22,12 @@ import { failure, type ActionResult } from "@/lib/errors";
 import { isModuleEnabled } from "@/lib/modules";
 import {
   cleanNivaBody,
-  NIVA_RETRY_LIMIT,
+  NIVA_AUTO_RETRY_LIMIT,
+  NIVA_RETRY_MAX,
   nivaBodyProblem,
   pageDecisionWhat,
   pageTitleOf,
+  parseSeen,
   publishedMessage,
   retryFailedContext,
   retrySentence,
@@ -53,15 +55,21 @@ const NOT_A_MANAGER = "publishing also needs content.manage (the database only l
 /**
  * After a Niva source is published, Niva tries its unanswered questions again (app.niva_retry_unanswered,
  * 0572: content.manage; it adds no question, so the monthly limit is untouched). `retried` is null when the
- * Niva module is switched off: members cannot ask then, so there is nothing to try.
+ * Niva module is switched off: members cannot ask then, so there is nothing to try. A publish asks for the
+ * function's default (NIVA_AUTO_RETRY_LIMIT): each question may ask the model again.
  */
-async function retryNivaQuestions(session: CrmSession, centerId: string): Promise<{ ok: true; retried: number | null } | { ok: false; error: unknown }> {
+async function retryNivaQuestions(session: CrmSession, centerId: string, limit: number): Promise<{ ok: true; retried: number | null } | { ok: false; error: unknown }> {
   if (!isModuleEnabled(session, "niva")) return { ok: true, retried: null };
-  const { data, error } = await session.db.rpc("niva_retry_unanswered", { p_center: centerId, p_limit: NIVA_RETRY_LIMIT });
+  const { data, error } = await session.db.rpc("niva_retry_unanswered", { p_center: centerId, p_limit: limit });
   if (error) return { ok: false, error };
   return { ok: true, retried: typeof data === "number" ? data : 0 };
 }
 
+/**
+ * Publish or return one waiting item. `seen` is the item's updated_at when the queue showed its text: a
+ * publish needs it and changes the item only while it is still that version (any edit moves updated_at),
+ * so text changed after the approver read it is never published unseen. A return checks it when given.
+ */
 export async function decideContentAction(_prev: ActionResult | null, fd: FormData): Promise<ActionResult> {
   const decision = text(fd, "decision");
   const doing = decision === "return" ? "return the item to its author" : "publish the item";
@@ -70,7 +78,11 @@ export async function decideContentAction(_prev: ActionResult | null, fd: FormDa
   const { db, userId } = auth.session;
   if (!can(auth.session, "content.manage")) return { ok: false, error: `Could not ${doing} — ${NOT_A_MANAGER}` };
   const id = text(fd, "id");
-  if (!isUuid(id) || (decision !== "approve" && decision !== "return")) return { ok: false, error: `Could not ${doing} — the request was incomplete. Reload and try again.` };
+  const seenRaw = text(fd, "seen");
+  const seen = parseSeen(seenRaw);
+  if (!isUuid(id) || (decision !== "approve" && decision !== "return") || (seenRaw && !seen) || (decision === "approve" && !seen)) {
+    return { ok: false, error: `Could not ${doing} — the request was incomplete. Reload the queue and try again.` };
+  }
   const cur = await db.from("content_items").select("id, title, status, kind, center_id").eq("id", id).maybeSingle();
   if (cur.error) return failure(`Could not ${doing}`, cur.error);
   if (!cur.data) return { ok: false, error: `Could not ${doing} — the item no longer exists, or you can't see it.` };
@@ -83,23 +95,34 @@ export async function decideContentAction(_prev: ActionResult | null, fd: FormDa
       : { status: "draft", approved_by: null };
   // A return carries its reason onto the audit entry (x-audit-reason).
   const writer = decision === "return" ? await dbWithReason(auth.session, reason) : db;
-  const { data, error } = await writer.from("content_items").update(patch).eq("id", id).eq("status", "in_review").select("id");
+  let update = writer.from("content_items").update(patch).eq("id", id).eq("status", "in_review");
+  if (seen) update = update.eq("updated_at", seen);
+  const { data, error } = await update.select("id");
   if (error) return failure(`Could not ${doing}`, error);
-  if (!data?.length) return { ok: false, error: `Could not ${doing} — "${cur.data.title}" is no longer awaiting approval. Reload the queue to see where it is.` };
+  if (!data?.length) {
+    return {
+      ok: false,
+      error: seen
+        ? `Could not ${doing} — "${cur.data.title}" was changed after you opened the queue, or is no longer awaiting approval. Reload the queue and read it again.`
+        : `Could not ${doing} — "${cur.data.title}" is no longer awaiting approval. Reload the queue to see where it is.`,
+    };
+  }
   revalidatePath("/content", "layout");
   if (decision === "return") return { ok: true, message: `"${cur.data.title}" returned to its author.` };
   if (cur.data.kind !== "niva_source" || !cur.data.center_id) return { ok: true, message: `"${cur.data.title}" published.` };
-  const retry = await retryNivaQuestions(auth.session, cur.data.center_id);
+  const retry = await retryNivaQuestions(auth.session, cur.data.center_id, NIVA_AUTO_RETRY_LIMIT);
   if (!retry.ok) return failure(retryFailedContext(`"${cur.data.title}"`, true), retry.error);
-  return { ok: true, message: publishedMessage(`"${cur.data.title}"`, retry.retried) };
+  return { ok: true, message: publishedMessage(`"${cur.data.title}"`, retry.retried, NIVA_AUTO_RETRY_LIMIT) };
 }
 
 /**
  * Publish (or return) every in-review section of one imported web page in one step (Content › Approval
- * queue › Review). Only the sections the approver was shown move (`ids`, all of the page `source_url`):
- * a section sent for approval after the queue was opened waits for its own look. Same guards as
- * decideContentAction (content.approve and content.manage). The message names the page by the sections'
- * own page title (metadata.page_title), not by anything the browser sent.
+ * queue › Review). Only the sections the approver was shown move (`ids`, all of the page `source_url`),
+ * and only as they were shown (`seen`, the latest updated_at among them when the queue read their text;
+ * any edit moves updated_at past it): a section sent for approval, or changed, after the queue was opened
+ * waits for its own look. Same guards as decideContentAction (content.approve and content.manage). The
+ * message names the page by the sections' own page title (metadata.page_title), not by anything the
+ * browser sent.
  */
 export async function decideNivaPageAction(_prev: ActionResult | null, fd: FormData): Promise<ActionResult> {
   const decision = text(fd, "decision");
@@ -110,7 +133,8 @@ export async function decideNivaPageAction(_prev: ActionResult | null, fd: FormD
   if (!can(auth.session, "content.manage")) return { ok: false, error: `Could not ${doing} — ${NOT_A_MANAGER}` };
   const url = text(fd, "source_url");
   const ids = [...new Set(text(fd, "ids").split(",").map((s) => s.trim()).filter(Boolean))];
-  if (!url || (decision !== "approve" && decision !== "return") || ids.length === 0 || ids.length > 100 || !ids.every((x) => isUuid(x))) {
+  const seen = parseSeen(text(fd, "seen"));
+  if (!url || (decision !== "approve" && decision !== "return") || ids.length === 0 || ids.length > 100 || !ids.every((x) => isUuid(x)) || !seen) {
     return { ok: false, error: `Could not ${doing} — the request was incomplete. Reload the queue and try again.` };
   }
   const reason = text(fd, "reason").slice(0, 500);
@@ -128,16 +152,22 @@ export async function decideNivaPageAction(_prev: ActionResult | null, fd: FormD
     .eq("status", "in_review")
     .eq("metadata->>source_url", url)
     .in("id", ids)
+    .lte("updated_at", seen)
     .select("id, title, metadata");
   if (error) return failure(`Could not ${doing}`, error);
   const n = data?.length ?? 0;
-  if (n === 0) return { ok: false, error: `Could not ${doing} — none of its sections are awaiting approval any more. Reload the queue to see where they are.` };
+  if (n === 0) {
+    return {
+      ok: false,
+      error: `Could not ${doing} — its sections were changed after you opened the queue, or are no longer awaiting approval. Reload the queue and read them again.`,
+    };
+  }
   revalidatePath("/content", "layout");
   const what = pageDecisionWhat(n, ids.length, pageTitleOf(data ?? [], url));
   if (decision === "return") return { ok: true, message: `${what} returned to the author as drafts.` };
-  const retry = await retryNivaQuestions(auth.session, center.id);
+  const retry = await retryNivaQuestions(auth.session, center.id, NIVA_AUTO_RETRY_LIMIT);
   if (!retry.ok) return failure(retryFailedContext(what, n === 1), retry.error);
-  return { ok: true, message: publishedMessage(what, retry.retried) };
+  return { ok: true, message: publishedMessage(what, retry.retried, NIVA_AUTO_RETRY_LIMIT) };
 }
 
 /**
@@ -148,11 +178,11 @@ export async function retryNivaQuestionsAction(): Promise<ActionResult> {
   const doing = "try Niva's unanswered questions again";
   const auth = await authorizeAction("contentManage", doing);
   if (!auth.ok) return auth;
-  const retry = await retryNivaQuestions(auth.session, auth.session.center.id);
+  const retry = await retryNivaQuestions(auth.session, auth.session.center.id, NIVA_RETRY_MAX);
   if (!retry.ok) return failure(`Could not ${doing}`, retry.error);
   if (retry.retried === null) return { ok: false, error: `Could not ${doing} — Niva is switched off for this community, so there are no questions to try.` };
   revalidatePath("/content/niva");
-  return { ok: true, message: retrySentence(retry.retried) };
+  return { ok: true, message: retrySentence(retry.retried, NIVA_RETRY_MAX) };
 }
 
 /** Approve or reject every photo still waiting in one album. */

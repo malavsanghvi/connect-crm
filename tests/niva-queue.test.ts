@@ -1,13 +1,16 @@
 import { describe, expect, it } from "vitest";
 
+import { splitConfirmMessage } from "@/lib/confirm";
 import {
   cleanNivaBody,
   displayUrl,
   groupQueueItems,
   importedSourceUrl,
   isNivaRetryFailure,
+  latestTimestamp,
+  NIVA_AUTO_RETRY_LIMIT,
   NIVA_RETRY_FAILED,
-  NIVA_RETRY_LIMIT,
+  NIVA_RETRY_MAX,
   NIVA_SOURCE_MAX_CHARS,
   nivaBodyCounter,
   nivaBodyLength,
@@ -16,6 +19,7 @@ import {
   pageRowLabel,
   pageTitleOf,
   paginateQueue,
+  parseSeen,
   publishedMessage,
   publishPageConfirm,
   publishSourceConfirm,
@@ -167,7 +171,16 @@ describe("publishing to Niva", () => {
   it("asks first, saying Niva repeats whatever is approved", () => {
     expect(publishPageConfirm(12)).toBe("Publish all 12 sections of this page to Niva? Niva repeats whatever is approved.");
     expect(publishPageConfirm(1)).toBe("Publish the one section of this page to Niva? Niva repeats whatever is approved.");
-    expect(publishSourceConfirm("Derasar timings")).toBe("Publish “Derasar timings” to Niva? Niva repeats whatever is approved.");
+    expect(publishSourceConfirm("Derasar timings")).toBe("Publish this source to Niva? “Derasar timings” — Niva repeats whatever is approved.");
+  });
+
+  it("keeps the modal's question whole when the source's title is a question", () => {
+    // The modal's title is everything up to the first "?" (splitConfirmMessage).
+    expect(splitConfirmMessage(publishSourceConfirm("When does the derasar open?"))).toEqual({
+      title: "Publish this source to Niva?",
+      body: "“When does the derasar open?” — Niva repeats whatever is approved.",
+    });
+    expect(splitConfirmMessage(publishPageConfirm(3))).toEqual({ title: "Publish all 3 sections of this page to Niva?", body: "Niva repeats whatever is approved." });
   });
 
   it("says how many unanswered questions will be tried again", () => {
@@ -176,9 +189,17 @@ describe("publishing to Niva", () => {
     expect(publishedMessage(`"Derasar timings"`, 0)).toBe(`"Derasar timings" published. No unanswered questions were waiting.`);
     // The Niva module is off: nothing to try, so nothing is claimed.
     expect(publishedMessage(`"Derasar timings"`, null)).toBe(`"Derasar timings" published.`);
-    expect(retrySentence(NIVA_RETRY_LIMIT)).toBe(
-      "150 unanswered questions will be tried again, the most at one time; any others are tried the next time a source is published.",
-    );
+  });
+
+  it("asks a publish for the function's default number of questions, and says when it hit it", () => {
+    // app.niva_retry_unanswered (0572): default 100, ceiling 150.
+    expect(NIVA_AUTO_RETRY_LIMIT).toBe(100);
+    expect(NIVA_RETRY_MAX).toBe(150);
+    const capped = "unanswered questions will be tried again, the most at one time; any others are tried the next time a source is published.";
+    expect(publishedMessage(`"Derasar timings"`, 100)).toBe(`"Derasar timings" published. 100 ${capped}`);
+    expect(publishedMessage(`"Derasar timings"`, 99)).toBe(`"Derasar timings" published. 99 unanswered questions will be tried again.`);
+    expect(retrySentence(150, NIVA_RETRY_MAX)).toBe(`150 ${capped}`);
+    expect(retrySentence(100, NIVA_RETRY_MAX)).toBe("100 unanswered questions will be tried again.");
   });
 
   it("names a retry that failed after the publish, so the queue can offer it again", () => {
@@ -196,10 +217,40 @@ describe("publishing to Niva", () => {
   it("says what a page decision changed, including sections that had moved on", () => {
     expect(pageDecisionWhat(12, 12, "JSH Relocation FAQs")).toBe("All 12 sections of “JSH Relocation FAQs”");
     expect(pageDecisionWhat(1, 1, "New to Houston")).toBe("The one section of “New to Houston”");
-    expect(pageDecisionWhat(9, 12, "JSH Relocation FAQs")).toBe("9 of the 12 sections of “JSH Relocation FAQs” (the other 3 were no longer waiting)");
-    expect(pageDecisionWhat(11, 12, "X")).toBe("11 of the 12 sections of “X” (the other 1 was no longer waiting)");
+    expect(pageDecisionWhat(9, 12, "JSH Relocation FAQs")).toBe(
+      "9 of the 12 sections of “JSH Relocation FAQs” (the other 3 were changed after you opened the queue or no longer waiting; reload the queue to read them again)",
+    );
+    expect(pageDecisionWhat(11, 12, "X")).toBe(
+      "11 of the 12 sections of “X” (the other 1 was changed after you opened the queue or no longer waiting; reload the queue to read it again)",
+    );
     expect(publishedMessage(pageDecisionWhat(12, 12, "JSH Relocation FAQs"), 5)).toBe(
       "All 12 sections of “JSH Relocation FAQs” published. 5 unanswered questions will be tried again.",
     );
+  });
+});
+
+describe("what the approver read", () => {
+  it("accepts an updated_at as PostgREST writes it, and nothing else", () => {
+    expect(parseSeen("2026-10-01T10:00:00.123456+00:00")).toBe("2026-10-01T10:00:00.123456+00:00");
+    expect(parseSeen(" 2026-10-01T10:00:00+00:00 ")).toBe("2026-10-01T10:00:00+00:00");
+    expect(parseSeen("2026-10-01 10:00:00.5+05:30")).toBe("2026-10-01 10:00:00.5+05:30");
+    expect(parseSeen("2026-10-01T10:00:00Z")).toBe("2026-10-01T10:00:00Z");
+    for (const bad of ["", "yesterday", "2026-10-01", "2026-13-45T10:00:00+00:00", "2026-10-01T10:00:00+00:00,id.eq.x", null, undefined]) {
+      expect(parseSeen(bad)).toBeNull();
+    }
+  });
+
+  it("finds the latest without losing the microseconds the database filters on", () => {
+    // Date keeps milliseconds only: these two differ by a microsecond.
+    expect(latestTimestamp(["2026-10-01T10:00:00.123457+00:00", "2026-10-01T10:00:00.123456+00:00"])).toBe("2026-10-01T10:00:00.123457+00:00");
+    // PostgREST drops trailing zeros: .5 is later than .123456, and a whole second is earlier than both.
+    expect(latestTimestamp(["2026-10-01T10:00:00.5+00:00", "2026-10-01T10:00:00.123456+00:00", "2026-10-01T10:00:00+00:00"])).toBe(
+      "2026-10-01T10:00:00.5+00:00",
+    );
+    // Offsets are compared as instants: 15:30 in India is 10:00 UTC.
+    expect(latestTimestamp(["2026-10-01T15:30:00+05:30", "2026-10-01T10:00:00.000001+00:00"])).toBe("2026-10-01T10:00:00.000001+00:00");
+    expect(latestTimestamp(["2026-10-01T15:30:01+05:30", "2026-10-01T10:00:00.999999+00:00"])).toBe("2026-10-01T15:30:01+05:30");
+    expect(latestTimestamp([null, "not a time", undefined])).toBeNull();
+    expect(latestTimestamp([])).toBeNull();
   });
 });

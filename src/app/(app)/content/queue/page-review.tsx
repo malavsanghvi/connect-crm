@@ -199,8 +199,11 @@ function charsLine(body: string | null): string {
 // One item (anything that is not an imported page)
 // ---------------------------------------------------------------------------
 
-/** Approve one item. A Niva source asks first; its result says how many questions Niva will try again. */
-export function ApproveItemButton({ id, title, niva, size = "xs" }: { id: string; title: string; niva: boolean; size?: "xs" | "md" }) {
+/**
+ * Approve one item. A Niva source asks first; its result says how many questions Niva will try again.
+ * `seen` is the item's updated_at when its text was read: an item changed since then is not published.
+ */
+export function ApproveItemButton({ id, title, niva, seen, size = "xs" }: { id: string; title: string; niva: boolean; seen: string; size?: "xs" | "md" }) {
   const d = useDecision(`publish “${title}”`);
   return (
     <div className="flex flex-col items-end">
@@ -211,7 +214,7 @@ export function ApproveItemButton({ id, title, niva, size = "xs" }: { id: string
         variant="ok"
         size={size}
         pending={d.pending}
-        onConfirm={() => d.run(decideContentAction, { id, decision: "approve" })}
+        onConfirm={() => d.run(decideContentAction, { id, decision: "approve", seen })}
       />
       {d.result && !d.result.ok ? <ActionMessage state={d.result} /> : null}
     </div>
@@ -219,7 +222,23 @@ export function ApproveItemButton({ id, title, niva, size = "xs" }: { id: string
 }
 
 /** "Read": the item's full text in the drawer, so it is never approved unseen. */
-export function ItemTextButton({ id, title, kindLabel, body, niva, canApprove }: { id: string; title: string; kindLabel: string; body: string | null; niva: boolean; canApprove: boolean }) {
+export function ItemTextButton({
+  id,
+  title,
+  kindLabel,
+  body,
+  seen,
+  niva,
+  canApprove,
+}: {
+  id: string;
+  title: string;
+  kindLabel: string;
+  body: string | null;
+  seen: string;
+  niva: boolean;
+  canApprove: boolean;
+}) {
   const [open, setOpen] = useState(false);
   return (
     <>
@@ -232,7 +251,7 @@ export function ItemTextButton({ id, title, kindLabel, body, niva, canApprove }:
         kicker={`${refCode("CT", id)} · ${kindLabel}`}
         title={title}
         subtitle={niva ? `Niva quotes only this text. ${charsLine(body)}.` : undefined}
-        footer={canApprove ? <ApproveItemButton id={id} title={title} niva={niva} size="md" /> : undefined}
+        footer={canApprove ? <ApproveItemButton id={id} title={title} niva={niva} seen={seen} size="md" /> : undefined}
       >
         <ItemText body={body} />
       </Drawer>
@@ -244,8 +263,10 @@ export function ItemTextButton({ id, title, kindLabel, body, niva, canApprove }:
 // An imported web page: all its sections in one row
 // ---------------------------------------------------------------------------
 
-export type ReviewSection = { id: string; heading: string; title: string; body: string | null };
-export type ReviewPage = { url: string; title: string; sections: ReviewSection[] };
+/** `seen`: the section's updated_at when its text was read (a decision leaves a section changed since alone). */
+export type ReviewSection = { id: string; heading: string; title: string; body: string | null; seen: string };
+/** `seen`: the latest of its sections' (latestTimestamp), what "Publish all" and "Return the whole page" send. */
+export type ReviewPage = { url: string; title: string; sections: ReviewSection[]; seen: string };
 
 function SectionReview({ s, canApprove }: { s: ReviewSection; canApprove: boolean }) {
   const d = useDecision(`return “${s.title}”`);
@@ -270,7 +291,7 @@ function SectionReview({ s, canApprove }: { s: ReviewSection; canApprove: boolea
           what="this section"
           pending={d.pending}
           onCancel={() => setReturning(false)}
-          onReturn={(reason) => d.run(decideContentAction, { id: s.id, decision: "return", reason })}
+          onReturn={(reason) => d.run(decideContentAction, { id: s.id, decision: "return", reason, seen: s.seen })}
         />
       ) : null}
       {d.result && !d.result.ok ? <ActionMessage state={d.result} /> : null}
@@ -287,7 +308,7 @@ export function NivaPageReview({ page, canApprove }: { page: ReviewPage; canAppr
   const [returningAll, setReturningAll] = useState(false);
   const d = useDecision(`publish “${page.title}”`);
   const n = page.sections.length;
-  const fields = { source_url: page.url, ids: page.sections.map((s) => s.id).join(",") };
+  const fields = { source_url: page.url, ids: page.sections.map((s) => s.id).join(","), seen: page.seen };
   const publish = () => d.run(decideNivaPageAction, { ...fields, decision: "approve" });
 
   const footer = canApprove ? (
