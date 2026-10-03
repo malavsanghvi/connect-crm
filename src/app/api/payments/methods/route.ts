@@ -26,10 +26,6 @@ const CORS = {
 const reply = (status: number, body: Record<string, unknown>) =>
   NextResponse.json(body, { status, headers: { ...CORS, "cache-control": "private, no-store" } });
 
-// app.member_payment_methods is new in 0581: until the generated types include it, it is called
-// through the untyped signature (as src/app/(app)/content/niva/actions.ts does).
-type RpcCaller = (fn: string, args: Record<string, unknown>) => PromiseLike<{ data: unknown; error: DbErrorLike | null }>;
-
 export function OPTIONS() {
   return new NextResponse(null, { status: 204, headers: CORS });
 }
@@ -48,15 +44,14 @@ export async function GET(req: NextRequest) {
   if (!isUuid(center)) return reply(400, { error: "center_id is missing or is not a community id." });
   const db = tokenClient(token, "member", "/api/payments/methods");
   if (!db) return reply(503, { error: "Community Connect is not configured (NEXT_PUBLIC_SUPABASE_URL / NEXT_PUBLIC_SUPABASE_ANON_KEY)." });
-  const rpc = db.rpc.bind(db) as unknown as RpcCaller;
-  let res: { data: unknown; error: DbErrorLike | null };
+  let data: unknown;
+  let error: DbErrorLike | null;
   try {
-    res = await rpc("member_payment_methods", { p_center: center });
+    ({ data, error } = await db.rpc("member_payment_methods", { p_center: center }));
   } catch (err) {
     console.error("[payments/methods] member_payment_methods failed:", err);
     return reply(500, { error: "Could not load how to give — the database could not be reached. Try again." });
   }
-  const { data, error } = res;
   if (error) {
     const msg = error.message ?? "";
     if (error.code === "42501" || /JWT|jwt/.test(msg)) return reply(403, { error: refusal(error) });

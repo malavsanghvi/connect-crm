@@ -1,7 +1,7 @@
 // The two answers of the plugin layer, read defensively: app.payment_plugin_settings (Settings ›
 // Payments) and app.member_payment_methods (the member app, through GET /api/payments/methods).
-// Until the generated database types include them these RPCs are called untyped, so every field is
-// checked here; a shape this code does not understand is a plain error, never a guess. Pure; tested.
+// Both RPCs answer jsonb (typed as Json), so every field is checked here; a shape this code does not
+// understand is a plain error, never a guess. Pure; tested.
 
 import type { PluginFamily, SandboxBehavior } from "./catalog";
 import type { PluginStatus } from "./config";

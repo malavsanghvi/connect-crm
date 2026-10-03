@@ -21,8 +21,9 @@ export type PayResult<T = undefined> = ActionResult<T> & { stepUp?: boolean };
 
 const PATH = "/settings/payments";
 
-// app.set_payment_plugin is new in 0580: until the generated types include it, it is called through
-// the untyped signature (as src/app/(app)/content/niva/actions.ts does).
+// app.set_payment_plugin takes nullable arguments (a null name or order goes back to the catalog's, a null
+// switch leaves it as it is), which the generated types cannot say: every argument is a non-null there.
+// So it is called through the untyped signature (as src/app/(app)/content/niva/actions.ts does).
 type RpcCaller = (fn: string, args: Record<string, unknown>) => PromiseLike<{ data: unknown; error: DbErrorLike | null }>;
 const untypedRpc = (db: AppSupabase) => db.rpc.bind(db) as unknown as RpcCaller;
 

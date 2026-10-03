@@ -2,22 +2,15 @@ import type { Metadata } from "next";
 
 import { Alert, buttonClass, NoAccess, PageHeader, QueryError } from "@/components/ui";
 import { readPublicEnv } from "@/lib/env";
-import type { DbErrorLike } from "@/lib/errors";
 import { parsePluginSettings } from "@/lib/payments/plugins/view";
 import type { PaymentSettings } from "@/lib/payments/view";
 import { canAccess } from "@/lib/permissions";
 import { getSession } from "@/lib/session";
-import type { AppSupabase } from "@/lib/supabase/server";
 
 import { PaymentsPanel } from "./payments-panel";
 import { PluginCards } from "./plugin-cards";
 
 export const metadata: Metadata = { title: "Payments · Settings" };
-
-// app.payment_plugin_settings is new in 0580: until the generated types include it, it is called
-// through the untyped signature (as src/app/(app)/content/niva/actions.ts does) and parsed.
-type RpcCaller = (fn: string, args: Record<string, unknown>) => PromiseLike<{ data: unknown; error: DbErrorLike | null }>;
-const untypedRpc = (db: AppSupabase) => db.rpc.bind(db) as unknown as RpcCaller;
 
 // Settings › Payments (ONBOARDING_PLAN §4 Step 1.2; docs/PAYMENTS_PLAN.md §2): every way to pay as a
 // plugin card with its status and an on/off switch. The Card card holds the Stripe account (connect,
@@ -38,7 +31,7 @@ export default async function PaymentsSettingsPage({ searchParams }: { searchPar
   const { db, center } = session;
   const [settingsRes, pluginsRes] = await Promise.all([
     db.rpc("payment_settings", { p_center: center.id }),
-    untypedRpc(db)("payment_plugin_settings", { p_center: center.id }),
+    db.rpc("payment_plugin_settings", { p_center: center.id }),
   ]);
   if (settingsRes.error) {
     return (
@@ -56,6 +49,7 @@ export default async function PaymentsSettingsPage({ searchParams }: { searchPar
       </>
     );
   }
+  // The answer is jsonb: every field is checked, a shape this screen does not understand is an error shown here.
   const plugins = parsePluginSettings(pluginsRes.data);
   if (!plugins.ok) {
     console.error("[settings/payments] unexpected answer from payment_plugin_settings:", pluginsRes.data);

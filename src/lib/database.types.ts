@@ -1244,6 +1244,57 @@ export type Database = {
         };
         Relationships: [];
       };
+      center_payment_plugins: {
+        Row: {
+          center_id: string;
+          plugin_key: string;
+          enabled: boolean;
+          mode: string;
+          status: string;
+          config: Json;
+          label_override: string | null;
+          sort: number | null;
+          changed_by: string | null;
+          changed_at: string | null;
+          live_approved_by: string | null;
+          live_approved_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          center_id: string;
+          plugin_key: string;
+          enabled?: boolean;
+          mode?: string;
+          status?: string;
+          config?: Json;
+          label_override?: string | null;
+          sort?: number | null;
+          changed_by?: string | null;
+          changed_at?: string | null;
+          live_approved_by?: string | null;
+          live_approved_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          center_id?: string;
+          plugin_key?: string;
+          enabled?: boolean;
+          mode?: string;
+          status?: string;
+          config?: Json;
+          label_override?: string | null;
+          sort?: number | null;
+          changed_by?: string | null;
+          changed_at?: string | null;
+          live_approved_by?: string | null;
+          live_approved_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       center_payment_processors: {
         Row: {
           center_id: string;
@@ -5390,6 +5441,51 @@ export type Database = {
           created_at?: string;
           updated_at?: string;
           paid_at?: string | null;
+        };
+        Relationships: [];
+      };
+      payment_plugins: {
+        Row: {
+          key: string;
+          label: string;
+          family: string;
+          provider: string | null;
+          processor_method: string | null;
+          legacy_method: string | null;
+          records_as: string[];
+          depends_on: string[];
+          config_fields: Json;
+          sandbox_behavior: string;
+          status: string;
+          sort: number;
+        };
+        Insert: {
+          key: string;
+          label: string;
+          family: string;
+          provider?: string | null;
+          processor_method?: string | null;
+          legacy_method?: string | null;
+          records_as: string[];
+          depends_on?: string[];
+          config_fields?: Json;
+          sandbox_behavior: string;
+          status?: string;
+          sort: number;
+        };
+        Update: {
+          key?: string;
+          label?: string;
+          family?: string;
+          provider?: string | null;
+          processor_method?: string | null;
+          legacy_method?: string | null;
+          records_as?: string[];
+          depends_on?: string[];
+          config_fields?: Json;
+          sandbox_behavior?: string;
+          status?: string;
+          sort?: number;
         };
         Relationships: [];
       };
@@ -10458,6 +10554,12 @@ export type Database = {
         };
         Returns: { document_id: string; kind: string; title: string; version: string; body_md: string; mode: string; published_at: string; requires_yearly_resign: boolean; answered: boolean; granted: boolean; answered_version: string; answered_at: string }[];
       };
+      member_payment_methods: {
+        Args: {
+          p_center: string;
+        };
+        Returns: Json;
+      };
       member_payment_options: {
         Args: {
           p_center: string;
@@ -10825,6 +10927,20 @@ export type Database = {
           p_method: Database["app"]["Enums"]["payment_method"];
         };
         Returns: string[];
+      };
+      payment_plugin_config_problem: {
+        Args: {
+          p_key: string;
+          p_config: Json;
+          p_mode: string;
+        };
+        Returns: string;
+      };
+      payment_plugin_settings: {
+        Args: {
+          p_center: string;
+        };
+        Returns: Json;
       };
       payment_posts_to_qbo: {
         Args: {
@@ -11689,6 +11805,18 @@ export type Database = {
           p_reason: string;
         };
         Returns: undefined;
+      };
+      set_payment_plugin: {
+        Args: {
+          p_center: string;
+          p_key: string;
+          p_enabled: boolean;
+          p_config: Json;
+          p_label_override: string;
+          p_sort: number;
+          p_reason: string;
+        };
+        Returns: Json;
       };
       set_payment_processor: {
         Args: {
