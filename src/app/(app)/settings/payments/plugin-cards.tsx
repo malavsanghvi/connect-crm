@@ -124,7 +124,7 @@ function PluginCard({ p, ps, s, tz }: { p: PluginEntry; ps: PluginSettings; s: P
               <InfoBox>Rehearsal: members see &quot;Sandbox: no real money moves&quot;, never this address.</InfoBox>
             ) : null}
             <p>
-              <Link className="crm-link" href="/giving/payments/bank?view=zelle">Zelle reports and matching</Link>
+              <Link className="crm-link" href="/giving/payments/bank?view=zelle">Match Zelle payments on the bank statement</Link>
             </p>
           </>
         ) : null}

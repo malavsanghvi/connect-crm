@@ -253,8 +253,11 @@ export async function setPluginAction(
   const auth = await authorizeAction("paymentSettings", doing);
   if (!auth.ok) return auth;
   const db = await dbWithReason(auth.session, reason);
+  // A rename or reorder never touches the switch (null = leave it as it is in the database, even if this
+  // page was open before another administrator flipped it); a switch change always says which way.
   const { error } = await untypedRpc(db)("set_payment_plugin", {
-    p_center: auth.session.center.id, p_key: plugin.key, p_enabled: on, p_config: null, p_label_override: name, p_sort: sort, p_reason: reason.trim(),
+    p_center: auth.session.center.id, p_key: plugin.key, p_enabled: change === "rename" ? null : on, p_config: null, p_label_override: name, p_sort: sort,
+    p_reason: reason.trim(),
   });
   if (error) {
     if (isStepUpError(error)) return { ok: false, stepUp: true, error: `Could not ${doing} — this needs a fresh 2FA check.` };

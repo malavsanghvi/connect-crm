@@ -56,8 +56,10 @@ $$;
 grant connect_worker to postgres;
 
 \set plg '''00000000-0000-4000-8000-000000006601'''
+\set plgb '''00000000-0000-4000-8000-000000006602'''
 -- Users: 01 Ami (center admin: integrations.manage), 02 Tanu (treasurer: giving.manage), 03 Mira (adult
 -- member, Doshi family), 04 Kavi (Mira's child, 12), 05 Vik (finance volunteer: giving.record_offline only).
+-- Another organization (plg66b) has 06 Bela (its treasurer) and 07 Nik (a member), for the isolation checks.
 
 -- ── The catalog ──────────────────────────────────────────────────────────────
 select pg_temp.assert((select array_agg(key order by sort) from app.payment_plugins)
@@ -84,10 +86,18 @@ insert into auth.users (id, email) values
   ('66000000-0000-4000-8000-000000000002', 'treasurer66@plg.example'),
   ('66000000-0000-4000-8000-000000000003', 'mira66@plg.example'),
   ('66000000-0000-4000-8000-000000000004', 'kavi66@plg.example'),
-  ('66000000-0000-4000-8000-000000000005', 'vik66@plg.example');
+  ('66000000-0000-4000-8000-000000000005', 'vik66@plg.example'),
+  ('66000000-0000-4000-8000-000000000006', 'bela66@plg.example'),
+  ('66000000-0000-4000-8000-000000000007', 'nik66@plg.example');
 insert into app.centers (id, slug, name, short_name) values (:plg, 'plg66', 'Plugin Test Temple', 'PTT');
+insert into app.centers (id, slug, name, short_name) values (:plgb, 'plg66b', 'Other Test Temple', 'OTT');
+select pg_temp.assert((select count(*) = 12 and bool_and(not enabled and status = 'off') from app.center_payment_plugins where center_id = :plg)
+                      and (select count(*) = 12 from app.center_payment_plugins where center_id = :plgb),
+  'a new center gets its twelve plugin rows at once, all off (the centers insert trigger)');
 insert into app.households (id, center_id, display_name) values ('66000000-0000-4000-8000-0000000000a1', :plg, 'Doshi family');
 insert into app.people (id, center_id, first_name, last_name, email, date_of_birth) values
+  ('66000000-0000-4000-8000-0000000000b6', :plgb, 'Bela', 'Bursar', 'bela66@plg.example', '1970-01-01'),
+  ('66000000-0000-4000-8000-0000000000b7', :plgb, 'Nik', 'Member', 'nik66@plg.example', '1985-01-01'),
   ('66000000-0000-4000-8000-0000000000b1', :plg, 'Ami', 'Admin', 'admin66@plg.example', '1975-01-01'),
   ('66000000-0000-4000-8000-0000000000b2', :plg, 'Tanu', 'Treasurer', 'treasurer66@plg.example', '1972-01-01'),
   ('66000000-0000-4000-8000-0000000000b3', :plg, 'Mira', 'Doshi', 'mira66@plg.example', '1982-05-05'),
@@ -97,6 +107,8 @@ insert into app.household_members (household_id, person_id, center_id, role, is_
   ('66000000-0000-4000-8000-0000000000a1', '66000000-0000-4000-8000-0000000000b3', :plg, 'primary', true),
   ('66000000-0000-4000-8000-0000000000a1', '66000000-0000-4000-8000-0000000000b4', :plg, 'child', false);
 insert into app.center_users (center_id, user_id, person_id) values
+  (:plgb, '66000000-0000-4000-8000-000000000006', '66000000-0000-4000-8000-0000000000b6'),
+  (:plgb, '66000000-0000-4000-8000-000000000007', '66000000-0000-4000-8000-0000000000b7'),
   (:plg, '66000000-0000-4000-8000-000000000001', '66000000-0000-4000-8000-0000000000b1'),
   (:plg, '66000000-0000-4000-8000-000000000002', '66000000-0000-4000-8000-0000000000b2'),
   (:plg, '66000000-0000-4000-8000-000000000003', '66000000-0000-4000-8000-0000000000b3'),
@@ -105,7 +117,8 @@ insert into app.center_users (center_id, user_id, person_id) values
 insert into app.role_grants (center_id, user_id, role_key, scope_kind, scope_id) values
   (:plg, '66000000-0000-4000-8000-000000000001', 'center_admin', 'center', null),
   (:plg, '66000000-0000-4000-8000-000000000002', 'treasurer', 'center', null),
-  (:plg, '66000000-0000-4000-8000-000000000005', 'finance_volunteer', 'center', null);
+  (:plg, '66000000-0000-4000-8000-000000000005', 'finance_volunteer', 'center', null),
+  (:plgb, '66000000-0000-4000-8000-000000000006', 'treasurer', 'center', null);
 
 -- ── The backfill keeps today's behaviour ─────────────────────────────────────
 -- Legacy rows as they were before 0580: Stripe takes card and Apple Pay, Zelle is accepted.
@@ -131,6 +144,62 @@ update app.center_payment_processors set methods = '{}' where center_id = :plg a
 delete from app.center_payment_methods where center_id = :plg;
 select pg_temp.assert((select count(*) from app.center_payment_plugins where center_id = :plg and enabled) = 0 and pg_temp.in_step(:plg),
   'removing the legacy rows turns the plugins off again (rows updated by the triggers)');
+-- Running the backfill again changes nothing (rows are updated only when a value changed).
+select count(*) as n_audit from app.audit_log \gset
+do $$ begin perform app.payment_plugins_refresh(c.id) from app.centers c; end $$;
+select pg_temp.assert((select count(*) from app.audit_log) = :n_audit and pg_temp.in_step(:plg),
+  'the backfill is idempotent: running it again writes no audit rows and changes no row');
+
+-- Method lists the old screen could save without the processor's main method.
+select app.payment_processor_ensure(:plg, 'paypal');
+update app.center_payment_processors set methods = '{apple_pay}' where center_id = :plg and processor = 'stripe';
+update app.center_payment_processors set methods = '{venmo}' where center_id = :plg and processor = 'paypal';
+select pg_temp.assert((select count(*) from app.center_payment_plugins where center_id = :plg and enabled) = 0,
+  'before the fix-up a wallet without Card, or Venmo without PayPal, shows every switch off');
+-- The migration's fix-up, exactly.
+do $$ begin
+  update app.center_payment_processors
+     set methods = (select array_agg(distinct m order by m) from unnest(methods || array['card']) m)
+   where processor = 'stripe' and not ('card' = any (methods)) and methods && array['apple_pay','google_pay'];
+  update app.center_payment_processors
+     set methods = (select array_agg(distinct m order by m) from unnest(methods || array['paypal']) m)
+   where processor = 'paypal' and not ('paypal' = any (methods)) and cardinality(methods) > 0;
+end $$;
+select pg_temp.assert((select methods = '{apple_pay,card}' from app.center_payment_processors where center_id = :plg and processor = 'stripe')
+                      and (select methods = '{paypal,venmo}' from app.center_payment_processors where center_id = :plg and processor = 'paypal')
+                      and (select array_agg(plugin_key order by plugin_key) from app.center_payment_plugins where center_id = :plg and enabled)
+                          = array['apple_pay','card','paypal'] and pg_temp.in_step(:plg),
+  'the fix-up lists Card for a wallet-only Stripe and PayPal for a Venmo-only PayPal (what the checkout already offered); the switches then say so');
+update app.center_payment_processors set methods = '{ach}' where center_id = :plg and processor = 'stripe';
+do $$ begin
+  update app.center_payment_processors
+     set methods = (select array_agg(distinct m order by m) from unnest(methods || array['card']) m)
+   where processor = 'stripe' and not ('card' = any (methods)) and methods && array['apple_pay','google_pay'];
+end $$;
+select pg_temp.assert((select methods = '{ach}' from app.center_payment_processors where center_id = :plg and processor = 'stripe'),
+  'an ACH-only Stripe list is left as it is (Card is not added behind the organization''s back)');
+
+-- Connecting gives an emptied method list its starting method back (set_payment_plugin can leave one empty).
+update app.center_payment_processors set methods = '{}' where center_id = :plg and processor = 'stripe';
+update app.center_payment_processors set methods = '{}' where center_id = :plg and processor = 'paypal';
+select app.payment_processor_ensure(:plg, 'stripe');
+select app.payment_processor_ensure(:plg, 'paypal');
+select pg_temp.assert((select methods = '{card}' from app.center_payment_processors where center_id = :plg and processor = 'stripe')
+                      and (select methods = '{paypal}' from app.center_payment_processors where center_id = :plg and processor = 'paypal')
+                      and pg_temp.in_step(:plg),
+  'app.payment_processor_ensure gives an emptied Stripe or PayPal list its starting method back, and the plugin rows follow');
+update app.center_payment_processors set methods = '{apple_pay,card}' where center_id = :plg and processor = 'stripe';
+select app.payment_processor_ensure(:plg, 'stripe');
+select pg_temp.assert((select methods = '{apple_pay,card}' from app.center_payment_processors where center_id = :plg and processor = 'stripe'),
+  'and leaves a list that has methods exactly as it is');
+select pg_temp.assert(not has_function_privilege('authenticated', 'app.payment_processor_ensure(uuid,text)', 'execute')
+                      and not has_function_privilege('anon', 'app.payment_processor_ensure(uuid,text)', 'execute'),
+  'payment_processor_ensure is still not callable over the API');
+-- Back to nothing, for the rest of the test.
+delete from app.center_payment_processors where center_id = :plg and processor = 'paypal';
+update app.center_payment_processors set methods = '{}' where center_id = :plg and processor = 'stripe';
+select pg_temp.assert((select count(*) from app.center_payment_plugins where center_id = :plg and enabled) = 0 and pg_temp.in_step(:plg),
+  'back to nothing for the rest of the test');
 
 -- ── Who may see and change ───────────────────────────────────────────────────
 select pg_temp.claims('66000000-0000-4000-8000-000000000005');
@@ -149,6 +218,54 @@ select pg_temp.assert_raises($$select app.payment_plugin_settings('00000000-0000
 select pg_temp.assert_raises($$select app.payment_plugin_status('00000000-0000-4000-8000-000000006601', 'card')$$,
   'permission denied', 'the internal status function is not callable over the API');
 reset role;
+
+-- ── Isolation between organizations ──────────────────────────────────────────
+-- plg66b accepts checks. Each organization's people reach only their own organization's plugins.
+insert into app.center_payment_methods (center_id, method, accepted, instructions, sort)
+values (:plgb, 'check', true, '{"payee":"Other Test Temple","address":"2 Other Rd, Austin TX"}', 1);
+select pg_temp.assert(not has_table_privilege('anon', 'app.payment_plugins', 'select') and not has_table_privilege('anon', 'app.center_payment_plugins', 'select')
+                      and not has_table_privilege('authenticated', 'app.payment_plugins', 'insert')
+                      and not has_table_privilege('authenticated', 'app.payment_plugins', 'update')
+                      and not has_table_privilege('authenticated', 'app.center_payment_plugins', 'insert')
+                      and not has_table_privilege('authenticated', 'app.center_payment_plugins', 'update')
+                      and not has_table_privilege('authenticated', 'app.center_payment_plugins', 'delete')
+                      and has_table_privilege('authenticated', 'app.payment_plugins', 'select')
+                      and has_table_privilege('authenticated', 'app.center_payment_plugins', 'select'),
+  'anon reads neither table; signed-in users may only select (writes go through the functions)');
+select pg_temp.claims('66000000-0000-4000-8000-000000000002');
+set local role authenticated;
+select pg_temp.assert(not exists (select 1 from app.center_payment_plugins where center_id = :plgb)
+                      and (select count(*) from app.center_payment_plugins where center_id = :plg) = 12,
+  'a treasurer reads her own organization''s plugin rows and none of another organization''s');
+select pg_temp.assert_state($$select app.payment_plugin_settings('00000000-0000-4000-8000-000000006602')$$, '42501',
+  'she cannot read another organization''s plugin settings');
+select pg_temp.assert_state($$select app.set_payment_plugin('00000000-0000-4000-8000-000000006602', 'cash', true, '{"where":"x"}', null, null, 'x')$$, '42501',
+  'nor change them');
+select pg_temp.assert_raises($$select app.member_payment_methods('00000000-0000-4000-8000-000000006602')$$, 'Only members of this community',
+  'nor read how its members give');
+reset role;
+select pg_temp.claims('66000000-0000-4000-8000-000000000006');
+set local role authenticated;
+select pg_temp.assert(exists (select 1 from app.center_payment_plugins where center_id = :plgb) and not exists (select 1 from app.center_payment_plugins where center_id = :plg),
+  'the other organization''s treasurer reads only its own rows');
+select pg_temp.assert((select p->>'enabled' = 'true' and p#>>'{config,payee}' = 'Other Test Temple'
+                         from jsonb_array_elements(app.payment_plugin_settings(:plgb)->'plugins') p where p->>'key' = 'check'),
+  'and its own settings, with its own instructions');
+select pg_temp.assert_state($$select app.payment_plugin_settings('00000000-0000-4000-8000-000000006601')$$, '42501', 'but not ours');
+select pg_temp.assert_state($$select app.set_payment_plugin('00000000-0000-4000-8000-000000006601', 'check', false, null, null, null, 'x')$$, '42501', 'and cannot change ours');
+reset role;
+select pg_temp.claims('66000000-0000-4000-8000-000000000003');
+set local role authenticated;
+select pg_temp.assert_raises($$select app.member_payment_methods('00000000-0000-4000-8000-000000006602')$$, 'Only members of this community',
+  'a member of one organization cannot ask how another organization''s members give');
+reset role;
+select pg_temp.claims('66000000-0000-4000-8000-000000000007');
+set local role authenticated;
+select pg_temp.assert((select m->'methods' @? '$[*] ? (@.key == "check" && @.instructions.payee == "Other Test Temple")' from app.member_payment_methods(:plgb) m),
+  'a member of the other organization sees how its own members give');
+select pg_temp.assert_raises($$select app.member_payment_methods('00000000-0000-4000-8000-000000006601')$$, 'Only members of this community', 'and not ours');
+reset role;
+delete from app.center_payment_methods where center_id = :plgb;
 
 select pg_temp.claims('66000000-0000-4000-8000-000000000002');
 set local role authenticated;
@@ -210,6 +327,19 @@ select app.set_payment_plugin(:plg, 'apple_pay', true, null, null, null, 'Apple 
 reset role;
 select pg_temp.assert((select methods = '{apple_pay,card}' and statement_descriptor = 'PTT TEMPLE' from app.center_payment_processors
                         where center_id = :plg and processor = 'stripe'), 'back on, with the statement descriptor written through');
+select pg_temp.claims('66000000-0000-4000-8000-000000000002');
+set local role authenticated;
+select app.set_payment_plugin(:plg, 'card', null, '{"statement_descriptor":null}', null, null, 'Clear the descriptor');
+reset role;
+select pg_temp.assert((select statement_descriptor is null and methods = '{apple_pay,card}' from app.center_payment_processors where center_id = :plg and processor = 'stripe'),
+  'a null statement descriptor in the settings clears it (the methods stay)');
+select pg_temp.claims('66000000-0000-4000-8000-000000000002');
+set local role authenticated;
+select app.set_payment_plugin(:plg, 'card', null, '{"statement_descriptor":"PTT TEMPLE"}', null, null, 'Descriptor again');
+select app.set_payment_plugin(:plg, 'card', null, '{}', null, null, 'No change to the descriptor');
+reset role;
+select pg_temp.assert((select statement_descriptor = 'PTT TEMPLE' from app.center_payment_processors where center_id = :plg and processor = 'stripe'),
+  'settings without a statement descriptor leave the saved one alone');
 
 -- ── Offline methods: both ways ───────────────────────────────────────────────
 select pg_temp.claims('66000000-0000-4000-8000-000000000002');
@@ -233,6 +363,8 @@ select pg_temp.assert((select accepted and instructions->>'recipient' = 'give@pl
   'Zelle on writes the accepted method with its instructions (production: live)');
 select pg_temp.assert((select sort from app.center_payment_methods where center_id = :plg and method = 'zelle') = 3,
   'a method row made by the switch takes its usual place in the old list (Zelle third), so installed apps order it as before');
+select pg_temp.assert((select sort from app.center_payment_methods where center_id = :plg and method = 'check') = 1,
+  'a plugin order of 5 stays on the plugin row: the old method row keeps its own place (check 1), so installed apps list it as before');
 select pg_temp.assert((select label_override = 'Cheque' and sort = 5 and changed_by = '66000000-0000-4000-8000-000000000002' and changed_at is not null
                          from app.center_payment_plugins where center_id = :plg and plugin_key = 'check')
                       and (select accepted from app.center_payment_methods where center_id = :plg and method = 'check'),
@@ -300,6 +432,16 @@ reset role;
 select pg_temp.assert(pg_temp.st(:plg, 'card') = 'live' and pg_temp.st(:plg, 'apple_pay') = 'live' and pg_temp.st(:plg, 'google_pay') = 'off'
                       and (select mode from app.center_payment_plugins where center_id = :plg and plugin_key = 'card') = 'live',
   'live only with the processor live in production');
+-- Community Connect holding the organization to test mode (the payments.mode entitlement) is followed too.
+insert into app.center_entitlements (center_id, key, value, reason) values (:plg, 'payments.mode', '"test"', 'Held to test while the pilot runs');
+select pg_temp.assert(pg_temp.st(:plg, 'card') = 'test_passed' and (select mode from app.center_payment_plugins where center_id = :plg and plugin_key = 'card') = 'test'
+                      and pg_temp.in_step(:plg),
+  'a payments.mode entitlement of "test" brings the stored rows back to test mode (the entitlement trigger)');
+update app.center_entitlements set value = '"live"' where center_id = :plg and key = 'payments.mode';
+select pg_temp.assert(pg_temp.st(:plg, 'card') = 'live' and pg_temp.in_step(:plg), 'changing the entitlement is followed');
+insert into app.center_entitlements (center_id, key, value, reason) values (:plg, 'max_people', '5000', 'Unrelated limit');
+delete from app.center_entitlements where center_id = :plg and key in ('payments.mode', 'max_people');
+select pg_temp.assert(pg_temp.st(:plg, 'card') = 'live' and pg_temp.in_step(:plg), 'removing it is followed too; another entitlement changes nothing here');
 select pg_temp.claims('66000000-0000-4000-8000-000000000003');
 set local role authenticated;
 select pg_temp.assert((select e->>'provider' = 'stripe' and e->>'mode' = 'live' and e->'wallets' = '["apple_pay"]'::jsonb and e->'also' = '[]'::jsonb
@@ -395,6 +537,25 @@ select pg_temp.assert((select e->>'mode' = 'rehearsal' and e->'instructions' = '
                               and (e#>>'{report,window_days}')::int = 14
                          from jsonb_array_elements(app.member_payment_methods(:plg)->'methods') e where e->>'key' = 'zelle'),
   'sandbox Zelle is a rehearsal: "Sandbox: no real money moves" and the memo hint; the report window comes from the rules');
+reset role;
+select pg_temp.no_claims();
+update app.centers set rules = jsonb_set(rules, '{payments,zelle,report_window_days}', '100') where id = :plg;
+select pg_temp.claims('66000000-0000-4000-8000-000000000003');
+set local role authenticated;
+select pg_temp.assert((select (e#>>'{report,window_days}')::int = 30 from jsonb_array_elements(app.member_payment_methods(:plg)->'methods') e where e->>'key' = 'zelle'),
+  'a report window above 30 days reads 30');
+reset role;
+select pg_temp.no_claims();
+update app.centers set rules = jsonb_set(rules, '{payments,zelle,report_window_days}', '1') where id = :plg;
+select pg_temp.claims('66000000-0000-4000-8000-000000000003');
+set local role authenticated;
+select pg_temp.assert((select (e#>>'{report,window_days}')::int = 3 from jsonb_array_elements(app.member_payment_methods(:plg)->'methods') e where e->>'key' = 'zelle'),
+  'and below 3 days reads 3 (plan PR 3''s own range)');
+reset role;
+select pg_temp.no_claims();
+update app.centers set rules = jsonb_set(rules, '{payments,zelle,report_window_days}', '14') where id = :plg;
+select pg_temp.claims('66000000-0000-4000-8000-000000000003');
+set local role authenticated;
 select pg_temp.assert(app.member_payment_methods(:plg)::text not like '%give@plg.example%' and app.member_payment_methods(:plg)::text not like '%pay@plg.example%',
   'the real Zelle address (and the PayPal email) appear nowhere in the member answer');
 select pg_temp.assert((select (e#>>'{report,available}')::boolean
@@ -496,7 +657,8 @@ select pg_temp.assert(has_function_privilege('authenticated', 'app.payment_plugi
                       and not has_function_privilege('authenticated', 'app.payment_plugins_sync()', 'execute')
                       and not has_function_privilege('authenticated', 'app.payment_plugin_entry(uuid,text)', 'execute'),
   'signed-in users run only the settings, the switch, the problem check and the member answer');
-select pg_temp.assert((select count(*) = 5 from pg_trigger where tgname = 'payment_plugins_sync' and not tgisinternal
+select pg_temp.assert((select count(*) = 6 from pg_trigger where tgname = 'payment_plugins_sync' and not tgisinternal
                          and tgrelid in ('app.center_payment_processors'::regclass, 'app.center_payment_methods'::regclass,
-                                         'app.payment_processor_tests'::regclass, 'app.integration_connections'::regclass, 'app.centers'::regclass)),
-  'the sync trigger sits on the five tables it follows');
+                                         'app.payment_processor_tests'::regclass, 'app.integration_connections'::regclass, 'app.centers'::regclass,
+                                         'app.center_entitlements'::regclass)),
+  'the sync trigger sits on the six tables it follows');

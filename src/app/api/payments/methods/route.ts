@@ -11,8 +11,8 @@ import { isUuid } from "@/lib/search-params";
 // → app.member_payment_methods (0581) decides with the member's own session: members of the
 //   community only, adults only, Giving on; one entry per connected processor; Zelle in a sandbox
 //   is a rehearsal that never carries the real address.
-// 200: that answer plus "client": {} — hosted Checkout (owner decision Q1, approach A) needs no
-//   client key in the app, so nothing is added; a secret never is.
+// 200: that answer (parsed, so only the fields of the contract) plus "client": {} — hosted Checkout
+//   (owner decision Q1, approach A) needs no client key in the app, so nothing is added; a secret never is.
 // Errors are JSON { error } in plain English: 400 no or bad center_id, 401 not signed in,
 // 403 not allowed, 503 not configured, 500 anything else. No cookies are used, so any origin may call it.
 export const dynamic = "force-dynamic";
@@ -69,5 +69,7 @@ export async function GET(req: NextRequest) {
     console.error("[payments/methods] unexpected answer from member_payment_methods:", data);
     return reply(500, { error: `Could not load how to give — ${parsed.error}.` });
   }
-  return reply(200, { ...(data as Record<string, unknown>), client: {} });
+  // What is sent is the parsed answer, not the raw one: only the fields the contract names, and a
+  // sandbox's Zelle never carries the real address even if the database ever sent it.
+  return reply(200, { ...parsed.value, client: {} });
 }

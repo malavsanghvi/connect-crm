@@ -88,7 +88,8 @@ begin
         'report', jsonb_build_object(
           'available', to_regprocedure('app.report_payment(uuid,uuid,text,bigint,date,text,text,uuid[],text)') is not null,
           'confirmation', 'ask',
-          'window_days', case when v_window ~ '^\d{1,3}$' then v_window::int else 10 end),
+          -- 3 to 30 days, 10 when not set (the same rule plan PR 3's app.zelle_report_window_days applies).
+          'window_days', least(30, greatest(3, case when v_window ~ '^\s*\d{1,4}\s*$' then v_window::int else 10 end))),
         'sort', r.sort));
     else
       select m.instructions into v_instr from app.center_payment_methods m

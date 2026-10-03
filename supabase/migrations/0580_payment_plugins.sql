@@ -17,6 +17,12 @@
 -- are kept in step by triggers on the legacy tables; the triggers only ever write
 -- center_payment_plugins (never back to a legacy table), and only when a value changed.
 --
+-- The two places this migration touches an existing processor row, both so that the switches tell
+-- the truth about what members are offered today: the backfill writes out a method list that left
+-- out its main method (the checkout already behaved as if it were listed), and
+-- app.payment_processor_ensure gives an EMPTY list (only the switches can make one, on an account
+-- that is not connected) its starting method back when an account is being connected.
+--
 -- No money rule changes here: checkouts, webhooks, recording, allocation, refunds and QuickBooks
 -- are untouched; live mode is still switched only by app.set_payment_mode. ACH bank debit
 -- (bank_debit) stays off unless the organization turns it on (owner decision Q12).
@@ -286,14 +292,20 @@ begin
    where (cpp.enabled, cpp.mode, cpp.status) is distinct from (excluded.enabled, excluded.mode, excluded.status);
 end $$;
 
--- Trigger: a processor, an offline method, a $1 test, a Stripe/PayPal connection or a center's
--- environment changed. Security definer because the background service (connect_worker) and the
--- demo pack write those rows too.
+-- Trigger: a processor, an offline method, a $1 test, a Stripe/PayPal connection, a center's
+-- environment, a new center, or Community Connect holding a center to test mode (the
+-- payments.mode entitlement) changed. Security definer because the background service
+-- (connect_worker) and the demo pack write those rows too.
 create or replace function app.payment_plugins_sync() returns trigger
 language plpgsql security definer set search_path = app, public, extensions as $$
 begin
   if tg_table_name = 'centers' then
     perform app.payment_plugins_refresh(new.id);
+  elsif tg_table_name = 'center_entitlements' then
+    -- Only the payments mode changes what a plugin reports (app.payment_api_mode).
+    if (case when tg_op = 'DELETE' then old.key else new.key end) = 'payments.mode' then
+      perform app.payment_plugins_refresh(case when tg_op = 'DELETE' then old.center_id else new.center_id end);
+    end if;
   elsif tg_op = 'DELETE' then
     perform app.payment_plugins_refresh(old.center_id);
   else
@@ -317,8 +329,12 @@ create trigger payment_plugins_sync after insert on app.payment_processor_tests
 drop trigger if exists payment_plugins_sync on app.integration_connections;
 create trigger payment_plugins_sync after insert or update on app.integration_connections
   for each row when (new.provider in ('stripe','paypal')) execute function app.payment_plugins_sync();
+-- A new center gets its twelve rows at once (the backfill below covers the centers that exist now).
 drop trigger if exists payment_plugins_sync on app.centers;
-create trigger payment_plugins_sync after update of environment on app.centers
+create trigger payment_plugins_sync after insert or update of environment on app.centers
+  for each row execute function app.payment_plugins_sync();
+drop trigger if exists payment_plugins_sync on app.center_entitlements;
+create trigger payment_plugins_sync after insert or update or delete on app.center_entitlements
   for each row execute function app.payment_plugins_sync();
 
 -- ── Validation (mirrored by paymentPluginConfigProblem in src/lib/payments/plugins/config.ts) ──
@@ -401,6 +417,33 @@ begin
     'can_configure', app.payments_can_configure(p_center),
     'can_connect', app.payments_can_connect(p_center),
     'plugins', v_plugins);
+end $$;
+
+-- ── Connecting starts with Card (or PayPal) on ───────────────────────────────
+-- Same function as 0211, with one addition. Turning Card (or PayPal) off while nothing is connected
+-- leaves the processor row with no online methods (set_payment_plugin below writes the empty list;
+-- app.set_payment_processor itself never does). Every way to connect an account (begin_payment_connect,
+-- the PayPal email code, set_payment_processor) calls this first, so a row left empty gets its starting
+-- method back here: an account that is being connected never ends up with its own plugin switched off,
+-- and what members see through app.member_payment_options (which reads the list) stays as it was.
+create or replace function app.payment_processor_ensure(p_center uuid, p_processor text) returns uuid
+language plpgsql security definer set search_path = app, public, extensions as $$
+declare v_conn uuid;
+begin
+  if p_processor not in ('stripe','paypal') then raise exception 'Choose Stripe or PayPal.' using errcode = '22023'; end if;
+  insert into app.integration_connections (center_id, provider, status, display_name, settings)
+  values (p_center, p_processor, 'disconnected', initcap(p_processor), jsonb_build_object('mode', 'test'))
+  on conflict (center_id, provider) do nothing;
+  select id into v_conn from app.integration_connections where center_id = p_center and provider = p_processor;
+  insert into app.center_payment_processors (center_id, processor, connection_id, methods, updated_by)
+  values (p_center, p_processor, v_conn, case p_processor when 'stripe' then array['card'] else array['paypal'] end, auth.uid())
+  on conflict (center_id, processor) do update
+     set connection_id = excluded.connection_id,
+         methods = case when cardinality(app.center_payment_processors.methods) = 0 then excluded.methods
+                        else app.center_payment_processors.methods end
+   where app.center_payment_processors.connection_id is distinct from excluded.connection_id
+      or cardinality(app.center_payment_processors.methods) = 0;
+  return v_conn;
 end $$;
 
 -- ── Turning a plugin on or off, renaming it, reordering it ───────────────────
@@ -495,8 +538,10 @@ begin
           v_who, case pl.key when 'paypal' then 'PayPal' else 'card' end, v_who, case pl.key when 'paypal' then 'PayPal' else 'Card' end
           using errcode = '22023';
       end if;
-      v_desc := coalesce(case when p_config ? 'statement_descriptor' then p_config->>'statement_descriptor' end, cp.statement_descriptor);
-      if v_new is distinct from v_old or nullif(btrim(coalesce(v_desc, '')), '') is distinct from cp.statement_descriptor then
+      -- A statement descriptor in the settings replaces the saved one (empty or null clears it); without one it stays.
+      v_desc := case when p_config ? 'statement_descriptor' then nullif(btrim(coalesce(p_config->>'statement_descriptor', '')), '')
+                     else cp.statement_descriptor end;
+      if v_new is distinct from v_old or v_desc is distinct from cp.statement_descriptor then
         if cardinality(v_new) = 0 then
           -- Not connected and nothing left: app.set_payment_processor needs at least one method, so
           -- the empty list is written here (the row stays; nothing is offered to members).
@@ -512,12 +557,12 @@ begin
     end if;
   else
     if pm.center_id is not null or v_on then
-      if v_on is distinct from coalesce(pm.accepted, false) or (p_config is not null and p_config is distinct from pm.instructions)
-         or (p_sort is not null and p_sort is distinct from pm.sort) then
-        -- A method row made here for the first time takes the place Settings › Payments always gave
-        -- it (payment_settings' order: check 1 … matching gift 7), so installed apps list it as before.
+      if v_on is distinct from coalesce(pm.accepted, false) or (p_config is not null and p_config is distinct from pm.instructions) then
+        -- The method row keeps its own place in the old list (payment_settings' order: check 1 … matching
+        -- gift 7; a row made here for the first time takes that place), so installed apps list it as
+        -- before. The plugin's own order (p_sort) is a different scale and is kept only on the plugin row.
         perform app.set_payment_method(p_center, pl.legacy_method::app.payment_method, v_on, v_cfg,
-          coalesce(p_sort, pm.sort, array_position(array['check','cash','zelle','ach','stock','daf','matching_gift'], pl.legacy_method)),
+          coalesce(pm.sort, array_position(array['check','cash','zelle','ach','stock','daf','matching_gift'], pl.legacy_method)),
           p_reason);
       end if;
     end if;
@@ -531,6 +576,22 @@ begin
 end $$;
 
 -- ── Backfill: one row per center and plugin, from today's settings ───────────
+-- Two method lists the old screen could save cannot be shown as plugin switches, although the checkout
+-- already behaves as if the main method were listed; they are written out so the switches say what
+-- members are offered today (the checkout reads the same lists, so nothing changes for members):
+--   Stripe with Apple Pay or Google Pay but not Card: Stripe's page shows Card for either
+--     (src/lib/payments/view.ts stripePaymentMethodTypes), and the wallets ride on Card;
+--   PayPal without "paypal": PayPal's checkout never reads the list (plan finding G3).
+-- A Stripe list of ACH alone is left as it is (the old screen allowed it; ACH is off by default, Q12).
+do $$ begin
+  perform app.set_audit_context('Payment plugins (0580): the main method of a processor is listed explicitly; what members are offered does not change');
+  update app.center_payment_processors
+     set methods = (select array_agg(distinct m order by m) from unnest(methods || array['card']) m)
+   where processor = 'stripe' and not ('card' = any (methods)) and methods && array['apple_pay','google_pay'];
+  update app.center_payment_processors
+     set methods = (select array_agg(distinct m order by m) from unnest(methods || array['paypal']) m)
+   where processor = 'paypal' and not ('paypal' = any (methods)) and cardinality(methods) > 0;
+end $$;
 do $$ begin
   perform app.set_audit_context('Payment plugins (0580): rows made from the existing payment settings; nothing changed');
   perform app.payment_plugins_refresh(c.id) from app.centers c;
