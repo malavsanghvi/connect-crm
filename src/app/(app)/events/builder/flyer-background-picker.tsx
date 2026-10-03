@@ -13,6 +13,7 @@ import {
   type FlyerBackground,
   type FlyerPattern,
 } from "@/lib/events/flyer";
+import { artPriceSentence, englishOnlyNote, firstNonEnglishLetter, formatArtCost, type FlyerArtReadiness } from "@/lib/events/flyer-art";
 import type { FlyerBrand } from "@/lib/events/flyer-brand";
 import { patternDataUri } from "@/lib/events/flyer-patterns";
 
@@ -23,7 +24,7 @@ type Source = FlyerBackground["source"];
 const SOURCES: { value: Source; label: string }[] = [
   { value: "pattern", label: "Pattern" },
   { value: "photo", label: "Photo from an album" },
-  { value: "ai", label: "AI art (free)" },
+  { value: "ai", label: "AI art (Gemini)" },
   { value: "plain", label: "Plain colour" },
 ];
 
@@ -42,8 +43,9 @@ function ErrorLine({ children, onRetry, retryLabel = "Try again" }: { children: 
 
 /**
  * Flyer maker › Background: a pattern drawn in code, a photo from the
- * community's own albums, free AI background art, or a plain colour. Changes
- * reach the flyer through onChange; nothing is saved until "Use this flyer".
+ * community's own albums, AI background art from Google Gemini (about 4¢ a
+ * picture; it needs a Gemini key in Platform › Setup), or a plain colour.
+ * Changes reach the flyer through onChange; nothing is saved until "Use this flyer".
  */
 export function FlyerBackgroundPicker({
   eventId,
@@ -54,6 +56,7 @@ export function FlyerBackgroundPicker({
   artPromptSeed,
   initialArtUrl,
   initialArtError,
+  artReadiness,
   disabled,
 }: {
   eventId: string;
@@ -64,6 +67,8 @@ export function FlyerBackgroundPicker({
   artPromptSeed: string;
   initialArtUrl: string | null;
   initialArtError: string | null;
+  /** Is AI art available (and at what price)? Without a Gemini key the tab says so and the drawn patterns stay. */
+  artReadiness: FlyerArtReadiness;
   disabled: boolean;
 }) {
   const [tab, setTab] = useState<Source>(value.source);
@@ -123,9 +128,18 @@ export function FlyerBackgroundPicker({
   }, []);
 
   async function generate() {
+    if (artReadiness.state !== "ready") {
+      setArtError(artReadiness.message);
+      return;
+    }
     const text = prompt.replace(/\s+/g, " ").trim();
     if (!text) {
       setArtError("Describe the background art you want, in a sentence or two.");
+      return;
+    }
+    const foreign = firstNonEnglishLetter(text);
+    if (foreign) {
+      setArtError(englishOnlyNote(foreign));
       return;
     }
     const blocked = findBlockedArtTerm(text);
@@ -143,7 +157,7 @@ export function FlyerBackgroundPicker({
       }
       let state = res.data!;
       setArt(state);
-      // Poll for up to two minutes: the free image service can be slow.
+      // Poll for up to two minutes: an image can take a while.
       for (let i = 0; i < 60 && alive.current && (state.status === "queued" || state.status === "running"); i++) {
         await new Promise((r) => setTimeout(r, 2000));
         const next = await flyerGenerationResultAction(eventId);
@@ -301,12 +315,22 @@ export function FlyerBackgroundPicker({
             className="crm-input"
             disabled={disabled || artBusy}
           />
-          <p className="crm-hint">Always added: no text, letters, people, deities or murtis — abstract or decorative only.</p>
+          <p className="crm-hint">Describe it in English. Always added: no text, letters, people, deities or murtis — abstract or decorative only.</p>
+          {artReadiness.state === "ready" ? (
+            <p className="crm-hint">
+              {artPriceSentence(artReadiness.model)}
+            </p>
+          ) : (
+            <p className="mt-1 rounded-[10px] border border-navy/20 bg-navy-50 px-3 py-2 text-[13px] text-navy">{artReadiness.message} Choose a pattern, a photo or a plain colour instead.</p>
+          )}
           <div className="mt-2 flex flex-wrap items-center gap-2">
-            <button type="button" className={buttonClass("primary", "sm")} onClick={() => void generate()} disabled={disabled || artBusy}>
-              {artBusy ? (waiting ? "Making the art…" : "Working…") : lastArt ? "Generate again" : "Generate"}
+            <button type="button" className={buttonClass("primary", "sm")} onClick={() => void generate()} disabled={disabled || artBusy || artReadiness.state !== "ready"}>
+              {artBusy
+                ? waiting
+                  ? "Making the art…"
+                  : "Working…"
+                : `${lastArt ? "Generate again" : "Generate"}${artReadiness.state === "ready" ? ` (${formatArtCost(artReadiness.cents)})` : ""}`}
             </button>
-            <span className="crm-hint">Free AI art may carry a small mark in a corner.</span>
           </div>
           {artError ? <ErrorLine onRetry={artBusy ? undefined : () => void generate()}>{artError}</ErrorLine> : null}
           {lastArt?.url ? (
@@ -314,7 +338,7 @@ export function FlyerBackgroundPicker({
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={lastArt.url} alt="The AI background art" className="h-[120px] w-[80px] rounded-[8px] border border-line object-cover" />
               <p className="crm-hint">
-                {value.source === "ai" && value.path === lastArt.path ? "This art is the flyer's background. Look at the preview: free AI art can still include shapes you don't want." : "Art from earlier."}
+                {value.source === "ai" && value.path === lastArt.path ? "This art is the flyer's background. Look at the preview: AI art can still include shapes you don't want." : "Art from earlier."}
               </p>
             </div>
           ) : null}

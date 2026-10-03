@@ -19,7 +19,8 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 
-export type FlyerFont = { name: string; data: ArrayBuffer; weight: 400 | 600 | 700; style: "normal" };
+export type FlyerWeight = 400 | 500 | 600 | 700 | 800 | 900;
+export type FlyerFont = { name: string; data: ArrayBuffer; weight: FlyerWeight; style: "normal" };
 
 export class FlyerFontsMissingError extends Error {
   constructor(cause?: unknown) {
@@ -34,9 +35,14 @@ export const BUNDLED_BODY = "DM Sans";
 
 export const BUNDLED_FONT_FILES = [
   { name: BUNDLED_BODY, weight: 400, file: "DMSans-400.woff" },
+  { name: BUNDLED_BODY, weight: 500, file: "DMSans-500.woff" },
   { name: BUNDLED_BODY, weight: 700, file: "DMSans-700.woff" },
+  { name: BUNDLED_BODY, weight: 800, file: "DMSans-800.woff" },
   { name: BUNDLED_DISPLAY, weight: 600, file: "Fraunces-600.woff" },
   { name: BUNDLED_DISPLAY, weight: 700, file: "Fraunces-700.woff" },
+  // Flyers v2: the Poster's huge headline and big number.
+  { name: BUNDLED_DISPLAY, weight: 800, file: "Fraunces-800.woff" },
+  { name: BUNDLED_DISPLAY, weight: 900, file: "Fraunces-900.woff" },
 ] as const;
 
 export function flyerFontPath(file: string): string {
@@ -76,7 +82,7 @@ export function parseGoogleFontCss(css: string): { weight: number; url: string }
   return out;
 }
 
-async function loadGoogle(family: string, weights: readonly (400 | 600 | 700)[]): Promise<FlyerFont[]> {
+async function loadGoogle(family: string, weights: readonly FlyerWeight[]): Promise<FlyerFont[]> {
   const fam = encodeURIComponent(family).replace(/%20/g, "+");
   let css = await fetchText(`https://fonts.googleapis.com/css2?family=${fam}:wght@${weights.join(";")}&display=swap`);
   // A family without every weight answers 400; take whatever it has.
@@ -93,14 +99,14 @@ async function loadGoogle(family: string, weights: readonly (400 | 600 | 700)[])
     if (!res.ok) throw new Error(`fonts.gstatic.com answered ${res.status} for ${family}`);
     const data = await res.arrayBuffer();
     if (data.byteLength === 0 || data.byteLength > MAX_FONT_BYTES) throw new Error(`the ${family} font file was empty or too large`);
-    const weight = face.weight >= 650 ? 700 : face.weight >= 550 ? 600 : 400;
+    const weight: FlyerWeight = face.weight >= 850 ? 900 : face.weight >= 750 ? 800 : face.weight >= 650 ? 700 : face.weight >= 550 ? 600 : face.weight >= 450 ? 500 : 400;
     fonts.push({ name: family, data, weight, style: "normal" });
   }
   return fonts;
 }
 
 /** One Google Fonts family, cached for the life of the server (a failure is retried after ten minutes). */
-async function googleFamily(family: string, weights: readonly (400 | 600 | 700)[]): Promise<FlyerFont[] | null> {
+async function googleFamily(family: string, weights: readonly FlyerWeight[]): Promise<FlyerFont[] | null> {
   const key = `${family}|${weights.join(",")}`;
   const hit = googleCache.get(key);
   if (hit) {
@@ -128,9 +134,10 @@ export type FlyerFontSet = { fonts: FlyerFont[]; display: string; body: string; 
  * The fonts for one flyer: the bundled pair, the brand's own fonts when they
  * are not the bundled ones (falling back with a note), and Noto Sans Gujarati
  * when the words contain Gujarati. Throws FlyerFontsMissingError when the
- * bundled files are not on this server.
+ * bundled files are not on this server. The Poster (`poster: true`) sets its headline and big number in the
+ * heaviest weights, so a brand font from Google is asked for those too.
  */
-export async function getFlyerFonts(brand: { displayFont: string; bodyFont: string }, text: string): Promise<FlyerFontSet> {
+export async function getFlyerFonts(brand: { displayFont: string; bodyFont: string }, text: string, o: { poster?: boolean } = {}): Promise<FlyerFontSet> {
   const base = await bundled;
   if (base instanceof Error) {
     console.error("[events/flyer] the bundled flyer fonts could not be read:", base);
@@ -141,15 +148,15 @@ export async function getFlyerFonts(brand: { displayFont: string; bodyFont: stri
   const wantBody = brand.bodyFont.trim() || BUNDLED_BODY;
 
   // Every Google family this flyer needs, with the weights it uses (one request per family).
-  const needed = new Map<string, Set<400 | 600 | 700>>();
-  const need = (name: string, weights: (400 | 600 | 700)[]) => {
+  const needed = new Map<string, Set<FlyerWeight>>();
+  const need = (name: string, weights: FlyerWeight[]) => {
     if (isBundled(name)) return;
     const set = needed.get(name) ?? new Set();
     for (const w of weights) set.add(w);
     needed.set(name, set);
   };
-  need(wantDisplay, [600, 700]);
-  need(wantBody, [400, 700]);
+  need(wantDisplay, o.poster ? [600, 700, 800, 900] : [600, 700]);
+  need(wantBody, o.poster ? [400, 500, 700, 800] : [400, 700]);
   if (GUJARATI.test(text)) need("Noto Sans Gujarati", [400, 700]);
   const loaded = new Map<string, FlyerFont[] | null>(
     await Promise.all([...needed].map(async ([name, w]) => [name, await googleFamily(name, [...w].sort((a, b) => a - b))] as const)),

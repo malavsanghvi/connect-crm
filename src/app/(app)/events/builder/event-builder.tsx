@@ -6,7 +6,8 @@ import { ActionForm, type FormAction } from "@/components/action-form";
 import { ChipGroup, Toggle } from "@/components/controls";
 import { PersonPicker } from "@/components/events/person-picker";
 import { Card, InfoBox, buttonClass } from "@/components/ui";
-import type { FlyerDesign, FlyerSource } from "@/lib/events/flyer";
+import type { FlyerDesign, FlyerSource, PosterContent } from "@/lib/events/flyer";
+import type { FlyerArtSetup } from "@/lib/events/flyer-art";
 import type { FlyerBrand } from "@/lib/events/flyer-brand";
 import { audienceChips, commitmentSummary, lunchPriorityText, slotPreview, type CommitmentOptions, type LunchRules } from "@/lib/events/report";
 
@@ -60,6 +61,10 @@ export type FlyerSetup = {
   artPromptSeed: string;
   /** A signed URL for the design's AI art, when the saved design uses it. */
   artPreview: { url: string | null; error: string | null };
+  /** Flyers v2: is AI art available (and at what price), and the pictures kept for the poster's occasion. */
+  art: FlyerArtSetup;
+  /** The Poster as the event's own words and date make it (what choosing the Poster template starts from). */
+  posterDefaults: PosterContent;
 };
 
 const SLOT_CHOICES = [15, 20, 30];
@@ -504,6 +509,8 @@ export function EventBuilder({
             outOfDate={flyer.outOfDate}
             artPromptSeed={flyer.artPromptSeed}
             artPreview={flyer.artPreview}
+            art={flyer.art}
+            posterDefaults={flyer.posterDefaults}
           />
         </div>
       ) : editable ? (

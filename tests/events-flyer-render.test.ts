@@ -1,15 +1,20 @@
 import { readFile } from "node:fs/promises";
 import { inflateSync } from "node:zlib";
 
+import { BinaryBitmap, DecodeHintType, HybridBinarizer, QRCodeReader, RGBLuminanceSource } from "@zxing/library";
 import { ImageResponse } from "next/og";
 import QRCode from "qrcode";
 import { createElement } from "react";
 import { describe, expect, it } from "vitest";
 
-import { FLYER_LIMITS, FLYER_SIZE_KEYS, FLYER_TEMPLATES, type FlyerDesign, type FlyerSize, type FlyerTemplate } from "@/lib/events/flyer";
+import { FLYER_LIMITS, FLYER_SIZE_KEYS, FLYER_TEMPLATES, POSTER_AGENDA_MAX, POSTER_LIMITS, type FlyerDesign, type FlyerSize, type FlyerTemplate, type PosterContent } from "@/lib/events/flyer";
+import { FLYER_OCCASIONS, type FlyerOccasion } from "@/lib/events/flyer-art";
+import { artPack } from "@/lib/events/flyer-art-packs";
 import { readFlyerBrand } from "@/lib/events/flyer-brand";
 import { BUNDLED_FONT_FILES, flyerFontPath, getFlyerFonts } from "@/lib/events/flyer-fonts";
+import { POSTER_ICONS } from "@/lib/events/flyer-icons";
 import { patternSvg } from "@/lib/events/flyer-patterns";
+import { POSTER_UNITS, planPoster } from "@/lib/events/flyer-poster";
 import {
   backgroundBox,
   flyerDims,
@@ -223,7 +228,7 @@ function longest(headline = "Paryushan Mahaparva Pratikraman and Samvatsari Cele
 
 /** The flyer drawn on a magenta stage with a quarter of its size free on every side. */
 async function renderOnStage(inp: FlyerRenderInput, dims: FlyerDims): Promise<{ img: Pixels; mx: number; my: number }> {
-  const set = await getFlyerFonts(inp.brand, flyerText(inp));
+  const set = await getFlyerFonts(inp.brand, flyerText(inp), { poster: inp.design.template === "poster" });
   const qr = inp.qrLink ? await QRCode.toDataURL(inp.qrLink, { errorCorrectionLevel: "M", margin: 1, width: Math.round((220 * dims.w) / 1080) }) : null;
   const mx = Math.round(dims.w / 4);
   const my = Math.round(dims.h / 4);
@@ -336,4 +341,451 @@ describe("flyer layout: nothing is cut off, nothing is drawn over the picture", 
       });
     }, 60_000);
   }
+});
+
+// ── The Poster template (Flyers v2) ──────────────────────────────────────────
+// The same magenta stage: every poster is drawn on it with a quarter of its size free on every side, so anything the
+// poster pushes out of the picture (a footer shoved down by a long agenda) shows up as pixels on the stage.
+
+const GREEN_RGB = [0, 255, 0] as const;
+const hexRgb = (hex: string): [number, number, number] => {
+  const n = parseInt(hex.replace("#", ""), 16);
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+};
+
+/** Every field at its limit, in ordinary words (so they wrap like real text). */
+function fullPoster(occasion: FlyerOccasion, over: Partial<PosterContent> = {}): PosterContent {
+  const fill = (s: string, n: number) => `${s} ${"and more ".repeat(40)}`.slice(0, n).trimEnd();
+  return {
+    occasion,
+    frame: { source: "code" },
+    scene: { source: "code" },
+    logo: true,
+    partner: { on: true, label: "PARTNERLOG", sub: "20272027", logo_path: null },
+    subhead: fill("Houston Host City Kick-Off Celebration", POSTER_LIMITS.subhead),
+    slogan: fill("Let's make our whole community proud together", POSTER_LIMITS.slogan),
+    stat: { on: true, icon: "people", label: fill("More than", POSTER_LIMITS.stat_label), value: "100K+", caption: fill("Of convention registrations are filled so far this year", POSTER_LIMITS.stat_caption) },
+    ribbon: { on: true, date: fill("Thursday, Sept 10 – Thursday, Sept 17", POSTER_LIMITS.ribbon_date), time: fill("6:00 PM–9:30 PM each evening of the week", POSTER_LIMITS.ribbon_time) },
+    agenda: Array.from({ length: POSTER_AGENDA_MAX }, (_, i) => ({
+      icon: POSTER_ICONS[i]!,
+      time: fill("5:00–6:00 PM onwards", POSTER_LIMITS.agenda_time),
+      text: fill("Convention kick-off and meet and greet with the leaders", POSTER_LIMITS.agenda_text),
+    })),
+    paragraph: fill("Connect with Jains nationwide and help our community reach more families worldwide.", POSTER_LIMITS.paragraph),
+    footer: fill("JAINA 2027 Host City Team and volunteers", POSTER_LIMITS.footer),
+    ...over,
+  };
+}
+
+/** The reference poster: the owner's JAINA 2027 Houston Host City Kick-Off. */
+function jainaPoster(over: Partial<PosterContent> = {}): PosterContent {
+  return {
+    occasion: "convention",
+    frame: { source: "code" },
+    scene: { source: "code" },
+    logo: true,
+    partner: { on: true, label: "JAINA", sub: "2027", logo_path: null },
+    subhead: "HOUSTON HOST CITY KICK-OFF",
+    slogan: "LET'S MAKE JSH PROUD!",
+    stat: { on: true, icon: "people", label: "MORE THAN", value: "80%", caption: "OF CONVENTION REGISTRATIONS ARE FILLED!" },
+    ribbon: { on: true, date: "Saturday, October 3, 2026", time: "5:00 PM onwards" },
+    agenda: [
+      { icon: "clock", time: "5:00–6:00 PM", text: "Convention Kick-Off & Meet and Greet with JAINA Leaders" },
+      { icon: "dinner", time: "6:00 PM onwards", text: "Dinner & Fellowship" },
+      { icon: "dancers", time: "After Dinner", text: "Garba Night!" },
+    ],
+    paragraph: "Connect with Jains nationwide. Be part of 60+ teams across the country. Help JSH reach 100K+ Jains worldwide.",
+    footer: "JAINA 2027 Host City Team",
+    ...over,
+  };
+}
+
+const posterOff: Partial<PosterContent> = {
+  logo: false,
+  partner: { on: false, label: "", sub: "", logo_path: null },
+  subhead: "",
+  slogan: "",
+  stat: { on: false, icon: "people", label: "", value: "", caption: "" },
+  ribbon: { on: false, date: "", time: "" },
+  agenda: [],
+  paragraph: "",
+  footer: "",
+};
+
+const posterDesign = (poster: PosterContent, over: Partial<FlyerDesign> = {}): FlyerDesign => ({
+  v: 1,
+  template: "poster",
+  size: "tall",
+  headline: "JAINA 2027",
+  tagline: "",
+  date_line: "",
+  venue_line: "JSH Main Hall",
+  show_qr: true,
+  background: { source: "plain" },
+  poster,
+  ...over,
+});
+
+/** Render a poster on the stage and check nothing is outside it and the footer band is still at the bottom. */
+async function expectPosterFits(
+  label: string,
+  poster: PosterContent,
+  over: { design?: Partial<FlyerDesign>; size?: FlyerSize; assets?: FlyerRenderInput["posterAssets"]; logo?: FlyerRenderInput["logo"]; qrLink?: string | null; scale?: "preview" | "full" } = {},
+) {
+  const size = over.size ?? "tall";
+  const d = posterDesign(poster, { size, ...over.design });
+  const dims = flyerDims(size, over.scale ?? "preview");
+  const { img, mx, my } = await renderOnStage(
+    input({ design: d, background: null, logo: over.logo === undefined ? logo : over.logo, qrLink: over.qrLink === undefined ? "https://app.example.org/e/22222222-2222-4222-8222-222222222222" : over.qrLink, posterAssets: over.assets }),
+    dims,
+  );
+  const outside = drawnOutside(img, mx, my, dims);
+  expect(outside.count, `${label} (${size}): something is drawn ${outside.first}`).toBe(0);
+  // The footer band stays on the bottom edge (a long agenda would shove it out of the picture).
+  const footerBg = hexRgb(artPack(poster.occasion, brand).palette.footerBg);
+  const band = Math.max(3, Math.round(dims.w / 54));
+  for (const x of [mx + 8, mx + dims.w - 9]) expect(near(pixel(img, x, my + dims.h - band), footerBg), `${label} (${size}): the footer band is at the bottom edge`).toBe(true);
+}
+
+const sizeDims = (size: FlyerSize) => flyerDims(size, "preview");
+
+describe("poster layout: nothing is cut off, whatever is switched on or off", () => {
+  it("has the Poster among the templates, and Tall among the sizes", () => {
+    expect([...FLYER_TEMPLATES]).toContain("poster");
+    expect([...FLYER_SIZE_KEYS]).toEqual(["post", "tall", "story", "print"]);
+    expect(flyerDims("tall", "full")).toEqual({ w: 1080, h: 1620 });
+    expect(flyerDims("tall", "preview")).toEqual({ w: 540, h: 810 });
+  });
+
+  for (const occasion of FLYER_OCCASIONS) {
+    it(`${occasion}: every section on at its longest (tall)`, async () => {
+      await expectPosterFits(`${occasion} longest`, fullPoster(occasion), { design: { headline: "Paryushan Mahaparva Pratikraman and Samvatsari Celebration for the Whole Jain Community".slice(0, 90), venue_line: "Jain Society of Greater Houston Main Prayer Hall and Community Centre, 3905 Arc Street, Sugar Land, Texas".slice(0, FLYER_LIMITS.venue_line) } });
+    }, 60_000);
+  }
+
+  for (const size of FLYER_SIZE_KEYS) {
+    it(`every section on at its longest at ${size} size`, async () => {
+      await expectPosterFits("longest", fullPoster("convention"), { size, design: { headline: "PARYUSHAN MAHAPARVA PRATIKRAMAN AND SAMVATSARI CELEBRATION FOR THE WHOLE JAIN COMMUNITY" } });
+    }, 60_000);
+    it(`the reference poster at ${size} size`, async () => {
+      await expectPosterFits("jaina", jainaPoster(), { size });
+    }, 60_000);
+  }
+
+  it("the reference poster at full Tall size (what Use this flyer saves)", async () => {
+    await expectPosterFits("jaina full", jainaPoster(), { scale: "full" });
+  }, 60_000);
+
+  const sections: [string, Partial<PosterContent>][] = [
+    ["the logos", { logo: false, partner: { on: false, label: "", sub: "", logo_path: null } }],
+    ["the partner", { partner: { on: false, label: "", sub: "", logo_path: null } }],
+    ["the subhead", { subhead: "" }],
+    ["the slogan", { slogan: "" }],
+    ["the highlight box", { stat: { on: false, icon: "people", label: "", value: "", caption: "" } }],
+    ["the date ribbon", { ribbon: { on: false, date: "", time: "" } }],
+    ["the agenda", { agenda: [] }],
+    ["the paragraph", { paragraph: "" }],
+    ["the footer credit (the community's name shows)", { footer: "" }],
+    ["the frame", { frame: { source: "none" } }],
+    ["the bottom scene", { scene: { source: "none" } }],
+    ["every optional section", posterOff],
+    ["every optional section and both art layers", { ...posterOff, frame: { source: "none" }, scene: { source: "none" } }],
+  ];
+  for (const [what, off] of sections) {
+    for (const size of ["tall", "post"] as const) {
+      it(`without ${what} (${size})`, async () => {
+        await expectPosterFits(what, jainaPoster(off), { size });
+      }, 60_000);
+    }
+  }
+
+  it("without the QR code, and without a logo file", async () => {
+    await expectPosterFits("no qr", jainaPoster(), { design: { show_qr: false }, logo: null });
+    await expectPosterFits("no link", jainaPoster(), { qrLink: null });
+  }, 60_000);
+
+  it("with AI art for the frame and the scene (pictures of their own shape), the long way and the short way", async () => {
+    const frame = solid(GREEN_RGB, 1024, 1536);
+    const scene = solid(GREEN_RGB, 1536, 658);
+    const poster = (p: Partial<PosterContent>) => fullPoster("garba", { frame: { source: "ai", path: "x" }, scene: { source: "ai", path: "x" }, ...p });
+    for (const size of ["tall", "post", "story"] as const) {
+      await expectPosterFits(`AI art ${size}`, poster({}), { size, assets: { frame, scene, partnerLogo: null } });
+    }
+    await expectPosterFits("AI frame only", poster({ scene: { source: "code" } }), { assets: { frame, scene: null, partnerLogo: null } });
+    await expectPosterFits("AI scene only, reference content", jainaPoster({ occasion: "garba", frame: { source: "code" }, scene: { source: "ai", path: "x" } }), { assets: { frame: null, scene, partnerLogo: null } });
+  }, 120_000);
+
+  it("a layer that could not be loaded falls back to the drawn art (no picture, no gap)", async () => {
+    await expectPosterFits("fallback", jainaPoster({ frame: { source: "ai", path: "x" }, scene: { source: "ai", path: "x" } }), { assets: { frame: null, scene: null, partnerLogo: null } });
+  }, 60_000);
+
+  it("with the partner's own logo, wide or square, in place of the drawn badge", async () => {
+    for (const [w, h] of [[600, 200], [200, 200], [120, 400]] as const) {
+      await expectPosterFits(`partner ${w}x${h}`, jainaPoster(), { assets: { frame: null, scene: null, partnerLogo: solid(GREEN_RGB, w, h) } });
+    }
+  }, 60_000);
+
+  it("draws the poster's own words on its pixels (something is on the page, in the pack's ink)", async () => {
+    const r = await renderFlyerPng(input({ design: posterDesign(jainaPoster()), background: null }), "preview");
+    expect(isPng(r.png)).toBe(true);
+    expect(r.dims).toEqual(sizeDims("tall"));
+    expect(r.notes).toEqual([]);
+    const { w, h, px } = decodePng(r.png);
+    const ink = hexRgb(artPack("convention", brand).palette.ink);
+    let inkPixels = 0;
+    for (let i = 0; i < w * h; i++) if (Math.abs(px[i * 4]! - ink[0]) + Math.abs(px[i * 4 + 1]! - ink[1]) + Math.abs(px[i * 4 + 2]! - ink[2]) < 30) inkPixels++;
+    expect(inkPixels).toBeGreaterThan(w * h * 0.01);
+  }, 60_000);
+
+  it("renders the Print size as a sharp PDF (a letter page, the picture drawn edge to edge)", async () => {
+    const r = await renderFlyerPng(input({ design: posterDesign(jainaPoster(), { size: "print" }), background: null }), "preview", { w: 255, h: 330 });
+    const pdf = await renderFlyerPdf(r.png, "JAINA 2027");
+    expect(Buffer.from(pdf.subarray(0, 5)).toString("latin1")).toBe("%PDF-");
+    expect(flyerDims("print", "full")).toEqual({ w: 2550, h: 3300 });
+  }, 60_000);
+
+  it("a poster's words reach the font chooser (Gujarati and the like)", () => {
+    expect(flyerText(input({ design: posterDesign(jainaPoster({ subhead: "ગુજરાતી ઉપશીર્ષક" })) }))).toContain("ગુજરાતી ઉપશીર્ષક");
+    expect(flyerText(input({ design: design() }))).not.toContain("ગુજરાતી");
+  });
+});
+
+// ── The words end where the plan says they do ────────────────────────────────
+// The poster plans how tall its words are (planPoster) from an estimate of how they wrap, and the footer band is pinned to the
+// bottom edge. So a wrong estimate does not push the footer out of the picture any more: the last line runs into the scene
+// instead. These tests catch that. A poster with no art layers and no QR code has nothing on its page but the words, so the
+// strip of paper just above the footer band must be clear whenever the estimate was big enough. (Estimates that were too
+// small, for headlines of long words such as "Swamivatsalya Pratikraman Celebration Programme", pushed the footer off the picture.)
+
+/** Pixels in the strip above the footer band, between the frame's side ornaments, that are darker than any paper: ink. */
+function inkAboveFooter(img: Pixels, mx: number, my: number, dims: FlyerDims): number {
+  const u = dims.w / POSTER_UNITS.width;
+  const footerTop = my + dims.h - Math.round(POSTER_UNITS.footer * u);
+  let ink = 0;
+  for (let y = footerTop - Math.round(24 * u); y < footerTop - 2; y++) {
+    for (let x = Math.round(mx + POSTER_UNITS.side * u); x < Math.round(mx + dims.w - POSTER_UNITS.side * u); x++) {
+      const [r, g, b] = pixel(img, x, y);
+      if (0.299 * r + 0.587 * g + 0.114 * b < 215) ink++;
+    }
+  }
+  return ink;
+}
+
+/** A poster with only its words (no frame, no scene, no QR code): nothing is drawn outside it, and nothing runs into the strip above the footer. */
+async function expectWordsFit(label: string, poster: PosterContent, size: FlyerSize, over: Partial<FlyerDesign> = {}) {
+  const bare: PosterContent = { ...poster, frame: { source: "none" }, scene: { source: "none" } };
+  const dims = flyerDims(size, "preview");
+  const { img, mx, my } = await renderOnStage(input({ design: posterDesign(bare, { size, show_qr: false, ...over }), background: null }), dims);
+  const outside = drawnOutside(img, mx, my, dims);
+  expect(outside.count, `${label} (${size}): something is drawn ${outside.first}`).toBe(0);
+  expect(inkAboveFooter(img, mx, my, dims), `${label} (${size}): the words run into the strip above the footer`).toBe(0);
+}
+
+/** A small seeded random number generator, so a failing poster can be drawn again. */
+function seeded(seed: number): () => number {
+  let s = seed >>> 0;
+  return () => (s = (s * 1664525 + 1013904223) >>> 0) / 2 ** 32;
+}
+
+/** Words a community's posters are made of, long and short, with wide capitals and numbers among them. */
+const VOCABULARY = [
+  "Paryushan", "Mahaparva", "Samvatsari", "Pratikraman", "Swamivatsalya", "Navratri", "Garba", "Raas", "Dandiya", "Diwali", "Annakut", "Bhakti", "Bhajan", "Sangeet",
+  "Pathshala", "Teachers", "Volunteers", "Registration", "Orientation", "Convention", "Celebration", "Community", "Fellowship", "Dinner", "Lunch", "Prasad", "Aarti",
+  "Pooja", "Snatra", "Kshamapana", "Mahotsav", "Janma", "Kalyanak", "Jayanti", "Youth", "Seniors", "Families", "Children", "Welcome", "Annual", "General", "Meeting",
+  "Fundraiser", "Gala", "Retreat", "Picnic", "Programme", "Inauguration", "Siddhachakra", "Mahapujan", "Greater", "Cultural", "Society", "of", "and", "the", "for",
+  "with", "at", "in", "a", "to", "&", "2026", "2027", "100K+", "80%", "5:00", "PM", "AM", "Hall", "Temple", "Center", "Houston", "Sugar", "Land", "WWW", "MMM",
+  "Extraordinary", "Contributions", "Understanding", "Participation", "Accommodations",
+];
+
+/** Up to `max` characters of random words (all capitals when `caps`). */
+function someWords(r: () => number, max: number, caps = false): string {
+  const target = Math.floor(r() * (max + 1));
+  let out = "";
+  for (let guard = 0; guard < 200; guard++) {
+    const word = VOCABULARY[Math.floor(r() * VOCABULARY.length)]!;
+    const next = out ? `${out} ${word}` : word;
+    if (next.length > target) break;
+    out = next;
+  }
+  return caps ? out.toUpperCase() : out;
+}
+
+/** Three to five of the long words, the headlines whose wrapping is hardest to estimate. */
+function longHeadline(r: () => number): string {
+  const long = VOCABULARY.filter((w) => w.length >= 9);
+  return Array.from({ length: 3 + Math.floor(r() * 3) }, () => long[Math.floor(r() * long.length)]!).join(" ");
+}
+
+/** A poster of random words, with random sections on and off, at a random size and occasion. */
+function randomPoster(r: () => number): { poster: PosterContent; size: FlyerSize; headline: string; venue: string } {
+  const on = (p: number) => r() < p;
+  const pick = <T,>(list: readonly T[]) => list[Math.floor(r() * list.length)]!;
+  const caps = on(0.4);
+  const poster: PosterContent = {
+    occasion: pick(FLYER_OCCASIONS),
+    frame: { source: "code" },
+    scene: { source: "code" },
+    logo: on(0.8),
+    partner: { on: on(0.5), label: someWords(r, POSTER_LIMITS.partner_label, true), sub: someWords(r, POSTER_LIMITS.partner_sub, true), logo_path: null },
+    subhead: on(0.7) ? someWords(r, POSTER_LIMITS.subhead, true) : "",
+    slogan: on(0.7) ? someWords(r, POSTER_LIMITS.slogan, caps) : "",
+    stat: { on: on(0.6), icon: pick(POSTER_ICONS), label: someWords(r, POSTER_LIMITS.stat_label, true), value: someWords(r, 4) || "80%", caption: someWords(r, POSTER_LIMITS.stat_caption, true) },
+    ribbon: { on: on(0.85), date: someWords(r, POSTER_LIMITS.ribbon_date), time: someWords(r, POSTER_LIMITS.ribbon_time) },
+    agenda: Array.from({ length: Math.floor(r() * (POSTER_AGENDA_MAX + 1)) }, () => ({ icon: pick(POSTER_ICONS), time: someWords(r, POSTER_LIMITS.agenda_time), text: someWords(r, POSTER_LIMITS.agenda_text) })),
+    paragraph: on(0.7) ? someWords(r, POSTER_LIMITS.paragraph) : "",
+    footer: on(0.6) ? someWords(r, POSTER_LIMITS.footer) : "",
+  };
+  const headline = on(0.5) ? longHeadline(r).slice(0, FLYER_LIMITS.headline).trim() : someWords(r, FLYER_LIMITS.headline, caps) || "Event";
+  return { poster, size: pick(FLYER_SIZE_KEYS), headline, venue: on(0.8) ? someWords(r, FLYER_LIMITS.venue_line) : "" };
+}
+
+describe("poster layout: the words end where the plan says they do", () => {
+  // Headlines of three to five long words: the ones whose line count the first estimate got wrong (a fourth line the plan did not
+  // know about pushed the footer off the picture), under a ribbon, a highlight box and an agenda.
+  const NATURAL_HEADLINES = [
+    "Pathshala Orientation Registration Celebration",
+    "Swamivatsalya Pratikraman Celebration Programme",
+    "Mahavir Janma Kalyanak Mahotsav Celebration",
+    "Samvatsari Pratikraman Kshamapana Celebration",
+    "Diwali Annakut Mahotsav Celebration Programme",
+    "Annual Paryushan Pratikraman and Samvatsari Celebration",
+    "Retreat Picnic Children Orientation Annakut",
+  ];
+  const dense: Partial<PosterContent> = {
+    partner: { on: true, label: "JAINA", sub: "YJP", logo_path: null },
+    subhead: "",
+    slogan: "",
+    stat: { on: true, icon: "people", label: "MORE THAN", value: "80%", caption: "OF SEATS ARE FILLED" },
+    ribbon: { on: true, date: "Saturday, October 3, 2026", time: "5:00 PM onwards" },
+    agenda: [
+      { icon: "clock", time: "5:00–6:00 PM", text: "Registration and welcome" },
+      { icon: "dinner", time: "6:00 PM onwards", text: "Dinner and fellowship" },
+      { icon: "dancers", time: "After dinner", text: "Garba night" },
+    ],
+    paragraph: "",
+    footer: "",
+  };
+  for (const occasion of ["mahavir", "convention"] as const) {
+    for (const size of ["tall", "post"] as const) {
+      it(`${occasion} (${size}): headlines of long words, over a ribbon, a highlight box and an agenda`, async () => {
+        for (const h of NATURAL_HEADLINES) await expectWordsFit(`"${h}"`, jainaPoster({ ...dense, occasion }), size, { headline: h, venue_line: "JSH Main Hall, Sugar Land" });
+      }, 90_000);
+    }
+  }
+
+  it("sets a single long word smaller until it fits its line, and breaks one that cannot fit at all", async () => {
+    for (const h of ["Dasalakshanaparva", "Pratishthamahotsav", "Samvatsaripratikraman", "SWAMIVATSALYA", "Paryushanmahaparva 2026", "Abcdefghijklmnopqrstuvwxyzabcdefghijklmn"]) {
+      await expectWordsFit(`"${h}"`, jainaPoster(), "tall", { headline: h });
+    }
+  }, 60_000);
+
+  it("breaks text with no spaces in it (a long link, a run of letters) instead of letting it run off the edge", async () => {
+    const run = (n: number) => "Swamivatsalyabhojanshala".repeat(15).slice(0, n);
+    const poster = jainaPoster({
+      subhead: run(POSTER_LIMITS.subhead),
+      slogan: run(POSTER_LIMITS.slogan),
+      stat: { on: true, icon: "people", label: run(POSTER_LIMITS.stat_label), value: "100K+", caption: run(POSTER_LIMITS.stat_caption) },
+      ribbon: { on: true, date: run(POSTER_LIMITS.ribbon_date), time: run(POSTER_LIMITS.ribbon_time) },
+      agenda: [{ icon: "clock", time: run(POSTER_LIMITS.agenda_time), text: run(POSTER_LIMITS.agenda_text) }],
+      paragraph: run(POSTER_LIMITS.paragraph),
+      footer: run(POSTER_LIMITS.footer),
+    });
+    for (const size of ["tall", "story"] as const) await expectWordsFit("unbroken text", poster, size, { headline: run(FLYER_LIMITS.headline), venue_line: run(FLYER_LIMITS.venue_line) });
+  }, 60_000);
+
+  // Random posters (the same ones every run): ordinary and awkward words, every section on or off, every occasion and size.
+  for (const [name, seed] of [["A", 20261002], ["B", 777]] as const) {
+    it(`random posters ${name}: ordinary words in every section, at every size`, async () => {
+      const r = seeded(seed);
+      for (let i = 0; i < 20; i++) {
+        const c = randomPoster(r);
+        await expectWordsFit(`random #${i} (${c.poster.occasion}) ${JSON.stringify({ ...c.poster, frame: undefined, scene: undefined, headline: c.headline, venue: c.venue })}`, c.poster, c.size, {
+          headline: c.headline,
+          venue_line: c.venue,
+        });
+      }
+    }, 180_000);
+  }
+});
+
+// ── The RSVP QR code is big enough to scan ───────────────────────────────────
+
+/** Average a picture down to `width` pixels wide (a box filter: harsher on a QR code than a phone's camera is). */
+function downscale(img: Pixels, width: number): Pixels {
+  const height = Math.round((img.h * width) / img.w);
+  const px = new Uint8Array(width * height * 4);
+  const sx = img.w / width;
+  const sy = img.h / height;
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      let r = 0;
+      let g = 0;
+      let b = 0;
+      let n = 0;
+      for (let yy = Math.floor(y * sy); yy < Math.min(img.h, Math.ceil((y + 1) * sy)); yy++) {
+        for (let xx = Math.floor(x * sx); xx < Math.min(img.w, Math.ceil((x + 1) * sx)); xx++) {
+          const i = (yy * img.w + xx) * 4;
+          r += img.px[i]!;
+          g += img.px[i + 1]!;
+          b += img.px[i + 2]!;
+          n++;
+        }
+      }
+      px.set([r / n, g / n, b / n, 255], (y * width + x) * 4);
+    }
+  }
+  return { w: width, h: height, px };
+}
+
+/** The text of the QR code in a picture, or null when ZXing cannot read one. */
+function readQr(img: Pixels): string | null {
+  const lum = new Uint8ClampedArray(img.w * img.h);
+  for (let i = 0; i < img.w * img.h; i++) lum[i] = Math.round(0.299 * img.px[i * 4]! + 0.587 * img.px[i * 4 + 1]! + 0.114 * img.px[i * 4 + 2]!);
+  const hints = new Map([[DecodeHintType.TRY_HARDER, true]]);
+  try {
+    return new QRCodeReader().decode(new BinaryBitmap(new HybridBinarizer(new RGBLuminanceSource(lum, img.w, img.h))), hints).getText();
+  } catch {
+    return null;
+  }
+}
+
+describe("poster QR code", () => {
+  const link = "https://app.example.org/e/22222222-2222-4222-8222-222222222222";
+
+  it("can be scanned from the picture shown 700 pixels wide (the first, smaller code could not below 900)", async () => {
+    for (const size of ["tall", "post"] as const) {
+      const r = await renderFlyerPng(input({ design: posterDesign(jainaPoster(), { size }), background: null, qrLink: link }), "full");
+      const full = decodePng(r.png);
+      expect(readQr(full), `${size} at full size`).toBe(link);
+      expect(readQr(downscale(full, 700)), `${size} shown 700 pixels wide`).toBe(link);
+    }
+  }, 60_000);
+
+  it("keeps clear of the words: the card is no taller than the room the plan reserves for it", async () => {
+    // No art layers, so the only white on the page is the card.
+    const poster: PosterContent = { ...jainaPoster(), frame: { source: "none" }, scene: { source: "none" } };
+    for (const size of ["tall", "post", "story"] as const) {
+      const dims = flyerDims(size, "full");
+      const u = dims.w / POSTER_UNITS.width;
+      const d = posterDesign(poster, { size });
+      const plan = planPoster({ design: d, poster, logo, assets: { frame: null, scene: null, partnerLogo: null } }, dims, artPack(poster.occasion, brand));
+      const qs = Math.max(plan.sceneScale, 0.8);
+      const { img, mx, my } = await renderOnStage(input({ design: d, background: null, qrLink: link }), dims);
+      // The card's bottom edge is 18 units above the footer band. Walk up from there along the card's left padding (pure white,
+      // inside its gold border) to the border at the top; the card's height is that, plus the two borders.
+      const bottom = my + dims.h - Math.round((POSTER_UNITS.footer + 18) * u);
+      const column = mx + Math.round((40 + 8 * qs) * u);
+      let top = bottom - Math.round(10 * qs * u);
+      for (let y = top; y > my + dims.h / 2; y--) {
+        const [r, g, b] = pixel(img, column, y);
+        if (r < 254 || g < 254 || b < 254) break;
+        top = y;
+      }
+      const heightUnits = (bottom - top) / u + 3 * qs;
+      // The card is POSTER_UNITS.qrCard tall at scale 1 (the border and edges are a few pixels either way).
+      expect(heightUnits, `${size}: the card's height in units`).toBeGreaterThan(POSTER_UNITS.qrCard * qs * 0.93);
+      expect(heightUnits, `${size}: the card is no taller than the room reserved for it`).toBeLessThanOrEqual(POSTER_UNITS.qrCard * qs + 2);
+      expect(plan.reserve, `${size}: the room reserved above the footer`).toBeGreaterThanOrEqual(POSTER_UNITS.qrCard * qs + 18);
+    }
+  }, 60_000);
 });

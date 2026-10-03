@@ -11,7 +11,10 @@
 // app.platform_secret_names() / app.platform_setting_keys() (0320) hold the same
 // lists; tests/platform-setup.test.ts keeps them in step with this file.
 
-export type StepKey = "background" | "portal" | "email" | "hooks" | "payments" | "texting" | "quickbooks" | "ai" | "push" | "wildcard";
+// Relative, not "@/…": the background service bundles this file too.
+import { DEFAULT_FLYER_ART_MODEL, FLYER_ART_MODELS, FLYER_ART_MODEL_IDS, formatArtCost } from "../events/flyer-art";
+
+export type StepKey = "background" | "portal" | "email" | "hooks" | "payments" | "texting" | "quickbooks" | "ai" | "art" | "push" | "wildcard";
 export type FieldKind = "secret" | "setting";
 
 export type Field = {
@@ -75,6 +78,14 @@ const F = {
   INTUIT_REDIRECT_URI: { name: "INTUIT_REDIRECT_URI", kind: "setting", label: "Fixed redirect address (optional)", hint: "Leave empty to use the address the person is on. Intuit does not accept wildcards, so a fixed address is simplest.", placeholder: "https://crm.communityconnect.app/api/oauth/intuit/callback" },
   ANTHROPIC_API_KEY: { name: "ANTHROPIC_API_KEY", kind: "secret", label: "Anthropic API key", hint: "console.anthropic.com › API Keys (sk-ant-…). Powers Niva, import mapping and donor-matching suggestions.", placeholder: "sk-ant-…" },
   EXPO_ACCESS_TOKEN: { name: "EXPO_ACCESS_TOKEN", kind: "secret", label: "Expo access token (optional)", hint: "Only if \"enhanced push security\" is on for the Expo project. Push works without it." },
+  GEMINI_API_KEY: { name: "GEMINI_API_KEY", kind: "secret", label: "Gemini API key", hint: "Google AI Studio (aistudio.google.com) › Get API key, on a Google Cloud project with billing on (image models have no free tier). Used only for AI flyer art." },
+  GEMINI_IMAGE_MODEL: {
+    name: "GEMINI_IMAGE_MODEL",
+    kind: "setting",
+    label: "Image model (optional)",
+    hint: `Which Gemini model draws flyer art. Without a choice: ${FLYER_ART_MODELS[DEFAULT_FLYER_ART_MODEL].label}. Organizers see the price before every picture.`,
+    options: FLYER_ART_MODEL_IDS.map((id) => ({ value: id, label: `${FLYER_ART_MODELS[id].label} — ${formatArtCost(FLYER_ART_MODELS[id].cents)} a picture` })),
+  },
 } satisfies Record<string, Field>;
 
 export type FieldName = keyof typeof F;
@@ -133,6 +144,12 @@ export const STEPS: Step[] = [
     what: "An Anthropic API key.",
     why: "Niva answers, import column mapping and QuickBooks donor-matching suggestions use it. Without it they are off and say so.",
     fields: [F.ANTHROPIC_API_KEY], workerTest: true,
+  },
+  {
+    key: "art", required: false, title: "AI flyer art (Gemini)",
+    what: "A Google Gemini API key, for text-free frames and scenes on Poster flyers.",
+    why: "Every occasion has drawn art that costs nothing; with a key, organizers may also ask Gemini for a picture (about 4¢ each, generated once and reused by the whole community). Without it they see: AI art needs a Gemini key.",
+    fields: [F.GEMINI_API_KEY, F.GEMINI_IMAGE_MODEL], workerTest: true,
   },
   {
     key: "push", required: false, title: "Push notifications",
@@ -219,6 +236,10 @@ export function fieldProblem(name: string, raw: string): string | null {
         : "The redirect address must be https://<portal>/api/oauth/intuit/callback.";
     case "ANTHROPIC_API_KEY":
       return starts(["sk-ant-"], "an Anthropic API key");
+    case "GEMINI_API_KEY":
+      return /^[A-Za-z0-9_.-]{20,200}$/.test(v) ? null : "That does not look like a Gemini API key (letters, digits, - and _ only, as AI Studio shows it).";
+    case "GEMINI_IMAGE_MODEL":
+      return (FLYER_ART_MODEL_IDS as string[]).includes(v) ? null : "Choose one of the listed models.";
     case "OAUTH_STATE_SECRET":
     case "MESSAGING_LINK_SECRET":
       return v.length >= 32 ? null : "Use at least 32 characters (Generate makes one).";
@@ -278,6 +299,9 @@ export function missingFor(step: StepKey, has: Has, value: SettingValue = () => 
       return out;
     case "ai":
       need("ANTHROPIC_API_KEY");
+      return out;
+    case "art":
+      need("GEMINI_API_KEY");
       return out;
     case "push":
       return [];
