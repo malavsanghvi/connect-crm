@@ -6,6 +6,7 @@ import { householdsById, peopleById, userNames } from "@/lib/data/lookups";
 import { addDays, daysBetween, dateInTz, formatDate, todayInTz } from "@/lib/dates";
 import { explainError, type DbErrorLike } from "@/lib/errors";
 import { formatCents } from "@/lib/money";
+import { zelleWindowDays } from "@/lib/payments/zelle";
 import { can } from "@/lib/permissions";
 import type { CrmSession } from "@/lib/session";
 import {
@@ -41,6 +42,18 @@ function count(res: { count: number | null; error: DbErrorLike | null }): number
 }
 
 type Loader = (session: CrmSession) => Promise<HomeTask[]>;
+
+/** Zelle reports past their window with no bank line (0 before migration 0582 is applied). */
+async function zelleUnmatchedCount(session: CrmSession): Promise<number> {
+  const res = await session.db.rpc("payment_report_counts", { p_center: session.center.id });
+  if (res.error) {
+    // Only a database without the function yet is skipped silently; anything else is this source's failure.
+    if (res.error.code === "PGRST202" || res.error.code === "42883") return 0;
+    throw new SourceError(res.error);
+  }
+  const n = Number((res.data as { unmatched?: unknown } | null)?.unmatched);
+  return Number.isFinite(n) && n > 0 ? n : 0;
+}
 
 const TIER_LABEL: Record<string, string> = { life: "Life", yearly: "Yearly", community: "Community" };
 
@@ -240,7 +253,7 @@ const loaders: Record<TaskSourceKey, Loader> = {
 
   async deposits(session) {
     const { db, center } = session;
-    const [lines, deposits] = await Promise.all([
+    const [lines, deposits, unmatched] = await Promise.all([
       db
         .from("bank_transactions")
         .select("id", { count: "exact", head: true })
@@ -254,15 +267,31 @@ const loaders: Record<TaskSourceKey, Loader> = {
         .in("status", ["unmatched", "suggested"])
         .gt("amount_cents", 0)
         .eq("is_batch_deposit", true),
+      zelleUnmatchedCount(session),
     ]);
     const n = count(lines);
-    if (n === 0) return [];
-    const k = count(deposits);
-    return [
-      makeTask("deposits", "all", `${plural(n, "bank line")} to match`, `Money in without a matched gift${k ? ` · ${plural(k, "check or cash deposit")}` : ""}`, [
-        { label: "Open", href: "/giving/bank" },
-      ]),
-    ];
+    const k = n > 0 ? count(deposits) : 0;
+    const tasks =
+      n > 0
+        ? [
+            makeTask("deposits", "all", `${plural(n, "bank line")} to match`, `Money in without a matched gift${k ? ` · ${plural(k, "check or cash deposit")}` : ""}`, [
+              { label: "Open", href: "/giving/bank" },
+            ]),
+          ]
+        : [];
+    // Zelle reports members made that the bank statement has not shown within the window (0582).
+    if (unmatched > 0) {
+      tasks.push(
+        makeTask(
+          "deposits",
+          "zelle-unmatched",
+          `${plural(unmatched, "Zelle report")} not seen at the bank`,
+          `Reported by members more than ${plural(zelleWindowDays(center.rules), "day")} ago`,
+          [{ label: "Open", href: "/giving/payments/bank?view=zelle" }],
+        ),
+      );
+    }
+    return tasks;
   },
 
   async membership(session) {

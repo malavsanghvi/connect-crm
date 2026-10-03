@@ -9,7 +9,8 @@ import { explainError } from "@/lib/errors";
 import { formatDate, formatDateTime } from "@/lib/dates";
 import { BANK_CHANNEL_LABEL, ORIGINATOR_LABEL } from "@/lib/labels";
 import { formatCents } from "@/lib/money";
-import { canAccess } from "@/lib/permissions";
+import { parseReportQueue, type ReportQueue } from "@/lib/payments/zelle";
+import { can, canAccess } from "@/lib/permissions";
 import { hrefWith, pageParam, param, type RawSearchParams } from "@/lib/search-params";
 import { getSession } from "@/lib/session";
 
@@ -18,11 +19,15 @@ import { BankImport } from "./bank-import";
 import { BankResultsProvider } from "./bank-results";
 import { DepositMatcher, type DepositCandidate } from "./deposit-matcher";
 import { GiftLineMatcher, type Suggestion } from "./gift-line-matcher";
+import { ZelleReports } from "./zelle-reports";
 
 export const metadata: Metadata = { title: "Bank reconciliation" };
 
 const PAGE_SIZE = 20;
-const VIEWS = ["gifts", "deposits", "payouts", "debits", "matched", "ignored"] as const;
+const LINE_VIEWS = ["gifts", "deposits", "payouts", "debits", "matched", "ignored"] as const;
+type LineView = (typeof LINE_VIEWS)[number];
+// "zelle" is not a list of bank lines: members' Zelle reports against the statement (0582–0583).
+const VIEWS = [...LINE_VIEWS, "zelle"] as const;
 type View = (typeof VIEWS)[number];
 const VIEW_LABEL: Record<View, string> = {
   gifts: "Gifts to match",
@@ -31,6 +36,7 @@ const VIEW_LABEL: Record<View, string> = {
   debits: "Money out",
   matched: "Matched",
   ignored: "Ignored",
+  zelle: "Zelle reports",
 };
 
 export default async function BankPage({ searchParams }: { searchParams: Promise<RawSearchParams> }) {
@@ -105,7 +111,7 @@ export default async function BankPage({ searchParams }: { searchParams: Promise
   }
 
   // Lines of this account in one view.
-  const scoped = (v: View) => {
+  const scoped = (v: LineView) => {
     let q = db
       .from("bank_transactions")
       .select(
@@ -123,18 +129,51 @@ export default async function BankPage({ searchParams }: { searchParams: Promise
     return q;
   };
 
-  const counts = await Promise.all(
-    VIEWS.map(async (v) => {
-      const r = await scoped(v).range(0, 0);
-      return [v, r.error ? null : (r.count ?? 0)] as const;
+  const [counts, zelleCount] = await Promise.all([
+    Promise.all(
+      LINE_VIEWS.map(async (v) => {
+        const r = await scoped(v).range(0, 0);
+        return [v, r.error ? null : (r.count ?? 0)] as const;
+      }),
+    ),
+    db.rpc("payment_report_counts", { p_center: center.id }).then((r) => {
+      if (r.error) {
+        console.error("[bank] payment_report_counts failed:", r.error);
+        return null;
+      }
+      const c = r.data as { reported?: unknown; unmatched?: unknown } | null;
+      return (Number(c?.reported) || 0) + (Number(c?.unmatched) || 0);
     }),
-  );
-  const countOf = new Map(counts);
+  ]);
+  const countOf = new Map<View, number | null>([...counts, ["zelle", zelleCount]]);
 
   const from = (page - 1) * PAGE_SIZE;
   const ascending = view === "gifts" || view === "deposits";
-  const res = await scoped(view).order("posted_on", { ascending }).order("id").range(from, from + PAGE_SIZE - 1);
+  const lineView: LineView = view === "zelle" ? "gifts" : view;
+  const res =
+    view === "zelle"
+      ? { data: [] as Awaited<ReturnType<typeof scoped>>["data"], error: null, count: 0 }
+      : await scoped(lineView).order("posted_on", { ascending }).order("id").range(from, from + PAGE_SIZE - 1);
   const lines = res.data ?? [];
+
+  // Zelle reports: the treasurer's queue.
+  let zelle: { queue: ReportQueue | null; error: string | null } = { queue: null, error: null };
+  if (view === "zelle") {
+    const r = await db.rpc("payment_report_queue", { p_center: center.id });
+    if (r.error) {
+      console.error("[bank] payment_report_queue failed:", r.error);
+      zelle = { queue: null, error: `Could not load the Zelle reports — ${explainError(r.error)}.` };
+    } else {
+      const q = parseReportQueue(r.data);
+      if (!q) console.error("[bank] payment_report_queue returned an unexpected shape:", r.data);
+      zelle = q
+        ? { queue: q, error: null }
+        : {
+            queue: null,
+            error: "Could not load the Zelle reports — the database answered in a shape this screen does not understand (has the latest migration been applied?).",
+          };
+    }
+  }
 
   // Suggestions for the lines on this page.
   const suggestions = new Map<string, { rows: Suggestion[]; error: string | null }>();
@@ -151,6 +190,7 @@ export default async function BankPage({ searchParams }: { searchParams: Promise
             score: Number(s.score),
             reason: s.reason ?? "",
             ambiguous: Boolean(s.ambiguous),
+            reportId: s.report_id ?? null,
           })),
         });
       }),
@@ -248,7 +288,26 @@ export default async function BankPage({ searchParams }: { searchParams: Promise
           }))}
         />
 
-        {res.error ? (
+        {view === "zelle" ? (
+          zelle.queue ? (
+            <ZelleReports
+              queue={zelle.queue}
+              accounts={accounts.map((a) => ({ id: a.id, name: a.name, last4: a.last4, active: a.active }))}
+              canConfigure={can(session, ["giving.manage", "integrations.manage"])}
+              labels={labels}
+              timeZone={tz}
+              currency={center.currency}
+              canConfirm={canConfirm}
+            />
+          ) : (
+            <div role="alert" className="rounded-lg border border-danger/30 bg-danger-50 px-4 py-3 text-sm text-danger">
+              <p>{zelle.error}</p>
+              <Link href={retry} className="crm-link mt-1 inline-block font-semibold">
+                Try again
+              </Link>
+            </div>
+          )
+        ) : res.error ? (
           <QueryError what="bank lines" error={res.error} retryHref={retry} />
         ) : lines.length === 0 ? (
           <Card padded={false}>

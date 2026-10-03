@@ -8,6 +8,7 @@ import { stockMemo } from "@/lib/giving";
 import { explainError, failure, type ActionResult } from "@/lib/errors";
 import { OFFLINE_METHODS } from "@/lib/labels";
 import { formatCents, parseAmountToCents } from "@/lib/money";
+import { parsePossibleDuplicates, type RecordedZelle } from "@/lib/payments/zelle";
 import { canAccess } from "@/lib/permissions";
 import { isUuid } from "@/lib/search-params";
 import { authorizeAction, type CrmSession } from "@/lib/session";
@@ -207,4 +208,28 @@ export async function applyPaymentAction(input: {
     message: r.applied.length > 0 ? "Applied to pledges." : "Nothing left to apply — no open pledges, or the payment is fully applied.",
     data: { applied: r.applied, unallocatedCents: r.unallocated },
   };
+}
+
+/**
+ * Before a Zelle is recorded by hand: is a Zelle of this family and amount already recorded (by hand,
+ * from the bank statement) or reported by a member around that date? A warning only; recording is unchanged.
+ */
+export async function possibleDuplicateZelleAction(input: {
+  householdId: string;
+  amountCents: number;
+  receivedOn: string;
+}): Promise<ActionResult<RecordedZelle[]>> {
+  const doing = "check for a Zelle already recorded";
+  const auth = await authorizeAction("recordPayment", doing);
+  if (!auth.ok) return auth;
+  if (!isUuid(input.householdId)) return { ok: false, error: `Could not ${doing} — choose the household first.` };
+  if (!Number.isSafeInteger(input.amountCents) || input.amountCents <= 0) return { ok: true, data: [] };
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(input.receivedOn)) return { ok: true, data: [] };
+  const { data, error } = await auth.session.db.rpc("possible_duplicate_zelle", {
+    p_household: input.householdId,
+    p_amount_cents: input.amountCents,
+    p_on: input.receivedOn,
+  });
+  if (error) return failure(`Could not ${doing}`, error);
+  return { ok: true, data: parsePossibleDuplicates(data) };
 }

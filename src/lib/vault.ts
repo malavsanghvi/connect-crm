@@ -183,6 +183,7 @@ export const JOB_KIND_LABELS: Record<string, string> = {
   "payments.refund": "Refund through the provider",
   "payments.test_charge": "$1 test refund",
   "payments.sync_payouts": "Payout sync",
+  "payments.reports_sweep": "Zelle reports not seen at the bank",
   "niva.answer": "Niva answer",
   "niva.import_page": "Niva page import",
   "niva.discover_site": "Find a website's pages for Niva",

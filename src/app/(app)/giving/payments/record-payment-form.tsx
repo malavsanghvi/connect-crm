@@ -10,11 +10,13 @@ import { HouseholdPicker } from "@/components/household-picker";
 import { useToast } from "@/components/toast";
 import { Card, StatusText, buttonClass } from "@/components/ui";
 import { previewAllocation } from "@/lib/allocation";
+import { formatDate } from "@/lib/dates";
 import { allocationPreviewText, monthYear, paymentRecordedToast, referenceFieldLabel } from "@/lib/giving";
 import { OFFLINE_METHODS, PAYMENT_METHOD_LABEL } from "@/lib/labels";
 import { formatCents, parseAmountToCents } from "@/lib/money";
+import { duplicateWarning, type RecordedZelle } from "@/lib/payments/zelle";
 
-import { applyPaymentAction, recordOfflinePaymentAction, type RecordPaymentResult } from "./actions";
+import { applyPaymentAction, possibleDuplicateZelleAction, recordOfflinePaymentAction, type RecordPaymentResult } from "./actions";
 
 type Mode = "auto" | "choose" | "none";
 
@@ -56,8 +58,42 @@ export function RecordPaymentForm({
   const [result, setResult] = useState<RecordPaymentResult | null>(null);
   const [retryMessage, setRetryMessage] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  // G6: before a Zelle is recorded by hand, say when the same Zelle may already be recorded (by
+  // hand, from the bank statement) or reported by the member. A warning only; saving is unchanged.
+  const [dupCheck, setDupCheck] = useState<{ key: string; rows: RecordedZelle[]; error: string | null } | null>(null);
+  const [dupAttempt, setDupAttempt] = useState(0);
+  const dupSeq = useRef(0);
 
   const amountCents = parseAmountToCents(amount);
+  const dupKey =
+    method === "zelle" && household && amountCents && amountCents > 0 && /^\d{4}-\d{2}-\d{2}$/.test(receivedOn)
+      ? `${household.household_id}|${amountCents}|${receivedOn}`
+      : null;
+
+  useEffect(() => {
+    if (!dupKey) return;
+    const [householdId, cents, on] = dupKey.split("|");
+    const mine = ++dupSeq.current;
+    const timer = setTimeout(async () => {
+      try {
+        const res = await possibleDuplicateZelleAction({ householdId, amountCents: Number(cents), receivedOn: on });
+        if (mine !== dupSeq.current) return;
+        setDupCheck(res.ok ? { key: dupKey, rows: res.data ?? [], error: null } : { key: dupKey, rows: [], error: res.error });
+      } catch (err) {
+        if (mine !== dupSeq.current) return;
+        console.error("[record-payment] duplicate Zelle check failed:", err);
+        setDupCheck({
+          key: dupKey,
+          rows: [],
+          error: "Could not check whether this Zelle is already recorded — the server did not respond.",
+        });
+      }
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [dupKey, dupAttempt]);
+
+  const dup = dupKey && dupCheck?.key === dupKey ? dupCheck : null;
+  const dupText = dup ? duplicateWarning(dup.rows, currency, (d) => formatDate(d, timeZone)) : null;
   const preview = useMemo(
     () =>
       pledges && amountCents && amountCents > 0 && mode !== "none"
@@ -352,6 +388,21 @@ export function RecordPaymentForm({
               <p className="crm-hint">Zelle and ACH usually arrive through bank reconciliation — record here only if it is not on a statement.</p>
             ) : null}
           </div>
+          {dupText ? (
+            <p role="status" className="rounded-[10px] border border-saffron/60 bg-saffron-50 px-3 py-2 text-[13px] font-semibold text-brown">
+              {dupText}{" "}
+              <Link href="/giving/payments/bank?view=zelle" className="crm-link">
+                Open Zelle reports
+              </Link>
+            </p>
+          ) : dup?.error ? (
+            <p role="status" className="text-[13px] text-muted">
+              {dup.error} Saving still works.{" "}
+              <button type="button" onClick={() => setDupAttempt((n) => n + 1)} className="crm-link font-semibold">
+                Check again
+              </button>
+            </p>
+          ) : null}
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
               <label htmlFor="pay-amount" className="crm-label">
