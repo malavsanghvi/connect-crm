@@ -3,7 +3,8 @@
 // use — saved in the wizard first, its environment second (ctx.env) — and
 // stores plain lines as the job's result. The result never carries a key
 // (src/lib/platform-setup/checks.ts blanks every configured secret out).
-//   payload: { step: "email" | "payments" | "texting" | "quickbooks" | "ai" | "push" }
+//   payload: { step: "email" | "payments" | "texting" | "quickbooks" | "ai" | "art" | "push" }
+// (art: a free GET of the Gemini model with the key; no picture is made.)
 //
 // The AI step's test is a real (one-token) Anthropic call, so what it gets is
 // recorded in the service's AI status like any other call (ai-status.ts): after

@@ -2,18 +2,23 @@
 
 The flyer maker (`src/lib/events/flyer-render.tsx`) draws text with `next/og`
 (satori), which reads TTF, OTF or WOFF only — not the WOFF2 files `next/font`
-serves to browsers. These four static WOFF files are the brand-kit defaults
+serves to browsers. These static WOFF files are the brand-kit defaults
 (Fraunces for headings, DM Sans for body text), vendored so a flyer never
 depends on the network for the default fonts.
 
 | File | Family | Weight | Source |
 |---|---|---|---|
 | `DMSans-400.woff` | DM Sans | 400 | `@fontsource/dm-sans@5.3.0` · `files/dm-sans-latin-400-normal.woff` |
+| `DMSans-500.woff` | DM Sans | 500 | `@fontsource/dm-sans@5.3.0` · `files/dm-sans-latin-500-normal.woff` |
 | `DMSans-700.woff` | DM Sans | 700 | `@fontsource/dm-sans@5.3.0` · `files/dm-sans-latin-700-normal.woff` |
+| `DMSans-800.woff` | DM Sans | 800 | `@fontsource/dm-sans@5.3.0` · `files/dm-sans-latin-800-normal.woff` |
 | `Fraunces-600.woff` | Fraunces | 600 | `@fontsource/fraunces@5.3.0` · `files/fraunces-latin-600-normal.woff` |
 | `Fraunces-700.woff` | Fraunces | 700 | `@fontsource/fraunces@5.3.0` · `files/fraunces-latin-700-normal.woff` |
+| `Fraunces-800.woff` | Fraunces | 800 | `@fontsource/fraunces@5.3.0` · `files/fraunces-latin-800-normal.woff` |
+| `Fraunces-900.woff` | Fraunces | 900 | `@fontsource/fraunces@5.3.0` · `files/fraunces-latin-900-normal.woff` |
 
-- Fetched with `npm pack` on 2026-10-01 and copied unchanged. There is no
+- Fetched with `npm pack` on 2026-10-01 (the 500, 800 and 900 weights, for the
+  Poster template, on 2026-10-02) and copied unchanged. There is no
   runtime dependency on the fontsource packages.
 - Subset: Latin (U+0000–00FF, U+2000–206F punctuation such as – · …, and a few
   more). Gujarati text is drawn with Noto Sans Gujarati, loaded from Google

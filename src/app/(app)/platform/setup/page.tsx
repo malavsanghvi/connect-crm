@@ -488,6 +488,19 @@ function Instructions({ step, view, portalUrl, host }: { step: StepKey; view: Se
       </>
     ),
     ai: <p>console.anthropic.com › API Keys › Create key; save it and press Test. Niva, import mapping and donor-matching suggestions switch on by themselves.</p>,
+    art: (
+      <ol className="ml-5 list-decimal space-y-2">
+        <li>
+          Google AI Studio (aistudio.google.com) › Get API key, on a Google Cloud project with billing turned on: Gemini&apos;s image models have no free tier. Save the
+          key above. Optionally choose the image model (the price per picture is shown next to each).
+        </li>
+        <li>Press Test: it looks the model up with the key, which is free — no picture is made.</li>
+        <li>
+          Organizers then see &ldquo;Ask Gemini&rdquo; in Event builder › Flyer maker › Poster. Each picture is made once and kept for the whole community; a community can
+          ask for at most 30 a day. Without a key, the drawn art is used and organizers are told to ask you.
+        </li>
+      </ol>
+    ),
     push: <p>Nothing is required. Add a token only if “enhanced push security” is on for the Expo project, then press Test.</p>,
     wildcard: (
       <ol className="ml-5 list-decimal space-y-2">

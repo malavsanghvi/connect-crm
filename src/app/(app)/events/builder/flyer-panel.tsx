@@ -17,17 +17,20 @@ import {
   FLYER_TEMPLATES,
   FLYER_TEMPLATE_LABEL,
   flyerFileName,
-  flyerTextLength,
   outOfDateWhat,
   parseFlyerDesign,
   type FlyerBackground,
   type FlyerDesign,
   type FlyerSource,
+  type PosterContent,
 } from "@/lib/events/flyer";
+import type { FlyerArtSetup } from "@/lib/events/flyer-art";
 import { flyerBrandSummary, type FlyerBrand } from "@/lib/events/flyer-brand";
 
 import { saveDesignedFlyerAction, removeEventFlyerAction, uploadEventFlyerAction } from "./flyer-actions";
 import { FlyerBackgroundPicker } from "./flyer-background-picker";
+import { InlineError, TextField } from "./flyer-fields";
+import { FlyerPosterEditor } from "./flyer-poster-editor";
 
 const SESSION_EXPIRED = "Your session has expired. Sign in again, then retry.";
 const NO_MEMBER_APP = "The member web app's address (repository variable MEMBER_APP_URL) is not set, so there is no link to put in a QR code.";
@@ -73,78 +76,11 @@ function postFlyer(eventId: string, design: FlyerDesign, format: "png" | "pdf", 
   });
 }
 
-function InlineError({ children, onRetry }: { children: string; onRetry?: () => void }) {
-  return (
-    <div role="alert" className="mt-2 flex flex-wrap items-center gap-2 rounded-[10px] border border-danger/30 bg-danger-50 px-3 py-2 text-[13px] text-danger">
-      <span className="min-w-0 flex-1">{children}</span>
-      {onRetry ? (
-        <button type="button" className={buttonClass("ghost", "xs")} onClick={onRetry}>
-          Try again
-        </button>
-      ) : null}
-    </div>
-  );
-}
-
-function TextField({
-  id,
-  label,
-  value,
-  max,
-  onChange,
-  multiline = false,
-  disabled,
-  hint,
-}: {
-  id: string;
-  label: string;
-  value: string;
-  max: number;
-  onChange: (v: string) => void;
-  multiline?: boolean;
-  disabled: boolean;
-  hint?: string;
-}) {
-  const used = flyerTextLength(value);
-  const over = used > max;
-  // The counter is read with the field (aria-describedby), not after every keystroke; going over the limit is announced once.
-  const counterId = `${id}-count`;
-  const describedBy = hint ? `${counterId} ${id}-hint` : counterId;
-  return (
-    <div>
-      <div className="flex items-baseline justify-between gap-2">
-        <label htmlFor={id} className="crm-label">
-          {label}
-        </label>
-        <span id={counterId} className={`text-[11px] font-bold ${over ? "text-danger" : "text-muted"}`}>
-          <span className="sr-only">{`${used} of ${max} characters used`}</span>
-          <span aria-hidden="true">
-            {used}/{max}
-          </span>
-        </span>
-      </div>
-      {multiline ? (
-        <textarea id={id} rows={2} value={value} onChange={(e) => onChange(e.target.value)} className="crm-input" disabled={disabled} aria-invalid={over} aria-describedby={describedBy} />
-      ) : (
-        <input id={id} value={value} onChange={(e) => onChange(e.target.value)} className="crm-input" disabled={disabled} aria-invalid={over} aria-describedby={describedBy} />
-      )}
-      {hint ? (
-        <p id={`${id}-hint`} className="crm-hint">
-          {hint}
-        </p>
-      ) : null}
-      <span role="status" className="sr-only">
-        {over ? `The ${label.toLowerCase()} is longer than ${max} characters.` : ""}
-      </span>
-    </div>
-  );
-}
-
 /**
  * Event builder › Flyer maker (owner decisions 2026-10-01): design a flyer
  * from the brand kit — background, template, size, words, RSVP QR code — with
  * a live preview rendered by the server (POST /api/events/<id>/flyer), then
- * "Use this flyer" (Post or Story) or download a PNG, or a PDF at Print size.
+ * "Use this flyer" (Post, Tall or Story) or download a PNG, or a PDF at Print size.
  * Uploading your own flyer stays. The admin console links here as
  * /events/builder?event=<id>#flyer.
  */
@@ -165,6 +101,8 @@ export function FlyerPanel({
   outOfDate,
   artPromptSeed,
   artPreview,
+  art,
+  posterDefaults,
 }: {
   eventId: string;
   eventName: string;
@@ -184,11 +122,17 @@ export function FlyerPanel({
   outOfDate: { date: boolean; venue: boolean };
   artPromptSeed: string;
   artPreview: { url: string | null; error: string | null };
+  /** AI art as it stands: is it available (and at what price), and the pictures kept for the poster's occasion. */
+  art: FlyerArtSetup;
+  /** The poster content the event's own words make (what switching to the Poster starts from). */
+  posterDefaults: PosterContent;
 }) {
   const router = useRouter();
   const toast = useToast();
   const [design, setDesign] = useState<FlyerDesign>(() => ({ ...initialDesign, show_qr: initialDesign.show_qr && Boolean(memberAppLink) }));
   const patch = (p: Partial<FlyerDesign>) => setDesign((d) => ({ ...d, ...p }));
+  /** The Poster's content is kept while another template is chosen, so switching back loses nothing. */
+  const chooseTemplate = (t: FlyerDesign["template"]) => setDesign((d) => ({ ...d, template: t, ...(t === "poster" && !d.poster ? { poster: posterDefaults } : {}) }));
 
   // ── Preview ──
   const [preview, setPreview] = useState<{ url: string | null; notes: string[]; error: string | null; loading: boolean }>({ url: null, notes: [], error: null, loading: false });
@@ -308,6 +252,7 @@ export function FlyerPanel({
   const label = flyerSource ? FLYER_SOURCE_LABEL[flyerSource] : null;
   const busy = saving || downloading !== null;
   const stale = hasFlyer && flyerSource === "designed" ? outOfDateWhat(outOfDate) : null;
+  const isPoster = design.template === "poster";
 
   return (
     <div id="flyer" className="col-span-12 scroll-mt-24">
@@ -345,23 +290,6 @@ export function FlyerPanel({
               )}
             </section>
 
-            <section aria-labelledby="flyer-bg">
-              <h3 id="flyer-bg" className="mb-1 text-[13px] font-bold">
-                Background
-              </h3>
-              <FlyerBackgroundPicker
-                eventId={eventId}
-                value={design.background}
-                onChange={onBackground}
-                brand={brand}
-                isGuestVisible={isGuestVisible}
-                artPromptSeed={artPromptSeed}
-                initialArtUrl={artPreview.url}
-                initialArtError={artPreview.error}
-                disabled={busy}
-              />
-            </section>
-
             <section aria-labelledby="flyer-template">
               <h3 id="flyer-template" className="mb-1 text-[13px] font-bold">
                 Template
@@ -370,7 +298,7 @@ export function FlyerPanel({
                 label="Template"
                 options={FLYER_TEMPLATES.map((t) => ({ value: t, label: FLYER_TEMPLATE_LABEL[t], disabled: t === "photo" && !photoOk }))}
                 value={design.template}
-                onChange={(v) => patch({ template: v as FlyerDesign["template"] })}
+                onChange={(v) => chooseTemplate(v as FlyerDesign["template"])}
                 disabled={busy}
               />
               {!photoOk ? <p className="crm-hint">The Photo template needs a photo or AI art background.</p> : null}
@@ -389,55 +317,100 @@ export function FlyerPanel({
               />
             </section>
 
-            <section aria-labelledby="flyer-words" className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <h3 id="flyer-words" className="text-[13px] font-bold sm:col-span-2">
-                Words
-              </h3>
-              {stale ? (
-                <div className="sm:col-span-2">
-                  <Alert tone="warning" title={`The event's ${stale} changed after this flyer was made`}>
-                    The saved flyer still shows the old {stale}. Update the {outOfDate.date && outOfDate.venue ? "date and venue lines" : `${stale} line`} below, then
-                    choose Use this flyer.
-                  </Alert>
-                </div>
-              ) : null}
-              <div className="sm:col-span-2">
-                <TextField id="flyer-headline" label="Headline" value={design.headline} max={FLYER_LIMITS.headline} onChange={(v) => patch({ headline: v })} disabled={busy} />
-              </div>
-              <div className="sm:col-span-2">
-                <TextField
-                  id="flyer-tagline"
-                  label="Tagline"
-                  value={design.tagline}
-                  max={FLYER_LIMITS.tagline}
-                  onChange={(v) => patch({ tagline: v })}
-                  multiline
+            {isPoster ? (
+              <section aria-labelledby="flyer-poster">
+                <h3 id="flyer-poster" className="mb-1 text-[13px] font-bold">
+                  Poster
+                </h3>
+                {stale ? (
+                  <div className="mb-2">
+                    <Alert tone="warning" title={`The event's ${stale} changed after this flyer was made`}>
+                      The saved flyer still shows the old {stale}. Update the date ribbon below (or use the event&apos;s {stale}), then choose Use this flyer.
+                    </Alert>
+                  </div>
+                ) : null}
+                <FlyerPosterEditor
+                  eventId={eventId}
+                  design={design}
+                  update={setDesign}
                   disabled={busy}
-                  hint="Starts as the first sentence of the event's description."
+                  hasLogo={Boolean(brand.logoUrl)}
+                  brand={brand}
+                  art={art}
+                  defaults={{ poster: posterDefaults, venue_line: eventLines.venue_line }}
                 />
-                {defaultTagline && design.tagline !== defaultTagline ? (
-                  <button type="button" className={`${buttonClass("ghost", "xs")} mt-1`} onClick={() => patch({ tagline: defaultTagline })} disabled={busy}>
-                    Use the description&apos;s first sentence
-                  </button>
-                ) : null}
-              </div>
-              <div>
-                <TextField id="flyer-date" label="Date line" value={design.date_line} max={FLYER_LIMITS.date_line} onChange={(v) => patch({ date_line: v })} disabled={busy} />
-                {eventLines.date_line && design.date_line !== eventLines.date_line ? (
-                  <button type="button" className={`${buttonClass("ghost", "xs")} mt-1`} onClick={() => patch({ date_line: eventLines.date_line })} disabled={busy}>
-                    Use the event&apos;s date
-                  </button>
-                ) : null}
-              </div>
-              <div>
-                <TextField id="flyer-venue" label="Venue line" value={design.venue_line} max={FLYER_LIMITS.venue_line} onChange={(v) => patch({ venue_line: v })} disabled={busy} />
-                {eventLines.venue_line && design.venue_line !== eventLines.venue_line ? (
-                  <button type="button" className={`${buttonClass("ghost", "xs")} mt-1`} onClick={() => patch({ venue_line: eventLines.venue_line })} disabled={busy}>
-                    Use the event&apos;s venue
-                  </button>
-                ) : null}
-              </div>
-            </section>
+              </section>
+            ) : (
+              <>
+                <section aria-labelledby="flyer-bg">
+                  <h3 id="flyer-bg" className="mb-1 text-[13px] font-bold">
+                    Background
+                  </h3>
+                  <FlyerBackgroundPicker
+                    eventId={eventId}
+                    value={design.background}
+                    onChange={onBackground}
+                    brand={brand}
+                    isGuestVisible={isGuestVisible}
+                    artPromptSeed={artPromptSeed}
+                    initialArtUrl={artPreview.url}
+                    initialArtError={artPreview.error}
+                    artReadiness={art.readiness}
+                    disabled={busy}
+                  />
+                </section>
+
+                <section aria-labelledby="flyer-words" className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <h3 id="flyer-words" className="text-[13px] font-bold sm:col-span-2">
+                    Words
+                  </h3>
+                  {stale ? (
+                    <div className="sm:col-span-2">
+                      <Alert tone="warning" title={`The event's ${stale} changed after this flyer was made`}>
+                        The saved flyer still shows the old {stale}. Update the {outOfDate.date && outOfDate.venue ? "date and venue lines" : `${stale} line`} below, then
+                        choose Use this flyer.
+                      </Alert>
+                    </div>
+                  ) : null}
+                  <div className="sm:col-span-2">
+                    <TextField id="flyer-headline" label="Headline" value={design.headline} max={FLYER_LIMITS.headline} onChange={(v) => patch({ headline: v })} disabled={busy} />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <TextField
+                      id="flyer-tagline"
+                      label="Tagline"
+                      value={design.tagline}
+                      max={FLYER_LIMITS.tagline}
+                      onChange={(v) => patch({ tagline: v })}
+                      multiline
+                      disabled={busy}
+                      hint="Starts as the first sentence of the event's description."
+                    />
+                    {defaultTagline && design.tagline !== defaultTagline ? (
+                      <button type="button" className={`${buttonClass("ghost", "xs")} mt-1`} onClick={() => patch({ tagline: defaultTagline })} disabled={busy}>
+                        Use the description&apos;s first sentence
+                      </button>
+                    ) : null}
+                  </div>
+                  <div>
+                    <TextField id="flyer-date" label="Date line" value={design.date_line} max={FLYER_LIMITS.date_line} onChange={(v) => patch({ date_line: v })} disabled={busy} />
+                    {eventLines.date_line && design.date_line !== eventLines.date_line ? (
+                      <button type="button" className={`${buttonClass("ghost", "xs")} mt-1`} onClick={() => patch({ date_line: eventLines.date_line })} disabled={busy}>
+                        Use the event&apos;s date
+                      </button>
+                    ) : null}
+                  </div>
+                  <div>
+                    <TextField id="flyer-venue" label="Venue line" value={design.venue_line} max={FLYER_LIMITS.venue_line} onChange={(v) => patch({ venue_line: v })} disabled={busy} />
+                    {eventLines.venue_line && design.venue_line !== eventLines.venue_line ? (
+                      <button type="button" className={`${buttonClass("ghost", "xs")} mt-1`} onClick={() => patch({ venue_line: eventLines.venue_line })} disabled={busy}>
+                        Use the event&apos;s venue
+                      </button>
+                    ) : null}
+                  </div>
+                </section>
+              </>
+            )}
 
             <section aria-labelledby="flyer-qr">
               <h3 id="flyer-qr" className="mb-1 text-[13px] font-bold">
@@ -530,7 +503,7 @@ export function FlyerPanel({
                   </button>
                 ) : null}
               </div>
-              {!canUse ? <p className="crm-hint mt-1">Print is for downloading. Switch to Post or Story to use the design as the event&apos;s flyer.</p> : null}
+              {!canUse ? <p className="crm-hint mt-1">Print is for downloading. Switch to Post, Tall or Story to use the design as the event&apos;s flyer.</p> : null}
               {saveError ? <InlineError onRetry={save}>{saveError}</InlineError> : null}
               {downloadError ? <InlineError onRetry={() => void download(downloadError.format)}>{downloadError.message}</InlineError> : null}
               <p className="crm-hint mt-2">

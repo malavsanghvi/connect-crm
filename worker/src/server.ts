@@ -64,16 +64,35 @@ export function heartbeatAi(status: AiStatus, platform: { saved: string[]; env: 
   return { ...status.report(), ...anthropicKeySource(platform) };
 }
 
-export type HandlerInfo = { configured: true; ai?: HeartbeatAi } | { configured: false; reason: string; ai?: HeartbeatAi };
+type Extra = Record<string, string | number | boolean>;
+export type HandlerInfo = ({ configured: true; ai?: HeartbeatAi } | { configured: false; reason: string; ai?: HeartbeatAi }) & Extra;
 
-/** info.handlers: each kind's readiness; each kind that calls Anthropic (ANTHROPIC_KINDS) also carries `ai`. */
-export function handlerInfo(ready: Record<string, Readiness>, ai: HeartbeatAi): Record<string, HandlerInfo> {
+/**
+ * info.handlers: each kind's readiness; each kind that calls Anthropic (ANTHROPIC_KINDS) also carries `ai`,
+ * and a handler with info() adds its own names (events.generate_flyer: provider and model, read by app.flyer_art_status).
+ */
+export function handlerInfo(ready: Record<string, Readiness>, ai: HeartbeatAi, extra: Record<string, Extra> = {}): Record<string, HandlerInfo> {
   return Object.fromEntries(
     Object.entries(ready).map(([kind, v]): [string, HandlerInfo] => {
-      const base: HandlerInfo = v.configured ? { configured: true } : { configured: false, reason: v.reason };
-      return [kind, ANTHROPIC_KINDS.has(kind) ? { ...base, ai } : base];
+      const base = (v.configured ? { configured: true } : { configured: false, reason: v.reason }) as HandlerInfo;
+      const named = { ...(extra[kind] ?? {}), ...base } as HandlerInfo;
+      return [kind, ANTHROPIC_KINDS.has(kind) ? ({ ...named, ai } as HandlerInfo) : named];
     }),
   );
+}
+
+/** Each handler's info() on this environment (a handler whose info() throws reports nothing extra). */
+export function handlerExtras(reg: Registry, env: Env): Record<string, Extra> {
+  const out: Record<string, Extra> = {};
+  for (const [kind, h] of reg) {
+    if (!h.info) continue;
+    try {
+      out[kind] = h.info(env);
+    } catch {
+      // names only; nothing to report
+    }
+  }
+  return out;
 }
 
 export async function main(env: Env = process.env): Promise<void> {
@@ -96,7 +115,7 @@ export async function main(env: Env = process.env): Promise<void> {
   const startedAt = new Date();
   const state = { stopping: false, lastBeatOk: null as Date | null, lastBeatError: null as string | null };
 
-  const handlersNow = () => handlerInfo(readiness(reg, penv), heartbeatAi(aiStatus, platform.report()));
+  const handlersNow = () => handlerInfo(readiness(reg, penv), heartbeatAi(aiStatus, platform.report()), handlerExtras(reg, penv));
   for (const [kind, v] of Object.entries(readiness(reg, penv))) {
     if (!v.configured) log.warn("handler not configured", { handler: kind, reason: v.reason });
   }
