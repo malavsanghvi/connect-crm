@@ -196,11 +196,14 @@ All optional. A handler whose settings are missing reports "not configured"
 | `ANTHROPIC_API_KEY` | Niva and import mapping suggestions |
 | `WORKER_SUPABASE_SECRET_KEY` | storage retention (see the note below) |
 
-`CLAUDE_MODEL` (a repository **variable**, not a secret) changes the Claude model Niva answers
-with, and the one the import-mapping and donor-matching suggestions and the setup wizard's AI Test
+`CLAUDE_MODEL` (a repository **variable**, not a secret) changes the Claude model
+the import-mapping and donor-matching suggestions and the setup wizard's AI Test
 use. Leave it unset to use the default in `worker/src/anthropic.ts` (`claude-opus-5-5`). Set it
-only if the Anthropic account cannot use that model: Niva then marks questions failed with "The
-AI model Niva uses (…) is not available to this Anthropic account". The value reaches the
+only if the Anthropic account cannot use that model. It does not change Niva: since 0579 Niva answers
+from each community's own approved content at no AI cost, and only a community that turned AI answers on
+(Content › Niva › AI answers) reaches the AI, always `claude-haiku-4-5-20251001` (`NIVA_MODEL`). If the
+account cannot use that model, Niva marks those questions failed with "The AI model Niva uses (…) is not
+available to this Anthropic account". The value reaches the
 background service on the next deploy (any push to `main`, or run **Deploy** by hand). Editing
 `/srv/connect/worker.env` on the droplet does not last, because every deploy rewrites that file.
 

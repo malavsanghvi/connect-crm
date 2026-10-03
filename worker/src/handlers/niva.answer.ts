@@ -4,6 +4,17 @@
 // and by app.niva_worker_set_outcome itself when a question waits out the AI
 // service's spending limit (migrations 0530, 0531 and 0572).
 //
+// Since 0579 (owner decision 2026-10-02: no AI token spend, and fast) Niva answers
+// inside app.niva_ask from the community's own content first, with no model: an
+// earlier answer to the same question, a matching FAQ, or the sentences of the
+// best matching source. A job is queued only when that finds nothing AND the
+// community turned AI answers on (centers.rules.niva.ai = 'haiku'). This job
+// still tries the own content first (app.niva_worker_own_answer: a regenerate,
+// a retry or a paused question's next try may find a source approved since);
+// when the community has AI answers off (it may have switched them off after the
+// job was queued) it records no_source without calling the AI. Otherwise it asks
+// Claude Haiku 4.5 (NIVA_MODEL), never Opus.
+//
 // Retrieval: app.niva_worker_search_sources ranks app.content_items where
 // kind = 'niva_source' and status = 'published' (what the content/niva
 // screen calls "Included"), for this center or the shared platform pack
@@ -45,7 +56,7 @@
 //   no_source  no approved source mentions the question (the model is not called,
 //              or only the live schedule was offered and it did not answer it)
 //   unsure     sources were found but none clearly answers it, or the answer cited none
-//   refused    the model (after the server-side fallback) declined
+//   refused    the model declined
 //   paused     the AI service's spending limit was reached; the question is queued
 //              again for when it comes back, but never more than six hours away in
 //              case the limit is raised sooner (at most 48 times, and only within
@@ -65,7 +76,7 @@
 
 import Anthropic from "@anthropic-ai/sdk";
 
-import { anthropicClient, classifyAnthropicError, claudeModel, errorLabel, FALLBACK_BETA, type ClassifiedError } from "../anthropic";
+import { anthropicClient, classifyAnthropicError, errorLabel, NIVA_MODEL, type ClassifiedError } from "../anthropic";
 import { providerStatus, type Env, type Readiness } from "../config";
 import { isRetryable, NotConfiguredError, PermanentError } from "../errors";
 import { asksAboutTimeOrPlace, liveAsOf, liveSources, loadCenterFacts, namesAnEvent, type LiveKind } from "../niva/facts";
@@ -111,7 +122,13 @@ export type Conversation = {
   asked_today?: string;
   /** The same member's last answered questions in this center from the 15 minutes before this one, oldest first. */
   recent?: unknown;
+  is_test?: boolean;
+  /** The community's AI setting (0579): 'off' (never call the AI) or 'haiku'. Missing before 0579. */
+  ai?: string | null;
 };
+
+/** app.niva_worker_own_answer (0579): the own content's try, and the community's AI setting. */
+export type OwnAnswer = { answered: boolean; model?: string; reason?: string; ai?: string };
 
 export type Outcome = "no_source" | "unsure" | "refused" | "paused" | "failed";
 
@@ -129,6 +146,17 @@ export const MAX_PAUSE_MS = 6 * 60 * 60 * 1000;
 
 /** A first search with fewer approved sources than this brings in the rewrite and the live schedule. */
 export const FEW_SOURCES = 2;
+
+/**
+ * Haiku writes a short JSON answer without thinking, so this is plenty (the Opus calls needed room for adaptive
+ * thinking); it also caps what one answer can cost.
+ */
+export const NIVA_MAX_TOKENS = 4000;
+
+/** What a question reads when AI answers are off and the own content has no answer (0579's app.niva_own_outcome_detail). */
+export const AI_OFF_DETAIL = "No approved source answers this, and AI answers are off for this community, so the member was offered Send to the team.";
+export const PERSONAL_DETAIL =
+  "Niva does not look up a member's own details (eligibility, pledges, payments, RSVPs), so the member was offered Send to the team.";
 
 const SYSTEM_PROMPT = [
   "You are Niva, the assistant for a Jain community's member app (Community Connect). You answer ONE member's question using ONLY the sources in the message, each inside a <source> tag. A source is either content the community's staff wrote or approved for Niva to answer from, or a live item from the community's current schedule (rule 7).",
@@ -462,13 +490,12 @@ async function rewriteQuestion(
 ): Promise<{ rewrite: Rewrite | null } | { error: ClassifiedError; cause: unknown }> {
   let response: Anthropic.Beta.BetaMessage;
   try {
+    // Haiku 4.5: no effort setting (it rejects one) and no server-side fallback (that is for the Opus-tier models).
     response = await client.beta.messages.create({
       model,
-      max_tokens: 4000,
+      max_tokens: NIVA_MAX_TOKENS,
       system: REWRITE_SYSTEM,
-      output_config: { effort: "low", format: { type: "json_schema", schema: REWRITE_SCHEMA } },
-      betas: [FALLBACK_BETA],
-      fallbacks: "default",
+      output_config: { format: { type: "json_schema", schema: REWRITE_SCHEMA } },
       messages: [{ role: "user", content: rewritePrompt(conversation.question, recent) }],
     });
   } catch (err) {
@@ -490,6 +517,21 @@ async function rewriteQuestion(
   } catch {
     ctx.log.info("niva.answer: the question rewrite could not be read; answering from the first search", { conversation_id: conversation.id });
     return { rewrite: null };
+  }
+}
+
+/**
+ * The own content's try (0579), before any AI call. Null when this database has no app.niva_worker_own_answer yet
+ * (42883): the job then goes on to the AI as before.
+ */
+async function ownAnswer(ctx: JobContext, conversation: Conversation, includeInReview: boolean): Promise<OwnAnswer | null> {
+  try {
+    const rows = await ctx.db.query<{ r: OwnAnswer | null }>("select app.niva_worker_own_answer($1, $2) as r", [conversation.id, includeInReview]);
+    return rows[0]?.r ?? null;
+  } catch (err) {
+    if ((err as { code?: unknown } | null)?.code !== "42883") throw err;
+    ctx.log.warn("niva.answer: this database cannot answer from the community's own content yet; asking the AI", { conversation_id: conversation.id });
+    return null;
   }
 }
 
@@ -525,11 +567,24 @@ async function answer(job: Job, ctx: JobContext, conversation: Conversation) {
   const includeInReview = job.payload?.include_in_review === true;
   const recent = recentTurns(conversation);
 
+  // 0579: the community's own content first, at no AI cost.
+  const own = await ownAnswer(ctx, conversation, includeInReview);
+  if (own?.answered) {
+    ctx.log.info("niva.answer: answered from the community's own content", { conversation_id: id, model: own.model });
+    return { answered: true, model: own.model ?? "own", own: true };
+  }
+  if ((own?.ai ?? conversation.ai) === "off") {
+    const personal = own?.reason === "personal";
+    await setOutcome(ctx, id, "no_source", personal ? PERSONAL_DETAIL : AI_OFF_DETAIL, { clearAnswer: regenerate });
+    ctx.log.info("niva.answer: AI answers are off for this community and its own content has no answer", { conversation_id: id });
+    return { answered: false, reason: personal ? "personal" : "ai_off" };
+  }
+
   // The question alone: an earlier, unrelated question must neither crowd out this one's sources nor count towards
   // "enough found" (which would skip the rewrite and its translation).
   const first = await searchSources(ctx, conversation, conversation.question, includeInReview);
   const facts = await loadCenterFacts(ctx, conversation.center_id, id, askedDayIfEarlier(conversation));
-  const model = claudeModel(ctx.env);
+  const model = NIVA_MODEL;
   const client = anthropicClient(ctx.env);
 
   // Too little found: one small call rewrites the question (a standalone English question and search words, which
@@ -572,13 +627,11 @@ async function answer(job: Job, ctx: JobContext, conversation: Conversation) {
   try {
     response = await client.beta.messages.create({
       model,
-      max_tokens: 16000,
+      max_tokens: NIVA_MAX_TOKENS,
       system: SYSTEM_PROMPT,
-      // Opus 5.5 thinks adaptively (so no thinking parameter); low effort is plenty for a short
-      // answer from a few sources, and is set explicitly because this model defaults to medium.
-      output_config: { effort: "low", format: { type: "json_schema", schema: answerSchema(sourceIds) } },
-      betas: [FALLBACK_BETA],
-      fallbacks: "default",
+      // Haiku 4.5 without thinking: a short structured answer from a few sources. It takes no effort setting and
+      // no server-side fallback (both are for the Opus-tier models).
+      output_config: { format: { type: "json_schema", schema: answerSchema(sourceIds) } },
       messages: [
         ...earlierTurns(recent),
         { role: "user", content: userPrompt(conversation.question, sources, promptDate(conversation), { liveAsOf: live.length > 0 ? liveAsOf(facts) : null }) },
@@ -663,7 +716,7 @@ async function onModelError(job: Job, ctx: JobContext, conversation: Conversatio
       const what =
         c.status === 404
           ? `The AI model Niva uses (${model}) is not available to this Anthropic account.`
-          : "The Anthropic account is not set up for a feature Niva uses (the server-side fallback).";
+          : "The Anthropic account is not set up for a feature Niva's request uses.";
       await recordFailed(ctx, id, `${what} A platform administrator needs to check the account.`);
       throw new PermanentError(`${what} (${errorLabel(c)}: ${c.message})`);
     }

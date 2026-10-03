@@ -41,11 +41,10 @@ insert into app.household_members (household_id, person_id, center_id, role, is_
   ('44000000-0000-4000-8000-0000000000a1', '44000000-0000-4000-8000-0000000000a2', :c, 'primary', true);
 insert into app.center_users (center_id, user_id, person_id) values (:c, :member, '44000000-0000-4000-8000-0000000000a2');
 
-insert into app.content_items (id, center_id, kind, slug, title, body_md, status) values
-  ('44000000-0000-4000-8000-00000000000a', :c, 'niva_source', 'timings', 'Derasar timings', 'The derasar is open every day from 6 AM to 12 PM and 4 PM to 8 PM.', 'published'),
-  ('44000000-0000-4000-8000-00000000000b', :c, 'niva_source', 'draft-only', 'Unapproved draft', 'This mentions timings too but is only a draft.', 'draft'),
-  ('44000000-0000-4000-8000-00000000000c', :c2, 'niva_source', 'other-center', 'Another center''s timings', 'A different center''s derasar timings, never this member''s.', 'published'),
-  ('44000000-0000-4000-8000-00000000000d', null, 'niva_source', 'shared-pack', 'Shared Jainism basics', 'Ahimsa is the practice of non-violence, central to Jain philosophy.', 'published');
+-- 0579: Niva answers from the community's own content first, and queues a niva.answer job only while AI
+-- answers are on (centers.rules.niva.ai = 'haiku'). This test covers the job path, so :c has AI answers on and
+-- its sources are added after the first question (test 69 covers the own answers).
+update app.centers set rules = coalesce(rules, '{}'::jsonb) || '{"niva": {"ai": "haiku"}}'::jsonb where id = :c::uuid;
 
 -- ── A member asks a question: saved unanswered, and a job is enqueued ───────
 begin;
@@ -60,6 +59,12 @@ select pg_temp.assert((select user_id from app.niva_conversations where id = :'c
 select pg_temp.assert((select question from app.niva_conversations where id = :'conv'::uuid) = 'What time is the derasar open today?', 'the question is trimmed and whitespace-normalised');
 select pg_temp.assert((select count(*) from app.jobs where kind = 'niva.answer' and center_id = :c::uuid and (payload->>'conversation_id')::uuid = :'conv'::uuid) = 1,
   'a niva.answer job was enqueued for this conversation');
+
+insert into app.content_items (id, center_id, kind, slug, title, body_md, status) values
+  ('44000000-0000-4000-8000-00000000000a', :c, 'niva_source', 'timings', 'Derasar timings', 'The derasar is open every day from 6 AM to 12 PM and 4 PM to 8 PM.', 'published'),
+  ('44000000-0000-4000-8000-00000000000b', :c, 'niva_source', 'draft-only', 'Unapproved draft', 'This mentions timings too but is only a draft.', 'draft'),
+  ('44000000-0000-4000-8000-00000000000c', :c2, 'niva_source', 'other-center', 'Another center''s timings', 'A different center''s derasar timings, never this member''s.', 'published'),
+  ('44000000-0000-4000-8000-00000000000d', null, 'niva_source', 'shared-pack', 'Shared Jainism basics', 'Ahimsa is the practice of non-violence, central to Jain philosophy.', 'published');
 
 -- ── A blank question is refused ──────────────────────────────────────────────
 begin;

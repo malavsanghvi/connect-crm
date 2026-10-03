@@ -187,6 +187,13 @@ export function validateRulesJson(text: string): RulesValidation {
         }
       });
   }
+  // 0579: Niva's AI answers (app.niva_ai_mode reads anything else as off, so a typo would silently turn them off).
+  const nivaRules = get(parsed, ["niva"]);
+  if (nivaRules !== undefined && nivaRules !== null && !isPlainObject(nivaRules)) errors.push(`"niva" must be an object.`);
+  const nivaAi = get(parsed, ["niva", "ai"]);
+  if (nivaAi !== undefined && nivaAi !== null && nivaAi !== "off" && nivaAi !== "haiku") {
+    errors.push(`"niva.ai" must be "off" (answers only from approved content) or "haiku" (Claude Haiku when nothing approved answers).`);
+  }
   const format = get(parsed, ["bank", "statement_format"]);
   if (format !== undefined && format !== null && !["generic_csv", "chase_csv", "ofx"].includes(String(format))) {
     errors.push(`"bank.statement_format" must be "chase_csv", "generic_csv" or "ofx".`);
