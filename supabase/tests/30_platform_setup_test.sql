@@ -45,9 +45,9 @@ insert into app.accounts (user_id, is_platform_admin) values (:pa, true);
 insert into app.role_grants (center_id, user_id, role_key, scope_kind) values (:jsh, :staff, 'center_admin', 'center');
 
 -- ── Structure ────────────────────────────────────────────────────────────────
-select pg_temp.assert((select count(*) from app.platform_setup_steps) = 10
+select pg_temp.assert((select count(*) from app.platform_setup_steps) = 11
                       and (select array_agg(key order by sort) from app.platform_setup_steps where required) = '{background,portal,email,hooks}',
-  'the wizard has 10 steps and exactly four are required (background service, portal address, email, sign-in hooks)');
+  'the wizard has 11 steps (0585 added the optional AI flyer art step) and exactly four are required (background service, portal address, email, sign-in hooks)');
 select pg_temp.assert((select bool_and(relrowsecurity) from pg_class where oid in ('app.platform_secrets'::regclass, 'app.platform_settings'::regclass, 'app.platform_setup_steps'::regclass)),
   'RLS is on for the three new tables');
 select pg_temp.assert(not has_column_privilege('authenticated', 'app.platform_secrets', 'vault_secret_id', 'select'),

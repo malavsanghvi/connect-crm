@@ -296,7 +296,7 @@ rollback;
 -- ── 13. "Art taken": the bytes leave app.jobs ───────────────────────────────
 insert into app.jobs (center_id, kind, payload, status, result, finished_at)
 values (:c, 'events.generate_flyer', jsonb_build_object('event_id', :e_pub, 'prompt', 'x'), 'done',
-        jsonb_build_object('image_b64', 'ZmFrZQ==', 'content_type', 'image/jpeg', 'model', 'pollinations-flux', 'prompt', 'x'), now())
+        jsonb_build_object('image_b64', 'ZmFrZQ==', 'content_type', 'image/jpeg', 'model', 'gemini-3.1-flash-lite-image', 'prompt', 'x'), now())
 returning id as job_pub \gset
 update app.events set flyer_job_id = :job_pub where id = :e_pub;
 begin;

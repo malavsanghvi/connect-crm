@@ -23,7 +23,8 @@ import { explainError } from "@/lib/errors";
 import { isGoogleImageBase } from "@/lib/google-photos";
 import type { AppSupabase } from "@/lib/supabase/server";
 
-import { isFlyerArtPath, memberAppEventLink, type FlyerBackground, type FlyerDesign, type FlyerSize, type FlyerTemplate } from "./flyer";
+import { isFlyerArtPath, isPartnerLogoPath, memberAppEventLink, type FlyerBackground, type FlyerDesign, type FlyerSize, type FlyerTemplate, type PosterContent } from "./flyer";
+import { FLYER_LAYER_LABEL, isCenterArtPath, type FlyerLayerKind } from "./flyer-art";
 import {
   LOGO_DARK_NOTE,
   LOGO_DARK_WEBP_NOTE,
@@ -33,7 +34,9 @@ import {
   readFlyerBrand,
   type FlyerBrand,
 } from "./flyer-brand";
+import { MAX_PICTURE_PIXELS, MAX_PICTURE_SIDE, imageSize, oversizePicture, sniffImage, type ImageKind } from "./flyer-image";
 import { patternSvg } from "./flyer-patterns";
+import type { PosterAssets } from "./flyer-poster";
 import { backgroundBox, flyerDims, patternColorsFor, renderFlyerPng, type FlyerDims, type FlyerImage } from "./flyer-render";
 
 /** The background can't be used: the route answers 422 and the panel shows the sentence next to the background picker. */
@@ -45,57 +48,9 @@ export class FlyerBackgroundError extends Error {
 }
 
 // ── Bytes ────────────────────────────────────────────────────────────────────
-type Kind = "image/jpeg" | "image/png" | "image/gif" | "image/svg+xml" | "image/webp" | "image/heic" | "image/avif";
+export { imageSize, sniffImage };
 
-/** What the bytes are, from their first bytes (never from a file name or a Content-Type header). */
-export function sniffImage(b: Uint8Array): Kind | null {
-  if (b.length >= 3 && b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff) return "image/jpeg";
-  if (b.length >= 8 && b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4e && b[3] === 0x47) return "image/png";
-  if (b.length >= 6 && b[0] === 0x47 && b[1] === 0x49 && b[2] === 0x46 && b[3] === 0x38) return "image/gif";
-  const ascii = (from: number, to: number) => String.fromCharCode(...b.subarray(from, to));
-  if (b.length >= 12 && ascii(0, 4) === "RIFF" && ascii(8, 12) === "WEBP") return "image/webp";
-  if (b.length >= 12 && ascii(4, 8) === "ftyp") {
-    const brand = ascii(8, 12);
-    if (/^avi[fs]$/.test(brand)) return "image/avif";
-    if (/^(?:hei[cxsm]|hev[cx]|mif1|msf1)$/.test(brand)) return "image/heic";
-  }
-  const head = new TextDecoder().decode(b.subarray(0, 1024)).replace(/^﻿/, "").trimStart();
-  if (/^(?:<\?xml|<!--|<!doctype svg|<svg)/i.test(head) && /<svg[\s>]/i.test(head)) return "image/svg+xml";
-  return null;
-}
-
-/** The natural size of a PNG, JPEG, GIF or SVG (used to keep a logo's shape); a sensible guess when unreadable. */
-export function imageSize(b: Uint8Array, kind: Kind): { w: number; h: number } {
-  const be16 = (i: number) => ((b[i] ?? 0) << 8) | (b[i + 1] ?? 0);
-  if (kind === "image/png" && b.length >= 24) {
-    const dv = new DataView(b.buffer, b.byteOffset, b.byteLength);
-    return { w: dv.getUint32(16), h: dv.getUint32(20) };
-  }
-  if (kind === "image/gif" && b.length >= 10) return { w: (b[6] ?? 0) | ((b[7] ?? 0) << 8), h: (b[8] ?? 0) | ((b[9] ?? 0) << 8) };
-  if (kind === "image/jpeg") {
-    let i = 2;
-    while (i + 9 < b.length) {
-      if (b[i] !== 0xff) {
-        i++;
-        continue;
-      }
-      const m = b[i + 1] ?? 0;
-      if (m >= 0xc0 && m <= 0xcf && m !== 0xc4 && m !== 0xc8 && m !== 0xcc) return { w: be16(i + 7), h: be16(i + 5) };
-      i += 2 + be16(i + 2);
-    }
-  }
-  if (kind === "image/svg+xml") {
-    const text = new TextDecoder().decode(b.subarray(0, 4096));
-    const vb = /viewBox\s*=\s*["']\s*[-\d.]+[\s,]+[-\d.]+[\s,]+([\d.]+)[\s,]+([\d.]+)/i.exec(text);
-    if (vb) return { w: Number(vb[1]) || 300, h: Number(vb[2]) || 100 };
-    const w = /\swidth\s*=\s*["']([\d.]+)/i.exec(text);
-    const h = /\sheight\s*=\s*["']([\d.]+)/i.exec(text);
-    if (w && h) return { w: Number(w[1]) || 300, h: Number(h[1]) || 100 };
-  }
-  return { w: 300, h: 100 };
-}
-
-function dataUri(bytes: Uint8Array, kind: Kind): string {
+function dataUri(bytes: Uint8Array, kind: ImageKind): string {
   return `data:${kind};base64,${Buffer.from(bytes).toString("base64")}`;
 }
 
@@ -260,6 +215,71 @@ export async function loadBackground(
   return { image: asBackground(bytes, "photo"), notes: [] };
 }
 
+// ── The Poster's pictures ────────────────────────────────────────────────────
+
+/** One file from the content bucket as a picture the renderer can draw (PNG or JPEG), or the reason it can't be used. */
+async function contentPicture(db: AppSupabase, path: string): Promise<{ image: FlyerImage } | { problem: string }> {
+  const { data, error } = await db.storage.from("content").download(path);
+  if (error || !data) {
+    console.error(`[events/flyer] could not download content/${path}:`, error);
+    return { problem: "it could not be loaded (it may have been discarded)" };
+  }
+  const bytes = new Uint8Array(await data.arrayBuffer());
+  const kind = sniffImage(bytes);
+  if (kind !== "image/png" && kind !== "image/jpeg") {
+    console.error(`[events/flyer] content/${path} is ${kind ?? "not a picture"}`);
+    return { problem: "it is not a PNG or JPEG picture" };
+  }
+  // Any event lead may put a file in these folders (0585 A3), and a small file can declare a huge picture: look at the header
+  // before the renderer decodes anything.
+  const big = oversizePicture(bytes, kind);
+  if (big) {
+    console.error(`[events/flyer] content/${path} measures ${big.w} × ${big.h} pixels`);
+    return { problem: `it measures ${big.w} × ${big.h} pixels, more than the flyer maker draws (up to ${MAX_PICTURE_SIDE} on a side and ${MAX_PICTURE_PIXELS / 1_000_000} megapixels)` };
+  }
+  return { image: { dataUri: dataUri(bytes, kind), ...imageSize(bytes, kind) } };
+}
+
+/**
+ * The AI layers and the partner's logo a poster uses. Never throws: a layer
+ * that can't be used falls back to the drawn art, and the logo to the badge,
+ * each with a note for the organizer (the poster is still made).
+ */
+export async function loadPosterAssets(db: AppSupabase, centerId: string, eventId: string, poster: PosterContent): Promise<{ assets: PosterAssets; notes: string[] }> {
+  const notes: string[] = [];
+  const layer = async (kind: FlyerLayerKind): Promise<FlyerImage | null> => {
+    const l = poster[kind];
+    if (l.source !== "ai") return null;
+    const what = FLYER_LAYER_LABEL[kind].toLowerCase();
+    if (!isCenterArtPath(l.path, centerId, poster.occasion, kind)) {
+      notes.push(`The AI ${what} belongs to another community or occasion, so the drawn ${what} was used.`);
+      return null;
+    }
+    const got = await contentPicture(db, l.path);
+    if ("problem" in got) {
+      notes.push(`The AI ${what} couldn't be used — ${got.problem} — so the drawn ${what} was used. Choose another, or generate a new one.`);
+      return null;
+    }
+    return got.image;
+  };
+  const partner = async (): Promise<FlyerImage | null> => {
+    const path = poster.partner.on ? poster.partner.logo_path : null;
+    if (!path) return null;
+    if (!isPartnerLogoPath(path, centerId, eventId)) {
+      notes.push("The partner logo was uploaded for another event, so the partner badge was drawn instead. Upload it again here.");
+      return null;
+    }
+    const got = await contentPicture(db, path);
+    if ("problem" in got) {
+      notes.push(`The partner logo couldn't be used — ${got.problem} — so the partner badge was drawn instead. Upload it again.`);
+      return null;
+    }
+    return got.image;
+  };
+  const [frame, scene, partnerLogo] = await Promise.all([layer("frame"), layer("scene"), partner()]);
+  return { assets: { frame, scene, partnerLogo }, notes };
+}
+
 // ── Logo ─────────────────────────────────────────────────────────────────────
 type LoadedLogo = { image: FlyerImage | null; note: string | null; webp: boolean };
 
@@ -310,12 +330,17 @@ export async function composeFlyer(a: ComposeArgs): Promise<{ png: Uint8Array; n
   const dims = flyerDims(a.design.size, a.scale);
   const box = backgroundBox(a.design.template, dims);
   const wantsDarkLogo = a.design.template === "festival" && Boolean(brand.logoDarkUrl);
-  const [bg, logo, logoDark] = await Promise.all([
-    loadBackground(a.db, a.centerId, a.eventId, a.design.background, { box, template: a.design.template, size: a.design.size, brand, contentModuleOn: a.contentModuleOn }),
+  const isPoster = a.design.template === "poster" && Boolean(a.design.poster);
+  const [bg, logo, logoDark, poster] = await Promise.all([
+    // The Poster draws its own art pack; the background chosen for the other templates is kept but not loaded.
+    isPoster
+      ? Promise.resolve<LoadedBackground>({ image: null, notes: [] })
+      : loadBackground(a.db, a.centerId, a.eventId, a.design.background, { box, template: a.design.template, size: a.design.size, brand, contentModuleOn: a.contentModuleOn }),
     loadMainLogo(brand),
     wantsDarkLogo ? loadLogo(brand.logoDarkUrl) : Promise.resolve<LoadedLogo>({ image: null, note: null, webp: false }),
+    isPoster ? loadPosterAssets(a.db, a.centerId, a.eventId, a.design.poster!) : Promise.resolve(null),
   ]);
-  const notes = [...bg.notes];
+  const notes = [...bg.notes, ...(poster?.notes ?? [])];
   if (logo.note) notes.push(logo.note);
   if (wantsDarkLogo && logoDark.note) notes.push(logoDark.webp ? LOGO_DARK_WEBP_NOTE : LOGO_DARK_NOTE);
   const r = await renderFlyerPng(
@@ -327,6 +352,7 @@ export async function composeFlyer(a: ComposeArgs): Promise<{ png: Uint8Array; n
       logo: logo.image,
       logoDark: logoDark.image,
       qrLink: memberAppEventLink(process.env.NEXT_PUBLIC_MEMBER_APP_URL, a.eventId),
+      posterAssets: poster?.assets,
     },
     a.scale,
   );

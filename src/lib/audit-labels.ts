@@ -37,7 +37,7 @@ export const MODULE_TABLES: Record<AuditModule, string[]> = {
   events: ["events", "attendees", "lunch_slots", "volunteer_shifts"],
   comms: ["comms_campaigns", "messages", "message_templates"],
   accounting: ["ledger_postings", "qbo_account_mappings", "accounting_periods", "integration_connections", "payouts"],
-  settings: ["centers", "role_grants", "roles", "legal_documents", "zones"],
+  settings: ["centers", "role_grants", "roles", "legal_documents", "zones", "access_levels", "center_feature_access"],
   content: ["content_items", "photo_albums"],
   store: ["store_items", "store_orders"],
   bolis: ["bolis", "boli_entries", "counting_sessions", "valuables_register"],
@@ -95,6 +95,8 @@ const THING: Record<string, string> = {
   gyan_signoffs: "a Gyan Path sign-off",
   bank_transactions: "a bank transaction",
   bank_accounts: "a bank account",
+  access_levels: "an access level",
+  center_feature_access: "who can use an area",
 };
 
 const VERB: Record<string, string> = { insert: "Created", update: "Changed", delete: "Deleted" };
@@ -111,6 +113,9 @@ const SPECIAL: Record<string, string> = {
   "boli_entries.insert": "Recorded a boli pledge",
   "data_requests.insert": "Received a privacy request",
   "membership_applications.insert": "Received a membership application",
+  "center_feature_access.insert": "Chose who can use an area",
+  "center_feature_access.update": "Changed who can use an area",
+  "access.levels_saved": "Saved the access levels",
 };
 
 /**

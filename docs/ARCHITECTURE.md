@@ -128,6 +128,10 @@ closed months post as current-period adjustments. See `FEATURE_TRACEABILITY.md`.
   `my_practice_standing`, `opportunity_availability`, `commit_labh`, `create_recurring_gift`,
   `public_kpi_catalog`, `close_boli(p_boli, p_reason)`, `event_live_stats`, `event_recent_checkins`,
   `segment_recipient_count`, `pathshala_term_stats`, `people_list`, `directory_listing`.
+- **Who may use which member-app area** is a database rule too, chosen per community: `app.feature_access_for_me(center)`
+  (callable without a session), `app.can_use_feature(center, area)` and the Settings › Access levels RPCs. For live darshan the
+  stream's row, and with it the link, is protected by RLS (guests can watch it by default; the link itself is only as private as the
+  site it points to); the other areas are hidden by the app. See [ACCESS_LEVELS.md](ACCESS_LEVELS.md).
 - **Money is integer cents** everywhere (`*_cents`). Format only at the edge.
 - **Errors are always shown to the user in plain English** with a retry where one
   exists; never console-only, never a silent fallback. Log the technical detail.

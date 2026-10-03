@@ -27,6 +27,8 @@ export type HandlerModule = {
   kind: string;
   /** Whether this handler can run with the current env (the reason names missing variables only). */
   configured?: (env: Env) => Readiness;
+  /** Extra names for the heartbeat beside "configured" (a provider, a model) — never a secret. */
+  info?: (env: Env) => Record<string, string | number | boolean>;
   /** Seconds: the service queues one platform-wide job of this kind this often (when configured). */
   every?: number;
   /** The job's result (stored in app.jobs.result, never a secret). Throw to fail. */
