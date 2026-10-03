@@ -76,6 +76,7 @@ describe("the checkout route's input", () => {
   it("webhook and payment routes are reachable without a portal session; OAuth callbacks are not", () => {
     expect(isPublicPath("/api/webhooks/stripe")).toBe(true);
     expect(isPublicPath("/api/payments/intent")).toBe(true);
+    expect(isPublicPath("/api/payments/methods")).toBe(true);
     expect(isPublicPath("/api/oauth/stripe/callback")).toBe(false);
   });
 });

@@ -104,12 +104,28 @@ name, to `audit.view` holders of that center and platform admins only (the same 
 - **Tables:** funds, campaigns, opportunities, pledges, payments, payment_allocations,
   recurring_gifts, statements, counting_sessions, valuables_register, bank_accounts,
   bank_statement_imports, bank_transactions, known_originators, receipt_templates, labh_options,
-  labh_fulfillments
+  labh_fulfillments, center_payment_plugins (the payment plugins catalog, `payment_plugins`, is platform
+  data: readable by every signed-in user, in no module)
 - **RPCs guarded:** record_offline_payment, allocate_payment, preview_allocation,
   confirm_bank_match, match_deposit, suggest_bank_matches, suggest_deposit_payments,
   commit_labh, create_recurring_gift, opportunity_availability, approve_as_second (payments,
   pledges), enqueue_payment_posting and recompute_pledge_status (when called directly; not from
-  the Giving triggers)
+  the Giving triggers), payment_plugin_settings, set_payment_plugin and member_payment_methods
+  (the payment plugins, 0580-0581; the status and member-answer helpers are not callable over the
+  API)
+- **Payment plugins (0580-0581):** each way to pay (Card, Apple Pay, Google Pay, ACH bank debit,
+  PayPal, Zelle, Check, Cash, ACH and wire, Stock, Donor-advised fund, Matching gift) is a plugin an
+  organization turns on or off in Settings › Payments with a reason. A plugin's on/off is derived
+  from the existing processor and method rows (nothing moved) and `set_payment_plugin` writes through
+  `set_payment_processor` / `set_payment_method`; `center_payment_plugins` stores the derived
+  enabled/mode/status (kept in step by triggers, including for a new organization and for the
+  `payments.mode` entitlement) plus the organization's own name and order. Card or PayPal cannot be
+  switched off while its account is connected; Card off takes Apple Pay, Google Pay and ACH with it.
+  Both tables are read-only over the API (staff with payments view access read their own
+  organization's rows). `member_payment_methods(center)` is what the member app may offer (adults of
+  the community only, one entry per connected processor, a sandbox's Zelle is a rehearsal that never
+  carries the real address), served as `GET /api/payments/methods` with the member's own token.
+  `member_payment_options` is unchanged for installed apps.
 - **Portal:** /giving/pledges, /giving/payments, /giving/payments/bank, /giving/bank,
   /giving/opportunities, /giving/campaigns, /giving/recurring, /giving/labh, /giving/statements
 - **Member app:** Give tab, pledges, recurring, recurring-setup, opportunity/[id], labh/[dayId]
@@ -119,6 +135,7 @@ name, to `audit.view` holders of that center and platform admins only (the same 
   household card (`household_card`) keeps identifying the household but returns no open-pledge total
   or last-gift date (0110), and the household page drops Record payment and its Pledges/Payments tabs.
   The member app hides "Plan labh". Money rules (allocation, write-off, refunds) are unchanged.
+  The payment plugin rows are hidden too, and their functions refuse.
 
 ## Bolis (depends on Giving)
 

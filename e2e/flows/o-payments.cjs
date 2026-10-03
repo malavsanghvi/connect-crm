@@ -13,17 +13,19 @@
 // and the member app exported with EXPO_PUBLIC_PORTAL_URL=<BASE>. The worker is started here.
 //
 // Journey (JSH is switched to a SANDBOX for the run, then back):
-//   1. Settings › Payments: Connect Stripe (reason → fresh 2FA → Stripe Connect → callback → vault →
-//      oauth.exchange by the worker) → test mode, account recorded; methods, descriptor, default.
+//   1. Settings › Payments (one card per payment plugin): Connect Stripe (reason → fresh 2FA → Stripe Connect
+//      → callback → vault → oauth.exchange by the worker) → test mode, account recorded; the Card card is
+//      locked on while connected; the "Bank account (ACH)" plugin switched on; descriptor, default.
 //   2. A sandbox refuses live mode (CCENT) and has no "Switch to live".
-//   3. Offline methods: accept Check with its instructions.
+//   3. The Check plugin: save its instructions, then turn it on (it cannot be turned on before they are saved).
 //   4. PayPal Business email: without the messaging service the screen says so; no code is made.
 //   5. The $1 test: provider page → signed webhook → worker refunds it → payment_processor_tests; no gift.
 //   6. Member app: Give › How to give shows Check; Pay open pledges → Stripe (test mode) → paid via the
 //      signed webhook → payments / allocations / postings / audit; a replayed webhook changes nothing.
 //   7. Refund through Stripe after two approvers (portal button, fresh 2FA) → refunded_cents.
-//   8. Connect with PayPal (partner) → the worker checks the merchant; a member PayPal checkout through the
-//      route is captured by the worker from the approval webhook.
+//   8. Connect with PayPal (partner) → the worker checks the merchant; GET /api/payments/methods offers the member
+//      both Card and PayPal (the default processor does not hide the other); a member PayPal checkout through
+//      the route is captured by the worker from the approval webhook.
 //   9. A payout webhook → app.payouts and the payments carry it; Setup steps; readiness 6; Giving switch.
 const { chromium } = require(process.env.PLAYWRIGHT || '/opt/node22/lib/node_modules/playwright');
 const { acceptLegalStep } = require('../legal-step.cjs');
@@ -125,8 +127,10 @@ const card = (p, title) => p.locator('section.cc-card').filter({ has: p.getByRol
   const envBefore = sql(`select environment from app.centers where id = '${jsh}'`);
   sql(`update app.centers set environment = 'sandbox' where id = '${jsh}'`);
   sql(`update app.integration_connections set status = 'disconnected', external_account_id = null, settings = '{}' where center_id = '${jsh}' and provider in ('stripe','paypal');
-       update app.center_payment_processors set status = 'not_connected', is_default = false where center_id = '${jsh}';
+       update app.center_payment_processors set status = 'not_connected', is_default = false,
+              methods = case processor when 'stripe' then '{card}'::text[] else '{paypal}'::text[] end where center_id = '${jsh}';
        update app.center_payment_methods set accepted = false where center_id = '${jsh}';
+       update app.center_payment_methods set instructions = '{}' where center_id = '${jsh}' and method = 'check';
        update app.centers set rules = jsonb_set(coalesce(rules,'{}'), '{payments}', '{"offline_only": false}') where id = '${jsh}';
        update app.jobs set status = 'cancelled' where status in ('queued','running');
        insert into app.pledges (center_id, household_id, source, amount_cents) values ('${jsh}', '${priyaHH}', 'general', 7500);`);   // an open pledge to pay
@@ -204,13 +208,26 @@ const card = (p, title) => p.locator('section.cc-card').filter({ has: p.getByRol
     ok(stripeCardText.includes(acct) && /Test mode/.test(stripeCardText), '1 the Stripe card shows the account in test mode');
     await shot(p, '1-stripe-connected');
 
-    await card(p, 'Stripe').getByLabel('ACH bank debit').check();
+    // The plugin layer: Card is on and connected, so its switch is locked (disconnect is the way to stop); the stored row is "ready to test" in a sandbox.
+    ok(/^true\|(ready|test_passed)\|test$/.test(sql(`select enabled::text || '|' || status || '|' || mode from app.center_payment_plugins where center_id = '${jsh}' and plugin_key = 'card'`)),
+      '1 the Card plugin row follows the connection: on, ready to test (or test passed by an earlier run), test mode');
+    ok(await card(p, 'Stripe').getByRole('switch', { name: 'Offer Card' }).isDisabled() && /Ready to test|Test passed/.test(stripeCardText) && /Stripe is connected, so Card stays on/.test(stripeCardText),
+      '1 the Card card shows its status and its switch is locked on while Stripe is connected');
+    ok(sql(`select enabled::text from app.center_payment_plugins where center_id = '${jsh}' and plugin_key = 'bank_debit'`) === 'false', '1 ACH bank debit is off until the organization turns it on (Q12)');
+    // ACH bank debit is a plugin of its own (it rides on Card): its switch writes "ach" into the Stripe methods.
+    await card(p, 'Bank account (ACH)').getByRole('switch', { name: 'Offer Bank account (ACH)' }).click();
+    await giveReason(p, `Card and ACH ${run}`, 'Turn on');
+    ok(await until(() => sql(`select methods::text from app.center_payment_processors where center_id = '${jsh}' and processor = 'stripe'`) === '{ach,card}'),
+      '1 turning the ACH plugin on writes it into the Stripe methods');
+    ok(await until(() => sql(`select enabled::text from app.center_payment_plugins where center_id = '${jsh}' and plugin_key = 'bank_debit'`) === 'true'), '1 and its plugin row follows');
+    await p.reload({ waitUntil: 'networkidle' });
     await card(p, 'Stripe').getByLabel('Statement descriptor').fill('JSH TEMPLE');
     await card(p, 'Stripe').getByRole('button', { name: 'Save Stripe settings' }).click();
     await giveReason(p, `Card and ACH ${run}`, 'Save');
     ok(await until(() => sql(`select methods::text || '|' || coalesce(statement_descriptor,'') from app.center_payment_processors where center_id = '${jsh}' and processor = 'stripe'`) === '{ach,card}|JSH TEMPLE'),
       '1 methods and statement descriptor saved');
     ok(audit(mark, 'center_payment_processors.update') === `giving|portal|/settings/payments|Card and ACH ${run}`, '1 audit: giving | portal | /settings/payments | reason');
+    ok(audit(mark, 'center_payment_plugins.update') !== '', '1 audit: the plugin rows changes are recorded too');
     await card(p, 'Stripe').getByRole('button', { name: 'Make default at checkout' }).click();
     await giveReason(p, 'Stripe at checkout', 'Make default');
     ok(await until(() => sql(`select is_default from app.center_payment_processors where center_id = '${jsh}' and processor = 'stripe'`) === 't'), '1 Stripe is the default at checkout');
@@ -222,15 +239,23 @@ const card = (p, title) => p.locator('section.cc-card').filter({ has: p.getByRol
     ok(live.status >= 400 && live.body && live.body.code === 'CCENT', `2 the API refuses live mode in a sandbox with CCENT (${live.status} ${live.body && live.body.code})`);
 
     // ── 3. Offline methods ────────────────────────────────────────────────
-    const checkRow = card(p, 'Offline methods').locator('section', { hasText: 'Check' }).first();
-    await checkRow.getByRole('switch', { name: 'Accept Check' }).click();
-    await checkRow.getByLabel('Make checks payable to *').fill('Jain Society of Houston');
-    await checkRow.getByLabel('Mailing address *').fill('3905 Arbor St, Houston TX 77004');
-    await checkRow.getByLabel('What to write in the memo').fill('Your member number');
-    await checkRow.getByRole('button', { name: 'Save Check' }).click();
+    // The Check plugin card: its instructions are saved first (the switch is locked until they are complete), then it is turned on.
+    const checkCard = card(p, 'Check');
+    ok(await checkCard.getByRole('switch', { name: 'Offer Check' }).isDisabled() && /Before turning it on/.test(await checkCard.innerText()),
+      '3 the Check switch is locked until its instructions are saved, and the card says why');
+    await checkCard.getByLabel('Make checks payable to *').fill('Jain Society of Houston');
+    await checkCard.getByLabel('Mailing address *').fill('3905 Arbor St, Houston TX 77004');
+    await checkCard.getByLabel('What to write in the memo').fill('Your member number');
+    await checkCard.getByRole('button', { name: 'Save Check' }).click();
     await giveReason(p, `Checks by mail ${run}`, 'Save');
+    ok(await until(() => sql(`select accepted::text || '|' || (instructions->>'payee') from app.center_payment_methods where center_id = '${jsh}' and method = 'check'`) === 'false|Jain Society of Houston'),
+      '3 the instructions are saved with the payee and address; checks are not offered yet');
+    await checkCard.getByRole('switch', { name: 'Offer Check' }).click();
+    await giveReason(p, `Checks by mail ${run}`, 'Turn on');
     ok(await until(() => sql(`select accepted::text || '|' || (instructions->>'payee') from app.center_payment_methods where center_id = '${jsh}' and method = 'check'`) === 'true|Jain Society of Houston'),
       '3 checks accepted with the payee and address');
+    ok(await until(() => sql(`select enabled::text || '|' || status from app.center_payment_plugins where center_id = '${jsh}' and plugin_key = 'check'`) === 'true|ready'),
+      '3 the Check plugin row follows (a sandbox: ready, never live)');
     ok(audit(mark, 'center_payment_methods.insert') === `giving|portal|/settings/payments|Checks by mail ${run}` || audit(mark, 'center_payment_methods.update') === `giving|portal|/settings/payments|Checks by mail ${run}`,
       '3 audit: the offline method change with its reason');
 
@@ -357,6 +382,18 @@ const card = (p, title) => p.locator('section.cc-card').filter({ has: p.getByRol
     const intent = await fetch(BASE + '/api/payments/intent', { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${priya}` },
       body: JSON.stringify({ center_id: jsh, household_id: priyaHH, amount_cents: 4000, pledge_ids: [], processor: 'paypal', context: 'other', for_label: 'Gift' }) }).then((r) => r.json());
     ok(typeof intent.url === 'string' && intent.processor === 'paypal' && intent.mode === 'test', `8 the route created a PayPal order in test mode (${JSON.stringify(intent).slice(0, 120)})`);
+    // Member discovery: with Stripe the default, PayPal is offered too (one entry per connected processor), and nothing secret is in it.
+    const mm = await fetch(`${BASE}/api/payments/methods?center_id=${jsh}`, { headers: { authorization: `Bearer ${priya}` } });
+    const mmText = await mm.text();
+    const mmBody = JSON.parse(mmText || '{}');
+    const mmOnline = (mmBody.methods || []).filter((x) => x.family === 'provider_checkout');
+    ok(mm.status === 200 && mmBody.online_unavailable === null && mmOnline.map((x) => x.key).sort().join(',') === 'card,paypal'
+       && mmOnline.every((x) => x.mode === 'test') && (mmBody.methods || []).some((x) => x.key === 'check' && x.instructions && x.instructions.payee === 'Jain Society of Houston')
+       && JSON.stringify(mmBody.client) === '{}',
+      `8 GET /api/payments/methods offers the member Card and PayPal (test mode) and the Check instructions (${mm.status} ${mmText.slice(0, 160)})`);
+    ok(mmOnline.some((x) => x.key === 'card' && x.also.includes('bank_debit')) && !mmText.includes(acct) && !mmText.includes('MOCKMERCHANT01'),
+      '8 Card lists ACH as also; no account id reaches the member');
+    ok((await fetch(`${BASE}/api/payments/methods?center_id=${jsh}`)).status === 401, '8 without a token the route answers 401');
     const teacher = await apiLogin('teacher@jsh.test');
     const nope = await fetch(BASE + '/api/payments/intent', { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${teacher}` },
       body: JSON.stringify({ center_id: jsh, household_id: priyaHH, amount_cents: 4000, context: 'other', for_label: 'Gift' }) });
