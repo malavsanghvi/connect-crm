@@ -33,6 +33,15 @@ export default async function PaymentsSettingsPage({ searchParams }: { searchPar
     db.rpc("payment_settings", { p_center: center.id }),
     db.rpc("payment_plugin_settings", { p_center: center.id }),
   ]);
+  // The database is the rule: if it says this person may not see the payment settings, say that, not "could not load".
+  if (settingsRes.error?.code === "42501" || pluginsRes.error?.code === "42501") {
+    return (
+      <>
+        {header}
+        <NoAccess area="Payments" access="paymentSettings" />
+      </>
+    );
+  }
   if (settingsRes.error) {
     return (
       <>

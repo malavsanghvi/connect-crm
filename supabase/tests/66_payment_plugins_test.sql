@@ -645,8 +645,9 @@ select pg_temp.assert((select bool_and(p.prosecdef = (p.oid <> 'app.payment_plug
                                         'app.payment_plugin_entry(uuid,text)'::regprocedure, 'app.payment_plugin_settings(uuid)'::regprocedure,
                                         'app.set_payment_plugin(uuid,text,boolean,jsonb,text,integer,text)'::regprocedure,
                                         'app.payment_plugin_config_problem(text,jsonb,text)'::regprocedure,
+                                        'app.payment_processor_ensure(uuid,text)'::regprocedure,
                                         'app.member_payment_methods(uuid)'::regprocedure)),
-  'every new function pins search_path = app, public, extensions, is security definer (but the immutable problem function), and anon runs none');
+  'every new (or redefined) function pins search_path = app, public, extensions, is security definer (but the immutable problem function), and anon runs none');
 select pg_temp.assert(has_function_privilege('authenticated', 'app.payment_plugin_settings(uuid)', 'execute')
                       and has_function_privilege('authenticated', 'app.set_payment_plugin(uuid,text,boolean,jsonb,text,integer,text)', 'execute')
                       and has_function_privilege('authenticated', 'app.payment_plugin_config_problem(text,jsonb,text)', 'execute')
