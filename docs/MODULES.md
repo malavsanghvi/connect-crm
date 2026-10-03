@@ -104,9 +104,14 @@ name, to `audit.view` holders of that center and platform admins only (the same 
 - **Tables:** funds, campaigns, opportunities, pledges, payments, payment_allocations,
   recurring_gifts, statements, counting_sessions, valuables_register, bank_accounts,
   bank_statement_imports, bank_transactions, known_originators, receipt_templates, labh_options,
-  labh_fulfillments
+  labh_fulfillments, payment_reports (members' Zelle reports; 0582)
 - **RPCs guarded:** record_offline_payment, allocate_payment, preview_allocation,
   confirm_bank_match, match_deposit, suggest_bank_matches, suggest_deposit_payments,
+  report_payment, withdraw_payment_report, my_payment_reports, reject_payment_report,
+  link_payment_report, payment_report_queue, payment_report_counts, possible_duplicate_zelle,
+  zelle_exact_matches, confirm_exact_zelle_matches, attach_bank_line_to_payment,
+  set_zelle_reporting (Zelle reports and the double-count guard, 0582-0583; worker job
+  payments.reports_sweep calls worker_payment_reports_sweep, which skips Giving-off organizations),
   commit_labh, create_recurring_gift, opportunity_availability, approve_as_second (payments,
   pledges), enqueue_payment_posting and recompute_pledge_status (when called directly; not from
   the Giving triggers)

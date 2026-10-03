@@ -3,7 +3,7 @@
 --
 --   app.payment_reports            one row per member report: household, who reported it, amount,
 --                                  date sent, optional confirmation number (unique per organization
---                                  while not withdrawn), sender name, chosen pledges, status
+--                                  while not withdrawn or rejected), sender name, chosen pledges, status
 --                                  (reported, matched, unmatched, rejected, withdrawn), test flag,
 --                                  the report window and the date it is due at the bank
 --   app.report_payment             an adult of the family reports a Zelle (plain-English refusals)
@@ -15,9 +15,10 @@
 --   app.zelle_report_window_days   centers.rules.payments.zelle.report_window_days (3–30, default 10)
 --   app.set_zelle_reporting        the window and the bank account Zelle lines arrive in (with a reason)
 --   app.worker_payment_reports_sweep  hourly (worker job payments.reports_sweep): a report past its
---                                  window becomes "unmatched" and the member is told once, unless a
---                                  Zelle of that family and amount is already recorded (held for the
---                                  treasurer). It never creates a payment.
+--                                  window becomes "unmatched" and the member is told once, unless the
+--                                  treasurer can already settle it: a Zelle of that family and amount is
+--                                  already recorded, or its bank line is on the statement waiting for the
+--                                  treasurer's click (held for the treasurer). It never creates a payment.
 --
 -- A report credits nobody: no payment, allocation, receipt or QuickBooks posting exists until a
 -- treasurer matches a bank line (0583). Reports are not counted in giving totals, statements or
@@ -75,8 +76,11 @@ comment on table app.payment_reports is
 comment on column app.payment_reports.due_on is 'sent_on + window_days: after this date (in the organization''s time zone) the report is "not seen at the bank".';
 comment on column app.payment_reports.is_test is 'Reported in a sandbox (rehearsal): no real money moves there.';
 
+-- One live report per confirmation number: a withdrawn or a rejected report frees it (a member whose
+-- report was closed for a wrong amount can report it again, and the real sender can report a number
+-- somebody else's rejected report used).
 create unique index if not exists payment_reports_confirmation_once on app.payment_reports (center_id, confirmation_normalized)
-  where confirmation_normalized is not null and status <> 'withdrawn';
+  where confirmation_normalized is not null and status not in ('withdrawn','rejected');
 create index if not exists payment_reports_center_status_due on app.payment_reports (center_id, status, due_on);
 create index if not exists payment_reports_household_created on app.payment_reports (household_id, created_at desc);
 create unique index if not exists payment_reports_bank_line_once on app.payment_reports (bank_transaction_id)
@@ -286,7 +290,7 @@ begin
       raise exception 'That does not look like a Zelle confirmation number. Leave it blank if you do not have it.' using errcode = '22023';
     end if;
     if exists (select 1 from app.payment_reports r where r.center_id = p_center and r.confirmation_normalized = v_conf_norm
-                 and r.status <> 'withdrawn') then
+                 and r.status not in ('withdrawn','rejected')) then
       raise exception 'That confirmation number was already reported.' using errcode = '22023';
     end if;
     if exists (select 1 from app.bank_transactions t where t.center_id = p_center and t.status = 'matched' and t.channel = 'zelle'
@@ -464,9 +468,25 @@ end $$;
 
 -- ── The hourly sweep (worker job payments.reports_sweep) ─────────────────────
 -- A report still waiting after its due date (in its organization's time zone) becomes
--- "unmatched" and its member is told once. When the family already has a Zelle of that amount
--- recorded (by hand, or from the bank without the report) it stays "reported" for the treasurer
--- (Zelle reports › Recorded by hand). Idempotent; it never creates a payment.
+-- "unmatched" and its member is told once. A report the treasurer is already in a position to
+-- settle stays "reported" and the member is not told that the bank has not seen it: the family
+-- already has that Zelle recorded (by hand, or from the bank without the report: Zelle reports ›
+-- Recorded by hand), or its bank line is on the imported statement waiting for the treasurer's
+-- click (same confirmation number and amount). Idempotent; it never creates a payment.
+create or replace function app._zelle_report_held(p_report uuid) returns boolean
+language sql stable security definer set search_path = app, public, extensions as $$
+  select exists (
+    select 1 from app.payment_reports r
+     where r.id = p_report
+       and (exists (select 1 from app.zelle_recorded_payments(r.household_id, r.amount_cents, r.sent_on) z where not z.linked)
+            or (r.confirmation_normalized is not null
+                and exists (select 1 from app.bank_transactions t
+                             where t.center_id = r.center_id and t.status in ('unmatched','suggested') and t.channel = 'zelle'
+                               and not t.is_batch_deposit and t.originator_kind is null and t.amount_cents = r.amount_cents
+                               and t.reference is not null
+                               and upper(regexp_replace(t.reference, '[^A-Za-z0-9]', '', 'g')) = r.confirmation_normalized))))
+$$;
+
 create or replace function app.worker_payment_reports_sweep() returns jsonb
 language plpgsql security definer set search_path = app, public, extensions as $$
 declare r record; v_marked int := 0; v_notices int := 0; v_failures int := 0; v_held int := 0; v_n jsonb;
@@ -474,21 +494,24 @@ begin
   perform app.assert_worker();
   perform set_config('app.client_app', 'job', true);
   perform app.set_audit_context('Zelle report not seen on the bank statement within its window');
+  select count(*) into v_held
+    from app.payment_reports pr join app.centers c on c.id = pr.center_id
+   where pr.status = 'reported'
+     and pr.due_on < (now() at time zone coalesce(nullif(c.time_zone, ''), 'America/Chicago'))::date
+     and app.module_enabled(pr.center_id, 'giving')
+     and app._zelle_report_held(pr.id);
   for r in
-    select pr.id, pr.center_id, pr.household_id, pr.amount_cents, pr.sent_on
+    select pr.id
       from app.payment_reports pr
       join app.centers c on c.id = pr.center_id
      where pr.status = 'reported'
        and pr.due_on < (now() at time zone coalesce(nullif(c.time_zone, ''), 'America/Chicago'))::date
        and app.module_enabled(pr.center_id, 'giving')
+       and not app._zelle_report_held(pr.id)
      order by pr.due_on, pr.created_at
      limit 500
      for update of pr skip locked
   loop
-    if exists (select 1 from app.zelle_recorded_payments(r.household_id, r.amount_cents, r.sent_on) z where not z.linked) then
-      v_held := v_held + 1;
-      continue;
-    end if;
     update app.payment_reports set status = 'unmatched', unmatched_at = now() where id = r.id and status = 'reported';
     if not found then continue; end if;
     v_marked := v_marked + 1;
@@ -538,10 +561,12 @@ begin
 end $$;
 
 -- Rehearsal is exactly "this organization is a sandbox" (read past the centers policy, so a
--- sandbox the member cannot list still hides the address).
+-- sandbox the member cannot list still hides the address). Answered only to the organization's own
+-- members and payment staff: it is not a way to ask whether some other organization is a sandbox.
 create or replace function app.zelle_rehearsal(p_center uuid) returns boolean
 language sql stable security definer set search_path = app, public, extensions as $$
-  select coalesce((select c.environment = 'sandbox' from app.centers c where c.id = p_center), false)
+  select coalesce((select c.environment = 'sandbox' from app.centers c
+                    where c.id = p_center and (app.is_member_of(c.id) or app.payments_can_view(c.id))), false)
 $$;
 
 drop policy if exists center_payment_methods_read on app.center_payment_methods;
@@ -554,7 +579,7 @@ create policy center_payment_methods_read on app.center_payment_methods for sele
 revoke execute on function app.payment_reports_prepare(), app.zelle_report_window_days(uuid), app.zelle_bank_account_id(uuid),
   app.zelle_rehearsal(uuid),
   app.set_zelle_reporting(uuid, int, uuid, text), app._zelle_report_notice(uuid, text),
-  app.zelle_recorded_payments(uuid, bigint, date),
+  app.zelle_recorded_payments(uuid, bigint, date), app._zelle_report_held(uuid),
   app.report_payment(uuid, uuid, text, bigint, date, text, text, uuid[], text), app.withdraw_payment_report(uuid, text),
   app.my_payment_reports(uuid, uuid), app.reject_payment_report(uuid, text), app.link_payment_report(uuid, uuid, text),
   app.payment_report_counts(uuid), app.worker_payment_reports_sweep(), app.member_payment_options(uuid)

@@ -439,23 +439,30 @@ begin;
 set local role authenticated;
 select pg_temp.as_user(:kiran);
 select (app.report_payment(:c, :h2, 'zelle', 9900, :'today'::date - 15, null, null, null, null))->>'report_id' as r8 \gset
+select (app.report_payment(:c, :h2, 'zelle', 6300, :'today'::date - 15, 'WFC-HOLD-0001', null, null, null))->>'report_id' as r12 \gset
 select pg_temp.as_user(:rahul);
 select (app.report_payment(:c, :h1, 'zelle', 7700, :'today'::date - 20, null, 'R SHAH', null, null))->>'report_id' as r9 \gset
 select pg_temp.as_user(:tara);
 select app.record_offline_payment(:h1, 7700, 'zelle', :'today'::date - 19) as hp2 \gset
 commit;
+-- r12's Zelle is on the imported statement, waiting for the treasurer's click: the bank HAS seen it.
+insert into app.bank_transactions (id, center_id, bank_account_id, posted_on, amount_cents, description, bank_type) values
+  ('67000000-0000-4000-8000-000000000513', :c, :ba, :'today'::date - 12, 6300, 'Zelle Payment From Kiran Mehta Wfchold0001', 'QUICKPAY_CREDIT');
 select count(*) as msgs_before from app.messages where center_id = :c \gset
 begin;
 set local role connect_worker;
 select app.worker_payment_reports_sweep() as sweep1 \gset
 commit;
 select pg_temp.assert((:'sweep1'::jsonb->>'marked')::int = 1 and (:'sweep1'::jsonb->>'notices')::int = 1
-                      and (:'sweep1'::jsonb->>'notice_failures')::int = 0 and (:'sweep1'::jsonb->>'held_for_review')::int = 1,
-  'sweep: one report past its window is marked, its member told once; the one with a hand-recorded Zelle is held');
+                      and (:'sweep1'::jsonb->>'notice_failures')::int = 0 and (:'sweep1'::jsonb->>'held_for_review')::int = 2,
+  'sweep: one report past its window is marked, its member told once; the two the treasurer can already settle are held');
 select pg_temp.assert((select status = 'unmatched' and unmatched_at is not null and notice_sent_at is not null and notice_error is null
                          from app.payment_reports where id = :'r8')
                       and (select status from app.payment_reports where id = :'r9') = 'reported',
   'sweep: the overdue report is unmatched; the held one stays reported for the treasurer');
+select pg_temp.assert((select status = 'reported' and unmatched_at is null and notice_sent_at is null from app.payment_reports where id = :'r12')
+                      and not exists (select 1 from app.messages where center_id = :c and to_address = :kiran and body like '%$63.00%'),
+  'sweep: a report whose exact bank line is waiting for the treasurer is not flagged, and the member is not told the bank has not seen it');
 select pg_temp.assert((select count(*) from app.messages where center_id = :c and template_key = 'zelle_report_unmatched') = 2
                       and exists (select 1 from app.messages where center_id = :c and template_key = 'zelle_report_unmatched' and channel = 'push'
                                     and to_address = :kiran and body like 'Your Zelle of $99.00 sent on % to Z67 is not on the bank statement after 10 days.%Nothing has been credited yet.')
@@ -473,9 +480,17 @@ begin;
 set local role authenticated;
 select pg_temp.as_user(:tara);
 select pg_temp.assert_raises($$select app.worker_payment_reports_sweep()$$, 'permission denied', 'sweep: users cannot run it');
+select pg_temp.assert_raises($$select app._zelle_report_held('67000000-0000-4000-8000-000000000999')$$, 'permission denied', 'sweep: the held check is internal');
 select pg_temp.assert((app.payment_report_counts(:c)->>'unmatched')::int = 1 and (app.payment_report_counts(:c)->>'reported')::int >= 3,
   'payment_report_counts gives the Home task its numbers');
 commit;
+-- r12 is settled elsewhere in the real world: withdraw it and set its line aside.
+begin;
+set local role authenticated;
+select pg_temp.as_user(:kiran);
+select app.withdraw_payment_report(:'r12', 'Test: done with the held report');
+commit;
+update app.bank_transactions set status = 'ignored' where id = '67000000-0000-4000-8000-000000000513';
 -- An unmatched report can still be matched when its line arrives late.
 insert into app.bank_transactions (id, center_id, bank_account_id, posted_on, amount_cents, description, bank_type) values
   ('67000000-0000-4000-8000-000000000512', :c, :ba, :'today'::date - 6, 9900, 'Zelle Payment From Kiran Mehta', 'QUICKPAY_CREDIT');
@@ -532,6 +547,12 @@ select pg_temp.assert_raises(format($$select app.withdraw_payment_report(%L, nul
   'withdraw: a rejected report cannot be withdrawn');
 select pg_temp.assert_raises(format($$select app.withdraw_payment_report(%L, null)$$, :'r1'), 'cannot be withdrawn',
   'withdraw: a matched report cannot be withdrawn');
+select (app.report_payment(:c, :h1, 'zelle', 5100, :'today'::date - 1, 'JPM5K5K5K5K5', 'Mira Shah', null, null))->>'report_id' as r3b \gset
+select pg_temp.assert(:'r3b' is not null and (select status from app.payment_reports where id = :'r3') = 'rejected',
+  'a rejected report frees its confirmation number: the member reports it again with the right amount');
+select pg_temp.assert_raises($$select app.report_payment('67000000-0000-4000-8000-0000000000c1', '67000000-0000-4000-8000-000000000201', 'zelle', 5100, current_date - 2, 'JPM5K5K5K5K5', null, null, null)$$,
+  'That confirmation number was already reported.', 'the live report still holds the confirmation number');
+select app.withdraw_payment_report(:'r3b', 'Test: done');
 select pg_temp.as_user(:rahul);
 select pg_temp.assert_state(format($$select app.withdraw_payment_report(%L, null)$$, :'r7'), '42501',
   'withdraw: an adult of another family cannot withdraw it');
@@ -580,6 +601,69 @@ select pg_temp.assert((select status = 'matched' and payment_id = :'hp2' from ap
   'link is bookkeeping only: the report is matched, the payment does not change');
 
 -- ═════════════════════════════════════════════════════════════════════════════
+-- A report only goes with a Zelle (or unlabelled) line; a linked report makes the line a Zelle
+-- ═════════════════════════════════════════════════════════════════════════════
+begin;
+insert into app.bank_transactions (id, center_id, bank_account_id, posted_on, amount_cents, description, bank_type) values
+  ('67000000-0000-4000-8000-000000000514', :c, :ba, :'today'::date - 1, 3300, 'Online transfer from savings 4411', null),
+  ('67000000-0000-4000-8000-000000000515', :c, :ba, :'today'::date - 1, 3100, 'Check #4417', null);
+select pg_temp.assert((select channel = 'other' from app.bank_transactions where id = '67000000-0000-4000-8000-000000000514')
+                      and (select channel = 'check' and not is_batch_deposit from app.bank_transactions where id = '67000000-0000-4000-8000-000000000515'),
+  'fixture: one line the bank did not label, one check line');
+set local role authenticated;
+select pg_temp.as_user(:tara);
+select app.record_offline_payment(:h2, 3300, 'zelle', :'today'::date - 2) as hp3 \gset
+select pg_temp.as_user(:kiran);
+select (app.report_payment(:c, :h2, 'zelle', 3300, :'today'::date - 2, null, null, null, null))->>'report_id' as r13 \gset
+select pg_temp.as_user(:tara);
+select pg_temp.assert_raises(format($$select app.confirm_bank_match('67000000-0000-4000-8000-000000000515', '67000000-0000-4000-8000-000000000201', null, true, null, %L)$$, :'r6'),
+  'A Zelle report can only be matched to a Zelle line', 'a Zelle report cannot be matched to a check line');
+select pg_temp.assert_state(format($$select app.confirm_bank_match('67000000-0000-4000-8000-000000000514', '67000000-0000-4000-8000-000000000202', null, true, null, %L)$$, :'r13'),
+  'CCDUP', 'G6: an unlabelled line named by a member''s report is held to the guard too');
+select app.confirm_bank_match('67000000-0000-4000-8000-000000000514', :h2, null, false, null, :'r13', 'Two gifts the same week') as p13 \gset
+reset role;
+select pg_temp.assert((select method = 'zelle' and provider = 'bank' and amount_cents = 3300 from app.payments where id = :'p13')
+                      and (select status = 'matched' and payment_id = :'p13' from app.payment_reports where id = :'r13'),
+  'a line named by a Zelle report is recorded as a Zelle, and the report is matched');
+rollback;
+
+begin;
+insert into app.bank_transactions (id, center_id, bank_account_id, posted_on, amount_cents, description, bank_type) values
+  ('67000000-0000-4000-8000-000000000516', :c, :ba, :'today'::date - 1, 4400, 'Zelle Payment From Kiran Mehta Jpm7i7i7i7i7', 'QUICKPAY_CREDIT');
+set local role authenticated;
+select pg_temp.as_user(:tara);
+select app.record_offline_payment(:h2, 4400, 'zelle', :'today'::date - 2) as hp4 \gset
+select pg_temp.as_user(:kiran);
+select (app.report_payment(:c, :h2, 'zelle', 4400, :'today'::date - 2, 'JPM7I7I7I7I7', null, null, null))->>'report_id' as ra \gset
+select (app.report_payment(:c, :h2, 'zelle', 4400, :'today'::date - 3, null, null, null, null))->>'report_id' as rb \gset
+select pg_temp.as_user(:vina);
+select app.link_payment_report(:'ra', :'hp4', 'Recorded at the office');
+select pg_temp.as_user(:tara);
+select pg_temp.assert_raises(format($$select app.attach_bank_line_to_payment('67000000-0000-4000-8000-000000000516', %L, %L)$$, :'hp4', :'rb'),
+  'already linked to another report', 'attach: a payment is linked to one report only');
+select app.attach_bank_line_to_payment('67000000-0000-4000-8000-000000000516', :'hp4');
+reset role;
+select pg_temp.assert((select bank_transaction_id = '67000000-0000-4000-8000-000000000516' and payment_id = :'hp4' and status = 'matched'
+                         from app.payment_reports where id = :'ra')
+                      and (select status = 'reported' from app.payment_reports where id = :'rb'),
+  'attach: a report linked earlier learns its bank line');
+rollback;
+
+-- An attach with no reason typed is audited with the default one (a typed reason would win).
+begin;
+insert into app.bank_transactions (id, center_id, bank_account_id, posted_on, amount_cents, description, bank_type) values
+  ('67000000-0000-4000-8000-000000000517', :c, :ba, :'today'::date - 1, 4500, 'Zelle Payment From Kiran Mehta Jpm8j8j8j8j8', 'QUICKPAY_CREDIT');
+set local role authenticated;
+select pg_temp.as_user(:tara);
+select app.record_offline_payment(:h2, 4500, 'zelle', :'today'::date - 2) as hp5 \gset
+select app.attach_bank_line_to_payment('67000000-0000-4000-8000-000000000517', :'hp5');
+reset role;
+select pg_temp.assert(exists (select 1 from app.audit_log where record_table = 'payments' and record_id = :'hp5'
+                                and reason like 'Bank line attached to the Zelle or ACH payment%'),
+  'attach: with no reason typed, the audit log says the bank line was attached to the payment recorded by hand');
+rollback;
+
+-- ═════════════════════════════════════════════════════════════════════════════
 -- The treasurer's queue and the settings
 -- ═════════════════════════════════════════════════════════════════════════════
 begin;
@@ -624,6 +708,7 @@ select pg_temp.assert(app.member_payment_options(:c) = '{"online": null, "online
 select pg_temp.assert((select count(*) from app.center_payment_methods where center_id = :c and method = 'zelle') = 1,
   'production: members read the Zelle method row');
 commit;
+insert into auth.users (id, email) values ('67000000-0000-4000-8000-0000000000b1', 'stranger@z67.test');
 update app.centers set environment = 'sandbox' where id = :c;
 begin;
 set local role authenticated;
@@ -637,6 +722,9 @@ select pg_temp.as_user(:tara);
 select pg_temp.assert(position('give@z67.test' in app.payment_settings(:c)::text) > 0
                       and (select count(*) from app.center_payment_methods where center_id = :c and method = 'zelle') = 1,
   'sandbox: staff still see the real address');
+select pg_temp.assert(app.zelle_rehearsal(:c), 'rehearsal: members and staff are told their organization is a sandbox');
+select pg_temp.as_user('67000000-0000-4000-8000-0000000000b1');
+select pg_temp.assert(not app.zelle_rehearsal(:c), 'rehearsal: a stranger cannot ask whether another organization is a sandbox');
 commit;
 update app.centers set environment = 'production' where id = :c;
 
@@ -668,7 +756,7 @@ commit;
 
 select pg_temp.assert((select bool_and(exists (select 1 from unnest(p.proconfig) as g(setting) where g.setting ~ '^search_path=app, *public, *extensions$'))
                          from pg_proc p join pg_namespace n on n.oid = p.pronamespace
-                        where n.nspname = 'app' and p.proname in ('payment_reports_prepare','zelle_report_window_days','zelle_bank_account_id','zelle_rehearsal',
+                        where n.nspname = 'app' and p.proname in ('payment_reports_prepare','zelle_report_window_days','zelle_bank_account_id','zelle_rehearsal','_zelle_report_held',
                           'set_zelle_reporting','_zelle_report_notice','zelle_recorded_payments','report_payment','withdraw_payment_report','my_payment_reports',
                           'reject_payment_report','link_payment_report','payment_report_counts','worker_payment_reports_sweep','member_payment_options',
                           'possible_duplicate_zelle','zelle_pair_is_exact','zelle_exact_matches','suggest_bank_matches','confirm_bank_match',
@@ -678,7 +766,7 @@ select pg_temp.assert((select bool_and(exists (select 1 from unnest(p.proconfig)
   'every new or replaced function pins search_path = app, public, extensions; one suggest_bank_matches and one confirm_bank_match');
 select pg_temp.assert(not exists (
     select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
-     where n.nspname = 'app' and p.proname in ('zelle_report_window_days','zelle_bank_account_id','zelle_rehearsal',
+     where n.nspname = 'app' and p.proname in ('zelle_report_window_days','zelle_bank_account_id','zelle_rehearsal','_zelle_report_held',
                           'set_zelle_reporting','_zelle_report_notice','zelle_recorded_payments','report_payment','withdraw_payment_report','my_payment_reports',
                           'reject_payment_report','link_payment_report','payment_report_counts','worker_payment_reports_sweep','member_payment_options',
                           'possible_duplicate_zelle','zelle_pair_is_exact','zelle_exact_matches','suggest_bank_matches','confirm_bank_match',

@@ -131,6 +131,7 @@ Every commitment in the app becomes one pledge record; every payment settles one
 | Rules | Adults only; all adults see family pledges (view-only option per family); tax year follows payment date; refunds need a second approver |
 | Member touchpoints | Give tab, My Donations by year with statements, RSVP commitment, special-day labh, recurring giving |
 | Reports | Giving dashboard, pledge aging, campaign progress, recurring gift health, sync exceptions |
+| Zelle reports | A member says "I sent a Zelle" (amount, date, confirmation number, pledges); it is never counted until the treasurer matches a bank line (exact matches can be confirmed in one click); a Zelle already recorded by hand is attached to its bank line, never counted twice (`payment_reports`, Giving › Payments › Bank reconciliation › Zelle reports; `docs/ZELLE_REPORTS.md`) |
 
 ---
 

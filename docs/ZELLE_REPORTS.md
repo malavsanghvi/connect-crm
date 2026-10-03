@@ -21,11 +21,12 @@ on the pledge and in the family's giving, never in a total.
 - Sent today or in the last 60 days ("For an older one, contact the treasurer").
 - The confirmation number is asked for but not required (Q4). When given it must look like one (6
   to 40 letters and digits). The same confirmation number can be reported only once per
-  organization, and never when it is already on a matched bank line.
+  organization while its report is live, and never when it is already on a matched bank line.
 - The same family, amount and date cannot be reported twice while the first is waiting; a family
   can have at most 10 reports waiting at once.
-- The member can withdraw a report that is still waiting. A withdrawn report frees its
-  confirmation number.
+- The member can withdraw a report that is still waiting. A withdrawn report, and a report the
+  treasurer closed as not accepted, free their confirmation number (so a member whose report was
+  closed for a wrong amount can report it again).
 
 ## 2. Statuses
 
@@ -45,9 +46,11 @@ organization's time zone) into "Not seen at the bank" and tells the member once,
 contact the treasurer. Nothing has been credited yet."* The Home page shows the treasurer a task
 "N Zelle reports not seen at the bank". The sweep never creates a payment.
 
-When the family already has a Zelle of that amount recorded around that date (by hand, or from a
-bank line matched without the report), the sweep does not tell the member; the report stays
-"Waiting for the bank" and appears under **Recorded by hand** for the treasurer to link.
+When the treasurer can already settle the report, the sweep does not tell the member that the bank
+has not seen it, and the report stays "Waiting for the bank": either the family already has a Zelle of
+that amount recorded around that date (by hand, or from a bank line matched without the report;
+it appears under **Recorded by hand** for the treasurer to link), or its bank line is on the imported
+statement waiting for the treasurer's click (same confirmation number and amount).
 
 An "unmatched" report can still be matched later: a late bank line is matched exactly as before.
 
@@ -94,7 +97,10 @@ uses the reporter as the payer, learns the payer name, and marks the report matc
 confirm a line without choosing the report and exactly one waiting report of that family has the
 line's confirmation number and amount, it is linked automatically (bookkeeping only; your click is
 still what records the money). A report of another amount cannot be confirmed with the line:
-confirm without the report, then close or let the member withdraw it.
+confirm without the report, then close or let the member withdraw it. A Zelle report goes only with a
+Zelle line or one the bank did not label (never a check, a wire or a fund grant); a line a report
+names is recorded as a Zelle and is held to the double-count guard below even when the bank did not
+call it one.
 
 ## 5. The double-count guard: attach or record separately (G6)
 
@@ -114,7 +120,8 @@ The matcher then offers two choices:
   line is matched, the payer name is learned, and **one QuickBooks Deposit** is queued (undeposited
   funds to the bank, idempotency key `deposit:<bank line>`), the same posting a check deposit makes.
   A payment that never posted to QuickBooks (history, or before the QuickBooks go-live date) has
-  nothing to deposit, so no deposit is queued for it. A linked report is marked matched.
+  nothing to deposit, so no deposit is queued for it. A linked report is marked matched (a report
+  linked to that payment earlier learns its bank line). A payment is linked to one report only.
 - **Record as a separate gift**, with a required reason (two genuine gifts of the same amount in
   the same week): the line is recorded as its own payment as before, and your reason is kept in the
   audit log.
@@ -156,7 +163,7 @@ two-person refund record. A demo clear removes every report.
 | `app.suggest_bank_matches` | Replaced: reports as a candidate source, `report_id` column |
 | `app.attach_bank_line_to_payment`, `app.confirm_exact_zelle_matches`, `app.reject_payment_report`, `app.link_payment_report` | Treasurer actions |
 | `app.zelle_report_window_days`, `app.set_zelle_reporting` | `centers.rules.payments.zelle = {"report_window_days": 3..30, "bank_account_id": uuid or null}` |
-| `app.worker_payment_reports_sweep` | Worker job `payments.reports_sweep`, hourly |
+| `app.worker_payment_reports_sweep` | Worker job `payments.reports_sweep`, hourly (`app._zelle_report_held` is its internal "leave it to the treasurer" check) |
 | Templates `zelle_report_unmatched`, `zelle_report_rejected` (push and email) | Platform defaults; an organization can override them |
 | `app.member_payment_options` | Redefined: unchanged in production; the rehearsal entry in a sandbox |
 

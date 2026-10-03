@@ -15,8 +15,10 @@
 --   app.confirm_bank_match            (replaced) 0104 + p_report (its pledges decide the allocation,
 --                                     chosen by the donor; the report is marked matched), an exact
 --                                     confirmation-number report is linked automatically, the payer
---                                     defaults to the reporter, and the G6 double-count guard
---                                     (SQLSTATE CCDUP) for a Zelle already recorded by hand
+--                                     defaults to the reporter, a line a report names is a Zelle (a
+--                                     report goes only with a Zelle or unlabelled line), and the G6
+--                                     double-count guard (SQLSTATE CCDUP) for a Zelle already
+--                                     recorded by hand
 --   app.attach_bank_line_to_payment   the Zelle counterpart of match_deposit: the bank line settles a
 --                                     hand-recorded Zelle/ACH payment (one QuickBooks Deposit,
 --                                     undeposited funds -> bank) instead of creating a second payment
@@ -243,9 +245,14 @@ begin
 
   -- The member's report this line is: the one the treasurer chose, else the family's one open
   -- report with this confirmation number and amount (bookkeeping only; the money still needs this click).
+  -- A Zelle report goes only with a Zelle line or one the bank did not label, never a check, a wire or a fund.
   if p_report is not null then
     select * into r from app.payment_reports where id = p_report for update;
     if r.id is null or r.center_id <> t.center_id then raise exception 'That Zelle report was not found.' using errcode = '22023'; end if;
+    if t.originator_kind is not null or coalesce(t.channel, 'other') not in ('zelle','other') then
+      raise exception 'A Zelle report can only be matched to a Zelle line, or to one the bank did not label. Confirm this line without the report.'
+        using errcode = '22023';
+    end if;
     if r.household_id <> p_household then
       raise exception 'That Zelle report is from another family. Confirm this line for the family that reported it, or without the report.'
         using errcode = '22023';
@@ -257,7 +264,7 @@ begin
       raise exception 'The report says % but the bank line is %; confirm without the report, then reject or withdraw it.',
         to_char(r.amount_cents / 100.0, 'FM$999,999,990.00'), to_char(t.amount_cents / 100.0, 'FM$999,999,990.00') using errcode = '22023';
     end if;
-  elsif v_ref is not null then
+  elsif v_ref is not null and t.originator_kind is null and coalesce(t.channel, 'other') in ('zelle','other') then
     select count(*) into v_n from app.payment_reports x
      where x.center_id = t.center_id and x.household_id = p_household and x.status in ('reported','unmatched')
        and x.confirmation_normalized = v_ref and x.amount_cents = t.amount_cents;
@@ -269,8 +276,12 @@ begin
     end if;
   end if;
 
+  -- A line the member's report names is a Zelle even when the bank did not label it one: recorded as
+  -- a Zelle, and held to the double-count guard below.
+  if r.id is not null and v_method = 'other' then v_method := 'zelle'; end if;
+
   -- G6: a Zelle of this family and amount already recorded by hand a few days around the line.
-  if t.channel = 'zelle' then
+  if (t.channel = 'zelle' and t.originator_kind is null) or r.id is not null then
     select z.id, z.receipt_number, z.received_on into v_dup
       from app.zelle_recorded_payments(p_household, t.amount_cents, t.posted_on) z where z.kind = 'hand_recorded' limit 1;
     if found then
@@ -372,8 +383,12 @@ begin
       raise exception 'The report says % but the bank line is %; attach without the report, then reject or withdraw it.',
         to_char(r.amount_cents / 100.0, 'FM$999,999,990.00'), to_char(t.amount_cents / 100.0, 'FM$999,999,990.00') using errcode = '22023';
     end if;
+    if exists (select 1 from app.payment_reports o where o.payment_id = p.id and o.id <> r.id) then
+      raise exception 'That payment is already linked to another report; attach the line without this one.' using errcode = '22023';
+    end if;
   end if;
 
+  perform app.set_audit_default_reason('Bank line attached to the Zelle or ACH payment already recorded by hand (G6)');
   update app.payments set deposit_bank_transaction_id = t.id, status = 'settled' where id = p.id;
   update app.bank_transactions set status = 'matched', matched_household_id = p.household_id, payment_id = p.id,
          matched_by = auth.uid(), matched_at = now()
@@ -401,13 +416,17 @@ begin
            matched_by = auth.uid(), matched_at = now()
      where id = r.id;
   end if;
+  -- A report linked to this payment earlier (link_payment_report) now learns its bank line.
+  update app.payment_reports set bank_transaction_id = t.id
+   where payment_id = p.id and status = 'matched' and bank_transaction_id is null
+     and not exists (select 1 from app.payment_reports o where o.bank_transaction_id = t.id);
   return p.id;
 end $$;
 
 -- ── "Confirm every exact match" (Q2): only the pairs sent, each re-checked ───
 create or replace function app.confirm_exact_zelle_matches(p_center uuid, p_pairs jsonb) returns jsonb
 language plpgsql security definer set search_path = app, public, extensions as $$
-declare x jsonb; v_report uuid; v_txn uuid; r app.payment_reports; v_payment uuid; v_receipt text;
+declare x jsonb; v_report uuid; v_txn uuid; r app.payment_reports; v_payment uuid; v_receipt text; v_state text; v_why text;
         v_confirmed jsonb := '[]'::jsonb; v_skipped jsonb := '[]'::jsonb;
         v_uuid constant text := '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$';
 begin
@@ -438,7 +457,15 @@ begin
       select receipt_number into v_receipt from app.payments where id = v_payment;
       v_confirmed := v_confirmed || jsonb_build_array(jsonb_build_object('report_id', v_report, 'payment_id', v_payment, 'receipt_number', v_receipt));
     exception when others then
-      v_skipped := v_skipped || jsonb_build_array(jsonb_build_object('report_id', v_report, 'reason', sqlerrm));
+      -- Our own refusals are plain sentences (P0001, 22023, 42501, CCDUP). Anything else is logged on
+      -- the server and shown as a plain sentence, never as raw database text.
+      v_state := sqlstate;
+      v_why := sqlerrm;
+      if v_state not in ('P0001','22023','42501','CCDUP') then
+        raise warning 'confirm_exact_zelle_matches: report % was not confirmed (%): %', v_report, v_state, v_why;
+        v_why := 'It could not be recorded just now; match it by hand.';
+      end if;
+      v_skipped := v_skipped || jsonb_build_array(jsonb_build_object('report_id', v_report, 'reason', v_why));
     end;
   end loop;
   return jsonb_build_object('confirmed', v_confirmed, 'skipped', v_skipped);
