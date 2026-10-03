@@ -1,6 +1,8 @@
 # Payments plan: plugins for cards, Apple Pay, Google Pay, PayPal and Zelle
 
-**Status: plan for owner review, 2026-09-30.** Owner request (BACKLOG B28): *"Build payments via Zelle, PayPal, Cards, Apple Pay, Google Pay as plugins that can be enabled from the sandbox with due config."* Nothing in this document is built yet. It was written by reading the code (every claim below names the file it came from) and, for the provider facts, the providers' own documentation on 2026-09-30 (Appendix B).
+**Status (2026-10-02): the owner accepted every recommendation of §5 (Q1–Q12)** (`DECISIONS.md`, "Payments and wallet passes, owner decisions 2026-10-02"). PR 2 (plugin registry, per-organization enablement, member discovery) is built in migrations `0580`–`0581` (test `66_payment_plugins_test.sql`); PR 3 (Zelle reported payments and bank matching) is `0582`–`0583` (test `67`); BACKLOG B13 (wallet passes, Apple Wallet and Google Wallet, Google first) is `0584` (test `68`). **The numbers `0550`–`0559` in §3 are void**: they are below migrations already applied (`0560`–`0578`), so the work uses `0580` and up. PR 1 waits for the owner's Stripe and PayPal test apps; until then no PR changes how Stripe or PayPal are called. As built, PR 2 leaves `app.member_payment_options` exactly as it was (installed apps keep its answer) instead of re-expressing it, and adds `app.member_payment_methods` next to it.
+
+*First written as a plan for owner review, 2026-09-30.* Owner request (BACKLOG B28): *"Build payments via Zelle, PayPal, Cards, Apple Pay, Google Pay as plugins that can be enabled from the sandbox with due config."* It was written by reading the code (every claim below names the file it came from) and, for the provider facts, the providers' own documentation on 2026-09-30 (Appendix B).
 
 **Constraints already decided (this plan does not reopen them)**
 
@@ -306,7 +308,7 @@ The registry treats the two wallets as plugins that depend on `card` so the owne
 
 ## 3. Phased build plan
 
-Migration numbers: the latest on `main` is `0544`; this plan reserves `0550`-`0559`. Every PR follows the project rules: a migration is never edited once applied, `supabase/tests/run_local.sh` passes, types regenerate with `supabase/scripts/gen-types.mjs` and are copied to connect-admin and connect-mobile, errors are shown in plain English with a retry, and money is integer cents.
+Migration numbers: the latest on `main` is `0544`; this plan reserves `0550`-`0559`. **Void (2026-10-02):** migrations `0560`-`0578` were applied first, so the work uses `0580` and up (see the status line). Every PR follows the project rules: a migration is never edited once applied, `supabase/tests/run_local.sh` passes, types regenerate with `supabase/scripts/gen-types.mjs` and are copied to connect-admin and connect-mobile, errors are shown in plain English with a retry, and money is integer cents.
 
 | # | PR | Size | Needs | Migrations |
 |---|---|---|---|---|
@@ -419,6 +421,8 @@ Nothing here can be done from code. Secrets are entered only in Platform › Set
 | R11 | **A provider outage or delayed webhook** leaves a checkout pending; the member app says so honestly and never double charges (idempotency keys, one payment per provider reference) | Unprocessed webhooks are visible on the event row | Keep |
 
 ### Open decisions for the owner
+
+**Decided 2026-10-02:** the owner accepted every recommendation below (Q1-Q12); `DECISIONS.md` records them.
 
 | # | Decision | Recommendation |
 |---|---|---|

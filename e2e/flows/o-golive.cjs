@@ -315,11 +315,11 @@ async function moduleOff(p, secret, label) {
   await p.getByRole('switch', { name: `${label} module` }).and(p.locator('[aria-checked=false]')).waitFor({ timeout: 30000 });
 }
 
-/** The payments screen asks for a reason in a modal before saving. */
-async function paymentsReason(p, reason) {
+/** The payments screen asks for a reason in a modal before saving (a plugin's switch says "Turn on" / "Turn off" instead of "Save"). */
+async function paymentsReason(p, reason, confirm = 'Save') {
   const dlg = p.getByRole('dialog').filter({ hasText: 'Reason' }).last();
   await dlg.locator('textarea, input').last().fill(reason);
-  await dlg.getByRole('button', { name: 'Save' }).click();
+  await dlg.getByRole('button', { name: confirm }).click();
 }
 
 /** Upload → Map → Check → Preview → Import → Reconcile → sign off (Settings › Data import). */
@@ -427,19 +427,25 @@ async function phaseServices(browser, S) {
   await confirmIfAsked(p, 'Switch phone sign-in off');
   ok(await until(() => sql(`select (app.check_texting_registered('${S.sbx}')->>'ok')`) === 'true', 20000), '5 · phone sign-in switched off (Settings › Texting) — readiness 5');
 
-  // Payments (the treasurer): offline only for now, cash accepted with instructions.
+  // Payments (the treasurer): offline only for now; the Cash plugin gets its instructions, then is turned on.
   await tp.goto(BASE + '/settings/payments', { waitUntil: 'networkidle' });
   await tp.getByRole('switch', { name: 'Offline payments only' }).click();
   await paymentsReason(tp, 'Launch with offline gifts; cards later');
   await until(() => sql(`select coalesce(rules #>> '{payments,offline_only}', '') from app.centers where id = '${S.sbx}'`) === 'true', 20000);
   await tp.goto(BASE + '/settings/payments', { waitUntil: 'networkidle' });
-  const cash = tp.locator('section[aria-label="Cash (bhandar)"]');
-  await cash.getByRole('switch', { name: 'Accept Cash (bhandar)' }).click();
+  // One card per payment plugin: its heading is the name members see. The switch stays locked until the instructions are saved.
+  const cash = tp.locator('section.cc-card').filter({ has: tp.getByRole('heading', { name: 'Cash (bhandar)', exact: true }) });
   await cash.getByLabel(/Where to give cash/).fill('Bhandar at the temple office');
   await cash.getByRole('button', { name: 'Save Cash (bhandar)' }).click();
   await paymentsReason(tp, 'How members give cash');
+  ok(await until(() => sql(`select coalesce(instructions->>'where', '') || '|' || accepted::text from app.center_payment_methods where center_id = '${S.sbx}' and method = 'cash'`) === 'Bhandar at the temple office|false', 20000),
+    '5 · the Cash instructions are saved (not offered yet)');
+  await cash.getByRole('switch', { name: 'Offer Cash (bhandar)' }).click();
+  await paymentsReason(tp, 'How members give cash', 'Turn on');
   ok(await until(() => sql(`select accepted::text from app.center_payment_methods where center_id = '${S.sbx}' and method = 'cash'`) === 'true', 20000),
     '5 · the treasurer chooses offline only and accepts cash with instructions (Settings › Payments) — readiness 6');
+  ok(await until(() => sql(`select enabled::text || '|' || status from app.center_payment_plugins where center_id = '${S.sbx}' and plugin_key = 'cash'`) === 'true|ready', 20000),
+    '5 · the Cash plugin row follows (a sandbox: ready, never live)');
 
   // Bank account (the treasurer, accounting.manage).
   await tp.goto(BASE + '/giving/payments/bank', { waitUntil: 'networkidle' });

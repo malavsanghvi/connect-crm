@@ -125,11 +125,11 @@ Every commitment in the app becomes one pledge record; every payment settles one
 | Aspect | Detail |
 |---|---|
 | Managed by | Treasurer and finance volunteers in the admin portal; campaign owners create opportunities |
-| Admin functions | Create campaigns and opportunities (sponsorship tiers, fixed pujan lists, construction amounts, open amounts); publish or close; set who is notified; record offline payments (check, ACH, stock); approve refunds and write-offs; send pledge reminders; issue year-end statements; configure labh options for special days |
+| Admin functions | Create campaigns and opportunities (sponsorship tiers, fixed pujan lists, construction amounts, open amounts); publish or close; set who is notified; record offline payments (check, ACH, stock); approve refunds and write-offs; send pledge reminders; issue year-end statements; configure labh options for special days; turn each way to pay (card, Apple Pay, Google Pay, ACH bank debit, PayPal, Zelle, check, cash, ACH and wire, stock, DAF, matching gift) on or off for the organization, with a reason, and rename or reorder it (Settings › Payments, plugin cards: `app.set_payment_plugin`, 0580) |
 | Stored | Pledge (source: RSVP, boli, sponsorship, pujan, labh, construction, recurring), pledged by, family, amount, dedication text, status, dates; payment and receipt; recurring schedule |
 | Connections | Payment provider (connected account per center) to CRM pledge payment to QuickBooks; receipts from CRM; opportunity alerts through notifications targeted by interests and history |
 | Rules | Adults only; all adults see family pledges (view-only option per family); tax year follows payment date; refunds need a second approver |
-| Member touchpoints | Give tab, My Donations by year with statements, RSVP commitment, special-day labh, recurring giving |
+| Member touchpoints | Give tab, My Donations by year with statements, RSVP commitment, special-day labh, recurring giving; the ways to pay an organization offers (`GET /api/payments/methods` / `app.member_payment_methods`, 0581: Card with its wallets, PayPal, Zelle, the offline methods) |
 | Reports | Giving dashboard, pledge aging, campaign progress, recurring gift health, sync exceptions |
 | Zelle reports | A member says "I sent a Zelle" (amount, date, confirmation number, pledges); it is never counted until the treasurer matches a bank line (exact matches can be confirmed in one click); a Zelle already recorded by hand is attached to its bank line, never counted twice (`payment_reports`, Giving › Payments › Bank reconciliation › Zelle reports; `docs/ZELLE_REPORTS.md`) |
 
