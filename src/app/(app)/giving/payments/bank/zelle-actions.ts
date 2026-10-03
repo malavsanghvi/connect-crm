@@ -16,8 +16,8 @@ import type { AppSupabase } from "@/lib/supabase/server";
 
 // Zelle reports (0582–0583): the treasurer's side. Every rule is in the database; these actions
 // check the input, call the RPC and put the outcome in plain English next to what was clicked.
-// The RPCs are new in 0582/0583: until the generated types include them they are called through
-// the untyped signature (as src/app/(app)/content/niva/actions.ts does).
+// set_zelle_reporting is the one call through the untyped signature (as src/app/(app)/content/niva/actions.ts
+// does): its generated type cannot express "no bank account" (a null p_bank_account).
 type RpcCaller = (fn: string, args: Record<string, unknown>) => PromiseLike<{ data: unknown; error: DbErrorLike | null }>;
 const untypedRpc = (db: AppSupabase) => db.rpc.bind(db) as unknown as RpcCaller;
 
@@ -39,7 +39,7 @@ export async function confirmExactMatchesAction(pairs: ExactPairInput[]): Promis
   const list = (Array.isArray(pairs) ? pairs : []).filter((p) => p && isUuid(p.report_id) && isUuid(p.bank_transaction_id));
   if (list.length === 0) return { ok: false, error: `Could not ${doing} — tick at least one match.` };
   if (list.length > MAX_BULK_PAIRS) return { ok: false, error: `Could not ${doing} — confirm at most ${MAX_BULK_PAIRS} at a time.` };
-  const { data, error } = await untypedRpc(auth.session.db)("confirm_exact_zelle_matches", {
+  const { data, error } = await auth.session.db.rpc("confirm_exact_zelle_matches", {
     p_center: auth.session.center.id,
     p_pairs: list.map((p) => ({ report_id: p.report_id, bank_transaction_id: p.bank_transaction_id })),
   });
@@ -68,7 +68,7 @@ export async function rejectReportAction(reportId: string, reason: string): Prom
   const why = String(reason ?? "").trim();
   if (!why) return { ok: false, error: `Could not ${doing} — say why it is not accepted; the member is told.` };
   if (why.length > 500) return { ok: false, error: `Could not ${doing} — the reason can be at most 500 characters.` };
-  const { error } = await untypedRpc(auth.session.db)("reject_payment_report", { p_report: reportId, p_reason: why });
+  const { error } = await auth.session.db.rpc("reject_payment_report", { p_report: reportId, p_reason: why });
   if (error) return failure(`Could not ${doing}`, error);
   refresh();
   return { ok: true, message: "Report closed as not accepted. The member is told why; nothing was credited." };
@@ -82,7 +82,7 @@ export async function linkReportAction(reportId: string, paymentId: string, reas
   if (!isUuid(reportId) || !isUuid(paymentId)) return { ok: false, error: `Could not ${doing} — choose the payment first.` };
   const why = String(reason ?? "").trim();
   if (!why) return { ok: false, error: `Could not ${doing} — say why; the reason is kept in the audit log.` };
-  const { error } = await untypedRpc(auth.session.db)("link_payment_report", { p_report: reportId, p_payment: paymentId, p_reason: why });
+  const { error } = await auth.session.db.rpc("link_payment_report", { p_report: reportId, p_payment: paymentId, p_reason: why });
   if (error) return failure(`Could not ${doing}`, error);
   refresh();
   return { ok: true, message: "Report linked to the recorded payment. Nothing about the payment changed." };

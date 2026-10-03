@@ -43,14 +43,9 @@ function count(res: { count: number | null; error: DbErrorLike | null }): number
 
 type Loader = (session: CrmSession) => Promise<HomeTask[]>;
 
-// app.payment_report_counts is new in 0582: until the generated types include it, it is called
-// through the untyped signature (as src/app/(app)/content/niva/actions.ts does).
-type RpcCaller = (fn: string, args: Record<string, unknown>) => PromiseLike<{ data: unknown; error: DbErrorLike | null }>;
-
 /** Zelle reports past their window with no bank line (0 before migration 0582 is applied). */
 async function zelleUnmatchedCount(session: CrmSession): Promise<number> {
-  const rpc = session.db.rpc.bind(session.db) as unknown as RpcCaller;
-  const res = await rpc("payment_report_counts", { p_center: session.center.id });
+  const res = await session.db.rpc("payment_report_counts", { p_center: session.center.id });
   if (res.error) {
     // Only a database without the function yet is skipped silently; anything else is this source's failure.
     if (res.error.code === "PGRST202" || res.error.code === "42883") return 0;

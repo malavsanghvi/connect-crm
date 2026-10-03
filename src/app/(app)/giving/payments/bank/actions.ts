@@ -4,18 +4,11 @@ import { revalidatePath } from "next/cache";
 
 import type { Json } from "@/lib/database.types";
 import { bankTransactionInsert } from "@/lib/db-inserts";
-import { explainError, failure, type ActionResult, type DbErrorLike } from "@/lib/errors";
+import { explainError, failure, type ActionResult } from "@/lib/errors";
 import { formatCents } from "@/lib/money";
 import { parseDuplicateError } from "@/lib/payments/zelle";
 import { isUuid } from "@/lib/search-params";
 import { authorizeAction, type CrmSession } from "@/lib/session";
-import type { AppSupabase } from "@/lib/supabase/server";
-
-// confirm_bank_match gained p_report and p_separate_reason in 0583, and attach_bank_line_to_payment
-// is new there: until the generated types include them they are called through the untyped
-// signature (as src/app/(app)/content/niva/actions.ts does).
-type RpcCaller = (fn: string, args: Record<string, unknown>) => PromiseLike<{ data: unknown; error: DbErrorLike | null }>;
-const untypedRpc = (db: AppSupabase) => db.rpc.bind(db) as unknown as RpcCaller;
 
 function refresh() {
   revalidatePath("/giving/payments/bank");
@@ -229,7 +222,7 @@ export async function confirmBankMatchAction(input: {
   if (txn.error) return failure("Could not confirm the match", txn.error);
   if (!txn.data) return { ok: false, error: "Could not confirm the match — the bank line was not found." };
 
-  const rpc = await untypedRpc(db)("confirm_bank_match", {
+  const rpc = await db.rpc("confirm_bank_match", {
     p_txn: input.txnId,
     p_household: input.householdId,
     ...(pledgeIds ? { p_pledge_ids: pledgeIds } : {}),
@@ -296,7 +289,7 @@ export async function attachBankLineAction(input: { txnId: string; paymentId: st
   if (pay.error) return failure(`Could not ${doing}`, pay.error);
   if (!pay.data) return { ok: false, error: `Could not ${doing} — the payment was not found.` };
 
-  const { data, error } = await untypedRpc(db)("attach_bank_line_to_payment", {
+  const { data, error } = await db.rpc("attach_bank_line_to_payment", {
     p_txn: input.txnId,
     p_payment: input.paymentId,
     ...(reportId ? { p_report: reportId } : {}),

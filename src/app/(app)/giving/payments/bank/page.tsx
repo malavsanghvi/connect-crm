@@ -5,7 +5,7 @@ import { ActionForm } from "@/components/action-form";
 import { Badge, Card, ChipLinks, EmptyState, NoAccess, PageHeader, Pagination, QueryError, TableWrap, Tabs, buttonClass } from "@/components/ui";
 import { identifierRules } from "@/lib/center-rules";
 import { householdsById, toCard, userNames } from "@/lib/data/lookups";
-import { explainError, type DbErrorLike } from "@/lib/errors";
+import { explainError } from "@/lib/errors";
 import { formatDate, formatDateTime } from "@/lib/dates";
 import { BANK_CHANNEL_LABEL, ORIGINATOR_LABEL } from "@/lib/labels";
 import { formatCents } from "@/lib/money";
@@ -13,7 +13,6 @@ import { parseReportQueue, type ReportQueue } from "@/lib/payments/zelle";
 import { can, canAccess } from "@/lib/permissions";
 import { hrefWith, pageParam, param, type RawSearchParams } from "@/lib/search-params";
 import { getSession } from "@/lib/session";
-import type { AppSupabase } from "@/lib/supabase/server";
 
 import { createBankAccountAction, ignoreBankLineAction, restoreBankLineAction } from "./actions";
 import { BankImport } from "./bank-import";
@@ -38,16 +37,6 @@ const VIEW_LABEL: Record<View, string> = {
   matched: "Matched",
   ignored: "Ignored",
   zelle: "Zelle reports",
-};
-
-// payment_report_counts, payment_report_queue and suggest_bank_matches.report_id are new in 0582/0583:
-// until the generated types include them, the RPCs go through the untyped signature (as
-// src/app/(app)/content/niva/actions.ts does) and report_id is read through a narrow cast.
-type RpcCaller = (fn: string, args: Record<string, unknown>) => PromiseLike<{ data: unknown; error: DbErrorLike | null }>;
-const untypedRpc = (db: AppSupabase) => db.rpc.bind(db) as unknown as RpcCaller;
-const reportIdOf = (row: object): string | null => {
-  const v = (row as { report_id?: unknown }).report_id;
-  return typeof v === "string" ? v : null;
 };
 
 export default async function BankPage({ searchParams }: { searchParams: Promise<RawSearchParams> }) {
@@ -147,7 +136,7 @@ export default async function BankPage({ searchParams }: { searchParams: Promise
         return [v, r.error ? null : (r.count ?? 0)] as const;
       }),
     ),
-    untypedRpc(db)("payment_report_counts", { p_center: center.id }).then((r) => {
+    db.rpc("payment_report_counts", { p_center: center.id }).then((r) => {
       if (r.error) {
         console.error("[bank] payment_report_counts failed:", r.error);
         return null;
@@ -170,7 +159,7 @@ export default async function BankPage({ searchParams }: { searchParams: Promise
   // Zelle reports: the treasurer's queue.
   let zelle: { queue: ReportQueue | null; error: string | null } = { queue: null, error: null };
   if (view === "zelle") {
-    const r = await untypedRpc(db)("payment_report_queue", { p_center: center.id });
+    const r = await db.rpc("payment_report_queue", { p_center: center.id });
     if (r.error) {
       console.error("[bank] payment_report_queue failed:", r.error);
       zelle = { queue: null, error: `Could not load the Zelle reports — ${explainError(r.error)}.` };
@@ -201,7 +190,7 @@ export default async function BankPage({ searchParams }: { searchParams: Promise
             score: Number(s.score),
             reason: s.reason ?? "",
             ambiguous: Boolean(s.ambiguous),
-            reportId: reportIdOf(s),
+            reportId: s.report_id ?? null,
           })),
         });
       }),
