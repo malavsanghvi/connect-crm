@@ -4,7 +4,7 @@ import Link from "next/link";
 import { Toggle } from "@/components/controls";
 import { DrawerForm } from "@/components/drawer-form";
 import { RowActions } from "@/components/row-actions";
-import { Card, EmptyState, QueryError, StatusText, TableWrap, buttonClass } from "@/components/ui";
+import { Alert, Card, EmptyState, QueryError, StatusText, TableWrap, buttonClass } from "@/components/ui";
 import {
   contentStatusLabel,
   goalLearnerStats,
@@ -22,13 +22,20 @@ import {
   type GyanLevelAudio,
 } from "@/lib/content";
 import { fetchAll } from "@/lib/data/fetch-all";
-import { can, canAccess } from "@/lib/permissions";
+import { loadClasses, loadTerms, pickTerm } from "@/lib/data/pathshala";
+import { explainError } from "@/lib/errors";
+import { homeworkAreas } from "@/lib/gyan-homework/access";
+import { loadAssignments } from "@/lib/gyan-homework/db";
+import type { Assignment } from "@/lib/gyan-homework/homework";
+import { can, canAccess, hasCenterRole, teacherClassIds } from "@/lib/permissions";
 import { param, type RawSearchParams } from "@/lib/search-params";
-import { getSession } from "@/lib/session";
+import { getSession, type CrmSession } from "@/lib/session";
 import { gyanPracticeDailyCap } from "@/lib/settings-rules";
 
 import { addStepAction, deleteStepAction, saveGoalAction, saveLevelAction } from "../actions";
 import { ContentHeader, contentGate } from "../shared";
+import { HomeworkCell } from "./homework-cell";
+import type { ClassOption } from "./homework-fields";
 
 export const metadata: Metadata = { title: "Content · Gyan Path" };
 
@@ -84,10 +91,35 @@ function GoalFields({ goal }: { goal?: { id: string; name: string; key: string; 
   );
 }
 
+/**
+ * The classes a homework editor may name as the audience (0587): this term's classes for content.manage,
+ * pathshala.manage or a center-wide Teacher; a class teacher's own classes otherwise. Null when they could not be
+ * read: the drawer then says so instead of silently offering "everyone".
+ */
+async function homeworkClasses(session: CrmSession): Promise<{ classes: ClassOption[] | null; problem: string | null }> {
+  const { db, center } = session;
+  try {
+    if (homeworkAreas.editAll(session) || hasCenterRole(session, "teacher")) {
+      const term = pickTerm(await loadTerms(db, center.id));
+      const classes = term ? await loadClasses(db, center.id, term.id) : [];
+      return { classes: classes.map((c) => ({ id: c.id, name: c.name })), problem: null };
+    }
+    const ids = teacherClassIds(session);
+    if (!ids.length) return { classes: [], problem: null };
+    const { data, error } = await db.from("pathshala_classes").select("id, name").in("id", ids).order("name");
+    if (error) throw error;
+    return { classes: (data ?? []).map((c) => ({ id: c.id, name: c.name })), problem: null };
+  } catch (error) {
+    console.error("[content/gyan-path] could not load the classes for the homework drawer:", error);
+    return { classes: null, problem: explainError(error) };
+  }
+}
+
 export default async function GyanPathPage({ searchParams }: { searchParams: Promise<RawSearchParams> }) {
   const session = await getSession();
+  // A class Teacher without a content permission opens this page too: they add homework for their own class (0587).
   const gate = contentGate(session, SUB);
-  if (gate) return gate;
+  if (gate && !homeworkAreas.editAny(session)) return gate;
   const sp = await searchParams;
   const { db, center } = session;
   const canManage = canAccess(session, "contentManage");
@@ -138,6 +170,25 @@ export default async function GyanPathPage({ searchParams }: { searchParams: Pro
   const linkable = linkableRes?.data ?? [];
   const editable = Boolean(selected && selected.center_id !== null && canManage);
   const error = goals.error ?? levels.error ?? steps.error ?? items?.error ?? linkableRes?.error ?? null;
+
+  // Homework per level (0587): everyone's own community homework, on shared levels too. RLS shows editors every
+  // row and others the published ones. Without the migration the column says so and offers nothing.
+  const homework = await loadAssignments(db, center.id, selLevels.map((l) => l.id));
+  const homeworkByLevel = new Map<string, Assignment[]>();
+  if (homework.status === "ok") for (const a of homework.value) homeworkByLevel.set(a.level_id, [...(homeworkByLevel.get(a.level_id) ?? []), a]);
+  const homeworkEditor = homework.status === "ok" && homeworkAreas.editAny(session);
+  const classesForHomework = homeworkEditor ? await homeworkClasses(session) : { classes: [], problem: null };
+  const canEditHomework = homeworkEditor && classesForHomework.classes !== null;
+  const homeworkProblem =
+    homework.status === "missing"
+      ? "Homework is not available yet — the database does not have migration 0587 (learning assignments). Apply it, then reload."
+      : homework.status === "error"
+        ? `Could not load the homework on these levels — ${explainError(homework.error)}. Reload to try again.`
+        : homework.status === "shape"
+          ? `Could not read the homework on these levels — the database answered with something this screen cannot read (${homework.message}). Has the latest migration been applied?`
+          : classesForHomework.problem
+            ? `Homework can be read but not changed right now — the classes it can be given to could not be loaded (${classesForHomework.problem}). Reload to try again.`
+            : null;
   // Read as app.record_gyan_attempt reads it (a number rounded down, kept within 0-1000; anything else is 10), so a
   // value stored outside Settings › Rules shows what members are really paid for.
   const tryCap = gyanPracticeDailyCap(center.rules);
@@ -230,6 +281,13 @@ export default async function GyanPathPage({ searchParams }: { searchParams: Pro
             ) : null
           }
         >
+          {homeworkProblem ? (
+            <div className="px-2 pb-2">
+              <Alert tone={homework.status === "ok" ? "warning" : "danger"} title="Homework">
+                {homeworkProblem}
+              </Alert>
+            </div>
+          ) : null}
           {selLevels.length === 0 ? (
             <EmptyState title="No levels yet" />
           ) : (
@@ -243,6 +301,7 @@ export default async function GyanPathPage({ searchParams }: { searchParams: Pro
                     <th>Audio</th>
                     <th>Quizzes</th>
                     <th>Sign-off</th>
+                    <th>Homework</th>
                     {editable ? <th /> : null}
                   </tr>
                 </thead>
@@ -285,6 +344,18 @@ export default async function GyanPathPage({ searchParams }: { searchParams: Pro
                         </td>
                         <td>{quizzes ? `${quizzes} question${quizzes === 1 ? "" : "s"}` : "—"}</td>
                         <td>{l.requires_teacher_signoff ? <span className="font-bold text-purple">Teacher</span> : "—"}</td>
+                        <td>
+                          <HomeworkCell
+                            level={{ id: l.id, name: l.name }}
+                            goalName={selected.name}
+                            shared={selected.center_id === null}
+                            assignments={homeworkByLevel.get(l.id) ?? []}
+                            canEdit={canEditHomework}
+                            classes={classesForHomework.classes ?? []}
+                            canChooseEveryone={homeworkAreas.editAll(session)}
+                            timeZone={center.time_zone}
+                          />
+                        </td>
                         {editable ? (
                           <td className="text-right">
                             <div className="flex flex-wrap justify-end gap-2">
@@ -305,7 +376,21 @@ export default async function GyanPathPage({ searchParams }: { searchParams: Pro
             </TableWrap>
           )}
           {selected.center_id === null ? (
-            <p className="px-4 pb-3 pt-1 text-xs text-muted">Shared goals come from the platform library; only the platform team can change them.</p>
+            <p className="px-4 pb-3 pt-1 text-xs text-muted">
+              Shared goals come from the platform library; only the platform team can change them. Homework on their levels is still yours: it belongs to your
+              community and only your learners see it.
+            </p>
+          ) : null}
+          {homework.status === "ok" ? (
+            <p className="px-4 pb-3 pt-1 text-xs text-muted">
+              Homework is handed in from the member app and reviewed in Pathshala › Homework. A draft is invisible to learners; publishing tells them (and the
+              parents of children); archiving takes it off their lists but keeps what was handed in.
+              {homeworkAreas.editAll(session)
+                ? ""
+                : homeworkAreas.editAny(session)
+                  ? " As a class teacher you add homework for the classes you teach."
+                  : " Adding homework needs content.manage, pathshala.manage or a Teacher role."}
+            </p>
           ) : null}
           <p className="px-4 pb-3 pt-1 text-xs text-muted">
             {tryCap === 0
