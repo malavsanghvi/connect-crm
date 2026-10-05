@@ -3,7 +3,9 @@
 import { refresh } from "next/cache";
 
 import type { ActionResult } from "@/lib/errors";
-import { bool, cents, dateList, dateTime, FormError, int, isoDate, must, oneOf, reqStr, runAction, str, ok, time } from "@/lib/forms";
+import { bool, cents, dateList, dateTime, DbFailure, FormError, int, isoDate, must, oneOf, reqStr, runAction, str, ok, time } from "@/lib/forms";
+import { reviewSubmission } from "@/lib/gyan-homework/db";
+import { REVIEW_NOTE_MAX } from "@/lib/gyan-homework/homework";
 import { isAttendanceStatus, reportAttendance, type AttendanceStatus } from "@/lib/logic/attendance";
 import { pathshalaAreas as areas } from "@/lib/pathshala/access";
 import { actionContext, searchPeople, type PersonOption } from "@/lib/pathshala/server";
@@ -563,6 +565,30 @@ export async function decideSignoff(signoffId: string, _prev: unknown, fd: FormD
       decision === "approved"
         ? `Gyan Path sign-off recorded${who ? ` for ${who}` : ""}.`
         : `${who ?? "The student"} will practise more${note ? " — your note was sent" : ""}.`,
+    );
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Homework (0587): accept, or send back with a note
+// ---------------------------------------------------------------------------
+export async function reviewHomework(submissionId: string, _prev: unknown, fd: FormData): Promise<ActionResult<unknown>> {
+  return runAction("pathshala.reviewHomework", "record the decision", async () => {
+    const { supabase } = await actionContext(areas.homework, "Only teachers, the Pathshala principal and the content team can review homework.");
+    // "Accept" submits accept; "Send back" submits send_back and needs a note (the database refuses one without).
+    const decision = oneOf(fd, "decision", ["accept", "send_back"] as const, "Decision");
+    const note = str(fd, "note");
+    const doing = decision === "accept" ? "accept the homework" : "send the homework back";
+    if (decision === "send_back" && !note) throw new FormError("Say what the learner should change — a note is required to send homework back.");
+    if (note && [...note].length > REVIEW_NOTE_MAX) throw new FormError(`Shorten the note to at most ${REVIEW_NOTE_MAX} characters (it has ${[...note].length}).`);
+    const res = await reviewSubmission(supabase, submissionId, decision, note);
+    if (!res.ok) throw new DbFailure(res.error, doing);
+    refresh();
+    const who = str(fd, "learner");
+    return ok(
+      decision === "accept"
+        ? `Homework accepted${who ? ` for ${who}` : ""}${res.value.points_awarded ? ` — ${res.value.points_awarded} points paid` : ""}. The family has been told.`
+        : `Homework sent back${who ? ` to ${who}` : ""} with your note. The family has been told.`,
     );
   });
 }
