@@ -5,6 +5,7 @@
 // grant (app.has_scoped_role). The UI uses this to decide what to show; RLS
 // still enforces every row. Pure module: no server imports, unit-tested.
 
+import { homeworkAreas } from "@/lib/gyan-homework/access";
 import { can, canAccess, hasRole, hasScopedRole, type ScopedContext } from "@/lib/permissions";
 
 export const pathshalaAreas = {
@@ -15,6 +16,8 @@ export const pathshalaAreas = {
   /** Holds a Teacher role anywhere (a class, or center-wide). */
   teaches: (c: ScopedContext) => hasRole(c, "teacher"),
   signoffs: (c: ScopedContext) => canAccess(c, "pathshalaSignoffs") || hasRole(c, "teacher"),
+  /** Pathshala › Homework, the review queue (0587): teachers, the principal and the content team. */
+  homework: (c: ScopedContext) => homeworkAreas.review(c),
   announcements: (c: ScopedContext) => canAccess(c, "pathshala") || hasRole(c, "teacher"),
   committee: (c: ScopedContext) => canAccess(c, "pathshalaCommittee"),
   /** Open one class: the principal's view, or a Teacher of that class. */

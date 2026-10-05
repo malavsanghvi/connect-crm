@@ -273,6 +273,14 @@ export type Refused = { ok: false; error: string };
  * enforces RLS on every write.)
  */
 export async function authorizeAction(key: AccessKey, doing: string): Promise<Authorized | Refused> {
+  return authorizeActionWhere((session) => canAccess(session, key), doing, ACCESS[key].join(" or "));
+}
+
+/**
+ * authorizeAction for an area whose rule is not one ACCESS key — a role in any scope counts too (a class
+ * teacher's homework, src/lib/gyan-homework/access.ts). `needs` names the rule for the refusal sentence.
+ */
+export async function authorizeActionWhere(check: (session: CrmSession) => boolean, doing: string, needs: string): Promise<Authorized | Refused> {
   const state = await loadSession();
   if (state.status === "signed_out") return { ok: false, error: `Could not ${doing} — your session has expired. Sign in again.` };
   if (state.status !== "ok") {
@@ -284,11 +292,8 @@ export async function authorizeAction(key: AccessKey, doing: string): Promise<Au
           : state.message;
     return { ok: false, error: `Could not ${doing} — ${why}.` };
   }
-  if (!canAccess(state.session, key)) {
-    return {
-      ok: false,
-      error: `Could not ${doing} — you don't have permission (needs ${ACCESS[key].join(" or ")}).`,
-    };
+  if (!check(state.session)) {
+    return { ok: false, error: `Could not ${doing} — you don't have permission (needs ${needs}).` };
   }
   return { ok: true, session: state.session };
 }

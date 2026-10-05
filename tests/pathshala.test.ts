@@ -78,12 +78,12 @@ describe("Pathshala navigation", () => {
   it("shows the principal the prototype tabs first, then the kept extras", () => {
     const m = visibleNav(principal).find((x) => x.key === "pathshala");
     expect(m?.href).toBe("/pathshala");
-    expect(m?.tabs.map((t) => t.label)).toEqual(["Classes", "Gyan Path sign-offs", "Terms", "Enrollments", "Teacher positions", "Committee"]);
+    expect(m?.tabs.map((t) => t.label)).toEqual(["Classes", "Gyan Path sign-offs", "Homework", "Terms", "Enrollments", "Teacher positions", "Committee"]);
   });
   it("shows a class-scoped teacher the module, landing on My classes", () => {
     const m = visibleNav(teacherOnly).find((x) => x.key === "pathshala");
     expect(m?.href).toBe("/pathshala/my-classes");
-    expect(m?.tabs.map((t) => t.href)).toEqual(["/pathshala/signoffs", "/pathshala/my-classes"]);
+    expect(m?.tabs.map((t) => t.href)).toEqual(["/pathshala/signoffs", "/pathshala/homework", "/pathshala/my-classes"]);
   });
   it("hides Pathshala from a user with neither the permission nor a teacher role", () => {
     const ctx: ScopedContext = { permissions: ["giving.view"], isPlatformAdmin: false, grants: [{ role_key: "event_lead", scope_kind: "event", scope_id: "e1" }] };
