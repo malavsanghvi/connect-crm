@@ -1169,6 +1169,18 @@ begin; select pg_temp.sign_in(:dad); select pg_temp.reads(:'sub_rr') as rr_dad \
 commit;
 select pg_temp.assert(:'rr_teen' = '0/0/0' and :'rr_adultkid' = '1/0/0' and :'rr_dad' = '1/0/0',
   'her brother with a login (a child) reads nothing of her draft; her adult brother and her father read it');
+-- Household adults read each other's homework too: a wife reads her husband's draft, so does his grown-up son; a child does not.
+begin; select pg_temp.sign_in(:dad);
+select (app.save_gyan_submission_draft(:'a_rr', :p_dad, 'dad words', null)->>'id') as sub_dad \gset
+commit;
+begin; select pg_temp.sign_in(:mom); select pg_temp.reads(:'sub_dad') as dad_by_mom \gset
+commit;
+begin; select pg_temp.sign_in(:adultkid); select pg_temp.reads(:'sub_dad') as dad_by_adultkid \gset
+commit;
+begin; select pg_temp.sign_in(:teen); select pg_temp.reads(:'sub_dad') as dad_by_teen \gset
+commit;
+select pg_temp.assert(:'dad_by_mom' = '1/0/0' and :'dad_by_adultkid' = '1/0/0' and :'dad_by_teen' = '0/0/0',
+  'household adults read each other''s homework (a wife reads her husband''s draft, so does his grown-up son); a child in the household does not');
 begin; select pg_temp.sign_in(:teen);
 select pg_temp.assert_raises($$select app.save_gyan_submission_draft('$$ || :'a_rr' || $$', '$$ || :p_kid || $$', 'x', null)$$,
   'yourself or for someone in your family', 'a child cannot save a draft for her sister');
@@ -1284,6 +1296,26 @@ select app.review_gyan_submission(:'sub_st', 'accept', null) as sub_st_acc \gset
 commit;
 select pg_temp.assert(:'sub_st_acc'::jsonb->>'status' = 'accepted' and pg_temp.pts(:p_st_child, 'assignment', :'sub_st') = 5,
   'another teacher accepts it (5 points)');
+-- The family-wide block follows the household RECORDS: someone who has left the household record can review.
+begin; select pg_temp.sign_in(:contentmgr);
+select (app.save_gyan_assignment(:c1, jsonb_build_object('level_id', :l1, 'title', 'Records, not relationships', 'allowed_kinds', jsonb_build_array('text'), 'parent_check', 'never', 'points', 0))->>'id') as a_hh \gset
+select app.set_gyan_assignment_status(:'a_hh', 'published');
+commit;
+begin; select pg_temp.sign_in(:stchild);
+select (app.save_gyan_submission_draft(:'a_hh', :p_st_child, 'staff child second', null)->>'id') as sub_hh \gset
+select app.hand_in_gyan_submission(:'sub_hh');
+commit;
+begin; select pg_temp.sign_in(:principal);
+select pg_temp.assert_raises($$select app.review_gyan_submission('$$ || :'sub_hh' || $$', 'accept', null)$$,
+  'cannot decide on homework from your own family', 'the principal, in the household record, cannot review her child''s homework');
+commit;
+update app.household_members set left_at = current_date where household_id = :h_st and person_id = :p_st_principal;
+begin; select pg_temp.sign_in(:principal);
+select app.review_gyan_submission(:'sub_hh', 'accept', null) as sub_hh_acc \gset
+commit;
+update app.household_members set left_at = null where household_id = :h_st and person_id = :p_st_principal;
+select pg_temp.assert(:'sub_hh_acc'::jsonb->>'status' = 'accepted',
+  'the block follows the household records, not relationships: once the principal has left the household record she can review the same child''s homework (and a step-parent recorded only in another household was never blocked)');
 
 -- ── Reviewers read only the parts an answer lists; replaced and undeclared files ──
 begin; select pg_temp.sign_in(:kid);
@@ -1660,6 +1692,12 @@ select pg_temp.assert_raises($$select app.save_gyan_assignment('72000000-0000-40
 commit;
 select pg_temp.assert((:'a_fair_big'::jsonb->>'points') = '1000' and (:'a_fair_ren'::jsonb->>'points') = '1000' and (:'a_fair_ren'::jsonb->>'title') = 'Fair prize, renamed',
   'a class Teacher offers 100; the office (pathshala.manage) may set 1,000; the Teacher can still change the rest of homework the office gave 1,000 points');
+-- A Teacher role granted for the whole community (not tied to a class) can set homework for any class.
+begin; select pg_temp.sign_in(:centerteacher);
+select (app.save_gyan_assignment(:c1, jsonb_build_object('level_id', :l1, 'class_id', :classB, 'title', 'Class B by a community-wide Teacher', 'allowed_kinds', jsonb_build_array('text')))->>'id') as a_ct_b \gset
+commit;
+select pg_temp.assert((select class_id = :classB::uuid and created_by = :centerteacher::uuid from app.gyan_assignments where id = :'a_ct_b'),
+  'a Teacher role granted for the whole community can set homework for any class (here class B, which is not the one they teach)');
 
 -- ── Required homework that stops holding releases the level bonus it held ───
 \set l_arch '''72000000-0000-4000-8000-000000000f11'''
