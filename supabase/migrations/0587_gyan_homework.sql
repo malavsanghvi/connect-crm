@@ -1200,7 +1200,7 @@ begin
   else
     perform app.set_audit_context('Handed in homework "' || a.title || '" for ' || v_name || case when v_child then ' (child)' else '' end
                                   || case when v_me is distinct from s.person_id then ' by a household adult'
-                                          when v_check = 'no_login' then ', straight to the teacher: no parent can sign in (they were emailed)'
+                                          when v_check = 'no_login' then ', straight to the teacher: no parent can sign in (a heads-up email goes to the household''s adults)'
                                           else '' end);
     update app.gyan_submissions
        set status = 'submitted', submitted_by = auth.uid(), submitted_at = now(), late = v_late,

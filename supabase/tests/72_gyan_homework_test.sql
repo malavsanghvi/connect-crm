@@ -221,6 +221,30 @@ select pg_temp.assert(has_function_privilege('connect_worker', 'app.worker_homew
                       and not has_function_privilege('anon', 'app.worker_homework_publish_notify(uuid, int, int)', 'execute')
                       and not has_function_privilege('service_role', 'app.worker_homework_publish_notify(uuid, int, int)', 'execute'),
   'the publish notice''s fan-out is the worker role''s alone');
+-- Function hygiene for everything 0587 defines or redefines (the 54 functions minus the three pure helpers): a security
+-- definer function pins its search path, none is open to PUBLIC, and anon can call only the two bucket rules.
+create or replace function pg_temp.hw_fns() returns setof pg_proc language sql stable as $$
+  select p.* from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+   where n.nspname = 'app' and p.proname = any (array[
+    '_gyan_homework_adults', '_gyan_homework_household_card', '_gyan_homework_notify_family', '_gyan_homework_notify_person',
+    '_gyan_homework_notify_reviewers', '_gyan_homework_parent_check', '_gyan_homework_publish_recipients',
+    '_gyan_homework_release_level_bonus', '_gyan_homework_reviewer_users', '_gyan_homework_route', '_gyan_homework_send',
+    '_gyan_homework_vars', 'can_read_object', 'can_write_object', 'center_storage_overview', 'gyan_assignment_applies',
+    'gyan_assignment_due_on', 'gyan_assignment_json', 'gyan_assignment_reviewer', 'gyan_assignments_guard', 'gyan_award_level_bonus',
+    'gyan_can_act_for', 'gyan_center_today', 'gyan_due_rule_problem', 'gyan_enrolled_in_class', 'gyan_homework_editor',
+    'gyan_homework_mime_ok', 'gyan_homework_path_ok', 'gyan_homework_queue', 'gyan_homework_reviewer', 'gyan_homework_reviewer_role',
+    'gyan_i_am_adult', 'gyan_in_household', 'gyan_learner_name', 'gyan_levels_homework_guard', 'gyan_submission_json',
+    'gyan_submission_readable', 'gyan_submission_writable', 'hand_in_gyan_submission', 'my_gyan_homework',
+    'parent_decide_gyan_submission', 'people_dob_guard', 'person_is_minor', 'record_storage_deletions', 'review_gyan_submission',
+    'save_gyan_assignment', 'save_gyan_submission_draft', 'set_gyan_assignment_status', 'storage_expired_objects',
+    'storage_retention_days', 'worker_homework_publish_notify']) $$;
+select pg_temp.assert((select count(*) from pg_temp.hw_fns()) = 51
+                      and (select count(*) from pg_temp.hw_fns() p where p.prosecdef and (p.proconfig is null or not (p.proconfig::text like '%search_path=app, public, extensions%'))) = 0
+                      and (select count(*) from pg_temp.hw_fns() p where p.prosecdef
+                              and (p.proacl is null or exists (select 1 from aclexplode(p.proacl) a where a.grantee = 0 and a.privilege_type = 'EXECUTE'))) = 0
+                      and (select array_agg(p.proname::text order by p.proname) from pg_temp.hw_fns() p where has_function_privilege('anon', p.oid, 'execute'))
+                          = array['can_read_object', 'can_write_object'],
+  'every security definer function 0587 defines pins its search path and none is open to PUBLIC; anon can call only the two bucket rules');
 select pg_temp.assert_raises($$select app.worker_homework_publish_notify('72000000-0000-4000-8000-0000000000ff', 0, 50)$$,
   'only the background service', 'and it asserts the worker role itself, even for the database owner');
 select pg_temp.assert((select not public and file_size_limit = 26214400 and 'image/heic' = any (allowed_mime_types) and 'application/pdf' = any (allowed_mime_types)
@@ -1326,7 +1350,7 @@ select pg_temp.assert((select count(*) = 1 and bool_and(channel = 'email' and to
                       and (select count(*) from pg_temp.msgs('homework.parent_check', 'submission_id', :'sub_nl')) = 0
                       and (select count(*) from pg_temp.msgs('homework.submitted', 'submission_id', :'sub_nl')) >= 1,
   'the household''s adult gets the heads-up by email (no push: no login), nobody is asked for an OK, and the reviewers are told');
-select pg_temp.assert((select reason like '%straight to the teacher: no parent can sign in (they were emailed)%'
+select pg_temp.assert((select reason like '%straight to the teacher: no parent can sign in (a heads-up email goes to the household''s adults)%'
                          from app.audit_log where record_table = 'gyan_submissions' and record_id = :'sub_nl' and action = 'gyan_submissions.update' order by id desc limit 1),
   'the hand-in is audited as going straight to the teacher because no parent can sign in');
 begin; select pg_temp.sign_in(:mxteen);
