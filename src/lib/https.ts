@@ -15,6 +15,9 @@ export type HttpsName = {
   valid_to: string | null;
 };
 
+/** The last time the check reloaded the web server: the safety net for the IP certificate renewal (deploy/https-confirm.mjs, 5). */
+export type HttpsCaddyReload = { at: string; reason: string | null; ok: boolean; error: string | null };
+
 export type HttpsStatus = {
   version: number;
   checked_at: string;
@@ -22,6 +25,8 @@ export type HttpsStatus = {
   ip_certificate: { enabled: boolean; note: string | null };
   caddy_version: string | null;
   portal_names_error: string | null;
+  /** null when the check never reloaded the web server (and in status files written before the safety net). */
+  caddy_reload: HttpsCaddyReload | null;
   names: HttpsName[];
 };
 
@@ -52,8 +57,16 @@ export function parseHttpsStatus(raw: unknown): HttpsStatus | null {
     ip_certificate: { enabled: ipc.enabled === true, note: typeof ipc.note === "string" ? ipc.note : null },
     caddy_version: typeof r.caddy_version === "string" ? r.caddy_version : null,
     portal_names_error: typeof r.portal_names_error === "string" ? r.portal_names_error : null,
+    caddy_reload: parseCaddyReload(r.caddy_reload),
     names,
   };
+}
+
+function parseCaddyReload(raw: unknown): HttpsCaddyReload | null {
+  if (!raw || typeof raw !== "object") return null;
+  const x = raw as Record<string, unknown>;
+  if (typeof x.at !== "string") return null;
+  return { at: x.at, reason: typeof x.reason === "string" ? x.reason : null, ok: x.ok === true, error: typeof x.error === "string" ? x.error : null };
 }
 
 /** The confirmer runs every minute; older than this means it has stopped. */
@@ -137,6 +150,35 @@ export function summarizeHttps(input: SummaryInput, portalDomain: string | null,
   }
   if (s.portal_names_error) lines.push({ name: "Saved addresses", tone: "warn", text: `The check could not read the saved addresses: ${s.portal_names_error}` });
   return { tone, headline, lines, next };
+}
+
+/** "3 minutes ago" for the panel; "at an unknown time" when the stamp cannot be read. */
+function ago(ms: number): string {
+  if (!(ms >= 0)) return "at an unknown time";
+  const minutes = Math.round(ms / 60_000);
+  if (minutes < 1) return "just now";
+  if (minutes < 120) return `${minutes} minute${minutes === 1 ? "" : "s"} ago`;
+  const hours = Math.round(ms / 3_600_000);
+  if (hours < 48) return `${hours} hours ago`;
+  return `${Math.round(ms / 86_400_000)} days ago`;
+}
+
+/**
+ * One plain-English line about the last time the check reloaded the web server
+ * (the safety net for the IP certificate renewal); null when it never has.
+ */
+export function describeCaddyReload(s: HttpsStatus, now: number = Date.now()): string | null {
+  const r = s.caddy_reload;
+  if (!r) return null;
+  const when = ago(now - Date.parse(r.at));
+  if (!r.ok) {
+    const although = r.reason ? ` although ${r.reason}` : "";
+    return `The web server (Caddy) could not be reloaded ${when} — ${r.error ?? "unknown error"} —${although}. The check tries again after 10 minutes; the site keeps working on http:// meanwhile.`;
+  }
+  const because = r.reason ? ` because ${r.reason}` : "";
+  const ip = s.names.find((n) => n.source === "droplet_ip");
+  const after = !ip ? "" : ip.confirmed ? "; it works now" : `; https://${ip.name} still fails`;
+  return `The web server (Caddy) was reloaded ${when}${because}${after}.`;
 }
 
 /** Was this request made over HTTPS (behind Caddy: X-Forwarded-Proto)? */

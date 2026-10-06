@@ -1,6 +1,6 @@
 import { Alert, Card, StatusText } from "@/components/ui";
 import { formatDateTime } from "@/lib/dates";
-import { summarizeHttps } from "@/lib/https";
+import { describeCaddyReload, summarizeHttps } from "@/lib/https";
 import { platformPublicAddresses, readHttpsStatus } from "@/lib/https-server";
 
 // "Portal address and HTTPS" (o-https): what the droplet's HTTPS check found, in
@@ -10,6 +10,7 @@ export async function HttpsStatusPanel({ timeZone }: { timeZone: string }) {
   const [status, addr] = await Promise.all([readHttpsStatus(), platformPublicAddresses()]);
   const portalDomain = addr.ok ? addr.value.portal_domain : null;
   const s = summarizeHttps(status, portalDomain);
+  const reload = status.ok ? describeCaddyReload(status.status) : null;
   const alertTone = s.tone === "ok" ? "success" : s.tone === "warn" ? "warning" : "danger";
   return (
     <Card
@@ -41,6 +42,7 @@ export async function HttpsStatusPanel({ timeZone }: { timeZone: string }) {
             ))}
           </ul>
         ) : null}
+        {reload ? <p className="text-[13px]">{reload}</p> : null}
         <p className="crm-hint">
           HTTPS starts by itself, with no redeploy, a few minutes after a name&apos;s DNS points at this server. Until a name&apos;s certificate is confirmed it keeps
           working on http://; after that, http:// sends visitors to https:// and browsers are told to stay on HTTPS.
