@@ -31,7 +31,7 @@
 --                                 learner or a household adult while the answer is a draft or sent back; read by
 --                                 the family (the whole folder), and by the reviewers once the answer is with them
 --                                 and only the parts it lists (never a draft or an answer waiting for a parent);
---                                 Gyan Path module; kept 365 days (H9), a community may change that like recordings;
+--                                 Gyan Path module; kept 180 days by default (H9), a community may change that like recordings;
 --                                 the retention job nulls the file row's path
 --   Templates                     homework.assigned, homework.parent_check, homework.sent_back_parent,
 --                                 homework.submitted, homework.accepted, homework.sent_back, homework.heads_up
@@ -51,10 +51,18 @@
 -- and the parent check cannot change once an answer exists, a class Teacher reviews only while the class's term is
 -- open, and due dates never start in the past.
 --
--- NEEDS OWNER SIGN-OFF (access rules): parents read and decide a child's homework; teachers read children's
--- uploads; the bucket rules; who may create homework; nobody reviews their own family's homework; the audit log
--- masks answers and notes. The LAST section is a separate access change the owner may decline on its own: a child
--- can no longer change their own date of birth. See the pull request.
+-- Owner's approval, 2026-10-06: the access rules as written, plus three changes at the owner's request.
+--   (1) Homework meant for one class is visible only to that class: the students placed or active in it while its term
+--       is open, the household adults who act for them, and the people who set or review it (the editor rule, the class's
+--       Teachers, a community-wide Teacher with pathshala.teach, pathshala.manage, content.manage). Homework for no class
+--       stays visible to every signed-in member (app.gyan_class_homework_visible, the policy gyan_assignments_read).
+--   (2) The bucket takes no old Office files (.doc, .xls, .ppt): photos, audio, PDF, .docx, .xlsx, .pptx and plain text.
+--   (3) Homework files are kept 180 days by default (it was 365); a community may still change that in Settings > Storage.
+--
+-- OWNER SIGN-OFF (access rules), approved as written: parents read and decide a child's homework; teachers read
+-- children's uploads; the bucket rules; who may create homework; nobody reviews their own family's homework; the audit
+-- log masks answers and notes. The LAST section is a separate access change, approved on its own: a child can no longer
+-- change their own date of birth. See the pull request.
 set client_min_messages = warning;
 
 -- ── Locks first ──────────────────────────────────────────────────────────────
@@ -103,7 +111,7 @@ create table if not exists app.gyan_assignments (
 create index if not exists gyan_assignments_level_idx on app.gyan_assignments (level_id, status);
 create index if not exists gyan_assignments_center_idx on app.gyan_assignments (center_id, status, class_id);
 comment on table app.gyan_assignments is
-  'Homework on a Gyan Path level, per community (0587; shared library levels included). class_id set: only the students placed in that Pathshala class get it (H6). parent_check: never | children (a learner under 18 handing in from their own login waits for a household adult) | always. reviewer: teacher (the learner''s class Teacher, else pathshala.teach / pathshala.manage) | content (content.manage); pathshala.manage always. required_for_level: the level is complete only once this is accepted (H7). due_rule: {"kind":"none"} | {"kind":"days_after_start","days":1-365} (from the later of the learner''s first completed step of the level and the publish date) | {"kind":"on","date":"YYYY-MM-DD"}, stored in exactly that form; due dates are information, never a gate (H5). Homework for a class is always reviewed by the class teacher. Once an answer exists the level, class, reviewer and parent check are fixed. Written only by app.save_gyan_assignment and app.set_gyan_assignment_status.';
+  'Homework on a Gyan Path level, per community (0587; shared library levels included). class_id set: only the students placed or active in that Pathshala class get it (H6), and only they, the household adults who act for them and the people who set or review it can read it (policy gyan_assignments_read, owner decision 2026-10-06). parent_check: never | children (a learner under 18 handing in from their own login waits for a household adult) | always. reviewer: teacher (the learner''s class Teacher, else pathshala.teach / pathshala.manage) | content (content.manage); pathshala.manage always. required_for_level: the level is complete only once this is accepted (H7). due_rule: {"kind":"none"} | {"kind":"days_after_start","days":1-365} (from the later of the learner''s first completed step of the level and the publish date) | {"kind":"on","date":"YYYY-MM-DD"}, stored in exactly that form; due dates are information, never a gate (H5). Homework for a class is always reviewed by the class teacher. Once an answer exists the level, class, reviewer and parent check are fixed. Written only by app.save_gyan_assignment and app.set_gyan_assignment_status.';
 comment on column app.gyan_assignments.published_at is 'When it was FIRST published (set once; publishing again after an unpublish keeps it). Every publish queues a notify job, and the worker tells each learner once, so a re-publish tells only those not told yet. A days_after_start due rule never starts before it.';
 comment on column app.gyan_assignments.level_id is 'The lesson level (on delete restrict: a level that has homework cannot be deleted, so no learner''s answers are ever deleted with it).';
 
@@ -266,6 +274,20 @@ language sql stable security definer set search_path = app, public, extensions a
   select exists (select 1 from app.pathshala_enrollments e join app.pathshala_terms t on t.id = e.term_id
                   where e.student_person_id = p_person and e.class_id = p_class
                     and e.status in ('placed', 'active') and t.status in ('registration', 'active'))
+$$;
+
+-- May the caller read homework that is meant for this one class (owner decision 2026-10-06)? Yes when the caller is a student
+-- placed or active in the class with the class's term open, or an adult who can act for such a student (app.gyan_can_act_for:
+-- a parent, the other adults of the household). It answers only about the caller and their own family. The people who set or
+-- review the homework read it through other rules (app.gyan_homework_editor, pathshala.teach); see the policy
+-- gyan_assignments_read.
+create or replace function app.gyan_class_homework_visible(p_center uuid, p_class uuid) returns boolean
+language sql stable security definer set search_path = app, public, extensions as $$
+  select p_center is not null and p_class is not null and auth.uid() is not null and exists (
+    select 1 from app.pathshala_enrollments e join app.pathshala_terms t on t.id = e.term_id
+     where e.center_id = p_center and e.class_id = p_class
+       and e.status in ('placed', 'active') and t.status in ('registration', 'active')
+       and app.gyan_can_act_for(p_center, e.student_person_id))
 $$;
 
 -- Who may create or change homework (H2): content.manage or pathshala.manage for everyone's; a class Teacher only
@@ -1048,7 +1070,7 @@ $$;
 -- app's first call, which only asks for the answer's id, sends null); a list, even an empty one, REPLACES them:
 -- [{kind, storage_path, mime_type, bytes, duration_seconds}], each under <center>/<person>/<submission>/<name> in the
 -- homework bucket. A part that is replaced loses its row, so reviewers can no longer read its file; the object itself
--- stays in the bucket for the family and is removed by the retention job (default 365 days after upload).
+-- stays in the bucket for the family and is removed by the retention job (default 180 days after upload).
 create or replace function app.save_gyan_submission_draft(p_assignment uuid, p_person uuid, p_text text, p_files jsonb) returns jsonb
 language plpgsql security definer set search_path = app, public, extensions as $$
 declare
@@ -1127,8 +1149,12 @@ begin
       v_paths := v_paths || v_path;
       v_mime := nullif(btrim(coalesce(f->>'mime_type', '')), '');
       if not app.gyan_homework_mime_ok(v_kind, v_mime) then
-        raise exception 'File %: "%" is not a file type this homework takes for a %.', i + 1, coalesce(v_mime, '?'),
-          case v_kind when 'photo' then 'photo' when 'voice' then 'voice note' else 'file' end using errcode = '22023';
+        raise exception 'File %: "%" is not a file type this homework takes for a %. %', i + 1, coalesce(v_mime, '?'),
+          case v_kind when 'photo' then 'photo' when 'voice' then 'voice note' else 'file' end,
+          case v_kind when 'photo' then 'A photo can be a PNG, JPEG, WebP, HEIC or HEIF picture.'
+                      when 'voice' then 'A voice note can be an M4A, MP3, AAC, WebM, WAV, OGG, 3GP or CAF recording.'
+                      else 'A file can be a PDF, a Word (.docx), Excel (.xlsx) or PowerPoint (.pptx) document, or a plain text (.txt) file. The old .doc, .xls and .ppt formats are not accepted: save it as a PDF or in the newer format and add it again.' end
+          using errcode = '22023';
       end if;
       if jsonb_typeof(f->'bytes') <> 'number' then raise exception 'File %: "bytes" must be the file''s size in bytes.', i + 1 using errcode = '22023'; end if;
       v_bytes := (f->>'bytes')::numeric;
@@ -1499,10 +1525,17 @@ alter table app.gyan_assignments enable row level security;
 alter table app.gyan_submissions enable row level security;
 alter table app.gyan_submission_files enable row level security;
 
--- Published homework to the community's members; drafts and archived homework to the people who may edit it.
+-- Published homework for everyone doing the level (no class) to the community's members. Homework meant for one class (owner
+-- decision 2026-10-06) only to that class: the students placed or active in it while its term is open and the household
+-- adults who act for them (app.gyan_class_homework_visible), and the people who set or review it: the editor rule
+-- (content.manage, pathshala.manage, the class's Teacher) and a community-wide Teacher (pathshala.teach). Drafts and archived
+-- homework only to the people who may edit it.
 drop policy if exists gyan_assignments_read on app.gyan_assignments;
 create policy gyan_assignments_read on app.gyan_assignments for select to authenticated
-  using ((status = 'published' and app.is_member_of(center_id)) or app.gyan_homework_editor(center_id, class_id));
+  using ((status = 'published'
+          and case when class_id is null then app.is_member_of(center_id)
+                   else app.gyan_class_homework_visible(center_id, class_id) or app.has_permission(center_id, 'pathshala.teach') end)
+         or app.gyan_homework_editor(center_id, class_id));
 -- The learner and the adults of their household, always; the reviewers once the answer is with them (submitted,
 -- accepted or sent back), never a draft or an answer waiting for a parent. Nobody else, ever.
 drop policy if exists gyan_submissions_read on app.gyan_submissions;
@@ -1530,19 +1563,21 @@ begin
 end $$;
 
 -- ── Storage: the homework bucket ─────────────────────────────────────────────
+-- Pictures, audio, PDF, the newer Office formats (.docx, .xlsx, .pptx) and plain text. No old Office files (.doc, .xls, .ppt):
+-- owner decision 2026-10-06. app.gyan_homework_mime_ok and the refusal in save_gyan_submission_draft read this list.
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types) values
   ('homework', 'homework', false, 26214400, array[
      'image/png','image/jpeg','image/webp','image/heic','image/heif','application/pdf',
      'audio/mp4','audio/x-m4a','audio/mpeg','audio/aac','audio/webm','audio/wav','audio/x-wav','audio/ogg','audio/3gpp','audio/x-caf',
-     'application/msword','application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-     'application/vnd.ms-excel','application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-     'application/vnd.ms-powerpoint','application/vnd.openxmlformats-officedocument.presentationml.presentation',
+     'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+     'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+     'application/vnd.openxmlformats-officedocument.presentationml.presentation',
      'text/plain'])
 on conflict (id) do update set public = excluded.public, file_size_limit = excluded.file_size_limit,
   allowed_mime_types = excluded.allowed_mime_types;
 
 -- 0172's helpers with the homework bucket: it follows the Gyan Path module, every upload queues a scan, and it is
--- kept 365 days (a community may choose 1-3650, like recordings).
+-- kept 180 days by default (owner decision 2026-10-06; a community may choose 1-3650 days, like recordings).
 create or replace function app.storage_bucket_module(p_bucket text) returns text
 language sql immutable set search_path = app, public, extensions as $$
   select case p_bucket when 'content' then 'content' when 'photos' then 'content' when 'store' then 'store'
@@ -1558,7 +1593,7 @@ create or replace function app.storage_retention_days(p_bucket text, p_center uu
 language plpgsql stable security definer set search_path = app, public, extensions as $$
 declare v_default int; v_override text;
 begin
-  v_default := case p_bucket when 'imports' then 90 when 'exports' then 7 when 'recordings' then 90 when 'homework' then 365 end;
+  v_default := case p_bucket when 'imports' then 90 when 'exports' then 7 when 'recordings' then 90 when 'homework' then 180 end;
   if v_default is null then return null; end if;
   if p_bucket in ('imports','recordings','homework') and p_center is not null then
     select c.rules #>> array['storage','retention_days',p_bucket] into v_override from app.centers c where c.id = p_center;
@@ -1845,6 +1880,7 @@ comment on function app.person_is_minor(uuid) is 'Under 18 by date of birth; no 
 comment on function app.gyan_i_am_adult(uuid) is 'The caller is an adult by app.person_is_minor''s rule (app.i_am_adult would count a child with no birth date as an adult).';
 comment on function app.gyan_can_act_for(uuid, uuid) is 'app.can_act_for_person with the homework adult rule: myself, or (when I am an adult by app.person_is_minor) anyone in one of my households.';
 comment on function app.gyan_in_household(uuid, uuid) is 'Me, or anyone in one of my households (adult or not): the reviewers'' conflict-of-interest rule.';
+comment on function app.gyan_class_homework_visible(uuid, uuid) is 'May the caller read homework that is meant for this one class: a student placed or active in the class with its term open, or an adult who can act for one (app.gyan_can_act_for). Answers only about the caller''s own family; the people who set or review the homework read it through app.gyan_homework_editor and pathshala.teach (policy gyan_assignments_read, owner decision 2026-10-06).';
 comment on function app.gyan_enrolled_in_class(uuid, uuid) is 'Placed or active in the class with the enrollment''s term in registration or active.';
 comment on function app.gyan_assignment_applies(uuid, uuid) is 'Published, the person''s own community, and (when it names a class) the person is placed or active in that class with the term open.';
 comment on function app.gyan_homework_path_ok(text) is 'A homework file name: <community>/<person>/<submission>/<file id>.<extension>: four lowercase uuids, then a dot and one to five lowercase letters or digits (a learner never chooses a file name, so no child''s words can sit in one); at most 500 characters, no "..".';
@@ -1867,11 +1903,11 @@ grant execute on function
 -- answers only about the caller: may I edit, review or read this?
 revoke execute on function
   app.gyan_homework_editor(uuid, uuid), app.gyan_homework_reviewer(uuid, uuid, text),
-  app.gyan_assignment_reviewer(uuid), app.gyan_submission_readable(uuid), app.gyan_can_act_for(uuid, uuid)
+  app.gyan_assignment_reviewer(uuid), app.gyan_submission_readable(uuid), app.gyan_can_act_for(uuid, uuid), app.gyan_class_homework_visible(uuid, uuid)
   from public, anon;
 grant execute on function
   app.gyan_homework_editor(uuid, uuid), app.gyan_homework_reviewer(uuid, uuid, text),
-  app.gyan_assignment_reviewer(uuid), app.gyan_submission_readable(uuid), app.gyan_can_act_for(uuid, uuid)
+  app.gyan_assignment_reviewer(uuid), app.gyan_submission_readable(uuid), app.gyan_can_act_for(uuid, uuid), app.gyan_class_homework_visible(uuid, uuid)
   to authenticated, service_role;
 -- Internal: only the RPCs and the helpers above call these, as their definer. A signed-in member can never call them
 -- directly: several are security definer and would return private rows or names for any id they are given
@@ -1910,8 +1946,8 @@ grant execute on function app.worker_homework_publish_notify(uuid, int, int) to 
 
 -- ═════════════════════════════════════════════════════════════════════════════
 -- SEPARATE ACCESS CHANGE: a child cannot change their own date of birth.
--- NEEDS THE OWNER'S OK ON ITS OWN. To decline it, delete this section (a function, its grants, a trigger and a comment:
--- nothing above depends on it); everything else in this migration stands on its own.
+-- Approved by the owner on 2026-10-06, on its own: it is a separate rule. It is one section (a function, its grants, a
+-- trigger and a comment: nothing above depends on it), so it can be taken out without touching the rest of this migration.
 --
 -- Why: the parent's check, "adult" and who may act for a child all follow the date of birth, and 0010's policy
 -- people_self_or_guardian_update lets a child edit their own people row, date of birth included. A child could move
@@ -1940,4 +1976,4 @@ grant execute on function app.people_dob_guard() to service_role;
 drop trigger if exists people_dob_guard on app.people;
 create trigger people_dob_guard before update of date_of_birth on app.people
   for each row execute function app.people_dob_guard();
-comment on function app.people_dob_guard() is 'A child (app.person_is_minor) cannot change their own date of birth unless they hold people.manage or are a platform admin: a parent or the office does it (0587, a separate access change the owner may decline).';
+comment on function app.people_dob_guard() is 'A child (app.person_is_minor) cannot change their own date of birth unless they hold people.manage or are a platform admin: a parent or the office does it (0587, a separate access change, approved by the owner on 2026-10-06).';

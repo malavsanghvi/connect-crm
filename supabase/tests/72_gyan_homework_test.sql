@@ -15,7 +15,11 @@
 -- adult who can sign in go straight to the teacher (the household is emailed); reviewers read only the listed parts;
 -- levels with homework cannot be deleted; the bonus a required homework held is paid when it stops holding; wrong JSON
 -- types get sentences; a class Teacher's points are capped; archived homework stays listed, read-only; due dates never
--- start in the past; the office can release an answer no parent checks.
+-- start in the past; the office can release an answer no parent checks. The owner's three changes of 2026-10-06: homework
+-- meant for one class is read only by that class (its students placed or active while the term is open, the household adults
+-- who act for them) and by those who set or review it, and the homework for everyone is still read by every member; the
+-- bucket takes no old Office files (.doc, .xls, .ppt) and refuses them with a sentence that lists what is allowed; homework
+-- files are kept 180 days by default.
 \set ON_ERROR_STOP 1
 create or replace function pg_temp.assert(cond boolean, label text) returns void language plpgsql as $$
 begin
@@ -196,6 +200,10 @@ select pg_temp.assert(has_function_privilege('authenticated', 'app.gyan_homework
                       and not has_function_privilege('authenticated', 'app.gyan_submission_writable(uuid, uuid, uuid)', 'execute')
                       and not has_function_privilege('authenticated', 'app.gyan_assignment_due_on(uuid, uuid)', 'execute'),
   'only the four helpers the row level security policies call are open to members; the helpers that return an answer, a name or a minor flag for any id are internal');
+select pg_temp.assert(has_function_privilege('authenticated', 'app.gyan_class_homework_visible(uuid, uuid)', 'execute')
+                      and has_function_privilege('service_role', 'app.gyan_class_homework_visible(uuid, uuid)', 'execute')
+                      and not has_function_privilege('anon', 'app.gyan_class_homework_visible(uuid, uuid)', 'execute'),
+  'the class-homework rule the read policy calls is open to signed-in members (it answers only about their own family) and never to anon');
 select pg_temp.assert((select count(*) from app.message_templates where center_id is null and language = 'en'
                          and key in ('homework.assigned', 'homework.parent_check', 'homework.sent_back_parent', 'homework.submitted', 'homework.accepted', 'homework.sent_back', 'homework.heads_up')) = 14,
   'the seven homework templates are seeded as push and email platform defaults');
@@ -221,7 +229,7 @@ select pg_temp.assert(has_function_privilege('connect_worker', 'app.worker_homew
                       and not has_function_privilege('anon', 'app.worker_homework_publish_notify(uuid, int, int)', 'execute')
                       and not has_function_privilege('service_role', 'app.worker_homework_publish_notify(uuid, int, int)', 'execute'),
   'the publish notice''s fan-out is the worker role''s alone');
--- Function hygiene for everything 0587 defines or redefines (the 54 functions minus the three pure helpers): a security
+-- Function hygiene for everything 0587 defines or redefines (the 55 functions minus the three pure helpers): a security
 -- definer function pins its search path, none is open to PUBLIC, and anon can call only the two bucket rules.
 create or replace function pg_temp.hw_fns() returns setof pg_proc language sql stable as $$
   select p.* from pg_proc p join pg_namespace n on n.oid = p.pronamespace
@@ -231,14 +239,14 @@ create or replace function pg_temp.hw_fns() returns setof pg_proc language sql s
     '_gyan_homework_release_level_bonus', '_gyan_homework_reviewer_users', '_gyan_homework_route', '_gyan_homework_send',
     '_gyan_homework_vars', 'can_read_object', 'can_write_object', 'center_storage_overview', 'gyan_assignment_applies',
     'gyan_assignment_due_on', 'gyan_assignment_json', 'gyan_assignment_reviewer', 'gyan_assignments_guard', 'gyan_award_level_bonus',
-    'gyan_can_act_for', 'gyan_center_today', 'gyan_due_rule_problem', 'gyan_enrolled_in_class', 'gyan_homework_editor',
+    'gyan_can_act_for', 'gyan_center_today', 'gyan_class_homework_visible', 'gyan_due_rule_problem', 'gyan_enrolled_in_class', 'gyan_homework_editor',
     'gyan_homework_mime_ok', 'gyan_homework_path_ok', 'gyan_homework_queue', 'gyan_homework_reviewer', 'gyan_homework_reviewer_role',
     'gyan_i_am_adult', 'gyan_in_household', 'gyan_learner_name', 'gyan_levels_homework_guard', 'gyan_submission_json',
     'gyan_submission_readable', 'gyan_submission_writable', 'hand_in_gyan_submission', 'my_gyan_homework',
     'parent_decide_gyan_submission', 'people_dob_guard', 'person_is_minor', 'record_storage_deletions', 'review_gyan_submission',
     'save_gyan_assignment', 'save_gyan_submission_draft', 'set_gyan_assignment_status', 'storage_expired_objects',
     'storage_retention_days', 'worker_homework_publish_notify']) $$;
-select pg_temp.assert((select count(*) from pg_temp.hw_fns()) = 51
+select pg_temp.assert((select count(*) from pg_temp.hw_fns()) = 52
                       and (select count(*) from pg_temp.hw_fns() p where p.prosecdef and (p.proconfig is null or not (p.proconfig::text like '%search_path=app, public, extensions%'))) = 0
                       and (select count(*) from pg_temp.hw_fns() p where p.prosecdef
                               and (p.proacl is null or exists (select 1 from aclexplode(p.proacl) a where a.grantee = 0 and a.privilege_type = 'EXECUTE'))) = 0
@@ -250,11 +258,15 @@ select pg_temp.assert_raises($$select app.worker_homework_publish_notify('720000
 select pg_temp.assert((select not public and file_size_limit = 26214400 and 'image/heic' = any (allowed_mime_types) and 'application/pdf' = any (allowed_mime_types)
                           and 'audio/mp4' = any (allowed_mime_types) and 'text/plain' = any (allowed_mime_types)
                           and 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' = any (allowed_mime_types)
+                          and 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' = any (allowed_mime_types)
+                          and 'application/vnd.openxmlformats-officedocument.presentationml.presentation' = any (allowed_mime_types)
+                          and not ('application/msword' = any (allowed_mime_types)) and not ('application/vnd.ms-excel' = any (allowed_mime_types))
+                          and not ('application/vnd.ms-powerpoint' = any (allowed_mime_types))
                           and not ('video/mp4' = any (allowed_mime_types))
                          from storage.buckets where id = 'homework')
                       and app.storage_bucket_module('homework') = 'gyan_path' and 'homework' = any (app.storage_scan_buckets())
-                      and app.storage_retention_days('homework', :c1) = 365,
-  'the private homework bucket exists (25 MB, pictures, PDF, audio, office files, text; no video), follows Gyan Path, is scanned and kept 365 days');
+                      and app.storage_retention_days('homework', :c1) = 180,
+  'the private homework bucket exists (25 MB, pictures, PDF, audio, .docx/.xlsx/.pptx, text; no old Office files, no video), follows Gyan Path, is scanned and kept 180 days');
 select pg_temp.assert(app.person_is_minor(:p_kid) and not app.person_is_minor(:p_mom) and not app.person_is_minor(:p_member) and not app.person_is_minor('72000000-0000-4000-8000-0000000000ff'),
   'person_is_minor: under 18 by date of birth; no date of birth (and no person) is an adult (F7)');
 select pg_temp.assert(app.gyan_due_rule_problem('{"kind":"none"}') is null and app.gyan_due_rule_problem('{"kind":"days_after_start","days":7}') is null
@@ -1395,7 +1407,7 @@ update storage.objects set created_at = now() - interval '400 days'
 begin; set local role connect_worker;
 select pg_temp.assert((select array_agg(name order by name) from app.storage_expired_objects(100) where bucket_id = 'homework' and name like '%/' || :'sub_f' || '/%')
                         = array[:prefix || :'sub_f' || '/e1000000-0000-4000-8000-000000000012.jpg', :prefix || :'sub_f' || '/e1000000-0000-4000-8000-000000000013.jpg'],
-  'a replaced or never-listed file is cleaned up by the retention job like any other homework file (365 days after upload by default)');
+  'a replaced or never-listed file is cleaned up by the retention job like any other homework file (180 days after upload by default)');
 commit;
 update storage.objects set created_at = now()
  where bucket_id = 'homework' and name in (:prefix || :'sub_f' || '/e1000000-0000-4000-8000-000000000012.jpg', :prefix || :'sub_f' || '/e1000000-0000-4000-8000-000000000013.jpg');
@@ -1935,6 +1947,198 @@ select pg_temp.assert((select count(*) from app.jobs where kind = 'homework.publ
                       and (select count(*) from jsonb_array_elements(:'tog_runs'::jsonb)) = 5,
   'five toggles queue five cheap jobs and no second round of messages: every run finds everyone already told');
 
+-- ── Class-only homework is read only by that class and by those who set or review it (owner, 2026-10-06) ──
+-- Homework for one class: read by the students placed or active in it while its term is open, the household adults who act for
+-- them, and the people who set or review it (the editor rule, the class's Teachers, a community-wide Teacher, the office, the
+-- content team). Homework for no class stays visible to every member. Four digits: A (class A), B (class B), C (last year's
+-- class C), D (a draft for class A); then E, the homework for everyone.
+begin; select pg_temp.sign_in(:contentmgr);
+select (app.save_gyan_assignment(:c1, jsonb_build_object('level_id', :l1, 'title', 'Visibility: class A', 'class_id', :classA, 'allowed_kinds', jsonb_build_array('text'), 'parent_check', 'never'))->>'id') as a_va \gset
+select (app.save_gyan_assignment(:c1, jsonb_build_object('level_id', :l1, 'title', 'Visibility: class B', 'class_id', :classB, 'allowed_kinds', jsonb_build_array('text'), 'parent_check', 'never'))->>'id') as a_vb \gset
+select (app.save_gyan_assignment(:c1, jsonb_build_object('level_id', :l1, 'title', 'Visibility: class C (last year)', 'class_id', :classC, 'allowed_kinds', jsonb_build_array('text'), 'parent_check', 'never'))->>'id') as a_vc \gset
+select (app.save_gyan_assignment(:c1, jsonb_build_object('level_id', :l1, 'title', 'Visibility: class A draft', 'class_id', :classA, 'allowed_kinds', jsonb_build_array('text'), 'parent_check', 'never'))->>'id') as a_vd \gset
+select app.set_gyan_assignment_status(:'a_va', 'published');
+select app.set_gyan_assignment_status(:'a_vb', 'published');
+select app.set_gyan_assignment_status(:'a_vc', 'published');
+commit;
+-- What the signed-in role reads of the four class homeworks and of the one for everyone ("10001"), and which of the first three
+-- the member app lists ("100").
+create or replace function pg_temp.sees(a uuid, b uuid, c uuid, d uuid, e uuid) returns text language sql stable as $$
+  select (select count(*) from app.gyan_assignments where id = a)::text || (select count(*) from app.gyan_assignments where id = b)::text
+      || (select count(*) from app.gyan_assignments where id = c)::text || (select count(*) from app.gyan_assignments where id = d)::text
+      || (select count(*) from app.gyan_assignments where id = e)::text $$;
+create or replace function pg_temp.lists(p_hw jsonb, a uuid, b uuid, c uuid) returns text language sql stable as $$
+  select (select count(*) > 0 from jsonb_array_elements(p_hw->'items') i where i->'assignment'->>'id' = a::text)::int::text
+      || (select count(*) > 0 from jsonb_array_elements(p_hw->'items') i where i->'assignment'->>'id' = b::text)::int::text
+      || (select count(*) > 0 from jsonb_array_elements(p_hw->'items') i where i->'assignment'->>'id' = c::text)::int::text $$;
+begin; select pg_temp.sign_in(:kid); select pg_temp.sees(:'a_va', :'a_vb', :'a_vc', :'a_vd', :'a_rr') as v_kid \gset
+select app.my_gyan_homework(:c1) as hw_v_kid \gset
+commit;
+begin; select pg_temp.sign_in(:dad); select pg_temp.sees(:'a_va', :'a_vb', :'a_vc', :'a_vd', :'a_rr') as v_dad \gset
+select app.my_gyan_homework(:c1) as hw_v_dad \gset
+commit;
+begin; select pg_temp.sign_in(:adultkid); select pg_temp.sees(:'a_va', :'a_vb', :'a_vc', :'a_vd', :'a_rr') as v_adultkid \gset
+select app.my_gyan_homework(:c1) as hw_v_adultkid \gset
+commit;
+begin; select pg_temp.sign_in(:teen); select pg_temp.sees(:'a_va', :'a_vb', :'a_vc', :'a_vd', :'a_rr') as v_teen \gset
+select app.my_gyan_homework(:c1) as hw_v_teen \gset
+commit;
+begin; select pg_temp.sign_in(:neighbor); select pg_temp.sees(:'a_va', :'a_vb', :'a_vc', :'a_vd', :'a_rr') as v_nb \gset
+select app.my_gyan_homework(:c1) as hw_v_nb \gset
+commit;
+begin; select pg_temp.sign_in(:member); select pg_temp.sees(:'a_va', :'a_vb', :'a_vc', :'a_vd', :'a_rr') as v_member \gset
+select app.my_gyan_homework(:c1) as hw_v_member \gset
+commit;
+begin; select pg_temp.sign_in(:u_pl); select pg_temp.sees(:'a_va', :'a_vb', :'a_vc', :'a_vd', :'a_rr') as v_upl \gset
+select app.my_gyan_homework(:c1) as hw_v_upl \gset
+commit;
+begin; select pg_temp.sign_in(:u_wl); select pg_temp.sees(:'a_va', :'a_vb', :'a_vc', :'a_vd', :'a_rr') as v_uwl \gset
+select app.my_gyan_homework(:c1) as hw_v_uwl \gset
+commit;
+begin; select pg_temp.sign_in(:u_rq); select pg_temp.sees(:'a_va', :'a_vb', :'a_vc', :'a_vd', :'a_rr') as v_urq \gset
+select app.my_gyan_homework(:c1) as hw_v_urq \gset
+commit;
+begin; select pg_temp.sign_in(:u_comp); select pg_temp.sees(:'a_va', :'a_vb', :'a_vc', :'a_vd', :'a_rr') as v_ucomp \gset
+select app.my_gyan_homework(:c1) as hw_v_ucomp \gset
+commit;
+begin; select pg_temp.sign_in(pg_temp.u(1, 1)); select pg_temp.sees(:'a_va', :'a_vb', :'a_vc', :'a_vd', :'a_rr') as v_bs1 \gset
+select app.my_gyan_homework(:c1) as hw_v_bs1 \gset
+commit;
+begin; select pg_temp.sign_in(pg_temp.u(1, 2)); select pg_temp.sees(:'a_va', :'a_vb', :'a_vc', :'a_vd', :'a_rr') as v_bp1 \gset
+select app.my_gyan_homework(:c1) as hw_v_bp1 \gset
+commit;
+begin; select pg_temp.sign_in(:mom); select pg_temp.sees(:'a_va', :'a_vb', :'a_vc', :'a_vd', :'a_rr') as v_mom \gset
+commit;
+begin; select pg_temp.sign_in(:classteacher); select pg_temp.sees(:'a_va', :'a_vb', :'a_vc', :'a_vd', :'a_rr') as v_ct \gset
+commit;
+begin; select pg_temp.sign_in(:otherteacher); select pg_temp.sees(:'a_va', :'a_vb', :'a_vc', :'a_vd', :'a_rr') as v_ot \gset
+commit;
+begin; select pg_temp.sign_in(:pastteacher); select pg_temp.sees(:'a_va', :'a_vb', :'a_vc', :'a_vd', :'a_rr') as v_pt \gset
+commit;
+begin; select pg_temp.sign_in(:centerteacher); select pg_temp.sees(:'a_va', :'a_vb', :'a_vc', :'a_vd', :'a_rr') as v_cw \gset
+commit;
+begin; select pg_temp.sign_in(:principal); select pg_temp.sees(:'a_va', :'a_vb', :'a_vc', :'a_vd', :'a_rr') as v_pr \gset
+commit;
+begin; select pg_temp.sign_in(:contentmgr); select pg_temp.sees(:'a_va', :'a_vb', :'a_vc', :'a_vd', :'a_rr') as v_cm \gset
+commit;
+begin; select pg_temp.sign_in(:owner); select pg_temp.sees(:'a_va', :'a_vb', :'a_vc', :'a_vd', :'a_rr') as v_ow \gset
+commit;
+begin; select pg_temp.sign_in(:platadmin); select pg_temp.sees(:'a_va', :'a_vb', :'a_vc', :'a_vd', :'a_rr') as v_pa \gset
+commit;
+begin; select pg_temp.sign_in(:other); select pg_temp.sees(:'a_va', :'a_vb', :'a_vc', :'a_vd', :'a_rr') as v_c2 \gset
+commit;
+select pg_temp.assert(:'v_kid' = '10001' and :'v_dad' = '10001' and :'v_adultkid' = '10001' and :'v_upl' = '10001',
+  'class-only homework: a student placed in the class reads it, and so do a parent of that student and the other adults of the household');
+select pg_temp.assert(:'v_bs1' = '01001' and :'v_bp1' = '01001',
+  'a student of ANOTHER class, and a parent of such a student, read their own class''s homework and never class A''s');
+select pg_temp.assert(:'v_teen' = '00001' and :'v_nb' = '00001' and :'v_member' = '00001',
+  'a child of the family (who cannot act for her), another family and a plain member read no class-only homework, and still read the homework for everyone');
+select pg_temp.assert(:'v_uwl' = '00001' and :'v_urq' = '00001' and :'v_ucomp' = '00001',
+  'a student who is waitlisted, requested or completed in the class reads none of its homework: only students placed or active in it do');
+select pg_temp.assert(left(:'v_ct', 4) = '1001' and left(:'v_mom', 4) = '1001' and left(:'v_ot', 4) = '0100' and left(:'v_pt', 4) = '0010',
+  'the Teacher of a class reads that class''s homework (drafts included) and no other class''s: not class B''s for class A''s Teacher, not class A''s for class B''s or last year''s');
+select pg_temp.assert(left(:'v_cw', 4) = '1111' and :'v_pr' = '11111' and :'v_cm' = '11111' and :'v_ow' = '11111' and :'v_pa' = '11111',
+  'a community-wide Teacher, the principal (pathshala.manage), the content team (content.manage), the owner and a platform admin read the homework of every class, drafts included');
+select pg_temp.assert(:'v_c2' = '00000',
+  'a member of another community reads none of it');
+-- "A community-wide Teacher" is whoever holds pathshala.teach for the whole community, by whatever role: a role of its own with only
+-- that permission reads the published homework of every class (never a draft, never another community's).
+insert into auth.users (id, email) values ('72000000-0000-4000-8000-000000000130', 'aide72@example.com');
+insert into app.roles (key, tier, name, permissions) values ('pathshala_aide72', 'operational', 'Pathshala aide 72', '["pathshala.teach"]');
+insert into app.role_grants (center_id, user_id, role_key, scope_kind, scope_id) values (:c1, '72000000-0000-4000-8000-000000000130', 'pathshala_aide72', 'center', null);
+begin; select pg_temp.sign_in('72000000-0000-4000-8000-000000000130'); select pg_temp.sees(:'a_va', :'a_vb', :'a_vc', :'a_vd', :'a_rr') as v_aide \gset
+commit;
+delete from app.role_grants where user_id = '72000000-0000-4000-8000-000000000130';
+delete from app.roles where key = 'pathshala_aide72';
+select pg_temp.assert(left(:'v_aide', 4) = '1110',
+  'whoever holds pathshala.teach community-wide (here a role of its own, not the Teacher role) reads the published homework of every class, but not a draft');
+select pg_temp.assert(pg_temp.lists(:'hw_v_kid'::jsonb, :'a_va', :'a_vb', :'a_vc') = left(:'v_kid', 3)
+                      and pg_temp.lists(:'hw_v_dad'::jsonb, :'a_va', :'a_vb', :'a_vc') = left(:'v_dad', 3)
+                      and pg_temp.lists(:'hw_v_adultkid'::jsonb, :'a_va', :'a_vb', :'a_vc') = left(:'v_adultkid', 3)
+                      and pg_temp.lists(:'hw_v_teen'::jsonb, :'a_va', :'a_vb', :'a_vc') = left(:'v_teen', 3)
+                      and pg_temp.lists(:'hw_v_nb'::jsonb, :'a_va', :'a_vb', :'a_vc') = left(:'v_nb', 3)
+                      and pg_temp.lists(:'hw_v_member'::jsonb, :'a_va', :'a_vb', :'a_vc') = left(:'v_member', 3)
+                      and pg_temp.lists(:'hw_v_upl'::jsonb, :'a_va', :'a_vb', :'a_vc') = left(:'v_upl', 3)
+                      and pg_temp.lists(:'hw_v_uwl'::jsonb, :'a_va', :'a_vb', :'a_vc') = left(:'v_uwl', 3)
+                      and pg_temp.lists(:'hw_v_urq'::jsonb, :'a_va', :'a_vb', :'a_vc') = left(:'v_urq', 3)
+                      and pg_temp.lists(:'hw_v_ucomp'::jsonb, :'a_va', :'a_vb', :'a_vc') = left(:'v_ucomp', 3)
+                      and pg_temp.lists(:'hw_v_bs1'::jsonb, :'a_va', :'a_vb', :'a_vc') = left(:'v_bs1', 3)
+                      and pg_temp.lists(:'hw_v_bp1'::jsonb, :'a_va', :'a_vb', :'a_vc') = left(:'v_bp1', 3),
+  'the member app lists exactly the class homework the family may read (my_gyan_homework and the read policy agree for students, parents, other families and every enrollment state)');
+-- A term still in registration counts; a closed term does not, not even for a student still marked active in it.
+update app.pathshala_terms set status = 'registration' where id = :term1;
+begin; select pg_temp.sign_in(:kid); select pg_temp.sees(:'a_va', :'a_vb', :'a_vc', :'a_vd', :'a_rr') as v_kid_reg \gset
+commit;
+update app.pathshala_terms set status = 'closed' where id = :term1;
+begin; select pg_temp.sign_in(:kid); select pg_temp.sees(:'a_va', :'a_vb', :'a_vc', :'a_vd', :'a_rr') as v_kid_closed \gset
+commit;
+begin; select pg_temp.sign_in(:dad); select pg_temp.sees(:'a_va', :'a_vb', :'a_vc', :'a_vd', :'a_rr') as v_dad_closed \gset
+commit;
+begin; select pg_temp.sign_in(:classteacher); select pg_temp.sees(:'a_va', :'a_vb', :'a_vc', :'a_vd', :'a_rr') as v_ct_closed \gset
+commit;
+update app.pathshala_terms set status = 'active' where id = :term1;
+update app.pathshala_enrollments set status = 'active' where id = :enrC;
+begin; select pg_temp.sign_in(:kid); select pg_temp.sees(:'a_va', :'a_vb', :'a_vc', :'a_vd', :'a_rr') as v_kid_c \gset
+commit;
+update app.pathshala_enrollments set status = 'withdrawn' where id = :enrC;
+select pg_temp.assert(:'v_kid_reg' = '10001' and left(:'v_kid_closed', 4) = '0000' and left(:'v_dad_closed', 4) = '0000' and left(:'v_ct_closed', 4) = '1001',
+  'while the term is in registration the class still reads its homework; once the term is closed the students and their parents do not, and the class Teacher still does');
+select pg_temp.assert(:'v_kid_c' = '10001',
+  'an enrollment still marked active in last year''s CLOSED class C gives no access to class C''s homework (and class A''s is unchanged)');
+select pg_temp.assert(not has_function_privilege('anon', 'app.gyan_class_homework_visible(uuid, uuid)', 'execute')
+                      and (select count(*) from app.gyan_assignments where id = :'a_va') = 1,
+  'class-only homework exists as a row for the office, and the helper behind the policy is closed to anon');
+
+-- ── File types: no old Office files (owner, 2026-10-06) ─────────────────────
+begin; select pg_temp.sign_in(:contentmgr);
+select (app.save_gyan_assignment(:c1, jsonb_build_object('level_id', :l1, 'title', 'File types homework', 'allowed_kinds', jsonb_build_array('file', 'photo', 'voice', 'text'),
+                                 'max_files', 6, 'parent_check', 'never', 'points', 0))->>'id') as a_docs \gset
+select app.set_gyan_assignment_status(:'a_docs', 'published');
+commit;
+begin; select pg_temp.sign_in(:kid);
+select (app.save_gyan_submission_draft(:'a_docs', :p_kid, null, null)->>'id') as sub_docs \gset
+commit;
+begin; select pg_temp.sign_in(:kid);
+select pg_temp.assert_raises($$select app.save_gyan_submission_draft('$$ || :'a_docs' || $$', '$$ || :p_kid || $$', null, jsonb_build_array(jsonb_build_object('kind', 'file', 'storage_path', '$$ || :prefix || :'sub_docs' || $$/e1000000-0000-4000-8000-0000000000d1.doc', 'mime_type', 'application/msword', 'bytes', 10)))$$,
+  '"application/msword" is not a file type this homework takes for a file. A file can be a PDF, a Word (.docx), Excel (.xlsx) or PowerPoint (.pptx) document',
+  'an old Word file (.doc) is refused with a sentence that says what a file can be');
+select pg_temp.assert_raises($$select app.save_gyan_submission_draft('$$ || :'a_docs' || $$', '$$ || :p_kid || $$', null, jsonb_build_array(jsonb_build_object('kind', 'file', 'storage_path', '$$ || :prefix || :'sub_docs' || $$/e1000000-0000-4000-8000-0000000000d2.xls', 'mime_type', 'application/vnd.ms-excel', 'bytes', 10)))$$,
+  'The old .doc, .xls and .ppt formats are not accepted: save it as a PDF or in the newer format', 'an old Excel file (.xls) is refused, and the sentence says to save it as a PDF or in the newer format');
+select pg_temp.assert_raises($$select app.save_gyan_submission_draft('$$ || :'a_docs' || $$', '$$ || :p_kid || $$', null, jsonb_build_array(jsonb_build_object('kind', 'file', 'storage_path', '$$ || :prefix || :'sub_docs' || $$/e1000000-0000-4000-8000-0000000000d3.ppt', 'mime_type', 'application/vnd.ms-powerpoint', 'bytes', 10)))$$,
+  '"application/vnd.ms-powerpoint" is not a file type this homework takes for a file', 'an old PowerPoint file (.ppt) is refused');
+select pg_temp.assert_raises($$select app.save_gyan_submission_draft('$$ || :'a_docs' || $$', '$$ || :p_kid || $$', null, jsonb_build_array(jsonb_build_object('kind', 'photo', 'storage_path', '$$ || :prefix || :'sub_docs' || $$/e1000000-0000-4000-8000-0000000000d4.gif', 'mime_type', 'image/gif', 'bytes', 10)))$$,
+  'A photo can be a PNG, JPEG, WebP, HEIC or HEIF picture.', 'a refused photo says which pictures are taken');
+select pg_temp.assert_raises($$select app.save_gyan_submission_draft('$$ || :'a_docs' || $$', '$$ || :p_kid || $$', null, jsonb_build_array(jsonb_build_object('kind', 'voice', 'storage_path', '$$ || :prefix || :'sub_docs' || $$/e1000000-0000-4000-8000-0000000000d5.mid', 'mime_type', 'audio/midi', 'bytes', 10)))$$,
+  'A voice note can be an M4A, MP3, AAC, WebM, WAV, OGG, 3GP or CAF recording.', 'a refused voice note says which recordings are taken');
+select app.save_gyan_submission_draft(:'a_docs', :p_kid, null, jsonb_build_array(
+    jsonb_build_object('kind', 'file', 'storage_path', :prefix || :'sub_docs' || '/e1000000-0000-4000-8000-0000000000e1.pdf', 'mime_type', 'application/pdf', 'bytes', 100),
+    jsonb_build_object('kind', 'file', 'storage_path', :prefix || :'sub_docs' || '/e1000000-0000-4000-8000-0000000000e2.docx', 'mime_type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'bytes', 100),
+    jsonb_build_object('kind', 'file', 'storage_path', :prefix || :'sub_docs' || '/e1000000-0000-4000-8000-0000000000e3.xlsx', 'mime_type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'bytes', 100),
+    jsonb_build_object('kind', 'file', 'storage_path', :prefix || :'sub_docs' || '/e1000000-0000-4000-8000-0000000000e4.pptx', 'mime_type', 'application/vnd.openxmlformats-officedocument.presentationml.presentation', 'bytes', 100),
+    jsonb_build_object('kind', 'file', 'storage_path', :prefix || :'sub_docs' || '/e1000000-0000-4000-8000-0000000000e5.txt', 'mime_type', 'text/plain', 'bytes', 100))) as docs_saved \gset
+commit;
+select pg_temp.assert(jsonb_array_length(:'docs_saved'::jsonb->'files') = 5
+                      and (select array_agg(mime_type order by mime_type) from app.gyan_submission_files where submission_id = :'sub_docs')
+                          = (select array_agg(t order by t) from unnest(array['application/pdf', 'text/plain',
+                               'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                               'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                               'application/vnd.openxmlformats-officedocument.presentationml.presentation']) t),
+  'a PDF, a .docx, a .xlsx, a .pptx and a text file are all taken as the parts of one answer');
+select pg_temp.assert(not app.gyan_homework_mime_ok('file', 'application/msword') and not app.gyan_homework_mime_ok('file', 'application/vnd.ms-excel')
+                      and not app.gyan_homework_mime_ok('file', 'application/vnd.ms-powerpoint')
+                      and app.gyan_homework_mime_ok('file', 'application/pdf') and app.gyan_homework_mime_ok('file', 'text/plain')
+                      and app.gyan_homework_mime_ok('photo', 'image/heic') and app.gyan_homework_mime_ok('voice', 'audio/x-caf'),
+  'the file type rule takes PDF, the three newer Office formats, text, photos and audio, and none of the old Office formats');
+select pg_temp.assert((select array_agg(t order by t) from storage.buckets b, unnest(b.allowed_mime_types) t where b.id = 'homework')
+                      = (select array_agg(t order by t) from unnest(array[
+                           'image/png', 'image/jpeg', 'image/webp', 'image/heic', 'image/heif', 'application/pdf',
+                           'audio/mp4', 'audio/x-m4a', 'audio/mpeg', 'audio/aac', 'audio/webm', 'audio/wav', 'audio/x-wav', 'audio/ogg', 'audio/3gpp', 'audio/x-caf',
+                           'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                           'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                           'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+                           'text/plain']) t),
+  'the homework bucket takes exactly: png, jpeg, webp, heic, heif, the audio list, PDF, docx, xlsx, pptx and plain text');
+
 -- ── The audit log and the message queue hold no child's words ───────────────
 select pg_temp.assert((select bool_and(coalesce(after->>'text_answer', '*** (0 characters)') ~ '^\*\*\* \(\d+ characters\)$'
                                        and coalesce(before->>'text_answer', '*** (0 characters)') ~ '^\*\*\* \(\d+ characters\)$'
@@ -2002,13 +2206,24 @@ update app.center_modules set enabled = true where center_id = :c1 and module_ke
 -- ── Retention ──────────────────────────────────────────────────────────────
 begin;
 update app.centers set rules = jsonb_set(coalesce(rules, '{}'), '{storage}', '{"retention_days":{"homework":30}}') where id = :c1;
-select pg_temp.assert(app.storage_retention_days('homework', :c1) = 30 and app.storage_retention_days('homework', :c2) = 365,
+select pg_temp.assert(app.storage_retention_days('homework', :c1) = 30 and app.storage_retention_days('homework', :c2) = 180,
   'a community may keep homework files for its own number of days');
+rollback;
+-- The default is 180 days: a file 170 days old is kept, one 190 days old is due (inserted, aged and rolled back).
+begin;
+insert into storage.objects (bucket_id, name, created_at) values
+  ('homework', :prefix || :'sub1' || '/e1000000-0000-4000-8000-0000000000b1.jpg', now() - interval '170 days'),
+  ('homework', :prefix || :'sub1' || '/e1000000-0000-4000-8000-0000000000b2.jpg', now() - interval '190 days');
+set local role connect_worker;
+select pg_temp.assert((select array_agg(name || '|' || retention_days order by name) from app.storage_expired_objects(100)
+                        where bucket_id = 'homework' and name like '%/e1000000-0000-4000-8000-0000000000b_.jpg')
+                      = array[:prefix || :'sub1' || '/e1000000-0000-4000-8000-0000000000b2.jpg|180'],
+  'the default retention is 180 days: a homework file 170 days old is kept, one 190 days old is due');
 rollback;
 update storage.objects set created_at = now() - interval '400 days' where bucket_id = 'homework' and name = :prefix || :'sub1' || '/e1000000-0000-4000-8000-000000000004.m4a';
 begin;
 set local role connect_worker;
-select pg_temp.assert((select array_agg(name || '|' || retention_days) from app.storage_expired_objects(100) where bucket_id = 'homework') = array[:prefix || :'sub1' || '/e1000000-0000-4000-8000-000000000004.m4a|365'],
+select pg_temp.assert((select array_agg(name || '|' || retention_days) from app.storage_expired_objects(100) where bucket_id = 'homework') = array[:prefix || :'sub1' || '/e1000000-0000-4000-8000-000000000004.m4a|180'],
   'the 400-day-old homework file is due; the fresh ones are not');
 select pg_temp.assert(app.record_storage_deletions(99, (select jsonb_agg(jsonb_build_object('bucket', bucket_id, 'name', name, 'created_at', created_at))
                                                           from app.storage_expired_objects(100) where bucket_id = 'homework')) = 1, 'the deletion is recorded');
@@ -2032,7 +2247,7 @@ select pg_temp.assert((select storage_path is null and deleted_at is not null an
   'the file row loses its path and is marked deleted');
 select pg_temp.assert((select status = 'accepted' and points_awarded = 15 and review_note = 'Still good' and parent_note = 'Much better' from app.gyan_submissions where id = :'sub1'),
   'the answer, its notes and its points stay');
-select pg_temp.assert((select reason like 'Retention: homework files are kept 365 days (job 99)%' and client_app = 'job' and center_id = :c1::uuid
+select pg_temp.assert((select reason like 'Retention: homework files are kept 180 days (job 99)%' and client_app = 'job' and center_id = :c1::uuid
                               and before->>'name' = (:prefix || :'sub1' || '/***')
                          from app.audit_log where action = 'storage.retention_delete' and record_id = 'homework/' || :prefix || :'sub1' || '/***' and reason like '%(job 99)%'),
   'the removal has its audit entry with the rule that removed it, and the entry keeps the answer''s folder but not the file name');
