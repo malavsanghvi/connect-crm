@@ -238,7 +238,9 @@ function QueueRow({
   const learnerClasses = (placements.get(l.person_id) ?? []).map((id) => classes.find((c) => c.id === id)?.name).filter((n): n is string => Boolean(n));
   const forClass = className(a.class_id);
   const household = l.household;
-  const briefHref = household?.kind === "brief" && household.household_id ? householdHref(household.household_id) : undefined;
+  // The brief card's own id, else the learner's household id the queue sends beside it (the earlier card had none).
+  const briefHouseholdId = household?.kind === "brief" ? (household.household_id ?? l.household_id) : null;
+  const briefHref = briefHouseholdId ? householdHref(briefHouseholdId) : undefined;
   return (
     <article className="rounded-[12px] border border-line bg-white p-4">
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
