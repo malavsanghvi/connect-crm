@@ -1126,9 +1126,9 @@ begin
       end if;
       if jsonb_typeof(f->'bytes') <> 'number' then raise exception 'File %: "bytes" must be the file''s size in bytes.', i + 1 using errcode = '22023'; end if;
       v_bytes := (f->>'bytes')::numeric;
-      if v_bytes < 1 or v_bytes > 26214400 or v_bytes <> floor(v_bytes) then
-        raise exception 'File %: a homework file can be at most 25 MB.', i + 1 using errcode = '22023';
-      end if;
+      if v_bytes <> floor(v_bytes) then raise exception 'File %: "bytes" must be a whole number of bytes.', i + 1 using errcode = '22023'; end if;
+      if v_bytes < 1 then raise exception 'File %: the file is empty.', i + 1 using errcode = '22023'; end if;
+      if v_bytes > 26214400 then raise exception 'File %: a homework file can be at most 25 MB.', i + 1 using errcode = '22023'; end if;
       v_dur := null;
       if coalesce(jsonb_typeof(f->'duration_seconds'), 'null') <> 'null' then
         if jsonb_typeof(f->'duration_seconds') <> 'number' then raise exception 'File %: "duration_seconds" must be a number.', i + 1 using errcode = '22023'; end if;

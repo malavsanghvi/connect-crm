@@ -572,6 +572,10 @@ select pg_temp.assert_raises($$select app.save_gyan_submission_draft('$$ || :'a1
   'not a file type this homework takes for a photo', 'a text file is not a photo');
 select pg_temp.assert_raises($$select app.save_gyan_submission_draft('$$ || :'a1' || $$', '$$ || :p_kid || $$', 'Namo', jsonb_build_array(jsonb_build_object('kind', 'voice', 'storage_path', '$$ || :prefix || :'sub1' || $$/n.m4a', 'mime_type', 'audio/mp4', 'bytes', 30000000)))$$,
   'at most 25 MB', 'a part over 25 MB is refused');
+select pg_temp.assert_raises($$select app.save_gyan_submission_draft('$$ || :'a1' || $$', '$$ || :p_kid || $$', 'Namo', jsonb_build_array(jsonb_build_object('kind', 'voice', 'storage_path', '$$ || :prefix || :'sub1' || $$/n.m4a', 'mime_type', 'audio/mp4', 'bytes', 10.5)))$$,
+  'whole number of bytes', 'a fractional size has its own sentence');
+select pg_temp.assert_raises($$select app.save_gyan_submission_draft('$$ || :'a1' || $$', '$$ || :p_kid || $$', 'Namo', jsonb_build_array(jsonb_build_object('kind', 'voice', 'storage_path', '$$ || :prefix || :'sub1' || $$/n.m4a', 'mime_type', 'audio/mp4', 'bytes', 0)))$$,
+  'the file is empty', 'and so does an empty file');
 select pg_temp.assert_raises($$select app.save_gyan_submission_draft('$$ || :'a1' || $$', '$$ || :p_kid || $$', 'Namo', jsonb_build_array(
     jsonb_build_object('kind', 'photo', 'storage_path', '$$ || :prefix || :'sub1' || $$/1.jpg', 'mime_type', 'image/jpeg', 'bytes', 10),
     jsonb_build_object('kind', 'photo', 'storage_path', '$$ || :prefix || :'sub1' || $$/1.jpg', 'mime_type', 'image/jpeg', 'bytes', 10)))$$,
@@ -1000,6 +1004,721 @@ select app.hand_in_gyan_submission(:'subd') as subd_in \gset
 commit;
 select pg_temp.assert(:'subd_in'::jsonb->>'status' = 'submitted' and (:'subd_in'::jsonb->>'late')::boolean,
   'homework due yesterday is handed in and marked late');
+
+-- ═══ The security review's findings: each with its own denial ═══════════════
+-- Fixtures: a brother who is a child with a login, one who is an adult, families with no adult who can sign in, a
+-- household where the only adults are the principal and the owner, learners in every enrollment state, and staff who
+-- read the audit log and the message queue.
+\set teen '''72000000-0000-4000-8000-000000000111'''
+\set adultkid '''72000000-0000-4000-8000-000000000112'''
+\set treasurer '''72000000-0000-4000-8000-000000000113'''
+\set commsuser '''72000000-0000-4000-8000-000000000114'''
+\set peopleview '''72000000-0000-4000-8000-000000000115'''
+\set owner '''72000000-0000-4000-8000-000000000116'''
+\set platadmin '''72000000-0000-4000-8000-000000000117'''
+\set nlteen '''72000000-0000-4000-8000-000000000118'''
+\set mxteen '''72000000-0000-4000-8000-000000000119'''
+\set mxa1 '''72000000-0000-4000-8000-00000000011a'''
+\set ndchild '''72000000-0000-4000-8000-00000000011b'''
+\set ndmom '''72000000-0000-4000-8000-00000000011c'''
+\set stchild '''72000000-0000-4000-8000-00000000011d'''
+\set u_wl '''72000000-0000-4000-8000-00000000011e'''
+\set u_rq '''72000000-0000-4000-8000-00000000011f'''
+\set u_comp '''72000000-0000-4000-8000-000000000120'''
+\set u_pl '''72000000-0000-4000-8000-000000000121'''
+\set volunteer '''72000000-0000-4000-8000-000000000122'''
+\set p_teen '''72000000-0000-4000-8000-0000000001a1'''
+\set p_adultkid '''72000000-0000-4000-8000-0000000001a2'''
+\set p_nl_teen '''72000000-0000-4000-8000-0000000001a3'''
+\set p_nl_adult '''72000000-0000-4000-8000-0000000001a4'''
+\set p_mx_teen '''72000000-0000-4000-8000-0000000001a5'''
+\set p_mx_a1 '''72000000-0000-4000-8000-0000000001a6'''
+\set p_mx_a2 '''72000000-0000-4000-8000-0000000001a7'''
+\set p_nd_child '''72000000-0000-4000-8000-0000000001a8'''
+\set p_nd_mom '''72000000-0000-4000-8000-0000000001a9'''
+\set p_nd_sis '''72000000-0000-4000-8000-0000000001aa'''
+\set p_st_principal '''72000000-0000-4000-8000-0000000001ab'''
+\set p_st_owner '''72000000-0000-4000-8000-0000000001ac'''
+\set p_st_child '''72000000-0000-4000-8000-0000000001ad'''
+\set p_selfrev '''72000000-0000-4000-8000-0000000001ae'''
+\set p_wl '''72000000-0000-4000-8000-0000000001af'''
+\set p_rq '''72000000-0000-4000-8000-0000000001b0'''
+\set p_comp '''72000000-0000-4000-8000-0000000001b1'''
+\set p_pl '''72000000-0000-4000-8000-0000000001b2'''
+\set p_vol '''72000000-0000-4000-8000-0000000001b3'''
+\set p_pa '''72000000-0000-4000-8000-0000000001b4'''
+\set h_nl '''72000000-0000-4000-8000-0000000001c1'''
+\set h_mx '''72000000-0000-4000-8000-0000000001c2'''
+\set h_nd '''72000000-0000-4000-8000-0000000001c3'''
+\set h_st '''72000000-0000-4000-8000-0000000001c4'''
+\set h_self '''72000000-0000-4000-8000-0000000001c5'''
+\set h_wl '''72000000-0000-4000-8000-0000000001c6'''
+\set h_rq '''72000000-0000-4000-8000-0000000001c7'''
+\set h_comp '''72000000-0000-4000-8000-0000000001c8'''
+\set h_pl '''72000000-0000-4000-8000-0000000001c9'''
+\set h_vol '''72000000-0000-4000-8000-0000000001ca'''
+insert into auth.users (id, email) values
+  (:teen, 'teen72@example.com'), (:adultkid, 'adultkid72@example.com'), (:treasurer, 'treasurer72@example.com'),
+  (:commsuser, 'comms72@example.com'), (:peopleview, 'pv72@example.com'), (:owner, 'owner72@example.com'),
+  (:platadmin, 'plat72@example.com'), (:nlteen, 'nlteen72@example.com'), (:mxteen, 'mxteen72@example.com'),
+  (:mxa1, 'mxa172@example.com'), (:ndchild, 'ndchild72@example.com'), (:ndmom, 'ndmom72@example.com'),
+  (:stchild, 'stchild72@example.com'), (:u_wl, 'wl72@example.com'), (:u_rq, 'rq72@example.com'),
+  (:u_comp, 'comp72@example.com'), (:u_pl, 'pl72@example.com'), (:volunteer, 'volunteer72@example.com');
+insert into app.people (id, center_id, first_name, last_name, date_of_birth, email) values
+  (:p_teen, :c1, 'Tara', 'Shah', (current_date - interval '14 years')::date, null),
+  (:p_adultkid, :c1, 'Akash', 'Shah', (current_date - interval '20 years')::date, null),
+  (:p_nl_teen, :c1, 'Nina', 'Nolog', (current_date - interval '15 years')::date, null),
+  (:p_nl_adult, :c1, 'Nan', 'Nolog', date '1975-01-01', 'nanparent72@example.com'),
+  (:p_mx_teen, :c1, 'Mia', 'Mixed', (current_date - interval '15 years')::date, null),
+  (:p_mx_a1, :c1, 'Max', 'Mixed', date '1976-01-01', 'mxa172@example.com'),
+  (:p_mx_a2, :c1, 'Mel', 'Mixed', date '1977-01-01', 'mxa272@example.com'),
+  (:p_nd_child, :c1, 'Dev', 'Nodob', null, null),
+  (:p_nd_mom, :c1, 'Dana', 'Nodob', date '1978-01-01', null),
+  (:p_nd_sis, :c1, 'Sia', 'Nodob', (current_date - interval '8 years')::date, null),
+  (:p_st_principal, :c1, 'Pam', 'Staff', date '1979-01-01', null),
+  (:p_st_owner, :c1, 'Omar', 'Staff', date '1978-01-01', null),
+  (:p_st_child, :c1, 'Sam', 'Staff', (current_date - interval '11 years')::date, null),
+  (:p_selfrev, :c1, 'Sol', 'Selfrev', date '1980-01-01', null),
+  (:p_wl, :c1, 'Wally', 'Wait', date '1990-01-01', null), (:p_rq, :c1, 'Rita', 'Req', date '1990-01-01', null),
+  (:p_comp, :c1, 'Carl', 'Comp', date '1990-01-01', null), (:p_pl, :c1, 'Pia', 'Placed', date '1990-01-01', null),
+  (:p_vol, :c1, 'Vik', 'Volunteer', (current_date - interval '16 years')::date, null),
+  (:p_pa, :c1, 'Paz', 'Admin', (current_date - interval '15 years')::date, null);
+insert into app.households (id, center_id, display_name) values
+  (:h_nl, :c1, 'Nolog household 72'), (:h_mx, :c1, 'Mixed household 72'), (:h_nd, :c1, 'Nodob household 72'), (:h_st, :c1, 'Staff household 72'),
+  (:h_self, :c1, 'Selfrev household 72'), (:h_wl, :c1, 'WL household 72'), (:h_rq, :c1, 'RQ household 72'), (:h_comp, :c1, 'COMP household 72'),
+  (:h_pl, :c1, 'PL household 72'), (:h_vol, :c1, 'Volunteer household 72');
+insert into app.household_members (household_id, person_id, center_id, role, is_primary) values
+  (:h1, :p_teen, :c1, 'child', false), (:h1, :p_adultkid, :c1, 'child', false),
+  (:h_nl, :p_nl_teen, :c1, 'child', false), (:h_nl, :p_nl_adult, :c1, 'primary', true),
+  (:h_mx, :p_mx_teen, :c1, 'child', false), (:h_mx, :p_mx_a1, :c1, 'primary', true), (:h_mx, :p_mx_a2, :c1, 'spouse', false),
+  (:h_nd, :p_nd_child, :c1, 'child', false), (:h_nd, :p_nd_mom, :c1, 'primary', true), (:h_nd, :p_nd_sis, :c1, 'child', false),
+  (:h_st, :p_st_principal, :c1, 'primary', true), (:h_st, :p_st_owner, :c1, 'spouse', false), (:h_st, :p_st_child, :c1, 'child', false),
+  (:h_self, :p_selfrev, :c1, 'primary', true),
+  (:h_wl, :p_wl, :c1, 'primary', true), (:h_rq, :p_rq, :c1, 'primary', true), (:h_comp, :p_comp, :c1, 'primary', true), (:h_pl, :p_pl, :c1, 'primary', true),
+  (:h_vol, :p_vol, :c1, 'child', false), (:h_vol, :p_pa, :c1, 'child', false);
+insert into app.center_users (center_id, user_id, person_id) values
+  (:c1, :teen, :p_teen), (:c1, :adultkid, :p_adultkid), (:c1, :nlteen, :p_nl_teen), (:c1, :mxteen, :p_mx_teen), (:c1, :mxa1, :p_mx_a1),
+  (:c1, :ndchild, :p_nd_child), (:c1, :ndmom, :p_nd_mom), (:c1, :stchild, :p_st_child),
+  (:c1, :principal, :p_st_principal), (:c1, :owner, :p_st_owner), (:c1, :centerteacher, :p_selfrev),
+  (:c1, :u_wl, :p_wl), (:c1, :u_rq, :p_rq), (:c1, :u_comp, :p_comp), (:c1, :u_pl, :p_pl),
+  (:c1, :volunteer, :p_vol), (:c1, :platadmin, :p_pa);
+insert into app.center_owners (center_id, user_id) values (:c1, :owner);
+insert into app.role_grants (center_id, user_id, role_key, scope_kind, scope_id) values
+  (:c1, :treasurer, 'treasurer', 'center', null), (:c1, :commsuser, 'executive_viewer', 'center', null),
+  (:c1, :peopleview, 'membership_coordinator', 'center', null), (:c1, :volunteer, 'membership_coordinator', 'center', null),
+  (:c1, :mom, 'teacher', 'class', :classA);
+insert into app.accounts (user_id, is_platform_admin) values (:platadmin, true) on conflict (user_id) do update set is_platform_admin = true;
+insert into app.pathshala_enrollments (center_id, term_id, student_person_id, household_id, class_id, status) values
+  (:c1, :term1, :p_wl, :h_wl, :classA, 'waitlisted'), (:c1, :term1, :p_rq, :h_rq, :classA, 'requested'),
+  (:c1, :term1, :p_comp, :h_comp, :classA, 'completed'), (:c1, :term1, :p_pl, :h_pl, :classA, 'placed');
+
+begin;
+select pg_temp.sign_in(:contentmgr);
+select (app.save_gyan_assignment(:c1, jsonb_build_object('level_id', :l1, 'title', 'Review round homework', 'allowed_kinds', jsonb_build_array('text', 'photo'),
+                                 'parent_check', 'never', 'points', 5))->>'id') as a_rr \gset
+select (app.save_gyan_assignment(:c1, jsonb_build_object('level_id', :l1, 'title', 'Parent check homework', 'allowed_kinds', jsonb_build_array('text'),
+                                 'parent_check', 'children', 'points', 0))->>'id') as a_pc \gset
+select (app.save_gyan_assignment(:c1, jsonb_build_object('level_id', :l1, 'title', 'Files homework', 'allowed_kinds', jsonb_build_array('photo', 'text'),
+                                 'max_files', 3, 'parent_check', 'never', 'points', 0))->>'id') as a_files \gset
+select app.set_gyan_assignment_status(:'a_rr', 'published');
+select app.set_gyan_assignment_status(:'a_pc', 'published');
+select app.set_gyan_assignment_status(:'a_files', 'published');
+commit;
+
+-- ── A child sibling with a login, an adult sibling, a spouse ────────────────
+begin; select pg_temp.sign_in(:kid);
+select (app.save_gyan_submission_draft(:'a_rr', :p_kid, 'Words only the family should read', null)->>'id') as sub_rr \gset
+commit;
+begin; select pg_temp.sign_in(:teen); select pg_temp.reads(:'sub_rr') as rr_teen \gset
+commit;
+begin; select pg_temp.sign_in(:adultkid); select pg_temp.reads(:'sub_rr') as rr_adultkid \gset
+commit;
+begin; select pg_temp.sign_in(:dad); select pg_temp.reads(:'sub_rr') as rr_dad \gset
+commit;
+select pg_temp.assert(:'rr_teen' = '0/0/0' and :'rr_adultkid' = '1/0/0' and :'rr_dad' = '1/0/0',
+  'her brother with a login (a child) reads nothing of her draft; her adult brother and her father read it');
+begin; select pg_temp.sign_in(:teen);
+select pg_temp.assert_raises($$select app.save_gyan_submission_draft('$$ || :'a_rr' || $$', '$$ || :p_kid || $$', 'x', null)$$,
+  'yourself or for someone in your family', 'a child cannot save a draft for her sister');
+select pg_temp.assert_raises($$select app.hand_in_gyan_submission('$$ || :'sub_rr' || $$')$$,
+  'yourself or for someone in your family', 'nor hand in her homework');
+select pg_temp.assert_raises($$select app.parent_decide_gyan_submission('$$ || :'sub_rr' || $$', 'ok', null)$$,
+  'adult of Anya''s household', 'nor give her parent''s OK');
+select pg_temp.assert_raises($$insert into storage.objects (bucket_id, name) values ('homework', '$$ || :prefix || :'sub_rr' || $$/teen.jpg')$$,
+  'row-level security', 'nor upload into her answer''s folder');
+commit;
+begin; select pg_temp.sign_in(:adultkid);
+insert into storage.objects (bucket_id, name, metadata) values ('homework', :prefix || :'sub_rr' || '/adultkid.jpg', '{"size": 10, "mimetype": "image/jpeg"}');
+select pg_temp.assert(true, 'an adult brother uploads into her folder');
+select (app.save_gyan_submission_draft(:'a_rr', :p_teen, 'written by his adult brother', null)->>'id') as sub_teen \gset
+select app.hand_in_gyan_submission(:'sub_teen') as sub_teen_in \gset
+commit;
+select pg_temp.assert(:'sub_teen_in'::jsonb->>'status' = 'submitted' and (select parent_user = :adultkid::uuid from app.gyan_submissions where id = :'sub_teen'),
+  'an adult brother hands in for the 14-year-old: straight to the teacher, recorded as the parent');
+select pg_temp.assert(not app.person_is_minor(:p_adultkid) and app.person_is_minor(:p_teen) and app.person_is_minor(:p_nd_child) and not app.person_is_minor(:p_nd_mom),
+  'person_is_minor: a household child with no birth date on file is a minor; an adult household member is not');
+
+-- ── Learners in every enrollment state, and a closed term ───────────────────
+begin; select pg_temp.sign_in(:u_wl);
+select (app.save_gyan_submission_draft(:'a_rr', :p_wl, 'waitlisted words', null)->>'id') as sub_wl \gset
+select app.hand_in_gyan_submission(:'sub_wl');
+commit;
+begin; select pg_temp.sign_in(:u_rq);
+select (app.save_gyan_submission_draft(:'a_rr', :p_rq, 'requested words', null)->>'id') as sub_rq \gset
+select app.hand_in_gyan_submission(:'sub_rq');
+commit;
+begin; select pg_temp.sign_in(:u_comp);
+select (app.save_gyan_submission_draft(:'a_rr', :p_comp, 'completed words', null)->>'id') as sub_comp \gset
+select app.hand_in_gyan_submission(:'sub_comp');
+commit;
+begin; select pg_temp.sign_in(:u_pl);
+select (app.save_gyan_submission_draft(:'a_rr', :p_pl, 'placed words', null)->>'id') as sub_pl \gset
+select app.hand_in_gyan_submission(:'sub_pl');
+commit;
+begin; select pg_temp.sign_in(:kid); select app.hand_in_gyan_submission(:'sub_rr') as sub_rr_in \gset
+commit;
+select pg_temp.assert(:'sub_rr_in'::jsonb->>'status' = 'submitted', '"never" homework from the child''s own login goes straight to the teacher');
+begin; select pg_temp.sign_in(:classteacher);
+select pg_temp.reads(:'sub_wl') as ct_wl \gset
+select pg_temp.reads(:'sub_rq') as ct_rq \gset
+select pg_temp.reads(:'sub_comp') as ct_comp \gset
+select pg_temp.reads(:'sub_pl') as ct_pl \gset
+select pg_temp.assert_raises($$select app.review_gyan_submission('$$ || :'sub_wl' || $$', 'accept', null)$$, 'Only Wally''s class teacher', 'the Teacher of class A cannot review a waitlisted student''s answer');
+select pg_temp.assert_raises($$select app.review_gyan_submission('$$ || :'sub_rq' || $$', 'accept', null)$$, 'Only Rita''s class teacher', 'nor a requested one''s');
+select pg_temp.assert_raises($$select app.review_gyan_submission('$$ || :'sub_comp' || $$', 'accept', null)$$, 'Only Carl''s class teacher', 'nor a completed one''s');
+commit;
+begin; select pg_temp.sign_in(:centerteacher);
+select pg_temp.reads(:'sub_wl') as cw_wl \gset
+select pg_temp.reads(:'sub_comp') as cw_comp \gset
+commit;
+select pg_temp.assert(:'ct_wl' = '0/0/0' and :'ct_rq' = '0/0/0' and :'ct_comp' = '0/0/0' and :'ct_pl' = '1/0/0' and :'cw_wl' = '1/0/0' and :'cw_comp' = '1/0/0',
+  'a class Teacher reads only students placed or active in the class (not waitlisted, requested or completed ones); pathshala.teach reads them all');
+-- Last year's class teacher, with an enrollment of a closed term that was never closed.
+update app.pathshala_enrollments set status = 'active' where id = :enrC;
+begin; select pg_temp.sign_in(:pastteacher);
+select pg_temp.reads(:'sub_rr') as past_reads \gset
+select pg_temp.assert_raises($$select app.review_gyan_submission('$$ || :'sub_rr' || $$', 'send_back', 'x')$$, 'Only Anya''s class teacher', 'and cannot review it');
+commit;
+update app.pathshala_enrollments set status = 'withdrawn' where id = :enrC;
+update app.pathshala_terms set status = 'registration' where id = :term1;
+begin; select pg_temp.sign_in(:classteacher); select pg_temp.reads(:'sub_rr') as reg_reads \gset
+commit;
+update app.pathshala_terms set status = 'active' where id = :term1;
+select pg_temp.assert(:'past_reads' = '0/0/0' and :'reg_reads' = '1/0/0',
+  'last year''s class teacher (a still-"active" enrollment in a CLOSED term) reads and reviews nothing; a class whose term is in registration still counts');
+
+-- ── Nobody decides on their own household's homework ────────────────────────
+begin; select pg_temp.sign_in(:mom);
+select pg_temp.assert_raises($$select app.review_gyan_submission('$$ || :'sub_rr' || $$', 'accept', null)$$,
+  'cannot decide on homework from your own family', 'a parent who is also the class Teacher cannot review her own child''s homework');
+select app.gyan_homework_queue(:c1, 'waiting') as q_mom \gset
+commit;
+select pg_temp.assert((select array_agg(i->'learner'->>'person_id' order by i->'learner'->>'person_id') from jsonb_array_elements(:'q_mom'::jsonb->'items') i) = array[:p_pl],
+  'and her review queue lists the class''s other students only: not her own child''s answer (nor the waitlisted, requested and completed ones)');
+begin; select pg_temp.sign_in(:stchild);
+select (app.save_gyan_submission_draft(:'a_rr', :p_st_child, 'staff child words', null)->>'id') as sub_st \gset
+select app.hand_in_gyan_submission(:'sub_st') as sub_st_in \gset
+commit;
+select pg_temp.assert(:'sub_st_in'::jsonb->>'status' = 'submitted', 'the principal''s and the owner''s child hands in');
+begin; select pg_temp.sign_in(:principal);
+select pg_temp.assert_raises($$select app.review_gyan_submission('$$ || :'sub_st' || $$', 'accept', null)$$,
+  'cannot decide on homework from your own family', 'the principal (pathshala.manage) cannot review her own household''s homework');
+select app.gyan_homework_queue(:c1, 'waiting') as q_principal \gset
+select pg_temp.reads(:'sub_st') as principal_reads_own \gset
+commit;
+begin; select pg_temp.sign_in(:owner);
+select pg_temp.assert_raises($$select app.review_gyan_submission('$$ || :'sub_st' || $$', 'accept', null)$$,
+  'cannot decide on homework from your own family', 'nor can the owner');
+commit;
+select pg_temp.assert(jsonb_array_length(:'q_principal'::jsonb->'items') > 0
+                      and not exists (select 1 from jsonb_array_elements(:'q_principal'::jsonb->'items') i where i->'learner'->>'person_id' = :p_st_child)
+                      and :'principal_reads_own' = '1/0/0',
+  'the principal''s queue holds other households'' answers, never her own household''s (she reads her own family''s answer as a parent, like any parent)');
+begin; select pg_temp.sign_in(:centerteacher);
+select (app.save_gyan_submission_draft(:'a_rr', :p_selfrev, 'the teacher''s own words', null)->>'id') as sub_self \gset
+select app.hand_in_gyan_submission(:'sub_self') as sub_self_in \gset
+select pg_temp.assert_raises($$select app.review_gyan_submission('$$ || :'sub_self' || $$', 'accept', null)$$,
+  'cannot decide on homework from your own family', 'a teacher cannot review their own homework');
+select app.gyan_homework_queue(:c1, 'waiting') as q_self \gset
+commit;
+select pg_temp.assert(not exists (select 1 from jsonb_array_elements(:'q_self'::jsonb->'items') i where i->'learner'->>'person_id' = :p_selfrev)
+                      and exists (select 1 from jsonb_array_elements(:'q_self'::jsonb->'items') i where i->'learner'->>'person_id' = :p_st_child),
+  'their queue does not list their own answer, and lists the principal''s child''s');
+select pg_temp.assert((select count(*) from pg_temp.msgs('homework.submitted', 'submission_id', :'sub_st') where to_address in (:principal, :owner)) = 0
+                      and (select count(*) from pg_temp.msgs('homework.submitted', 'submission_id', :'sub_st')) >= 1,
+  'the principal and the owner are not told to review their own child''s homework; the other reviewers are');
+begin; select pg_temp.sign_in(:centerteacher);
+select app.review_gyan_submission(:'sub_st', 'accept', null) as sub_st_acc \gset
+commit;
+select pg_temp.assert(:'sub_st_acc'::jsonb->>'status' = 'accepted' and pg_temp.pts(:p_st_child, 'assignment', :'sub_st') = 5,
+  'another teacher accepts it (5 points)');
+
+-- ── Reviewers read only the parts an answer lists; replaced and undeclared files ──
+begin; select pg_temp.sign_in(:kid);
+select (app.save_gyan_submission_draft(:'a_files', :p_kid, null, null)->>'id') as sub_f \gset
+insert into storage.objects (bucket_id, name, metadata) values
+  ('homework', :prefix || :'sub_f' || '/a.jpg', '{"size": 10, "mimetype": "image/jpeg"}'),
+  ('homework', :prefix || :'sub_f' || '/b.jpg', '{"size": 10, "mimetype": "image/jpeg"}'),
+  ('homework', :prefix || :'sub_f' || '/extra.jpg', '{"size": 10, "mimetype": "image/jpeg"}');
+select pg_temp.assert_raises(format($$insert into storage.objects (bucket_id, name) values ('homework', %L)$$, upper(:prefix || :'sub_f' || '/up.jpg')),
+  'row-level security', 'homework bucket: a path written with upper-case ids is refused (lower-case uuids only)');
+select pg_temp.assert_raises(format($$insert into storage.objects (bucket_id, name) values ('homework', %L)$$, :prefix || :'sub_f' || '/a//b.jpg'),
+  'row-level security', 'homework bucket: an empty folder name inside the path is refused');
+select pg_temp.assert_raises(format($$insert into storage.objects (bucket_id, name) values ('homework', %L)$$, :prefix || :'sub_f' || '/x/'),
+  'row-level security', 'homework bucket: a trailing slash is refused');
+select pg_temp.assert_raises(format($$insert into storage.objects (bucket_id, name) values ('homework', %L)$$, :prefix || :'sub_f' || '/'),
+  'row-level security', 'homework bucket: an empty file name is refused');
+select pg_temp.assert_raises(format($$insert into storage.objects (bucket_id, name) values ('homework', %L)$$, :prefix || :'sub_f' || '/' || repeat('n', 480)),
+  'row-level security', 'homework bucket: a name over 500 characters is refused');
+select pg_temp.assert_raises(format($$select app.save_gyan_submission_draft(%L, %L, 'x', jsonb_build_array(jsonb_build_object('kind', 'photo', 'storage_path', %L, 'mime_type', 'image/jpeg', 'bytes', 5)))$$,
+                                    :'a_files', :p_kid, upper(:prefix || :'sub_f' || '/up.jpg')),
+  'its path must be', 'and a part cannot name such a path either');
+select app.save_gyan_submission_draft(:'a_files', :p_kid, 'my words', jsonb_build_array(
+         jsonb_build_object('kind', 'photo', 'storage_path', :prefix || :'sub_f' || '/a.jpg', 'mime_type', 'image/jpeg', 'bytes', 10),
+         jsonb_build_object('kind', 'photo', 'storage_path', :prefix || :'sub_f' || '/b.jpg', 'mime_type', 'image/jpeg', 'bytes', 10))) as f1 \gset
+select app.save_gyan_submission_draft(:'a_files', :p_kid, 'my words', null) as f2 \gset
+select app.save_gyan_submission_draft(:'a_files', :p_kid, 'my words', 'null'::jsonb) as f3 \gset
+select app.save_gyan_submission_draft(:'a_files', :p_kid, 'my words', jsonb_build_array(
+         jsonb_build_object('kind', 'photo', 'storage_path', :prefix || :'sub_f' || '/a.jpg', 'mime_type', 'image/jpeg', 'bytes', 10))) as f4 \gset
+select app.save_gyan_submission_draft(:'a_files', :p_kid, 'my words', '[]'::jsonb) as f5 \gset
+select app.save_gyan_submission_draft(:'a_files', :p_kid, 'my words', jsonb_build_array(
+         jsonb_build_object('kind', 'photo', 'storage_path', :prefix || :'sub_f' || '/a.jpg', 'mime_type', 'image/jpeg', 'bytes', 10))) as f6 \gset
+select app.hand_in_gyan_submission(:'sub_f') as sub_f_in \gset
+commit;
+select pg_temp.assert(jsonb_array_length(:'f1'::jsonb->'files') = 2 and jsonb_array_length(:'f2'::jsonb->'files') = 2 and jsonb_array_length(:'f3'::jsonb->'files') = 2
+                      and jsonb_array_length(:'f4'::jsonb->'files') = 1 and jsonb_array_length(:'f5'::jsonb->'files') = 0 and jsonb_array_length(:'f6'::jsonb->'files') = 1,
+  'a NULL list of files (SQL or JSON null) leaves the registered parts as they are; a list, even an empty one, replaces them');
+begin; select pg_temp.sign_in(:classteacher); select pg_temp.reads(:'sub_f') as f_class \gset
+commit;
+begin; select pg_temp.sign_in(:centerteacher); select pg_temp.reads(:'sub_f') as f_center \gset
+commit;
+begin; select pg_temp.sign_in(:principal); select pg_temp.reads(:'sub_f') as f_principal \gset
+commit;
+begin; select pg_temp.sign_in(:mom); select pg_temp.reads(:'sub_f') as f_mom \gset
+commit;
+select pg_temp.assert(:'f_class' = '1/1/1' and :'f_center' = '1/1/1' and :'f_principal' = '1/1/1' and :'f_mom' = '1/1/3',
+  'reviewers read the one file the answer lists, not the file the child replaced nor the one she never listed; her parent reads the whole folder (three files)');
+update storage.objects set created_at = now() - interval '400 days'
+ where bucket_id = 'homework' and name in (:prefix || :'sub_f' || '/b.jpg', :prefix || :'sub_f' || '/extra.jpg');
+begin; set local role connect_worker;
+select pg_temp.assert((select array_agg(name order by name) from app.storage_expired_objects(100) where bucket_id = 'homework' and name like '%/' || :'sub_f' || '/%')
+                        = array[:prefix || :'sub_f' || '/b.jpg', :prefix || :'sub_f' || '/extra.jpg'],
+  'a replaced or never-listed file is cleaned up by the retention job like any other homework file (365 days after upload by default)');
+commit;
+update storage.objects set created_at = now()
+ where bucket_id = 'homework' and name in (:prefix || :'sub_f' || '/b.jpg', :prefix || :'sub_f' || '/extra.jpg');
+
+-- ── A household with nobody who can sign in; one with a parent who can; a child with no birth date ──
+begin; select pg_temp.sign_in(:nlteen); select app.my_gyan_homework(:c1) as hw_nl \gset
+commit;
+select pg_temp.assert(not (select (i->>'needs_parent')::boolean from jsonb_array_elements(:'hw_nl'::jsonb->'items') i where i->'assignment'->>'id' = :'a_pc' and i->>'person_id' = :p_nl_teen),
+  'a teenager whose only parent cannot sign in is not told she must wait for a parent''s OK');
+begin; select pg_temp.sign_in(:nlteen);
+select (app.save_gyan_submission_draft(:'a_pc', :p_nl_teen, 'nolog words', null)->>'id') as sub_nl \gset
+select app.hand_in_gyan_submission(:'sub_nl') as sub_nl_in \gset
+commit;
+select pg_temp.assert(:'sub_nl_in'::jsonb->>'status' = 'submitted' and (select parent_user is null and submitted_by = :nlteen::uuid from app.gyan_submissions where id = :'sub_nl'),
+  'her hand-in goes straight to the teacher: a check nobody can do would wait for ever');
+select pg_temp.assert((select count(*) = 1 and bool_and(channel = 'email' and to_address = 'nanparent72@example.com' and status = 'queued' and payload->>'type' = 'homework_parent'
+                                                        and payload->>'learner_id' = :p_nl_teen and body like '%Nina handed in "Parent check homework" (Foundations)%'
+                                                        and body like '%went straight to the teacher%')
+                         from pg_temp.msgs('homework.heads_up', 'submission_id', :'sub_nl'))
+                      and (select count(*) from pg_temp.msgs('homework.parent_check', 'submission_id', :'sub_nl')) = 0
+                      and (select count(*) from pg_temp.msgs('homework.submitted', 'submission_id', :'sub_nl')) >= 1,
+  'the household''s adult gets the heads-up by email (no push: no login), nobody is asked for an OK, and the reviewers are told');
+select pg_temp.assert((select reason like '%straight to the teacher: no parent can sign in (they were emailed)%'
+                         from app.audit_log where record_table = 'gyan_submissions' and record_id = :'sub_nl' and action = 'gyan_submissions.update' order by id desc limit 1),
+  'the hand-in is audited as going straight to the teacher because no parent can sign in');
+begin; select pg_temp.sign_in(:mxteen);
+select (app.save_gyan_submission_draft(:'a_pc', :p_mx_teen, 'mixed words', null)->>'id') as sub_mx \gset
+select app.hand_in_gyan_submission(:'sub_mx') as sub_mx_in \gset
+commit;
+select pg_temp.assert(:'sub_mx_in'::jsonb->>'status' = 'awaiting_parent'
+                      and (select count(*) = 2 and bool_and(person_id = :p_mx_a1::uuid) and count(*) filter (where channel = 'push' and to_address = :mxa1) = 1
+                                  and count(*) filter (where channel = 'email' and to_address = 'mxa172@example.com') = 1
+                           from pg_temp.msgs('homework.parent_check', 'submission_id', :'sub_mx'))
+                      and (select count(*) from pg_temp.msgs('homework.heads_up', 'submission_id', :'sub_mx')) = 0,
+  'with one parent who can sign in and one who cannot, the hand-in waits and only the parent who can sign in is asked (push and email)');
+-- The office releases an answer that nobody can check (pathshala.manage, decision ok).
+begin; select pg_temp.sign_in(:principal);
+select pg_temp.assert_raises($$select app.parent_decide_gyan_submission('$$ || :'sub_mx' || $$', 'send_back', 'x')$$,
+  'only an adult of Mia''s household can send it back', 'the office can release the answer but not send it back for the family');
+commit;
+begin; select pg_temp.sign_in(:classteacher);
+select pg_temp.assert_raises($$select app.parent_decide_gyan_submission('$$ || :'sub_mx' || $$', 'ok', null)$$,
+  'adult of Mia''s household', 'a class teacher cannot release it');
+commit;
+begin; select pg_temp.sign_in(:member);
+select pg_temp.assert_raises($$select app.parent_decide_gyan_submission('$$ || :'sub_mx' || $$', 'ok', null)$$,
+  'adult of Mia''s household', 'nor a member of the community');
+commit;
+begin; select pg_temp.sign_in(:principal);
+select app.parent_decide_gyan_submission(:'sub_mx', 'ok', 'The family asked the office') as sub_mx_rel \gset
+commit;
+select pg_temp.assert(:'sub_mx_rel'::jsonb->>'status' = 'submitted' and :'sub_mx_rel'::jsonb->>'parent_note' = 'Released to the teacher by the office. The family asked the office'
+                      and (select parent_user = :principal::uuid and parent_decided_at is not null from app.gyan_submissions where id = :'sub_mx')
+                      and (select reason like 'Released homework "Parent check homework" of Mia to the teacher (the office%' from app.audit_log
+                            where record_table = 'gyan_submissions' and record_id = :'sub_mx' and action = 'gyan_submissions.update' order by id desc limit 1)
+                      and (select count(*) from pg_temp.msgs('homework.submitted', 'submission_id', :'sub_mx')) >= 1,
+  'pathshala.manage releases an answer waiting for a parent to the teacher, recorded as released by the office (who, when, and the audit reason), and the reviewers are told');
+-- A child with no birth date on file, recorded as a child of the household.
+begin; select pg_temp.sign_in(:ndchild);
+select (app.save_gyan_submission_draft(:'a_pc', :p_nd_child, 'nodob words', null)->>'id') as sub_nd \gset
+select app.hand_in_gyan_submission(:'sub_nd') as sub_nd_in \gset
+select pg_temp.assert_raises($$select app.save_gyan_submission_draft('$$ || :'a_pc' || $$', '$$ || :p_nd_sis || $$', 'x', null)$$,
+  'yourself or for someone in your family', 'a child with no birth date on file cannot act as a parent for his sister');
+select app.my_gyan_homework(:c1) as hw_nd \gset
+commit;
+select pg_temp.assert(:'sub_nd_in'::jsonb->>'status' = 'awaiting_parent',
+  'a child with no birth date on file is a child: his own hand-in waits for his mother''s OK');
+select pg_temp.assert(jsonb_array_length(:'hw_nd'::jsonb->'people') = 1 and (:'hw_nd'::jsonb->'people'->0->>'is_child')::boolean,
+  'and he sees only himself, as a child');
+begin; select pg_temp.sign_in(:ndmom);
+select app.my_gyan_homework(:c1) as hw_ndmom \gset
+select (app.save_gyan_submission_draft(:'a_pc', :p_nd_sis, 'sis words', null)->>'id') as sub_sis \gset
+select app.hand_in_gyan_submission(:'sub_sis') as sub_sis_in \gset
+commit;
+begin; select pg_temp.sign_in(:ndchild); select pg_temp.reads(:'sub_sis') as nd_reads_sis \gset
+commit;
+select pg_temp.assert((select array_agg(p->>'person_id' order by p->>'person_id') from jsonb_array_elements(:'hw_ndmom'::jsonb->'people') p)
+                        = (select array_agg(x order by x) from unnest(array[:p_nd_mom, :p_nd_child, :p_nd_sis]) x)
+                      and :'sub_sis_in'::jsonb->>'status' = 'submitted' and :'nd_reads_sis' = '0/0/0',
+  'his mother sees both children and hands in for his sister (straight to the teacher); he reads nothing of his sister''s answer');
+
+-- ── A child cannot change their own date of birth (the separate access change) ──
+begin; select pg_temp.sign_in(:kid);
+select pg_temp.assert_raises($$update app.people set date_of_birth = date '1990-01-01' where id = '72000000-0000-4000-8000-0000000000a3'$$,
+  'A child''s date of birth can only be changed by a parent or the office.', 'a child cannot move her own birth date back to become an adult');
+update app.people set preferred_name = 'Ani' where id = :p_kid;
+select pg_temp.assert((select preferred_name = 'Ani' from app.people where id = :p_kid), 'she can still change the rest of her own record');
+update app.people set date_of_birth = date_of_birth where id = :p_kid;
+select pg_temp.assert(true, 'and saving her record with the same birth date is not a change');
+commit;
+begin; select pg_temp.sign_in(:ndchild);
+select pg_temp.assert_raises($$update app.people set date_of_birth = date '1990-01-01' where id = '72000000-0000-4000-8000-0000000001a8'$$,
+  'only be changed by a parent or the office', 'nor can a child with no birth date on file give himself one');
+commit;
+select pg_temp.assert((select date_of_birth > current_date - interval '18 years' from app.people where id = :p_kid) and app.person_is_minor(:p_kid),
+  'her birth date is unchanged: she is still a minor');
+begin; select pg_temp.sign_in(:kid);
+select (app.save_gyan_submission_draft(:'a_pc', :p_kid, 'kid words', null)->>'id') as sub_kpc \gset
+select app.hand_in_gyan_submission(:'sub_kpc') as sub_kpc_in \gset
+commit;
+select pg_temp.assert(:'sub_kpc_in'::jsonb->>'status' = 'awaiting_parent', 'so her own hand-in of "children" homework still waits for a parent');
+begin; select pg_temp.sign_in(:mom);
+update app.people set date_of_birth = (current_date - interval '10 years' - interval '1 day')::date where id = :p_kid;
+select pg_temp.assert(true, 'a parent can change her child''s birth date');
+update app.people set date_of_birth = date '1982-01-02' where id = :p_mom;
+select pg_temp.assert(true, 'an adult can change their own');
+commit;
+begin; select pg_temp.sign_in(:peopleview);
+update app.people set date_of_birth = (current_date - interval '10 years')::date where id = :p_kid;
+select pg_temp.assert(true, 'the office (people.manage) can change it');
+commit;
+begin; select pg_temp.sign_in(:volunteer);
+update app.people set date_of_birth = (current_date - interval '16 years' - interval '2 days')::date where id = :p_vol;
+select pg_temp.assert(true, 'a minor who holds people.manage can correct their own');
+commit;
+begin; select pg_temp.sign_in(:platadmin);
+update app.people set date_of_birth = (current_date - interval '15 years' - interval '2 days')::date where id = :p_pa;
+select pg_temp.assert(true, 'and a platform admin');
+commit;
+
+-- ── The reviewer and the parent check are fixed once answers exist ──────────
+begin; select pg_temp.sign_in(:contentmgr);
+select pg_temp.assert_raises($$select app.save_gyan_assignment('72000000-0000-4000-8000-0000000000c1', jsonb_build_object('id', '$$ || :'a_rr' || $$', 'reviewer', 'content'))$$,
+  'who reviews it and its parent check cannot change', 'once an answer exists a content manager cannot make themselves its reviewer');
+select pg_temp.assert_raises($$select app.save_gyan_assignment('72000000-0000-4000-8000-0000000000c1', jsonb_build_object('id', '$$ || :'a_rr' || $$', 'parent_check', 'always'))$$,
+  'who reviews it and its parent check cannot change', 'nor change the parent check');
+select app.save_gyan_assignment(:c1, jsonb_build_object('id', :'a_rr', 'points', 6, 'reviewer', 'teacher', 'parent_check', 'never')) as a_rr_v2 \gset
+select app.save_gyan_assignment(:c1, jsonb_build_object('id', :'a_tmp', 'parent_check', 'always', 'reviewer', 'content')) as a_tmp_v2 \gset
+select pg_temp.assert_raises($$select app.save_gyan_assignment('72000000-0000-4000-8000-0000000000c1', jsonb_build_object('level_id', '72000000-0000-4000-8000-000000000f01', 'title', 'Content class', 'class_id', '72000000-0000-4000-8000-000000000a05', 'reviewer', 'content'))$$,
+  'always reviewed by the class teacher', 'homework for a class cannot be reviewed by the content team');
+select pg_temp.assert_raises($$select app.save_gyan_assignment('72000000-0000-4000-8000-0000000000c1', jsonb_build_object('id', '$$ || :'a_class' || $$', 'reviewer', 'content'))$$,
+  'always reviewed by the class teacher', 'nor switched to it later');
+commit;
+select pg_temp.assert(:'a_rr_v2'::jsonb->>'points' = '6' and :'a_tmp_v2'::jsonb->>'parent_check' = 'always' and :'a_tmp_v2'::jsonb->>'reviewer' = 'content',
+  'the rest of the homework still changes, and the reviewer and parent check change freely while nobody has answered');
+select pg_temp.assert_raises($$insert into app.gyan_assignments (center_id, level_id, class_id, title, reviewer) values ('72000000-0000-4000-8000-0000000000c1', '72000000-0000-4000-8000-000000000f01', '72000000-0000-4000-8000-000000000a05', 'Direct insert', 'content')$$,
+  'always reviewed by the class teacher', 'the table says so too, for scripts');
+
+-- ── Wrong JSON types get sentences, never raw database errors ───────────────
+begin; select pg_temp.sign_in(:contentmgr);
+select pg_temp.assert((select bool_and(pg_temp.state_of(format($$select app.save_gyan_assignment('72000000-0000-4000-8000-0000000000c1', %L::jsonb)$$, j)) = '22023')
+                         from unnest(array[
+  '{"level_id": "72000000-0000-4000-8000-000000000f01", "title": "j1", "allowed_kinds": [null]}',
+  '{"level_id": "72000000-0000-4000-8000-000000000f01", "title": "j2", "allowed_kinds": ["photo", null]}',
+  '{"level_id": "72000000-0000-4000-8000-000000000f01", "title": "j3", "allowed_kinds": [1]}',
+  '{"level_id": "72000000-0000-4000-8000-000000000f01", "title": "j4", "allowed_kinds": "photo"}',
+  '{"level_id": "72000000-0000-4000-8000-000000000f01", "title": "j5", "allowed_kinds": [["photo"]]}',
+  '{"level_id": "72000000-0000-4000-8000-000000000f01", "title": "j6", "allowed_kinds": null}',
+  '{"level_id": "72000000-0000-4000-8000-000000000f01", "title": "j7", "max_files": 2.5}',
+  '{"level_id": "72000000-0000-4000-8000-000000000f01", "title": "j8", "max_files": "3"}',
+  '{"level_id": "72000000-0000-4000-8000-000000000f01", "title": "j9", "max_files": null}',
+  '{"level_id": "72000000-0000-4000-8000-000000000f01", "title": "j10", "points": "10"}',
+  '{"level_id": "72000000-0000-4000-8000-000000000f01", "title": "j11", "points": 10.5}',
+  '{"level_id": "72000000-0000-4000-8000-000000000f01", "title": "j12", "points": 1e400}',
+  '{"level_id": "72000000-0000-4000-8000-000000000f01", "title": 123}',
+  '{"level_id": "72000000-0000-4000-8000-000000000f01", "title": {"a": 1}}',
+  '{"level_id": "72000000-0000-4000-8000-000000000f01", "title": "j15", "instructions_md": 42}',
+  '{"level_id": "72000000-0000-4000-8000-000000000f01", "title": "j16", "required_for_level": "yes"}',
+  '{"level_id": "72000000-0000-4000-8000-000000000f01", "title": "j17", "parent_check": 5}',
+  '{"level_id": "72000000-0000-4000-8000-000000000f01", "title": "j18", "reviewer": 5}',
+  '{"level_id": "72000000-0000-4000-8000-000000000f01", "title": "j19", "class_id": 5}',
+  '{"level_id": "72000000-0000-4000-8000-000000000f01", "title": "j20", "class_id": ""}',
+  '{"level_id": "72000000-0000-4000-8000-000000000f01", "title": "j21", "sort_order": "x"}',
+  '{"level_id": "72000000-0000-4000-8000-000000000f01", "title": "j22", "due_rule": {"kind": "days_after_start"}}',
+  '{"level_id": "72000000-0000-4000-8000-000000000f01", "title": "j23", "due_rule": {"kind": "days_after_start", "days": "7"}}',
+  '{"level_id": "72000000-0000-4000-8000-000000000f01", "title": "j24", "due_rule": {"kind": "on"}}',
+  '{"level_id": "72000000-0000-4000-8000-000000000f01", "title": "j25", "due_rule": {"kind": "on", "date": "2026-02-30"}}',
+  '{"level_id": "72000000-0000-4000-8000-000000000f01", "title": "j26", "due_rule": "soon"}',
+  '{"level_id": "72000000-0000-4000-8000-000000000f01", "title": "j27", "due_rule": {"kind": 5}}',
+  '{"level_id": 5, "title": "j28"}',
+  '{"id": 5, "title": "j29"}',
+  'null', '[]', '"x"']) j),
+  'a value of the wrong type or kind is refused with a plain sentence (22023): never a raw database error');
+select pg_temp.assert_raises($$select app.save_gyan_assignment('72000000-0000-4000-8000-0000000000c1', '{"level_id": "72000000-0000-4000-8000-000000000f01", "title": "k1", "allowed_kinds": [null]}')$$,
+  'Each way to answer must be one of the words', 'a null among the kinds says so');
+select pg_temp.assert_raises($$select app.save_gyan_assignment('72000000-0000-4000-8000-0000000000c1', '{"level_id": "72000000-0000-4000-8000-000000000f01", "title": 123}')$$,
+  'The title must be text.', 'a title that is not text says so');
+select pg_temp.assert_raises($$select app.save_gyan_assignment('72000000-0000-4000-8000-0000000000c1', '{"level_id": "72000000-0000-4000-8000-000000000f01", "title": "k2", "instructions_md": 42}')$$,
+  'The instructions must be text.', 'and so do instructions');
+select pg_temp.assert_raises($$select app.save_gyan_assignment('72000000-0000-4000-8000-0000000000c1', '{"level_id": "72000000-0000-4000-8000-000000000f01", "title": "k3", "points": 10.5}')$$,
+  'Points must be a whole number from 0 to 1,000', 'a fractional number of points is refused, not rounded');
+select pg_temp.assert_raises($$select app.save_gyan_assignment('72000000-0000-4000-8000-0000000000c1', '{"level_id": "72000000-0000-4000-8000-000000000f01", "title": "k4", "due_rule": {"kind": "days_after_start"}}')$$,
+  'needs "days"', 'a "days after start" rule without days says so');
+select app.save_gyan_assignment(:c1, '{"level_id": "72000000-0000-4000-8000-000000000f01", "title": "Lenient numbers", "max_files": 3.0, "points": 10.0, "sort_order": 1e1,
+                                       "due_rule": {"kind": "days_after_start", "days": 7.0, "junk": [1, 2, 3]}}'::jsonb) as j_ok \gset
+select app.save_gyan_assignment(:c1, '{"level_id": "72000000-0000-4000-8000-000000000f01", "title": "Junk rule", "due_rule": {"kind": "none", "junk": [1, 2]}}'::jsonb) as j_none \gset
+commit;
+select pg_temp.assert((:'j_ok'::jsonb->>'max_files') = '3' and (:'j_ok'::jsonb->>'points') = '10' and (:'j_ok'::jsonb->'due_rule')::text = '{"days": 7, "kind": "days_after_start"}'
+                      and (:'j_none'::jsonb->'due_rule')::text = '{"kind": "none"}',
+  'whole numbers written 3.0 and 10.0 are accepted as 3 and 10, and a due rule is stored in its one canonical form (no junk keys, 7 not 7.0)');
+
+-- ── A class Teacher's points are capped at 100 ──────────────────────────────
+begin; select pg_temp.sign_in(:classteacher);
+select pg_temp.assert_raises($$select app.save_gyan_assignment('72000000-0000-4000-8000-0000000000c1', jsonb_build_object('level_id', '72000000-0000-4000-8000-000000000f01', 'class_id', '72000000-0000-4000-8000-000000000a05', 'title', 'Big prize', 'allowed_kinds', jsonb_build_array('text'), 'points', 101))$$,
+  'up to 100 points', 'a class Teacher cannot offer more than 100 points');
+select (app.save_gyan_assignment(:c1, jsonb_build_object('level_id', :l1, 'class_id', :classA, 'title', 'Fair prize', 'allowed_kinds', jsonb_build_array('text'), 'points', 100))->>'id') as a_fair \gset
+commit;
+begin; select pg_temp.sign_in(:principal);
+select app.save_gyan_assignment(:c1, jsonb_build_object('id', :'a_fair', 'points', 1000)) as a_fair_big \gset
+commit;
+begin; select pg_temp.sign_in(:classteacher);
+select app.save_gyan_assignment(:c1, jsonb_build_object('id', :'a_fair', 'title', 'Fair prize, renamed')) as a_fair_ren \gset
+select pg_temp.assert_raises($$select app.save_gyan_assignment('72000000-0000-4000-8000-0000000000c1', jsonb_build_object('id', '$$ || :'a_fair' || $$', 'points', 900))$$,
+  'up to 100 points', 'nor lower it to a figure that is still above 100');
+commit;
+select pg_temp.assert((:'a_fair_big'::jsonb->>'points') = '1000' and (:'a_fair_ren'::jsonb->>'points') = '1000' and (:'a_fair_ren'::jsonb->>'title') = 'Fair prize, renamed',
+  'a class Teacher offers 100; the office (pathshala.manage) may set 1,000; the Teacher can still change the rest of homework the office gave 1,000 points');
+
+-- ── Required homework that stops holding releases the level bonus it held ───
+\set l_arch '''72000000-0000-4000-8000-000000000f11'''
+\set l_unpub '''72000000-0000-4000-8000-000000000f12'''
+\set l_unreq '''72000000-0000-4000-8000-000000000f13'''
+\set l_due2 '''72000000-0000-4000-8000-000000000f14'''
+\set l_del '''72000000-0000-4000-8000-000000000f15'''
+\set s_arch '''72000000-0000-4000-8000-000000000d11'''
+\set s_unpub '''72000000-0000-4000-8000-000000000d12'''
+\set s_unreq '''72000000-0000-4000-8000-000000000d13'''
+\set s_due2 '''72000000-0000-4000-8000-000000000d14'''
+insert into app.gyan_levels (id, goal_id, key, name, sort_order, points, treasure, treasure_points, requires_teacher_signoff) values
+  (:l_arch, :g1, '11', 'Archive level', 11, 20, 'Archive badge', 10, false),
+  (:l_unpub, :g1, '12', 'Unpublish level', 12, 20, 'Unpublish badge', 10, false),
+  (:l_unreq, :g1, '13', 'Unrequire level', 13, 20, 'Unrequire badge', 10, false),
+  (:l_due2, :g1, '14', 'Due start level', 14, 0, null, 0, false),
+  (:l_del, :g1, '15', 'Deletable level', 15, 0, null, 0, false);
+insert into app.gyan_steps (id, level_id, kind, title, sort_order, points) values
+  (:s_arch, :l_arch, 'read', 'Archive step', 1, 0), (:s_unpub, :l_unpub, 'read', 'Unpublish step', 1, 0),
+  (:s_unreq, :l_unreq, 'read', 'Unrequire step', 1, 0), (:s_due2, :l_due2, 'read', 'Due step', 1, 0);
+begin; select pg_temp.sign_in(:contentmgr);
+select (app.save_gyan_assignment(:c1, jsonb_build_object('level_id', :l_arch, 'title', 'Required to archive', 'allowed_kinds', jsonb_build_array('text'), 'required_for_level', true, 'parent_check', 'never'))->>'id') as a_arch \gset
+select (app.save_gyan_assignment(:c1, jsonb_build_object('level_id', :l_unpub, 'title', 'Required to unpublish', 'allowed_kinds', jsonb_build_array('text'), 'required_for_level', true, 'parent_check', 'never'))->>'id') as a_unpub \gset
+select (app.save_gyan_assignment(:c1, jsonb_build_object('level_id', :l_unreq, 'title', 'Required to un-require', 'allowed_kinds', jsonb_build_array('text'), 'required_for_level', true, 'parent_check', 'never'))->>'id') as a_unreq \gset
+select app.set_gyan_assignment_status(:'a_arch', 'published');
+select app.set_gyan_assignment_status(:'a_unpub', 'published');
+select app.set_gyan_assignment_status(:'a_unreq', 'published');
+commit;
+begin; select pg_temp.sign_in(:kid);
+insert into app.gyan_progress (center_id, person_id, step_id, stars, completed_at) values
+  (:c1, :p_kid, :s_arch, 3, now()), (:c1, :p_kid, :s_unpub, 3, now()), (:c1, :p_kid, :s_unreq, 3, now());
+commit;
+select pg_temp.assert(pg_temp.rows(:p_kid, 'level', :l_arch) + pg_temp.rows(:p_kid, 'level', :l_unpub) + pg_temp.rows(:p_kid, 'level', :l_unreq)
+                      + pg_temp.rows(:p_kid, 'gyan_treasure', :l_arch) + pg_temp.rows(:p_kid, 'gyan_treasure', :l_unpub) + pg_temp.rows(:p_kid, 'gyan_treasure', :l_unreq) = 0,
+  'every step of three levels is done, and the required homework on each holds the bonus');
+begin; select pg_temp.sign_in(:contentmgr);
+select app.set_gyan_assignment_status(:'a_arch', 'archived');
+select app.set_gyan_assignment_status(:'a_unpub', 'draft');
+select app.save_gyan_assignment(:c1, jsonb_build_object('id', :'a_unreq', 'required_for_level', false));
+commit;
+select pg_temp.assert(pg_temp.pts(:p_kid, 'level', :l_arch) = 20 and pg_temp.pts(:p_kid, 'gyan_treasure', :l_arch) = 10
+                      and pg_temp.pts(:p_kid, 'level', :l_unpub) = 20 and pg_temp.pts(:p_kid, 'gyan_treasure', :l_unpub) = 10
+                      and pg_temp.pts(:p_kid, 'level', :l_unreq) = 20 and pg_temp.pts(:p_kid, 'gyan_treasure', :l_unreq) = 10,
+  'archiving, unpublishing or un-requiring the required homework pays the level''s points and treasure it was holding');
+select pg_temp.assert(pg_temp.rows(:p_kid, 'level', :l_arch) = 1 and pg_temp.rows(:p_kid, 'gyan_treasure', :l_arch) = 1
+                      and app.gyan_award_level_bonus(:c1, :p_kid, :l_arch) = 0 and app.gyan_award_level_bonus(:c1, :p_kid, :l_unreq) = 0,
+  'once each, and never again');
+
+-- ── Archived homework stays on the family's list, read-only, with its notes ──
+begin; select pg_temp.sign_in(:contentmgr);
+select (app.save_gyan_assignment(:c1, jsonb_build_object('level_id', :l1, 'title', 'Archive me later', 'allowed_kinds', jsonb_build_array('text'), 'parent_check', 'never', 'points', 0))->>'id') as a_arc \gset
+select app.set_gyan_assignment_status(:'a_arc', 'published');
+commit;
+begin; select pg_temp.sign_in(:kid);
+select (app.save_gyan_submission_draft(:'a_arc', :p_kid, 'arc words', null)->>'id') as sub_arc \gset
+select app.hand_in_gyan_submission(:'sub_arc');
+commit;
+begin; select pg_temp.sign_in(:classteacher);
+select app.review_gyan_submission(:'sub_arc', 'send_back', 'Fix the date') as sub_arc_nw \gset
+commit;
+begin; select pg_temp.sign_in(:contentmgr); select app.set_gyan_assignment_status(:'a_arc', 'archived');
+commit;
+begin; select pg_temp.sign_in(:kid);
+select app.my_gyan_homework(:c1) as hw_arc \gset
+select pg_temp.assert_raises($$select app.save_gyan_submission_draft('$$ || :'a_arc' || $$', '$$ || :p_kid || $$', 'more', null)$$,
+  'has been archived', 'archived homework cannot be changed...');
+select pg_temp.assert_raises($$select app.hand_in_gyan_submission('$$ || :'sub_arc' || $$')$$,
+  'has been archived', '...or handed in');
+commit;
+begin; select pg_temp.sign_in(:mom); select app.my_gyan_homework(:c1) as hw_arc_mom \gset
+commit;
+select pg_temp.assert((select (i->'assignment'->>'archived')::boolean and i->'submission'->>'status' = 'needs_work' and i->'submission'->>'review_note' = 'Fix the date'
+                              and not (i->>'needs_parent')::boolean
+                         from jsonb_array_elements(:'hw_arc'::jsonb->'items') i where i->'assignment'->>'id' = :'a_arc')
+                      and (select bool_and(not (i->'assignment'->>'archived')::boolean) from jsonb_array_elements(:'hw_arc'::jsonb->'items') i where i->'assignment'->>'id' <> :'a_arc')
+                      and not exists (select 1 from jsonb_array_elements(:'hw_arc'::jsonb->'items') i where i->'assignment'->>'id' = :'a_teacher')
+                      and exists (select 1 from jsonb_array_elements(:'hw_arc_mom'::jsonb->'items') i where i->'assignment'->>'id' = :'a_arc' and i->>'person_id' = :p_kid),
+  'archived homework with an answer stays on the list (assignment.archived, status and the teacher''s note intact; her mother sees it too); archived homework nobody answered is not listed');
+
+-- ── Due dates never start in the past ───────────────────────────────────────
+begin; select pg_temp.sign_in(:kid);
+insert into app.gyan_progress (center_id, person_id, step_id, stars, completed_at) values (:c1, :p_kid, :s_due2, 3, now() - interval '100 days');
+commit;
+begin; select pg_temp.sign_in(:contentmgr);
+select (app.save_gyan_assignment(:c1, jsonb_build_object('level_id', :l_due2, 'title', 'Seven days after you start', 'allowed_kinds', jsonb_build_array('text'), 'parent_check', 'never',
+                                 'due_rule', '{"kind": "days_after_start", "days": 7}'::jsonb))->>'id') as a_due2 \gset
+select app.set_gyan_assignment_status(:'a_due2', 'published');
+commit;
+begin; select pg_temp.sign_in(:kid);
+select app.my_gyan_homework(:c1) as hw_due2 \gset
+select (app.save_gyan_submission_draft(:'a_due2', :p_kid, 'on time', null)->>'id') as sub_due2 \gset
+select app.hand_in_gyan_submission(:'sub_due2') as sub_due2_in \gset
+commit;
+select pg_temp.assert((select i->'assignment'->>'due_on' from jsonb_array_elements(:'hw_due2'::jsonb->'items') i where i->'assignment'->>'id' = :'a_due2') = (app.gyan_center_today(:c1) + 7)::text
+                      and not (:'sub_due2_in'::jsonb->>'late')::boolean,
+  'a learner who started the level 100 days before the homework was published gets seven days from the publish date, and is not late the day she hands in');
+
+-- ── A level that has homework cannot be deleted ─────────────────────────────
+select pg_temp.assert_raises($$delete from app.gyan_levels where id = '72000000-0000-4000-8000-000000000f01'$$,
+  'has homework', 'a lesson level with homework cannot be deleted');
+select pg_temp.assert_raises($$delete from app.gyan_goals where id = '72000000-0000-4000-8000-000000000e01'$$,
+  'has homework', 'nor its goal');
+select pg_temp.assert((select confdeltype from pg_constraint where conrelid = 'app.gyan_assignments'::regclass and confrelid = 'app.gyan_levels'::regclass) = 'r',
+  'the foreign key is on delete restrict: no level delete can ever take homework and answers with it');
+begin; select pg_temp.sign_in(:contentmgr);
+select pg_temp.assert_raises($$delete from app.gyan_levels where id = '72000000-0000-4000-8000-000000000f01'$$, 'has homework', 'a content manager deleting it through the API is refused too');
+delete from app.gyan_levels where id = :l_del;
+commit;
+select pg_temp.assert(not exists (select 1 from app.gyan_levels where id = :l_del) and (select count(*) from app.gyan_submissions where assignment_id = :'a1') > 0,
+  'a level without homework can still be deleted, and nothing was deleted with the others');
+
+-- ── Publishing a big class: one job, tells in batches, once ─────────────────
+-- Five students placed in class B, each with a login, and a parent with a login and an email.
+create or replace function pg_temp.u(n int, k int) returns uuid language sql immutable as $$
+  select ('74000000-0000-4000-8000-' || lpad(to_hex(n * 10 + k), 12, '0'))::uuid $$;
+insert into auth.users (id, email) select pg_temp.u(g, 1), 'bs' || g || '@example.com' from generate_series(1, 5) g;
+insert into auth.users (id, email) select pg_temp.u(g, 2), 'bp' || g || '@example.com' from generate_series(1, 5) g;
+insert into app.households (id, center_id, display_name) select pg_temp.u(g, 5), :c1, 'Bulk household ' || g from generate_series(1, 5) g;
+insert into app.people (id, center_id, first_name, last_name, date_of_birth, email)
+  select pg_temp.u(g, 3), :c1, 'Bs' || g, 'Bulk' || g, (current_date - interval '9 years')::date, null from generate_series(1, 5) g;
+insert into app.people (id, center_id, first_name, last_name, date_of_birth, email)
+  select pg_temp.u(g, 4), :c1, 'Bp' || g, 'Bulk' || g, date '1980-01-01', 'bp' || g || '@example.com' from generate_series(1, 5) g;
+insert into app.household_members (household_id, person_id, center_id, role, is_primary)
+  select pg_temp.u(g, 5), pg_temp.u(g, 4), :c1, 'primary', true from generate_series(1, 5) g;
+insert into app.household_members (household_id, person_id, center_id, role, is_primary)
+  select pg_temp.u(g, 5), pg_temp.u(g, 3), :c1, 'child', false from generate_series(1, 5) g;
+insert into app.center_users (center_id, user_id, person_id) select :c1, pg_temp.u(g, 1), pg_temp.u(g, 3) from generate_series(1, 5) g;
+insert into app.center_users (center_id, user_id, person_id) select :c1, pg_temp.u(g, 2), pg_temp.u(g, 4) from generate_series(1, 5) g;
+insert into app.pathshala_enrollments (center_id, term_id, student_person_id, household_id, class_id, status)
+  select :c1, :term1, pg_temp.u(g, 3), pg_temp.u(g, 5), :classB, 'placed' from generate_series(1, 5) g;
+begin; select pg_temp.sign_in(:principal);
+select (app.save_gyan_assignment(:c1, jsonb_build_object('level_id', :l1, 'title', 'Class B bulk', 'class_id', :classB, 'allowed_kinds', jsonb_build_array('text'), 'parent_check', 'never'))->>'id') as a_bulk \gset
+select app.set_gyan_assignment_status(:'a_bulk', 'published');
+commit;
+select pg_temp.assert((select count(*) from app.jobs where kind = 'homework.publish_notify' and payload->>'assignment_id' = :'a_bulk') = 1
+                      and (select count(*) from pg_temp.msgs('homework.assigned', 'assignment_id', :'a_bulk')) = 0,
+  'publishing homework for five students queues one job and creates no message at all inside the request');
+begin; set local role connect_worker;
+select app.worker_homework_publish_notify(:'a_bulk', 0, 2) as bulk0 \gset
+select app.worker_homework_publish_notify(:'a_bulk', 2, 2) as bulk1 \gset
+select app.worker_homework_publish_notify(:'a_bulk', 4, 2) as bulk2 \gset
+select app.worker_homework_publish_notify(:'a_bulk', 0, 2) as bulk_retry \gset
+select app.worker_homework_publish_notify(:'a_tmp', 0, 50) as bulk_draft \gset
+select app.worker_homework_publish_notify('72000000-0000-4000-8000-0000000000ff', 0, 50) as bulk_gone \gset
+commit;
+select pg_temp.assert((:'bulk0'::jsonb->>'total')::int = 5 and (:'bulk0'::jsonb->>'learners')::int = 2 and (:'bulk0'::jsonb->>'messages')::int = 6 and not (:'bulk0'::jsonb->>'done')::boolean
+                      and (:'bulk1'::jsonb->>'learners')::int = 2 and (:'bulk1'::jsonb->>'messages')::int = 6 and not (:'bulk1'::jsonb->>'done')::boolean
+                      and (:'bulk2'::jsonb->>'learners')::int = 1 and (:'bulk2'::jsonb->>'messages')::int = 3 and (:'bulk2'::jsonb->>'done')::boolean,
+  'the worker pages through the five learners with offset and limit (2, 2, 1): each student and each parent are told (three messages a family) and the last page says it is done');
+select pg_temp.assert((select count(*) = 15 and count(distinct payload->>'learner_id') = 5 from pg_temp.msgs('homework.assigned', 'assignment_id', :'a_bulk'))
+                      and (:'bulk_retry'::jsonb->>'learners')::int = 2 and (:'bulk_retry'::jsonb->>'skipped')::int = 2 and (:'bulk_retry'::jsonb->>'messages')::int = 0,
+  'a retried job tells nobody twice: learners already told are skipped');
+select pg_temp.assert((:'bulk_draft'::jsonb->>'total')::int = 0 and (:'bulk_draft'::jsonb->>'done')::boolean and (:'bulk_draft'::jsonb->>'reason') like '%no longer published%'
+                      and (:'bulk_gone'::jsonb->>'reason') like '%no longer exists%',
+  'homework that is no longer published (or gone) is told to nobody');
+begin; select pg_temp.sign_in(:principal);
+select app.set_gyan_assignment_status(:'a_bulk', 'draft');
+select app.set_gyan_assignment_status(:'a_bulk', 'published');
+commit;
+select pg_temp.assert((select count(*) from app.jobs where kind = 'homework.publish_notify' and payload->>'assignment_id' = :'a_bulk') = 1
+                      and (select count(*) from pg_temp.msgs('homework.assigned', 'assignment_id', :'a_bulk')) = 15,
+  'publishing again after an unpublish queues no second job and tells nobody twice');
+
+-- ── The audit log and the message queue hold no child's words ───────────────
+select pg_temp.assert((select bool_and(coalesce(after->>'text_answer', '*** (0 characters)') ~ '^\*\*\* \(\d+ characters\)$'
+                                       and coalesce(before->>'text_answer', '*** (0 characters)') ~ '^\*\*\* \(\d+ characters\)$'
+                                       and coalesce(after->>'parent_note', '*** (0 characters)') ~ '^\*\*\* \(\d+ characters\)$'
+                                       and coalesce(before->>'parent_note', '*** (0 characters)') ~ '^\*\*\* \(\d+ characters\)$'
+                                       and coalesce(after->>'review_note', '*** (0 characters)') ~ '^\*\*\* \(\d+ characters\)$'
+                                       and coalesce(before->>'review_note', '*** (0 characters)') ~ '^\*\*\* \(\d+ characters\)$')
+                         from app.audit_log where record_table = 'gyan_submissions')
+                      and (select count(*) from app.audit_log where record_table = 'gyan_submissions' and record_id = :'sub1') >= 8
+                      and not exists (select 1 from app.audit_log where record_table = 'gyan_submissions' and (coalesce(before::text, '') || coalesce(after::text, '')) ~* '(Namo|slower|mantra|Much better|Well done|Still good|family should read)')
+                      and (select after->>'text_answer' from app.audit_log where record_table = 'gyan_submissions' and record_id = :'sub1' and after->>'text_answer' is not null order by id desc limit 1) = '*** (32 characters)'
+                      and (select after->>'review_note' from app.audit_log where record_table = 'gyan_submissions' and record_id = :'sub1' and after->>'review_note' is not null order by id desc limit 1) = '*** (10 characters)',
+  'the audit log keeps who and when and how long, never the child''s written answer, the parent''s note or the teacher''s note');
+select pg_temp.assert((select bool_and((coalesce(after->>'storage_path', '') = '' or after->>'storage_path' ~ '/\*\*\*$') and (coalesce(before->>'storage_path', '') = '' or before->>'storage_path' ~ '/\*\*\*$'))
+                         from app.audit_log where record_table = 'gyan_submission_files')
+                      and (select count(*) from app.audit_log where record_table = 'gyan_submission_files' and after->>'storage_path' like (:prefix || :'sub1' || '/***')) >= 2
+                      and not exists (select 1 from app.audit_log where record_table = 'gyan_submission_files' and (coalesce(before::text, '') || coalesce(after::text, '')) ~ '\.(m4a|jpg)'),
+  'a part''s file name is masked in the audit log; its folder (the answer) is not');
+begin; select pg_temp.sign_in(:treasurer);
+select count(*) as n_hist from app.record_history('gyan_submissions', :'sub1') h where h.after->>'text_answer' = '*** (32 characters)' \gset
+select count(*) as n_hist_bad from app.record_history('gyan_submissions', :'sub1') h where (coalesce(h.before::text, '') || coalesce(h.after::text, '')) ~* '(Namo|slower|mantra|Much better|Well done)' \gset
+select count(*) as n_audit_seen from app.audit_log where record_table = 'gyan_submissions' and record_id = :'sub1' \gset
+commit;
+select pg_temp.assert(:n_hist::int >= 1 and :n_hist_bad::int = 0 and :n_audit_seen::int >= 8,
+  'a treasurer (audit.view) sees the masked history of the answer, in the audit log and in record_history');
+begin; select pg_temp.sign_in(:commsuser);
+select count(*) as n_msgs_seen from app.messages where template_key like 'homework.%' \gset
+select count(*) as n_msgs_bad from app.messages where template_key like 'homework.%'
+   and ((coalesce(body, '') || coalesce(subject, '') || payload::text) ~* '(slower|mantra|Much better|Well done|Fix the date)' or payload->'vars' ? 'note') \gset
+commit;
+select pg_temp.assert(:n_msgs_seen::int > 20 and :n_msgs_bad::int = 0,
+  'whoever can read the message queue (comms.view) reads no note: not in a body, a subject or the payload''s variables');
+select pg_temp.assert(not exists (select 1 from app.messages where template_key like 'homework.%' and (payload->'vars' ? 'note' or payload ? 'note')),
+  'and no homework message of any kind carries a note variable');
+
+-- ── Odds and ends: who may ask what an assignment's reviewer is ─────────────
+begin; select pg_temp.sign_in(:other);
+select coalesce(app.gyan_assignment_reviewer(:'a1'), '(nothing)') as rv_other \gset
+commit;
+begin; select pg_temp.sign_in(:neighbor);
+select app.gyan_assignment_reviewer(:'a1') as rv_nb \gset
+select app.gyan_assignment_reviewer(:'a_content') as rv_nb2 \gset
+commit;
+select pg_temp.assert(:'rv_other' = '(nothing)' and :'rv_nb' = 'teacher' and :'rv_nb2' = 'content',
+  'a member of another community learns nothing of an assignment''s reviewer; members of its community do');
 
 -- ── The module switch ──────────────────────────────────────────────────────
 update app.center_modules set enabled = false where center_id = :c1 and module_key = 'gyan_path';
