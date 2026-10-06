@@ -191,7 +191,7 @@ name, to `audit.view` holders of that center and platform admins only (the same 
   25 MB a file, `<center>/<person>/<submission>/<uuid>.<ext>`, written by the learner or a household adult
   while the answer is a draft or sent back, read by the family (the whole folder) and, once the answer is
   with them (submitted, accepted or sent back: never a draft or an answer waiting for a parent), by the
-  reviewers, only the files the answer lists; kept 365 days by default; a community may change either
+  reviewers, only the files the answer lists; no old Office files (.doc, .xls, .ppt); kept 180 days by default; a community may change either
   number in Settings › Storage). Both follow this module
 - **Background job:** homework.publish_notify (queued on every publish; the worker tells the learners and
   the parents of children in batches through app.worker_homework_publish_notify, each person once)
@@ -206,7 +206,9 @@ name, to `audit.view` holders of that center and platform admins only (the same 
   homework), pathshala.manage (homework for everyone; every review), pathshala.teach (sign-offs;
   teacher-reviewed homework); a class Teacher (class-scoped role) sets homework for their own class
   (up to 100 points) and reviews the homework of the students placed or active in it while the class's
-  term is open; nobody reviews the homework of their own household
+  term is open; nobody reviews the homework of their own household; homework meant for one class is read only by that
+  class (its students placed or active while the term is open, and their household adults) and by those who set or
+  review it, homework for everyone by every member
 - **Switching off:** the center's goals, levels, steps, progress, sign-offs, tries, homework and answers
   are hidden (tables and the homework bucket) and the homework functions refuse. Goals shared by every
   center (no center) stay readable.
