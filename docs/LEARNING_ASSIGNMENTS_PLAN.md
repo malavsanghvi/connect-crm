@@ -195,3 +195,18 @@ All through `app.enqueue_message` with the existing suppressions, quiet hours an
 | Portal | vitest + e2e fixture | Editor validation messages; queue decisions; no-access screens |
 | App | jest (pure) + browser harness | Status chips, allowed kinds, parent step shown only when it applies, upload retry, deep links |
 | Hand check | JSH sandbox | A parent with a child under 13 (no login) and a teen with a login; a teacher of their class; accept and send back; the APK file flow |
+
+---
+
+## 7. As built (migration 0587, 2026-10-06)
+
+The database follows §2 and §4. Where building it refined the text, the refinement is listed here and in the pull request's access section, so the portal and the member app code against what exists.
+
+- **Reviewers read an answer only once it is with them.** The Teacher of the learner's class (placed or active), `pathshala.teach`, `pathshala.manage` and, for content-reviewed homework, `content.manage` read an answer, its parts and its files from `submitted` onward (accepted, sent back). They never read a draft or an answer waiting for a parent: the parent's check really comes first. (§2.5 said "the reviewers" without a status.)
+- **When there is nobody to ask.** A learner with no adult in their household hands in straight to the teacher. An adult learner's "always" homework waits for another adult of the household when there is one. A household adult handing in for someone else in the family is the check, whatever the parent check says.
+- **Pushes.** `homework` to the learner, `homework_parent` to a household adult, `homework_review` (no deep link: teachers review in the portal) to a reviewer. The payload carries `deep_link`, `assignment_id`, `submission_id` and `learner_id`, and the worker forwards them with the type (F5).
+- **Publishing tells** the class's students, or, for homework for everyone, the members who have completed a step of the level, and the household adults of each child: never the whole community.
+- **Required for level** holds the automatic level bonus (the points of a level with no sign-off, and the treasure). A level that needs a sign-off still pays its points when the teacher approves the sign-off.
+- **The queue's household card** is `app.household_card` when the caller may see it, otherwise `{household_id, household_name, household_number}`: a class Teacher usually holds no people permission, and a learner is never shown by name alone.
+- **Function grants.** Signed-in members can call the eight functions of §2.4 and the four helpers the row level security policies call (each answers only about the caller); every other helper is internal.
+- **Left for later** (BACKLOG B46): the in-app teacher queue, Take a photo and Attach a file (APK), a malware scanner for uploads, the due-date reminder job, masking answers in the audit log, a delete guard for levels that have homework.
