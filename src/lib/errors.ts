@@ -48,7 +48,11 @@ export function explainError(error: unknown): string {
   if (code === "42501" || /row-level security|permission denied/i.test(msg)) {
     return "you don't have permission to make this change";
   }
-  if (code === "23505") return "a record with the same key already exists";
+  if (code === "23505") {
+    // Our own functions re-raise unique_violation with a plain sentence (0587: 'There is already homework called
+    // "X" on this lesson level.'); Postgres' own message starts "duplicate key value violates unique constraint".
+    return msg && !/^duplicate key/i.test(msg) ? msg : "a record with the same key already exists";
+  }
   // A sandbox or plan limit (app.assert_entitlement): the message is already plain English.
   if (code === "CCENT") return msg || "this is beyond your community's limits";
   if (code === "23503") {

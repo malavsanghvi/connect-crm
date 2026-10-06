@@ -31,6 +31,7 @@ export function HouseholdCard({
   timeZone,
   currency = "USD",
   showBalance = true,
+  showGiving = true,
   href,
   children,
   tone = "plain",
@@ -39,7 +40,10 @@ export function HouseholdCard({
   labels: CardLabels;
   timeZone: string;
   currency?: string;
+  /** Open pledges (giving screens); ignored when showGiving is false. */
   showBalance?: boolean;
+  /** False where the reader is not giving staff (a homework reviewer): neither the last gift nor the open pledges. */
+  showGiving?: boolean;
   href?: string;
   children?: ReactNode;
   tone?: "plain" | "selected" | "warning";
@@ -47,6 +51,11 @@ export function HouseholdCard({
   const border =
     tone === "selected" ? "border-navy ring-2 ring-navy/20" : tone === "warning" ? "border-saffron/60" : "border-line";
   const name = card.household_name ?? "Unnamed household";
+  const facts = [card.zone ? `${card.zone} zone` : "No zone", card.city ?? "No city"];
+  if (showGiving) {
+    facts.push(`Last gift ${card.last_gift_on ? formatDate(card.last_gift_on, timeZone) : "never"}`);
+    if (showBalance && card.open_pledge_cents !== null) facts.push(`Open pledges ${formatCents(card.open_pledge_cents, currency)}`);
+  }
   return (
     <div className={`rounded-lg border ${border} bg-white px-4 py-3`}>
       <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
@@ -77,11 +86,7 @@ export function HouseholdCard({
       <p className="text-sm text-ink">
         <span className="text-muted">Members:</span> {card.members ?? "—"}
       </p>
-      <p className="mt-1 text-xs text-muted">
-        {[card.zone ? `${card.zone} zone` : "No zone", card.city ?? "No city", `Last gift ${card.last_gift_on ? formatDate(card.last_gift_on, timeZone) : "never"}`]
-          .concat(showBalance && card.open_pledge_cents !== null ? [`Open pledges ${formatCents(card.open_pledge_cents, currency)}`] : [])
-          .join(" · ")}
-      </p>
+      <p className="mt-1 text-xs text-muted">{facts.join(" · ")}</p>
       {children ? <div className="mt-2">{children}</div> : null}
     </div>
   );

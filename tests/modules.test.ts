@@ -53,6 +53,7 @@ describe("moduleForPath", () => {
     expect(moduleForPath("/content/gyan-path")).toBe("gyan_path");
     expect(moduleForPath("/content/niva")).toBe("niva");
     expect(moduleForPath("/pathshala/signoffs")).toBe("gyan_path");
+    expect(moduleForPath("/pathshala/homework")).toBe("gyan_path");
     expect(moduleForPath("/pathshala/classes/abc")).toBe("pathshala");
     expect(moduleForPath("/comms/surveys/123")).toBe("surveys");
     expect(moduleForPath("/events/volunteers")).toBe("volunteers");

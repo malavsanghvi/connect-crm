@@ -212,6 +212,8 @@ export const ACCESS = {
   pathshala: ["pathshala.view", "pathshala.manage"],
   pathshalaManage: ["pathshala.manage"],
   pathshalaSignoffs: ["pathshala.teach", "pathshala.manage"],
+  /** Pathshala › Homework (0587): the review queue; the content team reviews homework whose reviewer is "content". A class Teacher reaches it by role. */
+  pathshalaHomework: ["pathshala.teach", "pathshala.manage", "content.manage"],
   pathshalaCommittee: ["events.view", "events.manage", "governance.view", "pathshala.view", "pathshala.manage"],
   // Events (0010: events/rsvps/attendees/lunch_slots/scan_log staff policies).
   events: ["events.view", "events.manage"],
@@ -416,6 +418,8 @@ export const NAV: NavModule[] = [
     tabs: [
       { href: "/pathshala", label: "Classes", access: "pathshala" },
       { href: "/pathshala/signoffs", label: "Gyan Path sign-offs", access: "pathshalaSignoffs", roles: ["teacher"], module: "gyan_path" },
+      // Homework handed in for Gyan Path levels (0587): with the teacher / decided.
+      { href: "/pathshala/homework", label: "Homework", access: "pathshalaHomework", roles: ["teacher"], module: "gyan_path" },
       { href: "/pathshala/terms", label: "Terms", access: "pathshala" },
       { href: "/pathshala/enrollments", label: "Enrollments", access: "pathshala" },
       { href: "/pathshala/teachers", label: "Teacher positions", access: "pathshala" },
@@ -434,7 +438,8 @@ export const NAV: NavModule[] = [
       { href: "/content/queue", label: "Approval queue", access: "content" },
       { href: "/content/today", label: "Today & darshan", access: "content" },
       { href: "/content/practices", label: "Practices & points", access: "content", module: "jain_way" },
-      { href: "/content/gyan-path", label: "Gyan Path", access: "content", module: "gyan_path" },
+      // A class Teacher opens it too: they add homework for their own class there (0587, src/lib/gyan-homework/access.ts).
+      { href: "/content/gyan-path", label: "Gyan Path", access: "content", roles: ["teacher"], module: "gyan_path" },
       { href: "/content/library", label: "Library", access: "content" },
       // Stavans, videos, podcasts and recipes for the member app's 3L (migration 0560).
       { href: "/content/media", label: "Media library", access: "content" },
