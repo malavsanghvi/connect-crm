@@ -2639,6 +2639,72 @@ export type Database = {
         };
         Relationships: [];
       };
+      gyan_assignments: {
+        Row: {
+          id: string;
+          center_id: string;
+          level_id: string;
+          class_id: string | null;
+          title: string;
+          instructions_md: string | null;
+          allowed_kinds: string[];
+          max_files: number;
+          required_for_level: boolean;
+          points: number;
+          due_rule: Json;
+          parent_check: string;
+          reviewer: string;
+          status: string;
+          sort_order: number;
+          published_at: string | null;
+          created_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          center_id: string;
+          level_id: string;
+          class_id?: string | null;
+          title: string;
+          instructions_md?: string | null;
+          allowed_kinds?: string[];
+          max_files?: number;
+          required_for_level?: boolean;
+          points?: number;
+          due_rule?: Json;
+          parent_check?: string;
+          reviewer?: string;
+          status?: string;
+          sort_order?: number;
+          published_at?: string | null;
+          created_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          center_id?: string;
+          level_id?: string;
+          class_id?: string | null;
+          title?: string;
+          instructions_md?: string | null;
+          allowed_kinds?: string[];
+          max_files?: number;
+          required_for_level?: boolean;
+          points?: number;
+          due_rule?: Json;
+          parent_check?: string;
+          reviewer?: string;
+          status?: string;
+          sort_order?: number;
+          published_at?: string | null;
+          created_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       gyan_attempts: {
         Row: {
           id: string;
@@ -2873,6 +2939,114 @@ export type Database = {
           custom?: Json;
           activity?: Json;
           repeat_points?: number;
+        };
+        Relationships: [];
+      };
+      gyan_submission_files: {
+        Row: {
+          id: string;
+          center_id: string;
+          submission_id: string;
+          kind: string;
+          storage_path: string | null;
+          mime_type: string;
+          bytes: number;
+          duration_seconds: number | null;
+          sort_order: number;
+          deleted_at: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          center_id: string;
+          submission_id: string;
+          kind: string;
+          storage_path?: string | null;
+          mime_type: string;
+          bytes: number;
+          duration_seconds?: number | null;
+          sort_order?: number;
+          deleted_at?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          center_id?: string;
+          submission_id?: string;
+          kind?: string;
+          storage_path?: string | null;
+          mime_type?: string;
+          bytes?: number;
+          duration_seconds?: number | null;
+          sort_order?: number;
+          deleted_at?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      gyan_submissions: {
+        Row: {
+          id: string;
+          center_id: string;
+          assignment_id: string;
+          person_id: string;
+          status: string;
+          text_answer: string | null;
+          submitted_by: string | null;
+          submitted_at: string | null;
+          parent_user: string | null;
+          parent_decided_at: string | null;
+          parent_note: string | null;
+          reviewer_user: string | null;
+          decided_at: string | null;
+          review_note: string | null;
+          attempt: number;
+          points_awarded: number;
+          late: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          center_id: string;
+          assignment_id: string;
+          person_id: string;
+          status?: string;
+          text_answer?: string | null;
+          submitted_by?: string | null;
+          submitted_at?: string | null;
+          parent_user?: string | null;
+          parent_decided_at?: string | null;
+          parent_note?: string | null;
+          reviewer_user?: string | null;
+          decided_at?: string | null;
+          review_note?: string | null;
+          attempt?: number;
+          points_awarded?: number;
+          late?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          center_id?: string;
+          assignment_id?: string;
+          person_id?: string;
+          status?: string;
+          text_answer?: string | null;
+          submitted_by?: string | null;
+          submitted_at?: string | null;
+          parent_user?: string | null;
+          parent_decided_at?: string | null;
+          parent_note?: string | null;
+          reviewer_user?: string | null;
+          decided_at?: string | null;
+          review_note?: string | null;
+          attempt?: number;
+          points_awarded?: number;
+          late?: boolean;
+          created_at?: string;
+          updated_at?: string;
         };
         Relationships: [];
       };
@@ -10212,6 +10386,48 @@ export type Database = {
         };
         Returns: string[];
       };
+      gyan_assignment_reviewer: {
+        Args: {
+          p_assignment: string;
+        };
+        Returns: string;
+      };
+      gyan_can_act_for: {
+        Args: {
+          p_center: string;
+          p_person: string;
+        };
+        Returns: boolean;
+      };
+      gyan_class_homework_visible: {
+        Args: {
+          p_center: string;
+          p_class: string;
+        };
+        Returns: boolean;
+      };
+      gyan_homework_editor: {
+        Args: {
+          p_center: string;
+          p_class: string;
+        };
+        Returns: boolean;
+      };
+      gyan_homework_queue: {
+        Args: {
+          p_center: string;
+          p_view: string;
+        };
+        Returns: Json;
+      };
+      gyan_homework_reviewer: {
+        Args: {
+          p_center: string;
+          p_person: string;
+          p_reviewer: string;
+        };
+        Returns: boolean;
+      };
       gyan_is_text: {
         Args: {
           p: Json;
@@ -10250,6 +10466,18 @@ export type Database = {
           p_quiz: Json;
         };
         Returns: string[];
+      };
+      gyan_submission_readable: {
+        Args: {
+          p_submission: string;
+        };
+        Returns: boolean;
+      };
+      hand_in_gyan_submission: {
+        Args: {
+          p_submission: string;
+        };
+        Returns: Json;
       };
       has_permission: {
         Args: {
@@ -10764,6 +10992,12 @@ export type Database = {
         Args: Record<PropertyKey, never>;
         Returns: { id: string; slug: string; name: string; short_name: string; environment: string; status: string; portal_domain: string; has_role: boolean }[];
       };
+      my_gyan_homework: {
+        Args: {
+          p_center: string;
+        };
+        Returns: Json;
+      };
       my_household_ids: {
         Args: {
           p_center: string;
@@ -11021,6 +11255,14 @@ export type Database = {
       org_verification_queue: {
         Args: Record<PropertyKey, never>;
         Returns: { center_id: string; center_name: string; center_slug: string; center_status: string; legal_name: string; dba: string; ein: string; entity_type: string; incorporation_state: string; verification_status: string; verification_note: string; submitted_at: string; verified_at: string; documents: number; irs: Json }[];
+      };
+      parent_decide_gyan_submission: {
+        Args: {
+          p_submission: string;
+          p_decision: string;
+          p_note: string;
+        };
+        Returns: Json;
       };
       park_platform_setup_step: {
         Args: {
@@ -11708,6 +11950,14 @@ export type Database = {
         };
         Returns: undefined;
       };
+      review_gyan_submission: {
+        Args: {
+          p_submission: string;
+          p_decision: string;
+          p_note: string;
+        };
+        Returns: Json;
+      };
       revoke_integration_secret: {
         Args: {
           p_connection: string;
@@ -11792,6 +12042,22 @@ export type Database = {
           p_reason: string;
         };
         Returns: string;
+      };
+      save_gyan_assignment: {
+        Args: {
+          p_center: string;
+          p_assignment: Json;
+        };
+        Returns: Json;
+      };
+      save_gyan_submission_draft: {
+        Args: {
+          p_assignment: string;
+          p_person: string;
+          p_text: string;
+          p_files: Json;
+        };
+        Returns: Json;
       };
       save_numbering: {
         Args: {
@@ -11925,6 +12191,13 @@ export type Database = {
           p_reason: string;
         };
         Returns: undefined;
+      };
+      set_gyan_assignment_status: {
+        Args: {
+          p_assignment: string;
+          p_status: string;
+        };
+        Returns: Json;
       };
       set_household_primary: {
         Args: {

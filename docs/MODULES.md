@@ -180,14 +180,38 @@ name, to `audit.view` holders of that center and platform admins only (the same 
 ## Gyan Path — learning (no dependency)
 
 - **Tables:** gyan_goals, gyan_levels, gyan_steps (no center_id: gated through their goal),
-  gyan_progress, gyan_signoffs
-- **RPCs guarded:** none (progress and sign-offs are written through RLS; points are awarded by
-  triggers)
-- **Portal:** /content/gyan-path, /pathshala/signoffs
-- **Member app:** gyan, gyan/[goalId], gyan/[goalId]/level/[levelId]
-- **Permissions:** content.manage (curriculum), pathshala.teach (sign-offs)
-- **Switching off:** the center's goals, levels, steps, progress and sign-offs are hidden. Goals
-  shared by every center (no center) stay readable.
+  gyan_progress, gyan_signoffs, gyan_attempts (practice tries, 0570), gyan_assignments,
+  gyan_submissions, gyan_submission_files (homework with parent validation, 0587)
+- **RPCs guarded:** record_gyan_attempt (0570); the homework functions (0587, the only way to
+  write homework and answers): save_gyan_assignment, set_gyan_assignment_status, my_gyan_homework,
+  save_gyan_submission_draft, hand_in_gyan_submission, parent_decide_gyan_submission,
+  review_gyan_submission, gyan_homework_queue. Progress and sign-offs are still written through RLS;
+  step, level and treasure points are awarded by triggers, homework points by review_gyan_submission
+- **Storage:** bucket `recordings` (recite steps, kept 90 days) and bucket `homework` (0587: private,
+  25 MB a file, `<center>/<person>/<submission>/<uuid>.<ext>`, written by the learner or a household adult
+  while the answer is a draft or sent back, read by the family (the whole folder) and, once the answer is
+  with them (submitted, accepted or sent back: never a draft or an answer waiting for a parent), by the
+  reviewers, only the files the answer lists; no old Office files (.doc, .xls, .ppt); kept 180 days by default; a community may change either
+  number in Settings › Storage). Both follow this module
+- **Background job:** homework.publish_notify (queued on every publish; the worker tells the learners and
+  the parents of children in batches through app.worker_homework_publish_notify, each person once)
+- **Portal:** /content/gyan-path (goals, levels, steps) and /pathshala/signoffs exist today. The
+  per-level Homework editor and /pathshala/homework (the review queue) are PR 2 of the homework plan
+  (docs/LEARNING_ASSIGNMENTS_PLAN.md) and are not built yet: until then homework is set and reviewed
+  through the database functions only
+- **Member app:** gyan, gyan/[goalId], gyan/[goalId]/level/[levelId] exist today. The homework screens
+  (gyan/homework, gyan/homework/[assignmentId]) are PR 3 of the homework plan (v1.8.0, over the air)
+  and are not shipped yet; the app keeps working without them, homework stays hidden
+- **Permissions:** content.manage (curriculum; homework for everyone; reviews content-reviewed
+  homework), pathshala.manage (homework for everyone; every review), pathshala.teach (sign-offs;
+  teacher-reviewed homework); a class Teacher (class-scoped role) sets homework for their own class
+  (up to 100 points) and reviews the homework of the students placed or active in it while the class's
+  term is open; nobody reviews the homework of their own household; homework meant for one class is read only by that
+  class (its students placed or active while the term is open, and their household adults) and by those who set or
+  review it, homework for everyone by every member
+- **Switching off:** the center's goals, levels, steps, progress, sign-offs, tries, homework and answers
+  are hidden (tables and the homework bucket) and the homework functions refuse. Goals shared by every
+  center (no center) stay readable.
 
 ## My Jain Way (no dependency)
 

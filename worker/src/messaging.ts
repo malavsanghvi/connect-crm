@@ -37,14 +37,22 @@ async function record(ctx: JobContext, id: string, status: string, provider: str
   await ctx.db.query("select app.worker_message_result($1, $2, $3, $4, $5, $6)", [id, status, provider, ref, error, segments]);
 }
 
+/** The payload keys a push may carry into the app's `data` (its route registry reads them; nothing else leaves the server). */
+const PUSH_ROUTING_KEYS = ["survey_id", "event_id", "deep_link", "assignment_id", "submission_id", "learner_id"] as const;
+
 /**
- * What a tapped push needs to open the right screen in the member app: the message's template as `type` and
- * a small allow-list of routing ids from its payload (never the whole payload: it can hold other data).
+ * What a tapped push needs to open the right screen in the member app (connect-mobile src/lib/notification-routes.ts):
+ * `type` picks the route — the payload's own `type` when the sender set one (homework: `homework` to the learner,
+ * `homework_parent` to the household adults, 0587), else the message's template key — plus a small allow-list of
+ * routing ids and the `deep_link` from the payload (never the whole payload: it can hold other data, and `vars`
+ * were already stripped by app.worker_message_to_send).
  */
 export function pushRouting(m: Pick<ToSend, "template_key" | "payload">): Record<string, string | number> {
   const out: Record<string, string | number> = {};
-  if (m.template_key) out.type = m.template_key;
-  for (const k of ["survey_id", "event_id", "deep_link"] as const) {
+  const type = m.payload?.type;
+  if (typeof type === "string" && type.trim() !== "" && type.length <= 80) out.type = type;
+  else if (m.template_key) out.type = m.template_key;
+  for (const k of PUSH_ROUTING_KEYS) {
     const v = m.payload?.[k];
     if (typeof v === "string" && v.length <= 200) out[k] = v;
   }

@@ -9,6 +9,7 @@ import * as demoClear from "./demo.clear";
 import * as demoLoad from "./demo.load";
 import * as demoPing from "./demo.ping";
 import * as eventsGenerateFlyer from "./events.generate_flyer";
+import * as homeworkPublishNotify from "./homework.publish_notify";
 import * as importSuggestMapping from "./import.suggest_mapping";
 import * as messagingDomainVerify from "./messaging.domain_verify";
 import * as messagingSend from "./messaging.send";
@@ -87,4 +88,6 @@ export const HANDLERS: HandlerModule[] = [
   nivaDiscoverSite,
   // Google Photos albums: bring a shared album's photos in as photos waiting for approval
   photosImportAlbum,
+  // Homework (0587): tell the learners and the parents of children, each person once, in batches, whenever homework is published
+  homeworkPublishNotify,
 ];

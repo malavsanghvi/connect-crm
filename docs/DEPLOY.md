@@ -270,6 +270,15 @@ Every connect-crm deploy sets this up; there is nothing to switch on. What it do
   makes Caddy fetch a newly saved domain's certificate. Confirmed names get the `http://` →
   `https://` redirect and HSTS (30 days); a name that stops verifying loses them again within a
   minute. The result is shown in **Platform › HTTPS** (and the Platform setup wizard).
+- **The renewal safety net (owner, 2026-10-06).** The IP certificate is short-lived, so Caddy
+  renews it every few days. On 2026-10-03 and 2026-10-06, after each renewal, Caddy answered
+  every TLS handshake on 443, 8443 and 8444 with alert 80 ("internal error") until it was
+  reloaded (`systemctl reload caddy`, which every deploy runs); plain `http://` kept working.
+  The HTTPS check now reloads Caddy itself when the droplet address fails its check, at most
+  once every 10 minutes (the attempt is recorded in `/var/lib/connect-https/last-reload.json`),
+  waits a few seconds and checks the failed names again. **Platform › HTTPS** and the status
+  file (`caddy_reload`) say when it last did so and whether it helped. A domain's failure never
+  reloads Caddy (its DNS may be the cause). Finding the root cause is B47 in the backlog.
 - **Session cookies** are marked Secure on HTTPS requests. **The member web app** is also
   served over HTTPS on port **8443** of the same names (`https://<droplet IP>:8443`).
 - `PORTAL_PUBLIC_URL` (links in messages) follows `SITE_DOMAIN` when it is not set; the
