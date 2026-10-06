@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { parseHttpsStatus, requestIsHttps, summarizeHttps, type HttpsStatus } from "@/lib/https";
+import { describeCaddyReload, parseHttpsStatus, requestIsHttps, summarizeHttps, type HttpsStatus } from "@/lib/https";
 
 const now = Date.parse("2026-09-24T12:00:00Z");
 const base = (over: Partial<HttpsStatus> = {}): HttpsStatus => ({
   version: 1, checked_at: "2026-09-24T11:59:30Z", public_ip: "134.122.25.56",
-  ip_certificate: { enabled: true, note: null }, caddy_version: "v2.11.4", portal_names_error: null, names: [], ...over,
+  ip_certificate: { enabled: true, note: null }, caddy_version: "v2.11.4", portal_names_error: null, caddy_reload: null, names: [], ...over,
 });
 const name = (n: string, confirmed: boolean, state = confirmed ? "https_ok" : "https_failed", source = "platform_setting") =>
   ({ name: n, source, state, confirmed, reason: `${n}: ${state}`, valid_to: null });
@@ -18,6 +18,48 @@ describe("parseHttpsStatus", () => {
   it("refuses other shapes", () => {
     expect(parseHttpsStatus(null)).toBeNull();
     expect(parseHttpsStatus({ version: 2, checked_at: "x", names: [] })).toBeNull();
+  });
+  it("reads the last Caddy reload; a file from before the safety net has none", () => {
+    const reload = { at: "2026-10-06T12:57:00.000Z", reason: "https://134.122.25.56 failed: alert 80", ok: true, error: null };
+    expect(parseHttpsStatus({ ...base(), caddy_reload: reload })?.caddy_reload).toEqual(reload);
+    expect(parseHttpsStatus({ ...base(), caddy_reload: { at: "2026-10-06T12:57:00.000Z", ok: false, error: "exit status 1" } })?.caddy_reload)
+      .toEqual({ at: "2026-10-06T12:57:00.000Z", reason: null, ok: false, error: "exit status 1" });
+    const old = { ...base() } as Record<string, unknown>;
+    delete old.caddy_reload;
+    expect(parseHttpsStatus(old)?.caddy_reload).toBeNull();
+    expect(parseHttpsStatus({ ...base(), caddy_reload: { ok: true } })?.caddy_reload).toBeNull();
+  });
+});
+
+describe("describeCaddyReload", () => {
+  const ip = "134.122.25.56";
+  const reload = (over: Partial<NonNullable<HttpsStatus["caddy_reload"]>> = {}) => ({
+    at: "2026-09-24T11:57:00Z", reason: `https://${ip} failed: ERR_SSL_TLSV1_ALERT_INTERNAL_ERROR: tlsv1 alert internal error`, ok: true, error: null, ...over,
+  });
+  it("nothing to say when the check never reloaded the web server", () => {
+    expect(describeCaddyReload(base(), now)).toBeNull();
+  });
+  it("reloaded and the address works again", () => {
+    const s = base({ caddy_reload: reload(), names: [name(ip, true, "https_ok", "droplet_ip")] });
+    expect(describeCaddyReload(s, now)).toBe(
+      `The web server (Caddy) was reloaded 3 minutes ago because https://${ip} failed: ERR_SSL_TLSV1_ALERT_INTERNAL_ERROR: tlsv1 alert internal error; it works now.`,
+    );
+  });
+  it("reloaded but the address still fails", () => {
+    const s = base({ caddy_reload: reload({ at: "2026-09-24T09:00:00Z" }), names: [name(ip, false, "https_failed", "droplet_ip")] });
+    expect(describeCaddyReload(s, now)).toBe(
+      `The web server (Caddy) was reloaded 3 hours ago because https://${ip} failed: ERR_SSL_TLSV1_ALERT_INTERNAL_ERROR: tlsv1 alert internal error; https://${ip} still fails.`,
+    );
+  });
+  it("the reload itself failed: says so, and that http:// keeps working", () => {
+    const s = base({ caddy_reload: reload({ ok: false, error: "systemctl reload caddy: exit status 1 (Job for caddy.service failed)" }) });
+    const line = describeCaddyReload(s, now);
+    expect(line).toContain("could not be reloaded 3 minutes ago — systemctl reload caddy: exit status 1 (Job for caddy.service failed) — although https://");
+    expect(line).toContain("keeps working on http://");
+  });
+  it("an unreadable time stamp never throws", () => {
+    expect(describeCaddyReload(base({ caddy_reload: reload({ at: "garbage" }) }), now)).toContain("reloaded at an unknown time");
+    expect(describeCaddyReload(base({ caddy_reload: reload({ at: "2026-09-21T11:00:00Z" }) }), now)).toContain("reloaded 3 days ago");
   });
 });
 
