@@ -13,9 +13,9 @@
 --                                 → accepted | needs_work → draft again with attempt + 1)
 --   app.gyan_submission_files     the parts of an answer (photo | file | voice) in the private bucket `homework`
 --   app.save_gyan_assignment      content.manage or pathshala.manage; a class Teacher only for their own class (H2)
---   app.set_gyan_assignment_status  draft → published → archived; the first publish queues ONE job
+--   app.set_gyan_assignment_status  draft → published → archived; every publish queues a job
 --                                 (homework.publish_notify) that tells the learners (and the parents of children)
---                                 with template homework.assigned, from the worker, in batches
+--                                 with template homework.assigned, from the worker, in batches, each person once
 --   app.worker_homework_publish_notify  that job's database side: one batch of the fan-out (the worker role only)
 --   app.my_gyan_homework          the caller's homework, and their children's (member app); archived homework with
 --                                 an answer stays listed, read-only (assignment.archived)
@@ -27,7 +27,7 @@
 --                                 such homework pays what it was holding
 --   app.audit_mask                (0578's definition) also hides a child's written answer, both notes and the file
 --                                 name of a part: the audit log never holds a child's words
---   Storage bucket `homework`     private, 25 MB a file, <center>/<person>/<submission>/<file>; written by the
+--   Storage bucket `homework`     private, 25 MB a file, <center>/<person>/<submission>/<uuid>.<ext>; written by the
 --                                 learner or a household adult while the answer is a draft or sent back; read by
 --                                 the family (the whole folder), and by the reviewers once the answer is with them
 --                                 and only the parts it lists (never a draft or an answer waiting for a parent);
@@ -45,7 +45,7 @@
 --
 -- Security review of the pull request, with the owner's decisions: (a) a learner whose household has no adult who can
 -- sign in goes straight to the teacher and the household's adults are emailed (homework.heads_up); (b) publishing
--- queues one job and the worker tells the learners, once, the first time; (c) nobody decides on the homework of their
+-- queues a job and the worker tells the learners, each person once, however often it is published; (c) nobody decides on the homework of their
 -- own household (themselves, a spouse, a child, a parent, a brother or sister), the principal and the owner included;
 -- (d) the audit log holds no child's answer text or note, and no note travels in a push or an email. Also: the reviewer
 -- and the parent check cannot change once an answer exists, a class Teacher reviews only while the class's term is
@@ -104,7 +104,7 @@ create index if not exists gyan_assignments_level_idx on app.gyan_assignments (l
 create index if not exists gyan_assignments_center_idx on app.gyan_assignments (center_id, status, class_id);
 comment on table app.gyan_assignments is
   'Homework on a Gyan Path level, per community (0587; shared library levels included). class_id set: only the students placed in that Pathshala class get it (H6). parent_check: never | children (a learner under 18 handing in from their own login waits for a household adult) | always. reviewer: teacher (the learner''s class Teacher, else pathshala.teach / pathshala.manage) | content (content.manage); pathshala.manage always. required_for_level: the level is complete only once this is accepted (H7). due_rule: {"kind":"none"} | {"kind":"days_after_start","days":1-365} (from the later of the learner''s first completed step of the level and the publish date) | {"kind":"on","date":"YYYY-MM-DD"}, stored in exactly that form; due dates are information, never a gate (H5). Homework for a class is always reviewed by the class teacher. Once an answer exists the level, class, reviewer and parent check are fixed. Written only by app.save_gyan_assignment and app.set_gyan_assignment_status.';
-comment on column app.gyan_assignments.published_at is 'When it was FIRST published (set once; publishing again after an unpublish keeps it and tells nobody twice). The learners are told from that moment, and a days_after_start due rule never starts before it.';
+comment on column app.gyan_assignments.published_at is 'When it was FIRST published (set once; publishing again after an unpublish keeps it). Every publish queues a notify job, and the worker tells each learner once, so a re-publish tells only those not told yet. A days_after_start due rule never starts before it.';
 comment on column app.gyan_assignments.level_id is 'The lesson level (on delete restrict: a level that has homework cannot be deleted, so no learner''s answers are ever deleted with it).';
 
 create table if not exists app.gyan_submissions (
@@ -151,7 +151,7 @@ create table if not exists app.gyan_submission_files (
 create index if not exists gyan_submission_files_submission_idx on app.gyan_submission_files (submission_id, sort_order);
 create index if not exists gyan_submission_files_path_idx on app.gyan_submission_files (storage_path) where storage_path is not null;
 comment on table app.gyan_submission_files is
-  'The parts of a homework answer (0587): a photo, a file or a voice note in the private `homework` bucket at <center>/<person>/<submission>/<file>. deleted_at is set (and storage_path cleared) by the retention job once the file is gone; the row, the notes and the points stay.';
+  'The parts of a homework answer (0587): a photo, a file or a voice note in the private `homework` bucket at <center>/<person>/<submission>/<uuid>.<ext>. deleted_at is set (and storage_path cleared) by the retention job once the file is gone; the row, the notes and the points stay.';
 
 insert into app.module_tables (table_name, module_key) values
   ('gyan_assignments', 'gyan_path'), ('gyan_submissions', 'gyan_path'), ('gyan_submission_files', 'gyan_path')
@@ -215,14 +215,18 @@ language sql immutable as $$
 $$;
 
 -- ── Small helpers ────────────────────────────────────────────────────────────
--- A learner under 18 by their date of birth. A person with no date of birth on file is an adult (F7, as
--- app.i_am_adult says) unless a household they currently belong to records them as its child: a child with no birth
--- date on file is still a child here (the data quality report lists minors without a birth date).
+-- A learner under 18 by their date of birth. A person with no date of birth on file is an adult (F7, as app.i_am_adult
+-- says) unless the household records say they are a child: a current "child" role in some household and no current
+-- "primary" or "spouse" role in any household. (An adult with no birth date who is a "child" in their parents'
+-- household and the "primary" of their own household is an adult.) A child cannot add a missing birth date either: a
+-- parent or the office does (the data quality report lists minors without a birth date).
 create or replace function app.person_is_minor(p_person uuid) returns boolean
 language sql stable security definer set search_path = app, public, extensions as $$
   select coalesce((select case when p.date_of_birth is not null then p.date_of_birth > current_date - interval '18 years'
                                else exists (select 1 from app.household_members hm
-                                             where hm.person_id = p.id and hm.left_at is null and hm.role = 'child') end
+                                             where hm.person_id = p.id and hm.left_at is null and hm.role = 'child')
+                                    and not exists (select 1 from app.household_members hm
+                                                     where hm.person_id = p.id and hm.left_at is null and hm.role in ('primary', 'spouse')) end
                      from app.people p where p.id = p_person), false)
 $$;
 
@@ -422,13 +426,15 @@ language sql stable security definer set search_path = app, public, extensions a
                   where s.id = p_submission and s.center_id = p_center and s.person_id = p_person and s.status in ('draft', 'needs_work'))
 $$;
 
--- The name of a homework file: <community>/<person>/<submission>/<file name>: the first three the lowercase uuids, the
--- file name one non-empty segment (no further folders, no "..", at most 500 characters in all). The bucket's write rule
--- and an answer's own list of parts use the same test, so a part can only name a file the bucket would take.
+-- The name of a homework file: <community>/<person>/<submission>/<file id>.<extension>: four lowercase uuids, the last
+-- one the file's own, then a dot and one to five lowercase letters or digits (what the member app uploads: <uuid>.jpg,
+-- <uuid>.m4a ...). A learner never chooses a file's name, so no child's words can sit in one (the storage scan job and
+-- the audit log carry it). No further folders, no "..", at most 500 characters in all. The bucket's write rule and an
+-- answer's own list of parts use the same test, so a part can only name a file the bucket would take.
 create or replace function app.gyan_homework_path_ok(p_name text) returns boolean
 language sql immutable set search_path = app, public, extensions as $$
   select p_name is not null and char_length(p_name) <= 500 and position('..' in p_name) = 0
-     and p_name ~ '^([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/){3}[^/]+$'
+     and p_name ~ '^([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/){3}[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.[a-z0-9]{1,5}$'
 $$;
 
 -- ── The JSON the apps get ────────────────────────────────────────────────────
@@ -569,16 +575,17 @@ $$;
 -- homework for the learner and homework_parent for a household adult (the member app routes both to the homework
 -- screen; the adult's opens the child's). Returns how many were queued.
 create or replace function app._gyan_homework_notify_family(p_center uuid, p_template text, p_assignment uuid, p_person uuid, p_submission uuid,
-                                                            p_learner boolean, p_adults boolean default false, p_login_only boolean default false)
+                                                            p_learner boolean, p_adults boolean default false, p_login_only boolean default false,
+                                                            p_extra jsonb default '{}'::jsonb)
 returns int language plpgsql security definer set search_path = app, public, extensions as $$
 declare v jsonb; v_adult jsonb; n int := 0; r record;
 begin
   if p_learner then
-    v := app._gyan_homework_vars(p_assignment, p_person, 'homework', p_submission);
+    v := app._gyan_homework_vars(p_assignment, p_person, 'homework', p_submission) || coalesce(p_extra, '{}'::jsonb);
     n := n + app._gyan_homework_notify_person(p_center, p_template, p_person, v, app._gyan_homework_route(v), true);
   end if;
   if p_adults or app.person_is_minor(p_person) then
-    v_adult := app._gyan_homework_vars(p_assignment, p_person, 'homework_parent', p_submission);
+    v_adult := app._gyan_homework_vars(p_assignment, p_person, 'homework_parent', p_submission) || coalesce(p_extra, '{}'::jsonb);
     for r in select * from app._gyan_homework_adults(p_center, p_person, p_login_only) as x(person_id) loop
       n := n + app._gyan_homework_notify_person(p_center, p_template, r.person_id, v_adult, app._gyan_homework_route(v_adult), true);
     end loop;
@@ -868,15 +875,17 @@ begin
   return app.gyan_assignment_json(v_id);
 end $$;
 
--- draft → published → archived; published → draft only while nobody has started an answer. The FIRST publish queues one
--- job, homework.publish_notify: the worker tells every learner it applies to (push + email) and the household adults
--- of each child learner, in batches, from app.worker_homework_publish_notify: the students placed in the homework's
--- class, or, for homework for everyone, the members who have completed a step of the level (a whole community is
--- never messaged for one lesson's homework; the level screen shows it to everyone anyway). Publishing again after an
--- unpublish tells nobody twice. Archiving, unpublishing or un-requiring required homework pays the level bonus it held.
+-- draft → published → archived; published → draft only while nobody has started an answer. EVERY publish queues a job,
+-- homework.publish_notify: the worker tells every learner it applies to (push + email) and the household adults of each
+-- child learner, in batches, from app.worker_homework_publish_notify: the students placed in the homework's class, or,
+-- for homework for everyone, the members who have completed a step of the level (a whole community is never messaged
+-- for one lesson's homework; the level screen shows it to everyone anyway). The worker skips everyone it already told,
+-- so publishing, unpublishing and publishing again tells each person once (and still tells everyone when the first job
+-- ran while the homework was unpublished); a run of toggles queues a few cheap jobs and no second round of messages.
+-- Archiving, unpublishing or un-requiring required homework pays the level bonus it held.
 create or replace function app.set_gyan_assignment_status(p_assignment uuid, p_status text) returns jsonb
 language plpgsql security definer set search_path = app, public, extensions as $$
-declare a app.gyan_assignments; l app.gyan_levels; v_first boolean;
+declare a app.gyan_assignments; l app.gyan_levels;
 begin
   if auth.uid() is null then raise exception 'Sign in first.' using errcode = 'insufficient_privilege'; end if;
   select * into a from app.gyan_assignments where id = p_assignment for update;
@@ -891,12 +900,9 @@ begin
   if p_status = a.status then return app.gyan_assignment_json(a.id); end if;
   select * into l from app.gyan_levels where id = a.level_id;
   if a.status = 'draft' and p_status = 'published' then
-    v_first := a.published_at is null;
     perform app.set_audit_context('Published homework "' || a.title || '" (' || l.name || ')');
     update app.gyan_assignments set status = 'published', published_at = coalesce(published_at, now()) where id = a.id;
-    if v_first then
-      perform app.enqueue_job(a.center_id, 'homework.publish_notify', jsonb_build_object('assignment_id', a.id), now(), 5);
-    end if;
+    perform app.enqueue_job(a.center_id, 'homework.publish_notify', jsonb_build_object('assignment_id', a.id), now(), 5);
   elsif a.status = 'published' and p_status = 'archived' then
     perform app.set_audit_context('Archived homework "' || a.title || '" (' || l.name || ')');
     update app.gyan_assignments set status = 'archived' where id = a.id;
@@ -1115,7 +1121,7 @@ begin
       end if;
       v_path := case when jsonb_typeof(f->'storage_path') = 'string' then f->>'storage_path' end;
       if v_path is null or left(v_path, char_length(v_prefix)) <> v_prefix or not app.gyan_homework_path_ok(v_path) then
-        raise exception 'File %: its path must be <community>/<person>/<submission>/<file name> for this answer.', i + 1 using errcode = '22023';
+        raise exception 'File %: its path must be <community>/<person>/<submission>/<uuid>.<extension> for this answer.', i + 1 using errcode = '22023';
       end if;
       if v_path = any (v_paths) then raise exception 'File %: the same file is listed twice.', i + 1 using errcode = '22023'; end if;
       v_paths := v_paths || v_path;
@@ -1211,19 +1217,23 @@ begin
     perform app._gyan_homework_notify_reviewers(s.center_id, a.id, s.person_id, s.id);
     -- Nobody in the household can sign in to check it: they are told by email that it went to the teacher.
     if v_check = 'no_login' then
-      perform app._gyan_homework_notify_family(s.center_id, 'homework.heads_up', a.id, s.person_id, s.id, false, true, false);
+      perform app._gyan_homework_notify_family(s.center_id, 'homework.heads_up', a.id, s.person_id, s.id, false, true, false,
+        jsonb_build_object('what_happened', 'It went straight to the teacher, because nobody in the household has signed in to the app, so nobody could check it first.'));
     end if;
   end if;
   return app.gyan_submission_json(s.id);
 end $$;
 
 -- A household adult (not the learner) says the answer is ready for the teacher, or sends it back with a note. The
--- office (pathshala.manage) may also release an answer that is waiting for a parent to the teacher (decision "ok"):
--- for a family where nobody can check it; it is recorded as released by the office, with who and when. Archived
--- homework is read-only: nobody, the office included, decides on an answer of it any more.
+-- office (the principal, the community owner and Community Connect staff: pathshala.manage) may also release an
+-- answer that is waiting for a parent to the teacher (decision "ok"), but only when nobody in the family can check it:
+-- no adult of the household can sign in now (the test the hand-in uses), or the answer has waited at least seven
+-- days. The household's adults are emailed (homework.heads_up) and the release is recorded as the office's, with who,
+-- when and why. Archived homework is read-only: nobody, the office included, decides on an answer of it any more.
 create or replace function app.parent_decide_gyan_submission(p_submission uuid, p_decision text, p_note text) returns jsonb
 language plpgsql security definer set search_path = app, public, extensions as $$
 declare s app.gyan_submissions; a app.gyan_assignments; v_name text; v_note text; v_family boolean; v_office boolean;
+        v_nologin boolean; v_why text; v_what text;
 begin
   if auth.uid() is null then raise exception 'Sign in first.' using errcode = 'insufficient_privilege'; end if;
   select * into s from app.gyan_submissions where id = p_submission for update;
@@ -1256,12 +1266,24 @@ begin
   v_note := nullif(btrim(coalesce(p_note, '')), '');
   if char_length(v_note) > 500 then raise exception 'The note can be at most 500 characters.' using errcode = '22023'; end if;
   if v_office then
-    perform app.set_audit_context('Released homework "' || a.title || '" of ' || v_name || ' to the teacher (the office: no parent checked it)');
+    -- Only when nobody in the family can check it: no adult of the household can sign in now (the test the hand-in uses),
+    -- or the answer has been waiting for a parent for a week (it waits from the latest hand-in).
+    v_nologin := not exists (select 1 from app._gyan_homework_adults(s.center_id, s.person_id, true));
+    if not v_nologin and not (s.submitted_at is not null and s.submitted_at <= now() - interval '7 days') then
+      raise exception 'A parent in the family can still sign in and check this. It can be released after 7 days.' using errcode = '22023';
+    end if;
+    v_why := case when v_nologin then 'no parent could sign in' else 'it had waited 7 days for a parent' end;
+    v_what := case when v_nologin then 'The office sent it on to the teacher, because nobody in the household could sign in to check it.'
+                   else 'The office sent it on to the teacher, because it had waited seven days for a parent to check it.' end;
+    perform app.set_audit_context('Released homework "' || a.title || '" of ' || v_name || ' to the teacher (the office: ' || v_why || ')');
     update app.gyan_submissions
        set status = 'submitted', parent_user = auth.uid(), parent_decided_at = now(),
-           parent_note = left('Released to the teacher by the office.' || coalesce(' ' || v_note, ''), 500)
+           parent_note = left('Released to the teacher by the office: ' || v_why || '.' || coalesce(' ' || v_note, ''), 500)
      where id = s.id;
     perform app._gyan_homework_notify_reviewers(s.center_id, a.id, s.person_id, s.id);
+    -- The household's adults are told it went on without them (emails, and a push to those who can sign in).
+    perform app._gyan_homework_notify_family(s.center_id, 'homework.heads_up', a.id, s.person_id, s.id, false, true, false,
+                                             jsonb_build_object('what_happened', v_what));
   elsif p_decision = 'ok' then
     perform app.set_audit_context('Parent OK for homework "' || a.title || '" of ' || v_name);
     update app.gyan_submissions
@@ -1545,10 +1567,10 @@ begin
   return v_default;
 end $$;
 
--- 0585's bodies with the homework branch. Path <center>/<person>/<submission>/<file>, the first three the lowercase
--- uuids (app.gyan_homework_path_ok).
+-- 0585's bodies with the homework branch. Path <center>/<person>/<submission>/<uuid>.<ext>: four lowercase uuids and a
+-- short lowercase extension (app.gyan_homework_path_ok): a learner never chooses a file's name.
 --   write: the learner or a household adult (app.gyan_can_act_for), only while that person's answer to the homework is
---          a draft or was sent back, only under that answer's own folder, one file name deep;
+--          a draft or was sent back, only under that answer's own folder, one file deep;
 --   read:  the learner and the household adults read the whole folder; the reviewers (the learner's class Teacher,
 --          pathshala.teach / pathshala.manage, content.manage when the homework's reviewer is content; never someone
 --          from the learner's own household) read only the objects the answer LISTS as parts (a file row that is not
@@ -1689,7 +1711,7 @@ begin
   for o in select * from jsonb_array_elements(coalesce(p_objects, '[]'::jsonb)) loop
     v_center := app.storage_center(o->>'name');
     v_days := app.storage_retention_days(o->>'bucket', v_center);
-    -- A homework file's name can be the child's own: the entry keeps its folder (the answer) and not the file name.
+    -- Homework file names are opaque (uuid.ext) so no child's words sit in one; the entry still keeps only the folder.
     v_name := case when o->>'bucket' = 'homework' then regexp_replace(o->>'name', '[^/]+$', '***') else o->>'name' end;
     perform app.log_audit(v_center, 'storage.retention_delete', 'storage.objects', (o->>'bucket') || '/' || v_name,
                           jsonb_build_object('bucket', o->>'bucket', 'name', v_name, 'created_at', o->>'created_at'),
@@ -1757,7 +1779,9 @@ end $$;
 -- ── Templates (platform defaults; a community may override them) ─────────────
 -- Variables: title, level, learner (first name), due ("Due October 12, 2026" or "No due date"), deep_link (the member
 -- app screen: /gyan/homework/<assignment>?person=<person>), type (homework to the learner, homework_parent to a
--- household adult, homework_review to a reviewer, who gets no deep_link). There is no note variable and no template
+-- household adult, homework_review to a reviewer, who gets no deep_link), and, for homework.heads_up only,
+-- what_happened (one plain sentence: it went straight to the teacher because nobody could sign in, or the office
+-- released it after no parent could sign in or a week's wait). There is no note variable and no template
 -- repeats a note: they say there is one and where to read it, so a teacher's or a parent's words about a child never
 -- reach a lock screen, a push provider, an inbox, or whoever can read the message queue.
 insert into app.message_templates (center_id, key, channel, language, subject, body)
@@ -1787,10 +1811,10 @@ select null, v.key, v.channel::app.channel, 'en', v.subject, v.body
    'The teacher sent "{{title}}" ({{level}}) back to {{learner}}. Open the app to read the note.'),
   ('homework.sent_back', 'email', 'Homework sent back: {{title}}',
    E'The teacher at {{center_short_name}} sent "{{title}}" ({{level}}) back to {{learner}}.\n\nOpen the Community Connect app to read the teacher''s note, change the answer and hand it in again.'),
-  ('homework.heads_up', 'push', '{{learner}} handed in homework',
-   '{{learner}} handed in "{{title}}" ({{level}}). It went straight to the teacher. Sign in to the app to follow it.'),
-  ('homework.heads_up', 'email', '{{learner}} handed in homework: {{title}}',
-   E'{{learner}} handed in "{{title}}" ({{level}}) at {{center_short_name}}.\n\nNobody in the household has signed in to the Community Connect app yet, so it went straight to the teacher. Sign in to the app to follow {{learner}}''s homework, and to check it before it goes to the teacher next time.')
+  ('homework.heads_up', 'push', 'About {{learner}}''s homework',
+   '{{learner}}''s homework "{{title}}" ({{level}}): {{what_happened}} Sign in to the app to follow it.'),
+  ('homework.heads_up', 'email', 'About {{learner}}''s homework: {{title}}',
+   E'{{learner}}''s homework "{{title}}" ({{level}}) at {{center_short_name}}: {{what_happened}}\n\nSign in to the Community Connect app to follow {{learner}}''s homework, and to check it yourself before it goes to the teacher next time.')
   ) as v(key, channel, subject, body)
  where not exists (select 1 from app.message_templates t
                     where t.center_id is null and t.key = v.key and t.channel = v.channel::app.channel and t.language = 'en');
@@ -1799,9 +1823,9 @@ select null, v.key, v.channel::app.channel, 'en', v.subject, v.body
 comment on function app.save_gyan_assignment(uuid, jsonb) is
   'content.manage or pathshala.manage, or a class Teacher for homework that names their class (H2): insert (no "id") or update homework on a Gyan Path level of this community or the shared library. Keys: id, level_id, class_id, title (1-120), instructions_md (<= 4000), allowed_kinds (photo | file | voice | text), max_files (1-10), required_for_level, points (0-1000; a class Teacher up to 100), due_rule, parent_check (never | children | always), reviewer (teacher | content; homework for a class is always teacher-reviewed), sort_order. A value of the wrong type is refused with a sentence. Once the homework has an answer its level, class, reviewer and parent check cannot change. New homework starts as a draft; app.set_gyan_assignment_status publishes it. Returns the row as JSON.';
 comment on function app.set_gyan_assignment_status(uuid, text) is
-  'Same callers as save_gyan_assignment: draft → published → archived (published → draft only while nobody has started an answer). The FIRST publish queues one job, homework.publish_notify: the worker tells the learners it applies to (the class''s students, or the members who completed a step of the level) with homework.assigned (push + email), and the household adults of each child, in batches; publishing again tells nobody twice. Archiving, unpublishing or un-requiring required homework pays the level bonus it was holding.';
+  'Same callers as save_gyan_assignment: draft → published → archived (published → draft only while nobody has started an answer). EVERY publish queues a job, homework.publish_notify: the worker tells the learners it applies to (the class''s students, or the members who completed a step of the level) with homework.assigned (push + email), and the household adults of each child, in batches, skipping everyone already told: publishing again tells only those not told yet, never anyone twice. Archiving, unpublishing or un-requiring required homework pays the level bonus it was holding.';
 comment on function app.worker_homework_publish_notify(uuid, int, int) is
-  'The worker role only (job homework.publish_notify): tells one batch (offset, limit) of the homework''s learners and the household adults of each child with homework.assigned; a learner already told (a retried job) is skipped. Returns {total, offset, limit, learners, messages, skipped, done}.';
+  'The worker role only (job homework.publish_notify): tells one batch (offset, limit) of the homework''s learners and the household adults of each child with homework.assigned; a learner already told (a retried job, a second publish) is skipped. Returns {total, offset, limit, learners, messages, skipped, done}.';
 comment on function app.my_gyan_homework(uuid) is
   'Member: {people: [{person_id, name, is_child}], items: [{assignment (with archived), person_id, submission | null, needs_parent, can_parent_decide}]} for yourself and, when you are an adult, every current member of your households; published homework that applies to each person, and archived homework the person has an answer to (read-only: needs_parent and can_parent_decide are false for it).';
 comment on function app.save_gyan_submission_draft(uuid, uuid, text, jsonb) is
@@ -1809,7 +1833,7 @@ comment on function app.save_gyan_submission_draft(uuid, uuid, text, jsonb) is
 comment on function app.hand_in_gyan_submission(uuid) is
   'The learner or a household adult: draft → awaiting_parent (a child''s own hand-in when the homework asks for a parent''s check and a household adult who can sign in can be asked) or → submitted (an adult; a household adult handing in for someone in the family, recorded as parent_user; or a learner whose household has no adult who can sign in, whose adults are emailed homework.heads_up). Needs at least one part. Marks late, never refuses for it. Refused for archived homework. Tells the household adults (homework.parent_check) or the reviewers (homework.submitted).';
 comment on function app.parent_decide_gyan_submission(uuid, text, text) is
-  'An adult of the learner''s household, not the learner: ok → submitted (the reviewers are told); send_back → draft with the note (the learner is told). pathshala.manage may also release an answer that is waiting for a parent with decision ok (recorded as released by the office, with who and when). Refused for archived homework, whoever asks.';
+  'An adult of the learner''s household, not the learner: ok → submitted (the reviewers are told); send_back → draft with the note (the learner is told). pathshala.manage may also release an answer that is waiting for a parent with decision ok, but only when no adult of the household can sign in now or the answer has waited 7 days (recorded as released by the office with who, when and why; the household''s adults get homework.heads_up). Refused for archived homework, whoever asks.';
 comment on function app.review_gyan_submission(uuid, text, text) is
   'app.gyan_homework_reviewer_role, never for the homework of the caller''s own household: accept → accepted, the homework''s points once per assignment and person (points_ledger reason assignment, ref_id = the submission), and the level bonus when this was the last required homework; send_back (a note is required) → needs_work. The learner and the household adults are told either way, without the note in the message.';
 comment on function app.gyan_homework_queue(uuid, text) is
@@ -1817,13 +1841,13 @@ comment on function app.gyan_homework_queue(uuid, text) is
 comment on function app.gyan_homework_reviewer(uuid, uuid, text) is
   'May the caller review this learner''s homework: pathshala.manage always; reviewer teacher: pathshala.teach, or the Teacher of a class the learner is placed or active in with the term open; reviewer content: content.manage; and never for the homework of themselves or anyone in their own household.';
 comment on function app.gyan_homework_reviewer_role(uuid, uuid, text) is 'The role part of app.gyan_homework_reviewer (no family rule).';
-comment on function app.person_is_minor(uuid) is 'Under 18 by date of birth; no date of birth counts as an adult (app.i_am_adult''s rule) unless a household they belong to records them as its child.';
+comment on function app.person_is_minor(uuid) is 'Under 18 by date of birth; no date of birth counts as an adult (app.i_am_adult''s rule) unless the person has a current child role in some household and no current primary or spouse role in any household.';
 comment on function app.gyan_i_am_adult(uuid) is 'The caller is an adult by app.person_is_minor''s rule (app.i_am_adult would count a child with no birth date as an adult).';
 comment on function app.gyan_can_act_for(uuid, uuid) is 'app.can_act_for_person with the homework adult rule: myself, or (when I am an adult by app.person_is_minor) anyone in one of my households.';
 comment on function app.gyan_in_household(uuid, uuid) is 'Me, or anyone in one of my households (adult or not): the reviewers'' conflict-of-interest rule.';
 comment on function app.gyan_enrolled_in_class(uuid, uuid) is 'Placed or active in the class with the enrollment''s term in registration or active.';
 comment on function app.gyan_assignment_applies(uuid, uuid) is 'Published, the person''s own community, and (when it names a class) the person is placed or active in that class with the term open.';
-comment on function app.gyan_homework_path_ok(text) is 'A homework file name: <community>/<person>/<submission>/<file name>, the first three lowercase uuids, one non-empty file name segment, at most 500 characters, no "..".';
+comment on function app.gyan_homework_path_ok(text) is 'A homework file name: <community>/<person>/<submission>/<file id>.<extension>: four lowercase uuids, then a dot and one to five lowercase letters or digits (a learner never chooses a file name, so no child''s words can sit in one); at most 500 characters, no "..".';
 
 -- ── Grants ───────────────────────────────────────────────────────────────────
 -- The RPCs: signed-in members (each one checks who may), and service_role for scripts.
@@ -1862,7 +1886,7 @@ revoke execute on function
   app._gyan_homework_adults(uuid, uuid, boolean), app._gyan_homework_send(uuid, text, text, text, jsonb, jsonb),
   app._gyan_homework_notify_person(uuid, text, uuid, jsonb, jsonb, boolean), app._gyan_homework_reviewer_users(uuid, uuid, uuid, text),
   app._gyan_homework_vars(uuid, uuid, text, uuid), app._gyan_homework_route(jsonb),
-  app._gyan_homework_notify_family(uuid, text, uuid, uuid, uuid, boolean, boolean, boolean), app._gyan_homework_notify_reviewers(uuid, uuid, uuid, uuid),
+  app._gyan_homework_notify_family(uuid, text, uuid, uuid, uuid, boolean, boolean, boolean, jsonb), app._gyan_homework_notify_reviewers(uuid, uuid, uuid, uuid),
   app._gyan_homework_parent_check(uuid, uuid, uuid), app._gyan_homework_household_card(uuid), app.gyan_assignments_guard(),
   app.gyan_award_level_bonus(uuid, uuid, uuid), app._gyan_homework_release_level_bonus(uuid, uuid),
   app._gyan_homework_publish_recipients(uuid), app.gyan_levels_homework_guard()
@@ -1876,7 +1900,7 @@ grant execute on function
   app._gyan_homework_adults(uuid, uuid, boolean), app._gyan_homework_send(uuid, text, text, text, jsonb, jsonb),
   app._gyan_homework_notify_person(uuid, text, uuid, jsonb, jsonb, boolean), app._gyan_homework_reviewer_users(uuid, uuid, uuid, text),
   app._gyan_homework_vars(uuid, uuid, text, uuid), app._gyan_homework_route(jsonb),
-  app._gyan_homework_notify_family(uuid, text, uuid, uuid, uuid, boolean, boolean, boolean), app._gyan_homework_notify_reviewers(uuid, uuid, uuid, uuid),
+  app._gyan_homework_notify_family(uuid, text, uuid, uuid, uuid, boolean, boolean, boolean, jsonb), app._gyan_homework_notify_reviewers(uuid, uuid, uuid, uuid),
   app._gyan_homework_parent_check(uuid, uuid, uuid), app._gyan_homework_household_card(uuid),
   app._gyan_homework_release_level_bonus(uuid, uuid), app._gyan_homework_publish_recipients(uuid)
   to service_role;
