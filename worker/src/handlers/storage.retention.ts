@@ -1,6 +1,9 @@
 // storage.retention: remove files past their keeping period (plan §1.9):
-// imports 90 days, exports 7 days, recordings 90 days (imports and
-// recordings may be changed per organization). The database says which
+// imports 90 days, exports 7 days, recordings 90 days, homework answers 180
+// days (0587); imports, recordings and homework may be changed per
+// organization. Event flyer files nothing uses any more go after 7 days
+// (0585). For homework the row, the notes and the points stay: only the
+// file goes and the part is marked deleted. The database says which
 // objects are due (app.storage_expired_objects); the files are removed
 // through the Storage API so the stored bytes go too, not just the row; each
 // removal is then recorded (app.record_storage_deletions -> audit entries).
