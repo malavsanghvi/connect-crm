@@ -12,9 +12,11 @@ import { loadHomeworkQueue, signHomeworkFiles, type SignedFile } from "@/lib/gya
 import {
   attemptText,
   fileRemoved,
+  householdBriefText,
   matchesQueueFilters,
   pointsText,
   queueLevelOptions,
+  queueLimitNote,
   REVIEW_NOTE_MAX,
   submissionStatusLabel,
   submissionStatusTone,
@@ -22,6 +24,7 @@ import {
   type QueueView,
 } from "@/lib/gyan-homework/homework";
 import { pathshalaAreas } from "@/lib/pathshala/access";
+import { canAccess } from "@/lib/permissions";
 import { hrefWith, isUuid, param, type RawSearchParams } from "@/lib/search-params";
 import { getSession, type CrmSession } from "@/lib/session";
 
@@ -37,7 +40,9 @@ type ClassInfo = { id: string; name: string };
 
 /**
  * This term's classes (for the filter and the row labels) and where the learners on screen are placed. Both are
- * conveniences: when they cannot be read the queue still shows, without the class filter, and says why.
+ * conveniences: when they cannot be read the queue still shows, without the class filter, and says why. RLS lets
+ * the principal read every enrollment, a class teacher only their own class's, and the content team none: a learner
+ * with no placement on screen is "not placed" only for the principal (QueueRow).
  */
 async function classContext(session: CrmSession, personIds: string[]): Promise<{ classes: ClassInfo[]; placements: Map<string, string[]>; problem: string | null }> {
   const { db, center } = session;
@@ -119,10 +124,22 @@ export default async function HomeworkQueuePage({ searchParams }: { searchParams
   const visible = items.filter((it) => matchesQueueFilters(it, { classId, levelName: levelFilter ?? null }, ctx.placements));
   const levelOptions = queueLevelOptions(items);
   const className = (id: string | null) => (id ? (ctx.classes.find((c) => c.id === id)?.name ?? null) : null);
+  // "Not placed in a class this term" is a claim only the principal's read of the enrollments can back.
+  const seesAllPlacements = ctx.problem === null && pathshalaAreas.admin(session);
+  // The household card links to the household's page for people who may open People.
+  const householdHref = canAccess(session, "households") ? (id: string) => `/households/${id}` : () => undefined;
 
-  // One signing call for every file on screen (not the removed ones).
-  const paths = visible.flatMap((it) => it.submission.files.filter((f) => !fileRemoved(f)).map((f) => f.storage_path as string));
-  const signed: ReadonlyMap<string, SignedFile> = paths.length ? await signHomeworkFiles(session.db, paths) : new Map();
+  // Two signing calls for every file on screen (not the removed ones): photos and voice notes show inline; the file
+  // parts are signed as downloads (Content-Disposition: attachment) and open in a new tab.
+  const live = visible.flatMap((it) => it.submission.files.filter((f) => !fileRemoved(f)));
+  const inlinePaths = live.filter((f) => f.kind !== "file").map((f) => f.storage_path as string);
+  const downloadPaths = live.filter((f) => f.kind === "file").map((f) => f.storage_path as string);
+  const [inlineSigned, downloadSigned] = await Promise.all([
+    signHomeworkFiles(session.db, inlinePaths),
+    signHomeworkFiles(session.db, downloadPaths, { download: true }),
+  ]);
+  const signed: ReadonlyMap<string, SignedFile> = new Map([...inlineSigned, ...downloadSigned]);
+  const limitNote = queueLimitNote(view, items.length);
 
   return (
     <>
@@ -168,11 +185,24 @@ export default async function HomeworkQueuePage({ searchParams }: { searchParams
           <ul className="flex flex-col gap-3 p-2">
             {visible.map((it) => (
               <li key={it.submission.id}>
-                <QueueRow item={it} view={view} signed={signed} labels={labels} tz={tz} currency={session.center.currency} className={className} placements={ctx.placements} classes={ctx.classes} />
+                <QueueRow
+                  item={it}
+                  view={view}
+                  signed={signed}
+                  labels={labels}
+                  tz={tz}
+                  currency={session.center.currency}
+                  className={className}
+                  placements={ctx.placements}
+                  classes={ctx.classes}
+                  seesAllPlacements={seesAllPlacements}
+                  householdHref={householdHref}
+                />
               </li>
             ))}
           </ul>
         )}
+        {limitNote ? <p className="px-4 pb-3 pt-1 text-xs text-brown">{limitNote}</p> : null}
       </Card>
     </>
   );
@@ -188,6 +218,8 @@ function QueueRow({
   className,
   placements,
   classes,
+  seesAllPlacements,
+  householdHref,
 }: {
   item: QueueItem;
   view: QueueView;
@@ -198,10 +230,15 @@ function QueueRow({
   className: (id: string | null) => string | null;
   placements: ReadonlyMap<string, string[]>;
   classes: ClassInfo[];
+  /** The viewer read every enrollment, so "no placement" means "not placed". */
+  seesAllPlacements: boolean;
+  householdHref: (householdId: string) => string | undefined;
 }) {
   const { submission: s, assignment: a, learner: l } = item;
   const learnerClasses = (placements.get(l.person_id) ?? []).map((id) => classes.find((c) => c.id === id)?.name).filter((n): n is string => Boolean(n));
   const forClass = className(a.class_id);
+  const household = l.household;
+  const briefHref = household?.kind === "brief" && household.household_id ? householdHref(household.household_id) : undefined;
   return (
     <article className="rounded-[12px] border border-line bg-white p-4">
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
@@ -215,9 +252,24 @@ function QueueRow({
               </span>
             ) : null}
           </p>
-          <p className="mb-2 text-xs text-muted">{learnerClasses.length ? `Class: ${learnerClasses.join(", ")}` : "Not placed in a class this term"}</p>
-          {l.household_card ? (
-            <HouseholdCard card={l.household_card} labels={labels} timeZone={tz} currency={currency} showBalance={false} />
+          {learnerClasses.length ? (
+            <p className="mb-2 text-xs text-muted">Class: {learnerClasses.join(", ")}</p>
+          ) : seesAllPlacements ? (
+            <p className="mb-2 text-xs text-muted">Not placed in a class this term</p>
+          ) : null}
+          {household?.kind === "card" ? (
+            <HouseholdCard card={household.card} labels={labels} timeZone={tz} currency={currency} showGiving={false} href={householdHref(household.card.household_id)} />
+          ) : household?.kind === "brief" ? (
+            <p className="rounded-lg border border-line bg-white px-3 py-2 text-[13px]">
+              {briefHref ? (
+                <a href={briefHref} className="crm-link font-semibold" target="_blank" rel="noreferrer">
+                  {householdBriefText(household)}
+                </a>
+              ) : (
+                <span className="font-semibold text-ink">{householdBriefText(household)}</span>
+              )}
+              <span className="block text-xs text-muted">Household details need people.view.</span>
+            </p>
           ) : (
             <p className="rounded-lg border border-saffron/60 bg-saffron-50 px-3 py-2 text-xs text-brown-900">
               The household card could not be shown for this learner, so the name above is all there is. Check the household in People before relying on it.

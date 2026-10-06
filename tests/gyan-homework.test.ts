@@ -15,12 +15,19 @@ import {
   fileLabel,
   fileRemoved,
   fileSizeText,
+  householdBriefText,
+  INSTRUCTIONS_MAX,
   matchesQueueFilters,
+  mayEditAssignment,
   parseAssignment,
   parseAssignmentList,
   parseHomeworkQueue,
+  parseLearnerHousehold,
   parseSubmission,
+  QUEUE_LIMIT,
   queueLevelOptions,
+  queueLimitNote,
+  readOnlyReason,
   statusChangeDoing,
   statusChangeMessage,
   submissionStatusLabel,
@@ -99,14 +106,21 @@ describe("the editor form, checked the way app.save_gyan_assignment checks it", 
     expect(bad({ title: "x".repeat(TITLE_MAX + 1) })).toBe(`the title can be at most ${TITLE_MAX} characters (it has ${TITLE_MAX + 1}).`);
     // Characters are counted as the database counts them: an emoji is one.
     expect(bad({ title: "🪔".repeat(TITLE_MAX) })).toBe("ok");
-    expect(bad({ allowed_kinds: [] })).toBe("choose at least one way to answer (photo, file, voice note or written answer).");
-    expect(bad({ allowed_kinds: ["video"] })).toBe('"video" is not a way to answer (photo, file, voice note or written answer).');
-    expect(bad({ max_files: "0" })).toBe("the number of files must be a whole number from 1 to 10.");
-    expect(bad({ max_files: "11" })).toBe("the number of files must be a whole number from 1 to 10.");
-    expect(bad({ max_files: "two" })).toBe("the number of files must be a whole number from 1 to 10.");
-    expect(bad({ points: "-1" })).toBe("points must be a whole number of 0 or more.");
-    expect(bad({ points: "1.5" })).toBe("points must be a whole number of 0 or more.");
-    expect(bad({ due_days: "0" })).toBe("say how many days after starting the level it is due (a whole number of 1 or more).");
+    // The database's own ranges (0587): instructions <= 4,000, points 0-1,000, due days 1-365.
+    expect(bad({ instructions_md: "x".repeat(INSTRUCTIONS_MAX + 1) })).toBe("the instructions can be at most 4,000 characters (they have 4,001).");
+    expect(bad({ instructions_md: "x".repeat(INSTRUCTIONS_MAX) })).toBe("ok");
+    expect(bad({ allowed_kinds: [] })).toBe("choose at least one way to answer: photo, file, voice note or written answer.");
+    expect(bad({ allowed_kinds: ["video"] })).toBe('"video" is not a way to answer homework (photo, file, voice note or written answer).');
+    expect(bad({ max_files: "0" })).toBe("the number of files allowed must be a whole number from 1 to 10.");
+    expect(bad({ max_files: "11" })).toBe("the number of files allowed must be a whole number from 1 to 10.");
+    expect(bad({ max_files: "two" })).toBe("the number of files allowed must be a whole number from 1 to 10.");
+    expect(bad({ points: "-1" })).toBe("points must be a whole number from 0 to 1,000.");
+    expect(bad({ points: "1.5" })).toBe("points must be a whole number from 0 to 1,000.");
+    expect(bad({ points: "1001" })).toBe("points must be a whole number from 0 to 1,000.");
+    expect(bad({ points: "1000" })).toBe("ok");
+    expect(bad({ due_days: "0" })).toBe("say how many days after starting the level it is due: a whole number from 1 to 365.");
+    expect(bad({ due_days: "366" })).toBe("say how many days after starting the level it is due: a whole number from 1 to 365.");
+    expect(bad({ due_days: "365" })).toBe("ok");
     expect(bad({ due_kind: "on", due_date: "1 Nov" })).toBe("choose the due date.");
     expect(bad({ due_kind: "on", due_date: "2026-13-45" })).toBe("choose the due date.");
     expect(bad({ due_kind: "someday" })).toBe("choose when it is due: no due date, some days after the learner starts the level, or a date.");
@@ -207,8 +221,11 @@ describe("reading what the database sends", () => {
     expect(it0.submission.late).toBe(true);
     expect(it0.submission.attempt).toBe(2);
     expect(it0.learner.is_child).toBe(true);
-    expect(it0.learner.household_card?.household_number).toBe("JSH-H-2041");
-    expect(it0.learner.household_card?.primary_org_member_id).toBeUndefined();
+    expect(it0.learner.household_id).toBe("h1");
+    expect(it0.learner.household?.kind).toBe("card");
+    if (it0.learner.household?.kind !== "card") return;
+    expect(it0.learner.household.card.household_number).toBe("JSH-H-2041");
+    expect(it0.learner.household.card.primary_org_member_id).toBeUndefined();
     expect(it0.assignment.level_name).toBe("What is Samayik");
     expect(parseHomeworkQueue({ items: [{ submission: queue.items[0].submission, assignment: {}, learner: queue.items[0].learner }] })).toEqual({ ok: false, error: "submission s1 names no homework" });
     expect(parseHomeworkQueue({ items: [{ submission: queue.items[0].submission, assignment: queue.items[0].assignment, learner: { name: "x" } }] })).toEqual({ ok: false, error: "submission s1 names no learner" });
@@ -216,6 +233,53 @@ describe("reading what the database sends", () => {
     expect(parseHomeworkQueue({ items: [] })).toEqual({ ok: true, value: [] });
     expect(parseSubmission({ id: "s", status: "lost" }).ok).toBe(false);
     expect(parseSubmission({ id: "s", status: "accepted" })).toMatchObject({ ok: true, value: { files: [], attempt: 1, late: false, points_awarded: 0 } });
+  });
+
+  it("reads the learner's household in either shape: the full card, a brief card (two spellings), or nothing", () => {
+    // app.household_card in full: people.view or giving.view holders.
+    const full = parseLearnerHousehold(queue.items[0].learner.household_card);
+    expect(full?.kind).toBe("card");
+    if (full?.kind === "card") expect(full.card).toMatchObject({ household_id: "h1", members: "Rahul, Mira, Aarav", last_gift_on: null, open_pledge_cents: 0 });
+    // Every detail null is still the full shape (the card shows "—"), as long as the keys are there.
+    const blank = parseLearnerHousehold({ household_id: "h1", household_name: null, household_number: null, org_household_id: null, members: null, primary_member: null, zone: null, city: null, last_gift_on: null, open_pledge_cents: null });
+    expect(blank?.kind).toBe("card");
+    // The brief card a class teacher gets: household_card's own key names…
+    expect(parseLearnerHousehold({ household_id: "h1", household_name: "Shah", household_number: "JSH-H-2041" })).toEqual({
+      kind: "brief",
+      household_id: "h1",
+      household_name: "Shah",
+      household_number: "JSH-H-2041",
+    });
+    // …or the earlier build's.
+    expect(parseLearnerHousehold({ display_name: "Shah family", connect_number: "JSH-H-2041" })).toEqual({
+      kind: "brief",
+      household_id: null,
+      household_name: "Shah family",
+      household_number: "JSH-H-2041",
+    });
+    expect(parseLearnerHousehold({ household_id: "h1" })).toEqual({ kind: "brief", household_id: "h1", household_name: null, household_number: null });
+    // Neither shape: the row warns.
+    expect(parseLearnerHousehold(null)).toBeNull();
+    expect(parseLearnerHousehold({})).toBeNull();
+    expect(parseLearnerHousehold("h1")).toBeNull();
+    expect(parseLearnerHousehold({ household_id: null, household_name: null, household_number: null })).toBeNull();
+    // Through the queue parser.
+    const brief = parseHomeworkQueue({ items: [{ ...queue.items[0], learner: { ...queue.items[0].learner, household_card: { household_id: "h1", household_name: "Shah", household_number: "JSH-H-2041" } } }] });
+    expect(brief.ok && brief.value[0].learner.household?.kind).toBe("brief");
+    const none = parseHomeworkQueue({ items: [{ ...queue.items[0], learner: { ...queue.items[0].learner, household_card: null } }] });
+    expect(none.ok && none.value[0].learner.household).toBeNull();
+    // The one line a brief card shows.
+    expect(householdBriefText({ household_name: "Shah", household_number: "JSH-H-2041" })).toBe("Shah household · JSH-H-2041");
+    expect(householdBriefText({ household_name: "Rahul & Mira Shah Household", household_number: "JSH-H-2041" })).toBe("Rahul & Mira Shah Household · JSH-H-2041");
+    expect(householdBriefText({ household_name: "Shah family", household_number: null })).toBe("Shah family · no household number");
+    expect(householdBriefText({ household_name: null, household_number: "JSH-H-2041" })).toBe("Unnamed household · JSH-H-2041");
+  });
+
+  it("says when the database's row limit was reached", () => {
+    expect(queueLimitNote("waiting", 0)).toBeNull();
+    expect(queueLimitNote("waiting", QUEUE_LIMIT - 1)).toBeNull();
+    expect(queueLimitNote("waiting", QUEUE_LIMIT)).toBe("Showing the oldest 200 waiting — decide some of these to see the rest.");
+    expect(queueLimitNote("decided", QUEUE_LIMIT)).toBe("Showing the newest 200 decided.");
   });
 
   it("filters the queue by class (the homework's class or the learner's placement) and by level name", () => {
@@ -322,6 +386,24 @@ describe("who may write and review homework (H2, H4)", () => {
     expect(homeworkAreas.editFor(centerTeacher, "c9")).toBe(true);
     expect(homeworkAreas.editFor(centerTeacher, null)).toBe(false);
     expect(homeworkAreas.review(centerTeacher)).toBe(true);
+  });
+
+  it("offers Edit and the status moves only where a save could succeed (app.gyan_homework_editor)", () => {
+    const everyone = { class_id: null };
+    const mine = { class_id: "c1" };
+    const theirs = { class_id: "c2" };
+    // content.manage / pathshala.manage: any homework.
+    for (const a of [everyone, mine, theirs]) expect(mayEditAssignment(a, true, [])).toBe(true);
+    // A class Teacher: their own classes' homework only; never everyone's.
+    expect(mayEditAssignment(mine, false, ["c1"])).toBe(true);
+    expect(mayEditAssignment(theirs, false, ["c1"])).toBe(false);
+    expect(mayEditAssignment(everyone, false, ["c1"])).toBe(false);
+    expect(mayEditAssignment(mine, false, [])).toBe(false);
+    // A center-wide Teacher: any class's homework, still not everyone's.
+    expect(mayEditAssignment(theirs, false, "any")).toBe(true);
+    expect(mayEditAssignment(everyone, false, "any")).toBe(false);
+    expect(readOnlyReason(everyone)).toBe("Set by the Pathshala office for everyone doing the level");
+    expect(readOnlyReason(theirs)).toBe("Set for another class");
   });
 
   it("a content viewer sees lessons but writes and reviews nothing", () => {

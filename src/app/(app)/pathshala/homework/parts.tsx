@@ -64,8 +64,10 @@ function FilePart({ file, signed, index, learner }: { file: SubmissionFile; sign
       </div>
     );
   }
+  // A signed URL is cross-origin, where the browser ignores `download`: a new tab keeps a half-typed note on this
+  // page, and the URL itself was signed with Content-Disposition: attachment (signHomeworkFiles).
   return (
-    <a href={signed.url} download className="crm-link text-[13px] font-semibold">
+    <a href={signed.url} target="_blank" rel="noreferrer" className="crm-link text-[13px] font-semibold">
       Download: {label}
     </a>
   );

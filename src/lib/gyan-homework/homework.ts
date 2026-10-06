@@ -19,6 +19,7 @@ function isObj(v: unknown): v is Obj {
 export const HOMEWORK_KINDS = ["photo", "file", "voice", "text"] as const;
 export type HomeworkKind = (typeof HOMEWORK_KINDS)[number];
 
+// TODO(plan PR 4): drop the "next APK release" hints once connect-mobile ships the camera and the file picker.
 export const KIND_OPTIONS: readonly { value: HomeworkKind; label: string; hint: string }[] = [
   { value: "photo", label: "Photo", hint: "A picture chosen on the phone (the camera arrives with the next APK release)." },
   { value: "file", label: "File", hint: "PDF, Word, Excel, PowerPoint or plain text — needs the next APK release of the member app." },
@@ -52,14 +53,21 @@ export type SubmissionStatus = (typeof SUBMISSION_STATUSES)[number];
 export const DUE_KINDS = ["none", "days_after_start", "on"] as const;
 export type DueKind = (typeof DUE_KINDS)[number];
 
-/** The table's limits (gyan_assignments checks). */
+/** The table's limits (gyan_assignments checks, app.save_gyan_assignment's sentences). */
 export const TITLE_MAX = 120;
+export const INSTRUCTIONS_MAX = 4000;
 export const MAX_FILES_MIN = 1;
 export const MAX_FILES_MAX = 10;
 export const DEFAULT_MAX_FILES = 3;
 export const DEFAULT_POINTS = 10;
+export const POINTS_MAX = 1000;
+/** A "days after the learner starts the level" due rule (app.gyan_due_rule_problem). */
+export const DUE_DAYS_MIN = 1;
+export const DUE_DAYS_MAX = 365;
 /** The review note's limit (gyan_submissions.review_note). */
 export const REVIEW_NOTE_MAX = 1000;
+/** app.gyan_homework_queue answers with at most this many rows (the oldest waiting, the newest decided). */
+export const QUEUE_LIMIT = 200;
 
 export function isHomeworkKind(v: unknown): v is HomeworkKind {
   return typeof v === "string" && (HOMEWORK_KINDS as readonly string[]).includes(v);
@@ -156,13 +164,22 @@ export type QueueAssignment = {
   goal_name: string | null;
 };
 
+/**
+ * The learner's household as the queue could send it: app.household_card in full (the caller holds people.view or
+ * giving.view), or a brief card — household id, name and number — for a class teacher, who has no people
+ * permission. Either way the queue never shows a learner by name alone.
+ */
+export type LearnerHousehold =
+  | { kind: "card"; card: HouseholdCardData }
+  | { kind: "brief"; household_id: string | null; household_name: string | null; household_number: string | null };
+
 export type QueueLearner = {
   person_id: string;
   name: string;
   is_child: boolean;
   household_id: string | null;
-  /** app.household_card of the learner's household: the queue never shows a learner by name alone. */
-  household_card: HouseholdCardData | null;
+  /** Null when the database sent neither shape: the row then says so. */
+  household: LearnerHousehold | null;
 };
 
 export type QueueItem = { submission: Submission; assignment: QueueAssignment; learner: QueueLearner };
@@ -281,24 +298,46 @@ export function parseSubmission(data: unknown): Parsed<Submission> {
   };
 }
 
-/** app.household_card as the queue embeds it; null when the database sent none (the row then says so). */
-function parseCard(v: unknown): HouseholdCardData | null {
+/** The keys that make app.household_card a disambiguation card; a brief card carries none of them. */
+const CARD_DETAIL_KEYS = ["members", "primary_member", "org_household_id", "zone", "city"] as const;
+
+/**
+ * The household the queue embeds for a learner, in either shape: the full app.household_card (household_id and the
+ * detail keys) → a card; household_id / household_name / household_number alone — or, from an earlier build of the
+ * queue, display_name / connect_number — → a brief card. Null when neither shape is there (the row then says so).
+ */
+export function parseLearnerHousehold(v: unknown): LearnerHousehold | null {
   if (!isObj(v)) return null;
   const householdId = str(v.household_id);
-  if (!householdId) return null;
-  return {
-    household_id: householdId,
-    household_name: str(v.household_name),
-    household_number: str(v.household_number),
-    org_household_id: str(v.org_household_id),
-    members: str(v.members),
-    primary_member: str(v.primary_member),
-    primary_org_member_id: "primary_org_member_id" in v ? str(v.primary_org_member_id) : undefined,
-    zone: str(v.zone),
-    city: str(v.city),
-    last_gift_on: str(v.last_gift_on),
-    open_pledge_cents: num(v.open_pledge_cents),
-  };
+  if (householdId && CARD_DETAIL_KEYS.some((k) => k in v)) {
+    return {
+      kind: "card",
+      card: {
+        household_id: householdId,
+        household_name: str(v.household_name),
+        household_number: str(v.household_number),
+        org_household_id: str(v.org_household_id),
+        members: str(v.members),
+        primary_member: str(v.primary_member),
+        primary_org_member_id: "primary_org_member_id" in v ? str(v.primary_org_member_id) : undefined,
+        zone: str(v.zone),
+        city: str(v.city),
+        last_gift_on: str(v.last_gift_on),
+        open_pledge_cents: num(v.open_pledge_cents),
+      },
+    };
+  }
+  const name = str(v.household_name) ?? str(v.display_name);
+  const number = str(v.household_number) ?? str(v.connect_number);
+  if (!householdId && name === null && number === null) return null;
+  return { kind: "brief", household_id: householdId, household_name: name, household_number: number };
+}
+
+/** "Shah household · JSH-H-2041" — the one line a brief card can show (a name that already says "household" is kept as is). */
+export function householdBriefText(brief: { household_name: string | null; household_number: string | null }): string {
+  const raw = brief.household_name?.trim() ?? "";
+  const name = !raw ? "Unnamed household" : /\b(household|family)$/i.test(raw) ? raw : `${raw} household`;
+  return `${name} · ${brief.household_number ?? "no household number"}`;
 }
 
 export function parseHomeworkQueue(data: unknown): Parsed<QueueItem[]> {
@@ -329,7 +368,7 @@ export function parseHomeworkQueue(data: unknown): Parsed<QueueItem[]> {
         name: str(l.name) ?? "Learner",
         is_child: bool(l.is_child),
         household_id: str(l.household_id),
-        household_card: parseCard(l.household_card),
+        household: parseLearnerHousehold(l.household_card),
       },
     });
   }
@@ -380,21 +419,29 @@ export function assignmentFromForm(input: AssignmentFormInput): Parsed<Assignmen
   const title = input.title.trim();
   if (!title) return { ok: false, error: "give the homework a title." };
   if (chars(title) > TITLE_MAX) return { ok: false, error: `the title can be at most ${TITLE_MAX} characters (it has ${chars(title)}).` };
+  const instructions = input.instructions_md.trim();
+  if (chars(instructions) > INSTRUCTIONS_MAX) {
+    return { ok: false, error: `the instructions can be at most ${INSTRUCTIONS_MAX.toLocaleString("en-US")} characters (they have ${chars(instructions).toLocaleString("en-US")}).` };
+  }
   const kinds = [...new Set(input.allowed_kinds)];
   const bad = kinds.find((k) => !isHomeworkKind(k));
-  if (bad !== undefined) return { ok: false, error: `"${bad}" is not a way to answer (photo, file, voice note or written answer).` };
-  if (!kinds.length) return { ok: false, error: "choose at least one way to answer (photo, file, voice note or written answer)." };
+  if (bad !== undefined) return { ok: false, error: `"${bad}" is not a way to answer homework (photo, file, voice note or written answer).` };
+  if (!kinds.length) return { ok: false, error: "choose at least one way to answer: photo, file, voice note or written answer." };
   const maxFiles = input.max_files.trim();
   if (!WHOLE.test(maxFiles) || Number(maxFiles) < MAX_FILES_MIN || Number(maxFiles) > MAX_FILES_MAX) {
-    return { ok: false, error: `the number of files must be a whole number from ${MAX_FILES_MIN} to ${MAX_FILES_MAX}.` };
+    return { ok: false, error: `the number of files allowed must be a whole number from ${MAX_FILES_MIN} to ${MAX_FILES_MAX}.` };
   }
   const points = input.points.trim() || "0";
-  if (!WHOLE.test(points) || Number(points) < 0) return { ok: false, error: "points must be a whole number of 0 or more." };
+  if (!WHOLE.test(points) || Number(points) < 0 || Number(points) > POINTS_MAX) {
+    return { ok: false, error: `points must be a whole number from 0 to ${POINTS_MAX.toLocaleString("en-US")}.` };
+  }
   let due: DueRule;
   if (input.due_kind === "none" || input.due_kind === "") due = { kind: "none" };
   else if (input.due_kind === "days_after_start") {
     const days = input.due_days.trim();
-    if (!WHOLE.test(days) || Number(days) < 1) return { ok: false, error: "say how many days after starting the level it is due (a whole number of 1 or more)." };
+    if (!WHOLE.test(days) || Number(days) < DUE_DAYS_MIN || Number(days) > DUE_DAYS_MAX) {
+      return { ok: false, error: `say how many days after starting the level it is due: a whole number from ${DUE_DAYS_MIN} to ${DUE_DAYS_MAX}.` };
+    }
     due = { kind: "days_after_start", days: Number(days) };
   } else if (input.due_kind === "on") {
     const date = input.due_date.trim();
@@ -412,7 +459,7 @@ export function assignmentFromForm(input: AssignmentFormInput): Parsed<Assignmen
       level_id: input.level_id,
       class_id: classId || null,
       title,
-      instructions_md: input.instructions_md.trim(),
+      instructions_md: instructions,
       allowed_kinds: kinds as HomeworkKind[],
       max_files: Number(maxFiles),
       required_for_level: input.required_for_level,
@@ -474,10 +521,6 @@ export function parentCheckLabel(v: ParentCheck): string {
 
 export function reviewerLabel(v: Reviewer): string {
   return REVIEWER_OPTIONS.find((o) => o.value === v)?.label ?? v;
-}
-
-export function kindLabel(kind: HomeworkKind): string {
-  return KIND_OPTIONS.find((o) => o.value === kind)?.label ?? kind;
 }
 
 /** "Photo, voice note or written answer" in the catalog's order. */
@@ -579,6 +622,25 @@ export function statusChangeMessage(title: string, status: AssignmentStatus): st
 }
 
 // ---------------------------------------------------------------------------
+// Which homework this person may change (app.gyan_homework_editor, mirrored by homeworkAreas.editFor): RLS shows a
+// class teacher every published homework, so the screen offers Edit and the status moves only where a save could
+// succeed and marks the rest read-only. The database decides again on every write.
+// ---------------------------------------------------------------------------
+/** The classes whose homework the person may change: every class ("any": a center-wide Teacher), or the ids of their own. */
+export type EditableClasses = "any" | readonly string[];
+
+export function mayEditAssignment(a: Pick<Assignment, "class_id">, canChooseEveryone: boolean, ownClasses: EditableClasses): boolean {
+  if (canChooseEveryone) return true;
+  if (a.class_id === null) return false;
+  return ownClasses === "any" || ownClasses.includes(a.class_id);
+}
+
+/** Why a row is read-only, for the person who cannot change it. */
+export function readOnlyReason(a: Pick<Assignment, "class_id">): string {
+  return a.class_id === null ? "Set by the Pathshala office for everyone doing the level" : "Set for another class";
+}
+
+// ---------------------------------------------------------------------------
 // Queue filters (class and level), pure so the page and the tests agree
 // ---------------------------------------------------------------------------
 export type QueueFilters = { classId?: string | null; levelName?: string | null };
@@ -594,6 +656,14 @@ export function matchesQueueFilters(item: QueueItem, filters: QueueFilters, lear
   }
   if (filters.levelName && item.assignment.level_name !== filters.levelName) return false;
   return true;
+}
+
+/** When the database's limit was reached: which rows are on screen, and how to see the rest. Null below the limit. */
+export function queueLimitNote(view: QueueView, count: number): string | null {
+  if (count < QUEUE_LIMIT) return null;
+  return view === "waiting"
+    ? `Showing the oldest ${QUEUE_LIMIT} waiting — decide some of these to see the rest.`
+    : `Showing the newest ${QUEUE_LIMIT} decided.`;
 }
 
 /** Distinct "Goal · Level" choices present in the queue, for the level filter. */

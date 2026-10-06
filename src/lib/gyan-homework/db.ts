@@ -151,12 +151,18 @@ export type SignedFile = { url: string | null; problem: string | null };
 /**
  * Short-lived signed URLs for the parts of the submissions on screen (private bucket "homework": the bucket's own
  * policy lets the reviewers of a submission read its files). A file that cannot be signed carries the reason instead.
+ * `download` makes storage answer with Content-Disposition: attachment (for the file parts, which open in a new tab
+ * so a half-typed note is not lost); photos and voice notes are signed without it, to show inline.
  */
-export async function signHomeworkFiles(db: Pick<AppSupabase, "storage">, paths: readonly string[], expiresIn = 600): Promise<Map<string, SignedFile>> {
+export async function signHomeworkFiles(
+  db: Pick<AppSupabase, "storage">,
+  paths: readonly string[],
+  opts: { expiresIn?: number; download?: boolean } = {},
+): Promise<Map<string, SignedFile>> {
   const out = new Map<string, SignedFile>();
   const unique = [...new Set(paths)];
   if (!unique.length) return out;
-  const { data, error } = await db.storage.from(HOMEWORK_BUCKET).createSignedUrls(unique, expiresIn);
+  const { data, error } = await db.storage.from(HOMEWORK_BUCKET).createSignedUrls(unique, opts.expiresIn ?? 600, opts.download ? { download: true } : undefined);
   if (error) {
     console.error(`[gyan-homework] could not sign file URLs in bucket "${HOMEWORK_BUCKET}":`, error);
     for (const p of unique) out.set(p, { url: null, problem: `Preview unavailable — ${error.message || "storage refused the request"}.` });

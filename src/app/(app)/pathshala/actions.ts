@@ -585,10 +585,11 @@ export async function reviewHomework(submissionId: string, _prev: unknown, fd: F
     if (!res.ok) throw new DbFailure(res.error, doing);
     refresh();
     const who = str(fd, "learner");
+    // The notices are queued by the database (app.enqueue_message) and sent by the worker, best effort.
     return ok(
       decision === "accept"
-        ? `Homework accepted${who ? ` for ${who}` : ""}${res.value.points_awarded ? ` — ${res.value.points_awarded} points paid` : ""}. The family has been told.`
-        : `Homework sent back${who ? ` to ${who}` : ""} with your note. The family has been told.`,
+        ? `Homework accepted${who ? ` for ${who}` : ""}${res.value.points_awarded ? ` — ${res.value.points_awarded} points paid` : ""}. The family is being told.`
+        : `Homework sent back${who ? ` to ${who}` : ""} with your note. The family is being told.`,
     );
   });
 }
