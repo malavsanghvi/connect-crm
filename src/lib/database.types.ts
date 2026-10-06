@@ -10399,6 +10399,13 @@ export type Database = {
         };
         Returns: boolean;
       };
+      gyan_class_homework_visible: {
+        Args: {
+          p_center: string;
+          p_class: string;
+        };
+        Returns: boolean;
+      };
       gyan_homework_editor: {
         Args: {
           p_center: string;
