@@ -13,6 +13,7 @@ vi.mock("@/app/security-actions", () => ({ verifyStepUpAction: vi.fn() }));
 import { HomeworkCell } from "@/app/(app)/content/gyan-path/homework-cell";
 import { HomeworkFields } from "@/app/(app)/content/gyan-path/homework-fields";
 import { SubmissionParts } from "@/app/(app)/pathshala/homework/parts";
+import { HouseholdCard, type HouseholdCardData } from "@/components/household-card";
 import type { SignedFile } from "@/lib/gyan-homework/db";
 import { parseAssignment, parseSubmission, type Assignment, type Submission } from "@/lib/gyan-homework/homework";
 
@@ -58,6 +59,10 @@ describe("Content › Gyan Path › Homework drawer fields", () => {
     expect(html).toContain('name="id" value="9e8d7c6b-5a4f-4e3d-8c2b-1a0f9e8d7c6b"');
     expect(html).toContain('value="Navkar recording"');
     expect(html).toContain("Say it **slowly**.");
+    // The database's limits are on the controls too (0587: instructions <= 4,000).
+    expect(html).toMatch(tagWith("textarea", 'name="instructions_md"', 'maxLength="4000"'));
+    expect(html).toContain("Up to 4,000 characters.");
+    expect(html).toContain("0 to 1,000; paid once, when the reviewer accepts.");
     expect(html).toMatch(checkedInput("checkbox", "allowed_kinds", "voice"));
     expect(html).toMatch(checkedInput("checkbox", "allowed_kinds", "text"));
     expect(html).not.toMatch(checkedInput("checkbox", "allowed_kinds", "photo"));
@@ -104,7 +109,7 @@ describe("Content › Gyan Path › Homework drawer fields", () => {
 describe("Content › Gyan Path › the Homework column of a level", () => {
   const level = { id: LEVEL, name: "What is Samayik" };
   it("lists each homework with its status chip, what it asks and the moves an editor may make", () => {
-    const html = render(createElement(HomeworkCell, { level, goalName: "Learn Samayik", shared: true, assignments: [assignment], canEdit: true, classes, canChooseEveryone: true, timeZone: "America/Chicago" }));
+    const html = render(createElement(HomeworkCell, { level, goalName: "Learn Samayik", shared: true, assignments: [assignment], canAdd: true, classes, canChooseEveryone: true, ownClasses: [], timeZone: "America/Chicago" }));
     expect(html).toContain("Navkar recording");
     expect(html).toContain("Published");
     expect(html).toContain("15 points · Due Nov 1, 2026 · Only Sunday 10 AM · Level 2");
@@ -120,15 +125,80 @@ describe("Content › Gyan Path › the Homework column of a level", () => {
 
   it("shows a draft's Publish move, and nothing to change for readers", () => {
     const draft: Assignment = { ...assignment, status: "draft", class_id: null, due_rule: { kind: "days_after_start", days: 7 } };
-    const html = render(createElement(HomeworkCell, { level, goalName: "G", shared: false, assignments: [draft], canEdit: true, classes, canChooseEveryone: true, timeZone: "America/Chicago" }));
+    const html = render(createElement(HomeworkCell, { level, goalName: "G", shared: false, assignments: [draft], canAdd: true, classes, canChooseEveryone: true, ownClasses: [], timeZone: "America/Chicago" }));
     expect(html).toMatch(tagWith("button", 'name="status"', 'value="published"'));
     expect(html).toContain("7 days after the learner starts the level · Everyone doing the level");
-    const reader = render(createElement(HomeworkCell, { level, goalName: "G", shared: false, assignments: [draft], canEdit: false, classes: [], canChooseEveryone: false, timeZone: "America/Chicago" }));
+    const reader = render(createElement(HomeworkCell, { level, goalName: "G", shared: false, assignments: [draft], canAdd: false, classes: [], canChooseEveryone: false, ownClasses: [], timeZone: "America/Chicago" }));
     expect(reader).toContain("Draft");
     expect(reader).not.toContain("Add homework");
     expect(reader).not.toContain('name="status"');
-    const empty = render(createElement(HomeworkCell, { level, goalName: "G", shared: false, assignments: [], canEdit: false, classes: [], canChooseEveryone: false, timeZone: "America/Chicago" }));
+    expect(reader).not.toContain("read-only");
+    const empty = render(createElement(HomeworkCell, { level, goalName: "G", shared: false, assignments: [], canAdd: false, classes: [], canChooseEveryone: false, ownClasses: [], timeZone: "America/Chicago" }));
     expect(empty).toContain("—");
+  });
+
+  it("a class teacher gets Edit and the moves for their own class's homework only; everyone's and another class's are read-only", () => {
+    const otherClass = "1b2c3d4e-5f6a-4b7c-8d9e-0f1a2b3c4d5e";
+    const mine: Assignment = { ...assignment, id: "aaaaaaaa-0000-4000-8000-000000000001", title: "Mine" };
+    const everyone: Assignment = { ...assignment, id: "aaaaaaaa-0000-4000-8000-000000000002", title: "For everyone", class_id: null };
+    const theirs: Assignment = { ...assignment, id: "aaaaaaaa-0000-4000-8000-000000000003", title: "Theirs", class_id: otherClass };
+    const teacher = { level, goalName: "G", shared: false, canAdd: true, classes: [classes[0]], canChooseEveryone: false, ownClasses: [CLASS], timeZone: "America/Chicago" };
+    const own = render(createElement(HomeworkCell, { ...teacher, assignments: [mine] }));
+    expect(own).toContain(">Edit<");
+    expect(own).toMatch(tagWith("button", 'name="status"', 'value="draft"'));
+    expect(own).toMatch(tagWith("button", 'name="status"', 'value="archived"'));
+    expect(own).not.toContain("read-only");
+    for (const [a, reason] of [
+      [everyone, "Set by the Pathshala office for everyone doing the level · read-only"],
+      [theirs, "Set for another class · read-only"],
+    ] as const) {
+      const html = render(createElement(HomeworkCell, { ...teacher, assignments: [a] }));
+      expect(html).toContain(a.title);
+      expect(html).toContain(reason);
+      expect(html).not.toContain(">Edit<");
+      expect(html).not.toContain('name="status"');
+      expect(html).not.toContain("Unpublish");
+      expect(html).not.toContain("Archive");
+      // Adding homework for their own class is still offered.
+      expect(html).toContain("Add homework");
+    }
+    // A center-wide Teacher changes any class's homework, still not everyone's.
+    const centerWide = render(createElement(HomeworkCell, { ...teacher, ownClasses: "any", assignments: [theirs, everyone] }));
+    expect(centerWide).toContain("Set by the Pathshala office for everyone doing the level · read-only");
+    expect(centerWide).not.toContain("Set for another class");
+    expect(centerWide).toMatch(tagWith("button", 'name="status"', 'value="archived"'));
+  });
+});
+
+describe("the household card for a homework reviewer", () => {
+  const card: HouseholdCardData = {
+    household_id: "h1",
+    household_name: "Shah family",
+    household_number: "JSH-H-2041",
+    org_household_id: "0212",
+    members: "Rahul, Mira, Aarav",
+    primary_member: "Rahul Shah",
+    zone: "Katy",
+    city: "Houston",
+    last_gift_on: "2026-09-01",
+    open_pledge_cents: 125000,
+  };
+  const labels = { orgMemberLabel: "JSH ID", orgHouseholdLabel: "JSH household" };
+
+  it("shows who the household is without any giving data (showGiving false); giving screens keep both", () => {
+    const reviewer = render(createElement(HouseholdCard, { card, labels, timeZone: "America/Chicago", currency: "USD", showGiving: false }));
+    expect(reviewer).toContain("Shah family");
+    expect(reviewer).toContain("JSH-H-2041");
+    expect(reviewer).toContain("Rahul, Mira, Aarav");
+    expect(reviewer).toContain("Katy zone · Houston");
+    expect(reviewer).not.toContain("Last gift");
+    expect(reviewer).not.toContain("Open pledges");
+    const giving = render(createElement(HouseholdCard, { card, labels, timeZone: "America/Chicago", currency: "USD" }));
+    expect(giving).toContain("Last gift Sep 1, 2026");
+    expect(giving).toContain("Open pledges $1,250.00");
+    const noBalance = render(createElement(HouseholdCard, { card, labels, timeZone: "America/Chicago", currency: "USD", showBalance: false }));
+    expect(noBalance).toContain("Last gift Sep 1, 2026");
+    expect(noBalance).not.toContain("Open pledges");
   });
 });
 
@@ -161,7 +231,10 @@ describe("Pathshala › Homework › the parts of an answer", () => {
     expect(html).toContain("Open the original");
     expect(html).toContain('<audio controls="" preload="none" src="https://x/voice?token=2"');
     expect(html).toContain("Voice note (0:42)");
-    expect(html).toContain('<a href="https://x/essay?token=3" download=""');
+    // A new tab (a cross-origin signed URL ignores `download`; the URL itself was signed as an attachment), so a
+    // half-typed note on the queue page is not lost.
+    expect(html).toContain('<a href="https://x/essay?token=3" target="_blank" rel="noreferrer"');
+    expect(html).not.toContain('download=""');
     expect(html).toContain("Download: PDF file (1.2 MB)");
     expect(html).toContain("Namo Arihantanam\nNamo Siddhanam");
     expect(html).toContain("Photo — the file was removed after the retention period");

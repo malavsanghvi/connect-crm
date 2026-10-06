@@ -26,7 +26,7 @@ import { loadClasses, loadTerms, pickTerm } from "@/lib/data/pathshala";
 import { explainError } from "@/lib/errors";
 import { homeworkAreas } from "@/lib/gyan-homework/access";
 import { loadAssignments } from "@/lib/gyan-homework/db";
-import type { Assignment } from "@/lib/gyan-homework/homework";
+import type { Assignment, EditableClasses } from "@/lib/gyan-homework/homework";
 import { can, canAccess, hasCenterRole, teacherClassIds } from "@/lib/permissions";
 import { param, type RawSearchParams } from "@/lib/search-params";
 import { getSession, type CrmSession } from "@/lib/session";
@@ -92,21 +92,23 @@ function GoalFields({ goal }: { goal?: { id: string; name: string; key: string; 
 }
 
 /**
- * The classes a homework editor may name as the audience (0587): this term's classes for content.manage,
- * pathshala.manage or a center-wide Teacher; a class teacher's own classes otherwise. Null when they could not be
- * read: the drawer then says so instead of silently offering "everyone".
+ * The classes a homework editor may name as the audience (0587), this term's only: all of them for content.manage,
+ * pathshala.manage or a center-wide Teacher; a class teacher's own among them otherwise (a class from an earlier
+ * term is not offered; homework already on one keeps it, see HomeworkFields). Null when they could not be read:
+ * the drawer then says so instead of silently offering "everyone".
  */
 async function homeworkClasses(session: CrmSession): Promise<{ classes: ClassOption[] | null; problem: string | null }> {
   const { db, center } = session;
   try {
+    const term = pickTerm(await loadTerms(db, center.id));
+    if (!term) return { classes: [], problem: null };
     if (homeworkAreas.editAll(session) || hasCenterRole(session, "teacher")) {
-      const term = pickTerm(await loadTerms(db, center.id));
-      const classes = term ? await loadClasses(db, center.id, term.id) : [];
+      const classes = await loadClasses(db, center.id, term.id);
       return { classes: classes.map((c) => ({ id: c.id, name: c.name })), problem: null };
     }
     const ids = teacherClassIds(session);
     if (!ids.length) return { classes: [], problem: null };
-    const { data, error } = await db.from("pathshala_classes").select("id, name").in("id", ids).order("name");
+    const { data, error } = await db.from("pathshala_classes").select("id, name").in("id", ids).eq("term_id", term.id).order("name");
     if (error) throw error;
     return { classes: (data ?? []).map((c) => ({ id: c.id, name: c.name })), problem: null };
   } catch (error) {
@@ -179,6 +181,10 @@ export default async function GyanPathPage({ searchParams }: { searchParams: Pro
   const homeworkEditor = homework.status === "ok" && homeworkAreas.editAny(session);
   const classesForHomework = homeworkEditor ? await homeworkClasses(session) : { classes: [], problem: null };
   const canEditHomework = homeworkEditor && classesForHomework.classes !== null;
+  // Which rows offer Edit and the status moves (app.gyan_homework_editor): content.manage / pathshala.manage change
+  // any homework; a center-wide Teacher any class's; a class Teacher only their own classes'. The rest is read-only.
+  const canChooseEveryone = homeworkAreas.editAll(session);
+  const ownClasses: EditableClasses = hasCenterRole(session, "teacher") ? "any" : teacherClassIds(session);
   const homeworkProblem =
     homework.status === "missing"
       ? "Homework is not available yet — the database does not have migration 0587 (learning assignments). Apply it, then reload."
@@ -350,9 +356,10 @@ export default async function GyanPathPage({ searchParams }: { searchParams: Pro
                             goalName={selected.name}
                             shared={selected.center_id === null}
                             assignments={homeworkByLevel.get(l.id) ?? []}
-                            canEdit={canEditHomework}
+                            canAdd={canEditHomework}
                             classes={classesForHomework.classes ?? []}
-                            canChooseEveryone={homeworkAreas.editAll(session)}
+                            canChooseEveryone={canChooseEveryone}
+                            ownClasses={ownClasses}
                             timeZone={center.time_zone}
                           />
                         </td>
@@ -385,10 +392,10 @@ export default async function GyanPathPage({ searchParams }: { searchParams: Pro
             <p className="px-4 pb-3 pt-1 text-xs text-muted">
               Homework is handed in from the member app and reviewed in Pathshala › Homework. A draft is invisible to learners; publishing tells them (and the
               parents of children); archiving takes it off their lists but keeps what was handed in.
-              {homeworkAreas.editAll(session)
+              {canChooseEveryone
                 ? ""
                 : homeworkAreas.editAny(session)
-                  ? " As a class teacher you add homework for the classes you teach."
+                  ? " As a class teacher you add and change homework for the classes you teach; homework for everyone, or for another class, is read-only here."
                   : " Adding homework needs content.manage, pathshala.manage or a Teacher role."}
             </p>
           ) : null}

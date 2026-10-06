@@ -6,10 +6,14 @@ import { Toggle } from "@/components/controls";
 import {
   DEFAULT_MAX_FILES,
   DEFAULT_POINTS,
+  DUE_DAYS_MAX,
+  DUE_DAYS_MIN,
+  INSTRUCTIONS_MAX,
   KIND_OPTIONS,
   MAX_FILES_MAX,
   MAX_FILES_MIN,
   PARENT_CHECK_OPTIONS,
+  POINTS_MAX,
   REVIEWER_OPTIONS,
   TITLE_MAX,
   type Assignment,
@@ -70,8 +74,16 @@ export function HomeworkFields({
         <label htmlFor={`${p}-inst`} className="crm-label">
           Instructions
         </label>
-        <textarea id={`${p}-inst`} name="instructions_md" rows={5} defaultValue={assignment?.instructions_md ?? ""} className="crm-input" placeholder="What to do, and what a good answer looks like." />
-        <p className="crm-hint">Markdown works: **bold**, lists and links.</p>
+        <textarea
+          id={`${p}-inst`}
+          name="instructions_md"
+          rows={5}
+          maxLength={INSTRUCTIONS_MAX}
+          defaultValue={assignment?.instructions_md ?? ""}
+          className="crm-input"
+          placeholder="What to do, and what a good answer looks like."
+        />
+        <p className="crm-hint">Markdown works: **bold**, lists and links. Up to {INSTRUCTIONS_MAX.toLocaleString("en-US")} characters.</p>
       </div>
       <fieldset className="rounded-xl border border-line p-3">
         <legend className="px-1 text-[13px] font-bold">Ways to answer</legend>
@@ -100,7 +112,7 @@ export function HomeworkFields({
             Points
           </label>
           <input id={`${p}-pts`} name="points" inputMode="numeric" defaultValue={assignment?.points ?? DEFAULT_POINTS} className="crm-input" />
-          <p className="crm-hint">Paid once, when the reviewer accepts.</p>
+          <p className="crm-hint">0 to {POINTS_MAX.toLocaleString("en-US")}; paid once, when the reviewer accepts.</p>
         </div>
         <div>
           <label htmlFor={`${p}-ord`} className="crm-label">
@@ -131,6 +143,9 @@ export function HomeworkFields({
               Days after starting the level
             </label>
             <input id={`${p}-days`} name="due_days" inputMode="numeric" defaultValue={dueDays} className="crm-input w-24" />
+            <p className="crm-hint">
+              {DUE_DAYS_MIN} to {DUE_DAYS_MAX} days, counted from the learner&apos;s first completed step of the level (else from the day it was published).
+            </p>
           </div>
         ) : null}
         {dueKind === "on" ? (
