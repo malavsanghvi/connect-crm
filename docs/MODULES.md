@@ -188,14 +188,13 @@ name, to `audit.view` holders of that center and platform admins only (the same 
   review_gyan_submission, gyan_homework_queue. Progress and sign-offs are still written through RLS;
   step, level and treasure points are awarded by triggers, homework points by review_gyan_submission
 - **Storage:** bucket `recordings` (recite steps, kept 90 days) and bucket `homework` (0587: private,
-  25 MB a file, `<center>/<person>/<submission>/<file>`, written by the learner or a household adult
+  25 MB a file, `<center>/<person>/<submission>/<uuid>.<ext>`, written by the learner or a household adult
   while the answer is a draft or sent back, read by the family (the whole folder) and, once the answer is
   with them (submitted, accepted or sent back: never a draft or an answer waiting for a parent), by the
   reviewers, only the files the answer lists; kept 365 days by default; a community may change either
   number in Settings › Storage). Both follow this module
-- **Background job:** homework.publish_notify (queued once, the first time homework is published; the
-  worker tells the learners and the parents of children in batches through
-  app.worker_homework_publish_notify)
+- **Background job:** homework.publish_notify (queued on every publish; the worker tells the learners and
+  the parents of children in batches through app.worker_homework_publish_notify, each person once)
 - **Portal:** /content/gyan-path (goals, levels, steps) and /pathshala/signoffs exist today. The
   per-level Homework editor and /pathshala/homework (the review queue) are PR 2 of the homework plan
   (docs/LEARNING_ASSIGNMENTS_PLAN.md) and are not built yet: until then homework is set and reviewed
