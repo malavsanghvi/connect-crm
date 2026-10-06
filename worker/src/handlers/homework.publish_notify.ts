@@ -1,10 +1,10 @@
 // homework.publish_notify: tells the learners of newly published homework, and the household adults of each child
-// learner (homework plan §2.6, migration 0587). The database queues ONE of these jobs the first time a piece of
-// homework is published (app.set_gyan_assignment_status); publishing again after an unpublish queues nothing, so
-// nobody is told twice. The work is paged: app.worker_homework_publish_notify tells one batch of the learners the
+// learner (homework plan §2.6, migration 0587). The database queues one of these jobs on EVERY publish
+// (app.set_gyan_assignment_status), so homework that was unpublished when an earlier job ran is still announced when it
+// is published again. The work is paged: app.worker_homework_publish_notify tells one batch of the learners the
 // homework applies to (offset and limit over a fixed order, one transaction a batch), so a class of 250 is never one
-// long request and one failure never rolls back the publish. A learner already told is skipped by the database,
-// so a retried job picks up where it stopped instead of messaging anyone twice.
+// long request and one failure never rolls back the publish. A learner already told is skipped by the database, so
+// a retried job picks up where it stopped, and a second publish (or five toggles) tells nobody twice.
 //
 // The messages it queues go out through the usual messaging.send jobs (suppressions, quiet hours and sandbox rules
 // apply there). A teacher's or a parent's note is never part of any of them. No provider secret is needed here.

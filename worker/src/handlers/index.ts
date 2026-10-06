@@ -88,6 +88,6 @@ export const HANDLERS: HandlerModule[] = [
   nivaDiscoverSite,
   // Google Photos albums: bring a shared album's photos in as photos waiting for approval
   photosImportAlbum,
-  // Homework (0587): tell the learners and the parents of children, once, in batches, when homework is first published
+  // Homework (0587): tell the learners and the parents of children, each person once, in batches, whenever homework is published
   homeworkPublishNotify,
 ];
