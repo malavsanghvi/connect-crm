@@ -270,6 +270,7 @@ export const STORAGE_AREAS: Record<string, { label: string; holds: string; reade
   store: { label: "Store", holds: "Item photos", readers: "Members", kept: "Until replaced" },
   statements: { label: "Statements", holds: "Receipts and year-end statements", readers: "The household's adults and finance roles", kept: "7 years" },
   recordings: { label: "Recordings", holds: "Gyan Path recitations", readers: "The child, their parents, their teachers", kept: "Your choice (default 90 days)" },
+  homework: { label: "Homework answers", holds: "Photos, files and voice notes handed in as homework", readers: "The learner, their parents, and their teachers once it is handed in", kept: "Your choice (default 365 days)" },
   imports: { label: "Imports", holds: "Uploaded source files", readers: "People who may import that data", kept: "Your choice (default 90 days)" },
   "org-documents": { label: "Organization documents", holds: "W-9, determination letter, agreements", readers: "The owner and Community Connect verification staff", kept: "Life of the account" },
   exports: { label: "Exports", holds: "Generated exports", readers: "The person who asked", kept: "7 days" },
@@ -327,7 +328,23 @@ export function formatBytes(n: number): string {
   return `${v >= 10 ? Math.round(v) : Math.round(v * 10) / 10} ${units[i]}`;
 }
 
-/** Retention days typed for imports / recordings: 1–3650, or the problem. */
+/**
+ * The buckets whose keeping period a community may change (centers.rules.storage.retention_days.<bucket>, read by
+ * app.storage_retention_days): the same three app.center_storage_overview marks retention_editable. Every one of them
+ * needs a row in STORAGE_AREAS; the other areas' retention is fixed.
+ */
+export const RETENTION_BUCKETS: Record<string, { what: string; subject: string }> = {
+  imports: { what: "the retention of import files", subject: "Import files" },
+  recordings: { what: "the retention of recordings", subject: "Recordings" },
+  homework: { what: "the retention of homework answers", subject: "Homework answers" },
+};
+
+/** The entry of an editable bucket, or null for any other name (never a lookup on the object's prototype). */
+export function retentionBucket(bucket: string): { what: string; subject: string } | null {
+  return Object.prototype.hasOwnProperty.call(RETENTION_BUCKETS, bucket) ? (RETENTION_BUCKETS[bucket] ?? null) : null;
+}
+
+/** Retention days typed for imports / recordings / homework: 1–3650, or the problem. */
 export function parseRetentionDays(raw: string | null): { ok: true; value: number } | { ok: false; error: string } {
   const t = (raw ?? "").trim();
   if (!/^\d{1,4}$/.test(t) || Number(t) < 1 || Number(t) > 3650) return { ok: false, error: "Enter the number of days to keep files, from 1 to 3,650." };
