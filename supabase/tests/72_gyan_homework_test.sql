@@ -1,14 +1,21 @@
 -- 0587: learning assignments (homework) with parent validation.
 -- Who may create homework (content.manage / pathshala.manage everywhere; a class Teacher only for their own class)
 -- and every field's plain-English refusal; draft → published → archived (back to draft only before the first
--- answer); publishing tells the learners and the parents of children; the learner's view; drafts and their parts
--- (allowed kinds, the file limit, the path rule, the bucket's own write rule); handing in: a child from their own
--- login waits for a parent, an adult does not, a parent handing in for a child does not; a parent of another
--- household cannot decide; the parent's send-back and OK; who reviews (the class Teacher of a placed class yes,
--- the Teacher of another class and of a past class no, and they READ NOTHING, table and bucket; pathshala.teach,
--- pathshala.manage and the content reviewer rule); points paid once and never again on resubmit or re-accept; a
--- required homework holds the level bonus until it is accepted, and accepting the last one pays it; due dates
--- (late, never refused); the module switch; retention nulls the file row's path; templates; audit; coverage.
+-- answer); publishing queues ONE job and the worker tells the learners and the parents of children, in batches,
+-- once; the learner's view; drafts and their parts (allowed kinds, the file limit, the path rule, the bucket's own
+-- write rule); handing in: a child from their own login waits for a parent, an adult does not, a parent handing in for
+-- a child does not; a parent of another household cannot decide; the parent's send-back and OK; who reviews (the class
+-- Teacher of a placed class yes, the Teacher of another class and of a past class no, and they READ NOTHING, table and
+-- bucket; pathshala.teach, pathshala.manage and the content reviewer rule); points paid once and never again on
+-- resubmit or re-accept; a required homework holds the level bonus until it is accepted, and accepting the last one
+-- pays it; due dates (late, never refused); the module switch; retention nulls the file row's path; templates; audit;
+-- coverage. The security review's findings, each with its own denial: no note in any message or in the audit log; the
+-- reviewer and parent check frozen once answers exist; a child cannot change their own birth date (a separate access
+-- change); nobody reviews their own household's homework; the class teacher's term must be open; households with no
+-- adult who can sign in go straight to the teacher (the household is emailed); reviewers read only the listed parts;
+-- levels with homework cannot be deleted; the bonus a required homework held is paid when it stops holding; wrong JSON
+-- types get sentences; a class Teacher's points are capped; archived homework stays listed, read-only; due dates never
+-- start in the past; the office can release an answer no parent checks.
 \set ON_ERROR_STOP 1
 create or replace function pg_temp.assert(cond boolean, label text) returns void language plpgsql as $$
 begin
@@ -41,6 +48,13 @@ create or replace function pg_temp.msgs(p_template text, p_key text, p_id text) 
 create or replace function pg_temp.reads(p_sub uuid) returns text language sql stable as $$
   select (select count(*) from app.gyan_submissions where id = p_sub) || '/' || (select count(*) from app.gyan_submission_files where submission_id = p_sub)
       || '/' || (select count(*) from storage.objects where bucket_id = 'homework' and name like '%/' || p_sub::text || '/%') $$;
+-- The SQLSTATE a statement fails with ('OK' when it does not): a refusal must be ours (22023 and the like), never a raw error.
+create or replace function pg_temp.state_of(stmt text) returns text language plpgsql as $$
+begin
+  execute stmt;
+  return 'OK';
+exception when others then return sqlstate;
+end $$;
 -- The tests switch to connect_worker; a hosted postgres holds ADMIN on it but not SET.
 grant connect_worker to postgres;
 
@@ -183,8 +197,32 @@ select pg_temp.assert(has_function_privilege('authenticated', 'app.gyan_homework
                       and not has_function_privilege('authenticated', 'app.gyan_assignment_due_on(uuid, uuid)', 'execute'),
   'only the four helpers the row level security policies call are open to members; the helpers that return an answer, a name or a minor flag for any id are internal');
 select pg_temp.assert((select count(*) from app.message_templates where center_id is null and language = 'en'
-                         and key in ('homework.assigned', 'homework.parent_check', 'homework.sent_back_parent', 'homework.submitted', 'homework.accepted', 'homework.sent_back')) = 12,
-  'the six homework templates are seeded as push and email platform defaults');
+                         and key in ('homework.assigned', 'homework.parent_check', 'homework.sent_back_parent', 'homework.submitted', 'homework.accepted', 'homework.sent_back', 'homework.heads_up')) = 14,
+  'the seven homework templates are seeded as push and email platform defaults');
+select pg_temp.assert(not exists (select 1 from app.message_templates where center_id is null and key like 'homework.%' and (body like '%{{note}}%' or subject like '%{{note}}%'))
+                      and (select bool_and(body like '%Open the%app%') from app.message_templates where center_id is null and key in ('homework.sent_back', 'homework.sent_back_parent')),
+  'no homework template carries a note: the notes stay in the app ("Open the app to read the note")');
+select pg_temp.assert(has_function_privilege('authenticated', 'app.gyan_can_act_for(uuid, uuid)', 'execute')
+                      and not has_function_privilege('anon', 'app.gyan_can_act_for(uuid, uuid)', 'execute')
+                      and not has_function_privilege('authenticated', 'app.gyan_i_am_adult(uuid)', 'execute')
+                      and not has_function_privilege('authenticated', 'app.gyan_in_household(uuid, uuid)', 'execute')
+                      and not has_function_privilege('authenticated', 'app.gyan_enrolled_in_class(uuid, uuid)', 'execute')
+                      and not has_function_privilege('authenticated', 'app.gyan_homework_reviewer_role(uuid, uuid, text)', 'execute')
+                      and not has_function_privilege('authenticated', 'app.gyan_homework_path_ok(text)', 'execute')
+                      and not has_function_privilege('authenticated', 'app._gyan_homework_adults(uuid, uuid, boolean)', 'execute')
+                      and not has_function_privilege('authenticated', 'app._gyan_homework_parent_check(uuid, uuid, uuid)', 'execute')
+                      and not has_function_privilege('authenticated', 'app._gyan_homework_release_level_bonus(uuid, uuid)', 'execute')
+                      and not has_function_privilege('authenticated', 'app._gyan_homework_publish_recipients(uuid)', 'execute')
+                      and not has_function_privilege('authenticated', 'app.people_dob_guard()', 'execute')
+                      and not has_function_privilege('authenticated', 'app.gyan_levels_homework_guard()', 'execute'),
+  'the new helpers answer only through the policies and functions that call them: members cannot call them directly');
+select pg_temp.assert(has_function_privilege('connect_worker', 'app.worker_homework_publish_notify(uuid, int, int)', 'execute')
+                      and not has_function_privilege('authenticated', 'app.worker_homework_publish_notify(uuid, int, int)', 'execute')
+                      and not has_function_privilege('anon', 'app.worker_homework_publish_notify(uuid, int, int)', 'execute')
+                      and not has_function_privilege('service_role', 'app.worker_homework_publish_notify(uuid, int, int)', 'execute'),
+  'the publish notice''s fan-out is the worker role''s alone');
+select pg_temp.assert_raises($$select app.worker_homework_publish_notify('72000000-0000-4000-8000-0000000000ff', 0, 50)$$,
+  'only the background service', 'and it asserts the worker role itself, even for the database owner');
 select pg_temp.assert((select not public and file_size_limit = 26214400 and 'image/heic' = any (allowed_mime_types) and 'application/pdf' = any (allowed_mime_types)
                           and 'audio/mp4' = any (allowed_mime_types) and 'text/plain' = any (allowed_mime_types)
                           and 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' = any (allowed_mime_types)
@@ -335,6 +373,18 @@ select app.set_gyan_assignment_status(:'a1', 'published') as a1pub \gset
 commit;
 select pg_temp.assert(:'a1pub'::jsonb->>'status' = 'published' and (select published_at is not null from app.gyan_assignments where id = :'a1'),
   'a content manager publishes the homework');
+-- Publishing tells nobody inside the request: it queues ONE job, and the worker tells the learners in batches.
+select pg_temp.assert((select count(*) from app.jobs where kind = 'homework.publish_notify' and payload = jsonb_build_object('assignment_id', :'a1')
+                          and center_id = :c1::uuid and status = 'queued') = 1
+                      and (select count(*) from pg_temp.msgs('homework.assigned', 'assignment_id', :'a1')) = 0,
+  'publishing queues one homework.publish_notify job and sends nothing itself');
+begin;
+set local role connect_worker;
+select app.worker_homework_publish_notify(:'a1', 0, 50) as fan_a1 \gset
+commit;
+select pg_temp.assert((:'fan_a1'::jsonb->>'total')::int = 1 and (:'fan_a1'::jsonb->>'learners')::int = 1 and (:'fan_a1'::jsonb->>'messages')::int = 4
+                      and (:'fan_a1'::jsonb->>'skipped')::int = 0 and (:'fan_a1'::jsonb->>'done')::boolean,
+  'the worker''s batch tells the learner and her parents (4 messages) and says it is done');
 select pg_temp.assert((select count(*) = 4 and count(*) filter (where channel = 'push') = 3 and count(*) filter (where channel = 'email') = 1
                           and bool_and(status = 'queued')
                           and array_agg(to_address order by to_address) filter (where channel = 'push') = array[:mom, :dad, :kid]
@@ -358,13 +408,27 @@ select app.set_gyan_assignment_status(:'a_due', 'published');
 select app.set_gyan_assignment_status(:'a_days', 'published');
 select app.set_gyan_assignment_status(:'a_content', 'published');
 commit;
-select pg_temp.assert((select count(*) from pg_temp.msgs('homework.assigned', 'assignment_id', :'a_class')) = 0,
+begin;
+set local role connect_worker;
+select app.worker_homework_publish_notify(:'a_class', 0, 50) as fan_class \gset
+select app.worker_homework_publish_notify(:'a_req', 0, 50) as fan_req \gset
+commit;
+select pg_temp.assert((:'fan_class'::jsonb->>'total')::int = 0 and (select count(*) from pg_temp.msgs('homework.assigned', 'assignment_id', :'a_class')) = 0,
   'homework for class B tells nobody: the class has no students');
-select pg_temp.assert((select count(*) from pg_temp.msgs('homework.assigned', 'assignment_id', :'a_req')) = 0,
+select pg_temp.assert((:'fan_req'::jsonb->>'total')::int = 0 and (select count(*) from pg_temp.msgs('homework.assigned', 'assignment_id', :'a_req')) = 0,
   'homework on a level nobody has started tells nobody (the level screen shows it)');
+select pg_temp.assert((select count(*) from app.jobs where kind = 'homework.publish_notify') = 8,
+  'every first publish queued exactly one job (eight homeworks so far)');
 begin;
 select pg_temp.sign_in(:classteacher);
 select app.set_gyan_assignment_status(:'a_teacher', 'published');
+commit;
+begin;
+set local role connect_worker;
+select app.worker_homework_publish_notify(:'a_teacher', 0, 50) as fan_t \gset
+commit;
+begin;
+select pg_temp.sign_in(:classteacher);
 select app.set_gyan_assignment_status(:'a_teacher', 'draft');
 select app.set_gyan_assignment_status(:'a_teacher', 'published');
 select app.set_gyan_assignment_status(:'a_teacher', 'archived') as a_teacher_arch \gset
@@ -373,8 +437,10 @@ select pg_temp.assert_raises($$select app.set_gyan_assignment_status('$$ || :'a_
 select pg_temp.assert_raises($$select app.set_gyan_assignment_status('$$ || :'a_teacher' || $$', 'draft')$$,
   'Archived homework stays archived', 'nor go back to a draft');
 commit;
-select pg_temp.assert((select count(*) filter (where channel = 'push') = 6 and count(*) filter (where channel = 'email') = 2 from pg_temp.msgs('homework.assigned', 'assignment_id', :'a_teacher')),
-  'homework for class A reaches its student (and her parents) each time it is published');
+select pg_temp.assert((select count(*) filter (where channel = 'push') = 3 and count(*) filter (where channel = 'email') = 1 from pg_temp.msgs('homework.assigned', 'assignment_id', :'a_teacher'))
+                      and (select count(*) from app.jobs where kind = 'homework.publish_notify' and payload->>'assignment_id' = :'a_teacher') = 1
+                      and (:'fan_t'::jsonb->>'messages')::int = 4,
+  'homework for class A tells its student (and her parents) once: publishing again after an unpublish queues no second job and tells nobody twice');
 select pg_temp.assert(:'a_teacher_arch'::jsonb->>'status' = 'archived',
   'published → draft (nobody has started it) → published → archived');
 
@@ -401,7 +467,7 @@ select pg_temp.assert((select (i->>'needs_parent')::boolean from jsonb_array_ele
 select pg_temp.assert((select i->'assignment' from jsonb_array_elements(:'hw_kid'::jsonb->'items') i where i->'assignment'->>'id' = :'a1')
                         = jsonb_build_object('id', :'a1', 'level_id', :l1, 'goal_id', :g1, 'title', 'Navkar recording', 'instructions_md', 'Record the full mantra, slowly.',
                                              'allowed_kinds', jsonb_build_array('photo', 'text', 'voice'), 'max_files', 2, 'points', 15, 'required_for_level', false,
-                                             'due_on', null, 'parent_check', 'children', 'class_id', null),
+                                             'due_on', null, 'parent_check', 'children', 'class_id', null, 'archived', false),
   'the assignment carries exactly the contract''s keys');
 select pg_temp.assert((select i->'assignment'->>'due_on' from jsonb_array_elements(:'hw_kid'::jsonb->'items') i where i->'assignment'->>'id' = :'a_due') = (current_date - 1)::text
                       and (select i->'assignment'->>'due_on' from jsonb_array_elements(:'hw_kid'::jsonb->'items') i where i->'assignment'->>'id' = :'a_days') = (app.gyan_center_today(:c1) + 7)::text,
@@ -607,9 +673,11 @@ select pg_temp.sign_in(:classteacher);
 select pg_temp.reads(:'sub1') as r_draft_class \gset
 commit;
 select pg_temp.assert(:'r_draft_class' = '0/0/0', 'a draft again: the teacher reads nothing of it');
-select pg_temp.assert((select count(*) = 1 and bool_and(channel = 'push' and to_address = :kid and payload->>'type' = 'homework' and body like '%Say it a little slower.%')
+select pg_temp.assert((select count(*) = 1 and bool_and(channel = 'push' and to_address = :kid and payload->>'type' = 'homework'
+                                                        and body = 'Your parent sent "Navkar recording" (Foundations) back to you. Open the app to read the note.'
+                                                        and body not like '%slower%' and not (payload->'vars' ? 'note') and payload::text not like '%slower%')
                          from pg_temp.msgs('homework.sent_back_parent', 'submission_id', :'sub1')),
-  'the child is told by push, with the note');
+  'the child is told by push that there is a note and where to read it: the parent''s note is not in the message');
 begin;
 select pg_temp.sign_in(:kid);
 insert into storage.objects (bucket_id, name, metadata) values ('homework', :prefix || :'sub1' || '/note2.m4a', '{"size": 2222, "mimetype": "audio/mp4"}');
@@ -618,8 +686,8 @@ select app.save_gyan_submission_draft(:'a1', :p_kid, 'Namo Arihantanam', jsonb_b
          jsonb_build_object('kind', 'photo', 'storage_path', :prefix || :'sub1' || '/photo.jpg', 'mime_type', 'image/jpeg', 'bytes', 999)));
 select app.hand_in_gyan_submission(:'sub1') as sub1in2 \gset
 commit;
-select pg_temp.assert(:'sub1in2'::jsonb->>'status' = 'awaiting_parent' and (:'sub1in2'::jsonb->>'attempt')::int = 1,
-  'after a parent''s send-back the child changes it and hands it in again (same attempt)');
+select pg_temp.assert(:'sub1in2'::jsonb->>'status' = 'awaiting_parent' and (:'sub1in2'::jsonb->>'attempt')::int = 1 and :'sub1in2'::jsonb->'parent_note' = 'null'::jsonb,
+  'after a parent''s send-back the child changes it and hands it in again (same attempt), and the parent''s earlier note is cleared');
 begin;
 select pg_temp.sign_in(:dad);
 select app.my_gyan_homework(:c1) as hw_dad \gset
@@ -665,8 +733,8 @@ commit;
 begin; select pg_temp.sign_in(:other); select pg_temp.reads(:'sub1') as r_c2 \gset
 commit;
 select pg_temp.assert(:'r_kid' = '1/2/3' and :'r_mom' = '1/2/3' and :'r_dad' = '1/2/3', 'the child and both parents read the answer, its parts and the three uploaded files');
-select pg_temp.assert(:'r_class' = '1/2/3' and :'r_center' = '1/2/3' and :'r_principal' = '1/2/3',
-  'the Teacher of her class, a center-wide teacher (pathshala.teach) and the principal (pathshala.manage) read them');
+select pg_temp.assert(:'r_class' = '1/2/2' and :'r_center' = '1/2/2' and :'r_principal' = '1/2/2',
+  'the Teacher of her class, a center-wide teacher (pathshala.teach) and the principal (pathshala.manage) read the answer, its parts and the two files it lists: not the file the child replaced');
 select pg_temp.assert(:'r_other' = '0/0/0' and :'r_past' = '0/0/0',
   'the Teacher of another class and the Teacher of last year''s class read NOTHING: not the answer, not its parts, not the files');
 select pg_temp.assert(:'r_nb' = '0/0/0' and :'r_member' = '0/0/0' and :'r_content' = '0/0/0' and :'r_c2' = '0/0/0',
@@ -726,9 +794,9 @@ select pg_temp.assert(:'sub1nw'::jsonb->>'status' = 'needs_work' and :'sub1nw'::
   'the class teacher sends it back with a note; no points');
 select pg_temp.assert((select count(*) = 4 and array_agg(to_address order by to_address) filter (where channel = 'push') = array[:mom, :dad, :kid]
                           and count(*) filter (where channel = 'email' and to_address = 'mom72@example.com') = 1
-                          and bool_and(body like '%Add the last line of the mantra.%')
+                          and bool_and(body like '%Open the%app to read%' and body not like '%mantra%' and not (payload->'vars' ? 'note') and payload::text not like '%mantra%')
                          from pg_temp.msgs('homework.sent_back', 'submission_id', :'sub1')),
-  'the child AND her parents are told, with the note (feedback is never only the child''s)');
+  'the child AND her parents are told that the teacher left a note (feedback is never only the child''s), and the note itself is in no message');
 begin;
 select pg_temp.sign_in(:classteacher);
 select pg_temp.reads(:'sub1') as r_nw_class \gset
@@ -763,8 +831,9 @@ select pg_temp.assert(pg_temp.rows(:p_kid, 'assignment', :'sub1') = 1 and pg_tem
                       and (select note = 'Homework: Navkar recording' and center_id = :c1::uuid from app.points_ledger where person_id = :p_kid and reason = 'assignment' and ref_id = :'sub1'),
   'one ledger row: reason assignment, the submission as reference, "Homework: <title>"');
 select pg_temp.assert((select count(*) = 4 and array_agg(to_address order by to_address) filter (where channel = 'push') = array[:mom, :dad, :kid]
+                          and bool_and(body not like '%Well done%' and not (payload->'vars' ? 'note') and payload::text not like '%Well done%')
                          from pg_temp.msgs('homework.accepted', 'submission_id', :'sub1')),
-  'the child and her parents are told it was accepted');
+  'the child and her parents are told it was accepted, without the teacher''s note in the message');
 select pg_temp.assert((select bool_and(payload->>'type' = case when to_address = :kid then 'homework' else 'homework_parent' end
                                        and payload->>'deep_link' = '/gyan/homework/' || :'a1' || '?person=' || :p_kid)
                          from pg_temp.msgs('homework.accepted', 'submission_id', :'sub1')),
@@ -984,8 +1053,9 @@ select pg_temp.assert((select storage_path is null and deleted_at is not null an
 select pg_temp.assert((select status = 'accepted' and points_awarded = 15 and review_note = 'Still good' and parent_note = 'Much better' from app.gyan_submissions where id = :'sub1'),
   'the answer, its notes and its points stay');
 select pg_temp.assert((select reason like 'Retention: homework files are kept 365 days (job 99)%' and client_app = 'job' and center_id = :c1::uuid
-                         from app.audit_log where action = 'storage.retention_delete' and record_id = 'homework/' || :prefix || :'sub1' || '/note3.m4a'),
-  'the removal has its audit entry with the rule that removed it');
+                              and before->>'name' = (:prefix || :'sub1' || '/***')
+                         from app.audit_log where action = 'storage.retention_delete' and record_id = 'homework/' || :prefix || :'sub1' || '/***' and reason like '%(job 99)%'),
+  'the removal has its audit entry with the rule that removed it, and the entry keeps the answer''s folder but not the file name');
 begin;
 select pg_temp.sign_in(:kid);
 select app.my_gyan_homework(:c1) as hw_kid2 \gset
