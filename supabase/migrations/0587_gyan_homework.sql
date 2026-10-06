@@ -986,7 +986,7 @@ $$;
 
 -- The caller's own homework and, when the caller is an adult, every current member of their households'; the published
 -- homework that applies to each person, and archived homework the person has an answer to (read-only: assignment.archived,
--- so a sent-back note does not vanish with the archive).
+-- so a sent-back note does not vanish with the archive; needs_parent and can_parent_decide are false for archived homework).
 create or replace function app.my_gyan_homework(p_center uuid) returns jsonb
 language plpgsql stable security definer set search_path = app, public, extensions as $$
 declare v_me uuid; v_people uuid[]; v_adult boolean;
@@ -1017,7 +1017,7 @@ begin
                'person_id', o.id,
                'submission', case when s.id is null then null else app.gyan_submission_json(s.id) end,
                'needs_parent', a.status = 'published' and app._gyan_homework_parent_check(p_center, a.id, o.id) = 'waits',
-               'can_parent_decide', s.id is not null and s.status = 'awaiting_parent' and v_adult and o.id <> v_me)
+               'can_parent_decide', s.id is not null and s.status = 'awaiting_parent' and a.status = 'published' and v_adult and o.id <> v_me)
              order by o.ord, l.sort_order, a.sort_order, a.title)
         from unnest(v_people) with ordinality o(id, ord)
         join app.gyan_assignments a on a.center_id = p_center
@@ -1219,7 +1219,8 @@ end $$;
 
 -- A household adult (not the learner) says the answer is ready for the teacher, or sends it back with a note. The
 -- office (pathshala.manage) may also release an answer that is waiting for a parent to the teacher (decision "ok"):
--- for a family where nobody can check it; it is recorded as released by the office, with who and when.
+-- for a family where nobody can check it; it is recorded as released by the office, with who and when. Archived
+-- homework is read-only: nobody, the office included, decides on an answer of it any more.
 create or replace function app.parent_decide_gyan_submission(p_submission uuid, p_decision text, p_note text) returns jsonb
 language plpgsql security definer set search_path = app, public, extensions as $$
 declare s app.gyan_submissions; a app.gyan_assignments; v_name text; v_note text; v_family boolean; v_office boolean;
@@ -1237,6 +1238,9 @@ begin
   v_office := not v_family and app.has_permission(s.center_id, 'pathshala.manage');
   if not v_family and not v_office then
     raise exception 'Only an adult of %''s household can check this homework.', v_name using errcode = 'insufficient_privilege';
+  end if;
+  if a.status = 'archived' then
+    raise exception 'This homework has been archived, so it can only be read now: nobody can send it on or back any more.' using errcode = '22023';
   end if;
   if p_decision is null or p_decision not in ('ok', 'send_back') then
     raise exception 'The decision must be "ok" or "send_back".' using errcode = '22023';
@@ -1799,13 +1803,13 @@ comment on function app.set_gyan_assignment_status(uuid, text) is
 comment on function app.worker_homework_publish_notify(uuid, int, int) is
   'The worker role only (job homework.publish_notify): tells one batch (offset, limit) of the homework''s learners and the household adults of each child with homework.assigned; a learner already told (a retried job) is skipped. Returns {total, offset, limit, learners, messages, skipped, done}.';
 comment on function app.my_gyan_homework(uuid) is
-  'Member: {people: [{person_id, name, is_child}], items: [{assignment (with archived), person_id, submission | null, needs_parent, can_parent_decide}]} for yourself and, when you are an adult, every current member of your households; published homework that applies to each person, and archived homework the person has an answer to (read-only).';
+  'Member: {people: [{person_id, name, is_child}], items: [{assignment (with archived), person_id, submission | null, needs_parent, can_parent_decide}]} for yourself and, when you are an adult, every current member of your households; published homework that applies to each person, and archived homework the person has an answer to (read-only: needs_parent and can_parent_decide are false for it).';
 comment on function app.save_gyan_submission_draft(uuid, uuid, text, jsonb) is
   'The learner or a household adult (app.gyan_can_act_for): create or update the draft answer (a sent-back answer becomes a draft with attempt + 1). A null p_files leaves the registered parts as they are; a list, even an empty one, replaces them with [{kind, storage_path, mime_type, bytes, duration_seconds}] under <center>/<person>/<submission>/<name> (a replaced part''s object stays in the bucket for the family until the retention job removes it; reviewers never read it). Refused while the answer is waiting for a parent, with the teacher or accepted, and for archived homework. Returns the submission as JSON (with files).';
 comment on function app.hand_in_gyan_submission(uuid) is
   'The learner or a household adult: draft → awaiting_parent (a child''s own hand-in when the homework asks for a parent''s check and a household adult who can sign in can be asked) or → submitted (an adult; a household adult handing in for someone in the family, recorded as parent_user; or a learner whose household has no adult who can sign in, whose adults are emailed homework.heads_up). Needs at least one part. Marks late, never refuses for it. Refused for archived homework. Tells the household adults (homework.parent_check) or the reviewers (homework.submitted).';
 comment on function app.parent_decide_gyan_submission(uuid, text, text) is
-  'An adult of the learner''s household, not the learner: ok → submitted (the reviewers are told); send_back → draft with the note (the learner is told). pathshala.manage may also release an answer that is waiting for a parent with decision ok (recorded as released by the office, with who and when).';
+  'An adult of the learner''s household, not the learner: ok → submitted (the reviewers are told); send_back → draft with the note (the learner is told). pathshala.manage may also release an answer that is waiting for a parent with decision ok (recorded as released by the office, with who and when). Refused for archived homework, whoever asks.';
 comment on function app.review_gyan_submission(uuid, text, text) is
   'app.gyan_homework_reviewer_role, never for the homework of the caller''s own household: accept → accepted, the homework''s points once per assignment and person (points_ledger reason assignment, ref_id = the submission), and the level bonus when this was the last required homework; send_back (a note is required) → needs_work. The learner and the household adults are told either way, without the note in the message.';
 comment on function app.gyan_homework_queue(uuid, text) is

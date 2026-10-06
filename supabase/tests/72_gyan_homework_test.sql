@@ -1613,6 +1613,39 @@ select pg_temp.assert((select (i->'assignment'->>'archived')::boolean and i->'su
                       and not exists (select 1 from jsonb_array_elements(:'hw_arc'::jsonb->'items') i where i->'assignment'->>'id' = :'a_teacher')
                       and exists (select 1 from jsonb_array_elements(:'hw_arc_mom'::jsonb->'items') i where i->'assignment'->>'id' = :'a_arc' and i->>'person_id' = :p_kid),
   'archived homework with an answer stays on the list (assignment.archived, status and the teacher''s note intact; her mother sees it too); archived homework nobody answered is not listed');
+-- Archived homework is read-only for the parents too: an answer waiting for a parent cannot be decided on by anyone.
+begin; select pg_temp.sign_in(:contentmgr);
+select (app.save_gyan_assignment(:c1, jsonb_build_object('level_id', :l1, 'title', 'Archive me while a parent looks', 'allowed_kinds', jsonb_build_array('text'), 'parent_check', 'children', 'points', 0))->>'id') as a_arc2 \gset
+select app.set_gyan_assignment_status(:'a_arc2', 'published');
+commit;
+begin; select pg_temp.sign_in(:kid);
+select (app.save_gyan_submission_draft(:'a_arc2', :p_kid, 'arc2 words', null)->>'id') as sub_arc2 \gset
+select app.hand_in_gyan_submission(:'sub_arc2') as sub_arc2_in \gset
+select app.my_gyan_homework(:c1) as hw_arc2_kid_before \gset
+commit;
+begin; select pg_temp.sign_in(:mom); select app.my_gyan_homework(:c1) as hw_arc2_before \gset
+commit;
+begin; select pg_temp.sign_in(:contentmgr); select app.set_gyan_assignment_status(:'a_arc2', 'archived');
+commit;
+begin; select pg_temp.sign_in(:mom);
+select app.my_gyan_homework(:c1) as hw_arc2_after \gset
+select pg_temp.assert_raises($$select app.parent_decide_gyan_submission('$$ || :'sub_arc2' || $$', 'ok', null)$$, 'has been archived', 'a parent cannot give the OK for archived homework');
+select pg_temp.assert_raises($$select app.parent_decide_gyan_submission('$$ || :'sub_arc2' || $$', 'send_back', 'x')$$, 'has been archived', 'nor send it back');
+commit;
+begin; select pg_temp.sign_in(:kid); select app.my_gyan_homework(:c1) as hw_arc2_kid_after \gset
+commit;
+begin; select pg_temp.sign_in(:principal);
+select pg_temp.assert_raises($$select app.parent_decide_gyan_submission('$$ || :'sub_arc2' || $$', 'ok', null)$$, 'has been archived', 'and the office cannot release it either');
+commit;
+select pg_temp.assert(:'sub_arc2_in'::jsonb->>'status' = 'awaiting_parent'
+                      and (select (i->>'can_parent_decide')::boolean and not (i->'assignment'->>'archived')::boolean
+                             from jsonb_array_elements(:'hw_arc2_before'::jsonb->'items') i where i->'assignment'->>'id' = :'a_arc2' and i->>'person_id' = :p_kid)
+                      and (select (i->>'needs_parent')::boolean from jsonb_array_elements(:'hw_arc2_kid_before'::jsonb->'items') i where i->'assignment'->>'id' = :'a_arc2')
+                      and (select (i->'assignment'->>'archived')::boolean and not (i->>'can_parent_decide')::boolean and i->'submission'->>'status' = 'awaiting_parent'
+                             from jsonb_array_elements(:'hw_arc2_after'::jsonb->'items') i where i->'assignment'->>'id' = :'a_arc2' and i->>'person_id' = :p_kid)
+                      and (select (i->'assignment'->>'archived')::boolean and not (i->>'needs_parent')::boolean and not (i->>'can_parent_decide')::boolean
+                             from jsonb_array_elements(:'hw_arc2_kid_after'::jsonb->'items') i where i->'assignment'->>'id' = :'a_arc2'),
+  'once the homework is archived, an answer waiting for a parent keeps its status but can_parent_decide and needs_parent turn false; neither a parent nor the office can decide on it');
 
 -- ── Due dates never start in the past ───────────────────────────────────────
 begin; select pg_temp.sign_in(:kid);
