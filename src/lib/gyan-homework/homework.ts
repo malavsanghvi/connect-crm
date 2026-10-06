@@ -587,7 +587,7 @@ export function fileLabel(file: SubmissionFile): string {
   return `${word ? `${word} file` : "File"}${size ? ` (${size})` : ""}`;
 }
 
-/** A file the retention job removed (plan H9: 365 days after upload; the row, note and points stay). */
+/** A file the retention job removed (plan H9, owner decision 2026-10-06: 180 days after upload; the row, note and points stay). */
 export function fileRemoved(file: SubmissionFile): boolean {
   return file.deleted_at !== null || file.storage_path === null;
 }
