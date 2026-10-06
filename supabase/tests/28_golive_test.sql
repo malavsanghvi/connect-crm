@@ -259,11 +259,12 @@ begin;
 select pg_temp.claims(:owner);
 set local role authenticated;
 select pg_temp.assert(case when (app.center_storage_overview(:sbx)->>'available')::boolean
-                           then jsonb_array_length(app.center_storage_overview(:sbx)->'areas') = 9
+                           then jsonb_array_length(app.center_storage_overview(:sbx)->'areas') = 10
                                 and (select (a->>'retention_days')::int from jsonb_array_elements(app.center_storage_overview(:sbx)->'areas') a where a->>'bucket' = 'imports') = 90
+                                and (select (a->>'retention_days')::int from jsonb_array_elements(app.center_storage_overview(:sbx)->'areas') a where a->>'bucket' = 'homework') = 365
                            else true end
                       and app.center_storage_overview(:sbx)->'limit_bytes' = '2147483648'::jsonb,
-  'the storage overview lists the nine areas with their retention, and the sandbox''s 2 GB limit');
+  'the storage overview lists the ten areas (homework since 0587) with their retention, and the sandbox''s 2 GB limit');
 reset role;
 select pg_temp.claims(:member);
 set local role authenticated;
