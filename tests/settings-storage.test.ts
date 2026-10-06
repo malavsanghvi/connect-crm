@@ -42,7 +42,7 @@ describe("the buckets whose retention a community may change", () => {
     expect(Object.keys(RETENTION_BUCKETS).sort()).toEqual(["homework", "imports", "recordings"]);
     for (const bucket of Object.keys(RETENTION_BUCKETS)) expect(STORAGE_AREAS[bucket]?.label).toBeTruthy();
     expect(STORAGE_AREAS.homework).toMatchObject({ label: "Homework answers" });
-    expect(STORAGE_AREAS.homework?.kept).toMatch(/365 days/);
+    expect(STORAGE_AREAS.homework?.kept).toMatch(/180 days/);
   });
 
   it("every bucket the storage overview lists (0587) has a row of its own, so none shows a raw bucket id", () => {
@@ -50,9 +50,9 @@ describe("the buckets whose retention a community may change", () => {
     expect(listed.filter((b) => !STORAGE_AREAS[b])).toEqual([]);
     const o = parseStorageOverview({
       available: true, limit_bytes: null, used_bytes: 0,
-      areas: [{ bucket: "homework", public: false, max_file_bytes: 26214400, types: ["image/jpeg"], files: 0, bytes: 0, retention_days: 365, retention_editable: true, module: "gyan_path", module_on: true }],
+      areas: [{ bucket: "homework", public: false, max_file_bytes: 26214400, types: ["image/jpeg"], files: 0, bytes: 0, retention_days: 180, retention_editable: true, module: "gyan_path", module_on: true }],
     });
-    expect(o.areas[0]).toMatchObject({ bucket: "homework", retention_days: 365, retention_editable: true });
+    expect(o.areas[0]).toMatchObject({ bucket: "homework", retention_days: 180, retention_editable: true });
     expect(retentionBucket("homework")).toMatchObject({ subject: "Homework answers" });
   });
 

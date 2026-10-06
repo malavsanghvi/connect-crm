@@ -1,5 +1,5 @@
 // storage.retention: remove files past their keeping period (plan §1.9):
-// imports 90 days, exports 7 days, recordings 90 days, homework answers 365
+// imports 90 days, exports 7 days, recordings 90 days, homework answers 180
 // days (0587); imports, recordings and homework may be changed per
 // organization. Event flyer files nothing uses any more go after 7 days
 // (0585). For homework the row, the notes and the points stay: only the

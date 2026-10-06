@@ -270,7 +270,7 @@ export const STORAGE_AREAS: Record<string, { label: string; holds: string; reade
   store: { label: "Store", holds: "Item photos", readers: "Members", kept: "Until replaced" },
   statements: { label: "Statements", holds: "Receipts and year-end statements", readers: "The household's adults and finance roles", kept: "7 years" },
   recordings: { label: "Recordings", holds: "Gyan Path recitations", readers: "The child, their parents, their teachers", kept: "Your choice (default 90 days)" },
-  homework: { label: "Homework answers", holds: "Photos, files and voice notes handed in as homework", readers: "The learner, their parents, and their teachers once it is handed in", kept: "Your choice (default 365 days)" },
+  homework: { label: "Homework answers", holds: "Photos, files and voice notes handed in as homework", readers: "The learner, their parents, and their teachers once it is handed in", kept: "Your choice (default 180 days)" },
   imports: { label: "Imports", holds: "Uploaded source files", readers: "People who may import that data", kept: "Your choice (default 90 days)" },
   "org-documents": { label: "Organization documents", holds: "W-9, determination letter, agreements", readers: "The owner and Community Connect verification staff", kept: "Life of the account" },
   exports: { label: "Exports", holds: "Generated exports", readers: "The person who asked", kept: "7 days" },
