@@ -191,6 +191,9 @@ const REFUSAL_TEXT: Record<string, string> = {
   template: "the push could not be written from its template",
   suppressed: "they may not be messaged (for example recorded as deceased)",
   expired: "it was already too late",
+  switched_off: "the community switched this notice off in Settings › Notifications",
+  no_login: "the person has no login in this community",
+  no_phone: "the person has no phone with the app",
   error: "it could not be queued",
 };
 

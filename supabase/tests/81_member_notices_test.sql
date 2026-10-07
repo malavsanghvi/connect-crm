@@ -501,9 +501,12 @@ select pg_temp.assert((select count(*) from pg_temp.notices(array['event_survey'
 update app.surveys set status = 'closed' where id = :'sv_now';
 select pg_temp.assert((select count(*) from pg_temp.notices(array['event_survey', 'event_survey_reminder'], 'survey_id', :'sv_now')
                         where status = 'cancelled' and failure_reason = 'Not sent: the survey closed before it went.') = 6
+                      and (select count(*) from pg_temp.notices(array['event_survey', 'event_survey_reminder'], 'survey_id', :'sv_now') m
+                                       join app.jobs j on j.id = m.job_id where j.status = 'queued') = 6
                       and not exists (select 1 from pg_temp.notices(array['event_survey', 'event_survey_reminder'], 'survey_id', :'sv_now') m
-                                       join app.jobs j on j.id = m.job_id where j.status = 'queued'),
-  'closing the survey cancels its waiting pushes and their jobs');
+                                       where app.worker_message_to_send(m.id)->>'skip' is distinct from 'The message is already cancelled.'),
+  'closing the survey cancels its waiting pushes in one update (their jobs stay queued: closing must stay quick for thousands), and the sender skips each of them');
+-- The per-message job cancel still works everywhere else (answering, moving a slot, a boli, an expired notice: asserted above and below).
 
 -- The community switched event feedback off: the survey still opens, nobody is pushed, and the counts say so.
 select pg_temp.set_trigger(:p, 'event_feedback', false);
@@ -611,6 +614,17 @@ select pg_temp.assert_raises($$insert into app.surveys (center_id, title, questi
   'asks for {{first_name}}', 'a feedback request that would go now is refused in a sentence while the template is wrong', '22023');
 commit;
 select pg_temp.assert(not exists (select 1 from app.surveys where event_id = :ev_lunch2), 'and nothing was saved');
+-- The same for a request scheduled for LATER: whether the push can be written does not depend on the time, so it is
+-- refused now, in the same sentence, not on the day.
+begin;
+select pg_temp.sign_in(:u_admin);
+select pg_temp.assert_raises($$insert into app.surveys (center_id, title, questions, audience, status, opens_at, closes_at, event_id, kind, send_at)
+  values ('81000000-0000-4000-8000-0000000000c1', 'x', '[{"id":"q1","type":"rating","label":"x","options":[],"required":true}]'::jsonb,
+          '{"event_id": "81000000-0000-4000-8000-0000000000f6", "rsvp_statuses": ["attended"]}'::jsonb, 'open', now() + interval '2 days', now() + interval '16 days',
+          '81000000-0000-4000-8000-0000000000f6', 'event_feedback', now() + interval '2 days')$$,
+  'asks for {{first_name}}', 'a feedback request scheduled for later is refused in the same sentence while the template is wrong', '22023');
+commit;
+select pg_temp.assert(not exists (select 1 from app.surveys where event_id = :ev_lunch2), 'and the request scheduled for later was not saved either');
 update app.message_templates set body = 'How was {{event}}? Tell us.{{points}}' where center_id = :p and key = 'event_survey' and channel = 'push';
 
 -- ── Bolis ────────────────────────────────────────────────────────────────────────

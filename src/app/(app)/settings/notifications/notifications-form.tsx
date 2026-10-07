@@ -120,10 +120,10 @@ export function NotificationsForm({
               <p className="crm-hint">Members can set their own quiet hours in the app.</p>
             </div>
             <div>
-              <p className="crm-label">Event-day reminders during quiet hours</p>
+              <p className="crm-label">Event-day reminders during quiet hours (lunch reminders and boli notices)</p>
               <Toggle
                 name="event_day_during_quiet_hours"
-                label="Event-day reminders during quiet hours"
+                label="Event-day reminders during quiet hours (lunch reminders and boli notices)"
                 checked={s.eventDayDuringQuietHours}
                 onChange={(x) => setS({ ...s, eventDayDuringQuietHours: x })}
                 onNote="Allowed"

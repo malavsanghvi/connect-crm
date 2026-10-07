@@ -307,8 +307,12 @@ begin
   return null;
 end $$;
 drop trigger if exists messages_cancel_waiting_job on app.messages;
+-- Except in one bulk path: closing a survey cancels every waiting push at once (thousands), and one job update per row
+-- (each audited) took longer than the database allows a request. That path sets app.keep_cancelled_message_jobs for its
+-- own transaction; the jobs it leaves are harmless: app.worker_message_to_send skips a message that is no longer queued.
 create trigger messages_cancel_waiting_job after update of status on app.messages
-  for each row when (old.status = 'queued' and new.status in ('cancelled', 'suppressed') and new.job_id is not null)
+  for each row when (old.status = 'queued' and new.status in ('cancelled', 'suppressed') and new.job_id is not null
+                     and coalesce(current_setting('app.keep_cancelled_message_jobs', true), '') <> 'on')
   execute function app.messages_cancel_waiting_job();
 
 -- ── Why a member notice was not queued ───────────────────────────────────────────
@@ -387,8 +391,9 @@ begin
   if v_user is null then return jsonb_build_object('reason', 'no_login'); end if;
   if not v_phone then return jsonb_build_object('reason', 'no_phone'); end if;
   v_send := greatest(coalesce(p_send_at, now()), now());
+  -- The same reading of the event-day rule as app.enqueue_message_at: absent means yes.
   if not (coalesce(p_vars->>'event_day', 'false') = 'true'
-          and (c.rules #>> '{notifications,event_day_during_quiet_hours}') is distinct from 'false') then
+          and coalesce((c.rules #>> '{notifications,event_day_during_quiet_hours}')::boolean, true)) then
     v_quiet := app.messaging_quiet_until(p_center, v_send);
     if v_quiet is not null then v_send := v_quiet; end if;
   end if;
@@ -614,6 +619,10 @@ begin
     elsif (v_counts->>'will_push')::int > 0 then
       v_problem := app._survey_notice_problem(s.id);
     end if;
+  else
+    -- Scheduled for later: who will be pushed is not known yet, but whether the push CAN be written does not depend on
+    -- the time, so a template that could never be written is refused now, in the same sentence, not on the day.
+    v_problem := app._survey_notice_problem(s.id);
   end if;
   insert into app.survey_notice_runs (survey_id, center_id, send_at, planned, problem_code, problem, finished_at)
   values (s.id, s.center_id, v_send, v_counts, case when v_problem is not null then 'template' end, v_problem,
@@ -712,10 +721,14 @@ create trigger surveys_schedule_feedback_pushes after insert or update of status
 create or replace function app.surveys_cancel_waiting_pushes() returns trigger
 language plpgsql security definer set search_path = app, public, extensions as $$
 begin
+  -- One update for all of them, and no per-message job update (see messages_cancel_waiting_job): a push job that is
+  -- left finds its message cancelled when it runs and ends at once.
+  perform set_config('app.keep_cancelled_message_jobs', 'on', true);
   update app.messages
      set status = 'cancelled', failure_reason = 'Not sent: the survey closed before it went.'
    where center_id = new.center_id and status = 'queued' and template_key in ('event_survey', 'event_survey_reminder')
      and payload->>'survey_id' = new.id::text;
+  perform set_config('app.keep_cancelled_message_jobs', 'off', true);
   update app.jobs j
      set status = 'cancelled', finished_at = now(), result = jsonb_build_object('survey_id', new.id, 'skipped', 'The survey closed before the pushes went.')
     from app.survey_notice_runs r
