@@ -36,16 +36,16 @@ so the member app, sender and sign-in service can adopt them.
 | `lunch.slot_minutes` | 15 | Rules › Lunch and RSVP | existing key |
 | `lunch.family_with_child_under_12_at_start` | true | Rules › Lunch and RSVP | existing key |
 | `lunch.senior_at_start` | true | Rules › Lunch and RSVP | existing key |
-| `lunch.reminder_minutes_before` | 5 | Rules › Lunch and RSVP | existing key |
+| `lunch.reminder_minutes_before` | 5 | Rules › Lunch and RSVP | existing key, **read by the database** (0596, `app._lunch_reminder`): the lunch reminder push goes this many minutes before the member's slot; 0 = no reminder. A whole number from 0 to 120 (more counts as 120; a negative number, a fraction or text reads as 5) |
 | `rsvp.confirmation_hours_before` | 24 | Rules › Lunch and RSVP | existing key |
 | `points.day_complete_bonus` / `anumodana_points` / `anumodana_daily_cap` / `support_points` | 20 / 5 / 5 / 3 | Rules › Points | existing key |
 | `points.streak_rest_days_per_month` | 1 | Rules › Points | **new**: member app streaks (not read yet) |
 | `points.behind_after_days` | 3 | Rules › Points | **new**: Saathi "behind" (not read yet) |
 | `points.gyan_practice_daily_cap` | 10 | Rules › Points | **new** (0570), **read by the database**: `app.record_gyan_attempt` pays a Gyan Path step's `repeat_points` for each successful practice try while the member's successful tries of that step today (the community's local day, `centers.time_zone`) are below this number; 0 switches try points off. Whole number 0–1000 (a value stored some other way is read the same way: not a number = 10, below 0 = 0, a fraction = its whole part, above 1000 = 1000; Content › Gyan Path describes the cap the same way). The database keeps at most 200 tries per member, step and day, or twice this number when it is above 100, so every try it pays for is kept |
 | `onboarding.fields.<field>` | see below | Onboarding fields | **new**: member app onboarding (not read yet) |
-| `notifications.quiet_start_hour` / `quiet_end_hour` | 21 / 7 | Notifications | **new**: automatic sender (not built yet) |
-| `notifications.event_day_during_quiet_hours` | true | Notifications | **new**: automatic sender (not built yet) |
-| `notifications.triggers.<trigger>` | true | Notifications | **new**: automatic sender (not built yet) |
+| `notifications.quiet_start_hour` / `quiet_end_hour` | 21 / 7 | Notifications | **read by the database** (`app.messaging_quiet_until`, 0221): a notification, campaign or receipt by text, push or WhatsApp that is due in quiet hours waits until they end (0596: judged at the time it is due, not when it is queued) |
+| `notifications.event_day_during_quiet_hours` | true | Notifications | **read by the database** (0221): true = an event-day message (the lunch reminder) is not held by quiet hours |
+| `notifications.triggers.<trigger>` | true | Notifications | `lunch_reminder`, `boli_outbid` and `event_feedback` are **read by the database** (0596, `app._member_push`): false = that push is not queued. The other keys record a choice for a sender that is not built yet (BACKLOG B48) |
 | `security.printed_signin_codes` | true | Security | **new**: policy only, not enforced yet |
 | `security.admin_session_hours` / `admin_idle_minutes` | 8 / 30 | Security | **new**: policy only; the sign-in service keeps its own session length |
 | `onboarding.wizard_step` | — | Platform › New center | **new**: next wizard step while a center is onboarding |
