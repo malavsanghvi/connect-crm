@@ -465,3 +465,34 @@ select pg_temp.assert((select e.status = 'placed' and f.status = 'not_billed_giv
                          from app.pathshala_enrollments e join app.pathshala_enrollment_fees f on f.enrollment_id = e.id
                         where e.id = (:'r14'::jsonb -> 'lines' -> 0 ->> 'enrollment_id')::uuid),
   'no Pathshala fund: the seat is given, the $45.00 is quoted and kept "not billed" with a note for the office (no pledge without a fund)');
+
+-- ════════════════════════════════════════════════════════════════════════════
+-- 6. Money that arrives for a released seat through ANY checkout is credit, with a row for the treasurer
+-- ════════════════════════════════════════════════════════════════════════════
+begin;
+select pg_temp.sign_in(:u_mira);
+select app.register_pathshala_children(:t1, :h1, jsonb_build_array(jsonb_build_object('person_id', :p_riya, 'track_id', :tr_j, 'level_id', :lv_j5)),
+                                       13000, null, null, 'k77-riya-1') as r15 \gset
+-- The family pays from My Donations: a plain "pledges" checkout that names the fee pledge.
+select app.create_checkout(:c, :h1, 13000, array[(:'r15'::jsonb -> 'lines' -> 0 -> 'pledge' ->> 'id')::uuid], null, 'pledges', 'Pledges') as ck_mydon \gset
+commit;
+select (:'r15'::jsonb -> 'lines' -> 0 ->> 'enrollment_id') as e_riya, (:'r15'::jsonb -> 'lines' -> 0 -> 'pledge' ->> 'id') as pl_riya,
+       (:'ck_mydon'::jsonb ->> 'checkout_id') as ck_id \gset
+update app.payment_checkouts set created_at = now() - interval '25 hours' where id = :'ck_id'::uuid;
+update app.pathshala_enrollments set hold_expires_at = now() - interval '1 minute' where id = :'e_riya';
+begin;
+set local role connect_worker;
+select app.worker_pathshala_holds_sweep() as sw_late \gset
+commit;
+select pg_temp.assert((select status = 'withdrawn' from app.pathshala_enrollments where id = :'e_riya')
+                      and (select status = 'cancelled' from app.pledges where id = :'pl_riya'::uuid),
+  'Riya''s unpaid hold is released: the seat is withdrawn and the fee pledge cancelled');
+begin;
+set local role connect_worker;
+select app.worker_record_online_payment(:'ck_id'::uuid, 'pi_p77_late', 13000, 407, 'card') as paid_late \gset
+commit;
+select pg_temp.assert((select context = 'pledges' from app.payment_checkouts where id = :'ck_id'::uuid)
+                      and not exists (select 1 from app.payment_allocations where payment_id = (:'paid_late'::jsonb ->> 'payment_id')::uuid)
+                      and (select kind = 'pathshala_late_payment' and released_cents = 13000 and household_id = :h1 and enrollment_id = :'e_riya'::uuid and status = 'pending'
+                             from app.rsvp_credit_releases where pledge_id = :'pl_riya'::uuid and kind = 'pathshala_late_payment'),
+  'a My Donations (context pledges) checkout that pays a released fee pledge: $130.00 stays unallocated and a credit row (with the enrollment) goes to the treasurer');

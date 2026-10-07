@@ -980,11 +980,13 @@ create policy pledges_household_insert on app.pledges for insert to authenticate
 
 -- Money that arrives after a release (§2.7): the checkout named the cancelled fee pledges, so nothing (or not all) was
 -- allocated; the rest is household credit. One credit row (kind pathshala_late_payment) puts it in front of the treasurer.
+-- Decided by what the payment is FOR (a cancelled pathshala_fee pledge among the checkout's pledges), never by the
+-- checkout's context: a My Donations "pledges" checkout, a store or a portal checkout is credited the same way.
 create or replace function app.pathshala_late_payment_trigger() returns trigger
 language plpgsql security definer set search_path = app, public, extensions as $$
 declare v_left bigint; p app.pledges;
 begin
-  if new.status <> 'paid' or old.status = 'paid' or new.context <> 'pathshala' or new.payment_id is null then return null; end if;
+  if new.status <> 'paid' or old.status = 'paid' or new.payment_id is null or coalesce(cardinality(new.pledge_ids), 0) = 0 then return null; end if;
   select pay.amount_cents - pay.refunded_cents - coalesce((select sum(a.amount_cents) from app.payment_allocations a where a.payment_id = pay.id), 0)
     into v_left from app.payments pay where pay.id = new.payment_id;
   if coalesce(v_left, 0) <= 0 then return null; end if;
