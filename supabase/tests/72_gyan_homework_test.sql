@@ -638,8 +638,8 @@ commit;
 select pg_temp.assert(:'sub1v2'::jsonb->>'text_answer' = 'Namo Arihantanam' and jsonb_array_length(:'sub1v2'::jsonb->'files') = 2
                       and :'sub1v2'::jsonb->'files'->0->>'kind' = 'voice' and (:'sub1v2'::jsonb->'files'->0->>'duration_seconds')::int = 12
                       and :'sub1v2'::jsonb->'files'->1->>'storage_path' = :prefix || :'sub1' || '/e1000000-0000-4000-8000-000000000002.jpg' and :'sub1v2'::jsonb->'files'->1->'deleted_at' = 'null'::jsonb
-                      and (select array_agg(k order by k) from jsonb_object_keys(:'sub1v2'::jsonb->'files'->0) k) = array['bytes','deleted_at','duration_seconds','id','kind','mime_type','sort_order','storage_path'],
-  'the draft keeps the trimmed text and its two parts, in order, with exactly the contract''s file keys');
+                      and (select array_agg(k order by k) from jsonb_object_keys(:'sub1v2'::jsonb->'files'->0) k) = array['bytes','deleted_at','duration_seconds','id','kind','mime_type','scan','scan_held','sort_order','storage_path'],
+  'the draft keeps the trimmed text and its two parts, in order, with exactly the contract''s file keys (0589 added scan and scan_held)');
 
 -- ── Handing in ─────────────────────────────────────────────────────────────
 begin;

@@ -118,8 +118,8 @@ select pg_temp.assert(app.platform_secret_names() @> array['GEMINI_API_KEY', 'AN
                       and cardinality(app.platform_secret_names()) = 20,
   'the platform keys are 0320''s nineteen plus GEMINI_API_KEY');
 select pg_temp.assert(app.platform_setting_keys() @> array['GEMINI_IMAGE_MODEL', 'portal_domain', 'INTUIT_REDIRECT_URI', 'PAYPAL_BN_CODE']
-                      and cardinality(app.platform_setting_keys()) = 19,
-  'the platform settings are 0320''s eighteen plus GEMINI_IMAGE_MODEL');
+                      and cardinality(app.platform_setting_keys()) = 20,
+  'the platform settings are 0320''s eighteen plus GEMINI_IMAGE_MODEL (and 0589''s UPLOAD_SCAN_MODE)');
 select pg_temp.assert((select required = false and sort = 85 and status = 'parked' and parked_at is not null and note like 'New with Flyers v2%'
                          from app.platform_setup_steps where key = 'art'),
   'the AI flyer art step is optional and starts parked, so a finished setup is not told it is unfinished');
