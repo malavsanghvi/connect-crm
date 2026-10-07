@@ -27,8 +27,9 @@
 --                                  closed campaign "Pathshala fees <term>" (kind pathshala) linked to the Pathshala fund;
 --                                  locks the fees and the rules; status → registration
 --   trigger pathshala_terms_guard  a write through the API (the term form) or the bulk import (app.client_app = 'import')
---                                  cannot take a term out of Draft, choose pay now, touch the lock, campaign or fund, or
---                                  change a locked rule. The database's own functions, migrations, the demo pack and test
+--                                  cannot take a term out of Draft (or back to it once open), choose pay now, touch the
+--                                  lock, campaign or fund, or change a locked rule (the payment and fee rules, the
+--                                  registration dates, the membership rule). The database's own functions, migrations, the demo pack and test
 --                                  fixtures write as the owner and are not checked; terms already out of Draft keep their
 --                                  status.
 --   app.pathshala_enrollment_fees  the locked quote, one row per enrollment, kept off the enrollment row that children read
@@ -447,13 +448,21 @@ begin
      or (new.payment_mode is distinct from old.payment_mode and new.payment_mode = 'pay_now') then
     raise exception 'Set the payment mode and the fee rules of % on its Fees screen.', new.name using errcode = '22023';
   end if;
+  if old.fees_locked_at is not null and old.status <> 'draft' and new.status = 'draft' then
+    raise exception '% has opened for registration, so it cannot go back to Draft.', new.name using errcode = '22023';
+  end if;
+  -- Locked rules: the payment rules, the fees' rules, and (review C10) the registration dates, which decide the late fee
+  -- (P4), and the membership rule (P6). The first day of term and the no-class dates stay with the principal: they move
+  -- only what is worked out afterwards (a pledge keeps the due date it was given).
   if old.fees_locked_at is not null and (
        new.payment_mode is distinct from old.payment_mode or new.hold_hours is distinct from old.hold_hours
     or new.office_payment_allowed is distinct from old.office_payment_allowed or new.office_hold_days is distinct from old.office_hold_days
     or new.seat_rule is distinct from old.seat_rule or new.sibling_discount_pct is distinct from old.sibling_discount_pct
     or new.fee_per_family_cap_cents is distinct from old.fee_per_family_cap_cents
     or new.late_registration_closes_at is distinct from old.late_registration_closes_at or new.late_fee_cents is distinct from old.late_fee_cents
-    or new.withdrawal_credit_until is distinct from old.withdrawal_credit_until or new.age_cutoff_on is distinct from old.age_cutoff_on) then
+    or new.withdrawal_credit_until is distinct from old.withdrawal_credit_until or new.age_cutoff_on is distinct from old.age_cutoff_on
+    or new.registration_opens_at is distinct from old.registration_opens_at or new.registration_closes_at is distinct from old.registration_closes_at
+    or new.membership_required is distinct from old.membership_required) then
     raise exception 'The fee rules of % are locked since registration opened. The treasurer changes them on its Fees screen, with a reason; a change applies to new registrations only.',
       new.name using errcode = '22023';
   end if;
@@ -798,8 +807,10 @@ begin
 end $$;
 
 -- Keys: payment_mode, hold_hours, office_payment_allowed, office_hold_days, seat_rule, sibling_discount_pct,
--- fee_per_family_cap_cents (null: no cap), late_registration_closes_at, late_fee_cents, withdrawal_credit_until,
--- age_cutoff_on (null: the default), fund_id (giving.manage). A key left out keeps its value.
+-- fee_per_family_cap_cents (null: no cap), registration_opens_at, registration_closes_at, late_registration_closes_at,
+-- late_fee_cents, withdrawal_credit_until, age_cutoff_on (null: the default), membership_required, fund_id
+-- (giving.manage). A key left out keeps its value. After registration opens these are locked rules: the treasurer,
+-- with a reason.
 create or replace function app.set_pathshala_term_rules(p_term uuid, p_rules jsonb, p_reason text default null) returns jsonb
 language plpgsql security definer set search_path = app, public, extensions as $$
 declare t app.pathshala_terms; n app.pathshala_terms; v_bad text; v_reason text; v_problem text; v_n bigint; v_fund uuid;
@@ -811,8 +822,8 @@ begin
   if p_rules is null or jsonb_typeof(p_rules) <> 'object' then raise exception 'Send the rules to change.' using errcode = '22023'; end if;
   select k into v_bad from jsonb_object_keys(p_rules) k
    where k not in ('payment_mode', 'hold_hours', 'office_payment_allowed', 'office_hold_days', 'seat_rule', 'sibling_discount_pct',
-                   'fee_per_family_cap_cents', 'late_registration_closes_at', 'late_fee_cents', 'withdrawal_credit_until',
-                   'age_cutoff_on', 'fund_id') limit 1;
+                   'fee_per_family_cap_cents', 'registration_opens_at', 'registration_closes_at', 'late_registration_closes_at',
+                   'late_fee_cents', 'withdrawal_credit_until', 'age_cutoff_on', 'membership_required', 'fund_id') limit 1;
   if v_bad is not null then raise exception 'A term has no rule called "%".', v_bad using errcode = '22023'; end if;
   n := t;
   if p_rules ? 'payment_mode' then
@@ -866,6 +877,15 @@ begin
     end if;
     n.late_fee_cents := v_n;
   end if;
+  if p_rules ? 'registration_opens_at' then
+    n.registration_opens_at := app._pathshala_ts(p_rules, 'registration_opens_at', 'When registration opens');
+  end if;
+  if p_rules ? 'registration_closes_at' then
+    n.registration_closes_at := app._pathshala_ts(p_rules, 'registration_closes_at', 'When registration closes');
+  end if;
+  if n.registration_opens_at is not null and n.registration_closes_at is not null and n.registration_closes_at <= n.registration_opens_at then
+    raise exception 'Registration must close after it opens.' using errcode = '22023';
+  end if;
   if p_rules ? 'late_registration_closes_at' then
     n.late_registration_closes_at := app._pathshala_ts(p_rules, 'late_registration_closes_at', 'The end of the late window');
   end if;
@@ -876,6 +896,9 @@ begin
     if n.late_registration_closes_at <= n.registration_closes_at then
       raise exception 'The late window must end after registration closes.' using errcode = '22023';
     end if;
+  end if;
+  if p_rules ? 'membership_required' then
+    n.membership_required := coalesce(app._pathshala_bool(p_rules, 'membership_required', 'Membership required'), n.membership_required);
   end if;
   if p_rules ? 'withdrawal_credit_until' then
     n.withdrawal_credit_until := app._pathshala_date(p_rules, 'withdrawal_credit_until', 'The withdrawal deadline');
@@ -910,7 +933,8 @@ begin
          office_hold_days = n.office_hold_days, seat_rule = n.seat_rule, sibling_discount_pct = n.sibling_discount_pct,
          fee_per_family_cap_cents = n.fee_per_family_cap_cents, late_registration_closes_at = n.late_registration_closes_at,
          late_fee_cents = n.late_fee_cents, withdrawal_credit_until = n.withdrawal_credit_until, age_cutoff_on = n.age_cutoff_on,
-         fund_id = n.fund_id
+         registration_opens_at = n.registration_opens_at, registration_closes_at = n.registration_closes_at,
+         membership_required = n.membership_required, fund_id = n.fund_id
    where id = t.id;
   if t.campaign_id is not null and n.fund_id is distinct from t.fund_id and n.fund_id is not null then
     update app.campaigns set fund_id = n.fund_id where id = t.campaign_id;
@@ -2046,7 +2070,7 @@ comment on function app.save_pathshala_level(uuid, jsonb, text) is
 comment on function app.set_pathshala_level_fees(uuid, jsonb, text) is
   'p_fees: [{level_id, fee_cents}]: 0 is Free, otherwise at least 50 (the smallest online payment), at most 100000000; null removes a fee (refused after opening for a level with a class). The principal (pathshala.manage) while the term''s fees are not locked; after app.open_pathshala_registration only giving.manage with a reason, for new registrations only (P9). Returns {term_id, locked, fees[], missing[] (offered levels without a fee)}.';
 comment on function app.set_pathshala_term_rules(uuid, jsonb, text) is
-  'The same callers as the fees. Keys: payment_mode (pledge | pay_now: refused with app.pathshala_pay_now_ready''s sentence), hold_hours (1–168), office_payment_allowed, office_hold_days (1–21), seat_rule (automatic | office: pledge mode only), sibling_discount_pct (0–100), fee_per_family_cap_cents (null: no cap), late_registration_closes_at (after registration_closes_at), late_fee_cents, withdrawal_credit_until, age_cutoff_on, fund_id (giving.manage; once registration has opened it can change but not be emptied: "The fund for the Pathshala fees cannot be cleared once registration has opened. Choose another fund instead."). Returns the term as app.pathshala_registration_options shows it.';
+  'The same callers as the fees. Keys: payment_mode (pledge | pay_now: refused with app.pathshala_pay_now_ready''s sentence), hold_hours (1–168), office_payment_allowed, office_hold_days (1–21), seat_rule (automatic | office: pledge mode only), sibling_discount_pct (0–100), fee_per_family_cap_cents (null: no cap), registration_opens_at, registration_closes_at (after it opens), late_registration_closes_at (after registration_closes_at), late_fee_cents, withdrawal_credit_until, age_cutoff_on, membership_required, fund_id (giving.manage; once registration has opened it can change but not be emptied: "The fund for the Pathshala fees cannot be cleared once registration has opened. Choose another fund instead."). Returns the term as app.pathshala_registration_options shows it.';
 comment on function app.open_pathshala_registration(uuid, text) is
   'pathshala.manage: refuses while an offered level (active, with a class this term) has no fee ("Set the fee for Gujarati 3 and Hindi 1 before opening registration.") and, for pay now, while it is not ready; with Pledges & donations on it creates or reuses the closed campaign "Pathshala fees <term>" (kind pathshala) linked to the term''s fund, else the Pathshala fund (key pathshala, or a fund named Pathshala; none: "There is no fund for the Pathshala fees yet. Ask the treasurer to add a fund called Pathshala in Setup › Lists, or choose a fund on this Fees screen if you also manage Giving; then open registration."); fixes the age cut-off and withdrawal deadline, locks the fees and rules, and moves a draft to registration. Idempotent. Returns {term_id, status, already_open, fees_locked_at, campaign_id, fund_id, payment_mode, warnings[] (offered levels with no age band)}.';
 comment on function app.pathshala_quote(uuid, uuid, jsonb) is

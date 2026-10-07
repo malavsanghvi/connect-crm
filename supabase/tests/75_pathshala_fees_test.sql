@@ -361,6 +361,17 @@ select pg_temp.assert_code(format($$select app.set_pathshala_term_rules(%L, '{"h
 select pg_temp.assert_code(format($$update app.pathshala_terms set sibling_discount_pct = 20 where id = %L$$, :t1),
   '22023', 'are locked since registration opened', 'locked: the term form cannot change a locked rule directly');
 update app.pathshala_terms set name = '2026-27' where id = :t1;
+select pg_temp.assert_code(format($$update app.pathshala_terms set registration_closes_at = registration_closes_at + interval '7 days' where id = %L$$, :t1),
+  '22023', 'The fee rules of 2026-27 are locked since registration opened.', 'locked: the term form cannot move when registration closes (where the late fee starts)');
+select pg_temp.assert_code(format($$update app.pathshala_terms set registration_opens_at = now() - interval '1 day' where id = %L$$, :t1),
+  '22023', 'are locked since registration opened', 'locked: nor when it opens');
+select pg_temp.assert_code(format($$update app.pathshala_terms set membership_required = false where id = %L$$, :t1),
+  '22023', 'are locked since registration opened', 'locked: nor switch off the membership rule');
+select pg_temp.assert_code(format($$update app.pathshala_terms set status = 'draft' where id = %L$$, :t1),
+  '22023', '2026-27 has opened for registration, so it cannot go back to Draft.', 'locked: nor put the term back to Draft');
+update app.pathshala_terms set no_class_dates = array['2026-11-29']::date[] where id = :t1;
+select pg_temp.assert((select no_class_dates = array['2026-11-29']::date[] from app.pathshala_terms where id = :t1),
+  'locked: the no-class dates (and the first day) stay with the principal');
 rollback;
 begin;
 select pg_temp.sign_in(:u_tara);
@@ -390,6 +401,22 @@ select pg_temp.assert((:'r_fund'::jsonb ->> 'fund_id') = '75000000-0000-4000-800
                       and (select c.fund_id = '75000000-0000-4000-8000-000000000f02' from app.campaigns c join app.pathshala_terms t on t.id = :t1 where c.id = t.campaign_id),
   'fund: choosing another fund works (with a reason), and the term''s campaign follows it');
 rollback;
+-- The registration dates and the membership rule are locked rules too: the treasurer changes them, with a reason, and the
+-- late window still ends after registration closes.
+begin;
+select pg_temp.sign_in(:u_tara);
+select pg_temp.assert_code(format($$select app.set_pathshala_term_rules(%L, '{"membership_required": false}')$$, :t1),
+  '22023', 'say why the fee rules change', 'locked: changing the membership rule after opening needs a reason');
+select app.set_pathshala_term_rules(:t1, jsonb_build_object('registration_closes_at', (now() + interval '35 days')::text, 'membership_required', false),
+                                    'Registration extended by five days') as r_dates \gset
+select pg_temp.assert_code(format($$select app.set_pathshala_term_rules(%L, %L, 'Later still')$$, :t1, jsonb_build_object('registration_closes_at', (now() + interval '45 days')::text)),
+  '22023', 'The late window must end after registration closes.', 'locked: registration cannot close after the late window ends');
+select pg_temp.assert_code(format($$select app.set_pathshala_term_rules(%L, %L, 'Backwards')$$, :t1, jsonb_build_object('registration_opens_at', (now() + interval '36 days')::text)),
+  '22023', 'Registration must close after it opens.', 'locked: nor open after it closes');
+rollback;
+select pg_temp.assert(not (:'r_dates'::jsonb ->> 'membership_required')::boolean
+                      and (:'r_dates'::jsonb -> 'window' ->> 'closes_at')::timestamptz > now() + interval '34 days',
+  'locked: the treasurer moves when registration closes and the membership rule, with a reason');
 delete from app.pathshala_enrollment_fees where enrollment_id = '75000000-0000-4000-8000-000000000ee1';
 delete from app.pathshala_enrollments where id = '75000000-0000-4000-8000-000000000ee1';
 
