@@ -431,6 +431,12 @@ begin
   if not (current_user in ('authenticated', 'anon') or coalesce(current_setting('app.client_app', true), '') = 'import') then
     return new;
   end if;
+  -- A family cap of $0 would make every child free (review C11): a cap is at least $0.50, or empty for no cap. A cap
+  -- already stored at $0 is left as it is (pricing treats it as no cap).
+  if new.fee_per_family_cap_cents is not null and new.fee_per_family_cap_cents < 50
+     and (tg_op = 'INSERT' or new.fee_per_family_cap_cents is distinct from old.fee_per_family_cap_cents) then
+    raise exception 'A family cap is at least $0.50 (at most $1,000,000); leave it empty for no cap.' using errcode = '22023';
+  end if;
   if (tg_op = 'INSERT' and new.status <> 'draft')
      or (tg_op = 'UPDATE' and old.status = 'draft' and new.status <> 'draft') then
     raise exception 'To open registration for %, use Open registration on its Fees screen: it checks that every level with a class has its fee, then locks the fees.',
@@ -801,7 +807,8 @@ begin
     'membership_required', t.membership_required,
     'waiver', case when d.id is null then null
                    else jsonb_build_object('document_id', d.id, 'title', d.title, 'version', d.version) end,
-    'sibling_discount_pct', t.sibling_discount_pct, 'family_cap_cents', t.fee_per_family_cap_cents,
+    'sibling_discount_pct', t.sibling_discount_pct,
+    'family_cap_cents', case when t.fee_per_family_cap_cents > 0 then t.fee_per_family_cap_cents end,
     'first_class_on', app.pathshala_first_class_day(t.id),
     'fees_locked_at', t.fees_locked_at, 'campaign_id', t.campaign_id, 'fund_id', t.fund_id);
 end $$;
@@ -1136,7 +1143,8 @@ begin
   if t.id is null then raise exception 'That term was not found.' using errcode = 'P0002'; end if;
   v_cut := app.pathshala_age_cutoff(t.id);
   v_pct := least(greatest(coalesce(t.sibling_discount_pct, 0), 0), 100);
-  v_cap := t.fee_per_family_cap_cents;
+  -- A cap of $0 or less (an old row) is no cap: it would make every child free (review C11).
+  v_cap := case when t.fee_per_family_cap_cents > 0 then t.fee_per_family_cap_cents end;
   v_late_fee := case when p_late then greatest(coalesce(t.late_fee_cents, 0), 0) else 0 end;
   if p_lines is null or jsonb_typeof(p_lines) <> 'array' then raise exception 'Send the learners as a list.' using errcode = '22023'; end if;
 

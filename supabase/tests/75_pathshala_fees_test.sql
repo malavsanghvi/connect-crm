@@ -450,6 +450,25 @@ select app.pathshala_quote(:t1, :h1, :family::jsonb) as q_nocap \gset
 commit;
 select pg_temp.assert((:'q_nocap'::jsonb ->> 'total_cents')::int = 33750 and (:'q_nocap'::jsonb -> 'lines' -> 2 ->> 'total_cents')::int = 4050,
   'quote: with no cap Anya pays $40.50 and the family $337.50');
+-- A family cap of $0 or less prices as no cap (it would make every child free); saving one is refused.
+begin;
+update app.pathshala_terms set fee_per_family_cap_cents = 0 where id = :t1;   -- an old row: the database itself writes it
+select pg_temp.sign_in(:u_mira);
+select app.pathshala_quote(:t1, :h1, :family::jsonb) as q_cap0 \gset
+select app.pathshala_registration_options(:t1, :h1) as opt_cap0 \gset
+rollback;
+select pg_temp.assert((:'q_cap0'::jsonb ->> 'total_cents')::int = 33750 and (:'q_cap0'::jsonb -> 'rule_snapshot' -> 'family_cap_cents') = 'null'::jsonb
+                      and (:'opt_cap0'::jsonb -> 'term' -> 'family_cap_cents') = 'null'::jsonb,
+  'cap: a stored family cap of $0 prices as no cap ($337.50), never as free, and the term shows no cap');
+begin;
+select pg_temp.sign_in(:u_pia);
+select pg_temp.assert_code(format($$update app.pathshala_terms set fee_per_family_cap_cents = 0 where id = %L$$, :t2),
+  '22023', 'A family cap is at least $0.50 (at most $1,000,000); leave it empty for no cap.', 'cap: the term form cannot save a $0 cap');
+select pg_temp.assert_code(format($$update app.pathshala_terms set fee_per_family_cap_cents = 49 where id = %L$$, :t2),
+  '22023', 'A family cap is at least $0.50', 'cap: nor one under $0.50');
+select pg_temp.assert_code(format($$select app.set_pathshala_term_rules(%L, '{"fee_per_family_cap_cents": 0}')$$, :t2),
+  '22023', 'A family cap is at least $0.50', 'cap: nor the Fees screen');
+rollback;
 update app.pathshala_terms set fee_per_family_cap_cents = 27500 where id = :t1;
 -- In the late window each of the four lines gets +$25.00: $425.00.
 update app.pathshala_terms set registration_closes_at = now() - interval '1 day' where id = :t1;
