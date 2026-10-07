@@ -216,6 +216,9 @@ describe("Terms › Fees: the rules form", () => {
     const principal = render(createElement(RulesForm, { ...base, locked: true, needsReason: true, canChooseFund: false, payNowBlocked: null }));
     expect(principal).toContain("No fund chosen");
     expect(principal).not.toContain("Found when registration opens");
+    // A fund made inactive since stays the choice, so saving other rules never moves the fee pledges to another fund.
+    const inactive = render(createElement(RulesForm, { ...base, locked: true, needsReason: true, values: { ...values, fund_id: "f-old" }, payNowBlocked: null }));
+    expect(inactive).toContain('<option value="f-old" selected="">The term&#x27;s current fund (no longer active)</option>');
   });
 });
 

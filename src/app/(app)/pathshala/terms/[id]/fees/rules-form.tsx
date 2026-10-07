@@ -248,6 +248,9 @@ export function RulesForm({
                 ) : (
                   <option value="">Found when registration opens (the Pathshala fund)</option>
                 )}
+                {/* The term's fund may since have been made inactive (only active funds are listed): keep it as the
+                    choice, so saving other rules never changes the fund by itself. */}
+                {values.fund_id && !funds.some((f) => f.id === values.fund_id) ? <option value={values.fund_id}>The term&apos;s current fund (no longer active)</option> : null}
                 {funds.map((f) => (
                   <option key={f.id} value={f.id}>
                     {f.name}
