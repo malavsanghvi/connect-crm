@@ -5177,6 +5177,30 @@ export type Database = {
         };
         Relationships: [];
       };
+      pathshala_assistance_notes: {
+        Row: {
+          enrollment_id: string;
+          center_id: string;
+          assistance_note: string;
+          written_by: string | null;
+          written_at: string;
+        };
+        Insert: {
+          enrollment_id: string;
+          center_id: string;
+          assistance_note: string;
+          written_by?: string | null;
+          written_at?: string;
+        };
+        Update: {
+          enrollment_id?: string;
+          center_id?: string;
+          assistance_note?: string;
+          written_by?: string | null;
+          written_at?: string;
+        };
+        Relationships: [];
+      };
       pathshala_attendance: {
         Row: {
           id: string;
@@ -5294,7 +5318,6 @@ export type Database = {
           billing_note: string | null;
           requotes: Json;
           assistance_requested: boolean;
-          assistance_note: string | null;
           assistance_proposed_cents: number | null;
           assistance_proposed_by: string | null;
           assistance_proposed_at: string | null;
@@ -5329,7 +5352,6 @@ export type Database = {
           billing_note?: string | null;
           requotes?: Json;
           assistance_requested?: boolean;
-          assistance_note?: string | null;
           assistance_proposed_cents?: number | null;
           assistance_proposed_by?: string | null;
           assistance_proposed_at?: string | null;
@@ -5364,7 +5386,6 @@ export type Database = {
           billing_note?: string | null;
           requotes?: Json;
           assistance_requested?: boolean;
-          assistance_note?: string | null;
           assistance_proposed_cents?: number | null;
           assistance_proposed_by?: string | null;
           assistance_proposed_at?: string | null;
@@ -11586,6 +11607,12 @@ export type Database = {
           p_names: string[];
         };
         Returns: string;
+      };
+      pathshala_i_am_adult: {
+        Args: {
+          p_center: string;
+        };
+        Returns: boolean;
       };
       pathshala_iso: {
         Args: {
