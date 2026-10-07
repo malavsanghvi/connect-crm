@@ -193,7 +193,12 @@ name, to `audit.view` holders of that center and platform admins only (the same 
   while the answer is a draft or sent back, read by the family (the whole folder) and, once the answer is
   with them (submitted, accepted or sent back: never a draft or an answer waiting for a parent), by the
   reviewers, only the files the answer lists; no old Office files (.doc, .xls, .ppt); kept 180 days by default; a community may change either
-  number in Settings › Storage). Both follow this module
+  number in Settings › Storage). Both follow this module. Virus scanning (0589, switched off until a platform admin
+  sets Platform › Setup › Virus scanning of uploads): in enforce mode a homework file or a recording uploaded after
+  the switch is opened by the family at once and by the teachers and reviewers only once its check is clean; an
+  infected one is refused to everyone, then removed (the part marked removed by the virus check, the recording
+  cleared from gyan_progress) and the learner and a child's household adults are told (upload.removed, no file name);
+  the parts in app.gyan_submission_json carry scan and scan_held
 - **Background jobs:** homework.publish_notify (queued on every publish; the worker tells the learners and
   the parents of children in batches through app.worker_homework_publish_notify, each person once);
   homework.reminders_sweep (every 15 minutes, in batches of 100, 0588: app.worker_homework_reminders_sweep
