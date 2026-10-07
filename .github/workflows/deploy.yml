@@ -210,6 +210,11 @@ jobs:
           MESSAGING_LINK_SECRET: ${{ secrets.MESSAGING_LINK_SECRET }}
           # o-https: follows SITE_DOMAIN (https) when PORTAL_PUBLIC_URL is not set.
           PORTAL_PUBLIC_URL: ${{ vars.PORTAL_PUBLIC_URL || (vars.SITE_DOMAIN && format('https://{0}', vars.SITE_DOMAIN)) || '' }}
+          # Virus scanning (0589, optional): where clamd listens once deploy/clamav-setup.sh has installed it
+          # (CLAMD_HOST=127.0.0.1). Unset: the scanner is not configured and uploads' checks wait in the queue.
+          CLAMD_HOST: ${{ vars.CLAMD_HOST }}
+          CLAMD_PORT: ${{ vars.CLAMD_PORT }}
+          CLAMD_SOCKET: ${{ vars.CLAMD_SOCKET }}
         run: |
           install -m 700 -d ~/.ssh
           printf '%s\n' "$KEY" > ~/.ssh/deploy && chmod 600 ~/.ssh/deploy
@@ -231,7 +236,7 @@ jobs:
                      INTUIT_CLIENT_ID INTUIT_CLIENT_SECRET RESEND_API_KEY POSTMARK_SERVER_TOKEN \
                      TWILIO_ACCOUNT_SID TWILIO_AUTH_TOKEN ANTHROPIC_API_KEY CLAUDE_MODEL \
                      POSTMARK_ACCOUNT_TOKEN EXPO_ACCESS_TOKEN TWILIO_FROM_NUMBER MESSAGING_FROM_ADDRESS MESSAGING_FROM_NAME \
-                     MESSAGING_LINK_SECRET PORTAL_PUBLIC_URL; do
+                     MESSAGING_LINK_SECRET PORTAL_PUBLIC_URL CLAMD_HOST CLAMD_PORT CLAMD_SOCKET; do
               if [ -n "${!v}" ]; then printf '%s=%s\n' "$v" "${!v}"; fi
             done
             if [ -n "$WORKER_DATABASE_CA" ]; then printf 'WORKER_DATABASE_CA=%s\n' /srv/connect/worker-ca.crt; fi
