@@ -93,6 +93,17 @@ describe("clamd: when it goes wrong", () => {
     }
   });
 
+  it("says the connection failed when clamd drops it mid-file (the check is then tried again)", async () => {
+    const fake = await startFakeClamd("reset", 100_000);
+    try {
+      const err = await scanStream({ kind: "tcp", host: "127.0.0.1", port: fake.port }, chunks(Buffer.alloc(1024 * 1024, 1))).catch((e: unknown) => e);
+      expect(err).toBeInstanceOf(ClamdError);
+      expect(String((err as Error).message)).toMatch(/connection to clamd failed|could not send the file to clamd|closed the connection without an answer/);
+    } finally {
+      await fake.close();
+    }
+  });
+
   it("gives up when clamd never answers", async () => {
     const fake = await startFakeClamd("silent");
     try {

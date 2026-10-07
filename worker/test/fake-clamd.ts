@@ -5,7 +5,11 @@
 import net from "node:net";
 import type { AddressInfo } from "node:net";
 
-export type FakeClamdMode = "normal" | "limit" | "silent";
+/**
+ * normal: answers each command; limit: answers "size limit exceeded" once more than limitBytes arrived and reads (ignores)
+ * the rest; silent: never answers a scan; reset: drops the connection once more than limitBytes arrived.
+ */
+export type FakeClamdMode = "normal" | "limit" | "silent" | "reset";
 
 export type FakeClamdState = {
   /** Every command received, in order (zPING, zVERSION, zINSTREAM). */
@@ -30,14 +34,17 @@ export const VIRUS_MARKER = "FAKE-CLAMD-VIRUS-MARKER";
 export function serveClamd(fake: FakeClamdState, sock: net.Socket): void {
   let buf = Buffer.alloc(0);
   let streaming = false;
+  let answered = false;
   let total = 0;
   const parts: Buffer[] = [];
   sock.on("error", () => undefined);
+  sock.on("end", () => sock.end());
   sock.on("close", () => {
     if (streaming) fake.openScans -= 1;
     streaming = false;
   });
   sock.on("data", (d: Buffer) => {
+    if (answered) return; // past the size limit: read and ignore the rest, as a polite server would
     buf = Buffer.concat([buf, d]);
     for (;;) {
       if (!streaming) {
@@ -74,7 +81,11 @@ export function serveClamd(fake: FakeClamdState, sock: net.Socket): void {
       parts.push(Buffer.from(buf.subarray(4, 4 + len)));
       total += len;
       buf = buf.subarray(4 + len);
-      if (fake.mode === "limit" && total > fake.limitBytes) return void sock.end("INSTREAM size limit exceeded. ERROR\0");
+      if (fake.mode === "limit" && total > fake.limitBytes) {
+        answered = true;
+        return void sock.write("INSTREAM size limit exceeded. ERROR\0");
+      }
+      if (fake.mode === "reset" && total > fake.limitBytes) return void sock.destroy();
     }
   });
 }

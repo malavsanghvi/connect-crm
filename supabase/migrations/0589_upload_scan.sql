@@ -134,18 +134,26 @@ begin
   return jsonb_build_object('key', v_key, 'value', v);
 end $$;
 
--- The mode as the read rules and the worker see it ('off' when nothing, or nothing valid, is saved).
+-- The mode as the read rules and the worker see it ('off' when nothing, or nothing valid, is saved). Every storage read
+-- asks it, so it never fails: without the settings table (a database without 0320) scanning is simply off.
 create or replace function app.upload_scan_mode() returns text
-language sql stable security definer set search_path = app, public, extensions as $$
-  select coalesce((select lower(s.value #>> '{}') from app.platform_settings s
-                    where s.key = 'UPLOAD_SCAN_MODE' and lower(s.value #>> '{}') in ('off', 'monitor', 'enforce')), 'off')
-$$;
+language plpgsql stable security definer set search_path = app, public, extensions as $$
+declare v text;
+begin
+  if to_regclass('app.platform_settings') is null then return 'off'; end if;
+  select lower(s.value #>> '{}') into v from app.platform_settings s where s.key = 'UPLOAD_SCAN_MODE';
+  return case when v in ('off', 'monitor', 'enforce') then v else 'off' end;
+end $$;
 
 -- When enforcement began (null unless the mode is enforce): the gate holds back only files uploaded from then on.
 create or replace function app.upload_scan_enforced_since() returns timestamptz
-language sql stable security definer set search_path = app, public, extensions as $$
-  select s.set_at from app.platform_settings s where s.key = 'UPLOAD_SCAN_MODE' and lower(s.value #>> '{}') = 'enforce'
-$$;
+language plpgsql stable security definer set search_path = app, public, extensions as $$
+declare v timestamptz;
+begin
+  if to_regclass('app.platform_settings') is null then return null; end if;
+  select s.set_at into v from app.platform_settings s where s.key = 'UPLOAD_SCAN_MODE' and lower(s.value #>> '{}') = 'enforce';
+  return v;
+end $$;
 
 -- ── The buckets ──────────────────────────────────────────────────────────────
 -- Community Connect's ten buckets (the storage.objects policies of 0587 name the same ten). app.storage_audit reads this
