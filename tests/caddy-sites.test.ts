@@ -282,7 +282,9 @@ describe.skipIf(process.platform === "win32")("caddy-sites command line: MEMBER_
   const script = join(__dirname, "..", "deploy", "caddy-sites.mjs");
   function run(args: string[], env: Record<string, string>) {
     const out = mkdtempSync(join(tmpdir(), "caddy-sites-"));
-    const r = spawnSync(process.execPath, [script, "--out", out, "--app", "crm", "--port", "3000", ...args], { env: { PATH: process.env.PATH ?? "", ...env }, encoding: "utf8" });
+    // A minimal environment on purpose (nothing inherited from CI); the cast is because Next's types make NODE_ENV mandatory.
+    const childEnv = { PATH: process.env.PATH ?? "", ...env } as unknown as NodeJS.ProcessEnv;
+    const r = spawnSync(process.execPath, [script, "--out", out, "--app", "crm", "--port", "3000", ...args], { env: childEnv, encoding: "utf8" });
     const read = (f: string) => { try { return readFileSync(join(out, f), "utf8"); } catch { return null; } };
     const files = { wildcard: read("crm-wildcard.caddy"), main: read("crm.caddy") };
     rmSync(out, { recursive: true, force: true });
@@ -297,7 +299,8 @@ describe.skipIf(process.platform === "win32")("caddy-sites command line: MEMBER_
   });
 
   it("writes nothing extra when it is empty or unset", () => {
-    for (const env of [{}, { MEMBER_BASE_DOMAIN: "" }]) {
+    const environments: Record<string, string>[] = [{}, { MEMBER_BASE_DOMAIN: "" }];
+    for (const env of environments) {
       const r = run(["--site", "admin.weaverams.org", "--ip-cert", "0"], env);
       expect(r.status).toBe(0);
       expect(r.wildcard).not.toContain("*.weaverams.org");
