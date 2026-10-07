@@ -276,6 +276,18 @@ select pg_temp.assert((select set_at = :'monitor_at'::timestamptz from app.platf
                       and (select count(*) from app.audit_log where record_table = 'platform_settings' and record_id = 'UPLOAD_SCAN_MODE') = :'mode_audits'::int
                       and (select count(*) from app.jobs where kind = 'storage.scan_sweep' and center_id is null and status = 'queued') = 1,
   'saving the same mode again changes nothing (set_at is when the mode last changed) and queues no second sweep');
+-- The enforce lock leaves no trace: refused from monitor as well, the mode and its moment stay as they were, nothing is
+-- audited as a change and no second sweep is queued.
+begin;
+select pg_temp.sign_in_step_up(:pa);
+select pg_temp.assert_raises($$select app.set_platform_setting('UPLOAD_SCAN_MODE', 'enforce', 'Trying enforce from monitor')$$,
+  'comes with the next update', 'enforce is refused from monitor too');
+rollback;
+select pg_temp.assert(app.upload_scan_mode() = 'monitor' and app.upload_scan_enforced_since() is null
+                      and (select set_at = :'monitor_at'::timestamptz from app.platform_settings where key = 'UPLOAD_SCAN_MODE')
+                      and (select count(*) from app.audit_log where record_table = 'platform_settings' and record_id = 'UPLOAD_SCAN_MODE') = :'mode_audits'::int
+                      and (select count(*) from app.jobs where kind = 'storage.scan_sweep' and center_id is null and status = 'queued') = 1,
+  'a refused enforce changes nothing: still monitor, the same moment, no audit entry, no second sweep');
 
 -- ── Monitor: record everything, deny nothing ───────────────────────────────
 begin; set local role connect_worker;
@@ -556,6 +568,9 @@ select pg_temp.assert(app.audit_mask('{"assistance_note": "We need help with fee
                       and app.audit_mask(jsonb_build_object('text_answer', 'Namo', 'storage_path', :'hw_old'))
                           = jsonb_build_object('text_answer', '*** (4 characters)', 'storage_path', :'folder' || '***'),
   'and it keeps 0590''s assistance-note clause and 0587''s homework clauses');
+select pg_temp.assert(app.audit_mask(jsonb_build_object('bucket_id', 'homework', 'name', :'hw_old', 'assistance_note', 'Need help', 'status', 'clean'))
+                        = jsonb_build_object('bucket_id', 'homework', 'name', :'folder' || '***', 'assistance_note', '*** (9 characters)', 'status', 'clean'),
+  'one row can need both clauses (a homework file name and an assistance note): both are applied');
 select pg_temp.assert((select count(*) from app.audit_log where action = 'storage.upload' and record_id = 'homework/' || :'folder' || '***'
                          and after->>'name' = :'folder' || '***' and after->>'mimetype' = 'image/jpeg') >= 2
                       and not exists (select 1 from app.audit_log where record_table = 'storage.objects' and record_id like 'homework/%'
@@ -579,6 +594,23 @@ select pg_temp.assert(pg_temp.sees('homework', :'hw_fail') and pg_temp.sees('rec
 rollback;
 select pg_temp.assert(app.upload_scan_enforced_since() is null and not app.upload_scan_held('recordings', :'rec_bad'),
   'and nothing is held');
+
+-- Off to monitor again (the scanner is back): a new moment and one fresh sweep, nothing enforced or held, and the checks that
+-- waited in the queue while it was off are still there (switching the mode never touches them).
+select set_at as off_at from app.platform_settings where key = 'UPLOAD_SCAN_MODE' \gset
+select count(*) as waiting_checks from app.jobs where kind = 'storage.scan' and status = 'queued' and center_id = :c \gset
+delete from app.jobs where kind = 'storage.scan_sweep' and center_id is null and status = 'queued';
+begin;
+select pg_temp.sign_in_step_up(:pa);
+select app.set_platform_setting('UPLOAD_SCAN_MODE', 'monitor', 'The scanner is back');
+commit;
+select pg_temp.assert(app.upload_scan_mode() = 'monitor' and app.upload_scan_enforced_since() is null
+                      and (select set_at > :'off_at'::timestamptz from app.platform_settings where key = 'UPLOAD_SCAN_MODE')
+                      and (select count(*) from app.jobs where kind = 'storage.scan_sweep' and center_id is null and status = 'queued') = 1
+                      and (select count(*) from app.jobs where kind = 'storage.scan' and status = 'queued' and center_id = :c) = :'waiting_checks'::int
+                      and :'waiting_checks'::int > 0
+                      and not app.upload_scan_held('recordings', :'rec_bad'),
+  'off to monitor again: a fresh moment and one new sweep, nothing enforced or held, and the waiting checks are untouched');
 
 -- ── Tidy up (the database is shared with the next test files) ───────────────
 delete from app.platform_settings where key = 'UPLOAD_SCAN_MODE';
