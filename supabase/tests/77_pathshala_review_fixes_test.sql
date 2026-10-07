@@ -496,3 +496,83 @@ select pg_temp.assert((select context = 'pledges' from app.payment_checkouts whe
                       and (select kind = 'pathshala_late_payment' and released_cents = 13000 and household_id = :h1 and enrollment_id = :'e_riya'::uuid and status = 'pending'
                              from app.rsvp_credit_releases where pledge_id = :'pl_riya'::uuid and kind = 'pathshala_late_payment'),
   'a My Donations (context pledges) checkout that pays a released fee pledge: $130.00 stays unallocated and a credit row (with the enrollment) goes to the treasurer');
+
+-- ════════════════════════════════════════════════════════════════════════════
+-- 7. Lock order between the sweep and a payment
+-- ════════════════════════════════════════════════════════════════════════════
+begin;
+select pg_temp.sign_in(:u_nita);
+select app.register_pathshala_children(:t1, :h2, jsonb_build_array(jsonb_build_object('person_id', :p_isha, 'track_id', :tr_g, 'level_id', :lv_g1)),
+                                       4500, null, null, 'k77-isha-1') as r16 \gset
+commit;
+select (:'r16'::jsonb -> 'lines' -> 0 ->> 'enrollment_id') as e_isha1, (:'r16'::jsonb -> 'lines' -> 0 -> 'pledge' ->> 'id') as pl_isha1 \gset
+-- (a) The hook was busy (switched off here): the fee pledge is paid and the seat is still held. A release attempt stops.
+alter table app.pledges disable trigger pathshala_fee_paid;
+begin;
+select pg_temp.sign_in(:u_tara);
+select app.record_offline_payment(:h2, 4500, 'check', pg_temp.today(), array[:'pl_isha1'::uuid], '7703');
+commit;
+alter table app.pledges enable trigger pathshala_fee_paid;
+select pg_temp.assert((select status = 'paid' from app.pledges where id = :'pl_isha1'::uuid)
+                      and (select status = 'requested' and app._pathshala_hold(id) = 'payment' from app.pathshala_enrollments where id = :'e_isha1'),
+  'the hook was busy: the fee pledge is paid and Isha''s seat is still held');
+select app._pathshala_release_hold(:'e_isha1'::uuid, 'The fee was not paid') as rel \gset
+select pg_temp.assert((:'rel'::jsonb ->> 'released')::boolean is false and (:'rel'::jsonb ->> 'paid')::boolean
+                      and (select status = 'requested' and app._pathshala_hold(id) = 'payment' from app.pathshala_enrollments where id = :'e_isha1')
+                      and (select status = 'paid' and paid_cents = 4500 from app.pledges where id = :'pl_isha1'::uuid)
+                      and not exists (select 1 from app.rsvp_credit_releases where enrollment_id = :'e_isha1'::uuid),
+  'releasing a hold stops when one of its fee pledges is paid: nothing cancelled, no credit, the learner still held');
+update app.pathshala_enrollments set hold_expires_at = now() - interval '1 minute' where id = :'e_isha1';
+begin;
+set local role connect_worker;
+select app.worker_pathshala_holds_sweep() as sw_a \gset
+commit;
+select pg_temp.assert((:'sw_a'::jsonb ->> 'paid_placed')::int = 1 and (:'sw_a'::jsonb ->> 'released')::int = 0
+                      and (select e.status = 'placed' and e.class_id = :cl_g1 and f.status = 'paid' and f.hold_reason is null
+                             from app.pathshala_enrollments e join app.pathshala_enrollment_fees f on f.enrollment_id = e.id where e.id = :'e_isha1'),
+  'the sweep waits for nobody and places the paid seat (fee line paid, hold ended) instead of releasing it');
+-- (b) One bad row does not roll back the others: two holds are released, the one that fails is logged and kept for the next run.
+begin;
+select pg_temp.sign_in(:u_nita);
+select app.register_pathshala_children(:t1, :h2, jsonb_build_array(jsonb_build_object('person_id', :p_kiran, 'track_id', :tr_j, 'level_id', :lv_j2),
+                                                                   jsonb_build_object('person_id', :p_mina, 'track_id', :tr_g, 'level_id', :lv_g1)),
+                                       17500, null, null, 'k77-kiran-1') as r17 \gset
+select pg_temp.sign_in(:u_mira);
+select app.register_pathshala_children(:t1, :h1, jsonb_build_array(jsonb_build_object('person_id', :p_anya, 'track_id', :tr_g, 'level_id', :lv_g1)),
+                                       4500, null, null, 'k77-anya-1') as r18 \gset
+commit;
+select (x ->> 'enrollment_id') as e_kiran1 from jsonb_array_elements(:'r17'::jsonb -> 'lines') x where x ->> 'person_id' = :p_kiran::text \gset
+select (x ->> 'enrollment_id') as e_mina1 from jsonb_array_elements(:'r17'::jsonb -> 'lines') x where x ->> 'person_id' = :p_mina::text \gset
+select (:'r18'::jsonb -> 'lines' -> 0 ->> 'enrollment_id') as e_anya1 \gset
+update app.pathshala_enrollments set hold_expires_at = now() - interval '1 minute' where id in (:'e_kiran1'::uuid, :'e_mina1'::uuid, :'e_anya1'::uuid);
+create function app.t77_boom() returns trigger language plpgsql as $$ begin
+  if new.status = 'withdrawn' and new.id = (select e.id from app.pathshala_enrollments e where e.student_person_id = '77000000-0000-4000-8000-000000000109' and e.term_id = '77000000-0000-4000-8000-000000000501')
+  then raise exception 'boom: this one row fails'; end if;
+  return new;
+end $$;
+create trigger t77_boom before update on app.pathshala_enrollments for each row execute function app.t77_boom();
+begin;
+set local role connect_worker;
+select app.worker_pathshala_holds_sweep() as sw_b \gset
+commit;
+drop trigger t77_boom on app.pathshala_enrollments;
+drop function app.t77_boom();
+select pg_temp.assert((:'sw_b'::jsonb ->> 'released')::int = 2 and (:'sw_b'::jsonb ->> 'failed')::int = 1
+                      and (select status = 'withdrawn' from app.pathshala_enrollments where id = :'e_mina1'::uuid)
+                      and (select status = 'withdrawn' from app.pathshala_enrollments where id = :'e_anya1'::uuid)
+                      and (select status = 'requested' and app._pathshala_hold(id) = 'payment' from app.pathshala_enrollments where id = :'e_kiran1'::uuid)
+                      and (select status = 'open' from app.pledges where source = 'pathshala_fee' and source_ref_id = :'e_kiran1'::uuid)
+                      and exists (select 1 from app.audit_log where action = 'pathshala.sweep_failed' and record_id = :'e_kiran1' and (after ->> 'step') = 'release'),
+  'sweep: Mina and Anya are released; Kiran''s failure is written to the audit log and rolled back alone (still held, pledge still open)');
+begin;
+set local role connect_worker;
+select app.worker_pathshala_holds_sweep() as sw_c \gset
+commit;
+select pg_temp.assert((:'sw_c'::jsonb ->> 'released')::int = 1 and (:'sw_c'::jsonb ->> 'failed')::int = 0
+                      and (select status = 'withdrawn' from app.pathshala_enrollments where id = :'e_kiran1'::uuid),
+  'the next run releases Kiran');
+-- (c) The hook never waits long, and a statement timeout inside it cannot fail a payment.
+select pg_temp.assert((select proconfig @> array['lock_timeout=3s'] from pg_proc where oid = 'app._pathshala_fee_paid(uuid, boolean)'::regprocedure)
+                      and (select prosrc like '%query_canceled%' from pg_proc where oid = 'app.pathshala_fee_paid_trigger()'::regprocedure)
+                      and (select prosrc like '%pg_try_advisory_xact_lock%' from pg_proc where oid = 'app._pathshala_try_lock_level(uuid, uuid)'::regprocedure),
+  'the paid-fee hook gives up after 3 seconds of waiting, takes its locks without waiting, and its trigger swallows a statement timeout');

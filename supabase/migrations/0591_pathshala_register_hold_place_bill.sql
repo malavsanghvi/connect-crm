@@ -318,6 +318,13 @@ language sql volatile set search_path = app, public, extensions as $$
   select pg_advisory_xact_lock(hashtextextended('app.pathshala_seats:' || p_term::text || ':' || p_level::text, 0))
 $$;
 
+-- The same lock, never waiting: the paid-fee hook runs inside whatever recorded a payment and must not queue behind the
+-- sweep or a registration (false: busy, the sweep places the paid seat on its next run).
+create or replace function app._pathshala_try_lock_level(p_term uuid, p_level uuid) returns boolean
+language sql volatile set search_path = app, public, extensions as $$
+  select pg_try_advisory_xact_lock(hashtextextended('app.pathshala_seats:' || p_term::text || ':' || p_level::text, 0))
+$$;
+
 -- Seats of a level: 0590's count plus the seats held for payment (a learner "requested" with a payment, office-payment
 -- or assistance hold at that level). A hold counts until it is released, so a seat is never sold twice.
 create or replace function app.pathshala_level_seats(p_term uuid, p_level uuid)
@@ -785,9 +792,16 @@ begin
   if e.id is null or e.status <> 'requested' or coalesce(app._pathshala_hold(e.id), '') not in ('payment', 'office_payment', 'assistance') then
     return jsonb_build_object('credit_cents', 0, 'released', false);
   end if;
+  -- Every fee pledge of the enrollment is locked FIRST (in one statement, in the order a payment takes them), and a paid one
+  -- ends the release: the seat is confirmed by the paid-fee hook or the sweep, never released (§2.7). A payment never
+  -- waits for this lock; the sweep waits for the payment to finish.
+  perform 1 from app.pledges pl where pl.source = 'pathshala_fee' and pl.source_ref_id = e.id order by pl.id for update;
+  if exists (select 1 from app.pledges pl where pl.source = 'pathshala_fee' and pl.source_ref_id = e.id and pl.status = 'paid') then
+    return jsonb_build_object('credit_cents', 0, 'released', false, 'paid', true);
+  end if;
   if p_notify then perform app._pathshala_notify_learner(e.id, 'pathshala_hold_released'); end if;
   for p in select * from app.pledges pl where pl.source = 'pathshala_fee' and pl.source_ref_id = e.id
-                                         and pl.status in ('open', 'partially_paid') for update loop
+                                         and pl.status in ('open', 'partially_paid') order by pl.id loop
     select coalesce(sum(amount_cents), 0) into v_released from app.payment_allocations where pledge_id = p.id;
     delete from app.payment_allocations where pledge_id = p.id;
     update app.pledges set status = 'cancelled', closed_at = now(), paid_cents = 0 where id = p.id;
@@ -877,52 +891,72 @@ end $$;
 -- ═════════════════════════════════════════════════════════════════════════════
 -- The paid-fee hook (§2.8): a fee pledge paid in full, through any channel, completes a held registration
 -- ═════════════════════════════════════════════════════════════════════════════
-create or replace function app._pathshala_fee_paid(p_pledge uuid) returns void
-language plpgsql security definer set search_path = app, public, extensions as $$
+-- p_wait false (the trigger inside a payment): never waits for a lock. The sweep locks an enrollment and then its pledges; a
+-- payment holds the pledge first, so waiting here could deadlock them. When anything is busy the hook returns and the
+-- sweep (p_wait true) places the paid seat on its next run. A lock held too long gives up after 3 seconds.
+create or replace function app._pathshala_fee_paid(p_pledge uuid, p_wait boolean default false) returns void
+language plpgsql security definer set search_path = app, public, extensions set lock_timeout = '3s' as $$
 declare p app.pledges; e app.pathshala_enrollments; f app.pathshala_enrollment_fees; o record; v_left int; v_class uuid; v_own boolean;
+        v_term uuid; v_level uuid; v_locked uuid;
 begin
   select * into p from app.pledges where id = p_pledge;
   if p.id is null or p.source <> 'pathshala_fee' or p.source_ref_id is null then return; end if;
-  select * into e from app.pathshala_enrollments where id = p.source_ref_id for update;
+  select * into e from app.pathshala_enrollments where id = p.source_ref_id;
   if e.id is null then return; end if;
   select * into f from app.pathshala_enrollment_fees where enrollment_id = e.id;
   if f.id is null then return; end if;
   -- Only the fee line's OWN pledge, still billed, confirms the seat. A pledge a member made up themselves (even one
   -- that names this enrollment) pays nothing toward the seat.
-  v_own := (f.pledge_id = p.id and f.status = 'billed');
-  if v_own then
-    update app.pathshala_enrollment_fees set status = 'paid', paid_at = now() where id = f.id;
+  v_own := (f.pledge_id = p.id and f.status in ('billed', 'paid'));   -- 'paid': the sweep catching up a busy hook
+  if not v_own then return; end if;
+  update app.pathshala_enrollment_fees set status = 'paid', paid_at = coalesce(paid_at, now()) where id = f.id and status = 'billed';
+  if e.status <> 'requested' or coalesce(f.hold_reason, '') not in ('payment', 'office_payment') then return; end if;
+  -- The seat: under the level's lock and the enrollment's own, never waiting unless the sweep calls.
+  v_term := e.term_id; v_level := e.requested_level_id;
+  if p_wait then
+    perform app._pathshala_lock_level(v_term, v_level);
+    select * into e from app.pathshala_enrollments where id = e.id for update;
+  else
+    if not app._pathshala_try_lock_level(v_term, v_level) then return; end if;
+    select * into e from app.pathshala_enrollments where id = e.id for update skip locked;
   end if;
-  if v_own and e.status = 'requested' and f.hold_reason in ('payment', 'office_payment') then
-    perform app.set_audit_default_reason('Pathshala fee paid: ' || coalesce(app.pathshala_first_name(e.student_person_id), 'the learner')
-                                         || '''s held seat is confirmed');
-    perform app._pathshala_lock_level(e.term_id, e.requested_level_id);
-    v_class := app._pathshala_class_for(e.term_id, e.requested_level_id);
-    if v_class is null then
-      -- The level lost its classes meanwhile: the seat stays held (paid) for the office to place by hand.
-      perform app.log_audit(e.center_id, 'pathshala.place_failed', 'pathshala_enrollments', e.id::text, null,
-                            jsonb_build_object('pledge_id', p.id, 'level_id', e.requested_level_id), 'The fee is paid but the level has no class to place the learner in');
-      return;
-    end if;
-    perform app._pathshala_place(e.id, v_class);
-    perform app._pathshala_notify_learner(e.id, 'pathshala_registered');
-    -- The registration's $0 lines are confirmed with its last paid line (§2.7).
-    if e.registration_id is not null then
-      select count(*) into v_left
-        from app.pathshala_enrollments o2 join app.pathshala_enrollment_fees f2 on f2.enrollment_id = o2.id
-       where o2.registration_id = e.registration_id and o2.status = 'requested' and f2.hold_reason in ('payment', 'office_payment')
-         and f2.status = 'billed';
-      if v_left = 0 then
-        for o in select o2.id, o2.term_id, o2.requested_level_id
-                   from app.pathshala_enrollments o2 join app.pathshala_enrollment_fees f2 on f2.enrollment_id = o2.id
-                  where o2.registration_id = e.registration_id and o2.status = 'requested' and f2.hold_reason in ('payment', 'office_payment')
-                    and f2.status = 'no_fee'
-                  order by o2.registered_at, o2.id loop
+  if e.id is null or e.status <> 'requested' then return; end if;
+  select * into f from app.pathshala_enrollment_fees where enrollment_id = e.id;
+  if coalesce(f.hold_reason, '') not in ('payment', 'office_payment') then return; end if;
+  perform app.set_audit_default_reason('Pathshala fee paid: ' || coalesce(app.pathshala_first_name(e.student_person_id), 'the learner')
+                                       || '''s held seat is confirmed');
+  v_class := app._pathshala_class_for(e.term_id, e.requested_level_id);
+  if v_class is null then
+    -- The level lost its classes meanwhile: the seat stays held (paid) for the office to place by hand.
+    perform app.log_audit(e.center_id, 'pathshala.place_failed', 'pathshala_enrollments', e.id::text, null,
+                          jsonb_build_object('pledge_id', p.id, 'level_id', e.requested_level_id), 'The fee is paid but the level has no class to place the learner in');
+    return;
+  end if;
+  perform app._pathshala_place(e.id, v_class);
+  perform app._pathshala_notify_learner(e.id, 'pathshala_registered');
+  -- The registration's $0 lines are confirmed with its last paid line (§2.7).
+  if e.registration_id is not null then
+    select count(*) into v_left
+      from app.pathshala_enrollments o2 join app.pathshala_enrollment_fees f2 on f2.enrollment_id = o2.id
+     where o2.registration_id = e.registration_id and o2.status = 'requested' and f2.hold_reason in ('payment', 'office_payment')
+       and f2.status = 'billed';
+    if v_left = 0 then
+      for o in select o2.id, o2.term_id, o2.requested_level_id
+                 from app.pathshala_enrollments o2 join app.pathshala_enrollment_fees f2 on f2.enrollment_id = o2.id
+                where o2.registration_id = e.registration_id and o2.status = 'requested' and f2.hold_reason in ('payment', 'office_payment')
+                  and f2.status = 'no_fee'
+                order by o2.registered_at, o2.id loop
+        -- A line that is busy is placed by the sweep (it places the $0 lines of a registration whose paid lines are done).
+        if p_wait then
           perform app._pathshala_lock_level(o.term_id, o.requested_level_id);
-          perform app._pathshala_place(o.id, app._pathshala_class_for(o.term_id, o.requested_level_id));
-          perform app._pathshala_notify_learner(o.id, 'pathshala_registered');
-        end loop;
-      end if;
+        elsif not app._pathshala_try_lock_level(o.term_id, o.requested_level_id) then
+          continue;
+        end if;
+        select o3.id into v_locked from app.pathshala_enrollments o3 where o3.id = o.id and o3.status = 'requested' for update skip locked;
+        continue when v_locked is null;
+        perform app._pathshala_place(o.id, app._pathshala_class_for(o.term_id, o.requested_level_id));
+        perform app._pathshala_notify_learner(o.id, 'pathshala_registered');
+      end loop;
     end if;
   end if;
 end $$;
@@ -930,15 +964,20 @@ end $$;
 -- The hook runs inside whatever recorded the payment (a webhook, the treasurer's form, a bank match): it must never stop
 -- that payment from being recorded. A failure is written to the audit log, and the sweep places the paid learner on its
 -- next run (it places, never releases, a held seat whose fee pledge is paid).
+-- A statement timeout (query_canceled, which "others" does not catch) inside the hook is swallowed too.
 create or replace function app.pathshala_fee_paid_trigger() returns trigger
 language plpgsql security definer set search_path = app, public, extensions as $$
 begin
   if new.status = 'paid' and old.status is distinct from 'paid' and new.source = 'pathshala_fee' then
     begin
-      perform app._pathshala_fee_paid(new.id);
-    exception when others then
-      perform app.log_audit(new.center_id, 'pathshala.fee_paid_failed', 'pledges', new.id::text, null,
-                            jsonb_build_object('error', sqlerrm), 'The paid Pathshala fee could not place the learner at once; the sweep retries');
+      perform app._pathshala_fee_paid(new.id, false);
+    exception
+      when query_canceled then
+        perform app.log_audit(new.center_id, 'pathshala.fee_paid_failed', 'pledges', new.id::text, null,
+                              jsonb_build_object('error', 'the statement timed out'), 'The paid Pathshala fee could not place the learner at once; the sweep retries');
+      when others then
+        perform app.log_audit(new.center_id, 'pathshala.fee_paid_failed', 'pledges', new.id::text, null,
+                              jsonb_build_object('error', sqlerrm), 'The paid Pathshala fee could not place the learner at once; the sweep retries');
     end;
   end if;
   return null;
@@ -998,11 +1037,16 @@ begin
   insert into app.rsvp_credit_releases (center_id, household_id, enrollment_id, pledge_id, released_cents, created_by, kind)
   values (new.center_id, p.household_id, p.source_ref_id, p.id, v_left, null, 'pathshala_late_payment');
   return null;
-exception when others then
-  -- Never stop the payment from being recorded: the money is household credit either way.
-  perform app.log_audit(new.center_id, 'pathshala.late_payment_failed', 'payment_checkouts', new.id::text, null,
-                        jsonb_build_object('error', sqlerrm), 'A payment after a released seat could not be put in the credit queue');
-  return null;
+exception
+  when query_canceled then
+    perform app.log_audit(new.center_id, 'pathshala.late_payment_failed', 'payment_checkouts', new.id::text, null,
+                          jsonb_build_object('error', 'the statement timed out'), 'A payment after a released seat could not be put in the credit queue');
+    return null;
+  when others then
+    -- Never stop the payment from being recorded: the money is household credit either way.
+    perform app.log_audit(new.center_id, 'pathshala.late_payment_failed', 'payment_checkouts', new.id::text, null,
+                          jsonb_build_object('error', sqlerrm), 'A payment after a released seat could not be put in the credit queue');
+    return null;
 end $$;
 drop trigger if exists pathshala_late_payment on app.payment_checkouts;
 create trigger pathshala_late_payment after update of status on app.payment_checkouts
@@ -1899,50 +1943,97 @@ end $$;
 -- ═════════════════════════════════════════════════════════════════════════════
 -- The sweep (worker job pathshala.holds_sweep, every 15 minutes)
 -- ═════════════════════════════════════════════════════════════════════════════
+-- One learner's trouble never rolls back the rest (every step is its own block, and a failure is written to the audit log);
+-- a payment never waits for the sweep, so the sweep is the one that waits (it places what a busy hook left).
 create or replace function app.worker_pathshala_holds_sweep() returns jsonb
 language plpgsql security definer set search_path = app, public, extensions as $$
 declare r record; v_reminded int := 0; v_released int := 0; v_credit bigint := 0; v_credited int := 0; v_served int := 0; v jsonb;
-        v_kept int := 0; v_placed int := 0; v_paid uuid;
+        v_kept int := 0; v_placed int := 0; v_paid uuid; v_failed int := 0; v_healed int := 0; v_locked uuid;
 begin
   perform app.assert_worker();
   perform set_config('app.client_app', 'job', true);
-  -- First, any held seat whose fee pledge is already paid (the hook could not place it at once) is placed, never released.
+  -- A fee line still "billed" whose pledge was paid (the hook was busy or failed): the line catches up.
+  perform app.set_audit_context('Pathshala: the fee pledge is paid, so the fee line is paid');
+  with u as (update app.pathshala_enrollment_fees f set status = 'paid', paid_at = coalesce(f.paid_at, now())
+               from app.pledges p where p.id = f.pledge_id and f.status = 'billed' and p.status = 'paid' returning f.id)
+  select count(*) into v_healed from u;
+  -- Any held seat whose fee pledge is already paid (the hook could not place it at once) is placed, never released.
   perform app.set_audit_context('Pathshala: the fee was paid, so the held seat is confirmed');
-  for r in select e.id from app.pathshala_enrollments e
+  for r in select e.id, e.center_id from app.pathshala_enrollments e
             where e.status = 'requested' and app._pathshala_hold(e.id) in ('payment', 'office_payment')
               and exists (select 1 from app.pathshala_enrollment_fees f join app.pledges p on p.id = f.pledge_id
                            where f.enrollment_id = e.id and p.status = 'paid')
-            limit 500 loop
-    select f.pledge_id into v_paid from app.pathshala_enrollment_fees f where f.enrollment_id = r.id;
-    perform app._pathshala_fee_paid(v_paid);
-    if exists (select 1 from app.pathshala_enrollments where id = r.id and status = 'placed') then v_placed := v_placed + 1; end if;
+            order by e.registered_at, e.id limit 500 loop
+    begin
+      select f.pledge_id into v_paid from app.pathshala_enrollment_fees f where f.enrollment_id = r.id;
+      if v_paid is null then continue; end if;
+      perform app._pathshala_fee_paid(v_paid, true);
+      if exists (select 1 from app.pathshala_enrollments where id = r.id and status = 'placed') then v_placed := v_placed + 1; end if;
+    exception when others then
+      v_failed := v_failed + 1;
+      perform app.log_audit(r.center_id, 'pathshala.sweep_failed', 'pathshala_enrollments', r.id::text, null,
+                            jsonb_build_object('step', 'place_paid', 'error', sqlerrm), 'The holds sweep could not place one paid learner; it tries again on the next run');
+    end;
+  end loop;
+  -- The $0 lines of a registration whose paid lines are all done (the hook was busy for the last one).
+  for r in select o.id, o.term_id, o.requested_level_id, o.center_id from app.pathshala_enrollments o join app.pathshala_enrollment_fees f on f.enrollment_id = o.id
+            where o.status = 'requested' and f.hold_reason in ('payment', 'office_payment') and f.status = 'no_fee' and o.registration_id is not null
+              and exists (select 1 from app.pathshala_enrollment_fees f4 where f4.registration_id = o.registration_id and f4.status = 'paid')
+              and not exists (select 1 from app.pathshala_enrollments o5 join app.pathshala_enrollment_fees f5 on f5.enrollment_id = o5.id
+                               where o5.registration_id = o.registration_id and o5.status = 'requested'
+                                 and f5.hold_reason in ('payment', 'office_payment') and f5.status = 'billed')
+            order by o.registered_at, o.id limit 500 loop
+    begin
+      perform app._pathshala_lock_level(r.term_id, r.requested_level_id);
+      select o3.id into v_locked from app.pathshala_enrollments o3 where o3.id = r.id and o3.status = 'requested' for update;
+      continue when v_locked is null;
+      perform app._pathshala_place(r.id, app._pathshala_class_for(r.term_id, r.requested_level_id));
+      perform app._pathshala_notify_learner(r.id, 'pathshala_registered');
+      v_placed := v_placed + 1;
+    exception when others then
+      v_failed := v_failed + 1;
+      perform app.log_audit(r.center_id, 'pathshala.sweep_failed', 'pathshala_enrollments', r.id::text, null,
+                            jsonb_build_object('step', 'place_free_line', 'error', sqlerrm), 'The holds sweep could not place one learner; it tries again on the next run');
+    end;
   end loop;
   -- Reminders, 6 hours before a hold ends.
   perform app.set_audit_context('Pathshala: a seat held for payment ends within 6 hours (reminder)');
-  for r in select e.id from app.pathshala_enrollments e join app.pathshala_terms t on t.id = e.term_id
+  for r in select e.id, e.center_id from app.pathshala_enrollments e join app.pathshala_terms t on t.id = e.term_id
             where e.status = 'requested' and app._pathshala_hold(e.id) in ('payment', 'office_payment') and e.hold_reminded_at is null
               and e.hold_expires_at > now() and e.hold_expires_at <= now() + interval '6 hours'
               and app.module_enabled(e.center_id, 'pathshala')
             order by e.hold_expires_at limit 500 for update of e skip locked loop
-    update app.pathshala_enrollments set hold_reminded_at = now() where id = r.id;
-    perform app._pathshala_notify_learner(r.id, 'pathshala_hold_reminder');
-    v_reminded := v_reminded + 1;
+    begin
+      update app.pathshala_enrollments set hold_reminded_at = now() where id = r.id;
+      perform app._pathshala_notify_learner(r.id, 'pathshala_hold_reminder');
+      v_reminded := v_reminded + 1;
+    exception when others then
+      v_failed := v_failed + 1;
+      perform app.log_audit(r.center_id, 'pathshala.sweep_failed', 'pathshala_enrollments', r.id::text, null,
+                            jsonb_build_object('step', 'reminder', 'error', sqlerrm), 'The holds sweep could not remind one family; it tries again on the next run');
+    end;
   end loop;
   -- Releases: a hold that is no longer live.
   for r in select e.id, e.term_id, e.requested_level_id, e.hold_expires_at, e.center_id from app.pathshala_enrollments e
             where e.status = 'requested' and app._pathshala_hold(e.id) in ('payment', 'office_payment') and e.hold_expires_at <= now()
               and app.module_enabled(e.center_id, 'pathshala')
             order by e.hold_expires_at limit 500 for update of e skip locked loop
-    if app.pathshala_hold_live(r.id) then v_kept := v_kept + 1; continue; end if;
-    perform app.set_audit_context('Pathshala: the seat was released because the fee was not paid by '
-                                  || coalesce(app.pathshala_when(r.hold_expires_at, r.center_id), 'the end of the hold'));
-    perform app._pathshala_lock_level(r.term_id, r.requested_level_id);
-    v := app._pathshala_release_hold(r.id, 'The fee was not paid by ' || coalesce(app.pathshala_when(r.hold_expires_at, r.center_id), 'the end of the hold')
-                                           || ', so the seat was released.');
-    if (v ->> 'released')::boolean then
-      v_released := v_released + 1;
-      if (v ->> 'credit_cents')::bigint > 0 then v_credited := v_credited + 1; v_credit := v_credit + (v ->> 'credit_cents')::bigint; end if;
-    end if;
+    begin
+      if app.pathshala_hold_live(r.id) then v_kept := v_kept + 1; continue; end if;
+      perform app.set_audit_context('Pathshala: the seat was released because the fee was not paid by '
+                                    || coalesce(app.pathshala_when(r.hold_expires_at, r.center_id), 'the end of the hold'));
+      perform app._pathshala_lock_level(r.term_id, r.requested_level_id);
+      v := app._pathshala_release_hold(r.id, 'The fee was not paid by ' || coalesce(app.pathshala_when(r.hold_expires_at, r.center_id), 'the end of the hold')
+                                             || ', so the seat was released.');
+      if (v ->> 'released')::boolean then
+        v_released := v_released + 1;
+        if (v ->> 'credit_cents')::bigint > 0 then v_credited := v_credited + 1; v_credit := v_credit + (v ->> 'credit_cents')::bigint; end if;
+      end if;
+    exception when others then
+      v_failed := v_failed + 1;
+      perform app.log_audit(r.center_id, 'pathshala.sweep_failed', 'pathshala_enrollments', r.id::text, null,
+                            jsonb_build_object('step', 'release', 'error', sqlerrm), 'The holds sweep could not release one seat; it tries again on the next run');
+    end;
   end loop;
   -- Catch-up: a seat that is free while a waitlist waits (a class changed by an import, a failed trigger) is served.
   perform app.set_audit_context('Pathshala: a free seat goes to the next learner on the waitlist');
@@ -1954,7 +2045,8 @@ begin
     v_served := v_served + app._pathshala_fill_seats_safely(r.term_id, r.level_id);
   end loop;
   return jsonb_build_object('reminded', v_reminded, 'released', v_released, 'credited', v_credited, 'credit_cents', v_credit,
-                            'kept_paying', v_kept, 'waitlist_served', v_served, 'paid_placed', v_placed);
+                            'kept_paying', v_kept, 'waitlist_served', v_served, 'paid_placed', v_placed, 'failed', v_failed,
+                            'fee_lines_caught_up', v_healed);
 end $$;
 
 -- ═════════════════════════════════════════════════════════════════════════════
@@ -2048,7 +2140,7 @@ comment on function app.release_pathshala_hold(uuid, text) is 'pathshala.manage,
 comment on function app.extend_pathshala_hold(uuid, timestamptz, text) is 'pathshala.manage, with a reason: a seat held for payment is held until p_until, at most office_hold_days after it was given.';
 comment on function app.pathshala_registration_queue(uuid, text) is 'The office''s Registrations screen (pathshala.view; fee columns for pathshala.manage and giving staff): {term_id, view, fees_visible, items[{enrollment_id, registration_id, status, hold_reason, hold_expires_at, hold_live, offered_at, waitlist_position, registered_at, channel, family_note, learner, household_id, household_card, track, requested_level, suggested_level, class, membership, waiver, fee}], pending[]}.';
 comment on function app.pathshala_task_counts(uuid) is 'The Pathshala Home tasks (§2.14): to_place, held_for_payment, held_ending_soon, held_for_membership, waiting_for_waiver, waitlisted (open terms), children_to_add, assistance_to_decide and payments_after_release (pathshala.manage or giving staff only), levels_without_fee.';
-comment on function app.worker_pathshala_holds_sweep() is 'The worker role only (job pathshala.holds_sweep, every 15 minutes): a held seat whose fee pledge is already paid is placed (never released); reminders 6 hours before a hold ends; holds no longer live (window passed, no open payment page under 24 hours, no Zelle report for an office hold) are released (pledges cancelled, money paid toward them to credit rows, the learner withdrawn, the family told, the seat to the waitlist); a free seat with a waitlist is served. Returns {reminded, released, credited, credit_cents, kept_paying, waitlist_served, paid_placed}.';
+comment on function app.worker_pathshala_holds_sweep() is 'The worker role only (job pathshala.holds_sweep, every 15 minutes): a held seat whose fee pledge is already paid is placed (never released); reminders 6 hours before a hold ends; holds no longer live (window passed, no open payment page under 24 hours, no Zelle report for an office hold) are released (pledges cancelled, money paid toward them to credit rows, the learner withdrawn, the family told, the seat to the waitlist); a free seat with a waitlist is served. One learner''s trouble never stops the rest (written to the audit log). Returns {reminded, released, credited, credit_cents, kept_paying, waitlist_served, paid_placed, failed, fee_lines_caught_up}.';
 comment on function app.pathshala_hold_live(uuid) is 'A seat held for payment stays live while its window runs, while a payment page (checkout created or pending, under 24 hours old) names one of its registration''s held pledges, and, for an office hold, while a member''s Zelle report naming one waits for the treasurer; an assistance hold until the decision (§2.7, P17, P18).';
 
 -- ═════════════════════════════════════════════════════════════════════════════
@@ -2076,13 +2168,13 @@ revoke execute on function
   app._pathshala_vars(uuid), app._pathshala_route(jsonb), app._pathshala_notify_learner(uuid, text, uuid),
   app._pathshala_bill(uuid, boolean), app._pathshala_place(uuid, uuid), app._pathshala_seat_or_wait(uuid, timestamptz),
   app._pathshala_fill_seats(uuid, uuid), app._pathshala_release_hold(uuid, text, boolean), app.pathshala_hold_live(uuid),
-  app._pathshala_state_sentence(uuid), app._pathshala_lift(uuid, text), app._pathshala_fee_paid(uuid), app.pathshala_fee_paid_trigger(),
+  app._pathshala_state_sentence(uuid), app._pathshala_lift(uuid, text), app._pathshala_fee_paid(uuid, boolean), app.pathshala_fee_paid_trigger(),
   app.pathshala_late_payment_trigger(), app._pathshala_fill_seats_safely(uuid, uuid), app.pathshala_classes_seats_trigger(),
   app.pathshala_enrollments_seat_freed(), app._pathshala_outcome_words(text), app._pathshala_changed_outcome(jsonb, text),
   app._pathshala_ensure_quote(uuid, uuid), app._pathshala_class_free(uuid), app.pathshala_membership_trigger(),
   app._pathshala_added_person(uuid), app._pathshala_convert_pending(uuid, uuid), app.pathshala_change_request_trigger(),
   app._pathshala_household_card(uuid), app._pathshala_hold(uuid), app._pathshala_place_unbilled(uuid),
-  app.pathshala_fee_pledge_closed_trigger()
+  app.pathshala_fee_pledge_closed_trigger(), app._pathshala_try_lock_level(uuid, uuid)
   from public, anon, authenticated;
 grant execute on function
   app.pathshala_today(uuid), app.pathshala_when(timestamptz, uuid), app.pathshala_class_schedule(uuid), app.pathshala_waitlist_position(uuid),
