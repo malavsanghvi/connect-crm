@@ -723,3 +723,62 @@ select pg_temp.assert(:'ws_future' like 'To withdraw at no charge, withdraw in t
   'the placed message: before the date it says to withdraw by it; after, that the date has passed and to ask the office');
 select pg_temp.assert((select count(*) = 2 from app.message_templates where center_id is null and key = 'pathshala_placed' and body like '%{{withdraw_sentence}}%'),
   'both pathshala_placed templates use that sentence');
+
+-- ════════════════════════════════════════════════════════════════════════════
+-- 11. A child never sees fees (P30): no hold reason, withdrawal reason, fee line or pledge; the adults get them from the options
+-- ════════════════════════════════════════════════════════════════════════════
+-- Riya (12, with her own login) has a billed seat in the Giving-late term (T5) and a released one in the summer term (T1).
+begin;
+select pg_temp.sign_in(:u_riya);
+select pg_temp.assert((select count(*) >= 2 from app.pathshala_enrollments where student_person_id = :p_riya),
+  'Riya can read her own enrollments (where she is placed, the class)');
+select pg_temp.assert((select count(*) = 0 from app.pathshala_enrollment_fees) and (select count(*) = 0 from app.pledges)
+                      and (select count(*) = 0 from app.pathshala_assistance_notes) and (select count(*) = 0 from app.pathshala_registrations),
+  'Riya reads no fee line, no pledge, no assistance note and no registration (the fee rows are for the household''s adults)');
+select pg_temp.assert_raises($$select hold_reason from app.pathshala_enrollments limit 1$$, 'column "hold_reason" does not exist',
+  'an enrollment row carries no hold reason any more (it is on the fee line)');
+select pg_temp.assert_raises($$select withdrawal_reason from app.pathshala_enrollments limit 1$$, 'column "withdrawal_reason" does not exist',
+  'nor a withdrawal reason');
+select app.pathshala_registration_options(:t5, :h1) as opt_child_t5 \gset
+select app.pathshala_registration_options(:t1, :h1) as opt_child_t1 \gset
+rollback;
+begin;
+select pg_temp.sign_in(:u_mira);
+select app.pathshala_registration_options(:t5, :h1) as opt_mira_t5 \gset
+select app.pathshala_registration_options(:t1, :h1) as opt_mira_t1 \gset
+select pg_temp.assert((select count(*) >= 1 from app.pathshala_enrollment_fees where household_id = :h1), 'Mira, an adult of the family, reads the family''s fee lines');
+rollback;
+select pg_temp.assert((select bool_and(en ->> 'fee' is null and en ->> 'hold_reason' is null and en ->> 'withdrawal_reason' is null
+                                       and en ->> 'state' is null and en ->> 'registration_id' is null and en ? 'status' and en ? 'hold_expires_at' and en ? 'offered_at')
+                         from jsonb_array_elements(:'opt_child_t5'::jsonb -> 'learners') l, jsonb_array_elements(l -> 'enrollments') en)
+                      and (select bool_and(en ->> 'fee' is null and en ->> 'hold_reason' is null and en ->> 'withdrawal_reason' is null and en ->> 'state' is null)
+                             from jsonb_array_elements(:'opt_child_t1'::jsonb -> 'learners') l, jsonb_array_elements(l -> 'enrollments') en)
+                      and (:'opt_child_t5'::jsonb -> 'term' ->> 'sibling_discount_pct') is null,
+  'options for a child with a login: status, class and the neutral times only: no fee, no hold or withdrawal reason, no sentence about money');
+select pg_temp.assert((select en -> 'fee' ->> 'status' = 'billed' and (en -> 'fee' ->> 'total_cents')::int = 13000 and (en -> 'fee' -> 'pledge' ->> 'amount_cents')::int = 13000
+                              and en -> 'fee' -> 'pledge' ->> 'status' = 'open' and en -> 'fee' -> 'pledge' ->> 'id' is not null and en ->> 'registration_id' is not null
+                              and en ->> 'state' like 'registered for Jainism 5%'
+                         from jsonb_array_elements(:'opt_mira_t5'::jsonb -> 'learners') l, jsonb_array_elements(l -> 'enrollments') en
+                        where l ->> 'person_id' = :p_riya::text),
+  'options for an adult of the family: Riya''s fee line and pledge (what to pay), the registration, and where it stands in a sentence');
+select pg_temp.assert((select en ->> 'status' = 'withdrawn' and en ->> 'withdrawal_reason' like 'The fee was not paid by %, so the seat was released.'
+                              and en -> 'fee' ->> 'status' = 'cancelled' and en ->> 'hold_reason' is null
+                         from jsonb_array_elements(:'opt_mira_t1'::jsonb -> 'learners') l, jsonb_array_elements(l -> 'enrollments') en
+                        where l ->> 'person_id' = :p_riya::text and en ->> 'status' = 'withdrawn'),
+  'options for an adult: why Riya''s unpaid summer seat was released, with the cancelled fee');
+-- A held seat shows its reason and its end to the adults, and only its end (neutral) to a child.
+begin;
+select pg_temp.sign_in(:u_mira);
+select app.register_pathshala_children(:t1, :h1, jsonb_build_array(jsonb_build_object('person_id', :p_riya, 'track_id', :tr_g, 'level_id', :lv_g1)),
+                                       4500, null, null, 'k77-riya-1g') as r21 \gset
+select app.pathshala_registration_options(:t1, :h1) as opt_mira_held \gset
+select pg_temp.sign_in(:u_riya);
+select app.pathshala_registration_options(:t1, :h1) as opt_riya_held \gset
+rollback;
+select pg_temp.assert((select en ->> 'hold_reason' = 'payment' and en ->> 'hold_expires_at' is not null and (en -> 'fee' -> 'pledge' ->> 'amount_cents')::int = 4500
+                         from jsonb_array_elements(:'opt_mira_held'::jsonb -> 'learners') l, jsonb_array_elements(l -> 'enrollments') en
+                        where l ->> 'person_id' = :p_riya::text and en ->> 'status' = 'requested')
+                      and (select en ->> 'hold_reason' is null and en ->> 'hold_expires_at' is not null and en ->> 'fee' is null and en ->> 'state' is null
+                             from jsonb_array_elements(:'opt_riya_held'::jsonb -> 'learners') l, jsonb_array_elements(l -> 'enrollments') en
+                            where l ->> 'person_id' = :p_riya::text and en ->> 'status' = 'requested'),
+  'a held seat: the adults see why and what to pay; Riya sees only that it ends at a time (hold_expires_at), never why');

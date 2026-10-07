@@ -2347,6 +2347,138 @@ revoke execute on function app._import_find_before_0591(app.import_runs, app.imp
   app.import_find(app.import_runs, app.import_entities, text, jsonb, jsonb), app._pathshala_import_enrollment(uuid, uuid, uuid)
   from public, anon, authenticated;
 
+-- The registration options (0590's function, replaced here: the learners' enrollments now carry what the family's adults need
+-- from 0591). learners[].enrollments[] = {enrollment_id, track_id, level_id, class_id, status, hold_expires_at, offered_at,
+-- waitlist_position, and, for an adult of the family or the office only (null for a child with a login, P30): registration_id,
+-- hold_reason (membership | payment | office_payment | assistance | waiver), withdrawal_reason, state (one sentence of where the
+-- registration stands), fee {status, total_cents, priced, assistance_requested, pledge {id, number, amount_cents, paid_cents,
+-- status, due_on} | null} | null}. The apps never read these columns from the tables.
+create or replace function app.pathshala_registration_options(p_term uuid, p_household uuid default null) returns jsonb
+language plpgsql stable security definer set search_path = app, public, extensions as $$
+declare t app.pathshala_terms; h app.households; v_center uuid; v_me uuid; v_staff boolean; v_member boolean; v_adult boolean;
+        v_cut date; v_tracks jsonb; v_learners jsonb; v_households jsonb; v_cannot text; v_tz text; v_term jsonb;
+begin
+  if auth.uid() is null then raise exception 'Sign in first.' using errcode = '42501'; end if;
+  if p_term is null then raise exception 'Choose the term.' using errcode = '22023'; end if;
+  select * into t from app.pathshala_terms where id = p_term;
+  if t.id is null then raise exception 'That term was not found.' using errcode = 'P0002'; end if;
+  v_center := t.center_id;
+  perform app.assert_module_enabled(v_center, 'pathshala');
+  select coalesce(nullif(c.time_zone, ''), 'America/Chicago') into v_tz from app.centers c where c.id = v_center;
+  v_me := app.my_person_id(v_center);
+  v_staff := app.has_permission(v_center, 'pathshala.manage');
+  if t.status = 'draft' and not v_staff then raise exception 'That term was not found.' using errcode = 'P0002'; end if;
+  v_adult := v_me is not null and app.gyan_i_am_adult(v_center);
+  -- The household: the one asked for, else the caller's own (primary first).
+  if p_household is null then
+    select hm.household_id into p_household from app.household_members hm join app.households hh on hh.id = hm.household_id
+     where hm.person_id = v_me and hm.left_at is null and hh.center_id = v_center and hh.merged_into_id is null
+     order by hm.is_primary desc, hm.joined_at nulls last, hm.household_id limit 1;
+  end if;
+  select * into h from app.households where id = p_household;
+  if h.id is null or h.center_id <> v_center then raise exception 'That family was not found in this community.' using errcode = 'P0002'; end if;
+  v_member := app.in_my_household(v_center, h.id);
+  if not (v_member or v_staff) then raise exception 'Only an adult of the family can register its learners.' using errcode = '42501'; end if;
+  v_cut := app.pathshala_age_cutoff(t.id);
+
+  select coalesce(jsonb_agg(jsonb_build_object('id', hh.id, 'name', hh.display_name, 'number', hh.household_number)
+                            order by hm.is_primary desc, hh.display_name), '[]'::jsonb)
+    into v_households
+    from app.household_members hm join app.households hh on hh.id = hm.household_id
+   where v_adult and hm.person_id = v_me and hm.left_at is null and hh.center_id = v_center and hh.merged_into_id is null;
+
+  select coalesce(jsonb_agg(jsonb_build_object(
+           'id', tr.id, 'key', tr.key, 'name', tr.name,
+           'levels', (select coalesce(jsonb_agg(jsonb_build_object(
+                               'id', l.id, 'name', l.name, 'key', l.key, 'min_age', l.min_age, 'max_age', l.max_age,
+                               'band', app.pathshala_level_band(l.min_age, l.max_age), 'fee_cents', f.fee_cents,
+                               'seats', app.pathshala_seat_state(s.free, s.classes, s.waitlist_on)) order by l.sort_order, l.name), '[]'::jsonb)
+                        from app.pathshala_levels l
+                        join app.pathshala_level_fees f on f.term_id = t.id and f.level_id = l.id
+                        cross join lateral app.pathshala_level_seats(t.id, l.id) s
+                       where l.track_id = tr.id and l.active and s.classes > 0)) order by tr.name), '[]'::jsonb)
+    into v_tracks
+    from app.pathshala_tracks tr where tr.center_id = v_center;
+  -- Only tracks with something to choose.
+  select coalesce(jsonb_agg(x order by x ->> 'name'), '[]'::jsonb) into v_tracks
+    from jsonb_array_elements(v_tracks) x where jsonb_array_length(x -> 'levels') > 0;
+
+  select coalesce(jsonb_agg(jsonb_build_object(
+           'person_id', p.id, 'first_name', coalesce(nullif(btrim(p.preferred_name), ''), p.first_name),
+           'is_me', p.id = v_me,
+           'age_on_cutoff', app.pathshala_age_on(p.date_of_birth, v_cut),
+           'counts_as_child', app.pathshala_counts_as_child(p.id, v_cut),
+           'needs_birth_date', p.date_of_birth is null,
+           'enrollments', (select coalesce(jsonb_agg(jsonb_build_object(
+                                     'enrollment_id', en.id,
+                                     'track_id', coalesce(en.track_id, cl.track_id, rl.track_id),
+                                     'level_id', coalesce(c.level_id, en.requested_level_id),
+                                     'class_id', en.class_id,
+                                     'status', en.status,
+                                     -- Neutral, so anyone who may read the learner sees them: when a held seat ends, when a waitlisted
+                                     -- learner was offered the seat, the waitlist place.
+                                     'hold_expires_at', app.pathshala_iso(en.hold_expires_at, v_tz),
+                                     'offered_at', app.pathshala_iso(en.offered_at, v_tz),
+                                     'waitlist_position', case when en.status = 'waitlisted' then app.pathshala_waitlist_position(en.id) end,
+                                     -- What is charged, why a seat waits and why it was released are the family's adults' business (P30):
+                                     -- a child with a login gets null for each. The apps never read these from the table.
+                                     'registration_id', case when v_adult or v_staff then en.registration_id end,
+                                     'hold_reason', case when v_adult or v_staff then fl.hold_reason end,
+                                     'withdrawal_reason', case when v_adult or v_staff then fl.withdrawal_reason end,
+                                     'state', case when v_adult or v_staff then app._pathshala_state_sentence(en.id) end,
+                                     'fee', case when not (v_adult or v_staff) or fl.id is null then null
+                                                 else jsonb_build_object(
+                                                        'status', fl.status, 'total_cents', fl.total_cents, 'priced', fl.priced,
+                                                        'assistance_requested', fl.assistance_requested,
+                                                        'pledge', case when pl.id is null then null
+                                                                       else jsonb_build_object('id', pl.id, 'number', pl.pledge_number, 'amount_cents', pl.amount_cents,
+                                                                                               'paid_cents', pl.paid_cents, 'status', pl.status, 'due_on', pl.due_on) end) end)
+                                     order by en.registered_at), '[]'::jsonb)
+                             from app.pathshala_enrollments en
+                             left join app.pathshala_classes c on c.id = en.class_id
+                             left join app.pathshala_levels cl on cl.id = c.level_id
+                             left join app.pathshala_levels rl on rl.id = en.requested_level_id
+                             left join app.pathshala_enrollment_fees fl on fl.enrollment_id = en.id
+                             left join app.pledges pl on pl.id = fl.pledge_id
+                            where en.term_id = t.id and en.student_person_id = p.id),
+           'suggested', app.pathshala_suggestions(t.id, p.id))
+           order by app.pathshala_counts_as_child(p.id, v_cut) desc,
+                    case when app.pathshala_counts_as_child(p.id, v_cut) then p.date_of_birth end asc nulls last,
+                    (p.id = v_me) desc, p.first_name), '[]'::jsonb)
+    into v_learners
+    from app.household_members hm join app.people p on p.id = hm.person_id
+   where hm.household_id = h.id and hm.left_at is null and not coalesce(p.is_deceased, false);
+
+  if not (v_adult and v_member) and not v_staff then
+    v_cannot := 'Ask a parent or guardian in your family to register you.';
+  else
+    v_cannot := app._pathshala_cannot_register(t.id, case when v_adult and v_member then 'family' else 'office' end);
+  end if;
+  if v_cannot is null and jsonb_array_length(v_tracks) = 0 then
+    v_cannot := 'No classes are open for registration in ' || t.name || ' yet.';
+  end if;
+
+  v_term := app._pathshala_term_json(t.id);
+  -- A child of the household (with their own login) never sees fees or the money rules (P30).
+  if not (v_adult or v_staff) then
+    select coalesce(jsonb_agg(x || jsonb_build_object('levels', (select coalesce(jsonb_agg(y || jsonb_build_object('fee_cents', null) order by o), '[]'::jsonb)
+                                                                    from jsonb_array_elements(x -> 'levels') with ordinality b(y, o))) order by n), '[]'::jsonb)
+      into v_tracks from jsonb_array_elements(v_tracks) with ordinality a(x, n);
+    v_term := v_term || jsonb_build_object('sibling_discount_pct', null, 'family_cap_cents', null,
+                                           'window', (v_term -> 'window') || jsonb_build_object('late_fee_cents', null));
+  end if;
+
+  return jsonb_build_object(
+    'term', v_term,
+    'household', jsonb_build_object('id', h.id, 'name', h.display_name, 'number', h.household_number,
+                                    'membership', app.pathshala_household_membership(h.id)),
+    'households', v_households,
+    'learners', v_learners,
+    'tracks', v_tracks,
+    'can_register', v_cannot is null,
+    'cannot_reason', v_cannot);
+end $$;
+
 -- ═════════════════════════════════════════════════════════════════════════════
 -- Templates (platform defaults; a community may override them in Communications)
 -- ═════════════════════════════════════════════════════════════════════════════
@@ -2410,6 +2542,8 @@ select null, v.key, v.channel::app.channel, 'en', v.subject, v.body
 -- ═════════════════════════════════════════════════════════════════════════════
 comment on function app.register_pathshala_children(uuid, uuid, jsonb, bigint, jsonb, uuid, text) is
   'An adult of the household (the family) or pathshala.manage (the office) registers learners (§2.17). p_learners: [{person_id, track_id, level_id | null ("not sure", pledge mode only), note, assistance_requested}] or [{new_child: {first_name, last_name, date_of_birth, relationship}, track_id, level_id, note}] (the family only). Re-prices under the seat locks; refuses a changed total (p_expected_total_cents) or outcome (p_expected_outcomes: the preview''s lines, or a list of outcomes) with hint review_again; p_waiver_document: the published waiver agreed to (required when one is published); p_client_key: the same key returns the same answer. Returns {registration_id, lines[{person_id, track_id, level_id, learner_kind, family_rank, outcome: seat | waitlist | membership_hold | office | pending_child | waiver_hold, base_fee_cents, sibling_discount_cents, cap_reduction_cents, late_fee_cents, assistance_cents, total_cents, enrollment_id, pledge {id, number, due_on, amount_cents} | null, ...}], children_total_cents, adults_total_cents, total_cents, due_now_cents, pay (pay now: {amount_cents, pledge_ids, for_label, hold_until, office_payment_allowed}), pending[], late, payment_mode}.';
+comment on function app.pathshala_registration_options(uuid, uuid) is
+  'The member app''s registration flow (§2.17; 0590, enrollments widened in 0591): {term, household {id, name, number, membership: active | applying | none}, households[] (where the caller is an adult), learners[{person_id, first_name, is_me, age_on_cutoff, counts_as_child, needs_birth_date, enrollments[{enrollment_id, track_id, level_id, class_id, status, hold_expires_at, offered_at, waitlist_position, and for an adult of the family or the office only (null for a child with a login, P30): registration_id, hold_reason: membership | payment | office_payment | assistance | waiver | null, withdrawal_reason, state (one sentence), fee {status, total_cents, priced, assistance_requested, pledge {id, number, amount_cents, paid_cents, status, due_on} | null} | null}], suggested[{track_id, level_id, reason: teacher | previous | age}]}], tracks[{id, key, name, levels[{id, name, key, min_age, max_age, band, fee_cents, seats: open | waitlist | full}]}], can_register, cannot_reason}. A household member (a child sees can_register false with the reason) or pathshala.manage. The apps never read hold_reason, withdrawal_reason or fee lines from the tables.';
 comment on function app.choose_pathshala_office_payment(uuid) is 'An adult of the household (or the office): when the term allows it (P18), the registration''s seats held for an online payment are held for payment at the office instead, for office_hold_days. Returns {registration_id, hold_until, amount_cents, pledge_ids, office_hold_days}.';
 comment on function app.place_pathshala_enrollment(uuid, uuid, boolean, text) is 'pathshala.manage: place a requested or waitlisted learner (pledge mode: placed and billed; pay now: the seat is offered, held for payment), or move a placed learner to another class of the same level (no money change). p_class null: the class of the level with the most free seats; p_over_capacity needs a reason. A held seat cannot be moved (P26).';
 comment on function app.place_next_from_waitlist(uuid, uuid) is 'pathshala.manage: "Place next" for a level: the earliest waitlisted learner of that level (in p_term, else the open term with a waitlist) is placed or offered the seat.';
