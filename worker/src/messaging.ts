@@ -37,8 +37,11 @@ async function record(ctx: JobContext, id: string, status: string, provider: str
   await ctx.db.query("select app.worker_message_result($1, $2, $3, $4, $5, $6)", [id, status, provider, ref, error, segments]);
 }
 
-/** The payload keys a push may carry into the app's `data` (its route registry reads them; nothing else leaves the server). */
-const PUSH_ROUTING_KEYS = ["survey_id", "event_id", "deep_link", "assignment_id", "submission_id", "learner_id"] as const;
+/**
+ * The payload keys a push may carry into the app's `data` (its route registry reads them; nothing else leaves the
+ * server). boli_id (0596): a boli notice names the boli to open (deep_link "/boli/<id>").
+ */
+const PUSH_ROUTING_KEYS = ["survey_id", "event_id", "deep_link", "assignment_id", "submission_id", "learner_id", "boli_id"] as const;
 
 /**
  * What a tapped push needs to open the right screen in the member app (connect-mobile src/lib/notification-routes.ts):

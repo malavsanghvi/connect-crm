@@ -230,14 +230,17 @@ export const NOTIFICATION_TRIGGERS: NotificationTrigger[] = [
   { key: "special_day_labh", label: "Special-day labh prompt", when: () => "2 weeks before", channel: "Push" },
   { key: "family_celebration", label: "Family celebration", when: () => "When goal or level completed", channel: "Push" },
   { key: "saathi_support", label: "Saathi support request", when: (s) => `After ${s.points.behindAfterDays} days behind`, channel: "Push to anumodana senders" },
-  { key: "boli_outbid", label: "Boli outbid / closing", when: () => "On entry · 24 hours before cutoff", channel: "Push" },
+  // Bolis say "pledge", never "bid". Only "another family pledged more" is sent (0596, an event-day message); the
+  // 24-hour notice has no sender yet (BACKLOG B48).
+  { key: "boli_outbid", label: "Boli: another family pledged more / closing", when: () => "On entry · 24 hours before cutoff", channel: "Push" },
   { key: "giving_opportunity", label: "Giving opportunity alert", when: () => "On publish", channel: "Push · email" },
   { key: "pledge_reminder", label: "Pledge reminder", when: () => "Monthly for open pledges", channel: "Email" },
   { key: "store_order_ready", label: "Store order ready", when: () => "At pickup time", channel: "Push" },
   {
     key: "event_feedback",
     label: "Event feedback request",
-    when: () => "When the event is marked completed (or the survey is sent from its Survey tab) · reminders on day 1 and day 2 until they answer",
+    when: () =>
+      "When the event is marked completed, the survey is sent from its Survey tab, or a feedback request's time comes · reminders on day 1 and day 2 until they answer",
     channel: "Push · SMS or WhatsApp for guests",
   },
   { key: "pachchakhan_reminder", label: "Pachchakhan reminder", when: () => "Member-set times", channel: "Push" },

@@ -659,9 +659,9 @@ declare s app.surveys; e app.events; r app.survey_notice_runs; v_problem text;
 begin
   s := app._event_survey_for_change(p_survey);
   select * into e from app.events where id = s.event_id;
-  if e.status <> 'completed' then raise exception 'The survey can be sent once the event is marked completed.'; end if;
   select * into r from app.survey_notice_runs where survey_id = s.id;
   if r.survey_id is not null then
+    -- A template problem stopped every push: once it is fixed the same button sends them (a feedback request too).
     if r.problem_code = 'template' and r.pushed = 0 and s.status = 'open' then
       v_problem := app._survey_notice_problem(s.id);
       if v_problem is not null then raise exception '%', v_problem using errcode = '22023'; end if;
@@ -670,6 +670,7 @@ begin
     end if;
     raise exception 'This survey has already been sent.';
   end if;
+  if e.status <> 'completed' then raise exception 'The survey can be sent once the event is marked completed.'; end if;
   if s.completion_started_at is not null then raise exception 'This survey has already been sent.'; end if;
   if s.status = 'closed' then raise exception 'This survey was closed. Reopen it from Event feedback instead.'; end if;
   v_problem := app._survey_notice_problem(s.id);
@@ -679,11 +680,12 @@ begin
 end $$;
 
 -- "Request feedback" (Events › Feedback) writes an open survey with its send time (send_at / opens_at): its pushes
--- start then, through the same run and job (straight away when that time has passed). A send time that moves before
--- the pushes start moves the job. A survey launched from the event's Survey tab schedules itself (completion_started_at).
+-- start then, through the same run and job (straight away when that time has passed; what would stop every push is
+-- then refused in a sentence, so the request is not saved). A send time that moves before the pushes start moves the
+-- job. A survey launched from the event's Survey tab schedules itself (completion_started_at).
 create or replace function app.surveys_schedule_feedback_pushes() returns trigger
 language plpgsql security definer set search_path = app, public, extensions as $$
-declare r app.survey_notice_runs; v_send timestamptz;
+declare r app.survey_notice_runs; v_send timestamptz; v_summary jsonb;
 begin
   if new.kind is distinct from 'event_feedback' or new.event_id is null or new.completion_started_at is not null
      or new.status is distinct from 'open' then
@@ -692,7 +694,10 @@ begin
   v_send := greatest(coalesce(new.send_at, new.opens_at, now()), now());
   select * into r from app.survey_notice_runs where survey_id = new.id;
   if r.survey_id is null then
-    perform app._schedule_survey_notices(new.id, v_send);
+    v_summary := app._schedule_survey_notices(new.id, v_send);
+    if v_summary->>'problem_code' = 'template' then
+      raise exception '%', v_summary->>'problem' using errcode = '22023';
+    end if;
   elsif r.started_at is null and r.finished_at is null and r.send_at is distinct from v_send then
     update app.survey_notice_runs set send_at = v_send where survey_id = new.id;
     update app.jobs set run_after = v_send where id = r.job_id and status = 'queued';
@@ -1107,7 +1112,10 @@ begin
   select s.id, s.center_id, coalesce(s.send_at, s.opens_at, s.created_at), 'backlog',
          'Not sent: requested before feedback requests were connected to the sender (fixed in 0596); too old to send now.', now()
     from app.surveys s
-   where s.kind = 'event_feedback' and s.event_id is not null and s.completion_started_at is null and s.send_at is not null
+   where s.kind = 'event_feedback' and s.event_id is not null and s.completion_started_at is null
+     -- Opened or scheduled from Events › Feedback. A draft attached on the event's Survey tab (no send time) still
+     -- sends when the event is marked completed, as it always would have.
+     and (s.status <> 'draft' or s.send_at is not null)
      and not exists (select 1 from app.survey_notice_runs r where r.survey_id = s.id);
   get diagnostics v_requests = row_count;
   return jsonb_build_object('messages', v_messages, 'feedback_requests', v_requests);

@@ -165,8 +165,13 @@ describe("onboarding, notifications and security settings", () => {
     expect(when("lunch_reminder", { lunch: { reminder_minutes_before: 10 } })).toBe("10 minutes before each slot");
     expect(when("lunch_reminder", { lunch: { reminder_minutes_before: 0 } })).toBe("Off (0 minutes in Settings › Rules)");
     expect(when("event_feedback", {})).toBe(
-      "When the event is marked completed (or the survey is sent from its Survey tab) · reminders on day 1 and day 2 until they answer",
+      "When the event is marked completed, the survey is sent from its Survey tab, or a feedback request's time comes · reminders on day 1 and day 2 until they answer",
     );
+  });
+  it("names the boli notice with the pledge wording, never bid", () => {
+    const boli = NOTIFICATION_TRIGGERS.find((t) => t.key === "boli_outbid");
+    expect(boli?.label).toBe("Boli: another family pledged more / closing");
+    for (const t of NOTIFICATION_TRIGGERS) expect(`${t.label} ${t.when(readRuleSettings(SEED_RULES))}`).not.toMatch(/\bbid/i);
   });
   it("reads security defaults", () => {
     expect(readSecuritySettings({})).toEqual({ printedSigninCodes: true, adminSessionHours: 8, adminIdleMinutes: 30, require2faForStaff: true });

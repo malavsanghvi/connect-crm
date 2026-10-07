@@ -4,10 +4,12 @@ import { revalidatePath } from "next/cache";
 
 import { eventActionContext } from "@/lib/data/events";
 import { templateFrom, writeSurvey } from "@/lib/data/event-feedback";
+import { readSurveyNotices } from "@/lib/data/event-survey";
 import type { ActionResult } from "@/lib/errors";
 import { eventAreas, type EventAccess } from "@/lib/events/access";
 import { bool, dateTime, DbFailure, FormError, must, oneOf, reqStr, runAction, str } from "@/lib/events/forms";
 import { can } from "@/lib/permissions";
+import { feedbackRequestMessage } from "@/lib/survey/event-survey";
 import {
   FEEDBACK_OPEN_DAYS,
   FEEDBACK_TEMPLATE_KEY,
@@ -54,7 +56,8 @@ export async function requestFeedback(_prev: Result | null, fd: FormData): Promi
     )[0];
     const template = templateFrom(templateRow ?? null);
     const sendAt = feedbackSendAt(template.settings.sendTiming, event.ends_at ?? event.starts_at, tz);
-    const reminderAt = template.settings.reminderAfterDays ? addDaysIso(sendAt, template.settings.reminderAfterDays) : null;
+    // The database (0596) schedules the pushes for the send time: one background job then queues each invited adult's
+    // push and a reminder on day 1 and day 2 after it, until they answer. There is no other reminder choice.
     const res = await writeSurvey(
       db,
       {
@@ -75,18 +78,20 @@ export async function requestFeedback(_prev: Result | null, fd: FormData): Promi
           created_by: userId,
         },
       },
-      { send_at: sendAt, reminder_after_days: template.settings.reminderAfterDays, template_key: FEEDBACK_TEMPLATE_KEY },
+      { send_at: sendAt, reminder_after_days: null, template_key: FEEDBACK_TEMPLATE_KEY },
     );
     if (res.error) throw new DbFailure(res.error, "save the survey");
     revalidateFeedback();
-    const when = `Feedback request scheduled for ${shortWhen(sendAt, tz)}`;
     if (!res.extrasStored) {
       return {
         ok: true,
-        message: `${when} — it opens in the member app then. The push notification and reminder need the latest database update, so they are not scheduled yet.`,
+        message: `Feedback request scheduled for ${shortWhen(sendAt, tz)}: it opens in the member app then. Its pushes need the latest database update, so none are scheduled yet.`,
       };
     }
-    return { ok: true, message: reminderAt ? `${when} · reminder ${shortWhen(reminderAt, tz, false)}` : when };
+    // Going now: the counts were taken when it was saved. Later: they are taken when it goes.
+    const sendsNow = Date.parse(sendAt) <= Date.now() + 60_000;
+    const read = sendsNow && res.id ? await readSurveyNotices(db, res.id) : ({ ok: true, notices: null } as const);
+    return { ok: true, message: feedbackRequestMessage(shortWhen(sendAt, tz), read.ok ? read.notices : null, sendsNow) };
   });
 }
 
@@ -97,7 +102,8 @@ export async function saveFeedbackTemplate(templateId: string | null, _prev: Res
     const parsed = validateQuestionsJson(str(fd, "questions"));
     if (!parsed.ok) throw new FormError(parsed.error);
     const timing = oneOf(fd, "send_timing", TIMING_KEYS, "When to send", "next_morning");
-    const reminder = str(fd, "reminder") === "after_3_days" ? 3 : null;
+    // Reminders are fixed (0596): day 1 and day 2 after each person's push, until they answer.
+    const reminder = null;
     const anonymousAllowed = bool(fd, "anonymous_allowed");
     const values = {
       title: "Event feedback survey template",
