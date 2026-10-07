@@ -264,3 +264,150 @@ select pg_temp.assert((select f.priced and f.base_fee_cents = 13000 and f.siblin
                          from app.pathshala_enrollment_fees f where f.enrollment_id = :'e_isha_j'::uuid)
                       and (select amount_cents = 11700 from app.pledges where id = (select pledge_id from app.pathshala_enrollment_fees where enrollment_id = :'e_isha_j'::uuid)),
   'a line the office prices later: the sibling discount of the rules it was quoted with (10%, not 50%) and no second late fee ($117.00, not $155.00)');
+
+-- ════════════════════════════════════════════════════════════════════════════
+-- 4. Pay now: a $0 or Giving-off line is never held for a payment that does not exist
+-- ════════════════════════════════════════════════════════════════════════════
+\set u_priya '''77000000-0000-4000-8000-000000000006'''
+\set u_lata '''77000000-0000-4000-8000-000000000007'''
+\set p_anya '''77000000-0000-4000-8000-00000000010b'''
+\set p_mina '''77000000-0000-4000-8000-00000000010c'''
+\set p_priya '''77000000-0000-4000-8000-00000000010d'''
+\set p_tia '''77000000-0000-4000-8000-00000000010e'''
+\set p_zoe '''77000000-0000-4000-8000-00000000010f'''
+\set p_lata '''77000000-0000-4000-8000-000000000110'''
+\set p_ved '''77000000-0000-4000-8000-000000000111'''
+\set h3 '''77000000-0000-4000-8000-000000000203'''
+\set h4 '''77000000-0000-4000-8000-000000000204'''
+\set lv_tod '''77000000-0000-4000-8000-000000000400'''
+\set t4 '''77000000-0000-4000-8000-000000000504'''
+\set cl4_tod '''77000000-0000-4000-8000-000000000660'''
+\set cl4_j2 '''77000000-0000-4000-8000-000000000662'''
+insert into auth.users (id, email) values (:u_priya, 'priya@p77.test'), (:u_lata, 'lata@p77.test');
+insert into app.people (id, center_id, first_name, last_name, date_of_birth, email) values
+  (:p_anya, :c, 'Anya', 'Shah', '2022-05-01', null), (:p_mina, :c, 'Mina', 'Mehta', '2022-01-01', null),
+  (:p_priya, :c, 'Priya', 'Patel', '1985-03-03', 'priya@p77.test'), (:p_tia, :c, 'Tia', 'Patel', '2022-08-08', null),
+  (:p_zoe, :c, 'Zoe', 'Mehta', '2022-03-03', null),
+  (:p_lata, :c, 'Lata', 'Desai', '1983-03-03', 'lata@p77.test'), (:p_ved, :c, 'Ved', 'Desai', '2017-06-01', null);
+insert into app.households (id, center_id, display_name) values (:h3, :c, 'Patel household'), (:h4, :c, 'Desai household');
+insert into app.household_members (household_id, person_id, center_id, role, is_primary) values
+  (:h1, :p_anya, :c, 'child', false), (:h2, :p_mina, :c, 'child', false), (:h2, :p_zoe, :c, 'child', false),
+  (:h3, :p_priya, :c, 'primary', true), (:h3, :p_tia, :c, 'child', false),
+  (:h4, :p_lata, :c, 'primary', true), (:h4, :p_ved, :c, 'child', false);
+insert into app.center_users (center_id, user_id, person_id, is_default) values (:c, :u_priya, :p_priya, false), (:c, :u_lata, :p_lata, false);
+insert into app.pathshala_levels (id, center_id, track_id, key, name, sort_order, min_age, max_age) values
+  (:lv_tod, :c, :tr_j, 'toddler', 'Toddler', 0, 3, 5);
+-- T4: pay now; the Toddler level is Free and has one seat.
+insert into app.pathshala_terms (id, center_id, name, starts_on, ends_on, sibling_discount_pct, fee_per_family_cap_cents, registration_closes_at) values
+  (:t4, :c, 'Pay-now two', '2026-09-06', '2027-05-30', 0, null, null);
+insert into app.pathshala_classes (id, center_id, term_id, level_id, name, room, capacity, meets_on, starts_time, ends_time, waitlist_enabled) values
+  (:cl4_tod, :c, :t4, :lv_tod, 'Toddler · Room T', 'T', 1, 'sunday', '10:00', '11:00', true),
+  (:cl4_j2, :c, :t4, :lv_j2, 'Jainism 2 · Room B (two)', 'B', 4, 'sunday', '10:00', '11:30', true);
+begin;
+select pg_temp.sign_in(:u_pia);
+select app.set_pathshala_level_fees(:t4, jsonb_build_array(jsonb_build_object('level_id', :lv_tod, 'fee_cents', 0), jsonb_build_object('level_id', :lv_j2, 'fee_cents', 13000)));
+select app.open_pathshala_registration(:t4);
+commit;
+update app.pathshala_terms set payment_mode = 'pay_now' where id = :t4;
+-- Anya takes the one Toddler seat (nothing to pay: placed at once); Mina waits; Tia and Ved's families have no membership.
+begin;
+select pg_temp.sign_in(:u_mira);
+select app.register_pathshala_children(:t4, :h1, jsonb_build_array(jsonb_build_object('person_id', :p_anya, 'track_id', :tr_j, 'level_id', :lv_tod)),
+                                       null, null, null, 'k77-anya-4') as r6 \gset
+select pg_temp.sign_in(:u_nita);
+select app.register_pathshala_children(:t4, :h2, jsonb_build_array(jsonb_build_object('person_id', :p_mina, 'track_id', :tr_j, 'level_id', :lv_tod)),
+                                       null, null, null, 'k77-mina-4') as r7 \gset
+select pg_temp.sign_in(:u_priya);
+select app.register_pathshala_children(:t4, :h3, jsonb_build_array(jsonb_build_object('person_id', :p_tia, 'track_id', :tr_j, 'level_id', :lv_tod)),
+                                       null, null, null, 'k77-tia-4') as r8 \gset
+select pg_temp.sign_in(:u_lata);
+select app.register_pathshala_children(:t4, :h4, jsonb_build_array(jsonb_build_object('person_id', :p_ved, 'track_id', :tr_j, 'level_id', :lv_j2)),
+                                       null, null, null, 'k77-ved-4') as r9 \gset
+commit;
+select (:'r7'::jsonb -> 'lines' -> 0 ->> 'enrollment_id') as e_mina, (:'r8'::jsonb -> 'lines' -> 0 ->> 'enrollment_id') as e_tia,
+       (:'r9'::jsonb -> 'lines' -> 0 ->> 'enrollment_id') as e_ved, (:'r6'::jsonb -> 'lines' -> 0 ->> 'enrollment_id') as e_anya \gset
+select pg_temp.assert((select status = 'placed' from app.pathshala_enrollments where id = :'e_anya')
+                      and (select status = 'waitlisted' from app.pathshala_enrollments where id = :'e_mina')
+                      and (select status = 'requested' and app._pathshala_hold(id) = 'membership' from app.pathshala_enrollments where id = :'e_tia')
+                      and (select status = 'requested' and app._pathshala_hold(id) = 'membership' from app.pathshala_enrollments where id = :'e_ved'),
+  'pay now, free level: Anya is placed at once, Mina waits for the seat, Tia and Ved wait for their families'' membership');
+-- (a) The waitlist: the seat that opens goes to Mina; her fee is $0, so she is placed, not held for a payment.
+update app.pathshala_classes set capacity = 2 where id = :cl4_tod;
+select pg_temp.assert((select e.status = 'placed' and e.class_id = :cl4_tod and f.status = 'no_fee' and f.hold_reason is null and f.pledge_id is null and e.hold_expires_at is null
+                         from app.pathshala_enrollments e join app.pathshala_enrollment_fees f on f.enrollment_id = e.id where e.id = :'e_mina')
+                      and exists (select 1 from app.messages where center_id = :c and template_key = 'pathshala_placed' and payload -> 'vars' ->> 'enrollment_id' = :'e_mina'),
+  'waitlist, pay now, $0: the freed seat places Mina at once (no hold, no pledge) and tells her family she is placed');
+-- (b) A membership hold lifts: Tia's seat is $0, so she is placed.
+update app.pathshala_classes set capacity = 3 where id = :cl4_tod;
+insert into app.memberships (center_id, household_id, person_id, membership_type_id, tier, status, starts_on)
+select :c, :h3, :p_priya, mt.id, 'yearly', 'active', current_date - 1 from app.membership_types mt where mt.center_id = :c and mt.key = 'yearly';
+select pg_temp.assert((select e.status = 'placed' and e.class_id = :cl4_tod and f.status = 'no_fee' and f.hold_reason is null and f.pledge_id is null
+                         from app.pathshala_enrollments e join app.pathshala_enrollment_fees f on f.enrollment_id = e.id where e.id = :'e_tia'),
+  'membership lift, pay now, $0: Tia is placed at once, not held for a payment');
+-- (c) The office places a waitlisted learner by hand (automatic serving held off for a moment): $0, so placed.
+begin;
+select pg_temp.sign_in(:u_nita);
+select app.register_pathshala_children(:t4, :h2, jsonb_build_array(jsonb_build_object('person_id', :p_zoe, 'track_id', :tr_j, 'level_id', :lv_tod)),
+                                       null, null, null, 'k77-zoe-4') as r10 \gset
+commit;
+select (:'r10'::jsonb -> 'lines' -> 0 ->> 'enrollment_id') as e_zoe \gset
+select pg_temp.assert((select status = 'waitlisted' from app.pathshala_enrollments where id = :'e_zoe'), 'Zoe waits: the Toddler class is full');
+alter table app.pathshala_classes disable trigger pathshala_classes_seats;
+update app.pathshala_classes set capacity = 4 where id = :cl4_tod;
+alter table app.pathshala_classes enable trigger pathshala_classes_seats;
+select pg_temp.assert((select status = 'waitlisted' from app.pathshala_enrollments where id = :'e_zoe'), 'with the automatic serving held off, a seat that opens is not given by itself');
+begin;
+select pg_temp.sign_in(:u_pia);
+select app.place_next_from_waitlist(:lv_tod, :t4) as pn \gset
+commit;
+select pg_temp.assert((:'pn'::jsonb ->> 'outcome') = 'placed'
+                      and (select e.status = 'placed' and f.status = 'no_fee' and f.hold_reason is null and f.pledge_id is null
+                             from app.pathshala_enrollments e join app.pathshala_enrollment_fees f on f.enrollment_id = e.id where e.id = :'e_zoe'),
+  'office placement, pay now, $0: "Place next" places Zoe (outcome placed), nothing held');
+-- The sweep leaves all three alone.
+begin;
+set local role connect_worker;
+select app.worker_pathshala_holds_sweep() as sw_free \gset
+commit;
+select pg_temp.assert((:'sw_free'::jsonb ->> 'released')::int = 0
+                      and (select count(*) = 3 from app.pathshala_enrollments where id in (:'e_mina'::uuid, :'e_tia'::uuid, :'e_zoe'::uuid) and status = 'placed'),
+  'the sweep releases nobody: no free learner was ever held for a payment');
+-- (d) Giving off: Ved's membership lifts while Pledges & donations is switched off: placed, "not billed", never held.
+insert into app.center_modules (center_id, module_key, enabled, reason) values (:c, 'giving', false, 'test');
+insert into app.memberships (center_id, household_id, person_id, membership_type_id, tier, status, starts_on)
+select :c, :h4, :p_lata, mt.id, 'yearly', 'active', current_date - 1 from app.membership_types mt where mt.center_id = :c and mt.key = 'yearly';
+delete from app.center_modules where center_id = :c and module_key = 'giving';
+select pg_temp.assert((select e.status = 'placed' and e.class_id = :cl4_j2 and f.status = 'not_billed_giving_off' and f.hold_reason is null and f.pledge_id is null
+                         from app.pathshala_enrollments e join app.pathshala_enrollment_fees f on f.enrollment_id = e.id where e.id = :'e_ved'),
+  'giving off, pay now: Ved''s lifted seat is placed with the fee "not billed in the app", never held for a payment that cannot be made');
+
+-- 2b. Once the treasurer has cancelled the fee pledge in Giving, the office can withdraw the learner, and register them again.
+begin;
+select pg_temp.sign_in(:u_nita);
+select app.register_pathshala_children(:t2, :h2, jsonb_build_array(jsonb_build_object('person_id', :p_isha, 'track_id', :tr_j, 'level_id', :lv_j2)),
+                                       null, null, null, 'k77-isha-2') as r11 \gset
+commit;
+select (:'r11'::jsonb -> 'lines' -> 0 ->> 'enrollment_id') as e_isha2, (:'r11'::jsonb -> 'lines' -> 0 -> 'pledge' ->> 'id') as pl_isha2 \gset
+begin;
+select pg_temp.sign_in(:u_pia);
+select pg_temp.assert_code(format($$update app.pathshala_enrollments set status = 'withdrawn' where id = %L$$, :'e_isha2'),
+  '22023', 'ask the pathshala office', 'Isha: the billed fee blocks a direct withdrawal');
+rollback;
+update app.pledges set status = 'cancelled', closed_at = now() where id = :'pl_isha2'::uuid;
+select pg_temp.assert((select status = 'cancelled' from app.pathshala_enrollment_fees where enrollment_id = :'e_isha2'),
+  'the treasurer cancels the fee pledge in Giving: its fee line ends too');
+begin;
+select pg_temp.sign_in(:u_pia);
+update app.pathshala_enrollments set status = 'withdrawn' where id = :'e_isha2';
+commit;
+select pg_temp.assert((select status = 'withdrawn' from app.pathshala_enrollments where id = :'e_isha2'),
+  'with the fee pledge cancelled, the principal can withdraw the learner');
+begin;
+select pg_temp.sign_in(:u_nita);
+select app.register_pathshala_children(:t2, :h2, jsonb_build_array(jsonb_build_object('person_id', :p_isha, 'track_id', :tr_j, 'level_id', :lv_j2)),
+                                       null, null, null, 'k77-isha-2b') as r12 \gset
+commit;
+select pg_temp.assert((:'r12'::jsonb -> 'lines' -> 0 ->> 'enrollment_id') = :'e_isha2'
+                      and (select count(*) filter (where status in ('open', 'partially_paid')) = 1 and count(*) = 2
+                             from app.pledges where source = 'pathshala_fee' and source_ref_id = :'e_isha2'::uuid),
+  're-registration after the pledge was cancelled: the same enrollment, one new open pledge (the cancelled one is history)');

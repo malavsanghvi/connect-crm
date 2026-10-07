@@ -641,6 +641,23 @@ begin
   update app.pathshala_enrollment_fees set hold_reason = null where enrollment_id = p_enrollment and hold_reason is not null;
 end $$;
 
+-- After billing a pay-now seat: when nothing is to be paid (the fee is $0, or Giving is off so nothing is billed in the app)
+-- the seat is not held for payment, it is given at once (a held seat with no pledge would only be released by the sweep).
+-- A seat waiting for a fee assistance decision stays held. Returns true when the learner was placed.
+create or replace function app._pathshala_place_unbilled(p_enrollment uuid) returns boolean
+language plpgsql security definer set search_path = app, public, extensions as $$
+declare e app.pathshala_enrollments; f app.pathshala_enrollment_fees; v_class uuid;
+begin
+  select * into e from app.pathshala_enrollments where id = p_enrollment;
+  select * into f from app.pathshala_enrollment_fees where enrollment_id = p_enrollment;
+  if e.id is null or f.id is null or e.status <> 'requested' or coalesce(f.hold_reason, '') not in ('payment', 'office_payment') then return false; end if;
+  if f.status not in ('no_fee', 'not_billed_giving_off') then return false; end if;
+  v_class := app._pathshala_class_for(e.term_id, e.requested_level_id);
+  if v_class is null then return false; end if;
+  perform app._pathshala_place(e.id, v_class);
+  return true;
+end $$;
+
 -- A learner who may now have a seat (a membership hold lifted, a waiver agreed, a child added to the family, the office
 -- confirming a level): "treated as registering at that moment" (§2.6). Under the level's lock: a free seat places and
 -- bills (pledge mode) or holds for payment (pay now); else the waitlist (when on); else the office decides. Returns the
@@ -666,7 +683,7 @@ begin
   perform app._pathshala_lock_level(t.id, l.id);
   select * into s from app.pathshala_level_seats(t.id, l.id);
   if s.classes > 0 and (s.free is null or s.free > 0) then
-    if t.payment_mode = 'pay_now' then
+    if t.payment_mode = 'pay_now' and app.module_enabled(t.center_id, 'giving') then   -- Giving off: nothing is paid in the app, never hold
       if f.id is null and t.fees_locked_at is not null then
         perform app._pathshala_ensure_quote(e.id, l.id);
         select * into f from app.pathshala_enrollment_fees where enrollment_id = e.id;
@@ -680,6 +697,7 @@ begin
                                     else now() + make_interval(hours => t.hold_hours) end
        where id = e.id;
       perform app._pathshala_bill(e.id, true);
+      perform app._pathshala_place_unbilled(e.id);   -- $0: nothing to pay, so nothing to hold for
     else
       perform app._pathshala_place(e.id, app._pathshala_class_for(t.id, l.id));
       perform app._pathshala_bill(e.id, false);
@@ -724,7 +742,11 @@ begin
        where id = e.id;
       update app.pathshala_enrollment_fees set hold_reason = 'payment' where enrollment_id = e.id;
       perform app._pathshala_bill(e.id, true);
-      perform app._pathshala_notify_learner(e.id, 'pathshala_payment_due');
+      if app._pathshala_place_unbilled(e.id) then
+        perform app._pathshala_notify_learner(e.id, 'pathshala_placed');   -- $0: placed at once, no payment to wait for
+      else
+        perform app._pathshala_notify_learner(e.id, 'pathshala_payment_due');
+      end if;
     else
       perform app._pathshala_place(e.id, app._pathshala_class_for(t.id, p_level));
       perform app._pathshala_bill(e.id, false);
@@ -908,6 +930,27 @@ end $$;
 drop trigger if exists pathshala_fee_paid on app.pledges;
 create trigger pathshala_fee_paid after update of status on app.pledges
   for each row execute function app.pathshala_fee_paid_trigger();
+
+-- A fee pledge the treasurer cancels or writes off in Giving ends its fee line too: the office may then withdraw the learner
+-- (the enrollments guard refuses a withdrawal while the fee is billed or paid). Never stops the treasurer's action.
+create or replace function app.pathshala_fee_pledge_closed_trigger() returns trigger
+language plpgsql security definer set search_path = app, public, extensions as $$
+begin
+  if new.source = 'pathshala_fee' and new.status in ('cancelled', 'written_off') and old.status is distinct from new.status then
+    begin
+      update app.pathshala_enrollment_fees
+         set status = 'cancelled', billing_note = left('The fee pledge was ' || replace(new.status::text, '_', ' ') || ' in Giving.', 500)
+       where pledge_id = new.id and status = 'billed';
+    exception when others then
+      perform app.log_audit(new.center_id, 'pathshala.fee_line_close_failed', 'pledges', new.id::text, null,
+                            jsonb_build_object('error', sqlerrm), 'The Pathshala fee line of a closed fee pledge could not be ended');
+    end;
+  end if;
+  return null;
+end $$;
+drop trigger if exists pathshala_fee_pledge_closed on app.pledges;
+create trigger pathshala_fee_pledge_closed after update of status on app.pledges
+  for each row execute function app.pathshala_fee_pledge_closed_trigger();
 
 -- ACCESS: a member could insert a pledge of any source with any source_ref_id (0010). A fee pledge is made only by the
 -- database (a function), never by the family, and only an RSVP commitment (the mobile app writes it with the RSVP's id)
@@ -1438,15 +1481,20 @@ begin
     case when t.payment_mode = 'pay_now' then 'Offered ' || v_name || ' a seat in ' || c.name || ', held for payment'
          else 'Placed ' || v_name || ' in ' || c.name end));
   if t.fees_locked_at is not null then perform app._pathshala_ensure_quote(e.id, c.level_id); end if;
-  if t.payment_mode = 'pay_now' and t.fees_locked_at is not null then
+  if t.payment_mode = 'pay_now' and t.fees_locked_at is not null and app.module_enabled(t.center_id, 'giving') then
     update app.pathshala_enrollments
        set status = 'requested', class_id = null, requested_level_id = c.level_id, offered_at = now(),
            hold_expires_at = now() + make_interval(hours => t.hold_hours), hold_reminded_at = null
      where id = e.id;
     update app.pathshala_enrollment_fees set hold_reason = 'payment' where enrollment_id = e.id;
     perform app._pathshala_bill(e.id, true);
-    perform app._pathshala_notify_learner(e.id, 'pathshala_payment_due');
-    v_outcome := 'offered';
+    if app._pathshala_place_unbilled(e.id) then
+      perform app._pathshala_notify_learner(e.id, 'pathshala_placed');   -- $0: nothing to pay, placed at once
+      v_outcome := 'placed';
+    else
+      perform app._pathshala_notify_learner(e.id, 'pathshala_payment_due');
+      v_outcome := 'offered';
+    end if;
   else
     perform app._pathshala_place(e.id, c.id);
     perform app._pathshala_bill(e.id, false);
@@ -2015,7 +2063,8 @@ revoke execute on function
   app.pathshala_enrollments_seat_freed(), app._pathshala_outcome_words(text), app._pathshala_changed_outcome(jsonb, text),
   app._pathshala_ensure_quote(uuid, uuid), app._pathshala_class_free(uuid), app.pathshala_membership_trigger(),
   app._pathshala_added_person(uuid), app._pathshala_convert_pending(uuid, uuid), app.pathshala_change_request_trigger(),
-  app._pathshala_household_card(uuid), app._pathshala_hold(uuid)
+  app._pathshala_household_card(uuid), app._pathshala_hold(uuid), app._pathshala_place_unbilled(uuid),
+  app.pathshala_fee_pledge_closed_trigger()
   from public, anon, authenticated;
 grant execute on function
   app.pathshala_today(uuid), app.pathshala_when(timestamptz, uuid), app.pathshala_class_schedule(uuid), app.pathshala_waitlist_position(uuid),

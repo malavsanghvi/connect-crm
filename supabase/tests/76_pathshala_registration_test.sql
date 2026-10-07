@@ -801,6 +801,8 @@ select pg_temp.assert((:'sw7'::jsonb ->> 'paid_placed')::int = 1 and (:'sw7'::js
 -- ═════════════════════════════════════════════════════════════════════════════
 -- Pledge mode: a seat that frees goes to the waitlist, placed and billed (P19)
 -- ═════════════════════════════════════════════════════════════════════════════
+-- The treasurer cancels Kiran's fee pledge in Giving first (a direct withdrawal is refused while the fee is billed, 0591 B3).
+update app.pledges set status = 'cancelled', closed_at = now() where id = (:'reg_kiran'::jsonb -> 'lines' -> 0 -> 'pledge' ->> 'id')::uuid;
 begin;
 select pg_temp.sign_in(:u_pia);
 update app.pathshala_enrollments set status = 'withdrawn' where id = (:'reg_kiran'::jsonb -> 'lines' -> 0 ->> 'enrollment_id')::uuid;
