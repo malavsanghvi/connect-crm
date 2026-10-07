@@ -79,14 +79,21 @@ describe("Content › Gyan Path › Homework drawer fields", () => {
     // A due date: the reminder can be set (0588); none is set on this one.
     expect(html).toContain("Remind (hours before it is due)");
     expect(html).toMatch(tagWith("input", 'name="remind_hours"', 'value=""', 'placeholder="No reminder"'));
-    expect(html).toContain("1 to 720 hours (30 days): the learners who have not handed it in yet");
+    expect(html).toContain("1 to 720 hours (30 days). The reminder is sent that many hours before the end of the due day");
   });
 
-  it("shows the reminder's hours when set, says when learners are reminded, and never promises a reminder that is not set (0588)", () => {
+  it("shows the reminder's hours when set, says exactly when and to whom it goes, and never promises a reminder that is not set (0588)", () => {
     const withReminder: Assignment = { ...assignment, remind_hours_before: 48 };
     const html = render(createElement(HomeworkFields, { levelId: LEVEL, levelName: "What is Samayik", assignment: withReminder, classes, canChooseEveryone: true, shared: false, nextOrder: 2 }));
     expect(html).toMatch(tagWith("input", 'name="remind_hours"', 'value="48"'));
-    expect(html).toContain("that many hours before the end of the due day, and only to the learners who have not handed in yet.");
+    // The end of the due day; who is told; who the learners are; quiet hours (the whole reminder waits; no push after the
+    // homework is due); hours set after publishing (owner decisions 2026-10-07).
+    expect(html).toContain("that many hours before the end of the due day, by push and email, to each learner who has not handed it in yet");
+    expect(html).toContain("for a learner under 18 to every adult of each household they are in");
+    expect(html).toContain("For homework for everyone, the learners are the members who have completed a step of the level.");
+    expect(html).toContain("quiet hours the whole reminder waits until they end; if they end only after the homework is due, the email goes at once and the push is not sent.");
+    expect(html).toContain("Set or raised after the homework is published, it goes at once when its time has already passed.");
+    expect(html).toContain("A reminder goes out only if you set one (it needs a due date), and only to the learners who have not handed in yet.");
     expect(html).not.toContain("reminded two days before");
     // No due date: no reminder field (a reminder needs a due date), and the hint says a reminder needs one.
     const none = render(createElement(HomeworkFields, { levelId: LEVEL, levelName: "L", classes, canChooseEveryone: true, shared: false, nextOrder: 1 }));

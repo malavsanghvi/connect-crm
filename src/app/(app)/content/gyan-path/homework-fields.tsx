@@ -173,14 +173,17 @@ export function HomeworkFields({
               className="crm-input w-32"
             />
             <p className="crm-hint">
-              Empty = no reminder. {REMIND_HOURS_MIN} to {REMIND_HOURS_MAX} hours (30 days): the learners who have not handed it in yet — and the parents of
-              children — get a push and an email that many hours before the end of the due day. Pushes wait for the community&apos;s quiet hours.
+              Empty = no reminder. {REMIND_HOURS_MIN} to {REMIND_HOURS_MAX} hours (30 days). The reminder is sent that many hours before the end of the
+              due day, by push and email, to each learner who has not handed it in yet, and for a learner under 18 to every adult of each household
+              they are in. For homework for everyone, the learners are the members who have completed a step of the level. During the
+              community&apos;s quiet hours the whole reminder waits until they end; if they end only after the homework is due, the email goes at
+              once and the push is not sent. Set or raised after the homework is published, it goes at once when its time has already passed.
             </p>
           </div>
         ) : null}
         <p className="crm-hint">
           Due dates are information, not gates: a late hand-in is marked late, never refused. A reminder goes out only if you set one (it needs a due
-          date): that many hours before the end of the due day, and only to the learners who have not handed in yet.
+          date), and only to the learners who have not handed in yet.
         </p>
       </div>
       <fieldset className="rounded-xl border border-line p-3">
