@@ -490,7 +490,8 @@ export const ENTITIES: readonly EntityDef[] = [
     module: "pathshala",
     writePerms: ["pathshala.manage"],
     dependsOn: [],
-    description: "Terms with dates, registration windows and fees (fees are billed per child as pledges).",
+    description:
+      "Terms with dates, registration windows and the membership rule. Fees, discounts and opening registration are done on each term's Fees and rules screen; importing bills nothing, and an imported term starts as a draft.",
     matchNote: "Matched on the term name.",
     sourceKey: ["name"],
     fields: [
@@ -500,17 +501,6 @@ export const ENTITIES: readonly EntityDef[] = [
       col("registration_opens_at", "Registration opens", "datetime", "Date (and time).", "2026-08-01"),
       col("registration_closes_at", "Registration closes", "datetime", "Date (and time).", "2026-09-01"),
       col("membership_required", "Membership required", "boolean", "Yes or no.", "Yes"),
-      col("fee_per_child_cents", "Fee per child", "money", "Dollars.", "$150.00", { allowZero: true }),
-      col("fee_per_family_cap_cents", "Family cap", "money", "Dollars.", "$400.00", { allowZero: true }),
-      col("sibling_discount_pct", "Sibling discount %", "integer", "Whole percent.", "10"),
-      col("status", "Status", "enum", "Draft, registration, active or closed.", "active", {
-        options: [
-          { value: "draft", label: "Draft" },
-          { value: "registration", label: "Registration" },
-          { value: "active", label: "Active" },
-          { value: "closed", label: "Closed" },
-        ],
-      }),
     ],
   },
   {

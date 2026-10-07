@@ -217,6 +217,28 @@ select pg_temp.assert(exists (select 1 from app.pathshala_terms where center_id 
   'term guard: a writer that sets app.pathshala_term_writer on purpose (as the demo pack does) still writes a term out of Draft');
 select pg_temp.assert(coalesce(current_setting('app.pathshala_term_writer', true), '') = '',
   'term guard: the flag is put back after the write');
+-- The import's allow-list (app.import_entities, re-seeded in 0590 from the portal's registry): a Pathshala term takes its
+-- dates, windows and membership rule only, so a file with a status, fee, cap or discount column is refused when it is
+-- checked, before anything is written.
+select pg_temp.assert((select columns from app.import_entities where key = 'pathshala_terms')
+                        = array['ends_on','membership_required','name','registration_closes_at','registration_opens_at','starts_on'],
+  'import: the allow-list of Pathshala terms is the dates, the windows and the membership rule (no status, fees, cap or discount)');
+begin;
+select pg_temp.sign_in(:u_pia);
+select (app.import_create_run(:c, 'pathshala_terms', 'csv', 'terms.csv')) ->> 'id' as terms_run \gset
+select pg_temp.assert_raises(format($$select app.import_stage_rows(%L, %L)$$, :'terms_run',
+  '[{"row_no":2,"source_key":"2027-28","data":{"name":"2027-28","starts_on":"2027-09-05","ends_on":"2028-05-28","status":"registration"}}]'),
+  'Row 2: status cannot be imported into "Pathshala terms".', 'import: a file that sets a term''s status is refused when it is checked');
+select pg_temp.assert_raises(format($$select app.import_stage_rows(%L, %L)$$, :'terms_run',
+  '[{"row_no":3,"source_key":"2027-28","data":{"name":"2027-28","starts_on":"2027-09-05","ends_on":"2028-05-28","sibling_discount_pct":15}}]'),
+  'Row 3: sibling_discount_pct cannot be imported into "Pathshala terms".', 'import: so is one that sets the sibling discount');
+select pg_temp.assert_raises(format($$select app.import_stage_rows(%L, %L)$$, :'terms_run',
+  '[{"row_no":4,"source_key":"2027-28","data":{"name":"2027-28","starts_on":"2027-09-05","ends_on":"2028-05-28","fee_per_family_cap_cents":40000}}]'),
+  'Row 4: fee_per_family_cap_cents cannot be imported into "Pathshala terms".', 'import: or the family cap');
+select pg_temp.assert(app.import_stage_rows(:'terms_run'::uuid,
+  '[{"row_no":5,"source_key":"2027-28","data":{"name":"2027-28","starts_on":"2027-09-05","ends_on":"2028-05-28","membership_required":true}}]'::jsonb) = 1,
+  'import: a term''s dates and membership rule still import');
+rollback;
 
 -- ═════════════════════════════════════════════════════════════════════════════
 -- An explicit fee for every offered level (§2.2, P21, P22)
