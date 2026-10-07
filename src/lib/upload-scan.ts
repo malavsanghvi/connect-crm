@@ -61,7 +61,7 @@ export function uploadScanView(s: UploadScanSummary | null): UploadScanView {
   if (!s) {
     return {
       title: "Virus scanning",
-      detail: "Uploads are checked for type and size. The database did not say how virus scanning stands (it is switched on with the next update).",
+      detail: "Uploads are checked for type and size. The database did not say how virus scanning stands (virus scanning is switched off until a platform administrator switches it on).",
       counts: "",
       tone: "warn",
     };
@@ -71,7 +71,7 @@ export function uploadScanView(s: UploadScanSummary | null): UploadScanView {
     return {
       title: "Virus scanning is switched off",
       detail:
-        "Uploads are checked for type and size only. Community Connect switches virus scanning on once the scanner is installed; every file uploaded until then is checked once, in the background.",
+        "Uploads are checked for type and size only. Virus scanning does not start by itself: a platform administrator switches it on once the scanner is installed, and the files uploaded until then are checked once, in the background, after that.",
       counts: s.pending > 0 ? waiting : "No files waiting to be checked",
       tone: "warn",
     };

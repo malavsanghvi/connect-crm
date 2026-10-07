@@ -294,7 +294,7 @@ describe("Pathshala › Homework › the parts of an answer", () => {
     }));
     expect(html).toContain("Photo — Being checked for viruses — it opens here once the check is done.");
     expect(html).toContain("PDF file (10 B) — the virus check could not finish for this file; it opens here once a check passes.");
-    expect(html).toContain("Voice note — removed: the virus check found a problem with the file. The family was told; the answer, note and points stay.");
+    expect(html).toContain("Voice note — removed: the virus check found a problem with the file; the answer, note and points stay.");
     expect(html).not.toContain("removed after the retention period");
     // Monitor mode (or a file from before enforcement): pending but not held, it opens as usual.
     expect(html).toContain('<img src="https://x/ok?token=4"');

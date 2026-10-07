@@ -649,7 +649,7 @@ export function fileRemoved(file: SubmissionFile): boolean {
  */
 export function fileScanNotice(file: SubmissionFile): string | null {
   if (fileRemoved(file)) {
-    return file.scan === "infected" ? "removed: the virus check found a problem with the file. The family was told; the answer, note and points stay." : null;
+    return file.scan === "infected" ? "removed: the virus check found a problem with the file; the answer, note and points stay." : null;
   }
   if (!file.scan_held) return null;
   return file.scan === "failed"
