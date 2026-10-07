@@ -13,7 +13,7 @@ function ctxWith(result: unknown) {
   return { ctx, calls, lines };
 }
 
-const counts = { reminded: 2, released: 1, credited: 0, credit_cents: 0, kept_paying: 1, waitlist_served: 1 };
+const counts = { reminded: 2, released: 1, credited: 0, credit_cents: 0, kept_paying: 1, waitlist_served: 1, paid_placed: 1 };
 
 describe("pathshala.holds_sweep", () => {
   it("is a platform-wide job every 15 minutes in the registry that needs no provider keys", () => {
@@ -45,11 +45,11 @@ describe("pathshala.holds_sweep", () => {
   it("treats a missing or odd answer as nothing done, never as a failure to invent", async () => {
     const { ctx } = ctxWith(null);
     expect(await sweep.run(job({ kind: sweep.kind, center_id: null }), ctx)).toEqual({
-      reminded: 0, released: 0, credited: 0, credit_cents: 0, kept_paying: 0, waitlist_served: 0,
+      reminded: 0, released: 0, credited: 0, credit_cents: 0, kept_paying: 0, waitlist_served: 0, paid_placed: 0,
     });
     const odd = ctxWith({ reminded: "3", released: -1, credited: "x" });
     expect(await sweep.run(job({ kind: sweep.kind, center_id: null }), odd.ctx)).toEqual({
-      reminded: 3, released: 0, credited: 0, credit_cents: 0, kept_paying: 0, waitlist_served: 0,
+      reminded: 3, released: 0, credited: 0, credit_cents: 0, kept_paying: 0, waitlist_served: 0, paid_placed: 0,
     });
   });
 

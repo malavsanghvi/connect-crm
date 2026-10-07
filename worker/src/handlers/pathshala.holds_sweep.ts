@@ -3,9 +3,9 @@
 // page for it is still open at the provider, and for an office hold no Zelle report for it waits for the treasurer) is
 // released: its fee pledges are cancelled, anything already paid toward them becomes credit for the treasurer (never a
 // refund), the family is told, and the seat goes to the next learner on the waitlist. A free seat with a waitlist is
-// served too. The database does all of it (app.worker_pathshala_holds_sweep); the worker only calls it. Platform-wide,
-// scheduled by the generic `every` scheduler in worker/src/server.ts; no provider secret is needed, so it is always
-// configured.
+// served too, and a held seat whose fee is already paid is placed (never released). The database does all of it
+// (app.worker_pathshala_holds_sweep); the worker only calls it. Platform-wide, scheduled by the generic `every`
+// scheduler in worker/src/server.ts; no provider secret is needed, so it is always configured.
 
 import type { Job, JobContext } from "../types";
 
@@ -19,6 +19,7 @@ export type SweepResult = {
   credit_cents: number;
   kept_paying: number;
   waitlist_served: number;
+  paid_placed: number;
 };
 
 const count = (v: unknown): number => {
@@ -38,6 +39,7 @@ export async function run(_job: Job, ctx: JobContext): Promise<SweepResult> {
     credit_cents: count(r.credit_cents),
     kept_paying: count(r.kept_paying),
     waitlist_served: count(r.waitlist_served),
+    paid_placed: count(r.paid_placed),
   };
   if (result.credited > 0) {
     // Money paid toward a released seat is credit waiting for the treasurer (app.rsvp_credit_releases).

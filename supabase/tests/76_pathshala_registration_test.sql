@@ -565,6 +565,19 @@ select pg_temp.assert((select bool_and(e.status = 'placed' and e.hold_reason is 
                       and (select count(*) from app.messages where center_id = :c and template_key = 'pathshala_registered' and to_address = :u_lata::text) = 2,
   'hook (card webhook): Ved is placed once the payment is recorded, Mina''s $0 seat is confirmed with it, a repeated webhook changes nothing, Lata is told');
 
+-- A family with nothing to pay (a Free level): its seat is confirmed at once.
+begin;
+select pg_temp.sign_in(:u_mira);
+select app.register_pathshala_children(:t2, :h1, jsonb_build_array(jsonb_build_object('person_id', :p_anya, 'track_id', :tr_j, 'level_id', :lv_tod)),
+                                       0, '["seat"]', :waiver) as reg_anya2 \gset
+commit;
+select pg_temp.assert((:'reg_anya2'::jsonb -> 'pay' ->> 'amount_cents')::int = 0 and (:'reg_anya2'::jsonb -> 'pay' -> 'hold_until') = 'null'::jsonb
+                      and (:'reg_anya2'::jsonb -> 'lines' -> 0 -> 'pledge') = 'null'::jsonb
+                      and (select e.status = 'placed' and e.hold_reason is null and e.class_id = :cl2_tod and f.status = 'no_fee'
+                             from app.pathshala_enrollments e join app.pathshala_enrollment_fees f on f.enrollment_id = e.id
+                            where e.id = (:'reg_anya2'::jsonb -> 'lines' -> 0 ->> 'enrollment_id')::uuid),
+  'pay now: a family with nothing to pay (a Free level) is placed at once, with no pledge');
+
 -- Channel 2: an office payment the treasurer records.
 begin;
 select pg_temp.sign_in(:u_asha);
@@ -758,6 +771,32 @@ select app.worker_pathshala_holds_sweep() as sw6 \gset
 commit;
 select pg_temp.assert((select status = 'withdrawn' from app.pathshala_enrollments where id = :'kavya'::uuid),
   'Zelle report: once the treasurer rejects it the hold is no longer live and the sweep releases it');
+
+-- The hook never stops a payment from being recorded; if it could not place the learner, the sweep does (never releases).
+begin;
+select pg_temp.sign_in(:u_asha);
+select app.register_pathshala_children(:t2, :h5, jsonb_build_array(jsonb_build_object('person_id', :p_kavya, 'track_id', :tr_j, 'level_id', :lv_j5)),
+                                       13000, '["seat"]', :waiver) as reg_kavya2 \gset
+commit;
+alter table app.pledges disable trigger pathshala_fee_paid;
+begin;
+select pg_temp.sign_in(:u_tara);
+select app.record_offline_payment(:h5, 13000, 'cash', pg_temp.today(), array[(:'reg_kavya2'::jsonb -> 'pay' -> 'pledge_ids' ->> 0)::uuid]) as pay_kavya2 \gset
+commit;
+alter table app.pledges enable trigger pathshala_fee_paid;
+select pg_temp.assert((:'reg_kavya2'::jsonb -> 'lines' -> 0 ->> 'enrollment_id') = :'kavya'
+                      and (select status from app.pledges where id = (:'reg_kavya2'::jsonb -> 'pay' -> 'pledge_ids' ->> 0)::uuid) = 'paid'
+                      and (select status = 'requested' and hold_reason = 'payment' from app.pathshala_enrollments where id = :'kavya'::uuid),
+  'self-healing: Kavya registers again (her released enrollment is reused); the fee is paid while the hook is off, so she is still held');
+update app.pathshala_enrollments set hold_expires_at = now() - interval '1 minute' where id = :'kavya'::uuid;
+begin;
+set local role connect_worker;
+select app.worker_pathshala_holds_sweep() as sw7 \gset
+commit;
+select pg_temp.assert((:'sw7'::jsonb ->> 'paid_placed')::int = 1 and (:'sw7'::jsonb ->> 'released')::int = 0
+                      and (select e.status = 'placed' and e.class_id = :cl2_j5 and f.status = 'paid'
+                             from app.pathshala_enrollments e join app.pathshala_enrollment_fees f on f.enrollment_id = e.id where e.id = :'kavya'::uuid),
+  'self-healing: the sweep places a held learner whose fee is paid (even past the hold''s window), and never releases a paid seat');
 
 -- ═════════════════════════════════════════════════════════════════════════════
 -- Pledge mode: a seat that frees goes to the waitlist, placed and billed (P19)
