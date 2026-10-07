@@ -580,7 +580,7 @@ end $$;
 create or replace function app._pathshala_bill(p_enrollment uuid, p_pay_now boolean) returns uuid
 language plpgsql security definer set search_path = app, public, extensions as $$
 declare e app.pathshala_enrollments; f app.pathshala_enrollment_fees; t app.pathshala_terms; v_level uuid; v_line jsonb;
-        v_pledge uuid; v_due date; v_by uuid;
+        v_pledge uuid; v_due date; v_by uuid; v_money jsonb;
 begin
   select * into e from app.pathshala_enrollments where id = p_enrollment;
   select * into f from app.pathshala_enrollment_fees where enrollment_id = p_enrollment for update;
@@ -614,6 +614,22 @@ begin
        set status = 'not_billed_giving_off', billing_note = 'Not billed: Pledges & donations is switched off (' || app.pathshala_money(f.total_cents) || ' quoted).'
      where id = f.id;
     return null;
+  end if;
+  -- A term opened while Pledges & donations was off has no campaign or fund yet: find or create them now (review C6).
+  if t.campaign_id is null or t.fund_id is null then
+    v_money := app._pathshala_fees_money(t.id, null, false);
+    if nullif(v_money ->> 'fund_id', '') is null then
+      update app.pathshala_enrollment_fees
+         set status = 'not_billed_giving_off',
+             billing_note = 'Not billed: there is no fund for the Pathshala fees yet (' || app.pathshala_money(f.total_cents)
+                            || ' quoted). Ask the treasurer to add a fund called Pathshala in Setup › Lists.'
+       where id = f.id;
+      return null;
+    end if;
+    perform app.set_audit_default_reason('Pathshala fees: the fee fund and campaign were attached to ' || t.name);
+    update app.pathshala_terms
+       set campaign_id = coalesce(campaign_id, nullif(v_money ->> 'campaign_id', '')::uuid), fund_id = coalesce(fund_id, nullif(v_money ->> 'fund_id', '')::uuid)
+     where id = t.id returning * into t;
   end if;
   v_due := case when p_pay_now then app.pathshala_today(e.center_id) else app._pathshala_due_on(e.term_id, e.class_id) end;
   select r.registered_by_person into v_by from app.pathshala_registrations r where r.id = e.registration_id;

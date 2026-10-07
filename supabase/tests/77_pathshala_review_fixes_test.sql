@@ -411,3 +411,57 @@ select pg_temp.assert((:'r12'::jsonb -> 'lines' -> 0 ->> 'enrollment_id') = :'e_
                       and (select count(*) filter (where status in ('open', 'partially_paid')) = 1 and count(*) = 2
                              from app.pledges where source = 'pathshala_fee' and source_ref_id = :'e_isha2'::uuid),
   're-registration after the pledge was cancelled: the same enrollment, one new open pledge (the cancelled one is history)');
+
+-- ════════════════════════════════════════════════════════════════════════════
+-- 5. A term opened while Pledges & donations was off gets its campaign and fund when the first fee is billed
+-- ════════════════════════════════════════════════════════════════════════════
+\set t5 '''77000000-0000-4000-8000-000000000505'''
+\set cl5_j5 '''77000000-0000-4000-8000-000000000675'''
+insert into app.pathshala_terms (id, center_id, name, starts_on, ends_on, sibling_discount_pct, fee_per_family_cap_cents, registration_closes_at) values
+  (:t5, :c, 'Giving late', '2026-09-06', '2027-05-30', 0, null, null);
+insert into app.pathshala_classes (id, center_id, term_id, level_id, name, room, capacity, meets_on, starts_time, ends_time, waitlist_enabled) values
+  (:cl5_j5, :c, :t5, :lv_j5, 'Jainism 5 · Room C (giving late)', 'C', 4, 'sunday', '10:00', '11:30', true);
+insert into app.center_modules (center_id, module_key, enabled, reason) values (:c, 'giving', false, 'test');
+begin;
+select pg_temp.sign_in(:u_pia);
+select app.set_pathshala_level_fees(:t5, jsonb_build_array(jsonb_build_object('level_id', :lv_j5, 'fee_cents', 13000)));
+select app.open_pathshala_registration(:t5);
+commit;
+delete from app.center_modules where center_id = :c and module_key = 'giving';
+select pg_temp.assert((select campaign_id is null and fund_id is null and fees_locked_at is not null from app.pathshala_terms where id = :t5),
+  'a term opened while Giving was off has no campaign and no fund yet');
+begin;
+select pg_temp.sign_in(:u_mira);
+select app.register_pathshala_children(:t5, :h1, jsonb_build_array(jsonb_build_object('person_id', :p_riya, 'track_id', :tr_j, 'level_id', :lv_j5)),
+                                       13000, null, null, 'k77-riya-5') as r13 \gset
+commit;
+select pg_temp.assert((select pl.campaign_id is not null and pl.fund_id = :fund_p and pl.amount_cents = 13000 and pl.campaign_id = t.campaign_id and t.fund_id = :fund_p
+                         from app.pledges pl, app.pathshala_terms t where pl.id = (:'r13'::jsonb -> 'lines' -> 0 -> 'pledge' ->> 'id')::uuid and t.id = :t5)
+                      and (select kind = 'pathshala' and status = 'closed' and name = 'Pathshala fees Giving late' from app.campaigns
+                            where id = (select campaign_id from app.pathshala_terms where id = :t5)),
+  'Giving switched on later: the first fee pledge carries the term''s new closed campaign and the Pathshala fund, saved on the term');
+-- No fund at all: the fee is quoted and kept "not billed" with a plain note; the seat is not held for a payment.
+\set t6 '''77000000-0000-4000-8000-000000000506'''
+\set cl6_g1 '''77000000-0000-4000-8000-000000000691'''
+insert into app.pathshala_terms (id, center_id, name, starts_on, ends_on, sibling_discount_pct, fee_per_family_cap_cents, registration_closes_at) values
+  (:t6, :c, 'No fund', '2026-09-06', '2027-05-30', 0, null, null);
+insert into app.pathshala_classes (id, center_id, term_id, level_id, name, room, capacity, meets_on, starts_time, ends_time, waitlist_enabled) values
+  (:cl6_g1, :c, :t6, :lv_g1, 'Gujarati 1 · Library (no fund)', 'Library', 4, 'sunday', '11:45', '12:45', true);
+insert into app.center_modules (center_id, module_key, enabled, reason) values (:c, 'giving', false, 'test');
+begin;
+select pg_temp.sign_in(:u_pia);
+select app.set_pathshala_level_fees(:t6, jsonb_build_array(jsonb_build_object('level_id', :lv_g1, 'fee_cents', 4500)));
+select app.open_pathshala_registration(:t6);
+commit;
+delete from app.center_modules where center_id = :c and module_key = 'giving';
+update app.funds set active = false where id = :fund_p;
+begin;
+select pg_temp.sign_in(:u_mira);
+select app.register_pathshala_children(:t6, :h1, jsonb_build_array(jsonb_build_object('person_id', :p_riya, 'track_id', :tr_g, 'level_id', :lv_g1)),
+                                       4500, null, null, 'k77-riya-6') as r14 \gset
+commit;
+update app.funds set active = true where id = :fund_p;
+select pg_temp.assert((select e.status = 'placed' and f.status = 'not_billed_giving_off' and f.pledge_id is null and f.billing_note like 'Not billed: there is no fund for the Pathshala fees yet%'
+                         from app.pathshala_enrollments e join app.pathshala_enrollment_fees f on f.enrollment_id = e.id
+                        where e.id = (:'r14'::jsonb -> 'lines' -> 0 ->> 'enrollment_id')::uuid),
+  'no Pathshala fund: the seat is given, the $45.00 is quoted and kept "not billed" with a note for the office (no pledge without a fund)');
