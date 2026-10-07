@@ -57,7 +57,8 @@
 --                                  app.background_service_status gain a "scan" summary
 --   app.storage_audit              audits every Connect bucket (app.connect_storage_buckets), homework included (0587
 --                                  left it out); a homework file's name is kept as its folder only, like 0587's entries
---   app.audit_mask                 also masks a homework file name in a row that names a bucket (upload_scans)
+--   app.audit_mask                 also masks a homework file name in a row that names a bucket (upload_scans), and
+--                                  carries 0590's assistance_note clause verbatim, so 0589 and 0590 merge in either order
 --
 -- ACCESS CHANGES (for the owner's sign-off, all dormant until the mode is enforce): the read gate above; a new table
 -- readable by settings.manage staff and platform admins; four functions only the background service may call.
@@ -710,8 +711,11 @@ end $$;
 
 -- ── The audit log ────────────────────────────────────────────────────────────
 -- 0587's definition (see the note there) plus 0589: a row that names a homework file (bucket_id or bucket 'homework' and
--- a name <center>/<person>/<submission>/<file>) keeps the folder only, as 0587's own entries do. Anyone who changes
--- app.audit_mask again must start from THIS definition (0589):
+-- a name <center>/<person>/<submission>/<file>) keeps the folder only, as 0587's own entries do; plus 0590's clause
+-- (assistance_note, Pathshala fee assistance), copied verbatim from feat/pathshala-db1, where 0590 carries this file's
+-- clause too: the two migrations define the same function, so they can be applied in either order. (The assistance_note
+-- clause masks a key no 0589 row has; without 0590 it does nothing.) Anyone who changes app.audit_mask again must start
+-- from the later of the two definitions (0589, 0590):
 --   0102   date_of_birth and the secrets / tokens
 --   0546   the emergency contact's name and number, both dietary fields
 --   0545   staged_rows (the uploaded rows, personal data) and merge_answers (they grow with the file)
@@ -719,6 +723,7 @@ end $$;
 --   0578   result.image_b64 (AI flyer art bytes in app.jobs.result)
 --   0587   text_answer, parent_note, review_note (homework), and the file name of a homework part's storage_path
 --   0589   the file name of a homework file in a row that names its bucket (app.upload_scans)
+--   0590   assistance_note (Pathshala fee assistance)
 create or replace function app.audit_mask(j jsonb) returns jsonb
 language sql immutable as $$
   select case when j is null then null else
@@ -747,6 +752,8 @@ language sql immutable as $$
       || case when coalesce(j->>'bucket_id', j->>'bucket') = 'homework'
                    and j->>'name' ~ '^([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/){3}[^/]+$'
               then jsonb_build_object('name', regexp_replace(j->>'name', '[^/]+$', '***')) else '{}'::jsonb end
+      || case when j->>'assistance_note' is not null
+              then jsonb_build_object('assistance_note', '*** (' || char_length(j->>'assistance_note') || ' characters)') else '{}'::jsonb end
   end
 $$;
 

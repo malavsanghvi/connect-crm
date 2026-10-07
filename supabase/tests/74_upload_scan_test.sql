@@ -509,6 +509,20 @@ rollback;
 delete from app.upload_scans where name = '00000000-0000-4000-8000-000000000001/scan74-elsewhere.png';
 
 -- ── The audit log ──────────────────────────────────────────────────────────
+-- app.audit_mask carries both clauses (0589's homework file name, 0590's assistance note), so 0589 and 0590 can be applied
+-- in either order and neither undoes the other.
+select pg_temp.assert(app.audit_mask(jsonb_build_object('bucket_id', 'homework', 'name', :'hw_old', 'status', 'clean'))
+                        = jsonb_build_object('bucket_id', 'homework', 'name', :'folder' || '***', 'status', 'clean')
+                      and app.audit_mask(jsonb_build_object('bucket', 'homework', 'name', :'hw_new'))->>'name' = :'folder' || '***'
+                      and app.audit_mask(jsonb_build_object('bucket_id', 'photos', 'name', :'photo'))->>'name' = :'photo'
+                      and app.audit_mask(jsonb_build_object('bucket_id', 'homework', 'name', 'odd-name.jpg'))->>'name' = 'odd-name.jpg',
+  'audit_mask keeps only the folder of a homework file named with its bucket (0589), and leaves other buckets and other names as they are');
+select pg_temp.assert(app.audit_mask('{"assistance_note": "We need help with fees", "status": "requested"}'::jsonb)
+                        = '{"assistance_note": "*** (22 characters)", "status": "requested"}'::jsonb
+                      and app.audit_mask('{"assistance_note": null}'::jsonb) = '{"assistance_note": null}'::jsonb
+                      and app.audit_mask(jsonb_build_object('text_answer', 'Namo', 'storage_path', :'hw_old'))
+                          = jsonb_build_object('text_answer', '*** (4 characters)', 'storage_path', :'folder' || '***'),
+  'and it keeps 0590''s assistance-note clause and 0587''s homework clauses');
 select pg_temp.assert((select count(*) from app.audit_log where action = 'storage.upload' and record_id = 'homework/' || :'folder' || '***'
                          and after->>'name' = :'folder' || '***' and after->>'mimetype' = 'image/jpeg') >= 2
                       and not exists (select 1 from app.audit_log where record_table = 'storage.objects' and record_id like 'homework/%'
