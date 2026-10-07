@@ -5,39 +5,46 @@
 --
 --   app.gyan_assignments.remind_hours_before  whoever sets the homework chooses it: 1-720 hours before it is due, or null
 --                                             (no reminder: the default). Only for homework with a due date
---   app.gyan_assignments.remind_set_at        when that number last changed (the guard sets it): a reminder whose time
---                                             had already passed when the number was set is never sent
+--   app.gyan_assignments.remind_set_at        when that number last changed (the guard sets it)
 --   app.gyan_homework_reminders               one row per homework, learner and due date that was reminded: the sweep's
---                                             once-only key (changing the hours never reminds anyone twice for the same
---                                             due date; moving the due date can). Read by the learner's family and by
---                                             the people who may change the homework; written only by the sweep
+--                                             once-only key (once something of it went out, changing the hours never
+--                                             reminds anyone again for that due date; moving the due date can). Read by
+--                                             the learner's family and by the people who may change the homework;
+--                                             written only by the sweep (and a row of which nothing went out is deleted
+--                                             when its reminder is cancelled, so the learner can be reminded again)
 --   app.worker_homework_reminders_sweep       every 15 minutes (worker job homework.reminders_sweep, the worker role
---                                             only): tells each learner whose reminder time has come, and the household
---                                             adults of a child, with template homework.due_soon (push + email)
---   app.hand_in_gyan_submission               0587's body: a hand-in cancels the learner's reminder messages that are
---                                             still queued (held by quiet hours, or not sent yet)
---   app.gyan_assignments_guard, app.save_gyan_assignment, app.gyan_assignment_json, app.my_gyan_homework
+--                                             only, in batches of 100): tells each learner whose reminder time has come,
+--                                             and the household adults of a child, with template homework.due_soon
+--   app._gyan_homework_cancel_due_soon        cancels the homework.due_soon messages of a homework (or of one learner)
+--                                             that are still queued; called by a hand-in, by archiving or unpublishing,
+--                                             by a change of the due date, the hours or the class, and by the sweep for a
+--                                             community that switched reminders or Gyan Path off
+--   app.hand_in_gyan_submission, app.set_gyan_assignment_status, app.gyan_assignments_guard, app.save_gyan_assignment,
+--   app.gyan_assignment_json, app.my_gyan_homework
 --                                             0587's bodies with the reminder (additive JSON keys remind_hours_before and
 --                                             remind_set_at)
 --
 -- When. The due moment is the END of the due day in the community's time zone (homework due on October 16 is due until
--- midnight that night, centers.time_zone, America/Chicago when unset, as app.gyan_center_today). The reminder is due
--- remind_hours_before hours earlier, and is sent from then until the due moment, once per learner and due date, only
--- while the homework is published, the Gyan Path module is on and the community has not switched the reminder off
--- (Settings › Notifications: rules.notifications.triggers.homework_reminder = false; the first notification switch the
--- database itself reads). Never when its time came before the homework was first published or before the number of hours
--- was last set. Quiet hours (rules.notifications.quiet_start_hour / quiet_end_hour): while they last, a reminder waits
--- for the first run after they end, unless they end only after the due moment; then it goes at once (the email at once,
--- the push when quiet hours end, as app.enqueue_message holds every push).
+-- midnight that night, centers.time_zone). The reminder is due remind_hours_before hours earlier, and is sent from then
+-- until the due moment, once per learner and due date, only while the homework is published, the Gyan Path module is
+-- on and the community has not switched the reminder off (Settings › Notifications:
+-- rules.notifications.triggers.homework_reminder = false; the first notification switch the database itself reads).
+-- Hours set or raised after the homework was first published, or a reminder added then, send at the next run if the
+-- reminder time has already passed (owner decision 2026-10-07); only a reminder whose time came before the FIRST publish
+-- while the hours were also set before it is skipped (the publish notice told them). Quiet hours
+-- (rules.notifications.quiet_start_hour / quiet_end_hour): while they last, the whole reminder (push and email) waits for
+-- the first run after they end, unless they end only after the due moment; then the email goes at once and the push,
+-- which app.enqueue_message would hold until quiet hours end, is not sent (owner decision 2026-10-07). A community whose
+-- time zone is not a known zone name (pg_timezone_names) gets no reminder; the sweep says so in the audit log each run.
 --
--- Who. The learners the publish notice tells (app._gyan_homework_publish_recipients: the students placed or active in the
--- homework's class while its term is open, or, for homework for everyone, the members who have completed a step of its
--- level; never a person recorded as deceased) who have not handed it in: no answer, a draft, or an answer sent back
--- (by a parent or the teacher) is reminded; an answer waiting for a parent, with the teacher or accepted is not. The
--- learner's logins (push) and email, and, for a child, the household adults (push and email), through 0587's family
--- notifier; it never raises (a refusal is audited as gyan_homework.notice_failed). No note travels in it: the template
--- has the homework's title, level, the learner's first name and the due date (absolute, "Friday, October 16"), nothing
--- else.
+-- Who. The learners the publish notice tells (as app._gyan_homework_publish_recipients counts them: the students placed or
+-- active in the homework's class while its term is open, or, for homework for everyone, the members who have completed a
+-- step of its level; never a person recorded as deceased) who have not handed it in: no answer, a draft, or an answer
+-- sent back (by a parent or the teacher) is reminded; an answer waiting for a parent, with the teacher or accepted is
+-- not. The learner's logins (push) and email, and, for a learner under 18, every adult of each household the learner is
+-- in (push and email), through 0587's family notifier; it never raises (a refusal is audited as
+-- gyan_homework.notice_failed). No note travels in it: the template has the homework's title, level, the learner's first
+-- name and the due date (absolute, "Friday, October 16"), nothing else.
 --
 -- ACCESS CHANGES (for the pull request): (1) the new table app.gyan_homework_reminders is readable by the learner and the
 -- adults of their household (app.gyan_can_act_for) and by the people who may change the homework
@@ -68,7 +75,7 @@ alter table app.gyan_assignments add constraint gyan_assignments_remind_needs_du
 comment on column app.gyan_assignments.remind_hours_before is
   '0588: remind this many hours (1-720) before the homework is due (the end of the due day in the community''s time zone) the learners it applies to who have not handed it in (no answer, a draft or an answer sent back), and the household adults of a child (template homework.due_soon, push + email, app.worker_homework_reminders_sweep). Null = no reminder (the default). Only for homework with a due date. Set by whoever sets the homework (app.save_gyan_assignment).';
 comment on column app.gyan_assignments.remind_set_at is
-  '0588: when remind_hours_before last changed (set by app.gyan_assignments_guard). A reminder whose time had already passed when the hours were set (or when the homework was first published) is never sent. Changing the hours never reminds anyone twice for the same due date (app.gyan_homework_reminders).';
+  '0588: when remind_hours_before last changed (set by app.gyan_assignments_guard). A reminder whose time came before the homework was first published is sent only when the hours were set (or raised) after that publish; then it goes at the next run (owner decision 2026-10-07). Once something of a reminder went out, changing the hours never reminds anyone again for the same due date (app.gyan_homework_reminders).';
 
 -- 0587's guard, with the reminder: the hours are a whole number from 1 to 720 and need a due date, and remind_set_at
 -- follows every change of the hours (any other write leaves it as it is).
@@ -328,6 +335,14 @@ begin
     if a.status = 'published' and a.required_for_level and (not v_required or v_level <> a.level_id) then
       perform app._gyan_homework_release_level_bonus(p_center, a.level_id);
     end if;
+    -- 0588: a reminder still waiting to go out was made for the old due date, hours or class (the row as stored, after
+    -- the guard): it is cancelled, and one of which nothing went out is forgotten, so the next run reminds by the new rule.
+    if exists (select 1 from app.gyan_assignments ga
+                where ga.id = a.id and (ga.due_rule is distinct from a.due_rule or ga.remind_hours_before is distinct from a.remind_hours_before
+                                        or ga.class_id is distinct from a.class_id)) then
+      perform app._gyan_homework_cancel_due_soon(p_center, a.id, null,
+        'Not sent: the homework''s due date, reminder or class changed before the reminder went out.');
+    end if;
     return app.gyan_assignment_json(a.id);
   end if;
 
@@ -404,14 +419,15 @@ create table if not exists app.gyan_homework_reminders (
 create index if not exists gyan_homework_reminders_person_idx on app.gyan_homework_reminders (person_id);
 create index if not exists gyan_homework_reminders_center_idx on app.gyan_homework_reminders (center_id, sent_at);
 comment on table app.gyan_homework_reminders is
-  'One row per homework, learner and due date that app.worker_homework_reminders_sweep reminded (0588): the once-only key, so changing the hours never reminds anyone twice for the same due date (moving the due date can). remind_hours and remind_at are what the reminder was sent for; sent_at is when it was queued; messages is how many messages were queued (pushes and emails, the household adults of a child included; 0 = nobody could be reached). Read by the learner and the adults of their household and by the people who may change the homework; written only by the sweep.';
+  'One row per homework, learner and due date that app.worker_homework_reminders_sweep reminded (0588): the once-only key, so once something of a reminder went out, changing the hours never reminds anyone again for that due date (moving the due date can). remind_hours and remind_at are what the reminder was sent for; sent_at is when it was queued (its messages have that created_at); messages is how many messages were queued to go out (pushes and emails, the household adults of a child included; not those suppressed, nor pushes dropped because quiet hours last past the due moment; 0 = nobody could be reached). When a reminder is cancelled before anything of it went out (a hand-in, the homework archived, unpublished or changed, reminders switched off), its row is deleted (app._gyan_homework_cancel_due_soon), so the learner can be reminded again. Read by the learner and the adults of their household and by the people who may change the homework; written only by the sweep.';
 
 insert into app.module_tables (table_name, module_key) values ('gyan_homework_reminders', 'gyan_path')
 on conflict (table_name) do update set module_key = excluded.module_key;
 
+-- No id column: the entry is keyed by the primary key, "<assignment>:<person>:<due date>" (0102's convention).
 drop trigger if exists audit_gyan_homework_reminders on app.gyan_homework_reminders;
 create trigger audit_gyan_homework_reminders after insert or update or delete on app.gyan_homework_reminders
-  for each row execute function app.audit_row();
+  for each row execute function app.audit_row('assignment_id', 'person_id', 'due_on');
 
 alter table app.gyan_homework_reminders enable row level security;
 -- The learner and the adults of their household (as for the answers), and the people who may change the homework
@@ -429,72 +445,189 @@ revoke all on app.gyan_homework_reminders from public, anon, authenticated, conn
 grant select on app.gyan_homework_reminders to authenticated;
 grant all on app.gyan_homework_reminders to service_role;
 
+-- ── Cancelling a reminder that has not gone out ──────────────────────────────
+-- The homework.due_soon messages of one homework (and of one learner, or of all its learners) that are still queued:
+-- held by quiet hours, or not sent yet. They are cancelled with the reason given (the messaging job skips a message that
+-- is no longer queued: app.worker_message_to_send). A reminder of which nothing went out (every message cancelled or
+-- suppressed, at least one cancelled now) is forgotten too: its log row is deleted, so the learner is reminded again when
+-- a reminder is due again (an answer sent back, new hours, a new due date or class, reminders switched on again). A
+-- reminder of which something went out stays logged: nobody is reminded twice for the same due date. A reminder's
+-- messages are the ones the sweep queued with it (created at the log row's sent_at). Returns how many were cancelled.
+create or replace function app._gyan_homework_cancel_due_soon(p_center uuid, p_assignment uuid, p_person uuid default null, p_reason text default null)
+returns int language plpgsql security definer set search_path = app, public, extensions as $$
+declare n int;
+begin
+  if p_center is null or p_assignment is null then return 0; end if;
+  update app.messages m
+     set status = 'cancelled', failure_reason = coalesce(p_reason, 'Not sent: the homework changed before the reminder went out.')
+   where m.center_id = p_center and m.status = 'queued' and m.template_key = 'homework.due_soon'
+     and m.payload->>'assignment_id' = p_assignment::text
+     and (p_person is null or m.payload->>'learner_id' = p_person::text);
+  get diagnostics n = row_count;
+  if n > 0 then
+    delete from app.gyan_homework_reminders r
+     where r.assignment_id = p_assignment and r.center_id = p_center and (p_person is null or r.person_id = p_person)
+       and exists (select 1 from app.messages m
+                    where m.center_id = r.center_id and m.template_key = 'homework.due_soon' and m.created_at = r.sent_at
+                      and m.payload->>'assignment_id' = r.assignment_id::text and m.payload->>'learner_id' = r.person_id::text
+                      and m.status = 'cancelled')
+       and not exists (select 1 from app.messages m
+                        where m.center_id = r.center_id and m.template_key = 'homework.due_soon' and m.created_at = r.sent_at
+                          and m.payload->>'assignment_id' = r.assignment_id::text and m.payload->>'learner_id' = r.person_id::text
+                          and m.status not in ('cancelled', 'suppressed'));
+  end if;
+  return n;
+end $$;
+
 -- ── The sweep (worker job homework.reminders_sweep, every 15 minutes) ────────
--- The learners whose reminder is due now: one row per published homework with a reminder, learner (the publish notice's
--- recipients) and due date, while now is between the reminder time and the due moment (the end of the due day in the
--- community's time zone), the reminder time came after the homework was first published and after the hours were last
--- set, the learner has not handed it in (awaiting_parent, submitted or accepted), and nobody was reminded for that due
--- date yet. quiet_until: the end of the community's quiet hours when they are on now (app.messaging_quiet_until).
+-- The learners whose reminder is due now: one row per published homework with a reminder, learner and due date, while
+-- now is between the reminder time and the due moment (the end of the due day in the community's time zone), the
+-- reminder time came after the homework was first published or the hours were set after that publish (owner decision
+-- 2026-10-07), the learner has not handed it in (awaiting_parent, submitted or accepted), and nobody was reminded for
+-- that due date yet. quiet_until: the end of the community's quiet hours when they are on now
+-- (app.messaging_quiet_until). due_rule and class_id are the homework's, for the sweep's check of the newest row.
+-- Set-based, as app._gyan_homework_publish_recipients and app.gyan_assignment_due_on count them (test 73 compares):
+-- the learners are the students placed or active in the homework's class while its term is open, or, for homework for
+-- everyone, the members of its community who have completed a step of its level, never a person recorded as deceased;
+-- a "days after start" date counts from the later of the learner's first completed step of the level and the first
+-- publish, and only learners due within the hours ahead (plus a day) are looked at further. A fixed date is the same for
+-- everyone, so only homework whose window is open now has its learners listed. A community whose time zone is not a
+-- known zone name is left out (the sweep audits it), so one wrong setting never stops everyone's reminders.
 create or replace function app._gyan_homework_reminders_due()
 returns table (assignment_id uuid, center_id uuid, person_id uuid, due_on date, due_at timestamptz, remind_hours int,
-               remind_at timestamptz, quiet_until timestamptz)
+               remind_at timestamptz, quiet_until timestamptz, due_rule jsonb, class_id uuid)
 language sql stable security definer set search_path = app, public, extensions as $$
-  with hw as (
-    select ga.id, ga.center_id, ga.remind_hours_before as hours, ga.published_at, coalesce(ga.remind_set_at, ga.published_at) as set_at,
-           ga.due_rule, coalesce(nullif(c.time_zone, ''), 'America/Chicago') as tz, app.messaging_quiet_until(ga.center_id, now()) as quiet_until
+  with zones as (
+    select lower(z.name) as name from pg_timezone_names z
+  ), hw as materialized (
+    select ga.id, ga.center_id, ga.level_id, ga.class_id, ga.due_rule, ga.remind_hours_before as hours, ga.published_at,
+           coalesce(ga.remind_set_at, ga.published_at) as set_at, c.time_zone as tz,
+           (now() at time zone c.time_zone)::date as today, app.messaging_quiet_until(ga.center_id, now()) as quiet_until
       from app.gyan_assignments ga join app.centers c on c.id = ga.center_id
      where ga.status = 'published' and ga.remind_hours_before is not null and ga.published_at is not null
        and ga.due_rule->>'kind' in ('on', 'days_after_start')
        and app.module_enabled(ga.center_id, 'gyan_path')
        and coalesce(c.rules #>> '{notifications,triggers,homework_reminder}', 'true') <> 'false'
-  ), learners as (
-    select hw.*, x.person_id as learner_id, app.gyan_assignment_due_on(hw.id, x.person_id) as learner_due_on
-      from hw cross join lateral app._gyan_homework_publish_recipients(hw.id) x(person_id)
-     -- A fixed date is the same for everyone: only while its window is open are its learners looked at.
-     where hw.due_rule->>'kind' <> 'on'
+       and lower(c.time_zone) in (select zones.name from zones)
+  ), open_hw as (
+    select hw.* from hw
+     where hw.due_rule->>'kind' = 'days_after_start'
         or (now() < (((hw.due_rule->>'date')::date + 1)::timestamp at time zone hw.tz)
             and (((hw.due_rule->>'date')::date + 1)::timestamp at time zone hw.tz) - make_interval(hours => hw.hours) <= now())
+  ), firsts as (
+    select gp.person_id, st.level_id, min(gp.completed_at) as first_done
+      from app.gyan_progress gp join app.gyan_steps st on st.id = gp.step_id
+     where gp.completed_at is not null and st.level_id in (select open_hw.level_id from open_hw)
+     group by gp.person_id, st.level_id
+  ), placed as (
+    select distinct e.student_person_id as person_id, e.class_id
+      from app.pathshala_enrollments e join app.pathshala_terms t on t.id = e.term_id
+     where e.class_id in (select open_hw.class_id from open_hw where open_hw.class_id is not null)
+       and e.status in ('placed', 'active') and t.status in ('registration', 'active')
+  ), learners as (
+    select h.*, f.person_id as learner_id, f.first_done
+      from open_hw h join firsts f on f.level_id = h.level_id
+     where h.class_id is null
+    union all
+    select h.*, pl.person_id, f.first_done
+      from open_hw h join placed pl on pl.class_id = h.class_id
+      left join firsts f on f.person_id = pl.person_id and f.level_id = h.level_id
+     where h.class_id is not null
+  ), dated as (
+    select l.*, case when l.due_rule->>'kind' = 'on' then (l.due_rule->>'date')::date
+                     else (greatest(l.first_done, l.published_at) at time zone l.tz)::date + (l.due_rule->>'days')::int end as learner_due_on
+      from learners l
+      join app.people p on p.id = l.learner_id and p.center_id = l.center_id and not coalesce(p.is_deceased, false)
   ), timed as (
-    select learners.*, ((learners.learner_due_on + 1)::timestamp at time zone learners.tz) as learner_due_at
-      from learners where learners.learner_due_on is not null
+    select d.*, ((d.learner_due_on + 1)::timestamp at time zone d.tz) as learner_due_at
+      from dated d
+     where d.learner_due_on between d.today - 1 and d.today + ceil(d.hours / 24.0)::int + 1
   )
   select t.id, t.center_id, t.learner_id, t.learner_due_on, t.learner_due_at, t.hours,
-         t.learner_due_at - make_interval(hours => t.hours), t.quiet_until
+         t.learner_due_at - make_interval(hours => t.hours), t.quiet_until, t.due_rule, t.class_id
     from timed t
    where t.learner_due_at - make_interval(hours => t.hours) <= now() and now() < t.learner_due_at
-     and t.learner_due_at - make_interval(hours => t.hours) > t.published_at
-     and t.learner_due_at - make_interval(hours => t.hours) > t.set_at
+     and (t.learner_due_at - make_interval(hours => t.hours) > t.published_at or t.set_at > t.published_at)
      and not exists (select 1 from app.gyan_submissions s
                       where s.assignment_id = t.id and s.person_id = t.learner_id and s.status in ('awaiting_parent', 'submitted', 'accepted'))
      and not exists (select 1 from app.gyan_homework_reminders r
                       where r.assignment_id = t.id and r.person_id = t.learner_id and r.due_on = t.learner_due_on)
 $$;
 
--- One run: at most 500 learners, the earliest reminder time first. A homework a teacher is saving right now is left for
--- the next run (for update skip locked), and so is a learner who is handing in right now (the advisory lock
--- app.hand_in_gyan_submission takes too: the hand-in waits for this run and then cancels what it queued). The log row is
--- written first (on conflict do nothing) and only a new row tells anyone, so no learner is ever reminded twice for one
--- due date. During quiet hours a reminder waits for the first run after they end, unless they end only after the due
--- moment: then it goes now. The 0587 family notifier tells the learner (push to every login, email) and, for a child,
--- the household adults; "due" is the due date in words ("Friday, October 16"). It never raises: a refusal is audited
--- (gyan_homework.notice_failed). Returns {reminded, messages, unreached, held_for_quiet_hours, busy}.
-create or replace function app.worker_homework_reminders_sweep() returns jsonb
+-- One batch of the run: at most p_limit learners (100 by default, 1-500), the earliest reminder time first; the worker
+-- calls again while a batch comes back full ("more"), with p_first_batch false after the first, so the housekeeping
+-- below happens once a run. The due list is worked out once a call. A homework a teacher is saving right now is left
+-- for the next batch or run (for no key update ... skip locked: never blocking a learner's first answer, whose foreign
+-- key check takes a key-share lock on the homework), and the newest version of the homework row must still match the
+-- list (status, hours, due rule, class). A learner who is handing in right now is left too (the advisory lock
+-- app.hand_in_gyan_submission takes as well: the hand-in waits for this batch and then cancels what it queued). The log
+-- row is written first (on conflict do nothing) and only a new row tells anyone, so no learner is reminded twice for one
+-- due date. During quiet hours the whole reminder waits for the first run after they end, unless they end only after
+-- the due moment: then it goes now, and its pushes, which app.enqueue_message holds until quiet hours end, are cancelled
+-- (they would arrive after the homework was due; the email goes). The 0587 family notifier tells the learner (push to
+-- every login, email) and, for a learner under 18, every adult of each household they are in; "due" is the due date in
+-- words ("Friday, October 16"). It never raises: a refusal is audited (gyan_homework.notice_failed).
+-- Housekeeping (first batch): the reminders still queued in a community that switched them (or Gyan Path) off are
+-- cancelled, and each community whose time zone is not a known zone name is named in the audit log.
+-- Returns {reminded, messages (queued to go out), suppressed, dropped_pushes, unreached (reminded, nothing queued),
+-- held_for_quiet_hours, busy, cancelled, skipped_time_zone, limit, more}.
+create or replace function app.worker_homework_reminders_sweep(p_limit int default 100, p_first_batch boolean default true) returns jsonb
 language plpgsql security definer set search_path = app, public, extensions as $$
-declare r record; v_n int; v_reminded int := 0; v_messages int := 0; v_unreached int := 0; v_quiet int := 0; v_busy int := 0;
+declare
+  r record; v_limit int; v_due jsonb; v_n int; v_s int; v_d int; v_q int; v_seen int := 0; v_reminded int := 0; v_messages int := 0;
+  v_suppressed int := 0; v_dropped int := 0; v_unreached int := 0; v_quiet int := 0; v_busy int := 0; v_cancelled int := 0;
+  v_bad_zone int := 0;
 begin
   perform app.assert_worker();
   perform set_config('app.client_app', 'job', true);
   perform app.set_audit_context('Homework due soon: the learners who have not handed it in are reminded');
-  select count(*) into v_quiet from app._gyan_homework_reminders_due() d where d.quiet_until is not null and d.quiet_until < d.due_at;
+  v_limit := least(greatest(coalesce(p_limit, 100), 1), 500);
+
+  if coalesce(p_first_batch, true) then
+    -- Reminders still waiting to go out in a community that switched them, or Gyan Path, off: not sent.
+    for r in
+      select distinct m.center_id, (m.payload->>'assignment_id')::uuid as assignment_id, app.module_enabled(ce.id, 'gyan_path') as module_on
+        from app.centers ce join app.messages m on m.center_id = ce.id
+       where (not app.module_enabled(ce.id, 'gyan_path') or coalesce(ce.rules #>> '{notifications,triggers,homework_reminder}', 'true') = 'false')
+         and m.status = 'queued' and m.template_key = 'homework.due_soon'
+    loop
+      v_cancelled := v_cancelled + app._gyan_homework_cancel_due_soon(r.center_id, r.assignment_id, null,
+        case when r.module_on then 'Not sent: homework reminders were switched off for this community (Settings › Notifications).'
+             else 'Not sent: Gyan Path was switched off for this community.' end);
+    end loop;
+    -- A community whose time zone is not a known zone name gets no reminder: said once a run, in its audit log.
+    for r in
+      select c.id, c.time_zone
+        from app.centers c
+       where lower(c.time_zone) not in (select lower(z.name) from pg_timezone_names z)
+         and exists (select 1 from app.gyan_assignments ga where ga.center_id = c.id and ga.status = 'published' and ga.remind_hours_before is not null)
+    loop
+      v_bad_zone := v_bad_zone + 1;
+      perform app.log_audit(r.id, 'gyan_homework.reminders_skipped', 'centers', r.id::text, null,
+                            jsonb_build_object('time_zone', r.time_zone),
+                            'Homework reminders not sent: the community''s time zone "' || coalesce(r.time_zone, '') || '" is not a known time zone (Settings › Organization)');
+    end loop;
+  end if;
+
+  -- The due list, once.
+  select coalesce(jsonb_agg(to_jsonb(d)), '[]'::jsonb) into v_due from app._gyan_homework_reminders_due() d;
+  select count(*) into v_quiet
+    from jsonb_to_recordset(v_due) as d(due_at timestamptz, quiet_until timestamptz)
+   where d.quiet_until is not null and d.quiet_until < d.due_at;
+
   for r in
-    select d.assignment_id, d.center_id, d.person_id, d.due_on, d.remind_hours, d.remind_at
-      from app._gyan_homework_reminders_due() d
+    select d.assignment_id, d.center_id, d.person_id, d.due_on, d.due_at, d.remind_hours, d.remind_at
+      from jsonb_to_recordset(v_due) as d(assignment_id uuid, center_id uuid, person_id uuid, due_on date, due_at timestamptz, remind_hours int,
+                                          remind_at timestamptz, quiet_until timestamptz, due_rule jsonb, class_id uuid)
       join app.gyan_assignments a on a.id = d.assignment_id
-     where d.quiet_until is null or d.quiet_until >= d.due_at
+     where (d.quiet_until is null or d.quiet_until >= d.due_at)
+       and a.status = 'published' and a.remind_hours_before = d.remind_hours and a.due_rule = d.due_rule
+       and a.class_id is not distinct from d.class_id
      order by d.remind_at, d.assignment_id, d.person_id
-     limit 500
-       for update of a skip locked
+     limit v_limit
+       for no key update of a skip locked
   loop
+    v_seen := v_seen + 1;
     if not pg_try_advisory_xact_lock(hashtextextended('app.gyan_homework_reminder:' || r.assignment_id::text || ':' || r.person_id::text, 0)) then
       v_busy := v_busy + 1;
       continue;
@@ -510,17 +643,33 @@ begin
     if not found then continue; end if;
     v_n := coalesce(app._gyan_homework_notify_family(r.center_id, 'homework.due_soon', r.assignment_id, r.person_id, null, true, false, false,
                                                      jsonb_build_object('due', to_char(r.due_on, 'FMDay, FMMonth FMDD'))), 0);
-    if v_n > 0 then
-      update app.gyan_homework_reminders set messages = v_n
+    -- A push that quiet hours hold until the due moment or later would arrive when the homework is already due: not sent.
+    update app.messages m
+       set status = 'cancelled', failure_reason = 'Not sent: the community''s quiet hours last until after the homework is due.'
+     where m.center_id = r.center_id and m.status = 'queued' and m.scheduled_at >= r.due_at and m.channel = 'push'
+       and m.template_key = 'homework.due_soon' and m.created_at = now()
+       and m.payload->>'assignment_id' = r.assignment_id::text and m.payload->>'learner_id' = r.person_id::text;
+    get diagnostics v_d = row_count;
+    -- Refused at once (a suppressed address, an opt-out, a deceased recipient): counted apart, never "sent".
+    select count(*) into v_s
+      from app.messages m
+     where m.center_id = r.center_id and m.status = 'suppressed' and m.scheduled_at = now() and m.template_key = 'homework.due_soon'
+       and m.payload->>'assignment_id' = r.assignment_id::text and m.payload->>'learner_id' = r.person_id::text;
+    v_q := greatest(v_n - v_s - v_d, 0);
+    if v_q > 0 then
+      update app.gyan_homework_reminders set messages = v_q
        where assignment_id = r.assignment_id and person_id = r.person_id and due_on = r.due_on;
     else
       v_unreached := v_unreached + 1;
     end if;
     v_reminded := v_reminded + 1;
-    v_messages := v_messages + v_n;
+    v_messages := v_messages + v_q;
+    v_suppressed := v_suppressed + v_s;
+    v_dropped := v_dropped + v_d;
   end loop;
-  return jsonb_build_object('reminded', v_reminded, 'messages', v_messages, 'unreached', v_unreached,
-                            'held_for_quiet_hours', v_quiet, 'busy', v_busy);
+  return jsonb_build_object('reminded', v_reminded, 'messages', v_messages, 'suppressed', v_suppressed, 'dropped_pushes', v_dropped,
+                            'unreached', v_unreached, 'held_for_quiet_hours', v_quiet, 'busy', v_busy, 'cancelled', v_cancelled,
+                            'skipped_time_zone', v_bad_zone, 'limit', v_limit, 'more', v_seen >= v_limit);
 end $$;
 
 -- ── Handing in cancels a reminder that has not gone out ──────────────────────
@@ -597,12 +746,56 @@ begin
         jsonb_build_object('what_happened', 'It went straight to the teacher, because nobody in the household has signed in to the app, so nobody could check it first.'));
     end if;
   end if;
-  -- 0588: handed in, so the reminder (to the learner and to the household adults) that has not gone out yet never does.
-  update app.messages m
-     set status = 'cancelled', failure_reason = 'Not sent: the homework was handed in before the reminder went out.'
-   where m.center_id = s.center_id and m.status = 'queued' and m.template_key = 'homework.due_soon'
-     and m.payload->>'assignment_id' = a.id::text and m.payload->>'learner_id' = s.person_id::text;
+  -- 0588: handed in, so the reminder (to the learner and to the household adults) that has not gone out yet never does;
+  -- if nothing of it went out, it is forgotten, so an answer sent back later is reminded again.
+  perform app._gyan_homework_cancel_due_soon(s.center_id, a.id, s.person_id, 'Not sent: the homework was handed in before the reminder went out.');
   return app.gyan_submission_json(s.id);
+end $$;
+
+-- ── Archiving or unpublishing cancels the reminders that have not gone out ───
+-- 0587's body (draft → published → archived; published → draft only while nobody has started an answer; every publish
+-- queues homework.publish_notify; archiving, unpublishing or un-requiring required homework pays the level bonus it
+-- held). 0588: homework that leaves "published" cancels its reminders that are still queued (held by quiet hours, or
+-- not sent yet), and forgets those of which nothing went out.
+create or replace function app.set_gyan_assignment_status(p_assignment uuid, p_status text) returns jsonb
+language plpgsql security definer set search_path = app, public, extensions as $$
+declare a app.gyan_assignments; l app.gyan_levels;
+begin
+  if auth.uid() is null then raise exception 'Sign in first.' using errcode = 'insufficient_privilege'; end if;
+  select * into a from app.gyan_assignments where id = p_assignment for update;
+  if a.id is null then raise exception 'That homework was not found. It may have been removed; reload the page.' using errcode = 'P0002'; end if;
+  perform app.assert_module_enabled(a.center_id, 'gyan_path');
+  if app.gyan_homework_editor(a.center_id, a.class_id) is not true then
+    raise exception 'Changing this homework needs content.manage or pathshala.manage, or the Teacher role for its class.' using errcode = 'insufficient_privilege';
+  end if;
+  if p_status is null or p_status not in ('draft', 'published', 'archived') then
+    raise exception 'The status must be "draft", "published" or "archived".' using errcode = '22023';
+  end if;
+  if p_status = a.status then return app.gyan_assignment_json(a.id); end if;
+  select * into l from app.gyan_levels where id = a.level_id;
+  if a.status = 'draft' and p_status = 'published' then
+    perform app.set_audit_context('Published homework "' || a.title || '" (' || l.name || ')');
+    update app.gyan_assignments set status = 'published', published_at = coalesce(published_at, now()) where id = a.id;
+    perform app.enqueue_job(a.center_id, 'homework.publish_notify', jsonb_build_object('assignment_id', a.id), now(), 5);
+  elsif a.status = 'published' and p_status = 'archived' then
+    perform app.set_audit_context('Archived homework "' || a.title || '" (' || l.name || ')');
+    update app.gyan_assignments set status = 'archived' where id = a.id;
+    if a.required_for_level then perform app._gyan_homework_release_level_bonus(a.center_id, a.level_id); end if;
+    perform app._gyan_homework_cancel_due_soon(a.center_id, a.id, null, 'Not sent: the homework was archived before the reminder went out.');
+  elsif a.status = 'published' and p_status = 'draft' then
+    if exists (select 1 from app.gyan_submissions s where s.assignment_id = a.id) then
+      raise exception 'Someone has already started this homework, so it cannot go back to a draft. Archive it instead.' using errcode = '22023';
+    end if;
+    perform app.set_audit_context('Unpublished homework "' || a.title || '" (' || l.name || ')');
+    update app.gyan_assignments set status = 'draft' where id = a.id;
+    if a.required_for_level then perform app._gyan_homework_release_level_bonus(a.center_id, a.level_id); end if;
+    perform app._gyan_homework_cancel_due_soon(a.center_id, a.id, null, 'Not sent: the homework was unpublished before the reminder went out.');
+  elsif a.status = 'archived' then
+    raise exception 'Archived homework stays archived; make new homework instead.' using errcode = '22023';
+  else
+    raise exception 'Homework goes from draft to published, then to archived (a draft cannot be archived).' using errcode = '22023';
+  end if;
+  return app.gyan_assignment_json(a.id);
 end $$;
 
 -- ── The template (a platform default; a community may override it) ──────────
@@ -627,16 +820,20 @@ comment on function app.save_gyan_assignment(uuid, jsonb) is
 comment on function app.my_gyan_homework(uuid) is
   'Member: {people: [{person_id, name, is_child}], items: [{assignment (with archived, remind_hours_before and remind_set_at), person_id, submission | null, needs_parent, can_parent_decide}]} for yourself and, when you are an adult, every current member of your households; published homework that applies to each person, and archived homework the person has an answer to (read-only: needs_parent and can_parent_decide are false for it).';
 comment on function app.hand_in_gyan_submission(uuid) is
-  'The learner or a household adult: draft → awaiting_parent (a child''s own hand-in when the homework asks for a parent''s check and a household adult who can sign in can be asked) or → submitted (an adult; a household adult handing in for someone in the family, recorded as parent_user; or a learner whose household has no adult who can sign in, whose adults are emailed homework.heads_up). Needs at least one part. Marks late, never refuses for it. Refused for archived homework. Tells the household adults (homework.parent_check) or the reviewers (homework.submitted). Cancels the learner''s homework.due_soon messages for this homework that are still queued (0588).';
-comment on function app.worker_homework_reminders_sweep() is
-  'The worker role only (job homework.reminders_sweep, every 15 minutes, 0588): reminds the learners whose homework reminder time has come and who have not handed it in, and the household adults of a child, with homework.due_soon (push + email), once per learner and due date (app.gyan_homework_reminders), at most 500 a run; quiet hours hold a reminder until they end unless they end after the due moment. Returns {reminded, messages, unreached, held_for_quiet_hours, busy}.';
+  'The learner or a household adult: draft → awaiting_parent (a child''s own hand-in when the homework asks for a parent''s check and a household adult who can sign in can be asked) or → submitted (an adult; a household adult handing in for someone in the family, recorded as parent_user; or a learner whose household has no adult who can sign in, whose adults are emailed homework.heads_up). Needs at least one part. Marks late, never refuses for it. Refused for archived homework. Tells the household adults (homework.parent_check) or the reviewers (homework.submitted). Cancels the learner''s homework.due_soon messages for this homework that are still queued, and forgets a reminder of which nothing went out (0588).';
+comment on function app.set_gyan_assignment_status(uuid, text) is
+  'Same callers as save_gyan_assignment: draft → published → archived (published → draft only while nobody has started an answer). EVERY publish queues a job, homework.publish_notify: the worker tells the learners it applies to (the class''s students, or the members who completed a step of the level) with homework.assigned (push + email), and the household adults of each child, in batches, skipping everyone already told: publishing again tells only those not told yet, never anyone twice. Archiving, unpublishing or un-requiring required homework pays the level bonus it was holding. Homework that leaves published cancels its homework.due_soon reminders that are still queued (0588).';
+comment on function app.worker_homework_reminders_sweep(int, boolean) is
+  'The worker role only (job homework.reminders_sweep, every 15 minutes, 0588): one batch of at most p_limit learners (100; the worker calls again while "more"): reminds the learners whose homework reminder time has come and who have not handed it in, and every adult of each household of a learner under 18, with homework.due_soon (push + email), once per learner and due date (app.gyan_homework_reminders). Quiet hours hold the whole reminder until they end, unless they end after the due moment: then the email goes and the push is not sent. p_first_batch: cancel the reminders still queued in communities that switched reminders or Gyan Path off, and audit communities whose time zone is unknown (they get no reminder). Returns {reminded, messages, suppressed, dropped_pushes, unreached, held_for_quiet_hours, busy, cancelled, skipped_time_zone, limit, more}.';
 comment on function app._gyan_homework_reminders_due() is
-  'Internal (0588): the learners whose homework reminder is due now and not yet sent, with the due date, the due moment (the end of the due day in the community''s time zone), the reminder time and the end of the community''s quiet hours when they are on.';
+  'Internal (0588): the learners whose homework reminder is due now and not yet sent, with the due date, the due moment (the end of the due day in the community''s time zone), the reminder time, the end of the community''s quiet hours when they are on, and the homework''s due rule and class. Set-based; communities with an unknown time zone are left out.';
+comment on function app._gyan_homework_cancel_due_soon(uuid, uuid, uuid, text) is
+  'Internal (0588): cancels the homework.due_soon messages of a homework (or of one learner) that are still queued, with the reason given, and deletes the log row of a reminder of which nothing went out. Returns how many messages it cancelled.';
 
 -- ── Grants ───────────────────────────────────────────────────────────────────
--- The list of who is due is internal (it names learners and due dates of any community); the sweep is the worker
--- role's alone (it asserts that itself too).
-revoke execute on function app._gyan_homework_reminders_due() from public, anon, authenticated;
-grant execute on function app._gyan_homework_reminders_due() to service_role;
-revoke execute on function app.worker_homework_reminders_sweep() from public, anon, authenticated, service_role;
-grant execute on function app.worker_homework_reminders_sweep() to connect_worker;
+-- The list of who is due and the cancelling are internal (they name, or act on, learners of any community); the sweep is
+-- the worker role's alone (it asserts that itself too).
+revoke execute on function app._gyan_homework_reminders_due(), app._gyan_homework_cancel_due_soon(uuid, uuid, uuid, text) from public, anon, authenticated;
+grant execute on function app._gyan_homework_reminders_due(), app._gyan_homework_cancel_due_soon(uuid, uuid, uuid, text) to service_role;
+revoke execute on function app.worker_homework_reminders_sweep(int, boolean) from public, anon, authenticated, service_role;
+grant execute on function app.worker_homework_reminders_sweep(int, boolean) to connect_worker;
