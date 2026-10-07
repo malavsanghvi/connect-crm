@@ -210,6 +210,7 @@ export const JOB_KIND_LABELS: Record<string, string> = {
   "qbo.pull_customers_history": "Copy QuickBooks customers and history",
   "qbo.match_suggest_ai": "Suggest QuickBooks donor matches",
   "qbo.bring_in_history": "Bring in a QuickBooks customer's history",
+  "surveys.launch_notify": "Send an event survey's pushes and reminders",
 };
 
 export function jobKindLabel(kind: string): string {
