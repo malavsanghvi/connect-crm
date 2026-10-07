@@ -105,15 +105,17 @@ export const PRIORITY_KINDS: readonly string[] = ["niva.answer"];
  * Platform › Setup brings the kept slot back on the next tick.
  *
  * A kind that waits while it is not configured (waitWhenNotConfigured) is left out of the claim
- * until configured() says yes, read each tick like the kept slot. A kind with maxInFlight is
- * claimed on its own, after the other kinds and only up to its limit, so a backlog of it (the
- * virus checks of every upload since 0172, the day scanning is switched on) can never keep
+ * until configured() says yes, read each tick like the kept slot. A kind with maxInFlight runs in
+ * slots of its own, beside WORKER_CONCURRENCY (never in one of the general slots): it is claimed
+ * on its own, after the other kinds, up to its limit, so a backlog of it (the virus checks of every
+ * upload since 0172, the day scanning is switched on), however slow each one is, can never keep
  * messages or imports waiting.
  */
 export function createRunner(deps: RunnerDeps, concurrency: number, opts: { priority?: readonly string[] } = {}): Runner {
   const running = new Set<Promise<Outcome>>();
   const perKind = new Map<string, number>();
   let others = 0;
+  let capped = 0;
   let stopping = false;
   const claimable = (k: string): boolean => {
     const h = deps.reg.get(k);
@@ -143,12 +145,15 @@ export function createRunner(deps: RunnerDeps, concurrency: number, opts: { prio
     return ready ? 1 : 0;
   };
 
-  const start = (job: Job, isPriority: boolean) => {
-    if (!isPriority) others += 1;
+  /** isPriority: a priority kind; own: a kind with maxInFlight (its own slots, outside the general ones). */
+  const start = (job: Job, isPriority: boolean, own = false) => {
+    if (own) capped += 1;
+    else if (!isPriority) others += 1;
     perKind.set(job.kind, (perKind.get(job.kind) ?? 0) + 1);
     const p = processJob(deps, job).finally(() => {
       running.delete(p);
-      if (!isPriority) others -= 1;
+      if (own) capped -= 1;
+      else if (!isPriority) others -= 1;
       perKind.set(job.kind, Math.max(0, (perKind.get(job.kind) ?? 1) - 1));
     });
     running.add(p);
@@ -157,32 +162,32 @@ export function createRunner(deps: RunnerDeps, concurrency: number, opts: { prio
   return {
     async tick() {
       if (stopping) return 0;
-      let free = concurrency - running.size;
-      if (free <= 0) return 0;
       let claimed = 0;
-      const first = priority.filter(claimable);
-      if (first.length > 0) {
-        const jobs = await deps.db.claim(deps.workerId, first, free);
-        for (const job of jobs) start(job, true);
-        claimed += jobs.length;
-        free -= jobs.length;
+      // The general slots: everything running except the kinds that have their own.
+      let free = concurrency - (running.size - capped);
+      if (free > 0) {
+        const first = priority.filter(claimable);
+        if (first.length > 0) {
+          const jobs = await deps.db.claim(deps.workerId, first, free);
+          for (const job of jobs) start(job, true);
+          claimed += jobs.length;
+          free -= jobs.length;
+        }
+        const room = Math.min(free, concurrency - reserved() - others);
+        const open = rest.filter((k) => cap(k) === undefined && claimable(k));
+        if (room > 0 && open.length > 0 && !stopping) {
+          const jobs = await deps.db.claim(deps.workerId, open, room);
+          for (const job of jobs) start(job, false);
+          claimed += jobs.length;
+        }
       }
-      let room = Math.min(free, concurrency - reserved() - others);
-      const eligible = rest.filter(claimable);
-      const open = eligible.filter((k) => cap(k) === undefined);
-      if (room > 0 && open.length > 0 && !stopping) {
-        const jobs = await deps.db.claim(deps.workerId, open, room);
-        for (const job of jobs) start(job, false);
-        claimed += jobs.length;
-        room -= jobs.length;
-      }
-      for (const k of eligible.filter((x) => cap(x) !== undefined)) {
-        const n = Math.min(room, cap(k)! - (perKind.get(k) ?? 0));
-        if (n <= 0 || stopping) continue;
+      // Their own slots, after the others: at most maxInFlight of each such kind at once.
+      for (const k of rest.filter((x) => cap(x) !== undefined)) {
+        const n = cap(k)! - (perKind.get(k) ?? 0);
+        if (n <= 0 || stopping || !claimable(k)) continue;
         const jobs = await deps.db.claim(deps.workerId, [k], n);
-        for (const job of jobs) start(job, false);
+        for (const job of jobs) start(job, false, true);
         claimed += jobs.length;
-        room -= jobs.length;
       }
       return claimed;
     },

@@ -9,6 +9,7 @@ import * as scan from "../src/handlers/storage.scan";
 import * as sweep from "../src/handlers/storage.scan_sweep";
 import { createHttp } from "../src/http";
 import { createRegistry, jobContext } from "../src/runner";
+import { scanConfigured } from "../src/upload-scan";
 import { startFakeClamd, VIRUS_MARKER, type FakeClamd } from "./fake-clamd";
 import { captureLog, fakeDb, job } from "./helpers";
 
@@ -18,7 +19,7 @@ const HW = "c0000000-0000-4000-8000-000000000001/p0000000-0000-4000-8000-0000000
 function fakeStorage() {
   const files = new Map<string, Buffer>();
   const requests: { method: string; path: string; apikey?: string; authorization?: string; acceptEncoding?: string; prefixes?: string[] }[] = [];
-  const answer = { get: 0 as number, del: 0 as number };
+  const answer = { get: 0 as number, del: 0 as number, redirect: null as string | null, chunked: false };
   const server = http.createServer((req, res) => {
     let body = "";
     req.on("data", (c) => (body += c));
@@ -31,9 +32,16 @@ function fakeStorage() {
       };
       requests.push(r);
       if (req.method === "GET") {
+        if (answer.redirect && !path.startsWith("elsewhere/")) return void res.writeHead(302, { location: answer.redirect }).end();
         if (answer.get) return void res.writeHead(answer.get).end(JSON.stringify({ statusCode: String(answer.get), error: "x", message: "x" }));
         const f = files.get(path);
         if (!f) return void res.writeHead(400, { "content-type": "application/json" }).end('{"statusCode":"404","error":"not_found","message":"Object not found"}');
+        if (answer.chunked) {
+          // No Content-Length: written in two pieces (chunked).
+          res.writeHead(200, { "content-type": "application/octet-stream" });
+          res.write(f.subarray(0, 1));
+          return void res.end(f.subarray(1));
+        }
         return void res.writeHead(200, { "content-type": "application/octet-stream" }).end(f);
       }
       if (req.method === "DELETE") {
@@ -49,32 +57,42 @@ function fakeStorage() {
 }
 
 type Obj = { id: string; version: string; size: number | null };
-type Result = { status: string; version: string; removed_at: string | null };
+type Result = { status: string; version: string; removed_at: string | null; objectId?: string };
 
 /** The database's side (app.worker_scan_object / worker_record_scan / worker_scan_removed), in memory. */
 function fakeScanDb(state: { mode: string; objects: Map<string, Obj>; results: Map<string, Result>; recordReason?: string }) {
   const recorded: unknown[][] = [];
   const removed: unknown[][] = [];
+  const lookups: unknown[][] = [];
   const { db, calls } = fakeDb({
     query: (text, params) => {
-      const [bucket, name] = params as [string, string];
-      const key = `${bucket}/${name}`;
+      const [bucket, given] = params as [string, string | null];
       if (text.includes("worker_scan_object")) {
-        const o = state.objects.get(key);
-        const r = state.results.get(key);
+        lookups.push(params as unknown[]);
+        // A job may name the file by the object's id alone (homework): find the name from the objects, then the results.
+        const byId = (params as unknown[])[2] as string | null;
+        let name = given;
+        if (!name && byId) {
+          name = [...state.objects.entries()].find(([k, o]) => k.startsWith(`${bucket}/`) && o.id === byId)?.[0].slice(bucket.length + 1) ?? null;
+          name ??= [...state.results.entries()].find(([k, r]) => k.startsWith(`${bucket}/`) && r.objectId === byId)?.[0].slice(bucket.length + 1) ?? null;
+        }
+        const k = `${bucket}/${name}`;
+        const o = name ? state.objects.get(k) : undefined;
+        const r = name ? state.results.get(k) : undefined;
         return [{
           o: {
-            mode: state.mode, scanned_bucket: bucket !== "statements", exists: Boolean(o), object_id: o?.id ?? null, version: o?.version ?? null,
+            mode: state.mode, scanned_bucket: bucket !== "statements", name, exists: Boolean(o), object_id: o?.id ?? null, version: o?.version ?? null,
             size: o?.size ?? null, result: r ? { status: r.status, removed_at: r.removed_at, current: Boolean(o) && o!.version === r.version } : null,
           },
         }];
       }
+      const key = `${bucket}/${given}`;
       if (text.includes("worker_record_scan")) {
         recorded.push(params as unknown[]);
         if (state.recordReason) return [{ r: { recorded: false, reason: state.recordReason, mode: state.mode } }];
         const status = (params as unknown[])[4] as string;
         const o = state.objects.get(key)!;
-        state.results.set(key, { status, version: o.version, removed_at: null });
+        state.results.set(key, { status, version: o.version, removed_at: null, objectId: o.id });
         const action = status === "infected" ? (state.mode === "enforce" ? "remove" : "keep") : "none";
         return [{ r: { recorded: true, status, action, mode: state.mode } }];
       }
@@ -89,7 +107,7 @@ function fakeScanDb(state: { mode: string; objects: Map<string, Obj>; results: M
       return [];
     },
   });
-  return { db, calls, recorded, removed };
+  return { db, calls, recorded, removed, lookups };
 }
 
 describe("storage.scan", () => {
@@ -110,6 +128,8 @@ describe("storage.scan", () => {
     storage.requests.length = 0;
     storage.answer.get = 0;
     storage.answer.del = 0;
+    storage.answer.redirect = null;
+    storage.answer.chunked = false;
     storage.files.clear();
   });
 
@@ -132,7 +152,7 @@ describe("storage.scan", () => {
     expect(scan.configured({ SUPABASE_URL: "x", SUPABASE_SECRET_KEY: "y", CLAMD_HOST: "h" })).toMatchObject({ configured: false, reason: expect.stringContaining("switched off") });
     expect(scan.configured({ UPLOAD_SCAN_MODE: "monitor", CLAMD_HOST: "h" })).toMatchObject({ configured: false, reason: expect.stringContaining("SUPABASE_URL, SUPABASE_SECRET_KEY") });
     expect(scan.configured({ UPLOAD_SCAN_MODE: "enforce", SUPABASE_URL: "x", SUPABASE_SECRET_KEY: "y" })).toMatchObject({ configured: false, reason: expect.stringContaining("CLAMD_HOST or CLAMD_SOCKET") });
-    expect(scan.configured({ UPLOAD_SCAN_MODE: "Monitor", SUPABASE_URL: "x", SUPABASE_SECRET_KEY: "y", CLAMD_SOCKET: "/run/clamd.ctl" })).toEqual({ configured: true });
+    expect(scanConfigured({ UPLOAD_SCAN_MODE: "Monitor", SUPABASE_URL: "x", SUPABASE_SECRET_KEY: "y", CLAMD_SOCKET: "/run/clamd.ctl" })).toEqual({ configured: true });
     expect(sweep.configured({})).toMatchObject({ configured: false });
     expect(scan.info({ UPLOAD_SCAN_MODE: "enforce" })).toEqual({ mode: "enforce" });
     const { db } = fakeDb();

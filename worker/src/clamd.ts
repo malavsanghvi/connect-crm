@@ -122,11 +122,12 @@ async function converse<T>(target: ClamdTarget, opts: Required<ClamdOptions>, ru
     done = true;
     settle(text);
   };
+  // Only an answer that ends with its NUL counts: one cut short (the connection closed or failed first) is a failure,
+  // never a verdict, however much of it arrived.
   const lost = (why: string) => {
     if (done) return;
-    if (text) return answer(); // it said something before it went: that is the answer
     done = true;
-    failure = new ClamdError(why);
+    failure = new ClamdError(text ? `${why}, part way through its answer` : why);
     fail(failure);
   };
   socket.on("data", (d: Buffer) => {
@@ -191,16 +192,22 @@ export async function clamdVersion(target: ClamdTarget, options: ClamdOptions = 
 
 /**
  * Streams the bytes to clamd (INSTREAM) and returns its verdict and how many bytes were sent. A source that fails (a
- * download cut short) rejects; so does a clamd that cannot be reached, closes without an answer or times out.
+ * download cut short) rejects; so does a clamd that cannot be reached, closes without an answer or times out. An answer
+ * that comes before the whole file was sent is never taken as clean (or as found): only an ERROR may come early (its
+ * size limit); anything else then is a failure, and the file is checked again.
  */
 export async function scanStream(target: ClamdTarget, source: AsyncIterable<Uint8Array>, options: ClamdOptions = {}): Promise<{ verdict: Verdict; bytes: number }> {
   const opts = { ...CLAMD_DEFAULTS, ...options };
   return converse(target, opts, async (c) => {
     await c.write(Buffer.from("zINSTREAM\0", "latin1"));
     let bytes = 0;
+    let early = false;
     outer: for await (const piece of source) {
       for (let off = 0; off < piece.byteLength; off += opts.chunkBytes) {
-        if (c.answered()) break outer;
+        if (c.answered()) {
+          early = true;
+          break outer;
+        }
         const part = piece.subarray(off, Math.min(off + opts.chunkBytes, piece.byteLength));
         const head = Buffer.alloc(4);
         head.writeUInt32BE(part.byteLength, 0);
@@ -208,7 +215,12 @@ export async function scanStream(target: ClamdTarget, source: AsyncIterable<Uint
         bytes += part.byteLength;
       }
     }
-    if (!c.answered()) await c.write(Buffer.alloc(4)); // the zero-length chunk: the end of the file
-    return { verdict: parseScanReply(await c.reply), bytes };
+    if (c.answered()) early = true;
+    else await c.write(Buffer.alloc(4)); // the zero-length chunk: the end of the file
+    const verdict = parseScanReply(await c.reply);
+    if (early && verdict.result !== "error") {
+      throw new ClamdError(`clamd answered before the whole file was sent (after ${bytes} bytes); the answer is not used`);
+    }
+    return { verdict, bytes };
   });
 }

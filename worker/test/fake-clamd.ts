@@ -7,9 +7,10 @@ import type { AddressInfo } from "node:net";
 
 /**
  * normal: answers each command; limit: answers "size limit exceeded" once more than limitBytes arrived and reads (ignores)
- * the rest; silent: never answers a scan; reset: drops the connection once more than limitBytes arrived.
+ * the rest; silent: never answers a scan; reset: drops the connection once more than limitBytes arrived; early: says
+ * "stream: OK" as soon as the scan starts (a broken clamd); unterminated: answers "stream: OK" with no NUL and closes.
  */
-export type FakeClamdMode = "normal" | "limit" | "silent" | "reset";
+export type FakeClamdMode = "normal" | "limit" | "silent" | "reset" | "early" | "unterminated";
 
 export type FakeClamdState = {
   /** Every command received, in order (zPING, zVERSION, zINSTREAM). */
@@ -59,6 +60,11 @@ export function serveClamd(fake: FakeClamdState, sock: net.Socket): void {
         streaming = true;
         fake.openScans += 1;
         fake.maxOpenScans = Math.max(fake.maxOpenScans, fake.openScans);
+        if (fake.mode === "early") {
+          answered = true;
+          return void sock.write("stream: OK\0");
+        }
+        if (fake.mode === "unterminated") return void sock.end("stream: OK");
         continue;
       }
       if (buf.length < 4) return;

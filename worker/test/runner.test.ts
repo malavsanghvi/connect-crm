@@ -146,10 +146,10 @@ describe("runner: kinds that wait, and kinds with a limit (virus checks, 0589)",
       [["messaging.send"], 4],
       [["storage.scan"], 1],
     ]);
-    // While that one runs, the next tick claims no second check.
+    // While that one runs, the next tick claims no second check, and the check takes none of the general slots.
     calls.length = 0;
     expect(await runner.tick()).toBe(0);
-    expect(claims(calls)).toEqual([[["messaging.send"], 3]]);
+    expect(claims(calls)).toEqual([[["messaging.send"], 4]]);
     releaseAll();
     expect(await runner.drain(1000)).toBe(true);
     calls.length = 0;
@@ -159,13 +159,17 @@ describe("runner: kinds that wait, and kinds with a limit (virus checks, 0589)",
     expect(await runner.drain(1000)).toBe(true);
   });
 
-  it("a backlog of checks never keeps messages waiting: the other kinds take the free slots first", async () => {
+  it("a backlog of checks never keeps messages waiting: a check runs in a slot of its own, after the other kinds", async () => {
     const env = { UPLOAD_SCAN_MODE: "monitor" };
     const queued = [...Array.from({ length: 3 }, (_, i) => job({ id: `S${i}`, kind: "storage.scan" })), ...Array.from({ length: 4 }, (_, i) => job({ id: `M${i}`, kind: "messaging.send" }))];
     const { runner, calls, queue, releaseAll } = setup(queued, [scan, send], env);
-    expect(await runner.tick()).toBe(4);
-    expect(claims(calls)).toEqual([[["messaging.send"], 4]]);
-    expect(queue.map((j) => j.id)).toEqual(["S0", "S1", "S2"]);
+    expect(await runner.tick()).toBe(5);
+    expect(claims(calls)).toEqual([
+      [["messaging.send"], 4],
+      [["storage.scan"], 1],
+    ]);
+    expect(queue.map((j) => j.id)).toEqual(["S1", "S2"]);
+    expect(runner.inFlight()).toBe(5);
     releaseAll();
     expect(await runner.drain(1000)).toBe(true);
     calls.length = 0;

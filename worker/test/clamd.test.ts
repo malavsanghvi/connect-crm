@@ -93,6 +93,28 @@ describe("clamd: when it goes wrong", () => {
     }
   });
 
+  it("never takes an answer that comes before the whole file was sent as clean", async () => {
+    const fake = await startFakeClamd("early");
+    try {
+      const err = await scanStream({ kind: "tcp", host: "127.0.0.1", port: fake.port }, chunks(Buffer.alloc(300_000, 2))).catch((e: unknown) => e);
+      expect(err).toBeInstanceOf(ClamdError);
+      expect(String((err as Error).message)).toMatch(/answered before the whole file was sent/);
+    } finally {
+      await fake.close();
+    }
+  });
+
+  it("never takes an answer without its NUL (cut short) as a verdict", async () => {
+    const fake = await startFakeClamd("unterminated");
+    try {
+      const err = await scanStream({ kind: "tcp", host: "127.0.0.1", port: fake.port }, chunks("hello")).catch((e: unknown) => e);
+      expect(err).toBeInstanceOf(ClamdError);
+      expect(String((err as Error).message)).toMatch(/part way through its answer|closed the connection|connection to clamd failed|could not send/);
+    } finally {
+      await fake.close();
+    }
+  });
+
   it("says the connection failed when clamd drops it mid-file (the check is then tried again)", async () => {
     const fake = await startFakeClamd("reset", 100_000);
     try {
