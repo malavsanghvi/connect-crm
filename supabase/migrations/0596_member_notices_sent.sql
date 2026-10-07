@@ -604,6 +604,17 @@ create trigger bolis_cancel_waiting_notices after update of status on app.bolis
   for each row when (new.status in ('closed', 'settled') and old.status not in ('closed', 'settled'))
   execute function app.bolis_cancel_waiting_notices();
 
+-- ── The demo pack (0312) ─────────────────────────────────────────────────────────
+-- Loading the pack checks in families at a past event. The old lunch code wrote one reminder row per attendee with a
+-- slot (35, which the pack then marked "never sent"); a slot that has passed gets no reminder now (and demo people
+-- have no login), so the pack loads 35 fewer messages.
+update app.demo_packs p
+   set contents = (select jsonb_agg(case when m->'rows' ? 'messages'
+                                         then jsonb_set(m, '{rows,messages}', to_jsonb((m #>> '{rows,messages}')::int - 35))
+                                         else m end order by o)
+                     from jsonb_array_elements(p.contents) with ordinality x(m, o))
+ where p.key = 'community';
+
 -- ── The old rows: never sent, never deleted ──────────────────────────────────────
 -- Rows the old code wrote (queued, no job, no purpose) for these four notices. They are too old to send now.
 create or replace function app.cancel_unconnected_member_notices() returns integer
