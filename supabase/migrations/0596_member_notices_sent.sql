@@ -652,4 +652,10 @@ revoke execute on function app.enqueue_message_at(uuid, text, text, text, jsonb,
   from public, anon, authenticated;
 revoke execute on function app.enqueue_message(uuid, text, text, text, jsonb, text), app.launch_event_survey(uuid)
   from public, anon, authenticated;
-grant execute on all functions in schema app to service_role;
+-- service_role as for enqueue_message (0221/0421); never a blanket grant on the schema, which would hand back the
+-- worker-only functions later migrations took away from it.
+grant execute on function app.enqueue_message_at(uuid, text, text, text, jsonb, text, timestamptz),
+  app._member_push(uuid, uuid, text, text, text, jsonb, jsonb, timestamptz, timestamptz),
+  app._lunch_reminder(uuid), app.cancel_unconnected_member_notices(),
+  app.messages_cancel_waiting_job(), app.surveys_cancel_waiting_pushes(), app.bolis_cancel_waiting_notices()
+  to service_role;
