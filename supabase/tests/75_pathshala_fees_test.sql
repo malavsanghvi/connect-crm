@@ -614,10 +614,11 @@ select pg_temp.assert((:'q_round'::jsonb -> 'lines' -> 1 ->> 'sibling_discount_c
 -- pathshala.view cannot read a draft term, so the Fees screen is not the only way: a fund called Pathshala in Setup › Lists.
 begin;
 update app.funds set active = false where center_id = :c;
+insert into app.funds (center_id, key, name) values (:c, 'pathshala_building', 'Pathshala building fund');   -- not the fees' fund
 select pg_temp.sign_in(:u_pia);
 select pg_temp.assert_code(format($$select app.open_pathshala_registration(%L)$$, :t2),
   '22023', 'There is no fund for the Pathshala fees yet. Ask the treasurer to add a fund called Pathshala in Setup › Lists, or choose a fund on this Fees screen if you also manage Giving; then open registration.',
-  'open: with no fund for the fees the refusal says to add a fund called Pathshala in Setup › Lists');
+  'open: with no fund for the fees (a "Pathshala building fund" is not it: the fund is found by its key, pathshala) the refusal says to add a fund called Pathshala in Setup › Lists');
 rollback;
 
 -- Refusals and who may ask.

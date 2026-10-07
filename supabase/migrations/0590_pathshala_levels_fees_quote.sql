@@ -985,12 +985,13 @@ begin
   -- The money side: the closed campaign "Pathshala fees <term>" linked to the Pathshala fund (Giving on only; with
   -- Giving off registration still works and every quote is kept "not billed").
   if app.module_enabled(t.center_id, 'giving') then
+    -- The Pathshala fund is the one with the key pathshala (a fund called Pathshala added in Setup › Lists gets that
+    -- key), never a fund whose name merely starts with "Pathshala" (review note 18).
     v_fund := coalesce(t.fund_id,
-      (select f.id from app.funds f where f.center_id = t.center_id and f.active and (f.key = 'pathshala' or f.name ~* '^\s*pathshala')
-        order by (f.key = 'pathshala') desc, f.name limit 1));
+      (select f.id from app.funds f where f.center_id = t.center_id and f.active and f.key = 'pathshala'));
     if v_fund is null then
       -- A treasurer with giving.manage but not pathshala.view cannot read a draft term, so cannot open its Fees screen:
-      -- the way out is a fund called Pathshala added in Setup › Lists (found by name above), or a principal who also
+      -- the way out is a fund called Pathshala added in Setup › Lists (key pathshala, found above), or a principal who also
       -- manages Giving choosing one here. Read access to draft terms is not widened.
       raise exception 'There is no fund for the Pathshala fees yet. Ask the treasurer to add a fund called Pathshala in Setup › Lists, or choose a fund on this Fees screen if you also manage Giving; then open registration.'
         using errcode = '22023';
@@ -2080,7 +2081,7 @@ comment on function app.set_pathshala_level_fees(uuid, jsonb, text) is
 comment on function app.set_pathshala_term_rules(uuid, jsonb, text) is
   'The same callers as the fees. Keys: payment_mode (pledge | pay_now: refused with app.pathshala_pay_now_ready''s sentence), hold_hours (1–168), office_payment_allowed, office_hold_days (1–21), seat_rule (automatic | office: pledge mode only), sibling_discount_pct (0–100), fee_per_family_cap_cents (null: no cap), registration_opens_at, registration_closes_at (after it opens), late_registration_closes_at (after registration_closes_at), late_fee_cents, withdrawal_credit_until, age_cutoff_on, membership_required, fund_id (giving.manage; once registration has opened it can change but not be emptied: "The fund for the Pathshala fees cannot be cleared once registration has opened. Choose another fund instead."). Returns the term as app.pathshala_registration_options shows it.';
 comment on function app.open_pathshala_registration(uuid, text) is
-  'pathshala.manage: refuses while an offered level (active, with a class this term) has no fee ("Set the fee for Gujarati 3 and Hindi 1 before opening registration.") and, for pay now, while it is not ready; with Pledges & donations on it creates or reuses the closed campaign "Pathshala fees <term>" (kind pathshala) linked to the term''s fund, else the Pathshala fund (key pathshala, or a fund named Pathshala; none: "There is no fund for the Pathshala fees yet. Ask the treasurer to add a fund called Pathshala in Setup › Lists, or choose a fund on this Fees screen if you also manage Giving; then open registration."); fixes the age cut-off and withdrawal deadline, locks the fees and rules, and moves a draft to registration. Idempotent. Returns {term_id, status, already_open, fees_locked_at, campaign_id, fund_id, payment_mode, warnings[] (offered levels with no age band)}.';
+  'pathshala.manage: refuses while an offered level (active, with a class this term) has no fee ("Set the fee for Gujarati 3 and Hindi 1 before opening registration.") and, for pay now, while it is not ready; with Pledges & donations on it creates or reuses the closed campaign "Pathshala fees <term>" (kind pathshala) linked to the term''s fund, else the Pathshala fund (key pathshala; none: "There is no fund for the Pathshala fees yet. Ask the treasurer to add a fund called Pathshala in Setup › Lists, or choose a fund on this Fees screen if you also manage Giving; then open registration."); fixes the age cut-off and withdrawal deadline, locks the fees and rules, and moves a draft to registration. Idempotent. Returns {term_id, status, already_open, fees_locked_at, campaign_id, fund_id, payment_mode, warnings[] (offered levels with no age band)}.';
 comment on function app.pathshala_quote(uuid, uuid, jsonb) is
   'The one pricing rule (§2.4) for an adult of the household or Pathshala staff: p_lines [{person_id | new_child, track_id, level_id}] → {lines[{index, person_id, track_id, level_id, learner_kind, family_rank (children only), age_on_cutoff, base_fee_cents, sibling_discount_cents, cap_reduction_cents, late_fee_cents, assistance_cents, total_cents, priced}], children_total_cents, adults_total_cents, total_cents, late, rule_snapshot}. Writes nothing.';
 comment on function app.pathshala_fee_example(uuid, jsonb) is
