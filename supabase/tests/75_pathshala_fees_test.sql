@@ -131,38 +131,40 @@ insert into app.pathshala_classes (id, center_id, term_id, level_id, name, room,
 -- ═════════════════════════════════════════════════════════════════════════════
 begin;
 select pg_temp.sign_in(:u_pia);
-select app.save_pathshala_level(:c, jsonb_build_object('track_id', :'tr_j', 'name', 'Jainism 8', 'min_age', 14, 'max_age', 17)) as lv8 \gset
+select app.save_pathshala_level(:c, jsonb_build_object('track_id', :tr_j, 'name', 'Jainism 8', 'min_age', 14, 'max_age', 17)) as lv8 \gset
 select pg_temp.assert((:'lv8'::jsonb ->> 'key') = 'jainism_8' and (:'lv8'::jsonb ->> 'band') = 'children' and (:'lv8'::jsonb ->> 'active')::boolean
                       and (:'lv8'::jsonb ->> 'sort_order')::int = 10 and not (:'lv8'::jsonb ->> 'used')::boolean,
   'levels: the principal adds a level; its key comes from the name, it goes last in the track, and a maximum under 18 makes it a children''s level');
-select pg_temp.assert(exists (select 1 from app.audit_log where record_table = 'pathshala_levels' and record_id = :'lv8'::jsonb ->> 'id'
-                                and reason = 'Added the Pathshala level Jainism 8 (Jainism)'),
-  'levels: the change is audited with a plain reason');
-select pg_temp.assert_code(format($$select app.save_pathshala_level(%L, %L)$$, :'c', jsonb_build_object('id', :'lv8'::jsonb ->> 'id', 'min_age', 12, 'max_age', 10)),
+select pg_temp.assert_code(format($$select app.save_pathshala_level(%L, %L)$$, :c, jsonb_build_object('id', :'lv8'::jsonb ->> 'id', 'min_age', 12, 'max_age', 10)),
   '22023', 'The minimum age (12) is above the maximum age (10).', 'levels: a minimum above the maximum is refused in plain English');
-select pg_temp.assert_code(format($$select app.save_pathshala_level(%L, %L)$$, :'c', jsonb_build_object('id', :'lv8'::jsonb ->> 'id', 'max_age', 130)),
+select pg_temp.assert_code(format($$select app.save_pathshala_level(%L, %L)$$, :c, jsonb_build_object('id', :'lv8'::jsonb ->> 'id', 'max_age', 130)),
   '22023', 'The maximum age must be between 0 and 120', 'levels: ages are 0 to 120');
-select pg_temp.assert_code(format($$select app.save_pathshala_level(%L, %L)$$, :'c', jsonb_build_object('track_id', :'tr_j', 'key', '2', 'name', 'Another 2')),
+select pg_temp.assert_code(format($$select app.save_pathshala_level(%L, %L)$$, :c, jsonb_build_object('track_id', :tr_j, 'key', '2', 'name', 'Another 2')),
   '22023', 'There is already a level with the key "2" in Jainism.', 'levels: a key is unique in its track');
-select pg_temp.assert_code(format($$select app.save_pathshala_level(%L, %L)$$, :'c', jsonb_build_object('track_id', :'tr_j', 'name', 'X', 'colour', 'red')),
+select pg_temp.assert_code(format($$select app.save_pathshala_level(%L, %L)$$, :c, jsonb_build_object('track_id', :tr_j, 'name', 'X', 'colour', 'red')),
   '22023', 'A level has no field called "colour".', 'levels: an unknown field is refused');
-select pg_temp.assert_code(format($$select app.save_pathshala_level(%L, %L)$$, :'c', jsonb_build_object('id', :'lv_j2', 'track_id', :'tr_g')),
+select pg_temp.assert_code(format($$select app.save_pathshala_level(%L, %L)$$, :c, jsonb_build_object('id', :lv_j2, 'track_id', :tr_g)),
   '22023', 'Jainism 2 has classes or registrations, so it cannot move to another track', 'levels: a used level cannot move to another track');
 select app.save_pathshala_level(:c, jsonb_build_object('id', :'lv8'::jsonb ->> 'id', 'active', false)) as lv8r \gset
 select pg_temp.assert(not (:'lv8r'::jsonb ->> 'active')::boolean and (:'lv8r'::jsonb ->> 'min_age')::int = 14,
   'levels: retiring a level keeps it (active false, nothing else changes)');
-select pg_temp.assert_code(format($$delete from app.pathshala_levels where id = %L$$, :'lv_j2'),
+select pg_temp.assert_code(format($$delete from app.pathshala_levels where id = %L$$, :lv_j2),
   '22023', 'Jainism 2 has classes or registrations, so it cannot be deleted. Retire it instead', 'levels: a used level is never deleted');
 delete from app.pathshala_levels where id = (:'lv8'::jsonb ->> 'id')::uuid;
 select pg_temp.assert(not exists (select 1 from app.pathshala_levels where id = (:'lv8'::jsonb ->> 'id')::uuid),
   'levels: an unused level can still be deleted by the principal');
 commit;
+select pg_temp.assert(exists (select 1 from app.audit_log where record_table = 'pathshala_levels' and record_id = :'lv8'::jsonb ->> 'id'
+                                and action = 'pathshala_levels.insert' and reason = 'Added the Pathshala level Jainism 8 (Jainism)')
+                      and exists (select 1 from app.audit_log where record_table = 'pathshala_levels' and record_id = :'lv8'::jsonb ->> 'id'
+                                    and action = 'pathshala_levels.update' and reason = 'Retired the Pathshala level Jainism 8 (Jainism)'),
+  'levels: each change is audited with a plain reason');
 begin;
 select pg_temp.sign_in(:u_tara);
-select pg_temp.assert_code(format($$select app.save_pathshala_level(%L, %L)$$, :'c', jsonb_build_object('track_id', :'tr_j', 'name', 'X')),
+select pg_temp.assert_code(format($$select app.save_pathshala_level(%L, %L)$$, :c, jsonb_build_object('track_id', :tr_j, 'name', 'X')),
   '42501', 'needs pathshala.manage', 'levels: only the principal changes levels');
 rollback;
-select pg_temp.assert_raises(format($$insert into app.pathshala_levels (center_id, track_id, key, name, min_age, max_age) values (%L, %L, 'bad', 'Bad', 10, 5)$$, :'c', :'tr_j'),
+select pg_temp.assert_raises(format($$insert into app.pathshala_levels (center_id, track_id, key, name, min_age, max_age) values (%L, %L, 'bad', 'Bad', 10, 5)$$, :c, :tr_j),
   'pathshala_levels_age_band', 'levels: the table itself refuses a minimum above the maximum (imports included)');
 select pg_temp.assert(app.pathshala_level_band(18, null) = 'adult' and app.pathshala_level_band(3, 5) = 'children'
                       and app.pathshala_level_band(null, null) = 'any' and app.pathshala_level_band(12, 18) = 'any',
@@ -173,13 +175,13 @@ select pg_temp.assert(app.pathshala_level_band(18, null) = 'adult' and app.paths
 -- ═════════════════════════════════════════════════════════════════════════════
 begin;
 select pg_temp.sign_in(:u_pia);
-select pg_temp.assert_code(format($$update app.pathshala_terms set status = 'registration' where id = %L$$, :'t1'),
+select pg_temp.assert_code(format($$update app.pathshala_terms set status = 'registration' where id = %L$$, :t1),
   '22023', 'use Open registration on its Fees screen', 'term form: a draft cannot be set to Registration directly');
-select pg_temp.assert_code(format($$insert into app.pathshala_terms (center_id, name, starts_on, ends_on, status) values (%L, 'Direct', '2028-09-03', '2029-05-27', 'registration')$$, :'c'),
+select pg_temp.assert_code(format($$insert into app.pathshala_terms (center_id, name, starts_on, ends_on, status) values (%L, 'Direct', '2028-09-03', '2029-05-27', 'registration')$$, :c),
   '22023', 'use Open registration on its Fees screen', 'term form: a new term cannot start out of Draft');
-select pg_temp.assert_code(format($$update app.pathshala_terms set payment_mode = 'pay_now' where id = %L$$, :'t1'),
+select pg_temp.assert_code(format($$update app.pathshala_terms set payment_mode = 'pay_now' where id = %L$$, :t1),
   '22023', 'on its Fees screen', 'term form: pay now cannot be chosen by a direct write');
-select pg_temp.assert_code(format($$update app.pathshala_terms set fees_locked_at = now() where id = %L$$, :'t1'),
+select pg_temp.assert_code(format($$update app.pathshala_terms set fees_locked_at = now() where id = %L$$, :t1),
   '22023', 'on its Fees screen', 'term form: the lock cannot be written directly');
 update app.pathshala_terms set registration_closes_at = now() + interval '30 days', sibling_discount_pct = 10,
        fee_per_family_cap_cents = 27500 where id = :t1;
@@ -195,47 +197,46 @@ select pg_temp.assert(exists (select 1 from app.pathshala_terms where center_id 
 -- ═════════════════════════════════════════════════════════════════════════════
 begin;
 select pg_temp.sign_in(:u_pia);
-select pg_temp.assert_code(format($$select app.set_pathshala_level_fees(%L, %L)$$, :'t1', jsonb_build_array(jsonb_build_object('level_id', :'lv_tod', 'fee_cents', 49))),
+select pg_temp.assert_code(format($$select app.set_pathshala_level_fees(%L, %L)$$, :t1, jsonb_build_array(jsonb_build_object('level_id', :lv_tod, 'fee_cents', 49))),
   '22023', 'A fee is $0 (Free) or at least $0.50', 'fees: 1 to 49 cents is refused');
-select pg_temp.assert_code(format($$select app.set_pathshala_level_fees(%L, %L)$$, :'t1', jsonb_build_array(jsonb_build_object('level_id', :'lv_tod', 'fee_cents', 'abc'))),
+select pg_temp.assert_code(format($$select app.set_pathshala_level_fees(%L, %L)$$, :t1, jsonb_build_array(jsonb_build_object('level_id', :lv_tod, 'fee_cents', 'abc'))),
   '22023', 'must be a whole number', 'fees: a fee must be a whole number of cents');
 select app.set_pathshala_level_fees(:t1, jsonb_build_array(
-  jsonb_build_object('level_id', :'lv_tod', 'fee_cents', 4500), jsonb_build_object('level_id', :'lv_j1', 'fee_cents', 13000),
-  jsonb_build_object('level_id', :'lv_j2', 'fee_cents', 13000), jsonb_build_object('level_id', :'lv_j3', 'fee_cents', 13000),
-  jsonb_build_object('level_id', :'lv_j5', 'fee_cents', 13000), jsonb_build_object('level_id', :'lv_dads', 'fee_cents', 5000),
-  jsonb_build_object('level_id', :'lv_moms', 'fee_cents', 5000), jsonb_build_object('level_id', :'lv_g1', 'fee_cents', 0))) as fees \gset
+  jsonb_build_object('level_id', :lv_tod, 'fee_cents', 4500), jsonb_build_object('level_id', :lv_j1, 'fee_cents', 13000),
+  jsonb_build_object('level_id', :lv_j2, 'fee_cents', 13000), jsonb_build_object('level_id', :lv_j3, 'fee_cents', 13000),
+  jsonb_build_object('level_id', :lv_j5, 'fee_cents', 13000), jsonb_build_object('level_id', :lv_dads, 'fee_cents', 5000),
+  jsonb_build_object('level_id', :lv_moms, 'fee_cents', 5000), jsonb_build_object('level_id', :lv_g1, 'fee_cents', 0))) as fees \gset
 select pg_temp.assert(jsonb_array_length(:'fees'::jsonb -> 'fees') = 8 and not (:'fees'::jsonb ->> 'locked')::boolean
                       and (select array_agg(x ->> 'level' order by x ->> 'level') from jsonb_array_elements(:'fees'::jsonb -> 'missing') x) = array['Gujarati 3', 'Hindi 1'],
   'fees: the principal sets the owner''s example (Toddler $45, Jainism $130, adult classes $50, Gujarati 1 Free) while the term is a draft, and sees what is still missing');
 select pg_temp.assert((select fee_cents from app.pathshala_level_fees where term_id = :t1 and level_id = :lv_g1) = 0, 'fees: $0 is allowed (Free)');
-select pg_temp.assert_code(format($$select app.open_pathshala_registration(%L)$$, :'t1'),
+select pg_temp.assert_code(format($$select app.open_pathshala_registration(%L)$$, :t1),
   '22023', 'Set the fee for Gujarati 3 and Hindi 1 before opening registration.', 'fees: opening registration is refused with the missing levels named');
 select pg_temp.assert((select status = 'draft' and fees_locked_at is null from app.pathshala_terms where id = :t1), 'fees: the refused opening changed nothing');
 commit;
 begin;
 select pg_temp.sign_in(:u_mira);
-select pg_temp.assert_code(format($$select app.set_pathshala_level_fees(%L, %L)$$, :'t1', jsonb_build_array(jsonb_build_object('level_id', :'lv_g3', 'fee_cents', 100))),
+select pg_temp.assert_code(format($$select app.set_pathshala_level_fees(%L, %L)$$, :t1, jsonb_build_array(jsonb_build_object('level_id', :lv_g3, 'fee_cents', 100))),
   '42501', 'needs pathshala.manage', 'fees: a member cannot set fees');
-select pg_temp.assert_raises(format($$insert into app.pathshala_level_fees (center_id, term_id, level_id, fee_cents) values (%L, %L, %L, 100)$$, :'c', :'t1', :'lv_g3'),
+select pg_temp.assert_raises(format($$insert into app.pathshala_level_fees (center_id, term_id, level_id, fee_cents) values (%L, %L, %L, 100)$$, :c, :t1, :lv_g3),
   'permission denied', 'fees: nobody writes the fee table directly');
 rollback;
 
 -- ═════════════════════════════════════════════════════════════════════════════
 -- Payment mode and its readiness (§2.7, P15–P20)
 -- ═════════════════════════════════════════════════════════════════════════════
-savepoint giving_off;
 insert into app.center_modules (center_id, module_key, enabled, reason) values (:c, 'giving', false, 'test');
 begin;
 select pg_temp.sign_in(:u_pia);
 select pg_temp.assert(app.pathshala_pay_now_ready(:c) = 'Pay at registration needs Pledges & donations switched on (Settings › Modules).',
   'pay now: with Giving off the readiness answer says so');
-select pg_temp.assert_code(format($$select app.set_pathshala_term_rules(%L, '{"payment_mode":"pay_now"}')$$, :'t1'),
+select pg_temp.assert_code(format($$select app.set_pathshala_term_rules(%L, '{"payment_mode":"pay_now"}')$$, :t1),
   '22023', 'Pay at registration needs Pledges & donations switched on', 'pay now: refused while Giving is off');
 rollback;
 delete from app.center_modules where center_id = :c and module_key = 'giving';
 begin;
 select pg_temp.sign_in(:u_pia);
-select pg_temp.assert_code(format($$select app.set_pathshala_term_rules(%L, '{"payment_mode":"pay_now"}')$$, :'t1'),
+select pg_temp.assert_code(format($$select app.set_pathshala_term_rules(%L, '{"payment_mode":"pay_now"}')$$, :t1),
   '22023', 'Pay at registration needs card or PayPal payments connected', 'pay now: refused while no online method takes payments');
 rollback;
 insert into app.integration_connections (id, center_id, provider, status, settings)
@@ -246,11 +247,11 @@ begin;
 select pg_temp.sign_in(:u_pia);
 select pg_temp.assert(app.pathshala_pay_now_ready(:c) = 'Pay at registration waits for fee receipts (P13).',
   'pay now: with card payments live it still waits for fee receipts (P13) until 0595');
-select pg_temp.assert_code(format($$select app.set_pathshala_term_rules(%L, '{"payment_mode":"pay_now"}')$$, :'t1'),
+select pg_temp.assert_code(format($$select app.set_pathshala_term_rules(%L, '{"payment_mode":"pay_now"}')$$, :t1),
   '22023', 'Pay at registration waits for fee receipts (P13).', 'pay now: refused before 0595 with its sentence');
-select pg_temp.assert_code(format($$select app.set_pathshala_term_rules(%L, '{"seat_rule":"office","colour":1}')$$, :'t1'),
+select pg_temp.assert_code(format($$select app.set_pathshala_term_rules(%L, '{"seat_rule":"office","colour":1}')$$, :t1),
   '22023', 'A term has no rule called "colour".', 'rules: an unknown rule is refused');
-select pg_temp.assert_code(format($$select app.set_pathshala_term_rules(%L, '{"hold_hours":200}')$$, :'t1'),
+select pg_temp.assert_code(format($$select app.set_pathshala_term_rules(%L, '{"hold_hours":200}')$$, :t1),
   '22023', '1 to 168 hours', 'rules: a hold is 1 to 168 hours');
 select app.set_pathshala_term_rules(:t1, '{"seat_rule":"office"}') as r_office \gset
 select app.set_pathshala_term_rules(:t1, jsonb_build_object('seat_rule', 'automatic', 'late_fee_cents', 2500,
@@ -258,32 +259,30 @@ select app.set_pathshala_term_rules(:t1, jsonb_build_object('seat_rule', 'automa
 select pg_temp.assert((:'r_office'::jsonb ->> 'seat_rule') = 'office' and (:'r_auto'::jsonb ->> 'seat_rule') = 'automatic'
                       and (:'r_auto'::jsonb -> 'window' ->> 'late_fee_cents')::int = 2500,
   'rules: the principal sets the seat rule (office step, pledge mode) and the late window and fee while the term is a draft');
-select pg_temp.assert_code(format($$select app.set_pathshala_term_rules(%L, '{"fund_id":"75000000-0000-4000-8000-000000000f01"}')$$, :'t1'),
+select pg_temp.assert_code(format($$select app.set_pathshala_term_rules(%L, '{"fund_id":"75000000-0000-4000-8000-000000000f01"}')$$, :t1),
   '42501', 'needs giving.manage', 'rules: only the treasurer chooses the fund');
 commit;
-savepoint pay_now_direct;
-update app.pathshala_terms set payment_mode = 'pay_now' where id = :t1;
-select pg_temp.assert_raises(format($$update app.pathshala_terms set seat_rule = 'office' where id = %L$$, :'t1'),
-  'pathshala_terms_payment_rules', 'rules: the table refuses the office step with pay now');
 begin;
+update app.pathshala_terms set payment_mode = 'pay_now' where id = :t1;
+select pg_temp.assert_raises(format($$update app.pathshala_terms set seat_rule = 'office' where id = %L$$, :t1),
+  'pathshala_terms_payment_rules', 'rules: the table refuses the office step with pay now');
 select pg_temp.sign_in(:u_pia);
-select pg_temp.assert_code(format($$select app.set_pathshala_term_rules(%L, '{"seat_rule":"office"}')$$, :'t1'),
+select pg_temp.assert_code(format($$select app.set_pathshala_term_rules(%L, '{"seat_rule":"office"}')$$, :t1),
   '22023', 'The office step works only with Pledge', 'rules: the office step is refused in a pay-now term, in plain English');
 rollback;
-rollback to savepoint pay_now_direct;
 
 -- ═════════════════════════════════════════════════════════════════════════════
 -- Opening registration: the lock, the campaign and fund
 -- ═════════════════════════════════════════════════════════════════════════════
 begin;
 select pg_temp.sign_in(:u_pia);
-select app.set_pathshala_level_fees(:t1, jsonb_build_array(jsonb_build_object('level_id', :'lv_g3', 'fee_cents', 13000),
-                                                           jsonb_build_object('level_id', :'lv_h1', 'fee_cents', 13000))) as fees2 \gset
+select app.set_pathshala_level_fees(:t1, jsonb_build_array(jsonb_build_object('level_id', :lv_g3, 'fee_cents', 13000),
+                                                           jsonb_build_object('level_id', :lv_h1, 'fee_cents', 13000))) as fees2 \gset
 select app.open_pathshala_registration(:t1) as opened \gset
 select pg_temp.assert((:'opened'::jsonb ->> 'status') = 'registration' and not (:'opened'::jsonb ->> 'already_open')::boolean
-                      and (:'opened'::jsonb ->> 'fund_id') = :'fund_p' and (:'opened'::jsonb ->> 'payment_mode') = 'pledge'
-                      and jsonb_array_length(:'opened'::jsonb -> 'warnings') = 4,
-  'open: every offered level has its fee, so registration opens (pledge mode) with the Pathshala fund; the four offered levels with no age band are warned about');
+                      and (:'opened'::jsonb ->> 'fund_id') = :fund_p and (:'opened'::jsonb ->> 'payment_mode') = 'pledge'
+                      and jsonb_array_length(:'opened'::jsonb -> 'warnings') = 3,
+  'open: every offered level has its fee, so registration opens (pledge mode) with the Pathshala fund; the three offered levels with no age band (Gujarati 1 and 3, Hindi 1) are warned about');
 select app.open_pathshala_registration(:t1) as again \gset
 select pg_temp.assert((:'again'::jsonb ->> 'already_open')::boolean, 'open: opening again changes nothing');
 commit;
@@ -293,7 +292,7 @@ select pg_temp.assert((select t.status = 'registration' and t.fees_locked_at is 
                          from app.pathshala_terms t join app.campaigns c on c.id = t.campaign_id where t.id = :t1),
   'open: the fees and rules are locked, the cut-off (the first day) and withdrawal deadline (first class day + 14) are fixed, and the closed campaign "Pathshala fees 2026-27" is linked to the Pathshala fund');
 select pg_temp.assert((select count(*) from app.campaigns where center_id = :c and kind = 'pathshala') = 1, 'open: one campaign, however often it is opened');
-select pg_temp.assert(exists (select 1 from app.audit_log where record_table = 'pathshala_terms' and record_id = :'t1'
+select pg_temp.assert(exists (select 1 from app.audit_log where record_table = 'pathshala_terms' and record_id = :t1
                                 and reason like 'Opened Pathshala registration for 2026-27 (pledge mode; fees and rules locked)%'),
   'open: the opening is audited in plain words');
 
@@ -305,20 +304,20 @@ insert into app.pathshala_enrollment_fees (center_id, enrollment_id, term_id, ho
 values (:c, '75000000-0000-4000-8000-000000000ee1', :t1, :h2, :lv_j2, 'child', 1, 13000, 13000);
 begin;
 select pg_temp.sign_in(:u_pia);
-select pg_temp.assert_code(format($$select app.set_pathshala_level_fees(%L, %L)$$, :'t1', jsonb_build_array(jsonb_build_object('level_id', :'lv_j2', 'fee_cents', 14000))),
+select pg_temp.assert_code(format($$select app.set_pathshala_level_fees(%L, %L)$$, :t1, jsonb_build_array(jsonb_build_object('level_id', :lv_j2, 'fee_cents', 14000))),
   '42501', 'The treasurer (giving.manage) can change them', 'locked: the principal can no longer change a fee');
-select pg_temp.assert_code(format($$select app.set_pathshala_term_rules(%L, '{"hold_hours":24}')$$, :'t1'),
+select pg_temp.assert_code(format($$select app.set_pathshala_term_rules(%L, '{"hold_hours":24}')$$, :t1),
   '42501', 'The treasurer (giving.manage) can change them', 'locked: nor a rule');
-select pg_temp.assert_code(format($$update app.pathshala_terms set sibling_discount_pct = 20 where id = %L$$, :'t1'),
+select pg_temp.assert_code(format($$update app.pathshala_terms set sibling_discount_pct = 20 where id = %L$$, :t1),
   '22023', 'are locked since registration opened', 'locked: the term form cannot change a locked rule directly');
 update app.pathshala_terms set name = '2026-27' where id = :t1;
 rollback;
 begin;
 select pg_temp.sign_in(:u_tara);
-select pg_temp.assert_code(format($$select app.set_pathshala_level_fees(%L, %L)$$, :'t1', jsonb_build_array(jsonb_build_object('level_id', :'lv_j2', 'fee_cents', 14000))),
+select pg_temp.assert_code(format($$select app.set_pathshala_level_fees(%L, %L)$$, :t1, jsonb_build_array(jsonb_build_object('level_id', :lv_j2, 'fee_cents', 14000))),
   '22023', 'say why the fees change', 'locked: the treasurer must give a reason');
-select app.set_pathshala_level_fees(:t1, jsonb_build_array(jsonb_build_object('level_id', :'lv_j2', 'fee_cents', 14000)), 'Board raised the Jainism 2 fee') as f3 \gset
-select pg_temp.assert_code(format($$select app.set_pathshala_level_fees(%L, %L, 'x')$$, :'t1', jsonb_build_array(jsonb_build_object('level_id', :'lv_j2', 'fee_cents', null))),
+select app.set_pathshala_level_fees(:t1, jsonb_build_array(jsonb_build_object('level_id', :lv_j2, 'fee_cents', 14000)), 'Board raised the Jainism 2 fee') as f3 \gset
+select pg_temp.assert_code(format($$select app.set_pathshala_level_fees(%L, %L, 'x')$$, :t1, jsonb_build_array(jsonb_build_object('level_id', :lv_j2, 'fee_cents', null))),
   '22023', 'Jainism 2 has a class in 2026-27, so its fee cannot be removed while registration is open.', 'locked: a fee of an offered level cannot be removed');
 commit;
 select pg_temp.assert((select fee_cents from app.pathshala_level_fees where term_id = :t1 and level_id = :lv_j2) = 14000
@@ -327,7 +326,7 @@ select pg_temp.assert((select fee_cents from app.pathshala_level_fees where term
   'locked: the treasurer changes a fee with a reason (audited); the quote already made stays at $130.00');
 begin;
 select pg_temp.sign_in(:u_tara);
-select app.set_pathshala_level_fees(:t1, jsonb_build_array(jsonb_build_object('level_id', :'lv_j2', 'fee_cents', 13000)), 'Back to $130 for the example') as f4 \gset
+select app.set_pathshala_level_fees(:t1, jsonb_build_array(jsonb_build_object('level_id', :lv_j2, 'fee_cents', 13000)), 'Back to $130 for the example') as f4 \gset
 commit;
 delete from app.pathshala_enrollment_fees where enrollment_id = '75000000-0000-4000-8000-000000000ee1';
 delete from app.pathshala_enrollments where id = '75000000-0000-4000-8000-000000000ee1';
@@ -339,7 +338,7 @@ delete from app.pathshala_enrollments where id = '75000000-0000-4000-8000-000000
 select count(*) as audit_before from app.audit_log \gset
 begin;
 select pg_temp.sign_in(:u_mira);
-select app.pathshala_quote(:t1, :h1, :'family'::jsonb) as q \gset
+select app.pathshala_quote(:t1, :h1, :family::jsonb) as q \gset
 commit;
 select pg_temp.assert((select array_agg((x ->> 'total_cents')::int order by (x ->> 'index')::int) from jsonb_array_elements(:'q'::jsonb -> 'lines') x)
                         = array[13000, 11700, 2800, 5000]
@@ -358,7 +357,7 @@ select pg_temp.assert((select count(*) from app.audit_log) = :audit_before::bigi
 update app.pathshala_terms set fee_per_family_cap_cents = null where id = :t1;
 begin;
 select pg_temp.sign_in(:u_mira);
-select app.pathshala_quote(:t1, :h1, :'family'::jsonb) as q_nocap \gset
+select app.pathshala_quote(:t1, :h1, :family::jsonb) as q_nocap \gset
 commit;
 select pg_temp.assert((:'q_nocap'::jsonb ->> 'total_cents')::int = 33750 and (:'q_nocap'::jsonb -> 'lines' -> 2 ->> 'total_cents')::int = 4050,
   'quote: with no cap Anya pays $40.50 and the family $337.50');
@@ -367,7 +366,7 @@ update app.pathshala_terms set fee_per_family_cap_cents = 27500 where id = :t1;
 update app.pathshala_terms set registration_closes_at = now() - interval '1 day' where id = :t1;
 begin;
 select pg_temp.sign_in(:u_mira);
-select app.pathshala_quote(:t1, :h1, :'family'::jsonb) as q_late \gset
+select app.pathshala_quote(:t1, :h1, :family::jsonb) as q_late \gset
 select app.pathshala_registration_options(:t1, :h1) as opt_late \gset
 commit;
 select pg_temp.assert((:'q_late'::jsonb ->> 'total_cents')::int = 42500 and (:'q_late'::jsonb ->> 'late')::boolean
@@ -378,11 +377,11 @@ update app.pathshala_terms set registration_closes_at = now() + interval '30 day
 begin;
 select pg_temp.sign_in(:u_pia);
 select app.pathshala_fee_example(:t1, jsonb_build_object('late', true, 'lines', jsonb_build_array(
-  jsonb_build_object('name', 'Riya', 'age', 12, 'level_id', :'lv_j5'), jsonb_build_object('name', 'Dev', 'age', 9, 'level_id', :'lv_j2'),
-  jsonb_build_object('name', 'Anya', 'age', 4, 'level_id', :'lv_tod'), jsonb_build_object('name', 'Mira', 'age', 44, 'level_id', :'lv_moms')))) as ex_late \gset
+  jsonb_build_object('name', 'Riya', 'age', 12, 'level_id', :lv_j5), jsonb_build_object('name', 'Dev', 'age', 9, 'level_id', :lv_j2),
+  jsonb_build_object('name', 'Anya', 'age', 4, 'level_id', :lv_tod), jsonb_build_object('name', 'Mira', 'age', 44, 'level_id', :lv_moms)))) as ex_late \gset
 select app.pathshala_fee_example(:t1, jsonb_build_array(
-  jsonb_build_object('name', 'Riya', 'age', 12, 'level_id', :'lv_j5'), jsonb_build_object('name', 'Dev', 'age', 9, 'level_id', :'lv_j2'),
-  jsonb_build_object('name', 'Anya', 'age', 4, 'level_id', :'lv_tod'), jsonb_build_object('name', 'Mira', 'age', 44, 'level_id', :'lv_moms'))) as ex \gset
+  jsonb_build_object('name', 'Riya', 'age', 12, 'level_id', :lv_j5), jsonb_build_object('name', 'Dev', 'age', 9, 'level_id', :lv_j2),
+  jsonb_build_object('name', 'Anya', 'age', 4, 'level_id', :lv_tod), jsonb_build_object('name', 'Mira', 'age', 44, 'level_id', :lv_moms))) as ex \gset
 commit;
 select pg_temp.assert((:'ex'::jsonb ->> 'total_cents')::int = 32500 and (:'ex_late'::jsonb ->> 'total_cents')::int = 42500,
   'Try a family: the Fees screen shows the same $325.00, and $425.00 in the late window');
@@ -391,7 +390,7 @@ select pg_temp.assert((:'ex'::jsonb ->> 'total_cents')::int = 32500 and (:'ex_la
 \set ties '''[{"person_id":"75000000-0000-4000-8000-0000000000a5","track_id":"75000000-0000-4000-8000-0000000000d1","level_id":"75000000-0000-4000-8000-0000000000e2"},{"person_id":"75000000-0000-4000-8000-0000000000a6","track_id":"75000000-0000-4000-8000-0000000000d1","level_id":"75000000-0000-4000-8000-0000000000e0"},{"person_id":"75000000-0000-4000-8000-0000000000a4","track_id":"75000000-0000-4000-8000-0000000000d1","level_id":"75000000-0000-4000-8000-0000000000e5"}]'''
 begin;
 select pg_temp.sign_in(:u_mira);
-select app.pathshala_quote(:t1, :h1, :'ties'::jsonb) as q_ties \gset
+select app.pathshala_quote(:t1, :h1, :ties::jsonb) as q_ties \gset
 commit;
 select pg_temp.assert((select array_agg((x ->> 'family_rank')::int order by (x ->> 'index')::int) from jsonb_array_elements(:'q_ties'::jsonb -> 'lines') x) = array[2, 3, 1],
   'P2: listed Dev, Anya, Riya: Riya (the older of the two $130 children) pays full, Dev is second, Anya ($45) third');
@@ -403,16 +402,18 @@ insert into app.pathshala_enrollment_fees (center_id, enrollment_id, term_id, ho
 values (:c, '75000000-0000-4000-8000-000000000ee2', :t1, :h1, :lv_j5, 'child', 1, 13000, 13000);
 begin;
 select pg_temp.sign_in(:u_mira);
-select app.pathshala_quote(:t1, :h1, jsonb_build_array(jsonb_build_object('person_id', :'p_dev', 'track_id', :'tr_j', 'level_id', :'lv_j2'),
-                                                        jsonb_build_object('person_id', :'p_dev', 'track_id', :'tr_g', 'level_id', :'lv_g3'))) as q_batch \gset
+select app.pathshala_quote(:t1, :h1, jsonb_build_array(jsonb_build_object('person_id', :p_dev, 'track_id', :tr_j, 'level_id', :lv_j2),
+                                                        jsonb_build_object('person_id', :p_dev, 'track_id', :tr_g, 'level_id', :lv_g3))) as q_batch \gset
 commit;
-select pg_temp.assert((select array_agg((x ->> 'family_rank')::int || '/' || (x ->> 'total_cents') order by (x ->> 'index')::int)
-                         from jsonb_array_elements(:'q_batch'::jsonb -> 'lines') x) = array['2/11700', '2/11700'],
-  'quote: Riya was registered earlier, so Dev is the second child in a later batch and pays 10% less on EACH of his two tracks (Jainism 2 and Gujarati 3)');
--- The cap counts the earlier batch: Riya $130 + Dev $117 + $117 = $364 > $275: Dev's second line is cut to the cap.
-select pg_temp.assert((:'q_batch'::jsonb ->> 'children_total_cents')::int = 23400
-                      and (select sum((x ->> 'cap_reduction_cents')::int) from jsonb_array_elements(:'q_batch'::jsonb -> 'lines') x) = 0,
-  'quote: Riya''s $130.00 counts toward the cap first ($130 + $117 + $117 = $364 is over $275: see the next check)');
+select pg_temp.assert((select array_agg((x ->> 'family_rank')::int || '/' || (x ->> 'sibling_discount_cents') order by (x ->> 'index')::int)
+                         from jsonb_array_elements(:'q_batch'::jsonb -> 'lines') x) = array['2/1300', '2/1300'],
+  'quote: Riya was registered earlier, so Dev is the second child in a later batch and gets 10% off EACH of his two tracks (Jainism 2 and Gujarati 3)');
+-- The cap counts the earlier batch first: Riya $130 + Dev $117 = $247; Dev's second $117 would make $364, so it is cut by
+-- $89 to $28 (the children's total is the $275 cap).
+select pg_temp.assert((select array_agg((x ->> 'cap_reduction_cents') || '/' || (x ->> 'total_cents') order by (x ->> 'index')::int)
+                         from jsonb_array_elements(:'q_batch'::jsonb -> 'lines') x) = array['0/11700', '8900/2800']
+                      and (:'q_batch'::jsonb ->> 'children_total_cents')::int = 14500,
+  'quote: Riya''s $130.00 already counts toward the $275.00 cap, so Dev''s second line is cut to $28.00');
 delete from app.pathshala_enrollment_fees where enrollment_id = '75000000-0000-4000-8000-000000000ee2';
 delete from app.pathshala_enrollments where id = '75000000-0000-4000-8000-000000000ee2';
 
@@ -420,9 +421,9 @@ delete from app.pathshala_enrollments where id = '75000000-0000-4000-8000-000000
 -- birth date who is not recorded as a child is an adult.
 begin;
 select pg_temp.sign_in(:u_mira);
-select app.pathshala_quote(:t1, :h1, jsonb_build_array(jsonb_build_object('person_id', :'p_kid_nodob', 'track_id', :'tr_g', 'level_id', :'lv_g3'),
-                                                        jsonb_build_object('person_id', :'p_adult_nodob', 'track_id', :'tr_g', 'level_id', :'lv_g3'),
-                                                        jsonb_build_object('person_id', :'p_dev', 'track_id', :'tr_j', 'level_id', :'lv_j2'))) as q_nodob \gset
+select app.pathshala_quote(:t1, :h1, jsonb_build_array(jsonb_build_object('person_id', :p_kid_nodob, 'track_id', :tr_g, 'level_id', :lv_g3),
+                                                        jsonb_build_object('person_id', :p_adult_nodob, 'track_id', :tr_g, 'level_id', :lv_g3),
+                                                        jsonb_build_object('person_id', :p_dev, 'track_id', :tr_j, 'level_id', :lv_j2))) as q_nodob \gset
 commit;
 select pg_temp.assert((select array_agg((x ->> 'learner_kind') || '/' || coalesce(x ->> 'family_rank', '-') || '/' || (x ->> 'total_cents') order by (x ->> 'index')::int)
                          from jsonb_array_elements(:'q_nodob'::jsonb -> 'lines') x) = array['child/2/11700', 'adult/-/13000', 'child/1/13000'],
@@ -433,14 +434,14 @@ update app.pathshala_terms set sibling_discount_pct = 15, fee_per_family_cap_cen
 insert into app.pathshala_level_fees (center_id, term_id, level_id, fee_cents) values (:c, :t2, :lv_j1, 4550);
 begin;
 select pg_temp.sign_in(:u_pia);
-select app.pathshala_fee_example(:t2, jsonb_build_array(jsonb_build_object('name', 'A', 'age', 6, 'level_id', :'lv_j1'),
-                                                         jsonb_build_object('name', 'B', 'age', 5, 'level_id', :'lv_j1'))) as q_round \gset
+select app.pathshala_fee_example(:t2, jsonb_build_array(jsonb_build_object('name', 'A', 'age', 6, 'level_id', :lv_j1),
+                                                         jsonb_build_object('name', 'B', 'age', 5, 'level_id', :lv_j1))) as q_round \gset
 commit;
 update app.pathshala_level_fees set fee_cents = 4555 where term_id = :t2 and level_id = :lv_j1;
 begin;
 select pg_temp.sign_in(:u_pia);
-select app.pathshala_fee_example(:t2, jsonb_build_array(jsonb_build_object('name', 'A', 'age', 6, 'level_id', :'lv_j1'),
-                                                         jsonb_build_object('name', 'B', 'age', 5, 'level_id', :'lv_j1'))) as q_round2 \gset
+select app.pathshala_fee_example(:t2, jsonb_build_array(jsonb_build_object('name', 'A', 'age', 6, 'level_id', :lv_j1),
+                                                         jsonb_build_object('name', 'B', 'age', 5, 'level_id', :lv_j1))) as q_round2 \gset
 commit;
 select pg_temp.assert((:'q_round'::jsonb -> 'lines' -> 1 ->> 'sibling_discount_cents')::int = 683 and (:'q_round'::jsonb -> 'lines' -> 1 ->> 'total_cents')::int = 3867
                       and (:'q_round2'::jsonb -> 'lines' -> 1 ->> 'sibling_discount_cents')::int = 683 and (:'q_round2'::jsonb -> 'lines' -> 1 ->> 'total_cents')::int = 3872,
@@ -449,19 +450,19 @@ select pg_temp.assert((:'q_round'::jsonb -> 'lines' -> 1 ->> 'sibling_discount_c
 -- Refusals and who may ask.
 begin;
 select pg_temp.sign_in(:u_mira);
-select pg_temp.assert_code(format($$select app.pathshala_quote(%L, %L, %L)$$, :'t1', :'h1', jsonb_build_array(jsonb_build_object('person_id', :'p_dev', 'track_id', :'tr_g', 'level_id', :'lv_g4'))),
+select pg_temp.assert_code(format($$select app.pathshala_quote(%L, %L, %L)$$, :t1, :h1, jsonb_build_array(jsonb_build_object('person_id', :p_dev, 'track_id', :tr_g, 'level_id', :lv_g4))),
   '22023', 'Gujarati 4 has no fee for 2026-27 yet, so it cannot be chosen.', 'quote: a level without a fee is refused, never guessed');
-select pg_temp.assert_code(format($$select app.pathshala_quote(%L, %L, %L)$$, :'t1', :'h2', :'family'),
+select pg_temp.assert_code(format($$select app.pathshala_quote(%L, %L, %L)$$, :t1, :h2, :family),
   '42501', 'Only an adult of the family', 'quote: another family''s adult cannot see this family''s fees');
 rollback;
 begin;
 select pg_temp.sign_in(:u_riya);
-select pg_temp.assert_code(format($$select app.pathshala_quote(%L, %L, %L)$$, :'t1', :'h1', :'family'),
+select pg_temp.assert_code(format($$select app.pathshala_quote(%L, %L, %L)$$, :t1, :h1, :family),
   '42501', 'Only an adult of the family', 'quote: a child of the household cannot see what it costs (money is adults only)');
 rollback;
 begin;
 select pg_temp.sign_in(:u_cora);
-select pg_temp.assert((app.pathshala_quote(:t1, :h1, :'family'::jsonb) ->> 'total_cents')::int = 32500, 'quote: Pathshala staff with pathshala.view can price a family');
+select pg_temp.assert((app.pathshala_quote(:t1, :h1, :family::jsonb) ->> 'total_cents')::int = 32500, 'quote: Pathshala staff with pathshala.view can price a family');
 rollback;
 
 -- ═════════════════════════════════════════════════════════════════════════════
@@ -478,7 +479,7 @@ select pg_temp.assert((:'opt'::jsonb ->> 'can_register')::boolean and (:'opt'::j
                       and (:'opt'::jsonb -> 'term' ->> 'seat_rule') = 'automatic' and (:'opt'::jsonb -> 'term' ->> 'withdrawal_credit_until') = '2026-09-20'
                       and (:'opt'::jsonb -> 'term' ->> 'age_cutoff_on') = '2026-09-06' and (:'opt'::jsonb -> 'term' ->> 'membership_required')::boolean
                       and (:'opt'::jsonb -> 'term' -> 'waiver') = 'null'::jsonb
-                      and (:'opt'::jsonb -> 'household' ->> 'id') = :'h1' and (:'opt'::jsonb -> 'household' ->> 'membership') = 'active'
+                      and (:'opt'::jsonb -> 'household' ->> 'id') = :h1 and (:'opt'::jsonb -> 'household' ->> 'membership') = 'active'
                       and jsonb_array_length(:'opt'::jsonb -> 'households') = 1,
   'options: the term (window, payment mode, hold, office payment, seat rule, deadlines, membership, no waiver yet) and the caller''s household (a member)');
 select pg_temp.assert((select array_agg(x ->> 'first_name' order by o) from jsonb_array_elements(:'opt'::jsonb -> 'learners') with ordinality a(x, o))
@@ -490,9 +491,9 @@ select pg_temp.assert((select array_agg(x ->> 'first_name' order by o) from json
                       and (select (x ->> 'needs_birth_date')::boolean from jsonb_array_elements(:'opt'::jsonb -> 'learners') x where x ->> 'first_name' = 'Isha'),
   'options: everyone in the household with their age on the cut-off: children first (oldest first, no birth date last), then the adults, "Me" first');
 select pg_temp.assert((select x -> 'suggested' from jsonb_array_elements(:'opt'::jsonb -> 'learners') x where x ->> 'first_name' = 'Dev')
-                        = jsonb_build_array(jsonb_build_object('track_id', :'tr_j', 'level_id', :'lv_j2', 'reason', 'age'))
-                      and (select x -> 'suggested' -> 0 ->> 'level_id' from jsonb_array_elements(:'opt'::jsonb -> 'learners') x where x ->> 'first_name' = 'Mira') = :'lv_moms',
-  'options: a level is suggested by age (Dev 9: Jainism 2; Mira: the adult class), the reason given');
+                        = jsonb_build_array(jsonb_build_object('track_id', :tr_j, 'level_id', :lv_j2, 'reason', 'age'))
+                      and (select x -> 'suggested' -> 0 ->> 'level_id' from jsonb_array_elements(:'opt'::jsonb -> 'learners') x where x ->> 'first_name' = 'Mira') in (:lv_dads, :lv_moms),
+  'options: a level is suggested by age (Dev 9: Jainism 2; Mira 44: an adult class), the reason given');
 select pg_temp.assert((select array_agg(x ->> 'name' order by x ->> 'name') from jsonb_array_elements(:'opt'::jsonb -> 'tracks') x) = array['Gujarati', 'Hindi', 'Jainism']
                       and (select array_agg((y ->> 'name') || ':' || (y ->> 'fee_cents') || ':' || (y ->> 'seats') || ':' || (y ->> 'band') order by o)
                              from jsonb_array_elements(:'opt'::jsonb -> 'tracks') x, jsonb_array_elements(x -> 'levels') with ordinality b(y, o)
@@ -514,7 +515,7 @@ select pg_temp.assert(not (:'opt_kid'::jsonb ->> 'can_register')::boolean
   'options: a child sees "Ask a parent or guardian in your family to register you."');
 begin;
 select pg_temp.sign_in(:u_nita);
-select pg_temp.assert_code(format($$select app.pathshala_registration_options(%L, %L)$$, :'t1', :'h1'),
+select pg_temp.assert_code(format($$select app.pathshala_registration_options(%L, %L)$$, :t1, :h1),
   '42501', 'Only an adult of the family', 'options: another family cannot read this family''s options');
 rollback;
 
@@ -522,28 +523,28 @@ rollback;
 select count(*) as audit_before2 from app.audit_log \gset
 begin;
 select pg_temp.sign_in(:u_mira);
-select app.preview_pathshala_registration(:t1, :h1, :'family'::jsonb) as pv \gset
+select app.preview_pathshala_registration(:t1, :h1, :family::jsonb) as pv \gset
 select app.preview_pathshala_registration(:t1, :h1, jsonb_build_array(
-  jsonb_build_object('person_id', :'p_dev', 'track_id', :'tr_g', 'level_id', null),
-  jsonb_build_object('new_child', jsonb_build_object('first_name', 'Tara', 'last_name', 'Shah', 'date_of_birth', '2020-06-01'), 'track_id', :'tr_j', 'level_id', :'lv_tod'),
-  jsonb_build_object('person_id', :'p_anya', 'track_id', :'tr_j', 'level_id', :'lv_j2'))) as pv2 \gset
-select pg_temp.assert_code(format($$select app.preview_pathshala_registration(%L, %L, %L)$$, :'t1', :'h1',
-  jsonb_build_array(jsonb_build_object('person_id', :'p_dev', 'track_id', :'tr_j', 'level_id', :'lv_moms'))),
+  jsonb_build_object('person_id', :p_dev, 'track_id', :tr_g, 'level_id', null),
+  jsonb_build_object('new_child', jsonb_build_object('first_name', 'Tara', 'last_name', 'Shah', 'date_of_birth', '2020-06-01'), 'track_id', :tr_j, 'level_id', :lv_tod),
+  jsonb_build_object('person_id', :p_anya, 'track_id', :tr_j, 'level_id', :lv_j2))) as pv2 \gset
+select pg_temp.assert_code(format($$select app.preview_pathshala_registration(%L, %L, %L)$$, :t1, :h1,
+  jsonb_build_array(jsonb_build_object('person_id', :p_dev, 'track_id', :tr_j, 'level_id', :lv_moms))),
   '22023', 'Adult class (Moms) is for adults, and Dev is 9.', 'preview: a child cannot take an adult class');
-select pg_temp.assert_code(format($$select app.preview_pathshala_registration(%L, %L, %L)$$, :'t1', :'h1',
-  jsonb_build_array(jsonb_build_object('person_id', :'p_mira', 'track_id', :'tr_j', 'level_id', :'lv_j2'))),
+select pg_temp.assert_code(format($$select app.preview_pathshala_registration(%L, %L, %L)$$, :t1, :h1,
+  jsonb_build_array(jsonb_build_object('person_id', :p_mira, 'track_id', :tr_j, 'level_id', :lv_j2))),
   '22023', 'Jainism 2 is a children''s class, and Mira is an adult.', 'preview: an adult cannot take a children''s level');
-select pg_temp.assert_code(format($$select app.preview_pathshala_registration(%L, %L, %L)$$, :'t1', :'h1',
-  jsonb_build_array(jsonb_build_object('person_id', :'p_dev', 'track_id', :'tr_j', 'level_id', :'lv_j3'))),
+select pg_temp.assert_code(format($$select app.preview_pathshala_registration(%L, %L, %L)$$, :t1, :h1,
+  jsonb_build_array(jsonb_build_object('person_id', :p_dev, 'track_id', :tr_j, 'level_id', :lv_j3))),
   '22023', 'Jainism 3 is full and has no waitlist. Ask the Pathshala office.', 'preview: a full level with no waitlist is refused with the plain sentence');
-select pg_temp.assert_code(format($$select app.preview_pathshala_registration(%L, %L, %L)$$, :'t1', :'h1',
-  jsonb_build_array(jsonb_build_object('person_id', :'p_kiran', 'track_id', :'tr_j', 'level_id', :'lv_j2'))),
+select pg_temp.assert_code(format($$select app.preview_pathshala_registration(%L, %L, %L)$$, :t1, :h1,
+  jsonb_build_array(jsonb_build_object('person_id', :p_kiran, 'track_id', :tr_j, 'level_id', :lv_j2))),
   '22023', 'That learner is not a current member of the Shah household', 'preview: only current members of the household can be registered');
-select pg_temp.assert_code(format($$select app.preview_pathshala_registration(%L, %L, %L)$$, :'t1', :'h1',
-  jsonb_build_array(jsonb_build_object('person_id', :'p_dev', 'track_id', :'tr_j', 'level_id', :'lv_j2'), jsonb_build_object('person_id', :'p_dev', 'track_id', :'tr_j', 'level_id', :'lv_j5'))),
+select pg_temp.assert_code(format($$select app.preview_pathshala_registration(%L, %L, %L)$$, :t1, :h1,
+  jsonb_build_array(jsonb_build_object('person_id', :p_dev, 'track_id', :tr_j, 'level_id', :lv_j2), jsonb_build_object('person_id', :p_dev, 'track_id', :tr_j, 'level_id', :lv_j5))),
   '22023', 'Dev is listed twice for Jainism.', 'preview: one enrollment per learner per track (P10)');
-select pg_temp.assert_code(format($$select app.preview_pathshala_registration(%L, %L, %L)$$, :'t1', :'h1',
-  jsonb_build_array(jsonb_build_object('person_id', :'p_dev', 'level_id', :'lv_j2'))),
+select pg_temp.assert_code(format($$select app.preview_pathshala_registration(%L, %L, %L)$$, :t1, :h1,
+  jsonb_build_array(jsonb_build_object('person_id', :p_dev, 'level_id', :lv_j2))),
   '22023', 'Choose a track', 'preview: the track is required (even for "not sure")');
 commit;
 select pg_temp.assert((select array_agg(x ->> 'outcome' order by o) from jsonb_array_elements(:'pv'::jsonb -> 'lines') with ordinality a(x, o)) = array['seat', 'seat', 'seat', 'seat']
@@ -559,7 +560,7 @@ select pg_temp.assert((select count(*) from app.audit_log) = :audit_before2::big
 -- A family that is not a member waits for its membership (P6).
 begin;
 select pg_temp.sign_in(:u_nita);
-select app.preview_pathshala_registration(:t1, :h2, jsonb_build_array(jsonb_build_object('person_id', :'p_kiran', 'track_id', :'tr_j', 'level_id', :'lv_j2'))) as pv3 \gset
+select app.preview_pathshala_registration(:t1, :h2, jsonb_build_array(jsonb_build_object('person_id', :p_kiran, 'track_id', :tr_j, 'level_id', :lv_j2))) as pv3 \gset
 select app.pathshala_registration_options(:t1, :h2) as opt_nita \gset
 commit;
 select pg_temp.assert((:'pv3'::jsonb -> 'lines' -> 0 ->> 'outcome') = 'membership_hold' and (:'opt_nita'::jsonb -> 'household' ->> 'membership') = 'none',
@@ -568,8 +569,8 @@ select pg_temp.assert((:'pv3'::jsonb -> 'lines' -> 0 ->> 'outcome') = 'membershi
 insert into app.legal_documents (center_id, kind, version, title, body_md, published_at) values (:c, 'pathshala_waiver', '2026.1', 'Pathshala waiver', 'I agree.', now());
 begin;
 select pg_temp.sign_in(:u_mira);
-select app.preview_pathshala_registration(:t1, :h1, jsonb_build_array(jsonb_build_object('person_id', :'p_rahul', 'track_id', :'tr_j', 'level_id', :'lv_dads'),
-                                                                      jsonb_build_object('person_id', :'p_mira', 'track_id', :'tr_j', 'level_id', :'lv_moms'))) as pv4 \gset
+select app.preview_pathshala_registration(:t1, :h1, jsonb_build_array(jsonb_build_object('person_id', :p_rahul, 'track_id', :tr_j, 'level_id', :lv_dads),
+                                                                      jsonb_build_object('person_id', :p_mira, 'track_id', :tr_j, 'level_id', :lv_moms))) as pv4 \gset
 select app.pathshala_registration_options(:t1, :h1) as opt_waiver \gset
 commit;
 select pg_temp.assert((select array_agg(x ->> 'outcome' order by o) from jsonb_array_elements(:'pv4'::jsonb -> 'lines') with ordinality a(x, o)) = array['waiver_hold', 'seat']
@@ -631,17 +632,15 @@ select pg_temp.assert((select after ->> 'assistance_note' from app.audit_log whe
 -- ═════════════════════════════════════════════════════════════════════════════
 -- Module switches
 -- ═════════════════════════════════════════════════════════════════════════════
-savepoint pathshala_off;
-insert into app.center_modules (center_id, module_key, enabled, reason) values (:c, 'pathshala', false, 'test');
 begin;
+insert into app.center_modules (center_id, module_key, enabled, reason) values (:c, 'pathshala', false, 'test');
 select pg_temp.sign_in(:u_mira);
-select pg_temp.assert_code(format($$select app.pathshala_quote(%L, %L, %L)$$, :'t1', :'h1', :'family'),
+select pg_temp.assert_code(format($$select app.pathshala_quote(%L, %L, %L)$$, :t1, :h1, :family),
   '42501', 'The Pathshala module is switched off for this community.', 'module: with Pathshala off the quote refuses');
-select pg_temp.assert_code(format($$select app.pathshala_registration_options(%L, %L)$$, :'t1', :'h1'),
+select pg_temp.assert_code(format($$select app.pathshala_registration_options(%L, %L)$$, :t1, :h1),
   '42501', 'The Pathshala module is switched off', 'module: and the options');
 select pg_temp.assert((select count(*) from app.pathshala_level_fees where center_id = :c) = 0, 'module: and the level fees are hidden');
 rollback;
-rollback to savepoint pathshala_off;
 
 -- ═════════════════════════════════════════════════════════════════════════════
 -- The functions
