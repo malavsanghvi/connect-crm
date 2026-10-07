@@ -2080,6 +2080,234 @@ end $$;
 grant execute on function app.resolve_rsvp_credit(uuid, text) to authenticated;
 
 -- ═════════════════════════════════════════════════════════════════════════════
+-- Imports with two tracks (review item 9): a learner has one enrollment per TRACK and term (P10), so the import finds
+-- the enrollment by class or track, never by term and child alone
+-- ═════════════════════════════════════════════════════════════════════════════
+-- The enrollment a row means: the learner's only enrollment in the term, else the one in that class, else the one in the
+-- class's track; null when the learner is in the term but not in that class or track (the row is refused).
+create or replace function app._pathshala_import_enrollment(p_term uuid, p_student uuid, p_class uuid) returns uuid
+language plpgsql stable security definer set search_path = app, public, extensions as $$
+declare v_n int; v_track uuid; v_id uuid;
+begin
+  select count(*) into v_n from app.pathshala_enrollments where term_id = p_term and student_person_id = p_student;
+  if v_n = 0 then return null; end if;
+  if v_n = 1 then
+    select id into v_id from app.pathshala_enrollments where term_id = p_term and student_person_id = p_student;
+    return v_id;
+  end if;
+  select l.track_id into v_track from app.pathshala_classes c join app.pathshala_levels l on l.id = c.level_id where c.id = p_class;
+  select en.id into v_id from app.pathshala_enrollments en
+   where en.term_id = p_term and en.student_person_id = p_student and (en.class_id = p_class or (v_track is not null and en.track_id = v_track))
+   order by (en.class_id = p_class) desc nulls last, (en.status <> 'withdrawn') desc, en.registered_at, en.id limit 1;
+  return v_id;
+end $$;
+
+-- The attendance import resolves the enrollment through it (the rest of the function is 0192's, unchanged).
+create or replace function app._import_apply_row_before_0413(r app.import_runs, e app.import_entities, x app.import_rows) returns jsonb
+language plpgsql security definer set search_path = app, public, extensions as $$
+declare
+  c uuid := r.center_id; d jsonb; ex jsonb; m jsonb; v_id text; v_changed text[]; v_status text; v_msg text;
+  v_crm text := nullif(r.options->>'crm_system', ''); v_rules jsonb; v_hh uuid; v_pledge uuid; v_amt bigint;
+  v_rsvp uuid; v_session uuid; v_enr uuid; v_term uuid; v_email text; v_optin jsonb; v_pay app.payments; v_alloc bigint;
+  v_look uuid; v_name text;
+begin
+  d := app.import_resolve(c, x.data, v_crm);
+  ex := app.import_resolve(c, x.extra, v_crm);
+  select rules into v_rules from app.centers where id = c;
+
+  -- Values the engine derives before matching.
+  if e.key = 'memberships' and not d ? 'tier' then
+    d := d || jsonb_build_object('tier', (select tier from app.membership_types where id = (d->>'membership_type_id')::uuid));
+  elsif e.key = 'pathshala_attendance' then
+    select term_id into v_term from app.pathshala_classes where id = (ex->>'class_id')::uuid;
+    v_enr := app._pathshala_import_enrollment(v_term, (ex->>'student_person_id')::uuid, (ex->>'class_id')::uuid);
+    if v_enr is null then raise exception 'The child is not enrolled in that class''s term and track — import enrollments first.'; end if;
+  elsif e.key = 'payment_allocations' then
+    select * into v_pay from app.payments where id = (d->>'payment_id')::uuid;
+    if (select household_id from app.pledges where id = (d->>'pledge_id')::uuid) is distinct from v_pay.household_id then
+      raise exception 'That pledge belongs to a different household from the payment.';
+    end if;
+  end if;
+
+  m := app.import_find(r, e, x.source_key, d, ex);
+
+  if m ? 'id' then
+    v_id := m->>'id';
+    v_changed := app.import_patch(r, x.row_no, e.target_table, v_id, d, x.custom);
+    v_status := case when coalesce(array_length(v_changed, 1), 0) = 0 then 'unchanged' else 'updated' end;
+  elsif m ? 'ambiguous' and coalesce(x.decision, '') <> 'create' then
+    return jsonb_build_object('status', 'skipped', 'message',
+      format('Needs a decision: it matches %s existing records by %s. Nothing was changed.', jsonb_array_length(m->'ambiguous'), m->>'by'));
+  elsif m ? 'lookalikes' and x.decision = 'skip' then
+    return jsonb_build_object('status', 'skipped', 'message', 'Skipped: you chose not to add this look-alike.');
+  else
+    if x.custom <> '{}'::jsonb then d := d || jsonb_build_object('custom', x.custom); end if;
+    if e.has_center then d := d || jsonb_build_object('center_id', c); end if;
+    -- What an imported record of each kind always is.
+    case e.key
+      when 'payments' then
+        d := d || jsonb_build_object('is_historical', true, 'provider', coalesce(d->>'provider', 'offline'),
+                                     'status', coalesce(d->>'status', 'settled'), 'recorded_by', auth.uid());
+      when 'pledges' then
+        v_amt := coalesce((ex->>'paid_so_far')::bigint, 0);
+        d := d || jsonb_build_object('created_by', auth.uid(), 'paid_cents', v_amt);
+        if not d ? 'status' then
+          d := d || jsonb_build_object('status', case when v_amt >= (d->>'amount_cents')::bigint then 'paid' when v_amt > 0 then 'partially_paid' else 'open' end);
+        end if;
+      when 'bolis' then d := d || jsonb_build_object('status', 'closed', 'kind', coalesce(d->>'kind', 'in_person'), 'created_by', auth.uid());
+      when 'events' then d := d || jsonb_build_object('status', 'completed', 'created_by', auth.uid());
+      when 'campaigns' then d := d || jsonb_build_object('created_by', auth.uid());
+      when 'recurring_gifts' then d := d || jsonb_build_object('status', 'pending_payment_method');
+      when 'boli_entries' then d := d || jsonb_build_object('is_in_person', true, 'entered_by', auth.uid());
+      when 'store_items' then d := d || jsonb_build_object('stock_on_hand', 0);
+      when 'pathshala_enrollments' then d := d || jsonb_build_object('registered_by', auth.uid());
+      when 'background_checks' then d := d || jsonb_build_object('recorded_by', auth.uid());
+      when 'external_ids' then d := d || jsonb_build_object('source', 'import', 'created_by', auth.uid());
+      when 'channel_optins' then d := d || jsonb_build_object('source', coalesce(d->>'source', 'import'), 'recorded_at', coalesce(d->>'recorded_at', now()::text));
+      when 'attendees' then
+        v_hh := (ex->>'household_id')::uuid;
+        select id into v_rsvp from app.rsvps where event_id = (d->>'event_id')::uuid and household_id = v_hh order by created_at limit 1;
+        if v_rsvp is null then
+          v_rsvp := app.import_add(r, x.row_no, 'rsvps', jsonb_build_object('center_id', c, 'event_id', d->>'event_id', 'household_id', v_hh,
+                      'submitted_by_person_id', d->>'person_id', 'status', 'attended', 'source', 'import', 'commitment_mode', 'none'))::uuid;
+        end if;
+        select coalesce(nullif(preferred_name, ''), first_name) || ' ' || last_name into v_name from app.people where id = (d->>'person_id')::uuid;
+        d := d || jsonb_build_object('rsvp_id', v_rsvp, 'display_name', coalesce(v_name, 'Guest'), 'status', 'attended');
+      when 'pathshala_attendance' then
+        select id into v_session from app.pathshala_sessions where class_id = (ex->>'class_id')::uuid and held_on = (ex->>'held_on')::date;
+        if v_session is null then
+          v_session := app.import_add(r, x.row_no, 'pathshala_sessions', jsonb_build_object('center_id', c, 'class_id', ex->>'class_id',
+                         'held_on', ex->>'held_on', 'opened_by', auth.uid()))::uuid;
+        end if;
+        d := d || jsonb_build_object('session_id', v_session, 'enrollment_id', v_enr, 'marked_via', 'admin', 'marked_by', auth.uid());
+      when 'payment_allocations' then
+        select coalesce(sum(amount_cents), 0) into v_alloc from app.payment_allocations where payment_id = v_pay.id;
+        if v_alloc + (d->>'amount_cents')::bigint > v_pay.amount_cents then
+          raise exception 'The allocations of payment % would add up to more than the payment.', coalesce(v_pay.crm_external_id, v_pay.receipt_number);
+        end if;
+      else null;
+    end case;
+    v_id := case when e.key = 'payment_allocations' then app.import_add_allocation(r, x.row_no, d)
+                 else app.import_add(r, x.row_no, e.target_table, d) end;
+    v_status := 'created';
+    -- A name-only look-alike is never merged automatically: it goes to merge review.
+    if m ? 'lookalikes' then
+      for v_look in select (jsonb_array_elements_text(m->'lookalikes'))::uuid loop
+        if not exists (select 1 from app.merge_candidates where center_id = c and status = 'open'
+                         and ((left_id = v_id::uuid and right_id = v_look) or (left_id = v_look and right_id = v_id::uuid))) then
+          perform app.import_add(r, x.row_no, 'merge_candidates', jsonb_build_object('center_id', c,
+            'kind', case when e.key = 'people' then 'person' else 'household' end, 'left_id', v_id, 'right_id', v_look, 'score', 0.5));
+        end if;
+      end loop;
+      v_msg := 'Added; a record with the same name already exists, so both went to merge review.';
+    end if;
+  end if;
+
+  -- Side values, for created and matched records alike.
+  if e.key = 'people' then
+    v_hh := (ex->>'household_id')::uuid;
+    if v_hh is not null then
+      if not exists (select 1 from app.household_members where household_id = v_hh and person_id = v_id::uuid) then
+        perform app.import_add(r, x.row_no, 'household_members', jsonb_build_object('center_id', c, 'household_id', v_hh, 'person_id', v_id,
+          'role', coalesce(ex->>'relationship', 'other'), 'is_primary', coalesce((ex->>'is_primary')::boolean, false)));
+        if v_status = 'unchanged' then v_status := 'updated'; end if;
+      elsif ex ? 'relationship' or ex ? 'is_primary' then
+        if coalesce(array_length(app.import_patch(r, x.row_no, 'household_members', v_hh || ':' || v_id,
+             jsonb_strip_nulls(jsonb_build_object('role', ex->>'relationship', 'is_primary', (ex->>'is_primary')::boolean))), 1), 0) > 0
+           and v_status = 'unchanged' then v_status := 'updated'; end if;
+      end if;
+    end if;
+    perform app.import_add_identifier(r, x.row_no, 'org_member',
+      coalesce(v_rules->'identifiers'->>'org_member_system', 'org_register'), ex->>'legacy_id', v_id::uuid, null);
+    if v_crm is not null then perform app.import_add_identifier(r, x.row_no, 'crm', v_crm, ex->>'crm_id', v_id::uuid, null); end if;
+    if jsonb_typeof(ex->'other_emails') = 'array' then
+      for v_email in select lower(jsonb_array_elements_text(ex->'other_emails')) loop
+        if not exists (select 1 from app.person_emails where person_id = v_id::uuid and lower(email::text) = v_email)
+           and v_email is distinct from (select lower(email::text) from app.people where id = v_id::uuid) then
+          perform app.import_add(r, x.row_no, 'person_emails', jsonb_build_object('center_id', c, 'person_id', v_id, 'email', v_email, 'label', 'other'));
+        end if;
+      end loop;
+    end if;
+    v_optin := ex->'email_optin';
+    if jsonb_typeof(v_optin) = 'object' then
+      v_email := coalesce(lower(d->>'email'), (select lower(email::text) from app.people where id = v_id::uuid));
+      -- Only an explicit opt-in with its date and source counts; an opt-out always imports.
+      if v_email is not null and ((v_optin->>'opted_in')::boolean = false
+          or (coalesce(v_optin->>'date', '') <> '' and coalesce(v_optin->>'source', '') <> '')) then
+        if not exists (select 1 from app.channel_optins where person_id = v_id::uuid and channel = 'email' and lower(address) = v_email
+                         and opted_in = (v_optin->>'opted_in')::boolean
+                         and recorded_at = coalesce((v_optin->>'date')::timestamptz, recorded_at)) then
+          perform app.import_add(r, x.row_no, 'channel_optins', jsonb_build_object('center_id', c, 'person_id', v_id, 'channel', 'email',
+            'address', v_email, 'opted_in', (v_optin->>'opted_in')::boolean, 'source', coalesce(nullif(v_optin->>'source', ''), 'import'),
+            'recorded_at', coalesce(nullif(v_optin->>'date', ''), now()::text)));
+        end if;
+      end if;
+    end if;
+  elsif e.key = 'households' then
+    perform app.import_add_identifier(r, x.row_no, 'org_household',
+      coalesce(v_rules->'identifiers'->>'org_household_system', v_rules->'identifiers'->>'org_member_system', 'org_register'), ex->>'legacy_id', null, v_id::uuid);
+    if v_crm is not null then perform app.import_add_identifier(r, x.row_no, 'crm', v_crm, ex->>'crm_id', null, v_id::uuid); end if;
+  elsif e.key = 'payments' then
+    v_pledge := (ex->>'allocate_to')::uuid;
+    if v_pledge is not null and not exists (select 1 from app.payment_allocations where payment_id = v_id::uuid and pledge_id = v_pledge) then
+      select * into v_pay from app.payments where id = v_id::uuid;
+      if (select household_id from app.pledges where id = v_pledge) is distinct from v_pay.household_id then
+        raise exception 'The paid pledge belongs to a different household from the payment.';
+      end if;
+      v_amt := coalesce((ex->>'allocation_cents')::bigint, v_pay.amount_cents);
+      select coalesce(sum(amount_cents), 0) into v_alloc from app.payment_allocations where payment_id = v_pay.id;
+      if v_alloc + v_amt > v_pay.amount_cents then raise exception 'The allocations would add up to more than the payment.'; end if;
+      perform app.import_add_allocation(r, x.row_no, jsonb_build_object('center_id', c, 'payment_id', v_id, 'pledge_id', v_pledge, 'amount_cents', v_amt));
+      if v_status = 'unchanged' then v_status := 'updated'; end if;
+    end if;
+  elsif e.key = 'store_items' and ex ? 'opening_stock' then
+    if v_status = 'created' then
+      if (ex->>'opening_stock')::int <> 0 then
+        perform app.import_add(r, x.row_no, 'inventory_movements', jsonb_build_object('center_id', c, 'item_id', v_id,
+          'delta', (ex->>'opening_stock')::int, 'reason', 'adjustment', 'recorded_by', auth.uid()));
+      end if;
+    else
+      v_msg := 'Opening stock is set only for new items; adjust stock on the Store screen.';
+    end if;
+  end if;
+
+  insert into app.import_keys (center_id, entity, source_key, table_name, record_id, run_id)
+  values (c, e.key, x.source_key, e.target_table, v_id, r.id)
+  on conflict (center_id, entity, source_key) do update
+    set table_name = excluded.table_name, record_id = excluded.record_id, run_id = excluded.run_id, updated_at = now()
+    where app.import_keys.record_id is distinct from excluded.record_id or app.import_keys.run_id is distinct from excluded.run_id;
+  return jsonb_build_object('status', v_status, 'target_id', v_id, 'message', v_msg);
+end $$;
+
+-- An enrollment row that names a class means the learner's enrollment in that class's track: two tracks are not "ambiguous".
+do $$ begin
+  if to_regprocedure('app._import_find_before_0591(app.import_runs,app.import_entities,text,jsonb,jsonb)') is null then
+    alter function app.import_find(app.import_runs, app.import_entities, text, jsonb, jsonb) rename to _import_find_before_0591;
+  end if;
+end $$;
+create or replace function app.import_find(r app.import_runs, e app.import_entities, p_source_key text, p_data jsonb, p_extra jsonb)
+returns jsonb
+language plpgsql stable security definer set search_path = app, public, extensions as $$
+declare v jsonb; v_class uuid; v_track uuid; ids uuid[];
+begin
+  v := app._import_find_before_0591(r, e, p_source_key, p_data, p_extra);
+  if e.key = 'pathshala_enrollments' and v ? 'ambiguous' then
+    v_class := nullif(p_data ->> 'class_id', '')::uuid;
+    select l.track_id into v_track from app.pathshala_classes c join app.pathshala_levels l on l.id = c.level_id where c.id = v_class;
+    if v_track is not null then
+      select array_agg(en.id) into ids from app.pathshala_enrollments en
+       where en.id in (select x::uuid from jsonb_array_elements_text(v -> 'ambiguous') x) and (en.class_id = v_class or en.track_id = v_track);
+      if cardinality(ids) = 1 then return jsonb_build_object('id', ids[1], 'by', 'term+student+track'); end if;
+      if ids is null then return '{}'::jsonb; end if;   -- in the term, but not in this track yet: a new enrollment
+    end if;
+  end if;
+  return v;
+end $$;
+revoke execute on function app._import_find_before_0591(app.import_runs, app.import_entities, text, jsonb, jsonb),
+  app.import_find(app.import_runs, app.import_entities, text, jsonb, jsonb), app._pathshala_import_enrollment(uuid, uuid, uuid)
+  from public, anon, authenticated;
+
+-- ═════════════════════════════════════════════════════════════════════════════
 -- Templates (platform defaults; a community may override them in Communications)
 -- ═════════════════════════════════════════════════════════════════════════════
 -- Variables: learner (first name), term, level, class, schedule ("Sundays 10:00–11:30 · Room C"), amount (what is left to

@@ -605,3 +605,54 @@ select pg_temp.assert((select count(*) = 2 and bool_and(e.student_person_id = :'
                          from app.pathshala_pending_registrations pr join app.pathshala_enrollments e on e.id = pr.enrollment_id
                         where pr.registration_id = (:'r19'::jsonb ->> 'registration_id')::uuid and pr.status = 'converted'),
   'the office adds Ravi once: both registrations go ahead (one enrollment per track), each placed');
+
+-- ════════════════════════════════════════════════════════════════════════════
+-- 9. The imports find the enrollment by class or track when a learner has two tracks
+-- ════════════════════════════════════════════════════════════════════════════
+begin;
+select pg_temp.sign_in(:u_nita);
+select app.register_pathshala_children(:t2, :h2, jsonb_build_array(jsonb_build_object('person_id', :p_isha, 'track_id', :tr_g, 'level_id', :lv_g1)),
+                                       null, null, null, 'k77-isha-2g') as r20 \gset
+commit;
+select (:'r20'::jsonb -> 'lines' -> 0 ->> 'enrollment_id') as e_isha_g2 \gset
+select pg_temp.assert((select count(*) = 2 and count(distinct track_id) = 2 from app.pathshala_enrollments where term_id = :t2 and student_person_id = :p_isha and status <> 'withdrawn'),
+  'Isha is in two tracks of the fall term (Jainism 2 and Gujarati 1)');
+begin;
+select pg_temp.sign_in(:u_pia);
+select (app.import_create_run(:c, 'pathshala_enrollments', 'csv', 'enrollments.csv')) ->> 'id' as imp_enr \gset
+select app.import_stage_rows(:'imp_enr'::uuid, jsonb_build_array(
+  jsonb_build_object('row_no', 2, 'source_key', 'imp-g', 'data', jsonb_build_object('term_id', :t2, 'student_person_id', :p_isha, 'household_id', :h2,
+                                                                                   'class_id', :cl2_g1, 'status', 'active', 'notes', 'imported Gujarati')),
+  jsonb_build_object('row_no', 3, 'source_key', 'imp-j', 'data', jsonb_build_object('term_id', :t2, 'student_person_id', :p_isha, 'household_id', :h2,
+                                                                                   'class_id', :cl2_j2, 'status', 'active', 'notes', 'imported Jainism')))) as staged \gset
+select app.import_preview(:'imp_enr'::uuid) as prev \gset
+commit;
+select pg_temp.assert((:'prev'::jsonb ->> 'needs_decision')::int = 0 and (:'prev'::jsonb ->> 'update')::int = 2 and (:'prev'::jsonb ->> 'error')::int = 0,
+  'enrollment import: a learner in two tracks is not "ambiguous": each row is an update of the enrollment in its class''s track');
+begin;
+select pg_temp.sign_in(:u_pia);
+select app.import_commit_batch(:'imp_enr'::uuid, 50) as committed \gset
+commit;
+select pg_temp.assert((select status = 'active' and notes = 'imported Gujarati' from app.pathshala_enrollments where id = :'e_isha_g2'::uuid)
+                      and (select status = 'active' and notes = 'imported Jainism' from app.pathshala_enrollments where id = :'e_isha2'::uuid)
+                      and (select count(*) = 2 from app.pathshala_enrollments where term_id = :t2 and student_person_id = :p_isha and status <> 'withdrawn'),
+  'enrollment import: each track''s enrollment got its own row (no third enrollment, none skipped)');
+-- Attendance: the mark lands on the enrollment of the class named, not on an arbitrary one of the learner.
+begin;
+select pg_temp.sign_in(:u_pia);
+select (app.import_create_run(:c, 'pathshala_attendance', 'csv', 'attendance.csv')) ->> 'id' as imp_att \gset
+select app.import_stage_rows(:'imp_att'::uuid, jsonb_build_array(
+  jsonb_build_object('row_no', 2, 'source_key', 'att-g', 'data', jsonb_build_object('status', 'present'),
+                     'extra', jsonb_build_object('class_id', :cl2_g1, 'held_on', '2026-09-13', 'student_person_id', :p_isha)),
+  jsonb_build_object('row_no', 3, 'source_key', 'att-j', 'data', jsonb_build_object('status', 'late'),
+                     'extra', jsonb_build_object('class_id', :cl2_j2, 'held_on', '2026-09-13', 'student_person_id', :p_isha)))) as staged2 \gset
+select app.import_preview(:'imp_att'::uuid) as prev2 \gset
+select app.import_commit_batch(:'imp_att'::uuid, 50) as committed2 \gset
+commit;
+select pg_temp.assert((select a.status = 'present' from app.pathshala_attendance a join app.pathshala_sessions s on s.id = a.session_id
+                        where s.class_id = :cl2_g1 and a.enrollment_id = :'e_isha_g2'::uuid)
+                      and (select a.status = 'late' from app.pathshala_attendance a join app.pathshala_sessions s on s.id = a.session_id
+                        where s.class_id = :cl2_j2 and a.enrollment_id = :'e_isha2'::uuid)
+                      and (select count(*) = 2 from app.pathshala_attendance a join app.pathshala_enrollments en on en.id = a.enrollment_id
+                            where en.student_person_id = :p_isha and en.term_id = :t2),
+  'attendance import: the Gujarati mark is on the Gujarati enrollment and the Jainism mark on the Jainism one');
