@@ -28,6 +28,10 @@ import {
   queueLevelOptions,
   queueLimitNote,
   readOnlyReason,
+  REMIND_NEEDS_DUE_ERROR,
+  REMIND_RANGE_ERROR,
+  reminderText,
+  remindHoursFromJson,
   statusChangeDoing,
   statusChangeMessage,
   submissionStatusLabel,
@@ -75,11 +79,33 @@ describe("the editor form, checked the way app.save_gyan_assignment checks it", 
         required_for_level: false,
         points: 10,
         due_rule: { kind: "days_after_start", days: 7 },
+        remind_hours_before: null,
         parent_check: "children",
         reviewer: "teacher",
         sort_order: 0,
       },
     });
+  });
+
+  it("takes the reminder's hours only with a due date, in the database's words (0588)", () => {
+    const remind = (patch: Partial<AssignmentFormInput>) => {
+      const r = assignmentFromForm({ ...form, ...patch });
+      return r.ok ? r.value.remind_hours_before : r.error;
+    };
+    expect(remind({ remind_hours: "48" })).toBe(48);
+    expect(remind({ remind_hours: " 720 " })).toBe(720);
+    expect(remind({ remind_hours: "1", due_kind: "on", due_date: "2026-11-01" })).toBe(1);
+    // Empty, or absent (the field is shown only with a due date) = no reminder.
+    expect(remind({ remind_hours: "" })).toBeNull();
+    expect(remind({})).toBeNull();
+    expect(remind({ due_kind: "none", remind_hours: "" })).toBeNull();
+    // The sentences app.save_gyan_assignment says, with the form's lower-case start.
+    expect(REMIND_RANGE_ERROR).toBe("the reminder must be a whole number of hours from 1 to 720 (30 days) before the homework is due, or empty for no reminder.");
+    expect(REMIND_NEEDS_DUE_ERROR).toBe("a reminder needs a due date: choose when the homework is due, or leave the reminder empty.");
+    for (const bad of ["0", "721", "1.5", "-5", "two", "1e2"]) expect(remind({ remind_hours: bad })).toBe(REMIND_RANGE_ERROR);
+    expect(remind({ due_kind: "none", remind_hours: "24" })).toBe(REMIND_NEEDS_DUE_ERROR);
+    // The database checks the hours first, then the due date: so does the form.
+    expect(remind({ due_kind: "none", remind_hours: "0" })).toBe(REMIND_RANGE_ERROR);
   });
 
   it("keeps the id, the class and the date rule when given", () => {
@@ -167,6 +193,17 @@ describe("reading what the database sends", () => {
     expect(parseAssignmentList([row, row]).ok).toBe(true);
     expect(parseAssignmentList([row, { ...row, status: "x" }]).ok).toBe(false);
     expect(parseAssignmentList({ items: [] }).ok).toBe(false);
+  });
+
+  it("reads the reminder (0588): whole hours from 1 to 720, else none; a row from before 0588 has none", () => {
+    expect(parseAssignment(row)).toMatchObject({ ok: true, value: { remind_hours_before: null, remind_set_at: null } });
+    expect(parseAssignment({ ...row, remind_hours_before: 48, remind_set_at: "2026-10-06T10:00:00Z" })).toMatchObject({
+      ok: true,
+      value: { remind_hours_before: 48, remind_set_at: "2026-10-06T10:00:00Z" },
+    });
+    expect(remindHoursFromJson("24")).toBe(24);
+    expect(remindHoursFromJson(720)).toBe(720);
+    for (const odd of [0, 721, 1.5, "x", null, undefined, true]) expect(remindHoursFromJson(odd)).toBeNull();
   });
 
   it("reads due rules as stored, falling back to no due date", () => {
@@ -306,6 +343,11 @@ describe("words for the screens", () => {
     expect(dueText({ kind: "days_after_start", days: 1 }, "America/Chicago")).toBe("1 day after the learner starts the level");
     expect(dueText({ kind: "days_after_start", days: 7 }, "America/Chicago")).toBe("7 days after the learner starts the level");
     expect(dueText({ kind: "on", date: "2026-11-01" }, "America/Chicago")).toBe("Due Nov 1, 2026");
+    expect(reminderText(48, { kind: "on", date: "2026-11-01" })).toBe("Reminder 48 h before");
+    expect(reminderText(1)).toBe("Reminder 1 h before");
+    expect(reminderText(null, { kind: "on", date: "2026-11-01" })).toBeNull();
+    // A reminder needs a due date: none is shown without one.
+    expect(reminderText(24, { kind: "none" })).toBeNull();
     expect(audienceText(null)).toBe("Everyone doing the level");
     expect(audienceText("c1", "Sunday 10 AM · Level 2")).toBe("Only Sunday 10 AM · Level 2");
     expect(audienceText("c1")).toBe("Only one class");

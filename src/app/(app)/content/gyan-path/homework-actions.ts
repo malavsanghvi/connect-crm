@@ -37,6 +37,7 @@ export async function saveAssignmentAction(_prev: ActionResult | null, fd: FormD
     due_kind: text(fd, "due_kind"),
     due_days: text(fd, "due_days"),
     due_date: text(fd, "due_date"),
+    remind_hours: text(fd, "remind_hours"),
     parent_check: text(fd, "parent_check"),
     reviewer: text(fd, "reviewer"),
     sort_order: text(fd, "sort_order"),

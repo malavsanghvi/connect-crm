@@ -76,6 +76,23 @@ describe("Content › Gyan Path › Homework drawer fields", () => {
     expect(html).toContain("The level stays incomplete until this homework is accepted");
     expect(html).toContain("This homework is published: changes reach learners as soon as they are saved.");
     expect(html).not.toContain("Homework is yours even though the lesson is shared");
+    // A due date: the reminder can be set (0588); none is set on this one.
+    expect(html).toContain("Remind (hours before it is due)");
+    expect(html).toMatch(tagWith("input", 'name="remind_hours"', 'value=""', 'placeholder="No reminder"'));
+    expect(html).toContain("1 to 720 hours (30 days): the learners who have not handed it in yet");
+  });
+
+  it("shows the reminder's hours when set, says when learners are reminded, and never promises a reminder that is not set (0588)", () => {
+    const withReminder: Assignment = { ...assignment, remind_hours_before: 48 };
+    const html = render(createElement(HomeworkFields, { levelId: LEVEL, levelName: "What is Samayik", assignment: withReminder, classes, canChooseEveryone: true, shared: false, nextOrder: 2 }));
+    expect(html).toMatch(tagWith("input", 'name="remind_hours"', 'value="48"'));
+    expect(html).toContain("that many hours before the end of the due day, and only to the learners who have not handed in yet.");
+    expect(html).not.toContain("reminded two days before");
+    // No due date: no reminder field (a reminder needs a due date), and the hint says a reminder needs one.
+    const none = render(createElement(HomeworkFields, { levelId: LEVEL, levelName: "L", classes, canChooseEveryone: true, shared: false, nextOrder: 1 }));
+    expect(none).not.toContain('name="remind_hours"');
+    expect(none).toContain("A reminder goes out only if you set one (it needs a due date)");
+    expect(none).not.toContain("reminded two days before");
   });
 
   it("explains each parent-check and reviewer choice in one line", () => {
@@ -121,6 +138,9 @@ describe("Content › Gyan Path › the Homework column of a level", () => {
     expect(html).toContain("Archive");
     expect(html).toContain("Add homework");
     expect(html).toContain("Edit");
+    // With a reminder (0588) the summary says so.
+    const reminded = render(createElement(HomeworkCell, { level, goalName: "Learn Samayik", shared: true, assignments: [{ ...assignment, remind_hours_before: 48 }], canAdd: true, classes, canChooseEveryone: true, ownClasses: [], timeZone: "America/Chicago" }));
+    expect(reminded).toContain("15 points · Due Nov 1, 2026 · Reminder 48 h before · Only Sunday 10 AM · Level 2");
   });
 
   it("shows a draft's Publish move, and nothing to change for readers", () => {

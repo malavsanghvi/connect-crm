@@ -228,6 +228,8 @@ export const NOTIFICATION_TRIGGERS: NotificationTrigger[] = [
   { key: "store_order_ready", label: "Store order ready", when: () => "At pickup time", channel: "Push" },
   { key: "event_feedback", label: "Event feedback request", when: () => "Morning after the event · one reminder after 3 days", channel: "Push · SMS or WhatsApp for guests" },
   { key: "pachchakhan_reminder", label: "Pachchakhan reminder", when: () => "Member-set times", channel: "Push" },
+  // 0588: read by the database itself (app.worker_homework_reminders_sweep); off = no homework reminder in this community.
+  { key: "homework_reminder", label: "Homework due-soon reminders", when: () => "The hours before the due date each homework sets", channel: "Push · email" },
 ];
 
 export type NotificationSettings = {

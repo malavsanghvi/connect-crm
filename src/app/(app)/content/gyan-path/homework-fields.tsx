@@ -14,6 +14,8 @@ import {
   MAX_FILES_MIN,
   PARENT_CHECK_OPTIONS,
   POINTS_MAX,
+  REMIND_HOURS_MAX,
+  REMIND_HOURS_MIN,
   REVIEWER_OPTIONS,
   TITLE_MAX,
   type Assignment,
@@ -24,7 +26,8 @@ export type ClassOption = { id: string; name: string };
 
 /**
  * The fields of the Homework drawer (add or edit), named as app.save_gyan_assignment reads them. The due rule
- * shows only the input its kind needs; everything else is plain form controls so a failed save keeps what was typed.
+ * shows only the input its kind needs, and the reminder (0588) only when there is a due date; everything else is
+ * plain form controls so a failed save keeps what was typed.
  */
 export function HomeworkFields({
   levelId,
@@ -156,7 +159,29 @@ export function HomeworkFields({
             <input id={`${p}-date`} name="due_date" type="date" defaultValue={dueDate} className="crm-input" />
           </div>
         ) : null}
-        <p className="crm-hint">Due dates are information, not gates: learners are reminded two days before, a late hand-in is marked late, never refused.</p>
+        {dueKind !== "none" ? (
+          <div className="mt-2">
+            <label htmlFor={`${p}-remind`} className="crm-label">
+              Remind (hours before it is due)
+            </label>
+            <input
+              id={`${p}-remind`}
+              name="remind_hours"
+              inputMode="numeric"
+              defaultValue={assignment?.remind_hours_before ?? ""}
+              placeholder="No reminder"
+              className="crm-input w-32"
+            />
+            <p className="crm-hint">
+              Empty = no reminder. {REMIND_HOURS_MIN} to {REMIND_HOURS_MAX} hours (30 days): the learners who have not handed it in yet — and the parents of
+              children — get a push and an email that many hours before the end of the due day. Pushes wait for the community&apos;s quiet hours.
+            </p>
+          </div>
+        ) : null}
+        <p className="crm-hint">
+          Due dates are information, not gates: a late hand-in is marked late, never refused. A reminder goes out only if you set one (it needs a due
+          date): that many hours before the end of the due day, and only to the learners who have not handed in yet.
+        </p>
       </div>
       <fieldset className="rounded-xl border border-line p-3">
         <legend className="px-1 text-[13px] font-bold">A parent checks first</legend>

@@ -43,7 +43,7 @@ export function NotificationsForm({
         <Card
           span={8}
           title="Automatic notifications"
-          description="What each automatic message should do. The automatic sender is not switched on yet, so no message goes out from this list today."
+          description="What each automatic message should do. Homework due-soon reminders follow their switch today; the other rows are kept for the automatic sender, which is not switched on yet, so they send nothing yet."
           padded={false}
         >
           <TableWrap>

@@ -12,6 +12,7 @@ import {
   parentCheckLabel,
   pointsText,
   readOnlyReason,
+  reminderText,
   reviewerLabel,
   type Assignment,
   type EditableClasses,
@@ -57,6 +58,7 @@ export function HomeworkCell({
       {assignments.map((a) => {
         const moves = assignmentStatusActions(a.status);
         const editable = canAdd && mayEditAssignment(a, canChooseEveryone, ownClasses);
+        const reminder = reminderText(a.remind_hours_before, a.due_rule);
         return (
           <div key={a.id} className="rounded-[10px] border border-line-soft bg-[#FBF7F0] px-2.5 py-2">
             <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
@@ -64,7 +66,8 @@ export function HomeworkCell({
               <Badge tone={assignmentStatusTone(a.status)}>{assignmentStatusLabel(a.status)}</Badge>
             </div>
             <div className="text-muted">
-              {pointsText(a.points)} · {dueText(a.due_rule, timeZone)} · {audienceText(a.class_id, className(a.class_id))}
+              {pointsText(a.points)} · {dueText(a.due_rule, timeZone)}
+              {reminder ? ` · ${reminder}` : ""} · {audienceText(a.class_id, className(a.class_id))}
             </div>
             <div className="text-muted">
               Answer by {allowedKindsText(a.allowed_kinds)} · parent check: {parentCheckLabel(a.parent_check).toLowerCase()} · reviewed by {reviewerLabel(a.reviewer).toLowerCase()}
