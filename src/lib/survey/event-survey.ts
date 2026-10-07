@@ -107,6 +107,38 @@ export function describeEventSurvey(s: EventSurveyRow, eventStatus: string, now:
   };
 }
 
+/**
+ * What "Send survey" says once the survey went out (0596). `pushed`: people who got a push (adults with the member app
+ * on a phone; now, or when quiet hours end, then a reminder on day 1 and day 2 until they answer), from
+ * app.launch_event_survey_now. `invited`: every invited adult (app.event_survey_stats), or null when that number could
+ * not be loaded. `pushesOff`: the community switched event feedback off in Settings › Notifications. `sandbox`: a
+ * sandbox pushes only to verified test recipients. Everyone invited sees the survey on Home in the member app.
+ */
+export function surveySentMessage(r: { pushed: number; invited: number | null; pushesOff?: boolean; sandbox?: boolean }): string {
+  const pushed = Math.max(0, Math.trunc(r.pushed));
+  const invited = r.invited === null ? null : Math.max(0, Math.trunc(r.invited));
+  const people = (n: number) => (n === 1 ? "1 person" : `${n} people`);
+  if (pushed > 0) {
+    const sent = `Survey sent: ${people(pushed)} notified by push, now or when quiet hours end, with reminders on day 1 and day 2 until they answer`;
+    if (invited === null) return `${sent}. How many others were invited could not be loaded; reload the page to see the numbers.`;
+    const others = Math.max(invited - pushed, 0);
+    return others > 0 ? `${sent}; ${others} ${others === 1 ? "other" : "others"} will see it on Home in the member app.` : `${sent}.`;
+  }
+  if (invited === 0) return "Survey opened, but nobody has an RSVP to notify.";
+  const home = invited === null ? "Everyone invited will see it on Home in the member app." : `The ${people(invited)} invited will see it on Home in the member app.`;
+  if (r.pushesOff) return `Survey opened. Nobody was notified by push: event feedback is switched off in Settings › Notifications. ${home}`;
+  if (r.sandbox) return `Survey opened. Nobody was notified by push: a sandbox pushes only to verified test recipients. ${home}`;
+  return `Survey opened. Nobody was notified by push: no one invited has the member app on a phone. ${home}`;
+}
+
+/** What attaching a survey to an already completed event says when it is sent at once (no counts come back then). */
+export function surveyAttachedAndSentMessage(r: { pushesOff?: boolean; sandbox?: boolean }): string {
+  const home = "everyone invited will see it on Home in the member app";
+  if (r.pushesOff) return `Survey attached and sent: ${home}. No push goes out, because event feedback is switched off in Settings › Notifications.`;
+  if (r.sandbox) return `Survey attached and sent: ${home}. In a sandbox only verified test recipients get a push.`;
+  return `Survey attached and sent: ${home}, and adults with the app on a phone get a push, with reminders on day 1 and day 2 until they answer.`;
+}
+
 export function formatPoints(points: number): string {
   if (!Number.isFinite(points) || points <= 0) return "No points";
   return points === 1 ? "1 point" : `${points} points`;

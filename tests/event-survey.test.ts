@@ -1,7 +1,16 @@
 import { describe, expect, it } from "vitest";
 
 import { eventAreas, type EventAccess } from "@/lib/events/access";
-import { anonymityText, defaultSurveyTitle, describeEventSurvey, formatPoints, templateOptions, type EventSurveyRow } from "@/lib/survey/event-survey";
+import {
+  anonymityText,
+  defaultSurveyTitle,
+  describeEventSurvey,
+  formatPoints,
+  surveyAttachedAndSentMessage,
+  surveySentMessage,
+  templateOptions,
+  type EventSurveyRow,
+} from "@/lib/survey/event-survey";
 
 const now = new Date("2026-09-30T18:00:00Z");
 
@@ -78,6 +87,26 @@ describe("event survey wording", () => {
     expect(anonymityText(true)).toMatch(/Always anonymous/);
     expect(anonymityText(false)).toMatch(/Members choose/);
     expect(defaultSurveyTitle("Diwali Mela")).toBe("Diwali Mela · feedback");
+  });
+  it("Send survey reports who got a push and how many others will see it on Home (0596)", () => {
+    expect(surveySentMessage({ pushed: 2, invited: 5 })).toBe(
+      "Survey sent: 2 people notified by push, now or when quiet hours end, with reminders on day 1 and day 2 until they answer; 3 others will see it on Home in the member app.",
+    );
+    expect(surveySentMessage({ pushed: 1, invited: 2 })).toMatch(/^Survey sent: 1 person notified by push, .*; 1 other will see it on Home/);
+    expect(surveySentMessage({ pushed: 3, invited: 3 })).toMatch(/until they answer\.$/);
+    expect(surveySentMessage({ pushed: 2, invited: null })).toMatch(/until they answer\. How many others were invited could not be loaded; reload the page/);
+    expect(surveySentMessage({ pushed: 0, invited: 0 })).toBe("Survey opened, but nobody has an RSVP to notify.");
+    expect(surveySentMessage({ pushed: 0, invited: 4 })).toBe(
+      "Survey opened. Nobody was notified by push: no one invited has the member app on a phone. The 4 people invited will see it on Home in the member app.",
+    );
+    expect(surveySentMessage({ pushed: 0, invited: 4, pushesOff: true })).toMatch(/event feedback is switched off in Settings › Notifications\. The 4 people/);
+    expect(surveySentMessage({ pushed: 0, invited: 1, sandbox: true })).toMatch(/only to verified test recipients\. The 1 person invited/);
+    expect(surveySentMessage({ pushed: 0, invited: null })).toMatch(/Everyone invited will see it on Home/);
+  });
+  it("attaching a survey to a completed event says who is told, without promising a push to everyone", () => {
+    expect(surveyAttachedAndSentMessage({})).toMatch(/^Survey attached and sent: everyone invited will see it on Home in the member app, and adults with the app on a phone get a push/);
+    expect(surveyAttachedAndSentMessage({ pushesOff: true })).toMatch(/No push goes out, because event feedback is switched off/);
+    expect(surveyAttachedAndSentMessage({ sandbox: true })).toMatch(/only verified test recipients get a push/);
   });
   it("lists saved surveys as choices, skipping ones with no questions", () => {
     const opts = templateOptions([

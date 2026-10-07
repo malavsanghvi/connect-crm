@@ -8,6 +8,8 @@ import type { ActionResult } from "@/lib/errors";
 import { eventAreas } from "@/lib/events/access";
 import { bool, FormError, int, must, oneOf, runAction, str } from "@/lib/events/forms";
 import { isUuid } from "@/lib/search-params";
+import { readNotificationSettings } from "@/lib/settings-rules";
+import { surveyAttachedAndSentMessage, surveySentMessage } from "@/lib/survey/event-survey";
 import { validateQuestionsJson } from "@/lib/survey/questions";
 
 // The event's Survey tab. Each action calls one database function (migrations 0544 and 0547) that re-checks
@@ -41,7 +43,7 @@ function settings(fd: FormData) {
 
 export async function attachEventSurvey(eventId: string, _prev: Result | null, fd: FormData): Promise<Result> {
   return runAction("events.attachSurvey", "attach the survey", async () => {
-    const { db } = await eventActionContext((a) => eventAreas.edit(a, eventId), DENIED);
+    const { db, session } = await eventActionContext((a) => eventAreas.edit(a, eventId), DENIED);
     const mode = oneOf(fd, "mode", ["template", "new"] as const, "Survey source");
     const s = settings(fd);
     let source: { p_template: string } | { p_questions: Json };
@@ -68,7 +70,15 @@ export async function attachEventSurvey(eventId: string, _prev: Result | null, f
       "attach the survey",
     );
     revalidateSurveys();
-    if (event.status === "completed" && s.auto) return { ok: true, message: "Survey attached and sent. Everyone with an RSVP has been notified." };
+    if (event.status === "completed" && s.auto) {
+      return {
+        ok: true,
+        message: surveyAttachedAndSentMessage({
+          pushesOff: !readNotificationSettings(session.center.rules).triggers.event_feedback,
+          sandbox: session.center.environment === "sandbox",
+        }),
+      };
+    }
     if (s.auto) return { ok: true, message: "Survey attached. It opens by itself when the event is marked completed." };
     return { ok: true, message: "Survey attached. It will not be sent by itself; send it from here once the event is completed." };
   });
@@ -109,17 +119,25 @@ export async function removeEventSurvey(eventId: string, id: string, _prev: Resu
 export async function launchEventSurvey(eventId: string, id: string, _prev: Result | null, fd: FormData): Promise<Result> {
   void fd;
   return runAction("events.launchSurvey", "send the survey", async () => {
-    const { db } = await eventActionContext((a) => eventAreas.edit(a, eventId), DENIED);
-    const res = await db.rpc("launch_event_survey_now", { p_survey: surveyId(id) });
+    const { db, session } = await eventActionContext((a) => eventAreas.edit(a, eventId), DENIED);
+    const survey = surveyId(id);
+    const res = await db.rpc("launch_event_survey_now", { p_survey: survey });
     must(res, "send the survey");
-    const people = typeof res.data === "number" ? res.data : 0;
+    // People who got a push (0596: adults with the member app on a phone); the rest of those invited see it on Home.
+    const pushed = typeof res.data === "number" ? res.data : 0;
     revalidateSurveys();
+    // The survey is sent either way; when its numbers do not load the message says so instead of guessing.
+    const stats = await db.rpc("event_survey_stats", { p_survey: survey });
+    const invitedRaw = stats.error ? null : (stats.data as { invited?: unknown } | null)?.invited;
+    if (stats.error) console.error("[events] events.launchSurvey: the survey was sent, but its invited count did not load:", stats.error);
     return {
       ok: true,
-      message:
-        people > 0
-          ? `Survey sent. ${people} ${people === 1 ? "person was" : "people were"} notified, and they will get two reminders.`
-          : "Survey opened, but nobody has an RSVP to notify.",
+      message: surveySentMessage({
+        pushed,
+        invited: typeof invitedRaw === "number" ? invitedRaw : null,
+        pushesOff: !readNotificationSettings(session.center.rules).triggers.event_feedback,
+        sandbox: session.center.environment === "sandbox",
+      }),
     };
   });
 }
