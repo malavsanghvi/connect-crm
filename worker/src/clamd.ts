@@ -5,7 +5,9 @@
 //                "stream: OK"                        clean
 //                "stream: <signature> FOUND"         infected (a heuristic such as Heuristics.Limits.Exceeded.* too)
 //                "<reason> ERROR"                    e.g. "INSTREAM size limit exceeded. ERROR" past StreamMaxLength
-//              clamd may answer (and close) before the stream ends, for example at its size limit: the answer wins.
+//              Only an answer that ends with its NUL counts (one cut short is a failure, never a verdict), and only one that
+//              comes after the whole file was sent: the one thing clamd may say early is an ERROR (its size limit). An early
+//              "OK" or "FOUND" is a failure too, and the file is checked again.
 //   zPING      "PONG": is clamd there?
 //   zVERSION   "ClamAV 1.4.3/27790/Mon Oct  6 08:31:00 2026": the engine and its signature database.
 //
@@ -77,10 +79,14 @@ export function isLimitsHeuristic(signature: string): boolean {
 }
 
 type Conversation = {
-  /** Resolves with clamd's answer (up to the first NUL, or all it sent before closing). */
+  /** Resolves with clamd's answer, up to its NUL; rejects when the connection ends or fails before that. */
   reply: Promise<string>;
-  /** clamd has answered: stop sending. */
+  /** clamd has answered (or the conversation failed): stop sending. */
   answered(): boolean;
+  /** The request is complete: call it right before its last bytes are written. Any answer that began before it is early. */
+  sent(): void;
+  /** Some of the answer arrived before sent() was called. */
+  early(): boolean;
   /** Send bytes; resolves once they are handed to the socket (backpressure), at once after the answer. */
   write(bytes: Uint8Array): Promise<void>;
 };
@@ -110,6 +116,8 @@ async function converse<T>(target: ClamdTarget, opts: Required<ClamdOptions>, ru
   let text = "";
   let done = false;
   let failure: ClamdError | null = null;
+  let endSent = false;
+  let early = false;
   let settle!: (v: string) => void;
   let fail!: (e: Error) => void;
   const reply = new Promise<string>((res, rej) => {
@@ -132,6 +140,7 @@ async function converse<T>(target: ClamdTarget, opts: Required<ClamdOptions>, ru
   };
   socket.on("data", (d: Buffer) => {
     if (done) return;
+    if (!endSent) early = true;
     const s = d.toString("latin1");
     const nul = s.indexOf("\0");
     text += nul >= 0 ? s.slice(0, nul) : s;
@@ -154,6 +163,10 @@ async function converse<T>(target: ClamdTarget, opts: Required<ClamdOptions>, ru
     return await run({
       reply,
       answered: () => done,
+      sent: () => {
+        endSent = true;
+      },
+      early: () => early,
       write: (bytes) =>
         new Promise<void>((resolve, reject) => {
           if (done) return resolve();
@@ -216,9 +229,12 @@ export async function scanStream(target: ClamdTarget, source: AsyncIterable<Uint
       }
     }
     if (c.answered()) early = true;
-    else await c.write(Buffer.alloc(4)); // the zero-length chunk: the end of the file
+    else {
+      c.sent(); // from here on an answer is a real one; before it, it was early
+      await c.write(Buffer.alloc(4)); // the zero-length chunk: the end of the file
+    }
     const verdict = parseScanReply(await c.reply);
-    if (early && verdict.result !== "error") {
+    if ((early || c.early()) && verdict.result !== "error") {
       throw new ClamdError(`clamd answered before the whole file was sent (after ${bytes} bytes); the answer is not used`);
     }
     return { verdict, bytes };

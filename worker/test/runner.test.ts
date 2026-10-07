@@ -182,6 +182,20 @@ describe("runner: kinds that wait, and kinds with a limit (virus checks, 0589)",
     expect(await runner.drain(1000)).toBe(true);
   });
 
+  it("a check that is still running holds none of the general slots, and a second one is not started beside it", async () => {
+    const env = { UPLOAD_SCAN_MODE: "monitor" };
+    const { runner, calls, queue, releaseAll } = setup([job({ id: "S0", kind: "storage.scan" }), job({ id: "S1", kind: "storage.scan" })], [scan, send], env);
+    expect(await runner.tick()).toBe(1); // S0 runs (and does not finish)
+    queue.push(...Array.from({ length: 6 }, (_, i) => job({ id: `M${i}`, kind: "messaging.send" })));
+    calls.length = 0;
+    expect(await runner.tick()).toBe(4); // all four general slots are free for messages
+    expect(claims(calls)).toEqual([[["messaging.send"], 4]]); // and the check's own slot is taken: S1 is not claimed
+    expect(runner.inFlight()).toBe(5);
+    expect(queue.map((j) => j.id)).toEqual(["S1", "M4", "M5"]);
+    releaseAll();
+    expect(await runner.drain(1000)).toBe(true);
+  });
+
   it("a waiting kind's job claimed just as it stopped being configured goes back to the queue (retried, never failed for good)", async () => {
     const { db, calls } = fakeDb();
     const { log } = captureLog();

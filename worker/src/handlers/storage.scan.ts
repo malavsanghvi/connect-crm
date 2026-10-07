@@ -20,7 +20,7 @@
 //   a file that is gone             done, nothing to check
 //   storage 404 for a file it has   tried again (the upload may not have finished)
 //   size differs from the database  tried again (it was replaced while being fetched); with no size in the database, the
-//                                   download's Content-Length is the size to match
+//                                   download's Content-Length is the size to match; with neither, "clean" is never recorded
 //   clamd unreachable or failing    tried again, up to 25 attempts (about 18 hours); the last one records "failed"
 //   clamd answers early or cut off  tried again: only a NUL-terminated answer after the whole file counts (clamd.ts)
 //   Heuristics.Limits.Exceeded.*    recorded "failed" (too big or too deeply packed to check completely), not "infected"
@@ -291,6 +291,8 @@ async function checkOne(ask: Ask, target: ClamdTarget, base: string, key: string
     throw new Error(`The file changed while it was being checked (${bytes} of ${expected} bytes arrived); it is checked again.`);
   }
   if (verdict.result === "clean") {
+    // "Clean" is only ever said of a file whose every byte is known to have reached clamd.
+    if (expected === null) throw new Error("The file's size is not known (not in the database, no Content-Length from storage), so it cannot be confirmed that all of it was checked; it is checked again.");
     return afterRecord(s, obj, await record(s, obj, "clean", { engine, bytes }), { status: "clean", bytes, engine });
   }
   if (isLimitsHeuristic(verdict.signature)) {

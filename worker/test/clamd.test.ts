@@ -13,6 +13,14 @@ async function* chunks(...parts: (string | Uint8Array)[]): AsyncIterable<Uint8Ar
   for (const p of parts) yield typeof p === "string" ? Buffer.from(p, "latin1") : p;
 }
 
+/** A file that arrives in pieces with a pause after each (a download over a slow line). */
+async function* slow(ms: number, ...parts: Uint8Array[]): AsyncIterable<Uint8Array> {
+  for (const p of parts) {
+    yield p;
+    await new Promise((r) => setTimeout(r, ms));
+  }
+}
+
 describe("clamd: answers and settings", () => {
   it("reads clamd's answers", () => {
     expect(parseScanReply("stream: OK\0")).toEqual({ result: "clean" });
@@ -96,9 +104,12 @@ describe("clamd: when it goes wrong", () => {
   it("never takes an answer that comes before the whole file was sent as clean", async () => {
     const fake = await startFakeClamd("early");
     try {
-      const err = await scanStream({ kind: "tcp", host: "127.0.0.1", port: fake.port }, chunks(Buffer.alloc(300_000, 2))).catch((e: unknown) => e);
-      expect(err).toBeInstanceOf(ClamdError);
-      expect(String((err as Error).message)).toMatch(/answered before the whole file was sent/);
+      // a pause after each piece: clamd's "OK" is there before the file has ended, then (and after the last piece) it is refused
+      for (const pieces of [[Buffer.alloc(100_000, 2), Buffer.alloc(100_000, 2), Buffer.alloc(100_000, 2)], [Buffer.alloc(100_000, 2)]]) {
+        const err = await scanStream({ kind: "tcp", host: "127.0.0.1", port: fake.port }, slow(80, ...pieces)).catch((e: unknown) => e);
+        expect(err).toBeInstanceOf(ClamdError);
+        expect(String((err as Error).message)).toMatch(/answered before the whole file was sent/);
+      }
     } finally {
       await fake.close();
     }
