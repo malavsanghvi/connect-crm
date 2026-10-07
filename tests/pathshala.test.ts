@@ -78,7 +78,16 @@ describe("Pathshala navigation", () => {
   it("shows the principal the prototype tabs first, then the kept extras", () => {
     const m = visibleNav(principal).find((x) => x.key === "pathshala");
     expect(m?.href).toBe("/pathshala");
-    expect(m?.tabs.map((t) => t.label)).toEqual(["Classes", "Gyan Path sign-offs", "Homework", "Terms", "Enrollments", "Teacher positions", "Committee"]);
+    expect(m?.tabs.map((t) => t.label)).toEqual(["Classes", "Gyan Path sign-offs", "Homework", "Terms", "Levels", "Enrollments", "Teacher positions", "Committee"]);
+  });
+  it("shows the treasurer (giving.manage) only Terms, where they change fees after registration opens (P9)", () => {
+    const treasurer: ScopedContext = { permissions: ["giving.view", "giving.manage", "giving.approve"], isPlatformAdmin: false, grants: [] };
+    const m = visibleNav(treasurer).find((x) => x.key === "pathshala");
+    expect(m?.href).toBe("/pathshala/terms");
+    expect(m?.tabs.map((t) => t.label)).toEqual(["Terms"]);
+    expect(pathshalaAreas.fees(treasurer)).toBe(true);
+    expect(pathshalaAreas.admin(treasurer)).toBe(false);
+    expect(pathshalaAreas.fees({ permissions: ["giving.view"], isPlatformAdmin: false, grants: [] })).toBe(false);
   });
   it("shows a class-scoped teacher the module, landing on My classes", () => {
     const m = visibleNav(teacherOnly).find((x) => x.key === "pathshala");

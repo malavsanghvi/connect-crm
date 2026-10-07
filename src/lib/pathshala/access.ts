@@ -11,8 +11,13 @@ import { can, canAccess, hasRole, hasScopedRole, type ScopedContext } from "@/li
 export const pathshalaAreas = {
   /** The principal's views: classes, terms, enrollments (pathshala.view or .manage). */
   admin: (c: ScopedContext) => canAccess(c, "pathshala"),
-  /** Changing terms, classes, placements and teachers (pathshala.manage). */
+  /** Changing terms, classes, levels, placements and teachers (pathshala.manage). */
   manage: (c: ScopedContext) => canAccess(c, "pathshalaManage"),
+  /**
+   * Terms and a term's Fees and rules: the principal's views plus the treasurer (giving.manage), who changes fees after
+   * registration opens. Who may change what, when: feeEditing (src/lib/pathshala-registration/rules.ts).
+   */
+  fees: (c: ScopedContext) => canAccess(c, "pathshalaFees"),
   /** Holds a Teacher role anywhere (a class, or center-wide). */
   teaches: (c: ScopedContext) => hasRole(c, "teacher"),
   signoffs: (c: ScopedContext) => canAccess(c, "pathshalaSignoffs") || hasRole(c, "teacher"),
