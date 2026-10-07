@@ -3,7 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { explainError } from "@/lib/errors";
 import { startProviderCheckout } from "@/lib/payments/checkout";
 import { originOf, tokenClient, type CheckoutInfo } from "@/lib/payments/server";
-import { parseIntentRequest } from "@/lib/payments/view";
+import { isCheckoutContext, parseIntentRequest } from "@/lib/payments/view";
 
 // The member app's (and the portal's) way to pay online:
 //   POST { center_id, household_id, amount_cents, pledge_ids, processor?, context, for_label, return_url? }
@@ -40,6 +40,11 @@ export async function POST(req: NextRequest) {
   const parsed = parseIntentRequest(body);
   if (!parsed.ok) return reply(400, { error: parsed.error });
   const r = parsed.value;
+  // An app sending a context this portal does not know is still served (as "other"), but never silently (F17).
+  const sent = (body as { context?: unknown }).context;
+  if (sent !== undefined && !isCheckoutContext(sent)) {
+    console.warn(`[payments/intent] unknown checkout context ${JSON.stringify(sent)} is recorded as "other".`);
+  }
   const db = tokenClient(token, "member", "/api/payments/intent");
   if (!db) return reply(503, { error: "Community Connect is not configured (NEXT_PUBLIC_SUPABASE_URL / NEXT_PUBLIC_SUPABASE_ANON_KEY)." });
   const { data, error } = await db.rpc("create_checkout", {
