@@ -13,7 +13,7 @@ function ctxWith(result: unknown) {
   return { ctx, calls, lines };
 }
 
-const counts = { reminded: 2, released: 1, credited: 0, credit_cents: 0, kept_paying: 1, waitlist_served: 1, paid_placed: 1 };
+const counts = { reminded: 2, released: 1, credited: 0, credit_cents: 0, kept_paying: 1, waitlist_served: 1, paid_placed: 1, failed: 0, fee_lines_caught_up: 0 };
 
 describe("pathshala.holds_sweep", () => {
   it("is a platform-wide job every 15 minutes in the registry that needs no provider keys", () => {
@@ -42,14 +42,21 @@ describe("pathshala.holds_sweep", () => {
     expect(lines.find((l) => String(l.msg).includes("credit to handle"))).toMatchObject({ level: "warn", credited: 1, credit_cents: 4500 });
   });
 
+  it("warns when one learner could not be finished (the database logged it and tries again next run)", async () => {
+    const { ctx, lines } = ctxWith({ ...counts, failed: 2, fee_lines_caught_up: 1 });
+    const out = await sweep.run(job({ kind: sweep.kind, center_id: null }), ctx);
+    expect(out).toMatchObject({ failed: 2, fee_lines_caught_up: 1 });
+    expect(lines.find((l) => String(l.msg).includes("could not be finished"))).toMatchObject({ level: "warn", failed: 2 });
+  });
+
   it("treats a missing or odd answer as nothing done, never as a failure to invent", async () => {
     const { ctx } = ctxWith(null);
     expect(await sweep.run(job({ kind: sweep.kind, center_id: null }), ctx)).toEqual({
-      reminded: 0, released: 0, credited: 0, credit_cents: 0, kept_paying: 0, waitlist_served: 0, paid_placed: 0,
+      reminded: 0, released: 0, credited: 0, credit_cents: 0, kept_paying: 0, waitlist_served: 0, paid_placed: 0, failed: 0, fee_lines_caught_up: 0,
     });
     const odd = ctxWith({ reminded: "3", released: -1, credited: "x" });
     expect(await sweep.run(job({ kind: sweep.kind, center_id: null }), odd.ctx)).toEqual({
-      reminded: 3, released: 0, credited: 0, credit_cents: 0, kept_paying: 0, waitlist_served: 0, paid_placed: 0,
+      reminded: 3, released: 0, credited: 0, credit_cents: 0, kept_paying: 0, waitlist_served: 0, paid_placed: 0, failed: 0, fee_lines_caught_up: 0,
     });
   });
 

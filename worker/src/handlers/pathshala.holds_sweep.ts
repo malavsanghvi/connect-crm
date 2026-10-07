@@ -20,6 +20,10 @@ export type SweepResult = {
   kept_paying: number;
   waitlist_served: number;
   paid_placed: number;
+  /** Learners the sweep could not finish this run (each is logged in the audit log and tried again next run). */
+  failed: number;
+  /** Fee lines still "billed" whose pledge was paid, caught up this run. */
+  fee_lines_caught_up: number;
 };
 
 const count = (v: unknown): number => {
@@ -40,8 +44,13 @@ export async function run(_job: Job, ctx: JobContext): Promise<SweepResult> {
     kept_paying: count(r.kept_paying),
     waitlist_served: count(r.waitlist_served),
     paid_placed: count(r.paid_placed),
+    failed: count(r.failed),
+    fee_lines_caught_up: count(r.fee_lines_caught_up),
   };
-  if (result.credited > 0) {
+  if (result.failed > 0) {
+    // One learner's trouble never stops the rest; the database wrote it to the audit log (pathshala.sweep_failed).
+    ctx.log.warn("pathshala.holds_sweep: some learners could not be finished; they are tried again on the next run", { ...result });
+  } else if (result.credited > 0) {
     // Money paid toward a released seat is credit waiting for the treasurer (app.rsvp_credit_releases).
     ctx.log.warn("pathshala.holds_sweep: released seats had money paid toward them; the treasurer has credit to handle", { ...result });
   } else {
