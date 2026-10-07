@@ -1312,17 +1312,31 @@ end $$;
 -- closed (the late window for families; the office after it).
 create or replace function app.pathshala_quote(p_term uuid, p_household uuid, p_lines jsonb) returns jsonb
 language plpgsql stable security definer set search_path = app, public, extensions as $$
-declare t app.pathshala_terms; v_center uuid;
+declare t app.pathshala_terms; h app.households; e jsonb; v_person uuid;
 begin
   if auth.uid() is null then raise exception 'Sign in first.' using errcode = '42501'; end if;
   select * into t from app.pathshala_terms where id = p_term;
   if t.id is null then raise exception 'That term was not found.' using errcode = 'P0002'; end if;
   perform app.assert_module_enabled(t.center_id, 'pathshala');
-  select center_id into v_center from app.households where id = p_household;
-  if v_center is distinct from t.center_id then raise exception 'That family was not found in this community.' using errcode = 'P0002'; end if;
+  select * into h from app.households where id = p_household;
+  if h.id is null or h.center_id <> t.center_id then raise exception 'That family was not found in this community.' using errcode = 'P0002'; end if;
   if not (app.pathshala_adult_of_household(t.center_id, p_household)
           or app.has_permission(t.center_id, 'pathshala.view') or app.has_permission(t.center_id, 'pathshala.manage')) then
     raise exception 'Only an adult of the family can see what Pathshala costs for it.' using errcode = '42501';
+  end if;
+  -- A family's quote prices its own current members only, as the preview and the registration do (app._pathshala_plan):
+  -- it never answers with another person's age on the cut-off or whether they count as a child.
+  if jsonb_typeof(p_lines) = 'array' then
+    for e in select * from jsonb_array_elements(p_lines) loop
+      continue when jsonb_typeof(e) <> 'object';
+      v_person := app._pathshala_uuid(e, 'person_id', 'The learner');
+      if v_person is not null and not exists (
+           select 1 from app.people p join app.household_members hm on hm.person_id = p.id
+            where p.id = v_person and not coalesce(p.is_deceased, false) and hm.household_id = h.id and hm.left_at is null) then
+        raise exception 'That learner is not a current member of the % (%).', h.display_name, coalesce(h.household_number, 'no number')
+          using errcode = '22023';
+      end if;
+    end loop;
   end if;
   return app._pathshala_price(t.id, p_household, p_lines, app.pathshala_is_late(t.id)) || jsonb_build_object('term_id', t.id, 'household_id', p_household);
 end $$;

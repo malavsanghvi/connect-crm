@@ -583,6 +583,16 @@ select pg_temp.assert_code(format($$select app.pathshala_quote(%L, %L, %L)$$, :t
   '42501', 'Only an adult of the family', 'quote: another family''s adult cannot see this family''s fees');
 rollback;
 begin;
+select pg_temp.sign_in(:u_mira);
+select pg_temp.assert_code(format($$select app.pathshala_quote(%L, %L, %L)$$, :t1, :h1, jsonb_build_array(jsonb_build_object('person_id', :p_kiran, 'track_id', :tr_j, 'level_id', :lv_j2))),
+  '22023', 'That learner is not a current member of the Shah household (P75-H-2001).', 'quote: a family cannot price someone of another family (no age or child status of theirs is returned)');
+rollback;
+begin;
+select pg_temp.sign_in(:u_cora);
+select pg_temp.assert_code(format($$select app.pathshala_quote(%L, %L, %L)$$, :t1, :h1, jsonb_build_array(jsonb_build_object('person_id', :p_nita, 'track_id', :tr_j, 'level_id', :lv_moms))),
+  '22023', 'That learner is not a current member of the Shah household', 'quote: nor can staff price a person through a family they are not in');
+rollback;
+begin;
 select pg_temp.sign_in(:u_riya);
 select pg_temp.assert_code(format($$select app.pathshala_quote(%L, %L, %L)$$, :t1, :h1, :family),
   '42501', 'Only an adult of the family', 'quote: a child of the household cannot see what it costs (money is adults only)');
