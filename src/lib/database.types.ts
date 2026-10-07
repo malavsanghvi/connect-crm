@@ -4412,6 +4412,7 @@ export type Database = {
           segments: number | null;
           job_id: number | null;
           created_by: string | null;
+          expires_at: string | null;
         };
         Insert: {
           id?: string;
@@ -4439,6 +4440,7 @@ export type Database = {
           segments?: number | null;
           job_id?: number | null;
           created_by?: string | null;
+          expires_at?: string | null;
         };
         Update: {
           id?: string;
@@ -4466,6 +4468,7 @@ export type Database = {
           segments?: number | null;
           job_id?: number | null;
           created_by?: string | null;
+          expires_at?: string | null;
         };
         Relationships: [];
       };
