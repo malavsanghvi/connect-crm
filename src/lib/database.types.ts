@@ -5267,6 +5267,114 @@ export type Database = {
         };
         Relationships: [];
       };
+      pathshala_enrollment_fees: {
+        Row: {
+          id: string;
+          center_id: string;
+          enrollment_id: string;
+          registration_id: string | null;
+          term_id: string;
+          household_id: string;
+          level_id: string | null;
+          learner_kind: string;
+          family_rank: number | null;
+          base_fee_cents: number;
+          sibling_discount_cents: number;
+          cap_reduction_cents: number;
+          late_fee_cents: number;
+          assistance_cents: number;
+          total_cents: number;
+          priced: boolean;
+          rule_snapshot: Json;
+          quoted_at: string;
+          status: string;
+          pledge_id: string | null;
+          billed_at: string | null;
+          paid_at: string | null;
+          billing_note: string | null;
+          requotes: Json;
+          assistance_requested: boolean;
+          assistance_note: string | null;
+          assistance_proposed_cents: number | null;
+          assistance_proposed_by: string | null;
+          assistance_proposed_at: string | null;
+          assistance_approved_by: string | null;
+          assistance_approved_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          center_id: string;
+          enrollment_id: string;
+          registration_id?: string | null;
+          term_id: string;
+          household_id: string;
+          level_id?: string | null;
+          learner_kind: string;
+          family_rank?: number | null;
+          base_fee_cents?: number;
+          sibling_discount_cents?: number;
+          cap_reduction_cents?: number;
+          late_fee_cents?: number;
+          assistance_cents?: number;
+          total_cents?: number;
+          priced?: boolean;
+          rule_snapshot?: Json;
+          quoted_at?: string;
+          status?: string;
+          pledge_id?: string | null;
+          billed_at?: string | null;
+          paid_at?: string | null;
+          billing_note?: string | null;
+          requotes?: Json;
+          assistance_requested?: boolean;
+          assistance_note?: string | null;
+          assistance_proposed_cents?: number | null;
+          assistance_proposed_by?: string | null;
+          assistance_proposed_at?: string | null;
+          assistance_approved_by?: string | null;
+          assistance_approved_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          center_id?: string;
+          enrollment_id?: string;
+          registration_id?: string | null;
+          term_id?: string;
+          household_id?: string;
+          level_id?: string | null;
+          learner_kind?: string;
+          family_rank?: number | null;
+          base_fee_cents?: number;
+          sibling_discount_cents?: number;
+          cap_reduction_cents?: number;
+          late_fee_cents?: number;
+          assistance_cents?: number;
+          total_cents?: number;
+          priced?: boolean;
+          rule_snapshot?: Json;
+          quoted_at?: string;
+          status?: string;
+          pledge_id?: string | null;
+          billed_at?: string | null;
+          paid_at?: string | null;
+          billing_note?: string | null;
+          requotes?: Json;
+          assistance_requested?: boolean;
+          assistance_note?: string | null;
+          assistance_proposed_cents?: number | null;
+          assistance_proposed_by?: string | null;
+          assistance_proposed_at?: string | null;
+          assistance_approved_by?: string | null;
+          assistance_approved_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       pathshala_enrollments: {
         Row: {
           id: string;
@@ -5321,6 +5429,36 @@ export type Database = {
         };
         Relationships: [];
       };
+      pathshala_level_fees: {
+        Row: {
+          id: string;
+          center_id: string;
+          term_id: string;
+          level_id: string;
+          fee_cents: number;
+          set_by: string | null;
+          set_at: string;
+        };
+        Insert: {
+          id?: string;
+          center_id: string;
+          term_id: string;
+          level_id: string;
+          fee_cents: number;
+          set_by?: string | null;
+          set_at?: string;
+        };
+        Update: {
+          id?: string;
+          center_id?: string;
+          term_id?: string;
+          level_id?: string;
+          fee_cents?: number;
+          set_by?: string | null;
+          set_at?: string;
+        };
+        Relationships: [];
+      };
       pathshala_levels: {
         Row: {
           id: string;
@@ -5333,6 +5471,7 @@ export type Database = {
           max_age: number | null;
           gyan_path_level_id: string | null;
           custom: Json;
+          active: boolean;
         };
         Insert: {
           id?: string;
@@ -5345,6 +5484,7 @@ export type Database = {
           max_age?: number | null;
           gyan_path_level_id?: string | null;
           custom?: Json;
+          active?: boolean;
         };
         Update: {
           id?: string;
@@ -5357,6 +5497,7 @@ export type Database = {
           max_age?: number | null;
           gyan_path_level_id?: string | null;
           custom?: Json;
+          active?: boolean;
         };
         Relationships: [];
       };
@@ -5494,6 +5635,19 @@ export type Database = {
           status: string;
           created_at: string;
           custom: Json;
+          payment_mode: string;
+          hold_hours: number;
+          office_payment_allowed: boolean;
+          office_hold_days: number;
+          seat_rule: string;
+          campaign_id: string | null;
+          fund_id: string | null;
+          late_registration_closes_at: string | null;
+          late_fee_cents: number;
+          withdrawal_credit_until: string | null;
+          age_cutoff_on: string | null;
+          fees_locked_at: string | null;
+          fees_locked_by: string | null;
         };
         Insert: {
           id?: string;
@@ -5511,6 +5665,19 @@ export type Database = {
           status?: string;
           created_at?: string;
           custom?: Json;
+          payment_mode?: string;
+          hold_hours?: number;
+          office_payment_allowed?: boolean;
+          office_hold_days?: number;
+          seat_rule?: string;
+          campaign_id?: string | null;
+          fund_id?: string | null;
+          late_registration_closes_at?: string | null;
+          late_fee_cents?: number;
+          withdrawal_credit_until?: string | null;
+          age_cutoff_on?: string | null;
+          fees_locked_at?: string | null;
+          fees_locked_by?: string | null;
         };
         Update: {
           id?: string;
@@ -5528,6 +5695,19 @@ export type Database = {
           status?: string;
           created_at?: string;
           custom?: Json;
+          payment_mode?: string;
+          hold_hours?: number;
+          office_payment_allowed?: boolean;
+          office_hold_days?: number;
+          seat_rule?: string;
+          campaign_id?: string | null;
+          fund_id?: string | null;
+          late_registration_closes_at?: string | null;
+          late_fee_cents?: number;
+          withdrawal_credit_until?: string | null;
+          age_cutoff_on?: string | null;
+          fees_locked_at?: string | null;
+          fees_locked_by?: string | null;
         };
         Relationships: [];
       };
@@ -11327,6 +11507,13 @@ export type Database = {
         };
         Returns: Json;
       };
+      open_pathshala_registration: {
+        Args: {
+          p_term: string;
+          p_reason?: string;
+        };
+        Returns: Json;
+      };
       opportunity_availability: {
         Args: {
           p_opportunity: string;
@@ -11371,6 +11558,89 @@ export type Database = {
           p_bank_type?: string;
         };
         Returns: { channel: string; payer_name: string; reference: string; is_batch: boolean }[];
+      };
+      pathshala_adult_of_household: {
+        Args: {
+          p_center: string;
+          p_household: string;
+        };
+        Returns: boolean;
+      };
+      pathshala_age_on: {
+        Args: {
+          p_dob: string;
+          p_on: string;
+        };
+        Returns: number;
+      };
+      pathshala_fee_example: {
+        Args: {
+          p_term: string;
+          p_lines: Json;
+        };
+        Returns: Json;
+      };
+      pathshala_fee_label: {
+        Args: {
+          p_term_name: string;
+          p_names: string[];
+        };
+        Returns: string;
+      };
+      pathshala_iso: {
+        Args: {
+          p_ts: string;
+          p_tz: string;
+        };
+        Returns: string;
+      };
+      pathshala_level_band: {
+        Args: {
+          p_min: number;
+          p_max: number;
+        };
+        Returns: string;
+      };
+      pathshala_money: {
+        Args: {
+          p_cents: number;
+        };
+        Returns: string;
+      };
+      pathshala_pay_now_ready: {
+        Args: {
+          p_center: string;
+        };
+        Returns: string;
+      };
+      pathshala_quote: {
+        Args: {
+          p_term: string;
+          p_household: string;
+          p_lines: Json;
+        };
+        Returns: Json;
+      };
+      pathshala_registration_options: {
+        Args: {
+          p_term: string;
+          p_household?: string;
+        };
+        Returns: Json;
+      };
+      pathshala_seat_state: {
+        Args: {
+          p_free: number;
+          p_classes: number;
+          p_waitlist_on: boolean;
+        };
+        Returns: string;
+      };
+      pathshala_seats: {
+        Args: {
+          p_term: string;
+        };
+        Returns: Json;
       };
       pathshala_term_stats: {
         Args: {
@@ -11577,6 +11847,14 @@ export type Database = {
           p_pledge_ids?: string[];
         };
         Returns: { pledge_id: string; pledge_number: string; amount_cents: number; closes: boolean }[];
+      };
+      preview_pathshala_registration: {
+        Args: {
+          p_term: string;
+          p_household: string;
+          p_learners: Json;
+        };
+        Returns: Json;
       };
       processor_methods: {
         Args: {
@@ -12160,6 +12438,14 @@ export type Database = {
         };
         Returns: Json;
       };
+      save_pathshala_level: {
+        Args: {
+          p_center: string;
+          p_level: Json;
+          p_reason?: string;
+        };
+        Returns: Json;
+      };
       save_platform_document: {
         Args: {
           p_document: string;
@@ -12327,6 +12613,22 @@ export type Database = {
           p_reason: string;
         };
         Returns: undefined;
+      };
+      set_pathshala_level_fees: {
+        Args: {
+          p_term: string;
+          p_fees: Json;
+          p_reason?: string;
+        };
+        Returns: Json;
+      };
+      set_pathshala_term_rules: {
+        Args: {
+          p_term: string;
+          p_rules: Json;
+          p_reason?: string;
+        };
+        Returns: Json;
       };
       set_payment_method: {
         Args: {
