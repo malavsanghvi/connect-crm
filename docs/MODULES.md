@@ -166,8 +166,12 @@ name, to `audit.view` holders of that center and platform admins only (the same 
 
 - **Tables:** pathshala_terms, pathshala_tracks, pathshala_levels, pathshala_classes,
   pathshala_teachers, pathshala_enrollments, pathshala_sessions, pathshala_attendance,
-  pathshala_progress_reports, class_announcements, teacher_positions, teacher_applications
-- **RPCs guarded:** pathshala_term_stats, redeem_attendance_qr
+  pathshala_progress_reports, class_announcements, teacher_positions, teacher_applications,
+  pathshala_level_fees, pathshala_enrollment_fees (0590)
+- **RPCs guarded:** pathshala_term_stats, redeem_attendance_qr; registration (0590): save_pathshala_level,
+  set_pathshala_level_fees, set_pathshala_term_rules, open_pathshala_registration, pathshala_quote,
+  pathshala_fee_example, pathshala_registration_options, preview_pathshala_registration, pathshala_seats,
+  pathshala_pay_now_ready
 - **Portal:** /pathshala, /pathshala/classes, /pathshala/classes/[id]/attendance,
   /pathshala/classes/[id]/reports (progress reports), /pathshala/terms, /pathshala/enrollments
   (incl. "Enroll a student"), /pathshala/teachers (positions and applications),
