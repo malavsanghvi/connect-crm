@@ -761,6 +761,28 @@ select pg_temp.assert((select array_agg((x ->> 'outcome') || '/' || (x ->> 'fami
                       and jsonb_array_length(:'pv_ravi'::jsonb -> 'pending') = 2,
   'preview: Ravi, a new child in Jainism 2 and Gujarati 3, is one child (first in both tracks: $130.00 + $130.00), pending in each track');
 select pg_temp.assert((select count(*) from app.audit_log) = :audit_before2::bigint, 'preview: the preview writes nothing');
+-- A learner withdrawn with the old Withdraw button keeps an open fee pledge: registering them again is refused until the
+-- office settles it (review B3); with the pledge cancelled the withdrawn enrollment is reused.
+insert into app.pathshala_enrollments (id, center_id, term_id, student_person_id, household_id, requested_level_id, status)
+values ('75000000-0000-4000-8000-000000000ee4', :c, :t1, :p_dev, :h1, :lv_j2, 'withdrawn');
+insert into app.pledges (id, center_id, household_id, pledged_by_person_id, source, source_ref_id, amount_cents, status)
+values ('75000000-0000-4000-8000-000000000ab4', :c, :h1, :p_mira, 'pathshala_fee', '75000000-0000-4000-8000-000000000ee4', 13000, 'open');
+begin;
+select pg_temp.sign_in(:u_mira);
+select pg_temp.assert_code(format($$select app.preview_pathshala_registration(%L, %L, %L)$$, :t1, :h1,
+  jsonb_build_array(jsonb_build_object('person_id', :p_dev, 'track_id', :tr_j, 'level_id', :lv_j2))),
+  '22023', 'Dev still has a Pathshala fee for Jainism in 2026-27 from an earlier registration. Ask the Pathshala office.',
+  'preview: a withdrawn learner whose fee pledge is still open is not registered again (no second fee on one enrollment)');
+rollback;
+update app.pledges set status = 'cancelled' where id = '75000000-0000-4000-8000-000000000ab4';
+begin;
+select pg_temp.sign_in(:u_mira);
+select app.preview_pathshala_registration(:t1, :h1, jsonb_build_array(jsonb_build_object('person_id', :p_dev, 'track_id', :tr_j, 'level_id', :lv_j2))) as pv_dev_again \gset
+rollback;
+select pg_temp.assert((:'pv_dev_again'::jsonb -> 'lines' -> 0 ->> 'outcome') = 'seat',
+  'preview: once that pledge is cancelled, Dev can be registered again (the withdrawn enrollment is reused)');
+delete from app.pledges where id = '75000000-0000-4000-8000-000000000ab4';
+delete from app.pathshala_enrollments where id = '75000000-0000-4000-8000-000000000ee4';
 -- A family that is not a member waits for its membership (P6).
 begin;
 select pg_temp.sign_in(:u_nita);

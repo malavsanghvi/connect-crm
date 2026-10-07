@@ -1661,7 +1661,9 @@ begin
 
     -- Already registered in this track this term?
     if v_person is not null then
-      select en.id, en.status, to_jsonb(en) ->> 'hold_reason' as hold_reason into v_existing
+      select en.id, en.status,
+             (select to_jsonb(fl) ->> 'hold_reason' from app.pathshala_enrollment_fees fl where fl.enrollment_id = en.id) as hold_reason
+        into v_existing
         from app.pathshala_enrollments en
        where en.term_id = t.id and en.student_person_id = v_person
          and coalesce((to_jsonb(en) ->> 'track_id')::uuid,
@@ -1670,6 +1672,13 @@ begin
        order by en.registered_at desc limit 1;
       if v_existing.id is not null then
         if v_existing.status in ('withdrawn') then
+          -- A withdrawal that left its fee pledge open (the old Withdraw button) or paid: registering again would bill the
+          -- same enrollment twice (review B3). The office settles it first.
+          if exists (select 1 from app.pledges pl where pl.source = 'pathshala_fee' and pl.source_ref_id = v_existing.id
+                        and pl.status in ('open', 'partially_paid', 'paid')) then
+            raise exception '% still has a Pathshala fee for % in % from an earlier registration. Ask the Pathshala office.',
+              v_name, tr.name, t.name using errcode = '22023';
+          end if;
           v_reuse := v_existing.id;
         elsif v_existing.hold_reason = 'waiver' and v_person = v_me then
           v_reuse := v_existing.id;   -- the adult learner agrees in their own app: their waiting registration goes ahead
