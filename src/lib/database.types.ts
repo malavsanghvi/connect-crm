@@ -2660,6 +2660,8 @@ export type Database = {
           created_by: string | null;
           created_at: string;
           updated_at: string;
+          remind_hours_before: number | null;
+          remind_set_at: string | null;
         };
         Insert: {
           id?: string;
@@ -2681,6 +2683,8 @@ export type Database = {
           created_by?: string | null;
           created_at?: string;
           updated_at?: string;
+          remind_hours_before?: number | null;
+          remind_set_at?: string | null;
         };
         Update: {
           id?: string;
@@ -2702,6 +2706,8 @@ export type Database = {
           created_by?: string | null;
           created_at?: string;
           updated_at?: string;
+          remind_hours_before?: number | null;
+          remind_set_at?: string | null;
         };
         Relationships: [];
       };
@@ -2786,6 +2792,39 @@ export type Database = {
           tint?: string | null;
           mark?: string | null;
           custom?: Json;
+        };
+        Relationships: [];
+      };
+      gyan_homework_reminders: {
+        Row: {
+          assignment_id: string;
+          person_id: string;
+          center_id: string;
+          due_on: string;
+          remind_hours: number;
+          remind_at: string;
+          sent_at: string;
+          messages: number;
+        };
+        Insert: {
+          assignment_id: string;
+          person_id: string;
+          center_id: string;
+          due_on: string;
+          remind_hours: number;
+          remind_at: string;
+          sent_at?: string;
+          messages?: number;
+        };
+        Update: {
+          assignment_id?: string;
+          person_id?: string;
+          center_id?: string;
+          due_on?: string;
+          remind_hours?: number;
+          remind_at?: string;
+          sent_at?: string;
+          messages?: number;
         };
         Relationships: [];
       };

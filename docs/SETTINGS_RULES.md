@@ -45,7 +45,7 @@ so the member app, sender and sign-in service can adopt them.
 | `onboarding.fields.<field>` | see below | Onboarding fields | **new**: member app onboarding (not read yet) |
 | `notifications.quiet_start_hour` / `quiet_end_hour` | 21 / 7 | Notifications | **new**: automatic sender (not built yet) |
 | `notifications.event_day_during_quiet_hours` | true | Notifications | **new**: automatic sender (not built yet) |
-| `notifications.triggers.<trigger>` | true | Notifications | **new**: automatic sender (not built yet) |
+| `notifications.triggers.<trigger>` | true | Notifications | **new**: automatic sender (not built yet), except `homework_reminder`, **read by the database** (0588): `false` means `app.worker_homework_reminders_sweep` sends this community no homework reminder and its next run cancels those still waiting to go out (the first trigger switch the database itself reads; anything else, or no key, is on) |
 | `security.printed_signin_codes` | true | Security | **new**: policy only, not enforced yet |
 | `security.admin_session_hours` / `admin_idle_minutes` | 8 / 30 | Security | **new**: policy only; the sign-in service keeps its own session length |
 | `onboarding.wizard_step` | — | Platform › New center | **new**: next wizard step while a center is onboarding |
@@ -68,7 +68,10 @@ and physical mail are always asked and are not stored.
 
 `notifications.triggers` keys: `rsvp_confirmation`, `lunch_reminder`, `special_day_labh`,
 `family_celebration`, `saathi_support`, `boli_outbid`, `giving_opportunity`,
-`pledge_reminder`, `store_order_ready`, `event_feedback`, `pachchakhan_reminder`.
+`pledge_reminder`, `store_order_ready`, `event_feedback`, `pachchakhan_reminder`,
+`homework_reminder` ("Homework due-soon reminders", 0588: the first switch here that is actually read by the
+database. Each homework sets its own hours before the due date, or none; with this switch off the community
+gets no homework reminder at all).
 
 Keys without a form (voting, identifiers, bank, accounting, `rsvp.nudge_hour_local`,
 `membership.reference_required`, …) are edited in Settings › Rules › Advanced.

@@ -297,8 +297,9 @@ select app.save_gyan_assignment(:c1, jsonb_build_object('level_id', :l1, 'title'
 commit;
 select (:'a1json'::jsonb->>'id') as a1 \gset
 select pg_temp.assert((select array_agg(k order by k) from jsonb_object_keys(:'a1json'::jsonb) k)
-                        = array['allowed_kinds','center_id','class_id','created_at','due_rule','id','instructions_md','level_id','max_files','parent_check','points','required_for_level','reviewer','sort_order','status','title','updated_at'],
-  'save_gyan_assignment returns the row with exactly the contract''s keys');
+                        = array['allowed_kinds','center_id','class_id','created_at','due_rule','id','instructions_md','level_id','max_files','parent_check','points',
+                                'remind_hours_before','remind_set_at','required_for_level','reviewer','sort_order','status','title','updated_at'],
+  'save_gyan_assignment returns the row with exactly the contract''s keys (0588 added the reminder''s two)');
 select pg_temp.assert(:'a1json'::jsonb->>'title' = 'Navkar recording' and :'a1json'::jsonb->'allowed_kinds' = '["photo", "text", "voice"]'::jsonb
                       and (:'a1json'::jsonb->>'max_files')::int = 2 and (:'a1json'::jsonb->>'points')::int = 15
                       and :'a1json'::jsonb->>'parent_check' = 'children' and :'a1json'::jsonb->>'reviewer' = 'teacher' and :'a1json'::jsonb->>'status' = 'draft'
@@ -371,6 +372,9 @@ commit;
 select pg_temp.assert((select class_id = :classA::uuid and points = 7 from app.gyan_assignments where id = :'a_teacher') and :'a_teacher_v2'::jsonb->>'class_id' = :classA,
   'a class teacher creates and changes homework for their own class');
 
+-- "Yesterday" in the community's own time zone, as the late mark counts it (app.gyan_center_today): the database's
+-- current_date is UTC's, a day ahead of the community's every evening (in Houston from 6 or 7 p.m.).
+select (app.gyan_center_today(:c1) - 1)::text as c1_yesterday \gset
 -- The principal (pathshala.manage) sets the rest: homework only for class B (required), the required homework on
 -- LREQ, an "always" one, one that takes no written answer, and the two due rules.
 begin;
@@ -381,7 +385,7 @@ select (app.save_gyan_assignment(:c1, jsonb_build_object('level_id', :lreq, 'tit
 select (app.save_gyan_assignment(:c1, jsonb_build_object('level_id', :l1, 'title', 'Always checked', 'parent_check', 'always', 'allowed_kinds', jsonb_build_array('text'), 'points', 0))->>'id') as a_always \gset
 select (app.save_gyan_assignment(:c1, jsonb_build_object('level_id', :l1, 'title', 'Photo only', 'allowed_kinds', jsonb_build_array('photo'), 'parent_check', 'never'))->>'id') as a_notext \gset
 select (app.save_gyan_assignment(:c1, jsonb_build_object('level_id', :ldue, 'title', 'Due yesterday', 'allowed_kinds', jsonb_build_array('text'), 'parent_check', 'never',
-                                 'due_rule', jsonb_build_object('kind', 'on', 'date', (current_date - 1)::text)))->>'id') as a_due \gset
+                                 'due_rule', jsonb_build_object('kind', 'on', 'date', :'c1_yesterday')))->>'id') as a_due \gset
 select (app.save_gyan_assignment(:c1, jsonb_build_object('level_id', :l1, 'title', 'A week after you start', 'allowed_kinds', jsonb_build_array('text'),
                                  'due_rule', '{"kind": "days_after_start", "days": 7}'::jsonb))->>'id') as a_days \gset
 select (app.save_gyan_assignment(:c1, jsonb_build_object('level_id', :l1, 'title', 'Stays a draft', 'allowed_kinds', jsonb_build_array('text')))->>'id') as a_tmp \gset
@@ -511,9 +515,10 @@ select pg_temp.assert((select (i->>'needs_parent')::boolean from jsonb_array_ele
 select pg_temp.assert((select i->'assignment' from jsonb_array_elements(:'hw_kid'::jsonb->'items') i where i->'assignment'->>'id' = :'a1')
                         = jsonb_build_object('id', :'a1', 'level_id', :l1, 'goal_id', :g1, 'title', 'Navkar recording', 'instructions_md', 'Record the full mantra, slowly.',
                                              'allowed_kinds', jsonb_build_array('photo', 'text', 'voice'), 'max_files', 2, 'points', 15, 'required_for_level', false,
-                                             'due_on', null, 'parent_check', 'children', 'class_id', null, 'archived', false),
-  'the assignment carries exactly the contract''s keys');
-select pg_temp.assert((select i->'assignment'->>'due_on' from jsonb_array_elements(:'hw_kid'::jsonb->'items') i where i->'assignment'->>'id' = :'a_due') = (current_date - 1)::text
+                                             'due_on', null, 'parent_check', 'children', 'class_id', null, 'archived', false,
+                                             'remind_hours_before', null, 'remind_set_at', null),
+  'the assignment carries exactly the contract''s keys (0588 added the reminder''s two)');
+select pg_temp.assert((select i->'assignment'->>'due_on' from jsonb_array_elements(:'hw_kid'::jsonb->'items') i where i->'assignment'->>'id' = :'a_due') = :'c1_yesterday'
                       and (select i->'assignment'->>'due_on' from jsonb_array_elements(:'hw_kid'::jsonb->'items') i where i->'assignment'->>'id' = :'a_days') = (app.gyan_center_today(:c1) + 7)::text,
   'a due date is shown as the date, and "days after start" counts from her first completed step of the level');
 begin;
