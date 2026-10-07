@@ -246,7 +246,7 @@ alter table app.pathshala_enrollments add constraint pathshala_enrollments_term_
 -- pledges must be cancelled or paid, never left behind).
 create or replace function app.pathshala_enrollments_guard() returns trigger
 language plpgsql set search_path = app, public, extensions as $$
-declare v_hold text;
+declare v_hold text; v_fee text;
 begin
   if current_user not in ('authenticated', 'anon') then return new; end if;
   if tg_op = 'INSERT' then
@@ -256,7 +256,14 @@ begin
     return new;
   end if;
   -- Only the Pathshala principal (pathshala.manage, who reads the fee line) can update an enrollment directly.
-  select fl.hold_reason into v_hold from app.pathshala_enrollment_fees fl where fl.enrollment_id = old.id;
+  select fl.hold_reason, fl.status into v_hold, v_fee from app.pathshala_enrollment_fees fl where fl.enrollment_id = old.id;
+  -- The portal's older Withdraw button wrote the status directly and left the fee pledge open (review B3). A seat whose
+  -- fee is billed or paid is given up only when the fee is handled: the treasurer cancels or settles the pledge in Giving
+  -- first (withdrawal with the fee handled comes in migration 0592). Finishing the term (completed) is not giving up.
+  if old.status in ('placed', 'active') and new.status in ('requested', 'waitlisted', 'withdrawn') and v_fee in ('billed', 'paid') then
+    raise exception 'This learner has a Pathshala fee that is %, so the registration cannot be withdrawn or moved back here. The treasurer cancels or settles the fee pledge in Giving first: please ask the Pathshala office.',
+      case v_fee when 'paid' then 'paid' else 'billed' end using errcode = '22023';
+  end if;
   if v_hold in ('payment', 'office_payment', 'assistance')
      and (new.status is distinct from old.status or new.class_id is distinct from old.class_id) then
     raise exception 'This learner''s seat is held for payment: they are placed when the fee is paid, or the hold is released on the Registrations screen.'

@@ -64,6 +64,10 @@ grant connect_worker to postgres;
 \set cl_j2 '''77000000-0000-4000-8000-000000000602'''
 \set cl_j5 '''77000000-0000-4000-8000-000000000605'''
 \set cl_g1 '''77000000-0000-4000-8000-000000000611'''
+\set t2 '''77000000-0000-4000-8000-000000000502'''
+\set cl2_j2 '''77000000-0000-4000-8000-000000000622'''
+\set cl2_j5 '''77000000-0000-4000-8000-000000000625'''
+\set cl2_g1 '''77000000-0000-4000-8000-000000000631'''
 \set fund_p '''77000000-0000-4000-8000-000000000701'''
 
 insert into app.centers (id, slug, name, short_name, time_zone, environment) values (:c, 'p77-temple', 'P77 Jain Temple', 'P77', 'America/Chicago', 'production');
@@ -105,8 +109,19 @@ insert into app.pathshala_classes (id, center_id, term_id, level_id, name, room,
   (:cl_j2, :c, :t1, :lv_j2, 'Jainism 2 · Room B', 'B', 4, 'sunday', '10:00', '11:30', true),
   (:cl_j5, :c, :t1, :lv_j5, 'Jainism 5 · Room C', 'C', 4, 'sunday', '10:00', '11:30', true),
   (:cl_g1, :c, :t1, :lv_g1, 'Gujarati 1 · Library', 'Library', 4, 'sunday', '11:45', '12:45', true);
+-- T2: pledge mode (the default), a 10% sibling discount.
+insert into app.pathshala_terms (id, center_id, name, starts_on, ends_on, sibling_discount_pct, fee_per_family_cap_cents, registration_closes_at) values
+  (:t2, :c, 'Fall 2026', '2026-09-06', '2027-05-30', 10, null, null);
+insert into app.pathshala_classes (id, center_id, term_id, level_id, name, room, capacity, meets_on, starts_time, ends_time, waitlist_enabled) values
+  (:cl2_j2, :c, :t2, :lv_j2, 'Jainism 2 · Room B (fall)', 'B', 4, 'sunday', '10:00', '11:30', true),
+  (:cl2_j5, :c, :t2, :lv_j5, 'Jainism 5 · Room C (fall)', 'C', 4, 'sunday', '10:00', '11:30', true),
+  (:cl2_g1, :c, :t2, :lv_g1, 'Gujarati 1 · Library (fall)', 'Library', 4, 'sunday', '11:45', '12:45', true);
 begin;
 select pg_temp.sign_in(:u_pia);
+select app.set_pathshala_level_fees(:t2, jsonb_build_array(
+  jsonb_build_object('level_id', :lv_j2, 'fee_cents', 13000), jsonb_build_object('level_id', :lv_j5, 'fee_cents', 13000),
+  jsonb_build_object('level_id', :lv_g1, 'fee_cents', 4500)));
+select app.open_pathshala_registration(:t2);
 select app.set_pathshala_level_fees(:t1, jsonb_build_array(
   jsonb_build_object('level_id', :lv_j2, 'fee_cents', 13000), jsonb_build_object('level_id', :lv_j5, 'fee_cents', 13000),
   jsonb_build_object('level_id', :lv_g1, 'fee_cents', 4500)));
@@ -163,3 +178,43 @@ commit;
 select pg_temp.assert((select status = 'placed' and class_id = :cl_j2 from app.pathshala_enrollments where id = :'e_dev')
                       and (select status = 'paid' from app.pathshala_enrollment_fees where enrollment_id = :'e_dev'),
   'the fee line''s own pledge, paid in full, places Dev');
+
+-- ════════════════════════════════════════════════════════════════════════════
+-- 2. The old Withdraw button leaves no fee behind (review B3)
+-- ════════════════════════════════════════════════════════════════════════════
+begin;
+select pg_temp.sign_in(:u_nita);
+select app.register_pathshala_children(:t2, :h2, jsonb_build_array(jsonb_build_object('person_id', :p_kiran, 'track_id', :tr_j, 'level_id', :lv_j2)),
+                                       13000, null, null, 'k77-kiran-2') as r3 \gset
+commit;
+select (:'r3'::jsonb -> 'lines' -> 0 ->> 'enrollment_id') as e_kiran, (:'r3'::jsonb -> 'lines' -> 0 -> 'pledge' ->> 'id') as pl_kiran \gset
+select pg_temp.assert((select e.status = 'placed' and f.status = 'billed' and f.pledge_id = :'pl_kiran'::uuid
+                         from app.pathshala_enrollments e join app.pathshala_enrollment_fees f on f.enrollment_id = e.id where e.id = :'e_kiran')
+                      and (select status = 'open' and amount_cents = 13000 from app.pledges where id = :'pl_kiran'::uuid),
+  'pledge mode: Kiran is placed and billed one $130.00 pledge');
+begin;
+select pg_temp.sign_in(:u_pia);
+select pg_temp.assert_code(format($$update app.pathshala_enrollments set status = 'withdrawn' where id = %L$$, :'e_kiran'),
+  '22023', 'ask the pathshala office', 'the portal''s Withdraw button: refused while the fee is billed, with a plain sentence for the office');
+select pg_temp.assert_code(format($$update app.pathshala_enrollments set status = 'requested', class_id = null where id = %L$$, :'e_kiran'),
+  '22023', 'treasurer cancels or settles the fee pledge', 'moving a billed learner back to requests is refused too');
+select pg_temp.assert_code(format($$update app.pathshala_enrollments set status = 'waitlisted' where id = %L$$, :'e_kiran'),
+  '22023', 'ask the pathshala office', 'so is the waitlist');
+update app.pathshala_enrollments set status = 'active' where id = :'e_kiran';
+update app.pathshala_enrollments set status = 'completed' where id = :'e_kiran';
+update app.pathshala_enrollments set status = 'placed' where id = :'e_kiran';
+commit;
+select pg_temp.assert((select status = 'placed' from app.pathshala_enrollments where id = :'e_kiran')
+                      and (select status = 'open' from app.pledges where id = :'pl_kiran'::uuid),
+  'placed, active and completed are still the principal''s to set; the billed fee pledge is untouched');
+-- A withdrawal made before this fix (the owner of the database writes it, as the old button did) left the pledge open:
+-- registering that learner again is refused, so there is never a second pledge for the same enrollment.
+update app.pathshala_enrollments set status = 'withdrawn' where id = :'e_kiran';
+begin;
+select pg_temp.sign_in(:u_nita);
+select pg_temp.assert_code(format($$select app.register_pathshala_children(%L, %L, %L)$$, :t2, :h2,
+  jsonb_build_array(jsonb_build_object('person_id', :p_kiran, 'track_id', :tr_j, 'level_id', :lv_j2))),
+  '22023', 'ask the pathshala office', 're-registration: refused while the earlier fee pledge is still open');
+commit;
+select pg_temp.assert((select count(*) = 1 from app.pledges where source = 'pathshala_fee' and source_ref_id = :'e_kiran'::uuid),
+  're-registration: still one fee pledge for the enrollment (no second pledge)');
