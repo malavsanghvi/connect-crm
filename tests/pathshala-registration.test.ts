@@ -2,6 +2,8 @@ import { describe, expect, it, vi } from "vitest";
 
 import {
   databaseSentence,
+  FUND_CLEARED_SENTENCE,
+  NO_FUND_SENTENCE,
   parseLevelFees,
   parseLevelRows,
   parseOpenResult,
@@ -9,6 +11,7 @@ import {
   parseQuote,
   parseSeats,
   parseTermRules,
+  refusedLines,
   type LevelRow,
   type TermRulesInput,
 } from "@/lib/pathshala-registration/contract";
@@ -17,18 +20,30 @@ import {
   bandCell,
   buildFeeGroups,
   changedFees,
+  exampleOutcome,
   isPathshalaFund,
   joinNames,
   lockedSentence,
   missingFeeNames,
   missingFeesSentence,
   openChecklist,
+  savedFeesSentence,
   seatsLabel,
   unpricedOfferedSentence,
 } from "@/lib/pathshala-registration/fees";
-import { ageBandLabel, levelAudience, levelProblem, nextSortOrder, normalizeLevelKey, parseAgeInput, sortTracks, suggestLevelKey } from "@/lib/pathshala-registration/levels";
+import {
+  ageBandLabel,
+  levelAudience,
+  levelProblem,
+  nextSortOrder,
+  normalizeLevelKey,
+  parseAgeInput,
+  pickableLevels,
+  sortTracks,
+  suggestLevelKey,
+} from "@/lib/pathshala-registration/levels";
 import { additionLabel, feeInputValue, feeLabel, formatMoney, parseFeeInput, parseMoneyInput, reductionLabel } from "@/lib/pathshala-registration/money";
-import { feeEditing, payNowBlockedReason, paymentModeSentence, rulesProblem, termBillingPhrase, termStatusLabel } from "@/lib/pathshala-registration/rules";
+import { feeEditing, fundText, payNowBlockedReason, paymentModeSentence, rulesProblem, termBillingPhrase, termStatusLabel } from "@/lib/pathshala-registration/rules";
 import { CHECKOUT_CONTEXTS, isCheckoutContext, parseIntentRequest } from "@/lib/payments/view";
 
 const TZ = "America/Chicago";
@@ -116,6 +131,18 @@ describe("Pathshala › Levels: age bands and the database's checks", () => {
     ];
     expect(sortTracks(tracks).map((t) => t.key)).toEqual(["jainism", "gujarati", "hindi", "music"]);
   });
+
+  it("keeps retired levels out of the pickers, except the level a record already has (and every level before 0590)", () => {
+    const rows = [
+      { id: "j1", active: true },
+      { id: "j6", active: false },
+      { id: "j7", active: false },
+      { id: "old" }, // a database without 0590 has no flag: offered
+    ];
+    expect(pickableLevels(rows).map((l) => l.id)).toEqual(["j1", "old"]);
+    expect(pickableLevels(rows, "j6").map((l) => l.id)).toEqual(["j1", "j6", "old"]);
+    expect(pickableLevels(rows, null).map((l) => l.id)).toEqual(["j1", "old"]);
+  });
 });
 
 describe("Pathshala › Terms › Fees: the table, what is missing and what changed", () => {
@@ -186,6 +213,45 @@ describe("Pathshala › Terms › Fees: the table, what is missing and what chan
     ]);
   });
 
+  it("offers an earlier term's fee (or the old single fee) only as a suggestion: it is never a saved fee", () => {
+    const g = buildFeeGroups({
+      term: { ...terms[0], fee_per_child_cents: 15000 },
+      terms,
+      tracks,
+      levels,
+      classes: [{ level_id: "toddler" }, { level_id: "g3" }],
+      fees: [{ term_id: "t25", level_id: "g3", fee_cents: 13000, set_by: null, set_at: null }],
+      seats: null,
+    });
+    const toddler = g[0].rows.find((r) => r.level.id === "toddler");
+    const g3 = g[1].rows.find((r) => r.level.id === "g3");
+    expect(toddler).toMatchObject({ saved: null, suggestion: { cents: 15000, from: "the term's earlier single fee" } });
+    expect(g3).toMatchObject({ saved: null, suggestion: { cents: 13000, from: "2025-26" } });
+    expect(missingFeeNames(g)).toEqual(["Gujarati 3", "Toddler"]);
+  });
+
+  it("names every level it saved, and says a change after opening applies to new registrations only", () => {
+    const names = new Map([
+      ["toddler", "Toddler"],
+      ["j1", "Jainism 1"],
+      ["g3", "Gujarati 3"],
+    ]);
+    expect(savedFeesSentence([{ level_id: "toddler", fee_cents: 4500 }], names, "2026-27", "USD", false)).toBe("Fee saved for 2026-27: Toddler $45.00.");
+    expect(
+      savedFeesSentence(
+        [
+          { level_id: "toddler", fee_cents: 4500 },
+          { level_id: "j1", fee_cents: 13000 },
+          { level_id: "g3", fee_cents: 0 },
+        ],
+        names,
+        "2026-27",
+        "USD",
+        true,
+      ),
+    ).toBe("Fees saved for 2026-27: Toddler $45.00, Jainism 1 $130.00 and Gujarati 3 Free. The change applies to new registrations only.");
+  });
+
   it("says the seats in one line", () => {
     expect(seatsLabel(null)).toBe("—");
     expect(seatsLabel({ level_id: "x", seats: null, taken: 5, held: 0, free: null, waitlist: 0, waitlist_on: false })).toBe("No limit · 5 taken");
@@ -213,7 +279,11 @@ describe("Pathshala › Terms › Fees: the table, what is missing and what chan
     });
     expect(items[0]).toEqual({ tone: "bad", text: "Set the fee for Gujarati 3 and Jainism 1 before opening registration." });
     expect(items[1]).toEqual({ tone: "bad", text: "This term is set to “Pay when registering”, which cannot be used yet: Pay at registration waits for fee receipts (P13)." });
-    expect(items[2]).toMatchObject({ tone: "bad", text: expect.stringMatching(/^There is no Pathshala fund for the fees yet\./) });
+    // 0590's sentence word for word, Setup › Lists first (a treasurer without Pathshala access cannot open a draft term).
+    expect(items[2]).toEqual({ tone: "bad", text: NO_FUND_SENTENCE });
+    expect(NO_FUND_SENTENCE).toBe(
+      "There is no fund for the Pathshala fees yet. Ask the treasurer to add a fund called Pathshala in Setup › Lists, or choose a fund on this Fees screen if you also manage Giving; then open registration.",
+    );
     expect(items.find((i) => i.text.startsWith("No age band"))?.text).toBe(
       "No age band yet for Jainism 1 and Gujarati 3: the app cannot suggest them by age, or keep adult classes for adults. Set the bands in Pathshala › Levels.",
     );
@@ -224,9 +294,11 @@ describe("Pathshala › Terms › Fees: the table, what is missing and what chan
     const none = openChecklist({ groups: [], paymentMode: "pledge", payNowBlocked: "x", givingOn: false, fundFound: false, membershipRequired: false, registrationOpensAt: null, registrationClosesAt: null, tz: TZ });
     expect(none[0].text).toMatch(/^No classes yet: opening now locks the term with no fees to set/);
     expect(none.some((i) => i.text.startsWith("This term is set to"))).toBe(false);
-    // With Giving off no fund is needed, and nothing is billed.
-    expect(none.some((i) => i.text.startsWith("There is no Pathshala fund"))).toBe(false);
-    expect(none.some((i) => i.text.startsWith("Pledges & donations is off"))).toBe(true);
+    // With Giving off no fund is needed, and nothing is billed while it is off.
+    expect(none.some((i) => i.text === NO_FUND_SENTENCE)).toBe(false);
+    expect(none.find((i) => i.text.startsWith("Pledges & donations is off"))?.text).toBe(
+      "Pledges & donations is off: registrations are kept and their fees quoted, but nothing is billed while it is off.",
+    );
     expect(none.some((i) => i.text.startsWith("No registration dates are set"))).toBe(true);
   });
 
@@ -317,15 +389,32 @@ describe("Pathshala term rules: modes, checks, who may change them", () => {
     expect(feeEditing(treasurer, { status: "closed", fees_locked_at: "2026-08-01T00:00:00Z" })).toMatchObject({ closed: true, canEdit: false, canOpen: false });
   });
 
-  it("describes billing only as the term does it (F18)", () => {
-    expect(termBillingPhrase({ mode: "pledge", locked: true, givingOn: true })).toBe("fees per level, added to the family's pledges when a seat is given");
-    expect(termBillingPhrase({ mode: "pay_now", locked: true, givingOn: true })).toBe("fees per level, paid online when registering");
+  it("names the payment mode on the Classes sub-line and promises no billing (F18: the office's Place still bills nothing)", () => {
+    expect(termBillingPhrase({ mode: "pledge", locked: true, givingOn: true })).toBe("fees per level · register now, pay later");
+    expect(termBillingPhrase({ mode: "pay_now", locked: true, givingOn: true })).toBe("fees per level · pay when registering");
+    for (const mode of ["pledge", "pay_now"] as const) {
+      for (const locked of [true, false]) {
+        for (const givingOn of [true, false]) {
+          expect(termBillingPhrase({ mode, locked, givingOn })).not.toMatch(/added to|pledges when|when a seat|paid online|billed when/);
+        }
+      }
+    }
     expect(termBillingPhrase({ mode: "pledge", locked: true, givingOn: false })).toBe("fees per level, not billed while Pledges & donations is off");
     // Not locked yet: families cannot register with fees, so no billing is promised.
     expect(termBillingPhrase({ mode: "pledge", locked: false, givingOn: true })).toBe("fees per level, not yet locked for registration");
     expect(termBillingPhrase({ mode: null, locked: true, givingOn: true })).toBeNull();
     expect(termStatusLabel("registration")).toBe("Registration open");
     expect(termStatusLabel("weird")).toBe("weird");
+  });
+
+  it("says the fund of the fee pledges: found when registration opens, until it has opened; never cleared after", () => {
+    const funds = [{ id: "f1", name: "Pathshala" }];
+    expect(fundText("f1", funds, false)).toBe("Pathshala");
+    expect(fundText("f1", funds, true)).toBe("Pathshala");
+    expect(fundText("f9", funds, true)).toBe("A fund chosen by the treasurer");
+    expect(fundText(null, funds, false)).toBe("Found when registration opens (the Pathshala fund)");
+    expect(fundText(null, funds, true)).toBe("No fund chosen");
+    expect(FUND_CLEARED_SENTENCE).toBe("The fund for the Pathshala fees cannot be cleared once registration has opened. Choose another fund instead.");
   });
 });
 
@@ -372,9 +461,37 @@ describe("the 0590 contract: reading what the database sends", () => {
     expect(q.ok).toBe(true);
     if (!q.ok) return;
     expect(q.value).toMatchObject({ children_total_cents: 27500, adults_total_cents: 5000, total_cents: 32500, late: false });
-    expect(q.value.lines[2]).toMatchObject({ index: 3, first_name: null, age_on_cutoff: 4, sibling_discount_cents: 450, cap_reduction_cents: 1250, late_fee_cents: 0, priced: true });
-    expect(parseQuote({ lines: [{ base_fee_cents: 1, total_cents: 1, learner_kind: "teen" }] }).ok).toBe(false);
+    expect(q.value.lines[2]).toMatchObject({ index: 3, first_name: null, age_on_cutoff: 4, sibling_discount_cents: 450, cap_reduction_cents: 1250, late_fee_cents: 0, priced: true, refusal: null });
+    expect(refusedLines(q.value)).toEqual([]);
+    expect(exampleOutcome(q.value)).toEqual({ allPriced: true, text: "Priced as a registration would be." });
+    expect(exampleOutcome({ ...q.value, late: true }).text).toBe("Priced as a registration would be, in the late window.");
+    expect(parseQuote({ lines: [{ base_fee_cents: 1, total_cents: 1, learner_kind: "teen" }], children_total_cents: 1, adults_total_cents: 0, total_cents: 1 }).ok).toBe(false);
     expect(parseQuote({ total_cents: 1 }).ok).toBe(false);
+  });
+
+  it("reads a line the database refused (its sentence, not priced, zero amounts) and never adds the totals up itself", () => {
+    const lines = [
+      { index: 1, learner: "Riya", learner_kind: "child", family_rank: 1, age_on_cutoff: 12, base_fee_cents: 13000, total_cents: 13000, priced: true, refusal: null },
+      { index: 2, learner: "Riya", learner_kind: "child", family_rank: 1, age_on_cutoff: 12, base_fee_cents: 13000, total_cents: 13000, priced: true },
+      { index: 3, learner_kind: "adult", base_fee_cents: 0, total_cents: 0, priced: false, refusal: "Jainism 2 is a children's class, and Mira is an adult." },
+      { index: 4, priced: false, refusal: "Gujarati 4 has no fee for 2026-27 yet, so it cannot be chosen." },
+    ];
+    const q = parseQuote({ lines, children_total_cents: 26000, adults_total_cents: 0, total_cents: 26000, late: false });
+    expect(q.ok).toBe(true);
+    if (!q.ok) return;
+    // One learner in two classes (the same `learner`): both lines at Riya's rank 1, as 0590 prices them.
+    expect(q.value.lines.slice(0, 2).map((l) => [l.first_name, l.family_rank, l.total_cents])).toEqual([
+      ["Riya", 1, 13000],
+      ["Riya", 1, 13000],
+    ]);
+    expect(q.value.lines[2]).toMatchObject({ learner_kind: "adult", priced: false, total_cents: 0, refusal: "Jainism 2 is a children's class, and Mira is an adult." });
+    expect(q.value.lines[3]).toMatchObject({ learner_kind: null, base_fee_cents: 0, total_cents: 0, priced: false });
+    expect(refusedLines(q.value).length).toBe(2);
+    expect(q.value.total_cents).toBe(26000);
+    expect(exampleOutcome(q.value)).toEqual({ allPriced: false, text: "2 rows could not be priced — see each row." });
+    expect(exampleOutcome({ lines: q.value.lines.slice(0, 3), late: false }).text).toBe("1 row could not be priced — see that row.");
+    // No totals: a shape problem, never summed here (§2.4: one pricing function).
+    expect(parseQuote({ lines: lines.slice(0, 1) })).toEqual({ ok: false, error: "the quote has no totals in whole cents" });
   });
 
   it("reads what opening registration answers, warnings included", () => {
@@ -455,23 +572,24 @@ describe("the 0590 wrapper: one narrow cast, and an older database said plainly"
       withdrawal_credit_until: null,
       age_cutoff_on: null,
     };
-    await saveLevel(db, "c1", { track_id: "t", key: "3", name: "Jainism 3", sort_order: 3, min_age: 8, max_age: 10, active: true }, "New level");
+    await saveLevel(db, "c1", { track_id: "t", key: "3", name: "Jainism 3", sort_order: 3, min_age: 8, max_age: 10 }, "New level");
     await saveLevel(db, "c1", { id: "l1", active: false }, null);
     await setLevelFees(db, "term", [{ level_id: "l", fee_cents: 4500 }], null);
     await setTermRules(db, "term", rules, "The committee agreed");
     await openRegistration(db, "term", null);
     await loadPayNowReady(db, "c1");
-    await feeExample(db, "term", [{ name: "Riya", age: 12, level_id: "l" }]);
-    await feeExample(db, "term", [{ name: "Riya", age: 12, level_id: "l" }], true);
+    await feeExample(db, "term", [{ name: "Riya", learner: "Riya", age: 12, level_id: "l" }]);
+    await feeExample(db, "term", [{ name: "Learner 1", age: 12, level_id: "l" }], true);
     expect(calls.map((c) => [c.name, c.args])).toEqual([
-      ["save_pathshala_level", { p_center: "c1", p_level: { track_id: "t", key: "3", name: "Jainism 3", sort_order: 3, min_age: 8, max_age: 10, active: true }, p_reason: "New level" }],
+      ["save_pathshala_level", { p_center: "c1", p_level: { track_id: "t", key: "3", name: "Jainism 3", sort_order: 3, min_age: 8, max_age: 10 }, p_reason: "New level" }],
       ["save_pathshala_level", { p_center: "c1", p_level: { id: "l1", active: false }, p_reason: null }],
       ["set_pathshala_level_fees", { p_term: "term", p_fees: [{ level_id: "l", fee_cents: 4500 }], p_reason: null }],
       ["set_pathshala_term_rules", { p_term: "term", p_rules: rules, p_reason: "The committee agreed" }],
       ["open_pathshala_registration", { p_term: "term", p_reason: null }],
       ["pathshala_pay_now_ready", { p_center: "c1" }],
-      ["pathshala_fee_example", { p_term: "term", p_lines: [{ name: "Riya", age: 12, level_id: "l" }] }],
-      ["pathshala_fee_example", { p_term: "term", p_lines: { lines: [{ name: "Riya", age: 12, level_id: "l" }], late: true } }],
+      // Always {lines, late}: the screen's tick decides the late window, never today's date.
+      ["pathshala_fee_example", { p_term: "term", p_lines: { lines: [{ name: "Riya", learner: "Riya", age: 12, level_id: "l" }], late: false } }],
+      ["pathshala_fee_example", { p_term: "term", p_lines: { lines: [{ name: "Learner 1", age: 12, level_id: "l" }], late: true } }],
     ]);
   });
 
@@ -495,8 +613,10 @@ describe("the 0590 wrapper: one narrow cast, and an older database said plainly"
     expect(await loadSeats(fakeDb({ data: "nope" }).db, "t")).toEqual({ status: "shape", message: "the seats are not a list" });
     expect(await setLevelFees(fakeDb({ error: { code: "PGRST202", message: "Could not find the function" } }).db, "t", [], "r")).toMatchObject({ ok: false, missing: true });
     expect(await setLevelFees(fakeDb({ error: { code: "22023", message: "x" } }).db, "t", [], "r")).toMatchObject({ ok: false, missing: false });
-    // A write that worked is never reported as failed because of what it answered.
-    expect(await saveLevel(fakeDb({ data: "a-uuid" }).db, "c", { track_id: "t", key: "k", name: "N", sort_order: 0, min_age: null, max_age: null, active: true }, "r")).toEqual({ ok: true, value: null });
+    // A write that worked is never reported as failed because of what it answered; the odd answer is logged.
+    err.mockClear();
+    expect(await saveLevel(fakeDb({ data: "a-uuid" }).db, "c", { track_id: "t", key: "k", name: "N", sort_order: 0, min_age: null, max_age: null }, "r")).toEqual({ ok: true, value: null });
+    expect(err).toHaveBeenCalledWith(expect.stringMatching(/save_pathshala_level saved the level but sent an unexpected answer/), "a-uuid");
     // The fee example writes nothing: an answer it cannot read is a failure, said plainly.
     const odd = await feeExample(fakeDb({ data: { lines: "x" } }).db, "t", [{ name: "Riya", age: 12, level_id: "l" }]);
     expect(odd.ok).toBe(false);

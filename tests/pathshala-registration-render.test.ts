@@ -8,7 +8,16 @@ vi.mock("@/app/(app)/pathshala/actions", () => ({ saveTerm: vi.fn() }));
 vi.mock("@/app/security-actions", () => ({ verifyStepUpAction: vi.fn() }));
 
 import { LevelFields } from "@/app/(app)/pathshala/levels/level-fields";
-import { FeesEditor, rowStatus, type FeeEditorGroup, type FeeEditorRow } from "@/app/(app)/pathshala/terms/[id]/fees/fees-editor";
+import {
+  bulkSuggestionLabel,
+  copyOnEnter,
+  FeesEditor,
+  rowStatus,
+  suggestionButtonLabel,
+  suggestionsToUse,
+  type FeeEditorGroup,
+  type FeeEditorRow,
+} from "@/app/(app)/pathshala/terms/[id]/fees/fees-editor";
 import { RulesForm, type RulesValues } from "@/app/(app)/pathshala/terms/[id]/fees/rules-form";
 import { TryFamily } from "@/app/(app)/pathshala/terms/[id]/fees/try-family";
 import { TermForm } from "@/app/(app)/pathshala/terms/term-form";
@@ -46,16 +55,23 @@ const groups: FeeEditorGroup[] = [
 ];
 
 describe("Terms › Fees: the fee editor", () => {
-  it("shows a box per level: saved fees, offered levels pre-filled from last term, a missing fee, and nothing guessed for a level without a class", () => {
+  it("shows a box per level holding only the saved fee: a suggestion is a placeholder with a Use button, never a value", () => {
     const html = render(createElement(FeesEditor, { groups, action: noop, canEdit: true, needsReason: false, currency: "USD" }));
     expect(html).toMatch(tagWith("input", 'name="fee:toddler"', 'value="45"'));
-    expect(html).toMatch(tagWith("input", 'name="fee:j1"', 'value="130"'));
-    expect(html).toMatch(tagWith("input", 'name="fee:j2"', 'value=""'));
-    // A level with no class this term starts blank; its suggestion is only a placeholder.
+    // The offered level with last term's fee: blank (so "Save fees" never saves it unseen), the fee offered beside it.
+    expect(html).toMatch(tagWith("input", 'name="fee:j1"', 'value=""', 'placeholder="130 (2025-26)"'));
+    expect(html).toContain("Use $130.00 (2025-26)");
+    expect(html).toContain('aria-label="Use the suggested fee for Jainism 1: $130.00, from 2025-26"');
+    expect(html).toMatch(tagWith("input", 'name="fee:j2"', 'value=""', 'placeholder="Required"'));
+    // A level with no class this term: blank too, its suggestion offered the same way, but not in the bulk button.
     expect(html).toMatch(tagWith("input", 'name="fee:moms"', 'value=""', 'placeholder="50 (2025-26)"'));
+    expect(html).toContain("Use the suggestions for the 1 level without a fee");
+    expect(html).not.toContain("Suggested from 2025-26 · not saved yet");
     expect(html).toContain("Saved");
-    expect(html).toContain("Suggested from 2025-26 · not saved yet");
     expect(html).toContain("Needs a fee");
+    // Each box is described by its status.
+    expect(html).toMatch(tagWith("input", 'name="fee:j1"', 'aria-describedby="fee-status-j1"'));
+    expect(html).toContain('id="fee-status-j1"');
     expect(html).toContain("No class this term");
     expect(html).toContain("12 seats · 3 taken · 9 free");
     expect(html).toContain("Copy to the 0 selected levels");
@@ -84,6 +100,31 @@ describe("Terms › Fees: the fee editor", () => {
     expect(rowStatus(saved, "50", "USD")).toEqual({ tone: "warning", text: "Changed from $45.00 · not saved yet" });
     expect(rowStatus(saved, "0.10", "USD").tone).toBe("danger");
     expect(rowStatus(groups[0].rows[2], "Free", "USD")).toEqual({ tone: "warning", text: "Not saved yet" });
+    // After "Use", the box holds the suggestion and says where it came from, still unsaved.
+    expect(rowStatus(groups[0].rows[1], "130", "USD")).toEqual({ tone: "warning", text: "Suggested from 2025-26 · not saved yet" });
+    expect(rowStatus(groups[0].rows[1], "", "USD")).toEqual({ tone: "danger", text: "Needs a fee" });
+  });
+
+  it("fills only what someone chooses: the bulk button takes the offered levels without a fee and an empty box", () => {
+    expect(suggestionsToUse(groups, { toddler: "45", j1: "", j2: "", moms: "" }).map((r) => r.levelId)).toEqual(["j1"]);
+    expect(suggestionsToUse(groups, { toddler: "45", j1: "120", j2: "", moms: "" })).toEqual([]);
+    expect(suggestionButtonLabel({ cents: 15000, from: "the term's earlier single fee" }, "USD")).toBe("Use $150.00 (the term's earlier single fee)");
+    expect(bulkSuggestionLabel(8)).toBe("Use the suggestions for the 8 levels without a fee");
+  });
+
+  it("copies with Enter in the copy box instead of submitting the fees", () => {
+    const copy = vi.fn();
+    const enter = { key: "Enter", preventDefault: vi.fn() };
+    copyOnEnter(enter, copy);
+    expect(enter.preventDefault).toHaveBeenCalledTimes(1);
+    expect(copy).toHaveBeenCalledTimes(1);
+    const other = { key: "5", preventDefault: vi.fn() };
+    copyOnEnter(other, copy);
+    expect(other.preventDefault).not.toHaveBeenCalled();
+    expect(copy).toHaveBeenCalledTimes(1);
+    const html = render(createElement(FeesEditor, { groups, action: noop, canEdit: true, needsReason: false, currency: "USD" }));
+    // The copy box has no name (it is never sent) and no dangling description until there is a problem to describe.
+    expect(html).toMatch(/<input(?=[^>]*placeholder="130")(?![^>]*\bname=)(?![^>]*aria-describedby)[^>]*>/);
   });
 });
 
@@ -107,6 +148,7 @@ describe("Terms › Fees: the rules form", () => {
     values,
     action: noop,
     needsReason: false,
+    locked: false,
     givingOn: true,
     funds: [{ id: "f1", name: "Pathshala" }],
     canChooseFund: true,
@@ -128,6 +170,8 @@ describe("Terms › Fees: the rules form", () => {
     expect(html).toContain("Blank: the first day of term (Sun, Sep 6, 2026).");
     expect(html).toContain("Found when registration opens (the Pathshala fund)");
     expect(html).not.toContain('name="reason"');
+    // The sibling discount is always given (0 for none): a cleared box is never sent as 0%.
+    expect(html).toMatch(tagWith("input", 'name="sibling_discount_pct"', "required", 'value="10"'));
   });
 
   it("lets pay now be chosen when ready, with its hold window and the office switch; the office seat rule is pledge-only", () => {
@@ -138,6 +182,8 @@ describe("Terms › Fees: the rules form", () => {
     expect(html).toMatch(tagWith("input", 'name="office_hold_days"', 'value="7"', 'inputMode="numeric"'));
     expect(html).toMatch(tagWith("input", 'type="radio"', 'value="office"', 'disabled=""'));
     expect(html).toContain("Seats are held 48 hours while they pay, or 7 days when they choose to pay at the office");
+    // A payment page still open keeps the seat, but not for ever (P17: at most 24 hours more).
+    expect(html).toContain("a seat is not released while its payment page is still open, for at most 24 hours.");
   });
 
   it("asks for a reason after registration opens, and says when the funds could not be read", () => {
@@ -155,6 +201,21 @@ describe("Terms › Fees: the rules form", () => {
     expect(principal).toContain("The treasurer (giving.manage) chooses the fund.");
     const treasurer = render(createElement(RulesForm, { ...base, payNowBlocked: null }));
     expect(treasurer).toMatch(tagWith("select", 'name="fund_id"'));
+  });
+
+  it("once registration has opened, offers no way to clear the fund and never says it is found later", () => {
+    const withFund = render(createElement(RulesForm, { ...base, locked: true, needsReason: true, values: { ...values, fund_id: "f1" }, payNowBlocked: null }));
+    expect(withFund).toMatch(tagWith("select", 'name="fund_id"'));
+    expect(withFund).not.toContain('<option value="">');
+    expect(withFund).not.toContain("Found when registration opens");
+    expect(withFund).toContain("Since registration opened it can be changed to another fund, not cleared.");
+    // No fund yet (Giving was off when it opened): a disabled first choice, so nothing is sent until one is chosen.
+    const noFund = render(createElement(RulesForm, { ...base, locked: true, needsReason: true, payNowBlocked: null }));
+    expect(noFund).toContain('<option value="" disabled="" selected="">Choose the fund for the fee pledges</option>');
+    expect(noFund).not.toContain("Found when registration opens");
+    const principal = render(createElement(RulesForm, { ...base, locked: true, needsReason: true, canChooseFund: false, payNowBlocked: null }));
+    expect(principal).toContain("No fund chosen");
+    expect(principal).not.toContain("Found when registration opens");
   });
 });
 
@@ -198,7 +259,7 @@ describe("Terms › the term form (F18)", () => {
 });
 
 describe("Pathshala › Levels: the level drawer", () => {
-  it("keeps the track and the level's state, and explains the age band", () => {
+  it("keeps the track, explains the age band, and never carries the level's offered state (only Retire changes it)", () => {
     const html = render(
       createElement(LevelFields, {
         level: { id: "l1", track_id: "tj", key: "adult_moms", name: "Adult class (Moms)", sort_order: 9, min_age: 18, max_age: null, active: false },
@@ -207,13 +268,13 @@ describe("Pathshala › Levels: the level drawer", () => {
       }),
     );
     expect(html).toMatch(tagWith("input", 'type="hidden"', 'name="track_id"', 'value="tj"'));
-    expect(html).toMatch(tagWith("input", 'type="hidden"', 'name="active"', 'value="false"'));
+    expect(html).not.toContain('name="active"');
     expect(html).toMatch(tagWith("input", 'name="min_age"', 'value="18"'));
     expect(html).toContain("Now: Adult class · 18 and over. Offered to adults only");
     const fresh = render(createElement(LevelFields, { level: null, track: { id: "tj", name: "Jainism" }, nextOrder: 10 }));
     expect(fresh).toContain("Leave blank to make one from the name (“Jainism 8” becomes 8).");
     expect(fresh).toMatch(tagWith("input", 'name="sort_order"', 'value="10"'));
-    expect(fresh).toMatch(tagWith("input", 'type="hidden"', 'name="active"', 'value="true"'));
+    expect(fresh).not.toContain('name="active"');
   });
 });
 
@@ -228,14 +289,21 @@ describe("Terms › Fees: Try a family", () => {
     currency: "USD",
   };
 
-  it("offers rows of learners (0590's name, age, level) with the term's levels and their fees", () => {
+  it("offers rows of learners (0590's name, age, level, with each row's key) with the term's levels and their fees", () => {
     const html = render(createElement(TryFamily, { ...props, lateFeeLabel: null }));
     expect(html.match(/name="name"/g)?.length).toBe(3);
     expect(html.match(/name="age"/g)?.length).toBe(3);
     expect(html.match(/name="level_id"/g)?.length).toBe(3);
+    expect(html.match(/name="row_key"/g)?.length).toBe(3);
     expect(html).toContain("Jainism 2 · $130.00");
     expect(html).toContain("Gujarati 4 · no fee yet");
     expect(html).toContain("Ages are on the term&#x27;s cut-off date (Sun, Sep 6, 2026)");
+    // Two rows with one name are one learner in two classes (0590's `learner`), not two children.
+    expect(html).toContain("Use the same name on two rows to price one learner in two classes.");
+    expect(html).not.toContain("Give a learner two rows");
+    // Each row's age and level say which learner they are for.
+    expect(html).toContain('Age<span class="sr-only"> of learner 2</span>');
+    expect(html).toContain('Level<span class="sr-only"> of learner 3</span>');
     expect(html).toContain("Work out the fees");
     // No late fee: nothing to try for the late window.
     expect(html).not.toContain('name="late"');

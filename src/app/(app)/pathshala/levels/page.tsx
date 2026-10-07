@@ -156,7 +156,7 @@ export default async function LevelsPage() {
                                         label="Retire"
                                         variant="bad"
                                         fields={{ active: "false" }}
-                                        confirm={`Retire ${l.name}? It is no longer offered: no new classes or registrations. Its classes, enrollments and reports are kept, and you can offer it again later.`}
+                                        confirm={`Retire ${l.name}? The class and enrollment forms here stop offering it, and families registering through Pathshala registration cannot choose it (the member app's older request form still lists it until the app is updated). Its classes, enrollments and reports are kept, and you can offer it again later.`}
                                       />
                                     ) : (
                                       <ActionButton action={setLevelActiveAction.bind(null, l.id)} label="Offer again" fields={{ active: "true" }} />

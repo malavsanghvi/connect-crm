@@ -6,7 +6,7 @@ import { ActionForm, type FormAction } from "@/components/action-form";
 import { Toggle } from "@/components/controls";
 import { HOLD_HOURS, OFFICE_HOLD_DAYS, type PaymentMode, type SeatRule } from "@/lib/pathshala-registration/contract";
 import { feeInputValue } from "@/lib/pathshala-registration/money";
-import { PAYMENT_MODE_LABEL, SEAT_RULE_HINT, SEAT_RULE_LABEL, paymentModeSentence } from "@/lib/pathshala-registration/rules";
+import { PAYMENT_MODE_LABEL, SEAT_RULE_HINT, SEAT_RULE_LABEL, fundText, paymentModeSentence } from "@/lib/pathshala-registration/rules";
 
 export type RulesValues = {
   payment_mode: PaymentMode;
@@ -35,6 +35,7 @@ export function RulesForm({
   values,
   action,
   needsReason,
+  locked,
   payNowBlocked,
   givingOn,
   funds,
@@ -45,6 +46,8 @@ export function RulesForm({
   values: RulesValues;
   action: FormAction;
   needsReason: boolean;
+  /** Registration has opened (fees_locked_at): the fund of the fee pledges can be changed, never cleared (0590). */
+  locked: boolean;
   /** Why pay now cannot be chosen, or null when it can. */
   payNowBlocked: string | null;
   givingOn: boolean;
@@ -115,8 +118,8 @@ export function RulesForm({
                 <span className="crm-label">Seat held for payment (hours)</span>
                 <input name="hold_hours" inputMode="numeric" defaultValue={values.hold_hours} className="crm-input w-28" />
                 <span className="crm-hint block">
-                  {HOLD_HOURS.min} to {HOLD_HOURS.max}; {HOLD_HOURS.default} is usual. A reminder goes 6 hours before; a seat is never released while its
-                  payment page is still open.
+                  {HOLD_HOURS.min} to {HOLD_HOURS.max}; {HOLD_HOURS.default} is usual. A reminder goes 6 hours before; a seat is not released while its
+                  payment page is still open, for at most 24 hours.
                 </span>
               </label>
               <div>
@@ -180,9 +183,10 @@ export function RulesForm({
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <label className="block">
             <span className="crm-label">Sibling discount (%)</span>
-            <input name="sibling_discount_pct" inputMode="numeric" defaultValue={values.sibling_discount_pct} className="crm-input w-28" />
+            <input name="sibling_discount_pct" required inputMode="numeric" defaultValue={values.sibling_discount_pct} className="crm-input w-28" />
             <span className="crm-hint block">
-              Among children only: the first child pays the full fee, every other child gets this much off each of their levels. Adult learners never get it.
+              A whole percent, 0 for none. Among children only: the first child pays the full fee, every other child gets this much off each of their
+              levels. Adult learners never get it.
             </span>
           </label>
           <label className="block">
@@ -231,8 +235,19 @@ export function RulesForm({
           ) : canChooseFund ? (
             <label className="block max-w-xl">
               <span className="crm-label">Fund for the fee pledges</span>
+              {/* Once registration has opened the fee pledges carry the fund: no blank choice (0590 refuses clearing it).
+                  With no fund yet, a disabled first choice keeps the form from picking one by itself: nothing is sent
+                  until the treasurer chooses. */}
               <select name="fund_id" defaultValue={values.fund_id ?? ""} className="crm-input">
-                <option value="">Found when registration opens (the Pathshala fund)</option>
+                {locked ? (
+                  values.fund_id ? null : (
+                    <option value="" disabled>
+                      Choose the fund for the fee pledges
+                    </option>
+                  )
+                ) : (
+                  <option value="">Found when registration opens (the Pathshala fund)</option>
+                )}
                 {funds.map((f) => (
                   <option key={f.id} value={f.id}>
                     {f.name}
@@ -240,13 +255,15 @@ export function RulesForm({
                 ))}
               </select>
               <span className="crm-hint block">
-                Opening registration links the fees to the community&apos;s Pathshala fund. Pick one only when the community has no fund called Pathshala.
+                {locked
+                  ? "The fee pledges carry this fund. Since registration opened it can be changed to another fund, not cleared."
+                  : "Opening registration links the fees to the community's Pathshala fund. Pick one only when the community has no fund called Pathshala."}
               </span>
             </label>
           ) : (
             <div className="max-w-xl text-[13px]">
               <span className="crm-label">Fund for the fee pledges</span>
-              <p>{values.fund_id ? (funds.find((f) => f.id === values.fund_id)?.name ?? "A fund chosen by the treasurer") : "Found when registration opens (the Pathshala fund)"}</p>
+              <p>{fundText(values.fund_id, funds, locked)}</p>
               <p className="crm-hint">The treasurer (giving.manage) chooses the fund.</p>
             </div>
           )

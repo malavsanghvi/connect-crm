@@ -25,7 +25,7 @@ import {
   type CheckItem,
 } from "@/lib/pathshala-registration/fees";
 import { feeLabel, formatMoney } from "@/lib/pathshala-registration/money";
-import { PAYMENT_MODE_LABEL, SEAT_RULE_LABEL, feeEditing, payNowBlockedReason, paymentModeSentence, termStatusLabel } from "@/lib/pathshala-registration/rules";
+import { PAYMENT_MODE_LABEL, SEAT_RULE_LABEL, feeEditing, fundText, payNowBlockedReason, paymentModeSentence, termStatusLabel } from "@/lib/pathshala-registration/rules";
 import { isUuid } from "@/lib/search-params";
 import { getSession } from "@/lib/session";
 
@@ -198,7 +198,7 @@ export default async function TermFeesPage({ params }: { params: Promise<{ id: s
       </div>
 
       {editing.locked || editing.closed ? (
-        <Card title={editing.closed ? "The term is closed" : "Registration is open"} className="mb-4">
+        <Card title={editing.closed ? "The term is closed" : "Fees and rules are locked"} className="mb-4">
           <div className="flex flex-col gap-2 text-[13px]">
             <p>{lockedSentence(termRules.fees_locked_at, lockedBy, tz) ?? "This term closed before fees per level existed."}</p>
             {!editing.closed && missing.length ? <p className="font-bold text-danger">{unpricedOfferedSentence(missing, term.name)}</p> : null}
@@ -270,6 +270,7 @@ export default async function TermFeesPage({ params }: { params: Promise<{ id: s
             }}
             action={saveRulesAction.bind(null, term.id)}
             needsReason={editing.needsReason}
+            locked={editing.locked}
             payNowBlocked={payNowBlocked}
             givingOn={givingOn}
             funds={funds}
@@ -293,7 +294,7 @@ export default async function TermFeesPage({ params }: { params: Promise<{ id: s
               lateFee: termRules.late_fee_cents,
               withdrawal: termRules.withdrawal_credit_until,
               cutoff: termRules.age_cutoff_on,
-              fund: termRules.fund_id ? (funds?.find((f) => f.id === termRules.fund_id)?.name ?? "A fund chosen by the treasurer") : null,
+              fund: fundText(termRules.fund_id, funds, editing.locked),
               givingOn,
               startsOnLabel,
               tz,
@@ -303,7 +304,7 @@ export default async function TermFeesPage({ params }: { params: Promise<{ id: s
         )}
       </Card>
 
-      <Card title="Try a family" description="What a family would pay with this term's fees and rules, priced as a registration would be. Nothing is saved or billed.">
+      <Card title="Try a family" description="What a family would pay with this term's saved fees and rules. Nothing is saved or billed.">
         {exampleLevels.length ? (
           <TryFamily
             action={tryFamilyAction.bind(null, term.id)}
@@ -401,7 +402,8 @@ function rulesSummary(r: {
   lateFee: number;
   withdrawal: string | null;
   cutoff: string | null;
-  fund: string | null;
+  /** The fund in words (fundText: its name, "Found when registration opens" before the lock, "No fund chosen" after). */
+  fund: string;
   givingOn: boolean;
   startsOnLabel: string;
   tz: string;
@@ -425,6 +427,6 @@ function rulesSummary(r: {
     ["Withdrawal deadline", r.withdrawal ? formatDate(r.withdrawal, r.tz) : "14 days after the first class day (fixed when registration opens)"],
     ["Age cut-off", r.cutoff ? formatDate(r.cutoff, r.tz) : `The first day of term (${r.startsOnLabel})`],
   ];
-  if (r.givingOn) items.push(["Fund for the fee pledges", r.fund ?? "Found when registration opens (the Pathshala fund)"]);
+  if (r.givingOn) items.push(["Fund for the fee pledges", r.fund]);
   return items;
 }

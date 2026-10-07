@@ -164,8 +164,10 @@ export const LEVEL_COLUMNS = "id, track_id, key, name, sort_order, min_age, max_
 
 /**
  * What app.save_pathshala_level(p_center, p_level, p_reason) takes (0590: id, track_id, key, name, sort_order, min_age,
- * max_age, active — no other key): the whole level; no id = a new level. It answers with the level plus its track's
- * name, its band (adult, children, any) and whether it is used.
+ * max_age, active — no other key): no id = a new level. It answers with the level plus its track's name, its band
+ * (adult, children, any) and whether it is used. The level drawer leaves `active` out (0590 keeps a key left out, and
+ * a new level is offered), so an edit made on a stale page never retires or offers a level again: only the Retire and
+ * Offer again buttons change it (LevelPatch).
  */
 export type LevelInput = {
   id?: string;
@@ -175,7 +177,7 @@ export type LevelInput = {
   sort_order: number;
   min_age: number | null;
   max_age: number | null;
-  active: boolean;
+  active?: boolean;
 };
 
 /** Retiring or offering a level again: only the id and the flag (0590 keeps every key left out). */
@@ -296,21 +298,27 @@ export function parsePayNowReady(data: unknown): Parsed<string | null> {
 // with the one pricing rule and answers in app.pathshala_quote's shape (it writes nothing).
 // ---------------------------------------------------------------------------
 /**
- * One made-up learner of p_lines (0590: [{name, age | date_of_birth, learner_kind, track_id, level_id}]): a name for
- * the screen only, their age in whole years on the term's age cut-off date (under 18 is a child) and the level.
- * p_lines may instead be {"lines": [...], "late": true} to price the late window.
+ * One made-up learner of p_lines (0590: [{name, learner, age | date_of_birth, learner_kind, track_id, level_id}]): a
+ * name for the screen, their age in whole years on the term's age cut-off date (under 18 is a child) and the level.
+ * Lines with the same `learner` (trimmed, case-insensitive) are ONE learner — one child for the sibling order and the
+ * family cap, one late fee — so a learner in two classes (two tracks, P10) is priced as a registration would price
+ * them. The screen sends `learner` = the row's name whenever a name is typed. p_lines is sent as
+ * {"lines": [...], "late": <the screen's tick>}.
  */
-export type ExampleLineInput = { name: string; age: number; level_id: string };
+export type ExampleLineInput = { name: string; learner?: string; age: number; level_id: string };
 
 export type QuoteLine = {
   /** The line's position in p_lines, from 1 (0590); null when the database did not say. */
   index: number | null;
   /** A name, when the database echoes one (0590's example does not: the screen keeps its own by `index`). */
   first_name: string | null;
+  /** The example's row the line came from (set by the Fees screen's action, never by the database). */
+  row_key: string | null;
   person_id: string | null;
   track_id: string | null;
   level_id: string | null;
-  learner_kind: LearnerKind;
+  /** Null only on a refused line that does not say. */
+  learner_kind: LearnerKind | null;
   /** Children only: 1 pays the full fee (P2). */
   family_rank: number | null;
   age_on_cutoff: number | null;
@@ -321,26 +329,42 @@ export type QuoteLine = {
   late_fee_cents: number;
   assistance_cents: number;
   total_cents: number;
-  /** False: a "not sure of the level" line the office still prices (P25). */
+  /** False: a "not sure of the level" line the office still prices (P25), or a refused line. */
   priced: boolean;
+  /**
+   * Why the database could not price this line, as a plain sentence ("Jainism 2 is a children's class, and Mira is an
+   * adult."), else null. A refused line has priced false and zero amounts and is left out of the totals.
+   */
+  refusal: string | null;
 };
 
 export type Quote = { lines: QuoteLine[]; children_total_cents: number; adults_total_cents: number; total_cents: number; late: boolean };
 
+/** The lines the database refused to price (each carries its sentence). */
+export function refusedLines(q: Pick<Quote, "lines">): QuoteLine[] {
+  return q.lines.filter((l) => l.refusal !== null);
+}
+
+/**
+ * The quote as the database priced it. The totals are the database's (a refused line is not in them): an answer
+ * without them is a shape problem, never added up here, so no pricing happens outside the one function (§2.4).
+ */
 export function parseQuote(data: unknown): Parsed<Quote> {
   if (!isObj(data)) return { ok: false, error: "the quote is not an object" };
   if (!Array.isArray(data.lines)) return { ok: false, error: "the quote has no lines" };
   const lines: QuoteLine[] = [];
   for (const row of data.lines) {
     if (!isObj(row)) return { ok: false, error: "a quote line is not an object" };
-    const base = int(row.base_fee_cents);
-    const total = int(row.total_cents);
+    const refusal = str(row.refusal);
+    const base = int(row.base_fee_cents) ?? (refusal ? 0 : null);
+    const total = int(row.total_cents) ?? (refusal ? 0 : null);
     if (base === null || total === null) return { ok: false, error: "a quote line has no level fee or total in whole cents" };
     const kind = row.learner_kind === "adult" ? "adult" : row.learner_kind === "child" ? "child" : null;
-    if (!kind) return { ok: false, error: `a quote line has an unknown learner kind "${String(row.learner_kind)}"` };
+    if (!kind && !refusal) return { ok: false, error: `a quote line has an unknown learner kind "${String(row.learner_kind)}"` };
     lines.push({
       index: int(row.index),
-      first_name: str(row.first_name) ?? str(row.name),
+      first_name: str(row.first_name) ?? str(row.name) ?? str(row.learner),
+      row_key: null,
       person_id: str(row.person_id),
       track_id: str(row.track_id),
       level_id: str(row.level_id),
@@ -354,20 +378,15 @@ export function parseQuote(data: unknown): Parsed<Quote> {
       late_fee_cents: int(row.late_fee_cents) ?? 0,
       assistance_cents: int(row.assistance_cents) ?? 0,
       total_cents: total,
-      priced: row.priced !== false,
+      priced: refusal ? false : row.priced !== false,
+      refusal,
     });
   }
-  const sum = (kind: LearnerKind | null) => lines.filter((l) => kind === null || l.learner_kind === kind).reduce((s, l) => s + l.total_cents, 0);
-  return {
-    ok: true,
-    value: {
-      lines,
-      children_total_cents: int(data.children_total_cents) ?? sum("child"),
-      adults_total_cents: int(data.adults_total_cents) ?? sum("adult"),
-      total_cents: int(data.total_cents) ?? sum(null),
-      late: data.late === true,
-    },
-  };
+  const children = int(data.children_total_cents);
+  const adults = int(data.adults_total_cents);
+  const total = int(data.total_cents);
+  if (children === null || adults === null || total === null) return { ok: false, error: "the quote has no totals in whole cents" };
+  return { ok: true, value: { lines, children_total_cents: children, adults_total_cents: adults, total_cents: total, late: data.late === true } };
 }
 
 // ---------------------------------------------------------------------------
@@ -403,6 +422,17 @@ export function parseOpenResult(data: unknown): OpenResult {
 // ---------------------------------------------------------------------------
 // The database's refusals
 // ---------------------------------------------------------------------------
+/**
+ * app.open_pathshala_registration's refusal when Pledges & donations is on and the term has no fund for its fee
+ * pledges (0590). The treasurer may not be able to open a draft term (drafts are Pathshala staff's, 0010), so the
+ * sentence starts with what they can do in Setup › Lists. The Open registration checklist says the same, first.
+ */
+export const NO_FUND_SENTENCE =
+  "There is no fund for the Pathshala fees yet. Ask the treasurer to add a fund called Pathshala in Setup › Lists, or choose a fund on this Fees screen if you also manage Giving; then open registration.";
+
+/** app.set_pathshala_term_rules' refusal of fund_id null once the fees are locked (0590): the fee pledges need a fund. */
+export const FUND_CLEARED_SENTENCE = "The fund for the Pathshala fees cannot be cleared once registration has opened. Choose another fund instead.";
+
 type ErrLike = { code?: string | null; message?: string | null };
 
 /**

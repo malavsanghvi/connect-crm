@@ -9,6 +9,7 @@ import { reportAttendance } from "@/lib/logic/attendance";
 import { pathshalaAreas } from "@/lib/pathshala/access";
 import { formatDateTime } from "@/lib/pathshala/format";
 import { load, row, rows, viewerOf } from "@/lib/pathshala/server";
+import { pickableLevels } from "@/lib/pathshala-registration/levels";
 import { getSession } from "@/lib/session";
 
 import { saveProgressReport } from "../../../actions";
@@ -140,7 +141,8 @@ export default async function ProgressReportsPage({
                       <PField label="Recommended next level">
                         <select name="recommended_next_level_id" defaultValue={rep?.recommended_next_level_id ?? ""} className="crm-input">
                           <option value="">No recommendation yet</option>
-                          {levels.map((l) => (
+                          {/* A retired level is not recommended (families cannot choose it); a report keeps its own. */}
+                          {pickableLevels(levels, rep?.recommended_next_level_id).map((l) => (
                             <option key={l.id} value={l.id}>
                               {l.track_name ? `${l.track_name} · ${l.name}` : l.name}
                             </option>

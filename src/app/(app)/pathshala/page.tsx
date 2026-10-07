@@ -21,9 +21,9 @@ import { LoadProblem, PNoAccess, PathshalaHeader, TermSwitcher } from "./ui";
 export const metadata: Metadata = { title: "Pathshala" };
 
 /**
- * "Term: 2026-27 · registration requires membership · fees per level, added to the family's pledges when a seat is
- * given" (the prototype's sub-line), from the term's own rules. It says how fees are billed only as the term's payment
- * mode does it (F18); when the rules cannot be read it says nothing about fees rather than something untrue.
+ * "Term: 2026-27 · registration requires membership · fees per level · register now, pay later" (the prototype's
+ * sub-line), from the term's own rules. It names the payment mode and promises no billing (F18: the office's Place
+ * still gives seats without a fee pledge); when the rules cannot be read it says nothing about fees.
  */
 function termSubtitle(term: Term, billing: string | null): string {
   return [

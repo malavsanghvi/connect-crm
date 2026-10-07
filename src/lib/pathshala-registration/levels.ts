@@ -96,6 +96,15 @@ export function sortLevels<L extends Pick<LevelRow, "sort_order" | "name">>(leve
   return [...levels].sort((a, b) => a.sort_order - b.sort_order || a.name.localeCompare(b.name));
 }
 
+/**
+ * The levels a picker offers (a new class, "Enroll a student", a recommended next level): the levels still offered
+ * — 0590's `active` flag, read from a row loaded with every column; a database without 0590 has no flag, so every
+ * level is offered — plus `keep`, the level a record already has, so editing it never drops its level.
+ */
+export function pickableLevels<L extends { id: string }>(levels: readonly L[], keep?: string | null): L[] {
+  return levels.filter((l) => (l as { active?: unknown }).active !== false || (keep != null && l.id === keep));
+}
+
 const TRACK_ORDER = ["jainism", "gujarati", "hindi"];
 
 /** Tracks in the order Pathshala uses everywhere (Jainism, Gujarati, Hindi, then the rest by name). */

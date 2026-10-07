@@ -26,6 +26,16 @@ export function paymentModeSentence(mode: PaymentMode, r: { hold_hours: number; 
   return `Families pay online while registering (card, PayPal, Apple Pay or Google Pay). Seats are held ${r.hold_hours} hour${r.hold_hours === 1 ? "" : "s"} while they pay${office}; a seat not paid for in time is released.`;
 }
 
+/**
+ * The fund of the fee pledges in words (the rules form's read-only line and the Fees page's summary): its name; before
+ * the lock "Found when registration opens (the Pathshala fund)"; after it "No fund chosen" — 0590 looks for the
+ * Pathshala fund only when registration opens, and once it has opened the fund can be changed, never cleared.
+ */
+export function fundText(fundId: string | null, funds: readonly { id: string; name: string }[] | null, locked: boolean): string {
+  if (fundId) return funds?.find((f) => f.id === fundId)?.name ?? "A fund chosen by the treasurer";
+  return locked ? "No fund chosen" : "Found when registration opens (the Pathshala fund)";
+}
+
 export const SEAT_RULE_LABEL: Record<SeatRule, string> = {
   automatic: "A seat at registration",
   office: "The office places every learner",
@@ -179,13 +189,15 @@ export function termStatusLabel(status: string): string {
 }
 
 /**
- * What the term does with fees, for the Classes page's sub-line (F18: no promise the code does not keep). Null when
- * the rules could not be read: the sub-line then says nothing about billing. Until the fees are locked (registration
- * opened through the Fees screen) families cannot register with fees, so nothing is said about billing either.
+ * What the term does with fees, for the Classes page's sub-line (F18: no promise the code does not keep). It names the
+ * payment mode and never says when a family is billed: the office's Place and "Enroll a student" still give seats
+ * without a fee pledge until they go through Pathshala registration (Portal B), so "billed when a seat is given" would
+ * be untrue for every seat the office gives. Null when the rules could not be read: the sub-line then says nothing
+ * about fees.
  */
 export function termBillingPhrase(input: { mode: PaymentMode | null; locked: boolean; givingOn: boolean }): string | null {
   if (input.mode === null) return null;
   if (!input.locked) return "fees per level, not yet locked for registration";
   if (!input.givingOn) return "fees per level, not billed while Pledges & donations is off";
-  return input.mode === "pay_now" ? "fees per level, paid online when registering" : "fees per level, added to the family's pledges when a seat is given";
+  return input.mode === "pay_now" ? "fees per level · pay when registering" : "fees per level · register now, pay later";
 }

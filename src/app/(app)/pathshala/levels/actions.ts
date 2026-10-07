@@ -31,6 +31,8 @@ export async function saveLevelAction(levelId: string | null, _prev: unknown, fd
     if (!max.ok) throw new FormError(max.error);
     const problem = levelProblem({ name, key, sort_order: sortOrder, min_age: min.age, max_age: max.age });
     if (problem) throw new FormError(problem);
+    // No `active`: 0590 keeps a key left out (and offers a new level), so an edit made on a stale page never retires or
+    // offers a level again. Retiring and offering again are their own buttons.
     const level: LevelInput = {
       ...(levelId ? { id: levelId } : {}),
       track_id: trackId,
@@ -39,8 +41,6 @@ export async function saveLevelAction(levelId: string | null, _prev: unknown, fd
       sort_order: sortOrder,
       min_age: min.age,
       max_age: max.age,
-      // Retiring and offering again are their own buttons; the form keeps what the level is.
-      active: str(fd, "active") !== "false",
     };
     const res = await saveLevel(supabase, centerId, level, str(fd, "reason"));
     if (!res.ok) return refusal(levelId ? `save ${name}` : `add ${name}`, res);

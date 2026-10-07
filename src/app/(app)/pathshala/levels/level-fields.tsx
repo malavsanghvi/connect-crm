@@ -15,7 +15,8 @@ export function LevelFields({ level, track, nextOrder }: { level: LevelRow | nul
     <>
       <input type="hidden" name="track_id" value={track.id} />
       <input type="hidden" name="track_name" value={track.name} />
-      <input type="hidden" name="active" value={level && !level.active ? "false" : "true"} />
+      {/* No "active" field: the drawer never retires or offers a level again (a stale page would undo someone
+          else's Retire); the Retire and Offer again buttons do that. */}
       <PField label="Name" hint={`What families see, for example ${track.name} 3 or Adult class (Moms).`}>
         <input name="name" required maxLength={80} defaultValue={level?.name ?? ""} className="crm-input" />
       </PField>

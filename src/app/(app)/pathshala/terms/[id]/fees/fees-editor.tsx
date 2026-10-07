@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type KeyboardEvent } from "react";
 
 import { ActionForm, type FormAction } from "@/components/action-form";
 import { Badge, TableWrap, buttonClass } from "@/components/ui";
@@ -16,6 +16,7 @@ export type FeeEditorRow = {
   retired: boolean;
   /** The fee saved for the term, in cents; null = none yet. */
   saved: number | null;
+  /** A fee from an earlier term (or the term's old single fee): offered with a "Use" button, never put in the box by itself. */
   suggestion: { cents: number; from: string } | null;
   /** The level's seats in one line ("24 seats · 12 taken · 12 free"), or "—". */
   seats: string;
@@ -25,7 +26,7 @@ export type FeeEditorGroup = { trackId: string; trackName: string; rows: FeeEdit
 
 type Status = { tone: "success" | "warning" | "danger" | "neutral"; text: string };
 
-/** What a row's box means right now: saved, changed, suggested, missing, or not needed. */
+/** What a row's box means right now: saved, changed, taken from a suggestion, missing, or not needed. */
 export function rowStatus(row: FeeEditorRow, value: string, currency: string): Status {
   const parsed = parseFeeInput(value, row.name, currency);
   if (!parsed.ok) return { tone: "danger", text: parsed.error };
@@ -41,6 +42,31 @@ export function rowStatus(row: FeeEditorRow, value: string, currency: string): S
   return { tone: "neutral", text: row.retired && row.classes > 0 ? "Retired: not offered, no fee needed" : "No class this term" };
 }
 
+/** The offered levels with no fee saved, an empty box and a suggestion: what "Use the suggestions" fills. */
+export function suggestionsToUse(groups: readonly FeeEditorGroup[], values: Readonly<Record<string, string>>): FeeEditorRow[] {
+  return groups.flatMap((g) => g.rows.filter((r) => r.offered && r.saved === null && r.suggestion !== null && (values[r.levelId] ?? "").trim() === ""));
+}
+
+/** "Use $130.00 (2025-26)": the button that puts a row's suggestion in its box. */
+export function suggestionButtonLabel(s: { cents: number; from: string }, currency: string): string {
+  return `Use ${feeLabel(s.cents, currency)} (${s.from})`;
+}
+
+/** "Use the suggestions for the 8 levels without a fee". */
+export function bulkSuggestionLabel(n: number): string {
+  return `Use the suggestions for the ${n === 1 ? "1 level" : `${n} levels`} without a fee`;
+}
+
+/**
+ * Enter in the "Fee to copy" box copies the fee. It must never reach the form: Enter in a text box submits it, and
+ * that would save every box on the screen.
+ */
+export function copyOnEnter(e: Pick<KeyboardEvent<HTMLInputElement>, "key" | "preventDefault">, copy: () => void): void {
+  if (e.key !== "Enter") return;
+  e.preventDefault();
+  copy();
+}
+
 /** "2 classes", "No class this term", or "2 classes · retired, not offered" (0590 offers active levels only). */
 function classesText(row: FeeEditorRow): string {
   if (row.classes === 0) return "No class this term";
@@ -49,10 +75,12 @@ function classesText(row: FeeEditorRow): string {
 }
 
 /**
- * The fee of every level for the term (§2.2, P21, P22): a box per level, pre-filled with the saved fee or a suggestion
- * from the latest earlier term; tick levels and "Copy to the N selected levels" fills their boxes with one fee (the
- * owner's example: Jainism 1 to 7 → $130). Nothing is saved until "Save fees"; only changed fees are sent. Read-only
- * for people who may not change them now.
+ * The fee of every level for the term (§2.2, P21, P22): a box per level, holding only the fee saved for this term.
+ * A fee from an earlier term (or the term's old single fee) is offered as the box's placeholder with a "Use $X
+ * (term)" button, and "Use the suggestions for the N levels without a fee" takes them all at once: nothing goes in a
+ * box, and so nothing is saved, unless the principal chooses it. Tick levels and "Copy to the N selected levels"
+ * gives them one fee (the owner's example: Jainism 1 to 7 → $130). Nothing is saved until "Save fees"; only changed
+ * fees are sent. Read-only for people who may not change them now.
  */
 export function FeesEditor({
   groups,
@@ -67,10 +95,9 @@ export function FeesEditor({
   needsReason: boolean;
   currency: string;
 }) {
-  // An offered level without a fee starts from its suggestion, for the principal to confirm or change (P22); a level
-  // with no class this term starts blank, so saving never prices a level nobody looked at.
+  // Only what is saved: a suggestion is never a value until someone chooses it.
   const [values, setValues] = useState<Record<string, string>>(() =>
-    Object.fromEntries(groups.flatMap((g) => g.rows.map((r) => [r.levelId, feeInputValue(r.saved ?? (r.offered ? (r.suggestion?.cents ?? null) : null))]))),
+    Object.fromEntries(groups.flatMap((g) => g.rows.map((r) => [r.levelId, feeInputValue(r.saved)]))),
   );
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
   const [copyAmount, setCopyAmount] = useState("");
@@ -88,6 +115,9 @@ export function FeesEditor({
       return next;
     });
 
+  const fill = (rows: readonly FeeEditorRow[]) =>
+    setValues((cur) => ({ ...cur, ...Object.fromEntries(rows.filter((r) => r.suggestion).map((r) => [r.levelId, feeInputValue(r.suggestion?.cents)])) }));
+
   function copy() {
     const parsed = parseFeeInput(copyAmount, "the selected levels", currency);
     if (!parsed.ok) return setCopyProblem(parsed.error);
@@ -99,6 +129,7 @@ export function FeesEditor({
   }
 
   const n = selected.size;
+  const waiting = suggestionsToUse(groups, values);
   return (
     <ActionForm action={action} submitLabel="Save fees" pendingLabel="Saving fees…" buttonsClassName="mt-3">
       <div className="mb-3 rounded-[12px] border border-line bg-ground p-3">
@@ -110,9 +141,11 @@ export function FeesEditor({
             <input
               value={copyAmount}
               onChange={(e) => setCopyAmount(e.target.value)}
+              onKeyDown={(e) => copyOnEnter(e, copy)}
               inputMode="decimal"
               placeholder="130"
-              aria-describedby="fee-copy-problem"
+              aria-describedby={copyProblem ? "fee-copy-problem" : undefined}
+              aria-invalid={copyProblem ? true : undefined}
               className="crm-input w-32"
             />
           </label>
@@ -129,6 +162,16 @@ export function FeesEditor({
           <p id="fee-copy-problem" role="alert" className="mt-2 text-[13px] text-danger">
             {copyProblem}
           </p>
+        ) : null}
+        {waiting.length ? (
+          <div className="mt-3 border-t border-line-soft pt-3">
+            <button type="button" onClick={() => fill(waiting)} className={buttonClass("ghost", "sm")}>
+              {bulkSuggestionLabel(waiting.length)}
+            </button>
+            <p className="mt-1 text-xs text-muted">
+              Fills each of those boxes with the fee suggested beside it (the level&apos;s fee in an earlier term). Check them, then Save fees.
+            </p>
+          </div>
         ) : null}
       </div>
       <div className="flex flex-col gap-4">
@@ -159,6 +202,8 @@ export function FeesEditor({
                   {g.rows.map((r) => {
                     const value = values[r.levelId] ?? "";
                     const status = rowStatus(r, value, currency);
+                    const invalid = status.tone === "danger" && value.trim() !== "";
+                    const statusId = `fee-status-${r.levelId}`;
                     return (
                       <tr key={r.levelId}>
                         <td>
@@ -187,13 +232,26 @@ export function FeesEditor({
                             inputMode="decimal"
                             placeholder={r.suggestion ? `${feeInputValue(r.suggestion.cents)} (${r.suggestion.from})` : r.offered ? "Required" : "Optional"}
                             aria-label={`Fee for ${r.name}`}
-                            aria-invalid={status.tone === "danger" && value.trim() !== ""}
+                            aria-describedby={statusId}
+                            aria-invalid={invalid ? true : undefined}
                             className="crm-input w-32"
                           />
+                          {r.suggestion && value.trim() === "" ? (
+                            <button
+                              type="button"
+                              onClick={() => fill([r])}
+                              aria-label={`Use the suggested fee for ${r.name}: ${feeLabel(r.suggestion.cents, currency)}, from ${r.suggestion.from}`}
+                              className={`${buttonClass("ghost", "xs")} mt-1 block`}
+                            >
+                              {suggestionButtonLabel(r.suggestion, currency)}
+                            </button>
+                          ) : null}
                         </td>
                         <td className="max-w-[260px] text-[13px]">
-                          <Badge tone={status.tone}>{status.tone === "danger" && value.trim() !== "" ? "Check this fee" : status.text}</Badge>
-                          {status.tone === "danger" && value.trim() !== "" ? <span className="block text-xs text-danger">{status.text}</span> : null}
+                          <span id={statusId}>
+                            <Badge tone={status.tone}>{invalid ? "Check this fee" : status.text}</Badge>
+                            {invalid ? <span className="block text-xs text-danger">{status.text}</span> : null}
+                          </span>
                         </td>
                       </tr>
                     );
@@ -206,7 +264,8 @@ export function FeesEditor({
       </div>
       <p className="crm-hint mt-2">
         Type Free (or 0) for a level with no fee. A blank box leaves the level as it is; a level with a class this term cannot be chosen by families
-        until it has a fee. A suggested fee is saved only when you save the fees.
+        until it has a fee. A fee suggested from an earlier term is only shown beside its box: it is saved only after you press Use (or Use the
+        suggestions) and then Save fees.
       </p>
       {needsReason ? (
         <label className="mt-3 block max-w-xl">

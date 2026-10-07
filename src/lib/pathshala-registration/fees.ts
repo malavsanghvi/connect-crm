@@ -4,8 +4,9 @@
 
 import { formatDate, formatDateTime } from "@/lib/pathshala/format";
 
-import type { LevelFee, LevelFeeInput, LevelRow, LevelSeats, PaymentMode } from "./contract";
+import { NO_FUND_SENTENCE, refusedLines, type LevelFee, type LevelFeeInput, type LevelRow, type LevelSeats, type PaymentMode, type Quote } from "./contract";
 import { ageBandLabel, levelAudience, sortLevels, sortTracks } from "./levels";
+import { feeLabel } from "./money";
 
 export type TrackLite = { id: string; key: string; name: string };
 export type ClassLite = { level_id: string };
@@ -18,7 +19,11 @@ export type FeeRow = {
   classes: number;
   /** The fee saved for this term, in cents; null = none yet. */
   saved: number | null;
-  /** A fee to start from when none is saved (P22): the level's fee in the latest earlier term, else the term's old single fee. */
+  /**
+   * A fee to start from when none is saved (P22): the level's fee in the latest earlier term, else the term's old
+   * single fee. Only ever offered (a placeholder and a "Use" button): it is never put in the box, and so never saved,
+   * until the principal chooses it (P21: nothing falls back to the old single fee by itself).
+   */
   suggestion: { cents: number; from: string } | null;
   seats: LevelSeats | null;
 };
@@ -117,6 +122,31 @@ export function changedFees(saved: ReadonlyMap<string, number>, entered: Readonl
   return out;
 }
 
+/**
+ * What "Save fees" says it saved, naming every level: "Fees saved for 2026-27: Toddler $45.00, Jainism 1 $130.00 and
+ * Hindi 1 Free." (and, after the lock, that the change applies to new registrations only).
+ */
+export function savedFeesSentence(
+  changes: readonly LevelFeeInput[],
+  names: ReadonlyMap<string, string>,
+  termName: string,
+  currency: string,
+  locked: boolean,
+): string {
+  const parts = changes.map((c) => `${names.get(c.level_id) ?? "A level"} ${feeLabel(c.fee_cents, currency)}`);
+  return `${parts.length === 1 ? "Fee" : "Fees"} saved for ${termName}: ${joinNames(parts)}.${locked ? " The change applies to new registrations only." : ""}`;
+}
+
+/**
+ * The line under "Try a family"'s answer: it says the family is priced as a registration would be only when the
+ * database priced every row; otherwise how many rows it could not price (each row says why).
+ */
+export function exampleOutcome(q: Pick<Quote, "lines" | "late">): { allPriced: boolean; text: string } {
+  const refused = refusedLines(q).length;
+  if (refused === 0) return { allPriced: true, text: `Priced as a registration would be${q.late ? ", in the late window" : ""}.` };
+  return { allPriced: false, text: refused === 1 ? "1 row could not be priced — see that row." : `${refused} rows could not be priced — see each row.` };
+}
+
 /** A level's seats in one line: "24 seats · 12 taken · 2 held · 10 free", "No limit · 5 taken", "Full · 3 waiting". */
 export function seatsLabel(s: LevelSeats | null): string {
   if (!s) return "—";
@@ -174,10 +204,8 @@ export function openChecklist(input: {
     out.push({ tone: "bad", text: `This term is set to “Pay when registering”, which cannot be used yet: ${input.payNowBlocked}` });
   }
   if (input.givingOn && input.fundFound === false) {
-    out.push({
-      tone: "bad",
-      text: "There is no Pathshala fund for the fees yet. The treasurer (giving.manage) chooses the fund under Registration rules, or adds a fund called Pathshala in Setup › Lists; then open registration.",
-    });
+    // 0590's own refusal, word for word: Setup › Lists first (the treasurer may not be able to open a draft term).
+    out.push({ tone: "bad", text: NO_FUND_SENTENCE });
   }
   const noBand = offered.filter((r) => r.level.min_age === null && r.level.max_age === null).map((r) => r.level.name);
   if (noBand.length) {
@@ -197,7 +225,7 @@ export function openChecklist(input: {
     out.push({ tone: "info", text: "Membership is required: a household that is not a member is held, with no seat and no fee, until its membership is active." });
   }
   if (!input.givingOn) {
-    out.push({ tone: "info", text: "Pledges & donations is off: registrations are kept and their fees quoted, but nothing is billed until it is switched on." });
+    out.push({ tone: "info", text: "Pledges & donations is off: registrations are kept and their fees quoted, but nothing is billed while it is off." });
   }
   return out;
 }

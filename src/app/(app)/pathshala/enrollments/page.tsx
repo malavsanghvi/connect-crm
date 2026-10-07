@@ -8,6 +8,7 @@ import { ageFrom, loadClasses, loadLevels, loadTerms, pickTerm } from "@/lib/dat
 import { pathshalaAreas } from "@/lib/pathshala/access";
 import { formatDate, humanize, todayIso } from "@/lib/pathshala/format";
 import { load, rows, viewerOf } from "@/lib/pathshala/server";
+import { pickableLevels } from "@/lib/pathshala-registration/levels";
 import { getSession } from "@/lib/session";
 
 import { enrollStudent, placeEnrollment, saveEnrollmentNote, searchPeopleAction, setEnrollmentStatus, waitlistEnrollment } from "../actions";
@@ -88,7 +89,8 @@ export default async function EnrollmentsPage({ searchParams }: { searchParams: 
                   <PField label="Level asked for">
                     <select name="requested_level_id" defaultValue="" className="crm-input">
                       <option value="">Same as the class</option>
-                      {levels.map((l) => (
+                      {/* A retired level is no longer offered for new enrollments. */}
+                      {pickableLevels(levels).map((l) => (
                         <option key={l.id} value={l.id}>
                           {l.name}
                         </option>

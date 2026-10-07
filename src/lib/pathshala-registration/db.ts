@@ -152,7 +152,10 @@ export function loadPayNowReady(db: object, centerId: string): Promise<Loaded<st
 export function saveLevel(db: object, centerId: string, level: LevelInput | LevelPatch, reason: string | null): Promise<Written<LevelRow | null>> {
   return write("app.save_pathshala_level", () => registrationDb(db).rpc("save_pathshala_level", { p_center: centerId, p_level: level, p_reason: reason }), (data) => {
     const parsed = parseLevelRow(data);
-    return parsed.ok ? parsed.value : null;
+    if (parsed.ok) return parsed.value;
+    // The level was saved; only its answer cannot be read. The screen reads the levels again, so this is logged, not shown.
+    console.error(`[pathshala-registration] app.save_pathshala_level saved the level but sent an unexpected answer (${parsed.error}):`, data);
+    return null;
   });
 }
 
@@ -175,11 +178,12 @@ export function openRegistration(db: object, termId: string, reason: string | nu
 }
 
 /**
- * app.pathshala_fee_example(p_term, p_lines): "Try a family" — the quote for made-up learners; writes nothing. With
- * `late`, p_lines is {lines, late: true} (0590), so the late window's fee shows whatever today's date is.
+ * app.pathshala_fee_example(p_term, p_lines): "Try a family" — the quote for made-up learners; writes nothing. p_lines
+ * is always {lines, late} (0590), so the screen's tick decides the late window, never today's date. A line the
+ * database cannot price comes back with its `refusal` and is not in the totals.
  */
 export async function feeExample(db: object, termId: string, lines: readonly ExampleLineInput[], late = false): Promise<Written<Quote>> {
-  const pLines = late ? { lines, late: true } : lines;
+  const pLines = { lines, late };
   const res = await write("app.pathshala_fee_example", () => registrationDb(db).rpc("pathshala_fee_example", { p_term: termId, p_lines: pLines }), (data) => ({ data, parsed: parseQuote(data) }));
   if (!res.ok) return res;
   if (!res.value.parsed.ok) {
