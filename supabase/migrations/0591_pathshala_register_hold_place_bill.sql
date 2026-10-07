@@ -413,7 +413,7 @@ $$;
 create or replace function app._pathshala_price_line(p_enrollment uuid, p_level uuid) returns jsonb
 language plpgsql stable security definer set search_path = app, public, extensions as $$
 declare e app.pathshala_enrollments; f app.pathshala_enrollment_fees; t app.pathshala_terms; v_base bigint; v_disc bigint := 0;
-        v_red bigint := 0; v_late bigint := 0; v_running bigint; v_take bigint; l app.pathshala_levels;
+        v_red bigint := 0; v_late bigint := 0; v_running bigint; v_take bigint; l app.pathshala_levels; v_pct numeric; v_cap bigint;
 begin
   select * into e from app.pathshala_enrollments where id = p_enrollment;
   select * into f from app.pathshala_enrollment_fees where enrollment_id = p_enrollment;
@@ -423,23 +423,33 @@ begin
   if v_base is null then
     raise exception '% has no fee for % yet, so it cannot be chosen.', coalesce(l.name, 'That level'), t.name using errcode = '22023';
   end if;
+  -- The rules the line was quoted with (its saved snapshot), not the term's rules today; a snapshot without them (a line
+  -- entered by hand) falls back to the term's. A cap of $0 or less prices as no cap (as the quote does).
+  v_pct := least(greatest(coalesce(nullif(f.rule_snapshot ->> 'sibling_discount_pct', '')::numeric, t.sibling_discount_pct, 0), 0), 100);
+  v_cap := case when f.rule_snapshot ? 'family_cap_cents' then nullif(f.rule_snapshot ->> 'family_cap_cents', '')::bigint
+                else t.fee_per_family_cap_cents end;
+  if v_cap is not null and v_cap <= 0 then v_cap := null; end if;
   if f.learner_kind = 'child' then
     if coalesce(f.family_rank, 1) > 1 then
-      v_disc := round(v_base * least(greatest(coalesce(t.sibling_discount_pct, 0), 0), 100) / 100.0)::bigint;
+      v_disc := round(v_base * v_pct / 100.0)::bigint;
     end if;
     v_take := v_base - v_disc;
-    if t.fee_per_family_cap_cents is not null then
+    if v_cap is not null then
       select coalesce(sum(o.base_fee_cents - o.sibling_discount_cents - o.cap_reduction_cents), 0) into v_running
         from app.pathshala_enrollment_fees o join app.pathshala_enrollments oe on oe.id = o.enrollment_id
        where o.term_id = t.id and o.household_id = e.household_id and o.learner_kind = 'child' and o.priced
          and o.status <> 'cancelled' and oe.status <> 'withdrawn' and o.enrollment_id <> e.id;
-      if v_running >= t.fee_per_family_cap_cents then v_red := v_take;
-      elsif v_running + v_take > t.fee_per_family_cap_cents then v_red := v_running + v_take - t.fee_per_family_cap_cents;
+      if v_running >= v_cap then v_red := v_take;
+      elsif v_running + v_take > v_cap then v_red := v_running + v_take - v_cap;
       end if;
     end if;
   end if;
-  if coalesce((f.rule_snapshot ->> 'late')::boolean, false) then
-    v_late := greatest(coalesce((f.rule_snapshot ->> 'late_fee_cents')::bigint, t.late_fee_cents, 0), 0);
+  -- The late fee is once per learner for the term (P4): not again when another line of theirs already carries one.
+  if coalesce((f.rule_snapshot ->> 'late')::boolean, false)
+     and not exists (select 1 from app.pathshala_enrollment_fees o join app.pathshala_enrollments oe on oe.id = o.enrollment_id
+                      where o.term_id = t.id and oe.student_person_id = e.student_person_id and o.enrollment_id <> e.id
+                        and o.status <> 'cancelled' and oe.status <> 'withdrawn' and o.late_fee_cents > 0) then
+    v_late := greatest(coalesce(nullif(f.rule_snapshot ->> 'late_fee_cents', '')::bigint, t.late_fee_cents, 0), 0);
   end if;
   return jsonb_build_object('level_id', p_level, 'base_fee_cents', v_base, 'sibling_discount_cents', v_disc,
                             'cap_reduction_cents', v_red, 'late_fee_cents', v_late,

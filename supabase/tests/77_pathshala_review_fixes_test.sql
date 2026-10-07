@@ -218,3 +218,49 @@ select pg_temp.assert_code(format($$select app.register_pathshala_children(%L, %
 commit;
 select pg_temp.assert((select count(*) = 1 from app.pledges where source = 'pathshala_fee' and source_ref_id = :'e_kiran'::uuid),
   're-registration: still one fee pledge for the enrollment (no second pledge)');
+
+-- ════════════════════════════════════════════════════════════════════════════
+-- 3. The late fee once per learner; a line the office prices later keeps the rules it was quoted with
+-- ════════════════════════════════════════════════════════════════════════════
+\set t3 '''77000000-0000-4000-8000-000000000503'''
+\set cl3_j2 '''77000000-0000-4000-8000-000000000642'''
+\set cl3_g1 '''77000000-0000-4000-8000-000000000651'''
+insert into app.pathshala_terms (id, center_id, name, starts_on, ends_on, sibling_discount_pct, fee_per_family_cap_cents, registration_closes_at) values
+  (:t3, :c, 'Late term', '2026-09-06', '2027-05-30', 10, null, now() + interval '1 day');
+insert into app.pathshala_classes (id, center_id, term_id, level_id, name, room, capacity, meets_on, starts_time, ends_time, waitlist_enabled) values
+  (:cl3_j2, :c, :t3, :lv_j2, 'Jainism 2 · Room B (late)', 'B', 4, 'sunday', '10:00', '11:30', true),
+  (:cl3_g1, :c, :t3, :lv_g1, 'Gujarati 1 · Library (late)', 'Library', 4, 'sunday', '11:45', '12:45', true);
+begin;
+select pg_temp.sign_in(:u_pia);
+select app.set_pathshala_level_fees(:t3, jsonb_build_array(jsonb_build_object('level_id', :lv_j2, 'fee_cents', 13000), jsonb_build_object('level_id', :lv_g1, 'fee_cents', 4500)));
+select app.set_pathshala_term_rules(:t3, jsonb_build_object('late_fee_cents', 2500, 'late_registration_closes_at', (now() + interval '40 days')::text));
+select app.open_pathshala_registration(:t3);
+commit;
+update app.pathshala_terms set registration_closes_at = now() - interval '1 day' where id = :t3;
+begin;
+select pg_temp.sign_in(:u_nita);
+select app.register_pathshala_children(:t3, :h2, jsonb_build_array(jsonb_build_object('person_id', :p_kiran, 'track_id', :tr_g, 'level_id', :lv_g1)),
+                                       null, null, null, 'k77-kiran-3') as r4 \gset
+select app.register_pathshala_children(:t3, :h2, jsonb_build_array(jsonb_build_object('person_id', :p_isha, 'track_id', :tr_j, 'level_id', null),
+                                                                   jsonb_build_object('person_id', :p_isha, 'track_id', :tr_g, 'level_id', :lv_g1)),
+                                       null, null, null, 'k77-isha-3') as r5 \gset
+commit;
+select pg_temp.assert((select f.total_cents = 7000 and f.late_fee_cents = 2500 and f.family_rank = 1
+                         from app.pathshala_enrollment_fees f where f.enrollment_id = (:'r4'::jsonb -> 'lines' -> 0 ->> 'enrollment_id')::uuid),
+  'late registration: Kiran''s Gujarati line is $45.00 plus the $25.00 late fee');
+select (x ->> 'enrollment_id') as e_isha_g from jsonb_array_elements(:'r5'::jsonb -> 'lines') x where x ->> 'track_id' = :tr_g::text \gset
+select (x ->> 'enrollment_id') as e_isha_j from jsonb_array_elements(:'r5'::jsonb -> 'lines') x where x ->> 'track_id' = :tr_j::text \gset
+select pg_temp.assert((select f.total_cents = 6550 and f.late_fee_cents = 2500 and f.sibling_discount_cents = 450 and f.family_rank = 2
+                         from app.pathshala_enrollment_fees f where f.enrollment_id = :'e_isha_g'::uuid)
+                      and (select not f.priced and f.total_cents = 0 and f.late_fee_cents = 0 from app.pathshala_enrollment_fees f where f.enrollment_id = :'e_isha_j'::uuid),
+  'late registration: Isha (second child) pays 10% less on Gujarati plus one late fee; her "not sure" Jainism line waits unpriced');
+-- The term's rules change after the registration (the owner of the database writes it): the saved rules still apply.
+update app.pathshala_terms set sibling_discount_pct = 50, late_fee_cents = 9900 where id = :t3;
+begin;
+select pg_temp.sign_in(:u_pia);
+select app.place_pathshala_enrollment(:'e_isha_j'::uuid, :cl3_j2) as pl_j \gset
+commit;
+select pg_temp.assert((select f.priced and f.base_fee_cents = 13000 and f.sibling_discount_cents = 1300 and f.late_fee_cents = 0 and f.total_cents = 11700
+                         from app.pathshala_enrollment_fees f where f.enrollment_id = :'e_isha_j'::uuid)
+                      and (select amount_cents = 11700 from app.pledges where id = (select pledge_id from app.pathshala_enrollment_fees where enrollment_id = :'e_isha_j'::uuid)),
+  'a line the office prices later: the sibling discount of the rules it was quoted with (10%, not 50%) and no second late fee ($117.00, not $155.00)');
