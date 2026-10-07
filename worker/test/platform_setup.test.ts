@@ -9,7 +9,7 @@ import { HANDLERS } from "../src/handlers";
 import * as testProvider from "../src/handlers/platform.test_provider";
 import { recordingReq } from "../src/handlers/platform.test_provider";
 import { createHttp } from "../src/http";
-import { createPlatformConfig, overlayable } from "../src/platform-config";
+import { createPlatformConfig, DATABASE_ONLY_NAMES, overlayable } from "../src/platform-config";
 import { createRegistry, jobContext, readiness } from "../src/runner";
 import { ANTHROPIC_FALLBACK_BETA, ANTHROPIC_TEST_MODEL, redactSecrets } from "../../src/lib/platform-setup/checks";
 import { captureLog, fakeDb, job } from "./helpers";
@@ -95,6 +95,30 @@ describe("platform config: the database first, the environment second", () => {
     expect(overlayable("WORKER_DATABASE_URL")).toBe(false);
     expect(overlayable("portal_domain")).toBe(false);
     expect(overlayable("STRIPE_SECRET_KEY")).toBe(true);
+  });
+
+  it("takes the virus scanning mode from the database alone, never from the environment (0589)", async () => {
+    const platform = { settings: {} as Record<string, unknown> };
+    const { db } = fakeDb({ platform });
+    const { log } = captureLog();
+    let t = 1_000_000;
+    const env = { UPLOAD_SCAN_MODE: "enforce", SUPABASE_URL: "https://x.supabase.co", SUPABASE_SECRET_KEY: "sb_secret_x", CLAMD_HOST: "127.0.0.1" };
+    const cfg = createPlatformConfig(env, db, { workerId: "w", log, now: () => t });
+    await cfg.refresh(true);
+    expect(DATABASE_ONLY_NAMES.has("UPLOAD_SCAN_MODE")).toBe(true);
+    expect(cfg.env.UPLOAD_SCAN_MODE).toBeUndefined();
+    expect("UPLOAD_SCAN_MODE" in cfg.env).toBe(false);
+    expect({ ...cfg.env }.UPLOAD_SCAN_MODE).toBeUndefined();
+    const reg = createRegistry(HANDLERS);
+    expect(readiness(reg, cfg.env)["storage.scan"]).toMatchObject({ configured: false, reason: expect.stringContaining("switched off") });
+    // Saved in Platform › Setup: the overlay carries it (within a minute), and scanning is configured.
+    platform.settings.UPLOAD_SCAN_MODE = "monitor";
+    t += 61_000;
+    await cfg.refresh();
+    expect(cfg.env.UPLOAD_SCAN_MODE).toBe("monitor");
+    expect(readiness(reg, cfg.env)["storage.scan"]).toEqual({ configured: true });
+    expect(readiness(reg, cfg.env)["storage.scan_sweep"]).toEqual({ configured: true });
+    expect(cfg.report().env).not.toContain("UPLOAD_SCAN_MODE");
   });
 });
 

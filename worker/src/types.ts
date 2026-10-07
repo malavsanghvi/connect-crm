@@ -31,6 +31,14 @@ export type HandlerModule = {
   info?: (env: Env) => Record<string, string | number | boolean>;
   /** Seconds: the service queues one platform-wide job of this kind this often (when configured). */
   every?: number;
+  /**
+   * The kind's jobs WAIT in the queue while the handler is not configured: the runner does not claim them (instead of
+   * failing each one as "not configured") and claims them again as soon as configured() says yes. storage.scan uses it:
+   * every upload queues a check, and the checks stay queued while virus scanning is off.
+   */
+  waitWhenNotConfigured?: boolean;
+  /** At most this many jobs of the kind run at once in this service; they are claimed after the other kinds, never ahead of them. */
+  maxInFlight?: number;
   /** The job's result (stored in app.jobs.result, never a secret). Throw to fail. */
   run(job: Job, ctx: JobContext): Promise<unknown>;
 };

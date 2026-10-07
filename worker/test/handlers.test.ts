@@ -11,6 +11,7 @@ import { jobContext } from "../src/runner";
 import { createRegistry } from "../src/runner";
 import { HANDLERS } from "../src/handlers";
 import { healthOf } from "../src/server";
+import { objectUrl, storageAuthHeaders } from "../src/storage-api";
 import { captureLog, fakeDb, job } from "./helpers";
 
 function ctxFor(db: ReturnType<typeof fakeDb>["db"], env: Record<string, string>, j = job()) {
@@ -111,7 +112,7 @@ describe("oauth.exchange skeleton", () => {
 describe("storage.retention", () => {
   let server: http.Server;
   let base = "";
-  const deletes: { bucket: string; prefixes: string[]; apikey: string | undefined }[] = [];
+  const deletes: { bucket: string; prefixes: string[]; apikey: string | undefined; authorization: string | undefined }[] = [];
   beforeAll(async () => {
     server = http.createServer((req, res) => {
       let body = "";
@@ -119,7 +120,7 @@ describe("storage.retention", () => {
       req.on("end", () => {
         const bucket = decodeURIComponent((req.url ?? "").split("/").pop()!);
         const prefixes = (JSON.parse(body) as { prefixes: string[] }).prefixes;
-        deletes.push({ bucket, prefixes, apikey: req.headers.apikey as string | undefined });
+        deletes.push({ bucket, prefixes, apikey: req.headers.apikey as string | undefined, authorization: req.headers.authorization });
         if (bucket === "exports") return void res.writeHead(500).end("{}");
         res.writeHead(200, { "content-type": "application/json" }).end(JSON.stringify(prefixes.filter((p) => !p.includes("keep")).map((name) => ({ name, bucket_id: bucket }))));
       });
@@ -153,6 +154,8 @@ describe("storage.retention", () => {
       ["imports", ["c1/a.csv", "c1/keep.csv"], "sb_secret_test"],
       ["recordings", ["c1/p1/r.m4a"], "sb_secret_test"],
     ]);
+    // A new-style secret key is not a JWT: it goes in the apikey header only, never as a Bearer token.
+    expect(deletes.every((d) => d.authorization === undefined)).toBe(true);
     const recorded = calls.filter((c) => c.fn === "query" && String(c.args[0]).includes("record_storage_deletions"));
     expect(recorded.map((c) => JSON.parse((c.args[1] as unknown[])[1] as string).map((o: { name: string }) => o.name))).toEqual([["c1/a.csv"], ["c1/p1/r.m4a"]]);
   });
@@ -160,6 +163,13 @@ describe("storage.retention", () => {
     let round = 0;
     const { db } = fakeDb({ query: (t) => (t.includes("storage_expired_objects") && round++ === 0 ? [{ bucket_id: "exports", name: "c1/u/x.csv", created_at: "2026-01-01" }] : []) });
     await expect(retention.run(job({ kind: "storage.retention" }), ctxFor(db, { SUPABASE_URL: base, SUPABASE_SECRET_KEY: "k" }))).rejects.toThrow(/Could not remove 1 expired file/);
+  });
+  it("sends a legacy service_role key (a JWT) as before, in both headers", () => {
+    expect(storageAuthHeaders("eyJhbGciOiJIUzI1NiJ9.e30.sig")).toEqual({ apikey: "eyJhbGciOiJIUzI1NiJ9.e30.sig", authorization: "Bearer eyJhbGciOiJIUzI1NiJ9.e30.sig" });
+    expect(storageAuthHeaders(" sb_secret_abc ")).toEqual({ apikey: "sb_secret_abc" });
+    expect(objectUrl("https://x.supabase.co/", "homework", "c/p/s/f 1.jpg")).toBe("https://x.supabase.co/storage/v1/object/homework/c/p/s/f%201.jpg");
+    expect(() => objectUrl("https://x.supabase.co", "content", "c/../other/secret")).toThrow(/cannot be fetched safely/);
+    expect(() => objectUrl("https://x.supabase.co", "content", "c/./x")).toThrow(/cannot be fetched safely/);
   });
 });
 

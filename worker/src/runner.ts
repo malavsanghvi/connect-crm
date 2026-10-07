@@ -1,6 +1,9 @@
 // The loop: claim due jobs, run each with its handler, finish or fail it.
 // Every outcome is written back to app.jobs; a failure message is plain and
-// never carries a secret (scrubbed), and "not configured" is never retried.
+// never carries a secret (scrubbed), and "not configured" is never retried,
+// except for a kind whose jobs wait while it is not configured
+// (waitWhenNotConfigured: they are not claimed at all, and one claimed just as
+// its configuration went away goes back to the queue).
 
 import type { Env, Readiness } from "./config";
 import type { Job, WorkerDb } from "./db";
@@ -53,7 +56,11 @@ export async function processJob(deps: RunnerDeps, job: Job): Promise<Outcome> {
   try {
     if (!handler) throw new NotConfiguredError(`This background service has no handler for "${job.kind}" jobs.`);
     const ready = handler.configured ? handler.configured(deps.env) : ({ configured: true } as Readiness);
-    if (!ready.configured) throw new NotConfiguredError(ready.reason);
+    if (!ready.configured) {
+      // A kind that waits: back to the queue (retried later), never failed for good.
+      if (handler.waitWhenNotConfigured) throw new Error(`${ready.reason}; the job waits in the queue until it is.`);
+      throw new NotConfiguredError(ready.reason);
+    }
     const started = Date.now();
     const result = await handler.run(job, jobContext(deps, job, log));
     await deps.db.finish(job.id, result ?? {});
@@ -96,11 +103,31 @@ export const PRIORITY_KINDS: readonly string[] = ["niva.answer"];
  * tick from its readiness on deps.env (the platform overlay): with no Anthropic key, niva.answer
  * jobs fail at once as not configured, so no slot is kept for them, and a key saved later in
  * Platform › Setup brings the kept slot back on the next tick.
+ *
+ * A kind that waits while it is not configured (waitWhenNotConfigured) is left out of the claim
+ * until configured() says yes, read each tick like the kept slot. A kind with maxInFlight is
+ * claimed on its own, after the other kinds and only up to its limit, so a backlog of it (the
+ * virus checks of every upload since 0172, the day scanning is switched on) can never keep
+ * messages or imports waiting.
  */
 export function createRunner(deps: RunnerDeps, concurrency: number, opts: { priority?: readonly string[] } = {}): Runner {
   const running = new Set<Promise<Outcome>>();
+  const perKind = new Map<string, number>();
   let others = 0;
   let stopping = false;
+  const claimable = (k: string): boolean => {
+    const h = deps.reg.get(k);
+    if (!h?.waitWhenNotConfigured || !h.configured) return true;
+    try {
+      return h.configured(deps.env).configured;
+    } catch {
+      return false; // a kind that waits keeps waiting when its readiness cannot be read
+    }
+  };
+  const cap = (k: string): number | undefined => {
+    const n = deps.reg.get(k)?.maxInFlight;
+    return typeof n === "number" && n >= 1 ? Math.floor(n) : undefined;
+  };
   const priority = (opts.priority ?? PRIORITY_KINDS).filter((k) => deps.reg.has(k));
   const rest = [...deps.reg.keys()].filter((k) => !priority.includes(k));
   const reserved = (): number => {
@@ -118,9 +145,11 @@ export function createRunner(deps: RunnerDeps, concurrency: number, opts: { prio
 
   const start = (job: Job, isPriority: boolean) => {
     if (!isPriority) others += 1;
+    perKind.set(job.kind, (perKind.get(job.kind) ?? 0) + 1);
     const p = processJob(deps, job).finally(() => {
       running.delete(p);
       if (!isPriority) others -= 1;
+      perKind.set(job.kind, Math.max(0, (perKind.get(job.kind) ?? 1) - 1));
     });
     running.add(p);
   };
@@ -131,17 +160,29 @@ export function createRunner(deps: RunnerDeps, concurrency: number, opts: { prio
       let free = concurrency - running.size;
       if (free <= 0) return 0;
       let claimed = 0;
-      if (priority.length > 0) {
-        const jobs = await deps.db.claim(deps.workerId, priority, free);
+      const first = priority.filter(claimable);
+      if (first.length > 0) {
+        const jobs = await deps.db.claim(deps.workerId, first, free);
         for (const job of jobs) start(job, true);
         claimed += jobs.length;
         free -= jobs.length;
       }
-      const room = Math.min(free, concurrency - reserved() - others);
-      if (room > 0 && rest.length > 0 && !stopping) {
-        const jobs = await deps.db.claim(deps.workerId, rest, room);
+      let room = Math.min(free, concurrency - reserved() - others);
+      const eligible = rest.filter(claimable);
+      const open = eligible.filter((k) => cap(k) === undefined);
+      if (room > 0 && open.length > 0 && !stopping) {
+        const jobs = await deps.db.claim(deps.workerId, open, room);
         for (const job of jobs) start(job, false);
         claimed += jobs.length;
+        room -= jobs.length;
+      }
+      for (const k of eligible.filter((x) => cap(x) !== undefined)) {
+        const n = Math.min(room, cap(k)! - (perKind.get(k) ?? 0));
+        if (n <= 0 || stopping) continue;
+        const jobs = await deps.db.claim(deps.workerId, [k], n);
+        for (const job of jobs) start(job, false);
+        claimed += jobs.length;
+        room -= jobs.length;
       }
       return claimed;
     },
