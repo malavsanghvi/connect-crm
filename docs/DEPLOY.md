@@ -40,9 +40,12 @@ Use the **Session pooler** string (host `…pooler.supabase.com`, port **5432**)
 pooler" (port 6543) breaks migrations.
 
 Never use the secret key (`sb_secret_…`, formerly `service_role`) anywhere in these apps,
-in GitHub, or in a chat. Nothing in Connect needs it; it bypasses every access rule. If it
-may have been exposed, create a new one and delete the old one under Project Settings ›
-API Keys.
+in GitHub, or in a chat. The apps never need it; it bypasses every access rule. The one
+exception is the background service's own dedicated key, `WORKER_SUPABASE_SECRET_KEY`
+(owner decision 2026-10-06; see [Background service](#optional-worker-settings) and
+[Malware scanning](#malware-scanning-virus-checks-of-uploads)), which the owner creates and
+nothing else uses. If a key may have been exposed, create a new one and delete the old one
+under Project Settings › API Keys.
 
 ### 2. Supabase settings (dashboard, once)
 
@@ -194,7 +197,11 @@ All optional. A handler whose settings are missing reports "not configured"
 | `RESEND_API_KEY` or `POSTMARK_SERVER_TOKEN` | the email sending service |
 | `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN` | texting |
 | `ANTHROPIC_API_KEY` | Niva and import mapping suggestions |
-| `WORKER_SUPABASE_SECRET_KEY` | storage retention (see the note below) |
+| `WORKER_SUPABASE_SECRET_KEY` | storage retention **and** virus scanning (see the note below: adding it starts retention, which deletes files) |
+
+| GitHub variable | Used for |
+|---|---|
+| `CLAMD_HOST` (`127.0.0.1`), `CLAMD_PORT` (3310 when unset), or `CLAMD_SOCKET` | where clamd listens, for virus scanning ([Malware scanning](#malware-scanning-virus-checks-of-uploads)); unset: the scanner is not configured |
 
 `CLAUDE_MODEL` (a repository **variable**, not a secret) changes the Claude model Niva answers
 with, and the one the import-mapping and donor-matching suggestions and the setup wizard's AI Test
@@ -232,7 +239,17 @@ use that key, so the retention job ships **not configured**: expired imports,
 exports and recordings are not removed until you either allow a dedicated secret
 key used only by the worker (Project Settings › API Keys › create one named
 `connect-worker`, store it as `WORKER_SUPABASE_SECRET_KEY`), or choose another
-route. Nothing else in Connect uses it.
+route. Nothing else in Connect uses it. Virus scanning (below) uses the same key: the
+owner decided on 2026-10-06 to create it.
+
+**Adding `WORKER_SUPABASE_SECRET_KEY` ALSO STARTS THE EXISTING STORAGE RETENTION JOB, WHICH
+DELETES FILES: imports older than 90 days, exports older than 7 days, recordings older than
+90 days, homework files older than 180 days (each community may have changed the imports,
+recordings and homework numbers in Settings › Storage), and event flyer files nothing uses
+any more after 7 days.** The first daily run removes everything that is already past its
+period, in batches, and every removal is written to the audit log; the files cannot be brought
+back. Check Settings › Storage of each community before you add the key. The key is sent in
+the `apikey` header only, as Supabase says for `sb_secret_…` keys (`worker/src/storage-api.ts`).
 
 ### What the worker deploy does
 
@@ -246,6 +263,70 @@ route. Nothing else in Connect uses it.
 
 Logs: they are JSON lines in the journal (`journalctl -u connect@worker`), with
 any field that looks like a secret replaced by `[redacted]`.
+
+## Malware scanning (virus checks of uploads)
+
+Built in connect-crm migration 0589 and **switched off**, with **enforce locked** until the next update (owner,
+2026-10-07: monitor can be switched on once ClamAV runs). Owner decisions 2026-10-06: hosting the scanner "not now", so
+it is built switched off and turned on later; an infected file is deleted and the family and the office are told (never
+with the file's name); files uploaded before scanning starts are checked once, in the background; the owner creates the
+worker's Supabase key.
+
+**While it is off (today)** nothing changes: every upload to a scanned bucket (branding, content, photos, store,
+recordings, homework, imports, org-documents) still queues a `storage.scan` job, as it has since 0172; the background
+service does not claim them (Settings › Integrations lists "Virus check of an uploaded file" as not configured,
+"Virus scanning is switched off"), so they wait; nothing is held back or removed; Settings › Storage says "Virus
+scanning is switched off" and how many files are waiting to be checked.
+
+**The modes** are a platform setting: Platform › Setup › Background service › **Virus scanning of uploads**
+(`UPLOAD_SCAN_MODE`; a platform admin with a fresh 2FA check; audited). The database's read rules and the background
+service both follow it, within a minute. The worker never takes it from its environment.
+
+| Mode | What happens |
+|---|---|
+| off (default) | Nothing is checked; the checks wait in the queue. |
+| monitor | Every upload is checked with ClamAV and the result recorded (`app.upload_scans`). **Nothing is denied and nothing is removed**: an infected file is kept and written to the audit log (`storage.scan_infected`, "kept"), so you can see what the scanner finds before anything is enforced. |
+| enforce | **Locked in this release** (owner, 2026-10-07): Platform › Setup shows it disabled, and the database refuses it with "Enforce (removing infected files) comes with the next update; use monitor until then." It is built and tested; the next update brings the review's enforce fixes and unlocks it. What it will do: homework files and recordings uploaded after the switch are opened by the family at once and by the teachers and reviewers only once they are clean (Pathshala › Homework says "Being checked for viruses"; a check that could not finish keeps the file with the family). An infected file, in any scanned bucket, is refused to everyone at once, then deleted through the Storage API; the homework part is marked removed by the virus check, a recording is cleared from the learner's progress, a photo is marked removed; the learner (and a child's household adults) or the uploader is told (`upload.removed`, push and email, no file name); the office gets an audit entry (`storage.scan_infected`) and, when the answer was already with the reviewers, they get a push. Photos, organization documents, content and the store are not held back yet (`app.upload_scan_gated_buckets` names them for later). |
+
+Switching to monitor or enforce queues a sweep at once (`storage.scan_sweep`, then every 6 hours): it queues a check for
+every file that has none (the backlog: everything uploaded before scanning started), the infected files still stored
+(enforce), and checks that failed for a passing reason a day ago. Checks run **one file at a time, after every other kind
+of job**, so a backlog never holds up messages or imports. A scanner that is down is retried for about 18 hours (25
+attempts); then the file is recorded as "could not be checked" and tried again a day later.
+
+**Turning it on**, in this order:
+
+1. **Resize the droplet to 4 GB** (DigitalOcean › the droplet › Resize › CPU and RAM only; the disk can stay; the apps
+   are down for a few minutes). ClamAV holds its signature database in memory (about 1.2 GB, more while it reloads),
+   which a 1 GB droplet cannot.
+2. **Install ClamAV**, once, from a checkout of connect-crm: `ssh root@<droplet> 'bash -s' < deploy/clamav-setup.sh`.
+   It refuses to install below 3.5 GB of memory (and below 1.5 GB of free disk) and says so; otherwise it installs
+   clamav-daemon and freshclam, sets the limits (60 MB a file, archives 10 deep and 5000 files, a minute a file, two
+   threads, no second database in memory while signatures reload, Office macros count as infected), listens on
+   **127.0.0.1:3310 only**, makes the kernel stop clamd before the apps when memory runs out, and checks that clamd
+   answers and finds the EICAR test file. The deploy never runs it. Run it again after a ClamAV package upgrade.
+3. GitHub › connect-crm › Settings › Secrets and variables › Actions › **Variables** › New repository variable:
+   **`CLAMD_HOST`** = `127.0.0.1` (`CLAMD_PORT` only if you changed 3310; `CLAMD_SOCKET` instead, for clamd's unix
+   socket). Every deploy writes `/srv/connect/worker.env` from these variables (empty ones are left out), so editing
+   that file on the droplet does not last.
+4. **The worker's key**, if it is not there yet: Supabase › Project Settings › API Keys › Secret keys › create one named
+   `connect-worker`; GitHub › Secrets › **`WORKER_SUPABASE_SECRET_KEY`**. **This also starts storage retention, which
+   deletes files (see [the note above](#optional-worker-settings)): read it before you add the key.**
+5. Run **Deploy**. Settings › Integrations still lists the virus check as not configured: "Virus scanning is switched
+   off". That is expected until step 6.
+6. Platform › Setup › Background service › Virus scanning of uploads: **monitor**. Watch Settings › Storage of a
+   community: files waiting to be checked go down, clean goes up; "could not be checked" and "found infected (kept)"
+   are the ones to look at (the audit log has each `storage.scan_infected`).
+7. **Enforce comes with the next update** (locked in this release). Once it is unlocked, and monitor has run about a
+   week with nothing unexpected: **enforce**. Infected files found in monitor mode are then removed by the next sweep
+   (within 6 hours); new uploads at once.
+
+**Turning it off again**: set the mode to off. Nothing is denied any more; the checks wait in the queue again; recorded
+results stay.
+
+Not done by the scanner (follow-ups in docs/BACKLOG.md): telling a file's real type from its first bytes (today the
+buckets check the type the uploader declares, and the size); holding back photos, organization documents, content and
+store files until they are checked; the member app's "Checking the file…".
 
 ## HTTPS for the portal (o-https)
 

@@ -2994,6 +2994,7 @@ export type Database = {
           sort_order: number;
           deleted_at: string | null;
           created_at: string;
+          removed_reason: string | null;
         };
         Insert: {
           id?: string;
@@ -3007,6 +3008,7 @@ export type Database = {
           sort_order?: number;
           deleted_at?: string | null;
           created_at?: string;
+          removed_reason?: string | null;
         };
         Update: {
           id?: string;
@@ -3020,6 +3022,7 @@ export type Database = {
           sort_order?: number;
           deleted_at?: string | null;
           created_at?: string;
+          removed_reason?: string | null;
         };
         Relationships: [];
       };
@@ -9092,6 +9095,57 @@ export type Database = {
           paksha?: string;
           is_parva?: boolean;
           notes?: string | null;
+        };
+        Relationships: [];
+      };
+      upload_scans: {
+        Row: {
+          bucket_id: string;
+          name: string;
+          center_id: string | null;
+          object_id: string;
+          object_version: string | null;
+          status: string;
+          engine: string | null;
+          signature: string | null;
+          bytes: number | null;
+          uploaded_by: string | null;
+          scanned_at: string;
+          job_id: number | null;
+          detail: string | null;
+          removed_at: string | null;
+        };
+        Insert: {
+          bucket_id: string;
+          name: string;
+          center_id?: string | null;
+          object_id: string;
+          object_version?: string | null;
+          status: string;
+          engine?: string | null;
+          signature?: string | null;
+          bytes?: number | null;
+          uploaded_by?: string | null;
+          scanned_at?: string;
+          job_id?: number | null;
+          detail?: string | null;
+          removed_at?: string | null;
+        };
+        Update: {
+          bucket_id?: string;
+          name?: string;
+          center_id?: string | null;
+          object_id?: string;
+          object_version?: string | null;
+          status?: string;
+          engine?: string | null;
+          signature?: string | null;
+          bytes?: number | null;
+          uploaded_by?: string | null;
+          scanned_at?: string;
+          job_id?: number | null;
+          detail?: string | null;
+          removed_at?: string | null;
         };
         Relationships: [];
       };

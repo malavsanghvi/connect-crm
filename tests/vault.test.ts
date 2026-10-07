@@ -89,6 +89,10 @@ describe("job kind labels", () => {
     expect(jobKindLabel("qbo.post")).toBe("Post to QuickBooks");
     expect(jobKindLabel("something.new")).toBe("something.new");
   });
+  it("names the virus checks (0589)", () => {
+    expect(jobKindLabel("storage.scan")).toBe("Virus check of an uploaded file");
+    expect(jobKindLabel("storage.scan_sweep")).toBe("Find uploads still to be checked for viruses");
+  });
   it("has a label for every job kind the background service runs", () => {
     const dir = fileURLToPath(new URL("../worker/src/handlers/", import.meta.url));
     const kinds = readdirSync(dir)

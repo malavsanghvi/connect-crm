@@ -5,7 +5,7 @@ import { randomBytes } from "node:crypto";
 import { workerDbConfigured } from "@/lib/messaging/server-db";
 import type { CrmSession } from "@/lib/session";
 
-import { FIELDS, STEPS, missingFor, setupComplete, type StepKey, type StepRow, type StepStatus } from "./catalog";
+import { FIELDS, STEPS, missingFor, setupComplete, type FieldOption, type StepKey, type StepRow, type StepStatus } from "./catalog";
 import type { StepTest } from "./checks";
 import { loadPlatformConfig, platformConfigError, platformSources } from "./server-config";
 
@@ -20,7 +20,7 @@ export type FieldView = {
   label: string;
   hint: string;
   placeholder: string | null;
-  options: { value: string; label: string }[] | null;
+  options: FieldOption[] | null;
   generate: boolean;
   /** Settings only (never a secret). */
   value: string | null;
