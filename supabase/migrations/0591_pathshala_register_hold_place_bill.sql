@@ -241,6 +241,26 @@ alter table app.pathshala_enrollments drop constraint if exists pathshala_enroll
 alter table app.pathshala_enrollments drop constraint if exists pathshala_enrollments_term_student_track_key;
 alter table app.pathshala_enrollments add constraint pathshala_enrollments_term_student_track_key unique (term_id, student_person_id, track_id);
 
+create index if not exists pathshala_enrollments_registration_idx on app.pathshala_enrollments (registration_id) where registration_id is not null;
+
+-- A level that classes, fees or registrations use cannot move to another track (their tracks would no longer agree).
+create or replace function app.pathshala_levels_track_guard() returns trigger
+language plpgsql security definer set search_path = app, public, extensions as $$
+begin
+  if new.track_id is distinct from old.track_id
+     and (exists (select 1 from app.pathshala_classes c where c.level_id = old.id)
+          or exists (select 1 from app.pathshala_enrollments e where e.requested_level_id = old.id)
+          or exists (select 1 from app.pathshala_level_fees lf where lf.level_id = old.id)
+          or exists (select 1 from app.pathshala_pending_registrations pr where pr.requested_level_id = old.id)) then
+    raise exception '% is used by classes, fees or registrations, so it cannot move to another track. Add a new level in the other track instead.', old.name
+      using errcode = '22023';
+  end if;
+  return new;
+end $$;
+drop trigger if exists pathshala_levels_track_guard on app.pathshala_levels;
+create trigger pathshala_levels_track_guard before update of track_id on app.pathshala_levels
+  for each row execute function app.pathshala_levels_track_guard();
+
 -- A direct write through the API (the portal's older screens, the member app's request) cannot set the registration's
 -- own columns, and cannot move or re-status a learner whose seat is held for payment: the functions do that (the hold's
 -- pledges must be cancelled or paid, never left behind).
@@ -253,6 +273,9 @@ begin
     if new.hold_expires_at is not null or new.registration_id is not null or new.offered_at is not null then
       raise exception 'Register learners through Pathshala registration (it holds and bills seats).' using errcode = '22023';
     end if;
+    -- The 0565 insert rule lets a parent write a bare request: the track comes from the level (the track trigger), and the
+    -- waitlist time, the channel and the office's suggestion are the functions' own, never the API's (review item 10).
+    new.track_id := null; new.waitlisted_at := null; new.channel := null; new.suggested_level_id := null; new.suggestion_reason := null;
     return new;
   end if;
   -- Only the Pathshala principal (pathshala.manage, who reads the fee line) can update an enrollment directly.
@@ -552,6 +575,12 @@ begin
     'hold_until', coalesce(app.pathshala_when(e.hold_expires_at, e.center_id), ''),
     'position', coalesce(app.pathshala_waitlist_position(e.id)::text, ''),
     'withdraw_by', coalesce(to_char(app.pathshala_withdrawal_deadline(t.id), 'FMMon FMDD'), ''),
+    -- A learner placed from the waitlist after the free-withdrawal date must not be told to withdraw by a date that has gone.
+    'withdraw_sentence', case when app.pathshala_withdrawal_deadline(t.id) is null then ''
+                              when app.pathshala_withdrawal_deadline(t.id) >= app.pathshala_today(e.center_id)
+                                then 'To withdraw at no charge, withdraw in the app by ' || to_char(app.pathshala_withdrawal_deadline(t.id), 'FMMon FMDD') || '.'
+                              else 'The date for withdrawing at no charge (' || to_char(app.pathshala_withdrawal_deadline(t.id), 'FMMon FMDD')
+                                   || ') has passed; if ' || coalesce(app.pathshala_first_name(e.student_person_id), 'the learner') || ' cannot come, please ask the Pathshala office.' end,
     'pledge_number', coalesce(p.pledge_number, ''), 'due', coalesce(to_char(p.due_on, 'FMMon FMDD, YYYY'), ''),
     'fee_sentence', case when p.id is not null then 'Fee ' || app.pathshala_money(p.amount_cents) || ' (pledge ' || coalesce(p.pledge_number, '')
                                                    || '), due ' || to_char(p.due_on, 'FMMon FMDD') || '.'
@@ -1141,7 +1170,7 @@ declare t app.pathshala_terms; h app.households; r app.pathshala_registrations; 
         v_cr uuid; v_pr uuid; v_class uuid; v_status text; v_hold text; v_expires timestamptz; v_sugg jsonb; p app.pledges;
         v_result jsonb; v_tz text; v_summary text[] := '{}'; v_person uuid; v_track uuid; v_reuse uuid; v_outcome text;
         v_pay_now boolean; v_assist boolean; v_line jsonb; v_n int; v_mode text; v_tmpl text; v_new jsonb; v_dob date; y jsonb;
-        v_newkeys jsonb := '{}'::jsonb; v_lkey text;
+        v_newkeys jsonb := '{}'::jsonb; v_lkey text; v_constraint text;
 begin
   if auth.uid() is null then raise exception 'Sign in first.' using errcode = '42501'; end if;
   select * into t from app.pathshala_terms where id = p_term;
@@ -1404,6 +1433,17 @@ begin
     end if;
   end loop;
   return v_result;
+exception
+  -- Two registrations at the same moment (review item 10): plain words, and the app goes back to the review.
+  when deadlock_detected or serialization_failure then
+    raise exception 'Another registration was being saved at the same moment. Please try again.' using errcode = '22023', hint = 'review_again';
+  when unique_violation then
+    get stacked diagnostics v_constraint = constraint_name;
+    if v_constraint = 'pathshala_enrollments_term_student_track_key' then
+      raise exception 'Another registration for this learner in this track was just saved (by another adult of the family or another family). Please review again.'
+        using errcode = '22023', hint = 'review_again';
+    end if;
+    raise;
 end $$;
 
 -- ═════════════════════════════════════════════════════════════════════════════
@@ -2311,7 +2351,7 @@ revoke execute on function app._import_find_before_0591(app.import_runs, app.imp
 -- Templates (platform defaults; a community may override them in Communications)
 -- ═════════════════════════════════════════════════════════════════════════════
 -- Variables: learner (first name), term, level, class, schedule ("Sundays 10:00–11:30 · Room C"), amount (what is left to
--- pay), total, hold_until ("Thu Oct 8, 6:00 pm"), position (waitlist), withdraw_by, pledge_number, due, fee_sentence, state
+-- pay), total, hold_until ("Thu Oct 8, 6:00 pm"), position (waitlist), withdraw_by, withdraw_sentence, pledge_number, due, fee_sentence, state
 -- (one sentence of where the registration stands); for pathshala_registration_received: term, summary, total, next_steps.
 -- Pushes carry type "pathshala" and deep_link "/pathshala?person=<learner>" (registration: "/pathshala-enroll?term=<term>").
 insert into app.message_templates (center_id, key, channel, language, subject, body)
@@ -2342,9 +2382,9 @@ select null, v.key, v.channel::app.channel, 'en', v.subject, v.body
   ('pathshala_waitlisted', 'email', '{{learner}} is on the Pathshala waitlist',
    E'{{learner}} is number {{position}} on the waitlist for {{level}} ({{term}}) at {{center_short_name}}.\n\nThere is no charge unless a seat opens; we will tell you when it does.'),
   ('pathshala_placed', 'push', 'A seat opened for {{learner}}',
-   '{{learner}} is placed in {{class}} ({{term}}): {{schedule}}. {{fee_sentence}} To withdraw at no charge, withdraw by {{withdraw_by}}.'),
+   '{{learner}} is placed in {{class}} ({{term}}): {{schedule}}. {{fee_sentence}} {{withdraw_sentence}}'),
   ('pathshala_placed', 'email', 'A Pathshala seat opened for {{learner}}',
-   E'{{learner}} is placed in {{class}} ({{term}}) at {{center_short_name}}: {{schedule}}.\n\n{{fee_sentence}}\n\nIf {{learner}} cannot come, withdraw in the Community Connect app by {{withdraw_by}} and nothing is charged.'),
+   E'{{learner}} is placed in {{class}} ({{term}}) at {{center_short_name}}: {{schedule}}.\n\n{{fee_sentence}}\n\n{{withdraw_sentence}}'),
   ('pathshala_membership_hold', 'push', '{{learner}}''s registration waits for membership',
    '{{learner}}''s Pathshala registration for {{level}} waits for your family''s membership. Apply for membership in the app; nothing is charged until then.'),
   ('pathshala_membership_hold', 'email', '{{learner}}''s Pathshala registration waits for membership',
@@ -2411,7 +2451,7 @@ revoke execute on function
   app._pathshala_ensure_quote(uuid, uuid), app._pathshala_class_free(uuid), app.pathshala_membership_trigger(),
   app._pathshala_added_person(uuid), app._pathshala_convert_pending(uuid, uuid), app.pathshala_change_request_trigger(),
   app._pathshala_household_card(uuid), app._pathshala_hold(uuid), app._pathshala_place_unbilled(uuid),
-  app.pathshala_fee_pledge_closed_trigger(), app._pathshala_try_lock_level(uuid, uuid)
+  app.pathshala_fee_pledge_closed_trigger(), app._pathshala_try_lock_level(uuid, uuid), app.pathshala_levels_track_guard()
   from public, anon, authenticated;
 grant execute on function
   app.pathshala_today(uuid), app.pathshala_when(timestamptz, uuid), app.pathshala_class_schedule(uuid), app.pathshala_waitlist_position(uuid),

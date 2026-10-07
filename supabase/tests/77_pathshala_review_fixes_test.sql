@@ -656,3 +656,70 @@ select pg_temp.assert((select a.status = 'present' from app.pathshala_attendance
                       and (select count(*) = 2 from app.pathshala_attendance a join app.pathshala_enrollments en on en.id = a.enrollment_id
                             where en.student_person_id = :p_isha and en.term_id = :t2),
   'attendance import: the Gujarati mark is on the Gujarati enrollment and the Jainism mark on the Jainism one');
+
+-- ════════════════════════════════════════════════════════════════════════════
+-- 10. Plain refusals for two registrations at once, direct API writes, the withdrawal sentence
+-- ════════════════════════════════════════════════════════════════════════════
+-- (a) Another family saves the same learner in the same track a moment before this insert (a competitor row is inserted
+-- by a trigger, as a second session would): a plain sentence with the hint review_again, never a raw 23505.
+create function app.t77_race() returns trigger language plpgsql as $$ begin
+  if new.student_person_id = '77000000-0000-4000-8000-00000000010f' and new.registration_id is not null and pg_trigger_depth() = 1 then
+    insert into app.pathshala_enrollments (center_id, term_id, student_person_id, household_id, track_id, requested_level_id, status)
+    values (new.center_id, new.term_id, new.student_person_id, new.household_id, new.track_id, new.requested_level_id, 'requested');
+  end if;
+  return new;
+end $$;
+create trigger t77_race before insert on app.pathshala_enrollments for each row execute function app.t77_race();
+begin;
+select pg_temp.sign_in(:u_nita);
+select pg_temp.assert_code(format($$select app.register_pathshala_children(%L, %L, %L)$$, :t3, :h2,
+  jsonb_build_array(jsonb_build_object('person_id', :p_zoe, 'track_id', :tr_g, 'level_id', :lv_g1))),
+  '22023', 'Another registration for this learner in this track was just saved', 'two registrations at once: a plain refusal, not a raw unique violation', 'review_again');
+rollback;
+drop trigger t77_race on app.pathshala_enrollments;
+drop function app.t77_race();
+-- A deadlock between two registrations (40P01): "Please try again", with the same hint.
+create function app.t77_deadlock() returns trigger language plpgsql as $$ begin
+  if new.student_person_id = '77000000-0000-4000-8000-00000000010f' and new.registration_id is not null then
+    raise exception 'deadlock detected' using errcode = '40P01';
+  end if;
+  return new;
+end $$;
+create trigger t77_deadlock before insert on app.pathshala_enrollments for each row execute function app.t77_deadlock();
+begin;
+select pg_temp.sign_in(:u_nita);
+select pg_temp.assert_code(format($$select app.register_pathshala_children(%L, %L, %L)$$, :t3, :h2,
+  jsonb_build_array(jsonb_build_object('person_id', :p_zoe, 'track_id', :tr_g, 'level_id', :lv_g1))),
+  '22023', 'Please try again', 'a deadlock between two registrations: a plain "Please try again"', 'review_again');
+rollback;
+drop trigger t77_deadlock on app.pathshala_enrollments;
+drop function app.t77_deadlock();
+-- (b) The parent's own bare request (0565) cannot forge the track, the waitlist time or the channel.
+begin;
+select pg_temp.sign_in(:u_nita);
+insert into app.pathshala_enrollments (center_id, term_id, student_person_id, household_id, requested_level_id, status, registered_by, track_id, waitlisted_at, channel,
+                                       suggested_level_id, suggestion_reason)
+values (:c, :t3, :p_zoe, :h2, :lv_j2, 'requested', :u_nita, :tr_g, '2000-01-01', 'office', :lv_j5, 'teacher')
+returning id as e_forged \gset
+select pg_temp.assert((select track_id = :tr_j and waitlisted_at is null and channel is null and suggested_level_id is null and suggestion_reason is null
+                         from app.pathshala_enrollments where id = :'e_forged'::uuid),
+  'a parent''s bare request: the track comes from the level (Jainism, not the forged Gujarati), and the waitlist time, channel and suggestion are cleared');
+rollback;
+begin;
+select pg_temp.sign_in(:u_pia);
+select pg_temp.assert_code(format($$update app.pathshala_levels set track_id = %L where id = %L$$, :tr_g, :lv_j2),
+  '22023', 'cannot move to another track', 'a level that classes, fees or registrations use cannot move to another track');
+rollback;
+select pg_temp.assert((select count(*) = 1 from pg_indexes where schemaname = 'app' and tablename = 'pathshala_enrollments' and indexname = 'pathshala_enrollments_registration_idx'),
+  'the registration id of an enrollment is indexed');
+-- (c) A learner placed from the waitlist after the free-withdrawal date is not told to withdraw by a date that has passed.
+update app.pathshala_terms set withdrawal_credit_until = current_date + 10 where id = :t2;
+select (app._pathshala_vars(:'e_isha2'::uuid) ->> 'withdraw_sentence') as ws_future \gset
+update app.pathshala_terms set withdrawal_credit_until = current_date - 3 where id = :t2;
+select (app._pathshala_vars(:'e_isha2'::uuid) ->> 'withdraw_sentence') as ws_past \gset
+select pg_temp.assert(:'ws_future' like 'To withdraw at no charge, withdraw in the app by %'
+                      and :'ws_past' like 'The date for withdrawing at no charge (%) has passed; if Isha cannot come, please ask the Pathshala office.'
+                      and :'ws_past' not like '%withdraw in the app by%',
+  'the placed message: before the date it says to withdraw by it; after, that the date has passed and to ask the office');
+select pg_temp.assert((select count(*) = 2 from app.message_templates where center_id is null and key = 'pathshala_placed' and body like '%{{withdraw_sentence}}%'),
+  'both pathshala_placed templates use that sentence');
