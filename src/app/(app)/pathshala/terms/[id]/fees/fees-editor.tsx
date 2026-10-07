@@ -37,7 +37,15 @@ export function rowStatus(row: FeeEditorRow, value: string, currency: string): S
     const fromSuggestion = row.suggestion && parsed.cents === row.suggestion.cents;
     return { tone: "warning", text: fromSuggestion ? `Suggested from ${row.suggestion?.from} · not saved yet` : "Not saved yet" };
   }
-  return row.offered ? { tone: "danger", text: "Needs a fee" } : { tone: "neutral", text: "No class this term" };
+  if (row.offered) return { tone: "danger", text: "Needs a fee" };
+  return { tone: "neutral", text: row.retired && row.classes > 0 ? "Retired: not offered, no fee needed" : "No class this term" };
+}
+
+/** "2 classes", "No class this term", or "2 classes · retired, not offered" (0590 offers active levels only). */
+function classesText(row: FeeEditorRow): string {
+  if (row.classes === 0) return "No class this term";
+  const n = `${row.classes} class${row.classes === 1 ? "" : "es"}`;
+  return row.offered ? n : `${n} · retired, not offered`;
 }
 
 /**
@@ -168,7 +176,7 @@ export function FeesEditor({
                           <span className="block text-xs text-muted">{r.band}</span>
                         </td>
                         <td className="text-[13px]">
-                          {r.offered ? `${r.classes} class${r.classes === 1 ? "" : "es"}` : <span className="text-muted">No class this term</span>}
+                          {r.offered ? classesText(r) : <span className="text-muted">{classesText(r)}</span>}
                           {r.offered ? <span className="block text-xs text-muted">{r.seats}</span> : null}
                         </td>
                         <td>
@@ -233,7 +241,7 @@ function ReadOnlyFees({ groups, currency }: { groups: FeeEditorGroup[]; currency
                     <span className="block text-xs font-normal text-muted">{r.band}</span>
                   </td>
                   <td className="text-[13px]">
-                    {r.offered ? `${r.classes} class${r.classes === 1 ? "" : "es"}` : <span className="text-muted">No class this term</span>}
+                    {r.offered ? classesText(r) : <span className="text-muted">{classesText(r)}</span>}
                     {r.offered ? <span className="block text-xs text-muted">{r.seats}</span> : null}
                   </td>
                   <td>

@@ -38,6 +38,7 @@ export function RulesForm({
   payNowBlocked,
   givingOn,
   funds,
+  canChooseFund,
   startsOnLabel,
   registrationClosesLabel,
 }: {
@@ -49,6 +50,8 @@ export function RulesForm({
   givingOn: boolean;
   /** The community's active funds, for the fee pledges; null when they could not be read. */
   funds: { id: string; name: string }[] | null;
+  /** giving.manage: the fund of the fee pledges is the treasurer's (0590). */
+  canChooseFund: boolean;
   startsOnLabel: string;
   /** "Tue, Sep 1, 11:59 PM", or null when registration has no closing date. */
   registrationClosesLabel: string | null;
@@ -185,7 +188,9 @@ export function RulesForm({
           <label className="block">
             <span className="crm-label">Family cap ($)</span>
             <input name="fee_per_family_cap" inputMode="decimal" defaultValue={money(values.fee_per_family_cap_cents)} placeholder="No cap" className="crm-input w-32" />
-            <span className="crm-hint block">The most a family pays for its children, after the sibling discount. Blank for no cap. Adult learners are outside it.</span>
+            <span className="crm-hint block">
+              The most a family pays for its children, after the sibling discount: at least $0.50, or blank for no cap. Adult learners are outside it.
+            </span>
           </label>
           <label className="block">
             <span className="crm-label">Late registration until</span>
@@ -198,7 +203,10 @@ export function RulesForm({
           <label className="block">
             <span className="crm-label">Late fee per learner ($)</span>
             <input name="late_fee" inputMode="decimal" defaultValue={money(values.late_fee_cents)} placeholder="0" className="crm-input w-32" />
-            <span className="crm-hint block">Added to each learner registered in the late window, adults included, outside the discount and the cap.</span>
+            <span className="crm-hint block">
+              $0, or at least $0.50. Added once to each learner registered after registration closes (families in the late window, the office after it),
+              adults included, outside the discount and the cap.
+            </span>
           </label>
           <label className="block">
             <span className="crm-label">Withdrawal deadline</span>
@@ -218,7 +226,9 @@ export function RulesForm({
         </div>
 
         {givingOn ? (
-          funds ? (
+          !funds ? (
+            <p className="text-[13px] text-brown">The funds could not be read, so the fund for the fee pledges cannot be shown or changed here right now. Reload to try again.</p>
+          ) : canChooseFund ? (
             <label className="block max-w-xl">
               <span className="crm-label">Fund for the fee pledges</span>
               <select name="fund_id" defaultValue={values.fund_id ?? ""} className="crm-input">
@@ -234,7 +244,11 @@ export function RulesForm({
               </span>
             </label>
           ) : (
-            <p className="text-[13px] text-brown">The funds could not be read, so the fund for the fee pledges cannot be changed here right now. Reload to try again.</p>
+            <div className="max-w-xl text-[13px]">
+              <span className="crm-label">Fund for the fee pledges</span>
+              <p>{values.fund_id ? (funds.find((f) => f.id === values.fund_id)?.name ?? "A fund chosen by the treasurer") : "Found when registration opens (the Pathshala fund)"}</p>
+              <p className="crm-hint">The treasurer (giving.manage) chooses the fund.</p>
+            </div>
           )
         ) : null}
 

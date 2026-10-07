@@ -39,6 +39,8 @@ const groups: FeeEditorGroup[] = [
       row({ levelId: "j1", name: "Jainism 1", suggestion: { cents: 13000, from: "2025-26" } }),
       row({ levelId: "j2", name: "Jainism 2" }),
       row({ levelId: "moms", name: "Adult class (Moms)", offered: false, classes: 0, suggestion: { cents: 5000, from: "2025-26" } }),
+      // Retired, but a class is still on the books: not offered (0590), so no fee is needed.
+      row({ levelId: "j7", name: "Jainism 7", offered: false, classes: 1, retired: true }),
     ],
   },
 ];
@@ -58,7 +60,9 @@ describe("Terms › Fees: the fee editor", () => {
     expect(html).toContain("12 seats · 3 taken · 9 free");
     expect(html).toContain("Copy to the 0 selected levels");
     expect(html).toContain("Tick every level of Jainism");
-    expect(html).toContain("A fee is Free ($0) or at least $0.50, the smallest online payment.");
+    expect(html).toContain("A fee is $0 (Free) or at least $0.50, the smallest online payment.");
+    expect(html).toContain("1 class · retired, not offered");
+    expect(html).toContain("Retired: not offered, no fee needed");
     expect(html).not.toContain('name="reason"');
     expect(html).toContain("Save fees");
   });
@@ -105,14 +109,15 @@ describe("Terms › Fees: the rules form", () => {
     needsReason: false,
     givingOn: true,
     funds: [{ id: "f1", name: "Pathshala" }],
+    canChooseFund: true,
     startsOnLabel: "Sun, Sep 6, 2026",
     registrationClosesLabel: "Tue, Sep 1, 11:59 PM",
   };
 
   it("shows “Pay when registering” with the plain reason it cannot be chosen yet, instead of hiding it (P20)", () => {
     const html = render(createElement(RulesForm, { ...base, payNowBlocked: "Pay at registration waits for fee receipts (P13)." }));
-    expect(html).toContain("Register now, pay later");
-    expect(html).toContain("Pay when registering");
+    expect(html).toContain("Register now, pay later (pledge)");
+    expect(html).toContain("Pay when registering (pay now)");
     expect(html).toMatch(tagWith("input", 'type="radio"', 'value="pay_now"', 'disabled=""'));
     expect(html).toMatch(tagWith("input", 'type="radio"', 'value="pledge"', 'checked=""'));
     expect(html).toContain("Cannot be chosen yet: Pay at registration waits for fee receipts (P13).");
@@ -139,8 +144,17 @@ describe("Terms › Fees: the rules form", () => {
     const html = render(createElement(RulesForm, { ...base, needsReason: true, funds: null, payNowBlocked: null }));
     expect(html).toMatch(tagWith("input", 'name="reason"', "required"));
     expect(html).toContain("The funds could not be read");
-    const off = render(createElement(RulesForm, { ...base, givingOn: false, payNowBlocked: "Pay when registering needs Pledges &amp; donations (Giving) switched on." }));
+    const off = render(createElement(RulesForm, { ...base, givingOn: false, payNowBlocked: "Pay at registration needs Pledges & donations switched on (Settings › Modules)." }));
     expect(off).not.toContain('name="fund_id"');
+  });
+
+  it("leaves the fund to the treasurer: the principal sees it, without a picker (0590: fund_id needs giving.manage)", () => {
+    const principal = render(createElement(RulesForm, { ...base, canChooseFund: false, values: { ...values, fund_id: "f1" }, payNowBlocked: null }));
+    expect(principal).not.toContain('name="fund_id"');
+    expect(principal).toContain("Pathshala");
+    expect(principal).toContain("The treasurer (giving.manage) chooses the fund.");
+    const treasurer = render(createElement(RulesForm, { ...base, payNowBlocked: null }));
+    expect(treasurer).toMatch(tagWith("select", 'name="fund_id"'));
   });
 });
 
@@ -204,22 +218,32 @@ describe("Pathshala › Levels: the level drawer", () => {
 });
 
 describe("Terms › Fees: Try a family", () => {
-  it("offers rows of learners with the term's levels and their fees", () => {
-    const html = render(
-      createElement(TryFamily, {
-        action: vi.fn(),
-        levels: [
-          { id: "j2", name: "Jainism 2", label: "Jainism 2 · $130.00" },
-          { id: "g4", name: "Gujarati 4", label: "Gujarati 4 · no fee yet" },
-        ],
-        cutoffLabel: "Sun, Sep 6, 2026",
-        currency: "USD",
-      }),
-    );
-    expect(html.match(/name="first_name"/g)?.length).toBe(3);
+  const props = {
+    action: vi.fn(),
+    levels: [
+      { id: "j2", name: "Jainism 2", label: "Jainism 2 · $130.00" },
+      { id: "g4", name: "Gujarati 4", label: "Gujarati 4 · no fee yet" },
+    ],
+    cutoffLabel: "Sun, Sep 6, 2026",
+    currency: "USD",
+  };
+
+  it("offers rows of learners (0590's name, age, level) with the term's levels and their fees", () => {
+    const html = render(createElement(TryFamily, { ...props, lateFeeLabel: null }));
+    expect(html.match(/name="name"/g)?.length).toBe(3);
+    expect(html.match(/name="age"/g)?.length).toBe(3);
+    expect(html.match(/name="level_id"/g)?.length).toBe(3);
     expect(html).toContain("Jainism 2 · $130.00");
     expect(html).toContain("Gujarati 4 · no fee yet");
     expect(html).toContain("Ages are on the term&#x27;s cut-off date (Sun, Sep 6, 2026)");
     expect(html).toContain("Work out the fees");
+    // No late fee: nothing to try for the late window.
+    expect(html).not.toContain('name="late"');
+  });
+
+  it("can price the late window when the term has a late fee", () => {
+    const html = render(createElement(TryFamily, { ...props, lateFeeLabel: "$25.00 per learner" }));
+    expect(html).toMatch(tagWith("input", 'type="checkbox"', 'name="late"'));
+    expect(html).toContain("After registration closes each learner pays the late fee too ($25.00 per learner).");
   });
 });

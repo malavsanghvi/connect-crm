@@ -108,7 +108,7 @@ export function stripePaymentMethodTypes(methods: string[]): string[] {
 
 /**
  * Where a payment was started from, as app.payment_checkouts.context records it (0211:87, 760). `pathshala` is a
- * Pathshala fee (PATHSHALA_REGISTRATION_PLAN F17; the database accepts it from 0591): it is labelled and reported as a
+ * Pathshala fee (PATHSHALA_REGISTRATION_PLAN F17; the database accepts it from 0590): it is labelled and reported as a
  * fee, never as a gift. A context outside this list is recorded as "other" (the route logs it, see isCheckoutContext).
  */
 export const CHECKOUT_CONTEXTS = ["rsvp", "rsvp_later", "pledges", "opportunity", "labh", "store", "other", "portal", "pathshala"] as const;

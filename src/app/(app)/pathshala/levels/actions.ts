@@ -42,7 +42,7 @@ export async function saveLevelAction(levelId: string | null, _prev: unknown, fd
       // Retiring and offering again are their own buttons; the form keeps what the level is.
       active: str(fd, "active") !== "false",
     };
-    const res = await saveLevel(supabase, centerId, level, str(fd, "reason") ?? (levelId ? `Changed the level ${name}` : `Added the level ${name}`));
+    const res = await saveLevel(supabase, centerId, level, str(fd, "reason"));
     if (!res.ok) return refusal(levelId ? `save ${name}` : `add ${name}`, res);
     refresh();
     return ok(levelId ? `${name} saved.` : `${name} added${trackName ? ` to ${trackName}` : ""}.`);
@@ -55,7 +55,8 @@ export async function setLevelActiveAction(levelId: string, _prev: unknown, fd: 
   const doing = active ? "offer the level again" : "retire the level";
   return runAction("pathshala.setLevelActive", doing, async () => {
     const { supabase, centerId } = await actionContext(areas.manage, "Only the Pathshala principal can retire levels.");
-    // The function takes the whole level: read it fresh, so a stale page cannot undo someone else's edit.
+    // Read fresh for the name and the current state; send only {id, active} (0590: a key left out keeps its value), so a
+    // stale page never undoes someone else's edit.
     const levels = await loadLevelRows(supabase, centerId);
     if (levels.status === "missing") return { ok: false, error: `Could not ${doing} — ${NEEDS_UPDATE}` };
     if (levels.status === "error") throw new DbFailure(levels.error, "read the level");
@@ -63,7 +64,7 @@ export async function setLevelActiveAction(levelId: string, _prev: unknown, fd: 
     const level = levels.value.find((l) => l.id === levelId);
     if (!level) throw new FormError("That level no longer exists. Reload the page.");
     if (level.active === active) return ok(active ? `${level.name} is already offered.` : `${level.name} is already retired.`);
-    const res = await saveLevel(supabase, centerId, { ...level, active }, str(fd, "reason") ?? (active ? `Offered ${level.name} again` : `Retired ${level.name}`));
+    const res = await saveLevel(supabase, centerId, { id: level.id, active }, str(fd, "reason"));
     if (!res.ok) return refusal(active ? `offer ${level.name} again` : `retire ${level.name}`, res);
     refresh();
     return ok(active ? `${level.name} is offered again.` : `${level.name} is retired: it is no longer offered, and its classes and history are kept.`);

@@ -2,10 +2,10 @@
 // objects of migration 0590 as the portal sends and reads them — the term's rules (§2.10), the level fees, the level's
 // `active` flag, app.save_pathshala_level, app.set_pathshala_level_fees, app.set_pathshala_term_rules,
 // app.open_pathshala_registration, app.pathshala_fee_example, app.pathshala_seats and app.pathshala_pay_now_ready
-// (§2.11), with the quote's line shape from the §2.17 contract. Pure (no server imports): the Levels and Fees screens,
-// their actions and the tests share it. The database decides every rule; these readers only refuse to show what they
-// cannot read. Where §2.17 gives no JSON shape (the inputs of the four 0590 writers, the fee example's lines, the seats)
-// the shape below is this portal's reading of §2.10–§2.11, listed in the PR for the database PRs to reconcile.
+// (§2.11), with the quote's line shape (§2.17, app.pathshala_quote). Names and shapes follow 0590 as written by the
+// database pull request (feat/pathshala-db1); the plan's §2.17 is the contract where 0590 says nothing more. Pure (no
+// server imports): the Levels and Fees screens, their actions and the tests share it. The database decides every rule;
+// these readers only refuse to show what they cannot read.
 
 type Obj = Record<string, unknown>;
 export type Parsed<T> = { ok: true; value: T } | { ok: false; error: string };
@@ -51,6 +51,10 @@ export const AGE_LIMITS = { min: 0, max: 120 } as const;
 export const ADULT_AGE = 18;
 /** The smallest online payment (app.create_checkout, 0211:758): a fee is $0 or at least this (§2.2). */
 export const MIN_FEE_CENTS = 50;
+/** The largest fee, family cap or late fee 0590 accepts ($1,000,000). */
+export const MAX_FEE_CENTS = 100_000_000;
+/** A level's order (0590: between -1000 and 1000). */
+export const SORT_ORDER_LIMITS = { min: -1000, max: 1000 } as const;
 
 // ---------------------------------------------------------------------------
 // The term's rules: the 0590 columns of app.pathshala_terms (§2.10)
@@ -67,9 +71,9 @@ export type TermRules = {
   /** The late window runs from registration_closes_at to this instant (P4); null = no late window. */
   late_registration_closes_at: string | null;
   late_fee_cents: number;
-  /** Withdraw by this date and the fee pledge is cancelled (P5); null = the database's default (first class day + 14 days). */
+  /** Withdraw by this date and the fee pledge is cancelled (P5); null = the first class day + 14 days, fixed when registration opens. */
   withdrawal_credit_until: string | null;
-  /** Ages are measured on this date (P11); null = the database's default (the first day of term). */
+  /** Ages are measured on this date (P11); null = the first day of term, fixed when registration opens. */
   age_cutoff_on: string | null;
   /** Set by app.open_pathshala_registration (P9, P16): fees and rules are locked from then on. */
   fees_locked_at: string | null;
@@ -80,10 +84,9 @@ export const TERM_RULE_COLUMNS =
   "id, payment_mode, hold_hours, office_payment_allowed, office_hold_days, seat_rule, campaign_id, fund_id, late_registration_closes_at, late_fee_cents, withdrawal_credit_until, age_cutoff_on, fees_locked_at, fees_locked_by";
 
 /**
- * What app.set_pathshala_term_rules(p_term, p_rules, p_reason) takes: the columns it sets, by their column names.
- * The sibling discount and the family cap are the term's existing columns (0006), now set here instead of on the
- * term's form. `fund_id` is sent only when someone picks the fund for the fee pledges (§2.11: "if there is none the
- * screen asks the treasurer to pick one").
+ * What app.set_pathshala_term_rules(p_term, p_rules, p_reason) takes (0590: these keys only; a key left out keeps its
+ * value). The sibling discount and the family cap are the term's existing columns (0006), now set here instead of on
+ * the term's form. `fund_id` needs giving.manage: it is sent only when the treasurer picks another fund.
  */
 export type TermRulesInput = {
   payment_mode: PaymentMode;
@@ -92,8 +95,10 @@ export type TermRulesInput = {
   office_hold_days: number;
   seat_rule: SeatRule;
   sibling_discount_pct: number;
+  /** null: no cap; else at least $0.50. */
   fee_per_family_cap_cents: number | null;
   late_registration_closes_at: string | null;
+  /** $0, or at least $0.50. */
   late_fee_cents: number;
   withdrawal_credit_until: string | null;
   age_cutoff_on: string | null;
@@ -157,7 +162,11 @@ export type LevelRow = {
 
 export const LEVEL_COLUMNS = "id, track_id, key, name, sort_order, min_age, max_age, active";
 
-/** What app.save_pathshala_level(p_center, p_level, p_reason) takes: the whole level; no id = a new level. */
+/**
+ * What app.save_pathshala_level(p_center, p_level, p_reason) takes (0590: id, track_id, key, name, sort_order, min_age,
+ * max_age, active — no other key): the whole level; no id = a new level. It answers with the level plus its track's
+ * name, its band (adult, children, any) and whether it is used.
+ */
 export type LevelInput = {
   id?: string;
   track_id: string;
@@ -168,6 +177,9 @@ export type LevelInput = {
   max_age: number | null;
   active: boolean;
 };
+
+/** Retiring or offering a level again: only the id and the flag (0590 keeps every key left out). */
+export type LevelPatch = { id: string; active: boolean };
 
 export function parseLevelRow(row: unknown): Parsed<LevelRow> {
   if (!isObj(row)) return { ok: false, error: "a level is not an object" };
@@ -208,7 +220,10 @@ export type LevelFee = { term_id: string; level_id: string; fee_cents: number; s
 
 export const LEVEL_FEE_COLUMNS = "term_id, level_id, fee_cents, set_by, set_at";
 
-/** One entry of p_fees in app.set_pathshala_level_fees(p_term, p_fees, p_reason): $0 ("Free") or at least $0.50. */
+/**
+ * One entry of p_fees in app.set_pathshala_level_fees(p_term, p_fees, p_reason): $0 ("Free") or at least $0.50, at most
+ * $1,000,000. (0590 also reads fee_cents null as "remove the fee"; this screen never removes one.)
+ */
 export type LevelFeeInput = { level_id: string; fee_cents: number };
 
 export function parseLevelFees(data: unknown): Parsed<LevelFee[]> {
@@ -226,7 +241,8 @@ export function parseLevelFees(data: unknown): Parsed<LevelFee[]> {
 }
 
 // ---------------------------------------------------------------------------
-// Seats (app.pathshala_seats(p_term): per level, seats, taken, held, free, waitlist length, waitlist on — §2.11)
+// Seats (app.pathshala_seats(p_term), 0590: per offered level — active, with a class this term — {level_id, level,
+// track_id, track, fee_cents, classes, seats, taken, held, free, waitlist, waitlist_on, state})
 // ---------------------------------------------------------------------------
 export type LevelSeats = {
   level_id: string;
@@ -276,20 +292,28 @@ export function parsePayNowReady(data: unknown): Parsed<string | null> {
 }
 
 // ---------------------------------------------------------------------------
-// The quote (§2.4) as "Try a family" shows it: app.pathshala_fee_example(p_term, p_lines) answers with the lines and
-// totals of the §2.17 preview shape (no enrollment or pledge: it writes nothing).
+// The quote (§2.4) as "Try a family" shows it: app.pathshala_fee_example(p_term, p_lines) prices made-up learners
+// with the one pricing rule and answers in app.pathshala_quote's shape (it writes nothing).
 // ---------------------------------------------------------------------------
-/** One learner line of p_lines: a made-up learner, their age on the term's cut-off date and the level they take. */
-export type ExampleLineInput = { first_name: string; age_on_cutoff: number; level_id: string };
+/**
+ * One made-up learner of p_lines (0590: [{name, age | date_of_birth, learner_kind, track_id, level_id}]): a name for
+ * the screen only, their age in whole years on the term's age cut-off date (under 18 is a child) and the level.
+ * p_lines may instead be {"lines": [...], "late": true} to price the late window.
+ */
+export type ExampleLineInput = { name: string; age: number; level_id: string };
 
 export type QuoteLine = {
-  /** Echoed by the fee example (it has no people); null on a real quote. */
+  /** The line's position in p_lines, from 1 (0590); null when the database did not say. */
+  index: number | null;
+  /** A name, when the database echoes one (0590's example does not: the screen keeps its own by `index`). */
   first_name: string | null;
   person_id: string | null;
   track_id: string | null;
   level_id: string | null;
   learner_kind: LearnerKind;
+  /** Children only: 1 pays the full fee (P2). */
   family_rank: number | null;
+  age_on_cutoff: number | null;
   outcome: string | null;
   base_fee_cents: number;
   sibling_discount_cents: number;
@@ -297,9 +321,11 @@ export type QuoteLine = {
   late_fee_cents: number;
   assistance_cents: number;
   total_cents: number;
+  /** False: a "not sure of the level" line the office still prices (P25). */
+  priced: boolean;
 };
 
-export type Quote = { lines: QuoteLine[]; children_total_cents: number; adults_total_cents: number; total_cents: number };
+export type Quote = { lines: QuoteLine[]; children_total_cents: number; adults_total_cents: number; total_cents: number; late: boolean };
 
 export function parseQuote(data: unknown): Parsed<Quote> {
   if (!isObj(data)) return { ok: false, error: "the quote is not an object" };
@@ -313,12 +339,14 @@ export function parseQuote(data: unknown): Parsed<Quote> {
     const kind = row.learner_kind === "adult" ? "adult" : row.learner_kind === "child" ? "child" : null;
     if (!kind) return { ok: false, error: `a quote line has an unknown learner kind "${String(row.learner_kind)}"` };
     lines.push({
+      index: int(row.index),
       first_name: str(row.first_name) ?? str(row.name),
       person_id: str(row.person_id),
       track_id: str(row.track_id),
       level_id: str(row.level_id),
       learner_kind: kind,
       family_rank: int(row.family_rank),
+      age_on_cutoff: int(row.age_on_cutoff),
       outcome: str(row.outcome),
       base_fee_cents: base,
       sibling_discount_cents: int(row.sibling_discount_cents) ?? 0,
@@ -326,6 +354,7 @@ export function parseQuote(data: unknown): Parsed<Quote> {
       late_fee_cents: int(row.late_fee_cents) ?? 0,
       assistance_cents: int(row.assistance_cents) ?? 0,
       total_cents: total,
+      priced: row.priced !== false,
     });
   }
   const sum = (kind: LearnerKind | null) => lines.filter((l) => kind === null || l.learner_kind === kind).reduce((s, l) => s + l.total_cents, 0);
@@ -336,6 +365,7 @@ export function parseQuote(data: unknown): Parsed<Quote> {
       children_total_cents: int(data.children_total_cents) ?? sum("child"),
       adults_total_cents: int(data.adults_total_cents) ?? sum("adult"),
       total_cents: int(data.total_cents) ?? sum(null),
+      late: data.late === true,
     },
   };
 }
@@ -343,12 +373,31 @@ export function parseQuote(data: unknown): Parsed<Quote> {
 // ---------------------------------------------------------------------------
 // Opening registration (app.open_pathshala_registration(p_term, p_reason))
 // ---------------------------------------------------------------------------
-export type OpenResult = { status: string | null; fees_locked_at: string | null; campaign_id: string | null; fund_id: string | null };
+/**
+ * 0590 answers {term_id, status, already_open, fees_locked_at, campaign_id, fund_id, payment_mode, warnings[{level_id,
+ * level, sentence}]} (the warnings: offered levels with no age band; it opens anyway).
+ */
+export type OpenResult = {
+  status: string | null;
+  already_open: boolean;
+  fees_locked_at: string | null;
+  campaign_id: string | null;
+  fund_id: string | null;
+  warnings: string[];
+};
 
 /** Whatever the function answers, the screen re-reads the term; this only keeps what it can use. */
 export function parseOpenResult(data: unknown): OpenResult {
   const o = isObj(data) ? data : {};
-  return { status: str(o.status), fees_locked_at: str(o.fees_locked_at), campaign_id: str(o.campaign_id), fund_id: str(o.fund_id) };
+  const warnings = Array.isArray(o.warnings) ? o.warnings.map((w) => (isObj(w) ? str(w.sentence) : str(w))).filter((w): w is string => w !== null) : [];
+  return {
+    status: str(o.status),
+    already_open: o.already_open === true,
+    fees_locked_at: str(o.fees_locked_at),
+    campaign_id: str(o.campaign_id),
+    fund_id: str(o.fund_id),
+    warnings,
+  };
 }
 
 // ---------------------------------------------------------------------------

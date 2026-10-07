@@ -7,7 +7,7 @@ import { explainError } from "@/lib/errors";
 import { pathshalaAreas } from "@/lib/pathshala/access";
 import { formatDate, formatDateTime, humanize } from "@/lib/pathshala/format";
 import { load, rows, viewerOf } from "@/lib/pathshala/server";
-import { loadLevelFees, loadTermRules, NEEDS_UPDATE } from "@/lib/pathshala-registration/db";
+import { loadLevelFees, loadLevelRows, loadTermRules, NEEDS_UPDATE } from "@/lib/pathshala-registration/db";
 import { PAYMENT_MODE_LABEL } from "@/lib/pathshala-registration/rules";
 import { getSession } from "@/lib/session";
 
@@ -25,40 +25,43 @@ export default async function TermsPage() {
   const supabase = v.db;
   const res = await load(async () => {
     const terms = await loadTerms(supabase, v.center.id);
-    const [classes, rules, fees] = await Promise.all([
+    const [classes, rules, fees, levels] = await Promise.all([
       supabase.from("pathshala_classes").select("term_id, level_id").eq("center_id", v.center.id).then((r) => rows(r, "the classes")),
       loadTermRules(supabase, terms.map((t) => t.id)),
       loadLevelFees(supabase, v.center.id),
+      loadLevelRows(supabase, v.center.id),
     ]);
-    return { terms, classes, rules, fees };
+    return { terms, classes, rules, fees, levels };
   });
   if (!res.ok) return <LoadProblemPage message={res.error} />;
-  const { terms, classes, rules, fees } = res.data;
+  const { terms, classes, rules, fees, levels } = res.data;
   const canEdit = pathshalaAreas.manage(v);
   const tz = v.center.time_zone;
 
   // Fees per level and the payment mode come with 0590: before it, or when they cannot be read, say so above the table.
-  const feesNote =
-    rules.status === "missing" || fees.status === "missing"
-      ? NEEDS_UPDATE
-      : rules.status === "error"
-        ? `The terms' rules could not be loaded — ${explainError(rules.error)}.`
-        : fees.status === "error"
-          ? `The fees could not be loaded — ${explainError(fees.error)}.`
-          : rules.status === "shape" || fees.status === "shape"
-            ? "The fees could not be read. Has the latest migration been applied?"
-            : null;
+  const reads = [rules, fees, levels];
+  const firstError = reads.find((r) => r.status === "error");
+  const feesNote = reads.some((r) => r.status === "missing")
+    ? NEEDS_UPDATE
+    : firstError && firstError.status === "error"
+      ? `The terms' fees and rules could not be loaded — ${explainError(firstError.error)}.`
+      : reads.some((r) => r.status === "shape")
+        ? "The terms' fees and rules could not be read. Has the latest migration been applied?"
+        : null;
+  // Offered, as 0590 counts it: an active level with a class in the term.
+  const active = new Set(levels.status === "ok" ? levels.value.filter((l) => l.active).map((l) => l.id) : []);
   const feeSummary = (termId: string) => {
-    if (rules.status !== "ok" || fees.status !== "ok") return <span className="text-muted">—</span>;
-    const offered = new Set(classes.filter((c) => c.term_id === termId).map((c) => c.level_id));
+    if (rules.status !== "ok" || fees.status !== "ok" || levels.status !== "ok") return <span className="text-muted">—</span>;
+    const offered = new Set(classes.filter((c) => c.term_id === termId && active.has(c.level_id)).map((c) => c.level_id));
     const priced = new Set(fees.value.filter((f) => f.term_id === termId).map((f) => f.level_id));
     const pricedOffered = [...offered].filter((l) => priced.has(l)).length;
-    const mode = rules.value.get(termId)?.payment_mode;
+    const r = rules.value.get(termId);
     return (
       <>
-        {mode ? PAYMENT_MODE_LABEL[mode] : "—"}
+        {r ? PAYMENT_MODE_LABEL[r.payment_mode] : "—"}
         <div className={`text-xs ${offered.size && pricedOffered < offered.size ? "font-bold text-danger" : "text-muted"}`}>
           {offered.size ? `${pricedOffered} of ${offered.size} offered level${offered.size === 1 ? "" : "s"} priced` : "No classes yet"}
+          {r && !r.fees_locked_at ? " · not locked yet" : ""}
         </div>
       </>
     );
@@ -78,14 +81,14 @@ export default async function TermsPage() {
       />
       {feesNote ? (
         <div className="mb-4">
-          <Notice tone={rules.status === "missing" || fees.status === "missing" ? "warning" : "danger"}>{feesNote}</Notice>
+          <Notice tone={reads.some((r) => r.status === "missing") ? "warning" : "danger"}>{feesNote}</Notice>
         </div>
       ) : null}
       {pathshalaAreas.admin(v) ? null : (
         // The treasurer's view (giving.manage only): RLS shows the terms that have opened, not the principal's drafts.
         <p className="mb-3 text-[13px] text-muted">
-          You see the terms that have opened registration: their fees and rules are yours to change, with a reason. Draft terms are the Pathshala
-          principal&apos;s.
+          You see the terms that have left Draft: once registration opens their fees and rules are yours to change, with a reason. Draft terms are seen
+          by Pathshala staff only.
         </p>
       )}
       <Card title={pathshalaAreas.admin(v) ? "All terms" : "Terms open for registration or running"} padded={false}>

@@ -28,6 +28,7 @@ import {
   type LevelFee,
   type LevelFeeInput,
   type LevelInput,
+  type LevelPatch,
   type LevelRow,
   type LevelSeats,
   type OpenResult,
@@ -140,35 +141,46 @@ export function loadPayNowReady(db: object, centerId: string): Promise<Loaded<st
 }
 
 // ---------------------------------------------------------------------------
-// Writes (each function re-checks who may, and every value)
+// Writes (each function re-checks who may, and every value). The reason is the person's own words, or null: each
+// 0590 function then records its own plain one ("Set Pathshala fees for 2026-27: Toddler $45.00, …").
 // ---------------------------------------------------------------------------
 
-/** app.save_pathshala_level(p_center, p_level, p_reason): create (no id) or edit; a used level is retired, never deleted. */
-export function saveLevel(db: object, centerId: string, level: LevelInput, reason: string): Promise<Written<LevelRow | null>> {
+/**
+ * app.save_pathshala_level(p_center, p_level, p_reason): create (no id) or edit; a used level is retired, never deleted.
+ * An edit may send only the keys it changes (0590: a key left out keeps its value), as retiring does: {id, active}.
+ */
+export function saveLevel(db: object, centerId: string, level: LevelInput | LevelPatch, reason: string | null): Promise<Written<LevelRow | null>> {
   return write("app.save_pathshala_level", () => registrationDb(db).rpc("save_pathshala_level", { p_center: centerId, p_level: level, p_reason: reason }), (data) => {
     const parsed = parseLevelRow(data);
     return parsed.ok ? parsed.value : null;
   });
 }
 
-/** app.set_pathshala_level_fees(p_term, p_fees, p_reason): pathshala.manage while a draft; giving.manage with a reason after opening. */
-export function setLevelFees(db: object, termId: string, fees: readonly LevelFeeInput[], reason: string): Promise<Written<null>> {
+/** app.set_pathshala_level_fees(p_term, p_fees, p_reason): before the lock pathshala.manage (or giving.manage); after it giving.manage with a reason. */
+export function setLevelFees(db: object, termId: string, fees: readonly LevelFeeInput[], reason: string | null): Promise<Written<null>> {
   return write("app.set_pathshala_level_fees", () => registrationDb(db).rpc("set_pathshala_level_fees", { p_term: termId, p_fees: fees, p_reason: reason }), () => null);
 }
 
 /** app.set_pathshala_term_rules(p_term, p_rules, p_reason): refuses pay now with the readiness sentence. */
-export function setTermRules(db: object, termId: string, rules: TermRulesInput, reason: string): Promise<Written<null>> {
+export function setTermRules(db: object, termId: string, rules: TermRulesInput, reason: string | null): Promise<Written<null>> {
   return write("app.set_pathshala_term_rules", () => registrationDb(db).rpc("set_pathshala_term_rules", { p_term: termId, p_rules: rules, p_reason: reason }), () => null);
 }
 
-/** app.open_pathshala_registration(p_term, p_reason): checks every offered level's fee (and pay-now readiness), locks, opens. */
-export function openRegistration(db: object, termId: string, reason: string): Promise<Written<OpenResult>> {
+/**
+ * app.open_pathshala_registration(p_term, p_reason): checks every offered level's fee (and pay-now readiness), links the
+ * fees to the Pathshala fund and campaign, locks fees and rules, opens a draft. Idempotent (already_open).
+ */
+export function openRegistration(db: object, termId: string, reason: string | null): Promise<Written<OpenResult>> {
   return write("app.open_pathshala_registration", () => registrationDb(db).rpc("open_pathshala_registration", { p_term: termId, p_reason: reason }), parseOpenResult);
 }
 
-/** app.pathshala_fee_example(p_term, p_lines): "Try a family" — the quote for made-up learners; writes nothing. */
-export async function feeExample(db: object, termId: string, lines: readonly ExampleLineInput[]): Promise<Written<Quote>> {
-  const res = await write("app.pathshala_fee_example", () => registrationDb(db).rpc("pathshala_fee_example", { p_term: termId, p_lines: lines }), (data) => ({ data, parsed: parseQuote(data) }));
+/**
+ * app.pathshala_fee_example(p_term, p_lines): "Try a family" — the quote for made-up learners; writes nothing. With
+ * `late`, p_lines is {lines, late: true} (0590), so the late window's fee shows whatever today's date is.
+ */
+export async function feeExample(db: object, termId: string, lines: readonly ExampleLineInput[], late = false): Promise<Written<Quote>> {
+  const pLines = late ? { lines, late: true } : lines;
+  const res = await write("app.pathshala_fee_example", () => registrationDb(db).rpc("pathshala_fee_example", { p_term: termId, p_lines: pLines }), (data) => ({ data, parsed: parseQuote(data) }));
   if (!res.ok) return res;
   if (!res.value.parsed.ok) {
     console.error(`[pathshala-registration] app.pathshala_fee_example sent an unexpected shape (${res.value.parsed.error}):`, res.value.data);

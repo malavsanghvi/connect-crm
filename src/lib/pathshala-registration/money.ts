@@ -3,7 +3,7 @@
 
 import { parseDollarsToCents } from "@/lib/pathshala/format";
 
-import { MIN_FEE_CENTS } from "./contract";
+import { MAX_FEE_CENTS, MIN_FEE_CENTS } from "./contract";
 
 /** "$1,250.00" (always two decimals: a fee table reads in cents); a negative amount gets a true minus sign. */
 export function formatMoney(cents: number, currency = "USD"): string {
@@ -28,12 +28,13 @@ export function additionLabel(cents: number, currency = "USD"): string {
 }
 
 /** The fee rule in words (§2.2: $0 is entered as Free; 1–49 cents cannot be paid online). */
-export const FEE_RULE = "A fee is Free ($0) or at least $0.50, the smallest online payment.";
+export const FEE_RULE = "A fee is $0 (Free) or at least $0.50, the smallest online payment.";
 
-/** Null when the amount can be a level's fee, else the sentence. */
+/** Null when the amount can be a level's fee, else the sentence app.set_pathshala_level_fees would refuse with. */
 export function feeProblem(cents: number, levelName: string, currency = "USD"): string | null {
   if (!Number.isInteger(cents) || cents < 0) return `The fee for ${levelName} must be Free or an amount like 130 or 130.50.`;
-  if (cents > 0 && cents < MIN_FEE_CENTS) return `The fee for ${levelName} is ${formatMoney(cents, currency)}. ${FEE_RULE}`;
+  if (cents > 0 && cents < MIN_FEE_CENTS) return `A fee is $0 (Free) or at least $0.50 (${levelName} was ${formatMoney(cents, currency)}).`;
+  if (cents > MAX_FEE_CENTS) return "A fee can be at most $1,000,000.";
   return null;
 }
 

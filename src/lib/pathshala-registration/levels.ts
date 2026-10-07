@@ -1,7 +1,11 @@
 // Pathshala › Levels (plan §2.1): a level's age band, who it is for, and the checks app.save_pathshala_level makes,
 // in its words, so the form can explain before it asks. The database decides; this file only mirrors it. Pure.
 
-import { ADULT_AGE, AGE_LIMITS, type LevelRow } from "./contract";
+import { ADULT_AGE, AGE_LIMITS, SORT_ORDER_LIMITS, type LevelRow } from "./contract";
+
+/** The keys app.save_pathshala_level accepts (0590): letters, digits, - and _, starting with a letter or digit, up to 40. */
+const LEVEL_KEY = /^[a-z0-9][a-z0-9_-]{0,39}$/;
+const KEY_RULE = "A level's key can use letters, digits, - and _ (for example 3 or adult_moms), up to 40 characters.";
 
 /** An adult class (minimum 18 or more), a children's level (maximum under 18), or open to anyone (§2.1, P24). */
 export type LevelAudience = "adult" | "children" | "any";
@@ -33,13 +37,13 @@ export function ageBandLabel(minAge: number | null, maxAge: number | null): stri
   return `Up to age ${maxAge}`;
 }
 
-/** A key the database can store: lower case letters, digits and _ ("Adult Moms" → "adult_moms"). */
+/** A key the database can store: lower case letters, digits, - and _ ("Adult Moms" → "adult_moms", "adult-dads" kept). */
 export function normalizeLevelKey(raw: string): string {
   return raw
     .trim()
     .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "_")
-    .replace(/^_+|_+$/g, "")
+    .replace(/[^a-z0-9_-]+/g, "_")
+    .replace(/^[_-]+|[_-]+$/g, "")
     .slice(0, 40);
 }
 
@@ -56,23 +60,26 @@ export function suggestLevelKey(name: string, trackName?: string | null): string
 
 export type AgeEntry = { ok: true; age: number | null } | { ok: false; error: string };
 
-/** A minimum or maximum age box: blank (no limit) or whole years from 0 to 120 (the 0590 check). */
+/** A minimum or maximum age box: blank (no limit) or whole years from 0 to 120 (the 0590 check, in its words). */
 export function parseAgeInput(raw: string | null | undefined, which: "minimum" | "maximum"): AgeEntry {
   const text = (raw ?? "").trim();
   if (text === "") return { ok: true, age: null };
-  if (!/^\d+$/.test(text)) return { ok: false, error: `The ${which} age must be a whole number of years from ${AGE_LIMITS.min} to ${AGE_LIMITS.max}.` };
+  if (!/^-?\d+$/.test(text)) return { ok: false, error: `The ${which} age must be a whole number.` };
   const n = Number(text);
-  if (n < AGE_LIMITS.min || n > AGE_LIMITS.max) return { ok: false, error: `The ${which} age must be a whole number of years from ${AGE_LIMITS.min} to ${AGE_LIMITS.max}.` };
+  if (n < AGE_LIMITS.min || n > AGE_LIMITS.max) return { ok: false, error: `The ${which} age must be between ${AGE_LIMITS.min} and ${AGE_LIMITS.max} (it is ${n}).` };
   return { ok: true, age: n };
 }
 
 export type LevelDraft = { name: string; key: string; sort_order: number; min_age: number | null; max_age: number | null };
 
-/** The first problem with a level, in the words app.save_pathshala_level uses (§2.1); null when it can be saved. */
+/** The first problem with a level, in the words app.save_pathshala_level uses (§2.1, 0590); null when it can be saved. */
 export function levelProblem(d: LevelDraft): string | null {
-  if (!d.name.trim()) return "Give the level a name, for example Jainism 3 or Adult class (Moms).";
-  if (!d.key) return "Give the level a key: letters, digits or _ (for example 3 or adult_moms).";
-  if (!Number.isInteger(d.sort_order)) return "The order must be a whole number.";
+  if (!d.name.trim()) return "Give the level a name.";
+  if ([...d.name.trim()].length > 80) return "A level's name can be at most 80 characters.";
+  if (!LEVEL_KEY.test(d.key)) return KEY_RULE;
+  if (!Number.isInteger(d.sort_order) || d.sort_order < SORT_ORDER_LIMITS.min || d.sort_order > SORT_ORDER_LIMITS.max) {
+    return `The order must be between ${SORT_ORDER_LIMITS.min} and ${SORT_ORDER_LIMITS.max}.`;
+  }
   if (d.min_age !== null && d.max_age !== null && d.min_age > d.max_age) {
     return `The minimum age (${d.min_age}) is above the maximum age (${d.max_age}).`;
   }

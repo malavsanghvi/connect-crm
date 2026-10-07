@@ -72,7 +72,8 @@ export default async function TermPage({ params }: { params: Promise<{ id: strin
             ["Dates", `${formatDate(term.starts_on)} – ${formatDate(term.ends_on)}`],
             ["Sunday classes", `${days.length} (after ${term.no_class_dates.length} no-class date${term.no_class_dates.length === 1 ? "" : "s"})`],
             ["Registration", `${formatDateTime(term.registration_opens_at, tz)} → ${formatDateTime(term.registration_closes_at, tz)}`],
-            ["Late registration", r ? (r.late_registration_closes_at ? `Until ${formatDateTime(r.late_registration_closes_at, tz)} · ${formatMoney(r.late_fee_cents, currency)} per learner` : "None") : "—"],
+            ["Late registration", r ? (r.late_registration_closes_at ? `Until ${formatDateTime(r.late_registration_closes_at, tz)}` : "No late window") : "—"],
+            ["Late fee", r ? (r.late_fee_cents > 0 ? `${formatMoney(r.late_fee_cents, currency)} per learner registered after registration closes` : "None") : "—"],
             ["How families pay", r ? PAYMENT_MODE_LABEL[r.payment_mode] : "—"],
             ["Seats", r ? SEAT_RULE_LABEL[r.seat_rule] : "—"],
             ["Fees", "A fee per level, on the Fees and rules page"],
@@ -80,7 +81,16 @@ export default async function TermPage({ params }: { params: Promise<{ id: strin
             ["Family cap", term.fee_per_family_cap_cents === null ? "None" : formatMoney(term.fee_per_family_cap_cents, currency)],
             ["Membership required", term.membership_required ? "Yes" : "No"],
             ["Status", termStatusLabel(term.status)],
-            ["Fees and rules", r ? (r.fees_locked_at ? `Locked ${formatDate(r.fees_locked_at, tz)}` : term.status === "draft" ? "Open to change (draft)" : "Not locked (opened before fees per level)") : "—"],
+            [
+              "Fees and rules",
+              r
+                ? r.fees_locked_at
+                  ? `Locked ${formatDate(r.fees_locked_at, tz)}, when registration opened`
+                  : term.status === "draft"
+                    ? "Not locked yet: they lock when registration opens"
+                    : "Not locked yet: this term left Draft before fees per level, so families register with fees once they are locked on the Fees and rules page"
+                : "—",
+            ],
           ]}
         />
       </Card>

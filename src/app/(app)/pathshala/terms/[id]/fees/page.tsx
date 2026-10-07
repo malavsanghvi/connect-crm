@@ -16,6 +16,7 @@ import { loadLevelFees, loadLevelRows, loadPayNowReady, loadSeats, loadTermRules
 import {
   bandCell,
   buildFeeGroups,
+  isPathshalaFund,
   lockedSentence,
   missingFeeNames,
   openChecklist,
@@ -38,7 +39,7 @@ export const metadata: Metadata = { title: "Fees and rules" };
 
 const AREA = "Pathshala fees (pathshala.view, pathshala.manage or giving.manage)";
 const DRAFT_IS_PRINCIPALS =
-  "This term is not open for registration yet: while it is a draft its fees are the Pathshala principal's (pathshala.view or pathshala.manage). The treasurer sees it here once registration opens.";
+  "This term is not open for registration yet: while it is a draft only Pathshala staff (pathshala.view or pathshala.manage) can see it. The treasurer sees it here once registration opens.";
 
 /** Why a 0590 read did not give rows, for the page: null when it did. */
 function problemOf(what: string, r: Loaded<unknown>): string | null {
@@ -56,9 +57,9 @@ const CHECK_TONE: Record<CheckItem["tone"], { badge: "danger" | "warning" | "suc
 
 /**
  * Pathshala › Terms › a term › Fees and rules (PATHSHALA_REGISTRATION_PLAN §2.2–§2.7, §3.3, P9, P15–P22): an explicit
- * fee for every level with a class this term, the registration rules, "Try a family", and "Open registration", which
- * the database refuses while a fee is missing (naming the levels). The principal sets everything while the term is a
- * draft; after it opens only the treasurer changes it, with a reason, for new registrations only.
+ * fee for every offered level, the registration rules, "Try a family", and "Open registration", which the database
+ * refuses while a fee is missing (naming the levels). Before the lock the principal (or the treasurer) sets everything;
+ * after it only the treasurer changes it, with a reason, for new registrations only (0590).
  */
 export default async function TermFeesPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -83,25 +84,25 @@ export default async function TermFeesPage({ params }: { params: Promise<{ id: s
       loadLevelFees(db, center.id),
       loadSeats(db, term.id),
       loadPayNowReady(db, center.id),
-      // The funds only fill the fund picker: when they cannot be read, the picker says so and the page still works.
+      // The funds only fill the fund line and the "is there a Pathshala fund" check: when they cannot be read, both say so.
       givingOn
         ? db
             .from("funds")
-            .select("id, name")
+            .select("id, key, name")
             .eq("center_id", center.id)
             .eq("active", true)
             .order("name")
             .then((r) => {
-              if (r.error) console.error("[pathshala/fees] could not read the funds for the picker:", r.error);
+              if (r.error) console.error("[pathshala/fees] could not read the funds:", r.error);
               return r.error ? null : (r.data ?? []);
             })
-        : Promise.resolve([] as { id: string; name: string }[]),
+        : Promise.resolve([] as { id: string; key: string; name: string }[]),
     ]);
     return { term, terms, tracks, classes, rules, levels, fees, seats, ready, funds };
   });
   if (!res.ok) return <LoadProblemPage message={res.error} retryHref={retryHref} />;
   if (!res.data) {
-    // The treasurer reads a term once registration opens; a draft is the principal's (RLS shows them nothing).
+    // A draft term is read by Pathshala staff only (0010): for the treasurer, RLS shows nothing, which is not "not found".
     if (!pathshalaAreas.admin(v)) return <PNoAccessPage area={AREA}>{DRAFT_IS_PRINCIPALS}</PNoAccessPage>;
     notFound();
   }
@@ -163,7 +164,9 @@ export default async function TermFeesPage({ params }: { params: Promise<{ id: s
           : { status: "error", reason: ready.status === "shape" ? `the answer could not be read (${ready.message})` : explainError(ready.error) },
   });
   const missing = missingFeeNames(groups);
-  const lockedBy = termRules.fees_locked_by ? (await resolveUserNames(db, center.id, [termRules.fees_locked_by])).get(termRules.fees_locked_by) ?? null : null;
+  const lockedBy = termRules.fees_locked_by ? ((await resolveUserNames(db, center.id, [termRules.fees_locked_by])).get(termRules.fees_locked_by) ?? null) : null;
+  // With Giving on the fee pledges need a fund: the term's own, or the one 0590 finds by itself (key or name "Pathshala").
+  const fundFound = funds === null ? null : termRules.fund_id !== null || funds.some(isPathshalaFund);
 
   const editorGroups: FeeEditorGroup[] = groups.map((g) => ({
     trackId: g.track.id,
@@ -191,15 +194,15 @@ export default async function TermFeesPage({ params }: { params: Promise<{ id: s
     <>
       {header}
       <div className="mb-4">
-        <Notice tone="navy">{editing.note}</Notice>
+        <Notice tone={editing.closed ? "warning" : "navy"}>{editing.note}</Notice>
       </div>
 
-      {editing.open ? (
-        <Card title="Registration is open" className="mb-4">
+      {editing.locked || editing.closed ? (
+        <Card title={editing.closed ? "The term is closed" : "Registration is open"} className="mb-4">
           <div className="flex flex-col gap-2 text-[13px]">
-            <p>{lockedSentence(termRules.fees_locked_at, lockedBy, tz) ?? "This term was opened before fees per level existed, so its fees and rules were not locked when it opened; they are the treasurer's to change now."}</p>
-            {missing.length ? <p className="font-bold text-danger">{unpricedOfferedSentence(missing, term.name)}</p> : null}
-            {termRules.payment_mode === "pay_now" && payNowBlocked ? (
+            <p>{lockedSentence(termRules.fees_locked_at, lockedBy, tz) ?? "This term closed before fees per level existed."}</p>
+            {!editing.closed && missing.length ? <p className="font-bold text-danger">{unpricedOfferedSentence(missing, term.name)}</p> : null}
+            {!editing.closed && termRules.payment_mode === "pay_now" && payNowBlocked ? (
               <p className="font-bold text-danger">Families pay when registering in this term, but that cannot be used right now: {payNowBlocked}</p>
             ) : null}
           </div>
@@ -211,12 +214,14 @@ export default async function TermFeesPage({ params }: { params: Promise<{ id: s
             paymentMode: termRules.payment_mode,
             payNowBlocked,
             givingOn,
+            fundFound,
             membershipRequired: term.membership_required,
             registrationOpensAt: term.registration_opens_at,
             registrationClosesAt: term.registration_closes_at,
             tz,
           })}
           canOpen={editing.canOpen}
+          legacy={term.status !== "draft"}
           termId={term.id}
           termName={term.name}
           termHref={`/pathshala/terms/${term.id}`}
@@ -268,6 +273,7 @@ export default async function TermFeesPage({ params }: { params: Promise<{ id: s
             payNowBlocked={payNowBlocked}
             givingOn={givingOn}
             funds={funds}
+            canChooseFund={editing.canChooseFund}
             startsOnLabel={startsOnLabel}
             registrationClosesLabel={term.registration_closes_at ? formatDateTime(term.registration_closes_at, tz) : null}
           />
@@ -287,6 +293,8 @@ export default async function TermFeesPage({ params }: { params: Promise<{ id: s
               lateFee: termRules.late_fee_cents,
               withdrawal: termRules.withdrawal_credit_until,
               cutoff: termRules.age_cutoff_on,
+              fund: termRules.fund_id ? (funds?.find((f) => f.id === termRules.fund_id)?.name ?? "A fund chosen by the treasurer") : null,
+              givingOn,
               startsOnLabel,
               tz,
               currency,
@@ -295,23 +303,51 @@ export default async function TermFeesPage({ params }: { params: Promise<{ id: s
         )}
       </Card>
 
-      {pathshalaAreas.admin(v) ? (
-        <Card title="Try a family" description="What a family would pay with this term's fees and rules, priced as a registration would be. Nothing is saved or billed.">
-          {exampleLevels.length ? (
-            <TryFamily action={tryFamilyAction.bind(null, term.id)} levels={exampleLevels} cutoffLabel={termRules.age_cutoff_on ? formatDate(termRules.age_cutoff_on, tz) : startsOnLabel} currency={currency} />
-          ) : (
-            <p className="text-[13px] text-muted">Add levels first; then try a family here.</p>
-          )}
-        </Card>
-      ) : null}
+      <Card title="Try a family" description="What a family would pay with this term's fees and rules, priced as a registration would be. Nothing is saved or billed.">
+        {exampleLevels.length ? (
+          <TryFamily
+            action={tryFamilyAction.bind(null, term.id)}
+            levels={exampleLevels}
+            cutoffLabel={termRules.age_cutoff_on ? formatDate(termRules.age_cutoff_on, tz) : startsOnLabel}
+            lateFeeLabel={termRules.late_fee_cents > 0 ? `${formatMoney(termRules.late_fee_cents, currency)} per learner` : null}
+            currency={currency}
+          />
+        ) : (
+          <p className="text-[13px] text-muted">Add levels first; then try a family here.</p>
+        )}
+      </Card>
     </>
   );
 }
 
-function OpenCard({ items, canOpen, termId, termName, termHref }: { items: CheckItem[]; canOpen: boolean; termId: string; termName: string; termHref: string }) {
+function OpenCard({
+  items,
+  canOpen,
+  legacy,
+  termId,
+  termName,
+  termHref,
+}: {
+  items: CheckItem[];
+  canOpen: boolean;
+  /** The term left Draft before 0590: opening keeps its status and locks its fees and rules. */
+  legacy: boolean;
+  termId: string;
+  termName: string;
+  termHref: string;
+}) {
   const refused = items.some((i) => i.tone === "bad");
+  const label = legacy ? "Lock fees and rules" : "Open registration";
   return (
-    <Card title="Open registration" description="What opening still waits for. Opening locks the fees and rules, and families can register." className="mb-4">
+    <Card
+      title={legacy ? "Lock fees and rules" : "Open registration"}
+      description={
+        legacy
+          ? "This term left Draft before fees per level existed. Families register with fees once its fees and rules are locked."
+          : "What opening still waits for. Opening locks the fees and rules, and families can register."
+      }
+      className="mb-4"
+    >
       <ul className="flex flex-col gap-1.5 text-[13px]">
         {items.map((item) => (
           <li key={item.text} className="flex items-start gap-2">
@@ -325,13 +361,17 @@ function OpenCard({ items, canOpen, termId, termName, termHref }: { items: Check
       {canOpen ? (
         <ActionForm
           action={openRegistrationAction.bind(null, termId)}
-          submitLabel="Open registration"
-          pendingLabel="Opening…"
+          submitLabel={label}
+          pendingLabel={legacy ? "Locking…" : "Opening…"}
           variant="ok"
           className="mt-3"
-          confirmMessage={`Open registration for ${termName}? Families can register from the term's opening date, and its fees and rules lock: after this only the treasurer can change them, with a reason, and a change applies to new registrations only.`}
+          confirmMessage={
+            legacy
+              ? `Lock the fees and rules of ${termName}? Families can then register with fees. After this only the treasurer can change them, with a reason, and a change applies to new registrations only.`
+              : `Open registration for ${termName}? Families can register from the term's opening date, and its fees and rules lock: after this only the treasurer can change them, with a reason, and a change applies to new registrations only.`
+          }
         >
-          {refused ? <p className="mb-2 text-xs text-muted">The database will refuse while anything above is missing, and say what.</p> : null}
+          {refused ? <p className="mb-2 text-xs text-muted">The database refuses while anything marked Missing is missing, and says what.</p> : null}
         </ActionForm>
       ) : (
         <p className="mt-3 text-xs text-muted">
@@ -361,11 +401,13 @@ function rulesSummary(r: {
   lateFee: number;
   withdrawal: string | null;
   cutoff: string | null;
+  fund: string | null;
+  givingOn: boolean;
   startsOnLabel: string;
   tz: string;
   currency: string;
 }): [string, ReactNode][] {
-  return [
+  const items: [string, ReactNode][] = [
     [
       "How families pay",
       <>
@@ -378,8 +420,11 @@ function rulesSummary(r: {
     ["Sibling discount", `${r.sibling}% for every child after the first`],
     ["Family cap", r.cap === null ? "No cap" : `${formatMoney(r.cap, r.currency)} for a family's children`],
     ["Registration closes", r.closes ? formatDateTime(r.closes, r.tz) : "No closing date"],
-    ["Late registration", r.late ? `Until ${formatDateTime(r.late, r.tz)} · late fee ${formatMoney(r.lateFee, r.currency)} per learner` : "No late window"],
-    ["Withdrawal deadline", r.withdrawal ? formatDate(r.withdrawal, r.tz) : "14 days after the first class day"],
+    ["Late registration", r.late ? `Until ${formatDateTime(r.late, r.tz)}` : "No late window"],
+    ["Late fee", r.lateFee > 0 ? `${formatMoney(r.lateFee, r.currency)} per learner registered after registration closes` : "None"],
+    ["Withdrawal deadline", r.withdrawal ? formatDate(r.withdrawal, r.tz) : "14 days after the first class day (fixed when registration opens)"],
     ["Age cut-off", r.cutoff ? formatDate(r.cutoff, r.tz) : `The first day of term (${r.startsOnLabel})`],
   ];
+  if (r.givingOn) items.push(["Fund for the fee pledges", r.fund ?? "Found when registration opens (the Pathshala fund)"]);
+  return items;
 }

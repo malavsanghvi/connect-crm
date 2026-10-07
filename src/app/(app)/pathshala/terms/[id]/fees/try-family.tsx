@@ -9,10 +9,10 @@ import { additionLabel, formatMoney, reductionLabel } from "@/lib/pathshala-regi
 
 export type ExampleLevel = { id: string; name: string; /** "Jainism 2 · $130.00", "Gujarati 4 · no fee yet" */ label: string };
 
-type Row = { key: number; first_name: string; age: string; level_id: string };
+type Row = { key: number; name: string; age: string; level_id: string };
 
 const MAX_ROWS = 12;
-const blank = (key: number): Row => ({ key, first_name: "", age: "", level_id: "" });
+const blank = (key: number): Row => ({ key, name: "", age: "", level_id: "" });
 
 /** "Child · ranked 2nd" / "Adult learner". */
 function learnerText(line: QuoteLine): string {
@@ -32,21 +32,22 @@ export function TryFamily({
   action,
   levels,
   cutoffLabel,
+  lateFeeLabel,
   currency,
 }: {
   action: (prev: ActionResult<Quote> | null, fd: FormData) => Promise<ActionResult<Quote>>;
   levels: ExampleLevel[];
   cutoffLabel: string;
+  /** "$25.00 per learner" when the term has a late fee; the late window can then be tried. */
+  lateFeeLabel: string | null;
   currency: string;
 }) {
   const [rows, setRows] = useState<Row[]>([blank(1), blank(2), blank(3)]);
   const [state, formAction, pending] = useActionState(action, null);
-  const [sent, setSent] = useState<Row[]>([]);
 
   function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
-    setSent(rows.filter((r) => r.first_name || r.age || r.level_id));
     // Sent by hand so a result never clears what was typed.
     startTransition(() => formAction(fd));
   }
@@ -66,7 +67,7 @@ export function TryFamily({
           <div key={r.key} className="grid grid-cols-1 gap-2 sm:grid-cols-[minmax(0,1fr)_7rem_minmax(0,1.4fr)_auto] sm:items-end">
             <label className="block">
               <span className="crm-label">{`Learner ${i + 1}`}</span>
-              <input name="first_name" value={r.first_name} onChange={(e) => set(r.key, { first_name: e.target.value })} maxLength={40} placeholder="First name" className="crm-input" />
+              <input name="name" value={r.name} onChange={(e) => set(r.key, { name: e.target.value })} maxLength={40} placeholder="First name" className="crm-input" />
             </label>
             <label className="block">
               <span className="crm-label">Age</span>
@@ -94,6 +95,15 @@ export function TryFamily({
           </div>
         ))}
       </div>
+      {lateFeeLabel ? (
+        <label className="mt-3 flex min-h-10 cursor-pointer items-start gap-3">
+          <input type="checkbox" name="late" value="on" className="mt-0.5 h-5 w-5 shrink-0 accent-navy" />
+          <span className="text-[13px]">
+            <span className="font-bold text-ink">Price it as a late registration</span>
+            <span className="block text-xs text-muted">After registration closes each learner pays the late fee too ({lateFeeLabel}).</span>
+          </span>
+        </label>
+      ) : null}
       <div className="mt-3 flex flex-wrap items-center gap-2">
         {rows.length < MAX_ROWS ? (
           <button type="button" onClick={() => setRows((cur) => [...cur, blank(Math.max(0, ...cur.map((x) => x.key)) + 1)])} className={buttonClass("ghost", "sm")}>
@@ -129,8 +139,11 @@ export function TryFamily({
                 {quote.lines.map((line, i) => (
                   <tr key={i}>
                     <td>
-                      <span className="font-bold text-ink">{line.first_name ?? sent[i]?.first_name ?? `Learner ${i + 1}`}</span>
-                      <span className="block text-xs text-muted">{learnerText(line)}</span>
+                      <span className="font-bold text-ink">{line.first_name ?? `Learner ${line.index ?? i + 1}`}</span>
+                      <span className="block text-xs text-muted">
+                        {learnerText(line)}
+                        {line.age_on_cutoff !== null ? ` · age ${line.age_on_cutoff}` : ""}
+                      </span>
                     </td>
                     <td>{levelName(line.level_id)}</td>
                     <td className="text-right">{formatMoney(line.base_fee_cents, currency)}</td>
@@ -165,6 +178,7 @@ export function TryFamily({
             </table>
           </TableWrap>
           <p className="mt-2 text-xs text-muted">
+            {quote.late ? "Priced as a late registration. " : ""}
             The first child pays the full fee and every other child gets the sibling discount; the children&apos;s total stops at the family cap; adult
             learners pay their class fee outside both. A registration is priced the same way and its lines never change afterwards.
           </p>

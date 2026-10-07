@@ -1,6 +1,6 @@
 // Pathshala › Terms › Fees and rules (plan §2.2, §3.3, P21, P22): the levels of a term with their fees, which are
-// offered (a level is offered when it has a class this term), which still need a fee, the fee suggested from an
-// earlier term, and what opening registration still waits for. Pure: the page, the actions and the tests share it.
+// offered (0590: an active level with a class this term), which still need a fee, the fee suggested from an earlier
+// term, and what opening registration still waits for. Pure: the page, the actions and the tests share it.
 
 import { formatDate, formatDateTime } from "@/lib/pathshala/format";
 
@@ -13,7 +13,7 @@ export type TermLite = { id: string; name: string; starts_on: string };
 
 export type FeeRow = {
   level: LevelRow;
-  /** At least one class of this level in the term (§2.2): it needs a fee before registration opens. */
+  /** An active level with at least one class in the term (§2.2, 0590): it needs a fee before registration opens. */
   offered: boolean;
   classes: number;
   /** The fee saved for this term, in cents; null = none yet. */
@@ -60,14 +60,15 @@ export function buildFeeGroups(input: {
           const s = saved.get(level.id) ?? null;
           return {
             level,
-            offered: (classCount.get(level.id) ?? 0) > 0,
+            // A retired level is not offered even with a class (0590): families cannot choose it.
+            offered: level.active && (classCount.get(level.id) ?? 0) > 0,
             classes: classCount.get(level.id) ?? 0,
             saved: s,
             suggestion: s === null ? suggestionFor(level.id) : null,
             seats: seats.get(level.id) ?? null,
           };
         })
-        .filter((r) => r.level.active || r.offered || r.saved !== null);
+        .filter((r) => r.level.active || r.classes > 0 || r.saved !== null);
       return { track, rows };
     })
     .filter((g) => g.rows.length > 0);
@@ -79,9 +80,20 @@ export function joinNames(names: readonly string[]): string {
   return `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
 }
 
-/** Offered levels with no fee for the term, by name (opening registration refuses while there are any, P21). */
+/**
+ * Offered levels with no fee for the term, by name (opening registration refuses while there are any, P21), in the
+ * order app.open_pathshala_registration names them: by track name, then the level's order and name.
+ */
 export function missingFeeNames(groups: readonly FeeGroup[]): string[] {
-  return groups.flatMap((g) => g.rows.filter((r) => r.offered && r.saved === null).map((r) => r.level.name));
+  return groups
+    .flatMap((g) => g.rows.filter((r) => r.offered && r.saved === null).map((r) => ({ track: g.track.name, level: r.level })))
+    .sort((a, b) => a.track.localeCompare(b.track) || a.level.sort_order - b.level.sort_order || a.level.name.localeCompare(b.level.name))
+    .map((x) => x.level.name);
+}
+
+/** The fund 0590 finds by itself for the fee pledges: key "pathshala", else a name starting with "Pathshala". */
+export function isPathshalaFund(fund: { key?: string | null; name: string }): boolean {
+  return fund.key === "pathshala" || /^\s*pathshala/i.test(fund.name);
 }
 
 /** The database's refusal, said before anyone clicks (§2.2): "Set the fee for Gujarati 3 and Hindi 1 before opening registration." */
@@ -141,6 +153,8 @@ export function openChecklist(input: {
   paymentMode: PaymentMode;
   payNowBlocked: string | null;
   givingOn: boolean;
+  /** With Giving on, the fee pledges need a fund: the term's own, or the Pathshala fund 0590 finds by itself. Null: unknown. */
+  fundFound: boolean | null;
   membershipRequired: boolean;
   registrationOpensAt: string | null;
   registrationClosesAt: string | null;
@@ -158,6 +172,12 @@ export function openChecklist(input: {
   }
   if (input.paymentMode === "pay_now" && input.payNowBlocked) {
     out.push({ tone: "bad", text: `This term is set to “Pay when registering”, which cannot be used yet: ${input.payNowBlocked}` });
+  }
+  if (input.givingOn && input.fundFound === false) {
+    out.push({
+      tone: "bad",
+      text: "There is no Pathshala fund for the fees yet. The treasurer (giving.manage) chooses the fund under Registration rules, or adds a fund called Pathshala in Setup › Lists; then open registration.",
+    });
   }
   const noBand = offered.filter((r) => r.level.min_age === null && r.level.max_age === null).map((r) => r.level.name);
   if (noBand.length) {
