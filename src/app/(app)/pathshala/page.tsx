@@ -55,9 +55,10 @@ export default async function PathshalaClassesPage({ searchParams }: { searchPar
     const [terms, levels] = await Promise.all([loadTerms(session.db, session.center.id), loadLevels(session.db, session.center.id)]);
     const term = pickTerm(terms, param(sp, "term"));
     const [overview, rules] = term ? await Promise.all([loadClassesOverview(session, term, today), loadTermRules(session.db, [term.id])]) : [null, null];
-    // The payment mode, for the sub-line only: the Fees and rules page says it when the rules cannot be read.
-    const mode = rules?.status === "ok" ? (rules.value.get(term?.id ?? "")?.payment_mode ?? null) : null;
-    return { terms, levels, term, overview, billing: termBillingPhrase({ mode, givingOn: isModuleEnabled(session, "giving") }) };
+    // The payment mode and the lock, for the sub-line only: the Fees and rules page says it when the rules cannot be read.
+    const r = rules?.status === "ok" ? (rules.value.get(term?.id ?? "") ?? null) : null;
+    const billing = termBillingPhrase({ mode: r?.payment_mode ?? null, locked: Boolean(r?.fees_locked_at), givingOn: isModuleEnabled(session, "giving") });
+    return { terms, levels, term, overview, billing };
   });
   if (!res.ok) {
     return (

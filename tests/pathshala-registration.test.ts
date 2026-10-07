@@ -318,10 +318,12 @@ describe("Pathshala term rules: modes, checks, who may change them", () => {
   });
 
   it("describes billing only as the term does it (F18)", () => {
-    expect(termBillingPhrase({ mode: "pledge", givingOn: true })).toBe("fees per level, added to the family's pledges when a seat is given");
-    expect(termBillingPhrase({ mode: "pay_now", givingOn: true })).toBe("fees per level, paid online when registering");
-    expect(termBillingPhrase({ mode: "pledge", givingOn: false })).toBe("fees per level, not billed while Pledges & donations is off");
-    expect(termBillingPhrase({ mode: null, givingOn: true })).toBeNull();
+    expect(termBillingPhrase({ mode: "pledge", locked: true, givingOn: true })).toBe("fees per level, added to the family's pledges when a seat is given");
+    expect(termBillingPhrase({ mode: "pay_now", locked: true, givingOn: true })).toBe("fees per level, paid online when registering");
+    expect(termBillingPhrase({ mode: "pledge", locked: true, givingOn: false })).toBe("fees per level, not billed while Pledges & donations is off");
+    // Not locked yet: families cannot register with fees, so no billing is promised.
+    expect(termBillingPhrase({ mode: "pledge", locked: false, givingOn: true })).toBe("fees per level, not yet locked for registration");
+    expect(termBillingPhrase({ mode: null, locked: true, givingOn: true })).toBeNull();
     expect(termStatusLabel("registration")).toBe("Registration open");
     expect(termStatusLabel("weird")).toBe("weird");
   });

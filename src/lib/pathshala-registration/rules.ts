@@ -180,10 +180,12 @@ export function termStatusLabel(status: string): string {
 
 /**
  * What the term does with fees, for the Classes page's sub-line (F18: no promise the code does not keep). Null when
- * the rules could not be read: the sub-line then says nothing about billing.
+ * the rules could not be read: the sub-line then says nothing about billing. Until the fees are locked (registration
+ * opened through the Fees screen) families cannot register with fees, so nothing is said about billing either.
  */
-export function termBillingPhrase(input: { mode: PaymentMode | null; givingOn: boolean }): string | null {
+export function termBillingPhrase(input: { mode: PaymentMode | null; locked: boolean; givingOn: boolean }): string | null {
   if (input.mode === null) return null;
+  if (!input.locked) return "fees per level, not yet locked for registration";
   if (!input.givingOn) return "fees per level, not billed while Pledges & donations is off";
   return input.mode === "pay_now" ? "fees per level, paid online when registering" : "fees per level, added to the family's pledges when a seat is given";
 }
