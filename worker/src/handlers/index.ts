@@ -10,6 +10,7 @@ import * as demoLoad from "./demo.load";
 import * as demoPing from "./demo.ping";
 import * as eventsGenerateFlyer from "./events.generate_flyer";
 import * as homeworkPublishNotify from "./homework.publish_notify";
+import * as homeworkRemindersSweep from "./homework.reminders_sweep";
 import * as importSuggestMapping from "./import.suggest_mapping";
 import * as messagingDomainVerify from "./messaging.domain_verify";
 import * as messagingSend from "./messaging.send";
@@ -90,4 +91,6 @@ export const HANDLERS: HandlerModule[] = [
   photosImportAlbum,
   // Homework (0587): tell the learners and the parents of children, each person once, in batches, whenever homework is published
   homeworkPublishNotify,
+  // Homework (0588): every 15 minutes, remind the learners who have not handed in, the hours before it is due that the homework sets
+  homeworkRemindersSweep,
 ];
