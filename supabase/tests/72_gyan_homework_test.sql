@@ -136,9 +136,13 @@ insert into app.household_members (household_id, person_id, center_id, role, is_
 insert into app.center_users (center_id, user_id, person_id) values
   (:c1, :mom, :p_mom), (:c1, :dad, :p_dad), (:c1, :kid, :p_kid), (:c1, :neighbor, :p_nb), (:c1, :member, :p_member), (:c2, :other, :p_other);
 -- Pathshala: a current term with classes A and B, a past term with class C; the kid is active in A and was withdrawn from C.
+-- A term already out of Draft: since 0590 only Open registration and the demo pack write one, so this fixture sets the
+-- term guard's flag on purpose for its own writes (app.pathshala_term_writer).
+select set_config('app.pathshala_term_writer', 'on', false);
 insert into app.pathshala_terms (id, center_id, name, starts_on, ends_on, status) values
   (:term1, :c1, 'Term 72', current_date - 30, current_date + 200, 'active'),
   (:term0, :c1, 'Term 71', current_date - 400, current_date - 200, 'closed');
+select set_config('app.pathshala_term_writer', '', false);
 insert into app.pathshala_tracks (id, center_id, key, name) values (:track, :c1, 'jainism72', 'Jainism 72');
 insert into app.pathshala_levels (id, center_id, track_id, key, name) values (:plevel, :c1, :track, '1', 'Jainism 1 (72)');
 insert into app.pathshala_classes (id, center_id, term_id, level_id, name) values

@@ -454,6 +454,62 @@ select app.pathshala_fee_example(:t1, jsonb_build_array(
 commit;
 select pg_temp.assert((:'ex'::jsonb ->> 'total_cents')::int = 32500 and (:'ex_late'::jsonb ->> 'total_cents')::int = 42500,
   'Try a family: the Fees screen shows the same $325.00, and $425.00 in the late window');
+-- "Try a family" prices as a registration does (P10). The Riya case: one learner in Jainism 5 and a $130 Gujarati level
+-- (Gujarati 3 here) with a 10% sibling discount is ONE child: $260.00, not the $247.00 of two children, and one late fee.
+begin;
+select pg_temp.sign_in(:u_pia);
+select app.pathshala_fee_example(:t1, jsonb_build_object('late', false, 'lines', jsonb_build_array(
+  jsonb_build_object('learner', 'Riya', 'age', 12, 'level_id', :lv_j5),
+  jsonb_build_object('learner', ' riya ', 'level_id', :lv_g3)))) as ex_riya \gset
+select app.pathshala_fee_example(:t1, jsonb_build_object('late', true, 'lines', jsonb_build_array(
+  jsonb_build_object('learner', 'Riya', 'age', 12, 'level_id', :lv_j5),
+  jsonb_build_object('learner', 'RIYA', 'level_id', :lv_g3)))) as ex_riya_late \gset
+select app.pathshala_fee_example(:t1, jsonb_build_object('late', false, 'lines', jsonb_build_array(
+  jsonb_build_object('name', 'Riya', 'age', 12, 'level_id', :lv_j5),
+  jsonb_build_object('name', 'Riya', 'age', 12, 'level_id', :lv_g3)))) as ex_two \gset
+-- Each line's refusal: the sentence a registration would give, or null.
+select app.pathshala_fee_example(:t1, jsonb_build_array(
+  jsonb_build_object('learner', 'Dev', 'age', 9, 'level_id', :lv_moms),
+  jsonb_build_object('learner', 'Mira', 'age', 44, 'level_id', :lv_j2),
+  jsonb_build_object('learner', 'Dev', 'level_id', :lv_j2),
+  jsonb_build_object('learner', 'Dev', 'level_id', :lv_j5),
+  jsonb_build_object('learner', 'Kiran', 'age', 10, 'level_id', :lv_g4),
+  jsonb_build_object('learner', 'Anya', 'age', 4, 'level_id', :lv_tod),
+  jsonb_build_object('learner', 'Anya', 'track_id', :tr_g, 'level_id', :lv_j3),
+  jsonb_build_object('learner', 'Isha', 'age', 6, 'level_id', :lv_j1),
+  jsonb_build_object('learner', 'Kanta'))) as ex_ref \gset
+select pg_temp.assert_code(format($$select app.pathshala_fee_example(%L, %L)$$, :t1, jsonb_build_array(jsonb_build_object('learner', repeat('x', 81), 'level_id', :lv_j2))),
+  '22023', 'A learner''s name is 1 to 80 characters.', 'Try a family: a learner''s name is 1 to 80 characters');
+select pg_temp.assert_code(format($$select app.pathshala_fee_example(%L, %L)$$, :t1, jsonb_build_array(jsonb_build_object('learner', '   ', 'level_id', :lv_j2))),
+  '22023', 'A learner''s name is 1 to 80 characters.', 'Try a family: a blank learner name is refused');
+select pg_temp.assert_code(format($$select app.pathshala_fee_example(%L, %L)$$, :t1,
+                                  jsonb_build_array(jsonb_build_object('learner', 'Dev', 'age', 9, 'level_id', :lv_j2), jsonb_build_object('learner', 'dev', 'age', 10, 'level_id', :lv_g3))),
+  '22023', 'Dev is listed with two different ages.', 'Try a family: one learner cannot be given two ages');
+commit;
+select pg_temp.assert((:'ex_riya'::jsonb ->> 'total_cents')::int = 26000 and (:'ex_two'::jsonb ->> 'total_cents')::int = 24700
+                      and (select array_agg((x ->> 'family_rank') || '/' || (x ->> 'sibling_discount_cents') || '/' || (x ->> 'total_cents') || '/' || coalesce(x ->> 'refusal', '-')
+                                            order by (x ->> 'index')::int)
+                             from jsonb_array_elements(:'ex_riya'::jsonb -> 'lines') x) = array['1/0/13000/-', '1/0/13000/-'],
+  'Try a family: Riya in Jainism 5 and Gujarati 3 is one child, first in both tracks: $260.00, not the $247.00 of two children (lines without a learner stay separate)');
+select pg_temp.assert((:'ex_riya_late'::jsonb ->> 'total_cents')::int = 28500
+                      and (select array_agg((x ->> 'late_fee_cents')::int order by (x ->> 'index')::int) from jsonb_array_elements(:'ex_riya_late'::jsonb -> 'lines') x) = array[2500, 0],
+  'Try a family: in the late window Riya pays one $25.00 late fee, not one per track: $285.00');
+select pg_temp.assert((select array_agg(coalesce(x ->> 'refusal', '-') order by (x ->> 'index')::int) from jsonb_array_elements(:'ex_ref'::jsonb -> 'lines') x)
+                        = array['Adult class (Moms) is for adults, and Dev is 9.', 'Jainism 2 is a children''s class, and Mira is an adult.', '-',
+                                'Dev is listed twice for Jainism.', 'Gujarati 4 has no fee for 2026-27 yet, so it cannot be chosen.', '-',
+                                'That level is not in the Gujarati track.', 'Jainism 1 is not offered in 2026-27.',
+                                'Choose a track (Jainism, Gujarati, Hindi …) for Kanta.'],
+  'Try a family: each line carries the sentence a registration would refuse it with (an adult class for a child, a children''s level for an adult, one level per track, no fee, another track''s level, not offered, no track), or null');
+select pg_temp.assert((:'ex_ref'::jsonb ->> 'total_cents')::int = 17050 and (:'ex_ref'::jsonb ->> 'children_total_cents')::int = 17050
+                      and (select bool_and(not (x ->> 'priced')::boolean and (x ->> 'base_fee_cents')::int = 0 and (x ->> 'sibling_discount_cents')::int = 0
+                                           and (x ->> 'cap_reduction_cents')::int = 0 and (x ->> 'late_fee_cents')::int = 0
+                                           and (x ->> 'total_cents')::int = 0 and x ->> 'family_rank' is null)
+                             from jsonb_array_elements(:'ex_ref'::jsonb -> 'lines') x where x ->> 'refusal' is not null)
+                      and (select array_agg((x ->> 'family_rank') || '/' || (x ->> 'total_cents') order by (x ->> 'index')::int)
+                             from jsonb_array_elements(:'ex_ref'::jsonb -> 'lines') x where x ->> 'refusal' is null) = array['1/13000', '2/4050'],
+  'Try a family: a refused line is not priced (every amount 0, no rank) and is out of the totals and the sibling order: Dev $130.00 and Anya (second child) $40.50 = $170.50');
+select pg_temp.assert((:'ex'::jsonb -> 'lines' -> 0 ? 'refusal') and not (:'q'::jsonb -> 'lines' -> 0 ? 'refusal'),
+  'Try a family: every line of the example has refusal; a family''s quote has none (only "Try a family" adds it)');
 
 -- P2: the first child is the one with the highest level fee; between equal fees the older child.
 \set ties '''[{"person_id":"75000000-0000-4000-8000-0000000000a5","track_id":"75000000-0000-4000-8000-0000000000d1","level_id":"75000000-0000-4000-8000-0000000000e2"},{"person_id":"75000000-0000-4000-8000-0000000000a6","track_id":"75000000-0000-4000-8000-0000000000d1","level_id":"75000000-0000-4000-8000-0000000000e0"},{"person_id":"75000000-0000-4000-8000-0000000000a4","track_id":"75000000-0000-4000-8000-0000000000d1","level_id":"75000000-0000-4000-8000-0000000000e5"}]'''
@@ -515,6 +571,15 @@ commit;
 select pg_temp.assert((:'q_round'::jsonb -> 'lines' -> 1 ->> 'sibling_discount_cents')::int = 683 and (:'q_round'::jsonb -> 'lines' -> 1 ->> 'total_cents')::int = 3867
                       and (:'q_round2'::jsonb -> 'lines' -> 1 ->> 'sibling_discount_cents')::int = 683 and (:'q_round2'::jsonb -> 'lines' -> 1 ->> 'total_cents')::int = 3872,
   'quote: discounts are rounded to the cent (half a cent rounds up)');
+-- Opening with no fund for the fees: the principal is told what to ask for. A treasurer with giving.manage but without
+-- pathshala.view cannot read a draft term, so the Fees screen is not the only way: a fund called Pathshala in Setup › Lists.
+begin;
+update app.funds set active = false where center_id = :c;
+select pg_temp.sign_in(:u_pia);
+select pg_temp.assert_code(format($$select app.open_pathshala_registration(%L)$$, :t2),
+  '22023', 'There is no fund for the Pathshala fees yet. Ask the treasurer to add a fund called Pathshala in Setup › Lists, or choose a fund on this Fees screen if you also manage Giving; then open registration.',
+  'open: with no fund for the fees the refusal says to add a fund called Pathshala in Setup › Lists');
+rollback;
 
 -- Refusals and who may ask.
 begin;
@@ -697,6 +762,17 @@ rollback;
 select pg_temp.assert((select after ->> 'assistance_note' from app.audit_log where record_table = 'pathshala_enrollment_fees' and action = 'pathshala_enrollment_fees.insert'
                         order by id desc limit 1) = '*** (24 characters)',
   'audit: the private fee-assistance note is masked in the audit log');
+select pg_temp.assert(app.audit_mask(jsonb_build_object('bucket_id', 'homework', 'name',
+                        '11111111-1111-4111-8111-111111111111/22222222-2222-4222-8222-222222222222/33333333-3333-4333-8333-333333333333/riya-navkar.m4a')) ->> 'name'
+                        = '11111111-1111-4111-8111-111111111111/22222222-2222-4222-8222-222222222222/33333333-3333-4333-8333-333333333333/***'
+                      and app.audit_mask(jsonb_build_object('bucket', 'homework', 'name',
+                        '11111111-1111-4111-8111-111111111111/22222222-2222-4222-8222-222222222222/33333333-3333-4333-8333-333333333333/a.pdf')) ->> 'name' like '%/***'
+                      and app.audit_mask(jsonb_build_object('bucket_id', 'flyers', 'name', 'a/b/c/d.png')) ->> 'name' = 'a/b/c/d.png'
+                      and app.audit_mask('{"assistance_note":"We lost a job this year."}'::jsonb) ->> 'assistance_note' = '*** (24 characters)',
+  'audit: 0590''s audit_mask carries 0589''s clause verbatim (a homework file''s name is masked, other buckets are not) next to the assistance note');
+select pg_temp.assert('pathshala_level_fees' <> all (app.demo_clear_tables()) and 'pathshala_terms' = any (app.demo_clear_tables())
+                      and 'pathshala_level_fees' <> all (app.demo_keep_tables()),
+  'demo clear: level fees are never cleared by themselves (each goes with its term, which a clear removes); the keep list itself is unchanged');
 
 -- ═════════════════════════════════════════════════════════════════════════════
 -- Module switches
