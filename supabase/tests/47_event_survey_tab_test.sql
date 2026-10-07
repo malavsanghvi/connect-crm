@@ -121,8 +121,11 @@ select pg_temp.assert(pg_temp.stat(:committee, :'sv'::uuid, 'invited') > 0, 'the
 -- ── The event completes: the survey opens by itself; it can no longer be edited or removed ──
 update app.events set status = 'completed' where id = :evA::uuid;
 select pg_temp.assert((select status from app.surveys where id = :'sv') = 'open', 'completing the event opened the survey');
-select pg_temp.assert(pg_temp.stat(:committee, :'sv'::uuid, 'invited') =
-  (select count(distinct person_id) from app.messages where template_key = 'event_survey' and payload->>'survey_id' = :'sv'), 'invited matches the people the launch notified');
+-- 0596: a push goes only to an invited adult with a login and a phone (Priya); the others answer from Home.
+select pg_temp.assert(pg_temp.stat(:committee, :'sv'::uuid, 'invited') >
+  (select count(distinct person_id) from app.messages where template_key = 'event_survey' and payload->>'survey_id' = :'sv')
+  and (select count(distinct person_id) from app.messages where template_key = 'event_survey' and payload->>'survey_id' = :'sv') = 1,
+  'the launch pushed the invited adult with the app (Priya), not the invited adults without a login');
 begin;
 select pg_temp.sign_in(:lead);
 select pg_temp.assert_raises($$select app.update_event_survey('$$ || :'sv' || $$'::uuid, null, null, 5, null, null)$$, 'already started', 'a launched survey cannot be edited here');
@@ -158,7 +161,7 @@ update app.events set status = 'completed' where id = :evC::uuid;
 select pg_temp.assert((select status from app.surveys where id = :'svc') = 'draft', 'a survey not set to launch automatically stays a draft when the event completes');
 begin;
 select pg_temp.sign_in(:committee);
-select pg_temp.assert((app.launch_event_survey_now(:'svc'::uuid)) >= 1, 'launch now notifies the audience');
+select pg_temp.assert((app.launch_event_survey_now(:'svc'::uuid)) = 1, 'launch now says how many got a push: the one invited adult with the app (Priya)');
 select pg_temp.assert((select status from app.surveys where id = :'svc') = 'open', 'and opens the survey');
 select pg_temp.assert_raises($$select app.launch_event_survey_now('$$ || :'svc' || $$'::uuid)$$, 'already been sent', 'it cannot be launched twice');
 commit;
