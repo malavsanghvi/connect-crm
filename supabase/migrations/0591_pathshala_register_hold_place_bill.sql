@@ -20,10 +20,12 @@
 --                                  consent per learner; queues the messages (§2.14).
 --   app.pathshala_registrations    one row per family submission (the response is kept for a repeated client key)
 --   app.pathshala_enrollments      + registration_id, track_id (one enrollment per learner per TRACK, P10: the unique
---                                  key becomes term + learner + track), hold_reason (membership | payment | office_payment
---                                  | assistance | waiver: a held learner stays status "requested"), hold_expires_at,
---                                  hold_reminded_at, offered_at, waitlisted_at, suggested_level_id, suggestion_reason,
---                                  channel, withdrawn_at, withdrawn_by, withdrawal_reason. The six statuses stay.
+--                                  key becomes term + learner + track), hold_expires_at, hold_reminded_at, offered_at,
+--                                  waitlisted_at, suggested_level_id, suggestion_reason, channel, withdrawn_at, withdrawn_by.
+--                                  A held learner stays status "requested". The six statuses stay.
+--   app.pathshala_enrollment_fees  + hold_reason (membership | payment | office_payment | assistance | waiver: why a
+--                                  "requested" learner waits) and withdrawal_reason: they live on the fee line, which a
+--                                  child never reads (P30); app._pathshala_hold(enrollment) reads the reason
 --   app.pathshala_pending_registrations   a child the parent added who has no person row yet; converted (at the original
 --                                  time) when the office approves the add-member request, cancelled when it is declined
 --   app.rsvp_credit_releases       the ONE credit queue for the treasurer: rsvp_id nullable, enrollment_id, kind; exactly
@@ -93,7 +95,6 @@ comment on table app.pathshala_registrations is
 alter table app.pathshala_enrollments
   add column if not exists registration_id    uuid references app.pathshala_registrations(id),
   add column if not exists track_id           uuid references app.pathshala_tracks(id),
-  add column if not exists hold_reason        text,
   add column if not exists hold_expires_at    timestamptz,
   add column if not exists hold_reminded_at   timestamptz,
   add column if not exists offered_at         timestamptz,
@@ -102,17 +103,23 @@ alter table app.pathshala_enrollments
   add column if not exists suggestion_reason  text,
   add column if not exists channel            text,
   add column if not exists withdrawn_at       timestamptz,
-  add column if not exists withdrawn_by       uuid references auth.users(id),
-  add column if not exists withdrawal_reason  text;
+  add column if not exists withdrawn_by       uuid references auth.users(id);
 alter table app.pathshala_enrollments drop constraint if exists pathshala_enrollments_registration_rules;
 alter table app.pathshala_enrollments add constraint pathshala_enrollments_registration_rules check (
+  (suggestion_reason is null or suggestion_reason in ('teacher', 'previous', 'age'))
+  and (channel is null or channel in ('app', 'office', 'import', 'demo')));
+-- Why a learner waits, and why a seat was released, are fee matters: they live on the fee line (the household's adults and
+-- the staff read it; a child never does, P30).
+alter table app.pathshala_enrollment_fees
+  add column if not exists hold_reason       text,
+  add column if not exists withdrawal_reason text;
+alter table app.pathshala_enrollment_fees drop constraint if exists pathshala_enrollment_fees_hold_rules;
+alter table app.pathshala_enrollment_fees add constraint pathshala_enrollment_fees_hold_rules check (
   (hold_reason is null or hold_reason in ('membership', 'payment', 'office_payment', 'assistance', 'waiver'))
-  and (hold_reason is null or status = 'requested')
-  and (suggestion_reason is null or suggestion_reason in ('teacher', 'previous', 'age'))
-  and (channel is null or channel in ('app', 'office', 'import', 'demo'))
   and (withdrawal_reason is null or char_length(withdrawal_reason) <= 500));
-comment on column app.pathshala_enrollments.hold_reason is
-  'Why a "requested" learner waits (0591): membership (P6), payment (a pay-now seat held for an online payment until hold_expires_at), office_payment (held for payment at the office), assistance (pay now: held until the fee assistance decision), waiver (another adult learner must agree to the waiver in their own app). A seat held for payment or assistance counts as taken.';
+comment on column app.pathshala_enrollment_fees.hold_reason is
+  'Why a "requested" learner waits (0591): membership (P6), payment (a pay-now seat held for an online payment until the enrollment''s hold_expires_at), office_payment (held for payment at the office), assistance (pay now: held until the fee assistance decision), waiver (another adult learner must agree to the waiver in their own app). A seat held for payment or assistance counts as taken. On the fee line, not the enrollment: a child never reads it (P30).';
+comment on column app.pathshala_enrollment_fees.withdrawal_reason is 'Why the learner was withdrawn when it is about the fee ("The fee was not paid by …"): on the fee line, which a child never reads (P30).';
 comment on column app.pathshala_enrollments.track_id is 'One enrollment per learner per track per term (P10, 0591). Filled from the class''s level, else the requested level, else the community''s Jainism track.';
 comment on column app.pathshala_enrollments.offered_at is 'When a waitlisted learner was offered a seat held for payment (pay now, P19).';
 comment on column app.pathshala_enrollments.notes is 'The family''s own note (0591; office notes move to a staff-only table in 0593, P28).';
@@ -239,20 +246,23 @@ alter table app.pathshala_enrollments add constraint pathshala_enrollments_term_
 -- pledges must be cancelled or paid, never left behind).
 create or replace function app.pathshala_enrollments_guard() returns trigger
 language plpgsql set search_path = app, public, extensions as $$
+declare v_hold text;
 begin
   if current_user not in ('authenticated', 'anon') then return new; end if;
   if tg_op = 'INSERT' then
-    if new.hold_reason is not null or new.hold_expires_at is not null or new.registration_id is not null or new.offered_at is not null then
+    if new.hold_expires_at is not null or new.registration_id is not null or new.offered_at is not null then
       raise exception 'Register learners through Pathshala registration (it holds and bills seats).' using errcode = '22023';
     end if;
     return new;
   end if;
-  if old.hold_reason in ('payment', 'office_payment', 'assistance')
+  -- Only the Pathshala principal (pathshala.manage, who reads the fee line) can update an enrollment directly.
+  select fl.hold_reason into v_hold from app.pathshala_enrollment_fees fl where fl.enrollment_id = old.id;
+  if v_hold in ('payment', 'office_payment', 'assistance')
      and (new.status is distinct from old.status or new.class_id is distinct from old.class_id) then
     raise exception 'This learner''s seat is held for payment: they are placed when the fee is paid, or the hold is released on the Registrations screen.'
       using errcode = '22023';
   end if;
-  if new.hold_reason is distinct from old.hold_reason or new.hold_expires_at is distinct from old.hold_expires_at
+  if new.hold_expires_at is distinct from old.hold_expires_at
      or new.registration_id is distinct from old.registration_id or new.offered_at is distinct from old.offered_at then
     raise exception 'Holds are released, extended and lifted on the Registrations screen.' using errcode = '22023';
   end if;
@@ -265,6 +275,13 @@ create trigger pathshala_enrollments_guard before insert or update on app.pathsh
 -- ═════════════════════════════════════════════════════════════════════════════
 -- Small helpers
 -- ═════════════════════════════════════════════════════════════════════════════
+-- Why an enrollment waits (membership | payment | office_payment | assistance | waiver), null when it does not: kept on the
+-- fee line (a child never reads it, P30). Internal: the functions and triggers call it as their definer.
+create or replace function app._pathshala_hold(p_enrollment uuid) returns text
+language sql stable security definer set search_path = app, public, extensions as $$
+  select f.hold_reason from app.pathshala_enrollment_fees f where f.enrollment_id = p_enrollment
+$$;
+
 create or replace function app.pathshala_today(p_center uuid) returns date
 language sql stable security definer set search_path = app, public, extensions as $$
   select (now() at time zone coalesce((select nullif(c.time_zone, '') from app.centers c where c.id = p_center), 'America/Chicago'))::date
@@ -307,9 +324,9 @@ begin
     from app.pathshala_classes c where c.term_id = p_term and c.level_id = p_level;
   select count(*)::int into taken from app.pathshala_enrollments e join app.pathshala_classes c on c.id = e.class_id
    where c.term_id = p_term and c.level_id = p_level and e.status in ('placed', 'active');
-  select count(*)::int into held from app.pathshala_enrollments e
+  select count(*)::int into held from app.pathshala_enrollments e join app.pathshala_enrollment_fees f on f.enrollment_id = e.id
    where e.term_id = p_term and e.requested_level_id = p_level and e.status = 'requested'
-     and e.hold_reason in ('payment', 'office_payment', 'assistance');
+     and f.hold_reason in ('payment', 'office_payment', 'assistance');
   v_unlimited := classes > 0 and seats is null;
   free := case when classes = 0 then 0 when v_unlimited then null else greatest(seats - taken - held, 0) end;
   select count(*)::int into waitlist from app.pathshala_enrollments e left join app.pathshala_classes c on c.id = e.class_id
@@ -598,11 +615,14 @@ end $$;
 
 -- Place a learner in a class (the hold, if any, ends).
 create or replace function app._pathshala_place(p_enrollment uuid, p_class uuid) returns void
-language sql security definer set search_path = app, public, extensions as $$
+language plpgsql security definer set search_path = app, public, extensions as $$
+begin
+  -- The enrollment first (its trigger sees the seat was held), then the hold on the fee line ends.
   update app.pathshala_enrollments
-     set status = 'placed', class_id = p_class, placed_at = now(), hold_reason = null, hold_expires_at = null, hold_reminded_at = null
-   where id = p_enrollment
-$$;
+     set status = 'placed', class_id = p_class, placed_at = now(), hold_expires_at = null, hold_reminded_at = null
+   where id = p_enrollment;
+  update app.pathshala_enrollment_fees set hold_reason = null where enrollment_id = p_enrollment and hold_reason is not null;
+end $$;
 
 -- A learner who may now have a seat (a membership hold lifted, a waiver agreed, a child added to the family, the office
 -- confirming a level): "treated as registering at that moment" (§2.6). Under the level's lock: a free seat places and
@@ -617,7 +637,8 @@ begin
   select * into t from app.pathshala_terms where id = e.term_id;
   select * into l from app.pathshala_levels where id = e.requested_level_id;
   select * into f from app.pathshala_enrollment_fees where enrollment_id = e.id;
-  update app.pathshala_enrollments set hold_reason = null, hold_expires_at = null, hold_reminded_at = null where id = e.id and hold_reason is not null;
+  update app.pathshala_enrollment_fees set hold_reason = null where enrollment_id = e.id and hold_reason is not null;
+  update app.pathshala_enrollments set hold_expires_at = null, hold_reminded_at = null where id = e.id and (hold_expires_at is not null or hold_reminded_at is not null);
   if l.id is null or t.seat_rule = 'office' then return 'office'; end if;
   v_child := coalesce(f.learner_kind, case when app.pathshala_counts_as_child(e.student_person_id, app.pathshala_age_cutoff(t.id)) then 'child' else 'adult' end) = 'child';
   v_age := app.pathshala_age_on((select date_of_birth from app.people where id = e.student_person_id), app.pathshala_age_cutoff(t.id));
@@ -629,9 +650,16 @@ begin
   select * into s from app.pathshala_level_seats(t.id, l.id);
   if s.classes > 0 and (s.free is null or s.free > 0) then
     if t.payment_mode = 'pay_now' then
+      if f.id is null and t.fees_locked_at is not null then
+        perform app._pathshala_ensure_quote(e.id, l.id);
+        select * into f from app.pathshala_enrollment_fees where enrollment_id = e.id;
+      end if;
+      if f.id is null then return 'office'; end if;   -- no fee line to hold the seat on: the office decides
+      update app.pathshala_enrollment_fees
+         set hold_reason = case when f.assistance_requested and f.assistance_approved_at is null then 'assistance' else 'payment' end
+       where id = f.id;
       update app.pathshala_enrollments
-         set hold_reason = case when coalesce(f.assistance_requested, false) and f.assistance_approved_at is null then 'assistance' else 'payment' end,
-             hold_expires_at = case when coalesce(f.assistance_requested, false) and f.assistance_approved_at is null then null
+         set hold_expires_at = case when f.assistance_requested and f.assistance_approved_at is null then null
                                     else now() + make_interval(hours => t.hold_hours) end
        where id = e.id;
       perform app._pathshala_bill(e.id, true);
@@ -674,9 +702,10 @@ begin
     exit when e.id is null;
     if t.payment_mode = 'pay_now' then
       update app.pathshala_enrollments
-         set status = 'requested', class_id = null, requested_level_id = p_level, hold_reason = 'payment', offered_at = now(),
+         set status = 'requested', class_id = null, requested_level_id = p_level, offered_at = now(),
              hold_expires_at = now() + make_interval(hours => t.hold_hours), hold_reminded_at = null
        where id = e.id;
+      update app.pathshala_enrollment_fees set hold_reason = 'payment' where enrollment_id = e.id;
       perform app._pathshala_bill(e.id, true);
       perform app._pathshala_notify_learner(e.id, 'pathshala_payment_due');
     else
@@ -698,7 +727,7 @@ language plpgsql security definer set search_path = app, public, extensions as $
 declare e app.pathshala_enrollments; f app.pathshala_enrollment_fees; p app.pledges; v_released bigint; v_credit bigint := 0;
 begin
   select * into e from app.pathshala_enrollments where id = p_enrollment for update;
-  if e.id is null or e.status <> 'requested' or coalesce(e.hold_reason, '') not in ('payment', 'office_payment', 'assistance') then
+  if e.id is null or e.status <> 'requested' or coalesce(app._pathshala_hold(e.id), '') not in ('payment', 'office_payment', 'assistance') then
     return jsonb_build_object('credit_cents', 0, 'released', false);
   end if;
   if p_notify then perform app._pathshala_notify_learner(e.id, 'pathshala_hold_released'); end if;
@@ -713,11 +742,13 @@ begin
       v_credit := v_credit + v_released;
     end if;
   end loop;
-  update app.pathshala_enrollment_fees set status = 'cancelled', billing_note = left(p_reason, 500) where enrollment_id = e.id and status <> 'cancelled';
+  -- The enrollment first (its trigger sees the seat was held and serves the waitlist), then the fee line.
   update app.pathshala_enrollments
-     set status = 'withdrawn', withdrawn_at = now(), withdrawn_by = auth.uid(), withdrawal_reason = left(p_reason, 500),
-         hold_reason = null, hold_expires_at = null, hold_reminded_at = null
+     set status = 'withdrawn', withdrawn_at = now(), withdrawn_by = auth.uid(), hold_expires_at = null, hold_reminded_at = null
    where id = e.id;
+  update app.pathshala_enrollment_fees
+     set status = 'cancelled', billing_note = left(p_reason, 500), withdrawal_reason = left(p_reason, 500), hold_reason = null
+   where enrollment_id = e.id;
   return jsonb_build_object('credit_cents', v_credit, 'released', true);
 end $$;
 
@@ -726,23 +757,24 @@ end $$;
 -- them waits for the treasurer. An assistance hold waits for the decision.
 create or replace function app.pathshala_hold_live(p_enrollment uuid) returns boolean
 language plpgsql stable security definer set search_path = app, public, extensions as $$
-declare e app.pathshala_enrollments; v_pledges uuid[];
+declare e app.pathshala_enrollments; v_pledges uuid[]; v_hold text;
 begin
   select * into e from app.pathshala_enrollments where id = p_enrollment;
   if e.id is null or e.status <> 'requested' then return false; end if;
-  if e.hold_reason = 'assistance' then return true; end if;
-  if coalesce(e.hold_reason, '') not in ('payment', 'office_payment') then return false; end if;
+  v_hold := app._pathshala_hold(e.id);
+  if v_hold = 'assistance' then return true; end if;
+  if coalesce(v_hold, '') not in ('payment', 'office_payment') then return false; end if;
   if e.hold_expires_at is null or e.hold_expires_at > now() then return true; end if;
   select coalesce(array_agg(f.pledge_id) filter (where f.pledge_id is not null), '{}') into v_pledges
     from app.pathshala_enrollments o join app.pathshala_enrollment_fees f on f.enrollment_id = o.id
    where (o.id = e.id or (e.registration_id is not null and o.registration_id = e.registration_id))
-     and o.status = 'requested' and o.hold_reason in ('payment', 'office_payment');
+     and o.status = 'requested' and f.hold_reason in ('payment', 'office_payment');
   if cardinality(v_pledges) = 0 then return false; end if;
   if exists (select 1 from app.payment_checkouts k where k.center_id = e.center_id and k.context = 'pathshala'
                and k.status in ('created', 'pending') and k.created_at > now() - interval '24 hours' and k.pledge_ids && v_pledges) then
     return true;
   end if;
-  if e.hold_reason = 'office_payment' and exists (select 1 from app.payment_reports r where r.household_id = e.household_id
+  if v_hold = 'office_payment' and exists (select 1 from app.payment_reports r where r.household_id = e.household_id
                and r.status = 'reported' and r.pledge_ids && v_pledges) then
     return true;
   end if;
@@ -752,20 +784,21 @@ end $$;
 -- Where a registration stands, in one sentence (messages and the summary).
 create or replace function app._pathshala_state_sentence(p_enrollment uuid) returns text
 language plpgsql stable security definer set search_path = app, public, extensions as $$
-declare e app.pathshala_enrollments; v jsonb;
+declare e app.pathshala_enrollments; v jsonb; v_hold text;
 begin
   select * into e from app.pathshala_enrollments where id = p_enrollment;
   if e.id is null then return null; end if;
   v := app._pathshala_vars(e.id);
+  v_hold := app._pathshala_hold(e.id);
   return case
     when e.status in ('placed', 'active') then 'registered for ' || (v ->> 'level')
                                                || case when (v ->> 'schedule') <> '' then ' (' || (v ->> 'schedule') || ')' else '' end
     when e.status = 'waitlisted' then 'on the waitlist for ' || (v ->> 'level') || ' (number ' || (v ->> 'position') || '), no charge unless a seat opens'
-    when e.hold_reason in ('payment', 'office_payment') then 'seat in ' || (v ->> 'level') || ' held until ' || (v ->> 'hold_until')
+    when v_hold in ('payment', 'office_payment') then 'seat in ' || (v ->> 'level') || ' held until ' || (v ->> 'hold_until')
                                                              || ' for the fee of ' || (v ->> 'amount')
-    when e.hold_reason = 'assistance' then 'seat in ' || (v ->> 'level') || ' held while the fee assistance request is decided'
-    when e.hold_reason = 'membership' then 'waiting for the family''s membership, nothing charged yet'
-    when e.hold_reason = 'waiver' then 'waiting for ' || (v ->> 'learner') || ' to agree to the waiver in their own app'
+    when v_hold = 'assistance' then 'seat in ' || (v ->> 'level') || ' held while the fee assistance request is decided'
+    when v_hold = 'membership' then 'waiting for the family''s membership, nothing charged yet'
+    when v_hold = 'waiver' then 'waiting for ' || (v ->> 'learner') || ' to agree to the waiver in their own app'
     when e.status = 'requested' then 'the office will confirm the level and the class, charged then'
     when e.status = 'withdrawn' then 'withdrawn'
     else e.status end;
@@ -805,7 +838,7 @@ begin
   if v_own then
     update app.pathshala_enrollment_fees set status = 'paid', paid_at = now() where id = f.id;
   end if;
-  if v_own and e.status = 'requested' and e.hold_reason in ('payment', 'office_payment') then
+  if v_own and e.status = 'requested' and f.hold_reason in ('payment', 'office_payment') then
     perform app.set_audit_default_reason('Pathshala fee paid: ' || coalesce(app.pathshala_first_name(e.student_person_id), 'the learner')
                                          || '''s held seat is confirmed');
     perform app._pathshala_lock_level(e.term_id, e.requested_level_id);
@@ -822,12 +855,12 @@ begin
     if e.registration_id is not null then
       select count(*) into v_left
         from app.pathshala_enrollments o2 join app.pathshala_enrollment_fees f2 on f2.enrollment_id = o2.id
-       where o2.registration_id = e.registration_id and o2.status = 'requested' and o2.hold_reason in ('payment', 'office_payment')
+       where o2.registration_id = e.registration_id and o2.status = 'requested' and f2.hold_reason in ('payment', 'office_payment')
          and f2.status = 'billed';
       if v_left = 0 then
         for o in select o2.id, o2.term_id, o2.requested_level_id
                    from app.pathshala_enrollments o2 join app.pathshala_enrollment_fees f2 on f2.enrollment_id = o2.id
-                  where o2.registration_id = e.registration_id and o2.status = 'requested' and o2.hold_reason in ('payment', 'office_payment')
+                  where o2.registration_id = e.registration_id and o2.status = 'requested' and f2.hold_reason in ('payment', 'office_payment')
                     and f2.status = 'no_fee'
                   order by o2.registered_at, o2.id loop
           perform app._pathshala_lock_level(o.term_id, o.requested_level_id);
@@ -925,10 +958,12 @@ create trigger pathshala_classes_seats after insert or update of capacity, level
 
 create or replace function app.pathshala_enrollments_seat_freed() returns trigger
 language plpgsql security definer set search_path = app, public, extensions as $$
-declare v_old_level uuid; v_new_level uuid; v_was boolean; v_is boolean;
+declare v_old_level uuid; v_new_level uuid; v_was boolean; v_is boolean; v_hold boolean;
 begin
-  v_was := old.status in ('placed', 'active') or (old.status = 'requested' and coalesce(old.hold_reason, '') in ('payment', 'office_payment', 'assistance'));
-  v_is := new.status in ('placed', 'active') or (new.status = 'requested' and coalesce(new.hold_reason, '') in ('payment', 'office_payment', 'assistance'));
+  -- The fee line's hold is still set while the enrollment's status changes (the functions change the enrollment first).
+  v_hold := coalesce(app._pathshala_hold(new.id), '') in ('payment', 'office_payment', 'assistance');
+  v_was := old.status in ('placed', 'active') or (old.status = 'requested' and v_hold);
+  v_is := new.status in ('placed', 'active') or (new.status = 'requested' and v_hold);
   if not v_was then return null; end if;
   v_old_level := coalesce((select c.level_id from app.pathshala_classes c where c.id = old.class_id), old.requested_level_id);
   v_new_level := coalesce((select c.level_id from app.pathshala_classes c where c.id = new.class_id), new.requested_level_id);
@@ -938,7 +973,7 @@ begin
   return null;
 end $$;
 drop trigger if exists pathshala_enrollments_seat_freed on app.pathshala_enrollments;
-create trigger pathshala_enrollments_seat_freed after update of status, hold_reason, class_id on app.pathshala_enrollments
+create trigger pathshala_enrollments_seat_freed after update of status, class_id on app.pathshala_enrollments
   for each row execute function app.pathshala_enrollments_seat_freed();
 
 -- ═════════════════════════════════════════════════════════════════════════════
@@ -1116,10 +1151,10 @@ begin
     end if;
     if v_reuse is null then
       insert into app.pathshala_enrollments (center_id, term_id, student_person_id, household_id, track_id, requested_level_id, class_id, status,
-                                             registration_id, registered_by, registered_at, placed_at, notes, hold_reason, hold_expires_at,
+                                             registration_id, registered_by, registered_at, placed_at, notes, hold_expires_at,
                                              waitlisted_at, suggested_level_id, suggestion_reason, channel)
       values (t.center_id, t.id, v_person, h.id, v_track, v_level, v_class, v_status, v_reg, auth.uid(), now(),
-              case when v_status = 'placed' then now() end, nullif(btrim(x ->> 'note'), ''), v_hold, v_expires,
+              case when v_status = 'placed' then now() end, nullif(btrim(x ->> 'note'), ''), v_expires,
               case when v_status = 'waitlisted' then now() end, (v_sugg ->> 'level_id')::uuid, v_sugg ->> 'reason',
               case when v_channel = 'office' then 'office' else 'app' end)
       returning id into v_enr;
@@ -1128,11 +1163,11 @@ begin
          set household_id = h.id, track_id = v_track, requested_level_id = v_level, class_id = v_class, status = v_status,
              registration_id = v_reg, registered_by = auth.uid(), registered_at = now(),
              placed_at = case when v_status = 'placed' then now() end, notes = coalesce(nullif(btrim(x ->> 'note'), ''), notes),
-             hold_reason = v_hold, hold_expires_at = v_expires, hold_reminded_at = null, offered_at = null,
+             hold_expires_at = v_expires, hold_reminded_at = null, offered_at = null,
              waitlisted_at = case when v_status = 'waitlisted' then now() end, fee_pledge_id = null,
              suggested_level_id = (v_sugg ->> 'level_id')::uuid, suggestion_reason = v_sugg ->> 'reason',
              channel = case when v_channel = 'office' then 'office' else 'app' end,
-             withdrawn_at = null, withdrawn_by = null, withdrawal_reason = null
+             withdrawn_at = null, withdrawn_by = null
        where id = v_reuse;
       v_enr := v_reuse;
     end if;
@@ -1140,11 +1175,11 @@ begin
     -- The locked line. A re-registration replaces an earlier, cancelled or waiting line; the earlier one is kept in requotes.
     insert into app.pathshala_enrollment_fees (center_id, enrollment_id, registration_id, term_id, household_id, level_id, learner_kind,
                                                family_rank, base_fee_cents, sibling_discount_cents, cap_reduction_cents, late_fee_cents,
-                                               assistance_cents, total_cents, priced, rule_snapshot, quoted_at, status, assistance_requested)
+                                               assistance_cents, total_cents, priced, rule_snapshot, quoted_at, status, assistance_requested, hold_reason)
     values (t.center_id, v_enr, v_reg, t.id, h.id, v_level, x ->> 'learner_kind', nullif(x ->> 'family_rank', '')::int,
             (x ->> 'base_fee_cents')::bigint, (x ->> 'sibling_discount_cents')::bigint, (x ->> 'cap_reduction_cents')::bigint,
             (x ->> 'late_fee_cents')::bigint, (x ->> 'assistance_cents')::bigint, (x ->> 'total_cents')::bigint,
-            coalesce((x ->> 'priced')::boolean, true), v_plan -> 'rule_snapshot', now(), 'quoted', v_assist)
+            coalesce((x ->> 'priced')::boolean, true), v_plan -> 'rule_snapshot', now(), 'quoted', v_assist, v_hold)
     on conflict (enrollment_id) do update
        set registration_id = excluded.registration_id, household_id = excluded.household_id, level_id = excluded.level_id,
            learner_kind = excluded.learner_kind, family_rank = excluded.family_rank, base_fee_cents = excluded.base_fee_cents,
@@ -1152,6 +1187,7 @@ begin
            late_fee_cents = excluded.late_fee_cents, assistance_cents = excluded.assistance_cents, total_cents = excluded.total_cents,
            priced = excluded.priced, rule_snapshot = excluded.rule_snapshot, quoted_at = excluded.quoted_at, status = 'quoted',
            pledge_id = null, billed_at = null, paid_at = null, billing_note = null, assistance_requested = excluded.assistance_requested,
+           hold_reason = excluded.hold_reason, withdrawal_reason = null,
            requotes = app.pathshala_enrollment_fees.requotes || jsonb_build_array(jsonb_build_object(
              'at', now(), 'by', auth.uid(), 'why', 'registered again', 'from_status', app.pathshala_enrollment_fees.status,
              'from_total_cents', app.pathshala_enrollment_fees.total_cents, 'from_pledge_id', app.pathshala_enrollment_fees.pledge_id));
@@ -1185,12 +1221,12 @@ begin
   end loop;
 
   if v_pay_now then
-    select min(e.hold_expires_at) into v_hold_until from app.pathshala_enrollments e
-     where e.registration_id = v_reg and e.status = 'requested' and e.hold_reason in ('payment', 'office_payment');
+    select min(e.hold_expires_at) into v_hold_until from app.pathshala_enrollments e join app.pathshala_enrollment_fees f on f.enrollment_id = e.id
+     where e.registration_id = v_reg and e.status = 'requested' and f.hold_reason in ('payment', 'office_payment');
     -- Nothing to pay at all: the family's $0 seats are confirmed at once.
     if cardinality(v_pay_ids) = 0 then
       for v_enr in select e.id from app.pathshala_enrollments e join app.pathshala_enrollment_fees f on f.enrollment_id = e.id
-                    where e.registration_id = v_reg and e.status = 'requested' and e.hold_reason in ('payment', 'office_payment')
+                    where e.registration_id = v_reg and e.status = 'requested' and f.hold_reason in ('payment', 'office_payment')
                       and f.status = 'no_fee' loop
         perform app._pathshala_place(v_enr, app._pathshala_class_for(t.id, (select requested_level_id from app.pathshala_enrollments where id = v_enr)));
       end loop;
@@ -1259,20 +1295,23 @@ begin
     raise exception '% takes the fee online only. Ask the Pathshala office if you cannot pay online.', t.name using errcode = '22023';
   end if;
   select coalesce(nullif(c.time_zone, ''), 'America/Chicago') into v_tz from app.centers c where c.id = r.center_id;
-  if not exists (select 1 from app.pathshala_enrollments e where e.registration_id = r.id and e.status = 'requested' and e.hold_reason in ('payment', 'office_payment')) then
+  if not exists (select 1 from app.pathshala_enrollments e join app.pathshala_enrollment_fees f on f.enrollment_id = e.id
+                  where e.registration_id = r.id and e.status = 'requested' and f.hold_reason in ('payment', 'office_payment')) then
     raise exception 'Nothing of this registration is waiting for payment.' using errcode = '22023';
   end if;
   perform app.set_audit_context('The family chose to pay the Pathshala fee at the office (' || t.office_hold_days || ' days)');
-  update app.pathshala_enrollments
-     set hold_reason = 'office_payment', hold_expires_at = greatest(hold_expires_at, now() + make_interval(days => t.office_hold_days)),
-         hold_reminded_at = null
-   where registration_id = r.id and status = 'requested' and hold_reason = 'payment';
+  update app.pathshala_enrollments e
+     set hold_expires_at = greatest(e.hold_expires_at, now() + make_interval(days => t.office_hold_days)), hold_reminded_at = null
+   where e.registration_id = r.id and e.status = 'requested' and app._pathshala_hold(e.id) = 'payment';
+  update app.pathshala_enrollment_fees f set hold_reason = 'office_payment'
+   where f.registration_id = r.id and f.hold_reason = 'payment'
+     and exists (select 1 from app.pathshala_enrollments e where e.id = f.enrollment_id and e.status = 'requested');
   update app.pathshala_registrations set office_payment_chosen_at = now(), office_payment_chosen_by = auth.uid() where id = r.id;
-  select max(e.hold_expires_at) into v_until from app.pathshala_enrollments e
-   where e.registration_id = r.id and e.status = 'requested' and e.hold_reason = 'office_payment';
+  select max(e.hold_expires_at) into v_until from app.pathshala_enrollments e join app.pathshala_enrollment_fees f on f.enrollment_id = e.id
+   where e.registration_id = r.id and e.status = 'requested' and f.hold_reason = 'office_payment';
   select coalesce(sum(pl.amount_cents - pl.paid_cents), 0), coalesce(array_agg(pl.id order by pl.pledged_at), '{}') into v_amount, v_ids
     from app.pathshala_enrollments e join app.pathshala_enrollment_fees f on f.enrollment_id = e.id join app.pledges pl on pl.id = f.pledge_id
-   where e.registration_id = r.id and e.status = 'requested' and e.hold_reason = 'office_payment' and pl.status in ('open', 'partially_paid');
+   where e.registration_id = r.id and e.status = 'requested' and f.hold_reason = 'office_payment' and pl.status in ('open', 'partially_paid');
   return jsonb_build_object('registration_id', r.id, 'hold_until', app.pathshala_iso(v_until, v_tz), 'amount_cents', v_amount,
                             'pledge_ids', to_jsonb(v_ids), 'office_hold_days', t.office_hold_days);
 end $$;
@@ -1315,7 +1354,7 @@ create or replace function app.place_pathshala_enrollment(p_enrollment uuid, p_c
                                                           p_reason text default null) returns jsonb
 language plpgsql security definer set search_path = app, public, extensions as $$
 declare e app.pathshala_enrollments; t app.pathshala_terms; c app.pathshala_classes; cur app.pathshala_classes; v_name text; s record;
-        v_free int; v_outcome text; v_level uuid;
+        v_free int; v_outcome text; v_level uuid; v_hold text;
 begin
   if auth.uid() is null then raise exception 'Sign in first.' using errcode = '42501'; end if;
   select * into e from app.pathshala_enrollments where id = p_enrollment for update;
@@ -1324,20 +1363,21 @@ begin
   if not app.has_permission(e.center_id, 'pathshala.manage') then
     raise exception 'Placing learners needs pathshala.manage (the Pathshala principal).' using errcode = '42501';
   end if;
+  v_hold := app._pathshala_hold(e.id);
   select * into t from app.pathshala_terms where id = e.term_id;
   v_name := coalesce(app.pathshala_first_name(e.student_person_id), 'This learner');
   if e.status in ('withdrawn', 'completed') then
     raise exception '% is %, so they cannot be placed. Register them again instead.', v_name, e.status using errcode = '22023';
   end if;
-  if e.hold_reason in ('payment', 'office_payment', 'assistance') then
+  if v_hold in ('payment', 'office_payment', 'assistance') then
     raise exception '%''s seat is held for payment until %; they are placed when the fee is paid.', v_name,
       coalesce(app.pathshala_when(e.hold_expires_at, e.center_id), 'the decision') using errcode = '22023';
   end if;
-  if e.hold_reason = 'membership' then
+  if v_hold = 'membership' then
     raise exception '% waits for the family''s membership. Release the membership hold first (for example when the membership is renewed at the desk).', v_name
       using errcode = '22023';
   end if;
-  if e.hold_reason = 'waiver' then
+  if v_hold = 'waiver' then
     raise exception '% has not agreed to the Pathshala waiver yet. Release the waiver hold once they have agreed on paper.', v_name using errcode = '22023';
   end if;
   if p_class is not null then
@@ -1383,9 +1423,10 @@ begin
   if t.fees_locked_at is not null then perform app._pathshala_ensure_quote(e.id, c.level_id); end if;
   if t.payment_mode = 'pay_now' and t.fees_locked_at is not null then
     update app.pathshala_enrollments
-       set status = 'requested', class_id = null, requested_level_id = c.level_id, hold_reason = 'payment', offered_at = now(),
+       set status = 'requested', class_id = null, requested_level_id = c.level_id, offered_at = now(),
            hold_expires_at = now() + make_interval(hours => t.hold_hours), hold_reminded_at = null
      where id = e.id;
+    update app.pathshala_enrollment_fees set hold_reason = 'payment' where enrollment_id = e.id;
     perform app._pathshala_bill(e.id, true);
     perform app._pathshala_notify_learner(e.id, 'pathshala_payment_due');
     v_outcome := 'offered';
@@ -1436,7 +1477,7 @@ end $$;
 -- reason: the learner is treated as registering now.
 create or replace function app.release_pathshala_hold(p_enrollment uuid, p_reason text) returns jsonb
 language plpgsql security definer set search_path = app, public, extensions as $$
-declare e app.pathshala_enrollments; v_name text; v_outcome text;
+declare e app.pathshala_enrollments; v_name text; v_outcome text; v_hold text;
 begin
   if auth.uid() is null then raise exception 'Sign in first.' using errcode = '42501'; end if;
   select * into e from app.pathshala_enrollments where id = p_enrollment for update;
@@ -1446,8 +1487,9 @@ begin
     raise exception 'Releasing a hold needs pathshala.manage (the Pathshala principal).' using errcode = '42501';
   end if;
   v_name := coalesce(app.pathshala_first_name(e.student_person_id), 'This learner');
-  if e.hold_reason is null then raise exception '% is not held.', v_name using errcode = '22023'; end if;
-  if e.hold_reason in ('payment', 'office_payment', 'assistance') then
+  v_hold := app._pathshala_hold(e.id);
+  if v_hold is null then raise exception '% is not held.', v_name using errcode = '22023'; end if;
+  if v_hold in ('payment', 'office_payment', 'assistance') then
     raise exception '%''s seat is held for payment. To give more time, extend the hold; to end it, withdraw the registration.', v_name
       using errcode = '22023';
   end if;
@@ -1455,13 +1497,13 @@ begin
     raise exception 'Say why the hold is released; the reason is kept in the audit log.' using errcode = '22023';
   end if;
   perform app.set_audit_context(p_reason);
-  if e.hold_reason = 'waiver' then
+  if v_hold = 'waiver' then
     perform app.set_audit_context(p_reason || ' (the waiver was agreed on paper)');
   end if;
   v_outcome := app._pathshala_lift(e.id, 'pathshala_hold_lifted');
   return jsonb_build_object('enrollment_id', e.id, 'outcome', v_outcome,
                             'status', (select status from app.pathshala_enrollments where id = e.id),
-                            'hold_reason', (select hold_reason from app.pathshala_enrollments where id = e.id));
+                            'hold_reason', app._pathshala_hold(e.id));
 end $$;
 
 -- Give a seat held for payment more time, at most to the office window (office_hold_days from when it was given).
@@ -1477,7 +1519,7 @@ begin
     raise exception 'Extending a hold needs pathshala.manage (the Pathshala principal).' using errcode = '42501';
   end if;
   v_name := coalesce(app.pathshala_first_name(e.student_person_id), 'This learner');
-  if coalesce(e.hold_reason, '') not in ('payment', 'office_payment') then
+  if coalesce(app._pathshala_hold(e.id), '') not in ('payment', 'office_payment') then
     raise exception '%''s seat is not held for payment.', v_name using errcode = '22023';
   end if;
   if app.audit_clean_reason(p_reason) is null then
@@ -1507,7 +1549,7 @@ declare r record;
 begin
   if new.status <> 'active' or new.tier not in ('yearly', 'life') or (new.ends_on is not null and new.ends_on < current_date) then return null; end if;
   for r in select e.id from app.pathshala_enrollments e join app.pathshala_terms t on t.id = e.term_id
-            where e.household_id = new.household_id and e.status = 'requested' and e.hold_reason = 'membership'
+            where e.household_id = new.household_id and e.status = 'requested' and app._pathshala_hold(e.id) = 'membership'
               and t.fees_locked_at is not null and t.status in ('registration', 'active')
             order by e.registered_at, e.id loop
     begin
@@ -1589,7 +1631,7 @@ begin
     update app.pathshala_enrollments set waiver_consent_id = v_consent where id = v_enr;
   end if;
   if app.pathshala_membership_hold_applies(t.id, pr.household_id) then
-    update app.pathshala_enrollments set hold_reason = 'membership' where id = v_enr;
+    update app.pathshala_enrollment_fees set hold_reason = 'membership' where enrollment_id = v_enr;
     v_outcome := 'membership_hold';
   else
     v_outcome := app._pathshala_seat_or_wait(v_enr, pr.registered_at);
@@ -1672,7 +1714,7 @@ begin
   v_cut := app.pathshala_age_cutoff(t.id);
   select coalesce(nullif(c.time_zone, ''), 'America/Chicago') into v_tz from app.centers c where c.id = t.center_id;
   select coalesce(jsonb_agg(jsonb_build_object(
-           'enrollment_id', e.id, 'registration_id', e.registration_id, 'status', e.status, 'hold_reason', e.hold_reason,
+           'enrollment_id', e.id, 'registration_id', e.registration_id, 'status', e.status, 'hold_reason', f.hold_reason,
            'hold_expires_at', app.pathshala_iso(e.hold_expires_at, v_tz), 'hold_live', app.pathshala_hold_live(e.id),
            'offered_at', app.pathshala_iso(e.offered_at, v_tz),
            'waitlist_position', case when e.status = 'waitlisted' then app.pathshala_waitlist_position(e.id) end,
@@ -1708,11 +1750,11 @@ begin
     left join app.pledges pl on pl.id = f.pledge_id
    where e.term_id = t.id
      and case p_view
-           when 'to_place' then e.status = 'requested' and e.hold_reason is null
-           when 'held' then e.status = 'requested' and e.hold_reason in ('payment', 'office_payment', 'assistance')
+           when 'to_place' then e.status = 'requested' and f.hold_reason is null
+           when 'held' then e.status = 'requested' and f.hold_reason in ('payment', 'office_payment', 'assistance')
            when 'waitlisted' then e.status = 'waitlisted'
-           when 'membership' then e.hold_reason = 'membership'
-           when 'waiver' then e.hold_reason = 'waiver'
+           when 'membership' then f.hold_reason = 'membership'
+           when 'waiver' then f.hold_reason = 'waiver'
            when 'placed' then e.status = 'placed'
            when 'active' then e.status = 'active'
            when 'withdrawn' then e.status = 'withdrawn'
@@ -1749,7 +1791,8 @@ begin
              or app.has_permission(p_center, 'giving.manage');
   return (
     with open_terms as (select t.id from app.pathshala_terms t where t.center_id = p_center and t.status in ('registration', 'active')),
-         en as (select e.* from app.pathshala_enrollments e where e.term_id in (select id from open_terms))
+         en as (select e.*, f.hold_reason from app.pathshala_enrollments e left join app.pathshala_enrollment_fees f on f.enrollment_id = e.id
+                 where e.term_id in (select id from open_terms))
     select jsonb_build_object(
       'to_place', (select count(*) from en where en.status = 'requested' and en.hold_reason is null),
       'held_for_payment', (select count(*) from en where en.status = 'requested' and en.hold_reason in ('payment', 'office_payment', 'assistance')),
@@ -1783,7 +1826,7 @@ begin
   -- First, any held seat whose fee pledge is already paid (the hook could not place it at once) is placed, never released.
   perform app.set_audit_context('Pathshala: the fee was paid, so the held seat is confirmed');
   for r in select e.id from app.pathshala_enrollments e
-            where e.status = 'requested' and e.hold_reason in ('payment', 'office_payment')
+            where e.status = 'requested' and app._pathshala_hold(e.id) in ('payment', 'office_payment')
               and exists (select 1 from app.pathshala_enrollment_fees f join app.pledges p on p.id = f.pledge_id
                            where f.enrollment_id = e.id and p.status = 'paid')
             limit 500 loop
@@ -1794,7 +1837,7 @@ begin
   -- Reminders, 6 hours before a hold ends.
   perform app.set_audit_context('Pathshala: a seat held for payment ends within 6 hours (reminder)');
   for r in select e.id from app.pathshala_enrollments e join app.pathshala_terms t on t.id = e.term_id
-            where e.status = 'requested' and e.hold_reason in ('payment', 'office_payment') and e.hold_reminded_at is null
+            where e.status = 'requested' and app._pathshala_hold(e.id) in ('payment', 'office_payment') and e.hold_reminded_at is null
               and e.hold_expires_at > now() and e.hold_expires_at <= now() + interval '6 hours'
               and app.module_enabled(e.center_id, 'pathshala')
             order by e.hold_expires_at limit 500 for update of e skip locked loop
@@ -1804,7 +1847,7 @@ begin
   end loop;
   -- Releases: a hold that is no longer live.
   for r in select e.id, e.term_id, e.requested_level_id, e.hold_expires_at, e.center_id from app.pathshala_enrollments e
-            where e.status = 'requested' and e.hold_reason in ('payment', 'office_payment') and e.hold_expires_at <= now()
+            where e.status = 'requested' and app._pathshala_hold(e.id) in ('payment', 'office_payment') and e.hold_expires_at <= now()
               and app.module_enabled(e.center_id, 'pathshala')
             order by e.hold_expires_at limit 500 for update of e skip locked loop
     if app.pathshala_hold_live(r.id) then v_kept := v_kept + 1; continue; end if;
@@ -1955,7 +1998,7 @@ revoke execute on function
   app.pathshala_enrollments_seat_freed(), app._pathshala_outcome_words(text), app._pathshala_changed_outcome(jsonb, text),
   app._pathshala_ensure_quote(uuid, uuid), app._pathshala_class_free(uuid), app.pathshala_membership_trigger(),
   app._pathshala_added_person(uuid), app._pathshala_convert_pending(uuid, uuid), app.pathshala_change_request_trigger(),
-  app._pathshala_household_card(uuid)
+  app._pathshala_household_card(uuid), app._pathshala_hold(uuid)
   from public, anon, authenticated;
 grant execute on function
   app.pathshala_today(uuid), app.pathshala_when(timestamptz, uuid), app.pathshala_class_schedule(uuid), app.pathshala_waitlist_position(uuid),

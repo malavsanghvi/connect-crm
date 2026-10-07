@@ -123,7 +123,7 @@ select app.register_pathshala_children(:t1, :h1, jsonb_build_array(jsonb_build_o
                                        13000, null, null, 'k77-dev-1') as r1 \gset
 commit;
 select (:'r1'::jsonb -> 'lines' -> 0 ->> 'enrollment_id') as e_dev, (:'r1'::jsonb -> 'lines' -> 0 -> 'pledge' ->> 'id') as pl_dev \gset
-select pg_temp.assert((select status = 'requested' and hold_reason = 'payment' from app.pathshala_enrollments where id = :'e_dev')
+select pg_temp.assert((select status = 'requested' and app._pathshala_hold(id) = 'payment' from app.pathshala_enrollments where id = :'e_dev')
                       and (select status = 'open' and amount_cents = 13000 from app.pledges where id = :'pl_dev'::uuid),
   'pay now: Dev is held for payment with a $130.00 pledge due today');
 -- The members' own insert is refused for a fee pledge, and for any record id other than an RSVP's.
@@ -152,7 +152,7 @@ select pg_temp.sign_in(:u_tara);
 select app.record_offline_payment(:h1, 50, 'cash', pg_temp.today(), array['77000000-0000-4000-8000-000000000901'::uuid], '7701');
 commit;
 select pg_temp.assert((select status = 'paid' from app.pledges where id = '77000000-0000-4000-8000-000000000901')
-                      and (select status = 'requested' and hold_reason = 'payment' and class_id is null from app.pathshala_enrollments where id = :'e_dev')
+                      and (select status = 'requested' and app._pathshala_hold(id) = 'payment' and class_id is null from app.pathshala_enrollments where id = :'e_dev')
                       and (select status = 'billed' from app.pathshala_enrollment_fees where enrollment_id = :'e_dev')
                       and (select status = 'open' from app.pledges where id = :'pl_dev'::uuid),
   'a self-made 50-cent pledge naming the enrollment, paid, places nobody: Dev stays held and the $130.00 pledge stays open');

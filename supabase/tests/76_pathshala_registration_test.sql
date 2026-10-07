@@ -227,7 +227,7 @@ select pg_temp.assert((select array_agg(e.status || '/' || c.name order by e.reg
                          from app.pathshala_enrollments e join app.pathshala_classes c on c.id = e.class_id join app.people p on p.id = e.student_person_id
                         where e.registration_id = (:'reg1'::jsonb ->> 'registration_id')::uuid)
                         @> array['placed/Jainism 5 · Room C', 'placed/Jainism 2 · Room B', 'placed/Toddler · Room T', 'placed/Adult class (Moms)']
-                      and (select bool_and(e.track_id = :tr_j and e.channel = 'app' and e.placed_at is not null and e.hold_reason is null)
+                      and (select bool_and(e.track_id = :tr_j and e.channel = 'app' and e.placed_at is not null and app._pathshala_hold(e.id) is null)
                              from app.pathshala_enrollments e where e.registration_id = (:'reg1'::jsonb ->> 'registration_id')::uuid)
                       and (select notes from app.pathshala_enrollments where term_id = :t1 and student_person_id = :p_dev) = 'Please seat him near the front',
   'pledge mode: each learner is placed in the class of their level (track recorded, the family''s note kept)');
@@ -324,7 +324,7 @@ select app.register_pathshala_children(:t1, :h1, jsonb_build_array(jsonb_build_o
                                        0, '["office"]') as reg_devg \gset
 commit;
 select pg_temp.assert((:'reg_devg'::jsonb -> 'lines' -> 0 ->> 'outcome') = 'office'
-                      and (select e.status = 'requested' and e.hold_reason is null and f.status = 'quoted' and not f.priced and f.family_rank = 2 and f.pledge_id is null
+                      and (select e.status = 'requested' and f.hold_reason is null and f.status = 'quoted' and not f.priced and f.family_rank = 2 and f.pledge_id is null
                              from app.pathshala_enrollments e join app.pathshala_enrollment_fees f on f.enrollment_id = e.id
                             where e.id = (:'reg_devg'::jsonb -> 'lines' -> 0 ->> 'enrollment_id')::uuid),
   'not sure: Dev''s Gujarati waits for the office (rank 2 kept, not priced, nothing billed)');
@@ -358,13 +358,13 @@ select pg_temp.sign_in(:u_priya);
 select app.register_pathshala_children(:t1, :h3, jsonb_build_array(jsonb_build_object('person_id', :p_om, 'track_id', :tr_g, 'level_id', :lv_g1))) as reg_om \gset
 commit;
 select pg_temp.assert((:'reg_om'::jsonb -> 'lines' -> 0 ->> 'outcome') = 'membership_hold'
-                      and (select e.status = 'requested' and e.hold_reason = 'membership' and f.status = 'quoted' and f.pledge_id is null
+                      and (select e.status = 'requested' and f.hold_reason = 'membership' and f.status = 'quoted' and f.pledge_id is null
                              from app.pathshala_enrollments e join app.pathshala_enrollment_fees f on f.enrollment_id = e.id
                             where e.id = (:'reg_om'::jsonb -> 'lines' -> 0 ->> 'enrollment_id')::uuid),
   'membership: a family that is not a member is held (no seat, no bill)');
 insert into app.memberships (center_id, household_id, person_id, membership_type_id, tier, status, starts_on)
 select :c, :h3, :p_priya, id, 'yearly', 'active', current_date from app.membership_types where center_id = :c and key = 'yearly';
-select pg_temp.assert((select e.status = 'placed' and e.hold_reason is null and e.class_id = :cl_g1 and f.status = 'billed' and f.total_cents = 13000
+select pg_temp.assert((select e.status = 'placed' and f.hold_reason is null and e.class_id = :cl_g1 and f.status = 'billed' and f.total_cents = 13000
                          from app.pathshala_enrollments e join app.pathshala_enrollment_fees f on f.enrollment_id = e.id
                         where e.id = (:'reg_om'::jsonb -> 'lines' -> 0 ->> 'enrollment_id')::uuid)
                       and exists (select 1 from app.messages where center_id = :c and template_key = 'pathshala_hold_lifted' and to_address = :u_priya::text),
@@ -429,7 +429,7 @@ select app.register_pathshala_children(:t1, :h1, jsonb_build_array(jsonb_build_o
                                        null, null, '76000000-0000-4000-8000-000000000801') as reg_rahul \gset
 commit;
 select pg_temp.assert((:'reg_rahul'::jsonb -> 'lines' -> 0 ->> 'outcome') = 'waiver_hold'
-                      and (select status = 'requested' and hold_reason = 'waiver' from app.pathshala_enrollments
+                      and (select status = 'requested' and app._pathshala_hold(id) = 'waiver' from app.pathshala_enrollments
                             where id = (:'reg_rahul'::jsonb -> 'lines' -> 0 ->> 'enrollment_id')::uuid)
                       and not exists (select 1 from app.consents where person_id = :p_rahul and kind = 'pathshala_waiver'),
   'waiver: Mira cannot agree for another adult: Rahul''s place waits for his own agreement (no seat, no consent recorded for him)');
@@ -439,7 +439,7 @@ select app.register_pathshala_children(:t1, :h1, jsonb_build_array(jsonb_build_o
                                        5000, '["seat"]', '76000000-0000-4000-8000-000000000801') as reg_rahul2 \gset
 commit;
 select pg_temp.assert((:'reg_rahul2'::jsonb -> 'lines' -> 0 ->> 'enrollment_id') = (:'reg_rahul'::jsonb -> 'lines' -> 0 ->> 'enrollment_id')
-                      and (select e.status = 'placed' and e.hold_reason is null and e.waiver_consent_id is not null and f.status = 'billed' and f.total_cents = 5000
+                      and (select e.status = 'placed' and f.hold_reason is null and e.waiver_consent_id is not null and f.status = 'billed' and f.total_cents = 5000
                              from app.pathshala_enrollments e join app.pathshala_enrollment_fees f on f.enrollment_id = e.id
                             where e.id = (:'reg_rahul'::jsonb -> 'lines' -> 0 ->> 'enrollment_id')::uuid)
                       and (select given_by_user = :u_rahul and granted and legal_document_id = '76000000-0000-4000-8000-000000000801'
@@ -537,7 +537,7 @@ select pg_temp.assert((select array_agg(x ->> 'outcome' order by o) from jsonb_a
                       and (:'reg_ved2'::jsonb -> 'pay' ->> 'office_payment_allowed')::boolean and (:'reg_ved2'::jsonb -> 'pay' ->> 'hold_until') is not null
                       and (:'reg_ved2'::jsonb -> 'lines' -> 0 -> 'pledge' ->> 'due_on') = pg_temp.today()::text,
   'pay now: both get a seat; the family pays $130.00 once (Ved; Mina''s level is Free), due today, "Pathshala fee Summer 2027 · Ved, Mina"');
-select pg_temp.assert((select bool_and(e.status = 'requested' and e.hold_reason = 'payment' and e.class_id is null
+select pg_temp.assert((select bool_and(e.status = 'requested' and app._pathshala_hold(e.id) = 'payment' and e.class_id is null
                                        and e.hold_expires_at between now() + interval '47 hours 59 minutes' and now() + interval '48 hours 1 minute')
                          from app.pathshala_enrollments e where e.registration_id = (:'reg_ved2'::jsonb ->> 'registration_id')::uuid)
                       and (select f.status from app.pathshala_enrollment_fees f join app.pathshala_enrollments e on e.id = f.enrollment_id
@@ -556,7 +556,7 @@ set local role connect_worker;
 select app.worker_record_online_payment((:'ck_ved'::jsonb ->> 'checkout_id')::uuid, 'pi_p76_ved', 13000, 407, 'card') as paid_ved \gset
 select app.worker_record_online_payment((:'ck_ved'::jsonb ->> 'checkout_id')::uuid, 'pi_p76_ved', 13000, 407, 'card') as paid_ved_again \gset
 commit;
-select pg_temp.assert((select bool_and(e.status = 'placed' and e.hold_reason is null and e.class_id is not null)
+select pg_temp.assert((select bool_and(e.status = 'placed' and app._pathshala_hold(e.id) is null and e.class_id is not null)
                          from app.pathshala_enrollments e where e.registration_id = (:'reg_ved2'::jsonb ->> 'registration_id')::uuid)
                       and (select f.status from app.pathshala_enrollment_fees f where f.enrollment_id = :'ved2'::uuid) = 'paid'
                       and (:'paid_ved_again'::jsonb ->> 'duplicate')::boolean
@@ -573,7 +573,7 @@ select app.register_pathshala_children(:t2, :h1, jsonb_build_array(jsonb_build_o
 commit;
 select pg_temp.assert((:'reg_anya2'::jsonb -> 'pay' ->> 'amount_cents')::int = 0 and (:'reg_anya2'::jsonb -> 'pay' -> 'hold_until') = 'null'::jsonb
                       and (:'reg_anya2'::jsonb -> 'lines' -> 0 -> 'pledge') = 'null'::jsonb
-                      and (select e.status = 'placed' and e.hold_reason is null and e.class_id = :cl2_tod and f.status = 'no_fee'
+                      and (select e.status = 'placed' and f.hold_reason is null and e.class_id = :cl2_tod and f.status = 'no_fee'
                              from app.pathshala_enrollments e join app.pathshala_enrollment_fees f on f.enrollment_id = e.id
                             where e.id = (:'reg_anya2'::jsonb -> 'lines' -> 0 ->> 'enrollment_id')::uuid),
   'pay now: a family with nothing to pay (a Free level) is placed at once, with no pledge');
@@ -644,7 +644,7 @@ select pg_temp.sign_in(:u_priya);
 select app.register_pathshala_children(:t2, :h3, jsonb_build_array(jsonb_build_object('person_id', :p_om, 'track_id', :tr_j, 'level_id', :lv_j2)),
                                        13000, '["waitlist"]', :waiver) as reg_om2 \gset
 commit;
-select pg_temp.assert((select hold_reason = 'office_payment' and hold_expires_at between now() + interval '6 days 23 hours' and now() + interval '7 days 1 hour'
+select pg_temp.assert((select app._pathshala_hold(id) = 'office_payment' and hold_expires_at between now() + interval '6 days 23 hours' and now() + interval '7 days 1 hour'
                          from app.pathshala_enrollments where id = (:'reg_dev2'::jsonb -> 'lines' -> 0 ->> 'enrollment_id')::uuid)
                       and (:'office_dev2'::jsonb ->> 'amount_cents')::int = 13000,
   'office payment: the family moves its hold to the office window (7 days)');
@@ -653,7 +653,7 @@ select pg_temp.sign_in(:u_tara);
 select app.record_offline_payment(:h1, 5000, 'check', pg_temp.today(), array[(:'reg_dev2'::jsonb -> 'lines' -> 0 -> 'pledge' ->> 'id')::uuid], '7602') as part_dev \gset
 commit;
 select pg_temp.assert((select status from app.pledges where id = (:'reg_dev2'::jsonb -> 'lines' -> 0 -> 'pledge' ->> 'id')::uuid) = 'partially_paid'
-                      and (select status = 'requested' and hold_reason = 'office_payment' from app.pathshala_enrollments
+                      and (select status = 'requested' and app._pathshala_hold(id) = 'office_payment' from app.pathshala_enrollments
                             where id = (:'reg_dev2'::jsonb -> 'lines' -> 0 ->> 'enrollment_id')::uuid),
   'a part payment does nothing until the pledge is paid in full: Dev stays held');
 update app.pathshala_enrollments set hold_expires_at = now() - interval '1 minute' where id = (:'reg_dev2'::jsonb -> 'lines' -> 0 ->> 'enrollment_id')::uuid;
@@ -663,7 +663,7 @@ select app.worker_pathshala_holds_sweep() as sw1 \gset
 commit;
 select pg_temp.assert((:'sw1'::jsonb ->> 'released')::int = 1 and (:'sw1'::jsonb ->> 'credited')::int = 1 and (:'sw1'::jsonb ->> 'credit_cents')::int = 5000,
   'sweep: one expired hold released, $50.00 already paid toward it is credited');
-select pg_temp.assert((select e.status = 'withdrawn' and e.hold_reason is null and e.withdrawal_reason like 'The fee was not paid by %, so the seat was released.'
+select pg_temp.assert((select e.status = 'withdrawn' and f.hold_reason is null and f.withdrawal_reason like 'The fee was not paid by %, so the seat was released.'
                               and f.status = 'cancelled' and p.status = 'cancelled' and p.paid_cents = 0
                          from app.pathshala_enrollments e join app.pathshala_enrollment_fees f on f.enrollment_id = e.id join app.pledges p on p.id = f.pledge_id
                         where e.id = (:'reg_dev2'::jsonb -> 'lines' -> 0 ->> 'enrollment_id')::uuid)
@@ -674,7 +674,7 @@ select pg_temp.assert((select e.status = 'withdrawn' and e.hold_reason is null a
 select pg_temp.assert((select count(*) from app.messages where center_id = :c and template_key = 'pathshala_hold_released'
                          and payload -> 'vars' ->> 'enrollment_id' = (:'reg_dev2'::jsonb -> 'lines' -> 0 ->> 'enrollment_id')) = 4,
   'sweep: the family''s adults are told once each (push and email to Mira and Rahul)');
-select pg_temp.assert((select e.status = 'requested' and e.hold_reason = 'payment' and e.offered_at is not null and f.status = 'billed' and p.due_on = pg_temp.today()
+select pg_temp.assert((select e.status = 'requested' and f.hold_reason = 'payment' and e.offered_at is not null and f.status = 'billed' and p.due_on = pg_temp.today()
                               and e.hold_expires_at > now() + interval '47 hours'
                          from app.pathshala_enrollments e join app.pathshala_enrollment_fees f on f.enrollment_id = e.id join app.pledges p on p.id = f.pledge_id
                         where e.id = (:'reg_om2'::jsonb -> 'lines' -> 0 ->> 'enrollment_id')::uuid)
@@ -718,7 +718,7 @@ set local role connect_worker;
 select app.worker_pathshala_holds_sweep() as sw3 \gset
 commit;
 select pg_temp.assert((:'sw3'::jsonb ->> 'kept_paying')::int >= 1
-                      and (select status = 'requested' and hold_reason = 'payment' from app.pathshala_enrollments
+                      and (select status = 'requested' and app._pathshala_hold(id) = 'payment' from app.pathshala_enrollments
                             where id = (:'reg_riya2'::jsonb -> 'lines' -> 0 ->> 'enrollment_id')::uuid),
   'sweep: a payment page still open for the hold (under 24 hours) keeps Riya''s seat: a parent who is paying never loses it');
 update app.payment_checkouts set created_at = now() - interval '25 hours' where id = (:'ck_riya'::jsonb ->> 'checkout_id')::uuid;
@@ -758,7 +758,7 @@ begin;
 set local role connect_worker;
 select app.worker_pathshala_holds_sweep() as sw5 \gset
 commit;
-select pg_temp.assert((select status = 'requested' and hold_reason = 'office_payment' from app.pathshala_enrollments where id = :'kavya'::uuid)
+select pg_temp.assert((select status = 'requested' and app._pathshala_hold(id) = 'office_payment' from app.pathshala_enrollments where id = :'kavya'::uuid)
                       and (select status from app.pledges where id = (:'reg_kavya'::jsonb -> 'pay' -> 'pledge_ids' ->> 0)::uuid) = 'open',
   'Zelle report: the reported Zelle keeps Kavya''s office hold while it waits for the treasurer, and pays nothing');
 begin;
@@ -786,7 +786,7 @@ commit;
 alter table app.pledges enable trigger pathshala_fee_paid;
 select pg_temp.assert((:'reg_kavya2'::jsonb -> 'lines' -> 0 ->> 'enrollment_id') = :'kavya'
                       and (select status from app.pledges where id = (:'reg_kavya2'::jsonb -> 'pay' -> 'pledge_ids' ->> 0)::uuid) = 'paid'
-                      and (select status = 'requested' and hold_reason = 'payment' from app.pathshala_enrollments where id = :'kavya'::uuid),
+                      and (select status = 'requested' and app._pathshala_hold(id) = 'payment' from app.pathshala_enrollments where id = :'kavya'::uuid),
   'self-healing: Kavya registers again (her released enrollment is reused); the fee is paid while the hook is off, so she is still held');
 update app.pathshala_enrollments set hold_expires_at = now() - interval '1 minute' where id = :'kavya'::uuid;
 begin;
