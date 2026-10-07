@@ -740,6 +740,21 @@ select pg_temp.assert((select array_agg(x ->> 'outcome' order by o) from jsonb_a
                       and (:'pv2'::jsonb -> 'lines' -> 0 ->> 'priced')::boolean is false
                       and (:'pv2'::jsonb -> 'pending' -> 0 ->> 'first_name') = 'Tara',
   'preview: "not sure" waits for the office (priced when placed), a child not yet on the family is pending, a child outside the band waits for the office (P24, P25)');
+-- A new child in two tracks is one child (review C9): name plus birth date, any case and spacing.
+begin;
+select pg_temp.sign_in(:u_mira);
+select app.preview_pathshala_registration(:t1, :h1, jsonb_build_array(
+  jsonb_build_object('new_child', jsonb_build_object('first_name', 'Ravi', 'last_name', 'Shah', 'date_of_birth', '2017-03-03'), 'track_id', :tr_j, 'level_id', :lv_j2),
+  jsonb_build_object('new_child', jsonb_build_object('first_name', ' ravi ', 'last_name', 'SHAH', 'date_of_birth', '2017-03-03'), 'track_id', :tr_g, 'level_id', :lv_g3))) as pv_ravi \gset
+select pg_temp.assert_code(format($$select app.preview_pathshala_registration(%L, %L, %L)$$, :t1, :h1, jsonb_build_array(
+  jsonb_build_object('new_child', jsonb_build_object('first_name', 'Ravi', 'last_name', 'Shah', 'date_of_birth', '2017-03-03'), 'track_id', :tr_j, 'level_id', :lv_j2),
+  jsonb_build_object('new_child', jsonb_build_object('first_name', 'Ravi', 'last_name', 'Shah', 'date_of_birth', '2017-03-03'), 'track_id', :tr_j, 'level_id', :lv_j5))),
+  '22023', 'Ravi is listed twice for Jainism.', 'preview: a new child is one learner per track too');
+commit;
+select pg_temp.assert((select array_agg((x ->> 'outcome') || '/' || (x ->> 'family_rank') || '/' || (x ->> 'total_cents') order by o)
+                         from jsonb_array_elements(:'pv_ravi'::jsonb -> 'lines') with ordinality a(x, o)) = array['pending_child/1/13000', 'pending_child/1/13000']
+                      and jsonb_array_length(:'pv_ravi'::jsonb -> 'pending') = 2,
+  'preview: Ravi, a new child in Jainism 2 and Gujarati 3, is one child (first in both tracks: $130.00 + $130.00), pending in each track');
 select pg_temp.assert((select count(*) from app.audit_log) = :audit_before2::bigint, 'preview: the preview writes nothing');
 -- A family that is not a member waits for its membership (P6).
 begin;

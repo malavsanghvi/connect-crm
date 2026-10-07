@@ -59,6 +59,14 @@ language sql immutable set search_path = app, public, extensions as $$
   select to_char(coalesce(p_cents, 0) / 100.0, 'FM$999,999,990.00')
 $$;
 
+-- Who a line is when it names no person (P10, review C9): a new child by first and last name plus birth date, a
+-- "Try a family" learner by the name given; trimmed, inner spaces collapsed, any case. Lines with the same key are one
+-- learner: one child for the sibling order and the cap, one late fee (and, from 0591, one add-member request).
+create or replace function app._pathshala_learner_key(p_name text, p_dob date default null) returns text
+language sql immutable set search_path = app, public, extensions as $$
+  select 'learner:' || lower(regexp_replace(btrim(coalesce(p_name, '')), '\s+', ' ', 'g')) || coalesce(':' || p_dob::text, '')
+$$;
+
 -- A timestamp as ISO 8601 in the community's time zone, with its offset: 2026-09-01T23:59:00-05:00.
 create or replace function app.pathshala_iso(p_ts timestamptz, p_tz text) returns text
 language plpgsql stable set search_path = app, public, extensions as $$
@@ -1167,7 +1175,10 @@ begin
       v_rel := lower(coalesce(nullif(btrim(e -> 'new_child' ->> 'relationship'), ''), 'child'));
       v_kind := case when v_dob is not null then case when v_dob > (v_cut - interval '18 years')::date then 'child' else 'adult' end
                      when v_rel in ('child', 'grandchild', 'son', 'daughter') then 'child' else 'adult' end;
-      v_key := 'new:' || i;
+      -- One new child in two tracks is one child (name plus birth date, review C9); a nameless line stays on its own.
+      v_key := case when nullif(btrim(coalesce(e -> 'new_child' ->> 'first_name', '') || coalesce(e -> 'new_child' ->> 'last_name', '')), '') is null
+                    then 'new:' || i
+                    else app._pathshala_learner_key((e -> 'new_child' ->> 'first_name') || ' ' || (e -> 'new_child' ->> 'last_name'), v_dob) end;
     elsif p_hypothetical then
       v_learner := null;
       if e ? 'learner' and jsonb_typeof(e -> 'learner') <> 'null' then
@@ -1191,7 +1202,7 @@ begin
       else
         -- One learner in several lines (P10): what a later line leaves out comes from the learner's first line, and what it
         -- says must agree with it.
-        v_key := 'learner:' || lower(v_learner);
+        v_key := app._pathshala_learner_key(v_learner);
         if v_people ? v_key then
           v_says := nullif(btrim(e ->> 'date_of_birth'), '') is not null or nullif(btrim(e ->> 'age'), '') is not null
                     or nullif(btrim(e ->> 'learner_kind'), '') is not null;
@@ -1561,7 +1572,7 @@ declare t app.pathshala_terms; h app.households; v_problem text; e jsonb; i int 
         l app.pathshala_levels; tr app.pathshala_tracks; v_name text; v_kind text; v_age int; v_cut date; v_band text;
         v_outcome text; v_free int; v_seats jsonb := '{}'::jsonb; s record; q jsonb; v_lines jsonb := '[]'::jsonb; v_line jsonb;
         v_seen text[] := '{}'; v_me uuid; v_waiver uuid; v_hold boolean; v_dob date; v_existing record; v_pending jsonb := '[]'::jsonb;
-        v_reuse uuid; v_tz text;
+        v_reuse uuid; v_tz text; v_lkey text;
 begin
   select * into t from app.pathshala_terms where id = p_term;
   if t.id is null then raise exception 'That term was not found.' using errcode = 'P0002'; end if;
@@ -1611,10 +1622,11 @@ begin
     end if;
     select * into tr from app.pathshala_tracks where id = v_track and center_id = t.center_id;
     if tr.id is null then raise exception 'That track is not one of this community''s tracks.' using errcode = '22023'; end if;
-    if (coalesce(v_person::text, 'new:' || i) || ':' || v_track::text) = any (v_seen) then
+    v_lkey := coalesce(v_person::text, app._pathshala_learner_key(v_name || ' ' || btrim(e -> 'new_child' ->> 'last_name'), v_dob));
+    if (v_lkey || ':' || v_track::text) = any (v_seen) then
       raise exception '% is listed twice for %.', v_name, tr.name using errcode = '22023';
     end if;
-    v_seen := v_seen || (coalesce(v_person::text, 'new:' || i) || ':' || v_track::text);
+    v_seen := v_seen || (v_lkey || ':' || v_track::text);
     v_kind := q -> 'lines' -> (i - 1) ->> 'learner_kind';
     v_age := app.pathshala_age_on(v_dob, v_cut);
 
@@ -1744,10 +1756,13 @@ begin
   select coalesce(sum((x ->> 'total_cents')::bigint) filter (where x ->> 'outcome' = 'seat' and not coalesce((x ->> 'assistance_requested')::boolean, false)), 0)
     into v_due from jsonb_array_elements(v -> 'lines') with ordinality as a(x, o);
   select coalesce(array_agg(n.first_name order by n.o), '{}') into v_names
-    from (select distinct on (coalesce(x ->> 'person_id', 'new:' || o)) x ->> 'first_name' as first_name, o
+    from (select distinct on (coalesce(x ->> 'person_id', app._pathshala_learner_key((x -> 'new_child' ->> 'first_name') || ' ' || (x -> 'new_child' ->> 'last_name'),
+                                                                                   nullif(x -> 'new_child' ->> 'date_of_birth', '')::date)))
+                 x ->> 'first_name' as first_name, o
             from jsonb_array_elements(v -> 'lines') with ordinality as a(x, o)
            where x ->> 'outcome' = 'seat'
-           order by coalesce(x ->> 'person_id', 'new:' || o), o) n;
+           order by coalesce(x ->> 'person_id', app._pathshala_learner_key((x -> 'new_child' ->> 'first_name') || ' ' || (x -> 'new_child' ->> 'last_name'),
+                                                                            nullif(x -> 'new_child' ->> 'date_of_birth', '')::date)), o) n;
   if t.payment_mode = 'pay_now' then
     v_pay := jsonb_build_object('amount_cents', v_due, 'pledge_ids', '[]'::jsonb,
                                 'for_label', app.pathshala_fee_label(t.name, v_names),
@@ -2128,7 +2143,7 @@ grant execute on function app.pathshala_money(bigint), app.pathshala_iso(timesta
 revoke execute on function
   app.pathshala_first_name(uuid), app.pathshala_counts_as_child(uuid, date), app._pathshala_uuid(jsonb, text, text),
   app._pathshala_int(jsonb, text, text), app._pathshala_bool(jsonb, text, text), app._pathshala_date(jsonb, text, text),
-  app._pathshala_ts(jsonb, text, text), app.pathshala_levels_delete_guard(), app.pathshala_level_used(uuid),
+  app._pathshala_ts(jsonb, text, text), app._pathshala_learner_key(text, date), app.pathshala_levels_delete_guard(), app.pathshala_level_used(uuid),
   app._pathshala_level_json(uuid), app.pathshala_first_class_day(uuid, uuid), app.pathshala_age_cutoff(uuid),
   app.pathshala_withdrawal_deadline(uuid), app.pathshala_registration_window(uuid), app.pathshala_is_late(uuid),
   app.pathshala_terms_guard(), app._pathshala_assert_fee_editor(app.pathshala_terms, text, text),
@@ -2142,7 +2157,7 @@ revoke execute on function
 grant execute on function
   app.pathshala_first_name(uuid), app.pathshala_counts_as_child(uuid, date), app._pathshala_uuid(jsonb, text, text),
   app._pathshala_int(jsonb, text, text), app._pathshala_bool(jsonb, text, text), app._pathshala_date(jsonb, text, text),
-  app._pathshala_ts(jsonb, text, text), app.pathshala_level_used(uuid),
+  app._pathshala_ts(jsonb, text, text), app._pathshala_learner_key(text, date), app.pathshala_level_used(uuid),
   app._pathshala_level_json(uuid), app.pathshala_first_class_day(uuid, uuid), app.pathshala_age_cutoff(uuid),
   app.pathshala_withdrawal_deadline(uuid), app.pathshala_registration_window(uuid), app.pathshala_is_late(uuid),
   app.pathshala_online_payments_ready(uuid), app._pathshala_pay_now_problem(uuid), app._pathshala_fees_json(uuid),
