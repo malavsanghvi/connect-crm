@@ -989,9 +989,52 @@ end $$;
 -- ═════════════════════════════════════════════════════════════════════════════
 -- Opening registration (§2.2, §2.11)
 -- ═════════════════════════════════════════════════════════════════════════════
+-- The money side of a term's fees (review C6): the Pathshala fund and the closed campaign "Pathshala fees <term>" every
+-- fee pledge carries. Used when registration opens, and again by the billing function (0591) when a term was opened
+-- while Pledges & donations was off and it is switched on later. Returns {campaign_id, fund_id}, the term's own when it
+-- has them, else found or created: the fund is the active one with the key pathshala (a fund called Pathshala added in
+-- Setup › Lists gets that key), never one whose name merely starts with "Pathshala" (review note 18); the campaign is
+-- reused by name or created closed (so it is never offered as a giving opportunity). With Pledges & donations off both
+-- are what the term has (null). No fund: refused in plain English when p_strict (opening), else fund_id is null (the
+-- billing function then leaves the line "not billed" with a note). The caller saves the ids on the term.
+create or replace function app._pathshala_fees_money(p_term uuid, p_reason text default null, p_strict boolean default true) returns jsonb
+language plpgsql security definer set search_path = app, public, extensions as $$
+declare t app.pathshala_terms; v_fund uuid; v_campaign uuid; v_name text;
+begin
+  select * into t from app.pathshala_terms where id = p_term;
+  if t.id is null then return null; end if;
+  if not app.module_enabled(t.center_id, 'giving') then
+    return jsonb_build_object('campaign_id', t.campaign_id, 'fund_id', t.fund_id);
+  end if;
+  v_fund := coalesce(t.fund_id,
+    (select f.id from app.funds f where f.center_id = t.center_id and f.active and f.key = 'pathshala'));
+  if v_fund is null then
+    if p_strict then
+      -- A treasurer with giving.manage but not pathshala.view cannot read a draft term, so cannot open its Fees screen:
+      -- the way out is a fund called Pathshala added in Setup › Lists (key pathshala, found above), or a principal who
+      -- also manages Giving choosing one here. Read access to draft terms is not widened.
+      raise exception 'There is no fund for the Pathshala fees yet. Ask the treasurer to add a fund called Pathshala in Setup › Lists, or choose a fund on this Fees screen if you also manage Giving; then open registration.'
+        using errcode = '22023';
+    end if;
+    return jsonb_build_object('campaign_id', t.campaign_id, 'fund_id', null);
+  end if;
+  v_name := left('Pathshala fees ' || t.name, 200);
+  v_campaign := coalesce(t.campaign_id,
+    (select c.id from app.campaigns c where c.center_id = t.center_id and c.kind = 'pathshala' and c.name = v_name
+      order by c.created_at limit 1));
+  if v_campaign is null then
+    if app.audit_clean_reason(p_reason) is not null then perform app.set_audit_context(p_reason); end if;
+    insert into app.campaigns (center_id, fund_id, name, kind, description, starts_on, ends_on, status, created_by)
+    values (t.center_id, v_fund, v_name, 'pathshala', 'Pathshala fees for ' || t.name || ' (one pledge per learner and track).',
+            t.starts_on, t.ends_on, 'closed', auth.uid())
+    returning id into v_campaign;
+  end if;
+  return jsonb_build_object('campaign_id', v_campaign, 'fund_id', v_fund);
+end $$;
+
 create or replace function app.open_pathshala_registration(p_term uuid, p_reason text default null) returns jsonb
 language plpgsql security definer set search_path = app, public, extensions as $$
-declare t app.pathshala_terms; v_missing text; v_problem text; v_fund uuid; v_campaign uuid; v_warn jsonb; v_name text;
+declare t app.pathshala_terms; v_missing text; v_problem text; v_fund uuid; v_campaign uuid; v_warn jsonb; v_money jsonb;
 begin
   select * into t from app.pathshala_terms where id = p_term for update;
   if t.id is null then raise exception 'That term was not found.' using errcode = 'P0002'; end if;
@@ -1020,31 +1063,11 @@ begin
     if v_problem is not null then raise exception '%', v_problem using errcode = '22023'; end if;
   end if;
   -- The money side: the closed campaign "Pathshala fees <term>" linked to the Pathshala fund (Giving on only; with
-  -- Giving off registration still works and every quote is kept "not billed").
-  if app.module_enabled(t.center_id, 'giving') then
-    -- The Pathshala fund is the one with the key pathshala (a fund called Pathshala added in Setup › Lists gets that
-    -- key), never a fund whose name merely starts with "Pathshala" (review note 18).
-    v_fund := coalesce(t.fund_id,
-      (select f.id from app.funds f where f.center_id = t.center_id and f.active and f.key = 'pathshala'));
-    if v_fund is null then
-      -- A treasurer with giving.manage but not pathshala.view cannot read a draft term, so cannot open its Fees screen:
-      -- the way out is a fund called Pathshala added in Setup › Lists (key pathshala, found above), or a principal who also
-      -- manages Giving choosing one here. Read access to draft terms is not widened.
-      raise exception 'There is no fund for the Pathshala fees yet. Ask the treasurer to add a fund called Pathshala in Setup › Lists, or choose a fund on this Fees screen if you also manage Giving; then open registration.'
-        using errcode = '22023';
-    end if;
-    v_name := left('Pathshala fees ' || t.name, 200);
-    v_campaign := coalesce(t.campaign_id,
-      (select c.id from app.campaigns c where c.center_id = t.center_id and c.kind = 'pathshala' and c.name = v_name
-        order by c.created_at limit 1));
-    if v_campaign is null then
-      perform app.set_audit_context(coalesce(app.audit_clean_reason(p_reason), 'Opened Pathshala registration for ' || t.name));
-      insert into app.campaigns (center_id, fund_id, name, kind, description, starts_on, ends_on, status, created_by)
-      values (t.center_id, v_fund, v_name, 'pathshala', 'Pathshala fees for ' || t.name || ' (one pledge per learner and track).',
-              t.starts_on, t.ends_on, 'closed', auth.uid())
-      returning id into v_campaign;
-    end if;
-  end if;
+  -- Giving off registration still works, every quote is kept "not billed", and the billing function finds or creates both
+  -- when Giving is switched on later).
+  v_money := app._pathshala_fees_money(t.id, coalesce(app.audit_clean_reason(p_reason), 'Opened Pathshala registration for ' || t.name), true);
+  v_campaign := nullif(v_money ->> 'campaign_id', '')::uuid;
+  v_fund := nullif(v_money ->> 'fund_id', '')::uuid;
   select coalesce(jsonb_agg(jsonb_build_object('level_id', l.id, 'level', l.name,
                                                'sentence', l.name || ' has no age band, so the app cannot suggest it by age.')
                             order by tr.name, l.sort_order), '[]'::jsonb) into v_warn
@@ -2194,7 +2217,8 @@ grant execute on function app.pathshala_money(bigint), app.pathshala_iso(timesta
 revoke execute on function
   app.pathshala_first_name(uuid), app.pathshala_counts_as_child(uuid, date), app._pathshala_uuid(jsonb, text, text),
   app._pathshala_int(jsonb, text, text), app._pathshala_bool(jsonb, text, text), app._pathshala_date(jsonb, text, text),
-  app._pathshala_ts(jsonb, text, text), app._pathshala_learner_key(text, date), app.pathshala_levels_delete_guard(), app.pathshala_level_used(uuid),
+  app._pathshala_ts(jsonb, text, text), app._pathshala_learner_key(text, date), app._pathshala_fees_money(uuid, text, boolean),
+  app.pathshala_levels_delete_guard(), app.pathshala_level_used(uuid),
   app._pathshala_level_json(uuid), app.pathshala_first_class_day(uuid, uuid), app.pathshala_age_cutoff(uuid),
   app.pathshala_withdrawal_deadline(uuid), app.pathshala_registration_window(uuid), app.pathshala_is_late(uuid),
   app.pathshala_terms_guard(), app._pathshala_assert_fee_editor(app.pathshala_terms, text, text),
@@ -2208,7 +2232,8 @@ revoke execute on function
 grant execute on function
   app.pathshala_first_name(uuid), app.pathshala_counts_as_child(uuid, date), app._pathshala_uuid(jsonb, text, text),
   app._pathshala_int(jsonb, text, text), app._pathshala_bool(jsonb, text, text), app._pathshala_date(jsonb, text, text),
-  app._pathshala_ts(jsonb, text, text), app._pathshala_learner_key(text, date), app.pathshala_level_used(uuid),
+  app._pathshala_ts(jsonb, text, text), app._pathshala_learner_key(text, date), app._pathshala_fees_money(uuid, text, boolean),
+  app.pathshala_level_used(uuid),
   app._pathshala_level_json(uuid), app.pathshala_first_class_day(uuid, uuid), app.pathshala_age_cutoff(uuid),
   app.pathshala_withdrawal_deadline(uuid), app.pathshala_registration_window(uuid), app.pathshala_is_late(uuid),
   app.pathshala_online_payments_ready(uuid), app._pathshala_pay_now_problem(uuid), app._pathshala_fees_json(uuid),

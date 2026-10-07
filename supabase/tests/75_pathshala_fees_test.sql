@@ -908,5 +908,43 @@ select pg_temp.assert((select bool_and(exists (select 1 from unnest(p.proconfig)
                          from pg_proc p where p.pronamespace = 'app'::regnamespace and (p.proname like '%pathshala%' and p.proname not in ('pathshala_term_stats'))),
   'functions: every Pathshala function pins search_path = app, public, extensions');
 
+-- ═════════════════════════════════════════════════════════════════════════════
+-- A term opened while Pledges & donations is off (review C6): no campaign or fund yet; the billing function (0591) finds
+-- or creates them later with the same helper
+-- ═════════════════════════════════════════════════════════════════════════════
+\set t3 '''75000000-0000-4000-8000-0000000000f3'''
+insert into app.pathshala_terms (id, center_id, name, starts_on, ends_on) values (:t3, :c, 'Giving-off term', '2031-09-07', '2032-05-30');
+insert into app.pathshala_classes (id, center_id, term_id, level_id, name, room, capacity, meets_on, starts_time, ends_time)
+values ('75000000-0000-4000-8000-000000000c31', :c, :t3, :lv_j1, 'Jainism 1 · giving off', 'A', 10, 'sunday', '10:00', '11:30');
+insert into app.center_modules (center_id, module_key, enabled, reason) values (:c, 'giving', false, 'test');
+begin;
+select pg_temp.sign_in(:u_pia);
+select app.set_pathshala_level_fees(:t3, jsonb_build_array(jsonb_build_object('level_id', :lv_j1, 'fee_cents', 9000))) as f_off \gset
+select app.open_pathshala_registration(:t3) as opened_off \gset
+commit;
+select pg_temp.assert((:'opened_off'::jsonb -> 'campaign_id') = 'null'::jsonb and (:'opened_off'::jsonb -> 'fund_id') = 'null'::jsonb
+                      and (select campaign_id is null and fund_id is null and fees_locked_at is not null and status = 'registration' from app.pathshala_terms where id = :t3),
+  'money: with Pledges & donations off registration opens, locked, with no campaign or fund');
+select pg_temp.assert(app._pathshala_fees_money(:t3, null, false) = jsonb_build_object('campaign_id', null, 'fund_id', null),
+  'money: and the helper finds none while Giving is off');
+delete from app.center_modules where center_id = :c and module_key = 'giving';
+select app._pathshala_fees_money(:t3, 'Billing the first Pathshala fee', false) as money_on \gset
+select app._pathshala_fees_money(:t3, null, false) as money_again \gset
+select pg_temp.assert((:'money_on'::jsonb ->> 'fund_id') = :fund_p
+                      and exists (select 1 from app.campaigns c where c.id = (:'money_on'::jsonb ->> 'campaign_id')::uuid and c.name = 'Pathshala fees Giving-off term'
+                                    and c.kind = 'pathshala' and c.status = 'closed' and c.fund_id = :fund_p)
+                      and (:'money_again'::jsonb ->> 'campaign_id') = (:'money_on'::jsonb ->> 'campaign_id'),
+  'money: with Giving back on the helper finds the Pathshala fund by its key and creates the closed campaign once (a second call reuses it)');
+update app.funds set active = false where id = :fund_p;
+select pg_temp.assert(app._pathshala_fees_money(:t3, null, false) ->> 'fund_id' is null,
+  'money: with no fund the billing side gets none (the line is then left "not billed" with a note)');
+select pg_temp.assert_code(format($$select app._pathshala_fees_money(%L, null, true)$$, :t3),
+  '22023', 'There is no fund for the Pathshala fees yet.', 'money: opening refuses the same case in plain English');
+update app.funds set active = true where id = :fund_p;
+delete from app.campaigns where center_id = :c and name = 'Pathshala fees Giving-off term';
+delete from app.pathshala_classes where term_id = :t3;
+delete from app.pathshala_level_fees where term_id = :t3;
+delete from app.pathshala_terms where id = :t3;
+
 -- Leave the shared database tidy for the tests that follow.
 delete from app.pathshala_enrollment_fees where center_id = :c;
