@@ -3,13 +3,16 @@ import Link from "next/link";
 
 import { Card, EmptyState, TableWrap } from "@/components/ui";
 import { loadTerms } from "@/lib/data/pathshala";
+import { explainError } from "@/lib/errors";
 import { pathshalaAreas } from "@/lib/pathshala/access";
-import { formatCents, formatDate, formatDateTime, humanize } from "@/lib/pathshala/format";
-import { load, viewerOf } from "@/lib/pathshala/server";
+import { formatDate, formatDateTime, humanize } from "@/lib/pathshala/format";
+import { load, rows, viewerOf } from "@/lib/pathshala/server";
+import { loadLevelFees, loadTermRules, NEEDS_UPDATE } from "@/lib/pathshala-registration/db";
+import { PAYMENT_MODE_LABEL } from "@/lib/pathshala-registration/rules";
 import { getSession } from "@/lib/session";
 
 import { DrawerButton } from "../drawer-button";
-import { LoadProblemPage, PathshalaHeader, PBadge, PNoAccessPage } from "../ui";
+import { LoadProblemPage, Notice, PathshalaHeader, PBadge, PNoAccessPage } from "../ui";
 import { TermForm } from "./term-form";
 
 export const metadata: Metadata = { title: "Pathshala terms" };
@@ -18,17 +21,53 @@ const statusTone = { draft: "muted", registration: "navy", active: "success", cl
 
 export default async function TermsPage() {
   const v = viewerOf(await getSession());
-  if (!pathshalaAreas.admin(v)) return <PNoAccessPage area="Pathshala terms" />;
+  if (!pathshalaAreas.fees(v)) return <PNoAccessPage area="Pathshala terms (pathshala.view, pathshala.manage or giving.manage)" />;
   const supabase = v.db;
-  const res = await load(() => loadTerms(supabase, v.center.id));
+  const res = await load(async () => {
+    const terms = await loadTerms(supabase, v.center.id);
+    const [classes, rules, fees] = await Promise.all([
+      supabase.from("pathshala_classes").select("term_id, level_id").eq("center_id", v.center.id).then((r) => rows(r, "the classes")),
+      loadTermRules(supabase, terms.map((t) => t.id)),
+      loadLevelFees(supabase, v.center.id),
+    ]);
+    return { terms, classes, rules, fees };
+  });
   if (!res.ok) return <LoadProblemPage message={res.error} />;
+  const { terms, classes, rules, fees } = res.data;
   const canEdit = pathshalaAreas.manage(v);
   const tz = v.center.time_zone;
+
+  // Fees per level and the payment mode come with 0590: before it, or when they cannot be read, say so above the table.
+  const feesNote =
+    rules.status === "missing" || fees.status === "missing"
+      ? NEEDS_UPDATE
+      : rules.status === "error"
+        ? `The terms' rules could not be loaded — ${explainError(rules.error)}.`
+        : fees.status === "error"
+          ? `The fees could not be loaded — ${explainError(fees.error)}.`
+          : rules.status === "shape" || fees.status === "shape"
+            ? "The fees could not be read. Has the latest migration been applied?"
+            : null;
+  const feeSummary = (termId: string) => {
+    if (rules.status !== "ok" || fees.status !== "ok") return <span className="text-muted">—</span>;
+    const offered = new Set(classes.filter((c) => c.term_id === termId).map((c) => c.level_id));
+    const priced = new Set(fees.value.filter((f) => f.term_id === termId).map((f) => f.level_id));
+    const pricedOffered = [...offered].filter((l) => priced.has(l)).length;
+    const mode = rules.value.get(termId)?.payment_mode;
+    return (
+      <>
+        {mode ? PAYMENT_MODE_LABEL[mode] : "—"}
+        <div className={`text-xs ${offered.size && pricedOffered < offered.size ? "font-bold text-danger" : "text-muted"}`}>
+          {offered.size ? `${pricedOffered} of ${offered.size} offered level${offered.size === 1 ? "" : "s"} priced` : "No classes yet"}
+        </div>
+      </>
+    );
+  };
 
   return (
     <>
       <PathshalaHeader
-        description="Terms · dates, registration window, fees and no-class days for each Pathshala year"
+        description="Terms · dates, registration window and no-class days for each Pathshala year; each term's fees and registration rules on its Fees and rules page"
         actions={
           canEdit ? (
             <DrawerButton label="New term" title="New term" kicker="Pathshala" size="sm">
@@ -37,12 +76,26 @@ export default async function TermsPage() {
           ) : null
         }
       />
-      <Card title="All terms" padded={false}>
-        {res.data.length === 0 ? (
-          <EmptyState title="No terms yet">{canEdit ? "Create one with New term." : "The principal hasn't set one up yet."}</EmptyState>
+      {feesNote ? (
+        <div className="mb-4">
+          <Notice tone={rules.status === "missing" || fees.status === "missing" ? "warning" : "danger"}>{feesNote}</Notice>
+        </div>
+      ) : null}
+      {pathshalaAreas.admin(v) ? null : (
+        // The treasurer's view (giving.manage only): RLS shows the terms that have opened, not the principal's drafts.
+        <p className="mb-3 text-[13px] text-muted">
+          You see the terms that have opened registration: their fees and rules are yours to change, with a reason. Draft terms are the Pathshala
+          principal&apos;s.
+        </p>
+      )}
+      <Card title={pathshalaAreas.admin(v) ? "All terms" : "Terms open for registration or running"} padded={false}>
+        {terms.length === 0 ? (
+          <EmptyState title={pathshalaAreas.admin(v) ? "No terms yet" : "No term has opened registration yet"}>
+            {canEdit ? "Create one with New term." : pathshalaAreas.admin(v) ? "The principal hasn't set one up yet." : ""}
+          </EmptyState>
         ) : (
           <TableWrap>
-            <table className="crm-table crm-table-first-bold min-w-[720px]">
+            <table className="crm-table crm-table-first-bold min-w-[820px]">
               <thead>
                 <tr>
                   <th>Term</th>
@@ -54,7 +107,7 @@ export default async function TermsPage() {
                 </tr>
               </thead>
               <tbody>
-                {res.data.map((t) => (
+                {terms.map((t) => (
                   <tr key={t.id}>
                     <td>
                       <Link className="crm-link font-semibold" href={`/pathshala/terms/${t.id}`}>
@@ -70,9 +123,10 @@ export default async function TermsPage() {
                       <span className="text-muted">to {t.registration_closes_at ? formatDateTime(t.registration_closes_at, tz) : "—"}</span>
                     </td>
                     <td>
-                      {formatCents(t.fee_per_child_cents, { currency: v.center.currency })} per child
-                      {t.sibling_discount_pct > 0 && <div className="text-xs text-muted">{t.sibling_discount_pct}% sibling discount</div>}
-                      {t.fee_per_family_cap_cents !== null && <div className="text-xs text-muted">cap {formatCents(t.fee_per_family_cap_cents, { currency: v.center.currency })}</div>}
+                      {feeSummary(t.id)}
+                      <Link className="crm-link text-xs font-semibold" href={`/pathshala/terms/${t.id}/fees`}>
+                        Fees and rules
+                      </Link>
                     </td>
                     <td>{t.no_class_dates.length}</td>
                     <td>

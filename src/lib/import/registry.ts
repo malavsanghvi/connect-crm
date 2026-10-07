@@ -490,7 +490,8 @@ export const ENTITIES: readonly EntityDef[] = [
     module: "pathshala",
     writePerms: ["pathshala.manage"],
     dependsOn: [],
-    description: "Terms with dates, registration windows and fees (fees are billed per child as pledges).",
+    description:
+      "Terms with dates and registration windows. The fee per child only pre-fills the term's fees per level, which are set on its Fees and rules page; importing bills nothing.",
     matchNote: "Matched on the term name.",
     sourceKey: ["name"],
     fields: [

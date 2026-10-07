@@ -6,7 +6,6 @@ import { formatDate, formatDateTime } from "@/lib/pathshala/format";
 
 import type { LevelFee, LevelFeeInput, LevelRow, LevelSeats, PaymentMode } from "./contract";
 import { ageBandLabel, levelAudience, sortLevels, sortTracks } from "./levels";
-import { feeLabel } from "./money";
 
 export type TrackLite = { id: string; key: string; name: string };
 export type ClassLite = { level_id: string };
@@ -118,11 +117,6 @@ export function seatsLabel(s: LevelSeats | null): string {
   if (s.waitlist > 0) parts.push(`${s.waitlist} waiting`);
   else if (s.free === 0) parts.push(s.waitlist_on ? "waitlist open" : "no waitlist");
   return parts.join(" · ");
-}
-
-/** "Free", "$130.00", or "Not set" with the level's band — the read-only fee table's cell. */
-export function feeCell(row: FeeRow, currency: string): string {
-  return feeLabel(row.saved, currency);
 }
 
 /** "Children's level · Ages 8–10" / "Adult class · 18 and over" / "No age band". */
