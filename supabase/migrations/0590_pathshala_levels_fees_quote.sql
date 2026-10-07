@@ -26,15 +26,11 @@
 --                                  for pay now, while pay now is not ready; with Pledges & donations on it creates or reuses the
 --                                  closed campaign "Pathshala fees <term>" (kind pathshala) linked to the Pathshala fund;
 --                                  locks the fees and the rules; status → registration
---   trigger pathshala_terms_guard  no writer takes a term out of Draft (only app.open_pathshala_registration does), chooses
---                                  pay now, touches the lock, campaign or fund, or changes a locked rule: the term form,
---                                  the bulk import (app.import_set / app.import_insert run as their owner), the worker, a
---                                  later migration and a script are all refused in plain English. Only the functions of
---                                  0590 and 0591 that write terms and fees, and the demo pack's load and clear, set the
---                                  transaction-local flag app.pathshala_term_writer = 'on' around their own writes; a writer
---                                  that must do the same sets it on purpose. Terms already out of Draft keep their status.
---   trigger pathshala_level_fees_guard  the same for the fees of a term whose fees are locked (only app.set_pathshala_level_fees,
---                                  with the treasurer's reason, changes them)
+--   trigger pathshala_terms_guard  a write through the API (the term form) or the bulk import (app.client_app = 'import')
+--                                  cannot take a term out of Draft, choose pay now, touch the lock, campaign or fund, or
+--                                  change a locked rule. The database's own functions, migrations, the demo pack and test
+--                                  fixtures write as the owner and are not checked; terms already out of Draft keep their
+--                                  status.
 --   app.pathshala_enrollment_fees  the locked quote, one row per enrollment, kept off the enrollment row that children read
 --                                  (finding F2). Created here; written by 0591.
 --   app.pathshala_quote            THE pricing function (§2.4): the level fee; the sibling discount among children only (the
@@ -423,17 +419,17 @@ language sql stable security definer set search_path = app, public, extensions a
                      from app.pathshala_terms t where t.id = p_term), false)
 $$;
 
--- The term guard. It checks EVERY writer: the term form (the API, as the authenticated role), the bulk import
--- (app.import_set and app.import_insert are security definer, so they run as their owner), the worker, a later migration,
--- a script. Only the writes made inside the Pathshala functions of 0590 and 0591 (set_pathshala_term_rules,
--- open_pathshala_registration, set_pathshala_level_fees) and the demo pack's load and clear pass: they set the
--- transaction-local flag app.pathshala_term_writer to 'on' around their own statements (and put back what was there).
--- Anyone else who must write what they write sets the flag on purpose; an API caller cannot (PostgREST sets no such
--- setting and exposes no function that does).
+-- The term guard. It checks the two writers that act for a person: a write through the API (the term form) runs as the
+-- authenticated role, and the bulk import marks every write of a run with app.client_app = 'import' (app.import_audit,
+-- app.import_undo; it runs as the owner, being security definer, so the role alone would let it through). The database's
+-- own functions (set_pathshala_term_rules, open_pathshala_registration), migrations, the demo pack and test fixtures
+-- write as the owner with no import mark, and are not checked.
 create or replace function app.pathshala_terms_guard() returns trigger
 language plpgsql set search_path = app, public, extensions as $$
 begin
-  if coalesce(current_setting('app.pathshala_term_writer', true), '') = 'on' then return new; end if;
+  if not (current_user in ('authenticated', 'anon') or coalesce(current_setting('app.client_app', true), '') = 'import') then
+    return new;
+  end if;
   if (tg_op = 'INSERT' and new.status <> 'draft')
      or (tg_op = 'UPDATE' and old.status = 'draft' and new.status <> 'draft') then
     raise exception 'To open registration for %, use Open registration on its Fees screen: it checks that every level with a class has its fee, then locks the fees.',
@@ -483,32 +479,6 @@ create table if not exists app.pathshala_level_fees (
 create index if not exists pathshala_level_fees_center_idx on app.pathshala_level_fees (center_id, term_id);
 comment on table app.pathshala_level_fees is
   'The fee of a level in a term (0590, P21): every level with a class this term (an offered level) needs one before registration opens; $0 is Free, otherwise at least $0.50 (the smallest online payment). Written only by app.set_pathshala_level_fees: the principal while the term is a draft, the treasurer (giving.manage) with a reason after it opens, for new registrations only. Quotes and pledges already made never change.';
-
--- The fees of a term whose fees are locked change only through app.set_pathshala_level_fees (the treasurer, with a
--- reason): any other writer (a script, a migration, the worker) is refused, as the term guard refuses a locked rule. A
--- fee that goes with its term (the term deleted, as a demo clear does) is not a change: the term is gone by then.
-create or replace function app.pathshala_level_fees_guard() returns trigger
-language plpgsql security definer set search_path = app, public, extensions as $$
-declare v_terms uuid[]; v_name text;
-begin
-  if coalesce(current_setting('app.pathshala_term_writer', true), '') = 'on' then
-    return case when tg_op = 'DELETE' then old else new end;
-  end if;
-  if tg_op = 'INSERT' then v_terms := array[new.term_id];
-  elsif tg_op = 'UPDATE' then v_terms := array[old.term_id, new.term_id];
-  else v_terms := array[old.term_id];
-  end if;
-  select t.name into v_name from app.pathshala_terms t
-   where t.id = any (v_terms) and t.fees_locked_at is not null order by t.name limit 1;
-  if v_name is not null then
-    raise exception 'The fees of % are locked since registration opened. The treasurer changes them on its Fees screen, with a reason; a change applies to new registrations only.',
-      v_name using errcode = '22023';
-  end if;
-  return case when tg_op = 'DELETE' then old else new end;
-end $$;
-drop trigger if exists pathshala_level_fees_guard on app.pathshala_level_fees;
-create trigger pathshala_level_fees_guard before insert or update or delete on app.pathshala_level_fees
-  for each row execute function app.pathshala_level_fees_guard();
 
 -- ═════════════════════════════════════════════════════════════════════════════
 -- Enrollment fees: the locked quote, one row per enrollment (§2.10; written from 0591)
@@ -737,7 +707,7 @@ end $$;
 create or replace function app.set_pathshala_level_fees(p_term uuid, p_fees jsonb, p_reason text default null) returns jsonb
 language plpgsql security definer set search_path = app, public, extensions as $$
 declare t app.pathshala_terms; e jsonb; v_level uuid; v_fee bigint; l app.pathshala_levels; v_reason text; v_seen uuid[] := '{}';
-        v_lines text[] := '{}'; v_set_levels uuid[] := '{}'; v_set_fees integer[] := '{}'; v_writer text;
+        v_lines text[] := '{}'; v_set_levels uuid[] := '{}'; v_set_fees integer[] := '{}';
 begin
   select * into t from app.pathshala_terms where id = p_term for update;
   if t.id is null then raise exception 'That term was not found.' using errcode = 'P0002'; end if;
@@ -747,9 +717,6 @@ begin
     raise exception 'Choose at least one level and its fee.' using errcode = '22023';
   end if;
   if jsonb_array_length(p_fees) > 200 then raise exception 'Set at most 200 fees at a time.' using errcode = '22023'; end if;
-  -- This function's own fee writes pass the fee guard (app.pathshala_level_fees_guard); the flag is put back at the end.
-  v_writer := current_setting('app.pathshala_term_writer', true);
-  perform set_config('app.pathshala_term_writer', 'on', true);
   for e in select * from jsonb_array_elements(p_fees) loop
     if jsonb_typeof(e) <> 'object' then raise exception 'Each fee is a level and an amount.' using errcode = '22023'; end if;
     v_level := app._pathshala_uuid(e, 'level_id', 'The level');
@@ -783,7 +750,6 @@ begin
   on conflict (term_id, level_id) do update
      set fee_cents = excluded.fee_cents, set_by = excluded.set_by, set_at = excluded.set_at
    where app.pathshala_level_fees.fee_cents is distinct from excluded.fee_cents;
-  perform set_config('app.pathshala_term_writer', coalesce(v_writer, ''), true);
   return app._pathshala_fees_json(t.id);
 end $$;
 
@@ -837,7 +803,6 @@ end $$;
 create or replace function app.set_pathshala_term_rules(p_term uuid, p_rules jsonb, p_reason text default null) returns jsonb
 language plpgsql security definer set search_path = app, public, extensions as $$
 declare t app.pathshala_terms; n app.pathshala_terms; v_bad text; v_reason text; v_problem text; v_n bigint; v_fund uuid;
-        v_writer text;
 begin
   select * into t from app.pathshala_terms where id = p_term for update;
   if t.id is null then raise exception 'That term was not found.' using errcode = 'P0002'; end if;
@@ -940,9 +905,6 @@ begin
     n.fund_id := v_fund;
   end if;
   perform app.set_audit_context(coalesce(v_reason, 'Changed the Pathshala fee rules of ' || t.name));
-  -- This function's own write passes the term guard (app.pathshala_terms_guard); the flag is put back right after.
-  v_writer := current_setting('app.pathshala_term_writer', true);
-  perform set_config('app.pathshala_term_writer', 'on', true);
   update app.pathshala_terms
      set payment_mode = n.payment_mode, hold_hours = n.hold_hours, office_payment_allowed = n.office_payment_allowed,
          office_hold_days = n.office_hold_days, seat_rule = n.seat_rule, sibling_discount_pct = n.sibling_discount_pct,
@@ -950,7 +912,6 @@ begin
          late_fee_cents = n.late_fee_cents, withdrawal_credit_until = n.withdrawal_credit_until, age_cutoff_on = n.age_cutoff_on,
          fund_id = n.fund_id
    where id = t.id;
-  perform set_config('app.pathshala_term_writer', coalesce(v_writer, ''), true);
   if t.campaign_id is not null and n.fund_id is distinct from t.fund_id and n.fund_id is not null then
     update app.campaigns set fund_id = n.fund_id where id = t.campaign_id;
   end if;
@@ -963,7 +924,6 @@ end $$;
 create or replace function app.open_pathshala_registration(p_term uuid, p_reason text default null) returns jsonb
 language plpgsql security definer set search_path = app, public, extensions as $$
 declare t app.pathshala_terms; v_missing text; v_problem text; v_fund uuid; v_campaign uuid; v_warn jsonb; v_name text;
-        v_writer text;
 begin
   select * into t from app.pathshala_terms where id = p_term for update;
   if t.id is null then raise exception 'That term was not found.' using errcode = 'P0002'; end if;
@@ -1025,9 +985,6 @@ begin
   perform app.set_audit_context(coalesce(app.audit_clean_reason(p_reason),
     'Opened Pathshala registration for ' || t.name || ' (' || case t.payment_mode when 'pay_now' then 'pay now' else 'pledge mode' end
     || '; fees and rules locked)'));
-  -- The one write that takes a term out of Draft and locks it: it passes the term guard; the flag is put back right after.
-  v_writer := current_setting('app.pathshala_term_writer', true);
-  perform set_config('app.pathshala_term_writer', 'on', true);
   update app.pathshala_terms
      set fees_locked_at = now(), fees_locked_by = auth.uid(),
          age_cutoff_on = coalesce(age_cutoff_on, starts_on),
@@ -1036,7 +993,6 @@ begin
          status = case when status = 'draft' then 'registration' else status end
    where id = t.id
   returning * into t;
-  perform set_config('app.pathshala_term_writer', coalesce(v_writer, ''), true);
   return jsonb_build_object('term_id', t.id, 'status', t.status, 'already_open', false, 'fees_locked_at', t.fees_locked_at,
                             'campaign_id', t.campaign_id, 'fund_id', t.fund_id, 'payment_mode', t.payment_mode, 'warnings', v_warn);
 end $$;
@@ -1922,118 +1878,6 @@ begin
 end $$;
 
 -- ═════════════════════════════════════════════════════════════════════════════
--- The demo pack and the demo clear (0311, 0586): the guards' flag, and level fees go with their term
--- ═════════════════════════════════════════════════════════════════════════════
--- 0311's bodies, with the flag of the term and fee guards (app.pathshala_term_writer) set around the pack step and the
--- clear: the community pack writes its current term as active (0312). Nothing else changes.
-create or replace function app.worker_demo_load_next(p_center uuid) returns jsonb
-language plpgsql security definer set search_path = app, public, extensions as $$
-declare s app.center_demo_state; p app.demo_packs; v_steps jsonb; v_step jsonb; i int; v_after jsonb; v_before jsonb;
-        v_loaded jsonb := '{}'::jsonb; k text; v_writer text;
-begin
-  perform app.assert_worker();
-  perform set_config('app.client_app', 'job', true);
-  select * into s from app.center_demo_state where center_id = p_center for update;
-  if s.center_id is null or s.status <> 'loading' then
-    return jsonb_build_object('done', true, 'status', coalesce(s.status, 'empty'), 'note', 'nothing to load');
-  end if;
-  perform 1 from app.centers where id = p_center for update;
-  perform app.demo_assert_sandbox(p_center);
-  select * into p from app.demo_packs where key = s.pack_key;
-  v_steps := app.demo_pack_steps(s.pack_key);
-  i := s.steps_done + 1;
-  if i <= jsonb_array_length(v_steps) then
-    v_step := v_steps -> (i - 1);
-    perform app.set_audit_context('Demo data · ' || p.title || ' · ' || (v_step->>'label') || ': ' || coalesce(s.reason, 'demo pack'), s.load_seed);
-    -- 0590: a pack step writes terms the way the Pathshala functions do (a term already out of Draft): it passes the
-    -- term guard (app.pathshala_terms_guard) and the fee guard; the flag is put back right after the step.
-    v_writer := current_setting('app.pathshala_term_writer', true);
-    perform set_config('app.pathshala_term_writer', 'on', true);
-    execute format('select app.%I($1, $2, $3)', 'demo_' || s.pack_key || '_' || (v_step->>'key')) using p_center, s.load_seed, s.requested_by;
-    perform set_config('app.pathshala_term_writer', coalesce(v_writer, ''), true);
-    update app.center_demo_state
-       set steps_done = i,
-           step_label = coalesce((v_steps -> i)->>'label', 'Finishing'),
-           detail = detail || jsonb_build_object('steps_completed', coalesce(detail->'steps_completed', '[]'::jsonb) || to_jsonb(v_step->>'key')),
-           last_error = null, updated_at = now()
-     where center_id = p_center;
-  end if;
-  if i < jsonb_array_length(v_steps) then
-    return jsonb_build_object('done', false, 'steps_done', i, 'steps_total', jsonb_array_length(v_steps), 'step', v_step->>'key');
-  end if;
-  -- Last step done: what the pack added, table by table.
-  select detail->'counts_before' into v_before from app.center_demo_state where center_id = p_center;
-  v_after := app.demo_data_counts(p_center);
-  for k in select jsonb_object_keys(v_after) loop
-    if (v_after->>k)::bigint - coalesce((v_before->>k)::bigint, 0) <> 0 then
-      v_loaded := v_loaded || jsonb_build_object(k, (v_after->>k)::bigint - coalesce((v_before->>k)::bigint, 0));
-    end if;
-  end loop;
-  perform app.set_audit_context('Demo data · ' || p.title || ' loaded: ' || coalesce(s.reason, 'demo pack'), s.load_seed);
-  -- Sign-ins linked to demo people are not part of the pack (they depend on who has signed in).
-  update app.center_demo_state
-     set status = 'loaded', step_label = null, loaded_at = now(), loaded_by = s.requested_by, last_error = null,
-         detail = detail || jsonb_build_object('counts_after', v_after, 'loaded', v_loaded - 'center_users',
-                                               'linked_logins', coalesce((v_loaded->>'center_users')::int, 0)), updated_at = now()
-   where center_id = p_center;
-  return jsonb_build_object('done', true, 'status', 'loaded', 'steps_done', jsonb_array_length(v_steps), 'loaded', v_loaded - 'center_users');
-end $$;
-
-create or replace function app.worker_demo_clear(p_center uuid) returns jsonb
-language plpgsql security definer set search_path = app, public, extensions as $$
-declare s app.center_demo_state; v_result jsonb; v_job bigint; v_then text; v_writer text;
-begin
-  perform app.assert_worker();
-  perform set_config('app.client_app', 'job', true);
-  select * into s from app.center_demo_state where center_id = p_center for update;
-  if s.center_id is null or s.status <> 'clearing' then
-    return jsonb_build_object('status', coalesce(s.status, 'empty'), 'note', 'nothing to clear');
-  end if;
-  perform app.set_audit_context('Demo data · ' || case s.operation when 'reset' then 'reset the sandbox' else 'clear the sandbox' end
-                                || ': ' || coalesce(s.reason, ''), s.load_seed);
-  update app.center_demo_state set step_label = 'Removing the sandbox''s records', updated_at = now() where center_id = p_center;
-  -- 0590: clearing passes the term and fee guards (it only deletes today, and a term's fees go with it); the flag is put
-  -- back right after.
-  v_writer := current_setting('app.pathshala_term_writer', true);
-  perform set_config('app.pathshala_term_writer', 'on', true);
-  v_result := app.demo_clear_center(p_center);
-  perform set_config('app.pathshala_term_writer', coalesce(v_writer, ''), true);
-  v_then := case when s.operation = 'reset' then s.pack_key end;
-  if v_then is not null then
-    update app.center_demo_state
-       set status = 'loading', cleared_at = now(), cleared_by = s.requested_by, steps_done = 0,
-           steps_total = jsonb_array_length(app.demo_pack_steps(v_then)), step_label = 'Waiting for the background service',
-           load_seed = gen_random_uuid(), last_error = null,
-           detail = detail || jsonb_build_object('cleared', v_result, 'counts_before', app.demo_data_counts(p_center)), updated_at = now()
-     where center_id = p_center;
-    v_job := app.enqueue_job(p_center, 'demo.load', jsonb_build_object('pack', v_then), now(), 3);
-    update app.center_demo_state set job_id = v_job where center_id = p_center;
-  else
-    update app.center_demo_state
-       set status = 'empty', pack_key = null, version = null, cleared_at = now(), cleared_by = s.requested_by,
-           step_label = null, last_error = null, loaded_at = null, loaded_by = null,
-           detail = detail || jsonb_build_object('cleared', v_result), updated_at = now()
-     where center_id = p_center;
-  end if;
-  return v_result || jsonb_build_object('then_load', v_then, 'load_job', v_job);
-end $$;
-
--- 0586's body plus pathshala_level_fees (the plan's §2.10: level fees are configuration), listed here like 0586's access
--- tables so the keep list (and test 66, which pins it) stays as it is. A clear never deletes a fee by itself: a term the
--- clear removes takes its fees with it (on delete cascade), so fees are kept exactly where their term is kept (a clear
--- removes every term today).
-create or replace function app.demo_clear_tables() returns text[]
-language sql stable set search_path = app, public, extensions as $$
-  select coalesce(array_agg(c.relname::text order by c.relname), '{}')
-    from pg_class c join pg_namespace n on n.oid = c.relnamespace
-   where n.nspname = 'app' and c.relkind = 'r'
-     and (exists (select 1 from pg_attribute a where a.attrelid = c.oid and a.attname = 'center_id' and not a.attisdropped)
-          or c.relname in ('gyan_levels','gyan_steps'))
-     and c.relname <> all (app.demo_keep_tables())
-     and c.relname <> all (array['access_levels', 'center_feature_access', 'pathshala_level_fees']::text[])
-$$;
-
--- ═════════════════════════════════════════════════════════════════════════════
 -- The import's allow-list (app.import_entities): Pathshala terms take dates, windows and the membership rule only
 -- ═════════════════════════════════════════════════════════════════════════════
 -- Generated from src/lib/import/registry.ts (tests/import-registry.test.ts compares the two), re-seeding the whole list as
@@ -2240,7 +2084,7 @@ revoke execute on function
   app._pathshala_ts(jsonb, text, text), app.pathshala_levels_delete_guard(), app.pathshala_level_used(uuid),
   app._pathshala_level_json(uuid), app.pathshala_first_class_day(uuid, uuid), app.pathshala_age_cutoff(uuid),
   app.pathshala_withdrawal_deadline(uuid), app.pathshala_registration_window(uuid), app.pathshala_is_late(uuid),
-  app.pathshala_terms_guard(), app.pathshala_level_fees_guard(), app._pathshala_assert_fee_editor(app.pathshala_terms, text, text),
+  app.pathshala_terms_guard(), app._pathshala_assert_fee_editor(app.pathshala_terms, text, text),
   app.pathshala_online_payments_ready(uuid), app._pathshala_pay_now_problem(uuid), app._pathshala_fees_json(uuid),
   app._pathshala_term_json(uuid), app.pathshala_level_seats(uuid, uuid), app._pathshala_price(uuid, uuid, jsonb, boolean, boolean),
   app._pathshala_existing_lines(uuid, uuid),

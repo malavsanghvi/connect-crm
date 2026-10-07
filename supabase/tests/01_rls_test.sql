@@ -56,12 +56,8 @@ insert into app.center_users (center_id, user_id, person_id) values
   (:jsh, '10000000-0000-4000-8000-000000000006', '30000000-0000-4000-8000-000000000008');
 
 -- Pathshala: one term, two classes; the teacher teaches class A only.
--- A term already out of Draft: since 0590 only Open registration and the demo pack write one, so this fixture sets the
--- term guard's flag on purpose for its own writes (app.pathshala_term_writer).
-select set_config('app.pathshala_term_writer', 'on', false);
 insert into app.pathshala_terms (id, center_id, name, starts_on, ends_on, status)
   values ('40000000-0000-4000-8000-000000000001', :jsh, '2026-2027', '2026-08-30', '2027-05-30', 'active');
-select set_config('app.pathshala_term_writer', '', false);
 insert into app.pathshala_classes (id, center_id, term_id, level_id, name)
   select '40000000-0000-4000-8000-00000000000a', :jsh, '40000000-0000-4000-8000-000000000001', l.id, 'Jainism 3 – A'
   from app.pathshala_levels l join app.pathshala_tracks t on t.id = l.track_id where t.key = 'jainism' and l.key = '3';

@@ -77,15 +77,11 @@ insert into app.center_users (center_id, user_id, person_id) values
   (:c1, :mom, :p_mom), (:c1, :kid_user, :p_kid), (:c1, :other_user, :p_other_mom), (:c2, :mom, :p_mom_c2);
 insert into app.pathshala_tracks (id, center_id, key, name) values (:tr1, :c1, 'jainism', 'Jainism'), (:tr2, :c2, 'jainism', 'Jainism');
 insert into app.pathshala_levels (id, center_id, track_id, key, name, sort_order) values (:lv1, :c1, :tr1, '1', 'Level 1', 1), (:lv2, :c2, :tr2, '1', 'Level 1', 1);
--- A term already out of Draft: since 0590 only Open registration and the demo pack write one, so this fixture sets the
--- term guard's flag on purpose for its own writes (app.pathshala_term_writer).
-select set_config('app.pathshala_term_writer', 'on', false);
 insert into app.pathshala_terms (id, center_id, name, starts_on, ends_on, status) values
   (:t1, :c1, '2026-2027', date '2026-09-01', date '2027-05-31', 'registration'),
   (:t2, :c2, '2026-2027', date '2026-09-01', date '2027-05-31', 'registration'),
   (:t_draft, :c1, '2027-2028', date '2027-09-01', date '2028-05-31', 'draft'),
   (:t_closed, :c1, '2025-2026', date '2025-09-01', date '2026-05-31', 'closed');
-select set_config('app.pathshala_term_writer', '', false);
 insert into app.pathshala_classes (id, center_id, term_id, level_id, name) values (:cls, :c1, :t1, :lv1, 'Jainism 1 - Room A');
 insert into app.role_grants (center_id, user_id, role_key) values (:c1, :principal, 'pathshala_principal');
 
