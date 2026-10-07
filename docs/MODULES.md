@@ -167,11 +167,16 @@ name, to `audit.view` holders of that center and platform admins only (the same 
 - **Tables:** pathshala_terms, pathshala_tracks, pathshala_levels, pathshala_classes,
   pathshala_teachers, pathshala_enrollments, pathshala_sessions, pathshala_attendance,
   pathshala_progress_reports, class_announcements, teacher_positions, teacher_applications,
-  pathshala_level_fees, pathshala_enrollment_fees (0590)
+  pathshala_level_fees, pathshala_enrollment_fees (0590), pathshala_registrations,
+  pathshala_pending_registrations (0591)
 - **RPCs guarded:** pathshala_term_stats, redeem_attendance_qr; registration (0590): save_pathshala_level,
   set_pathshala_level_fees, set_pathshala_term_rules, open_pathshala_registration, pathshala_quote,
   pathshala_fee_example, pathshala_registration_options, preview_pathshala_registration, pathshala_seats,
-  pathshala_pay_now_ready
+  pathshala_pay_now_ready; (0591): register_pathshala_children, choose_pathshala_office_payment,
+  place_pathshala_enrollment, place_next_from_waitlist, release_pathshala_hold, extend_pathshala_hold,
+  pathshala_registration_queue, pathshala_task_counts
+- **Worker:** pathshala.holds_sweep (every 15 minutes: reminders and releases of the seats held for payment, the
+  waitlist; `app.worker_pathshala_holds_sweep`)
 - **Portal:** /pathshala, /pathshala/classes, /pathshala/classes/[id]/attendance,
   /pathshala/classes/[id]/reports (progress reports), /pathshala/terms, /pathshala/enrollments
   (incl. "Enroll a student"), /pathshala/teachers (positions and applications),
