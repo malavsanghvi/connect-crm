@@ -168,8 +168,8 @@ export function backgroundServiceView(status: Json | null | undefined): Backgrou
 
 /**
  * What each background job is, in plain English (Settings › Integrations shows these instead of the
- * raw kind). One entry per worker/src/handlers/<kind>.ts (tests/vault.test.ts checks it), plus
- * storage.scan, which waits in the queue until a malware scanner is chosen.
+ * raw kind). One entry per worker/src/handlers/<kind>.ts (tests/vault.test.ts checks it). The two
+ * virus-scanning kinds (0589) wait in the queue while scanning is switched off.
  */
 export const JOB_KIND_LABELS: Record<string, string> = {
   "demo.ping": "Test job",
@@ -177,7 +177,8 @@ export const JOB_KIND_LABELS: Record<string, string> = {
   "demo.clear": "Clear the sandbox",
   "oauth.exchange": "Connect a service",
   "storage.retention": "Remove expired files",
-  "storage.scan": "Malware scan",
+  "storage.scan": "Virus check of an uploaded file",
+  "storage.scan_sweep": "Find uploads still to be checked for viruses",
   "payments.webhook.stripe": "Stripe event",
   "payments.webhook.paypal": "PayPal event",
   "payments.refund": "Refund through the provider",

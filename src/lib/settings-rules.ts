@@ -231,7 +231,7 @@ export const NOTIFICATION_TRIGGERS: NotificationTrigger[] = [
   { key: "family_celebration", label: "Family celebration", when: () => "When goal or level completed", channel: "Push" },
   { key: "saathi_support", label: "Saathi support request", when: (s) => `After ${s.points.behindAfterDays} days behind`, channel: "Push to anumodana senders" },
   // Bolis say "pledge", never "bid". Only "another family pledged more" is sent (0596, an event-day message); the
-  // 24-hour notice has no sender yet (BACKLOG B48).
+  // 24-hour notice has no sender yet (BACKLOG B49).
   { key: "boli_outbid", label: "Boli: another family pledged more / closing", when: () => "On entry · 24 hours before cutoff", channel: "Push" },
   { key: "giving_opportunity", label: "Giving opportunity alert", when: () => "On publish", channel: "Push · email" },
   { key: "pledge_reminder", label: "Pledge reminder", when: () => "Monthly for open pledges", channel: "Email" },

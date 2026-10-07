@@ -46,7 +46,7 @@
 | File picker in the app | **No** | `expo-document-picker` is not installed: a native module, so a new APK (runtime 4) |
 | Homework of any kind | **No** | — |
 | A parent approval step anywhere | **No** | Consents and change requests are office approvals, not parent ones |
-| Malware scan of uploads | Queued only | `storage.scan` jobs stay pending until a scanner is chosen (`0172` header). Nothing claims a file is clean |
+| Malware scan of uploads | Queued only | `storage.scan` jobs stay pending until a scanner is chosen (`0172` header). Nothing claims a file is clean. (Since 0589: ClamAV is built in, switched off; in enforce mode homework files reach teachers only once clean. docs/DEPLOY.md › Malware scanning.) |
 
 ### 1.2 Need by need
 

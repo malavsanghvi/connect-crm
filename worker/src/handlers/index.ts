@@ -1,6 +1,8 @@
 // The handler registry: one module per job kind (worker/src/handlers/<kind>.ts).
-// storage.scan is deliberately absent: no malware scanner has been chosen, so
-// scan jobs stay queued ("pending") instead of getting an invented result.
+// storage.scan (0589) is registered but waits while virus scanning is off (the
+// default) or clamd and the worker's Storage key are not set: the runner does
+// not claim its jobs then (waitWhenNotConfigured), so they stay queued
+// ("pending") exactly as before, and nothing invents a result.
 
 import type { HandlerModule } from "../types";
 import * as calendarImportFeed from "./calendar.import_feed";
@@ -41,6 +43,8 @@ import * as paymentsWebhookStripe from "./payments.webhook.stripe";
 import * as photosImportAlbum from "./photos.import_album";
 import * as storageRetention from "./storage.retention";
 import * as surveysLaunchNotify from "./surveys.launch_notify";
+import * as storageScan from "./storage.scan";
+import * as storageScanSweep from "./storage.scan_sweep";
 
 export const HANDLERS: HandlerModule[] = [
   demoPing,
@@ -96,4 +100,8 @@ export const HANDLERS: HandlerModule[] = [
   homeworkRemindersSweep,
   // Event feedback (0596): the survey push and its two reminders for each invited adult, in batches, each person once
   surveysLaunchNotify,
+  // Virus scanning of uploads (0589): one file at a time with clamd, and the sweep that queues the backlog; both wait
+  // in the queue while scanning is off (Platform › Setup), which is the default
+  storageScan,
+  storageScanSweep,
 ];

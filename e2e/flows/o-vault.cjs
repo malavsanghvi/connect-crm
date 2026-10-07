@@ -316,7 +316,7 @@ async function maybeStepUp(p, secret) {
   ok(sql(`select count(*) from app.audit_log where action = 'storage.upload' and record_id = 'recordings/${rec}' and actor_user_id = '${priyaUid}' and after->>'mimetype' = 'audio/mp4'`) === '1',
     'the parent\'s upload is audited with who uploaded which file');
   ok(sql(`select count(*) from app.jobs where kind = 'storage.scan' and status = 'queued' and payload->>'name' = '${imp}'`) === '1',
-    'the import upload queued a malware scan that stays pending (no scanner chosen)');
+    'the import upload queued a virus check that stays pending (virus scanning is switched off by default, 0589)');
   const off = await rpc(adminAal2, 'set_module_enabled', { p_center: jsh, p_module: 'gyan_path', p_enabled: false, p_reason: `e2e ${run}: recordings closed with the module` });
   ok(off.status < 300, 'Gyan Path switched off');
   const closed = await download(priya, 'recordings', rec);

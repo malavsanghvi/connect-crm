@@ -602,8 +602,9 @@ select pg_temp.sign_in(:classteacher);
 select pg_temp.assert_raises($$insert into storage.objects (bucket_id, name) values ('homework', '72000000-0000-4000-8000-0000000000c1/72000000-0000-4000-8000-0000000000a3/$$ || :'sub1' || $$/e1000000-0000-4000-8000-00000000000d.jpg')$$,
   'row-level security', 'homework bucket: the teacher reads, never writes');
 commit;
-select pg_temp.assert((select count(*) from app.jobs where kind = 'storage.scan' and payload->>'bucket' = 'homework' and payload->>'name' like '%' || :'sub1' || '%') = 2,
-  'every homework upload queues a malware scan');
+select pg_temp.assert((select count(*) from app.jobs where kind = 'storage.scan' and payload->>'bucket' = 'homework'
+                         and payload->>'object_id' in (select id::text from storage.objects where bucket_id = 'homework' and name like '%' || :'sub1' || '%')) = 2,
+  'every homework upload queues a malware scan (0589: the job names the object by its id)');
 begin;
 select pg_temp.sign_in(:kid);
 select pg_temp.assert_raises($$select app.save_gyan_submission_draft('$$ || :'a1' || $$', '$$ || :p_kid || $$', 'Namo', '{"kind": "voice"}')$$,
@@ -638,8 +639,8 @@ commit;
 select pg_temp.assert(:'sub1v2'::jsonb->>'text_answer' = 'Namo Arihantanam' and jsonb_array_length(:'sub1v2'::jsonb->'files') = 2
                       and :'sub1v2'::jsonb->'files'->0->>'kind' = 'voice' and (:'sub1v2'::jsonb->'files'->0->>'duration_seconds')::int = 12
                       and :'sub1v2'::jsonb->'files'->1->>'storage_path' = :prefix || :'sub1' || '/e1000000-0000-4000-8000-000000000002.jpg' and :'sub1v2'::jsonb->'files'->1->'deleted_at' = 'null'::jsonb
-                      and (select array_agg(k order by k) from jsonb_object_keys(:'sub1v2'::jsonb->'files'->0) k) = array['bytes','deleted_at','duration_seconds','id','kind','mime_type','sort_order','storage_path'],
-  'the draft keeps the trimmed text and its two parts, in order, with exactly the contract''s file keys');
+                      and (select array_agg(k order by k) from jsonb_object_keys(:'sub1v2'::jsonb->'files'->0) k) = array['bytes','deleted_at','duration_seconds','id','kind','mime_type','scan','scan_held','sort_order','storage_path'],
+  'the draft keeps the trimmed text and its two parts, in order, with exactly the contract''s file keys (0589 added scan and scan_held)');
 
 -- ── Handing in ─────────────────────────────────────────────────────────────
 begin;
@@ -1405,8 +1406,9 @@ select pg_temp.assert(app.gyan_homework_path_ok(:prefix || :'sub_f' || '/e100000
                       and not app.gyan_homework_path_ok(upper(:prefix || :'sub_f' || '/e1000000-0000-4000-8000-0000000000aa.jpg')),
   'the path rule: <community>/<person>/<submission>/<lower-case uuid>.<one to five lower-case letters or digits>: what the member app uploads');
 select pg_temp.assert(not exists (select 1 from app.jobs where kind = 'storage.scan' and payload->>'bucket' = 'homework'
-                                    and payload->>'name' !~ '^([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/){3}[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.[a-z0-9]{1,5}$'),
-  'every homework file the storage scan job names has an opaque name: no child''s words can sit in the job or its audit entry');
+                                    and payload->>'name' !~ '^([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/){3}[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.[a-z0-9]{1,5}$')
+                      and not exists (select 1 from app.jobs where kind = 'storage.scan' and payload->>'bucket' = 'homework' and payload ? 'name'),
+  'no homework scan job names its file (0589: by the object''s id only), and a name could never hold a child''s words anyway');
 update storage.objects set created_at = now() - interval '400 days'
  where bucket_id = 'homework' and name in (:prefix || :'sub_f' || '/e1000000-0000-4000-8000-000000000012.jpg', :prefix || :'sub_f' || '/e1000000-0000-4000-8000-000000000013.jpg');
 begin; set local role connect_worker;

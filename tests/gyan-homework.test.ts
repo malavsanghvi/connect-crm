@@ -14,6 +14,7 @@ import {
   durationText,
   fileLabel,
   fileRemoved,
+  fileScanNotice,
   fileSizeText,
   householdBriefText,
   INSTRUCTIONS_MAX,
@@ -385,6 +386,27 @@ describe("words for the screens", () => {
     expect(fileRemoved({ id: "f", kind: "photo", storage_path: null, mime_type: null, bytes: null, duration_seconds: null, sort_order: 1, deleted_at: null })).toBe(true);
     expect(fileRemoved({ id: "f", kind: "photo", storage_path: "x", mime_type: null, bytes: null, duration_seconds: null, sort_order: 1, deleted_at: "2027-01-01" })).toBe(true);
     expect(fileRemoved({ id: "f", kind: "photo", storage_path: "x", mime_type: null, bytes: null, duration_seconds: null, sort_order: 1, deleted_at: null })).toBe(false);
+  });
+
+  it("reads where a part's virus check stands and says it only when it is in the way (0589)", () => {
+    const parsed = parseSubmission({
+      id: "s",
+      status: "submitted",
+      files: [
+        { id: "a", kind: "photo", storage_path: "x", scan: "clean", scan_held: false },
+        { id: "b", kind: "photo", storage_path: "y", scan: "weird", scan_held: "yes" },
+        { id: "c", kind: "photo", storage_path: "z" },
+      ],
+    });
+    expect(parsed).toMatchObject({ ok: true, value: { files: [{ scan: "clean", scan_held: false }, { scan: null, scan_held: false }, { scan: null, scan_held: false }] } });
+    const part = { id: "f", kind: "photo" as const, storage_path: "x", mime_type: null, bytes: null, duration_seconds: null, sort_order: 1, deleted_at: null };
+    expect(fileScanNotice({ ...part, scan: "pending", scan_held: true })).toBe("Being checked for viruses — it opens here once the check is done.");
+    expect(fileScanNotice({ ...part, scan: "failed", scan_held: true })).toMatch(/could not finish/);
+    expect(fileScanNotice({ ...part, scan: "pending", scan_held: false })).toBeNull();
+    expect(fileScanNotice({ ...part, scan: "clean", scan_held: false })).toBeNull();
+    expect(fileScanNotice(part)).toBeNull();
+    expect(fileScanNotice({ ...part, storage_path: null, deleted_at: "2026-10-07", scan: "infected" })).toMatch(/^removed: the virus check found a problem/);
+    expect(fileScanNotice({ ...part, storage_path: null, deleted_at: "2026-10-07", scan: null })).toBeNull();
   });
 
   it("offers only the status moves the database allows, each with its warning", () => {
