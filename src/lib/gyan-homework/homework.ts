@@ -64,6 +64,12 @@ export const POINTS_MAX = 1000;
 /** A "days after the learner starts the level" due rule (app.gyan_due_rule_problem). */
 export const DUE_DAYS_MIN = 1;
 export const DUE_DAYS_MAX = 365;
+/** The reminder (0588, gyan_assignments.remind_hours_before): hours before the end of the due day; empty = no reminder. */
+export const REMIND_HOURS_MIN = 1;
+export const REMIND_HOURS_MAX = 720;
+/** app.save_gyan_assignment's sentences for the reminder (0588), with the form's lower-case start. */
+export const REMIND_RANGE_ERROR = `the reminder must be a whole number of hours from ${REMIND_HOURS_MIN} to ${REMIND_HOURS_MAX} (30 days) before the homework is due, or empty for no reminder.`;
+export const REMIND_NEEDS_DUE_ERROR = "a reminder needs a due date: choose when the homework is due, or leave the reminder empty.";
 /** The review note's limit (gyan_submissions.review_note). */
 export const REVIEW_NOTE_MAX = 1000;
 /** app.gyan_homework_queue answers with at most this many rows (the oldest waiting, the newest decided). */
@@ -103,6 +109,10 @@ export type Assignment = {
   required_for_level: boolean;
   points: number;
   due_rule: DueRule;
+  /** Remind the learners who have not handed in this many hours before the end of the due day (0588); null = no reminder. */
+  remind_hours_before: number | null;
+  /** When those hours were last set (a reminder whose time had already passed then is never sent). */
+  remind_set_at: string | null;
   parent_check: ParentCheck;
   reviewer: Reviewer;
   status: AssignmentStatus;
@@ -124,6 +134,8 @@ export type AssignmentInput = {
   required_for_level: boolean;
   points: number;
   due_rule: DueRule;
+  /** null = no reminder; only with a due date. */
+  remind_hours_before: number | null;
   parent_check: ParentCheck;
   reviewer: Reviewer;
   sort_order: number;
@@ -210,6 +222,12 @@ export function dueRuleFromJson(v: unknown): DueRule {
   return { kind: "none" };
 }
 
+/** The reminder's hours as stored: a whole number from 1 to 720, else none (null). */
+export function remindHoursFromJson(v: unknown): number | null {
+  const n = num(v);
+  return n !== null && Number.isInteger(n) && n >= REMIND_HOURS_MIN && n <= REMIND_HOURS_MAX ? n : null;
+}
+
 export function parseAssignment(data: unknown): Parsed<Assignment> {
   if (!isObj(data)) return { ok: false, error: "the homework is not an object" };
   const id = str(data.id);
@@ -235,6 +253,8 @@ export function parseAssignment(data: unknown): Parsed<Assignment> {
       required_for_level: bool(data.required_for_level),
       points: num(data.points) ?? 0,
       due_rule: dueRuleFromJson(data.due_rule),
+      remind_hours_before: remindHoursFromJson(data.remind_hours_before),
+      remind_set_at: str(data.remind_set_at),
       parent_check: data.parent_check,
       reviewer: data.reviewer,
       status: data.status,
@@ -392,6 +412,8 @@ export type AssignmentFormInput = {
   due_kind: string;
   due_days: string;
   due_date: string;
+  /** "Remind (hours before it is due)": "" (or absent: the field is shown only with a due date) = no reminder. */
+  remind_hours?: string;
   parent_check: string;
   reviewer: string;
   sort_order?: string;
@@ -448,6 +470,14 @@ export function assignmentFromForm(input: AssignmentFormInput): Parsed<Assignmen
     if (!DATE.test(date) || Number.isNaN(Date.parse(`${date}T00:00:00Z`))) return { ok: false, error: "choose the due date." };
     due = { kind: "on", date };
   } else return { ok: false, error: "choose when it is due: no due date, some days after the learner starts the level, or a date." };
+  // The reminder (0588), checked in the database's order: the hours first, then that there is a due date.
+  const remindRaw = (input.remind_hours ?? "").trim();
+  let remind: number | null = null;
+  if (remindRaw) {
+    if (!WHOLE.test(remindRaw) || Number(remindRaw) < REMIND_HOURS_MIN || Number(remindRaw) > REMIND_HOURS_MAX) return { ok: false, error: REMIND_RANGE_ERROR };
+    if (due.kind === "none") return { ok: false, error: REMIND_NEEDS_DUE_ERROR };
+    remind = Number(remindRaw);
+  }
   if (!isParentCheck(input.parent_check)) return { ok: false, error: "choose who checks first: never, children or always." };
   if (!isReviewer(input.reviewer)) return { ok: false, error: "choose who reviews: the class teacher or the content team." };
   const order = (input.sort_order ?? "").trim();
@@ -465,6 +495,7 @@ export function assignmentFromForm(input: AssignmentFormInput): Parsed<Assignmen
       required_for_level: input.required_for_level,
       points: Number(points),
       due_rule: due,
+      remind_hours_before: remind,
       parent_check: input.parent_check,
       reviewer: input.reviewer,
       sort_order: order ? Number(order) : 0,
@@ -536,6 +567,15 @@ export function dueText(rule: DueRule, timeZone: string): string {
   if (rule.kind === "days_after_start") return `${rule.days} day${rule.days === 1 ? "" : "s"} after the learner starts the level`;
   if (rule.kind === "on") return `Due ${formatDate(rule.date, timeZone)}`;
   return "No due date";
+}
+
+/**
+ * "Reminder 48 h before" (0588): the learners who have not handed in are reminded that many hours before the end of
+ * the due day. Null when there is no reminder (or no due date, which a reminder needs).
+ */
+export function reminderText(hours: number | null, rule?: DueRule): string | null {
+  if (hours === null || rule?.kind === "none") return null;
+  return `Reminder ${hours} h before`;
 }
 
 /** Who the homework is for. */

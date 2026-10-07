@@ -45,7 +45,7 @@ so the member app, sender and sign-in service can adopt them.
 | `onboarding.fields.<field>` | see below | Onboarding fields | **new**: member app onboarding (not read yet) |
 | `notifications.quiet_start_hour` / `quiet_end_hour` | 21 / 7 | Notifications | **read by the database** (`app.messaging_quiet_until`, 0221): a notification, campaign or receipt by text, push or WhatsApp that is due in quiet hours waits until they end (0596: judged at the time it is due, not when it is queued) |
 | `notifications.event_day_during_quiet_hours` | true | Notifications | **read by the database** (0221): true = an event-day message (the lunch reminder and, owner decision 2026-10-07, the boli "another family pledged more" notice) is not held by quiet hours. False: they wait like the rest, and one that could only go after its slot starts or its boli closes is not queued (0596; the audit log says why) |
-| `notifications.triggers.<trigger>` | true | Notifications | `lunch_reminder`, `boli_outbid` and `event_feedback` are **read by the database** (0596, `app._member_push`): false = that push is not queued. The other keys record a choice for a sender that is not built yet (BACKLOG B48) |
+| `notifications.triggers.<trigger>` | true | Notifications | **Read by the database:** `homework_reminder` (0588): `false` means `app.worker_homework_reminders_sweep` sends this community no homework reminder and its next run cancels those still waiting to go out; `lunch_reminder`, `boli_outbid` and `event_feedback` (0596, `app._member_push`): `false` = that push is not queued. Anything else, or no key, is on. The other keys record a choice for a sender that is not built yet (BACKLOG B48) |
 | `security.printed_signin_codes` | true | Security | **new**: policy only, not enforced yet |
 | `security.admin_session_hours` / `admin_idle_minutes` | 8 / 30 | Security | **new**: policy only; the sign-in service keeps its own session length |
 | `onboarding.wizard_step` | — | Platform › New center | **new**: next wizard step while a center is onboarding |
@@ -68,7 +68,10 @@ and physical mail are always asked and are not stored.
 
 `notifications.triggers` keys: `rsvp_confirmation`, `lunch_reminder`, `special_day_labh`,
 `family_celebration`, `saathi_support`, `boli_outbid`, `giving_opportunity`,
-`pledge_reminder`, `store_order_ready`, `event_feedback`, `pachchakhan_reminder`.
+`pledge_reminder`, `store_order_ready`, `event_feedback`, `pachchakhan_reminder`,
+`homework_reminder` ("Homework due-soon reminders", 0588: the first switch here that is actually read by the
+database. Each homework sets its own hours before the due date, or none; with this switch off the community
+gets no homework reminder at all).
 
 Keys without a form (voting, identifiers, bank, accounting, `rsvp.nudge_hour_local`,
 `membership.reference_required`, …) are edited in Settings › Rules › Advanced.

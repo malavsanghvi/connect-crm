@@ -43,7 +43,7 @@ export function NotificationsForm({
         <Card
           span={8}
           title="Automatic notifications"
-          description="What each automatic message should do. Three go out today, as pushes to members with the app on a phone: the lunch slot reminder, the boli notice when another family pledges more (not the 24-hour one) and the event feedback request. The other rows record your choice for a sender that is not built yet."
+          description="What each automatic message should do. Four go out today and follow their switch: the lunch slot reminder, the boli notice when another family pledges more (not the 24-hour one) and the event feedback request, as pushes to members with the app on a phone, and the homework due-soon reminders. The other rows record your choice for a sender that is not built yet."
           padded={false}
         >
           <TableWrap>

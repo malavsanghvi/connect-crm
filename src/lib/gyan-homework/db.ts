@@ -43,8 +43,9 @@ function homeworkDb(db: object): HomeworkClient {
 
 export const HOMEWORK_BUCKET = "homework";
 
+// remind_hours_before and remind_set_at: migration 0588 (the reminder before homework is due).
 const ASSIGNMENT_COLUMNS =
-  "id, center_id, level_id, class_id, title, instructions_md, allowed_kinds, max_files, required_for_level, points, due_rule, parent_check, reviewer, status, sort_order, created_by, created_at, updated_at";
+  "id, center_id, level_id, class_id, title, instructions_md, allowed_kinds, max_files, required_for_level, points, due_rule, remind_hours_before, remind_set_at, parent_check, reviewer, status, sort_order, created_by, created_at, updated_at";
 
 export type Loaded<T> =
   | { status: "ok"; value: T }

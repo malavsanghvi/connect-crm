@@ -244,6 +244,14 @@ export const NOTIFICATION_TRIGGERS: NotificationTrigger[] = [
     channel: "Push · SMS or WhatsApp for guests",
   },
   { key: "pachchakhan_reminder", label: "Pachchakhan reminder", when: () => "Member-set times", channel: "Push" },
+  // 0588: read by the database itself (app.worker_homework_reminders_sweep); off = no homework reminder in this community
+  // (and the next run cancels those still waiting).
+  {
+    key: "homework_reminder",
+    label: "Homework due-soon reminders",
+    when: () => "The hours before the end of the due day that each homework sets, to learners who have not handed it in; held by quiet hours (no push after it is due)",
+    channel: "Push · email to the learner, and to the household adults of a learner under 18",
+  },
 ];
 
 export type NotificationSettings = {
