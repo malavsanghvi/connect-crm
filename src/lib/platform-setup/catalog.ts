@@ -86,6 +86,19 @@ const F = {
     hint: `Which Gemini model draws flyer art. Without a choice: ${FLYER_ART_MODELS[DEFAULT_FLYER_ART_MODEL].label}. Organizers see the price before every picture.`,
     options: FLYER_ART_MODEL_IDS.map((id) => ({ value: id, label: `${FLYER_ART_MODELS[id].label} — ${formatArtCost(FLYER_ART_MODELS[id].cents)} a picture` })),
   },
+  // 0589. The database's read rules follow this setting too, so the background service takes it from here only (never
+  // from its environment). Switch it on only after ClamAV is installed (docs/DEPLOY.md › Malware scanning).
+  UPLOAD_SCAN_MODE: {
+    name: "UPLOAD_SCAN_MODE",
+    kind: "setting",
+    label: "Virus scanning of uploads",
+    hint: "Off until ClamAV runs on the droplet (docs/DEPLOY.md › Malware scanning). Monitor: check every upload and record the result, nothing is held back or removed. Enforce: homework and recordings reach teachers only once checked, and an infected file is removed and the family and the office are told.",
+    options: [
+      { value: "off", label: "Off (uploads are not checked yet)" },
+      { value: "monitor", label: "Monitor (check and record, block nothing)" },
+      { value: "enforce", label: "Enforce (hold back until checked, remove infected files)" },
+    ],
+  },
 } satisfies Record<string, Field>;
 
 export type FieldName = keyof typeof F;
@@ -96,7 +109,7 @@ export const STEPS: Step[] = [
     key: "background", required: true, title: "Background service",
     what: "The service that sends email and texts, talks to Stripe, PayPal and QuickBooks, and runs imports.",
     why: "Almost everything an organization sets up waits on it. It also reads the keys you save in this wizard.",
-    fields: [], workerTest: false,
+    fields: [F.UPLOAD_SCAN_MODE], workerTest: false,
   },
   {
     key: "portal", required: true, title: "Portal address and HTTPS",
@@ -240,6 +253,8 @@ export function fieldProblem(name: string, raw: string): string | null {
       return /^[A-Za-z0-9_.-]{20,200}$/.test(v) ? null : "That does not look like a Gemini API key (letters, digits, - and _ only, as AI Studio shows it).";
     case "GEMINI_IMAGE_MODEL":
       return (FLYER_ART_MODEL_IDS as string[]).includes(v) ? null : "Choose one of the listed models.";
+    case "UPLOAD_SCAN_MODE":
+      return ["off", "monitor", "enforce"].includes(v.toLowerCase()) ? null : "Choose off, monitor or enforce.";
     case "OAUTH_STATE_SECRET":
     case "MESSAGING_LINK_SECRET":
       return v.length >= 32 ? null : "Use at least 32 characters (Generate makes one).";

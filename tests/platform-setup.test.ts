@@ -53,6 +53,11 @@ describe("platform setup catalog", () => {
     expect(fieldProblem("GEMINI_API_KEY", "AIzaSy!!!!!!!!!!!!!!!!!!!!!!!!!!!")).toMatch(/does not look like a Gemini API key/);
     expect(fieldProblem("GEMINI_IMAGE_MODEL", "gemini-3.1-flash-image")).toBeNull();
     expect(fieldProblem("GEMINI_IMAGE_MODEL", "gemini-2.5-flash-image")).toMatch(/Choose one of the listed models/);
+    expect(fieldProblem("UPLOAD_SCAN_MODE", "monitor")).toBeNull();
+    expect(fieldProblem("UPLOAD_SCAN_MODE", "Enforce")).toBeNull();
+    expect(fieldProblem("UPLOAD_SCAN_MODE", "on")).toMatch(/Choose off, monitor or enforce/);
+    expect(FIELDS.UPLOAD_SCAN_MODE?.options?.map((o) => o.value)).toEqual(["off", "monitor", "enforce"]);
+    expect(STEPS.find((s) => s.key === "background")?.fields.map((f) => f.name)).toEqual(["UPLOAD_SCAN_MODE"]);
     expect(fieldProblem("NOPE", "x")).toMatch(/not a field/);
     expect(normalizeDomain("https://CRM.Example.org/")).toBe("crm.example.org");
     expect(normalizeDomain("*.cc.app", true)).toBe("cc.app");

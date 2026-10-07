@@ -2,11 +2,12 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { ActionForm } from "@/components/action-form";
-import { Alert, Card, KpiGrid, NoAccess, PageHeader, QueryError, Stat, TableWrap } from "@/components/ui";
+import { Alert, Card, KpiGrid, NoAccess, PageHeader, QueryError, Stat, StatusText, TableWrap } from "@/components/ui";
 import { canAccess } from "@/lib/permissions";
 import { getSession } from "@/lib/session";
 import { formatBytes, parseStorageOverview, STORAGE_AREAS } from "@/lib/setup";
 import { rulesVersion } from "@/lib/settings-rules";
+import { parseUploadScanSummary, uploadScanView } from "@/lib/upload-scan";
 
 import { saveRetentionAction } from "./actions";
 
@@ -41,6 +42,8 @@ export default async function StoragePage() {
     );
   }
   const o = parseStorageOverview(res.data);
+  // The virus check (0589): app.center_storage_overview's "scan" summary.
+  const scan = uploadScanView(parseUploadScanSummary((res.data as { scan?: unknown } | null)?.scan));
   const version = rulesVersion(center.rules);
   const pct = o.limitBytes ? Math.min(100, Math.round((o.usedBytes / o.limitBytes) * 100)) : null;
 
@@ -116,9 +119,16 @@ export default async function StoragePage() {
           </table>
         </TableWrap>
       </Card>
+      <div className="mt-3 text-[13px]" data-upload-scan>
+        <p>
+          <StatusText tone={scan.tone}>{scan.title}</StatusText>
+          {scan.counts ? <span className="text-muted"> · {scan.counts}</span> : null}
+        </p>
+        <p className="mt-0.5 text-muted">{scan.detail}</p>
+      </div>
       <p className="mt-3 text-[13px] text-muted">
-        Uploads are checked for type and size; malware scanning is queued for every upload and runs once a scanning provider is connected. Saving a
-        retention choice (keeping the default is fine) marks the <Link href="/setup" className="crm-link">Setup step</Link> “File storage” as reviewed.
+        Uploads are checked for type and size. Saving a retention choice (keeping the default is fine) marks the{" "}
+        <Link href="/setup" className="crm-link">Setup step</Link> “File storage” as reviewed.
       </p>
     </>
   );

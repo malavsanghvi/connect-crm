@@ -141,16 +141,24 @@ export type AssignmentInput = {
   sort_order: number;
 };
 
+/** Where a file's virus check stands (migration 0589, app.upload_scan_state). */
+export type ScanState = "pending" | "clean" | "infected" | "failed" | "exempt";
+const SCAN_STATES: readonly string[] = ["pending", "clean", "infected", "failed", "exempt"];
+
 export type SubmissionFile = {
   id: string;
   kind: "photo" | "file" | "voice";
-  /** Null once the retention job removed the file (the row, note and points stay). */
+  /** Null once the retention job (or the virus check, 0589) removed the file (the row, note and points stay). */
   storage_path: string | null;
   mime_type: string | null;
   bytes: number | null;
   duration_seconds: number | null;
   sort_order: number;
   deleted_at: string | null;
+  /** The virus check (0589): 'infected' also for a part the check removed; null for one retention removed, or before 0589. */
+  scan?: ScanState | null;
+  /** Enforce mode: held back from the reviewers until the check says clean (the family opens it meanwhile). */
+  scan_held?: boolean;
 };
 
 export type Submission = {
@@ -291,6 +299,8 @@ function parseFile(v: unknown): SubmissionFile | null {
     duration_seconds: num(v.duration_seconds),
     sort_order: num(v.sort_order) ?? 0,
     deleted_at: str(v.deleted_at),
+    scan: typeof v.scan === "string" && SCAN_STATES.includes(v.scan) ? (v.scan as ScanState) : null,
+    scan_held: v.scan_held === true,
   };
 }
 
@@ -630,6 +640,21 @@ export function fileLabel(file: SubmissionFile): string {
 /** A file the retention job removed (plan H9, owner decision 2026-10-06: 180 days after upload; the row, note and points stay). */
 export function fileRemoved(file: SubmissionFile): boolean {
   return file.deleted_at !== null || file.storage_path === null;
+}
+
+/**
+ * What the reviewer reads instead of the part, when the virus check (0589) is the reason it cannot be opened: removed
+ * because it was infected, being checked (held back until clean, enforce mode), or held because the check could not
+ * finish. Null when the check is not in the way (the part opens, or another reason applies).
+ */
+export function fileScanNotice(file: SubmissionFile): string | null {
+  if (fileRemoved(file)) {
+    return file.scan === "infected" ? "removed: the virus check found a problem with the file. The family was told; the answer, note and points stay." : null;
+  }
+  if (!file.scan_held) return null;
+  return file.scan === "failed"
+    ? "the virus check could not finish for this file; it opens here once a check passes."
+    : "Being checked for viruses — it opens here once the check is done.";
 }
 
 // ---------------------------------------------------------------------------

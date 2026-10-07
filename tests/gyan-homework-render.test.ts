@@ -274,4 +274,30 @@ describe("Pathshala › Homework › the parts of an answer", () => {
     const html = render(createElement(SubmissionParts, { submission: { ...submission, files: [], text_answer: null }, signed, learner: "A" }));
     expect(html).toContain("Nothing was attached to this answer.");
   });
+
+  it("says when the virus check holds a part back, could not finish, or removed it (0589)", () => {
+    const checked = parseSubmission({
+      id: "s2",
+      status: "submitted",
+      files: [
+        { id: "g1", kind: "photo", storage_path: "c/p/s2/new.jpg", mime_type: "image/jpeg", bytes: 10, sort_order: 1, deleted_at: null, scan: "pending", scan_held: true },
+        { id: "g2", kind: "file", storage_path: "c/p/s2/odd.pdf", mime_type: "application/pdf", bytes: 10, sort_order: 2, deleted_at: null, scan: "failed", scan_held: true },
+        { id: "g3", kind: "voice", storage_path: null, mime_type: "audio/mp4", bytes: 10, sort_order: 3, deleted_at: "2026-10-07T00:00:00Z", scan: "infected", scan_held: false },
+        { id: "g4", kind: "photo", storage_path: "c/p/s2/ok.jpg", mime_type: "image/jpeg", bytes: 10, sort_order: 4, deleted_at: null, scan: "pending", scan_held: false },
+      ],
+    });
+    if (!checked.ok) throw new Error(checked.error);
+    const html = render(createElement(SubmissionParts, {
+      submission: checked.value,
+      signed: new Map([["c/p/s2/ok.jpg", { url: "https://x/ok?token=4", problem: null }]]),
+      learner: "Anya Shah",
+    }));
+    expect(html).toContain("Photo — Being checked for viruses — it opens here once the check is done.");
+    expect(html).toContain("PDF file (10 B) — the virus check could not finish for this file; it opens here once a check passes.");
+    expect(html).toContain("Voice note — removed: the virus check found a problem with the file. The family was told; the answer, note and points stay.");
+    expect(html).not.toContain("removed after the retention period");
+    // Monitor mode (or a file from before enforcement): pending but not held, it opens as usual.
+    expect(html).toContain('<img src="https://x/ok?token=4"');
+    expect(html).not.toContain("c/p/s2/");
+  });
 });

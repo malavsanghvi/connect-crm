@@ -129,9 +129,9 @@ export default async function HomeworkQueuePage({ searchParams }: { searchParams
   // The household card links to the household's page for people who may open People.
   const householdHref = canAccess(session, "households") ? (id: string) => `/households/${id}` : () => undefined;
 
-  // Two signing calls for every file on screen (not the removed ones): photos and voice notes show inline; the file
-  // parts are signed as downloads (Content-Disposition: attachment) and open in a new tab.
-  const live = visible.flatMap((it) => it.submission.files.filter((f) => !fileRemoved(f)));
+  // Two signing calls for every file on screen (not the removed ones, nor those the virus check still holds back): photos
+  // and voice notes show inline; the file parts are signed as downloads (Content-Disposition: attachment) and open in a new tab.
+  const live = visible.flatMap((it) => it.submission.files.filter((f) => !fileRemoved(f) && !f.scan_held));
   const inlinePaths = live.filter((f) => f.kind !== "file").map((f) => f.storage_path as string);
   const downloadPaths = live.filter((f) => f.kind === "file").map((f) => f.storage_path as string);
   const [inlineSigned, downloadSigned] = await Promise.all([
