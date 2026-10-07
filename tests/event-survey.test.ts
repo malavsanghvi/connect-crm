@@ -135,6 +135,12 @@ describe("event survey wording", () => {
       "1 refused: quiet hours lasted until after the survey closes",
       "2 refused: a sandbox pushes only to verified test recipients",
     ]);
+    // The same words as app.member_notice_reason_text in the database.
+    expect(refusalLines({ no_login: 1, no_phone: 2, switched_off: 3 })).toEqual([
+      "1 refused: the person has no login in this community",
+      "2 refused: the person has no phone with the app",
+      "3 refused: the community switched this notice off in Settings › Notifications",
+    ]);
   });
   it("a feedback request says what happens at its time, or what happened now", () => {
     expect(feedbackRequestMessage("Thu 9 AM", null, false)).toBe(

@@ -499,12 +499,18 @@ select pg_temp.fan_out(:'sv_now'::uuid);
 select pg_temp.assert((select count(*) from pg_temp.notices(array['event_survey', 'event_survey_reminder'], 'survey_id', :'sv_now') where status = 'queued') = 6,
   'the job queues them');
 update app.surveys set status = 'closed' where id = :'sv_now';
+select string_agg(m.id::text, ',') as cl_ids from pg_temp.notices(array['event_survey', 'event_survey_reminder'], 'survey_id', :'sv_now') m \gset
+begin;
+set local role connect_worker;
+select count(*) filter (where app.worker_message_to_send(u.id)->>'skip' = 'The message is already cancelled.') as cl_skipped
+  from unnest(string_to_array(:'cl_ids', ',')::uuid[]) as u(id) \gset
+reset role;
+commit;
 select pg_temp.assert((select count(*) from pg_temp.notices(array['event_survey', 'event_survey_reminder'], 'survey_id', :'sv_now')
                         where status = 'cancelled' and failure_reason = 'Not sent: the survey closed before it went.') = 6
                       and (select count(*) from pg_temp.notices(array['event_survey', 'event_survey_reminder'], 'survey_id', :'sv_now') m
                                        join app.jobs j on j.id = m.job_id where j.status = 'queued') = 6
-                      and not exists (select 1 from pg_temp.notices(array['event_survey', 'event_survey_reminder'], 'survey_id', :'sv_now') m
-                                       where app.worker_message_to_send(m.id)->>'skip' is distinct from 'The message is already cancelled.'),
+                      and :'cl_skipped'::int = 6,
   'closing the survey cancels its waiting pushes in one update (their jobs stay queued: closing must stay quick for thousands), and the sender skips each of them');
 -- The per-message job cancel still works everywhere else (answering, moving a slot, a boli, an expired notice: asserted above and below).
 
