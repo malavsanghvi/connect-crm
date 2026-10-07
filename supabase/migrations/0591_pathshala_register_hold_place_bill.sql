@@ -791,7 +791,7 @@ end $$;
 -- ═════════════════════════════════════════════════════════════════════════════
 create or replace function app._pathshala_fee_paid(p_pledge uuid) returns void
 language plpgsql security definer set search_path = app, public, extensions as $$
-declare p app.pledges; e app.pathshala_enrollments; f app.pathshala_enrollment_fees; o record; v_left int; v_class uuid;
+declare p app.pledges; e app.pathshala_enrollments; f app.pathshala_enrollment_fees; o record; v_left int; v_class uuid; v_own boolean;
 begin
   select * into p from app.pledges where id = p_pledge;
   if p.id is null or p.source <> 'pathshala_fee' or p.source_ref_id is null then return; end if;
@@ -799,10 +799,13 @@ begin
   if e.id is null then return; end if;
   select * into f from app.pathshala_enrollment_fees where enrollment_id = e.id;
   if f.id is null then return; end if;
-  if f.pledge_id = p.id and f.status = 'billed' then
+  -- Only the fee line's OWN pledge, still billed, confirms the seat. A pledge a member made up themselves (even one
+  -- that names this enrollment) pays nothing toward the seat.
+  v_own := (f.pledge_id = p.id and f.status = 'billed');
+  if v_own then
     update app.pathshala_enrollment_fees set status = 'paid', paid_at = now() where id = f.id;
   end if;
-  if e.status = 'requested' and e.hold_reason in ('payment', 'office_payment') then
+  if v_own and e.status = 'requested' and e.hold_reason in ('payment', 'office_payment') then
     perform app.set_audit_default_reason('Pathshala fee paid: ' || coalesce(app.pathshala_first_name(e.student_person_id), 'the learner')
                                          || '''s held seat is confirmed');
     perform app._pathshala_lock_level(e.term_id, e.requested_level_id);
@@ -855,6 +858,16 @@ end $$;
 drop trigger if exists pathshala_fee_paid on app.pledges;
 create trigger pathshala_fee_paid after update of status on app.pledges
   for each row execute function app.pathshala_fee_paid_trigger();
+
+-- ACCESS: a member could insert a pledge of any source with any source_ref_id (0010). A fee pledge is made only by the
+-- database (a function), never by the family, and only an RSVP commitment (the mobile app writes it with the RSVP's id)
+-- names another record. Staff and the functions are not touched: they do not go through this policy.
+drop policy if exists pledges_household_insert on app.pledges;
+create policy pledges_household_insert on app.pledges for insert to authenticated
+  with check (app.adult_of_household(center_id, household_id)
+              and status = 'open' and paid_cents = 0
+              and source in ('rsvp_commitment','sponsorship','pujan','labh','construction','general','membership_fee')
+              and (source_ref_id is null or source = 'rsvp_commitment'));
 
 -- Money that arrives after a release (§2.7): the checkout named the cancelled fee pledges, so nothing (or not all) was
 -- allocated; the rest is household credit. One credit row (kind pathshala_late_payment) puts it in front of the treasurer.
