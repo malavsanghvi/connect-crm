@@ -576,3 +576,32 @@ select pg_temp.assert((select proconfig @> array['lock_timeout=3s'] from pg_proc
                       and (select prosrc like '%query_canceled%' from pg_proc where oid = 'app.pathshala_fee_paid_trigger()'::regprocedure)
                       and (select prosrc like '%pg_try_advisory_xact_lock%' from pg_proc where oid = 'app._pathshala_try_lock_level(uuid, uuid)'::regprocedure),
   'the paid-fee hook gives up after 3 seconds of waiting, takes its locks without waiting, and its trigger swallows a statement timeout');
+
+-- ════════════════════════════════════════════════════════════════════════════
+-- 8. A new child in two tracks is one child: one add-member request, one rank, one late fee
+-- ════════════════════════════════════════════════════════════════════════════
+begin;
+select pg_temp.sign_in(:u_nita);
+select app.register_pathshala_children(:t3, :h2, jsonb_build_array(
+  jsonb_build_object('new_child', jsonb_build_object('first_name', 'Ravi', 'last_name', 'Mehta', 'date_of_birth', '2016-09-09'), 'track_id', :tr_j, 'level_id', :lv_j2),
+  jsonb_build_object('new_child', jsonb_build_object('first_name', 'Ravi', 'last_name', 'Mehta', 'date_of_birth', '2016-09-09'), 'track_id', :tr_g, 'level_id', :lv_g1)),
+  null, null, null, 'k77-ravi-3') as r19 \gset
+commit;
+select pg_temp.assert((select count(*) = 2 and bool_and(x ->> 'outcome' = 'pending_child') and count(distinct x ->> 'family_rank') = 1
+                              and sum((x ->> 'late_fee_cents')::int) = (select late_fee_cents from app.pathshala_terms where id = :t3) and count(*) filter (where (x ->> 'late_fee_cents')::int > 0) = 1
+                         from jsonb_array_elements(:'r19'::jsonb -> 'lines') x),
+  'a new child in two tracks: two lines, one family rank, ONE late fee (the term''s, once)');
+select pg_temp.assert((select count(distinct change_request_id) = 1 and count(*) = 2 from app.pathshala_pending_registrations where registration_id = (:'r19'::jsonb ->> 'registration_id')::uuid)
+                      and (select count(*) = 1 from app.household_change_requests r where r.household_id = :h2 and r.kind = 'add_member' and r.status = 'open'
+                              and lower(r.details ->> 'first_name') = 'ravi')
+                      and jsonb_array_length(:'r19'::jsonb -> 'pending') = 2,
+  'a new child in two tracks: ONE add-member request (the office decides once), two pending registrations');
+begin;
+select pg_temp.sign_in(:u_tara);
+select app.decide_household_change_request((select distinct change_request_id from app.pathshala_pending_registrations where registration_id = (:'r19'::jsonb ->> 'registration_id')::uuid),
+                                           'approve', 'child') as ravi_person \gset
+commit;
+select pg_temp.assert((select count(*) = 2 and bool_and(e.student_person_id = :'ravi_person'::uuid) and count(distinct e.track_id) = 2 and bool_and(e.status = 'placed')
+                         from app.pathshala_pending_registrations pr join app.pathshala_enrollments e on e.id = pr.enrollment_id
+                        where pr.registration_id = (:'r19'::jsonb ->> 'registration_id')::uuid and pr.status = 'converted'),
+  'the office adds Ravi once: both registrations go ahead (one enrollment per track), each placed');

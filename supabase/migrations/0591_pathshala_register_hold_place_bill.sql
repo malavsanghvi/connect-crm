@@ -1141,6 +1141,7 @@ declare t app.pathshala_terms; h app.households; r app.pathshala_registrations; 
         v_cr uuid; v_pr uuid; v_class uuid; v_status text; v_hold text; v_expires timestamptz; v_sugg jsonb; p app.pledges;
         v_result jsonb; v_tz text; v_summary text[] := '{}'; v_person uuid; v_track uuid; v_reuse uuid; v_outcome text;
         v_pay_now boolean; v_assist boolean; v_line jsonb; v_n int; v_mode text; v_tmpl text; v_new jsonb; v_dob date; y jsonb;
+        v_newkeys jsonb := '{}'::jsonb; v_lkey text;
 begin
   if auth.uid() is null then raise exception 'Sign in first.' using errcode = '42501'; end if;
   select * into t from app.pathshala_terms where id = p_term;
@@ -1239,8 +1240,16 @@ begin
 
     if v_outcome = 'pending_child' then
       v_dob := app._pathshala_date(x -> 'new_child', 'date_of_birth', 'The date of birth');
-      v_cr := app.request_add_family_member(h.id, btrim(x -> 'new_child' ->> 'first_name'), btrim(x -> 'new_child' ->> 'last_name'),
-                                            nullif(btrim(x -> 'new_child' ->> 'relationship'), ''), v_dob);
+      -- A new child in two tracks is ONE child (name plus birth date, the key the quote uses): one add-member request for
+      -- both lines, so the office approves once and both registrations go ahead.
+      v_lkey := app._pathshala_learner_key(btrim(x -> 'new_child' ->> 'first_name') || ' ' || btrim(x -> 'new_child' ->> 'last_name'), v_dob);
+      if v_newkeys ? v_lkey then
+        v_cr := (v_newkeys ->> v_lkey)::uuid;
+      else
+        v_cr := app.request_add_family_member(h.id, btrim(x -> 'new_child' ->> 'first_name'), btrim(x -> 'new_child' ->> 'last_name'),
+                                              nullif(btrim(x -> 'new_child' ->> 'relationship'), ''), v_dob);
+        v_newkeys := v_newkeys || jsonb_build_object(v_lkey, v_cr);
+      end if;
       insert into app.pathshala_pending_registrations (center_id, term_id, household_id, registration_id, change_request_id, first_name, last_name,
                                                        date_of_birth, relationship, track_id, requested_level_id, note, quote, registered_at, registered_by)
       values (t.center_id, t.id, h.id, v_reg, v_cr, btrim(x -> 'new_child' ->> 'first_name'), btrim(x -> 'new_child' ->> 'last_name'),
