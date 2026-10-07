@@ -697,6 +697,11 @@ rollback;
 select pg_temp.assert(not (:'opt_kid'::jsonb ->> 'can_register')::boolean
                       and (:'opt_kid'::jsonb ->> 'cannot_reason') = 'Ask a parent or guardian in your family to register you.',
   'options: a child sees "Ask a parent or guardian in your family to register you."');
+select pg_temp.assert((select bool_and(y -> 'fee_cents' = 'null'::jsonb) from jsonb_array_elements(:'opt_kid'::jsonb -> 'tracks') x, jsonb_array_elements(x -> 'levels') y)
+                      and (:'opt_kid'::jsonb -> 'term' -> 'sibling_discount_pct') = 'null'::jsonb and (:'opt_kid'::jsonb -> 'term' -> 'family_cap_cents') = 'null'::jsonb
+                      and (:'opt_kid'::jsonb -> 'term' -> 'window' -> 'late_fee_cents') = 'null'::jsonb
+                      and jsonb_array_length(:'opt_kid'::jsonb -> 'tracks') > 0,
+  'options: a child sees the levels but no fee, discount, cap or late fee (P30)');
 begin;
 select pg_temp.sign_in(:u_nita);
 select pg_temp.assert_code(format($$select app.pathshala_registration_options(%L, %L)$$, :t1, :h1),
@@ -798,18 +803,23 @@ select pg_temp.assert(app.pathshala_fee_label('2026-27', array['Riya', 'Dev', 'A
 insert into app.pathshala_enrollments (id, center_id, term_id, student_person_id, household_id, requested_level_id, status)
 values ('75000000-0000-4000-8000-000000000ee3', :c, :t1, :p_dev, :h1, :lv_j2, 'requested');
 insert into app.pathshala_enrollment_fees (center_id, enrollment_id, term_id, household_id, level_id, learner_kind, family_rank, base_fee_cents,
-                                           sibling_discount_cents, total_cents, assistance_requested, assistance_note)
-values (:c, '75000000-0000-4000-8000-000000000ee3', :t1, :h1, :lv_j2, 'child', 2, 13000, 1300, 11700, true, 'We lost a job this year.');
+                                           sibling_discount_cents, total_cents, assistance_requested)
+values (:c, '75000000-0000-4000-8000-000000000ee3', :t1, :h1, :lv_j2, 'child', 2, 13000, 1300, 11700, true);
+insert into app.pathshala_assistance_notes (enrollment_id, center_id, assistance_note)
+values ('75000000-0000-4000-8000-000000000ee3', :c, 'We lost a job this year.');
 begin;
 select pg_temp.sign_in(:u_mira);
 select pg_temp.assert((select count(*) from app.pathshala_enrollment_fees where household_id = :h1) = 1
                       and (select count(*) from app.pathshala_level_fees where term_id = :t1) = 10
-                      and (select count(*) from app.pathshala_level_fees where term_id = :t2) = 0,
-  'access: a household adult reads the family''s fee lines and the open term''s level fees (not a draft term''s)');
+                      and (select count(*) from app.pathshala_level_fees where term_id = :t2) = 0
+                      and (select count(*) from app.pathshala_assistance_notes) = 0,
+  'access: a household adult reads the family''s fee lines and the open term''s level fees (not a draft term''s), but not the assistance note');
 rollback;
 begin;
 select pg_temp.sign_in(:u_riya);
-select pg_temp.assert((select count(*) from app.pathshala_enrollment_fees) = 0, 'access: a child never reads the family''s fees');
+select pg_temp.assert((select count(*) from app.pathshala_enrollment_fees) = 0 and (select count(*) from app.pathshala_level_fees) = 0
+                      and (select count(*) from app.pathshala_assistance_notes) = 0,
+  'access: a child never reads the family''s fees, the level fees or the assistance note (P30)');
 rollback;
 begin;
 select pg_temp.sign_in(:u_nita);
@@ -817,14 +827,21 @@ select pg_temp.assert((select count(*) from app.pathshala_enrollment_fees) = 0, 
 rollback;
 begin;
 select pg_temp.sign_in(:u_cora);
-select pg_temp.assert((select count(*) from app.pathshala_enrollment_fees) = 0 and (select count(*) from app.pathshala_level_fees where term_id = :t2) = 1,
-  'access: the committee (pathshala.view) reads level fees, even a draft term''s, but no family''s fee lines');
+select pg_temp.assert((select count(*) from app.pathshala_enrollment_fees) = 0 and (select count(*) from app.pathshala_level_fees where term_id = :t2) = 1
+                      and (select count(*) from app.pathshala_assistance_notes) = 0,
+  'access: the committee (pathshala.view) reads level fees, even a draft term''s, but no family''s fee lines and no assistance note');
 rollback;
 begin;
 select pg_temp.sign_in(:u_tara);
-select pg_temp.assert((select count(*) from app.pathshala_enrollment_fees where household_id = :h1) = 1, 'access: the treasurer (giving staff) reads the fee lines');
+select pg_temp.assert((select count(*) from app.pathshala_enrollment_fees where household_id = :h1) = 1
+                      and (select assistance_note from app.pathshala_assistance_notes where enrollment_id = '75000000-0000-4000-8000-000000000ee3') = 'We lost a job this year.',
+  'access: the treasurer (giving.manage) reads the fee lines and the assistance note');
 rollback;
-select pg_temp.assert((select after ->> 'assistance_note' from app.audit_log where record_table = 'pathshala_enrollment_fees' and action = 'pathshala_enrollment_fees.insert'
+begin;
+select pg_temp.sign_in(:u_pia);
+select pg_temp.assert((select count(*) from app.pathshala_assistance_notes) = 1, 'access: the principal reads the assistance note');
+rollback;
+select pg_temp.assert((select after ->> 'assistance_note' from app.audit_log where record_table = 'pathshala_assistance_notes' and action = 'pathshala_assistance_notes.insert'
                         order by id desc limit 1) = '*** (24 characters)',
   'audit: the private fee-assistance note is masked in the audit log');
 select pg_temp.assert(app.audit_mask(jsonb_build_object('bucket_id', 'homework', 'name',

@@ -113,6 +113,13 @@ language sql stable security definer set search_path = app, public, extensions a
 $$;
 
 -- A level's band: adult (minimum 18 or more), children (maximum under 18), any (no band, or a band that crosses 18).
+-- The caller is an adult (app.gyan_i_am_adult: a child with no birth date is still a child): for the row level security
+-- policies that keep fees from children (P30). It answers only about the caller.
+create or replace function app.pathshala_i_am_adult(p_center uuid) returns boolean
+language sql stable security definer set search_path = app, public, extensions as $$
+  select coalesce(app.gyan_i_am_adult(p_center), false)
+$$;
+
 create or replace function app.pathshala_level_band(p_min integer, p_max integer) returns text
 language sql immutable set search_path = app, public, extensions as $$
   select case when p_min is not null and p_min >= 18 then 'adult'
@@ -533,7 +540,6 @@ create table if not exists app.pathshala_enrollment_fees (
   billing_note              text check (billing_note is null or char_length(billing_note) <= 500),
   requotes                  jsonb not null default '[]'::jsonb,
   assistance_requested      boolean not null default false,
-  assistance_note           text check (assistance_note is null or char_length(assistance_note) <= 1000),
   assistance_proposed_cents bigint check (assistance_proposed_cents is null or assistance_proposed_cents >= 0),
   assistance_proposed_by    uuid references auth.users(id),
   assistance_proposed_at    timestamptz,
@@ -551,7 +557,6 @@ create index if not exists pathshala_enrollment_fees_household_idx on app.pathsh
 create index if not exists pathshala_enrollment_fees_center_idx on app.pathshala_enrollment_fees (center_id, term_id, status);
 comment on table app.pathshala_enrollment_fees is
   'The locked quote of one enrollment (0590; written by the registration functions from 0591): level fee, sibling discount, cap reduction, late fee, assistance and the total (the parts must add up), the rules it was priced with (rule_snapshot), its status (quoted, billed, paid, no_fee, cancelled, not_billed_giving_off) and the one fee pledge (pledges.source_ref_id = the enrollment). Kept off the enrollment row, which children read (finding F2). Read by the household''s adults, pathshala.manage and giving staff; never by children, teachers or the committee. Never re-priced, except a move to a level with another price (P26, 0592), recorded in requotes.';
-comment on column app.pathshala_enrollment_fees.assistance_note is 'Private (fee assistance, P8): masked in the audit log.';
 comment on column app.pathshala_enrollment_fees.priced is 'false: a "not sure of the level" learner (P25) or another line the office still has to price; priced when the office places them.';
 
 drop trigger if exists touch_pathshala_enrollment_fees on app.pathshala_enrollment_fees;
@@ -571,12 +576,13 @@ create trigger audit_pathshala_enrollment_fees after insert or update or delete 
 
 alter table app.pathshala_level_fees enable row level security;
 alter table app.pathshala_enrollment_fees enable row level security;
--- Members read a term's level fees once the term is out of Draft (as they read the term itself, 0010); staff always.
+-- The community's adult members read a term's level fees once the term is out of Draft (as they read the term itself,
+-- 0010); a child never sees fees (P30); staff always.
 drop policy if exists pathshala_level_fees_read on app.pathshala_level_fees;
 create policy pathshala_level_fees_read on app.pathshala_level_fees for select to authenticated
   using (app.has_permission(center_id, 'pathshala.view') or app.has_permission(center_id, 'pathshala.manage')
          or app.has_permission(center_id, 'giving.view') or app.has_permission(center_id, 'giving.manage')
-         or (app.is_member_of(center_id)
+         or (app.is_member_of(center_id) and app.pathshala_i_am_adult(center_id)
              and exists (select 1 from app.pathshala_terms t where t.id = pathshala_level_fees.term_id and t.status <> 'draft')));
 -- What a family is charged: the household's adults (never a child), the principal and giving staff.
 drop policy if exists pathshala_enrollment_fees_read on app.pathshala_enrollment_fees;
@@ -584,10 +590,33 @@ create policy pathshala_enrollment_fees_read on app.pathshala_enrollment_fees fo
   using (app.pathshala_adult_of_household(center_id, household_id)
          or app.has_permission(center_id, 'pathshala.manage')
          or app.has_permission(center_id, 'giving.view') or app.has_permission(center_id, 'giving.manage'));
+-- The reason a family gives for asking for fee assistance (P8) is private: only the Pathshala principal (pathshala.manage)
+-- and the treasurer (giving.manage) read it; not the household's other adults, not giving.view, never a child (P30). It is
+-- kept off the fee line, which the household's adults read; written by the assistance functions (0592); masked in the
+-- audit log (the key assistance_note).
+create table if not exists app.pathshala_assistance_notes (
+  enrollment_id    uuid primary key references app.pathshala_enrollments(id) on delete cascade,
+  center_id        uuid not null references app.centers(id) on delete cascade,
+  assistance_note  text not null check (char_length(assistance_note) between 1 and 1000),
+  written_by       uuid references auth.users(id),
+  written_at       timestamptz not null default now()
+);
+create index if not exists pathshala_assistance_notes_center_idx on app.pathshala_assistance_notes (center_id);
+comment on table app.pathshala_assistance_notes is
+  'Why a family asked for Pathshala fee assistance (P8), one row per enrollment (0590). Read by the principal (pathshala.manage) and the treasurer (giving.manage) only; never by the household''s other adults, giving.view or a child (P30). Written by the assistance functions (0592); masked in the audit log.';
+insert into app.module_tables (table_name, module_key) values ('pathshala_assistance_notes', 'pathshala')
+on conflict (table_name) do update set module_key = excluded.module_key;
+drop trigger if exists audit_pathshala_assistance_notes on app.pathshala_assistance_notes;
+create trigger audit_pathshala_assistance_notes after insert or update or delete on app.pathshala_assistance_notes
+  for each row execute function app.audit_row();
+alter table app.pathshala_assistance_notes enable row level security;
+drop policy if exists pathshala_assistance_notes_read on app.pathshala_assistance_notes;
+create policy pathshala_assistance_notes_read on app.pathshala_assistance_notes for select to authenticated
+  using (app.has_permission(center_id, 'pathshala.manage') or app.has_permission(center_id, 'giving.manage'));
 do $$
 declare t text;
 begin
-  foreach t in array array['pathshala_level_fees', 'pathshala_enrollment_fees'] loop
+  foreach t in array array['pathshala_level_fees', 'pathshala_enrollment_fees', 'pathshala_assistance_notes'] loop
     execute format('drop policy if exists module_switch on app.%I', t);
     execute format($p$create policy module_switch on app.%I as restrictive for all to public
       using ((select app.is_platform_admin()) or center_id is null or not (center_id = any ((select app.module_off_centers('pathshala'))::uuid[])))
@@ -1779,7 +1808,7 @@ end $$;
 create or replace function app.pathshala_registration_options(p_term uuid, p_household uuid default null) returns jsonb
 language plpgsql stable security definer set search_path = app, public, extensions as $$
 declare t app.pathshala_terms; h app.households; v_center uuid; v_me uuid; v_staff boolean; v_member boolean; v_adult boolean;
-        v_cut date; v_tracks jsonb; v_learners jsonb; v_households jsonb; v_cannot text; v_tz text;
+        v_cut date; v_tracks jsonb; v_learners jsonb; v_households jsonb; v_cannot text; v_tz text; v_term jsonb;
 begin
   if auth.uid() is null then raise exception 'Sign in first.' using errcode = '42501'; end if;
   if p_term is null then raise exception 'Choose the term.' using errcode = '22023'; end if;
@@ -1836,7 +1865,10 @@ begin
                                      'enrollment_id', en.id,
                                      'track_id', coalesce((to_jsonb(en) ->> 'track_id')::uuid, cl.track_id, rl.track_id),
                                      'level_id', coalesce(c.level_id, en.requested_level_id),
-                                     'status', en.status, 'hold_reason', to_jsonb(en) ->> 'hold_reason',
+                                     'status', en.status,
+                                     -- why a seat is held is the family's adults' business (0591 keeps it on the fee line)
+                                     'hold_reason', case when v_adult or v_staff then (select to_jsonb(fl) ->> 'hold_reason'
+                                                                                      from app.pathshala_enrollment_fees fl where fl.enrollment_id = en.id) end,
                                      'hold_expires_at', app.pathshala_iso((to_jsonb(en) ->> 'hold_expires_at')::timestamptz, v_tz))
                                      order by en.registered_at), '[]'::jsonb)
                              from app.pathshala_enrollments en
@@ -1861,8 +1893,18 @@ begin
     v_cannot := 'No classes are open for registration in ' || t.name || ' yet.';
   end if;
 
+  v_term := app._pathshala_term_json(t.id);
+  -- A child of the household (with their own login) never sees fees or the money rules (P30).
+  if not (v_adult or v_staff) then
+    select coalesce(jsonb_agg(x || jsonb_build_object('levels', (select coalesce(jsonb_agg(y || jsonb_build_object('fee_cents', null) order by o), '[]'::jsonb)
+                                                                    from jsonb_array_elements(x -> 'levels') with ordinality b(y, o))) order by n), '[]'::jsonb)
+      into v_tracks from jsonb_array_elements(v_tracks) with ordinality a(x, n);
+    v_term := v_term || jsonb_build_object('sibling_discount_pct', null, 'family_cap_cents', null,
+                                           'window', (v_term -> 'window') || jsonb_build_object('late_fee_cents', null));
+  end if;
+
   return jsonb_build_object(
-    'term', app._pathshala_term_json(t.id),
+    'term', v_term,
     'household', jsonb_build_object('id', h.id, 'name', h.display_name, 'number', h.household_number,
                                     'membership', app.pathshala_household_membership(h.id)),
     'households', v_households,
@@ -2128,9 +2170,9 @@ grant execute on function
   app.pathshala_quote(uuid, uuid, jsonb), app.pathshala_fee_example(uuid, jsonb), app.pathshala_registration_options(uuid, uuid),
   app.preview_pathshala_registration(uuid, uuid, jsonb), app.pathshala_seats(uuid), app.pathshala_pay_now_ready(uuid)
   to authenticated, service_role;
--- The helper the row level security policies call (it answers only about the caller).
-revoke execute on function app.pathshala_adult_of_household(uuid, uuid) from public, anon;
-grant execute on function app.pathshala_adult_of_household(uuid, uuid) to authenticated, service_role;
+-- The helpers the row level security policies call (they answer only about the caller).
+revoke execute on function app.pathshala_adult_of_household(uuid, uuid), app.pathshala_i_am_adult(uuid) from public, anon;
+grant execute on function app.pathshala_adult_of_household(uuid, uuid), app.pathshala_i_am_adult(uuid) to authenticated, service_role;
 -- Pure formatting: harmless.
 revoke execute on function app.pathshala_money(bigint), app.pathshala_iso(timestamptz, text), app.pathshala_age_on(date, date),
   app.pathshala_level_band(integer, integer), app.pathshala_seat_state(integer, integer, boolean), app.pathshala_fee_label(text, text[])
