@@ -5325,6 +5325,8 @@ export type Database = {
           assistance_approved_at: string | null;
           created_at: string;
           updated_at: string;
+          hold_reason: string | null;
+          withdrawal_reason: string | null;
         };
         Insert: {
           id?: string;
@@ -5359,6 +5361,8 @@ export type Database = {
           assistance_approved_at?: string | null;
           created_at?: string;
           updated_at?: string;
+          hold_reason?: string | null;
+          withdrawal_reason?: string | null;
         };
         Update: {
           id?: string;
@@ -5393,6 +5397,8 @@ export type Database = {
           assistance_approved_at?: string | null;
           created_at?: string;
           updated_at?: string;
+          hold_reason?: string | null;
+          withdrawal_reason?: string | null;
         };
         Relationships: [];
       };
@@ -5415,7 +5421,6 @@ export type Database = {
           custom: Json;
           registration_id: string | null;
           track_id: string | null;
-          hold_reason: string | null;
           hold_expires_at: string | null;
           hold_reminded_at: string | null;
           offered_at: string | null;
@@ -5425,7 +5430,6 @@ export type Database = {
           channel: string | null;
           withdrawn_at: string | null;
           withdrawn_by: string | null;
-          withdrawal_reason: string | null;
         };
         Insert: {
           id?: string;
@@ -5445,7 +5449,6 @@ export type Database = {
           custom?: Json;
           registration_id?: string | null;
           track_id?: string | null;
-          hold_reason?: string | null;
           hold_expires_at?: string | null;
           hold_reminded_at?: string | null;
           offered_at?: string | null;
@@ -5455,7 +5458,6 @@ export type Database = {
           channel?: string | null;
           withdrawn_at?: string | null;
           withdrawn_by?: string | null;
-          withdrawal_reason?: string | null;
         };
         Update: {
           id?: string;
@@ -5475,7 +5477,6 @@ export type Database = {
           custom?: Json;
           registration_id?: string | null;
           track_id?: string | null;
-          hold_reason?: string | null;
           hold_expires_at?: string | null;
           hold_reminded_at?: string | null;
           offered_at?: string | null;
@@ -5485,7 +5486,6 @@ export type Database = {
           channel?: string | null;
           withdrawn_at?: string | null;
           withdrawn_by?: string | null;
-          withdrawal_reason?: string | null;
         };
         Relationships: [];
       };
