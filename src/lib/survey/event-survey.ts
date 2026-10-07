@@ -66,7 +66,7 @@ export function describeEventSurvey(s: EventSurveyRow, eventStatus: string, now:
       label: "Open",
       tone: "success",
       detail: launched
-        ? "Attendees can answer in the member app until it closes. Anyone who has not answered gets two reminders."
+        ? "Invited adults can answer in the member app until it closes. Those with the app on a phone get a push and a reminder on day 1 and day 2 until they answer."
         : "It was opened from Event feedback, so it is already visible in the member app.",
     };
   }
@@ -82,7 +82,7 @@ export function describeEventSurvey(s: EventSurveyRow, eventStatus: string, now:
       stage: "ready",
       label: "Ready to send",
       tone: "warning",
-      detail: "The event is completed but the survey has not gone out yet. Send it now to open it and notify everyone with an RSVP.",
+      detail: "The event is completed but the survey has not gone out yet. Send it now to open it: adults with the app on a phone get a push, and everyone invited sees it on Home.",
     };
   }
   if (eventStatus === "cancelled") {
@@ -95,7 +95,7 @@ export function describeEventSurvey(s: EventSurveyRow, eventStatus: string, now:
       label: "Draft",
       tone: "purple",
       detail:
-        "Waiting for the event. When you mark it completed, the survey opens by itself, everyone with an RSVP (or who attended) is notified, and they get two reminders.",
+        "Waiting for the event. When you mark it completed, the survey opens by itself: adults with the app on a phone get a push and a reminder on day 1 and day 2 until they answer, and everyone invited sees it on Home.",
     };
   }
   return {
@@ -107,36 +107,136 @@ export function describeEventSurvey(s: EventSurveyRow, eventStatus: string, now:
   };
 }
 
-/**
- * What "Send survey" says once the survey went out (0596). `pushed`: people who got a push (adults with the member app
- * on a phone; now, or when quiet hours end, then a reminder on day 1 and day 2 until they answer), from
- * app.launch_event_survey_now. `invited`: every invited adult (app.event_survey_stats), or null when that number could
- * not be loaded. `pushesOff`: the community switched event feedback off in Settings › Notifications. `sandbox`: a
- * sandbox pushes only to verified test recipients. Everyone invited sees the survey on Home in the member app.
- */
-export function surveySentMessage(r: { pushed: number; invited: number | null; pushesOff?: boolean; sandbox?: boolean }): string {
-  const pushed = Math.max(0, Math.trunc(r.pushed));
-  const invited = r.invited === null ? null : Math.max(0, Math.trunc(r.invited));
-  const people = (n: number) => (n === 1 ? "1 person" : `${n} people`);
-  if (pushed > 0) {
-    const sent = `Survey sent: ${people(pushed)} notified by push, now or when quiet hours end, with reminders on day 1 and day 2 until they answer`;
-    if (invited === null) return `${sent}. How many others were invited could not be loaded; reload the page to see the numbers.`;
-    const others = Math.max(invited - pushed, 0);
-    return others > 0 ? `${sent}; ${others} ${others === 1 ? "other" : "others"} will see it on Home in the member app.` : `${sent}.`;
+// ---------------------------------------------------------------------------
+// The survey's pushes (0596): app.event_survey_stats "notices", and what app.launch_event_survey_now returns.
+// ---------------------------------------------------------------------------
+
+/** The counts taken when the pushes start (set-based, mutually exclusive), from app._survey_notice_counts. */
+export type SurveyNoticeCounts = {
+  invited: number;
+  answered: number;
+  /** No login in this community: they do not use the member app. */
+  noLogin: number;
+  /** A login, but no phone that takes notifications: they see the survey on Home. */
+  noPhone: number;
+  /** Switched event pushes off in the app: they see the survey on Home. */
+  pushesOff: number;
+  /** A sandbox pushes only to verified test recipients. */
+  notTestRecipient: number;
+  willPush: number;
+  /** The community switched event feedback off in Settings › Notifications: these would have been pushed. */
+  switchedOff: number;
+};
+
+export type SurveyNotices = {
+  sendAt: string | null;
+  /** Null until the pushes start (a request scheduled ahead is counted when it goes). */
+  planned: SurveyNoticeCounts | null;
+  /** People whose push was queued so far. */
+  pushed: number;
+  /** People whose push was refused, by reason (quiet_hours, sandbox, template, suppressed, error). */
+  refused: Record<string, number>;
+  problemCode: "template" | "closed" | "backlog" | null;
+  problem: string | null;
+  startedAt: string | null;
+  finishedAt: string | null;
+  jobStatus: string | null;
+};
+
+const whole = (v: unknown): number => (typeof v === "number" && Number.isFinite(v) && v > 0 ? Math.trunc(v) : 0);
+const text = (v: unknown): string | null => (typeof v === "string" && v.trim() !== "" ? v : null);
+
+/** The "notices" of app.event_survey_stats (or the launch's answer); null when there is none or it is malformed. */
+export function parseSurveyNotices(raw: unknown): SurveyNotices | null {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+  const o = raw as Record<string, unknown>;
+  const p = o.planned && typeof o.planned === "object" && !Array.isArray(o.planned) ? (o.planned as Record<string, unknown>) : null;
+  const refused: Record<string, number> = {};
+  if (o.refused && typeof o.refused === "object" && !Array.isArray(o.refused)) {
+    for (const [k, v] of Object.entries(o.refused as Record<string, unknown>)) if (whole(v) > 0) refused[k] = whole(v);
   }
-  if (invited === 0) return "Survey opened, but nobody has an RSVP to notify.";
-  const home = invited === null ? "Everyone invited will see it on Home in the member app." : `The ${people(invited)} invited will see it on Home in the member app.`;
-  if (r.pushesOff) return `Survey opened. Nobody was notified by push: event feedback is switched off in Settings › Notifications. ${home}`;
-  if (r.sandbox) return `Survey opened. Nobody was notified by push: a sandbox pushes only to verified test recipients. ${home}`;
-  return `Survey opened. Nobody was notified by push: no one invited has the member app on a phone. ${home}`;
+  const code = o.problem_code;
+  return {
+    sendAt: text(o.send_at),
+    planned: p
+      ? {
+          invited: whole(p.invited),
+          answered: whole(p.answered),
+          noLogin: whole(p.no_login),
+          noPhone: whole(p.no_phone),
+          pushesOff: whole(p.pushes_off),
+          notTestRecipient: whole(p.not_test_recipient),
+          willPush: whole(p.will_push),
+          switchedOff: whole(p.switched_off),
+        }
+      : null,
+    pushed: whole(o.pushed),
+    refused,
+    problemCode: code === "template" || code === "closed" || code === "backlog" ? code : null,
+    problem: text(o.problem),
+    startedAt: text(o.started_at),
+    finishedAt: text(o.finished_at),
+    jobStatus: text(o.job_status),
+  };
 }
 
-/** What attaching a survey to an already completed event says when it is sent at once (no counts come back then). */
-export function surveyAttachedAndSentMessage(r: { pushesOff?: boolean; sandbox?: boolean }): string {
-  const home = "everyone invited will see it on Home in the member app";
-  if (r.pushesOff) return `Survey attached and sent: ${home}. No push goes out, because event feedback is switched off in Settings › Notifications.`;
-  if (r.sandbox) return `Survey attached and sent: ${home}. In a sandbox only verified test recipients get a push.`;
-  return `Survey attached and sent: ${home}, and adults with the app on a phone get a push, with reminders on day 1 and day 2 until they answer.`;
+/** Invited adults with a login who get no push: they see the survey on Home in the member app. */
+export function homeOnly(c: SurveyNoticeCounts): number {
+  return c.noPhone + c.pushesOff + c.notTestRecipient + c.switchedOff;
+}
+
+const REFUSAL_TEXT: Record<string, string> = {
+  quiet_hours: "quiet hours lasted until after the survey closes",
+  sandbox: "a sandbox pushes only to verified test recipients",
+  template: "the push could not be written from its template",
+  suppressed: "they may not be messaged (for example recorded as deceased)",
+  expired: "it was already too late",
+  error: "it could not be queued",
+};
+
+/** "2 refused: a sandbox pushes only to verified test recipients" for each reason, in a stable order. */
+export function refusalLines(refused: Record<string, number>): string[] {
+  return Object.keys(refused)
+    .sort()
+    .map((k) => `${refused[k]} refused: ${REFUSAL_TEXT[k] ?? "it could not be queued"}`);
+}
+
+const people = (n: number) => (n === 1 ? "1 person" : `${n} people`);
+
+/**
+ * What staff are told when a survey's pushes start (Send survey, Mark completed, attaching to a completed event):
+ * who will get a push, who will see it on Home (people with a login only), who has no login, who already answered,
+ * or what stopped every push. `n` null: the numbers could not be loaded, and the sentence says so.
+ */
+export function surveySentMessage(n: SurveyNotices | null, opening = "Survey sent"): string {
+  if (!n || !n.planned) {
+    if (n?.problem) return `${opening}, but no push went out: ${n.problem}`;
+    return `${opening}. Its numbers could not be loaded, so who gets a push is not shown here; reload the page to see them.`;
+  }
+  const c = n.planned;
+  if (n.problem) return `${opening}, but no push went out: ${n.problem}`;
+  if (c.invited === 0) return `${opening}, but nobody has an RSVP to notify.`;
+  const home = homeOnly(c);
+  const parts: string[] = [];
+  if (c.willPush > 0) {
+    parts.push(`${people(c.willPush)} will get a push now (or when quiet hours end), with reminders on day 1 and day 2 until they answer.`);
+  } else if (c.switchedOff > 0) {
+    parts.push("No push goes out: event feedback is switched off in Settings › Notifications.");
+  } else if (c.notTestRecipient > 0) {
+    parts.push("No push goes out: a sandbox pushes only to verified test recipients.");
+  } else {
+    parts.push("No push goes out: nobody invited has the member app on a phone that takes notifications.");
+  }
+  if (home > 0) parts.push(`${home === 1 ? "1 other person" : `${home} others`} with a login will see it on Home in the member app.`);
+  if (c.noLogin > 0) parts.push(`${people(c.noLogin)} invited ${c.noLogin === 1 ? "has" : "have"} no login in the app.`);
+  if (c.answered > 0) parts.push(`${people(c.answered)} already answered.`);
+  return `${opening}: ${parts.join(" ")}`;
+}
+
+/** Feedback requested from Events › Feedback: what will happen at the send time (or now). */
+export function feedbackRequestMessage(when: string, n: SurveyNotices | null, sendsNow: boolean): string {
+  if (sendsNow) return surveySentMessage(n, "Feedback request sent");
+  return `Feedback request scheduled for ${when}: the survey opens in the member app then, adults with the app on a phone get a push (or when quiet hours end) and a reminder on day 1 and day 2 until they answer.`;
 }
 
 export function formatPoints(points: number): string {

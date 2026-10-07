@@ -39,6 +39,7 @@ import * as paymentsWebhookPaypal from "./payments.webhook.paypal";
 import * as paymentsWebhookStripe from "./payments.webhook.stripe";
 import * as photosImportAlbum from "./photos.import_album";
 import * as storageRetention from "./storage.retention";
+import * as surveysLaunchNotify from "./surveys.launch_notify";
 
 export const HANDLERS: HandlerModule[] = [
   demoPing,
@@ -90,4 +91,6 @@ export const HANDLERS: HandlerModule[] = [
   photosImportAlbum,
   // Homework (0587): tell the learners and the parents of children, each person once, in batches, whenever homework is published
   homeworkPublishNotify,
+  // Event feedback (0596): the survey push and its two reminders for each invited adult, in batches, each person once
+  surveysLaunchNotify,
 ];
