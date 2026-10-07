@@ -34,6 +34,14 @@ begin
   perform set_config('request.jwt.claims', jsonb_build_object('sub', p_user, 'role', 'authenticated')::text, true);
   perform set_config('role', 'authenticated', true);
 end $$;
+-- A test fixture that writes a term's status or locked rules directly does what only the Pathshala functions may: it
+-- sets the term guard's flag on purpose, for that one statement (0590).
+create or replace function pg_temp.as_writer(stmt text) returns void language plpgsql as $$
+begin
+  perform set_config('app.pathshala_term_writer', 'on', true);
+  execute stmt;
+  perform set_config('app.pathshala_term_writer', '', true);
+end $$;
 
 -- ── Fixtures ─────────────────────────────────────────────────────────────────
 \set c '''75000000-0000-4000-8000-0000000000c1'''
@@ -188,9 +196,27 @@ update app.pathshala_terms set registration_closes_at = now() + interval '30 day
 select pg_temp.assert((select sibling_discount_pct = 10 and fee_per_family_cap_cents = 27500 from app.pathshala_terms where id = :t1),
   'term form: before the lock it still sets the window, the sibling discount and the cap');
 commit;
-insert into app.pathshala_terms (center_id, name, starts_on, ends_on, status) values (:c, 'Imported 2024-25', '2024-09-01', '2025-05-25', 'closed');
+-- Every other writer is checked too: the bulk import runs as its owner (app.import_set and app.import_insert are security
+-- definer), and so do the worker, a migration and a script like this one.
+select pg_temp.assert_code(format($$select app.import_set('pathshala_terms', %L, '{"status":"registration"}')$$, :t2),
+  '22023', 'To open registration for Rounding term, use Open registration on its Fees screen', 'import: a draft cannot be imported straight to Registration (no fees, no lock)');
+select pg_temp.assert_code(format($$select app.import_insert('pathshala_terms', %L)$$,
+                                  jsonb_build_object('center_id', :c, 'name', 'Imported 2028-29', 'starts_on', '2028-09-03', 'ends_on', '2029-05-27', 'status', 'registration')),
+  '22023', 'use Open registration on its Fees screen', 'import: nor can a new term be imported out of Draft');
+select pg_temp.assert_code(format($$select app.import_set('pathshala_terms', %L, '{"payment_mode":"pay_now"}')$$, :t2),
+  '22023', 'Set the payment mode and the fee rules of Rounding term on its Fees screen.', 'import: pay now cannot be imported either');
+select pg_temp.assert_code(format($$insert into app.pathshala_terms (center_id, name, starts_on, ends_on, status) values (%L, 'Imported 2024-25', '2024-09-01', '2025-05-25', 'closed')$$, :c),
+  '22023', 'use Open registration on its Fees screen', 'term guard: the database itself (a migration, the worker, a script) is refused like the term form');
+select app.import_insert('pathshala_terms', jsonb_build_object('center_id', :c, 'name', 'Imported draft', 'starts_on', '2029-09-02', 'ends_on', '2030-05-26')) as imported_draft \gset
+select app.import_set('pathshala_terms', :'imported_draft', '{"name":"Imported draft (renamed)","sibling_discount_pct":5}');
+select pg_temp.assert((select status = 'draft' and name = 'Imported draft (renamed)' and sibling_discount_pct = 5 from app.pathshala_terms where id = :'imported_draft'::uuid),
+  'import: a draft term is still imported, and its unlocked rules still change');
+delete from app.pathshala_terms where id = :'imported_draft'::uuid;
+select pg_temp.as_writer(format($$insert into app.pathshala_terms (center_id, name, starts_on, ends_on, status) values (%L, 'Imported 2024-25', '2024-09-01', '2025-05-25', 'closed')$$, :c));
 select pg_temp.assert(exists (select 1 from app.pathshala_terms where center_id = :c and name = 'Imported 2024-25' and status = 'closed'),
-  'term form: the database itself (imports, the demo pack) still writes terms out of Draft');
+  'term guard: a writer that sets app.pathshala_term_writer on purpose (as the demo pack does) still writes a term out of Draft');
+select pg_temp.assert(coalesce(current_setting('app.pathshala_term_writer', true), '') = '',
+  'term guard: the flag is put back after the write');
 
 -- ═════════════════════════════════════════════════════════════════════════════
 -- An explicit fee for every offered level (§2.2, P21, P22)
@@ -263,6 +289,7 @@ select pg_temp.assert_code(format($$select app.set_pathshala_term_rules(%L, '{"f
   '42501', 'needs giving.manage', 'rules: only the treasurer chooses the fund');
 commit;
 begin;
+select set_config('app.pathshala_term_writer', 'on', true);   -- the fixture writes pay now directly, on purpose
 update app.pathshala_terms set payment_mode = 'pay_now' where id = :t1;
 select pg_temp.assert_raises(format($$update app.pathshala_terms set seat_rule = 'office' where id = %L$$, :t1),
   'pathshala_terms_payment_rules', 'rules: the table refuses the office step with pay now');
@@ -295,6 +322,36 @@ select pg_temp.assert((select count(*) from app.campaigns where center_id = :c a
 select pg_temp.assert(exists (select 1 from app.audit_log where record_table = 'pathshala_terms' and record_id = :t1
                                 and reason like 'Opened Pathshala registration for 2026-27 (pledge mode; fees and rules locked)%'),
   'open: the opening is audited in plain words');
+select pg_temp.assert(coalesce(current_setting('app.pathshala_term_writer', true), '') = '',
+  'open: the guard''s flag is not left on after the function''s own write');
+-- A locked term's rules and fees: the bulk import and any other direct writer are refused (only the treasurer, through
+-- the functions, with a reason).
+select pg_temp.assert_code(format($$select app.import_set('pathshala_terms', %L, '{"sibling_discount_pct":20}')$$, :t1),
+  '22023', 'The fee rules of 2026-27 are locked since registration opened.', 'import: a locked term''s sibling discount cannot be changed by an import');
+select pg_temp.assert_code(format($$select app.import_set('pathshala_terms', %L, '{"fee_per_family_cap_cents":90000}')$$, :t1),
+  '22023', 'are locked since registration opened', 'import: nor its family cap');
+select pg_temp.assert_code(format($$select app.import_set('pathshala_terms', %L, '{"fund_id":null}')$$, :t1),
+  '22023', 'Set the payment mode and the fee rules of 2026-27 on its Fees screen.', 'import: nor its fund');
+select pg_temp.assert_code(format($$update app.pathshala_level_fees set fee_cents = 100 where term_id = %L and level_id = %L$$, :t1, :lv_j2),
+  '22023', 'The fees of 2026-27 are locked since registration opened. The treasurer changes them on its Fees screen, with a reason',
+  'fees: a locked fee cannot be changed by any direct write (a script, a migration, the worker)');
+select pg_temp.assert_code(format($$delete from app.pathshala_level_fees where term_id = %L and level_id = %L$$, :t1, :lv_h1),
+  '22023', 'The fees of 2026-27 are locked', 'fees: nor removed');
+select pg_temp.assert_code(format($$insert into app.pathshala_level_fees (center_id, term_id, level_id, fee_cents) values (%L, %L, %L, 900)$$, :c, :t1, :lv_g4),
+  '22023', 'The fees of 2026-27 are locked', 'fees: nor added');
+select app.import_set('pathshala_terms', :t1, '{"name":"2026-27"}');
+select pg_temp.assert((select name = '2026-27' from app.pathshala_terms where id = :t1), 'import: what is not locked (the name) still imports');
+-- A term whose registration opened and the fees that go with it when it is deleted (the demo clear does that): not a
+-- change of fee, so the fee guard lets them go without the flag.
+begin;
+select pg_temp.as_writer(format($$insert into app.pathshala_terms (id, center_id, name, starts_on, ends_on, status, fees_locked_at)
+                                   values ('75000000-0000-4000-8000-0000000000f9', %L, 'Gone term', '2030-09-01', '2031-05-25', 'registration', now())$$, :c));
+select pg_temp.as_writer(format($$insert into app.pathshala_level_fees (center_id, term_id, level_id, fee_cents)
+                                   values (%L, '75000000-0000-4000-8000-0000000000f9', %L, 1000)$$, :c, :lv_j1));
+delete from app.pathshala_terms where id = '75000000-0000-4000-8000-0000000000f9';
+select pg_temp.assert(not exists (select 1 from app.pathshala_level_fees where term_id = '75000000-0000-4000-8000-0000000000f9'),
+  'fees: a fee goes with its term (on delete cascade), even a locked term''s, without the flag');
+rollback;
 
 -- After opening only the treasurer changes fees and rules, with a reason, for new registrations only (P9, P16).
 -- An earlier quote (a fee row already written) never changes.
@@ -328,6 +385,18 @@ begin;
 select pg_temp.sign_in(:u_tara);
 select app.set_pathshala_level_fees(:t1, jsonb_build_array(jsonb_build_object('level_id', :lv_j2, 'fee_cents', 13000)), 'Back to $130 for the example') as f4 \gset
 commit;
+-- The fund every fee pledge carries can change after opening, never be emptied (0591 bills with it).
+insert into app.funds (id, center_id, key, name) values ('75000000-0000-4000-8000-000000000f02', :c, 'education', 'Education');
+begin;
+select pg_temp.sign_in(:u_tara);
+select pg_temp.assert_code(format($$select app.set_pathshala_term_rules(%L, '{"fund_id":null}', 'No fund')$$, :t1),
+  '22023', 'The fund for the Pathshala fees cannot be cleared once registration has opened. Choose another fund instead.',
+  'fund: the treasurer cannot clear the fund once registration has opened');
+select app.set_pathshala_term_rules(:t1, '{"fund_id":"75000000-0000-4000-8000-000000000f02"}', 'Fees go to Education this year') as r_fund \gset
+select pg_temp.assert((:'r_fund'::jsonb ->> 'fund_id') = '75000000-0000-4000-8000-000000000f02'
+                      and (select c.fund_id = '75000000-0000-4000-8000-000000000f02' from app.campaigns c join app.pathshala_terms t on t.id = :t1 where c.id = t.campaign_id),
+  'fund: choosing another fund works (with a reason), and the term''s campaign follows it');
+rollback;
 delete from app.pathshala_enrollment_fees where enrollment_id = '75000000-0000-4000-8000-000000000ee1';
 delete from app.pathshala_enrollments where id = '75000000-0000-4000-8000-000000000ee1';
 
@@ -354,14 +423,14 @@ select pg_temp.assert((select count(*) from app.audit_log) = :audit_before::bigi
                       and not exists (select 1 from app.pathshala_enrollment_fees where term_id = :t1),
   'quote: the quote writes nothing');
 -- With no cap: Anya pays $40.50 and the family $337.50.
-update app.pathshala_terms set fee_per_family_cap_cents = null where id = :t1;
+select pg_temp.as_writer(format($$update app.pathshala_terms set fee_per_family_cap_cents = null where id = %L$$, :t1));
 begin;
 select pg_temp.sign_in(:u_mira);
 select app.pathshala_quote(:t1, :h1, :family::jsonb) as q_nocap \gset
 commit;
 select pg_temp.assert((:'q_nocap'::jsonb ->> 'total_cents')::int = 33750 and (:'q_nocap'::jsonb -> 'lines' -> 2 ->> 'total_cents')::int = 4050,
   'quote: with no cap Anya pays $40.50 and the family $337.50');
-update app.pathshala_terms set fee_per_family_cap_cents = 27500 where id = :t1;
+select pg_temp.as_writer(format($$update app.pathshala_terms set fee_per_family_cap_cents = 27500 where id = %L$$, :t1));
 -- In the late window each of the four lines gets +$25.00: $425.00.
 update app.pathshala_terms set registration_closes_at = now() - interval '1 day' where id = :t1;
 begin;

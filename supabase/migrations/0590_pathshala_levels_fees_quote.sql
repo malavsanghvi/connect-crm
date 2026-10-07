@@ -26,10 +26,15 @@
 --                                  for pay now, while pay now is not ready; with Pledges & donations on it creates or reuses the
 --                                  closed campaign "Pathshala fees <term>" (kind pathshala) linked to the Pathshala fund;
 --                                  locks the fees and the rules; status → registration
---   trigger pathshala_terms_guard  a direct write through the API (the term form) cannot take a term out of Draft unless its
---                                  fees are locked, cannot choose pay now or touch the lock, campaign or fund, and cannot
---                                  change a locked rule. The database's own functions, imports and the demo pack are not
---                                  affected; terms already out of Draft are not touched.
+--   trigger pathshala_terms_guard  no writer takes a term out of Draft (only app.open_pathshala_registration does), chooses
+--                                  pay now, touches the lock, campaign or fund, or changes a locked rule: the term form,
+--                                  the bulk import (app.import_set / app.import_insert run as their owner), the worker, a
+--                                  later migration and a script are all refused in plain English. Only the functions of
+--                                  0590 and 0591 that write terms and fees, and the demo pack's load and clear, set the
+--                                  transaction-local flag app.pathshala_term_writer = 'on' around their own writes; a writer
+--                                  that must do the same sets it on purpose. Terms already out of Draft keep their status.
+--   trigger pathshala_level_fees_guard  the same for the fees of a term whose fees are locked (only app.set_pathshala_level_fees,
+--                                  with the treasurer's reason, changes them)
 --   app.pathshala_enrollment_fees  the locked quote, one row per enrollment, kept off the enrollment row that children read
 --                                  (finding F2). Created here; written by 0591.
 --   app.pathshala_quote            THE pricing function (§2.4): the level fee; the sibling discount among children only (the
@@ -418,14 +423,19 @@ language sql stable security definer set search_path = app, public, extensions a
                      from app.pathshala_terms t where t.id = p_term), false)
 $$;
 
--- The direct-write guard. A write through the API (the term form) runs as the authenticated role; the database's own
--- functions (open_pathshala_registration, set_pathshala_term_rules, the bulk import, the demo pack) run as their owner.
+-- The term guard. It checks EVERY writer: the term form (the API, as the authenticated role), the bulk import
+-- (app.import_set and app.import_insert are security definer, so they run as their owner), the worker, a later migration,
+-- a script. Only the writes made inside the Pathshala functions of 0590 and 0591 (set_pathshala_term_rules,
+-- open_pathshala_registration, set_pathshala_level_fees) and the demo pack's load and clear pass: they set the
+-- transaction-local flag app.pathshala_term_writer to 'on' around their own statements (and put back what was there).
+-- Anyone else who must write what they write sets the flag on purpose; an API caller cannot (PostgREST sets no such
+-- setting and exposes no function that does).
 create or replace function app.pathshala_terms_guard() returns trigger
 language plpgsql set search_path = app, public, extensions as $$
 begin
-  if current_user not in ('authenticated', 'anon') then return new; end if;
+  if coalesce(current_setting('app.pathshala_term_writer', true), '') = 'on' then return new; end if;
   if (tg_op = 'INSERT' and new.status <> 'draft')
-     or (tg_op = 'UPDATE' and old.status = 'draft' and new.status <> 'draft' and old.fees_locked_at is null) then
+     or (tg_op = 'UPDATE' and old.status = 'draft' and new.status <> 'draft') then
     raise exception 'To open registration for %, use Open registration on its Fees screen: it checks that every level with a class has its fee, then locks the fees.',
       new.name using errcode = '22023';
   end if;
@@ -473,6 +483,32 @@ create table if not exists app.pathshala_level_fees (
 create index if not exists pathshala_level_fees_center_idx on app.pathshala_level_fees (center_id, term_id);
 comment on table app.pathshala_level_fees is
   'The fee of a level in a term (0590, P21): every level with a class this term (an offered level) needs one before registration opens; $0 is Free, otherwise at least $0.50 (the smallest online payment). Written only by app.set_pathshala_level_fees: the principal while the term is a draft, the treasurer (giving.manage) with a reason after it opens, for new registrations only. Quotes and pledges already made never change.';
+
+-- The fees of a term whose fees are locked change only through app.set_pathshala_level_fees (the treasurer, with a
+-- reason): any other writer (a script, a migration, the worker) is refused, as the term guard refuses a locked rule. A
+-- fee that goes with its term (the term deleted, as a demo clear does) is not a change: the term is gone by then.
+create or replace function app.pathshala_level_fees_guard() returns trigger
+language plpgsql security definer set search_path = app, public, extensions as $$
+declare v_terms uuid[]; v_name text;
+begin
+  if coalesce(current_setting('app.pathshala_term_writer', true), '') = 'on' then
+    return case when tg_op = 'DELETE' then old else new end;
+  end if;
+  if tg_op = 'INSERT' then v_terms := array[new.term_id];
+  elsif tg_op = 'UPDATE' then v_terms := array[old.term_id, new.term_id];
+  else v_terms := array[old.term_id];
+  end if;
+  select t.name into v_name from app.pathshala_terms t
+   where t.id = any (v_terms) and t.fees_locked_at is not null order by t.name limit 1;
+  if v_name is not null then
+    raise exception 'The fees of % are locked since registration opened. The treasurer changes them on its Fees screen, with a reason; a change applies to new registrations only.',
+      v_name using errcode = '22023';
+  end if;
+  return case when tg_op = 'DELETE' then old else new end;
+end $$;
+drop trigger if exists pathshala_level_fees_guard on app.pathshala_level_fees;
+create trigger pathshala_level_fees_guard before insert or update or delete on app.pathshala_level_fees
+  for each row execute function app.pathshala_level_fees_guard();
 
 -- ═════════════════════════════════════════════════════════════════════════════
 -- Enrollment fees: the locked quote, one row per enrollment (§2.10; written from 0591)
@@ -570,14 +606,17 @@ begin
   end loop;
 end $$;
 
--- The assistance note is private (P8): masked in the audit log. Starts from 0587's definition (the latest); anyone who
--- changes app.audit_mask again must start from THIS one (0590):
+-- The assistance note is private (P8): masked in the audit log. Starts from 0587's definition (the latest on main) plus
+-- 0589's clause, copied verbatim from feat/upload-scan (it names only the 'homework' bucket, which 0587 made, so it is
+-- safe without 0589); 0589 is to carry this file's clause too, so the two can merge in either order. Anyone who changes
+-- app.audit_mask again must start from THIS one (0590):
 --   0102   date_of_birth and the secrets / tokens
 --   0546   the emergency contact's name and number, both dietary fields
 --   0545   staged_rows (the uploaded rows, personal data) and merge_answers (they grow with the file)
 --   0573   niva_tsv (derived search vector, dropped rather than masked)
 --   0578   result.image_b64 (AI flyer art bytes in app.jobs.result)
 --   0587   text_answer, parent_note, review_note (homework), and the file name of a homework part's storage_path
+--   0589   the file name of a homework file in a row that names its bucket (app.upload_scans)
 --   0590   assistance_note (Pathshala fee assistance)
 create or replace function app.audit_mask(j jsonb) returns jsonb
 language sql immutable as $$
@@ -604,6 +643,9 @@ language sql immutable as $$
               then jsonb_build_object('review_note', '*** (' || char_length(j->>'review_note') || ' characters)') else '{}'::jsonb end
       || case when j->>'storage_path' ~ '^([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/){3}[^/]+$'
               then jsonb_build_object('storage_path', regexp_replace(j->>'storage_path', '[^/]+$', '***')) else '{}'::jsonb end
+      || case when coalesce(j->>'bucket_id', j->>'bucket') = 'homework'
+                   and j->>'name' ~ '^([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/){3}[^/]+$'
+              then jsonb_build_object('name', regexp_replace(j->>'name', '[^/]+$', '***')) else '{}'::jsonb end
       || case when j->>'assistance_note' is not null
               then jsonb_build_object('assistance_note', '*** (' || char_length(j->>'assistance_note') || ' characters)') else '{}'::jsonb end
   end
@@ -695,7 +737,7 @@ end $$;
 create or replace function app.set_pathshala_level_fees(p_term uuid, p_fees jsonb, p_reason text default null) returns jsonb
 language plpgsql security definer set search_path = app, public, extensions as $$
 declare t app.pathshala_terms; e jsonb; v_level uuid; v_fee bigint; l app.pathshala_levels; v_reason text; v_seen uuid[] := '{}';
-        v_lines text[] := '{}'; v_set_levels uuid[] := '{}'; v_set_fees integer[] := '{}';
+        v_lines text[] := '{}'; v_set_levels uuid[] := '{}'; v_set_fees integer[] := '{}'; v_writer text;
 begin
   select * into t from app.pathshala_terms where id = p_term for update;
   if t.id is null then raise exception 'That term was not found.' using errcode = 'P0002'; end if;
@@ -705,6 +747,9 @@ begin
     raise exception 'Choose at least one level and its fee.' using errcode = '22023';
   end if;
   if jsonb_array_length(p_fees) > 200 then raise exception 'Set at most 200 fees at a time.' using errcode = '22023'; end if;
+  -- This function's own fee writes pass the fee guard (app.pathshala_level_fees_guard); the flag is put back at the end.
+  v_writer := current_setting('app.pathshala_term_writer', true);
+  perform set_config('app.pathshala_term_writer', 'on', true);
   for e in select * from jsonb_array_elements(p_fees) loop
     if jsonb_typeof(e) <> 'object' then raise exception 'Each fee is a level and an amount.' using errcode = '22023'; end if;
     v_level := app._pathshala_uuid(e, 'level_id', 'The level');
@@ -738,6 +783,7 @@ begin
   on conflict (term_id, level_id) do update
      set fee_cents = excluded.fee_cents, set_by = excluded.set_by, set_at = excluded.set_at
    where app.pathshala_level_fees.fee_cents is distinct from excluded.fee_cents;
+  perform set_config('app.pathshala_term_writer', coalesce(v_writer, ''), true);
   return app._pathshala_fees_json(t.id);
 end $$;
 
@@ -791,6 +837,7 @@ end $$;
 create or replace function app.set_pathshala_term_rules(p_term uuid, p_rules jsonb, p_reason text default null) returns jsonb
 language plpgsql security definer set search_path = app, public, extensions as $$
 declare t app.pathshala_terms; n app.pathshala_terms; v_bad text; v_reason text; v_problem text; v_n bigint; v_fund uuid;
+        v_writer text;
 begin
   select * into t from app.pathshala_terms where id = p_term for update;
   if t.id is null then raise exception 'That term was not found.' using errcode = 'P0002'; end if;
@@ -882,12 +929,20 @@ begin
       raise exception 'Choosing the fund for Pathshala fees needs giving.manage (the treasurer).' using errcode = '42501';
     end if;
     v_fund := app._pathshala_uuid(p_rules, 'fund_id', 'The fund');
+    -- Every fee pledge carries the term's fund (0591): once registration has opened it can change, never be emptied.
+    if v_fund is null and t.fees_locked_at is not null then
+      raise exception 'The fund for the Pathshala fees cannot be cleared once registration has opened. Choose another fund instead.'
+        using errcode = '22023';
+    end if;
     if v_fund is not null and not exists (select 1 from app.funds f where f.id = v_fund and f.center_id = t.center_id and f.active) then
       raise exception 'Choose one of this community''s active funds.' using errcode = '22023';
     end if;
     n.fund_id := v_fund;
   end if;
   perform app.set_audit_context(coalesce(v_reason, 'Changed the Pathshala fee rules of ' || t.name));
+  -- This function's own write passes the term guard (app.pathshala_terms_guard); the flag is put back right after.
+  v_writer := current_setting('app.pathshala_term_writer', true);
+  perform set_config('app.pathshala_term_writer', 'on', true);
   update app.pathshala_terms
      set payment_mode = n.payment_mode, hold_hours = n.hold_hours, office_payment_allowed = n.office_payment_allowed,
          office_hold_days = n.office_hold_days, seat_rule = n.seat_rule, sibling_discount_pct = n.sibling_discount_pct,
@@ -895,6 +950,7 @@ begin
          late_fee_cents = n.late_fee_cents, withdrawal_credit_until = n.withdrawal_credit_until, age_cutoff_on = n.age_cutoff_on,
          fund_id = n.fund_id
    where id = t.id;
+  perform set_config('app.pathshala_term_writer', coalesce(v_writer, ''), true);
   if t.campaign_id is not null and n.fund_id is distinct from t.fund_id and n.fund_id is not null then
     update app.campaigns set fund_id = n.fund_id where id = t.campaign_id;
   end if;
@@ -907,6 +963,7 @@ end $$;
 create or replace function app.open_pathshala_registration(p_term uuid, p_reason text default null) returns jsonb
 language plpgsql security definer set search_path = app, public, extensions as $$
 declare t app.pathshala_terms; v_missing text; v_problem text; v_fund uuid; v_campaign uuid; v_warn jsonb; v_name text;
+        v_writer text;
 begin
   select * into t from app.pathshala_terms where id = p_term for update;
   if t.id is null then raise exception 'That term was not found.' using errcode = 'P0002'; end if;
@@ -941,7 +998,10 @@ begin
       (select f.id from app.funds f where f.center_id = t.center_id and f.active and (f.key = 'pathshala' or f.name ~* '^\s*pathshala')
         order by (f.key = 'pathshala') desc, f.name limit 1));
     if v_fund is null then
-      raise exception 'There is no Pathshala fund for the fees yet. Ask the treasurer to choose the fund on the Fees screen, then open registration.'
+      -- A treasurer with giving.manage but not pathshala.view cannot read a draft term, so cannot open its Fees screen:
+      -- the way out is a fund called Pathshala added in Setup › Lists (found by name above), or a principal who also
+      -- manages Giving choosing one here. Read access to draft terms is not widened.
+      raise exception 'There is no fund for the Pathshala fees yet. Ask the treasurer to add a fund called Pathshala in Setup › Lists, or choose a fund on this Fees screen if you also manage Giving; then open registration.'
         using errcode = '22023';
     end if;
     v_name := left('Pathshala fees ' || t.name, 200);
@@ -965,6 +1025,9 @@ begin
   perform app.set_audit_context(coalesce(app.audit_clean_reason(p_reason),
     'Opened Pathshala registration for ' || t.name || ' (' || case t.payment_mode when 'pay_now' then 'pay now' else 'pledge mode' end
     || '; fees and rules locked)'));
+  -- The one write that takes a term out of Draft and locks it: it passes the term guard; the flag is put back right after.
+  v_writer := current_setting('app.pathshala_term_writer', true);
+  perform set_config('app.pathshala_term_writer', 'on', true);
   update app.pathshala_terms
      set fees_locked_at = now(), fees_locked_by = auth.uid(),
          age_cutoff_on = coalesce(age_cutoff_on, starts_on),
@@ -973,6 +1036,7 @@ begin
          status = case when status = 'draft' then 'registration' else status end
    where id = t.id
   returning * into t;
+  perform set_config('app.pathshala_term_writer', coalesce(v_writer, ''), true);
   return jsonb_build_object('term_id', t.id, 'status', t.status, 'already_open', false, 'fees_locked_at', t.fees_locked_at,
                             'campaign_id', t.campaign_id, 'fund_id', t.fund_id, 'payment_mode', t.payment_mode, 'warnings', v_warn);
 end $$;
@@ -1064,13 +1128,17 @@ language sql stable security definer set search_path = app, public, extensions a
 $$;
 
 -- p_lines: [{person_id | new_child: {first_name, last_name, date_of_birth, relationship}, track_id, level_id | null}]
--- (pathshala_fee_example also passes hypothetical learners: {name, age | date_of_birth, learner_kind}). Already
--- registered children of the household this term (not withdrawn, not cancelled) count first: they keep their rank,
--- their lines are never re-priced and count toward the cap. Returns {lines[], children_total_cents, adults_total_cents,
--- total_cents, late, rule_snapshot}; each line {index, person_id, track_id, level_id, learner_kind, family_rank,
--- age_on_cutoff, base_fee_cents, sibling_discount_cents, cap_reduction_cents, late_fee_cents, assistance_cents,
--- total_cents, priced}. A chosen level without a fee is refused, never guessed. Reads only (no temporary tables: a
--- read-only transaction can call it).
+-- (pathshala_fee_example also passes hypothetical learners: {learner, name, age | date_of_birth, learner_kind, track_id,
+-- level_id}). Already registered children of the household this term (not withdrawn, not cancelled) count first: they
+-- keep their rank, their lines are never re-priced and count toward the cap. Returns {lines[], children_total_cents,
+-- adults_total_cents, total_cents, late, rule_snapshot}; each line {index, person_id, track_id, level_id, learner_kind,
+-- family_rank, age_on_cutoff, base_fee_cents, sibling_discount_cents, cap_reduction_cents, late_fee_cents,
+-- assistance_cents, total_cents, priced}. A chosen level without a fee is refused, never guessed. Reads only (no
+-- temporary tables: a read-only transaction can call it).
+-- Hypothetical lines ("Try a family") price exactly as a registration does: lines with the same `learner` (trimmed, any
+-- case) are ONE learner (one child for the sibling order and the cap, one late fee: P10), and each line carries `refusal`,
+-- null or the sentence a registration would refuse it with (app._pathshala_plan); a refused line is not priced (every
+-- amount 0, out of the totals and the sibling order).
 create or replace function app._pathshala_price(p_term uuid, p_household uuid, p_lines jsonb, p_late boolean, p_hypothetical boolean default false)
 returns jsonb
 language plpgsql stable security definer set search_path = app, public, extensions as $$
@@ -1079,7 +1147,10 @@ declare t app.pathshala_terms; v_cut date; v_pct int; v_cap bigint; v_late_fee b
         v_person uuid; v_level uuid; v_fee integer; l app.pathshala_levels; v_rows jsonb := '[]'::jsonb; v_key text;
         v_children bigint := 0; v_adults bigint := 0; v_late_done text[] := '{}'; v_rel text; v_ranks jsonb := '{}'::jsonb;
         v_calc jsonb := '{}'::jsonb; v_existing jsonb; v_out jsonb := '[]'::jsonb; x jsonb; v_rank int; v_age bigint;
-        v_base bigint; v_late bigint; v_total bigint;
+        v_base bigint; v_late bigint; v_total bigint; v_track uuid;
+        -- "Try a family" only: who each named learner is, each line's refusal, the tracks each learner already has
+        v_learner text; v_name text; v_people jsonb := '{}'::jsonb; v_refusal text; v_says boolean; v_band text;
+        v_age_on int; v_seen text[] := '{}';
 begin
   select * into t from app.pathshala_terms where id = p_term;
   if t.id is null then raise exception 'That term was not found.' using errcode = 'P0002'; end if;
@@ -1094,9 +1165,11 @@ begin
     if jsonb_typeof(e) <> 'object' then raise exception 'Each learner is a person and a track.' using errcode = '22023'; end if;
     v_person := app._pathshala_uuid(e, 'person_id', 'The learner');
     v_level := app._pathshala_uuid(e, 'level_id', 'The level');
-    v_dob := null; v_kind := null;
+    v_track := app._pathshala_uuid(e, 'track_id', 'The track');
+    v_dob := null; v_kind := null; v_refusal := null; v_name := null;
     if v_person is not null then
-      select p.date_of_birth into v_dob from app.people p where p.id = v_person and p.center_id = t.center_id;
+      select p.date_of_birth, coalesce(nullif(btrim(p.preferred_name), ''), p.first_name) into v_dob, v_name
+        from app.people p where p.id = v_person and p.center_id = t.center_id;
       if not found then raise exception 'That learner was not found in this community.' using errcode = '22023'; end if;
       v_kind := case when app.pathshala_counts_as_child(v_person, v_cut) then 'child' else 'adult' end;
       v_key := v_person::text;
@@ -1107,6 +1180,13 @@ begin
                      when v_rel in ('child', 'grandchild', 'son', 'daughter') then 'child' else 'adult' end;
       v_key := 'new:' || i;
     elsif p_hypothetical then
+      v_learner := null;
+      if e ? 'learner' and jsonb_typeof(e -> 'learner') <> 'null' then
+        v_learner := case when jsonb_typeof(e -> 'learner') = 'string' then btrim(e ->> 'learner') end;
+        if v_learner is null or char_length(v_learner) not between 1 and 80 then
+          raise exception 'A learner''s name is 1 to 80 characters.' using errcode = '22023';
+        end if;
+      end if;
       v_dob := app._pathshala_date(e, 'date_of_birth', 'The date of birth');
       v_age := app._pathshala_int(e, 'age', 'The age');
       if v_dob is null and v_age is not null then
@@ -1116,7 +1196,27 @@ begin
       v_kind := lower(coalesce(nullif(btrim(e ->> 'learner_kind'), ''),
                                case when v_dob is not null and v_dob <= (v_cut - interval '18 years')::date then 'adult' else 'child' end));
       if v_kind not in ('child', 'adult') then raise exception 'A learner is a child or an adult.' using errcode = '22023'; end if;
-      v_key := 'example:' || i;
+      v_name := coalesce(v_learner, nullif(btrim(e ->> 'name'), ''), 'Learner ' || i);
+      if v_learner is null then
+        v_key := 'example:' || i;
+      else
+        -- One learner in several lines (P10): what a later line leaves out comes from the learner's first line, and what it
+        -- says must agree with it.
+        v_key := 'learner:' || lower(v_learner);
+        if v_people ? v_key then
+          v_says := nullif(btrim(e ->> 'date_of_birth'), '') is not null or nullif(btrim(e ->> 'age'), '') is not null
+                    or nullif(btrim(e ->> 'learner_kind'), '') is not null;
+          if (v_dob is not null and (v_people -> v_key ->> 'dob') is not null and (v_people -> v_key ->> 'dob')::date <> v_dob)
+             or (v_says and (v_people -> v_key ->> 'kind') <> v_kind) then
+            raise exception '% is listed with two different ages.', v_people -> v_key ->> 'name' using errcode = '22023';
+          end if;
+          v_dob := (v_people -> v_key ->> 'dob')::date;
+          v_kind := v_people -> v_key ->> 'kind';
+          v_name := v_people -> v_key ->> 'name';
+        else
+          v_people := v_people || jsonb_build_object(v_key, jsonb_build_object('dob', v_dob, 'kind', v_kind, 'name', v_learner));
+        end if;
+      end if;
     else
       raise exception 'Choose who is joining (a member of the household, or a new child).' using errcode = '22023';
     end if;
@@ -1126,13 +1226,57 @@ begin
       if l.id is null then raise exception 'That level is not one of this community''s levels.' using errcode = '22023'; end if;
       select f.fee_cents into v_fee from app.pathshala_level_fees f where f.term_id = t.id and f.level_id = l.id;
       if not found then
-        raise exception '% has no fee for % yet, so it cannot be chosen.', l.name, t.name using errcode = '22023';
+        if not p_hypothetical then
+          raise exception '% has no fee for % yet, so it cannot be chosen.', l.name, t.name using errcode = '22023';
+        end if;
+        v_refusal := format('%s has no fee for %s yet, so it cannot be chosen.', l.name, t.name);
+        v_fee := 0;
+      end if;
+    end if;
+    if p_hypothetical then
+      -- The sentence a registration would refuse this line with (app._pathshala_plan), the first that applies. Seats are
+      -- not looked at: a hypothetical family takes none.
+      if v_track is not null and not exists (select 1 from app.pathshala_tracks tr where tr.id = v_track and tr.center_id = t.center_id) then
+        raise exception 'That track is not one of this community''s tracks.' using errcode = '22023';
+      end if;
+      if v_level is not null then
+        if v_refusal is null and v_track is not null and l.track_id <> v_track then
+          v_refusal := format('That level is not in the %s track.', (select tr.name from app.pathshala_tracks tr where tr.id = v_track));
+        end if;
+        v_track := coalesce(v_track, l.track_id);
+        if v_refusal is null and (not l.active or not exists (select 1 from app.pathshala_classes c where c.term_id = t.id and c.level_id = l.id)) then
+          v_refusal := format('%s is not offered in %s.', l.name, t.name);
+        end if;
+        if v_refusal is null then
+          v_band := app.pathshala_level_band(l.min_age, l.max_age);
+          v_age_on := app.pathshala_age_on(v_dob, v_cut);
+          if v_band = 'adult' and v_kind = 'child' then
+            v_refusal := format('%s is for adults, and %s is %s.', l.name, v_name, coalesce(v_age_on::text, 'a child'));
+          elsif v_band = 'children' and v_kind = 'adult' then
+            v_refusal := format('%s is a children''s class, and %s is an adult.', l.name, v_name);
+          end if;
+        end if;
+      elsif v_track is null then
+        v_refusal := format('Choose a track (Jainism, Gujarati, Hindi …) for %s.', v_name);
+      elsif t.payment_mode = 'pay_now' then
+        v_refusal := format('Choose a level for %s: in %s the fee is paid when you register. Not sure? Keep the suggested level: the teacher can move %s in the first weeks.',
+                            v_name, t.name, v_name);
+      end if;
+      -- One enrollment per learner per track (P10), among the lines that are not refused.
+      if v_refusal is null then
+        if (v_key || ':' || v_track::text) = any (v_seen) then
+          v_refusal := format('%s is listed twice for %s.', v_name, (select tr.name from app.pathshala_tracks tr where tr.id = v_track));
+        else
+          v_seen := v_seen || (v_key || ':' || v_track::text);
+        end if;
       end if;
     end if;
     v_rows := v_rows || jsonb_build_array(jsonb_build_object(
-      'idx', i, 'person_id', v_person, 'key', v_key, 'track_id', app._pathshala_uuid(e, 'track_id', 'The track'),
+      'idx', i, 'person_id', v_person, 'key', v_key, 'track_id', v_track,
       'level_id', v_level, 'kind', v_kind, 'dob', v_dob, 'age', app.pathshala_age_on(v_dob, v_cut),
-      'base', coalesce(v_fee, 0), 'priced', v_level is not null));
+      'base', case when v_refusal is null then coalesce(v_fee, 0) else 0 end,
+      'priced', v_level is not null and v_refusal is null,
+      'refused', v_refusal is not null, 'refusal', v_refusal));
   end loop;
 
   -- Children already registered this term keep their rank and count toward the cap first.
@@ -1145,11 +1289,12 @@ begin
     v_existing := jsonb_build_object('late_paid', '[]'::jsonb);
   end if;
 
-  -- New children: by their highest level fee, then oldest first (no birth date last), then the order given (P2).
+  -- New children: by their highest level fee, then oldest first (no birth date last), then the order given (P2). A
+  -- refused line ("Try a family") does not count.
   for r in
     select x2 ->> 'key' as k
       from jsonb_array_elements(v_rows) x2
-     where x2 ->> 'kind' = 'child' and not (v_ranks ? coalesce(x2 ->> 'person_id', ''))
+     where x2 ->> 'kind' = 'child' and not (x2 ->> 'refused')::boolean and not (v_ranks ? coalesce(x2 ->> 'person_id', ''))
      group by x2 ->> 'key'
      order by max((x2 ->> 'base')::bigint) desc, min((x2 ->> 'dob')::date) asc nulls last, min((x2 ->> 'idx')::int)
   loop
@@ -1162,7 +1307,7 @@ begin
     select (x2 ->> 'idx')::int as idx, (x2 ->> 'base')::bigint as base, (x2 ->> 'priced')::boolean as priced,
            coalesce((v_ranks ->> (x2 ->> 'person_id'))::int, (v_calc ->> ('rank:' || (x2 ->> 'key')))::int) as rank
       from jsonb_array_elements(v_rows) x2
-     where x2 ->> 'kind' = 'child'
+     where x2 ->> 'kind' = 'child' and not (x2 ->> 'refused')::boolean
      order by 4, 2 desc, 1
   loop
     v_disc := case when r.rank > 1 and r.priced then round(r.base * v_pct / 100.0)::bigint else 0 end;
@@ -1177,8 +1322,8 @@ begin
     v_calc := v_calc || jsonb_build_object('line:' || r.idx, jsonb_build_object('rank', r.rank, 'disc', v_disc, 'red', v_red));
   end loop;
 
-  -- The late fee: once per learner (their first line), adults included, outside the discount and the cap; not again for a
-  -- learner whose earlier registration this term already carries one.
+  -- The late fee: once per learner (their first priced line), adults included, outside the discount and the cap; not
+  -- again for a learner whose earlier registration this term already carries one.
   for x in select x2 from jsonb_array_elements(v_rows) x2 order by (x2 ->> 'idx')::int loop
     v_base := (x ->> 'base')::bigint;
     v_disc := coalesce((v_calc -> ('line:' || (x ->> 'idx')) ->> 'disc')::bigint, 0);
@@ -1196,7 +1341,8 @@ begin
       'index', (x ->> 'idx')::int, 'person_id', x -> 'person_id', 'track_id', x -> 'track_id', 'level_id', x -> 'level_id',
       'learner_kind', x ->> 'kind', 'family_rank', v_rank, 'age_on_cutoff', x -> 'age',
       'base_fee_cents', v_base, 'sibling_discount_cents', v_disc, 'cap_reduction_cents', v_red,
-      'late_fee_cents', v_late, 'assistance_cents', 0, 'total_cents', v_total, 'priced', (x ->> 'priced')::boolean));
+      'late_fee_cents', v_late, 'assistance_cents', 0, 'total_cents', v_total, 'priced', (x ->> 'priced')::boolean)
+      || case when p_hypothetical then jsonb_build_object('refusal', x -> 'refusal') else '{}'::jsonb end);
   end loop;
 
   return jsonb_build_object(
@@ -1225,8 +1371,12 @@ begin
   return app._pathshala_price(t.id, p_household, p_lines, app.pathshala_is_late(t.id)) || jsonb_build_object('term_id', t.id, 'household_id', p_household);
 end $$;
 
--- "Try a family" (the Fees screen): hypothetical learners [{name, age | date_of_birth, learner_kind, level_id, track_id}];
--- or {"lines": [...], "late": true} to see the late window. Nobody's real registrations count.
+-- "Try a family" (the Fees screen): hypothetical lines [{learner, name, age | date_of_birth, learner_kind, level_id,
+-- track_id}]; or {"lines": [...], "late": true} to see the late window. Nobody's real registrations count. It prices as a
+-- registration does: lines with the same `learner` (1–80 characters, trimmed, any case) are one learner (one child for
+-- the sibling order and the family cap, one late fee: P10; without `learner` each line is its own learner), and each
+-- line has `refusal`: null, or the sentence a registration would refuse it with (then priced false, every amount 0, out
+-- of the totals).
 create or replace function app.pathshala_fee_example(p_term uuid, p_lines jsonb) returns jsonb
 language plpgsql stable security definer set search_path = app, public, extensions as $$
 declare t app.pathshala_terms; v_lines jsonb; v_late boolean;
@@ -1772,6 +1922,118 @@ begin
 end $$;
 
 -- ═════════════════════════════════════════════════════════════════════════════
+-- The demo pack and the demo clear (0311, 0586): the guards' flag, and level fees go with their term
+-- ═════════════════════════════════════════════════════════════════════════════
+-- 0311's bodies, with the flag of the term and fee guards (app.pathshala_term_writer) set around the pack step and the
+-- clear: the community pack writes its current term as active (0312). Nothing else changes.
+create or replace function app.worker_demo_load_next(p_center uuid) returns jsonb
+language plpgsql security definer set search_path = app, public, extensions as $$
+declare s app.center_demo_state; p app.demo_packs; v_steps jsonb; v_step jsonb; i int; v_after jsonb; v_before jsonb;
+        v_loaded jsonb := '{}'::jsonb; k text; v_writer text;
+begin
+  perform app.assert_worker();
+  perform set_config('app.client_app', 'job', true);
+  select * into s from app.center_demo_state where center_id = p_center for update;
+  if s.center_id is null or s.status <> 'loading' then
+    return jsonb_build_object('done', true, 'status', coalesce(s.status, 'empty'), 'note', 'nothing to load');
+  end if;
+  perform 1 from app.centers where id = p_center for update;
+  perform app.demo_assert_sandbox(p_center);
+  select * into p from app.demo_packs where key = s.pack_key;
+  v_steps := app.demo_pack_steps(s.pack_key);
+  i := s.steps_done + 1;
+  if i <= jsonb_array_length(v_steps) then
+    v_step := v_steps -> (i - 1);
+    perform app.set_audit_context('Demo data · ' || p.title || ' · ' || (v_step->>'label') || ': ' || coalesce(s.reason, 'demo pack'), s.load_seed);
+    -- 0590: a pack step writes terms the way the Pathshala functions do (a term already out of Draft): it passes the
+    -- term guard (app.pathshala_terms_guard) and the fee guard; the flag is put back right after the step.
+    v_writer := current_setting('app.pathshala_term_writer', true);
+    perform set_config('app.pathshala_term_writer', 'on', true);
+    execute format('select app.%I($1, $2, $3)', 'demo_' || s.pack_key || '_' || (v_step->>'key')) using p_center, s.load_seed, s.requested_by;
+    perform set_config('app.pathshala_term_writer', coalesce(v_writer, ''), true);
+    update app.center_demo_state
+       set steps_done = i,
+           step_label = coalesce((v_steps -> i)->>'label', 'Finishing'),
+           detail = detail || jsonb_build_object('steps_completed', coalesce(detail->'steps_completed', '[]'::jsonb) || to_jsonb(v_step->>'key')),
+           last_error = null, updated_at = now()
+     where center_id = p_center;
+  end if;
+  if i < jsonb_array_length(v_steps) then
+    return jsonb_build_object('done', false, 'steps_done', i, 'steps_total', jsonb_array_length(v_steps), 'step', v_step->>'key');
+  end if;
+  -- Last step done: what the pack added, table by table.
+  select detail->'counts_before' into v_before from app.center_demo_state where center_id = p_center;
+  v_after := app.demo_data_counts(p_center);
+  for k in select jsonb_object_keys(v_after) loop
+    if (v_after->>k)::bigint - coalesce((v_before->>k)::bigint, 0) <> 0 then
+      v_loaded := v_loaded || jsonb_build_object(k, (v_after->>k)::bigint - coalesce((v_before->>k)::bigint, 0));
+    end if;
+  end loop;
+  perform app.set_audit_context('Demo data · ' || p.title || ' loaded: ' || coalesce(s.reason, 'demo pack'), s.load_seed);
+  -- Sign-ins linked to demo people are not part of the pack (they depend on who has signed in).
+  update app.center_demo_state
+     set status = 'loaded', step_label = null, loaded_at = now(), loaded_by = s.requested_by, last_error = null,
+         detail = detail || jsonb_build_object('counts_after', v_after, 'loaded', v_loaded - 'center_users',
+                                               'linked_logins', coalesce((v_loaded->>'center_users')::int, 0)), updated_at = now()
+   where center_id = p_center;
+  return jsonb_build_object('done', true, 'status', 'loaded', 'steps_done', jsonb_array_length(v_steps), 'loaded', v_loaded - 'center_users');
+end $$;
+
+create or replace function app.worker_demo_clear(p_center uuid) returns jsonb
+language plpgsql security definer set search_path = app, public, extensions as $$
+declare s app.center_demo_state; v_result jsonb; v_job bigint; v_then text; v_writer text;
+begin
+  perform app.assert_worker();
+  perform set_config('app.client_app', 'job', true);
+  select * into s from app.center_demo_state where center_id = p_center for update;
+  if s.center_id is null or s.status <> 'clearing' then
+    return jsonb_build_object('status', coalesce(s.status, 'empty'), 'note', 'nothing to clear');
+  end if;
+  perform app.set_audit_context('Demo data · ' || case s.operation when 'reset' then 'reset the sandbox' else 'clear the sandbox' end
+                                || ': ' || coalesce(s.reason, ''), s.load_seed);
+  update app.center_demo_state set step_label = 'Removing the sandbox''s records', updated_at = now() where center_id = p_center;
+  -- 0590: clearing passes the term and fee guards (it only deletes today, and a term's fees go with it); the flag is put
+  -- back right after.
+  v_writer := current_setting('app.pathshala_term_writer', true);
+  perform set_config('app.pathshala_term_writer', 'on', true);
+  v_result := app.demo_clear_center(p_center);
+  perform set_config('app.pathshala_term_writer', coalesce(v_writer, ''), true);
+  v_then := case when s.operation = 'reset' then s.pack_key end;
+  if v_then is not null then
+    update app.center_demo_state
+       set status = 'loading', cleared_at = now(), cleared_by = s.requested_by, steps_done = 0,
+           steps_total = jsonb_array_length(app.demo_pack_steps(v_then)), step_label = 'Waiting for the background service',
+           load_seed = gen_random_uuid(), last_error = null,
+           detail = detail || jsonb_build_object('cleared', v_result, 'counts_before', app.demo_data_counts(p_center)), updated_at = now()
+     where center_id = p_center;
+    v_job := app.enqueue_job(p_center, 'demo.load', jsonb_build_object('pack', v_then), now(), 3);
+    update app.center_demo_state set job_id = v_job where center_id = p_center;
+  else
+    update app.center_demo_state
+       set status = 'empty', pack_key = null, version = null, cleared_at = now(), cleared_by = s.requested_by,
+           step_label = null, last_error = null, loaded_at = null, loaded_by = null,
+           detail = detail || jsonb_build_object('cleared', v_result), updated_at = now()
+     where center_id = p_center;
+  end if;
+  return v_result || jsonb_build_object('then_load', v_then, 'load_job', v_job);
+end $$;
+
+-- 0586's body plus pathshala_level_fees (the plan's §2.10: level fees are configuration), listed here like 0586's access
+-- tables so the keep list (and test 66, which pins it) stays as it is. A clear never deletes a fee by itself: a term the
+-- clear removes takes its fees with it (on delete cascade), so fees are kept exactly where their term is kept (a clear
+-- removes every term today).
+create or replace function app.demo_clear_tables() returns text[]
+language sql stable set search_path = app, public, extensions as $$
+  select coalesce(array_agg(c.relname::text order by c.relname), '{}')
+    from pg_class c join pg_namespace n on n.oid = c.relnamespace
+   where n.nspname = 'app' and c.relkind = 'r'
+     and (exists (select 1 from pg_attribute a where a.attrelid = c.oid and a.attname = 'center_id' and not a.attisdropped)
+          or c.relname in ('gyan_levels','gyan_steps'))
+     and c.relname <> all (app.demo_keep_tables())
+     and c.relname <> all (array['access_levels', 'center_feature_access', 'pathshala_level_fees']::text[])
+$$;
+
+-- ═════════════════════════════════════════════════════════════════════════════
 -- Comments
 -- ═════════════════════════════════════════════════════════════════════════════
 comment on function app.save_pathshala_level(uuid, jsonb, text) is
@@ -1779,13 +2041,13 @@ comment on function app.save_pathshala_level(uuid, jsonb, text) is
 comment on function app.set_pathshala_level_fees(uuid, jsonb, text) is
   'p_fees: [{level_id, fee_cents}]: 0 is Free, otherwise at least 50 (the smallest online payment), at most 100000000; null removes a fee (refused after opening for a level with a class). The principal (pathshala.manage) while the term''s fees are not locked; after app.open_pathshala_registration only giving.manage with a reason, for new registrations only (P9). Returns {term_id, locked, fees[], missing[] (offered levels without a fee)}.';
 comment on function app.set_pathshala_term_rules(uuid, jsonb, text) is
-  'The same callers as the fees. Keys: payment_mode (pledge | pay_now: refused with app.pathshala_pay_now_ready''s sentence), hold_hours (1–168), office_payment_allowed, office_hold_days (1–21), seat_rule (automatic | office: pledge mode only), sibling_discount_pct (0–100), fee_per_family_cap_cents (null: no cap), late_registration_closes_at (after registration_closes_at), late_fee_cents, withdrawal_credit_until, age_cutoff_on, fund_id (giving.manage). Returns the term as app.pathshala_registration_options shows it.';
+  'The same callers as the fees. Keys: payment_mode (pledge | pay_now: refused with app.pathshala_pay_now_ready''s sentence), hold_hours (1–168), office_payment_allowed, office_hold_days (1–21), seat_rule (automatic | office: pledge mode only), sibling_discount_pct (0–100), fee_per_family_cap_cents (null: no cap), late_registration_closes_at (after registration_closes_at), late_fee_cents, withdrawal_credit_until, age_cutoff_on, fund_id (giving.manage; once registration has opened it can change but not be emptied: "The fund for the Pathshala fees cannot be cleared once registration has opened. Choose another fund instead."). Returns the term as app.pathshala_registration_options shows it.';
 comment on function app.open_pathshala_registration(uuid, text) is
-  'pathshala.manage: refuses while an offered level (active, with a class this term) has no fee ("Set the fee for Gujarati 3 and Hindi 1 before opening registration.") and, for pay now, while it is not ready; with Pledges & donations on it creates or reuses the closed campaign "Pathshala fees <term>" (kind pathshala) linked to the term''s fund, else the Pathshala fund (key pathshala; none: the treasurer chooses one); fixes the age cut-off and withdrawal deadline, locks the fees and rules, and moves a draft to registration. Idempotent. Returns {term_id, status, already_open, fees_locked_at, campaign_id, fund_id, payment_mode, warnings[] (offered levels with no age band)}.';
+  'pathshala.manage: refuses while an offered level (active, with a class this term) has no fee ("Set the fee for Gujarati 3 and Hindi 1 before opening registration.") and, for pay now, while it is not ready; with Pledges & donations on it creates or reuses the closed campaign "Pathshala fees <term>" (kind pathshala) linked to the term''s fund, else the Pathshala fund (key pathshala, or a fund named Pathshala; none: "There is no fund for the Pathshala fees yet. Ask the treasurer to add a fund called Pathshala in Setup › Lists, or choose a fund on this Fees screen if you also manage Giving; then open registration."); fixes the age cut-off and withdrawal deadline, locks the fees and rules, and moves a draft to registration. Idempotent. Returns {term_id, status, already_open, fees_locked_at, campaign_id, fund_id, payment_mode, warnings[] (offered levels with no age band)}.';
 comment on function app.pathshala_quote(uuid, uuid, jsonb) is
   'The one pricing rule (§2.4) for an adult of the household or Pathshala staff: p_lines [{person_id | new_child, track_id, level_id}] → {lines[{index, person_id, track_id, level_id, learner_kind, family_rank (children only), age_on_cutoff, base_fee_cents, sibling_discount_cents, cap_reduction_cents, late_fee_cents, assistance_cents, total_cents, priced}], children_total_cents, adults_total_cents, total_cents, late, rule_snapshot}. Writes nothing.';
 comment on function app.pathshala_fee_example(uuid, jsonb) is
-  '"Try a family" on the Fees screen (pathshala.view): hypothetical learners [{name, age | date_of_birth, learner_kind, track_id, level_id}], or {"lines": [...], "late": true}; nobody''s registrations count. Same shape as app.pathshala_quote.';
+  '"Try a family" on the Fees screen (pathshala.view): hypothetical lines [{learner (optional, 1–80 characters), name, age | date_of_birth, learner_kind, track_id, level_id}], or {"lines": [...], "late": true}; nobody''s registrations count. Prices as a registration does: lines with the same learner (trimmed, any case) are ONE learner (one child for the sibling order and the family cap, one late fee, P10); without learner each line is its own learner. Same shape as app.pathshala_quote, and each line has refusal: null, or the plain sentence a registration would refuse that line with (a level without a fee, not offered, of another track, an adult class for a child or a children''s level for an adult, no track, no level in a pay-now term, the same learner twice in a track); a refused line has priced false and every amount 0, and is left out of the totals and the sibling order.';
 comment on function app.pathshala_registration_options(uuid, uuid) is
   'The member app''s registration flow (§2.17): {term, household {id, name, number, membership: active | applying | none}, households[] (where the caller is an adult), learners[{person_id, first_name, is_me, age_on_cutoff, counts_as_child, needs_birth_date, enrollments[], suggested[{track_id, level_id, reason: teacher | previous | age}]}], tracks[{id, key, name, levels[{id, name, key, min_age, max_age, band, fee_cents, seats: open | waitlist | full}]}], can_register, cannot_reason}. A household member (a child sees can_register false with the reason) or pathshala.manage.';
 comment on function app.preview_pathshala_registration(uuid, uuid, jsonb) is
@@ -1831,7 +2093,7 @@ revoke execute on function
   app._pathshala_ts(jsonb, text, text), app.pathshala_levels_delete_guard(), app.pathshala_level_used(uuid),
   app._pathshala_level_json(uuid), app.pathshala_first_class_day(uuid, uuid), app.pathshala_age_cutoff(uuid),
   app.pathshala_withdrawal_deadline(uuid), app.pathshala_registration_window(uuid), app.pathshala_is_late(uuid),
-  app.pathshala_terms_guard(), app._pathshala_assert_fee_editor(app.pathshala_terms, text, text),
+  app.pathshala_terms_guard(), app.pathshala_level_fees_guard(), app._pathshala_assert_fee_editor(app.pathshala_terms, text, text),
   app.pathshala_online_payments_ready(uuid), app._pathshala_pay_now_problem(uuid), app._pathshala_fees_json(uuid),
   app._pathshala_term_json(uuid), app.pathshala_level_seats(uuid, uuid), app._pathshala_price(uuid, uuid, jsonb, boolean, boolean),
   app._pathshala_existing_lines(uuid, uuid),
