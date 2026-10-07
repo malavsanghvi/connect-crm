@@ -323,7 +323,6 @@ select pg_temp.sign_in(:u_mira);
 select app.register_pathshala_children(:t1, :h1, jsonb_build_array(jsonb_build_object('person_id', :p_dev, 'track_id', :tr_g, 'level_id', null)),
                                        0, '["office"]') as reg_devg \gset
 commit;
-\set devg_q '(select (:''reg_devg''::jsonb -> ''lines'' -> 0 ->> ''enrollment_id'')::uuid)'
 select pg_temp.assert((:'reg_devg'::jsonb -> 'lines' -> 0 ->> 'outcome') = 'office'
                       and (select e.status = 'requested' and e.hold_reason is null and f.status = 'quoted' and not f.priced and f.family_rank = 2 and f.pledge_id is null
                              from app.pathshala_enrollments e join app.pathshala_enrollment_fees f on f.enrollment_id = e.id
@@ -446,3 +445,470 @@ select pg_temp.assert((:'reg_rahul2'::jsonb -> 'lines' -> 0 ->> 'enrollment_id')
                       and (select given_by_user = :u_rahul and granted and legal_document_id = '76000000-0000-4000-8000-000000000801'
                              from app.consents where person_id = :p_rahul and kind = 'pathshala_waiver'),
   'waiver: Rahul agrees in his own app: the same registration goes ahead (placed, billed $50.00) with his consent');
+
+-- From here on the community has a published waiver: every registration agrees to it.
+\set waiver '''76000000-0000-4000-8000-000000000801'''
+
+-- ═════════════════════════════════════════════════════════════════════════════
+-- Who may register, and when
+-- ═════════════════════════════════════════════════════════════════════════════
+begin;
+select pg_temp.sign_in(:u_riya);
+select pg_temp.assert_code(format($$select app.register_pathshala_children(%L, %L, %L, null, null, %L)$$, :t1, :h1,
+  jsonb_build_array(jsonb_build_object('person_id', :p_riya, 'track_id', :tr_g, 'level_id', :lv_g1)), :waiver),
+  '42501', 'Ask a parent or guardian in your family to register you.', 'who: a child cannot register (not even themselves)');
+rollback;
+begin;
+select pg_temp.sign_in(:u_nita);
+select pg_temp.assert_code(format($$select app.register_pathshala_children(%L, %L, %L, null, null, %L)$$, :t1, :h1,
+  jsonb_build_array(jsonb_build_object('person_id', :p_riya, 'track_id', :tr_g, 'level_id', :lv_g1)), :waiver),
+  '42501', 'Only an adult of the family can register its learners.', 'who: an adult of another family cannot register this family''s learners');
+select pg_temp.assert_code(format($$select app.register_pathshala_children(%L, %L, %L, null, null, %L)$$, :t1, :h2,
+  jsonb_build_array(jsonb_build_object('person_id', :p_riya, 'track_id', :tr_g, 'level_id', :lv_g1)), :waiver),
+  '22023', 'That learner is not a current member of the Mehta household', 'who: only current members of the household can be registered under it');
+rollback;
+begin;
+select pg_temp.sign_in(:u_mira);
+select pg_temp.assert_code(format($$select app.register_pathshala_children(%L, %L, %L, null, null, %L)$$, :t3, :h1,
+  jsonb_build_array(jsonb_build_object('person_id', :p_riya, 'track_id', :tr_j, 'level_id', :lv_j5)), :waiver),
+  '22023', 'Registration for 2027-28 is not open yet.', 'when: a term that is not open refuses');
+rollback;
+update app.pathshala_terms set registration_closes_at = now() - interval '1 day' where id = :t1;
+begin;
+select pg_temp.sign_in(:u_mira);
+select pg_temp.assert_code(format($$select app.register_pathshala_children(%L, %L, %L, null, null, %L)$$, :t1, :h1,
+  jsonb_build_array(jsonb_build_object('person_id', :p_riya, 'track_id', :tr_g, 'level_id', :lv_g1)), :waiver),
+  '22023', '. Ask the Pathshala office.', 'when: after registration closed a family is refused (and told to ask the office)');
+rollback;
+begin;
+select pg_temp.sign_in(:u_pia);
+select app.register_pathshala_children(:t1, :h1, jsonb_build_array(jsonb_build_object('person_id', :p_riya, 'track_id', :tr_g, 'level_id', :lv_g1)),
+                                       null, null, :waiver) as reg_office \gset
+commit;
+update app.pathshala_terms set registration_closes_at = now() + interval '30 days' where id = :t1;
+select pg_temp.assert((:'reg_office'::jsonb -> 'lines' -> 0 ->> 'outcome') = 'seat'
+                      and (select e.channel = 'office' and e.status = 'placed' and r.channel = 'office' and r.registered_by = :u_pia
+                             from app.pathshala_enrollments e join app.pathshala_registrations r on r.id = e.registration_id
+                            where e.id = (:'reg_office'::jsonb -> 'lines' -> 0 ->> 'enrollment_id')::uuid)
+                      and (select source = 'admin' and given_by_user = :u_pia from app.consents where person_id = :p_riya and kind = 'pathshala_waiver'),
+  'when: the office still registers after the window (office channel; the family''s paper agreement recorded as an admin consent)');
+begin;
+insert into app.center_modules (center_id, module_key, enabled, reason) values (:c, 'pathshala', false, 'test');
+select pg_temp.sign_in(:u_mira);
+select pg_temp.assert_code(format($$select app.register_pathshala_children(%L, %L, %L, null, null, %L)$$, :t1, :h1,
+  jsonb_build_array(jsonb_build_object('person_id', :p_anya, 'track_id', :tr_g, 'level_id', :lv_g1)), :waiver),
+  '42501', 'The Pathshala module is switched off for this community.', 'module: with Pathshala off registration refuses');
+rollback;
+-- Pledges & donations off: registration works and the quote is kept "not billed" (as membership fees); a pay-now term refuses.
+insert into app.center_modules (center_id, module_key, enabled, reason) values (:c, 'giving', false, 'test');
+begin;
+select pg_temp.sign_in(:u_nita);
+select app.register_pathshala_children(:t1, :h2, jsonb_build_array(jsonb_build_object('person_id', :p_isha, 'track_id', :tr_g, 'level_id', :lv_g1)),
+                                       null, null, :waiver) as reg_isha_g \gset
+select pg_temp.assert_code(format($$select app.register_pathshala_children(%L, %L, %L, null, null, %L)$$, :t2, :h2,
+  jsonb_build_array(jsonb_build_object('person_id', :p_isha, 'track_id', :tr_j, 'level_id', :lv_j2)), :waiver),
+  '22023', 'takes the fee when you register, and Pledges & donations is switched off', 'giving off: a pay-now term refuses new registrations in plain words');
+commit;
+delete from app.center_modules where center_id = :c and module_key = 'giving';
+select pg_temp.assert((:'reg_isha_g'::jsonb -> 'lines' -> 0 ->> 'outcome') = 'seat' and (:'reg_isha_g'::jsonb -> 'lines' -> 0 -> 'pledge') = 'null'::jsonb
+                      and (select e.status = 'placed' and f.status = 'not_billed_giving_off' and f.pledge_id is null
+                                  and f.billing_note = 'Not billed: Pledges & donations is switched off ($117.00 quoted).'
+                             from app.pathshala_enrollments e join app.pathshala_enrollment_fees f on f.enrollment_id = e.id
+                            where e.id = (:'reg_isha_g'::jsonb -> 'lines' -> 0 ->> 'enrollment_id')::uuid),
+  'giving off: Isha is placed and her $117.00 line kept, marked not billed (no pledge)');
+
+-- ═════════════════════════════════════════════════════════════════════════════
+-- Pay now: the seat is held, the pledges are due today, nothing is placed until paid
+-- ═════════════════════════════════════════════════════════════════════════════
+begin;
+select pg_temp.sign_in(:u_lata);
+select app.register_pathshala_children(:t2, :h4, jsonb_build_array(jsonb_build_object('person_id', :p_ved, 'track_id', :tr_j, 'level_id', :lv_j2),
+                                                                    jsonb_build_object('person_id', :p_mina, 'track_id', :tr_j, 'level_id', :lv_tod)),
+                                       13000, '["seat","seat"]', :waiver, 'desai-summer-1') as reg_ved2 \gset
+select pg_temp.assert_code(format($$select app.register_pathshala_children(%L, %L, %L, null, null, %L)$$, :t2, :h4,
+  jsonb_build_array(jsonb_build_object('person_id', :p_mina, 'track_id', :tr_g, 'level_id', null)), :waiver),
+  '22023', 'Choose a level for Mina: in Summer 2027 the fee is paid when you register.', 'pay now: "not sure" is not offered (P25)');
+commit;
+select (:'reg_ved2'::jsonb -> 'lines' -> 0 ->> 'enrollment_id') as ved2 \gset
+select pg_temp.assert((select array_agg(x ->> 'outcome' order by o) from jsonb_array_elements(:'reg_ved2'::jsonb -> 'lines') with ordinality a(x, o)) = array['seat', 'seat']
+                      and (:'reg_ved2'::jsonb -> 'pay' ->> 'amount_cents')::int = 13000
+                      and jsonb_array_length(:'reg_ved2'::jsonb -> 'pay' -> 'pledge_ids') = 1
+                      and (:'reg_ved2'::jsonb -> 'pay' ->> 'for_label') = 'Pathshala fee Summer 2027 · Ved, Mina'
+                      and (:'reg_ved2'::jsonb -> 'pay' ->> 'office_payment_allowed')::boolean and (:'reg_ved2'::jsonb -> 'pay' ->> 'hold_until') is not null
+                      and (:'reg_ved2'::jsonb -> 'lines' -> 0 -> 'pledge' ->> 'due_on') = pg_temp.today()::text,
+  'pay now: both get a seat; the family pays $130.00 once (Ved; Mina''s level is Free), due today, "Pathshala fee Summer 2027 · Ved, Mina"');
+select pg_temp.assert((select bool_and(e.status = 'requested' and e.hold_reason = 'payment' and e.class_id is null
+                                       and e.hold_expires_at between now() + interval '47 hours 59 minutes' and now() + interval '48 hours 1 minute')
+                         from app.pathshala_enrollments e where e.registration_id = (:'reg_ved2'::jsonb ->> 'registration_id')::uuid)
+                      and (select f.status from app.pathshala_enrollment_fees f join app.pathshala_enrollments e on e.id = f.enrollment_id
+                            where e.registration_id = (:'reg_ved2'::jsonb ->> 'registration_id')::uuid and e.student_person_id = :p_mina) = 'no_fee'
+                      and (select s.held = 1 and s.taken = 0 and s.free = 3 from app.pathshala_level_seats(:t2, :lv_j2) s),
+  'pay now: nothing is placed: both seats are held for 48 hours (a held seat counts as taken), Mina''s $0 line waits with Ved''s');
+
+-- The paid-fee hook, channel 1: the card payment the provider's webhook records.
+begin;
+select pg_temp.sign_in(:u_lata);
+select app.create_checkout(:c, :h4, 13000, array[(:'reg_ved2'::jsonb -> 'pay' -> 'pledge_ids' ->> 0)::uuid], null, 'pathshala',
+                           :'reg_ved2'::jsonb -> 'pay' ->> 'for_label') as ck_ved \gset
+commit;
+begin;
+set local role connect_worker;
+select app.worker_record_online_payment((:'ck_ved'::jsonb ->> 'checkout_id')::uuid, 'pi_p76_ved', 13000, 407, 'card') as paid_ved \gset
+select app.worker_record_online_payment((:'ck_ved'::jsonb ->> 'checkout_id')::uuid, 'pi_p76_ved', 13000, 407, 'card') as paid_ved_again \gset
+commit;
+select pg_temp.assert((select bool_and(e.status = 'placed' and e.hold_reason is null and e.class_id is not null)
+                         from app.pathshala_enrollments e where e.registration_id = (:'reg_ved2'::jsonb ->> 'registration_id')::uuid)
+                      and (select f.status from app.pathshala_enrollment_fees f where f.enrollment_id = :'ved2'::uuid) = 'paid'
+                      and (:'paid_ved_again'::jsonb ->> 'duplicate')::boolean
+                      and (select count(*) from app.audit_log where record_table = 'pathshala_enrollments' and record_id = :'ved2'
+                             and after ->> 'status' = 'placed' and before ->> 'status' = 'requested') = 1
+                      and (select count(*) from app.messages where center_id = :c and template_key = 'pathshala_registered' and to_address = :u_lata::text) = 2,
+  'hook (card webhook): Ved is placed once the payment is recorded, Mina''s $0 seat is confirmed with it, a repeated webhook changes nothing, Lata is told');
+
+-- Channel 2: an office payment the treasurer records.
+begin;
+select pg_temp.sign_in(:u_asha);
+select app.register_pathshala_children(:t2, :h5, jsonb_build_array(jsonb_build_object('person_id', :p_jay, 'track_id', :tr_g, 'level_id', :lv_g1)),
+                                       4500, null, :waiver) as reg_jay2 \gset
+commit;
+begin;
+select pg_temp.sign_in(:u_tara);
+select app.record_offline_payment(:h5, 4500, 'check', pg_temp.today(), array[(:'reg_jay2'::jsonb -> 'pay' -> 'pledge_ids' ->> 0)::uuid], '7601') as pay_jay \gset
+commit;
+select pg_temp.assert((select status = 'placed' and class_id = :cl2_g1 from app.pathshala_enrollments where id = (:'reg_jay2'::jsonb -> 'lines' -> 0 ->> 'enrollment_id')::uuid),
+  'hook (office payment): a check the treasurer records completes Jay''s held seat');
+begin;
+select pg_temp.sign_in(:u_asha);
+select app.register_pathshala_children(:t2, :h5, jsonb_build_array(jsonb_build_object('person_id', :p_neel, 'track_id', :tr_g, 'level_id', :lv_g1)),
+                                       4500, '["waitlist"]', :waiver) as reg_neel2 \gset
+commit;
+-- Channel 3: a Zelle line on the bank statement the treasurer matches.
+begin;
+select pg_temp.sign_in(:u_nita);
+select app.register_pathshala_children(:t2, :h2, jsonb_build_array(jsonb_build_object('person_id', :p_kiran, 'track_id', :tr_j, 'level_id', :lv_j2)),
+                                       13000, null, :waiver) as reg_kiran2 \gset
+commit;
+insert into app.bank_transactions (id, center_id, bank_account_id, posted_on, amount_cents, description, bank_type)
+values ('76000000-0000-4000-8000-000000000901', :c, :ba, pg_temp.today(), 13000, 'Zelle Payment From Nita Mehta Wfct0h7k2p76', 'QUICKPAY_CREDIT');
+begin;
+select pg_temp.sign_in(:u_tara);
+select app.confirm_bank_match('76000000-0000-4000-8000-000000000901', :h2, array[(:'reg_kiran2'::jsonb -> 'pay' -> 'pledge_ids' ->> 0)::uuid]) as pay_kiran \gset
+commit;
+select pg_temp.assert((select status = 'placed' from app.pathshala_enrollments where id = (:'reg_kiran2'::jsonb -> 'lines' -> 0 ->> 'enrollment_id')::uuid),
+  'hook (bank match): matching the Zelle bank line completes Kiran''s held seat');
+-- Channel 4: the treasurer applies money the family already has as credit.
+begin;
+select pg_temp.sign_in(:u_tara);
+select app.record_offline_payment(:h2, 13000, 'cash', pg_temp.today(), array['76000000-0000-4000-8000-0000000dead1']::uuid[]) as credit_pay \gset
+commit;
+begin;
+select pg_temp.sign_in(:u_nita);
+select app.register_pathshala_children(:t2, :h2, jsonb_build_array(jsonb_build_object('person_id', :p_isha, 'track_id', :tr_j, 'level_id', :lv_j2)),
+                                       13000, null, :waiver) as reg_isha2 \gset
+commit;
+begin;
+select pg_temp.sign_in(:u_tara);
+insert into app.payment_allocations (center_id, payment_id, pledge_id, amount_cents)
+values (:c, :'credit_pay'::uuid, (:'reg_isha2'::jsonb -> 'pay' -> 'pledge_ids' ->> 0)::uuid, 13000);
+commit;
+select pg_temp.assert((select status = 'placed' from app.pathshala_enrollments where id = (:'reg_isha2'::jsonb -> 'lines' -> 0 ->> 'enrollment_id')::uuid)
+                      and (select s.taken = 3 and s.held = 0 from app.pathshala_level_seats(:t2, :lv_j2) s),
+  'hook (credit applied by the treasurer): allocating the family''s credit to the fee pledge completes Isha''s held seat');
+
+-- ═════════════════════════════════════════════════════════════════════════════
+-- The sweep: an unpaid hold is released; money paid toward it becomes credit; the seat goes to the waitlist
+-- ═════════════════════════════════════════════════════════════════════════════
+begin;
+select pg_temp.sign_in(:u_mira);
+select app.register_pathshala_children(:t2, :h1, jsonb_build_array(jsonb_build_object('person_id', :p_dev, 'track_id', :tr_j, 'level_id', :lv_j2)),
+                                       13000, null, :waiver) as reg_dev2 \gset
+select app.choose_pathshala_office_payment((:'reg_dev2'::jsonb ->> 'registration_id')::uuid) as office_dev2 \gset
+select pg_temp.assert_code(format($$select app.choose_pathshala_office_payment(%L)$$, :'reg1'::jsonb ->> 'registration_id'),
+  '22023', '2026-27 takes the fee online only.', 'office payment: a term that does not allow it refuses');
+commit;
+begin;
+select pg_temp.sign_in(:u_priya);
+select app.register_pathshala_children(:t2, :h3, jsonb_build_array(jsonb_build_object('person_id', :p_om, 'track_id', :tr_j, 'level_id', :lv_j2)),
+                                       13000, '["waitlist"]', :waiver) as reg_om2 \gset
+commit;
+select pg_temp.assert((select hold_reason = 'office_payment' and hold_expires_at between now() + interval '6 days 23 hours' and now() + interval '7 days 1 hour'
+                         from app.pathshala_enrollments where id = (:'reg_dev2'::jsonb -> 'lines' -> 0 ->> 'enrollment_id')::uuid)
+                      and (:'office_dev2'::jsonb ->> 'amount_cents')::int = 13000,
+  'office payment: the family moves its hold to the office window (7 days)');
+begin;
+select pg_temp.sign_in(:u_tara);
+select app.record_offline_payment(:h1, 5000, 'check', pg_temp.today(), array[(:'reg_dev2'::jsonb -> 'lines' -> 0 -> 'pledge' ->> 'id')::uuid], '7602') as part_dev \gset
+commit;
+select pg_temp.assert((select status from app.pledges where id = (:'reg_dev2'::jsonb -> 'lines' -> 0 -> 'pledge' ->> 'id')::uuid) = 'partially_paid'
+                      and (select status = 'requested' and hold_reason = 'office_payment' from app.pathshala_enrollments
+                            where id = (:'reg_dev2'::jsonb -> 'lines' -> 0 ->> 'enrollment_id')::uuid),
+  'a part payment does nothing until the pledge is paid in full: Dev stays held');
+update app.pathshala_enrollments set hold_expires_at = now() - interval '1 minute' where id = (:'reg_dev2'::jsonb -> 'lines' -> 0 ->> 'enrollment_id')::uuid;
+begin;
+set local role connect_worker;
+select app.worker_pathshala_holds_sweep() as sw1 \gset
+commit;
+select pg_temp.assert((:'sw1'::jsonb ->> 'released')::int = 1 and (:'sw1'::jsonb ->> 'credited')::int = 1 and (:'sw1'::jsonb ->> 'credit_cents')::int = 5000,
+  'sweep: one expired hold released, $50.00 already paid toward it is credited');
+select pg_temp.assert((select e.status = 'withdrawn' and e.hold_reason is null and e.withdrawal_reason like 'The fee was not paid by %, so the seat was released.'
+                              and f.status = 'cancelled' and p.status = 'cancelled' and p.paid_cents = 0
+                         from app.pathshala_enrollments e join app.pathshala_enrollment_fees f on f.enrollment_id = e.id join app.pledges p on p.id = f.pledge_id
+                        where e.id = (:'reg_dev2'::jsonb -> 'lines' -> 0 ->> 'enrollment_id')::uuid)
+                      and not exists (select 1 from app.payment_allocations where pledge_id = (:'reg_dev2'::jsonb -> 'lines' -> 0 -> 'pledge' ->> 'id')::uuid)
+                      and (select kind = 'pathshala_hold_released' and released_cents = 5000 and household_id = :h1 and rsvp_id is null and status = 'pending'
+                             from app.rsvp_credit_releases where enrollment_id = (:'reg_dev2'::jsonb -> 'lines' -> 0 ->> 'enrollment_id')::uuid),
+  'sweep: Dev is withdrawn with the reason, the fee pledge cancelled, the $50.00 released into a credit row (with the enrollment) for the treasurer');
+select pg_temp.assert((select count(*) from app.messages where center_id = :c and template_key = 'pathshala_hold_released'
+                         and payload -> 'vars' ->> 'enrollment_id' = (:'reg_dev2'::jsonb -> 'lines' -> 0 ->> 'enrollment_id')) = 4,
+  'sweep: the family''s adults are told once each (push and email to Mira and Rahul)');
+select pg_temp.assert((select e.status = 'requested' and e.hold_reason = 'payment' and e.offered_at is not null and f.status = 'billed' and p.due_on = pg_temp.today()
+                              and e.hold_expires_at > now() + interval '47 hours'
+                         from app.pathshala_enrollments e join app.pathshala_enrollment_fees f on f.enrollment_id = e.id join app.pledges p on p.id = f.pledge_id
+                        where e.id = (:'reg_om2'::jsonb -> 'lines' -> 0 ->> 'enrollment_id')::uuid)
+                      and exists (select 1 from app.messages where center_id = :c and template_key = 'pathshala_payment_due' and to_address = :u_priya::text),
+  'waitlist (pay now, P19): the freed seat is offered to Om, held 48 hours for payment, and his family told');
+select pg_temp.assert_raises(format($$insert into app.rsvp_credit_releases (center_id, household_id, pledge_id, released_cents) values (%L, %L, %L, 100)$$,
+  :c, :h1, (:'reg_dev2'::jsonb -> 'lines' -> 0 -> 'pledge' ->> 'id')),
+  'rsvp_credit_releases_one_source', 'credit queue: a credit row names exactly one RSVP or one enrollment');
+begin;
+select pg_temp.sign_in(:u_tara);
+select app.resolve_rsvp_credit((select id from app.rsvp_credit_releases where enrollment_id = (:'reg_dev2'::jsonb -> 'lines' -> 0 ->> 'enrollment_id')::uuid),
+                               'Applied to the yearly pledge');
+commit;
+select pg_temp.assert((select status = 'handled' and handled_by = :u_tara from app.rsvp_credit_releases
+                        where enrollment_id = (:'reg_dev2'::jsonb -> 'lines' -> 0 ->> 'enrollment_id')::uuid)
+                      and exists (select 1 from app.audit_log where record_table = 'rsvp_credit_releases'
+                                    and reason = 'Treasurer handled the credit released when a Pathshala seat held for payment was released'),
+  'credit queue: the treasurer handles the Pathshala credit with the same tool as RSVP credit');
+-- A lapsed seat offer leaves the waitlist.
+update app.pathshala_enrollments set hold_expires_at = now() - interval '1 minute' where id = (:'reg_om2'::jsonb -> 'lines' -> 0 ->> 'enrollment_id')::uuid;
+begin;
+set local role connect_worker;
+select app.worker_pathshala_holds_sweep() as sw2 \gset
+commit;
+select pg_temp.assert((select status = 'withdrawn' from app.pathshala_enrollments where id = (:'reg_om2'::jsonb -> 'lines' -> 0 ->> 'enrollment_id')::uuid)
+                      and (select status from app.pledges where id = (select pledge_id from app.pathshala_enrollment_fees
+                                                                      where enrollment_id = (:'reg_om2'::jsonb -> 'lines' -> 0 ->> 'enrollment_id')::uuid)) = 'cancelled',
+  'waitlist: an unpaid seat offer lapses: Om leaves the waitlist and his pledge is cancelled (his family can join again, at the end)');
+
+-- An open payment page keeps the hold live (at most 24 hours); money that arrives after the release is credit, applied to nothing.
+begin;
+select pg_temp.sign_in(:u_mira);
+select app.register_pathshala_children(:t2, :h1, jsonb_build_array(jsonb_build_object('person_id', :p_riya, 'track_id', :tr_j, 'level_id', :lv_j5)),
+                                       13000, null, :waiver) as reg_riya2 \gset
+select app.create_checkout(:c, :h1, 13000, array[(:'reg_riya2'::jsonb -> 'pay' -> 'pledge_ids' ->> 0)::uuid], null, 'pathshala',
+                           :'reg_riya2'::jsonb -> 'pay' ->> 'for_label') as ck_riya \gset
+commit;
+update app.pathshala_enrollments set hold_expires_at = now() - interval '1 minute' where id = (:'reg_riya2'::jsonb -> 'lines' -> 0 ->> 'enrollment_id')::uuid;
+begin;
+set local role connect_worker;
+select app.worker_pathshala_holds_sweep() as sw3 \gset
+commit;
+select pg_temp.assert((:'sw3'::jsonb ->> 'kept_paying')::int >= 1
+                      and (select status = 'requested' and hold_reason = 'payment' from app.pathshala_enrollments
+                            where id = (:'reg_riya2'::jsonb -> 'lines' -> 0 ->> 'enrollment_id')::uuid),
+  'sweep: a payment page still open for the hold (under 24 hours) keeps Riya''s seat: a parent who is paying never loses it');
+update app.payment_checkouts set created_at = now() - interval '25 hours' where id = (:'ck_riya'::jsonb ->> 'checkout_id')::uuid;
+begin;
+set local role connect_worker;
+select app.worker_pathshala_holds_sweep() as sw4 \gset
+select app.worker_record_online_payment((:'ck_riya'::jsonb ->> 'checkout_id')::uuid, 'pi_p76_late', 13000, 407, 'card') as paid_late \gset
+commit;
+select pg_temp.assert((select status = 'withdrawn' from app.pathshala_enrollments where id = (:'reg_riya2'::jsonb -> 'lines' -> 0 ->> 'enrollment_id')::uuid)
+                      and (select status from app.pledges where id = (:'reg_riya2'::jsonb -> 'pay' -> 'pledge_ids' ->> 0)::uuid) = 'cancelled'
+                      and not exists (select 1 from app.payment_allocations where payment_id = (:'paid_late'::jsonb ->> 'payment_id')::uuid)
+                      and (select kind = 'pathshala_late_payment' and released_cents = 13000 and household_id = :h1 and status = 'pending'
+                             from app.rsvp_credit_releases where enrollment_id = (:'reg_riya2'::jsonb -> 'lines' -> 0 ->> 'enrollment_id')::uuid),
+  'after a release: the late online payment is recorded, applied to nothing (the seat stays released) and put in front of the treasurer as credit');
+
+-- A member's Zelle report keeps an office hold, but never confirms it.
+begin;
+select pg_temp.sign_in(:u_asha);
+select app.register_pathshala_children(:t2, :h5, jsonb_build_array(jsonb_build_object('person_id', :p_kavya, 'track_id', :tr_j, 'level_id', :lv_j5)),
+                                       13000, null, :waiver) as reg_kavya \gset
+select app.choose_pathshala_office_payment((:'reg_kavya'::jsonb ->> 'registration_id')::uuid) as office_kavya \gset
+select app.report_payment(:c, :h5, 'zelle', 13000, pg_temp.today(), null, 'ASHA JOSHI', array[(:'reg_kavya'::jsonb -> 'pay' -> 'pledge_ids' ->> 0)::uuid], null) as zelle_kavya \gset
+commit;
+select (:'reg_kavya'::jsonb -> 'lines' -> 0 ->> 'enrollment_id') as kavya \gset
+begin;
+select pg_temp.sign_in(:u_pia);
+select pg_temp.assert_code(format($$select app.extend_pathshala_hold(%L, now() + interval '30 days', 'Family asked')$$, :'kavya'),
+  '22023', 'at most until', 'holds: a seat cannot be held past the office window');
+select app.extend_pathshala_hold(:'kavya'::uuid, now() + interval '5 days', 'The family will pay on Sunday') as ext_kavya \gset
+select pg_temp.assert_code(format($$select app.release_pathshala_hold(%L, 'x')$$, :'kavya'),
+  '22023', 'seat is held for payment. To give more time, extend the hold', 'holds: a payment hold is not "released" (extend it, or withdraw)');
+select pg_temp.assert_code(format($$update app.pathshala_enrollments set status = 'placed', class_id = %L where id = %L$$, :cl2_j5, :'kavya'),
+  '22023', 'held for payment', 'holds: a held learner cannot be placed or moved by a direct write');
+commit;
+update app.pathshala_enrollments set hold_expires_at = now() - interval '1 minute' where id = :'kavya'::uuid;
+begin;
+set local role connect_worker;
+select app.worker_pathshala_holds_sweep() as sw5 \gset
+commit;
+select pg_temp.assert((select status = 'requested' and hold_reason = 'office_payment' from app.pathshala_enrollments where id = :'kavya'::uuid)
+                      and (select status from app.pledges where id = (:'reg_kavya'::jsonb -> 'pay' -> 'pledge_ids' ->> 0)::uuid) = 'open',
+  'Zelle report: the reported Zelle keeps Kavya''s office hold while it waits for the treasurer, and pays nothing');
+begin;
+select pg_temp.sign_in(:u_tara);
+select app.reject_payment_report((:'zelle_kavya'::jsonb ->> 'report_id')::uuid, 'Not seen at our bank');
+commit;
+begin;
+set local role connect_worker;
+select app.worker_pathshala_holds_sweep() as sw6 \gset
+commit;
+select pg_temp.assert((select status = 'withdrawn' from app.pathshala_enrollments where id = :'kavya'::uuid),
+  'Zelle report: once the treasurer rejects it the hold is no longer live and the sweep releases it');
+
+-- ═════════════════════════════════════════════════════════════════════════════
+-- Pledge mode: a seat that frees goes to the waitlist, placed and billed (P19)
+-- ═════════════════════════════════════════════════════════════════════════════
+begin;
+select pg_temp.sign_in(:u_pia);
+update app.pathshala_enrollments set status = 'withdrawn' where id = (:'reg_kiran'::jsonb -> 'lines' -> 0 ->> 'enrollment_id')::uuid;
+commit;
+select pg_temp.assert((select e.status = 'placed' and e.class_id = :cl_j2 and f.status = 'billed' and p.amount_cents = 13000 and p.due_on = pg_temp.today() + 14
+                         from app.pathshala_enrollments e join app.pathshala_enrollment_fees f on f.enrollment_id = e.id join app.pledges p on p.id = f.pledge_id
+                        where e.id = (:'reg_jay'::jsonb -> 'lines' -> 0 ->> 'enrollment_id')::uuid)
+                      and exists (select 1 from app.messages where center_id = :c and template_key = 'pathshala_placed' and to_address = :u_asha::text)
+                      and (select status = 'waitlisted' from app.pathshala_enrollments where id = (:'reg_neel'::jsonb -> 'lines' -> 0 ->> 'enrollment_id')::uuid)
+                      and app.pathshala_waitlist_position((:'reg_neel'::jsonb -> 'lines' -> 0 ->> 'enrollment_id')::uuid) = 1,
+  'waitlist (pledge mode): Kiran withdraws, so Jay (first waiting) is placed and billed at his locked line, and his family told how to withdraw at no charge');
+begin;
+select pg_temp.sign_in(:u_pia);
+update app.pathshala_classes set capacity = 3 where id = :cl_j2;
+commit;
+select pg_temp.assert((select e.status = 'placed' and f.status = 'billed' and f.total_cents = 11700
+                         from app.pathshala_enrollments e join app.pathshala_enrollment_fees f on f.enrollment_id = e.id
+                        where e.id = (:'reg_neel'::jsonb -> 'lines' -> 0 ->> 'enrollment_id')::uuid),
+  'waitlist (pledge mode): raising the capacity serves the next one (Neel, $117.00 as quoted when he registered)');
+
+-- ═════════════════════════════════════════════════════════════════════════════
+-- The office step (seat rule "office", pledge mode): the office places; "Place next"
+-- ═════════════════════════════════════════════════════════════════════════════
+begin;
+select pg_temp.sign_in(:u_mira);
+select app.register_pathshala_children(:t4, :h1, jsonb_build_array(jsonb_build_object('person_id', :p_dev, 'track_id', :tr_j, 'level_id', :lv_j2)),
+                                       13000, '["office"]', :waiver) as reg_dev4 \gset
+commit;
+begin;
+select pg_temp.sign_in(:u_lata);
+select app.register_pathshala_children(:t4, :h4, jsonb_build_array(jsonb_build_object('person_id', :p_ved, 'track_id', :tr_j, 'level_id', :lv_j2)),
+                                       null, null, :waiver) as reg_ved4 \gset
+commit;
+begin;
+select pg_temp.sign_in(:u_nita);
+select app.register_pathshala_children(:t4, :h2, jsonb_build_array(jsonb_build_object('person_id', :p_kiran, 'track_id', :tr_j, 'level_id', :lv_j2)),
+                                       null, null, :waiver) as reg_kiran4 \gset
+commit;
+begin;
+select pg_temp.sign_in(:u_pia);
+select app.place_pathshala_enrollment((:'reg_dev4'::jsonb -> 'lines' -> 0 ->> 'enrollment_id')::uuid) as pl_dev4 \gset
+update app.pathshala_enrollments set status = 'waitlisted', waitlisted_at = now() where id = (:'reg_ved4'::jsonb -> 'lines' -> 0 ->> 'enrollment_id')::uuid;
+select app.place_next_from_waitlist(:lv_j2, :t4) as pl_next \gset
+select pg_temp.assert_code(format($$select app.place_pathshala_enrollment(%L)$$, :'reg_kiran4'::jsonb -> 'lines' -> 0 ->> 'enrollment_id'),
+  '22023', 'is full', 'office step: placing into a full class is refused');
+select pg_temp.assert_code(format($$select app.place_pathshala_enrollment(%L, null, true)$$, :'reg_kiran4'::jsonb -> 'lines' -> 0 ->> 'enrollment_id'),
+  '22023', 'Say why Kiran is placed in a full class', 'office step: over capacity needs a reason');
+select app.place_pathshala_enrollment((:'reg_kiran4'::jsonb -> 'lines' -> 0 ->> 'enrollment_id')::uuid, null, true, 'Twin of a student already placed') as pl_kiran4 \gset
+commit;
+select pg_temp.assert((:'reg_dev4'::jsonb -> 'lines' -> 0 ->> 'outcome') = 'office' and (:'reg_dev4'::jsonb -> 'lines' -> 0 -> 'pledge') = 'null'::jsonb
+                      and (:'pl_dev4'::jsonb ->> 'outcome') = 'placed' and (:'pl_next'::jsonb ->> 'outcome') = 'placed' and (:'pl_kiran4'::jsonb ->> 'outcome') = 'placed'
+                      and (select count(*) = 3 and bool_and(e.status = 'placed' and f.status = 'billed') from app.pathshala_enrollments e
+                             join app.pathshala_enrollment_fees f on f.enrollment_id = e.id where e.term_id = :t4),
+  'office step: nothing is placed or billed at registration; the office places (billed then), "Place next" serves the waitlist, over capacity with a reason');
+
+-- A membership hold released at the desk (with a reason): treated as registering now.
+begin;
+select pg_temp.sign_in(:u_leela);
+select app.register_pathshala_children(:t1, :h6, jsonb_build_array(jsonb_build_object('person_id', :p_sai, 'track_id', :tr_j, 'level_id', :lv_j2)),
+                                       13000, '["membership_hold"]', :waiver) as reg_sai \gset
+commit;
+begin;
+select pg_temp.sign_in(:u_pia);
+select pg_temp.assert_code(format($$select app.release_pathshala_hold(%L, '  ')$$, :'reg_sai'::jsonb -> 'lines' -> 0 ->> 'enrollment_id'),
+  '22023', 'Say why the hold is released', 'holds: releasing a membership hold needs a reason');
+select app.release_pathshala_hold((:'reg_sai'::jsonb -> 'lines' -> 0 ->> 'enrollment_id')::uuid, 'Membership paid at the desk on Sunday') as rel_sai \gset
+commit;
+select pg_temp.assert((:'rel_sai'::jsonb ->> 'outcome') = 'waitlist' and (:'rel_sai'::jsonb ->> 'status') = 'waitlisted'
+                      and exists (select 1 from app.messages where center_id = :c and template_key = 'pathshala_hold_lifted' and to_address = :u_leela::text),
+  'holds: the principal releases Sai''s membership hold: Jainism 2 is full, so Sai joins its waitlist (and the family is told)');
+
+-- ═════════════════════════════════════════════════════════════════════════════
+-- The office's queue and the Home counts
+-- ═════════════════════════════════════════════════════════════════════════════
+begin;
+select pg_temp.sign_in(:u_pia);
+select app.pathshala_registration_queue(:t1, 'waitlisted') as q_pia \gset
+commit;
+begin;
+select pg_temp.sign_in(:u_cora);
+select app.pathshala_registration_queue(:t1, 'all') as q_cora \gset
+select app.pathshala_task_counts(:c) as tc_cora \gset
+commit;
+begin;
+select pg_temp.sign_in(:u_tara);
+select app.pathshala_task_counts(:c) as tc_tara \gset
+commit;
+begin;
+select pg_temp.sign_in(:u_mira);
+select pg_temp.assert_code(format($$select app.pathshala_registration_queue(%L)$$, :t1), '42501', 'You don''t have access to this area',
+  'queue: a member cannot read the office''s queue');
+rollback;
+select pg_temp.assert((:'q_pia'::jsonb ->> 'fees_visible')::boolean
+                      and (select x -> 'learner' ->> 'name' = 'Sai Rao' and (x ->> 'waitlist_position')::int = 1 and x -> 'household_card' ->> 'household_number' is not null
+                                  and x -> 'fee' ->> 'status' = 'quoted' and (x -> 'fee' ->> 'total_cents')::int = 13000
+                             from jsonb_array_elements(:'q_pia'::jsonb -> 'items') x where x ->> 'enrollment_id' = (:'reg_sai'::jsonb -> 'lines' -> 0 ->> 'enrollment_id')),
+  'queue: the principal sees the waitlist with each family''s household card, the position and the locked line');
+select pg_temp.assert(not (:'q_cora'::jsonb ->> 'fees_visible')::boolean
+                      and (select bool_and(x -> 'fee' = 'null'::jsonb) from jsonb_array_elements(:'q_cora'::jsonb -> 'items') x)
+                      and jsonb_array_length(:'q_cora'::jsonb -> 'items') > 5,
+  'queue: the committee (pathshala.view) sees the registrations but no family''s fees');
+select pg_temp.assert((:'tc_tara'::jsonb ->> 'payments_after_release')::int = 1 and (:'tc_tara'::jsonb ->> 'waitlisted')::int >= 1
+                      and (:'tc_cora'::jsonb -> 'payments_after_release') = 'null'::jsonb and (:'tc_cora'::jsonb ->> 'waitlisted')::int >= 1,
+  'Home: the treasurer sees the payment that arrived after a release; the committee sees the counts but no money');
+
+-- ═════════════════════════════════════════════════════════════════════════════
+-- Access and the functions
+-- ═════════════════════════════════════════════════════════════════════════════
+begin;
+select pg_temp.sign_in(:u_mira);
+select pg_temp.assert((select count(*) from app.pathshala_registrations where household_id = :h1) >= 4
+                      and (select count(*) from app.pathshala_pending_registrations where household_id = :h1) = 1
+                      and (select count(*) from app.pathshala_enrollment_fees where household_id = :h1) >= 6,
+  'access: the household''s adult reads its registrations, pending children and fee lines');
+select pg_temp.assert_raises(format($$insert into app.pathshala_registrations (center_id, term_id, household_id, channel, payment_mode) values (%L, %L, %L, 'app', 'pledge')$$, :c, :t1, :h1),
+  'permission denied', 'access: nobody writes the registrations directly');
+rollback;
+begin;
+select pg_temp.sign_in(:u_riya);
+select pg_temp.assert((select count(*) from app.pathshala_registrations) = 0 and (select count(*) from app.pathshala_pending_registrations) = 0
+                      and (select count(*) from app.pathshala_enrollment_fees) = 0,
+  'access: a child reads none of it');
+rollback;
+begin;
+select pg_temp.sign_in(:u_nita);
+select pg_temp.assert((select count(*) from app.pathshala_registrations where household_id = :h1) = 0, 'access: another family reads none of it');
+rollback;
+select pg_temp.assert((select count(*) = 8 and bool_and(p.prosecdef and exists (select 1 from unnest(p.proconfig) as g(setting)
+                                                                                 where g.setting ~ '^search_path=app, *public, *extensions$')
+                                         and has_function_privilege('authenticated', p.oid, 'execute') and not has_function_privilege('anon', p.oid, 'execute'))
+                         from pg_proc p where p.pronamespace = 'app'::regnamespace
+                          and p.proname in ('register_pathshala_children', 'choose_pathshala_office_payment', 'place_pathshala_enrollment',
+                                            'place_next_from_waitlist', 'release_pathshala_hold', 'extend_pathshala_hold',
+                                            'pathshala_registration_queue', 'pathshala_task_counts')),
+  'functions: every RPC is security definer with the hosted search path, callable when signed in and never anonymously');
+select pg_temp.assert(not has_function_privilege('authenticated', 'app.worker_pathshala_holds_sweep()', 'execute')
+                      and not has_function_privilege('service_role', 'app.worker_pathshala_holds_sweep()', 'execute')
+                      and has_function_privilege('connect_worker', 'app.worker_pathshala_holds_sweep()', 'execute')
+                      and not has_function_privilege('authenticated', 'app._pathshala_bill(uuid,boolean)', 'execute')
+                      and not has_function_privilege('authenticated', 'app._pathshala_release_hold(uuid,text,boolean)', 'execute'),
+  'functions: the sweep is the worker''s only; the billing and release helpers are not callable over the API');
+begin;
+select pg_temp.sign_in(:u_pia);
+select pg_temp.assert_raises($$select app.worker_pathshala_holds_sweep()$$, 'permission denied', 'functions: a signed-in user cannot run the sweep');
+rollback;
+select pg_temp.assert((select bool_and(exists (select 1 from unnest(p.proconfig) as g(setting) where g.setting ~ '^search_path=app, *public, *extensions$'))
+                         from pg_proc p where p.pronamespace = 'app'::regnamespace and p.proname like '%pathshala%' and p.proname <> 'pathshala_term_stats'),
+  'functions: every Pathshala function pins search_path = app, public, extensions');
+select pg_temp.assert(not exists (select 1 from app.audit_log where center_id = :c and action = 'pathshala.notice_failed'),
+  'messages: every Pathshala notice rendered and queued (no notice failed)');
