@@ -68,6 +68,17 @@
 
 set client_min_messages = warning;
 
+-- ── Lock waits ───────────────────────────────────────────────────────────────
+-- A deploy applies this file as ONE transaction (migrate.sh --single-transaction). It adds a trigger to storage.objects
+-- (every upload writes there) and a column to app.gyan_submission_files: wait at most 10 seconds for any lock, so a busy
+-- moment fails the deploy cleanly (run it again) instead of holding uploads behind it. No LOCK TABLE on storage.objects:
+-- the hosted postgres role may create triggers there without holding UPDATE on it. In a DO block like 0587's, so it
+-- lasts for the whole transaction.
+do $$
+begin
+  set local lock_timeout = '10s';
+end $$;
+
 -- ── The mode: a platform setting ─────────────────────────────────────────────
 -- 0585's settings list plus UPLOAD_SCAN_MODE (src/lib/platform-setup/catalog.ts holds the same list; tests/platform-setup.test.ts
 -- keeps them in step). Anyone who changes this list again must start from THIS definition (0589).
