@@ -242,7 +242,10 @@ select pg_temp.assert(pg_temp.state_of($$select app.set_platform_setting('UPLOAD
 rollback;
 begin;
 select pg_temp.sign_in_step_up(:pa);
-select pg_temp.assert_raises($$select app.set_platform_setting('UPLOAD_SCAN_MODE', 'on', 'x')$$, 'Choose off, monitor', 'a mode that is not one of the three is refused');
+select pg_temp.assert_raises($$select app.set_platform_setting('UPLOAD_SCAN_MODE', 'on', 'x')$$, 'Choose off or monitor', 'a mode that is not one of the three is refused');
+select pg_temp.assert_raises($$select app.set_platform_setting('UPLOAD_SCAN_MODE', 'Enforce', 'x')$$,
+  'Enforce (removing infected files) comes with the next update; use monitor until then.',
+  'enforce is LOCKED in this release: the setting refuses it with a plain sentence (owner, 2026-10-07)');
 select pg_temp.assert(app.set_platform_setting('UPLOAD_SCAN_MODE', ' MONITOR ', 'ClamAV is installed on the droplet') ->> 'value' = 'monitor',
   'a platform admin switches to monitor (lower-cased)');
 commit;
@@ -311,14 +314,18 @@ select pg_temp.assert(not exists (select 1 from app.upload_scans where bucket_id
   'a removed file''s clean result goes with it (audited)');
 
 -- ── Enforce ────────────────────────────────────────────────────────────────
+-- Locked for platform admins in this release; the code is built and tested here by writing the setting as the database
+-- owner, the way the next update's set_platform_setting will.
 begin;
 select pg_temp.sign_in_step_up(:pa);
-select app.set_platform_setting('UPLOAD_SCAN_MODE', 'enforce', 'A week of monitor found nothing wrong');
-commit;
+select pg_temp.assert_raises($$select app.set_platform_setting('UPLOAD_SCAN_MODE', 'enforce', 'A week of monitor found nothing wrong')$$,
+  'comes with the next update', 'even a platform admin with a fresh 2FA check cannot switch to enforce yet');
+rollback;
+select pg_temp.assert(app.upload_scan_mode() = 'monitor', 'and the mode stays monitor');
+update app.platform_settings set value = '"enforce"'::jsonb, set_by = :pa, set_at = now() where key = 'UPLOAD_SCAN_MODE';
 select pg_temp.assert(app.upload_scan_mode() = 'enforce'
-                      and app.upload_scan_enforced_since() = (select set_at from app.platform_settings where key = 'UPLOAD_SCAN_MODE')
-                      and (select count(*) from app.jobs where kind = 'storage.scan_sweep' and center_id is null and status = 'queued') = 2,
-  'enforce is on, since the moment it was switched, and another sweep was queued');
+                      and app.upload_scan_enforced_since() = (select set_at from app.platform_settings where key = 'UPLOAD_SCAN_MODE'),
+  'enforce (written by the database owner): on since the moment it was switched');
 -- Files that arrive after the switch (each statement is its own transaction, so its now() is later).
 insert into storage.objects (bucket_id, name, metadata, version, owner_id) values ('homework', :'hw_new', '{"size": 1100, "mimetype": "image/jpeg"}', 'v1', :kid);
 insert into storage.objects (bucket_id, name, metadata, version, owner_id) values ('homework', :'hw_bad', '{"size": 1200, "mimetype": "audio/mp4"}', 'v1', :kid);

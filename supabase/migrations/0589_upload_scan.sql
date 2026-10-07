@@ -129,7 +129,12 @@ begin
   elsif v_key = 'UPLOAD_SCAN_MODE' then
     v := lower(v);
     if v not in ('off','monitor','enforce') then
-      raise exception 'Choose off, monitor (check every upload and record the result, nothing is blocked) or enforce.';
+      raise exception 'Choose off or monitor (check every upload and record the result; nothing is blocked).';
+    end if;
+    -- LOCKED in this release (review of PR #94, owner 2026-10-07): enforce, with its read gate and the removal of
+    -- infected files, is built and tested but cannot be switched on until the next update brings its fixes.
+    if v = 'enforce' then
+      raise exception 'Enforce (removing infected files) comes with the next update; use monitor until then.';
     end if;
   end if;
   perform app.assert_platform_step_up('platform_setting.set');

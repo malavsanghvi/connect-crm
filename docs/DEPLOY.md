@@ -266,7 +266,8 @@ any field that looks like a secret replaced by `[redacted]`.
 
 ## Malware scanning (virus checks of uploads)
 
-Built in connect-crm migration 0589 and **switched off**. Owner decisions 2026-10-06: hosting the scanner "not now", so
+Built in connect-crm migration 0589 and **switched off**, with **enforce locked** until the next update (owner,
+2026-10-07: monitor can be switched on once ClamAV runs). Owner decisions 2026-10-06: hosting the scanner "not now", so
 it is built switched off and turned on later; an infected file is deleted and the family and the office are told (never
 with the file's name); files uploaded before scanning starts are checked once, in the background; the owner creates the
 worker's Supabase key.
@@ -285,7 +286,7 @@ service both follow it, within a minute. The worker never takes it from its envi
 |---|---|
 | off (default) | Nothing is checked; the checks wait in the queue. |
 | monitor | Every upload is checked with ClamAV and the result recorded (`app.upload_scans`). **Nothing is denied and nothing is removed**: an infected file is kept and written to the audit log (`storage.scan_infected`, "kept"), so you can see what the scanner finds before anything is enforced. |
-| enforce | Homework files and recordings uploaded after the switch are opened by the family at once and by the teachers and reviewers only once they are clean (Pathshala › Homework says "Being checked for viruses"; a check that could not finish keeps the file with the family). An infected file, in any scanned bucket, is refused to everyone at once, then deleted through the Storage API; the homework part is marked removed by the virus check, a recording is cleared from the learner's progress, a photo is marked removed; the learner (and a child's household adults) or the uploader is told (`upload.removed`, push and email, no file name); the office gets an audit entry (`storage.scan_infected`) and, when the answer was already with the reviewers, they get a push. Photos, organization documents, content and the store are not held back yet (`app.upload_scan_gated_buckets` names them for later). |
+| enforce | **Locked in this release** (owner, 2026-10-07): Platform › Setup shows it disabled, and the database refuses it with "Enforce (removing infected files) comes with the next update; use monitor until then." It is built and tested; the next update brings the review's enforce fixes and unlocks it. What it will do: homework files and recordings uploaded after the switch are opened by the family at once and by the teachers and reviewers only once they are clean (Pathshala › Homework says "Being checked for viruses"; a check that could not finish keeps the file with the family). An infected file, in any scanned bucket, is refused to everyone at once, then deleted through the Storage API; the homework part is marked removed by the virus check, a recording is cleared from the learner's progress, a photo is marked removed; the learner (and a child's household adults) or the uploader is told (`upload.removed`, push and email, no file name); the office gets an audit entry (`storage.scan_infected`) and, when the answer was already with the reviewers, they get a push. Photos, organization documents, content and the store are not held back yet (`app.upload_scan_gated_buckets` names them for later). |
 
 Switching to monitor or enforce queues a sweep at once (`storage.scan_sweep`, then every 6 hours): it queues a check for
 every file that has none (the backlog: everything uploaded before scanning started), the infected files still stored
@@ -316,8 +317,9 @@ attempts); then the file is recorded as "could not be checked" and tried again a
 6. Platform › Setup › Background service › Virus scanning of uploads: **monitor**. Watch Settings › Storage of a
    community: files waiting to be checked go down, clean goes up; "could not be checked" and "found infected (kept)"
    are the ones to look at (the audit log has each `storage.scan_infected`).
-7. About a week later, when nothing unexpected showed up: **enforce**. Infected files found in monitor mode are removed
-   by the next sweep (within 6 hours); new uploads at once.
+7. **Enforce comes with the next update** (locked in this release). Once it is unlocked, and monitor has run about a
+   week with nothing unexpected: **enforce**. Infected files found in monitor mode are then removed by the next sweep
+   (within 6 hours); new uploads at once.
 
 **Turning it off again**: set the mode to off. Nothing is denied any more; the checks wait in the queue again; recorded
 results stay.

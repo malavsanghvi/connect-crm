@@ -4,7 +4,8 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import {
-  FIELDS, SECRET_NAMES, SETTING_KEYS, STEPS, callbackUrls, fieldProblem, isEnvName, missingFor, normalizeDomain, setupComplete, setupProgress,
+  FIELDS, SECRET_NAMES, SETTING_KEYS, STEPS, UPLOAD_SCAN_ENFORCE_LOCKED, callbackUrls, fieldProblem, isEnvName, missingFor, normalizeDomain, setupComplete,
+  setupProgress,
 } from "@/lib/platform-setup/catalog";
 import { ANTHROPIC_FALLBACK_BETA, ANTHROPIC_TEST_MODEL, anthropicTestLine, geminiTestLine, redactSecrets, testStep } from "@/lib/platform-setup/checks";
 
@@ -54,9 +55,13 @@ describe("platform setup catalog", () => {
     expect(fieldProblem("GEMINI_IMAGE_MODEL", "gemini-3.1-flash-image")).toBeNull();
     expect(fieldProblem("GEMINI_IMAGE_MODEL", "gemini-2.5-flash-image")).toMatch(/Choose one of the listed models/);
     expect(fieldProblem("UPLOAD_SCAN_MODE", "monitor")).toBeNull();
-    expect(fieldProblem("UPLOAD_SCAN_MODE", "Enforce")).toBeNull();
-    expect(fieldProblem("UPLOAD_SCAN_MODE", "on")).toMatch(/Choose off, monitor or enforce/);
-    expect(FIELDS.UPLOAD_SCAN_MODE?.options?.map((o) => o.value)).toEqual(["off", "monitor", "enforce"]);
+    expect(fieldProblem("UPLOAD_SCAN_MODE", "off")).toBeNull();
+    // Enforce is locked in this release (owner, 2026-10-07): the same sentence the database gives.
+    expect(fieldProblem("UPLOAD_SCAN_MODE", "Enforce")).toBe("Enforce (removing infected files) comes with the next update; use monitor until then.");
+    expect(UPLOAD_SCAN_ENFORCE_LOCKED).toBe("Enforce (removing infected files) comes with the next update; use monitor until then.");
+    expect(fieldProblem("UPLOAD_SCAN_MODE", "on")).toMatch(/Choose off or monitor/);
+    expect(FIELDS.UPLOAD_SCAN_MODE?.options?.map((o) => [o.value, o.disabled === true])).toEqual([["off", false], ["monitor", false], ["enforce", true]]);
+    expect(FIELDS.UPLOAD_SCAN_MODE?.options?.find((o) => o.value === "enforce")?.note).toBe(UPLOAD_SCAN_ENFORCE_LOCKED);
     expect(STEPS.find((s) => s.key === "background")?.fields.map((f) => f.name)).toEqual(["UPLOAD_SCAN_MODE"]);
     expect(fieldProblem("NOPE", "x")).toMatch(/not a field/);
     expect(normalizeDomain("https://CRM.Example.org/")).toBe("crm.example.org");

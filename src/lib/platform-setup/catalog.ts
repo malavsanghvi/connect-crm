@@ -17,6 +17,9 @@ import { DEFAULT_FLYER_ART_MODEL, FLYER_ART_MODELS, FLYER_ART_MODEL_IDS, formatA
 export type StepKey = "background" | "portal" | "email" | "hooks" | "payments" | "texting" | "quickbooks" | "ai" | "art" | "push" | "wildcard";
 export type FieldKind = "secret" | "setting";
 
+/** One choice of a select; a disabled one is shown, cannot be chosen, and its note says why. */
+export type FieldOption = { value: string; label: string; disabled?: boolean; note?: string };
+
 export type Field = {
   name: string;
   kind: FieldKind;
@@ -24,10 +27,16 @@ export type Field = {
   hint: string;
   placeholder?: string;
   /** A select instead of a text box (settings only). */
-  options?: { value: string; label: string }[];
+  options?: FieldOption[];
   /** The server can make a strong random value for it ("Generate"). */
   generate?: boolean;
 };
+
+/**
+ * Enforce is LOCKED in this release (review of PR #94, owner 2026-10-07): the database refuses it with this same
+ * sentence (app.set_platform_setting, 0589); the next update brings it.
+ */
+export const UPLOAD_SCAN_ENFORCE_LOCKED = "Enforce (removing infected files) comes with the next update; use monitor until then.";
 
 export type Step = {
   key: StepKey;
@@ -87,16 +96,17 @@ const F = {
     options: FLYER_ART_MODEL_IDS.map((id) => ({ value: id, label: `${FLYER_ART_MODELS[id].label} — ${formatArtCost(FLYER_ART_MODELS[id].cents)} a picture` })),
   },
   // 0589. The database's read rules follow this setting too, so the background service takes it from here only (never
-  // from its environment). Switch it on only after ClamAV is installed (docs/DEPLOY.md › Malware scanning).
+  // from its environment). Switch it on only after ClamAV is installed (docs/DEPLOY.md › Malware scanning). Enforce is
+  // locked in this release (UPLOAD_SCAN_ENFORCE_LOCKED).
   UPLOAD_SCAN_MODE: {
     name: "UPLOAD_SCAN_MODE",
     kind: "setting",
     label: "Virus scanning of uploads",
-    hint: "Off until ClamAV runs on the droplet (docs/DEPLOY.md › Malware scanning). Monitor: check every upload and record the result, nothing is held back or removed. Enforce: homework and recordings reach teachers only once checked, and an infected file is removed and the family and the office are told.",
+    hint: "Off until ClamAV runs on the droplet (docs/DEPLOY.md › Malware scanning). Monitor: check every upload and record the result; nothing is held back or removed. " + UPLOAD_SCAN_ENFORCE_LOCKED,
     options: [
       { value: "off", label: "Off (uploads are not checked yet)" },
       { value: "monitor", label: "Monitor (check and record, block nothing)" },
-      { value: "enforce", label: "Enforce (hold back until checked, remove infected files)" },
+      { value: "enforce", label: "Enforce (comes with the next update)", disabled: true, note: UPLOAD_SCAN_ENFORCE_LOCKED },
     ],
   },
 } satisfies Record<string, Field>;
@@ -254,7 +264,8 @@ export function fieldProblem(name: string, raw: string): string | null {
     case "GEMINI_IMAGE_MODEL":
       return (FLYER_ART_MODEL_IDS as string[]).includes(v) ? null : "Choose one of the listed models.";
     case "UPLOAD_SCAN_MODE":
-      return ["off", "monitor", "enforce"].includes(v.toLowerCase()) ? null : "Choose off, monitor or enforce.";
+      if (v.toLowerCase() === "enforce") return UPLOAD_SCAN_ENFORCE_LOCKED;
+      return ["off", "monitor"].includes(v.toLowerCase()) ? null : "Choose off or monitor.";
     case "OAUTH_STATE_SECRET":
     case "MESSAGING_LINK_SECRET":
       return v.length >= 32 ? null : "Use at least 32 characters (Generate makes one).";
