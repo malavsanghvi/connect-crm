@@ -196,10 +196,11 @@ name, to `audit.view` holders of that center and platform admins only (the same 
   number in Settings › Storage). Both follow this module
 - **Background jobs:** homework.publish_notify (queued on every publish; the worker tells the learners and
   the parents of children in batches through app.worker_homework_publish_notify, each person once);
-  homework.reminders_sweep (every 15 minutes, 0588: app.worker_homework_reminders_sweep reminds the learners
-  who have not handed in, and the parents of children, the hours before the end of the due day that the
-  homework sets; nothing for a community with Gyan Path off or `rules.notifications.triggers.homework_reminder`
-  false; a hand-in cancels a reminder that has not gone out)
+  homework.reminders_sweep (every 15 minutes, in batches of 100, 0588: app.worker_homework_reminders_sweep
+  reminds the learners who have not handed in, and the parents of children, the hours before the end of the
+  due day that the homework sets; nothing for a community with Gyan Path off,
+  `rules.notifications.triggers.homework_reminder` false or an unknown time zone; a reminder still waiting is
+  cancelled by a hand-in, by archiving, unpublishing or changing the homework, and by switching reminders off)
 - **Portal:** /content/gyan-path (goals, levels, steps, and each level's Homework editor, with the
   reminder's hours) and /pathshala/signoffs and /pathshala/homework (the review queue)
 - **Member app:** gyan, gyan/[goalId], gyan/[goalId]/level/[levelId], and the homework screens

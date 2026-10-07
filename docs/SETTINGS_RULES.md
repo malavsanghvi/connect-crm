@@ -45,7 +45,7 @@ so the member app, sender and sign-in service can adopt them.
 | `onboarding.fields.<field>` | see below | Onboarding fields | **new**: member app onboarding (not read yet) |
 | `notifications.quiet_start_hour` / `quiet_end_hour` | 21 / 7 | Notifications | **new**: automatic sender (not built yet) |
 | `notifications.event_day_during_quiet_hours` | true | Notifications | **new**: automatic sender (not built yet) |
-| `notifications.triggers.<trigger>` | true | Notifications | **new**: automatic sender (not built yet), except `homework_reminder`, **read by the database** (0588): `false` means `app.worker_homework_reminders_sweep` sends this community no homework reminder (the first trigger switch the database itself reads; anything else, or no key, is on) |
+| `notifications.triggers.<trigger>` | true | Notifications | **new**: automatic sender (not built yet), except `homework_reminder`, **read by the database** (0588): `false` means `app.worker_homework_reminders_sweep` sends this community no homework reminder and its next run cancels those still waiting to go out (the first trigger switch the database itself reads; anything else, or no key, is on) |
 | `security.printed_signin_codes` | true | Security | **new**: policy only, not enforced yet |
 | `security.admin_session_hours` / `admin_idle_minutes` | 8 / 30 | Security | **new**: policy only; the sign-in service keeps its own session length |
 | `onboarding.wizard_step` | — | Platform › New center | **new**: next wizard step while a center is onboarding |
