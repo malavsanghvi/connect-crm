@@ -52,6 +52,14 @@ begin
   return app.worker_record_scan(p_bucket, p_name, (o->>'object_id')::uuid, o->>'version', p_status, 'ClamAV 1.4.3/27790/test',
                                 p_signature, coalesce((o->>'size')::bigint, 0), 74, case when p_status = 'failed' then 'clamd did not answer' end);
 end $$;
+-- The storage.scan jobs of one stored file: by the object's id (a homework job names no file) or by its name (the other
+-- buckets).
+create or replace function pg_temp.scan_jobs(p_bucket text, p_name text) returns setof app.jobs language sql stable as $$
+  select j.* from app.jobs j
+   where j.kind = 'storage.scan' and j.payload->>'bucket' = p_bucket
+     and (j.payload->>'name' = p_name
+          or j.payload->>'object_id' = (select o.id::text from storage.objects o where o.bucket_id = p_bucket and o.name = p_name))
+$$;
 -- The SQLSTATE a statement fails with ('OK' when it does not).
 create or replace function pg_temp.state_of(stmt text) returns text language plpgsql as $$
 begin
@@ -150,12 +158,12 @@ select pg_temp.assert(has_table_privilege('authenticated', 'app.upload_scans', '
                       and not has_table_privilege('anon', 'app.upload_scans', 'select')
                       and not has_table_privilege('connect_worker', 'app.upload_scans', 'select'),
   'nobody writes the results over the API (only the worker''s functions do); signed-in staff read them through their policy');
-select pg_temp.assert(has_function_privilege('connect_worker', 'app.worker_scan_object(text, text)', 'execute')
+select pg_temp.assert(has_function_privilege('connect_worker', 'app.worker_scan_object(text, text, uuid)', 'execute')
                       and has_function_privilege('connect_worker', 'app.worker_record_scan(text, text, uuid, text, text, text, text, bigint, bigint, text)', 'execute')
                       and has_function_privilege('connect_worker', 'app.worker_scan_removed(text, text, bigint)', 'execute')
                       and has_function_privilege('connect_worker', 'app.worker_scan_sweep(int)', 'execute')
                       and not exists (select 1 from unnest(array['authenticated', 'anon', 'service_role']) r(role), unnest(array[
-                                        'app.worker_scan_object(text, text)', 'app.worker_record_scan(text, text, uuid, text, text, text, text, bigint, bigint, text)',
+                                        'app.worker_scan_object(text, text, uuid)', 'app.worker_record_scan(text, text, uuid, text, text, text, text, bigint, bigint, text)',
                                         'app.worker_scan_removed(text, text, bigint)', 'app.worker_scan_sweep(int)']) f(fn)
                                        where has_function_privilege(r.role, f.fn, 'execute')),
   'the four worker functions are the background service''s alone');
@@ -206,10 +214,16 @@ insert into app.gyan_submission_files (center_id, submission_id, kind, storage_p
   (:c, :sub, 'photo', :'hw_old', 'image/jpeg', 1000);
 insert into app.gyan_progress (center_id, person_id, step_id, stars, recording_path) values (:c, :p_kid, :step, 0, :'rec');
 insert into app.photos (center_id, album_id, storage_path, uploaded_by, status) values (:c, :album, :'photo', :member, 'pending');
-select pg_temp.assert((select count(*) = 4 and bool_and(max_attempts = 25 and status = 'queued') from app.jobs
-                        where kind = 'storage.scan' and payload->>'name' in (:'hw_old', :'rec', :'photo', :'imp'))
-                      and not exists (select 1 from app.jobs where kind = 'storage.scan' and payload->>'name' = :'stmt'),
+select pg_temp.assert((select count(*) = 4 and bool_and(max_attempts = 25 and status = 'queued')
+                         from (select * from pg_temp.scan_jobs('homework', :'hw_old') union all select * from pg_temp.scan_jobs('recordings', :'rec')
+                               union all select * from pg_temp.scan_jobs('photos', :'photo') union all select * from pg_temp.scan_jobs('imports', :'imp')) j)
+                      and not exists (select 1 from pg_temp.scan_jobs('statements', :'stmt')),
   'every upload to a scanned bucket still queues a check, now with 25 attempts; statements are not scanned');
+select pg_temp.assert((select bool_and(not (payload ? 'name') and payload->>'object_id' = (select id::text from storage.objects where bucket_id = 'homework' and name = :'hw_old'))
+                         from pg_temp.scan_jobs('homework', :'hw_old'))
+                      and (select bool_and(payload->>'name' = :'photo' and payload ? 'object_id') from pg_temp.scan_jobs('photos', :'photo'))
+                      and not exists (select 1 from app.audit_log where record_table = 'jobs' and (coalesce(before::text, '') || coalesce(after::text, '')) ~ '0000000000f[0-9]\.(jpg|m4a)'),
+  'a homework file''s check names the object by its id, never the file name (nor does its audit entry); other buckets keep the name');
 select pg_temp.assert(app.upload_scan_state('homework', :'hw_old') = 'pending' and app.upload_scan_state('statements', :'stmt') = 'exempt'
                       and app.upload_scan_state('exports', 'x/y.csv') = 'exempt' and not app.upload_scan_held('homework', :'hw_old'),
   'nothing is checked yet: pending; statements and exports are exempt; nothing is held');
@@ -450,15 +464,16 @@ select pg_temp.assert((:'removed_rec'::jsonb->>'parts')::int = 1 and (select rec
   'an infected recording is cleared from the progress row, and the child and the parent are told');
 
 -- An infected photo (recorded and kept in monitor): the sweep queues its removal now that enforce is on.
-delete from app.jobs where kind = 'storage.scan' and payload->>'name' = :'photo';
+delete from app.jobs where id in (select id from pg_temp.scan_jobs('photos', :'photo'));
 begin; set local role connect_worker;
 select app.worker_scan_sweep(1000) as sweep1 \gset
 commit;
-select pg_temp.assert((select count(*) from app.jobs where kind = 'storage.scan' and status = 'queued' and payload->>'name' = :'photo' and payload->>'sweep' = 'remove' and max_attempts = 25) = 1
+select pg_temp.assert((select count(*) from pg_temp.scan_jobs('photos', :'photo') j where j.status = 'queued' and j.payload->>'sweep' = 'remove' and j.max_attempts = 25) = 1
                       and (:'sweep1'::jsonb->>'to_remove')::int >= 1,
   'enforce: the sweep queues the removal of an infected file kept in monitor mode');
-select pg_temp.assert((select count(*) from app.jobs where kind = 'storage.scan' and payload ? 'sweep' and payload->>'name' in (:'hw_old', :'hw_new')) = 0
-                      and (select count(*) from app.jobs where kind = 'storage.scan' and status in ('queued', 'running') and payload->>'name' = :'rec_bad') = 1,
+select pg_temp.assert((select count(*) from (select * from pg_temp.scan_jobs('homework', :'hw_old') union all select * from pg_temp.scan_jobs('homework', :'hw_new')) j
+                        where j.payload ? 'sweep') = 0
+                      and (select count(*) from pg_temp.scan_jobs('recordings', :'rec_bad') j where j.status in ('queued', 'running')) = 1,
   'it queues nothing for a clean file, and nothing twice for a file whose check is already waiting');
 begin;
 select pg_temp.sign_in(:member);
@@ -474,15 +489,26 @@ select pg_temp.assert((select status = 'removed' from app.photos where storage_p
   'an infected photo is marked removed and its uploader is told (push and email)');
 
 -- The sweep: the backlog (a file with no result and no waiting check) and a failed check a day old.
-delete from app.jobs where kind = 'storage.scan' and payload->>'name' in (:'rec_bad', :'hw_fail');
+delete from app.jobs where id in (select id from pg_temp.scan_jobs('recordings', :'rec_bad') union all select id from pg_temp.scan_jobs('homework', :'hw_fail'));
 update app.upload_scans set scanned_at = now() - interval '2 days' where bucket_id = 'homework' and name = :'hw_fail';
 begin; set local role connect_worker;
 select app.worker_scan_sweep(1000) as sweep2 \gset
 commit;
-select pg_temp.assert((select count(*) from app.jobs where kind = 'storage.scan' and status = 'queued' and payload->>'name' = :'rec_bad' and payload->>'sweep' = 'new') = 1
-                      and (select count(*) from app.jobs where kind = 'storage.scan' and status = 'queued' and payload->>'name' = :'hw_fail' and payload->>'sweep' = 'retry') = 1
-                      and (select center_id = :c from app.jobs where kind = 'storage.scan' and status = 'queued' and payload->>'name' = :'rec_bad'),
-  'the sweep queues a file nobody checked yet (the backlog) and retries a check that failed a day ago');
+select pg_temp.assert((select count(*) from pg_temp.scan_jobs('recordings', :'rec_bad') j where j.status = 'queued' and j.payload->>'sweep' = 'new') = 1
+                      and (select count(*) from pg_temp.scan_jobs('homework', :'hw_fail') j
+                            where j.status = 'queued' and j.payload->>'sweep' = 'retry' and not (j.payload ? 'name')) = 1
+                      and (select bool_and(center_id = :c) from pg_temp.scan_jobs('recordings', :'rec_bad') j where j.status = 'queued'),
+  'the sweep queues a file nobody checked yet (the backlog) and retries a check that failed a day ago (a homework one by its object id)');
+-- The worker finds the file of a homework check by the object's id alone, and the infected record of a removed one.
+select (select id from storage.objects where bucket_id = 'homework' and name = :'hw_fail') as fail_oid,
+       (select object_id from app.upload_scans where bucket_id = 'homework' and name = :'hw_bad') as bad_oid \gset
+begin; set local role connect_worker;
+select pg_temp.assert((app.worker_scan_object('homework', null, :'fail_oid'::uuid))->>'name' = :'hw_fail'
+                      and (app.worker_scan_object('homework', null, :'bad_oid'::uuid))->>'name' = :'hw_bad'
+                      and (app.worker_scan_object('homework', null, :'bad_oid'::uuid))->>'exists' = 'false'
+                      and (app.worker_scan_object('homework', null, gen_random_uuid()))->>'name' is null,
+  'a check named by the object''s id finds the file, or the record of a removed one, or nothing');
+commit;
 
 -- ── What staff see ─────────────────────────────────────────────────────────
 -- Another community's result, which this community's staff must not read.
@@ -559,4 +585,4 @@ delete from app.platform_settings where key = 'UPLOAD_SCAN_MODE';
 delete from storage.objects where name like :c || '/%';
 delete from app.upload_scans where center_id = :c;
 delete from app.jobs where kind = 'storage.scan_sweep' and center_id is null and status = 'queued';
-delete from app.jobs where kind = 'storage.scan' and payload->>'name' like :c || '/%';
+delete from app.jobs where kind = 'storage.scan' and (center_id = :c or payload->>'name' like :c || '/%');

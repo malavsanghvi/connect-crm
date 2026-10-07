@@ -40,7 +40,11 @@
 --   storage.scan jobs              now 25 attempts (was 5): a scanner outage is retried for about 18 hours; the last
 --                                  attempt records "failed". The sweep (every 6 hours) queues files with no result and
 --                                  no live job, the infected files still stored once enforce is on, and failed checks a
---                                  day old.
+--                                  day old. A homework file's job names the object by its id only (no file name in
+--                                  app.jobs or its audit entries); partial indexes find a file's live check.
+--   ENFORCE IS LOCKED in this release (owner, 2026-10-07): app.set_platform_setting refuses it; off and monitor work.
+--   Every lookup by (bucket_id, name) relies on storage.objects keeping one object per name: Storage's object
+--   versioning must stay off for the scanned buckets.
 --   On an infected file (enforce): the result is recorded first (reads blocked at once), the worker deletes the file
 --                                  through the Storage API (like retention), then app.worker_scan_removed tidies up:
 --                                  homework: the part is marked deleted (storage_path null, deleted_at,
@@ -79,6 +83,104 @@ do $$
 begin
   set local lock_timeout = '10s';
 end $$;
+
+-- ── Uploads: every upload still queues a check; a changed file loses its result ──
+-- FIRST in this file, on purpose: the lock on storage.objects (for its trigger) is taken before any other table lock.
+-- An upload holds storage.objects and then reads app.gyan_submission_files and writes app.jobs (its policies and
+-- triggers); taking the locks in that same order (storage.objects, then app.jobs for the indexes below, then
+-- app.gyan_submission_files for its new column) means a homework upload or read can never deadlock with this migration.
+--
+-- 0172's body with 25 attempts (was 5): a scanner that is down is retried for about 18 hours (fail_job backs off up to
+-- an hour), and the last attempt records "failed". Nothing claims these jobs while scanning is off. A homework file's job
+-- names the object by its id only, never by its name, so neither app.jobs nor its audit entries hold a homework file
+-- name; the other buckets' jobs keep the name as well. A name longer than app.upload_scans takes (1,024 characters) is
+-- not queued: no result could be kept for it.
+create or replace function app.storage_enqueue_scan() returns trigger
+language plpgsql security definer set search_path = app, public, extensions as $$
+begin
+  if new.bucket_id = any (app.storage_scan_buckets()) and char_length(new.name) <= 1024
+     and not exists (select 1 from app.jobs where kind = 'storage.scan' and status in ('queued','running')
+                       and payload->>'bucket' = new.bucket_id
+                       and (payload->>'object_id' = new.id::text or payload->>'name' = new.name)) then
+    perform app.enqueue_job(app.storage_center(new.name), 'storage.scan',
+      jsonb_build_object('bucket', new.bucket_id, 'object_id', new.id,
+                         'size', new.metadata->'size', 'mimetype', new.metadata->>'mimetype')
+        || case when new.bucket_id = 'homework' then '{}'::jsonb else jsonb_build_object('name', new.name) end,
+      now(), 25);
+  end if;
+  return new;
+end $$;
+
+-- A new file at a name, a new version, a move or a removal: the result follows the file. A moved file keeps its result
+-- (the same bytes); a new version or a new file is checked again; a removed file's result goes with it, except an
+-- infected one (the record of what was removed). Buckets that are not scanned are left alone (no lock, no work), and
+-- two names are always locked in the same order. Every lookup here is by (bucket_id, name), which storage.objects
+-- keeps unique: object versioning (several stored versions under one name) must stay off for these buckets.
+create or replace function app.upload_scans_follow_object() returns trigger
+language plpgsql security definer set search_path = app, public, extensions as $$
+declare v_center uuid; v_old boolean; v_new boolean;
+begin
+  if tg_op = 'DELETE' then
+    if old.bucket_id = any (app.storage_scan_buckets()) then
+      perform app.upload_scan_lock(old.bucket_id, old.name);
+      delete from app.upload_scans where bucket_id = old.bucket_id and name = old.name and status <> 'infected';
+    end if;
+    return old;
+  end if;
+  v_new := coalesce(new.bucket_id = any (app.storage_scan_buckets()), false);
+  if tg_op = 'UPDATE' then
+    if old.version is not distinct from new.version and old.name is not distinct from new.name
+       and old.bucket_id is not distinct from new.bucket_id then
+      return new;   -- metadata-only touches (last_accessed_at and the like) leave the file as it was
+    end if;
+    if old.name is distinct from new.name or old.bucket_id is distinct from new.bucket_id then
+      v_old := coalesce(old.bucket_id = any (app.storage_scan_buckets()), false);
+      if not v_old and not v_new then return new; end if;   -- a move between buckets that are not scanned
+      if v_old and v_new then
+        if (old.bucket_id || '/' || old.name) <= (new.bucket_id || '/' || new.name) then
+          perform app.upload_scan_lock(old.bucket_id, old.name);
+          perform app.upload_scan_lock(new.bucket_id, new.name);
+        else
+          perform app.upload_scan_lock(new.bucket_id, new.name);
+          perform app.upload_scan_lock(old.bucket_id, old.name);
+        end if;
+      elsif v_old then
+        perform app.upload_scan_lock(old.bucket_id, old.name);
+      else
+        perform app.upload_scan_lock(new.bucket_id, new.name);
+      end if;
+      if v_new then
+        delete from app.upload_scans where bucket_id = new.bucket_id and name = new.name;
+      end if;
+      if v_old and v_new and old.version is not distinct from new.version and char_length(new.name) <= 1024 then
+        select c.id into v_center from app.centers c where c.id = app.storage_center(new.name);
+        update app.upload_scans set bucket_id = new.bucket_id, name = new.name, center_id = v_center
+         where bucket_id = old.bucket_id and name = old.name and status <> 'infected';
+      end if;
+      if v_old then
+        delete from app.upload_scans where bucket_id = old.bucket_id and name = old.name and status <> 'infected';
+      end if;
+      return new;
+    end if;
+  end if;
+  if v_new then
+    perform app.upload_scan_lock(new.bucket_id, new.name);
+    delete from app.upload_scans where bucket_id = new.bucket_id and name = new.name;
+  end if;
+  return new;
+end $$;
+revoke execute on function app.upload_scans_follow_object() from public, anon, authenticated;
+drop trigger if exists connect_scan_result_follows on storage.objects;
+create trigger connect_scan_result_follows after insert or update or delete on storage.objects
+  for each row execute function app.upload_scans_follow_object();
+
+-- The live checks of a file, found by the bucket and the object's id (homework) or its name (every other bucket; the
+-- checks queued before 0589 too): the upload trigger and the sweep look them up for every file, so a backlog of
+-- thousands stays an index lookup instead of a scan of every job.
+create index if not exists jobs_storage_scan_object_idx on app.jobs ((payload->>'bucket'), (payload->>'object_id'))
+  where kind = 'storage.scan' and status in ('queued', 'running');
+create index if not exists jobs_storage_scan_name_idx on app.jobs ((payload->>'bucket'), (payload->>'name'))
+  where kind = 'storage.scan' and status in ('queued', 'running');
 
 -- ── The mode: a platform setting ─────────────────────────────────────────────
 -- 0585's settings list plus UPLOAD_SCAN_MODE (src/lib/platform-setup/catalog.ts holds the same list; tests/platform-setup.test.ts
@@ -288,66 +390,6 @@ begin
   return app.upload_scan_state(p_bucket, p_name) in ('pending', 'failed');
 end $$;
 
--- ── Uploads: every upload still queues a check; a changed file loses its result ──
--- 0172's body with 25 attempts (was 5): a scanner that is down is retried for about 18 hours (fail_job backs off up to
--- an hour), and the last attempt records "failed". Nothing claims these jobs while scanning is off.
-create or replace function app.storage_enqueue_scan() returns trigger
-language plpgsql security definer set search_path = app, public, extensions as $$
-begin
-  if new.bucket_id = any (app.storage_scan_buckets())
-     and not exists (select 1 from app.jobs where kind = 'storage.scan' and status in ('queued','running')
-                       and payload->>'bucket' = new.bucket_id and payload->>'name' = new.name) then
-    perform app.enqueue_job(app.storage_center(new.name), 'storage.scan',
-      jsonb_build_object('bucket', new.bucket_id, 'name', new.name, 'object_id', new.id,
-                         'size', new.metadata->'size', 'mimetype', new.metadata->>'mimetype'),
-      now(), 25);
-  end if;
-  return new;
-end $$;
-
--- A new file at a name, a new version, a move or a removal: the result follows the file. A moved file keeps its result
--- (the same bytes); a new version or a new file is checked again; a removed file's result goes with it, except an
--- infected one (the record of what was removed).
-create or replace function app.upload_scans_follow_object() returns trigger
-language plpgsql security definer set search_path = app, public, extensions as $$
-declare v_center uuid;
-begin
-  if tg_op = 'DELETE' then
-    if old.bucket_id = any (app.storage_scan_buckets()) then
-      perform app.upload_scan_lock(old.bucket_id, old.name);
-      delete from app.upload_scans where bucket_id = old.bucket_id and name = old.name and status <> 'infected';
-    end if;
-    return old;
-  end if;
-  if tg_op = 'UPDATE' then
-    if old.version is not distinct from new.version and old.name is not distinct from new.name
-       and old.bucket_id is not distinct from new.bucket_id then
-      return new;   -- metadata-only touches (last_accessed_at and the like) leave the file as it was
-    end if;
-    if old.name is distinct from new.name or old.bucket_id is distinct from new.bucket_id then
-      perform app.upload_scan_lock(old.bucket_id, old.name);
-      perform app.upload_scan_lock(new.bucket_id, new.name);
-      delete from app.upload_scans where bucket_id = new.bucket_id and name = new.name;
-      if old.version is not distinct from new.version and new.bucket_id = any (app.storage_scan_buckets()) then
-        select c.id into v_center from app.centers c where c.id = app.storage_center(new.name);
-        update app.upload_scans set bucket_id = new.bucket_id, name = new.name, center_id = v_center
-         where bucket_id = old.bucket_id and name = old.name and status <> 'infected';
-      end if;
-      delete from app.upload_scans where bucket_id = old.bucket_id and name = old.name and status <> 'infected';
-      return new;
-    end if;
-  end if;
-  if new.bucket_id = any (app.storage_scan_buckets()) then
-    perform app.upload_scan_lock(new.bucket_id, new.name);
-    delete from app.upload_scans where bucket_id = new.bucket_id and name = new.name;
-  end if;
-  return new;
-end $$;
-revoke execute on function app.upload_scans_follow_object() from public, anon, authenticated;
-drop trigger if exists connect_scan_result_follows on storage.objects;
-create trigger connect_scan_result_follows after insert or update or delete on storage.objects
-  for each row execute function app.upload_scans_follow_object();
-
 -- ── Reading objects: the gate ────────────────────────────────────────────────
 -- 0587's body, every rule kept, then the virus check (enforce mode only): an infected file is refused to everyone; a held
 -- file (app.upload_scan_held: homework or a recording uploaded after enforcement began, check pending or failed) is opened
@@ -401,20 +443,31 @@ begin
 end $$;
 
 -- ── The worker's side ────────────────────────────────────────────────────────
--- What the scanner needs to know about one file before it fetches it: the mode, whether the bucket is scanned, the
--- object's id, version and size, and the result already recorded (current = for this very version).
-create or replace function app.worker_scan_object(p_bucket text, p_name text) returns jsonb
+-- What the scanner needs to know about one file before it fetches it: the mode, whether the bucket is scanned, the file's
+-- name, the object's id, version and size, and the result already recorded (current = for this very version). A job may
+-- name the file by the object's id alone (homework, since 0589): the name is then found from the object, or, once the
+-- object is gone, from its result.
+create or replace function app.worker_scan_object(p_bucket text, p_name text, p_object_id uuid default null) returns jsonb
 language plpgsql stable security definer set search_path = app, public, extensions as $$
-declare v_id uuid; v_version text; v_meta jsonb; v_created timestamptz; s app.upload_scans; v_found boolean;
+declare v_name text := p_name; v_id uuid; v_version text; v_meta jsonb; v_created timestamptz; s app.upload_scans; v_found boolean := false;
 begin
   perform app.assert_worker();
-  select o.id, o.version, o.metadata, o.created_at into v_id, v_version, v_meta, v_created
-    from storage.objects o where o.bucket_id = p_bucket and o.name = p_name;
-  v_found := found;
-  select * into s from app.upload_scans where bucket_id = p_bucket and name = p_name;
+  if v_name is null and p_object_id is not null then
+    select o.name into v_name from storage.objects o where o.bucket_id = p_bucket and o.id = p_object_id;
+    if v_name is null then
+      select x.name into v_name from app.upload_scans x where x.bucket_id = p_bucket and x.object_id = p_object_id;
+    end if;
+  end if;
+  if v_name is not null then
+    select o.id, o.version, o.metadata, o.created_at into v_id, v_version, v_meta, v_created
+      from storage.objects o where o.bucket_id = p_bucket and o.name = v_name;
+    v_found := found;
+    select * into s from app.upload_scans where bucket_id = p_bucket and name = v_name;
+  end if;
   return jsonb_build_object(
     'mode', app.upload_scan_mode(),
     'scanned_bucket', coalesce(p_bucket = any (app.storage_scan_buckets()), false),
+    'name', v_name,
     'exists', v_found,
     'object_id', v_id,
     'version', v_version,
@@ -449,6 +502,8 @@ begin
   end if;
   v_mode := app.upload_scan_mode();
   if v_mode = 'off' then return jsonb_build_object('recorded', false, 'reason', 'off', 'mode', v_mode); end if;
+  -- app.upload_scans keeps names of up to 1,024 characters (what Storage itself takes); a longer one stays pending.
+  if char_length(p_name) > 1024 then return jsonb_build_object('recorded', false, 'reason', 'name_too_long', 'mode', v_mode); end if;
   perform app.upload_scan_lock(p_bucket, p_name);
   select o.id, o.version, coalesce(o.owner_id, o.owner::text) into v_id, v_version, v_owner
     from storage.objects o where o.bucket_id = p_bucket and o.name = p_name;
@@ -686,15 +741,18 @@ begin
   perform set_config('app.client_app', 'job', true);
   if v_mode = 'off' then return jsonb_build_object('mode', v_mode, 'queued', 0); end if;
   for r in
-    with live as (select j.payload->>'bucket' as bucket, j.payload->>'name' as name from app.jobs j
-                   where j.kind = 'storage.scan' and j.status in ('queued', 'running'))
     select o.bucket_id::text as bucket_id, o.name::text as name, o.id, o.metadata,
            case when s.bucket_id is null or (s.status <> 'infected' and s.object_version is distinct from o.version) then 'new'
                 when s.status = 'infected' then 'remove' else 'retry' end as why
       from storage.objects o
       left join app.upload_scans s on s.bucket_id = o.bucket_id and s.name = o.name
      where o.bucket_id = any (app.storage_scan_buckets())
-       and not exists (select 1 from live l where l.bucket = o.bucket_id and l.name = o.name)
+       and char_length(o.name) <= 1024
+       -- a live check of this file, by its object id or its name (jobs_storage_scan_object_idx / _name_idx)
+       and not exists (select 1 from app.jobs j
+                        where j.kind = 'storage.scan' and j.status in ('queued', 'running')
+                          and j.payload->>'bucket' = o.bucket_id::text
+                          and (j.payload->>'object_id' = o.id::text or j.payload->>'name' = o.name::text))
        and (s.bucket_id is null
             or (s.status <> 'infected' and s.object_version is distinct from o.version)
             or (v_mode = 'enforce' and s.status = 'infected')
@@ -706,8 +764,9 @@ begin
       continue;
     end if;
     perform app.enqueue_job((select c.id from app.centers c where c.id = app.storage_center(r.name)), 'storage.scan',
-      jsonb_build_object('bucket', r.bucket_id, 'name', r.name, 'object_id', r.id,
-                         'size', r.metadata->'size', 'mimetype', r.metadata->>'mimetype', 'sweep', r.why),
+      jsonb_build_object('bucket', r.bucket_id, 'object_id', r.id,
+                         'size', r.metadata->'size', 'mimetype', r.metadata->>'mimetype', 'sweep', r.why)
+        || case when r.bucket_id = 'homework' then '{}'::jsonb else jsonb_build_object('name', r.name) end,
       now(), 25);
     if r.why = 'new' then v_new := v_new + 1; elsif r.why = 'remove' then v_remove := v_remove + 1; else v_retry := v_retry + 1; end if;
   end loop;
@@ -918,7 +977,7 @@ comment on function app.upload_scan_gated_buckets() is 'The buckets whose files 
 comment on function app.upload_scan_enforced_buckets() is 'Held back until checked in this release (0589): homework and recordings. Photos, org-documents, content and store come later.';
 comment on function app.upload_scan_state(text, text) is 'exempt (a bucket that is not scanned) | the current version''s result: clean | infected | failed | pending (no result yet). Infected stays after the file is removed.';
 comment on function app.upload_scan_held(text, text) is 'Enforce mode: a homework file or recording uploaded or replaced after enforcement began whose check is pending or failed. Only the uploader''s family opens it until it is clean.';
-comment on function app.worker_scan_object(text, text) is 'connect_worker: the mode, whether the bucket is scanned, the object''s id, version, size and type, and the result already recorded (current = for this version).';
+comment on function app.worker_scan_object(text, text, uuid) is 'connect_worker: the mode, whether the bucket is scanned, the file''s name (from the object''s id when the job names only that: homework), the object''s id, version, size and type, and the result already recorded (current = for this version).';
 comment on function app.worker_record_scan(text, text, uuid, text, text, text, text, bigint, bigint, text) is 'connect_worker: record clean | infected | failed for the version that was checked (not while scanning is off; not when the file is gone or changed). Returns {recorded, reason?, status, action: remove | keep | none, mode}.';
 comment on function app.worker_scan_removed(text, text, bigint) is 'connect_worker, after the Storage API deleted an infected file: homework parts marked deleted (removed_reason infected), recordings cleared, photos removed; the learner (and a child''s household adults) or the uploader told with upload.removed; the reviewers of an answer already with them pushed; an audit entry for the office. Once per file (removed_at).';
 comment on function app.worker_scan_sweep(int) is 'connect_worker (every 6 hours, and when scanning is switched on): queue storage.scan for files with no current result and no live job, infected files still stored (enforce), and failed checks without a signature older than a day.';
@@ -936,11 +995,11 @@ grant execute on function app.upload_scan_mode(), app.upload_scan_enforced_since
   app.upload_scan_held(text, text), app.storage_name_for_audit(text, text), app._upload_scan_summary(uuid)
   to service_role;
 -- The background service's side: connect_worker only (each one asserts it too).
-revoke execute on function app.worker_scan_object(text, text),
+revoke execute on function app.worker_scan_object(text, text, uuid),
   app.worker_record_scan(text, text, uuid, text, text, text, text, bigint, bigint, text),
   app.worker_scan_removed(text, text, bigint), app.worker_scan_sweep(int)
   from public, anon, authenticated, service_role;
-grant execute on function app.worker_scan_object(text, text),
+grant execute on function app.worker_scan_object(text, text, uuid),
   app.worker_record_scan(text, text, uuid, text, text, text, text, bigint, bigint, text),
   app.worker_scan_removed(text, text, bigint), app.worker_scan_sweep(int)
   to connect_worker;
