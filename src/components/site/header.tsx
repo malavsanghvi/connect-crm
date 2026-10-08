@@ -4,6 +4,7 @@ import { MobileMenu } from "@/components/site/mobile-menu";
 import { NavDropdown } from "@/components/site/nav-dropdown";
 import { SiteLink, buttonStyles, container } from "@/components/site/ui";
 import { WEAVERS } from "@/components/site/weavers";
+import { PRODUCT_DESCRIPTOR, PRODUCT_NAME } from "@/lib/brand";
 import { SITE_NAME, TIP_YEARLY_CAP_CENTS, portalUrl, usd } from "@/lib/site";
 
 const CAP = usd(TIP_YEARLY_CAP_CENTS);
@@ -32,7 +33,7 @@ export const RESOURCES_MENU: MenuEntry[] = [
 /** The Weaver mark and name. On a dark background (`light`) the mark sits on a white tile so its blues stay readable. */
 export function Logo({ light = false }: { light?: boolean }) {
   return (
-    <span className="flex items-center gap-3">
+    <span className="flex items-center gap-1.5">
       {light ? (
         <span className="flex h-11 w-11 flex-none items-center justify-center rounded-xl bg-white">
           <WeaverMark className="h-8 w-8" />
@@ -40,7 +41,10 @@ export function Logo({ light = false }: { light?: boolean }) {
       ) : (
         <WeaverMark className="h-11 w-11 flex-none" />
       )}
-      <span className={`font-display text-[22px] font-semibold tracking-[-0.01em] ${light ? "text-white" : "text-navy"}`}>{SITE_NAME}</span>
+      <span className="flex flex-col">
+        <span className={`font-display text-[24px] font-semibold leading-none tracking-[-0.01em] ${light ? "text-white" : "text-navy"}`}>{PRODUCT_NAME}</span>
+        <span className={`mt-1 text-[11.5px] font-semibold leading-none ${light ? "text-navy-200" : "text-muted"}`}>{PRODUCT_DESCRIPTOR}</span>
+      </span>
     </span>
   );
 }
