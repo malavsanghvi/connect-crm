@@ -187,9 +187,10 @@ select pg_temp.assert((select relrowsecurity from pg_class where oid = 'app.noti
                       and not has_table_privilege('authenticated', 'app.notice_log', 'update')
                       and exists (select 1 from app.module_tables where table_name = 'notice_log'),
   'the log of handled notices is read under RLS, written only by the database, and mapped to a module');
-select pg_temp.assert((select pg_get_triggerdef(t.oid) like '%AFTER UPDATE OR DELETE ON %notice_log%' from pg_trigger t
+-- tgtype bits: 4 = insert, 8 = delete, 16 = update.
+select pg_temp.assert((select (t.tgtype & 4) = 0 and (t.tgtype & 8) <> 0 and (t.tgtype & 16) <> 0 and t.tgfoid = 'app.audit_row'::regproc from pg_trigger t
                         where t.tgrelid = 'app.notice_log'::regclass and t.tgname = 'audit_notice_log' and not t.tgisinternal)
-                      and (select pg_get_triggerdef(t.oid) like '%AFTER UPDATE OR DELETE ON %survey_notice_recipients%' from pg_trigger t
+                      and (select (t.tgtype & 4) = 0 and (t.tgtype & 8) <> 0 and (t.tgtype & 16) <> 0 and t.tgfoid = 'app.audit_row'::regproc from pg_trigger t
                             where t.tgrelid = 'app.survey_notice_recipients'::regclass and t.tgname = 'audit_survey_notice_recipients' and not t.tgisinternal),
   'the bookkeeping tables keep their audit trigger, which fires for a change or a deletion but not for the insert of a row');
 select pg_temp.assert(app.notice_topic('lunch_reminder') = 'events' and app.notice_topic('rsvp_confirmation') = 'events'
