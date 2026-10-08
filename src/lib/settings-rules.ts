@@ -216,17 +216,33 @@ export function readOnboardingFields(rules: Json): Record<string, FieldSetting> 
 // ---------------------------------------------------------------------------
 export type NotificationTrigger = { key: string; label: string; when: (s: RuleSettings) => string; channel: string };
 
+// 0596: three switches are read by the database and their pushes are sent: lunch_reminder (app.assign_lunch_for_rsvp,
+// app.move_lunch_slot), boli_outbid (on entry, app.place_boli_entry) and event_feedback (app.launch_event_survey).
+// The "when" of each says what the code does.
 export const NOTIFICATION_TRIGGERS: NotificationTrigger[] = [
   { key: "rsvp_confirmation", label: "RSVP confirmation", when: (s) => `${s.rsvp.confirmationHoursBefore} hours before`, channel: "Push · SMS or WhatsApp for guests" },
-  { key: "lunch_reminder", label: "Lunch slot reminder", when: (s) => `${s.lunch.reminderMinutesBefore} minutes before each slot`, channel: "Push · SMS for guests" },
+  {
+    key: "lunch_reminder",
+    label: "Lunch slot reminder",
+    when: (s) => (s.lunch.reminderMinutesBefore > 0 ? `${s.lunch.reminderMinutesBefore} minutes before each slot` : "Off (0 minutes in Settings › Rules)"),
+    channel: "Push · SMS for guests",
+  },
   { key: "special_day_labh", label: "Special-day labh prompt", when: () => "2 weeks before", channel: "Push" },
   { key: "family_celebration", label: "Family celebration", when: () => "When goal or level completed", channel: "Push" },
   { key: "saathi_support", label: "Saathi support request", when: (s) => `After ${s.points.behindAfterDays} days behind`, channel: "Push to anumodana senders" },
-  { key: "boli_outbid", label: "Boli outbid / closing", when: () => "On entry · 24 hours before cutoff", channel: "Push" },
+  // Bolis say "pledge", never "bid". Only "another family pledged more" is sent (0596, an event-day message); the
+  // 24-hour notice has no sender yet (BACKLOG B49).
+  { key: "boli_outbid", label: "Boli: another family pledged more / closing", when: () => "On entry · 24 hours before cutoff", channel: "Push" },
   { key: "giving_opportunity", label: "Giving opportunity alert", when: () => "On publish", channel: "Push · email" },
   { key: "pledge_reminder", label: "Pledge reminder", when: () => "Monthly for open pledges", channel: "Email" },
   { key: "store_order_ready", label: "Store order ready", when: () => "At pickup time", channel: "Push" },
-  { key: "event_feedback", label: "Event feedback request", when: () => "Morning after the event · one reminder after 3 days", channel: "Push · SMS or WhatsApp for guests" },
+  {
+    key: "event_feedback",
+    label: "Event feedback request",
+    when: () =>
+      "When the event is marked completed, the survey is sent from its Survey tab, or a feedback request's time comes · reminders on day 1 and day 2 until they answer",
+    channel: "Push · SMS or WhatsApp for guests",
+  },
   { key: "pachchakhan_reminder", label: "Pachchakhan reminder", when: () => "Member-set times", channel: "Push" },
   // 0588: read by the database itself (app.worker_homework_reminders_sweep); off = no homework reminder in this community
   // (and the next run cancels those still waiting).

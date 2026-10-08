@@ -47,8 +47,18 @@ commit;
 -- The event completes: the survey opens and members are told (push now + day 1 + day 2).
 update app.events set status = 'completed' where id = '50000000-0000-4000-8000-0000000000e1';
 select pg_temp.assert((select status from app.surveys where event_id = '50000000-0000-4000-8000-0000000000e1') = 'open', 'completing the event opens the survey');
+-- 0596: completing the event queues ONE job; the background service queues the pushes (run here as it would).
+select pg_temp.assert((select count(*) from app.jobs where kind = 'surveys.launch_notify' and payload->>'survey_id' = :'sv') = 1,
+  'completing the event queues one job for the pushes');
+grant connect_worker to postgres;
+begin;
+set local role connect_worker;
+select app.worker_survey_launch_notify(:'sv'::uuid, 200);
+commit;
+-- Pushes go to adults with a login and a phone (0596): Priya has the app (01_rls_test), Rahul has no login.
 select pg_temp.assert((select count(*) from app.messages where template_key in ('event_survey', 'event_survey_reminder') and payload->>'survey_id' = :'sv' and person_id = '30000000-0000-4000-8000-000000000001') = 3, 'an adult with an RSVP gets a push now and two reminders');
-select pg_temp.assert((select count(*) from app.messages where template_key = 'event_survey' and payload->>'survey_id' = :'sv' and scheduled_at <= now() + interval '1 minute') >= 1, 'the first push is for now');
+select pg_temp.assert((select count(*) from app.messages where payload->>'survey_id' = :'sv' and person_id = '30000000-0000-4000-8000-000000000002') = 0, 'an adult of the household with no login (Rahul) gets no push: the survey waits for him on Home');
+select pg_temp.assert((select count(*) from app.messages where template_key = 'event_survey' and payload->>'survey_id' = :'sv' and scheduled_at <= coalesce(app.messaging_quiet_until(:jsh, now()), now()) + interval '1 minute') >= 1, 'the first push is for now (or for the end of the community''s quiet hours)');
 select pg_temp.assert((select body from app.messages where template_key = 'event_survey' and payload->>'survey_id' = :'sv' limit 1) like '%Earn 25 points%', 'the message tells them the points');
 
 begin;
