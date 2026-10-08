@@ -39,9 +39,10 @@ async function record(ctx: JobContext, id: string, status: string, provider: str
 
 /**
  * The payload keys a push may carry into the app's `data` (its route registry reads them; nothing else leaves the
- * server). boli_id (0596): a boli notice names the boli to open (deep_link "/boli/<id>").
+ * server). boli_id (0596): a boli notice names the boli to open (deep_link "/boli/<id>"). special_day_id (0598): a
+ * special day's labh prompt opens that day's labh screen; order_id (0598): "your order is ready" names the order.
  */
-const PUSH_ROUTING_KEYS = ["survey_id", "event_id", "deep_link", "assignment_id", "submission_id", "learner_id", "boli_id"] as const;
+const PUSH_ROUTING_KEYS = ["survey_id", "event_id", "deep_link", "assignment_id", "submission_id", "learner_id", "boli_id", "special_day_id", "order_id"] as const;
 
 /**
  * What a tapped push needs to open the right screen in the member app (connect-mobile src/lib/notification-routes.ts):

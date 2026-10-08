@@ -4811,6 +4811,39 @@ export type Database = {
         };
         Relationships: [];
       };
+      notice_log: {
+        Row: {
+          kind: string;
+          ref_id: string;
+          period: string;
+          person_id: string;
+          center_id: string;
+          outcome: string;
+          reason: string | null;
+          created_at: string;
+        };
+        Insert: {
+          kind: string;
+          ref_id: string;
+          period?: string;
+          person_id: string;
+          center_id: string;
+          outcome: string;
+          reason?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          kind?: string;
+          ref_id?: string;
+          period?: string;
+          person_id?: string;
+          center_id?: string;
+          outcome?: string;
+          reason?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
       notification_preferences: {
         Row: {
           center_id: string;
@@ -4844,6 +4877,7 @@ export type Database = {
           name: string;
           default_on: boolean;
           marketing: boolean;
+          has_sender: boolean;
           category_keys: string[];
         };
         Insert: {
@@ -4851,6 +4885,7 @@ export type Database = {
           name: string;
           default_on?: boolean;
           marketing?: boolean;
+          has_sender?: boolean;
           category_keys?: string[];
         };
         Update: {
@@ -4858,6 +4893,7 @@ export type Database = {
           name?: string;
           default_on?: boolean;
           marketing?: boolean;
+          has_sender?: boolean;
           category_keys?: string[];
         };
         Relationships: [];

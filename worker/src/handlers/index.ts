@@ -23,6 +23,7 @@ import * as nivaAnswer from "./niva.answer";
 import * as nivaDiscoverSite from "./niva.discover_site";
 import * as nivaImportPage from "./niva.import_page";
 import * as nivaRetention from "./niva.retention";
+import * as noticesSweep from "./notices.sweep";
 import * as oauthExchange from "./oauth.exchange";
 import * as platformPromote from "./platform.promote";
 import * as platformSandboxExpiry from "./platform.sandbox_expiry";
@@ -107,4 +108,6 @@ export const HANDLERS: HandlerModule[] = [
   storageScanSweep,
   // Pathshala registration (0591): every 15 minutes, reminders and releases of the seats held for payment, and the waitlist
   pathshalaHoldsSweep,
+  // Member notices (0598): every 5 minutes, the RSVP confirmation, the boli notice before it closes and a special day's labh prompt
+  noticesSweep,
 ];
