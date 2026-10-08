@@ -1,4 +1,4 @@
-// A local stand-in for Stripe and PayPal: only the endpoints Community Connect
+// A local stand-in for Stripe and PayPal: only the endpoints Weaver
 // uses, in memory, with fake keys. It also plays the "hosted checkout" pages a
 // payer would see, and sends SIGNED webhooks to the portal the way the real
 // providers do. Nothing here reaches the network. Test use only.

@@ -107,7 +107,7 @@ export function flyerArtFolder(centerId: string, occasion: FlyerOccasion): strin
 // Gemini API prices for one 1K image, from ai.google.dev/gemini-api/docs/pricing
 // (read 2026-10-02): Flash Lite Image $0.0336, Flash Image $0.067, Pro Image
 // $0.134. Rounded UP to whole cents for the organizer (money is integer cents
-// everywhere in Community Connect). Pictures are asked for at the model's
+// everywhere in Weaver). Pictures are asked for at the model's
 // default size (1K, the only size Flash Lite makes), so the price is the 1K
 // price. None of these has a free tier: the owner's Google Cloud project needs
 // billing. gemini-2.5-flash-image is not offered: Google shuts it down on
@@ -149,7 +149,7 @@ export const FLYER_ART_DAILY_LIMIT = 30;
 /** What a picture costs and who pays, before anything is generated: the owner's Google account pays, never the community. */
 export function artPriceSentence(model: FlyerArtModel): string {
   const m = FLYER_ART_MODELS[model];
-  return `Each new picture costs ${formatArtCost(m.cents)} (${m.label}). Community Connect pays for it; nothing is charged to your community. A community can make ${FLYER_ART_DAILY_LIMIT} pictures a day.`;
+  return `Each new picture costs ${formatArtCost(m.cents)} (${m.label}). Weaver pays for it; nothing is charged to your community. A community can make ${FLYER_ART_DAILY_LIMIT} pictures a day.`;
 }
 
 /** The sentence shown before a layer is generated: the price, and that pictures already made are free to reuse. */
@@ -174,9 +174,9 @@ export function englishOnlyNote(foreign: string): string {
 
 // ── Is AI art available? (app.flyer_art_status, 0585) ────────────────────────
 
-export const NO_GEMINI_KEY = "AI art needs a Gemini key — ask your Community Connect admin (Platform › Setup).";
+export const NO_GEMINI_KEY = "AI art needs a Gemini key — ask your Weaver admin (Platform › Setup).";
 export const ART_SERVICE_DOWN = "The background service is not running, so AI art can't be made right now. The drawn art always works.";
-export const ART_SERVICE_OLD = "The background service needs updating before it can make AI art (ask your Community Connect admin to redeploy). The drawn art always works.";
+export const ART_SERVICE_OLD = "The background service needs updating before it can make AI art (ask your Weaver admin to redeploy). The drawn art always works.";
 
 export type FlyerArtReadiness =
   | { state: "ready"; model: FlyerArtModel; cents: number }

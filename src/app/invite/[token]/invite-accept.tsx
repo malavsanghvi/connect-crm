@@ -65,7 +65,7 @@ export function InviteAccept({
         return;
       }
       // A full navigation, so the portal renders with the new session cookie. A new owner
-      // (a sandbox Community Connect created) lands in its Setup, after 2FA when it is required.
+      // (a sandbox Weaver created) lands in its Setup, after 2FA when it is required.
       window.location.assign(new URL(acceptedPath(res.data), window.location.origin).toString());
     } catch (err) {
       console.error("[invite] accept failed:", err);

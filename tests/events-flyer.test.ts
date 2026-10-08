@@ -384,7 +384,7 @@ describe("patternSvg", () => {
 
 describe("readFlyerBrand", () => {
   const url = "https://abc.supabase.co";
-  it("falls back to the Community Connect defaults", () => {
+  it("falls back to the Weaver defaults", () => {
     expect(readFlyerBrand(null, url)).toEqual({
       primary: "#1B2C5C",
       accent: "#C9731C",

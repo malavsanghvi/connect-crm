@@ -96,7 +96,7 @@ async function testEmail(req: Req, env: Env): Promise<StepTest> {
     }
   }
   if (!domain) {
-    lines.push(missing("Community Connect's sender address", ["MESSAGING_FROM_ADDRESS"]));
+    lines.push(missing("Weaver's sender address", ["MESSAGING_FROM_ADDRESS"]));
     return { ok: false, lines };
   }
   if (!lines.every((l) => l.ok)) return { ok: false, lines };

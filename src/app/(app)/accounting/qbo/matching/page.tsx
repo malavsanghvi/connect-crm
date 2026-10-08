@@ -346,7 +346,7 @@ async function SuggestedTab({ session, labels, canManage, page, sp }: { session:
             <thead>
               <tr>
                 <th>QuickBooks customer</th>
-                <th>Community Connect household</th>
+                <th>Weaver household</th>
                 <th>Evidence</th>
                 <th className="num">Confidence</th>
                 {canManage ? <th aria-label="Actions" /> : null}
@@ -552,7 +552,7 @@ async function NotMappedTab({
                             variant="ghost"
                             size="xs"
                             className="flex flex-wrap gap-1.5"
-                            confirmMessage={`Create a new household from “${c.display_name}”? Check first that the family is not already in Community Connect under another name.`}
+                            confirmMessage={`Create a new household from “${c.display_name}”? Check first that the family is not already in Weaver under another name.`}
                           >
                             <input type="hidden" name="qbo" value={c.qbo_id} />
                             {REASON_FIELD(`qbo-create-${c.qbo_id}`)}

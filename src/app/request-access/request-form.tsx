@@ -108,7 +108,7 @@ export function RequestForm() {
       </fieldset>
 
       <label className={label}>
-        How did you hear about Community Connect? (optional)
+        How did you hear about Weaver? (optional)
         <input name="heard_from" maxLength={300} className={onboardingInputClass} />
       </label>
 

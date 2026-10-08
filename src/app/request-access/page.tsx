@@ -10,13 +10,13 @@ import { RequestForm } from "./request-form";
 
 export const metadata: Metadata = { title: "Request access" };
 
-/** Public: an organization asks to use Community Connect (ONBOARDING_PLAN §3). No sign-in. */
+/** Public: an organization asks to use Weaver (ONBOARDING_PLAN §3). No sign-in. */
 export default function RequestAccessPage() {
   const check = readPublicEnv();
   if (!check.ok) return <SetupScreen problems={check.problems} />;
   return (
     <OnboardingSplit
-      title="Bring your community onto Community Connect"
+      title="Bring your community onto Weaver"
       lead={
         <>
           <p>Tell us about your organization. The {PRODUCT_NAME} team reviews every request, usually within 1–3 working days.</p>

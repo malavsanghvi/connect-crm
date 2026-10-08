@@ -9,7 +9,7 @@ import { WEAVERS, WEAVER_NAMES } from "@/components/site/weavers";
 import { SITE_NAME, TIP_YEARLY_CAP_CENTS, portalUrl, usd } from "@/lib/site";
 
 export const metadata: Metadata = {
-  // Absolute: the portal's root layout would otherwise add " · Community Connect".
+  // Absolute: the portal's root layout would otherwise add " · Weaver".
   title: { absolute: `${SITE_NAME}: free membership software for communities` },
   alternates: { canonical: "/" },
 };

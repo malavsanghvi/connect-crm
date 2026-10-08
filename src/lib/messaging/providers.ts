@@ -28,7 +28,7 @@ const has = (env: Env, name: string) => typeof env[name] === "string" && env[nam
 
 export function requireVars(env: Env, names: string[], what: string): void {
   const missing = names.filter((n) => !has(env, n));
-  if (missing.length > 0) throw new MissingConfigError(`${what} isn't configured on the Community Connect server yet (${missing.join(", ")} not set)`);
+  if (missing.length > 0) throw new MissingConfigError(`${what} isn't configured on the Weaver server yet (${missing.join(", ")} not set)`);
 }
 
 function parse(text: string): Record<string, unknown> {

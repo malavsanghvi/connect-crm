@@ -4,7 +4,7 @@
 //      recipients; no inactivity expiry (another quiet sandbox is warned, JSH never); the member
 //      app's default community and the join code still open it; Setup says so plainly, and
 //      Demo data says Reset/Clear remove JSH's own records too.
-//   B. A Community Connect platform admin creates a sandbox in Platform › Centers › New sandbox
+//   B. A Weaver platform admin creates a sandbox in Platform › Centers › New sandbox
 //      (fresh 2FA, reason); the pipeline lists it; audited.
 //   C. The invited owner opens the link, signs in, accepts, sets up 2FA and lands in its Setup.
 //   D. The owner passes an Executive Committee check (records the EC approval of a life
@@ -241,7 +241,7 @@ async function answerStepUp(p, secret, ms = 8000) {
   await shot(p, 'A-jsh-demo');
   await ja.ctx.close();
 
-  // ══ B. Community Connect creates a sandbox ═════════════════════════════════
+  // ══ B. Weaver creates a sandbox ═════════════════════════════════
   const ccs = await portalSignIn(browser, CC, 'cc', { totpSecret: cc.secret });
   p = ccs.p;
   await p.goto(BASE + '/platform', { waitUntil: 'networkidle' });

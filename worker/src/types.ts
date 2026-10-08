@@ -17,7 +17,7 @@ export type JobContext = {
   removeOauthCode(connectionId: string, name: string, outcome: "exchanged" | "unusable"): Promise<boolean>;
   http: Http;
   log: Logger;
-  /** The worker's environment: Community Connect's own provider keys live here. */
+  /** The worker's environment: Weaver's own provider keys live here. */
   env: Env;
   workerId: string;
 };

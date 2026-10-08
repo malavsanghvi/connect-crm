@@ -51,8 +51,8 @@ export default async function RolesPage({ searchParams }: { searchParams: Promis
     db.from("pathshala_classes").select("id, name").eq("center_id", center.id).order("name").limit(300),
     db.from("center_owners").select("user_id").eq("center_id", center.id).maybeSingle(),
   ]);
-  // Only changes the wording of Community Connect's approval of the first second admin; the database decides.
-  if (ownerRes.error) console.error("[roles] could not read the owner (the Community Connect approval note is left out):", ownerRes.error);
+  // Only changes the wording of Weaver's approval of the first second admin; the database decides.
+  if (ownerRes.error) console.error("[roles] could not read the owner (the Weaver approval note is left out):", ownerRes.error);
   const ownerUserId = ownerRes.data?.user_id ?? null;
   if (rolesRes.error) {
     return (
@@ -282,15 +282,15 @@ export default async function RolesPage({ searchParams }: { searchParams: Promis
                                   session.isPlatformAdmin && !ownerRes.error && isFirstSecondAdminGrant(g, allGrants, ownerUserId, now) ? (
                                     <ActionForm
                                       action={approveGrantAction}
-                                      submitLabel="Approve as Community Connect"
+                                      submitLabel="Approve as Weaver"
                                       pendingLabel="Approving…"
                                       variant="ok"
                                       size="sm"
-                                      confirmMessage={`Approve ${who?.name ?? "this person"} as ${center.short_name ?? center.name}'s first administrator besides the owner? Community Connect is the second person here: the audit log records you as the approver with the reason "${CC_FIRST_ADMIN_REASON}".`}
+                                      confirmMessage={`Approve ${who?.name ?? "this person"} as ${center.short_name ?? center.name}'s first administrator besides the owner? Weaver is the second person here: the audit log records you as the approver with the reason "${CC_FIRST_ADMIN_REASON}".`}
                                     >
                                       <input type="hidden" name="id" value={g.id} />
                                       <p className="mt-1 text-xs text-muted" data-testid="cc-first-admin-note">
-                                        First second administrator — Community Connect approves it.
+                                        First second administrator — Weaver approves it.
                                       </p>
                                     </ActionForm>
                                   ) : (

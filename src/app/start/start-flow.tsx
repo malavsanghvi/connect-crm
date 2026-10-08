@@ -268,7 +268,7 @@ function AuthenticatorStep() {
         {pending ? "Checking…" : "Turn on 2FA"}
       </button>
       <p className="rounded-[10px] bg-canvas px-3 py-2 text-[12px] text-muted">
-        Printed recovery codes are not offered yet: the sign-in service has no safe way to accept them. If you lose your phone, the Community Connect team can
+        Printed recovery codes are not offered yet: the sign-in service has no safe way to accept them. If you lose your phone, the Weaver team can
         reset your 2FA after checking who you are.
       </p>
     </form>
@@ -315,7 +315,7 @@ function TermsStep({ status }: { status: StartStatus }) {
     return (
       <div className="flex flex-col gap-4">
         <h2 className="font-display text-[28px] font-semibold text-ink">Sandbox terms</h2>
-        <OnboardingError text="The Community Connect sandbox terms have not been published yet, so the sandbox cannot be created. Community Connect has been told; we will email you when you can continue. Your progress so far is kept." />
+        <OnboardingError text="The Weaver sandbox terms have not been published yet, so the sandbox cannot be created. Weaver has been told; we will email you when you can continue. Your progress so far is kept." />
       </div>
     );
   }
@@ -456,10 +456,10 @@ export function StartFlow({
           <OnboardingError
             text={
               status?.code_status === "expired"
-                ? "This code has expired. Ask Community Connect to send you a new one."
+                ? "This code has expired. Ask Weaver to send you a new one."
                 : status?.code_status === "used"
                   ? "This code has already been used."
-                  : "That code is not valid. Ask Community Connect for a new one."
+                  : "That code is not valid. Ask Weaver for a new one."
             }
           />
           <StartOver signOut={false} />

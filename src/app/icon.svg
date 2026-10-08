@@ -1,6 +1,37 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-  <title>Community Connect</title>
-  <rect width="64" height="64" rx="14" fill="#1B2C5C"/>
-  <circle cx="24" cy="32" r="12" fill="none" stroke="#FBF7F0" stroke-width="5"/>
-  <circle cx="40" cy="32" r="12" fill="none" stroke="#C9731C" stroke-width="5"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="170 166 1600 1600">
+  <title>Weaver</title>
+  <defs>
+    <linearGradient id="wm-base" gradientUnits="userSpaceOnUse" x1="300" y1="560" x2="1640" y2="640">
+      <stop offset="0" stop-color="#34c4cb"/>
+      <stop offset="0.5" stop-color="#2f8ed8"/>
+      <stop offset="1" stop-color="#6cc68f"/>
+    </linearGradient>
+    <linearGradient id="wm-wash" gradientUnits="userSpaceOnUse" x1="960" y1="700" x2="960" y2="1300">
+      <stop offset="0" stop-color="#2a6fe3" stop-opacity="0"/>
+      <stop offset="1" stop-color="#2a6fe3" stop-opacity="0.55"/>
+    </linearGradient>
+    <linearGradient id="wm-dark" gradientUnits="userSpaceOnUse" x1="990" y1="1000" x2="700" y2="1400">
+      <stop offset="0" stop-color="#1a7fc6" stop-opacity="0"/>
+      <stop offset="0.45" stop-color="#1676c4" stop-opacity="0.85"/>
+      <stop offset="1" stop-color="#1c56b0"/>
+    </linearGradient>
+    <linearGradient id="wm-purple" gradientUnits="userSpaceOnUse" x1="1010" y1="1090" x2="1290" y2="1400">
+      <stop offset="0" stop-color="#3d3bb8"/>
+      <stop offset="1" stop-color="#7a69da"/>
+    </linearGradient>
+    <linearGradient id="wm-sun" gradientUnits="userSpaceOnUse" x1="1060" y1="580" x2="880" y2="860">
+      <stop offset="0" stop-color="#ffb82a"/>
+      <stop offset="1" stop-color="#ff7640"/>
+    </linearGradient>
+    <clipPath id="wm-w">
+      <path id="wm-silhouette" d="M370,535 C520,535 640,650 700,800 C740,900 765,990 790,1075 C850,990 900,925 965,925 C1030,925 1085,990 1140,1075 C1230,830 1330,535 1560,535 C1650,535 1675,625 1620,690 C1560,760 1500,800 1460,880 C1400,1030 1370,1150 1330,1255 C1280,1340 1230,1397 1170,1397 C1090,1397 1040,1320 965,1175 C900,1290 840,1397 760,1397 C680,1397 630,1330 600,1250 C540,1080 500,950 470,860 C430,770 380,725 330,685 C285,645 275,610 285,585 C300,548 330,535 370,535 Z"/>
+    </clipPath>
+  </defs>
+  <g clip-path="url(#wm-w)">
+    <rect x="250" y="500" width="1450" height="950" fill="url(#wm-base)"/>
+    <rect x="250" y="700" width="1450" height="700" fill="url(#wm-wash)"/>
+    <path d="M598,1256 C690,1246 752,1170 792,1076 C850,1000 905,930 965,925 L965,1175 L965,1420 L560,1420 Z" fill="url(#wm-dark)"/>
+    <path d="M968,1176 C1010,1108 1060,1068 1112,1068 C1220,1170 1272,1256 1332,1258 L1332,1420 L968,1420 Z" fill="url(#wm-purple)"/>
+  </g>
+  <circle cx="965" cy="718" r="152" fill="url(#wm-sun)"/>
 </svg>

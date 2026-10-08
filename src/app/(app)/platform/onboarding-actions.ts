@@ -6,7 +6,7 @@ import { failure, type ActionResult } from "@/lib/errors";
 import { isUuid } from "@/lib/search-params";
 import { dbWithReason, loadSession, type CrmSession } from "@/lib/session";
 
-// Community Connect console (ONBOARDING_PLAN §6): Requests, Sandbox codes,
+// Weaver console (ONBOARDING_PLAN §6): Requests, Sandbox codes,
 // Go-live approvals, Support access. Every write goes through an o-platform RPC
 // that checks platform-admin rights again and audits with the reason.
 
@@ -14,7 +14,7 @@ async function platformSession(doing: string): Promise<{ ok: true; session: CrmS
   const state = await loadSession();
   if (state.status === "signed_out") return { ok: false, error: `Could not ${doing} — your session has expired. Sign in again.` };
   if (state.status !== "ok") return { ok: false, error: `Could not ${doing} — the app could not load your session. Reload and try again.` };
-  if (!state.session.isPlatformAdmin) return { ok: false, error: `Could not ${doing} — only Community Connect platform admins can do this.` };
+  if (!state.session.isPlatformAdmin) return { ok: false, error: `Could not ${doing} — only Weaver platform admins can do this.` };
   return { ok: true, session: state.session };
 }
 
@@ -123,7 +123,7 @@ export async function endSupportGrantAction(_prev: ActionResult | null, fd: Form
   if (!auth.ok) return auth;
   const id = String(fd.get("grant") ?? "");
   if (!isUuid(id)) return { ok: false, error: `Could not ${doing} — reload the page and try again.` };
-  const { error } = await auth.session.db.rpc("revoke_support_access", { p_grant: id, p_reason: "Ended by the Community Connect team member" });
+  const { error } = await auth.session.db.rpc("revoke_support_access", { p_grant: id, p_reason: "Ended by the Weaver team member" });
   if (error) return failure(`Could not ${doing}`, error);
   revalidatePath("/platform/support-access");
   return { ok: true, message: "Support access ended · audit logged" };

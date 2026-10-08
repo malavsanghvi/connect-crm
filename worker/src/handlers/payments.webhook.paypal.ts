@@ -14,7 +14,7 @@ export const kind = "payments.webhook.paypal";
 export function configured(env: Env): Readiness {
   if ((env.PAYPAL_SANDBOX_CLIENT_ID ?? "").trim() && (env.PAYPAL_SANDBOX_CLIENT_SECRET ?? "").trim()) return { configured: true };
   const s = providerStatus(env, "paypal");
-  return s.configured ? s : { configured: false, reason: "PayPal isn't configured on the Community Connect server yet (PAYPAL_CLIENT_ID + PAYPAL_CLIENT_SECRET, or the PAYPAL_SANDBOX_* pair, not set)" };
+  return s.configured ? s : { configured: false, reason: "PayPal isn't configured on the Weaver server yet (PAYPAL_CLIENT_ID + PAYPAL_CLIENT_SECRET, or the PAYPAL_SANDBOX_* pair, not set)" };
 }
 
 type Obj = Record<string, unknown>;
@@ -27,14 +27,14 @@ export async function handle(ev: StoredEvent, ctx: JobContext): Promise<EventOut
     case "CHECKOUT.ORDER.COMPLETED": {
       const unit = obj((r.purchase_units as Obj[] | undefined)?.[0]);
       const checkout = await loadCheckout(ctx, String(unit.custom_id ?? unit.reference_id ?? ""), "paypal", String(r.id ?? ""));
-      if (!checkout) return { outcome: "ignored: not a Community Connect checkout" };
+      if (!checkout) return { outcome: "ignored: not a Weaver checkout" };
       const rec = await capturePaypalOrder(ctx, checkout, String(r.id));
       return { outcome: rec.test ? "test charge paid; refund queued" : rec.duplicate ? "already recorded" : "payment recorded", center: checkout.center_id, ...rec };
     }
     case "PAYMENT.CAPTURE.COMPLETED": {
       const orderId = String(obj(obj(r.supplementary_data).related_ids).order_id ?? "");
       const checkout = await loadCheckout(ctx, String(r.custom_id ?? ""), "paypal", orderId || null);
-      if (!checkout) return { outcome: "ignored: not a Community Connect checkout" };
+      if (!checkout) return { outcome: "ignored: not a Weaver checkout" };
       const rec = await recordPaypalCapture(ctx, checkout, r, null);
       return { outcome: rec.test ? "test charge paid; refund queued" : rec.duplicate ? "already recorded" : "payment recorded", center: checkout.center_id, ...rec };
     }
@@ -42,7 +42,7 @@ export async function handle(ev: StoredEvent, ctx: JobContext): Promise<EventOut
     case "PAYMENT.CAPTURE.DECLINED":
     case "CHECKOUT.PAYMENT-APPROVAL.REVERSED": {
       const checkout = await loadCheckout(ctx, String(r.custom_id ?? ""), "paypal", null);
-      if (!checkout) return { outcome: "ignored: not a Community Connect checkout" };
+      if (!checkout) return { outcome: "ignored: not a Weaver checkout" };
       await closeCheckout(ctx, checkout.id, "failed", "PayPal declined the payment.");
       return { outcome: "checkout failed", center: checkout.center_id };
     }
@@ -54,7 +54,7 @@ export async function handle(ev: StoredEvent, ctx: JobContext): Promise<EventOut
       const total = decimalToCents(obj(obj(r.seller_payable_breakdown).total_refunded_amount).value) ?? decimalToCents(obj(r.amount).value) ?? 0;
       const on = typeof r.create_time === "string" ? r.create_time.slice(0, 10) : null;
       const res = await flagProviderRefund(ctx, "paypal", captureId, total, typeof r.id === "string" ? r.id : null, on, ev.event_type);
-      if (!res) return { outcome: "ignored: not a Community Connect payment" };
+      if (!res) return { outcome: "ignored: not a Weaver payment" };
       if (res.outcome === "flagged") {
         ctx.log.warn("a refund made in PayPal was flagged for two approvals", { payment: res.payment_id, amount_cents: res.amount_cents });
         return { outcome: "refund made in PayPal flagged for approval", center: res.center_id, refund_id: res.refund_id, payment_id: res.payment_id, amount_cents: res.amount_cents };
@@ -68,7 +68,7 @@ export async function handle(ev: StoredEvent, ctx: JobContext): Promise<EventOut
         String(r.merchant_id ?? ""),
         JSON.stringify(revoked ? { charges_enabled: false, consent_revoked_at: new Date().toISOString() } : { charges_enabled: true }),
       ]);
-      return { outcome: revoked ? "the organization revoked Community Connect's permission" : "onboarding completed", center: ev.center_id };
+      return { outcome: revoked ? "the organization revoked Weaver's permission" : "onboarding completed", center: ev.center_id };
     }
     default:
       return { outcome: `ignored: ${ev.event_type} is not used`, center: ev.center_id };

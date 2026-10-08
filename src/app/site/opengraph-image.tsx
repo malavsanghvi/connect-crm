@@ -1,5 +1,6 @@
 import { ImageResponse } from "next/og";
 
+import { weaverMarkSvg } from "@/components/brand/weaver-mark";
 import { SITE_NAME } from "@/lib/site";
 
 // The picture shown when a link to the website is shared (WhatsApp, email, social media).
@@ -12,11 +13,7 @@ export default function OpenGraphImage() {
     (
       <div style={{ width: "100%", height: "100%", display: "flex", flexDirection: "column", justifyContent: "space-between", background: "#F6F2EA", padding: 72 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
-          <svg width="72" height="72" viewBox="0 0 64 64">
-            <rect width="64" height="64" rx="15" fill="#1B2C5C" />
-            <circle cx="24" cy="32" r="12" fill="none" stroke="#FBF7F0" strokeWidth="5" />
-            <circle cx="40" cy="32" r="12" fill="none" stroke="#C9731C" strokeWidth="5" />
-          </svg>
+          {weaverMarkSvg("og", { width: 84, height: 84 })}
           <div style={{ display: "flex", fontSize: 44, fontWeight: 700, color: "#1B2C5C" }}>{SITE_NAME}</div>
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>

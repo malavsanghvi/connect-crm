@@ -1,6 +1,6 @@
 // o-platform flow (organization onboarding, Stage 1 → Stage 3), against a real local stack:
 //   1. an anonymous visitor requests access at /request-access (a filled honeypot is refused);
-//   2. a Community Connect admin approves it in Platform › Requests; the sandbox code is shown once
+//   2. a Weaver admin approves it in Platform › Requests; the sandbox code is shown once
 //      (email sending is the messaging stream's; until it lands the console says so honestly);
 //   3. the contact redeems the code at /start: email sign-in with the real Mailpit code, phone
 //      verification (GoTrue test OTP), authenticator app (TOTP computed here), sandbox terms → the
@@ -330,7 +330,7 @@ async function answerStepUp(p, secret) {
     await shot(rp, '4-go-live-requested');
     const gl = sql(`select id from app.golive_requests where center_id = '${sbx}' and status = 'requested'`);
     ok(Boolean(gl), 'the go-live request is recorded (requested)');
-    ok(sql(`select status from app.center_setup_steps where center_id = '${sbx}' and step_key = 'golive.request'`) === 'needs_review', 'Setup step golive.request waits for Community Connect');
+    ok(sql(`select status from app.center_setup_steps where center_id = '${sbx}' and step_key = 'golive.request'`) === 'needs_review', 'Setup step golive.request waits for Weaver');
 
     // ── 5. Two different platform admins approve ─────────────────────────────
     await c1.p.goto(BASE + '/platform/go-live', { waitUntil: 'networkidle' });

@@ -131,7 +131,7 @@ export default async function RequestsPage({ searchParams }: { searchParams: Pro
                             </dl>
                             {r.decision_note ? (
                               <p className="text-muted">
-                                Last note: {r.decision_note} {mail ? <StatusText tone={mail.tone}>{mail.text.replace(" — the code is shown here for the Community Connect team to send by hand", " — send it by hand")}</StatusText> : null}
+                                Last note: {r.decision_note} {mail ? <StatusText tone={mail.tone}>{mail.text.replace(" — the code is shown here for the Weaver team to send by hand", " — send it by hand")}</StatusText> : null}
                               </p>
                             ) : null}
                             {open ? (

@@ -6,7 +6,7 @@ import { failure, type ActionResult } from "@/lib/errors";
 import { isUuid } from "@/lib/search-params";
 import { dbWithReason, loadSession } from "@/lib/session";
 
-// Settings › Support access: the owner gives a Community Connect team member
+// Settings › Support access: the owner gives a Weaver team member
 // time-boxed access (app.grant_support_access: owner, fresh 2FA, reason) and can end it.
 
 export async function grantSupportAction(_prev: ActionResult | null, fd: FormData): Promise<ActionResult> {
@@ -16,7 +16,7 @@ export async function grantSupportAction(_prev: ActionResult | null, fd: FormDat
   const grantee = String(fd.get("grantee") ?? "");
   const hours = Number(fd.get("hours"));
   const reason = String(fd.get("reason") ?? "").trim();
-  if (!isUuid(grantee)) return { ok: false, error: `Could not ${doing} — choose who at Community Connect.` };
+  if (!isUuid(grantee)) return { ok: false, error: `Could not ${doing} — choose who at Weaver.` };
   if (!Number.isInteger(hours) || hours < 1 || hours > 720) return { ok: false, error: `Could not ${doing} — choose how long.` };
   if (!reason) return { ok: false, error: `Could not ${doing} — say what the support is for (it goes in the audit log).` };
   const db = await dbWithReason(state.session, reason);

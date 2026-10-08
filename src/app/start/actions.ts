@@ -183,7 +183,7 @@ export async function checkTotpAction(code: string): Promise<ActionResult> {
   return { ok: true, message: "Verified" };
 }
 
-/** Step 5a: accept the Community Connect sandbox terms (recorded with the address and browser). */
+/** Step 5a: accept the Weaver sandbox terms (recorded with the address and browser). */
 export async function acceptStartTermsAction(documentId: string): Promise<ActionResult> {
   const auth = await signedIn("accept the sandbox terms");
   if (!auth.ok) return auth;

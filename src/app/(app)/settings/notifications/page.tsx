@@ -74,12 +74,12 @@ async function PushSection({ session }: { session: Awaited<ReturnType<typeof get
   const live = (devices.data ?? []).filter((d) => !d.invalid_at);
   return (
     <BlockGrid className="mt-4">
-      <Card span={7} title="Push notifications" description="Members get pushes in the Community Connect app; they choose topics and quiet hours there">
+      <Card span={7} title="Push notifications" description="Members get pushes in the Weaver app; they choose topics and quiet hours there">
         {devices.error ? (
           <QueryError what="your phones" error={devices.error} retryHref="/settings/notifications" />
         ) : live.length === 0 ? (
           <p className="text-[13px] text-muted">
-            None of your phones is registered yet. Sign in to the Community Connect app on your phone and allow notifications, then send a test.
+            None of your phones is registered yet. Sign in to the Weaver app on your phone and allow notifications, then send a test.
           </p>
         ) : (
           <ul className="text-[13px]">

@@ -88,7 +88,7 @@ export function BrandColors({ initial, logos, name, shortName }: { initial: { pr
           <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-faint">Portal header</p>
           <div className="flex items-center gap-3 rounded-[10px] border border-line bg-white px-3 py-2">
             <Mark url={logos.mark ?? logos.logo} name={shortName} bg={p} fg={onP} size={30} />
-            <span className="text-[14px] font-bold text-ink">Community Connect</span>
+            <span className="text-[14px] font-bold text-ink">Weaver</span>
             <span className="ml-auto rounded-full px-2.5 py-1 text-[11px] font-bold" style={{ background: p, color: onP }}>
               {shortName}
             </span>

@@ -1,4 +1,4 @@
-// Community Connect's own texts (legal_documents with center_id null, 0153/0422): the five
+// Weaver's own texts (legal_documents with center_id null, 0153/0422): the five
 // agreements an organization's owner accepts, and the members' default privacy policy and terms
 // of use shown where a community has not published its own. Pure.
 

@@ -8,7 +8,7 @@ import { SITE_DESCRIPTION, SITE_NAME, SITE_TAGLINE, siteOrigin } from "@/lib/sit
 // The public website (www.weaverams.org). The portal's root layout says "do not index"; this one overrides it.
 export const metadata: Metadata = {
   metadataBase: new URL(siteOrigin()),
-  // Absolute: the portal's root layout would otherwise add " · Community Connect". Each page sets its own absolute title.
+  // Absolute: the portal's root layout would otherwise add " · Weaver". Each page sets its own absolute title.
   title: { absolute: `${SITE_NAME}: ${SITE_TAGLINE}` },
   description: SITE_DESCRIPTION,
   robots: { index: true, follow: true },
