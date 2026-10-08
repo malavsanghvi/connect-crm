@@ -202,14 +202,18 @@ export function kindFallbackProblem(loaded: LoadedKind, res: KindProfileResult):
  *   tradition   the tradition pack: panchang and tithi, the daily timings (navkarsi, chauvihar), pachchakhan, the
  *               tradition's flyer occasions and KPIs. The kinds whose `uses_tradition` is true. A kind the database
  *               says nothing about keeps today's screens.
+ *   live_stream the live stream (the access area "darshan"). Migration 0600 tags that area for the Jain Center only:
+ *               the database leaves it out for any other kind and gives no stream to a member there, so a stream added
+ *               for such a kind could never be watched and the portal does not offer to add one.
  */
-export type KindFeature = "labh" | "tradition";
+export type KindFeature = "labh" | "tradition" | "live_stream";
 
 export function kindHas(kind: Pick<KindProfile, "modules" | "usesTradition">, feature: KindFeature): boolean {
   switch (feature) {
     case "labh":
       return !moduleNotOffered(kind, "labh" in kind.modules ? "labh" : "bolis");
     case "tradition":
+    case "live_stream":
       return kind.usesTradition !== false;
   }
 }

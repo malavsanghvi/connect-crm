@@ -73,6 +73,11 @@ describe("the nav for another kind uses that kind's words and parts", () => {
     const labhOn = profile("y_kind", "Y", false, false, {}, { bolis: { availability: "not_available", label: null }, labh: { availability: "default_on", label: null } });
     expect(kindHas(labhOn, "labh")).toBe(true);
   });
+  it("the live stream is a Jain Center's only (0600 closes the area for every other kind)", () => {
+    expect(kindHas(LEGACY_KIND, "live_stream")).toBe(true);
+    expect(kindHas(chamber, "live_stream")).toBe(false);
+    expect(kindHas(church, "live_stream")).toBe(false);
+  });
   it("the organization switching its own Labh module off hides the tab too", () => {
     const g = visibleNav({ ...admin, kind: LEGACY_KIND, modulesOff: ["labh"] }).find((m) => m.key === "giving")!;
     expect(g.tabs.map((t) => t.href)).not.toContain("/giving/labh");

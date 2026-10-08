@@ -4,7 +4,7 @@ import { ActionForm } from "@/components/action-form";
 import { BlockGrid, Card, EmptyState, Field, InfoBox, QueryError, StatusText, TableWrap } from "@/components/ui";
 import { contentStatusLabel, formatClock, readTimingRules, todayTimingLine } from "@/lib/content";
 import { addDays, formatDate, todayInTz } from "@/lib/dates";
-import { kindHas, kindTerm } from "@/lib/kind";
+import { kindHas, kindOrganization, kindTerm, withArticle } from "@/lib/kind";
 import { canAccess } from "@/lib/permissions";
 import { getSession, loadSession } from "@/lib/session";
 import { word } from "@/lib/wording";
@@ -40,6 +40,23 @@ export default async function TodayPage() {
   const sub = pack ? `Drives Today at ${short} on the member Home screen and the Library’s live darshan` : `The live stream of ${short}, on the member Home screen and in the Library`;
   const gate = contentGate(session, sub);
   if (gate) return gate;
+  // The database closes the live-stream area for a kind that does not have it (0600): nobody could watch a stream added
+  // here, so the page says so instead of offering to add one. The Jain Center is unchanged.
+  if (!kindHas(session.kind, "live_stream")) {
+    return (
+      <>
+        <ContentHeader sub={`${stream} is not part of ${withArticle(kindOrganization(session.kind.label))}`} />
+        <BlockGrid>
+          <Card title={stream} span={12}>
+            <EmptyState title={`${short} has no ${streamLower}`}>
+              Members of {withArticle(kindOrganization(session.kind.label))} cannot watch a live stream yet, so there is nothing to set up here. Weaver can change an
+              organization&apos;s kind if that is wrong.
+            </EmptyState>
+          </Card>
+        </BlockGrid>
+      </>
+    );
+  }
   const tz = center.time_zone;
   const today = todayInTz(tz);
   const canSaveRules = canAccess(session, "centerSettings");
