@@ -263,10 +263,12 @@ create trigger pathshala_levels_track_guard before update of track_id on app.pat
 
 -- A direct write through the API (the portal's older screens, the member app's request) cannot set the registration's
 -- own columns, and cannot move or re-status a learner whose seat is held for payment: the functions do that (the hold's
--- pledges must be cancelled or paid, never left behind).
+-- pledges must be cancelled or paid, never left behind). Nor can it move a learner whose fee is billed or paid to a class
+-- of another level: the pledge was priced for the level the learner was placed in (the move-level step, which re-prices,
+-- comes with migration 0592).
 create or replace function app.pathshala_enrollments_guard() returns trigger
 language plpgsql set search_path = app, public, extensions as $$
-declare v_hold text; v_fee text;
+declare v_hold text; v_fee text; v_fee_level uuid; v_new_level uuid;
 begin
   if current_user not in ('authenticated', 'anon') then return new; end if;
   if tg_op = 'INSERT' then
@@ -279,13 +281,23 @@ begin
     return new;
   end if;
   -- Only the Pathshala principal (pathshala.manage, who reads the fee line) can update an enrollment directly.
-  select fl.hold_reason, fl.status into v_hold, v_fee from app.pathshala_enrollment_fees fl where fl.enrollment_id = old.id;
+  select fl.hold_reason, fl.status, fl.level_id into v_hold, v_fee, v_fee_level from app.pathshala_enrollment_fees fl where fl.enrollment_id = old.id;
   -- The portal's older Withdraw button wrote the status directly and left the fee pledge open (review B3). A seat whose
   -- fee is billed or paid is given up only when the fee is handled: the treasurer cancels or settles the pledge in Giving
   -- first (withdrawal with the fee handled comes in migration 0592). Finishing the term (completed) is not giving up.
   if old.status in ('placed', 'active') and new.status in ('requested', 'waitlisted', 'withdrawn') and v_fee in ('billed', 'paid') then
     raise exception 'This learner has a Pathshala fee that is %, so the registration cannot be withdrawn or moved back here. The treasurer cancels or settles the fee pledge in Giving first: please ask the Pathshala office.',
       case v_fee when 'paid' then 'paid' else 'billed' end using errcode = '22023';
+  end if;
+  -- Moving a learner whose fee is billed or paid to a class of another level would leave the pledge at the old level's price
+  -- (staff can write class_id directly). A class of the same level is fine; so is any change while the fee is not billed yet.
+  if v_fee in ('billed', 'paid') and v_fee_level is not null
+     and (new.class_id is distinct from old.class_id or new.requested_level_id is distinct from old.requested_level_id) then
+    v_new_level := coalesce((select c.level_id from app.pathshala_classes c where c.id = new.class_id), new.requested_level_id);
+    if v_new_level is distinct from v_fee_level then
+      raise exception 'This learner''s Pathshala fee is already % for their current level, so the class or level cannot be changed here: use the move-level step, which arrives in the next release (it re-prices the fee). Please ask the Pathshala office.',
+        case v_fee when 'paid' then 'paid' else 'billed' end using errcode = '22023';
+    end if;
   end if;
   if v_hold in ('payment', 'office_payment', 'assistance')
      and (new.status is distinct from old.status or new.class_id is distinct from old.class_id) then

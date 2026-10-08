@@ -814,6 +814,20 @@ select pg_temp.assert((select e.status = 'placed' and e.class_id = :cl_j2 and f.
                       and (select status = 'waitlisted' from app.pathshala_enrollments where id = (:'reg_neel'::jsonb -> 'lines' -> 0 ->> 'enrollment_id')::uuid)
                       and app.pathshala_waitlist_position((:'reg_neel'::jsonb -> 'lines' -> 0 ->> 'enrollment_id')::uuid) = 1,
   'waitlist (pledge mode): Kiran withdraws, so Jay (first waiting) is placed and billed at his locked line, and his family told how to withdraw at no charge');
+-- A direct class change to another level would leave Jay's billed pledge at Jainism 2's price (review item 5). The same class
+-- (no change) and a change that keeps the level are fine; the move-level step arrives with 0592.
+begin;
+select pg_temp.sign_in(:u_pia);
+select pg_temp.assert_code(format($$update app.pathshala_enrollments set class_id = %L where id = %L$$, :cl_j5, (:'reg_jay'::jsonb -> 'lines' -> 0 ->> 'enrollment_id')),
+  '22023', 'use the move-level step', 'guard: a learner whose fee is billed cannot be moved to a class of another level by a direct write');
+select pg_temp.assert_code(format($$update app.pathshala_enrollments set class_id = %L, requested_level_id = %L where id = %L$$, :cl_j5, :lv_j5, (:'reg_jay'::jsonb -> 'lines' -> 0 ->> 'enrollment_id')),
+  '22023', 'use the move-level step', 'guard: nor by changing the class and the requested level together');
+update app.pathshala_enrollments set notes = 'Sits near the front.' where id = (:'reg_jay'::jsonb -> 'lines' -> 0 ->> 'enrollment_id')::uuid;
+commit;
+select pg_temp.assert((select e.status = 'placed' and e.class_id = :cl_j2 and f.status = 'billed' and f.total_cents = 13000 and e.notes = 'Sits near the front.'
+                         from app.pathshala_enrollments e join app.pathshala_enrollment_fees f on f.enrollment_id = e.id
+                        where e.id = (:'reg_jay'::jsonb -> 'lines' -> 0 ->> 'enrollment_id')::uuid),
+  'guard: Jay is still in Jainism 2 with his billed fee untouched (a write that keeps the class, such as a note, goes through)');
 begin;
 select pg_temp.sign_in(:u_pia);
 update app.pathshala_classes set capacity = 3 where id = :cl_j2;
