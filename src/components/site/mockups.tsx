@@ -296,7 +296,7 @@ export function TipCheckoutMock({ className = "" }: { className?: string }) {
       </div>
       <div className="flex flex-col gap-4 p-5">
         <div>
-          <p className="text-[15px] font-bold text-navy">Add an optional Chip In to keep Weaver AMS free?</p>
+          <p className="text-[15px] font-bold text-navy">Add an optional Chip In to keep Weaver free?</p>
           <p className="mt-1 text-[13px] leading-snug text-muted">Your community pays nothing for this platform. Members like you keep it going.</p>
         </div>
         <div className="grid grid-cols-4 gap-2" role="presentation">
