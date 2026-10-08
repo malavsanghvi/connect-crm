@@ -76,6 +76,34 @@ platform and People RPCs (`bootstrap_first_admin`, `approve_role_grant`, `next_n
 `staff_household_search`, `staff_person_names`, `canonical_org_id`, `canonical_org_member`,
 `next_special_day_on`, `address_suggestions`).
 
+## Experiences: the kind of organization is data (0600)
+
+The owner's word for a category is an **experience**: the one choice Community Connect makes when it creates an
+organization, after which the modules, the words, the Setup checklist, the demo data and the member app follow. The
+tables keep their names (`organization_categories`, `category_modules`, `category_paths`); screens say "kind of
+organization". An experience is rows, so adding one later needs no code fork in any app.
+
+| Piece | What it does |
+|---|---|
+| `app.experience_families` | Tradition families for the two-step picker (Jain, Hindu, Christian, Muslim, Sikh, Buddhist, Jewish, Other faith). A family with no experience is never shown. |
+| `organization_categories` (+ columns) | `family_key` (required for a faith-based experience), `inherits_from`, `lineage` (this experience first, then its parents; kept by a trigger), `wording_pack` (which built-in wording pack the apps start from: jain, chamber, neutral or faith), `wording` (extra overlay strings, dictionary key to text), `library_pack` (which shared library the experience gets; Jain Center: `jain`). |
+| `app.add_experience(...)` | Migrations only. Adds an experience that starts from one it inherits from: its words, wording pack, overlay and module defaults are the parent's with the overrides given; what it shows (tags), its Setup wording and its dietary extras are read along its lineage. Inactive until a migration switches it on. |
+| `app.list_experiences()` | The picker, callable before login: `(key, label, description, family_key, family_label, faith_based, active, sort)`, active experiences only unless the caller is a platform admin. Faith-based experiences come first, by family. |
+| `app.member_experience(community, known_stamp)` | The one read for the member app, with or without a session: the experience and its words, every module's availability and whether it is on, the questions the app asks most (`flags`: school, learning, store, labh, bolis, niva, practice), what the administrator set up (home shortcuts, branding, timings, time zone, identifiers), the access areas for the caller, the notification topics and the paths, and a `stamp`. Send the stamp back: when nothing changed the answer is only `{stamp, unchanged: true, updated_at}`. |
+| Tags `category_keys` | On `roles`, `notification_topics`, `access_features` and `setup_steps`: empty = every experience, otherwise the experiences named and everything that inherits from them (`app.catalog_shows(keys, category)`). `feature_access_for_me`, `access_settings`, `can_use_feature` and `setup_checklist` leave out what an experience does not show. |
+| `app.setup_step_wording` | An experience's own words for a Setup step (the catalog mentions navkarsi, bolis and the religious coordinator). |
+| `app.category_dietary_options` | Dietary choices an experience adds to a new organization's list (Jain Center: "Jain (no root vegetables)"; Mosque: halal; Swaminarayan Temple: satvik). |
+
+The experiences: **Jain Center** (active; JSH), **Chamber of commerce**, **Community organization** (`nonprofit_secular`,
+the neutral one: any group that is not a house of worship) and **Faith community** (`faith_other`, the generic faith),
+all inactive until the member app speaks their words and an owner has checked a preview sandbox by hand; and three inactive
+ones that only prove the mechanism, inheriting from Faith community: **Swaminarayan Temple**, **Church** and **Mosque**.
+Their words need review by someone from that faith before they are switched on.
+
+**The stamp** is a fingerprint of the `member_experience` answer: an administrator's module switch, a change of the
+experience (`set_center_category`), the home shortcuts, branding, access levels and the catalog's words all change it, and
+putting everything back gives the first stamp again. JSH reads as a Jain Center with the same answers as before.
+
 ## Traceability (every module)
 
 Every app table except `audit_log` has an `audit_<table>` trigger on `app.audit_row()`. Each entry

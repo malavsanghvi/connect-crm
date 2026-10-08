@@ -253,3 +253,7 @@ do $$ begin perform app.seed_jsh_live_stream(id), app.seed_jsh_calendars(id), ap
 -- The Gyan Path content pack (0571) into the shared goals above. On a database that already had them, migration 0571
 -- did this; on a new one the migrations ran before this seed, so the pack is applied here (idempotent).
 select app.apply_gyan_content_pack();
+
+-- The experience tags on roles, notification topics and access areas (0600). On a database that already had the roles, migration
+-- 0600 did this; on a new one the migrations ran before this seed loaded the roles and topics, so it is applied here (idempotent).
+select app.experience_apply_tags();
