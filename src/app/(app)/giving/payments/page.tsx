@@ -33,6 +33,7 @@ import { formatCents } from "@/lib/money";
 import { can, canAccess } from "@/lib/permissions";
 import { hrefWith, isUuid, pageParam, param, type RawSearchParams } from "@/lib/search-params";
 import { getSession } from "@/lib/session";
+import { word } from "@/lib/wording";
 
 import type { Suggestion } from "./bank/gift-line-matcher";
 import { recordCountingDepositAction } from "./counting-actions";
@@ -49,7 +50,7 @@ const METHODS = Object.keys(PAYMENT_METHOD_LABEL) as Method[];
 export default async function PaymentsPage({ searchParams }: { searchParams: Promise<RawSearchParams> }) {
   const session = await getSession();
   const header = (
-    <PageHeader title="Giving" description="Offline payments, deposits, bhandar and refunds" />
+    <PageHeader title="Giving" description={`Offline payments, deposits, ${word(session.kind, "cash_box")} and refunds`} />
   );
   if (!canAccess(session, "payments")) {
     return (
@@ -338,7 +339,7 @@ export default async function PaymentsPage({ searchParams }: { searchParams: Pro
         ) : null}
 
         {seesCounting ? (
-          <Card span={7} title="Bhandar counting sessions" description="Two counters from different households · sealed, numbered bags" padded={false}>
+          <Card span={7} title={word(session.kind, "cash_box_counting")} description="Two counters from different households · sealed, numbered bags" padded={false}>
             {counting?.error ? (
               <div className="p-2.5">
                 <QueryError what="counting sessions" error={counting.error} retryHref="/giving/payments" />

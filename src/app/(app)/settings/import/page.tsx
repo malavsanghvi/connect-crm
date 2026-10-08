@@ -5,7 +5,7 @@ import { BlockGrid, Card, EmptyState, NoAccess, PageHeader, QueryError, StatusTe
 import { userNames } from "@/lib/data/lookups";
 import { formatDateTime } from "@/lib/dates";
 import { runStatusLabel, runStatusTone, type RunCounts } from "@/lib/import/runs";
-import { ENTITIES, TIER_LABEL, canImportEntity, type Tier } from "@/lib/import/registry";
+import { ENTITIES, TIER_LABEL, canImportEntity, entityOfferedTo, type Tier } from "@/lib/import/registry";
 import { canAccess } from "@/lib/permissions";
 import { getSession } from "@/lib/session";
 
@@ -83,7 +83,7 @@ export default async function DataImportPage() {
                   </thead>
                   <tbody>
                     {[...ENTITIES]
-                      .filter((e) => e.tier === t)
+                      .filter((e) => e.tier === t && entityOfferedTo(session.kind, e))
                       .sort((a, b) => a.order - b.order)
                       .map((e) => {
                         const may = canImportEntity(session, e);

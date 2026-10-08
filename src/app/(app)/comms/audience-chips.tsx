@@ -10,7 +10,7 @@ type Opt = { id: string; name: string };
  * Audience chips for surveys and alerts (the same segments as newsletters,
  * combinable). Submits the audience JSON in a hidden "audience" field.
  */
-export function AudienceChips({ zones, classes, events, initial }: { zones: Opt[]; classes: Opt[]; events: Opt[]; initial?: unknown }) {
+export function AudienceChips({ zones, classes, events, initial, school = "Pathshala" }: { zones: Opt[]; classes: Opt[]; events: Opt[]; initial?: unknown; school?: string | null }) {
   const [sel, setSel] = useState<AudienceSelection>(() => (initial ? parseAudience(initial) : { ...EMPTY_SELECTION, allMembers: true }));
   const built = useMemo(() => buildAudience(sel), [sel]);
   const allClassIds = classes.map((c) => c.id);
@@ -27,7 +27,7 @@ export function AudienceChips({ zones, classes, events, initial }: { zones: Opt[
       <div className="flex flex-wrap gap-1.5" role="group" aria-label="Audience segments">
         {chip(sel.allMembers, "All members", () => setSel((s) => ({ ...s, allMembers: !s.allMembers })))}
         {chip(sel.lifeMembers, "Life members", () => setSel((s) => ({ ...s, lifeMembers: !s.lifeMembers })))}
-        {chip(pathshalaOn, "Pathshala parents", () => setSel((s) => ({ ...s, pathshalaClassIds: pathshalaOn ? [] : allClassIds })), allClassIds.length === 0)}
+        {school ? chip(pathshalaOn, `${school} parents`, () => setSel((s) => ({ ...s, pathshalaClassIds: pathshalaOn ? [] : allClassIds })), allClassIds.length === 0) : null}
         {zones.map((z) =>
           chip(sel.zoneIds.includes(z.id), `${z.name} zone`, () =>
             setSel((s) => ({ ...s, zoneIds: s.zoneIds.includes(z.id) ? s.zoneIds.filter((x) => x !== z.id) : [...s.zoneIds, z.id] })),

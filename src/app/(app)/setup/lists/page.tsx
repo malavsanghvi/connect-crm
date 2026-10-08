@@ -11,6 +11,7 @@ import {
   StatusText,
   TableWrap,
 } from "@/components/ui";
+import { moduleNotOffered } from "@/lib/kind";
 import { isModuleEnabled } from "@/lib/modules";
 import { can, canAccess } from "@/lib/permissions";
 import { getSession } from "@/lib/session";
@@ -30,6 +31,7 @@ export const metadata: Metadata = { title: "Lists · Setup" };
 
 const SUB =
   "the lists the modules use that no other screen creates · membership types, funds, inboxes, zones, Pathshala tracks and dietary options";
+const SUB_NO_SCHOOL = "the lists the modules use that no other screen creates · membership types, funds, inboxes, zones and dietary options";
 
 type Row = Record<string, unknown> & { id: string };
 
@@ -191,10 +193,12 @@ function MembershipTypeFields({ r }: { r?: Row }) {
 
 export default async function SetupListsPage() {
   const session = await getSession();
+  const hasSchool = !moduleNotOffered(session.kind, "pathshala");
+  const sub = hasSchool ? SUB : SUB_NO_SCHOOL;
   if (!canAccess(session, "setupLists")) {
     return (
       <>
-        <SetupHeader session={session} sub={SUB} />
+        <SetupHeader session={session} sub={sub} />
         <NoAccess area="Setup lists" access="setupLists" />
       </>
     );
@@ -251,7 +255,7 @@ export default async function SetupListsPage() {
 
   return (
     <>
-      <SetupHeader session={session} sub={SUB} />
+      <SetupHeader session={session} sub={sub} />
       <BlockGrid>
         <Card
           span={12}
@@ -677,74 +681,80 @@ export default async function SetupListsPage() {
           </div>
         </Card>
 
-        <Card
-          span={6}
-          title="Pathshala tracks"
-          description="Setup step: Pathshala tracks and terms · then add each track's levels in Pathshala › Levels and the terms, with their fees, in Pathshala › Terms"
-          actions={
-            off("pathshala") || !canPathshala ? null : (
-              <DrawerForm
-                label="Add track"
-                size="sm"
-                title="New Pathshala track"
-                action={saveListItemAction}
-                submitLabel="Add track"
-                resetOnSuccess
-              >
-                <Hidden list="pathshala_tracks" />
-                <Field
-                  label="Name"
-                  htmlFor="track-name"
-                  hint="For example Weekend Pathshala, Gujarati classes."
+        {/* A kind of organization with no religious school has no tracks to set up. */}
+        {hasSchool ? (
+          <>
+          <Card
+            span={6}
+            title="Pathshala tracks"
+            description="Setup step: Pathshala tracks and terms · then add each track's levels in Pathshala › Levels and the terms, with their fees, in Pathshala › Terms"
+            actions={
+              off("pathshala") || !canPathshala ? null : (
+                <DrawerForm
+                  label="Add track"
+                  size="sm"
+                  title="New Pathshala track"
+                  action={saveListItemAction}
+                  submitLabel="Add track"
+                  resetOnSuccess
                 >
-                  <input
-                    id="track-name"
-                    name="name"
-                    className="crm-input"
-                    maxLength={80}
-                    required
-                  />
-                </Field>
-                <Reason id="track-reason" />
-              </DrawerForm>
-            )
-          }
-        >
-          <div id="pathshala" data-list="pathshala_tracks">
-            {off("pathshala") ? (
-              offNote("pathshala", "Pathshala")
-            ) : tracks.error ? (
-              <QueryError
-                what="the Pathshala tracks"
-                error={tracks.error}
-                retryHref="/setup/lists"
-              />
-            ) : (tracks.data ?? []).length === 0 ? (
-              <EmptyState title="No tracks yet" />
-            ) : (
-              <ul className="flex flex-col gap-1.5 text-[13px]">
-                {(tracks.data ?? []).map((t) => (
-                  <li key={t.id} data-row={t.key}>
-                    <strong>{t.name}</strong>
-                  </li>
-                ))}
-              </ul>
-            )}
-            {!off("pathshala") && !canPathshala ? (
-              <p className="text-[12px] text-muted">
-                Tracks are added by the Pathshala principal (pathshala.manage).
-              </p>
-            ) : null}
-            {!off("pathshala") ? (
-              <Link
-                href="/pathshala/terms"
-                className="crm-link mt-2 block text-[13px]"
-              >
-                Terms (Pathshala › Terms)
-              </Link>
-            ) : null}
-          </div>
-        </Card>
+                  <Hidden list="pathshala_tracks" />
+                  <Field
+                    label="Name"
+                    htmlFor="track-name"
+                    hint="For example Weekend Pathshala, Gujarati classes."
+                  >
+                    <input
+                      id="track-name"
+                      name="name"
+                      className="crm-input"
+                      maxLength={80}
+                      required
+                    />
+                  </Field>
+                  <Reason id="track-reason" />
+                </DrawerForm>
+              )
+            }
+          >
+            <div id="pathshala" data-list="pathshala_tracks">
+              {off("pathshala") ? (
+                offNote("pathshala", "Pathshala")
+              ) : tracks.error ? (
+                <QueryError
+                  what="the Pathshala tracks"
+                  error={tracks.error}
+                  retryHref="/setup/lists"
+                />
+              ) : (tracks.data ?? []).length === 0 ? (
+                <EmptyState title="No tracks yet" />
+              ) : (
+                <ul className="flex flex-col gap-1.5 text-[13px]">
+                  {(tracks.data ?? []).map((t) => (
+                    <li key={t.id} data-row={t.key}>
+                      <strong>{t.name}</strong>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {!off("pathshala") && !canPathshala ? (
+                <p className="text-[12px] text-muted">
+                  Tracks are added by the Pathshala principal (pathshala.manage).
+                </p>
+              ) : null}
+              {!off("pathshala") ? (
+                <Link
+                  href="/pathshala/terms"
+                  className="crm-link mt-2 block text-[13px]"
+                >
+                  Terms (Pathshala › Terms)
+                </Link>
+              ) : null}
+            </div>
+          </Card>
+
+          </>
+        ) : null}
 
         <Card
           span={6}

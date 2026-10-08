@@ -5,7 +5,8 @@
 //
 // Pure — no server imports — so it is unit-tested and usable from client components.
 
-import type { Json } from "@/lib/database.types";
+// Relative import: files the background service (worker/) imports reach this one, and it does not know the "@/" alias.
+import type { Json } from "./database.types";
 
 export type ModuleAvailability = "default_on" | "default_off" | "not_available";
 
@@ -127,8 +128,8 @@ export function notPartOfKindSentence(moduleLabel: string, kindLabel: string): s
 }
 
 /** The longer explanation under it, for a page. */
-export function notOfferedExplanation(centerName: string, kindLabel: string): string {
-  return `${centerName} is set up as ${withArticle(kindLabel)} organization, which does not have this module. Weaver can change an organization's kind if that is wrong.`;
+export function notOfferedExplanation(centerName: string, kindLabel: string, what = "this module"): string {
+  return `${centerName} is set up as ${withArticle(kindLabel)} organization, which does not have ${what}. Weaver can change an organization's kind if that is wrong.`;
 }
 
 /** The module's name in this kind (the kind's own wording, else the catalog's). */
@@ -155,4 +156,46 @@ export function kindFromProfileResult(res: { data: Json | null; error: { code?: 
   }
   const parsed = parseKindProfile(res.data);
   return parsed ? { kind: parsed, status: "ok" } : { kind: LEGACY_KIND, status: "error" };
+}
+
+// ---------------------------------------------------------------------------
+// What a kind has, beyond the modules it offers
+// ---------------------------------------------------------------------------
+
+/**
+ * Parts of a screen that exist only for some kinds. Each is decided from the kind's own data, never from its name:
+ *   labh        Labh fulfillment (a gift of a pledge's blessing): the `labh` module when the database has one, else
+ *               the Bolis module, which a kind always has or lacks together with it.
+ *   tradition   the tradition pack: panchang and tithi, the daily timings (navkarsi, chauvihar), pachchakhan, the
+ *               tradition's flyer occasions and KPIs. The kinds whose `uses_tradition` is true. A kind the database
+ *               says nothing about keeps today's screens.
+ */
+export type KindFeature = "labh" | "tradition";
+
+export function kindHas(kind: Pick<KindProfile, "modules" | "usesTradition">, feature: KindFeature): boolean {
+  switch (feature) {
+    case "labh":
+      return !moduleNotOffered(kind, "labh" in kind.modules ? "labh" : "bolis");
+    case "tradition":
+      return kind.usesTradition !== false;
+  }
+}
+
+/** A part of the kind's own wording for a module that the NAV and the screens name by default. */
+const MODULE_TERM: Readonly<Record<string, string>> = { store: "store", pathshala: "school", gyan_path: "learning" };
+
+/**
+ * A module's name in this kind: the kind's own name for the module (category_modules.label) first, else the kind's
+ * term for it (the store, the school, the learning path), else `fallback`, the name the screens always had.
+ */
+export function kindName(kind: Pick<KindProfile, "modules" | "terms">, moduleKey: string, fallback: string): string {
+  const own = kind.modules[moduleKey]?.label;
+  if (own) return own;
+  const term = MODULE_TERM[moduleKey];
+  return term ? kindTerm(kind, term, fallback) : fallback;
+}
+
+/** What the kind calls its religious school ("Pathshala"), or null when the kind has none (a chamber, a club …). */
+export function kindSchool(kind: Pick<KindProfile, "modules" | "terms">): string | null {
+  return moduleNotOffered(kind, "pathshala") ? null : kindName(kind, "pathshala", "Pathshala");
 }

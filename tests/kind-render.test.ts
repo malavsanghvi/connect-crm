@@ -12,7 +12,7 @@ vi.mock("@/lib/session", () => ({ loadSession: () => loadSession() }));
 
 import { ModulesForm } from "@/app/(app)/settings/modules/modules-form";
 import { KindPanel } from "@/app/(app)/platform/centers/[id]/kind-panel";
-import { ModuleGate } from "@/components/module-gate";
+import { KindGate, ModuleGate } from "@/components/module-gate";
 import { toExperiences } from "@/lib/experiences";
 import { LEGACY_KIND, parseKindProfile } from "@/lib/kind";
 import { buildModuleRowsFromStates } from "@/lib/modules";
@@ -112,6 +112,28 @@ describe("the module gate", () => {
     loadSession.mockResolvedValue(session(chamber, []));
     const html = render(await ModuleGate({ module: "bolis", children: createElement("p", null, "the page") }));
     expect(html).toContain("the page");
+  });
+});
+
+describe("the gate for a part only some kinds have (Labh)", () => {
+  const chamberKind = parseKindProfile({
+    category: { key: "chamber_of_commerce", label: "Chamber of commerce", faith_based: false, uses_tradition: false, terms: {} },
+    modules: { bolis: { availability: "not_available", label: null } },
+  })!;
+  const session = (kind: typeof LEGACY_KIND) => ({ status: "ok", session: { kind, center: { name: "Houston Chamber", short_name: null } } });
+  beforeEach(() => loadSession.mockReset());
+  it("says Labh is not part of a chamber of commerce", async () => {
+    loadSession.mockResolvedValue(session(chamberKind));
+    const html = render(await KindGate({ feature: "labh", label: "Labh fulfillment", children: createElement("p", null, "the page") }));
+    expect(html).toContain("Labh fulfillment is not part of a Chamber of commerce organization.");
+    expect(html).toContain("does not have Labh fulfillment");
+    expect(html).not.toContain("the page");
+  });
+  it("shows the page for a Jain Center", async () => {
+    loadSession.mockResolvedValue(session(LEGACY_KIND));
+    const html = render(await KindGate({ feature: "labh", label: "Labh fulfillment", children: createElement("p", null, "the page") }));
+    expect(html).toContain("the page");
+    expect(html).not.toContain("not part of");
   });
 });
 

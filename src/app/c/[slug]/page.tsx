@@ -4,6 +4,7 @@ import type { Metadata } from "next";
 import type { Database } from "@/lib/database.types";
 import { todayInTz } from "@/lib/dates";
 import { readPublicEnv } from "@/lib/env";
+import { kindFromProfileResult } from "@/lib/kind";
 import { newRequestId, traceHeaders } from "@/lib/supabase/trace";
 import { explainError } from "@/lib/errors";
 import { tenantBranding } from "@/lib/shell";
@@ -62,6 +63,11 @@ export default async function PublicDashboardPage({ params }: { params: Params }
   else if (on.data === false) {
     return <Problem title={`${b.shortName} community dashboard`} body={`${center.name} isn't publishing its community dashboard right now. Please check back later.`} />;
   }
+  // The kind of organization decides which sections the dashboard has and what it calls them. If the database cannot say,
+  // the dashboard reads as it always did (a Jain Center).
+  const profile = await c.db.rpc("category_profile", { p_center: center.id });
+  const kind = kindFromProfileResult(profile);
+  if (kind.status === "error") console.error("[public-dashboard] could not load the kind of organization; showing the default sections:", profile.error);
   const raw = center.branding && typeof center.branding === "object" && !Array.isArray(center.branding) ? (center.branding as Record<string, unknown>) : {};
   const joinUrl = [raw.join_url, raw.website_url, raw.website].find((v): v is string => typeof v === "string" && /^https:\/\//i.test(v)) ?? null;
 
@@ -74,6 +80,7 @@ export default async function PublicDashboardPage({ params }: { params: Params }
       branding={b}
       today={todayInTz(center.time_zone)}
       joinUrl={joinUrl}
+      kind={kind.kind}
     />
   );
 }

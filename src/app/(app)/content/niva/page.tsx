@@ -26,6 +26,7 @@ import {
 import { canAccess } from "@/lib/permissions";
 import { hrefWith, pageParam, param, type RawSearchParams } from "@/lib/search-params";
 import { getSession, type CrmSession } from "@/lib/session";
+import { nivaGuardrail, nivaReferralSentence, nivaSourcesHint } from "@/lib/wording";
 
 import { approveNivaContentAction } from "../../setup/approval-actions";
 import { ApprovalCard } from "../../setup/_components/approval-card";
@@ -42,8 +43,8 @@ import { ContentHeader, contentGate } from "../shared";
 
 export const metadata: Metadata = { title: "Content · Niva" };
 
-const GUARDRAILS: [string, string][] = [
-  ["Doctrinal questions", "Answer from approved content, then refer to Pathshala teachers"],
+const guardrails = (kind: CrmSession["kind"]): [string, string][] => [
+  nivaGuardrail(kind),
   ["Personal member data", "None — Niva cannot look up any member’s account, eligibility, RSVPs or payments."],
   ["When unsure", "Say so and offer Ask a question"],
   ["Conversation logs", "Kept 30 days · never used to train models"],
@@ -212,8 +213,8 @@ export default async function NivaPage({ searchParams }: { searchParams: Promise
           A member&apos;s question is checked against the sources marked &ldquo;Included&rdquo; below
           {answerFrom.guide || answerFrom.faq ? ` (and ${[answerFrom.guide ? "the Guide's public sections" : null, answerFrom.faq ? "published FAQ items" : null].filter(Boolean).join(" and ")})` : ""};
           when one clearly answers it, Niva replies with that source cited. When none does, or Niva isn&apos;t confident, the question is saved
-          as unanswered and the member is told honestly that it&apos;s still being looked into — never a guess. Doctrinal questions are always
-          referred on to Pathshala teachers as well. Added or approved a source? Press Try again on the unanswered questions below; edited one?
+          as unanswered and the member is told honestly that it&apos;s still being looked into — never a guess. {nivaReferralSentence(session.kind)}{" "}
+          Added or approved a source? Press Try again on the unanswered questions below; edited one?
           Regenerate the answers that cite it.{canDraft ? " To see what Niva would say, ask it in Test Niva." : ""}
         </Alert>
         {healthView?.usage ? <NivaUsageLine usage={healthView.usage} /> : null}
@@ -245,7 +246,7 @@ export default async function NivaPage({ searchParams }: { searchParams: Promise
               <QueryError what="Niva's sources" error={index.error || sources.error} retryHref="/content/niva" />
             </div>
           ) : totals.total === 0 ? (
-            <EmptyState title="No sources yet">Add the calendar, guide, membership rules and Gyan Path content Niva may answer from. Each source is approved before Niva uses it.</EmptyState>
+            <EmptyState title="No sources yet">{nivaSourcesHint(session.kind)} Each source is approved before Niva uses it.</EmptyState>
           ) : pageRows.length === 0 ? (
             <EmptyState title={visibleTotal === 0 ? "Every source is retired" : "No sources on this page"}>
               {visibleTotal === 0 ? (
@@ -406,7 +407,7 @@ export default async function NivaPage({ searchParams }: { searchParams: Promise
         ) : null}
         <Card title="Guardrails" span={canDraft ? 5 : 12} description="How Niva is built to behave; these are fixed, not settings.">
           <div className="flex flex-col gap-3">
-            {GUARDRAILS.map(([label, value]) => (
+            {guardrails(session.kind).map(([label, value]) => (
               <div key={label}>
                 <p className="crm-label">{label}</p>
                 <InfoBox>{value}</InfoBox>

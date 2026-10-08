@@ -13,7 +13,9 @@
 //   ref      for a link to another record: how the database finds it (never by
 //            a person's or household's name — ARCHITECTURE "Names are never enough").
 
+import { kindHas, moduleNotOffered } from "@/lib/kind";
 import type { ModuleKey } from "@/lib/modules";
+import type { KindLike } from "@/lib/wording";
 
 export type Tier = "setup" | "records" | "history";
 
@@ -1584,4 +1586,14 @@ export function entityExtras(e: EntityDef): string[] {
 /** True when the user may import this data type (UI convenience; the database checks again). */
 export function canImportEntity(perms: { permissions: readonly string[]; isPlatformAdmin: boolean }, e: EntityDef): boolean {
   return perms.isPlatformAdmin || e.writePerms.some((p) => perms.permissions.includes(p));
+}
+
+/**
+ * Whether this kind of organization is offered a dataset in Settings › Data import: not when the dataset belongs to a module
+ * the kind never has (Pathshala, Bolis, My Jain Way, Gyan Path), nor the Labh menu where the kind has no Labh.
+ */
+export function entityOfferedTo(kind: KindLike, e: Pick<EntityDef, "key" | "module">): boolean {
+  if (e.module && moduleNotOffered(kind, e.module)) return false;
+  if (e.key === "labh_options" && !kindHas(kind, "labh")) return false;
+  return true;
 }

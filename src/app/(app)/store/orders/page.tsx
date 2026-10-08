@@ -10,6 +10,8 @@ import { formatDate, formatDateTime, startOfDayInTz, todayInTz } from "@/lib/dat
 import type { DbErrorLike } from "@/lib/errors";
 import { formatTimeRange } from "@/lib/local-time";
 import { formatCents } from "@/lib/money";
+import { kindTerm } from "@/lib/kind";
+import { kindTitle } from "@/lib/kind-title";
 import { canAccess } from "@/lib/permissions";
 import { isUuid, param, type RawSearchParams } from "@/lib/search-params";
 import { getSession } from "@/lib/session";
@@ -17,7 +19,7 @@ import { prepList, slotStatus, topItems, windowCounts, type SlotStatus } from "@
 
 import { moveOrderAction } from "../actions";
 
-export const metadata: Metadata = { title: "Orders by pickup · Satvik Store" };
+export const generateMetadata = (): Promise<Metadata> => kindTitle((k) => `Orders by pickup · ${kindTerm(k, "store", "Satvik Store")}`, "Orders by pickup · Satvik Store");
 
 const NEXT_STEP: Record<string, { to: string; label: string; variant: "ghost" | "ok" | "primary" }[]> = {
   placed: [{ to: "preparing", label: "Start preparing", variant: "ghost" }],
@@ -36,7 +38,9 @@ const STATUS_TONE: Record<SlotStatus, "ok" | "warn" | "bad" | null> = {
 
 export default async function StoreOrdersPage({ searchParams }: { searchParams: Promise<RawSearchParams> }) {
   const session = await getSession();
-  const header = <PageHeader title="Satvik Store" description="Kitchen prep lists by pickup slot" />;
+  // The store is "Satvik Store" for a Jain Center; any other kind names its own.
+  const storeName = kindTerm(session.kind, "store", "Satvik Store");
+  const header = <PageHeader title={storeName} description="Kitchen prep lists by pickup slot" />;
   if (!canAccess(session, "storeOrders")) {
     return (
       <>

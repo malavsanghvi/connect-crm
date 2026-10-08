@@ -6,6 +6,7 @@ import { ActionForm } from "@/components/action-form";
 import { ChipGroup } from "@/components/controls";
 import { Card, InfoBox, buttonClass } from "@/components/ui";
 import { RECEIPT_KINDS, receiptPreviewLines, type ReceiptKind } from "@/lib/giving";
+import type { KindProfile } from "@/lib/kind";
 
 import { saveReceiptTemplateAction } from "./actions";
 
@@ -21,6 +22,7 @@ export function ReceiptTemplateEditor({
   centerAddress,
   year,
   currency,
+  orgKind,
 }: {
   values: TemplateValues;
   canEdit: boolean;
@@ -28,12 +30,14 @@ export function ReceiptTemplateEditor({
   centerAddress: string | null;
   year: number;
   currency: string;
+  /** The organization's kind: the sample's wording follows it (a house of worship's sample differs from a chamber's). */
+  orgKind: Pick<KindProfile, "faithBased" | "usesTradition" | "terms">;
 }) {
   const [kind, setKind] = useState<ReceiptKind>("donation_receipt");
   const [draft, setDraft] = useState(values);
   const cur = draft[kind];
   const set = (patch: Partial<{ signedBy: string; note: string }>) => setDraft((d) => ({ ...d, [kind]: { ...d[kind], ...patch } }));
-  const lines = receiptPreviewLines({ kind, centerName, centerAddress, signedBy: cur.signedBy, note: cur.note, year, currency });
+  const lines = receiptPreviewLines({ kind, centerName, centerAddress, signedBy: cur.signedBy, note: cur.note, year, currency, orgKind });
 
   return (
     <>

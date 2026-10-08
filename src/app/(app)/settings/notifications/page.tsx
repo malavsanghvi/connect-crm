@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import { NoAccess, PageHeader } from "@/components/ui";
 import { canAccess } from "@/lib/permissions";
 import { getSession } from "@/lib/session";
-import { NOTIFICATION_TRIGGERS, readNotificationSettings, readRuleSettings, rulesVersion } from "@/lib/settings-rules";
+import { notificationTriggersFor, readNotificationSettings, readRuleSettings, rulesVersion } from "@/lib/settings-rules";
 
 import { BlockGrid, Card, QueryError, StatusText } from "@/components/ui";
 import { formatDateTime } from "@/lib/dates";
@@ -45,12 +45,16 @@ export default async function NotificationsPage() {
     languages = langs.length > 0 ? `${langs.join(", ")} templates` : "No message templates on file yet";
   }
 
+  // Triggers of a part this kind of organization does not have are not listed; a switch already on is saved on.
+  const { shown, hidden } = notificationTriggersFor(session.kind);
+  const settings = readNotificationSettings(center.rules);
   return (
     <>
       {header}
       <NotificationsForm
-        triggers={NOTIFICATION_TRIGGERS.map((t) => ({ key: t.key, label: t.label, when: t.when(rules), channel: t.channel }))}
-        initial={readNotificationSettings(center.rules)}
+        triggers={shown.map((t) => ({ key: t.key, label: t.label, when: t.when(rules), channel: t.channel }))}
+        kept={hidden.filter((t) => settings.triggers[t.key]).map((t) => t.key)}
+        initial={settings}
         version={rulesVersion(center.rules)}
         languages={languages}
         canEdit

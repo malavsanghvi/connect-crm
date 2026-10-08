@@ -5,6 +5,7 @@ import { RowActions } from "@/components/row-actions";
 import { Card, EmptyState, QueryError, StatusText, TableWrap } from "@/components/ui";
 import { describeAudience } from "@/lib/comms";
 import { audienceOptions } from "@/lib/data/content-comms";
+import { kindSchool } from "@/lib/kind";
 import { formatDateTime } from "@/lib/dates";
 import { canAccess } from "@/lib/permissions";
 import { getSession } from "@/lib/session";
@@ -31,7 +32,7 @@ export default async function AlertsPage() {
   const canSend = canAccess(session, "commsSend");
   const [alerts, opts] = await Promise.all([
     db.from("alerts").select("*").eq("center_id", center.id).order("starts_at", { ascending: false }).limit(50),
-    audienceOptions(db, center.id),
+    audienceOptions(db, center.id, kindSchool(session.kind)),
   ]);
   const names = audienceNames(opts.data);
   const nowIso = new Date().toISOString();
@@ -80,7 +81,7 @@ export default async function AlertsPage() {
                   <input id="al-end" type="datetime-local" name="ends_at" className="crm-input" />
                 </div>
               </div>
-              <AudienceChips zones={opts.data.zones} classes={opts.data.classes} events={opts.data.events} />
+              <AudienceChips zones={opts.data.zones} classes={opts.data.classes} events={opts.data.events} school={opts.data.school} />
             </DrawerForm>
           ) : null
         }

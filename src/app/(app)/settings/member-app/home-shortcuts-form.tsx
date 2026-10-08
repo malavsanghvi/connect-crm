@@ -16,12 +16,18 @@ import { saveHomeShortcutsAction } from "./actions";
  */
 export function HomeShortcutsCard({
   initial,
+  kept = [],
+  opens,
   version,
   centerName,
   moduleNotes,
   canEdit,
 }: {
   initial: HomeShortcutRow[];
+  /** Shortcuts this kind of organization does not have but that are stored as shown: saved again unchanged. */
+  kept?: HomeShortcutKey[];
+  /** What each shortcut opens, in the organization's words. */
+  opens?: Partial<Record<HomeShortcutKey, string>>;
   version: number | null;
   centerName: string;
   /** Per shortcut: why members do not see it even when it is on (its module is switched off). */
@@ -39,7 +45,7 @@ export function HomeShortcutsCard({
       description={`Round buttons on Home in the member app, just under “Today at ${centerName}”. Members swipe sideways when they do not all fit.`}
     >
       <SettingsForm action={saveHomeShortcutsAction} version={version} dirty={dirty} readOnly={!canEdit} readOnlyNote="Only people with settings.manage can change the Home shortcuts.">
-        {shownShortcuts(rows).map((k) => (
+        {[...shownShortcuts(rows), ...kept].map((k) => (
           <input key={k} type="hidden" name="shortcut" value={k} />
         ))}
         <ol className="divide-y divide-line-soft rounded-[10px] border border-line" aria-label="Home shortcuts, in the order members see them">
@@ -54,7 +60,7 @@ export function HomeShortcutsCard({
                 </span>
                 <div className="min-w-[12rem] flex-1">
                   <p className="text-[14px] font-bold text-ink">{def.label}</p>
-                  <p className="text-[12px] text-muted">{def.opens}</p>
+                  <p className="text-[12px] text-muted">{opens?.[r.key] ?? def.opens}</p>
                   {note && r.on ? <p className="text-[12px] font-semibold text-brown">{note}</p> : null}
                 </div>
                 <Toggle

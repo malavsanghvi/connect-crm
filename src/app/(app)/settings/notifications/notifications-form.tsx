@@ -16,12 +16,15 @@ const HOURS = Array.from({ length: 24 }, (_, h) => h);
 
 export function NotificationsForm({
   triggers,
+  kept = [],
   initial,
   version,
   languages,
   canEdit,
 }: {
   triggers: TriggerRow[];
+  /** Switches of triggers this kind of organization does not have, already on: saved on again, unchanged. */
+  kept?: string[];
   initial: NotificationSettings;
   version: number | null;
   languages: string;
@@ -38,6 +41,9 @@ export function NotificationsForm({
   return (
     <ActionForm action={saveRulesSectionAction} submitLabel="Save" hideSubmit>
       <input type="hidden" name="section" value="notifications" />
+      {kept.map((k) => (
+        <input key={k} type="hidden" name={`trigger_${k}`} value="on" />
+      ))}
       <input type="hidden" name="version" value={version === null ? "" : String(version)} />
       <BlockGrid>
         <Card

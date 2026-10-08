@@ -20,7 +20,7 @@ import { previewRecipientsAction, saveCampaignAction, submitNewsletterAction } f
 import { CustomSegmentPicker, type CustomFieldOption } from "./custom-segment-picker";
 
 type Opt = { id: string; name: string };
-export type ComposeOptions = { zones: Opt[]; classes: Opt[]; events: Opt[]; unavailable: string[]; customFields?: CustomFieldOption[] };
+export type ComposeOptions = { zones: Opt[]; classes: Opt[]; events: Opt[]; school?: string | null; unavailable: string[]; customFields?: CustomFieldOption[] };
 
 export type CampaignDraft = {
   id: string;
@@ -167,14 +167,16 @@ export function NewsletterCompose({
                 <Chip on={sel.lifeMembers} onClick={() => toggle("lifeMembers")}>
                   Life members
                 </Chip>
-                <Chip
-                  on={pathshalaOn}
-                  disabled={allClassIds.length === 0}
-                  title={allClassIds.length === 0 ? "No Pathshala classes you can see this term" : undefined}
-                  onClick={() => setSel((s) => ({ ...s, pathshalaClassIds: pathshalaOn ? [] : allClassIds }))}
-                >
-                  Pathshala parents
-                </Chip>
+                {(options.school === undefined ? "Pathshala" : options.school) ? (
+                  <Chip
+                    on={pathshalaOn}
+                    disabled={allClassIds.length === 0}
+                    title={allClassIds.length === 0 ? `No ${options.school ?? "Pathshala"} classes you can see this term` : undefined}
+                    onClick={() => setSel((s) => ({ ...s, pathshalaClassIds: pathshalaOn ? [] : allClassIds }))}
+                  >
+                    {options.school ?? "Pathshala"} parents
+                  </Chip>
+                ) : null}
                 {options.zones.map((z) => (
                   <Chip key={z.id} on={sel.zoneIds.includes(z.id)} onClick={() => toggleZone(z.id)}>
                     {z.name} zone

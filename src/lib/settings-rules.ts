@@ -17,6 +17,8 @@
 
 import { isPlainObject } from "@/lib/center-rules";
 import type { Json } from "@/lib/database.types";
+import { kindHas, moduleNotOffered } from "@/lib/kind";
+import type { KindLike } from "@/lib/wording";
 
 export type RulesObject = { [key: string]: Json | undefined };
 
@@ -459,4 +461,23 @@ export function parseSection(section: RulesSection, read: Read): ParsedSection {
       };
     }
   }
+}
+
+/**
+ * The automatic notifications this kind of organization has. A trigger that belongs to a part the kind does not have (the
+ * special-day labh prompt, Saathi, boli notices, the pachchakhan reminder, homework) is not listed; the page keeps its stored
+ * switch as it is when the list is saved.
+ */
+export function notificationTriggersFor(kind: KindLike): { shown: NotificationTrigger[]; hidden: NotificationTrigger[] } {
+  const owner: Record<string, (k: KindLike) => boolean> = {
+    special_day_labh: (k) => kindHas(k, "labh"),
+    family_celebration: (k) => !moduleNotOffered(k, "jain_way") || !moduleNotOffered(k, "gyan_path"),
+    saathi_support: (k) => !moduleNotOffered(k, "jain_way"),
+    boli_outbid: (k) => !moduleNotOffered(k, "bolis"),
+    store_order_ready: (k) => !moduleNotOffered(k, "store"),
+    pachchakhan_reminder: (k) => kindHas(k, "tradition"),
+    homework_reminder: (k) => !moduleNotOffered(k, "gyan_path"),
+  };
+  const has = (t: NotificationTrigger) => owner[t.key]?.(kind) ?? true;
+  return { shown: NOTIFICATION_TRIGGERS.filter(has), hidden: NOTIFICATION_TRIGGERS.filter((t) => !has(t)) };
 }
