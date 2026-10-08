@@ -574,14 +574,17 @@ $$;
 create or replace function app._rsvp_confirmation_sweep(p_limit integer default 200) returns jsonb
 language plpgsql security definer set search_path = app, public, extensions as $$
 declare ev record; a record; v_res jsonb; v_left int := greatest(coalesce(p_limit, 200), 1); v_pushed int := 0; v_refused int := 0;
-        v_counts jsonb; v_err text; v_more boolean := false;
+        v_counts jsonb; v_err text; v_more boolean := false; v_zones text[];
 begin
+  -- A community whose time zone is not a known zone is skipped (one bad setting must not stop everyone else's notices).
+  select coalesce(array_agg(lower(z.name)), '{}') into v_zones from pg_timezone_names z;
   for ev in
     select e.id, e.center_id, e.name, e.starts_at, e.confirmation_hours_before as hrs, c.time_zone
       from app.events e join app.centers c on c.id = e.center_id
      where e.status in ('published', 'rsvp_closed') and e.confirmation_hours_before > 0 and e.starts_at is not null
        and e.starts_at > now() and now() >= e.starts_at - make_interval(hours => e.confirmation_hours_before)
        and coalesce(c.rules #>> '{notifications,triggers,rsvp_confirmation}', '') <> 'false'
+       and lower(c.time_zone) = any (v_zones)
      order by e.starts_at, e.id
   loop
     if v_left <= 0 then v_more := true; exit; end if;
@@ -634,8 +637,9 @@ end $$;
 create or replace function app._boli_closing_sweep(p_limit integer default 200) returns jsonb
 language plpgsql security definer set search_path = app, public, extensions as $$
 declare b record; a record; v_res jsonb; v_left int := greatest(coalesce(p_limit, 200), 1); v_pushed int := 0; v_refused int := 0;
-        v_counts jsonb; v_err text; v_more boolean := false;
+        v_counts jsonb; v_err text; v_more boolean := false; v_zones text[];
 begin
+  select coalesce(array_agg(lower(z.name)), '{}') into v_zones from pg_timezone_names z;
   for b in
     select bo.id, bo.center_id, bo.name, bo.event_id, coalesce(bo.extended_until, bo.closes_at) as close_at, c.time_zone
       from app.bolis bo join app.centers c on c.id = bo.center_id
@@ -644,6 +648,7 @@ begin
        and now() >= coalesce(bo.extended_until, bo.closes_at) - interval '24 hours'
        and (bo.opens_at is null or bo.opens_at <= now())
        and coalesce(c.rules #>> '{notifications,triggers,boli_outbid}', '') <> 'false'
+       and lower(c.time_zone) = any (v_zones)
      order by 5, bo.id
   loop
     if v_left <= 0 then v_more := true; exit; end if;
@@ -695,8 +700,9 @@ end $$;
 create or replace function app._special_day_labh_sweep(p_limit integer default 200) returns jsonb
 language plpgsql security definer set search_path = app, public, extensions as $$
 declare sd record; a record; v_res jsonb; v_left int := greatest(coalesce(p_limit, 200), 1); v_pushed int := 0; v_refused int := 0;
-        v_counts jsonb; v_err text; v_more boolean := false; v_days int; v_expires timestamptz;
+        v_counts jsonb; v_err text; v_more boolean := false; v_days int; v_expires timestamptz; v_zones text[];
 begin
+  select coalesce(array_agg(lower(z.name)), '{}') into v_zones from pg_timezone_names z;
   for sd in
     select x.* from (
       select s.id, s.center_id, s.household_id, s.reminder_days_before as lead_days, c.time_zone,
@@ -705,6 +711,7 @@ begin
         from app.special_days s join app.centers c on c.id = s.center_id
        where s.calendar_date is not null and s.labh_prompt_enabled and s.kind <> 'punyatithi'
          and coalesce(c.rules #>> '{notifications,triggers,special_day_labh}', '') <> 'false'
+         and lower(c.time_zone) = any (v_zones)
     ) x
      where x.occurs_on is not null and x.occurs_on - greatest(x.lead_days, 0) <= x.today
      order by x.occurs_on, x.id

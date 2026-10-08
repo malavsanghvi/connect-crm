@@ -116,6 +116,13 @@ grant connect_worker to postgres;
 \set sd_punya '''83000000-0000-4000-8000-0000000000d9'''
 \set sd_off '''83000000-0000-4000-8000-0000000000e9'''
 \set sd_tithi '''83000000-0000-4000-8000-0000000000f9'''
+\set pbad '''83000000-0000-4000-8000-0000000000ca'''
+\set u_bad '''83000000-0000-4000-8000-0000000000ba'''
+\set bad '''83000000-0000-4000-8000-0000000000da'''
+\set h_bad '''83000000-0000-4000-8000-0000000000ea'''
+\set ev_bad '''83000000-0000-4000-8000-0000000000fa'''
+\set b_bad '''83000000-0000-4000-8000-0000000000bb'''
+\set sd_bad '''83000000-0000-4000-8000-0000000000ac'''
 \set order1 '''83000000-0000-4000-8000-0000000000aa'''
 \set order2 '''83000000-0000-4000-8000-0000000000ab'''
 
@@ -151,6 +158,25 @@ insert into app.push_devices (user_id, center_id, platform, token, last_seen_at,
   (:u_esha, :p, 'android', 'ExponentPushToken[gaps83esha]', now(), null),
   (:u_pari, :p, 'ios', 'ExponentPushToken[gaps83pari]', now(), null),
   (:u_ravi, :p, 'android', 'ExponentPushToken[gaps83ravi]', now(), null);
+
+-- A community whose time zone is not a known zone, with everything a sweep could notify about: the sweeps skip it, so
+-- one bad setting stops nobody else's notices (without the guard every sweep below would fail on it).
+insert into auth.users (id, email) values (:u_bad, 'bad83@example.com');
+insert into app.centers (id, slug, name, short_name, state_region, status, time_zone) values
+  (:pbad, 'gaps83bad', 'Bad Zone Center', 'BZC', 'TX', 'active', 'Mars/Phobos');
+insert into app.households (id, center_id, display_name) values (:h_bad, :pbad, 'Zone family');
+insert into app.people (id, center_id, first_name, last_name, email, date_of_birth) values (:bad, :pbad, 'Zed', 'Zone', 'bad83@example.com', '1980-01-01');
+insert into app.household_members (household_id, person_id, center_id, role, is_primary) values (:h_bad, :bad, :pbad, 'primary', true);
+insert into app.center_users (center_id, user_id, person_id) values (:pbad, :u_bad, :bad);
+insert into app.push_devices (user_id, center_id, platform, token, last_seen_at, invalid_at) values (:u_bad, :pbad, 'ios', 'ExponentPushToken[gaps83bad]', now(), null);
+insert into app.events (id, center_id, name, starts_at, ends_at, status, capacity, confirmation_hours_before) values
+  (:ev_bad, :pbad, 'Bad zone event 83', now() + interval '20 hours', now() + interval '24 hours', 'published', 100, 24);
+insert into app.rsvps (center_id, event_id, household_id, status, created_at) values (:pbad, :ev_bad, :h_bad, 'rsvpd', now() - interval '30 hours');
+insert into app.bolis (id, center_id, name, kind, floor_cents, step_cents, status, closes_at) values (:b_bad, :pbad, 'Bad zone boli 83', 'digital', 10000, 1000, 'open', now() + interval '20 hours');
+insert into app.boli_entries (center_id, boli_id, household_id, person_id, amount_cents, entered_at) values (:pbad, :b_bad, :h_bad, :bad, 10000, now() - interval '6 hours');
+insert into app.labh_options (center_id, name, amount_cents) values (:pbad, 'Aarti bad zone 83', 5100);
+insert into app.special_days (id, center_id, household_id, person_id, kind, label, calendar_date, reminder_days_before, labh_prompt_enabled)
+values (:sd_bad, :pbad, :h_bad, :bad, 'birthday', 'Bad zone day 83', (current_date + 5 - interval '28 years')::date, 14, true);
 
 -- ── The pieces ───────────────────────────────────────────────────────────────────
 select pg_temp.assert(to_regprocedure('app.enqueue_message(uuid,text,text,text,jsonb,text)') is not null
@@ -290,6 +316,8 @@ select pg_temp.sweep() as sw1 \gset
 select pg_temp.assert(not (:'sw1'::jsonb->'rsvp_confirmation' ? 'error') and not (:'sw1'::jsonb->'boli_closing' ? 'error')
                       and not (:'sw1'::jsonb->'special_day_labh' ? 'error'),
   'no sweep failed: ' || :'sw1');
+select pg_temp.assert(not exists (select 1 from app.messages where center_id = :pbad) and not exists (select 1 from app.notice_log where center_id = :pbad),
+  'the community with an unknown time zone is skipped, and the others are served');
 select pg_temp.assert((select count(*) from pg_temp.notices('rsvp_confirmation', 'event_id', :ev_conf)) = 2
                       and (select array_agg(person_id order by person_id) from pg_temp.notices('rsvp_confirmation', 'event_id', :ev_conf))
                           = array[:asha, :pari]::uuid[],
