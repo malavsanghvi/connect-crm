@@ -38,17 +38,18 @@ insert into app.roles (key, tier, name, default_scope, description, permissions)
 ('child',                 'family',     'Child (under 18)',        'center',   'View events, learning, My Jain Way; no RSVP, bolis, pledges or payments', '[]')
 on conflict (key) do update set permissions = excluded.permissions, description = excluded.description, name = excluded.name;
 
-insert into app.notification_topics (key, name, default_on, marketing) values
-('events', 'Events and reminders', true, false),
-('giving', 'Giving opportunities and bolis', true, true),
-('pathshala', 'Pathshala updates', true, false),
-('timings', 'Daily temple timings', false, false),
-('jain_way', 'My Jain Way reminders', true, false),
-('family', 'Family celebrations and support', true, false),
-('store', 'Satvik Store', false, true),
-('newsletter', 'Newsletters', true, true),
-('alerts', 'Important alerts', true, false),
-('account', 'Account and security', true, false)
+-- has_sender (0598): false for a topic nothing in Weaver sends, so the member app hides its switch.
+insert into app.notification_topics (key, name, default_on, marketing, has_sender) values
+('events', 'Events and reminders', true, false, true),
+('giving', 'Giving opportunities and bolis', true, true, true),
+('pathshala', 'Pathshala updates', true, false, true),
+('timings', 'Daily temple timings', false, false, false),
+('jain_way', 'My Jain Way reminders', true, false, false),
+('family', 'Family celebrations and support', true, false, false),
+('store', 'Satvik Store', false, true, true),
+('newsletter', 'Newsletters', true, true, false),
+('alerts', 'Important alerts', true, false, false),
+('account', 'Account and security', true, false, false)
 on conflict (key) do nothing;
 
 -- ---------------------------------------------------------------------------

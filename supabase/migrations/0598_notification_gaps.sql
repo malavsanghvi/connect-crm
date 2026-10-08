@@ -29,23 +29,24 @@
 -- is now the only one.
 set client_min_messages = warning;
 
--- The five topics the notices below carry (seed.sql loads them into a new database; a notice whose topic is missing
--- would be refused by the foreign key, so make sure).
-insert into app.notification_topics (key, name, default_on, marketing) values
-  ('events', 'Events and reminders', true, false),
-  ('giving', 'Giving opportunities and bolis', true, true),
-  ('pathshala', 'Pathshala updates', true, false),
-  ('family', 'Family celebrations and support', true, false),
-  ('store', 'Satvik Store', false, true)
-on conflict (key) do nothing;
-
 -- ── Which topics have a sender ───────────────────────────────────────────────────
 alter table app.notification_topics add column if not exists has_sender boolean not null default true;
 comment on column app.notification_topics.has_sender is
   'False when nothing in Weaver sends notices of this topic (0598), so the member app hides its switch instead of showing one that does nothing. Set it to true in the migration that builds the sender.';
+
+-- The five topics the notices below carry (seed.sql loads all ten into a new database AFTER the migrations, with the same
+-- has_sender values; a notice whose topic is missing would be refused by the foreign key, so make sure).
+insert into app.notification_topics (key, name, default_on, marketing, has_sender) values
+  ('events', 'Events and reminders', true, false, true),
+  ('giving', 'Giving opportunities and bolis', true, true, true),
+  ('pathshala', 'Pathshala updates', true, false, true),
+  ('family', 'Family celebrations and support', true, false, false),
+  ('store', 'Satvik Store', false, true, true)
+on conflict (key) do nothing;
 do $$
 begin
   perform app.set_audit_context('0598: topics that nothing sends are hidden from the member app''s notification switches');
+  -- (A database that already has the topics gets the flags here; a new one gets them from seed.sql.)
   -- timings: no daily-timings push exists. jain_way: My Jain Way reminders are set on the phone itself, per practice.
   -- family: no family-circle push exists. newsletter: newsletters are not built (BACKLOG B60). alerts: alerts show in
   -- the app, they are not pushed. account: codes and security mail are always sent and cannot be switched off.
