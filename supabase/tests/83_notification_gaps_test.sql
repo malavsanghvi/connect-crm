@@ -409,7 +409,7 @@ select pg_temp.assert((select count(*) from app.messages where template_key = 's
                                          and payload->>'special_day_id' in (:sd_far::text, :sd_punya::text, :sd_off::text, :sd_tithi::text)),
   'the household''s adults with the app are told, from the reminder window until the day: not a day far off, a punyatithi, a day with the prompt off, or one kept by tithi');
 select pg_temp.assert((select bool_and(m.topic_key = 'giving' and m.status = 'queued' and m.created_by is null
-                                       and m.payload->>'type' = 'special_day' and m.payload->>'deep_link' = '/labh/' || m.payload->>'special_day_id'
+                                       and m.payload->>'type' = 'special_day' and m.payload->>'deep_link' = '/labh/' || (m.payload->>'special_day_id')
                                        and m.expires_at > now() and j.kind = 'messaging.send')
                          from app.messages m join app.jobs j on j.id = m.job_id where m.template_key = 'special_day_labh' and m.center_id = :p),
   'each opens the labh screen of its day (type special_day, special_day_id, deep_link), expires when the day is over, and names no creator');
