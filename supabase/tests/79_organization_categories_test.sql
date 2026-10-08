@@ -482,6 +482,30 @@ select pg_temp.assert(not app.storage_module_on('homework', :'chm') and not app.
                       and app.storage_module_on('content', :'chm') and app.storage_module_on('homework', :jsh),
   'C · the storage buckets of Gyan Path are closed for a chamber and open for JSH');
 
+-- Fail closed: a module or a category added later gets a row in every category, off for all but Jain Center.
+savepoint a_new_module_and_a_new_category;
+insert into app.modules (key, label, description, core, depends_on, sort) values
+  ('test_module79', 'Test module', 'Added by test 79', false, '{}', 98), ('test_core79', 'Test core module', 'Added by test 79', true, '{}', 99);
+select pg_temp.assert((select count(*) from app.category_modules where module_key = 'test_module79') = 4
+                      and (select availability from app.category_modules where module_key = 'test_module79' and category_key = 'jain_center') = 'default_on'
+                      and (select count(*) from app.category_modules where module_key = 'test_module79' and availability = 'default_off') = 3
+                      and (select count(*) from app.category_modules where module_key = 'test_core79' and availability = 'default_on') = 4,
+  'A · a module added later gets a row in every category: on for Jain Center (and for a core module), off for the others');
+select pg_temp.assert(app.module_enabled(:jsh, 'test_module79') and not app.module_enabled(:'chm', 'test_module79')
+                      and :'chm'::uuid = any (app.module_off_centers('test_module79')) and app.module_enabled(:'chm', 'test_core79'),
+  'A · so a new module is on for JSH and off for a chamber until a migration says otherwise');
+insert into app.organization_categories (key, label, faith_based, terms) values
+  ('test_cat79', 'Test category', false,
+   '{"greeting":"Welcome","practice_tab":null,"give_tab":"Give","family_tab":"Family","store":"Store","school":null,"learning":null,"place":"office","assistant_context":"a test"}');
+select pg_temp.assert((select count(*) from app.category_modules where category_key = 'test_cat79') = 20
+                      and (select count(*) from app.category_modules where category_key = 'test_cat79' and availability = 'default_on') = 2
+                      and (select availability from app.category_modules where category_key = 'test_cat79' and module_key = 'people') = 'default_on',
+  'A · a category added later gets a row for every module (20 with the two test modules): only the core modules on');
+rollback to savepoint a_new_module_and_a_new_category;
+select pg_temp.assert((select count(*) from app.modules) = 18 and (select count(*) from app.category_modules) = 72
+                      and (select count(*) from app.organization_categories) = 4,
+  'A · (and the rollback put the catalogs back)');
+
 -- What a chamber's administrator reads: nothing from the modules it does not have; the rest as usual.
 set role authenticated;
 select pg_temp.claims(:chadmin, true);

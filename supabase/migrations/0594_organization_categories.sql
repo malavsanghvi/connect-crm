@@ -198,6 +198,37 @@ insert into app.module_tables (table_name, module_key)
 values ('organization_categories', null), ('category_modules', null), ('category_paths', null)
 on conflict (table_name) do update set module_key = excluded.module_key;
 
+-- Fail closed. A missing category_modules row reads as default_on (the 0101 contract), so a module or a category added
+-- LATER must not be left without rows: a new module would silently be on for a chamber. These two triggers give every
+-- (category, module) pair a row at once: default_on for Jain Center and for any core module, default_off for every other
+-- category, so a new module is off for a chamber of commerce until a migration says otherwise (that migration updates the
+-- row; it is created after the seed above, so the seed is unaffected). Test 79 covers both.
+create or replace function app.modules_seed_category_rows() returns trigger
+language plpgsql security definer set search_path = app, public, extensions as $$
+begin
+  insert into app.category_modules (category_key, module_key, availability)
+  select k.key, new.key, case when new.core or k.key = 'jain_center' then 'default_on' else 'default_off' end
+    from app.organization_categories k
+  on conflict (category_key, module_key) do nothing;
+  return new;
+end $$;
+create or replace function app.categories_seed_module_rows() returns trigger
+language plpgsql security definer set search_path = app, public, extensions as $$
+begin
+  insert into app.category_modules (category_key, module_key, availability)
+  select new.key, m.key, case when m.core then 'default_on' else 'default_off' end
+    from app.modules m
+  on conflict (category_key, module_key) do nothing;
+  return new;
+end $$;
+drop trigger if exists modules_seed_category_rows on app.modules;
+create trigger modules_seed_category_rows after insert on app.modules
+  for each row execute function app.modules_seed_category_rows();
+drop trigger if exists categories_seed_module_rows on app.organization_categories;
+create trigger categories_seed_module_rows after insert on app.organization_categories
+  for each row execute function app.categories_seed_module_rows();
+revoke execute on function app.modules_seed_category_rows(), app.categories_seed_module_rows() from public, anon, authenticated;
+
 -- ════════════════════════════════════════════════════════════════════════════
 -- B · The organization's category
 -- ════════════════════════════════════════════════════════════════════════════
