@@ -283,6 +283,7 @@ select pg_temp.assert((select f.priced and f.base_fee_cents = 13000 and f.siblin
 \set t4 '''77000000-0000-4000-8000-000000000504'''
 \set cl4_tod '''77000000-0000-4000-8000-000000000660'''
 \set cl4_j2 '''77000000-0000-4000-8000-000000000662'''
+\set cl4_j2b '''77000000-0000-4000-8000-0000000006f1'''
 insert into auth.users (id, email) values (:u_priya, 'priya@p77.test'), (:u_lata, 'lata@p77.test');
 insert into app.people (id, center_id, first_name, last_name, date_of_birth, email) values
   (:p_anya, :c, 'Anya', 'Shah', '2022-05-01', null), (:p_mina, :c, 'Mina', 'Mehta', '2022-01-01', null),
@@ -380,6 +381,33 @@ delete from app.center_modules where center_id = :c and module_key = 'giving';
 select pg_temp.assert((select e.status = 'placed' and e.class_id = :cl4_j2 and f.status = 'not_billed_giving_off' and f.hold_reason is null and f.pledge_id is null
                          from app.pathshala_enrollments e join app.pathshala_enrollment_fees f on f.enrollment_id = e.id where e.id = :'e_ved'),
   'giving off, pay now: Ved''s lifted seat is placed with the fee "not billed in the app", never held for a payment that cannot be made');
+-- (e) A direct write must not slip a learner into a dearer class: any set fee line (Free, not billed, billed, paid) keeps its level.
+-- Anya's line is Free (Toddler), Ved's is "not billed" (Jainism 2, $130); a second Jainism 2 class exists for the same-level move.
+insert into app.pathshala_classes (id, center_id, term_id, level_id, name, room, capacity, meets_on, starts_time, ends_time, waitlist_enabled) values
+  (:cl4_j2b, :c, :t4, :lv_j2, 'Jainism 2 · Room B2 (two)', 'B2', 4, 'sunday', '10:00', '11:30', true);
+begin;
+select pg_temp.sign_in(:u_pia);
+select pg_temp.assert_code(format($$update app.pathshala_enrollments set class_id = %L where id = %L$$, :cl4_j2, :'e_anya'),
+  '22023', 'use the move-level step', 'guard: a Free line (Anya, Toddler) cannot be moved to the $130 class by a direct write');
+select pg_temp.assert_code(format($$update app.pathshala_enrollments set class_id = %L where id = %L$$, :cl4_tod, :'e_ved'),
+  '22023', 'use the move-level step', 'guard: nor a line that is not billed (Ved, Giving off) to another level''s class');
+-- A class of the same level is fine (a set line keeps its level), there and back.
+update app.pathshala_enrollments set class_id = :cl4_j2b where id = :'e_ved';
+update app.pathshala_enrollments set class_id = :cl4_j2 where id = :'e_ved';
+-- Editing a class's level would move everyone in it without re-pricing: refused while a learner in it has a set line; an empty
+-- class can change level.
+select pg_temp.assert_code(format($$update app.pathshala_classes set level_id = %L where id = %L$$, :lv_tod, :cl4_j2),
+  '22023', 'use the move-level step', 'guard: a class with a learner on a set fee line cannot change level by a direct write');
+update app.pathshala_classes set level_id = :lv_tod where id = :cl4_j2b;
+update app.pathshala_classes set level_id = :lv_j2 where id = :cl4_j2b;
+update app.pathshala_classes set level_id = :lv_j2 where id = :cl4_j2;      -- the same level written again is not a change
+commit;
+select pg_temp.assert((select e.class_id = :cl4_tod from app.pathshala_enrollments e where e.id = :'e_anya')
+                      and (select e.class_id = :cl4_j2 from app.pathshala_enrollments e where e.id = :'e_ved')
+                      and (select level_id = :lv_j2 from app.pathshala_classes where id = :cl4_j2)
+                      and (select level_id = :lv_j2 from app.pathshala_classes where id = :cl4_j2b),
+  'guard: nobody moved, no class changed level; a same-level move and an edit that keeps the level went through');
+delete from app.pathshala_classes where id = :cl4_j2b;
 
 -- 2b. Once the treasurer has cancelled the fee pledge in Giving, the office can withdraw the learner, and register them again.
 begin;
@@ -717,10 +745,10 @@ update app.pathshala_terms set withdrawal_credit_until = current_date + 10 where
 select (app._pathshala_vars(:'e_isha2'::uuid) ->> 'withdraw_sentence') as ws_future \gset
 update app.pathshala_terms set withdrawal_credit_until = current_date - 3 where id = :t2;
 select (app._pathshala_vars(:'e_isha2'::uuid) ->> 'withdraw_sentence') as ws_past \gset
-select pg_temp.assert(:'ws_future' like 'To withdraw at no charge, withdraw in the app by %'
+select pg_temp.assert(:'ws_future' like 'To withdraw at no charge, ask the Pathshala office by %'
                       and :'ws_past' like 'The date for withdrawing at no charge (%) has passed; if Isha cannot come, please ask the Pathshala office.'
-                      and :'ws_past' not like '%withdraw in the app by%',
-  'the placed message: before the date it says to withdraw by it; after, that the date has passed and to ask the office');
+                      and :'ws_past' not like '%ask the Pathshala office by%' and :'ws_future' not like '%in the app%' and :'ws_past' not like '%in the app%',
+  'the placed message: before the date it says to ask the office to withdraw by it (the app has no Withdraw until 0592); after, that the date has passed and to ask the office');
 select pg_temp.assert((select count(*) = 2 from app.message_templates where center_id is null and key = 'pathshala_placed' and body like '%{{withdraw_sentence}}%'),
   'both pathshala_placed templates use that sentence');
 

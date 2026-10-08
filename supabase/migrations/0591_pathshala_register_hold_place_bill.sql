@@ -263,9 +263,10 @@ create trigger pathshala_levels_track_guard before update of track_id on app.pat
 
 -- A direct write through the API (the portal's older screens, the member app's request) cannot set the registration's
 -- own columns, and cannot move or re-status a learner whose seat is held for payment: the functions do that (the hold's
--- pledges must be cancelled or paid, never left behind). Nor can it move a learner whose fee is billed or paid to a class
--- of another level: the pledge was priced for the level the learner was placed in (the move-level step, which re-prices,
--- comes with migration 0592).
+-- pledges must be cancelled or paid, never left behind). Nor can it move a learner whose fee line is set (billed, paid, no
+-- fee, or not billed because Giving is off) to a class of another level: the line was priced for the level the learner was
+-- placed in, and a move would leave a seat in a dearer class with no pledge or the old pledge (the move-level step, which
+-- re-prices, comes with migration 0592). Only a quoted or cancelled line, or none, may move.
 create or replace function app.pathshala_enrollments_guard() returns trigger
 language plpgsql set search_path = app, public, extensions as $$
 declare v_hold text; v_fee text; v_fee_level uuid; v_new_level uuid;
@@ -289,14 +290,15 @@ begin
     raise exception 'This learner has a Pathshala fee that is %, so the registration cannot be withdrawn or moved back here. The treasurer cancels or settles the fee pledge in Giving first: please ask the Pathshala office.',
       case v_fee when 'paid' then 'paid' else 'billed' end using errcode = '22023';
   end if;
-  -- Moving a learner whose fee is billed or paid to a class of another level would leave the pledge at the old level's price
-  -- (staff can write class_id directly). A class of the same level is fine; so is any change while the fee is not billed yet.
-  if v_fee in ('billed', 'paid') and v_fee_level is not null
+  -- Moving a learner whose fee line is set to a class of another level would leave the line at the old level's price: a seat
+  -- in a $130 class on a Free or unbilled line, or a pledge at the old price (staff can write class_id directly). A class of
+  -- the same level is fine; so is any change while the line is only quoted or cancelled, or there is no line.
+  if v_fee is not null and v_fee not in ('quoted', 'cancelled') and v_fee_level is not null
      and (new.class_id is distinct from old.class_id or new.requested_level_id is distinct from old.requested_level_id) then
     v_new_level := coalesce((select c.level_id from app.pathshala_classes c where c.id = new.class_id), new.requested_level_id);
     if v_new_level is distinct from v_fee_level then
       raise exception 'This learner''s Pathshala fee is already % for their current level, so the class or level cannot be changed here: use the move-level step, which arrives in the next release (it re-prices the fee). Please ask the Pathshala office.',
-        case v_fee when 'paid' then 'paid' else 'billed' end using errcode = '22023';
+        case v_fee when 'paid' then 'paid' when 'billed' then 'billed' else 'set' end using errcode = '22023';
     end if;
   end if;
   if v_hold in ('payment', 'office_payment', 'assistance')
@@ -313,6 +315,26 @@ end $$;
 drop trigger if exists pathshala_enrollments_guard on app.pathshala_enrollments;
 create trigger pathshala_enrollments_guard before insert or update on app.pathshala_enrollments
   for each row execute function app.pathshala_enrollments_guard();
+
+-- Editing a class's level moves every learner in it to that level without re-pricing: refused while any learner in the class
+-- has a fee line that is set (billed, paid, no fee, not billed). An empty class, or one whose lines are only quoted or
+-- cancelled, can change level. The database's own functions are not stopped (they run as their owner). Writers of classes
+-- (pathshala.manage) read the enrollments and fee lines, so the check sees them.
+create or replace function app.pathshala_classes_level_guard() returns trigger
+language plpgsql set search_path = app, public, extensions as $$
+begin
+  if current_user not in ('authenticated', 'anon') then return new; end if;
+  if new.level_id is distinct from old.level_id
+     and exists (select 1 from app.pathshala_enrollments e join app.pathshala_enrollment_fees f on f.enrollment_id = e.id
+                  where e.class_id = old.id and e.status <> 'withdrawn' and f.status not in ('quoted', 'cancelled')) then
+    raise exception 'Learners in % already have a Pathshala fee set for its level, so the class cannot be moved to another level here: use the move-level step, which arrives in the next release (it re-prices the fees). Please ask the Pathshala office.',
+      old.name using errcode = '22023';
+  end if;
+  return new;
+end $$;
+drop trigger if exists pathshala_classes_level_guard on app.pathshala_classes;
+create trigger pathshala_classes_level_guard before update of level_id on app.pathshala_classes
+  for each row execute function app.pathshala_classes_level_guard();
 
 -- ═════════════════════════════════════════════════════════════════════════════
 -- Small helpers
@@ -2583,7 +2605,7 @@ grant execute on function
   to authenticated, service_role;
 -- Internal: only the functions above and the triggers call these, as their definer.
 revoke execute on function
-  app.pathshala_enrollments_track(), app.pathshala_enrollments_guard(), app.pathshala_today(uuid), app.pathshala_when(timestamptz, uuid),
+  app.pathshala_enrollments_track(), app.pathshala_enrollments_guard(), app.pathshala_classes_level_guard(), app.pathshala_today(uuid), app.pathshala_when(timestamptz, uuid),
   app.pathshala_class_schedule(uuid), app._pathshala_lock_level(uuid, uuid), app._pathshala_class_for(uuid, uuid),
   app.pathshala_waitlist_position(uuid), app._pathshala_due_on(uuid, uuid), app._pathshala_price_line(uuid, uuid),
   app._pathshala_send(uuid, text, text, text, jsonb, jsonb), app._pathshala_notify_person(uuid, text, uuid, jsonb, jsonb),
