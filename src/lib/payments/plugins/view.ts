@@ -112,6 +112,9 @@ export function pluginDisplayName(p: Pick<PluginEntry, "label" | "label_override
 }
 
 // ── app.member_payment_methods(center) ──────────────────────────────────────
+/** Shown for 30 days after a confirmed change of where gifts go (Zelle details, PayPal account): "The Zelle details changed on October 8, 2026. Check it before you pay." */
+export type PayeeNotice = { changed_on: string; days: number; text: string };
+
 export type MemberProviderMethod = {
   key: string;
   family: "provider_checkout";
@@ -123,6 +126,7 @@ export type MemberProviderMethod = {
   /** Other ways the same page may offer (bank_debit on Stripe, venmo on PayPal). */
   also: string[];
   sort: number;
+  payee_notice?: PayeeNotice;
 };
 export type MemberZelleMethod = {
   key: string;
@@ -133,6 +137,7 @@ export type MemberZelleMethod = {
   instructions: { recipient?: string; name?: string; memo_hint?: string };
   report: { available: boolean; confirmation: "ask"; window_days: number };
   sort: number;
+  payee_notice?: PayeeNotice;
 };
 export type MemberInstructionsMethod = {
   key: string;
@@ -160,11 +165,23 @@ function stringsOnly(v: unknown): Record<string, string> | null {
   return out;
 }
 
+/** Absent is fine (undefined); present must have the three fields, or the whole answer is not understood. */
+function parseNotice(v: unknown): PayeeNotice | undefined | null {
+  if (v === undefined || v === null) return undefined;
+  if (!isObj(v) || !isStr(v.changed_on) || !isInt(v.days) || !isStr(v.text)) return null;
+  return { changed_on: v.changed_on, days: v.days, text: v.text };
+}
+
 function parseMemberMethod(v: unknown): MemberPaymentMethod | null | "skip" {
   if (!isObj(v) || !isStr(v.key) || !isStr(v.label) || !isInt(v.sort)) return null;
   if (v.family === "provider_checkout") {
     if ((v.provider !== "stripe" && v.provider !== "paypal") || !oneOf(v.mode, ["test", "live"] as const) || !strList(v.wallets) || !strList(v.also)) return null;
-    return { key: v.key, family: "provider_checkout", label: v.label, provider: v.provider, mode: v.mode, wallets: v.wallets, also: v.also, sort: v.sort };
+    const notice = parseNotice(v.payee_notice);
+    if (notice === null) return null;
+    return {
+      key: v.key, family: "provider_checkout", label: v.label, provider: v.provider, mode: v.mode, wallets: v.wallets, also: v.also, sort: v.sort,
+      ...(notice ? { payee_notice: notice } : {}),
+    };
   }
   if (v.family === "reported_transfer") {
     const ins = stringsOnly(v.instructions);
@@ -176,7 +193,14 @@ function parseMemberMethod(v: unknown): MemberPaymentMethod | null | "skip" {
     if (ins.memo_hint !== undefined) instructions.memo_hint = ins.memo_hint;
     // A rehearsal never carries the real address; if it ever did, it is dropped here too.
     if (v.mode === "rehearsal") delete instructions.recipient;
-    return { key: v.key, family: "reported_transfer", label: v.label, mode: v.mode, instructions, report: { available: r.available, confirmation: "ask", window_days: r.window_days }, sort: v.sort };
+    const notice = parseNotice(v.payee_notice);
+    if (notice === null) return null;
+    return {
+      key: v.key, family: "reported_transfer", label: v.label, mode: v.mode, instructions,
+      report: { available: r.available, confirmation: "ask", window_days: r.window_days }, sort: v.sort,
+      // A rehearsal never shows the real details, so it never carries a notice about them either.
+      ...(notice && v.mode !== "rehearsal" ? { payee_notice: notice } : {}),
+    };
   }
   if (v.family === "instructions") {
     const ins = stringsOnly(v.instructions);

@@ -156,9 +156,11 @@ export async function confirmPaypalCodeAction(code: string): Promise<PayResult> 
   const db = await dbWithReason(auth.session, "Verify the PayPal Business email");
   const { data, error } = await db.rpc("confirm_paypal_email", { p_center: auth.session.center.id, p_code: code.trim() });
   if (error) return dbFailure(doing, error);
-  const d = data as { ok: boolean; detail: string };
+  const d = data as { ok: boolean; detail: string; pending?: boolean };
   revalidatePath(PATH);
-  return d.ok ? { ok: true, message: d.detail } : { ok: false, error: `Could not ${doing} — ${d.detail}` };
+  if (!d.ok) return { ok: false, error: `Could not ${doing} — ${d.detail}` };
+  // Replacing a saved email is a payee change (migration 0597): the code is checked, the email is NOT changed until a second person confirms.
+  return { ok: true, message: d.pending === true ? `Not changed yet. ${d.detail}` : d.detail };
 }
 
 export async function disconnectAction(processor: string, reason: string): Promise<PayResult> {

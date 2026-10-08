@@ -5,12 +5,14 @@ import { useId, useState, type ReactNode } from "react";
 
 import { Toggle } from "@/components/controls";
 import { Badge, buttonClass, Card, InfoBox } from "@/components/ui";
+import { waitingRequests } from "@/lib/payments/change-control";
 import { pluginByKey, pluginLabel, type PluginKey } from "@/lib/payments/plugins/catalog";
 import { paymentPluginConfigProblem, pluginStatusView } from "@/lib/payments/plugins/config";
 import { pluginDisplayName, type PluginEntry, type PluginSettings } from "@/lib/payments/plugins/view";
 import { OFFLINE_METHODS, type PaymentSettings } from "@/lib/payments/view";
 
 import { setPluginAction } from "./actions";
+import { PayeeRequestsCard, ReadinessCard, RequestZelleChange, WalletConfirm, ZelleApprovalRow, type ChangeControl } from "./change-control";
 import { MethodEditor, ProcessorPanel, processorConnected, usePaymentsPanel } from "./payments-panel";
 
 // One card per payment plugin (docs/PAYMENTS_PLAN.md §2.2), in the organization's order: its name
@@ -40,18 +42,22 @@ function effectNote(p: PluginEntry, on: boolean, name: string): ReactNode {
     : <p>Members stop seeing the {name} instructions. Nothing already recorded changes.</p>;
 }
 
-export function PluginCards({ s, ps, tz }: { s: PaymentSettings; ps: PluginSettings; tz: string }) {
+export function PluginCards({ s, ps, tz, cc }: { s: PaymentSettings; ps: PluginSettings; tz: string; cc?: ChangeControl }) {
   const known = ps.plugins.filter((p) => pluginByKey(p.key));
   return (
-    <div className="grid gap-4 lg:grid-cols-2">
-      {known.map((p) => (
-        <PluginCard key={p.key} p={p} ps={ps} s={s} tz={tz} />
-      ))}
-    </div>
+    <>
+      {cc ? <PayeeRequestsCard cc={cc} tz={tz} /> : null}
+      <div className="grid gap-4 lg:grid-cols-2">
+        {known.map((p) => (
+          <PluginCard key={p.key} p={p} ps={ps} s={s} tz={tz} cc={cc} />
+        ))}
+      </div>
+      {cc ? <ReadinessCard cc={cc} /> : null}
+    </>
   );
 }
 
-function PluginCard({ p, ps, s, tz }: { p: PluginEntry; ps: PluginSettings; s: PaymentSettings; tz: string }) {
+function PluginCard({ p, ps, s, tz, cc }: { p: PluginEntry; ps: PluginSettings; s: PaymentSettings; tz: string; cc?: ChangeControl }) {
   const { run, busy, askReason } = usePaymentsPanel();
   const plugin = pluginByKey(p.key);
   const name = pluginDisplayName(p);
@@ -61,6 +67,9 @@ function PluginCard({ p, ps, s, tz }: { p: PluginEntry; ps: PluginSettings; s: P
   const def = OFFLINE_METHODS.find((m) => m.method === plugin?.legacyMethod);
   const catalogSort = plugin?.sort ?? p.sort;
   const sortOverride = p.sort === catalogSort ? null : p.sort;
+  // The Zelle address and name, once saved, are changed by asking for it: a second person confirms (migration 0597).
+  const zelleLocked = p.key === "zelle" ? ["recipient", "name"].filter((k) => (row?.instructions?.[k] ?? "").trim() !== "") : [];
+  const waiting = cc?.queue ? waitingRequests(cc.queue, p.key).length : 0;
 
   // What stops the switch, said next to it (the database is still the rule).
   const providerWho = p.provider === "paypal" ? "PayPal" : "Stripe";
@@ -126,11 +135,22 @@ function PluginCard({ p, ps, s, tz }: { p: PluginEntry; ps: PluginSettings; s: P
             <p>
               <Link className="crm-link" href="/giving/payments/bank?view=zelle">Match Zelle payments on the bank statement</Link>
             </p>
+            {waiting > 0 ? (
+              <InfoBox>A change to the Zelle details is waiting for a second person (see Changes to where gifts go). Members keep seeing the current details until it is confirmed.</InfoBox>
+            ) : null}
+            {cc && (cc.queue?.can_request ?? ps.can_configure) ? (
+              <RequestZelleChange current={{ recipient: row?.instructions?.recipient ?? "", name: row?.instructions?.name ?? "" }} waiting={waiting} />
+            ) : null}
+            {cc ? <ZelleApprovalRow cc={cc} tz={tz} /> : null}
           </>
         ) : null}
+        {p.key === "paypal" && waiting > 0 ? (
+          <InfoBox>A change of the PayPal email is waiting for a second person (see Changes to where gifts go). PayPal keeps using the current email until it is confirmed.</InfoBox>
+        ) : null}
+        {cc && (p.key === "apple_pay" || p.key === "google_pay") && p.enabled ? <WalletConfirm pluginKey={p.key} label={p.label} cc={cc} /> : null}
         {/* The method row keeps its own place in the old list (installed apps order "How to give" by it). */}
         {def ? (
-          <MethodEditor def={def} row={row} enabled={p.enabled} sort={row?.sort ?? 0} canEdit={ps.can_configure} run={run} busy={busy} askReason={askReason} />
+          <MethodEditor def={def} row={row} enabled={p.enabled} sort={row?.sort ?? 0} canEdit={ps.can_configure} run={run} busy={busy} askReason={askReason} lockedFields={zelleLocked} />
         ) : null}
 
         {ps.can_configure ? <RenameOrder p={p} name={name} catalogSort={catalogSort} /> : null}

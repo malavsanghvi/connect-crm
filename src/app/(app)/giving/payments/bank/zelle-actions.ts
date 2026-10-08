@@ -25,6 +25,7 @@ const UNEXPECTED_SHAPE = "the database answered in a shape this screen does not 
 
 function refresh() {
   revalidatePath("/giving/payments/bank");
+  revalidatePath("/settings/payments");
   revalidatePath("/giving/payments");
   revalidatePath("/");
 }
@@ -88,12 +89,17 @@ export async function linkReportAction(reportId: string, paymentId: string, reas
   return { ok: true, message: "Report linked to the recorded payment. Nothing about the payment changed." };
 }
 
-/** The report window and the bank account Zelle lines arrive in (centers.rules.payments.zelle). */
+/**
+ * The report window and the bank account Zelle lines arrive in (centers.rules.payments.zelle). Choosing the account for the
+ * first time is saved at once. CHANGING an account that is already chosen is a payee change (migration 0597): the window is
+ * saved, the account is not, and a request waits for a second person. The answer says which, never "Saved" for the account
+ * when only a request was made.
+ */
 export async function saveZelleReportingAction(
   windowDays: number,
   bankAccountId: string | null,
   reason: string,
-): Promise<ActionResult<{ windowDays: number; bankAccountId: string | null }>> {
+): Promise<ActionResult<{ windowDays: number; bankAccountId: string | null; pendingChange: boolean }>> {
   const doing = "save the Zelle report settings";
   const auth = await authorizeAction("paymentSettings", doing);
   if (!auth.ok) return auth;
@@ -112,13 +118,24 @@ export async function saveZelleReportingAction(
     p_reason: why,
   });
   if (error) return failure(`Could not ${doing}`, error);
-  const saved = data as { report_window_days?: unknown; bank_account_id?: unknown } | null;
+  const saved = data as { report_window_days?: unknown; bank_account_id?: unknown; pending_change?: unknown } | null;
   const savedDays = typeof saved?.report_window_days === "number" ? saved.report_window_days : days;
   const savedAccount = typeof saved?.bank_account_id === "string" ? saved.bank_account_id : null;
+  const pendingChange = typeof saved?.pending_change === "string" && saved.pending_change !== "";
   refresh();
+  if (pendingChange) {
+    return {
+      ok: true,
+      message:
+        `The report window is saved: reports are flagged after ${savedDays} days. The bank account is NOT changed yet: changing it needs a second person. ` +
+        `A different person with giving.approve has to confirm it (Settings › Payments, Changes to where gifts go; it needs a fresh 2FA check and a reason). ` +
+        `Until then Zelle lines are matched against ${savedAccount ? "the account that was chosen before" : "any account"}.`,
+      data: { windowDays: savedDays, bankAccountId: savedAccount, pendingChange: true },
+    };
+  }
   return {
     ok: true,
     message: `Saved: reports are flagged after ${savedDays} days${savedAccount ? " and matched against the chosen account only" : ""}.`,
-    data: { windowDays: savedDays, bankAccountId: savedAccount },
+    data: { windowDays: savedDays, bankAccountId: savedAccount, pendingChange: false },
   };
 }

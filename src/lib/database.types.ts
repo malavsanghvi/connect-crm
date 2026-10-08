@@ -1320,6 +1320,8 @@ export type Database = {
           live_approved_at: string | null;
           created_at: string;
           updated_at: string;
+          wallet_confirmed_by: string | null;
+          wallet_confirmed_at: string | null;
         };
         Insert: {
           center_id: string;
@@ -1336,6 +1338,8 @@ export type Database = {
           live_approved_at?: string | null;
           created_at?: string;
           updated_at?: string;
+          wallet_confirmed_by?: string | null;
+          wallet_confirmed_at?: string | null;
         };
         Update: {
           center_id?: string;
@@ -1352,6 +1356,8 @@ export type Database = {
           live_approved_at?: string | null;
           created_at?: string;
           updated_at?: string;
+          wallet_confirmed_by?: string | null;
+          wallet_confirmed_at?: string | null;
         };
         Relationships: [];
       };
@@ -5657,6 +5663,60 @@ export type Database = {
         };
         Relationships: [];
       };
+      payee_changes: {
+        Row: {
+          id: string;
+          center_id: string;
+          plugin_key: string;
+          changes: Json;
+          detail: Json;
+          status: string;
+          requested_by: string;
+          requested_at: string;
+          request_reason: string;
+          expires_at: string;
+          decided_by: string | null;
+          decided_at: string | null;
+          decision_reason: string | null;
+          applied_at: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          center_id: string;
+          plugin_key: string;
+          changes: Json;
+          detail?: Json;
+          status?: string;
+          requested_by: string;
+          requested_at?: string;
+          request_reason: string;
+          expires_at: string;
+          decided_by?: string | null;
+          decided_at?: string | null;
+          decision_reason?: string | null;
+          applied_at?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          center_id?: string;
+          plugin_key?: string;
+          changes?: Json;
+          detail?: Json;
+          status?: string;
+          requested_by?: string;
+          requested_at?: string;
+          request_reason?: string;
+          expires_at?: string;
+          decided_by?: string | null;
+          decided_at?: string | null;
+          decision_reason?: string | null;
+          applied_at?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
       payment_allocations: {
         Row: {
           id: string;
@@ -5759,6 +5819,45 @@ export type Database = {
           created_at?: string;
           updated_at?: string;
           paid_at?: string | null;
+        };
+        Relationships: [];
+      };
+      payment_plugin_suspensions: {
+        Row: {
+          id: string;
+          plugin_key: string;
+          target_center: string | null;
+          reason: string;
+          suspended_by: string;
+          suspended_at: string;
+          previous_status: string | null;
+          lifted_by: string | null;
+          lifted_at: string | null;
+          lift_reason: string | null;
+        };
+        Insert: {
+          id?: string;
+          plugin_key: string;
+          target_center?: string | null;
+          reason: string;
+          suspended_by: string;
+          suspended_at?: string;
+          previous_status?: string | null;
+          lifted_by?: string | null;
+          lifted_at?: string | null;
+          lift_reason?: string | null;
+        };
+        Update: {
+          id?: string;
+          plugin_key?: string;
+          target_center?: string | null;
+          reason?: string;
+          suspended_by?: string;
+          suspended_at?: string;
+          previous_status?: string | null;
+          lifted_by?: string | null;
+          lifted_at?: string | null;
+          lift_reason?: string | null;
         };
         Relationships: [];
       };
@@ -9898,6 +9997,13 @@ export type Database = {
         };
         Returns: Json;
       };
+      approve_zelle_instructions: {
+        Args: {
+          p_center: string;
+          p_note?: string;
+        };
+        Returns: Json;
+      };
       assert_entitlement: {
         Args: {
           p_center: string;
@@ -10054,6 +10160,13 @@ export type Database = {
         Args: {
           p_order: string;
           p_reason?: string;
+        };
+        Returns: undefined;
+      };
+      cancel_payee_change: {
+        Args: {
+          p_request: string;
+          p_reason: string;
         };
         Returns: undefined;
       };
@@ -10266,6 +10379,14 @@ export type Database = {
         };
         Returns: boolean;
       };
+      confirm_wallet_in_stripe: {
+        Args: {
+          p_center: string;
+          p_key: string;
+          p_reason: string;
+        };
+        Returns: undefined;
+      };
       contact_coverage: {
         Args: {
           p_center: string;
@@ -10397,6 +10518,14 @@ export type Database = {
           p_center: string;
           p_verified: boolean;
           p_note?: string;
+        };
+        Returns: Json;
+      };
+      decide_payee_change: {
+        Args: {
+          p_request: string;
+          p_approve: boolean;
+          p_reason: string;
         };
         Returns: Json;
       };
@@ -11099,6 +11228,14 @@ export type Database = {
         };
         Returns: undefined;
       };
+      lift_payment_plugin_suspension: {
+        Args: {
+          p_key: string;
+          p_center: string;
+          p_reason: string;
+        };
+        Returns: Json;
+      };
       link_account: {
         Args: {
           p_center: string;
@@ -11577,6 +11714,24 @@ export type Database = {
         };
         Returns: { students: number; waitlisted: number; teachers: number; background_checks_expiring: number; attendance_percent: number; signoffs_waiting: number }[];
       };
+      payee_can_approve: {
+        Args: {
+          p_center: string;
+        };
+        Returns: boolean;
+      };
+      payee_can_request: {
+        Args: {
+          p_center: string;
+        };
+        Returns: boolean;
+      };
+      payee_change_queue: {
+        Args: {
+          p_center: string;
+        };
+        Returns: Json;
+      };
       payment_api_mode: {
         Args: {
           p_center: string;
@@ -11605,6 +11760,10 @@ export type Database = {
         };
         Returns: string;
       };
+      payment_plugin_pauses: {
+        Args: Record<PropertyKey, never>;
+        Returns: Json;
+      };
       payment_plugin_settings: {
         Args: {
           p_center: string;
@@ -11616,6 +11775,12 @@ export type Database = {
           p_payment: string;
         };
         Returns: boolean;
+      };
+      payment_readiness: {
+        Args: {
+          p_center: string;
+        };
+        Returns: Json;
       };
       payment_report_counts: {
         Args: {
@@ -12165,6 +12330,15 @@ export type Database = {
           p_center: string;
         };
         Returns: string;
+      };
+      request_payee_change: {
+        Args: {
+          p_center: string;
+          p_plugin: string;
+          p_changes: Json;
+          p_reason: string;
+        };
+        Returns: Json;
       };
       request_payout_sync: {
         Args: {
@@ -12895,6 +13069,14 @@ export type Database = {
           p_center: string;
         };
         Returns: { user_id: string; email: string }[];
+      };
+      suspend_payment_plugin: {
+        Args: {
+          p_key: string;
+          p_center: string;
+          p_reason: string;
+        };
+        Returns: Json;
       };
       teaches_person: {
         Args: {

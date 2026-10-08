@@ -14,6 +14,7 @@ import { can, type PermissionContext } from "@/lib/permissions";
 
 export type TaskSourceKey =
   | "refund"
+  | "payee"
   | "writeoff"
   | "credit"
   | "override"
@@ -50,6 +51,8 @@ export type TaskSource = {
 /** In the prototype's order (P:494–507); write-offs and voting overrides are app extras kept as tasks. */
 export const TASK_SOURCES: readonly TaskSource[] = [
   { key: "refund", tag: "Refund", color: "danger", anyOf: ["giving.approve", "giving.manage"], href: "/giving/payments" },
+  // A change to where gifts go (Zelle details, PayPal email) waiting for a second person (migration 0597, docs/PAYMENTS_PLAN.md §2.5).
+  { key: "payee", tag: "Payee", color: "danger", anyOf: ["giving.approve"], href: "/settings/payments", module: "giving" },
   { key: "writeoff", tag: "Write-off", color: "brown", anyOf: ["giving.approve", "giving.manage"], href: "/giving/pledges" },
   { key: "credit", tag: "Credit", color: "brown", anyOf: ["giving.manage"], href: "/giving/payments" },
   { key: "deposits", tag: "Deposits", color: "brown", anyOf: ["giving.record_offline", "giving.manage"], href: "/giving/bank" },

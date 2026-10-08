@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 
 import { HouseholdCard, type CardLabels, type HouseholdCardData } from "@/components/household-card";
+import { useStepUp } from "@/components/step-up";
 import { Badge, Card, EmptyState, buttonClass } from "@/components/ui";
 import { formatDate } from "@/lib/dates";
 import { formatCents } from "@/lib/money";
@@ -449,22 +450,30 @@ function ZelleSettings({
   const [reason, setReason] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [waiting, setWaiting] = useState(false);
   const [pending, startTransition] = useTransition();
+  const stepUp = useStepUp();
   const n = Number(days);
   const daysOk = Number.isInteger(n) && n >= MIN_WINDOW_DAYS && n <= MAX_WINDOW_DAYS;
 
   function save() {
     setError(null);
     setMessage(null);
+    setWaiting(false);
     startTransition(async () => {
       try {
-        const res = await saveZelleReportingAction(n, account || null, reason);
+        // Changing an account that is already chosen needs a fresh 2FA check (payments plan PR 5): answer it here and run it once more.
+        const call = () => saveZelleReportingAction(n, account || null, reason);
+        const res = stepUp ? await stepUp.run(call, "change the Zelle bank account") : await call();
         if (!res.ok) {
           setError(res.error);
           return;
         }
         setReason("");
         setMessage(res.message ?? "Saved.");
+        // The account the screen shows is the one in force, which is the old one while a change waits for a second person.
+        setAccount(res.data?.bankAccountId ?? "");
+        setWaiting(res.data?.pendingChange === true);
       } catch (err) {
         console.error("[bank/zelle] saving settings failed:", err);
         setError("Could not save the Zelle report settings — the server did not respond. Try again.");
@@ -522,7 +531,10 @@ function ZelleSettings({
         </p>
       ) : null}
       {message ? (
-        <p role="status" className="mt-2 rounded-lg border border-success/30 bg-success-50 px-3 py-2 text-sm text-success-900">
+        <p
+          role="status"
+          className={`mt-2 rounded-lg border px-3 py-2 text-sm ${waiting ? "border-saffron/40 bg-saffron-50 text-brown-900" : "border-success/30 bg-success-50 text-success-900"}`}
+        >
           {message}
         </p>
       ) : null}
