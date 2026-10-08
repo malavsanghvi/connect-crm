@@ -2,7 +2,10 @@ import { describe, expect, it } from "vitest";
 
 import { PUBLIC_PATHS, isPublicPath } from "@/lib/supabase/proxy";
 import { WEAVERS, WEAVER_NAMES } from "@/components/site/weavers";
-import { DEFAULT_SITE_DOMAIN, TIP_YEARLY_CAP_CENTS, isPublicSiteHost, portalUrl, publicSiteDomain, siteOrigin, siteRoute, usd } from "@/lib/site";
+import { DEFAULT_SITE_DOMAIN, SITE_NOT_FOUND_HTML, SITE_PAGES, TIP_YEARLY_CAP_CENTS, isPublicSiteHost, portalUrl, publicSiteDomain, siteOrigin, siteRoute, usd } from "@/lib/site";
+import { normalizeSiteDomain, siteRewrites } from "@/lib/site-hosts";
+
+import nextConfig from "../next.config";
 
 const www = "www.weaverams.org";
 const base = { domain: "weaverams.org", https: true } as const;
@@ -53,10 +56,10 @@ describe("siteRoute", () => {
     expect(siteRoute({ ...base, https: false, host: "weaverams.org", pathname: "/" })).toEqual({ kind: "redirect", location: "http://www.weaverams.org/" });
   });
 
-  it("serves the two pages of the website at / and /pricing", () => {
-    expect(siteRoute({ ...base, host: www, pathname: "/" })).toEqual({ kind: "rewrite", pathname: "/site" });
-    expect(siteRoute({ ...base, host: www, pathname: "/pricing" })).toEqual({ kind: "rewrite", pathname: "/site/pricing" });
-    expect(siteRoute({ ...base, host: www, pathname: "/pricing/" })).toEqual({ kind: "rewrite", pathname: "/site/pricing" });
+  it("serves the two pages of the website at / and /pricing (mapped to /site by the config rewrites, not by the proxy)", () => {
+    expect(siteRoute({ ...base, host: www, pathname: "/" })).toEqual({ kind: "pass" });
+    expect(siteRoute({ ...base, host: www, pathname: "/pricing" })).toEqual({ kind: "pass" });
+    expect(siteRoute({ ...base, host: www, pathname: "/pricing/" })).toEqual({ kind: "pass" });
   });
 
   it("passes the files the website serves itself", () => {
@@ -82,7 +85,7 @@ describe("siteRoute", () => {
 
   it("answers anything else with the website's 404, not the sign-in page", () => {
     for (const pathname of ["/giving", "/people/123", "/settings", "/loginx", "/pricing/extra", "/cc"]) {
-      expect(siteRoute({ ...base, host: www, pathname })).toEqual({ kind: "rewrite", pathname: "/site/not-found" });
+      expect(siteRoute({ ...base, host: www, pathname })).toEqual({ kind: "not-found" });
     }
   });
 });
@@ -110,5 +113,37 @@ describe("the three Weavers (owner decision 2026-10-08)", () => {
       expect(w.body.length).toBeGreaterThan(20);
       expect(w.points.length).toBeGreaterThanOrEqual(3);
     }
+  });
+});
+
+describe("the website's page rewrites (next.config.ts)", () => {
+  it("map / and /pricing to /site and /site/pricing, only for www.<domain>", () => {
+    const rewrites = siteRewrites("weaverams.org");
+    expect(rewrites.map((r) => [r.source, r.destination])).toEqual([
+      ["/", "/site"],
+      ["/pricing", "/site/pricing"],
+    ]);
+    for (const r of rewrites) {
+      expect(r.has).toEqual([{ type: "host", value: "www\\.weaverams\\.org" }]);
+      const host = new RegExp(`^${r.has[0].value}$`);
+      expect(host.test("www.weaverams.org")).toBe(true);
+      for (const other of ["weaverams.org", "admin.weaverams.org", "wwwXweaverams.org", "www.weaverams.org.evil.com"]) expect(host.test(other)).toBe(false);
+    }
+  });
+  it("cover every page of the website, and follow PUBLIC_SITE_DOMAIN", () => {
+    expect(siteRewrites("weaverams.org").map((r) => r.source)).toEqual(Object.keys(SITE_PAGES));
+    expect(siteRewrites("https://Example.org/")[0].has[0].value).toBe("www\\.example\\.org");
+    expect(siteRewrites("not a domain")[0].has[0].value).toBe("www\\.weaverams\\.org");
+    expect(normalizeSiteDomain("https://Example.org/")).toBe("example.org");
+    expect(normalizeSiteDomain("localhost")).toBeNull();
+  });
+  it("are what next.config.ts serves (before the file system, so the portal's own / never answers on www)", async () => {
+    const rewrites = await nextConfig.rewrites?.();
+    expect(rewrites).toEqual({ beforeFiles: siteRewrites() });
+  });
+  it("the 404 page for other addresses on www is a plain page with a way home", () => {
+    expect(SITE_NOT_FOUND_HTML).toContain("404");
+    expect(SITE_NOT_FOUND_HTML).toContain('href="/"');
+    expect(SITE_NOT_FOUND_HTML).toContain("noindex");
   });
 });

@@ -515,9 +515,11 @@ signs in once at `jsh.weaverams.org` (the earlier address and the IP stay separa
 ## Public website (`www.weaverams.org`)
 
 The product's public website (home page and pricing page, `src/app/site`; the brands are Weaver AMS with Faith Weaver, Community Weaver
-and Org Weaver) is served by the portal itself, by host name: on `www.weaverams.org` the portal's proxy (`src/proxy.ts`, rules in
-`src/lib/site.ts`) answers `/` and `/pricing` with the website and never serves the portal there (sign-in, request access, the sandbox
-start page, invitations, public dashboards and the APIs are sent to `admin.weaverams.org`; any other path is a 404). The bare
+and Org Weaver) is served by the portal itself, by host name: on `www.weaverams.org` host rewrites in `next.config.ts` (`src/lib/site-hosts.ts`) answer
+`/` and `/pricing` with the website, and the portal's proxy (`src/proxy.ts`, rules in `src/lib/site.ts`) never serves the portal there
+(sign-in, request access, the sandbox start page, invitations, public dashboards and the APIs are sent to `admin.weaverams.org`; any
+other path is a 404). The pages are mapped by config rewrites, not by the proxy, on purpose: a rewrite made in the proxy is an absolute
+address, and behind Caddy over https Next treated it as an external site and answered 500 (found when `www` went live, 2026-10-08). The bare
 `weaverams.org` redirects to `www`. Any other address reaches the same pages at `/site` and `/site/pricing`, which is how to preview
 them before DNS changes (for example `https://admin.weaverams.org/site`).
 
