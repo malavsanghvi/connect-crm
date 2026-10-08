@@ -10883,13 +10883,13 @@ export type Database = {
         Args: {
           p_slug: string;
         };
-        Returns: { id: string; slug: string; name: string; short_name: string; state_region: string; time_zone: string; tradition: Database["app"]["Enums"]["tradition"]; environment: string; status: string; category_key: string; branding: Json; feature_flags: Json; rules: Json; linked: boolean }[];
+        Returns: { id: string; slug: string; name: string; short_name: string; state_region: string; time_zone: string; currency: string; tradition: Database["app"]["Enums"]["tradition"]; environment: string; status: string; category_key: string; branding: Json; feature_flags: Json; rules: Json; linked: boolean }[];
       };
       community_public_by_id: {
         Args: {
           p_id: string;
         };
-        Returns: { id: string; slug: string; name: string; short_name: string; state_region: string; time_zone: string; tradition: Database["app"]["Enums"]["tradition"]; environment: string; status: string; category_key: string; branding: Json; feature_flags: Json; rules: Json; linked: boolean }[];
+        Returns: { id: string; slug: string; name: string; short_name: string; state_region: string; time_zone: string; currency: string; tradition: Database["app"]["Enums"]["tradition"]; environment: string; status: string; category_key: string; branding: Json; feature_flags: Json; rules: Json; linked: boolean }[];
       };
       complete_platform_setup_step: {
         Args: {
@@ -11768,6 +11768,12 @@ export type Database = {
       };
       is_platform_admin: {
         Args: Record<PropertyKey, never>;
+        Returns: boolean;
+      };
+      is_private_onboarding_key: {
+        Args: {
+          p_key: string;
+        };
         Returns: boolean;
       };
       issue_sandbox_code: {
