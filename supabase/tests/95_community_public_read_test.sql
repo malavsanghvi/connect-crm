@@ -1,7 +1,8 @@
 -- 0614: the public part of a community through app.community_public / community_public_by_id / communities_public_list
 -- (docs/COMMUNITY_PUBLIC_DATA.md). A caller who is not linked to a community gets only the allowlisted keys of `rules`
 -- and `branding` and no feature flags; a member, a staff member, the owner and a platform admin get the full row.
--- Nothing anyone sees changes: the same communities as the table, and the table itself is untouched (0615 narrows both).
+-- (Written for 0614, where the readers showed the same communities as the table; 0615 then hid onboarding communities
+-- from people who are not linked, and the three assertions about them say so. Test 96 covers 0615.)
 --   A. A guest   B. A signed-in person of another community   C. A member, staff, the owner, an expired grant, a platform
 --   admin   D. member_experience hands a guest the allowlisted branding only   E. The picker helper   F. Who may call what
 -- Everything runs in one transaction that is rolled back.
@@ -112,9 +113,8 @@ select pg_temp.assert((select count(*) = 1 from app.community_public('  PUB95 ')
 select pg_temp.assert((select rules = (select rules from app.community_public('pub95')) and not linked
                          from app.community_public_by_id(:a95)),
   'A · by id: the same public row');
-select pg_temp.assert((select count(*) = 1 and bool_and(pg_temp.keys(rules) = 'store') and bool_and(pg_temp.keys(branding) = 'primary')
-                         from app.community_public('onb95-sandbox')),
-  'A · the onboarding sandbox is still found (as by the table today; 0615 narrows this), with its public keys only');
+select pg_temp.assert((select count(*) = 0 from app.community_public('onb95-sandbox')),
+  'A · a sandbox still onboarding is not shown to a guest (0615; test 96 has the rest)');
 select pg_temp.assert((select count(*) = 0 from app.community_public('sus95'))
                       and (select count(*) = 0 from app.community_public_by_id(:s95))
                       and (select count(*) = 0 from app.community_public('no-such-95'))
@@ -127,8 +127,6 @@ select pg_temp.assert((select count(*) = 1 from app.communities_public_list() wh
                       and not exists (select 1 from app.communities_public_list() where slug in ('onb95-sandbox', 'sus95')),
   'A · the picker lists the active community, never the onboarding or suspended one');
 select pg_temp.assert(not app.linked_to_center(:a95), 'A · a guest is linked to nothing');
--- The installed apps keep reading the table as before until 0615 (this is the exposure 0615 closes).
-select pg_temp.assert((select rules ? 'security' from app.centers where id = :a95), 'A · the table itself is unchanged by 0614');
 reset role;
 
 -- ══ B. A signed-in person of no community here ═══════════════════════════════
@@ -148,8 +146,8 @@ select pg_temp.assert((select linked and rules = (select c.rules from app.center
                               and branding ? 'internal_note' and feature_flags = '{"store": true, "bolis": false}'::jsonb
                          from app.community_public('pub95')),
   'C · a member gets the full rules, branding and feature flags of their own community');
-select pg_temp.assert((select not linked and pg_temp.keys(rules) = 'store' from app.community_public('onb95-sandbox')),
-  'C · but only the public part of another community');
+select pg_temp.assert((select count(*) = 0 from app.community_public('onb95-sandbox')),
+  'C · but not another community still onboarding (0615)');
 select pg_temp.claims(:staff95);
 select pg_temp.assert((select linked and rules ? 'security' and branding ? 'internal_note' from app.community_public_by_id(:b95)),
   'C · a staff role (any scope) links: the full row of the sandbox');

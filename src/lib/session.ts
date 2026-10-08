@@ -123,8 +123,31 @@ export const loadSession = cache(async (): Promise<SessionState> => {
     console.error("[session] could not load the center:", centerRes.error);
     return { status: "error", message: `Could not load the center "${slug}" — ${explainError(centerRes.error)}` };
   }
-  if (!centerRes.data) return { status: "center_missing", slug, source: choice.source };
-  const center = centerRes.data;
+  // Signed in but not part of this community (0615 shows the table row only to linked people): its public part, so
+  // the portal says "no access" rather than "not found". The settings are then only the public keys.
+  let center = centerRes.data;
+  if (!center) {
+    const pub = await db.rpc("community_public", { p_slug: slug });
+    if (pub.error) {
+      console.error("[session] could not load the center's public details:", pub.error);
+      return { status: "error", message: `Could not load the center "${slug}" — ${explainError(pub.error)}` };
+    }
+    const row = pub.data?.[0];
+    if (!row) return { status: "center_missing", slug, source: choice.source };
+    center = {
+      id: row.id,
+      slug: row.slug,
+      name: row.name,
+      short_name: row.short_name,
+      time_zone: row.time_zone,
+      currency: row.currency,
+      branding: row.branding,
+      feature_flags: row.feature_flags,
+      rules: row.rules,
+      status: row.status,
+      environment: row.environment,
+    };
+  }
 
   const [grantsRes, rolesRes, accountRes, linkRes, modulesRes, switchRes, ownerRes, kindRes] = await Promise.all([
     db
