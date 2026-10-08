@@ -1,5 +1,6 @@
 import { Logo, PRODUCT_MENU, RESOURCES_MENU, SOLUTIONS_MENU } from "@/components/site/header";
 import { SiteLink, container } from "@/components/site/ui";
+import { GENEROSITY_LINE } from "@/lib/brand";
 import { SITE_NAME, SITE_TAGLINE, portalUrl } from "@/lib/site";
 
 export function SiteFooter() {
@@ -10,6 +11,7 @@ export function SiteFooter() {
       <div className={`${container} grid grid-cols-1 gap-10 py-16 sm:grid-cols-2 lg:grid-cols-[1.5fr_1fr_1fr_1fr_1fr]`}>
         <div className="flex max-w-[320px] flex-col gap-5 sm:col-span-2 lg:col-span-1">
           <Logo light />
+          <p className="text-[15px] font-bold text-gold">{GENEROSITY_LINE}</p>
           <p className="text-[15px] leading-relaxed text-navy-200">{SITE_TAGLINE}. Members, households, events, giving, learning and accounting in one trusted place.</p>
           <a href={portalUrl("/request-access")} className="inline-flex min-h-[48px] w-fit items-center rounded-full bg-gold px-6 text-[15px] font-bold text-navy hover:bg-[#ffc84a]">
             Get started free

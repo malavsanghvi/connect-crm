@@ -1,6 +1,7 @@
 import { ImageResponse } from "next/og";
 
 import { weaverMarkSvg } from "@/components/brand/weaver-mark";
+import { GENEROSITY_LINE } from "@/lib/brand";
 import { SITE_NAME, SITE_TAGLINE } from "@/lib/site";
 
 // The picture shown when a link to the website is shared (WhatsApp, email, social media).
@@ -20,7 +21,10 @@ export default function OpenGraphImage() {
           <div style={{ display: "flex", fontSize: 76, fontWeight: 700, lineHeight: 1.04, color: "#1B2C5C" }}>AI Native Community Weaver Platform.</div>
           <div style={{ display: "flex", fontSize: 76, fontWeight: 700, lineHeight: 1.04, color: "#C9731C" }}>Paid Forward Already.</div>
         </div>
-        <div style={{ display: "flex", fontSize: 32, color: "#5E5A52" }}>Faith Weaver · Community Weaver · Org Weaver</div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          <div style={{ display: "flex", fontSize: 38, fontWeight: 700, color: "#1B2C5C" }}>{GENEROSITY_LINE}</div>
+          <div style={{ display: "flex", fontSize: 28, color: "#5E5A52" }}>Faith Weaver · Community Weaver · Org Weaver</div>
+        </div>
       </div>
     ),
     { ...size },
