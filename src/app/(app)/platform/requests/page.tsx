@@ -4,7 +4,7 @@ import { Card, ChipLinks, EmptyState, PageHeader, QueryError, StatusText, TableW
 import { formatDateTime } from "@/lib/dates";
 import { moduleLabelFor } from "@/lib/modules";
 import { requestKindText } from "@/lib/org-choices";
-import { REQUEST_STATUS_LABEL, emailStatusText } from "@/lib/platform-onboarding";
+import { REQUEST_STATUS_LABEL, emailStatusText, orgTypeLabel } from "@/lib/platform-onboarding";
 import { formatPhone } from "@/lib/security";
 import { getSession } from "@/lib/session";
 
@@ -82,7 +82,7 @@ export default async function RequestsPage({ searchParams }: { searchParams: Pro
                       <td className="font-bold">
                         {r.org_legal_name}
                         <p className="text-[12px] font-normal text-muted">
-                          {requestKindText(r)} · {r.city}, {r.state}
+                          {orgTypeLabel(r.org_type)} · {r.city}, {r.state}
                         </p>
                       </td>
                       <td>
@@ -107,9 +107,7 @@ export default async function RequestsPage({ searchParams }: { searchParams: Pro
                           <div className="flex flex-col gap-4 text-[13px]">
                             <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1">
                               <dt className="text-muted">Kind</dt>
-                              <dd>{requestKindText(r)}</dd>
-                              <dt className="text-muted">In their words</dt>
-                              <dd className="whitespace-pre-wrap break-words">{r.org_detail ?? "—"}</dd>
+                              <dd>{orgTypeLabel(r.org_type)}</dd>
                               <dt className="text-muted">Where</dt>
                               <dd>
                                 {r.city}, {r.state}
@@ -129,6 +127,10 @@ export default async function RequestsPage({ searchParams }: { searchParams: Pro
                               <dd>{r.current_systems.length ? r.current_systems.join(", ") : "—"}</dd>
                               <dt className="text-muted">Heard from</dt>
                               <dd>{r.heard_from ?? "—"}</dd>
+                              <dt className="text-muted">They chose</dt>
+                              <dd>{requestKindText(r)}</dd>
+                              <dt className="text-muted">In their words</dt>
+                              <dd className="whitespace-pre-wrap break-words">{r.org_detail ?? "—"}</dd>
                               <dt className="text-muted">Sent from</dt>
                               <dd className="font-mono text-[12px]">{r.ip ? String(r.ip) : "unknown address"}</dd>
                             </dl>

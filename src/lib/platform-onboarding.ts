@@ -13,6 +13,28 @@ export const ORG_TYPES = [
 ] as const;
 export type OrgType = (typeof ORG_TYPES)[number]["value"];
 
+const GROUP_LABEL: Record<string, string> = {
+  temple: "Temple",
+  community_center: "Community center",
+  other_nonprofit: "Other non-profit",
+  faith_based: "Faith-based",
+  other: "Other",
+};
+
+/**
+ * The kind of organization on a request, in words. The three old kinds and the Request access page's groups have their own words
+ * (the request's own stored label is preferred where the page has the row: see requestKindText in org-choices.ts); any other key
+ * is a catalog key and is read as plain words ("chamber_of_commerce" gives "Chamber of commerce").
+ */
+export function orgTypeLabel(v: string | null | undefined): string {
+  const key = (v ?? "").trim();
+  if (!key) return "Other";
+  const known = GROUP_LABEL[key];
+  if (known) return known;
+  const words = key.replace(/_/g, " ").trim();
+  return words.charAt(0).toUpperCase() + words.slice(1);
+}
+
 /** Systems the form offers as chips; anything else can be typed. */
 export const CURRENT_SYSTEMS = ["Neon", "Bloomerang", "Little Green Light", "Wild Apricot", "Planning Center", "Salesforce", "QuickBooks", "Spreadsheets", "Paper records"] as const;
 

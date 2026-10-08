@@ -182,7 +182,7 @@ async function answerStepUp(p, secret) {
     ok(sql(`select status||'|'||org_type||'|'||contact_phone||'|'||array_to_string(modules_interested, ',')||'|'||array_to_string(current_systems, ',')||'|'||(user_agent is not null)::text from app.access_requests where id = '${reqId}'`)
        === 'new|faith_based|+17135550142|giving,membership,people|Neon|true', 'the request is stored (status new, kind, phone in E.164, modules from the needs, systems, browser)');
     ok(sql(`select experience_key||'|'||experience_label||'|'||org_detail||'|'||org_type_label from app.access_requests where id = '${reqId}'`) === 'temple|Temple|Our temple in Dallas|Faith-based',
-       'the request keeps the specific choice, the applicant's own words and the labels they saw');
+       'the request keeps the specific choice, the own words of the applicant and the labels they saw');
     ok(sql(`select client_app||'|'||client_screen from app.audit_log where id > ${auditStart} and action = 'access_requests.insert' and record_id = '${reqId}'`) === 'portal|/request-access',
       'audit: access_requests.insert from the portal, screen /request-access');
     const anonRead = await http('/rest/v1/access_requests?select=id');

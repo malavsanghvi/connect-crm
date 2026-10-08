@@ -6,13 +6,18 @@
 //
 // Pure functions only, so they are unit-tested; the loader that calls the database is src/lib/org-choices-load.ts.
 
-/** One row of app.list_experiences(). Only the fields used here; extra columns are ignored. */
+import { orgTypeLabel } from "@/lib/platform-onboarding";
+
+/**
+ * One row of app.list_experiences(). Only the fields used here; extra columns are ignored. A faith-based experience belongs to a
+ * family (Jain, Christian ...); one that is not faith-based (Chamber of commerce ...) has none: it is its own choice in step 1.
+ */
 export type ExperienceRow = {
   key: string;
   label: string;
   description?: string | null;
-  family_key: string;
-  family_label: string;
+  family_key: string | null;
+  family_label: string | null;
   faith_based: boolean;
   active?: boolean | null;
   sort?: number | null;
@@ -25,6 +30,8 @@ export type OrgChoice = {
   description: string | null;
   /** The catalog family it belongs to, shown as a heading when a group has more than one. */
   family: string | null;
+  /** True for a row of the catalog (an organization category the database knows); false for the built-in list and "Other". */
+  catalog: boolean;
 };
 
 /** A broad choice (step 1). `key` is what is stored as the request's org_type. */
@@ -65,7 +72,7 @@ const OTHER_GROUP: OrgGroup = {
   detailRequired: true,
 };
 
-const OTHER_FAITH_CHOICE: OrgChoice = { key: OTHER_KEY, label: "Another tradition or community", description: null, family: null };
+const OTHER_FAITH_CHOICE: OrgChoice = { key: OTHER_KEY, label: "Another tradition or community", description: null, family: null, catalog: false };
 
 function faithGroup(choices: OrgChoice[]): OrgGroup {
   return {
@@ -91,11 +98,11 @@ function plainGroup(key: string, label: string, detailLabel = GENERIC_DETAIL_LAB
  */
 export const FALLBACK_ORG_GROUPS: readonly OrgGroup[] = [
   faithGroup([
-    { key: "church", label: "Church", description: null, family: null },
-    { key: "temple", label: "Temple", description: null, family: null },
-    { key: "mosque", label: "Mosque", description: null, family: null },
-    { key: "synagogue", label: "Synagogue", description: null, family: null },
-    { key: "gurdwara", label: "Gurdwara", description: null, family: null },
+    { key: "church", label: "Church", description: null, family: null, catalog: false },
+    { key: "temple", label: "Temple", description: null, family: null, catalog: false },
+    { key: "mosque", label: "Mosque", description: null, family: null, catalog: false },
+    { key: "synagogue", label: "Synagogue", description: null, family: null, catalog: false },
+    { key: "gurdwara", label: "Gurdwara", description: null, family: null, catalog: false },
   ]),
   plainGroup("business_association", "Chamber of commerce or business association"),
   plainGroup("club_association", "Club or association"),
@@ -123,13 +130,14 @@ export function parseExperiences(data: unknown): ExperienceRow[] {
     const key = clean(r.key, 60);
     const label = clean(r.label, 120);
     const familyKey = clean(r.family_key, 40);
-    if (!KEY_RE.test(key) || !label || !/^[a-z][a-z0-9_]{1,39}$/.test(familyKey)) continue;
+    if (!KEY_RE.test(key) || !label) continue;
+    const family = /^[a-z][a-z0-9_]{1,39}$/.test(familyKey) ? familyKey : null;
     out.push({
       key,
       label,
       description: clean(r.description, 300) || null,
-      family_key: familyKey,
-      family_label: clean(r.family_label, 120) || label,
+      family_key: family,
+      family_label: family ? clean(r.family_label, 120) || label : null,
       faith_based: r.faith_based === true,
       active: r.active === false ? false : true,
       sort: typeof r.sort === "number" && Number.isFinite(r.sort) ? r.sort : 0,
@@ -140,9 +148,10 @@ export function parseExperiences(data: unknown): ExperienceRow[] {
 
 /**
  * The catalog's experiences as the form's groups. Faith-based experiences are one group, "Faith-based", whose second step lists
- * them (under their family when there is more than one); every other family is its own group, with a second step only when it
- * holds more than one experience. "Other" is always last. Inactive experiences are not offered. An empty catalog gives null,
- * so the caller falls back to the built-in list (and says so).
+ * them under their families (Jain, Christian ...). An experience that is not faith-based and has no family (Chamber of commerce,
+ * Community organization ...) is a choice of step 1 on its own and is stored as it stands; one with a family is grouped under it,
+ * with a second step when the family holds more than one. "Other" is always last. Inactive experiences are not offered. An empty
+ * catalog gives null, so the caller falls back to the built-in list (and says so).
  */
 export function groupExperiences(rows: readonly ExperienceRow[]): OrgGroup[] | null {
   const live = rows.filter((r) => r.active !== false);
@@ -151,34 +160,44 @@ export function groupExperiences(rows: readonly ExperienceRow[]): OrgGroup[] | n
     key: r.key,
     label: r.label,
     description: r.description?.trim() || null,
-    family: showFamily ? r.family_label : null,
+    family: showFamily ? (r.family_label ?? r.family_key) : null,
+    catalog: true,
   });
   const sorted = [...live].sort((a, b) => (a.sort ?? 0) - (b.sort ?? 0) || a.label.localeCompare(b.label));
 
   const groups: OrgGroup[] = [];
   const faith = sorted.filter((r) => r.faith_based);
   if (faith.length > 0) {
-    const families = new Set(faith.map((r) => r.family_key));
+    const families = new Set(faith.map((r) => r.family_key ?? ""));
     groups.push(faithGroup(faith.map((r) => toChoice(r, families.size > 1))));
   }
 
   const used = new Set<string>([FAITH_GROUP_KEY, OTHER_KEY]);
+  const unique = (key: string): string => {
+    // A key called faith_based or other (or one already used) would collide with another group: keep it, under a distinct key.
+    const k = used.has(key) ? `${key}_group` : key;
+    used.add(k);
+    return k;
+  };
   const families = new Map<string, { label: string; sort: number; rows: ExperienceRow[] }>();
+  const entries: { sort: number; label: string; family: string | null; rows: ExperienceRow[] }[] = [];
   for (const r of sorted.filter((x) => !x.faith_based)) {
-    const f = families.get(r.family_key) ?? { label: r.family_label, sort: r.sort ?? 0, rows: [] };
+    if (!r.family_key) {
+      entries.push({ sort: r.sort ?? 0, label: r.label, family: null, rows: [r] });
+      continue;
+    }
+    const f = families.get(r.family_key) ?? { label: r.family_label ?? r.label, sort: r.sort ?? 0, rows: [] };
     f.rows.push(r);
     families.set(r.family_key, f);
   }
-  for (const [familyKey, f] of [...families.entries()].sort((a, b) => bySortThenLabel(a[1], b[1]))) {
-    // A family called faith_based or other would collide with the two fixed groups: keep it, under a distinct key.
-    const key = used.has(familyKey) ? `${familyKey}_family` : familyKey;
-    used.add(key);
-    const group = plainGroup(key, f.label);
-    if (f.rows.length > 1) {
-      group.choices = [...f.rows.map((r) => toChoice(r, false)), { key: OTHER_KEY, label: "Another kind", description: null, family: null }];
+  for (const [familyKey, f] of families) entries.push({ sort: f.sort, label: f.label, family: familyKey, rows: f.rows });
+  for (const e of entries.sort(bySortThenLabel)) {
+    const group = plainGroup(unique(e.family ?? e.rows[0].key), e.label);
+    if (e.rows.length > 1) {
+      group.choices = [...e.rows.map((r) => toChoice(r, false)), { key: OTHER_KEY, label: "Another kind", description: null, family: null, catalog: false }];
       group.choicesLabel = "Which best describes you?";
     } else {
-      group.implied = toChoice(f.rows[0], false);
+      group.implied = toChoice(e.rows[0], false);
     }
     groups.push(group);
   }
@@ -193,6 +212,8 @@ export type OrgSelection = {
   orgTypeLabel: string;
   experienceKey: string | null;
   experienceLabel: string | null;
+  /** The catalog row (organization category) the applicant chose, for the database to check and keep; null for the built-in list and Other. */
+  requestedCategory: string | null;
   detail: string | null;
 };
 
@@ -228,6 +249,7 @@ export function resolveOrgSelection(
       orgTypeLabel: offered.label,
       experienceKey: choice?.key ?? null,
       experienceLabel: choice?.label ?? null,
+      requestedCategory: choice?.catalog ? choice.key : null,
       detail,
     },
   };
@@ -256,12 +278,6 @@ export function modulesForNeeds(needs: readonly string[]): string[] {
 }
 
 // ── Showing a stored request ────────────────────────────────────────────────
-const LEGACY_KIND_LABEL: Record<string, string> = {
-  temple: "Temple",
-  community_center: "Community center",
-  other_nonprofit: "Other non-profit",
-};
-
 /** "Faith-based · Jain temple" (or the older "Temple") for the requests list. Labels stored with the request win. */
 export function requestKindText(r: {
   org_type: string;
@@ -269,13 +285,8 @@ export function requestKindText(r: {
   experience_key?: string | null;
   experience_label?: string | null;
 }): string {
-  const group = r.org_type_label?.trim() || LEGACY_KIND_LABEL[r.org_type] || humanizeKey(r.org_type);
+  const group = r.org_type_label?.trim() || orgTypeLabel(r.org_type);
   let specific = r.experience_label?.trim() || "";
-  if (!specific && r.experience_key) specific = r.experience_key === OTHER_KEY ? "Other" : humanizeKey(r.experience_key);
+  if (!specific && r.experience_key) specific = r.experience_key === OTHER_KEY ? "Other" : orgTypeLabel(r.experience_key);
   return specific && specific !== group ? `${group} · ${specific}` : group;
-}
-
-function humanizeKey(k: string): string {
-  const s = k.replace(/_/g, " ").trim();
-  return s ? s.charAt(0).toUpperCase() + s.slice(1) : "Other";
 }

@@ -64,7 +64,7 @@ export default async function LoginPage({
   const next = rawNext && rawNext.startsWith("/") && !rawNext.startsWith("//") ? rawNext : "/";
   const choice = await resolveCenterChoice(check.env.centerSlug);
   // An address that names no organization gets Weaver's own sign-in, not whichever organization the deployment defaults to.
-  const neutral = loginBranding(choice.source, isCenterSlugPinned()) === "neutral";
+  const neutral = loginBranding(choice.source, isCenterSlugPinned(), choice.domainLookupFailed === true) === "neutral";
   const { tenant, problem } = neutral ? { tenant: null, problem: null } : await loadTenant(choice);
   const host = (await headers()).get("host");
   const community = tenant?.name ?? "your community";

@@ -11,6 +11,13 @@ export const SANDBOX_WATERMARK = "Sandbox · test data";
 /** A center slug as the database accepts it (and as a DNS label allows). */
 export const SLUG_RE = /^[a-z0-9][a-z0-9-]{0,62}$/;
 
+/**
+ * Names that belong to the platform, never to an organization: admin.<base> is this portal itself, app.<base> the member app's list
+ * of organizations (the same list as connect-mobile's RESERVED_ADDRESS_LABELS and docs/BACKLOG.md B50). A host built on one of them
+ * never resolves to an organization, even when PORTAL_BASE_DOMAIN is the whole product domain.
+ */
+export const RESERVED_HOST_LABELS: readonly string[] = ["app", "admin", "www", "events", "api", "mail"];
+
 /** Lower-case host name without port or trailing dot; null for an empty header. */
 export function hostName(raw: string | null | undefined): string | null {
   let h = (raw ?? "").trim().toLowerCase();
@@ -39,7 +46,7 @@ export type HostResolution =
   | { kind: "subdomain"; slug: string }
   /** Some other name: maybe an organization's own domain (app.center_domains), or the deployment's own site. */
   | { kind: "custom"; host: string }
-  /** Bare IP, localhost or the base domain itself: use the switcher cookie or NEXT_PUBLIC_CENTER_SLUG. */
+  /** Bare IP, localhost, the base domain itself or one of the platform's own names (admin.<base>): use the switcher cookie or NEXT_PUBLIC_CENTER_SLUG. */
   | { kind: "none" };
 
 export function resolveHost(rawHost: string | null | undefined, baseDomain: string | null): HostResolution {
@@ -49,7 +56,7 @@ export function resolveHost(rawHost: string | null | undefined, baseDomain: stri
     if (host === baseDomain || host === `www.${baseDomain}`) return { kind: "none" };
     if (host.endsWith(`.${baseDomain}`)) {
       const label = host.slice(0, -(baseDomain.length + 1));
-      return !label.includes(".") && SLUG_RE.test(label) ? { kind: "subdomain", slug: label } : { kind: "none" };
+      return !label.includes(".") && SLUG_RE.test(label) && !RESERVED_HOST_LABELS.includes(label) ? { kind: "subdomain", slug: label } : { kind: "none" };
     }
   }
   return host.includes(".") ? { kind: "custom", host } : { kind: "none" };
@@ -59,14 +66,18 @@ export function resolveHost(rawHost: string | null | undefined, baseDomain: stri
 export type CenterSource = "subdomain" | "domain" | "switcher" | "default";
 
 /**
- * What the sign-in page shows. An address that names an organization (its <slug>.<base> address, its own domain) or a visitor who
- * chose one with the switcher sees that organization's name and logo, exactly as before. An address that names no organization
- * (admin.weaverams.org, a bare IP, localhost) sees Weaver's own neutral sign-in, unless this deployment was built for one
- * organization on purpose (NEXT_PUBLIC_CENTER_SLUG set): then that organization is the answer, as before. After sign-in nothing
- * changes: the portal still opens the organization it always did.
+ * What the sign-in page shows. It is Weaver's own neutral page exactly when ALL of these hold, and the organization's name and logo
+ * (as before) otherwise:
+ *   1. the address names no organization: it is not <slug>.<PORTAL_BASE_DOMAIN> (a reserved name such as admin.<base> is not a slug,
+ *      see RESERVED_HOST_LABELS), and not an organization's own domain (app.center_domains answered "none", successfully);
+ *   2. the visitor has not chosen an organization with the switcher (no cc_center cookie);
+ *   3. this deployment was not built for one organization (NEXT_PUBLIC_CENTER_SLUG empty), `deploymentPinned`;
+ *   4. the lookup of whether the address is an organization's own domain did not fail (`domainLookupFailed`): then the deployment's
+ *      default organization is shown, as it always was, rather than guessing the address belongs to nobody.
+ * After sign-in nothing changes: the portal opens the organization it always did.
  */
-export function loginBranding(source: CenterSource, deploymentPinned: boolean): "organization" | "neutral" {
-  return source === "default" && !deploymentPinned ? "neutral" : "organization";
+export function loginBranding(source: CenterSource, deploymentPinned: boolean, domainLookupFailed = false): "organization" | "neutral" {
+  return source === "default" && !deploymentPinned && !domainLookupFailed ? "neutral" : "organization";
 }
 
 /**

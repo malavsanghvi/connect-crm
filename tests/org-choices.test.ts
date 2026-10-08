@@ -11,15 +11,17 @@ import {
   type ExperienceRow,
 } from "@/lib/org-choices";
 import { centerSlugPinned } from "@/lib/env";
+import { orgTypeLabel } from "@/lib/platform-onboarding";
 
-const row = (over: Partial<ExperienceRow> & { key: string; label: string; family_key: string; family_label: string; faith_based: boolean }): ExperienceRow => ({
+const row = (over: Partial<ExperienceRow> & { key: string; label: string; family_key: string | null; family_label: string | null; faith_based: boolean }): ExperienceRow => ({
   description: null,
   active: true,
   sort: 0,
   ...over,
 });
 
-// A catalog like the one migrations 0600-0605 will hold: several faith experiences, a business family with one, a club family with two.
+// A catalog like the one migrations 0600-0605 hold: faith experiences under families, and experiences that are not faith-based and have
+// no family (each is its own choice). A business family with one experience and a club family with two exercise the family path too.
 const CATALOG: ExperienceRow[] = [
   row({ key: "jain_temple", label: "Jain temple", family_key: "dharmic", family_label: "Dharmic traditions", faith_based: true, sort: 10 }),
   row({ key: "swaminarayan_temple", label: "Swaminarayan temple", family_key: "dharmic", family_label: "Dharmic traditions", faith_based: true, sort: 20 }),
@@ -62,6 +64,26 @@ describe("the kinds of organization the Request access form offers", () => {
     expect(groupExperiences(CATALOG.map((r) => ({ ...r, active: false })))).toBeNull();
   });
 
+  it("makes each experience that is not faith-based and has no family a choice of step 1 on its own, stored as it stands", () => {
+    const groups = groupExperiences([
+      row({ key: "jain_center", label: "Jain Center", family_key: "jain", family_label: "Jain", faith_based: true, sort: 1 }),
+      row({ key: "chamber_of_commerce", label: "Chamber of commerce", family_key: null, family_label: null, faith_based: false, sort: 2 }),
+      row({ key: "nonprofit_secular", label: "Community organization", family_key: null, family_label: null, faith_based: false, sort: 3 }),
+    ])!;
+    expect(groups.map((g) => [g.key, g.label])).toEqual([
+      ["faith_based", "Faith-based"],
+      ["chamber_of_commerce", "Chamber of commerce"],
+      ["nonprofit_secular", "Community organization"],
+      ["other", "Other"],
+    ]);
+    expect(groups[1].choices).toEqual([]);
+    expect(groups[1].implied).toMatchObject({ key: "chamber_of_commerce", catalog: true });
+    expect(resolveOrgSelection(groups, { group: "chamber_of_commerce", choice: "", detail: "" })).toMatchObject({
+      ok: true,
+      value: { orgType: "chamber_of_commerce", experienceKey: "chamber_of_commerce", requestedCategory: "chamber_of_commerce" },
+    });
+  });
+
   it("shows the faith experiences without family headings when they all share one", () => {
     const faith = groupExperiences(CATALOG.filter((r) => r.key === "jain_temple" || r.key === "swaminarayan_temple"))![0];
     expect(faith.choices.every((c) => c.family === null)).toBe(true);
@@ -75,10 +97,17 @@ describe("the kinds of organization the Request access form offers", () => {
     expect(new Set(groups.map((g) => g.key)).size).toBe(groups.length);
   });
 
+  it("reads a row without a family (an experience that is not faith-based) and keeps it", () => {
+    const parsed = parseExperiences([{ key: "chamber_of_commerce", label: "Chamber of commerce", family_key: null, family_label: null, faith_based: false, active: true, sort: 9 }]);
+    expect(parsed).toEqual([
+      { key: "chamber_of_commerce", label: "Chamber of commerce", description: null, family_key: null, family_label: null, faith_based: false, active: true, sort: 9 },
+    ]);
+  });
+
   it("reads what the database returns and drops anything that is not an experience", () => {
     const parsed = parseExperiences([
       { key: "jain_temple", label: " Jain  temple ", family_key: "dharmic", family_label: "Dharmic", faith_based: true, active: true, sort: 3, description: "" },
-      { key: "Bad Key", label: "x", family_key: "f", family_label: "F", faith_based: false },
+      { key: "Bad Key", label: "x", family_key: "fam", family_label: "F", faith_based: false },
       { key: "no_label", label: "", family_key: "fam", family_label: "F", faith_based: false },
       null,
       "text",
@@ -104,12 +133,26 @@ describe("the kinds of organization the Request access form offers", () => {
 describe("resolving what the applicant submitted", () => {
   const groups = groupExperiences(CATALOG)!;
 
-  it("takes the labels from the catalog, never from the form", () => {
+  it("takes the labels from the catalog, never from the form, and keeps the catalog row to ask the database to check", () => {
     const r = resolveOrgSelection(groups, { group: "faith_based", choice: "jain_temple", detail: "  Our temple in Dallas  " });
     expect(r).toEqual({
       ok: true,
-      value: { orgType: "faith_based", orgTypeLabel: "Faith-based", experienceKey: "jain_temple", experienceLabel: "Jain temple", detail: "Our temple in Dallas" },
+      value: {
+        orgType: "faith_based",
+        orgTypeLabel: "Faith-based",
+        experienceKey: "jain_temple",
+        experienceLabel: "Jain temple",
+        requestedCategory: "jain_temple",
+        detail: "Our temple in Dallas",
+      },
     });
+  });
+
+  it("asks the database to check a catalog row only: not the built-in list, not Other", () => {
+    expect(resolveOrgSelection(groups, { group: "faith_based", choice: "church", detail: "" })).toMatchObject({ ok: true, value: { requestedCategory: null } });
+    expect(resolveOrgSelection(groups, { group: "faith_based", choice: "other", detail: "A Filipino church" })).toMatchObject({ ok: true, value: { requestedCategory: null } });
+    expect(resolveOrgSelection(groups, { group: "other", choice: "", detail: "An alumni network" })).toMatchObject({ ok: true, value: { requestedCategory: null } });
+    expect(resolveOrgSelection(FALLBACK_ORG_GROUPS, { group: "faith_based", choice: "temple", detail: "" })).toMatchObject({ ok: true, value: { requestedCategory: null } });
   });
 
   it("requires the second step where the group has one", () => {
@@ -173,6 +216,14 @@ describe("showing a stored request back to the Weaver team", () => {
     expect(requestKindText({ org_type: "temple" })).toBe("Temple");
     expect(requestKindText({ org_type: "community_center" })).toBe("Community center");
     expect(requestKindText({ org_type: "other_nonprofit" })).toBe("Other non-profit");
+  });
+  it("has one label for every kind a request can hold (the old three, the form's groups, a catalog key)", () => {
+    expect(orgTypeLabel("temple")).toBe("Temple");
+    expect(orgTypeLabel("faith_based")).toBe("Faith-based");
+    expect(orgTypeLabel("other")).toBe("Other");
+    expect(orgTypeLabel("chamber_of_commerce")).toBe("Chamber of commerce");
+    expect(orgTypeLabel(null)).toBe("Other");
+    expect(orgTypeLabel("")).toBe("Other");
   });
   it("falls back to the key in plain words when no label was kept", () => {
     expect(requestKindText({ org_type: "club_association", experience_key: "other" })).toBe("Club association · Other");

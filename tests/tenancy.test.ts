@@ -9,6 +9,7 @@ import {
   loginBranding,
   normalizeBaseDomain,
   parseEntitlementInput,
+  RESERVED_HOST_LABELS,
   resolveHost,
   sharedCookieDomain,
   sortEntitlements,
@@ -28,6 +29,18 @@ describe("loginBranding (what the sign-in page shows before anyone is signed in)
   });
   it("keeps the organization of a deployment built for one (NEXT_PUBLIC_CENTER_SLUG set), as before", () => {
     expect(loginBranding("default", true)).toBe("organization");
+  });
+  it("keeps the default organization when the lookup of an own domain FAILED (it is not 'nobody owns it')", () => {
+    expect(loginBranding("default", false, true)).toBe("organization");
+    expect(loginBranding("default", false, false)).toBe("neutral");
+  });
+  it("never lets the portal's own admin host (or another platform name) resolve to an organization, even on the whole product domain", () => {
+    for (const label of ["admin", "app", "www", "events", "api", "mail"]) {
+      expect(resolveHost(`${label}.weaverams.org`, "weaverams.org")).toEqual({ kind: "none" });
+    }
+    expect(resolveHost("jsh.weaverams.org", "weaverams.org")).toEqual({ kind: "subdomain", slug: "jsh" });
+    expect(resolveHost("administrators.weaverams.org", "weaverams.org")).toEqual({ kind: "subdomain", slug: "administrators" });
+    expect(RESERVED_HOST_LABELS).toContain("admin");
   });
   it("treats admin.<domain>, a bare IP and localhost as addresses that name no organization", () => {
     // No organization owns admin.<domain>, so the portal falls through to the switcher cookie or the default.

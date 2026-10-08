@@ -74,6 +74,8 @@ export async function submitAccessRequestAction(_prev: RequestResult | null, fd:
     p_heard_from: s("heard_from") || undefined,
     p_ip: ip ?? undefined,
     p_user_agent: ua ?? undefined,
+    // The catalog row the applicant chose (the database checks it is an active one); nothing for the built-in list or Other.
+    p_requested_category: kind.value.requestedCategory ?? undefined,
     p_experience_key: kind.value.experienceKey ?? undefined,
     p_org_detail: kind.value.detail ?? undefined,
     p_org_type_label: kind.value.orgTypeLabel,

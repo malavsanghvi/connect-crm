@@ -98,7 +98,7 @@ const rest = (path, init, token) => fetch(`${API}/rest/v1/${path}`, {
     // 0612 / neutral pre-login: an address that names no organization shows Weaver's own sign-in (the portal here is built without
     // NEXT_PUBLIC_CENTER_SLUG); signing in still opens the default community, which the switcher checks below.
     const bare = await p.innerText('body');
-    ok(!bare.includes('Jain Society of Houston') && /Sign in/.test(bare) && (await p.getByTestId('login-request-access').isVisible()), 'the bare localhost address shows Weaver's neutral sign-in with a Request access link');
+    ok(!bare.includes('Jain Society of Houston') && /Sign in/.test(bare) && (await p.getByTestId('login-request-access').isVisible()), 'the bare localhost address shows the neutral Weaver sign-in with a Request access link');
     await ctx.close();
   }
 
