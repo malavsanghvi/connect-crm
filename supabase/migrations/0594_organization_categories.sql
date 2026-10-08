@@ -1093,4 +1093,10 @@ language sql immutable as $$
   end
 $$;
 
-grant execute on all functions in schema app to service_role;
+-- service_role (scripts) may call what the signed-in roles may. No bulk "grant execute on all functions": later migrations
+-- revoke service_role from the worker-only functions, and a bulk grant here would give it back.
+grant execute on function app.category_profile(uuid), app.module_states(uuid), app.category_change_preview(uuid, text),
+  app.set_center_category(uuid, text, text), app.set_access_request_category(uuid, text),
+  app.platform_create_sandbox(text, text, text, text, text, text, text, text, text, text, text),
+  app.setup_auto_status(uuid, boolean) to service_role;
+revoke execute on function app.category_terms_ok(jsonb), app.category_modules_check() from public, anon, authenticated;

@@ -211,8 +211,8 @@ select pg_temp.assert((select tradition from app.category_paths where key = 'shw
                       and (select tradition from app.category_paths where key = 'shwetambar_terapanth') = 'terapanthi'
                       and (select tradition from app.category_paths where key = 'digambar') = 'digambar'
                       and (select label from app.category_paths where key = 'shwetambar') like 'Shwetambar%'
-                      and 'Shvetambar' = any ((select aliases from app.category_paths where key = 'shwetambar'))
-                      and 'Beespanthi' = any ((select aliases from app.category_paths where key = 'digambar_bispanthi')),
+                      and (select 'Shvetambar' = any (aliases) from app.category_paths where key = 'shwetambar')
+                      and (select 'Beespanthi' = any (aliases) from app.category_paths where key = 'digambar_bispanthi'),
   'A · today''s tradition maps to a path (terapanthi is the Shwetambar Terapanth), "Shwetambar" is the spelling and the others are found by search');
 select pg_temp.assert((select count(*) from app.module_tables where table_name in ('organization_categories', 'category_modules', 'category_paths') and module_key is null) = 3
                       and (select count(*) from pg_trigger t where not t.tgisinternal and t.tgfoid = 'app.audit_row'::regproc
@@ -797,9 +797,9 @@ select pg_temp.assert_raises(format($$update app.person_profile_details set path
   'not one of the paths this community offers', 'F · and so is a malformed one');
 select pg_temp.assert(pg_temp.affected(format($$update app.person_profile_details set path_key = 'digambar' where person_id = %L$$, :p_mom)) = 1,
   'F · a person may stop at the branch');
-select pg_temp.assert(pg_temp.affected(format($$update app.person_profile_details set path_key = '  digambar_bispanthi  ' where person_id = %L$$, :p_mom)) = 1
-                      and (select path_key from app.person_profile_details where person_id = :p_mom) = 'digambar_bispanthi',
-  'F · or choose a path (the key is trimmed)');
+select pg_temp.assert(pg_temp.affected(format($$update app.person_profile_details set path_key = '  digambar_bispanthi  ' where person_id = %L$$, :p_mom)) = 1,
+  'F · or choose a path');
+select pg_temp.assert((select path_key from app.person_profile_details where person_id = :p_mom) = 'digambar_bispanthi', 'F · (the key is trimmed)');
 reset role;
 select pg_temp.no_claims();
 update app.category_paths set active = false where key = 'not_sure';

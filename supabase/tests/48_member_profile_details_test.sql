@@ -140,9 +140,9 @@ select pg_temp.assert((select count(*) from app.person_profile_details where per
 select pg_temp.assert((select path_key is null from app.person_profile_details where person_id = :p_mom), '0594: a path is optional (nothing stored until chosen)');
 select pg_temp.assert_raises(format($$update app.person_profile_details set path_key = 'not_a_path' where person_id = %L$$, :p_mom),
   'not one of the paths this community offers', '0594: a path that is not on the community''s list is refused in plain English');
-select pg_temp.assert(pg_temp.affected(format($$update app.person_profile_details set path_key = 'digambar' where person_id = %L$$, :p_mom)) = 1
-                      and (select path_key = 'digambar' from app.person_profile_details where person_id = :p_mom),
+select pg_temp.assert(pg_temp.affected(format($$update app.person_profile_details set path_key = 'digambar' where person_id = %L$$, :p_mom)) = 1,
   '0594: a path of the community''s category is saved');
+select pg_temp.assert((select path_key = 'digambar' from app.person_profile_details where person_id = :p_mom), '0594: and read back');
 commit;
 
 -- ── The adults of a household read and write each other's and the children's rows ─
