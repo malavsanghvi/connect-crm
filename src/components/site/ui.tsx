@@ -46,30 +46,33 @@ export function SectionHeading({
   lead,
   align = "center",
   tone = "dark",
+  titleId,
 }: {
   eyebrow?: ReactNode;
   title: ReactNode;
   lead?: ReactNode;
   align?: "center" | "left";
   tone?: "dark" | "light";
+  /** The id of the heading, for a section's aria-labelledby. */
+  titleId?: string;
 }) {
   return (
     <div className={`flex flex-col gap-4 ${align === "center" ? "mx-auto max-w-[760px] items-center text-center" : "max-w-[640px] items-start text-left"}`}>
       {eyebrow ? <Eyebrow tone={tone === "light" ? "light" : "saffron"}>{eyebrow}</Eyebrow> : null}
-      <h2 className={`font-display text-[32px] font-semibold leading-[1.1] tracking-[-0.015em] sm:text-[44px] ${tone === "light" ? "text-white" : "text-navy"}`}>{title}</h2>
+      <h2 id={titleId} className={`font-display text-[32px] font-semibold leading-[1.1] tracking-[-0.015em] sm:text-[44px] ${tone === "light" ? "text-white" : "text-navy"}`}>{title}</h2>
       {lead ? <p className={`text-[17px] leading-relaxed sm:text-lg ${tone === "light" ? "text-navy-200" : "text-muted"}`}>{lead}</p> : null}
     </div>
   );
 }
 
-/** A tick list. */
-export function Ticks({ items, tone = "dark" }: { items: ReactNode[]; tone?: "dark" | "light" }) {
+/** A tick list. `compact` is tighter and smaller, for cards that sit side by side. */
+export function Ticks({ items, tone = "dark", compact = false }: { items: ReactNode[]; tone?: "dark" | "light"; compact?: boolean }) {
   return (
-    <ul className="flex flex-col gap-3">
+    <ul className={`flex flex-col ${compact ? "gap-2" : "gap-3"}`}>
       {items.map((item, i) => (
-        <li key={i} className="flex items-start gap-3 text-base leading-snug">
-          <span aria-hidden className={`mt-0.5 flex h-6 w-6 flex-none items-center justify-center rounded-full ${tone === "light" ? "bg-gold text-navy" : "bg-success text-white"}`}>
-            <Icon name="check" className="h-3.5 w-3.5" strokeWidth={3} />
+        <li key={i} className={`flex items-start gap-3 leading-snug ${compact ? "text-[15px]" : "text-base"}`}>
+          <span aria-hidden className={`mt-0.5 flex flex-none items-center justify-center rounded-full ${compact ? "h-5 w-5" : "h-6 w-6"} ${tone === "light" ? "bg-gold text-navy" : "bg-success text-white"}`}>
+            <Icon name="check" className={compact ? "h-3 w-3" : "h-3.5 w-3.5"} strokeWidth={3} />
           </span>
           <span className={tone === "light" ? "text-navy-100" : "text-ink-2"}>{item}</span>
         </li>

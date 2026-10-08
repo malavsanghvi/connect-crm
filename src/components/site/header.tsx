@@ -12,11 +12,11 @@ const CAP = usd(TIP_YEARLY_CAP_CENTS);
 type MenuEntry = { to: string; icon: IconName; title: string; body: string };
 
 export const PRODUCT_MENU: MenuEntry[] = [
-  { to: "/#households", icon: "users", title: "Members and households", body: "Families, memberships and every ID in one record" },
-  { to: "/#giving", icon: "heart", title: "Giving and accounting", body: "Pledges, bank matching and QuickBooks" },
-  { to: "/#events", icon: "calendar", title: "Events and event day", body: "Tickets, lunch slots and check-in" },
-  { to: "/#learning", icon: "book", title: "Classes and learning", body: "Terms, attendance and homework" },
-  { to: "/#member-app", icon: "phone", title: "The member app", body: "One sign-in for the whole family" },
+  { to: "/#product", icon: "users", title: "Members and households", body: "Families, memberships and every ID in one record" },
+  { to: "/#product", icon: "heart", title: "Giving and accounting", body: "Pledges, bank matching and QuickBooks" },
+  { to: "/#product", icon: "calendar", title: "Events and event day", body: "Tickets, lunch slots and check-in" },
+  { to: "/#product", icon: "book", title: "Classes and learning", body: "Terms, attendance and homework" },
+  { to: "/#product", icon: "phone", title: "The member app", body: "One sign-in for the whole family" },
   { to: "/#messages", icon: "mail", title: "Messages and volunteers", body: "Email, WhatsApp and sign-ups" },
 ];
 
@@ -24,7 +24,7 @@ export const PRODUCT_MENU: MenuEntry[] = [
 export const SOLUTIONS_MENU: MenuEntry[] = WEAVERS.map((w) => ({ to: `/#${w.id}`, icon: w.icon, title: w.name, body: w.menu }));
 
 export const RESOURCES_MENU: MenuEntry[] = [
-  { to: "/#how", icon: "check", title: "How it works", body: "From request to going live" },
+  { to: "/#get-ready", icon: "check", title: "How it works", body: "From request to going live" },
   { to: "/pricing#how-we-stay-free", icon: "heart", title: "How we stay free", body: `Optional Chip Ins, capped at ${CAP} a year` },
   { to: "/#security", icon: "shield", title: "Security and privacy", body: "How your community's data is protected" },
   { to: "/#faq", icon: "smile", title: "Questions and answers", body: "The things people ask first" },
@@ -82,7 +82,7 @@ function MobileGroup({ label, items }: { label: string; items: MenuEntry[] }) {
       </summary>
       <div className="flex flex-col pb-3">
         {items.map((item) => (
-          <SiteLink key={item.to} to={item.to} className="flex min-h-[48px] items-center gap-3 rounded-xl px-2 text-[15px] font-semibold text-ink-2">
+          <SiteLink key={item.title} to={item.to} className="flex min-h-[48px] items-center gap-3 rounded-xl px-2 text-[15px] font-semibold text-ink-2">
             <Icon name={item.icon} className="h-5 w-5 text-navy" />
             {item.title}
           </SiteLink>
@@ -126,7 +126,7 @@ export function SiteHeader() {
             <NavDropdown label="Product" width={640}>
               <div className="grid grid-cols-2 gap-1">
                 {PRODUCT_MENU.map((item) => (
-                  <PanelLink key={item.to} item={item} />
+                  <PanelLink key={item.title} item={item} />
                 ))}
               </div>
               <PanelFooter />
@@ -134,7 +134,7 @@ export function SiteHeader() {
             <NavDropdown label="Solutions" width={440}>
               <div className="flex flex-col gap-1">
                 {SOLUTIONS_MENU.map((item) => (
-                  <PanelLink key={item.to} item={item} />
+                  <PanelLink key={item.title} item={item} />
                 ))}
               </div>
             </NavDropdown>
@@ -144,7 +144,7 @@ export function SiteHeader() {
             <NavDropdown label="Resources" width={440}>
               <div className="flex flex-col gap-1">
                 {RESOURCES_MENU.map((item) => (
-                  <PanelLink key={item.to} item={item} />
+                  <PanelLink key={item.title} item={item} />
                 ))}
               </div>
             </NavDropdown>

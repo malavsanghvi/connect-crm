@@ -16,22 +16,22 @@ export const metadata: Metadata = {
   alternates: { canonical: "/" },
 };
 
-type Tone = "navy" | "saffron" | "success" | "purple" | "maroon" | "store";
-
+/**
+ * The home page, in the order a visitor asks the questions: what is it, who is it for, what does it do, how do we raise
+ * more, how do we start, what does it cost, can we trust it, and what else. The in-page anchors are #weavers (and one id
+ * per Weaver), #product (with #messages, #store, #reports and #languages in its "Also included" row), #raise,
+ * #get-ready, #free, #security and #faq. The header, footer and pricing page link to these.
+ */
 export default function HomePage() {
   return (
     <>
       <Hero />
-      <Generosity />
       <Integrations />
-      <Tour />
-      <Bento />
-      <Raise />
       <Weavers />
-      <HowItWorks />
-      <GetReady />
-      <FreeBand />
-      <MemberApp />
+      <Product />
+      <Raise />
+      <GetStarted />
+      <Free />
       <Security />
       <Faq />
       <FinalCta />
@@ -57,8 +57,8 @@ function Hero() {
     <section className="relative isolate overflow-hidden">
       <div aria-hidden className="absolute inset-0 -z-20" style={HERO_GLOW} />
       <div aria-hidden className="absolute inset-0 -z-10 opacity-70" style={DOT_GRID} />
-      <div className={`${container} grid grid-cols-1 items-center gap-16 pb-24 pt-12 lg:grid-cols-[1.02fr_1fr] lg:gap-8 lg:pb-32 lg:pt-20`}>
-        <div className="flex min-w-0 flex-col items-start gap-7">
+      <div className={`${container} grid grid-cols-1 items-center gap-12 pb-14 pt-10 lg:grid-cols-[1.02fr_1fr] lg:gap-8 lg:pb-20 lg:pt-14`}>
+        <div className="flex min-w-0 flex-col items-start gap-6">
           <span className="inline-flex items-center gap-2.5 rounded-full border border-white/70 bg-white/80 py-1.5 pl-2 pr-4 text-[14px] font-bold text-navy shadow-sm backdrop-blur">
             <span className="relative flex h-6 w-6 items-center justify-center rounded-full bg-success">
               <span aria-hidden className="absolute inset-0 rounded-full bg-success opacity-40 motion-safe:animate-ping" />
@@ -130,121 +130,13 @@ function Hero() {
 
 // ── Works alongside ──────────────────────────────────────────────────────────
 
-function Generosity() {
-  return (
-    <section aria-labelledby="generosity-title" className="py-20 sm:py-28">
-      <div className={`${container} flex flex-col items-center gap-6 text-center`}>
-        <span className="rounded-full bg-gold/30 px-3.5 py-1.5 text-[13px] font-bold uppercase tracking-[0.08em] text-brown">{GENEROSITY_LINE}</span>
-        <h2 id="generosity-title" className="font-display text-[34px] font-semibold leading-[1.12] tracking-[-0.02em] text-navy sm:text-[52px]">
-          We believe in people.
-        </h2>
-        <p className="max-w-[640px] text-[20px] leading-relaxed text-muted sm:text-[24px]">
-          We want to do good for each other.{" "}
-          <span className="font-semibold text-navy">So Weaver is made free, for everyone, forever.</span>
-        </p>
-      </div>
-    </section>
-  );
-}
-
-const RAISE: { title: string; body: string; live: boolean }[] = [
-  {
-    title: "Double donations with employer matching",
-    body: "Many employers match what their people give. Weaver helps your members find out whether theirs does, and guides each donor through claiming it, so a $100 gift can become $200.",
-    live: false,
-  },
-  {
-    title: "Your own digital store front",
-    body: "Sell products your organization approves, with online payment and pickup windows, right inside Weaver. Custom products are on the way.",
-    live: true,
-  },
-  {
-    title: "Special days, remembered for you",
-    body: "Weaver prompts the right person about special days and occasions at the right moment, and will use social signals members choose to share to make every prompt personal.",
-    live: false,
-  },
-  {
-    title: "Donor management that nudges for you",
-    body: "Nudge the right people at the right time. Automated playbooks guide your admins and volunteers to build connections and deepen every relationship.",
-    live: false,
-  },
-  {
-    title: "Your website and social media, built in",
-    body: "Natively integrated website and social media management: build your organization's website inside Weaver, and share events and updates to Facebook and Instagram from the same place.",
-    live: false,
-  },
-];
-
-function Raise() {
-  return (
-    <section id="raise" aria-labelledby="raise-title" className="scroll-mt-24 bg-white py-20 sm:py-28">
-      <div className={`${container} flex flex-col gap-10`}>
-        <div className="flex max-w-[720px] flex-col items-start gap-4">
-          <span className="rounded-full bg-gold/30 px-3.5 py-1.5 text-[13px] font-bold uppercase tracking-[0.08em] text-brown">Raise more, together</span>
-          <h2 id="raise-title" className="font-display text-[34px] font-semibold leading-[1.1] tracking-[-0.02em] text-navy sm:text-[52px]">
-            Help your community give more.
-          </h2>
-          <p className="text-[18px] leading-relaxed text-muted sm:text-[20px]">Ways Weaver helps your organization raise more and reach more people, inside the same free platform.</p>
-        </div>
-        <ul className="grid grid-cols-1 gap-5 md:grid-cols-2">
-          {RAISE.map((item, i) => (
-            <li key={item.title} className={`flex flex-col items-start gap-3 rounded-[28px] border border-line bg-[#FBF7F0] p-7${i === RAISE.length - 1 && RAISE.length % 2 === 1 ? " md:col-span-2" : ""}`}>
-              <span
-                className={`rounded-full px-3 py-1 text-[12px] font-bold uppercase tracking-[0.06em] ${item.live ? "bg-success-50 text-success-900" : "bg-saffron-50 text-brown-900"}`}
-              >
-                {item.live ? "Live" : "Coming soon"}
-              </span>
-              <h3 className="font-display text-[24px] font-semibold leading-[1.2] text-navy">{item.title}</h3>
-              <p className="text-[16.5px] leading-relaxed text-muted">{item.body}</p>
-            </li>
-          ))}
-        </ul>
-      </div>
-    </section>
-  );
-}
-
-function GetReady() {
-  return (
-    <section id="get-ready" aria-labelledby="get-ready-title" className="scroll-mt-24 py-20 sm:py-28">
-      <div className={`${container} grid grid-cols-1 items-center gap-12 lg:grid-cols-[1.1fr_1fr] lg:gap-16`}>
-        <div className="flex flex-col items-start gap-5">
-          <span className="rounded-full bg-gold/30 px-3.5 py-1.5 text-[13px] font-bold uppercase tracking-[0.08em] text-brown">Get ready</span>
-          <h2 id="get-ready-title" className="font-display text-[34px] font-semibold leading-[1.1] tracking-[-0.02em] text-navy sm:text-[52px]">
-            Onboarded in 60 minutes, or we plant 100 trees for your organization.
-          </h2>
-          <p className="max-w-[560px] text-[18px] leading-relaxed text-muted sm:text-[20px]">
-            From your first request to a working community: your people, your giving, your events and your accounts. Get everything ready with our checklist of connections, data, forms, calendars and legal documents.
-          </p>
-          <a href="/get-ready/checklist.csv" download className={`${buttonStyles.primary} !min-h-[58px] !px-8 !text-[17px]`}>
-            Download the checklist
-            <Icon name="arrow" className="h-5 w-5" />
-          </a>
-          <p className="text-[14px] text-muted">The checklist is ready to download today. The 60-minute promise launches soon.</p>
-        </div>
-        <ul className="flex flex-col gap-3">
-          {CHECKLIST_AREAS.map((a, i) => (
-            <li key={a.area} className="flex gap-4 rounded-2xl border border-line bg-white p-5">
-              <span className="flex h-9 w-9 flex-none items-center justify-center rounded-full bg-navy text-[14px] font-bold text-white">{i + 1}</span>
-              <div>
-                <p className="text-[17px] font-bold text-navy">{a.area}</p>
-                <p className="text-[15px] leading-relaxed text-muted">{a.line}</p>
-              </div>
-            </li>
-          ))}
-        </ul>
-      </div>
-    </section>
-  );
-}
-
 function Integrations() {
   const tools = ["Stripe", "QuickBooks Online", "WhatsApp", "Zelle", "Excel and CSV"];
   return (
     <section aria-label="Works alongside the tools you already use" className="border-y border-line bg-white/70">
-      <div className={`${container} flex flex-col items-center justify-between gap-5 py-8 lg:flex-row`}>
+      <div className={`${container} flex flex-col items-center justify-between gap-4 py-6 lg:flex-row`}>
         <p className="text-center text-[15px] font-semibold text-muted lg:text-left">Works alongside the tools your community already uses</p>
-        <ul className="flex flex-wrap items-center justify-center gap-x-9 gap-y-3">
+        <ul className="flex flex-wrap items-center justify-center gap-x-9 gap-y-2">
           {tools.map((t) => (
             <li key={t} className="font-display text-[20px] font-semibold tracking-[-0.01em] text-navy/70">
               {t}
@@ -256,25 +148,71 @@ function Integrations() {
   );
 }
 
-// ── Product tour ─────────────────────────────────────────────────────────────
+// ── The three Weavers ────────────────────────────────────────────────────────
+
+function Weavers() {
+  return (
+    <section id="weavers" className="scroll-mt-24 py-14 sm:py-20">
+      <div className={`${container} flex flex-col gap-8`}>
+        <SectionHeading
+          eyebrow="One platform, three Weavers"
+          title="Pick the Weaver that sounds like home"
+          lead="Faith Weaver, Community Weaver and Org Weaver are the same free platform, named for who they serve. Every feature, every time."
+        />
+        <ul className="grid grid-cols-1 gap-5 lg:grid-cols-3">
+          {WEAVERS.map((w) => (
+            <li
+              key={w.id}
+              id={w.id}
+              className="flex scroll-mt-28 flex-col gap-4 rounded-[28px] border border-line bg-white p-6 transition duration-200 hover:-translate-y-1 hover:shadow-[0_24px_48px_-20px_rgba(27,44,92,0.3)] target:ring-2 target:ring-saffron"
+            >
+              <div className="flex items-center gap-4">
+                <IconTile name={w.icon} tone={w.tone} />
+                <h3 className="font-display text-[26px] font-semibold leading-tight tracking-[-0.01em] text-navy">{w.name}</h3>
+              </div>
+              <p className="text-[16px] leading-relaxed text-muted">{w.body}</p>
+              <div className="mt-auto pt-1">
+                <Ticks items={w.points} compact />
+              </div>
+              <a href={portalUrl("/request-access")} className={`${buttonStyles.ghost} mt-1 w-full !min-h-[48px] !text-[15px]`}>
+                Get started free
+                <Icon name="arrow" className="h-4 w-4" />
+              </a>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </section>
+  );
+}
+
+// ── Product: the tour, and what else is included ─────────────────────────────
 
 function TourPanel({ title, lead, points, visual }: { title: string; lead: string; points: string[]; visual: ReactNode }) {
   return (
-    <div className="grid grid-cols-1 items-center gap-10 rounded-[32px] border border-line bg-white p-6 shadow-[0_30px_60px_-30px_rgba(27,44,92,0.3)] sm:p-10 lg:grid-cols-[0.9fr_1.1fr] lg:gap-14">
-      <div className="flex flex-col items-start gap-5">
-        <h3 className="font-display text-[30px] font-semibold leading-[1.1] tracking-[-0.01em] text-navy sm:text-[36px]">{title}</h3>
+    <div className="grid grid-cols-1 items-center gap-8 rounded-[32px] border border-line bg-white p-5 shadow-[0_30px_60px_-30px_rgba(27,44,92,0.3)] sm:p-8 lg:grid-cols-[0.9fr_1.1fr] lg:gap-12">
+      <div className="flex flex-col items-start gap-4">
+        <h3 className="font-display text-[28px] font-semibold leading-[1.1] tracking-[-0.01em] text-navy sm:text-[34px]">{title}</h3>
         <p className="text-[17px] leading-relaxed text-muted">{lead}</p>
-        <Ticks items={points} />
+        <Ticks items={points} compact />
       </div>
-      <div className="relative rounded-[24px] bg-gradient-to-br from-saffron-50 via-canvas to-navy-50 p-5 sm:p-8">{visual}</div>
+      <div className="relative rounded-[24px] bg-gradient-to-br from-saffron-50 via-canvas to-navy-50 p-4 sm:p-6">{visual}</div>
     </div>
   );
 }
 
-function Tour() {
+/** What the tour tabs do not show. The ids keep the header's "Messages and volunteers" link working. */
+const ALSO_INCLUDED: { id: string; icon: IconName; tone: "navy" | "success" | "saffron" | "store"; title: string; body: string }[] = [
+  { id: "messages", icon: "mail", tone: "navy", title: "Messages and volunteers", body: "Email, WhatsApp and app notifications to the right group, and sign-ups that fill themselves." },
+  { id: "store", icon: "bag", tone: "store", title: "A community store", body: "Sell what your community sells, with checkout in the member app and every order in one place." },
+  { id: "reports", icon: "chart", tone: "success", title: "Reports that answer questions", body: "See giving, attendance and membership at a glance, and export what your board asks for." },
+  { id: "languages", icon: "globe", tone: "saffron", title: "In your language", body: "English, ગુજરાતી and हिन्दी built in, with large-text mode and generous touch targets." },
+];
+
+function Product() {
   return (
-    <section id="product" className="scroll-mt-24 py-20 sm:py-28">
-      <div className={`${container} flex flex-col gap-12`}>
+    <section id="product" className="scroll-mt-24 py-14 sm:py-20">
+      <div className={`${container} flex flex-col gap-8`}>
         <SectionHeading
           eyebrow="Product tour"
           title="One platform, every part of community life"
@@ -363,10 +301,11 @@ function Tour() {
                   title="An app your members will actually open"
                   lead="One sign-in for the whole family. Members see what is on, give, learn and stay in touch, on a phone or in any web browser."
                   points={[
-                    "Family accounts, with money handled by adults only",
+                    "Family accounts that link parents and children, with money handled by adults only",
                     "Events, tickets, lunch slots and reminders",
                     "Giving, pledges and statements in one place",
-                    "English, ગુજરાતી and हिन्दी, with large-text mode",
+                    "Learning paths for children and adults",
+                    "English, ગુજરાતી and हिन्दी, with large-text mode and easy-to-tap buttons",
                   ]}
                   visual={<PhoneMock />}
                 />
@@ -374,149 +313,172 @@ function Tour() {
             },
           ]}
         />
-      </div>
-    </section>
-  );
-}
-
-// ── Bento: everything included ───────────────────────────────────────────────
-
-function BentoCard({ id, icon, tone, title, body, span, children }: { id: string; icon: IconName; tone: Tone; title: string; body: string; span: string; children?: ReactNode }) {
-  return (
-    <li
-      id={id}
-      className={`group flex scroll-mt-28 flex-col gap-4 rounded-[28px] border border-line bg-white p-7 transition duration-200 hover:-translate-y-1 hover:shadow-[0_24px_48px_-20px_rgba(27,44,92,0.3)] target:ring-2 target:ring-saffron ${span}`}
-    >
-      <IconTile name={icon} tone={tone} />
-      <h3 className="font-display text-[24px] font-semibold leading-tight text-navy">{title}</h3>
-      <p className="text-[16px] leading-relaxed text-muted">{body}</p>
-      {children}
-    </li>
-  );
-}
-
-function Chips({ items }: { items: string[] }) {
-  return (
-    <div className="mt-auto flex flex-wrap gap-2 pt-2">
-      {items.map((t) => (
-        <span key={t} className="rounded-full bg-ground px-3 py-1.5 text-[13px] font-bold text-navy">
-          {t}
-        </span>
-      ))}
-    </div>
-  );
-}
-
-function Bento() {
-  return (
-    <section id="features" className="scroll-mt-24 bg-white py-20 sm:py-28">
-      <div className={`${container} flex flex-col gap-12`}>
-        <SectionHeading eyebrow="Everything included" title="All of this, and not one paid tier" lead="Every feature is included for every organization. There is nothing to unlock and nothing to upgrade to." />
-        <ul className="grid grid-cols-1 gap-5 md:grid-cols-6">
-          <BentoCard id="households" icon="users" tone="navy" span="md:col-span-3" title="Members and households" body="Families, memberships and renewals in one record, with the IDs your community already uses kept alongside.">
-            <Chips items={["Household cards", "Memberships", "Family accounts", "Imports"]} />
-          </BentoCard>
-          <BentoCard id="giving" icon="heart" tone="saffron" span="md:col-span-3" title="Giving and accounting" body="Pledges, recurring gifts and bank matching for Zelle, ACH and checks, posted to QuickBooks Online.">
-            <Chips items={["Pledge drives", "Card, Zelle, checks", "QuickBooks", "Statements"]} />
-          </BentoCard>
-          <BentoCard id="events" icon="calendar" tone="maroon" span="md:col-span-2" title="Events and event day" body="Tickets, lunch slots, flyers and check-in at the door from any phone." />
-          <BentoCard id="learning" icon="book" tone="purple" span="md:col-span-2" title="Classes and learning" body="Terms, levels, attendance, homework and a gamified learning path for children." />
-          <BentoCard id="messages" icon="mail" tone="navy" span="md:col-span-2" title="Messages and volunteers" body="Email, WhatsApp and app notifications to the right group, and sign-ups that fill themselves." />
-          <BentoCard id="store" icon="bag" tone="store" span="md:col-span-2" title="A community store" body="Sell what your community sells, with checkout in the member app and every order in one place." />
-          <BentoCard id="reports" icon="chart" tone="success" span="md:col-span-2" title="Reports that answer questions" body="See giving, attendance and membership at a glance, and export what your board asks for." />
-          <BentoCard id="languages" icon="globe" tone="saffron" span="md:col-span-2" title="In your language" body="English, ગુજરાતી and हिन्दी built in, with large-text mode and generous touch targets." />
-        </ul>
-      </div>
-    </section>
-  );
-}
-
-// ── The three Weavers ────────────────────────────────────────────────────────
-
-function Weavers() {
-  return (
-    <section id="weavers" className="scroll-mt-24 py-20 sm:py-28">
-      <div className={`${container} flex flex-col gap-12`}>
-        <SectionHeading
-          eyebrow="One platform, three Weavers"
-          title="Pick the Weaver that sounds like home"
-          lead="Faith Weaver, Community Weaver and Org Weaver are the same free platform, named for who they serve. Every feature, every time."
-        />
-        <ul className="grid grid-cols-1 gap-5 lg:grid-cols-3">
-          {WEAVERS.map((w) => (
-            <li
-              key={w.id}
-              id={w.id}
-              className="flex scroll-mt-28 flex-col gap-5 rounded-[32px] border border-line bg-white p-8 transition duration-200 hover:-translate-y-1 hover:shadow-[0_24px_48px_-20px_rgba(27,44,92,0.3)] target:ring-2 target:ring-saffron"
-            >
-              <IconTile name={w.icon} tone={w.tone} />
-              <h3 className="font-display text-[30px] font-semibold leading-tight tracking-[-0.01em] text-navy">{w.name}</h3>
-              <p className="text-[16.5px] leading-relaxed text-muted">{w.body}</p>
-              <div className="mt-auto pt-2">
-                <Ticks items={w.points} />
-              </div>
-              <a href={portalUrl("/request-access")} className={`${buttonStyles.ghost} mt-3 w-full !min-h-[48px] !text-[15px]`}>
-                Get started free
-                <Icon name="arrow" className="h-4 w-4" />
-              </a>
-            </li>
-          ))}
-        </ul>
-      </div>
-    </section>
-  );
-}
-
-// ── How it works ─────────────────────────────────────────────────────────────
-
-function HowItWorks() {
-  const steps = [
-    { n: "1", icon: "mail" as const, title: "Request access", body: "Tell us about your organization. We send a private code by email." },
-    { n: "2", icon: "shield" as const, title: "Practice in your sandbox", body: "A private copy where payments run in test mode and messages reach only test recipients. A guided checklist walks you through people, roles and payments." },
-    { n: "3", icon: "smile" as const, title: "Go live and invite members", body: "Switch on real payments and share your member app link or join code. Your community signs in with their own email." },
-  ];
-  return (
-    <section id="how" className="scroll-mt-24 bg-white py-20 sm:py-28">
-      <div className={`${container} flex flex-col gap-14`}>
-        <SectionHeading eyebrow="How it works" title="Up and running at your own pace" lead="No sales call and no contract. Start in a safe practice space and go live when your team is ready." />
-        <ol className="relative grid grid-cols-1 gap-5 lg:grid-cols-3">
-          <div aria-hidden className="absolute left-[16%] right-[16%] top-[54px] hidden border-t-2 border-dashed border-line-input lg:block" />
-          {steps.map((s) => (
-            <li key={s.n} className="relative flex flex-col items-start gap-4 rounded-[28px] border border-line bg-canvas p-7">
-              <span className="relative flex h-14 w-14 items-center justify-center rounded-2xl bg-navy text-white shadow-[0_10px_20px_-8px_rgba(27,44,92,0.6)]">
-                <Icon name={s.icon} className="h-6 w-6" />
-                <span className="absolute -right-2 -top-2 flex h-7 w-7 items-center justify-center rounded-full bg-gold text-[13px] font-bold text-navy">{s.n}</span>
-              </span>
-              <h3 className="font-display text-[24px] font-semibold text-navy">{s.title}</h3>
-              <p className="text-[16px] leading-relaxed text-muted">{s.body}</p>
-            </li>
-          ))}
-        </ol>
-        <div className="flex justify-center">
-          <a href={portalUrl("/request-access")} className={buttonStyles.primary}>
-            Request access
-            <Icon name="arrow" className="h-5 w-5" />
-          </a>
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:gap-4">
+            <h3 className="font-display text-[22px] font-semibold text-navy">Also included</h3>
+            <p className="text-[15px] text-muted">Every feature is included for every organization. There is nothing to unlock and nothing to upgrade to.</p>
+          </div>
+          <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            {ALSO_INCLUDED.map((item) => (
+              <li key={item.id} id={item.id} className="flex scroll-mt-28 items-start gap-3.5 rounded-2xl border border-line bg-white p-4 target:ring-2 target:ring-saffron">
+                <IconTile name={item.icon} tone={item.tone} />
+                <div>
+                  <h4 className="font-display text-[18px] font-semibold leading-snug text-navy">{item.title}</h4>
+                  <p className="mt-1 text-[14.5px] leading-relaxed text-muted">{item.body}</p>
+                </div>
+              </li>
+            ))}
+          </ul>
         </div>
       </div>
     </section>
   );
 }
 
-// ── Free band ────────────────────────────────────────────────────────────────
+// ── Raise more ───────────────────────────────────────────────────────────────
 
-function FreeBand() {
+const RAISE: { title: string; body: string; live: boolean }[] = [
+  {
+    title: "Double donations with employer matching",
+    body: "Many employers match what their people give. Weaver helps your members find out whether theirs does, and guides each donor through claiming it, so a $100 gift can become $200.",
+    live: false,
+  },
+  {
+    title: "Your own digital store front",
+    body: "Sell products your organization approves, with online payment and pickup windows, right inside Weaver. Custom products are on the way.",
+    live: true,
+  },
+  {
+    title: "Special days, remembered for you",
+    body: "Weaver prompts the right person about special days and occasions at the right moment, and will use social signals members choose to share to make every prompt personal.",
+    live: false,
+  },
+  {
+    title: "Donor management that nudges for you",
+    body: "Nudge the right people at the right time. Automated playbooks guide your admins and volunteers to build connections and deepen every relationship.",
+    live: false,
+  },
+  {
+    title: "Your website and social media, built in",
+    body: "Natively integrated website and social media management: build your organization's website inside Weaver, and share events and updates to Facebook and Instagram from the same place.",
+    live: false,
+  },
+];
+
+function Raise() {
   return (
-    <section aria-labelledby="free-title" className="relative isolate overflow-hidden bg-navy py-20 text-white sm:py-28">
+    <section id="raise" aria-labelledby="raise-title" className="scroll-mt-24 bg-white py-14 sm:py-20">
+      <div className={`${container} flex flex-col gap-8`}>
+        <div className="flex max-w-[720px] flex-col items-start gap-4">
+          <span className="rounded-full bg-gold/30 px-3.5 py-1.5 text-[13px] font-bold uppercase tracking-[0.08em] text-brown">Raise more, together</span>
+          <h2 id="raise-title" className="font-display text-[34px] font-semibold leading-[1.1] tracking-[-0.02em] text-navy sm:text-[52px]">
+            Help your community give more.
+          </h2>
+          <p className="text-[18px] leading-relaxed text-muted sm:text-[20px]">Ways Weaver helps your organization raise more and reach more people, inside the same free platform.</p>
+        </div>
+        <ul className="grid grid-cols-1 gap-5 md:grid-cols-2">
+          {RAISE.map((item, i) => (
+            <li key={item.title} className={`flex flex-col items-start gap-3 rounded-[28px] border border-line bg-[#FBF7F0] p-7${i === RAISE.length - 1 && RAISE.length % 2 === 1 ? " md:col-span-2" : ""}`}>
+              <span
+                className={`rounded-full px-3 py-1 text-[12px] font-bold uppercase tracking-[0.06em] ${item.live ? "bg-success-50 text-success-900" : "bg-saffron-50 text-brown-900"}`}
+              >
+                {item.live ? "Live" : "Coming soon"}
+              </span>
+              <h3 className="font-display text-[24px] font-semibold leading-[1.2] text-navy">{item.title}</h3>
+              <p className="text-[16.5px] leading-relaxed text-muted">{item.body}</p>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </section>
+  );
+}
+
+// ── Get started: the three steps and the 60-minute promise ───────────────────
+
+const STEPS: { n: string; title: string; body: string }[] = [
+  { n: "1", title: "Request access", body: "Tell us about your organization. We send a private code by email." },
+  {
+    n: "2",
+    title: "Practice in your sandbox",
+    body: "A private copy where payments run in test mode and messages reach only test recipients. A guided checklist walks you through people, roles and payments.",
+  },
+  { n: "3", title: "Go live and invite members", body: "Switch on real payments and share your member app link or join code. Your community signs in with their own email." },
+];
+
+function GetStarted() {
+  return (
+    <section id="get-ready" aria-labelledby="get-ready-title" className="scroll-mt-24 py-14 sm:py-20">
+      <div className={`${container} flex flex-col gap-8`}>
+        <SectionHeading eyebrow="Get started" title="Up and running at your own pace" lead="No sales call and no contract. Start in a safe practice space and go live when your team is ready." titleId="get-ready-title" />
+        <ol className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+          {STEPS.map((s) => (
+            <li key={s.n} className="flex items-start gap-4 rounded-[24px] border border-line bg-white p-5">
+              <span aria-hidden className="flex h-11 w-11 flex-none items-center justify-center rounded-full bg-navy text-[17px] font-bold text-white">
+                {s.n}
+              </span>
+              <div>
+                <h3 className="font-display text-[20px] font-semibold leading-snug text-navy">{s.title}</h3>
+                <p className="mt-1 text-[15px] leading-relaxed text-muted">{s.body}</p>
+              </div>
+            </li>
+          ))}
+        </ol>
+        <div className="grid grid-cols-1 items-center gap-8 rounded-[32px] border border-line bg-white p-6 shadow-[0_30px_60px_-30px_rgba(27,44,92,0.3)] sm:p-10 lg:grid-cols-[1.1fr_1fr] lg:gap-14">
+          <div className="flex flex-col items-start gap-4">
+            <h3 className="font-display text-[30px] font-semibold leading-[1.1] tracking-[-0.02em] text-navy sm:text-[40px]">Onboarded in 60 minutes, or we plant 100 trees for your organization.</h3>
+            <p className="max-w-[560px] text-[17px] leading-relaxed text-muted">
+              From your first request to a working community: your people, your giving, your events and your accounts. Get everything ready with our checklist of connections, data, forms, calendars and legal documents.
+            </p>
+            <div className="flex flex-col gap-3 sm:flex-row">
+              <a href="/get-ready/checklist.csv" download className={buttonStyles.primary}>
+                Download the checklist
+                <Icon name="arrow" className="h-5 w-5" />
+              </a>
+              <a href={portalUrl("/request-access")} className={buttonStyles.ghost}>
+                Request access
+              </a>
+            </div>
+            <p className="text-[14px] text-muted">The checklist is ready to download today. The 60-minute promise launches soon.</p>
+          </div>
+          <ul className="flex flex-col gap-2.5">
+            {CHECKLIST_AREAS.map((a, i) => (
+              <li key={a.area} className="flex gap-3.5 rounded-2xl border border-line bg-canvas p-3.5">
+                <span aria-hidden className="flex h-8 w-8 flex-none items-center justify-center rounded-full bg-navy text-[13px] font-bold text-white">
+                  {i + 1}
+                </span>
+                <div>
+                  <p className="text-[16px] font-bold leading-snug text-navy">{a.area}</p>
+                  <p className="text-[14.5px] leading-snug text-muted">{a.line}</p>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+// ── Free: generosity, and what free means ────────────────────────────────────
+
+function Free() {
+  return (
+    <section id="free" aria-labelledby="free-title" className="relative isolate scroll-mt-24 overflow-hidden bg-navy py-14 text-white sm:py-20">
       <div aria-hidden className="absolute -right-32 -top-32 -z-10 h-[460px] w-[460px] rounded-full bg-white/5" />
       <div aria-hidden className="absolute -bottom-40 -left-24 -z-10 h-[420px] w-[420px] rounded-full bg-saffron/20" />
-      <div className={`${container} grid grid-cols-1 items-center gap-12 lg:grid-cols-[1.2fr_1fr] lg:gap-16`}>
+      <div className={`${container} grid grid-cols-1 items-center gap-10 lg:grid-cols-[1.2fr_1fr] lg:gap-16`}>
         <div className="flex flex-col items-start gap-5">
           <span className="rounded-full bg-white/10 px-3.5 py-1.5 text-[13px] font-bold uppercase tracking-[0.08em] text-gold">Pricing</span>
-          <h2 id="free-title" className="font-display text-[38px] font-semibold leading-[1.04] tracking-[-0.02em] sm:text-[56px]">
-            Free means free.
+          <h2 id="free-title" className="font-display text-[34px] font-semibold leading-[1.06] tracking-[-0.02em] sm:text-[50px]">
+            {GENEROSITY_LINE}
           </h2>
-          <p className="max-w-[580px] text-[18px] leading-relaxed text-navy-200">
+          <p className="max-w-[600px] text-[19px] leading-relaxed text-navy-200 sm:text-[21px]">
+            <span className="font-semibold text-white">We believe in people.</span> We want to do good for each other.{" "}
+            <span className="font-semibold text-white">So Weaver is made free, for everyone, forever.</span>
+          </p>
+          <h3 className="mt-2 font-display text-[26px] font-semibold leading-tight tracking-[-0.01em] sm:text-[30px]">Free means free.</h3>
+          <p className="max-w-[580px] text-[17px] leading-relaxed text-navy-200">
             No subscription, no setup fee, no per-member charge and no percentage of what your members give. We keep the platform going through small, optional Chip Ins from members, capped at {usd(TIP_YEARLY_CAP_CENTS)} a year per account, so your organization never has to pay.
           </p>
           <ol className="grid w-full max-w-[580px] grid-cols-1 gap-3 sm:grid-cols-3">
@@ -532,7 +494,7 @@ function FreeBand() {
               </li>
             ))}
           </ol>
-          <div className="mt-2 flex flex-col gap-3 sm:flex-row">
+          <div className="mt-1 flex flex-col gap-3 sm:flex-row">
             <SiteLink to="/pricing" className={buttonStyles.gold}>
               See pricing
               <Icon name="arrow" className="h-5 w-5" />
@@ -544,46 +506,11 @@ function FreeBand() {
         </div>
         <div className="rounded-[32px] bg-white p-8 text-navy shadow-2xl sm:p-10">
           <p className="text-[13px] font-bold uppercase tracking-[0.08em] text-brown">Your organization pays</p>
-          <p className="mt-2 font-display text-[104px] font-semibold leading-none tracking-[-0.03em]">$0</p>
+          <p className="mt-2 font-display text-[88px] font-semibold leading-none tracking-[-0.03em] sm:text-[104px]">$0</p>
           <p className="mt-1 text-lg font-semibold text-muted">today, next year, and every year after</p>
           <div className="mt-6">
             <Ticks items={["Every feature included", "No contract, leave any time", "Your data stays yours"]} />
           </div>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-// ── Member app ───────────────────────────────────────────────────────────────
-
-function MemberApp() {
-  return (
-    <section id="member-app" className="scroll-mt-24 overflow-hidden py-20 sm:py-28">
-      <div className={`${container} grid grid-cols-1 items-center gap-14 lg:grid-cols-2 lg:gap-20`}>
-        <div className="relative order-2 lg:order-1">
-          <div aria-hidden className="absolute left-1/2 top-1/2 -z-10 h-[440px] w-[440px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-gradient-to-br from-saffron-50 to-navy-50" />
-          <PhoneMock />
-        </div>
-        <div className="order-1 flex flex-col items-start gap-5 lg:order-2">
-          <span className="text-[13px] font-bold uppercase tracking-[0.08em] text-brown">The member app</span>
-          <h2 className="font-display text-[34px] font-semibold leading-[1.08] tracking-[-0.02em] text-navy sm:text-[46px]">Your members get an app of their own</h2>
-          <p className="text-[17px] leading-relaxed text-muted">
-            One sign-in for the whole family. Members see what is on, give, learn and stay in touch, on a phone or in any web browser.
-          </p>
-          <Ticks
-            items={[
-              "Family accounts that link parents and children, with money handled by adults only",
-              "Events, tickets, lunch slots and reminders",
-              "Giving, pledges and statements in one place",
-              "Learning paths for children and adults",
-              "Large-text mode and easy-to-tap buttons",
-            ]}
-          />
-          <a href={portalUrl("/request-access")} className={`${buttonStyles.primary} mt-2`}>
-            Get started free
-            <Icon name="arrow" className="h-5 w-5" />
-          </a>
         </div>
       </div>
     </section>
@@ -600,19 +527,18 @@ function Security() {
     { icon: "lock", title: "The right access for each role", body: "People see only what their role allows. Sensitive actions, such as refunds, need a second approver and a fresh two-step check." },
   ];
   return (
-    <section id="security" className="relative isolate scroll-mt-24 overflow-hidden bg-gradient-to-b from-[#16244d] to-navy py-20 text-white sm:py-28">
-      <div aria-hidden className="absolute -left-40 top-1/3 -z-10 h-[420px] w-[420px] rounded-full bg-white/5" />
-      <div className={`${container} flex flex-col gap-12`}>
-        <SectionHeading tone="light" eyebrow="Security and privacy" title="Built to be trusted with your community" lead="Members share their families, their giving and their children's names. We treat that with the care it deserves." />
-        <ul className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+    <section id="security" className="scroll-mt-24 border-b border-line bg-white py-14 sm:py-16">
+      <div className={`${container} grid grid-cols-1 items-center gap-8 lg:grid-cols-[0.8fr_1.4fr] lg:gap-12`}>
+        <SectionHeading align="left" eyebrow="Security and privacy" title="Built to be trusted with your community" lead="Members share their families, their giving and their children's names. We treat that with the care it deserves." />
+        <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           {items.map((item) => (
-            <li key={item.title} className="flex gap-5 rounded-[28px] border border-white/10 bg-white/[0.06] p-7 backdrop-blur">
-              <span className="flex h-12 w-12 flex-none items-center justify-center rounded-2xl bg-gold text-navy">
-                <Icon name={item.icon} className="h-6 w-6" />
+            <li key={item.title} className="flex gap-4 rounded-[24px] border border-line bg-canvas p-5">
+              <span className="flex h-11 w-11 flex-none items-center justify-center rounded-2xl bg-navy text-white">
+                <Icon name={item.icon} className="h-5 w-5" />
               </span>
               <div>
-                <h3 className="font-display text-[22px] font-semibold">{item.title}</h3>
-                <p className="mt-1.5 text-[16px] leading-relaxed text-navy-200">{item.body}</p>
+                <h3 className="font-display text-[19px] font-semibold leading-snug text-navy">{item.title}</h3>
+                <p className="mt-1 text-[15px] leading-relaxed text-muted">{item.body}</p>
               </div>
             </li>
           ))}
@@ -626,9 +552,17 @@ function Security() {
 
 function Faq() {
   return (
-    <section id="faq" className="scroll-mt-24 py-20 sm:py-28">
-      <div className={`${container} flex flex-col gap-12`}>
-        <SectionHeading eyebrow="Questions" title="Good questions, straight answers" />
+    <section id="faq" className="scroll-mt-24 py-14 sm:py-20">
+      <div className={`${container} grid grid-cols-1 items-start gap-8 lg:grid-cols-[0.8fr_1.4fr] lg:gap-12`}>
+        <div className="flex flex-col items-start gap-5">
+          <SectionHeading align="left" eyebrow="Questions" title="Good questions, straight answers" />
+          <p className="text-[15px] text-muted">
+            More questions?{" "}
+            <SiteLink to="/pricing#faq" className="font-bold text-navy underline">
+              The pricing page answers many more.
+            </SiteLink>
+          </p>
+        </div>
         <FaqList
           items={[
             {
@@ -673,14 +607,14 @@ function Faq() {
 
 function FinalCta() {
   return (
-    <section className="pb-20 sm:pb-28">
+    <section className="pb-14 sm:pb-20">
       <div className={container}>
-        <div className="relative isolate overflow-hidden rounded-[40px] bg-navy px-6 py-16 text-center text-white sm:px-12 sm:py-24">
+        <div className="relative isolate overflow-hidden rounded-[40px] bg-navy px-6 py-12 text-center text-white sm:px-12 sm:py-16">
           <div aria-hidden className="absolute -right-24 -top-24 -z-10 h-[340px] w-[340px] rounded-full bg-white/5" />
           <div aria-hidden className="absolute -bottom-32 -left-20 -z-10 h-[380px] w-[380px] rounded-full bg-saffron/25" />
-          <h2 className="mx-auto max-w-[760px] font-display text-[36px] font-semibold leading-[1.05] tracking-[-0.02em] sm:text-[56px]">Give your community a home that costs nothing to keep.</h2>
+          <h2 className="mx-auto max-w-[760px] font-display text-[36px] font-semibold leading-[1.05] tracking-[-0.02em] sm:text-[52px]">Give your community a home that costs nothing to keep.</h2>
           <p className="mx-auto mt-5 max-w-[560px] text-lg text-navy-200">Request access today and start in a private sandbox. No credit card needed.</p>
-          <div className="mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row">
+          <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
             <a href={portalUrl("/request-access")} className={`${buttonStyles.gold} !min-h-[58px] !px-8 !text-[17px]`}>
               Get started free
               <Icon name="arrow" className="h-5 w-5" />

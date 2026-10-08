@@ -20,7 +20,7 @@ export function SiteFooter() {
         <nav aria-label="Product" className="flex flex-col">
           <h2 className={heading}>Product</h2>
           {PRODUCT_MENU.map((item) => (
-            <SiteLink key={item.to} to={item.to} className={link}>
+            <SiteLink key={item.title} to={item.to} className={link}>
               {item.title}
             </SiteLink>
           ))}
@@ -28,7 +28,7 @@ export function SiteFooter() {
         <nav aria-label="Solutions" className="flex flex-col">
           <h2 className={heading}>Solutions</h2>
           {SOLUTIONS_MENU.map((item) => (
-            <SiteLink key={item.to} to={item.to} className={link}>
+            <SiteLink key={item.title} to={item.to} className={link}>
               {item.title}
             </SiteLink>
           ))}
@@ -39,7 +39,7 @@ export function SiteFooter() {
             Pricing
           </SiteLink>
           {RESOURCES_MENU.map((item) => (
-            <SiteLink key={item.to} to={item.to} className={link}>
+            <SiteLink key={item.title} to={item.to} className={link}>
               {item.title}
             </SiteLink>
           ))}
