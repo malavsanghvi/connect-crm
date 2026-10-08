@@ -30,7 +30,7 @@ export function SetupScreen({ problems }: { problems: EnvProblem[] }) {
         </div>
         <div>
           <dt className="font-semibold">NEXT_PUBLIC_CENTER_SLUG</dt>
-          <dd className="text-muted">Which center this console serves (optional; defaults to &quot;jsh&quot;).</dd>
+          <dd className="text-muted">Which organization this console opens when the address names none (optional; defaults to &quot;jsh&quot;).</dd>
         </div>
       </dl>
     </CenteredPanel>

@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { Card, ChipLinks, EmptyState, PageHeader, QueryError, StatusText, TableWrap } from "@/components/ui";
 import { formatDateTime } from "@/lib/dates";
 import { moduleLabelFor } from "@/lib/modules";
+import { requestKindText } from "@/lib/org-choices";
 import { REQUEST_STATUS_LABEL, emailStatusText, orgTypeLabel } from "@/lib/platform-onboarding";
 import { formatPhone } from "@/lib/security";
 import { getSession } from "@/lib/session";
@@ -126,6 +127,10 @@ export default async function RequestsPage({ searchParams }: { searchParams: Pro
                               <dd>{r.current_systems.length ? r.current_systems.join(", ") : "—"}</dd>
                               <dt className="text-muted">Heard from</dt>
                               <dd>{r.heard_from ?? "—"}</dd>
+                              <dt className="text-muted">They chose</dt>
+                              <dd>{requestKindText(r)}</dd>
+                              <dt className="text-muted">In their words</dt>
+                              <dd className="whitespace-pre-wrap break-words">{r.org_detail ?? "—"}</dd>
                               <dt className="text-muted">Sent from</dt>
                               <dd className="font-mono text-[12px]">{r.ip ? String(r.ip) : "unknown address"}</dd>
                             </dl>

@@ -1,7 +1,11 @@
 # Connect platform — architecture
 
-Connect is a multi-tenant community platform. The Jain Society of Houston (JSH)
-is tenant #1; any center can adopt it through configuration, not development.
+Weaver (repos named `connect-*`) is a multi-tenant platform for associations and communities of
+every kind: congregations and temples of any faith, chambers of commerce, clubs, cultural associations
+and other non-profits. Faith or tradition shows up only for an organization that has it (its category and
+experience, and the person signed in), never as the platform's default. The Jain Society of Houston (JSH)
+was the first organization and is the example used in these docs and the tests; any organization can
+adopt the platform through configuration, not development.
 Source design: *JSH Platform · Recommendations and Roadmap* (Sep 2026) and the
 *JSH App Prototype* canvas. Extracts live in this `docs/` folder.
 
