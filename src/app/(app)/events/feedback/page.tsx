@@ -15,6 +15,7 @@ import { hrefWith, param, type RawSearchParams } from "@/lib/search-params";
 import { getSession } from "@/lib/session";
 import {
   FEEDBACK_AREAS,
+  FIXED_REMINDERS,
   LOW_AREA_SCORE,
   aggregateFeedback,
   feedbackStatus,
@@ -137,7 +138,8 @@ export default async function FeedbackPage({ searchParams }: { searchParams: Pro
     .map((e) => ({ id: e.id, name: e.name, checkedIn: attendeesByEvent.get(e.id) ?? 0 }));
   const timingText =
     template.settings.sendTiming === "right_after" ? "right after the event" : template.settings.sendTiming === "two_days" ? "two days after the event" : "the morning after the event";
-  const reminderText = template.settings.reminderAfterDays ? `, with one reminder after ${template.settings.reminderAfterDays} days` : "";
+  // Fixed (0596): a reminder on day 1 and day 2 after each person's push, until they answer.
+  const reminderText = FIXED_REMINDERS;
   const selectedName = selected ? (eventName.get(selected.event_id as string) ?? selected.title) : null;
 
   return (

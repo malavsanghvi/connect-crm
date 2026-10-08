@@ -4454,6 +4454,7 @@ export type Database = {
           segments: number | null;
           job_id: number | null;
           created_by: string | null;
+          expires_at: string | null;
         };
         Insert: {
           id?: string;
@@ -4481,6 +4482,7 @@ export type Database = {
           segments?: number | null;
           job_id?: number | null;
           created_by?: string | null;
+          expires_at?: string | null;
         };
         Update: {
           id?: string;
@@ -4508,6 +4510,7 @@ export type Database = {
           segments?: number | null;
           job_id?: number | null;
           created_by?: string | null;
+          expires_at?: string | null;
         };
         Relationships: [];
       };
@@ -8711,6 +8714,81 @@ export type Database = {
         };
         Relationships: [];
       };
+      survey_notice_recipients: {
+        Row: {
+          survey_id: string;
+          person_id: string;
+          center_id: string;
+          outcome: string;
+          reason: string | null;
+          first_push_at: string | null;
+          created_at: string;
+        };
+        Insert: {
+          survey_id: string;
+          person_id: string;
+          center_id: string;
+          outcome: string;
+          reason?: string | null;
+          first_push_at?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          survey_id?: string;
+          person_id?: string;
+          center_id?: string;
+          outcome?: string;
+          reason?: string | null;
+          first_push_at?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      survey_notice_runs: {
+        Row: {
+          survey_id: string;
+          center_id: string;
+          send_at: string;
+          job_id: number | null;
+          planned: Json | null;
+          problem_code: string | null;
+          problem: string | null;
+          pushed: number;
+          refused: Json;
+          started_at: string | null;
+          finished_at: string | null;
+          created_at: string;
+        };
+        Insert: {
+          survey_id: string;
+          center_id: string;
+          send_at: string;
+          job_id?: number | null;
+          planned?: Json | null;
+          problem_code?: string | null;
+          problem?: string | null;
+          pushed?: number;
+          refused?: Json;
+          started_at?: string | null;
+          finished_at?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          survey_id?: string;
+          center_id?: string;
+          send_at?: string;
+          job_id?: number | null;
+          planned?: Json | null;
+          problem_code?: string | null;
+          problem?: string | null;
+          pushed?: number;
+          refused?: Json;
+          started_at?: string | null;
+          finished_at?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
       survey_responses: {
         Row: {
           id: string;
@@ -10891,7 +10969,7 @@ export type Database = {
         Args: {
           p_survey: string;
         };
-        Returns: number;
+        Returns: Json;
       };
       legal_documents_status: {
         Args: {

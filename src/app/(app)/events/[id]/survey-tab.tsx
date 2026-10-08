@@ -11,7 +11,7 @@ import { formatDateTime } from "@/lib/events/format";
 import { isModuleEnabled } from "@/lib/modules";
 import { can } from "@/lib/permissions";
 import type { CrmSession } from "@/lib/session";
-import { anonymityText, describeEventSurvey, formatPoints } from "@/lib/survey/event-survey";
+import { anonymityText, describeEventSurvey, formatPoints, homeOnly, refusalLines, type SurveyNotices } from "@/lib/survey/event-survey";
 import { formatPct, responseRate, standardFeedbackQuestions } from "@/lib/survey/feedback";
 import { QUESTION_TYPE_LABELS, parseQuestions } from "@/lib/survey/questions";
 
@@ -19,7 +19,7 @@ import { AttachSurveyForm, EditSurveyForm } from "./survey-forms";
 import { attachEventSurvey, launchEventSurvey, removeEventSurvey, updateEventSurvey } from "./survey-actions";
 
 const INTRO =
-  "Ask attendees how it went. The survey opens in the member app when the event is marked completed, everyone with an RSVP (or who attended) is notified with two reminders, and they earn points for answering.";
+  "Ask attendees how it went. The survey opens in the member app when the event is marked completed: adults with the app on a phone get a push and a reminder on day 1 and day 2 until they answer, everyone invited sees it on Home, and they earn points for answering.";
 
 export async function SurveyTab({ event, session, access }: { event: Tables<"events">; session: CrmSession; access: EventAccess }) {
   const tz = session.center.time_zone;
@@ -43,7 +43,7 @@ export async function SurveyTab({ event, session, access }: { event: Tables<"eve
   const canManage = eventAreas.edit(access, event.id);
   const res = await load(() => loadEventSurveyTab(session.db, session.center.id, event.id));
   if (!res.ok) return <LoadProblem message={res.error} retryHref={retry} />;
-  const { survey, templates, stats } = res.data;
+  const { survey, templates, stats, notices } = res.data;
   const eventCompleted = event.status === "completed";
 
   if (!survey) {
@@ -92,7 +92,7 @@ export async function SurveyTab({ event, session, access }: { event: Tables<"eve
                 pendingLabel="Sending…"
                 variant="primary"
                 size="md"
-                confirm="Send the survey now? It opens in the member app and everyone with an RSVP (or who attended) is notified, with two reminders."
+                confirm="Send the survey now? It opens in the member app: adults with the app on a phone get a push now (or when quiet hours end) and a reminder on day 1 and day 2 until they answer, and everyone invited sees it on Home."
               />
             ) : null}
           </>
@@ -130,6 +130,8 @@ export async function SurveyTab({ event, session, access }: { event: Tables<"eve
           </KpiGrid>
         </Card>
       ) : null}
+
+      {notices ? <PushesCard notices={notices} tz={tz} retry={canManage && survey.status === "open" && notices.problemCode === "template" && notices.pushed === 0 ? launchEventSurvey.bind(null, event.id, survey.id) : null} /> : null}
 
       {canManage && state.canEdit ? (
         <Card span={12} title="Edit survey" description="Questions, points and sending can be changed until the survey goes out.">
@@ -175,5 +177,74 @@ export async function SurveyTab({ event, session, access }: { event: Tables<"eve
         </Card>
       )}
     </BlockGrid>
+  );
+}
+
+/** The survey's pushes (0596): who gets one, how many went, what was refused and why, or what stopped them. */
+function PushesCard({ notices, tz, retry }: { notices: SurveyNotices; tz: string; retry: Parameters<typeof ActionButton>[0]["action"] | null }) {
+  const c = notices.planned;
+  const when = notices.sendAt ? formatDateTime(notices.sendAt, tz) : null;
+  const progress = notices.finishedAt
+    ? `${notices.pushed} queued · finished`
+    : notices.startedAt
+      ? `${notices.pushed} queued so far · the background service is working through the list`
+      : when
+        ? `Starts ${when}`
+        : "Waiting for the background service";
+  return (
+    <Card
+      span={12}
+      title="Pushes"
+      description="Adults with the member app on a phone get a push and a reminder on day 1 and day 2 after it, until they answer or the survey closes. Everyone else invited with a login sees it on Home."
+      actions={
+        retry ? (
+          <ActionButton
+            action={retry}
+            label="Send the pushes"
+            pendingLabel="Sending…"
+            variant="primary"
+            size="md"
+            confirm="Send the pushes that did not go? The template problem must be fixed first; the database checks it again."
+          />
+        ) : null
+      }
+    >
+      {notices.problem ? (
+        <div className="mb-3">
+          <Alert tone={notices.problemCode === "template" ? "danger" : "warning"} title="No push went out">
+            {notices.problem}
+          </Alert>
+        </div>
+      ) : null}
+      {c ? (
+        <KpiGrid cols={4}>
+          <Stat label="Will get a push" value={c.willPush} hint={progress} tone="success" />
+          <Stat
+            label="See it on Home only"
+            value={homeOnly(c)}
+            hint={[
+              c.noPhone ? `${c.noPhone} no phone with the app` : null,
+              c.pushesOff ? `${c.pushesOff} switched event pushes off` : null,
+              c.notTestRecipient ? `${c.notTestRecipient} not verified test recipients (sandbox)` : null,
+              c.switchedOff ? `${c.switchedOff} with event feedback switched off` : null,
+            ]
+              .filter(Boolean)
+              .join(" · ") || "everyone with a login gets a push"}
+            tone="navy"
+          />
+          <Stat label="No login" value={c.noLogin} hint="they do not use the member app" tone="brown" />
+          <Stat label="Already answered" value={c.answered} hint="not pushed" tone="purple" />
+        </KpiGrid>
+      ) : (
+        <p className="text-[13px] text-muted">{when ? `The counts are taken when the pushes start (${when}).` : "The counts are taken when the pushes start."}</p>
+      )}
+      {Object.keys(notices.refused).length ? (
+        <ul className="mt-3 list-disc pl-5 text-[13px]">
+          {refusalLines(notices.refused).map((line) => (
+            <li key={line}>{line}</li>
+          ))}
+        </ul>
+      ) : null}
+    </Card>
   );
 }
