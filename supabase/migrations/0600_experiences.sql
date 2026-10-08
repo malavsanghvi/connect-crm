@@ -781,7 +781,7 @@ end $$;
 
 -- 0594's console action (same signature) with one choice instead of two: the kind of organization is the experience, and the
 -- older "temple, community center or other non-profit" answer is worked out from it when it is left empty (a faith-based
--- experience is a temple, any other an "other non-profit"). A value given must be a key (lowercase letters, digits, underscores).
+-- experience is a temple, any other an "other non-profit"). A value given must still be one of the three.
 create or replace function app.platform_create_sandbox(
   p_name text, p_slug text, p_org_type text, p_city text, p_state text,
   p_owner_first_name text, p_owner_last_name text, p_owner_email text, p_reason text, p_link_base text default null,
@@ -804,8 +804,8 @@ begin
   end if;
   if v_org_type is null then
     v_org_type := case when v_kind.faith_based then 'temple' else 'other_nonprofit' end;
-  elsif v_org_type !~ '^[a-z][a-z0-9_]{1,39}$' then
-    raise exception 'Choose the kind of organization.';
+  elsif v_org_type not in ('temple','community_center','other_nonprofit') then
+    raise exception 'Choose the kind of organization: temple, community center or other non-profit.';
   end if;
   if length(btrim(coalesce(p_city, ''))) < 1 or length(btrim(coalesce(p_state, ''))) < 2 then raise exception 'Enter the city and state.'; end if;
   if v_first is null then raise exception 'Enter the owner''s first name.'; end if;

@@ -417,8 +417,8 @@ select app.platform_create_sandbox('Grace Church 90', 'grace90', '', 'Austin', '
                                    'Preview of the church experience', 'http://portal.test', 'church') as made_church \gset
 select app.platform_create_sandbox('Houston Chamber 90', 'hcc90', null, 'Houston', 'TX', 'Chet', 'Owner', 'chet90@hcc.test',
                                    'Preview of the chamber experience', 'http://portal.test', 'chamber_of_commerce') as made_chm \gset
-select pg_temp.assert_raises($$select app.platform_create_sandbox('Bad Type 90', 'bad90', 'Not A Key!', 'Austin', 'TX', 'Bo', 'Owner', 'bo90@bad.test',
-    'A reason', 'http://portal.test', 'church')$$, 'kind of organization', 'G · a value given for the older question must at least be a key');
+select pg_temp.assert_raises($$select app.platform_create_sandbox('Bad Type 90', 'bad90', 'mosque', 'Austin', 'TX', 'Bo', 'Owner', 'bo90@bad.test',
+    'A reason', 'http://portal.test', 'church')$$, 'kind of organization', 'G · a value given for the older question must still be one of the three');
 select pg_temp.assert_raises($$select app.platform_create_sandbox('No Kind 90', 'nokind90', '', 'Austin', 'TX', 'Bo', 'Owner', 'bo90@bad.test',
     'A reason', 'http://portal.test', 'no_such_experience')$$, 'Choose the kind of organization', 'G · an unknown kind is refused');
 reset role;
