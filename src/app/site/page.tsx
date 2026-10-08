@@ -115,7 +115,7 @@ function Hero() {
           <div className="absolute -bottom-2 -right-3 z-10 hidden scale-[0.82] sm:block lg:-right-12 lg:bottom-0 lg:scale-90">
             <PhoneMock />
           </div>
-          <FloatChip icon="check" tone="success" title="Zelle $251 matched" body="Shah family · queued for QuickBooks" className="-left-6 top-[42%] lg:-left-14" />
+          <FloatChip icon="check" tone="success" title="Zelle $251 matched" body="Rivera family · queued for QuickBooks" className="-left-6 top-[42%] lg:-left-14" />
           <FloatChip icon="ticket" tone="saffron" title="186 checked in" body="Annual dinner · 77% of tickets" className="bottom-6 left-4 lg:bottom-2 lg:left-2" delay="-3s" />
         </div>
       </div>
@@ -464,7 +464,7 @@ function MemberApp() {
               "Events, tickets, lunch slots and reminders",
               "Giving, pledges and statements in one place",
               "Learning paths for children and adults",
-              "Large-text mode and three languages",
+              "Large-text mode and easy-to-tap buttons",
             ]}
           />
           <a href={portalUrl("/request-access")} className={`${buttonStyles.primary} mt-2`}>

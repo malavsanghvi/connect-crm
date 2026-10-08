@@ -45,10 +45,11 @@ describe("vault helpers", () => {
 
 describe("background service tile", () => {
   it("reads 'not configured' when the worker never reported in", () => {
-    const v = backgroundServiceView({ state: "not_configured", last_beat_at: null, age_seconds: null, workers: [], jobs: { queued: 2, scan_pending: 1 } });
+    const v = backgroundServiceView({ state: "not_configured", last_beat_at: null, age_seconds: null, workers: [], jobs: { queued: 2, scheduled: 5, scan_pending: 1 } });
     expect(v.label).toBe("Background service not configured");
     expect(v.detail).toMatch(/WORKER_DATABASE_URL/);
-    expect(v.jobs).toEqual({ queued: 2, running: 0, failed24h: 0, done24h: 0, scanPending: 1 });
+    // Jobs scheduled for later (a reminder due tomorrow) are counted apart from the ones that are due now (0598).
+    expect(v.jobs).toEqual({ queued: 2, scheduled: 5, running: 0, failed24h: 0, done24h: 0, scanPending: 1 });
   });
   it("lists which handlers are configured, with the reason", () => {
     const v = backgroundServiceView({

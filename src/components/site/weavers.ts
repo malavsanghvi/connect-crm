@@ -33,15 +33,15 @@ export const WEAVERS: readonly Weaver[] = [
     tone: "navy",
     menu: "Cultural associations, community centers and heritage schools",
     body: "For cultural associations, community centers and heritage schools: memberships, programs and the big annual event.",
-    points: ["Memberships with renewals", "Ticketed programs and galas", "Classes, attendance and homework", "Three languages in the member app"],
+    points: ["Memberships with renewals", "Ticketed programs and galas", "Classes, attendance and homework", "Large-text mode in the member app"],
   },
   {
     id: "org-weaver",
     name: "Org Weaver",
     icon: "chart",
     tone: "success",
-    menu: "Nonprofits, professional societies and alumni groups",
-    body: "For nonprofits, professional societies, alumni networks and clubs: dues, meetings and the volunteers who keep it running.",
+    menu: "Chambers of commerce, nonprofits, professional societies and clubs",
+    body: "For chambers of commerce, nonprofits, professional societies, alumni networks and clubs: dues, meetings and the volunteers who keep it running.",
     points: ["Dues and renewals", "Meetings and RSVPs", "Volunteer opportunities", "Reports and QuickBooks accounting"],
   },
 ];

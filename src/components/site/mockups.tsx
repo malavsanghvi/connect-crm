@@ -84,12 +84,12 @@ export function PhoneMock({ className = "" }: { className?: string }) {
       <div className="overflow-hidden rounded-[30px] bg-canvas">
         <div className="bg-navy px-4 pb-4 pt-5 text-white">
           <p className="text-[11px] font-semibold text-navy-200">Sample Community</p>
-          <p className="font-display text-[19px] font-semibold">Welcome, the Shah family</p>
+          <p className="font-display text-[19px] font-semibold">Welcome, the Rivera family</p>
         </div>
         <div className="flex flex-col gap-2.5 p-3.5">
           <div className="rounded-2xl bg-white p-3.5 shadow-sm">
             <Pill tone="maroon">Event</Pill>
-            <p className="mt-1.5 text-[14px] font-bold text-ink">Diwali celebration</p>
+            <p className="mt-1.5 text-[14px] font-bold text-ink">Spring celebration</p>
             <p className="text-[12px] text-muted">Saturday, 6:30 PM · Main hall</p>
             <div className="mt-2.5 flex gap-2">
               <span className="flex-1 rounded-full bg-navy py-2 text-center text-[12px] font-bold text-white">RSVP</span>
@@ -128,15 +128,15 @@ export function HouseholdMock({ className = "" }: { className?: string }) {
     ["Connect number", "H-2041"],
     ["Your old member ID", "0417"],
     ["Your old household ID", "0212"],
-    ["Bank payer name", "RAHUL SHAH"],
+    ["Bank payer name", "DANIEL RIVERA"],
   ];
   return (
     <WindowFrame title="Sample Community · Households" className={className}>
       <div className="flex flex-col gap-4 bg-canvas p-5">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <p className="font-display text-[20px] font-semibold text-navy">Shah family</p>
-            <p className="text-[12px] text-muted">Rahul &amp; Mira · 4 members · Zone West</p>
+            <p className="font-display text-[20px] font-semibold text-navy">Rivera family</p>
+            <p className="text-[12px] text-muted">Daniel &amp; Maria · 4 members · Zone West</p>
           </div>
           <Pill tone="success">Yearly member</Pill>
         </div>
@@ -164,7 +164,7 @@ export function GivingMock({ className = "" }: { className?: string }) {
       <div className="flex flex-col gap-3 bg-canvas p-5">
         <div className="rounded-xl border border-line bg-white p-3.5">
           <div className="flex items-center justify-between gap-3">
-            <p className="font-mono text-[12px] font-semibold text-ink">ZELLE FROM RAHUL SHAH</p>
+            <p className="font-mono text-[12px] font-semibold text-ink">ZELLE FROM DANIEL RIVERA</p>
             <p className="font-display text-[18px] font-semibold text-navy">$251.00</p>
           </div>
           <p className="mt-1 text-[12px] text-muted">Posted Tuesday · matched by a name used before</p>
@@ -174,7 +174,7 @@ export function GivingMock({ className = "" }: { className?: string }) {
             <Icon name="check" className="h-5 w-5" strokeWidth={3} />
           </span>
           <div className="min-w-0">
-            <p className="text-[13px] font-bold text-success-900">Shah family · household H-2041</p>
+            <p className="text-[13px] font-bold text-success-900">Rivera family · household H-2041</p>
             <p className="text-[12px] text-success-900/80">Applied to the Annual pledge. Queued for QuickBooks.</p>
           </div>
         </div>
@@ -207,9 +207,9 @@ export function EventMock({ className = "" }: { className?: string }) {
         </div>
         <div className="rounded-xl border border-line bg-white">
           {[
-            ["Mehta family", "4 guests", "Checked in"],
-            ["Desai family", "2 guests", "Checked in"],
-            ["Patel family", "5 guests", "Expected"],
+            ["Nguyen family", "4 guests", "Checked in"],
+            ["Okafor family", "2 guests", "Checked in"],
+            ["Brooks family", "5 guests", "Expected"],
           ].map(([name, guests, state]) => (
             <div key={name} className="flex items-center justify-between gap-3 border-b border-line-soft px-3.5 py-2.5 last:border-b-0">
               <div>

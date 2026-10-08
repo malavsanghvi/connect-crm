@@ -136,7 +136,8 @@ export type SurveyNotices = {
   pushed: number;
   /** People whose push was refused, by reason (quiet_hours, sandbox, template, suppressed, error). */
   refused: Record<string, number>;
-  problemCode: "template" | "closed" | "backlog" | null;
+  /** switched_off (0598): the community had event feedback off in Settings › Notifications when the pushes were due. */
+  problemCode: "template" | "closed" | "backlog" | "switched_off" | null;
   problem: string | null;
   startedAt: string | null;
   finishedAt: string | null;
@@ -172,7 +173,7 @@ export function parseSurveyNotices(raw: unknown): SurveyNotices | null {
       : null,
     pushed: whole(o.pushed),
     refused,
-    problemCode: code === "template" || code === "closed" || code === "backlog" ? code : null,
+    problemCode: code === "template" || code === "closed" || code === "backlog" || code === "switched_off" ? code : null,
     problem: text(o.problem),
     startedAt: text(o.started_at),
     finishedAt: text(o.finished_at),
@@ -234,6 +235,19 @@ export function surveySentMessage(n: SurveyNotices | null, opening = "Survey sen
   if (c.noLogin > 0) parts.push(`${people(c.noLogin)} invited ${c.noLogin === 1 ? "has" : "have"} no login in the app.`);
   if (c.answered > 0) parts.push(`${people(c.answered)} already answered.`);
   return `${opening}: ${parts.join(" ")}`;
+}
+
+/**
+ * Did the database send these pushes now? Its one rule (0598): a send time that is not in the future is counted when the
+ * request is saved (planned is set); a later one is counted when it goes (planned stays empty until then).
+ */
+export function requestWentNow(n: SurveyNotices | null): boolean {
+  return n?.planned != null;
+}
+
+/** The request was saved but the database's answer about its pushes could not be read. */
+export function feedbackRequestUnreadMessage(when: string): string {
+  return `Feedback request saved for ${when}. Its pushes could not be read back, so who gets one is not shown here; reload the page to see them.`;
 }
 
 /** Feedback requested from Events › Feedback: what will happen at the send time (or now). */
