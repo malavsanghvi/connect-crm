@@ -207,11 +207,22 @@ name, to `audit.view` holders of that center and platform admins only (the same 
 - **Tables:** pathshala_terms, pathshala_tracks, pathshala_levels, pathshala_classes,
   pathshala_teachers, pathshala_enrollments, pathshala_sessions, pathshala_attendance,
   pathshala_progress_reports, class_announcements, teacher_positions, teacher_applications,
-  pathshala_level_fees, pathshala_enrollment_fees (0590)
+  pathshala_level_fees, pathshala_enrollment_fees (0590), pathshala_registrations,
+  pathshala_pending_registrations (0591)
 - **RPCs guarded:** pathshala_term_stats, redeem_attendance_qr; registration (0590): save_pathshala_level,
   set_pathshala_level_fees, set_pathshala_term_rules, open_pathshala_registration, pathshala_quote,
   pathshala_fee_example, pathshala_registration_options, preview_pathshala_registration, pathshala_seats,
-  pathshala_pay_now_ready
+  pathshala_pay_now_ready; (0591): register_pathshala_children, choose_pathshala_office_payment,
+  place_pathshala_enrollment, place_next_from_waitlist, release_pathshala_hold, extend_pathshala_hold,
+  pathshala_registration_queue, pathshala_task_counts; pathshala_registration_options is replaced in 0591 (the
+  learners' enrollments carry the hold reason, the withdrawal reason and the fee to the family's adults, never to a child).
+  Triggers (0591): pathshala_fee_paid (a paid fee pledge places a held seat; never waits, never blocks a payment),
+  pathshala_late_payment (money for a released fee pledge becomes a credit row), pathshala_fee_pledge_closed (a cancelled
+  fee pledge ends its fee line), pathshala_levels_track_guard, pathshala_enrollments_guard (also refuses moving a learner with a set fee line to another level's class),
+  pathshala_classes_level_guard (a class's level cannot change under such learners). The import engine finds an
+  enrollment by class or track (0591). Hold and withdrawal reasons live on pathshala_enrollment_fees (P30).
+- **Worker:** pathshala.holds_sweep (every 15 minutes: reminders and releases of the seats held for payment, the
+  waitlist; `app.worker_pathshala_holds_sweep`)
 - **Portal:** /pathshala, /pathshala/classes, /pathshala/classes/[id]/attendance,
   /pathshala/classes/[id]/reports (progress reports), /pathshala/terms, /pathshala/enrollments
   (incl. "Enroll a student"), /pathshala/teachers (positions and applications),

@@ -40,6 +40,7 @@ import * as paymentsSyncPayouts from "./payments.sync_payouts";
 import * as paymentsTestCharge from "./payments.test_charge";
 import * as paymentsWebhookPaypal from "./payments.webhook.paypal";
 import * as paymentsWebhookStripe from "./payments.webhook.stripe";
+import * as pathshalaHoldsSweep from "./pathshala.holds_sweep";
 import * as photosImportAlbum from "./photos.import_album";
 import * as storageRetention from "./storage.retention";
 import * as surveysLaunchNotify from "./surveys.launch_notify";
@@ -104,4 +105,6 @@ export const HANDLERS: HandlerModule[] = [
   // in the queue while scanning is off (Platform › Setup), which is the default
   storageScan,
   storageScanSweep,
+  // Pathshala registration (0591): every 15 minutes, reminders and releases of the seats held for payment, and the waitlist
+  pathshalaHoldsSweep,
 ];
