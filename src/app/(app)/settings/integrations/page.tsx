@@ -132,8 +132,8 @@ export default async function IntegrationsPage() {
                 </p>
               </div>
               <p className="text-[13px]">
-                Jobs for {center.short_name ?? center.name}: {service.jobs.queued} waiting · {service.jobs.running} running · {service.jobs.done24h} done
-                and {service.jobs.failed24h} failed in the last 24 hours.
+                Jobs for {center.short_name ?? center.name}: {service.jobs.queued} waiting now · {service.jobs.scheduled} scheduled for later ·{" "}
+                {service.jobs.running} running · {service.jobs.done24h} done and {service.jobs.failed24h} failed in the last 24 hours.
               </p>
               {service.handlers.length > 0 ? (
                 <ul className="flex flex-col gap-1 text-[13px]">

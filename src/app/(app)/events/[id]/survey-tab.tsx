@@ -131,7 +131,7 @@ export async function SurveyTab({ event, session, access }: { event: Tables<"eve
         </Card>
       ) : null}
 
-      {notices ? <PushesCard notices={notices} tz={tz} retry={canManage && survey.status === "open" && notices.problemCode === "template" && notices.pushed === 0 ? launchEventSurvey.bind(null, event.id, survey.id) : null} /> : null}
+      {notices ? <PushesCard notices={notices} tz={tz} retry={canManage && survey.status === "open" && (notices.problemCode === "template" || notices.problemCode === "switched_off") && notices.pushed === 0 ? launchEventSurvey.bind(null, event.id, survey.id) : null} /> : null}
 
       {canManage && state.canEdit ? (
         <Card span={12} title="Edit survey" description="Questions, points and sending can be changed until the survey goes out.">
@@ -204,7 +204,7 @@ function PushesCard({ notices, tz, retry }: { notices: SurveyNotices; tz: string
             pendingLabel="Sending…"
             variant="primary"
             size="md"
-            confirm="Send the pushes that did not go? The template problem must be fixed first; the database checks it again."
+            confirm="Send the pushes that did not go? What stopped them (a template problem, or event feedback switched off in Settings › Notifications) must be fixed first; the database checks it again."
           />
         ) : null
       }
