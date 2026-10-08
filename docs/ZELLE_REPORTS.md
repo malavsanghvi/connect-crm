@@ -145,7 +145,9 @@ the report, never an error). Match them against the sandbox's own imported test 
 | Report, withdraw, see the family's reports | An adult of the family |
 | See the panel, counts and suggestions | `giving.view`, `giving.record_offline` or `giving.manage` |
 | Match, attach, bulk confirm, close as not accepted, link | `giving.record_offline` or `giving.manage` |
-| Change the report window or the Zelle bank account | The owner, `integrations.manage` or `giving.manage`, with a reason |
+| Change the report window | The owner, `integrations.manage` or `giving.manage`, with a reason |
+| Change the Zelle address, the name shown in Zelle or the Zelle bank account once they are saved | Ask: the owner, `integrations.manage` or `giving.manage` (fresh 2FA check and a reason). Confirm: a **different** person with `giving.approve` (fresh 2FA check and a reason). A platform admin does neither (section 9) |
+| Approve the Zelle instructions for go-live | The person with the Treasurer role |
 | Run the sweep | The background service only (`connect_worker`) |
 
 Nobody writes `payment_reports` directly; every write goes through a function and is audited.
@@ -167,6 +169,30 @@ two-person refund record. A demo clear removes every report.
 | Templates `zelle_report_unmatched`, `zelle_report_rejected` (push and email) | Platform defaults; an organization can override them |
 | `app.member_payment_options` | Redefined: unchanged in production; the rehearsal entry in a sandbox |
 
-Not built here: the second approver for a change of the Zelle address (payments plan PR 5, Q6), the
-member app's "I sent it" screen (PR 4), and an automatic bank feed (statements are still imported
-by hand).
+## 9. Changing where Zelle gifts go (payments plan PR 5, migration 0597)
+
+The Zelle address, the name shown in Zelle and the bank account Zelle payments arrive in are
+the places a donation could be redirected, so once they are saved **one person alone cannot change
+them**:
+
+1. On Settings › Payments, the Zelle card shows them read-only. **Request a change to the address or
+   name** asks for the change (a fresh 2FA check and a reason); the bank account is changed in
+   Giving › Payments › Bank › Zelle reports the same way (the report window is saved at once, the
+   account waits).
+2. The request appears under **Changes to where gifts go**, and on Home for the people who can confirm
+   it. Members keep seeing the old details.
+3. A **different** person with `giving.approve` (another treasurer, or the owner) reads what changes
+   and **confirms** it (fresh 2FA check and a reason) or **turns it down**. The person who asked can
+   **withdraw** it. A request lapses after 14 days.
+4. When it is confirmed the new details take effect, and members see a dated notice for 30 days.
+   Both reasons and both people are in the audit log.
+
+Saving the memo wording, or the first time an address is saved, needs no second person. A platform
+admin can neither ask for nor confirm a change. **Go-live:** the treasurer approves the Zelle instructions
+on the Zelle card (readiness check 6); any later change of the address, the name, the memo, the bank
+account or the report window stops that check passing until the treasurer approves the new version.
+Community Connect can **pause** Zelle (for every community or one): members are not offered it and a
+new report cannot be made, while reports and bank lines already in the system are matched as usual.
+
+Not built here: the member app's "I sent it" screen (PR 4, built in connect-mobile), showing the
+dated notice in the member app, and an automatic bank feed (statements are still imported by hand).

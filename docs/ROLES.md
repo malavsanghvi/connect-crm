@@ -83,6 +83,15 @@ volunteers until midnight; EC roles at term end). Delegation is a grant with
 | `crm` (legacy CRM) | — | read + write | read |
 | `accounting`, `bank_payer`, `payment_provider` | — | — | read; write with `giving.manage` |
 
+## Where gifts go: the second person (payments plan PR 5, migration 0597)
+
+A change to a payee that is already saved (the Zelle address or name, the bank account Zelle payments
+arrive in, the PayPal email) is asked for by the owner or a holder of `integrations.manage` or
+`giving.manage` and takes effect only when a **different** person with `giving.approve` (the owner
+included) confirms it, each with a fresh 2FA check and a reason. `app.payee_has_permission` is the
+vault's rule: **a platform admin's blanket permissions do not count**. Community Connect's only power over
+payments is the pause (`app.suspend_payment_plugin`, platform admins only).
+
 ## Prototype permission names → schema permissions (Content and Communications)
 
 The AdminPortal prototype uses shorthand permission names. The portal maps them to the
