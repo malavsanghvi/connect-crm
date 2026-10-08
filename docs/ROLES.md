@@ -90,7 +90,10 @@ arrive in, the PayPal email) is asked for by the owner or a holder of `integrati
 `giving.manage` and takes effect only when a **different** person with `giving.approve` (the owner
 included) confirms it, each with a fresh 2FA check and a reason. `app.payee_has_permission` is the
 vault's rule: **a platform admin's blanket permissions do not count**. Community Connect's only power over
-payments is the pause (`app.suspend_payment_plugin`, platform admins only).
+payments is the pause (`app.suspend_payment_plugin`, platform admins only). The fresh 2FA check is
+asked of a person who has an authenticator app or whose organization requires 2FA for staff
+(`security.require_2fa_for_staff`); JSH has that rule off. An organization needs two holders of
+`giving.approve` (the owner counts) to be able to fix a typo in a payee once it is set.
 
 ## Prototype permission names → schema permissions (Content and Communications)
 

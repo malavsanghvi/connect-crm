@@ -194,5 +194,11 @@ account or the report window stops that check passing until the treasurer approv
 Community Connect can **pause** Zelle (for every community or one): members are not offered it and a
 new report cannot be made, while reports and bank lines already in the system are matched as usual.
 
+The fresh 2FA check is asked of a person who has an authenticator app, or whose organization requires 2FA
+for its staff; JSH currently has that rule off. A change waits for a second person for at most 14 days
+and is withdrawn if Zelle is switched off meanwhile; confirming re-checks that the person who asked still
+holds a role that may ask and that the bank account is still active. The ACH or wire details and the
+memo wording are free text and are not guarded.
+
 Not built here: the member app's "I sent it" screen (PR 4, built in connect-mobile), showing the
 dated notice in the member app, and an automatic bank feed (statements are still imported by hand).
