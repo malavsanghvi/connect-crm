@@ -52,6 +52,20 @@ export function checkPublicEnv(raw: {
   return { ok: true, env: { supabaseUrl: url, supabaseAnonKey: anonKey, centerSlug } };
 }
 
+/**
+ * True when this deployment names one organization on purpose (NEXT_PUBLIC_CENTER_SLUG is set): a portal built for that organization
+ * alone. The default ("jsh", for a portal that was never told) is not a choice. This decides only what the sign-in page shows on an
+ * address that names no organization (docs/DEPLOY.md "Organization addresses"); which organization the portal opens after sign-in
+ * is still `centerSlug`, unchanged.
+ */
+export function centerSlugPinned(raw: string | undefined): boolean {
+  return (raw?.trim() ?? "") !== "";
+}
+
+export function isCenterSlugPinned(): boolean {
+  return centerSlugPinned(process.env.NEXT_PUBLIC_CENTER_SLUG);
+}
+
 export function readPublicEnv(): EnvCheck {
   return checkPublicEnv({
     url: process.env.NEXT_PUBLIC_SUPABASE_URL,

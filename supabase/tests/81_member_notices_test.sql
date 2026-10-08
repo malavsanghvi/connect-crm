@@ -266,8 +266,9 @@ select pg_temp.assert((select m.scheduled_at = :'slot1'::timestamptz - interval 
 select pg_temp.assert((select m.subject = 'Lunch at ' || to_char(:'slot1'::timestamptz at time zone 'America/Chicago', 'FMHH12:MI AM')
                                and m.body = 'Your lunch slot at Lunch event 81 starts at ' || to_char(:'slot1'::timestamptz at time zone 'America/Chicago', 'FMHH12:MI AM') || '.'
                                and m.payload->>'slot_id' is not null and m.payload->'vars'->>'person_id' = :asha
+                               and m.payload->>'type' = 'lunch_reminder' and m.payload->>'deep_link' = '/event/' || :ev_lunch || '/tickets'
                           from pg_temp.notices(array['lunch_reminder'], 'event_id', :ev_lunch) m),
-  'it says the slot''s time in the community''s time zone, and the slot is at the top level of the payload');
+  'it says the slot''s time in the community''s time zone; the slot, type and deep link (the tickets screen, 0598) are at the top level of the payload');
 
 -- move_lunch_slot (owner approved 2026-10-07): one RSVP, on this event, that the caller may act for.
 select id as old_lunch, job_id as old_lunch_job from pg_temp.notices(array['lunch_reminder'], 'event_id', :ev_lunch) \gset

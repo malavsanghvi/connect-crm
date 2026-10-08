@@ -100,7 +100,8 @@ export type BackgroundServiceView = {
   detail: string;
   lastBeatAt: string | null;
   handlers: HandlerState[];
-  jobs: { queued: number; running: number; failed24h: number; done24h: number; scanPending: number };
+  /** queued: due now (run_after reached); scheduled: queued for later (a reminder due tomorrow, a retry waiting out its back-off). */
+  jobs: { queued: number; scheduled: number; running: number; failed24h: number; done24h: number; scanPending: number };
 };
 
 const num = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? v : 0);
@@ -118,6 +119,7 @@ export function backgroundServiceView(status: Json | null | undefined): Backgrou
   const jobsRaw = isPlainObject(s.jobs) ? s.jobs : {};
   const jobs = {
     queued: num(jobsRaw.queued),
+    scheduled: num(jobsRaw.scheduled),
     running: num(jobsRaw.running),
     failed24h: num(jobsRaw.failed_24h),
     done24h: num(jobsRaw.done_24h),
@@ -213,6 +215,7 @@ export const JOB_KIND_LABELS: Record<string, string> = {
   "qbo.match_suggest_ai": "Suggest QuickBooks donor matches",
   "qbo.bring_in_history": "Bring in a QuickBooks customer's history",
   "surveys.launch_notify": "Send an event survey's pushes and reminders",
+  "notices.sweep": "Member notices that are due: RSVP confirmations, boli closing, special-day labh",
 };
 
 export function jobKindLabel(kind: string): string {

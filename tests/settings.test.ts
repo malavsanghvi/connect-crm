@@ -173,6 +173,32 @@ describe("onboarding, notifications and security settings", () => {
     expect(boli?.label).toBe("Boli: another family pledged more / closing");
     for (const t of NOTIFICATION_TRIGGERS) expect(`${t.label} ${t.when(readRuleSettings(SEED_RULES))}`).not.toMatch(/\bbid/i);
   });
+  it("marks which notices have a sender (0598) and gives each one without a sender a reason, never a switch", () => {
+    const sends = (key: string) => NOTIFICATION_TRIGGERS.find((t) => t.key === key)?.sends;
+    for (const key of ["rsvp_confirmation", "lunch_reminder", "special_day_labh", "boli_outbid", "store_order_ready", "event_feedback", "homework_reminder"]) {
+      expect(sends(key), key).toBe(true);
+    }
+    for (const key of ["family_celebration", "saathi_support", "giving_opportunity", "pledge_reminder", "pachchakhan_reminder"]) {
+      expect(sends(key), key).toBe(false);
+      expect(NOTIFICATION_TRIGGERS.find((t) => t.key === key)?.note?.length ?? 0, key).toBeGreaterThan(30);
+    }
+    // Guests are not texted anywhere: no row promises it.
+    for (const t of NOTIFICATION_TRIGGERS) expect(t.channel).not.toMatch(/guest/i);
+  });
+  it("saves only the switches that exist, so a choice stored for a notice with no sender is left as it was", () => {
+    const parsed = parseSection(
+      "notifications",
+      form({ quiet_start_hour: "21", quiet_end_hour: "7", trigger_rsvp_confirmation: "on", trigger_pledge_reminder: "on", trigger_pachchakhan_reminder: "on" }),
+    );
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) return;
+    const triggers = (parsed.patch.notifications as { triggers: Record<string, boolean> }).triggers;
+    expect(triggers.rsvp_confirmation).toBe(true);
+    expect(triggers.store_order_ready).toBe(false); // a switch that exists and was not ticked is off
+    expect(Object.keys(triggers).sort()).toEqual(["boli_outbid", "event_feedback", "homework_reminder", "lunch_reminder", "rsvp_confirmation", "special_day_labh", "store_order_ready"]);
+    const merged = applyRulesPatch({ notifications: { triggers: { pledge_reminder: false, family_celebration: false } } }, parsed.patch);
+    expect(readNotificationSettings(merged.rules).triggers).toMatchObject({ pledge_reminder: false, family_celebration: false, rsvp_confirmation: true });
+  });
   it("reads security defaults", () => {
     expect(readSecuritySettings({})).toEqual({ printedSigninCodes: true, adminSessionHours: 8, adminIdleMinutes: 30, require2faForStaff: true });
     expect(readSecuritySettings({ security: { require_2fa_for_staff: false } }).require2faForStaff).toBe(false);

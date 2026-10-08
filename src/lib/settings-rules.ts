@@ -216,36 +216,104 @@ export function readOnboardingFields(rules: Json): Record<string, FieldSetting> 
 // ---------------------------------------------------------------------------
 // Notifications tab
 // ---------------------------------------------------------------------------
-export type NotificationTrigger = { key: string; label: string; when: (s: RuleSettings) => string; channel: string };
+export type NotificationTrigger = {
+  key: string;
+  label: string;
+  when: (s: RuleSettings) => string;
+  channel: string;
+  /**
+   * Whether anything in Weaver sends this notice (0598). A row with no sender has no switch on the page ("Not sent yet")
+   * and the form does not write it, so a choice saved earlier is left as it was.
+   */
+  sends: boolean;
+  /** For a row with no sender: why, in plain English. */
+  note?: string;
+};
 
-// 0596: three switches are read by the database and their pushes are sent: lunch_reminder (app.assign_lunch_for_rsvp,
-// app.move_lunch_slot), boli_outbid (on entry, app.place_boli_entry) and event_feedback (app.launch_event_survey).
-// The "when" of each says what the code does.
+// 0598: every row with `sends: true` is sent by the database and follows its switch (checked when the notice is queued
+// and again when it is sent, app.notice_trigger), and a member who switched the topic off in the app is skipped
+// (app.notice_topic). The rows with `sends: false` have no sender, so they show "Not sent yet" instead of a switch.
+// Guests' SMS and WhatsApp are not sent anywhere: Weaver records no consent of a guest to be texted.
 export const NOTIFICATION_TRIGGERS: NotificationTrigger[] = [
-  { key: "rsvp_confirmation", label: "RSVP confirmation", when: (s) => `${s.rsvp.confirmationHoursBefore} hours before`, channel: "Push · SMS or WhatsApp for guests" },
+  {
+    key: "rsvp_confirmation",
+    label: "RSVP confirmation",
+    when: (s) => `${s.rsvp.confirmationHoursBefore} hours before the event (each event can change it) · asks adults who RSVP'd earlier to confirm`,
+    channel: "Push",
+    sends: true,
+  },
   {
     key: "lunch_reminder",
     label: "Lunch slot reminder",
     when: (s) => (s.lunch.reminderMinutesBefore > 0 ? `${s.lunch.reminderMinutesBefore} minutes before each slot` : "Off (0 minutes in Settings › Rules)"),
-    channel: "Push · SMS for guests",
+    channel: "Push",
+    sends: true,
   },
-  { key: "special_day_labh", label: "Special-day labh prompt", when: () => "2 weeks before", channel: "Push" },
-  { key: "family_celebration", label: "Family celebration", when: () => "When goal or level completed", channel: "Push" },
-  { key: "saathi_support", label: "Saathi support request", when: (s) => `After ${s.points.behindAfterDays} days behind`, channel: "Push to anumodana senders" },
-  // Bolis say "pledge", never "bid". Only "another family pledged more" is sent (0596, an event-day message); the
-  // 24-hour notice has no sender yet (BACKLOG B49).
-  { key: "boli_outbid", label: "Boli: another family pledged more / closing", when: () => "On entry · 24 hours before cutoff", channel: "Push" },
-  { key: "giving_opportunity", label: "Giving opportunity alert", when: () => "On publish", channel: "Push · email" },
-  { key: "pledge_reminder", label: "Pledge reminder", when: () => "Monthly for open pledges", channel: "Email" },
-  { key: "store_order_ready", label: "Store order ready", when: () => "At pickup time", channel: "Push" },
+  {
+    key: "special_day_labh",
+    label: "Special-day labh prompt",
+    when: () => "From the day the family chose (2 weeks by default) until the day itself · days kept by date, not by tithi",
+    channel: "Push to the household's adults",
+    sends: true,
+  },
+  {
+    key: "family_celebration",
+    label: "Family celebration",
+    when: () => "When goal or level completed",
+    channel: "Push",
+    sends: false,
+    note: "No sender yet: the family's milestones show in My Jain Way › Saathi in the app, but nothing pushes them.",
+  },
+  {
+    key: "saathi_support",
+    label: "Saathi support request",
+    when: (s) => `After ${s.points.behindAfterDays} days behind`,
+    channel: "Push to anumodana senders",
+    sends: false,
+    note: "No sender yet: how often to nudge someone is not decided.",
+  },
+  // Bolis say "pledge", never "bid": "another family pledged more" (0596, an event-day message) and the notice 24 hours
+  // before the boli closes (0598), to each person who pledged before that window opened.
+  { key: "boli_outbid", label: "Boli: another family pledged more / closing", when: () => "On entry · 24 hours before cutoff", channel: "Push", sends: true },
+  {
+    key: "giving_opportunity",
+    label: "Giving opportunity alert",
+    when: () => "On publish",
+    channel: "Push · email",
+    sends: false,
+    note: "No sender yet: it would reach every member, so who it goes to needs an approved audience (Communications).",
+  },
+  {
+    key: "pledge_reminder",
+    label: "Pledge reminder",
+    when: () => "Monthly for open pledges",
+    channel: "Email",
+    sends: false,
+    note: "No sender yet: it would email every household with an open pledge, old imported ones included; which pledges, how often and in whose name is the owner's decision.",
+  },
+  {
+    key: "store_order_ready",
+    label: "Store order ready",
+    when: () => "When the kitchen moves the order to ready",
+    channel: "Push to the member who placed it",
+    sends: true,
+  },
   {
     key: "event_feedback",
     label: "Event feedback request",
     when: () =>
       "When the event is marked completed, the survey is sent from its Survey tab, or a feedback request's time comes · reminders on day 1 and day 2 until they answer",
-    channel: "Push · SMS or WhatsApp for guests",
+    channel: "Push",
+    sends: true,
   },
-  { key: "pachchakhan_reminder", label: "Pachchakhan reminder", when: () => "Member-set times", channel: "Push" },
+  {
+    key: "pachchakhan_reminder",
+    label: "Pachchakhan reminder",
+    when: () => "Member-set times",
+    channel: "On the member's phone",
+    sends: false,
+    note: "Not sent by Weaver: each member sets these reminders on their own phone, so this switch cannot turn them off.",
+  },
   // 0588: read by the database itself (app.worker_homework_reminders_sweep); off = no homework reminder in this community
   // (and the next run cancels those still waiting).
   {
@@ -253,6 +321,7 @@ export const NOTIFICATION_TRIGGERS: NotificationTrigger[] = [
     label: "Homework due-soon reminders",
     when: () => "The hours before the end of the due day that each homework sets, to learners who have not handed it in; held by quiet hours (no push after it is due)",
     channel: "Push · email to the learner, and to the household adults of a learner under 18",
+    sends: true,
   },
 ];
 
@@ -443,7 +512,8 @@ export function parseSection(section: RulesSection, read: Read): ParsedSection {
       });
       if (errors.length) return fail(errors);
       const triggers: RulesObject = {};
-      for (const t of NOTIFICATION_TRIGGERS) triggers[t.key] = on(read, `trigger_${t.key}`);
+      // Only the notices that have a sender have a switch on the form: the others keep what was stored.
+      for (const t of NOTIFICATION_TRIGGERS) if (t.sends) triggers[t.key] = on(read, `trigger_${t.key}`);
       return {
         ok: true,
         patch: { notifications: { ...ok, event_day_during_quiet_hours: on(read, "event_day_during_quiet_hours"), triggers } },

@@ -4,9 +4,12 @@ import { describe, expect, it } from "vitest";
 
 import {
   LEGACY_KIND,
+  kindFallbackProblem,
   kindFromProfileResult,
   kindLacks,
   kindModuleLabel,
+  kindOrganization,
+  kindOrganizations,
   kindTerm,
   moduleAvailabilityIn,
   moduleNotOffered,
@@ -91,6 +94,22 @@ describe("what the portal showed before kinds existed", () => {
     expect(kindFromProfileResult({ data: null, error: { code: "XX000", message: "boom" } })).toEqual({ kind: LEGACY_KIND, status: "error" });
     expect(kindFromProfileResult({ data: { nothing: true }, error: null })).toEqual({ kind: LEGACY_KIND, status: "error" });
   });
+  it("reports every fallback so none is silent: missing, failing, and an answer it cannot read", () => {
+    const missing = { data: null, error: { code: "PGRST202", message: "Could not find the function" } };
+    const failing = { data: null, error: { code: "XX000", message: "boom" } };
+    const unreadable = { data: { nothing: true }, error: null };
+    expect(kindFallbackProblem(kindFromProfileResult(missing), missing)?.context).toMatch(/not available from the database yet/);
+    expect(kindFallbackProblem(kindFromProfileResult(failing), failing)).toEqual({
+      context: "Could not read the organization's kind (showing the default wording)",
+      error: failing.error,
+    });
+    // The database returns no error for an answer the portal cannot read: one is made, so the log never says "null".
+    const parse = kindFallbackProblem(kindFromProfileResult(unreadable), unreadable);
+    expect(parse?.error).toBeInstanceOf(Error);
+    expect((parse?.error as Error).message).toMatch(/could not read/);
+    const ok = { data: chamber, error: null };
+    expect(kindFallbackProblem(kindFromProfileResult(ok), ok)).toBeNull();
+  });
   it("is replaced by the real kind when the database answers", () => {
     const r = kindFromProfileResult({ data: chamber, error: null });
     expect(r.status).toBe("ok");
@@ -107,6 +126,16 @@ describe("the sentence for a module a kind never offers", () => {
     expect(notPartOfKindSentence("Bolis", "Chamber of commerce")).toBe("Bolis is not part of a Chamber of commerce organization.");
     expect(notOfferedExplanation("Houston Chamber", "Chamber of commerce")).toBe(
       "Houston Chamber is set up as a Chamber of commerce organization, which does not have this module. Weaver can change an organization's kind if that is wrong.",
+    );
+  });
+  it("does not say organization twice when the kind's name already ends in it (the neutral kind)", () => {
+    expect(kindOrganization("Community organization")).toBe("Community organization");
+    expect(kindOrganization("Chamber of commerce")).toBe("Chamber of commerce organization");
+    expect(kindOrganizations("Community organization")).toBe("Community organizations");
+    expect(kindOrganizations("Chamber of commerce")).toBe("Chamber of commerce organizations");
+    expect(notPartOfKindSentence("Bolis", "Community organization")).toBe("Bolis is not part of a Community organization.");
+    expect(notOfferedExplanation("Houston Club", "Community organization")).toBe(
+      "Houston Club is set up as a Community organization, which does not have this module. Weaver can change an organization's kind if that is wrong.",
     );
   });
   it("the switched-off sentence is unchanged and takes the kind's name for the module", () => {

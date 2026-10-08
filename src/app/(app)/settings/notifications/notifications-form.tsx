@@ -11,7 +11,7 @@ import { hourLabel, notificationTriggersFor, type NotificationSettings } from "@
 import { countChanges, saveLabel } from "../_components/settings-form";
 import { saveRulesSectionAction } from "../rules/actions";
 
-export type TriggerRow = { key: string; label: string; when: string; channel: string };
+export type TriggerRow = { key: string; label: string; when: string; channel: string; sends: boolean; note: string | null };
 
 const HOURS = Array.from({ length: 24 }, (_, h) => h);
 
@@ -53,7 +53,7 @@ export function NotificationsForm({
         <Card
           span={8}
           title="Automatic notifications"
-          description="What each automatic message should do. Four go out today and follow their switch: the lunch slot reminder, the boli notice when another family pledges more (not the 24-hour one) and the event feedback request, as pushes to members with the app on a phone, and the homework due-soon reminders. The other rows record your choice for a sender that is not built yet."
+          description="Every automatic message, when it goes and on which channel. A row with a switch is sent by Weaver today and follows its switch (members who switched that topic off in the app are skipped, and guests are not texted: Weaver records no guest's consent). A row marked Not sent yet has no sender, so it has no switch."
           padded={false}
         >
           <TableWrap>
@@ -69,6 +69,21 @@ export function NotificationsForm({
               <tbody>
                 {triggers.map((t) => {
                   const on = s.triggers[t.key] ?? true;
+                  if (!t.sends) {
+                    return (
+                      <tr key={t.key}>
+                        <td className="font-bold">{t.label}</td>
+                        <td>
+                          {t.when}
+                          {t.note ? <span className="mt-0.5 block text-[12px] text-muted">{t.note}</span> : null}
+                        </td>
+                        <td>{t.channel}</td>
+                        <td>
+                          <span className="cc-status-warn">Not sent yet</span>
+                        </td>
+                      </tr>
+                    );
+                  }
                   return (
                     <tr key={t.key}>
                       <td className="font-bold">{t.label}</td>

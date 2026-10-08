@@ -6,10 +6,12 @@ import {
   defaultSurveyTitle,
   describeEventSurvey,
   feedbackRequestMessage,
+  feedbackRequestUnreadMessage,
   formatPoints,
   homeOnly,
   parseSurveyNotices,
   refusalLines,
+  requestWentNow,
   surveySentMessage,
   templateOptions,
   type EventSurveyRow,
@@ -183,5 +185,35 @@ describe("who sees the Survey tab", () => {
     expect(eventAreas.edit(lead, "e1")).toBe(true);
     expect(eventAreas.edit(lead, "e2")).toBe(false);
     expect(eventAreas.edit({ ...none, permissions: ["comms.send"] }, "e1")).toBe(false);
+  });
+});
+
+describe("one rule for 'sends now' (0598): the database's, not a clock window in the portal", () => {
+  it("a request went now exactly when the database counted its pushes when it was saved", () => {
+    expect(requestWentNow(notices({ ...base, invited: 3, will_push: 3 }))).toBe(true);
+    // Scheduled for later, even by a few seconds: the counts are taken when it goes, so planned is still empty.
+    expect(requestWentNow(notices(null))).toBe(false);
+    expect(requestWentNow(null)).toBe(false);
+    // A request that went now but whose pushes were stopped still went through the same rule (the problem says why).
+    expect(requestWentNow(notices({ ...base, invited: 3, will_push: 0 }, { problem_code: "switched_off", problem: "Event feedback is switched off." }))).toBe(true);
+  });
+  it("a request due a few seconds ahead is called scheduled, never sent", () => {
+    // The old window (60 seconds) would have said "Feedback request sent" for this one while the database had only scheduled it.
+    const scheduled = notices(null, { send_at: "2026-10-07T15:00:30Z" });
+    expect(feedbackRequestMessage("Wed 3 PM", scheduled, requestWentNow(scheduled))).toMatch(/^Feedback request scheduled for Wed 3 PM/);
+  });
+  it("says so plainly when the database's answer could not be read, instead of guessing sent or scheduled", () => {
+    expect(feedbackRequestUnreadMessage("Wed 3 PM")).toBe(
+      "Feedback request saved for Wed 3 PM. Its pushes could not be read back, so who gets one is not shown here; reload the page to see them.",
+    );
+  });
+  it("reads the new problem code and says what stopped every push", () => {
+    const off = notices({ ...base, invited: 4, will_push: 0, switched_off: 4 }, { problem_code: "switched_off", problem: 'Event feedback is switched off in Settings › Notifications. Switch it on there, then press "Send the pushes" on the survey.', finished_at: "2026-10-07T15:00:00Z" });
+    expect(off.problemCode).toBe("switched_off");
+    expect(surveySentMessage(off)).toBe(
+      'Survey sent, but no push went out: Event feedback is switched off in Settings › Notifications. Switch it on there, then press "Send the pushes" on the survey.',
+    );
+    expect(parseSurveyNotices({ problem_code: "switched_off" })?.problemCode).toBe("switched_off");
+    expect(parseSurveyNotices({ problem_code: "something_else" })?.problemCode).toBeNull();
   });
 });

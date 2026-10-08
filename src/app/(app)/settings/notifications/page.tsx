@@ -49,7 +49,7 @@ export default async function NotificationsPage() {
     <>
       {header}
       <NotificationsForm
-        triggers={NOTIFICATION_TRIGGERS.map((t) => ({ key: t.key, label: t.label, when: t.when(rules), channel: t.channel }))}
+        triggers={NOTIFICATION_TRIGGERS.map((t) => ({ key: t.key, label: t.label, when: t.when(rules), channel: t.channel, sends: t.sends, note: t.note ?? null }))}
         initial={readNotificationSettings(center.rules)}
         version={rulesVersion(center.rules)}
         languages={languages}
