@@ -211,6 +211,12 @@ export const ACCESS = {
   // see pathshalaAreas in src/lib/pathshala/access.ts.
   pathshala: ["pathshala.view", "pathshala.manage"],
   pathshalaManage: ["pathshala.manage"],
+  /**
+   * Pathshala › Terms and a term's Fees and rules (PATHSHALA_REGISTRATION_PLAN §3.3): the principal's views, plus the
+   * treasurer (giving.manage), who changes fees and rules after registration opens (P9, P16). Who may change what,
+   * when, is feeEditing in src/lib/pathshala-registration/rules.ts; the 0590 functions enforce it.
+   */
+  pathshalaFees: ["pathshala.view", "pathshala.manage", "giving.manage"],
   pathshalaSignoffs: ["pathshala.teach", "pathshala.manage"],
   /** Pathshala › Homework (0587): the review queue; the content team reviews homework whose reviewer is "content". A class Teacher reaches it by role. */
   pathshalaHomework: ["pathshala.teach", "pathshala.manage", "content.manage"],
@@ -420,7 +426,10 @@ export const NAV: NavModule[] = [
       { href: "/pathshala/signoffs", label: "Gyan Path sign-offs", access: "pathshalaSignoffs", roles: ["teacher"], module: "gyan_path" },
       // Homework handed in for Gyan Path levels (0587): with the teacher / decided.
       { href: "/pathshala/homework", label: "Homework", access: "pathshalaHomework", roles: ["teacher"], module: "gyan_path" },
-      { href: "/pathshala/terms", label: "Terms", access: "pathshala" },
+      // A term's Fees and rules page lives under Terms; the treasurer reaches it to change fees after opening (P9).
+      { href: "/pathshala/terms", label: "Terms", access: "pathshalaFees" },
+      // Levels and their age bands (0590, plan §2.1): adult classes and children's levels.
+      { href: "/pathshala/levels", label: "Levels", access: "pathshala" },
       { href: "/pathshala/enrollments", label: "Enrollments", access: "pathshala" },
       { href: "/pathshala/teachers", label: "Teacher positions", access: "pathshala" },
       { href: "/pathshala/committee", label: "Committee", access: "pathshalaCommittee" },

@@ -680,7 +680,7 @@ export default async function SetupListsPage() {
         <Card
           span={6}
           title="Pathshala tracks"
-          description="Setup step: Pathshala tracks and terms · then add terms in Pathshala › Terms"
+          description="Setup step: Pathshala tracks and terms · then add each track's levels in Pathshala › Levels and the terms, with their fees, in Pathshala › Terms"
           actions={
             off("pathshala") || !canPathshala ? null : (
               <DrawerForm

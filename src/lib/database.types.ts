@@ -5433,8 +5433,6 @@ export type Database = {
           assistance_approved_at: string | null;
           created_at: string;
           updated_at: string;
-          hold_reason: string | null;
-          withdrawal_reason: string | null;
         };
         Insert: {
           id?: string;
@@ -5469,8 +5467,6 @@ export type Database = {
           assistance_approved_at?: string | null;
           created_at?: string;
           updated_at?: string;
-          hold_reason?: string | null;
-          withdrawal_reason?: string | null;
         };
         Update: {
           id?: string;
@@ -5505,8 +5501,6 @@ export type Database = {
           assistance_approved_at?: string | null;
           created_at?: string;
           updated_at?: string;
-          hold_reason?: string | null;
-          withdrawal_reason?: string | null;
         };
         Relationships: [];
       };
@@ -5527,17 +5521,6 @@ export type Database = {
           placed_at: string | null;
           notes: string | null;
           custom: Json;
-          registration_id: string | null;
-          track_id: string | null;
-          hold_expires_at: string | null;
-          hold_reminded_at: string | null;
-          offered_at: string | null;
-          waitlisted_at: string | null;
-          suggested_level_id: string | null;
-          suggestion_reason: string | null;
-          channel: string | null;
-          withdrawn_at: string | null;
-          withdrawn_by: string | null;
         };
         Insert: {
           id?: string;
@@ -5555,17 +5538,6 @@ export type Database = {
           placed_at?: string | null;
           notes?: string | null;
           custom?: Json;
-          registration_id?: string | null;
-          track_id?: string | null;
-          hold_expires_at?: string | null;
-          hold_reminded_at?: string | null;
-          offered_at?: string | null;
-          waitlisted_at?: string | null;
-          suggested_level_id?: string | null;
-          suggestion_reason?: string | null;
-          channel?: string | null;
-          withdrawn_at?: string | null;
-          withdrawn_by?: string | null;
         };
         Update: {
           id?: string;
@@ -5583,17 +5555,6 @@ export type Database = {
           placed_at?: string | null;
           notes?: string | null;
           custom?: Json;
-          registration_id?: string | null;
-          track_id?: string | null;
-          hold_expires_at?: string | null;
-          hold_reminded_at?: string | null;
-          offered_at?: string | null;
-          waitlisted_at?: string | null;
-          suggested_level_id?: string | null;
-          suggestion_reason?: string | null;
-          channel?: string | null;
-          withdrawn_at?: string | null;
-          withdrawn_by?: string | null;
         };
         Relationships: [];
       };
@@ -5669,75 +5630,6 @@ export type Database = {
         };
         Relationships: [];
       };
-      pathshala_pending_registrations: {
-        Row: {
-          id: string;
-          center_id: string;
-          term_id: string;
-          household_id: string;
-          registration_id: string | null;
-          change_request_id: string | null;
-          first_name: string;
-          last_name: string;
-          date_of_birth: string | null;
-          relationship: string | null;
-          track_id: string;
-          requested_level_id: string | null;
-          note: string | null;
-          quote: Json;
-          registered_at: string;
-          registered_by: string | null;
-          status: string;
-          enrollment_id: string | null;
-          decided_at: string | null;
-          created_at: string;
-        };
-        Insert: {
-          id?: string;
-          center_id: string;
-          term_id: string;
-          household_id: string;
-          registration_id?: string | null;
-          change_request_id?: string | null;
-          first_name: string;
-          last_name: string;
-          date_of_birth?: string | null;
-          relationship?: string | null;
-          track_id: string;
-          requested_level_id?: string | null;
-          note?: string | null;
-          quote?: Json;
-          registered_at?: string;
-          registered_by?: string | null;
-          status?: string;
-          enrollment_id?: string | null;
-          decided_at?: string | null;
-          created_at?: string;
-        };
-        Update: {
-          id?: string;
-          center_id?: string;
-          term_id?: string;
-          household_id?: string;
-          registration_id?: string | null;
-          change_request_id?: string | null;
-          first_name?: string;
-          last_name?: string;
-          date_of_birth?: string | null;
-          relationship?: string | null;
-          track_id?: string;
-          requested_level_id?: string | null;
-          note?: string | null;
-          quote?: Json;
-          registered_at?: string;
-          registered_by?: string | null;
-          status?: string;
-          enrollment_id?: string | null;
-          decided_at?: string | null;
-          created_at?: string;
-        };
-        Relationships: [];
-      };
       pathshala_progress_reports: {
         Row: {
           id: string;
@@ -5785,60 +5677,6 @@ export type Database = {
           recommended_next_level_id?: string | null;
           published_at?: string | null;
           authored_by?: string | null;
-          created_at?: string;
-        };
-        Relationships: [];
-      };
-      pathshala_registrations: {
-        Row: {
-          id: string;
-          center_id: string;
-          term_id: string;
-          household_id: string;
-          registered_by: string | null;
-          registered_by_person: string | null;
-          channel: string;
-          payment_mode: string;
-          client_key: string | null;
-          request_hash: string | null;
-          total_cents: number;
-          office_payment_chosen_at: string | null;
-          office_payment_chosen_by: string | null;
-          result: Json;
-          created_at: string;
-        };
-        Insert: {
-          id?: string;
-          center_id: string;
-          term_id: string;
-          household_id: string;
-          registered_by?: string | null;
-          registered_by_person?: string | null;
-          channel: string;
-          payment_mode: string;
-          client_key?: string | null;
-          request_hash?: string | null;
-          total_cents?: number;
-          office_payment_chosen_at?: string | null;
-          office_payment_chosen_by?: string | null;
-          result?: Json;
-          created_at?: string;
-        };
-        Update: {
-          id?: string;
-          center_id?: string;
-          term_id?: string;
-          household_id?: string;
-          registered_by?: string | null;
-          registered_by_person?: string | null;
-          channel?: string;
-          payment_mode?: string;
-          client_key?: string | null;
-          request_hash?: string | null;
-          total_cents?: number;
-          office_payment_chosen_at?: string | null;
-          office_payment_chosen_by?: string | null;
-          result?: Json;
           created_at?: string;
         };
         Relationships: [];
@@ -8386,7 +8224,7 @@ export type Database = {
           id: string;
           center_id: string;
           household_id: string;
-          rsvp_id: string | null;
+          rsvp_id: string;
           pledge_id: string;
           released_cents: number;
           status: string;
@@ -8395,14 +8233,12 @@ export type Database = {
           handled_by: string | null;
           handled_at: string | null;
           handled_note: string | null;
-          enrollment_id: string | null;
-          kind: string;
         };
         Insert: {
           id?: string;
           center_id: string;
           household_id: string;
-          rsvp_id?: string | null;
+          rsvp_id: string;
           pledge_id: string;
           released_cents: number;
           status?: string;
@@ -8411,14 +8247,12 @@ export type Database = {
           handled_by?: string | null;
           handled_at?: string | null;
           handled_note?: string | null;
-          enrollment_id?: string | null;
-          kind?: string;
         };
         Update: {
           id?: string;
           center_id?: string;
           household_id?: string;
-          rsvp_id?: string | null;
+          rsvp_id?: string;
           pledge_id?: string;
           released_cents?: number;
           status?: string;
@@ -8427,8 +8261,6 @@ export type Database = {
           handled_by?: string | null;
           handled_at?: string | null;
           handled_note?: string | null;
-          enrollment_id?: string | null;
-          kind?: string;
         };
         Relationships: [];
       };
@@ -10670,12 +10502,6 @@ export type Database = {
         };
         Returns: Json;
       };
-      choose_pathshala_office_payment: {
-        Args: {
-          p_registration: string;
-        };
-        Returns: Json;
-      };
       clear_sandbox: {
         Args: {
           p_center: string;
@@ -11079,14 +10905,6 @@ export type Database = {
           p_layer: string;
           p_seed: number;
           p_prompt: string;
-        };
-        Returns: Json;
-      };
-      extend_pathshala_hold: {
-        Args: {
-          p_enrollment: string;
-          p_until: string;
-          p_reason: string;
         };
         Returns: Json;
       };
@@ -12173,13 +11991,6 @@ export type Database = {
         };
         Returns: Json;
       };
-      pathshala_registration_queue: {
-        Args: {
-          p_term: string;
-          p_view?: string;
-        };
-        Returns: Json;
-      };
       pathshala_seat_state: {
         Args: {
           p_free: number;
@@ -12191,12 +12002,6 @@ export type Database = {
       pathshala_seats: {
         Args: {
           p_term: string;
-        };
-        Returns: Json;
-      };
-      pathshala_task_counts: {
-        Args: {
-          p_center: string;
         };
         Returns: Json;
       };
@@ -12352,22 +12157,6 @@ export type Database = {
           p_anonymous?: boolean;
         };
         Returns: string;
-      };
-      place_next_from_waitlist: {
-        Args: {
-          p_level: string;
-          p_term?: string;
-        };
-        Returns: Json;
-      };
-      place_pathshala_enrollment: {
-        Args: {
-          p_enrollment: string;
-          p_class?: string;
-          p_over_capacity?: boolean;
-          p_reason?: string;
-        };
-        Returns: Json;
       };
       platform_admin_directory: {
         Args: Record<PropertyKey, never>;
@@ -12753,18 +12542,6 @@ export type Database = {
         };
         Returns: number;
       };
-      register_pathshala_children: {
-        Args: {
-          p_term: string;
-          p_household: string;
-          p_learners: Json;
-          p_expected_total_cents?: number;
-          p_expected_outcomes?: Json;
-          p_waiver_document?: string;
-          p_client_key?: string;
-        };
-        Returns: Json;
-      };
       register_push_device: {
         Args: {
           p_center: string;
@@ -12799,13 +12576,6 @@ export type Database = {
           p_center: string;
         };
         Returns: { id: string; name: string }[];
-      };
-      release_pathshala_hold: {
-        Args: {
-          p_enrollment: string;
-          p_reason: string;
-        };
-        Returns: Json;
       };
       remove_event_survey: {
         Args: {

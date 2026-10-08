@@ -1,6 +1,7 @@
 import { ActionForm } from "@/components/action-form";
 import type { Level } from "@/lib/data/pathshala";
 import type { Tables } from "@/lib/database.types";
+import { pickableLevels } from "@/lib/pathshala-registration/levels";
 
 import { saveClass } from "../actions";
 import { Checkbox, FormGrid, PField, Select } from "../ui";
@@ -21,7 +22,8 @@ export function ClassForm({
   cols?: 1 | 2;
 }) {
   const grouped = new Map<string, Level[]>();
-  for (const l of levels) grouped.set(l.track_name, [...(grouped.get(l.track_name) ?? []), l]);
+  // A retired level is not offered for a new class; a class keeps its own level when edited.
+  for (const l of pickableLevels(levels, cls?.level_id)) grouped.set(l.track_name, [...(grouped.get(l.track_name) ?? []), l]);
   return (
     <ActionForm action={saveClass.bind(null, cls?.id ?? null)} submitLabel={cls ? "Save class" : "Create class"} resetOnSuccess={!cls} buttonsClassName="mt-3">
       <FormGrid cols={cols}>

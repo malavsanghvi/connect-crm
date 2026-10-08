@@ -218,7 +218,8 @@ name, to `audit.view` holders of that center and platform admins only (the same 
   learners' enrollments carry the hold reason, the withdrawal reason and the fee to the family's adults, never to a child).
   Triggers (0591): pathshala_fee_paid (a paid fee pledge places a held seat; never waits, never blocks a payment),
   pathshala_late_payment (money for a released fee pledge becomes a credit row), pathshala_fee_pledge_closed (a cancelled
-  fee pledge ends its fee line), pathshala_levels_track_guard, pathshala_enrollments_guard. The import engine finds an
+  fee pledge ends its fee line), pathshala_levels_track_guard, pathshala_enrollments_guard (also refuses moving a learner with a set fee line to another level's class),
+  pathshala_classes_level_guard (a class's level cannot change under such learners). The import engine finds an
   enrollment by class or track (0591). Hold and withdrawal reasons live on pathshala_enrollment_fees (P30).
 - **Worker:** pathshala.holds_sweep (every 15 minutes: reminders and releases of the seats held for payment, the
   waitlist; `app.worker_pathshala_holds_sweep`)

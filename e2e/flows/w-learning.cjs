@@ -161,6 +161,12 @@ async function submitIn(p, scope, name) {
   await scope.getByRole('button', { name }).first().click();
   await p.waitForTimeout(2500);
 }
+/** Answer the portal's confirmation modal with its `label` button. */
+async function confirmModal(p, label) {
+  const dlg = p.locator('[role=dialog][aria-modal=true]').last();
+  await dlg.waitFor();
+  await dlg.getByRole('button', { name: label }).click();
+}
 async function pickPerson(p, scope, query, label) {
   await scope.getByPlaceholder(/type a name/i).first().fill(query);
   await p.waitForTimeout(1500);
@@ -178,18 +184,17 @@ async function journeyPathshala(browser) {
   const CLASS = `Jainism 2 – Room D ${RUN}`;
   const admin = await portalLogin(browser, 'admin@jsh.test');
 
-  // Term
+  // Term: a new term starts as a draft; its fees are set, and registration opened, on its Fees and rules page (0590)
   await pgo(admin, '/pathshala/terms');
   await admin.getByRole('button', { name: 'New term' }).click();
   const drawer = admin.getByRole('dialog');
   await drawer.getByLabel('Term name').fill(TERM);
-  await drawer.getByLabel('Status').selectOption('registration');
   await drawer.getByLabel('First day').fill('2027-01-10');
   await drawer.getByLabel('Last day').fill('2027-05-30');
-  await drawer.getByLabel('Fee per child ($)').fill('0');
   await submitIn(admin, drawer, 'Create term');
   const termId = sql(`select id from app.pathshala_terms where name='${TERM}'`);
   ok(!!termId, `term "${TERM}" created`);
+  ok(sql(`select status from app.pathshala_terms where id='${termId}'`) === 'draft', 'the new term is a draft until registration opens');
   ok(audit('pathshala_terms', termId).startsWith('portal|/pathshala/terms|pathshala|'), 'term audit row: portal · /pathshala/terms · pathshala');
 
   // Class in that term
@@ -213,6 +218,24 @@ async function journeyPathshala(browser) {
   await submitIn(admin, tform, 'Add teacher');
   ok(sql(`select count(*) from app.pathshala_teachers where class_id='${classId}' and person_id='${P.tejal}'`) === '1', 'Tejal assigned to the class');
   ok(sql(`select count(*) from app.role_grants g join app.center_users cu on cu.user_id=g.user_id where cu.person_id='${P.tejal}' and g.scope_id='${classId}' and g.ends_at is null`) === '1', 'teacher role granted for the class');
+
+  // Fees and rules: Jainism 2 is the only level with a class, so it needs its fee (Free here) before registration
+  // opens. With Pledges & donations on, opening links the fees to the Pathshala fund (test data: one exists).
+  sql(`insert into app.funds (center_id, key, name) values ('${CENTER}', 'pathshala', 'Pathshala') on conflict do nothing`);
+  await pgo(admin, `/pathshala/terms/${termId}/fees`);
+  const feeForm = admin.locator('form').filter({ has: admin.getByRole('button', { name: 'Save fees' }) });
+  await feeForm.getByLabel('Fee for Jainism 2').fill('Free');
+  await submitIn(admin, feeForm, 'Save fees');
+  ok(
+    sql(`select f.fee_cents from app.pathshala_level_fees f join app.pathshala_levels l on l.id=f.level_id where f.term_id='${termId}' and l.name='Jainism 2'`) === '0',
+    'Jainism 2 is Free for the term (Fees and rules)',
+  );
+  ok(sql(`select count(*) from app.pathshala_level_fees where term_id='${termId}'`) === '1', 'only the fee that was typed is saved: no suggested fee is saved by itself');
+  await admin.getByRole('button', { name: 'Open registration' }).first().click();
+  await confirmModal(admin, 'Open registration');
+  await admin.waitForTimeout(2500);
+  ok(sql(`select status||'|'||(fees_locked_at is not null)::text from app.pathshala_terms where id='${termId}'`) === 'registration|true', 'Open registration moved the term to registration and locked its fees and rules');
+  await shot(admin, '1-fees');
 
   // Staff enroll Dev directly into the class
   await pgo(admin, `/pathshala/enrollments?term=${termId}`);
