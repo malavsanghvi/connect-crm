@@ -142,6 +142,14 @@ describe("the migration keeps what the screens promise", () => {
     expect(migration).toContain("is no longer an active account of this organization");
   });
 
+  it("freezes a connection row once it holds ANY payee (an email or an account id), and never lets it change organization", () => {
+    expect(migration).toContain("if v_old_email = '' and v_old_ext = '' then return new; end if;");
+    expect(migration).toContain("if v_new_ext <> v_old_ext then");
+    expect(migration).toContain("if new.center_id is distinct from old.center_id then");
+    expect(migration).toContain("it cannot be moved to another organization");
+    expect(migration).toContain("create trigger payee_guard before update or delete on app.integration_connections");
+  });
+
   it("refreshes the stored plugin rows for rehearsal (test) reports only", () => {
     expect(migration).toContain("create trigger payment_plugins_sync_reports_ins after insert on app.payment_reports");
     expect(migration).toContain("for each row when (new.is_test) execute function app.payment_plugins_sync()");

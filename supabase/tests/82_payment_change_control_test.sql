@@ -484,6 +484,9 @@ select pg_temp.assert(has_table_privilege('authenticated', 'app.integration_conn
 select pg_temp.no_claims();
 insert into app.integration_connections (center_id, provider, status, external_account_id, display_name, settings)
 values (:c, 'stripe', 'connected', 'acct_82TEST', 'Stripe', '{"mode":"test","charges_enabled":true}');
+-- Basil administers a second organization for a moment (the sandbox, which has no PayPal row): the person in two
+-- organizations who tries to move a connected row from one to the other.
+insert into app.role_grants (center_id, user_id, role_key, scope_kind, scope_id) values (:cs, :basil, 'center_admin', 'center', null);
 select pg_temp.claims('82000000-0000-4000-8000-000000000004', true);
 set local role authenticated;
 select pg_temp.assert_raises($$delete from app.integration_connections where center_id = '00000000-0000-4000-8000-000000008201' and provider = 'paypal'$$,
@@ -498,9 +501,50 @@ select pg_temp.assert_raises($$update app.integration_connections set external_a
   'set by the connect flow', 'nor write the Stripe account id directly');
 select pg_temp.assert_raises($$delete from app.integration_connections where center_id = '00000000-0000-4000-8000-000000008201' and provider = 'stripe'$$,
   'cannot be deleted', 'nor delete the Stripe connection');
+-- An email-connected PayPal row has an email and no account id. Giving it one would redirect PayPal gifts (checkout prefers the
+-- account id over the email), so once the row holds ANY payee the account id is closed as well.
+select pg_temp.assert_raises($$update app.integration_connections set external_account_id = 'MERCHANT_EVIL' where center_id = '00000000-0000-4000-8000-000000008201' and provider = 'paypal'$$,
+  'set by the connect flow', 'nor give the email-connected PayPal row a merchant account id');
+select pg_temp.assert_raises($$insert into app.integration_connections (center_id, provider, status, external_account_id)
+  values ('00000000-0000-4000-8000-000000008201', 'paypal', 'connected', 'MERCHANT_EVIL')
+  on conflict (center_id, provider) do update set external_account_id = excluded.external_account_id$$,
+  'set by the connect flow', 'nor do the same with an upsert (insert ... on conflict do update)');
+select pg_temp.assert_raises($$insert into app.integration_connections (center_id, provider, status, settings)
+  values ('00000000-0000-4000-8000-000000008201', 'paypal', 'connected', '{"paypal_email":"upsert@pp82.example"}')
+  on conflict (center_id, provider) do update set settings = excluded.settings$$,
+  'PayPal email needs a second person', 'nor replace the PayPal email with an upsert');
+select pg_temp.assert_raises($$update app.integration_connections set external_account_id = null where center_id = '00000000-0000-4000-8000-000000008201' and provider = 'stripe'$$,
+  'set by the connect flow', 'nor clear the Stripe account id');
+-- A connection belongs to one organization: moving it would leave the first with an empty row, and the next email verified
+-- there would count as "the first one" with no second person.
+select pg_temp.assert_raises($$update app.integration_connections set center_id = '00000000-0000-4000-8000-000000008203' where center_id = '00000000-0000-4000-8000-000000008201' and provider = 'paypal'$$,
+  'cannot be moved to another organization', 'a person who administers two organizations cannot move one organization''s connected PayPal row to the other');
+select pg_temp.assert_raises($$update app.integration_connections set center_id = '00000000-0000-4000-8000-000000008203' where center_id = '00000000-0000-4000-8000-000000008201' and provider = 'stripe'$$,
+  'cannot be moved to another organization', 'nor the Stripe row');
 reset role;
-select pg_temp.assert((select ic.settings->>'paypal_email' = 'second@pp82.example' from app.integration_connections ic where ic.id = :'conn')
-                      and (select external_account_id = 'acct_82TEST' from app.integration_connections where center_id = :c and provider = 'stripe'),
+select pg_temp.no_claims();
+delete from app.role_grants where center_id = :cs and user_id = :basil;
+delete from app.center_owners where center_id = :cs and user_id = :basil;
+-- A platform admin has every permission through has_permission, so the table's policy lets them write these rows; the guard does not.
+select pg_temp.claims('82000000-0000-4000-8000-000000000007', true);
+set local role authenticated;
+select pg_temp.assert_raises($$update app.integration_connections set external_account_id = 'MERCHANT_EVIL' where center_id = '00000000-0000-4000-8000-000000008201' and provider = 'paypal'$$,
+  'set by the connect flow', 'a platform admin cannot write an account id on a connected PayPal row either');
+select pg_temp.assert_raises($$update app.integration_connections set settings = settings || '{"paypal_email":"admin@cc.example"}' where center_id = '00000000-0000-4000-8000-000000008201' and provider = 'paypal'$$,
+  'PayPal email needs a second person', 'nor replace its email');
+select pg_temp.assert_raises($$delete from app.integration_connections where center_id = '00000000-0000-4000-8000-000000008201' and provider = 'paypal'$$,
+  'cannot be deleted', 'nor delete it');
+select pg_temp.assert_raises($$update app.integration_connections set center_id = '00000000-0000-4000-8000-000000008203' where center_id = '00000000-0000-4000-8000-000000008201' and provider = 'stripe'$$,
+  'cannot be moved to another organization', 'nor move a connected row to another organization');
+select pg_temp.assert_raises($$insert into app.integration_connections (center_id, provider, status, external_account_id)
+  values ('00000000-0000-4000-8000-000000008201', 'stripe', 'connected', 'acct_admin')
+  on conflict (center_id, provider) do update set external_account_id = excluded.external_account_id$$,
+  'set by the connect flow', 'nor upsert one');
+reset role;
+select pg_temp.assert((select ic.settings->>'paypal_email' = 'second@pp82.example' and ic.external_account_id is null and ic.center_id = :c
+                         from app.integration_connections ic where ic.id = :'conn')
+                      and (select external_account_id = 'acct_82TEST' from app.integration_connections where center_id = :c and provider = 'stripe')
+                      and not exists (select 1 from app.integration_connections where center_id = :cs and provider in ('paypal', 'stripe')),
   'none of those attempts changed anything');
 -- The connect flow (the background service: no signed-in person) is not asked, so it can still connect.
 select pg_temp.no_claims();

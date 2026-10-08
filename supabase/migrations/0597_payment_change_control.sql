@@ -227,39 +227,49 @@ create trigger payee_guard before update of rules on app.centers
   execute function app.payee_guard_centers();
 
 -- The PayPal and Stripe connection rows. The table grant (0001) lets a signed-in person with integrations.manage write
--- them through the API, so the guard also covers what a direct write could do: delete the row and start again, change its
--- provider, clear or replace the saved email, or write the connected account's id. Once an email or an account is saved
--- on the row, only the connect flows (the background service, no signed-in person) and the confirmed request may change it.
+-- them through the API (a platform admin too, through has_permission), so the guard covers what a direct write could do:
+-- delete the row and start again, move it to another organization or provider, clear or replace the saved email, or write
+-- the connected account's id. A row "holds a payee" once it has an email OR an account id: after that no signed-in session
+-- may change either (an email-connected PayPal row must not gain a merchant id, which checkout prefers over the email), nor
+-- delete or move the row. Setting the first payee on an empty row is unchanged. The connect flows (the background service,
+-- no signed-in person) and the confirmed request (app.payee_apply) are not asked.
 create or replace function app.payee_guard_connections() returns trigger
 language plpgsql security definer set search_path = app, public, extensions as $$
-declare v_old_email text; v_new_email text;
+declare v_old_email text; v_new_email text; v_old_ext text; v_new_ext text; v_what text;
 begin
   if auth.uid() is null or coalesce(current_setting('app.payee_apply', true), '') = 'on' then
     return case when tg_op = 'DELETE' then old else new end;
   end if;
+  v_what := case old.provider when 'paypal' then 'PayPal' else 'Stripe' end;
   v_old_email := lower(btrim(coalesce(old.settings->>'paypal_email', '')));
+  v_old_ext := coalesce(nullif(btrim(old.external_account_id), ''), '');
   if tg_op = 'DELETE' then
-    if v_old_email <> '' or nullif(btrim(coalesce(old.external_account_id, '')), '') is not null then
-      raise exception 'A % account that is connected cannot be deleted. Disconnect it in Settings › Payments instead; disconnecting keeps the row and its history.',
-        case old.provider when 'paypal' then 'PayPal' else 'Stripe' end using errcode = '22023';
+    if v_old_email <> '' or v_old_ext <> '' then
+      raise exception 'A % account that is connected cannot be deleted. Disconnect it in Settings › Payments instead; disconnecting keeps the row and its history.', v_what
+        using errcode = '22023';
     end if;
     return old;
   end if;
-  if new.provider is distinct from old.provider
-     and (v_old_email <> '' or nullif(btrim(coalesce(old.external_account_id, '')), '') is not null) then
+  -- A connection belongs to one organization, whatever it holds: moving it would leave the first with an empty row whose
+  -- next email counts as "the first one".
+  if new.center_id is distinct from old.center_id then
+    raise exception 'The % connection belongs to one organization; it cannot be moved to another organization.', v_what using errcode = '22023';
+  end if;
+  if v_old_email = '' and v_old_ext = '' then return new; end if;   -- nothing saved yet: the first payee is set as before
+  if new.provider is distinct from old.provider then
     raise exception 'The payment account of a connection cannot be moved to another provider.' using errcode = '22023';
   end if;
   if old.provider = 'paypal' then
     v_new_email := lower(btrim(coalesce(new.settings->>'paypal_email', '')));
-    if v_old_email <> '' and v_new_email <> v_old_email then
+    if v_new_email <> v_old_email then
       raise exception 'Changing the PayPal email needs a second person. Verify the new email in Settings › Payments › PayPal; a different person with giving.approve then confirms the change.'
         using errcode = '22023';
     end if;
   end if;
-  if nullif(btrim(coalesce(old.external_account_id, '')), '') is not null
-     and new.external_account_id is distinct from old.external_account_id then
-    raise exception 'The % account a connection is connected to is set by the connect flow, never written directly. To use a different account, connect again in Settings › Payments.',
-      case old.provider when 'paypal' then 'PayPal' else 'Stripe' end using errcode = '22023';
+  v_new_ext := coalesce(nullif(btrim(new.external_account_id), ''), '');
+  if v_new_ext <> v_old_ext then
+    raise exception 'The % account a connection is connected to is set by the connect flow, never written directly. To use a different account, connect again in Settings › Payments.', v_what
+      using errcode = '22023';
   end if;
   return new;
 end $$;
