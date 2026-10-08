@@ -11,7 +11,7 @@
 export const DEFAULT_SITE_DOMAIN = "weaverams.org";
 
 /** Pages of the website: public path → the route that renders it. */
-export const SITE_PAGES: Readonly<Record<string, string>> = Object.freeze({ "/": "/site", "/pricing": "/site/pricing" });
+export const SITE_PAGES: Readonly<Record<string, string>> = Object.freeze({ "/": "/site", "/pricing": "/site/pricing", "/get-ready/checklist.csv": "/site/get-ready/checklist.csv" });
 
 /** "https://Example.org/" → "example.org"; null when it is not a plain domain name. */
 export function normalizeSiteDomain(raw: string | null | undefined): string | null {
