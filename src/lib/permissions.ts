@@ -577,7 +577,7 @@ export const NAV: NavModule[] = [
       { href: "/platform", label: "Centers", access: "dashboard", platformOnly: true },
       // Onboarding Wave D (o-platform-setup): the super admin's platform setup wizard.
       { href: "/platform/setup", label: "Platform setup", access: "dashboard", platformOnly: true },
-      { href: "/platform/new", label: "New center wizard", access: "dashboard", platformOnly: true },
+      { href: "/platform/new-sandbox", label: "New sandbox", access: "dashboard", platformOnly: true },
       { href: "/platform/verification", label: "Verification", access: "dashboard", platformOnly: true },
       // Onboarding (o-platform): the Weaver console.
       { href: "/platform/requests", label: "Requests", access: "dashboard", platformOnly: true },

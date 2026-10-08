@@ -133,7 +133,7 @@ describe("visibleNav (flat module list)", () => {
       "Texting",
       "WhatsApp",
     ]);
-    expect(nav.find((m) => m.key === "platform")!.tabs.map((t) => t.label)).toEqual(["Centers", "Platform setup", "New center wizard", "Verification", "Requests", "Sandbox codes", "Onboarding", "Go-live approvals", "Support access", "Agreements", "HTTPS", "Payments"]);
+    expect(nav.find((m) => m.key === "platform")!.tabs.map((t) => t.label)).toEqual(["Centers", "Platform setup", "New sandbox", "Verification", "Requests", "Sandbox codes", "Onboarding", "Go-live approvals", "Support access", "Agreements", "HTTPS", "Payments"]);
   });
   it("shows Setup above Settings to settings.manage holders only", () => {
     const admin = visibleNav({ permissions: ["settings.manage"], isPlatformAdmin: false });
@@ -177,7 +177,7 @@ describe("visibleNav (flat module list)", () => {
       "/settings/security",
       "/settings/audit",
       "/platform",
-      "/platform/new",
+      "/platform/new-sandbox",
     ]) {
       expect(all.filter((h) => h === href)).toHaveLength(1);
     }
