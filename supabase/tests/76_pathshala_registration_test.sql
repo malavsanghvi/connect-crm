@@ -829,7 +829,7 @@ select pg_temp.assert((select e.status = 'placed' and e.class_id = :cl_j2 and f.
                       and exists (select 1 from app.messages where center_id = :c and template_key = 'pathshala_placed' and to_address = :u_asha::text)
                       and (select status = 'waitlisted' from app.pathshala_enrollments where id = (:'reg_neel'::jsonb -> 'lines' -> 0 ->> 'enrollment_id')::uuid)
                       and app.pathshala_waitlist_position((:'reg_neel'::jsonb -> 'lines' -> 0 ->> 'enrollment_id')::uuid) = 1,
-  'waitlist (pledge mode): Kiran withdraws, so Jay (first waiting) is placed and billed at his locked line, and his family told how to withdraw at no charge');
+  'waitlist (pledge mode): Kiran withdraws, so Jay (first waiting) is placed and billed at his locked line, and his family told to ask the Pathshala office to withdraw at no charge');
 -- A direct class change to another level would leave Jay's billed pledge at Jainism 2's price (review item 5). The same class
 -- (no change) and a change that keeps the level are fine; the move-level step arrives with 0592.
 begin;
