@@ -209,8 +209,10 @@ comment on column app.centers.category_key is
   'The organization''s category (0594). Chosen when the sandbox is created; changed only through app.set_center_category (a platform admin, a fresh 2FA check, a reason); read like every centers column.';
 
 -- Two rules that need no signed-in person to bypass them:
---  1. A new organization gets an ACTIVE category, or any category when it is a sandbox (Community Connect chooses
---     an inactive category to preview it; only platform admins create sandboxes, directly or by approving a request).
+--  1. A production organization has an ACTIVE category, whoever writes it and however it got there: a new row, a
+--     category change or a flip of `environment` is refused for an inactive category unless the row is a sandbox
+--     (Community Connect chooses an inactive category to preview it; only platform admins create sandboxes, directly or
+--     by approving a request). Jobs and migrations are held to this too.
 --  2. For a category that does not use a tradition, centers.tradition is 'other' (the value that exists and is never
 --     offered), so even an old app build's tradition filter hides the shared Jain library.
 -- The guard for CHANGING the category is in section F (ACCESS 2), with the function that is allowed to.
@@ -222,7 +224,9 @@ begin
   if k.key is null then
     raise exception 'There is no organization category called "%".', new.category_key using errcode = '23503';
   end if;
-  if tg_op = 'INSERT' and not k.active and new.environment is distinct from 'sandbox' then
+  if not k.active and new.environment is distinct from 'sandbox'
+     and (tg_op = 'INSERT' or new.category_key is distinct from old.category_key
+          or new.environment is distinct from old.environment) then
     raise exception 'The % category is not switched on yet. It can only be chosen for a sandbox, to preview it.', k.label
       using errcode = 'insufficient_privilege';
   end if;
@@ -239,7 +243,7 @@ begin
   return new;
 end $$;
 drop trigger if exists centers_category_rules on app.centers;
-create trigger centers_category_rules before insert or update of category_key, tradition on app.centers
+create trigger centers_category_rules before insert or update of category_key, tradition, environment on app.centers
   for each row execute function app.centers_category_rules();
 revoke execute on function app.centers_category_rules() from public, anon, authenticated;
 
@@ -433,6 +437,10 @@ begin
   if p.id is null then raise exception 'Promotion % was not found.', p_promotion; end if;
   if p.status = 'done' then return coalesce(p.result, '{}'::jsonb); end if;
   select * into s from app.centers where id = p.sandbox_id for update;
+  -- Re-checked here, not only when the promotion was requested: the category may have been switched off since.
+  if not exists (select 1 from app.organization_categories k where k.key = s.category_key and k.active) then
+    raise exception '% is a preview of a category that is not switched on yet, so it cannot go live.', s.name;
+  end if;
   if not app.promotes_in_place(s.id) then
     v_result := app._worker_promote_sandbox_copy(p_promotion);
     v_prod := case when v_result->>'production_id' ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'

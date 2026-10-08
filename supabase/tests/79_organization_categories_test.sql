@@ -434,6 +434,17 @@ select pg_temp.assert_raises($$select app.set_access_request_category('79000000-
   'already created from this request', 'E · once a sandbox exists, the organization''s own page is the way');
 reset role;
 select pg_temp.no_claims();
+-- A sandbox of an inactive category cannot become production by flipping `environment` either (a job, the superuser, or
+-- a platform admin writing the table).
+select pg_temp.assert_raises(format($$update app.centers set environment = 'production' where id = %L$$, :'req_chamber'),
+  'not switched on yet', 'E · an inactive category cannot go to production by a direct update (a job or migration included)');
+set role authenticated;
+select pg_temp.claims(:cc, true);
+select pg_temp.assert_raises(format($$update app.centers set environment = 'production' where id = %L$$, :'req_chamber'),
+  'not switched on yet', 'E · nor by a platform admin writing the table');
+reset role;
+select pg_temp.no_claims();
+select pg_temp.assert((select environment = 'sandbox' from app.centers where id = :'req_chamber'), 'E · and it is still a sandbox');
 
 -- ══ C. A chamber of commerce preview sandbox ════════════════════════════════
 -- The owner is named first: a center_admin grant makes the first administrator the owner when there is none (0151).
@@ -801,6 +812,17 @@ select pg_temp.claims(:chowner, true);
 select app.promote_sandbox(:'chm', 'hcc', 'Approved by Community Connect; going live') as promo79 \gset
 reset role;
 select pg_temp.no_claims();
+-- The category is switched off again before the job runs: the worker refuses and nothing is created.
+update app.organization_categories set active = false where key = 'chamber_of_commerce';
+set role connect_worker;
+select pg_temp.assert_raises(format($$select app.worker_promote_sandbox(%L)$$, :'promo79'),
+  'not switched on yet', 'E · the worker checks the category again: switched off since the request, the promotion is refused');
+reset role;
+select pg_temp.no_claims();
+select pg_temp.assert(not exists (select 1 from app.centers where slug = 'hcc')
+                      and (select status from app.sandbox_promotions where id = :'promo79') = 'queued',
+  'E · and nothing was created');
+update app.organization_categories set active = true where key = 'chamber_of_commerce';
 set role connect_worker;
 select app.worker_promote_sandbox(:'promo79') as promoted79 \gset
 reset role;
