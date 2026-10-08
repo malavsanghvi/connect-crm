@@ -874,6 +874,12 @@ select pg_temp.assert(app.audit_mask(jsonb_build_object('bucket_id', 'homework',
                       and app.audit_mask(jsonb_build_object('bucket_id', 'flyers', 'name', 'a/b/c/d.png')) ->> 'name' = 'a/b/c/d.png'
                       and app.audit_mask('{"assistance_note":"We lost a job this year."}'::jsonb) ->> 'assistance_note' = '*** (24 characters)',
   'audit: 0590''s audit_mask carries 0589''s clause verbatim (a homework file''s name is masked, other buckets are not) next to the assistance note');
+-- Production runs 0590 after 0594 (organization categories). 0590's audit_mask must therefore keep 0594's path_key clause,
+-- or every write to a person's profile details would log their religious path in clear.
+select pg_temp.assert(app.audit_mask('{"path_key":"x"}'::jsonb) ->> 'path_key' = '***'
+                      and app.audit_mask('{"path_key":null}'::jsonb) ->> 'path_key' is null
+                      and app.audit_mask('{"path_key":"x","assistance_note":"We lost a job this year."}'::jsonb) ->> 'assistance_note' = '*** (24 characters)',
+  'audit: 0590''s audit_mask keeps 0594''s path_key clause (a person''s path is masked) next to the assistance note');
 
 -- ═════════════════════════════════════════════════════════════════════════════
 -- Module switches
