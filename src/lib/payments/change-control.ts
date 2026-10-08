@@ -130,6 +130,9 @@ export function zelleChange(current: ZelleCurrent, input: { recipient: string; n
   for (const f of fields) {
     const next = (input[f.key] ?? "").trim();
     const now = (current[f.key] ?? "").trim();
+    // Nothing is saved yet: it is saved in the form above, and a second person is needed only to change one that is already saved.
+    if (!now && !next) continue;
+    if (!now) return { ok: false, error: `The ${f.what} is not saved yet. Save it in the form above; a second person is needed only to change one that is already saved.` };
     if (!next) return { ok: false, error: `Enter the new ${f.what}, or put the current one back.` };
     if (now && next.toLowerCase() === now.toLowerCase()) continue;
     const problem = instructionsProblem("zelle", { [f.key]: next }, []);
@@ -302,6 +305,17 @@ export function parsePauses(json: unknown): Parsed<PausesView> {
     centers.push({ id: c.id, name: c.name, slug: c.slug, environment: c.environment });
   }
   return { ok: true, value: { plugins, history, centers } };
+}
+
+/**
+ * Apple Pay, Google Pay and Bank debit ride on a Card checkout and are chosen on Stripe's own payment page, which a pause
+ * cannot change. Pausing one of them hides it from members in Community Connect; it does not stop Stripe from showing it.
+ */
+export const RIDER_PLUGIN_KEYS: readonly string[] = ["apple_pay", "google_pay", "bank_debit"];
+export function riderPauseNote(key: string, label: string): string | null {
+  return RIDER_PLUGIN_KEYS.includes(key)
+    ? `${label} is chosen on Stripe's own payment page, which a pause cannot change. Pausing it hides it from members in Community Connect, but a card payment may still offer it. To stop payments through Stripe, pause Card.`
+    : null;
 }
 
 /** Is the way to pay paused for everyone, or for any community? */

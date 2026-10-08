@@ -8,7 +8,7 @@ import { useStepUp } from "@/components/step-up";
 import { useToast } from "@/components/toast";
 import { Badge, buttonClass, Card, InfoBox, TableWrap } from "@/components/ui";
 import { formatDateTime } from "@/lib/dates";
-import { pauseSummary, type PausePlugin, type PausesView } from "@/lib/payments/change-control";
+import { pauseSummary, riderPauseNote, type PausePlugin, type PausesView } from "@/lib/payments/change-control";
 
 import { liftPauseAction, suspendPluginAction, type PauseResult } from "./actions";
 
@@ -80,7 +80,14 @@ export function PausesPanel({ view, tz }: { view: PausesView; tz: string }) {
             <tbody>
               {view.plugins.map((p) => (
                 <tr key={p.key} data-plugin={p.key}>
-                  <td className="font-bold">{p.label}</td>
+                  <td>
+                    <span className="font-bold">{p.label}</span>
+                    {riderPauseNote(p.key, p.label) ? (
+                      <p className="mt-1 max-w-[220px] text-[12px] text-muted" data-rider-note>
+                        Hides it from members only. Stripe&apos;s own page may still show it; pause Card to stop Stripe payments.
+                      </p>
+                    ) : null}
+                  </td>
                   <td>
                     <Badge tone={p.platform_pause || p.centers.length > 0 ? "danger" : "success"}>{pauseSummary(p)}</Badge>
                   </td>
@@ -183,10 +190,13 @@ export function PausesPanel({ view, tz }: { view: PausesView; tz: string }) {
         onCancel={() => setAsk(null)}
       >
         {ask?.kind === "pause" ? (
-          <p>
-            Members stop seeing {ask.plugin.label}{ask.centerName ? ` in ${ask.centerName}` : ""}, and a new payment, or a new Zelle report, with it cannot start.
-            Nothing already recorded changes. This needs a fresh 2FA check.
-          </p>
+          <>
+            <p>
+              Members stop seeing {ask.plugin.label}{ask.centerName ? ` in ${ask.centerName}` : ""}, and a new payment, or a new Zelle report, with it cannot start.
+              Nothing already recorded changes. This needs a fresh 2FA check.
+            </p>
+            {riderPauseNote(ask.plugin.key, ask.plugin.label) ? <p className="mt-2 font-semibold">{riderPauseNote(ask.plugin.key, ask.plugin.label)}</p> : null}
+          </>
         ) : (
           <p>{ask?.plugin.label} is offered again. This needs a fresh 2FA check.</p>
         )}

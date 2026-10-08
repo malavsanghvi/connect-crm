@@ -216,6 +216,18 @@ describe("Platform › Payments", () => {
     expect(html).toContain("still paused");
   });
 
+  it("says on the wallets and bank debit that a pause only hides them from members", () => {
+    const wallets = parsePauses({
+      plugins: [{ key: "apple_pay", label: "Apple Pay", family: "provider_checkout", status: "available", platform_pause: null, centers: [] }],
+      history: [], centers: [],
+    });
+    if (!wallets.ok) throw new Error("test fixture does not parse");
+    const w = renderToStaticMarkup(createElement(PausesPanel, { view: wallets.value, tz: "America/Chicago" }));
+    expect(w).toContain("Hides it from members only.");
+    expect(w).toContain("pause Card to stop Stripe payments");
+    expect(html).not.toContain("Hides it from members only.");
+  });
+
   it("offers Resume where something is paused and Pause where it is not, and a list of communities to pause one for", () => {
     expect(html).toContain("Resume for everyone");
     expect(html).toContain("Resume for Houston");

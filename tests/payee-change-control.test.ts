@@ -25,7 +25,7 @@ import {
 import { liftPauseAction, suspendPluginAction } from "@/app/(app)/platform/payments/actions";
 import {
   PAYEE_NOTICE_DAYS, PAYEE_REQUEST_DAYS, parsePauses, parsePayeeQueue, parsePaymentReadiness, pauseSummary, payeeStatusView, readinessSummary,
-  reasonProblem, waitingNote, waitingRequests, walletConfirmable, zelleApprovalView, zelleChange,
+  reasonProblem, riderPauseNote, waitingNote, waitingRequests, walletConfirmable, zelleApprovalView, zelleChange,
   type PayeeRequest, type PaymentReadiness,
 } from "@/lib/payments/change-control";
 import { parseMemberMethods, UNEXPECTED_SHAPE } from "@/lib/payments/plugins/view";
@@ -101,6 +101,17 @@ describe("zelleChange (mirrors app.request_payee_change)", () => {
     expect(zelleChange(current, { recipient: "+1 713 555 0142", name: "JSH Temple" })).toEqual({ ok: true, changes: { recipient: "+1 713 555 0142", name: "JSH Temple" } });
   });
 
+  it("leaves a name alone that is not saved yet, and says to save it in the form above when one is typed", () => {
+    const noName = { recipient: "give@temple.example", name: "" };
+    expect(zelleChange(noName, { recipient: "new@temple.example", name: "" })).toEqual({ ok: true, changes: { recipient: "new@temple.example" } });
+    expect(zelleChange(noName, { recipient: "new@temple.example", name: "JSH Temple" })).toEqual({
+      ok: false,
+      error: "The name shown in Zelle is not saved yet. Save it in the form above; a second person is needed only to change one that is already saved.",
+    });
+    expect(zelleChange(noName, { recipient: "GIVE@temple.example", name: "" })).toEqual({ ok: false, error: "Change the address or the name first. Both are the same as what is saved." });
+    expect(zelleChange(noName, { recipient: "", name: "" })).toEqual({ ok: false, error: "Enter the new Zelle email or phone, or put the current one back." });
+  });
+
   it("refuses, in plain English, what the database would refuse", () => {
     expect(zelleChange(current, { recipient: "give@temple.example", name: "jain society of houston" })).toEqual({
       ok: false, error: "Change the address or the name first. Both are the same as what is saved.",
@@ -109,6 +120,36 @@ describe("zelleChange (mirrors app.request_payee_change)", () => {
     expect(zelleChange(current, { recipient: "give@temple.example", name: " " })).toEqual({ ok: false, error: "Enter the new name shown in Zelle, or put the current one back." });
     expect(zelleChange(current, { recipient: "treasurer", name: "x" })).toEqual({ ok: false, error: "The Zelle recipient is an email address or a US phone number." });
     expect(zelleChange(current, { recipient: "new@temple.example", name: "x".repeat(601) })).toEqual({ ok: false, error: 'The "name" field can be at most 600 characters.' });
+  });
+});
+
+describe("what a pause of Apple Pay, Google Pay or Bank debit does", () => {
+  it("says plainly that it only hides them from members, because Stripe's own page chooses them", () => {
+    for (const key of ["apple_pay", "google_pay", "bank_debit"]) {
+      expect(riderPauseNote(key, "Apple Pay")).toContain("a pause cannot change");
+      expect(riderPauseNote(key, "Apple Pay")).toContain("To stop payments through Stripe, pause Card.");
+    }
+    for (const key of ["card", "paypal", "zelle", "check"]) expect(riderPauseNote(key, "x")).toBeNull();
+    expect(migration).toContain("pausing one of them hides it from members here");
+  });
+});
+
+describe("the migration keeps what the screens promise", () => {
+  it("re-checks the person who asked, withdraws a request when what it waits for goes away, and checks the bank account is still active", () => {
+    expect(migration).toContain("no longer holds a role that may ask for this");
+    expect(migration).toContain("create trigger payee_changes_cancel after update of status on app.center_payment_processors");
+    expect(migration).toContain("create trigger payee_changes_cancel after update of accepted on app.center_payment_methods");
+    expect(migration).toContain("is no longer an active account of this organization");
+  });
+
+  it("refreshes the stored plugin rows for rehearsal (test) reports only", () => {
+    expect(migration).toContain("create trigger payment_plugins_sync_reports_ins after insert on app.payment_reports");
+    expect(migration).toContain("for each row when (new.is_test) execute function app.payment_plugins_sync()");
+    expect(migration).toContain("for each row when (old.is_test) execute function app.payment_plugins_sync()");
+  });
+
+  it("writes a generic audit reason when a pause is applied to an organization's rows (the pause reason is for platform admins)", () => {
+    expect(migration.split("perform app.set_audit_context('Community Connect paused or resumed a way to pay');").length - 1).toBe(2);
   });
 });
 
