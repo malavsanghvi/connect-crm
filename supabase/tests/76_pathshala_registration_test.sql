@@ -277,6 +277,22 @@ select pg_temp.sign_in(:u_nita);
 select app.register_pathshala_children(:t1, :h2, jsonb_build_array(jsonb_build_object('person_id', :p_kiran, 'track_id', :tr_j, 'level_id', :lv_j2)),
                                        13000, '["seat"]', null, 'mehta-k1') as reg_kiran \gset
 commit;
+-- Fee assistance opens in 0592: nothing before it can approve or bill a request, so a parent who asks for it is refused and
+-- nothing is created (no enrollment, fee line, registration, pending child or pledge). A line that says it is not asking
+-- (assistance_requested false: the registration of Jay below) is an ordinary registration.
+select (select count(*) from app.pathshala_enrollments where household_id = :h5) + (select count(*) from app.pathshala_enrollment_fees where household_id = :h5)
+     + (select count(*) from app.pathshala_registrations where household_id = :h5) + (select count(*) from app.pathshala_pending_registrations where household_id = :h5)
+     + (select count(*) from app.pledges where household_id = :h5) as h5_rows_before \gset
+begin;
+select pg_temp.sign_in(:u_asha);
+select pg_temp.assert_code(format($$select app.register_pathshala_children(%L, %L, %L, null, null, null, 'joshi-assist')$$, :t1, :h5,
+  jsonb_build_array(jsonb_build_object('person_id', :p_jay, 'track_id', :tr_j, 'level_id', :lv_j2, 'assistance_requested', true))),
+  '22023', 'Fee assistance opens in the next release. Ask the Pathshala office.', 'assistance: a parent asking for fee assistance is refused when registering');
+commit;
+select pg_temp.assert((select count(*) from app.pathshala_enrollments where household_id = :h5) + (select count(*) from app.pathshala_enrollment_fees where household_id = :h5)
+                      + (select count(*) from app.pathshala_registrations where household_id = :h5) + (select count(*) from app.pathshala_pending_registrations where household_id = :h5)
+                      + (select count(*) from app.pledges where household_id = :h5) = :h5_rows_before,
+  'assistance: the refused request created nothing (no seat without a pledge)');
 begin;
 select pg_temp.sign_in(:u_asha);
 select pg_temp.assert_code(format($$select app.register_pathshala_children(%L, %L, %L, 13000, %L, null, 'joshi-k1')$$, :t1, :h5,
@@ -286,7 +302,7 @@ select pg_temp.assert_code(format($$select app.register_pathshala_children(%L, %
 select pg_temp.assert_code(format($$select app.register_pathshala_children(%L, %L, %L, 1, null, null, 'joshi-k2')$$, :t1, :h5,
   jsonb_build_array(jsonb_build_object('person_id', :p_jay, 'track_id', :tr_j, 'level_id', :lv_j2))),
   '22023', 'The fee changed since you looked; please review the new total ($130.00).', 'a changed total is refused (hint review_again)', 'review_again');
-select app.register_pathshala_children(:t1, :h5, jsonb_build_array(jsonb_build_object('person_id', :p_jay, 'track_id', :tr_j, 'level_id', :lv_j2)),
+select app.register_pathshala_children(:t1, :h5, jsonb_build_array(jsonb_build_object('person_id', :p_jay, 'track_id', :tr_j, 'level_id', :lv_j2, 'assistance_requested', false)),
                                        13000, '["waitlist"]', null, 'joshi-k3') as reg_jay \gset
 commit;
 begin;
