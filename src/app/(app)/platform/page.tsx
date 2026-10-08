@@ -21,11 +21,8 @@ export default async function PlatformCentersPage() {
       actions={
         session.isPlatformAdmin ? (
           <>
-            <Link href="/platform/new-sandbox" className={buttonClass("ghost")}>
+            <Link href="/platform/new-sandbox" className={buttonClass("primary")}>
               New sandbox
-            </Link>
-            <Link href="/platform/new" className={buttonClass("primary")}>
-              New center
             </Link>
           </>
         ) : null
