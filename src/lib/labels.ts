@@ -83,16 +83,25 @@ export function humanize(value: string | null | undefined): string {
   return value ? value.replace(/_/g, " ") : "—";
 }
 
-/** QuickBooks account-mapping purposes (0009 qbo_account_mappings.purpose). */
+/**
+ * QuickBooks account-mapping purposes (0009 qbo_account_mappings.purpose). The database's catalog is app.account_roles
+ * (0606): the same keys and labels, and the screens of Accounting › Account mapping read it from there. This list mirrors
+ * it for the screens that name a purpose without asking the database (the QuickBooks sync exceptions).
+ */
 export const QBO_PURPOSES: { purpose: string; label: string; hint: string }[] = [
-  { purpose: "income.general", label: "General donations income", hint: "Unrestricted gifts" },
+  { purpose: "income.general", label: "General donations income", hint: "Unrestricted gifts, and money not tied to a pledge" },
   { purpose: "income.boli", label: "Boli income", hint: "Boli pledges once paid" },
-  { purpose: "income.sponsorship", label: "Sponsorship income", hint: "Event and pujan sponsorships" },
+  { purpose: "income.sponsorship", label: "Sponsorship income", hint: "Event and pujan sponsorships, labh" },
   { purpose: "income.construction", label: "Construction fund income", hint: "Restricted: temple construction" },
   { purpose: "income.pathshala", label: "Pathshala income", hint: "Pathshala fees and gifts" },
   { purpose: "income.jeevdaya", label: "Jeevdaya income", hint: "Restricted: jeevdaya" },
+  { purpose: "income.event", label: "Event income", hint: "Event commitments and event campaigns" },
+  { purpose: "income.membership", label: "Membership dues income", hint: "Membership fees (dues)" },
+  { purpose: "income.store", label: "Store giving income", hint: "Gifts to campaigns of kind \"store\" (store sales have their own account)" },
+  { purpose: "income.other", label: "Other income", hint: "Campaigns of kind \"other\"" },
   { purpose: "store.sales", label: "Store sales", hint: "Satvik Store — sales, not donations" },
   { purpose: "store.gift_packing", label: "Store gift packing", hint: "Gift-pack charges" },
+  { purpose: "store.cost", label: "Store cost of goods", hint: "What sold store items cost (cost of goods sold)" },
   { purpose: "sales_tax_payable", label: "Sales tax payable", hint: "Tax collected on store sales" },
   { purpose: "merchant_fees", label: "Merchant fees", hint: "Card-processor fees (expense)" },
   { purpose: "payment_clearing", label: "Payment clearing", hint: "Card money before the payout lands" },
@@ -105,6 +114,7 @@ export const QBO_PURPOSES: { purpose: string; label: string; hint: string }[] = 
     label: "Pledge write-offs",
     hint: "Written-off pledge balances (bad debt expense, or a contra-income account); a QuickBooks item must post to it",
   },
+  { purpose: "refunds", label: "Refunds", hint: "Money given back, when your books keep refunds in an account of their own" },
 ];
 
 export const LEDGER_TXN_LABEL: Record<string, string> = {
