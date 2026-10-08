@@ -239,6 +239,20 @@ describe("Terms › the term form (F18)", () => {
     status: "draft",
     created_at: "2026-08-01T00:00:00Z",
     custom: {},
+    // The columns migration 0590 added (their defaults).
+    payment_mode: "pledge",
+    hold_hours: 48,
+    office_payment_allowed: false,
+    office_hold_days: 7,
+    seat_rule: "automatic",
+    campaign_id: null,
+    fund_id: null,
+    late_registration_closes_at: null,
+    late_fee_cents: 0,
+    withdrawal_credit_until: null,
+    age_cutoff_on: null,
+    fees_locked_at: null,
+    fees_locked_by: null,
   } satisfies Tables<"pathshala_terms">;
 
   it("has no fee fields and no false billing promise; a draft cannot be switched to “Registration open” here", () => {
