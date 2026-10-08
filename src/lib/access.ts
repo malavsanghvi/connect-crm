@@ -10,7 +10,9 @@
 //   areas   the catalog below: each has a default level (today's behaviour, except darshan and puja which are
 //           public), a floor (the lowest level it may be given) and where it is enforced.
 
+import { kindHas, kindName, moduleNotOffered } from "@/lib/kind";
 import type { ModuleKey } from "@/lib/modules";
+import { word, type KindLike } from "@/lib/wording";
 
 // ---------------------------------------------------------------------------
 // The platform's fixed pieces
@@ -465,4 +467,31 @@ export function parseLevelsField(raw: unknown): Parsed<EditableLevel[]> {
     out.push({ key: isNew ? "" : row.key, label: row.label, tiers: tiers as MembershipTier[], membershipTypeKeys: types, ...(isNew ? { isNew: true } : {}) });
   }
   return { ok: true, value: out };
+}
+
+// ---------------------------------------------------------------------------
+// The areas an organization's kind has
+// ---------------------------------------------------------------------------
+
+/**
+ * The areas listed in Settings › Access levels for this organization's kind. Areas of the tradition pack (the virtual
+ * puja, today's timings) and areas of a module the kind never offers are not listed; the live stream, the music area
+ * and the learning area carry the kind's words. A Jain Center gets every area exactly as the database sent it.
+ */
+export function accessFeaturesForKind(features: readonly AccessFeatureRow[], kind: KindLike): AccessFeatureRow[] {
+  const pack = kindHas(kind, "tradition");
+  return features
+    .filter((f) => !(f.moduleKey && moduleNotOffered(kind, f.moduleKey)))
+    .filter((f) => pack || (f.key !== "puja" && f.key !== "timings"))
+    .map((f) => {
+      if (pack) return f;
+      if (f.key === "darshan") {
+        return { ...f, label: word(kind, "live_stream"), description: f.description.replace(/ from the derasar/i, "") };
+      }
+      if (f.key === "listen") {
+        return { ...f, label: f.label.replace(/^Stavans, /i, "").replace(/^podcasts/, "Podcasts"), description: f.description.replace(/stavans, /i, "") };
+      }
+      return f;
+    })
+    .map((f) => (f.key === "learn" ? { ...f, label: f.label.replace("Gyan Path", kindName(kind, "gyan_path", "Gyan Path")), description: f.description.replace("Gyan Path", kindName(kind, "gyan_path", "Gyan Path")) } : f));
 }

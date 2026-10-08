@@ -5,7 +5,9 @@ import { BlockGrid, Card, InfoBox, QueryError } from "@/components/ui";
 import { isPlainObject } from "@/lib/center-rules";
 import { TIME_ZONES } from "@/lib/center-wizard";
 import { readPublicEnv } from "@/lib/env";
+import { kindTerm } from "@/lib/kind";
 import { getSession } from "@/lib/session";
+import { word } from "@/lib/wording";
 import { BRAND_FILES, LANGUAGES, MONTHS, osmEmbedUrl, osmLinkUrl, publicObjectUrl, SOCIAL_KEYS } from "@/lib/setup";
 
 import { removeBrandFileAction, saveProfileAction, uploadBrandFileAction } from "../actions";
@@ -148,7 +150,7 @@ export default async function ProfilePage() {
               <fieldset className="md:col-span-2 xl:col-span-3">
                 <legend className="crm-label">Map pin</legend>
                 <p className="crm-hint mb-2">
-                  The pin drives the daily timings (sunrise, navkarsi, chauvihar). Find the building on{" "}
+                  {word(session.kind, "pin_drives")}. Find the building on{" "}
                   <a href={lat !== null && lon !== null ? osmLinkUrl(lat, lon) : "https://www.openstreetmap.org/"} target="_blank" rel="noreferrer" className="crm-link">
                     OpenStreetMap
                   </a>
@@ -222,6 +224,7 @@ export default async function ProfilePage() {
             logos={{ logo: fileUrl("logo_path"), mark: fileUrl("mark_path"), logoDark: fileUrl("logo_dark_path"), emailHeader: fileUrl("email_header_path") }}
             name={center.name}
             shortName={center.short_name || center.slug.toUpperCase()}
+            greeting={kindTerm(session.kind, "greeting", "Jai Jinendra")}
           />
         </Card>
       </BlockGrid>

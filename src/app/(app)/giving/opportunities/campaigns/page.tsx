@@ -5,6 +5,8 @@ import { HistoryButton } from "@/components/record-history";
 import { Badge, Card, ChipLinks, EmptyState, NoAccess, PageHeader, QueryError, TableWrap } from "@/components/ui";
 import { fetchAll } from "@/lib/data/fetch-all";
 import { formatDate } from "@/lib/dates";
+import { campaignKindsFor } from "@/lib/giving";
+import { kindName } from "@/lib/kind";
 import { formatCents } from "@/lib/money";
 import { canAccess } from "@/lib/permissions";
 import { getSession } from "@/lib/session";
@@ -175,9 +177,9 @@ export default async function CampaignsPage() {
                   Kind
                 </label>
                 <select id="c-kind" name="kind" defaultValue="general" className="crm-input">
-                  {["general", "boli", "sponsorship", "construction", "pathshala", "event", "membership", "store", "other"].map((k) => (
+                  {campaignKindsFor(session.kind).map((k) => (
                     <option key={k} value={k}>
-                      {k[0].toUpperCase() + k.slice(1)}
+                      {k === "pathshala" ? kindName(session.kind, "pathshala", "Pathshala") : k[0].toUpperCase() + k.slice(1)}
                     </option>
                   ))}
                 </select>

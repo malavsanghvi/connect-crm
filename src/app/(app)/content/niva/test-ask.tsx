@@ -3,8 +3,10 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useTransition, type FormEvent } from "react";
 
+import { useKind } from "@/components/kind-context";
 import { useToast } from "@/components/toast";
 import { Alert, buttonClass, InfoBox, StatusText } from "@/components/ui";
+import { kindTerm } from "@/lib/kind";
 import {
   NIVA_TEST_MAX_WAIT_MS,
   NIVA_TEST_POLL_MS,
@@ -44,6 +46,7 @@ type Run = {
 export function NivaTestBox({ initialTests }: { initialTests: NivaTestsToday | null }) {
   const router = useRouter();
   const toast = useToast();
+  const kind = useKind();
   const [question, setQuestion] = useState("");
   const [includeInReview, setIncludeInReview] = useState(false);
   const [askError, setAskError] = useState<string | null>(null);
@@ -143,7 +146,7 @@ export function NivaTestBox({ initialTests }: { initialTests: NivaTestsToday | n
           maxLength={1000}
           value={question}
           onChange={(e) => setQuestion(e.target.value)}
-          placeholder="When is the derasar open on Sunday?"
+          placeholder={`When is the ${kindTerm(kind, "place", "derasar")} open on Sunday?`}
           className="crm-input"
         />
         <label className="flex items-start gap-2 text-[13px]">

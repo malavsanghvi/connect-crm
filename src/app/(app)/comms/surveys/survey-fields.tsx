@@ -10,7 +10,7 @@ export function SurveyFields({
   options,
   survey,
 }: {
-  options: { zones: Opt[]; classes: Opt[]; events: Opt[] };
+  options: { zones: Opt[]; classes: Opt[]; events: Opt[]; school?: string | null };
   survey?: { id: string; title: string; description: string | null; questions: SurveyQuestion[]; anonymous: boolean; audience: unknown; opens_local: string; closes_local: string };
 }) {
   const p = survey ? `sv-${survey.id.slice(0, 6)}` : "sv-new";
@@ -45,7 +45,7 @@ export function SurveyFields({
         </div>
       </div>
       <Toggle name="anonymous" label="Anonymous answers" defaultChecked={survey?.anonymous ?? false} onNote="Anonymous — no names stored" offNote="Answers show who sent them" />
-      <AudienceChips zones={options.zones} classes={options.classes} events={options.events} initial={survey?.audience} />
+      <AudienceChips zones={options.zones} classes={options.classes} events={options.events} initial={survey?.audience} school={options.school} />
     </>
   );
 }

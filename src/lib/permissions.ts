@@ -3,6 +3,7 @@
 // the database is the enforcement.
 
 import type { Json } from "@/lib/database.types";
+import { kindHas, kindName, type KindFeature, type KindProfile } from "@/lib/kind";
 import type { ModuleKey } from "@/lib/modules";
 
 export type GrantLike = {
@@ -39,6 +40,11 @@ export type ScopedContext = PermissionContext & {
   modulesOff?: readonly string[];
   /** The current organization (only its environment is read here: sandbox-only tabs). */
   center?: { environment?: string | null };
+  /**
+   * The organization's kind (src/lib/kind.ts): names a module in the kind's own words and hides the tabs of a part the
+   * kind does not have (Labh). Missing means today's Jain Center screens.
+   */
+  kind?: KindProfile;
 };
 
 export function isGrantActive(grant: Pick<GrantLike, "starts_at" | "ends_at">, now: Date = new Date()): boolean {
@@ -341,6 +347,10 @@ export type NavTab = {
   module?: ModuleKey;
   /** Shown only in a sandbox (o-demo: Demo data); the database refuses the rest anyway. */
   sandboxOnly?: boolean;
+  /** Shown only for kinds that have this part (src/lib/kind.ts kindHas), for example the Labh tab. */
+  kindFeature?: KindFeature;
+  /** What the tab is called for a kind without a tradition pack (its `label` is the tradition pack's, today's). */
+  neutralLabel?: string;
 };
 export type NavModule = {
   key: string;
@@ -391,7 +401,7 @@ export const NAV: NavModule[] = [
       { href: "/giving/payments", label: "Payments & deposits", access: "payments" },
       { href: "/giving/opportunities", label: "Opportunities", access: "campaigns" },
       { href: "/giving/recurring", label: "Recurring", access: "recurring" },
-      { href: "/giving/labh", label: "Labh fulfillment", access: "labh" },
+      { href: "/giving/labh", label: "Labh fulfillment", access: "labh", kindFeature: "labh" },
       { href: "/giving/statements", label: "Receipts & statements", access: "statements" },
     ],
     paths: ["/giving"],
@@ -445,7 +455,7 @@ export const NAV: NavModule[] = [
     label: "Content",
     tabs: [
       { href: "/content/queue", label: "Approval queue", access: "content" },
-      { href: "/content/today", label: "Today & darshan", access: "content" },
+      { href: "/content/today", label: "Today & darshan", access: "content", neutralLabel: "Live stream" },
       { href: "/content/practices", label: "Practices & points", access: "content", module: "jain_way" },
       // A class Teacher opens it too: they add homework for their own class there (0587, src/lib/gyan-homework/access.ts).
       { href: "/content/gyan-path", label: "Gyan Path", access: "content", roles: ["teacher"], module: "gyan_path" },
@@ -595,8 +605,11 @@ function moduleOn(ctx: ScopedContext, key: string): boolean {
 }
 
 /** True when the user may open a nav tab: its access key, or one of its roles in any scope. */
-export function canOpenTab(ctx: ScopedContext, tab: Pick<NavTab, "access" | "roles" | "platformOnly" | "module" | "sandboxOnly">): boolean {
+export function canOpenTab(ctx: ScopedContext, tab: Pick<NavTab, "access" | "roles" | "platformOnly" | "module" | "sandboxOnly" | "kindFeature">): boolean {
   if (tab.module && !moduleOn(ctx, tab.module)) return false;
+  if (tab.kindFeature && ctx.kind && !kindHas(ctx.kind, tab.kindFeature)) return false;
+  // A part with a module of its own (Labh) also goes when the organization switches that module off.
+  if (tab.kindFeature && !moduleOn(ctx, tab.kindFeature)) return false;
   if (tab.sandboxOnly && ctx.center?.environment !== "sandbox") return false;
   if (tab.platformOnly) return Boolean(ctx.isPlatformAdmin);
   if (tab.access !== undefined && canAccess(ctx, tab.access)) return true;
@@ -607,10 +620,14 @@ export function canOpenTab(ctx: ScopedContext, tab: Pick<NavTab, "access" | "rol
 export function visibleNav(ctx: ScopedContext): VisibleModule[] {
   return NAV.flatMap((m) => {
     if (m.module && !moduleOn(ctx, m.module)) return [];
-    const tabs = m.tabs.filter((t) => canOpenTab(ctx, t)).map(({ href, label }) => ({ href, label }));
+    const tabs = m.tabs
+      .filter((t) => canOpenTab(ctx, t))
+      .map(({ href, label, neutralLabel }) => ({ href, label: neutralLabel && ctx.kind && !kindHas(ctx.kind, "tradition") ? neutralLabel : label }));
     if (tabs.length === 0) return [];
     const landing = m.landing && m.landing.when(ctx) && tabs.some((t) => t.href === m.landing?.href) ? m.landing.href : tabs[0].href;
-    return [{ key: m.key, label: m.label, href: landing, tabs, paths: m.paths }];
+    // The kind's own name for a module (Store, Religious school, Dues & payments …); a Jain Center names none, so its labels are unchanged.
+    const label = m.module && ctx.kind ? kindName(ctx.kind, m.module, m.label) : m.label;
+    return [{ key: m.key, label, href: landing, tabs, paths: m.paths }];
   });
 }
 

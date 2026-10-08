@@ -58,7 +58,7 @@ function Mark({ url, name, bg, fg, size }: { url: string | null; name: string; b
  * Brand colors with a live WCAG contrast check and a live preview of the
  * portal header, the member app header, an email header and a statement header.
  */
-export function BrandColors({ initial, logos, name, shortName }: { initial: { primary: string; accent: string }; logos: Logos; name: string; shortName: string }) {
+export function BrandColors({ initial, logos, name, shortName, greeting = "Jai Jinendra" }: { initial: { primary: string; accent: string }; logos: Logos; name: string; shortName: string; greeting?: string }) {
   const [primary, setPrimary] = useState(initial.primary);
   const [accent, setAccent] = useState(initial.accent);
   const p = parseHexColor(primary) ? `#${primary.replace(/^#/, "")}` : "#1B2C5C";
@@ -100,7 +100,7 @@ export function BrandColors({ initial, logos, name, shortName }: { initial: { pr
             <Mark url={logos.logoDark ?? logos.mark ?? logos.logo} name={shortName} bg={a} fg={onA} size={34} />
             <div className="leading-tight">
               <p className="text-[13px] font-extrabold uppercase tracking-wide">{name}</p>
-              <p className="text-[11px] opacity-80">Jai Jinendra</p>
+              <p className="text-[11px] opacity-80">{greeting}</p>
             </div>
           </div>
         </div>

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 
 import { Card, EmptyState, QueryError, StatusText, TableWrap } from "@/components/ui";
 import { contentStatusLabel } from "@/lib/content";
+import { kindHas } from "@/lib/kind";
 import { canAccess } from "@/lib/permissions";
 import { getSession } from "@/lib/session";
 
@@ -11,6 +12,8 @@ import { ContentHeader, contentGate } from "../shared";
 export const metadata: Metadata = { title: "Content · Library" };
 
 const SUB = "Pachchakhan library and audio lessons shown under Jain Way › Library and Learn";
+// A kind without a tradition pack has no pachchakhan: just audio lessons.
+const SUB_AUDIO = "Audio lessons shown in the member app, under Library and Learn";
 
 type Item = {
   id: string;
@@ -40,7 +43,9 @@ function audioStatus(i: Item) {
 
 export default async function LibraryPage() {
   const session = await getSession();
-  const gate = contentGate(session, SUB);
+  const pack = kindHas(session.kind, "tradition");
+  const sub = pack ? SUB : SUB_AUDIO;
+  const gate = contentGate(session, sub);
   if (gate) return gate;
   const { db, center } = session;
   const canDraft = canAccess(session, "contentDraft");
@@ -67,47 +72,49 @@ export default async function LibraryPage() {
 
   return (
     <>
-      <ContentHeader sub={SUB} />
+      <ContentHeader sub={sub} />
       {res.error ? (
         <div className="mb-4">
           <QueryError what="the library" error={res.error} retryHref="/content/library" />
         </div>
       ) : null}
-      <Card
-        title="Pachchakhan"
-        padded={false}
-        className="mb-4"
-        actions={canDraft ? <ContentItemButton kind="pachchakhan" kindLabel="Pachchakhan" meta={["when"]} label="Add pachchakhan" bodyLabel="Sutra text" /> : null}
-      >
-        {pach.length === 0 ? (
-          <EmptyState title="No pachchakhan yet" />
-        ) : (
-          <TableWrap>
-            <table className="crm-table">
-              <thead>
-                <tr>
-                  <th>Name</th>
-                  <th>Timing rule</th>
-                  <th>Sutra text</th>
-                  <th>Audio</th>
-                  {canDraft ? <th /> : null}
-                </tr>
-              </thead>
-              <tbody>
-                {pach.map((i) => (
-                  <tr key={i.id}>
-                    <td className="font-bold">{i.title}</td>
-                    <td>{typeof meta(i).when === "string" ? (meta(i).when as string) : "—"}</td>
-                    <td>{textStatus(i)}</td>
-                    <td>{audioStatus(i)}</td>
-                    {canDraft ? <td className="text-right">{edit(i, "Pachchakhan", ["when"], "Sutra text")}</td> : null}
+      {pack ? (
+        <Card
+          title="Pachchakhan"
+          padded={false}
+          className="mb-4"
+          actions={canDraft ? <ContentItemButton kind="pachchakhan" kindLabel="Pachchakhan" meta={["when"]} label="Add pachchakhan" bodyLabel="Sutra text" /> : null}
+        >
+          {pach.length === 0 ? (
+            <EmptyState title="No pachchakhan yet" />
+          ) : (
+            <TableWrap>
+              <table className="crm-table">
+                <thead>
+                  <tr>
+                    <th>Name</th>
+                    <th>Timing rule</th>
+                    <th>Sutra text</th>
+                    <th>Audio</th>
+                    {canDraft ? <th /> : null}
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </TableWrap>
-        )}
-      </Card>
+                </thead>
+                <tbody>
+                  {pach.map((i) => (
+                    <tr key={i.id}>
+                      <td className="font-bold">{i.title}</td>
+                      <td>{typeof meta(i).when === "string" ? (meta(i).when as string) : "—"}</td>
+                      <td>{textStatus(i)}</td>
+                      <td>{audioStatus(i)}</td>
+                      {canDraft ? <td className="text-right">{edit(i, "Pachchakhan", ["when"], "Sutra text")}</td> : null}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </TableWrap>
+          )}
+        </Card>
+      ) : null}
       <Card
         title="Audio lessons"
         padded={false}

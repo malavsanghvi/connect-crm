@@ -1,7 +1,10 @@
 import type { Metadata } from "next";
 
-import { Card, ChipLinks, EmptyState, PageHeader, QueryError, StatusText, TableWrap } from "@/components/ui";
+import { KindPicker } from "@/components/kind-picker";
+import { Alert, Card, ChipLinks, EmptyState, PageHeader, QueryError, StatusText, TableWrap } from "@/components/ui";
 import { formatDateTime } from "@/lib/dates";
+import { buildKindPicker, experienceLabel, selectionForRequest } from "@/lib/experiences";
+import { loadExperiences } from "@/lib/experiences-db";
 import { moduleLabelFor } from "@/lib/modules";
 import { requestKindText } from "@/lib/org-choices";
 import { REQUEST_STATUS_LABEL, emailStatusText, orgTypeLabel } from "@/lib/platform-onboarding";
@@ -21,6 +24,15 @@ const FILTERS = [
   { key: "declined", label: "Declined" },
   { key: "all", label: "All" },
 ];
+
+/**
+ * The kind the applicant chose on the request form, when the database stores it (access_requests.requested_category_key,
+ * migration 0600 / 0612). Read through a cast until the generated types know the column; absent = no choice.
+ */
+function requestedKind(r: object): string | null {
+  const v = (r as { requested_category_key?: unknown }).requested_category_key;
+  return typeof v === "string" && v ? v : null;
+}
 
 export default async function RequestsPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const session = await getSession();
@@ -49,9 +61,21 @@ export default async function RequestsPage({ searchParams }: { searchParams: Pro
   }
   const rows = res.data ?? [];
   const tz = session.center.time_zone;
+  // The kinds of organization Weaver can set the request up as. Without them a request can still be read,
+  // declined or answered, but not approved (the kind is chosen at approval).
+  const kinds = await loadExperiences(session.db);
+  const kindList = kinds.status === "ok" ? kinds.experiences : [];
+  const kindModel = buildKindPicker(kindList, { includeInactive: true });
   return (
     <>
       {header}
+      {kinds.status !== "ok" ? (
+        <div className="mb-4">
+          <Alert tone="danger" title="The kinds of organization could not be loaded">
+            Requests can be declined or answered, but not approved until the kinds load. Reload the page to try again.
+          </Alert>
+        </div>
+      ) : null}
       <ChipLinks label="Request status" active={filter} items={FILTERS.map((f) => ({ key: f.key, label: f.label, href: `/platform/requests?status=${f.key}` }))} />
       <Card padded={false}>
         {rows.length === 0 ? (
@@ -82,7 +106,7 @@ export default async function RequestsPage({ searchParams }: { searchParams: Pro
                       <td className="font-bold">
                         {r.org_legal_name}
                         <p className="text-[12px] font-normal text-muted">
-                          {orgTypeLabel(r.org_type)} · {r.city}, {r.state}
+                          {r.category_key ? experienceLabel(kindList, r.category_key) : `Applicant said: ${orgTypeLabel(r.org_type)}`} · {r.city}, {r.state}
                         </p>
                       </td>
                       <td>
@@ -106,8 +130,10 @@ export default async function RequestsPage({ searchParams }: { searchParams: Pro
                         <DrawerButton label={open ? "Review" : "Open"} variant={open ? "primary" : "ghost"} kicker="Access request" title={r.org_legal_name} subtitle={REQUEST_STATUS_LABEL[r.status] ?? r.status}>
                           <div className="flex flex-col gap-4 text-[13px]">
                             <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1">
-                              <dt className="text-muted">Kind</dt>
+                              <dt className="text-muted">Applicant said</dt>
                               <dd>{orgTypeLabel(r.org_type)}</dd>
+                              <dt className="text-muted">Kind of organization</dt>
+                              <dd>{r.category_key ? experienceLabel(kindList, r.category_key) : <span className="text-muted">Not chosen yet — choose it when approving</span>}</dd>
                               <dt className="text-muted">Where</dt>
                               <dd>
                                 {r.city}, {r.state}
@@ -149,6 +175,20 @@ export default async function RequestsPage({ searchParams }: { searchParams: Pro
                                 ]}
                               >
                                 <input type="hidden" name="request" value={r.id} />
+                                {kinds.status === "ok" ? (
+                                  <div>
+                                    <KindPicker
+                                      experiences={kindList}
+                                      includeInactive
+                                      name="experience"
+                                      initial={selectionForRequest(kindModel, r.category_key ?? requestedKind(r), r.org_type)}
+                                    />
+                                    <p className="crm-hint">
+                                      The applicant said &quot;{orgTypeLabel(r.org_type)}&quot;; that is a hint. The kind you choose here sets the sandbox&apos;s modules, wording and Setup checklist
+                                      when its code is redeemed. It is needed to approve, not to decline or ask.
+                                    </p>
+                                  </div>
+                                ) : null}
                                 <label className="crm-label" htmlFor={`note-${r.id}`}>
                                   Note (required to decline or to ask; the contact receives it by email)
                                 </label>

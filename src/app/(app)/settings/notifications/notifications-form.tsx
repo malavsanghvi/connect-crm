@@ -4,8 +4,9 @@ import { useState } from "react";
 
 import { ActionForm } from "@/components/action-form";
 import { Toggle } from "@/components/controls";
+import { useKind } from "@/components/kind-context";
 import { BlockGrid, Card, InfoBox, TableWrap, buttonClass } from "@/components/ui";
-import { hourLabel, type NotificationSettings } from "@/lib/settings-rules";
+import { hourLabel, notificationTriggersFor, type NotificationSettings } from "@/lib/settings-rules";
 
 import { countChanges, saveLabel } from "../_components/settings-form";
 import { saveRulesSectionAction } from "../rules/actions";
@@ -15,7 +16,7 @@ export type TriggerRow = { key: string; label: string; when: string; channel: st
 const HOURS = Array.from({ length: 24 }, (_, h) => h);
 
 export function NotificationsForm({
-  triggers,
+  triggers: allTriggers,
   initial,
   version,
   languages,
@@ -33,11 +34,20 @@ export function NotificationsForm({
     event_day: s.eventDayDuringQuietHours,
     ...Object.fromEntries(Object.entries(s.triggers).map(([k, v]) => [`t_${k}`, v])),
   });
+  // Triggers of a part this kind of organization does not have are not listed; a switch already on is saved on again.
+  const kind = useKind();
+  const { shown, hidden } = notificationTriggersFor(kind);
+  const shownKeys = new Set(shown.map((t) => t.key));
+  const triggers = allTriggers.filter((t) => shownKeys.has(t.key) || !hidden.some((h) => h.key === t.key));
+  const kept = hidden.filter((t) => initial.triggers[t.key]).map((t) => t.key);
   const [s, setS] = useState(initial);
   const dirty = countChanges(flat(initial), flat(s));
   return (
     <ActionForm action={saveRulesSectionAction} submitLabel="Save" hideSubmit>
       <input type="hidden" name="section" value="notifications" />
+      {kept.map((k) => (
+        <input key={k} type="hidden" name={`trigger_${k}`} value="on" />
+      ))}
       <input type="hidden" name="version" value={version === null ? "" : String(version)} />
       <BlockGrid>
         <Card

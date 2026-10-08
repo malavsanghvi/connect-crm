@@ -4,6 +4,8 @@ import Link from "next/link";
 import { Alert, Card, PageHeader, QueryError } from "@/components/ui";
 import { isPlainObject } from "@/lib/center-rules";
 import { WIZARD_STEP_COUNT, WIZARD_STEPS, wizardStep } from "@/lib/center-wizard";
+import { experienceLabel } from "@/lib/experiences";
+import { loadExperiences } from "@/lib/experiences-db";
 import { isUuid, param, type RawSearchParams } from "@/lib/search-params";
 import { getSession } from "@/lib/session";
 import { mergeReadiness } from "@/lib/setup";
@@ -33,6 +35,15 @@ export default async function NewCenterWizardPage({ searchParams }: { searchPara
   }
   const sp = await searchParams;
   const { db } = session;
+  const kinds = await loadExperiences(db);
+  if (kinds.status !== "ok") {
+    return (
+      <>
+        {header}
+        <QueryError what="the kinds of organization" error={kinds.error} retryHref="/platform/new" />
+      </>
+    );
+  }
   const centerParam = param(sp, "center");
   let center: WizardCenter | null = null;
   let status: string | null = null;
@@ -40,7 +51,7 @@ export default async function NewCenterWizardPage({ searchParams }: { searchPara
   if (centerParam && isUuid(centerParam)) {
     const res = await db
       .from("centers")
-      .select("id, name, slug, time_zone, tradition, state_region, rules, status")
+      .select("id, name, slug, time_zone, tradition, state_region, rules, status, category_key")
       .eq("id", centerParam)
       .maybeSingle();
     if (res.error) {
@@ -63,6 +74,9 @@ export default async function NewCenterWizardPage({ searchParams }: { searchPara
         slug: String(r.slug),
         timeZone: r.time_zone,
         tradition: r.tradition,
+        kindKey: r.category_key,
+        kindLabel: experienceLabel(kinds.experiences, r.category_key),
+        usesTradition: kinds.experiences.find((k) => k.key === r.category_key)?.usesTradition ?? null,
         stateRegion: r.state_region ?? "",
         basis: str(accounting, "basis"),
         importSource: str(onboarding, "import_source"),
@@ -128,7 +142,7 @@ export default async function NewCenterWizardPage({ searchParams }: { searchPara
         </nav>
       </Card>
       <Card title={WIZARD_STEPS[step - 1]}>
-        <WizardForm key={`${step}-${center?.id ?? "new"}`} step={step} center={center} roleCount={roles.error ? null : (roles.count ?? null)} locked={Boolean(center && status !== "onboarding")} readiness={readiness} />
+        <WizardForm key={`${step}-${center?.id ?? "new"}`} step={step} center={center} experiences={kinds.experiences} roleCount={roles.error ? null : (roles.count ?? null)} locked={Boolean(center && status !== "onboarding")} readiness={readiness} />
       </Card>
     </>
   );

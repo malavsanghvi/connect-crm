@@ -161,6 +161,7 @@ export default async function StatementsPage({ searchParams }: { searchParams: P
             centerAddress={address}
             year={currentYear}
             currency={center.currency}
+            orgKind={session.kind}
           />
         )}
         {approval?.error ? (

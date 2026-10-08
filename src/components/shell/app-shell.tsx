@@ -5,6 +5,7 @@ import { WeaverMark } from "@/components/brand/weaver-mark";
 import { CenterSwitcher, SandboxWatermark } from "@/components/shell/center-switcher";
 import { GlobalSearch } from "@/components/shell/global-search";
 import { MobileNav } from "@/components/shell/mobile-nav";
+import { KindProvider } from "@/components/kind-context";
 import { ModulesProvider } from "@/components/shell/module-tabs";
 import { ModuleNav } from "@/components/shell/nav-link";
 import { TenantMark } from "@/components/shell/tenant-mark";
@@ -52,6 +53,7 @@ export function AppShell({ session, tasks, children }: { session: CrmSession; ta
     <ToastProvider>
       <StepUpProvider>
       <HistoryAccessProvider allowed={canAccess(session, "audit")}>
+      <KindProvider kind={session.kind}>
       <ModulesProvider modules={modules}>
         <div className="flex min-h-screen flex-col">
           {sandbox ? <SandboxWatermark name={center.name} /> : null}
@@ -109,6 +111,7 @@ export function AppShell({ session, tasks, children }: { session: CrmSession; ta
           </div>
         </div>
       </ModulesProvider>
+      </KindProvider>
       </HistoryAccessProvider>
       </StepUpProvider>
     </ToastProvider>

@@ -5,6 +5,7 @@ import { DrawerForm } from "@/components/drawer-form";
 import { Card, EmptyState, QueryError, StatusText, TableWrap } from "@/components/ui";
 import { describeAudience } from "@/lib/comms";
 import { audienceOptions } from "@/lib/data/content-comms";
+import { kindSchool } from "@/lib/kind";
 import { formatDate } from "@/lib/dates";
 import { canAccess } from "@/lib/permissions";
 import { getSession } from "@/lib/session";
@@ -26,7 +27,7 @@ export default async function SurveysPage() {
   const canSend = canAccess(session, "commsSend");
   const [surveys, opts] = await Promise.all([
     db.from("surveys").select("*").eq("center_id", center.id).is("event_id", null).order("created_at", { ascending: false }),
-    audienceOptions(db, center.id),
+    audienceOptions(db, center.id, kindSchool(session.kind)),
   ]);
   const list = surveys.data ?? [];
   const responses = list.length ? await db.from("survey_responses").select("survey_id").in("survey_id", list.map((s) => s.id)).limit(20000) : null;

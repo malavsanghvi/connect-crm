@@ -20,6 +20,7 @@ import {
 import { CLIENT_APPS, needsTraceColumns, parseTraceFilters } from "@/lib/audit-filters";
 import { userNames } from "@/lib/data/lookups";
 import { startOfDayInTz, addDays } from "@/lib/dates";
+import { moduleNotOffered } from "@/lib/kind";
 import { MODULES } from "@/lib/modules";
 import { isMissingObject, modulesDb, warnMissingOnce } from "@/lib/modules-db";
 import { can, canAccess, isGrantActive } from "@/lib/permissions";
@@ -199,7 +200,8 @@ export default async function AuditPage({
       <ChipLinks
         label="Module"
         active={mod ?? "all"}
-        items={AUDIT_MODULES.map((m) => ({
+        // A module this kind of organization never has (Bolis for a chamber) has no records to filter by.
+        items={AUDIT_MODULES.filter((m) => !moduleNotOffered(session.kind, m.key)).map((m) => ({
           key: m.key,
           label: m.label,
           href: hrefWith("/settings/audit", sp, {

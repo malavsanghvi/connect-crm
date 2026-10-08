@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
+import { useKind } from "@/components/kind-context";
 import { Modal } from "@/components/modal";
 import { useToast } from "@/components/toast";
 import { buttonClass } from "@/components/ui";
@@ -9,7 +10,7 @@ import type { PosterContent } from "@/lib/events/flyer";
 import {
   FLYER_LAYER_KINDS,
   FLYER_LAYER_LABEL,
-  FLYER_OCCASIONS,
+  flyerOccasionsFor,
   FLYER_OCCASION_LABEL,
   artCostSentence,
   formatArtCost,
@@ -99,7 +100,10 @@ export function FlyerArtPicker({
   }, [discard]);
 
   const brandKey = `${brand.primary}${brand.accent}${brand.background}`;
-  const packs = useMemo(() => FLYER_OCCASIONS.map((o) => ({ occasion: o, pack: artPack(o, brand) })), [brandKey]); // eslint-disable-line react-hooks/exhaustive-deps
+  // A kind without a tradition pack is offered the general and convention packs (and the one this poster already has).
+  const kind = useKind();
+  const occasions = useMemo(() => flyerOccasionsFor(kind, poster.occasion), [kind, poster.occasion]);
+  const packs = useMemo(() => occasions.map((o) => ({ occasion: o, pack: artPack(o, brand) })), [brandKey, occasions]); // eslint-disable-line react-hooks/exhaustive-deps
   const pack = packs.find((p) => p.occasion === poster.occasion)?.pack ?? packs[0]!.pack;
   const thumbs = useMemo(
     () => Object.fromEntries(packs.map(({ occasion, pack: p }) => [occasion, svgDataUri(packThumbnailSvg(p, { frame: true, scene: true }))])) as Record<FlyerOccasion, string>,

@@ -41,6 +41,8 @@ export function AreasCard({
   features,
   types,
   moduleNotes,
+  streamWord = "live darshan",
+  schoolName = "Pathshala",
 }: {
   centerName: string;
   levels: AccessLevel[];
@@ -48,6 +50,10 @@ export function AreasCard({
   types: MembershipTypeRow[];
   /** Per area: why nobody can use it although a level is chosen (its module is switched off). */
   moduleNotes: Record<string, string>;
+  /** What the organization calls its live stream ("live darshan" for a Jain Center). */
+  streamWord?: string;
+  /** What it calls its religious school, or null when the kind has none. */
+  schoolName?: string | null;
 }) {
   const saved = useMemo(() => Object.fromEntries(features.map((f) => [f.key, f.levelKey])), [features]);
   const [chosen, setChosen] = useState<Record<string, string>>(saved);
@@ -133,9 +139,9 @@ export function AreasCard({
         <p className="crm-hint mt-2">
           <strong>Applies in the app</strong> means the member app hides the area from people below the level. The content itself stays readable by every
           community member in the database. <strong>Also enforced by the database</strong> means the database only hands the data to people at or above the
-          level, guests included; for live darshan that is the stream&rsquo;s link. It cannot make a link private: the stream plays from the link&rsquo;s own
+          level, guests included; for {streamWord} that is the stream&rsquo;s link. It cannot make a link private: the stream plays from the link&rsquo;s own
           site, so anyone who already has the link can still watch it. A stream shared by every community is not affected by this choice. The areas that
-          are not listed here (giving, RSVPs, the store, family, Pathshala and the member directory) always need a signed-in community member.
+          are not listed here (giving, RSVPs, the store, family, {schoolName ? `${schoolName} and ` : "and "}the member directory) always need a signed-in community member.
         </p>
         {changes.length > 0 ? (
           <div className="mt-3 max-w-xl">

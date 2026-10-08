@@ -4,14 +4,20 @@ import { ActionForm } from "@/components/action-form";
 import { BlockGrid, Card, EmptyState, Field, InfoBox, QueryError, StatusText, TableWrap } from "@/components/ui";
 import { contentStatusLabel, formatClock, readTimingRules, todayTimingLine } from "@/lib/content";
 import { addDays, formatDate, todayInTz } from "@/lib/dates";
+import { kindHas, kindOrganization, kindTerm, withArticle } from "@/lib/kind";
 import { canAccess } from "@/lib/permissions";
-import { getSession } from "@/lib/session";
+import { getSession, loadSession } from "@/lib/session";
+import { word } from "@/lib/wording";
 
 import { saveDayTimingsAction, saveTimingRulesAction } from "../actions";
 import { ContentItemButton } from "../item-form";
 import { ContentHeader, contentGate } from "../shared";
 
-export const metadata: Metadata = { title: "Content · Today & darshan" };
+// The tab is "Today & darshan" for a kind that keeps a tradition, "Live stream" for any other (src/lib/wording.ts).
+export async function generateMetadata(): Promise<Metadata> {
+  const state = await loadSession();
+  return { title: `Content · ${state.status === "ok" ? word(state.session.kind, "today_tab") : "Today & darshan"}` };
+}
 
 // The whole stream row (notes and stored-file path included) is what the database hands to anyone who may watch,
 // guests too while Live darshan is public (Settings › Access levels), so the notes box says who reads it.
@@ -26,9 +32,31 @@ export default async function TodayPage() {
   const session = await getSession();
   const { db, center } = session;
   const short = center.short_name || center.name;
-  const sub = `Drives Today at ${short} on the member Home screen and the Library’s live darshan`;
+  // Only a kind with a tradition pack has daily timings (sunrise, navkarsi, chauvihar, aarti) and a panchang; any other
+  // kind has just its live stream.
+  const pack = kindHas(session.kind, "tradition");
+  const stream = word(session.kind, "live_stream");
+  const streamLower = stream.charAt(0).toLowerCase() + stream.slice(1);
+  const sub = pack ? `Drives Today at ${short} on the member Home screen and the Library’s live darshan` : `The live stream of ${short}, on the member Home screen and in the Library`;
   const gate = contentGate(session, sub);
   if (gate) return gate;
+  // The database closes the live-stream area for a kind that does not have it (0600): nobody could watch a stream added
+  // here, so the page says so instead of offering to add one. The Jain Center is unchanged.
+  if (!kindHas(session.kind, "live_stream")) {
+    return (
+      <>
+        <ContentHeader sub={`${stream} is not part of ${withArticle(kindOrganization(session.kind.label))}`} />
+        <BlockGrid>
+          <Card title={stream} span={12}>
+            <EmptyState title={`${short} has no ${streamLower}`}>
+              Members of {withArticle(kindOrganization(session.kind.label))} cannot watch a live stream yet, so there is nothing to set up here. Weaver can change an
+              organization&apos;s kind if that is wrong.
+            </EmptyState>
+          </Card>
+        </BlockGrid>
+      </>
+    );
+  }
   const tz = center.time_zone;
   const today = todayInTz(tz);
   const canSaveRules = canAccess(session, "centerSettings");
@@ -56,69 +84,76 @@ export default async function TodayPage() {
     <>
       <ContentHeader sub={sub} />
       <BlockGrid>
-        <Card title="Daily timings" span={7}>
-          <ActionForm action={saveTimingRulesAction} submitLabel="Save timings" hideSubmit={!canSaveRules}>
-            <div className="mb-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <Field label="Derasar hours" htmlFor="t-derasar">
-                <input id="t-derasar" name="derasar_hours" defaultValue={rules.derasar_hours} placeholder="7:30 AM – 6:00 PM daily" disabled={!canSaveRules} className="crm-input" />
-              </Field>
-              <Field label="Aarti" htmlFor="t-aarti">
-                <input id="t-aarti" name="aarti" defaultValue={rules.aarti} placeholder="12:30 PM and 4:30 PM" disabled={!canSaveRules} className="crm-input" />
-              </Field>
-              <Field label="Snatra puja" htmlFor="t-snatra">
-                <input id="t-snatra" name="snatra_puja" defaultValue={rules.snatra_puja} placeholder="Sundays 9:30 AM" disabled={!canSaveRules} className="crm-input" />
-              </Field>
-              <div>
-                <p className="crm-label">Location for sunrise and sunset</p>
-                <InfoBox>Center address · members may use their own location</InfoBox>
+        {pack ? (
+          <>
+          <Card title="Daily timings" span={7}>
+            <ActionForm action={saveTimingRulesAction} submitLabel="Save timings" hideSubmit={!canSaveRules}>
+              <div className="mb-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <Field label="Derasar hours" htmlFor="t-derasar">
+                  <input id="t-derasar" name="derasar_hours" defaultValue={rules.derasar_hours} placeholder="7:30 AM – 6:00 PM daily" disabled={!canSaveRules} className="crm-input" />
+                </Field>
+                <Field label="Aarti" htmlFor="t-aarti">
+                  <input id="t-aarti" name="aarti" defaultValue={rules.aarti} placeholder="12:30 PM and 4:30 PM" disabled={!canSaveRules} className="crm-input" />
+                </Field>
+                <Field label="Snatra puja" htmlFor="t-snatra">
+                  <input id="t-snatra" name="snatra_puja" defaultValue={rules.snatra_puja} placeholder="Sundays 9:30 AM" disabled={!canSaveRules} className="crm-input" />
+                </Field>
+                <div>
+                  <p className="crm-label">Location for sunrise and sunset</p>
+                  <InfoBox>Center address · members may use their own location</InfoBox>
+                </div>
+                <div>
+                  <p className="crm-label">Navkarsi</p>
+                  <InfoBox>Sunrise + 48 minutes</InfoBox>
+                </div>
+                <div>
+                  <p className="crm-label">Porsi and Purimaddh</p>
+                  <InfoBox>One and two prahar after sunrise</InfoBox>
+                </div>
+                <div>
+                  <p className="crm-label">Chauvihar</p>
+                  <InfoBox>Before sunset</InfoBox>
+                </div>
+                <div>
+                  <p className="crm-label">Tithi source</p>
+                  <InfoBox>Panchang in Calendar settings</InfoBox>
+                </div>
               </div>
-              <div>
-                <p className="crm-label">Navkarsi</p>
-                <InfoBox>Sunrise + 48 minutes</InfoBox>
-              </div>
-              <div>
-                <p className="crm-label">Porsi and Purimaddh</p>
-                <InfoBox>One and two prahar after sunrise</InfoBox>
-              </div>
-              <div>
-                <p className="crm-label">Chauvihar</p>
-                <InfoBox>Before sunset</InfoBox>
-              </div>
-              <div>
-                <p className="crm-label">Tithi source</p>
-                <InfoBox>Panchang in Calendar settings</InfoBox>
-              </div>
-            </div>
-            {!canSaveRules ? <p className="mb-2 text-[13px] text-muted">These hours are part of the center rules; saving them needs settings.manage.</p> : null}
-          </ActionForm>
-        </Card>
+              {!canSaveRules ? <p className="mb-2 text-[13px] text-muted">These hours are part of the center rules; saving them needs settings.manage.</p> : null}
+            </ActionForm>
+          </Card>
 
-        <Card title="Member Home preview · today" span={5} className="!bg-[#FBF7F0]">
-          {days.error || tithi.error ? <QueryError what="today's timings" error={days.error ?? tithi.error} retryHref="/content/today" /> : null}
-          <p className="text-[13px] font-semibold text-ink-2">
-            {weekdayLine(today)}
-            {t ? ` · ${t.month_name} ${t.paksha} ${t.tithi}` : ""}
-          </p>
-          <p className="mt-1 text-sm font-bold text-ink">{line ?? "No sunrise and sunset entered for today yet — add them under Timings by day."}</p>
-          <p className="mt-1 text-sm font-bold text-navy">
-            {liveStream ? "Watch live darshan" : "Live darshan is not streaming"}
-            {aarti ? ` · Aarti at ${aarti}` : ""}
-          </p>
-          {!t && !tithi.error ? <p className="mt-2 text-xs text-muted">No tithi is loaded for today in the panchang.</p> : null}
-        </Card>
+          <Card title="Member Home preview · today" span={5} className="!bg-[#FBF7F0]">
+            {days.error || tithi.error ? <QueryError what="today's timings" error={days.error ?? tithi.error} retryHref="/content/today" /> : null}
+            <p className="text-[13px] font-semibold text-ink-2">
+              {weekdayLine(today)}
+              {t ? ` · ${t.month_name} ${t.paksha} ${t.tithi}` : ""}
+            </p>
+            <p className="mt-1 text-sm font-bold text-ink">{line ?? "No sunrise and sunset entered for today yet — add them under Timings by day."}</p>
+            <p className="mt-1 text-sm font-bold text-navy">
+              {liveStream ? "Watch live darshan" : "Live darshan is not streaming"}
+              {aarti ? ` · Aarti at ${aarti}` : ""}
+            </p>
+            {!t && !tithi.error ? <p className="mt-2 text-xs text-muted">No tithi is loaded for today in the panchang.</p> : null}
+          </Card>
+
+          </>
+        ) : null}
 
         <Card
-          title="Live darshan"
+          title={stream}
           span={12}
           padded={false}
-          actions={canDraft ? <ContentItemButton kind="darshan_stream" kindLabel="Live darshan stream" meta={["source", "schedule", "stream_status"]} label="Add stream" bodyLabel={STREAM_NOTES_LABEL} /> : null}
+          actions={canDraft ? <ContentItemButton kind="darshan_stream" kindLabel={word(session.kind, "live_stream_item")} meta={["source", "schedule", "stream_status"]} label="Add stream" bodyLabel={STREAM_NOTES_LABEL} /> : null}
         >
           {streams.error ? (
             <div className="p-4">
-              <QueryError what="the darshan streams" error={streams.error} retryHref="/content/today" />
+              <QueryError what={pack ? "the darshan streams" : "the live streams"} error={streams.error} retryHref="/content/today" />
             </div>
           ) : (streams.data ?? []).length === 0 ? (
-            <EmptyState title="No darshan streams yet">Add the derasar camera or the pravachan hall so members can watch from the Library.</EmptyState>
+            <EmptyState title={pack ? "No darshan streams yet" : "No live streams yet"}>
+              {pack ? `Add the ${kindTerm(session.kind, "place", "derasar")} camera or the pravachan hall so members can watch from the Library.` : "Add the link to your live stream so members can watch from the Library."}
+            </EmptyState>
           ) : (
             <TableWrap>
               <table className="crm-table">
@@ -155,7 +190,7 @@ export default async function TodayPage() {
                             {s.center_id ? (
                               <ContentItemButton
                                 kind="darshan_stream"
-                                kindLabel="Live darshan stream"
+                                kindLabel={word(session.kind, "live_stream_item")}
                                 meta={["source", "schedule", "stream_status"]}
                                 label="Edit"
                                 variant="ghost"
@@ -188,7 +223,7 @@ export default async function TodayPage() {
                 className="aspect-video w-full max-w-[640px] rounded-lg border border-line bg-black"
               />
               <p className="mt-1 text-xs text-muted">
-                People watch this from Home › Watch live darshan and Learn › Library. Who may watch is set in{" "}
+                People watch this from Home › Watch {streamLower} and Learn › Library. Who may watch is set in{" "}
                 {canSaveRules ? (
                   <a href="/settings/access" className="text-navy underline">
                     Settings › Access levels
@@ -205,67 +240,71 @@ export default async function TodayPage() {
           ) : null}
         </Card>
 
-        <Card title="Timings by day" description="Sunrise and sunset for the next 30 days. A day entered here overrides the rules above." span={canManage ? 8 : 12} padded={false}>
-          {days.error ? (
-            <div className="p-4">
-              <QueryError what="the timings" error={days.error} retryHref="/content/today" />
-            </div>
-          ) : (days.data ?? []).length === 0 ? (
-            <EmptyState title="No days entered for the next 30 days" />
-          ) : (
-            <TableWrap>
-              <table className="crm-table">
-                <thead>
-                  <tr>
-                    {["Date", "Sunrise", "Navkarsi", "Sunset", "Chauvihar", "Aarti", "Temple"].map((h) => (
-                      <th key={h}>{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {(days.data ?? []).map((d) => (
-                    <tr key={d.id}>
-                      <td className="font-bold whitespace-nowrap">{formatDate(d.on_date, tz)}</td>
-                      <td>{formatClock(d.sunrise) ?? "—"}</td>
-                      <td>{formatClock(d.navkarsi) ?? "—"}</td>
-                      <td>{formatClock(d.sunset) ?? "—"}</td>
-                      <td>{formatClock(d.chauvihar) ?? "—"}</td>
-                      <td>{formatClock(d.aarti) ?? "—"}</td>
-                      <td className="whitespace-nowrap">
-                        {formatClock(d.temple_open) ?? "—"} – {formatClock(d.temple_close) ?? "—"}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </TableWrap>
-          )}
-        </Card>
-        {canManage ? (
-          <Card title="Enter timings for a day" description="Saving a date that already has timings replaces them." span={4}>
-            <ActionForm action={saveDayTimingsAction} submitLabel="Save day">
-              <div className="mb-3 grid grid-cols-2 gap-3">
-                <Field label="Date" htmlFor="d-date" className="col-span-2">
-                  <input id="d-date" type="date" name="on_date" required defaultValue={today} className="crm-input" />
-                </Field>
-                {(
-                  [
-                    ["sunrise", "Sunrise"],
-                    ["navkarsi", "Navkarsi"],
-                    ["sunset", "Sunset"],
-                    ["chauvihar", "Chauvihar"],
-                    ["aarti", "Aarti"],
-                    ["temple_open", "Temple opens"],
-                    ["temple_close", "Temple closes"],
-                  ] as const
-                ).map(([name, label]) => (
-                  <Field key={name} label={label} htmlFor={`d-${name}`}>
-                    <input id={`d-${name}`} type="time" name={name} className="crm-input" />
-                  </Field>
-                ))}
+        {pack ? (
+          <>
+          <Card title="Timings by day" description="Sunrise and sunset for the next 30 days. A day entered here overrides the rules above." span={canManage ? 8 : 12} padded={false}>
+            {days.error ? (
+              <div className="p-4">
+                <QueryError what="the timings" error={days.error} retryHref="/content/today" />
               </div>
-            </ActionForm>
+            ) : (days.data ?? []).length === 0 ? (
+              <EmptyState title="No days entered for the next 30 days" />
+            ) : (
+              <TableWrap>
+                <table className="crm-table">
+                  <thead>
+                    <tr>
+                      {["Date", "Sunrise", "Navkarsi", "Sunset", "Chauvihar", "Aarti", "Temple"].map((h) => (
+                        <th key={h}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(days.data ?? []).map((d) => (
+                      <tr key={d.id}>
+                        <td className="font-bold whitespace-nowrap">{formatDate(d.on_date, tz)}</td>
+                        <td>{formatClock(d.sunrise) ?? "—"}</td>
+                        <td>{formatClock(d.navkarsi) ?? "—"}</td>
+                        <td>{formatClock(d.sunset) ?? "—"}</td>
+                        <td>{formatClock(d.chauvihar) ?? "—"}</td>
+                        <td>{formatClock(d.aarti) ?? "—"}</td>
+                        <td className="whitespace-nowrap">
+                          {formatClock(d.temple_open) ?? "—"} – {formatClock(d.temple_close) ?? "—"}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </TableWrap>
+            )}
           </Card>
+          {canManage ? (
+            <Card title="Enter timings for a day" description="Saving a date that already has timings replaces them." span={4}>
+              <ActionForm action={saveDayTimingsAction} submitLabel="Save day">
+                <div className="mb-3 grid grid-cols-2 gap-3">
+                  <Field label="Date" htmlFor="d-date" className="col-span-2">
+                    <input id="d-date" type="date" name="on_date" required defaultValue={today} className="crm-input" />
+                  </Field>
+                  {(
+                    [
+                      ["sunrise", "Sunrise"],
+                      ["navkarsi", "Navkarsi"],
+                      ["sunset", "Sunset"],
+                      ["chauvihar", "Chauvihar"],
+                      ["aarti", "Aarti"],
+                      ["temple_open", "Temple opens"],
+                      ["temple_close", "Temple closes"],
+                    ] as const
+                  ).map(([name, label]) => (
+                    <Field key={name} label={label} htmlFor={`d-${name}`}>
+                      <input id={`d-${name}`} type="time" name={name} className="crm-input" />
+                    </Field>
+                  ))}
+                </div>
+              </ActionForm>
+            </Card>
+          ) : null}
+          </>
         ) : null}
       </BlockGrid>
     </>

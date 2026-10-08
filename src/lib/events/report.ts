@@ -295,13 +295,15 @@ export const AUDIENCES = ["members_only", "life_members_only", "pathshala_famili
 export type EventAudience = (typeof AUDIENCES)[number];
 
 /** The prototype's four "Who can RSVP" chips over the five audience values ("Everyone" covers both guest audiences). */
-export function audienceChips(current: string | null | undefined): { value: EventAudience; label: string }[] {
-  return [
+export function audienceChips(current: string | null | undefined, school: string | null = "Pathshala"): { value: EventAudience; label: string }[] {
+  const chips: { value: EventAudience; label: string }[] = [
     { value: current === "public" ? "public" : "members_and_guests", label: "Everyone" },
     { value: "members_only", label: "Members" },
     { value: "life_members_only", label: "Life members only" },
-    { value: "pathshala_families", label: "Pathshala families" },
+    { value: "pathshala_families", label: `${school ?? "Pathshala"} families` },
   ];
+  // A kind with no school has no school families to invite.
+  return school === null ? chips.filter((c) => c.value !== "pathshala_families") : chips;
 }
 
 export function audienceLabel(audience: string | null | undefined): string {

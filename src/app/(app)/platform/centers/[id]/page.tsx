@@ -6,12 +6,14 @@ import { ActionForm } from "@/components/action-form";
 import { BlockGrid, Card, DefinitionList, EmptyState, PageHeader, QueryError, StatusText, TableWrap } from "@/components/ui";
 import { portalBaseDomain } from "@/lib/center-resolve";
 import { formatDateTime } from "@/lib/dates";
+import { loadExperiences } from "@/lib/experiences-db";
 import { isUuid } from "@/lib/search-params";
 import { getSession } from "@/lib/session";
 import { ENTITLEMENT_INFO, entitlementLabel, formatEntitlement, formatJoinCode, sortEntitlements } from "@/lib/tenancy";
 
 import { PlatformNoAccess } from "../../platform-no-access";
 import { addDomainAction, removeDomainAction, setEntitlementAction } from "./actions";
+import { KindPanel } from "./kind-panel";
 
 export const metadata: Metadata = { title: "Center · Platform" };
 
@@ -29,7 +31,7 @@ export default async function PlatformCenterPage({ params }: { params: Promise<{
     );
   }
   const { db } = session;
-  const centerRes = await db.from("centers").select("id, slug, name, status, environment, sandbox_for").eq("id", id).maybeSingle();
+  const centerRes = await db.from("centers").select("id, slug, name, status, environment, sandbox_for, category_key").eq("id", id).maybeSingle();
   if (centerRes.error) {
     return (
       <>
@@ -40,11 +42,12 @@ export default async function PlatformCenterPage({ params }: { params: Promise<{
   }
   if (!centerRes.data) notFound();
   const center = centerRes.data;
-  const [entRes, domainRes, codeRes, promotedRes] = await Promise.all([
+  const [entRes, domainRes, codeRes, promotedRes, kinds] = await Promise.all([
     db.rpc("center_entitlement_list", { p_center: id }),
     db.from("center_domains").select("domain, created_at").eq("center_id", id).order("domain"),
     db.from("member_join_codes").select("code, expires_at, created_at").eq("center_id", id).eq("active", true).order("created_at", { ascending: false }),
     center.sandbox_for ? db.from("centers").select("name, slug").eq("id", center.sandbox_for).maybeSingle() : Promise.resolve(null),
+    loadExperiences(db),
   ]);
   const sandbox = center.environment === "sandbox";
   const base = portalBaseDomain();
@@ -81,6 +84,18 @@ export default async function PlatformCenterPage({ params }: { params: Promise<{
                 : []),
             ]}
           />
+        </Card>
+
+        <Card
+          span={12}
+          title="Kind of organization"
+          description="Which modules, words and Setup checklist this organization has · changing it needs a reason and a fresh 2FA check"
+        >
+          {kinds.status !== "ok" ? (
+            <QueryError what="the kinds of organization" error={kinds.error} retryHref={`/platform/centers/${id}`} />
+          ) : (
+            <KindPanel centerId={id} centerName={center.name} currentKey={center.category_key} experiences={kinds.experiences} sandbox={sandbox} />
+          )}
         </Card>
 
         <Card span={7} title="Portal web addresses" description="Where this community's staff open the portal">

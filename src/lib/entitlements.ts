@@ -7,6 +7,8 @@
 // can hold them until the owner adds them (docs/parity p1 §F).
 
 import type { Json } from "@/lib/database.types";
+import { kindName, moduleNotOffered } from "@/lib/kind";
+import type { KindLike } from "@/lib/wording";
 
 export type Entitlement = { key: string; label: string; planned?: boolean };
 export type EntitlementGroup = { name: string; items: Entitlement[] };
@@ -152,4 +154,20 @@ export function entitlementLabel(key: string): string {
     if (hit) return hit.label;
   }
   return key;
+}
+
+/** The module each permission group belongs to, when a kind of organization may not have it. */
+const GROUP_MODULE: Readonly<Record<string, string>> = { Bolis: "bolis", Store: "store", Pathshala: "pathshala" };
+
+/**
+ * The permission groups to show for this organization's kind: no Bolis group where the kind has no bolis, no Pathshala
+ * group where it has no school, and the school and store named in the kind's words. A Jain Center gets the catalogue as is.
+ */
+export function entitlementGroupsFor(kind: KindLike): EntitlementGroup[] {
+  return ENTITLEMENT_GROUPS.filter((g) => !GROUP_MODULE[g.name] || !moduleNotOffered(kind, GROUP_MODULE[g.name])).map((g) => {
+    if (g.name !== "Pathshala") return g;
+    const school = kindName(kind, "pathshala", "Pathshala");
+    if (school === "Pathshala") return g;
+    return { name: school, items: g.items.map((i) => ({ ...i, label: i.label.replace("Pathshala", school) })) };
+  });
 }

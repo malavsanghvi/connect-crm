@@ -88,7 +88,7 @@ export function MembershipForm({
 }
 
 // ---------------------------------------------------------------------------
-export function GivingForm({ settings, ...c }: Common & { settings: RuleSettings }) {
+export function GivingForm({ settings, showBolis = true, ...c }: Common & { settings: RuleSettings; showBolis?: boolean }) {
   const initial = { fee: settings.askDonorToCoverFees, soft: settings.boliSoftCloseMinutes > 0 };
   const [v, setV] = useState(initial);
   return (
@@ -108,20 +108,27 @@ export function GivingForm({ settings, ...c }: Common & { settings: RuleSettings
         <SettingField label="Payment allocation">
           <InfoBox>Earliest open pledge first · preview shown</InfoBox>
         </SettingField>
-        <SettingField label="Boli ties">
-          <InfoBox>First recorded wins · all entries kept</InfoBox>
-        </SettingField>
-        <SettingField label="Boli soft close">
-          <Toggle
-            name="boli_soft_close"
-            label="Boli soft close"
-            checked={v.soft}
-            onChange={(x) => setV({ ...v, soft: x })}
-            onNote={settings.boliSoftCloseMinutes > 0 && initial.soft ? `${settings.boliSoftCloseMinutes} minutes` : "5 minutes"}
-            offNote="Off"
-            disabled={c.readOnly}
-          />
-        </SettingField>
+        {showBolis ? (
+          <>
+            <SettingField label="Boli ties">
+              <InfoBox>First recorded wins · all entries kept</InfoBox>
+            </SettingField>
+            <SettingField label="Boli soft close">
+              <Toggle
+                name="boli_soft_close"
+                label="Boli soft close"
+                checked={v.soft}
+                onChange={(x) => setV({ ...v, soft: x })}
+                onNote={settings.boliSoftCloseMinutes > 0 && initial.soft ? `${settings.boliSoftCloseMinutes} minutes` : "5 minutes"}
+                offNote="Off"
+                disabled={c.readOnly}
+              />
+            </SettingField>
+          </>
+        ) : (
+          // The kind has no bolis: the soft-close setting is not shown, but its stored value goes back unchanged.
+          v.soft ? <input type="hidden" name="boli_soft_close" value="on" /> : null
+        )}
         <SettingField label="Privacy defaults" wide>
           <InfoBox>Directory, photos and physical mail asked as opt-in during onboarding</InfoBox>
         </SettingField>
@@ -201,7 +208,7 @@ export function LunchForm({ settings, ...c }: Common & { settings: RuleSettings 
 }
 
 // ---------------------------------------------------------------------------
-export function BolisStoreForm({ settings, currency, ...c }: Common & { settings: RuleSettings; currency: string }) {
+export function BolisStoreForm({ settings, currency, showBolis = true, showStore = true, ...c }: Common & { settings: RuleSettings; currency: string; showBolis?: boolean; showStore?: boolean }) {
   const initial = {
     boli_step: centsToDollars(settings.boliStepCents),
     gift_pack: centsToDollars(settings.store.giftPackCents),
@@ -211,38 +218,51 @@ export function BolisStoreForm({ settings, currency, ...c }: Common & { settings
   return (
     <SettingsForm action={saveRulesSectionAction} section="bolis_store" version={c.version} dirty={countChanges(initial, v)} readOnly={c.readOnly} readOnlyNote={READ_ONLY}>
       <FieldGrid>
-        <SettingField label={`Boli step (${currency})`} hint="Each new pledge must beat the last by at least this much.">
-          <input
-            name="boli_step"
-            inputMode="decimal"
-            aria-label="Boli step"
-            className="crm-input"
-            value={v.boli_step}
-            onChange={(e) => setV({ ...v, boli_step: e.target.value })}
-            readOnly={c.readOnly}
-          />
-        </SettingField>
-        <SettingField label={`Gift packing price (${currency})`}>
-          <input
-            name="gift_pack"
-            inputMode="decimal"
-            aria-label="Gift packing price"
-            className="crm-input"
-            value={v.gift_pack}
-            onChange={(e) => setV({ ...v, gift_pack: e.target.value })}
-            readOnly={c.readOnly}
-          />
-        </SettingField>
-        <SettingField label="Store cancellation window" wide>
-          <ChipGroup
-            name="cancel_hours_before_pickup"
-            label="Store cancellation window"
-            value={v.cancel_hours_before_pickup}
-            onChange={(x) => setV({ ...v, cancel_hours_before_pickup: x })}
-            options={numberChips([12, 24, 48], settings.store.cancelHoursBeforePickup, (n) => (n === 0 ? "Any time before pickup" : `Up to ${n} hours before pickup`))}
-            disabled={c.readOnly}
-          />
-        </SettingField>
+        {showBolis ? (
+          <SettingField label={`Boli step (${currency})`} hint="Each new pledge must beat the last by at least this much.">
+            <input
+              name="boli_step"
+              inputMode="decimal"
+              aria-label="Boli step"
+              className="crm-input"
+              value={v.boli_step}
+              onChange={(e) => setV({ ...v, boli_step: e.target.value })}
+              readOnly={c.readOnly}
+            />
+          </SettingField>
+        ) : (
+          <input type="hidden" name="boli_step" value={v.boli_step} />
+        )}
+        {showStore ? (
+          <>
+            <SettingField label={`Gift packing price (${currency})`}>
+              <input
+                name="gift_pack"
+                inputMode="decimal"
+                aria-label="Gift packing price"
+                className="crm-input"
+                value={v.gift_pack}
+                onChange={(e) => setV({ ...v, gift_pack: e.target.value })}
+                readOnly={c.readOnly}
+              />
+            </SettingField>
+            <SettingField label="Store cancellation window" wide>
+              <ChipGroup
+                name="cancel_hours_before_pickup"
+                label="Store cancellation window"
+                value={v.cancel_hours_before_pickup}
+                onChange={(x) => setV({ ...v, cancel_hours_before_pickup: x })}
+                options={numberChips([12, 24, 48], settings.store.cancelHoursBeforePickup, (n) => (n === 0 ? "Any time before pickup" : `Up to ${n} hours before pickup`))}
+                disabled={c.readOnly}
+              />
+            </SettingField>
+          </>
+        ) : (
+          <>
+            <input type="hidden" name="gift_pack" value={v.gift_pack} />
+            <input type="hidden" name="cancel_hours_before_pickup" value={v.cancel_hours_before_pickup} />
+          </>
+        )}
       </FieldGrid>
     </SettingsForm>
   );
@@ -316,7 +336,7 @@ const KNOWN_FLAGS: Record<string, string> = {
   surveys: "Surveys",
 };
 
-export function BrandingForm({ branding, flags, readOnly }: { branding: Obj; flags: Obj; readOnly: boolean }) {
+export function BrandingForm({ branding, flags, readOnly, hiddenFlags = [], flagNames = {} }: { branding: Obj; flags: Obj; readOnly: boolean; hiddenFlags?: readonly string[]; flagNames?: Record<string, string> }) {
   const initialFlags = useMemo(() => {
     const out: Record<string, boolean> = {};
     for (const k of new Set([...Object.keys(KNOWN_FLAGS), ...Object.keys(flags)])) out[k] = flags[k] === true;
@@ -362,14 +382,17 @@ export function BrandingForm({ branding, flags, readOnly }: { branding: Obj; fla
       </div>
       <p className="crm-label mt-4">Features switched on</p>
       <div className="grid grid-cols-1 gap-x-4 sm:grid-cols-2">
-        {Object.keys(flagState).map((k) => (
+        {Object.keys(flagState)
+          // A feature the organization's kind never has is not offered; its stored value goes back unchanged.
+          .filter((k) => !hiddenFlags.includes(k))
+          .map((k) => (
           <div key={k} className="flex min-h-[40px] items-center">
             <Toggle
-              label={KNOWN_FLAGS[k] ?? k}
+              label={flagNames[k] ?? KNOWN_FLAGS[k] ?? k}
               checked={flagState[k]}
               onChange={(x) => setFlagState({ ...flagState, [k]: x })}
-              onNote={KNOWN_FLAGS[k] ?? k}
-              offNote={KNOWN_FLAGS[k] ?? k}
+              onNote={flagNames[k] ?? KNOWN_FLAGS[k] ?? k}
+              offNote={flagNames[k] ?? KNOWN_FLAGS[k] ?? k}
               disabled={readOnly}
             />
           </div>

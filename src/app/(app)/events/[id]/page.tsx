@@ -12,6 +12,7 @@ import { eventAreas } from "@/lib/events/access";
 import { formatDateTime } from "@/lib/events/format";
 import { STATUS_TEXT_CLASS, eventRef, eventStatusLabel } from "@/lib/events/status";
 import { isUuid, param, type RawSearchParams } from "@/lib/search-params";
+import { kindSchool } from "@/lib/kind";
 import { getSession } from "@/lib/session";
 
 import { setEventStatus } from "../actions";
@@ -109,7 +110,7 @@ export default async function EventPage({ params, searchParams }: { params: Prom
             <span className={STATUS_TEXT_CLASS[st.tone]}>{st.label}</span>
             <span>· {event.starts_at ? formatDateTime(event.starts_at, tz) : "No date yet"}</span>
             {event.venue ? <span>· {event.venue}</span> : null}
-            {event.program_year ? <span>· Pathshala {event.program_year}</span> : null}
+            {event.program_year ? <span>· {kindSchool(session.kind) ?? "Program"} {event.program_year}</span> : null}
             {ownerName ? <span>· Lead: {ownerName}</span> : null}
           </span>
         }
