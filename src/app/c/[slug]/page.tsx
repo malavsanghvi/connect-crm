@@ -53,9 +53,14 @@ export default async function PublicDashboardPage({ params }: { params: Params }
   if (!res.data || res.data.status !== "active") return <Problem title="Community not found" body={`There is no public dashboard at "/c/${slug}".`} />;
   const center = res.data;
   const b = tenantBranding({ ...center, slug: String(center.slug) }, c.env.supabaseUrl);
-  // Sandboxes have no public dashboard (entitlement public_dashboard; app.public_kpis refuses them too).
+  // Sandboxes have no public dashboard unless a platform admin switched the entitlement public_dashboard on for this community
+  // (Platform > Centers > its page); app.public_kpis applies the same rule. If the check cannot be made, the sandbox stays closed.
   if (center.environment === "sandbox") {
-    return <Problem title={`${b.shortName} community dashboard`} body={`${b.shortName} is a sandbox. Sandboxes have no public community dashboard; it opens once the community goes live.`} />;
+    const ent = await c.db.rpc("entitlement", { p_center: center.id, p_key: "public_dashboard" });
+    if (ent.error) console.error("[public-dashboard] entitlement check failed; keeping the sandbox closed:", ent.error);
+    if (ent.error || ent.data !== true) {
+      return <Problem title={`${b.shortName} community dashboard`} body={`${b.shortName} is a sandbox. Sandboxes have no public community dashboard; it opens once the community goes live.`} />;
+    }
   }
   // Reports & dashboard switched off (Settings › Modules): say so plainly instead of a load error.
   const on = await c.db.rpc("module_enabled", { p_center: center.id, p_module: "reports" });
