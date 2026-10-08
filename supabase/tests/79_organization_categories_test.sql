@@ -675,6 +675,28 @@ select pg_temp.assert((app.category_change_preview(:jsh, 'jain_center')->>'chang
                       and jsonb_array_length(app.category_change_preview(:jsh, 'jain_center')->'hidden') = 0,
   'D · previewing the category an organization already has says nothing changes');
 
+-- Section G can be dropped on its own: with the column gone, the preview and the change still work (and count no paths).
+reset role;
+select pg_temp.no_claims();
+savepoint without_section_g;
+alter table app.person_profile_details drop column path_key;
+set role authenticated;
+select pg_temp.claims(:cc, true);
+select app.category_change_preview(:'jt', 'chamber_of_commerce') as preview_no_g \gset
+select app.set_center_category(:'jt', 'chamber_of_commerce', 'Without section G') as changed_no_g \gset
+reset role;
+select pg_temp.no_claims();
+select pg_temp.assert((:'preview_no_g'::jsonb->>'paths_kept')::int = 0
+                      and (select array_agg(h->>'module') from jsonb_array_elements(:'preview_no_g'::jsonb->'hidden') h) = array['bolis', 'store', 'pathshala', 'gyan_path', 'jain_way', 'niva']
+                      and (select category_key from app.centers where id = :'jt') = 'chamber_of_commerce',
+  'D · section G is separable: without person_profile_details.path_key the preview counts no paths and set_center_category still works');
+rollback to savepoint without_section_g;
+select pg_temp.assert((select category_key from app.centers where id = :'jt') = 'jain_center'
+                      and exists (select 1 from pg_attribute where attrelid = 'app.person_profile_details'::regclass and attname = 'path_key' and not attisdropped),
+  'D · (and the rollback put the column and the category back)');
+set role authenticated;
+select pg_temp.claims(:cc, true);
+
 -- The change itself.
 select app.set_center_category(:'jt', 'chamber_of_commerce', 'Switching the Austin temple to the chamber preview') as changed \gset
 reset role;

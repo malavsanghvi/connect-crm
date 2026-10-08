@@ -840,7 +840,14 @@ begin
     end if;
   end loop;
 
-  select count(*) into v_paths from app.person_profile_details d where d.center_id = p_center and d.path_key is not null;
+  -- People's paths are section G's column: counted by dynamic SQL, only when the column exists, so sections E and F work
+  -- without G (a plpgsql statement that names a missing column fails on first use, not when the function is created).
+  v_paths := 0;
+  if exists (select 1 from pg_attribute a where a.attrelid = to_regclass('app.person_profile_details')
+                and a.attname = 'path_key' and not a.attisdropped) then
+    execute 'select count(*) from app.person_profile_details d where d.center_id = $1 and d.path_key is not null'
+      into v_paths using p_center;
+  end if;
   v_trad := case when not nxt.uses_tradition then 'other'
                  when c.tradition = 'other' then coalesce(app._tradition_to_restore(p_center)::text, 'other')
                  else c.tradition::text end;
