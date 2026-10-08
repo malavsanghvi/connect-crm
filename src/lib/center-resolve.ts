@@ -7,7 +7,7 @@ import { cache } from "react";
 import type { Database } from "@/lib/database.types";
 import { readPublicEnv } from "@/lib/env";
 import { newRequestId, traceHeaders } from "@/lib/supabase/trace";
-import { SLUG_RE, hostName, normalizeBaseDomain, resolveHost } from "@/lib/tenancy";
+import { SLUG_RE, hostName, normalizeBaseDomain, resolveHost, type CenterSource } from "@/lib/tenancy";
 
 /** The organization chosen with the switcher when the address does not name one (bare IP, localhost, single site). */
 export const CENTER_COOKIE = "cc_center";
@@ -15,7 +15,7 @@ export const CENTER_COOKIE = "cc_center";
 export type CenterChoice = {
   slug: string;
   /** How it was chosen: the <slug>.<base> address, an organization's own domain, the switcher, or the deployment default. */
-  source: "subdomain" | "domain" | "switcher" | "default";
+  source: CenterSource;
 };
 
 export function portalBaseDomain(): string | null {

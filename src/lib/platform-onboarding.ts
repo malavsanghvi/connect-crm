@@ -2,6 +2,10 @@
 // the Weaver console (Requests, Codes, Pipeline, Go-live, Support access)
 // and the owner's Setup › Go-live. Pure helpers only, so they are unit-tested.
 
+/**
+ * The three kinds Platform › New sandbox offers a Weaver admin (the database accepts only these there, 0502/0594). The public
+ * Request access form no longer uses them: its kinds come from the experiences catalog (src/lib/org-choices.ts).
+ */
 export const ORG_TYPES = [
   { value: "temple", label: "Temple" },
   { value: "community_center", label: "Community center" },
@@ -9,12 +13,8 @@ export const ORG_TYPES = [
 ] as const;
 export type OrgType = (typeof ORG_TYPES)[number]["value"];
 
-export function orgTypeLabel(v: string | null | undefined): string {
-  return ORG_TYPES.find((t) => t.value === v)?.label ?? "Other";
-}
-
 /** Systems the form offers as chips; anything else can be typed. */
-export const CURRENT_SYSTEMS = ["Neon", "Bloomerang", "Little Green Light", "NamoCRM", "QuickBooks", "Spreadsheets", "Paper records"] as const;
+export const CURRENT_SYSTEMS = ["Neon", "Bloomerang", "Little Green Light", "Wild Apricot", "Planning Center", "Salesforce", "QuickBooks", "Spreadsheets", "Paper records"] as const;
 
 export const REQUEST_STATUS_LABEL: Record<string, string> = {
   new: "New",
@@ -93,7 +93,7 @@ export function emailStatusText(status: string | null | undefined): { tone: "ok"
 export function slugProblem(raw: string): string | null {
   const s = raw.trim().toLowerCase();
   if (!/^[a-z0-9][a-z0-9-]{0,38}[a-z0-9]$/.test(s) || s.includes("--")) {
-    return "Use 2 to 40 lowercase letters, numbers and single dashes, for example jain-center-dallas.";
+    return "Use 2 to 40 lowercase letters, numbers and single dashes, for example riverside-chamber.";
   }
   if (s.endsWith("-sandbox")) return "Leave out “-sandbox”; it is added for you.";
   return null;

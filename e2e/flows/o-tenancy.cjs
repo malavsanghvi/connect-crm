@@ -95,7 +95,10 @@ const rest = (path, init, token) => fetch(`${API}/rest/v1/${path}`, {
     await p.goto(host('nope.cc.test') + '/login', { waitUntil: 'networkidle' });
     ok(/No active community is set up with the short name "nope"/.test(await p.innerText('body')), 'an unknown <slug>.cc.test says so in plain English');
     await p.goto(BASE + '/login', { waitUntil: 'networkidle' });
-    ok((await p.innerText('body')).includes('Jain Society of Houston'), 'the bare localhost address keeps the default community (NEXT_PUBLIC_CENTER_SLUG)');
+    // 0612 / neutral pre-login: an address that names no organization shows Weaver's own sign-in (the portal here is built without
+    // NEXT_PUBLIC_CENTER_SLUG); signing in still opens the default community, which the switcher checks below.
+    const bare = await p.innerText('body');
+    ok(!bare.includes('Jain Society of Houston') && /Sign in/.test(bare) && (await p.getByTestId('login-request-access').isVisible()), 'the bare localhost address shows Weaver's neutral sign-in with a Request access link');
     await ctx.close();
   }
 

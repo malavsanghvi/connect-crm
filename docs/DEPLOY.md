@@ -102,7 +102,7 @@ Copy the private key to the clipboard:
 | Name | Value | Repos |
 |---|---|---|
 | `SITE_DOMAIN` | see "Domains" below | per repo |
-| `CENTER_SLUG` | defaults to `jsh` | all three |
+| `CENTER_SLUG` | the organization a deployment opens when the address names none. Defaults to `jsh`. **Set it only for a deployment built for one organization:** the portal's sign-in page then shows that organization on every address. Unset (the shared Weaver portal), `admin.<domain>` shows Weaver's own neutral sign-in and the portal still opens JSH after sign-in. connect-crm and connect-mobile read it (mobile: the finder offers "Continue with" that organization only when it is set) | all three |
 | `SUPABASE_URL`, `SUPABASE_ANON_KEY` | only to point at a different Supabase project (e.g. staging): set both together, and in connect-crm change the `SUPABASE_DB_URL` secret to that project too. Normally all three repos use the committed defaults | per repo |
 
 ### 4. First deploy
@@ -442,8 +442,12 @@ connect-admin and the member web app their own names:
 
 The portal picks the organization from the web address (docs/ONBOARDING_PLAN.md §7,
 decision O11). Without any of this it keeps working as today: the bare IP and the
-`SITE_DOMAIN` address open `NEXT_PUBLIC_CENTER_SLUG` (JSH), and people who work with
-several organizations switch with the **Center ▾** pill (remembered in a cookie).
+`SITE_DOMAIN` address open `NEXT_PUBLIC_CENTER_SLUG` (JSH by default) after sign-in, and people who work with
+several organizations switch with the **Center ▾** pill (remembered in a cookie). Before sign-in, an address that
+names no organization (`admin.<domain>`, a bare IP, localhost) shows Weaver's neutral sign-in with a **Request
+access** link, unless the `CENTER_SLUG` variable is set (a portal built for one organization). An organization's
+own address (`<slug>.<domain>`, its own domain) shows that organization's name and logo, as always. To keep JSH's
+name and logo on `admin.<domain>`, set the connect-crm variable `CENTER_SLUG` to `jsh` and re-run Deploy.
 
 To give every organization its own address (`jsh.communityconnect.app`,
 `jsh-sandbox.communityconnect.app`, …):

@@ -6,6 +6,7 @@ import {
   hostName,
   joinAppLink,
   joinWebLink,
+  loginBranding,
   normalizeBaseDomain,
   parseEntitlementInput,
   resolveHost,
@@ -15,6 +16,26 @@ import {
 } from "@/lib/tenancy";
 
 const BASE = "communityconnect.app";
+
+describe("loginBranding (what the sign-in page shows before anyone is signed in)", () => {
+  it("shows Weaver's own sign-in on an address that names no organization and a deployment that did not pick one", () => {
+    expect(loginBranding("default", false)).toBe("neutral");
+  });
+  it("keeps an organization's own name and logo on its address, its own domain, or when the visitor chose it with the switcher", () => {
+    expect(loginBranding("subdomain", false)).toBe("organization");
+    expect(loginBranding("domain", false)).toBe("organization");
+    expect(loginBranding("switcher", false)).toBe("organization");
+  });
+  it("keeps the organization of a deployment built for one (NEXT_PUBLIC_CENTER_SLUG set), as before", () => {
+    expect(loginBranding("default", true)).toBe("organization");
+  });
+  it("treats admin.<domain>, a bare IP and localhost as addresses that name no organization", () => {
+    // No organization owns admin.<domain>, so the portal falls through to the switcher cookie or the default.
+    expect(resolveHost("admin.weaverams.org", null).kind).toBe("custom");
+    expect(resolveHost("203.0.113.7", null).kind).toBe("none");
+    expect(resolveHost("localhost:3000", null).kind).toBe("none");
+  });
+});
 
 describe("hostName", () => {
   it("drops the port and trailing dot and lower-cases", () => {

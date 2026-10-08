@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
+import Link from "next/link";
 
 import { WeaverMark } from "@/components/brand/weaver-mark";
 import { TenantMark } from "@/components/shell/tenant-mark";
@@ -7,11 +8,11 @@ import { SetupScreen } from "@/components/setup-screen";
 import { PRODUCT_NAME } from "@/lib/brand";
 import { centerMissingHint } from "@/lib/session";
 import { portalBaseDomain, resolveCenterChoice, type CenterChoice } from "@/lib/center-resolve";
-import { readPublicEnv } from "@/lib/env";
+import { isCenterSlugPinned, readPublicEnv } from "@/lib/env";
 import { explainError } from "@/lib/errors";
 import { tenantBranding, type TenantBranding } from "@/lib/shell";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { SANDBOX_WATERMARK, sharedCookieDomain } from "@/lib/tenancy";
+import { SANDBOX_WATERMARK, loginBranding, sharedCookieDomain } from "@/lib/tenancy";
 
 import { LoginForm } from "./login-form";
 
@@ -62,7 +63,9 @@ export default async function LoginPage({
   const rawNext = Array.isArray(sp.next) ? sp.next[0] : sp.next;
   const next = rawNext && rawNext.startsWith("/") && !rawNext.startsWith("//") ? rawNext : "/";
   const choice = await resolveCenterChoice(check.env.centerSlug);
-  const { tenant, problem } = await loadTenant(choice);
+  // An address that names no organization gets Weaver's own sign-in, not whichever organization the deployment defaults to.
+  const neutral = loginBranding(choice.source, isCenterSlugPinned()) === "neutral";
+  const { tenant, problem } = neutral ? { tenant: null, problem: null } : await loadTenant(choice);
   const host = (await headers()).get("host");
   const community = tenant?.name ?? "your community";
 
@@ -79,7 +82,7 @@ export default async function LoginPage({
         <div>
           <h1 className="font-display text-[38px] font-semibold leading-[1.15]">{PRODUCT_NAME}</h1>
           <p className="mt-1 text-base font-semibold text-navy-200">
-            Admin portal{tenant ? ` · ${tenant.name}` : ""}
+            {neutral ? "Sign in" : `Admin portal${tenant ? ` · ${tenant.name}` : ""}`}
           </p>
           {tenant?.sandbox ? (
             <p data-testid="sandbox-watermark" className="mt-3 inline-block rounded-full bg-saffron-50 px-3 py-1 text-[12px] font-bold uppercase tracking-wide text-brown-900">
@@ -88,8 +91,9 @@ export default async function LoginPage({
           ) : null}
         </div>
         <p className="max-w-[460px] text-base leading-normal text-navy-200">
-          Run households, memberships, giving and accounting for {community} in one place. You see only what your role
-          allows.
+          {neutral
+            ? "Run your members, events, giving and communications in one place. You see only what your role allows."
+            : `Run households, memberships, giving and accounting for ${community} in one place. You see only what your role allows.`}
         </p>
         <div className="hidden flex-grow lg:block" />
         <p className="text-[13px] leading-relaxed text-navy-200">
@@ -112,6 +116,15 @@ export default async function LoginPage({
             next={next}
             cookieDomain={sharedCookieDomain(host, portalBaseDomain())}
           />
+          {neutral ? (
+            <p className="text-[13px] text-muted" data-testid="login-request-access">
+              New to {PRODUCT_NAME}?{" "}
+              <Link href="/request-access" className="crm-link font-semibold">
+                Request access
+              </Link>{" "}
+              for your organization.
+            </p>
+          ) : null}
         </div>
       </section>
     </main>

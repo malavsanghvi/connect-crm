@@ -55,6 +55,20 @@ export function resolveHost(rawHost: string | null | undefined, baseDomain: stri
   return host.includes(".") ? { kind: "custom", host } : { kind: "none" };
 }
 
+/** How an organization was chosen for a request (src/lib/center-resolve.ts): its address, its own domain, the switcher, or the deployment default. */
+export type CenterSource = "subdomain" | "domain" | "switcher" | "default";
+
+/**
+ * What the sign-in page shows. An address that names an organization (its <slug>.<base> address, its own domain) or a visitor who
+ * chose one with the switcher sees that organization's name and logo, exactly as before. An address that names no organization
+ * (admin.weaverams.org, a bare IP, localhost) sees Weaver's own neutral sign-in, unless this deployment was built for one
+ * organization on purpose (NEXT_PUBLIC_CENTER_SLUG set): then that organization is the answer, as before. After sign-in nothing
+ * changes: the portal still opens the organization it always did.
+ */
+export function loginBranding(source: CenterSource, deploymentPinned: boolean): "organization" | "neutral" {
+  return source === "default" && !deploymentPinned ? "neutral" : "organization";
+}
+
 /**
  * The cookie domain that lets one sign-in cover every <slug>.<base> portal,
  * so the organization switcher does not ask for a new code. Undefined

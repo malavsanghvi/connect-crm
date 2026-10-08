@@ -3,7 +3,8 @@ import type { Metadata } from "next";
 import { Card, ChipLinks, EmptyState, PageHeader, QueryError, StatusText, TableWrap } from "@/components/ui";
 import { formatDateTime } from "@/lib/dates";
 import { moduleLabelFor } from "@/lib/modules";
-import { REQUEST_STATUS_LABEL, emailStatusText, orgTypeLabel } from "@/lib/platform-onboarding";
+import { requestKindText } from "@/lib/org-choices";
+import { REQUEST_STATUS_LABEL, emailStatusText } from "@/lib/platform-onboarding";
 import { formatPhone } from "@/lib/security";
 import { getSession } from "@/lib/session";
 
@@ -81,7 +82,7 @@ export default async function RequestsPage({ searchParams }: { searchParams: Pro
                       <td className="font-bold">
                         {r.org_legal_name}
                         <p className="text-[12px] font-normal text-muted">
-                          {orgTypeLabel(r.org_type)} · {r.city}, {r.state}
+                          {requestKindText(r)} · {r.city}, {r.state}
                         </p>
                       </td>
                       <td>
@@ -106,7 +107,9 @@ export default async function RequestsPage({ searchParams }: { searchParams: Pro
                           <div className="flex flex-col gap-4 text-[13px]">
                             <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1">
                               <dt className="text-muted">Kind</dt>
-                              <dd>{orgTypeLabel(r.org_type)}</dd>
+                              <dd>{requestKindText(r)}</dd>
+                              <dt className="text-muted">In their words</dt>
+                              <dd className="whitespace-pre-wrap break-words">{r.org_detail ?? "—"}</dd>
                               <dt className="text-muted">Where</dt>
                               <dd>
                                 {r.city}, {r.state}

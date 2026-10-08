@@ -6,8 +6,13 @@ reconciliation, QuickBooks, audit, roles and center settings. It serves the
 treasurer, finance volunteers, the membership coordinator, the Executive
 Committee, the center admin and the privacy officer.
 
-Connect is multi-tenant; the Jain Society of Houston (JSH) is tenant #1. This
-repo also **owns the database** (`supabase/`): migrations, seed, RLS tests and
+Weaver (the product; this repo is `connect-crm`) is a multi-tenant platform for
+associations and communities of every kind: congregations and temples of any faith,
+chambers of commerce, clubs, cultural associations and other non-profits. What an
+organization sees is decided by its category and experience (data, not code); nothing
+is faith-specific until an organization of that faith is signed in. The Jain Society of
+Houston (JSH) was the first organization on it and is the example the docs and tests use.
+This repo also **owns the database** (`supabase/`): migrations, seed, RLS tests and
 the generated types the other two apps copy. See
 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the platform conventions.
 
@@ -35,7 +40,7 @@ under **Settings → Roles and access**.
 |---|---|---|
 | `NEXT_PUBLIC_SUPABASE_URL` | yes | Supabase project URL (local: `http://localhost:54321`) |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | yes | The project's anon key. Never the service-role key. |
-| `NEXT_PUBLIC_CENTER_SLUG` | no (default `jsh`) | Which `app.centers` row this console serves |
+| `NEXT_PUBLIC_CENTER_SLUG` | no (default `jsh`) | Which `app.centers` row this console opens when the address names no organization. Set it only for a deployment built for one organization: its sign-in page then always shows that organization; unset, the sign-in page on such an address is Weaver's own neutral one |
 
 If a required variable is missing the app shows a setup page naming it; it never
 falls back to sample data.

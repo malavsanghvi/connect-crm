@@ -116,7 +116,7 @@ export function NewSandboxForm() {
           <label htmlFor={`${id}-name`} className="crm-label">
             Organization name
           </label>
-          <input id={`${id}-name`} name="name" className="crm-input" autoComplete="off" value={name} onChange={(e) => setName(e.target.value)} placeholder="Jain Center of Dallas" />
+          <input id={`${id}-name`} name="name" className="crm-input" autoComplete="off" value={name} onChange={(e) => setName(e.target.value)} placeholder="Riverside Community Center" />
         </div>
         <div>
           <label htmlFor={`${id}-slug`} className="crm-label">
@@ -184,7 +184,7 @@ export function NewSandboxForm() {
           <label htmlFor={`${id}-reason`} className="crm-label">
             Reason
           </label>
-          <input id={`${id}-reason`} name="reason" className="crm-input" maxLength={500} autoComplete="off" placeholder="For example: signed up at the JAINA convention" />
+          <input id={`${id}-reason`} name="reason" className="crm-input" maxLength={500} autoComplete="off" placeholder="For example: met at a conference, or referred by a member" />
           <p className="crm-hint">Goes in the audit log. Creating a sandbox needs a fresh 2FA check.</p>
         </div>
         <div className="flex flex-wrap items-center gap-2 sm:col-span-2">
