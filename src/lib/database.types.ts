@@ -11585,6 +11585,12 @@ export type Database = {
         Args: Record<PropertyKey, never>;
         Returns: boolean;
       };
+      is_private_onboarding_key: {
+        Args: {
+          p_key: string;
+        };
+        Returns: boolean;
+      };
       issue_sandbox_code: {
         Args: {
           p_request: string;
