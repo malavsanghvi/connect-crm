@@ -666,9 +666,15 @@ end $$;
 -- A pause (the catalog status changing) or a lifted pause refreshes every organization's rows; a pause for one
 -- organization refreshes that one. A Zelle report matched or changed in a sandbox refreshes its organization
 -- (0582's follow-up: the stored "test passed" of the Zelle plugin reads payment_reports).
+-- The refresh writes audit rows that carry an organization's id, which the organization's own staff can read
+-- (audit.view). The reason Community Connect gave for a pause is for platform admins only, so both triggers
+-- replace the transaction's audit reason with a generic one BEFORE they refresh. (The audit rows of the pause
+-- itself, payment_plugin_suspensions and payment_plugins, carry no organization id and keep the real reason;
+-- they are written first, because AFTER triggers fire in name order.)
 create or replace function app.payment_plugins_catalog_sync() returns trigger
 language plpgsql security definer set search_path = app, public, extensions as $$
 begin
+  perform app.set_audit_context('Community Connect paused or resumed a way to pay');
   perform app.payment_plugins_refresh(c.id) from app.centers c;
   return null;
 end $$;
@@ -679,6 +685,7 @@ create trigger payment_plugins_catalog_sync after update of status on app.paymen
 create or replace function app.payment_plugins_suspension_sync() returns trigger
 language plpgsql security definer set search_path = app, public, extensions as $$
 begin
+  perform app.set_audit_context('Community Connect paused or resumed a way to pay');
   perform app.payment_plugins_refresh(new.target_center);
   return null;
 end $$;

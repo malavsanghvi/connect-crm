@@ -534,6 +534,11 @@ select pg_temp.assert(pg_temp.st(:c, 'zelle') = 'suspended' and pg_temp.st(:cb, 
 select pg_temp.assert((select reason = 'The bank reported a problem with Zelle receiving' and actor_user_id = :pat
                          from app.audit_log where action = 'payment_plugin_suspensions.insert' order by id desc limit 1),
   'the reason is audited, by the platform admin');
+-- The reason is for platform admins only: the rows the refresh writes for the organization carry a generic reason.
+select pg_temp.assert(not exists (select 1 from app.audit_log where center_id is not null and reason like '%problem with Zelle receiving%')
+                      and exists (select 1 from app.audit_log where center_id = :c and action = 'center_payment_plugins.update'
+                                    and record_id = :c || ':zelle' and reason = 'Community Connect paused or resumed a way to pay'),
+  'the pause reason is on no audit row that carries an organization id; the organization''s plugin row change says only that Community Connect paused it');
 select pg_temp.claims('82000000-0000-4000-8000-000000000006');
 set local role authenticated;
 select pg_temp.assert(not (app.member_payment_methods(:c)->'methods' @? '$[*] ? (@.key == "zelle")')
@@ -593,6 +598,18 @@ select app.lift_payment_plugin_suspension('card', null, 'Stripe is back');
 reset role;
 select pg_temp.assert((select status = 'available' from app.payment_plugins where key = 'card') and pg_temp.st(:c, 'card') = 'off' and pg_temp.in_step(:c) and pg_temp.in_step(:cb),
   'lifted for everyone: the catalog is back and the stored rows follow');
+select pg_temp.assert(not exists (select 1 from app.audit_log where center_id is not null
+                                    and (reason like '%problem with Zelle receiving%' or reason like '%The bank fixed it%'
+                                         or reason like '%Stripe is having an outage%' or reason like '%Stripe is back%'))
+                      and exists (select 1 from app.audit_log where center_id is null and action = 'payment_plugin_suspensions.insert' and reason = 'Stripe is having an outage')
+                      and exists (select 1 from app.audit_log where center_id is null and action = 'payment_plugin_suspensions.update' and reason = 'Stripe is back'),
+  'none of the four pause and resume reasons is on an audit row with an organization id (pausing and resuming, for one community and for everyone); the platform rows keep them');
+select pg_temp.claims('82000000-0000-4000-8000-000000000002');
+set local role authenticated;
+select pg_temp.assert(not exists (select 1 from app.audit_log where reason like '%problem with Zelle receiving%' or reason like '%Stripe is having an outage%'
+                                    or reason like '%The bank fixed it%' or reason like '%Stripe is back%'),
+  'a treasurer reading the audit log cannot find why Community Connect paused a way to pay');
+reset role;
 select pg_temp.no_claims();
 insert into app.payment_checkouts (center_id, household_id, processor, mode, context, amount_cents, for_label) values (:c, :h1, 'stripe', 'test', 'other', 5000, 'Gift');
 delete from app.payment_checkouts where center_id = :c;
