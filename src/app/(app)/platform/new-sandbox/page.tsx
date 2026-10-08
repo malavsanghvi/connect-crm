@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
-import { Card, PageHeader } from "@/components/ui";
+import { Card, PageHeader, QueryError } from "@/components/ui";
+import { loadExperiences } from "@/lib/experiences-db";
 import { getSession } from "@/lib/session";
 
 import { PlatformNoAccess } from "../platform-no-access";
@@ -31,14 +32,23 @@ export default async function NewSandboxPage() {
       </>
     );
   }
+  const kinds = await loadExperiences(session.db);
+  if (kinds.status !== "ok") {
+    return (
+      <>
+        {header}
+        <QueryError what="the kinds of organization" error={kinds.error} retryHref="/platform/new-sandbox" />
+      </>
+    );
+  }
   return (
     <>
       {header}
       <Card
         title="New sandbox"
-        description="Creates the <web name>-sandbox organization (sandbox limits, every module on, the Setup checklist, a member-app join code), then invites its owner. Everything is in the audit log with your reason."
+        description="Choose the kind of organization and the owner. Creates the <web name>-sandbox organization with that kind's modules, wording and Setup checklist (sandbox limits, a member-app join code), then invites its owner. Everything is in the audit log with your reason."
       >
-        <NewSandboxForm />
+        <NewSandboxForm experiences={kinds.experiences} />
       </Card>
     </>
   );

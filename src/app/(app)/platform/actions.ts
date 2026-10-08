@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import { parseWizardStep, WIZARD_STEP_COUNT } from "@/lib/center-wizard";
 import type { Json } from "@/lib/database.types";
 import { failure, type ActionResult } from "@/lib/errors";
+import { loadExperiences } from "@/lib/experiences-db";
 import { isUuid } from "@/lib/search-params";
 import { loadSession, type CrmSession } from "@/lib/session";
 import { applyRulesPatch } from "@/lib/settings-rules";
@@ -34,20 +35,44 @@ export async function saveWizardStepAction(_prev: ActionResult | null, formData:
   if (centerId && !isUuid(centerId)) return { ok: false, error: "Could not save — the center in the address is not valid. Start again from step 1." };
   if (!centerId && step !== 1) return { ok: false, error: "Could not save — start with step 1, where the center is created." };
 
-  let current: { id: string; rules: Json; status: string } | null = null;
+  let current: { id: string; rules: Json; status: string; category_key: string } | null = null;
   if (centerId) {
-    const res = await db.from("centers").select("id, rules, status").eq("id", centerId).maybeSingle();
+    const res = await db.from("centers").select("id, rules, status, category_key").eq("id", centerId).maybeSingle();
     if (res.error) return failure("Could not save this step", res.error);
     if (!res.data) return { ok: false, error: "Could not save — that center was not found." };
     if (res.data.status !== "onboarding") return { ok: false, error: "Could not save — this center is no longer onboarding, so the wizard cannot change it." };
     current = res.data;
   }
 
-  const parsed = parseWizardStep(step, (n) => {
-    const v = formData.get(n);
-    return typeof v === "string" ? v : null;
-  });
+  // The kind of organization is chosen when the center is created (step 1) and then fixed: the database refuses a
+  // plain update of it. Step 2 asks for a tradition only when the kind keeps one.
+  const kinds = step === 1 || step === 2 ? await loadExperiences(db) : null;
+  if (kinds && kinds.status !== "ok") return { ok: false, error: "Could not save this step — the kinds of organization could not be loaded. Reload and try again." };
+  const kindList = kinds?.status === "ok" ? kinds.experiences : [];
+  const creating = step === 1 && !current;
+  const parsed = parseWizardStep(
+    step,
+    (n) => {
+      const v = formData.get(n);
+      return typeof v === "string" ? v : null;
+    },
+    { kindRequired: creating, traditionNeeded: step === 2 ? kindList.find((k) => k.key === current?.category_key)?.usesTradition !== false : true },
+  );
   if (!parsed.ok) return { ok: false, error: `Could not save this step — ${parsed.error}` };
+  if (creating) {
+    // This wizard creates a production organization, so the kind must be one that is switched on for live ones.
+    const kind = kindList.find((k) => k.key === parsed.change.columns.category_key);
+    if (!kind) return { ok: false, error: "Could not save this step — choose the kind of organization from the list." };
+    if (!kind.active) {
+      return {
+        ok: false,
+        error: `Could not save this step — ${kind.label} is not switched on for live organizations yet. Create a sandbox for it (Platform › New sandbox) to preview it.`,
+      };
+    }
+  } else if (parsed.change.columns.category_key !== undefined) {
+    // Never written after creation (changing it needs a reason and a fresh 2FA check, on the organization's own page).
+    delete parsed.change.columns.category_key;
+  }
 
   const nextStep = Math.min(step + 1, WIZARD_STEP_COUNT);
   const { rules } = applyRulesPatch(current?.rules ?? {}, { ...parsed.change.rules, onboarding: { ...(parsed.change.rules.onboarding as object | undefined), wizard_step: nextStep } });

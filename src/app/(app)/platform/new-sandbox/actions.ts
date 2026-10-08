@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import { currentOrigin } from "@/lib/center-resolve";
 import { failure, type ActionResult } from "@/lib/errors";
+import { loadExperiences } from "@/lib/experiences-db";
 import { validateNewSandbox, type NewSandboxInput } from "@/lib/platform-sandbox";
 import { invitationLink } from "@/lib/security";
 import { dbWithReason, loadSession } from "@/lib/session";
@@ -13,6 +14,8 @@ export type CreatedSandbox = { centerId: string; slug: string; link: string; exp
 /**
  * Platform › Centers › New sandbox: app.platform_create_sandbox (platform admin, fresh 2FA
  * check, reason; audited) creates the <slug>-sandbox organization and invites its owner.
+ * The kind of organization (an experience key) is the one choice that shapes the sandbox: its modules,
+ * wording and setup follow from it. A sandbox may preview a kind that is not switched on for live ones.
  * The invitation link is returned once so the console can show it to be sent by hand.
  */
 export async function createSandboxAction(input: NewSandboxInput): Promise<ActionResult<CreatedSandbox>> {
@@ -21,7 +24,9 @@ export async function createSandboxAction(input: NewSandboxInput): Promise<Actio
   if (state.status === "signed_out") return { ok: false, error: `Could not ${doing} — your session has expired. Sign in again.` };
   if (state.status !== "ok") return { ok: false, error: `Could not ${doing} — the app could not load your session. Reload and try again.` };
   if (!state.session.isPlatformAdmin) return { ok: false, error: `Could not ${doing} — only Weaver platform admins can do this.` };
-  const parsed = validateNewSandbox(input);
+  const kinds = await loadExperiences(state.session.db);
+  if (kinds.status !== "ok") return { ok: false, error: `Could not ${doing} — the kinds of organization could not be loaded. Reload and try again.` };
+  const parsed = validateNewSandbox(input, kinds.experiences);
   if (!parsed.ok) return { ok: false, error: `Could not ${doing} — ${parsed.error}` };
   const v = parsed.value;
   const origin = await currentOrigin();
@@ -38,6 +43,7 @@ export async function createSandboxAction(input: NewSandboxInput): Promise<Actio
     p_owner_email: v.ownerEmail,
     p_reason: v.reason,
     p_link_base: base ?? undefined,
+    p_category_key: v.experience,
   });
   if (error) return failure(`Could not ${doing}`, error);
   const r = (data ?? {}) as { center_id?: string; slug?: string; token?: string; expires_at?: string; email_status?: string | null };

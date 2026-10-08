@@ -46,6 +46,14 @@ export async function decideRequestAction(_prev: ActionResult<DecisionResult> | 
   }
   if (note.length > 1000) return { ok: false, error: `Could not ${doing} — keep the note under 1,000 characters.` };
   const db = note ? await dbWithReason(auth.session, note) : auth.session.db;
+  if (decision === "approve") {
+    // The kind of organization is chosen at approval: the sandbox made from this request takes it when the
+    // code is redeemed (the applicant's own "Kind of organization" stays a hint).
+    const kind = String(fd.get("experience") ?? "").trim();
+    if (!kind) return { ok: false, error: "Could not approve the request — choose the kind of organization first. The sandbox's modules, wording and Setup checklist follow from it." };
+    const chosen = await db.rpc("set_access_request_category", { p_request: id, p_category: kind });
+    if (chosen.error) return failure("Could not set the kind of organization for this request", chosen.error);
+  }
   const { data, error } = await db.rpc("decide_access_request", { p_request: id, p_decision: decision, p_note: note || undefined });
   if (error) return failure(`Could not ${doing}`, error);
   const r = (data ?? {}) as { status?: string; code?: string; expires_at?: string; email_status?: string };

@@ -251,6 +251,23 @@ describe("new center wizard", () => {
     expect(bad.ok).toBe(false);
     if (!bad.ok) expect(bad.error.split(". ").length).toBeGreaterThanOrEqual(3);
   });
+  it("step 1 creates the center with its kind of organization, which is fixed afterwards", () => {
+    const base = { name: "Partner A", slug: "partner-a", time_zone: "America/Chicago" };
+    const ok = parseWizardStep(1, form({ ...base, category_key: "chamber_of_commerce" }), { kindRequired: true });
+    expect(ok).toEqual({ ok: true, change: { columns: { name: "Partner A", slug: "partner-a", category_key: "chamber_of_commerce", time_zone: "America/Chicago" }, rules: {} } });
+    const missing = parseWizardStep(1, form(base), { kindRequired: true });
+    expect(missing.ok).toBe(false);
+    if (!missing.ok) expect(missing.error).toMatch(/kind of organization/);
+    const bad = parseWizardStep(1, form({ ...base, category_key: "Not A Key" }), { kindRequired: true });
+    expect(bad.ok).toBe(false);
+    // Editing an existing center: the kind is not required (and the action never writes it).
+    expect(parseWizardStep(1, form(base)).ok).toBe(true);
+  });
+  it("step 2 asks for a tradition only when the kind keeps one", () => {
+    expect(parseWizardStep(2, form({}))).toMatchObject({ ok: false });
+    expect(parseWizardStep(2, form({ tradition: "digambar" }))).toEqual({ ok: true, change: { columns: { tradition: "digambar" }, rules: {} } });
+    expect(parseWizardStep(2, form({}), { traditionNeeded: false })).toEqual({ ok: true, change: { columns: {}, rules: {} } });
+  });
   it("never stores admin emails", () => {
     expect(parseWizardStep(5, form({ admin_email: "a@b.org" }))).toEqual({ ok: true, change: { columns: {}, rules: {} } });
   });

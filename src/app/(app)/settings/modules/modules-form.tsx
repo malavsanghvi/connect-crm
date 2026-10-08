@@ -8,6 +8,7 @@ import { Modal } from "@/components/modal";
 import { useStepUp } from "@/components/step-up";
 import { useToast } from "@/components/toast";
 import { StatusText, TableWrap } from "@/components/ui";
+import { notPartOfKindSentence } from "@/lib/kind";
 import { switchBlocker, type ModuleRow } from "@/lib/modules";
 
 import { setModuleEnabledAction } from "./actions";
@@ -16,7 +17,7 @@ export type ModuleRowView = ModuleRow & { changedLine: string | null };
 
 type Pending = { key: string; label: string; turnOn: boolean };
 
-export function ModulesForm({ rows, canSwitch }: { rows: ModuleRowView[]; canSwitch: boolean }) {
+export function ModulesForm({ rows, canSwitch, kindLabel }: { rows: ModuleRowView[]; canSwitch: boolean; kindLabel: string }) {
   const router = useRouter();
   const toast = useToast();
   const stepUp = useStepUp();
@@ -77,10 +78,16 @@ export function ModulesForm({ rows, canSwitch }: { rows: ModuleRowView[]; canSwi
           </thead>
           <tbody>
             {rows.map((r) => (
-              <tr key={r.key}>
+              <tr key={r.key} data-module={r.key} data-availability={r.availability} className={r.availability === "not_available" ? "opacity-60" : undefined}>
                 <td className="min-w-[18rem]">
                   <p className="font-bold">{r.label}</p>
                   <p className="text-xs text-muted">{r.description}</p>
+                  {r.availability === "not_available" ? (
+                    <p className="mt-0.5 text-xs font-semibold text-muted" data-testid="module-locked">
+                      {notPartOfKindSentence(r.label, kindLabel)} Weaver can change the organization&apos;s kind.
+                    </p>
+                  ) : null}
+                  {r.availability === "default_off" && !r.enabled ? <p className="mt-0.5 text-xs text-muted">Starts off for {kindLabel} organizations; switch it on when you need it.</p> : null}
                   {r.changedLine ? (
                     <p className="mt-0.5 text-xs text-muted">
                       {r.changedLine}
@@ -97,6 +104,8 @@ export function ModulesForm({ rows, canSwitch }: { rows: ModuleRowView[]; canSwi
                 <td>
                   {r.core ? (
                     <StatusText tone="ok">Always on</StatusText>
+                  ) : r.availability === "not_available" ? (
+                    <span className="text-[13px] font-semibold text-muted">Not offered</span>
                   ) : r.enabled ? (
                     <StatusText tone="ok">On</StatusText>
                   ) : (
@@ -106,6 +115,8 @@ export function ModulesForm({ rows, canSwitch }: { rows: ModuleRowView[]; canSwi
                 <td>
                   {r.core ? (
                     <span className="text-[13px] text-muted">Always on</span>
+                  ) : r.availability === "not_available" ? (
+                    <span className="text-[13px] text-muted">No switch</span>
                   ) : (
                     <Toggle
                       label={`${r.label} module`}
