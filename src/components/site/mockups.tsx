@@ -282,7 +282,7 @@ export function FloatChip({ icon, tone, title, body, className = "", delay = "0s
   );
 }
 
-/** The optional tip at checkout, with the yearly cap. A sketch of the promise on the pricing page, not a screenshot. */
+/** The optional Chip In at checkout, with the yearly cap. A sketch of the promise on the pricing page, not a screenshot. */
 export function TipCheckoutMock({ className = "" }: { className?: string }) {
   const cap = usd(TIP_YEARLY_CAP_CENTS);
   return (
@@ -296,12 +296,12 @@ export function TipCheckoutMock({ className = "" }: { className?: string }) {
       </div>
       <div className="flex flex-col gap-4 p-5">
         <div>
-          <p className="text-[15px] font-bold text-navy">Add an optional tip to keep Weaver AMS free?</p>
+          <p className="text-[15px] font-bold text-navy">Add an optional Chip In to keep Weaver AMS free?</p>
           <p className="mt-1 text-[13px] leading-snug text-muted">Your community pays nothing for this platform. Members like you keep it going.</p>
         </div>
         <div className="grid grid-cols-4 gap-2" role="presentation">
           {[
-            { label: "No tip", on: false },
+            { label: "No Chip In", on: false },
             { label: "$2", on: false },
             { label: "$5", on: true },
             { label: "$10", on: false },
@@ -316,7 +316,7 @@ export function TipCheckoutMock({ className = "" }: { className?: string }) {
         </div>
         <div className="rounded-xl bg-saffron-50 p-3.5">
           <div className="flex items-center justify-between text-[12px] font-bold text-brown">
-            <span>Your tips this year</span>
+            <span>Your Chip Ins this year</span>
             <span>$15 of {cap}</span>
           </div>
           <div className="mt-2 h-2.5 overflow-hidden rounded-full bg-white">

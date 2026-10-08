@@ -1,4 +1,4 @@
-// The public website (www.weaverams.org): its name, the optional-tip promise, and which
+// The public website (www.weaverams.org): its name, the Chip In promise, and which
 // requests belong to it. Pure functions only; src/proxy.ts applies the routing and
 // tests/site.test.ts covers it.
 //
@@ -20,7 +20,7 @@ export const SITE_DESCRIPTION =
   "Faith Weaver, Community Weaver and Org Weaver (Weaver AMS) bring your members, households, events, giving, classes and accounting into one trusted place. Built and runs on generosity: free for your organization, for everyone, forever.";
 
 /**
- * The optional tip: the most one account is ever asked to add, in total across every transaction in
+ * The optional Chip In: the most one account is ever asked to add, in total across every transaction in
  * a year (owner decision 2026-10-07). Integer cents like every amount; format only at the edge.
  */
 export const TIP_YEARLY_CAP_CENTS = 2_500;
