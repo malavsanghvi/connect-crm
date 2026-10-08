@@ -122,6 +122,7 @@ describe("the website's page rewrites (next.config.ts)", () => {
     expect(rewrites.map((r) => [r.source, r.destination])).toEqual([
       ["/", "/site"],
       ["/pricing", "/site/pricing"],
+      ["/get-ready/checklist.csv", "/site/get-ready/checklist.csv"],
     ]);
     for (const r of rewrites) {
       expect(r.has).toEqual([{ type: "host", value: "www\\.weaverams\\.org" }]);

@@ -7,6 +7,7 @@ import { ProductTour } from "@/components/site/product-tour";
 import { FaqList, IconTile, SectionHeading, SiteLink, Ticks, buttonStyles, container } from "@/components/site/ui";
 import { WEAVERS, WEAVER_NAMES } from "@/components/site/weavers";
 import { GENEROSITY_LINE } from "@/lib/brand";
+import { CHECKLIST_AREAS } from "@/lib/onboarding-checklist";
 import { SITE_NAME, SITE_TAGLINE, TIP_YEARLY_CAP_CENTS, portalUrl, usd } from "@/lib/site";
 
 export const metadata: Metadata = {
@@ -28,6 +29,7 @@ export default function HomePage() {
       <Raise />
       <Weavers />
       <HowItWorks />
+      <GetReady />
       <FreeBand />
       <MemberApp />
       <Security />
@@ -166,6 +168,11 @@ const RAISE: { title: string; body: string; live: boolean }[] = [
     body: "Nudge the right people at the right time. Automated playbooks guide your admins and volunteers to build connections and deepen every relationship.",
     live: false,
   },
+  {
+    title: "Your website and social media, built in",
+    body: "Natively integrated website and social media management: build your organization's website inside Weaver, and share events and updates to Facebook and Instagram from the same place.",
+    live: false,
+  },
 ];
 
 function Raise() {
@@ -177,11 +184,11 @@ function Raise() {
           <h2 id="raise-title" className="font-display text-[34px] font-semibold leading-[1.1] tracking-[-0.02em] text-navy sm:text-[52px]">
             Help your community give more.
           </h2>
-          <p className="text-[18px] leading-relaxed text-muted sm:text-[20px]">Four ways Weaver helps your organization raise more, inside the same free platform.</p>
+          <p className="text-[18px] leading-relaxed text-muted sm:text-[20px]">Ways Weaver helps your organization raise more and reach more people, inside the same free platform.</p>
         </div>
         <ul className="grid grid-cols-1 gap-5 md:grid-cols-2">
-          {RAISE.map((item) => (
-            <li key={item.title} className="flex flex-col items-start gap-3 rounded-[28px] border border-line bg-[#FBF7F0] p-7">
+          {RAISE.map((item, i) => (
+            <li key={item.title} className={`flex flex-col items-start gap-3 rounded-[28px] border border-line bg-[#FBF7F0] p-7${i === RAISE.length - 1 && RAISE.length % 2 === 1 ? " md:col-span-2" : ""}`}>
               <span
                 className={`rounded-full px-3 py-1 text-[12px] font-bold uppercase tracking-[0.06em] ${item.live ? "bg-success-50 text-success-900" : "bg-saffron-50 text-brown-900"}`}
               >
@@ -189,6 +196,40 @@ function Raise() {
               </span>
               <h3 className="font-display text-[24px] font-semibold leading-[1.2] text-navy">{item.title}</h3>
               <p className="text-[16.5px] leading-relaxed text-muted">{item.body}</p>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </section>
+  );
+}
+
+function GetReady() {
+  return (
+    <section id="get-ready" aria-labelledby="get-ready-title" className="scroll-mt-24 py-20 sm:py-28">
+      <div className={`${container} grid grid-cols-1 items-center gap-12 lg:grid-cols-[1.1fr_1fr] lg:gap-16`}>
+        <div className="flex flex-col items-start gap-5">
+          <span className="rounded-full bg-gold/30 px-3.5 py-1.5 text-[13px] font-bold uppercase tracking-[0.08em] text-brown">Get ready</span>
+          <h2 id="get-ready-title" className="font-display text-[34px] font-semibold leading-[1.1] tracking-[-0.02em] text-navy sm:text-[52px]">
+            Onboarded in 60 minutes, or we plant 100 trees for your organization.
+          </h2>
+          <p className="max-w-[560px] text-[18px] leading-relaxed text-muted sm:text-[20px]">
+            From your first request to a working community: your people, your giving, your events and your accounts. Get everything ready with our checklist of connections, data, forms, calendars and legal documents.
+          </p>
+          <a href="/get-ready/checklist.csv" download className={`${buttonStyles.primary} !min-h-[58px] !px-8 !text-[17px]`}>
+            Download the checklist
+            <Icon name="arrow" className="h-5 w-5" />
+          </a>
+          <p className="text-[14px] text-muted">The checklist is ready to download today. The 60-minute promise launches soon.</p>
+        </div>
+        <ul className="flex flex-col gap-3">
+          {CHECKLIST_AREAS.map((a, i) => (
+            <li key={a.area} className="flex gap-4 rounded-2xl border border-line bg-white p-5">
+              <span className="flex h-9 w-9 flex-none items-center justify-center rounded-full bg-navy text-[14px] font-bold text-white">{i + 1}</span>
+              <div>
+                <p className="text-[17px] font-bold text-navy">{a.area}</p>
+                <p className="text-[15px] leading-relaxed text-muted">{a.line}</p>
+              </div>
             </li>
           ))}
         </ul>
