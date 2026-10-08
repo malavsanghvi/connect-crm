@@ -136,6 +136,13 @@ insert into app.person_profile_details (person_id, center_id, anniversary, dieta
 select pg_temp.assert((select count(*) from app.person_profile_details where person_id = :p_mom) = 1
                         and (select dietary = array['vegetarian'] and emergency_contact_phone is null from app.person_profile_details where person_id = :p_mom),
   'saving again updates the one row and an emptied emergency contact is cleared');
+-- 0594: the person's own path (their community is a Jain Center): an active path of the category, optional.
+select pg_temp.assert((select path_key is null from app.person_profile_details where person_id = :p_mom), '0594: a path is optional (nothing stored until chosen)');
+select pg_temp.assert_raises(format($$update app.person_profile_details set path_key = 'not_a_path' where person_id = %L$$, :p_mom),
+  'not one of the paths this community offers', '0594: a path that is not on the community''s list is refused in plain English');
+select pg_temp.assert(pg_temp.affected(format($$update app.person_profile_details set path_key = 'digambar' where person_id = %L$$, :p_mom)) = 1
+                      and (select path_key = 'digambar' from app.person_profile_details where person_id = :p_mom),
+  '0594: a path of the community''s category is saved');
 commit;
 
 -- ── The adults of a household read and write each other's and the children's rows ─
@@ -253,6 +260,10 @@ select pg_temp.assert((select bool_or(after->>'emergency_contact_phone' = '***')
   'a masked value still shows that one was given');
 select pg_temp.assert(app.audit_mask('{"date_of_birth":"1980-01-01","provider_ref":"x","token":"t"}'::jsonb) = '{"date_of_birth":"***","token":"***"}'::jsonb,
   'the earlier masks still apply');
+select pg_temp.assert(exists (select 1 from app.audit_log where record_table = 'person_profile_details' and after->>'path_key' = '***')
+                      and not exists (select 1 from app.audit_log where record_table = 'person_profile_details'
+                                         and (after->>'path_key' not in ('***') or before->>'path_key' not in ('***'))),
+  '0594: the audit trail records that a path changed, never which one');
 select pg_temp.assert(app.audit_mask('{"dietary":[],"emergency_contact_name":null}'::jsonb) = '{"dietary":[],"emergency_contact_name":null}'::jsonb,
   'an empty value stays empty so a clear still reads as a change');
 

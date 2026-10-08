@@ -98,8 +98,15 @@ select pg_temp.claims(:stranger);
 select pg_temp.assert((select count(*) from app.access_requests) = 0, 'a signed-in non-admin sees no access requests');
 select pg_temp.assert_raises(format($$select app.decide_access_request(%L, 'approve')$$, :'request_id'), 'Community Connect team',
   'a non-admin cannot decide a request');
+select pg_temp.assert_raises(format($$select app.set_access_request_category(%L, 'jain_center')$$, :'request_id'), 'Community Connect team',
+  '(0594) a non-admin cannot choose the category of a request');
 select pg_temp.claims(:cc1);
 select pg_temp.assert((select count(*) from app.access_requests where id = :'request_id') = 1, 'a platform admin sees the request');
+select pg_temp.assert_raises(format($$select app.set_access_request_category(%L, 'no_such_category')$$, :'request_id'), 'Choose one of the organization categories',
+  '(0594) the category of a request must be a real one');
+select app.set_access_request_category(:'request_id', 'jain_center');
+select pg_temp.assert((select category_key from app.access_requests where id = :'request_id') = 'jain_center',
+  '(0594) a platform admin chooses the category on the request');
 select pg_temp.assert_raises(format($$select app.decide_access_request(%L, 'decline')$$, :'request_id'), 'reason for declining',
   'declining needs a reason (the contact receives it)');
 select pg_temp.assert_raises(format($$select app.issue_sandbox_code(%L, 'early')$$, :'request_id'), 'Approve the request',
@@ -215,6 +222,9 @@ select pg_temp.assert((select slug::text = 'jte-sandbox' and environment = 'sand
                               and rules #>> '{onboarding,production_slug}' = 'jte'
                          from app.centers where id = :'sandbox'),
   'the sandbox exists: <slug>-sandbox, environment sandbox, onboarding, 2FA required for staff');
+select pg_temp.assert((select category_key = 'jain_center' and tradition = 'shvetambar_murtipujak' and not (rules->'onboarding') ? 'category_key'
+                         from app.centers where id = :'sandbox'),
+  '(0594) the sandbox takes the category chosen on the request (a column, not kept in rules)');
 select pg_temp.assert((select user_id from app.center_owners where center_id = :'sandbox') = :owner, 'the redeemer is the owner');
 select pg_temp.assert((select status = 'active' and granted_by = :cc2 and reason like 'Sandbox code …% redeemed'
                          from app.role_grants where center_id = :'sandbox' and user_id = :owner and role_key = 'center_admin'),
@@ -358,6 +368,9 @@ select pg_temp.assert((select environment = 'production' and status = 'onboardin
                          from app.centers where id = :'prod')
                       and (select sandbox_for from app.centers where id = :'sandbox') = :'prod',
   'the production center exists (onboarding) and the sandbox points to it');
+select pg_temp.assert((select category_key = 'jain_center' and tradition = 'shvetambar_murtipujak' from app.centers where id = :'prod')
+                      and (select count(*) from app.dietary_options where center_id = :'prod' and key = 'jain') = 1,
+  '(0594) the promoted production organization carries the sandbox''s category (the copy route sets it)');
 select pg_temp.assert((select count(*) from app.zones where center_id = :'prod' and name = 'North zone') = 1
                       and (select c.fund_id = f.id from app.campaigns c join app.funds f on f.center_id = :'prod' and f.key = 'general'
                             where c.center_id = :'prod' and c.name = 'Paryushan 2026')

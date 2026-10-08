@@ -168,6 +168,8 @@ reset role;
 select pg_temp.no_claims();
 select pg_temp.assert((select environment = 'production' and slug::text = 'jsh' and sandbox_for is null from app.centers where id = :jsh),
   'B · JSH itself is production, same web name');
+select pg_temp.assert((select category_key = 'jain_center' and tradition = 'shvetambar_murtipujak' from app.centers where id = :jsh),
+  'B · and, kept in place, it is still a Jain Center with its tradition (0594)');
 select pg_temp.assert((select count(*) from app.people where center_id = :jsh) = :people_before
                       and (select count(*) from app.households where center_id = :jsh) = :households_before
                       and not exists (select 1 from app.centers where slug in ('jsh-live','jsh-sandbox')),
@@ -211,6 +213,8 @@ select pg_temp.assert((select slug::text = 'jta-sandbox' and environment = 'sand
   'C · the <slug>-sandbox center exists: sandbox, onboarding, staff 2FA on, type and production name recorded');
 select pg_temp.assert((select legal_name = 'Jain Temple of Austin' and registered_address->>'city' = 'Austin' from app.org_profiles where center_id = :'newc'),
   'C · its organization profile has the name and city');
+select pg_temp.assert((select category_key = 'jain_center' and not (rules->'onboarding') ? 'category_key' from app.centers where id = :'newc'),
+  'C · created with the ten arguments the portal sends today, it is a Jain Center (0594: the category argument defaults to it)');
 select pg_temp.assert(exists (select 1 from app.member_join_codes where center_id = :'newc' and active), 'C · it has a member-app join code');
 select pg_temp.assert(not exists (select 1 from app.center_owners where center_id = :'newc'), 'C · no owner until the invitation is accepted');
 select pg_temp.assert((select makes_owner and email = 'asha36@templeexample.org' and role_keys = array['center_admin'] and invited_by = :cc
