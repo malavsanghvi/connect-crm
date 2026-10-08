@@ -19,7 +19,7 @@ describe("the get-ready checklist", () => {
   it("is a CSV with a header, a blank Ready? column and quotes escaped", () => {
     const csv = checklistCsv([{ area: 'A "quoted" area', item: "Item, with comma", why: "w", format: "f", who: "o" }]);
     expect(csv.startsWith("﻿")).toBe(true);
-    const lines = csv.trimEnd().split("\r\n");
+    const lines = csv.slice(1).trimEnd().split("\r\n");
     expect(lines[0]).toBe('"Area","What to prepare","Why we need it","Format","Who usually has it","Ready?"');
     expect(lines[1]).toBe('"A ""quoted"" area","Item, with comma","w","f","o",""');
     expect(checklistCsv().trimEnd().split("\r\n")).toHaveLength(CHECKLIST.length + 1);
