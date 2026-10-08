@@ -13,7 +13,7 @@ waiting for approval), its owner (`center_owners`), or a platform admin.
 
 | Function (callable without signing in) | Returns |
 |---|---|
-| `app.community_public(slug)` / `app.community_public_by_id(id)` | One community: id, slug, name, short_name, state_region, time_zone, tradition, environment, status, category_key, and `branding`, `feature_flags`, `rules`. A linked caller gets the full settings; anyone else gets only the public keys below and no feature flags. `linked` says which. |
+| `app.community_public(slug)` / `app.community_public_by_id(id)` | One community: id, slug, name, short_name, state_region, time_zone, currency, tradition, environment, status, category_key, and `branding`, `feature_flags`, `rules`. A linked caller gets the full settings; anyone else gets only the public keys below and no feature flags. `linked` says which. |
 | `app.communities_public_list()` | The "choose your organization" list: active communities only, id, slug, name, short_name, state_region, environment. No settings. |
 | `app.member_experience(id)` | Unchanged, except that a caller who is not linked gets the public branding keys only. |
 | `app.category_profile`, `app.feature_access_for_me`, `app.list_experiences`, `app.find_community`, `app.community_by_join_code`, `app.center_slug_for_domain` | Unchanged. They return the experience catalog, the access ladder, or a name and web name; no community settings. |

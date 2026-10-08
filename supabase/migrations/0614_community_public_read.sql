@@ -93,11 +93,11 @@ end $$;
 -- ── The community row ─────────────────────────────────────────────────────────
 -- One lookup behind both readers. `linked` says whether the settings are the full ones.
 create or replace function app.community_public_lookup(p_id uuid, p_slug text)
-returns table (id uuid, slug text, name text, short_name text, state_region text, time_zone text, tradition app.tradition,
+returns table (id uuid, slug text, name text, short_name text, state_region text, time_zone text, currency text, tradition app.tradition,
                environment text, status text, category_key text, branding jsonb, feature_flags jsonb, rules jsonb,
                linked boolean)
 language sql stable security definer set search_path = app, public, extensions as $$
-  select c.id, c.slug::text, c.name, c.short_name, c.state_region, c.time_zone, c.tradition, c.environment, c.status,
+  select c.id, c.slug::text, c.name, c.short_name, c.state_region, c.time_zone, c.currency, c.tradition, c.environment, c.status,
          c.category_key,
          case when l.linked then c.branding else app.community_pick(c.branding, app.community_public_branding_paths()) end,
          case when l.linked then c.feature_flags else '{}'::jsonb end,
@@ -113,7 +113,7 @@ $$;
 revoke execute on function app.community_public_lookup(uuid, text) from public, anon, authenticated;
 
 create or replace function app.community_public(p_slug text)
-returns table (id uuid, slug text, name text, short_name text, state_region text, time_zone text, tradition app.tradition,
+returns table (id uuid, slug text, name text, short_name text, state_region text, time_zone text, currency text, tradition app.tradition,
                environment text, status text, category_key text, branding jsonb, feature_flags jsonb, rules jsonb,
                linked boolean)
 language sql stable security definer set search_path = app, public, extensions as $$
@@ -121,7 +121,7 @@ language sql stable security definer set search_path = app, public, extensions a
 $$;
 
 create or replace function app.community_public_by_id(p_id uuid)
-returns table (id uuid, slug text, name text, short_name text, state_region text, time_zone text, tradition app.tradition,
+returns table (id uuid, slug text, name text, short_name text, state_region text, time_zone text, currency text, tradition app.tradition,
                environment text, status text, category_key text, branding jsonb, feature_flags jsonb, rules jsonb,
                linked boolean)
 language sql stable security definer set search_path = app, public, extensions as $$

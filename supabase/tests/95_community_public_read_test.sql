@@ -105,7 +105,7 @@ select pg_temp.assert((select pg_temp.keys(branding) = 'colors,links,logo_url,ph
   'A · branding: the brand kit and public contact only (no internal note, no unlisted colour); no feature flags');
 select pg_temp.assert((select id = :a95 and slug = 'pub95' and name = 'Public 95' and short_name = 'P95' and state_region = 'TX'
                               and environment = 'production' and status = 'active' and category_key = 'jain_center'
-                              and time_zone is not null and tradition is not null
+                              and time_zone is not null and currency = 'USD' and tradition is not null
                          from app.community_public('pub95')),
   'A · the plain columns the apps use are there');
 select pg_temp.assert((select count(*) = 1 from app.community_public('  PUB95 ')), 'A · the web name is matched trimmed and in any case');
