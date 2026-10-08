@@ -238,8 +238,11 @@ select pg_temp.assert((select category_key = 'jain_center' and tradition = 'shve
   'B · JSH is a Jain Center, its tradition is unchanged (production, as seeded after the migrations)');
 select pg_temp.assert((select count(*) from app.dietary_options where center_id = :jsh and key = 'jain') = 1,
   'B · and its dietary list still has the Jain option');
+-- (called as the superuser, but with a settings manager's JWT: the readiness part refuses a caller without settings.manage)
+select pg_temp.claims(:jshadmin, true);
 select pg_temp.assert(app.setup_auto_status(:jsh) = app._setup_auto_status_before_0594(:jsh),
   'B · Setup''s computed statuses for JSH are exactly what they were');
+select pg_temp.no_claims();
 select pg_temp.assert((select bool_and(app.module_availability(:jsh, m.key) = 'default_on') and count(*) = 18 from app.modules m),
   'B · every one of the 18 modules is default_on for JSH');
 
