@@ -2,6 +2,9 @@
 // docs/PROTOTYPE_COMMUNITY_DASHBOARD.md). Pure shaping of app.public_kpis()
 // output — the RPC already hides counts under 10 and non-public KPIs.
 
+import { kindHas, kindName, kindTerm, moduleNotOffered } from "@/lib/kind";
+import type { KindLike } from "@/lib/wording";
+
 export type PeriodKey = "ytd" | "l12m" | "last_year" | "all";
 
 export type Period = { key: PeriodKey; label: string; from: string; to: string; headline: string; comparison: string | null };
@@ -126,6 +129,8 @@ export type CampaignView = {
 };
 
 export type DashboardView = {
+  /** Section titles in the organization's kind's words. */
+  titles: DashboardTitles;
   asOf: string | null;
   summary: Tile[];
   practice: Tile[];
@@ -138,12 +143,13 @@ export type DashboardView = {
 };
 
 /** Shape app.public_kpis() JSON for the page. Unknown or missing parts become empty sections, never zeros. */
-export function buildDashboard(raw: Json, period: Period): DashboardView {
+export function buildDashboard(raw: Json, period: Period, kind?: KindLike): DashboardView {
   const r = obj(raw);
   const metrics = obj(r.metrics);
   const deltas = obj(r.deltas);
-  const summary = tiles(SUMMARY, metrics, deltas, period);
-  const practice = tiles(PRACTICE, metrics, deltas, period);
+  const offered = (k: { key: string }) => !kind || kpiOfferedFor(kind, k.key);
+  const summary = tiles(SUMMARY.filter(offered).map((k) => ({ ...k, label: publicKpiLabelFor(kind, k.key) ?? k.label })), metrics, deltas, period);
+  const practice = tiles(PRACTICE.filter(offered), metrics, deltas, period);
 
   let months: MonthBar[] | null = null;
   if (Array.isArray(r.attendance_by_month)) {
@@ -194,16 +200,66 @@ export function buildDashboard(raw: Json, period: Period): DashboardView {
   }
 
   const learning: Row[] = [];
-  if ("pathshala_students" in metrics) learning.push({ label: "Pathshala students", value: formatCount(num(metrics.pathshala_students)) });
-  if ("volunteer_teachers" in metrics) learning.push({ label: "Volunteer teachers", value: formatCount(num(metrics.volunteer_teachers)) });
-  if ("class_attendance_rate" in metrics) {
+  if ("pathshala_students" in metrics && offered({ key: "pathshala_students" })) learning.push({ label: `${kind ? kindName(kind, "pathshala", "Pathshala") : "Pathshala"} students`, value: formatCount(num(metrics.pathshala_students)) });
+  if ("volunteer_teachers" in metrics && offered({ key: "volunteer_teachers" })) learning.push({ label: "Volunteer teachers", value: formatCount(num(metrics.volunteer_teachers)) });
+  if ("class_attendance_rate" in metrics && offered({ key: "class_attendance_rate" })) {
     const v = num(metrics.class_attendance_rate);
     learning.push({ label: "Class attendance rate", value: v === null ? "—" : `${Math.round(v)}%` });
   }
   const seva: Row[] = [];
-  if ("store_orders" in metrics) seva.push({ label: "Satvik Store orders", value: formatCount(num(metrics.store_orders)) });
+  if ("store_orders" in metrics && offered({ key: "store_orders" })) seva.push({ label: `${kind ? kindTerm(kind, "store", "Satvik Store") : "Satvik Store"} orders`, value: formatCount(num(metrics.store_orders)) });
 
   const asOf = typeof r.as_of === "string" ? r.as_of.slice(0, 10) : null;
   const empty = summary.length === 0 && practice.length === 0 && !campaign && !months && !zones && learning.length === 0 && seva.length === 0;
-  return { asOf, summary, practice, campaign, months, zones, learning, seva, empty };
+  return { titles: dashboardTitles(kind), asOf, summary, practice, campaign, months, zones, learning, seva, empty };
 }
+
+// ---------------------------------------------------------------------------
+// What an organization's kind shows
+// ---------------------------------------------------------------------------
+
+/** The KPIs of the tradition pack (My Jain Way and the Gyan Path practice): offered only to a kind that has the module. */
+const PRACTICE_MODULE: Record<string, string> = { samayik: "jain_way", pratikraman: "jain_way", navkar_malas: "jain_way", anumodana: "jain_way", gyan_steps: "gyan_path", gyan_levels: "gyan_path" };
+const LEARNING_KEYS = ["pathshala_students", "volunteer_teachers", "class_attendance_rate"];
+
+/** Whether a public KPI is offered to an organization of this kind (its module exists for the kind, and practice KPIs need the tradition pack). */
+export function kpiOfferedFor(kind: KindLike, key: string): boolean {
+  const practice = PRACTICE_MODULE[key];
+  if (practice) return !moduleNotOffered(kind, practice) && (practice !== "jain_way" || kindHas(kind, "tradition"));
+  if (LEARNING_KEYS.includes(key)) return !moduleNotOffered(kind, "pathshala");
+  if (key === "store_orders") return !moduleNotOffered(kind, "store");
+  return true;
+}
+
+/** A KPI's public name in the kind's words (the Jain Center's are the ones the dashboard always had). */
+export function publicKpiLabelFor(kind: KindLike | undefined, key: string): string | null {
+  const base = publicKpiLabel(key);
+  if (!kind || kindHas(kind, "tradition")) return base;
+  if (key === "volunteer_hours") return "Volunteer hours";
+  if (key === "attendance") return "Event visits";
+  return base;
+}
+
+/** The section titles of the public dashboard and the Reports list, in the kind's words. */
+export type DashboardTitles = { practice: string; practiceSub: string; learning: string; seva: string; attendanceSub: string };
+
+export function dashboardTitles(kind?: KindLike): DashboardTitles {
+  if (!kind || kindHas(kind, "tradition")) {
+    return {
+      practice: "Practicing together",
+      practiceSub: "From My Jain Way and Gyan Path \u00b7 totals only",
+      learning: "Pathshala and learning",
+      seva: "Seva and community care",
+      attendanceSub: "Check-ins at all events and Pathshala",
+    };
+  }
+  const school = moduleNotOffered(kind, "pathshala") ? null : kindName(kind, "pathshala", "Pathshala");
+  return {
+    practice: "Practicing together",
+    practiceSub: "Totals only",
+    learning: school ? `${school} and learning` : "Learning",
+    seva: "Volunteering and community care",
+    attendanceSub: school ? `Check-ins at all events and ${school}` : "Check-ins at all events",
+  };
+}
+

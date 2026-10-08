@@ -1,5 +1,8 @@
 // Calendar layers members can overlay in the app (app.calendar_layers).
 
+import { kindHas, moduleNotOffered } from "@/lib/kind";
+import { word, type KindLike } from "@/lib/wording";
+
 export type LayerLike = {
   center_id: string | null;
   kind: string;
@@ -16,13 +19,13 @@ export const TRADITION_LABEL: Record<string, string> = {
   other: "Other",
 };
 
-/** Where a layer's dates come from, in the prototype's words. */
-export function layerSource(layer: LayerLike, tradition: string | null): string {
+/** Where a layer's dates come from, in the prototype's words (`kind`: the organization's kind; omitted = a Jain Center's words). */
+export function layerSource(layer: LayerLike, tradition: string | null, kind?: KindLike): string {
   switch (layer.kind) {
     case "tithi":
       return `Panchang: ${TRADITION_LABEL[tradition ?? ""] ?? "tradition"} (configurable)`;
     case "festival":
-      return "Parva and festival dates";
+      return kind ? word(kind, "festival_dates") : "Parva and festival dates";
     case "pathshala":
       return "Pathshala terms and no-class days";
     case "events":
@@ -137,6 +140,21 @@ export const LAYER_KINDS: { kind: string; label: string }[] = [
   { kind: "pathshala", label: "Pathshala" },
   { kind: "school_district", label: "School calendar" },
 ];
+
+/**
+ * The kinds of dates a layer can hold for this organization's kind: a tithi (panchang) layer only where the kind has a
+ * tradition pack, a Pathshala layer only where the kind has Pathshala, and the festival layer in the kind's own words.
+ */
+export function layerKindsFor(kind: KindLike): { kind: string; label: string }[] {
+  return LAYER_KINDS.filter((k) => layerVisibleFor(kind, k.kind)).map((k) => (k.kind === "festival" ? { ...k, label: word(kind, "festival_dates") } : k));
+}
+
+/** Whether a layer of this kind of dates belongs on this organization's calendar (a shared Jain tithi layer does not, for a chamber). */
+export function layerVisibleFor(kind: KindLike, layerKind: string): boolean {
+  if (layerKind === "tithi") return kindHas(kind, "tradition");
+  if (layerKind === "pathshala") return !moduleNotOffered(kind, "pathshala");
+  return true;
+}
 
 /** A layer key from its name ("School calendar (FBISD)" → "school_calendar_fbisd"), unique among `taken`. */
 export function layerKey(name: string, taken: Set<string>): string {

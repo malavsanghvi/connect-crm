@@ -131,9 +131,9 @@ insert into app.bolis (id, center_id, name, kind) values ('79000000-0000-4000-80
 
 -- ══ A. The catalogs ═════════════════════════════════════════════════════════
 select pg_temp.assert((select array_agg(key order by sort) from app.organization_categories)
-                        = array['jain_center', 'chamber_of_commerce', 'nonprofit_secular', 'faith_other']
+                        = array['jain_center', 'chamber_of_commerce', 'nonprofit_secular', 'faith_other', 'swaminarayan_temple', 'church', 'mosque']
                       and (select array_agg(key) from app.organization_categories where active) = array['jain_center'],
-  'A · four categories, and only Jain Center is active');
+  'A · the four categories of 0594 and the three inactive experiences of 0600, and only Jain Center is active');
 select pg_temp.assert((select faith_based and uses_tradition and path_label = 'Which Jain tradition do you follow?' from app.organization_categories where key = 'jain_center')
                       and (select not faith_based and not uses_tradition and path_label is null from app.organization_categories where key = 'chamber_of_commerce')
                       and (select not faith_based and not uses_tradition and path_label is null from app.organization_categories where key = 'nonprofit_secular')
@@ -160,10 +160,10 @@ select pg_temp.assert_raises($$insert into app.organization_categories (key, lab
   'organization_categories_terms_ok', 'A · a word the database does not know is refused');
 
 -- Every category has a row for every module; the matrix of the plan.
-select pg_temp.assert((select count(*) from app.category_modules) = 72
+select pg_temp.assert((select count(*) from app.category_modules) = 126
                       and not exists (select 1 from app.organization_categories k cross join app.modules m
                                        where not exists (select 1 from app.category_modules cm where cm.category_key = k.key and cm.module_key = m.key)),
-  'A · every category has a row for every module (4 x 18)');
+  'A · every category has a row for every module (7 x 18)');
 select pg_temp.assert((select count(*) from app.category_modules where category_key = 'jain_center' and availability = 'default_on' and label is null and description is null) = 18,
   'A · Jain Center: all 18 modules default_on, with no names of their own (today)');
 select pg_temp.assert((select array_agg(module_key order by module_key) from app.category_modules where category_key = 'chamber_of_commerce' and availability = 'not_available')
@@ -221,7 +221,7 @@ select pg_temp.assert((select count(*) from app.module_tables where table_name i
                              and t.tgname in ('audit_organization_categories', 'audit_category_modules', 'audit_category_paths')) = 3,
   'A · the three catalogs are core platform tables and audited');
 set role anon;
-select pg_temp.assert((select count(*) from app.organization_categories) = 4 and (select count(*) from app.category_modules) = 72
+select pg_temp.assert((select count(*) from app.organization_categories) = 7 and (select count(*) from app.category_modules) = 126
                       and (select count(*) from app.category_paths) = 10, 'A · guests read the three catalogs');
 select pg_temp.assert_raises($$insert into app.organization_categories (key, label, faith_based, terms) values ('guest_made', 'Guest', false, '{}')$$,
   'permission denied', 'A · a guest cannot write a catalog');
@@ -355,10 +355,10 @@ set role authenticated;
 select pg_temp.claims(:cc, true);
 select pg_temp.assert_raises($$select app.platform_create_sandbox('Houston Chamber', 'hcc', 'other_nonprofit', 'Houston', 'TX', 'Chet', 'Owner',
     'chet79@hcc.test', 'No category', 'http://portal.test', 'no_such_category')$$,
-  'Choose the category', 'E · an unknown category is refused');
+  'Choose the kind of organization', 'E · an unknown category is refused');
 select pg_temp.assert_raises($$select app.platform_create_sandbox('Houston Chamber', 'hcc', 'other_nonprofit', 'Houston', 'TX', 'Chet', 'Owner',
     'chet79@hcc.test', 'No category', 'http://portal.test', null)$$,
-  'Choose the category', 'E · an explicit empty category is refused (the console shows nothing pre-selected)');
+  'Choose the kind of organization', 'E · an explicit empty category is refused (the console shows nothing pre-selected)');
 select app.platform_create_sandbox('Houston Chamber of Commerce', 'hcc', 'other_nonprofit', 'Houston', 'TX', 'Chet', 'Owner',
                                    'chet79@hcc.test', 'Preview of the chamber category', 'http://portal.test', 'chamber_of_commerce') as made_chm \gset
 -- The ten-argument call the portal makes today still works and makes a Jain Center.
@@ -486,10 +486,10 @@ select pg_temp.assert(not app.storage_module_on('homework', :'chm') and not app.
 savepoint a_new_module_and_a_new_category;
 insert into app.modules (key, label, description, core, depends_on, sort) values
   ('test_module79', 'Test module', 'Added by test 79', false, '{}', 98), ('test_core79', 'Test core module', 'Added by test 79', true, '{}', 99);
-select pg_temp.assert((select count(*) from app.category_modules where module_key = 'test_module79') = 4
+select pg_temp.assert((select count(*) from app.category_modules where module_key = 'test_module79') = 7
                       and (select availability from app.category_modules where module_key = 'test_module79' and category_key = 'jain_center') = 'default_on'
-                      and (select count(*) from app.category_modules where module_key = 'test_module79' and availability = 'default_off') = 3
-                      and (select count(*) from app.category_modules where module_key = 'test_core79' and availability = 'default_on') = 4,
+                      and (select count(*) from app.category_modules where module_key = 'test_module79' and availability = 'default_off') = 6
+                      and (select count(*) from app.category_modules where module_key = 'test_core79' and availability = 'default_on') = 7,
   'A · a module added later gets a row in every category: on for Jain Center (and for a core module), off for the others');
 select pg_temp.assert(app.module_enabled(:jsh, 'test_module79') and not app.module_enabled(:'chm', 'test_module79')
                       and :'chm'::uuid = any (app.module_off_centers('test_module79')) and app.module_enabled(:'chm', 'test_core79'),
@@ -502,8 +502,8 @@ select pg_temp.assert((select count(*) from app.category_modules where category_
                       and (select availability from app.category_modules where category_key = 'test_cat79' and module_key = 'people') = 'default_on',
   'A · a category added later gets a row for every module (20 with the two test modules): only the core modules on');
 rollback to savepoint a_new_module_and_a_new_category;
-select pg_temp.assert((select count(*) from app.modules) = 18 and (select count(*) from app.category_modules) = 72
-                      and (select count(*) from app.organization_categories) = 4,
+select pg_temp.assert((select count(*) from app.modules) = 18 and (select count(*) from app.category_modules) = 126
+                      and (select count(*) from app.organization_categories) = 7,
   'A · (and the rollback put the catalogs back)');
 
 -- What a chamber's administrator reads: nothing from the modules it does not have; the rest as usual.
@@ -584,11 +584,13 @@ reset role;
 select pg_temp.no_claims();
 -- Guests: the access areas of the chamber, and the category profile.
 set role anon;
-select pg_temp.assert((select app.feature_access_for_me(:'chm')->'features'->'puja'->>'reason') = 'module_off'
-                      and (select app.feature_access_for_me(:'chm')->'features'->'learn'->>'reason') = 'module_off'
+select pg_temp.assert(not ((select app.feature_access_for_me(:'chm')->'features') ? 'puja')
+                      and not ((select app.feature_access_for_me(:'chm')->'features') ? 'learn')
+                      and not ((select app.feature_access_for_me(:'chm')->'features') ? 'darshan')
                       and (select app.feature_access_for_me(:'chm')->'features'->'niva'->>'reason') = 'module_off'
-                      and (select (app.feature_access_for_me(:'chm')->'features'->'darshan'->>'allowed')::boolean),
-  'C · the member app''s access areas: puja, learn and Ask Niva are module_off for a chamber, the library and darshan are not');
+                      and ((select app.feature_access_for_me(:'chm')->'features') ? 'listen')
+                      and (select (app.feature_access_for_me(:'chm')->'features'->'guide'->>'allowed')::boolean),
+  'C · the member app''s access areas (0600): a chamber has no puja, learn or darshan area at all, Ask Niva is module_off, the library and the guide are there');
 select pg_temp.assert((select app.category_profile(:'chm')->'category'->>'key') = 'chamber_of_commerce'
                       and (select app.category_profile(:'chm')->'category'->'terms'->>'greeting') = 'Welcome'
                       and (select jsonb_typeof(app.category_profile(:'chm')->'category'->'terms'->'practice_tab')) = 'null'

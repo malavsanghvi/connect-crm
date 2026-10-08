@@ -7,6 +7,7 @@ import { RowActions } from "@/components/row-actions";
 import { Alert, BlockGrid, Card, KeyValueRow, NoAccess, PageHeader, QueryError, StatusText } from "@/components/ui";
 import { campaignStatusLabel, campaignStatusTone, describeAudience, openRate, requiresSecondApprover, translationLanguages } from "@/lib/comms";
 import { audienceOptions } from "@/lib/data/content-comms";
+import { kindSchool } from "@/lib/kind";
 import { userNames } from "@/lib/data/lookups";
 import { formatDateTime, isoToLocalDateTime } from "@/lib/dates";
 import { canAccess } from "@/lib/permissions";
@@ -40,7 +41,7 @@ export default async function CampaignPage({ params }: { params: Promise<{ id: s
   }
   const { db, center } = session;
   const tz = center.time_zone;
-  const [res, opts] = await Promise.all([db.from("comms_campaigns").select("*").eq("id", id).maybeSingle(), audienceOptions(db, center.id)]);
+  const [res, opts] = await Promise.all([db.from("comms_campaigns").select("*").eq("id", id).maybeSingle(), audienceOptions(db, center.id, kindSchool(session.kind))]);
   if (res.error) {
     return (
       <>

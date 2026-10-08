@@ -15,6 +15,7 @@ export type Database = {
           module_key: string | null;
           enforced_by: string;
           sort: number;
+          category_keys: string[];
         };
         Insert: {
           key: string;
@@ -25,6 +26,7 @@ export type Database = {
           module_key?: string | null;
           enforced_by: string;
           sort?: number;
+          category_keys?: string[];
         };
         Update: {
           key?: string;
@@ -35,6 +37,7 @@ export type Database = {
           module_key?: string | null;
           enforced_by?: string;
           sort?: number;
+          category_keys?: string[];
         };
         Relationships: [];
       };
@@ -93,6 +96,11 @@ export type Database = {
           ip: string | null;
           user_agent: string | null;
           category_key: string | null;
+          requested_category_key: string | null;
+          experience_key: string | null;
+          org_detail: string | null;
+          org_type_label: string | null;
+          experience_label: string | null;
         };
         Insert: {
           id?: string;
@@ -118,6 +126,11 @@ export type Database = {
           ip?: string | null;
           user_agent?: string | null;
           category_key?: string | null;
+          requested_category_key?: string | null;
+          experience_key?: string | null;
+          org_detail?: string | null;
+          org_type_label?: string | null;
+          experience_label?: string | null;
         };
         Update: {
           id?: string;
@@ -143,6 +156,11 @@ export type Database = {
           ip?: string | null;
           user_agent?: string | null;
           category_key?: string | null;
+          requested_category_key?: string | null;
+          experience_key?: string | null;
+          org_detail?: string | null;
+          org_type_label?: string | null;
+          experience_label?: string | null;
         };
         Relationships: [];
       };
@@ -998,6 +1016,27 @@ export type Database = {
           active?: boolean;
           visible_from?: string | null;
           visible_until?: string | null;
+        };
+        Relationships: [];
+      };
+      category_dietary_options: {
+        Row: {
+          category_key: string;
+          key: string;
+          label: string;
+          sort: number;
+        };
+        Insert: {
+          category_key: string;
+          key: string;
+          label: string;
+          sort?: number;
+        };
+        Update: {
+          category_key?: string;
+          key?: string;
+          label?: string;
+          sort?: number;
         };
         Relationships: [];
       };
@@ -2477,6 +2516,30 @@ export type Database = {
           flyer_generated_at?: string | null;
           flyer_job_id?: number | null;
           flyer_design?: Json | null;
+        };
+        Relationships: [];
+      };
+      experience_families: {
+        Row: {
+          key: string;
+          label: string;
+          description: string;
+          faith_based: boolean;
+          sort: number;
+        };
+        Insert: {
+          key: string;
+          label: string;
+          description?: string;
+          faith_based: boolean;
+          sort?: number;
+        };
+        Update: {
+          key?: string;
+          label?: string;
+          description?: string;
+          faith_based?: boolean;
+          sort?: number;
         };
         Relationships: [];
       };
@@ -4748,6 +4811,39 @@ export type Database = {
         };
         Relationships: [];
       };
+      notice_log: {
+        Row: {
+          kind: string;
+          ref_id: string;
+          period: string;
+          person_id: string;
+          center_id: string;
+          outcome: string;
+          reason: string | null;
+          created_at: string;
+        };
+        Insert: {
+          kind: string;
+          ref_id: string;
+          period?: string;
+          person_id: string;
+          center_id: string;
+          outcome: string;
+          reason?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          kind?: string;
+          ref_id?: string;
+          period?: string;
+          person_id?: string;
+          center_id?: string;
+          outcome?: string;
+          reason?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
       notification_preferences: {
         Row: {
           center_id: string;
@@ -4781,18 +4877,24 @@ export type Database = {
           name: string;
           default_on: boolean;
           marketing: boolean;
+          has_sender: boolean;
+          category_keys: string[];
         };
         Insert: {
           key: string;
           name: string;
           default_on?: boolean;
           marketing?: boolean;
+          has_sender?: boolean;
+          category_keys?: string[];
         };
         Update: {
           key?: string;
           name?: string;
           default_on?: boolean;
           marketing?: boolean;
+          has_sender?: boolean;
+          category_keys?: string[];
         };
         Relationships: [];
       };
@@ -5260,6 +5362,12 @@ export type Database = {
           terms: Json;
           active: boolean;
           sort: number;
+          family_key: string | null;
+          inherits_from: string | null;
+          lineage: string[];
+          wording_pack: string;
+          wording: Json;
+          library_pack: string | null;
         };
         Insert: {
           key: string;
@@ -5271,6 +5379,12 @@ export type Database = {
           terms: Json;
           active?: boolean;
           sort?: number;
+          family_key?: string | null;
+          inherits_from?: string | null;
+          lineage?: string[];
+          wording_pack?: string;
+          wording?: Json;
+          library_pack?: string | null;
         };
         Update: {
           key?: string;
@@ -5282,6 +5396,12 @@ export type Database = {
           terms?: Json;
           active?: boolean;
           sort?: number;
+          family_key?: string | null;
+          inherits_from?: string | null;
+          lineage?: string[];
+          wording_pack?: string;
+          wording?: Json;
+          library_pack?: string | null;
         };
         Relationships: [];
       };
@@ -8362,6 +8482,7 @@ export type Database = {
           description: string | null;
           default_scope: Database["app"]["Enums"]["scope_kind"];
           permissions: Json;
+          category_keys: string[];
         };
         Insert: {
           key: string;
@@ -8370,6 +8491,7 @@ export type Database = {
           description?: string | null;
           default_scope?: Database["app"]["Enums"]["scope_kind"];
           permissions?: Json;
+          category_keys?: string[];
         };
         Update: {
           key?: string;
@@ -8378,6 +8500,7 @@ export type Database = {
           description?: string | null;
           default_scope?: Database["app"]["Enums"]["scope_kind"];
           permissions?: Json;
+          category_keys?: string[];
         };
         Relationships: [];
       };
@@ -8795,6 +8918,36 @@ export type Database = {
         };
         Relationships: [];
       };
+      setup_step_wording: {
+        Row: {
+          category_key: string;
+          step_key: string;
+          title: string | null;
+          description: string | null;
+          help: string | null;
+          done_means: string | null;
+          owner_role: string | null;
+        };
+        Insert: {
+          category_key: string;
+          step_key: string;
+          title?: string | null;
+          description?: string | null;
+          help?: string | null;
+          done_means?: string | null;
+          owner_role?: string | null;
+        };
+        Update: {
+          category_key?: string;
+          step_key?: string;
+          title?: string | null;
+          description?: string | null;
+          help?: string | null;
+          done_means?: string | null;
+          owner_role?: string | null;
+        };
+        Relationships: [];
+      };
       setup_steps: {
         Row: {
           key: string;
@@ -8811,6 +8964,7 @@ export type Database = {
           auto: boolean;
           manual: boolean;
           live: boolean;
+          category_keys: string[];
         };
         Insert: {
           key: string;
@@ -8827,6 +8981,7 @@ export type Database = {
           auto?: boolean;
           manual?: boolean;
           live?: boolean;
+          category_keys?: string[];
         };
         Update: {
           key?: string;
@@ -8843,6 +8998,7 @@ export type Database = {
           auto?: boolean;
           manual?: boolean;
           live?: boolean;
+          category_keys?: string[];
         };
         Relationships: [];
       };
@@ -10560,6 +10716,13 @@ export type Database = {
         };
         Returns: string;
       };
+      catalog_shows: {
+        Args: {
+          p_keys: string[];
+          p_category: string;
+        };
+        Returns: boolean;
+      };
       category_change_preview: {
         Args: {
           p_center: string;
@@ -11640,6 +11803,10 @@ export type Database = {
         };
         Returns: undefined;
       };
+      list_experiences: {
+        Args: Record<PropertyKey, never>;
+        Returns: { key: string; label: string; description: string; family_key: string; family_label: string; faith_based: boolean; active: boolean; sort: number }[];
+      };
       log_practice: {
         Args: {
           p_center: string;
@@ -11709,6 +11876,13 @@ export type Database = {
           p_center: string;
         };
         Returns: { item_id: string; like_count: number; playlist_count: number }[];
+      };
+      member_experience: {
+        Args: {
+          p_center: string;
+          p_known_stamp?: string;
+        };
+        Returns: Json;
       };
       member_legal_acceptance_counts: {
         Args: {
@@ -13554,6 +13728,11 @@ export type Database = {
           p_heard_from?: string;
           p_ip?: string;
           p_user_agent?: string;
+          p_requested_category?: string;
+          p_experience_key?: string;
+          p_org_detail?: string;
+          p_org_type_label?: string;
+          p_experience_label?: string;
         };
         Returns: string;
       };
@@ -13759,6 +13938,12 @@ export type Database = {
           p_reason: string;
         };
         Returns: undefined;
+      };
+      wording_ok: {
+        Args: {
+          p: Json;
+        };
+        Returns: boolean;
       };
       worker_stale_after: {
         Args: Record<PropertyKey, never>;

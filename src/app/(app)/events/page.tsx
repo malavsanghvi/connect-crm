@@ -10,6 +10,7 @@ import { audienceLabel, eventReport } from "@/lib/events/report";
 import { STATUS_TEXT_CLASS, eventRef, eventRowHref, eventStatusLabel } from "@/lib/events/status";
 import { canAccess } from "@/lib/permissions";
 import { hrefWith, param, type RawSearchParams } from "@/lib/search-params";
+import { kindSchool } from "@/lib/kind";
 import { getSession } from "@/lib/session";
 
 export const metadata: Metadata = { title: "Events" };
@@ -179,7 +180,7 @@ export default async function EventsPage({ searchParams }: { searchParams: Promi
                           </Link>
                           {e.venue || e.program_year || e.confidential ? (
                             <div className="truncate text-xs text-muted">
-                              {[e.venue, e.program_year ? `Pathshala ${e.program_year}` : null, e.confidential ? "confidential" : null].filter(Boolean).join(" · ")}
+                              {[e.venue, e.program_year ? `${kindSchool(session.kind) ?? "Program"} ${e.program_year}` : null, e.confidential ? "confidential" : null].filter(Boolean).join(" · ")}
                             </div>
                           ) : null}
                         </td>

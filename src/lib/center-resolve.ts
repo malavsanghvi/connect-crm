@@ -6,8 +6,9 @@ import { cache } from "react";
 
 import type { Database } from "@/lib/database.types";
 import { readPublicEnv } from "@/lib/env";
+import { failure } from "@/lib/errors";
 import { newRequestId, traceHeaders } from "@/lib/supabase/trace";
-import { SLUG_RE, hostName, normalizeBaseDomain, resolveHost } from "@/lib/tenancy";
+import { SLUG_RE, hostName, normalizeBaseDomain, resolveHost, type CenterSource } from "@/lib/tenancy";
 
 /** The organization chosen with the switcher when the address does not name one (bare IP, localhost, single site). */
 export const CENTER_COOKIE = "cc_center";
@@ -15,7 +16,13 @@ export const CENTER_COOKIE = "cc_center";
 export type CenterChoice = {
   slug: string;
   /** How it was chosen: the <slug>.<base> address, an organization's own domain, the switcher, or the deployment default. */
-  source: "subdomain" | "domain" | "switcher" | "default";
+  source: CenterSource;
+  /**
+   * The address was looked up as an organization's own domain and the lookup FAILED (not "nobody owns it"). The sign-in page then
+   * keeps the deployment's default organization instead of Weaver's neutral page: a database hiccup must not make an organization's
+   * own address look like Weaver's (src/lib/tenancy.ts loginBranding).
+   */
+  domainLookupFailed?: boolean;
 };
 
 export function portalBaseDomain(): string | null {
@@ -28,26 +35,34 @@ export function portalBaseDomain(): string | null {
 const DOMAIN_TTL_MS = 60_000;
 const domainCache = new Map<string, { slug: string | null; at: number }>();
 
-export async function slugForDomain(host: string): Promise<string | null> {
+/** The organization that owns this address; `failed` is true when the question could not be answered (the slug is then null). */
+async function lookUpDomain(host: string): Promise<{ slug: string | null; failed: boolean }> {
   const hit = domainCache.get(host);
-  if (hit && Date.now() - hit.at < DOMAIN_TTL_MS) return hit.slug;
+  if (hit && Date.now() - hit.at < DOMAIN_TTL_MS) return { slug: hit.slug, failed: false };
   const env = readPublicEnv();
-  if (!env.ok) return null;
+  if (!env.ok) return { slug: null, failed: true };
   const db = createClient<Database, "app">(env.env.supabaseUrl, env.env.supabaseAnonKey, {
     db: { schema: "app" },
     auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
     global: { headers: traceHeaders({ requestId: newRequestId(), screen: null }) },
   });
-  const { data, error } = await db.rpc("center_slug_for_domain", { p_domain: host });
-  if (error) {
-    // Not cached: the next request tries again. The portal falls back to the switcher / default community.
-    console.error(`[tenancy] could not look up the organization for "${host}" — using the default community:`, error);
-    return null;
+  try {
+    const { data, error } = await db.rpc("center_slug_for_domain", { p_domain: host });
+    if (error) throw error;
+    const slug = typeof data === "string" && data ? data : null;
+    if (domainCache.size > 500) domainCache.clear();
+    domainCache.set(host, { slug, at: Date.now() });
+    return { slug, failed: false };
+  } catch (error) {
+    // Not cached: the next request tries again. The portal falls back to the switcher / default community, and the sign-in page
+    // keeps showing that community (domainLookupFailed) rather than Weaver's own page.
+    failure(`Could not look up the organization for the address "${host}" (using the default community)`, error);
+    return { slug: null, failed: true };
   }
-  const slug = typeof data === "string" && data ? data : null;
-  if (domainCache.size > 500) domainCache.clear();
-  domainCache.set(host, { slug, at: Date.now() });
-  return slug;
+}
+
+export async function slugForDomain(host: string): Promise<string | null> {
+  return (await lookUpDomain(host)).slug;
 }
 
 /**
@@ -66,9 +81,11 @@ export const resolveCenterChoice = cache(async (fallbackSlug: string): Promise<C
   }
   const r = resolveHost(host, portalBaseDomain());
   if (r.kind === "subdomain") return { slug: r.slug, source: "subdomain" };
+  let domainLookupFailed = false;
   if (r.kind === "custom") {
-    const slug = await slugForDomain(r.host);
-    if (slug) return { slug, source: "domain" };
+    const found = await lookUpDomain(r.host);
+    if (found.slug) return { slug: found.slug, source: "domain" };
+    domainLookupFailed = found.failed;
   }
   try {
     const chosen = (await cookies()).get(CENTER_COOKIE)?.value?.trim().toLowerCase();
@@ -76,7 +93,7 @@ export const resolveCenterChoice = cache(async (fallbackSlug: string): Promise<C
   } catch (error) {
     console.error("[tenancy] could not read the organization cookie — using the default community:", error);
   }
-  return { slug: fallbackSlug, source: "default" };
+  return domainLookupFailed ? { slug: fallbackSlug, source: "default", domainLookupFailed } : { slug: fallbackSlug, source: "default" };
 });
 
 /** The request's host and protocol, for building another organization's address. */

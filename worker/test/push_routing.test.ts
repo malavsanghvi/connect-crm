@@ -37,6 +37,27 @@ describe("pushRouting", () => {
       }),
     ).toEqual({ type: "boli_outbid", deep_link: "/boli/b-1", boli_id: "b-1", event_id: "e-1" });
   });
+  it("forwards the route of every notice 0598 sends: the lunch reminder, RSVP confirmation, boli closing, special day and order", () => {
+    // Each carries type, deep_link and the ids the app needs; the rsvp id and the recipient stay on the server.
+    expect(
+      pushRouting({
+        template_key: "lunch_reminder",
+        payload: { type: "lunch_reminder", deep_link: "/event/e-1/tickets", event_id: "e-1", slot_id: "s-1", vars: { event: "Navkar" }, person_id: "the recipient" },
+      }),
+    ).toEqual({ type: "lunch_reminder", deep_link: "/event/e-1/tickets", event_id: "e-1" });
+    expect(
+      pushRouting({ template_key: "rsvp_confirmation", payload: { type: "rsvp_confirm", deep_link: "/event/e-1/confirm", event_id: "e-1", rsvp_id: "r-1" } }),
+    ).toEqual({ type: "rsvp_confirm", deep_link: "/event/e-1/confirm", event_id: "e-1" });
+    expect(
+      pushRouting({ template_key: "boli_closing", payload: { type: "boli_closing", deep_link: "/boli/b-1", boli_id: "b-1", event_id: "e-1" } }),
+    ).toEqual({ type: "boli_closing", deep_link: "/boli/b-1", boli_id: "b-1", event_id: "e-1" });
+    expect(
+      pushRouting({ template_key: "special_day_labh", payload: { type: "special_day", deep_link: "/labh/d-1", special_day_id: "d-1" } }),
+    ).toEqual({ type: "special_day", deep_link: "/labh/d-1", special_day_id: "d-1" });
+    expect(
+      pushRouting({ template_key: "store_order_ready", payload: { type: "store_order_ready", deep_link: "/store", order_id: "o-1" } }),
+    ).toEqual({ type: "store_order_ready", deep_link: "/store", order_id: "o-1" });
+  });
   it("falls back to the template key when the payload's type is not a usable string", () => {
     expect(pushRouting({ template_key: "homework.accepted", payload: { type: 7, deep_link: "/gyan/homework/x" } })).toEqual({ type: "homework.accepted", deep_link: "/gyan/homework/x" });
     expect(pushRouting({ template_key: "homework.accepted", payload: { type: "   " } })).toEqual({ type: "homework.accepted" });

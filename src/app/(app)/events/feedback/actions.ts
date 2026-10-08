@@ -9,7 +9,7 @@ import type { ActionResult } from "@/lib/errors";
 import { eventAreas, type EventAccess } from "@/lib/events/access";
 import { bool, dateTime, DbFailure, FormError, must, oneOf, reqStr, runAction, str } from "@/lib/events/forms";
 import { can } from "@/lib/permissions";
-import { feedbackRequestMessage } from "@/lib/survey/event-survey";
+import { feedbackRequestMessage, feedbackRequestUnreadMessage, requestWentNow } from "@/lib/survey/event-survey";
 import {
   FEEDBACK_OPEN_DAYS,
   FEEDBACK_TEMPLATE_KEY,
@@ -88,10 +88,12 @@ export async function requestFeedback(_prev: Result | null, fd: FormData): Promi
         message: `Feedback request scheduled for ${shortWhen(sendAt, tz)}: it opens in the member app then. Its pushes need the latest database update, so none are scheduled yet.`,
       };
     }
-    // Going now: the counts were taken when it was saved. Later: they are taken when it goes.
-    const sendsNow = Date.parse(sendAt) <= Date.now() + 60_000;
-    const read = sendsNow && res.id ? await readSurveyNotices(db, res.id) : ({ ok: true, notices: null } as const);
-    return { ok: true, message: feedbackRequestMessage(shortWhen(sendAt, tz), read.ok ? read.notices : null, sendsNow) };
+    // One rule for "now", the database's (0598): a send time that is not in the future goes at once, and the counts are
+    // taken when the request is saved; a later one is counted when it goes. The page does not guess from the clock (a
+    // 60-second window here used to call a request "sent" that the database had scheduled): it reads what the database did.
+    const read = res.id ? await readSurveyNotices(db, res.id) : ({ ok: true, notices: null } as const);
+    if (!read.ok) return { ok: true, message: feedbackRequestUnreadMessage(shortWhen(sendAt, tz)) };
+    return { ok: true, message: feedbackRequestMessage(shortWhen(sendAt, tz), read.notices, requestWentNow(read.notices)) };
   });
 }
 

@@ -41,7 +41,10 @@ jobs:
       # Never put the secret (sb_secret_… / service_role) key here or anywhere in the apps.
       NEXT_PUBLIC_SUPABASE_URL: ${{ vars.SUPABASE_URL || 'https://qenubcnvjcmsxhmehvat.supabase.co' }}
       NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ vars.SUPABASE_ANON_KEY || 'sb_publishable_EfX8-WUrsYuSkUB4vAFAIQ_ukUY01jy' }}
-      NEXT_PUBLIC_CENTER_SLUG: ${{ vars.CENTER_SLUG || 'jsh' }}
+      # Set CENTER_SLUG only for a portal built for ONE organization (its sign-in page then always shows that
+      # organization). Unset, the portal still opens JSH after sign-in on an address that names no organization
+      # (admin.<domain>), but its sign-in page is Weaver's own neutral one. docs/DEPLOY.md "Organization addresses".
+      NEXT_PUBLIC_CENTER_SLUG: ${{ vars.CENTER_SLUG }}
       # Optional (onboarding, more than one organization; docs/DEPLOY.md "Organization addresses"):
       # SITE_WILDCARD_DOMAIN serves <slug>.<domain> and organizations' own domains; MEMBER_APP_URL is
       # the member web app's address, used for the https join links. Unset: nothing changes.

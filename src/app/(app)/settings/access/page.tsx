@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 
 import { Alert, BlockGrid, NoAccess, PageHeader, QueryError, buttonClass } from "@/components/ui";
-import { moduleOffNote } from "@/lib/access";
+import { accessFeaturesForKind, moduleOffNote } from "@/lib/access";
+import { kindTerm } from "@/lib/kind";
+import { word } from "@/lib/wording";
 import { isPermissionError, loadAccessSettings } from "@/lib/access-db";
 import { moduleLabelFor } from "@/lib/modules";
 import { canAccess } from "@/lib/permissions";
@@ -78,7 +80,11 @@ export default async function AccessLevelsPage() {
     );
   }
 
-  const { levels, features, membershipTypes } = loaded.settings;
+  const { levels, membershipTypes } = loaded.settings;
+  // The areas this kind of organization has (a chamber has no virtual puja or daily timings; its live stream is not "darshan").
+  const features = accessFeaturesForKind(loaded.settings.features, session.kind);
+  const stream = word(session.kind, "live_stream");
+  const streamLower = stream.charAt(0).toLowerCase() + stream.slice(1);
   const moduleNotes: Record<string, string> = {};
   for (const f of features) {
     const note = moduleOffNote(f, moduleLabelFor(f.moduleKey));
@@ -89,7 +95,15 @@ export default async function AccessLevelsPage() {
     <>
       {header}
       <BlockGrid>
-        <AreasCard centerName={center} levels={levels} features={features} types={membershipTypes} moduleNotes={moduleNotes} />
+        <AreasCard
+          centerName={center}
+          levels={levels}
+          features={features}
+          types={membershipTypes}
+          moduleNotes={moduleNotes}
+          streamWord={streamLower}
+          schoolName={kindTerm(session.kind, "school", "") || null}
+        />
         <LevelsCard centerName={center} levels={levels} features={features} types={membershipTypes} />
       </BlockGrid>
     </>

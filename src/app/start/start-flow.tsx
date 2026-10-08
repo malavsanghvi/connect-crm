@@ -182,7 +182,7 @@ function PhoneStep({ initial }: { initial: string | null }) {
       {!sentTo ? (
         <label className={label}>
           Mobile number
-          <input name="phone" type="tel" autoComplete="tel" autoFocus value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="(713) 555-0142" className={onboardingInputClass} />
+          <input name="phone" type="tel" autoComplete="tel" autoFocus value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="(212) 555-0123" className={onboardingInputClass} />
         </label>
       ) : (
         <>

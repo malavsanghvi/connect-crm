@@ -5,6 +5,8 @@ import { BlockGrid, Card, EmptyState, NoAccess, PageHeader, QueryError } from "@
 import { storeRules } from "@/lib/center-rules";
 import { formatDate, formatDateTime } from "@/lib/dates";
 import { formatTimeRange } from "@/lib/local-time";
+import { kindTerm } from "@/lib/kind";
+import { kindTitle } from "@/lib/kind-title";
 import { canAccess } from "@/lib/permissions";
 import { getSession } from "@/lib/session";
 
@@ -12,16 +14,18 @@ import { saveCategoryAction } from "../actions";
 import { ItemForm, MenuTable, StoreSettingsForm, WindowForm } from "./menu-forms";
 import { loadCustomFieldDefs, withCustomValues } from "@/lib/data/custom-fields";
 
-export const metadata: Metadata = { title: "Menu & pickup · Satvik Store" };
+export const generateMetadata = (): Promise<Metadata> => kindTitle((k) => `Menu & pickup · ${kindTerm(k, "store", "Satvik Store")}`, "Menu & pickup · Satvik Store");
 
 export default async function StoreMenuPage() {
   const session = await getSession();
-  const header = <PageHeader title="Satvik Store" description="What members see in the store, how orders are cut off and picked up" />;
+  // The store is "Satvik Store" for a Jain Center; any other kind names its own.
+  const storeName = kindTerm(session.kind, "store", "Satvik Store");
+  const header = <PageHeader title={storeName} description="What members see in the store, how orders are cut off and picked up" />;
   if (!canAccess(session, "store")) {
     return (
       <>
         {header}
-        <NoAccess area="The Satvik Store menu" access="store" />
+        <NoAccess area={`The ${storeName} menu`} access="store" />
       </>
     );
   }

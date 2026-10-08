@@ -7,7 +7,7 @@ import { personNames } from "@/lib/data/content-comms";
 import { formatDate } from "@/lib/dates";
 import { readPublicEnv } from "@/lib/env";
 import { getSession } from "@/lib/session";
-import { LEADER_BODIES, publicObjectUrl } from "@/lib/setup";
+import { leaderBodiesFor, publicObjectUrl } from "@/lib/setup";
 
 import { uploadLeaderPhotoAction, saveLeaderAction } from "../actions";
 import { SetupHeader, setupGate } from "../_components/setup-ui";
@@ -28,9 +28,10 @@ export default async function LeadersPage() {
     .eq("center_id", center.id)
     .order("sort")
     .order("full_name");
+  const bodies = leaderBodiesFor(session.kind);
   const addButton = (
     <DrawerForm label="Add leader" kicker="Leaders" title="Add a leader" action={saveLeaderAction} submitLabel="Add leader">
-      <LeaderFields leader={null} />
+      <LeaderFields leader={null} bodies={bodies} />
     </DrawerForm>
   );
   if (res.error) {
@@ -97,7 +98,7 @@ export default async function LeadersPage() {
                       </td>
                       <td className="font-bold">{l.full_name}</td>
                       <td>{l.title}</td>
-                      <td>{LEADER_BODIES.find((b) => b.value === l.body)?.label ?? l.body}</td>
+                      <td>{bodies.find((b) => b.value === l.body)?.label ?? l.body}</td>
                       <td className="text-[12px]">
                         {l.term_start ? formatDate(l.term_start, center.time_zone) : "—"} – {l.term_end ? formatDate(l.term_end, center.time_zone) : "ongoing"}
                         {ended ? <span className="ml-1 font-semibold text-faint">(ended)</span> : null}
@@ -126,7 +127,7 @@ export default async function LeadersPage() {
                             </ActionForm>
                           }
                         >
-                          <LeaderFields leader={view} />
+                          <LeaderFields leader={view} bodies={bodies} />
                         </DrawerForm>
                       </td>
                     </tr>

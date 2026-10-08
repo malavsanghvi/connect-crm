@@ -15,6 +15,10 @@
 // free; "Generate another" picks a new seed (and costs again). The organizer
 // sees the price before anything is asked for.
 
+// Relative imports: the background service (worker/) imports this file and does not know the "@/" alias.
+import { kindHas } from "../kind";
+import type { KindLike } from "../wording";
+
 // ── Occasions ────────────────────────────────────────────────────────────────
 
 export type FlyerOccasion = "garba" | "paryushan" | "diwali" | "mahavir" | "convention" | "pathshala" | "bhakti" | "general";
@@ -29,6 +33,15 @@ export const FLYER_OCCASION_LABEL: Record<FlyerOccasion, string> = {
   bhakti: "Bhakti / music",
   general: "General",
 };
+
+/**
+ * The occasions a poster can be drawn for. A kind with a tradition pack has all of them; any other kind (a chamber, a club,
+ * a neutral organization) is offered the general and the convention packs, plus the one a poster already has.
+ */
+export function flyerOccasionsFor(kind: KindLike, current?: FlyerOccasion): readonly FlyerOccasion[] {
+  if (kindHas(kind, "tradition")) return FLYER_OCCASIONS;
+  return FLYER_OCCASIONS.filter((o) => o === "convention" || o === "general" || o === current);
+}
 
 export function isFlyerOccasion(v: unknown): v is FlyerOccasion {
   return typeof v === "string" && (FLYER_OCCASIONS as readonly string[]).includes(v);

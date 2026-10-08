@@ -4,8 +4,9 @@ import Link from "next/link";
 import { ActionForm } from "@/components/action-form";
 import { BlockGrid, buttonClass, Card, EmptyState, NoAccess, PageHeader, QueryError, TableWrap } from "@/components/ui";
 import { DrawerForm } from "@/components/drawer-form";
-import { feedHost, feedStatusLine, LAYER_KINDS, layerDefault, layerOwner, layerSource, sortLayers, TRADITION_LABEL } from "@/lib/calendar";
+import { feedHost, feedStatusLine, layerDefault, layerKindsFor, layerOwner, layerSource, layerVisibleFor, sortLayers, TRADITION_LABEL } from "@/lib/calendar";
 import { addDays, formatDate, formatDateTime, formatMonth, todayInTz } from "@/lib/dates";
+import { kindHas } from "@/lib/kind";
 import { canAccess } from "@/lib/permissions";
 import { param, type RawSearchParams } from "@/lib/search-params";
 import { getSession } from "@/lib/session";
@@ -56,7 +57,9 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
   ]);
   if (centerRow.error) console.error("[calendar] center tradition unavailable:", centerRow.error);
   const tradition = centerRow.data?.tradition ?? null;
-  const layers = sortLayers(layersRes.data ?? []);
+  // A kind without a tradition pack has no tithi (panchang) layer or table; a kind without Pathshala has no Pathshala layer.
+  const pack = kindHas(session.kind, "tradition");
+  const layers = sortLayers(layersRes.data ?? []).filter((l) => layerVisibleFor(session.kind, l.kind));
   const mine = layers.filter((l) => l.center_id === center.id);
   const entries =
     mine.length > 0
@@ -112,7 +115,7 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
                     Kind of dates
                   </label>
                   <select id="nl-kind" name="kind" defaultValue="custom" className="crm-input">
-                    {LAYER_KINDS.map((k) => (
+                    {layerKindsFor(session.kind).map((k) => (
                       <option key={k.kind} value={k.kind}>
                         {k.label}
                       </option>
@@ -168,7 +171,7 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
                         {l.color ? <span aria-hidden className="mr-1.5 inline-block h-2.5 w-2.5 rounded-full align-middle" style={{ background: l.color }} /> : null}
                         {l.name}
                       </td>
-                      <td>{l.feed_subscribed ? `Calendar link · ${feedHost(l.source_url)}` : layerSource(l, tradition)}</td>
+                      <td>{l.feed_subscribed ? `Calendar link · ${feedHost(l.source_url)}` : layerSource(l, tradition, session.kind)}</td>
                       <td className="max-w-[280px]">
                         {(() => {
                           const st = feedStatusLine(l, (iso) => formatDateTime(iso, tz));
@@ -303,59 +306,61 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
           </Card>
         ) : null}
 
-        <Card
-          span={12}
-          title={`Tithi days · ${formatMonth(monthStart)}`}
-          description={`Panchang for ${TRADITION_LABEL[tradition ?? ""] ?? "your tradition"} · your center's own rows override the shared table`}
-          actions={
-            <>
-              <Link href={`/calendar?month=${prevMonth}`} scroll={false} className={buttonClass("ghost", "sm")}>
-                Previous month
-              </Link>
-              <Link href={`/calendar?month=${nextMonth}`} scroll={false} className={buttonClass("ghost", "sm")}>
-                Next month
-              </Link>
-            </>
-          }
-          padded={false}
-        >
-          {tithiRes.error ? (
-            <div className="p-2">
-              <QueryError what="tithi days" error={tithiRes.error} retryHref="/calendar" />
-            </div>
-          ) : tithiRows.length === 0 ? (
-            <EmptyState title="No tithi days loaded for this month">The Panchang source is configured in Settings › Integrations.</EmptyState>
-          ) : (
-            <TableWrap>
-              <table className="crm-table">
-                <thead>
-                  <tr>
-                    <th>Date</th>
-                    <th>Tithi</th>
-                    <th>Month</th>
-                    <th>Parva</th>
-                    <th>Notes</th>
-                    <th>Source</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {tithiRows.map((t) => (
-                    <tr key={t.id} data-highlight={t.gregorian === today ? "" : undefined}>
-                      <td className="whitespace-nowrap">{formatDate(t.gregorian, tz)}</td>
-                      <td className="font-bold">{t.tithi}</td>
-                      <td>
-                        {t.month_name} {t.paksha === "sud" ? "Sud" : "Vad"}
-                      </td>
-                      <td>{t.is_parva ? <span className="cc-status-warn">Parva</span> : "—"}</td>
-                      <td className="text-muted">{t.notes ?? "—"}</td>
-                      <td className="text-xs text-muted">{t.center_id ? "This center" : "Shared"}</td>
+        {pack ? (
+          <Card
+            span={12}
+            title={`Tithi days · ${formatMonth(monthStart)}`}
+            description={`Panchang for ${TRADITION_LABEL[tradition ?? ""] ?? "your tradition"} · your center's own rows override the shared table`}
+            actions={
+              <>
+                <Link href={`/calendar?month=${prevMonth}`} scroll={false} className={buttonClass("ghost", "sm")}>
+                  Previous month
+                </Link>
+                <Link href={`/calendar?month=${nextMonth}`} scroll={false} className={buttonClass("ghost", "sm")}>
+                  Next month
+                </Link>
+              </>
+            }
+            padded={false}
+          >
+            {tithiRes.error ? (
+              <div className="p-2">
+                <QueryError what="tithi days" error={tithiRes.error} retryHref="/calendar" />
+              </div>
+            ) : tithiRows.length === 0 ? (
+              <EmptyState title="No tithi days loaded for this month">The Panchang source is configured in Settings › Integrations.</EmptyState>
+            ) : (
+              <TableWrap>
+                <table className="crm-table">
+                  <thead>
+                    <tr>
+                      <th>Date</th>
+                      <th>Tithi</th>
+                      <th>Month</th>
+                      <th>Parva</th>
+                      <th>Notes</th>
+                      <th>Source</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </TableWrap>
-          )}
-        </Card>
+                  </thead>
+                  <tbody>
+                    {tithiRows.map((t) => (
+                      <tr key={t.id} data-highlight={t.gregorian === today ? "" : undefined}>
+                        <td className="whitespace-nowrap">{formatDate(t.gregorian, tz)}</td>
+                        <td className="font-bold">{t.tithi}</td>
+                        <td>
+                          {t.month_name} {t.paksha === "sud" ? "Sud" : "Vad"}
+                        </td>
+                        <td>{t.is_parva ? <span className="cc-status-warn">Parva</span> : "—"}</td>
+                        <td className="text-muted">{t.notes ?? "—"}</td>
+                        <td className="text-xs text-muted">{t.center_id ? "This center" : "Shared"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </TableWrap>
+            )}
+          </Card>
+        ) : null}
       </BlockGrid>
     </>
   );

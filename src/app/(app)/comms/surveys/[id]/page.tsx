@@ -7,6 +7,7 @@ import { RowActions } from "@/components/row-actions";
 import type { SurveyQuestion } from "@/lib/survey/questions";
 import { Card, EmptyState, NoAccess, PageHeader, QueryError, StatusText, TableWrap } from "@/components/ui";
 import { audienceOptions, personNames } from "@/lib/data/content-comms";
+import { kindSchool } from "@/lib/kind";
 import { formatDateTime, isoToLocalDateTime } from "@/lib/dates";
 import { canAccess } from "@/lib/permissions";
 import { isUuid } from "@/lib/search-params";
@@ -45,7 +46,7 @@ export default async function SurveyPage({ params }: { params: Promise<{ id: str
   const [s, responses, opts] = await Promise.all([
     db.from("surveys").select("*").eq("id", id).maybeSingle(),
     db.from("survey_responses").select("*").eq("survey_id", id).order("submitted_at", { ascending: false }).limit(500),
-    audienceOptions(db, center.id),
+    audienceOptions(db, center.id, kindSchool(session.kind)),
   ]);
   if (s.error) {
     return (

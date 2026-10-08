@@ -5,12 +5,13 @@ import { ActionForm } from "@/components/action-form";
 import { HistoryButton } from "@/components/record-history";
 import { Alert, Badge, BlockGrid, Card, EmptyState, NoAccess, PageHeader, QueryError, TableWrap, Tabs, buttonClass } from "@/components/ui";
 import { identifierRules } from "@/lib/center-rules";
-import { ENTITLEMENT_GROUPS, rightsCount, rolePermissions, unknownPermissions } from "@/lib/entitlements";
+import { entitlementGroupsFor, rightsCount, rolePermissions, unknownPermissions } from "@/lib/entitlements";
 import { userNames } from "@/lib/data/lookups";
 import { formatDate, todayInTz } from "@/lib/dates";
 import { canAccess, isGrantActive } from "@/lib/permissions";
 import { hrefWith, param, type RawSearchParams } from "@/lib/search-params";
 import { CC_FIRST_ADMIN_REASON, isFirstSecondAdminGrant } from "@/lib/security";
+import { loadRoleFilter } from "@/lib/role-tags";
 import { getSession } from "@/lib/session";
 
 import { approveGrantAction, revokeGrantAction } from "./actions";
@@ -62,8 +63,12 @@ export default async function RolesPage({ searchParams }: { searchParams: Promis
       </>
     );
   }
-  const roles = rolesRes.data ?? [];
-  const roleName = new Map(roles.map((r) => [r.key, r.name]));
+  // Roles of a part this kind of organization does not have (a boli recorder in a chamber) are not offered; a role someone
+  // already holds is still named where it is held.
+  const listed = await loadRoleFilter(db, session.kind.key);
+  const allRoles = rolesRes.data ?? [];
+  const roleName = new Map(allRoles.map((r) => [r.key, r.name]));
+  const roles = allRoles.filter((r) => listed(r.key));
   const now = new Date();
   // Finance and admin roles wait for a second person (status 'pending', starts_at 'infinity') until approved.
   const isPending = (g: { status: string; ends_at: string | null }) => g.status === "pending" && (g.ends_at === null || new Date(g.ends_at) > now);
@@ -148,7 +153,7 @@ export default async function RolesPage({ searchParams }: { searchParams: Promis
           {selected ? (
             <>
               <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 xl:grid-cols-3">
-                {ENTITLEMENT_GROUPS.filter((g) => g.name !== "Platform" || wildcard).map((g) => (
+                {entitlementGroupsFor(session.kind).filter((g) => g.name !== "Platform" || wildcard).map((g) => (
                   <section key={g.name} className="rounded-[12px] bg-ground px-3 py-2.5" aria-label={g.name}>
                     <p className="cc-section">{g.name.toUpperCase()}</p>
                     <ul className="mt-1.5 flex flex-col gap-1.5">

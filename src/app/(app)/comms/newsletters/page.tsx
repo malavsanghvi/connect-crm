@@ -5,6 +5,7 @@ import { RowActions } from "@/components/row-actions";
 import { BlockGrid, Card, EmptyState, QueryError, StatusText, TableWrap } from "@/components/ui";
 import { campaignStatusLabel, campaignStatusTone, describeAudience, openRate, refCode } from "@/lib/comms";
 import { audienceOptions } from "@/lib/data/content-comms";
+import { kindSchool } from "@/lib/kind";
 import { userNames } from "@/lib/data/lookups";
 import { formatDate } from "@/lib/dates";
 import { canAccess } from "@/lib/permissions";
@@ -29,7 +30,7 @@ export default async function NewslettersPage() {
 
   const [campaigns, opts] = await Promise.all([
     db.from("comms_campaigns").select("*").eq("center_id", center.id).neq("kind", "alert").order("created_at", { ascending: false }).limit(100),
-    audienceOptions(db, center.id),
+    audienceOptions(db, center.id, kindSchool(session.kind)),
   ]);
   const list = campaigns.data ?? [];
   const people = await userNames(db, center.id, list.map((c) => c.created_by));

@@ -575,6 +575,23 @@ export function formatClock(time: string | null | undefined): string | null {
   return `${h12}:${min} ${suffix}`;
 }
 
+/** The cards of the Media library in the kind's words: a kind without a tradition pack has songs where a Jain Center has stavans. */
+export function mediaCopyFor(pack: boolean): { sub: string; stavan: { title: string; label: string; description: string; add: string; empty: string }; video: string; recipe: string } {
+  return pack
+    ? {
+        sub: "Stavans, videos, podcasts and recipes members find in the member app's 3L (Look, Listen, Learn)",
+        stavan: { title: "Stavans", label: "Stavan", description: "Devotional songs and their lyrics · 3L › Listen", add: "Add stavan", empty: "No stavans yet" },
+        video: "Talks, pravachans and how-tos · 3L › Look. Files up to 50 MB; put bigger videos on YouTube and paste the link.",
+        recipe: "Jain recipes · 3L › Look and the Home shortcut “Jain recipe” (fully Jain recipes only)",
+      }
+    : {
+        sub: "Music, videos, podcasts and recipes members find in the member app's 3L (Look, Listen, Learn)",
+        stavan: { title: "Music", label: "Song", description: "Songs and their lyrics · 3L › Listen", add: "Add song", empty: "No songs yet" },
+        video: "Talks and how-tos · 3L › Look. Files up to 50 MB; put bigger videos on YouTube and paste the link.",
+        recipe: "Recipes · 3L › Look",
+      };
+}
+
 /** Practices with no clock time are relative to the sun (Navkarsi, Chauvihar) or "anytime". */
 export function practiceDefaultTime(p: { key: string; default_time: string | null }): string {
   const clock = formatClock(p.default_time);

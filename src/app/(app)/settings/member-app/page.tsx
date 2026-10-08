@@ -5,7 +5,7 @@ import { ActionForm } from "@/components/action-form";
 import { CopyButton } from "@/components/copy-button";
 import { BlockGrid, Card, NoAccess, PageHeader, QueryError, buttonClass } from "@/components/ui";
 import { formatDate } from "@/lib/dates";
-import { HOME_SHORTCUTS, homeShortcutRows, type HomeShortcutKey } from "@/lib/home-shortcuts";
+import { HOME_SHORTCUTS, homeShortcutOpens, homeShortcutRows, homeShortcutsMissingFor, type HomeShortcutKey } from "@/lib/home-shortcuts";
 import { isModuleEnabled, moduleLabelFor } from "@/lib/modules";
 import { canAccess } from "@/lib/permissions";
 import { getSession } from "@/lib/session";
@@ -48,8 +48,20 @@ export default async function MemberAppSettingsPage() {
   for (const s of HOME_SHORTCUTS) {
     if (s.module && !isModuleEnabled(session, s.module)) moduleNotes[s.key] = `${moduleLabelFor(s.module)} is switched off (Settings › Modules), so members do not see this shortcut.`;
   }
+  // A shortcut this kind of organization never has (Learn without Gyan Path, the Jain recipe without a tradition pack) is
+  // not listed; whatever is stored for it goes back unchanged when the list is saved.
+  const missing = homeShortcutsMissingFor(session.kind);
+  const allRows = homeShortcutRows(center.rules);
   const homeShortcuts = (
-    <HomeShortcutsCard initial={homeShortcutRows(center.rules)} version={rulesVersion(center.rules)} centerName={name} moduleNotes={moduleNotes} canEdit />
+    <HomeShortcutsCard
+      initial={allRows.filter((r) => !missing.includes(r.key))}
+      kept={allRows.filter((r) => r.on && missing.includes(r.key)).map((r) => r.key)}
+      opens={Object.fromEntries(HOME_SHORTCUTS.map((s) => [s.key, homeShortcutOpens(s.key, session.kind)])) as Record<HomeShortcutKey, string>}
+      version={rulesVersion(center.rules)}
+      centerName={name}
+      moduleNotes={moduleNotes}
+      canEdit
+    />
   );
 
   const res = await session.db

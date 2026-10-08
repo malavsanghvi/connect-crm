@@ -3,11 +3,13 @@
 import Link from "next/link";
 import { useId, useState, useTransition, type FormEvent } from "react";
 
+import { KindPicker } from "@/components/kind-picker";
 import { useStepUp } from "@/components/step-up";
 import { useToast } from "@/components/toast";
 import { StatusText, buttonClass } from "@/components/ui";
 import type { ActionResult } from "@/lib/errors";
-import { ORG_TYPES, suggestSlug } from "@/lib/platform-onboarding";
+import type { Experience } from "@/lib/experiences";
+import { suggestSlug } from "@/lib/platform-onboarding";
 import { baseSlug, invitationEmailText, sandboxSlug } from "@/lib/platform-sandbox";
 
 import { createSandboxAction, type CreatedSandbox } from "./actions";
@@ -57,7 +59,7 @@ function Created({ r }: { r: CreatedSandbox }) {
   );
 }
 
-export function NewSandboxForm() {
+export function NewSandboxForm({ experiences }: { experiences: Experience[] }) {
   const id = useId();
   const toast = useToast();
   const stepUp = useStepUp();
@@ -66,6 +68,7 @@ export function NewSandboxForm() {
   const [slugTouched, setSlugTouched] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [created, setCreated] = useState<CreatedSandbox | null>(null);
+  const [pickerKey, setPickerKey] = useState(0);
   const [pending, start] = useTransition();
   const shownSlug = slugTouched ? slug : suggestSlug(name);
 
@@ -77,7 +80,7 @@ export function NewSandboxForm() {
     const input = {
       name: s("name"),
       slug: s("slug"),
-      orgType: s("org_type"),
+      experience: s("experience"),
       city: s("city"),
       state: s("state"),
       ownerFirstName: s("owner_first_name"),
@@ -99,6 +102,7 @@ export function NewSandboxForm() {
         setCreated(res.data);
         toast?.show(res.message ?? "Sandbox created", "ok");
         form.reset();
+        setPickerKey((k) => k + 1);
         setName("");
         setSlug("");
         setSlugTouched(false);
@@ -116,7 +120,7 @@ export function NewSandboxForm() {
           <label htmlFor={`${id}-name`} className="crm-label">
             Organization name
           </label>
-          <input id={`${id}-name`} name="name" className="crm-input" autoComplete="off" value={name} onChange={(e) => setName(e.target.value)} placeholder="Jain Center of Dallas" />
+          <input id={`${id}-name`} name="name" className="crm-input" autoComplete="off" value={name} onChange={(e) => setName(e.target.value)} placeholder="Name of the organization" />
         </div>
         <div>
           <label htmlFor={`${id}-slug`} className="crm-label">
@@ -137,17 +141,12 @@ export function NewSandboxForm() {
             {shownSlug ? `Created as ${sandboxSlug(shownSlug)}; "${baseSlug(shownSlug)}" is kept for production.` : "Lowercase letters, numbers and dashes."}
           </p>
         </div>
-        <div>
-          <label htmlFor={`${id}-type`} className="crm-label">
-            Kind of organization
-          </label>
-          <select id={`${id}-type`} name="org_type" className="crm-input" defaultValue="temple">
-            {ORG_TYPES.map((t) => (
-              <option key={t.value} value={t.value}>
-                {t.label}
-              </option>
-            ))}
-          </select>
+        <div className="sm:col-span-2">
+          <KindPicker key={pickerKey} experiences={experiences} includeInactive name="experience" />
+          <p className="crm-hint">
+            This is the only choice that shapes the sandbox: its modules, wording and setup checklist follow from the kind of organization. A kind marked
+            &quot;preview&quot; can be tried in a sandbox but cannot go live yet.
+          </p>
         </div>
         <div>
           <label htmlFor={`${id}-city`} className="crm-label">

@@ -8,12 +8,14 @@ import {
   MEDIA_KINDS,
   MEDIA_LANGUAGES,
   MEDIA_SOURCE_LABEL,
+  mediaCopyFor,
   mediaSourceOf,
   metaList,
   PLAYLIST_KINDS,
   type MediaKind,
 } from "@/lib/content";
 import { readPublicEnv } from "@/lib/env";
+import { kindHas } from "@/lib/kind";
 import { can, canAccess } from "@/lib/permissions";
 import { getSession } from "@/lib/session";
 
@@ -52,6 +54,13 @@ const CARDS: { kind: MediaKind; title: string; label: string; description: strin
   { kind: "recipe", title: "Recipes", label: "Recipe", description: "Jain recipes · 3L › Look and the Home shortcut “Jain recipe” (fully Jain recipes only)", add: "Add recipe", empty: "No recipes yet" },
 ];
 
+/** The cards in this kind's words: no stavans or "Jain recipes" where the kind has no tradition pack. */
+function cardsFor(pack: boolean): typeof CARDS {
+  if (pack) return CARDS;
+  const w = mediaCopyFor(false);
+  return CARDS.map((c) => (c.kind === "stavan" ? { ...c, ...w.stavan } : c.kind === "video" ? { ...c, description: w.video } : c.kind === "recipe" ? { ...c, description: w.recipe } : c));
+}
+
 function meta(r: Row): Record<string, unknown> {
   return r.metadata && typeof r.metadata === "object" && !Array.isArray(r.metadata) ? (r.metadata as Record<string, unknown>) : {};
 }
@@ -78,13 +87,15 @@ function recipeTime(m: Record<string, unknown>): string {
 
 export default async function MediaLibraryPage() {
   const session = await getSession();
-  const gate = contentGate(session, SUB);
+  const pack = kindHas(session.kind, "tradition");
+  const cards = cardsFor(pack);
+  const gate = contentGate(session, pack ? SUB : mediaCopyFor(false).sub);
   if (gate) return gate;
   const { db, center } = session;
   const canDraft = canAccess(session, "contentDraft");
   const canManage = can(session, "content.manage");
   const env = readPublicEnv();
-  const permissions: MediaPermissions = { canUpload: canManage, canManage, apiKey: env.ok ? env.env.supabaseAnonKey : null };
+  const permissions: MediaPermissions = { canUpload: canManage, canManage, apiKey: env.ok ? env.env.supabaseAnonKey : null, neutral: !pack };
 
   const res = await db
     .from("content_items")
@@ -168,7 +179,7 @@ export default async function MediaLibraryPage() {
 
   return (
     <>
-      <ContentHeader sub={SUB} />
+      <ContentHeader sub={pack ? SUB : mediaCopyFor(false).sub} />
       {res.error ? (
         <div className="mb-4">
           <QueryError what="the media library" error={res.error} retryHref="/content/media" />
@@ -184,13 +195,13 @@ export default async function MediaLibraryPage() {
       ) : null}
       {canDraft && !canManage ? (
         <div className="mb-4">
-          <Alert tone="info" title="You can add stavans, videos, podcasts and recipes as drafts">
+          <Alert tone="info" title={`You can add ${pack ? "stavans" : "songs"}, videos, podcasts and recipes as drafts`}>
             Uploading files and changing published items need content.manage. Paste a YouTube or web link instead, or save the draft and ask a content manager
             to upload the file. Drafts go to the Approval queue when you send them for approval.
           </Alert>
         </div>
       ) : null}
-      {CARDS.map((card) => {
+      {cards.map((card) => {
         const list = rows.filter((r) => r.kind === card.kind);
         const playlists = PLAYLIST_KINDS.includes(card.kind);
         return (
@@ -212,7 +223,7 @@ export default async function MediaLibraryPage() {
                       <th>Title</th>
                       {card.kind === "recipe" ? (
                         <>
-                          <th>Fully Jain</th>
+                          {pack ? <th>Fully Jain</th> : null}
                           <th>Time</th>
                           <th>Photo</th>
                         </>
@@ -240,7 +251,7 @@ export default async function MediaLibraryPage() {
                           </td>
                           {r.kind === "recipe" ? (
                             <>
-                              <td>{m.fully_jain === true ? <StatusText tone="ok">Fully Jain</StatusText> : "No"}</td>
+                              {pack ? <td>{m.fully_jain === true ? <StatusText tone="ok">Fully Jain</StatusText> : "No"}</td> : null}
                               <td className="whitespace-nowrap">{recipeTime(m)}</td>
                               <td>{text(m.photo_path) ? "Photo" : <StatusText tone="warn">No photo</StatusText>}</td>
                             </>

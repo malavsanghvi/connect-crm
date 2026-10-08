@@ -6,7 +6,7 @@ import { isPlainObject } from "@/lib/center-rules";
 import { userNames } from "@/lib/data/lookups";
 import { formatDateTime } from "@/lib/dates";
 import { getSession } from "@/lib/session";
-import { DOCUMENT_KINDS, documentKindLabel, ENTITY_TYPES, VERIFICATION_LABEL, verificationBlockers } from "@/lib/setup";
+import { DOCUMENT_KINDS, documentKindLabel, entityTypesFor, VERIFICATION_LABEL, verificationBlockers } from "@/lib/setup";
 
 import { saveLegalIdentityAction, submitVerificationAction, uploadOrgDocumentAction } from "../actions";
 import { SetupHeader, setupGate } from "../_components/setup-ui";
@@ -109,7 +109,7 @@ export default async function OrganizationPage() {
                   <option value="" disabled>
                     Choose…
                   </option>
-                  {ENTITY_TYPES.map((e) => (
+                  {entityTypesFor(session.kind).map((e) => (
                     <option key={e.value} value={e.value}>
                       {e.label}
                     </option>

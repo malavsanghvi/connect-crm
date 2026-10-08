@@ -2,15 +2,23 @@ import type { Metadata } from "next";
 
 import { ActionForm } from "@/components/action-form";
 import { Card, EmptyState, NoAccess, PageHeader, QueryError, TableWrap, buttonClass } from "@/components/ui";
-import { publicKpiLabel } from "@/lib/community-dashboard";
+import { dashboardTitles, kpiOfferedFor, publicKpiLabelFor } from "@/lib/community-dashboard";
+import { kindHas } from "@/lib/kind";
 import { canAccess } from "@/lib/permissions";
 import { getSession } from "@/lib/session";
+import type { KindLike } from "@/lib/wording";
 
 import { setKpiVisibilityAction } from "./actions";
 
 export const metadata: Metadata = { title: "Community dashboard" };
 
 const SECTION: Record<string, string> = { summary: "Summary", practice: "Practicing together", learning: "Pathshala and learning", seva: "Seva", charts: "Charts" };
+
+/** The section names in the organization's kind's words (a Jain Center keeps the names above). */
+function sectionName(kind: KindLike, key: string): string | undefined {
+  const t = dashboardTitles(kind);
+  return key === "practice" ? t.practice : key === "learning" ? t.learning : key === "seva" ? (kindHas(kind, "tradition") ? "Seva" : "Volunteering") : SECTION[key];
+}
 
 export default async function CommunityDashboardSettingsPage() {
   const session = await getSession();
@@ -37,7 +45,8 @@ export default async function CommunityDashboardSettingsPage() {
   }
   const canPublish = canAccess(session, "publicKpisManage");
   const res = await db.rpc("public_kpi_catalog", { p_center: center.id });
-  const rows = res.data ?? [];
+  // KPIs of modules this kind of organization never has (Pathshala, My Jain Way, the store) are not offered for publishing.
+  const rows = (res.data ?? []).filter((r) => kpiOfferedFor(session.kind, r.kpi_key));
   const membersOnly = rows.filter((r) => r.visibility !== "public").length;
 
   return (
@@ -68,11 +77,11 @@ export default async function CommunityDashboardSettingsPage() {
               <tbody>
                 {rows.map((k) => {
                   const pub = k.visibility === "public";
-                  const label = publicKpiLabel(k.kpi_key) ?? k.label;
+                  const label = publicKpiLabelFor(session.kind, k.kpi_key) ?? k.label;
                   return (
                     <tr key={k.kpi_key}>
                       <td className="font-bold">{label}</td>
-                      <td className="text-muted">{SECTION[k.section] ?? k.section}</td>
+                      <td className="text-muted">{sectionName(session.kind, k.section) ?? k.section}</td>
                       <td className={`font-bold ${pub ? "text-success" : "text-faint"}`}>{pub ? "Public" : "Members only"}</td>
                       {canPublish ? (
                         <td>
