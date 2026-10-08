@@ -5,7 +5,7 @@ import Link from "next/link";
 import { WeaverMark } from "@/components/brand/weaver-mark";
 import { TenantMark } from "@/components/shell/tenant-mark";
 import { SetupScreen } from "@/components/setup-screen";
-import { PRODUCT_NAME } from "@/lib/brand";
+import { GENEROSITY_LINE, PRODUCT_NAME } from "@/lib/brand";
 import { centerMissingHint } from "@/lib/session";
 import { portalBaseDomain, resolveCenterChoice, type CenterChoice } from "@/lib/center-resolve";
 import { isCenterSlugPinned, readPublicEnv } from "@/lib/env";
@@ -95,6 +95,7 @@ export default async function LoginPage({
             ? "Run your members, events, giving and communications in one place. You see only what your role allows."
             : `Run households, memberships, giving and accounting for ${community} in one place. You see only what your role allows.`}
         </p>
+        {neutral ? <p className="text-[15px] font-bold text-gold">{GENEROSITY_LINE}</p> : null}
         <div className="hidden flex-grow lg:block" />
         <p className="text-[13px] leading-relaxed text-navy-200">
           Every change to a record — payments, approvals, role grants — is kept in a tamper-evident audit log.

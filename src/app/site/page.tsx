@@ -6,11 +6,12 @@ import { DashboardMock, EventMock, FloatChip, GivingMock, HouseholdMock, Learnin
 import { ProductTour } from "@/components/site/product-tour";
 import { FaqList, IconTile, SectionHeading, SiteLink, Ticks, buttonStyles, container } from "@/components/site/ui";
 import { WEAVERS, WEAVER_NAMES } from "@/components/site/weavers";
-import { SITE_NAME, TIP_YEARLY_CAP_CENTS, portalUrl, usd } from "@/lib/site";
+import { GENEROSITY_LINE } from "@/lib/brand";
+import { SITE_NAME, SITE_TAGLINE, TIP_YEARLY_CAP_CENTS, portalUrl, usd } from "@/lib/site";
 
 export const metadata: Metadata = {
   // Absolute: the portal's root layout would otherwise add " · Weaver".
-  title: { absolute: `${SITE_NAME}: free membership software for communities` },
+  title: { absolute: SITE_TAGLINE },
   alternates: { canonical: "/" },
 };
 
@@ -20,6 +21,7 @@ export default function HomePage() {
   return (
     <>
       <Hero />
+      <Generosity />
       <Integrations />
       <Tour />
       <Bento />
@@ -59,13 +61,13 @@ function Hero() {
               <span aria-hidden className="absolute inset-0 rounded-full bg-success opacity-40 motion-safe:animate-ping" />
               <Icon name="check" className="relative h-3.5 w-3.5 text-white" strokeWidth={3.5} />
             </span>
-            100% free for your organization
+            {GENEROSITY_LINE}
           </span>
           <h1 className="font-display text-[42px] font-semibold leading-[1] tracking-[-0.03em] text-navy sm:text-[68px] lg:text-[80px]">
-            Run your community.{" "}
-            <span className="relative isolate inline-block sm:whitespace-nowrap">
+            AI Native Community Weaver Platform.{" "}
+            <span className="relative isolate inline-block">
               <span aria-hidden className="absolute inset-x-[-6px] bottom-[0.06em] -z-10 h-[0.34em] -skew-x-6 rounded-md bg-gold/80" />
-              Free, forever.
+              Paid Forward Already.
             </span>
           </h1>
           <p className="max-w-[580px] text-lg leading-relaxed text-muted sm:text-[21px] sm:leading-[1.55]">
@@ -124,6 +126,23 @@ function Hero() {
 }
 
 // ── Works alongside ──────────────────────────────────────────────────────────
+
+function Generosity() {
+  return (
+    <section aria-labelledby="generosity-title" className="py-20 sm:py-28">
+      <div className={`${container} flex flex-col items-center gap-6 text-center`}>
+        <span className="rounded-full bg-gold/30 px-3.5 py-1.5 text-[13px] font-bold uppercase tracking-[0.08em] text-brown">{GENEROSITY_LINE}</span>
+        <h2 id="generosity-title" className="font-display text-[34px] font-semibold leading-[1.12] tracking-[-0.02em] text-navy sm:text-[52px]">
+          We believe in people.
+        </h2>
+        <p className="max-w-[640px] text-[20px] leading-relaxed text-muted sm:text-[24px]">
+          We want to do good for each other.{" "}
+          <span className="font-semibold text-navy">So Weaver is made free, for everyone, forever.</span>
+        </p>
+      </div>
+    </section>
+  );
+}
 
 function Integrations() {
   const tools = ["Stripe", "QuickBooks Online", "WhatsApp", "Zelle", "Excel and CSV"];
