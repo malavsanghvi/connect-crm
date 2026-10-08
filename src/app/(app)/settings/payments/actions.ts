@@ -142,7 +142,7 @@ export async function sendPaypalCodeAction(email: string): Promise<PayResult<{ s
     console.error("[settings/payments] the PayPal code was not sent: app.enqueue_message (o-messaging) is not available in this database");
     return {
       ok: false,
-      error: "Could not send the code — email sending isn't set up on Community Connect yet, so no code was made. Use \"Connect with PayPal\" instead, or try again once email sending is set up.",
+      error: "Could not send the code — email sending isn't set up on Weaver yet, so no code was made. Use \"Connect with PayPal\" instead, or try again once email sending is set up.",
     };
   }
   return { ok: true, data: { sent: true }, message: `A 6-digit code was sent to ${e}. It works for 15 minutes.` };
@@ -172,7 +172,7 @@ export async function disconnectAction(processor: string, reason: string): Promi
   const { error } = await db.rpc("disconnect_payment_processor", { p_center: auth.session.center.id, p_processor: processor, p_reason: reason.trim() });
   if (error) return dbFailure(doing, error);
   revalidatePath(PATH);
-  return { ok: true, message: `${PROCESSOR_LABEL[processor]} disconnected. Nothing was deleted; revoke Community Connect's access in the ${PROCESSOR_LABEL[processor]} dashboard too.` };
+  return { ok: true, message: `${PROCESSOR_LABEL[processor]} disconnected. Nothing was deleted; revoke Weaver's access in the ${PROCESSOR_LABEL[processor]} dashboard too.` };
 }
 
 /** The $1 test: a real $1 checkout at the provider (test card in test mode), refunded automatically. */
@@ -244,7 +244,7 @@ export async function setPluginAction(
   const label = name ?? plugin?.label ?? String(key).replace(/_/g, " ");
   const on = enabled === true;
   const doing = change === "rename" ? `save the name and order of ${label}` : `turn ${on ? "on" : "off"} ${label}`;
-  if (!plugin) return { ok: false, error: `Could not ${doing} — that is not a payment method Community Connect offers.` };
+  if (!plugin) return { ok: false, error: `Could not ${doing} — that is not a payment method Weaver offers.` };
   if (name && name.length > 40) return { ok: false, error: `Could not ${doing} — the name members see can be at most 40 characters.` };
   if (sort !== null && (!Number.isInteger(sort) || sort < 0 || sort > 999)) {
     return { ok: false, error: `Could not ${doing} — the order is a whole number from 0 to 999.` };

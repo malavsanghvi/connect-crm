@@ -201,7 +201,7 @@ export function RefundControls({
         canManage ? (
           <ActionForm action={recordPaypalRefundAction} submitLabel="Record the PayPal refund" pendingLabel="Recording…" variant="danger" size="sm">
             <p className="mb-2 text-muted">
-              This PayPal account is connected by email only, so Community Connect cannot refund through it. Refund it in PayPal, then record it here.
+              This PayPal account is connected by email only, so Weaver cannot refund through it. Refund it in PayPal, then record it here.
             </p>
             <input type="hidden" name="id" value={paymentId} />
             <label htmlFor={`ppa-${paymentId}`} className="crm-label">

@@ -2,7 +2,7 @@
 // Setup checklist through the portal in a fresh sandbox — providers mocked — until every
 // go-live readiness check passes and the go-live request succeeds.
 //
-//   1. Request access → a Community Connect admin approves → the contact redeems the code at
+//   1. Request access → a Weaver admin approves → the contact redeems the code at
 //      /start (email code from Mailpit, phone test OTP, authenticator app, sandbox terms).
 //   2. Stage 0 in the UI: legal identity + documents (verified by a second CC admin in
 //      Platform › Verification), profile and brand kit (logo upload, colors), leaders,
@@ -251,7 +251,7 @@ async function run({ browser, S, cc1Id, cc2Id, auditStart }) {
   const issued = drawer.getByTestId('issued-code');
   await issued.waitFor({ timeout: 20000 });
   const code = await issued.locator('[data-code]').getAttribute('data-code');
-  ok(/^CC-SBX-/.test(code || ''), `1 · Community Connect approves and issues a sandbox code (${code})`);
+  ok(/^CC-SBX-/.test(code || ''), `1 · Weaver approves and issues a sandbox code (${code})`);
 
   const rc = await browser.newContext({ viewport: { width: 1440, height: 900 } });
   const rp = await rc.newPage();
@@ -623,7 +623,7 @@ async function phaseGoLive(browser, S) {
   ok(sql(`select status||'|'||requested_by from app.golive_requests where center_id = '${S.sbx}'`) === `requested|${S.ownerId}`, '9 · the go-live request succeeds (requested by the owner)');
   ok(sql(`select jsonb_array_length(readiness) from app.golive_requests where center_id = '${S.sbx}'`) === '14', '9 · the request carries the readiness evidence (14 checks)');
 
-  // The checklist, walked: every required step of a module that is on is done, or waits only on Community Connect.
+  // The checklist, walked: every required step of a module that is on is done, or waits only on Weaver.
   await p.goto(BASE + '/setup', { waitUntil: 'networkidle' });
   await shot(p, '9-checklist-final');
   const steps = await p.locator('tr[data-step]').evaluateAll((rs) => rs.map((r) => [r.getAttribute('data-step'), r.getAttribute('data-status')]));
@@ -631,7 +631,7 @@ async function phaseGoLive(browser, S) {
   console.log('   steps not done (optional or manual):', open.join(', ') || 'none');
   const required = sql(`select string_agg(key, ',') from app.setup_steps where required`).split(',');
   const requiredOpen = open.filter((x) => required.includes(x.split(':')[0]));
-  ok(requiredOpen.length === 0, `9 · every required step of the modules that are on is done (or waits only on Community Connect)${requiredOpen.length ? ': still open ' + requiredOpen.join(', ') : ''}`);
+  ok(requiredOpen.length === 0, `9 · every required step of the modules that are on is done (or waits only on Weaver)${requiredOpen.length ? ': still open ' + requiredOpen.join(', ') : ''}`);
   ok((await p.locator('text=Coming soon').count()) === 0 && (await p.locator('tr[data-step]', { hasText: 'Off-screen' }).count()) === 0,
     '9 · every step links to a working screen (no "Coming soon", no "Off-screen")');
 }
@@ -683,7 +683,7 @@ async function phaseTeam(browser, S) {
     '2 · both accepted and set up 2FA; their roles wait for a second approver (two-person rule)');
 
   // The owner made both grants, so neither the owner nor the grantee may approve them. With no
-  // other administrator yet, Community Connect approves the second administrator (Needs owner decision B5).
+  // other administrator yet, Weaver approves the second administrator (Needs owner decision B5).
   const c2 = await portalSignIn(browser, CC2, 'cc2');
   S.cc2Secret = await enrollInPortal(c2.p);
   await c2.p.goto(BASE + '/', { waitUntil: 'networkidle' });
@@ -694,7 +694,7 @@ async function phaseTeam(browser, S) {
   await confirmModal(c2.p, 'Approve');
   await answerStepUp(c2.p, S.cc2Secret);
   ok(await until(() => sql(`select status from app.role_grants where center_id = '${S.sbx}' and user_id = '${S.second.id}' and role_key = 'center_admin'`) === 'active'),
-    '2 · a Community Connect admin approves the second administrator in the organization\'s Settings › Roles');
+    '2 · a Weaver admin approves the second administrator in the organization\'s Settings › Roles');
   await c2.ctx.close();
 
   // Now the organization runs the two-person rule itself: the second administrator approves the treasurer.
@@ -719,7 +719,7 @@ async function phaseFoundation(browser, S) {
   const png = path.join(OUT, 'logo.png');
   fs.writeFileSync(png, makePng(96, 32, [27, 44, 92]));
 
-  // Legal identity + documents, submitted and verified by Community Connect.
+  // Legal identity + documents, submitted and verified by Weaver.
   await p.goto(BASE + '/setup/organization', { waitUntil: 'networkidle' });
   await p.fill('input[name=legal_name]', `${ORG} Inc`);
   await p.fill('input[name=ein]', '741234567');
@@ -752,7 +752,7 @@ async function phaseFoundation(browser, S) {
   const drawer = cc.p.locator('aside[role=dialog]');
   await drawer.getByRole('button', { name: 'Verify non-profit' }).click();
   await confirmModal(cc.p, 'Verify non-profit');
-  ok(await until(() => sql(`select verification_status from app.org_profiles where center_id = '${S.sbx}'`) === 'verified'), '3 · Community Connect verifies the non-profit (Platform › Verification) — readiness 1');
+  ok(await until(() => sql(`select verification_status from app.org_profiles where center_id = '${S.sbx}'`) === 'verified'), '3 · Weaver verifies the non-profit (Platform › Verification) — readiness 1');
 
   // Profile and brand kit.
   await p.goto(BASE + '/setup/profile', { waitUntil: 'networkidle' });
@@ -816,7 +816,7 @@ if (require.main === module) (async () => {
   sql(`delete from auth.mfa_factors where user_id in (select id from auth.users where email in ('${CC1}','${CC2}'))`);
   const cc1Id = sql(`select id from auth.users where email = '${CC1}'`);
   const cc2Id = sql(`select id from auth.users where email = '${CC2}'`);
-  // Community Connect's own agreement texts must be published for any organization to accept them.
+  // Weaver's own agreement texts must be published for any organization to accept them.
   sql(`update app.legal_documents set published_at = now() - interval '1 minute' where center_id is null and published_at is null and kind in ('org_terms','dpa','children_addendum','sandbox_terms')`);
   sql(`update auth.users set phone = null, phone_confirmed_at = null, phone_change = '', phone_change_token = '' where phone = '${PHONE_DIGITS}' or phone_change = '${PHONE_DIGITS}'`);
   sql(`delete from app.public_rate_events where kind like 'access_request.%' or kind like 'sandbox_code.%'`);
@@ -830,7 +830,7 @@ if (require.main === module) (async () => {
   const worker = spawn(process.execPath, [WORKER_JS], {
     env: { PATH: process.env.PATH, WORKER_DATABASE_URL: `postgres://connect_worker:${workerPw}@${new URL(DB).host}/postgres`, WORKER_ID: `e2e-golive-${RUN}`,
            WORKER_HEALTH_PORT: process.env.WORKER_HEALTH_PORT || '3920', WORKER_POLL_MS: '500', WORKER_HEARTBEAT_MS: '5000',
-           RESEND_API_KEY: 're_mock_golive', RESEND_API_BASE: MOCK, MESSAGING_FROM_ADDRESS: 'hello@communityconnect.test', MESSAGING_FROM_NAME: 'Community Connect',
+           RESEND_API_KEY: 're_mock_golive', RESEND_API_BASE: MOCK, MESSAGING_FROM_ADDRESS: 'hello@communityconnect.test', MESSAGING_FROM_NAME: 'Weaver',
            PORTAL_PUBLIC_URL: RT.PORTAL_PUBLIC_URL || BASE, MESSAGING_LINK_SECRET: RT.MESSAGING_LINK_SECRET || 'x' },
   });
   worker.stdout.on('data', (d) => logs.push(...d.toString().trim().split('\n')));

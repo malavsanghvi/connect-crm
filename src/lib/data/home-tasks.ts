@@ -85,7 +85,7 @@ const loaders: Record<TaskSourceKey, Loader> = {
           flaggedHh.map.get(f.household_id)?.display_name ?? "household"}`,
         f.first_approver
           ? `Approved first by ${f.first_approver === session.userId ? "you" : (f.first_approver_name ?? "a colleague")} · a second, different person approves`
-          : `Refunded outside Community Connect on ${f.receipt_number ?? "a payment"} · nothing changes until two people approve`,
+          : `Refunded outside Weaver on ${f.receipt_number ?? "a payment"} · nothing changes until two people approve`,
         [{ label: "Review", href: "/giving/payments" }],
       ),
     );

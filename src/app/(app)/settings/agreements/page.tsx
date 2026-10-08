@@ -40,10 +40,10 @@ const STATE_TEXT = {
   not_required: { tone: "ok", label: "Not needed here" },
 } as const;
 
-/** Settings › Agreements: Community Connect's agreements with the organization (stream o-security). */
+/** Settings › Agreements: Weaver's agreements with the organization (stream o-security). */
 export default async function AgreementsPage() {
   const session = await getSession();
-  const header = <PageHeader title="Settings" description="The agreements between your organization and Community Connect, accepted by the owner" />;
+  const header = <PageHeader title="Settings" description="The agreements between your organization and Weaver, accepted by the owner" />;
   if (!canAccess(session, "centerSettings")) {
     return (
       <>
@@ -119,7 +119,7 @@ export default async function AgreementsPage() {
                   </p>
                 ) : null}
                 {st === "not_published" ? (
-                  <p className="text-[13px] text-muted">Community Connect has not published this agreement yet. It can be accepted once it is.</p>
+                  <p className="text-[13px] text-muted">Weaver has not published this agreement yet. It can be accepted once it is.</p>
                 ) : null}
                 {doc?.published_at ? (
                   <details>
@@ -146,7 +146,7 @@ export default async function AgreementsPage() {
           );
         })}
         {session.isPlatformAdmin ? (
-          <Card span={12} title="Community Connect team" description="Only platform admins see this.">
+          <Card span={12} title="Weaver team" description="Only platform admins see this.">
             <p className="text-[13px] text-ink-2">
               {drafts.length > 0 ? `${drafts.length} draft${drafts.length === 1 ? "" : "s"} waiting to be published. ` : ""}Edit the texts and publish new versions on{" "}
               <Link href="/platform/agreements" className="crm-link font-semibold">

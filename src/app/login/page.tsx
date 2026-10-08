@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
 
+import { WeaverMark } from "@/components/brand/weaver-mark";
 import { TenantMark } from "@/components/shell/tenant-mark";
 import { SetupScreen } from "@/components/setup-screen";
 import { PRODUCT_NAME } from "@/lib/brand";
@@ -72,9 +73,7 @@ export default async function LoginPage({
           {tenant ? (
             <TenantMark branding={tenant.branding} name={tenant.name} size={58} />
           ) : (
-            <span aria-hidden className="font-display text-2xl font-semibold text-navy">
-              CC
-            </span>
+            <WeaverMark className="h-[54px] w-[54px]" />
           )}
         </div>
         <div>

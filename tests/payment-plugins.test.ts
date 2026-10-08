@@ -102,7 +102,7 @@ describe("paymentPluginConfigProblem mirrors app.payment_plugin_config_problem",
     expect(problem("stock", { details: "x".repeat(601) })).toBe('The "details" field can be at most 600 characters.');
     expect(problem("google_pay", { a: "b" })).toBe("Google Pay has no settings of its own.");
     expect(problem("bank_debit", {})).toBeNull();
-    expect(problem("nope", {})).toBe("That is not a payment method Community Connect offers.");
+    expect(problem("nope", {})).toBe("That is not a payment method Weaver offers.");
     expect(problem("check", ["x"])).toBe("The settings must be a set of fields.");
   });
 
@@ -121,7 +121,7 @@ describe("pluginStatusView", () => {
     expect(pluginStatusView("test_passed", "sandbox").label).toBe("Test passed");
     expect(pluginStatusView("live", "production").label).toBe("Live");
     expect(pluginStatusView("live", "production", "instructions").label).toBe("On");
-    expect(pluginStatusView("suspended", "production")).toEqual({ label: "Paused by Community Connect", tone: "danger" });
+    expect(pluginStatusView("suspended", "production")).toEqual({ label: "Paused by Weaver", tone: "danger" });
     expect(pluginStatusView("bogus", "production").label).toBe("Unknown");
   });
 });

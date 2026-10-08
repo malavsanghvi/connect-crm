@@ -56,7 +56,7 @@ function createPlatformMock(opts = {}) {
       if (req.method === 'GET' && tw) {
         const pair = basic(req.headers.authorization);
         if (!pair || !keys.twilio.has(pair) || !pair.startsWith(`${tw[1]}:`)) return send(res, 401, { code: 20003, message: 'Authenticate' });
-        return send(res, 200, { sid: tw[1], friendly_name: 'Community Connect (mock)', status: 'active' });
+        return send(res, 200, { sid: tw[1], friendly_name: 'Weaver (mock)', status: 'active' });
       }
       // Anthropic
       if (req.method === 'POST' && p === '/v1/messages') {
@@ -99,7 +99,7 @@ function createPlatformMock(opts = {}) {
       }
       if (req.method === 'GET' && p === '/server') {
         if (!keys.postmark.has(String(req.headers['x-postmark-server-token'] || ''))) return send(res, 401, { ErrorCode: 10, Message: 'Bad or missing API token' });
-        return send(res, 200, { ID: 1, Name: 'Community Connect (mock)' });
+        return send(res, 200, { ID: 1, Name: 'Weaver (mock)' });
       }
       send(res, 404, { error: `platform mock has no ${req.method} ${p}` });
     });

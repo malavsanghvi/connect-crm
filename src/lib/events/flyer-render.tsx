@@ -452,8 +452,8 @@ export async function renderFlyerPng(
 export async function renderFlyerPdf(png: Uint8Array, title: string): Promise<Uint8Array> {
   const doc = await PDFDocument.create();
   doc.setTitle(title || "Event flyer");
-  doc.setCreator("Community Connect");
-  doc.setProducer("Community Connect");
+  doc.setCreator("Weaver");
+  doc.setProducer("Weaver");
   const img = await doc.embedPng(png);
   const page = doc.addPage([612, 792]);
   page.drawImage(img, { x: 0, y: 0, width: 612, height: 792 });

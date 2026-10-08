@@ -69,7 +69,7 @@ describe("messaging.send", () => {
     expect(results(calls)[0]).toEqual(["m1", "sent", "resend", m.id, null, null]);
   });
 
-  it("puts the sandbox banner on a sandbox email and uses Community Connect's address without a verified sender", async () => {
+  it("puts the sandbox banner on a sandbox email and uses Weaver's address without a verified sender", async () => {
     const { ctx, j } = ctxWith({ ...base, sandbox: true, subject: "[Sandbox · test data] Hi", channel: "email", to: "t@example.com",
       route: { provider: "postmark", sender: null, footer: null, unsubscribe: false } });
     await send.run(j, ctx);
@@ -77,7 +77,7 @@ describe("messaging.send", () => {
     expect(m.provider).toBe("postmark");
     expect(m.subject).toBe("[Sandbox · test data] Hi");
     expect(String(m.html)).toContain("Sandbox · test data");
-    expect(m.from).toBe('"Jain Society via Community Connect" <no-reply@mail.cc.test>');
+    expect(m.from).toBe('"Jain Society via Weaver" <no-reply@mail.cc.test>');
     expect(m.reply_to).toBe("office@jsh.test");
   });
 
@@ -85,7 +85,7 @@ describe("messaging.send", () => {
     const { ctx, calls, j } = ctxWith({ ...base, channel: "email", to: "p@example.com", route: { provider: "resend", sender: null, unsubscribe: false } }, { RESEND_API_KEY: undefined });
     const err = await send.run(j, ctx).catch((e: unknown) => e);
     expect(err).toBeInstanceOf(NotConfiguredError);
-    expect((err as Error).message).toBe("Email sending (Resend) isn't configured on the Community Connect server yet (RESEND_API_KEY not set)");
+    expect((err as Error).message).toBe("Email sending (Resend) isn't configured on the Weaver server yet (RESEND_API_KEY not set)");
     expect(results(calls)[0]?.[1]).toBe("failed");
   });
 

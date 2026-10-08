@@ -17,7 +17,7 @@ export const metadata: Metadata = { title: "WhatsApp · Settings" };
  * Settings › WhatsApp (ONBOARDING_PLAN §4 Step 1.5): the WhatsApp Business
  * account and number, and the message templates submitted for Meta's approval.
  * These are records with their status: Meta's decisions are recorded by
- * Community Connect when they arrive, never assumed.
+ * Weaver when they arrive, never assumed.
  */
 export default async function WhatsAppSettingsPage() {
   const session = await getSession();

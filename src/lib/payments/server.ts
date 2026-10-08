@@ -58,13 +58,13 @@ export function tokenClient(token: string, clientApp: "member" | "portal", scree
 export function stripeKey(mode: Mode): string {
   if (mode === "live") {
     const k = val("STRIPE_SECRET_KEY");
-    if (!k) throw new NotConfigured("Stripe isn't configured on the Community Connect server yet (STRIPE_SECRET_KEY is not set).");
-    if (/^(sk|rk)_test_/.test(k)) throw new NotConfigured("Stripe live mode needs a live STRIPE_SECRET_KEY on the Community Connect server; the one set is a test key.");
+    if (!k) throw new NotConfigured("Stripe isn't configured on the Weaver server yet (STRIPE_SECRET_KEY is not set).");
+    if (/^(sk|rk)_test_/.test(k)) throw new NotConfigured("Stripe live mode needs a live STRIPE_SECRET_KEY on the Weaver server; the one set is a test key.");
     return k;
   }
   const t = val("STRIPE_TEST_SECRET_KEY") || val("STRIPE_SECRET_KEY");
-  if (!t) throw new NotConfigured("Stripe isn't configured on the Community Connect server yet (STRIPE_TEST_SECRET_KEY is not set).");
-  if (/^(sk|rk)_live_/.test(t)) throw new NotConfigured("Stripe test mode needs STRIPE_TEST_SECRET_KEY on the Community Connect server; only a live key is set.");
+  if (!t) throw new NotConfigured("Stripe isn't configured on the Weaver server yet (STRIPE_TEST_SECRET_KEY is not set).");
+  if (/^(sk|rk)_live_/.test(t)) throw new NotConfigured("Stripe test mode needs STRIPE_TEST_SECRET_KEY on the Weaver server; only a live key is set.");
   return t;
 }
 const stripeBase = () => (val("STRIPE_API_BASE") || "https://api.stripe.com").replace(/\/+$/, "");
@@ -162,7 +162,7 @@ async function stripeCheckout(c: CheckoutInfo, successUrl: string, cancelUrl: st
 /** Stripe Connect (Standard) sign-in link for the organization (await loadPlatformConfig() first). */
 export function stripeAuthorizeUrl(state: string, redirectUri: string): string {
   const client = val("STRIPE_CLIENT_ID");
-  if (!client) throw new NotConfigured("Stripe Connect isn't configured on the Community Connect server yet (STRIPE_CLIENT_ID is not set).");
+  if (!client) throw new NotConfigured("Stripe Connect isn't configured on the Weaver server yet (STRIPE_CLIENT_ID is not set).");
   const q = new URLSearchParams({ response_type: "code", client_id: client, scope: "read_write", state, redirect_uri: redirectUri });
   return `${stripeConnectBase()}/oauth/authorize?${q.toString()}`;
 }
@@ -174,7 +174,7 @@ export function paypalCreds(mode: Mode): { base: string; clientId: string; secre
   const idName = live ? "PAYPAL_CLIENT_ID" : "PAYPAL_SANDBOX_CLIENT_ID";
   const secretName = live ? "PAYPAL_CLIENT_SECRET" : "PAYPAL_SANDBOX_CLIENT_SECRET";
   const missing = [idName, secretName].filter((n) => !val(n));
-  if (missing.length) throw new NotConfigured(`PayPal isn't configured on the Community Connect server yet (${missing.join(", ")} not set).`);
+  if (missing.length) throw new NotConfigured(`PayPal isn't configured on the Weaver server yet (${missing.join(", ")} not set).`);
   const base = live ? val("PAYPAL_API_BASE") || "https://api-m.paypal.com" : val("PAYPAL_SANDBOX_API_BASE") || "https://api-m.sandbox.paypal.com";
   return { base: base.replace(/\/+$/, ""), clientId: val(idName), secret: val(secretName) };
 }
@@ -221,7 +221,7 @@ async function paypalCheckout(c: CheckoutInfo, returnUrl: string, cancelUrl: str
 /** "Connect with PayPal": a partner-referral link; PayPal sends the merchant back to returnUrl. */
 export async function paypalReferralUrl(mode: Mode, trackingId: string, returnUrl: string): Promise<string> {
   await loadPlatformConfig();
-  if (!val("PAYPAL_PARTNER_ID")) throw new NotConfigured("Connect with PayPal isn't configured on the Community Connect server yet (PAYPAL_PARTNER_ID is not set). Use the PayPal Business email instead.");
+  if (!val("PAYPAL_PARTNER_ID")) throw new NotConfigured("Connect with PayPal isn't configured on the Weaver server yet (PAYPAL_PARTNER_ID is not set). Use the PayPal Business email instead.");
   const { base, token } = await paypalToken(mode);
   const r = await send(`${base}/v2/customer/partner-referrals`, {
     method: "POST",
@@ -245,7 +245,7 @@ export async function verifyPaypalWebhook(body: (webhookId: string) => Record<st
   const pairs: [Mode, string][] = [];
   if (val("PAYPAL_WEBHOOK_ID") && val("PAYPAL_CLIENT_ID")) pairs.push(["live", val("PAYPAL_WEBHOOK_ID")]);
   if (val("PAYPAL_SANDBOX_WEBHOOK_ID") && val("PAYPAL_SANDBOX_CLIENT_ID")) pairs.push(["test", val("PAYPAL_SANDBOX_WEBHOOK_ID")]);
-  if (pairs.length === 0) throw new NotConfigured("PayPal webhooks aren't configured on the Community Connect server yet (PAYPAL_WEBHOOK_ID or PAYPAL_SANDBOX_WEBHOOK_ID with its client id).");
+  if (pairs.length === 0) throw new NotConfigured("PayPal webhooks aren't configured on the Weaver server yet (PAYPAL_WEBHOOK_ID or PAYPAL_SANDBOX_WEBHOOK_ID with its client id).");
   for (const [mode, id] of pairs) {
     const b = body(id);
     if (!b) return { ok: false, reason: "the PayPal transmission headers are missing" };

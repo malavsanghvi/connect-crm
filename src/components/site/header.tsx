@@ -1,3 +1,4 @@
+import { WeaverMark } from "@/components/brand/weaver-mark";
 import { Icon, type IconName } from "@/components/site/icons";
 import { MobileMenu } from "@/components/site/mobile-menu";
 import { NavDropdown } from "@/components/site/nav-dropdown";
@@ -28,15 +29,17 @@ export const RESOURCES_MENU: MenuEntry[] = [
   { to: "/#faq", icon: "smile", title: "Questions and answers", body: "The things people ask first" },
 ];
 
-/** The mark: two linked rings on navy (the same drawing as the app icon). */
+/** The Weaver mark and name. On a dark background (`light`) the mark sits on a white tile so its blues stay readable. */
 export function Logo({ light = false }: { light?: boolean }) {
   return (
     <span className="flex items-center gap-3">
-      <svg aria-hidden viewBox="0 0 64 64" className="h-10 w-10 flex-none">
-        <rect width="64" height="64" rx="15" fill={light ? "#FBF7F0" : "#1B2C5C"} />
-        <circle cx="24" cy="32" r="12" fill="none" stroke={light ? "#1B2C5C" : "#FBF7F0"} strokeWidth="5" />
-        <circle cx="40" cy="32" r="12" fill="none" stroke="#C9731C" strokeWidth="5" />
-      </svg>
+      {light ? (
+        <span className="flex h-11 w-11 flex-none items-center justify-center rounded-xl bg-white">
+          <WeaverMark className="h-8 w-8" />
+        </span>
+      ) : (
+        <WeaverMark className="h-11 w-11 flex-none" />
+      )}
       <span className={`font-display text-[22px] font-semibold tracking-[-0.01em] ${light ? "text-white" : "text-navy"}`}>{SITE_NAME}</span>
     </span>
   );

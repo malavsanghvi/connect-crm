@@ -42,7 +42,7 @@ export default async function SupportAccessPage() {
       {header}
       <div className="mb-4">
         <Alert tone="info" title="What a grant does today">
-          A grant is the organization owner&apos;s recorded, time-boxed consent for Community Connect to help inside their organization. Platform admins&apos; database
+          A grant is the organization owner&apos;s recorded, time-boxed consent for Weaver to help inside their organization. Platform admins&apos; database
           access is not yet limited to live grants — that change waits for an owner decision.
         </Alert>
       </div>
@@ -74,7 +74,7 @@ export default async function SupportAccessPage() {
                         {centerOf.get(g.center_id)?.name ?? "Unknown"}
                         <p className="font-mono text-[11px] font-normal text-muted">{centerOf.get(g.center_id)?.slug}</p>
                       </td>
-                      <td>{mine ? "You" : "Another Community Connect admin"}</td>
+                      <td>{mine ? "You" : "Another Weaver admin"}</td>
                       <td className="max-w-[280px] text-[13px]">{g.reason}</td>
                       <td className="whitespace-nowrap text-[12px]">
                         {formatDateTime(g.granted_at, tz)}

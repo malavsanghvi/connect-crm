@@ -211,7 +211,7 @@ function audit(table, afterId, extra = '') {
   await p.goto(BASE + '/settings/email', { waitUntil: 'networkidle' });
   await p.locator('form', { has: p.locator('input[name=channel][value=email]') }).getByRole('button', { name: 'Send a test' }).click();
   const testMail = await until(async () => (await inbox('?to=admin@jsh.test')).find((m) => /Test email from/.test(m.subject)));
-  ok(!!testMail && testMail.from.endsWith(`<codes@${domain}>`) && !testMail.from.includes('via Community Connect'),
+  ok(!!testMail && testMail.from.endsWith(`<codes@${domain}>`) && !testMail.from.includes('via Weaver'),
     'the test email went from the center\'s own verified sender');
   ok(!!testMail && testMail.html.includes('11820 Beechnut St'), 'with the postal-address footer');
   ok(await until(() => sql(`select status from app.messages where purpose = 'test' and channel = 'email' order by created_at desc limit 1`) === 'sent'), 'the test message row is sent');
@@ -260,7 +260,7 @@ function audit(table, afterId, extra = '') {
   ok(/waiting for the carriers/.test(((r.body || []).find((x) => x.key === 'texting_registered') || {}).detail || ''), 'readiness 5 says it is waiting for the carriers');
   ok(JSON.parse(audit('texting_registrations', mark)).some((x) => x.app === 'portal' && x.screen === '/settings/texting' && x.reason === `Register texting ${run}`), 'the submission is audited with its reason');
   await shot(p, 'settings-texting-submitted');
-  // Community Connect records the carriers' decision.
+  // Weaver records the carriers' decision.
   const pa = sql(`select user_id from app.accounts where is_platform_admin limit 1`) || sql(`insert into auth.users (id, email) values (gen_random_uuid(), 'cc-e2e-${run}@example.com') returning id`);
   sql(`insert into app.accounts (user_id, is_platform_admin) values ('${pa}', true) on conflict (user_id) do update set is_platform_admin = true;
        select set_config('request.jwt.claims', '{"sub":"${pa}","role":"authenticated"}', false);
@@ -288,7 +288,7 @@ function audit(table, afterId, extra = '') {
   const pr = await fetch(`${API}/auth/v1/otp`, { method: 'POST', headers: anonH, body: JSON.stringify({ phone, create_user: true }) });
   ok(pr.status === 200, `a phone sign-in code is requested (${pr.status})`);
   const smsCode = await until(async () => (await inbox('?channel=sms')).find((m) => m.to === phone));
-  ok(!!smsCode && /Community Connect: your sign-in code is \d{6}/.test(smsCode.body), 'the send-SMS hook texted the code through Twilio (a new number: Community Connect branding)');
+  ok(!!smsCode && /Weaver: your sign-in code is \d{6}/.test(smsCode.body), 'the send-SMS hook texted the code through Twilio (a new number: Weaver branding)');
   ok(sql(`select count(*) from app.messages where purpose = 'auth_code' and channel = 'sms' and to_address = '${phone}' and status = 'sent'`) === '1', 'and recorded it without the code');
 
   // ── 6. Sandbox: test recipients only, with the banner ───────────────────────

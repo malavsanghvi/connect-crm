@@ -57,7 +57,7 @@
 // item) still current (the database checks that). Nothing here ever stores an
 // answer that does not cite a source the model was given.
 //
-// Needs ANTHROPIC_API_KEY on the background service (Community Connect's
+// Needs ANTHROPIC_API_KEY on the background service (Weaver's
 // own key — worker/src/config.ts already reserves it for "Niva, mapping
 // suggestions"). Without it the job fails at once as "not configured" (the
 // runner checks before this handler runs) and the question stays pending, for
@@ -131,7 +131,7 @@ export const MAX_PAUSE_MS = 6 * 60 * 60 * 1000;
 export const FEW_SOURCES = 2;
 
 const SYSTEM_PROMPT = [
-  "You are Niva, the assistant for a Jain community's member app (Community Connect). You answer ONE member's question using ONLY the sources in the message, each inside a <source> tag. A source is either content the community's staff wrote or approved for Niva to answer from, or a live item from the community's current schedule (rule 7).",
+  "You are Niva, the assistant for a Jain community's member app (Weaver). You answer ONE member's question using ONLY the sources in the message, each inside a <source> tag. A source is either content the community's staff wrote or approved for Niva to answer from, or a live item from the community's current schedule (rule 7).",
   "",
   "Rules, in order:",
   "1. Answer only from the sources given. Never use outside knowledge of Jain practice, this community, or anything else, even if you believe it is correct — a source in the message is the only thing you may cite.",

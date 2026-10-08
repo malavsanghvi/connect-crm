@@ -3,7 +3,7 @@
 // can be pointed at local mock servers (STRIPE_API_BASE, STRIPE_CONNECT_BASE,
 // PAYPAL_API_BASE, PAYPAL_SANDBOX_API_BASE) — tests never reach the network.
 //
-// Platform keys (Community Connect's own apps; the organization's account is
+// Platform keys (Weaver's own apps; the organization's account is
 // addressed by its connected account id / merchant id, never by its keys):
 //   Stripe   STRIPE_SECRET_KEY (live), STRIPE_TEST_SECRET_KEY (test), STRIPE_CLIENT_ID (Connect OAuth)
 //   PayPal   PAYPAL_CLIENT_ID + PAYPAL_CLIENT_SECRET (live),
@@ -26,12 +26,12 @@ const val = (env: Env, name: string) => (env[name] ?? "").trim();
 export function stripeKey(env: Env, mode: Mode): string {
   if (mode === "live") {
     const k = val(env, "STRIPE_SECRET_KEY");
-    if (!k) throw new NotConfiguredError("Stripe isn't configured on the Community Connect server yet (STRIPE_SECRET_KEY not set)");
+    if (!k) throw new NotConfiguredError("Stripe isn't configured on the Weaver server yet (STRIPE_SECRET_KEY not set)");
     if (/^(sk|rk)_test_/.test(k)) throw new NotConfiguredError("Stripe live mode needs a live STRIPE_SECRET_KEY; the one set is a test key");
     return k;
   }
   const t = val(env, "STRIPE_TEST_SECRET_KEY") || val(env, "STRIPE_SECRET_KEY");
-  if (!t) throw new NotConfiguredError("Stripe isn't configured on the Community Connect server yet (STRIPE_TEST_SECRET_KEY not set)");
+  if (!t) throw new NotConfiguredError("Stripe isn't configured on the Weaver server yet (STRIPE_TEST_SECRET_KEY not set)");
   if (/^(sk|rk)_live_/.test(t)) throw new NotConfiguredError("Stripe test mode needs STRIPE_TEST_SECRET_KEY; only a live key is set");
   return t;
 }
@@ -83,7 +83,7 @@ export function paypalCreds(env: Env, mode: Mode): { base: string; clientId: str
   const secretName = live ? "PAYPAL_CLIENT_SECRET" : "PAYPAL_SANDBOX_CLIENT_SECRET";
   const missing = [idName, secretName].filter((n) => !val(env, n));
   if (missing.length > 0) {
-    throw new NotConfiguredError(`PayPal isn't configured on the Community Connect server yet (${missing.join(", ")} not set)`);
+    throw new NotConfiguredError(`PayPal isn't configured on the Weaver server yet (${missing.join(", ")} not set)`);
   }
   const base = live ? val(env, "PAYPAL_API_BASE") || "https://api-m.paypal.com" : val(env, "PAYPAL_SANDBOX_API_BASE") || "https://api-m.sandbox.paypal.com";
   return { base: base.replace(/\/+$/, ""), clientId: val(env, idName), secret: val(env, secretName) };

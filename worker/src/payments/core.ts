@@ -56,9 +56,9 @@ export type FlaggedRefund = {
 };
 
 /**
- * The provider says a charge was refunded (running total). Anything Community Connect did not record
+ * The provider says a charge was refunded (running total). Anything Weaver did not record
  * becomes ONE flagged refund needing two approvals (app.worker_flag_provider_refund). Null when the
- * charge is not a Community Connect payment. While a refund we sent is still being recorded the
+ * charge is not a Weaver payment. While a refund we sent is still being recorded the
  * database refuses, and the webhook job is retried.
  */
 export async function flagProviderRefund(
@@ -189,7 +189,7 @@ export async function capturePaypalOrder(ctx: JobContext, checkout: Checkout, or
 export async function paypalRefund(ctx: JobContext, mode: Mode, connectMethod: string | null, merchantId: string | null, captureId: string, amountCents: number, requestId: string, currency = "USD") {
   if (connectMethod === "email") {
     throw new PermanentError(
-      "This PayPal account is connected by its Business email only, so Community Connect has no permission to refund through it. Refund it in PayPal, then record it in Giving › Payments (Record the PayPal refund).",
+      "This PayPal account is connected by its Business email only, so Weaver has no permission to refund through it. Refund it in PayPal, then record it in Giving › Payments (Record the PayPal refund).",
     );
   }
   const r = await paypalRequest<Obj>(ctx.http, ctx.env, mode, `/v2/payments/captures/${encodeURIComponent(captureId)}/refund`, {

@@ -302,7 +302,7 @@ export function SecurityPanel({
               <p className="text-[13px] font-bold text-ink">1 · Scan this code with your authenticator app</p>
               {/* A data: URI SVG from the sign-in service; next/image does not apply. */}
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={enrollment.qrSvg} alt="QR code to add Community Connect to your authenticator app" width={180} height={180} className="rounded-[8px] bg-white p-1" />
+              <img src={enrollment.qrSvg} alt="QR code to add Weaver to your authenticator app" width={180} height={180} className="rounded-[8px] bg-white p-1" />
               <p className="text-[12px] text-muted">
                 Can&apos;t scan? Enter this setup key instead:{" "}
                 <code data-testid="totp-secret" className="break-all rounded bg-subtle px-1 font-mono text-[12px] text-ink">
@@ -404,7 +404,7 @@ export function SecurityPanel({
       <Card span={5} title="Lost your phone?" description="How to get back in">
         <p className="text-[13px] text-muted">
           Sign in with the code emailed to you, then ask another administrator of {community} to reset your 2FA (Settings › Team), or contact
-          the Community Connect team, who will check who you are first. The reset is recorded in the audit log. Then set up the app again here.
+          the Weaver team, who will check who you are first. The reset is recorded in the audit log. Then set up the app again here.
           Printed recovery codes are not offered: the sign-in service has no safe way to accept them yet.
         </p>
       </Card>

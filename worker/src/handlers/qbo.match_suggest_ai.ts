@@ -10,7 +10,7 @@
 // approve or reject. Customers with no candidate household are marked checked
 // without being sent.
 //
-// Needs ANTHROPIC_API_KEY (Community Connect's own key). Without it the job
+// Needs ANTHROPIC_API_KEY (Weaver's own key). Without it the job
 // fails at once as "not configured" and the screen says AI suggestions are off;
 // deterministic matching keeps working.
 

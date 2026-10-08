@@ -40,7 +40,7 @@ export async function acceptAgreementAction(_prev: ActionResult | null, formData
 export async function publishPlatformDocumentAction(_prev: ActionResult | null, formData: FormData): Promise<ActionResult> {
   const state = await loadSession();
   if (state.status !== "ok") return { ok: false, error: "Could not publish — your session has expired. Sign in again." };
-  if (!state.session.isPlatformAdmin) return { ok: false, error: "Could not publish — only the Community Connect team publishes platform agreements." };
+  if (!state.session.isPlatformAdmin) return { ok: false, error: "Could not publish — only the Weaver team publishes platform agreements." };
   const id = String(formData.get("document_id") ?? "");
   if (!isUuid(id)) return { ok: false, error: "Could not publish — the document was not found." };
   const { error } = await state.session.db.rpc("publish_platform_document", { p_document: id });

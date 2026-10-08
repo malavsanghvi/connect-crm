@@ -8,7 +8,7 @@
 //   ENVF=e2e/.env.e-people-legal LINK_SECRET=… node e2e/flows/e-people-legal.cjs [journey ...]
 //
 // Journeys (in order; all by default):
-//   agreements  a platform admin edits a Community Connect agreement draft and publishes it; the owner accepts;
+//   agreements  a platform admin edits a Weaver agreement draft and publishes it; the owner accepts;
 //               a new version is published; the owner is asked again and accepts; both acceptances are kept.
 //   memberdocs  the organization publishes its privacy policy through Content › Legal & waivers (draft →
 //               edit draft → publish) plus notices and photo consent.

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 
+import { WeaverMark } from "@/components/brand/weaver-mark";
 import { CenterSwitcher, SandboxWatermark } from "@/components/shell/center-switcher";
 import { GlobalSearch } from "@/components/shell/global-search";
 import { MobileNav } from "@/components/shell/mobile-nav";
@@ -58,7 +59,10 @@ export function AppShell({ session, tasks, children }: { session: CrmSession; ta
             <MobileNav modules={modules} homeBadge={home.badge} homeBadgeLabel={home.label} footer={footer} />
             <Link href="/" className="flex min-w-0 shrink-0 items-center gap-3.5 no-underline" aria-label={`${PRODUCT_NAME} home`}>
               <TenantMark branding={branding} name={center.name} />
-              <span className="cc-product hidden sm:inline">{PRODUCT_NAME}</span>
+              <span className="cc-product hidden items-center gap-2 sm:inline-flex">
+                <WeaverMark className="h-7 w-7" />
+                {PRODUCT_NAME}
+              </span>
             </Link>
             {switchable ? (
               <CenterSwitcher

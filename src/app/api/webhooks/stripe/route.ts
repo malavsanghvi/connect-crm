@@ -4,7 +4,7 @@ import { secretsFrom, verifyStripeSignature } from "@/lib/payments/signature";
 import { ingestWebhook } from "@/lib/payments/server";
 import { loadPlatformConfig, platformValue } from "@/lib/platform-setup/server-config";
 
-// Stripe → Community Connect. The signature is checked with STRIPE_WEBHOOK_SECRET
+// Stripe → Weaver. The signature is checked with STRIPE_WEBHOOK_SECRET
 // (comma-separated when the platform and Connect endpoints have different
 // secrets) before anything is stored; then app.ingest_webhook stores the event
 // once (idempotent on its id) and queues payments.webhook.stripe for the
@@ -17,7 +17,7 @@ export async function POST(req: NextRequest) {
   const secrets = secretsFrom(platformValue("STRIPE_WEBHOOK_SECRET"));
   if (secrets.length === 0) {
     console.error("[webhooks/stripe] STRIPE_WEBHOOK_SECRET is not set (Platform › Setup, or the portal server's environment); the event was refused");
-    return new NextResponse("Stripe isn't configured on the Community Connect server yet (STRIPE_WEBHOOK_SECRET is not set).", { status: 503 });
+    return new NextResponse("Stripe isn't configured on the Weaver server yet (STRIPE_WEBHOOK_SECRET is not set).", { status: 503 });
   }
   const raw = await req.text();
   const check = verifyStripeSignature(raw, req.headers.get("stripe-signature"), secrets);
@@ -42,7 +42,7 @@ export async function POST(req: NextRequest) {
   }
   if (!stored) {
     console.error("[webhooks/stripe] PORTAL_DATABASE_URL (or WORKER_DATABASE_URL) is not set; the event was not stored");
-    return new NextResponse("Webhooks aren't configured on the Community Connect server yet (the database connection is not set).", { status: 503 });
+    return new NextResponse("Webhooks aren't configured on the Weaver server yet (the database connection is not set).", { status: 503 });
   }
   return NextResponse.json({ received: true, id: stored.id });
 }

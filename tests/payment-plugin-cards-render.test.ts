@@ -92,10 +92,10 @@ describe("Settings › Payments plugin cards", () => {
     expect(locked(ready, "Check")).toBe(false);
   });
 
-  it("keeps a paused plugin off and says Community Connect paused it; a plugin that is on can still be switched off", () => {
-    const paused = render(settings(), plugins([entry("zelle", { catalog_status: "suspended", status: "suspended", problem: "Community Connect has paused Zelle for now." })]));
+  it("keeps a paused plugin off and says Weaver paused it; a plugin that is on can still be switched off", () => {
+    const paused = render(settings(), plugins([entry("zelle", { catalog_status: "suspended", status: "suspended", problem: "Weaver has paused Zelle for now." })]));
     expect(locked(paused, "Zelle")).toBe(true);
-    expect(paused).toContain("Paused by Community Connect");
+    expect(paused).toContain("Paused by Weaver");
     const on = render(
       settings(),
       plugins([entry("cash", { enabled: true, status: "live", config: { where: "Bhandar" } })]),

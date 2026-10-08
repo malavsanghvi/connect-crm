@@ -8,7 +8,7 @@ import { platformEnv } from "@/lib/platform-setup/server-config";
 // Branded sign-in codes for the Supabase Auth "send email" and "send SMS" hooks.
 // Sign-in must be synchronous, so the code goes straight to the provider here —
 // never through the job queue. The center is the one the login belongs to
-// (app.worker_sign_in_context); otherwise Community Connect's own branding.
+// (app.worker_sign_in_context); otherwise Weaver's own branding.
 // The code itself is never stored or logged.
 
 export type HookUser = { id?: string | null; email?: string | null; new_email?: string | null; phone?: string | null };
@@ -31,8 +31,8 @@ async function context(user: HookUser): Promise<Context | null> {
     const rows = await workerQuery<{ c: Context }>("select app.worker_sign_in_context($1, $2, $3) as c", [user.id ?? null, user.email ?? null, user.phone ?? null]);
     return rows?.[0]?.c ?? null;
   } catch (err) {
-    // Sign-in still works with Community Connect's branding; the failure is logged.
-    console.error("[auth-hook] could not read the sign-in context, using Community Connect's default:", err instanceof Error ? err.message : err);
+    // Sign-in still works with Weaver's branding; the failure is logged.
+    console.error("[auth-hook] could not read the sign-in context, using Weaver's default:", err instanceof Error ? err.message : err);
     return null;
   }
 }
@@ -74,23 +74,23 @@ export async function sendSignInEmail(user: HookUser, data: { token?: string; to
   const sender = ctx?.email.sender ?? null;
   if (!sender && !env.MESSAGING_FROM_ADDRESS?.trim()) {
     console.error("[auth-hook] MESSAGING_FROM_ADDRESS is not set and the community has no verified sender");
-    return { ok: false, status: 503, message: "Sign-in email isn't configured on the Community Connect server yet." };
+    return { ok: false, status: 503, message: "Sign-in email isn't configured on the Weaver server yet." };
   }
   let key: string;
   try {
     key = emailKey(env, provider, null);
   } catch (err) {
     console.error("[auth-hook]", err instanceof Error ? err.message : err);
-    return { ok: false, status: 503, message: "Sign-in email isn't configured on the Community Connect server yet." };
+    return { ok: false, status: 503, message: "Sign-in email isn't configured on the Weaver server yet." };
   }
-  const shortName = brand?.short_name ?? "Community Connect";
+  const shortName = brand?.short_name ?? "Weaver";
   const b = brand ? { name: brand.name, short_name: brand.short_name, primary_color: brand.primary_color, logo_url: brandingUrl(env.NEXT_PUBLIC_SUPABASE_URL, brand.logo_path) } : null;
   for (const s of sends) {
     const text = signInEmailText(shortName, what, s.code);
     const email = renderEmail({ subject: text.subject, body: text.body, brand: b, footer: ctx?.email.footer ?? null, sandbox: brand?.environment === "sandbox" });
     try {
       const res = await sendEmail(fetchReq, env, provider, key, {
-        from: fromHeader(sender, b, { address: env.MESSAGING_FROM_ADDRESS?.trim() ?? "", name: env.MESSAGING_FROM_NAME?.trim() || "Community Connect" }),
+        from: fromHeader(sender, b, { address: env.MESSAGING_FROM_ADDRESS?.trim() ?? "", name: env.MESSAGING_FROM_NAME?.trim() || "Weaver" }),
         to: s.to, subject: email.subject, html: email.html, text: email.text, replyTo: sender?.reply_to ?? brand?.public_email ?? null,
       });
       await record(brand?.id ?? null, "email", s.to, email.subject, "sent", provider, res.id, null, brand?.environment === "sandbox");
@@ -118,10 +118,10 @@ export async function sendSignInSms(user: HookUser, otp: string): Promise<HookRe
   const from = own?.from_number ?? env.TWILIO_FROM_NUMBER?.trim() ?? null;
   const service = own?.messaging_service_sid ?? (own ? null : env.TWILIO_MESSAGING_SERVICE_SID?.trim() || null);
   const prefix = brand?.environment === "sandbox" ? "Sandbox · test data: " : "";
-  const body = `${prefix}${brand?.short_name ?? "Community Connect"}: your sign-in code is ${otp}. Do not share it.`;
+  const body = `${prefix}${brand?.short_name ?? "Weaver"}: your sign-in code is ${otp}. Do not share it.`;
   if (!from && !service) {
     console.error("[auth-hook] no number to text sign-in codes from (TWILIO_FROM_NUMBER / TWILIO_MESSAGING_SERVICE_SID not set, community texting not approved)");
-    return { ok: false, status: 503, message: "Sign-in by text isn't configured on the Community Connect server yet." };
+    return { ok: false, status: 503, message: "Sign-in by text isn't configured on the Weaver server yet." };
   }
   try {
     const res = await sendTwilio(fetchReq, env, { to: phone, body, from, messagingServiceSid: service });
@@ -131,6 +131,6 @@ export async function sendSignInSms(user: HookUser, otp: string): Promise<HookRe
     const msg = err instanceof Error ? err.message : String(err);
     console.error("[auth-hook] sending the sign-in text failed:", msg);
     await record(brand?.id ?? null, "sms", phone, null, "failed", "twilio", null, msg, brand?.environment === "sandbox");
-    return { ok: false, status: /isn't configured/.test(msg) ? 503 : 502, message: /isn't configured/.test(msg) ? "Sign-in by text isn't configured on the Community Connect server yet." : "The sign-in text could not be sent. Try again in a minute." };
+    return { ok: false, status: /isn't configured/.test(msg) ? 503 : 502, message: /isn't configured/.test(msg) ? "Sign-in by text isn't configured on the Weaver server yet." : "The sign-in text could not be sent. Try again in a minute." };
   }
 }

@@ -77,7 +77,7 @@ function PluginCard({ p, ps, s, tz }: { p: PluginEntry; ps: PluginSettings; s: P
       ? `${providerWho} is connected, so Card stays on. To stop taking card payments, disconnect ${providerWho} below.`
       : `${providerWho} is connected, so PayPal stays on. To stop taking PayPal payments, disconnect ${providerWho} below.`;
   } else if (!p.enabled && suspended) {
-    blocked = `Community Connect has paused ${p.label} for now.`;
+    blocked = `Weaver has paused ${p.label} for now.`;
   } else if (depOff) {
     blocked = `Turn ${pluginLabel(depOff)} on first.`;
   } else if (savedProblem) {
@@ -111,7 +111,7 @@ function PluginCard({ p, ps, s, tz }: { p: PluginEntry; ps: PluginSettings; s: P
             offNote="Off"
             onChange={toggle}
           />
-          {p.label_override ? <span className="text-muted">Shown to members as “{name}” (Community Connect calls it {p.label}).</span> : null}
+          {p.label_override ? <span className="text-muted">Shown to members as “{name}” (Weaver calls it {p.label}).</span> : null}
         </div>
         {blocked ? <p className="text-muted">{blocked}</p> : null}
         {p.problem && p.problem !== blocked ? <p className={p.status === "needs_setup" || p.status === "suspended" ? "text-danger" : "text-muted"}>{p.problem}</p> : null}

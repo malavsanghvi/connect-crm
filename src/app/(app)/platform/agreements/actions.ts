@@ -7,7 +7,7 @@ import { PLATFORM_DOC_KINDS } from "@/lib/legal-platform";
 import { isUuid } from "@/lib/search-params";
 import { dbWithReason, loadSession } from "@/lib/session";
 
-// Platform › Agreements (#19, owner decision 2026-09-25): Community Connect's agreements with
+// Platform › Agreements (#19, owner decision 2026-09-25): Weaver's agreements with
 // organizations are drafts that a platform admin edits and publishes as a new version. A
 // published version never changes (0422), and a new one asks every owner to accept again.
 
@@ -19,7 +19,7 @@ function refresh() {
 export async function savePlatformDraftAction(_prev: ActionResult | null, fd: FormData): Promise<ActionResult> {
   const state = await loadSession();
   if (state.status !== "ok") return { ok: false, error: "Could not save the draft — your session has expired. Sign in again." };
-  if (!state.session.isPlatformAdmin) return { ok: false, error: "Could not save the draft — only the Community Connect team edits platform agreements." };
+  if (!state.session.isPlatformAdmin) return { ok: false, error: "Could not save the draft — only the Weaver team edits platform agreements." };
   const id = String(fd.get("id") ?? "");
   const kind = String(fd.get("kind") ?? "");
   const title = String(fd.get("title") ?? "").trim();
@@ -46,7 +46,7 @@ export async function savePlatformDraftAction(_prev: ActionResult | null, fd: Fo
 export async function publishPlatformDraftAction(_prev: ActionResult | null, fd: FormData): Promise<ActionResult> {
   const state = await loadSession();
   if (state.status !== "ok") return { ok: false, error: "Could not publish — your session has expired. Sign in again." };
-  if (!state.session.isPlatformAdmin) return { ok: false, error: "Could not publish — only the Community Connect team publishes platform agreements." };
+  if (!state.session.isPlatformAdmin) return { ok: false, error: "Could not publish — only the Weaver team publishes platform agreements." };
   const id = String(fd.get("id") ?? "");
   const title = String(fd.get("title") ?? "the agreement");
   if (!isUuid(id)) return { ok: false, error: "Could not publish — the draft was not found." };

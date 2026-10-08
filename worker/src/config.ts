@@ -1,4 +1,4 @@
-// Everything the worker reads from its environment. Community Connect's own
+// Everything the worker reads from its environment. Weaver's own
 // provider app keys ("platform secrets") come only from here; an
 // organization's credentials come only from the vault (ctx.secret).
 

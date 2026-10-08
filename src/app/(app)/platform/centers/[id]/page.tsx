@@ -123,7 +123,7 @@ export default async function PlatformCenterPage({ params }: { params: Promise<{
           <p className="crm-hint mt-2">The community points a DNS record (CNAME to this server&apos;s name, or an A record to its IP) at the server; HTTPS is issued automatically on first visit.</p>
         </Card>
 
-        <Card span={12} title="Limits" description={sandbox ? "Sandbox limits apply until Community Connect changes them" : "Production limits (per plan)"} padded={false}>
+        <Card span={12} title="Limits" description={sandbox ? "Sandbox limits apply until Weaver changes them" : "Production limits (per plan)"} padded={false}>
           {entRes.error ? (
             <div className="p-3">
               <QueryError what="the limits" error={entRes.error} retryHref={`/platform/centers/${id}`} />

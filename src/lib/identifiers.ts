@@ -1,7 +1,7 @@
 import type { IdentifierRules } from "@/lib/center-rules";
 import type { IdentifierKind } from "@/lib/permissions";
 
-// Labels for identifier kinds (app.identifier_kind plus the two Community Connect
+// Labels for identifier kinds (app.identifier_kind plus the two Weaver
 // numbers that resolve_identifier returns as pseudo-kinds).
 
 export function identifierKindLabel(

@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
   const secret = platformValue("OAUTH_STATE_SECRET");
   if (secret.length < 32) {
     console.error("[qbo-callback] OAUTH_STATE_SECRET is not set (Platform › Setup, or the portal server's environment); the sign-in cannot be checked");
-    return back(request, "error", "QuickBooks isn't configured on the Community Connect server yet (OAUTH_STATE_SECRET is not set). Nothing was connected.");
+    return back(request, "error", "QuickBooks isn't configured on the Weaver server yet (OAUTH_STATE_SECRET is not set). Nothing was connected.");
   }
 
   let db;

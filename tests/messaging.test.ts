@@ -67,11 +67,11 @@ describe("email rendering", () => {
   it("never uses an unsafe brand color", () => {
     expect(renderEmail({ subject: "s", body: "b", brand: { ...brand, primary_color: "red;background:url(x)" }, sandbox: false }).html).not.toContain("url(x)");
   });
-  it("sends from the center's sender, else Community Connect's address in the center's name", () => {
-    const platform = { address: "no-reply@cc.test", name: "Community Connect" };
+  it("sends from the center's sender, else Weaver's address in the center's name", () => {
+    const platform = { address: "no-reply@cc.test", name: "Weaver" };
     expect(fromHeader({ from_name: 'JSH "Office"', from_address: "office@mail.jsh.test" }, brand, platform)).toBe('"JSH Office" <office@mail.jsh.test>');
-    expect(fromHeader(null, brand, platform)).toBe('"Jain Society of Houston via Community Connect" <no-reply@cc.test>');
-    expect(fromHeader(null, null, platform)).toBe('"Community Connect" <no-reply@cc.test>');
+    expect(fromHeader(null, brand, platform)).toBe('"Jain Society of Houston via Weaver" <no-reply@cc.test>');
+    expect(fromHeader(null, null, platform)).toBe('"Weaver" <no-reply@cc.test>');
   });
   it("builds public branding URLs", () => {
     expect(brandingUrl("https://x.supabase.co/", "c1/logo mark.png")).toBe("https://x.supabase.co/storage/v1/object/public/branding/c1/logo%20mark.png");
@@ -113,7 +113,7 @@ describe("signatures", () => {
 describe("providers", () => {
   it("names the missing platform variable instead of pretending", () => {
     expect(() => emailKey({}, "resend", null)).toThrow(MissingConfigError);
-    expect(() => emailKey({}, "postmark", null)).toThrow("Email sending (Postmark) isn't configured on the Community Connect server yet (POSTMARK_SERVER_TOKEN not set)");
+    expect(() => emailKey({}, "postmark", null)).toThrow("Email sending (Postmark) isn't configured on the Weaver server yet (POSTMARK_SERVER_TOKEN not set)");
     expect(emailKey({ RESEND_API_KEY: " re_x " }, "resend", null)).toBe("re_x");
   });
   it("reads Resend and Postmark events into one shape; soft bounces are not suppressed", () => {

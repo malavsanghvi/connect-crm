@@ -1,4 +1,4 @@
-// Community Connect's own provider keys, read from the database FIRST and from
+// Weaver's own provider keys, read from the database FIRST and from
 // the environment second (onboarding Wave D, the platform setup wizard).
 //
 // The super admin saves keys in /platform/setup; they live in Supabase Vault
