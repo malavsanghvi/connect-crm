@@ -4,8 +4,10 @@ Each major subsystem is a **module** that an organization's admin can switch on 
 (Settings › Modules, `settings.manage`). This page lists, per module, the tables, RPCs, portal
 routes, member-app screens and permissions that belong to it, and what switching it off does.
 
-Schema: `supabase/migrations/0100`–`0104`. Tests: `supabase/tests/13_modules_audit_test.sql`.
-Owner decision recorded in [DECISIONS.md](DECISIONS.md).
+Schema: `supabase/migrations/0100`–`0104`, and `0594` (organization categories, below). Tests:
+`supabase/tests/13_modules_audit_test.sql` and `79_organization_categories_test.sql`.
+Owner decisions recorded in [DECISIONS.md](DECISIONS.md); the categories plan is
+[ORGANIZATION_CATEGORIES_PLAN.md](ORGANIZATION_CATEGORIES_PLAN.md).
 
 ## How the switch works
 
@@ -14,12 +16,50 @@ Owner decision recorded in [DECISIONS.md](DECISIONS.md).
 | `app.modules` | The catalog: `key`, `label`, `description`, `core`, `depends_on`, `sort`. Readable by any signed-in user. |
 | `app.center_modules` | One row per switch a center has flipped: `enabled`, `changed_by`, `changed_at`, `reason`. **No row means on**, so existing centers keep everything. Readable by members of the center; written only by `set_module_enabled`. Audited. |
 | `app.module_tables` | Which module each app table belongs to. `NULL` = core platform (never switched off). A DB test fails if any app table is missing. |
-| `app.module_enabled(center, key)` | `true` unless the center switched the module off. One primary-key probe. |
-| `app.assert_module_enabled(center, key)` | Raises *"The {label} module is switched off for this community."* (hint: *An administrator can switch it on in Settings › Modules.*). Platform admins pass. |
-| `app.set_module_enabled(center, key, enabled, reason)` | Needs `settings.manage` in that center (or platform admin) and a reason. Refuses to switch off a core module, a module that an enabled module depends on (the error names it), or to switch on a module whose dependency is off. The reason goes on the audit entry. |
-| `app.my_modules(center)` | `(key, label, enabled, core)` for the apps; empty for someone who is not a member. |
+| `app.module_enabled(center, key)` | The category's row for the module decides (see *Organization categories* below); for a Jain Center, and for any module with no category row, it is `true` unless the center switched the module off. |
+| `app.module_off_centers(key)` | The centers where the module is off, as one array (the policies call it as an InitPlan, so a query evaluates it once). |
+| `app.assert_module_enabled(center, key)` | Raises *"The {label} module is switched off for this community."* (hint: *An administrator can switch it on in Settings › Modules.*), or, for a module the center's category does not have, *"{Module} is not part of a {Category} organization."* (hint: *Community Connect can change an organization's category.*). Platform admins pass. |
+| `app.set_module_enabled(center, key, enabled, reason)` | Needs `settings.manage` in that center (or platform admin) and a reason. Refuses to switch off a core module, a module that an enabled module depends on (the error names it), to switch on a module whose dependency is off, or to switch on a module the category does not have. The reason goes on the audit entry. |
+| `app.my_modules(center)` | `(key, label, enabled, core)` for the apps; empty for someone who is not a member. A module the category does not have comes back `enabled = false`. |
+| `app.module_states(center)` | For Settings › Modules (`settings.manage`, platform admins): every module with its category availability, the category's own name for it, whether it is on and whether it can be switched, and who last changed it and why. |
 | RLS `module_switch` | One **restrictive** policy per table of a switchable module (generated from `module_tables`): rows of a switched-off center are neither readable nor writable, except for platform admins. It is AND-ed with the existing policies, so it can only take access away. |
 | RPC guards | Every security-definer RPC of a module calls `assert_module_enabled` once the center is known (listed per module below). |
+
+## Organization categories (0594)
+
+An organization has a **category** (`app.centers.category_key`, default `jain_center`): Jain Center, Chamber of
+commerce, Non-profit (not faith-based) or Faith-based non-profit (other faiths). The category decides which of the
+modules the organization can have at all; the organization's own switches (`center_modules`) work inside that set.
+Plan: [ORGANIZATION_CATEGORIES_PLAN.md](ORGANIZATION_CATEGORIES_PLAN.md).
+
+| Piece | What it does |
+|---|---|
+| `app.organization_categories` | The four categories: `key`, `label`, `faith_based`, `uses_tradition` (true only for Jain Center), `path_label` (the sign-up question; null = none), `terms` (nine named words, keys checked by the database), `active`, `sort`. Platform data: written only by migrations, read by everyone (guests included). Only Jain Center is `active`; an inactive category can be chosen only by Community Connect, for a sandbox, to preview it. |
+| `app.category_modules` | One row per category and module: `availability` is `default_on` (on unless the organization switches it off: today's rule), `default_off` (off until the organization switches it on) or `not_available` (never on, not even offered as a switch), with an optional name of the category's own (`label`, `description`). Every category has a row for every module; core modules are always `default_on`; an available module never depends on one that is not (test 79). |
+| `app.category_paths` | A person's possible paths inside the category (Jain Center: Shwetambar and Digambar, each with their paths, plus "Another path" and "Not sure"). |
+| `app.module_availability(center, key)` | The category's row for a module; no row means `default_on`. Internal. |
+| `app.category_profile(center)` | What the apps ask once per community, with or without a session: the category, its terms, the modules' availability, its paths and the community's default path (from `centers.tradition`). "That community was not found." for an unknown or closed one. |
+| `app.set_center_category(center, category, reason)` | The only way to change a category: a platform admin, a reason, a fresh 2FA check; audited (the row change and one `category.changed` entry); the owner is emailed. Modules the new category does not have are hidden at once (data kept); changing back restores everything, including the tradition. |
+| `app.category_change_preview(center, category)` | What a change will hide and make available, in plain English, with record counts. Changes nothing. |
+| `app.set_access_request_category(request, category)` | Community Connect chooses the category on an access request before approving it; the sandbox made from the request takes it. |
+
+**JSH is unchanged by construction.** JSH and every existing community are Jain Centers, and Jain Center has all 18
+modules `default_on`: the module functions give it the same results as today's rule (the code differs; the results are the same). Test 79 runs the same reads of a JSH
+administrator and a JSH member (every module table's row count, `my_modules`, the access areas) under the new functions
+and under 0101's, and compares them. The enforcement is the same three functions as before (`module_enabled`,
+`module_off_centers`, `assert_module_enabled`, plus `set_module_enabled`), so every module table's `module_switch` policy,
+every module RPC guard, the storage buckets, Setup's "skipped", Niva's live facts and the access areas follow the
+category with no per-table change. A direct update of `centers.category_key` is refused (by a trigger) for everyone who
+is signed in, platform admins included; jobs and migrations pass. A production organization always has an active
+category: a new row, a category change or a flip of `environment` is refused otherwise (jobs and migrations included), and
+the promotion job checks it again before it copies. A module or a category added later gets a row in every category at
+once (off for every category but Jain Center, except core modules), so nothing is silently on for a chamber of commerce. `centers.tradition` is `other` for a category that does
+not use one. Setup: a step of a module the category does not have is skipped with "Not part of a {Category}
+organization." The dietary list of a new organization has the "Jain (no root vegetables)" option only for a Jain Center.
+
+A person's own path is `app.person_profile_details.path_key` (the 0546 rules: the person, the adults of their household
+and staff with `people.view` read it; the person or a household adult writes it; a child's own login does not; the audit
+log records that it changed, not the answer).
 
 Switching off never deletes or changes data. Switching back on restores access exactly as it was.
 Access levels (0586, [ACCESS_LEVELS.md](ACCESS_LEVELS.md)) build on this: an area of the member app (live darshan,
@@ -341,7 +381,8 @@ data_requests, import_runs, integration_connections, webhook_events, number_sequ
 center_modules, module_tables, center_owners, staff_invitations, org_agreements, readiness_checks
 (o-security, 0150–0156; see ROLES.md for 2FA and step-up). Always on, audited, `module` is NULL on their audit entries.
 
-center_modules, module_tables.
+center_modules, module_tables, and the category catalogs `organization_categories`, `category_modules` and
+`category_paths` (0594).
 
 **Setup (onboarding, ONBOARDING_PLAN §4; migrations 0180–0184)** is core too: org_profiles,
 org_documents, org_leaders, irs_exempt_orgs, setup_steps, center_setup_steps, readiness_checks.

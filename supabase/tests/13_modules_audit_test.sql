@@ -50,6 +50,12 @@ select pg_temp.assert(not exists (
        and not exists (select 1 from pg_policy p where p.polrelid = c.oid and p.polname = 'module_switch' and not p.polpermissive)),
   'every table of a switchable module has a restrictive module_switch policy (the global notification_topics catalog aside)');
 
+-- 0594: the category catalogs are core platform tables (covered by the two checks above), and a Jain Center (JSH) has
+-- every module default_on, so the switch rules below are the whole story for it.
+select pg_temp.assert((select count(*) from app.category_modules) = (select count(*) from app.organization_categories) * (select count(*) from app.modules)
+                      and (select bool_and(app.module_availability(:jsh, m.key) = 'default_on') from app.modules m),
+  'every category has a row for every module, and JSH (a Jain Center) has every module default_on');
+
 -- ── Header context is captured ───────────────────────────────────────────────
 begin;
 set local role authenticated;
@@ -319,3 +325,5 @@ set local request.jwt.claim.sub = '10000000-0000-4000-8000-000000000011';
 select app.set_module_enabled(:jsh, 'membership', true, 'Back on after the test');
 commit;
 select pg_temp.assert(not exists (select 1 from app.center_modules where not enabled), 'the test leaves every module on');
+select pg_temp.assert(not exists (select 1 from app.modules m where not app.module_enabled(:jsh, m.key)),
+  'and every one of the 18 modules reads as on for JSH again (the category adds nothing for a Jain Center)');

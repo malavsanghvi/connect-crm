@@ -605,7 +605,7 @@ Priority:
 | G25 | Texting: provider, 10DLC or toll-free registration, phone sign-in (Auth hook), STOP handling | None | P1; P0 if members need phone-only sign-in |
 | G26 | Push sender and test push | Phones register; nothing sends | P1 |
 | G27 | Niva training workflow and answering service | Questions saved as unanswered | P1 |
-| G28 | Configurable word lists: membership tiers (fixed as community, yearly, life), relationships, payment methods, traditions | Fixed lists in the database | P1 |
+| G28 | Configurable word lists: membership tiers (fixed as community, yearly, life), relationships, payment methods, traditions | Fixed lists in the database. Traditions are now two things (0594, [ORGANIZATION_CATEGORIES_PLAN.md](ORGANIZATION_CATEGORIES_PLAN.md)): an organization **category** (`centers.category_key`, chosen by Community Connect; the category's modules and words) and, for a Jain Center, a person's own **path** (`app.category_paths`, `person_profile_details.path_key`); `centers.tradition` stays the Jain Center's default tradition | P1 |
 | G29 | Data-quality view during onboarding (contact coverage, duplicates, minors without birth dates, missing consents) | Merge candidates only | P1 |
 | G30 | Recurring card gifts from the old processor (prompt to re-enter the card, or card migration) | None | P1 |
 | G31 | Panchang/tithi source, and daily timings from the map pin | A `tithi_days` table with no source | P1 |
