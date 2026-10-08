@@ -423,12 +423,12 @@ function FreeBand() {
             Free means free.
           </h2>
           <p className="max-w-[580px] text-[18px] leading-relaxed text-navy-200">
-            No subscription, no setup fee, no per-member charge and no percentage of what your members give. We keep the platform going through small, optional tips from members, capped at {usd(TIP_YEARLY_CAP_CENTS)} a year per account, so your organization never has to pay.
+            No subscription, no setup fee, no per-member charge and no percentage of what your members give. We keep the platform going through small, optional Chip Ins from members, capped at {usd(TIP_YEARLY_CAP_CENTS)} a year per account, so your organization never has to pay.
           </p>
           <ol className="grid w-full max-w-[580px] grid-cols-1 gap-3 sm:grid-cols-3">
             {[
               ["A member pays", "dues, a gift or a ticket"],
-              ["An optional tip", "one tap to skip it"],
+              ["An optional Chip In", "one tap to skip it"],
               [`Capped at ${usd(TIP_YEARLY_CAP_CENTS)}`, "a year, per account"],
             ].map(([a, b], i) => (
               <li key={a} className="rounded-2xl border border-white/10 bg-white/5 p-4">
@@ -541,7 +541,7 @@ function Faq() {
               q: "Is Weaver AMS really free?",
               a: (
                 <>
-                  Yes. Your organization never pays us: no subscription, no setup fee, no per-member charge. Members may add a small optional tip when they pay, capped at {usd(TIP_YEARLY_CAP_CENTS)} a year per account.{" "}
+                  Yes. Your organization never pays us: no subscription, no setup fee, no per-member charge. Members may add a small optional Chip In when they pay, capped at {usd(TIP_YEARLY_CAP_CENTS)} a year per account.{" "}
                   <SiteLink to="/pricing#how-we-stay-free" className="font-bold text-navy underline">
                     Here is how it works.
                   </SiteLink>

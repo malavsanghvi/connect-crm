@@ -11,7 +11,7 @@ const CAP = usd(TIP_YEARLY_CAP_CENTS);
 
 export const metadata: Metadata = {
   title: { absolute: `Pricing: totally free, forever · ${SITE_NAME}` },
-  description: `${SITE_NAME} is free for your organization, forever: no subscription, no setup fee, no per-member charge. Members may add a small optional tip, capped at ${CAP} a year per account.`,
+  description: `${SITE_NAME} is free for your organization, forever: no subscription, no setup fee, no per-member charge. Members may add a small optional Chip In, capped at ${CAP} a year per account.`,
   alternates: { canonical: "/pricing" },
   openGraph: { url: "/pricing" },
 };
@@ -126,20 +126,20 @@ function HowWeStayFree() {
         <SectionHeading
           eyebrow="How we stay free"
           title="We run on the generosity of your members"
-          lead={`${SITE_NAME} is free for your organization because the people it serves chip in. When a member pays dues, buys a ticket or gives, we suggest a small optional tip to help keep the platform free and the experience great. That is the whole model.`}
+          lead={`${SITE_NAME} is free for your organization because the people it serves chip in. When a member pays dues, buys a ticket or gives, we suggest a small optional Chip In to help keep the platform free and the experience great. That is the whole model.`}
         />
 
         <ol className="grid grid-cols-1 gap-5 lg:grid-cols-3">
           <Step n="1" title="A member pays" body="Dues, a donation, a pledge payment, a ticket or a purchase, in the member app or on the web." />
           <Step
             n="2"
-            title="They see an optional tip"
-            body="A small suggested tip appears at checkout. They can change it or choose no tip in one tap. Paying never requires a tip."
+            title="They see an optional Chip In"
+            body="A small suggested Chip In appears at checkout. They can change it or skip it in one tap. Paying never requires a Chip In."
           />
           <Step
             n="3"
             title="Your organization pays nothing"
-            body="The tip is added on top. The price, dues or pledge you set does not change, and you never receive a bill from us."
+            body="The Chip In is added on top. The price, dues or pledge you set does not change, and you never receive a bill from us."
           />
         </ol>
 
@@ -150,11 +150,11 @@ function HowWeStayFree() {
               Never more than {CAP} a year, per account
             </h3>
             <p className="text-[17px] leading-relaxed text-muted">
-              We cap tips at {CAP} per account per year, in total across every transaction. Once an account reaches {CAP}, we stop asking until the next year. A member who gives all year long is never asked for more, and your organization never has to pay.
+              We cap Chip Ins at {CAP} per account per year, in total across every transaction. Once an account reaches {CAP}, we stop asking until the next year. A member who gives all year long is never asked for more, and your organization never has to pay.
             </p>
             <Ticks
               items={[
-                "Always optional: one tap on “No tip” and they pay exactly what you charged",
+                "Always optional: one tap on “No Chip In” and they pay exactly what you charged",
                 `Capped at ${CAP} per account per year, however often they pay`,
                 "Added on top of the amount you set, never taken out of it",
                 "We take no percentage of what your members pay you",
@@ -169,13 +169,13 @@ function HowWeStayFree() {
           <p className="mt-2 text-center text-[15px] text-muted">An example for one account. The amounts are illustrative.</p>
           <div className="mt-6 overflow-x-auto rounded-[20px] border border-line bg-white">
             <table className="w-full min-w-[560px] border-collapse text-left text-[15px]">
-              <caption className="sr-only">Example of one account&apos;s optional tips over a year, ending at the {CAP} cap</caption>
+              <caption className="sr-only">Example of one account&apos;s optional Chip Ins over a year, ending at the {CAP} cap</caption>
               <thead>
                 <tr className="bg-canvas text-[12px] font-bold uppercase tracking-wide text-muted">
                   <th scope="col" className="px-5 py-3">Payment</th>
                   <th scope="col" className="px-5 py-3 text-right">Amount</th>
-                  <th scope="col" className="px-5 py-3 text-right">Optional tip</th>
-                  <th scope="col" className="px-5 py-3 text-right">Tips so far</th>
+                  <th scope="col" className="px-5 py-3 text-right">Optional Chip In</th>
+                  <th scope="col" className="px-5 py-3 text-right">Chip Ins so far</th>
                 </tr>
               </thead>
               <tbody>
@@ -252,11 +252,11 @@ function Faq() {
           items={[
             {
               q: "Is it really free? What is the catch?",
-              a: `There is no catch. Your organization never pays us. ${SITE_NAME} is supported by small, optional tips from members, capped at ${CAP} a year per account.`,
+              a: `There is no catch. Your organization never pays us. ${SITE_NAME} is supported by small, optional Chip Ins from members, capped at ${CAP} a year per account.`,
             },
             {
-              q: "What if a member does not want to tip?",
-              a: "They choose “No tip” and pay exactly what you charged. Their payment is not slower, and nothing about their membership changes.",
+              q: "What if a member does not want to Chip In?",
+              a: "They choose “No Chip In” and pay exactly what you charged. Their payment is not slower, and nothing about their membership changes.",
             },
             {
               q: `Why is there a ${CAP} cap?`,
@@ -264,7 +264,7 @@ function Faq() {
             },
             {
               q: "Do you take a percentage of payments?",
-              a: "No. We do not take a cut of what your members pay your organization. A tip, when a member chooses one, is a separate amount added on top.",
+              a: "No. We do not take a cut of what your members pay your organization. A Chip In, when a member chooses one, is a separate amount added on top.",
             },
             {
               q: "Are there payment processing fees?",
@@ -275,7 +275,7 @@ function Faq() {
               a: `Yes. Free for organizations is the promise ${SITE_NAME} is built on.`,
             },
             {
-              q: "What do tips pay for?",
+              q: "What do Chip Ins pay for?",
               a: "Hosting, security, support and the continued development of the platform.",
             },
           ]}

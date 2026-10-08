@@ -24,7 +24,7 @@ export const SOLUTIONS_MENU: MenuEntry[] = WEAVERS.map((w) => ({ to: `/#${w.id}`
 
 export const RESOURCES_MENU: MenuEntry[] = [
   { to: "/#how", icon: "check", title: "How it works", body: "From request to going live" },
-  { to: "/pricing#how-we-stay-free", icon: "heart", title: "How we stay free", body: `Optional tips, capped at ${CAP} a year` },
+  { to: "/pricing#how-we-stay-free", icon: "heart", title: "How we stay free", body: `Optional Chip Ins, capped at ${CAP} a year` },
   { to: "/#security", icon: "shield", title: "Security and privacy", body: "How your community's data is protected" },
   { to: "/#faq", icon: "smile", title: "Questions and answers", body: "The things people ask first" },
 ];
@@ -94,7 +94,7 @@ function Announcement() {
     <div className="bg-navy text-white">
       <div className={`${container} flex min-h-[44px] items-center justify-center gap-2 py-2 text-center text-[14px] font-semibold`}>
         <span className="hidden rounded-full bg-gold px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wide text-navy sm:inline">Free forever</span>
-        <span className="text-navy-100">No fees for your organization. Members may add an optional tip, capped at {CAP} a year.</span>
+        <span className="text-navy-100">No fees for your organization. Members may add an optional Chip In, capped at {CAP} a year.</span>
         <SiteLink to="/pricing#how-we-stay-free" className="inline-flex items-center gap-1 whitespace-nowrap font-bold text-gold underline-offset-4 hover:underline">
           See how
           <Icon name="arrow" className="h-3.5 w-3.5" strokeWidth={2.5} />
