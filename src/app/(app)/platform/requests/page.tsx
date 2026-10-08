@@ -24,6 +24,15 @@ const FILTERS = [
   { key: "all", label: "All" },
 ];
 
+/**
+ * The kind the applicant chose on the request form, when the database stores it (access_requests.requested_category_key,
+ * migration 0600 / 0612). Read through a cast until the generated types know the column; absent = no choice.
+ */
+function requestedKind(r: object): string | null {
+  const v = (r as { requested_category_key?: unknown }).requested_category_key;
+  return typeof v === "string" && v ? v : null;
+}
+
 export default async function RequestsPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const session = await getSession();
   const header = <PageHeader title="Platform" description="Access requests · approve (a sandbox code is issued), decline with a reason, or ask for more information" />;
@@ -167,7 +176,7 @@ export default async function RequestsPage({ searchParams }: { searchParams: Pro
                                       experiences={kindList}
                                       includeInactive
                                       name="experience"
-                                      initial={selectionForRequest(kindModel, r.category_key, r.org_type)}
+                                      initial={selectionForRequest(kindModel, r.category_key ?? requestedKind(r), r.org_type)}
                                     />
                                     <p className="crm-hint">
                                       The applicant said &quot;{orgTypeLabel(r.org_type)}&quot;; that is a hint. The kind you choose here sets the sandbox&apos;s modules, wording and Setup checklist
