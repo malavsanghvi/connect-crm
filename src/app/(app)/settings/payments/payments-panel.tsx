@@ -378,8 +378,10 @@ export function ProcessorPanel({ p, s, tz, run, busy, askReason }: { p: Processo
  * Today's instructions editor for Zelle or an offline method, inside its plugin card. Whether the
  * method is offered is the card's switch; this saves what members are told (kept as they are on or off).
  */
-export function MethodEditor({ def, row, enabled, sort, canEdit, run, busy, askReason }: {
+export function MethodEditor({ def, row, enabled, sort, canEdit, run, busy, askReason, lockedFields = [] }: {
   def: OfflineMethod; row: MethodSettings | undefined; enabled: boolean; sort: number; canEdit: boolean; run: Runner; busy: string | null; askReason: AskReason;
+  /** Fields already saved that only a second person can change (the Zelle address and name): shown, not editable here. */
+  lockedFields?: readonly string[];
 }) {
   const [vals, setVals] = useState<Record<string, string>>(row?.instructions ?? {});
   const baseId = useId();
@@ -398,10 +400,10 @@ export function MethodEditor({ def, row, enabled, sort, canEdit, run, busy, askR
                 {required.includes(f.key) ? " *" : ""}
               </span>
               {f.multiline ? (
-                <textarea id={id} rows={2} className="crm-input" disabled={!canEdit} placeholder={f.placeholder} value={vals[f.key] ?? ""}
+                <textarea id={id} rows={2} className="crm-input" disabled={!canEdit || lockedFields.includes(f.key)} placeholder={f.placeholder} value={vals[f.key] ?? ""}
                   onChange={(e) => setVals((v) => ({ ...v, [f.key]: e.target.value }))} />
               ) : (
-                <input id={id} className="crm-input" disabled={!canEdit} placeholder={f.placeholder} value={vals[f.key] ?? ""}
+                <input id={id} className="crm-input" disabled={!canEdit || lockedFields.includes(f.key)} placeholder={f.placeholder} value={vals[f.key] ?? ""}
                   onChange={(e) => setVals((v) => ({ ...v, [f.key]: e.target.value }))} />
               )}
             </label>

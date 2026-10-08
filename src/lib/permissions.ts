@@ -570,6 +570,8 @@ export const NAV: NavModule[] = [
       { href: "/platform/agreements", label: "Agreements", access: "dashboard", platformOnly: true },
       // o-https: portal address and HTTPS status.
       { href: "/platform/https", label: "HTTPS", access: "dashboard", platformOnly: true },
+      // Payments plan PR 5: Community Connect pauses a way to pay (the only power the platform team has over payments).
+      { href: "/platform/payments", label: "Payments", access: "dashboard", platformOnly: true },
     ],
     paths: ["/platform"],
   },
