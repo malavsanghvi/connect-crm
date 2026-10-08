@@ -44,13 +44,16 @@ Plan: [ORGANIZATION_CATEGORIES_PLAN.md](ORGANIZATION_CATEGORIES_PLAN.md).
 | `app.set_access_request_category(request, category)` | Community Connect chooses the category on an access request before approving it; the sandbox made from the request takes it. |
 
 **JSH is unchanged by construction.** JSH and every existing community are Jain Centers, and Jain Center has all 18
-modules `default_on`: the module functions take today's rule for it, word for word. Test 79 runs the same reads of a JSH
+modules `default_on`: the module functions give it the same results as today's rule (the code differs; the results are the same). Test 79 runs the same reads of a JSH
 administrator and a JSH member (every module table's row count, `my_modules`, the access areas) under the new functions
 and under 0101's, and compares them. The enforcement is the same three functions as before (`module_enabled`,
 `module_off_centers`, `assert_module_enabled`, plus `set_module_enabled`), so every module table's `module_switch` policy,
 every module RPC guard, the storage buckets, Setup's "skipped", Niva's live facts and the access areas follow the
 category with no per-table change. A direct update of `centers.category_key` is refused (by a trigger) for everyone who
-is signed in, platform admins included; jobs and migrations pass. `centers.tradition` is `other` for a category that does
+is signed in, platform admins included; jobs and migrations pass. A production organization always has an active
+category: a new row, a category change or a flip of `environment` is refused otherwise (jobs and migrations included), and
+the promotion job checks it again before it copies. A module or a category added later gets a row in every category at
+once (off for every category but Jain Center, except core modules), so nothing is silently on for a chamber of commerce. `centers.tradition` is `other` for a category that does
 not use one. Setup: a step of a module the category does not have is skipped with "Not part of a {Category}
 organization." The dietary list of a new organization has the "Jain (no root vegetables)" option only for a Jain Center.
 
