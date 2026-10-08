@@ -170,9 +170,15 @@ select pg_temp.assert((select count(*) from app.role_roster where center_id = :c
 update app.org_leaders set show_publicly = false where id = '21000000-0000-4000-8000-00000000c002';
 select pg_temp.assert(not exists (select 1 from app.role_roster where org_leader_id = '21000000-0000-4000-8000-00000000c002'),
   'hiding a leader takes them off the roster');
+-- The community is still onboarding: since 0615 its public leaders are shown to its own people, not to visitors.
 begin;
 set local role anon;
-select pg_temp.assert((select count(*) from app.org_leaders where center_id = :c) = 1, 'visitors see only the leaders shown publicly');
+select pg_temp.assert((select count(*) from app.org_leaders where center_id = :c) = 0, 'visitors see no leaders of a community still being set up (0615)');
+commit;
+begin;
+set local role authenticated;
+set local request.jwt.claim.sub = '21000000-0000-4000-8000-00000000a002';
+select pg_temp.assert((select count(*) from app.org_leaders where center_id = :c) = 1, 'its members see only the leaders shown publicly');
 commit;
 
 -- ── Brand kit ────────────────────────────────────────────────────────────────

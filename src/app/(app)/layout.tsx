@@ -21,7 +21,8 @@ export default async function ConsoleLayout({ children }: { children: ReactNode 
           <p>
             No active center has the slug <code className="rounded bg-subtle px-1">{state.slug}</code>.{" "}
             {centerMissingHint(state.source)} The center must exist in{" "}
-            <code className="rounded bg-subtle px-1">app.centers</code> with status active or onboarding.
+            <code className="rounded bg-subtle px-1">app.centers</code> and be active (one still being set up opens only for
+            its own staff and members).
           </p>
           {state.source === "switcher" ? (
             <p className="mt-4">

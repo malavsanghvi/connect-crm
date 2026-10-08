@@ -35,8 +35,9 @@ function anonClient() {
 export async function generateMetadata({ params }: { params: Params }): Promise<Metadata> {
   const { slug } = await params;
   const c = anonClient();
-  const res = c ? await c.db.from("centers").select("name, short_name").eq("slug", slug).maybeSingle() : null;
-  const name = res?.data ? `${res.data.short_name || res.data.name} Community Dashboard` : "Community Dashboard";
+  const res = c ? await c.db.rpc("community_public", { p_slug: slug }) : null;
+  const row = res?.data?.[0];
+  const name = row ? `${row.short_name || row.name} Community Dashboard` : "Community Dashboard";
   return { title: { absolute: name }, robots: { index: true, follow: true } };
 }
 
@@ -45,13 +46,14 @@ export default async function PublicDashboardPage({ params }: { params: Params }
   const c = anonClient();
   if (!c) return <Problem title="This dashboard is not available" body="The site is not configured yet." />;
   if (!/^[a-z0-9][a-z0-9-]{0,62}$/i.test(slug)) return <Problem title="Community not found" body={`There is no community at "/c/${slug}".`} />;
-  const res = await c.db.from("centers").select("id, slug, name, short_name, time_zone, branding, status, environment").eq("slug", slug).maybeSingle();
+  // The public part of the community (app.community_public, 0614): the table is closed to guests (0615).
+  const res = await c.db.rpc("community_public", { p_slug: slug });
   if (res.error) {
     console.error("[public-dashboard] center lookup failed:", res.error);
     return <Problem title="We could not load this dashboard" body={`${explainError(res.error)}. Please try again in a moment.`} retry />;
   }
-  if (!res.data || res.data.status !== "active") return <Problem title="Community not found" body={`There is no public dashboard at "/c/${slug}".`} />;
-  const center = res.data;
+  const center = res.data?.[0];
+  if (!center || center.status !== "active") return <Problem title="Community not found" body={`There is no public dashboard at "/c/${slug}".`} />;
   const b = tenantBranding({ ...center, slug: String(center.slug) }, c.env.supabaseUrl);
   // Sandboxes have no public dashboard (entitlement public_dashboard; app.public_kpis refuses them too).
   if (center.environment === "sandbox") {

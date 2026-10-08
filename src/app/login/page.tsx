@@ -25,22 +25,25 @@ function readPublicEnvUrl(): string | undefined {
   return env.ok ? env.env.supabaseUrl : undefined;
 }
 
-/** The community this portal serves (centers are readable without signing in). */
+/**
+ * The community this portal serves: its public part (app.community_public, migration 0614; the table is closed to
+ * guests by 0615). A community still being set up is not shown before sign-in.
+ */
 async function loadTenant({ slug, source }: CenterChoice): Promise<{ tenant: Tenant; problem: string | null }> {
   try {
     const db = await createSupabaseServerClient();
-    const { data, error } = await db
-      .from("centers")
-      .select("name, short_name, slug, branding, environment")
-      .eq("slug", slug)
-      .maybeSingle();
+    const { data: rows, error } = await db.rpc("community_public", { p_slug: slug });
     if (error) {
       console.error("[login] could not load the center:", error);
       return { tenant: null, problem: `Could not load your community's details — ${explainError(error)}. You can still sign in.` };
     }
+    const data = rows?.[0];
     if (!data) {
-      console.error(`[login] no active center with slug "${slug}"`);
-      return { tenant: null, problem: `No active community is set up with the short name "${slug}". ${centerMissingHint(source)}` };
+      console.error(`[login] no active center with slug "${slug}" (or one still being set up, which opens after sign-in)`);
+      return {
+        tenant: null,
+        problem: `No active community is set up with the short name "${slug}". A community still being set up opens after you sign in. ${centerMissingHint(source)}`,
+      };
     }
     return {
       tenant: { name: data.name, branding: tenantBranding({ ...data, slug: String(data.slug) }, readPublicEnvUrl()), sandbox: data.environment === "sandbox" },

@@ -433,8 +433,8 @@ begin
 end $$;
 begin;
 select set_config('request.jwt.claims', '{"role":"anon"}', true), set_config('role', 'anon', true);
-select pg_temp.assert((select count(*) from app.centers where id in (:c5, :c6)) = 0 and (select count(*) from app.centers where id = :c7) = 1,
-  'the center picker lists an onboarding community to a guest, and neither a suspended nor an exited one (the public level follows the same rule)');
+select pg_temp.assert((select count(*) from app.centers where id in (:c5, :c6, :c7)) = 0,
+  'a guest reads neither an onboarding (0615), a suspended nor an exited community (the public level follows the same rule)');
 commit;
 select pg_temp.assert(not pg_temp.can_as(null, :c5, 'darshan') and not pg_temp.can_as(null, :c6, 'darshan')
                       and not pg_temp.can_as(null, :c5, 'puja') and not pg_temp.can_as(null, :c6, 'timings') and not pg_temp.can_as(null, :c5, 'guide'),
@@ -442,23 +442,25 @@ select pg_temp.assert(not pg_temp.can_as(null, :c5, 'darshan') and not pg_temp.c
 select pg_temp.assert(not pg_temp.can_as(:u_stranger, :c5, 'darshan') and not pg_temp.can_as(:u_stranger, :c6, 'darshan')
                       and not pg_temp.can_as(:u_none, :c5, 'darshan'),
   'nor can someone signed in who is not part of it');
-select pg_temp.assert(pg_temp.can_as(null, :c7, 'darshan') and pg_temp.can_as(:u_stranger, :c7, 'puja'),
-  'an onboarding community is open to guests, as the picker lists it');
+select pg_temp.assert(not pg_temp.can_as(null, :c7, 'darshan') and not pg_temp.can_as(:u_stranger, :c7, 'puja'),
+  'an onboarding community is not open to guests or strangers (0615: only to its own people)');
 select pg_temp.assert(pg_temp.can_as(:u_sm, :c5, 'darshan') and pg_temp.can_as(:u_sm, :c5, 'puja') and pg_temp.can_as(:u_sm, :c5, 'listen'),
   'a person linked to a suspended community keeps its areas, as before');
 select pg_temp.assert(pg_temp.can_as(:u_padmin, :c5, 'darshan') and pg_temp.can_as(:u_padmin, :c6, 'darshan'),
   'and so does a platform admin');
-select pg_temp.assert(pg_temp.seen_s_as(null) = 'onboard' and pg_temp.seen_s_as(:u_stranger) = 'onboard' and pg_temp.seen_s_as(:u_none) = 'onboard',
-  'row level security gives a guest or a stranger the stream of the onboarding community only, not the suspended or exited ones');
-select pg_temp.assert(pg_temp.seen_s_as(:u_sm) = 'onboard susp', 'a member of the suspended community reads its stream (and the onboarding one)');
+select pg_temp.assert(pg_temp.seen_s_as(null) = '' and pg_temp.seen_s_as(:u_stranger) = '' and pg_temp.seen_s_as(:u_none) = '',
+  'row level security gives a guest or a stranger no stream of the onboarding (0615), suspended or exited communities');
+select pg_temp.assert(pg_temp.seen_s_as(:u_sm) = 'susp', 'a member of the suspended community reads its stream (not the onboarding one, 0615)');
 select pg_temp.assert(pg_temp.seen_s_as(:u_padmin) = 'exited onboard susp', 'a platform admin reads them all');
 select pg_temp.assert_raises($$select pg_temp.access_as(null, '71000000-0000-4000-8000-0000000000c5')$$, 'not found',
   'a guest asking for the access of a suspended community is told it was not found (its ladder is not shown)');
 select pg_temp.assert_raises($$select pg_temp.access_as('71000000-0000-4000-8000-000000000004', '71000000-0000-4000-8000-0000000000c6')$$, 'not found',
   'so is someone signed in who is not part of an exited community');
 select pg_temp.assert(pg_temp.access_as(:u_sm, :c5)->'level'->>'key' = 'community' and pg_temp.access_as(:u_padmin, :c6)->>'signed_in' = 'true'
-                      and pg_temp.access_as(null, :c7)->'features'->'darshan'->>'allowed' = 'true',
-  'while a member of it, a platform admin and a guest asking about an onboarding community get their answer');
+                      and pg_temp.access_as(:u_padmin, :c7)->'features'->'darshan'->>'allowed' = 'true',
+  'while a member of it and a platform admin get their answer (an onboarding one too, for the platform admin)');
+select pg_temp.assert_raises($$select pg_temp.access_as(null, '71000000-0000-4000-8000-0000000000c7')$$, 'not found',
+  'a guest asking about an onboarding community is told it was not found (0615)');
 
 -- ── Choosing a level for an area ─────────────────────────────────────────────
 begin;

@@ -582,8 +582,9 @@ select pg_temp.assert((select count(*) from app.practices where center_id = :'ch
   'C · a chamber member reads no practices and gets the same my_modules');
 reset role;
 select pg_temp.no_claims();
--- Guests: the access areas of the chamber, and the category profile.
-set role anon;
+-- A member of the chamber (a sandbox still onboarding: since 0615 guests do not see it): its access areas and category profile.
+set role authenticated;
+select pg_temp.claims(:chmember);
 select pg_temp.assert(not ((select app.feature_access_for_me(:'chm')->'features') ? 'puja')
                       and not ((select app.feature_access_for_me(:'chm')->'features') ? 'learn')
                       and not ((select app.feature_access_for_me(:'chm')->'features') ? 'darshan')
@@ -610,12 +611,15 @@ select pg_temp.assert((select app.category_profile(:jsh)->'category'->>'key') = 
 select pg_temp.assert_raises($$select app.category_profile('79000000-0000-4000-8000-0000000000ff')$$, 'That community was not found.',
   'C · category_profile: an unknown community is "not found"');
 reset role;
+select pg_temp.no_claims();
 update app.centers set status = 'suspended' where id = '79000000-0000-4000-8000-0000000000d1';
 set role anon;
 select pg_temp.assert_raises($$select app.category_profile('79000000-0000-4000-8000-0000000000d1')$$, 'That community was not found.',
   'C · and so is a community that is not open to guests');
 reset role;
--- The default path follows the community's default tradition.
+-- The default path follows the community's default tradition (asked as a platform admin: the community is still
+-- onboarding, which since 0615 is shown only to its own people).
+select pg_temp.claims(:cc);
 update app.centers set tradition = 'sthanakvasi' where id = :'jt';
 select pg_temp.assert(app.category_profile(:'jt')->>'default_path' = 'shwetambar_sthanakvasi', 'C · a Sthanakvasi community defaults to the Sthanakvasi path');
 update app.centers set tradition = 'terapanthi' where id = :'jt';
@@ -625,6 +629,7 @@ select pg_temp.assert(app.category_profile(:'jt')->>'default_path' = 'digambar',
 update app.centers set tradition = 'other' where id = :'jt';
 select pg_temp.assert(jsonb_typeof(app.category_profile(:'jt')->'default_path') = 'null', 'C · "other" has no default path');
 update app.centers set tradition = 'shvetambar_murtipujak' where id = :'jt';
+select pg_temp.no_claims();
 -- Platform admins pass the module switch, as they always did.
 set role authenticated;
 select pg_temp.claims(:cc, true);
