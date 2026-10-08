@@ -131,7 +131,7 @@ export async function SurveyTab({ event, session, access }: { event: Tables<"eve
         </Card>
       ) : null}
 
-      {notices ? <PushesCard notices={notices} tz={tz} retry={canManage && survey.status === "open" && (notices.problemCode === "template" || notices.problemCode === "switched_off") && notices.pushed === 0 ? launchEventSurvey.bind(null, event.id, survey.id) : null} /> : null}
+      {notices ? <PushesCard notices={notices} tz={tz} retry={canManage && survey.status === "open" && (notices.problemCode === "switched_off" || (notices.problemCode === "template" && notices.pushed === 0)) ? launchEventSurvey.bind(null, event.id, survey.id) : null} /> : null}
 
       {canManage && state.canEdit ? (
         <Card span={12} title="Edit survey" description="Questions, points and sending can be changed until the survey goes out.">
@@ -211,7 +211,7 @@ function PushesCard({ notices, tz, retry }: { notices: SurveyNotices; tz: string
     >
       {notices.problem ? (
         <div className="mb-3">
-          <Alert tone={notices.problemCode === "template" ? "danger" : "warning"} title="No push went out">
+          <Alert tone={notices.problemCode === "template" ? "danger" : "warning"} title={notices.pushed > 0 ? "Pushes paused" : "No push went out"}>
             {notices.problem}
           </Alert>
         </div>

@@ -56,8 +56,9 @@ end $$;
 
 -- ── One mapping from a notice to its topic, its community switch and its kind ────────
 -- topic: the member's choice (notification_preferences). trigger: the community's switch (rules.notifications.triggers).
--- service: a notice about the member's own order or payment, held back only by an explicit "off" of the member, never by
--- a topic that is off by default (the store's offers are off until chosen; "your order is ready" is not an offer).
+-- service: a notice about the member's own order: NO member topic gate at all, the community's switch only. The app saves
+-- an explicit "off" row for every topic a member did not tick, so a topic gate would hold it back from most members, and
+-- "your order is ready" is not an offer (the Satvik Store topic is for offers).
 -- Homework notices are not mapped: which topic they belong to is the owner's choice (they have their own switch).
 create or replace function app.notice_topic(p_template text) returns text
 language sql immutable set search_path = app, public, extensions as $$
@@ -256,7 +257,9 @@ language sql immutable set search_path = app, public, extensions as $$
     when 'quiet_hours' then 'quiet hours last until after ' ||
          case p_template when 'boli_outbid' then 'the boli closes' when 'boli_closing' then 'the boli closes'
                          when 'lunch_reminder' then 'the lunch slot starts' when 'rsvp_confirmation' then 'the event starts'
-                         when 'special_day_labh' then 'the special day is over' else 'the survey closes' end
+                         when 'special_day_labh' then 'the special day is over'
+                         when 'store_order_ready' then 'the order notice stops being useful (12 hours after it is ready)'
+                         else 'the survey closes' end
     when 'sandbox' then 'a sandbox pushes only to verified test recipients'
     when 'template' then 'the push could not be written from its template'
     when 'suppressed' then 'the recipient may not be messaged (for example recorded as deceased)'
@@ -343,10 +346,10 @@ begin
     v_skip := 'The message is already cancelled: it expired before it was due.';
   end if;
 
-  -- 0596: the member switched this topic off for this channel in the app (no row = the topic's default; 0598: a notice
-  -- about the member's own order ignores a default that is off).
-  if v_skip is null and m.topic_key is not null and m.person_id is not null then
-    select app._notice_topic_on(m.person_id, t.key, m.channel::text, app.notice_is_service(m.template_key)), t.name
+  -- 0596: the member switched this topic off for this channel in the app (no row = the topic's default). 0598: not for a
+  -- service notice (a member's own order): only the community's switch below holds that back.
+  if v_skip is null and m.topic_key is not null and m.person_id is not null and not app.notice_is_service(m.template_key) then
+    select app._notice_topic_on(m.person_id, t.key, m.channel::text), t.name
       into v_on, v_topic
       from app.notification_topics t
      where t.key = m.topic_key;
@@ -694,68 +697,69 @@ begin
 end $$;
 
 -- "A special day is coming up": from the day the family chose (special_days.reminder_days_before before it, default 14)
--- until the day itself, once per occurrence and adult of the household. Days remembered by tithi are not covered (their
--- date needs the tithi table; a later change); a punyatithi never offers a labh; a community with the Giving module
--- off, or with no labh options, sends none.
+-- until the day itself. AT MOST ONE push per adult per run: an adult with several days in their windows gets one push
+-- that opens the earliest and says how many are coming ("3 special days coming up, the first in 2 days"); every day it
+-- covered is logged for that adult, so none is announced again. Days remembered by tithi are not covered (their date
+-- needs the tithi table; a later change); a punyatithi never offers a labh; a community with the Giving module off, or
+-- with no labh options, sends none.
 create or replace function app._special_day_labh_sweep(p_limit integer default 200) returns jsonb
 language plpgsql security definer set search_path = app, public, extensions as $$
-declare sd record; a record; v_res jsonb; v_left int := greatest(coalesce(p_limit, 200), 1); v_pushed int := 0; v_refused int := 0;
+declare sd record; v_res jsonb; v_left int := greatest(coalesce(p_limit, 200), 1); v_pushed int := 0; v_refused int := 0;
         v_counts jsonb; v_err text; v_more boolean := false; v_days int; v_expires timestamptz; v_zones text[];
+        v_ids uuid[]; v_occ date[]; v_n int; v_first text; i int;
 begin
   select coalesce(array_agg(lower(z.name)), '{}') into v_zones from pg_timezone_names z;
   for sd in
-    select x.* from (
-      select s.id, s.center_id, s.household_id, s.reminder_days_before as lead_days, c.time_zone,
-             (now() at time zone c.time_zone)::date as today,
-             app.next_special_day_on(s.id, (now() at time zone c.time_zone)::date) as occurs_on
-        from app.special_days s join app.centers c on c.id = s.center_id
-       where s.calendar_date is not null and s.labh_prompt_enabled and s.kind <> 'punyatithi'
-         and coalesce(c.rules #>> '{notifications,triggers,special_day_labh}', '') <> 'false'
-         and lower(c.time_zone) = any (v_zones)
-    ) x
-     where x.occurs_on is not null and x.occurs_on - greatest(x.lead_days, 0) <= x.today
-     order by x.occurs_on, x.id
+    select y.center_id, y.person_id, y.time_zone, y.today,
+           array_agg(y.id order by y.occurs_on, y.id) as day_ids, array_agg(y.occurs_on order by y.occurs_on, y.id) as occurs
+      from (
+        select s.id, s.center_id, c.time_zone, h.person_id, s.reminder_days_before as lead_days,
+               (now() at time zone c.time_zone)::date as today,
+               app.next_special_day_on(s.id, (now() at time zone c.time_zone)::date) as occurs_on
+          from app.special_days s
+          join app.centers c on c.id = s.center_id
+          cross join lateral app._notice_household_adults(s.household_id) h(person_id)
+         where s.calendar_date is not null and s.labh_prompt_enabled and s.kind <> 'punyatithi'
+           and coalesce(c.rules #>> '{notifications,triggers,special_day_labh}', '') <> 'false'
+           and lower(c.time_zone) = any (v_zones)
+           and app.module_enabled(s.center_id, 'giving')
+           and exists (select 1 from app.labh_options o where o.center_id = s.center_id and o.active)
+      ) y
+      join app.center_users cu on cu.center_id = y.center_id and cu.person_id = y.person_id
+     where y.occurs_on is not null and y.occurs_on - greatest(y.lead_days, 0) <= y.today
+       and exists (select 1 from app.push_devices d where d.user_id = cu.user_id and d.invalid_at is null)
+       and app._notice_topic_on(y.person_id, 'giving', 'push')
+       and not exists (select 1 from app.notice_log l
+                        where l.kind = 'special_day_labh' and l.ref_id = y.id and l.period = y.occurs_on::text and l.person_id = y.person_id)
+     group by y.center_id, y.person_id, y.time_zone, y.today
+     order by min(y.occurs_on), y.person_id
+     limit v_left
   loop
-    if v_left <= 0 then v_more := true; exit; end if;
-    if not app.module_enabled(sd.center_id, 'giving')
-       or not exists (select 1 from app.labh_options o where o.center_id = sd.center_id and o.active) then
-      continue;
-    end if;
-    v_counts := '{}'::jsonb; v_err := null;
-    v_days := sd.occurs_on - sd.today;
-    v_expires := (sd.occurs_on + 1)::timestamp at time zone sd.time_zone;
-    for a in
-      select distinct on (p.id) p.id as person_id
-        from app._notice_household_adults(sd.household_id) h(person_id)
-        join app.people p on p.id = h.person_id
-        join app.center_users cu on cu.center_id = sd.center_id and cu.person_id = p.id
-       where exists (select 1 from app.push_devices d where d.user_id = cu.user_id and d.invalid_at is null)
-         and app._notice_topic_on(p.id, 'giving', 'push')
-         and not exists (select 1 from app.notice_log l
-                          where l.kind = 'special_day_labh' and l.ref_id = sd.id and l.period = sd.occurs_on::text and l.person_id = p.id)
-       order by p.id
-       limit v_left
-    loop
-      v_res := app._member_push(sd.center_id, a.person_id, 'special_day_labh', 'giving', 'special_day_labh',
-                 jsonb_build_object('when', case when v_days <= 0 then 'Today' when v_days = 1 then 'Tomorrow' else 'In ' || v_days || ' days' end),
-                 jsonb_build_object('type', 'special_day', 'deep_link', '/labh/' || sd.id::text, 'special_day_id', sd.id::text),
-                 now(), v_expires);
-      if coalesce(v_res->>'reason', '') not in ('no_person', 'no_login', 'no_phone', 'switched_off') then
+    v_ids := sd.day_ids; v_occ := sd.occurs; v_n := cardinality(v_ids);
+    v_days := v_occ[1] - sd.today;
+    v_first := case when v_days <= 0 then 'today' when v_days = 1 then 'tomorrow' else 'in ' || v_days || ' days' end;
+    v_expires := (v_occ[1] + 1)::timestamp at time zone sd.time_zone;
+    v_res := app._member_push(sd.center_id, sd.person_id, 'special_day_labh', 'giving', 'special_day_labh',
+               jsonb_build_object('when', case when v_n > 1 then v_n || ' special days coming up, the first ' || v_first
+                                               when v_days <= 0 then 'Today' when v_days = 1 then 'Tomorrow' else 'In ' || v_days || ' days' end),
+               jsonb_build_object('type', 'special_day', 'deep_link', '/labh/' || v_ids[1]::text, 'special_day_id', v_ids[1]::text),
+               now(), v_expires);
+    if coalesce(v_res->>'reason', '') not in ('no_person', 'no_login', 'no_phone', 'switched_off') then
+      for i in 1 .. v_n loop
         insert into app.notice_log (kind, ref_id, period, person_id, center_id, outcome, reason)
-        values ('special_day_labh', sd.id, sd.occurs_on::text, a.person_id, sd.center_id,
+        values ('special_day_labh', v_ids[i], v_occ[i]::text, sd.person_id, sd.center_id,
                 case when v_res ? 'id' then 'pushed' else 'refused' end, v_res->>'reason')
         on conflict do nothing;
-      end if;
-      v_left := v_left - 1;
-      if v_res ? 'id' then
-        v_pushed := v_pushed + 1;
-      else
-        v_refused := v_refused + 1;
-        v_counts := app._add_counts(v_counts, jsonb_build_object(coalesce(v_res->>'reason', 'error'), 1));
-        v_err := coalesce(v_err, v_res->>'error');
-      end if;
-    end loop;
-    perform app._member_notice_not_sent(sd.center_id, 'special_days', sd.id::text, 'special_day_labh', v_counts, v_err);
+      end loop;
+    end if;
+    v_left := v_left - 1;
+    if v_res ? 'id' then
+      v_pushed := v_pushed + 1;
+    else
+      v_refused := v_refused + 1;
+      v_counts := app._add_counts('{}'::jsonb, jsonb_build_object(coalesce(v_res->>'reason', 'error'), 1));
+      perform app._member_notice_not_sent(sd.center_id, 'special_days', v_ids[1]::text, 'special_day_labh', v_counts, v_res->>'error');
+    end if;
   end loop;
   return jsonb_build_object('pushed', v_pushed, 'refused', v_refused, 'more', v_more or v_left <= 0);
 end $$;
@@ -796,8 +800,9 @@ create trigger rsvps_cancel_waiting_confirmation after update of status on app.r
 
 -- ── Store: "your order is ready" ─────────────────────────────────────────────────
 -- When the kitchen moves an order to ready, the member who placed it gets a push, once per order (a guest order has no
--- login). It never blocks the kitchen: any trouble is swallowed. A service notice: only an explicit "off" of the member's
--- Satvik Store choice holds it back, not the topic's default.
+-- login). It never blocks the kitchen: any trouble is swallowed. A service notice: the member's Satvik Store choice is
+-- not applied (only the community's switch). It expires 12 hours after the order is ready, so a push held by quiet
+-- hours cannot arrive after the pickup.
 create or replace function app.store_order_ready_notice() returns trigger
 language plpgsql security definer set search_path = app, public, extensions as $$
 declare v_res jsonb;
@@ -810,7 +815,7 @@ begin
     v_res := app._member_push(new.center_id, new.person_id, 'store_order_ready', 'store', 'store_order_ready',
                jsonb_build_object('order', new.order_number),
                jsonb_build_object('type', 'store_order_ready', 'deep_link', '/store', 'order_id', new.id::text),
-               now(), null);
+               now(), now() + interval '12 hours');
     -- A member with no login or no phone has nothing to be told (and a demo community's people have neither): nothing is
     -- recorded, so a later change of that order is judged afresh.
     if coalesce(v_res->>'reason', '') in ('no_person', 'no_login', 'no_phone', 'switched_off') then return null; end if;
@@ -832,8 +837,9 @@ create trigger store_orders_ready_notice after update of status on app.store_ord
   execute function app.store_order_ready_notice();
 
 -- ── Event feedback: switched off when a survey launches (item 10), re-checked per person (item 8) ──
--- A run stopped because the community's switch was off says so (problem_code switched_off, the Survey tab shows it) and
--- the same "Send survey" button sends the pushes once the switch is on and nobody was pushed yet.
+-- A run stopped because the community's switch was off says so (problem_code switched_off, the Survey tab shows it), also
+-- when it stopped partway, and the same "Send the pushes" button sends the rest once the switch is on (nobody is pushed
+-- twice: the people already handled are skipped).
 alter table app.survey_notice_runs drop constraint if exists survey_notice_runs_problem_code_check;
 alter table app.survey_notice_runs add constraint survey_notice_runs_problem_code_check
   check (problem_code in ('template', 'closed', 'backlog', 'switched_off'));
@@ -853,7 +859,8 @@ begin
   select * into s from app.surveys where id = p_survey;
   if s.id is null then return null; end if;
   select * into r from app.survey_notice_runs where survey_id = s.id for update;
-  if r.survey_id is not null and not (coalesce(p_retry, false) and r.problem_code in ('template', 'switched_off') and r.pushed = 0) then
+  if r.survey_id is not null
+     and not (coalesce(p_retry, false) and (r.problem_code = 'switched_off' or (r.problem_code = 'template' and r.pushed = 0))) then
     return app._survey_notice_summary(s.id);
   end if;
   select * into c from app.centers where id = s.center_id;
@@ -897,9 +904,9 @@ begin
   select * into e from app.events where id = s.event_id;
   select * into r from app.survey_notice_runs where survey_id = s.id;
   if r.survey_id is not null then
-    -- A template problem, or the community's switch, stopped every push: once it is fixed the same button sends them
-    -- (a feedback request too).
-    if r.problem_code in ('template', 'switched_off') and r.pushed = 0 and s.status = 'open' then
+    -- A template problem stopped every push, or the community's switch stopped them (before anyone, or partway: then the
+    -- people already pushed are skipped): once it is fixed the same button sends them (a feedback request too).
+    if (r.problem_code = 'switched_off' or (r.problem_code = 'template' and r.pushed = 0)) and s.status = 'open' then
       select c.rules #>> '{notifications,triggers,event_feedback}' into v_switch from app.centers c where c.id = s.center_id;
       if r.problem_code = 'switched_off' and v_switch = 'false' then
         raise exception 'Event feedback is still switched off in Settings › Notifications. Switch it on there, then send the survey again.' using errcode = '22023';
@@ -981,11 +988,10 @@ begin
                                 'reason', coalesce(v_problem, case when v_off then app._survey_notice_off_text() end, 'Nobody gets a push.'));
     end if;
   elsif (c.rules #>> '{notifications,triggers,event_feedback}') = 'false' then
-    -- Switched off after the job was queued: say so on the run (when nobody was pushed yet) so "Send the pushes" can send.
+    -- Switched off after the job was queued, before or partway through: say so on the run, so "Send the pushes" can send
+    -- the people not yet pushed.
     update app.survey_notice_runs
-       set finished_at = now(),
-           problem_code = case when pushed = 0 then 'switched_off' else problem_code end,
-           problem = case when pushed = 0 then app._survey_notice_off_text() else problem end
+       set finished_at = now(), problem_code = 'switched_off', problem = app._survey_notice_off_text()
      where survey_id = p_survey;
     return jsonb_build_object('done', true, 'processed', 0, 'pushed', 0, 'refused', 0,
                               'reason', 'Event feedback is switched off in Settings › Notifications.');
@@ -1042,8 +1048,8 @@ begin
   update app.survey_notice_runs
      set pushed = pushed + v_pushed, refused = app._add_counts(refused, v_refused), started_at = coalesce(started_at, now()),
          finished_at = case when v_more then null else now() end,
-         problem_code = case when v_stop and pushed + v_pushed = 0 then 'switched_off' else problem_code end,
-         problem = case when v_stop and pushed + v_pushed = 0 then app._survey_notice_off_text() else problem end
+         problem_code = case when v_stop then 'switched_off' else problem_code end,
+         problem = case when v_stop then app._survey_notice_off_text() else problem end
    where survey_id = p_survey;
   perform app._member_notice_not_sent(s.center_id, 'surveys', s.id::text, 'event_survey', v_audit, v_err);
   return jsonb_build_object('done', not v_more, 'processed', v_done, 'pushed', v_pushed,
@@ -1162,7 +1168,7 @@ comment on function app.notice_topic(text) is
 comment on function app.notice_trigger(text) is
   'The Settings › Notifications switch a notice template belongs to, or null (0598): checked when the notice is queued and again when it is sent.';
 comment on function app.notice_is_service(text) is
-  'A notice about the member''s own order: only an explicit off of the member''s topic choice holds it back, never the topic''s default (0598).';
+  'A notice about the member''s own order (0598): the member''s topic choice is not applied to it, only the community''s switch.';
 comment on function app.worker_notices_sweep(integer) is
   'The worker role only (job notices.sweep, 0598): the RSVP confirmations, the boli notices before they close and the special-day labh prompts that are due now, once per thing and person. Returns each sweep''s {pushed, refused, more}.';
 comment on function app.store_order_ready_notice() is

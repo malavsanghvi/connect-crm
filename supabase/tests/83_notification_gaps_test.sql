@@ -116,6 +116,7 @@ grant connect_worker to postgres;
 \set sd_punya '''83000000-0000-4000-8000-0000000000d9'''
 \set sd_off '''83000000-0000-4000-8000-0000000000e9'''
 \set sd_tithi '''83000000-0000-4000-8000-0000000000f9'''
+\set sd_two '''83000000-0000-4000-8000-0000000000ad'''
 \set pbad '''83000000-0000-4000-8000-0000000000ca'''
 \set u_bad '''83000000-0000-4000-8000-0000000000ba'''
 \set bad '''83000000-0000-4000-8000-0000000000da'''
@@ -292,9 +293,14 @@ select pg_temp.assert((select m.topic_key = 'store' and m.person_id = :ravi from
                       and (select default_on from app.notification_topics where key = 'store') is false
                       and (pg_temp.to_send(:'n4')->>'skip') is null,
   'a service notice ignores a topic that is off by default (no row: it goes)');
+-- The app saves an explicit "off" row for every topic a member did not tick, so most members have one for the store.
 insert into app.notification_preferences (center_id, person_id, topic_key, channel, enabled) values (:p, :ravi, 'store', 'push', false);
-select pg_temp.assert(pg_temp.to_send(:'n4')->>'skip' = 'Not sent: the member switched off "Satvik Store" push notifications in the app.',
-  'but an explicit off of the member holds it back');
+select pg_temp.assert((pg_temp.to_send(:'n4')->>'skip') is null,
+  'and an explicit off of the member does not hold it back either: the member''s own order is a service message');
+select pg_temp.set_trigger(:p, 'store_order_ready', false);
+select pg_temp.assert(pg_temp.to_send(:'n4')->>'skip' = 'Not sent: the community switched this notice off in Settings › Notifications after it was queued.',
+  'only the community''s switch holds it back');
+select pg_temp.set_trigger(:p, 'store_order_ready', true);
 delete from app.notification_preferences where person_id = :ravi and topic_key = 'store';
 
 -- ── RSVP confirmation ───────────────────────────────────────────────────────────
@@ -425,32 +431,34 @@ insert into app.special_days (id, center_id, household_id, person_id, kind, labe
   (:sd_today, :p, :h7, :pari, 'anniversary', 'Today 83', (((now() at time zone 'America/Chicago')::date) - interval '28 years')::date, 14, true),
   (:sd_far, :p, :h1, :asha, 'birthday', 'Far 83', (((now() at time zone 'America/Chicago')::date + 60) - interval '28 years')::date, 14, true),
   (:sd_punya, :p, :h1, :asha, 'punyatithi', 'Punyatithi 83', (((now() at time zone 'America/Chicago')::date + 5) - interval '28 years')::date, 14, true),
-  (:sd_off, :p, :h1, :asha, 'birthday', 'Prompt off 83', (((now() at time zone 'America/Chicago')::date + 5) - interval '28 years')::date, 14, false);
+  (:sd_off, :p, :h1, :asha, 'birthday', 'Prompt off 83', (((now() at time zone 'America/Chicago')::date + 5) - interval '28 years')::date, 14, false),
+  (:sd_two, :p, :h1, :asha, 'anniversary', 'In three days 83', (((now() at time zone 'America/Chicago')::date + 3) - interval '28 years')::date, 14, true);
 insert into app.special_days (id, center_id, household_id, person_id, kind, label, calendar_date, tithi, tithi_month, reminder_days_before, labh_prompt_enabled)
 values (:sd_tithi, :p, :h1, :asha, 'birthday', 'Tithi 83', null, 'sud 12', 'Kartak', 14, true);
 select pg_temp.sweep() as sw5 \gset
 select pg_temp.assert(not (:'sw5'::jsonb->'special_day_labh' ? 'error'), 'the special-day sweep did not fail: ' || :'sw5');
 select pg_temp.assert((select count(*) from app.messages where template_key = 'special_day_labh' and center_id = :p) = 3
-                      and (select array_agg(person_id order by person_id) from pg_temp.notices('special_day_labh', 'special_day_id', :sd_in)) = array[:asha]::uuid[]
+                      and (select array_agg(person_id order by person_id) from pg_temp.notices('special_day_labh', 'special_day_id', :sd_two)) = array[:asha]::uuid[]
+                      and (select count(*) from pg_temp.notices('special_day_labh', 'special_day_id', :sd_in)) = 0
                       and (select array_agg(person_id order by person_id) from pg_temp.notices('special_day_labh', 'special_day_id', :sd_today)) = array[:pari, :ravi]::uuid[]
                       and not exists (select 1 from app.messages where template_key = 'special_day_labh' and center_id = :p
                                          and payload->>'special_day_id' in (:sd_far::text, :sd_punya::text, :sd_off::text, :sd_tithi::text)),
-  'the household''s adults with the app are told, from the reminder window until the day: not a day far off, a punyatithi, a day with the prompt off, or one kept by tithi');
+  'the household''s adults with the app are told, from the reminder window until the day: not a day far off, a punyatithi, a day with the prompt off, or one kept by tithi; Asha has two days in her window and gets ONE push (for the earlier day)');
 select pg_temp.assert((select bool_and(m.topic_key = 'giving' and m.status = 'queued' and m.created_by is null
                                        and m.payload->>'type' = 'special_day' and m.payload->>'deep_link' = '/labh/' || (m.payload->>'special_day_id')
                                        and m.expires_at > now() and j.kind = 'messaging.send')
                          from app.messages m join app.jobs j on j.id = m.job_id where m.template_key = 'special_day_labh' and m.center_id = :p),
   'each opens the labh screen of its day (type special_day, special_day_id, deep_link), expires when the day is over, and names no creator');
-select pg_temp.assert((select m.body = 'In 10 days: plan a labh for a day your family remembers. Open the app to choose.'
+select pg_temp.assert((select m.body = '2 special days coming up, the first in 3 days: plan a labh for a day your family remembers. Open the app to choose.'
                               and m.subject = 'A special day is coming up'
-                         from pg_temp.notices('special_day_labh', 'special_day_id', :sd_in) m)
+                         from pg_temp.notices('special_day_labh', 'special_day_id', :sd_two) m)
                       and (select bool_and(m.body like 'Today: %') from pg_temp.notices('special_day_labh', 'special_day_id', :sd_today) m),
   'the push says when, never whose day it is (no names on a lock screen)');
 select pg_temp.sweep();
 select pg_temp.assert((select count(*) from app.messages where template_key = 'special_day_labh' and center_id = :p) = 3
-                      and (select count(*) from app.notice_log where kind = 'special_day_labh' and center_id = :p) = 3,
-  'once per occurrence and person, however often the sweep runs');
-select pg_temp.assert((select count(distinct period) from app.notice_log where kind = 'special_day_labh' and center_id = :p) = 2
+                      and (select count(*) from app.notice_log where kind = 'special_day_labh' and center_id = :p) = 4,
+  'every day a push covered is logged for that adult (Asha: two, Pari and Ravi: one each), so none is announced again however often the sweep runs');
+select pg_temp.assert((select count(distinct period) from app.notice_log where kind = 'special_day_labh' and center_id = :p) = 3
                       and (select period from app.notice_log where kind = 'special_day_labh' and ref_id = :sd_in and person_id = :asha)
                           = ((now() at time zone 'America/Chicago')::date + 10)::text,
   'the log keys each by the date the day falls on, so next year''s occurrence is a new notice');
@@ -464,6 +472,7 @@ select pg_temp.assert((select count(*) from pg_temp.notices('store_order_ready',
                       and (select m.person_id = :asha and m.topic_key = 'store' and m.status = 'queued' and m.created_by is null and j.created_by is null
                                   and m.payload->>'type' = 'store_order_ready' and m.payload->>'deep_link' = '/store'
                                   and m.subject = 'Your order is ready' and m.body = 'Order N83-1 is ready for pickup.'
+                                  and m.expires_at between now() + interval '11 hours 59 minutes' and now() + interval '12 hours 1 minute'
                              from pg_temp.notices('store_order_ready', 'order_id', :order1) m join app.jobs j on j.id = m.job_id),
   'moving an order to ready pushes the member who placed it, with the order number and the way to the store');
 select pg_temp.assert((pg_temp.to_send((select id from pg_temp.notices('store_order_ready', 'order_id', :order1)))->>'skip') is null,
@@ -549,12 +558,14 @@ select pg_temp.set_trigger(:p, 'event_feedback', true);
 update app.events set status = 'completed' where id = :ev_late;
 select pg_temp.assert((select job_id is not null and finished_at is null and (planned->>'will_push')::int = 3 from app.survey_notice_runs where survey_id = :'sv_late'),
   'set-up: the pushes of the second survey are queued, the counts taken');
+-- Partway through: one person was pushed before the switch went off.
+update app.survey_notice_runs set pushed = 1, started_at = now() where survey_id = :'sv_late';
 select pg_temp.set_trigger(:p, 'event_feedback', false);
 select pg_temp.fan_out(:'sv_late'::uuid) as batch_late \gset
 select pg_temp.assert((:'batch_late'::jsonb->>'done')::boolean
-                      and (select problem_code = 'switched_off' and finished_at is not null and pushed = 0 from app.survey_notice_runs where survey_id = :'sv_late')
+                      and (select problem_code = 'switched_off' and finished_at is not null and pushed = 1 from app.survey_notice_runs where survey_id = :'sv_late')
                       and (select count(*) from pg_temp.notices('event_survey', 'survey_id', :'sv_late')) = 0,
-  'switched off before the queued job ran: nobody is pushed and the run says why');
+  'switched off before the queued job ran, even partway (one already pushed): the run is paused and says why, not silently finished');
 select pg_temp.set_trigger(:p, 'event_feedback', true);
 begin;
 select pg_temp.sign_in(:u_admin);
@@ -562,8 +573,8 @@ select app.launch_event_survey_now(:'sv_late'::uuid) as relaunched_late \gset
 commit;
 select pg_temp.fan_out(:'sv_late'::uuid);
 select pg_temp.assert((select count(*) from pg_temp.notices('event_survey', 'survey_id', :'sv_late')) = 3
-                      and (select pushed = 3 and problem_code is null from app.survey_notice_runs where survey_id = :'sv_late'),
-  'switched back on, Send survey sends them');
+                      and (select problem_code is null from app.survey_notice_runs where survey_id = :'sv_late'),
+  'switched back on, Send survey sends the rest, also when the run had stopped partway');
 
 -- A feedback request scheduled for later whose time comes while the switch is off.
 begin;
