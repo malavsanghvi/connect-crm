@@ -3,7 +3,7 @@
 import { refresh } from "next/cache";
 
 import type { ActionResult } from "@/lib/errors";
-import { bool, cents, dateList, dateTime, DbFailure, FormError, int, isoDate, must, oneOf, reqStr, runAction, str, ok, time } from "@/lib/forms";
+import { bool, dateList, dateTime, DbFailure, FormError, int, isoDate, must, oneOf, reqStr, runAction, str, ok, time } from "@/lib/forms";
 import { reviewSubmission } from "@/lib/gyan-homework/db";
 import { REVIEW_NOTE_MAX } from "@/lib/gyan-homework/homework";
 import { isAttendanceStatus, reportAttendance, type AttendanceStatus } from "@/lib/logic/attendance";
@@ -12,12 +12,18 @@ import { actionContext, searchPeople, type PersonOption } from "@/lib/pathshala/
 import { can, hasScopedRole, passesRoleChecks, type ScopedContext } from "@/lib/permissions";
 import type { AppSupabase } from "@/lib/supabase/server";
 
-const TERM_STATUSES = ["draft", "registration", "active", "closed"] as const;
+/** Where a term that has left Draft can move (a draft leaves Draft only through "Open registration", 0590). */
+const OPEN_TERM_STATUSES = ["registration", "active", "closed"] as const;
 const TEACHER_ROLES = ["teacher", "assistant", "substitute"] as const;
 
 // ---------------------------------------------------------------------------
 // Terms
 // ---------------------------------------------------------------------------
+/**
+ * A term's dates, registration window, membership rule and no-class days. Its fees and registration rules are set on
+ * its Fees and rules page through the 0590 functions (PATHSHALA_REGISTRATION_PLAN §3.3), so this form no longer writes
+ * the old fee columns, and a draft stays a draft here: "Open registration" moves it on after its checks.
+ */
 export async function saveTerm(termId: string | null, _prev: unknown, fd: FormData): Promise<ActionResult<unknown>> {
   return runAction("pathshala.saveTerm", "save the term", async () => {
     const { supabase, centerId, tz } = await actionContext(areas.manage, "Only the Pathshala principal can change terms.");
@@ -35,19 +41,19 @@ export async function saveTerm(termId: string | null, _prev: unknown, fd: FormDa
       registration_opens_at: opens,
       registration_closes_at: closes,
       membership_required: bool(fd, "membership_required"),
-      fee_per_child_cents: cents(fd, "fee_per_child", "Fee per child") ?? 0,
-      fee_per_family_cap_cents: cents(fd, "fee_family_cap", "Family cap"),
-      sibling_discount_pct: int(fd, "sibling_discount_pct", "Sibling discount", { min: 0, max: 100 }) ?? 0,
       no_class_dates: dateList(fd, "no_class_dates", "No-class dates").filter((d) => d >= startsOn && d <= endsOn),
-      status: oneOf(fd, "status", TERM_STATUSES, "Status", "draft"),
     };
     if (termId) {
-      must(await supabase.from("pathshala_terms").update(values).eq("id", termId), "save the term");
+      const current = must(await supabase.from("pathshala_terms").select("status").eq("id", termId).maybeSingle(), "find the term");
+      if (!current) throw new FormError("That term no longer exists. Reload the page.");
+      // A draft keeps its status; a term that has left Draft moves between the open statuses.
+      const status = current.status === "draft" ? null : oneOf(fd, "status", OPEN_TERM_STATUSES, "Status", current.status as (typeof OPEN_TERM_STATUSES)[number]);
+      must(await supabase.from("pathshala_terms").update(status ? { ...values, status } : values).eq("id", termId), "save the term");
     } else {
-      must(await supabase.from("pathshala_terms").insert({ ...values, center_id: centerId }), "create the term");
+      must(await supabase.from("pathshala_terms").insert({ ...values, status: "draft", center_id: centerId }), "create the term");
     }
     refresh();
-    return ok(termId ? "Term saved." : "Term created.");
+    return ok(termId ? "Term saved." : "Term created as a draft. Set its fees and rules, then open registration, on its Fees and rules page.");
   });
 }
 

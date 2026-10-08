@@ -4,7 +4,10 @@ import { redirect } from "next/navigation";
 
 import { Card, EmptyState, KpiGrid, Stat, StatusText, TableWrap, buttonClass } from "@/components/ui";
 import { loadClassesOverview, loadLevels, loadTerms, pickTerm, type Term } from "@/lib/data/pathshala";
+import { isModuleEnabled } from "@/lib/modules";
 import { pathshalaAreas } from "@/lib/pathshala/access";
+import { loadTermRules } from "@/lib/pathshala-registration/db";
+import { termBillingPhrase } from "@/lib/pathshala-registration/rules";
 import { classTimeLabel, todayIso } from "@/lib/pathshala/format";
 import { load } from "@/lib/pathshala/server";
 import { percent } from "@/lib/pathshala/stats";
@@ -17,13 +20,19 @@ import { LoadProblem, PNoAccess, PathshalaHeader, TermSwitcher } from "./ui";
 
 export const metadata: Metadata = { title: "Pathshala" };
 
-/** "Term: Fall 2026 · registration requires membership · fees billed per child as pledges" (prototype), from the term's own rules. */
-function termSubtitle(term: Term): string {
+/**
+ * "Term: 2026-27 · registration requires membership · fees per level · register now, pay later" (the prototype's
+ * sub-line), from the term's own rules. It names the payment mode and promises no billing (F18: the office's Place
+ * still gives seats without a fee pledge); when the rules cannot be read it says nothing about fees.
+ */
+function termSubtitle(term: Term, billing: string | null): string {
   return [
     `Term: ${term.name}`,
     term.membership_required ? "registration requires membership" : "registration open to non-members",
-    term.fee_per_child_cents > 0 ? "fees billed per child as pledges" : "no fee this term",
-  ].join(" · ");
+    billing,
+  ]
+    .filter(Boolean)
+    .join(" · ");
 }
 
 export default async function PathshalaClassesPage({ searchParams }: { searchParams: Promise<RawSearchParams> }) {
@@ -45,8 +54,11 @@ export default async function PathshalaClassesPage({ searchParams }: { searchPar
   const res = await load(async () => {
     const [terms, levels] = await Promise.all([loadTerms(session.db, session.center.id), loadLevels(session.db, session.center.id)]);
     const term = pickTerm(terms, param(sp, "term"));
-    const overview = term ? await loadClassesOverview(session, term, today) : null;
-    return { terms, levels, term, overview };
+    const [overview, rules] = term ? await Promise.all([loadClassesOverview(session, term, today), loadTermRules(session.db, [term.id])]) : [null, null];
+    // The payment mode and the lock, for the sub-line only: the Fees and rules page says it when the rules cannot be read.
+    const r = rules?.status === "ok" ? (rules.value.get(term?.id ?? "") ?? null) : null;
+    const billing = termBillingPhrase({ mode: r?.payment_mode ?? null, locked: Boolean(r?.fees_locked_at), givingOn: isModuleEnabled(session, "giving") });
+    return { terms, levels, term, overview, billing };
   });
   if (!res.ok) {
     return (
@@ -56,7 +68,7 @@ export default async function PathshalaClassesPage({ searchParams }: { searchPar
       </>
     );
   }
-  const { terms, levels, term, overview } = res.data;
+  const { terms, levels, term, overview, billing } = res.data;
 
   if (!term || !overview) {
     return (
@@ -86,7 +98,7 @@ export default async function PathshalaClassesPage({ searchParams }: { searchPar
   return (
     <>
       <PathshalaHeader
-        description={termSubtitle(term)}
+        description={termSubtitle(term, billing)}
         actions={
           <>
             <Link href="/pathshala/announcements" className={buttonClass("ghost", "sm")}>

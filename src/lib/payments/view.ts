@@ -106,7 +106,22 @@ export function stripePaymentMethodTypes(methods: string[]): string[] {
   return out.size > 0 ? [...out] : ["card"];
 }
 
-export const CHECKOUT_CONTEXTS = ["rsvp", "rsvp_later", "pledges", "opportunity", "labh", "store", "other", "portal"] as const;
+/**
+ * Where a payment was started from, as app.payment_checkouts.context records it (0211:87, 760). `pathshala` is a
+ * Pathshala fee (PATHSHALA_REGISTRATION_PLAN F17; the database accepts it from 0590): it is labelled and reported as a
+ * fee, never as a gift. A context outside this list is recorded as "other" (the route logs it, see isCheckoutContext).
+ */
+export const CHECKOUT_CONTEXTS = ["rsvp", "rsvp_later", "pledges", "opportunity", "labh", "store", "other", "portal", "pathshala"] as const;
+export type CheckoutContext = (typeof CHECKOUT_CONTEXTS)[number];
+
+export function isCheckoutContext(v: unknown): v is CheckoutContext {
+  return typeof v === "string" && (CHECKOUT_CONTEXTS as readonly string[]).includes(v);
+}
+
+/** The line on the provider's page when the app sent none: a Pathshala fee is a fee (P20), everything else a gift. */
+function defaultForLabel(context: string): string {
+  return context === "pathshala" ? "Pathshala fee" : "Gift";
+}
 
 export type IntentRequest = {
   center_id: string;
@@ -132,8 +147,8 @@ export function parseIntentRequest(body: unknown): { ok: true; value: IntentRequ
   const pledges = Array.isArray(b.pledge_ids) ? b.pledge_ids : [];
   if (pledges.some((p) => typeof p !== "string" || !UUID.test(p))) return { ok: false, error: "A pledge id is not valid." };
   const processor = b.processor === "stripe" || b.processor === "paypal" ? b.processor : null;
-  const context = typeof b.context === "string" && (CHECKOUT_CONTEXTS as readonly string[]).includes(b.context) ? b.context : "other";
-  const forLabel = typeof b.for_label === "string" && b.for_label.trim() ? b.for_label.trim().slice(0, 200) : "Gift";
+  const context = isCheckoutContext(b.context) ? b.context : "other";
+  const forLabel = typeof b.for_label === "string" && b.for_label.trim() ? b.for_label.trim().slice(0, 200) : defaultForLabel(context);
   const ret = typeof b.return_url === "string" && /^https?:\/\//.test(b.return_url) ? b.return_url : null;
   return { ok: true, value: { center_id: b.center_id, household_id: b.household_id, amount_cents: amount, pledge_ids: pledges as string[], processor, context, for_label: forLabel, return_url: ret } };
 }
