@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 
 import { readPublicEnv } from "@/lib/env";
 import { requestIsHttps } from "@/lib/https";
-import { siteRoute } from "@/lib/site";
+import { SITE_NOT_FOUND_HTML, siteRoute } from "@/lib/site";
 import { updateSession } from "@/lib/supabase/proxy";
 
 // Next.js 16: `middleware` is now `proxy` (Node.js runtime).
@@ -16,11 +16,8 @@ export async function proxy(request: NextRequest) {
     https: requestIsHttps(request.headers.get("x-forwarded-proto")),
   });
   if (site.kind === "redirect") return NextResponse.redirect(site.location, 308);
-  if (site.kind === "rewrite") {
-    const url = request.nextUrl.clone();
-    url.pathname = site.pathname;
-    return NextResponse.rewrite(url);
-  }
+  if (site.kind === "not-found") return new NextResponse(SITE_NOT_FOUND_HTML, { status: 404, headers: { "content-type": "text/html; charset=utf-8" } });
+  // The website's pages ("/" and "/pricing") are mapped to /site by the host rewrites in next.config.ts, not here.
   if (site.kind === "pass") return NextResponse.next();
 
   const check = readPublicEnv();
