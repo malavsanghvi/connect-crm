@@ -66,8 +66,8 @@ select app.submit_access_request('Jain Temple of Example', 'temple', 'Dallas', '
   '198.51.100.7', 'TestAgent/1.0') as request_id \gset
 select pg_temp.assert_raises($$select app.submit_access_request('X', 'temple', 'Dallas', 'TX', 1, 'Asha', 'a@b.c')$$, 'legal name',
   'a one-letter organization name is refused');
-select pg_temp.assert_raises($$select app.submit_access_request('Temple', 'church', 'Dallas', 'TX', 1, 'Asha', 'a@b.c')$$, 'kind of organization',
-  'an unknown organization type is refused');
+select pg_temp.assert_raises($$select app.submit_access_request('Temple', 'Not A Key!', 'Dallas', 'TX', 1, 'Asha', 'a@b.c')$$, 'kind of organization',
+  'a kind of organization that is not a key is refused (0612: the kinds are data now, so a church or a chamber is valid; the table holds the key, test 89)');
 select pg_temp.assert_raises($$select app.submit_access_request('Temple', 'temple', 'Dallas', 'TX', 1, 'Asha', 'not-an-email')$$, 'email address',
   'a bad email is refused');
 select pg_temp.assert_raises($$select count(*) from app.access_requests$$, 'permission denied', 'anon cannot read access requests');
