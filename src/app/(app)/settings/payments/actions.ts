@@ -25,7 +25,7 @@ const PATH = "/settings/payments";
 // switch leaves it as it is), which the generated types cannot say: every argument is a non-null there.
 // So it is called through the untyped signature (as src/app/(app)/content/niva/actions.ts does).
 type RpcCaller = (fn: string, args: Record<string, unknown>) => PromiseLike<{ data: unknown; error: DbErrorLike | null }>;
-const untypedRpc = (db: AppSupabase) => db.rpc.bind(db) as unknown as RpcCaller;
+const untypedRpc = (db: AppSupabase) => (db as unknown as { rpc: RpcCaller }).rpc.bind(db);
 
 function isProcessor(p: string): p is Processor {
   return p === "stripe" || p === "paypal";
