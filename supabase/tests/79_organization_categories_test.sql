@@ -582,8 +582,9 @@ select pg_temp.assert((select count(*) from app.practices where center_id = :'ch
   'C · a chamber member reads no practices and gets the same my_modules');
 reset role;
 select pg_temp.no_claims();
--- Guests: the access areas of the chamber, and the category profile.
-set role anon;
+-- A member of the chamber (a sandbox still onboarding: since 0615 guests do not see it): its access areas and category profile.
+set role authenticated;
+select pg_temp.claims(:chmember);
 select pg_temp.assert(not ((select app.feature_access_for_me(:'chm')->'features') ? 'puja')
                       and not ((select app.feature_access_for_me(:'chm')->'features') ? 'learn')
                       and not ((select app.feature_access_for_me(:'chm')->'features') ? 'darshan')
@@ -610,6 +611,7 @@ select pg_temp.assert((select app.category_profile(:jsh)->'category'->>'key') = 
 select pg_temp.assert_raises($$select app.category_profile('79000000-0000-4000-8000-0000000000ff')$$, 'That community was not found.',
   'C · category_profile: an unknown community is "not found"');
 reset role;
+select pg_temp.no_claims();
 update app.centers set status = 'suspended' where id = '79000000-0000-4000-8000-0000000000d1';
 set role anon;
 select pg_temp.assert_raises($$select app.category_profile('79000000-0000-4000-8000-0000000000d1')$$, 'That community was not found.',

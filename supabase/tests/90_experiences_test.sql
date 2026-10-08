@@ -73,14 +73,16 @@ insert into auth.mfa_factors (id, user_id, friendly_name, factor_type, status) v
   ('f9000000-0000-4000-8000-000000000001', :cc, 'Phone', 'totp', 'verified');
 
 -- One preview sandbox of each experience (a sandbox may take an inactive one), as Community Connect would make them.
+-- Active, like JSH's sandbox: since 0615 a community still onboarding is shown only to its own people, and these
+-- tests read the experiences as a guest and without a signed-in user.
 insert into app.centers (id, slug, name, environment, category_key, status) values
-  (:c_chm, 'chm90-sandbox', 'Chamber 90',        'sandbox', 'chamber_of_commerce', 'onboarding'),
-  (:c_npo, 'npo90-sandbox', 'Community 90',      'sandbox', 'nonprofit_secular',   'onboarding'),
-  (:c_fth, 'fth90-sandbox', 'Faith 90',          'sandbox', 'faith_other',         'onboarding'),
-  (:c_chr, 'chr90-sandbox', 'Church 90',         'sandbox', 'church',              'onboarding'),
-  (:c_mos, 'mos90-sandbox', 'Mosque 90',         'sandbox', 'mosque',              'onboarding'),
-  (:c_swm, 'swm90-sandbox', 'Swaminarayan 90',   'sandbox', 'swaminarayan_temple', 'onboarding'),
-  (:c_jc,  'jc90-sandbox',  'Jain Center 90',    'sandbox', 'jain_center',         'onboarding');
+  (:c_chm, 'chm90-sandbox', 'Chamber 90',        'sandbox', 'chamber_of_commerce', 'active'),
+  (:c_npo, 'npo90-sandbox', 'Community 90',      'sandbox', 'nonprofit_secular',   'active'),
+  (:c_fth, 'fth90-sandbox', 'Faith 90',          'sandbox', 'faith_other',         'active'),
+  (:c_chr, 'chr90-sandbox', 'Church 90',         'sandbox', 'church',              'active'),
+  (:c_mos, 'mos90-sandbox', 'Mosque 90',         'sandbox', 'mosque',              'active'),
+  (:c_swm, 'swm90-sandbox', 'Swaminarayan 90',   'sandbox', 'swaminarayan_temple', 'active'),
+  (:c_jc,  'jc90-sandbox',  'Jain Center 90',    'sandbox', 'jain_center',         'active');
 insert into app.role_grants (center_id, user_id, role_key, reason) values
   (:jsh, :jadmin, 'center_admin', 'experience test 90'), (:c_chm, :chadmin, 'center_admin', 'experience test 90'),
   (:c_npo, :npadmin, 'center_admin', 'experience test 90');
