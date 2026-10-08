@@ -1,3 +1,8 @@
+import { spawnSync } from "node:child_process";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
 import { describe, expect, it } from "vitest";
 
 import { APP_HTTPS_PORTS, buildAppSites, buildCaddySites, isPublicIPv4, normalizeDomain, parseSite } from "../deploy/caddy-sites.mjs";
@@ -91,6 +96,69 @@ describe("buildCaddySites", () => {
 
   it("no member site when there is no member app directory", () => {
     expect(buildCaddySites({ ...base, site: ":80", memberRoot: null }).files["crm-wildcard.caddy"]).not.toContain("8443");
+  });
+
+  // MEMBER_BASE_DOMAIN: jsh.weaverams.org is the member app, admin.weaverams.org stays the portal.
+  describe("member base domain", () => {
+    const withBase = { ...base, site: "admin.weaverams.org", memberBase: "weaverams.org", publicIp: "146.190.72.109", ipCert: true };
+    const blockOf = (text: string, address: string) => text.split(`${address} {`)[1].split("\n}\n")[0];
+
+    it("serves *.<base> as the member app on 443 with on-demand certificates, and keeps the portal's own name", () => {
+      const { files, summary } = buildCaddySites(withBase);
+      const wild = files["crm-wildcard.caddy"];
+      expect(wild).toContain("https://*.weaverams.org {\n\ttls {\n\t\ton_demand\n\t}");
+      const member = blockOf(wild, "https://*.weaverams.org");
+      expect(member).toContain("root * /srv/connect/mobile/current");
+      expect(member).toContain("try_files {path} {path}.html /index.html");
+      expect(member).not.toContain("reverse_proxy");
+      // The portal's name is its own site; a named site wins over the wildcard, so staff never land on the member app.
+      const main = files["crm.caddy"];
+      expect(blockOf(main, "https://admin.weaverams.org")).toContain("reverse_proxy 127.0.0.1:3000");
+      // Every other name still reaches the portal through the catch-all.
+      expect(wild).toContain("https:// {\n\ttls {\n\t\ton_demand\n\t}");
+      expect(summary.join("\n")).toContain("*.weaverams.org");
+    });
+
+    it("port 80 serves the member app for those names (never the portal's sign-in page), redirecting only confirmed hosts", () => {
+      const main = buildCaddySites(withBase).files["crm.caddy"];
+      const member = blockOf(main, "http://*.weaverams.org");
+      expect(member).toMatch(/@https_ready file \{\n\t\troot \/var\/lib\/connect-https\/confirmed\n\t\ttry_files \/\{host\}\n\t\}\n\tredir @https_ready https:\/\/\{host\}\{uri\} 308/);
+      expect(member).toContain("root * /srv/connect/mobile/current");
+      expect(member).not.toContain("reverse_proxy");
+      expect(main).toContain("http://admin.weaverams.org, http://146.190.72.109 {");
+      expect(main).toContain(":80 {");
+    });
+
+    it("HSTS is still only for confirmed hosts on the wildcard site", () => {
+      const wild = buildCaddySites({ ...withBase, hstsMaxAge: 600 }).files["crm-wildcard.caddy"];
+      expect(blockOf(wild, "https://*.weaverams.org")).toContain('header @hsts Strict-Transport-Security "max-age=600"');
+    });
+
+    it("changes nothing without a member base domain", () => {
+      const plain = { ...base, site: "admin.weaverams.org", publicIp: "146.190.72.109", ipCert: true };
+      expect(buildCaddySites(plain)).toEqual(buildCaddySites({ ...plain, memberBase: null }));
+      expect(buildCaddySites(plain)).toEqual(buildCaddySites({ ...plain, memberBase: "" }));
+      // No wildcard site address (the generated comments mention "*.<domain>", so match addresses only).
+      expect(Object.values(buildCaddySites(plain).files).join("\n")).not.toMatch(/^https?:\/\/\*\./m);
+    });
+
+    it("refuses a member base domain without SITE_DOMAIN, without the member files, or that is not a domain", () => {
+      // Without the portal's own name the wildcard could capture it and serve staff the member app.
+      expect(() => buildCaddySites({ ...base, site: ":80", memberBase: "weaverams.org" })).toThrow(/SITE_DOMAIN/);
+      expect(() => buildCaddySites({ ...withBase, memberRoot: null })).toThrow(/member web app's files/);
+      expect(() => buildCaddySites({ ...withBase, memberBase: "weaverams.org {\n}" })).toThrow(/not a domain/);
+      expect(() => buildCaddySites({ ...withBase, memberBase: "146.190.72.109" })).toThrow(/not a domain/);
+    });
+
+    it("normalizes the base domain, and moves its ports in test mode", () => {
+      const { files } = buildCaddySites({
+        ...withBase, memberBase: "https://WeaverAMS.org/", ipCert: false, publicIp: null,
+        testing: { httpPort: 18480, httpsPort: 18443, localCerts: true },
+      });
+      expect(files["crm-wildcard.caddy"]).toContain("https://*.weaverams.org:18443 {");
+      expect(files["crm.caddy"]).toContain("http://*.weaverams.org:18480 {");
+      expect(files["crm.caddy"]).toContain("redir @https_ready https://{host}:18443{uri} 308");
+    });
   });
 
   it("validates its inputs", () => {
@@ -204,5 +272,45 @@ describe("buildAppSites", () => {
     expect(main).toContain("redir @https_ready https://{host}:18543{uri} 308");
     expect(main).toContain("https://127.0.0.1:18545 {");
     expect(main).not.toContain("profile shortlived");
+  });
+});
+
+// The deploy workflow puts MEMBER_BASE_DOMAIN in release.sh's environment (release.sh itself is the same file in all
+// three repos and does not know about it); the command line reads it from there. The script only runs as a command
+// where `import.meta.url` equals `file://<argv[1]>` (not on Windows paths), so this runs in CI on Linux.
+describe.skipIf(process.platform === "win32")("caddy-sites command line: MEMBER_BASE_DOMAIN from the environment", () => {
+  const script = join(__dirname, "..", "deploy", "caddy-sites.mjs");
+  function run(args: string[], env: Record<string, string>) {
+    const out = mkdtempSync(join(tmpdir(), "caddy-sites-"));
+    // A minimal environment on purpose (nothing inherited from CI); the cast is because Next's types make NODE_ENV mandatory.
+    const childEnv = { PATH: process.env.PATH ?? "", ...env } as unknown as NodeJS.ProcessEnv;
+    const r = spawnSync(process.execPath, [script, "--out", out, "--app", "crm", "--port", "3000", ...args], { env: childEnv, encoding: "utf8" });
+    const read = (f: string) => { try { return readFileSync(join(out, f), "utf8"); } catch { return null; } };
+    const files = { wildcard: read("crm-wildcard.caddy"), main: read("crm.caddy") };
+    rmSync(out, { recursive: true, force: true });
+    return { status: r.status, stdout: r.stdout, stderr: r.stderr, ...files };
+  }
+
+  it("writes the member wildcard when the environment names a base domain", () => {
+    const r = run(["--site", "admin.weaverams.org", "--ip-cert", "0"], { MEMBER_BASE_DOMAIN: "weaverams.org" });
+    expect(r.status).toBe(0);
+    expect(r.wildcard).toContain("https://*.weaverams.org {");
+    expect(r.main).toContain("http://*.weaverams.org {");
+  });
+
+  it("writes nothing extra when it is empty or unset", () => {
+    const environments: Record<string, string>[] = [{}, { MEMBER_BASE_DOMAIN: "" }];
+    for (const env of environments) {
+      const r = run(["--site", "admin.weaverams.org", "--ip-cert", "0"], env);
+      expect(r.status).toBe(0);
+      expect(r.wildcard).not.toContain("*.weaverams.org");
+    }
+  });
+
+  it("fails with a plain message, so the deploy keeps the previous sites, when SITE_DOMAIN is missing", () => {
+    const r = run(["--site", ":80", "--ip-cert", "0"], { MEMBER_BASE_DOMAIN: "weaverams.org" });
+    expect(r.status).toBe(1);
+    expect(r.stderr).toMatch(/needs SITE_DOMAIN/);
+    expect(r.wildcard).toBeNull();
   });
 });

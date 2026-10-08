@@ -42,6 +42,7 @@ import * as paymentsWebhookPaypal from "./payments.webhook.paypal";
 import * as paymentsWebhookStripe from "./payments.webhook.stripe";
 import * as photosImportAlbum from "./photos.import_album";
 import * as storageRetention from "./storage.retention";
+import * as surveysLaunchNotify from "./surveys.launch_notify";
 import * as storageScan from "./storage.scan";
 import * as storageScanSweep from "./storage.scan_sweep";
 
@@ -97,6 +98,8 @@ export const HANDLERS: HandlerModule[] = [
   homeworkPublishNotify,
   // Homework (0588): every 15 minutes, remind the learners who have not handed in, the hours before it is due that the homework sets
   homeworkRemindersSweep,
+  // Event feedback (0596): the survey push and its two reminders for each invited adult, in batches, each person once
+  surveysLaunchNotify,
   // Virus scanning of uploads (0589): one file at a time with clamd, and the sweep that queues the backlog; both wait
   // in the queue while scanning is off (Platform › Setup), which is the default
   storageScan,

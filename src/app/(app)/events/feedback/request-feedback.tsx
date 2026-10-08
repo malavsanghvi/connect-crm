@@ -105,8 +105,10 @@ export function RequestFeedbackButton({
         ) : null}
         {chosen ? (
           <p>
-            Sends a push notification to the {chosen.checkedIn} checked-in attendees (SMS or WhatsApp for guests) {timingText}
-            {reminderText}. {anonymousAllowed ? "Anonymous answers are allowed." : "All answers are anonymous."}
+            {/* What really happens (0596): the database schedules the pushes for this time. */}
+            The survey opens in the member app {timingText} for the adults of the families who checked in ({chosen.checkedIn} people checked in).
+            Those with the app on a phone get a push then (held until quiet hours end at night). {reminderText}. Everyone else with a login
+            sees it on Home; nothing goes by SMS, WhatsApp or email. {anonymousAllowed ? "Anonymous answers are allowed." : "All answers are anonymous."}
           </p>
         ) : null}
         {chosen ? (
