@@ -463,7 +463,8 @@ select null, v.key, v.channel::app.channel, 'en', v.subject, v.body
 
 -- ── The notices already handled: once per thing and person ───────────────────────
 -- One row per notice a sweep or trigger has dealt with, so a notice goes at most once and a refusal (and its audit
--- entry) is not repeated every few minutes. kind: rsvp_confirmation (ref = the event), boli_closing (the boli),
+-- entry) is not repeated every few minutes. Nothing is recorded for a person with no login or no working phone (there
+-- is nothing to tell them), so a person who installs the app inside a notice's window still gets it. kind: rsvp_confirmation (ref = the event), boli_closing (the boli),
 -- special_day_labh (the special day; period = the date it falls on), store_order_ready (the order). Written only by the
 -- database; inserts are not audited (the message itself is), a change or deletion is.
 create table if not exists app.notice_log (
@@ -609,9 +610,11 @@ begin
                  jsonb_build_object('type', 'rsvp_confirm', 'deep_link', '/event/' || ev.id::text || '/confirm',
                                     'event_id', ev.id::text, 'rsvp_id', a.rsvp_id::text),
                  now(), ev.starts_at);
-      insert into app.notice_log (kind, ref_id, period, person_id, center_id, outcome, reason)
-      values ('rsvp_confirmation', ev.id, '', a.person_id, ev.center_id, case when v_res ? 'id' then 'pushed' else 'refused' end, v_res->>'reason')
-      on conflict do nothing;
+      if coalesce(v_res->>'reason', '') not in ('no_person', 'no_login', 'no_phone', 'switched_off') then
+        insert into app.notice_log (kind, ref_id, period, person_id, center_id, outcome, reason)
+        values ('rsvp_confirmation', ev.id, '', a.person_id, ev.center_id, case when v_res ? 'id' then 'pushed' else 'refused' end, v_res->>'reason')
+        on conflict do nothing;
+      end if;
       v_left := v_left - 1;
       if v_res ? 'id' then
         v_pushed := v_pushed + 1;
@@ -666,9 +669,11 @@ begin
                  jsonb_build_object('type', 'boli_closing', 'deep_link', '/boli/' || b.id::text, 'boli_id', b.id::text)
                    || case when b.event_id is not null then jsonb_build_object('event_id', b.event_id::text) else '{}'::jsonb end,
                  now(), b.close_at);
-      insert into app.notice_log (kind, ref_id, period, person_id, center_id, outcome, reason)
-      values ('boli_closing', b.id, '', a.person_id, b.center_id, case when v_res ? 'id' then 'pushed' else 'refused' end, v_res->>'reason')
-      on conflict do nothing;
+      if coalesce(v_res->>'reason', '') not in ('no_person', 'no_login', 'no_phone', 'switched_off') then
+        insert into app.notice_log (kind, ref_id, period, person_id, center_id, outcome, reason)
+        values ('boli_closing', b.id, '', a.person_id, b.center_id, case when v_res ? 'id' then 'pushed' else 'refused' end, v_res->>'reason')
+        on conflict do nothing;
+      end if;
       v_left := v_left - 1;
       if v_res ? 'id' then
         v_pushed := v_pushed + 1;
@@ -728,10 +733,12 @@ begin
                  jsonb_build_object('when', case when v_days <= 0 then 'Today' when v_days = 1 then 'Tomorrow' else 'In ' || v_days || ' days' end),
                  jsonb_build_object('type', 'special_day', 'deep_link', '/labh/' || sd.id::text, 'special_day_id', sd.id::text),
                  now(), v_expires);
-      insert into app.notice_log (kind, ref_id, period, person_id, center_id, outcome, reason)
-      values ('special_day_labh', sd.id, sd.occurs_on::text, a.person_id, sd.center_id,
-              case when v_res ? 'id' then 'pushed' else 'refused' end, v_res->>'reason')
-      on conflict do nothing;
+      if coalesce(v_res->>'reason', '') not in ('no_person', 'no_login', 'no_phone', 'switched_off') then
+        insert into app.notice_log (kind, ref_id, period, person_id, center_id, outcome, reason)
+        values ('special_day_labh', sd.id, sd.occurs_on::text, a.person_id, sd.center_id,
+                case when v_res ? 'id' then 'pushed' else 'refused' end, v_res->>'reason')
+        on conflict do nothing;
+      end if;
       v_left := v_left - 1;
       if v_res ? 'id' then
         v_pushed := v_pushed + 1;
@@ -797,6 +804,9 @@ begin
                jsonb_build_object('order', new.order_number),
                jsonb_build_object('type', 'store_order_ready', 'deep_link', '/store', 'order_id', new.id::text),
                now(), null);
+    -- A member with no login or no phone has nothing to be told (and a demo community's people have neither): nothing is
+    -- recorded, so a later change of that order is judged afresh.
+    if coalesce(v_res->>'reason', '') in ('no_person', 'no_login', 'no_phone', 'switched_off') then return null; end if;
     insert into app.notice_log (kind, ref_id, period, person_id, center_id, outcome, reason)
     values ('store_order_ready', new.id, '', new.person_id, new.center_id, case when v_res ? 'id' then 'pushed' else 'refused' end, v_res->>'reason')
     on conflict do nothing;
