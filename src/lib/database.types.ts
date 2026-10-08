@@ -93,6 +93,7 @@ export type Database = {
           ip: string | null;
           user_agent: string | null;
           category_key: string | null;
+          requested_category_key: string | null;
           experience_key: string | null;
           org_detail: string | null;
           org_type_label: string | null;
@@ -122,6 +123,7 @@ export type Database = {
           ip?: string | null;
           user_agent?: string | null;
           category_key?: string | null;
+          requested_category_key?: string | null;
           experience_key?: string | null;
           org_detail?: string | null;
           org_type_label?: string | null;
@@ -151,6 +153,7 @@ export type Database = {
           ip?: string | null;
           user_agent?: string | null;
           category_key?: string | null;
+          requested_category_key?: string | null;
           experience_key?: string | null;
           org_detail?: string | null;
           org_type_label?: string | null;
@@ -13560,6 +13563,7 @@ export type Database = {
           p_heard_from?: string;
           p_ip?: string;
           p_user_agent?: string;
+          p_requested_category?: string;
           p_experience_key?: string;
           p_org_detail?: string;
           p_org_type_label?: string;
