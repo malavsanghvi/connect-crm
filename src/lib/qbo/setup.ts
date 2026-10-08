@@ -118,7 +118,7 @@ export const BASIS_LABEL: Record<string, string> = { cash: "Cash", accrual: "Acc
  * posting is cash-only for now, so postings wait and nothing is posted wrongly.
  */
 export const ACCRUAL_WAITING =
-  "Accrual-basis posting isn't available yet: Community Connect posts on cash basis only. Postings wait in the queue and nothing is posted until accrual posting is available or the basis is changed to cash.";
+  "Accrual-basis posting isn't available yet: Weaver posts on cash basis only. Postings wait in the queue and nothing is posted until accrual posting is available or the basis is changed to cash.";
 
 export function isBasis(v: string | null | undefined): v is "cash" | "accrual" {
   return v === "cash" || v === "accrual";

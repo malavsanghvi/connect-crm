@@ -43,7 +43,7 @@ export async function GET(req: NextRequest) {
   const center = req.nextUrl.searchParams.get("center_id");
   if (!isUuid(center)) return reply(400, { error: "center_id is missing or is not a community id." });
   const db = tokenClient(token, "member", "/api/payments/methods");
-  if (!db) return reply(503, { error: "Community Connect is not configured (NEXT_PUBLIC_SUPABASE_URL / NEXT_PUBLIC_SUPABASE_ANON_KEY)." });
+  if (!db) return reply(503, { error: "Weaver is not configured (NEXT_PUBLIC_SUPABASE_URL / NEXT_PUBLIC_SUPABASE_ANON_KEY)." });
   let data: unknown;
   let error: DbErrorLike | null;
   try {

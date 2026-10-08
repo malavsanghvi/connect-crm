@@ -40,7 +40,7 @@ describe("sandbox codes", () => {
   it("says honestly when email is not set up", () => {
     expect(emailStatusText("queued")).toEqual({ tone: "ok", text: "Email queued" });
     expect(emailStatusText("not_set_up").text).toBe(
-      "Email sending isn't set up yet — the code is shown here for the Community Connect team to send by hand",
+      "Email sending isn't set up yet — the code is shown here for the Weaver team to send by hand",
     );
     expect(emailStatusText("failed: Sandboxes can send only to verified test recipients.")).toEqual({
       tone: "bad",

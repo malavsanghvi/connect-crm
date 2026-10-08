@@ -1,4 +1,4 @@
-// Wave E (e-access): the owner can do every task (0400) and Community Connect's approval of the
+// Wave E (e-access): the owner can do every task (0400) and Weaver's approval of the
 // first second administrator (owner decisions 2026-09-25, items 1 and 2).
 import { describe, expect, it } from "vitest";
 
@@ -58,7 +58,7 @@ describe("the owner holds every permission", () => {
   });
 });
 
-describe("Community Connect approves the first second administrator", () => {
+describe("Weaver approves the first second administrator", () => {
   const now = new Date("2026-09-25T12:00:00Z");
   const active = (user_id: string, role_key = "center_admin") => ({ role_key, user_id, status: "active", starts_at: "2026-01-01T00:00:00Z", ends_at: null });
   const pending = { role_key: "center_admin", user_id: "second" };

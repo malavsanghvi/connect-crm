@@ -2,7 +2,7 @@
 //   A. (2)  an owner WITHOUT any role grant does giving / accounting / privacy actions over the API
 //           and in the portal (NAV, Setup › Lists fund, month-end checklist, a data request), while a
 //           center admin still cannot; the two-person rule still needs a different second person.
-//   B. (1)  Community Connect approves a sandbox's first second administrator in Settings › Roles;
+//   B. (1)  Weaver approves a sandbox's first second administrator in Settings › Roles;
 //           the audit row names the platform admin with the reason
 //           "Community Connect approval (two-person rule, first second admin)".
 //   C. (21) community search never returns a sandbox; its join code still opens it.
@@ -36,7 +36,7 @@ const OWNER = 'owner.e-access@jsh.test';
 const CA = 'admin.e-access@jsh.test';          // center admin only, with an authenticator app
 const CA2 = 'admin2.e-access@jsh.test';        // center admin only, no authenticator app
 const TREAS = 'treasurer.e-access@jsh.test';
-const CC = 'cc.e-access@jsh.test';             // a Community Connect platform admin
+const CC = 'cc.e-access@jsh.test';             // a Weaver platform admin
 const SOWNER = 'sowner.e-access@jsh.test';     // the sandbox's owner
 const SECOND = `second.${RUN}.e-access@jsh.test`;
 const MEMBER = 'priya@jsh.test';
@@ -252,7 +252,7 @@ const navText = async (p) => (await p.locator('nav').first().innerText().catch((
   await shot(ap, 'A-admin-close');
   await adm.ctx.close();
 
-  // ══ B. (1) Community Connect approves the first second administrator ═══════
+  // ══ B. (1) Weaver approves the first second administrator ═══════
   const sbx = sql(`insert into app.centers (slug, name, short_name, state_region, status, environment) values ('eacc-${RUN}', 'Access Test Sangh ${RUN}', 'ATS', 'TX', 'onboarding', 'sandbox') returning id`).split('\n')[0];
   sql(`insert into app.center_owners (center_id, user_id) values ('${sbx}', '${sownerId}') on conflict (center_id) do update set user_id = excluded.user_id`);
   sql(`insert into app.role_grants (center_id, user_id, role_key, reason) values ('${sbx}', '${sownerId}', 'center_admin', 'sandbox owner')`);
@@ -262,11 +262,11 @@ const navText = async (p) => (await p.locator('nav').first().innerText().catch((
   const cp = cc.p;
   await cp.goto(BASE + '/settings/roles?show=pending', { waitUntil: 'networkidle' });
   const row = cp.locator('tr').filter({ hasText: 'Center admin' }).filter({ has: cp.getByTestId('cc-first-admin-note') });
-  ok((await row.count()) === 1, 'B · portal: Community Connect sees the first second administrator waiting, marked for its approval');
+  ok((await row.count()) === 1, 'B · portal: Weaver sees the first second administrator waiting, marked for its approval');
   await shot(cp, 'B-cc-pending');
   const bStart = Number(sql('select coalesce(max(id), 0) from app.audit_log'));
-  await row.getByRole('button', { name: 'Approve as Community Connect' }).click();
-  await confirmModal(cp, 'Approve as Community Connect');
+  await row.getByRole('button', { name: 'Approve as Weaver' }).click();
+  await confirmModal(cp, 'Approve as Weaver');
   ok(await until(() => sql(`select status || '|' || second_approver from app.role_grants where id = '${g2}'`) === `active|${ccId}`),
     'B · the grant is active with the platform admin as the second approver');
   ok(sql(`select count(*) from app.audit_log where id > ${bStart} and record_table = 'role_grants' and record_id = '${g2}' and actor_user_id = '${ccId}' and reason = '${CC_REASON}' and client_app = 'portal'`) === '1',

@@ -6,6 +6,8 @@ import { householdsById, peopleById, userNames } from "@/lib/data/lookups";
 import { addDays, daysBetween, dateInTz, formatDate, todayInTz } from "@/lib/dates";
 import { explainError, type DbErrorLike } from "@/lib/errors";
 import { formatCents } from "@/lib/money";
+import { parsePayeeQueue, waitingRequests } from "@/lib/payments/change-control";
+import { untypedRpc } from "@/lib/payments/rpc";
 import { zelleWindowDays } from "@/lib/payments/zelle";
 import { can } from "@/lib/permissions";
 import type { CrmSession } from "@/lib/session";
@@ -58,6 +60,30 @@ async function zelleUnmatchedCount(session: CrmSession): Promise<number> {
 const TIER_LABEL: Record<string, string> = { life: "Life", yearly: "Yearly", community: "Community" };
 
 const loaders: Record<TaskSourceKey, Loader> = {
+  // Requests to change where gifts go that someone else asked for and this person (giving.approve) may confirm or turn down.
+  async payee(session) {
+    const res = await untypedRpc(session.db)("payee_change_queue", { p_center: session.center.id });
+    if (res.error) {
+      // Only a database without the function yet is skipped silently; anything else is this source's failure.
+      if (res.error.code === "PGRST202" || res.error.code === "42883") return [];
+      throw new SourceError(res.error);
+    }
+    const parsed = parsePayeeQueue(res.data);
+    if (!parsed.ok) throw new SourceError({ message: parsed.error });
+    if (!parsed.value.can_approve) return [];
+    return waitingRequests(parsed.value)
+      .filter((r) => !r.mine)
+      .map((r) =>
+        makeTask(
+          "payee",
+          r.id,
+          `Confirm a change to ${r.plugin_key === "paypal" ? "PayPal" : "Zelle"}: ${r.fields.map((f) => f.label).join(" and ")}`,
+          `Asked by ${r.requested_by_name} · ${r.request_reason} · nothing changes until a different person confirms it`,
+          [{ label: "Review", href: "/settings/payments" }],
+        ),
+      );
+  },
+
   async refund(session) {
     const { db, center } = session;
     const rows = must(
@@ -85,7 +111,7 @@ const loaders: Record<TaskSourceKey, Loader> = {
           flaggedHh.map.get(f.household_id)?.display_name ?? "household"}`,
         f.first_approver
           ? `Approved first by ${f.first_approver === session.userId ? "you" : (f.first_approver_name ?? "a colleague")} · a second, different person approves`
-          : `Refunded outside Community Connect on ${f.receipt_number ?? "a payment"} · nothing changes until two people approve`,
+          : `Refunded outside Weaver on ${f.receipt_number ?? "a payment"} · nothing changes until two people approve`,
         [{ label: "Review", href: "/giving/payments" }],
       ),
     );

@@ -144,7 +144,7 @@ closed months post as current-period adjustments. See `FEATURE_TRACEABILITY.md`.
   cards white with `#E3D9C8` borders, row dividers `#F1E8D8`, KPI tiles `#FBF7F0`,
   ink `#1E1C18`, muted `#5E5A52`. Fonts: Fraunces (display), DM Sans (body),
   JetBrains Mono (IDs). Tenant branding (name, logo) comes from `centers.branding`;
-  the product brand is "Community Connect". Tokens: `src/app/globals.css`;
+  the product brand is "Weaver" (owner 2026-10-08; it was "Community Connect"), with Faith Weaver for faith-based setups, Community Weaver and Org Weaver for the others, and the W mark in `src/components/brand/weaver-mark.tsx` (the favicon is `src/app/icon.svg`). Tokens: `src/app/globals.css`;
   components (PageHeader + module tabs, Card/BlockGrid, Stat, pill buttons, chips,
   toggle, drawer, modal, toast): `src/components/ui.tsx`, `controls.tsx`,
   `drawer.tsx`, `modal.tsx`, `toast.tsx`. Spec: `docs/parity/v-visual-system.md`.

@@ -146,7 +146,7 @@ describe("setPluginAction", () => {
 
   it("refuses what the database would refuse, before asking it, in plain English", async () => {
     expect(await setPluginAction("venmo_direct", true, null, null, "x")).toEqual({
-      ok: false, error: "Could not turn on venmo direct — that is not a payment method Community Connect offers.",
+      ok: false, error: "Could not turn on venmo direct — that is not a payment method Weaver offers.",
     });
     expect((await setPluginAction("card", true, "x".repeat(41), null, "x")).error).toMatch(/at most 40 characters/);
     expect((await setPluginAction("card", true, null, 1000, "x")).error).toMatch(/whole number from 0 to 999/);

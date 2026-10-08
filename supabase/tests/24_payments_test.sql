@@ -410,6 +410,19 @@ select pg_temp.assert((select count(*) = 1 from app.jobs where kind = 'payments.
   'the $1 test queues its refund');
 select pg_temp.assert((select ok and mode = 'live' and ran_by = '10000000-0000-4000-8000-000000000011' from app.payment_processor_tests
                         where checkout_id = (select id from t_test)), 'the live test is recorded with who ran it');
+-- Since 0597 check 6 also walks every ENABLED way to pay (docs/PAYMENTS_PLAN.md §2.6). This community has Zelle and
+-- Apple Pay switched on: Zelle needs its bank account and the treasurer's approval of the instructions, Apple Pay the
+-- statement that it is turned on in the Stripe account. The rules for the processor itself are unchanged.
+insert into app.bank_accounts (id, center_id, name, institution, last4, statement_format)
+values ('62400000-0000-4000-8000-0000000000b1', :jsh, 'Chase operating', 'Chase', '4242', 'chase_csv');
+update app.centers set rules = jsonb_set(coalesce(rules, '{}'::jsonb), '{payments}',
+         coalesce(rules->'payments', '{}'::jsonb) || jsonb_build_object('zelle', jsonb_build_object('bank_account_id', '62400000-0000-4000-8000-0000000000b1')))
+ where id = :jsh;
+insert into app.golive_approvals (center_id, key, approved_by, approver_role, evidence, evidence_hash)
+values (:jsh, 'zelle_instructions', '10000000-0000-4000-8000-000000000003', 'Treasurer', app.zelle_instructions_evidence(:jsh),
+        app.golive_evidence_hash(app.zelle_instructions_evidence(:jsh)));
+update app.center_payment_plugins set wallet_confirmed_by = '10000000-0000-4000-8000-000000000003', wallet_confirmed_at = now()
+ where center_id = :jsh and plugin_key = 'apple_pay';
 select pg_temp.assert((app.check_payments_live(:jsh)->>'ok')::boolean, 'default live processor with a passing live test: check 6 passes');
 
 -- Setup steps (as the admin: settings.manage).

@@ -29,6 +29,14 @@ describe("pushRouting", () => {
       learner_id: payload.learner_id,
     });
   });
+  it("forwards a boli notice's type, deep link, boli and event (0596), never who it is for", () => {
+    expect(
+      pushRouting({
+        template_key: "boli_outbid",
+        payload: { type: "boli_outbid", deep_link: "/boli/b-1", boli_id: "b-1", event_id: "e-1", vars: { boli: "Aarti" }, person_id: "the recipient" },
+      }),
+    ).toEqual({ type: "boli_outbid", deep_link: "/boli/b-1", boli_id: "b-1", event_id: "e-1" });
+  });
   it("falls back to the template key when the payload's type is not a usable string", () => {
     expect(pushRouting({ template_key: "homework.accepted", payload: { type: 7, deep_link: "/gyan/homework/x" } })).toEqual({ type: "homework.accepted", deep_link: "/gyan/homework/x" });
     expect(pushRouting({ template_key: "homework.accepted", payload: { type: "   " } })).toEqual({ type: "homework.accepted" });

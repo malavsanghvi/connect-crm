@@ -4,7 +4,7 @@ import type { Tables } from "@/lib/database.types";
 import { LoadError, rows } from "@/lib/data/events";
 import { explainError } from "@/lib/errors";
 import type { AppSupabase } from "@/lib/supabase/server";
-import { templateOptions, type TemplateOption } from "@/lib/survey/event-survey";
+import { parseSurveyNotices, templateOptions, type SurveyNotices, type TemplateOption } from "@/lib/survey/event-survey";
 import { parseSurveyStats, type SurveyStats } from "@/lib/survey/results";
 
 // The survey attached to an event (app.surveys, kind event_feedback, event_id set; migrations 0544 and 0547).
@@ -13,8 +13,7 @@ import { parseSurveyStats, type SurveyStats } from "@/lib/survey/results";
 
 export type EventSurvey = Tables<"surveys">;
 
-/** The audience numbers for one survey (app.event_survey_stats): invited adults, answers, completions, points. */
-export async function loadSurveyStats(db: AppSupabase, surveyId: string): Promise<SurveyStats> {
+async function loadStatsAndNotices(db: AppSupabase, surveyId: string): Promise<{ stats: SurveyStats; notices: SurveyNotices | null }> {
   const res = await db.rpc("event_survey_stats", { p_survey: surveyId });
   if (res.error) {
     console.error("[survey] loading the survey numbers failed:", res.error);
@@ -25,7 +24,26 @@ export async function loadSurveyStats(db: AppSupabase, surveyId: string): Promis
     console.error("[survey] the survey numbers came back in an unexpected shape:", res.data);
     throw new LoadError("Could not load the survey numbers — the database returned something unexpected");
   }
-  return stats;
+  const raw = res.data && typeof res.data === "object" && !Array.isArray(res.data) ? (res.data as Record<string, unknown>).notices : null;
+  return { stats, notices: parseSurveyNotices(raw) };
+}
+
+/** The audience numbers for one survey (app.event_survey_stats): invited adults, answers, completions, points. */
+export async function loadSurveyStats(db: AppSupabase, surveyId: string): Promise<SurveyStats> {
+  return (await loadStatsAndNotices(db, surveyId)).stats;
+}
+
+/**
+ * The pushes of one survey (0596: app.event_survey_stats "notices"); notices null when none were scheduled. ok false
+ * when they could not be read (logged here), so the caller says so instead of guessing.
+ */
+export async function readSurveyNotices(db: AppSupabase, surveyId: string): Promise<{ ok: true; notices: SurveyNotices | null } | { ok: false }> {
+  try {
+    return { ok: true, notices: (await loadStatsAndNotices(db, surveyId)).notices };
+  } catch (error) {
+    console.error("[survey] reading the survey's pushes failed:", error);
+    return { ok: false };
+  }
 }
 
 export type EventSurveyTabData = {
@@ -35,6 +53,8 @@ export type EventSurveyTabData = {
   templates: TemplateOption[];
   /** Audience numbers; null when there is no survey. */
   stats: SurveyStats | null;
+  /** Its pushes (0596); null when there is no survey or none were scheduled. */
+  notices: SurveyNotices | null;
 };
 
 export async function loadEventSurveyTab(db: AppSupabase, centerId: string, eventId: string): Promise<EventSurveyTabData> {
@@ -50,7 +70,7 @@ export async function loadEventSurveyTab(db: AppSupabase, centerId: string, even
     "this event's survey",
   );
   const survey = found[0] ?? null;
-  if (survey) return { survey, templates: [], stats: await loadSurveyStats(db, survey.id) };
+  if (survey) return { survey, templates: [], ...(await loadStatsAndNotices(db, survey.id)) };
   const templates = rows(
     await db
       .from("surveys")
@@ -61,5 +81,5 @@ export async function loadEventSurveyTab(db: AppSupabase, centerId: string, even
       .order("created_at", { ascending: true }),
     "the saved surveys",
   );
-  return { survey: null, templates: templateOptions(templates), stats: null };
+  return { survey: null, templates: templateOptions(templates), stats: null, notices: null };
 }

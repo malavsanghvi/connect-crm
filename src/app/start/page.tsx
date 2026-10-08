@@ -52,7 +52,7 @@ export default async function StartPage() {
       title="Start your sandbox"
       lead={
         <>
-          <p>Your sandbox is a private practice copy of Community Connect for your organization. Payments run in test mode and messages reach only test recipients.</p>
+          <p>Your sandbox is a private practice copy of Weaver for your organization. Payments run in test mode and messages reach only test recipients.</p>
           <ol className="mt-4 flex flex-col gap-1.5" aria-label="Steps">
             {START_STEPS.map((s, i) => (
               <li key={s.key} className={i + 1 === current ? "font-semibold text-white" : i + 1 < current ? "text-navy-200 line-through" : "text-navy-200"}>

@@ -9,7 +9,7 @@ import { dbWithReason, loadSession } from "@/lib/session";
 
 // Setup › Go-live (ONBOARDING_PLAN Steps 7–8, §5): the owner confirms training,
 // the health check and the pilot (readiness check 13), requests go-live, and —
-// once two Community Connect admins approve — promotes the sandbox.
+// once two Weaver admins approve — promotes the sandbox.
 
 async function ownerSession(doing: string) {
   const state = await loadSession();
@@ -43,7 +43,7 @@ export async function requestGoliveAction(): Promise<ActionResult> {
   if (error) return failure(`Could not ${doing}`, error);
   revalidatePath("/setup/go-live");
   revalidatePath("/setup");
-  return { ok: true, message: "Go-live requested · Community Connect will review (two different people approve)" };
+  return { ok: true, message: "Go-live requested · Weaver will review (two different people approve)" };
 }
 
 export async function promoteAction(_prev: ActionResult | null, fd: FormData): Promise<ActionResult> {

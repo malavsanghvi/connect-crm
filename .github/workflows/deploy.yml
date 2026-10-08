@@ -47,6 +47,10 @@ jobs:
       # the member web app's address, used for the https join links. Unset: nothing changes.
       SITE_WILDCARD_DOMAIN: ${{ vars.SITE_WILDCARD_DOMAIN }}
       NEXT_PUBLIC_MEMBER_APP_URL: ${{ vars.MEMBER_APP_URL }}
+      # Optional: every <name>.<domain> is the member web app (jsh.<domain> opens JSH, app.<domain> lists
+      # the organizations). Needs SITE_DOMAIN (the portal's own name, e.g. admin.<domain>) and the same
+      # name in connect-mobile's MEMBER_BASE_DOMAIN. Unset: nothing changes. docs/DEPLOY.md "Member addresses".
+      MEMBER_BASE_DOMAIN: ${{ vars.MEMBER_BASE_DOMAIN }}
     steps:
       - name: Check settings
         env:
@@ -121,7 +125,7 @@ jobs:
           # redeploy per name; PUBLIC_IP is only a fallback for the droplet's metadata service
           # (used when DROPLET_HOST is an IPv4 address).
           public_ip=""; if [[ "$HOST" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then public_ip=$HOST; fi
-          ssh_ "bash /tmp/connect-deploy/droplet-setup.sh && PORTAL_HTTPS=1 PUBLIC_IP='$public_ip' SITE_WILDCARD_DOMAIN='$SITE_WILDCARD_DOMAIN' bash /tmp/connect-deploy/release.sh $APP $GITHUB_SHA node 3000 '$SITE'"
+          ssh_ "bash /tmp/connect-deploy/droplet-setup.sh && PORTAL_HTTPS=1 PUBLIC_IP='$public_ip' SITE_WILDCARD_DOMAIN='$SITE_WILDCARD_DOMAIN' MEMBER_BASE_DOMAIN='$MEMBER_BASE_DOMAIN' bash /tmp/connect-deploy/release.sh $APP $GITHUB_SHA node 3000 '$SITE'"
           echo "### Released $APP" >> "$GITHUB_STEP_SUMMARY"
           if [[ "$SITE" == :* ]]; then
             port=${SITE#:}

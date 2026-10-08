@@ -20,7 +20,7 @@ export async function createSandboxAction(input: NewSandboxInput): Promise<Actio
   const state = await loadSession();
   if (state.status === "signed_out") return { ok: false, error: `Could not ${doing} — your session has expired. Sign in again.` };
   if (state.status !== "ok") return { ok: false, error: `Could not ${doing} — the app could not load your session. Reload and try again.` };
-  if (!state.session.isPlatformAdmin) return { ok: false, error: `Could not ${doing} — only Community Connect platform admins can do this.` };
+  if (!state.session.isPlatformAdmin) return { ok: false, error: `Could not ${doing} — only Weaver platform admins can do this.` };
   const parsed = validateNewSandbox(input);
   if (!parsed.ok) return { ok: false, error: `Could not ${doing} — ${parsed.error}` };
   const v = parsed.value;

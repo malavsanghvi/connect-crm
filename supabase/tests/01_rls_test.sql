@@ -54,6 +54,10 @@ insert into app.center_users (center_id, user_id, person_id) values
   (:jsh, '10000000-0000-4000-8000-000000000004', '30000000-0000-4000-8000-000000000007'),
   (:jsh, '10000000-0000-4000-8000-000000000005', '30000000-0000-4000-8000-000000000005'),
   (:jsh, '10000000-0000-4000-8000-000000000006', '30000000-0000-4000-8000-000000000008');
+-- Priya and Kiran have the member app on a phone: lunch reminders and survey pushes go to a login with a phone (0596).
+insert into app.push_devices (user_id, center_id, platform, token) values
+  ('10000000-0000-4000-8000-000000000001', :jsh, 'ios', 'ExponentPushToken[rls01priya]'),
+  ('10000000-0000-4000-8000-000000000005', :jsh, 'android', 'ExponentPushToken[rls01kiran]');
 
 -- Pathshala: one term, two classes; the teacher teaches class A only.
 insert into app.pathshala_terms (id, center_id, name, starts_on, ends_on, status)
@@ -249,7 +253,13 @@ select pg_temp.assert(
       = (select min(starts_at) from app.lunch_slots where event_id = '50000000-0000-4000-8000-000000000001'),
   'family with a child under 12 eats together at lunch start');
 select pg_temp.assert((select lunch_slot_id from app.attendees where display_name = 'Kiran Mehta') is not null, 'others get the next open slot');
-select pg_temp.assert((select count(*) from app.messages where template_key = 'lunch_reminder') = 3, 'one 5-minute lunch reminder per checked-in member');
+select pg_temp.assert((select count(*) from app.messages where template_key = 'lunch_reminder') = 2
+                      and (select count(*) from app.messages m join app.jobs j on j.id = m.job_id
+                            where m.template_key = 'lunch_reminder' and m.status = 'queued' and m.purpose = 'notification'
+                              and j.kind = 'messaging.send' and j.run_after = m.scheduled_at
+                              and m.scheduled_at = (select s.starts_at - interval '5 minutes' from app.lunch_slots s where s.id::text = m.payload->>'slot_id')
+                              and m.to_address in ('10000000-0000-4000-8000-000000000001', '10000000-0000-4000-8000-000000000005')) = 2,
+  'one lunch reminder 5 minutes before the slot per checked-in member with the app (Priya, Kiran; Anya, 9, has no login), queued for the sender');
 
 -- ------------------------------------------------------------ My Jain Way
 insert into app.practice_selections (center_id, person_id, practice_id)

@@ -31,7 +31,7 @@ function LinkBox({ result }: { result: InviteResult }) {
     <div className="mt-3 rounded-[12px] border border-success/30 bg-success-50 p-3 text-[13px] text-success-900" role="status">
       <p className="font-bold">Send this link to the person you invited</p>
       <p className="mt-1">
-        Email and text sending are not connected yet, so Community Connect cannot send it for you. It works once, only for the address or number you
+        Email and text sending are not connected yet, so Weaver cannot send it for you. It works once, only for the address or number you
         entered, until {new Date(result.expiresAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}. It is not shown again — resend
         the invitation for a new link.
       </p>

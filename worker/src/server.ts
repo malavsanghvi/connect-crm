@@ -1,4 +1,4 @@
-// Community Connect background service (systemd unit connect@worker).
+// Weaver background service (systemd unit connect@worker).
 //
 //   node server.js    with WORKER_DATABASE_URL = the connect_worker connection string
 //
@@ -107,7 +107,7 @@ export async function main(env: Env = process.env): Promise<void> {
   const log = createLogger({ service: "connect-worker", worker: config.workerId }, { level: config.logLevel });
   const reg: Registry = createRegistry(HANDLERS);
   const db: WorkerDb = createDb(config.databaseUrl, config.databaseCa, log);
-  // Community Connect's provider keys: saved in the setup wizard first, this process's env second.
+  // Weaver's provider keys: saved in the setup wizard first, this process's env second.
   const platform = createPlatformConfig(env, db, { workerId: config.workerId, log });
   await platform.refresh(true);
   const penv = platform.env;

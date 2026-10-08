@@ -43,7 +43,7 @@ export function NotificationsForm({
         <Card
           span={8}
           title="Automatic notifications"
-          description="What each automatic message should do. Homework due-soon reminders follow their switch today; the other rows are kept for the automatic sender, which is not switched on yet, so they send nothing yet."
+          description="What each automatic message should do. Four go out today and follow their switch: the lunch slot reminder, the boli notice when another family pledges more (not the 24-hour one) and the event feedback request, as pushes to members with the app on a phone, and the homework due-soon reminders. The other rows record your choice for a sender that is not built yet."
           padded={false}
         >
           <TableWrap>
@@ -120,10 +120,10 @@ export function NotificationsForm({
               <p className="crm-hint">Members can set their own quiet hours in the app.</p>
             </div>
             <div>
-              <p className="crm-label">Event-day reminders during quiet hours</p>
+              <p className="crm-label">Event-day reminders during quiet hours (lunch reminders and boli notices)</p>
               <Toggle
                 name="event_day_during_quiet_hours"
-                label="Event-day reminders during quiet hours"
+                label="Event-day reminders during quiet hours (lunch reminders and boli notices)"
                 checked={s.eventDayDuringQuietHours}
                 onChange={(x) => setS({ ...s, eventDayDuringQuietHours: x })}
                 onNote="Allowed"

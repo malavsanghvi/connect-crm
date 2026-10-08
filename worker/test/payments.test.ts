@@ -186,13 +186,13 @@ describe("payments.webhook.stripe", () => {
       if (t.includes("worker_flag_provider_refund")) return v({ outcome: "not_ours" });
       return [];
     });
-    expect(await stripeHook.run(job({ payload: { webhook_event_id: "we4" } }), other.ctx)).toMatchObject({ outcome: "ignored: not a Community Connect payment" });
+    expect(await stripeHook.run(job({ payload: { webhook_event_id: "we4" } }), other.ctx)).toMatchObject({ outcome: "ignored: not a Weaver payment" });
   });
   it("while our own refund is still being recorded the event fails and is retried", async () => {
     const event = { id: "evt_r3", type: "charge.refunded", data: { object: { payment_intent: "pi_z", amount_refunded: 500 } } };
     const { ctx, queries } = ctxWith((t) => {
       if (t.includes("worker_webhook_event")) return v({ id: "we5", event_type: event.type, payload: event, processed_at: null });
-      if (t.includes("worker_flag_provider_refund")) throw new Error("A refund Community Connect sent to Stripe for this payment is still being recorded");
+      if (t.includes("worker_flag_provider_refund")) throw new Error("A refund Weaver sent to Stripe for this payment is still being recorded");
       return [];
     });
     const err = await stripeHook.run(job({ payload: { webhook_event_id: "we5" } }), ctx).catch((e: unknown) => e);

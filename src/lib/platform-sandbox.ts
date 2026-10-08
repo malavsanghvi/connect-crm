@@ -1,5 +1,5 @@
 // Platform › Centers › New sandbox (stream f-sandbox, owner decisions 2026-09-25, second batch):
-// Community Connect's super admin creates a sandbox directly and invites its owner.
+// Weaver's super admin creates a sandbox directly and invites its owner.
 // Pure helpers only (unit-tested); the database decides (app.platform_create_sandbox, 0502).
 
 import { ORG_TYPES, slugProblem, type OrgType } from "@/lib/platform-onboarding";

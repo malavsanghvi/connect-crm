@@ -22,7 +22,9 @@
 //                             when `caddy validate` rejects it).
 //   <app>-wildcard.caddy      any other HTTPS name (on demand, approved by
 //                             tls-ask), and the member web app over HTTPS on
-//                             MEMBER_HTTPS_PORT for the same names.
+//                             MEMBER_HTTPS_PORT for the same names. With a member base
+//                             domain (MEMBER_BASE_DOMAIN) also "*.<base>" = the member web
+//                             app (jsh.<base> opens JSH); the portal keeps its own name.
 // HSTS is sent only for hosts that have a confirmation marker.
 //
 // These file names are the ones older release.sh versions already manage (they
@@ -120,6 +122,18 @@ function memberBody(o) {
   ];
 }
 
+/** Port 80 for the member names: serves the member app, redirecting to https only for hosts the confirmer proved. */
+function memberHttpBody(o, redirectTarget) {
+  return [
+    ...confirmedMatcher("https_ready", o.confirmedDir),
+    `\tredir @https_ready ${redirectTarget} 308`,
+    "\tencode zstd gzip",
+    `\troot * ${o.memberRoot}`,
+    "\ttry_files {path} {path}.html /index.html",
+    "\tfile_server",
+  ];
+}
+
 const block = (addresses, lines) => [`${addresses.join(", ")} {`, ...lines, "}", ""].join("\n");
 
 /**
@@ -131,6 +145,8 @@ const block = (addresses, lines) => [`${addresses.join(", ")} {`, ...lines, "}",
  * @param {string|null} [input.publicIp]     the droplet's public IPv4 (null: unknown)
  * @param {boolean} [input.ipCert]           serve https://<publicIp> with a short-lived IP certificate
  * @param {string|null} [input.memberRoot]   the member web app's files (null: no member site)
+ * @param {string|null} [input.memberBase]   "weaverams.org": every <name>.<base> is the member web app. Needs a
+ *        SITE domain (the portal's own name) and memberRoot, or this throws.
  * @param {number} [input.memberHttpsPort]
  * @param {string} [input.confirmedDir]
  * @param {number} [input.hstsMaxAge]
@@ -156,6 +172,17 @@ export function buildCaddySites(input) {
   const httpsPort = t ? t.httpsPort : 443;
   const plainPort = t ? t.httpPort : httpPort;
   const summary = [];
+
+  // The member base domain (MEMBER_BASE_DOMAIN): every <name>.<base> is the member web app, so
+  // jsh.<base> opens JSH. The portal's own name (SITE_DOMAIN, e.g. admin.<base>) has its own site,
+  // and a named site always wins over the wildcard, so staff never land on the member app. Without
+  // SITE_DOMAIN that guarantee is gone, so the deploy refuses and keeps the previous sites.
+  const memberBase = o.memberBase ? normalizeDomain(o.memberBase) : null;
+  if (o.memberBase && !memberBase) throw new Error(`member base domain "${o.memberBase}" is not a domain name`);
+  if (memberBase) {
+    if (!o.memberRoot) throw new Error("a member base domain needs the member web app's files (memberRoot)");
+    if (!domain) throw new Error(`MEMBER_BASE_DOMAIN (${memberBase}) needs SITE_DOMAIN: the portal's own name (for example admin.${memberBase}), so the portal is never served as a member address`);
+  }
 
   // ── Global options ──────────────────────────────────────────────────────────
   const globals = ["{"];
@@ -187,6 +214,10 @@ export function buildCaddySites(input) {
   if (namedHttp.length) main.push(block(namedHttp, httpBody));
   main.push(block([`:${plainPort}`], httpBody));
   summary.push(`http: port ${plainPort} serves the portal; redirects to https only for hosts confirmed in ${o.confirmedDir}`);
+  if (memberBase) {
+    main.push(block([`http://*.${memberBase}${suffix}`], memberHttpBody(o, redirectTarget)));
+    summary.push(`http: *.${memberBase} serves the member web app (the portal's own name, ${domain}, keeps the portal)`);
+  }
   if (domain) {
     main.push(block([`https://${domain}${t ? `:${httpsPort}` : ""}`], portalBody(o)));
     summary.push(`https: ${domain} (certificate requested at start)`);
@@ -204,6 +235,12 @@ export function buildCaddySites(input) {
     block([t ? `https://:${httpsPort}` : "https://"], ["\ttls {", "\t\ton_demand", "\t}", ...portalBody(o)]),
   ];
   summary.push("https: any name approved by /api/tenancy/tls-ask (on-demand certificates)");
+  if (memberBase) {
+    // One certificate per name, issued on its first visit and only when tls-ask approves it (the
+    // base domain saved in Platform setup, and a real community with that short name).
+    wild.push(block([`https://*.${memberBase}${t ? `:${httpsPort}` : ""}`], ["\ttls {", "\t\ton_demand", "\t}", ...memberBody(o)]));
+    summary.push(`https: *.${memberBase} is the member web app (on-demand certificates; ${domain} keeps the portal)`);
+  }
   if (o.memberRoot) {
     wild.push(block([`https://:${o.memberHttpsPort}`], ["\ttls {", "\t\ton_demand", "\t}", ...memberBody(o)]));
     if (withIpCert) wild.push(block([`https://${ip}:${o.memberHttpsPort}`], [...(t?.localCerts ? [] : ipTls(o)), ...memberBody(o)]));
@@ -305,6 +342,7 @@ export function buildAppSites(input) {
 // ── CLI ───────────────────────────────────────────────────────────────────────
 //   node caddy-sites.mjs --out /etc/caddy/sites --app crm --port 3000 --site :80
 //        [--public-ip 1.2.3.4] [--ip-cert 1|0] [--member-root DIR|""] [--hsts-max-age N]
+//        [--member-base DOMAIN]   (default: the MEMBER_BASE_DOMAIN environment variable)
 //   node caddy-sites.mjs --role app --out /etc/caddy/sites --app admin --port 3001 --site :8081
 //        [--https-port 8444] [--public-ip 1.2.3.4] [--ip-cert 1|0] [--confirmed-dir DIR]
 //   node caddy-sites.mjs --https-config /etc/connect/https.json --field publicIp|ipCert|confirmedDir
@@ -363,6 +401,9 @@ async function main() {
     publicIp: a["public-ip"] || null,
     ipCert: a["ip-cert"] === "1",
     memberRoot: a["member-root"] === undefined ? DEFAULTS.memberRoot : a["member-root"] || null,
+    // release.sh does not pass it: the deploy workflow sets MEMBER_BASE_DOMAIN in release.sh's
+    // environment, which this process inherits (so release.sh stays identical in all three repos).
+    memberBase: a["member-base"] === undefined ? process.env.MEMBER_BASE_DOMAIN || null : a["member-base"] || null,
     hstsMaxAge: a["hsts-max-age"] ? Number(a["hsts-max-age"]) : DEFAULTS.hstsMaxAge,
   });
   mkdirSync(a.out, { recursive: true });

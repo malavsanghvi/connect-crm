@@ -542,7 +542,7 @@ export const NAV: NavModule[] = [
       { href: "/settings/import", label: "Data import", access: "dataImport" },
       { href: "/settings/custom-fields", label: "Custom fields", access: "centerSettings" },
       { href: "/settings/data-quality", label: "Data quality", access: "dataQuality" },
-      // Onboarding (o-platform): the owner's time-boxed support grants to Community Connect.
+      // Onboarding (o-platform): the owner's time-boxed support grants to Weaver.
       { href: "/settings/support-access", label: "Support access", access: "centerSettings" },
       // Onboarding (o-messaging): email domain and senders, texting registration, WhatsApp Business.
       { href: "/settings/email", label: "Email", access: "messaging" },
@@ -560,16 +560,18 @@ export const NAV: NavModule[] = [
       { href: "/platform/setup", label: "Platform setup", access: "dashboard", platformOnly: true },
       { href: "/platform/new", label: "New center wizard", access: "dashboard", platformOnly: true },
       { href: "/platform/verification", label: "Verification", access: "dashboard", platformOnly: true },
-      // Onboarding (o-platform): the Community Connect console.
+      // Onboarding (o-platform): the Weaver console.
       { href: "/platform/requests", label: "Requests", access: "dashboard", platformOnly: true },
       { href: "/platform/codes", label: "Sandbox codes", access: "dashboard", platformOnly: true },
       { href: "/platform/pipeline", label: "Onboarding", access: "dashboard", platformOnly: true },
       { href: "/platform/go-live", label: "Go-live approvals", access: "dashboard", platformOnly: true },
       { href: "/platform/support-access", label: "Support access", access: "dashboard", platformOnly: true },
-      // Wave E (e-people-legal, #19): Community Connect's agreements as versions.
+      // Wave E (e-people-legal, #19): Weaver's agreements as versions.
       { href: "/platform/agreements", label: "Agreements", access: "dashboard", platformOnly: true },
       // o-https: portal address and HTTPS status.
       { href: "/platform/https", label: "HTTPS", access: "dashboard", platformOnly: true },
+      // Payments plan PR 5: Community Connect pauses a way to pay (the only power the platform team has over payments).
+      { href: "/platform/payments", label: "Payments", access: "dashboard", platformOnly: true },
     ],
     paths: ["/platform"],
   },

@@ -33,7 +33,7 @@ describe("Intuit configuration on the portal", () => {
     expect(c.ok).toBe(false);
     if (!c.ok) {
       expect(c.missing).toEqual(["INTUIT_CLIENT_ID", "OAUTH_STATE_SECRET"]);
-      expect(c.message).toMatch(/isn't configured on the Community Connect server yet/);
+      expect(c.message).toMatch(/isn't configured on the Weaver server yet/);
     }
     expect(intuitPortalConfig({ INTUIT_CLIENT_ID: "x", OAUTH_STATE_SECRET: "too-short" }, "real").ok).toBe(false);
   });

@@ -5,6 +5,9 @@ import { describe, expect, it, vi } from "vitest";
 // Settings › Payments as plugin cards: what each switch says and whether it is locked. The cards call
 // server actions and the panel's runner; here nothing is called, only rendered.
 vi.mock("@/app/(app)/settings/payments/actions", () => ({ setPluginAction: vi.fn() }));
+vi.mock("@/app/(app)/settings/payments/change-actions", () => ({
+  requestZelleChangeAction: vi.fn(), decidePayeeChangeAction: vi.fn(), cancelPayeeChangeAction: vi.fn(), approveZelleInstructionsAction: vi.fn(), confirmWalletAction: vi.fn(),
+}));
 vi.mock("@/app/(app)/settings/payments/payments-panel", async (importOriginal) => {
   const original = await importOriginal<typeof import("@/app/(app)/settings/payments/payments-panel")>();
   return { ...original, usePaymentsPanel: () => ({ run: vi.fn(), busy: null, askReason: vi.fn() }) };
@@ -92,10 +95,10 @@ describe("Settings › Payments plugin cards", () => {
     expect(locked(ready, "Check")).toBe(false);
   });
 
-  it("keeps a paused plugin off and says Community Connect paused it; a plugin that is on can still be switched off", () => {
-    const paused = render(settings(), plugins([entry("zelle", { catalog_status: "suspended", status: "suspended", problem: "Community Connect has paused Zelle for now." })]));
+  it("keeps a paused plugin off and says Weaver paused it; a plugin that is on can still be switched off", () => {
+    const paused = render(settings(), plugins([entry("zelle", { catalog_status: "suspended", status: "suspended", problem: "Weaver has paused Zelle for now." })]));
     expect(locked(paused, "Zelle")).toBe(true);
-    expect(paused).toContain("Paused by Community Connect");
+    expect(paused).toContain("Paused by Weaver");
     const on = render(
       settings(),
       plugins([entry("cash", { enabled: true, status: "live", config: { where: "Bhandar" } })]),

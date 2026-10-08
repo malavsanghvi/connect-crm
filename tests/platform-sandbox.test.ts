@@ -7,7 +7,7 @@ import { acceptedPath } from "@/lib/security";
 import { ENTITLEMENT_INFO, formatEntitlement, parseEntitlementInput } from "@/lib/tenancy";
 
 // Stream f-sandbox (owner decisions 2026-09-25, second batch): JSH as a sandbox, sandboxes created
-// by Community Connect, and the owner passing role-based checks.
+// by Weaver, and the owner passing role-based checks.
 
 const good: NewSandboxInput = {
   name: " Jain Center of Dallas ",

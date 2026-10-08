@@ -15,7 +15,7 @@ export const metadata: Metadata = { title: "Storage · Settings" };
 
 /**
  * Settings › Storage (Setup step svc.storage, ONBOARDING_PLAN §1.9): the storage areas
- * Community Connect created for the organization, who can read each, their file limits,
+ * Weaver created for the organization, who can read each, their file limits,
  * what this organization uses against its plan, and the two retention choices it owns.
  */
 export default async function StoragePage() {
@@ -53,18 +53,18 @@ export default async function StoragePage() {
       {!o.available ? (
         <div className="mb-4">
           <Alert tone="warning" title="File storage is not available on this server">
-            The storage service is not set up in this deployment, so uploads (logos, documents, imports) cannot be stored. Community Connect sets it up.
+            The storage service is not set up in this deployment, so uploads (logos, documents, imports) cannot be stored. Weaver sets it up.
           </Alert>
         </div>
       ) : null}
       <div className="mb-4">
         <KpiGrid cols={3}>
           <Stat label="Used" value={formatBytes(o.usedBytes)} tone="navy" hint={`${o.areas.reduce((n, a) => n + a.files, 0)} files across ${o.areas.length} areas`} />
-          <Stat label="Plan limit" value={o.limitBytes ? formatBytes(o.limitBytes) : "No limit"} tone="ink" hint={center.environment === "sandbox" ? "Sandbox limit; lifts at go-live" : "Set by Community Connect"} />
+          <Stat label="Plan limit" value={o.limitBytes ? formatBytes(o.limitBytes) : "No limit"} tone="ink" hint={center.environment === "sandbox" ? "Sandbox limit; lifts at go-live" : "Set by Weaver"} />
           <Stat label="Of the limit" value={pct === null ? "—" : `${pct}%`} tone={pct !== null && pct >= 90 ? "danger" : "success"} hint="Settings › Limits lists every limit" href="/settings/limits" />
         </KpiGrid>
       </div>
-      <Card title="Storage areas" description="Created by Community Connect for every organization; files always sit under your organization's folder" padded={false}>
+      <Card title="Storage areas" description="Created by Weaver for every organization; files always sit under your organization's folder" padded={false}>
         <TableWrap>
           <table className="crm-table" aria-label="Storage areas">
             <thead>

@@ -45,12 +45,12 @@ export function textToHtml(text: string): string {
 }
 
 export function renderEmail(input: EmailInput): RenderedEmail {
-  const name = input.brand?.name ?? "Community Connect";
+  const name = input.brand?.name ?? "Weaver";
   const color = input.brand?.primary_color && SAFE_COLOR.test(input.brand.primary_color) ? input.brand.primary_color : "#7a3e12";
   const subject = input.sandbox && !input.subject.startsWith(`[${SANDBOX_BANNER}]`) ? `[${SANDBOX_BANNER}] ${input.subject}` : input.subject;
   const footerLines = [input.footer?.postal_address, input.footer?.note].filter((l): l is string => !!l && l.trim() !== "");
   const banner = input.sandbox
-    ? `<div style="background:#fff4d6;border:1px solid #e5c26a;color:#6b4e00;padding:8px 12px;font:600 13px system-ui,sans-serif;text-align:center">${SANDBOX_BANNER} · sent from a Community Connect sandbox, not a live community</div>`
+    ? `<div style="background:#fff4d6;border:1px solid #e5c26a;color:#6b4e00;padding:8px 12px;font:600 13px system-ui,sans-serif;text-align:center">${SANDBOX_BANNER} · sent from a Weaver sandbox, not a live community</div>`
     : "";
   const logo = input.brand?.logo_url
     ? `<img src="${escapeHtml(input.brand.logo_url)}" alt="${escapeHtml(name)}" style="max-height:48px;max-width:220px;display:block">`
@@ -78,7 +78,7 @@ export function renderEmail(input: EmailInput): RenderedEmail {
   return { subject, html, text };
 }
 
-/** The From header: the center's own verified sender, else Community Connect's address in the center's name. */
+/** The From header: the center's own verified sender, else Weaver's address in the center's name. */
 export function fromHeader(
   sender: { from_name: string; from_address: string } | null | undefined,
   brand: EmailBrand | null,
@@ -86,7 +86,7 @@ export function fromHeader(
 ): string {
   const q = (n: string) => `"${n.replace(/["\\\r\n]/g, "")}"`;
   if (sender) return `${q(sender.from_name)} <${sender.from_address}>`;
-  if (brand) return `${q(`${brand.name} via Community Connect`)} <${platform.address}>`;
+  if (brand) return `${q(`${brand.name} via Weaver`)} <${platform.address}>`;
   return `${q(platform.name)} <${platform.address}>`;
 }
 

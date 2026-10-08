@@ -60,7 +60,7 @@ export function instructionsProblem(method: string, p: unknown, required: readon
  */
 export function paymentPluginConfigProblem(key: string, config: unknown, mode: "test" | "live" | string, required: readonly string[]): string | null {
   const plugin = pluginByKey(key);
-  if (!plugin) return "That is not a payment method Community Connect offers.";
+  if (!plugin) return "That is not a payment method Weaver offers.";
   const v = config ?? {};
   if (!isPlainObject(v)) return "The settings must be a set of fields.";
   if (plugin.legacyMethod) {
@@ -99,7 +99,7 @@ export function pluginStatusView(status: string | null | undefined, environment:
     case "live":
       return { label: family === "instructions" && environment === "production" ? "On" : "Live", tone: "success" };
     case "suspended":
-      return { label: "Paused by Community Connect", tone: "danger" };
+      return { label: "Paused by Weaver", tone: "danger" };
     default:
       return { label: "Unknown", tone: "neutral" };
   }

@@ -14,7 +14,7 @@ import { IrsResult, type IrsLookup } from "./irs-result";
 
 export const metadata: Metadata = { title: "Legal identity · Setup" };
 
-const SUB = "Step 0.2 · legal identity and non-profit proof · Community Connect verifies it before production";
+const SUB = "Step 0.2 · legal identity and non-profit proof · Weaver verifies it before production";
 
 function str(o: unknown, k: string): string {
   const v = isPlainObject(o) ? o[k] : undefined;
@@ -77,16 +77,16 @@ export default async function OrganizationPage() {
       <div className="mb-4">
         {status === "verified" ? (
           <Alert tone="success" title="Verified non-profit">
-            Community Connect verified {p?.legal_name} on {formatDateTime(p?.verified_at, center.time_zone)}. Changing the legal name, EIN or entity type sends it back for
+            Weaver verified {p?.legal_name} on {formatDateTime(p?.verified_at, center.time_zone)}. Changing the legal name, EIN or entity type sends it back for
             verification.
           </Alert>
         ) : status === "submitted" ? (
-          <Alert tone="info" title="Waiting for Community Connect review">
-            Submitted {formatDateTime(p?.submitted_at, center.time_zone)}. Community Connect compares the documents with the IRS record.
+          <Alert tone="info" title="Waiting for Weaver review">
+            Submitted {formatDateTime(p?.submitted_at, center.time_zone)}. Weaver compares the documents with the IRS record.
           </Alert>
         ) : status === "rejected" ? (
-          <Alert tone="warning" title="Sent back by Community Connect">
-            {p?.verification_note ?? "See the note from Community Connect."} Fix it, then submit again.
+          <Alert tone="warning" title="Sent back by Weaver">
+            {p?.verification_note ?? "See the note from Weaver."} Fix it, then submit again.
           </Alert>
         ) : p?.verification_note ? (
           <Alert tone="warning" title="Not verified">
@@ -142,7 +142,7 @@ export default async function OrganizationPage() {
           )}
         </Card>
 
-        <Card span={7} title="Non-profit documents" description="Kept in private storage · only the owner, settings managers and Community Connect verification staff can open them" padded={false}>
+        <Card span={7} title="Non-profit documents" description="Kept in private storage · only the owner, settings managers and Weaver verification staff can open them" padded={false}>
           {docs.length === 0 ? (
             <div className="p-4">
               <EmptyState title="No documents yet">Upload a signed W-9 and the IRS determination letter (or proof of a group exemption).</EmptyState>
@@ -231,7 +231,7 @@ export default async function OrganizationPage() {
             Status: <strong>{VERIFICATION_LABEL[status] ?? status}</strong>
           </p>
           {locked ? (
-            <p className="text-[13px] text-muted">{status === "verified" ? "Nothing to do here." : "Community Connect is reviewing it."}</p>
+            <p className="text-[13px] text-muted">{status === "verified" ? "Nothing to do here." : "Weaver is reviewing it."}</p>
           ) : blockers.length > 0 ? (
             <>
               <p className="text-[13px]">Before submitting, add:</p>
@@ -240,7 +240,7 @@ export default async function OrganizationPage() {
                   <li key={b}>{b}</li>
                 ))}
               </ul>
-              <p className="crm-hint mt-2">Houses of worship without an IRS letter can send a board or attorney letter instead; Community Connect reviews it.</p>
+              <p className="crm-hint mt-2">Houses of worship without an IRS letter can send a board or attorney letter instead; Weaver reviews it.</p>
             </>
           ) : (
             <>
@@ -251,7 +251,7 @@ export default async function OrganizationPage() {
                 action={submitVerificationAction}
                 submitLabel="Submit for verification"
                 pendingLabel="Submitting…"
-                confirmMessage={`Submit ${p?.legal_name ?? "the organization"} for verification?\nCommunity Connect reviews the documents next to the IRS record. You can keep setting up meanwhile.`}
+                confirmMessage={`Submit ${p?.legal_name ?? "the organization"} for verification?\nWeaver reviews the documents next to the IRS record. You can keep setting up meanwhile.`}
               />
             </>
           )}
