@@ -221,20 +221,46 @@ create trigger payee_guard before update of rules on app.centers
   for each row when (old.rules is distinct from new.rules)
   execute function app.payee_guard_centers();
 
+-- The PayPal and Stripe connection rows. The table grant (0001) lets a signed-in person with integrations.manage write
+-- them through the API, so the guard also covers what a direct write could do: delete the row and start again, change its
+-- provider, clear or replace the saved email, or write the connected account's id. Once an email or an account is saved
+-- on the row, only the connect flows (the background service, no signed-in person) and the confirmed request may change it.
 create or replace function app.payee_guard_connections() returns trigger
 language plpgsql security definer set search_path = app, public, extensions as $$
+declare v_old_email text; v_new_email text;
 begin
-  if auth.uid() is null or coalesce(current_setting('app.payee_apply', true), '') = 'on' then return new; end if;
-  if lower(btrim(coalesce(old.settings->>'paypal_email', ''))) <> ''
-     and lower(btrim(coalesce(new.settings->>'paypal_email', ''))) <> lower(btrim(coalesce(old.settings->>'paypal_email', ''))) then
-    raise exception 'Changing the PayPal email needs a second person. Verify the new email in Settings › Payments › PayPal; a different person with giving.approve then confirms the change.'
-      using errcode = '22023';
+  if auth.uid() is null or coalesce(current_setting('app.payee_apply', true), '') = 'on' then
+    return case when tg_op = 'DELETE' then old else new end;
+  end if;
+  v_old_email := lower(btrim(coalesce(old.settings->>'paypal_email', '')));
+  if tg_op = 'DELETE' then
+    if v_old_email <> '' or nullif(btrim(coalesce(old.external_account_id, '')), '') is not null then
+      raise exception 'A % account that is connected cannot be deleted. Disconnect it in Settings › Payments instead; disconnecting keeps the row and its history.',
+        case old.provider when 'paypal' then 'PayPal' else 'Stripe' end using errcode = '22023';
+    end if;
+    return old;
+  end if;
+  if new.provider is distinct from old.provider
+     and (v_old_email <> '' or nullif(btrim(coalesce(old.external_account_id, '')), '') is not null) then
+    raise exception 'The payment account of a connection cannot be moved to another provider.' using errcode = '22023';
+  end if;
+  if old.provider = 'paypal' then
+    v_new_email := lower(btrim(coalesce(new.settings->>'paypal_email', '')));
+    if v_old_email <> '' and v_new_email <> v_old_email then
+      raise exception 'Changing the PayPal email needs a second person. Verify the new email in Settings › Payments › PayPal; a different person with giving.approve then confirms the change.'
+        using errcode = '22023';
+    end if;
+  end if;
+  if nullif(btrim(coalesce(old.external_account_id, '')), '') is not null
+     and new.external_account_id is distinct from old.external_account_id then
+    raise exception 'The % account a connection is connected to is set by the connect flow, never written directly. To use a different account, connect again in Settings › Payments.',
+      case old.provider when 'paypal' then 'PayPal' else 'Stripe' end using errcode = '22023';
   end if;
   return new;
 end $$;
 drop trigger if exists payee_guard on app.integration_connections;
-create trigger payee_guard before update on app.integration_connections
-  for each row when (new.provider = 'paypal' and old.settings is distinct from new.settings)
+create trigger payee_guard before update or delete on app.integration_connections
+  for each row when (old.provider in ('paypal','stripe'))
   execute function app.payee_guard_connections();
 
 -- ── One request ──────────────────────────────────────────────────────────────
@@ -333,7 +359,7 @@ end $$;
 -- The second person confirms (the change takes effect) or turns it down. Never the person who asked.
 create or replace function app.decide_payee_change(p_request uuid, p_approve boolean, p_reason text)
 returns jsonb language plpgsql security definer set search_path = app, public, extensions as $$
-declare r app.payee_changes; pm app.center_payment_methods; c app.centers; k text; x jsonb; v_cur text; v_instr jsonb;
+declare r app.payee_changes; pm app.center_payment_methods; c app.centers; k text; x jsonb; v_cur text; v_cur_ext text; v_instr jsonb;
         v_email text; v_verified timestamptz; v_conn uuid;
 begin
   select * into r from app.payee_changes where id = p_request for update;
@@ -404,12 +430,13 @@ begin
     v_conn := nullif(r.detail->>'connection_id', '')::uuid;
     v_email := r.changes #>> '{paypal_email,to}';
     v_verified := nullif(r.detail->>'verified_at', '')::timestamptz;
-    select lower(btrim(coalesce(ic.settings->>'paypal_email', ''))) into v_cur from app.integration_connections ic where ic.id = v_conn;
+    select lower(btrim(coalesce(ic.settings->>'paypal_email', ''))), coalesce(nullif(btrim(ic.external_account_id), ''), '')
+      into v_cur, v_cur_ext from app.integration_connections ic where ic.id = v_conn;
     if not found then
       raise exception 'The PayPal connection no longer exists. Verify the email again.' using errcode = '22023';
     end if;
-    if v_cur is distinct from lower(btrim(coalesce(r.changes #>> '{paypal_email,from}', ''))) then
-      raise exception 'The PayPal email changed after this request was made. Ask for the change again.' using errcode = '22023';
+    if v_cur is distinct from coalesce(r.detail->>'from_email', '') or v_cur_ext is distinct from coalesce(r.detail->>'from_external', '') then
+      raise exception 'The PayPal account changed after this request was made. Ask for the change again.' using errcode = '22023';
     end if;
     perform set_config('app.payee_apply', 'on', true);
     update app.integration_connections
@@ -498,7 +525,7 @@ end $$;
 -- person's, the connection stays as it is, and a different person with giving.approve confirms the change.
 create or replace function app.confirm_paypal_email(p_center uuid, p_code text)
 returns jsonb language plpgsql security definer set search_path = app, public, extensions as $$
-declare v app.paypal_email_verifications; ic app.integration_connections; v_old text; v_id uuid;
+declare v app.paypal_email_verifications; ic app.integration_connections; v_old text; v_old_ext text; v_id uuid;
 begin
   perform app.assert_module_enabled(p_center, 'giving');
   if not app.payments_can_connect(p_center) then
@@ -521,17 +548,21 @@ begin
   end if;
   select * into ic from app.integration_connections where id = v.connection_id;
   v_old := lower(btrim(coalesce(ic.settings->>'paypal_email', '')));
-  if v_old <> '' and v_old <> lower(btrim(v.email)) then
+  v_old_ext := coalesce(nullif(btrim(ic.external_account_id), ''), '');
+  -- A saved email that is replaced, or a PayPal account connected with "Connect with PayPal" that an email would replace,
+  -- is a change of where PayPal gifts go.
+  if (v_old <> '' and v_old <> lower(btrim(v.email))) or v_old_ext <> '' then
     perform app.assert_step_up('payments.payee');
-    perform app.set_audit_context('PayPal Business email ' || v.email || ' verified; it replaces ' || (ic.settings->>'paypal_email') || ' once a second person confirms it');
+    perform app.set_audit_context('PayPal Business email ' || v.email || ' verified; it replaces '
+      || coalesce(nullif(ic.settings->>'paypal_email', ''), 'the connected PayPal account') || ' once a second person confirms it');
     update app.paypal_email_verifications set used_at = now() where center_id = p_center;
     v_id := app._create_payee_change(
       p_center, 'paypal',
-      jsonb_build_object('paypal_email', jsonb_build_object('from', ic.settings->>'paypal_email', 'to', v.email)),
-      jsonb_build_object('connection_id', v.connection_id, 'verified_at', now()),
+      jsonb_build_object('paypal_email', jsonb_build_object('from', coalesce(nullif(ic.settings->>'paypal_email', ''), 'the connected PayPal account'), 'to', v.email)),
+      jsonb_build_object('connection_id', v.connection_id, 'verified_at', now(), 'from_email', v_old, 'from_external', v_old_ext),
       'Changed the PayPal Business email to ' || v.email || ' (verified with a code sent to it)');
     return jsonb_build_object('ok', true, 'pending', true, 'request_id', v_id, 'email', v.email,
-      'detail', 'PayPal Business email ' || v.email || ' verified. It replaces ' || (ic.settings->>'paypal_email')
+      'detail', 'PayPal Business email ' || v.email || ' verified. It replaces ' || coalesce(nullif(ic.settings->>'paypal_email', ''), 'the connected PayPal account')
                 || ', so a different person with giving.approve must confirm the change before PayPal gifts go to it.');
   end if;
   perform app.set_audit_context('PayPal Business email verified: ' || v.email);

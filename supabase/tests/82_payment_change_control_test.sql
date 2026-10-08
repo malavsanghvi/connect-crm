@@ -471,6 +471,98 @@ select pg_temp.assert((select ic.status = 'connected' and ic.settings->>'paypal_
                       and (select cp.status = 'test' from app.center_payment_processors cp where cp.center_id = :c and cp.processor = 'paypal'),
   'the PayPal email changed only then, and PayPal is connected in test mode again');
 
+-- ═════════════════════════════════════════════════════════════════════════════
+-- A direct write to the connection rows cannot go round the guard
+-- ═════════════════════════════════════════════════════════════════════════════
+-- The table grant of 0001 lets a signed-in person write every app table and the policy lets integrations.manage write this
+-- one, so without a guard one administrator could delete the PayPal row, verify any email as "the first", or write the
+-- connected account's id. The grant is still there; the guard is what closes it.
+select pg_temp.assert(has_table_privilege('authenticated', 'app.integration_connections', 'insert')
+                      and has_table_privilege('authenticated', 'app.integration_connections', 'update')
+                      and has_table_privilege('authenticated', 'app.integration_connections', 'delete'),
+  'the table grant still lets a signed-in person write the connection rows (so the guard, not the grant, is what closes the route)');
+select pg_temp.no_claims();
+insert into app.integration_connections (center_id, provider, status, external_account_id, display_name, settings)
+values (:c, 'stripe', 'connected', 'acct_82TEST', 'Stripe', '{"mode":"test","charges_enabled":true}');
+select pg_temp.claims('82000000-0000-4000-8000-000000000004', true);
+set local role authenticated;
+select pg_temp.assert_raises($$delete from app.integration_connections where center_id = '00000000-0000-4000-8000-000000008201' and provider = 'paypal'$$,
+  'cannot be deleted', 'an administrator with only integrations.manage cannot delete the PayPal connection to start again');
+select pg_temp.assert_raises($$update app.integration_connections set settings = settings - 'paypal_email' where center_id = '00000000-0000-4000-8000-000000008201' and provider = 'paypal'$$,
+  'PayPal email needs a second person', 'nor clear the saved PayPal email');
+select pg_temp.assert_raises($$update app.integration_connections set settings = settings || '{"paypal_email":"direct@pp82.example"}' where center_id = '00000000-0000-4000-8000-000000008201' and provider = 'paypal'$$,
+  'PayPal email needs a second person', 'nor replace it');
+select pg_temp.assert_raises($$update app.integration_connections set provider = 'other' where center_id = '00000000-0000-4000-8000-000000008201' and provider = 'paypal'$$,
+  'cannot be moved to another provider', 'nor move the row to another provider and back');
+select pg_temp.assert_raises($$update app.integration_connections set external_account_id = 'acct_evil' where center_id = '00000000-0000-4000-8000-000000008201' and provider = 'stripe'$$,
+  'set by the connect flow', 'nor write the Stripe account id directly');
+select pg_temp.assert_raises($$delete from app.integration_connections where center_id = '00000000-0000-4000-8000-000000008201' and provider = 'stripe'$$,
+  'cannot be deleted', 'nor delete the Stripe connection');
+reset role;
+select pg_temp.assert((select ic.settings->>'paypal_email' = 'second@pp82.example' from app.integration_connections ic where ic.id = :'conn')
+                      and (select external_account_id = 'acct_82TEST' from app.integration_connections where center_id = :c and provider = 'stripe'),
+  'none of those attempts changed anything');
+-- The connect flow (the background service: no signed-in person) is not asked, so it can still connect.
+select pg_temp.no_claims();
+update app.integration_connections set external_account_id = 'acct_82NEW' where center_id = :c and provider = 'stripe';
+select pg_temp.assert((select external_account_id = 'acct_82NEW' from app.integration_connections where center_id = :c and provider = 'stripe'),
+  'the connect flow can still set the account id');
+
+-- "Connect with PayPal" saves a merchant account, not an email; replacing it with a verified email is a payee change too.
+update app.integration_connections set external_account_id = 'MERCHANT82', settings = (settings - 'paypal_email') || '{"connect_method":"partner"}' where id = :'conn';
+insert into app.paypal_email_verifications (center_id, connection_id, email, code_hash, expires_at, requested_by)
+values (:c, :'conn', 'third@pp82.example', encode(extensions.digest('123456:' || :c, 'sha256'), 'hex'), now() + interval '15 minutes', :ami)
+on conflict (center_id) do update set connection_id = excluded.connection_id, email = excluded.email, code_hash = excluded.code_hash,
+  expires_at = excluded.expires_at, attempts = 0, used_at = null;
+select pg_temp.claims('82000000-0000-4000-8000-000000000001', true);
+set local role authenticated;
+select app.confirm_paypal_email('00000000-0000-4000-8000-000000008201', '123456') as pp3 \gset
+reset role;
+select (:'pp3'::jsonb)->>'request_id' as req11 \gset
+select pg_temp.assert((:'pp3'::jsonb)->>'pending' = 'true' and pg_temp.req_status(:'req11') = 'pending'
+                      and (select ic.external_account_id = 'MERCHANT82' and ic.settings->>'connect_method' = 'partner' and ic.settings->>'paypal_email' is null
+                             from app.integration_connections ic where ic.id = :'conn'),
+  'verifying an email on a PayPal account connected with "Connect with PayPal" waits for a second person; the merchant account stays');
+select pg_temp.claims('82000000-0000-4000-8000-000000000003', true);
+set local role authenticated;
+select pg_temp.assert((app.decide_payee_change(:'req11', true, 'The treasurer moved PayPal to the Business email'))->>'status' = 'applied', 'a second person confirms it');
+reset role;
+select pg_temp.assert((select ic.external_account_id is null and ic.settings->>'paypal_email' = 'third@pp82.example' and ic.settings->>'connect_method' = 'email'
+                         from app.integration_connections ic where ic.id = :'conn'),
+  'and only then does PayPal move to the email');
+
+-- ═════════════════════════════════════════════════════════════════════════════
+-- "Fresh 2FA" is conditional: the rule of app.assert_step_up (0150)
+-- ═════════════════════════════════════════════════════════════════════════════
+-- (Tara is staff of this organization only: the rule is read for every organization a person is staff of.)
+-- A payee change asks for a fresh 2FA check from a person who has an authenticator app, or whose organization requires 2FA
+-- for its staff (the default for a new community). Communities that existed in 0150 (JSH among them) have the rule off, and
+-- a person there without an authenticator app is not asked. This is an owner decision of 0150 and is not changed here.
+select pg_temp.no_claims();
+update app.centers set rules = jsonb_set(coalesce(rules, '{}'::jsonb), '{security}', coalesce(rules->'security', '{}'::jsonb) || '{"require_2fa_for_staff": false}') where id = :c;
+select pg_temp.claims('82000000-0000-4000-8000-000000000003', false);
+set local role authenticated;
+select (app.request_payee_change(:c, 'zelle', '{"recipient":"rule-off@pc82.example"}', 'Checking the 2FA rule'))->>'id' as req10 \gset
+select app.cancel_payee_change(:'req10', 'Only checking the 2FA rule');
+reset role;
+select pg_temp.assert(pg_temp.req_status(:'req10') = 'cancelled',
+  '2FA rule off and no authenticator app: the person is not asked for a fresh check (the caveat stated in the pull request)');
+select pg_temp.no_claims();
+insert into auth.mfa_factors (id, user_id, friendly_name, factor_type, status) values ('82000000-0000-4000-8000-0000000000f2', :tara, 'Phone', 'totp', 'verified');
+select pg_temp.claims('82000000-0000-4000-8000-000000000003', false);
+set local role authenticated;
+select pg_temp.assert_state($$select app.request_payee_change('00000000-0000-4000-8000-000000008201', 'zelle', '{"recipient":"rule-off@pc82.example"}', 'Checking the 2FA rule')$$,
+  'CCSTP', '2FA rule off but the person has an authenticator app: a fresh check is asked');
+reset role;
+select pg_temp.no_claims();
+delete from auth.mfa_factors where id = '82000000-0000-4000-8000-0000000000f2';
+update app.centers set rules = rules #- '{security,require_2fa_for_staff}' where id = :c;
+select pg_temp.claims('82000000-0000-4000-8000-000000000003', false);
+set local role authenticated;
+select pg_temp.assert_state($$select app.request_payee_change('00000000-0000-4000-8000-000000008201', 'zelle', '{"recipient":"rule-off@pc82.example"}', 'Checking the 2FA rule')$$,
+  'CCSTP', '2FA rule on (the default of a new community): a fresh check is asked even without an authenticator app');
+reset role;
+
 -- Who sees the requests.
 select pg_temp.claims('82000000-0000-4000-8000-000000000006');
 set local role authenticated;
