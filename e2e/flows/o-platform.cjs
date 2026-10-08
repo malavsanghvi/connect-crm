@@ -157,10 +157,13 @@ async function answerStepUp(p, secret) {
     await shot(ap, '1-request-access');
     const fill = async (pg) => {
       await pg.fill('input[name=org_legal_name]', ORG);
-      await pg.check('input[name=org_type][value=temple]');
+      // Step 1 (Faith-based), step 2 (the catalog's choice, or the built-in list's when list_experiences is not on this database), then their own words.
+      await pg.check('input[name=org_type][value=faith_based]');
+      await pg.selectOption('select[name=experience]', 'temple');
+      await pg.fill('input[name=org_detail]', 'Our temple in Dallas');
       await pg.fill('input[name=city]', 'Dallas'); await pg.fill('input[name=state]', 'TX'); await pg.fill('input[name=approx_households]', '240');
       await pg.fill('input[name=contact_name]', 'Asha Mehta'); await pg.fill('input[name=contact_email]', CONTACT); await pg.fill('input[name=contact_phone]', '(713) 555-0142');
-      await pg.check('input[name=modules_interested][value=giving]'); await pg.check('input[name=current_systems][value=Neon]');
+      await pg.check('input[name=needs][value=donations]'); await pg.check('input[name=current_systems][value=Neon]');
       await pg.fill('input[name=heard_from]', 'A friend at JSH');
     };
     // A bot fills the hidden field: refused, nothing stored.
@@ -177,7 +180,9 @@ async function answerStepUp(p, secret) {
     await shot(ap, '1-request-sent');
     const reqId = sql(`select id from app.access_requests where contact_email = '${CONTACT}'`);
     ok(sql(`select status||'|'||org_type||'|'||contact_phone||'|'||array_to_string(modules_interested, ',')||'|'||array_to_string(current_systems, ',')||'|'||(user_agent is not null)::text from app.access_requests where id = '${reqId}'`)
-       === 'new|temple|+17135550142|giving,people|Neon|true', 'the request is stored (status new, phone in E.164, modules, systems, browser)');
+       === 'new|faith_based|+17135550142|giving,membership,people|Neon|true', 'the request is stored (status new, kind, phone in E.164, modules from the needs, systems, browser)');
+    ok(sql(`select experience_key||'|'||experience_label||'|'||org_detail||'|'||org_type_label from app.access_requests where id = '${reqId}'`) === 'temple|Temple|Our temple in Dallas|Faith-based',
+       'the request keeps the specific choice, the own words of the applicant and the labels they saw');
     ok(sql(`select client_app||'|'||client_screen from app.audit_log where id > ${auditStart} and action = 'access_requests.insert' and record_id = '${reqId}'`) === 'portal|/request-access',
       'audit: access_requests.insert from the portal, screen /request-access');
     const anonRead = await http('/rest/v1/access_requests?select=id');

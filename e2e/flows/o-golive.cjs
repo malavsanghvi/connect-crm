@@ -230,10 +230,12 @@ async function run({ browser, S, cc1Id, cc2Id, auditStart }) {
   const ap = await anon.newPage();
   await ap.goto(BASE + '/request-access', { waitUntil: 'networkidle' });
   await ap.fill('input[name=org_legal_name]', ORG);
-  await ap.check('input[name=org_type][value=temple]');
+  await ap.check('input[name=org_type][value=faith_based]');
+  await ap.selectOption('select[name=experience]', 'temple');
+  await ap.fill('input[name=org_detail]', 'Our temple in Austin');
   await ap.fill('input[name=city]', 'Austin'); await ap.fill('input[name=state]', 'TX'); await ap.fill('input[name=approx_households]', '180');
   await ap.fill('input[name=contact_name]', 'Asha Mehta'); await ap.fill('input[name=contact_email]', CONTACT); await ap.fill('input[name=contact_phone]', '(512) 555-0142');
-  await ap.check('input[name=modules_interested][value=giving]');
+  await ap.check('input[name=needs][value=donations]');
   await ap.fill('input[name=heard_from]', 'Another temple');
   await ap.getByRole('button', { name: 'Send request' }).click();
   await ap.getByTestId('request-sent').waitFor({ timeout: 20000 });
