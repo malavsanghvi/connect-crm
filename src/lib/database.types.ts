@@ -10863,11 +10863,33 @@ export type Database = {
         };
         Returns: string[];
       };
+      communities_public_list: {
+        Args: Record<PropertyKey, never>;
+        Returns: { id: string; slug: string; name: string; short_name: string; state_region: string; environment: string }[];
+      };
       community_by_join_code: {
         Args: {
           p_code: string;
         };
         Returns: { slug: string; name: string; short_name: string; state_region: string; environment: string }[];
+      };
+      community_open: {
+        Args: {
+          p_center: string;
+        };
+        Returns: boolean;
+      };
+      community_public: {
+        Args: {
+          p_slug: string;
+        };
+        Returns: { id: string; slug: string; name: string; short_name: string; state_region: string; time_zone: string; currency: string; tradition: Database["app"]["Enums"]["tradition"]; environment: string; status: string; category_key: string; branding: Json; feature_flags: Json; rules: Json; linked: boolean }[];
+      };
+      community_public_by_id: {
+        Args: {
+          p_id: string;
+        };
+        Returns: { id: string; slug: string; name: string; short_name: string; state_region: string; time_zone: string; currency: string; tradition: Database["app"]["Enums"]["tradition"]; environment: string; status: string; category_key: string; branding: Json; feature_flags: Json; rules: Json; linked: boolean }[];
       };
       complete_platform_setup_step: {
         Args: {
@@ -11802,6 +11824,12 @@ export type Database = {
           p_reason: string;
         };
         Returns: undefined;
+      };
+      linked_to_center: {
+        Args: {
+          p_center: string;
+        };
+        Returns: boolean;
       };
       list_experiences: {
         Args: Record<PropertyKey, never>;
