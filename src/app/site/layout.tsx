@@ -9,11 +9,11 @@ import { SITE_DESCRIPTION, SITE_NAME, SITE_TAGLINE, siteOrigin } from "@/lib/sit
 export const metadata: Metadata = {
   metadataBase: new URL(siteOrigin()),
   // Absolute: the portal's root layout would otherwise add " · Weaver". Each page sets its own absolute title.
-  title: { absolute: `${SITE_NAME}: ${SITE_TAGLINE}` },
+  title: { absolute: SITE_TAGLINE },
   description: SITE_DESCRIPTION,
   robots: { index: true, follow: true },
-  openGraph: { type: "website", siteName: SITE_NAME, title: `${SITE_NAME}: ${SITE_TAGLINE}`, description: SITE_DESCRIPTION, url: "/" },
-  twitter: { card: "summary_large_image", title: `${SITE_NAME}: ${SITE_TAGLINE}`, description: SITE_DESCRIPTION },
+  openGraph: { type: "website", siteName: SITE_NAME, title: SITE_TAGLINE, description: SITE_DESCRIPTION, url: "/" },
+  twitter: { card: "summary_large_image", title: SITE_TAGLINE, description: SITE_DESCRIPTION },
 };
 
 const STRUCTURED_DATA = {

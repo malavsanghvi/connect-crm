@@ -15,9 +15,9 @@ import { hostName } from "@/lib/tenancy";
 export { DEFAULT_SITE_DOMAIN, SITE_PAGES };
 
 export const SITE_NAME = "Weaver AMS";
-export const SITE_TAGLINE = "Free membership software for communities";
+export const SITE_TAGLINE = "AI Native Community Weaver Platform - Paid Forward Already";
 export const SITE_DESCRIPTION =
-  "Faith Weaver, Community Weaver and Org Weaver (Weaver AMS) bring your members, households, events, giving, classes and accounting into one trusted place. Free for your organization, forever.";
+  "Faith Weaver, Community Weaver and Org Weaver (Weaver AMS) bring your members, households, events, giving, classes and accounting into one trusted place. An AI native platform, paid forward already: free for your organization.";
 
 /**
  * The optional tip: the most one account is ever asked to add, in total across every transaction in

@@ -6,11 +6,11 @@ import { DashboardMock, EventMock, FloatChip, GivingMock, HouseholdMock, Learnin
 import { ProductTour } from "@/components/site/product-tour";
 import { FaqList, IconTile, SectionHeading, SiteLink, Ticks, buttonStyles, container } from "@/components/site/ui";
 import { WEAVERS, WEAVER_NAMES } from "@/components/site/weavers";
-import { SITE_NAME, TIP_YEARLY_CAP_CENTS, portalUrl, usd } from "@/lib/site";
+import { SITE_NAME, SITE_TAGLINE, TIP_YEARLY_CAP_CENTS, portalUrl, usd } from "@/lib/site";
 
 export const metadata: Metadata = {
   // Absolute: the portal's root layout would otherwise add " · Weaver".
-  title: { absolute: `${SITE_NAME}: free membership software for communities` },
+  title: { absolute: SITE_TAGLINE },
   alternates: { canonical: "/" },
 };
 
@@ -62,10 +62,10 @@ function Hero() {
             100% free for your organization
           </span>
           <h1 className="font-display text-[42px] font-semibold leading-[1] tracking-[-0.03em] text-navy sm:text-[68px] lg:text-[80px]">
-            Run your community.{" "}
-            <span className="relative isolate inline-block sm:whitespace-nowrap">
+            AI Native Community Weaver Platform.{" "}
+            <span className="relative isolate inline-block">
               <span aria-hidden className="absolute inset-x-[-6px] bottom-[0.06em] -z-10 h-[0.34em] -skew-x-6 rounded-md bg-gold/80" />
-              Free, forever.
+              Paid Forward Already.
             </span>
           </h1>
           <p className="max-w-[580px] text-lg leading-relaxed text-muted sm:text-[21px] sm:leading-[1.55]">
