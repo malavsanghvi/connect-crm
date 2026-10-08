@@ -2,10 +2,12 @@
 
 import { revalidatePath } from "next/cache";
 
+import { expectedVersion, writeCenterRules } from "@/lib/data/center-rules-write";
 import { failure, type ActionResult, type DbErrorLike } from "@/lib/errors";
 import {
   NIVA_GROUP_RETRY_MAX,
   nivaAnswerFromKinds,
+  nivaAiMode,
   nivaAnswerFromLine,
   parseNivaTestAsked,
   parseNivaTestResult,
@@ -47,6 +49,10 @@ export async function regenerateNivaAnswerAction(_prev: ActionResult | null, fd:
   const { error } = await auth.session.db.rpc("niva_regenerate", { p_id: id });
   if (error) return failure(`Could not ${doing}`, error);
   revalidatePath("/content/niva");
+  // 0579: with AI answers off, niva_regenerate tries the approved content there and then; nothing is queued.
+  if (nivaAiMode(auth.session.center.rules) === "off") {
+    return { ok: true, message: "Niva tried this question again against your approved content. The list now shows its answer, or why there still isn't one." };
+  }
   return {
     ok: true,
     message: answered
@@ -72,6 +78,9 @@ export async function retryNivaQuestionsAction(_prev: ActionResult | null, fd: F
     done += 1;
   }
   revalidatePath("/content/niva");
+  if (nivaAiMode(auth.session.center.rules) === "off") {
+    return { ok: true, message: `${questions(done)} tried again against your approved content. The list now shows the answers, or why there still isn't one.` };
+  }
   return {
     ok: true,
     message: `${questions(done)} will be tried again (any already on their way are left to finish). Reload in a minute to see Niva's answers.`,
@@ -88,6 +97,12 @@ export async function retryAllUnansweredNivaAction(): Promise<ActionResult> {
   if (error) return failure(`Could not ${doing}`, error);
   revalidatePath("/content/niva");
   const n = typeof data === "number" ? data : 0;
+  if (n > 0 && nivaAiMode(auth.session.center.rules) === "off") {
+    return {
+      ok: true,
+      message: `${questions(n)} tried again against your approved content. Those it can answer now show their answer; the rest still say why not.${n >= limit ? " Press it again for the rest." : ""}`,
+    };
+  }
   if (n === 0) {
     return { ok: true, message: "There was nothing to try again: every question from the last 30 days is answered or already on its way to Niva." };
   }
@@ -154,6 +169,27 @@ export async function setNivaAnswerFromAction(_prev: ActionResult | null, fd: Fo
     ok: true,
     message: `Saved. ${nivaAnswerFromLine({ guide: stored.includes("guide"), faq: stored.includes("faq") })} New questions use this straight away; answers given before stay until you regenerate them.`,
   };
+}
+
+// 0579 (owner decision 2026-10-02): whether Niva may ask Claude Haiku when the community's approved content has no
+// answer. centers.rules.niva.ai, written through the shared rules writer: versioned (a page opened before someone
+// else's save is told so) and, like every rule, changed with settings.manage (RLS on centers).
+export async function setNivaAiAction(_prev: ActionResult | null, fd: FormData): Promise<ActionResult> {
+  const raw = String(fd.get("ai") ?? "");
+  const on = raw === "haiku";
+  const doing = on ? "turn AI answers on" : "turn AI answers off";
+  if (raw !== "haiku" && raw !== "off") return { ok: false, error: "Could not save the AI answers setting — choose On or Off, then save again." };
+  const auth = await authorizeAction("centerSettings", doing);
+  if (!auth.ok) return auth;
+  const expected = expectedVersion(fd.get("version"));
+  if (expected === "invalid") return { ok: false, error: `Could not ${doing} — the page is out of date. Reload and try again.` };
+  const r = await writeCenterRules(auth.session, { mode: "patch", rules: { niva: { ai: on ? "haiku" : "off" } } }, expected, "AI answers setting", (v) =>
+    on
+      ? `AI answers are on · rules version ${v}. Questions your approved content cannot answer now go to Claude Haiku (a small cost per question).`
+      : `AI answers are off · rules version ${v}. Niva answers only from your approved content, at no AI cost; anything else is offered to the team.`,
+  );
+  if (r.ok) revalidatePath("/content/niva");
+  return r;
 }
 
 // G13: take a source out of Niva for good (status 'retired'). It stays in the list under

@@ -6,6 +6,7 @@ import { useEffect, useRef, useState, useTransition, type FormEvent } from "reac
 import { useToast } from "@/components/toast";
 import { Alert, buttonClass, InfoBox, StatusText } from "@/components/ui";
 import {
+  nivaAnswerMadeBy,
   NIVA_TEST_MAX_WAIT_MS,
   NIVA_TEST_POLL_MS,
   nivaTestOutcome,
@@ -88,11 +89,12 @@ export function NivaTestBox({ initialTests }: { initialTests: NivaTestsToday | n
     }
   }
 
-  function startChecking(id: string) {
+  /** `delayMs` 0 reads the result at once (0579: Niva usually answers from the community's own content as the test is asked). */
+  function startChecking(id: string, delayMs: number = NIVA_TEST_POLL_MS) {
     const mine = stopChecking();
     const startedAt = Date.now();
     setRun((r) => (r && r.id === id ? { ...r, startedAt, elapsed: 0, phase: "waiting", error: null } : r));
-    timer.current = setTimeout(() => void check(id, startedAt, mine), NIVA_TEST_POLL_MS);
+    timer.current = setTimeout(() => void check(id, startedAt, mine), delayMs);
   }
 
   function onSubmit(e: FormEvent<HTMLFormElement>) {
@@ -126,7 +128,7 @@ export function NivaTestBox({ initialTests }: { initialTests: NivaTestsToday | n
         phase: "waiting",
         error: null,
       });
-      startChecking(asked.id);
+      startChecking(asked.id, asked.answerStatus === "pending" ? NIVA_TEST_POLL_MS : 0);
     });
   }
 
@@ -241,7 +243,12 @@ function TestOutcome({ r }: { r: NivaTestResult }) {
           </ul>
         </div>
       ) : null}
-      {r.model ? <p className="text-[12px] text-muted">Written by {r.model}</p> : null}
+      {r.answer && r.model ? (
+        <p className="text-[12px] text-muted">
+          {nivaAnswerMadeBy(r.model, r.sources)}
+          {r.model.startsWith("own:") ? " · no AI" : ` (${r.model})`}
+        </p>
+      ) : null}
     </div>
   );
 }

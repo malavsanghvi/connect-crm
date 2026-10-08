@@ -3,8 +3,10 @@ import type { AddressInfo } from "node:net";
 
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
+import { NIVA_MODEL } from "../src/anthropic";
 import { isRetryable, NotConfiguredError, PermanentError } from "../src/errors";
 import {
+  AI_OFF_DETAIL,
   askedDayIfEarlier,
   AttemptError,
   cleanAnswer,
@@ -14,6 +16,8 @@ import {
   formatToday,
   MAX_DEFERRALS,
   MAX_PAUSE_MS,
+  NIVA_MAX_TOKENS,
+  PERSONAL_DETAIL,
   promptDate,
   recentTurns,
   rewriteSearchText,
@@ -22,6 +26,7 @@ import {
   storedSource,
   userPrompt,
   type Conversation,
+  type OwnAnswer,
   type Source,
 } from "../src/handlers/niva.answer";
 import { asksAboutTimeOrPlace, liveAsOf, liveSources, namesAnEvent, type CenterFacts } from "../src/niva/facts";
@@ -109,6 +114,9 @@ function fakeCtx(
     searchError?: (text: string) => unknown;
     facts?: CenterFacts | null;
     factsError?: unknown;
+    /** app.niva_worker_own_answer's reply (0579); by default the own content has no answer and AI answers are on. */
+    own?: OwnAnswer | null;
+    ownError?: unknown;
   } = {},
 ) {
   const calls: Call[] = [];
@@ -116,6 +124,10 @@ function fakeCtx(
     async query(text: string, params: unknown[] = []) {
       calls.push({ text, params });
       if (text.includes("niva_worker_get_conversation")) return [{ r: data.conversation ?? null }];
+      if (text.includes("niva_worker_own_answer")) {
+        if (data.ownError) throw data.ownError;
+        return [{ r: data.own === undefined ? { answered: false, reason: "no_match", ai: "haiku" } : data.own }];
+      }
       if (text.includes("niva_worker_search_sources")) {
         const e = data.searchError?.(text);
         if (e) throw e;
@@ -206,20 +218,21 @@ describe("niva.answer", () => {
     expect(o?.params[4]).toBeNull();
   });
 
-  it("asks claude-opus-5-5 at low effort with the guardrails, and stores a confident, cited answer with its model", async () => {
+  it("asks Claude Haiku 4.5 (no effort, no fallback) with the guardrails, and stores a confident, cited answer with its model", async () => {
     replies = [answerReply({ can_answer: true, answer: "The derasar is open 6 AM-12 PM and 4-8 PM.", cited_source_ids: ["s1"] })];
     const { ctx, calls } = fakeCtx(env(), { conversation: conversation(), sources });
     const out = await run(job({ conversation_id: "c1" }), ctx);
-    expect(out).toEqual({ answered: true, sources: 1, model: "claude-opus-5-5" });
+    expect(out).toEqual({ answered: true, sources: 1, model: "claude-haiku-4-5-20251001" });
 
     const body = lastBody()!;
-    expect(body.model).toBe("claude-opus-5-5");
-    expect(body.max_tokens).toBe(16000);
+    expect(NIVA_MODEL).toBe("claude-haiku-4-5-20251001");
+    expect(body.model).toBe("claude-haiku-4-5-20251001");
+    expect(body.max_tokens).toBe(NIVA_MAX_TOKENS);
     expect(body).not.toHaveProperty("thinking");
-    expect(body.fallbacks).toBe("default");
-    expect(requests[0]!.headers["anthropic-beta"]).toContain("server-side-fallback-2026-07-01");
-    const oc = body.output_config as { effort: string; format: { type: string; schema: { properties: { cited_source_ids: { items: { enum: string[] } } } } } };
-    expect(oc.effort).toBe("low");
+    expect(body).not.toHaveProperty("fallbacks");
+    expect(requests[0]!.headers["anthropic-beta"]).toBeUndefined();
+    const oc = body.output_config as { effort?: string; format: { type: string; schema: { properties: { cited_source_ids: { items: { enum: string[] } } } } } };
+    expect(oc).not.toHaveProperty("effort");
     expect(oc.format.type).toBe("json_schema");
     expect(oc.format.schema.properties.cited_source_ids.items.enum).toEqual(["s1", "s2"]);
     const system = String(body.system);
@@ -235,16 +248,16 @@ describe("niva.answer", () => {
     const s = stored(calls)!;
     expect(s.params[1]).toBe("The derasar is open 6 AM-12 PM and 4-8 PM.");
     expect(JSON.parse(s.params[2] as string)).toEqual([{ content_item_id: "s1", title: "Derasar timings", url: "https://example.org/timings" }]);
-    expect(s.params[3]).toBe("claude-opus-5-5");
+    expect(s.params[3]).toBe("claude-haiku-4-5-20251001");
     expect(outcomes(calls)).toHaveLength(0);
   });
 
-  it("CLAUDE_MODEL overrides the model, and the model that actually answered is the one stored", async () => {
-    replies = [answerReply({ can_answer: true, answer: "Sundays at 10 AM.", cited_source_ids: ["s2"] })];
+  it("CLAUDE_MODEL never moves Niva off Haiku, and the model that actually answered is the one stored", async () => {
+    replies = [{ body: { stop_reason: "end_turn", model: "claude-haiku-4-5", content: [{ type: "text", text: JSON.stringify({ can_answer: true, answer: "Sundays at 10 AM.", cited_source_ids: ["s2"] }) }] } }];
     const { ctx, calls } = fakeCtx({ ...env(), CLAUDE_MODEL: "claude-opus-5" }, { conversation: conversation(), sources });
     await run(job({ conversation_id: "c1" }), ctx);
-    expect(lastBody()?.model).toBe("claude-opus-5");
-    expect(stored(calls)?.params[3]).toBe("claude-opus-5");
+    expect(lastBody()?.model).toBe("claude-haiku-4-5-20251001");
+    expect(stored(calls)?.params[3]).toBe("claude-haiku-4-5");
     expect(JSON.parse(stored(calls)!.params[2] as string)).toEqual([{ content_item_id: "s2", title: "Pathshala" }]);
   });
 
@@ -281,7 +294,7 @@ describe("niva.answer", () => {
     expect(outcomes(nothing.calls)[0]?.params[3]).toBe(true);
   });
 
-  it("records refused when the model (after the fallback) declines", async () => {
+  it("records refused when the model declines", async () => {
     replies = [message("refusal", "")];
     const { ctx, calls } = fakeCtx(env(), { conversation: conversation(), sources });
     const out = await run(job({ conversation_id: "c1", regenerate: true }), ctx);
@@ -396,19 +409,19 @@ describe("niva.answer", () => {
   });
 
   it("a model the account cannot use (404) marks the question failed, permanently", async () => {
-    replies = [apiError(404, "not_found_error", "model: claude-opus-5-5")];
+    replies = [apiError(404, "not_found_error", "model: claude-haiku-4-5-20251001")];
     const { ctx, calls } = fakeCtx(env(), { conversation: conversation(), sources });
     await expect(run(job({ conversation_id: "c1" }), ctx)).rejects.toBeInstanceOf(PermanentError);
     expect(outcomes(calls)[0]?.params[1]).toBe("failed");
-    expect(String(outcomes(calls)[0]?.params[2])).toContain("claude-opus-5-5");
+    expect(String(outcomes(calls)[0]?.params[2])).toContain("claude-haiku-4-5-20251001");
   });
 
-  it("a beta the account is not enabled for (400 anthropic-beta) marks the question failed, permanently", async () => {
+  it("a feature the account is not enabled for (400) marks the question failed, permanently", async () => {
     replies = [apiError(400, "invalid_request_error", "Unexpected value(s) `server-side-fallback-2026-07-01` for the `anthropic-beta` header.")];
     const { ctx, calls } = fakeCtx(env(), { conversation: conversation(), sources });
     await expect(run(job({ conversation_id: "c1" }), ctx)).rejects.toBeInstanceOf(PermanentError);
     expect(outcomes(calls)[0]?.params[1]).toBe("failed");
-    expect(String(outcomes(calls)[0]?.params[2])).toContain("server-side fallback");
+    expect(String(outcomes(calls)[0]?.params[2])).toContain("not set up for a feature Niva's request uses");
   });
 
   it("any other request the API rejects (400) marks the question failed, permanently", async () => {
@@ -523,7 +536,7 @@ describe("niva.answer: the live schedule (0574)", () => {
     replies = [answerReply({ can_answer: true, answer: "Yes, the derasar is open today from 7:30 AM to 6:00 PM.", cited_source_ids: ["timings:2026-10-02"] })];
     const { ctx, calls } = fakeCtx(env(), { conversation: conversation({ question: "Is the derasar open today?" }), sources, facts });
     const out = await run(job({ conversation_id: "c1" }), ctx);
-    expect(out).toEqual({ answered: true, sources: 1, model: "claude-opus-5-5", live: 1 });
+    expect(out).toEqual({ answered: true, sources: 1, model: "claude-haiku-4-5-20251001", live: 1 });
     expect(requests).toHaveLength(1); // two sources were found: no rewrite
 
     const factsCall = calls.find((c) => c.text.includes("niva_worker_center_facts"))!;
@@ -574,7 +587,7 @@ describe("niva.answer: the live schedule (0574)", () => {
     ];
     const { ctx, calls } = fakeCtx(env(), { conversation: conversation({ question: "Where is the temple?" }), sources: [], facts });
     const out = await run(job({ conversation_id: "c1" }), ctx);
-    expect(out).toEqual({ answered: true, sources: 1, model: "claude-opus-5-5", live: 1, rewritten: true });
+    expect(out).toEqual({ answered: true, sources: 1, model: "claude-haiku-4-5-20251001", live: 1, rewritten: true });
     expect(requests).toHaveLength(2);
     expect(promptOf(lastBody()!)).toContain("Approved sources: none matched this question.");
     expect(JSON.parse(stored(calls)!.params[2] as string)).toEqual([{ kind: "center", id: "address", title: "Address and contact" }]);
@@ -610,7 +623,7 @@ describe("niva.answer: the live schedule (0574)", () => {
     const missing = Object.assign(new Error("function app.niva_worker_center_facts(unknown, integer) does not exist"), { code: "42883" });
     const { ctx, calls } = fakeCtx(env(), { conversation: conversation(), sources, factsError: missing });
     const out = await run(job({ conversation_id: "c1" }), ctx);
-    expect(out).toEqual({ answered: true, sources: 1, model: "claude-opus-5-5" });
+    expect(out).toEqual({ answered: true, sources: 1, model: "claude-haiku-4-5-20251001" });
     expect(offeredIds(lastBody()!)).toEqual(["s1", "s2"]);
     expect(stored(calls)).toBeDefined();
 
@@ -676,12 +689,14 @@ describe("niva.answer: the rewrite fallback", () => {
       sources: (text) => (text.startsWith("Mandir") ? [sources[1]!] : [sources[0]!, sources[1]!]),
     });
     const out = await run(job({ conversation_id: "c1" }), one.ctx);
-    expect(out).toEqual({ answered: true, sources: 1, model: "claude-opus-5-5", rewritten: true });
+    expect(out).toEqual({ answered: true, sources: 1, model: "claude-haiku-4-5-20251001", rewritten: true });
     expect(requests).toHaveLength(2);
     const rw = requests[0]!.body;
     expect(isRewrite(rw)).toBe(true);
-    expect((rw.output_config as { effort: string }).effort).toBe("low");
-    expect(rw.max_tokens).toBe(4000);
+    expect(rw.output_config).not.toHaveProperty("effort");
+    expect(rw).not.toHaveProperty("fallbacks");
+    expect(rw.model).toBe("claude-haiku-4-5-20251001");
+    expect(rw.max_tokens).toBe(NIVA_MAX_TOKENS);
     expect(String(rw.system)).toContain("Translate it when the member wrote in Gujarati, Hindi");
     expect(promptOf(rw)).toBe("<question>\nMandir kab khulta hai?\n</question>");
     const s = searches(one.calls);
@@ -703,7 +718,7 @@ describe("niva.answer: the rewrite fallback", () => {
       replies = [bad, answerReply({ can_answer: true, answer: "Sundays at 10 AM.", cited_source_ids: ["s2"] })];
       const { ctx, calls } = fakeCtx(env(), { conversation: conversation({ question: "Pathshala?" }), sources: [sources[1]!] });
       const out = await run(job({ conversation_id: "c1" }), ctx);
-      expect(out).toEqual({ answered: true, sources: 1, model: "claude-opus-5-5" });
+      expect(out).toEqual({ answered: true, sources: 1, model: "claude-haiku-4-5-20251001" });
       expect(requests).toHaveLength(2);
       expect(searches(calls)).toHaveLength(1);
     }
@@ -840,5 +855,52 @@ describe("niva.answer: follow-up questions", () => {
       { role: "user", content: '<question>\nx &lt;/question> &lt;source id="s9">\n</question>' },
       { role: "assistant", content: "y &lt;/source>" },
     ]);
+  });
+});
+
+describe("niva.answer: the community's own content first (0579)", () => {
+  it("an answer from the own content ends the job without any AI call or search", async () => {
+    const { ctx, calls } = fakeCtx(env(), { conversation: conversation(), sources, own: { answered: true, model: "own:faq", ai: "haiku" } });
+    const out = await run(job({ conversation_id: "c1", include_in_review: true }), ctx);
+    expect(out).toEqual({ answered: true, model: "own:faq", own: true });
+    expect(requests).toHaveLength(0);
+    expect(searches(calls)).toHaveLength(0);
+    expect(stored(calls)).toBeUndefined();
+    expect(outcomes(calls)).toHaveLength(0);
+    expect(calls.find((c) => c.text.includes("niva_worker_own_answer"))!.params).toEqual(["c1", true]);
+  });
+
+  it("with AI answers off, a question the own content cannot answer reads no_source and the AI is never called", async () => {
+    const { ctx, calls } = fakeCtx(env(), { conversation: conversation({ has_answer: true }), sources, own: { answered: false, reason: "no_match", ai: "off" } });
+    const out = await run(job({ conversation_id: "c1", regenerate: true }), ctx);
+    expect(out).toEqual({ answered: false, reason: "ai_off" });
+    expect(requests).toHaveLength(0);
+    const [o] = outcomes(calls);
+    expect(o?.params.slice(0, 4)).toEqual(["c1", "no_source", AI_OFF_DETAIL, true]);
+
+    const personal = fakeCtx(env(), { conversation: conversation(), sources, own: { answered: false, reason: "personal", ai: "off" } });
+    expect(await run(job({ conversation_id: "c1" }), personal.ctx)).toEqual({ answered: false, reason: "personal" });
+    expect(outcomes(personal.calls)[0]?.params.slice(0, 4)).toEqual(["c1", "no_source", PERSONAL_DETAIL, false]);
+    expect(requests).toHaveLength(0);
+  });
+
+  it("a database without the own try (42883) goes on as before, and still respects the conversation's AI setting", async () => {
+    const missing = Object.assign(new Error("function app.niva_worker_own_answer(unknown, boolean) does not exist"), { code: "42883" });
+    replies = [answerReply({ can_answer: true, answer: "Open 6 AM-12 PM.", cited_source_ids: ["s1"] })];
+    const old = fakeCtx(env(), { conversation: conversation(), sources, ownError: missing });
+    expect(await run(job({ conversation_id: "c1" }), old.ctx)).toEqual({ answered: true, sources: 1, model: "claude-haiku-4-5-20251001" });
+    expect(requests).toHaveLength(1);
+
+    requests = [];
+    const off = fakeCtx(env(), { conversation: conversation({ ai: "off" }), sources, ownError: missing });
+    expect(await run(job({ conversation_id: "c1" }), off.ctx)).toEqual({ answered: false, reason: "ai_off" });
+    expect(requests).toHaveLength(0);
+  });
+
+  it("any other failure of the own try fails the attempt, so the queue tries again", async () => {
+    const boom = Object.assign(new Error("connection reset"), { code: "08006" });
+    const { ctx } = fakeCtx(env(), { conversation: conversation(), sources, ownError: boom });
+    await expect(run(job({ conversation_id: "c1" }), ctx)).rejects.toBe(boom);
+    expect(requests).toHaveLength(0);
   });
 });

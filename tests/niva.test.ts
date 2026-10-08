@@ -1,15 +1,20 @@
 import { describe, expect, it } from "vitest";
 
+import { validateRulesJson } from "@/lib/center-rules";
 import {
   groupUnanswered,
+  NIVA_AI_CHOICES,
   NIVA_OUTCOMES,
   NIVA_TEST_DAILY_LIMIT,
   NIVA_TEST_MAX_WAIT_MS,
   NIVA_TEST_POLL_MS,
   NIVA_USAGE_WARN_AT,
+  nivaAiLine,
+  nivaAiMode,
   nivaAnswerFrom,
   nivaAnswerFromKinds,
   nivaAnswerFromLine,
+  nivaAnswerMadeBy,
   nivaBodyPreview,
   nivaConversationView,
   nivaHealthView,
@@ -323,7 +328,10 @@ describe("staff tests (app.niva_test_ask and app.niva_test_result, 0575)", () =>
       question: "Where do I park?",
       includeInReview: true,
       testsToday: nivaTestsToday(3, 100),
+      answerStatus: "pending",
     });
+    // 0579: a test Niva answered from the community's own content says so straight away.
+    expect(parseNivaTestAsked({ id: T, question: "q", tests_today: 1, daily_limit: 100, answer_status: "answered", model: "own:faq" })?.answerStatus).toBe("answered");
     expect(parseNivaTestAsked(null)).toBeNull();
     expect(parseNivaTestAsked({ question: "no id" })).toBeNull();
   });
@@ -454,5 +462,77 @@ describe("what Niva also answers from (centers.rules.niva.answer_from)", () => {
     expect(nivaAnswerFromLine({ guide: true, faq: false })).toBe("Niva answers from its approved sources and the Guide's public sections.");
     expect(nivaAnswerFromLine({ guide: false, faq: true })).toBe("Niva answers from its approved sources and published FAQ items.");
     expect(nivaAnswerFromLine({ guide: true, faq: true })).toBe("Niva answers from its approved sources, the Guide's public sections and published FAQ items.");
+  });
+});
+
+describe("Niva's own answers and the AI answers setting (0579)", () => {
+  it("reads rules.niva.ai: anything but haiku, or nothing, is off", () => {
+    expect(nivaAiMode({ niva: { ai: "haiku" } })).toBe("haiku");
+    expect(nivaAiMode({ niva: { ai: "off" } })).toBe("off");
+    expect(nivaAiMode({ niva: { ai: "opus" } })).toBe("off");
+    expect(nivaAiMode({ niva: { answer_from: ["faq"] } })).toBe("off");
+    expect(nivaAiMode(null)).toBe("off");
+  });
+
+  it("offers Off and On in the owner's words", () => {
+    expect(NIVA_AI_CHOICES.map((c) => [c.value, c.label])).toEqual([
+      ["off", "Off"],
+      ["haiku", "On"],
+    ]);
+    expect(NIVA_AI_CHOICES[0]!.detail).toBe("Niva answers only from your approved content, at no AI cost.");
+    expect(NIVA_AI_CHOICES[1]!.detail).toBe("When your content has no match, Claude Haiku writes an answer (small per-question cost).");
+    expect(nivaAiLine("off")).toBe("AI answers are off: Niva answers only from your approved content, at no AI cost.");
+    expect(nivaAiLine("haiku")).toMatch(/^AI answers are on: when your content has no match, Claude Haiku writes an answer/);
+  });
+
+  it("says how each answer was made", () => {
+    expect(nivaAnswerMadeBy("own:cache", [])).toBe("From an earlier answer");
+    expect(nivaAnswerMadeBy("own:faq", [{ title: "How do I register?" }])).toBe("From the FAQ");
+    expect(nivaAnswerMadeBy("own:extract", [{ content_item_id: "x", title: "Derasar timings" }])).toBe("From Derasar timings");
+    expect(nivaAnswerMadeBy("own:extract", [])).toBe("From an approved source");
+    expect(nivaAnswerMadeBy("claude-haiku-4-5-20251001", [])).toBe("Written by AI");
+    expect(nivaAnswerMadeBy("claude-opus-5-5", null)).toBe("Written by AI");
+    expect(nivaAnswerMadeBy(null, [])).toBeNull();
+  });
+
+  it("explains a question about the member's own details, and one nothing answers while AI answers are off", () => {
+    expect(
+      nivaOutcomeLabel("no_source", "Niva does not look up a member's own details (eligibility, pledges, payments, RSVPs), so the member was offered Send to the team."),
+    ).toBe("About the member's own details, which Niva never looks up");
+    expect(nivaOutcomeLabel("no_source", "No approved source answers this, and AI answers are off for this community, so the member was offered Send to the team.")).toBe(
+      "No approved source answers it (AI answers are off)",
+    );
+  });
+
+  it("with AI answers off, the background service's state is no reason Niva cannot answer; failed questions still are", () => {
+    const base = {
+      state: "stopped",
+      age_seconds: 7200,
+      module_on: true,
+      handler: { configured: false, reason: "ANTHROPIC_API_KEY is not set" },
+      jobs: { queued: 0, running: 0, failed_24h: 0, done_24h: 0, last_error: null },
+      month: { used: 3, limit: null },
+      outcomes_7d: { pending: 0, answered: 3, no_source: 1, unsure: 0, refused: 0, paused: 0, failed: 0 },
+    };
+    const off = nivaHealthView({ ...base, ai: "off", answered_by_7d: { cache: 1, faq: 1, extract: 1, ai: 0 } });
+    expect(off.problems).toEqual([]);
+    expect(off.ai).toBe("off");
+    expect(off.answeredBy7d).toEqual({ cache: 1, faq: 1, extract: 1, ai: 0 });
+    expect(nivaHealthView({ ...base, ai: "off", outcomes_7d: { ...base.outcomes_7d, failed: 2 } }).problems.map((p) => p.title)).toEqual([
+      "2 questions from the last 7 days could not be answered",
+    ]);
+    // AI answers on (or a database before 0579): the service and its key matter, as before.
+    expect(nivaHealthView({ ...base, ai: "haiku" }).problems).toHaveLength(2);
+    expect(nivaHealthView(base).problems).toHaveLength(2);
+    expect(nivaHealthView(base)).toMatchObject({ ai: null, answeredBy7d: null });
+  });
+
+  it("the rules editor accepts only off or haiku for niva.ai", () => {
+    expect(validateRulesJson(JSON.stringify({ niva: { ai: "haiku", answer_from: ["niva_source", "faq"] } })).ok).toBe(true);
+    expect(validateRulesJson(JSON.stringify({ niva: { ai: "off" } })).ok).toBe(true);
+    const bad = validateRulesJson(JSON.stringify({ niva: { ai: "opus" } }));
+    expect(bad.ok).toBe(false);
+    if (!bad.ok) expect(bad.errors.join(" ")).toMatch(/"niva\.ai" must be "off"/);
+    expect(validateRulesJson(JSON.stringify({ niva: "on" })).ok).toBe(false);
   });
 });
