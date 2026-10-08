@@ -76,7 +76,8 @@ export function RequestForm({ groups }: { groups: OrgGroup[] }) {
         {group && group.choices.length > 1 ? (
           <label className={label}>
             {group.choicesLabel || "Which best describes you?"}
-            <select name="experience" key={group.key} defaultValue={keptGroup ? text(kept, "experience") : ""} className={onboardingInputClass}>
+            {/* The key makes the list start again on the kept choice: a <select> does not take a new defaultValue once it is on the page. */}
+            <select name="experience" key={`${group.key}|${keptGroup ? text(kept, "experience") : ""}`} defaultValue={keptGroup ? text(kept, "experience") : ""} className={onboardingInputClass}>
               <option value="">Choose one…</option>
               {choiceSections(group).map((section) =>
                 section.heading ? (
