@@ -16,7 +16,7 @@ import type { AppSupabase } from "@/lib/supabase/server";
 // app.niva_discover_site and app.niva_discovery_status are new in 0576: until the generated types
 // include them, they are called through the untyped signature (as lib/data/pathshala.ts does).
 type RpcCaller = (fn: string, args: Record<string, unknown>) => PromiseLike<{ data: unknown; error: DbErrorLike | null }>;
-const untyped = (db: AppSupabase) => db.rpc.bind(db) as unknown as RpcCaller;
+const untyped = (db: AppSupabase) => (db as unknown as { rpc: RpcCaller }).rpc.bind(db);
 
 async function readStatus(db: AppSupabase, centerId: string, doing: string): Promise<ActionResult<DiscoveryStatus>> {
   const { data, error } = await untyped(db)("niva_discovery_status", { p_center: centerId });
