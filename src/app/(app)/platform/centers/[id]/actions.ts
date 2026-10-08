@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { failure, type ActionResult } from "@/lib/errors";
+import { parseKindPreview, type KindPreview } from "@/lib/kind-change";
 import { isUuid } from "@/lib/search-params";
 import { dbWithReason, loadSession, type CrmSession } from "@/lib/session";
 import { ENTITLEMENT_INFO, entitlementLabel, parseEntitlementInput } from "@/lib/tenancy";
@@ -83,4 +84,49 @@ export async function removeDomainAction(_prev: ActionResult | null, formData: F
   if (!data || data.length === 0) return { ok: false, error: `Could not remove ${domain} — it was already removed. Reload to see the current list.` };
   revalidatePath(`/platform/centers/${center}`);
   return { ok: true, message: `${domain} removed` };
+}
+
+// ── Kind of organization ─────────────────────────────────────────────────────
+
+/**
+ * What changing the organization's kind would do, in plain English (app.category_change_preview, platform
+ * admins). Changes nothing; the confirm step shows it first.
+ */
+export async function previewKindChangeAction(centerId: string, kind: string): Promise<ActionResult<KindPreview>> {
+  const doing = "preview the change";
+  if (!isUuid(centerId) || !kind) return { ok: false, error: `Could not ${doing} — choose the new kind of organization first.` };
+  const auth = await platformOnly(doing);
+  if (!auth.ok) return auth;
+  const { data, error } = await auth.session.db.rpc("category_change_preview", { p_center: centerId, p_category: kind });
+  if (error) return failure(`Could not ${doing}`, error);
+  const preview = parseKindPreview(data);
+  if (!preview) return { ok: false, error: `Could not ${doing} — the database answered in a form this page does not understand. Reload and try again.` };
+  return { ok: true, data: preview };
+}
+
+/**
+ * Change the organization's kind (app.set_center_category: platform admins, a reason, a fresh 2FA check; audited;
+ * the owner is emailed). Modules the new kind does not have are hidden at once, their data kept; changing back
+ * restores everything. The portal asks for the 2FA code when the database refuses without it (CCSTP) and retries.
+ */
+export async function changeKindAction(centerId: string, kind: string, reasonInput: string): Promise<ActionResult<KindPreview>> {
+  const doing = "change the kind of organization";
+  if (!isUuid(centerId) || !kind) return { ok: false, error: `Could not ${doing} — choose the new kind of organization first.` };
+  const auth = await platformOnly(doing);
+  if (!auth.ok) return auth;
+  const reason = String(reasonInput ?? "").trim();
+  if (!reason) return { ok: false, error: `Could not ${doing} — say why. The reason goes in the audit log and in the email to the owner.` };
+  if (reason.length > 500) return { ok: false, error: `Could not ${doing} — keep the reason under 500 characters.` };
+  const db = await dbWithReason(auth.session, reason);
+  const { data, error } = await db.rpc("set_center_category", { p_center: centerId, p_category: kind, p_reason: reason });
+  if (error) return failure(`Could not ${doing}`, error);
+  const done = parseKindPreview(data);
+  revalidatePath(`/platform/centers/${centerId}`);
+  revalidatePath("/platform");
+  revalidatePath("/", "layout");
+  return {
+    ok: true,
+    message: `Kind of organization changed to ${done?.to.label ?? "the new kind"} · audit logged`,
+    data: done ?? undefined,
+  };
 }

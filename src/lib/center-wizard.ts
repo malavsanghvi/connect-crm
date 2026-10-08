@@ -10,7 +10,7 @@
 import { isPlainObject } from "@/lib/center-rules";
 import type { Json } from "@/lib/database.types";
 
-export const WIZARD_STEPS = ["Branding", "Tradition pack", "Payments & QuickBooks", "Import data", "Roles & admins", "Go-live checks"] as const;
+export const WIZARD_STEPS = ["Name & kind", "Tradition pack", "Payments & QuickBooks", "Import data", "Roles & admins", "Go-live checks"] as const;
 export const WIZARD_STEP_COUNT = WIZARD_STEPS.length;
 
 export const TRADITIONS = [
@@ -83,33 +83,49 @@ type Read = (name: string) => string | null;
 
 /** What one wizard step writes: columns on app.centers plus keys merged into rules. */
 export type WizardChange = {
-  columns: { name?: string; slug?: string; tradition?: Tradition; time_zone?: string; state_region?: string | null; branding?: { [k: string]: Json | undefined } };
+  columns: { name?: string; slug?: string; category_key?: string; tradition?: Tradition; time_zone?: string; state_region?: string | null; branding?: { [k: string]: Json | undefined } };
   rules: { [k: string]: Json | undefined };
 };
 
 export type ParsedWizardStep = { ok: true; change: WizardChange } | { ok: false; error: string };
 
+export type ParseWizardOptions = {
+  /** Step 1 creates the center, so it must say which kind of organization it is (an experience key). */
+  kindRequired?: boolean;
+  /** Step 2 asks for a tradition only when the center's kind keeps one (default: it does). */
+  traditionNeeded?: boolean;
+};
+
 /**
  * Validate one step of the new-center wizard. Admin emails (step 5) are
  * never stored: centers are readable by anyone, and inviting by email is
  * not available yet.
+ *
+ * The kind of organization is chosen when the center is created (step 1): the database refuses to change it
+ * with a plain update afterwards (only Platform › the organization › Kind of organization, with a reason and
+ * a fresh 2FA check, can).
  */
-export function parseWizardStep(step: number, read: Read): ParsedWizardStep {
+export function parseWizardStep(step: number, read: Read, opts: ParseWizardOptions = {}): ParsedWizardStep {
   const text = (n: string) => (read(n) ?? "").trim();
   switch (step) {
     case 1: {
       const name = text("name");
       const slug = text("slug").toLowerCase();
       const tz = text("time_zone");
+      const kind = text("category_key");
       const errors: string[] = [];
+      if (opts.kindRequired && !kind) errors.push("Choose the kind of organization.");
+      if (kind && !/^[a-z][a-z0-9_]{1,39}$/.test(kind)) errors.push("The kind of organization is not valid. Choose it again.");
       if (name.length < 3 || name.length > 120) errors.push("Enter the center's name (3 to 120 characters).");
       if (!isValidSlug(slug)) errors.push("The public URL may use lowercase letters, digits and single hyphens (up to 40), e.g. partner-a.");
       if (!(TIME_ZONES as readonly string[]).includes(tz)) errors.push("Choose the center's time zone.");
       if (errors.length) return { ok: false, error: errors.join(" ") };
       // Branding is the organization's Setup › Profile & brand now; whatever is there is kept.
-      return { ok: true, change: { columns: { name, slug, time_zone: tz }, rules: {} } };
+      return { ok: true, change: { columns: { name, slug, ...(kind ? { category_key: kind } : {}), time_zone: tz }, rules: {} } };
     }
     case 2: {
+      // A kind of organization without a tradition (a church, a chamber …) has nothing to choose here.
+      if (opts.traditionNeeded === false) return { ok: true, change: { columns: {}, rules: {} } };
       const t = text("tradition");
       if (!TRADITIONS.some((x) => x.value === t)) return { ok: false, error: "Choose the center's tradition." };
       return { ok: true, change: { columns: { tradition: t as Tradition }, rules: {} } };

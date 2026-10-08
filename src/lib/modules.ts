@@ -151,9 +151,9 @@ export function missingToEnable(key: string, states: readonly ModuleState[]): st
   return me.dependsOn.filter((d) => states.find((s) => s.key === d)?.enabled === false);
 }
 
-/** The contract's wording for a direct URL to a switched-off module. */
-export function moduleOffMessage(key: ModuleKey, centerName: string): string {
-  return `The ${moduleDef(key).label} module is switched off for ${centerName}. An administrator can switch it on in Settings › Modules.`;
+/** The contract's wording for a direct URL to a switched-off module (`label`: the organization's kind's own name for it). */
+export function moduleOffMessage(key: ModuleKey, centerName: string, label: string = moduleDef(key).label): string {
+  return `The ${label} module is switched off for ${centerName}. An administrator can switch it on in Settings › Modules.`;
 }
 
 // ---------------------------------------------------------------------------
@@ -168,6 +168,10 @@ export type ModuleRow = {
   description: string;
   core: boolean;
   dependsOn: string[];
+  /** The organization's kind decides: on unless switched off (default_on), off until switched on (default_off), or never offered (not_available). */
+  availability: "default_on" | "default_off" | "not_available";
+  /** False for a core module and for one the kind never offers: no switch. */
+  switchable: boolean;
   enabled: boolean;
   changedBy: string | null;
   changedAt: string | null;
@@ -190,12 +194,59 @@ export function buildModuleRows(catalog: readonly CatalogLike[] | null, switches
         description: c.description ?? (isModuleKey(c.key) ? moduleDef(c.key).description : ""),
         core: c.core,
         dependsOn: c.depends_on ?? [],
+        availability: "default_on" as const,
+        switchable: !c.core,
         enabled: c.core ? true : (s?.enabled ?? true),
         changedBy: s?.changed_by ?? null,
         changedAt: s?.changed_at ?? null,
         reason: s?.reason ?? null,
       };
     });
+}
+
+/** One row of app.module_states(center): the catalog, the kind's availability and the organization's own switch. */
+export type ModuleStateLike = {
+  key: string;
+  label: string;
+  description: string | null;
+  core: boolean;
+  depends_on: string[] | null;
+  sort: number | null;
+  availability: string | null;
+  enabled: boolean | null;
+  switchable: boolean | null;
+  changed_by: string | null;
+  changed_at: string | null;
+  reason: string | null;
+};
+
+const AVAILABILITY = ["default_on", "default_off", "not_available"] as const;
+
+/**
+ * Settings › Modules rows from app.module_states: the kind's own names for the modules, a module the kind starts
+ * off marked as such, and the modules the kind never offers listed LAST and locked (no switch).
+ */
+export function buildModuleRowsFromStates(states: readonly ModuleStateLike[]): ModuleRow[] {
+  const rows = [...states]
+    .sort((a, b) => (a.sort ?? 1000) - (b.sort ?? 1000) || a.key.localeCompare(b.key))
+    .map((m): ModuleRow => {
+      const availability = AVAILABILITY.find((a) => a === m.availability) ?? "default_on";
+      const locked = availability === "not_available";
+      return {
+        key: m.key,
+        label: m.label,
+        description: m.description ?? (isModuleKey(m.key) ? moduleDef(m.key).description : ""),
+        core: m.core,
+        dependsOn: m.depends_on ?? [],
+        availability,
+        switchable: !m.core && !locked && m.switchable !== false,
+        enabled: m.core ? true : locked ? false : (m.enabled ?? availability !== "default_off"),
+        changedBy: m.changed_by ?? null,
+        changedAt: m.changed_at ?? null,
+        reason: m.reason ?? null,
+      };
+    });
+  return [...rows.filter((r) => r.availability !== "not_available"), ...rows.filter((r) => r.availability === "not_available")];
 }
 
 /** Plain-English reason a switch cannot be flipped right now, or null when it can. */

@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
-import { Card, EmptyState, PageHeader, QueryError, StatusText, TableWrap, buttonClass } from "@/components/ui";
+import { Alert, Card, EmptyState, PageHeader, QueryError, StatusText, TableWrap, buttonClass } from "@/components/ui";
 import { centerStatusLabel, traditionLabel } from "@/lib/center-wizard";
+import { experienceLabel } from "@/lib/experiences";
+import { loadExperiences } from "@/lib/experiences-db";
 import { getSession } from "@/lib/session";
 
 import { PlatformNoAccess } from "./platform-no-access";
@@ -39,7 +41,7 @@ export default async function PlatformCentersPage() {
     );
   }
   const { db } = session;
-  const res = await db.from("centers").select("id, slug, name, status, tradition, rules, created_at, environment").order("created_at", { ascending: true });
+  const res = await db.from("centers").select("id, slug, name, status, tradition, rules, created_at, environment, category_key").order("created_at", { ascending: true });
   if (res.error) {
     return (
       <>
@@ -49,6 +51,9 @@ export default async function PlatformCentersPage() {
     );
   }
   const centers = res.data ?? [];
+  // The kind of organization of each center. If the catalog cannot be read the keys are shown, not hidden.
+  const kinds = await loadExperiences(db);
+  const kindList = kinds.status === "ok" ? kinds.experiences : [];
   const sizes = await Promise.all(
     centers.map(async (c) => {
       const r = await db.from("households").select("id", { count: "exact", head: true }).eq("center_id", c.id);
@@ -65,6 +70,13 @@ export default async function PlatformCentersPage() {
     <>
       {header}
       <SetupReminder session={session} />
+      {kinds.status !== "ok" ? (
+        <div className="mb-4">
+          <Alert tone="warning" title="The names of the kinds of organization could not be loaded">
+            The Kind column shows each organization&apos;s kind by its key until the catalog loads. Reload the page to try again.
+          </Alert>
+        </div>
+      ) : null}
       <Card padded={false}>
         {centers.length === 0 ? (
           <EmptyState title="No centers yet" />
@@ -76,6 +88,7 @@ export default async function PlatformCentersPage() {
                   <th>Center</th>
                   <th>Slug</th>
                   <th>Status</th>
+                  <th>Kind of organization</th>
                   <th>Size</th>
                   <th>Tradition pack</th>
                   <th>
@@ -108,8 +121,9 @@ export default async function PlatformCentersPage() {
                           <StatusText tone={status.live ? "ok" : "warn"}>{status.label}</StatusText>
                         )}
                       </td>
+                      <td data-kind={c.category_key}>{experienceLabel(kindList, c.category_key)}</td>
                       <td>{sizes[i]}</td>
-                      <td>{traditionLabel(c.tradition)}</td>
+                      <td>{kindList.find((k) => k.key === c.category_key)?.usesTradition === false ? "—" : traditionLabel(c.tradition)}</td>
                       <td>
                         <Link href={`/platform/centers/${c.id}`} className="crm-link text-[13px] font-semibold">
                           Limits &amp; addresses

@@ -250,7 +250,12 @@ async function answerStepUp(p, secret, ms = 8000) {
   await p.getByLabel('Organization name').fill(ORG);
   await p.getByLabel('Web name').fill(SLUG);
   ok(/Created as .*-sandbox/.test(await p.getByTestId('sandbox-slug-preview').innerText()), 'B · the form shows the <slug>-sandbox web name');
-  await p.getByLabel('Kind of organization').selectOption('community_center');
+  // The kind of organization is a two-step picker built from the catalog: Faith-based, then the tradition, then the kind.
+  // (The family step is skipped when the catalog has one family, and a family with one kind chooses it.)
+  await p.getByRole('radio', { name: 'Faith-based' }).click();
+  if ((await p.getByRole('radio', { name: 'Jain', exact: true }).count()) > 0) await p.getByRole('radio', { name: 'Jain', exact: true }).click();
+  if ((await p.getByRole('radio', { name: /^Jain (Center|Temple)/ }).count()) > 0) await p.getByRole('radio', { name: /^Jain (Center|Temple)/ }).click();
+  ok(/Jain/.test(await p.getByTestId('kind-summary').innerText()), 'B · the picker shows the kind that was chosen');
   await p.getByLabel('City').fill('Testville');
   await p.getByLabel('State').fill('TX');
   await p.getByLabel("Owner's first name").fill('Asha');
@@ -267,7 +272,8 @@ async function answerStepUp(p, secret, ms = 8000) {
   await shot(p, 'B-new-sandbox-created');
   const sbx = sql(`select id from app.centers where slug = '${SLUG}-sandbox'`);
   ok(sql(`select environment || '|' || status || '|' || (rules #>> '{onboarding,source}') || '|' || (rules #>> '{onboarding,org_type}') || '|' || state_region from app.centers where id = '${sbx}'`)
-       === 'sandbox|onboarding|platform_admin|community_center|TX', 'B · DB: the sandbox, onboarding, created by the platform admin, its type and state');
+       === 'sandbox|onboarding|platform_admin|temple|TX', 'B · DB: the sandbox, onboarding, created by the platform admin, its type and state');
+  ok(/^jain/.test(sql(`select category_key from app.centers where id = '${sbx}'`)), 'B · DB: the sandbox has the kind of organization that was chosen');
   ok(sql(`select count(*) from app.member_join_codes where center_id = '${sbx}' and active`) === '1', 'B · DB: it has a member-app join code');
   ok(sql(`select makes_owner::text || '|' || email from app.staff_invitations where center_id = '${sbx}'`) === `true|${OWNER}`, 'B · DB: the owner invitation');
   ok(Number(sql(`select count(*) from app.audit_log where id > ${auditStart} and actor_user_id = '${ccId}' and reason = '${REASON}' and client_app = 'portal'

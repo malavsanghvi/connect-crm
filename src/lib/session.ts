@@ -6,7 +6,7 @@ import { cache } from "react";
 
 import type { Json } from "@/lib/database.types";
 import { readPublicEnv, type EnvProblem } from "@/lib/env";
-import { explainError } from "@/lib/errors";
+import { explainError, failure } from "@/lib/errors";
 import {
   ACCESS,
   canAccess,
@@ -17,6 +17,7 @@ import {
   type ScopedGrant,
 } from "@/lib/permissions";
 import { resolveCenterChoice, type CenterChoice } from "@/lib/center-resolve";
+import { kindFallbackProblem, kindFromProfileResult, type KindProfile } from "@/lib/kind";
 import { loadMyModules, modulesOffFrom } from "@/lib/modules-db";
 import { requires2faForStaff, securityRedirect } from "@/lib/security";
 import { createSupabaseServerClient, type AppSupabase } from "@/lib/supabase/server";
@@ -69,6 +70,13 @@ export type CrmSession = PermissionContext & {
   modulesOff: string[];
   /** "missing" before the s-core migrations land, "error" when my_modules failed: both mean "treat everything as on". */
   modulesStatus: "ok" | "missing" | "error";
+  /**
+   * The organization's kind (an experience: Jain Temple, Church, Chamber of commerce, Neutral …) from
+   * app.category_profile: its name, its wording terms and which modules it offers. Never null: when the database
+   * cannot answer (kindStatus "missing" / "error") it is the legacy Jain Center the portal always showed.
+   */
+  kind: KindProfile;
+  kindStatus: "ok" | "missing" | "error";
   /** The session's assurance level from the JWT: "aal2" once it passed 2FA (o-security). */
   aal: string;
   /** The JWT's amr (sign-in methods with their times), for step-up freshness. */
@@ -118,7 +126,7 @@ export const loadSession = cache(async (): Promise<SessionState> => {
   if (!centerRes.data) return { status: "center_missing", slug, source: choice.source };
   const center = centerRes.data;
 
-  const [grantsRes, rolesRes, accountRes, linkRes, modulesRes, switchRes, ownerRes] = await Promise.all([
+  const [grantsRes, rolesRes, accountRes, linkRes, modulesRes, switchRes, ownerRes, kindRes] = await Promise.all([
     db
       .from("role_grants")
       .select("role_key, scope_kind, scope_id, starts_at, ends_at")
@@ -130,7 +138,14 @@ export const loadSession = cache(async (): Promise<SessionState> => {
     loadMyModules(db, center.id),
     db.rpc("my_centers"),
     db.rpc("is_center_owner", { p_center: center.id }),
+    db.rpc("category_profile", { p_center: center.id }),
   ]);
+  // The kind is a convenience for wording and for explaining a module the kind does not offer: the database
+  // enforces the modules either way. If it cannot be read the portal shows what it showed before kinds existed.
+  const loadedKind = kindFromProfileResult(kindRes);
+  // Every fallback is logged, never silent: the function missing, the call failing, and an answer the portal cannot read.
+  const kindProblem = kindFallbackProblem(loadedKind, kindRes);
+  if (kindProblem) failure(kindProblem.context, kindProblem.error);
   // The switcher is a convenience: without it the user still works in this organization.
   if (switchRes.error) console.error("[session] could not list the organizations for the switcher (showing none):", switchRes.error);
   const firstError = grantsRes.error ?? rolesRes.error ?? accountRes.error ?? linkRes.error ?? ownerRes.error;
@@ -184,6 +199,8 @@ export const loadSession = cache(async (): Promise<SessionState> => {
       requestId,
       modulesOff: modulesRes.status === "ok" ? modulesOffFrom(modulesRes.rows) : [],
       modulesStatus: modulesRes.status,
+      kind: loadedKind.kind,
+      kindStatus: loadedKind.status,
       aal: typeof claims.aal === "string" ? claims.aal : "aal1",
       amr: (claims as { amr?: unknown }).amr ?? null,
       centerSource: choice.source,

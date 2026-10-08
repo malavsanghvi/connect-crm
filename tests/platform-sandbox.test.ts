@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { clearConfirmMessage, clearScope } from "@/lib/demo";
+import { toExperiences } from "@/lib/experiences";
 import { hasCenterRole, hasRole, hasScopedRole, passesRoleChecks } from "@/lib/permissions";
 import { baseSlug, invitationEmailText, sandboxSlug, validateNewSandbox, type NewSandboxInput } from "@/lib/platform-sandbox";
 import { acceptedPath } from "@/lib/security";
@@ -9,10 +10,16 @@ import { ENTITLEMENT_INFO, formatEntitlement, parseEntitlementInput } from "@/li
 // Stream f-sandbox (owner decisions 2026-09-25, second batch): JSH as a sandbox, sandboxes created
 // by Weaver, and the owner passing role-based checks.
 
+// The catalog the kind is chosen from (app.list_experiences): a sandbox may preview a kind that is not live yet.
+const kinds = toExperiences([
+  { key: "jain_temple", label: "Jain Temple", family_key: "jain", family_label: "Jain", faith_based: true, active: true, sort: 1 },
+  { key: "chamber_of_commerce", label: "Chamber of commerce", faith_based: false, active: false, sort: 2 },
+]);
+
 const good: NewSandboxInput = {
   name: " Jain Center of Dallas ",
   slug: "Jain-Center-Dallas",
-  orgType: "temple",
+  experience: "jain_temple",
   city: "Dallas",
   state: "tx",
   ownerFirstName: "Asha",
@@ -30,19 +37,27 @@ describe("New sandbox form", () => {
   });
 
   it("normalizes a good form", () => {
-    const r = validateNewSandbox(good);
+    const r = validateNewSandbox(good, kinds);
     expect(r.ok).toBe(true);
-    if (r.ok) expect(r.value).toMatchObject({ name: "Jain Center of Dallas", slug: "jain-center-dallas", state: "TX", ownerEmail: "asha@example.org" });
+    if (r.ok) expect(r.value).toMatchObject({ name: "Jain Center of Dallas", slug: "jain-center-dallas", state: "TX", ownerEmail: "asha@example.org", experience: "jain_temple", orgType: "temple" });
+  });
+
+  it("the kind of organization is the only choice that shapes the sandbox; the older org type follows from it", () => {
+    const chamber = validateNewSandbox({ ...good, experience: "chamber_of_commerce" }, kinds);
+    expect(chamber.ok).toBe(true);
+    // A kind that is not live yet can still be previewed in a sandbox.
+    if (chamber.ok) expect(chamber.value).toMatchObject({ experience: "chamber_of_commerce", orgType: "other_nonprofit" });
   });
 
   it("says plainly what is missing", () => {
     const bad = (patch: Partial<NewSandboxInput>) => {
-      const r = validateNewSandbox({ ...good, ...patch });
+      const r = validateNewSandbox({ ...good, ...patch }, kinds);
       return r.ok ? null : r.error;
     };
     expect(bad({ name: "J" })).toMatch(/name/);
     expect(bad({ slug: "no spaces allowed" })).toMatch(/web name/);
-    expect(bad({ orgType: "mosque" })).toMatch(/kind of organization/);
+    expect(bad({ experience: "mosque" })).toMatch(/kind of organization/);
+    expect(bad({ experience: "" })).toMatch(/kind of organization/);
     expect(bad({ city: " " })).toMatch(/city/);
     expect(bad({ state: "Texas" })).toMatch(/two letters/);
     expect(bad({ ownerFirstName: "" })).toMatch(/first name/);

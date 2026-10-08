@@ -5,8 +5,10 @@ import { useState } from "react";
 
 import { ActionForm } from "@/components/action-form";
 import { ChipGroup } from "@/components/controls";
+import { KindPicker } from "@/components/kind-picker";
 import { InfoBox, buttonClass } from "@/components/ui";
 import { IMPORT_SOURCES, slugify, TIME_ZONES, TRADITIONS } from "@/lib/center-wizard";
+import type { Experience } from "@/lib/experiences";
 
 import { goLiveAction, saveWizardStepAction } from "../actions";
 
@@ -16,6 +18,11 @@ export type WizardCenter = {
   slug: string;
   timeZone: string;
   tradition: string;
+  /** The kind of organization chosen when the center was created (fixed afterwards). */
+  kindKey: string;
+  kindLabel: string;
+  /** Whether that kind keeps a community tradition; null when the database does not say (the tradition is then asked). */
+  usesTradition: boolean | null;
   stateRegion: string;
   basis: string;
   importSource: string;
@@ -34,12 +41,15 @@ function Field({ label, wide = false, hint, children }: { label: string; wide?: 
 export function WizardForm({
   step,
   center,
+  experiences,
   roleCount,
   locked,
   readiness,
 }: {
   step: number;
   center: WizardCenter | null;
+  /** The kinds of organization the catalog offers. */
+  experiences: Experience[];
   roleCount: number | null;
   locked: boolean;
   /** Step 6: the center's go-live readiness checks (Setup › Go-live readiness), rendered on the server. */
@@ -131,6 +141,20 @@ export function WizardForm({
                 />
               </div>
             </Field>
+            <Field label="Kind of organization" wide>
+              {center ? (
+                <InfoBox>
+                  <span data-testid="wizard-kind">{center.kindLabel}</span> · chosen when the center was created. To change it, use Platform › {center.name} › Kind of organization (it needs a reason and a fresh 2FA
+                  check).
+                </InfoBox>
+              ) : (
+                <>
+                  {/* This wizard creates a live organization, so only kinds switched on for live ones are offered. */}
+                  <KindPicker experiences={experiences} includeInactive={false} name="category_key" />
+                  <p className="crm-hint">The kind decides the center&apos;s modules, wording and Setup checklist. It is fixed once the center is created.</p>
+                </>
+              )}
+            </Field>
             <Field label="Time zone">
               <select name="time_zone" aria-label="Time zone" className="crm-input" defaultValue={center?.timeZone ?? "America/Chicago"}>
                 {TIME_ZONES.map((z) => (
@@ -154,7 +178,14 @@ export function WizardForm({
           </>
         ) : null}
 
-        {step === 2 ? (
+        {step === 2 && center?.usesTradition === false ? (
+          <Field label="Tradition pack" wide>
+            <InfoBox>
+              {center.kindLabel} does not keep a community tradition, so there is no tradition pack to choose. Continue to the next step.
+            </InfoBox>
+          </Field>
+        ) : null}
+        {step === 2 && center?.usesTradition !== false ? (
           <>
             <Field label="Tradition" wide>
               <ChipGroup
