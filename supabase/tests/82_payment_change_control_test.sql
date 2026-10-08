@@ -691,6 +691,37 @@ select app.cancel_payee_change(:'req15', 'Not needed after all');
 reset role;
 select pg_temp.assert(app.zelle_bank_account_id(:c) = :ba2 and pg_temp.req_status(:'req15') = 'cancelled', 'and the Zelle bank account is the one confirmed before');
 
+-- The re-check follows what it took to ask: a Zelle change is asked for by the owner, integrations.manage or giving.manage; a
+-- PayPal email is verified by the owner or integrations.manage only. Basil asks for both, then his administrator role is
+-- replaced by a treasurer role (giving.manage, no integrations.manage).
+insert into app.paypal_email_verifications (center_id, connection_id, email, code_hash, expires_at, requested_by)
+values (:c, :'conn', 'fifth@pp82.example', encode(extensions.digest('123456:' || :c, 'sha256'), 'hex'), now() + interval '15 minutes', :basil)
+on conflict (center_id) do update set connection_id = excluded.connection_id, email = excluded.email, code_hash = excluded.code_hash,
+  expires_at = excluded.expires_at, attempts = 0, used_at = null;
+select pg_temp.claims('82000000-0000-4000-8000-000000000004', true);
+set local role authenticated;
+select app.confirm_paypal_email('00000000-0000-4000-8000-000000008201', '123456') as pp5 \gset
+select (app.request_payee_change(:c, 'zelle', '{"recipient":"per-plugin@pc82.example"}', 'Moving Zelle to a new address'))->>'id' as req17 \gset
+reset role;
+select (:'pp5'::jsonb)->>'request_id' as req16 \gset
+select pg_temp.assert(pg_temp.req_status(:'req16') = 'pending' and pg_temp.req_status(:'req17') = 'pending', 'the administrator asked for a new PayPal email and a new Zelle address');
+select pg_temp.no_claims();
+update app.role_grants set status = 'revoked' where center_id = :c and user_id = :basil;
+insert into app.role_grants (center_id, user_id, role_key, scope_kind, scope_id) values (:c, :basil, 'treasurer', 'center', null);
+select pg_temp.claims('82000000-0000-4000-8000-000000000003', true);
+set local role authenticated;
+select pg_temp.assert_raises(format($$select app.decide_payee_change(%L, true, 'Looks right')$$, :'req16'), 'no longer holds a role',
+  'a PayPal email needs integrations.manage to be asked for, so giving.manage alone no longer lets the request be confirmed');
+select pg_temp.assert((app.decide_payee_change(:'req17', true, 'Checked with the bank'))->>'status' = 'applied',
+  'a Zelle change was askable with giving.manage, so the same person''s request can still be confirmed');
+select pg_temp.assert((app.decide_payee_change(:'req16', false, 'The person who asked no longer administers integrations'))->>'status' = 'rejected', 'and the PayPal request can still be turned down');
+reset role;
+select pg_temp.no_claims();
+delete from app.role_grants where center_id = :c and user_id = :basil and role_key = 'treasurer';
+update app.role_grants set status = 'active' where center_id = :c and user_id = :basil;
+update app.center_payment_methods set instructions = jsonb_set(instructions, '{recipient}', '"x2@pc82.example"') where center_id = :c and method = 'zelle';
+select pg_temp.assert(pg_temp.zelle_recipient(:c) = 'x2@pc82.example', 'fixture: the address is back to the confirmed one for the tests that follow');
+
 -- Who sees the requests.
 select pg_temp.claims('82000000-0000-4000-8000-000000000006');
 set local role authenticated;
@@ -903,6 +934,21 @@ select pg_temp.assert(pg_temp.st(:cs, 'zelle') = 'test_passed' and pg_temp.in_st
   'when the rehearsal report is matched the STORED row becomes "test passed" (it used to lag until something else touched the row)');
 delete from app.payment_reports where id = '82000000-0000-4000-8000-0000000000d1';
 select pg_temp.assert(pg_temp.st(:cs, 'zelle') = 'ready' and pg_temp.in_step(:cs), 'and it follows when the report goes away');
+-- A real (not rehearsal) report does not run the refresh: only a rehearsal report can change what a plugin reports. The stored
+-- row of organization c is made stale on purpose; inserting, withdrawing and deleting real reports leaves it so, a rehearsal
+-- report brings it back in step.
+select pg_temp.no_claims();
+update app.center_payment_plugins set enabled = not enabled where center_id = :c and plugin_key = 'zelle';
+select pg_temp.assert(not pg_temp.in_step(:c), 'fixture: a stored plugin row is stale on purpose');
+insert into app.payment_reports (id, center_id, household_id, reported_by, amount_cents, sent_on, window_days, due_on)
+values ('82000000-0000-4000-8000-0000000000d4', :c, :h1, :mira, 1100, current_date - 1, 10, current_date + 9);
+update app.payment_reports set status = 'withdrawn', withdrawn_at = now() where id = '82000000-0000-4000-8000-0000000000d4';
+delete from app.payment_reports where id = '82000000-0000-4000-8000-0000000000d4';
+select pg_temp.assert(not pg_temp.in_step(:c), 'inserting, withdrawing and deleting a real report did not run the plugin refresh');
+insert into app.payment_reports (id, center_id, household_id, reported_by, amount_cents, sent_on, window_days, due_on, is_test)
+values ('82000000-0000-4000-8000-0000000000d5', :c, :h1, :mira, 1100, current_date - 1, 10, current_date + 9, true);
+select pg_temp.assert(pg_temp.in_step(:c), 'a rehearsal (test) report does run it');
+delete from app.payment_reports where id = '82000000-0000-4000-8000-0000000000d5';
 
 -- ═════════════════════════════════════════════════════════════════════════════
 -- Readiness: check 6 walks every enabled way to pay

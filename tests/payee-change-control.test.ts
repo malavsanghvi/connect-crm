@@ -142,6 +142,13 @@ describe("the migration keeps what the screens promise", () => {
     expect(migration).toContain("is no longer an active account of this organization");
   });
 
+  it("locks what a confirmation reads until it writes, and re-checks the asker by the rule that let them ask", () => {
+    expect(migration).toContain("where center_id = r.center_id and method = 'zelle' for update;");
+    expect(migration).toContain("select * into c from app.centers where id = r.center_id for no key update;");
+    expect(migration).toContain("b.center_id = r.center_id and b.active for share;");
+    expect(migration).toContain("(r.plugin_key = 'zelle' and app.payee_user_has_permission(r.center_id, r.requested_by, 'giving.manage'))");
+  });
+
   it("freezes a connection row once it holds ANY payee (an email or an account id), and never lets it change organization", () => {
     expect(migration).toContain("if v_old_email = '' and v_old_ext = '' then return new; end if;");
     expect(migration).toContain("if v_new_ext <> v_old_ext then");

@@ -424,9 +424,10 @@ begin
   if r.expires_at <= now() then
     raise exception 'This request lapsed on %. Ask for the change again.', to_char(r.expires_at, 'FMMonth FMDD, YYYY') using errcode = '22023';
   end if;
-  -- The person who asked must still be allowed to ask (their role may have ended since).
+  -- The person who asked must still be allowed to ask (their role may have ended since), by the same rule that let them ask:
+  -- a PayPal email is verified by the owner or integrations.manage; a Zelle change is asked for by those or giving.manage.
   if p_approve and not (app.payee_user_has_permission(r.center_id, r.requested_by, 'integrations.manage')
-                        or app.payee_user_has_permission(r.center_id, r.requested_by, 'giving.manage')) then
+                        or (r.plugin_key = 'zelle' and app.payee_user_has_permission(r.center_id, r.requested_by, 'giving.manage'))) then
     raise exception 'The person who asked (%) no longer holds a role that may ask for this. Ask for the change again.', app.refund_person_name(r.center_id, r.requested_by)
       using errcode = '22023';
   end if;
@@ -440,14 +441,16 @@ begin
     return jsonb_build_object('id', r.id, 'status', 'rejected');
   end if;
 
-  select * into c from app.centers where id = r.center_id;
+  -- What is read below is locked until the change is written, so two requests for different fields (the address and the
+  -- name) confirmed at the same moment cannot overwrite each other.
+  select * into c from app.centers where id = r.center_id for no key update;
   update app.payee_changes
      set status = 'applied', decided_by = auth.uid(), decided_at = now(), decision_reason = left(btrim(p_reason), 500), applied_at = now()
    where id = r.id;
   perform app.set_audit_context('Payee change confirmed by a second person: ' || left(btrim(p_reason), 450));
 
   if r.plugin_key = 'zelle' then
-    select * into pm from app.center_payment_methods where center_id = r.center_id and method = 'zelle';
+    select * into pm from app.center_payment_methods where center_id = r.center_id and method = 'zelle' for update;
     v_instr := coalesce(pm.instructions, '{}'::jsonb);
     for k, x in select * from jsonb_each(r.changes) loop
       if k in ('recipient','name') then
@@ -460,9 +463,12 @@ begin
         raise exception 'The bank account chosen for Zelle changed after this request was made. Ask for the change again.' using errcode = '22023';
       end if;
     end loop;
-    if r.changes ? 'bank_account_id' and (r.changes #>> '{bank_account_id,to}') is not null
-       and not exists (select 1 from app.bank_accounts b where b.id::text = r.changes #>> '{bank_account_id,to}' and b.center_id = r.center_id and b.active) then
-      raise exception 'The bank account chosen is no longer an active account of this organization. Ask for the change again.' using errcode = '22023';
+    if r.changes ? 'bank_account_id' and (r.changes #>> '{bank_account_id,to}') is not null then
+      perform 1 from app.bank_accounts b
+       where b.id::text = r.changes #>> '{bank_account_id,to}' and b.center_id = r.center_id and b.active for share;
+      if not found then
+        raise exception 'The bank account chosen is no longer an active account of this organization. Ask for the change again.' using errcode = '22023';
+      end if;
     end if;
     perform set_config('app.payee_apply', 'on', true);
     if r.changes ? 'recipient' or r.changes ? 'name' then
