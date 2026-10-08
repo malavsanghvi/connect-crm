@@ -25,6 +25,7 @@ export default function HomePage() {
       <Integrations />
       <Tour />
       <Bento />
+      <Raise />
       <Weavers />
       <HowItWorks />
       <FreeBand />
@@ -139,6 +140,58 @@ function Generosity() {
           We want to do good for each other.{" "}
           <span className="font-semibold text-navy">So Weaver is made free, for everyone, forever.</span>
         </p>
+      </div>
+    </section>
+  );
+}
+
+const RAISE: { title: string; body: string; live: boolean }[] = [
+  {
+    title: "Double donations with employer matching",
+    body: "Many employers match what their people give. Weaver helps your members find out whether theirs does, and guides each donor through claiming it, so a $100 gift can become $200.",
+    live: false,
+  },
+  {
+    title: "Your own digital store front",
+    body: "Sell products your organization approves, with online payment and pickup windows, right inside Weaver. Custom products are on the way.",
+    live: true,
+  },
+  {
+    title: "Special days, remembered for you",
+    body: "Weaver prompts the right person about special days and occasions at the right moment, and will use social signals members choose to share to make every prompt personal.",
+    live: false,
+  },
+  {
+    title: "Donor management that nudges for you",
+    body: "Nudge the right people at the right time. Automated playbooks guide your admins and volunteers to build connections and deepen every relationship.",
+    live: false,
+  },
+];
+
+function Raise() {
+  return (
+    <section id="raise" aria-labelledby="raise-title" className="scroll-mt-24 bg-white py-20 sm:py-28">
+      <div className={`${container} flex flex-col gap-10`}>
+        <div className="flex max-w-[720px] flex-col items-start gap-4">
+          <span className="rounded-full bg-gold/30 px-3.5 py-1.5 text-[13px] font-bold uppercase tracking-[0.08em] text-brown">Raise more, together</span>
+          <h2 id="raise-title" className="font-display text-[34px] font-semibold leading-[1.1] tracking-[-0.02em] text-navy sm:text-[52px]">
+            Help your community give more.
+          </h2>
+          <p className="text-[18px] leading-relaxed text-muted sm:text-[20px]">Four ways Weaver helps your organization raise more, inside the same free platform.</p>
+        </div>
+        <ul className="grid grid-cols-1 gap-5 md:grid-cols-2">
+          {RAISE.map((item) => (
+            <li key={item.title} className="flex flex-col items-start gap-3 rounded-[28px] border border-line bg-[#FBF7F0] p-7">
+              <span
+                className={`rounded-full px-3 py-1 text-[12px] font-bold uppercase tracking-[0.06em] ${item.live ? "bg-success-50 text-success-900" : "bg-saffron-50 text-brown-900"}`}
+              >
+                {item.live ? "Live" : "Coming soon"}
+              </span>
+              <h3 className="font-display text-[24px] font-semibold leading-[1.2] text-navy">{item.title}</h3>
+              <p className="text-[16.5px] leading-relaxed text-muted">{item.body}</p>
+            </li>
+          ))}
+        </ul>
       </div>
     </section>
   );
