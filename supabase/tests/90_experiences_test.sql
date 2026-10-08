@@ -56,6 +56,7 @@ $$;
 \set cc '''90000000-0000-4000-8000-000000000001'''
 \set chadmin '''90000000-0000-4000-8000-000000000002'''
 \set jadmin '''90000000-0000-4000-8000-000000000003'''
+\set npadmin '''90000000-0000-4000-8000-000000000004'''
 \set c_chm '''90000000-0000-4000-8000-0000000000c1'''
 \set c_npo '''90000000-0000-4000-8000-0000000000c2'''
 \set c_fth '''90000000-0000-4000-8000-0000000000c3'''
@@ -65,7 +66,7 @@ $$;
 \set c_jc '''90000000-0000-4000-8000-0000000000c7'''
 
 insert into auth.users (id, email) values
-  (:cc, 'cc90@platform.test'), (:chadmin, 'chadmin90@chm.test'), (:jadmin, 'jadmin90@jsh.test');
+  (:cc, 'cc90@platform.test'), (:chadmin, 'chadmin90@chm.test'), (:jadmin, 'jadmin90@jsh.test'), (:npadmin, 'npadmin90@npo.test');
 insert into app.accounts (user_id, is_platform_admin) values (:cc, true)
   on conflict (user_id) do update set is_platform_admin = excluded.is_platform_admin;
 insert into auth.mfa_factors (id, user_id, friendly_name, factor_type, status) values
@@ -81,17 +82,22 @@ insert into app.centers (id, slug, name, environment, category_key, status) valu
   (:c_swm, 'swm90-sandbox', 'Swaminarayan 90',   'sandbox', 'swaminarayan_temple', 'onboarding'),
   (:c_jc,  'jc90-sandbox',  'Jain Center 90',    'sandbox', 'jain_center',         'onboarding');
 insert into app.role_grants (center_id, user_id, role_key, reason) values
-  (:jsh, :jadmin, 'center_admin', 'experience test 90'), (:c_chm, :chadmin, 'center_admin', 'experience test 90');
--- Both administrators are also people of their community (Setup's readiness checks are for a community's own people).
+  (:jsh, :jadmin, 'center_admin', 'experience test 90'), (:c_chm, :chadmin, 'center_admin', 'experience test 90'),
+  (:c_npo, :npadmin, 'center_admin', 'experience test 90');
+-- The administrators are also people of their community (Setup's readiness checks are for a community's own people).
 insert into app.households (id, center_id, display_name) values
-  ('90000000-0000-4000-8000-0000000000b1', :jsh, 'Office household 90 (JSH)'), ('90000000-0000-4000-8000-0000000000b2', :c_chm, 'Office household 90 (chamber)');
+  ('90000000-0000-4000-8000-0000000000b1', :jsh, 'Office household 90 (JSH)'), ('90000000-0000-4000-8000-0000000000b2', :c_chm, 'Office household 90 (chamber)'),
+  ('90000000-0000-4000-8000-0000000000b3', :c_npo, 'Office household 90 (community)');
 insert into app.people (id, center_id, first_name, last_name, date_of_birth) values
-  ('90000000-0000-4000-8000-0000000000a1', :jsh, 'Jo', 'Office90', date '1975-01-01'), ('90000000-0000-4000-8000-0000000000a2', :c_chm, 'Ada', 'Office90', date '1975-01-01');
+  ('90000000-0000-4000-8000-0000000000a1', :jsh, 'Jo', 'Office90', date '1975-01-01'), ('90000000-0000-4000-8000-0000000000a2', :c_chm, 'Ada', 'Office90', date '1975-01-01'),
+  ('90000000-0000-4000-8000-0000000000a3', :c_npo, 'Nia', 'Office90', date '1975-01-01');
 insert into app.household_members (household_id, person_id, center_id, role, is_primary) values
   ('90000000-0000-4000-8000-0000000000b1', '90000000-0000-4000-8000-0000000000a1', :jsh, 'primary', true),
-  ('90000000-0000-4000-8000-0000000000b2', '90000000-0000-4000-8000-0000000000a2', :c_chm, 'primary', true);
+  ('90000000-0000-4000-8000-0000000000b2', '90000000-0000-4000-8000-0000000000a2', :c_chm, 'primary', true),
+  ('90000000-0000-4000-8000-0000000000b3', '90000000-0000-4000-8000-0000000000a3', :c_npo, 'primary', true);
 insert into app.center_users (center_id, user_id, person_id) values
-  (:jsh, :jadmin, '90000000-0000-4000-8000-0000000000a1'), (:c_chm, :chadmin, '90000000-0000-4000-8000-0000000000a2');
+  (:jsh, :jadmin, '90000000-0000-4000-8000-0000000000a1'), (:c_chm, :chadmin, '90000000-0000-4000-8000-0000000000a2'),
+  (:c_npo, :npadmin, '90000000-0000-4000-8000-0000000000a3');
 
 -- ══ A. The picker ═══════════════════════════════════════════════════════════
 set role anon;
@@ -255,6 +261,12 @@ select pg_temp.assert((select count(*) from app.setup_checklist(:c_chm)) = (sele
                       and not exists (select 1 from app.setup_checklist(:c_chm) where module_key in ('bolis', 'pathshala', 'gyan_path', 'jain_way')
                                         and (status <> 'skipped' or detail <> 'Not part of a Chamber of commerce organization.')),
   'D · every step is still listed, and the steps of modules the chamber does not have are skipped with the category sentence');
+-- The neutral experience's own label already ends in "organization": the sentence must not say it twice.
+select pg_temp.claims(:npadmin);
+select pg_temp.assert(exists (select 1 from app.setup_checklist(:c_npo) where module_key in ('bolis', 'pathshala', 'gyan_path', 'jain_way'))
+                      and not exists (select 1 from app.setup_checklist(:c_npo) where module_key in ('bolis', 'pathshala', 'gyan_path', 'jain_way')
+                                        and (status <> 'skipped' or detail <> 'Not part of a Community organization.')),
+  'D · the neutral experience''s skipped steps say "Not part of a Community organization." (the word organization once)');
 select pg_temp.claims(:jadmin);
 select pg_temp.assert(not exists (select 1 from app.setup_checklist(:jsh) c join app.setup_steps s on s.key = c.step_key
                                    where (c.title, c.description, c.help, c.done_means, c.owner_role)

@@ -524,7 +524,9 @@ begin
          cs.status,
          case when s.module_key is not null and not app.module_enabled(p_center, s.module_key)
               then case when app.module_availability(p_center, s.module_key) = 'not_available'
-                        then 'Not part of a ' || coalesce(v_cat, 'this') || ' organization.'
+                        then 'Not part of ' || case when v_cat is null then 'this organization'
+                                                    when v_cat ilike '%organization' then 'a ' || v_cat   -- "Community organization" already ends in the word
+                                                    else 'a ' || v_cat || ' organization' end || '.'
                         else 'The ' || m.label || ' module is switched off.' end
               else v_auto->s.key->>'detail' end,
          cs.owner_person_id,
