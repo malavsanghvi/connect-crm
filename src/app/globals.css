@@ -791,3 +791,26 @@ body {
     opacity: 0.6;
   }
 }
+
+/* ------------------------------------------------------------------ Public website (src/app/site) */
+@theme {
+  --animate-site-float: site-float 7s ease-in-out infinite;
+  @keyframes site-float {
+    0%,
+    100% {
+      transform: translateY(0);
+    }
+    50% {
+      transform: translateY(-10px);
+    }
+  }
+}
+
+html:has(.site-root) {
+  scroll-behavior: smooth;
+}
+@media (prefers-reduced-motion: reduce) {
+  html:has(.site-root) {
+    scroll-behavior: auto;
+  }
+}
