@@ -1,12 +1,18 @@
 -- 0594 · Organization categories, database part 1 of 3 (docs/ORGANIZATION_CATEGORIES_PLAN.md, "PR 1";
 -- owner accepted the plan 2026-10-06, all ten recommended answers, 2026-10-07).
 --
+-- MERGE ORDER (read this before merging): this file redefines app.audit_mask as 0589's definition plus a path_key clause.
+-- Migration 0590 (open PR 95, Pathshala fees) defines the same function from 0589's text WITHOUT path_key. If 0594 is
+-- applied before 0590, 0590 silently puts 0589's text back and every write to person_profile_details then logs a
+-- person's path in clear. So PR 95 and PR 96 (0590, 0591) must merge before this one, or 0590's mask must first gain the
+-- path_key line (see the comment at the definition of app.audit_mask below for the exact clause). 0590 is not edited here.
+--
 -- WHAT THIS DOES, IN PLAIN WORDS
 --   An organization now has a CATEGORY: Jain Center, Chamber of commerce, Non-profit (not faith-based) or
 --   Faith-based non-profit (other faiths). The category decides which modules the organization can have at
 --   all. JSH and every existing community become "Jain Center" through the column default, and Jain Center
---   has all 18 modules "default_on", which the module functions below turn into exactly today's rule
---   ("no center_modules row means on"). Only Jain Center is active: the other three can be chosen only by
+--   has all 18 modules "default_on", for which the module functions below give the same results as today's rule
+--   ("no center_modules row means on"; the code differs, test 79 proves the results are the same). Only Jain Center is active: the other three can be chosen only by
 --   Community Connect and only for a sandbox, to preview them. Nothing changes for any community that is
 --   already running.
 --
@@ -628,7 +634,7 @@ grant execute on function app.module_states(uuid) to authenticated;
 -- the whole enforcement: no table and no policy changes.
 --
 -- Jain Center (and any community whose category row for a module is missing) takes the ELSE branch of each, which is
--- 0101's rule word for word, so for every existing community the answers are identical (test 79 compares them with
+-- 0101's rule written out again, so for every existing community the answers are the same (the code differs; test 79 compares them with
 -- 0101's definitions over every community, every module and every module table).
 
 create or replace function app.module_enabled(p_center uuid, p_module text) returns boolean
@@ -1056,7 +1062,12 @@ end $$;
 
 -- The audit log records THAT the path changed, not the answer (a religious affiliation is sensitive, like dietary
 -- needs). 0589's definition (which already carries 0590's assistance_note clause, copied from feat/pathshala-db1) plus
--- path_key. Anyone who changes app.audit_mask again must start from the latest definition: 0594 (this file), then any later:
+-- path_key.
+-- MERGE ORDER: 0590 (PR 95) defines this function too, from 0589's text and without path_key. If 0590 is applied AFTER
+-- 0594 it silently removes the path_key clause. PR 95 and 96 must merge before this PR, or 0590's version of app.audit_mask
+-- must first gain exactly this line before its closing "end":
+--       || case when j->>'path_key' is not null then jsonb_build_object('path_key', '***') else '{}'::jsonb end
+-- Anyone who changes app.audit_mask again must start from the latest definition: 0594 (this file), then any later:
 --   0102   date_of_birth and the secrets / tokens
 --   0546   the emergency contact's name and number, both dietary fields
 --   0545   staged_rows (the uploaded rows, personal data) and merge_answers (they grow with the file)

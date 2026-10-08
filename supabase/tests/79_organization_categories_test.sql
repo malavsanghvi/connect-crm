@@ -877,6 +877,8 @@ select pg_temp.assert((select count(*) from app.audit_log where record_table = '
                       and not exists (select 1 from app.audit_log where record_table = 'person_profile_details'
                                          and (after->>'path_key' not in ('***') or before->>'path_key' not in ('***'))),
   'F · the audit log records that a path changed, never which one');
+select pg_temp.assert(app.audit_mask('{"path_key":"x"}'::jsonb)->>'path_key' = '***',
+  'F · MERGE ORDER guard: the current app.audit_mask masks path_key (if this fails, an earlier-numbered migration was applied after 0594 and put the older mask back)');
 select pg_temp.assert(app.audit_mask('{"path_key":"digambar","dietary":[]}'::jsonb) = '{"path_key":"***","dietary":[]}'::jsonb
                       and app.audit_mask('{"path_key":null}'::jsonb) = '{"path_key":null}'::jsonb
                       and app.audit_mask('{"date_of_birth":"1980-01-01","assistance_note":"abcd"}'::jsonb)
