@@ -4,6 +4,7 @@ import { Alert, Card, NoAccess, PageHeader } from "@/components/ui";
 import { userNames } from "@/lib/data/lookups";
 import { formatDateTime } from "@/lib/dates";
 import { explainError } from "@/lib/errors";
+import { kindOrganizations } from "@/lib/kind";
 import { buildModuleRows, buildModuleRowsFromStates, type CatalogLike, type ModuleRow, type SwitchLike } from "@/lib/modules";
 import { isMissingObject, modulesDb, warnMissingOnce } from "@/lib/modules-db";
 import { canAccess } from "@/lib/permissions";
@@ -89,7 +90,7 @@ export default async function ModulesPage() {
       <Card
         title="Modules"
         description={`Each switch needs a reason; it is kept in the audit log. Core modules are always on. A module another one depends on can only be switched off after that one.${
-          kindShapesModules ? ` ${session.kind.label} organizations have their own set of modules: any the kind never offers are listed at the bottom, without a switch.` : ""
+          kindShapesModules ? ` ${kindOrganizations(session.kind.label)} have their own set of modules: any the kind never offers are listed at the bottom, without a switch.` : ""
         }`}
         padded={false}
       >

@@ -20,7 +20,7 @@ import {
   moduleSummary,
   packModules,
 } from "@/lib/demo";
-import { moduleNotOffered, withArticle } from "@/lib/kind";
+import { kindOrganization, moduleNotOffered, withArticle } from "@/lib/kind";
 import { getSession } from "@/lib/session";
 import { backgroundServiceView } from "@/lib/vault";
 
@@ -181,7 +181,7 @@ export default async function DemoDataPage() {
                       {m.label}
                       {off.has(m.module) ? (
                         <p className="text-[11px] font-semibold text-faint">
-                          {moduleNotOffered(session.kind, m.module) ? `not part of ${withArticle(session.kind.label)} organization` : "switched off"} · skipped or hidden
+                          {moduleNotOffered(session.kind, m.module) ? `not part of ${withArticle(kindOrganization(session.kind.label))}` : "switched off"} · skipped or hidden
                         </p>
                       ) : null}
                     </td>

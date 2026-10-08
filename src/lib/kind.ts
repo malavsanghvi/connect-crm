@@ -121,14 +121,28 @@ export function withArticle(label: string): string {
   return /^[aeiou]/i.test(label.trim()) ? `an ${label.trim()}` : `a ${label.trim()}`;
 }
 
+/**
+ * The kind's name followed by "organization", without saying the word twice: the neutral kind is called "Community
+ * organization" already ("a Community organization", not "a Community organization organization").
+ */
+export function kindOrganization(label: string): string {
+  const l = label.trim();
+  return /organi[sz]ation$/i.test(l) ? l : `${l} organization`;
+}
+
+/** The same, plural: "Chamber of commerce organizations", "Community organizations". */
+export function kindOrganizations(label: string): string {
+  return `${kindOrganization(label)}s`;
+}
+
 /** The sentence for a module this kind does not offer ("Bolis is not part of a Chamber of commerce organization."). */
 export function notPartOfKindSentence(moduleLabel: string, kindLabel: string): string {
-  return `${moduleLabel} is not part of ${withArticle(kindLabel)} organization.`;
+  return `${moduleLabel} is not part of ${withArticle(kindOrganization(kindLabel))}.`;
 }
 
 /** The longer explanation under it, for a page. */
 export function notOfferedExplanation(centerName: string, kindLabel: string): string {
-  return `${centerName} is set up as ${withArticle(kindLabel)} organization, which does not have this module. Weaver can change an organization's kind if that is wrong.`;
+  return `${centerName} is set up as ${withArticle(kindOrganization(kindLabel))}, which does not have this module. Weaver can change an organization's kind if that is wrong.`;
 }
 
 /** The module's name in this kind (the kind's own wording, else the catalog's). */
@@ -142,12 +156,14 @@ export function kindModuleLabel(kind: Pick<KindProfile, "modules">, moduleKey: s
 
 export type LoadedKind = { kind: KindProfile; status: "ok" | "missing" | "error" };
 
+type KindProfileResult = { data: Json | null; error: { code?: string | null; message?: string | null } | null };
+
 /**
  * The result of `app.category_profile(center)` for the session. When the function is not in the database yet
  * ("missing") or fails ("error"), the portal keeps showing what it showed before kinds existed (LEGACY_KIND:
  * a Jain Center, every module) rather than breaking the page; the failure is logged by the caller.
  */
-export function kindFromProfileResult(res: { data: Json | null; error: { code?: string | null; message?: string | null } | null }): LoadedKind {
+export function kindFromProfileResult(res: KindProfileResult): LoadedKind {
   if (res.error) {
     const code = res.error.code ?? "";
     const missing = ["PGRST202", "42883"].includes(code) || /could not find the function|function .* does not exist/i.test(res.error.message ?? "");
@@ -155,4 +171,21 @@ export function kindFromProfileResult(res: { data: Json | null; error: { code?: 
   }
   const parsed = parseKindProfile(res.data);
   return parsed ? { kind: parsed, status: "ok" } : { kind: LEGACY_KIND, status: "error" };
+}
+
+/**
+ * Why the portal is showing the default wording instead of the organization's own kind, for the caller to log with
+ * `failure()`; null when the kind loaded. Every fallback is reported, not just a failed call: the function not being in
+ * the database yet ("missing"), and an answer the portal cannot read (the database returns no error of its own then, so
+ * one is made here rather than logging "null").
+ */
+export function kindFallbackProblem(loaded: LoadedKind, res: KindProfileResult): { context: string; error: unknown } | null {
+  if (loaded.status === "ok") return null;
+  if (loaded.status === "missing") {
+    return { context: "The organization's kind is not available from the database yet (showing the default wording)", error: res.error };
+  }
+  return {
+    context: "Could not read the organization's kind (showing the default wording)",
+    error: res.error ?? new Error("app.category_profile answered with something the portal could not read"),
+  };
 }

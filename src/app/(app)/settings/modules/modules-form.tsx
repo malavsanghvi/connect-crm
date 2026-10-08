@@ -8,7 +8,7 @@ import { Modal } from "@/components/modal";
 import { useStepUp } from "@/components/step-up";
 import { useToast } from "@/components/toast";
 import { StatusText, TableWrap } from "@/components/ui";
-import { notPartOfKindSentence } from "@/lib/kind";
+import { kindOrganizations, notPartOfKindSentence } from "@/lib/kind";
 import { switchBlocker, type ModuleRow } from "@/lib/modules";
 
 import { setModuleEnabledAction } from "./actions";
@@ -87,7 +87,7 @@ export function ModulesForm({ rows, canSwitch, kindLabel }: { rows: ModuleRowVie
                       {notPartOfKindSentence(r.label, kindLabel)} Weaver can change the organization&apos;s kind.
                     </p>
                   ) : null}
-                  {r.availability === "default_off" && !r.enabled ? <p className="mt-0.5 text-xs text-muted">Starts off for {kindLabel} organizations; switch it on when you need it.</p> : null}
+                  {r.availability === "default_off" && !r.enabled ? <p className="mt-0.5 text-xs text-muted">Starts off for {kindOrganizations(kindLabel)}; switch it on when you need it.</p> : null}
                   {r.changedLine ? (
                     <p className="mt-0.5 text-xs text-muted">
                       {r.changedLine}

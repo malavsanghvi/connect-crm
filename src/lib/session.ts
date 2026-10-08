@@ -6,7 +6,7 @@ import { cache } from "react";
 
 import type { Json } from "@/lib/database.types";
 import { readPublicEnv, type EnvProblem } from "@/lib/env";
-import { explainError } from "@/lib/errors";
+import { explainError, failure } from "@/lib/errors";
 import {
   ACCESS,
   canAccess,
@@ -17,7 +17,7 @@ import {
   type ScopedGrant,
 } from "@/lib/permissions";
 import { resolveCenterChoice, type CenterChoice } from "@/lib/center-resolve";
-import { kindFromProfileResult, type KindProfile } from "@/lib/kind";
+import { kindFallbackProblem, kindFromProfileResult, type KindProfile } from "@/lib/kind";
 import { loadMyModules, modulesOffFrom } from "@/lib/modules-db";
 import { requires2faForStaff, securityRedirect } from "@/lib/security";
 import { createSupabaseServerClient, type AppSupabase } from "@/lib/supabase/server";
@@ -143,7 +143,9 @@ export const loadSession = cache(async (): Promise<SessionState> => {
   // The kind is a convenience for wording and for explaining a module the kind does not offer: the database
   // enforces the modules either way. If it cannot be read the portal shows what it showed before kinds existed.
   const loadedKind = kindFromProfileResult(kindRes);
-  if (loadedKind.status === "error") console.error("[session] could not load the organization's kind (showing the default wording):", kindRes.error);
+  // Every fallback is logged, never silent: the function missing, the call failing, and an answer the portal cannot read.
+  const kindProblem = kindFallbackProblem(loadedKind, kindRes);
+  if (kindProblem) failure(kindProblem.context, kindProblem.error);
   // The switcher is a convenience: without it the user still works in this organization.
   if (switchRes.error) console.error("[session] could not list the organizations for the switcher (showing none):", switchRes.error);
   const firstError = grantsRes.error ?? rolesRes.error ?? accountRes.error ?? linkRes.error ?? ownerRes.error;
