@@ -471,6 +471,47 @@ To give every organization its own address (`jsh.communityconnect.app`,
 One sign-in covers every `<slug>.communityconnect.app` address (the session cookie is
 set for the base domain); an organization's own domain asks for its own sign-in.
 
+## Member addresses (`jsh.<domain>`)
+
+One domain for members, one name per organization (owner decision 2026-10-07, docs/DECISIONS.md):
+`jsh.weaverams.org` opens the member web app on JSH, `app.weaverams.org` lists the organizations
+(a dropdown; choosing one goes to its own address), `admin.weaverams.org` is the portal. This uses
+`<slug>.<base>` for the **member app**, where "Organization addresses" above uses it for the
+**portal**: pick one per domain.
+
+1. **DNS** (GoDaddy for weaverams.org): A records `admin` and `app` → the droplet IP, plus a
+   wildcard `*` → the droplet IP. Named records win over the wildcard.
+2. **connect-crm repository variables:** `SITE_DOMAIN` = `admin.weaverams.org` (**required**: the
+   portal's own name, so the wildcard can never capture it; without it the deploy refuses the
+   wildcard and keeps the previous sites, and says why), `MEMBER_BASE_DOMAIN` = `weaverams.org`,
+   `MEMBER_APP_URL` = `https://app.weaverams.org`. Re-run Deploy.
+3. **connect-mobile repository variables:** `SITE_DOMAIN` = `app.weaverams.org` and
+   `MEMBER_BASE_DOMAIN` = `weaverams.org` (read when the web app is built). Re-run Deploy.
+4. **Platform setup › Base domain for organizations** = `weaverams.org`. This is what lets the
+   portal approve a certificate for `<slug>.weaverams.org` of a real community
+   (`app.tls_host_allowed`, statuses active and onboarding); no other name gets one. It does not
+   make the portal read host names as organizations (that is the `SITE_WILDCARD_DOMAIN` variable,
+   left unset here). Platform › HTTPS lists the bare `weaverams.org` as "not ready" while it points
+   elsewhere (GoDaddy parking): expected.
+5. **Supabase › Authentication › URL Configuration:** Site URL `https://admin.weaverams.org`;
+   redirect URLs `https://admin.weaverams.org/**` and `https://*.weaverams.org/**`.
+
+How it fits together: `deploy/caddy-sites.mjs` (`memberBase`) adds `*.weaverams.org` to the
+portal's wildcard file as the member web app (on-demand certificate per name, approved by
+`/api/tenancy/tls-ask`) and a matching `http://*.weaverams.org` site on port 80, which serves the
+member app (never the portal's sign-in page) and redirects to https only for hosts the HTTPS check
+confirmed. `admin.` and `app.` are their own sites, so they win. `release.sh` is unchanged (still
+identical in all three repos): the workflow passes `MEMBER_BASE_DOMAIN` in its environment and
+`caddy-sites.mjs` reads it from there. The member app reads the first label of the address
+(`communityFromHost`); `app`, `admin`, `www`, `events`, `api` and `mail` are never organizations,
+so an organization must not use one of them as its short name.
+
+Good to know: a new organization's address works as soon as its center exists and the wildcard
+record is in DNS; its first visit takes a few seconds while the certificate is issued. Let's
+Encrypt allows 50 new certificates per registered domain per week, and every issued name appears
+in the public certificate transparency logs. The browser keeps sign-ins per address, so a member
+signs in once at `jsh.weaverams.org` (the earlier address and the IP stay separate).
+
 ## When a deploy fails
 
 The failed step in Actions says what is missing or what broke:
