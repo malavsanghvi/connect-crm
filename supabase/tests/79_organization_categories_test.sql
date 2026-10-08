@@ -108,6 +108,8 @@ grant connect_worker to postgres;
 \set h2 '''79000000-0000-4000-8000-0000000000b2'''
 \set h_jsh '''79000000-0000-4000-8000-0000000000b3'''
 \set h_chm '''79000000-0000-4000-8000-0000000000b4'''
+\set p_chadm '''79000000-0000-4000-8000-0000000000a7'''
+\set h_chadm '''79000000-0000-4000-8000-0000000000b5'''
 
 insert into auth.users (id, email) values
   (:cc, 'cc79@platform.test'), (:cc2, 'cc79b@platform.test'), (:chowner, 'chowner79@hcc.test'), (:chadmin, 'chadmin79@hcc.test'),
@@ -238,8 +240,9 @@ select pg_temp.assert((select category_key = 'jain_center' and tradition = 'shve
   'B · JSH is a Jain Center, its tradition is unchanged (production, as seeded after the migrations)');
 select pg_temp.assert((select count(*) from app.dietary_options where center_id = :jsh and key = 'jain') = 1,
   'B · and its dietary list still has the Jain option');
--- (called as the superuser, but with a settings manager's JWT: the readiness part refuses a caller without settings.manage)
-select pg_temp.claims(:jshadmin, true);
+-- (called as the superuser, but with a platform admin's JWT: the readiness part refuses a caller who is not staff of the
+-- community, and the go-live part one without settings.manage)
+select pg_temp.claims(:cc, true);
 select pg_temp.assert(app.setup_auto_status(:jsh) = app._setup_auto_status_before_0594(:jsh),
   'B · Setup''s computed statuses for JSH are exactly what they were');
 select pg_temp.no_claims();
@@ -322,8 +325,8 @@ select pg_temp.assert((:'a_new'::jsonb->'counts'->>'bolis')::bigint >= 1 and (:'
 select pg_temp.assert(not exists (
     select 1 from app.centers c cross join app.modules m
      where c.category_key = 'jain_center'
-       and app.module_enabled(c.id, m.key) is distinct from not exists (select 1 from app.center_modules x
-                                                                         where x.center_id = c.id and x.module_key = m.key and not x.enabled)),
+       and app.module_enabled(c.id, m.key) is distinct from (not exists (select 1 from app.center_modules x
+                                                                          where x.center_id = c.id and x.module_key = m.key and not x.enabled))),
   'B · for every Jain Center and every module, module_enabled equals the 0101 rule');
 select pg_temp.assert(not exists (
     select 1 from app.modules m
@@ -441,6 +444,11 @@ insert into app.households (id, center_id, display_name) values (:h_chm, :'chm',
 insert into app.people (id, center_id, first_name, last_name, date_of_birth) values (:p_chm, :'chm', 'Cam', 'Member79', date '1980-01-01');
 insert into app.household_members (household_id, person_id, center_id, role, is_primary) values (:h_chm, :p_chm, :'chm', 'primary', true);
 insert into app.center_users (center_id, user_id, person_id) values (:'chm', :chmember, :p_chm);
+-- The chamber's administrator is also one of its people (Setup's readiness checks are for a community's own people).
+insert into app.households (id, center_id, display_name) values (:h_chadm, :'chm', 'Chamber office household 79');
+insert into app.people (id, center_id, first_name, last_name, date_of_birth) values (:p_chadm, :'chm', 'Ada', 'Office79', date '1975-01-01');
+insert into app.household_members (household_id, person_id, center_id, role, is_primary) values (:h_chadm, :p_chadm, :'chm', 'primary', true);
+insert into app.center_users (center_id, user_id, person_id) values (:'chm', :chadmin, :p_chadm);
 insert into app.bolis (id, center_id, name, kind) values ('79000000-0000-4000-8000-0000000000e8', :'chm', 'Chamber boli 79', 'digital');
 insert into app.pathshala_terms (id, center_id, name, starts_on, ends_on) values
   ('79000000-0000-4000-8000-0000000000e9', :'chm', 'Chamber term 79', current_date, current_date + 30);
