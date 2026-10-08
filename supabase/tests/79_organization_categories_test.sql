@@ -617,7 +617,9 @@ set role anon;
 select pg_temp.assert_raises($$select app.category_profile('79000000-0000-4000-8000-0000000000d1')$$, 'That community was not found.',
   'C · and so is a community that is not open to guests');
 reset role;
--- The default path follows the community's default tradition.
+-- The default path follows the community's default tradition (asked as a platform admin: the community is still
+-- onboarding, which since 0615 is shown only to its own people).
+select pg_temp.claims(:cc);
 update app.centers set tradition = 'sthanakvasi' where id = :'jt';
 select pg_temp.assert(app.category_profile(:'jt')->>'default_path' = 'shwetambar_sthanakvasi', 'C · a Sthanakvasi community defaults to the Sthanakvasi path');
 update app.centers set tradition = 'terapanthi' where id = :'jt';
@@ -627,6 +629,7 @@ select pg_temp.assert(app.category_profile(:'jt')->>'default_path' = 'digambar',
 update app.centers set tradition = 'other' where id = :'jt';
 select pg_temp.assert(jsonb_typeof(app.category_profile(:'jt')->'default_path') = 'null', 'C · "other" has no default path');
 update app.centers set tradition = 'shvetambar_murtipujak' where id = :'jt';
+select pg_temp.no_claims();
 -- Platform admins pass the module switch, as they always did.
 set role authenticated;
 select pg_temp.claims(:cc, true);
