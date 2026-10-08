@@ -635,9 +635,9 @@ select pg_temp.assert_code(format($$select app.pathshala_quote(%L, %L, %L)$$, :t
   '22023', 'That learner is not a current member of the Shah household (P75-H-2001).', 'quote: a family cannot price someone of another family (no age or child status of theirs is returned)');
 rollback;
 begin;
-select pg_temp.sign_in(:u_cora);
+select pg_temp.sign_in(:u_pia);
 select pg_temp.assert_code(format($$select app.pathshala_quote(%L, %L, %L)$$, :t1, :h1, jsonb_build_array(jsonb_build_object('person_id', :p_nita, 'track_id', :tr_j, 'level_id', :lv_moms))),
-  '22023', 'That learner is not a current member of the Shah household', 'quote: nor can staff price a person through a family they are not in');
+  '22023', 'That learner is not a current member of the Shah household', 'quote: nor can the office price a person through a family they are not in');
 rollback;
 begin;
 select pg_temp.sign_in(:u_riya);
@@ -645,8 +645,15 @@ select pg_temp.assert_code(format($$select app.pathshala_quote(%L, %L, %L)$$, :t
   '42501', 'Only an adult of the family', 'quote: a child of the household cannot see what it costs (money is adults only)');
 rollback;
 begin;
+select pg_temp.sign_in(:u_pia);
+select pg_temp.assert((app.pathshala_quote(:t1, :h1, :family::jsonb) ->> 'total_cents')::int = 32500, 'quote: the Pathshala office (pathshala.manage) can price a family');
+rollback;
+-- The committee (pathshala.view) is meant to see totals only: a family's quote shows the sibling rank and the cap reduction,
+-- that is, what the siblings already registered.
+begin;
 select pg_temp.sign_in(:u_cora);
-select pg_temp.assert((app.pathshala_quote(:t1, :h1, :family::jsonb) ->> 'total_cents')::int = 32500, 'quote: Pathshala staff with pathshala.view can price a family');
+select pg_temp.assert_code(format($$select app.pathshala_quote(%L, %L, %L)$$, :t1, :h1, :family),
+  '42501', 'Only an adult of the family or the Pathshala office', 'quote: a committee member (pathshala.view) cannot price another family');
 rollback;
 
 -- ═════════════════════════════════════════════════════════════════════════════
@@ -690,6 +697,22 @@ select pg_temp.assert((select (x ->> 'seats') is null and (x ->> 'free') is null
                              from jsonb_array_elements(:'seats'::jsonb) x where x ->> 'level' = 'Jainism 2')
                       and (select (x ->> 'state') = 'full' and not (x ->> 'waitlist_on')::boolean from jsonb_array_elements(:'seats'::jsonb) x where x ->> 'level' = 'Jainism 3'),
   'seats: per level the seats, taken, free and state, for members (counts only)');
+-- The fee is for adults and staff (P30): a child's own login sees the seats and the state, never a fee.
+begin;
+select pg_temp.sign_in(:u_riya);
+select app.pathshala_seats(:t1) as seats_child \gset
+rollback;
+begin;
+select pg_temp.sign_in(:u_cora);
+select app.pathshala_seats(:t1) as seats_committee \gset
+rollback;
+select pg_temp.assert(jsonb_array_length(:'seats_child'::jsonb) = jsonb_array_length(:'seats'::jsonb)
+                      and not exists (select 1 from jsonb_array_elements(:'seats_child'::jsonb) x where jsonb_typeof(x -> 'fee_cents') <> 'null')
+                      and (select (x ->> 'state') = 'open' and (x ->> 'free')::int = 15 from jsonb_array_elements(:'seats_child'::jsonb) x where x ->> 'level' = 'Jainism 2'),
+  'seats: a child''s login sees the seats and the state but every fee_cents is null (P30)');
+select pg_temp.assert(not exists (select 1 from jsonb_array_elements(:'seats'::jsonb) x where jsonb_typeof(x -> 'fee_cents') <> 'number')
+                      and not exists (select 1 from jsonb_array_elements(:'seats_committee'::jsonb) x where jsonb_typeof(x -> 'fee_cents') <> 'number'),
+  'seats: an adult member and the committee see every level''s fee');
 begin;
 select pg_temp.sign_in(:u_riya);
 select app.pathshala_registration_options(:t1, :h1) as opt_kid \gset
@@ -735,7 +758,19 @@ select pg_temp.assert_code(format($$select app.preview_pathshala_registration(%L
 select pg_temp.assert_code(format($$select app.preview_pathshala_registration(%L, %L, %L)$$, :t1, :h1,
   jsonb_build_array(jsonb_build_object('person_id', :p_dev, 'level_id', :lv_j2))),
   '22023', 'Choose a track', 'preview: the track is required (even for "not sure")');
+-- Fee assistance opens in 0592: until then nothing could approve or bill a request, so a parent who asked would get a seat
+-- with no pledge. Refused before anything is priced or written, in either spelling of true; "false" is a normal request.
+select pg_temp.assert_code(format($$select app.preview_pathshala_registration(%L, %L, %L)$$, :t1, :h1,
+  jsonb_build_array(jsonb_build_object('person_id', :p_dev, 'track_id', :tr_j, 'level_id', :lv_j2, 'assistance_requested', true))),
+  '22023', 'Fee assistance opens in the next release. Ask the Pathshala office.', 'assistance: asking for fee assistance is refused (nothing approves or bills it before 0592)');
+select pg_temp.assert_code(format($$select app.preview_pathshala_registration(%L, %L, %L)$$, :t1, :h1,
+  jsonb_build_array(jsonb_build_object('person_id', :p_riya, 'track_id', :tr_j, 'level_id', :lv_j2), jsonb_build_object('person_id', :p_dev, 'track_id', :tr_j, 'level_id', :lv_j5, 'assistance_requested', 'true'))),
+  '22023', 'Fee assistance opens in the next release. Ask the Pathshala office.', 'assistance: one line asking is enough to refuse the whole registration (the text "true" too)');
+select app.preview_pathshala_registration(:t1, :h1,
+  jsonb_build_array(jsonb_build_object('person_id', :p_dev, 'track_id', :tr_j, 'level_id', :lv_j2, 'assistance_requested', false))) as pv_noassist \gset
 commit;
+select pg_temp.assert((:'pv_noassist'::jsonb -> 'lines' -> 0 ->> 'outcome') = 'seat' and (:'pv_noassist'::jsonb ->> 'total_cents')::int > 0,
+  'assistance: a line that says assistance_requested false still gets its seat and its price');
 select pg_temp.assert((select array_agg(x ->> 'outcome' order by o) from jsonb_array_elements(:'pv'::jsonb -> 'lines') with ordinality a(x, o)) = array['seat', 'seat', 'seat', 'seat']
                       and (:'pv'::jsonb ->> 'total_cents')::int = 32500 and (:'pv'::jsonb ->> 'due_now_cents')::int = 32500
                       and (:'pv'::jsonb -> 'pay') = 'null'::jsonb and (:'pv'::jsonb -> 'registration_id') = 'null'::jsonb

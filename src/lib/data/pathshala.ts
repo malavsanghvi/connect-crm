@@ -207,7 +207,7 @@ async function termStatsFromRpc(db: AppSupabase, termId: string): Promise<TermSt
   try {
     // app.pathshala_term_stats is added by the schema stream; until the
     // generated types include it, call it through the untyped signature.
-    const rpc = db.rpc.bind(db) as unknown as RpcCaller;
+    const rpc = (db as unknown as { rpc: RpcCaller }).rpc.bind(db);
     const { data, error } = await rpc("pathshala_term_stats", { p_term: termId });
     if (error) {
       if (isMissingFunction(error)) {

@@ -19,7 +19,7 @@ import type { AppSupabase } from "@/lib/supabase/server";
 // set_zelle_reporting is the one call through the untyped signature (as src/app/(app)/content/niva/actions.ts
 // does): its generated type cannot express "no bank account" (a null p_bank_account).
 type RpcCaller = (fn: string, args: Record<string, unknown>) => PromiseLike<{ data: unknown; error: DbErrorLike | null }>;
-const untypedRpc = (db: AppSupabase) => db.rpc.bind(db) as unknown as RpcCaller;
+const untypedRpc = (db: AppSupabase) => (db as unknown as { rpc: RpcCaller }).rpc.bind(db);
 
 const UNEXPECTED_SHAPE = "the database answered in a shape this screen does not understand (has the latest migration been applied?).";
 

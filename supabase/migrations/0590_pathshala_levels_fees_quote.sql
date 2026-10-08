@@ -733,6 +733,14 @@ begin
 end $$;
 
 -- Why pay now cannot be chosen (null = it can). The fee-receipt condition (P13) opens in 0595.
+-- TODO(0595), before pay now can be switched on:
+--   * Rounding: the sibling discount and the family cap are applied in whole cents and can leave a line below $0.50, the
+--     smallest online payment (app.create_checkout). That is fine in a pledge term (the family pays the office or the
+--     treasurer) but unpayable online, so pay now must decide what such a line does (for example: refuse the plan with a
+--     plain sentence, or hand it to the office) before it is allowed.
+--   * Pauses: app.pathshala_online_payments_ready above tests the catalog status ('suspended') only. Since 0597 a platform
+--     pause for ONE organization is app.payment_plugin_is_paused(center, key); use it here, so a paused Card or PayPal
+--     does not read as "ready". (app.create_checkout is still refused by the 0597 pause trigger, with a plain sentence.)
 create or replace function app._pathshala_pay_now_problem(p_center uuid) returns text
 language plpgsql stable security definer set search_path = app, public, extensions as $$
 begin
@@ -1130,7 +1138,7 @@ $$;
 -- Per offered level: members see the counts (no names); staff the same.
 create or replace function app.pathshala_seats(p_term uuid) returns jsonb
 language plpgsql stable security definer set search_path = app, public, extensions as $$
-declare t app.pathshala_terms;
+declare t app.pathshala_terms; v_fees boolean;
 begin
   select * into t from app.pathshala_terms where id = p_term;
   if t.id is null then raise exception 'That term was not found.' using errcode = 'P0002'; end if;
@@ -1139,9 +1147,14 @@ begin
           or (app.is_member_of(t.center_id) and t.status <> 'draft')) then
     raise exception 'Only members of this community can see the seats of its Pathshala classes.' using errcode = '42501';
   end if;
+  -- The fee is for the community's adults and staff, as the level-fee read policy says; a child's own login sees the seats but
+  -- never a fee (P30).
+  v_fees := app.has_permission(t.center_id, 'pathshala.view') or app.has_permission(t.center_id, 'pathshala.manage')
+            or app.has_permission(t.center_id, 'giving.view') or app.has_permission(t.center_id, 'giving.manage')
+            or app.pathshala_i_am_adult(t.center_id);
   return coalesce((
     select jsonb_agg(jsonb_build_object('level_id', l.id, 'level', l.name, 'track_id', l.track_id, 'track', tr.name,
-                                        'fee_cents', f.fee_cents, 'classes', s.classes, 'seats', s.seats, 'taken', s.taken,
+                                        'fee_cents', case when v_fees then f.fee_cents end, 'classes', s.classes, 'seats', s.seats, 'taken', s.taken,
                                         'held', s.held, 'free', s.free, 'waitlist', s.waitlist, 'waitlist_on', s.waitlist_on,
                                         'state', app.pathshala_seat_state(s.free, s.classes, s.waitlist_on))
                      order by tr.name, l.sort_order, l.name)
@@ -1409,8 +1422,10 @@ begin
                                         'late', coalesce(p_late, false), 'age_cutoff_on', v_cut, 'quoted_at', now()));
 end $$;
 
--- The quote a family (an adult of the household) or Pathshala staff sees. The late fee applies when registration has
--- closed (the late window for families; the office after it).
+-- The quote a family (an adult of the household) or the Pathshala office (pathshala.manage) sees. Committee members
+-- (pathshala.view) see totals elsewhere, not a family's quote: it would show what the siblings already registered (the
+-- sibling rank and the cap reduction). The late fee applies when registration has closed (the late window for families; the
+-- office after it).
 create or replace function app.pathshala_quote(p_term uuid, p_household uuid, p_lines jsonb) returns jsonb
 language plpgsql stable security definer set search_path = app, public, extensions as $$
 declare t app.pathshala_terms; h app.households; e jsonb; v_person uuid;
@@ -1421,9 +1436,8 @@ begin
   perform app.assert_module_enabled(t.center_id, 'pathshala');
   select * into h from app.households where id = p_household;
   if h.id is null or h.center_id <> t.center_id then raise exception 'That family was not found in this community.' using errcode = 'P0002'; end if;
-  if not (app.pathshala_adult_of_household(t.center_id, p_household)
-          or app.has_permission(t.center_id, 'pathshala.view') or app.has_permission(t.center_id, 'pathshala.manage')) then
-    raise exception 'Only an adult of the family can see what Pathshala costs for it.' using errcode = '42501';
+  if not (app.pathshala_adult_of_household(t.center_id, p_household) or app.has_permission(t.center_id, 'pathshala.manage')) then
+    raise exception 'Only an adult of the family or the Pathshala office can see what Pathshala costs for it.' using errcode = '42501';
   end if;
   -- A family's quote prices its own current members only, as the preview and the registration do (app._pathshala_plan):
   -- it never answers with another person's age on the cut-off or whether they count as a child.
@@ -1642,6 +1656,14 @@ begin
     raise exception 'Choose who is joining.' using errcode = '22023';
   end if;
   if jsonb_array_length(p_learners) > 12 then raise exception 'Register at most 12 learners at a time.' using errcode = '22023'; end if;
+  -- Fee assistance (P8) is built in 0592. Until then nothing can approve or bill a request: a learner would be given a seat
+  -- with no pledge and the fee line would stay "quoted" for ever (and a pay-now hold would never end). So it is refused here,
+  -- before anything is priced or written. The column, the note table and the code paths below stay for 0592, which removes
+  -- this check.
+  if exists (select 1 from jsonb_array_elements(p_learners) x
+              where coalesce(app._pathshala_bool(x, 'assistance_requested', 'Fee assistance'), false)) then
+    raise exception 'Fee assistance opens in the next release. Ask the Pathshala office.' using errcode = '22023';
+  end if;
   v_cut := app.pathshala_age_cutoff(t.id);
   v_me := app.my_person_id(t.center_id);
   v_waiver := app.pathshala_current_waiver(t.center_id);
@@ -2177,7 +2199,7 @@ comment on function app.set_pathshala_term_rules(uuid, jsonb, text) is
 comment on function app.open_pathshala_registration(uuid, text) is
   'pathshala.manage: refuses while an offered level (active, with a class this term) has no fee ("Set the fee for Gujarati 3 and Hindi 1 before opening registration.") and, for pay now, while it is not ready; with Pledges & donations on it creates or reuses the closed campaign "Pathshala fees <term>" (kind pathshala) linked to the term''s fund, else the Pathshala fund (key pathshala; none: "There is no fund for the Pathshala fees yet. Ask the treasurer to add a fund called Pathshala in Setup › Lists, or choose a fund on this Fees screen if you also manage Giving; then open registration."); fixes the age cut-off and withdrawal deadline, locks the fees and rules, and moves a draft to registration. Idempotent. Returns {term_id, status, already_open, fees_locked_at, campaign_id, fund_id, payment_mode, warnings[] (offered levels with no age band)}.';
 comment on function app.pathshala_quote(uuid, uuid, jsonb) is
-  'The one pricing rule (§2.4) for an adult of the household or Pathshala staff: p_lines [{person_id | new_child, track_id, level_id}] → {lines[{index, person_id, track_id, level_id, learner_kind, family_rank (children only), age_on_cutoff, base_fee_cents, sibling_discount_cents, cap_reduction_cents, late_fee_cents, assistance_cents, total_cents, priced}], children_total_cents, adults_total_cents, total_cents, late, rule_snapshot}. Writes nothing.';
+  'The one pricing rule (§2.4) for an adult of the household or the Pathshala office (pathshala.manage; a committee member with only pathshala.view is refused, the answer shows what siblings already registered): p_lines [{person_id | new_child, track_id, level_id}] → {lines[{index, person_id, track_id, level_id, learner_kind, family_rank (children only), age_on_cutoff, base_fee_cents, sibling_discount_cents, cap_reduction_cents, late_fee_cents, assistance_cents, total_cents, priced}], children_total_cents, adults_total_cents, total_cents, late, rule_snapshot}. Writes nothing.';
 comment on function app.pathshala_fee_example(uuid, jsonb) is
   '"Try a family" on the Fees screen (pathshala.view): hypothetical lines [{learner (optional, 1–80 characters), name, age | date_of_birth, learner_kind, track_id, level_id}], or {"lines": [...], "late": true}; nobody''s registrations count. Prices as a registration does: lines with the same learner (trimmed, any case) are ONE learner (one child for the sibling order and the family cap, one late fee, P10); without learner each line is its own learner. Same shape as app.pathshala_quote, and each line has refusal: null, or the plain sentence a registration would refuse that line with (a level without a fee, not offered, of another track, an adult class for a child or a children''s level for an adult, no track, no level in a pay-now term, the same learner twice in a track); a refused line has priced false and every amount 0, and is left out of the totals and the sibling order.';
 comment on function app.pathshala_registration_options(uuid, uuid) is
