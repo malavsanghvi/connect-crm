@@ -118,17 +118,22 @@ create trigger audit_payee_changes after insert or update or delete on app.payee
 -- The vault's rule (0170), not has_permission: the owner, or an active role grant with the permission. A
 -- platform admin's blanket permissions do NOT count: Community Connect never changes, or confirms a change
 -- of, where an organization's gifts go (its only power over payments is the pause).
-create or replace function app.payee_has_permission(p_center uuid, p_perm text) returns boolean
+create or replace function app.payee_user_has_permission(p_center uuid, p_user uuid, p_perm text) returns boolean
 language sql stable security definer set search_path = app, public, extensions as $$
-  select auth.uid() is not null and (
-    app.is_center_owner(p_center)
+  select p_user is not null and (
+    exists (select 1 from app.center_owners o where o.center_id = p_center and o.user_id = p_user)
     or exists (
       select 1 from app.role_grants g join app.roles r on r.key = g.role_key
-       where g.center_id = p_center and g.user_id = auth.uid()
+       where g.center_id = p_center and g.user_id = p_user
          and g.scope_kind in ('center','platform')
          and g.status = 'active'
          and g.starts_at <= now() and (g.ends_at is null or g.ends_at > now())
          and (r.permissions ? p_perm or r.permissions ? '*')))
+$$;
+
+create or replace function app.payee_has_permission(p_center uuid, p_perm text) returns boolean
+language sql stable security definer set search_path = app, public, extensions as $$
+  select auth.uid() is not null and app.payee_user_has_permission(p_center, auth.uid(), p_perm)
 $$;
 
 -- The first person (plan §2.5): the owner, integrations.manage or giving.manage.
@@ -263,6 +268,34 @@ create trigger payee_guard before update or delete on app.integration_connection
   for each row when (old.provider in ('paypal','stripe'))
   execute function app.payee_guard_connections();
 
+-- A request that waits for a PayPal account that is disconnected, or for Zelle that is switched off, would otherwise
+-- re-connect a deliberately disconnected account (PayPal) or change a method nobody offers: it is withdrawn instead.
+create or replace function app.payee_changes_cancel_on_disconnect() returns trigger
+language plpgsql security definer set search_path = app, public, extensions as $$
+declare v_plugin text; v_why text; j jsonb := to_jsonb(new);
+begin
+  -- (to_jsonb: the same function serves two tables, and a record's missing field is an error even in a branch not taken.)
+  if tg_table_name = 'center_payment_processors' and j->>'processor' = 'paypal' then
+    v_plugin := 'paypal'; v_why := 'PayPal was disconnected';
+  elsif tg_table_name = 'center_payment_methods' and j->>'method' = 'zelle' then
+    v_plugin := 'zelle'; v_why := 'Zelle was switched off';
+  end if;
+  if v_plugin is not null then
+    update app.payee_changes
+       set status = 'cancelled', decided_at = now(), decision_reason = v_why || ', so the request was withdrawn'
+     where center_id = new.center_id and plugin_key = v_plugin and status = 'pending';
+  end if;
+  return null;
+end $$;
+drop trigger if exists payee_changes_cancel on app.center_payment_processors;
+create trigger payee_changes_cancel after update of status on app.center_payment_processors
+  for each row when (new.processor = 'paypal' and new.status in ('not_connected','disabled') and old.status is distinct from new.status)
+  execute function app.payee_changes_cancel_on_disconnect();
+drop trigger if exists payee_changes_cancel on app.center_payment_methods;
+create trigger payee_changes_cancel after update of accepted on app.center_payment_methods
+  for each row when (new.method = 'zelle' and old.accepted and not new.accepted)
+  execute function app.payee_changes_cancel_on_disconnect();
+
 -- ── One request ──────────────────────────────────────────────────────────────
 -- Internal (every caller has checked who may, asked for a fresh 2FA check and a reason). A newer request
 -- replaces a waiting one that touches the same fields; a lapsed one is marked lapsed.
@@ -381,6 +414,12 @@ begin
   if r.expires_at <= now() then
     raise exception 'This request lapsed on %. Ask for the change again.', to_char(r.expires_at, 'FMMonth FMDD, YYYY') using errcode = '22023';
   end if;
+  -- The person who asked must still be allowed to ask (their role may have ended since).
+  if p_approve and not (app.payee_user_has_permission(r.center_id, r.requested_by, 'integrations.manage')
+                        or app.payee_user_has_permission(r.center_id, r.requested_by, 'giving.manage')) then
+    raise exception 'The person who asked (%) no longer holds a role that may ask for this. Ask for the change again.', app.refund_person_name(r.center_id, r.requested_by)
+      using errcode = '22023';
+  end if;
   perform app.assert_step_up('payments.payee');
   perform app.payments_require_reason(p_reason, case when p_approve then 'confirm this change' else 'turn this change down' end);
 
@@ -411,6 +450,10 @@ begin
         raise exception 'The bank account chosen for Zelle changed after this request was made. Ask for the change again.' using errcode = '22023';
       end if;
     end loop;
+    if r.changes ? 'bank_account_id' and (r.changes #>> '{bank_account_id,to}') is not null
+       and not exists (select 1 from app.bank_accounts b where b.id::text = r.changes #>> '{bank_account_id,to}' and b.center_id = r.center_id and b.active) then
+      raise exception 'The bank account chosen is no longer an active account of this organization. Ask for the change again.' using errcode = '22023';
+    end if;
     perform set_config('app.payee_apply', 'on', true);
     if r.changes ? 'recipient' or r.changes ? 'name' then
       update app.center_payment_methods set instructions = v_instr, updated_by = auth.uid()
@@ -724,13 +767,25 @@ drop trigger if exists payment_plugins_suspension_sync on app.payment_plugin_sus
 create trigger payment_plugins_suspension_sync after insert or update on app.payment_plugin_suspensions
   for each row when (new.target_center is not null) execute function app.payment_plugins_suspension_sync();
 
+-- Only rehearsal (test) reports can change a plugin's state, so only they cost a refresh: in production a report or a sweep
+-- row touches nothing here.
 drop trigger if exists payment_plugins_sync_reports on app.payment_reports;
-create trigger payment_plugins_sync_reports after insert or update of status, is_test or delete on app.payment_reports
-  for each row execute function app.payment_plugins_sync();
+drop trigger if exists payment_plugins_sync_reports_ins on app.payment_reports;
+drop trigger if exists payment_plugins_sync_reports_upd on app.payment_reports;
+drop trigger if exists payment_plugins_sync_reports_del on app.payment_reports;
+create trigger payment_plugins_sync_reports_ins after insert on app.payment_reports
+  for each row when (new.is_test) execute function app.payment_plugins_sync();
+create trigger payment_plugins_sync_reports_upd after update of status, is_test on app.payment_reports
+  for each row when (new.is_test or old.is_test) execute function app.payment_plugins_sync();
+create trigger payment_plugins_sync_reports_del after delete on app.payment_reports
+  for each row when (old.is_test) execute function app.payment_plugins_sync();
 
 -- ── A pause stops new payments from starting ─────────────────────────────────
 -- Only the START of a payment: a new checkout, a new Zelle report. Recording what already arrived, matching
 -- bank lines and refunds are not touched.
+-- A checkout is guarded by its processor's own plugin (Card for Stripe, PayPal for PayPal). Apple Pay, Google Pay and
+-- Bank debit ride on a Card checkout and are chosen on Stripe's own page, so pausing one of them hides it from members here
+-- (member_payment_methods) but cannot take it off that page: to stop money arriving through Stripe, pause Card.
 create or replace function app.payment_checkouts_pause_guard() returns trigger
 language plpgsql security definer set search_path = app, public, extensions as $$
 declare v_key text := case new.processor when 'paypal' then 'paypal' else 'card' end;
@@ -1273,7 +1328,8 @@ do $$ begin
 end $$;
 
 -- ── Grants ───────────────────────────────────────────────────────────────────
-revoke execute on function app.payee_has_permission(uuid, text), app.payee_can_request(uuid), app.payee_can_approve(uuid),
+revoke execute on function app.payee_user_has_permission(uuid, uuid, text), app.payee_changes_cancel_on_disconnect(),
+  app.payee_has_permission(uuid, text), app.payee_can_request(uuid), app.payee_can_approve(uuid),
   app.payee_field_label(text), app.payment_plugin_is_paused(uuid, text),
   app.payee_guard_methods(), app.payee_guard_centers(), app.payee_guard_connections(),
   app._create_payee_change(uuid, text, jsonb, jsonb, text),

@@ -563,6 +563,90 @@ select pg_temp.assert_state($$select app.request_payee_change('00000000-0000-400
   'CCSTP', '2FA rule on (the default of a new community): a fresh check is asked even without an authenticator app');
 reset role;
 
+-- ═════════════════════════════════════════════════════════════════════════════
+-- A waiting request is checked again when it is confirmed, and withdrawn when what it waits for goes away
+-- ═════════════════════════════════════════════════════════════════════════════
+-- The person who asked must still hold a role that may ask (Basil's administrator role ends while his request waits).
+select pg_temp.claims('82000000-0000-4000-8000-000000000004', true);
+set local role authenticated;
+select (app.request_payee_change(:c, 'zelle', '{"recipient":"asker-gone@pc82.example"}', 'Moving Zelle to a new address'))->>'id' as req12 \gset
+reset role;
+select pg_temp.no_claims();
+update app.role_grants set status = 'revoked' where center_id = :c and user_id = :basil;
+select pg_temp.claims('82000000-0000-4000-8000-000000000003', true);
+set local role authenticated;
+select pg_temp.assert_raises(format($$select app.decide_payee_change(%L, true, 'Looks right')$$, :'req12'), 'no longer holds a role',
+  'a request cannot be confirmed once the person who asked has lost the role that lets them ask');
+select pg_temp.assert((app.decide_payee_change(:'req12', false, 'The person who asked no longer has that role'))->>'status' = 'rejected',
+  'but it can still be turned down');
+reset role;
+select pg_temp.no_claims();
+update app.role_grants set status = 'active' where center_id = :c and user_id = :basil;
+select pg_temp.assert(pg_temp.zelle_recipient(:c) = 'x2@pc82.example', 'and the address is still the confirmed one');
+
+-- PayPal is disconnected while a new email waits: the request is withdrawn, it cannot bring PayPal back.
+insert into app.paypal_email_verifications (center_id, connection_id, email, code_hash, expires_at, requested_by)
+values (:c, :'conn', 'fourth@pp82.example', encode(extensions.digest('123456:' || :c, 'sha256'), 'hex'), now() + interval '15 minutes', :ami)
+on conflict (center_id) do update set connection_id = excluded.connection_id, email = excluded.email, code_hash = excluded.code_hash,
+  expires_at = excluded.expires_at, attempts = 0, used_at = null;
+select pg_temp.claims('82000000-0000-4000-8000-000000000001', true);
+set local role authenticated;
+select app.confirm_paypal_email('00000000-0000-4000-8000-000000008201', '123456') as pp4 \gset
+reset role;
+select (:'pp4'::jsonb)->>'request_id' as req13 \gset
+select pg_temp.assert((:'pp4'::jsonb)->>'pending' = 'true' and pg_temp.req_status(:'req13') = 'pending', 'a new PayPal email waits for a second person');
+select pg_temp.claims('82000000-0000-4000-8000-000000000001', true);
+set local role authenticated;
+select app.disconnect_payment_processor('00000000-0000-4000-8000-000000008201', 'paypal', 'We stopped taking PayPal');
+reset role;
+select pg_temp.assert(pg_temp.req_status(:'req13') = 'cancelled'
+                      and (select decision_reason like 'PayPal was disconnected%' from app.payee_changes where id = :'req13')
+                      and (select ic.status = 'disconnected' and ic.settings->>'paypal_email' = 'third@pp82.example' from app.integration_connections ic where ic.id = :'conn'),
+  'disconnecting PayPal withdraws the waiting request, and the saved email is untouched');
+select pg_temp.claims('82000000-0000-4000-8000-000000000003', true);
+set local role authenticated;
+select pg_temp.assert_raises(format($$select app.decide_payee_change(%L, true, 'Looks right')$$, :'req13'), 'withdrawn',
+  'so a second person cannot confirm it and bring a disconnected PayPal back');
+reset role;
+select pg_temp.no_claims();
+update app.integration_connections set status = 'connected' where id = :'conn';
+update app.center_payment_processors set status = 'test' where center_id = :c and processor = 'paypal';
+
+-- Zelle is switched off while a change waits: withdrawn as well.
+select instructions as zi from app.center_payment_methods where center_id = :c and method = 'zelle' \gset
+select pg_temp.claims('82000000-0000-4000-8000-000000000002', true);
+set local role authenticated;
+select (app.request_payee_change(:c, 'zelle', '{"recipient":"switch-off@pc82.example"}', 'Moving Zelle to a new address'))->>'id' as req14 \gset
+select app.set_payment_method('00000000-0000-4000-8000-000000008201', 'zelle', false, :'zi'::jsonb, 3, 'We stopped taking Zelle for now');
+reset role;
+select pg_temp.assert(pg_temp.req_status(:'req14') = 'cancelled' and (select decision_reason like 'Zelle was switched off%' from app.payee_changes where id = :'req14'),
+  'switching Zelle off withdraws the waiting request');
+select pg_temp.claims('82000000-0000-4000-8000-000000000002', true);
+set local role authenticated;
+select app.set_payment_method('00000000-0000-4000-8000-000000008201', 'zelle', true, :'zi'::jsonb, 3, 'Zelle is back');
+reset role;
+select pg_temp.assert(pg_temp.zelle_recipient(:c) = 'x2@pc82.example' and pg_temp.in_step(:c), 'and switching it back on does not change the address');
+
+-- The bank account chosen must still be an active account when the change is confirmed.
+select pg_temp.claims('82000000-0000-4000-8000-000000000002', true);
+set local role authenticated;
+select (app.request_payee_change(:c, 'zelle', '{"bank_account_id":"82000000-0000-4000-8000-0000000000b1"}', 'Back to the operating account'))->>'id' as req15 \gset
+reset role;
+select pg_temp.no_claims();
+update app.bank_accounts set active = false where id = :ba1;
+select pg_temp.claims('82000000-0000-4000-8000-000000000003', true);
+set local role authenticated;
+select pg_temp.assert_raises(format($$select app.decide_payee_change(%L, true, 'Looks right')$$, :'req15'), 'no longer an active account',
+  'a bank account that was closed while the change waited is refused when it is confirmed');
+reset role;
+select pg_temp.no_claims();
+update app.bank_accounts set active = true where id = :ba1;
+select pg_temp.claims('82000000-0000-4000-8000-000000000002', true);
+set local role authenticated;
+select app.cancel_payee_change(:'req15', 'Not needed after all');
+reset role;
+select pg_temp.assert(app.zelle_bank_account_id(:c) = :ba2 and pg_temp.req_status(:'req15') = 'cancelled', 'and the Zelle bank account is the one confirmed before');
+
 -- Who sees the requests.
 select pg_temp.claims('82000000-0000-4000-8000-000000000006');
 set local role authenticated;
@@ -592,6 +676,15 @@ reset role;
 -- ═════════════════════════════════════════════════════════════════════════════
 -- Community Connect's pause
 -- ═════════════════════════════════════════════════════════════════════════════
+-- Money that is already on its way is never stopped by a pause. Set up now, finished while the way to pay is paused: a Zelle
+-- report and the payment it matches, and a card payment that was started before the pause.
+select pg_temp.no_claims();
+insert into app.payments (id, center_id, household_id, amount_cents, method, status, provider, provider_ref, received_on)
+values ('82000000-0000-4000-8000-0000000000e2', :c, :h1, 4200, 'zelle', 'settled', 'bank', 'bank82c', current_date);
+insert into app.payment_reports (id, center_id, household_id, reported_by, amount_cents, sent_on, window_days, due_on)
+values ('82000000-0000-4000-8000-0000000000d3', :c, :h1, :mira, 4200, current_date - 1, 10, current_date + 9);
+insert into app.payment_checkouts (id, center_id, household_id, processor, mode, context, amount_cents, for_label, status, provider_ref)
+values ('82000000-0000-4000-8000-0000000000f5', :c, :h1, 'stripe', 'test', 'other', 5000, 'Gift started before the pause', 'pending', 'cs_82pre');
 select pg_temp.claims('82000000-0000-4000-8000-000000000001', true);
 set local role authenticated;
 select pg_temp.assert_state($$select app.suspend_payment_plugin('zelle', '00000000-0000-4000-8000-000000008201', 'We want it off')$$, '42501',
@@ -650,6 +743,15 @@ select pg_temp.assert((select r->>'ready' = 'false' and r->>'detail' like 'Commu
   'readiness names the pause (an organization cannot go live with a paused way to pay turned on)');
 reset role;
 
+-- A pause stops a new payment from starting. It never stops money already paid from being recorded: the treasurer still matches
+-- the report that was made before the pause to the Zelle on the bank statement.
+select pg_temp.claims('82000000-0000-4000-8000-000000000002', false);
+set local role authenticated;
+select app.link_payment_report('82000000-0000-4000-8000-0000000000d3', '82000000-0000-4000-8000-0000000000e2', 'The Zelle is on the bank statement');
+reset role;
+select pg_temp.assert((select status = 'matched' and payment_id = '82000000-0000-4000-8000-0000000000e2' from app.payment_reports where id = '82000000-0000-4000-8000-0000000000d3')
+                      and pg_temp.st(:c, 'zelle') = 'suspended',
+  'while Zelle is paused, a report made before the pause is still matched to its payment');
 select pg_temp.claims('82000000-0000-4000-8000-000000000001', true);
 set local role authenticated;
 select pg_temp.assert_state($$select app.lift_payment_plugin_suspension('zelle', '00000000-0000-4000-8000-000000008201', 'Please')$$, '42501', 'the owner cannot lift a pause');
@@ -682,7 +784,33 @@ select pg_temp.assert_raises($$insert into app.payment_checkouts (center_id, hou
 insert into app.payment_checkouts (center_id, household_id, processor, mode, context, amount_cents, for_label)
 values (:c, :h1, 'paypal', 'test', 'other', 5000, 'Gift');
 select pg_temp.assert(true, 'a PayPal checkout still can (only the paused way to pay stops)');
-delete from app.payment_checkouts where center_id = :c;
+delete from app.payment_checkouts where center_id = :c and for_label = 'Gift';
+-- A payment started before the pause is still recorded when Stripe confirms it; a refund made in the Stripe dashboard is still
+-- flagged and still takes its two approvals. The pause only stops a NEW checkout from starting.
+select pg_temp.no_claims();
+grant connect_worker to postgres;
+set local role connect_worker;
+select pg_temp.assert(not (app.worker_record_online_payment('82000000-0000-4000-8000-0000000000f5', 'pi_82pre', 5000, 175, 'card')->>'duplicate')::boolean,
+  'while Card is paused for everyone, a card payment started before the pause is still recorded when Stripe confirms it');
+select pg_temp.assert((app.worker_flag_provider_refund('stripe', 'pi_82pre', 2000, 're_82pre', (now() at time zone 'America/Chicago')::date, 'charge.refunded')->>'outcome') = 'flagged',
+  'and a refund made in the Stripe dashboard is still flagged');
+reset role;
+select id as rid82 from app.payment_refunds where provider_ref = 're_82pre' \gset
+select pg_temp.assert((select p.status = 'captured' and p.amount_cents = 5000 and p.fee_cents = 175 and p.center_id = :c from app.payments p where p.provider = 'stripe' and p.provider_ref = 'pi_82pre')
+                      and (select k.status = 'paid' and k.payment_id is not null from app.payment_checkouts k where k.id = '82000000-0000-4000-8000-0000000000f5'),
+  'the payment and its checkout are recorded as they always are');
+select pg_temp.claims('82000000-0000-4000-8000-000000000002', true);
+set local role authenticated;
+select pg_temp.assert((app.approve_flagged_refund(:'rid82', 'Donor asked for part of the gift back'))->>'stage' = 'first', 'the first treasurer approves the flagged refund while Card is paused');
+reset role;
+select pg_temp.claims('82000000-0000-4000-8000-000000000003', true);
+set local role authenticated;
+select pg_temp.assert((app.approve_flagged_refund(:'rid82', 'Checked the Stripe dashboard'))->>'stage' = 'applied', 'a different treasurer approves second');
+reset role;
+select pg_temp.assert((select refunded_cents = 2000 and status = 'partially_refunded' from app.payments where provider = 'stripe' and provider_ref = 'pi_82pre')
+                      and pg_temp.st(:c, 'card') = 'suspended',
+  'the refund is recorded while Card stays paused');
+
 select pg_temp.claims('82000000-0000-4000-8000-000000000007', true);
 select pg_temp.assert_raises($$select app.suspend_payment_plugin('card', null, 'Again')$$, 'already paused for every community', 'pausing it twice is refused');
 set local role authenticated;
@@ -704,7 +832,7 @@ select pg_temp.assert(not exists (select 1 from app.audit_log where reason like 
 reset role;
 select pg_temp.no_claims();
 insert into app.payment_checkouts (center_id, household_id, processor, mode, context, amount_cents, for_label) values (:c, :h1, 'stripe', 'test', 'other', 5000, 'Gift');
-delete from app.payment_checkouts where center_id = :c;
+delete from app.payment_checkouts where center_id = :c and for_label = 'Gift';
 select pg_temp.assert(true, 'and a card checkout can start again');
 
 -- A platform admin's only power over payments is the pause.
@@ -842,6 +970,7 @@ select pg_temp.assert((select bool_and(p.prosecdef = (p.oid <> 'app.payee_field_
                                        and not has_function_privilege('anon', p.oid, 'execute'))
                          from pg_proc p
                         where p.oid in ('app.payee_has_permission(uuid,text)'::regprocedure, 'app.payee_can_request(uuid)'::regprocedure,
+                                        'app.payee_user_has_permission(uuid,uuid,text)'::regprocedure, 'app.payee_changes_cancel_on_disconnect()'::regprocedure,
                                         'app.payee_can_approve(uuid)'::regprocedure, 'app.payee_field_label(text)'::regprocedure,
                                         'app.payment_plugin_is_paused(uuid,text)'::regprocedure, 'app.payee_guard_methods()'::regprocedure,
                                         'app.payee_guard_centers()'::regprocedure, 'app.payee_guard_connections()'::regprocedure,
@@ -877,6 +1006,7 @@ select pg_temp.assert(has_function_privilege('authenticated', 'app.payee_can_req
                       and has_function_privilege('authenticated', 'app.member_payment_methods(uuid)', 'execute')
                       and has_function_privilege('authenticated', 'app.check_payments_live(uuid)', 'execute')
                       and not has_function_privilege('authenticated', 'app.payee_has_permission(uuid,text)', 'execute')
+                      and not has_function_privilege('authenticated', 'app.payee_user_has_permission(uuid,uuid,text)', 'execute')
                       and not has_function_privilege('authenticated', 'app._create_payee_change(uuid,text,jsonb,jsonb,text)', 'execute')
                       and not has_function_privilege('authenticated', 'app.payment_plugin_is_paused(uuid,text)', 'execute')
                       and not has_function_privilege('authenticated', 'app.payment_plugin_status(uuid,text)', 'execute')
@@ -890,7 +1020,14 @@ select pg_temp.assert(has_function_privilege('authenticated', 'app.payee_can_req
 select pg_temp.assert((select count(*) = 1 from pg_trigger where tgname = 'payee_guard' and not tgisinternal and tgrelid = 'app.center_payment_methods'::regclass)
                       and (select count(*) = 1 from pg_trigger where tgname = 'payee_guard' and not tgisinternal and tgrelid = 'app.centers'::regclass)
                       and (select count(*) = 1 from pg_trigger where tgname = 'payee_guard' and not tgisinternal and tgrelid = 'app.integration_connections'::regclass)
-                      and (select count(*) = 1 from pg_trigger where tgname = 'payment_plugins_sync_reports' and not tgisinternal and tgrelid = 'app.payment_reports'::regclass),
-  'the payee guards sit on the three places a payee lives, and the report trigger on payment_reports');
+                      and not exists (select 1 from pg_trigger where tgname = 'payment_plugins_sync_reports' and tgrelid = 'app.payment_reports'::regclass)
+                      and (select count(*) = 3 from pg_trigger
+                            where tgname in ('payment_plugins_sync_reports_ins', 'payment_plugins_sync_reports_upd', 'payment_plugins_sync_reports_del')
+                              and not tgisinternal and tgrelid = 'app.payment_reports'::regclass
+                              and pg_get_triggerdef(oid) ilike '%WHEN (%is_test%'),
+  'the payee guards sit on the three places a payee lives, and the report triggers on payment_reports run only for rehearsal (test) reports');
+select pg_temp.assert((select count(*) = 1 from pg_trigger where tgname = 'payee_changes_cancel' and not tgisinternal and tgrelid = 'app.center_payment_processors'::regclass)
+                      and (select count(*) = 1 from pg_trigger where tgname = 'payee_changes_cancel' and not tgisinternal and tgrelid = 'app.center_payment_methods'::regclass),
+  'a waiting request is withdrawn by triggers on the processors and on the offline methods');
 select pg_temp.assert((select check_fn = 'app.check_payments_live'::regproc from app.readiness_checks where key = 'payments_live'),
   'readiness check 6 is registered on the new function');
