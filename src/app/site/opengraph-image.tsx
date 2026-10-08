@@ -23,7 +23,7 @@ export default function OpenGraphImage() {
           <div style={{ display: "flex", fontSize: 92, fontWeight: 700, lineHeight: 1.02, color: "#1B2C5C" }}>Run your community.</div>
           <div style={{ display: "flex", fontSize: 92, fontWeight: 700, lineHeight: 1.02, color: "#C9731C" }}>Free, forever.</div>
         </div>
-        <div style={{ display: "flex", fontSize: 32, color: "#5E5A52" }}>Members, households, events, giving and accounting in one place.</div>
+        <div style={{ display: "flex", fontSize: 32, color: "#5E5A52" }}>Faith Weaver · Community Weaver · Org Weaver</div>
       </div>
     ),
     { ...size },

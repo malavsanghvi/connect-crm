@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { Icon } from "@/components/site/icons";
 import { TipCheckoutMock } from "@/components/site/mockups";
 import { Eyebrow, FaqList, SectionHeading, SiteLink, Ticks, buttonStyles, container } from "@/components/site/ui";
+import { WEAVERS } from "@/components/site/weavers";
 import { SITE_NAME, TIP_YEARLY_CAP_CENTS, portalUrl, usd } from "@/lib/site";
 
 const CAP = usd(TIP_YEARLY_CAP_CENTS);
@@ -63,6 +64,15 @@ function PlanCard() {
             <p className="font-display text-[104px] font-semibold leading-[0.9] sm:text-[120px]">$0</p>
             <p className="text-lg font-semibold text-navy-200">for your organization, always</p>
             <p className="text-[15px] leading-relaxed text-navy-300">No credit card to start. Start in a private sandbox and go live when you are ready.</p>
+            <div className="flex flex-wrap items-center gap-2 pt-1">
+              {WEAVERS.map((w) => (
+                <span key={w.id} className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1.5 text-[13px] font-bold text-white">
+                  <Icon name={w.icon} className="h-3.5 w-3.5 text-gold" />
+                  {w.name}
+                </span>
+              ))}
+              <span className="text-[13px] text-navy-300">The same plan, free for all three.</span>
+            </div>
             <a href={portalUrl("/request-access")} className={`${buttonStyles.gold} mt-2 w-full sm:w-auto`}>
               Get started free
               <Icon name="arrow" className="h-5 w-5" />

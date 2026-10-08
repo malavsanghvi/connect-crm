@@ -13,7 +13,7 @@ import { hostName, normalizeBaseDomain } from "@/lib/tenancy";
 export const SITE_NAME = "Weaver AMS";
 export const SITE_TAGLINE = "Free membership software for communities";
 export const SITE_DESCRIPTION =
-  "Weaver AMS brings your members, households, events, giving, classes and accounting into one trusted place. Free for your organization, forever.";
+  "Faith Weaver, Community Weaver and Org Weaver (Weaver AMS) bring your members, households, events, giving, classes and accounting into one trusted place. Free for your organization, forever.";
 
 /** The product's own domain; PUBLIC_SITE_DOMAIN overrides it for another deployment. */
 export const DEFAULT_SITE_DOMAIN = "weaverams.org";

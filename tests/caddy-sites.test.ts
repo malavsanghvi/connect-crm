@@ -129,33 +129,6 @@ describe("buildCaddySites", () => {
       expect(main).toContain(":80 {");
     });
 
-    it("www.<base> and the bare <base> are the public website: the portal answers them, never the member app", () => {
-      const { files, summary } = buildCaddySites(withBase);
-      const main = files["crm.caddy"];
-      const http = blockOf(main, "http://www.weaverams.org, http://weaverams.org");
-      expect(http).toContain("reverse_proxy 127.0.0.1:3000");
-      expect(http).not.toContain("root *");
-      expect(http).toContain("redir @https_ready https://{host}{uri} 308");
-      const wild = files["crm-wildcard.caddy"];
-      const https = blockOf(wild, "https://www.weaverams.org, https://weaverams.org");
-      // On demand, so Caddy starts while the DNS records still point at the registrar; tls-ask approves the names later.
-      expect(https).toContain("tls {\n\t\ton_demand\n\t}");
-      expect(https).toContain("reverse_proxy 127.0.0.1:3000");
-      expect(https).not.toContain("root *");
-      expect(https).toContain("@hsts file");
-      // The member app is still the wildcard, and the portal keeps its own name.
-      expect(blockOf(wild, "https://*.weaverams.org")).toContain("root * /srv/connect/mobile/current");
-      expect(summary.join("\n")).toContain("www.weaverams.org and weaverams.org serve the public website");
-    });
-
-    it("does not repeat a name that SITE_DOMAIN already is", () => {
-      const { files } = buildCaddySites({ ...withBase, site: "www.weaverams.org" });
-      const wild = files["crm-wildcard.caddy"];
-      expect(blockOf(wild, "https://weaverams.org")).toContain("reverse_proxy");
-      expect(wild).not.toContain("https://www.weaverams.org");
-      expect(files["crm.caddy"].split("https://www.weaverams.org {")).toHaveLength(2);
-    });
-
     it("HSTS is still only for confirmed hosts on the wildcard site", () => {
       const wild = buildCaddySites({ ...withBase, hstsMaxAge: 600 }).files["crm-wildcard.caddy"];
       expect(blockOf(wild, "https://*.weaverams.org")).toContain('header @hsts Strict-Transport-Security "max-age=600"');

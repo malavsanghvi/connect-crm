@@ -24,9 +24,7 @@
 //                             tls-ask), and the member web app over HTTPS on
 //                             MEMBER_HTTPS_PORT for the same names. With a member base
 //                             domain (MEMBER_BASE_DOMAIN) also "*.<base>" = the member web
-//                             app (jsh.<base> opens JSH); the portal keeps its own name, and
-//                             www.<base> and the bare <base> are the public website (served by
-//                             the portal's proxy, src/lib/site.ts), not the member app.
+//                             app (jsh.<base> opens JSH); the portal keeps its own name.
 // HSTS is sent only for hosts that have a confirmation marker.
 //
 // These file names are the ones older release.sh versions already manage (they
@@ -185,10 +183,6 @@ export function buildCaddySites(input) {
     if (!o.memberRoot) throw new Error("a member base domain needs the member web app's files (memberRoot)");
     if (!domain) throw new Error(`MEMBER_BASE_DOMAIN (${memberBase}) needs SITE_DOMAIN: the portal's own name (for example admin.${memberBase}), so the portal is never served as a member address`);
   }
-  // The public website's names, www.<base> and the bare <base>. They are the portal's (its proxy answers them with
-  // the website and sends the bare name to www; src/lib/site.ts), and as named sites they win over "*.<base>", so
-  // the member app never answers them. They are not part of SITE_DOMAIN's block unless SITE_DOMAIN is one of them.
-  const siteNames = memberBase ? [`www.${memberBase}`, memberBase].filter((n) => n !== domain) : [];
 
   // ── Global options ──────────────────────────────────────────────────────────
   const globals = ["{"];
@@ -224,10 +218,6 @@ export function buildCaddySites(input) {
     main.push(block([`http://*.${memberBase}${suffix}`], memberHttpBody(o, redirectTarget)));
     summary.push(`http: *.${memberBase} serves the member web app (the portal's own name, ${domain}, keeps the portal)`);
   }
-  if (siteNames.length) {
-    main.push(block(siteNames.map((n) => `http://${n}${suffix}`), httpBody));
-    summary.push(`http: ${siteNames.join(" and ")} serve the public website (through the portal), redirecting to https only when confirmed`);
-  }
   if (domain) {
     main.push(block([`https://${domain}${t ? `:${httpsPort}` : ""}`], portalBody(o)));
     summary.push(`https: ${domain} (certificate requested at start)`);
@@ -245,12 +235,6 @@ export function buildCaddySites(input) {
     block([t ? `https://:${httpsPort}` : "https://"], ["\ttls {", "\t\ton_demand", "\t}", ...portalBody(o)]),
   ];
   summary.push("https: any name approved by /api/tenancy/tls-ask (on-demand certificates)");
-  if (siteNames.length) {
-    // On demand too (not requested at start), so Caddy keeps starting while the DNS records still point elsewhere
-    // (GoDaddy parking); tls-ask approves the base domain and www.<base> once the base is saved in Platform setup.
-    wild.push(block(siteNames.map((n) => `https://${n}${t ? `:${httpsPort}` : ""}`), ["\ttls {", "\t\ton_demand", "\t}", ...portalBody(o)]));
-    summary.push(`https: ${siteNames.join(" and ")} serve the public website (on-demand certificates; the portal answers with the website)`);
-  }
   if (memberBase) {
     // One certificate per name, issued on its first visit and only when tls-ask approves it (the
     // base domain saved in Platform setup, and a real community with that short name).

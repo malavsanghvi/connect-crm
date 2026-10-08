@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { PUBLIC_PATHS, isPublicPath } from "@/lib/supabase/proxy";
+import { WEAVERS, WEAVER_NAMES } from "@/components/site/weavers";
 import { DEFAULT_SITE_DOMAIN, TIP_YEARLY_CAP_CENTS, isPublicSiteHost, portalUrl, publicSiteDomain, siteOrigin, siteRoute, usd } from "@/lib/site";
 
 const www = "www.weaverams.org";
@@ -94,5 +95,20 @@ describe("the preview address", () => {
     // A longer name that merely starts with the same letters is still the portal.
     expect(isPublicPath("/sitemap")).toBe(false);
     expect(isPublicPath("/sites")).toBe(false);
+  });
+});
+
+describe("the three Weavers (owner decision 2026-10-08)", () => {
+  it("are Faith Weaver, Community Weaver and Org Weaver, each with an anchor made from its name", () => {
+    expect(WEAVERS.map((w) => w.name)).toEqual(["Faith Weaver", "Community Weaver", "Org Weaver"]);
+    for (const w of WEAVERS) expect(w.id).toBe(w.name.toLowerCase().replace(/\s+/g, "-"));
+    expect(WEAVER_NAMES).toBe("Faith Weaver, Community Weaver and Org Weaver");
+  });
+  it("each has an audience and points to show", () => {
+    for (const w of WEAVERS) {
+      expect(w.menu.length).toBeGreaterThan(10);
+      expect(w.body.length).toBeGreaterThan(20);
+      expect(w.points.length).toBeGreaterThanOrEqual(3);
+    }
   });
 });

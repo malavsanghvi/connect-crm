@@ -2,6 +2,7 @@ import { Icon, type IconName } from "@/components/site/icons";
 import { MobileMenu } from "@/components/site/mobile-menu";
 import { NavDropdown } from "@/components/site/nav-dropdown";
 import { SiteLink, buttonStyles, container } from "@/components/site/ui";
+import { WEAVERS } from "@/components/site/weavers";
 import { SITE_NAME, TIP_YEARLY_CAP_CENTS, portalUrl, usd } from "@/lib/site";
 
 const CAP = usd(TIP_YEARLY_CAP_CENTS);
@@ -17,12 +18,8 @@ export const PRODUCT_MENU: MenuEntry[] = [
   { to: "/#messages", icon: "mail", title: "Messages and volunteers", body: "Email, WhatsApp and sign-ups" },
 ];
 
-export const SOLUTIONS_MENU: MenuEntry[] = [
-  { to: "/#who-temples", icon: "home", title: "Temples and places of worship", body: "Families, pledges, festivals and seva" },
-  { to: "/#who-schools", icon: "book", title: "Community schools", body: "Weekend and heritage schools, fees and progress" },
-  { to: "/#who-associations", icon: "globe", title: "Cultural associations", body: "Memberships, programs and annual events" },
-  { to: "/#who-clubs", icon: "users", title: "Clubs and societies", body: "Dues, meetings and volunteers" },
-];
+/** The three Weavers: each links to its card on the home page. */
+export const SOLUTIONS_MENU: MenuEntry[] = WEAVERS.map((w) => ({ to: `/#${w.id}`, icon: w.icon, title: w.name, body: w.menu }));
 
 export const RESOURCES_MENU: MenuEntry[] = [
   { to: "/#how", icon: "check", title: "How it works", body: "From request to going live" },

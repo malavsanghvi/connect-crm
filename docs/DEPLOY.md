@@ -514,31 +514,32 @@ signs in once at `jsh.weaverams.org` (the earlier address and the IP stay separa
 
 ## Public website (`www.weaverams.org`)
 
-The product's public website (home page and pricing page, `src/app/site`) is served by the portal itself, by host name: on
-`www.weaverams.org` the portal's proxy (`src/proxy.ts`, rules in `src/lib/site.ts`) answers `/` and `/pricing` with the website and
-never serves the portal there (sign-in, request access, the sandbox start page, invitations, public dashboards and the APIs are
-sent to `admin.weaverams.org`; any other path is a 404). The bare `weaverams.org` redirects to `www`. Any other address reaches the
-same pages at `/site` and `/site/pricing`, which is how to preview them before DNS changes (for example `https://admin.weaverams.org/site`).
+The product's public website (home page and pricing page, `src/app/site`; the brands are Weaver AMS with Faith Weaver, Community Weaver
+and Org Weaver) is served by the portal itself, by host name: on `www.weaverams.org` the portal's proxy (`src/proxy.ts`, rules in
+`src/lib/site.ts`) answers `/` and `/pricing` with the website and never serves the portal there (sign-in, request access, the sandbox
+start page, invitations, public dashboards and the APIs are sent to `admin.weaverams.org`; any other path is a 404). The bare
+`weaverams.org` redirects to `www`. Any other address reaches the same pages at `/site` and `/site/pricing`, which is how to preview
+them before DNS changes (for example `https://admin.weaverams.org/site`).
 
-Needs the member addresses above (`MEMBER_BASE_DOMAIN` set), because the website's names are carved out of the `*.weaverams.org`
-member-app wildcard. **Owner steps, in this order, once the Deploy that ships this is green:**
+**It needs no wildcard and no change to Caddy, and does not depend on the member addresses above.** The existing catch-all HTTPS site
+already reverse-proxies every name the portal approves (`/api/tenancy/tls-ask`) to the portal, and the proxy does the rest. Do not set
+`MEMBER_BASE_DOMAIN` or add a `*` DNS record for this. **Owner steps, once the Deploy that ships this is green:**
 
-1. **DNS (GoDaddy):** replace the parking records. `@` (bare domain): A → the droplet IP (delete the GoDaddy parking A records
-   3.33.130.190 and 15.197.148.33). `www`: A → the droplet IP (or leave it to the `*` wildcard once that exists; an explicit
-   record is clearer). Remove any `www` CNAME to the bare domain or to GoDaddy.
-2. **Platform setup › Base domain for organizations** = `weaverams.org` (already step 4 above). It is what lets the portal approve a
-   certificate for `weaverams.org` and `www.weaverams.org` (`app.tls_host_allowed`, kind `wildcard_base`).
-3. Open `https://www.weaverams.org`. The certificate is issued on the first visit (a few seconds). Platform › HTTPS lists both
-   names; once confirmed, port 80 redirects to https and HSTS is sent.
+1. **Platform setup › Base domain for organizations** = `weaverams.org`. It is what lets the portal approve a certificate for
+   `weaverams.org` and `www.weaverams.org` (`app.tls_host_allowed`, kind `wildcard_base`); without it Caddy refuses to issue them.
+   Saving it is safe: the portal reads host names as organizations only from the `PORTAL_BASE_DOMAIN` environment variable.
+2. **DNS (GoDaddy):** replace the parking records. `@` (bare domain): A → the droplet IP (delete the GoDaddy parking A records
+   3.33.130.190 and 15.197.148.33). `www`: A → the droplet IP (remove any `www` CNAME to the bare domain or to GoDaddy). Add only these
+   two, not a wildcard.
+3. Open `https://www.weaverams.org`. The certificate is issued on the first visit (a few seconds). Platform › HTTPS lists both names
+   (`/api/tenancy/https-names` includes `www.<base>`); once a name is confirmed, port 80 redirects it to https and HSTS is sent. Until
+   then `http://www.weaverams.org` serves the site over plain http.
 
 Two optional overrides exist for another deployment, `PUBLIC_SITE_DOMAIN` (the product domain, default `weaverams.org`) and
 `NEXT_PUBLIC_PORTAL_URL` (where the website's "Sign in" and "Get started" buttons point, default `https://admin.<domain>`). Neither is
 wired into the Deploy workflow: the defaults are right for weaverams.org, so nothing needs setting.
 
-How it fits together: `deploy/caddy-sites.mjs` adds `www.<base>` and `<base>` as named sites (on-demand certificates, so Caddy keeps
-starting while DNS still points at the registrar) that reverse-proxy to the portal, so the `*.<base>` member app never answers them.
-`/api/tenancy/https-names` lists both names for the HTTPS check. The website needs no database and no session: its pages are plain
-server components, so it keeps working if Supabase is down. The same `caddy-sites.mjs` must be copied to connect-admin (kept identical).
+The website needs no database and no session: its pages are plain server components, so it keeps working if Supabase is down.
 
 ## When a deploy fails
 

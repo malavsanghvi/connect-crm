@@ -5,6 +5,7 @@ import { Icon, type IconName } from "@/components/site/icons";
 import { DashboardMock, EventMock, FloatChip, GivingMock, HouseholdMock, LearningMock, PhoneMock } from "@/components/site/mockups";
 import { ProductTour } from "@/components/site/product-tour";
 import { FaqList, IconTile, SectionHeading, SiteLink, Ticks, buttonStyles, container } from "@/components/site/ui";
+import { WEAVERS, WEAVER_NAMES } from "@/components/site/weavers";
 import { SITE_NAME, TIP_YEARLY_CAP_CENTS, portalUrl, usd } from "@/lib/site";
 
 export const metadata: Metadata = {
@@ -22,7 +23,7 @@ export default function HomePage() {
       <Integrations />
       <Tour />
       <Bento />
-      <Who />
+      <Weavers />
       <HowItWorks />
       <FreeBand />
       <MemberApp />
@@ -87,6 +88,19 @@ function Hero() {
               </li>
             ))}
           </ul>
+          <div className="flex flex-wrap items-center gap-2.5">
+            <span className="text-[14px] font-semibold text-muted">Choose yours:</span>
+            {WEAVERS.map((w) => (
+              <SiteLink
+                key={w.id}
+                to={`/#${w.id}`}
+                className="inline-flex min-h-[44px] items-center gap-2 rounded-full border border-line bg-white/80 px-4 text-[14px] font-bold text-navy backdrop-blur transition-colors hover:border-navy"
+              >
+                <Icon name={w.icon} className="h-4 w-4" />
+                {w.name}
+              </SiteLink>
+            ))}
+          </div>
         </div>
 
         <div className="relative mx-auto w-full min-w-0 max-w-[580px] pb-4 lg:mx-0 lg:pb-14">
@@ -304,56 +318,34 @@ function Bento() {
   );
 }
 
-// ── Who it is for ────────────────────────────────────────────────────────────
+// ── The three Weavers ────────────────────────────────────────────────────────
 
-function Who() {
-  const groups: { id: string; icon: IconName; tone: Tone; title: string; body: string; points: string[] }[] = [
-    {
-      id: "who-temples",
-      icon: "home",
-      tone: "saffron",
-      title: "Temples and places of worship",
-      body: "Households, pledges, festivals and seva in one calm place.",
-      points: ["Pledge drives and recurring gifts", "Festival events with lunch and check-in", "Volunteer sign-ups"],
-    },
-    {
-      id: "who-schools",
-      icon: "book",
-      tone: "purple",
-      title: "Community schools",
-      body: "Weekend, language and heritage schools that parents can follow.",
-      points: ["Terms, levels and attendance", "Homework and learning progress", "Parents see their child's progress"],
-    },
-    {
-      id: "who-associations",
-      icon: "globe",
-      tone: "navy",
-      title: "Cultural associations",
-      body: "Memberships, programs and the big annual event.",
-      points: ["Memberships with renewals", "Ticketed programs and galas", "Three languages in the member app"],
-    },
-    {
-      id: "who-clubs",
-      icon: "users",
-      tone: "success",
-      title: "Clubs and societies",
-      body: "Dues, meetings and the volunteers who keep it running.",
-      points: ["Dues and renewals", "Meetings and RSVPs", "Volunteer opportunities"],
-    },
-  ];
+function Weavers() {
   return (
-    <section id="who" className="scroll-mt-24 py-20 sm:py-28">
+    <section id="weavers" className="scroll-mt-24 py-20 sm:py-28">
       <div className={`${container} flex flex-col gap-12`}>
-        <SectionHeading eyebrow="Who it is for" title="Built around families, not spreadsheets" lead="Any community that is organized around households will feel at home, whatever its size or tradition." />
-        <ul className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
-          {groups.map((g) => (
-            <li key={g.id} id={g.id} className="flex scroll-mt-28 flex-col gap-4 rounded-[28px] border border-line bg-white p-6 transition duration-200 hover:-translate-y-1 hover:shadow-[0_24px_48px_-20px_rgba(27,44,92,0.3)] target:ring-2 target:ring-saffron">
-              <IconTile name={g.icon} tone={g.tone} />
-              <h3 className="font-display text-[22px] font-semibold leading-tight text-navy">{g.title}</h3>
-              <p className="text-[15.5px] leading-relaxed text-muted">{g.body}</p>
+        <SectionHeading
+          eyebrow="One platform, three Weavers"
+          title="Pick the Weaver that sounds like home"
+          lead="Faith Weaver, Community Weaver and Org Weaver are the same free platform, named for who they serve. Every feature, every time."
+        />
+        <ul className="grid grid-cols-1 gap-5 lg:grid-cols-3">
+          {WEAVERS.map((w) => (
+            <li
+              key={w.id}
+              id={w.id}
+              className="flex scroll-mt-28 flex-col gap-5 rounded-[32px] border border-line bg-white p-8 transition duration-200 hover:-translate-y-1 hover:shadow-[0_24px_48px_-20px_rgba(27,44,92,0.3)] target:ring-2 target:ring-saffron"
+            >
+              <IconTile name={w.icon} tone={w.tone} />
+              <h3 className="font-display text-[30px] font-semibold leading-tight tracking-[-0.01em] text-navy">{w.name}</h3>
+              <p className="text-[16.5px] leading-relaxed text-muted">{w.body}</p>
               <div className="mt-auto pt-2">
-                <Ticks items={g.points} />
+                <Ticks items={w.points} />
               </div>
+              <a href={portalUrl("/request-access")} className={`${buttonStyles.ghost} mt-3 w-full !min-h-[48px] !text-[15px]`}>
+                Get started free
+                <Icon name="arrow" className="h-4 w-4" />
+              </a>
             </li>
           ))}
         </ul>
@@ -539,7 +531,7 @@ function Faq() {
             },
             {
               q: "Who is it for?",
-              a: "Communities built around families: temples and places of worship, cultural associations, community schools and clubs. Households, not just individuals, are at the center.",
+              a: `Communities built around families. ${WEAVER_NAMES} are the same free platform, named for who they serve: places of worship, cultural associations and community centers, and nonprofits and societies. Households, not just individuals, are at the center.`,
             },
             {
               q: "Can we bring our existing member and giving records?",
