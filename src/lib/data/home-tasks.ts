@@ -8,6 +8,7 @@ import { explainError, type DbErrorLike } from "@/lib/errors";
 import { formatCents } from "@/lib/money";
 import { parsePayeeQueue, waitingRequests } from "@/lib/payments/change-control";
 import { untypedRpc } from "@/lib/payments/rpc";
+import { changeLine, parseMappingWaiting, waitingRequests as waitingMappingRequests } from "@/lib/qbo/mapping";
 import { zelleWindowDays } from "@/lib/payments/zelle";
 import { can } from "@/lib/permissions";
 import type { CrmSession } from "@/lib/session";
@@ -80,6 +81,30 @@ const loaders: Record<TaskSourceKey, Loader> = {
           `Confirm a change to ${r.plugin_key === "paypal" ? "PayPal" : "Zelle"}: ${r.fields.map((f) => f.label).join(" and ")}`,
           `Asked by ${r.requested_by_name} · ${r.request_reason} · nothing changes until a different person confirms it`,
           [{ label: "Review", href: "/settings/payments" }],
+        ),
+      );
+  },
+
+  // Changes to which QuickBooks account a fund or role posts to that someone else asked for (migration 0606).
+  async mapping(session) {
+    const res = await untypedRpc(session.db)("account_mapping_waiting", { p_center: session.center.id });
+    if (res.error) {
+      // Only a database without the function yet is skipped silently; anything else is this source's failure.
+      if (res.error.code === "PGRST202" || res.error.code === "42883") return [];
+      throw new SourceError(res.error);
+    }
+    const parsed = parseMappingWaiting(res.data);
+    if (!parsed.ok) throw new SourceError({ message: parsed.error });
+    if (!parsed.value.can_approve) return [];
+    return waitingMappingRequests(parsed.value.requests)
+      .filter((r) => !r.mine)
+      .map((r) =>
+        makeTask(
+          "mapping",
+          r.id,
+          `Confirm a QuickBooks mapping change: ${r.target_label}, ${changeLine(r)}`,
+          `Asked by ${r.requested_by_name} · ${r.request_reason} · nothing changes until a different person confirms it`,
+          [{ label: "Review", href: "/accounting/qbo/mapping" }],
         ),
       );
   },

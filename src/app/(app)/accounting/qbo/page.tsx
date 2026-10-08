@@ -131,7 +131,7 @@ export default async function QboPage({ searchParams }: { searchParams: Promise<
         db.from("ledger_postings").select("posted_at").eq("center_id", center.id).not("posted_at", "is", null).order("posted_at", { ascending: false }).limit(1),
         db
           .from("ledger_postings")
-          .select("id, txn_type, amount_cents, source_table, source_id, last_error, created_at")
+          .select("id, txn_type, amount_cents, source_table, source_id, last_error, needs_mapping, created_at")
           .eq("center_id", center.id)
           .eq("status", "failed")
           .order("created_at", { ascending: true })
@@ -206,7 +206,7 @@ export default async function QboPage({ searchParams }: { searchParams: Promise<
                   </thead>
                   <tbody>
                     {(exceptions?.data ?? []).map((e) => {
-                      const x = classifyQboException(e.last_error, mappingState);
+                      const x = classifyQboException(e.last_error, mappingState, e.needs_mapping);
                       return (
                         <tr key={e.id}>
                           <td className="font-mono text-[0.8125rem]">QB-EX-{shortId(e.id).slice(0, 4).toUpperCase()}</td>
@@ -309,10 +309,10 @@ export default async function QboPage({ searchParams }: { searchParams: Promise<
         <>
           <Card
             title="Account mapping"
-            description="Which QuickBooks account each kind of money posts to. The treasurer approves every mapping; a changed mapping needs approval again."
+            description="Which QuickBooks account each kind of money posts to. The treasurer approves the mapping; once it is in use, every change waits for a second person with giving.approve."
             actions={
-              <Link href="/accounting/qbo/setup" className={buttonClass(canManage ? "primary" : "ghost", "sm")}>
-                {canManage ? "Map and approve in QuickBooks setup" : "QuickBooks setup"}
+              <Link href="/accounting/qbo/mapping" className={buttonClass(canManage ? "primary" : "ghost", "sm")}>
+                Account mapping and history
               </Link>
             }
             padded={false}

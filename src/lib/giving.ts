@@ -4,6 +4,7 @@
 
 import { dateInTz, isDateOnly } from "@/lib/dates";
 import { formatCents } from "@/lib/money";
+import { needsMappingView } from "@/lib/qbo/mapping";
 
 // ---------------------------------------------------------------------------
 // Dates
@@ -484,9 +485,15 @@ export type QboException = {
 export function classifyQboException(
   lastError: string | null,
   mappings: { purpose: string; label: string; mapped: boolean; approved: boolean }[],
+  /** ledger_postings.needs_mapping (0606): the posting waits for this mapping and goes back in the queue by itself once it is confirmed. */
+  needsMapping?: string | null,
 ): QboException {
   const err = (lastError ?? "").trim();
   const lower = err.toLowerCase();
+  const waitsFor = needsMappingView(needsMapping, Object.fromEntries(mappings.map((m) => [m.purpose, m.label])));
+  if (waitsFor) {
+    return { reason: err || waitsFor, fix: `${waitsFor} Choose it in Accounting › Account mapping (a second person confirms it once the mapping is in use).`, applyPurpose: null };
+  }
   const named = mappings.find((m) => lower.includes(m.purpose.toLowerCase()) || lower.includes(m.label.toLowerCase()));
   const aboutMapping = /mapp|account|not mapped|no income account/.test(lower);
   if (named && aboutMapping) {

@@ -2,9 +2,10 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { ActionForm } from "@/components/action-form";
-import { Alert, Badge, BlockGrid, Card, DefinitionList, EmptyState, NoAccess, PageHeader, QueryError, StatusText, TableWrap } from "@/components/ui";
+import { Alert, Badge, BlockGrid, buttonClass, Card, DefinitionList, EmptyState, NoAccess, PageHeader, QueryError, StatusText, TableWrap } from "@/components/ui";
 import { formatDate, formatDateTime } from "@/lib/dates";
 import { QBO_PURPOSES } from "@/lib/labels";
+import { untypedRpc } from "@/lib/payments/rpc";
 import { canAccess } from "@/lib/permissions";
 import {
   accountChoices,
@@ -93,6 +94,10 @@ export default async function QboSetupPage({ searchParams }: { searchParams: Pro
     );
   }
   const s = statusRes.data as unknown as QboStatus;
+  // Once the mapping has been approved, a change is asked for on the Account mapping page and a second person confirms it
+  // (0606); before that, setup is one person, as before. A database without the function reads as "not in use".
+  const inUseRes = await untypedRpc(db)("account_mapping_in_use", { p_center: center.id });
+  const mappingInUse = inUseRes.data === true;
   const conn = s.connection;
   const connected = Boolean(conn && (conn.status === "connected" || conn.status === "expiring"));
   const canConnect = s.can_connect;
@@ -388,7 +393,16 @@ export default async function QboSetupPage({ searchParams }: { searchParams: Pro
 
           <Card
             title="5 · Account mapping"
-            description="Choose, from the chart pulled from QuickBooks, where each kind of money posts. The treasurer approves the whole mapping; any change needs approval again."
+            description={
+              mappingInUse
+                ? "Where each kind of money posts. The mapping is in use: a change is asked for in Account mapping and a different person with giving.approve confirms it."
+                : "Choose, from the chart pulled from QuickBooks, where each kind of money posts. The treasurer approves the whole mapping; from then on every change needs a second person."
+            }
+            actions={
+              <Link href="/accounting/qbo/mapping" className={buttonClass("ghost", "sm")}>
+                Account mapping and history
+              </Link>
+            }
             padded={false}
             className="mb-4"
           >
@@ -419,7 +433,16 @@ export default async function QboSetupPage({ searchParams }: { searchParams: Pro
                             <div className="text-xs text-muted">{p.hint}</div>
                           </td>
                           <td className="min-w-72">
-                            {canManage ? (
+                            {canManage && mappingInUse ? (
+                              <>
+                                {m?.qbo_account_name ?? "—"}
+                                <div className="text-xs">
+                                  <Link href={`/accounting/qbo/mapping#role-${p.purpose}`} className="crm-link">
+                                    Ask for a change →
+                                  </Link>
+                                </div>
+                              </>
+                            ) : canManage ? (
                               <ActionForm action={saveQboMappingAction} submitLabel="Save" pendingLabel="Saving…" size="xs" variant="secondary" buttonsClassName="mt-1">
                                 <input type="hidden" name="purpose" value={p.purpose} />
                                 <select name="qbo_account_id" aria-label={`QuickBooks account for ${p.label}`} defaultValue={m?.qbo_account_id ?? ""} className="crm-input">
@@ -481,7 +504,16 @@ export default async function QboSetupPage({ searchParams }: { searchParams: Pro
                           {fundWarn.get(f.id) ? <div className="text-xs text-danger">{fundWarn.get(f.id)!.text}</div> : null}
                         </td>
                         <td className="min-w-72">
-                          {canManage ? (
+                          {canManage && mappingInUse ? (
+                            <>
+                              {classes.find((k) => k.qbo_id === f.qbo_class_id)?.name ?? "—"}
+                              <div className="text-xs">
+                                <Link href={`/accounting/qbo/mapping#fund-${f.id}`} className="crm-link">
+                                  Ask for a change →
+                                </Link>
+                              </div>
+                            </>
+                          ) : canManage ? (
                             <ActionForm action={saveFundClassAction} submitLabel="Save" pendingLabel="Saving…" size="xs" variant="secondary" buttonsClassName="mt-1">
                               <input type="hidden" name="fund_id" value={f.id} />
                               <select name="qbo_class_id" aria-label={`QuickBooks class for ${f.name}`} defaultValue={f.qbo_class_id ?? ""} className="crm-input">

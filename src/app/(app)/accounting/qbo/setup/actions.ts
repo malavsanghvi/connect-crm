@@ -5,6 +5,7 @@ import { headers } from "next/headers";
 
 import { failure, type ActionResult } from "@/lib/errors";
 import { QBO_PURPOSES } from "@/lib/labels";
+import { untypedRpc } from "@/lib/payments/rpc";
 import { authorizeUrl, intuitPortalConfig, redirectUri, signState } from "@/lib/qbo/oauth";
 import { ACCRUAL_WAITING, BASIS_LABEL, isBasis, reasonProblem, TEST_POST_HOW_TO_VOID } from "@/lib/qbo/setup";
 import { isUuid } from "@/lib/search-params";
@@ -20,6 +21,7 @@ const PATH = "/accounting/qbo/setup";
 function refresh() {
   revalidatePath(PATH);
   revalidatePath("/accounting/qbo");
+  revalidatePath("/accounting/qbo/mapping");
 }
 const text = (fd: FormData, k: string) => String(fd.get(k) ?? "").trim();
 const purposeLabel = (p: string) => QBO_PURPOSES.find((x) => x.purpose === p)?.label ?? p;
@@ -148,6 +150,17 @@ export async function pullQboListsAction(): Promise<ActionResult> {
   return { ok: true, message: `Pull queued (job #${data}). The chart of accounts and lists refresh within a minute; reload to see them.` };
 }
 
+// Setup (before the mapping has ever been approved): one person chooses, as before, through the same function as a
+// change (app.request_account_mapping_change, 0606), so the choice is kept in the mapping history. Once the mapping is in
+// use these forms are not shown: a change is asked for in Accounting › Account mapping and a second person confirms it.
+const IN_USE =
+  "the mapping is in use, so a change needs a second person. Ask for it in Accounting › Account mapping; a different person with giving.approve confirms it.";
+
+async function mappingInUse(db: Awaited<ReturnType<typeof dbWithReason>>, center: string): Promise<boolean> {
+  const { data } = await untypedRpc(db)("account_mapping_in_use", { p_center: center });
+  return data === true;
+}
+
 export async function saveQboMappingAction(_prev: ActionResult | null, fd: FormData): Promise<ActionResult> {
   const purpose = text(fd, "purpose");
   const account = text(fd, "qbo_account_id");
@@ -158,10 +171,13 @@ export async function saveQboMappingAction(_prev: ActionResult | null, fd: FormD
   if (!auth.ok) return auth;
   const reason = `Chose the QuickBooks account for ${label}`;
   const db = await dbWithReason(auth.session, reason);
-  const { data, error } = await db.rpc("set_qbo_mapping", { p_center: auth.session.center.id, p_purpose: purpose, p_qbo_account_id: account, p_reason: reason });
+  if (await mappingInUse(db, auth.session.center.id)) return { ok: false, error: `Could not ${doing} — ${IN_USE}` };
+  const { data, error } = await untypedRpc(db)("request_account_mapping_change", {
+    p_center: auth.session.center.id, p_subject: "role", p_target: purpose, p_to: account, p_reason: reason,
+  });
   if (error) return failure(`Could not ${doing}`, error);
   refresh();
-  const name = data && typeof data === "object" && !Array.isArray(data) ? String((data as Record<string, unknown>).qbo_account_name ?? "") : "";
+  const name = data && typeof data === "object" && !Array.isArray(data) ? String((data as Record<string, unknown>).to_name ?? "") : "";
   return { ok: true, message: `${label} → ${name || "saved"}. Approve the mapping again before anything posts with it.` };
 }
 
@@ -174,7 +190,10 @@ export async function saveFundClassAction(_prev: ActionResult | null, fd: FormDa
   if (!auth.ok) return auth;
   const reason = cls ? "Chose the fund's QuickBooks class" : "Cleared the fund's QuickBooks class";
   const db = await dbWithReason(auth.session, reason);
-  const { error } = await db.rpc("set_qbo_fund_class", { p_center: auth.session.center.id, p_fund: fund, p_qbo_class_id: cls, p_reason: reason });
+  if (await mappingInUse(db, auth.session.center.id)) return { ok: false, error: `Could not ${doing} — ${IN_USE}` };
+  const { error } = await untypedRpc(db)("request_account_mapping_change", {
+    p_center: auth.session.center.id, p_subject: "fund_class", p_target: fund, p_to: cls || null, p_reason: reason,
+  });
   if (error) return failure(`Could not ${doing}`, error);
   refresh();
   return { ok: true, message: "Class saved. Approve the mapping again before anything posts with it." };
