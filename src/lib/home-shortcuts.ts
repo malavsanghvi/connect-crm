@@ -6,6 +6,9 @@
 // Empty list → no strip. Unknown keys are ignored when read (the member app does
 // the same), so an older app never breaks on a newer key.
 
+import { kindHas, kindName, moduleNotOffered } from "@/lib/kind";
+import type { KindLike } from "@/lib/wording";
+
 export const HOME_SHORTCUTS = [
   { key: "learn", label: "Learn", module: "gyan_path", opens: "The member's next Gyan Path lesson (the goal list once every level is done)" },
   { key: "playlist", label: "Playlist", module: "content", opens: "Plays My playlist; when it is empty, the most-liked stavans (and says so)" },
@@ -88,4 +91,25 @@ export function describeShortcuts(keys: readonly HomeShortcutKey[]): string {
   if (labels.length === 0) return "none";
   if (labels.length === 1) return labels[0];
   return `${labels.slice(0, -1).join(", ")} and ${labels[labels.length - 1]}`;
+}
+
+// ---------------------------------------------------------------------------
+// What an organization's kind has
+// ---------------------------------------------------------------------------
+
+/**
+ * The shortcuts this kind of organization never has: "Learn" where there is no Gyan Path (or the kind's learning path),
+ * and the Jain recipe where the kind has no tradition pack. The Settings card does not list them (what is stored for
+ * them goes back unchanged); a Jain Center has all six.
+ */
+export function homeShortcutsMissingFor(kind: KindLike): HomeShortcutKey[] {
+  return HOME_SHORTCUTS.filter((s) => (s.module === "gyan_path" && moduleNotOffered(kind, "gyan_path")) || (s.key === "recipe" && !kindHas(kind, "tradition"))).map((s) => s.key);
+}
+
+/** What a shortcut opens, in the kind's words (the playlist falls back to its most-liked recordings, not "stavans"). */
+export function homeShortcutOpens(key: HomeShortcutKey, kind: KindLike): string {
+  const def = homeShortcutDef(key);
+  if (key === "playlist" && !kindHas(kind, "tradition")) return def.opens.replace("most-liked stavans", "most-liked recordings");
+  if (key === "learn") return def.opens.replace("Gyan Path lesson", `${kindName(kind, "gyan_path", "Gyan Path")} lesson`);
+  return def.opens;
 }

@@ -43,9 +43,26 @@ export type MediaItem = {
 };
 
 /** What the drawer may do for this editor: drafts need content.draft; files and published items need content.manage. */
-export type MediaPermissions = { canUpload: boolean; canManage: boolean; apiKey: string | null };
+export type MediaPermissions = {
+  canUpload: boolean;
+  canManage: boolean;
+  apiKey: string | null;
+  /** The organization's kind has no tradition pack: songs instead of stavans, no "fully Jain" recipe mark, neutral examples. */
+  neutral?: boolean;
+};
 
 type Copy = { noun: string; artist?: string; artistHint?: string; body: string; bodyHint?: string; bodyRows: number; upload: string; fileHint: string };
+
+/** What a stavan is called by a kind without a tradition pack. */
+const SONG_COPY: Copy = {
+  noun: "song",
+  artist: "Singer",
+  body: "Lyrics",
+  bodyHint: "Shown with the song in the app. A song may go for approval with lyrics only.",
+  bodyRows: 8,
+  upload: "Upload a recording",
+  fileHint: "MP3 or M4A, up to 50 MB. They play on every phone; OGG and WebM do not play on iPhones.",
+};
 
 const COPY: Record<MediaKind, Copy> = {
   stavan: {
@@ -108,7 +125,7 @@ export function MediaItemButton({
       <button type="button" onClick={() => setOpen(true)} className={buttonClass(variant, size)}>
         {label}
       </button>
-      <Drawer open={open} onClose={close} kicker={kindLabel} title={item ? item.title : `New ${COPY[kind].noun}`}>
+      <Drawer open={open} onClose={close} kicker={kindLabel} title={item ? item.title : `New ${(permissions.neutral && kind === "stavan" ? SONG_COPY : COPY[kind]).noun}`}>
         <MediaItemForm kind={kind} item={item} permissions={permissions} onSaved={close} />
       </Drawer>
     </>
@@ -134,7 +151,7 @@ function mb(bytes: number): string {
 }
 
 function MediaItemForm({ kind, item, permissions, onSaved }: { kind: MediaKind; item?: MediaItem; permissions: MediaPermissions; onSaved: () => void }) {
-  const copy = COPY[kind];
+  const copy = permissions.neutral && kind === "stavan" ? SONG_COPY : COPY[kind];
   const role = mediaFileRole(kind);
   const m = item?.metadata ?? {};
   const idp = item ? `mi-${item.id.slice(0, 8)}` : `mi-new-${kind}`;
@@ -364,13 +381,18 @@ function MediaItemForm({ kind, item, permissions, onSaved }: { kind: MediaKind; 
 
         {kind === "recipe" ? (
           <>
-            <div>
-              <p className="crm-label">Fully Jain</p>
-              <Toggle name="fully_jain" defaultChecked={m.fully_jain === true} label="Fully Jain recipe" onNote="Fully Jain" offNote="Not marked fully Jain" disabled={locked} />
-              <p className="crm-hint">
-                No root vegetables: no potato, onion, garlic, carrot and the like. The Home shortcut “Jain recipe” only picks fully Jain recipes.
-              </p>
-            </div>
+            {permissions.neutral ? (
+              // No tradition pack: the mark is not offered, but a recipe already marked keeps its mark.
+              m.fully_jain === true ? <input type="hidden" name="fully_jain" value="on" /> : null
+            ) : (
+              <div>
+                <p className="crm-label">Fully Jain</p>
+                <Toggle name="fully_jain" defaultChecked={m.fully_jain === true} label="Fully Jain recipe" onNote="Fully Jain" offNote="Not marked fully Jain" disabled={locked} />
+                <p className="crm-hint">
+                  No root vegetables: no potato, onion, garlic, carrot and the like. The Home shortcut “Jain recipe” only picks fully Jain recipes.
+                </p>
+              </div>
+            )}
             <div className="grid grid-cols-3 gap-3">
               <div>
                 <label htmlFor={`${idp}-servings`} className="crm-label">
@@ -431,7 +453,7 @@ function MediaItemForm({ kind, item, permissions, onSaved }: { kind: MediaKind; 
             {kind === "recipe" ? "Other names" : "Other spellings"}
           </label>
           <input id={`${idp}-aliases`} name="aliases" defaultValue={metaList(m.aliases).join(", ")} className="crm-input" />
-          <p className="crm-hint">Separated by commas. Members find it by any of them{kind === "stavan" ? ", e.g. Navkar, Navkaar, Namokar" : ""}.</p>
+          <p className="crm-hint">Separated by commas. Members find it by any of them{kind === "stavan" && !permissions.neutral ? ", e.g. Navkar, Navkaar, Namokar" : ""}.</p>
         </div>
         <div>
           <label htmlFor={`${idp}-language`} className="crm-label">
@@ -506,7 +528,7 @@ function MediaItemForm({ kind, item, permissions, onSaved }: { kind: MediaKind; 
             Tags
           </label>
           <input id={`${idp}-tags`} name="tags" defaultValue={metaList(m.tags).join(", ")} className="crm-input" />
-          <p className="crm-hint">Separated by commas{kind === "recipe" ? ", e.g. paryushan, no-cook" : ", e.g. paryushan, morning"}. Search finds them.</p>
+          <p className="crm-hint">Separated by commas{permissions.neutral ? (kind === "recipe" ? ", e.g. potluck, no-cook" : ", e.g. morning, weekly") : kind === "recipe" ? ", e.g. paryushan, no-cook" : ", e.g. paryushan, morning"}. Search finds them.</p>
         </div>
         <div>
           <label htmlFor={`${idp}-body`} className="crm-label">

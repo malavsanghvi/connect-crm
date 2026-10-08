@@ -5,10 +5,12 @@ import { useMemo, useState } from "react";
 import { ActionForm, type FormAction } from "@/components/action-form";
 import { ChipGroup, Toggle } from "@/components/controls";
 import { PersonPicker } from "@/components/events/person-picker";
+import { useKind } from "@/components/kind-context";
 import { Card, InfoBox, buttonClass } from "@/components/ui";
 import type { FlyerDesign, FlyerSource, PosterContent } from "@/lib/events/flyer";
 import type { FlyerArtSetup } from "@/lib/events/flyer-art";
 import type { FlyerBrand } from "@/lib/events/flyer-brand";
+import { kindSchool } from "@/lib/kind";
 import { audienceChips, commitmentSummary, lunchPriorityText, slotPreview, type CommitmentOptions, type LunchRules } from "@/lib/events/report";
 
 import { FlyerPanel } from "./flyer-panel";
@@ -123,6 +125,7 @@ export function EventBuilder({
   /** The flyer maker's starting point; null until the event is saved. */
   flyer: FlyerSetup | null;
 }) {
+  const kind = useKind();
   const [audience, setAudience] = useState(event.audience);
   const [waitlist, setWaitlist] = useState(event.waitlist_enabled);
   const [commitOn, setCommitOn] = useState(event.commitments_enabled);
@@ -195,7 +198,7 @@ export function EventBuilder({
               </div>
               <div className="sm:col-span-2">
                 <span className="crm-label">Who can RSVP</span>
-                <ChipGroup name="audience" label="Who can RSVP" options={audienceChips(event.audience)} value={audience} onChange={setAudience} disabled={!editable} />
+                <ChipGroup name="audience" label="Who can RSVP" options={audienceChips(event.audience, kindSchool(kind))} value={audience} onChange={setAudience} disabled={!editable} />
               </div>
               <div>
                 <label htmlFor="ev-cap" className="crm-label">
@@ -437,7 +440,7 @@ export function EventBuilder({
               </div>
               <div>
                 <label htmlFor="ev-py" className="crm-label">
-                  Pathshala year
+                  {kindSchool(kind) ?? "Program"} year
                 </label>
                 <input id="ev-py" name="program_year" defaultValue={event.program_year} placeholder="e.g. 2026-2027" className="crm-input" />
               </div>

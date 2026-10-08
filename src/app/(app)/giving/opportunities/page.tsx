@@ -12,6 +12,8 @@ import { isUuid, param, type RawSearchParams } from "@/lib/search-params";
 import { getSession } from "@/lib/session";
 
 import { setOpportunityActiveAction, setOpportunityStatusAction } from "./actions";
+import { word } from "@/lib/wording";
+
 import { OpportunityBuilder, type BuilderInitial } from "./builder";
 
 export const metadata: Metadata = { title: "Opportunities" };
@@ -147,6 +149,14 @@ export default async function OpportunitiesPage({ searchParams }: { searchParams
           currency={center.currency}
           centerName={center.short_name || center.name}
           emailTemplates={emailTemplates}
+          words={{
+            section: word(session.kind, "pledge_items_section"),
+            add: word(session.kind, "pledge_item_add"),
+            item: word(session.kind, "pledge_item"),
+            example: word(session.kind, "opportunity_example"),
+            itemExample: word(session.kind, "pledge_item_example"),
+            listType: word(session.kind, "pledge_list_type"),
+          }}
         />
       </BlockGrid>
 

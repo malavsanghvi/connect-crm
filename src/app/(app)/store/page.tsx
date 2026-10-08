@@ -6,6 +6,8 @@ import { HistoryButton } from "@/components/record-history";
 import { BlockGrid, Card, EmptyState, NoAccess, PageHeader, QueryError, StatusText, TableWrap } from "@/components/ui";
 import { formatDateTime } from "@/lib/dates";
 import { formatCents } from "@/lib/money";
+import { kindTerm } from "@/lib/kind";
+import { kindTitle } from "@/lib/kind-title";
 import { canAccess } from "@/lib/permissions";
 import { getSession } from "@/lib/session";
 import { isLowStock } from "@/lib/store";
@@ -13,15 +15,17 @@ import { isLowStock } from "@/lib/store";
 import { recordMovementAction } from "./actions";
 import { QuickAdjust } from "./quick-adjust";
 
-export const metadata: Metadata = { title: "Satvik Store" };
+export const generateMetadata = (): Promise<Metadata> => kindTitle((k) => kindTerm(k, "store", "Satvik Store"), "Satvik Store");
 
 const REASON = { received: "received", waste: "waste", returned: "returned", adjustment: "adjustment" } as Record<string, string>;
 
 export default async function StoreInventoryPage() {
   const session = await getSession();
+  // The store is "Satvik Store" for a Jain Center; any other kind names its own.
+  const storeName = kindTerm(session.kind, "store", "Satvik Store");
   const header = (
     <PageHeader
-      title="Satvik Store"
+      title={storeName}
       description="Made to order · sales post to QuickBooks as store income with sales tax, never as donations"
     />
   );
@@ -29,7 +33,7 @@ export default async function StoreInventoryPage() {
     return (
       <>
         {header}
-        <NoAccess area="The Satvik Store" access="store" extra={canAccess(session, "storeOrders") ? <Link className="crm-link" href="/store/orders">Open Orders by pickup</Link> : null} />
+        <NoAccess area={`The ${storeName}`} access="store" extra={canAccess(session, "storeOrders") ? <Link className="crm-link" href="/store/orders">Open Orders by pickup</Link> : null} />
       </>
     );
   }

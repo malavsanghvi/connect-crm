@@ -5,6 +5,7 @@ import { BlockGrid, Card, EmptyState, NoAccess, PageHeader, QueryError, StatusTe
 import { SENSITIVITY_LABELS, entityLabel, type CustomFieldDef } from "@/lib/custom-fields";
 import { loadCustomFieldDefs } from "@/lib/data/custom-fields";
 import { CUSTOM_TYPES } from "@/lib/import/mapping";
+import { moduleNotOffered } from "@/lib/kind";
 import { canAccess } from "@/lib/permissions";
 import { getSession } from "@/lib/session";
 
@@ -43,7 +44,7 @@ export default async function CustomFieldsPage() {
       {header}
       <BlockGrid>
         <Card span={12} title="Add a custom field">
-          <AddCustomFieldForm entities={ENTITIES_FOR_NEW} />
+          <AddCustomFieldForm entities={ENTITIES_FOR_NEW.filter((e) => e !== "pathshala_classes" || !moduleNotOffered(session.kind, "pathshala"))} />
         </Card>
         {loaded.error ? (
           <Card span={12}>

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 
 import { BlockGrid, Card, DefinitionList, NoAccess, PageHeader } from "@/components/ui";
 import { isPlainObject } from "@/lib/center-rules";
+import { kindName, moduleNotOffered } from "@/lib/kind";
 import { canAccess } from "@/lib/permissions";
 import { getSession } from "@/lib/session";
 import { lunchRulesText, readRuleSettings, rulesVersion } from "@/lib/settings-rules";
@@ -46,6 +47,20 @@ export default async function RulesPage() {
   const readOnly = false;
   const common = { version, readOnly };
 
+  // Parts of these rules belong to modules some kinds of organization never have (Bolis, My Jain Way, Gyan Path, Pathshala).
+  // They are not shown for such a kind; what is stored for them goes back unchanged. A Jain Center has them all.
+  const { kind } = session;
+  const hasBolis = !moduleNotOffered(kind, "bolis");
+  const hasStore = !moduleNotOffered(kind, "store");
+  const hasPoints = !moduleNotOffered(kind, "jain_way") || !moduleNotOffered(kind, "gyan_path");
+  const hiddenFlags = [
+    ...(!hasBolis ? ["bolis"] : []),
+    ...(!hasStore ? ["store"] : []),
+    ...(moduleNotOffered(kind, "pathshala") ? ["pathshala"] : []),
+    ...(moduleNotOffered(kind, "gyan_path") ? ["gyan_path"] : []),
+    ...(moduleNotOffered(kind, "jain_way") ? ["my_jain_way", "saathi"] : []),
+  ];
+
   return (
     <>
       {header}
@@ -53,8 +68,8 @@ export default async function RulesPage() {
         <Card span={6} title="Membership and references">
           <MembershipForm {...common} settings={settings} yearlyTier={tierInfo("yearly")} lifeTier={tierInfo("life")} />
         </Card>
-        <Card span={6} title="Giving, bolis and privacy">
-          <GivingForm {...common} settings={settings} />
+        <Card span={6} title={hasBolis ? "Giving, bolis and privacy" : "Giving and privacy"}>
+          <GivingForm {...common} settings={settings} showBolis={hasBolis} />
         </Card>
         <Card span={12} title="Lunch-slot rules">
           <p className="text-[13px] leading-relaxed text-ink-2">{lunchRulesText(settings)}</p>
@@ -62,12 +77,16 @@ export default async function RulesPage() {
         <Card span={6} title="Lunch and RSVP" description="Event defaults · each event can still set its own slot length and seats">
           <LunchForm {...common} settings={settings} />
         </Card>
-        <Card span={6} title="Bolis and store">
-          <BolisStoreForm {...common} settings={settings} currency={center.currency} />
-        </Card>
-        <Card span={6} title="Points, streaks and Saathi" description="My Jain Way · standings stay private to the member">
-          <PointsForm {...common} settings={settings} />
-        </Card>
+        {hasBolis || hasStore ? (
+          <Card span={6} title={hasBolis && hasStore ? "Bolis and store" : hasBolis ? "Bolis" : "Store"}>
+            <BolisStoreForm {...common} settings={settings} currency={center.currency} showBolis={hasBolis} showStore={hasStore} />
+          </Card>
+        ) : null}
+        {hasPoints ? (
+          <Card span={6} title="Points, streaks and Saathi" description={moduleNotOffered(kind, "jain_way") ? "Standings stay private to the member" : "My Jain Way · standings stay private to the member"}>
+            <PointsForm {...common} settings={settings} />
+          </Card>
+        ) : null}
         <Card span={6} title="Center" description="Set when the center was created · changed by the platform team">
           <DefinitionList
             items={[
@@ -85,6 +104,8 @@ export default async function RulesPage() {
             branding={isPlainObject(center.branding) ? center.branding : {}}
             flags={isPlainObject(center.feature_flags) ? center.feature_flags : {}}
             readOnly={readOnly}
+            hiddenFlags={hiddenFlags}
+            flagNames={{ store: kindName(kind, "store", "Satvik Store"), pathshala: kindName(kind, "pathshala", "Pathshala"), gyan_path: kindName(kind, "gyan_path", "Gyan Path") }}
           />
         </Card>
         <Card span={12}>

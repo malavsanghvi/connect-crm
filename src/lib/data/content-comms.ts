@@ -44,6 +44,8 @@ export type AudienceOptions = {
   zones: AudienceOption[];
   classes: AudienceOption[];
   events: AudienceOption[];
+  /** What the organization calls its religious school ("Pathshala"), or null when its kind has none: the "parents" segment is then not offered. */
+  school: string | null;
   /** Lists the user's roles could not read, named for a plain-English note. */
   unavailable: string[];
   /** Custom fields marked searchable on people and households (segment filters). */
@@ -55,7 +57,7 @@ export type AudienceOptions = {
  * optional (a comms officer without Pathshala or Events access still composes),
  * so a failure there is logged and named, not fatal.
  */
-export async function audienceOptions(db: AppSupabase, centerId: string): Promise<{ data: AudienceOptions; error: DbErrorLike | null }> {
+export async function audienceOptions(db: AppSupabase, centerId: string, school: string | null = "Pathshala"): Promise<{ data: AudienceOptions; error: DbErrorLike | null }> {
   const [zones, terms, events, cfs] = await Promise.all([
     db.from("zones").select("id, name").eq("center_id", centerId).order("name"),
     db.from("pathshala_terms").select("id, status").eq("center_id", centerId).in("status", ["registration", "active"]),
@@ -100,7 +102,7 @@ export async function audienceOptions(db: AppSupabase, centerId: string): Promis
     unavailable.push("events");
   }
   return {
-    data: { zones: zones.data ?? [], classes, events: (events.data ?? []).map((e) => ({ id: e.id, name: e.name })), unavailable, customFields },
+    data: { zones: zones.data ?? [], classes, events: (events.data ?? []).map((e) => ({ id: e.id, name: e.name })), school, unavailable, customFields },
     error: zones.error,
   };
 }

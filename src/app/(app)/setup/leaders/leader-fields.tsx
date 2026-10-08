@@ -19,7 +19,8 @@ export type LeaderView = {
 };
 
 /** The fields of the add / edit leader drawer. */
-export function LeaderFields({ leader }: { leader: LeaderView | null }) {
+/** `bodies`: the groups this kind of organization has (no Pathshala committee where there is no school). */
+export function LeaderFields({ leader, bodies = LEADER_BODIES }: { leader: LeaderView | null; bodies?: readonly { value: string; label: string }[] }) {
   const key = leader?.id ?? "new";
   return (
     <>
@@ -46,7 +47,7 @@ export function LeaderFields({ leader }: { leader: LeaderView | null }) {
           Group
         </label>
         <select id={`l-body-${key}`} name="body" className="crm-input" defaultValue={leader?.body ?? "executive_committee"}>
-          {LEADER_BODIES.map((b) => (
+          {bodies.map((b) => (
             <option key={b.value} value={b.value}>
               {b.label}
             </option>

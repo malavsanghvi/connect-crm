@@ -57,6 +57,8 @@ const EMPTY_ROWS: Record<string, OptionRow[]> = {
 };
 
 /** The opportunity builder (prototype L601): the form (span 7) and the type's table (span 12). */
+export type BuilderWords = { section: string; add: string; item: string; example: string; itemExample: string; listType: string };
+
 export function OpportunityBuilder({
   campaigns,
   initial,
@@ -64,6 +66,7 @@ export function OpportunityBuilder({
   currency,
   centerName,
   emailTemplates,
+  words,
 }: {
   campaigns: BuilderCampaign[];
   initial: BuilderInitial | null;
@@ -71,6 +74,8 @@ export function OpportunityBuilder({
   currency: string;
   centerName: string;
   emailTemplates: EmailTemplateOption[];
+  /** The wording for the fixed list, in the organization's words (a Jain Center: "Pujans and fixed bolis"). */
+  words: BuilderWords;
 }) {
   const router = useRouter();
   const toast = useToast();
@@ -173,7 +178,7 @@ export function OpportunityBuilder({
     });
   }
 
-  const typeTitle = kind === "tier" ? "Sponsorship tiers" : kind === "multi" ? "Pujans and fixed bolis" : kind === "amount" ? "Preset amounts" : "Open amount";
+  const typeTitle = kind === "tier" ? "Sponsorship tiers" : kind === "multi" ? words.section : kind === "amount" ? "Preset amounts" : "Open amount";
   const cents = (a: string) => {
     const c = parseAmountToCents(a);
     return c && c > 0 ? formatCents(c, currency) : "—";
@@ -191,11 +196,11 @@ export function OpportunityBuilder({
             <label htmlFor="op-name" className="crm-label">
               Name
             </label>
-            <input id="op-name" value={name} onChange={(e) => setName(e.target.value)} maxLength={160} placeholder="e.g. Diwali aarti and pujans" className="crm-input" />
+            <input id="op-name" value={name} onChange={(e) => setName(e.target.value)} maxLength={160} placeholder={words.example} className="crm-input" />
           </div>
           <div className="sm:col-span-2">
             <p className="crm-label">Type</p>
-            <ChipGroup label="Type" value={kind} onChange={setKind} options={OPPORTUNITY_TYPES.map((t) => ({ value: t.kind, label: t.label }))} />
+            <ChipGroup label="Type" value={kind} onChange={setKind} options={OPPORTUNITY_TYPES.map((t) => ({ value: t.kind, label: t.kind === "multi" ? words.listType : t.label }))} />
           </div>
           <div>
             <label htmlFor="op-campaign" className="crm-label">
@@ -353,7 +358,7 @@ export function OpportunityBuilder({
         actions={
           canManage && kind !== "open" ? (
             <button type="button" onClick={addRow} className={buttonClass("ghost", "sm")}>
-              {kind === "tier" ? "Add tier" : kind === "multi" ? "Add pujan" : "Add amount"}
+              {kind === "tier" ? "Add tier" : kind === "multi" ? words.add : "Add amount"}
             </button>
           ) : null
         }
@@ -373,7 +378,7 @@ export function OpportunityBuilder({
                     </>
                   ) : (
                     <>
-                      <th>{kind === "tier" ? "Tier" : "Pujan"}</th>
+                      <th>{kind === "tier" ? "Tier" : words.item}</th>
                       <th>Amount ($)</th>
                       {kind === "tier" ? <th>Recognition</th> : null}
                       <th>{kind === "tier" ? "Taken" : "Availability"}</th>
@@ -392,11 +397,11 @@ export function OpportunityBuilder({
                       ) : (
                         <td>
                           <input
-                            aria-label={`${kind === "tier" ? "Tier" : "Pujan"} ${i + 1} name`}
+                            aria-label={`${kind === "tier" ? "Tier" : words.item} ${i + 1} name`}
                             value={r.label}
                             onChange={(e) => setRow(i, { label: e.target.value })}
                             disabled={!canManage}
-                            placeholder={kind === "tier" ? "e.g. Gold" : "e.g. Pehli aarti"}
+                            placeholder={kind === "tier" ? "e.g. Gold" : words.itemExample}
                             className="crm-input font-semibold"
                           />
                         </td>

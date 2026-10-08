@@ -3,7 +3,9 @@
 // exist in this build, form parsing for the Step 0 screens, the brand-kit
 // contrast check and public file URLs. No server imports; tested directly.
 
+import { kindName, moduleNotOffered } from "@/lib/kind";
 import { NAV } from "@/lib/permissions";
+import { word, type KindLike } from "@/lib/wording";
 
 export const SETUP_STAGES = [
   { stage: 0, title: "Organization foundation", who: "Owner" },
@@ -777,4 +779,18 @@ export function parseLeader(read: Read): { ok: true; value: LeaderInput } | { ok
       sort,
     },
   };
+}
+
+// ── What the organization's kind has ──────────────────────────────────────────
+
+/** The entity types in the kind's words: "House of worship (church, temple, derasar)" for a kind with a tradition pack. */
+export function entityTypesFor(kind: KindLike): { value: string; label: string }[] {
+  return ENTITY_TYPES.map((e) => (e.value === "house_of_worship" ? { ...e, label: word(kind, "house_of_worship") } : e));
+}
+
+/** The leader groups for this kind: no Pathshala committee where the kind has no school; the school named in the kind's words. */
+export function leaderBodiesFor(kind: KindLike): { value: string; label: string }[] {
+  return LEADER_BODIES.filter((b) => b.value !== "pathshala" || !moduleNotOffered(kind, "pathshala")).map((b) =>
+    b.value === "pathshala" ? { ...b, label: kindName(kind, "pathshala", b.label) } : b,
+  );
 }

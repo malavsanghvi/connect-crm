@@ -4,6 +4,7 @@ import { ActionForm } from "@/components/action-form";
 import { Alert, BlockGrid, Card, EmptyState, NoAccess, PageHeader, QueryError, StatusText, TableWrap } from "@/components/ui";
 import { can, canAccess } from "@/lib/permissions";
 import { formatPhone, invitableRoles, invitationStatus } from "@/lib/security";
+import { loadRoleFilter } from "@/lib/role-tags";
 import { getSession } from "@/lib/session";
 
 import { revokeInvitationAction, transferOwnershipAction } from "./actions";
@@ -50,6 +51,8 @@ export default async function TeamPage() {
     db.rpc("check_owner_and_second_admin_2fa", { p_center: center.id }),
   ]);
   const roleName = new Map((roles.data ?? []).map((r) => [r.key, r.name]));
+  // Roles of a part this kind of organization does not have are not offered for a new invitation.
+  const listed = await loadRoleFilter(db, session.kind.key);
   const members = team.data ?? [];
   const nameOf = new Map(members.map((m) => [m.user_id, m.name]));
   const isOwner = owner.data?.user_id === userId;
@@ -68,7 +71,7 @@ export default async function TeamPage() {
           {roles.error ? (
             <QueryError what="the roles" error={roles.error} retryHref="/settings/team" />
           ) : (
-            <InviteForm roles={invitableRoles(roles.data ?? []).map((r) => ({ key: r.key, name: r.name, description: r.description }))} />
+            <InviteForm roles={invitableRoles((roles.data ?? []).filter((r) => listed(r.key))).map((r) => ({ key: r.key, name: r.name, description: r.description }))} />
           )}
         </Card>
 

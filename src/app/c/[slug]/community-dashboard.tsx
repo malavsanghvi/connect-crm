@@ -4,8 +4,9 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { TenantMark } from "@/components/shell/tenant-mark";
-import { buildDashboard, periods, type DashboardView, type PeriodKey } from "@/lib/community-dashboard";
+import { buildDashboard, dashboardTitles, periods, type DashboardView, type PeriodKey } from "@/lib/community-dashboard";
 import type { Database } from "@/lib/database.types";
+import type { KindProfile } from "@/lib/kind";
 import { explainError } from "@/lib/errors";
 import type { TenantBranding } from "@/lib/shell";
 import { tracingFetch } from "@/lib/supabase/trace";
@@ -30,6 +31,7 @@ export function CommunityDashboard({
   branding,
   today,
   joinUrl,
+  kind,
 }: {
   env: { supabaseUrl: string; supabaseAnonKey: string };
   slug: string;
@@ -38,6 +40,8 @@ export function CommunityDashboard({
   branding: TenantBranding;
   today: string;
   joinUrl: string | null;
+  /** The organization's kind: which sections and words the dashboard has (a Jain Center when the database does not say). */
+  kind: KindProfile;
 }) {
   const all = useMemo(() => periods(today), [today]);
   const [key, setKey] = useState<PeriodKey>("ytd");
@@ -68,7 +72,7 @@ export function CommunityDashboard({
           } else if (data === null) {
             setResult({ key: k, seq: my, status: "error", message: "This community's dashboard is not available right now." });
           } else {
-            setResult({ key: k, seq: my, status: "ok", view: buildDashboard(data, p) });
+            setResult({ key: k, seq: my, status: "ok", view: buildDashboard(data, p, kind) });
           }
         })
         .then(undefined, (err: unknown) => {
@@ -78,7 +82,7 @@ export function CommunityDashboard({
           setResult({ key: k, seq: my, status: "error", message: "We could not reach the server. Check your connection and try again." });
         });
     },
-    [all, env.supabaseUrl, env.supabaseAnonKey, slug],
+    [all, env.supabaseUrl, env.supabaseAnonKey, slug, kind],
   );
 
   useEffect(() => {
@@ -93,6 +97,7 @@ export function CommunityDashboard({
   const state = !result || result.key !== key || retrying ? { status: "loading" as const } : result;
   const loading = state.status === "loading";
   const v = state.status === "ok" ? state.view : null;
+  const titles = v?.titles ?? dashboardTitles(kind);
 
   return (
     <div className="min-h-screen bg-ground font-sans text-ink">
@@ -159,8 +164,8 @@ export function CommunityDashboard({
             {loading || (v && v.practice.length > 0) ? (
               <section className="flex flex-col gap-3.5 rounded-[20px] border border-[#E8E0D2] bg-white p-5">
                 <div className="flex flex-wrap items-baseline justify-between gap-2">
-                  <h3 className="text-[17px] font-bold">Practicing together</h3>
-                  <p className="text-xs text-muted">From My Jain Way and Gyan Path · totals only</p>
+                  <h3 className="text-[17px] font-bold">{titles.practice}</h3>
+                  <p className="text-xs text-muted">{titles.practiceSub}</p>
                 </div>
                 <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-3">
                   {(loading ? Array.from({ length: 6 }, () => null) : v!.practice).map((k, i) => (
@@ -208,7 +213,7 @@ export function CommunityDashboard({
               <section className="flex flex-col gap-3 rounded-[20px] border border-[#E8E0D2] bg-white p-5">
                 <div className="flex flex-wrap items-baseline justify-between gap-2">
                   <h3 className="text-[17px] font-bold">Attendance by month</h3>
-                  <p className="text-xs text-muted">Check-ins at all events and Pathshala</p>
+                  <p className="text-xs text-muted">{titles.attendanceSub}</p>
                 </div>
                 <div className="flex h-[200px] items-end gap-1.5 border-b border-[#E8E0D2] pt-4 sm:gap-2">
                   {(v?.months ?? Array.from({ length: 12 }, () => null)).map((m, i) => (
@@ -254,8 +259,8 @@ export function CommunityDashboard({
         {loading || (v && (v.learning.length > 0 || v.seva.length > 0)) ? (
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             {[
-              { title: "Pathshala and learning", rows: v?.learning },
-              { title: "Seva and community care", rows: v?.seva },
+              { title: titles.learning, rows: v?.learning },
+              { title: titles.seva, rows: v?.seva },
             ]
               .filter((c) => loading || (c.rows && c.rows.length > 0))
               .map((c) => (

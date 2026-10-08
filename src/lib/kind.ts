@@ -5,7 +5,8 @@
 //
 // Pure — no server imports — so it is unit-tested and usable from client components.
 
-import type { Json } from "@/lib/database.types";
+// Relative import: files the background service (worker/) imports reach this one, and it does not know the "@/" alias.
+import type { Json } from "./database.types";
 
 export type ModuleAvailability = "default_on" | "default_off" | "not_available";
 
@@ -141,8 +142,8 @@ export function notPartOfKindSentence(moduleLabel: string, kindLabel: string): s
 }
 
 /** The longer explanation under it, for a page. */
-export function notOfferedExplanation(centerName: string, kindLabel: string): string {
-  return `${centerName} is set up as ${withArticle(kindOrganization(kindLabel))}, which does not have this module. Weaver can change an organization's kind if that is wrong.`;
+export function notOfferedExplanation(centerName: string, kindLabel: string, what = "this module"): string {
+  return `${centerName} is set up as ${withArticle(kindOrganization(kindLabel))}, which does not have ${what}. Weaver can change an organization's kind if that is wrong.`;
 }
 
 /** The module's name in this kind (the kind's own wording, else the catalog's). */
@@ -188,4 +189,50 @@ export function kindFallbackProblem(loaded: LoadedKind, res: KindProfileResult):
     context: "Could not read the organization's kind (showing the default wording)",
     error: res.error ?? new Error("app.category_profile answered with something the portal could not read"),
   };
+}
+
+// ---------------------------------------------------------------------------
+// What a kind has, beyond the modules it offers
+// ---------------------------------------------------------------------------
+
+/**
+ * Parts of a screen that exist only for some kinds. Each is decided from the kind's own data, never from its name:
+ *   labh        Labh fulfillment (a gift of a pledge's blessing): the `labh` module when the database has one, else
+ *               the Bolis module, which a kind always has or lacks together with it.
+ *   tradition   the tradition pack: panchang and tithi, the daily timings (navkarsi, chauvihar), pachchakhan, the
+ *               tradition's flyer occasions and KPIs. The kinds whose `uses_tradition` is true. A kind the database
+ *               says nothing about keeps today's screens.
+ *   live_stream the live stream (the access area "darshan"). Migration 0600 tags that area for the Jain Center only:
+ *               the database leaves it out for any other kind and gives no stream to a member there, so a stream added
+ *               for such a kind could never be watched and the portal does not offer to add one.
+ */
+export type KindFeature = "labh" | "tradition" | "live_stream";
+
+export function kindHas(kind: Pick<KindProfile, "modules" | "usesTradition">, feature: KindFeature): boolean {
+  switch (feature) {
+    case "labh":
+      return !moduleNotOffered(kind, "labh" in kind.modules ? "labh" : "bolis");
+    case "tradition":
+    case "live_stream":
+      return kind.usesTradition !== false;
+  }
+}
+
+/** A part of the kind's own wording for a module that the NAV and the screens name by default. */
+const MODULE_TERM: Readonly<Record<string, string>> = { store: "store", pathshala: "school", gyan_path: "learning" };
+
+/**
+ * A module's name in this kind: the kind's own name for the module (category_modules.label) first, else the kind's
+ * term for it (the store, the school, the learning path), else `fallback`, the name the screens always had.
+ */
+export function kindName(kind: Pick<KindProfile, "modules" | "terms">, moduleKey: string, fallback: string): string {
+  const own = kind.modules[moduleKey]?.label;
+  if (own) return own;
+  const term = MODULE_TERM[moduleKey];
+  return term ? kindTerm(kind, term, fallback) : fallback;
+}
+
+/** What the kind calls its religious school ("Pathshala"), or null when the kind has none (a chamber, a club …). */
+export function kindSchool(kind: Pick<KindProfile, "modules" | "terms">): string | null {
+  return moduleNotOffered(kind, "pathshala") ? null : kindName(kind, "pathshala", "Pathshala");
 }

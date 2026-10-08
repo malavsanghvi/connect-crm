@@ -3,6 +3,7 @@
 // pages fetch, these functions shape. Money is integer cents throughout.
 
 import { dateInTz, isDateOnly } from "@/lib/dates";
+import { kindTerm, moduleNotOffered, type KindProfile } from "@/lib/kind";
 import { formatCents } from "@/lib/money";
 
 // ---------------------------------------------------------------------------
@@ -430,6 +431,11 @@ export type ReceiptPreviewLine = { text: string; tone: "navy" | "ink" | "muted";
  * The live preview beside the template editor (prototype L604). Sample
  * donor data is labelled as a sample; the header uses the center's name and
  * address from its settings.
+ *
+ * The sample's wording follows the organization's kind (decision C17, money wording, owner to confirm): a house of
+ * worship's sample carries the line about intangible religious benefits and a "Temple construction" fund; any other
+ * kind (a chamber of commerce, a club, a non-profit) gets neither, because dues and gifts to it are not worded
+ * as religious gifts. A Jain Center, and a database that does not say, read exactly as before.
  */
 export function receiptPreviewLines(input: {
   kind: ReceiptKind;
@@ -439,7 +445,13 @@ export function receiptPreviewLines(input: {
   note: string;
   year: number;
   currency: string;
+  /** The organization's kind (src/lib/kind.ts); omitted = a Jain Center's sample. */
+  orgKind?: Pick<KindProfile, "faithBased" | "usesTradition" | "terms">;
 }): ReceiptPreviewLine[] {
+  const faith = input.orgKind ? input.orgKind.faithBased : true;
+  const fund = input.orgKind
+    ? kindTerm(input.orgKind, "sample_fund", input.orgKind.usesTradition !== false ? "Temple construction" : faith ? "Building fund" : "General fund")
+    : "Temple construction";
   const title =
     input.kind === "donation_receipt"
       ? "Donation receipt"
@@ -451,12 +463,12 @@ export function receiptPreviewLines(input: {
     { text: [input.centerName, input.centerAddress].filter(Boolean).join(" · "), tone: "navy", strong: true },
     { text: `${title} · No. R-${input.year}-00000 (sample)`, tone: "ink", strong: true },
     input.kind === "pledge_confirmation"
-      ? { text: `Sample donor · pledged ${amount} to Temple construction`, tone: "ink" }
+      ? { text: `Sample donor · pledged ${amount} to ${fund}`, tone: "ink" }
       : input.kind === "year_end_statement"
         ? { text: `Sample donor · ${input.year - 1} gifts totalling ${amount}`, tone: "ink" }
         : { text: `Sample donor · ${amount} by check on a sample date`, tone: "ink" },
-    { text: "Applied to: Temple construction (sample)", tone: "ink" },
-    { text: "No goods or services were provided other than intangible religious benefits.", tone: "muted" },
+    { text: `Applied to: ${fund} (sample)`, tone: "ink" },
+    ...(faith ? [{ text: "No goods or services were provided other than intangible religious benefits.", tone: "muted" as const }] : []),
   ];
   const note = input.note.trim();
   const signed = input.signedBy.trim();
@@ -693,3 +705,11 @@ export function recurringTemplateOptions(rows: readonly EmailTemplateRow[], curr
   if (currentKey && !options.some((o) => o.key === currentKey)) options.unshift({ key: currentKey, label: `${currentKey} — no longer exists` });
   return options;
 }
+
+/** The kinds of campaign an organization can start. Bolis, Pathshala and the store are offered only where the kind has them. */
+export function campaignKindsFor(kind: KindProfile): string[] {
+  const needs: Record<string, string> = { boli: "bolis", pathshala: "pathshala", store: "store" };
+  return CAMPAIGN_KINDS.filter((k) => !needs[k] || !moduleNotOffered(kind, needs[k]));
+}
+
+export const CAMPAIGN_KINDS = ["general", "boli", "sponsorship", "construction", "pathshala", "event", "membership", "store", "other"] as const;
