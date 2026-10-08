@@ -25,6 +25,7 @@ set local role authenticated;
 set local request.jwt.claim.sub = '10000000-0000-4000-8000-000000000011';
 select app.set_module_enabled(:jsh, 'bolis', false, 'card test');
 select app.set_module_enabled(:jsh, 'accounting', false, 'card test');
+select app.set_module_enabled(:jsh, 'labh', false, 'card test');
 select app.set_module_enabled(:jsh, 'giving', false, 'card test');
 commit;
 
@@ -39,6 +40,7 @@ begin;
 set local role authenticated;
 set local request.jwt.claim.sub = '10000000-0000-4000-8000-000000000011';
 select app.set_module_enabled(:jsh, 'giving', true, 'card test done');
+select app.set_module_enabled(:jsh, 'labh', true, 'card test done');
 select app.set_module_enabled(:jsh, 'bolis', true, 'card test done');
 select app.set_module_enabled(:jsh, 'accounting', true, 'card test done');
 commit;

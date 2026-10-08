@@ -41,8 +41,8 @@ select pg_temp.assert(not exists (
       select 1 from pg_class c join pg_namespace n on n.oid = c.relnamespace
        where n.nspname = 'app' and c.relname = mt.table_name and c.relkind in ('r','p'))),
   'module_tables lists no table that does not exist');
-select pg_temp.assert((select count(*) from app.modules) = 18 and (select array_agg(key order by key) from app.modules where core) = '{people}',
-  'the module catalog has the 18 contract modules and only people is core');
+select pg_temp.assert((select count(*) from app.modules) = 19 and (select array_agg(key order by key) from app.modules where core) = '{people}',
+  'the module catalog has the 19 modules (the 18 of the contract and Labh, 0601) and only people is core');
 select pg_temp.assert(not exists (
     select mt.table_name from app.module_tables mt join app.modules m on m.key = mt.module_key
       join pg_class c on c.relname = mt.table_name join pg_namespace n on n.oid = c.relnamespace and n.nspname = 'app'
@@ -205,6 +205,9 @@ select pg_temp.assert_raises($$select app.set_module_enabled('00000000-0000-4000
   'no module called', 'an unknown module is refused');
 select app.set_module_enabled(:jsh, 'bolis', false, 'Bolis are run on paper this year');
 select app.set_module_enabled(:jsh, 'accounting', false, 'QuickBooks not connected yet');
+select pg_temp.assert_raises($$select app.set_module_enabled('00000000-0000-4000-8000-000000000001', 'giving', false, 'test')$$,
+  'Labh', 'Giving cannot be switched off while Labh (which depends on it) is on, and the error names Labh');
+select app.set_module_enabled(:jsh, 'labh', false, 'Labh goes first, it depends on Giving');
 select app.set_module_enabled(:jsh, 'giving', false, 'Giving moves to the new system in October');
 select pg_temp.assert_raises($$select app.set_module_enabled('00000000-0000-4000-8000-000000000001', 'bolis', true, 'test')$$,
   'needs Pledges & donations', 'a module cannot be switched on while its dependency is off');
@@ -214,7 +217,7 @@ select app.set_module_enabled(:jsh, 'gyan_path', false, 'Testing the Gyan Path s
 commit;
 
 select pg_temp.assert((select count(*) from app.center_modules where center_id = :jsh and not enabled
-                         and changed_by = '10000000-0000-4000-8000-000000000011') = 6,
+                         and changed_by = '10000000-0000-4000-8000-000000000011') = 7,
   'the switches are stored with who changed them');
 select pg_temp.assert((select reason = 'Giving moves to the new system in October' and actor_user_id = '10000000-0000-4000-8000-000000000011'
                           and center_id = :jsh and module is null and after->>'enabled' = 'false'
@@ -225,11 +228,11 @@ select pg_temp.assert((select reason = 'Giving moves to the new system in Octobe
 begin;
 set local role authenticated;
 set local request.jwt.claim.sub = '10000000-0000-4000-8000-000000000001';
-select pg_temp.assert((select count(*) from app.center_modules where center_id = :jsh) = 6, 'members read their center''s module switches');
+select pg_temp.assert((select count(*) from app.center_modules where center_id = :jsh) = 7, 'members read their center''s module switches');
 select pg_temp.assert((select array_agg(key order by key) from app.my_modules(:jsh) where not enabled)
-                        = '{accounting,bolis,events,giving,gyan_path,jain_way}'
+                        = '{accounting,bolis,events,giving,gyan_path,jain_way,labh}'
                       and (select enabled and core from app.my_modules(:jsh) where key = 'people')
-                      and (select count(*) from app.my_modules(:jsh)) = 18,
+                      and (select count(*) from app.my_modules(:jsh)) = 19,
   'my_modules lists every module with its state, core ones always on');
 select pg_temp.assert((select count(*) from app.my_modules(:other)) = 0, 'my_modules says nothing about a center you do not belong to');
 commit;
@@ -283,6 +286,7 @@ begin;
 set local role authenticated;
 set local request.jwt.claim.sub = '10000000-0000-4000-8000-000000000011';
 select app.set_module_enabled(:jsh, 'giving', true, 'Back on after the test');
+select app.set_module_enabled(:jsh, 'labh', true, 'Back on after the test');
 select app.set_module_enabled(:jsh, 'bolis', true, 'Back on after the test');
 select app.set_module_enabled(:jsh, 'accounting', true, 'Back on after the test');
 select app.set_module_enabled(:jsh, 'events', true, 'Back on after the test');
@@ -326,4 +330,4 @@ select app.set_module_enabled(:jsh, 'membership', true, 'Back on after the test'
 commit;
 select pg_temp.assert(not exists (select 1 from app.center_modules where not enabled), 'the test leaves every module on');
 select pg_temp.assert(not exists (select 1 from app.modules m where not app.module_enabled(:jsh, m.key)),
-  'and every one of the 18 modules reads as on for JSH again (the category adds nothing for a Jain Center)');
+  'and every one of the 19 modules reads as on for JSH again (the category adds nothing for a Jain Center)');

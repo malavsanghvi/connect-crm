@@ -91,6 +91,7 @@ organization". An experience is rows, so adding one later needs no code fork in 
 | `app.list_experiences()` | The picker, callable before login: `(key, label, description, family_key, family_label, faith_based, active, sort)`, active experiences only unless the caller is a platform admin. Faith-based experiences come first, by family. |
 | `app.member_experience(community, known_stamp)` | The one read for the member app, with or without a session: the experience and its words, every module's availability and whether it is on, the questions the app asks most (`flags`: school, learning, store, labh, bolis, niva, practice), what the administrator set up (home shortcuts, branding, timings, time zone, identifiers), the access areas for the caller, the notification topics and the paths, and a `stamp`. Send the stamp back: when nothing changed the answer is only `{stamp, unchanged: true, updated_at}`. |
 | Tags `category_keys` | On `roles`, `notification_topics`, `access_features` and `setup_steps`: empty = every experience, otherwise the experiences named and everything that inherits from them (`app.catalog_shows(keys, category)`). `feature_access_for_me`, `access_settings`, `can_use_feature` and `setup_checklist` leave out what an experience does not show. |
+| Library pack (0601) | `organization_categories.library_pack` says which shared library an experience gets (Jain Center: `jain`); `library_pack` on the shared rows of `content_items`, `gyan_goals`, `practices`, `calendar_layers` and `tithi_days` (null = every experience) says which pack a shared row belongs to. Today's shared Jain rows are `jain`; the school-district calendars and shared rows with no tradition stay shared; a trigger tags a new shared Jain row. `app.library_pack_shows(pack, community)` answers it, and Niva's search offers a shared source only to an experience that has its pack. |
 | `app.setup_step_wording` | An experience's own words for a Setup step (the catalog mentions navkarsi, bolis and the religious coordinator). |
 | `app.category_dietary_options` | Dietary choices an experience adds to a new organization's list (Jain Center: "Jain (no root vegetables)"; Mosque: halal; Swaminarayan Temple: satvik). |
 
@@ -171,8 +172,8 @@ name, to `audit.view` holders of that center and platform admins only (the same 
 
 - **Tables:** funds, campaigns, opportunities, pledges, payments, payment_allocations,
   recurring_gifts, statements, counting_sessions, valuables_register, bank_accounts,
-  bank_statement_imports, bank_transactions, known_originators, receipt_templates, labh_options,
-  labh_fulfillments, center_payment_plugins (the payment plugins catalog, `payment_plugins`, is platform
+  bank_statement_imports, bank_transactions, known_originators, receipt_templates,
+  center_payment_plugins (the payment plugins catalog, `payment_plugins`, is platform
   data: readable by every signed-in user, in no module), payment_reports (members' Zelle reports; 0582)
 - **RPCs guarded:** record_offline_payment, allocate_payment, preview_allocation,
   confirm_bank_match, match_deposit, suggest_bank_matches, suggest_deposit_payments,
@@ -181,7 +182,7 @@ name, to `audit.view` holders of that center and platform admins only (the same 
   zelle_exact_matches, confirm_exact_zelle_matches, attach_bank_line_to_payment,
   set_zelle_reporting (Zelle reports and the double-count guard, 0582-0583; worker job
   payments.reports_sweep calls worker_payment_reports_sweep, which skips Giving-off organizations),
-  commit_labh, create_recurring_gift, opportunity_availability, approve_as_second (payments,
+  create_recurring_gift, opportunity_availability, approve_as_second (payments,
   pledges), enqueue_payment_posting and recompute_pledge_status (when called directly; not from
   the Giving triggers), payment_plugin_settings, set_payment_plugin and member_payment_methods
   (the payment plugins, 0580-0581; the status and member-answer helpers are not callable over the
@@ -203,12 +204,28 @@ name, to `audit.view` holders of that center and platform admins only (the same 
   /giving/opportunities, /giving/campaigns, /giving/recurring, /giving/labh, /giving/statements
 - **Member app:** Give tab, pledges, recurring, recurring-setup, opportunity/[id], labh/[dayId]
 - **Permissions:** giving.view, giving.manage, giving.approve, giving.record_offline
-- **Switching off:** refused while Bolis or Accounting is on. Money data is hidden and frozen for
-  everyone but platform admins; recording, matching, labh and recurring set-up refuse. The People
+- **Switching off:** refused while Labh, Bolis or Accounting is on. Money data is hidden and frozen for
+  everyone but platform admins; recording, matching and recurring set-up refuse. The People
   household card (`household_card`) keeps identifying the household but returns no open-pledge total
   or last-gift date (0110), and the household page drops Record payment and its Pledges/Payments tabs.
-  The member app hides "Plan labh". Money rules (allocation, write-off, refunds) are unchanged.
+  Money rules (allocation, write-off, refunds) are unchanged.
   The payment plugin rows are hidden too, and their functions refuse.
+
+## Labh (depends on Giving) (0601)
+
+Labh is its own switch under Pledges & donations. **Jain Center (JSH) has it on** (no switch was written, so nothing
+changed); a Chamber of commerce, the neutral Community organization, a Faith community and every experience that inherits from
+them **never** have it (`not_available`: not even offered as a switch). Community Connect decided this (owner decision C3).
+
+- **Tables:** labh_options, labh_fulfillments (the module's restrictive `module_switch` policy; the labh import,
+  `import_entities.labh_options`, belongs to it too)
+- **RPCs guarded:** commit_labh (Giving **and** Labh)
+- **Portal:** /giving/labh
+- **Member app:** labh/[dayId], "Plan labh" on a special day (see `flags.labh` in `app.member_experience`)
+- **Permissions:** giving.view, giving.manage
+- **Switching off:** the labh menu and the fulfillments are hidden (not deleted) and `commit_labh` refuses; Giving keeps
+  working. Giving cannot be switched off while Labh is on (the error names Labh). A community that already had Giving switched
+  off when this module was added got Labh switched off with it, so nothing that was hidden became visible.
 
 ## Bolis (depends on Giving)
 
