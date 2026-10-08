@@ -13,7 +13,7 @@ export const SETUP_STAGES = [
   { stage: 4, title: "Records", who: "Membership coordinator, module owners" },
   { stage: 5, title: "History and transactions", who: "Treasurer" },
   { stage: 6, title: "Train Niva", who: "Content editor, religious coordinator" },
-  { stage: 7, title: "Test, train staff, pilot", who: "Owner, Community Connect onboarding lead" },
+  { stage: 7, title: "Test, train staff, pilot", who: "Owner, Weaver onboarding lead" },
   { stage: 8, title: "Request go-live", who: "Owner" },
 ] as const;
 
@@ -28,7 +28,7 @@ const STATUS_LABEL: Record<StepStatus, string> = {
   not_started: "Not started",
   in_progress: "In progress",
   waiting_on_provider: "Waiting on a provider",
-  needs_review: "Needs Community Connect review",
+  needs_review: "Needs Weaver review",
   done: "Done",
   skipped: "Skipped",
 };
@@ -93,7 +93,7 @@ export type ReadinessDef = {
 
 /** The plan's 13 checks, with the registry keys each stream registers (migrations 0182, 0300, 0301). */
 export const READINESS_CHECKS: readonly ReadinessDef[] = [
-  { n: 1, key: "nonprofit_verified", title: "Non-profit status verified", proof: "Community Connect review done (Step 0.2)", owner: "Setup", href: "/setup/organization" },
+  { n: 1, key: "nonprofit_verified", title: "Non-profit status verified", proof: "Weaver review done (Step 0.2)", owner: "Setup", href: "/setup/organization" },
   { n: 2, key: "agreements_accepted", title: "Agreements accepted", proof: "Records exist (Step 0.7)", owner: "Security", href: "/settings/agreements" },
   { n: 3, key: "owner_and_second_admin_2fa", title: "An owner and a second admin, both with 2FA", proof: "Automatic", owner: "Security", href: "/settings/team" },
   { n: 4, key: "email_domain_verified", title: "Email domain verified, and sign-in codes reach any address", proof: "Automatic test", owner: "Messaging", href: "/settings/email" },
@@ -272,7 +272,7 @@ export const STORAGE_AREAS: Record<string, { label: string; holds: string; reade
   recordings: { label: "Recordings", holds: "Gyan Path recitations", readers: "The child, their parents, their teachers", kept: "Your choice (default 90 days)" },
   homework: { label: "Homework answers", holds: "Photos, files and voice notes handed in as homework", readers: "The learner, their parents, and their teachers once it is handed in", kept: "Your choice (default 180 days)" },
   imports: { label: "Imports", holds: "Uploaded source files", readers: "People who may import that data", kept: "Your choice (default 90 days)" },
-  "org-documents": { label: "Organization documents", holds: "W-9, determination letter, agreements", readers: "The owner and Community Connect verification staff", kept: "Life of the account" },
+  "org-documents": { label: "Organization documents", holds: "W-9, determination letter, agreements", readers: "The owner and Weaver verification staff", kept: "Life of the account" },
   exports: { label: "Exports", holds: "Generated exports", readers: "The person who asked", kept: "7 days" },
 };
 
@@ -502,7 +502,7 @@ export function verificationBlockers(p: { legal_name: string | null; ein: string
 
 export const VERIFICATION_LABEL: Record<string, string> = {
   unverified: "Not submitted",
-  submitted: "Waiting for Community Connect review",
+  submitted: "Waiting for Weaver review",
   verified: "Verified non-profit",
   rejected: "Sent back — see the note",
 };

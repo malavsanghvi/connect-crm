@@ -13,7 +13,7 @@ export const metadata: Metadata = { title: "Support access · Settings" };
 
 export default async function SupportAccessSettingsPage() {
   const session = await getSession();
-  const header = <PageHeader title="Settings" description="Support access · give the Community Connect team time-boxed access to help you; every grant is audited" />;
+  const header = <PageHeader title="Settings" description="Support access · give the Weaver team time-boxed access to help you; every grant is audited" />;
   if (!canAccess(session, "centerSettings")) {
     return (
       <>
@@ -36,7 +36,7 @@ export default async function SupportAccessSettingsPage() {
       </>
     );
   }
-  if (staff.error) console.error("[settings/support-access] could not load the Community Connect team:", staff.error);
+  if (staff.error) console.error("[settings/support-access] could not load the Weaver team:", staff.error);
   const isOwner = owner.data?.user_id === userId;
   const who = new Map((staff.data ?? []).map((s) => [s.user_id, s.email]));
   const tz = center.time_zone;
@@ -48,16 +48,16 @@ export default async function SupportAccessSettingsPage() {
           {!isOwner ? (
             <p className="text-[13px] text-muted">Only the organization&apos;s owner grants support access.</p>
           ) : staff.error ? (
-            <Alert tone="danger" title="Could not load the Community Connect team">
+            <Alert tone="danger" title="Could not load the Weaver team">
               Reload the page to try again.
             </Alert>
           ) : (staff.data ?? []).length === 0 ? (
-            <p className="text-[13px] text-muted">No Community Connect team members are set up yet.</p>
+            <p className="text-[13px] text-muted">No Weaver team members are set up yet.</p>
           ) : (
             <ActionForm action={grantSupportAction} submitLabel="Grant access" resetOnSuccess>
               <div className="mb-3 grid grid-cols-1 gap-3 sm:grid-cols-[1fr_160px]">
                 <label className="crm-label">
-                  Who at Community Connect
+                  Who at Weaver
                   <select name="grantee" className="crm-input mt-1">
                     {(staff.data ?? []).map((s) => (
                       <option key={s.user_id} value={s.user_id}>
@@ -106,7 +106,7 @@ export default async function SupportAccessSettingsPage() {
                     const state = supportState(g);
                     return (
                       <tr key={g.id} data-state={state}>
-                        <td>{who.get(g.grantee_user_id) ?? "A Community Connect team member"}</td>
+                        <td>{who.get(g.grantee_user_id) ?? "A Weaver team member"}</td>
                         <td className="text-[13px]">{g.reason}</td>
                         <td className="whitespace-nowrap text-[12px]">
                           {formatDateTime(g.granted_at, tz)}

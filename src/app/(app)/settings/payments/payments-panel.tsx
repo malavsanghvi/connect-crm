@@ -105,7 +105,7 @@ export function PaymentsPanel({ settings, centerName, tz, env, children }: {
         <Alert tone="info" title="Test mode only">
           {s.environment === "sandbox"
             ? "This is a sandbox: every charge runs in the processor's test mode and no real money moves. Live mode is switched on in production."
-            : "Community Connect is holding this organization to test mode."}
+            : "Weaver is holding this organization to test mode."}
         </Alert>
       ) : null}
       {!s.can_configure ? (
@@ -172,7 +172,7 @@ export function ProcessorPanel({ p, s, tz, run, busy, askReason }: { p: Processo
       confirmLabel: `Continue to ${label}`,
       body: (
         <p>
-          You will sign in to the organization&apos;s {label} account and allow Community Connect to take payments for it. {label} may take a few days to verify the
+          You will sign in to the organization&apos;s {label} account and allow Weaver to take payments for it. {label} may take a few days to verify the
           organization. This needs a fresh 2FA check.
         </p>
       ),
@@ -274,7 +274,7 @@ export function ProcessorPanel({ p, s, tz, run, busy, askReason }: { p: Processo
           <p className="font-semibold">Or use the PayPal Business email</p>
           <p className="text-muted">If Connect with PayPal isn&apos;t available, enter the account&apos;s email. We send it a 6-digit code to prove it is yours.</p>
           {!s.messaging_available ? (
-            <p className="mt-1 text-danger">Email sending isn&apos;t set up on Community Connect yet, so the code can&apos;t be sent. Use Connect with PayPal for now.</p>
+            <p className="mt-1 text-danger">Email sending isn&apos;t set up on Weaver yet, so the code can&apos;t be sent. Use Connect with PayPal for now.</p>
           ) : null}
           <div className="mt-2 flex flex-wrap items-end gap-2">
             <label htmlFor={emailId} className="flex flex-col">
@@ -378,8 +378,10 @@ export function ProcessorPanel({ p, s, tz, run, busy, askReason }: { p: Processo
  * Today's instructions editor for Zelle or an offline method, inside its plugin card. Whether the
  * method is offered is the card's switch; this saves what members are told (kept as they are on or off).
  */
-export function MethodEditor({ def, row, enabled, sort, canEdit, run, busy, askReason }: {
+export function MethodEditor({ def, row, enabled, sort, canEdit, run, busy, askReason, lockedFields = [] }: {
   def: OfflineMethod; row: MethodSettings | undefined; enabled: boolean; sort: number; canEdit: boolean; run: Runner; busy: string | null; askReason: AskReason;
+  /** Fields already saved that only a second person can change (the Zelle address and name): shown, not editable here. */
+  lockedFields?: readonly string[];
 }) {
   const [vals, setVals] = useState<Record<string, string>>(row?.instructions ?? {});
   const baseId = useId();
@@ -398,10 +400,10 @@ export function MethodEditor({ def, row, enabled, sort, canEdit, run, busy, askR
                 {required.includes(f.key) ? " *" : ""}
               </span>
               {f.multiline ? (
-                <textarea id={id} rows={2} className="crm-input" disabled={!canEdit} placeholder={f.placeholder} value={vals[f.key] ?? ""}
+                <textarea id={id} rows={2} className="crm-input" disabled={!canEdit || lockedFields.includes(f.key)} placeholder={f.placeholder} value={vals[f.key] ?? ""}
                   onChange={(e) => setVals((v) => ({ ...v, [f.key]: e.target.value }))} />
               ) : (
-                <input id={id} className="crm-input" disabled={!canEdit} placeholder={f.placeholder} value={vals[f.key] ?? ""}
+                <input id={id} className="crm-input" disabled={!canEdit || lockedFields.includes(f.key)} placeholder={f.placeholder} value={vals[f.key] ?? ""}
                   onChange={(e) => setVals((v) => ({ ...v, [f.key]: e.target.value }))} />
               )}
             </label>

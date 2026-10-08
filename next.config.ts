@@ -1,5 +1,7 @@
 import type { NextConfig } from "next";
 
+import { siteRewrites } from "./src/lib/site-hosts";
+
 const nextConfig: NextConfig = {
   // Self-contained server bundle (.next/standalone) for the droplet deploy.
   output: "standalone",
@@ -9,6 +11,10 @@ const nextConfig: NextConfig = {
   outputFileTracingIncludes: {
     "/api/events/\\[id\\]/flyer": ["./assets/flyer-fonts/**/*"],
     "/events/builder": ["./assets/flyer-fonts/**/*"],
+  },
+  // The public website: on www.<domain>, "/" and "/pricing" are the pages under /site (src/lib/site-hosts.ts).
+  async rewrites() {
+    return { beforeFiles: siteRewrites() };
   },
   experimental: {
     // Setup uploads (W-9, determination letter: 10 MB; logos: 5 MB) go through

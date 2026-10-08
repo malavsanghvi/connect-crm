@@ -10,10 +10,12 @@
 //
 // Needs SUPABASE_URL and SUPABASE_SECRET_KEY in the worker's env: the Storage
 // API only deletes for a key that may. Without them the job fails at once as
-// "not configured" and nothing is deleted.
+// "not configured" and nothing is deleted. A new-style secret key (sb_secret_…)
+// goes in the apikey header only (storage-api.ts).
 
 import { requireEnv, type Env } from "../config";
 import { NotConfiguredError } from "../errors";
+import { bucketUrl, storageAuthHeaders } from "../storage-api";
 import type { Job, JobContext } from "../types";
 
 export const kind = "storage.retention";
@@ -42,9 +44,9 @@ export async function run(job: Job, ctx: JobContext) {
     for (const o of due) byBucket.set(o.bucket_id, [...(byBucket.get(o.bucket_id) ?? []), o]);
 
     for (const [bucket, objects] of byBucket) {
-      const res = await ctx.http.request(`${base}/storage/v1/object/${encodeURIComponent(bucket)}`, {
+      const res = await ctx.http.request(bucketUrl(base, bucket), {
         method: "DELETE",
-        headers: { apikey: key, authorization: `Bearer ${key}` },
+        headers: storageAuthHeaders(key),
         body: { prefixes: objects.map((o) => o.name) },
         timeoutMs: 30000,
       });

@@ -60,5 +60,5 @@ export async function submitAccessRequestAction(_prev: ActionResult | null, fd: 
     p_user_agent: ua ?? undefined,
   });
   if (error) return failure(`Could not ${doing}`, error);
-  return { ok: true, message: "Thank you — your request has reached the Community Connect team. We reply by email within 1–3 working days." };
+  return { ok: true, message: "Thank you — your request has reached the Weaver team. We reply by email within 1–3 working days." };
 }

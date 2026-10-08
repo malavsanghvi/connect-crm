@@ -1,5 +1,5 @@
 // qbo.bring_in_history: bring one approved QuickBooks customer's history into
-// Community Connect (o-qbo-match). Queued when the treasury approves or maps a
+// Weaver (o-qbo-match). Queued when the treasury approves or maps a
 // customer, after a pull finds new history for an approved one, and by "Try
 // again" on Needs review. Payload: { qbo_customer_id }.
 //

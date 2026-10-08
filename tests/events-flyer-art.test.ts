@@ -172,15 +172,15 @@ describe("what a picture costs, shown before anything is asked", () => {
     expect(formatArtCost(140)).toBe("about $1.40");
     expect(formatArtCost(-5)).toBe("about 0¢");
     expect(artCostSentence("gemini-3.1-flash-lite-image")).toBe(
-      "Each new picture costs about 4¢ (Gemini 3.1 Flash Lite Image). Community Connect pays for it; nothing is charged to your community. A community can make 30 pictures a day. Pictures already made for this occasion are free to reuse.",
+      "Each new picture costs about 4¢ (Gemini 3.1 Flash Lite Image). Weaver pays for it; nothing is charged to your community. A community can make 30 pictures a day. Pictures already made for this occasion are free to reuse.",
     );
     expect(artCostSentence("gemini-3-pro-image")).toMatch(/about 14¢ \(Gemini 3 Pro Image\)/);
   });
 
-  it("says who pays: Community Connect does, never the community (the owner's Google account is billed)", () => {
+  it("says who pays: Weaver does, never the community (the owner's Google account is billed)", () => {
     for (const model of FLYER_ART_MODEL_IDS) {
       const s = artPriceSentence(model);
-      expect(s).toMatch(/Community Connect pays for it; nothing is charged to your community\./);
+      expect(s).toMatch(/Weaver pays for it; nothing is charged to your community\./);
       expect(s).not.toMatch(/paid by your community/i);
       // The price sentence alone is for a picture that is not reused (a background); the layer sentence adds the reuse.
       expect(s).not.toMatch(/free to reuse/);
@@ -250,7 +250,7 @@ describe("is AI art available? (the answer of app.flyer_art_status)", () => {
 
   it("without a key, says so plainly and names who to ask (the drawn art stays)", () => {
     const r = readFlyerArtStatus({ state: "no_key" });
-    expect(r).toEqual({ state: "no_key", message: "AI art needs a Gemini key — ask your Community Connect admin (Platform › Setup)." });
+    expect(r).toEqual({ state: "no_key", message: "AI art needs a Gemini key — ask your Weaver admin (Platform › Setup)." });
     expect(NO_GEMINI_KEY).toBe(r.state === "no_key" ? r.message : "");
   });
 

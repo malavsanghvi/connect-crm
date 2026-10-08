@@ -16,7 +16,7 @@
 // (retryCouldUseCode). Audited as "used authorization code removed after
 // exchange"; the value is never logged.
 //
-// Community Connect's own client id / secret come from the worker's env
+// Weaver's own client id / secret come from the worker's env
 // (STRIPE_*, PAYPAL_*, INTUIT_*). Missing ones fail the job at once with
 // "not configured", naming the variables, never retried.
 

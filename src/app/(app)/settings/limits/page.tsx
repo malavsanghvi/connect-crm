@@ -16,7 +16,7 @@ const CHANNEL_LABEL: Record<string, string> = { email: "Email", sms: "Text", wha
 
 /**
  * Settings › Limits: what this community may do (entitlements, set by
- * Community Connect) and, for sandboxes, the verified test recipients that
+ * Weaver) and, for sandboxes, the verified test recipients that
  * messages may reach.
  */
 export default async function LimitsPage() {
@@ -28,8 +28,8 @@ export default async function LimitsPage() {
       title="Settings"
       description={
         sandbox
-          ? `${center.name} is a sandbox · limits are set by Community Connect and lift when the community goes live`
-          : `What ${center.short_name || center.name}'s plan includes · limits are set by Community Connect`
+          ? `${center.name} is a sandbox · limits are set by Weaver and lift when the community goes live`
+          : `What ${center.short_name || center.name}'s plan includes · limits are set by Weaver`
       }
     />
   );
@@ -59,7 +59,7 @@ export default async function LimitsPage() {
     <>
       {header}
       <BlockGrid>
-        <Card span={7} title="Limits" description="Ask Community Connect to change any of these" padded={false}>
+        <Card span={7} title="Limits" description="Ask Weaver to change any of these" padded={false}>
           {entRes.error ? (
             <div className="p-3">
               <QueryError what="the limits" error={entRes.error} retryHref="/settings/limits" />

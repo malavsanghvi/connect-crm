@@ -2,11 +2,15 @@ import type { Metadata } from "next";
 
 import { Alert, buttonClass, NoAccess, PageHeader, QueryError } from "@/components/ui";
 import { readPublicEnv } from "@/lib/env";
+import { explainError } from "@/lib/errors";
+import { parsePayeeQueue, parsePaymentReadiness } from "@/lib/payments/change-control";
 import { parsePluginSettings } from "@/lib/payments/plugins/view";
+import { untypedRpc } from "@/lib/payments/rpc";
 import type { PaymentSettings } from "@/lib/payments/view";
 import { canAccess } from "@/lib/permissions";
 import { getSession } from "@/lib/session";
 
+import type { ChangeControl } from "./change-control";
 import { PaymentsPanel } from "./payments-panel";
 import { PluginCards } from "./plugin-cards";
 
@@ -29,9 +33,12 @@ export default async function PaymentsSettingsPage({ searchParams }: { searchPar
   }
   const sp = await searchParams;
   const { db, center } = session;
-  const [settingsRes, pluginsRes] = await Promise.all([
+  const rpc = untypedRpc(db);
+  const [settingsRes, pluginsRes, queueRes, readinessRes] = await Promise.all([
     db.rpc("payment_settings", { p_center: center.id }),
     db.rpc("payment_plugin_settings", { p_center: center.id }),
+    rpc("payee_change_queue", { p_center: center.id }),
+    rpc("payment_readiness", { p_center: center.id }),
   ]);
   // The database is the rule: if it says this person may not see the payment settings, say that, not "could not load".
   if (settingsRes.error?.code === "42501" || pluginsRes.error?.code === "42501") {
@@ -75,6 +82,32 @@ export default async function PaymentsSettingsPage({ searchParams }: { searchPar
       </>
     );
   }
+  // Change control and readiness (migration 0597). Each is read on its own: a failure is said in plain English on that part
+  // of the screen (with a retry), never as an empty list, and never stops the rest of the page.
+  const cc: ChangeControl = { queue: null, queueError: null, readiness: null, readinessError: null };
+  const sentence = (what: string, why: string) => `Could not load ${what} — ${why}.`;
+  if (queueRes.error) {
+    console.error("[settings/payments] payee_change_queue failed:", queueRes.error);
+    cc.queueError = sentence("the changes to where gifts go", explainError(queueRes.error));
+  } else {
+    const q = parsePayeeQueue(queueRes.data);
+    if (q.ok) cc.queue = q.value;
+    else {
+      console.error("[settings/payments] unexpected answer from payee_change_queue:", queueRes.data);
+      cc.queueError = sentence("the changes to where gifts go", q.error);
+    }
+  }
+  if (readinessRes.error) {
+    console.error("[settings/payments] payment_readiness failed:", readinessRes.error);
+    cc.readinessError = sentence("the go-live readiness for payments", explainError(readinessRes.error));
+  } else {
+    const r = parsePaymentReadiness(readinessRes.data);
+    if (r.ok) cc.readiness = r.value;
+    else {
+      console.error("[settings/payments] unexpected answer from payment_readiness:", readinessRes.data);
+      cc.readinessError = sentence("the go-live readiness for payments", r.error);
+    }
+  }
   const settings = settingsRes.data as unknown as PaymentSettings;
   const env = readPublicEnv();
   const connected = typeof sp.connected === "string" ? sp.connected : null;
@@ -94,7 +127,7 @@ export default async function PaymentsSettingsPage({ searchParams }: { searchPar
         tz={center.time_zone}
         env={env.ok ? { supabaseUrl: env.env.supabaseUrl, supabaseAnonKey: env.env.supabaseAnonKey } : null}
       >
-        <PluginCards s={settings} ps={plugins.value} tz={center.time_zone} />
+        <PluginCards s={settings} ps={plugins.value} tz={center.time_zone} cc={cc} />
       </PaymentsPanel>
     </>
   );

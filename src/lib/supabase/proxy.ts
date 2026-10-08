@@ -7,9 +7,11 @@ import { requestIsHttps } from "@/lib/https";
 import { PATHNAME_HEADER, clientScreen, newRequestId, traceHeaders } from "@/lib/supabase/trace";
 import { normalizeBaseDomain, sharedCookieDomain } from "@/lib/tenancy";
 
-/** Paths reachable without a session (sign-in, the public community dashboard /c/<slug>, staff invitation links, the TLS check /api/tenancy/tls-ask, the public access request and sandbox-code redemption, and the signed Auth hooks, provider webhooks and unsubscribe links). Everything else redirects to /login. */
+/** Paths reachable without a session (sign-in, the public community dashboard /c/<slug>, staff invitation links, the TLS check /api/tenancy/tls-ask, the public access request and sandbox-code redemption, the public website pages /site, and the signed Auth hooks, provider webhooks and unsubscribe links). Everything else redirects to /login. */
 export const PUBLIC_PATHS = [
   "/login", "/c", "/invite", "/api/tenancy",
+  // The public website's pages (www.<domain> serves them at / and /pricing; see src/lib/site.ts).
+  "/site",
   // o-platform: the public access request and sandbox-code redemption.
   "/request-access", "/start",
   // o-messaging: Supabase Auth hooks, provider webhooks and email unsubscribe links (each checks its own signature).

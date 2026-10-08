@@ -1,12 +1,13 @@
 import type { SignedFile } from "@/lib/gyan-homework/db";
-import { fileLabel, fileRemoved, type Submission, type SubmissionFile } from "@/lib/gyan-homework/homework";
+import { fileLabel, fileRemoved, fileScanNotice, type Submission, type SubmissionFile } from "@/lib/gyan-homework/homework";
 
 import { PhotoLightbox } from "./photo-lightbox";
 
 /**
  * The parts of one answer, as the reviewer sees them: photos as thumbnails that open full size, voice notes in a
- * player, files as a download, the written answer as text. A part whose file is gone (retention) or cannot be
- * signed says so instead of disappearing. Never the storage path: it carries ids.
+ * player, files as a download, the written answer as text. A part whose file is gone (retention, or the virus check
+ * removed it), is still being checked (enforce mode, 0589: the reviewer opens it once it is clean) or cannot be signed
+ * says so instead of disappearing. Never the storage path: it carries ids.
  */
 export function SubmissionParts({ submission, signed, learner }: { submission: Submission; signed: ReadonlyMap<string, SignedFile>; learner: string }) {
   const files = submission.files;
@@ -34,6 +35,14 @@ export function SubmissionParts({ submission, signed, learner }: { submission: S
 
 function FilePart({ file, signed, index, learner }: { file: SubmissionFile; signed: SignedFile | undefined; index: number; learner: string }) {
   const label = fileLabel(file);
+  const scanNotice = fileScanNotice(file);
+  if (scanNotice) {
+    return (
+      <p className="text-xs text-muted" data-scan={file.scan ?? undefined}>
+        {label} — {scanNotice}
+      </p>
+    );
+  }
   if (fileRemoved(file)) {
     return (
       <p className="text-xs text-muted">

@@ -112,7 +112,7 @@ export function VaultPanel({
     <>
       <Card
         title="Connections and secrets"
-        description="Keys and tokens are kept encrypted in the vault. Nobody can read one back here, including administrators and Community Connect staff: only the last 4 characters are shown. Changing one needs a fresh 2FA check and a reason."
+        description="Keys and tokens are kept encrypted in the vault. Nobody can read one back here, including administrators and Weaver staff: only the last 4 characters are shown. Changing one needs a fresh 2FA check and a reason."
         padded={false}
       >
         {manageHint ? <p className="px-3 pb-2 text-[13px] text-muted">{manageHint}</p> : null}

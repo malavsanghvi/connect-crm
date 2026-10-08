@@ -56,7 +56,7 @@ export default async function EmailSettingsPage() {
       {header}
       <SandboxNote session={session} />
       <BlockGrid>
-        <Card span={5} title="Email service" description="Community Connect's own account sends for you; nothing technical to set up">
+        <Card span={5} title="Email service" description="Weaver's own account sends for you; nothing technical to set up">
           {settingsRes.error ? <QueryError what="the email settings" error={settingsRes.error} retryHref="/settings/email" /> : null}
           <p className="mb-2 text-[13px]">
             {mode ? (
@@ -101,7 +101,7 @@ export default async function EmailSettingsPage() {
             {domainsRes.error ? (
               <QueryError what="the domains" error={domainsRes.error} retryHref="/settings/email" />
             ) : domains.length === 0 ? (
-              <EmptyState title="No sending domain yet">Until one verifies, email goes from Community Connect&apos;s address in your community&apos;s name.</EmptyState>
+              <EmptyState title="No sending domain yet">Until one verifies, email goes from Weaver&apos;s address in your community&apos;s name.</EmptyState>
             ) : (
               domains.map((d) => {
                 const st = domainStatus(d.status);

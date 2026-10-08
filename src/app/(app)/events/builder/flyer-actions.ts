@@ -52,7 +52,7 @@ import type { AppSupabase } from "@/lib/supabase/server";
 
 const FLYER_TYPES = ["image/png", "image/jpeg", "image/webp"] as const;
 const FLYER_MAX_BYTES = 8 * 1024 * 1024;
-const NO_STORAGE = "the content storage area is not set up on this server yet. Ask Community Connect to create it.";
+const NO_STORAGE = "the content storage area is not set up on this server yet. Ask Weaver to create it.";
 
 function revalidate(eventId: string) {
   revalidatePath("/events/builder", "page");

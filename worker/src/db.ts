@@ -37,7 +37,7 @@ export interface WorkerDb {
   removeOauthCode(ctx: ReadContext, connectionId: string, name: string, outcome: "exchanged" | "unusable"): Promise<boolean>;
   /** The platform setup wizard's settings and key names/versions (never a value); null before migration 0320. */
   platformConfig(): Promise<PlatformSnapshot | null>;
-  /** One of Community Connect's own keys (app.worker_read_platform_secret, logged). */
+  /** One of Weaver's own keys (app.worker_read_platform_secret, logged). */
   readPlatformSecret(ctx: ReadContext, name: string): Promise<string | null>;
   /** For handlers (ctx.db): a query as connect_worker. */
   query<T extends Record<string, unknown> = Record<string, unknown>>(text: string, params?: unknown[]): Promise<T[]>;

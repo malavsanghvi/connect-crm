@@ -96,7 +96,7 @@ export function invitationLink(origin: string, token: string): string {
 
 /**
  * Where the portal opens after an invitation is accepted: staff go to Account › Security to set up
- * 2FA; a new owner (a sandbox Community Connect created, f-sandbox) goes to the organization's Setup —
+ * 2FA; a new owner (a sandbox Weaver created, f-sandbox) goes to the organization's Setup —
  * through Account › Security first when the organization requires 2FA for staff.
  */
 export function acceptedPath(r: { owner?: boolean; requires2fa?: boolean } | null | undefined): string {
@@ -114,7 +114,7 @@ export function explainAuthError(error: { message?: string; code?: string; statu
   } else if (/insufficient_aal|aal2/i.test(`${code} ${msg}`)) {
     why = "this needs a fresh 2FA check first";
   } else if (/sms|provider|twilio|phone_provider_disabled|sms_send_failed|unsupported phone provider/i.test(`${code} ${msg}`)) {
-    why = "texting sign-in codes is not set up for this service yet (Community Connect has to connect an SMS provider)";
+    why = "texting sign-in codes is not set up for this service yet (Weaver has to connect an SMS provider)";
   } else if (/rate limit|too many|over_sms_send_rate_limit|over_request_rate_limit/i.test(`${code} ${msg}`) || error?.status === 429) {
     why = "too many codes were requested. Wait a minute, then try again";
   } else if (/already.*(registered|exists|in use)|phone_exists|email_exists/i.test(`${code} ${msg}`)) {
@@ -174,12 +174,12 @@ export function needsSecondApprover(roleKey: string): boolean {
   return (TWO_PERSON_ROLES as readonly string[]).includes(roleKey);
 }
 
-/** The audit reason of Community Connect's approval of an organization's first second administrator (0400, owner decision 1). */
+/** The audit reason of Weaver's approval of an organization's first second administrator (0400, owner decision 1). */
 export const CC_FIRST_ADMIN_REASON = "Community Connect approval (two-person rule, first second admin)";
 
 /**
  * Mirrors app.is_first_second_admin_grant: a pending center_admin grant, in an organization with no
- * other active administrator besides the grantee and the owner. When Community Connect approves it,
+ * other active administrator besides the grantee and the owner. When Weaver approves it,
  * the audit names the platform admin with CC_FIRST_ADMIN_REASON.
  */
 export function isFirstSecondAdminGrant(

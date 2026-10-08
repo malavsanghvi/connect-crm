@@ -1,7 +1,7 @@
 // Onboarding Setup flow (stream o-setup), against a real local stack:
 //   the owner (admin@jsh.test) fills in the legal identity and uploads a W-9 and a
 //   determination letter → the IRS lookup matches the fixture → submits → a
-//   Community Connect platform admin verifies in Platform › Verification → the
+//   Weaver platform admin verifies in Platform › Verification → the
 //   owner saves the profile and brand kit with a logo, and the portal top bar and
 //   the public /c/jsh page show it → leaders are added (and mirrored to the roster)
 //   → checklist statuses update (and a step is assigned) → the readiness page shows
@@ -72,7 +72,7 @@ const lastAudit = (where) => sql(`select coalesce(client_app,'')||'|'||coalesce(
   ok(sql('select app.ensure_setup_storage()').startsWith('buckets'), 'branding and org-documents storage areas exist');
   execSync(`node ${REPO}/tools/load-irs-eo.mjs --bmf ${REPO}/tests/fixtures/irs/eo-bmf-fixture.csv --pub78 ${REPO}/tests/fixtures/irs/pub78-fixture.txt --revocations ${REPO}/tests/fixtures/irs/revocations-fixture.txt --db "${DB}"`, { stdio: 'inherit' });
   ok(sql("select status from app.irs_exempt_orgs where ein='760000001'") === 'active', 'IRS fixture loaded by tools/load-irs-eo.mjs');
-  // A Community Connect platform admin (not a JSH member) to verify.
+  // A Weaver platform admin (not a JSH member) to verify.
   if (SERVICE_KEY) {
     await fetch(`${API}/auth/v1/admin/users`, { method: 'POST', headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ email: VERIFIER, email_confirm: true }) });
   }
@@ -127,7 +127,7 @@ const lastAudit = (where) => sql(`select coalesce(client_app,'')||'|'||coalesce(
   ok(sql(`select verification_status from app.org_profiles where center_id='${JSH}'`) === 'submitted', 'status submitted');
   ok(sql(`select (after->'irs_lookup'->>'name_match')||'|'||client_app from app.audit_log where action='org_profiles.submit_verification' and center_id='${JSH}' order by id desc limit 1`) === 'exact|portal', 'submission audited with the IRS match');
   await p.goto(BASE + '/setup', { waitUntil: 'networkidle' });
-  ok((await p.locator('tr[data-step="org.legal_identity"]').getAttribute('data-status')) === 'needs_review', 'checklist: legal identity needs Community Connect review');
+  ok((await p.locator('tr[data-step="org.legal_identity"]').getAttribute('data-status')) === 'needs_review', 'checklist: legal identity needs Weaver review');
   await p.screenshot({ path: `${OUT}/checklist-submitted.png`, fullPage: true });
 
   // ── Platform › Verification ──────────────────────────────────────────────

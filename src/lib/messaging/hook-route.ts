@@ -20,7 +20,7 @@ export async function verifiedHookBody(request: Request, secretName: "SEND_EMAIL
   const secret = platformValue(secretName);
   if (!secret) {
     console.error(`[auth-hook] ${secretName} is not set (Platform › Setup, or the portal server's environment)`);
-    return { ok: false, response: hookError(503, "Sign-in messages aren't configured on the Community Connect server yet.") };
+    return { ok: false, response: hookError(503, "Sign-in messages aren't configured on the Weaver server yet.") };
   }
   const raw = await request.text();
   const verdict = verifyStandardWebhook(secret, {

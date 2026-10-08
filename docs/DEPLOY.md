@@ -40,9 +40,12 @@ Use the **Session pooler** string (host `…pooler.supabase.com`, port **5432**)
 pooler" (port 6543) breaks migrations.
 
 Never use the secret key (`sb_secret_…`, formerly `service_role`) anywhere in these apps,
-in GitHub, or in a chat. Nothing in Connect needs it; it bypasses every access rule. If it
-may have been exposed, create a new one and delete the old one under Project Settings ›
-API Keys.
+in GitHub, or in a chat. The apps never need it; it bypasses every access rule. The one
+exception is the background service's own dedicated key, `WORKER_SUPABASE_SECRET_KEY`
+(owner decision 2026-10-06; see [Background service](#optional-worker-settings) and
+[Malware scanning](#malware-scanning-virus-checks-of-uploads)), which the owner creates and
+nothing else uses. If a key may have been exposed, create a new one and delete the old one
+under Project Settings › API Keys.
 
 ### 2. Supabase settings (dashboard, once)
 
@@ -194,7 +197,11 @@ All optional. A handler whose settings are missing reports "not configured"
 | `RESEND_API_KEY` or `POSTMARK_SERVER_TOKEN` | the email sending service |
 | `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN` | texting |
 | `ANTHROPIC_API_KEY` | Niva and import mapping suggestions |
-| `WORKER_SUPABASE_SECRET_KEY` | storage retention (see the note below) |
+| `WORKER_SUPABASE_SECRET_KEY` | storage retention **and** virus scanning (see the note below: adding it starts retention, which deletes files) |
+
+| GitHub variable | Used for |
+|---|---|
+| `CLAMD_HOST` (`127.0.0.1`), `CLAMD_PORT` (3310 when unset), or `CLAMD_SOCKET` | where clamd listens, for virus scanning ([Malware scanning](#malware-scanning-virus-checks-of-uploads)); unset: the scanner is not configured |
 
 `CLAUDE_MODEL` (a repository **variable**, not a secret) changes the Claude model Niva answers
 with, and the one the import-mapping and donor-matching suggestions and the setup wizard's AI Test
@@ -232,7 +239,17 @@ use that key, so the retention job ships **not configured**: expired imports,
 exports and recordings are not removed until you either allow a dedicated secret
 key used only by the worker (Project Settings › API Keys › create one named
 `connect-worker`, store it as `WORKER_SUPABASE_SECRET_KEY`), or choose another
-route. Nothing else in Connect uses it.
+route. Nothing else in Connect uses it. Virus scanning (below) uses the same key: the
+owner decided on 2026-10-06 to create it.
+
+**Adding `WORKER_SUPABASE_SECRET_KEY` ALSO STARTS THE EXISTING STORAGE RETENTION JOB, WHICH
+DELETES FILES: imports older than 90 days, exports older than 7 days, recordings older than
+90 days, homework files older than 180 days (each community may have changed the imports,
+recordings and homework numbers in Settings › Storage), and event flyer files nothing uses
+any more after 7 days.** The first daily run removes everything that is already past its
+period, in batches, and every removal is written to the audit log; the files cannot be brought
+back. Check Settings › Storage of each community before you add the key. The key is sent in
+the `apikey` header only, as Supabase says for `sb_secret_…` keys (`worker/src/storage-api.ts`).
 
 ### What the worker deploy does
 
@@ -246,6 +263,70 @@ route. Nothing else in Connect uses it.
 
 Logs: they are JSON lines in the journal (`journalctl -u connect@worker`), with
 any field that looks like a secret replaced by `[redacted]`.
+
+## Malware scanning (virus checks of uploads)
+
+Built in connect-crm migration 0589 and **switched off**, with **enforce locked** until the next update (owner,
+2026-10-07: monitor can be switched on once ClamAV runs). Owner decisions 2026-10-06: hosting the scanner "not now", so
+it is built switched off and turned on later; an infected file is deleted and the family and the office are told (never
+with the file's name); files uploaded before scanning starts are checked once, in the background; the owner creates the
+worker's Supabase key.
+
+**While it is off (today)** nothing changes: every upload to a scanned bucket (branding, content, photos, store,
+recordings, homework, imports, org-documents) still queues a `storage.scan` job, as it has since 0172; the background
+service does not claim them (Settings › Integrations lists "Virus check of an uploaded file" as not configured,
+"Virus scanning is switched off"), so they wait; nothing is held back or removed; Settings › Storage says "Virus
+scanning is switched off" and how many files are waiting to be checked.
+
+**The modes** are a platform setting: Platform › Setup › Background service › **Virus scanning of uploads**
+(`UPLOAD_SCAN_MODE`; a platform admin with a fresh 2FA check; audited). The database's read rules and the background
+service both follow it, within a minute. The worker never takes it from its environment.
+
+| Mode | What happens |
+|---|---|
+| off (default) | Nothing is checked; the checks wait in the queue. |
+| monitor | Every upload is checked with ClamAV and the result recorded (`app.upload_scans`). **Nothing is denied and nothing is removed**: an infected file is kept and written to the audit log (`storage.scan_infected`, "kept"), so you can see what the scanner finds before anything is enforced. |
+| enforce | **Locked in this release** (owner, 2026-10-07): Platform › Setup shows it disabled, and the database refuses it with "Enforce (removing infected files) comes with the next update; use monitor until then." It is built and tested; the next update brings the review's enforce fixes and unlocks it. What it will do: homework files and recordings uploaded after the switch are opened by the family at once and by the teachers and reviewers only once they are clean (Pathshala › Homework says "Being checked for viruses"; a check that could not finish keeps the file with the family). An infected file, in any scanned bucket, is refused to everyone at once, then deleted through the Storage API; the homework part is marked removed by the virus check, a recording is cleared from the learner's progress, a photo is marked removed; the learner (and a child's household adults) or the uploader is told (`upload.removed`, push and email, no file name); the office gets an audit entry (`storage.scan_infected`) and, when the answer was already with the reviewers, they get a push. Photos, organization documents, content and the store are not held back yet (`app.upload_scan_gated_buckets` names them for later). |
+
+Switching to monitor or enforce queues a sweep at once (`storage.scan_sweep`, then every 6 hours): it queues a check for
+every file that has none (the backlog: everything uploaded before scanning started), the infected files still stored
+(enforce), and checks that failed for a passing reason a day ago. Checks run **one file at a time, after every other kind
+of job**, so a backlog never holds up messages or imports. A scanner that is down is retried for about 18 hours (25
+attempts); then the file is recorded as "could not be checked" and tried again a day later.
+
+**Turning it on**, in this order:
+
+1. **Resize the droplet to 4 GB** (DigitalOcean › the droplet › Resize › CPU and RAM only; the disk can stay; the apps
+   are down for a few minutes). ClamAV holds its signature database in memory (about 1.2 GB, more while it reloads),
+   which a 1 GB droplet cannot.
+2. **Install ClamAV**, once, from a checkout of connect-crm: `ssh root@<droplet> 'bash -s' < deploy/clamav-setup.sh`.
+   It refuses to install below 3.5 GB of memory (and below 1.5 GB of free disk) and says so; otherwise it installs
+   clamav-daemon and freshclam, sets the limits (60 MB a file, archives 10 deep and 5000 files, a minute a file, two
+   threads, no second database in memory while signatures reload, Office macros count as infected), listens on
+   **127.0.0.1:3310 only**, makes the kernel stop clamd before the apps when memory runs out, and checks that clamd
+   answers and finds the EICAR test file. The deploy never runs it. Run it again after a ClamAV package upgrade.
+3. GitHub › connect-crm › Settings › Secrets and variables › Actions › **Variables** › New repository variable:
+   **`CLAMD_HOST`** = `127.0.0.1` (`CLAMD_PORT` only if you changed 3310; `CLAMD_SOCKET` instead, for clamd's unix
+   socket). Every deploy writes `/srv/connect/worker.env` from these variables (empty ones are left out), so editing
+   that file on the droplet does not last.
+4. **The worker's key**, if it is not there yet: Supabase › Project Settings › API Keys › Secret keys › create one named
+   `connect-worker`; GitHub › Secrets › **`WORKER_SUPABASE_SECRET_KEY`**. **This also starts storage retention, which
+   deletes files (see [the note above](#optional-worker-settings)): read it before you add the key.**
+5. Run **Deploy**. Settings › Integrations still lists the virus check as not configured: "Virus scanning is switched
+   off". That is expected until step 6.
+6. Platform › Setup › Background service › Virus scanning of uploads: **monitor**. Watch Settings › Storage of a
+   community: files waiting to be checked go down, clean goes up; "could not be checked" and "found infected (kept)"
+   are the ones to look at (the audit log has each `storage.scan_infected`).
+7. **Enforce comes with the next update** (locked in this release). Once it is unlocked, and monitor has run about a
+   week with nothing unexpected: **enforce**. Infected files found in monitor mode are then removed by the next sweep
+   (within 6 hours); new uploads at once.
+
+**Turning it off again**: set the mode to off. Nothing is denied any more; the checks wait in the queue again; recorded
+results stay.
+
+Not done by the scanner (follow-ups in docs/BACKLOG.md): telling a file's real type from its first bytes (today the
+buckets check the type the uploader declares, and the size); holding back photos, organization documents, content and
+store files until they are checked; the member app's "Checking the file…".
 
 ## HTTPS for the portal (o-https)
 
@@ -389,6 +470,78 @@ To give every organization its own address (`jsh.communityconnect.app`,
 
 One sign-in covers every `<slug>.communityconnect.app` address (the session cookie is
 set for the base domain); an organization's own domain asks for its own sign-in.
+
+## Member addresses (`jsh.<domain>`)
+
+One domain for members, one name per organization (owner decision 2026-10-07, docs/DECISIONS.md):
+`jsh.weaverams.org` opens the member web app on JSH, `app.weaverams.org` lists the organizations
+(a dropdown; choosing one goes to its own address), `admin.weaverams.org` is the portal. This uses
+`<slug>.<base>` for the **member app**, where "Organization addresses" above uses it for the
+**portal**: pick one per domain.
+
+1. **DNS** (GoDaddy for weaverams.org): A records `admin` and `app` → the droplet IP, plus a
+   wildcard `*` → the droplet IP. Named records win over the wildcard.
+2. **connect-crm repository variables:** `SITE_DOMAIN` = `admin.weaverams.org` (**required**: the
+   portal's own name, so the wildcard can never capture it; without it the deploy refuses the
+   wildcard and keeps the previous sites, and says why), `MEMBER_BASE_DOMAIN` = `weaverams.org`,
+   `MEMBER_APP_URL` = `https://app.weaverams.org`. Re-run Deploy.
+3. **connect-mobile repository variables:** `SITE_DOMAIN` = `app.weaverams.org` and
+   `MEMBER_BASE_DOMAIN` = `weaverams.org` (read when the web app is built). Re-run Deploy.
+4. **Platform setup › Base domain for organizations** = `weaverams.org`. This is what lets the
+   portal approve a certificate for `<slug>.weaverams.org` of a real community
+   (`app.tls_host_allowed`, statuses active and onboarding); no other name gets one. It does not
+   make the portal read host names as organizations (that is the `SITE_WILDCARD_DOMAIN` variable,
+   left unset here). Platform › HTTPS lists the bare `weaverams.org` as "not ready" while it points
+   elsewhere (GoDaddy parking): expected.
+5. **Supabase › Authentication › URL Configuration:** Site URL `https://admin.weaverams.org`;
+   redirect URLs `https://admin.weaverams.org/**` and `https://*.weaverams.org/**`.
+
+How it fits together: `deploy/caddy-sites.mjs` (`memberBase`) adds `*.weaverams.org` to the
+portal's wildcard file as the member web app (on-demand certificate per name, approved by
+`/api/tenancy/tls-ask`) and a matching `http://*.weaverams.org` site on port 80, which serves the
+member app (never the portal's sign-in page) and redirects to https only for hosts the HTTPS check
+confirmed. `admin.` and `app.` are their own sites, so they win. `release.sh` is unchanged (still
+identical in all three repos): the workflow passes `MEMBER_BASE_DOMAIN` in its environment and
+`caddy-sites.mjs` reads it from there. The member app reads the first label of the address
+(`communityFromHost`); `app`, `admin`, `www`, `events`, `api` and `mail` are never organizations,
+so an organization must not use one of them as its short name.
+
+Good to know: a new organization's address works as soon as its center exists and the wildcard
+record is in DNS; its first visit takes a few seconds while the certificate is issued. Let's
+Encrypt allows 50 new certificates per registered domain per week, and every issued name appears
+in the public certificate transparency logs. The browser keeps sign-ins per address, so a member
+signs in once at `jsh.weaverams.org` (the earlier address and the IP stay separate).
+
+## Public website (`www.weaverams.org`)
+
+The product's public website (home page and pricing page, `src/app/site`; the brands are Weaver AMS with Faith Weaver, Community Weaver
+and Org Weaver) is served by the portal itself, by host name: on `www.weaverams.org` host rewrites in `next.config.ts` (`src/lib/site-hosts.ts`) answer
+`/` and `/pricing` with the website, and the portal's proxy (`src/proxy.ts`, rules in `src/lib/site.ts`) never serves the portal there
+(sign-in, request access, the sandbox start page, invitations, public dashboards and the APIs are sent to `admin.weaverams.org`; any
+other path is a 404). The pages are mapped by config rewrites, not by the proxy, on purpose: a rewrite made in the proxy is an absolute
+address, and behind Caddy over https Next treated it as an external site and answered 500 (found when `www` went live, 2026-10-08). The bare
+`weaverams.org` redirects to `www`. Any other address reaches the same pages at `/site` and `/site/pricing`, which is how to preview
+them before DNS changes (for example `https://admin.weaverams.org/site`).
+
+**It needs no wildcard and no change to Caddy, and does not depend on the member addresses above.** The existing catch-all HTTPS site
+already reverse-proxies every name the portal approves (`/api/tenancy/tls-ask`) to the portal, and the proxy does the rest. Do not set
+`MEMBER_BASE_DOMAIN` or add a `*` DNS record for this. **Owner steps, once the Deploy that ships this is green:**
+
+1. **Platform setup › Base domain for organizations** = `weaverams.org`. It is what lets the portal approve a certificate for
+   `weaverams.org` and `www.weaverams.org` (`app.tls_host_allowed`, kind `wildcard_base`); without it Caddy refuses to issue them.
+   Saving it is safe: the portal reads host names as organizations only from the `PORTAL_BASE_DOMAIN` environment variable.
+2. **DNS (GoDaddy):** replace the parking records. `@` (bare domain): A → the droplet IP (delete the GoDaddy parking A records
+   3.33.130.190 and 15.197.148.33). `www`: A → the droplet IP (remove any `www` CNAME to the bare domain or to GoDaddy). Add only these
+   two, not a wildcard.
+3. Open `https://www.weaverams.org`. The certificate is issued on the first visit (a few seconds). Platform › HTTPS lists both names
+   (`/api/tenancy/https-names` includes `www.<base>`); once a name is confirmed, port 80 redirects it to https and HSTS is sent. Until
+   then `http://www.weaverams.org` serves the site over plain http.
+
+Two optional overrides exist for another deployment, `PUBLIC_SITE_DOMAIN` (the product domain, default `weaverams.org`) and
+`NEXT_PUBLIC_PORTAL_URL` (where the website's "Sign in" and "Get started" buttons point, default `https://admin.<domain>`). Neither is
+wired into the Deploy workflow: the defaults are right for weaverams.org, so nothing needs setting.
+
+The website needs no database and no session: its pages are plain server components, so it keeps working if Supabase is down.
 
 ## When a deploy fails
 

@@ -25,9 +25,9 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: { default: "Community Connect", template: "%s · Community Connect" },
+  title: { default: "Weaver", template: "%s · Weaver" },
   description:
-    "Community Connect admin portal: households, memberships, giving and accounting for your community. You see only what your role allows.",
+    "Weaver admin portal: households, memberships, giving and accounting for your community. You see only what your role allows.",
   robots: { index: false, follow: false },
 };
 

@@ -26,14 +26,14 @@ async function handle(request: Request) {
   const secret = platformValue("MESSAGING_LINK_SECRET");
   if (!secret) {
     console.error("[unsubscribe] MESSAGING_LINK_SECRET is not set (Platform › Setup, or the portal server's environment)");
-    return page(503, "Could not unsubscribe", "Unsubscribing isn't configured on the Community Connect server yet. Reply to the email and ask to be removed.");
+    return page(503, "Could not unsubscribe", "Unsubscribing isn't configured on the Weaver server yet. Reply to the email and ask to be removed.");
   }
   if (!/^[0-9a-f-]{36}$/i.test(m) || !verifyLink(secret, m, url.searchParams.get("s"))) {
     return page(400, "This link is not valid", "The unsubscribe link is incomplete or was changed. Use the link in the email, or reply to it and ask to be removed.");
   }
   try {
     const rows = await workerQuery<{ r: { center_name: string; address: string } | null }>("select app.worker_unsubscribe($1) as r", [m]);
-    if (rows === null) return page(503, "Could not unsubscribe", "Unsubscribing isn't configured on the Community Connect server yet. Reply to the email and ask to be removed.");
+    if (rows === null) return page(503, "Could not unsubscribe", "Unsubscribing isn't configured on the Weaver server yet. Reply to the email and ask to be removed.");
     const r = rows[0]?.r;
     if (!r) return page(404, "Message not found", "We could not find the email this link belongs to. Reply to the email and ask to be removed.");
     return page(200, "You are unsubscribed", `${r.address} will get no more newsletters or notifications by email from ${r.center_name}. Receipts and sign-in codes still arrive.`);

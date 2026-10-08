@@ -76,7 +76,7 @@ describe("events.generate_flyer: readiness", () => {
     expect(configured({})).toEqual({ configured: false, reason: NO_GEMINI_KEY });
     expect(configured({ GEMINI_API_KEY: "  " })).toEqual({ configured: false, reason: NO_GEMINI_KEY });
     expect(configured({ GEMINI_API_KEY: KEY })).toEqual({ configured: true });
-    expect(NO_GEMINI_KEY).toBe("AI art needs a Gemini key — ask your Community Connect admin (Platform › Setup).");
+    expect(NO_GEMINI_KEY).toBe("AI art needs a Gemini key — ask your Weaver admin (Platform › Setup).");
   });
 
   it("reports the provider and the model to the heartbeat, never the key", () => {

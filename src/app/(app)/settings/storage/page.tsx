@@ -2,11 +2,12 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { ActionForm } from "@/components/action-form";
-import { Alert, Card, KpiGrid, NoAccess, PageHeader, QueryError, Stat, TableWrap } from "@/components/ui";
+import { Alert, Card, KpiGrid, NoAccess, PageHeader, QueryError, Stat, StatusText, TableWrap } from "@/components/ui";
 import { canAccess } from "@/lib/permissions";
 import { getSession } from "@/lib/session";
 import { formatBytes, parseStorageOverview, STORAGE_AREAS } from "@/lib/setup";
 import { rulesVersion } from "@/lib/settings-rules";
+import { parseUploadScanSummary, uploadScanView } from "@/lib/upload-scan";
 
 import { saveRetentionAction } from "./actions";
 
@@ -14,7 +15,7 @@ export const metadata: Metadata = { title: "Storage · Settings" };
 
 /**
  * Settings › Storage (Setup step svc.storage, ONBOARDING_PLAN §1.9): the storage areas
- * Community Connect created for the organization, who can read each, their file limits,
+ * Weaver created for the organization, who can read each, their file limits,
  * what this organization uses against its plan, and the two retention choices it owns.
  */
 export default async function StoragePage() {
@@ -41,6 +42,8 @@ export default async function StoragePage() {
     );
   }
   const o = parseStorageOverview(res.data);
+  // The virus check (0589): app.center_storage_overview's "scan" summary.
+  const scan = uploadScanView(parseUploadScanSummary((res.data as { scan?: unknown } | null)?.scan));
   const version = rulesVersion(center.rules);
   const pct = o.limitBytes ? Math.min(100, Math.round((o.usedBytes / o.limitBytes) * 100)) : null;
 
@@ -50,18 +53,18 @@ export default async function StoragePage() {
       {!o.available ? (
         <div className="mb-4">
           <Alert tone="warning" title="File storage is not available on this server">
-            The storage service is not set up in this deployment, so uploads (logos, documents, imports) cannot be stored. Community Connect sets it up.
+            The storage service is not set up in this deployment, so uploads (logos, documents, imports) cannot be stored. Weaver sets it up.
           </Alert>
         </div>
       ) : null}
       <div className="mb-4">
         <KpiGrid cols={3}>
           <Stat label="Used" value={formatBytes(o.usedBytes)} tone="navy" hint={`${o.areas.reduce((n, a) => n + a.files, 0)} files across ${o.areas.length} areas`} />
-          <Stat label="Plan limit" value={o.limitBytes ? formatBytes(o.limitBytes) : "No limit"} tone="ink" hint={center.environment === "sandbox" ? "Sandbox limit; lifts at go-live" : "Set by Community Connect"} />
+          <Stat label="Plan limit" value={o.limitBytes ? formatBytes(o.limitBytes) : "No limit"} tone="ink" hint={center.environment === "sandbox" ? "Sandbox limit; lifts at go-live" : "Set by Weaver"} />
           <Stat label="Of the limit" value={pct === null ? "—" : `${pct}%`} tone={pct !== null && pct >= 90 ? "danger" : "success"} hint="Settings › Limits lists every limit" href="/settings/limits" />
         </KpiGrid>
       </div>
-      <Card title="Storage areas" description="Created by Community Connect for every organization; files always sit under your organization's folder" padded={false}>
+      <Card title="Storage areas" description="Created by Weaver for every organization; files always sit under your organization's folder" padded={false}>
         <TableWrap>
           <table className="crm-table" aria-label="Storage areas">
             <thead>
@@ -116,9 +119,16 @@ export default async function StoragePage() {
           </table>
         </TableWrap>
       </Card>
+      <div className="mt-3 text-[13px]" data-upload-scan>
+        <p>
+          <StatusText tone={scan.tone}>{scan.title}</StatusText>
+          {scan.counts ? <span className="text-muted"> · {scan.counts}</span> : null}
+        </p>
+        <p className="mt-0.5 text-muted">{scan.detail}</p>
+      </div>
       <p className="mt-3 text-[13px] text-muted">
-        Uploads are checked for type and size; malware scanning is queued for every upload and runs once a scanning provider is connected. Saving a
-        retention choice (keeping the default is fine) marks the <Link href="/setup" className="crm-link">Setup step</Link> “File storage” as reviewed.
+        Uploads are checked for type and size. Saving a retention choice (keeping the default is fine) marks the{" "}
+        <Link href="/setup" className="crm-link">Setup step</Link> “File storage” as reviewed.
       </p>
     </>
   );

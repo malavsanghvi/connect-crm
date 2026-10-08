@@ -17,6 +17,9 @@ import { DEFAULT_FLYER_ART_MODEL, FLYER_ART_MODELS, FLYER_ART_MODEL_IDS, formatA
 export type StepKey = "background" | "portal" | "email" | "hooks" | "payments" | "texting" | "quickbooks" | "ai" | "art" | "push" | "wildcard";
 export type FieldKind = "secret" | "setting";
 
+/** One choice of a select; a disabled one is shown, cannot be chosen, and its note says why. */
+export type FieldOption = { value: string; label: string; disabled?: boolean; note?: string };
+
 export type Field = {
   name: string;
   kind: FieldKind;
@@ -24,10 +27,16 @@ export type Field = {
   hint: string;
   placeholder?: string;
   /** A select instead of a text box (settings only). */
-  options?: { value: string; label: string }[];
+  options?: FieldOption[];
   /** The server can make a strong random value for it ("Generate"). */
   generate?: boolean;
 };
+
+/**
+ * Enforce is LOCKED in this release (review of PR #94, owner 2026-10-07): the database refuses it with this same
+ * sentence (app.set_platform_setting, 0589); the next update brings it.
+ */
+export const UPLOAD_SCAN_ENFORCE_LOCKED = "Enforce (removing infected files) comes with the next update; use monitor until then.";
 
 export type Step = {
   key: StepKey;
@@ -49,27 +58,27 @@ const F = {
   POSTMARK_SERVER_TOKEN: { name: "POSTMARK_SERVER_TOKEN", kind: "secret", label: "Postmark server token", hint: "Postmark › your server › API Tokens." },
   POSTMARK_ACCOUNT_TOKEN: { name: "POSTMARK_ACCOUNT_TOKEN", kind: "secret", label: "Postmark account token", hint: "Postmark › Account › API Tokens (needed to add organizations' domains)." },
   POSTMARK_WEBHOOK_TOKEN: { name: "POSTMARK_WEBHOOK_TOKEN", kind: "secret", label: "Postmark webhook password", hint: "The HTTP Basic password you put on the /api/webhooks/postmark webhook." },
-  MESSAGING_FROM_ADDRESS: { name: "MESSAGING_FROM_ADDRESS", kind: "setting", label: "Community Connect's sender address", hint: "Used for platform email (sandbox codes, sign-in codes for people without a community sender). Its domain must be verified with the provider.", placeholder: "no-reply@mail.communityconnect.app" },
-  MESSAGING_FROM_NAME: { name: "MESSAGING_FROM_NAME", kind: "setting", label: "Sender name", hint: "Shown as the sender of platform email.", placeholder: "Community Connect" },
+  MESSAGING_FROM_ADDRESS: { name: "MESSAGING_FROM_ADDRESS", kind: "setting", label: "Weaver's sender address", hint: "Used for platform email (sandbox codes, sign-in codes for people without a community sender). Its domain must be verified with the provider.", placeholder: "no-reply@mail.communityconnect.app" },
+  MESSAGING_FROM_NAME: { name: "MESSAGING_FROM_NAME", kind: "setting", label: "Sender name", hint: "Shown as the sender of platform email.", placeholder: "Weaver" },
   MESSAGING_LINK_SECRET: { name: "MESSAGING_LINK_SECRET", kind: "secret", label: "Link signing secret", hint: "Signs unsubscribe links. Use Generate: nobody needs to know it.", generate: true },
   SEND_EMAIL_HOOK_SECRET: { name: "SEND_EMAIL_HOOK_SECRET", kind: "secret", label: "Send Email hook secret", hint: "Supabase › Authentication › Hooks › Send Email hook › the secret Supabase generates (v1,whsec_…).", placeholder: "v1,whsec_…" },
   SEND_SMS_HOOK_SECRET: { name: "SEND_SMS_HOOK_SECRET", kind: "secret", label: "Send SMS hook secret", hint: "Supabase › Authentication › Hooks › Send SMS hook › its secret (v1,whsec_…). Needed only if people sign in by text.", placeholder: "v1,whsec_…" },
-  STRIPE_SECRET_KEY: { name: "STRIPE_SECRET_KEY", kind: "secret", label: "Stripe live secret key", hint: "Stripe (Community Connect's platform account) › Developers › API keys › Secret key (sk_live_… or a restricted rk_live_…).", placeholder: "sk_live_…" },
+  STRIPE_SECRET_KEY: { name: "STRIPE_SECRET_KEY", kind: "secret", label: "Stripe live secret key", hint: "Stripe (Weaver's platform account) › Developers › API keys › Secret key (sk_live_… or a restricted rk_live_…).", placeholder: "sk_live_…" },
   STRIPE_TEST_SECRET_KEY: { name: "STRIPE_TEST_SECRET_KEY", kind: "secret", label: "Stripe test secret key", hint: "The same page in test mode (sk_test_…). Sandboxes only ever use this one.", placeholder: "sk_test_…" },
   STRIPE_CLIENT_ID: { name: "STRIPE_CLIENT_ID", kind: "setting", label: "Stripe Connect client id", hint: "Stripe › Settings › Connect › Onboarding options › OAuth › Client ID (ca_…).", placeholder: "ca_…" },
   STRIPE_WEBHOOK_SECRET: { name: "STRIPE_WEBHOOK_SECRET", kind: "secret", label: "Stripe webhook signing secret", hint: "Stripe › Developers › Webhooks › the Connect endpoint for /api/webhooks/stripe › Signing secret (whsec_…). For test and live, separate them with a comma.", placeholder: "whsec_…" },
-  PAYPAL_CLIENT_ID: { name: "PAYPAL_CLIENT_ID", kind: "setting", label: "PayPal live client id", hint: "PayPal Developer › Apps & Credentials › Live › Community Connect's partner app." },
+  PAYPAL_CLIENT_ID: { name: "PAYPAL_CLIENT_ID", kind: "setting", label: "PayPal live client id", hint: "PayPal Developer › Apps & Credentials › Live › Weaver's partner app." },
   PAYPAL_CLIENT_SECRET: { name: "PAYPAL_CLIENT_SECRET", kind: "secret", label: "PayPal live secret", hint: "The secret of the same live app." },
   PAYPAL_SANDBOX_CLIENT_ID: { name: "PAYPAL_SANDBOX_CLIENT_ID", kind: "setting", label: "PayPal sandbox client id", hint: "PayPal Developer › Apps & Credentials › Sandbox." },
   PAYPAL_SANDBOX_CLIENT_SECRET: { name: "PAYPAL_SANDBOX_CLIENT_SECRET", kind: "secret", label: "PayPal sandbox secret", hint: "The secret of the same sandbox app." },
   PAYPAL_PARTNER_ID: { name: "PAYPAL_PARTNER_ID", kind: "setting", label: "PayPal partner (merchant) id", hint: "Needed for \"Connect with PayPal\". Without it organizations use the PayPal Business email route." },
-  PAYPAL_BN_CODE: { name: "PAYPAL_BN_CODE", kind: "setting", label: "PayPal BN code", hint: "The partner attribution code PayPal gave Community Connect (optional)." },
+  PAYPAL_BN_CODE: { name: "PAYPAL_BN_CODE", kind: "setting", label: "PayPal BN code", hint: "The partner attribution code PayPal gave Weaver (optional)." },
   PAYPAL_WEBHOOK_ID: { name: "PAYPAL_WEBHOOK_ID", kind: "setting", label: "PayPal live webhook id", hint: "PayPal Developer › the live app › Webhooks › the id of the /api/webhooks/paypal webhook." },
   PAYPAL_SANDBOX_WEBHOOK_ID: { name: "PAYPAL_SANDBOX_WEBHOOK_ID", kind: "setting", label: "PayPal sandbox webhook id", hint: "The same for the sandbox app." },
   OAUTH_STATE_SECRET: { name: "OAUTH_STATE_SECRET", kind: "secret", label: "Connect-link signing secret", hint: "Signs the \"connect your account\" links for Stripe, PayPal and QuickBooks. Use Generate.", generate: true },
   TWILIO_ACCOUNT_SID: { name: "TWILIO_ACCOUNT_SID", kind: "setting", label: "Twilio account SID", hint: "Twilio console › Account info (AC…).", placeholder: "AC…" },
   TWILIO_AUTH_TOKEN: { name: "TWILIO_AUTH_TOKEN", kind: "secret", label: "Twilio auth token", hint: "Twilio console › Account info › Auth token. Also checks the signature of Twilio's webhooks." },
-  TWILIO_FROM_NUMBER: { name: "TWILIO_FROM_NUMBER", kind: "setting", label: "Community Connect's number", hint: "The number platform texts (sign-in codes) come from, in international format.", placeholder: "+18325550100" },
+  TWILIO_FROM_NUMBER: { name: "TWILIO_FROM_NUMBER", kind: "setting", label: "Weaver's number", hint: "The number platform texts (sign-in codes) come from, in international format.", placeholder: "+18325550100" },
   TWILIO_MESSAGING_SERVICE_SID: { name: "TWILIO_MESSAGING_SERVICE_SID", kind: "setting", label: "Messaging service SID", hint: "Instead of a single number (MG…), optional.", placeholder: "MG…" },
   INTUIT_CLIENT_ID: { name: "INTUIT_CLIENT_ID", kind: "setting", label: "Intuit production client id", hint: "Intuit Developer › your app › Keys & credentials › Production." },
   INTUIT_CLIENT_SECRET: { name: "INTUIT_CLIENT_SECRET", kind: "secret", label: "Intuit production client secret", hint: "The same page." },
@@ -86,6 +95,20 @@ const F = {
     hint: `Which Gemini model draws flyer art. Without a choice: ${FLYER_ART_MODELS[DEFAULT_FLYER_ART_MODEL].label}. Organizers see the price before every picture.`,
     options: FLYER_ART_MODEL_IDS.map((id) => ({ value: id, label: `${FLYER_ART_MODELS[id].label} — ${formatArtCost(FLYER_ART_MODELS[id].cents)} a picture` })),
   },
+  // 0589. The database's read rules follow this setting too, so the background service takes it from here only (never
+  // from its environment). Switch it on only after ClamAV is installed (docs/DEPLOY.md › Malware scanning). Enforce is
+  // locked in this release (UPLOAD_SCAN_ENFORCE_LOCKED).
+  UPLOAD_SCAN_MODE: {
+    name: "UPLOAD_SCAN_MODE",
+    kind: "setting",
+    label: "Virus scanning of uploads",
+    hint: "Off until ClamAV runs on the droplet (docs/DEPLOY.md › Malware scanning). Monitor: check every upload and record the result; nothing is held back or removed. " + UPLOAD_SCAN_ENFORCE_LOCKED,
+    options: [
+      { value: "off", label: "Off (uploads are not checked yet)" },
+      { value: "monitor", label: "Monitor (check and record, block nothing)" },
+      { value: "enforce", label: "Enforce (comes with the next update)", disabled: true, note: UPLOAD_SCAN_ENFORCE_LOCKED },
+    ],
+  },
 } satisfies Record<string, Field>;
 
 export type FieldName = keyof typeof F;
@@ -96,7 +119,7 @@ export const STEPS: Step[] = [
     key: "background", required: true, title: "Background service",
     what: "The service that sends email and texts, talks to Stripe, PayPal and QuickBooks, and runs imports.",
     why: "Almost everything an organization sets up waits on it. It also reads the keys you save in this wizard.",
-    fields: [], workerTest: false,
+    fields: [F.UPLOAD_SCAN_MODE], workerTest: false,
   },
   {
     key: "portal", required: true, title: "Portal address and HTTPS",
@@ -120,7 +143,7 @@ export const STEPS: Step[] = [
   },
   {
     key: "payments", required: false, title: "Payments",
-    what: "Community Connect's Stripe platform (Stripe Connect) and PayPal partner apps.",
+    what: "Weaver's Stripe platform (Stripe Connect) and PayPal partner apps.",
     why: "Organizations connect their own Stripe or PayPal accounts through these apps to take card and PayPal payments.",
     fields: [F.STRIPE_TEST_SECRET_KEY, F.STRIPE_SECRET_KEY, F.STRIPE_CLIENT_ID, F.STRIPE_WEBHOOK_SECRET, F.PAYPAL_SANDBOX_CLIENT_ID, F.PAYPAL_SANDBOX_CLIENT_SECRET,
       F.PAYPAL_CLIENT_ID, F.PAYPAL_CLIENT_SECRET, F.PAYPAL_PARTNER_ID, F.PAYPAL_BN_CODE, F.PAYPAL_WEBHOOK_ID, F.PAYPAL_SANDBOX_WEBHOOK_ID, F.OAUTH_STATE_SECRET],
@@ -134,7 +157,7 @@ export const STEPS: Step[] = [
   },
   {
     key: "quickbooks", required: false, title: "QuickBooks",
-    what: "Community Connect's Intuit app, which organizations connect their QuickBooks Online company through.",
+    what: "Weaver's Intuit app, which organizations connect their QuickBooks Online company through.",
     why: "Posting gifts to QuickBooks, pulling the chart of accounts and donor matching all need it.",
     fields: [F.INTUIT_CLIENT_ID, F.INTUIT_CLIENT_SECRET, F.INTUIT_SANDBOX_CLIENT_ID, F.INTUIT_SANDBOX_CLIENT_SECRET, F.INTUIT_REDIRECT_URI, F.OAUTH_STATE_SECRET],
     workerTest: true,
@@ -240,6 +263,9 @@ export function fieldProblem(name: string, raw: string): string | null {
       return /^[A-Za-z0-9_.-]{20,200}$/.test(v) ? null : "That does not look like a Gemini API key (letters, digits, - and _ only, as AI Studio shows it).";
     case "GEMINI_IMAGE_MODEL":
       return (FLYER_ART_MODEL_IDS as string[]).includes(v) ? null : "Choose one of the listed models.";
+    case "UPLOAD_SCAN_MODE":
+      if (v.toLowerCase() === "enforce") return UPLOAD_SCAN_ENFORCE_LOCKED;
+      return ["off", "monitor"].includes(v.toLowerCase()) ? null : "Choose off or monitor.";
     case "OAUTH_STATE_SECRET":
     case "MESSAGING_LINK_SECRET":
       return v.length >= 32 ? null : "Use at least 32 characters (Generate makes one).";

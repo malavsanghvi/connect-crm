@@ -21,7 +21,7 @@ async function platformSession(doing: string): Promise<{ ok: true; session: CrmS
   const state = await loadSession();
   if (state.status === "signed_out") return { ok: false, error: `Could not ${doing} — your session has expired. Sign in again.` };
   if (state.status !== "ok") return { ok: false, error: `Could not ${doing} — the app could not load your session. Reload and try again.` };
-  if (!state.session.isPlatformAdmin) return { ok: false, error: `Could not ${doing} — only Community Connect platform admins can do this.` };
+  if (!state.session.isPlatformAdmin) return { ok: false, error: `Could not ${doing} — only Weaver platform admins can do this.` };
   return { ok: true, session: state.session };
 }
 

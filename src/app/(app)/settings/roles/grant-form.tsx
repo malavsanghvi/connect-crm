@@ -120,7 +120,7 @@ export function GrantForm({
                         Choose
                       </button>
                     ) : (
-                      <span className="text-xs text-muted">No app login yet — they must sign in to Community Connect once first</span>
+                      <span className="text-xs text-muted">No app login yet — they must sign in to Weaver once first</span>
                     )}
                   </li>
                 ))}

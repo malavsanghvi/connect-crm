@@ -46,7 +46,7 @@ export async function POST(req: NextRequest) {
     console.warn(`[payments/intent] unknown checkout context ${JSON.stringify(sent)} is recorded as "other".`);
   }
   const db = tokenClient(token, "member", "/api/payments/intent");
-  if (!db) return reply(503, { error: "Community Connect is not configured (NEXT_PUBLIC_SUPABASE_URL / NEXT_PUBLIC_SUPABASE_ANON_KEY)." });
+  if (!db) return reply(503, { error: "Weaver is not configured (NEXT_PUBLIC_SUPABASE_URL / NEXT_PUBLIC_SUPABASE_ANON_KEY)." });
   const { data, error } = await db.rpc("create_checkout", {
     p_center: r.center_id,
     p_household: r.household_id,

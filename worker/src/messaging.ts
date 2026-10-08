@@ -37,8 +37,11 @@ async function record(ctx: JobContext, id: string, status: string, provider: str
   await ctx.db.query("select app.worker_message_result($1, $2, $3, $4, $5, $6)", [id, status, provider, ref, error, segments]);
 }
 
-/** The payload keys a push may carry into the app's `data` (its route registry reads them; nothing else leaves the server). */
-const PUSH_ROUTING_KEYS = ["survey_id", "event_id", "deep_link", "assignment_id", "submission_id", "learner_id"] as const;
+/**
+ * The payload keys a push may carry into the app's `data` (its route registry reads them; nothing else leaves the
+ * server). boli_id (0596): a boli notice names the boli to open (deep_link "/boli/<id>").
+ */
+const PUSH_ROUTING_KEYS = ["survey_id", "event_id", "deep_link", "assignment_id", "submission_id", "learner_id", "boli_id"] as const;
 
 /**
  * What a tapped push needs to open the right screen in the member app (connect-mobile src/lib/notification-routes.ts):
@@ -75,7 +78,7 @@ export async function sendMessage(ctx: JobContext, messageId: string, job: Pick<
   // o-https: PORTAL_PUBLIC_URL, else the portal domain saved in Platform setup.
   const portalUrl = await portalPublicUrl(ctx);
   const env: Env = { ...ctx.env, PORTAL_PUBLIC_URL: portalUrl ?? undefined };
-  // Community Connect's own emails carry their links as %PORTAL_URL%<path> (0290): the
+  // Weaver's own emails carry their links as %PORTAL_URL%<path> (0290): the
   // database does not know the portal's public address; this service does.
   if (`${m.subject ?? ""}${m.body}`.includes(PORTAL_URL_MARK)) {
     const base = str(env.PORTAL_PUBLIC_URL)?.replace(/\/+$/, "") ?? null;
@@ -90,7 +93,7 @@ export async function sendMessage(ctx: JobContext, messageId: string, job: Pick<
       provider = p;
       const sender = (m.route.sender ?? null) as { from_name: string; from_address: string; reply_to: string | null } | null;
       if (!sender && !str(env.MESSAGING_FROM_ADDRESS)) {
-        throw new MissingConfigError("Email sending isn't configured on the Community Connect server yet (MESSAGING_FROM_ADDRESS not set)");
+        throw new MissingConfigError("Email sending isn't configured on the Weaver server yet (MESSAGING_FROM_ADDRESS not set)");
       }
       const brand = m.brand ? { name: m.brand.name, short_name: m.brand.short_name, primary_color: m.brand.primary_color, logo_url: brandingUrl(env.SUPABASE_URL, m.brand.logo_path) } : null;
       const unsub = m.route.unsubscribe === true ? unsubscribeUrl(env.PORTAL_PUBLIC_URL, env.MESSAGING_LINK_SECRET, m.id) : null;
@@ -98,7 +101,7 @@ export async function sendMessage(ctx: JobContext, messageId: string, job: Pick<
       const footer = (m.route.footer ?? null) as { postal_address: string | null; note: string | null } | null;
       const email = renderEmail({ subject: m.subject ?? "", body: m.body, brand, footer, sandbox: m.sandbox, unsubscribeUrl: unsub });
       const res = await sendEmail(req, env, p, emailKey(env, p, null), {
-        from: fromHeader(sender, brand, { address: str(env.MESSAGING_FROM_ADDRESS) ?? "", name: str(env.MESSAGING_FROM_NAME) ?? "Community Connect" }),
+        from: fromHeader(sender, brand, { address: str(env.MESSAGING_FROM_ADDRESS) ?? "", name: str(env.MESSAGING_FROM_NAME) ?? "Weaver" }),
         to: m.to, subject: email.subject, html: email.html, text: email.text,
         replyTo: sender?.reply_to ?? (sender ? null : m.brand?.public_email ?? null), unsubscribeUrl: unsub,
       });

@@ -10,7 +10,7 @@ import type { ExchangeInput, TokenSet } from "../handlers/oauth.exchange";
 import { paypalRequest, stripeConnectBase, stripeKey, stripeRequest, parseProvider } from "./providers";
 
 export async function stripeExchange({ code, env, http, mode }: ExchangeInput): Promise<TokenSet> {
-  if (!(env.STRIPE_CLIENT_ID ?? "").trim()) throw new NotConfiguredError("Stripe Connect isn't configured on the Community Connect server yet (STRIPE_CLIENT_ID not set)");
+  if (!(env.STRIPE_CLIENT_ID ?? "").trim()) throw new NotConfiguredError("Stripe Connect isn't configured on the Weaver server yet (STRIPE_CLIENT_ID not set)");
   const res = await http.request(`${stripeConnectBase(env)}/oauth/token`, {
     method: "POST",
     headers: { authorization: `Bearer ${stripeKey(env, mode)}`, "content-type": "application/x-www-form-urlencoded" },
@@ -39,7 +39,7 @@ export async function stripeExchange({ code, env, http, mode }: ExchangeInput): 
 
 export async function paypalExchange({ code, env, http, mode }: ExchangeInput): Promise<TokenSet> {
   const partner = (env.PAYPAL_PARTNER_ID ?? "").trim();
-  if (!partner) throw new NotConfiguredError("Connect with PayPal isn't configured on the Community Connect server yet (PAYPAL_PARTNER_ID not set)");
+  if (!partner) throw new NotConfiguredError("Connect with PayPal isn't configured on the Weaver server yet (PAYPAL_PARTNER_ID not set)");
   const merchant = code.trim();
   if (!/^[A-Z0-9]{8,20}$/.test(merchant)) throw new PermanentError("PayPal did not send back a merchant id. Start connecting again.");
   const m = await paypalRequest<Record<string, unknown>>(http, env, mode, `/v1/customer/partners/${encodeURIComponent(partner)}/merchant-integrations/${encodeURIComponent(merchant)}`);

@@ -110,7 +110,7 @@ describe("flyerArtReadiness (is AI art available?)", () => {
 
   it("says there is no key, in the words the brief asks for", async () => {
     const { db } = fake({ rpc: { flyer_art_status: { data: { state: "no_key" } } } });
-    expect(await flyerArtReadiness(db, C)).toEqual({ state: "no_key", message: "AI art needs a Gemini key — ask your Community Connect admin (Platform › Setup)." });
+    expect(await flyerArtReadiness(db, C)).toEqual({ state: "no_key", message: "AI art needs a Gemini key — ask your Weaver admin (Platform › Setup)." });
   });
 
   it("never throws: a status that cannot be read says so and the drawn art still works", async () => {

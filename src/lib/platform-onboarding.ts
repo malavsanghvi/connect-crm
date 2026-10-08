@@ -1,5 +1,5 @@
 // Onboarding (stream o-platform): the public request form, sandbox codes, /start,
-// the Community Connect console (Requests, Codes, Pipeline, Go-live, Support access)
+// the Weaver console (Requests, Codes, Pipeline, Go-live, Support access)
 // and the owner's Setup › Go-live. Pure helpers only, so they are unit-tested.
 
 export const ORG_TYPES = [
@@ -73,9 +73,9 @@ export function checkCodeMessage(state: string): string | null {
     case "used":
       return "This code has already been used. If you created the sandbox, sign in as usual.";
     case "expired":
-      return "This code has expired. Ask Community Connect to send you a new one.";
+      return "This code has expired. Ask Weaver to send you a new one.";
     default:
-      return "That code is not valid. Check it against the email (it looks like CC-SBX-7K4M-Q2PD), or ask Community Connect for a new one.";
+      return "That code is not valid. Check it against the email (it looks like CC-SBX-7K4M-Q2PD), or ask Weaver for a new one.";
   }
 }
 
@@ -84,7 +84,7 @@ export function emailStatusText(status: string | null | undefined): { tone: "ok"
   if (!status) return { tone: "warn", text: "No email recorded" };
   if (status === "queued") return { tone: "ok", text: "Email queued" };
   if (status === "not_set_up")
-    return { tone: "warn", text: "Email sending isn't set up yet — the code is shown here for the Community Connect team to send by hand" };
+    return { tone: "warn", text: "Email sending isn't set up yet — the code is shown here for the Weaver team to send by hand" };
   return { tone: "bad", text: `Email not sent — ${status.replace(/^failed:\s*/, "")}` };
 }
 

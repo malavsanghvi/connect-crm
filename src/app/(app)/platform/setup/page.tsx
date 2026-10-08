@@ -19,7 +19,7 @@ import { AutoRefresh, FieldButton, HookTestButton, LaterButton, StepActions, Tes
 export const metadata: Metadata = { title: "Platform setup" };
 export const dynamic = "force-dynamic";
 
-// The Community Connect super admin's first-sign-in wizard (onboarding Wave D):
+// The Weaver super admin's first-sign-in wizard (onboarding Wave D):
 // every platform provider and piece of infrastructure, each with what it is,
 // why, its live status, its fields, a Test, Save, and Park for later (optional
 // steps only). Values saved here are read by the background service and the
@@ -27,7 +27,7 @@ export const dynamic = "force-dynamic";
 
 export default async function PlatformSetupPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const session = await getSession();
-  const header = <PageHeader title="Platform setup" description="Community Connect's own providers and infrastructure · keys live in the vault, only their last 4 characters show" />;
+  const header = <PageHeader title="Platform setup" description="Weaver's own providers and infrastructure · keys live in the vault, only their last 4 characters show" />;
   if (!session.isPlatformAdmin) {
     return (
       <>
@@ -450,7 +450,7 @@ function Instructions({ step, view, portalUrl, host }: { step: StepKey; view: Se
     ),
     payments: (
       <ol className="ml-5 list-decimal space-y-2">
-        <li>Stripe: use Community Connect&apos;s platform account with Connect enabled; save the test key (and the live key when ready) and the Connect client id.</li>
+        <li>Stripe: use Weaver&apos;s platform account with Connect enabled; save the test key (and the live key when ready) and the Connect client id.</li>
         <li>
           Stripe › Connect › Settings › Redirects: add <Code>{`${portalUrl}/api/oauth/stripe/callback`}</Code>
           {view.wildcardDomain ? <> and every organization address&apos;s <Code>/api/oauth/stripe/callback</Code></> : null}.
@@ -467,11 +467,11 @@ function Instructions({ step, view, portalUrl, host }: { step: StepKey; view: Se
     ),
     texting: (
       <ol className="ml-5 list-decimal space-y-2">
-        <li>Save the account SID, the auth token and Community Connect&apos;s number (or messaging service).</li>
+        <li>Save the account SID, the auth token and Weaver&apos;s number (or messaging service).</li>
         <li>
           Twilio › the number › Messaging › “A message comes in”: webhook <Code>{`${portalUrl}/api/webhooks/twilio`}</Code> (HTTP POST).
         </li>
-        <li>Organizations&apos; 10DLC / toll-free registrations are filed in Twilio by the Community Connect team, then recorded in the portal.</li>
+        <li>Organizations&apos; 10DLC / toll-free registrations are filed in Twilio by the Weaver team, then recorded in the portal.</li>
       </ol>
     ),
     quickbooks: (
@@ -517,7 +517,7 @@ function Instructions({ step, view, portalUrl, host }: { step: StepKey; view: Se
     ),
   };
   return (
-    <Card title="What to do" description={STEPS.find((s) => s.key === step)?.required ? "Required before organizations can use Community Connect." : "Optional: park it if you are not ready."}>
+    <Card title="What to do" description={STEPS.find((s) => s.key === step)?.required ? "Required before organizations can use Weaver." : "Optional: park it if you are not ready."}>
       <div className="text-[14px] leading-relaxed">{steps[step]}</div>
     </Card>
   );

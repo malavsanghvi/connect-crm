@@ -9,6 +9,7 @@ import { explainError } from "@/lib/errors";
 import { connectionStatus, integrationRows } from "@/lib/integrations";
 import { can, canAccess } from "@/lib/permissions";
 import { getSession } from "@/lib/session";
+import { parseUploadScanSummary, uploadScanView } from "@/lib/upload-scan";
 import { backgroundServiceView, jobKindLabel, jobStatusView, providerLabel } from "@/lib/vault";
 
 import { TestJobButton } from "./background-service";
@@ -100,6 +101,8 @@ export default async function IntegrationsPage() {
   const isOwner = ownerRes.error ? false : Boolean(ownerRes.data);
   const canManage = can(session, "integrations.manage") || isOwner;
   const service = statusRes.error ? null : backgroundServiceView(statusRes.data);
+  // The virus check of uploads (0589): app.background_service_status's "scan" summary.
+  const scan = statusRes.error ? null : uploadScanView(parseUploadScanSummary((statusRes.data as { scan?: unknown } | null)?.scan));
   // What the last Anthropic calls got (a key that is set can still be blocked or refused), from the heartbeat.
   const ai = statusRes.error ? null : aiServiceFromStatus(statusRes.data, tz);
   if (statusRes.error) console.error("[integrations] could not load the background service status:", statusRes.error);
@@ -158,10 +161,15 @@ export default async function IntegrationsPage() {
                   ) : null}
                 </div>
               ) : null}
-              <p className="text-[13px]">
-                <span className="font-semibold">Malware scanning of uploads:</span> no scanning service has been chosen yet, so uploads are not
-                scanned.{service.jobs.scanPending > 0 ? ` ${service.jobs.scanPending} upload(s) are waiting to be scanned once one is.` : ""}
-              </p>
+              {scan ? (
+                <div className="text-[13px]" data-upload-scan>
+                  <p>
+                    <span className="font-semibold">Virus scanning of uploads:</span> <StatusText tone={scan.tone}>{scan.title}</StatusText>
+                    {scan.counts ? <span className="text-muted"> · {scan.counts}</span> : null}
+                  </p>
+                  <p className="mt-0.5 text-muted">{scan.detail}</p>
+                </div>
+              ) : null}
               {canSeeJobs && !jobsRes.error && (jobsRes.data ?? []).length > 0 ? (
                 <TableWrap>
                   <table className="crm-table">

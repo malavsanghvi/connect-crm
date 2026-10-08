@@ -261,7 +261,7 @@ async function answerStepUp(p, secret) {
   ok(appr.status < 300 && sql(`select status from app.role_grants where id = '${pendingId}'`) === 'active', 'a second administrator (with a fresh 2FA check) approves the center_admin grant');
 
   // ── 4. The owner accepts the organization agreements ──────────────────────
-  // Community Connect publishes the texts (a platform admin's step; done in SQL on this test stack).
+  // Weaver publishes the texts (a platform admin's step; done in SQL on this test stack).
   sql(`update app.legal_documents set published_at = now() where center_id is null and kind in ('org_terms','dpa','children_addendum','order_form')`);
   await ap.goto(BASE + '/settings/agreements', { waitUntil: 'networkidle' });
   await shot(ap, 'agreements-before');

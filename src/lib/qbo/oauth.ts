@@ -8,7 +8,7 @@
 //   signature  HMAC-SHA256(OAUTH_STATE_SECRET, "intuit|<center>|<nonce>|<user>"), base64url
 //
 // Portal server env (never sent to a browser):
-//   INTUIT_CLIENT_ID            Community Connect's Intuit app (production keys)
+//   INTUIT_CLIENT_ID            Weaver's Intuit app (production keys)
 //   INTUIT_SANDBOX_CLIENT_ID    optional: Intuit's development keys, for sandbox companies
 //   INTUIT_REDIRECT_URI         optional: https://<portal>/api/oauth/intuit/callback
 //                               (else derived from the request's host)
@@ -36,7 +36,7 @@ export function intuitPortalConfig(env: Env, company: "real" | "sandbox"): Intui
     return {
       ok: false,
       missing,
-      message: `QuickBooks isn't configured on the Community Connect server yet (${missing.join(", ")} ${missing.length === 1 ? "is" : "are"} not set). Ask the Community Connect team.`,
+      message: `QuickBooks isn't configured on the Weaver server yet (${missing.join(", ")} ${missing.length === 1 ? "is" : "are"} not set). Ask the Weaver team.`,
     };
   }
   return { ok: true, clientId, stateSecret: secret, authorizeBase: (val(env, "INTUIT_OAUTH_BASE") ?? "https://appcenter.intuit.com").replace(/\/+$/, "") };

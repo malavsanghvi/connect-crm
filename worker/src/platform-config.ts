@@ -1,4 +1,4 @@
-// Community Connect's own provider keys, read from the database FIRST and from
+// Weaver's own provider keys, read from the database FIRST and from
 // the environment second (onboarding Wave D, the platform setup wizard).
 //
 // The super admin saves keys in /platform/setup; they live in Supabase Vault
@@ -33,6 +33,13 @@ export function overlayable(name: string): boolean {
   return /^[A-Z][A-Z0-9_]+$/.test(name) && !name.startsWith("WORKER_");
 }
 
+/**
+ * Settings the database alone decides: saved in Platform › Setup, never taken from this process's environment.
+ * UPLOAD_SCAN_MODE (0589) is also read by the database's own read rules (app.upload_scan_mode), so a worker that took
+ * it from its environment could check, hold back or remove files while the database says scanning is off.
+ */
+export const DATABASE_ONLY_NAMES: ReadonlySet<string> = new Set(["UPLOAD_SCAN_MODE"]);
+
 /** Provider variable names the wizard knows about: reported (names only) so the wizard can say where each comes from. */
 export const KNOWN_PLATFORM_NAMES = [
   "RESEND_API_KEY", "RESEND_WEBHOOK_SECRET", "POSTMARK_SERVER_TOKEN", "POSTMARK_ACCOUNT_TOKEN", "POSTMARK_WEBHOOK_TOKEN",
@@ -47,7 +54,7 @@ export const KNOWN_PLATFORM_NAMES = [
 ];
 
 export type PlatformConfig = {
-  /** Reads: saved value first, then the process environment. */
+  /** Reads: saved value first, then the process environment (never for DATABASE_ONLY_NAMES). */
   env: Env;
   /** Re-read the database if the last read is older than the TTL (or `force`). Never throws. */
   refresh(force?: boolean): Promise<void>;
@@ -71,13 +78,14 @@ export function createPlatformConfig(
   let inFlight: Promise<void> | null = null;
   let warnedMissing = false;
 
-  const get = (name: string): string | undefined => overlay.get(name) ?? base[name];
+  const inBase = (name: string): boolean => !DATABASE_ONLY_NAMES.has(name) && name in base;
+  const get = (name: string): string | undefined => overlay.get(name) ?? (DATABASE_ONLY_NAMES.has(name) ? undefined : base[name]);
   const env: Env = new Proxy({} as Record<string, string | undefined>, {
     get: (_t, p) => (typeof p === "string" ? get(p) : undefined),
-    has: (_t, p) => typeof p === "string" && (overlay.has(p) || p in base),
-    ownKeys: () => [...new Set([...Object.keys(base), ...overlay.keys()])],
+    has: (_t, p) => typeof p === "string" && (overlay.has(p) || inBase(p)),
+    ownKeys: () => [...new Set([...Object.keys(base).filter(inBase), ...overlay.keys()])],
     getOwnPropertyDescriptor: (_t, p) =>
-      typeof p === "string" && (overlay.has(p) || p in base) ? { enumerable: true, configurable: true, value: get(p), writable: false } : undefined,
+      typeof p === "string" && (overlay.has(p) || inBase(p)) ? { enumerable: true, configurable: true, value: get(p), writable: false } : undefined,
   });
 
   async function load(): Promise<void> {

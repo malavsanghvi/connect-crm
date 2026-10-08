@@ -9,7 +9,7 @@ import { NewSandboxForm } from "./new-sandbox-form";
 
 export const metadata: Metadata = { title: "New sandbox · Platform" };
 
-/** Platform › Centers › New sandbox: Community Connect creates a sandbox directly and invites its owner (f-sandbox). */
+/** Platform › Centers › New sandbox: Weaver creates a sandbox directly and invites its owner (f-sandbox). */
 export default async function NewSandboxPage() {
   const session = await getSession();
   const header = (
@@ -20,7 +20,7 @@ export default async function NewSandboxPage() {
           Platform › Centers
         </Link>
       }
-      description="New sandbox · created directly by Community Connect, without a request or a sandbox code"
+      description="New sandbox · created directly by Weaver, without a request or a sandbox code"
     />
   );
   if (!session.isPlatformAdmin) {

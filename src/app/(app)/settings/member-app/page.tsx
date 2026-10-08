@@ -31,7 +31,7 @@ export default async function MemberAppSettingsPage() {
   const header = (
     <PageHeader
       title="Settings"
-      description={`How members find ${name} in the Community Connect app, and the shortcuts on its Home`}
+      description={`How members find ${name} in the Weaver app, and the shortcuts on its Home`}
     />
   );
   if (!canAccess(session, "centerSettings")) {
@@ -105,7 +105,7 @@ export default async function MemberAppSettingsPage() {
               <a className={buttonClass("ghost", "xs")} href={`sms:?&body=${encodeURIComponent(message)}`}>
                 Text message
               </a>
-              <a className={buttonClass("ghost", "xs")} href={`mailto:?subject=${encodeURIComponent(`Join ${name} on the Community Connect app`)}&body=${encodeURIComponent(message)}`}>
+              <a className={buttonClass("ghost", "xs")} href={`mailto:?subject=${encodeURIComponent(`Join ${name} on the Weaver app`)}&body=${encodeURIComponent(message)}`}>
                 Email
               </a>
             </div>
