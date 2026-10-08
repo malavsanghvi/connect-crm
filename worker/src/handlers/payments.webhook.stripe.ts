@@ -1,7 +1,7 @@
 // payments.webhook.stripe: one verified Stripe event (the portal route checked
 // its signature and stored it through app.ingest_webhook). Payments are
 // recorded through app.worker_record_online_payment (existing allocation and
-// posting rules); refunds made outside Community Connect (the Stripe dashboard)
+// posting rules); refunds made outside Weaver (the Stripe dashboard)
 // are recorded as FLAGGED refunds that change nothing until two people approve
 // them (app.worker_flag_provider_refund, owner decision 2026-09-25 #6).
 
@@ -16,7 +16,7 @@ export const kind = "payments.webhook.stripe";
 export function configured(env: Env): Readiness {
   if ((env.STRIPE_SECRET_KEY ?? "").trim() || (env.STRIPE_TEST_SECRET_KEY ?? "").trim()) return { configured: true };
   const s = providerStatus(env, "stripe");
-  return s.configured ? s : { configured: false, reason: "Stripe isn't configured on the Community Connect server yet (STRIPE_SECRET_KEY / STRIPE_TEST_SECRET_KEY not set)" };
+  return s.configured ? s : { configured: false, reason: "Stripe isn't configured on the Weaver server yet (STRIPE_SECRET_KEY / STRIPE_TEST_SECRET_KEY not set)" };
 }
 
 type Obj = Record<string, unknown>;
@@ -31,7 +31,7 @@ export async function handle(ev: StoredEvent, ctx: JobContext): Promise<EventOut
     case "checkout.session.completed":
     case "checkout.session.async_payment_succeeded": {
       const checkout = await loadCheckout(ctx, String(obj(o.metadata).checkout_id ?? o.client_reference_id ?? ""), "stripe", String(o.id ?? ""));
-      if (!checkout) return { outcome: "ignored: not a Community Connect checkout", session: o.id };
+      if (!checkout) return { outcome: "ignored: not a Weaver checkout", session: o.id };
       if (o.payment_status !== "paid") return { outcome: "waiting: the bank payment has not cleared yet", center: checkout.center_id };
       const rec = await recordStripeSession(ctx, checkout, o, account);
       return { outcome: rec.test ? "test charge paid; refund queued" : rec.duplicate ? "already recorded" : "payment recorded", center: checkout.center_id, ...rec };
@@ -39,14 +39,14 @@ export async function handle(ev: StoredEvent, ctx: JobContext): Promise<EventOut
     case "checkout.session.expired":
     case "checkout.session.async_payment_failed": {
       const checkout = await loadCheckout(ctx, String(obj(o.metadata).checkout_id ?? ""), "stripe", String(o.id ?? ""));
-      if (!checkout) return { outcome: "ignored: not a Community Connect checkout" };
+      if (!checkout) return { outcome: "ignored: not a Weaver checkout" };
       const expired = ev.event_type === "checkout.session.expired";
       await closeCheckout(ctx, checkout.id, expired ? "expired" : "failed", expired ? "The checkout expired before it was paid." : "The bank payment failed.");
       return { outcome: expired ? "checkout expired" : "checkout failed", center: checkout.center_id };
     }
     case "payment_intent.payment_failed": {
       const checkout = await loadCheckout(ctx, String(obj(o.metadata).checkout_id ?? ""), "stripe", null);
-      if (!checkout) return { outcome: "ignored: not a Community Connect checkout" };
+      if (!checkout) return { outcome: "ignored: not a Weaver checkout" };
       const why = String(obj(o.last_payment_error).message ?? "The payment was declined.");
       await closeCheckout(ctx, checkout.id, "failed", why);
       return { outcome: "checkout failed", center: checkout.center_id };
@@ -61,7 +61,7 @@ export async function handle(ev: StoredEvent, ctx: JobContext): Promise<EventOut
       const created = Number(latest?.created ?? event.created ?? 0);
       const on = created > 0 ? new Date(created * 1000).toISOString().slice(0, 10) : null;
       const res = await flagProviderRefund(ctx, "stripe", pi, Number(o.amount_refunded ?? 0), latest ? String(latest.id ?? "") : null, on, ev.event_type);
-      if (!res) return { outcome: "ignored: not a Community Connect payment" };
+      if (!res) return { outcome: "ignored: not a Weaver payment" };
       if (res.outcome === "flagged") {
         ctx.log.warn("a refund made in the Stripe dashboard was flagged for two approvals", { payment: res.payment_id, amount_cents: res.amount_cents });
         return { outcome: `refund made in Stripe flagged for approval (${dollars(Number(res.amount_cents))})`, center: res.center_id, refund_id: res.refund_id, payment_id: res.payment_id, amount_cents: res.amount_cents };
@@ -86,7 +86,7 @@ export async function handle(ev: StoredEvent, ctx: JobContext): Promise<EventOut
     }
     case "account.application.deauthorized": {
       await ctx.db.query("select app.worker_connection_settings('stripe', $1, $2)", [account ?? "", JSON.stringify({ charges_enabled: false, deauthorized_at: new Date().toISOString() })]);
-      return { outcome: "the organization disconnected Community Connect in Stripe", center: ev.center_id };
+      return { outcome: "the organization disconnected Weaver in Stripe", center: ev.center_id };
     }
     default:
       return { outcome: `ignored: ${ev.event_type} is not used`, center: ev.center_id };

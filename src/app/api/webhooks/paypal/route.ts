@@ -3,7 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { NotConfigured, ingestWebhook, verifyPaypalWebhook } from "@/lib/payments/server";
 import { paypalVerifyBody } from "@/lib/payments/signature";
 
-// PayPal → Community Connect. PayPal checks its own signature
+// PayPal → Weaver. PayPal checks its own signature
 // (verify-webhook-signature with PAYPAL_WEBHOOK_ID / PAYPAL_SANDBOX_WEBHOOK_ID);
 // only a confirmed event is stored (app.ingest_webhook) and handed to
 // payments.webhook.paypal.
@@ -43,7 +43,7 @@ export async function POST(req: NextRequest) {
   }
   if (!stored) {
     console.error("[webhooks/paypal] PORTAL_DATABASE_URL (or WORKER_DATABASE_URL) is not set; the event was not stored");
-    return new NextResponse("Webhooks aren't configured on the Community Connect server yet (the database connection is not set).", { status: 503 });
+    return new NextResponse("Webhooks aren't configured on the Weaver server yet (the database connection is not set).", { status: 503 });
   }
   return NextResponse.json({ received: true, id: stored.id });
 }

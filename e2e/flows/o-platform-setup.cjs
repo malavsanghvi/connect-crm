@@ -1,4 +1,4 @@
-// Onboarding Wave D · o-platform-setup — the Community Connect super admin's first sign-in wizard,
+// Onboarding Wave D · o-platform-setup — the Weaver super admin's first sign-in wizard,
 // end to end, against a real local stack (bash e2e/up.sh o-platform-setup 100) with the background
 // service running and a LOCAL MOCK for the providers (e2e/mocks/platform-mock.cjs; fake keys, no network).
 // Plain Node + Playwright; every step asserts the database and the audit rows.

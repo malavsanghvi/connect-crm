@@ -32,7 +32,7 @@ export async function prepareMediaUploadAction(input: { kind: string; fileName: 
     const message = error?.message ?? "";
     console.error(`[content/media] could not sign an upload to ${BUCKET}/${path}:`, error);
     if (/bucket not found/i.test(message)) {
-      return { ok: false, error: `Could not ${doing} — the content storage area is not set up on this server yet. Ask Community Connect to create it.` };
+      return { ok: false, error: `Could not ${doing} — the content storage area is not set up on this server yet. Ask Weaver to create it.` };
     }
     if (/row-level security|unauthorized|permission/i.test(message)) {
       return {

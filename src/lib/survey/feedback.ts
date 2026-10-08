@@ -43,6 +43,9 @@ export type SendTiming = (typeof SEND_TIMINGS)[number]["key"];
 export const FEEDBACK_OPEN_DAYS = 14;
 const MORNING_HOUR = 9;
 
+/** The reminders every survey push gets (0596; owner decision 2026-10-07): there is no other choice. */
+export const FIXED_REMINDERS = "Reminders on day 1 and day 2 until they answer";
+
 /** Template settings kept on the template survey row. */
 export type FeedbackTemplateSettings = { sendTiming: SendTiming; reminderAfterDays: number | null; anonymousAllowed: boolean };
 

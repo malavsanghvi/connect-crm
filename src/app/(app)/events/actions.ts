@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
+import { readSurveyNotices } from "@/lib/data/event-survey";
 import { eventActionContext } from "@/lib/data/events";
 import type { TablesUpdate } from "@/lib/database.types";
 import type { ActionResult } from "@/lib/errors";
@@ -13,6 +14,7 @@ import { defaultConfirmationHours, defaultSlotMinutes, lunchRulesFromCenter } fr
 import { AUDIENCES, parsePartyLines, planLunchSlots } from "@/lib/events/report";
 import { randomToken } from "@/lib/events/tokens";
 import { can } from "@/lib/permissions";
+import { surveySentMessage } from "@/lib/survey/event-survey";
 
 type Result = ActionResult<unknown>;
 
@@ -170,11 +172,31 @@ export async function setEventStatus(eventId: string, _prev: Result | null, fd: 
   return runAction("events.setEventStatus", "change the event status", async () => {
     const { db } = await eventActionContext((a) => eventAreas.edit(a, eventId), "only event managers and this event's lead can change its status.");
     const status = oneOf(fd, "status", EVENT_STATUSES, "Status");
+    const before = (must(await db.from("events").select("status").eq("id", eventId).limit(1), "load the event") ?? [])[0];
     const res = must(await db.from("events").update({ status }).eq("id", eventId).select("id"), "change the event status");
     if (!res?.length) throw new FormError("you can't change this event.");
     revalidateEvents();
+    if (status === "completed" && before?.status !== "completed") return { ok: true, message: await completedMessage(db, eventId) };
     return { ok: true, message: STATUS_MESSAGES[status] };
   });
+}
+
+/**
+ * Marking an event completed opens its survey when it is set to send by itself (0544); the database takes the counts
+ * at once and the background service queues the pushes (0596). Says what happened, or that it could not be checked.
+ */
+async function completedMessage(db: Awaited<ReturnType<typeof eventActionContext>>["db"], eventId: string): Promise<string> {
+  const found = await db.from("surveys").select("id").eq("event_id", eventId).eq("kind", "event_feedback").limit(1);
+  if (found.error) {
+    console.error("[events] events.setEventStatus: the event is completed, but its survey could not be checked:", found.error);
+    return "Marked completed. Whether its survey went out could not be checked; open the event's Survey tab to see.";
+  }
+  const id = found.data?.[0]?.id;
+  if (!id) return STATUS_MESSAGES.completed;
+  const read = await readSurveyNotices(db, id);
+  if (!read.ok) return "Marked completed. Its survey's numbers could not be loaded; open the event's Survey tab to see who gets a push.";
+  if (!read.notices) return STATUS_MESSAGES.completed;
+  return `Marked completed. ${surveySentMessage(read.notices, "The survey opened")}`;
 }
 
 // ---------------------------------------------------------------------------

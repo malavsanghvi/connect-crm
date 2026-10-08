@@ -17,7 +17,7 @@ export async function decideVerificationAction(_prev: ActionResult | null, fd: F
   const state = await loadSession();
   if (state.status === "signed_out") return { ok: false, error: `Could not ${doing} — your session has expired. Sign in again.` };
   if (state.status !== "ok") return { ok: false, error: `Could not ${doing} — the app could not load your session. Reload and try again.` };
-  if (!state.session.isPlatformAdmin) return { ok: false, error: `Could not ${doing} — only Community Connect platform admins verify organizations.` };
+  if (!state.session.isPlatformAdmin) return { ok: false, error: `Could not ${doing} — only Weaver platform admins verify organizations.` };
   const center = String(fd.get("center") ?? "");
   if (!isUuid(center)) return { ok: false, error: `Could not ${doing} — reload the page and try again.` };
   const note = String(fd.get("note") ?? "").trim();

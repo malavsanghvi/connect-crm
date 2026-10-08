@@ -9,7 +9,7 @@ import { ReadinessTable } from "./readiness-table";
 
 export const metadata: Metadata = { title: "Go-live readiness · Setup" };
 
-const SUB = "the 13 checks before Community Connect approves going live, plus the background service · automatic where possible, with the evidence";
+const SUB = "the 13 checks before Weaver approves going live, plus the background service · automatic where possible, with the evidence";
 
 export default async function ReadinessPage() {
   const session = await getSession();
@@ -47,11 +47,11 @@ export default async function ReadinessPage() {
       {notBuilt > 0 ? (
         <div className="mb-4">
           <Alert tone="info" title="Some checks are not built yet">
-            They are listed so the whole go-live picture is visible. Community Connect confirms them by hand until they are automatic.
+            They are listed so the whole go-live picture is visible. Weaver confirms them by hand until they are automatic.
           </Alert>
         </div>
       ) : null}
-      <Card title="Readiness checks" description="Plan Step 8 · Community Connect approves, and the organization goes live" padded={false}>
+      <Card title="Readiness checks" description="Plan Step 8 · Weaver approves, and the organization goes live" padded={false}>
         <ReadinessTable rows={rows} />
       </Card>
     </>

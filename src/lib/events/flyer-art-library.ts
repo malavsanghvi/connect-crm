@@ -41,7 +41,7 @@ const BUCKET = "content";
 const URL_SECONDS = 3600;
 /** The most pictures listed for one occasion (the library is small: an organizer asks for a handful). */
 const LIST_LIMIT = 100;
-const NO_STORAGE = "the content storage area is not set up on this server yet. Ask Community Connect to create it.";
+const NO_STORAGE = "the content storage area is not set up on this server yet. Ask Weaver to create it.";
 
 type StorageLike = { message?: string; statusCode?: string | number; status?: number; error?: string };
 
@@ -196,7 +196,7 @@ export async function requestFlyerArt(
   const blocked = findBlockedArtTerm(prompt);
   if (blocked) {
     console.error(`[events/flyer] the built-in ${a.occasion} ${a.layer} prompt mentions "${blocked}"`);
-    return { status: "failed", reason: "This picture can't be asked for: its built-in description names something AI art never shows. Tell Community Connect." };
+    return { status: "failed", reason: "This picture can't be asked for: its built-in description names something AI art never shows. Tell Weaver." };
   }
   const res = await db.rpc("events_request_flyer_art", {
     p_event: a.eventId,

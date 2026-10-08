@@ -13,7 +13,7 @@
 //   { suggestions: [{ header, field, confidence, reason }], model }
 // A person confirms every suggestion on the Map step; nothing is applied here.
 //
-// Needs ANTHROPIC_API_KEY on the background service (Community Connect's own
+// Needs ANTHROPIC_API_KEY on the background service (Weaver's own
 // key). Without it the job fails at once as "not configured" and the screen
 // says only name-based matching ran.
 //

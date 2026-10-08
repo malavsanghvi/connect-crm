@@ -1,4 +1,4 @@
-// photos.import_album: bring the photos of an album's Google Photos link into Community Connect.
+// photos.import_album: bring the photos of an album's Google Photos link into Weaver.
 // Queued by app.import_external_album (Content › Photos › the album › Import photos from Google Photos)
 // with { album_id, url }. The public share page is read safely (worker/src/web/google_photos.ts: honest
 // user agent, one album at a time, a pause between pages, robots.txt honoured, only Google's own hosts)

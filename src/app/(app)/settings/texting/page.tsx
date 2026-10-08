@@ -20,7 +20,7 @@ const txt = (d: Detail | undefined, k: string) => (typeof d?.[k] === "string" ? 
 /**
  * Settings › Texting (ONBOARDING_PLAN §4 Step 1.4): US registration (10DLC
  * brand + campaign, or toll-free verification) as a record with its status —
- * the carriers' decision is relayed by Community Connect, never assumed —
+ * the carriers' decision is relayed by Weaver, never assumed —
  * STOP/HELP handling, quiet hours, phone sign-in, segment counting, a test text.
  */
 export default async function TextingSettingsPage() {

@@ -98,7 +98,7 @@ export async function POST(req: NextRequest, ctx: RouteContext<"/api/events/[id]
   } catch (err) {
     if (err instanceof FlyerBackgroundError) return json(422, err.message);
     if (err instanceof FlyerBusyError) return json(503, err.message);
-    if (err instanceof FlyerFontsMissingError) return json(500, `Could not make the flyer — ${err.message.toLowerCase()} Ask Community Connect to redeploy.`);
+    if (err instanceof FlyerFontsMissingError) return json(500, `Could not make the flyer — ${err.message.toLowerCase()} Ask Weaver to redeploy.`);
     console.error(`[events/flyer] rendering the flyer for event ${id} failed:`, err);
     return json(500, "Could not make the flyer — the image renderer failed. Try again, or choose a different background.");
   }

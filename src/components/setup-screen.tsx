@@ -8,7 +8,7 @@ export function SetupScreen({ problems }: { problems: EnvProblem[] }) {
   return (
     <CenteredPanel title={`${PRODUCT_NAME} needs to be configured`}>
       <p>
-        This app talks to the Community Connect Supabase project. Set these environment variables (for local development put them
+        This app talks to the Weaver Supabase project. Set these environment variables (for local development put them
         in <code className="rounded bg-subtle px-1">.env.local</code>; see <code className="rounded bg-subtle px-1">.env.example</code>),
         then restart the server:
       </p>

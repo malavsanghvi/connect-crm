@@ -46,7 +46,7 @@ export default async function GoLiveSetupPage() {
       <QueryError what="how this sandbox goes live" error={inPlace.error} retryHref="/setup/go-live" />
     </>
   );
-  // expiry_days_inactive: a number of days, or JSON null = never expires (Community Connect's exemption, e.g. JSH).
+  // expiry_days_inactive: a number of days, or JSON null = never expires (Weaver's exemption, e.g. JSH).
   const expiryDays = expiry.error ? null : typeof expiry.data === "number" ? expiry.data : null;
   const neverExpires = !expiry.error && expiry.data === null;
   const promotesInPlace = inPlace.data === true;
@@ -72,7 +72,7 @@ export default async function GoLiveSetupPage() {
       ) : null}
       {sandbox && neverExpires ? (
         <p className="mb-4 text-[13px] text-muted" data-testid="sandbox-never-expires">
-          Community Connect has exempted this sandbox from inactivity expiry: it gets no inactivity warnings and is never removed for being quiet.
+          Weaver has exempted this sandbox from inactivity expiry: it gets no inactivity warnings and is never removed for being quiet.
         </p>
       ) : null}
       <div className="mb-4">
@@ -118,19 +118,19 @@ export default async function GoLiveSetupPage() {
           </ul>
         </Card>
 
-        <Card title="Request go-live" description="Community Connect reviews the readiness evidence; two different people approve">
+        <Card title="Request go-live" description="Weaver reviews the readiness evidence; two different people approve">
           {g && g.status !== "rejected" ? (
             <div className="text-[13px]" data-testid="golive-status">
               <p>
                 Requested {formatDateTime(g.requested_at, tz)} · <strong>{GOLIVE_STATUS_LABEL[g.status] ?? g.status}</strong> · {goliveProgress(g)}
               </p>
-              {g.note ? <p className="mt-1 text-muted">Note from Community Connect: {g.note}</p> : null}
+              {g.note ? <p className="mt-1 text-muted">Note from Weaver: {g.note}</p> : null}
             </div>
           ) : (
             <>
               {g?.status === "rejected" ? (
                 <div className="mb-3">
-                  <Alert tone="warning" title="Community Connect sent the last request back">
+                  <Alert tone="warning" title="Weaver sent the last request back">
                     {g.note}
                   </Alert>
                 </div>
@@ -149,7 +149,7 @@ export default async function GoLiveSetupPage() {
                 </div>
               ) : null}
               {isOwner ? (
-                <ActionForm action={requestGoliveAction} submitLabel="Request go-live" confirmMessage="Ask Community Connect to approve going live?\nThey see every readiness check with its evidence.">
+                <ActionForm action={requestGoliveAction} submitLabel="Request go-live" confirmMessage="Ask Weaver to approve going live?\nThey see every readiness check with its evidence.">
                   <span />
                 </ActionForm>
               ) : (
@@ -189,11 +189,11 @@ export default async function GoLiveSetupPage() {
                     <label className="crm-label" htmlFor="promote-reason">
                       Reason
                     </label>
-                    <input id="promote-reason" name="reason" className="crm-input mb-3" maxLength={500} defaultValue="Go-live approved by Community Connect" />
+                    <input id="promote-reason" name="reason" className="crm-input mb-3" maxLength={500} defaultValue="Go-live approved by Weaver" />
                   </ActionForm>
                 </>
               ) : (
-                <p className="text-muted">Available to the owner once Community Connect has approved go-live.</p>
+                <p className="text-muted">Available to the owner once Weaver has approved go-live.</p>
               )}
             </div>
           </Card>
@@ -225,10 +225,10 @@ export default async function GoLiveSetupPage() {
                 <label className="crm-label" htmlFor="promote-reason">
                   Reason
                 </label>
-                <input id="promote-reason" name="reason" className="crm-input mb-3" maxLength={500} defaultValue="Go-live approved by Community Connect" />
+                <input id="promote-reason" name="reason" className="crm-input mb-3" maxLength={500} defaultValue="Go-live approved by Weaver" />
               </ActionForm>
             ) : (
-              <p className="text-[13px] text-muted">Available to the owner once Community Connect has approved go-live.</p>
+              <p className="text-[13px] text-muted">Available to the owner once Weaver has approved go-live.</p>
             )}
           </Card>
         ) : null}

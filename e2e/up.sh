@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Start a throwaway, fully local Community Connect backend for end-to-end tests:
+# Start a throwaway, fully local Weaver backend for end-to-end tests:
 # Postgres (Supabase image) + GoTrue (sign-in) + PostgREST + Storage + Mailpit,
 # behind one gateway, with every migration, the seed and the demo data applied
 # exactly as production applies them (supabase/scripts/migrate.sh).

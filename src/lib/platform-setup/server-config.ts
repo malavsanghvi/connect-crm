@@ -4,7 +4,7 @@ import { workerQuery, workerDbConfigured } from "@/lib/messaging/server-db";
 
 import { isEnvName } from "./catalog";
 
-// Community Connect's own provider keys on the PORTAL server: the value saved in
+// Weaver's own provider keys on the PORTAL server: the value saved in
 // the platform setup wizard first (app.platform_secrets in Supabase Vault,
 // app.platform_settings), the server's environment second. So a key saved in
 // the wizard works on the next request after the cache expires (60 s), with no

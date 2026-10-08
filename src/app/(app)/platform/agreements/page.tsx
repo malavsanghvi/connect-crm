@@ -46,11 +46,11 @@ function DraftFields({ id, kind, title, version, body }: { id?: string; kind: st
   );
 }
 
-/** Platform › Agreements: Community Connect's texts as versions (#19, owner decision 2026-09-25). */
+/** Platform › Agreements: Weaver's texts as versions (#19, owner decision 2026-09-25). */
 export default async function PlatformAgreementsPage() {
   const session = await getSession();
   const header = (
-    <PageHeader title="Platform" description="Agreements · Community Connect's texts, edited as drafts and published as new versions; owners and members are asked again" />
+    <PageHeader title="Platform" description="Agreements · Weaver's texts, edited as drafts and published as new versions; owners and members are asked again" />
   );
   if (!session.isPlatformAdmin) {
     return (

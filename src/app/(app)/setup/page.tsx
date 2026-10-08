@@ -62,7 +62,7 @@ export default async function SetupChecklistPage() {
         <KpiGrid cols={4}>
           <Stat label="Overall" value={`${all.pct}%`} hint={`${all.done} of ${all.total} steps done · skipped steps don't count`} tone="success" />
           <Stat label="Waiting on a provider" value={waiting} hint="Texting, WhatsApp and payment checks take longest" tone="saffron" />
-          <Stat label="Needs Community Connect review" value={review} hint="Non-profit proof, go-live" tone="purple" />
+          <Stat label="Needs Weaver review" value={review} hint="Non-profit proof, go-live" tone="purple" />
           <Stat label="Overdue" value={overdue} hint="Past their due date and not done" tone={overdue > 0 ? "danger" : "ink"} />
         </KpiGrid>
       </div>

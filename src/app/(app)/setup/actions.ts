@@ -124,7 +124,7 @@ export async function uploadOrgDocumentAction(_prev: ActionResult | null, fd: Fo
     return {
       ok: false,
       error: missing
-        ? "Could not upload — the private document storage is not set up on this server yet. Ask Community Connect to create the org-documents storage area."
+        ? "Could not upload — the private document storage is not set up on this server yet. Ask Weaver to create the org-documents storage area."
         : failure(`Could not upload the ${kindDef.label.toLowerCase()}`, up.error).error,
     };
   }
@@ -153,7 +153,7 @@ export async function submitVerificationAction(): Promise<ActionResult> {
   const { error } = await db.rpc("submit_org_verification", { p_center: center.id });
   if (error) return failure("Could not submit for verification", error);
   refresh();
-  return { ok: true, message: "Submitted. Community Connect will review the documents and the IRS record." };
+  return { ok: true, message: "Submitted. Weaver will review the documents and the IRS record." };
 }
 
 // ── Step 0.3 · profile and brand kit ───────────────────────────────────────────
@@ -239,7 +239,7 @@ export async function uploadBrandFileAction(_prev: ActionResult | null, fd: Form
   if (up.error) {
     console.error(`[setup] upload to branding/${path} failed:`, up.error);
     if (/bucket not found/i.test(up.error.message)) {
-      return { ok: false, error: "Could not upload — the branding storage is not set up on this server yet. Ask Community Connect to create the branding storage area." };
+      return { ok: false, error: "Could not upload — the branding storage is not set up on this server yet. Ask Weaver to create the branding storage area." };
     }
     return failure(`Could not upload the ${def.label.toLowerCase()}`, up.error);
   }

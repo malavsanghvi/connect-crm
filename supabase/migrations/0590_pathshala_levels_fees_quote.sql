@@ -628,10 +628,13 @@ begin
   end loop;
 end $$;
 
--- The assistance note is private (P8): masked in the audit log. Starts from 0587's definition (the latest on main) plus
--- 0589's clause, copied verbatim from feat/upload-scan (it names only the 'homework' bucket, which 0587 made, so it is
--- safe without 0589); 0589 is to carry this file's clause too, so the two can merge in either order. Anyone who changes
--- app.audit_mask again must start from THIS one (0590):
+-- The assistance note is private (P8): masked in the audit log. Production applies this file AFTER 0594 (organization
+-- categories, already applied there), which redefined app.audit_mask with one more clause, path_key (a person's own path,
+-- a religious affiliation). This definition therefore starts from 0594's text, not 0589's, and carries that clause
+-- verbatim: without it, running this file after 0594 would put 0589's text back and every write to a person's profile
+-- details would log the path in clear. It also carries 0589's homework file-name clause (it names only the 'homework'
+-- bucket, which 0587 made, so it is safe without 0589). Anyone who redefines app.audit_mask after this file starts from
+-- THIS definition (0590), not from an older one:
 --   0102   date_of_birth and the secrets / tokens
 --   0546   the emergency contact's name and number, both dietary fields
 --   0545   staged_rows (the uploaded rows, personal data) and merge_answers (they grow with the file)
@@ -640,6 +643,7 @@ end $$;
 --   0587   text_answer, parent_note, review_note (homework), and the file name of a homework part's storage_path
 --   0589   the file name of a homework file in a row that names its bucket (app.upload_scans)
 --   0590   assistance_note (Pathshala fee assistance)
+--   0594   path_key (a person's own path), re-stated here so this file cannot undo it
 create or replace function app.audit_mask(j jsonb) returns jsonb
 language sql immutable as $$
   select case when j is null then null else
@@ -670,6 +674,7 @@ language sql immutable as $$
               then jsonb_build_object('name', regexp_replace(j->>'name', '[^/]+$', '***')) else '{}'::jsonb end
       || case when j->>'assistance_note' is not null
               then jsonb_build_object('assistance_note', '*** (' || char_length(j->>'assistance_note') || ' characters)') else '{}'::jsonb end
+      || case when j->>'path_key' is not null then jsonb_build_object('path_key', '***') else '{}'::jsonb end
   end
 $$;
 

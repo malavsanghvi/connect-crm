@@ -40,7 +40,7 @@ describe("task sources", () => {
 
   it("shows a treasurer giving and accounting tasks", () => {
     const keys = visibleTaskSources(ctx(["giving.view", "giving.manage", "giving.approve", "accounting.manage"])).map((s) => s.key);
-    expect(keys).toEqual(["refund", "writeoff", "credit", "deposits", "quickbooks"]);
+    expect(keys).toEqual(["refund", "payee", "writeoff", "credit", "deposits", "quickbooks"]);
   });
 
   it("needs read access too (content.approve without content.manage or content.draft sees nothing)", () => {

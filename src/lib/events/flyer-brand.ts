@@ -1,5 +1,5 @@
 // The brand kit as the flyer maker uses it (pure): colours, fonts and logos
-// from centers.branding (Setup › Profile & brand), with the Community Connect
+// from centers.branding (Setup › Profile & brand), with the Weaver
 // defaults when something is missing or not usable.
 
 import type { Json } from "@/lib/database.types";

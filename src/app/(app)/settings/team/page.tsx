@@ -64,7 +64,7 @@ export default async function TeamPage() {
     <>
       {header}
       <BlockGrid>
-        <Card span={5} title="Invite staff" description="For people who don't have a Community Connect login yet">
+        <Card span={5} title="Invite staff" description="For people who don't have a Weaver login yet">
           {roles.error ? (
             <QueryError what="the roles" error={roles.error} retryHref="/settings/team" />
           ) : (
@@ -195,12 +195,12 @@ export default async function TeamPage() {
             </TableWrap>
           )}
           <p className="crm-hint mt-2">
-            Lost phone: another administrator (not the person themselves) resets their 2FA here after checking who they are; the Community Connect team
+            Lost phone: another administrator (not the person themselves) resets their 2FA here after checking who they are; the Weaver team
             can do it too. The reset removes their authenticator apps, signs them out everywhere and is recorded in the audit log.
           </p>
           {isOwner && !iAmAdmin && !session.isPlatformAdmin ? (
             <p className="crm-hint mt-1" data-testid="owner-no-2fa-reset">
-              As the owner you can do every task, but resetting someone&apos;s 2FA needs a separate administrator (an active Center admin role) or the Community Connect team.
+              As the owner you can do every task, but resetting someone&apos;s 2FA needs a separate administrator (an active Center admin role) or the Weaver team.
             </p>
           ) : null}
         </Card>
@@ -210,7 +210,7 @@ export default async function TeamPage() {
             <QueryError what="the owner" error={owner.error} retryHref="/settings/team" />
           ) : !owner.data ? (
             <Alert tone="warning" title="No owner yet">
-              The first active administrator becomes the owner automatically. Until {community} has one, ask the Community Connect team to designate the owner.
+              The first active administrator becomes the owner automatically. Until {community} has one, ask the Weaver team to designate the owner.
             </Alert>
           ) : (
             <div className="flex flex-col gap-3">

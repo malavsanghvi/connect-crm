@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 
+import { WeaverMark } from "@/components/brand/weaver-mark";
 import { PRODUCT_NAME } from "@/lib/brand";
 
 /**
@@ -11,9 +12,7 @@ export function OnboardingSplit({ title, lead, aside, children }: { title: strin
     <main className="grid min-h-screen grid-cols-1 lg:grid-cols-[480px_minmax(0,1fr)]">
       <section className="flex flex-col gap-[18px] bg-navy px-8 py-10 text-white lg:p-14">
         <div className="flex h-[64px] w-[64px] items-center justify-center rounded-2xl bg-white">
-          <span aria-hidden className="font-display text-2xl font-semibold text-navy">
-            CC
-          </span>
+          <WeaverMark className="h-[46px] w-[46px]" />
         </div>
         <div>
           <p className="text-[13px] font-semibold uppercase tracking-wide text-navy-200">{PRODUCT_NAME}</p>

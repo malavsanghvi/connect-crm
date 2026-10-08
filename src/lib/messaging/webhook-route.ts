@@ -11,7 +11,7 @@ import { workerQuery } from "./server-db";
 
 export function notConfigured(what: string, names: string[]): NextResponse {
   console.error(`[webhook] ${what}: ${names.join(", ")} not set on the portal server`);
-  return new NextResponse(`${what} isn't configured on the Community Connect server yet.`, { status: 503 });
+  return new NextResponse(`${what} isn't configured on the Weaver server yet.`, { status: 503 });
 }
 
 export async function ingest(provider: "resend" | "postmark" | "twilio", eventId: string, type: string, payload: unknown): Promise<NextResponse | null> {

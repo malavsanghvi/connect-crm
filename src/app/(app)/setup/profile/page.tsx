@@ -74,7 +74,7 @@ export default async function ProfilePage() {
                 <InfoBox>
                   <span className="font-mono">/c/{center.slug}</span>
                 </InfoBox>
-                <p className="crm-hint">Community Connect changes the address if needed.</p>
+                <p className="crm-hint">Weaver changes the address if needed.</p>
               </div>
               <div>
                 <label className="crm-label" htmlFor="p-time_zone">

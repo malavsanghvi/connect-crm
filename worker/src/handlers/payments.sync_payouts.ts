@@ -43,5 +43,5 @@ export async function run(job: Job, ctx: JobContext) {
 export function configured(env: Record<string, string | undefined>) {
   return (env.STRIPE_SECRET_KEY ?? "").trim() || (env.STRIPE_TEST_SECRET_KEY ?? "").trim()
     ? ({ configured: true } as const)
-    : ({ configured: false, reason: "Stripe isn't configured on the Community Connect server yet (STRIPE_SECRET_KEY / STRIPE_TEST_SECRET_KEY not set)" } as const);
+    : ({ configured: false, reason: "Stripe isn't configured on the Weaver server yet (STRIPE_SECRET_KEY / STRIPE_TEST_SECRET_KEY not set)" } as const);
 }

@@ -14,7 +14,7 @@ function explainSignInError(error: { message?: string; status?: number; code?: s
     return "Too many codes were requested for this email. Wait a minute, then try again.";
   }
   if (/signups? not allowed|user not found|otp_disabled/i.test(msg) || error.code === "otp_disabled") {
-    return "No Community Connect account uses this email. Use the email on your Community Connect account, or ask your center admin to set one up.";
+    return "No Weaver account uses this email. Use the email on your Weaver account, or ask your center admin to set one up.";
   }
   if (stage === "code" && (/expired|invalid|token/i.test(msg) || error.code === "otp_expired")) {
     return "That code is wrong or has expired. Check the most recent email, or send a new code.";
@@ -180,7 +180,7 @@ export function LoginForm({
           {pending ? "Sending code…" : "Send code"}
         </button>
         <p className="text-xs text-muted">
-          Staff sign in with a one-time code sent to the email on their Community Connect account — no password.
+          Staff sign in with a one-time code sent to the email on their Weaver account — no password.
         </p>
       </form>
     );
@@ -217,7 +217,7 @@ export function LoginForm({
           </button>
         </div>
         <p className="text-xs text-muted">
-          Lost your phone? Ask another administrator to reset your 2FA, or contact the Community Connect team. &quot;Not now&quot; works only where your
+          Lost your phone? Ask another administrator to reset your 2FA, or contact the Weaver team. &quot;Not now&quot; works only where your
           community does not require 2FA yet; sensitive changes will still ask for a code.
         </p>
       </form>

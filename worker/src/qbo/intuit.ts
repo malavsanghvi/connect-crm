@@ -1,6 +1,6 @@
 // Intuit endpoints and token calls (QuickBooks Online, OAuth 2.0).
 //
-// Community Connect's own Intuit app keys come from the worker's env:
+// Weaver's own Intuit app keys come from the worker's env:
 //   INTUIT_CLIENT_ID, INTUIT_CLIENT_SECRET            the production app (real companies)
 //   INTUIT_SANDBOX_CLIENT_ID, INTUIT_SANDBOX_CLIENT_SECRET
 //                                                     optional: Intuit's development keys,
@@ -70,10 +70,10 @@ export async function tokenRequest(http: Http, env: Env, app: IntuitApp, form: R
   if (!res.ok) {
     const code = typeof body.error === "string" ? body.error : `HTTP ${res.status}`;
     if (code === "invalid_grant") {
-      throw new ReconnectNeededError("Intuit no longer accepts Community Connect's sign-in to this QuickBooks company (invalid_grant). Connect QuickBooks again.");
+      throw new ReconnectNeededError("Intuit no longer accepts Weaver's sign-in to this QuickBooks company (invalid_grant). Connect QuickBooks again.");
     }
     if (code === "invalid_client") {
-      throw new NotConfiguredError("Intuit refused Community Connect's app keys (invalid_client). Check INTUIT_CLIENT_ID and INTUIT_CLIENT_SECRET.");
+      throw new NotConfiguredError("Intuit refused Weaver's app keys (invalid_client). Check INTUIT_CLIENT_ID and INTUIT_CLIENT_SECRET.");
     }
     throw new HttpError(`Intuit's token service answered ${res.status} (${code})`, res.status);
   }
