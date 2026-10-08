@@ -1,5 +1,5 @@
 -- 0615: close the community table (docs/COMMUNITY_PUBLIC_DATA.md). NEEDS THE OWNER'S OK, and is applied only after
--- installed member apps read the community through 0614's functions (connect-mobile 1.13.1 or later): an older app
+-- installed member apps read the community through 0614's functions (connect-mobile 1.14.1 or later, PR #83): an older app
 -- fails to load a community as a guest once this is in.
 --
 -- Before: anyone (not signed in) read the whole row, `rules` / `branding` / `feature_flags` included, of every active or
