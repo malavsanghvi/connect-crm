@@ -19,7 +19,7 @@ import type { AppSupabase } from "@/lib/supabase/server";
 // app.niva_test_ask and app.niva_test_result are new in 0575: until the generated types include them,
 // they are called through the untyped signature (as discover-actions.ts and lib/data/pathshala.ts do).
 type RpcCaller = (fn: string, args: Record<string, unknown>) => PromiseLike<{ data: unknown; error: DbErrorLike | null }>;
-const untypedRpc = (db: AppSupabase) => db.rpc.bind(db) as unknown as RpcCaller;
+const untypedRpc = (db: AppSupabase) => (db as unknown as { rpc: RpcCaller }).rpc.bind(db);
 
 const UNEXPECTED_SHAPE = "the database answered in a shape this screen does not understand (has the latest migration been applied?).";
 
