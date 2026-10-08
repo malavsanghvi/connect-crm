@@ -4748,6 +4748,39 @@ export type Database = {
         };
         Relationships: [];
       };
+      notice_log: {
+        Row: {
+          kind: string;
+          ref_id: string;
+          period: string;
+          person_id: string;
+          center_id: string;
+          outcome: string;
+          reason: string | null;
+          created_at: string;
+        };
+        Insert: {
+          kind: string;
+          ref_id: string;
+          period?: string;
+          person_id: string;
+          center_id: string;
+          outcome: string;
+          reason?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          kind?: string;
+          ref_id?: string;
+          period?: string;
+          person_id?: string;
+          center_id?: string;
+          outcome?: string;
+          reason?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
       notification_preferences: {
         Row: {
           center_id: string;
@@ -4781,18 +4814,21 @@ export type Database = {
           name: string;
           default_on: boolean;
           marketing: boolean;
+          has_sender: boolean;
         };
         Insert: {
           key: string;
           name: string;
           default_on?: boolean;
           marketing?: boolean;
+          has_sender?: boolean;
         };
         Update: {
           key?: string;
           name?: string;
           default_on?: boolean;
           marketing?: boolean;
+          has_sender?: boolean;
         };
         Relationships: [];
       };
