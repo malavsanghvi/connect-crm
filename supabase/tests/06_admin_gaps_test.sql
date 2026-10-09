@@ -86,4 +86,24 @@ insert into app.inventory_movements (center_id, item_id, delta, reason)
   select :jsh, id, 24, 'received' from app.store_items where name = 'Mohanthal';
 select pg_temp.assert((select stock_on_hand from app.store_items where name = 'Mohanthal') = 24, 'stock follows inventory movements');
 
+-- The Inventory screen (src/app/(app)/store/actions.ts, applyMovement) inserts the movement and nothing else: the
+-- trigger is the only writer of the count, so each movement changes it exactly once. A store lead's +10 and -5 go
+-- through RLS from a non-zero count (the quick buttons), and the count is the sum of the movements.
+begin;
+insert into app.role_grants (center_id, user_id, role_key) values (:jsh, '10000000-0000-4000-8000-000000000006', 'store_lead');
+set local role authenticated;
+set local request.jwt.claim.sub = '10000000-0000-4000-8000-000000000006';
+insert into app.inventory_movements (center_id, item_id, delta, reason, recorded_by)
+  select center_id, id, 10, 'adjustment', '10000000-0000-4000-8000-000000000006' from app.store_items where name = 'Mohanthal' and center_id = :jsh;
+select pg_temp.assert((select stock_on_hand from app.store_items where name = 'Mohanthal' and center_id = :jsh) = 34,
+                      'a store lead''s +10 moves the count once (24 -> 34)');
+insert into app.inventory_movements (center_id, item_id, delta, reason, recorded_by)
+  select center_id, id, -5, 'adjustment', '10000000-0000-4000-8000-000000000006' from app.store_items where name = 'Mohanthal' and center_id = :jsh;
+select pg_temp.assert((select stock_on_hand from app.store_items where name = 'Mohanthal' and center_id = :jsh) = 29,
+                      'a store lead''s -5 moves the count once (34 -> 29)');
+select pg_temp.assert((select count(*) = 3 and sum(delta) = 29 from app.inventory_movements m join app.store_items i on i.id = m.item_id
+                        where i.name = 'Mohanthal' and i.center_id = :jsh),
+                      'the count is the sum of the movements: no movement was applied twice');
+rollback;
+
 \echo 'PASS: admin gap tests'

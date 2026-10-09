@@ -158,9 +158,11 @@ export async function saveWindowAction(windowId: string | null, _prev: ActionRes
 }
 
 // ---------------------------------------------------------------------------
-// Inventory. A movement row is the audit line; stock_on_hand follows it (the
-// store_items update is also in the audit log). Two writes: if the second
-// fails, we say so.
+// Inventory. A movement row is the audit line, and the database moves
+// stock_on_hand with it (trigger inventory_apply, migration 0017): the app
+// inserts the movement and nothing else. Writing the count here as well would
+// apply the change twice or, as a guarded update, never match. The count is
+// read back afterwards so the message shows what is really on the shelf.
 // ---------------------------------------------------------------------------
 async function applyMovement(itemId: string, delta: number, reason: string, doing: string): Promise<ActionResult> {
   const auth = await authorizeAction("storeManage", doing);
@@ -174,17 +176,16 @@ async function applyMovement(itemId: string, delta: number, reason: string, doin
   if (!item.data.track_inventory) return { ok: false, error: `Could not ${doing} — "${item.data.name}" does not track stock. Turn on "Track stock" on Menu & pickup first.` };
   const mv = await db.from("inventory_movements").insert({ center_id: center.id, item_id: itemId, delta, reason, recorded_by: userId });
   if (mv.error) return failure(`Could not ${doing}`, mv.error);
-  const now = item.data.stock_on_hand + delta;
-  const upd = await db.from("store_items").update({ stock_on_hand: now }).eq("id", itemId).eq("stock_on_hand", item.data.stock_on_hand).select("id");
-  if (upd.error || !upd.data?.length) {
-    console.error("[store] movement recorded but the stock count was not updated:", upd.error ?? "stock changed meanwhile");
-    return {
-      ok: false,
-      error: `The change was logged, but ${item.data.name}'s stock count could not be updated${upd.error ? "" : " (someone changed it at the same time)"}. Refresh, check the count, and correct it with an adjustment.`,
-    };
-  }
   refresh();
-  return { ok: true, message: `Adjusted stock ${item.data.name} by ${delta > 0 ? "+" : ""}${delta} (now ${now})` };
+  const change = `${delta > 0 ? "+" : ""}${delta}`;
+  const after = await db.from("store_items").select("stock_on_hand").eq("id", itemId).eq("center_id", center.id).maybeSingle();
+  if (after.error || !after.data) {
+    // The change is recorded and the count moved with it, so this is still a success: failing here would invite a retry
+    // that adjusts the stock a second time.
+    console.error("[store] stock adjusted, but the new count could not be read back:", after.error ?? "item not found");
+    return { ok: true, message: `Adjusted stock ${item.data.name} by ${change}. Refresh to see the new count.` };
+  }
+  return { ok: true, message: `Adjusted stock ${item.data.name} by ${change} (now ${after.data.stock_on_hand})` };
 }
 
 export async function quickAdjustAction(itemId: string, delta: number): Promise<ActionResult> {
