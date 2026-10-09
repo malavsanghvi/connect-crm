@@ -12,7 +12,7 @@
     "People.dc.html": { "x": 0, "y": 1500, "w": 1440, "h": 1040, "title": "People: ask your data", "is_interactive": true },
     "Marketplace.dc.html": { "x": 1520, "y": 1500, "w": 1440, "h": 1240, "title": "Marketplace: choose your products", "is_interactive": true },
     "Setup.dc.html": { "x": 3040, "y": 1500, "w": 1440, "h": 1120, "title": "Settings: Niva runs a setup, you do the human parts", "is_interactive": true },
-    "Rules.dc.html": { "x": 0, "y": 3200, "w": 1440, "h": 1260, "title": "How Niva works: tiers and rules" },
+    "Rules.dc.html": { "x": 0, "y": 3200, "w": 1440, "h": 1320, "title": "How Niva works: tiers and rules" },
     "ScreenMap.dc.html": { "x": 1520, "y": 3200, "w": 1440, "h": 1700, "title": "From 138 screens to 11 workspaces" },
     "PhoneToday.dc.html": { "x": 3040, "y": 3200, "w": 390, "h": 844, "title": "Phone: Today", "is_interactive": true },
     "PhoneAsk.dc.html": { "x": 3510, "y": 3200, "w": 390, "h": 844, "title": "Phone: ask Niva" },

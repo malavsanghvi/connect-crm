@@ -100,7 +100,7 @@ button.step:hover{background:#F8FAFD}
           <div style="display: flex; gap: 10px; align-items: center"><span style="width: 112px; text-align: center; font-size: 11px; font-weight: 800; border-radius: 9px; padding: 3px 6px; background: #DFF5F6; color: #0A5D66">Auto-checked</span>Ticks when the data says it is done</div>
           <div style="display: flex; gap: 10px; align-items: center"><span style="width: 112px; text-align: center; font-size: 11px; font-weight: 800; border-radius: 9px; padding: 3px 6px; background: #ECEBFA; color: #2B2A8A">Niva can do it</span>Niva prepares it, you look it over</div>
           <div style="display: flex; gap: 10px; align-items: center"><span style="width: 112px; text-align: center; font-size: 11px; font-weight: 800; border-radius: 9px; padding: 3px 6px; background: #FFF1E6; color: #7A2E08">Needs your OK</span>You confirm before anything changes</div>
-          <div style="display: flex; gap: 10px; align-items: center"><span style="width: 112px; text-align: center; font-size: 11px; font-weight: 800; border-radius: 9px; padding: 3px 6px; background: #EAF0F7; color: #2C3A55">You do this</span>Only a person can, such as entering a secret</div>
+          <div style="display: flex; gap: 10px; align-items: center"><span style="width: 112px; text-align: center; font-size: 11px; font-weight: 800; border-radius: 9px; padding: 3px 6px; background: #EAF0F7; color: #2C3A55">You do this</span>Only a person can: secrets, or anything about a child</div>
         </div>
       </div>
     </aside>
@@ -142,7 +142,7 @@ class Component extends DCLogic {
       ] },
       { name: 'Membership coordinator', sub: 'Households, memberships, identifiers, verification and eligibility', items: [
         ['Every sign-in', 'New membership applications', 'Reference tier, outside-household and duplicate checks shown as answers', 'People', 'ok'],
-        ['Every sign-in', 'Family change requests', 'Add or remove a member, new household', 'People', 'ok'],
+        ['Every sign-in', 'Family change requests', 'Handled on the screen. Children’s details stay out of Niva', 'People', 'you'],
         ['Every sign-in', 'Reference requests waiting', 'People who were asked to vouch for an applicant', 'People', 'auto'],
         ['Every sign-in', 'Possible duplicate households', 'Compare the two cards side by side, then confirm', 'People', 'ok'],
         ['Weekly, Monday', 'Memberships ending in 30 days', 'Niva drafts a reminder for you to approve', 'People', 'niva'],
@@ -166,20 +166,20 @@ class Component extends DCLogic {
         ['After the event', 'Thank the volunteers', 'Niva drafts the message', 'Messages', 'niva']
       ] },
       { name: 'Pathshala principal', sub: 'Terms, classes, levels, teachers and the committee', items: [
-        ['Every sign-in', 'Registrations waiting to be placed', 'Each shows the household card and what the family will be told', 'Learning', 'ok'],
-        ['Every sign-in', 'Held seats about to expire', 'Extend or release', 'Learning', 'ok'],
+        ['Every sign-in', 'Registrations waiting to be placed', 'Place them from the registrations screen. Niva does not read learner details', 'Learning', 'you'],
+        ['Every sign-in', 'Held seats about to expire', 'Extend or release, on the screen', 'Learning', 'you'],
         ['Every sign-in', 'Classes with no teacher', 'Suggest teachers who have taught the level before', 'Learning', 'niva'],
         ['Class days', 'Attendance not yet taken', 'Remind the teacher', 'Learning', 'auto'],
         ['Weekly, Monday', 'Homework and sign-offs waiting', 'For teachers and for parents', 'Learning', 'auto'],
-        ['Weekly, Monday', 'Concerns raised by parents', 'Assign an owner', 'Learning', 'ok'],
+        ['Weekly, Monday', 'Concerns raised by parents', 'Assign an owner, on the screen', 'Learning', 'you'],
         ['Before a term', 'Open registration checklist', 'Levels, fees, rules and classes in order', 'Learning', 'ok']
       ] },
       { name: 'Teacher', sub: 'Attendance, sign-offs and class announcements for your own classes', items: [
-        ['Class days', 'Take attendance', 'Say who is absent or late; Niva marks the rest present and shows the sheet first', 'Learning', 'niva'],
-        ['Class days', 'Review new homework', 'Niva drafts notes; you approve them', 'Learning', 'niva'],
-        ['Class days', 'Sign-offs students asked for', 'Approve or ask for more practice', 'Learning', 'ok'],
+        ['Class days', 'Take attendance', 'On the class sheet. Niva never sees learner names', 'Learning', 'you'],
+        ['Class days', 'Review new homework', 'Read each piece and write your own note. Niva does not read children’s work', 'Learning', 'you'],
+        ['Class days', 'Sign-offs students asked for', 'Approve or ask for more practice, on the screen', 'Learning', 'you'],
         ['Weekly, Friday', 'Post the class announcement', 'Goes to families, never to children', 'Learning', 'ok'],
-        ['Each term', 'Progress notes due', 'Niva drafts them from attendance and sign-offs', 'Learning', 'niva']
+        ['Each term', 'Progress notes due', 'Written by you. Niva does not draft anything about a child', 'Learning', 'you']
       ] },
       { name: 'Store lead', sub: 'Menu, pickup slots, orders and inventory', items: [
         ['Every sign-in', 'Orders for the next pickup window', 'Counts by item for the kitchen', 'Store', 'auto'],
