@@ -165,7 +165,7 @@ person (portal or app) -> portal server, with the person's own sign-in
 | A server-side event status machine and attendance guards | `setEventStatus` accepts any status; attendance accepts a no-class day or a future date | 03, 04 |
 | Rules out of the screens and into RPCs | Role grants, the one-approver message rule, voting overrides, application decisions, rules JSON are written by TypeScript | 01, 03, 05 |
 | A child filter at the command layer (D2) | Every tool result is cleaned of anyone under 18 and of learner records before it reaches the model; household cards, search results and registrations are the main cases; a test must fail if a tool returns a child's name | new |
-| Retire the one-step go-live (decided, D4) | `goLiveAction` sets a community active with no readiness check, second approver or code; only the old wizard calls it (B70) | 06 |
+| Retire the one-step go-live (decided, D4; **done**, see B70) | `goLiveAction` sets a community active with no readiness check, second approver or code; only the old wizard calls it (B70) | 06 |
 | Regenerate types for the sensitive payment RPCs | They are called through `untypedRpc` and are not in `database.types.ts` | 05 |
 
 None of these needs the assistant to be worth doing. Several fix real defects today.
