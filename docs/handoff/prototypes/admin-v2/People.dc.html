@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>People: ask your data</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=DM+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#F3F7FB}
+a{color:inherit;text-decoration:none}
+button{font-family:inherit}
+button.row:hover{background:#F3F7FB}
+</style>
+</helmet>
+<div style="width: 1440px; height: 1040px; box-sizing: border-box; display: flex; flex-direction: column; background: #F3F7FB; font-family: 'DM Sans', system-ui, sans-serif; color: #12203A; overflow: hidden">
+  <dc-import name="TopBar" hint-size="1440px,64px"></dc-import>
+  <div style="display: flex; flex: 1; min-height: 0">
+    <dc-import name="Rail" active="people" height="976" hint-size="88px,976px"></dc-import>
+
+    <main style="flex: 1; min-width: 0; padding: 26px 36px; display: flex; flex-direction: column; gap: 16px">
+      <div style="display: flex; align-items: flex-end; justify-content: space-between; gap: 16px">
+        <h1 style="margin: 0; font-family: 'Fraunces', Georgia, serif; font-weight: 600; font-size: 30px">People</h1>
+        <div role="tablist" aria-label="Show" style="display: flex; gap: 4px; padding: 4px; background: #E9EFF7; border-radius: 24px">
+          <span role="tab" style="display: inline-flex; align-items: center; min-height: 40px; padding: 0 16px; font-size: 14px; font-weight: 600; color: #2C3A55">People</span>
+          <span role="tab" aria-selected="true" style="display: inline-flex; align-items: center; min-height: 40px; padding: 0 16px; border-radius: 20px; background: #FFFFFF; font-size: 14px; font-weight: 700; color: #1C56B0">Households</span>
+          <span role="tab" style="display: inline-flex; align-items: center; min-height: 40px; padding: 0 16px; font-size: 14px; font-weight: 600; color: #2C3A55">Memberships</span>
+        </div>
+      </div>
+
+      <div style="display: flex; flex-wrap: wrap; gap: 8px">
+        <span style="display: inline-flex; align-items: center; min-height: 40px; padding: 0 14px; border-radius: 20px; background: #FFFFFF; border: 1px solid #CBD7E4; font-size: 13px; font-weight: 600">All households</span>
+        <span style="display: inline-flex; align-items: center; min-height: 40px; padding: 0 14px; border-radius: 20px; background: #E8F1FC; border: 1px solid #BBD3F2; font-size: 13px; font-weight: 700; color: #164690">Open balance over $100 · Sugar Land</span>
+        <span style="display: inline-flex; align-items: center; min-height: 40px; padding: 0 14px; border-radius: 20px; background: #FFFFFF; border: 1px solid #CBD7E4; font-size: 13px; font-weight: 600">Possible duplicates · 4</span>
+        <span style="display: inline-flex; align-items: center; min-height: 40px; padding: 0 14px; border-radius: 20px; background: #FFFFFF; border: 1px solid #CBD7E4; font-size: 13px; font-weight: 600">Memberships ending soon · 23</span>
+        <span style="display: inline-flex; align-items: center; min-height: 40px; padding: 0 14px; border-radius: 20px; background: #FFFFFF; border: 1px dashed #9FB0C6; font-size: 13px; font-weight: 600; color: #4F5D75">+ Save this view</span>
+      </div>
+
+      <section aria-label="Ask" style="display: flex; flex-direction: column; gap: 12px; padding: 14px 16px; background: #FFFFFF; border: 1px solid #DDE6F0; border-radius: 18px">
+        <div style="display: flex; align-items: center; gap: 12px; min-height: 52px; padding: 0 8px 0 16px; border-radius: 26px; background: #F3F7FB; border: 1px solid #CBD7E4">
+          <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><defs><linearGradient id="pp-spark" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#FFB82A"></stop><stop offset="1" stop-color="#FF7640"></stop></linearGradient></defs><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z M19 16l.8 2.2L22 19l-2.2.8L19 22l-.8-2.2L16 19l2.2-.8z" fill="url(#pp-spark)"></path></svg>
+          <span style="flex: 1; font-size: 16px; color: #12203A">Households in Sugar Land with an open balance over $100 that have not RSVP’d this year</span>
+          <span aria-hidden="true" style="width: 40px; height: 40px; border-radius: 20px; background: linear-gradient(135deg, #FFB82A, #FF7640); color: #12203A; display: flex; align-items: center; justify-content: center"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l18-8-8 18-2-8z"></path></svg></span>
+        </div>
+        <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px">
+          <span style="font-size: 12px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; color: #4F5D75">Niva read this as</span>
+          <span style="display: inline-flex; align-items: center; gap: 8px; min-height: 36px; padding: 0 12px; border-radius: 18px; background: #E8F1FC; border: 1px solid #BBD3F2; font-size: 13px; font-weight: 700; color: #164690">Area is Sugar Land <span aria-hidden="true">×</span></span>
+          <span style="display: inline-flex; align-items: center; gap: 8px; min-height: 36px; padding: 0 12px; border-radius: 18px; background: #E8F1FC; border: 1px solid #BBD3F2; font-size: 13px; font-weight: 700; color: #164690">Open balance over $100.00 <span aria-hidden="true">×</span></span>
+          <span style="display: inline-flex; align-items: center; gap: 8px; min-height: 36px; padding: 0 12px; border-radius: 18px; background: #E8F1FC; border: 1px solid #BBD3F2; font-size: 13px; font-weight: 700; color: #164690">No RSVP in 2026 <span aria-hidden="true">×</span></span>
+          <span style="display: inline-flex; align-items: center; min-height: 36px; padding: 0 12px; border-radius: 18px; border: 1px dashed #9FB0C6; font-size: 13px; font-weight: 600; color: #4F5D75">+ Add a filter</span>
+        </div>
+      </section>
+
+      <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap">
+        <span style="font-size: 15px"><b>17 households</b> · <b style="color: #A8400D">$4,860.00</b> open in total</span>
+        <div style="display: flex; gap: 8px; flex-wrap: wrap">
+          <span style="display: inline-flex; align-items: center; min-height: 44px; padding: 0 18px; border-radius: 22px; background: #1C56B0; color: #FFFFFF; font-size: 14px; font-weight: 700">Draft a reminder for these</span>
+          <span style="display: inline-flex; align-items: center; min-height: 44px; padding: 0 18px; border-radius: 22px; border: 1px solid #CBD7E4; background: #FFFFFF; font-size: 14px; font-weight: 700">Export</span>
+          <span style="display: inline-flex; align-items: center; min-height: 44px; padding: 0 18px; border-radius: 22px; border: 1px solid #CBD7E4; background: #FFFFFF; font-size: 14px; font-weight: 700">Save as a list</span>
+        </div>
+      </div>
+
+      <section aria-label="Households" style="background: #FFFFFF; border: 1px solid #DDE6F0; border-radius: 16px; padding: 10px 12px 12px; display: flex; flex-direction: column; gap: 2px; min-height: 0">
+        <div style="display: grid; grid-template-columns: minmax(0, 2.3fr) minmax(0, 1.5fr) 110px 110px 120px 150px; gap: 10px; padding: 8px 10px; background: #F3F7FB; border-radius: 10px; font-size: 11px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: #4F5D75">
+          <span>Household</span><span>Primary member</span><span>Area</span><span style="text-align: right">Open balance</span><span>Last gift</span><span>Last RSVP</span>
+        </div>
+        <sc-for list="{{rows}}" as="r" hint-placeholder-count="7">
+          <button type="button" class="row" aria-pressed="{{r.pressed}}" onClick="{{r.pick}}" style="display: grid; grid-template-columns: minmax(0, 2.3fr) minmax(0, 1.5fr) 110px 110px 120px 150px; gap: 10px; align-items: center; min-height: 52px; padding: 6px 10px; border: 0; border-radius: 10px; background: {{r.bg}}; text-align: left; cursor: pointer; font-size: 13px; font-weight: 500; color: #12203A">
+            <span style="display: flex; flex-direction: column; gap: 2px; min-width: 0"><span style="font-weight: 700">{{r.name}}</span><span style="font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 11px; color: #4F5D75">{{r.ids}}</span></span>
+            <span>{{r.primary}}</span>
+            <span>{{r.zone}}</span>
+            <span style="text-align: right; font-weight: 800; color: #A8400D">{{r.open}}</span>
+            <span>{{r.last}}</span>
+            <span style="color: #4F5D75">{{r.rsvp}}</span>
+          </button>
+        </sc-for>
+        <div style="padding: 10px 10px 2px; font-size: 13px; color: #4F5D75">Showing 7 of 17. Ask Niva to “show the next 10”, or sort by any column.</div>
+      </section>
+    </main>
+
+    <aside aria-label="Household card" style="width: 440px; box-sizing: border-box; padding: 26px 28px; border-left: 1px solid #DDE6F0; background: #FFFFFF; display: flex; flex-direction: column; gap: 18px">
+      <div style="display: flex; flex-direction: column; gap: 6px">
+        <span style="font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #3D3BB8">Household card</span>
+        <h2 style="margin: 0; font-family: 'Fraunces', Georgia, serif; font-weight: 600; font-size: 24px; line-height: 1.2">{{sel.name}}</h2>
+        <span style="font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 13px; color: #2C3A55">{{sel.ids}}</span>
+      </div>
+      <div style="display: grid; grid-template-columns: 120px minmax(0, 1fr); row-gap: 10px; column-gap: 12px; font-size: 14px; line-height: 1.45">
+        <span style="color: #4F5D75; font-weight: 600">Primary member</span><span style="font-weight: 700">{{sel.primary}}</span>
+        <span style="color: #4F5D75; font-weight: 600">Members</span><span>{{sel.members}}</span>
+        <span style="color: #4F5D75; font-weight: 600">Area</span><span>{{sel.zone}}</span>
+        <span style="color: #4F5D75; font-weight: 600">Last gift</span><span>{{sel.last}}</span>
+        <span style="color: #4F5D75; font-weight: 600">Open balance</span><span style="font-weight: 800; color: #A8400D">{{sel.open}}</span>
+        <span style="color: #4F5D75; font-weight: 600">Other IDs</span><span style="font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 12px; line-height: 1.6">{{sel.ident}}</span>
+      </div>
+      <div style="display: flex; flex-wrap: wrap; gap: 8px">
+        <span style="display: inline-flex; align-items: center; min-height: 44px; padding: 0 18px; border-radius: 22px; background: #1C56B0; color: #FFFFFF; font-size: 14px; font-weight: 700">Record a payment</span>
+        <span style="display: inline-flex; align-items: center; min-height: 44px; padding: 0 18px; border-radius: 22px; border: 1px solid #CBD7E4; font-size: 14px; font-weight: 700">Message the household</span>
+        <span style="display: inline-flex; align-items: center; min-height: 44px; padding: 0 18px; border-radius: 22px; border: 1px solid #CBD7E4; font-size: 14px; font-weight: 700">Open the full page</span>
+      </div>
+      <div style="padding: 14px 16px; background: #F8FAFD; border: 1px solid #DDE6F0; border-radius: 14px; display: flex; flex-direction: column; gap: 8px">
+        <span style="display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 800; color: #A8400D"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"></path></svg>Niva noticed</span>
+        <span style="font-size: 14px; line-height: 1.5">Another household, <b>Shah family</b> (<span style="font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 12px">0388</span> · <span style="font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 12px">JSH-H-2216</span>, Katy), shares a phone number with this one. They may be the same family.</span>
+        <span style="display: flex; gap: 8px; flex-wrap: wrap">
+          <span style="display: inline-flex; align-items: center; min-height: 40px; padding: 0 16px; border-radius: 20px; background: #FFFFFF; border: 1px solid #CBD7E4; font-size: 13px; font-weight: 700">Compare side by side</span>
+          <span style="display: inline-flex; align-items: center; min-height: 40px; padding: 0 16px; border-radius: 20px; font-size: 13px; font-weight: 700; color: #4F5D75">Not the same</span>
+        </span>
+        <span style="font-size: 12px; line-height: 1.5; color: #4F5D75">Niva only suggests. Merging needs you to compare the two cards and confirm.</span>
+      </div>
+    </aside>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1040}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { sel: 0 };
+  }
+  renderVals() {
+    const data = [
+      { name: 'Rahul & Mira Shah Household', hid: '0212', cn: 'JSH-H-2041', primary: 'Rahul Shah', pid: '0417', zone: 'Sugar Land', open: '$250.00', last: '14 Sep · $250.00', rsvp: 'Diwali 2025', members: 'Rahul, Mira, Aarav (child), Diya (child)', ident: 'Neon 4374 · QuickBooks 1187 · bank payer RAHUL SHAH' },
+      { name: 'Desai household', hid: '0562', cn: 'JSH-H-2390', primary: 'Anil Desai', pid: '0775', zone: 'Sugar Land', open: '$480.00', last: '2 Aug · $101.00', rsvp: 'Holi 2025', members: 'Anil, Rekha, Kabir (child)', ident: 'Neon 4420 · QuickBooks 1213 · bank payer ANIL DESAI' },
+      { name: 'Mehta household', hid: '0301', cn: 'JSH-H-1960', primary: 'Sunita Mehta', pid: '0398', zone: 'Sugar Land', open: '$175.00', last: '21 Jun · $51.00', rsvp: 'Paryushan 2025', members: 'Sunita, Hemant', ident: 'Neon 4115 · QuickBooks 1098 · bank payer S MEHTA' },
+      { name: 'Jain household', hid: '0847', cn: 'JSH-H-2704', primary: 'Vikram Jain', pid: '1021', zone: 'Sugar Land', open: '$120.00', last: '9 Sep · $200.00', rsvp: 'Mahavir Jayanti 2025', members: 'Vikram, Pooja, Anaya (child), Rohan (child)', ident: 'Neon 4690 · QuickBooks 1301 · bank payer VIKRAM JAIN' },
+      { name: 'Kothari household', hid: '0219', cn: 'JSH-H-1705', primary: 'Neha Kothari', pid: '0286', zone: 'Sugar Land', open: '$1,050.00', last: '30 May · $500.00', rsvp: 'Diwali 2024', members: 'Neha, Mitesh', ident: 'Neon 4107 · QuickBooks 1085 · bank payer K M KOTHARI' },
+      { name: 'Gandhi household', hid: '0655', cn: 'JSH-H-2512', primary: 'Pranav Gandhi', pid: '0880', zone: 'Sugar Land', open: '$205.00', last: '12 Jul · $101.00', rsvp: 'Paryushan 2025', members: 'Pranav, Seema, Ishaan (child)', ident: 'Neon 4552 · QuickBooks 1266 · bank payer PRANAV GANDHI' },
+      { name: 'Sheth household', hid: '0733', cn: 'JSH-H-2631', primary: 'Alpa Sheth', pid: '0941', zone: 'Sugar Land', open: '$130.00', last: '3 Apr · $51.00', rsvp: 'Holi 2025', members: 'Alpa', ident: 'Neon 4601 · QuickBooks 1290 · bank payer ALPA SHETH' }
+    ].map((d) => ({ ...d, ids: 'Household ' + d.hid + ' · ' + d.cn, primaryFull: d.primary + ' (person ' + d.pid + ')' }));
+    const s = this.state.sel;
+    const rows = data.map((d, i) => ({
+      name: d.name,
+      ids: d.ids,
+      primary: d.primary,
+      zone: d.zone,
+      open: d.open,
+      last: d.last,
+      rsvp: d.rsvp,
+      pressed: i === s ? 'true' : 'false',
+      bg: i === s ? '#FFF6DD' : 'transparent',
+      pick: () => this.setState({ sel: i })
+    }));
+    const c = data[s];
+    return {
+      rows,
+      sel: { name: c.name, ids: c.ids, primary: c.primaryFull, members: c.members, zone: c.zone, last: c.last, open: c.open, ident: c.ident }
+    };
+  }
+}
+</script>
+</body>
+</html>

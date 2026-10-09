@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Giving: record a payment by asking</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=DM+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#F3F7FB}
+a{color:inherit;text-decoration:none}
+a.link:hover{background:#E8F1FC}
+button{font-family:inherit}
+</style>
+</helmet>
+<div style="width: 1440px; height: 1060px; box-sizing: border-box; display: flex; flex-direction: column; background: #F3F7FB; font-family: 'DM Sans', system-ui, sans-serif; color: #12203A; overflow: hidden">
+  <dc-import name="TopBar" hint-size="1440px,64px"></dc-import>
+  <div style="display: flex; flex: 1; min-height: 0">
+    <dc-import name="Rail" active="giving" height="996" hint-size="88px,996px"></dc-import>
+
+    <main style="flex: 1; min-width: 0; padding: 28px 40px 24px; display: flex; flex-direction: column; gap: 18px">
+      <div style="display: flex; align-items: flex-end; justify-content: space-between; gap: 16px">
+        <div style="display: flex; flex-direction: column; gap: 6px">
+          <h1 style="margin: 0; font-family: 'Fraunces', Georgia, serif; font-weight: 600; font-size: 30px; color: #12203A">Giving</h1>
+          <span style="font-size: 14px; color: #4F5D75">Ask, review, confirm. The tables and reports are one tap away.</span>
+        </div>
+        <div role="tablist" aria-label="Giving views" style="display: flex; gap: 4px; padding: 4px; background: #E9EFF7; border-radius: 24px">
+          <span role="tab" aria-selected="true" style="display: inline-flex; align-items: center; min-height: 40px; padding: 0 16px; border-radius: 20px; background: #FFFFFF; font-size: 14px; font-weight: 700; color: #1C56B0">Conversation</span>
+          <span role="tab" style="display: inline-flex; align-items: center; min-height: 40px; padding: 0 16px; font-size: 14px; font-weight: 600; color: #2C3A55">Payments</span>
+          <span role="tab" style="display: inline-flex; align-items: center; min-height: 40px; padding: 0 16px; font-size: 14px; font-weight: 600; color: #2C3A55">Pledges</span>
+          <span role="tab" style="display: inline-flex; align-items: center; min-height: 40px; padding: 0 16px; font-size: 14px; font-weight: 600; color: #2C3A55">Bank</span>
+          <span role="tab" style="display: inline-flex; align-items: center; min-height: 40px; padding: 0 16px; font-size: 14px; font-weight: 600; color: #2C3A55">Books</span>
+        </div>
+      </div>
+
+      <section aria-label="Conversation" style="flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 16px; overflow: hidden">
+        <div style="align-self: flex-end; max-width: 560px; padding: 12px 16px; background: #1C56B0; color: #FFFFFF; border-radius: 18px 18px 4px 18px; font-size: 15px; line-height: 1.5">Record a $250 check from Shah for the Paryushan pledge. Check number 1043, received Sunday.</div>
+
+        <div style="display: flex; gap: 12px; align-items: flex-start">
+          <span aria-hidden="true" style="flex: none; width: 34px; height: 34px; border-radius: 17px; background: linear-gradient(135deg, #FFB82A, #FF7640); color: #12203A; display: flex; align-items: center; justify-content: center"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"></path></svg></span>
+          <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 12px">
+            <div style="font-size: 15px; line-height: 1.5; max-width: 640px">Two households match “Shah”. I will not guess which one gave this check. Which household is it?</div>
+            <div role="radiogroup" aria-label="Choose the household" style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px">
+              <sc-for list="{{households}}" as="h" hint-placeholder-count="2">
+                <button type="button" role="radio" aria-checked="{{h.checked}}" onClick="{{h.pick}}" style="text-align: left; display: flex; gap: 12px; padding: 14px 16px; border-radius: 16px; border: 2px solid {{h.border}}; background: {{h.bg}}; cursor: pointer; color: #12203A">
+                  <span aria-hidden="true" style="flex: none; margin-top: 2px; width: 22px; height: 22px; border-radius: 11px; border: 2px solid {{h.border}}; background: #FFFFFF; display: flex; align-items: center; justify-content: center"><span style="width: 10px; height: 10px; border-radius: 5px; background: {{h.dot}}"></span></span>
+                  <span style="display: flex; flex-direction: column; gap: 3px; min-width: 0">
+                    <span style="font-size: 16px; font-weight: 700">{{h.name}}</span>
+                    <span style="font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 12px; color: #2C3A55">{{h.ids}}</span>
+                    <span style="font-size: 13px; color: #2C3A55">{{h.primary}}</span>
+                    <span style="font-size: 13px; color: #4F5D75">{{h.where}}</span>
+                    <span style="font-size: 13px; font-weight: 700; color: {{h.openColor}}">{{h.open}}</span>
+                  </span>
+                </button>
+              </sc-for>
+            </div>
+          </div>
+        </div>
+
+        <div style="display: flex; gap: 12px; align-items: flex-start">
+          <span aria-hidden="true" style="flex: none; width: 34px; height: 34px; border-radius: 17px; background: linear-gradient(135deg, #FFB82A, #FF7640); color: #12203A; display: flex; align-items: center; justify-content: center"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"></path></svg></span>
+          <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 12px">
+            <div style="font-size: 15px; line-height: 1.5; max-width: 640px">Here is the payment. Change anything you like, then confirm. Nothing is saved until you do.</div>
+            <div style="max-width: 760px; background: #FFFFFF; border: 1px solid #DDE6F0; border-radius: 16px; overflow: hidden">
+              <div style="display: flex; align-items: center; gap: 10px; padding: 10px 18px; background: #FFF1E6; border-bottom: 1px solid #FFD3B3; font-size: 12px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; color: #7A2E08">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l8 3v6c0 5-3.4 8.4-8 9-4.6-.6-8-4-8-9V6z"></path></svg>
+                Money action · needs your confirmation
+              </div>
+              <div style="padding: 16px 18px; display: grid; grid-template-columns: 150px minmax(0, 1fr); row-gap: 10px; column-gap: 12px; font-size: 14px; line-height: 1.45">
+                <span style="color: #4F5D75; font-weight: 600">Household</span><span style="font-weight: 700">{{draft.household}}</span>
+                <span style="color: #4F5D75; font-weight: 600">Amount</span><span style="font-weight: 800; font-size: 18px; color: #A8400D">$250.00</span>
+                <span style="color: #4F5D75; font-weight: 600">Method</span><span>Check · number 1043</span>
+                <span style="color: #4F5D75; font-weight: 600">Received</span><span>Sunday 4 October 2026</span>
+                <span style="color: #4F5D75; font-weight: 600">Applies to</span><span style="font-weight: 700; color: {{draft.appliesColor}}">{{draft.applies}}</span>
+                <span style="color: #4F5D75; font-weight: 600">After this</span><span>{{draft.after}}</span>
+              </div>
+              <sc-if value="{{draft.warn}}" hint-placeholder-val="{{ false }}">
+                <div style="margin: 0 18px 14px; padding: 10px 14px; background: #FBE3E1; border: 1px solid #F0B9B4; border-radius: 12px; font-size: 13px; line-height: 1.5; color: #7A1A14">You mentioned the Paryushan pledge, but this household has no open pledge. Check that you chose the right household before you record it.</div>
+              </sc-if>
+              <div style="padding: 0 18px 14px; display: flex; flex-direction: column; gap: 6px; font-size: 13px; line-height: 1.45; color: #2C3A55">
+                <span style="font-weight: 700; color: #4F5D75">What happens when you confirm</span>
+                <span>• The payment is recorded and applied in one step, so it cannot end up half saved.</span>
+                <span>• It is queued once for QuickBooks. Nothing posts twice.</span>
+                <span>• {{draft.receipt}}</span>
+                <span>• The history shows: recorded by Niva, for Priya Mehta.</span>
+              </div>
+              <div style="display: flex; flex-wrap: wrap; gap: 10px; padding: 14px 18px; border-top: 1px solid #EAF0F7; background: #F8FAFD">
+                <button type="button" style="display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 20px; border-radius: 22px; border: 0; background: #1C56B0; color: #FFFFFF; font-size: 14px; font-weight: 700; cursor: pointer">{{draft.cta}}</button>
+                <button type="button" style="min-height: 44px; padding: 0 18px; border-radius: 22px; border: 1px solid #CBD7E4; background: #FFFFFF; color: #12203A; font-size: 14px; font-weight: 700; cursor: pointer">Change something</button>
+                <button type="button" style="min-height: 44px; padding: 0 18px; border-radius: 22px; border: 0; background: transparent; color: #4F5D75; font-size: 14px; font-weight: 700; cursor: pointer">Cancel</button>
+              </div>
+            </div>
+
+            <div style="max-width: 760px; display: flex; flex-direction: column; gap: 6px">
+              <span style="font-size: 12px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; color: #4F5D75">How a problem is shown (example)</span>
+              <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 12px 16px; background: #FBE3E1; border: 1px solid #F0B9B4; border-radius: 14px; font-size: 14px; line-height: 1.45; color: #7A1A14">
+                <span style="flex: 1; min-width: 260px">Could not record the payment: the October books are locked. Nothing was saved.</span>
+                <span style="display: inline-flex; align-items: center; min-height: 40px; padding: 0 16px; border-radius: 20px; background: #B3261E; color: #FFFFFF; font-size: 13px; font-weight: 700">Try again</span>
+                <span style="display: inline-flex; align-items: center; min-height: 40px; padding: 0 16px; border-radius: 20px; border: 1px solid #B3261E; font-size: 13px; font-weight: 700">Open October close</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <div style="display: flex; align-items: center; gap: 12px; min-height: 56px; padding: 0 10px 0 18px; border-radius: 28px; background: #FFFFFF; border: 1px solid #CBD7E4">
+        <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><defs><linearGradient id="gv-spark" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#FFB82A"></stop><stop offset="1" stop-color="#FF7640"></stop></linearGradient></defs><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z M19 16l.8 2.2L22 19l-2.2.8L19 22l-.8-2.2L16 19l2.2-.8z" fill="url(#gv-spark)"></path></svg>
+        <span style="flex: 1; font-size: 16px; color: #4F5D75">Say what to change: “make it $300”, “it was a Zelle”, “record two more”</span>
+        <span aria-hidden="true" style="width: 44px; height: 44px; border-radius: 22px; background: linear-gradient(135deg, #FFB82A, #FF7640); color: #12203A; display: flex; align-items: center; justify-content: center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l18-8-8 18-2-8z"></path></svg></span>
+      </div>
+    </main>
+
+    <aside aria-label="Giving context" style="width: 420px; box-sizing: border-box; padding: 28px 28px; border-left: 1px solid #DDE6F0; background: #F8FAFD; display: flex; flex-direction: column; gap: 22px">
+      <section style="display: flex; flex-direction: column; gap: 10px">
+        <span style="font-size: 12px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; color: #4F5D75">Paryushan 2026 pledges</span>
+        <div style="padding: 14px; background: #FFFFFF; border: 1px solid #DDE6F0; border-radius: 14px; display: flex; flex-direction: column; gap: 8px">
+          <div style="display: flex; justify-content: space-between; align-items: baseline"><span style="font-size: 24px; font-weight: 800; color: #A8400D">$64,550</span><span style="font-size: 13px; color: #4F5D75">of $96,000 pledged</span></div>
+          <div style="height: 10px; border-radius: 5px; background: #EAF0F7; overflow: hidden"><div style="width: 67%; height: 10px; background: linear-gradient(90deg, #FFB82A, #FF7640)"></div></div>
+          <span style="font-size: 13px; color: #4F5D75">$31,450 still open across 118 households</span>
+        </div>
+      </section>
+
+      <section style="display: flex; flex-direction: column; gap: 10px">
+        <span style="font-size: 12px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; color: #4F5D75">October close: 3 of 4 checks</span>
+        <div style="display: flex; flex-direction: column; gap: 8px; font-size: 14px">
+          <div style="display: flex; gap: 10px; align-items: center"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#17724A" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 13l4 4 10-10"></path></svg>Every bank line is matched or set aside</div>
+          <div style="display: flex; gap: 10px; align-items: center"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#17724A" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 13l4 4 10-10"></path></svg>Nothing is waiting to post to QuickBooks</div>
+          <div style="display: flex; gap: 10px; align-items: center"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#17724A" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 13l4 4 10-10"></path></svg>No refund is half approved</div>
+          <div style="display: flex; gap: 10px; align-items: center; color: #A8400D; font-weight: 700"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#A8400D" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 7v6 M12 17h.01"></path></svg>1 refund still needs a second approver</div>
+        </div>
+      </section>
+
+      <section style="display: flex; flex-direction: column; gap: 10px">
+        <span style="font-size: 12px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; color: #4F5D75">Other things you can ask here</span>
+        <div style="display: flex; flex-direction: column; gap: 8px">
+          <a href="Giving.dc.html" class="link" style="display: flex; align-items: center; min-height: 44px; padding: 0 14px; background: #FFFFFF; border: 1px solid #DDE6F0; border-radius: 14px; font-size: 14px; font-weight: 600">Match this Chase deposit to my recorded checks</a>
+          <a href="Giving.dc.html" class="link" style="display: flex; align-items: center; min-height: 44px; padding: 0 14px; background: #FFFFFF; border: 1px solid #DDE6F0; border-radius: 14px; font-size: 14px; font-weight: 600">Match every exact Zelle from this week</a>
+          <a href="Giving.dc.html" class="link" style="display: flex; align-items: center; min-height: 44px; padding: 0 14px; background: #FFFFFF; border: 1px solid #DDE6F0; border-radius: 14px; font-size: 14px; font-weight: 600">Who is behind on their Paryushan pledge?</a>
+          <a href="Giving.dc.html" class="link" style="display: flex; align-items: center; min-height: 44px; padding: 0 14px; background: #FFFFFF; border: 1px solid #DDE6F0; border-radius: 14px; font-size: 14px; font-weight: 600">What do I need to send for year-end statements?</a>
+        </div>
+      </section>
+
+      <section style="padding: 14px; background: #E8F1FC; border: 1px solid #BBD3F2; border-radius: 14px; font-size: 13px; line-height: 1.55; color: #164690">
+        <span style="font-weight: 800">Why this is safe.</span> Niva records payments the same way the Payments screen does, with your permissions. A refund still needs a second person to approve it.
+      </section>
+    </aside>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1060}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { pick: 'a' };
+  }
+  renderVals() {
+    const pick = this.state.pick;
+    const hh = [
+      { key: 'a', name: 'Rahul & Mira Shah Household', ids: 'Household 0212 · JSH-H-2041', primary: 'Primary: Rahul Shah (person 0417) · 4 members', where: 'Sugar Land · last gift $250.00 on 14 Sep', open: 'Open: Paryushan 2026 pledge, $250.00 left', openColor: '#A8400D' },
+      { key: 'b', name: 'Shah family', ids: 'Household 0388 · JSH-H-2216', primary: 'Primary: Kiran Shah (person 0912) · 3 members', where: 'Katy · last gift $101.00 on 2 Aug', open: 'No open pledge', openColor: '#4F5D75' }
+    ];
+    const households = hh.map((h) => {
+      const on = h.key === pick;
+      return {
+        ...h,
+        checked: on ? 'true' : 'false',
+        border: on ? '#1C56B0' : '#DDE6F0',
+        bg: on ? '#E8F1FC' : '#FFFFFF',
+        dot: on ? '#1C56B0' : 'transparent',
+        pick: () => this.setState({ pick: h.key })
+      };
+    });
+    const a = pick === 'a';
+    const draft = a
+      ? {
+          household: 'Rahul & Mira Shah Household (0212)',
+          applies: 'Paryushan 2026 pledge ($500.00 pledged, $250.00 paid)',
+          appliesColor: '#12203A',
+          after: 'The pledge is paid in full: $500.00 of $500.00.',
+          receipt: 'A receipt goes to Rahul Shah by email, because the household opted in.',
+          warn: false,
+          cta: 'Record payment · $250.00'
+        }
+      : {
+          household: 'Shah family (0388)',
+          applies: 'No open pledge: a general donation',
+          appliesColor: '#B3261E',
+          after: 'No pledge changes. The $250.00 is recorded as a general donation.',
+          receipt: 'A receipt goes to Kiran Shah by email, because the household opted in.',
+          warn: true,
+          cta: 'Record as a donation · $250.00'
+        };
+    return { households, draft };
+  }
+}
+</script>
+</body>
+</html>

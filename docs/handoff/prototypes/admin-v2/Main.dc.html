@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Weaver Admin: Today</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=DM+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#F3F7FB}
+a{color:inherit;text-decoration:none}
+button{font-family:inherit}
+a.pill:hover{filter:brightness(0.97)}
+button.step:hover{background:#F3F7FB}
+</style>
+</helmet>
+<div style="width: 1440px; height: 980px; box-sizing: border-box; display: flex; flex-direction: column; background: #F3F7FB; font-family: 'DM Sans', system-ui, sans-serif; color: #12203A; overflow: hidden">
+  <dc-import name="TopBar" hint-size="1440px,64px"></dc-import>
+  <div style="display: flex; flex: 1; min-height: 0">
+    <dc-import name="Rail" active="home" height="916" hint-size="88px,916px"></dc-import>
+
+    <main style="flex: 1; min-width: 0; padding: 30px 44px; display: flex; flex-direction: column; gap: 22px">
+      <div style="display: flex; flex-direction: column; gap: 8px">
+        <span style="font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #3D3BB8">Friday 9 October · Jain Society of Houston</span>
+        <h1 style="margin: 0; font-family: 'Fraunces', Georgia, serif; font-weight: 600; font-size: 38px; line-height: 1.12; color: #12203A">Good morning, Priya. Your routine is half done.</h1>
+      </div>
+
+      <section aria-label="Your routine" style="background: #FFFFFF; border: 1px solid #DDE6F0; border-radius: 20px; padding: 18px 20px 14px; display: flex; flex-direction: column; gap: 14px">
+        <div style="display: flex; align-items: center; gap: 16px; flex-wrap: wrap">
+          <div style="display: flex; flex-direction: column; gap: 4px; flex: 1; min-width: 260px">
+            <span style="font-size: 17px; font-weight: 800">Your routine · Treasurer</span>
+            <span style="font-size: 13px; color: #4F5D75">{{progressText}}</span>
+          </div>
+          <div style="width: 220px; height: 10px; border-radius: 5px; background: #EAF0F7; overflow: hidden"><div style="width: {{pct}}; height: 10px; border-radius: 5px; background: linear-gradient(90deg, #34C4CB, #2F8ED8, #6CC68F)"></div></div>
+          <a href="Routines.dc.html" style="display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 20px; border-radius: 22px; background: #1C56B0; color: #FFFFFF; font-size: 14px; font-weight: 700">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 4l13 8-13 8z"></path></svg>
+            Run it with Niva
+          </a>
+        </div>
+        <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px 16px">
+          <sc-for list="{{steps}}" as="s" hint-placeholder-count="6">
+            <button type="button" class="step" role="checkbox" aria-checked="{{s.checked}}" onClick="{{s.toggle}}" style="display: flex; align-items: flex-start; gap: 12px; text-align: left; min-height: 56px; padding: 10px 10px; border: 0; border-radius: 12px; background: transparent; cursor: pointer; color: #12203A">
+              <span aria-hidden="true" style="flex: none; margin-top: 1px; width: 24px; height: 24px; border-radius: 12px; box-sizing: border-box; border: 2px solid {{s.ring}}; background: {{s.fill}}; display: flex; align-items: center; justify-content: center">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round" style="opacity: {{s.tick}}"><path d="M5 13l4 4 10-10"></path></svg>
+              </span>
+              <span style="display: flex; flex-direction: column; gap: 3px; min-width: 0">
+                <span style="font-size: 14px; font-weight: 700; line-height: 1.35; color: {{s.ink}}">{{s.title}}</span>
+                <span style="font-size: 12px; line-height: 1.4; color: #4F5D75">{{s.sub}}</span>
+              </span>
+              <span style="margin-left: auto; flex: none; font-size: 11px; font-weight: 800; border-radius: 9px; padding: 3px 8px; background: {{s.tagBg}}; color: {{s.tagFg}}">{{s.tag}}</span>
+            </button>
+          </sc-for>
+        </div>
+      </section>
+
+      <section aria-label="Ask Niva" style="display: flex; flex-direction: column; gap: 14px; padding: 16px 20px; background: #FFFFFF; border: 1px solid #DDE6F0; border-radius: 20px">
+        <div style="display: flex; align-items: center; gap: 12px; min-height: 56px; padding: 0 10px 0 18px; border-radius: 28px; background: #F3F7FB; border: 1px solid #CBD7E4">
+          <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><defs><linearGradient id="mn-spark" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#FFB82A"></stop><stop offset="1" stop-color="#FF7640"></stop></linearGradient></defs><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z M19 16l.8 2.2L22 19l-2.2.8L19 22l-.8-2.2L16 19l2.2-.8z" fill="url(#mn-spark)"></path></svg>
+          <span style="flex: 1; font-size: 17px; color: #4F5D75">Tell Niva what you need: “Record the checks from Sunday”</span>
+          <span aria-hidden="true" style="width: 44px; height: 44px; border-radius: 22px; background: linear-gradient(135deg, #FFB82A, #FF7640); color: #12203A; display: flex; align-items: center; justify-content: center">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l18-8-8 18-2-8z"></path></svg>
+          </span>
+        </div>
+        <div style="display: flex; flex-wrap: wrap; gap: 8px">
+          <a href="Giving.dc.html" class="pill" style="display: inline-flex; align-items: center; min-height: 44px; padding: 0 16px; border-radius: 22px; background: #FFF1E6; border: 1px solid #FFD3B3; font-size: 14px; font-weight: 600; color: #7A2E08">Record a $250 check from Shah</a>
+          <a href="Giving.dc.html" class="pill" style="display: inline-flex; align-items: center; min-height: 44px; padding: 0 16px; border-radius: 22px; background: #FFF1E6; border: 1px solid #FFD3B3; font-size: 14px; font-weight: 600; color: #7A2E08">What is blocking October close?</a>
+          <a href="Events.dc.html" class="pill" style="display: inline-flex; align-items: center; min-height: 44px; padding: 0 16px; border-radius: 22px; background: #ECEBFA; border: 1px solid #CFCDF2; font-size: 14px; font-weight: 600; color: #2B2A8A">Remind the Diwali households who have not replied</a>
+          <a href="People.dc.html" class="pill" style="display: inline-flex; align-items: center; min-height: 44px; padding: 0 16px; border-radius: 22px; background: #E8F1FC; border: 1px solid #BBD3F2; font-size: 14px; font-weight: 600; color: #164690">Sugar Land households owing over $100</a>
+          <a href="Marketplace.dc.html" class="pill" style="display: inline-flex; align-items: center; min-height: 44px; padding: 0 16px; border-radius: 22px; background: #E3F5EA; border: 1px solid #BFE6CC; font-size: 14px; font-weight: 600; color: #0F4F33">Turn on the Store</a>
+          <a href="Setup.dc.html" class="pill" style="display: inline-flex; align-items: center; min-height: 44px; padding: 0 16px; border-radius: 22px; background: #DFF5F6; border: 1px solid #A9E3E6; font-size: 14px; font-weight: 600; color: #0A5D66">What is left before texting works?</a>
+        </div>
+      </section>
+    </main>
+
+    <aside aria-label="Today at a glance" style="width: 380px; box-sizing: border-box; padding: 30px 28px; border-left: 1px solid #DDE6F0; background: #F8FAFD; display: flex; flex-direction: column; gap: 22px">
+      <section style="display: flex; flex-direction: column; gap: 10px">
+        <span style="font-size: 12px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; color: #4F5D75">Today</span>
+        <div style="display: flex; flex-direction: column; gap: 8px">
+          <div style="display: flex; gap: 12px; align-items: baseline; padding: 10px 12px; background: #FFFFFF; border: 1px solid #DDE6F0; border-radius: 12px"><span style="font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 13px; color: #4F5D75; width: 54px">10:00</span><span style="font-size: 14px; font-weight: 600">Pathshala parents' meeting</span></div>
+          <div style="display: flex; gap: 12px; align-items: baseline; padding: 10px 12px; background: #FFFFFF; border: 1px solid #DDE6F0; border-radius: 12px"><span style="font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 13px; color: #4F5D75; width: 54px">18:00</span><span style="font-size: 14px; font-weight: 600">Diwali committee call</span></div>
+        </div>
+      </section>
+
+      <section style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px">
+        <div style="padding: 12px; background: #FFFFFF; border: 1px solid #DDE6F0; border-radius: 12px"><div style="font-size: 12px; font-weight: 600; color: #4F5D75">Active households</div><div style="font-size: 24px; font-weight: 800; color: #1C56B0; margin-top: 4px">562</div></div>
+        <div style="padding: 12px; background: #FFFFFF; border: 1px solid #DDE6F0; border-radius: 12px"><div style="font-size: 12px; font-weight: 600; color: #4F5D75">Giving this month</div><div style="font-size: 24px; font-weight: 800; color: #A8400D; margin-top: 4px">$48,210</div></div>
+        <div style="padding: 12px; background: #FFFFFF; border: 1px solid #DDE6F0; border-radius: 12px"><div style="font-size: 12px; font-weight: 600; color: #4F5D75">Open pledges</div><div style="font-size: 24px; font-weight: 800; color: #A8400D; margin-top: 4px">$31,450</div></div>
+        <div style="padding: 12px; background: #FFFFFF; border: 1px solid #DDE6F0; border-radius: 12px"><div style="font-size: 12px; font-weight: 600; color: #4F5D75">Diwali attending</div><div style="font-size: 24px; font-weight: 800; color: #3D3BB8; margin-top: 4px">412</div></div>
+      </section>
+
+      <section style="display: flex; flex-direction: column; gap: 10px">
+        <span style="font-size: 12px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; color: #4F5D75">What Niva did for you this week</span>
+        <div style="display: flex; flex-direction: column; gap: 8px">
+          <div style="display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 10px 12px; background: #FFFFFF; border: 1px solid #DDE6F0; border-radius: 12px; font-size: 13px; line-height: 1.4"><span>Matched 14 Zelle payments you confirmed</span><span style="font-weight: 700; color: #1C56B0">Review</span></div>
+          <div style="display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 10px 12px; background: #FFFFFF; border: 1px solid #DDE6F0; border-radius: 12px; font-size: 13px; line-height: 1.4"><span>Drafted the Diwali invitation in 3 languages</span><span style="font-weight: 700; color: #1C56B0">Review</span></div>
+          <div style="display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 10px 12px; background: #FFFFFF; border: 1px solid #DDE6F0; border-radius: 12px; font-size: 13px; line-height: 1.4"><span>Found 2 possible duplicate households</span><span style="font-weight: 700; color: #1C56B0">Review</span></div>
+        </div>
+        <span style="font-size: 12px; line-height: 1.5; color: #4F5D75">Every action is in the history as “by Niva, for Priya Mehta”.</span>
+      </section>
+    </aside>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":980}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { done: [true, true, false, false, true, false] };
+  }
+  renderVals() {
+    const base = [
+      { title: 'Bank lines imported from Chase', sub: 'Every sign-in · 9 new lines since Thursday', tag: 'Auto-checked', kind: 'auto' },
+      { title: 'Record the weekend’s checks and envelopes', sub: 'Every sign-in · 7 checks recorded', tag: 'Niva can do it', kind: 'niva' },
+      { title: 'Second approval: refund of $120.00', sub: 'Rahul & Mira Shah Household · 0212 · Sugar Land', tag: 'Needs your OK', kind: 'ok' },
+      { title: 'Match the $2,340.00 Chase deposit', sub: 'Niva found 11 checks that total exactly $2,340.00', tag: 'Needs your OK', kind: 'ok' },
+      { title: 'QuickBooks: nothing waiting to post', sub: 'Every sign-in · 0 failures', tag: 'Auto-checked', kind: 'auto' },
+      { title: 'Friday: look at pledge aging', sub: 'Weekly · 118 households with an open Paryushan pledge', tag: 'Niva can do it', kind: 'niva' }
+    ];
+    const tags = {
+      auto: { tagBg: '#DFF5F6', tagFg: '#0A5D66' },
+      niva: { tagBg: '#ECEBFA', tagFg: '#2B2A8A' },
+      ok: { tagBg: '#FFF1E6', tagFg: '#7A2E08' }
+    };
+    const d = this.state.done;
+    const steps = base.map((b, i) => ({
+      title: b.title,
+      sub: b.sub,
+      tag: b.tag,
+      tagBg: tags[b.kind].tagBg,
+      tagFg: tags[b.kind].tagFg,
+      checked: d[i] ? 'true' : 'false',
+      ring: d[i] ? '#17724A' : '#6B778C',
+      fill: d[i] ? '#17724A' : '#FFFFFF',
+      tick: d[i] ? 1 : 0,
+      ink: d[i] ? '#4F5D75' : '#12203A',
+      toggle: () => { const n = this.state.done.slice(); n[i] = !n[i]; this.setState({ done: n }); }
+    }));
+    const n = d.filter(Boolean).length;
+    const left = d.length - n;
+    return {
+      steps,
+      pct: Math.round((n / d.length) * 100) + '%',
+      progressText: left === 0 ? 'All done. Nice work. Come back tomorrow, or ask Niva anything.' : n + ' of ' + d.length + ' done · about ' + left * 2 + ' minutes left'
+    };
+  }
+}
+</script>
+</body>
+</html>

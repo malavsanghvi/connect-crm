@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Marketplace: choose your products</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=DM+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#F3F7FB}
+a{color:inherit;text-decoration:none}
+button{font-family:inherit}
+button.card:hover{border-color:#9FB0C6}
+</style>
+</helmet>
+<div style="width: 1440px; height: 1240px; box-sizing: border-box; display: flex; flex-direction: column; background: #F3F7FB; font-family: 'DM Sans', system-ui, sans-serif; color: #12203A; overflow: hidden">
+  <dc-import name="TopBar" hint-size="1440px,64px"></dc-import>
+  <div style="display: flex; flex: 1; min-height: 0">
+    <dc-import name="Rail" active="market" height="1176" hint-size="88px,1176px"></dc-import>
+
+    <main style="flex: 1; min-width: 0; padding: 28px 36px; display: flex; flex-direction: column; gap: 20px">
+      <div style="display: flex; flex-direction: column; gap: 6px">
+        <span style="font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #3D3BB8">Marketplace</span>
+        <h1 style="margin: 0; font-family: 'Fraunces', Georgia, serif; font-weight: 600; font-size: 34px; line-height: 1.15">Choose what your community uses</h1>
+        <span style="font-size: 15px; line-height: 1.5; color: #4F5D75; max-width: 700px">Everything here is free today. Turn on only what you need. Turn it off any time: it is hidden, and your information stays.</span>
+      </div>
+
+      <div style="display: flex; align-items: center; gap: 12px; min-height: 56px; padding: 0 10px 0 18px; border-radius: 28px; background: #FFFFFF; border: 1px solid #CBD7E4">
+        <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><defs><linearGradient id="mk-spark" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#FFB82A"></stop><stop offset="1" stop-color="#FF7640"></stop></linearGradient></defs><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z M19 16l.8 2.2L22 19l-2.2.8L19 22l-.8-2.2L16 19l2.2-.8z" fill="url(#mk-spark)"></path></svg>
+        <span style="flex: 1; font-size: 15px; color: #4F5D75">Not sure what you need? Tell Niva what your community does, and it suggests a set.</span>
+        <span aria-hidden="true" style="width: 44px; height: 44px; border-radius: 22px; background: linear-gradient(135deg, #FFB82A, #FF7640); color: #12203A; display: flex; align-items: center; justify-content: center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l18-8-8 18-2-8z"></path></svg></span>
+      </div>
+
+      <section aria-label="Your starter pack" style="display: flex; flex-direction: column; gap: 10px">
+        <div style="display: flex; align-items: baseline; gap: 10px"><span style="font-size: 12px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; color: #4F5D75">Your starter pack</span><span style="font-size: 13px; color: #4F5D75">On from the start. You can switch any of these off.</span></div>
+        <div style="display: flex; flex-wrap: wrap; gap: 8px">
+          <sc-for list="{{starter}}" as="p" hint-placeholder-count="7">
+            <span style="display: inline-flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 8px 0 14px; border-radius: 22px; background: #FFFFFF; border: 1px solid #DDE6F0; font-size: 14px; font-weight: 600">
+              {{p}}
+              <span aria-label="On" style="display: inline-flex; align-items: center; justify-content: flex-end; width: 40px; height: 24px; border-radius: 12px; background: #17724A; padding: 0 3px; box-sizing: border-box"><span style="width: 18px; height: 18px; border-radius: 9px; background: #FFFFFF"></span></span>
+            </span>
+          </sc-for>
+        </div>
+      </section>
+
+      <section aria-label="Available" style="display: flex; flex-direction: column; gap: 10px">
+        <span style="font-size: 12px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; color: #4F5D75">Add to your Weaver</span>
+        <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px">
+          <sc-for list="{{available}}" as="c" hint-placeholder-count="8">
+            <button type="button" class="card" aria-pressed="{{c.pressed}}" onClick="{{c.pick}}" style="text-align: left; display: flex; flex-direction: column; gap: 10px; padding: 14px 16px; min-height: 148px; background: #FFFFFF; border: 2px solid {{c.border}}; border-radius: 16px; cursor: pointer; color: #12203A">
+              <span style="display: flex; align-items: center; gap: 12px">
+                <span aria-hidden="true" style="flex: none; width: 40px; height: 40px; border-radius: 12px; background: {{c.tileBg}}; color: {{c.tileFg}}; display: flex; align-items: center; justify-content: center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="{{c.d}}"></path></svg></span>
+                <span style="font-family: 'Fraunces', Georgia, serif; font-weight: 600; font-size: 19px; line-height: 1.2">{{c.name}}</span>
+              </span>
+              <span style="font-size: 13px; line-height: 1.5; color: #2C3A55">{{c.tagline}}</span>
+              <span style="margin-top: auto; display: flex; align-items: center; justify-content: space-between; gap: 8px">
+                <span style="font-size: 11px; font-weight: 800; border-radius: 9px; padding: 3px 8px; background: #E3F5EA; color: #0F4F33">Available</span>
+                <span style="font-size: 12px; color: #4F5D75">{{c.needs}}</span>
+              </span>
+            </button>
+          </sc-for>
+        </div>
+      </section>
+
+      <section aria-label="Coming soon" style="display: flex; flex-direction: column; gap: 10px">
+        <span style="font-size: 12px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; color: #4F5D75">Coming soon</span>
+        <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px">
+          <sc-for list="{{soon}}" as="c" hint-placeholder-count="6">
+            <button type="button" class="card" aria-pressed="{{c.pressed}}" onClick="{{c.pick}}" style="text-align: left; display: flex; flex-direction: column; gap: 10px; padding: 14px 16px; min-height: 132px; background: #F8FAFD; border: 2px dashed {{c.border}}; border-radius: 16px; cursor: pointer; color: #12203A">
+              <span style="display: flex; align-items: center; gap: 12px">
+                <span aria-hidden="true" style="flex: none; width: 40px; height: 40px; border-radius: 12px; background: {{c.tileBg}}; color: {{c.tileFg}}; display: flex; align-items: center; justify-content: center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="{{c.d}}"></path></svg></span>
+                <span style="font-family: 'Fraunces', Georgia, serif; font-weight: 600; font-size: 19px; line-height: 1.2">{{c.name}}</span>
+              </span>
+              <span style="font-size: 13px; line-height: 1.5; color: #2C3A55">{{c.tagline}}</span>
+              <span style="margin-top: auto; display: flex; align-items: center; justify-content: space-between; gap: 8px">
+                <span style="font-size: 11px; font-weight: 800; border-radius: 9px; padding: 3px 8px; background: #ECEBFA; color: #2B2A8A">Coming soon</span>
+                <span style="font-size: 12px; font-weight: 700; color: #1C56B0">Tell me when it is ready</span>
+              </span>
+            </button>
+          </sc-for>
+        </div>
+      </section>
+    </main>
+
+    <aside aria-label="Product details" style="width: 440px; box-sizing: border-box; padding: 28px 28px; border-left: 1px solid #DDE6F0; background: #FFFFFF; display: flex; flex-direction: column; gap: 18px">
+      <div style="display: flex; align-items: center; gap: 14px">
+        <span aria-hidden="true" style="flex: none; width: 52px; height: 52px; border-radius: 16px; background: {{d.tileBg}}; color: {{d.tileFg}}; display: flex; align-items: center; justify-content: center"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="{{d.d}}"></path></svg></span>
+        <div style="display: flex; flex-direction: column; gap: 4px">
+          <h2 style="margin: 0; font-family: 'Fraunces', Georgia, serif; font-weight: 600; font-size: 26px; line-height: 1.15">{{d.name}}</h2>
+          <span style="align-self: flex-start; font-size: 11px; font-weight: 800; border-radius: 9px; padding: 3px 8px; background: {{d.statusBg}}; color: {{d.statusFg}}">{{d.status}}</span>
+        </div>
+      </div>
+      <p style="margin: 0; font-size: 15px; line-height: 1.55; color: #2C3A55">{{d.tagline}}</p>
+
+      <div style="display: flex; flex-direction: column; gap: 8px">
+        <span style="font-size: 12px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; color: #4F5D75">What you get</span>
+        <div style="display: flex; flex-direction: column; gap: 8px; font-size: 14px; line-height: 1.45">
+          <sc-for list="{{d.gets}}" as="g" hint-placeholder-count="3">
+            <div style="display: flex; gap: 10px"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#17724A" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none; margin-top: 2px"><path d="M5 13l4 4 10-10"></path></svg><span>{{g}}</span></div>
+          </sc-for>
+        </div>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 8px">
+        <span style="font-size: 12px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; color: #4F5D75">What it needs</span>
+        <span style="font-size: 14px; line-height: 1.5">{{d.needsLong}}</span>
+      </div>
+
+      <sc-if value="{{d.available}}" hint-placeholder-val="{{ true }}">
+        <div style="display: flex; flex-direction: column; gap: 10px; padding: 14px 16px; background: #F8FAFD; border: 1px solid #DDE6F0; border-radius: 14px">
+          <span style="display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 800; color: #A8400D"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"></path></svg>Niva will ask you</span>
+          <ol style="margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; font-size: 14px; line-height: 1.45">
+            <sc-for list="{{d.asks}}" as="a" hint-placeholder-count="3"><li>{{a}}</li></sc-for>
+          </ol>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 10px">
+          <button type="button" style="min-height: 48px; padding: 0 22px; border-radius: 24px; border: 0; background: #1C56B0; color: #FFFFFF; font-size: 15px; font-weight: 700; cursor: pointer">Turn on and set it up with Niva</button>
+          <button type="button" style="min-height: 48px; padding: 0 22px; border-radius: 24px; border: 1px solid #CBD7E4; background: #FFFFFF; color: #12203A; font-size: 15px; font-weight: 700; cursor: pointer">Just turn it on</button>
+        </div>
+      </sc-if>
+      <sc-if value="{{d.soon}}" hint-placeholder-val="{{ false }}">
+        <div style="display: flex; flex-direction: column; gap: 10px">
+          <button type="button" style="min-height: 48px; padding: 0 22px; border-radius: 24px; border: 0; background: #1C56B0; color: #FFFFFF; font-size: 15px; font-weight: 700; cursor: pointer">Tell me when it is ready</button>
+          <span style="font-size: 13px; line-height: 1.5; color: #4F5D75">The Weaver team sees how many communities are waiting, and builds in that order. You will get one message when it is ready. Nothing is turned on for you.</span>
+        </div>
+      </sc-if>
+      <span style="margin-top: auto; font-size: 12px; line-height: 1.5; color: #4F5D75">Anyone who manages settings can turn a product on or off. Each change is kept in the history with who made it and why.</span>
+    </aside>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1240}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { sel: 0 };
+  }
+  renderVals() {
+    const ICON = {
+      store: 'M5 8h14l-1 12H6z M9 8a3 3 0 0 1 6 0',
+      books: 'M5 4h14v16H5z M9 8h6 M9 12h6 M9 16h3',
+      texts: 'M4 5h16v11H9l-5 4z',
+      cls: 'M4 5a2 2 0 0 1 2-2h13v15H6a2 2 0 0 0-2 2z M4 5v15 M8 7h7',
+      vol: 'M15 7a3 3 0 1 1-6 0 3 3 0 0 1 6 0z M5 21v-2a5 5 0 0 1 5-5h4a5 5 0 0 1 5 5v2',
+      survey: 'M9 4h6v3H9z M7 5H5v16h14V5h-2 M9 14l2 2 4-4',
+      gov: 'M12 3v18 M5 7h14 M5 7l-3 7a3 3 0 0 0 6 0z M19 7l-3 7a3 3 0 0 0 6 0z',
+      niva: 'M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z M19 16l.8 2.2L22 19l-2.2.8L19 22l-.8-2.2L16 19l2.2-.8z',
+      gift: 'M20 12v8H4v-8 M2 7h20v5H2z M12 20V7 M12 7a3 3 0 1 1 3-3c0 1.7-3 3-3 3z M12 7a3 3 0 1 0-3-3c0 1.7 3 3 3 3z',
+      star: 'M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z',
+      heart: 'M12 21s-8-5.2-8-11a4.5 4.5 0 0 1 8-2.8A4.5 4.5 0 0 1 20 10c0 5.8-8 11-8 11z',
+      globe: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18z M3 12h18 M12 3a14 14 0 0 1 0 18 14 14 0 0 1 0-18',
+      mail: 'M3 5h18v14H3z M3 6l9 7 9-7',
+      cal: 'M4 6h16v14H4z M4 10h16 M8 3v4 M16 3v4'
+    };
+    const T = {
+      green: ['#E3F5EA', '#17724A'], blue: ['#E8F1FC', '#1C56B0'], teal: ['#DFF5F6', '#0E7C86'], lav: ['#F1EEFC', '#5A48B8'],
+      sky: ['#E1F0FB', '#1F6FB2'], indigo: ['#ECEBFA', '#3D3BB8'], sun: ['#FFF6DD', '#A8400D'], orange: ['#FFF1E6', '#A8400D']
+    };
+    const P = [
+      { name: 'Store Weaver', icon: 'store', tone: 'green', needs: 'Works with Giving', needsLong: 'The People records, which you already have. Online payment is optional; pickup can be paid at the counter.', tagline: 'Sell approved products with online payment and pickup windows, right inside Weaver.', gets: ['A menu with prices and photos', 'Pickup windows and an order cutoff', 'Prep lists for the kitchen'], asks: ['When are the pickup windows?', 'When do orders close each week?', 'Can everyone see the store, or only members?'] },
+      { name: 'Books', icon: 'books', tone: 'blue', needs: 'Needs Giving', needsLong: 'Giving, switched on. A QuickBooks account you can sign in to.', tagline: 'Keep your accounts in step with QuickBooks, with a checklist at month-end.', gets: ['Every payment goes to QuickBooks once', 'A month-end close with a checklist', 'One queue for anything that fails to post'], asks: ['Sign in to QuickBooks (you type the password; Niva never sees it)', 'Which accounts should gifts go to?', 'Which month do we start from?'] },
+      { name: 'Texts and WhatsApp', icon: 'texts', tone: 'teal', needs: 'Needs Messages', needsLong: 'Messages, switched on, and your legal identity filled in. Carriers approve the registration, which can take a few days.', tagline: 'Reach members by text and WhatsApp, with quiet hours and opt-outs respected.', gets: ['Texts and WhatsApp to people who opted in', 'Quiet hours and opt-outs always respected', 'Replies in one shared inbox'], asks: ['Check your registration details (pre-filled for you)', 'Choose the sender number', 'Send a test message to yourself'] },
+      { name: 'Class Weaver', icon: 'cls', tone: 'lav', needs: 'Works with Events', needsLong: 'The People records. Shown to you as Pathshala, Sunday school or the name your kind of community uses.', tagline: 'Registration, classes, attendance, homework and progress for your community school.', gets: ['Registration with fees by level', 'Attendance and sign-offs for teachers', 'Homework with parent review'], asks: ['Which levels do you teach?', 'What are the fees for each level?', 'Who are the teachers?'] },
+      { name: 'Volunteers', icon: 'vol', tone: 'blue', needs: 'Works with Events', needsLong: 'The People records.', tagline: 'Groups, shifts, waivers and background checks in one place.', gets: ['Shifts people can sign up for', 'Waivers signed once, remembered', 'Reminders before a shift'], asks: ['Which volunteer groups do you have?', 'Which need a waiver or a background check?', 'Who coordinates each group?'] },
+      { name: 'Surveys', icon: 'survey', tone: 'sky', needs: 'Works with Events', needsLong: 'Nothing else.', tagline: 'Ask members what they think, after an event or any time.', gets: ['Event feedback that opens by itself', 'Anonymous answers when you choose', 'Summaries without names'], asks: ['What do you want to ask?', 'Anonymous or named?', 'Who should receive it?'] },
+      { name: 'Votes and Governance', icon: 'gov', tone: 'indigo', needs: 'Needs Membership', needsLong: 'Membership, switched on, so voting rights are known.', tagline: 'Resolutions, votes, concerns and comments for your committee and members.', gets: ['Resolutions with a clear record', 'Voting limited to eligible members', 'Concerns routed to an owner'], asks: ['Who sits on the committee?', 'Who may vote?', 'How long does a vote stay open?'] },
+      { name: 'Ask Niva for members', icon: 'niva', tone: 'sun', needs: 'Works with Guide', needsLong: 'Your Guide and Library content. Niva answers only from what you have approved, and shows its sources.', tagline: 'Members ask questions in the app and get answers from your own approved content.', gets: ['Answers with the sources shown', 'Questions it could not answer, listed for you', 'Sensitive questions passed to a person'], asks: ['Which pages may Niva read?', 'Who sees unanswered questions?', 'What should it say when it is not sure?'] }
+    ];
+    const S = [
+      { name: 'MatchMyGenerosity', icon: 'gift', tone: 'orange', tagline: 'Members find out whether their employer matches a gift, and Weaver guides each claim: a $100 gift can become $200.', gets: ['A check of an employer’s matching program', 'Step-by-step guidance for each claim', 'A list of matches still to arrive'], needsLong: 'Giving, switched on.' },
+      { name: 'Gala Weaver', icon: 'star', tone: 'indigo', tagline: 'Ticketed gala evenings with tables, sponsors and in-person auctions, and receipts that split what a guest received from what is deductible.', gets: ['Tickets, tables and seating', 'Live and silent auctions with paddle numbers', 'Fast checkout with the right receipts'], needsLong: 'Event Weaver and Giving, switched on.' },
+      { name: 'Donor Weaver', icon: 'heart', tone: 'blue', tagline: 'Automated playbooks that nudge the right person at the right time to thank, renew and deepen each relationship.', gets: ['Playbooks for first gifts, lapsed donors and pledges falling due', 'Tasks for admins and volunteers with ready messages', 'Retention and upgrade measures'], needsLong: 'Giving and Messages, switched on.' },
+      { name: 'Site Weaver', icon: 'globe', tone: 'teal', tagline: 'Build your website from your own events, giving and calendar, and share updates to Facebook and Instagram from one place.', gets: ['A site that updates itself from Weaver', 'Posts planned beside your events calendar', 'Comments and replies visible to the team'], needsLong: 'Events, switched on. Facebook and Instagram need your sign-in and Meta’s approval.' },
+      { name: 'Newsletters', icon: 'mail', tone: 'teal', tagline: 'Build and send a community newsletter without another tool.', gets: ['A block editor with your branding', 'Audience and language per issue', 'Approval before anything goes out'], needsLong: 'Messages, switched on.' },
+      { name: 'Special Days', icon: 'cal', tone: 'sun', tagline: 'Prompts the right person on a special day, and will use social signals members choose to share.', gets: ['Reminders for dates your members choose', 'Private to each person; staff see totals only', 'Drafted greetings you approve'], needsLong: 'Calendar and Messages, switched on.' }
+    ];
+    const sel = this.state.sel;
+    const all = P.concat(S);
+    const mk = (p, i, soon) => ({
+      name: p.name,
+      tagline: p.tagline,
+      needs: p.needs || '',
+      d: ICON[p.icon],
+      tileBg: T[p.tone][0],
+      tileFg: T[p.tone][1],
+      pressed: i === sel ? 'true' : 'false',
+      border: i === sel ? '#1C56B0' : (soon ? '#CBD7E4' : '#DDE6F0'),
+      pick: () => this.setState({ sel: i })
+    });
+    const cur = all[sel];
+    const isSoon = sel >= P.length;
+    return {
+      starter: ['Membership', 'Giving', 'Event Weaver', 'Calendar', 'Messages', 'Guide and Library', 'Reports'],
+      available: P.map((p, i) => mk(p, i, false)),
+      soon: S.map((p, i) => mk(p, i + P.length, true)),
+      d: {
+        name: cur.name,
+        tagline: cur.tagline,
+        d: ICON[cur.icon],
+        tileBg: T[cur.tone][0],
+        tileFg: T[cur.tone][1],
+        status: isSoon ? 'Coming soon' : 'Available',
+        statusBg: isSoon ? '#ECEBFA' : '#E3F5EA',
+        statusFg: isSoon ? '#2B2A8A' : '#0F4F33',
+        gets: cur.gets,
+        needsLong: cur.needsLong,
+        asks: cur.asks || [],
+        available: !isSoon,
+        soon: isSoon
+      }
+    };
+  }
+}
+</script>
+</body>
+</html>
