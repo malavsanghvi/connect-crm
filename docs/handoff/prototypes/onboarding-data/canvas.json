@@ -1,0 +1,26 @@
+{
+  "v": 3,
+  "createdOnFiles": { "v": 1, "at": "2026-10-09T17:05:00Z" },
+  "title": "Weaver onboarding: bring your data in",
+  "launch": { "view": "canvas" },
+  "pages": [],
+  "boards": {
+    "Main.dc.html": { "x": 0, "y": 0, "w": 1440, "h": 2300, "title": "1 · One front door", "is_interactive": true },
+    "Templates.dc.html": { "x": 1520, "y": 0, "w": 1440, "h": 2200, "title": "2a · Templates, step by step", "is_interactive": true },
+    "Connect.dc.html": { "x": 3040, "y": 0, "w": 1440, "h": 2000, "title": "2b · Connect a system", "is_interactive": true },
+    "Files.dc.html": { "x": 0, "y": 2420, "w": 1440, "h": 2700, "title": "2c · Your own files, read by Niva", "is_interactive": true },
+    "Review.dc.html": { "x": 1520, "y": 2420, "w": 1440, "h": 2300, "title": "3 · Review before anything is saved", "is_interactive": true },
+    "Ready.dc.html": { "x": 3040, "y": 2420, "w": 1440, "h": 2300, "title": "4 · Ready, and what is next", "is_interactive": true },
+    "Rail.dc.html": { "x": 0, "y": 5240, "w": 88, "h": 916, "title": "Shared: workspace rail" },
+    "TopBar.dc.html": { "x": 168, "y": 5240, "w": 1440, "h": 64, "title": "Shared: top bar" }
+  },
+  "order": ["Main.dc.html", "Templates.dc.html", "Connect.dc.html", "Files.dc.html", "Review.dc.html", "Ready.dc.html", "Rail.dc.html", "TopBar.dc.html"],
+  "notes": {
+    "t1": { "x": 0, "y": -300, "text": "Weaver onboarding: bring your data in", "kind": "title1", "maxW": 4480 },
+    "n1": { "x": 4600, "y": 0, "w": 380, "text": "Niva proposes, people approve. Every suggestion shows its evidence and how sure it is. Nothing is saved until Confirm, and a load can be undone for 30 days.", "fill": "orange" },
+    "n2": { "x": 4600, "y": 640, "w": 380, "text": "One engine for every source. Files, connectors, templates and photos all land in the same staging, checks, matching, preview and undo. A connector is a file that fetches itself.", "fill": "blue" },
+    "n3": { "x": 4600, "y": 1280, "w": 380, "text": "Right-size the move. Load the last 7 years of giving, keep older years as yearly totals, start with people and giving, and add modules later.", "fill": "green" },
+    "n4": { "x": 4600, "y": 1920, "w": 380, "text": "Nothing about children reaches an AI service (owner decision D2, 2026-10-09). Photos are read on Weaver's own servers, and columns about children are never shown to Niva.", "fill": "red" }
+  },
+  "designSystems": []
+}

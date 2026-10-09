@@ -615,7 +615,7 @@ Priority:
 | G35 | WhatsApp Business connection and template approval | The manual join queue | P2 |
 | G36 | Venues and multiple sites per organization | Venue is free text | P2 |
 | G37 | Background-check provider | None | P2 |
-| G38 | Live connections to old CRMs for a long parallel run | None; file imports cover migration | P2 |
+| G38 | Live connections to old CRMs for a long parallel run | None; file imports cover migration | P2 (recommended P1 in [ONBOARDING_REDESIGN.md](ONBOARDING_REDESIGN.md), B84) |
 | G39 | Branded apps for organizations with their own app-store accounts | One shared app decided | P2 |
 | G40 | Prototype screens for the organization's Setup experience. None exist; the onboarding prototype is for members. | None | P0 (design before building) |
 

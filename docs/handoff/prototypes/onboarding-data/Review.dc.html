@@ -1,0 +1,307 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Review before anything is saved</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=DM+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#F3F7FB}
+a{color:inherit;text-decoration:none}
+button{font-family:inherit;cursor:pointer}
+input{font-family:inherit}
+</style>
+</helmet>
+<div style="width: 1440px; min-height: 2300px; box-sizing: border-box; display: flex; flex-direction: column; background: #F3F7FB; font-family: 'DM Sans', system-ui, sans-serif; color: #12203A;">
+<div style="display: flex; justify-content: center; padding: 5px 0 4px; background: #FFFFFF;"><span style="background: #B3261E; color: #FFFFFF; border-radius: 10px; padding: 2px 10px; font-size: 10px; font-weight: 800; letter-spacing: 0.08em;">PROTOTYPE · SAMPLE DATA</span></div>
+<dc-import name="TopBar" hint-size="1440px,64px"></dc-import>
+<div style="display: flex; flex: 1; min-height: 0;">
+<dc-import name="Rail" active="settings" height="2230" hint-size="88px,2230px"></dc-import>
+
+<nav aria-label="Steps to bring your data in" style="width: 320px; flex: none; box-sizing: border-box; padding: 28px 22px; background: #FFFFFF; border-right: 1px solid #DDE6F0; display: flex; flex-direction: column; gap: 18px;">
+<div style="display: flex; flex-direction: column; gap: 6px;">
+<span style="font-size: 13px; color: #4F5D75;">Settings › Setup</span>
+<h1 style="margin: 0; font-family: 'Fraunces', Georgia, serif; font-weight: 600; font-size: 26px; line-height: 1.2; color: #12203A;">Bring your data in</h1>
+<span style="font-size: 13px; color: #4F5D75;">Step {{cur}} of 4</span>
+<div style="height: 8px; border-radius: 4px; background: #EAF0F7; overflow: hidden;"><div style="height: 8px; background: linear-gradient(90deg, #34C4CB, #2F8ED8, #6CC68F); width: {{pct}};"></div></div>
+</div>
+<ol style="list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px;">
+<sc-for list="{{navSteps}}" as="s" hint-placeholder-count="4">
+<li aria-current="{{s.now}}" style="display: flex; gap: 12px; padding: 12px; border-radius: 14px; background: {{s.bg}}; border: 1px solid {{s.bd}};">
+<sc-if value="{{s.done}}" hint-placeholder-val="{{ false }}"><span aria-hidden="true" style="flex: none; width: 26px; height: 26px; border-radius: 13px; background: #17724A; display: flex; align-items: center; justify-content: center;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4 10-10"></path></svg></span></sc-if>
+<sc-if value="{{s.now}}" hint-placeholder-val="{{ true }}"><span aria-hidden="true" style="flex: none; width: 26px; height: 26px; border-radius: 13px; background: #1C56B0; color: #FFFFFF; font-size: 13px; font-weight: 800; display: flex; align-items: center; justify-content: center;">{{s.n}}</span></sc-if>
+<sc-if value="{{s.todo}}" hint-placeholder-val="{{ false }}"><span aria-hidden="true" style="flex: none; width: 26px; height: 26px; border-radius: 13px; border: 2px solid #9FB0C6; box-sizing: border-box; color: #4F5D75; font-size: 12px; font-weight: 800; display: flex; align-items: center; justify-content: center;">{{s.n}}</span></sc-if>
+<span style="display: flex; flex-direction: column; gap: 2px;"><span style="font-size: 14px; font-weight: {{s.tw}}; color: {{s.tfg}};">{{s.title}}</span><span style="font-size: 12px; line-height: 1.4; color: #4F5D75;">{{s.sub}}</span></span>
+</li>
+</sc-for>
+</ol>
+<a href="Main.dc.html" style="display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 0 18px; border-radius: 22px; border: 1px solid #1C56B0; background: #FFFFFF; color: #1C56B0; font-size: 14px; font-weight: 600;">Back to all ways in</a>
+<div style="margin-top: auto; display: flex; flex-direction: column; gap: 10px;">
+<div style="padding: 12px 14px; background: #F8FAFD; border: 1px solid #DDE6F0; border-radius: 14px; font-size: 12px; line-height: 1.55; color: #2C3A55;">If you change your mind, the whole load can be undone for 30 days. Rows it created are removed and rows it changed go back.</div>
+<div style="padding: 12px 14px; background: #FFF1E6; border-radius: 14px; font-size: 12px; line-height: 1.55; color: #5C2A0B;"><b>Children.</b> Nothing about anyone under 18 is ever sent to an AI service.</div>
+</div>
+</nav>
+
+<main style="flex: 1; min-width: 0; padding: 26px 36px 22px; display: flex; flex-direction: column; gap: 18px;">
+
+<div style="align-self: flex-end; max-width: 520px; padding: 12px 16px; background: #1C56B0; color: #FFFFFF; border-radius: 18px 18px 4px 18px; font-size: 15px; line-height: 1.5;">Show me what will happen before anything is saved.</div>
+
+<div style="display: flex; gap: 12px; align-items: flex-start;">
+<span aria-hidden="true" style="flex: none; width: 34px; height: 34px; border-radius: 17px; background: linear-gradient(135deg, #FFB82A, #FF7640); color: #12203A; display: flex; align-items: center; justify-content: center;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"></path></svg></span>
+<div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 12px;">
+<div style="max-width: 760px; padding: 14px 18px; background: #FFFFFF; border: 1px solid #DDE6F0; border-radius: 4px 18px 18px 18px; font-size: 15px; line-height: 1.6;">Four sources came in: your Neon pull, the giving spreadsheet, a photographed page and a filled template. Nothing is in Weaver yet. This is exactly what will happen when you confirm.</div>
+<ul style="list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px;">
+<sc-for list="{{tiles}}" as="t" hint-placeholder-count="5">
+<li style="padding: 16px; border-radius: 14px; background: #FFFFFF; border: 1px solid #DDE6F0;"><div style="font-size: 26px; font-weight: 800; color: #1C56B0;">{{t.v}}</div><div style="font-size: 13px; line-height: 1.4; color: #2C3A55;">{{t.k}}</div></li>
+</sc-for>
+</ul>
+</div>
+</div>
+
+<div style="display: flex; gap: 12px; align-items: flex-start;">
+<span aria-hidden="true" style="flex: none; width: 34px; height: 34px; border-radius: 17px; background: linear-gradient(135deg, #FFB82A, #FF7640); color: #12203A; display: flex; align-items: center; justify-content: center;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"></path></svg></span>
+<div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 12px;">
+<div style="max-width: 760px; padding: 14px 18px; background: #FFFFFF; border: 1px solid #DDE6F0; border-radius: 4px 18px 18px 18px; font-size: 15px; line-height: 1.6;">First, do the totals agree? I added up your files and compared them with what Weaver would hold, to the cent.</div>
+<section aria-label="Totals check" style="background: #FFFFFF; border: 1px solid #DDE6F0; border-radius: 16px; padding: 20px;">
+<ul style="list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px;">
+<sc-for list="{{recon}}" as="r" hint-placeholder-count="4">
+<li style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; padding: 12px 14px; border: 1px solid #DDE6F0; border-radius: 12px;">
+<div style="flex: 1 1 420px; min-width: 0; display: flex; flex-direction: column; gap: 2px;"><span style="font-size: 15px; font-weight: 700;">{{r.title}}</span><span style="font-size: 14px; line-height: 1.5; color: #2C3A55;">{{r.body}}</span></div>
+<span style="padding: 3px 12px; border-radius: 12px; font-size: 12px; font-weight: 700; background: {{r.bg}}; color: {{r.fg}};">{{r.tag}}</span>
+</li>
+</sc-for>
+</ul>
+</section>
+</div>
+</div>
+
+<div style="display: flex; gap: 12px; align-items: flex-start;">
+<span aria-hidden="true" style="flex: none; width: 34px; height: 34px; border-radius: 17px; background: linear-gradient(135deg, #FFB82A, #FF7640); color: #12203A; display: flex; align-items: center; justify-content: center;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"></path></svg></span>
+<div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 12px;">
+<div style="max-width: 760px; padding: 14px 18px; background: #FFFFFF; border: 1px solid #DDE6F0; border-radius: 4px 18px 18px 18px; font-size: 15px; line-height: 1.6;">I link households only when more than a name agrees. For {{askCount}} pairs the evidence disagrees, so I am asking you. A name alone never joins two families, and I compare adults only.</div>
+<section aria-labelledby="ask-title" style="background: #FFFFFF; border: 2px solid #1C56B0; border-radius: 16px; padding: 20px; display: flex; flex-direction: column; gap: 16px;">
+<div style="display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 12px;">
+<h2 id="ask-title" style="margin: 0; font-family: 'Fraunces', Georgia, serif; font-weight: 600; font-size: 21px;">Are these the same household?</h2>
+<span role="status" style="font-size: 14px; font-weight: 800; color: {{leftFg}};">{{leftText}}</span>
+</div>
+
+<sc-if value="{{asking}}" hint-placeholder-val="{{ true }}">
+<div style="display: flex; flex-direction: column; gap: 16px;">
+<div style="display: flex; gap: 14px;">
+<div style="flex: 1; min-width: 0; border: 1px solid #DDE6F0; border-radius: 14px; background: #F8FAFD; padding: 16px; display: flex; flex-direction: column; gap: 10px;">
+<div style="font-size: 12px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #4F5D75;">{{L.from}}</div>
+<div style="font-size: 17px; font-weight: 800;">{{L.name}}</div>
+<dl style="margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; font-size: 14px;">
+<dt style="color: #4F5D75;">Household ID</dt><dd style="margin: 0; font-family: 'JetBrains Mono', ui-monospace, monospace;">{{L.id}}</dd>
+<dt style="color: #4F5D75;">Connect number</dt><dd style="margin: 0; font-family: 'JetBrains Mono', ui-monospace, monospace;">{{L.connect}}</dd>
+<dt style="color: #4F5D75;">Primary member</dt><dd style="margin: 0;">{{L.primary}}</dd>
+<dt style="color: #4F5D75;">Members</dt><dd style="margin: 0;">{{L.members}}</dd>
+<dt style="color: #4F5D75;">Address</dt><dd style="margin: 0;">{{L.addr}}</dd>
+<dt style="color: #4F5D75;">Mobile</dt><dd style="margin: 0; font-family: 'JetBrains Mono', ui-monospace, monospace;">{{L.mobile}}</dd>
+<dt style="color: #4F5D75;">Last gift</dt><dd style="margin: 0;">{{L.last}}</dd>
+<dt style="color: #4F5D75;">Open balance</dt><dd style="margin: 0;">{{L.balance}}</dd>
+</dl>
+</div>
+<div style="flex: 1; min-width: 0; border: 1px solid #DDE6F0; border-radius: 14px; background: #F8FAFD; padding: 16px; display: flex; flex-direction: column; gap: 10px;">
+<div style="font-size: 12px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #4F5D75;">{{R.from}}</div>
+<div style="font-size: 17px; font-weight: 800;">{{R.name}}</div>
+<dl style="margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; font-size: 14px;">
+<dt style="color: #4F5D75;">Household ID</dt><dd style="margin: 0; font-family: 'JetBrains Mono', ui-monospace, monospace;">{{R.id}}</dd>
+<dt style="color: #4F5D75;">Connect number</dt><dd style="margin: 0; font-family: 'JetBrains Mono', ui-monospace, monospace;">{{R.connect}}</dd>
+<dt style="color: #4F5D75;">Primary member</dt><dd style="margin: 0;">{{R.primary}}</dd>
+<dt style="color: #4F5D75;">Members</dt><dd style="margin: 0;">{{R.members}}</dd>
+<dt style="color: #4F5D75;">Address</dt><dd style="margin: 0;">{{R.addr}}</dd>
+<dt style="color: #4F5D75;">Mobile</dt><dd style="margin: 0; font-family: 'JetBrains Mono', ui-monospace, monospace;">{{R.mobile}}</dd>
+<dt style="color: #4F5D75;">Last gift</dt><dd style="margin: 0;">{{R.last}}</dd>
+<dt style="color: #4F5D75;">Open balance</dt><dd style="margin: 0;">{{R.balance}}</dd>
+</dl>
+</div>
+</div>
+
+<div style="display: flex; gap: 14px;">
+<div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px;">
+<div style="font-size: 12px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #A8400D;">What I compared</div>
+<ul style="list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; font-size: 14px; line-height: 1.5;">
+<sc-for list="{{evidence}}" as="e" hint-placeholder-count="4">
+<li style="display: flex; gap: 8px;"><span style="flex: none; min-width: 78px; font-weight: 800; color: {{e.fg}};">{{e.tag}}</span><span style="color: #2C3A55;">{{e.text}}</span></li>
+</sc-for>
+</ul>
+</div>
+<div style="flex: 1; min-width: 0; padding: 14px; border-radius: 12px; background: #FFF1E6; display: flex; flex-direction: column; gap: 6px;">
+<div style="font-size: 12px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #A8400D;">My suggestion</div>
+<div style="font-size: 15px; line-height: 1.55; color: #5C2A0B;">{{suggestion}}</div>
+</div>
+</div>
+
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 10px;">
+<button type="button" onClick="{{decideMerge}}" style="min-height: 44px; padding: 0 20px; border-radius: 22px; border: 1px solid #1C56B0; background: #1C56B0; color: #FFFFFF; font-size: 15px; font-weight: 600;">Same household: merge</button>
+<button type="button" onClick="{{decideSeparate}}" style="min-height: 44px; padding: 0 20px; border-radius: 22px; border: 1px solid #1C56B0; background: #FFFFFF; color: #1C56B0; font-size: 15px; font-weight: 600;">Different households: keep separate</button>
+<sc-if value="{{canRule}}" hint-placeholder-val="{{ true }}">
+<button type="button" role="switch" aria-checked="{{rule}}" onClick="{{toggleRule}}" style="display: inline-flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 16px 0 8px; border-radius: 22px; border: 1px solid #CBD7E4; background: #FFFFFF; font-size: 14px; font-weight: 600; color: #12203A;">
+<span aria-hidden="true" style="width: 40px; height: 24px; border-radius: 12px; position: relative; background: {{swBg}};"><span style="position: absolute; top: 2px; left: {{swLeft}}; width: 20px; height: 20px; border-radius: 10px; background: #FFFFFF;"></span></span>
+Same answer for the other {{others}} like this
+</button>
+</sc-if>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{allAnswered}}" hint-placeholder-val="{{ false }}">
+<div role="status" style="padding: 14px 16px; border-radius: 12px; background: #E3F5EA; border: 1px solid #17724A; font-size: 15px; line-height: 1.55; color: #0F4F33;">All 5 questions answered. Every answer is saved with the load and can be reversed. Nothing is merged until you confirm below.</div>
+</sc-if>
+</section>
+</div>
+</div>
+
+<section aria-labelledby="auto-title" style="margin-left: 46px; background: #FFFFFF; border: 1px solid #DDE6F0; border-radius: 16px; padding: 20px; display: flex; flex-direction: column; gap: 12px;">
+<div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px;">
+<div style="display: flex; flex-direction: column; gap: 2px;">
+<h2 id="auto-title" style="margin: 0; font-family: 'Fraunces', Georgia, serif; font-weight: 600; font-size: 21px;">212 households were linked without a question</h2>
+<span style="font-size: 14px; color: #4F5D75;">Same mobile or email, and a name that fits. Open the list to check or undo any of them.</span>
+</div>
+<button type="button" onClick="{{toggleAuto}}" aria-expanded="{{showAuto}}" style="min-height: 44px; padding: 0 18px; border-radius: 22px; border: 1px solid #1C56B0; background: #FFFFFF; color: #1C56B0; font-size: 14px; font-weight: 600;">{{autoLabel}}</button>
+</div>
+<sc-if value="{{showAuto}}" hint-placeholder-val="{{ false }}">
+<ul style="list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px;">
+<sc-for list="{{autos}}" as="a" hint-placeholder-count="4">
+<li style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; padding: 12px 14px; border: 1px solid #DDE6F0; border-radius: 12px; background: #F8FAFD;">
+<div style="flex: 1 1 380px; min-width: 0; font-size: 14px; line-height: 1.5;"><strong>{{a.who}}</strong><br><span style="color: #2C3A55;">{{a.why}}</span></div>
+<button type="button" aria-label="Undo the link for {{a.who}}" style="min-height: 44px; padding: 0 16px; border-radius: 22px; border: 1px solid #CBD7E4; background: #FFFFFF; color: #1C56B0; font-size: 14px; font-weight: 600;">Undo this link</button>
+</li>
+</sc-for>
+</ul>
+</sc-if>
+</section>
+
+<section style="margin-left: 46px; background: #FFFFFF; border: 1px solid #DDE6F0; border-radius: 16px; padding: 20px; display: flex; flex-direction: column; gap: 14px;">
+<sc-if value="{{notConfirmed}}" hint-placeholder-val="{{ true }}">
+<div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px;">
+<div style="font-size: 15px; line-height: 1.55; color: #2C3A55; max-width: 600px;">{{confirmText}}</div>
+<sc-if value="{{canConfirm}}" hint-placeholder-val="{{ false }}"><button type="button" onClick="{{confirm}}" style="min-height: 44px; padding: 0 24px; border-radius: 22px; border: 1px solid #1C56B0; background: #1C56B0; color: #FFFFFF; font-size: 16px; font-weight: 600;">Confirm and load</button></sc-if>
+<sc-if value="{{cannotConfirm}}" hint-placeholder-val="{{ true }}"><span style="display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 0 24px; border-radius: 22px; border: 1px solid #CBD7E4; background: #EAF0F7; color: #4F5D75; font-size: 16px; font-weight: 600;">Answer the questions first</span></sc-if>
+</div>
+</sc-if>
+<sc-if value="{{confirmed}}" hint-placeholder-val="{{ false }}">
+<div role="status" style="display: flex; flex-direction: column; gap: 12px;">
+<div style="font-size: 18px; font-weight: 800; color: #0F4F33;">Loaded. 588 households, 1,402 people and 6,214 payments are in Weaver.</div>
+<div style="font-size: 15px; line-height: 1.55; color: #2C3A55;">Import run #7. You can undo this whole load until 8 November 2026. Every record it touched is in the audit log with the run number and the file.</div>
+<div style="display: flex; flex-wrap: wrap; gap: 10px;">
+<a href="Ready.dc.html" style="display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 0 22px; border-radius: 22px; border: 1px solid #1C56B0; background: #1C56B0; color: #FFFFFF; font-size: 15px; font-weight: 600;">Continue to what is next</a>
+<button type="button" style="min-height: 44px; padding: 0 18px; border-radius: 22px; border: 1px solid #B3261E; background: #FFFFFF; color: #7A1912; font-size: 14px; font-weight: 600;">Undo this load</button>
+</div>
+</div>
+</sc-if>
+</section>
+
+<div style="margin-top: auto; display: flex; align-items: center; gap: 10px; padding: 8px 8px 8px 18px; background: #FFFFFF; border: 1px solid #CBD7E4; border-radius: 28px;">
+<input type="text" aria-label="Ask Niva about this load" placeholder="Ask Niva, for example: why were these two households not linked automatically?" style="flex: 1; min-height: 44px; border: 0; outline: 0; background: transparent; font-size: 15px; color: #12203A;">
+<button type="button" aria-label="Send" style="flex: none; width: 44px; height: 44px; border-radius: 22px; border: 0; background: #1C56B0; color: #FFFFFF; display: flex; align-items: center; justify-content: center;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"></path><path d="M13 6l6 6-6 6"></path></svg></button>
+</div>
+
+</main>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":2300}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { ans: 0, rule: false, showAuto: false, confirmed: false };
+  }
+  renderVals() {
+    const s = this.state;
+    const cur = 3;
+    const sdefs = [
+      ['Choose how', 'Drop it, connect it or use a template'],
+      ['Bring it in', 'Niva reads it and asks only what it must'],
+      ['Review', 'See exactly what will happen'],
+      ['Ready', 'Make it good, then switch over']
+    ];
+    const navSteps = sdefs.map((d, i) => {
+      const n = i + 1;
+      const st = n < cur ? 'done' : n === cur ? 'now' : 'todo';
+      return {
+        n, title: d[0], sub: d[1], done: st === 'done', now: st === 'now', todo: st === 'todo',
+        bg: st === 'now' ? '#E8F1FC' : 'transparent', bd: st === 'now' ? '#BBD3F2' : 'transparent',
+        tfg: st === 'todo' ? '#4F5D75' : st === 'now' ? '#164690' : '#12203A', tw: st === 'now' ? '800' : '700'
+      };
+    });
+    const pairs = [
+      {
+        L: { from: 'From your spreadsheet', name: 'Doshi, Hemant & Pushpa', id: 'F-2210', connect: 'Issued when you confirm', primary: 'Hemant Doshi (P-4471)', members: 'Hemant, Pushpa', addr: '7 Lake Rd, Austin 78702', mobile: '(512) 555-0123', last: 'Nov 2, 2024 · $501.00', balance: '$0.00' },
+        R: { from: 'From your Neon pull', name: 'Patel, Nirali', id: 'Neon account 3305', connect: 'Issued when you confirm', primary: 'Nirali Patel (P-9120)', members: 'Nirali, and 1 child', addr: '7 Lake Rd, Austin 78702', mobile: '(512) 555-0123', last: 'Mar 9, 2023 · $101.00', balance: '$0.00' },
+        evidence: [
+          { tag: 'Same', fg: '#0F4F33', text: 'mobile number ending 0123' },
+          { tag: 'Same', fg: '#0F4F33', text: 'street address, 7 Lake Rd' },
+          { tag: 'Different', fg: '#A8400D', text: 'surname: Doshi and Patel' },
+          { tag: 'Different', fg: '#A8400D', text: 'email address, and no overlap between the adults\' first names' }
+        ],
+        suggestion: 'I cannot tell. A shared mobile and address with different surnames is usually a parent and a married daughter living together, who are often best kept as two households that share a phone. I would keep them separate, linked as relatives.'
+      },
+      {
+        L: { from: 'From your spreadsheet', name: 'Shah, Jayesh', id: 'F-1180', connect: 'Issued when you confirm', primary: 'Jayesh Shah (P-3302)', members: 'Jayesh, Rekha, and 1 child', addr: '22 Cedar Ln, Austin 78703', mobile: '(512) 555-0188', last: 'Oct 12, 2024 · $251.00', balance: '$0.00' },
+        R: { from: 'From your Neon pull', name: 'Shah Family', id: 'Neon account 2290', connect: 'Issued when you confirm', primary: 'Mahesh Shah (P-5207)', members: 'Mahesh, Sunita', addr: '410 Ridge Ct, Round Rock 78664', mobile: '(512) 555-0166', last: 'Jun 1, 2022 · $51.00', balance: '$0.00' },
+        evidence: [
+          { tag: 'Same', fg: '#0F4F33', text: 'surname: Shah' },
+          { tag: 'Different', fg: '#A8400D', text: 'street address and city' },
+          { tag: 'Different', fg: '#A8400D', text: 'mobile number and email address' },
+          { tag: 'Different', fg: '#A8400D', text: 'first names of every adult' }
+        ],
+        suggestion: 'These look like two different families who happen to share a common surname. Nothing but the surname agrees, so I would keep them separate.'
+      }
+    ];
+    const left = Math.max(0, 5 - s.ans);
+    const pair = pairs[s.ans % 2];
+    const decide = () => {
+      const take = s.rule && left > 1 ? left : 1;
+      this.setState({ ans: Math.min(5, s.ans + take), rule: false });
+    };
+    const recon = [
+      { title: 'All gifts, 2019 to 2025', body: 'Your spreadsheet adds up to $1,203,450.00. Weaver would hold $1,203,450.00 across 6,214 payments.', tag: 'Matches to the cent', bg: '#E3F5EA', fg: '#0F4F33' },
+      { title: 'Gifts found in two places', body: '1,711 of Neon\'s 1,904 donations are also in your spreadsheet (same family, date and amount). Each is loaded once, so nothing is counted twice.', tag: 'Loaded once', bg: '#E8F1FC', fg: '#164690' },
+      { title: 'QuickBooks deposits, FY2024', body: 'Deposits total $209,930.00 and gifts total $212,480.00, a difference of $2,550.00. Two checks dated December 28 were deposited on January 3.', tag: 'Explained', bg: '#E8F1FC', fg: '#164690' },
+      { title: 'Gifts with no family number', body: '38 gifts totalling $4,120.00 are waiting for you to match by hand. They are not counted in the match above.', tag: 'Needs a look', bg: '#FFF1E6', fg: '#A8400D' }
+    ];
+    const autos = [
+      { who: 'Mehta, Rakesh & Anita (F-1042) and Neon account 4374', why: 'Same mobile and same email, and the adults\' names fit (Rakesh and R. Mehta).' },
+      { who: 'Jhaveri, Nilesh & Pooja (F-1312) and Zeffy contact 88ac', why: 'Same email and same address, adults\' names agree.' },
+      { who: 'Kothari, Bharat & Usha (F-1420) and Neon account 2917', why: 'Same mobile, and "Bharat Kothari" appears in both.' },
+      { who: 'Desai, Kiran & Meena (F-1105) and QuickBooks customer 88', why: 'Same address and surname, and Kiran appears in both.' }
+    ];
+    const all = left === 0;
+    return {
+      cur, pct: (cur * 25) + '%', navSteps,
+      tiles: [
+        { v: '588', k: 'households to create' },
+        { v: '1,402', k: 'people to create' },
+        { v: '6,214', k: 'payments, $1,203,450.00' },
+        { v: '31', k: 'existing records to update' },
+        { v: '17', k: 'duplicates inside the files, skipped' }
+      ],
+      recon, askCount: 5,
+      L: pair.L, R: pair.R, evidence: pair.evidence, suggestion: pair.suggestion,
+      asking: !all, allAnswered: all,
+      leftText: all ? 'All answered' : 'Question ' + (s.ans + 1) + ' of 5',
+      leftFg: all ? '#0F4F33' : '#164690',
+      decideMerge: decide, decideSeparate: decide,
+      canRule: left > 1, others: left - 1, rule: s.rule,
+      swBg: s.rule ? '#17724A' : '#6B778C', swLeft: s.rule ? '18px' : '2px',
+      toggleRule: () => this.setState({ rule: !s.rule }),
+      showAuto: s.showAuto, autos,
+      autoLabel: s.showAuto ? 'Hide the list' : 'Show the list',
+      toggleAuto: () => this.setState({ showAuto: !s.showAuto }),
+      notConfirmed: !s.confirmed, confirmed: s.confirmed,
+      canConfirm: all, cannotConfirm: !all,
+      confirmText: all ? 'You have answered everything. When you confirm, Weaver saves the households, people and payments above as import run #7.' : left + (left === 1 ? ' question is' : ' questions are') + ' still waiting for you. Confirming is available once they are answered.',
+      confirm: () => this.setState({ confirmed: true })
+    };
+  }
+}
+</script>
+</body>
+</html>

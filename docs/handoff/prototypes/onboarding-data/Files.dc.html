@@ -1,0 +1,421 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Your own files, read by Niva</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=DM+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&family=Caveat:wght@500;600&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#F3F7FB}
+a{color:inherit;text-decoration:none}
+button{font-family:inherit;cursor:pointer}
+input{font-family:inherit}
+</style>
+</helmet>
+<div style="width: 1440px; min-height: 2700px; box-sizing: border-box; display: flex; flex-direction: column; background: #F3F7FB; font-family: 'DM Sans', system-ui, sans-serif; color: #12203A;">
+<div style="display: flex; justify-content: center; padding: 5px 0 4px; background: #FFFFFF;"><span style="background: #B3261E; color: #FFFFFF; border-radius: 10px; padding: 2px 10px; font-size: 10px; font-weight: 800; letter-spacing: 0.08em;">PROTOTYPE · SAMPLE DATA</span></div>
+<dc-import name="TopBar" hint-size="1440px,64px"></dc-import>
+<div style="display: flex; flex: 1; min-height: 0;">
+<dc-import name="Rail" active="settings" height="2630" hint-size="88px,2630px"></dc-import>
+
+<nav aria-label="Steps to bring your data in" style="width: 320px; flex: none; box-sizing: border-box; padding: 28px 22px; background: #FFFFFF; border-right: 1px solid #DDE6F0; display: flex; flex-direction: column; gap: 18px;">
+<div style="display: flex; flex-direction: column; gap: 6px;">
+<span style="font-size: 13px; color: #4F5D75;">Settings › Setup</span>
+<h1 style="margin: 0; font-family: 'Fraunces', Georgia, serif; font-weight: 600; font-size: 26px; line-height: 1.2; color: #12203A;">Bring your data in</h1>
+<span style="font-size: 13px; color: #4F5D75;">Step {{cur}} of 4</span>
+<div style="height: 8px; border-radius: 4px; background: #EAF0F7; overflow: hidden;"><div style="height: 8px; background: linear-gradient(90deg, #34C4CB, #2F8ED8, #6CC68F); width: {{pct}};"></div></div>
+</div>
+<ol style="list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px;">
+<sc-for list="{{navSteps}}" as="s" hint-placeholder-count="4">
+<li aria-current="{{s.now}}" style="display: flex; gap: 12px; padding: 12px; border-radius: 14px; background: {{s.bg}}; border: 1px solid {{s.bd}};">
+<sc-if value="{{s.done}}" hint-placeholder-val="{{ false }}"><span aria-hidden="true" style="flex: none; width: 26px; height: 26px; border-radius: 13px; background: #17724A; display: flex; align-items: center; justify-content: center;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4 10-10"></path></svg></span></sc-if>
+<sc-if value="{{s.now}}" hint-placeholder-val="{{ true }}"><span aria-hidden="true" style="flex: none; width: 26px; height: 26px; border-radius: 13px; background: #1C56B0; color: #FFFFFF; font-size: 13px; font-weight: 800; display: flex; align-items: center; justify-content: center;">{{s.n}}</span></sc-if>
+<sc-if value="{{s.todo}}" hint-placeholder-val="{{ false }}"><span aria-hidden="true" style="flex: none; width: 26px; height: 26px; border-radius: 13px; border: 2px solid #9FB0C6; box-sizing: border-box; color: #4F5D75; font-size: 12px; font-weight: 800; display: flex; align-items: center; justify-content: center;">{{s.n}}</span></sc-if>
+<span style="display: flex; flex-direction: column; gap: 2px;"><span style="font-size: 14px; font-weight: {{s.tw}}; color: {{s.tfg}};">{{s.title}}</span><span style="font-size: 12px; line-height: 1.4; color: #4F5D75;">{{s.sub}}</span></span>
+</li>
+</sc-for>
+</ol>
+<a href="Main.dc.html" style="display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 0 18px; border-radius: 22px; border: 1px solid #1C56B0; background: #FFFFFF; color: #1C56B0; font-size: 14px; font-weight: 600;">Back to all ways in</a>
+<div style="padding: 14px; border-radius: 14px; background: #F8FAFD; border: 1px solid #DDE6F0; display: flex; flex-direction: column; gap: 6px;">
+<div style="font-size: 12px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #1C56B0;">Messy files I can handle</div>
+<ul style="margin: 0; padding-left: 18px; font-size: 12px; line-height: 1.6; color: #2C3A55;">
+<li>Headings on row 4, or two rows of headings</li>
+<li>One tab per year, or years across the columns</li>
+<li>Subtotals and TOTAL rows in the middle</li>
+<li>Husband, wife and kids in one row</li>
+<li>Dates, amounts and phones in mixed styles</li>
+<li>Names in Gujarati or Hindi script</li>
+</ul>
+</div>
+<div style="margin-top: auto; display: flex; flex-direction: column; gap: 10px;">
+<div style="padding: 12px 14px; background: #F8FAFD; border: 1px solid #DDE6F0; border-radius: 14px; font-size: 12px; line-height: 1.55; color: #2C3A55;">Nothing is saved until you confirm. A load can be undone for 30 days.</div>
+<div style="padding: 12px 14px; background: #FFF1E6; border-radius: 14px; font-size: 12px; line-height: 1.55; color: #5C2A0B;"><b>Children.</b> Nothing about anyone under 18 is ever sent to an AI service.</div>
+</div>
+</nav>
+
+<main style="flex: 1; min-width: 0; padding: 26px 36px 22px; display: flex; flex-direction: column; gap: 18px;">
+
+<div style="align-self: flex-end; max-width: 520px; padding: 12px 16px; background: #1C56B0; color: #FFFFFF; border-radius: 18px 18px 4px 18px; font-size: 15px; line-height: 1.5;">{{userSays}}</div>
+
+<div style="display: flex; gap: 12px; align-items: flex-start;">
+<span aria-hidden="true" style="flex: none; width: 34px; height: 34px; border-radius: 17px; background: linear-gradient(135deg, #FFB82A, #FF7640); color: #12203A; display: flex; align-items: center; justify-content: center;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"></path></svg></span>
+<div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 12px;">
+<div style="max-width: 760px; padding: 14px 18px; background: #FFFFFF; border: 1px solid #DDE6F0; border-radius: 4px 18px 18px 18px; font-size: 15px; line-height: 1.6;">{{intro}}</div>
+<div role="tablist" aria-label="Kind of file" style="display: flex; flex-wrap: wrap; gap: 8px;">
+<button type="button" role="tab" aria-selected="{{isSheet}}" onClick="{{showSheet}}" style="min-height: 44px; padding: 0 20px; border-radius: 22px; border: 1px solid #1C56B0; font-size: 15px; font-weight: 600; background: {{sheetBg}}; color: {{sheetFg}};">A spreadsheet</button>
+<button type="button" role="tab" aria-selected="{{isPhoto}}" onClick="{{showPhoto}}" style="min-height: 44px; padding: 0 20px; border-radius: 22px; border: 1px solid #1C56B0; font-size: 15px; font-weight: 600; background: {{photoBg}}; color: {{photoFg}};">A photo or PDF of paper</button>
+</div>
+</div>
+</div>
+
+<sc-if value="{{isSheet}}" hint-placeholder-val="{{ true }}">
+<div style="margin-left: 46px; display: flex; flex-direction: column; gap: 18px;">
+
+<section style="background: #FFFFFF; border: 1px solid #DDE6F0; border-radius: 16px; padding: 20px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px;">
+<div style="display: flex; flex-direction: column; gap: 4px;">
+<span style="font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 15px;">Giving_2019-2025_master.xlsx</span>
+<span style="font-size: 14px; color: #4F5D75;">7 sheets · 4,812 rows · edited by your treasurer · read in 3 seconds</span>
+</div>
+<div role="status" style="padding: 8px 14px; border-radius: 16px; font-size: 14px; font-weight: 800; background: {{qBg}}; color: {{qFg}};">{{qText}}</div>
+</section>
+
+<section aria-labelledby="found-title" style="display: flex; flex-direction: column; gap: 10px;">
+<h2 id="found-title" style="margin: 0; font-family: 'Fraunces', Georgia, serif; font-weight: 600; font-size: 21px;">What I found in the file</h2>
+<ul style="list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px;">
+<sc-for list="{{sheets}}" as="sh" hint-placeholder-count="4">
+<li style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; padding: 14px 16px; border: 1px solid #DDE6F0; border-radius: 12px; background: #FFFFFF;">
+<div style="flex: 1 1 380px; min-width: 0; display: flex; flex-direction: column; gap: 2px;"><span style="font-size: 15px; font-weight: 700;">{{sh.name}}</span><span style="font-size: 14px; line-height: 1.5; color: #2C3A55;">{{sh.says}}</span></div>
+<span style="padding: 3px 12px; border-radius: 12px; font-size: 12px; font-weight: 700; background: {{sh.bg}}; color: {{sh.fg}};">{{sh.tag}}</span>
+</li>
+</sc-for>
+</ul>
+</section>
+
+<section aria-labelledby="recipe-title" style="background: #FFFFFF; border: 1px solid #DDE6F0; border-radius: 16px; padding: 20px; display: flex; flex-direction: column; gap: 12px;">
+<div style="display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px;">
+<h2 id="recipe-title" style="margin: 0; font-family: 'Fraunces', Georgia, serif; font-weight: 600; font-size: 21px;">How I will load it</h2>
+<span style="padding: 2px 10px; border-radius: 12px; background: #FFF1E6; color: #A8400D; font-size: 12px; font-weight: 700;">Drafted by Niva</span>
+<span style="font-size: 14px; color: #4F5D75;">My recipe in plain words. Weaver's code runs the same steps on every row. Skip or change any step.</span>
+</div>
+<ol style="list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px;">
+<sc-for list="{{recipe}}" as="r" hint-placeholder-count="6">
+<li style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; padding: 12px 14px; border-radius: 12px; background: #F8FAFD; border: 1px solid #DDE6F0;">
+<span aria-hidden="true" style="flex: none; width: 28px; height: 28px; border-radius: 14px; background: #FFF1E6; color: #A8400D; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 800;">{{r.n}}</span>
+<div style="flex: 1 1 360px; min-width: 0; display: flex; flex-direction: column; gap: 2px;"><span style="font-size: 15px; line-height: 1.5; color: {{r.fg}};">{{r.text}}</span><span style="font-size: 13px; line-height: 1.45; color: #4F5D75;">{{r.why}}</span></div>
+<button type="button" onClick="{{r.toggle}}" aria-pressed="{{r.skipped}}" aria-label="{{r.btnLabel}}" style="min-height: 44px; padding: 0 14px; border-radius: 22px; border: 1px solid #CBD7E4; background: #FFFFFF; color: #1C56B0; font-size: 14px; font-weight: 600;">{{r.btn}}</button>
+</li>
+</sc-for>
+</ol>
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 10px;">
+<button type="button" style="min-height: 44px; padding: 0 16px; border-radius: 22px; border: 1px solid #1C56B0; background: #FFFFFF; color: #1C56B0; font-size: 14px; font-weight: 600;">Save this recipe for next month's top-up</button>
+<span style="font-size: 13px; color: #4F5D75;">Saved recipes are reused for the same kind of file, so top-ups need no new questions.</span>
+</div>
+</section>
+
+<section aria-labelledby="cols-title" style="background: #FFFFFF; border: 1px solid #DDE6F0; border-radius: 16px; padding: 20px; display: flex; flex-direction: column; gap: 12px;">
+<h2 id="cols-title" style="margin: 0; font-family: 'Fraunces', Georgia, serif; font-weight: 600; font-size: 21px;">How your columns match</h2>
+<div style="overflow-x: auto;">
+<table style="width: 100%; min-width: 640px; border-collapse: collapse; font-size: 14px;">
+<thead><tr style="text-align: left; color: #4F5D75; font-size: 12px; letter-spacing: 0.04em; text-transform: uppercase;"><th style="padding: 8px 10px; border-bottom: 1px solid #DDE6F0;">Your column</th><th style="padding: 8px 10px; border-bottom: 1px solid #DDE6F0;">Becomes</th><th style="padding: 8px 10px; border-bottom: 1px solid #DDE6F0;">How sure I am</th><th style="padding: 8px 10px; border-bottom: 1px solid #DDE6F0;">What I was shown</th></tr></thead>
+<tbody>
+<sc-for list="{{cols}}" as="c" hint-placeholder-count="8">
+<tr><td style="padding: 10px; border-bottom: 1px solid #EAF0F7; font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 13px;">{{c.from}}</td><td style="padding: 10px; border-bottom: 1px solid #EAF0F7; font-weight: 700;">{{c.to}}</td><td style="padding: 10px; border-bottom: 1px solid #EAF0F7;"><span style="padding: 2px 10px; border-radius: 12px; font-size: 12px; font-weight: 700; background: {{c.bg}}; color: {{c.fg}};">{{c.sure}}</span></td><td style="padding: 10px; border-bottom: 1px solid #EAF0F7; font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 13px; color: #4F5D75;">{{c.sample}}</td></tr>
+</sc-for>
+</tbody>
+</table>
+</div>
+</section>
+
+<section aria-labelledby="q-title" style="background: #FFFFFF; border: 2px solid #1C56B0; border-radius: 16px; padding: 20px; display: flex; flex-direction: column; gap: 20px;">
+<h2 id="q-title" style="margin: 0; font-family: 'Fraunces', Georgia, serif; font-weight: 600; font-size: 21px;">Two things I cannot tell</h2>
+
+<div style="display: flex; flex-direction: column; gap: 10px;">
+<h3 style="margin: 0; font-size: 16px; font-weight: 800;">1. Which fund does each code in "Type" go to?</h3>
+<p style="margin: 0; font-size: 14px; line-height: 1.5; color: #2C3A55;">I guessed from the amounts and the notes. Change any that are wrong, then confirm.</p>
+<div style="display: grid; grid-template-columns: minmax(150px, auto) repeat(4, minmax(0, 1fr)); gap: 8px; align-items: center; min-width: 0;">
+<sc-for list="{{fundCells}}" as="x" hint-placeholder-count="20">
+<div style="min-width: 0;">
+<sc-if value="{{x.isLabel}}" hint-placeholder-val="{{ false }}"><div style="font-size: 14px;"><span style="font-family: 'JetBrains Mono', ui-monospace, monospace; font-weight: 500;">{{x.code}}</span><span style="color: #4F5D75;"> · {{x.count}}</span></div></sc-if>
+<sc-if value="{{x.isPill}}" hint-placeholder-val="{{ true }}"><button type="button" onClick="{{x.pick}}" aria-pressed="{{x.on}}" style="width: 100%; min-height: 44px; padding: 4px 8px; border-radius: 14px; border: 1px solid #1C56B0; font-size: 13px; font-weight: 600; background: {{x.bg}}; color: {{x.fg}};">{{x.label}}</button></sc-if>
+</div>
+</sc-for>
+</div>
+<div><button type="button" onClick="{{confirmFunds}}" aria-pressed="{{q1}}" style="min-height: 44px; padding: 0 18px; border-radius: 22px; border: 1px solid #1C56B0; font-size: 14px; font-weight: 600; background: {{q1Bg}}; color: {{q1Fg}};">{{q1Label}}</button></div>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 10px;">
+<h3 style="margin: 0; font-size: 16px; font-weight: 800;">2. 38 gifts have no family number. What should I do with them?</h3>
+<div role="radiogroup" aria-label="What to do with gifts that have no family number" style="display: flex; flex-direction: column; gap: 8px;">
+<sc-for list="{{noFam}}" as="o" hint-placeholder-count="3">
+<button type="button" role="radio" aria-checked="{{o.on}}" onClick="{{o.pick}}" style="text-align: left; display: flex; gap: 12px; align-items: flex-start; padding: 12px 14px; border-radius: 12px; font-size: 15px; background: {{o.bg}}; border: 2px solid {{o.bd}}; color: #12203A;">
+<span aria-hidden="true" style="flex: none; width: 20px; height: 20px; margin-top: 2px; border-radius: 10px; border: 2px solid #1C56B0; background: {{o.dot}};"></span>
+<span style="display: flex; flex-direction: column; gap: 2px;"><span style="font-weight: 700;">{{o.title}}</span><span style="font-size: 14px; line-height: 1.5; color: #2C3A55;">{{o.body}}</span></span>
+</button>
+</sc-for>
+</div>
+</div>
+</section>
+
+<section aria-labelledby="ba-title" style="background: #FFFFFF; border: 1px solid #DDE6F0; border-radius: 16px; padding: 20px; display: flex; flex-direction: column; gap: 12px;">
+<div style="display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px;">
+<h2 id="ba-title" style="margin: 0; font-family: 'Fraunces', Georgia, serif; font-weight: 600; font-size: 21px;">What it will look like in Weaver</h2>
+<span style="font-size: 14px; color: #4F5D75;">Shown to you only. The Kids column is read by Weaver's own code; I never see it.</span>
+</div>
+<div style="display: flex; flex-direction: column; gap: 14px;">
+<sc-for list="{{before}}" as="b" hint-placeholder-count="2">
+<div style="display: flex; gap: 10px; align-items: stretch;">
+<div style="flex: 1; min-width: 0; padding: 12px 14px; border-radius: 12px; background: #F8FAFD; border: 1px solid #DDE6F0;"><div style="font-size: 12px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #4F5D75; margin-bottom: 6px;">Your row</div><div style="font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 12.5px; line-height: 1.6; color: #12203A; white-space: pre-line;">{{b.src}}</div></div>
+<div style="flex: 1; min-width: 0; padding: 12px 14px; border-radius: 12px; background: #E3F5EA; border: 1px solid #BFE6CD;"><div style="font-size: 12px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #0F4F33; margin-bottom: 6px;">In Weaver</div><div style="font-size: 14px; line-height: 1.55; color: #12203A;">{{b.out}}</div></div>
+</div>
+</sc-for>
+</div>
+</section>
+
+<section style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 18px 20px; background: #FFFFFF; border: 1px solid #DDE6F0; border-radius: 16px;">
+<div style="font-size: 14px; line-height: 1.5; color: #2C3A55; max-width: 560px;">{{footText}}</div>
+<sc-if value="{{ready}}" hint-placeholder-val="{{ false }}"><a href="Review.dc.html" style="display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 0 22px; border-radius: 22px; border: 1px solid #1C56B0; background: #1C56B0; color: #FFFFFF; font-size: 15px; font-weight: 600;">Preview the load</a></sc-if>
+<sc-if value="{{notReady}}" hint-placeholder-val="{{ true }}"><span style="display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 0 22px; border-radius: 22px; border: 1px solid #CBD7E4; background: #EAF0F7; color: #4F5D75; font-size: 15px; font-weight: 600;">Answer the questions to continue</span></sc-if>
+</section>
+
+</div>
+</sc-if>
+
+<sc-if value="{{isPhoto}}" hint-placeholder-val="{{ false }}">
+<div style="margin-left: 46px; display: flex; flex-direction: column; gap: 18px;">
+
+<section style="background: #FFFFFF; border: 1px solid #DDE6F0; border-radius: 16px; padding: 20px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px;">
+<div style="display: flex; flex-direction: column; gap: 4px;">
+<span style="font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 15px;">directory-2019-page-14.jpg</span>
+<span style="font-size: 14px; color: #4F5D75;">Photo of a printed member list · 26 rows</span>
+</div>
+<div role="status" style="padding: 8px 14px; border-radius: 16px; font-size: 14px; font-weight: 800; background: {{pBg}}; color: {{pFg}};">{{pText}}</div>
+</section>
+
+<div style="padding: 14px 18px; border-radius: 14px; background: #E3F5EA; display: flex; gap: 12px; align-items: flex-start;">
+<svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#17724A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex: none; margin-top: 1px;"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"></path></svg>
+<div style="font-size: 14px; line-height: 1.6; color: #0F4F33;"><strong>Read on Weaver's own servers.</strong> No AI service sees this photo. A line that looks like a child's name or age is kept out of anything I am shown; you can type those in, or load them from a spreadsheet.</div>
+</div>
+
+<div style="display: flex; gap: 18px; align-items: flex-start;">
+<section aria-label="The page as photographed" style="flex: 1; min-width: 0; padding: 18px; border-radius: 14px; background: #E5EBF3; border: 1px solid #CBD7E4;">
+<div style="background: #FFFFFF; border-radius: 4px; padding: 18px 16px; box-shadow: 0 2px 8px rgba(18, 32, 58, 0.18); display: flex; flex-direction: column; gap: 4px;">
+<div style="font-family: 'Fraunces', Georgia, serif; font-size: 15px; color: #2C3A55; border-bottom: 1px solid #CBD7E4; padding-bottom: 6px; margin-bottom: 4px;">Member directory 2019 · page 14</div>
+<sc-for list="{{lines}}" as="l" hint-placeholder-count="6">
+<button type="button" onClick="{{l.pick}}" aria-pressed="{{l.on}}" style="text-align: left; min-height: 44px; padding: 4px 8px; border-radius: 6px; border: 1px solid {{l.bd}}; background: {{l.bg}}; font-family: 'Caveat', cursive; font-size: 22px; line-height: 1.2; color: #164690;">{{l.a}}<span style="text-decoration: underline wavy #FF7640; text-underline-offset: 4px;">{{l.b}}</span>{{l.c}}</button>
+</sc-for>
+</div>
+</section>
+
+<section aria-label="What I read" style="flex: 1.4; min-width: 0; background: #FFFFFF; border: 1px solid #DDE6F0; border-radius: 16px; padding: 20px; display: flex; flex-direction: column; gap: 12px;">
+<h2 style="margin: 0; font-family: 'Fraunces', Georgia, serif; font-weight: 600; font-size: 21px;">What was read</h2>
+<div style="overflow-x: auto;">
+<table style="width: 100%; min-width: 520px; border-collapse: collapse; font-size: 14px;">
+<thead><tr style="text-align: left; color: #4F5D75; font-size: 12px; letter-spacing: 0.04em; text-transform: uppercase;"><th style="padding: 8px 8px; border-bottom: 1px solid #DDE6F0;">Family</th><th style="padding: 8px 8px; border-bottom: 1px solid #DDE6F0;">Adults</th><th style="padding: 8px 8px; border-bottom: 1px solid #DDE6F0;">Address</th><th style="padding: 8px 8px; border-bottom: 1px solid #DDE6F0;">Phone</th><th style="padding: 8px 8px; border-bottom: 1px solid #DDE6F0;">Check</th></tr></thead>
+<tbody>
+<sc-for list="{{rows}}" as="r" hint-placeholder-count="6">
+<tr style="background: {{r.bg}};"><td style="padding: 10px 8px; border-bottom: 1px solid #EAF0F7; font-weight: 700;">{{r.fam}}</td><td style="padding: 10px 8px; border-bottom: 1px solid #EAF0F7;">{{r.people}}</td><td style="padding: 10px 8px; border-bottom: 1px solid #EAF0F7;">{{r.addr}}</td><td style="padding: 10px 8px; border-bottom: 1px solid #EAF0F7; font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 13px;">{{r.phone}}</td><td style="padding: 10px 8px; border-bottom: 1px solid #EAF0F7;"><span style="padding: 2px 10px; border-radius: 12px; font-size: 12px; font-weight: 700; background: {{r.stBg}}; color: {{r.stFg}};">{{r.st}}</span></td></tr>
+</sc-for>
+</tbody>
+</table>
+</div>
+<div style="padding: 14px; border-radius: 12px; background: #E8F1FC; display: flex; flex-direction: column; gap: 10px;">
+<div style="font-size: 12px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #164690;">Row {{selN}}</div>
+<div style="font-size: 15px; line-height: 1.55; color: #12203A;">{{selText}}</div>
+<sc-if value="{{selHasOptions}}" hint-placeholder-val="{{ true }}">
+<div style="display: flex; flex-wrap: wrap; gap: 8px;">
+<sc-for list="{{selOptions}}" as="o" hint-placeholder-count="2">
+<button type="button" onClick="{{o.pick}}" aria-pressed="{{o.on}}" style="min-height: 44px; padding: 0 16px; border-radius: 22px; border: 1px solid #1C56B0; font-size: 14px; font-weight: 600; background: {{o.bg}}; color: {{o.fg}};">{{o.label}}</button>
+</sc-for>
+</div>
+</sc-if>
+</div>
+</section>
+</div>
+
+<section style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 18px 20px; background: #FFFFFF; border: 1px solid #DDE6F0; border-radius: 16px;">
+<div style="font-size: 14px; line-height: 1.5; color: #2C3A55; max-width: 560px;">Printed lists read well; handwriting is harder. Anything less than 90% sure is marked. Rows you do not touch load as read, and a phone number that could not be read stays empty.</div>
+<div style="display: flex; flex-wrap: wrap; gap: 10px;">
+<button type="button" style="min-height: 44px; padding: 0 18px; border-radius: 22px; border: 1px solid #1C56B0; background: #FFFFFF; color: #1C56B0; font-size: 14px; font-weight: 600;">Add another page</button>
+<a href="Review.dc.html" style="display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 0 22px; border-radius: 22px; border: 1px solid #1C56B0; background: #1C56B0; color: #FFFFFF; font-size: 15px; font-weight: 600;">Add these 26 rows to the load</a>
+</div>
+</section>
+
+</div>
+</sc-if>
+
+<div style="margin-top: auto; display: flex; align-items: center; gap: 10px; padding: 8px 8px 8px 18px; background: #FFFFFF; border: 1px solid #CBD7E4; border-radius: 28px;">
+<input type="text" aria-label="Ask Niva about this file" placeholder="Ask Niva, for example: why did you read these dates month first?" style="flex: 1; min-height: 44px; border: 0; outline: 0; background: transparent; font-size: 15px; color: #12203A;">
+<button type="button" aria-label="Send" style="flex: none; width: 44px; height: 44px; border-radius: 22px; border: 0; background: #1C56B0; color: #FFFFFF; display: flex; align-items: center; justify-content: center;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"></path><path d="M13 6l6 6-6 6"></path></svg></button>
+</div>
+
+</main>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":2700}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = {
+      view: 'sheet',
+      skip: {},
+      funds: { Gen: 0, Ann: 1, Bld: 2, Mem: 3 },
+      q1: false,
+      q2: '',
+      sel: 2,
+      res: {}
+    };
+  }
+  renderVals() {
+    const s = this.state;
+    const cur = 2;
+    const sdefs = [
+      ['Choose how', 'Drop it, connect it or use a template'],
+      ['Bring it in', 'Niva reads it and asks only what it must'],
+      ['Review', 'See exactly what will happen'],
+      ['Ready', 'Make it good, then switch over']
+    ];
+    const navSteps = sdefs.map((d, i) => {
+      const n = i + 1;
+      const st = n < cur ? 'done' : n === cur ? 'now' : 'todo';
+      return {
+        n, title: d[0], sub: d[1], done: st === 'done', now: st === 'now', todo: st === 'todo',
+        bg: st === 'now' ? '#E8F1FC' : 'transparent', bd: st === 'now' ? '#BBD3F2' : 'transparent',
+        tfg: st === 'todo' ? '#4F5D75' : st === 'now' ? '#164690' : '#12203A', tw: st === 'now' ? '800' : '700'
+      };
+    });
+
+    // ---- spreadsheet view
+    const tag = (t) => (t === 'Left out' ? { bg: '#EAF0F7', fg: '#2C3A55' } : t === 'Funds' ? { bg: '#FFF1E6', fg: '#A8400D' } : { bg: '#E8F1FC', fg: '#164690' });
+    const sheets = [
+      { name: '2019, 2020 … 2025 (7 tabs)', says: 'Gifts, one row per gift, the same columns every year. I will stack them into one list.', tag: 'Giving history' },
+      { name: 'Members', says: 'One row per family. Husband, Wife and Kids are in separate columns, so they are split into people.', tag: 'People and households' },
+      { name: 'Fund codes', says: 'A small lookup table: Gen, Ann, Bld, Mem. This tells me what the "Type" column means.', tag: 'Funds' },
+      { name: 'Notes (hidden tab)', says: 'No records. I will leave it out and keep it as an attachment on the import, in case you want it later.', tag: 'Left out' }
+    ].map((x) => Object.assign({}, x, tag(x.tag)));
+    const recipeDefs = [
+      { text: 'Stack the 7 yearly tabs into one list of gifts, taking the year from the tab name when a date is missing.', why: '4,812 rows become 4,805 gifts; 7 TOTAL rows are ignored.' },
+      { text: 'Read dates month first.', why: 'I checked: 1,204 dates have a number above 12 in the second place, and none in the first.' },
+      { text: 'Turn amounts like "$1,250.00" into dollars and cents, and keep every total to the cent.', why: 'The sum of all gifts will be compared with the sum in your file.' },
+      { text: 'Create one household for each row in Members, and link gifts to it with the "Fam #" column.', why: 'Matches 586 of 588 families. The 2 that do not match are listed on the review screen.' },
+      { text: 'Split Husband, Wife and Kids into separate people with their roles, and work out who is a minor from birth dates.', why: 'Done by Weaver\'s own code. The Kids and birth-date columns are never shown to me.' },
+      { text: 'Keep "Remarks" as a note on each gift, and "Check #" as text so leading zeros survive.', why: 'Nothing in your file is thrown away.' }
+    ];
+    const recipe = recipeDefs.map((r, i) => {
+      const sk = !!s.skip[i];
+      return {
+        n: i + 1, text: r.text, why: sk ? 'Skipped. Nothing will be done for this step.' : r.why,
+        fg: sk ? '#6B778C' : '#12203A', skipped: sk,
+        btn: sk ? 'Put it back' : 'Skip',
+        btnLabel: (sk ? 'Put back step ' : 'Skip step ') + (i + 1),
+        toggle: () => { const k = Object.assign({}, s.skip); k[i] = !sk; this.setState({ skip: k }); }
+      };
+    });
+    const sure = (p) => (p >= 95 ? { bg: '#E3F5EA', fg: '#0F4F33' } : p >= 85 ? { bg: '#E8F1FC', fg: '#164690' } : { bg: '#FFF1E6', fg: '#A8400D' });
+    const colDefs = [
+      { from: 'Fam #', to: 'Family ID', p: 99, sample: 'F-••42' },
+      { from: 'Donor', to: 'Payer name (kept, not used to match)', p: 97, sample: 'M••••• ••••' },
+      { from: 'Date', to: 'Payment date', p: 99, sample: '••/••/2021' },
+      { from: 'Amt', to: 'Amount', p: 99, sample: '$•,•50.00' },
+      { from: 'Type', to: 'Fund', p: 60, sample: 'Gen, Ann, Bld, Mem' },
+      { from: 'Mode', to: 'Method', p: 82, sample: 'Chq, Cash, Zel' },
+      { from: 'Remarks', to: 'Note on the gift', p: 96, sample: '"D••••• ••••"' }
+    ];
+    const cols = colDefs.map((c) => Object.assign({}, sure(c.p), { from: c.from, to: c.to, sample: c.sample, sure: (c.p < 85 ? 'Check this · ' : '') + c.p + '%' }));
+    cols.push({ from: 'Kids, Kid DOB', to: 'Children in the family', bg: '#EAF0F7', fg: '#2C3A55', sure: 'Read by Weaver\'s code', sample: 'Not shown to me' });
+    const fundNames = ['General fund', 'Annadan (meals)', 'Temple building', 'Membership dues'];
+    const codes = [{ code: 'Gen', count: '1,982 gifts' }, { code: 'Ann', count: '1,144 gifts' }, { code: 'Bld', count: '903 gifts' }, { code: 'Mem', count: '776 gifts' }];
+    const fundCells = [];
+    codes.forEach((c) => {
+      fundCells.push({ isLabel: true, isPill: false, code: c.code, count: c.count, label: '', on: false, bg: '#FFFFFF', fg: '#1C56B0', pick: () => {} });
+      fundNames.forEach((f, fi) => {
+        const on = s.funds[c.code] === fi;
+        fundCells.push({
+          isLabel: false, isPill: true, code: '', count: '', label: f, on,
+          bg: on ? '#1C56B0' : '#FFFFFF', fg: on ? '#FFFFFF' : '#1C56B0',
+          pick: () => { const m = Object.assign({}, s.funds); m[c.code] = fi; this.setState({ funds: m, q1: false }); }
+        });
+      });
+    });
+    const noFamDefs = [
+      { id: 'list', title: 'List them for me to match by hand', body: 'They wait on the review screen with the payer name, date and amount. Nothing is guessed.' },
+      { id: 'anon', title: 'Load them as "Unassigned donor"', body: 'Totals still match your file. You can assign them later from the giving screen.' },
+      { id: 'skip', title: 'Leave them out', body: 'They stay in the file you uploaded, but not in Weaver. Totals will differ by their sum.' }
+    ];
+    const noFam = noFamDefs.map((o) => ({
+      title: o.title, body: o.body, on: s.q2 === o.id,
+      bg: s.q2 === o.id ? '#E8F1FC' : '#FFFFFF', bd: s.q2 === o.id ? '#1C56B0' : '#DDE6F0', dot: s.q2 === o.id ? '#1C56B0' : '#FFFFFF',
+      pick: () => this.setState({ q2: o.id })
+    }));
+    const left = (s.q1 ? 0 : 1) + (s.q2 ? 0 : 1);
+    const before = [
+      { src: 'F-1042 | Mehta Rakesh & Anita\n12 Oak St, Austin 78701\nKids: Riya (14), Arjun (9)', out: 'Household F-1042 with four people: Rakesh Mehta and Anita Mehta (spouse), and Riya and Arjun (children, minors). Connect number issued when you confirm.' },
+      { src: '11/02/2024 | F-1042 | $1,250.00\nBld | Chq 4512 | "Diwali"', out: 'Payment of $1,250.00 on November 2, 2024 to Temple building, by check 004512, note "Diwali". Marked as history, so it is never sent to QuickBooks.' }
+    ];
+
+    // ---- photo view
+    const rowsDef = [
+      { fam: 'Desai', people: 'Kiran and Meena', addr: '41 Pine Ct', phone: '512-555-0198', a: 'Desai, Kiran & Meena · 41 Pine Ct · 512-555-0198', b: '', c: '' },
+      { fam: 'Doshi', people: 'Hemant', addr: '7 Lake Rd', phone: '512-555-0123', a: 'Doshi, Hemant · 7 Lake Rd · 512-555-0123', b: '', c: '' },
+      { fam: 'Gandhi', people: 'Smita (Mrs.)', addr: '9 Elm Ave', phone: '512-555-01?8', a: 'Gandhi, Smita (Mrs) · 9 Elm Ave · 512-555-01', b: '?', c: '8', opts: ['512-555-0178', '512-555-0198'], ask: 'The third digit from the end of this phone number could be a 7 or a 9.' },
+      { fam: 'Jhaveri', people: 'Nilesh and Pooja', addr: '118 Cedar Ln', phone: '512-555-0171', a: 'Jhaveri, Nilesh & Pooja · 118 Cedar Ln · 512-555-0171', b: '', c: '' },
+      { fam: 'Kothari', people: 'Bharat and Usha', addr: '2? Birch Way', phone: '512-555-0112', a: 'Kothari, Bharat & Usha · ', b: '2?', c: ' Birch Way · 512-555-0112', opts: ['22 Birch Way', '27 Birch Way'], ask: 'The house number could be 22 or 27. Nothing else on the page settles it.' },
+      { fam: 'Maru', people: 'Dilip', addr: '63 Mesa Dr', phone: '512-555-0144', a: 'Maru, Dilip · 63 Mesa Dr · 512-555-0144', b: '', c: '' }
+    ];
+    const bad = (i) => !!rowsDef[i].opts && !s.res[i];
+    const lines = rowsDef.map((r, i) => ({
+      n: i + 1, a: r.a, b: r.b, c: r.c, on: s.sel === i,
+      bd: s.sel === i ? '#1C56B0' : 'transparent', bg: s.sel === i ? '#E8F1FC' : 'transparent',
+      pick: () => this.setState({ sel: i })
+    }));
+    const rows = rowsDef.map((r, i) => {
+      const fixed = r.opts && s.res[i];
+      const phone = fixed && r.phone.indexOf('?') >= 0 ? s.res[i] : r.phone;
+      const addr = fixed && r.addr.indexOf('?') >= 0 ? s.res[i] : r.addr;
+      return {
+        fam: r.fam, people: r.people, addr, phone,
+        st: bad(i) ? 'Check this' : (fixed ? 'You confirmed' : 'Sure'),
+        stBg: bad(i) ? '#FFF1E6' : '#E3F5EA', stFg: bad(i) ? '#A8400D' : '#0F4F33',
+        bg: s.sel === i ? '#E8F1FC' : 'transparent'
+      };
+    });
+    const cur2 = rowsDef[s.sel];
+    const selOptions = (cur2.opts || []).map((o) => ({
+      label: o, on: s.res[s.sel] === o,
+      bg: s.res[s.sel] === o ? '#1C56B0' : '#FFFFFF', fg: s.res[s.sel] === o ? '#FFFFFF' : '#1C56B0',
+      pick: () => { const m = Object.assign({}, s.res); m[s.sel] = o; this.setState({ res: m }); }
+    }));
+    const unsure = rowsDef.filter((r, i) => bad(i)).length;
+    const selText = cur2.opts ? (s.res[s.sel] ? 'Thank you. I will use ' + s.res[s.sel] + '.' : cur2.ask + ' Which is right?') : 'Read clearly: 96% or better on every part. Nothing to check.';
+
+    return {
+      cur, pct: (cur * 25) + '%', navSteps,
+      userSays: s.view === 'sheet' ? 'Here is our giving spreadsheet.' : 'Here is a photo of an old printed directory page.',
+      intro: s.view === 'sheet'
+        ? 'Thanks. I read it, and you do not need to reshape anything. I worked out what is in each tab, wrote down how I will load it, and I have two questions I cannot answer myself. Nothing is saved.'
+        : 'Thanks. Printed lists read well, so I read it on Weaver\'s own servers, where no AI service sees it. I mark every part I am unsure of, and you only correct those.',
+      isSheet: s.view === 'sheet', isPhoto: s.view === 'photo',
+      showSheet: () => this.setState({ view: 'sheet' }), showPhoto: () => this.setState({ view: 'photo' }),
+      sheetBg: s.view === 'sheet' ? '#1C56B0' : '#FFFFFF', sheetFg: s.view === 'sheet' ? '#FFFFFF' : '#1C56B0',
+      photoBg: s.view === 'photo' ? '#1C56B0' : '#FFFFFF', photoFg: s.view === 'photo' ? '#FFFFFF' : '#1C56B0',
+      sheets, recipe, cols, fundCells, noFam, before,
+      q1: s.q1, q1Label: s.q1 ? 'Funds confirmed' : 'These are right', q1Bg: s.q1 ? '#17724A' : '#FFFFFF', q1Fg: s.q1 ? '#FFFFFF' : '#1C56B0',
+      confirmFunds: () => this.setState({ q1: true }),
+      qText: left === 0 ? 'Ready to preview' : left + (left === 1 ? ' question left' : ' questions left'),
+      qBg: left === 0 ? '#E3F5EA' : '#FFF1E6', qFg: left === 0 ? '#0F4F33' : '#A8400D',
+      ready: left === 0, notReady: left !== 0,
+      footText: left === 0 ? 'Nothing has been saved. The next screen shows exactly what will be created, updated and skipped.' : 'Nothing has been saved. Answer the questions above and I will show you exactly what will be created.',
+      pText: unsure === 0 ? '26 rows read · all checked' : '26 rows read · ' + (26 - unsure) + ' sure · ' + unsure + ' to check',
+      pBg: unsure === 0 ? '#E3F5EA' : '#FFF1E6', pFg: unsure === 0 ? '#0F4F33' : '#A8400D',
+      lines, rows, selN: s.sel + 1, selText, selHasOptions: !!cur2.opts, selOptions
+    };
+  }
+}
+</script>
+</body>
+</html>
