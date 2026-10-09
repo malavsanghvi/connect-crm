@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>How Niva works: levels and rules</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=DM+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#F3F7FB}
+</style>
+</helmet>
+<div style="width: 1440px; height: 1260px; box-sizing: border-box; padding: 48px 64px; display: flex; flex-direction: column; gap: 30px; background: #F3F7FB; font-family: 'DM Sans', system-ui, sans-serif; color: #12203A; overflow: hidden">
+  <header style="display: flex; align-items: center; gap: 20px">
+    <svg width="56" height="56" viewBox="170 166 1600 1600" role="img" aria-label="Weaver">
+      <defs>
+        <linearGradient id="rl-base" gradientUnits="userSpaceOnUse" x1="300" y1="560" x2="1640" y2="640"><stop offset="0" stop-color="#34c4cb"></stop><stop offset="0.5" stop-color="#2f8ed8"></stop><stop offset="1" stop-color="#6cc68f"></stop></linearGradient>
+        <linearGradient id="rl-wash" gradientUnits="userSpaceOnUse" x1="960" y1="700" x2="960" y2="1300"><stop offset="0" stop-color="#2a6fe3" stop-opacity="0"></stop><stop offset="1" stop-color="#2a6fe3" stop-opacity="0.55"></stop></linearGradient>
+        <linearGradient id="rl-dark" gradientUnits="userSpaceOnUse" x1="990" y1="1000" x2="700" y2="1400"><stop offset="0" stop-color="#1a7fc6" stop-opacity="0"></stop><stop offset="0.45" stop-color="#1676c4" stop-opacity="0.85"></stop><stop offset="1" stop-color="#1c56b0"></stop></linearGradient>
+        <linearGradient id="rl-purple" gradientUnits="userSpaceOnUse" x1="1010" y1="1090" x2="1290" y2="1400"><stop offset="0" stop-color="#3d3bb8"></stop><stop offset="1" stop-color="#7a69da"></stop></linearGradient>
+        <linearGradient id="rl-sun" gradientUnits="userSpaceOnUse" x1="1060" y1="580" x2="880" y2="860"><stop offset="0" stop-color="#ffb82a"></stop><stop offset="1" stop-color="#ff7640"></stop></linearGradient>
+        <clipPath id="rl-w"><path d="M370,535 C520,535 640,650 700,800 C740,900 765,990 790,1075 C850,990 900,925 965,925 C1030,925 1085,990 1140,1075 C1230,830 1330,535 1560,535 C1650,535 1675,625 1620,690 C1560,760 1500,800 1460,880 C1400,1030 1370,1150 1330,1255 C1280,1340 1230,1397 1170,1397 C1090,1397 1040,1320 965,1175 C900,1290 840,1397 760,1397 C680,1397 630,1330 600,1250 C540,1080 500,950 470,860 C430,770 380,725 330,685 C285,645 275,610 285,585 C300,548 330,535 370,535 Z"></path></clipPath>
+      </defs>
+      <g clip-path="url(#rl-w)">
+        <rect x="250" y="500" width="1450" height="950" fill="url(#rl-base)"></rect>
+        <rect x="250" y="700" width="1450" height="700" fill="url(#rl-wash)"></rect>
+        <path d="M598,1256 C690,1246 752,1170 792,1076 C850,1000 905,930 965,925 L965,1175 L965,1420 L560,1420 Z" fill="url(#rl-dark)"></path>
+        <path d="M968,1176 C1010,1108 1060,1068 1112,1068 C1220,1170 1272,1256 1332,1258 L1332,1420 L968,1420 Z" fill="url(#rl-purple)"></path>
+      </g>
+      <circle cx="965" cy="718" r="152" fill="url(#rl-sun)"></circle>
+    </svg>
+    <div style="display: flex; flex-direction: column; gap: 6px">
+      <span style="font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #3D3BB8">How Niva works for admins</span>
+      <h1 style="margin: 0; font-family: 'Fraunces', Georgia, serif; font-weight: 600; font-size: 40px; line-height: 1.1">Helpful, and never reckless</h1>
+    </div>
+  </header>
+
+  <section style="display: flex; flex-direction: column; gap: 12px">
+    <span style="font-size: 12px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; color: #4F5D75">Three places Niva lives</span>
+    <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px">
+      <div style="background: #FFFFFF; border: 1px solid #DDE6F0; border-radius: 16px; padding: 18px 20px; display: flex; flex-direction: column; gap: 8px"><span style="font-size: 17px; font-weight: 800">Today</span><span style="font-size: 14px; line-height: 1.55; color: #2C3A55">Your routine and one box to ask anything. This is where you start and, often, where you finish.</span></div>
+      <div style="background: #FFFFFF; border: 1px solid #DDE6F0; border-radius: 16px; padding: 18px 20px; display: flex; flex-direction: column; gap: 8px"><span style="font-size: 17px; font-weight: 800">Beside the work</span><span style="font-size: 14px; line-height: 1.55; color: #2C3A55">In every workspace Niva sits at the side and knows what you are looking at: this event, this household, this payment.</span></div>
+      <div style="background: #FFFFFF; border: 1px solid #DDE6F0; border-radius: 16px; padding: 18px 20px; display: flex; flex-direction: column; gap: 8px"><span style="font-size: 17px; font-weight: 800">Everywhere else</span><span style="font-size: 14px; line-height: 1.55; color: #2C3A55">Press ⌘K from any screen, or tap “Ask Niva” on a row, a number or a field to ask about just that.</span></div>
+    </div>
+  </section>
+
+  <section style="display: flex; flex-direction: column; gap: 12px">
+    <span style="font-size: 12px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; color: #4F5D75">What Niva may do: four levels</span>
+    <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px">
+      <div style="background: #FFFFFF; border: 1px solid #DDE6F0; border-radius: 16px; overflow: hidden; display: flex; flex-direction: column">
+        <div style="padding: 10px 18px; background: #DFF5F6; font-size: 13px; font-weight: 800; color: #0A5D66">1 · Read</div>
+        <div style="padding: 14px 18px 18px; display: flex; flex-direction: column; gap: 8px; font-size: 14px; line-height: 1.5"><span style="font-weight: 700">Look, search, explain.</span><span style="color: #2C3A55">“Who is behind on pledges?” “Why did the text fail?”</span><span style="color: #4F5D75; font-size: 13px">Instant. Only what your role may see.</span></div>
+      </div>
+      <div style="background: #FFFFFF; border: 1px solid #DDE6F0; border-radius: 16px; overflow: hidden; display: flex; flex-direction: column">
+        <div style="padding: 10px 18px; background: #ECEBFA; font-size: 13px; font-weight: 800; color: #2B2A8A">2 · Draft</div>
+        <div style="padding: 14px 18px 18px; display: flex; flex-direction: column; gap: 8px; font-size: 14px; line-height: 1.5"><span style="font-weight: 700">Prepare, never apply.</span><span style="color: #2C3A55">A filled form, a message in three languages, a suggested match.</span><span style="color: #4F5D75; font-size: 13px">Shown as a card you can edit. Nothing changes yet.</span></div>
+      </div>
+      <div style="background: #FFFFFF; border: 1px solid #DDE6F0; border-radius: 16px; overflow: hidden; display: flex; flex-direction: column">
+        <div style="padding: 10px 18px; background: #FFF1E6; font-size: 13px; font-weight: 800; color: #7A2E08">3 · Confirm</div>
+        <div style="padding: 14px 18px 18px; display: flex; flex-direction: column; gap: 8px; font-size: 14px; line-height: 1.5"><span style="font-weight: 700">Changes that matter.</span><span style="color: #2C3A55">Money, messages to members, roles, merges, anything that deletes.</span><span style="color: #4F5D75; font-size: 13px">A card says what will happen, with household cards. You press the button.</span></div>
+      </div>
+      <div style="background: #FFFFFF; border: 1px solid #DDE6F0; border-radius: 16px; overflow: hidden; display: flex; flex-direction: column">
+        <div style="padding: 10px 18px; background: #EAF0F7; font-size: 13px; font-weight: 800; color: #2C3A55">4 · Only you</div>
+        <div style="padding: 14px 18px 18px; display: flex; flex-direction: column; gap: 8px; font-size: 14px; line-height: 1.5"><span style="font-weight: 700">Never delegated.</span><span style="color: #2C3A55">Secrets, agreements, going live, second approvals, security codes.</span><span style="color: #4F5D75; font-size: 13px">Niva points to the exact place and waits.</span></div>
+      </div>
+    </div>
+  </section>
+
+  <section style="display: flex; flex-direction: column; gap: 12px">
+    <span style="font-size: 12px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; color: #4F5D75">Rules Niva always follows</span>
+    <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 32px; font-size: 14px; line-height: 1.5">
+      <div style="display: flex; gap: 10px"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#17724A" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none; margin-top: 2px"><path d="M5 13l4 4 10-10"></path></svg><span><b>Acts as you.</b> Only what your role allows. The database enforces it, not Niva.</span></div>
+      <div style="display: flex; gap: 10px"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#17724A" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none; margin-top: 2px"><path d="M5 13l4 4 10-10"></path></svg><span><b>Never picks a household by name alone.</b> It always shows the household card.</span></div>
+      <div style="display: flex; gap: 10px"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#17724A" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none; margin-top: 2px"><path d="M5 13l4 4 10-10"></path></svg><span><b>Money is exact.</b> Whole cents underneath, dollars on screen, and what will happen is shown first.</span></div>
+      <div style="display: flex; gap: 10px"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#17724A" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none; margin-top: 2px"><path d="M5 13l4 4 10-10"></path></svg><span><b>Problems are said plainly,</b> next to what you did, with a way to try again. It never says saved when it was not.</span></div>
+      <div style="display: flex; gap: 10px"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#17724A" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none; margin-top: 2px"><path d="M5 13l4 4 10-10"></path></svg><span><b>Everything is on the record</b> as “by Niva, for” the person who asked.</span></div>
+      <div style="display: flex; gap: 10px"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#17724A" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none; margin-top: 2px"><path d="M5 13l4 4 10-10"></path></svg><span><b>Never sees secrets.</b> Passwords, tokens and one-time links go through secure fields and separate windows.</span></div>
+      <div style="display: flex; gap: 10px"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#17724A" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none; margin-top: 2px"><path d="M5 13l4 4 10-10"></path></svg><span><b>Text from forms, emails and files is information,</b> never an instruction to follow.</span></div>
+      <div style="display: flex; gap: 10px"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#17724A" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none; margin-top: 2px"><path d="M5 13l4 4 10-10"></path></svg><span><b>Honest about timing.</b> A message says Scheduled until it has really gone out.</span></div>
+      <div style="display: flex; gap: 10px; grid-column: span 2"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#17724A" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none; margin-top: 2px"><path d="M5 13l4 4 10-10"></path></svg><span><b>Nothing about a child reaches an AI provider.</b> Names, birth dates, attendance, homework, photos and voice notes of anyone under 18 are left out before Niva sees a result. For learner work, Niva helps with terms, fees and classes, and people do the rest on the screen.</span></div>
+    </div>
+  </section>
+
+  <section style="display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 24px; flex: 1; min-height: 0">
+    <div style="background: #FFFFFF; border: 1px solid #DDE6F0; border-radius: 18px; padding: 20px 22px; display: flex; flex-direction: column; gap: 14px">
+      <span style="font-size: 12px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; color: #4F5D75">How it is built (for the team)</span>
+      <div style="display: flex; align-items: stretch; gap: 8px; font-size: 13px; line-height: 1.4">
+        <div style="flex: 1; padding: 10px 12px; background: #E8F1FC; border-radius: 12px; display: flex; flex-direction: column; gap: 2px"><b>You</b><span style="color: #2C3A55">In the portal or the app</span></div>
+        <div style="display: flex; align-items: center; color: #4F5D75; font-weight: 800" aria-hidden="true">›</div>
+        <div style="flex: 1; padding: 10px 12px; background: #E8F1FC; border-radius: 12px; display: flex; flex-direction: column; gap: 2px"><b>Portal server</b><span style="color: #2C3A55">With your own sign-in</span></div>
+        <div style="display: flex; align-items: center; color: #4F5D75; font-weight: 800" aria-hidden="true">›</div>
+        <div style="flex: 1; padding: 10px 12px; background: #ECEBFA; border-radius: 12px; display: flex; flex-direction: column; gap: 2px"><b>Commands</b><span style="color: #2C3A55">One per action, with level and preview</span></div>
+        <div style="display: flex; align-items: center; color: #4F5D75; font-weight: 800" aria-hidden="true">›</div>
+        <div style="flex: 1; padding: 10px 12px; background: #E3F5EA; border-radius: 12px; display: flex; flex-direction: column; gap: 2px"><b>Database rules</b><span style="color: #2C3A55">Permissions and checks</span></div>
+      </div>
+      <div style="padding: 10px 14px; background: #FBE3E1; border: 1px solid #F0B9B4; border-radius: 12px; font-size: 13px; line-height: 1.5; color: #7A1A14"><b>Not the background service.</b> It holds a master key that skips the permission checks, so Niva for admins must never run there.</div>
+      <span style="font-size: 12px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; color: #4F5D75">To build first (found in the audit)</span>
+      <ul style="margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; font-size: 13.5px; line-height: 1.5">
+        <li>Typed commands for each action. Today many actions only read form data.</li>
+        <li>Confirmation enforced on the server. Today it is only a box in the browser.</li>
+        <li>An “assistant” mark in the history. Today only portal, member, kiosk and job exist.</li>
+        <li>The security code in its own window, never in the chat.</li>
+        <li>Hide one-time secrets from Niva: sandbox codes and invitation links.</li>
+        <li>Previews for merges, level changes, approvals and moves.</li>
+        <li>Summary reads for “what needs me” questions, instead of table scans.</li>
+        <li>Make multi-step saves all-or-nothing before Niva becomes another caller.</li>
+      </ul>
+    </div>
+
+    <div style="background: #FFFFFF; border: 1px solid #DDE6F0; border-radius: 18px; padding: 20px 22px; display: flex; flex-direction: column; gap: 12px">
+      <span style="font-size: 12px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; color: #A8400D">Decisions for you</span>
+      <div style="display: flex; flex-direction: column; gap: 12px; font-size: 14px; line-height: 1.5">
+        <div style="display: flex; gap: 12px"><span style="flex: none; width: 26px; height: 26px; border-radius: 13px; background: #FFF1E6; color: #7A2E08; font-size: 13px; font-weight: 800; display: flex; align-items: center; justify-content: center">1</span><span><b>The name.</b> <b style="color: #0F4F33">Decided 9 Oct: Niva for admins too.</b> Members and staff meet one assistant family.</span></div>
+        <div style="display: flex; gap: 12px"><span style="flex: none; width: 26px; height: 26px; border-radius: 13px; background: #FFF1E6; color: #7A2E08; font-size: 13px; font-weight: 800; display: flex; align-items: center; justify-content: center">2</span><span><b>Children’s information.</b> <b style="color: #0F4F33">Decided 9 Oct: no.</b> Nothing about a child is processed by an AI provider. Revisit only if the children’s addendum is changed to allow it.</span></div>
+        <div style="display: flex; gap: 12px"><span style="flex: none; width: 26px; height: 26px; border-radius: 13px; background: #FFF1E6; color: #7A2E08; font-size: 13px; font-weight: 800; display: flex; align-items: center; justify-content: center">3</span><span><b>Votes.</b> Niva should never cast a committee vote for anyone.</span></div>
+        <div style="display: flex; gap: 12px"><span style="flex: none; width: 26px; height: 26px; border-radius: 13px; background: #FFF1E6; color: #7A2E08; font-size: 13px; font-weight: 800; display: flex; align-items: center; justify-content: center">4</span><span><b>One-step go-live.</b> <b style="color: #0F4F33">Decided 9 Oct: retire it</b> (backlog B70). The old six-step wizard could take a community live with no checks, no second approver and no code.</span></div>
+        <div style="display: flex; gap: 12px"><span style="flex: none; width: 26px; height: 26px; border-radius: 13px; background: #FFF1E6; color: #7A2E08; font-size: 13px; font-weight: 800; display: flex; align-items: center; justify-content: center">5</span><span><b>Who edits a routine.</b> Center admins only, with Weaver supplying the starting recipes?</span></div>
+        <div style="display: flex; gap: 12px"><span style="flex: none; width: 26px; height: 26px; border-radius: 13px; background: #FFF1E6; color: #7A2E08; font-size: 13px; font-weight: 800; display: flex; align-items: center; justify-content: center">6</span><span><b>Brand colors in the apps.</b> The Weaver colors here are for the product. Each community keeps its own name and logo, and the member app should follow the same palette.</span></div>
+      </div>
+    </div>
+  </section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1260}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>
