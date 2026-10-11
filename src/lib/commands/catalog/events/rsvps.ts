@@ -141,7 +141,7 @@ export const setRsvpStatusCommand = defineCommand<SetRsvpInput, SetRsvpData>({
     const warnings: string[] = [];
     if (rsvp.status === status) warnings.push(`It is already ${WORDS[status]}, so nothing would change.`);
     if (status === "cancelled") warnings.push("The family is not told automatically.");
-    if (arrived > 0) warnings.push(`${arrived} ${arrived === 1 ? "person" : "people"} on this RSVP ${arrived === 1 ? "has" : "have"} already been checked in and keep their status.`);
+    if (arrived > 0) warnings.push(`${arrived === 1 ? "1 person on this RSVP has" : `${arrived} people on this RSVP have`} already been checked in and will keep their status.`);
     return {
       summary: `Mark ${who}'s RSVP for ${event?.name ?? "the event"} as ${WORDS[status]}.`,
       lines: [

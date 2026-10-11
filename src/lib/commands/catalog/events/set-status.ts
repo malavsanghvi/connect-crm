@@ -1,5 +1,5 @@
 import { eventAreas } from "@/lib/events/access";
-import { eventReadiness } from "@/lib/events/readiness";
+import { eventReadiness, type ReadinessEvent } from "@/lib/events/readiness";
 import { EVENT_STATUSES, EVENT_STATUS_MESSAGES, EVENT_STATUS_WORDS, checkEventTransition, type EventStatus } from "@/lib/events/status-machine";
 import { surveySentMessage } from "@/lib/survey/event-survey";
 import type { AppSupabase } from "@/lib/supabase/server";
@@ -83,7 +83,15 @@ export const setEventStatusCommand = defineCommand<SetStatusInput, SetStatusData
   input,
   async preview(ctx, { event_id, status }): Promise<CommandPreview> {
     const { db, center } = ctx.session;
-    const event = must(await db.from("events").select("name, status, starts_at, ends_at, venue, description, capacity, rsvp_opens_at, rsvp_closes_at, lunch_enabled, lunch_starts_at, is_paid, member_price_cents, guest_price_cents, audience, owner_person_id, flyer_path").eq("id", event_id).eq("center_id", center.id).maybeSingle(), "read the event");
+    const event: ReadinessEvent | null = must(
+      await db
+        .from("events")
+        .select("name, status, starts_at, ends_at, venue, description, capacity, rsvp_opens_at, rsvp_closes_at, lunch_enabled, lunch_starts_at, is_paid, member_price_cents, guest_price_cents, audience, owner_person_id, flyer_path")
+        .eq("id", event_id)
+        .eq("center_id", center.id)
+        .maybeSingle(),
+      "read the event",
+    );
     if (!event) throw new CommandError(NOT_FOUND);
     const check = checkEventTransition(event.status, status);
     if (!check.ok) refuse(DOING, check.error);
@@ -95,7 +103,7 @@ export const setEventStatusCommand = defineCommand<SetStatusInput, SetStatusData
       if (status === "published" || status === "live") {
         // Only what the event row itself shows; events.readiness has the full list.
         const goal = status === "published" ? "publish" : "event_day";
-        const ready = eventReadiness({ ...event, status: event.status }, { lunch_slots: 0, shifts: 0, shifts_empty: null, checklist_overdue: 0, checklist_open: 0 }, goal, ctx.now?.() ?? new Date(), center.time_zone);
+        const ready = eventReadiness(event, { lunch_slots: 0, shifts: 0, shifts_empty: null, checklist_overdue: 0, checklist_open: 0 }, goal, ctx.now?.() ?? new Date(), center.time_zone);
         for (const b of ready.blockers.filter((x) => x.code !== "no_slots")) warnings.push(`Before this: ${b.text} ${b.fix}`);
       }
     }
@@ -109,7 +117,9 @@ export const setEventStatusCommand = defineCommand<SetStatusInput, SetStatusData
   async execute(ctx, { event_id, status }) {
     await requireArea(ctx, (a) => eventAreas.edit(a, event_id), DOING, SET_STATUS_DENIED);
     const { db } = ctx.session;
-    const before = (must(await db.from("events").select("name, status").eq("id", event_id).limit(1), "load the event") ?? [])[0];
+    const found = (must(await db.from("events").select("name, status").eq("id", event_id).limit(1), "load the event") ?? [])[0];
+    // Copied now: what was there before is what the answer reports, whatever the update does to the row.
+    const before = found ? { name: found.name, status: found.status } : undefined;
     if (before) {
       const check = checkEventTransition(before.status, status);
       if (!check.ok) refuse(DOING, check.error);

@@ -162,7 +162,7 @@ export const createFromClone = defineCommand<CreateInput, CreatedEvent>({
     const { result } = await planClone(ctx, toDraft(inp));
     const { db, center, userId } = ctx.session;
     const row = { ...result.prepared, center_id: center.id, created_by: userId } as unknown as TablesInsert<"events">;
-    const created = must(await db.from("events").insert(row).select("id").single(), doing);
+    const created: { id: string } | null = must(await db.from("events").insert(row).select("id").single(), doing);
     if (!created) refuse(doing, "the database did not give the new event back.");
     revalidateAfterCommand(["/events", "/ops"]);
     const path = `/events/builder?event=${created.id}`;
