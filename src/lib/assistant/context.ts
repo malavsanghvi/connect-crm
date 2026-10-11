@@ -100,6 +100,15 @@ export function routeContext(pathname: string, params?: RouteParams): RouteConte
   return context;
 }
 
+/** routeContext that cannot throw: anything unexpected in the address or the params gives just the home path. */
+export function safeRouteContext(pathname: string | null | undefined, params?: RouteParams): RouteContext {
+  try {
+    return routeContext(pathname ?? "/", params);
+  } catch {
+    return { path: "/" };
+  }
+}
+
 // ---------------------------------------------------------------------------
 // The area of the screen, for the "Ask Niva" suggestions
 // ---------------------------------------------------------------------------

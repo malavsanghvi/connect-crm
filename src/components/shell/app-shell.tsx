@@ -6,6 +6,7 @@ import { ActivityBeacon } from "@/components/shell/activity-beacon";
 import { CenterSwitcher, SandboxWatermark } from "@/components/shell/center-switcher";
 import { GlobalSearch } from "@/components/shell/global-search";
 import { MobileNav } from "@/components/shell/mobile-nav";
+import { NivaBoundary } from "@/components/niva/niva-boundary";
 import { NivaDock } from "@/components/niva/niva-dock";
 import { NivaProvider } from "@/components/niva/niva-provider";
 import { NivaTopButton } from "@/components/niva/niva-top-button";
@@ -92,7 +93,9 @@ export function AppShell({ session, tasks, children }: { session: CrmSession; ta
             )}
             <div className="hidden min-w-0 flex-1 justify-center md:flex">{canSearch ? <GlobalSearch /> : null}</div>
             <div className="flex-1 md:hidden" />
-            <NivaTopButton />
+            <NivaBoundary name="top bar button">
+              <NivaTopButton />
+            </NivaBoundary>
             <UserMenu
               name={name}
               email={session.email}
@@ -118,7 +121,9 @@ export function AppShell({ session, tasks, children }: { session: CrmSession; ta
               ) : null}
               {children}
             </main>
-            <NivaDock />
+            <NivaBoundary name="panel">
+              <NivaDock />
+            </NivaBoundary>
           </div>
         </div>
       </NivaProvider>
