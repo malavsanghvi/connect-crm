@@ -405,14 +405,20 @@ export function BrandingForm({ branding, flags, readOnly, hiddenFlags = [], flag
 
 // ---------------------------------------------------------------------------
 export function AdvancedRulesForm({ rules, version, readOnly }: { rules: Obj; version: number | null; readOnly: boolean }) {
-  const initial = useMemo(() => JSON.stringify(rules, null, 2), [rules]);
+  // Activity recording is agreed on Settings › Automation ideas (with a 2FA check) and kept exactly as it is: it is not edited here.
+  const initial = useMemo(() => {
+    const { activity: kept, ...editable } = rules;
+    void kept;
+    return JSON.stringify(editable, null, 2);
+  }, [rules]);
   const [text, setText] = useState(initial);
   const validation = useMemo(() => validateRulesJson(text), [text]);
   return (
     <SettingsForm action={saveRulesJsonAction} version={version} dirty={text === initial ? 0 : 1} submitLabel="Save rules JSON" readOnly={readOnly} readOnlyNote={READ_ONLY}>
       <p className="mb-2 text-[13px] text-muted">
         Every rule key, including ones without a form above (identifier labels, bank format, voting, accounting). Unknown keys are allowed;
-        known keys are type-checked. Saving here also bumps the version.
+        known keys are type-checked. Saving here also bumps the version. The setting for noting how people use Weaver (&quot;activity&quot;) is not shown: it is agreed on
+        Settings › Automation ideas and is kept as it is.
       </p>
       <label htmlFor="rules" className="sr-only">
         Rules JSON
