@@ -11,7 +11,7 @@ import { isUuid } from "@/lib/search-params";
 import { authorizeAction, dbWithReason, type CrmSession } from "@/lib/session";
 
 export async function decideApplicationAction(_prev: ActionResult | null, formData: FormData): Promise<ActionResult> {
-  return withActivity("memberships.decide_application", () => decideApplication(formData), {
+  return withActivity("people.decide_application", () => decideApplication(formData), {
     entityFrom: { kind: "application", id: String(formData.get("id") ?? "") },
   });
 }

@@ -49,7 +49,7 @@ function fields(fd: FormData, keys: readonly string[]): Record<string, string | 
 const TIERS: readonly Tier[] = ["community", "yearly", "life"];
 
 export async function updateHouseholdAction(_prev: ActionResult | null, fd: FormData): Promise<ActionResult> {
-  return withActivity("households.update_household", () => updateHousehold(fd), { entityFrom: { kind: "household", id: String(fd.get("id") ?? "") } });
+  return withActivity("people.update_household", () => updateHousehold(fd), { entityFrom: { kind: "household", id: String(fd.get("id") ?? "") } });
 }
 
 async function updateHousehold(fd: FormData): Promise<ActionResult> {

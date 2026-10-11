@@ -85,7 +85,7 @@ const NOT_SENDING = " It stays queued: email, SMS, WhatsApp and push sending are
  * everyone else sends it for approval.
  */
 export async function submitNewsletterAction(_prev: ActionResult | null, fd: FormData): Promise<ActionResult> {
-  return withActivity("comms.send_newsletter", () => submitNewsletter(fd));
+  return withActivity("comms.send", () => submitNewsletter(fd));
 }
 
 async function submitNewsletter(fd: FormData): Promise<ActionResult> {
@@ -162,10 +162,6 @@ export async function saveCampaignAction(_prev: ActionResult | null, fd: FormDat
  * approver, whose approval (app.approve_as_second) then schedules it.
  */
 export async function approveCampaignAction(_prev: ActionResult | null, fd: FormData): Promise<ActionResult> {
-  return withActivity("comms.approve_campaign", () => approveCampaign(fd), { entityFrom: { kind: "campaign", id: text(fd, "id") } });
-}
-
-async function approveCampaign(fd: FormData): Promise<ActionResult> {
   const auth = await authorizeAction("commsApprove", "approve the newsletter");
   if (!auth.ok) return auth;
   const { db, userId } = auth.session;
@@ -254,7 +250,7 @@ export async function setThreadAction(_prev: ActionResult | null, fd: FormData):
 }
 
 export async function replyToThreadAction(_prev: ActionResult | null, fd: FormData): Promise<ActionResult> {
-  return withActivity("comms.reply_to_thread", () => replyToThread(fd), { entityFrom: { kind: "thread", id: text(fd, "id") } });
+  return withActivity("comms.reply_thread", () => replyToThread(fd), { entityFrom: { kind: "thread", id: text(fd, "id") } });
 }
 
 async function replyToThread(fd: FormData): Promise<ActionResult> {

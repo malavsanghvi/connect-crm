@@ -125,7 +125,7 @@ export async function saveEvent(eventId: string | null, _prev: Result | null, fd
       };
     }
     return { ok: true, message: current.status === "draft" ? "Draft saved" : "Event saved" };
-  }, { key: "events.save_event", entityFrom: eventId ? { kind: "event", id: eventId } : undefined });
+  }, { key: "events.save", entityFrom: eventId ? { kind: "event", id: eventId } : undefined });
 }
 
 /**
@@ -216,7 +216,7 @@ export async function setRsvpStatus(eventId: string, rsvpId: string, _prev: Resu
     must(await db.from("attendees").update({ status }).eq("rsvp_id", rsvpId).is("checked_in_at", null), "update the people on this RSVP");
     revalidateEvents();
     return { ok: true, message: `RSVP ${status === "rsvpd" ? "reopened" : status === "no_show" ? "marked no-show" : status}.` };
-  });
+  }, { key: "events.set_rsvp_status", entityFrom: { kind: "rsvp", id: rsvpId } });
 }
 
 export async function addGuestRsvp(eventId: string, _prev: Result | null, fd: FormData): Promise<Result> {

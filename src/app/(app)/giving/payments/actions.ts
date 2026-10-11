@@ -191,7 +191,13 @@ async function recordOfflinePayment(input: RecordPaymentInput): Promise<ActionRe
 }
 
 /** Retry applying an already-recorded payment's remaining amount to pledges. */
-export async function applyPaymentAction(input: {
+export async function applyPaymentAction(input: ApplyPaymentInput): Promise<ReturnType<typeof applyPayment>> {
+  return withActivity("giving.apply_payment", () => applyPayment(input), { entityFrom: { kind: "payment", id: input.paymentId } });
+}
+
+type ApplyPaymentInput = Parameters<typeof applyPayment>[0];
+
+async function applyPayment(input: {
   paymentId: string;
   householdId: string;
   pledgeIds: string[] | null;
