@@ -72,6 +72,14 @@ describe("checking an event against the protocol", () => {
     expect(parseChatEvent({ type: "done", usage: { used: 4, limit: null } })).toEqual({ type: "done", usage: { used: 4, limit: null } });
   });
 
+  it("reads the optional token totals on the closing event, and ignores them when they are not all counts", () => {
+    const tokens = { calls: 3, inputTokens: 180, outputTokens: 42, cacheCreationInputTokens: 9300, cacheReadInputTokens: 18300 };
+    expect(parseChatEvent({ type: "done", usage: { used: 4, limit: 300 }, tokens })).toEqual({ type: "done", usage: { used: 4, limit: 300 }, tokens });
+    expect(parseChatEvent({ type: "done", tokens })).toEqual({ type: "done", tokens });
+    expect(parseChatEvent({ type: "done", tokens: { ...tokens, calls: "3" } })).toEqual({ type: "done" });
+    expect(parseChatEvent({ type: "done", tokens: { calls: 1 } })).toEqual({ type: "done" });
+  });
+
   it("rejects events with the wrong shape", () => {
     expect(parseChatEvent({ type: "text" })).toBeNull();
     expect(parseChatEvent({ type: "tool", command: "c", title: "T", status: "sleeping" })).toBeNull();

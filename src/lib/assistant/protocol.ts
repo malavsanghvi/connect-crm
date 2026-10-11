@@ -69,7 +69,17 @@ export type ChatEvent =
   | { type: "result"; command: string; title: string; data: unknown } // a read/draft result to show as a card
   | { type: "proposal"; proposal: ProposalCard }
   | { type: "error"; message: string; retryable: boolean }
-  | { type: "done"; usage?: { used: number; limit: number | null } };
+  /** `tokens` (optional): what the model calls of this message used, with the prompt-cache counts; absent when the AI service sent none. */
+  | { type: "done"; usage?: { used: number; limit: number | null }; tokens?: ChatTokens };
+
+/** What the model calls of one chat message used (optional on "done"). The cache counts show how much came cheaper from the prompt cache. */
+export interface ChatTokens {
+  calls: number;
+  inputTokens: number;
+  outputTokens: number;
+  cacheCreationInputTokens: number;
+  cacheReadInputTokens: number;
+}
 
 export interface ConfirmRequest {
   proposalId: string;

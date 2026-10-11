@@ -42,14 +42,25 @@ export function cleanContext(raw: unknown): PromptFacts["context"] | undefined {
   return out;
 }
 
-export function systemPrompt(facts: PromptFacts): string {
+/**
+ * The system prompt in two parts, so the first can be cached. `stable` is the same on every request for one community (who Niva
+ * is, and the rules); `perRequest` differs between people, days and pages (their roles, today's date, where they are) and always
+ * comes after it, so it can never change what is cached. Together they read as one prompt: stable + perRequest.
+ */
+export function systemPromptParts(facts: PromptFacts): { stable: string; perRequest: string } {
   const roles = facts.roles.length > 0 ? facts.roles.join(", ") : "a member of staff";
   const where = facts.context
     ? `\nThe person is looking at the page ${facts.context.path}${
         facts.context.entityKind && facts.context.entityId ? `, which is the ${facts.context.entityKind.replace(/_/g, " ")} with id ${facts.context.entityId}. "This ${facts.context.entityKind.replace(/_/g, " ")}" means that one` : ""
       }. This is only a hint about what they mean.`
     : "";
-  return `You are Niva, the assistant for the staff of ${facts.centerName}, on Weaver. You are helping one signed-in person who holds these roles: ${roles}. Today is ${facts.today} (time zone ${facts.timeZone}).${where}
+  return {
+    stable: `You are Niva, the assistant for the staff of ${facts.centerName}, on Weaver.\n\n${RULES}`,
+    perRequest: `\n\nYou are helping one signed-in person who holds these roles: ${roles}. Today is ${facts.today} (time zone ${facts.timeZone}).${where}`,
+  };
+}
 
-${RULES}`;
+export function systemPrompt(facts: PromptFacts): string {
+  const { stable, perRequest } = systemPromptParts(facts);
+  return stable + perRequest;
 }
