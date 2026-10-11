@@ -325,7 +325,7 @@ const BRANDING_FIELDS = [
 ] as const;
 
 const KNOWN_FLAGS: Record<string, string> = {
-  store: "Satvik Store",
+  store: "My Store",
   bolis: "Bolis",
   pathshala: "Pathshala",
   gyan_path: "Gyan Path",
