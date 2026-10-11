@@ -47,7 +47,10 @@ export type RawRecord = {
   address2?: string | null;
   city?: string | null;
   state?: string | null;
+  /** The postal code, in whatever format the country uses (ZIP, PIN, postcode, Postleitzahl ...). */
   zip?: string | null;
+  /** The country of the address when the source says (an ISO code such as "GB", or a name). Else the community's own country. */
+  country?: string | null;
 
   dob?: unknown;
   /** Identifiers by system, e.g. { family: "F-1042", neon: "N8841", quickbooks: "QB-77", connect: "0417" }. */
@@ -75,29 +78,53 @@ export type RawRecord = {
 
 export type Generation = "jr" | "sr" | "ii" | "iii" | "iv";
 
+/**
+ * One way of reading the words of a name: which is the given name and which the family name. A name written "Maria Garcia
+ * Lopez" can be read three ways (family name Lopez, Garcia, or Garcia Lopez); "Wang Wei" and "Wei Wang" are the same two
+ * words in the other order. These alternative readings are only ever a WEAK signal.
+ */
+export type NameReading = {
+  given: string | null;
+  givenKey: string | null;
+  givenWeak: string | null;
+  initial: string | null;
+  surname: string | null;
+  surnameKey: string | null;
+  surnameWeak: string | null;
+};
+
 /** One person's name, split and keyed. A household-style name ("Rahul & Mira Shah") has several. */
 export type NamePart = {
-  /** Given name, lower-case ASCII, honorifics and "bhai/ben/kumar/ji" removed. Null when only an initial or nothing. */
+  /** Given name, lower-case, accents folded (ø = o, ł = l), honorifics removed. Text in another script is kept as written. Null when only an initial or nothing. */
   given: string | null;
-  /** Sound-alike key for the given name (Dipak = Deepak). */
+  /** Sound-alike key for the given name (Dipak = Deepak, Mohammed = Muhammad). Other scripts are compared as written. */
   givenKey: string | null;
   /** First letter when the given name is only an initial ("R."), else the first letter of the given name. */
   initial: string | null;
   /** Keys of middle names (in this community often the father's name). */
   middleKeys: string[];
+  /** The middle names as written (lower-case, folded); a Kumar between the names is an honorific and is left out. */
+  middles: string[];
   surname: string | null;
+  /** The family name's key. A particle belongs to it: "al-Farsi", "van der Berg" and "de la Cruz" are one family name each. */
   surnameKey: string | null;
-  /** Keys of the parts of a hyphenated surname ("Shah-Patel" gives two). Always includes `surnameKey`'s own parts. */
+  /** Keys of the parts of a hyphenated or double surname ("Shah-Patel" gives two). Always includes `surnameKey`'s own parts. */
   surnameParts: string[];
-  /** Key of a maiden name written as "nee Shah", "(Shah)" or the first half of "Shah-Patel". */
+  /** Key of a maiden name written as "nee Shah", "(Shah)" or the first half of "Shah-Patel". Never a particle. */
   maidenKey: string | null;
   generation: Generation | null;
+  /** The same given name in another language (Yusuf and Joseph share one): a hint, never proof. */
+  givenWeak: string | null;
+  /** The same family name in another romanisation (Zhang, Cheung and Chang share one): a hint, never proof. */
+  surnameWeak: string | null;
+  /** Other readings of the same words (family name first, a double surname's halves, a nickname, a native-script spelling). Weak. */
+  alts: NameReading[];
 };
 
 export type NormalizedName = {
   raw: string;
   people: NamePart[];
-  /** The name has letters in another script (Gujarati, Devanagari). Those letters are not matched yet. */
+  /** The name has letters in another script (Gujarati, Arabic, Han ...). They are compared as written, never dropped. */
   nonLatin: boolean;
   /** A title that says "child" ("Master", "Baby"). */
   minorHint: boolean;
@@ -116,7 +143,9 @@ export type ParsedAddress = {
   unit: string | null;
   city: string | null;
   state: string | null;
+  /** The postal code as a comparison key: a US ZIP's five digits, "sw1a1aa", "400001" ... */
   zip5: string | null;
+  /** The four digits after a US ZIP, or null. */
   zip4: string | null;
   poBox: boolean;
   /** House number + street name, no ZIP, no unit: the blocking key. */
@@ -215,7 +244,8 @@ export type Conflict = {
   label: string;
 };
 
-export type NameLevel = "match" | "maiden" | "surname_only" | "given_only" | "different" | "unknown";
+/** `weak`: the names agree only through another reading (words in the other order, a double surname's half, a translated first name). */
+export type NameLevel = "match" | "maiden" | "weak" | "surname_only" | "given_only" | "different" | "unknown";
 
 export type Strength = "strong" | "medium" | "weak";
 

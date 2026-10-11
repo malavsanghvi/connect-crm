@@ -64,8 +64,8 @@ export function pairKey(a: string, b: string): string {
 // Names
 // ---------------------------------------------------------------------------
 
-export type SurnameAgreement = "exact" | "variant" | "close" | "maiden" | "differ" | "unknown";
-export type GivenAgreement = "exact" | "variant" | "close" | "initial" | "differ" | "unknown";
+export type SurnameAgreement = "exact" | "variant" | "close" | "maiden" | "weak" | "differ" | "unknown";
+export type GivenAgreement = "exact" | "variant" | "close" | "initial" | "weak" | "differ" | "unknown";
 
 export type NameComparison = {
   level: NameLevel;
@@ -78,12 +78,18 @@ export type NameComparison = {
   label: string | null;
 };
 
+/** Latin keys are sound-alike keys; any other key is the word as written. A key in one script says nothing about a key in another. */
+const isLatinKey = (k: string) => /^[a-z]+$/.test(k);
+const sameScript = (a: string, b: string) => isLatinKey(a) === isLatinKey(b);
+
 function surnameAgreement(a: NamePart, b: NamePart, minLen: number): SurnameAgreement {
   if (!a.surnameKey || !b.surnameKey) return "unknown";
+  if (!sameScript(a.surnameKey, b.surnameKey)) return "unknown";
   if (a.surname === b.surname) return "exact";
   if (a.surnameKey === b.surnameKey) return "variant";
   if (close(a.surnameKey, b.surnameKey, minLen)) return "close";
-  // A maiden name explains the difference: "Patel nee Shah" and "Shah", or "Shah-Patel" and "Patel".
+  // A maiden name (or half of a double surname) explains the difference: "Patel nee Shah" and "Shah", "Shah-Patel" and "Patel",
+  // "Garcia Lopez" and "Garcia". A particle is never such a part: "al-Farsi" is one part, so it shares nothing with "al-Hassan".
   const aSet = new Set(a.surnameParts);
   if (b.surnameParts.some((p) => aSet.has(p))) return "maiden";
   if (a.maidenKey && b.surnameParts.includes(a.maidenKey)) return "maiden";
@@ -93,13 +99,45 @@ function surnameAgreement(a: NamePart, b: NamePart, minLen: number): SurnameAgre
 
 function givenAgreement(a: NamePart, b: NamePart, minLen: number): GivenAgreement {
   if (a.givenKey && b.givenKey) {
+    if (!sameScript(a.givenKey, b.givenKey)) return "unknown";
     if (a.given === b.given) return "exact";
     if (a.givenKey === b.givenKey) return "variant";
     if (close(a.givenKey, b.givenKey, minLen)) return "close";
     return "differ";
   }
-  if (a.initial && b.initial) return a.initial === b.initial ? "initial" : "differ";
+  if (a.initial && b.initial) {
+    if (!sameScript(a.initial, b.initial)) return "unknown";
+    return a.initial === b.initial ? "initial" : "differ";
+  }
   return "unknown";
+}
+
+/** How two keys agree as a reading: the same sound-alike key (or one letter off) is strong; the same translation or romanisation group is weak. */
+function keyAgreement(x: string | null, y: string | null, xWeak: string | null, yWeak: string | null, minLen: number): "strong" | "weak" | null {
+  if (x && y && sameScript(x, y) && (x === y || close(x, y, minLen))) return "strong";
+  if (xWeak && yWeak && xWeak === yWeak) return "weak";
+  return null;
+}
+
+/**
+ * Whether two names agree only through another reading of the same words: the words in the other order ("Wang Wei" and "Wei Wang"),
+ * the half of a double surname ("Maria Garcia Lopez" and "Maria Garcia"), a nickname or native-script spelling in brackets, or a first
+ * or family name in another language or romanisation (Yusuf and Joseph, Zhang and Cheung). Given AND family name both have to agree.
+ * It is a hint for a person to look at; it never makes two names "the same".
+ */
+function weakMatch(a: NamePart, b: NamePart, minLen: number): boolean {
+  const ra = [a, ...a.alts];
+  const rb = [b, ...b.alts];
+  for (const x of ra) {
+    for (const y of rb) {
+      const viaAlt = x !== a || y !== b;
+      const s = keyAgreement(x.surnameKey, y.surnameKey, x.surnameWeak, y.surnameWeak, minLen);
+      if (!s) continue;
+      const g = keyAgreement(x.givenKey, y.givenKey, x.givenWeak, y.givenWeak, minLen);
+      if (g && (viaAlt || s === "weak" || g === "weak")) return true;
+    }
+  }
+  return false;
 }
 
 function middleAgreement(a: NamePart, b: NamePart): "agree" | "differ" | "unknown" {
@@ -114,7 +152,7 @@ function generationAgreement(a: NamePart, b: NamePart): NameComparison["generati
   return "none";
 }
 
-const LEVEL_RANK: Record<NameLevel, number> = { match: 5, maiden: 4, surname_only: 3, given_only: 2, different: 1, unknown: 0 };
+const LEVEL_RANK: Record<NameLevel, number> = { match: 6, maiden: 5, weak: 4, surname_only: 3, given_only: 2, different: 1, unknown: 0 };
 
 function comparePart(a: NamePart, b: NamePart, cfg: ResolveConfig): NameComparison {
   const minLen = cfg.names.closeMinLength;
@@ -141,7 +179,7 @@ function comparePart(a: NamePart, b: NamePart, cfg: ResolveConfig): NameComparis
   } else if (surname === "maiden" && givenOk) {
     level = "maiden";
     points = w.nameMaiden;
-    label = "same first name; the family name is explained by a maiden name";
+    label = "same first name; the family name is explained by a maiden name or a double surname";
   } else if (surnameOk && given === "differ") {
     level = "surname_only";
     points = w.nameSurnameOnly;
@@ -154,6 +192,18 @@ function comparePart(a: NamePart, b: NamePart, cfg: ResolveConfig): NameComparis
     level = "different";
   } else if (given === "differ" && surname === "unknown") {
     level = "different";
+  }
+  // Another reading of the same words can still explain a difference. It is weaker than a match or a maiden name.
+  if (LEVEL_RANK[level] < LEVEL_RANK.weak && weakMatch(a, b, minLen)) {
+    return {
+      level: "weak",
+      surname: "weak",
+      given: "weak",
+      middle: middleAgreement(a, b),
+      generation: generationAgreement(a, b),
+      points: w.nameWeak,
+      label: "similar name (the words are in another order, or it is a double surname or another language)",
+    };
   }
   return { level, surname, given, middle: middleAgreement(a, b), generation: generationAgreement(a, b), points, label };
 }
@@ -565,7 +615,7 @@ export function scoreIdentity(a: NormalizedRecord, b: NormalizedRecord, viaKeys:
   const { nm, independent } = f;
   const blocked = f.conflicts.some((c) => c.severity === "block");
   const lowers = f.conflicts.filter((c) => c.severity === "lower").length;
-  const nameSupport = nm.level === "match" || nm.level === "maiden" || nm.level === "surname_only";
+  const nameSupport = nm.level === "match" || nm.level === "maiden" || nm.level === "weak" || nm.level === "surname_only";
   const nameSameish = nm.level === "match" || nm.level === "maiden";
 
   let strength: Strength | null;
@@ -647,7 +697,7 @@ export function scoreGiftPair(a: NormalizedRecord, b: NormalizedRecord, viaKeys:
 
   const f = identityFacts(a, b, cfg, ctx);
   if (f.conflicts.some((c) => c.severity === "block")) return null;
-  const nameNotDifferent = f.nm.level === "match" || f.nm.level === "maiden" || f.nm.level === "unknown" || f.nm.level === "surname_only";
+  const nameNotDifferent = f.nm.level === "match" || f.nm.level === "maiden" || f.nm.level === "weak" || f.nm.level === "unknown" || f.nm.level === "surname_only";
   const nameSupport = f.nm.level === "match" || f.nm.level === "maiden";
   const d = f.independent;
   const evidence: Evidence[] = [...f.evidence];

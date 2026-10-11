@@ -24,7 +24,7 @@ function configFor(g: Golden) {
     const d = detectDateOrder(values);
     if (d.order !== "unknown") dateOrderBySource[source] = d.order;
   }
-  return makeConfig(TODAY, { dateOrderBySource });
+  return makeConfig(TODAY, { country: "US", dateOrderBySource });
 }
 
 /** Whether a pair the engine called "the same" really is, according to the generator that made the rows. */

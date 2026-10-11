@@ -284,7 +284,7 @@ describe("what an answer asks the database to do", () => {
 describe("the same answer for the others, on the real engine's questions", () => {
   it("is offered exactly for the kinds of question that one answer may cover, and the rest are one at a time", () => {
     const golden = buildGolden({ rows: 300, seed: 1 });
-    const { groups } = run(golden.records, { dateOrderBySource: makeRunConfig(golden.records, TODAY).dateOrderBySource });
+    const { groups } = run(golden.records, { dateOrderBySource: makeRunConfig(golden.records, TODAY, { country: "US" }).dateOrderBySource });
     expect(groups.length).toBeGreaterThan(3);
     for (const g of groups) {
       const asView = group(g.signature, { openItems: g.items.length + 1 });

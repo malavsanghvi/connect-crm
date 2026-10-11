@@ -8,6 +8,7 @@ import { formatDateTime } from "@/lib/dates";
 import { RUN_LABEL, runOne, type RunDeps } from "@/lib/onboarding/create-flow";
 import { buildHouseholdFile, buildPaymentFile, householdLegacyId, idPrefixOf, toPayerInputs, type ParsedDonation, type TableFile } from "@/lib/onboarding/donations";
 import { existingToInputs, type ExistingHousehold } from "@/lib/onboarding/existing";
+import { countryFromTimeZone } from "@/lib/onboarding/intl/zone";
 import { matchPayers, resolveMerges, type Group, type MatchResult, type Question } from "@/lib/onboarding/match";
 import { buildPeopleFile, personToInput, type ParsedPerson } from "@/lib/onboarding/people";
 import {
@@ -69,8 +70,8 @@ async function readList(id: string, list: StoredList, expected: number, label: s
   return out;
 }
 
-const buildMatch = (d: readonly ParsedDonation[], m: readonly ParsedPerson[], f: readonly ParsedPerson[], ex: readonly ExistingHousehold[]): MatchResult =>
-  matchPayers([...toPayerInputs(d), ...[...m, ...f].map(personToInput), ...existingToInputs(ex)]);
+const buildMatch = (d: readonly ParsedDonation[], m: readonly ParsedPerson[], f: readonly ParsedPerson[], ex: readonly ExistingHousehold[], country: string | null): MatchResult =>
+  matchPayers([...toPayerInputs(d), ...[...m, ...f].map(personToInput), ...existingToInputs(ex)], { country });
 
 const RUN_ENTITY: Record<RunKey, string> = { households: "households", people: "people", payments: "payments" };
 
@@ -360,7 +361,7 @@ export function OnboardingWizard({
       setExisting(list);
       setExistingNote(note);
       setCompared(didCompare);
-      const result = buildMatch(d, m, f, list);
+      const result = buildMatch(d, m, f, list, countryFromTimeZone(timeZone));
       const byId = answersForQuestions(result.questions, keyedRef.current);
       const first = firstUnanswered(result.questions, byId);
       const position = opts.qi !== undefined ? Math.max(0, Math.min(opts.qi, result.questions.length)) : first;
@@ -732,6 +733,7 @@ export function OnboardingWizard({
           <DatasetStep
             key={kind}
             kind={kind}
+            country={countryFromTimeZone(timeZone)}
             initial={
               kind === "donations"
                 ? donations.length
