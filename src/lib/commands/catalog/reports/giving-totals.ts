@@ -3,7 +3,7 @@ import { reportReads } from "@/lib/reports/load";
 import { defineCommand } from "../../define";
 import { f, object, type Infer } from "../../schema";
 
-import { dateFields, got, moneyOf, plural, resolveRange, startOfYear } from "./shared";
+import { dateFields, got, moneyOf, plural, resolveRange, fiscalYearStart } from "./shared";
 
 export type GivingTotalsData = {
   from: string;
@@ -37,14 +37,15 @@ export const givingTotals = defineCommand<Infer<typeof input>, GivingTotalsData>
   title: "Add up the money received",
   description:
     "Add up the money received between two days, split by way of paying (method), month, year, fund or campaign. Use it for 'how much did we receive for the Building fund this year?', " +
-    "'what came in each month?' and 'how much was Zelle against checks?'. Leave the dates out for this year so far. The sums are done by the database and are exact; amounts are in dollars with the exact cents. " +
+    "'what came in each month?' and 'how much came in by each way of paying?'. Leave the dates out for the year so far (the community's financial year). The sums are done by the database and are exact; amounts are in the community's currency, exact to the smallest unit. " +
     "The total is net of refunds. Counts and sums only: no household or donor is named. Use giving.household_summary for the giving of one household. Read only.",
   level: "read",
   permission: "paymentsAll",
   module: "reports",
   input,
   async execute(ctx, { from, to, group_by }) {
-    const range = resolveRange(ctx, { from, to }, startOfYear);
+    const start = await fiscalYearStart(ctx);
+    const range = resolveRange(ctx, { from, to }, start.from);
     const money = moneyOf(ctx);
     const s = got(await reportReads.payments(ctx.session.db, ctx.session.center.id, range.from, range.to, group_by), "add up the money received");
     const data: GivingTotalsData = {
@@ -70,6 +71,6 @@ export const givingTotals = defineCommand<Infer<typeof input>, GivingTotalsData>
       })),
       basis: BASIS[group_by] ?? "",
     };
-    return { ok: true, data, message: `${range.words}: ${data.total.net} net from ${plural(data.total.payments, "payment")}.` };
+    return { ok: true, data, message: `${range.words}: ${data.total.net} net from ${plural(data.total.payments, "payment")}.${start.note ? ` ${start.note}.` : ""}` };
   },
 });

@@ -5,14 +5,15 @@ import Link from "next/link";
 import { BarList } from "@/components/bar-list";
 import { AskNiva } from "@/components/niva/ask-niva";
 import { BlockGrid, Card, EmptyState, KpiGrid, NoAccess, PageHeader, QueryError, Stat, TableWrap, buttonClass } from "@/components/ui";
+import { compactMoney, communityFormat, moneyIn, numberIn } from "@/lib/community-format";
 import { todayInTz } from "@/lib/dates";
 import { barPercent } from "@/lib/giving";
 import { APPLICATION_STATUS_LABEL, PAYMENT_METHOD_LABEL } from "@/lib/labels";
-import { formatCents } from "@/lib/money";
 import { canAccess } from "@/lib/permissions";
+import { loadFiscalStart } from "@/lib/reports/fiscal";
 import { reportReads, type Section } from "@/lib/reports/load";
 import { pageFigures } from "@/lib/reports/figures";
-import { chosenYear, pctText, yearWindow } from "@/lib/reports/periods";
+import { chosenYear, currentFiscalYear, fiscalYearLabel, pctText, yearWindow } from "@/lib/reports/periods";
 import { param, type RawSearchParams } from "@/lib/search-params";
 import { getSession } from "@/lib/session";
 
@@ -46,9 +47,13 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
   const sp = await searchParams;
   const { db, center } = session;
   const today = todayInTz(center.time_zone);
-  const currentYear = Number(today.slice(0, 4));
+  // "This year" and "last year" are the community's financial years (Setup > Organization profile), named by the year they start in.
+  const fiscal = await loadFiscalStart(db, center.id);
+  const currentYear = currentFiscalYear(today, fiscal.month);
   const year = chosenYear(Number(param(sp, "year")), currentYear);
-  const w = yearWindow(year, currentYear, today);
+  const w = yearWindow(year, currentYear, today, fiscal.month);
+  const fmt = communityFormat(center);
+  const n = (v: number) => numberIn(v, fmt.locale);
   const seesMembership = canAccess(session, "memberships");
   const seesGiving = canAccess(session, "paymentsAll");
   const seesEvents = canAccess(session, "events");
@@ -87,10 +92,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
   const campaignBars = campaignRows.slice(0, 6);
   const campaignMax = campaignBars[0]?.pledgedCents ?? 0;
   const campaignLabel = (c: { campaign: string | null }) => c.campaign ?? "Campaign";
-  const compact = (cents: number) => {
-    const d = cents / 100;
-    return d >= 1e6 ? `$${(d / 1e6).toFixed(2)}M` : d >= 1e4 ? `$${Math.round(d / 1e3)}K` : formatCents(cents, center.currency).replace(/\.00$/, "");
-  };
+  const compact = (cents: number) => compactMoney(cents, fmt);
   const appCounts = fig.applicationCounts;
   const givenHint = !seesGiving
     ? "needs giving.view"
@@ -99,12 +101,17 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
       : !prevOk
         ? "last year could not load"
         : pctText(givenYtd, givenPrev)
-          ? `${pctText(givenYtd, givenPrev)} vs ${year - 1}`
+          ? `${pctText(givenYtd, givenPrev)} vs ${fiscalYearLabel(year - 1, fiscal.month)}`
           : "no prior-year figure";
 
   return (
     <>
       {header}
+      {fiscal.problem ? (
+        <p role="status" className="mb-3 text-sm text-danger">
+          {fiscal.problem}
+        </p>
+      ) : null}
       <form method="get" action="/reports" className="mb-5 flex items-end gap-3">
         <div>
           <label htmlFor="year" className="crm-label">
@@ -113,7 +120,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
           <select id="year" name="year" defaultValue={String(year)} className="crm-input min-w-32">
             {Array.from({ length: 8 }, (_, i) => currentYear - i).map((y) => (
               <option key={y} value={y}>
-                {y}
+                {fiscalYearLabel(y, fiscal.month)}
               </option>
             ))}
           </select>
@@ -127,8 +134,8 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
         <KpiGrid cols={3}>
           <Stat
             label="Households"
-            value={seesMembership && fig.households !== null ? fig.households.toLocaleString() : "—"}
-            hint={seesMembership ? (peopleOk ? `+${peopleOk.newInYear.toLocaleString()} in ${year}` : "could not load") : "needs people.view"}
+            value={seesMembership && fig.households !== null ? n(fig.households) : "—"}
+            hint={seesMembership ? (peopleOk ? `+${n(peopleOk.newInYear)} in ${w.label}` : "could not load") : "needs people.view"}
             tone="navy"
           />
           <Stat
@@ -137,7 +144,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
             hint={seesMembership ? (peopleOk ? "households with a signed-in member" : "could not load") : "needs people.view"}
             tone="success"
           />
-          <Stat label={w.isCurrentYear ? "Given YTD" : `Given in ${year}`} value={seesGiving && paymentsOk ? compact(givenYtd) : "—"} hint={givenHint} tone="brown" />
+          <Stat label={w.isCurrentYear ? "Given YTD" : `Given in ${w.label}`} value={seesGiving && paymentsOk ? compact(givenYtd) : "—"} hint={givenHint} tone="brown" />
           <Stat
             label="Open pledges"
             value={seesGiving && fig.openPledgesCents !== null ? compact(fig.openPledgesCents) : "—"}
@@ -146,27 +153,27 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
           />
           <Stat
             label="Event visits"
-            value={visitsOk ? visitsOk.checkIns.toLocaleString() : "—"}
-            hint={!seesEvents ? "needs events.view" : visitsOk ? (pctText(visitsOk.checkIns, prevVisitsOk?.checkIns ?? 0) ?? `check-ins in ${year}`) : "could not load"}
+            value={visitsOk ? n(visitsOk.checkIns) : "—"}
+            hint={!seesEvents ? "needs events.view" : visitsOk ? (pctText(visitsOk.checkIns, prevVisitsOk?.checkIns ?? 0) ?? `check-ins in ${w.label}`) : "could not load"}
             tone="maroon"
           />
           <Stat
             label="Renewals due"
-            value={seesMembership && peopleOk ? peopleOk.renewalsDue.toLocaleString() : "—"}
+            value={seesMembership && peopleOk ? n(peopleOk.renewalsDue) : "—"}
             hint={seesMembership ? "next 60 days" : "needs people.view"}
             tone="purple"
           />
         </KpiGrid>
       </div>
       <BlockGrid className="mb-5">
-        <Card span={6} title={`Giving by campaign, ${year}`}>
+        <Card span={6} title={`Giving by campaign, ${w.label}`}>
           {!seesGiving ? (
             <p className="text-sm text-muted">Needs giving.view.</p>
           ) : pledges && !pledges.ok ? (
             <QueryError what="pledges" error={pledges.error} retryHref="/reports" />
           ) : (
             <BarList
-              empty={`No pledges in ${year}`}
+              empty={`No pledges in ${w.label}`}
               items={campaignBars.map((c) => ({
                 label: c.campaignId === null ? "No campaign" : campaignLabel(c),
                 percent: barPercent(c.pledgedCents, campaignMax),
@@ -184,7 +191,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
           ) : (
             <BarList
               empty="No households yet"
-              items={zoneRows.map((z) => ({ label: z.zone, percent: barPercent(z.households, zoneMax), value: z.households.toLocaleString(), color: "navy" }))}
+              items={zoneRows.map((z) => ({ label: z.zone, percent: barPercent(z.households, zoneMax), value: n(z.households), color: "navy" }))}
             />
           )}
         </Card>
@@ -217,10 +224,10 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
                       <td className="font-semibold capitalize">{t}</td>
                       {MSTATUSES.map((s) => (
                         <td key={s} className="num">
-                          {fig.membershipCell(t, s).toLocaleString()}
+                          {n(fig.membershipCell(t, s))}
                         </td>
                       ))}
-                      <td className="num font-semibold">{fig.activeHouseholds(t).toLocaleString()}</td>
+                      <td className="num font-semibold">{n(fig.activeHouseholds(t))}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -247,7 +254,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
                     .map((s) => (
                       <tr key={s}>
                         <td>{APPLICATION_STATUS_LABEL[s]}</td>
-                        <td className="num font-semibold">{appCounts[s].toLocaleString()}</td>
+                        <td className="num font-semibold">{n(appCounts[s])}</td>
                       </tr>
                     ))}
                 </tbody>
@@ -256,7 +263,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
           )}
         </Card>
 
-        <Card title={`Campaign detail, ${year}`} description="Pledges made in the year (cancelled excluded)." padded={false}>
+        <Card title={`Campaign detail, ${w.label}`} description="Pledges made in the year (cancelled excluded)." padded={false}>
           {!seesGiving ? (
             <p className="p-5 text-sm text-muted">Needs giving.view.</p>
           ) : pledges && !pledges.ok ? (
@@ -264,7 +271,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
               <QueryError what="pledges" error={pledges.error} retryHref="/reports" />
             </div>
           ) : campaignRows.length === 0 ? (
-            <EmptyState title={`No pledges in ${year}`} />
+            <EmptyState title={`No pledges in ${w.label}`} />
           ) : (
             <TableWrap>
               <table className="crm-table">
@@ -281,12 +288,12 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
                   {campaignRows.map((c) => (
                     <tr key={c.campaignId ?? "none"}>
                       <td>{c.campaignId === null ? <span className="text-muted">No campaign</span> : campaignLabel(c)}</td>
-                      <td className="num">{c.pledges.toLocaleString()}</td>
-                      <td className="num">{formatCents(c.pledgedCents, center.currency)}</td>
-                      <td className="num">{formatCents(c.paidCents, center.currency)}</td>
+                      <td className="num">{n(c.pledges)}</td>
+                      <td className="num">{moneyIn(c.pledgedCents, fmt)}</td>
+                      <td className="num">{moneyIn(c.paidCents, fmt)}</td>
                       <td className="num">
-                        {formatCents(c.outstandingCents, center.currency)}
-                        {c.writtenOffCents > 0 ? <div className="text-xs text-muted">{formatCents(c.writtenOffCents, center.currency)} written off</div> : null}
+                        {moneyIn(c.outstandingCents, fmt)}
+                        {c.writtenOffCents > 0 ? <div className="text-xs text-muted">{moneyIn(c.writtenOffCents, fmt)} written off</div> : null}
                       </td>
                     </tr>
                   ))}
@@ -296,7 +303,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
           )}
         </Card>
 
-        <Card title={`Money received by method, ${year}`} description="Net of refunds; failed and voided payments excluded." padded={false}>
+        <Card title={`Money received by method, ${w.label}`} description="Net of refunds; failed and voided payments excluded." padded={false}>
           {!seesGiving ? (
             <p className="p-5 text-sm text-muted">Needs giving.view.</p>
           ) : payments && !payments.ok ? (
@@ -304,7 +311,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
               <QueryError what="payments" error={payments.error} retryHref="/reports" />
             </div>
           ) : !paymentsOk || paymentsOk.groups.length === 0 ? (
-            <EmptyState title={`No payments in ${year}`} />
+            <EmptyState title={`No payments in ${w.label}`} />
           ) : (
             <TableWrap>
               <table className="crm-table">
@@ -319,8 +326,8 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
                   {fig.methods.map((m) => (
                     <tr key={m.method}>
                       <td>{PAYMENT_METHOD_LABEL[m.method] ?? m.method}</td>
-                      <td className="num">{m.payments.toLocaleString()}</td>
-                      <td className="num">{formatCents(m.netCents, center.currency)}</td>
+                      <td className="num">{n(m.payments)}</td>
+                      <td className="num">{moneyIn(m.netCents, fmt)}</td>
                     </tr>
                   ))}
                 </tbody>

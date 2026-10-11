@@ -66,7 +66,7 @@ describe("tier D: held, never decided by code", () => {
 });
 
 describe("low-confidence reads (a photo or a scanned page)", () => {
-  const c = makeConfig(TODAY);
+  const c = makeConfig(TODAY, { country: "US" });
   it("a read under the threshold is never better than a question", () => {
     const sure = run([
       rec({ id: "a", name: "Rahul Shah", ...strong }),
@@ -101,7 +101,7 @@ describe("thresholds live in one config object", () => {
     expect(pairOf(run(rows(), { tier: { autoMinScore: 95, familyNameAtAddress: false } }), "a", "b")!.tier).toBe("B");
   });
   it("the defaults are what the brief says", () => {
-    const c = makeConfig(TODAY);
+    const c = makeConfig(TODAY, { country: "US" });
     expect(c.tier.autoMinIdentifiers).toBe(2);
     expect(c.minorAge).toBe(18);
     expect(c.budget.questionsPer1000).toBe(10);

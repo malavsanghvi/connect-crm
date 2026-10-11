@@ -61,7 +61,7 @@ export const ordersWaiting = defineCommand<Infer<typeof input>, OrdersWaitingDat
   title: "See the store orders waiting for pickup",
   description:
     "The store orders still to hand over: how many are ready for the member to collect and how many are not ready yet (placed or being prepared), counted by pickup slot, " +
-    "and the orders themselves with what was ordered, the total in dollars and the household (a household card line, never a name alone; a guest's name is not shown). " +
+    "and the orders themselves with what was ordered, the total in the community's currency and the household (a household card line, never a name alone; a guest's name is not shown). " +
     "Use the order_id with store.set_order_status. Read only: it moves no order and sends nothing.",
   level: "read",
   permission: "storeOrders",

@@ -7,6 +7,7 @@ vi.mock("@/lib/data/home-tasks", () => ({ loadHomeTasks: vi.fn() }));
 import { revalidatePath } from "next/cache";
 
 import { CATALOG } from "@/lib/commands/catalog";
+import type { MinorNameEntry } from "@/lib/commands/child-filter";
 import { CONTENT_COMMANDS } from "@/lib/commands/catalog/content";
 import { LEARNING_COMMANDS } from "@/lib/commands/catalog/learning";
 import { MESSAGES_COMMANDS } from "@/lib/commands/catalog/messages";
@@ -18,13 +19,14 @@ import { STORE_COMMANDS } from "@/lib/commands/catalog/store";
 import { pickSaved } from "@/lib/commands/catalog/messages-draft-reminder";
 import { draftReminder, fillTemplate, whenText } from "@/lib/commands/catalog/reminder-text";
 import { CommandRegistry } from "@/lib/commands/registry";
+import { describe as describeText } from "@/lib/commands/text";
 import { confirmProposal, runCommand } from "@/lib/commands/run";
 import type { CommandRunResult, CommandVia } from "@/lib/commands/types";
 import { loadHomeTasks } from "@/lib/data/home-tasks";
 
 import { GIVING_ANSWERS, SHAH, givingWorld } from "./giving-world";
 import { addEventsWorld, EV } from "./events-world";
-import { CHILDREN, communityWithChildren, fakeDb, fakeSession, testContext, type FakeDbOptions } from "./helpers";
+import { CHILDREN, INTERNATIONAL, communityWithChildren, fakeDb, fakeSession, testContext, withInternationalChildren, type FakeDbOptions } from "./helpers";
 
 const DIWALI = "7d0f3b9a-6a39-4d0c-9f43-0a1a1d7c1001";
 const PICNIC = "7d0f3b9a-6a39-4d0c-9f43-0a1a1d7c1003";
@@ -38,14 +40,14 @@ function catalogRegistry() {
   return r;
 }
 
-function setup(opts: { via?: CommandVia; permissions?: string[]; world?: FakeDbOptions; rules?: unknown } = {}) {
+function setup(opts: { via?: CommandVia; permissions?: string[]; world?: FakeDbOptions; rules?: unknown; minorNames?: MinorNameEntry[] } = {}) {
   const db = fakeDb(opts.world ?? communityWithChildren());
   const session = fakeSession({
     db,
     permissions: opts.permissions ?? ALL_PERMISSIONS,
     center: { ...fakeSession().center, rules: opts.rules ?? {} },
   });
-  const ctx = testContext({ session, registry: catalogRegistry(), via: opts.via ?? "screen", minorNames: CHILDREN.full });
+  const ctx = testContext({ session, registry: catalogRegistry(), via: opts.via ?? "screen", minorNames: opts.minorNames ?? CHILDREN.full });
   return { ctx, db, session };
 }
 
@@ -130,8 +132,9 @@ describe("the first commands", () => {
   it("are described for a model", () => {
     for (const c of CATALOG) {
       expect(c.title.length).toBeGreaterThan(8);
-      expect(c.description.length).toBeGreaterThan(80);
-      expect(c.description).not.toMatch(/\bbid\b/i);
+      const text = describeText(c.description);
+      expect(text.length).toBeGreaterThan(80);
+      expect(text).not.toMatch(/\bbid\b/i);
     }
   });
 
@@ -375,12 +378,20 @@ describe("reminder wording", () => {
     const saved = pickSaved(rows, "center-1");
     expect(saved.get("gu")).toEqual({ subject: "mine new", body: "m2" });
     expect(saved.has("en")).toBe(false);
+    // A language Weaver has no wording for is kept too: any language can have a saved template.
+    expect(saved.get("fr")).toEqual({ subject: "x", body: "x" });
   });
 });
 
 describe("messages.draft_reminder", () => {
+  /** A community that uses English, Gujarati and Hindi (tests/community-languages.test.ts covers the other languages). */
+  const threeLanguages = () => {
+    const w = communityWithChildren();
+    return { ...w, rpc: { ...w.rpc, community_languages: ["en", "gu", "hi"] } };
+  };
+
   it("drafts the reminder in all three languages, and sends nothing", async () => {
-    const { ctx, db } = setup();
+    const { ctx, db } = setup({ world: threeLanguages() });
     const r = await runCommand(ctx, "messages.draft_reminder", { event_id: DIWALI });
     const data = dataOf<{ event: { name: string }; drafts: { language: string; subject: string; body: string; source: string }[]; sent: boolean; notes: string[] }>(r);
     expect(data.event.name).toBe("Diwali Dinner");
@@ -389,11 +400,11 @@ describe("messages.draft_reminder", () => {
     expect(data.notes.join(" ")).toContain("Ask someone who reads the language");
     expect(r).toMatchObject({ message: "This is a draft. Nothing has been sent or scheduled." });
     expect(db.calls.every((c) => c.op === "select")).toBe(true);
-    expect(db.rpcCalls.map((c) => c.fn)).toEqual([]);
+    expect(db.rpcCalls.map((c) => c.fn)).toEqual(["community_languages"]);
   });
 
   it("drafts one language, or an RSVP confirmation from the saved template", async () => {
-    const world = communityWithChildren();
+    const world = threeLanguages();
     world.tables.message_templates = [
       { key: "rsvp_confirmation", channel: "push", language: "gu", subject: "ખાતરી: {{event}}", body: "{{event}} {{when}}", center_id: "center-1", version: 1 },
     ];
@@ -403,7 +414,7 @@ describe("messages.draft_reminder", () => {
   });
 
   it("says when the saved templates could not be read, and still drafts", async () => {
-    const { ctx } = setup({ world: { ...communityWithChildren(), failTables: { message_templates: { code: "42501", message: "permission denied" } } } });
+    const { ctx } = setup({ world: { ...threeLanguages(), failTables: { message_templates: { code: "42501", message: "permission denied" } } } });
     const data = dataOf<{ drafts: unknown[]; notes: string[] }>(await runCommand(ctx, "messages.draft_reminder", { event_id: DIWALI, kind: "rsvp_confirmation" }));
     expect(data.drafts).toHaveLength(3);
     expect(data.notes[0]).toBe("Could not read the community's saved templates, so this uses the wording built into Weaver.");
@@ -620,6 +631,24 @@ describe("no command result reaches a model with a child in it", () => {
       const text = JSON.stringify(result);
       for (const name of [...CHILDREN.full, ...CHILDREN.first]) expect(text, `${name} reached a result of ${command.key}`).not.toContain(name);
       expect(text).not.toContain("2018-05-05");
+      expect(text).not.toContain("date_of_birth");
+    });
+
+    // The same, with children whose names the first version could not match: family name first, no spaces, a particle, two given
+    // names and two family names, one name only (tests/commands/helpers.ts INTERNATIONAL). Adults are still named.
+    it(`${command.key}: nothing about a child of any culture in what Niva is given`, async () => {
+      vi.mocked(loadHomeTasks).mockResolvedValue({
+        tasks: [{ id: "x:1", source: "pathshala", tag: "Pathshala", color: "purple", title: "Sign-off for Wang Wei and 王伟", meta: "María José García López and Sukarno are waiting", links: [] }],
+        failures: [],
+      } as never);
+      const base = command.key.startsWith("giving.") ? givingWorld(GIVING_ANSWERS) : addEventsWorld(communityWithChildren());
+      const world = withInternationalChildren(base);
+      const on = Object.fromEntries(CATALOG.filter((c) => c.level === "confirm").map((c) => [c.key, true]));
+      const { ctx } = setup({ via: "assistant", world, rules: { assistant: { tools: on } }, minorNames: [...CHILDREN.full, ...INTERNATIONAL.entries()] });
+      const result = await runCommand(ctx, command.key, SAMPLE_INPUT[command.key]);
+      expect(result.ok, JSON.stringify(result)).toBe(true);
+      const text = JSON.stringify(result);
+      for (const name of [...CHILDREN.full, ...CHILDREN.first, ...INTERNATIONAL.forbidden]) expect(text, `${name} reached a result of ${command.key}`).not.toContain(name);
       expect(text).not.toContain("date_of_birth");
     });
   }

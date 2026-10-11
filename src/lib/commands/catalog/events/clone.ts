@@ -33,7 +33,7 @@ export type CloneView = {
 
 const draftInput = object({
   event_id: f.optional(f.uuid("The earlier event to copy (its id). Leave out to find it by name with 'find'.")),
-  find: f.optional(f.string("Part of the earlier event's name, like 'Diwali Dinner'. The most recent earlier event that matches is used.", { min: 2, max: 100 })),
+  find: f.optional(f.string("Part of the earlier event's name, like 'Annual Gala'. The most recent earlier event that matches is used.", { min: 2, max: 100 })),
   new_date: f.date("The day of the new event, like 2026-11-08. Times of day stay as they were."),
   name: f.optional(f.string("The new event's name. Leave out to keep the old name with the year moved on.", { min: 2, max: 200 })),
 });
@@ -100,7 +100,7 @@ export const draftCloneEvent = defineCommand<DraftInput, CloneView>({
   key: "events.clone_draft",
   title: "Prepare a copy of an earlier event",
   description:
-    "Prepare a new event by copying an earlier one (last year's Diwali Dinner, say) onto a new day: the name with the year moved on, the description, venue, capacity, " +
+    "Prepare a new event by copying an earlier one (last year's annual gala, say) onto a new day: the name with the year moved on, the description, venue, capacity, " +
     "who can RSVP, RSVP dates, reminder timing, lunch settings and prices, with the times of day kept. Give new_date, and either event_id or find (part of the name). " +
     "It shows what the new event would look like and what is not copied (RSVPs, volunteers, checklist, flyer, survey). It saves NOTHING: say it is a preparation. " +
     "To save it as a draft, use events.create_from_clone with the same source and date.",

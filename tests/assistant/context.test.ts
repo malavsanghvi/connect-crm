@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { JAIN } from "../fixtures/kinds";
 import { areaForPath, contextLine, routeContext, suggestionsFor } from "@/lib/assistant/context";
 
 const EVENT = "3f2b8d3e-1c1a-4a53-9f55-7a1d2d9f0c11";
@@ -82,6 +83,8 @@ describe("the area of a screen", () => {
 });
 
 describe("Ask Niva suggestions", () => {
+  // A Jain Center in the United States that takes checks and Zelle: the community these examples were first written for.
+  const JAIN_CTX = { kind: JAIN, currency: "USD", locale: "en-US", paymentPlugins: ["zelle", "check"] };
   const all = new Set(["people.search", "tasks.mine", "giving.pledges_behind", "accounting.month_close_blockers", "events.upcoming", "events.set_field", "messages.draft_reminder"]);
 
   it("gives up to three plain sentences for each area", () => {
@@ -91,7 +94,7 @@ describe("Ask Niva suggestions", () => {
       expect(list.length).toBeLessThanOrEqual(3);
       for (const s of list) expect(s).toMatch(/[a-z]/);
     }
-    expect(suggestionsFor("/giving/payments", undefined, all)).toContain("Who is behind on pledges?");
+    expect(suggestionsFor("/giving/payments", undefined, all, JAIN_CTX)).toContain("Who is behind on pledges?");
   });
 
   it("offers the Giving sentences a role can use, the three most useful first", () => {
@@ -104,14 +107,14 @@ describe("Ask Niva suggestions", () => {
       "giving.household_summary",
       "accounting.month_close_blockers",
     ]);
-    expect(suggestionsFor("/giving/payments", undefined, giving)).toEqual([
+    expect(suggestionsFor("/giving/payments", undefined, giving, JAIN_CTX)).toEqual([
       "Who is behind on pledges?",
       "Record a $250 check from member number 1042",
       "Which Zelle reports are waiting for the bank?",
     ]);
     // A volunteer who can only record payments is offered the recording sentence and the bank lines, not the approvals.
     const volunteer = new Set(["giving.draft_payment", "giving.bank_lines_unmatched", "tasks.mine"]);
-    expect(suggestionsFor("/giving/payments/bank", undefined, volunteer)).toEqual(["Record a $250 check from member number 1042", "Which bank lines are still unmatched?"]);
+    expect(suggestionsFor("/giving/payments/bank", undefined, volunteer, JAIN_CTX)).toEqual(["Record a $250 check from member number 1042", "Which bank lines are still unmatched?"]);
     // A person is never offered a sentence that names a child: the examples describe a member number, not a person.
     for (const s of suggestionsFor("/giving/pledges", undefined, giving)) expect(s).not.toMatch(/bid/i);
   });
@@ -140,11 +143,11 @@ describe("Ask Niva suggestions", () => {
     ]);
     // Without those, the next ones the role may use.
     expect(suggestionsFor("/events/[id]", "event", new Set(["messages.draft_reminder", "events.set_field", "events.upcoming"]))).toEqual([
-      "Draft a reminder for this event in English, Gujarati and Hindi",
+      "Draft a reminder for this event in every language we use",
       "Move this event to the second Saturday of November",
       "Change the venue of this event to the main hall",
     ]);
-    expect(suggestionsFor("/events", undefined, events)).toEqual(["What events are coming up?", "Copy last year's Diwali Dinner to November 8 as a draft", "Draft a reminder for the next event"]);
+    expect(suggestionsFor("/events", undefined, events, JAIN_CTX)).toEqual(["What events are coming up?", "Copy last year's Diwali Dinner to November 8 as a draft", "Draft a reminder for the next event"]);
     // The examples never name a child.
     for (const s of suggestionsFor("/events/[id]", "event", events)) expect(s).not.toMatch(/\b(child|kid|minor)\b/i);
   });
@@ -209,13 +212,13 @@ describe("Ask Niva suggestions", () => {
   it("offers the Content examples a role can use, first the ones about the tab it is on", () => {
     const keys = new Set(["content.approval_queue", "content.niva_sources", "content.media_library", "content.draft_item", "tasks.mine"]);
     expect(suggestionsFor("/content/queue", undefined, keys)).toEqual(["What is waiting in the approval queue, and for how long?", "What is waiting in the approval queue?", "Are Niva's sources up to date?"]);
-    expect(suggestionsFor("/content/niva", undefined, keys)).toEqual([
+    expect(suggestionsFor("/content/niva", undefined, keys, JAIN_CTX)).toEqual([
       "Which of Niva's sources are out of date?",
-      "Draft a Niva source about parking at the Diwali dinner",
+      "Draft a Niva source about parking at the Diwali Dinner",
       "What is waiting in the approval queue?",
     ]);
-    expect(suggestionsFor("/content/media", undefined, keys)[0]).toBe("How many stavans, videos and podcasts are in the media library?");
-    expect(suggestionsFor("/content", undefined, keys)).toEqual(["What is waiting in the approval queue?", "Are Niva's sources up to date?", "Draft an announcement about the Diwali dinner for approval"]);
+    expect(suggestionsFor("/content/media", undefined, keys, JAIN_CTX)[0]).toBe("How many stavans, videos and podcasts are in the media library?");
+    expect(suggestionsFor("/content", undefined, keys, JAIN_CTX)).toEqual(["What is waiting in the approval queue?", "Are Niva's sources up to date?", "Draft an announcement about the Diwali Dinner for approval"]);
     // A role that can only look at the queue is offered only that.
     expect(suggestionsFor("/content/niva", undefined, new Set(["content.approval_queue"]))).toEqual(["What is waiting in the approval queue?"]);
     expect(contextLine({ path: "/content/queue" })).toBe("Looking at Content");

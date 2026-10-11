@@ -5,11 +5,13 @@ import { describe, expect, it, vi } from "vitest";
 // The panel's cards import the security-code window, which verifies a code through a server action; nothing is called here.
 vi.mock("@/app/security-actions", () => ({ verifyStepUpAction: vi.fn() }));
 
+import { KindProvider } from "@/components/kind-context";
 import { AskNiva } from "@/components/niva/ask-niva";
 import { NivaContext, type NivaApi } from "@/components/niva/niva-context";
 import { NivaDock } from "@/components/niva/niva-dock";
 import { NivaTopButton } from "@/components/niva/niva-top-button";
 import { chatReducer, initialChatState, type ChatAction } from "@/lib/assistant/chat-state";
+import { LEGACY_KIND, NEUTRAL_KIND, type KindProfile } from "@/lib/kind";
 
 import { sampleCommands, sampleProposal } from "./fake-server";
 
@@ -43,7 +45,11 @@ function api(over: Partial<NivaApi> = {}): NivaApi {
   };
 }
 
-const withNiva = (value: NivaApi | null, child: ReturnType<typeof createElement>) => renderToStaticMarkup(createElement(NivaContext.Provider, { value }, child));
+// A Jain Center unless a test says otherwise; `null` renders with no kind provided (the neutral kind is then assumed).
+const withNiva = (value: NivaApi | null, child: ReturnType<typeof createElement>, kind: KindProfile | null = LEGACY_KIND) => {
+  const inner = createElement(NivaContext.Provider, { value }, child);
+  return renderToStaticMarkup(kind ? KindProvider({ kind, children: inner }) : inner);
+};
 const chatAfter = (actions: ChatAction[]) => actions.reduce(chatReducer, initialChatState);
 
 describe("Niva is invisible unless the community switched it on", () => {
@@ -68,6 +74,13 @@ describe("Niva is invisible unless the community switched it on", () => {
 });
 
 describe("the panel", () => {
+  it("speaks neutrally when no kind is given: no faith's words", () => {
+    const html = withNiva(api(), createElement(NivaDock), null);
+    expect(html).toContain("Who is behind on");
+    expect(html).not.toMatch(/Pathshala|Jain|darshan|boli|derasar/i);
+    expect(withNiva(api(), createElement(NivaDock), NEUTRAL_KIND)).toBe(html);
+  });
+
   it("opens on three examples for the screen, and what Niva is looking at", () => {
     const html = withNiva(api(), createElement(NivaDock));
     expect(html).toContain('id="niva-panel"');
@@ -87,7 +100,7 @@ describe("the panel", () => {
   it("says 'this event' on an event page", () => {
     const html = withNiva(api({ context: { path: "/events/[id]", entityKind: "event", entityId: "e1" } }), createElement(NivaDock));
     expect(html).toContain("Looking at this event");
-    expect(html).toContain("Draft a reminder for this event in English, Gujarati and Hindi");
+    expect(html).toContain("Draft a reminder for this event in every language we use");
   });
 
   it("without a model key it says so plainly and still offers the commands", () => {

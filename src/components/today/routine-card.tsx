@@ -9,6 +9,13 @@ import { isHandTickable, nextStep, routineProgress, stepIsDone, type ResolvedRou
 
 const LATER_SHOWN = 6;
 
+/** The roles every community has a starting routine for (a school's principal is added when the community has a school). */
+const STARTING_ROLES = ["administrators", "treasurers", "membership coordinators", "event leads"];
+
+function listOf(parts: readonly string[]): string {
+  return parts.length <= 1 ? (parts[0] ?? "") : `${parts.slice(0, -1).join(", ")} and ${parts[parts.length - 1]}`;
+}
+
 /**
  * "Your routine": the steps due today, grouped by when, the next undone one highlighted. A step with a counter ticks itself when the
  * data says it is done; every other step is ticked by the person here. Those ticks are NOT saved (remembering them needs a small
@@ -45,7 +52,7 @@ export function RoutineCard({ routine }: { routine: ResolvedRoutine }) {
 
       {routine.roles.length === 0 ? (
         <EmptyState title="No routine for your role yet">
-          Weaver has starting routines for administrators, treasurers, membership coordinators, event leads and Pathshala principals. Your tasks are below.
+          Weaver has starting routines for {listOf(routine.startingRoles ?? STARTING_ROLES)}. Your tasks are below.
         </EmptyState>
       ) : routine.groups.length === 0 ? (
         <EmptyState title="Nothing in your routine is due today" />

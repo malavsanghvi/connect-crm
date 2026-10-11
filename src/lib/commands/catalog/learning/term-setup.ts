@@ -1,12 +1,13 @@
 import { PAYMENT_MODE_LABEL, SEAT_RULE_LABEL, feeEditing, termStatusLabel } from "@/lib/pathshala-registration/rules";
 import { bandCell, missingFeeNames } from "@/lib/pathshala-registration/fees";
 import { formatDateTime } from "@/lib/pathshala/format";
+import { schoolOrGeneric } from "@/lib/kind-samples";
 
 import { defineCommand } from "../../define";
 import { f, object, type Infer } from "../../schema";
 import type { CommandContext } from "../../types";
 
-import { day, fee, groupsFor, loadSetup, money, rulesOf, type SetupWorld, type Term } from "./setup";
+import { day, fee, groupsFor, loadSetup, money, rulesOf, school, type SetupWorld, type Term } from "./setup";
 
 const input = object({
   term_id: f.optional(f.uuid("One term (its id, from an earlier answer). Leave it out to see every term that is not closed.")),
@@ -55,12 +56,12 @@ export type TermSetup = {
   levels_offered_without_a_fee: string[];
 };
 
-function fundWords(world: SetupWorld, fundId: string | null, locked: boolean): string {
+function fundWords(world: SetupWorld, fundId: string | null, locked: boolean, schoolName: string): string {
   if (fundId) return world.funds?.find((x) => x.id === fundId)?.name ?? "A fund chosen by the treasurer";
-  return locked ? "No fund chosen" : "Found when registration opens (the Pathshala fund)";
+  return locked ? "No fund chosen" : `Found when registration opens (the ${schoolName} fund)`;
 }
 
-/** One term as a person would describe its setup: dates, rules, and every level with its fee in dollars. */
+/** One term as a person would describe its setup: dates, rules, and every level with its fee in the community's currency. */
 export function describeTerm(ctx: CommandContext, world: SetupWorld, term: Term): TermSetup {
   const rules = rulesOf(world, term);
   const tz = ctx.session.center.time_zone;
@@ -89,7 +90,7 @@ export function describeTerm(ctx: CommandContext, world: SetupWorld, term: Term)
       late_registration_until: rules.late_registration_closes_at ? formatDateTime(rules.late_registration_closes_at, tz) : "no late window",
       withdrawal_credit_until: rules.withdrawal_credit_until ? day(ctx, rules.withdrawal_credit_until) : "set when registration opens",
       age_cut_off_date: rules.age_cutoff_on ? day(ctx, rules.age_cutoff_on) : "the first day of the term",
-      fund: fundWords(world, rules.fund_id, rules.fees_locked_at !== null),
+      fund: fundWords(world, rules.fund_id, rules.fees_locked_at !== null, school(ctx)),
       membership_required: term.membership_required,
     },
     levels: groups.flatMap((g) =>
@@ -111,14 +112,18 @@ export function describeTerm(ctx: CommandContext, world: SetupWorld, term: Term)
 
 export type TermSetupData = { terms: TermSetup[] };
 
-/** The setup of a term: levels, age bands, fees in dollars, the registration rules, and whether registration is open. */
+/** The setup of a term: levels, age bands, fees in the community's currency, the registration rules, and whether registration is open. */
 export const termSetup = defineCommand<Infer<typeof input>, TermSetupData>({
   key: "learning.term_setup",
   title: "Look at a term's setup",
-  description:
-    "Describe how a Pathshala term is set up: its dates, whether registration is open, the registration rules (how families pay, seats, sibling discount, family cap, late fee, deadlines, the fund), " +
-    "and every level with its age band, its fee in dollars and how many classes it has this term, plus the levels that families can choose but have no fee yet. " +
-    "Leave term_id out to see every term that is not closed. It is about the setup of the term only: levels, fees, rules and classes. It never shows a learner, a family's registration or anyone under 18. It changes nothing.",
+  description: (kind) => {
+    const schoolName = schoolOrGeneric(kind);
+    return (
+      `Describe how a ${schoolName} term is set up: its dates, whether registration is open, the registration rules (how families pay, seats, sibling discount, family cap, late fee, deadlines, the fund), ` +
+      `and every level with its age band, its fee in the community's currency and how many classes it has this term, plus the levels that families can choose but have no fee yet. ` +
+      `Leave term_id out to see every term that is not closed. It is about the setup of the term only: levels, fees, rules and classes. It never shows a learner, a family's registration or anyone under 18. It changes nothing.`
+    );
+  },
   level: "read",
   permission: "pathshalaFees",
   module: "pathshala",
@@ -132,7 +137,7 @@ export const termSetup = defineCommand<Infer<typeof input>, TermSetupData>({
       data: { terms },
       message:
         terms.length === 0
-          ? "There is no Pathshala term that is not closed."
+          ? `There is no ${school(ctx)} term that is not closed.`
           : `${terms.length} term${terms.length === 1 ? "" : "s"}: ${terms.map((t) => `${t.name} (${t.status.toLowerCase()})`).join(", ")}. Registration is open for ${open}.`,
     };
   },

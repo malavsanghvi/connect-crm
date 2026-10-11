@@ -1,6 +1,7 @@
 // Shared test pieces for the command layer: a fake signed-in session, a fake database that answers like the Supabase client for the
 // few calls the commands make, and a small community with children in it (the child check runs against it).
 
+import { minorNameEntry, type MinorName, type MinorNameEntry } from "@/lib/commands/child-filter";
 import { InMemoryProposalStore } from "@/lib/commands/proposals";
 import { CommandRegistry } from "@/lib/commands/registry";
 import type { CommandContext, CommandVia } from "@/lib/commands/types";
@@ -141,13 +142,25 @@ export function fakeSession(over: Partial<Record<keyof CrmSession, unknown>> = {
   } as unknown as CrmSession;
 }
 
+/**
+ * A child named "Given Family" the way databaseMinorNames gives it for a household whose adults share the family name: the given
+ * words identify the child, the family word only goes with them. A single name stays a single name.
+ */
+export function westernMinor(full: string): MinorNameEntry {
+  const words = full.trim().split(/\s+/);
+  if (words.length < 2) return full;
+  const entry: MinorName = { full: [full], words: words.slice(0, -1) };
+  return entry;
+}
+
 export type TestContext = CommandContext & { proposals: InMemoryProposalStore; registry: CommandRegistry };
 
 export function testContext(opts: {
   session?: CrmSession;
   via?: CommandVia;
   registry?: CommandRegistry;
-  minorNames?: string[];
+  /** Bare full names ("Zoya Shah") are given the way the database gives them (see westernMinor); an object is used as it is. */
+  minorNames?: MinorNameEntry[];
   now?: () => Date;
   proposals?: InMemoryProposalStore;
 } = {}): TestContext {
@@ -157,7 +170,7 @@ export function testContext(opts: {
     via: opts.via ?? "screen",
     registry: opts.registry ?? new CommandRegistry(),
     proposals: opts.proposals ?? new InMemoryProposalStore({ now }),
-    minors: { namesOfMinors: async () => opts.minorNames ?? [] },
+    minors: { namesOfMinors: async () => (opts.minorNames ?? []).map((n) => (typeof n === "string" ? westernMinor(n) : n)) },
     now,
   };
 }
@@ -220,6 +233,65 @@ export function communityWithChildren(): Required<Pick<FakeDbOptions, "tables" |
       household_card: (a: Record<string, unknown>) => (cards[String(a.p_household)] ? [cards[String(a.p_household)]] : []),
       resolve_identifier: [],
       flagged_refund_count: 0,
+    },
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Children from other cultures (decision D2 in any culture)
+// ---------------------------------------------------------------------------
+type IntlChild = { id: string; first_name: string; last_name: string; date_of_birth: string | null; household: string; display: string };
+
+/**
+ * Children whose names the first version of the filter could not match: family name first, written without spaces, a particle, two
+ * given names and two family names, one name only. They live in the households of communityWithChildren() (Shah, Patel, Mehta) with
+ * no family name in common with the adults there, so every word of each name identifies the child (see minorNameEntry).
+ */
+export const INTERNATIONAL: { kids: IntlChild[]; entries: () => MinorNameEntry[]; forbidden: string[] } = {
+  kids: [
+    { id: "p-wang-wei", first_name: "Wang", last_name: "Wei", date_of_birth: "2016-03-03", household: "hh-shah", display: "Wang" },
+    { id: "p-cjk", first_name: "伟", last_name: "王", date_of_birth: "2017-04-04", household: "hh-shah", display: "王伟" },
+    { id: "p-maria", first_name: "María José", last_name: "García López", date_of_birth: "2014-02-02", household: "hh-patel", display: "María José" },
+    { id: "p-ahmad", first_name: "Ahmad", last_name: "bin Ali", date_of_birth: "2013-05-05", household: "hh-mehta", display: "Ahmad" },
+    { id: "p-sukarno", first_name: "Sukarno", last_name: "", date_of_birth: "2015-06-06", household: "hh-mehta", display: "Sukarno" },
+  ],
+  /** The names as the database source gives them (see minorNameEntry in child-filter.ts). */
+  entries: () => INTERNATIONAL.kids.map((k) => minorNameEntry({ first_name: k.first_name, last_name: k.last_name, preferred_name: null })),
+  /** Every way these children are written in the worlds below: none may reach a model. */
+  forbidden: ["Wang", "Wei", "王伟", "María", "José", "García", "López", "Ahmad", "Sukarno"],
+};
+
+/** communityWithChildren() (or another world with the same households) with the children above living in it. */
+export function withInternationalChildren<W extends FakeDbOptions>(world: W): W {
+  const tables = world.tables ?? {};
+  const center_id = "center-1";
+  const kids = INTERNATIONAL.kids;
+  const at = (household: unknown) => kids.filter((k) => k.household === household);
+  const original = world.rpc?.household_card as ((a: Record<string, unknown>) => unknown) | undefined;
+  return {
+    ...world,
+    tables: {
+      ...tables,
+      people: [
+        ...(tables.people ?? []),
+        ...kids.map((k) => ({ id: k.id, center_id, first_name: k.first_name, last_name: k.last_name, preferred_name: null, date_of_birth: k.date_of_birth, merged_into_id: null })),
+      ],
+      household_members: [
+        ...(tables.household_members ?? []),
+        ...kids.map((k) => ({ household_id: k.household, person_id: k.id, center_id, role: "child", is_primary: false, left_at: null })),
+      ],
+      households: (tables.households ?? []).map((h) => ({ ...h, display_name: [h.display_name, ...at(h.id).map((k) => k.display)].join(", ") })),
+    },
+    rpc: {
+      ...world.rpc,
+      household_card: (a: Record<string, unknown>) => {
+        const rows = (original ? original(a) : []) as Row[];
+        return rows.map((r) => ({
+          ...r,
+          household_name: [r.household_name, ...at(r.household_id).map((k) => k.display)].join(", "),
+          members: [r.members, ...at(r.household_id).map((k) => k.first_name)].join(", "),
+        }));
+      },
     },
   };
 }

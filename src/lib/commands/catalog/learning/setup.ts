@@ -17,6 +17,7 @@ import type { LevelFee, LevelRow, TermRules } from "@/lib/pathshala-registration
 import { buildFeeGroups, type FeeGroup, type TrackLite } from "@/lib/pathshala-registration/fees";
 import { feeLabel, formatMoney } from "@/lib/pathshala-registration/money";
 import { payNowBlockedReason } from "@/lib/pathshala-registration/rules";
+import { schoolOrGeneric } from "@/lib/kind-samples";
 
 import { must } from "../db";
 import { CommandDbError, CommandError, type CommandContext } from "../../types";
@@ -25,6 +26,14 @@ export type Term = Tables<"pathshala_terms">;
 export type ClassRow = Tables<"pathshala_classes">;
 
 export const NO_TERM = "That term was not found, or you can't see it.";
+
+/** The kind the words are chosen from: the session's, or (a test's fake session) one that says nothing about itself. */
+const PLAIN_KIND = { terms: {}, modules: {}, usesTradition: false } as const;
+
+/** What the community calls its school ("Pathshala", "Religious school", or plainly "school"): the word a person reads while a command runs. */
+export function school(ctx: Pick<CommandContext, "session">): string {
+  return schoolOrGeneric(ctx.session.kind ?? PLAIN_KIND);
+}
 export const NO_ACCESS_HERE = "You don't have access to this area.";
 
 /** "$130.00", with the community's currency. */

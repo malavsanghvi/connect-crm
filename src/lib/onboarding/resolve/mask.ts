@@ -98,7 +98,7 @@ export function maskForAi(raw: RawRecord, cfg: ResolveConfig): MaskResult {
   };
   // Second, independent layer: the command layer's child filter, with the names of the children on this row.
   const kids = listedNames(raw.children);
-  const filtered = filterChildren(record, { minorNames: kids.filter((n) => n.split(/\s+/).length >= 2), today: cfg.today });
+  const filtered = filterChildren(record, { minorNames: kids, today: cfg.today });
   return { withheld: false, record: filtered.value, removed };
 }
 
@@ -226,7 +226,8 @@ export function assertNoChildLeak(modelInput: unknown, children: readonly ChildI
   const haystack = strings.map(foldLower).join("\n");
   const leaks: string[] = [];
   const fullNames = children.filter((c) => c.last && cleanText(c.last)).map((c) => `${c.first} ${c.last}`);
-  for (const name of leakedMinorNames(strings, fullNames)) leaks.push(`full name "${name}"`);
+  // A whole name, in any order (the first name alone is checked separately below).
+  for (const name of leakedMinorNames(strings, fullNames.map((full) => ({ full: [full], words: [] })))) leaks.push(`full name "${name}"`);
   for (const c of children) {
     const first = cleanText(c.first);
     if (first.length >= 2) {

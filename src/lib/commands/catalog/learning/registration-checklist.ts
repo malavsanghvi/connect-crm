@@ -1,10 +1,11 @@
+import { schoolOrGeneric } from "@/lib/kind-samples";
 import { isPathshalaFund, missingFeeNames, openChecklist, type CheckItem } from "@/lib/pathshala-registration/fees";
 import { feeEditing } from "@/lib/pathshala-registration/rules";
 
 import { defineCommand } from "../../define";
 import { f, object, type Infer } from "../../schema";
 
-import { groupsFor, loadSetup, rulesOf } from "./setup";
+import { groupsFor, loadSetup, rulesOf, school } from "./setup";
 
 const input = object({
   term_id: f.optional(f.uuid("One term (its id, from learning.term_setup). Leave it out to check every term whose fees are not locked yet.")),
@@ -32,10 +33,14 @@ export type RegistrationChecklistData = { terms: TermChecklist[] };
 export const registrationChecklist = defineCommand<Infer<typeof input>, RegistrationChecklistData>({
   key: "learning.registration_checklist",
   title: "Check what is missing before registration opens",
-  description:
-    "List what a Pathshala term still needs before registration can open: a fee for every level that has a class, a way for families to pay that works, a fund for the fee pledges, age bands, the registration dates. " +
-    "Each line says missing (the database will refuse until it is fixed), check (worth a look) or ready. Leave term_id out to check every term whose fees are not locked yet. " +
-    "Niva never opens registration: the Pathshala principal does that on the term's Fees and rules page. It is about the term's setup only and never shows a learner or a registration. It changes nothing.",
+  description: (kind) => {
+    const schoolName = schoolOrGeneric(kind);
+    return (
+      `List what a ${schoolName} term still needs before registration can open: a fee for every level that has a class, a way for families to pay that works, a fund for the fee pledges, age bands, the registration dates. ` +
+      `Each line says missing (the database will refuse until it is fixed), check (worth a look) or ready. Leave term_id out to check every term whose fees are not locked yet. ` +
+      `Niva never opens registration: the ${schoolName} principal does that on the term's Fees and rules page. It is about the term's setup only and never shows a learner or a registration. It changes nothing.`
+    );
+  },
   level: "read",
   permission: "pathshalaFees",
   module: "pathshala",
@@ -66,8 +71,8 @@ export const registrationChecklist = defineCommand<Infer<typeof input>, Registra
         already_open: alreadyOpen,
         ready_to_open: !alreadyOpen && !editing.closed && missingFeeNames(groups).length === 0 && !items.some((i) => i.status === "missing"),
         items: alreadyOpen ? [{ status: "note", text: "Registration has already opened for this term. Its fees and rules are locked; only the treasurer can change them, with a reason." }] : items,
-        who_opens_it: "Only the Pathshala principal (pathshala.manage) opens registration, on the term's Fees and rules page. Niva does not.",
-        where: { label: `Pathshala › Terms › ${term.name} › Fees and rules`, href: `/pathshala/terms/${term.id}/fees` },
+        who_opens_it: `Only the ${school(ctx)} principal (pathshala.manage) opens registration, on the term's Fees and rules page. Niva does not.`,
+        where: { label: `${school(ctx)} › Terms › ${term.name} › Fees and rules`, href: `/pathshala/terms/${term.id}/fees` },
       };
     });
     const ready = terms.filter((t) => t.ready_to_open);

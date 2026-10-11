@@ -13,7 +13,7 @@ export type KindChangePreviewData = KindPreview & {
 };
 
 const input = object({
-  community: f.string("The community by its address (like jsh), its name or its id.", { min: 1, max: 120 }),
+  community: f.string("The community by its address (like riverside), its name or its id.", { min: 1, max: 120 }),
   kind: f.string("The key of the new kind of organization, as the Platform screen lists them.", { min: 1, max: 60 }),
 });
 

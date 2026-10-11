@@ -54,7 +54,7 @@ export const householdGivingSummary = defineCommand<Infer<typeof input>, Househo
     "One household's giving, shown with its household card (the adults, number, city, last gift): what it gave in total and in each of the last three years " +
     "(received and refunded), its most recent payments, its open pledges with what is still owed and how overdue each is, and whether it has a recurring gift. " +
     "Needs the household's id: find it first with people.search and let the person choose by the card, never by name. " +
-    "Amounts are in dollars and exact. Opening balances and payments that never completed are left out, as on year-end statements. Read only.",
+    "Amounts are in the community's currency and exact. Opening balances and payments that never completed are left out, as on year-end statements. Read only.",
   level: "read",
   permission: "payments",
   module: "giving",

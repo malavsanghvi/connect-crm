@@ -11,7 +11,7 @@ import { priceChange } from "./pure";
 
 const input = object({
   item_id: f.uuid("The product (its item_id, from store.products)."),
-  price: f.string("The new price in dollars, like 8.99.", { max: 20 }),
+  price: f.string("The new price in the community's currency, like 8.99.", { max: 20 }),
 });
 export type ChangePriceInput = Infer<typeof input>;
 export type ChangePriceData = { item: { id: string; name: string }; before_cents: number; after_cents: number; before: string; after: string };
@@ -31,7 +31,7 @@ export function makeChangePrice(opts: { ownerApproved: boolean }): AnyCommand {
     key: "store.change_price",
     title: "Change a store item's price (not available yet)",
     description:
-      "Change the price of one store product to a new amount in dollars (like 8.99); the card shows before and after. SWITCHED OFF until the owner approves price changes through Niva: do not offer it. " +
+      "Change the price of one store product to a new amount in the community's currency (like 8.99); the card shows before and after. SWITCHED OFF until the owner approves price changes through Niva: do not offer it. " +
       "Use store.draft_product to prepare a price change instead, and tell the person to change the price on Menu & pickup. This asks the person to confirm first and needs store.manage. Orders already placed keep their price.",
     level: "confirm",
     permission: "storeManage",

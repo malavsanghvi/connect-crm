@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { withActivity } from "@/lib/activity/with-activity";
-import { buildAudience, buildTranslations, parseAudience, requiresSecondApprover } from "@/lib/comms";
+import { buildAudience, buildTranslations, parseAudience, requiresSecondApprover, translationsFromFields } from "@/lib/comms";
 import { runScreenCommand } from "@/lib/commands/screen";
 import { inboxAllowed, inboxRefusal } from "@/lib/commands/catalog/messages/shared";
 import { plain, runCommandAs } from "@/lib/commands/catalog/messages/screen";
@@ -65,10 +65,7 @@ function campaignValues(fd: FormData, tz: string) {
   const channels = fd.getAll("channels").map(String).filter((c): c is Channel => (CHANNELS as string[]).includes(c));
   const sendAt = text(fd, "scheduled_at");
   const scheduledAt = sendAt ? localDateTimeToIso(sendAt, tz) : null;
-  const translations = buildTranslations({
-    gu: { title: text(fd, "title_gu"), body_md: text(fd, "body_gu") },
-    hi: { title: text(fd, "title_hi"), body_md: text(fd, "body_hi") },
-  });
+  const translations = buildTranslations(translationsFromFields(fd.keys(), (key) => text(fd, key)));
   if (!name) return { ok: false as const, error: "give the newsletter a name" };
   if (!title) return { ok: false as const, error: "add a subject" };
   if (!body) return { ok: false as const, error: "write the message" };
@@ -101,9 +98,10 @@ async function submitNewsletter(fd: FormData): Promise<ActionResult> {
     channels: fd.getAll("channels").map(String).join(","),
     audience_json: text(fd, "audience") || "{}",
   };
-  for (const [field, name] of [["send_at", "scheduled_at"], ["title_gu", "title_gu"], ["body_gu", "body_gu"], ["title_hi", "title_hi"], ["body_hi", "body_hi"]] as const) {
-    if (text(fd, name)) raw[field] = text(fd, name);
-  }
+  if (text(fd, "scheduled_at")) raw.send_at = text(fd, "scheduled_at");
+  // Translations into any language the form offered (title_es, body_es, title_gu ...), as the command takes them.
+  const translations = buildTranslations(translationsFromFields(fd.keys(), (key) => text(fd, key)));
+  if (Object.keys(translations).length > 0) raw.translations_json = JSON.stringify(translations);
   return plain(await runScreenCommand("messages.schedule_campaign", raw, doing));
 }
 

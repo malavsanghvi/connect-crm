@@ -147,6 +147,28 @@ per year, years across columns, subtotal and TOTAL rows, husband/wife/kids in on
 styles, ambiguous dates, leading zeros, names in Gujarati or Hindi script, transliteration variants of the same
 surname.
 
+**Any country, any script (the owner's rule: built for every organization).** The matching code in
+`src/lib/onboarding/intl/` and `resolve/names.ts` has no culture of its own:
+
+- Text is folded (accents, o-slash, l-stroke, sharp s) and a name in any other script (Cyrillic, Arabic, Han, Hangul,
+  Gujarati ...) is kept and compared as written, never dropped.
+- Honorifics, family words and relationship words of English, Spanish, Portuguese, French, German, Italian, Arabic, South
+  Asian, East Asian and Hebrew names are not part of a name. Particles (al-, bin, van der, de la, Mc) belong to the family
+  name and are never a maiden name. -bhai, -ben, -ji and -kumar are removed only as their own word, after a hyphen, or on a
+  name with South Asian context: Kenji and Reuben stay whole.
+- Spelling variants (Muhammad / Mohammed, Sergey / Sergei, Choudhury / Chowdhury) share a key and nicknames (Pepe, Sasha,
+  Bob) fold to the full name. A translation (Yusuf / Joseph) or another word order (Wang Wei / Wei Wang, a double
+  surname's halves) is only a weak reading: it never makes two names "the same" and a name never joins two records.
+- A source's own family-name and given-name columns are used as they are. Without them the last word is the family name and
+  the other readings are kept beside it as weak alternatives.
+- A phone number without a country code is read in the community's own country (from its profile, else its time zone, else
+  the file's own numbers with a code). With no country at all a bare number is NOT guessed; only a number written the North
+  American way is read as +1. Postal codes (US, Canada, UK, India, Australia, Germany, France, Netherlands, Brazil, Japan ...),
+  street types, house-number position and month names follow the country and language of the address.
+- The crawler reads the same phone and address formats from a community's website (`contact-text.ts`).
+- Yardsticks: the Indian-heavy list (`golden.ts`) and a multicultural list (`golden-intl.ts`, with a committed truth file).
+  Both must keep tier A precision at or above 99.5%.
+
 ### Paper, PDFs and photos
 
 Printed directories, sign-up sheets and ledgers are common in communities that have kept records on paper. **Under D2

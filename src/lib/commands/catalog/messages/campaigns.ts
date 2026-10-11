@@ -1,5 +1,7 @@
-import { campaignStatusLabel, describeAudience, requiresSecondApprover, translationLanguages, LANGUAGES } from "@/lib/comms";
+import { loadCommunityLocale } from "@/lib/community-locale";
+import { campaignStatusLabel, describeAudience, languagesNeedingTranslation, requiresSecondApprover, translationLanguages } from "@/lib/comms";
 import { formatDateTime } from "@/lib/dates";
+import { languageName } from "@/lib/languages";
 import { can } from "@/lib/permissions";
 
 import { defineCommand } from "../../define";
@@ -101,7 +103,8 @@ export const campaigns = defineCommand<Infer<typeof input>, CampaignsData>({
     const rows = (must(await q.order("created_at", { ascending: false }).limit(limit), "read the messages") ?? []) as CampaignRow[];
     const { names } = await audienceNames(ctx, rows.map((r) => (r.audience && typeof r.audience === "object" && !Array.isArray(r.audience) ? (r.audience as Record<string, unknown>) : {})));
     const canApprove = can(ctx.session, "comms.approve");
-    const langName = new Map<string, string>(LANGUAGES.map((l) => [l.code, l.code === "en" ? "English" : l.code === "gu" ? "Gujarati" : "Hindi"]));
+    const community = await loadCommunityLocale(db, center);
+    const main = languageName(community.languages[0] ?? "en");
 
     const list = rows.map((c) => {
       const second = c.requires_second_approver || requiresSecondApprover(c.audience);
@@ -115,7 +118,8 @@ export const campaigns = defineCommand<Infer<typeof input>, CampaignsData>({
         went_out: c.status === "sent",
         audience: describeAudience(c.audience, names),
         channels: (c.channels ?? []).map(channelWord),
-        languages: ["English", ...translationLanguages(c.translations).map((l) => langName.get(l) ?? l)],
+        languages: [main, ...translationLanguages(c.translations).map(languageName)],
+        needs_translation: languagesNeedingTranslation(community.languages, c.translations).map(languageName),
         goes_out: c.scheduled_at ? formatDateTime(c.scheduled_at, tz) : null,
         needs_two_approvers: second,
         approvals: approvalsLine(c, userId),
@@ -123,6 +127,7 @@ export const campaigns = defineCommand<Infer<typeof input>, CampaignsData>({
       };
     });
     const notes: string[] = [];
+    if (community.note) notes.push(community.note);
     if (list.length === 0) notes.push(`Nothing ${WHICH[which].label}.`);
     if (list.some((c) => c.status === "scheduled")) notes.push("Scheduled messages are queued: email, SMS, WhatsApp and push sending are not connected to this app yet, so none has gone out.");
     return { ok: true, data: guardText({ campaigns: list, notes }, await childGuard(ctx)) };

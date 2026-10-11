@@ -2,16 +2,18 @@
 // runCommandFromScreen), with the sentences it has always given. Through Niva or the palette the person must be an adult, and Niva never
 // changes anyone's role or access: the class's Teacher role is given on the screen (or in Settings), as the answer says.
 
+import { schoolOrGeneric } from "@/lib/kind-samples";
 import { syncTeacherGrant } from "@/lib/pathshala/teacher-grant";
 
 import { defineCommand } from "../../define";
 import { revalidateAfterCommand } from "../../revalidate";
 import { f, object, type Infer } from "../../schema";
-import { CommandError, type CommandPreview } from "../../types";
+import { CommandError, type CommandContext, type CommandPreview } from "../../types";
 import { must } from "../db";
 import { cardsFor } from "../people/shared";
 
 import { assessAssignment, classWhen, TEACHER_ROLES } from "./assess";
+import { school } from "./setup";
 
 const input = object({
   class_id: f.uuid("The class (its id, from learning.classes_needing_teachers)."),
@@ -20,15 +22,19 @@ const input = object({
 });
 export type AssignTeacherInput = Infer<typeof input>;
 
-const ACCESS_NOTE =
-  "Niva does not change anyone's access. Give them the Teacher role for this class in Settings › Roles and access (role: Teacher, scoped to this class), or add them from the class page, so they can open it under Pathshala › My classes.";
+const accessNote = (ctx: CommandContext): string =>
+  `Niva does not change anyone's access. Give them the Teacher role for this class in Settings › Roles and access (role: Teacher, scoped to this class), or add them from the class page, so they can open it under ${school(ctx)} › My classes.`;
 
 export const assignTeacherCommand = defineCommand<AssignTeacherInput, undefined>({
   key: "learning.assign_teacher",
   title: "Assign a teacher to a class",
-  description:
-    "Add an adult as the teacher (or assistant, or substitute) of a Pathshala class. It shows who and which class, with their household card, whether they are free at that time and their background-check status, and asks the person to confirm. " +
-    "The person must be an adult. Niva does not change anyone's access: the Teacher role for the class is given on the screen. Use learning.draft_teacher_assignment first to check it. It never touches a learner.",
+  description: (kind) => {
+    const schoolName = schoolOrGeneric(kind);
+    return (
+      `Add an adult as the teacher (or assistant, or substitute) of a ${schoolName} class. It shows who and which class, with their household card, whether they are free at that time and their background-check status, and asks the person to confirm. ` +
+      `The person must be an adult. Niva does not change anyone's access: the Teacher role for the class is given on the screen. Use learning.draft_teacher_assignment first to check it. It never touches a learner.`
+    );
+  },
   level: "confirm",
   permission: "pathshalaManage",
   module: "pathshala",
@@ -43,7 +49,7 @@ export const assignTeacherCommand = defineCommand<AssignTeacherInput, undefined>
     const warnings = [
       ...(a.clash ? [`${a.clash}, at the same time as this class.`] : []),
       ...(a.backgroundCheck !== null && !a.backgroundCheck.startsWith("clear") ? [`Background check: ${a.backgroundCheck}.`] : []),
-      ACCESS_NOTE,
+      accessNote(ctx),
     ];
     return {
       summary: `Add ${a.person.name}${a.person.memberNumber ? ` (member ${a.person.memberNumber})` : ""} as ${a.role} of ${a.cls.name}.`,
@@ -70,7 +76,7 @@ export const assignTeacherCommand = defineCommand<AssignTeacherInput, undefined>
     }
     must(await db.from("pathshala_teachers").insert({ center_id: center.id, class_id: inp.class_id, person_id: inp.person_id, role: inp.role }), "add the teacher to this class");
     // The screen keeps the class's Teacher role in step when the person may; Niva never changes anyone's role or access.
-    const note = screen ? await syncTeacherGrant(db, ctx.session, center.id, inp.class_id, inp.person_id, "grant", ctx.session.userId) : ACCESS_NOTE;
+    const note = screen ? await syncTeacherGrant(db, ctx.session, center.id, inp.class_id, inp.person_id, "grant", ctx.session.userId) : accessNote(ctx);
     revalidateAfterCommand(["/pathshala"]);
     return { ok: true, data: undefined, message: `Teacher added.${note ? " " + note : ""}` };
   },

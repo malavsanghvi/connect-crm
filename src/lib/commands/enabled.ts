@@ -4,6 +4,7 @@ import type { Json } from "@/lib/database.types";
 import { isModuleEnabled, moduleDef, moduleOffMessage, type ModuleContext } from "@/lib/modules";
 import { canAccess, ACCESS, type PermissionContext } from "@/lib/permissions";
 
+import type { CommandKind } from "./text";
 import type { AnyCommand, CommandErrorCode, CommandVia } from "./types";
 
 /** The community setting that switches one command on or off for Niva: `assistant.tools.<key>` in the community's rules. */
@@ -37,7 +38,7 @@ export function isCommandEnabled(command: Pick<AnyCommand, "key" | "level" | "en
   return command.enabledByDefault ?? command.level !== "confirm";
 }
 
-export type AvailabilitySession = PermissionContext & ModuleContext & { center: { name: string; rules: Json } };
+export type AvailabilitySession = PermissionContext & ModuleContext & { center: { name: string; rules: Json }; kind?: CommandKind };
 
 export type Availability = { ok: true } | { ok: false; code: Extract<CommandErrorCode, "no_access" | "module_off" | "switched_off" | "screen_only">; error: string };
 

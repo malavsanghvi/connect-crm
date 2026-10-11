@@ -111,7 +111,10 @@ describe("validation", () => {
     expect(parsePersonForm({ first_name: "" }, "2026-09-24")).toEqual({ ok: false, error: "First name is required" });
     expect(parsePersonForm({ date_of_birth: "01/01/2030" }, "2026-09-24")).toEqual({ ok: false, error: "The date of birth is in the future" });
     expect(parsePersonForm({ email: "nope" }, "2026-09-24").ok).toBe(false);
-    expect(parsePersonForm({ language: "fr" }, "2026-09-24").ok).toBe(false);
+    // Any language code is a language; with the community's list given, the language must be on it.
+    expect(parsePersonForm({ language: "fr" }, "2026-09-24")).toEqual({ ok: true, value: { language: "fr" } });
+    expect(parsePersonForm({ language: "fr" }, "2026-09-24", ["en", "gu"]).ok).toBe(false);
+    expect(parsePersonForm({ language: "klingon" }, "2026-09-24").ok).toBe(false);
   });
 
   it("parses the household form and checks the zone belongs to the center", () => {

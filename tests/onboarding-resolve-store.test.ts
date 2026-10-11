@@ -246,7 +246,7 @@ describe("records made from the rows an import run staged", () => {
 // ── The pages sent to the database ──────────────────────────────────────────────────────────────────────────────────────
 describe("the result as pages for the database", () => {
   const golden = buildGolden({ rows: 300, seed: 1 });
-  const cfg = makeRunConfig(golden.records, TODAY);
+  const cfg = makeRunConfig(golden.records, TODAY, { country: "US" });
   const result = run(golden.records, { dateOrderBySource: cfg.dateOrderBySource });
 
   it("is plain JSON: sending it and reading it back changes nothing", () => {
@@ -358,7 +358,7 @@ function fakeDb(opts: { rules?: unknown[]; importRows?: ImportRowLike[]; fail?: 
 }
 
 const golden = buildGolden({ rows: 300, seed: 1 });
-const input = { runId: "run-1", centerId: "center-1", today: TODAY };
+const input = { runId: "run-1", centerId: "center-1", today: TODAY, country: "US" };
 
 describe("looking for matches in a staged run", () => {
   afterEach(() => vi.restoreAllMocks());
@@ -387,7 +387,7 @@ describe("looking for matches in a staged run", () => {
     expect(f.stored.items).toHaveLength(s.items);
     expect(s.questions).toBeGreaterThan(0);
     // The engine's own result, not a copy of it.
-    const direct = run(golden.records, { dateOrderBySource: makeRunConfig(golden.records, TODAY).dateOrderBySource });
+    const direct = run(golden.records, { dateOrderBySource: makeRunConfig(golden.records, TODAY, { country: "US" }).dateOrderBySource });
     expect(f.stored.pairs).toHaveLength(pairPayloads(direct.pairs).length);
     expect(f.stored.metrics).toEqual(direct.metrics);
     // The order of the calls: staged rows read, rules read, then begin, the stores, finish last.
@@ -420,7 +420,7 @@ describe("looking for matches in a staged run", () => {
     if (!first.ok) return;
 
     // A person answers the biggest question that can be remembered; the database keeps the answer as a rule.
-    const engine = run(golden.records, { dateOrderBySource: makeRunConfig(golden.records, TODAY).dateOrderBySource });
+    const engine = run(golden.records, { dateOrderBySource: makeRunConfig(golden.records, TODAY, { country: "US" }).dateOrderBySource });
     const rememberable = new Set(catalogRows().filter((r) => r.rememberable).map((r) => r.signature));
     const group = engine.groups.find((g) => g.tier === "C" && rememberable.has(g.signature) && g.items.length >= 1)!;
     expect(group).toBeDefined();

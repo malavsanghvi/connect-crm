@@ -105,7 +105,7 @@ export const messageAudiencePreview = defineCommand<AudienceInput, MessageAudien
   description:
     "Before a message to families is scheduled: how many households the audience matches, how many adults have opted in to email, text and WhatsApp, how many cannot be reached on any of those, " +
     "the compose form's 'Recipients' number (households that accept email), whether it needs two approvers (a message to all members does), and what quiet hours would do to the send time " +
-    "(they hold push, text and WhatsApp until they end; email is not held). Choose the audience with the fields: all members, life members, zones, Pathshala classes or the RSVPs of an event. " +
+    "(they hold push, text and WhatsApp until they end; email is not held). Choose the audience with the fields: all members, life members, zones, school classes or the RSVPs of an event. " +
     "Counts only: it never lists or names anyone and never sends anything. Push is not counted. For the families of one event's RSVPs you can also use events.audience_preview. Use messages.draft_reminder for the wording.",
   level: "read",
   permission: "commsSend",

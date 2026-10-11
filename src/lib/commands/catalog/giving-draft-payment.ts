@@ -1,4 +1,4 @@
-// "Record a payment", prepared as a form: the household card, the amount in dollars, the method and date, the ALLOCATION PREVIEW
+// "Record a payment", prepared as a form: the household card, the amount in the community's currency, the method and date, the ALLOCATION PREVIEW
 // (which pledges it would close, earliest first; a partial payment or an overpayment is shown as a question) and the check list a
 // reviewer would want. It writes nothing. The same preparation (preparePayment) is what the confirm-level payment command shows
 // as its "what will happen" card, so what a person reviews is what would be recorded.
@@ -34,7 +34,7 @@ import { adultHouseholdCards } from "./household";
 /** What the Record payment form takes, as a command input. Shared by the draft and the confirm-level command. */
 export const paymentFields = {
   household_id: f.uuid("The household that gave (its id, from people.search). Never guessed from a name: the person must have chosen it by its card."),
-  amount: dollars("The amount in dollars, like 250 or 250.00. Dollars and cents only; the system keeps whole cents."),
+  amount: dollars("The amount in the community's currency, like 250 or 250.00. Whole units and hundredths only; the system keeps the exact amount."),
   method: f.enum("How it was paid.", OFFLINE_METHODS),
   received_on: f.optional(f.date("The day the money was received, like 2026-10-04. Leave out for today. Never in the future.")),
   reference: f.optional(f.string("The check number for a check; the shares and their value for stock; a reference for other methods.", { min: 1, max: 120 })),
@@ -219,7 +219,7 @@ export const draftPayment = defineCommand<PaymentFieldsInput, PaymentDraftData>(
   key: "giving.draft_payment",
   title: "Prepare a payment to record",
   description:
-    "Prepare 'record a payment' as a filled form without saving anything: the household (shown as its household card), the amount in dollars, the method, the date received, " +
+    "Prepare 'record a payment' as a filled form without saving anything: the household (shown as its household card), the amount in the community's currency, the method, the date received, " +
     "which pledges it would close (earliest open pledge first; a partial payment or an overpayment is shown as a question, never decided), and a check list a reviewer would go through " +
     "(right household, amount and method, date, month not locked, not recorded twice, applied the way the donor meant). " +
     "Needs the household's id: find it with people.search and let the person choose by the card, never by name. " +

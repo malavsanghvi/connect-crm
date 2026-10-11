@@ -17,7 +17,7 @@ import {
 import { makeConfig } from "@/lib/onboarding/resolve/config";
 
 const TODAY = "2026-10-11";
-const cfg = makeConfig(TODAY);
+const cfg = makeConfig(TODAY, { country: "US" });
 const date = (s: unknown, order: "mdy" | "dmy" | "unknown" = "unknown", context: "birth" | "event" = "birth") =>
   parseDate(s, { order, today: TODAY, context });
 
@@ -111,10 +111,11 @@ describe("names: Latin spellings of Gujarati and Hindi names", () => {
     expect(normalizeName({ full: "Master Arjun Shah" }).minorHint).toBe(true);
     expect(normalizeName({ full: "Arjun Shah" }).minorHint).toBe(false);
   });
-  it("flags names in another script instead of guessing", () => {
+  it("keeps names in another script and compares them as written (never dropped)", () => {
     const n = normalizeName({ full: "રાહુલ શાહ" });
     expect(n.nonLatin).toBe(true);
-    expect(n.missing).toBe(true);
+    expect(n.missing).toBe(false);
+    expect([n.people[0].given, n.people[0].surname]).toEqual(["રાહુલ", "શાહ"]);
     const mixed = normalizeName({ full: "रमेश Patel" });
     expect(mixed.nonLatin).toBe(true);
     expect(mixed.people[0].surname).toBe("patel");
@@ -145,9 +146,9 @@ describe("names: Latin spellings of Gujarati and Hindi names", () => {
 describe("phones", () => {
   it("writes every US format as E.164", () => {
     for (const s of ["(713) 555-0142", "713-555-0142", "713.555.0142", "7135550142", "1-713-555-0142", "+1 713 555 0142", "(713) 555-0142 ext 12", "713 555 0142 x9"]) {
-      expect(normalizePhone(s).value, s).toBe("+17135550142");
+      expect(normalizePhone(s, "US").value, s).toBe("+17135550142");
     }
-    expect(normalizePhone(7135550142).value).toBe("+17135550142");
+    expect(normalizePhone(7135550142, "US").value).toBe("+17135550142");
   });
   it("keeps a number that already has a country code", () => {
     expect(normalizePhone("+44 20 7946 0958").value).toBe("+442079460958");
@@ -173,7 +174,7 @@ describe("phones", () => {
       if (/^(\d)\1+$/.test(a + e + l)) continue;
       const want = `+1${a}${e}${l}`;
       for (const f of [`(${a}) ${e}-${l}`, `${a}-${e}-${l}`, `${a}.${e}.${l}`, `${a}${e}${l}`, `1 ${a} ${e} ${l}`, `+1 (${a}) ${e}-${l}`]) {
-        expect(normalizePhone(f).value, f).toBe(want);
+        expect(normalizePhone(f, "US").value, f).toBe(want);
       }
     }
   });
@@ -227,7 +228,7 @@ describe("addresses", () => {
     expect(normalizeAddress({ line1: "12 Lotus Ln", zip: "77478-1234" })).toMatchObject({ zip5: "77478", zip4: "1234" });
     expect(normalizeAddress({ line1: "12 Lotus Ln", zip: "774781234" })).toMatchObject({ zip5: "77478", zip4: "1234" });
     expect(normalizeAddress({ line1: "12 Lotus Ln", zip: "77478 1234" })).toMatchObject({ zip5: "77478", zip4: "1234" });
-    expect(normalizeAddress({ line1: "12 Lotus Ln", zip: "2134" })?.zip5).toBe("02134");
+    expect(normalizeAddress({ line1: "12 Lotus Ln", zip: "2134" }, { country: "US" })?.zip5).toBe("02134");
     expect(normalizeAddress({ line1: "12 Lotus Ln", zip: "TX 77478" })?.zip5).toBe("77478");
   });
   it("reads a PO box and returns null for nothing", () => {

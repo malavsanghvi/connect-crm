@@ -14,7 +14,6 @@ import { InfoBox, SectionLabel, buttonClass } from "@/components/ui";
 import type { ActionResult } from "@/lib/errors";
 import {
   GENDER_OPTIONS,
-  LANGUAGE_OPTIONS,
   RELATIONSHIP_OPTIONS,
   changedKeys,
   genderValue,
@@ -258,6 +257,8 @@ export type PersonEditData = {
   phone: string;
   email: string;
   language: string;
+  /** The languages offered: the community's own, plus the person's current one. */
+  languageOptions: { value: string; label: string }[];
   photos: boolean;
   newMember: boolean;
   expertiseOptIn: boolean;
@@ -391,7 +392,7 @@ export function PersonDrawer({
               {text("Employer (matching gifts)", "employer")}
               {text("Mobile", "phone_e164", 1, { inputMode: "tel", autoComplete: "tel", placeholder: "(713) 555-0142" })}
               {text("Email", "email", 1, { inputMode: "email", autoComplete: "email" })}
-              {chips("Language", "language", LANGUAGE_OPTIONS, 2)}
+              {chips("Language", "language", data.languageOptions, 2)}
               <Field label="Member directory">{info(data.directoryText)}</Field>
               {toggle("Photos", "photo_opt_in", "Opted in", "Opted out")}
               <Field label="Physical mail">{info(data.mailText)}</Field>

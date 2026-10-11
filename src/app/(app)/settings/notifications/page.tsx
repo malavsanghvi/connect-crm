@@ -7,13 +7,12 @@ import { NOTIFICATION_TRIGGERS, readNotificationSettings, readRuleSettings, rule
 
 import { BlockGrid, Card, QueryError, StatusText } from "@/components/ui";
 import { formatDateTime } from "@/lib/dates";
+import { languageName } from "@/lib/languages";
 
 import { RecentMessages, TestSendCard } from "../_components/messaging-ui";
 import { NotificationsForm } from "./notifications-form";
 
 export const metadata: Metadata = { title: "Notifications · Settings" };
-
-const LANGUAGE: Record<string, string> = { en: "English", gu: "Gujarati", hi: "Hindi" };
 
 export default async function NotificationsPage() {
   const session = await getSession();
@@ -41,7 +40,7 @@ export default async function NotificationsPage() {
     console.error("[settings/notifications] could not load message templates:", templates.error);
     languages = "Could not load the message templates — reload to try again";
   } else {
-    const langs = [...new Set((templates.data ?? []).map((t) => LANGUAGE[t.language] ?? t.language))];
+    const langs = [...new Set((templates.data ?? []).map((t) => languageName(t.language)))];
     languages = langs.length > 0 ? `${langs.join(", ")} templates` : "No message templates on file yet";
   }
 

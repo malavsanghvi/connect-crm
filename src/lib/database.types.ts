@@ -2435,30 +2435,6 @@ export type Database = {
         };
         Relationships: [];
       };
-      demo_auth_users: {
-        Row: {
-          email: string;
-          user_id: string;
-          vault_secret_id: string;
-          created_at: string;
-          rotated_at: string | null;
-        };
-        Insert: {
-          email: string;
-          user_id: string;
-          vault_secret_id: string;
-          created_at?: string;
-          rotated_at?: string | null;
-        };
-        Update: {
-          email?: string;
-          user_id?: string;
-          vault_secret_id?: string;
-          created_at?: string;
-          rotated_at?: string | null;
-        };
-        Relationships: [];
-      };
       demo_packs: {
         Row: {
           key: string;
@@ -2537,45 +2513,6 @@ export type Database = {
           scope_id?: string | null;
           sort_order?: number;
           created_at?: string;
-        };
-        Relationships: [];
-      };
-      demo_sessions: {
-        Row: {
-          id: string;
-          persona_email: string;
-          user_id: string;
-          role_key: string;
-          ip_hash: string;
-          started_at: string;
-          expires_at: string;
-          auth_session_id: string | null;
-          ended_at: string | null;
-          ended_reason: string | null;
-        };
-        Insert: {
-          id?: string;
-          persona_email: string;
-          user_id: string;
-          role_key: string;
-          ip_hash: string;
-          started_at?: string;
-          expires_at: string;
-          auth_session_id?: string | null;
-          ended_at?: string | null;
-          ended_reason?: string | null;
-        };
-        Update: {
-          id?: string;
-          persona_email?: string;
-          user_id?: string;
-          role_key?: string;
-          ip_hash?: string;
-          started_at?: string;
-          expires_at?: string;
-          auth_session_id?: string | null;
-          ended_at?: string | null;
-          ended_reason?: string | null;
         };
         Relationships: [];
       };
@@ -12028,6 +11965,12 @@ export type Database = {
         };
         Returns: { slug: string; name: string; short_name: string; state_region: string; environment: string }[];
       };
+      community_languages: {
+        Args: {
+          p_center: string;
+        };
+        Returns: string[];
+      };
       community_open: {
         Args: {
           p_center: string;
@@ -12299,10 +12242,6 @@ export type Database = {
         };
         Returns: string;
       };
-      demo_choices: {
-        Args: Record<PropertyKey, never>;
-        Returns: Json;
-      };
       demo_confirm_word: {
         Args: {
           p_center: string;
@@ -12330,29 +12269,10 @@ export type Database = {
         Args: Record<PropertyKey, never>;
         Returns: string[];
       };
-      demo_leave: {
-        Args: Record<PropertyKey, never>;
-        Returns: Json;
-      };
       demo_pack_steps: {
         Args: {
           p_pack: string;
         };
-        Returns: Json;
-      };
-      demo_session_state: {
-        Args: Record<PropertyKey, never>;
-        Returns: Json;
-      };
-      demo_signin_setup: {
-        Args: {
-          p_reason: string;
-          p_rotate?: boolean;
-        };
-        Returns: Json;
-      };
-      demo_signin_status: {
-        Args: Record<PropertyKey, never>;
         Returns: Json;
       };
       directory_listing: {
@@ -15049,13 +14969,6 @@ export type Database = {
           p_reason: string;
         };
         Returns: undefined;
-      };
-      set_demo_signin: {
-        Args: {
-          p_enabled: boolean;
-          p_reason: string;
-        };
-        Returns: Json;
       };
       set_email_provider: {
         Args: {

@@ -55,11 +55,22 @@ export function SourceBadge({ block }: { block: Pick<StoredBlock, "source" | "so
   );
 }
 
-function when(value: string, tz: string | null): string {
+/** An event's day and time in the community's time zone and locale (English, US when no locale is given). */
+function when(value: string, tz: string | null, locale: string): string {
+  if (locale === "en-US") {
+    try {
+      return formatDateTime(value, tz ?? "UTC");
+    } catch {
+      return formatDateTime(value, "UTC");
+    }
+  }
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return "—";
+  const at = (zone: string) => new Intl.DateTimeFormat(locale, { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit", timeZone: zone }).format(d);
   try {
-    return formatDateTime(value, tz ?? "UTC");
+    return at(tz ?? "UTC");
   } catch {
-    return formatDateTime(value, "UTC");
+    return at("UTC");
   }
 }
 
@@ -117,7 +128,7 @@ function Text({ c }: { c: TextContent }) {
   );
 }
 
-function Events({ c }: { c: EventsContent }) {
+function Events({ c, locale }: { c: EventsContent; locale: string }) {
   return (
     <div className="flex flex-col gap-3">
       <h2 className="text-[24px] font-semibold" style={heading()}>
@@ -133,7 +144,7 @@ function Events({ c }: { c: EventsContent }) {
                 {e.title}
               </p>
               <p className="text-[14px]" style={ink}>
-                {when(e.starts_at, c.time_zone)}
+                {when(e.starts_at, c.time_zone, locale)}
                 {e.venue ? ` · ${e.venue}` : ""}
               </p>
               {e.description ? (
@@ -331,14 +342,14 @@ function Footer({ c, href }: { c: FooterContent; href: (slug: string) => string 
   );
 }
 
-function BlockBody({ block, href }: { block: StoredBlock; href: (slug: string) => string }) {
+function BlockBody({ block, href, locale }: { block: StoredBlock; href: (slug: string) => string; locale: string }) {
   switch (block.type) {
     case "hero":
       return <Hero c={block.content} href={href} />;
     case "text":
       return <Text c={block.content} />;
     case "events_list":
-      return <Events c={block.content} />;
+      return <Events c={block.content} locale={locale} />;
     case "giving_cta":
       return <Giving c={block.content} />;
     case "gallery":
@@ -376,7 +387,7 @@ export function themeStyle(draft: StoredDraft): CSSProperties {
 }
 
 /** One page of the draft, framed like a small website: its name and menu, then its blocks. */
-export function SitePreview({ draft, page, basePath }: { draft: StoredDraft; page: StoredPage; basePath: string }) {
+export function SitePreview({ draft, page, basePath, locale = "en-US" }: { draft: StoredDraft; page: StoredPage; basePath: string; locale?: string }) {
   const href = (slug: string) => `${basePath}?page=${encodeURIComponent(slug)}`;
   const logo = draft.theme.logo;
   return (
@@ -405,7 +416,7 @@ export function SitePreview({ draft, page, basePath }: { draft: StoredDraft; pag
         {page.blocks.map((block) => (
           <section key={block.id} className="flex flex-col gap-2" data-block={block.type} data-source={block.source}>
             <SourceBadge block={block} />
-            <BlockBody block={block} href={href} />
+            <BlockBody block={block} href={href} locale={locale} />
           </section>
         ))}
         {page.blocks.length === 0 ? <p style={ink}>This page has nothing on it yet.</p> : null}

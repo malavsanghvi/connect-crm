@@ -3,6 +3,7 @@
 
 import type { TablesInsert, TablesUpdate } from "@/lib/database.types";
 import { classTimeLabel } from "@/lib/pathshala/format";
+import { schoolOrGeneric } from "@/lib/kind-samples";
 
 import { defineCommand } from "../../define";
 import { revalidateAfterCommand } from "../../revalidate";
@@ -19,7 +20,7 @@ const input = object({
   class_id: f.optional(f.uuid("The class to change (its id, from learning.classes_needing_teachers or learning.term_setup). Leave it out to add a new class.")),
   term_id: f.optional(f.uuid("The term the class belongs to (its id, from learning.term_setup). Needed for a new class.")),
   level_id: f.optional(f.uuid("The level the class teaches (its id, from learning.term_setup). Needed for a new class.")),
-  name: f.optional(f.string("The class name, like 'Jainism 2 · Room B'. Needed for a new class.", { max: 120 })),
+  name: f.optional(f.string("The class name, like 'Level 2 · Room B'. Needed for a new class.", { max: 120 })),
   room: f.optional(f.string("The room. Empty clears it.", { min: 0, max: 80 })),
   capacity: f.optional(f.integer("The most the class takes. 0 means no seats are offered. Leave it out to keep it as it is (a new class then has no limit).", { min: 0, max: 5000 })),
   no_capacity_limit: f.optional(f.boolean("Yes to remove the limit on how many the class takes.")),
@@ -117,9 +118,13 @@ function whenLine(meetsOn: unknown, starts: unknown): string | null {
 export const saveClassCommand = defineCommand<SaveClassInput, undefined>({
   key: "learning.save_class",
   title: "Add or change a class",
-  description:
-    "Add a Pathshala class (a name, a term, a level, the day and time, a room and how many it takes) or change one. Only the details you send change; the rest stay. " +
-    "It shows what the class will look like, or each change from-and-to, and asks the person to confirm. It is about the class itself: it never adds or moves a learner and never assigns a teacher (use learning.assign_teacher for that).",
+  description: (kind) => {
+    const schoolName = schoolOrGeneric(kind);
+    return (
+      `Add a ${schoolName} class (a name, a term, a level, the day and time, a room and how many it takes) or change one. Only the details you send change; the rest stay. ` +
+      `It shows what the class will look like, or each change from-and-to, and asks the person to confirm. It is about the class itself: it never adds or moves a learner and never assigns a teacher (use learning.assign_teacher for that).`
+    );
+  },
   level: "confirm",
   permission: "pathshalaManage",
   module: "pathshala",
