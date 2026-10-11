@@ -6,11 +6,13 @@ import { ActionButton } from "@/components/events/action-button";
 import { LoadProblem } from "@/components/events/load-problem";
 import { MoreDetails } from "@/components/more-details";
 import { HistoryButton } from "@/components/record-history";
-import { NoAccess, PageHeader, Tabs, buttonClass, type ButtonVariant } from "@/components/ui";
+import { AskNiva } from "@/components/niva/ask-niva";
+import { NoAccess, PageHeader, Tabs, buttonClass } from "@/components/ui";
 import { load, loadEventAccess, resolvePeopleNames, row } from "@/lib/data/events";
 import { eventAreas } from "@/lib/events/access";
 import { formatDateTime } from "@/lib/events/format";
 import { STATUS_TEXT_CLASS, eventRef, eventStatusLabel } from "@/lib/events/status";
+import { EVENT_CANCEL_BUTTON, EVENT_STATUS_BUTTONS, allowedNextStatuses, isEventStatus } from "@/lib/events/status-machine";
 import { isUuid, param, type RawSearchParams } from "@/lib/search-params";
 import { kindSchool } from "@/lib/kind";
 import { getSession } from "@/lib/session";
@@ -37,21 +39,6 @@ const TABS = [
   { key: "report", label: "Report" },
 ] as const;
 type TabKey = (typeof TABS)[number]["key"];
-
-const NEXT_STATUS: Record<string, { to: string; label: string; variant: ButtonVariant; confirm?: string }[]> = {
-  draft: [{ to: "published", label: "Publish (open RSVPs)", variant: "primary", confirm: "Publish this event? Members will be able to RSVP in the app." }],
-  published: [
-    { to: "rsvp_closed", label: "Close RSVPs", variant: "ghost" },
-    { to: "live", label: "Go live (event day)", variant: "ok", confirm: "Go live? Check-in opens in volunteer mode." },
-  ],
-  rsvp_closed: [
-    { to: "published", label: "Reopen RSVPs", variant: "ghost" },
-    { to: "live", label: "Go live (event day)", variant: "ok", confirm: "Go live? Check-in opens in volunteer mode." },
-  ],
-  live: [{ to: "completed", label: "Mark completed", variant: "ghost" }],
-  completed: [{ to: "live", label: "Reopen as live", variant: "ghost" }],
-  cancelled: [{ to: "draft", label: "Restore as draft", variant: "ghost" }],
-};
 
 export default async function EventPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<RawSearchParams> }) {
   const { id } = await params;
@@ -129,6 +116,7 @@ export default async function EventPage({ params, searchParams }: { params: Prom
             <Link href={`/events/live?event=${id}`} className={buttonClass("ghost")}>
               Live check-in
             </Link>
+            <AskNiva prompt="What is blocking this event from going live, and how is it doing?" />
             <HistoryButton table="events" recordId={id} title={event.name} variant="ghost" size="md" />
             {canEdit ? (
               <Link href={`/events/builder?event=${id}`} className={buttonClass("primary")}>
@@ -140,7 +128,7 @@ export default async function EventPage({ params, searchParams }: { params: Prom
       />
       {canEdit ? (
         <div className="mb-4 flex flex-wrap gap-2">
-          {(NEXT_STATUS[event.status] ?? []).map((n) => (
+          {(isEventStatus(event.status) ? EVENT_STATUS_BUTTONS[event.status] : []).map((n) => (
             <ActionButton
               key={n.to}
               action={setEventStatus.bind(null, event.id)}
@@ -151,14 +139,14 @@ export default async function EventPage({ params, searchParams }: { params: Prom
               confirm={n.confirm}
             />
           ))}
-          {event.status !== "cancelled" && event.status !== "completed" ? (
+          {allowedNextStatuses(event.status).includes(EVENT_CANCEL_BUTTON.to) ? (
             <ActionButton
               action={setEventStatus.bind(null, event.id)}
-              fields={{ status: "cancelled" }}
-              label="Cancel event"
-              variant="bad"
+              fields={{ status: EVENT_CANCEL_BUTTON.to }}
+              label={EVENT_CANCEL_BUTTON.label}
+              variant={EVENT_CANCEL_BUTTON.variant}
               size="sm"
-              confirm="Cancel this event? RSVPs stay on record."
+              confirm={EVENT_CANCEL_BUTTON.confirm}
             />
           ) : null}
         </div>

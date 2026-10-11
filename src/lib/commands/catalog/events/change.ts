@@ -1,12 +1,12 @@
 import type { TablesUpdate } from "@/lib/database.types";
-import { EVENT_FIELDS, EVENT_FIELD_INFO, describeEventField, eventFieldConflict, parseEventField, type EventField, type FieldValue } from "@/lib/events/field-patch";
+import { EVENT_FIELDS, EVENT_FIELD_INFO, planEventFieldChange, type EventField, type EventFieldRow } from "@/lib/events/field-patch";
 
-import { defineCommand } from "../define";
-import { revalidateAfterCommand } from "../revalidate";
-import { f, object, type Infer } from "../schema";
-import { CommandError, type CommandContext, type CommandPreview } from "../types";
+import { defineCommand } from "../../define";
+import { revalidateAfterCommand } from "../../revalidate";
+import { f, object, type Infer } from "../../schema";
+import { CommandError, type CommandContext, type CommandPreview } from "../../types";
 
-import { must } from "./db";
+import { must } from "../db";
 
 export type EventChange = {
   event: { id: string; name: string };
@@ -15,6 +15,8 @@ export type EventChange = {
   before: string;
   after: string;
   changed: boolean;
+  /** Things to know that do not stop the change. */
+  warnings: string[];
 };
 
 /** What each field takes, for the model: "venue (the new venue; empty clears it); starts_at (date and time like …)". */
@@ -27,29 +29,16 @@ const input = object({
 });
 type ChangeInput = Infer<typeof input>;
 
-type EventRow = {
-  id: string;
-  name: string;
-  status: string;
-  starts_at: string | null;
-  ends_at: string | null;
-  venue: string | null;
-  description: string | null;
-  capacity: number | null;
-  rsvp_opens_at: string | null;
-  rsvp_closes_at: string | null;
-  confirmation_hours_before: number;
-  waitlist_enabled: boolean;
-};
+type EventRow = EventFieldRow & { id: string; status: string };
 
 /** Read the event and work out what the change would be, applying every rule the builder applies. Throws CommandError for a problem to show. */
-async function planChange(ctx: CommandContext, { event_id, field, value }: ChangeInput): Promise<EventChange & { column: EventField; next: FieldValue }> {
+async function planChange(ctx: CommandContext, { event_id, field, value }: ChangeInput) {
   const { db, center } = ctx.session;
   const tz = center.time_zone;
   const row: EventRow | null = must(
     await db
       .from("events")
-      .select("id, name, status, starts_at, ends_at, venue, description, capacity, rsvp_opens_at, rsvp_closes_at, confirmation_hours_before, waitlist_enabled")
+      .select("id, name, status, starts_at, ends_at, venue, description, capacity, audience, rsvp_opens_at, rsvp_closes_at, confirmation_hours_before, waitlist_enabled, lunch_starts_at")
       .eq("id", event_id)
       .eq("center_id", center.id)
       .maybeSingle(),
@@ -59,27 +48,15 @@ async function planChange(ctx: CommandContext, { event_id, field, value }: Chang
   if (row.status === "completed" || row.status === "cancelled") {
     throw new CommandError(`${row.name} is ${row.status}, so Niva will not change it. If it really needs fixing, do it on the Events screen.`);
   }
-  const parsed = parseEventField(field, value, tz);
-  if (!parsed.ok) throw new CommandError(parsed.error);
-  const conflict = eventFieldConflict(field, parsed.value, row);
-  if (conflict) throw new CommandError(conflict);
-  const current = row[field] as FieldValue;
-  const sameMoment = EVENT_FIELD_INFO[field].kind === "datetime" && current !== null && parsed.value !== null && Date.parse(String(current)) === Date.parse(String(parsed.value));
-  const changed = !(sameMoment || current === parsed.value);
-  return {
-    event: { id: row.id, name: row.name },
-    field,
-    column: field,
-    label: EVENT_FIELD_INFO[field].label,
-    before: describeEventField(field, current, tz),
-    after: describeEventField(field, parsed.value, tz),
-    changed,
-    next: parsed.value,
-  };
+  const plan = planEventFieldChange(field, value, row, tz, ctx.now?.());
+  if (!plan.ok) throw new CommandError(plan.error);
+  return { event: { id: row.id, name: row.name }, field, plan };
 }
 
-function view({ event, field, label, before, after, changed }: EventChange): EventChange {
-  return { event, field, label, before, after, changed };
+type Planned = Awaited<ReturnType<typeof planChange>>;
+
+function view({ event, field, plan }: Planned): EventChange {
+  return { event, field, label: plan.label, before: plan.before, after: plan.after, changed: plan.changed, warnings: plan.warnings };
 }
 
 /** What members would notice, said before anything changes. */
@@ -87,11 +64,16 @@ function memberNotice(field: EventField): string | null {
   switch (field) {
     case "starts_at":
     case "ends_at":
+    case "date":
+    case "start_time":
+    case "end_time":
     case "venue":
     case "name":
       return "Families who already RSVP'd will see the new detail in the app. Nothing is sent to them automatically.";
     case "capacity":
       return "Lowering the capacity does not remove anyone who has already RSVP'd.";
+    case "audience":
+      return "This changes who can see the event and RSVP in the app. Families who already RSVP'd keep their RSVP. Nothing is sent to anyone automatically.";
     default:
       return null;
   }
@@ -103,18 +85,20 @@ export const draftEventChange = defineCommand<ChangeInput, EventChange>({
   description:
     "Show what changing one detail of an event would look like, before and after, without changing anything. " +
     "Use it to check a change with the person, then use events.set_field to ask them to confirm it. " +
-    `Details you can change: ${EVENT_FIELDS.join(", ")}. Prices, status, who can RSVP and who owns the event are not changed this way. ` +
+    `Details you can change: ${EVENT_FIELDS.join(", ")}. Use date to move the event to another day (its times of day stay), start_time or end_time for a time on the same day, ` +
+    "and audience for who can RSVP. Prices, status and who owns the event are not changed this way. " +
     "A completed or cancelled event cannot be changed here.",
   level: "draft",
   permission: "eventsManage",
   module: "events",
   input,
   async execute(ctx, inp) {
-    const plan = await planChange(ctx, inp);
+    const planned = await planChange(ctx, inp);
+    const data = view(planned);
     return {
       ok: true,
-      data: view(plan),
-      message: plan.changed ? "Nothing has been changed yet." : `${plan.event.name} already has that ${plan.label.toLowerCase()}.`,
+      data,
+      message: data.changed ? "Nothing has been changed yet." : `${data.event.name} already has that ${data.label.toLowerCase()}.`,
     };
   },
 });
@@ -124,7 +108,8 @@ export const setEventField = defineCommand<ChangeInput, EventChange>({
   title: "Change a detail of an event",
   description:
     "Change one detail of an event. This asks the person to confirm first, showing the before and after, and nothing changes until they do. " +
-    `Details you can change: ${EVENT_FIELDS.join(", ")}. Prices, status, who can RSVP and who owns the event are not changed this way. ` +
+    `Details you can change: ${EVENT_FIELDS.join(", ")}. Use date to move the event to another day (its times of day stay), start_time or end_time for a time on the same day, ` +
+    "and audience for who can RSVP. Prices, status and who owns the event are not changed this way. " +
     "A completed or cancelled event cannot be changed here. Use events.draft_change first if you want to talk it through.",
   level: "confirm",
   permission: "eventsManage",
@@ -133,24 +118,27 @@ export const setEventField = defineCommand<ChangeInput, EventChange>({
   enabledByDefault: false,
   input,
   async preview(ctx, inp): Promise<CommandPreview> {
-    const plan = await planChange(ctx, inp);
-    const notice = memberNotice(plan.field);
+    const planned = await planChange(ctx, inp);
+    const data = view(planned);
+    const notice = memberNotice(data.field);
     return {
-      summary: `Change the ${plan.label.toLowerCase()} of ${plan.event.name}.`,
-      lines: [{ label: plan.label, before: plan.before, after: plan.after }],
-      warnings: [...(plan.changed ? [] : ["It already has this value, so nothing would change."]), ...(notice ? [notice] : [])],
+      summary: `Change the ${data.label.toLowerCase()} of ${data.event.name}.`,
+      lines: [{ label: data.label, before: data.before, after: data.after }],
+      warnings: [...(data.changed ? [] : ["It already has this value, so nothing would change."]), ...data.warnings, ...(notice ? [notice] : [])],
     };
   },
   confirmText: (_input, preview) => `Yes, ${preview.summary.charAt(0).toLowerCase()}${preview.summary.slice(1).replace(/\.$/, "")}`,
   async execute(ctx, inp) {
     // Everything is read and checked again now: the event may have changed since it was proposed.
-    const plan = await planChange(ctx, inp);
-    if (!plan.changed) return { ok: true, data: view(plan), message: `${plan.event.name} already had that ${plan.label.toLowerCase()}, so nothing changed.` };
+    const planned = await planChange(ctx, inp);
+    const data = view(planned);
+    if (!data.changed) return { ok: true, data, message: `${data.event.name} already had that ${data.label.toLowerCase()}, so nothing changed.` };
     const { db, center } = ctx.session;
-    const patch = { [plan.column]: plan.next } as TablesUpdate<"events">;
-    const res = must(await db.from("events").update(patch).eq("id", plan.event.id).eq("center_id", center.id).select("id"), "change the event");
+    // The patch holds the one or more columns this detail writes ("date" moves the start, the end and the lunch start together).
+    const patch = planned.plan.patch as TablesUpdate<"events">;
+    const res = must(await db.from("events").update(patch).eq("id", data.event.id).eq("center_id", center.id).select("id"), "change the event");
     if (!res?.length) throw new CommandError("You can't change this event, or it no longer exists.");
     revalidateAfterCommand(["/events", "/ops"]);
-    return { ok: true, data: view(plan), message: `Changed the ${plan.label.toLowerCase()} of ${plan.event.name} from ${plan.before} to ${plan.after}.` };
+    return { ok: true, data, message: `Changed the ${data.label.toLowerCase()} of ${data.event.name} from ${data.before} to ${data.after}.` };
   },
 });
