@@ -175,7 +175,7 @@ export function draftCard(data: PaymentDraftData, opts: { locale: string; about?
 
 /** Why the card cannot record by itself, in plain words, with the way it is done instead. */
 export function recordSwitchOffNote(communityName: string): string {
-  return `Recording straight from this card is switched off for ${communityName}: it moves money, so an owner has to switch it on first. Open it in Record payment, where everything is filled in. Nothing is saved until you press Record there.`;
+  return `Recording straight from this card is switched off for ${communityName}: it moves money, so an owner switches it on first. Until then, Record payment opens with everything filled in.`;
 }
 
 // ---------------------------------------------------------------------------- The side lists

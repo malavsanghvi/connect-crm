@@ -22,7 +22,9 @@ export function SidePrompts({ prompts }: { prompts: readonly GivingPrompt[] }) {
           {p.comingNext || !p.href ? (
             <span className={`${ROW} cursor-not-allowed justify-between bg-ground text-muted`} aria-disabled="true">
               <span>{p.text}</span>
-              <ComingNext />
+              <span className="flex-none whitespace-nowrap">
+                <ComingNext />
+              </span>
             </span>
           ) : asks ? (
             <button type="button" onClick={() => niva?.ask(p.text)} className={`${ROW} hover:bg-navy-50`} aria-label={`Ask Niva: ${p.text}`}>

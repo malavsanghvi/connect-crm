@@ -82,7 +82,7 @@ describe("the confirmation card", () => {
   });
 
   it("says plainly why the card cannot record by itself", () => {
-    expect(recordSwitchOffNote("Lakeside Community Club")).toMatch(/switched off for Lakeside Community Club: it moves money, so an owner has to switch it on first\. Open it in Record payment/);
+    expect(recordSwitchOffNote("Lakeside Community Club")).toMatch(/switched off for Lakeside Community Club: it moves money, so an owner switches it on first\. Until then, Record payment opens with everything filled in\./);
   });
 });
 

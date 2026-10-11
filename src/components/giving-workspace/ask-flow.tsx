@@ -95,7 +95,7 @@ const NO_ANSWER = "the server did not respond. Check your connection and try aga
 
 function NivaSays({ children, status = false }: { children: ReactNode; status?: boolean }) {
   return (
-    <div role={status ? "status" : undefined} className="max-w-[640px] text-[15px] leading-[1.5] text-ink">
+    <div role={status ? "status" : undefined} className="min-w-0 max-w-[640px] flex-1 text-[15px] leading-[1.5] text-ink">
       <span className="sr-only">Niva: </span>
       {children}
     </div>
@@ -104,12 +104,13 @@ function NivaSays({ children, status = false }: { children: ReactNode; status?: 
 
 function NivaTurn({ says, status, children }: { says: ReactNode; status?: boolean; children?: ReactNode }) {
   return (
-    <div className="flex items-start gap-3">
-      <NivaMark />
-      <div className="flex min-w-0 flex-1 flex-col gap-3">
+    <div className="flex flex-col gap-3">
+      <div className="flex items-start gap-3">
+        <NivaMark />
         <NivaSays status={status}>{says}</NivaSays>
-        {children}
       </div>
+      {/* Under the words on a desktop; the full width on a phone, so a household card or the payment card is not squeezed. */}
+      {children ? <div className="flex min-w-0 flex-col gap-3 sm:pl-[46px]">{children}</div> : null}
     </div>
   );
 }
@@ -606,14 +607,6 @@ function DraftCard({
           </ul>
         </details>
 
-        {!byCard ? (
-          <p className="mx-[18px] mb-3.5 mt-0 rounded-[12px] border border-navy-300 bg-navy-50 px-3.5 py-2.5 text-[13px] leading-[1.5] text-[#164690]">
-            {recordByCard && !nivaCanConfirm
-              ? `Recording from this card needs Niva for admins switched on for ${communityName}. Until then, open it in Record payment, where everything is filled in. Nothing is saved until you press Record there.`
-              : recordSwitchOffNote(communityName)}
-          </p>
-        ) : null}
-
         {flow.editing ? <ChangeForm request={request} ask={flow.ask} allocation={flow.allocation} today={today} onSave={onSave} onClose={onEdit} /> : null}
 
         {flow.proposal ? null : (
@@ -643,6 +636,13 @@ function DraftCard({
             <button type="button" onClick={onCancel} className="min-h-[44px] rounded-[22px] bg-transparent px-[18px] text-[14px] font-bold text-muted hover:text-ink">
               Cancel
             </button>
+            {!byCard ? (
+              <p className="m-0 basis-full text-[13px] leading-[1.45] text-muted">
+                {recordByCard && !nivaCanConfirm
+                  ? `Recording from this card needs Niva for admins switched on for ${communityName}. Until then, Record payment opens with everything filled in.`
+                  : recordSwitchOffNote(communityName)}
+              </p>
+            ) : null}
           </div>
         )}
       </section>
