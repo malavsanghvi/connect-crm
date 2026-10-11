@@ -162,7 +162,7 @@ describe("join codes", () => {
 describe("assistant.monthly_actions (0617)", () => {
   it("is a known limit, so Platform › Centers can save it, with a plain-English label", () => {
     expect(ENTITLEMENT_INFO["assistant.monthly_actions"]?.kind).toBe("count");
-    expect(entitlementLabel("assistant.monthly_actions")).toBe("Assistant actions per month");
+    expect(entitlementLabel("assistant.monthly_actions")).toBe("Niva for admins actions per month");
     expect(parseEntitlementInput("assistant.monthly_actions", "500")).toEqual({ ok: true, remove: false, value: 500 });
     expect(parseEntitlementInput("assistant.monthly_actions", "no limit")).toEqual({ ok: true, remove: false, value: null });
     expect(parseEntitlementInput("assistant.monthly_actions", "")).toEqual({ ok: true, remove: true });

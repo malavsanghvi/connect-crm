@@ -5,6 +5,7 @@
 
 import { unstable_rethrow } from "next/navigation";
 
+import { activityParts, withActivity, type ActivityOption } from "@/lib/activity/with-activity";
 import { explainError, type ActionResult } from "@/lib/errors";
 import { fromDateTimeLocal, parseDollarsToCents } from "@/lib/pathshala/format";
 
@@ -127,8 +128,21 @@ function sentence(doing: string, error: unknown): string {
 /**
  * Wrap a Server Action body: validation errors become plain-English results,
  * unexpected errors are logged and explained, redirects pass through.
+ * `activity` (an activity key such as "pathshala.mark_attendance", optionally with the entity it is about) notes
+ * the action in the activity stream: how long it took and whether it worked. It never changes the result.
  */
-export async function runAction<T = unknown>(context: string, doing: string, fn: () => Promise<ActionResult<T>>): Promise<ActionResult<T>> {
+export async function runAction<T = unknown>(
+  context: string,
+  doing: string,
+  fn: () => Promise<ActionResult<T>>,
+  activity?: ActivityOption<ActionResult<T>>,
+): Promise<ActionResult<T>> {
+  if (!activity) return runActionBody(context, doing, fn);
+  const { key, opts } = activityParts(activity);
+  return withActivity(key, () => runActionBody(context, doing, fn), opts);
+}
+
+async function runActionBody<T>(context: string, doing: string, fn: () => Promise<ActionResult<T>>): Promise<ActionResult<T>> {
   try {
     return await fn();
   } catch (error) {

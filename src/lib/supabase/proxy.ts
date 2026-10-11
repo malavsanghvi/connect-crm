@@ -18,6 +18,8 @@ export const PUBLIC_PATHS = [
   "/api/auth-hooks", "/api/webhooks", "/api/messaging/unsubscribe",
   // o-payments: checkout intents and the provider return page (each checks its own session or signature).
   "/api/payments",
+  // Niva for admins: its routes check the signed-in person themselves and answer 401 as JSON (a redirect to the sign-in page would break the chat).
+  "/api/assistant",
 ];
 
 export function isPublicPath(pathname: string): boolean {

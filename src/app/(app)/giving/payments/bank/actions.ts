@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 
+import { withActivity } from "@/lib/activity/with-activity";
 import type { Json } from "@/lib/database.types";
 import { bankTransactionInsert } from "@/lib/db-inserts";
 import { explainError, failure, type ActionResult } from "@/lib/errors";
@@ -196,7 +197,13 @@ async function describeMatch(
   };
 }
 
-export async function confirmBankMatchAction(input: {
+export async function confirmBankMatchAction(input: ConfirmBankMatchInput): Promise<ConfirmBankMatchResult> {
+  return withActivity("giving.confirm_bank_match", () => confirmBankMatch(input), { entityFrom: { kind: "bank_line", id: input.txnId } });
+}
+
+type ConfirmBankMatchInput = Parameters<typeof confirmBankMatch>[0];
+
+async function confirmBankMatch(input: {
   txnId: string;
   householdId: string;
   pledgeIds: string[] | null;
