@@ -374,9 +374,9 @@ select pg_temp.assert((select count(*) = 3 from app.import_exception_items where
                       and (select count(*) = 2 from app.import_decision_rules where signature = 'shared_phone_households' and revoked_at is not null),
   'its items are open again and the rules are withdrawn, not deleted');
 select pg_temp.assert(app.resolve_rules('110b0000-0000-4000-8000-0000000000c1') @> '[{"signature":"duplicate_gift_two_sources","scope":"exact_pair","answer":"same_gift","revokedAt":null}]'::jsonb
-                      and jsonb_array_length(app.resolve_rules('110b0000-0000-4000-8000-0000000000c1')) = 1
+                      and jsonb_array_length(app.resolve_rules('110b0000-0000-4000-8000-0000000000c1')) = 2
                       and (app.resolve_rules('110b0000-0000-4000-8000-0000000000c1')->0 ? 'decidedAt'),
-  'the remembered answer that is left (the duplicate gift) is handed to the engine in its own shape');
+  'the remembered answers that are left (the duplicate gift and the name-only answer) are handed to the engine in its own shape');
 select pg_temp.assert_raises($$select app.resolve_revoke_rule('110b0000-0000-4000-8000-0000000000c1', 'rule:nobody')$$, 'was not found',
   'withdrawing an answer that is not there says so');
 select pg_temp.su();
