@@ -252,6 +252,8 @@ export function buildPaymentChecks(input: {
   checkNumberElsewhere: number;
   /** A sentence about a Zelle that may already be recorded or reported (app.possible_duplicate_zelle), when one is. */
   zelleNote?: string | null;
+  /** False for a person who can see only the payments they recorded themselves (giving.record_offline only): the duplicate check is then not complete. */
+  seesAllPayments?: boolean;
   plan: DraftPlan;
   household: { number: string | null; city: string | null; adults: readonly string[] };
 }): PaymentCheckItem[] {
@@ -314,11 +316,17 @@ export function buildPaymentChecks(input: {
     dupLines.push(`check ${input.checkNumber} is already on ${input.checkNumberElsewhere} payment${input.checkNumberElsewhere === 1 ? "" : "s"} of other households (check numbers repeat between banks, so confirm it is a different check)`);
   }
   if (input.zelleNote) dupLines.push(input.zelleNote.replace(/\.$/, ""));
+  const partial = input.seesAllPayments === false;
   out.push({
     key: "duplicates",
     label: "Not recorded twice",
-    status: dupLines.length > 0 ? "look" : "ok",
-    detail: dupLines.length > 0 ? `${dupLines.join("; ")}.` : "No payment of this household has the same amount within three days, and no payment has this check number.",
+    status: dupLines.length > 0 ? "look" : partial ? "unknown" : "ok",
+    detail:
+      dupLines.length > 0
+        ? `${dupLines.join("; ")}.${partial ? " Only the payments you recorded yourself could be checked." : ""}`
+        : partial
+          ? "You can see only the payments you recorded yourself, so this could not be checked against everyone's."
+          : "No payment of this household has the same amount within three days, and no payment has this check number.",
   });
 
   out.push({

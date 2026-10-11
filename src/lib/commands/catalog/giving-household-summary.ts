@@ -1,6 +1,7 @@
 import { todayInTz } from "@/lib/dates";
 import { PAYMENT_METHOD_LABEL } from "@/lib/labels";
 import { formatCents } from "@/lib/money";
+import { can } from "@/lib/permissions";
 import { sourceLabel } from "@/lib/payments/payment-draft";
 
 import { defineCommand } from "../define";
@@ -38,6 +39,8 @@ export type HouseholdGivingData = {
   behind_cents: number;
   behind: string;
   recurring_active: number;
+  /** Set when this person can see only the payments they recorded themselves, so the totals above may be too low. */
+  limited_view: string | null;
 };
 
 const input = object({
@@ -119,17 +122,23 @@ export const householdGivingSummary = defineCommand<Infer<typeof input>, Househo
       behind_cents: int(j.behind_cents),
       behind: money(int(j.behind_cents)),
       recurring_active: int(j.recurring_active),
+      // A finance volunteer (giving.record_offline only) sees the payments they recorded themselves, not the household's whole history.
+      limited_view: can(ctx.session, ["giving.view", "giving.manage"])
+        ? null
+        : "You can see only the payments you recorded yourself, so the totals and the list of payments may be lower than the household's real giving. Open pledges are complete.",
     };
     const shown = data.open_pledges.length;
+    const nothing = data.lifetime.payments === 0 && data.open_pledge_count === 0;
     return {
       ok: true,
       data,
       message:
-        data.lifetime.payments === 0 && data.open_pledge_count === 0
+        data.limited_view ??
+        (nothing
           ? "This household has no payments or open pledges on record."
           : data.open_pledge_count > shown
             ? `Showing the first ${shown} of ${data.open_pledge_count} open pledges.`
-            : undefined,
+            : undefined),
     };
   },
 });
