@@ -46,6 +46,14 @@ export async function saveRulesJsonAction(_prev: ActionResult | null, formData: 
   if (!rules.ok) return { ok: false, error: `Could not save the rules — ${rules.errors.join(" ")}` };
   const { version: _ignored, ...rest } = rules.value;
   void _ignored;
+  // The editor never shows the activity-recording setting; one that arrives anyway (pasted, or from an old page) is refused, not
+  // quietly dropped or applied: it is agreed on Settings › Automation ideas, and the database refuses any other write of it.
+  if ("activity" in rest) {
+    return {
+      ok: false,
+      error: "Could not save the rules — the \"activity\" setting is not edited here. It is agreed on Settings > Automation ideas. Remove it from the JSON and save again.",
+    };
+  }
   return writeCenterRules(auth.session, { mode: "replace", rules: rest }, expected, "rules", (v) => `Rules saved · version ${v}`);
 }
 

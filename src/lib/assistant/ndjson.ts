@@ -1,6 +1,8 @@
 // Reading the chat stream: one JSON object per line (NDJSON), arriving in pieces of any size. Pure, so the panel and the tests share it.
 // A line that is not JSON, or not a ChatEvent we know, is counted and skipped; it never breaks the answer that is still arriving.
 
+import { parseTokens } from "@/lib/anthropic-cache";
+
 import type { ChatEvent, ProposalCard } from "./protocol";
 
 const isObject = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
@@ -48,10 +50,12 @@ export function parseChatEvent(value: unknown): ChatEvent | null {
       return isString(value.message) ? { type: "error", message: value.message, retryable: value.retryable === true } : null;
     case "done": {
       const u = value.usage;
-      if (isObject(u) && typeof u.used === "number" && (typeof u.limit === "number" || u.limit === null)) {
-        return { type: "done", usage: { used: u.used, limit: u.limit } };
-      }
-      return { type: "done" };
+      const tokens = parseTokens(value.tokens);
+      return {
+        type: "done",
+        ...(isObject(u) && typeof u.used === "number" && (typeof u.limit === "number" || u.limit === null) ? { usage: { used: u.used, limit: u.limit } } : {}),
+        ...(tokens ? { tokens } : {}),
+      };
     }
     default:
       return null;
