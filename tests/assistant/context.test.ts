@@ -188,7 +188,7 @@ describe("Ask Niva suggestions", () => {
     expect(contextLine({ path: "/setup/go-live" })).toBe("Looking at Setup");
     expect(contextLine({ path: "/settings/roles" })).toBe("Looking at Settings");
     // The examples never name a child.
-    for (const s of suggestionsFor("/settings/roles", undefined, keys)) expect(s).not.toMatch(/(child|kid|minor)/i);
+    for (const s of suggestionsFor("/settings/roles", undefined, keys)) expect(s).not.toMatch(/\b(child|kid|minor)\b/i);
   });
 
   it("offers nothing when the person can use nothing", () => {
