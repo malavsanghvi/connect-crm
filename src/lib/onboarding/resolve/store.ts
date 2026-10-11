@@ -98,7 +98,7 @@ export const RPC = {
   resolve_item_detail: ["p_item"],
   resolve_run_metrics: ["p_run"],
   resolve_runs: ["p_center"],
-  resolve_answer: ["p_group", "p_answer", "p_item", "p_apply_rest", "p_remember", "p_scope"],
+  resolve_answer: ["p_group", "p_answer", "p_item", "p_apply_rest", "p_remember", "p_scope", "p_expected_others", "p_change"],
   resolve_set_group_status: ["p_group", "p_status", "p_routed_to"],
   resolve_reopen: ["p_group"],
   resolve_revoke_rule: ["p_center", "p_rule"],
@@ -388,6 +388,10 @@ export type AnswerInput = {
   itemId?: string;
   /** "Same answer for the other N". */
   applyToRest?: boolean;
+  /** The N the person was shown: the database refuses when the number it would answer is not this one. Needed with applyToRest. */
+  expectedOthers?: number;
+  /** Replace an answer the item already has, on purpose. One item at a time. */
+  change?: boolean;
   /** Remember it for the community (default yes). */
   remember?: boolean;
   scope?: "exact_pair" | "identifier" | "pattern";
@@ -409,6 +413,8 @@ export function answerGroup(db: ResolveDb, input: AnswerInput): Promise<StoreRes
           p_apply_rest: input.applyToRest === true,
           p_remember: input.remember !== false,
           ...(input.scope ? { p_scope: input.scope } : {}),
+          ...(input.applyToRest === true && input.expectedOthers !== undefined ? { p_expected_others: input.expectedOthers } : {}),
+          ...(input.change === true ? { p_change: true } : {}),
         },
         context,
       ),

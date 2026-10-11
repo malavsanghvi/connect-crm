@@ -47,25 +47,85 @@ language sql immutable set search_path = app, public, extensions as $$
     'ids', p_raw->'ids', 'existing', p_raw->'existing', 'gift', p_raw->'gift')) end
 $$;
 
--- The run, checked for matching: the caller may write its data type (0192), the module is on, and it has not started importing.
+-- The same card for a held row (a child's household, a money conflict): who it is, an identifier, the gift. No phone, e-mail or address.
+create or replace function app.resolve_card_limited(p_raw jsonb) returns jsonb
+language sql immutable set search_path = app, public, extensions as $$
+  select case when p_raw is null or jsonb_typeof(p_raw) <> 'object' then '{}'::jsonb else jsonb_strip_nulls(jsonb_build_object(
+    'name', p_raw->'name', 'firstName', p_raw->'firstName', 'lastName', p_raw->'lastName',
+    'ids', p_raw->'ids', 'existing', p_raw->'existing', 'gift', p_raw->'gift')) end
+$$;
+
+-- Whether the signed-in person may decide about gifts in this community: whoever may import payments (giving.manage), platform admins.
+create or replace function app.resolve_money_ok(p_center uuid) returns boolean
+language sql stable security definer set search_path = app, public, extensions as $$
+  select app.import_has_any(p_center, coalesce((select e.write_perms from app.import_entities e where e.key = 'payments'), '{}'::text[]))
+$$;
+
+-- Everything done to a question about gifts (answer, put off, send on, take back, withdraw) needs that permission, every time.
+create or replace function app.resolve_assert_money(p_center uuid) returns void
+language plpgsql stable security definer set search_path = app, public, extensions as $$
+declare v_perms text[];
+begin
+  v_perms := coalesce((select e.write_perms from app.import_entities e where e.key = 'payments'), '{}'::text[]);
+  if not app.import_has_any(p_center, v_perms) then
+    raise exception 'Questions about gifts need one of these permissions: %.', array_to_string(v_perms, ', ')
+      using errcode = 'insufficient_privilege';
+  end if;
+end $$;
+
+-- Whether every condition of a remembered answer holds for this item: the two rows (by their fingerprints), the phone, e-mail,
+-- address or ID the two share, or the evidence they have and the differences that are allowed. Only a pair can match.
+create or replace function app.resolve_rule_matches(p_conditions jsonb, p_kind text, p_fingerprints text[], p_shared jsonb,
+                                                    p_evidence text[], p_conflicts text[]) returns boolean
+language sql immutable set search_path = app, public, extensions as $$
+  select p_kind = 'pair'
+     and jsonb_typeof(p_conditions) = 'array' and jsonb_array_length(p_conditions) >= 1
+     and not exists (
+       select 1 from jsonb_array_elements(p_conditions) c
+        where not coalesce(
+          case c->>'type'
+            when 'pair' then
+              array(select f from jsonb_array_elements_text(c->'fingerprints') f order by f) = array(select f from unnest(p_fingerprints) f order by f)
+            when 'identifier' then
+              (c->>'field') in ('phone', 'email', 'address', 'id') and coalesce(p_shared->>(c->>'field'), '') <> ''
+              and p_shared->>(c->>'field') = c->>'value'
+            when 'evidence' then
+              array(select r from jsonb_array_elements_text(c->'requires') r) <@ p_evidence
+              and p_conflicts <@ array(select k from jsonb_array_elements_text(c->'allowsConflicts') k)
+            else false
+          end, false))
+$$;
+
+-- The run, checked for matching: a people, households or payments file, by someone who may write that data type (0192) and holds one of
+-- the guided onboarding's permissions (0545), with the module on, and not yet started importing. Anything else raises a plain sentence.
 create or replace function app.resolve_assert_run(p_run uuid) returns app.import_runs
 language plpgsql stable security definer set search_path = app, public, extensions as $$
 declare r app.import_runs;
 begin
   r := app.import_assert_run(p_run);
+  if r.entity not in ('people', 'households', 'payments') then
+    raise exception 'Import #% is not a people, households or donations file, so it is not checked for matches.', r.run_number
+      using errcode = 'insufficient_privilege';
+  end if;
+  if not app.resolve_center_allowed(r.center_id) then
+    raise exception 'Checking an import for matches needs one of these permissions: %.', array_to_string(app.onboarding_perms(null), ', ')
+      using errcode = 'insufficient_privilege';
+  end if;
   if r.status not in ('pending', 'staged', 'previewed') then
     raise exception 'Import #% has already started, so its rows can no longer be checked for matches. Start a new import instead.', r.run_number;
   end if;
   return r;
 end $$;
 
--- The same, and the result being saved is still the one this caller started.
+-- The same, and the result being saved is still the one this caller started. The run's header row is locked while this call
+-- works, so two checks of one import cannot finish over each other.
 create or replace function app.resolve_assert_batch(p_run uuid, p_batch uuid) returns app.import_runs
-language plpgsql stable security definer set search_path = app, public, extensions as $$
-declare r app.import_runs;
+language plpgsql security definer set search_path = app, public, extensions as $$
+declare r app.import_runs; v_ok boolean;
 begin
   r := app.resolve_assert_run(p_run);
-  if p_batch is null or not exists (select 1 from app.import_run_metrics m where m.run_id = r.id and m.status = 'storing' and m.batch = p_batch) then
+  select true into v_ok from app.import_run_metrics m where m.run_id = r.id and m.status = 'storing' and m.batch = p_batch for update;
+  if p_batch is null or v_ok is distinct from true then
     raise exception 'Another check for matches started on Import #%, so this one was stopped. Try again.', r.run_number;
   end if;
   return r;
@@ -84,17 +144,20 @@ begin
      and exists (select 1 from app.import_exception_items i where i.run_id = g.run_id and i.signature = g.signature and i.answer is null);
 end $$;
 
--- Takes answers back: every item a withdrawn remembered answer had answered, in this community's imports that have not started.
+-- Takes answers back: every item a withdrawn remembered answer had answered, in imports that have not started and that the signed-in
+-- person may open; the items of gift questions only when they may decide about gifts.
 create or replace function app.resolve_withdraw(p_center uuid, p_rules text[]) returns integer
 language plpgsql security definer set search_path = app, public, extensions as $$
-declare v_runs uuid[]; v_run uuid; v_n integer;
+declare v_runs uuid[]; v_run uuid; v_n integer; v_allowed uuid[] := app.resolve_runs_allowed(); v_money boolean := app.resolve_money_ok(p_center);
 begin
   with cleared as (
     update app.import_exception_items i
        set answer = null, answer_source = null, answered_by = null, answered_at = null
      where i.center_id = p_center
        and i.answer_source = any (array(select 'rule:' || x from unnest(p_rules) x))
+       and i.run_id = any (v_allowed)
        and i.run_id in (select r.id from app.import_runs r where r.center_id = p_center and r.status in ('pending', 'staged', 'previewed'))
+       and (v_money or not exists (select 1 from app.import_signatures sg where sg.signature = i.signature and sg.money))
     returning i.run_id)
   select coalesce(array_agg(distinct c.run_id), '{}'::uuid[]), count(*) into v_runs, v_n from cleared c;
   foreach v_run in array v_runs loop
@@ -121,7 +184,8 @@ begin
      where s.center_id = r.center_id and (s.raw is not null or s.normalized is not null)
        and s.run_id in (select o.id from app.import_runs o where o.center_id = r.center_id and o.created_at < now() - interval '90 days');
   end if;
-  -- New rows mean the last result no longer describes them: it is hidden until a new one is saved.
+  -- New rows mean the last result no longer describes them: it is hidden until a new one is saved. A row that was flagged as a child
+  -- keeps the flag until a new result says otherwise, so nothing shows a child's row meanwhile.
   insert into app.import_run_metrics (run_id, center_id, status) values (r.id, r.center_id, 'staged')
   on conflict (run_id) do update set status = 'staged', batch = null;
   for x in select * from jsonb_array_elements(p_records) loop
@@ -147,7 +211,7 @@ begin
     on conflict (run_id, id) do update
       set source = excluded.source, source_kind = excluded.source_kind, row_no = excluded.row_no, order_no = excluded.order_no,
           kind = excluded.kind, read_confidence = excluded.read_confidence, raw = excluded.raw,
-          normalized = null, fingerprint = null, minor = false, minor_reasons = '{}', type_uncertain = false, problems = '{}',
+          normalized = null, fingerprint = null, type_uncertain = false, problems = '{}',
           status = null, how = null, tier = null, cluster_id = null, duplicate_of = null;
     n := n + 1;
     v_i := v_i + 1;
@@ -268,7 +332,7 @@ begin
   perform app.import_audit(r, 'Matching');
   insert into app.import_exceptions (center_id, run_id, signature, tier, batch, question, recommended, subject_count, item_count,
                                      money_cents, members, contacts, rank_no, route_suggested)
-  select distinct on (x.signature) r.center_id, r.id, x.signature, x.tier, p_batch, x.question, x.recommended,
+  select distinct on (x.signature) r.center_id, r.id, x.signature, x.tier, p_batch, x.question - 'examples', x.recommended,
          coalesce(x.subject_count, 0), coalesce(x.item_count, 0), coalesce(x.money_cents, 0), coalesce(x.members, 0),
          coalesce(x.contacts, 0), coalesce(x.rank_no, 0), x.route_suggested
     from jsonb_to_recordset(p_groups) as x(signature text, tier text, question jsonb, recommended text, subject_count integer,
@@ -285,9 +349,14 @@ begin
 end $$;
 
 -- What each question is about. [{key, signature, kind, tier, subject, record_ids, fingerprints, evidence_kinds, conflict_kinds,
--- shared, money_cents, members, contacts, rule_id, rule_answer}]. `rule_id` and `rule_answer` say a remembered answer already
--- answers the item. That is refused for a held item (tier D), for a record, for a rule that is not the community's, withdrawn, for
--- another pattern, or with another answer. A person's answer to an item is kept when the result is saved again.
+-- shared, money_cents, members, contacts, rule_id, rule_answer}]. The database does not take the caller's word for what an item is:
+--   * it is the tier and the kind its question says (a child or a money conflict is held; a pair is a pair), and it names rows that are
+--     in this import;
+--   * a child's row is only ever in an item about a child;
+--   * `rule_id` and `rule_answer` say a remembered answer already answers the item. That is refused unless the rule is the
+--     community's, not withdrawn, for this kind of question, saying this answer, about a pair that is not held, its conditions
+--     really hold for THIS item, and (for an answer that joins two records) something other than a name agrees.
+-- A person's answer to an item is kept when the result is saved again.
 create or replace function app.resolve_store_items(p_run uuid, p_batch uuid, p_items jsonb) returns integer
 language plpgsql security definer set search_path = app, public, extensions as $$
 declare r app.import_runs; n integer; v_bad integer;
@@ -295,13 +364,35 @@ begin
   r := app.resolve_assert_batch(p_run, p_batch);
   perform app.resolve_list(p_items, 'items');
   select count(*) into v_bad
-    from jsonb_to_recordset(p_items) as x(key text, signature text, kind text, tier text, rule_id text, rule_answer text)
+    from jsonb_to_recordset(p_items) as x(key text, signature text, kind text, tier text, rule_id text, rule_answer text,
+                                          fingerprints jsonb, shared jsonb, evidence_kinds jsonb, conflict_kinds jsonb)
    where x.rule_id is not null
      and not exists (select 1 from app.import_decision_rules d
                       where d.center_id = r.center_id and d.id = x.rule_id and d.revoked_at is null and d.signature = x.signature
-                        and d.answer = x.rule_answer and x.tier = 'C' and x.kind = 'pair');
+                        and d.answer = x.rule_answer and x.tier = 'C' and x.kind = 'pair'
+                        and app.resolve_rule_matches(d.conditions, x.kind, app.resolve_texts(x.fingerprints), coalesce(x.shared, '{}'::jsonb),
+                                                     app.resolve_texts(x.evidence_kinds), app.resolve_texts(x.conflict_kinds))
+                        and (d.answer = 'separate'
+                             or app.resolve_texts(x.evidence_kinds) && array['id', 'phone', 'email', 'address', 'dob', 'gift_ref']));
   if v_bad > 0 then
-    raise exception 'A remembered answer was about % item(s) it does not apply to (a child, a money conflict, or another kind of question). Nothing was saved.', v_bad;
+    raise exception 'A remembered answer was about % item(s) it does not apply to (a child, a money conflict, another kind of question, or other rows). Nothing was saved.', v_bad;
+  end if;
+  select count(*) into v_bad
+    from jsonb_to_recordset(p_items) as x(key text, signature text, kind text, tier text, record_ids jsonb)
+    left join app.import_signatures sg on sg.signature = x.signature
+   where sg.signature is null or x.tier is distinct from sg.tier or x.kind is distinct from sg.item_kind
+      or cardinality(app.resolve_texts(x.record_ids)) = 0
+      or cardinality(app.resolve_texts(x.record_ids))
+         <> (select count(*) from app.import_staged_records t where t.run_id = r.id and t.id = any (app.resolve_texts(x.record_ids)));
+  if v_bad > 0 then
+    raise exception '% item(s) do not fit the kind of question they belong to, or name rows that are not in Import #%. Nothing was saved.', v_bad, r.run_number;
+  end if;
+  select count(*) into v_bad
+    from jsonb_to_recordset(p_items) as x(key text, signature text, record_ids jsonb)
+   where x.signature <> 'minor_record'
+     and exists (select 1 from app.import_staged_records t where t.run_id = r.id and t.id = any (app.resolve_texts(x.record_ids)) and t.minor);
+  if v_bad > 0 then
+    raise exception '% item(s) name a child''s row but were not held as one. Nothing was saved.', v_bad;
   end if;
   perform app.import_audit(r, 'Matching');
   insert into app.import_exception_items as i (center_id, run_id, key, signature, kind, tier, subject, record_ids, fingerprints,
@@ -360,16 +451,20 @@ end $$;
 
 -- ── Answering ────────────────────────────────────────────────────────────────
 
--- A person's answer. It is for one item (the one given, or the first still open); `p_apply_rest` gives the same answer to the
--- other open items of the same question ("same answer for the other N"). The answer is remembered for the community (so a later
--- file never asks again) unless `p_remember` is false or the kind of question cannot be remembered. Held items (a child, a money
--- conflict) are never remembered, and a money conflict is never answered in bulk. Questions about gifts need giving.manage.
+-- A person's answer. It is for one item (the one given, or the first still open); `p_apply_rest` gives the same answer to the other open
+-- items of the same question ("same answer for the other N"), and then `p_expected_others` must be the number the person was shown:
+-- if the number has changed the answer is refused and nothing is changed. An item that already has an answer is not overwritten by
+-- accident: replacing it takes `p_change`, one item at a time. The answer is remembered for the community (so a later file never
+-- asks again) unless `p_remember` is false or the kind of question cannot be remembered (a child, a money conflict, a gift, a name
+-- alone); a remembered answer is never made from a name alone, and only in a scope its kind allows. Held items are never remembered,
+-- a money conflict and a child are never answered in bulk, and every question about gifts needs giving.manage.
 create or replace function app.resolve_answer(p_group uuid, p_answer text, p_item uuid default null, p_apply_rest boolean default false,
-                                              p_remember boolean default true, p_scope text default null) returns jsonb
+                                              p_remember boolean default true, p_scope text default null,
+                                              p_expected_others integer default null, p_change boolean default false) returns jsonb
 language plpgsql security definer set search_path = app, public, extensions as $$
 declare g app.import_exceptions; r app.import_runs; spec app.import_signatures; it app.import_exception_items;
-        v_rest integer := 0; v_open integer; v_rule text; v_scope text; v_cond jsonb; v_field text; v_val text;
-        v_order text[]; v_f text; v_perms text[];
+        v_rest integer := 0; v_others integer; v_open integer; v_rule text; v_scope text; v_cond jsonb; v_field text; v_val text;
+        v_order text[]; v_f text; v_skip text;
 begin
   select * into g from app.import_exceptions where id = p_group for update;
   if g.id is null then raise exception 'That question was not found.'; end if;
@@ -379,23 +474,33 @@ begin
   end if;
   select * into spec from app.import_signatures where signature = g.signature;
   if p_answer is null or not (p_answer = any (spec.answers)) then raise exception 'That is not one of the answers to this question.'; end if;
-  if spec.money then
-    v_perms := coalesce((select e.write_perms from app.import_entities e where e.key = 'payments'), '{}'::text[]);
-    if not app.import_has_any(r.center_id, v_perms) then
-      raise exception 'Answering questions about gifts needs one of these permissions: %.', array_to_string(v_perms, ', ')
-        using errcode = 'insufficient_privilege';
-    end if;
+  if spec.money then perform app.resolve_assert_money(r.center_id); end if;
+  if p_scope is not null and not (p_scope = any (spec.scopes)) then
+    raise exception 'That is not a way to remember an answer to this kind of question.';
   end if;
   if p_apply_rest and not spec.same_for_rest then
     raise exception 'Each of these needs its own answer, so one answer cannot be used for the others.';
   end if;
+  if p_apply_rest and coalesce(p_change, false) then raise exception 'A changed answer is for one item at a time.'; end if;
   if p_item is not null then
     select * into it from app.import_exception_items where id = p_item and run_id = g.run_id and signature = g.signature;
     if it.id is null then raise exception 'That item does not belong to this question.'; end if;
+    if it.answer is not null and not coalesce(p_change, false) then
+      raise exception 'That item already has an answer. Change it on purpose to replace it.';
+    end if;
   else
+    if coalesce(p_change, false) then raise exception 'Say which item to change.'; end if;
     select * into it from app.import_exception_items
      where run_id = g.run_id and signature = g.signature and answer is null order by money_cents desc, key limit 1;
     if it.id is null then raise exception 'Every item in this question already has an answer.'; end if;
+  end if;
+  if p_apply_rest then
+    select count(*) into v_others from app.import_exception_items
+     where run_id = g.run_id and signature = g.signature and answer is null and id <> it.id;
+    if p_expected_others is null or p_expected_others <> v_others then
+      raise exception 'There are now % other items in this question, not %. Look at the question again before giving the same answer to the others.',
+        v_others, coalesce(p_expected_others::text, 'the number you were shown');
+    end if;
   end if;
   perform app.import_audit(r, 'Matching');
 
@@ -409,38 +514,44 @@ begin
     get diagnostics v_rest = row_count;
   end if;
 
-  -- Remember it: never a held kind, never a record on its own (only a pair of records can be a pattern).
+  -- Remember it: never a held kind, never a record on its own (only a pair of records can be a pattern), never a gift or a name alone
+  -- (those kinds are not rememberable), and never an answer that joins two records unless something other than a name agrees.
   if p_remember and spec.rememberable and it.tier = 'C' and it.kind = 'pair' then
-    v_scope := coalesce(p_scope, spec.default_scope);
-    if v_scope not in ('exact_pair', 'identifier', 'pattern') then raise exception 'That is not a way to remember an answer.'; end if;
-    if v_scope = 'identifier' then
-      v_order := case g.signature
-                   when 'shared_phone_households' then array['phone', 'email', 'address', 'id']
-                   when 'shared_email_households' then array['email', 'phone', 'address', 'id']
-                   when 'address_unit_differs' then array['address', 'phone', 'email', 'id']
-                   else array['phone', 'email', 'address', 'id'] end;
-      foreach v_f in array v_order loop
-        if nullif(it.shared->>v_f, '') is not null then v_field := v_f; v_val := it.shared->>v_f; exit; end if;
-      end loop;
-      if v_field is null then
-        v_scope := 'exact_pair';
-      else
-        v_cond := jsonb_build_array(jsonb_build_object('type', 'identifier', 'field', v_field, 'value', v_val));
+    if p_answer in ('same_household', 'same_person') and not (it.evidence_kinds && array['id', 'phone', 'email', 'address', 'dob', 'gift_ref']) then
+      v_skip := 'Only a name agrees, and a name alone is never enough to join two records, so this answer was not remembered.';
+    else
+      v_scope := coalesce(p_scope, spec.default_scope);
+      if v_scope = 'identifier' then
+        v_order := case g.signature
+                     when 'shared_phone_households' then array['phone', 'email', 'address', 'id']
+                     when 'shared_email_households' then array['email', 'phone', 'address', 'id']
+                     when 'address_unit_differs' then array['address', 'phone', 'email', 'id']
+                     else array['phone', 'email', 'address', 'id'] end;
+        foreach v_f in array v_order loop
+          if nullif(it.shared->>v_f, '') is not null then v_field := v_f; v_val := it.shared->>v_f; exit; end if;
+        end loop;
+        if v_field is null then
+          v_scope := 'exact_pair';
+        else
+          v_cond := jsonb_build_array(jsonb_build_object('type', 'identifier', 'field', v_field, 'value', v_val));
+        end if;
       end if;
+      if v_scope = 'pattern' then
+        v_cond := jsonb_build_array(jsonb_build_object('type', 'evidence', 'requires', to_jsonb(it.evidence_kinds),
+                                                       'allowsConflicts', to_jsonb(it.conflict_kinds)));
+      elsif v_scope = 'exact_pair' then
+        v_cond := jsonb_build_array(jsonb_build_object('type', 'pair',
+                     'fingerprints', jsonb_build_array(it.fingerprints[1], coalesce(it.fingerprints[2], it.fingerprints[1]))));
+      end if;
+      v_rule := 'rule:' || g.signature || ':' || v_scope || ':' || substr(md5(v_cond::text), 1, 12);
+      insert into app.import_decision_rules (id, center_id, signature, scope, conditions, answer, decided_by, decided_at, from_group, from_run)
+      values (v_rule, r.center_id, g.signature, v_scope, v_cond, p_answer, auth.uid(), now(), 'grp:' || g.signature, r.id)
+      on conflict (center_id, id) do update
+        set conditions = excluded.conditions, answer = excluded.answer, decided_by = excluded.decided_by, decided_at = excluded.decided_at,
+            from_group = excluded.from_group, from_run = excluded.from_run, revoked_at = null, revoked_by = null;
+      perform app.log_audit(r.center_id, 'import_decision_rules.remember', 'import_decision_rules', v_rule, null,
+                            jsonb_build_object('signature', g.signature, 'scope', v_scope, 'answer', p_answer, 'run_id', r.id), null);
     end if;
-    if v_scope = 'pattern' then
-      v_cond := jsonb_build_array(jsonb_build_object('type', 'evidence', 'requires', to_jsonb(it.evidence_kinds),
-                                                     'allowsConflicts', to_jsonb(it.conflict_kinds)));
-    elsif v_scope = 'exact_pair' then
-      v_cond := jsonb_build_array(jsonb_build_object('type', 'pair',
-                   'fingerprints', jsonb_build_array(it.fingerprints[1], coalesce(it.fingerprints[2], it.fingerprints[1]))));
-    end if;
-    v_rule := 'rule:' || g.signature || ':' || v_scope || ':' || substr(md5(v_cond::text), 1, 12);
-    insert into app.import_decision_rules (id, center_id, signature, scope, conditions, answer, decided_by, decided_at, from_group, from_run)
-    values (v_rule, r.center_id, g.signature, v_scope, v_cond, p_answer, auth.uid(), now(), 'grp:' || g.signature, r.id)
-    on conflict (center_id, id) do update
-      set answer = excluded.answer, decided_by = excluded.decided_by, decided_at = excluded.decided_at,
-          from_group = excluded.from_group, from_run = excluded.from_run, revoked_at = null, revoked_by = null;
   end if;
 
   select count(*) into v_open from app.import_exception_items where run_id = g.run_id and signature = g.signature and answer is null;
@@ -448,12 +559,16 @@ begin
      set answer = p_answer, apply_to_rest = coalesce(p_apply_rest, false), answered_by = auth.uid(), answered_at = now(),
          status = case when v_open = 0 then 'answered' else 'open' end, routed_to = null, status_by = auth.uid(), status_at = now()
    where id = g.id;
+  perform app.log_audit(r.center_id, 'import_exceptions.answer', 'import_exceptions', g.id::text, null,
+                        jsonb_build_object('run_id', r.id, 'signature', g.signature, 'answer', p_answer, 'items', 1 + v_rest,
+                                           'for_the_rest', coalesce(p_apply_rest, false), 'changed', coalesce(p_change, false),
+                                           'remembered_as', v_rule), null);
   return jsonb_build_object('answered', 1 + v_rest, 'open_items', v_open, 'status', case when v_open = 0 then 'answered' else 'open' end,
-                            'remembered_as', v_rule);
+                            'remembered_as', v_rule, 'not_remembered', v_skip);
 end $$;
 
 -- Put a question off (postponed), skip it, send it on to someone else, or bring it back (open). An answered question is reopened
--- with resolve_reopen. Sending on records who it was meant for; helper links come later.
+-- with resolve_reopen. Sending on records who it was meant for; helper links come later. A question about gifts needs giving.manage.
 create or replace function app.resolve_set_group_status(p_group uuid, p_status text, p_routed_to text default null) returns void
 language plpgsql security definer set search_path = app, public, extensions as $$
 declare g app.import_exceptions; r app.import_runs; v_route text;
@@ -464,6 +579,9 @@ begin
   select * into g from app.import_exceptions where id = p_group for update;
   if g.id is null then raise exception 'That question was not found.'; end if;
   r := app.resolve_assert_run(g.run_id);
+  if exists (select 1 from app.import_signatures sg where sg.signature = g.signature and sg.money) then
+    perform app.resolve_assert_money(r.center_id);
+  end if;
   if g.status = 'answered' then raise exception 'This question is already answered. Reopen it first.'; end if;
   v_route := case when p_status = 'sent' then coalesce(nullif(btrim(p_routed_to), ''), g.route_suggested) end;
   if p_status = 'sent' and v_route is null then raise exception 'Choose who to send this question to.'; end if;
@@ -471,10 +589,13 @@ begin
   update app.import_exceptions
      set status = p_status, routed_to = v_route, status_by = auth.uid(), status_at = now()
    where id = g.id;
+  perform app.log_audit(r.center_id, 'import_exceptions.status', 'import_exceptions', g.id::text, null,
+                        jsonb_build_object('run_id', r.id, 'signature', g.signature, 'status', p_status, 'routed_to', v_route), null);
 end $$;
 
 -- Take a question's answers back: the answers a person gave to its items are cleared, the remembered answers made from it are
--- withdrawn (and the items they had answered in imports that have not started are open again), and the question is open.
+-- withdrawn (their personal values removed, and the items they had answered in imports the person may open are open again), and the
+-- question is open. A question about gifts needs giving.manage.
 create or replace function app.resolve_reopen(p_group uuid) returns jsonb
 language plpgsql security definer set search_path = app, public, extensions as $$
 declare g app.import_exceptions; r app.import_runs; v_rules text[]; v_cleared integer; v_withdrawn integer := 0;
@@ -482,13 +603,17 @@ begin
   select * into g from app.import_exceptions where id = p_group for update;
   if g.id is null then raise exception 'That question was not found.'; end if;
   r := app.resolve_assert_run(g.run_id);
+  if exists (select 1 from app.import_signatures sg where sg.signature = g.signature and sg.money) then
+    perform app.resolve_assert_money(r.center_id);
+  end if;
   perform app.import_audit(r, 'Matching');
   update app.import_exception_items
      set answer = null, answer_source = null, answered_by = null, answered_at = null
    where run_id = g.run_id and signature = g.signature and answer_source in ('person', 'person_bulk');
   get diagnostics v_cleared = row_count;
   with gone as (
-    update app.import_decision_rules d set revoked_at = now(), revoked_by = auth.uid()
+    update app.import_decision_rules d
+       set revoked_at = now(), revoked_by = auth.uid(), conditions = jsonb_build_array(jsonb_build_object('type', 'redacted'))
      where d.center_id = r.center_id and d.from_run = g.run_id and d.from_group = 'grp:' || g.signature and d.revoked_at is null
     returning d.id)
   select coalesce(array_agg(gone.id), '{}'::text[]) into v_rules from gone;
@@ -498,23 +623,35 @@ begin
          status_by = auth.uid(), status_at = now()
    where id = g.id;
   perform app.resolve_refresh_groups(g.run_id);
+  perform app.log_audit(r.center_id, 'import_exceptions.reopen', 'import_exceptions', g.id::text, null,
+                        jsonb_build_object('run_id', r.id, 'signature', g.signature, 'answers_cleared', v_cleared,
+                                           'rules_withdrawn', cardinality(v_rules)), null);
   return jsonb_build_object('cleared', v_cleared, 'rules_withdrawn', cardinality(v_rules), 'items_reopened_elsewhere', v_withdrawn);
 end $$;
 
--- Withdraw one remembered answer. Items it answered, in imports that have not started, are open again.
+-- Withdraw one remembered answer: its personal values are removed at once (it keeps its kind of question, its answer, who and when),
+-- and the items it had answered, in imports that have not started and that the person may open, are open again. A rule about gifts
+-- (none can be made today) needs giving.manage.
 create or replace function app.resolve_revoke_rule(p_center uuid, p_rule text) returns jsonb
 language plpgsql security definer set search_path = app, public, extensions as $$
-declare v_n integer;
+declare v_sig text; v_n integer;
 begin
   if not app.resolve_center_allowed(p_center) then
     raise exception 'Withdrawing a remembered answer needs one of these permissions: %.', array_to_string(app.onboarding_perms(null), ', ')
       using errcode = 'insufficient_privilege';
   end if;
+  select d.signature into v_sig from app.import_decision_rules d where d.center_id = p_center and d.id = p_rule and d.revoked_at is null;
+  if v_sig is null then raise exception 'That remembered answer was not found, or it was already withdrawn.'; end if;
+  if exists (select 1 from app.import_signatures sg where sg.signature = v_sig and sg.money) then
+    perform app.resolve_assert_money(p_center);
+  end if;
   perform app.set_audit_context('Matching · remembered answer withdrawn');
-  update app.import_decision_rules set revoked_at = now(), revoked_by = auth.uid()
+  update app.import_decision_rules
+     set revoked_at = now(), revoked_by = auth.uid(), conditions = jsonb_build_array(jsonb_build_object('type', 'redacted'))
    where center_id = p_center and id = p_rule and revoked_at is null;
-  if not found then raise exception 'That remembered answer was not found, or it was already withdrawn.'; end if;
   v_n := app.resolve_withdraw(p_center, array[p_rule]);
+  perform app.log_audit(p_center, 'import_decision_rules.revoke', 'import_decision_rules', p_rule, null,
+                        jsonb_build_object('signature', v_sig, 'items_reopened', v_n), null);
   return jsonb_build_object('items_reopened', v_n);
 end $$;
 
@@ -588,10 +725,13 @@ $$;
 -- status 'none'.
 create or replace function app.resolve_inbox(p_run uuid) returns jsonb
 language plpgsql stable set search_path = app, public, extensions as $$
-declare m app.import_run_metrics; v_groups jsonb;
+declare m app.import_run_metrics; v_groups jsonb := '[]'::jsonb;
 begin
   select * into m from app.import_run_metrics where run_id = p_run;
   if m.run_id is null then return jsonb_build_object('status', 'none', 'groups', '[]'::jsonb); end if;
+  -- The questions are shown only while the result is ready: while rows are being staged or a new result is being saved, the old
+  -- questions may describe rows that have changed (and a row that was a child must not be shown by a stale card).
+  if m.status = 'ready' then
   with it as (
     select i.signature,
            count(*) filter (where i.answer is null) as open_items,
@@ -615,6 +755,7 @@ begin
     left join it on it.signature = g.signature
     left join nxt on nxt.signature = g.signature
    where g.run_id = p_run;
+  end if;
   return jsonb_build_object(
     'status', m.status,
     'stalled', (m.status = 'storing' and m.started_at < now() - interval '15 minutes'),
@@ -622,18 +763,22 @@ begin
     'metrics', m.metrics, 'progress', app.resolve_progress(p_run, m.config), 'groups', v_groups);
 end $$;
 
--- One item for its card: the pair, the evidence, the conflicts, and each record as a card. A child's record is never opened (its
--- card holds only that it is held), and a card never carries what a row says about children.
+-- One item for its card: the pair, the evidence, the conflicts, and each record as a card. A child's record is never opened (its card
+-- holds only that it is held). When the item is held (a money conflict, or any record in it is a child's) the other records show only who
+-- they are, their identifiers and the gift: no phone, e-mail or address. A card never carries what a row says about children. Nothing is
+-- opened while the rows are being staged or a new result is saved.
 create or replace function app.resolve_item_detail(p_item uuid) returns jsonb
 language plpgsql stable set search_path = app, public, extensions as $$
-declare i app.import_exception_items; v_records jsonb; v_link jsonb;
+declare i app.import_exception_items; v_records jsonb; v_link jsonb; v_held boolean;
 begin
   select * into i from app.import_exception_items where id = p_item;
   if i.id is null then return null; end if;
+  if (select m.status from app.import_run_metrics m where m.run_id = i.run_id) is distinct from 'ready' then return null; end if;
+  v_held := i.tier = 'D' or exists (select 1 from app.import_staged_records t where t.run_id = i.run_id and t.id = any (i.record_ids) and t.minor);
   select coalesce(jsonb_agg(
            case when s.minor then jsonb_build_object('id', s.id, 'minor', true, 'row_no', s.row_no, 'source', s.source, 'kind', s.kind)
                 else jsonb_build_object('id', s.id, 'minor', false, 'row_no', s.row_no, 'source', s.source, 'source_kind', s.source_kind,
-                                        'kind', s.kind, 'card', app.resolve_card(s.raw)) end
+                                        'kind', s.kind, 'card', case when v_held then app.resolve_card_limited(s.raw) else app.resolve_card(s.raw) end) end
            order by array_position(i.record_ids, s.id)), '[]'::jsonb)
     into v_records
     from app.import_staged_records s where s.run_id = i.run_id and s.id = any (i.record_ids);
@@ -646,7 +791,7 @@ begin
   return jsonb_build_object(
     'item', jsonb_build_object('id', i.id, 'key', i.key, 'signature', i.signature, 'kind', i.kind, 'tier', i.tier, 'subject', i.subject,
                                'record_ids', to_jsonb(i.record_ids), 'money_cents', i.money_cents, 'answer', i.answer,
-                               'answer_source', i.answer_source, 'answered_at', i.answered_at),
+                               'answer_source', i.answer_source, 'answered_at', i.answered_at, 'limited', v_held),
     'link', v_link, 'records', v_records);
 end $$;
 
@@ -689,22 +834,101 @@ begin
       left join app.import_run_metrics m on m.run_id = r.id), '[]'::jsonb);
 end $$;
 
+-- ── Retention: the daily sweep ───────────────────────────────────────────────
+
+-- Runs in the daily sweep that already exists (the worker's niva.retention job calls app.niva_expired_conversations, which calls this
+-- as 0618 added app.assistant_purge). For imports older than 90 days it clears the uploaded rows (as uploaded and as normalised) and
+-- what the screens derived from them: the phone, e-mail, address or ID two records share, the blocking keys of a pair, the example
+-- lines of a question. A remembered answer nobody has used for 90 days keeps its kind of question, its answer, who and when, and
+-- loses the values it was made from (it is withdrawn); a withdrawn one is deleted after another 90 days.
+create or replace function app.resolve_purge(p_limit integer default 5000) returns jsonb
+language plpgsql security definer set search_path = app, public, extensions as $$
+declare v_limit integer; v_rows integer; v_items integer; v_links integer; v_questions integer; v_expired integer; v_deleted integer;
+begin
+  perform app.assert_worker();
+  v_limit := least(greatest(coalesce(p_limit, 5000), 1), 20000);
+  perform set_config('app.client_app', 'job', true);
+
+  with due as (
+    select t.run_id, t.id from app.import_staged_records t join app.import_runs r on r.id = t.run_id
+     where r.created_at < now() - interval '90 days' and (t.raw is not null or t.normalized is not null) limit v_limit)
+  update app.import_staged_records s set raw = null, normalized = null from due where s.run_id = due.run_id and s.id = due.id;
+  get diagnostics v_rows = row_count;
+
+  with due as (
+    select i.id from app.import_exception_items i join app.import_runs r on r.id = i.run_id
+     where r.created_at < now() - interval '90 days' and i.shared <> '{}'::jsonb limit v_limit)
+  update app.import_exception_items i set shared = '{}'::jsonb from due where i.id = due.id;
+  get diagnostics v_items = row_count;
+
+  with due as (
+    select l.run_id, l.a, l.b from app.import_record_links l join app.import_runs r on r.id = l.run_id
+     where r.created_at < now() - interval '90 days' and cardinality(l.via_keys) > 0 limit v_limit)
+  update app.import_record_links l set via_keys = '{}' from due where l.run_id = due.run_id and l.a = due.a and l.b = due.b;
+  get diagnostics v_links = row_count;
+
+  with due as (
+    select g.id from app.import_exceptions g join app.import_runs r on r.id = g.run_id
+     where r.created_at < now() - interval '90 days' and g.question ? 'examples' limit v_limit)
+  update app.import_exceptions g set question = g.question - 'examples' from due where g.id = due.id;
+  get diagnostics v_questions = row_count;
+
+  update app.import_decision_rules d
+     set revoked_at = now(), conditions = jsonb_build_array(jsonb_build_object('type', 'redacted'))
+   where d.revoked_at is null and greatest(d.decided_at, coalesce(d.last_used_at, d.decided_at)) < now() - interval '90 days';
+  get diagnostics v_expired = row_count;
+
+  delete from app.import_decision_rules d where d.revoked_at < now() - interval '90 days';
+  get diagnostics v_deleted = row_count;
+
+  if v_rows + v_items + v_links + v_questions + v_expired + v_deleted > 0 then
+    perform app.log_audit(null, 'import_resolve.retention', 'import_staged_records', 'sweep', null,
+      jsonb_build_object('rows_cleared', v_rows, 'shared_cleared', v_items, 'pair_keys_cleared', v_links, 'examples_cleared', v_questions,
+                         'remembered_answers_expired', v_expired, 'remembered_answers_deleted', v_deleted),
+      'Uploaded rows and what was derived from them were cleared after 90 days, and unused remembered answers lost their values');
+  end if;
+  return jsonb_build_object('rows_cleared', v_rows, 'shared_cleared', v_items, 'pair_keys_cleared', v_links, 'examples_cleared', v_questions,
+                            'remembered_answers_expired', v_expired, 'remembered_answers_deleted', v_deleted);
+end $$;
+
+-- 0618's function, unchanged except for one more line: the sweep also calls app.resolve_purge.
+create or replace function app.niva_expired_conversations(p_limit int default 1000)
+returns int language plpgsql security definer set search_path = app, public, extensions as $$
+declare v_n int; v_limit int := least(greatest(coalesce(p_limit, 1000), 1), 10000);
+begin
+  perform app.assert_worker();
+  with due as (
+    select id from app.niva_conversations where created_at < now() - interval '30 days' limit v_limit
+  )
+  delete from app.niva_conversations c using due where c.id = due.id;
+  get diagnostics v_n = row_count;
+  perform app.assistant_purge(v_limit);   -- 0618: the admin assistant's conversation text and requests
+  perform app.resolve_purge(v_limit);     -- 0631: the matching questions' uploaded rows and remembered answers
+  return v_n;
+end $$;
+
 -- ── Who may call what ────────────────────────────────────────────────────────
 revoke execute on function app.resolve_assert_run(uuid), app.resolve_assert_batch(uuid, uuid), app.resolve_refresh_groups(uuid),
-  app.resolve_withdraw(uuid, text[]) from public, anon, authenticated;
-revoke execute on function app.resolve_texts(jsonb), app.resolve_list(jsonb, text, integer), app.resolve_card(jsonb),
+  app.resolve_withdraw(uuid, text[]), app.resolve_money_ok(uuid), app.resolve_assert_money(uuid),
+  app.resolve_rule_matches(jsonb, text, text[], jsonb, text[], text[]) from public, anon, authenticated;
+revoke execute on function app.resolve_texts(jsonb), app.resolve_list(jsonb, text, integer), app.resolve_card(jsonb), app.resolve_card_limited(jsonb),
   app.resolve_stage_records(uuid, jsonb, boolean), app.resolve_staged_page(uuid, integer, integer),
   app.resolve_begin(uuid, text, jsonb), app.resolve_store_records(uuid, uuid, jsonb), app.resolve_store_pairs(uuid, uuid, jsonb),
   app.resolve_store_clusters(uuid, uuid, jsonb), app.resolve_store_groups(uuid, uuid, jsonb), app.resolve_store_items(uuid, uuid, jsonb),
-  app.resolve_finish(uuid, uuid, jsonb), app.resolve_answer(uuid, text, uuid, boolean, boolean, text),
+  app.resolve_finish(uuid, uuid, jsonb), app.resolve_answer(uuid, text, uuid, boolean, boolean, text, integer, boolean),
   app.resolve_set_group_status(uuid, text, text), app.resolve_reopen(uuid), app.resolve_revoke_rule(uuid, text),
   app.resolve_rules(uuid), app.resolve_progress(uuid, jsonb), app.resolve_inbox(uuid), app.resolve_item_detail(uuid),
   app.resolve_run_metrics(uuid), app.resolve_runs(uuid) from public, anon;
-grant execute on function app.resolve_texts(jsonb), app.resolve_list(jsonb, text, integer), app.resolve_card(jsonb),
+grant execute on function app.resolve_texts(jsonb), app.resolve_list(jsonb, text, integer), app.resolve_card(jsonb), app.resolve_card_limited(jsonb),
   app.resolve_stage_records(uuid, jsonb, boolean), app.resolve_staged_page(uuid, integer, integer),
   app.resolve_begin(uuid, text, jsonb), app.resolve_store_records(uuid, uuid, jsonb), app.resolve_store_pairs(uuid, uuid, jsonb),
   app.resolve_store_clusters(uuid, uuid, jsonb), app.resolve_store_groups(uuid, uuid, jsonb), app.resolve_store_items(uuid, uuid, jsonb),
-  app.resolve_finish(uuid, uuid, jsonb), app.resolve_answer(uuid, text, uuid, boolean, boolean, text),
+  app.resolve_finish(uuid, uuid, jsonb), app.resolve_answer(uuid, text, uuid, boolean, boolean, text, integer, boolean),
   app.resolve_set_group_status(uuid, text, text), app.resolve_reopen(uuid), app.resolve_revoke_rule(uuid, text),
   app.resolve_rules(uuid), app.resolve_progress(uuid, jsonb), app.resolve_inbox(uuid), app.resolve_item_detail(uuid),
   app.resolve_run_metrics(uuid), app.resolve_runs(uuid) to authenticated;
+-- The sweep: the background service only (the same grants as app.assistant_purge, 0618).
+revoke execute on function app.resolve_purge(integer) from public, anon, authenticated, service_role;
+grant execute on function app.resolve_purge(integer) to connect_worker;
+revoke execute on function app.niva_expired_conversations(int) from public, anon, authenticated, service_role;
+grant execute on function app.niva_expired_conversations(int) to connect_worker;

@@ -37,36 +37,92 @@ const sql = (prefix: string): string => {
   return readFileSync(join(migrations, file), "utf8").replace(/\r\n/g, "\n");
 };
 
+type CatalogRow = {
+  signature: string;
+  tier: string;
+  answers: string[];
+  rememberable: boolean;
+  scope: string;
+  route: string | null;
+  money: boolean;
+  sameForRest: boolean;
+  scopes: string[];
+  itemKind: string;
+};
+
+/** The rows the migration seeds into app.import_signatures. */
+function catalogRows(): CatalogRow[] {
+  const m0630 = sql("0630_");
+  const re = /\('([a-z_]+)',\s*'([CD])',\s*array\[([^\]]*)\],\s*(true|false),\s*'([a-z_]+)',\s*(null|'[a-z]+'),\s*(true|false),\s*(true|false),\s*(array\[[^\]]*\]|'\{\}'::text\[\]),\s*'(pair|record)'\)/g;
+  return [...m0630.matchAll(re)].map((m) => ({
+    signature: m[1],
+    tier: m[2],
+    answers: [...m[3].matchAll(/'([a-z_]+)'/g)].map((a) => a[1]),
+    rememberable: m[4] === "true",
+    scope: m[5],
+    route: m[6] === "null" ? null : m[6].replace(/'/g, ""),
+    money: m[7] === "true",
+    sameForRest: m[8] === "true",
+    scopes: [...m[9].matchAll(/'([a-z_]+)'/g)].map((a) => a[1]),
+    itemKind: m[10],
+  }));
+}
+
+/** Where the database is deliberately stricter than the engine's SIGNATURES (the owner's recommendation, enforced now). */
+const STRICTER_NOT_REMEMBERED = ["duplicate_gift_two_sources", "name_only"];
+const STRICTER_NOT_IN_BULK = ["minor_record"];
+
 describe("the database catalog and the engine say the same thing", () => {
   const m0630 = sql("0630_");
+  const rows = catalogRows();
 
   it("lists every kind of question with the answers, scope, route and flags the engine has", () => {
-    const rows = [...m0630.matchAll(/\('([a-z_]+)',\s*'([CD])',\s*array\[([^\]]*)\],\s*(true|false),\s*'([a-z_]+)',\s*(null|'[a-z]+'),\s*(true|false),\s*(true|false)\)/g)];
     expect(rows.length).toBe(Object.keys(SIGNATURES).length);
-    for (const [, signature, tier, answers, rememberable, scope, route, money, same] of rows) {
-      const spec = SIGNATURES[signature as keyof typeof SIGNATURES];
-      expect(spec, signature).toBeDefined();
-      expect(tier, signature).toBe(spec.tier);
-      expect([...answers.matchAll(/'([a-z_]+)'/g)].map((a) => a[1]), signature).toEqual([...spec.answers]);
-      expect(rememberable === "true", signature).toBe(spec.rememberable);
-      expect(scope, signature).toBe(spec.defaultScope);
-      expect(route === "null" ? null : route.replace(/'/g, ""), signature).toBe(spec.routeTo);
-      expect(money === "true", signature).toBe(spec.money);
-      expect(same === "true", signature).toBe(spec.sameForRest);
+    for (const r of rows) {
+      const spec = SIGNATURES[r.signature as keyof typeof SIGNATURES];
+      expect(spec, r.signature).toBeDefined();
+      expect(r.tier, r.signature).toBe(spec.tier);
+      expect(r.answers, r.signature).toEqual([...spec.answers]);
+      expect(r.scope, r.signature).toBe(spec.defaultScope);
+      expect(r.route, r.signature).toBe(spec.routeTo);
+      expect(r.money, r.signature).toBe(spec.money);
     }
   });
 
-  it("refuses, in the table itself, a remembered answer for every kind the engine will not remember", () => {
+  it("is never looser than the engine, and stricter in exactly the places it says it is", () => {
+    const stricterRemember: string[] = [];
+    const stricterBulk: string[] = [];
+    for (const r of rows) {
+      const spec = SIGNATURES[r.signature as keyof typeof SIGNATURES];
+      if (r.rememberable) expect(spec.rememberable, `${r.signature} is remembered by the database only if the engine remembers it`).toBe(true);
+      else if (spec.rememberable) stricterRemember.push(r.signature);
+      if (r.sameForRest) expect(spec.sameForRest, `${r.signature} is answered in bulk by the database only if the engine allows it`).toBe(true);
+      else if (spec.sameForRest) stricterBulk.push(r.signature);
+    }
+    expect(stricterRemember.sort()).toEqual(STRICTER_NOT_REMEMBERED);
+    expect(stricterBulk.sort()).toEqual(STRICTER_NOT_IN_BULK);
+  });
+
+  it("never remembers money, a name alone, or a held kind; and says how widely each kind may be remembered", () => {
+    for (const r of rows) {
+      if (r.money || r.tier === "D" || STRICTER_NOT_REMEMBERED.includes(r.signature)) expect(r.rememberable, r.signature).toBe(false);
+      expect(r.rememberable, r.signature).toBe(r.scopes.length > 0);
+      if (r.rememberable) expect(r.scopes, r.signature).toContain(r.scope);
+    }
+    expect(rows.filter((r) => r.scopes.includes("pattern")).map((r) => r.signature)).toEqual(["spouse_maiden_name"]);
+  });
+
+  it("knows which kinds are about one row and which about a pair, as the engine builds them", () => {
+    expect(rows.filter((r) => r.itemKind === "record").map((r) => r.signature).sort()).toEqual(["low_confidence_read", "minor_record", "uncertain_type", "unreadable_money"]);
+  });
+
+  it("refuses, in the table itself, a remembered answer for every kind the database will not remember", () => {
     const check = /constraint import_decision_rules_never_held check \(signature not in\s*\(([^)]*)\)\)/.exec(m0630);
     expect(check).not.toBeNull();
     const listed = [...(check as RegExpExecArray)[1].matchAll(/'([a-z_]+)'/g)].map((x) => x[1]).sort();
-    const notRemembered = Object.entries(SIGNATURES)
-      .filter(([, s]) => !s.rememberable)
-      .map(([k]) => k)
-      .sort();
-    expect(listed).toEqual(notRemembered);
+    expect(listed).toEqual(rows.filter((r) => !r.rememberable).map((r) => r.signature).sort());
     // Every held kind (tier D) is among them.
-    for (const [k, s] of Object.entries(SIGNATURES)) if (s.tier === "D") expect(listed, k).toContain(k);
+    for (const r of rows) if (r.tier === "D") expect(listed, r.signature).toContain(r.signature);
   });
 
   it("allows only the answers of the kinds that can be remembered, as a remembered answer", () => {
@@ -74,7 +130,7 @@ describe("the database catalog and the engine say the same thing", () => {
     expect(check).not.toBeNull();
     const listed = [...(check as RegExpExecArray)[1].matchAll(/'([a-z_]+)'/g)].map((x) => x[1]).sort();
     const rememberable = new Set<string>();
-    for (const s of Object.values(SIGNATURES)) if (s.rememberable) for (const a of s.answers) rememberable.add(a);
+    for (const r of rows) if (r.rememberable) for (const a of r.answers) rememberable.add(a);
     expect(listed).toEqual([...rememberable].sort());
   });
 
@@ -98,11 +154,13 @@ describe("the database catalog and the engine say the same thing", () => {
     expect(m0632).toContain("'screen:/setup/onboarding/questions'");
   });
 
-  it("keeps the derived tables out of the audit log and everything a person decides in it", () => {
+  it("keeps the tables that hold uploaded rows, or personal values made from them, out of the audit log row by row", () => {
     const audited = [...m0630.matchAll(/create trigger audit_([a-z_]+) after insert/g)].map((m) => m[1]).sort();
-    expect(audited).toEqual(["import_decision_rules", "import_exception_items", "import_exceptions", "import_run_metrics", "import_signatures"]);
+    expect(audited).toEqual(["import_run_metrics", "import_signatures"]);
     const t13 = readFileSync(join(process.cwd(), "supabase", "tests", "13_modules_audit_test.sql"), "utf8");
-    for (const t of ["import_staged_records", "import_record_links", "import_clusters"]) expect(t13).toContain(`'${t}'`);
+    for (const t of ["import_staged_records", "import_record_links", "import_clusters", "import_exceptions", "import_exception_items", "import_decision_rules"]) {
+      expect(t13).toContain(`'${t}'`);
+    }
   });
 });
 
@@ -363,7 +421,8 @@ describe("looking for matches in a staged run", () => {
 
     // A person answers the biggest question that can be remembered; the database keeps the answer as a rule.
     const engine = run(golden.records, { dateOrderBySource: makeRunConfig(golden.records, TODAY).dateOrderBySource });
-    const group = engine.groups.find((g) => g.tier === "C" && SIGNATURES[g.signature].rememberable && g.items.length >= 1)!;
+    const rememberable = new Set(catalogRows().filter((r) => r.rememberable).map((r) => r.signature));
+    const group = engine.groups.find((g) => g.tier === "C" && rememberable.has(g.signature) && g.items.length >= 1)!;
     expect(group).toBeDefined();
     const made = ruleFromAnswer({ group, answer: SIGNATURES[group.signature].answers[0], decidedBy: "user-1", decidedAt: "2026-10-11T12:00:00.000Z" });
     expect(made.ok).toBe(true);
@@ -510,5 +569,30 @@ describe("reading the inbox", () => {
     expect(detail?.evidence).toEqual([{ kind: "phone", label: "same mobile", independent: true }]);
     expect(detail?.conflicts[0].severity).toBe("lower");
     expect(detail?.records[0].card).toMatchObject({ name: "Mira Shah", address1: "12 Lotus Ln", existingNumber: "0417", ids: { household_number: "0417" } });
+  });
+});
+
+describe("the number the person saw, and changing an answer on purpose", () => {
+  it("sends the number of others with 'the same answer for the others', and not otherwise", async () => {
+    const f = fakeDb();
+    await answerGroup(f.db, { groupId: "g", answer: "separate", itemId: "i", applyToRest: true, expectedOthers: 13 });
+    await answerGroup(f.db, { groupId: "g", answer: "separate", itemId: "i", applyToRest: false, expectedOthers: 13 });
+    expect(f.calls[0].args).toMatchObject({ p_apply_rest: true, p_expected_others: 13 });
+    expect(f.calls[1].args.p_apply_rest).toBe(false);
+    expect("p_expected_others" in f.calls[1].args).toBe(false);
+  });
+
+  it("asks for a change of answer only when it is asked for", async () => {
+    const f = fakeDb();
+    await answerGroup(f.db, { groupId: "g", answer: "same_household", itemId: "i", change: true });
+    await answerGroup(f.db, { groupId: "g", answer: "same_household", itemId: "i" });
+    expect(f.calls[0].args.p_change).toBe(true);
+    expect("p_change" in f.calls[1].args).toBe(false);
+  });
+
+  it("reads why an answer was not remembered, and whether a card is limited", () => {
+    const out = parseItemDetail({ item: { id: "i", signature: "amount_differs", kind: "pair", tier: "D", limited: true }, link: null, records: [] });
+    expect(out?.limited).toBe(true);
+    expect(parseItemDetail({ item: { id: "i", signature: "name_only", kind: "pair", tier: "C" }, records: [] })?.limited).toBe(false);
   });
 });

@@ -2,7 +2,8 @@
 -- has already answered; a held item (a child, a money conflict) is asked every time; a withdrawn answer is not used any more.
 --   A. The numbers of a run and the inbox   B. Answers move the numbers   C. Saving the same result again   D. A changed result
 --   E. A second run: the remembered answer answers its items, once   F. Withdrawing it   G. A run that is being saved for too
---   long, new rows, and the 90-day clearing
+--   long, new rows, the old questions hidden meanwhile, and the 90-day clearing when rows are staged   H. The daily sweep: what it
+--   clears, what it keeps, and who may run it
 -- Everything runs in one transaction that is rolled back.
 \set ON_ERROR_STOP 1
 begin;
@@ -37,7 +38,9 @@ create temp table ctx (k text primary key, v text);
 create or replace function pg_temp.item_with_rule(p_run uuid, p_batch uuid, p_rule text) returns integer language sql as $$
   select app.resolve_store_items(p_run, p_batch, jsonb_build_array(jsonb_build_object(
     'key', 'shared_phone_households:k1', 'signature', 'shared_phone_households', 'kind', 'pair', 'tier', 'C', 'subject', 'f#2',
-    'record_ids', jsonb_build_array('f#1', 'f#2'), 'fingerprints', jsonb_build_array('fp1', 'fp2'), 'rule_id', p_rule, 'rule_answer', 'separate')))
+    'record_ids', jsonb_build_array('f#1', 'f#2'), 'fingerprints', jsonb_build_array('fp1', 'fp2'),
+    'shared', jsonb_build_object('phone', '+17135550142'), 'evidence_kinds', jsonb_build_array('phone'),
+    'rule_id', p_rule, 'rule_answer', 'separate')))
 $$;
 grant all on ctx to public;
 create or replace function pg_temp.cx(p_k text) returns text language sql stable as $$ select v from ctx where k = p_k $$;
@@ -159,8 +162,10 @@ select pg_temp.assert((select count(*) = 1 from app.import_record_links where ru
   'the pairs are kept with their tier and hold, and the gift seen twice points at the one that is kept');
 
 -- ── B. Answers move the numbers ─────────────────────────────────────────────
-select pg_temp.assert((app.resolve_answer(pg_temp.gid(pg_temp.cx('runA')::uuid, 'shared_phone_households'), 'separate', null, true)->>'answered')::int = 3,
-  'the phone question is answered for all three items at once (the recommended answer)');
+select pg_temp.assert_raises($$select app.resolve_answer(pg_temp.gid(pg_temp.cx('runA')::uuid, 'shared_phone_households'), 'separate', null, true, true, null, 5)$$, 'There are now 2 other items',
+  'the same answer for "the other 5" is refused when 2 others are open: the number shown has to be the number answered');
+select pg_temp.assert((app.resolve_answer(pg_temp.gid(pg_temp.cx('runA')::uuid, 'shared_phone_households'), 'separate', null, true, true, null, 2)->>'answered')::int = 3,
+  'the phone question is answered for all three items at once (the recommended answer), when the number shown is the number open');
 select pg_temp.assert((app.resolve_answer(pg_temp.gid(pg_temp.cx('runA')::uuid, 'minor_record'), 'ignore_row')->>'status') = 'answered',
   'the question about a child is answered with an answer that is not the recommended one');
 select pg_temp.assert((app.resolve_run_metrics(pg_temp.cx('runA')::uuid)->'live'->>'questions_left')::int = 2
@@ -290,6 +295,10 @@ select pg_temp.assert(app.resolve_inbox(pg_temp.cx('runB')::uuid)->>'status' = '
   'and a new check takes over');
 select pg_temp.assert(pg_temp.stage(pg_temp.cx('runB')::uuid) = 6, 'staging the rows again...');
 select pg_temp.assert(app.resolve_inbox(pg_temp.cx('runB')::uuid)->>'status' = 'staged', '...hides the last result until a new one is saved');
+select pg_temp.assert(app.resolve_inbox(pg_temp.cx('runB')::uuid)->'groups' = '[]'::jsonb
+                      and app.resolve_item_detail(pg_temp.iid(pg_temp.cx('runB')::uuid, 'minor_record:rec~fp4')) is null
+                      and app.resolve_item_detail(pg_temp.iid(pg_temp.cx('runB')::uuid, 'shared_phone_households:k2')) is null,
+  'the old questions and their cards are not shown meanwhile: a row that was a child must not be shown by a card made before it was staged again');
 select pg_temp.assert_raises($$select app.resolve_answer(pg_temp.gid(pg_temp.cx('runB')::uuid, 'minor_record'), 'ignore_row')$$, 'still being worked out',
   'and nothing can be answered meanwhile');
 select pg_temp.su();
@@ -305,4 +314,52 @@ select pg_temp.sign_in('111b0000-0000-4000-8000-000000000001');
 select pg_temp.assert_raises($$select app.resolve_begin(pg_temp.cx('runA')::uuid, 'resolve-1-test', '{}'::jsonb)$$, 'cleared after 90 days',
   'an old run cannot be checked again: its rows are gone');
 select pg_temp.su();
+
+-- ── H. The daily sweep ──────────────────────────────────────────────────────
+-- An import that is 100 days old with everything the screens derived from it, and four remembered answers: one unused for 100 days,
+-- one decided 100 days ago and used 10 days ago, one withdrawn 100 days ago, one new.
+select pg_temp.sign_in('111b0000-0000-4000-8000-000000000001');
+insert into ctx select 'runC', (app.import_create_run('111b0000-0000-4000-8000-0000000000c1', 'people', 'onboarding', 'people111-old.csv'))->>'id';
+select pg_temp.assert(pg_temp.stage(pg_temp.cx('runC')::uuid) = 6, 'an import is staged for the sweep to find');
+select pg_temp.store(pg_temp.cx('runC')::uuid);
+select pg_temp.assert_raises($$select app.resolve_purge(100)$$, 'permission denied', 'a signed-in person cannot run the sweep');
+select pg_temp.su();
+update app.import_record_links set via_keys = array['phone:+17135550142', 'email:mira@example.com'] where run_id = pg_temp.cx('runC')::uuid;
+update app.import_exceptions set question = question || '{"examples":[{"lines":["Mira Shah, 12 Lotus Ln"]}]}'::jsonb where run_id = pg_temp.cx('runC')::uuid;
+update app.import_runs set created_at = now() - interval '100 days' where id = pg_temp.cx('runC')::uuid;
+insert into app.import_decision_rules (id, center_id, signature, scope, conditions, answer, decided_at, last_used_at, revoked_at) values
+  ('rule:old-unused', '111b0000-0000-4000-8000-0000000000c1', 'shared_phone_households', 'identifier',
+   '[{"type":"identifier","field":"phone","value":"+14445550001"}]', 'separate', now() - interval '100 days', null, null),
+  ('rule:old-used', '111b0000-0000-4000-8000-0000000000c1', 'shared_phone_households', 'identifier',
+   '[{"type":"identifier","field":"phone","value":"+14445550002"}]', 'separate', now() - interval '100 days', now() - interval '10 days', null),
+  ('rule:old-withdrawn', '111b0000-0000-4000-8000-0000000000c1', 'shared_phone_households', 'identifier',
+   '[{"type":"redacted"}]', 'separate', now() - interval '200 days', null, now() - interval '100 days'),
+  ('rule:recent', '111b0000-0000-4000-8000-0000000000c1', 'shared_phone_households', 'identifier',
+   '[{"type":"identifier","field":"phone","value":"+14445550003"}]', 'separate', now(), null, null);
+grant connect_worker to postgres;
+set local role connect_worker;
+insert into ctx select 'swept', app.niva_expired_conversations(1000)::text;
+reset role;
+select pg_temp.assert((select count(*) = 6 from app.import_staged_records where run_id = pg_temp.cx('runC')::uuid)
+                      and (select count(*) = 0 from app.import_staged_records where run_id = pg_temp.cx('runC')::uuid and (raw is not null or normalized is not null)),
+  'the sweep clears the uploaded rows of an import older than 90 days (the ids and what happened to each stay)');
+select pg_temp.assert((select count(*) = 6 from app.import_exception_items where run_id = pg_temp.cx('runC')::uuid)
+                      and (select bool_and(shared = '{}'::jsonb) from app.import_exception_items where run_id = pg_temp.cx('runC')::uuid)
+                      and (select bool_and(cardinality(via_keys) = 0) from app.import_record_links where run_id = pg_temp.cx('runC')::uuid)
+                      and (select bool_and(not (question ? 'examples')) from app.import_exceptions where run_id = pg_temp.cx('runC')::uuid),
+  'and what the screens derived from them: the phone two rows share, the keys of a pair, the example lines of a question');
+select pg_temp.assert((select count(*) > 0 and bool_and(raw is not null) from app.import_staged_records where run_id = pg_temp.cx('runB')::uuid),
+  'an import that is not old is left alone');
+select pg_temp.assert((select revoked_at is not null and conditions = '[{"type":"redacted"}]'::jsonb and answer = 'separate' and signature = 'shared_phone_households'
+                         from app.import_decision_rules where id = 'rule:old-unused')
+                      and (select revoked_at is null and conditions->0->>'value' = '+14445550002' from app.import_decision_rules where id = 'rule:old-used')
+                      and (select revoked_at is null and conditions->0->>'value' = '+14445550003' from app.import_decision_rules where id = 'rule:recent'),
+  'a remembered answer nobody used for 90 days loses its phone number and is withdrawn, keeping its kind and answer; one used lately, and a new one, stay');
+select pg_temp.assert((select count(*) = 0 from app.import_decision_rules where id = 'rule:old-withdrawn')
+                      and (select count(*) = 1 from app.import_decision_rules where id = 'rule:old-unused'),
+  'a withdrawn one is deleted after another 90 days, and the one just withdrawn is kept for now');
+select pg_temp.assert((select count(*) = 1 from app.audit_log where action = 'import_resolve.retention' and (after->>'rows_cleared')::int >= 6
+                         and (after->>'remembered_answers_expired')::int = 1 and (after->>'remembered_answers_deleted')::int = 1)
+                      and (select count(*) = 0 from app.audit_log where action = 'import_resolve.retention' and (coalesce(before::text, '') || coalesce(after::text, '')) ~ '(7135550142|mira@|Mira Shah|Lotus|4445550)'),
+  'the sweep leaves one entry in the audit log with counts only');
 rollback;

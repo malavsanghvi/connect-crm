@@ -204,6 +204,8 @@ export type ItemDetail = {
   evidence: EvidenceLine[];
   conflicts: ConflictLine[];
   tierReasons: string[];
+  /** A held row (a money conflict, or a row with a child in it): the cards show who and what gift, no phone, e-mail or address. */
+  limited: boolean;
   records: CardRecord[];
 };
 
@@ -261,6 +263,7 @@ export function parseItemDetail(json: unknown): ItemDetail | null {
       return { kind: text(x.kind) ?? "", label: text(x.label) ?? "", severity: x.severity === "block" ? ("block" as const) : ("lower" as const) };
     }),
     tierReasons: strings(link.tier_reasons),
+    limited: it.limited === true,
     records: (Array.isArray(root.records) ? root.records : []).map((r) => {
       const x = rec(r);
       const minor = x.minor === true;
@@ -360,6 +363,8 @@ export type AnswerOutcome = {
   status: GroupStatus;
   /** The id of the remembered answer made from it, when one was. */
   rememberedAs: string | null;
+  /** Why the answer was not remembered when it could have been (only a name agrees). */
+  notRemembered: string | null;
 };
 
 export function parseAnswerOutcome(json: unknown): AnswerOutcome | null {
@@ -367,5 +372,5 @@ export function parseAnswerOutcome(json: unknown): AnswerOutcome | null {
   const v = rec(json);
   const status = text(v.status) as GroupStatus | null;
   if (!status || !GROUP_STATUSES.includes(status)) return null;
-  return { answered: num(v.answered), openItems: num(v.open_items), status, rememberedAs: text(v.remembered_as) };
+  return { answered: num(v.answered), openItems: num(v.open_items), status, rememberedAs: text(v.remembered_as), notRemembered: text(v.not_remembered) };
 }
