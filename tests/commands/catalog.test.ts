@@ -69,16 +69,22 @@ describe("the first commands", () => {
       "events.draft_change:draft",
       "giving.draft_payment:draft",
       "events.set_field:confirm",
+      "giving.record_payment:confirm",
+      "giving.confirm_exact_zelle_matches:confirm",
+      "giving.match_deposit:confirm",
     ]);
+    // Every confirm command is off until the owner approves it; the three that move money are off for EVERY door, not only Niva.
     const confirm = CATALOG.filter((c) => c.level === "confirm");
-    expect(confirm).toHaveLength(1);
-    expect(confirm[0].enabledByDefault).not.toBe(true);
+    expect(confirm).toHaveLength(4);
+    for (const c of confirm) expect(c.enabledByDefault).not.toBe(true);
+    expect(confirm.filter((c) => c.requiresOwnerSwitch).map((c) => c.key)).toEqual(["giving.record_payment", "giving.confirm_exact_zelle_matches", "giving.match_deposit"]);
   });
 
-  it("have no command that writes money, roles, permissions or deletes: a money word is only ever a read or a draft", () => {
+  it("have no command that changes roles or permissions, deletes, refunds, writes off or approves; a money word that writes needs the owner's switch", () => {
     for (const c of CATALOG) {
-      if (/record|payment|refund|write_?off|role|permission|grant|delete|remove|merge|approve|send|schedule/.test(c.key)) {
-        expect(c.level === "read" || c.level === "draft", `${c.key} is ${c.level}`).toBe(true);
+      expect(c.key, `${c.key} would refund, write off, approve, merge, delete or change roles`).not.toMatch(/refund|write_?off|role|permission|grant|delete|remove|merge|send|schedule|approve_/);
+      if (/record|payment|zelle|deposit/.test(c.key) && c.level === "confirm") {
+        expect(c.requiresOwnerSwitch, `${c.key} moves money, so it needs the owner's switch`).toBe(true);
       }
     }
     // The one that touches data is a single-detail event change; its fields never include prices, status or the owner.
@@ -95,7 +101,8 @@ describe("the first commands", () => {
 
   it("are all visible to a person with every permission, and none to a person with none", () => {
     const { session } = setup();
-    expect(catalogRegistry().list(session).map((c) => c.key)).toHaveLength(CATALOG.length - 0);
+    // The three money commands are hidden until an owner switches them on.
+    expect(catalogRegistry().list(session).map((c) => c.key)).toHaveLength(CATALOG.length - 3);
     const none = fakeSession({ permissions: [] });
     // tasks.mine is open to everyone signed in; every other command needs a permission.
     expect(catalogRegistry().list(none).map((c) => c.key)).toEqual(["tasks.mine"]);
@@ -528,6 +535,9 @@ describe("no command result reaches a model with a child in it", () => {
     "giving.waiting_for_second_approver": {},
     "giving.fund_mapping_status": {},
     "giving.draft_payment": { household_id: SHAH, amount: "250", method: "check", reference: "1043", received_on: "2026-10-04", memo: "From Zoya Shah's family" },
+    "giving.record_payment": { household_id: SHAH, amount: "250", method: "check", reference: "1043", received_on: "2026-10-04", memo: "From Zoya Shah's family" },
+    "giving.confirm_exact_zelle_matches": { report_ids: "7d0f3b9a-6a39-4d0c-9f43-0a1a1d7c4001" },
+    "giving.match_deposit": { bank_line_id: "7d0f3b9a-6a39-4d0c-9f43-0a1a1d7c4201", payment_ids: "7d0f3b9a-6a39-4d0c-9f43-0a1a1d7c4301,7d0f3b9a-6a39-4d0c-9f43-0a1a1d7c4302" },
     "accounting.month_close_blockers": {},
     "messages.draft_reminder": { event_id: DIWALI },
     "events.draft_change": { event_id: DIWALI, field: "venue", value: "Hall for Zoya Shah" },
@@ -546,7 +556,9 @@ describe("no command result reaches a model with a child in it", () => {
       } as never);
       // The Giving commands read database functions and take real-looking ids, so they run in the Giving test community.
       const world = command.key.startsWith("giving.") ? givingWorld(GIVING_ANSWERS) : undefined;
-      const { ctx } = setup({ via: "assistant", world, rules: { assistant: { tools: { "events.set_field": true } } } });
+      // The owner has switched on every confirm command, so that what each one would show on its confirm card is checked too.
+      const on = { "events.set_field": true, "giving.record_payment": true, "giving.confirm_exact_zelle_matches": true, "giving.match_deposit": true };
+      const { ctx } = setup({ via: "assistant", world, rules: { assistant: { tools: on } } });
       const result = await runCommand(ctx, command.key, SAMPLE_INPUT[command.key]);
       expect(result.ok, JSON.stringify(result)).toBe(true);
       const text = JSON.stringify(result);

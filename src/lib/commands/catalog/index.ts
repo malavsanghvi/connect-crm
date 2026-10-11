@@ -1,7 +1,9 @@
 // The commands. Read and draft commands are on for everyone whose role allows them; the one confirm-level write is registered
 // but OFF until the owner approves it (assistant.tools.<key> in the community's settings). No command here moves money, changes a
 // role or permission, or deletes anything. The Giving commands (giving.*, B90 phase 4) are reads and one draft: they look at pledges,
-// bank lines, Zelle reports and approvals, and giving.draft_payment prepares a payment without saving it.
+// bank lines, Zelle reports and approvals, and giving.draft_payment prepares a payment without saving it. The three that move money
+// (giving.record_payment, giving.confirm_exact_zelle_matches, giving.match_deposit) are built but OFF for every door until an owner
+// switches each one on (requiresOwnerSwitch). Refunds and write-offs have no command: they need a second person.
 
 import { defaultRegistry } from "../registry";
 import type { AnyCommand } from "../types";
@@ -9,9 +11,12 @@ import type { AnyCommand } from "../types";
 import { draftEventChange, setEventField } from "./events-change";
 import { eventsUpcoming } from "./events-upcoming";
 import { bankLinesUnmatched } from "./giving-bank-lines";
+import { confirmExactZelleMatches } from "./giving-confirm-zelle";
 import { draftPayment } from "./giving-draft-payment";
 import { fundMappingStatus } from "./giving-fund-mapping";
 import { householdGivingSummary } from "./giving-household-summary";
+import { matchDeposit } from "./giving-match-deposit";
+import { recordPayment } from "./giving-record-payment";
 import { waitingForSecondApprover } from "./giving-second-approver";
 import { zelleWaiting } from "./giving-zelle-waiting";
 import { draftReminderCommand } from "./messages-draft-reminder";
@@ -36,8 +41,11 @@ export const CATALOG: readonly AnyCommand[] = [
   draftReminderCommand,
   draftEventChange,
   draftPayment,
-  // confirm (off by default)
+  // confirm (off by default; the three money commands also need the owner's switch for every door, see requiresOwnerSwitch)
   setEventField,
+  recordPayment,
+  confirmExactZelleMatches,
+  matchDeposit,
 ];
 
 let registered = false;

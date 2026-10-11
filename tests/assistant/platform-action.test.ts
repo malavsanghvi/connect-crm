@@ -69,8 +69,15 @@ beforeEach(() => {
 
 describe("Platform › Centers › Niva for admins", () => {
   it("offers the write actions Niva could be allowed to prepare, all off to begin with", () => {
-    expect(confirmToolChoices(undefined)).toEqual([expect.objectContaining({ key: "events.set_field", title: "Change a detail of an event", on: false })]);
+    expect(confirmToolChoices(undefined)).toEqual([
+      expect.objectContaining({ key: "events.set_field", title: "Change a detail of an event", on: false, moneyNote: null }),
+      expect.objectContaining({ key: "giving.record_payment", on: false, moneyNote: expect.stringContaining("Moves money") }),
+      expect.objectContaining({ key: "giving.confirm_exact_zelle_matches", on: false, moneyNote: expect.stringContaining("Moves money") }),
+      expect.objectContaining({ key: "giving.match_deposit", on: false, moneyNote: expect.stringContaining("Moves money") }),
+    ]);
     expect(confirmToolChoices({ assistant: { tools: { "events.set_field": true } } })[0].on).toBe(true);
+    // The three that move money stay off unless each is ticked: nothing else switches them on.
+    expect(confirmToolChoices({ assistant: { tools: { "events.set_field": true } } }).filter((t) => t.on).map((t) => t.key)).toEqual(["events.set_field"]);
   });
 
   it("switches Niva on for the community, keeps the other rules, and records the reason", async () => {
@@ -99,7 +106,9 @@ describe("Platform › Centers › Niva for admins", () => {
     const { state } = world({});
     await saveAssistantAction(null, form({ center: CENTER, version: "", enabled: "on", tool: ["events.set_field", "people.search", "../../etc"], reason: "Trying" }));
     const tools = state.rules.assistant as { tools: Record<string, boolean> };
-    expect(Object.keys(tools.tools)).toEqual(["events.set_field"]);
+    // Only the confirm-level commands can be ticked: the event change and the three that move money (each off until ticked).
+    expect(Object.keys(tools.tools)).toEqual(["events.set_field", "giving.record_payment", "giving.confirm_exact_zelle_matches", "giving.match_deposit"]);
+    expect(tools.tools).toEqual({ "events.set_field": true, "giving.record_payment": false, "giving.confirm_exact_zelle_matches": false, "giving.match_deposit": false });
   });
 
   it("needs a reason, a platform admin and a page that is not out of date", async () => {

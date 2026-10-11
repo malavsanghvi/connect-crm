@@ -146,6 +146,7 @@ export default async function PlatformCenterPage({ params }: { params: Promise<{
                     <span>
                       <span className="font-bold">{t.title}</span>
                       <span className="block text-muted">{t.description}</span>
+                      {t.moneyNote ? <span className="block font-semibold text-danger">{t.moneyNote}</span> : null}
                     </span>
                   </label>
                 ))}

@@ -54,6 +54,13 @@ export function commandAvailability(command: AnyCommand, session: AvailabilitySe
   if (command.module && !isModuleEnabled(session, command.module)) {
     return { ok: false, code: "module_off", error: moduleOffMessage(command.module, session.center.name, moduleDef(command.module).label) };
   }
+  if (command.requiresOwnerSwitch && assistantToolSetting(session.center.rules, command.key) !== true) {
+    return {
+      ok: false,
+      code: "switched_off",
+      error: `Weaver is not set up to ${doing} by command for ${session.center.name} yet: it moves money, so an owner has to approve it first. Until then it can be done on the screen.`,
+    };
+  }
   if (via === "assistant" && !isCommandEnabled(command, session.center.rules)) {
     return {
       ok: false,

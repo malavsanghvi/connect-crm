@@ -36,6 +36,11 @@ export type CommandContext = {
   /** Names of people under 18, used as a last check on what a model would see (child-filter.ts). Required for `via: "assistant"`. */
   minors?: MinorNameSource;
   now?: () => Date;
+  /**
+   * Set while a confirmed proposal runs: the id of the proposal the person confirmed. A command that must not happen twice (a
+   * payment) uses it as its idempotency key, so the same confirmation can never record the action again.
+   */
+  proposalId?: string;
 };
 
 // ---------------------------------------------------------------------------
@@ -143,6 +148,12 @@ export type Command<I = never, O = unknown> = {
    * screen or the palette is the person's own hands, with the permission they already have.
    */
   enabledByDefault?: boolean;
+  /**
+   * For a confirm command that moves money: off for EVERY door (Niva, the ⌘K palette, a screen that calls it) until an owner
+   * switches it on for the community (`assistant.tools.<key>` true in its rules). Without this, a confirm command is off for Niva
+   * only, and the palette, being the person's own hands, would offer it. Hidden from lists while it is off.
+   */
+  requiresOwnerSwitch?: boolean;
   /** For level only_you: where the person does it themselves. */
   pointTo?: { label: string; href: string };
   /** Server Actions this command replaces, as "src/app/(app)/events/actions.ts#saveEvent" (scripts/commands-coverage.mjs reads this). */

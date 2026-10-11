@@ -292,7 +292,8 @@ export async function confirmProposal<O = unknown>(ctx: CommandContext, proposal
   const parsed = cmd.input.parse(confirmed.input);
   if (!parsed.ok) return stop(fail(`Could not ${lowerFirst(cmd.title)} — ${lowerFirst(parsed.error)}`, "invalid"));
 
-  const result = await execute(cmd, run, parsed.value);
+  // The confirmed proposal's id travels with the run, so a command that must not happen twice can use it as its key.
+  const result = await execute(cmd, { ...run, proposalId }, parsed.value);
   if (!result.ok) {
     const failed = fromExec(result);
     await record(false, result.stepUp ? "A fresh security code was needed." : result.error);

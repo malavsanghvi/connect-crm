@@ -43,9 +43,9 @@ const noChild = (text: string) => {
 
 // ---------------------------------------------------------------------------
 describe("the Giving commands in the catalog", () => {
-  it("are read or draft only: nothing here writes money", () => {
+  it("are reads and one draft, plus three money commands that are off until an owner switches them on", () => {
     const giving = CATALOG.filter((c) => c.key.startsWith("giving."));
-    expect(giving.map((c) => `${c.key}:${c.level}`)).toEqual([
+    expect(giving.filter((c) => c.level !== "confirm").map((c) => `${c.key}:${c.level}`)).toEqual([
       "giving.pledges_behind:read",
       "giving.household_summary:read",
       "giving.bank_lines_unmatched:read",
@@ -54,7 +54,11 @@ describe("the Giving commands in the catalog", () => {
       "giving.fund_mapping_status:read",
       "giving.draft_payment:draft",
     ]);
-    for (const c of giving) expect(c.level === "read" || c.level === "draft").toBe(true);
+    expect(giving.filter((c) => c.level === "confirm").map((c) => [c.key, c.requiresOwnerSwitch, c.enabledByDefault ?? false])).toEqual([
+      ["giving.record_payment", true, false],
+      ["giving.confirm_exact_zelle_matches", true, false],
+      ["giving.match_deposit", true, false],
+    ]);
   });
 
   it("are all described for a model, and 'pledge' is never 'bid'", () => {
