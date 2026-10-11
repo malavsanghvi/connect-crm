@@ -375,7 +375,7 @@ describe("reminder wording", () => {
 
 describe("messages.draft_reminder", () => {
   /** A community that uses English, Gujarati and Hindi (tests/community-languages.test.ts covers the other languages). */
-  const threeLanguages = (): FakeDbOptions => {
+  const threeLanguages = () => {
     const w = communityWithChildren();
     return { ...w, rpc: { ...w.rpc, community_languages: ["en", "gu", "hi"] } };
   };
