@@ -94,7 +94,7 @@ create trigger centers_activity_guard before update of rules on app.centers
 
 -- Writes rules.activity for the functions below (they set the flag the guard looks for, for this write only).
 create or replace function app.activity_write_rules(p_center uuid, p_patch jsonb, p_remove text[] default '{}')
-returns void language plpgsql security definer set search_path = app, public, extensions as $
+returns void language plpgsql security definer set search_path = app, public, extensions as $$
 declare v_n integer;
 begin
   perform set_config('app.activity_apply', 'on', true);
@@ -359,7 +359,7 @@ begin
       'share_with_weaver', coalesce((select (c.rules #>> '{activity,share_with_weaver}') = 'true' from app.centers c where c.id = p_center), false));
   end if;
   return v_out;
-end $;
+end $$;
 comment on function app.activity_status(uuid) is 'For a member or staff member of p_center (or a platform admin): {enabled: recording is on for the community, opted_out: they chose not to be recorded, eligible: they can be recorded at all, member / portal: on which surface}; with settings.manage also {consented, consent: {at, version} or null, share_with_weaver}. Anyone else gets enabled false and nothing else (0621).';
 
 -- ── Who may call what ────────────────────────────────────────────────────────
