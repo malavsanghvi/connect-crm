@@ -19,6 +19,7 @@ import { monthCloseBlockers } from "./month-close-blockers";
 import { PEOPLE_COMMANDS } from "./people";
 import { peopleSearch } from "./people-search";
 import { pledgesBehind } from "./pledges-behind";
+import { SETTINGS_COMMANDS } from "./settings";
 import { tasksMine } from "./tasks-mine";
 
 export const CATALOG: readonly AnyCommand[] = [
@@ -41,6 +42,8 @@ export const CATALOG: readonly AnyCommand[] = [
   ...PEOPLE_COMMANDS,
   // Messages (docs/ADMIN_REDESIGN.md phase 4): the inbox, drafts, audience, approvals and replies
   ...MESSAGES_COMMANDS,
+  // Settings and Setup: the setup concierge and the roles helper (reads, one draft, and what only the person can do)
+  ...SETTINGS_COMMANDS,
 ];
 
 let registered = false;
