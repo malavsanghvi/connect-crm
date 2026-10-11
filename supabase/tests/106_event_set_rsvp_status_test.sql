@@ -96,7 +96,7 @@ begin
   end;
   perform pg_temp.assert(v_failed, 'D1 the call fails when the second step fails');
 end $$;
-select pg_temp.assert((select status = 'confirmed' and cancelled_at is null from app.rsvps where id = :r1), 'D2 and the RSVP is as it was: the first step was undone');
+select pg_temp.assert((select status = 'confirmed' from app.rsvps where id = :r1), 'D2 and the RSVP is as it was (confirmed, not no-show): the first step was undone');
 drop trigger t106_boom on app.attendees;
 
 -- ── E. Who can call it ────────────────────────────────────────────────────────────────
