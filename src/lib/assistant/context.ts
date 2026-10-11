@@ -207,9 +207,15 @@ const SUGGESTIONS: Record<SuggestionArea, Suggestion[]> = {
     { text: "Are all our connected services working?", needs: "settings.integrations_health" },
     { text: "Which modules are switched on?", needs: "settings.modules_state" },
   ],
+  // Messages (B90 phase 4): on a conversation the first two are about it; on a message to families, about that message; on the list, the rest.
   messages: [
-    { text: "Draft a reminder for the next event in English, Gujarati and Hindi", needs: "messages.draft_reminder" },
-    { text: "What events are coming up?", needs: "events.upcoming" },
+    { text: "Draft a reply to this conversation from our approved answers", needs: "messages.draft_reply", onlyFor: "message thread" },
+    { text: "Why has this message not gone out?", needs: "messages.why_not_delivered", onlyFor: "campaign" },
+    { text: "What is waiting in the inbox?", needs: "messages.inbox_triage", onlyWithout: true },
+    { text: "Which messages to families are waiting for approval?", needs: "messages.campaigns", onlyWithout: true },
+    { text: "How many people would a message to all members reach by email, text and WhatsApp?", needs: "messages.audience_preview", onlyWithout: true },
+    { text: "Why did a family not get our text?", needs: "messages.why_not_delivered", onlyWithout: true },
+    { text: "Draft a reminder for the next event in English, Gujarati and Hindi", needs: "messages.draft_reminder", onlyWithout: true },
     { text: "What is waiting for me?", needs: "tasks.mine" },
   ],
   general: [

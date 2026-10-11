@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 
 import { HistoryButton } from "@/components/record-history";
 import { RowActions } from "@/components/row-actions";
+import { AskNiva } from "@/components/niva/ask-niva";
 import { Alert, BlockGrid, Card, KeyValueRow, NoAccess, PageHeader, QueryError, StatusText } from "@/components/ui";
 import { campaignStatusLabel, campaignStatusTone, describeAudience, openRate, requiresSecondApprover, translationLanguages } from "@/lib/comms";
 import { audienceOptions } from "@/lib/data/content-comms";
@@ -76,6 +77,7 @@ export default async function CampaignPage({ params }: { params: Promise<{ id: s
         actions={
           <>
             <HistoryButton table="comms_campaigns" recordId={c.id} title={c.name || c.title} variant="ghost" size="md" />
+            <AskNiva prompt="Where is this message in approval, who would it reach, and has it gone out?" />
             {awaiting && canApprove ? (
               <RowActions action={approveCampaignAction} fields={{ id: c.id }} buttons={[{ label: "Approve", value: "approve", variant: "ok", confirm: `Approve "${c.name || c.title}"?` }]} />
             ) : null}
