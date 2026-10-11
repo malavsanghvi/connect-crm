@@ -112,7 +112,7 @@ export function safeRouteContext(pathname: string | null | undefined, params?: R
 // ---------------------------------------------------------------------------
 // The area of the screen, for the "Ask Niva" suggestions
 // ---------------------------------------------------------------------------
-export type SuggestionArea = "people" | "giving" | "events" | "messages" | "accounting" | "general";
+export type SuggestionArea = "people" | "giving" | "events" | "messages" | "accounting" | "settings" | "setup" | "general";
 
 const AREA_BY_FIRST_SEGMENT: Record<string, SuggestionArea> = {
   people: "people",
@@ -126,6 +126,8 @@ const AREA_BY_FIRST_SEGMENT: Record<string, SuggestionArea> = {
   events: "events",
   calendar: "events",
   comms: "messages",
+  settings: "settings",
+  setup: "setup",
 };
 
 export function areaForPath(path: string): SuggestionArea {
@@ -142,6 +144,8 @@ export type Suggestion = {
   onlyFor?: string;
   /** Shown only when no particular thing is on screen. */
   onlyWithout?: boolean;
+  /** Shown only on a screen under this path ("/settings/roles"). */
+  onlyOn?: string;
 };
 
 const SUGGESTIONS: Record<SuggestionArea, Suggestion[]> = {
@@ -160,8 +164,12 @@ const SUGGESTIONS: Record<SuggestionArea, Suggestion[]> = {
   ],
   giving: [
     { text: "Who is behind on pledges?", needs: "giving.pledges_behind" },
+    { text: "Record a $250 check from member number 1042", needs: "giving.draft_payment" },
+    { text: "Which Zelle reports are waiting for the bank?", needs: "giving.zelle_waiting" },
+    { text: "Which bank lines are still unmatched?", needs: "giving.bank_lines_unmatched" },
+    { text: "What is waiting for a second approver?", needs: "giving.waiting_for_second_approver" },
+    { text: "Show the giving of member number 1042", needs: "giving.household_summary" },
     { text: "What is blocking month-end close?", needs: "accounting.month_close_blockers" },
-    { text: "Record a $50 gift from member number 1042", needs: "giving.record_payment" },
   ],
   accounting: [
     { text: "What is blocking month-end close?", needs: "accounting.month_close_blockers" },
@@ -179,6 +187,25 @@ const SUGGESTIONS: Record<SuggestionArea, Suggestion[]> = {
     { text: "What events are coming up?", needs: "events.upcoming" },
     { text: "Copy last year's Diwali Dinner to November 8 as a draft", needs: "events.clone_draft", onlyWithout: true },
     { text: "Draft a reminder for the next event", needs: "messages.draft_reminder", onlyWithout: true },
+  ],
+  // Settings (B90 phase 4): the roles helper, and whether the connected services work. On a screen of its own the first three are about it.
+  settings: [
+    { text: "Who can see payments?", needs: "settings.who_can_access", onlyOn: "/settings/roles" },
+    { text: "Who holds the treasurer role?", needs: "settings.role_holders", onlyOn: "/settings/roles" },
+    { text: "Prepare the treasurer role for a member for a year", needs: "settings.draft_role_grant", onlyOn: "/settings/roles" },
+    { text: "Are all our connected services working?", needs: "settings.integrations_health", onlyOn: "/settings/integrations" },
+    { text: "Why might a text not go out?", needs: "settings.integrations_health", onlyOn: "/settings/integrations" },
+    { text: "Which modules are switched on?", needs: "settings.modules_state", onlyOn: "/settings/modules" },
+    { text: "What is left before we can go live?", needs: "settings.setup_status" },
+    { text: "Are all our connected services working?", needs: "settings.integrations_health" },
+    { text: "Who can see payments?", needs: "settings.who_can_access" },
+  ],
+  // Setup: the setup concierge.
+  setup: [
+    { text: "What is left before we can go live?", needs: "settings.setup_status" },
+    { text: "Which go-live checks do not pass yet, and where do I fix them?", needs: "settings.setup_status" },
+    { text: "Are all our connected services working?", needs: "settings.integrations_health" },
+    { text: "Which modules are switched on?", needs: "settings.modules_state" },
   ],
   messages: [
     { text: "Draft a reminder for the next event in English, Gujarati and Hindi", needs: "messages.draft_reminder" },
@@ -200,6 +227,7 @@ export function suggestionsFor(path: string, entityKind: string | undefined, ava
       .filter((s) => (s.needs ? availableKeys.has(s.needs) : true))
       .filter((s) => (s.onlyFor ? s.onlyFor === entityKind : true))
       .filter((s) => (s.onlyWithout ? entityKind === undefined : true))
+      .filter((s) => (s.onlyOn ? path === s.onlyOn || path.startsWith(`${s.onlyOn}/`) : true))
       .map((s) => s.text);
   const own = pick(SUGGESTIONS[area]);
   // A screen whose role can use none of its own examples still gets the general ones.
@@ -213,6 +241,8 @@ const AREA_NAME: Record<SuggestionArea, string> = {
   accounting: "Accounting",
   events: "Events",
   messages: "Messages",
+  settings: "Settings",
+  setup: "Setup",
   general: "Home",
 };
 

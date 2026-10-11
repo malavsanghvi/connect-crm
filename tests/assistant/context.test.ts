@@ -69,14 +69,15 @@ describe("the area of a screen", () => {
     expect(areaForPath("/events/[id]")).toBe("events");
     expect(areaForPath("/comms/campaigns")).toBe("messages");
     expect(areaForPath("/")).toBe("general");
-    expect(areaForPath("/settings/access")).toBe("general");
+    expect(areaForPath("/settings/access")).toBe("settings");
+    expect(areaForPath("/setup/go-live")).toBe("setup");
   });
 
   it("says what Niva is looking at, in words", () => {
     expect(contextLine({ path: "/events/[id]", entityKind: "event", entityId: "x" })).toBe("Looking at this event");
     expect(contextLine({ path: "/giving/payments" })).toBe("Looking at Giving");
     expect(contextLine({ path: "/" })).toBe("Looking at Home");
-    expect(contextLine({ path: "/settings/access" })).toBe("Looking at this page");
+    expect(contextLine({ path: "/settings/access" })).toBe("Looking at Settings");
   });
 });
 
@@ -91,6 +92,28 @@ describe("Ask Niva suggestions", () => {
       for (const s of list) expect(s).toMatch(/[a-z]/);
     }
     expect(suggestionsFor("/giving/payments", undefined, all)).toContain("Who is behind on pledges?");
+  });
+
+  it("offers the Giving sentences a role can use, the three most useful first", () => {
+    const giving = new Set([
+      "giving.pledges_behind",
+      "giving.draft_payment",
+      "giving.zelle_waiting",
+      "giving.bank_lines_unmatched",
+      "giving.waiting_for_second_approver",
+      "giving.household_summary",
+      "accounting.month_close_blockers",
+    ]);
+    expect(suggestionsFor("/giving/payments", undefined, giving)).toEqual([
+      "Who is behind on pledges?",
+      "Record a $250 check from member number 1042",
+      "Which Zelle reports are waiting for the bank?",
+    ]);
+    // A volunteer who can only record payments is offered the recording sentence and the bank lines, not the approvals.
+    const volunteer = new Set(["giving.draft_payment", "giving.bank_lines_unmatched", "tasks.mine"]);
+    expect(suggestionsFor("/giving/payments/bank", undefined, volunteer)).toEqual(["Record a $250 check from member number 1042", "Which bank lines are still unmatched?"]);
+    // A person is never offered a sentence that names a child: the examples describe a member number, not a person.
+    for (const s of suggestionsFor("/giving/pledges", undefined, giving)) expect(s).not.toMatch(/bid/i);
   });
 
   it("offers 'this event' only on an event page", () => {
@@ -142,6 +165,30 @@ describe("Ask Niva suggestions", () => {
     // A role that cannot change people is not offered a change.
     const lookOnly = new Set(["people.search", "people.pending_reviews"]);
     expect(suggestionsFor("/households/[id]", "household", lookOnly).some((s) => s.startsWith("Add a spouse"))).toBe(false);
+  });
+
+  it("offers the Settings examples a role can use, first the ones about the screen it is on", () => {
+    const keys = new Set(["settings.setup_status", "settings.role_holders", "settings.who_can_access", "settings.draft_role_grant", "settings.integrations_health", "settings.modules_state"]);
+    expect(suggestionsFor("/settings/roles", undefined, keys)).toEqual([
+      "Who can see payments?",
+      "Who holds the treasurer role?",
+      "Prepare the treasurer role for a member for a year",
+    ]);
+    expect(suggestionsFor("/settings/integrations", undefined, keys)).toEqual(["Are all our connected services working?", "Why might a text not go out?", "What is left before we can go live?"]);
+    expect(suggestionsFor("/settings/modules", undefined, keys)).toEqual(["Which modules are switched on?", "What is left before we can go live?", "Are all our connected services working?"]);
+    // On any other Settings screen, the general ones; on a Setup screen, the concierge's.
+    expect(suggestionsFor("/settings/rules", undefined, keys)).toEqual(["What is left before we can go live?", "Are all our connected services working?", "Who can see payments?"]);
+    expect(suggestionsFor("/setup", undefined, keys)).toEqual([
+      "What is left before we can go live?",
+      "Which go-live checks do not pass yet, and where do I fix them?",
+      "Are all our connected services working?",
+    ]);
+    // A role that cannot use a command is never offered it.
+    expect(suggestionsFor("/settings/roles", undefined, new Set(["settings.integrations_health"]))).toEqual(["Are all our connected services working?"]);
+    expect(contextLine({ path: "/setup/go-live" })).toBe("Looking at Setup");
+    expect(contextLine({ path: "/settings/roles" })).toBe("Looking at Settings");
+    // The examples never name a child.
+    for (const s of suggestionsFor("/settings/roles", undefined, keys)) expect(s).not.toMatch(/\b(child|kid|minor)\b/i);
   });
 
   it("offers nothing when the person can use nothing", () => {
