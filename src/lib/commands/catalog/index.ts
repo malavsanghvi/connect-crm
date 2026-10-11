@@ -14,6 +14,7 @@ import { fundMappingStatus } from "./giving-fund-mapping";
 import { householdGivingSummary } from "./giving-household-summary";
 import { waitingForSecondApprover } from "./giving-second-approver";
 import { zelleWaiting } from "./giving-zelle-waiting";
+import { LEARNING_COMMANDS } from "./learning";
 import { MESSAGES_COMMANDS } from "./messages";
 import { draftReminderCommand } from "./messages-draft-reminder";
 import { monthCloseBlockers } from "./month-close-blockers";
@@ -54,6 +55,8 @@ export const CATALOG: readonly AnyCommand[] = [
   // Reports (ask questions of your data; the sums are done in the database) and the Platform console (Weaver team only)
   ...REPORTS_COMMANDS,
   ...PLATFORM_COMMANDS,
+  // Learning (docs/ADMIN_REDESIGN.md phase 4): terms, levels, fees, classes and teachers (adults); nothing about a learner (D2)
+  ...LEARNING_COMMANDS,
 ];
 
 let registered = false;

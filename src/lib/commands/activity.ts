@@ -26,6 +26,7 @@ const ERROR_WORD: Record<CommandErrorCode, string> = {
   no_access: "no_permission",
   module_off: "no_permission",
   switched_off: "no_permission",
+  screen_only: "no_permission",
   only_you: "no_permission",
   wrong_community: "no_permission",
   invalid: "invalid_input",

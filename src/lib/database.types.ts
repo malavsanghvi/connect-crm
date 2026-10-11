@@ -13086,6 +13086,12 @@ export type Database = {
         };
         Returns: string;
       };
+      pathshala_fee_totals: {
+        Args: {
+          p_term: string;
+        };
+        Returns: Json;
+      };
       pathshala_i_am_adult: {
         Args: {
           p_center: string;

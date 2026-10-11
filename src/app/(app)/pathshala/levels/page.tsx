@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { DrawerForm } from "@/components/drawer-form";
+import { AskNiva } from "@/components/niva/ask-niva";
 import { Card, EmptyState, TableWrap } from "@/components/ui";
 import { isPermissionError } from "@/lib/access-db";
 import { loadClasses, loadLevels, loadTerms, pickTerm } from "@/lib/data/pathshala";
@@ -59,7 +60,7 @@ export default async function LevelsPage() {
 
   return (
     <>
-      <PathshalaHeader description={SUBTITLE} />
+      <PathshalaHeader description={SUBTITLE} actions={<AskNiva prompt="Which levels have no fee set for the term, and what are their age bands?" />} />
       {levels.status === "missing" ? (
         <div className="mb-4">
           <Notice tone="warning">
