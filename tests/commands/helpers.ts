@@ -240,7 +240,19 @@ export function communityWithChildren(): Required<Pick<FakeDbOptions, "tables" |
 // ---------------------------------------------------------------------------
 // Children from other cultures (decision D2 in any culture)
 // ---------------------------------------------------------------------------
-type IntlChild = { id: string; first_name: string; last_name: string; date_of_birth: string | null; household: string; display: string };
+type IntlChild = {
+  id: string;
+  first_name: string;
+  last_name: string;
+  date_of_birth: string | null;
+  household: string;
+  display: string;
+  /** Default "child". A sibling or "other" with no birth date is a child too (isAdultMember). */
+  role?: string;
+  email?: string;
+  phone_e164?: string;
+  member_number?: string;
+};
 
 /**
  * Children whose names the first version of the filter could not match: family name first, written without spaces, a particle, two
@@ -253,12 +265,13 @@ export const INTERNATIONAL: { kids: IntlChild[]; entries: () => MinorNameEntry[]
     { id: "p-cjk", first_name: "伟", last_name: "王", date_of_birth: "2017-04-04", household: "hh-shah", display: "王伟" },
     { id: "p-maria", first_name: "María José", last_name: "García López", date_of_birth: "2014-02-02", household: "hh-patel", display: "María José" },
     { id: "p-ahmad", first_name: "Ahmad", last_name: "bin Ali", date_of_birth: "2013-05-05", household: "hh-mehta", display: "Ahmad" },
-    { id: "p-sukarno", first_name: "Sukarno", last_name: "", date_of_birth: "2015-06-06", household: "hh-mehta", display: "Sukarno" },
+    { id: "p-sukarno", first_name: "Sukarno", last_name: "", date_of_birth: "2015-06-06", household: "hh-mehta", display: "Sukarno", email: "sukarno2015@example.org", phone_e164: "+16305550142", member_number: "M-70421" },
+    { id: "p-tanvi", first_name: "Tanvi", last_name: "Rao", date_of_birth: null, household: "hh-patel", display: "Tanvi", role: "other" },
   ],
   /** The names as the database source gives them (see minorNameEntry in child-filter.ts). */
-  entries: () => INTERNATIONAL.kids.map((k) => minorNameEntry({ first_name: k.first_name, last_name: k.last_name, preferred_name: null })),
+  entries: () => INTERNATIONAL.kids.map((k) => minorNameEntry({ first_name: k.first_name, last_name: k.last_name, preferred_name: null, email: k.email, phone_e164: k.phone_e164, member_number: k.member_number })),
   /** Every way these children are written in the worlds below: none may reach a model. */
-  forbidden: ["Wang", "Wei", "王伟", "María", "José", "García", "López", "Ahmad", "Sukarno"],
+  forbidden: ["Wang", "Wei", "王伟", "María", "José", "García", "López", "Ahmad", "Sukarno", "sukarno", "Tanvi", "555-0142", "M-70421", "example.org"],
 };
 
 /** communityWithChildren() (or another world with the same households) with the children above living in it. */
@@ -274,11 +287,11 @@ export function withInternationalChildren<W extends FakeDbOptions>(world: W): W 
       ...tables,
       people: [
         ...(tables.people ?? []),
-        ...kids.map((k) => ({ id: k.id, center_id, first_name: k.first_name, last_name: k.last_name, preferred_name: null, date_of_birth: k.date_of_birth, merged_into_id: null })),
+        ...kids.map((k) => ({ id: k.id, center_id, first_name: k.first_name, last_name: k.last_name, preferred_name: null, date_of_birth: k.date_of_birth, email: k.email ?? null, phone_e164: k.phone_e164 ?? null, member_number: k.member_number ?? null, merged_into_id: null })),
       ],
       household_members: [
         ...(tables.household_members ?? []),
-        ...kids.map((k) => ({ household_id: k.household, person_id: k.id, center_id, role: "child", is_primary: false, left_at: null })),
+        ...kids.map((k) => ({ household_id: k.household, person_id: k.id, center_id, role: k.role ?? "child", is_primary: false, left_at: null })),
       ],
       households: (tables.households ?? []).map((h) => ({ ...h, display_name: [h.display_name, ...at(h.id).map((k) => k.display)].join(", ") })),
     },
