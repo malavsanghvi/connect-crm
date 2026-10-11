@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 
+import { LookSwitch } from "@/components/shell/look-switch";
 import { ModuleNav } from "@/components/shell/nav-link";
 import type { VisibleModule } from "@/lib/permissions";
 
@@ -27,6 +28,10 @@ export function MobileNav({
         <div className="absolute left-0 top-[calc(100%+8px)] z-50 max-h-[80vh] w-64 overflow-y-auto rounded-2xl border border-line bg-white p-2.5 shadow-[var(--shadow-menu)]">
           <ModuleNav modules={modules} homeBadge={homeBadge} homeBadgeLabel={homeBadgeLabel} onNavigate={() => setOpen(false)} />
           <p className="cc-nav-foot mt-2">{footer}</p>
+          {/* Where a phone user can try the redesigned portal (the top bar has no room for the button there). */}
+          <div className="mt-1 sm:hidden">
+            <LookSwitch look="classic" block />
+          </div>
         </div>
       ) : null}
     </div>
