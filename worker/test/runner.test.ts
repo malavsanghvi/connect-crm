@@ -13,17 +13,17 @@ const deps = (db: ReturnType<typeof fakeDb>["db"], env: Record<string, string> =
   return { d: { db, reg: createRegistry(HANDLERS), env, http: createHttp(), log, workerId: "w-test" }, lines };
 };
 
-/** The kinds the runner claims while nothing is configured: every kind but the ones that wait (storage.scan and its sweep). */
-const claimedKinds = () => HANDLERS.filter((h) => !h.waitWhenNotConfigured).map((h) => h.kind);
+/** The kinds the runner claims in its general slots while nothing is configured: every kind but the ones that wait (storage.scan and its sweep) and the ones with a slot of their own (maxInFlight: storage.scan, site.crawl). */
+const claimedKinds = () => HANDLERS.filter((h) => !h.waitWhenNotConfigured && h.maxInFlight === undefined).map((h) => h.kind);
 
 describe("registry", () => {
   it("has demo.ping, oauth.exchange, storage.retention and storage.scan (which waits while scanning is off)", () => {
     expect([...createRegistry(HANDLERS).keys()].sort()).toEqual([
       "activity.mine", "calendar.import_feed", "calendar.refresh_feeds",
-      "demo.clear", "demo.load", "demo.ping", "demo.reset", "events.generate_flyer", "homework.publish_notify", "homework.reminders_sweep", "import.suggest_mapping", "messaging.domain_verify", "messaging.send", "messaging.test_send", "messaging.webhook.email", "messaging.webhook.twilio", "niva.answer", "niva.discover_site", "niva.import_page", "niva.retention", "notices.sweep", "oauth.exchange", "pathshala.holds_sweep", "payments.refund", "payments.reports_sweep", "payments.sync_payouts", "payments.test_charge", "payments.webhook.paypal", "payments.webhook.stripe", "photos.import_album", "platform.promote", "platform.sandbox_expiry", "platform.test_provider", "qbo.bring_in_history", "qbo.match_suggest_ai", "qbo.post", "qbo.pull_customers_history", "qbo.pull_lists", "qbo.refresh_token", "qbo.test_post", "storage.retention", "storage.scan", "storage.scan_sweep", "surveys.launch_notify",
+      "demo.clear", "demo.load", "demo.ping", "demo.reset", "events.generate_flyer", "homework.publish_notify", "homework.reminders_sweep", "import.suggest_mapping", "messaging.domain_verify", "messaging.send", "messaging.test_send", "messaging.webhook.email", "messaging.webhook.twilio", "niva.answer", "niva.discover_site", "niva.import_page", "niva.retention", "notices.sweep", "oauth.exchange", "pathshala.holds_sweep", "payments.refund", "payments.reports_sweep", "payments.sync_payouts", "payments.test_charge", "payments.webhook.paypal", "payments.webhook.stripe", "photos.import_album", "platform.promote", "platform.sandbox_expiry", "platform.test_provider", "qbo.bring_in_history", "qbo.match_suggest_ai", "qbo.post", "qbo.pull_customers_history", "qbo.pull_lists", "qbo.refresh_token", "qbo.test_post", "site.crawl", "storage.retention", "storage.scan", "storage.scan_sweep", "surveys.launch_notify",
     ]);
     expect(HANDLERS.filter((h) => h.waitWhenNotConfigured).map((h) => h.kind).sort()).toEqual(["storage.scan", "storage.scan_sweep"]);
-    expect(HANDLERS.filter((h) => h.maxInFlight !== undefined).map((h) => [h.kind, h.maxInFlight])).toEqual([["storage.scan", 1]]);
+    expect(HANDLERS.filter((h) => h.maxInFlight !== undefined).map((h) => [h.kind, h.maxInFlight])).toEqual([["storage.scan", 1], ["site.crawl", 2]]);
   });
   it("refuses duplicate or malformed kinds", () => {
     expect(() => createRegistry([demoPing, demoPing])).toThrow(/Two handlers/);
@@ -316,6 +316,7 @@ describe("runner: a slot kept for Niva", () => {
     expect(claims(calls)).toEqual([
       [["niva.answer"], 1],
       [claimedKinds().filter((k) => k !== "niva.answer"), 1],
+      [["site.crawl"], 2],
     ]);
     calls.length = 0;
     const noNiva = createRunner({ db, reg: createRegistry([demoPing]), env: {}, http: createHttp(), log, workerId: "w" }, 4);
