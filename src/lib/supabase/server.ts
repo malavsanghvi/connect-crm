@@ -7,7 +7,7 @@ import { cookies, headers } from "next/headers";
 import type { Database } from "@/lib/database.types";
 import { readPublicEnv } from "@/lib/env";
 import { requestIsHttps } from "@/lib/https";
-import { PATHNAME_HEADER, newRequestId, traceHeaders } from "@/lib/supabase/trace";
+import { PATHNAME_HEADER, newRequestId, traceHeaders, type PortalClientApp } from "@/lib/supabase/trace";
 import { normalizeBaseDomain, sharedCookieDomain } from "@/lib/tenancy";
 
 export type AppSupabase = SupabaseClient<Database, "app">;
@@ -17,6 +17,8 @@ export type ServerClientOptions = {
   requestId?: string;
   /** Why the change is being made (sent as x-audit-reason; the audit log keeps it). */
   reason?: string;
+  /** Which app the audit rows of this client are recorded as (default "portal"; "assistant" for a command Niva runs). */
+  clientApp?: PortalClientApp;
 };
 
 /**
@@ -50,7 +52,7 @@ export async function createSupabaseServerClient(opts: ServerClientOptions = {})
   }
   return createServerClient<Database, "app">(check.env.supabaseUrl, check.env.supabaseAnonKey, {
     db: { schema: "app" },
-    global: { headers: traceHeaders({ requestId: opts.requestId ?? newRequestId(), screen, reason: opts.reason }) },
+    global: { headers: traceHeaders({ requestId: opts.requestId ?? newRequestId(), screen, reason: opts.reason, clientApp: opts.clientApp }) },
     // One sign-in for every <slug>.<PORTAL_BASE_DOMAIN> portal (the organization switcher); host-only elsewhere.
     // o-https: Secure session cookies whenever the request came over HTTPS.
     cookieOptions: { domain: sharedCookieDomain(host, normalizeBaseDomain(process.env.PORTAL_BASE_DOMAIN)), secure: https },

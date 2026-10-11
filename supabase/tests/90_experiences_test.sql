@@ -300,7 +300,7 @@ select pg_temp.assert(pg_temp.diet(:c_mos) = 'vegetarian:Vegetarian:1,vegan:Vega
 
 -- ══ F. The one read for the member app ══════════════════════════════════════
 select app.member_experience(:jsh) as v_jsh \gset
-select pg_temp.assert(pg_temp.keys(:'v_jsh'::jsonb) = 'access,center,default_path,experience,flags,modules,paths,setup,stamp,topics,unchanged,updated_at'
+select pg_temp.assert(pg_temp.keys(:'v_jsh'::jsonb) = 'access,center,default_path,experience,flags,modules,paths,setup,stamp,template,topics,unchanged,updated_at'
                       and (:'v_jsh'::jsonb)->'experience'->>'key' = 'jain_center' and (:'v_jsh'::jsonb)->'experience'->>'family_key' = 'jain'
                       and (:'v_jsh'::jsonb)->'experience'->>'family_label' = 'Jain' and (:'v_jsh'::jsonb)->'experience'->>'wording_pack' = 'jain'
                       and (:'v_jsh'::jsonb)->'experience'->'wording' = '{}'::jsonb and (:'v_jsh'::jsonb)->'experience'->>'library_pack' = 'jain'
