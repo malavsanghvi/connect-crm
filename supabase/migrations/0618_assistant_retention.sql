@@ -27,7 +27,9 @@ begin
   with due as (
     select id from app.assistant_proposals where status = 'proposed' and expires_at <= now() order by expires_at limit v_limit
   )
-  update app.assistant_proposals q set status = 'expired' from due where q.id = due.id;
+  -- The status is checked again on the row itself: a confirm that commits while the sweep runs must not turn this
+  -- into an illegal step (the guard in 0617 would raise and roll back the whole Niva sweep).
+  update app.assistant_proposals q set status = 'expired' from due where q.id = due.id and q.status = 'proposed';
   get diagnostics v_expired = row_count;
 
   -- Confirmed, but the command layer never said how it went (a crash, a closed tab): do not leave it open.
@@ -38,7 +40,7 @@ begin
   update app.assistant_proposals q
      set status = 'failed', finished_at = now(),
          result_summary = 'Niva never reported back, so check whether it was done before asking again.'
-    from due where q.id = due.id;
+    from due where q.id = due.id and q.status = 'confirmed';   -- re-checked: a finish may have committed meanwhile
   get diagnostics v_abandoned = row_count;
 
   -- Conversation text: 30 days.

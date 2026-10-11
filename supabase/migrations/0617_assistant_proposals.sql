@@ -396,7 +396,7 @@ begin
 end $$;
 
 -- ── Monthly limit ────────────────────────────────────────────────────────────────────────────────────────────────────
--- Counts p_cost actions (default 1) against the community's month and records them when they fit. Returns
+-- Counts p_cost actions (default 1, 1 to 5; anything else is refused) against the community's month and records them when they fit. Returns
 -- {allowed, used, limit, month, reason?}: `limit` is null when there is none, `month` is the first day of the month,
 -- `used` includes this use when it was allowed, `reason` is the plain-English refusal when it was not. Concurrent
 -- calls cannot both slip under the limit: the counter is one atomic upsert.
@@ -405,8 +405,10 @@ language plpgsql security definer set search_path = app, public, extensions as $
 declare v_user uuid; v_limit integer; v_month date := app._assistant_month(); v_used integer; v_why text;
 begin
   v_user := app._assistant_actor(p_center);
-  if p_cost is null or p_cost < 1 or p_cost > 100 then
-    raise exception 'An action must count for between 1 and 100.';
+  -- Refused, not clamped: a direct call cannot burn the community's month in one go, and nobody is told a bigger use
+  -- was counted as a smaller one.
+  if p_cost is null or p_cost < 1 or p_cost > 5 then
+    raise exception 'An action must count for between 1 and 5.';
   end if;
   v_limit := app._assistant_limit(p_center);
   if v_limit is null or p_cost <= v_limit then
@@ -489,7 +491,7 @@ comment on function app.assistant_finish(uuid, boolean, text, uuid) is
 comment on function app.assistant_reject(uuid) is
   'Niva for admins (0617): cancel a request that was not confirmed yet. Only the same person.';
 comment on function app.assistant_usage_check(uuid, integer) is
-  'Niva for admins (0617): count p_cost actions against the community''s month (entitlement assistant.monthly_actions, default 300, JSON null = none) and record them when allowed. Returns {allowed, used, limit, month, reason?}.';
+  'Niva for admins (0617): count p_cost actions (1 to 5) against the community''s month (entitlement assistant.monthly_actions, default 300, JSON null = none) and record them when allowed. Returns {allowed, used, limit, month, reason?}.';
 comment on function app.assistant_usage_status(uuid) is
   'Niva for admins (0617): {used, limit, month} for the current month, without counting a use.';
 comment on function app.assistant_log_message(uuid, uuid, text, text, text) is

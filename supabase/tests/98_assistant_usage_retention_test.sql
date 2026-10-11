@@ -104,9 +104,9 @@ select pg_temp.assert_raises($$select app.assistant_usage_check('98000000-0000-4
 select pg_temp.no_claims();
 select pg_temp.assert_raises($$select app.assistant_usage_check('98000000-0000-4000-8000-0000000000c1')$$, 'Sign in', 'B · nor nobody signed in');
 select pg_temp.claims(:ada);
-select pg_temp.assert_raises($$select app.assistant_usage_check('98000000-0000-4000-8000-0000000000c1', 0)$$, 'between 1 and 100', 'B · an action counts for at least one');
-select pg_temp.assert_raises($$select app.assistant_usage_check('98000000-0000-4000-8000-0000000000c1', 101)$$, 'between 1 and 100', 'B · and at most one hundred');
-select pg_temp.assert_raises($$select app.assistant_usage_check('98000000-0000-4000-8000-0000000000c1', null)$$, 'between 1 and 100', 'B · and the cost is required');
+select pg_temp.assert_raises($$select app.assistant_usage_check('98000000-0000-4000-8000-0000000000c1', 0)$$, 'between 1 and 5', 'B · an action counts for at least one');
+select pg_temp.assert_raises($$select app.assistant_usage_check('98000000-0000-4000-8000-0000000000c1', 6)$$, 'between 1 and 5', 'B · and at most five, so one direct call cannot burn the month');
+select pg_temp.assert_raises($$select app.assistant_usage_check('98000000-0000-4000-8000-0000000000c1', null)$$, 'between 1 and 5', 'B · and the cost is required');
 reset role;
 select pg_temp.assert((select used = 7 from app.assistant_usage where center_id = :c1::uuid), 'B · none of the refusals counted');
 
@@ -136,14 +136,14 @@ select pg_temp.claims(:ada);
 select app.assistant_usage_check(:c1, 3) as c1c \gset
 select app.assistant_usage_check(:c1, 2) as c1d \gset
 select app.assistant_usage_check(:c1) as c1e \gset
-select app.assistant_usage_check(:c1, 50) as c1f \gset
+select app.assistant_usage_check(:c1, 5) as c1f \gset
 reset role;
 select pg_temp.assert((:'c1c'::jsonb)->>'allowed' = 'false' and (:'c1c'::jsonb)->>'used' = '10', 'C · 10 + 3 does not fit under 12, so none of it is counted');
 select pg_temp.assert((:'c1d'::jsonb)->>'allowed' = 'true' and (:'c1d'::jsonb)->>'used' = '12', 'C · 10 + 2 fits exactly');
 select pg_temp.assert((:'c1e'::jsonb)->>'allowed' = 'false' and (:'c1e'::jsonb)->>'used' = '12'
                       and (:'c1f'::jsonb)->>'allowed' = 'false' and (:'c1f'::jsonb)->>'used' = '12' and (:'c1f'::jsonb)->>'limit' = '12'
                       and (select used = 12 from app.assistant_usage where center_id = :c1::uuid),
-  'C · at the limit everything is refused, including a use larger than the whole allowance');
+  'C · at the limit everything is refused, including the largest single use (5)');
 
 -- A community that has not used anything: a refused use does not even create the row.
 set role authenticated;
@@ -164,26 +164,27 @@ select pg_temp.assert((:'c3b'::jsonb)->>'allowed' = 'true' and (:'c3b'::jsonb)->
                       and (:'c3c'::jsonb)->>'used' = '3',
   'C · a first use of exactly the allowance is allowed, the next is not');
 
--- No limit at all (JSON null), then back to the default.
+-- No limit at all (JSON null), then back to the default. (298 are already counted, set directly: a use is at most 5.)
+update app.assistant_usage set used = 298 where center_id = :c1::uuid and month = app._assistant_month();
 set role authenticated;
 select pg_temp.claims(:plat);
 select app.set_center_entitlement(:c1, 'assistant.monthly_actions', 'null'::jsonb, 'test 98: no limit');
 select pg_temp.claims(:ada);
-select app.assistant_usage_check(:c1, 100) as c1g \gset
-select app.assistant_usage_check(:c1, 100) as c1h \gset
-select app.assistant_usage_check(:c1, 100) as c1i \gset
+select app.assistant_usage_check(:c1, 5) as c1g \gset
+select app.assistant_usage_check(:c1, 5) as c1h \gset
+select app.assistant_usage_check(:c1, 5) as c1i \gset
 select app.assistant_usage_status(:c1) as c1t \gset
 reset role;
-select pg_temp.assert((:'c1i'::jsonb)->>'allowed' = 'true' and (:'c1i'::jsonb)->>'used' = '312' and (:'c1i'::jsonb)->'limit' = 'null'::jsonb
-                      and (:'c1t'::jsonb)->'limit' = 'null'::jsonb and (:'c1g'::jsonb)->>'used' = '112' and (:'c1h'::jsonb)->>'used' = '212',
-  'C · an entitlement of JSON null means no limit: 312 uses, limit shown as null');
+select pg_temp.assert((:'c1i'::jsonb)->>'allowed' = 'true' and (:'c1i'::jsonb)->>'used' = '313' and (:'c1i'::jsonb)->'limit' = 'null'::jsonb
+                      and (:'c1t'::jsonb)->'limit' = 'null'::jsonb and (:'c1g'::jsonb)->>'used' = '303' and (:'c1h'::jsonb)->>'used' = '308',
+  'C · an entitlement of JSON null means no limit: 313 uses (past the default 300), limit shown as null');
 set role authenticated;
 select pg_temp.claims(:plat);
 select app.set_center_entitlement(:c1, 'assistant.monthly_actions', null, 'test 98: back to the default');
 select pg_temp.claims(:ada);
 select app.assistant_usage_check(:c1) as c1k \gset
 reset role;
-select pg_temp.assert((:'c1k'::jsonb)->>'allowed' = 'false' and (:'c1k'::jsonb)->>'limit' = '300' and (:'c1k'::jsonb)->>'used' = '312',
+select pg_temp.assert((:'c1k'::jsonb)->>'allowed' = 'false' and (:'c1k'::jsonb)->>'limit' = '300' and (:'c1k'::jsonb)->>'used' = '313',
   'C · removing the override brings back the default 300, and a community already over it is refused');
 
 -- ══ D. A new month starts from zero ══════════════════════════════════════════
@@ -216,7 +217,7 @@ set role authenticated;
 select pg_temp.claims(:ada);
 select pg_temp.assert((select count(*) = 1 and bool_and(center_id = :c1::uuid) from app.assistant_usage), 'E · ada (staff of c1) reads c1''s counter and no other');
 select pg_temp.claims(:bo);
-select pg_temp.assert((select count(*) = 1 and bool_and(center_id = :c1::uuid and used = 312) from app.assistant_usage), 'E · so does bo: the counter is the community''s');
+select pg_temp.assert((select count(*) = 1 and bool_and(center_id = :c1::uuid and used = 313) from app.assistant_usage), 'E · so does bo: the counter is the community''s');
 select pg_temp.claims(:cy);
 select pg_temp.assert((select count(*) = 3 and bool_and(center_id = :c2::uuid) from app.assistant_usage), 'E · cy reads c2''s three rows and nothing of c1''s');
 select pg_temp.claims(:mem);

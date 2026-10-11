@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  ENTITLEMENT_INFO,
+  entitlementLabel,
   formatEntitlement,
   formatJoinCode,
   hostName,
@@ -154,6 +156,16 @@ describe("join codes", () => {
     expect(joinWebLink("7K4MQ2PD", "https://app.communityconnect.app/")).toBe("https://app.communityconnect.app/join/7K4MQ2PD");
     expect(joinWebLink("7K4MQ2PD", "")).toBeNull();
     expect(joinWebLink("7K4MQ2PD", "not a url")).toBeNull();
+  });
+});
+
+describe("assistant.monthly_actions (0617)", () => {
+  it("is a known limit, so Platform › Centers can save it, with a plain-English label", () => {
+    expect(ENTITLEMENT_INFO["assistant.monthly_actions"]?.kind).toBe("count");
+    expect(entitlementLabel("assistant.monthly_actions")).toBe("Assistant actions per month");
+    expect(parseEntitlementInput("assistant.monthly_actions", "500")).toEqual({ ok: true, remove: false, value: 500 });
+    expect(parseEntitlementInput("assistant.monthly_actions", "no limit")).toEqual({ ok: true, remove: false, value: null });
+    expect(parseEntitlementInput("assistant.monthly_actions", "")).toEqual({ ok: true, remove: true });
   });
 });
 
