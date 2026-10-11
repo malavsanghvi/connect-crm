@@ -85,7 +85,10 @@ export const GIVING_ANSWERS: Rpc = {
     total_cents: 5000,
     reports: [{ id: "r1", household_id: SHAH, status: "reported", amount_cents: 5000, sent_on: "2026-10-08", days_waiting: 2, due_on: "2026-10-18", past_window: false, sender_name: "Zoya Shah", has_confirmation: false, pledges_named: 0, is_test: false }],
   },
-  zelle_exact_matches: [],
+  zelle_exact_matches: [
+    { report_id: "7d0f3b9a-6a39-4d0c-9f43-0a1a1d7c4001", bank_transaction_id: "7d0f3b9a-6a39-4d0c-9f43-0a1a1d7c4101", amount_cents: 5000, sent_on: "2026-10-08", posted_on: "2026-10-09", confirmation: "WFCT0H7K2M1Q", payer_name: "Zoya Shah",
+      household: { household_id: SHAH, household_number: "H-1001", members: "Priya, Rahul, Zoya" } },
+  ],
   giving_second_approver_queue: {
     refund_count: 1,
     refunds: [{ payment_id: "pay-9", receipt_number: "R-9", household_id: SHAH, method: "check", provider: "offline", status: "captured", received_on: "2026-09-01", payment_amount_cents: 25000, refunded_cents: 0, requested_cents: 25000, reason: "Zoya Shah's check was a duplicate", requested_by: "user-2", matched_to_deposit: false }],
@@ -95,6 +98,17 @@ export const GIVING_ANSWERS: Rpc = {
     provider_refunds: [],
   },
   giving_fund_mapping_status: { required_purposes: ["bank"], missing_purposes: ["bank"], mapped_count: 0, approved_count: 0, mappings: [], funds_count: 1, funds_without_class: [{ id: "f", key: "k", name: "Zoya Shah memorial fund", restricted: true }] },
+  giving_payment_confirm_guard: { unfinished: 0, recorded: 0 },
+  giving_deposit_context: {
+    bank_line: { id: "7d0f3b9a-6a39-4d0c-9f43-0a1a1d7c4201", center_id: "center-1", posted_on: "2026-10-01", amount_cents: 30000, description: "Deposit from Zoya Shah's class", status: "unmatched", is_batch_deposit: true },
+    payments: [
+      { id: "7d0f3b9a-6a39-4d0c-9f43-0a1a1d7c4301", receipt_number: "R-1", household_id: SHAH, amount_cents: 25000, method: "check", check_number: "1043", envelope_number: null, received_on: "2026-09-28", can_match: true, already_deposited: false },
+      { id: "7d0f3b9a-6a39-4d0c-9f43-0a1a1d7c4302", receipt_number: "R-2", household_id: MEHTA, amount_cents: 5000, method: "cash", check_number: null, envelope_number: null, received_on: "2026-09-29", can_match: true, already_deposited: false },
+    ],
+    missing_ids: [],
+    total_cents: 30000,
+    difference_cents: 0,
+  },
   giving_draft_context: {
     household_id: SHAH,
     open_pledges: [{ id: "7d0f3b9a-6a39-4d0c-9f43-0a1a1d7c3001", pledge_number: "P-1", source: "general", amount_cents: 50000, paid_cents: 0, status: "open", pledged_at: "2026-01-10T12:00:00Z", due_on: null, fund: null, campaign: null }],

@@ -29,7 +29,7 @@ const input = object({
     "What is being drafted. niva_source: text Niva may answer members' questions from (up to 4,000 characters). announcement: an announcement to put in front of an approver. event_description: the description of an event (give event_id).",
     DRAFT_KINDS,
   ),
-  title: f.string("A short title, for example 'Parking at the Diwali dinner'.", { max: TITLE_MAX }),
+  title: f.string("A short title, for example 'Parking at the annual dinner'.", { max: TITLE_MAX }),
   body: f.string("The text itself, in plain words. Write only what is known; do not make up times, prices or promises.", { max: BODY_MAX }),
   event_id: f.optional(f.uuid("For an event description: the event it describes (its id, from events.upcoming).")),
   send_for_approval: f.optional(

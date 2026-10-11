@@ -4,6 +4,7 @@ import type { Json } from "@/lib/database.types";
 import { isModuleEnabled, moduleDef, moduleOffMessage, type ModuleContext } from "@/lib/modules";
 import { canAccess, ACCESS, type PermissionContext } from "@/lib/permissions";
 
+import type { CommandKind } from "./text";
 import type { AnyCommand, CommandErrorCode, CommandVia } from "./types";
 
 /** The community setting that switches one command on or off for Niva: `assistant.tools.<key>` in the community's rules. */
@@ -37,7 +38,7 @@ export function isCommandEnabled(command: Pick<AnyCommand, "key" | "level" | "en
   return command.enabledByDefault ?? command.level !== "confirm";
 }
 
-export type AvailabilitySession = PermissionContext & ModuleContext & { center: { name: string; rules: Json } };
+export type AvailabilitySession = PermissionContext & ModuleContext & { center: { name: string; rules: Json }; kind?: CommandKind };
 
 export type Availability = { ok: true } | { ok: false; code: Extract<CommandErrorCode, "no_access" | "module_off" | "switched_off" | "screen_only">; error: string };
 
@@ -59,6 +60,13 @@ export function commandAvailability(command: AnyCommand, session: AvailabilitySe
   }
   if (command.screenOnly && via !== "screen") {
     return { ok: false, code: "screen_only", error: `Niva does not ${doing}. That is done on the screen, by a person.` };
+  }
+  if (command.requiresOwnerSwitch && assistantToolSetting(session.center.rules, command.key) !== true) {
+    return {
+      ok: false,
+      code: "switched_off",
+      error: `Weaver is not set up to ${doing} by command for ${session.center.name} yet: it moves money, so an owner has to approve it first. Until then it can be done on the screen.`,
+    };
   }
   if (via === "assistant" && !isCommandEnabled(command, session.center.rules)) {
     return {

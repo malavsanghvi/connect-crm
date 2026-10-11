@@ -19,6 +19,7 @@ import { STORE_COMMANDS } from "@/lib/commands/catalog/store";
 import { pickSaved } from "@/lib/commands/catalog/messages-draft-reminder";
 import { draftReminder, fillTemplate, whenText } from "@/lib/commands/catalog/reminder-text";
 import { CommandRegistry } from "@/lib/commands/registry";
+import { describe as describeText } from "@/lib/commands/text";
 import { confirmProposal, runCommand } from "@/lib/commands/run";
 import type { CommandRunResult, CommandVia } from "@/lib/commands/types";
 import { loadHomeTasks } from "@/lib/data/home-tasks";
@@ -95,9 +96,12 @@ describe("the first commands", () => {
     const confirm = CATALOG.filter((c) => c.level === "confirm");
     expect(confirm.map((c) => c.key)).toContain("events.set_field");
     for (const c of confirm) expect(c.enabledByDefault, c.key).not.toBe(true);
+    // The three Giving commands that move money are confirm commands that need the owner's switch for EVERY door, not only Niva.
+    const money = CATALOG.filter((c) => c.requiresOwnerSwitch);
+    expect(money.map((c) => `${c.key}:${c.level}`)).toEqual(["giving.record_payment:confirm", "giving.confirm_exact_zelle_matches:confirm", "giving.match_deposit:confirm"]);
   });
 
-  it("have no command that changes roles or permissions, deletes, refunds, writes off or approves; a money word is only ever a read or a draft", () => {
+  it("have no command that changes roles or permissions, deletes, refunds, writes off or approves; a money word is a read, a draft, or a confirm command that needs the owner's switch", () => {
     // A merge changes records and is asked about first, like every write; it is never a read or a draft.
     for (const c of CATALOG) if (/merge/.test(c.key)) expect(c.level).toBe("confirm");
     // Messages (B90 phase 4) approves and schedules a message to families: those two are named so, and are confirm commands that start
@@ -110,7 +114,10 @@ describe("the first commands", () => {
       if (settings.has(c.key)) continue;
       const named = MESSAGE_CHANGES.includes(c.key) ? c.key.replace(/schedule|approve/, "") : c.key;
       expect(named, `${c.key} would refund, write off, approve, delete or change roles`).not.toMatch(/refund|write_?off|role|permission|grant|delete|remove|send|schedule|approve_/);
-      if (/record|payment|zelle|deposit/.test(c.key)) expect(c.level === "read" || c.level === "draft", `${c.key} is ${c.level}`).toBe(true);
+      // A money word is a read or a draft, or a confirm command that needs the owner's switch for every door.
+      if (/record|payment|zelle|deposit/.test(c.key)) {
+        expect(c.level === "read" || c.level === "draft" || (c.level === "confirm" && c.requiresOwnerSwitch === true), `${c.key} is ${c.level}`).toBe(true);
+      }
     }
     for (const c of SETTINGS_COMMANDS) {
       // Looking and preparing never change a role or a permission; a change is confirm-level (off for Niva until ticked) or only the person's own.
@@ -125,15 +132,17 @@ describe("the first commands", () => {
   it("are described for a model", () => {
     for (const c of CATALOG) {
       expect(c.title.length).toBeGreaterThan(8);
-      expect(c.description.length).toBeGreaterThan(80);
-      expect(c.description).not.toMatch(/\bbid\b/i);
+      const text = describeText(c.description);
+      expect(text.length).toBeGreaterThan(80);
+      expect(text).not.toMatch(/\bbid\b/i);
     }
   });
 
   it("are all visible to a person with every permission, and none to a person with none", () => {
     const { session } = setup();
-    // The Platform commands are for the Weaver team only: a person with every permission in a community still does not get them (tests/commands/platform-commands.test.ts).
-    expect(catalogRegistry().list(session).map((c) => c.key)).toHaveLength(CATALOG.filter((c) => !c.platformOnly).length);
+    // The Platform commands are for the Weaver team only, and the three money commands are hidden until an owner switches them on
+    // (tests/commands/platform-commands.test.ts, tests/commands/giving-money.test.ts).
+    expect(catalogRegistry().list(session).map((c) => c.key)).toHaveLength(CATALOG.filter((c) => !c.platformOnly && !c.requiresOwnerSwitch).length);
     const none = fakeSession({ permissions: [] });
     // tasks.mine is open to everyone signed in; every other command needs a permission.
     expect(catalogRegistry().list(none).map((c) => c.key)).toEqual(["tasks.mine"]);
@@ -369,12 +378,20 @@ describe("reminder wording", () => {
     const saved = pickSaved(rows, "center-1");
     expect(saved.get("gu")).toEqual({ subject: "mine new", body: "m2" });
     expect(saved.has("en")).toBe(false);
+    // A language Weaver has no wording for is kept too: any language can have a saved template.
+    expect(saved.get("fr")).toEqual({ subject: "x", body: "x" });
   });
 });
 
 describe("messages.draft_reminder", () => {
+  /** A community that uses English, Gujarati and Hindi (tests/community-languages.test.ts covers the other languages). */
+  const threeLanguages = () => {
+    const w = communityWithChildren();
+    return { ...w, rpc: { ...w.rpc, community_languages: ["en", "gu", "hi"] } };
+  };
+
   it("drafts the reminder in all three languages, and sends nothing", async () => {
-    const { ctx, db } = setup();
+    const { ctx, db } = setup({ world: threeLanguages() });
     const r = await runCommand(ctx, "messages.draft_reminder", { event_id: DIWALI });
     const data = dataOf<{ event: { name: string }; drafts: { language: string; subject: string; body: string; source: string }[]; sent: boolean; notes: string[] }>(r);
     expect(data.event.name).toBe("Diwali Dinner");
@@ -383,11 +400,11 @@ describe("messages.draft_reminder", () => {
     expect(data.notes.join(" ")).toContain("Ask someone who reads the language");
     expect(r).toMatchObject({ message: "This is a draft. Nothing has been sent or scheduled." });
     expect(db.calls.every((c) => c.op === "select")).toBe(true);
-    expect(db.rpcCalls.map((c) => c.fn)).toEqual([]);
+    expect(db.rpcCalls.map((c) => c.fn)).toEqual(["community_languages"]);
   });
 
   it("drafts one language, or an RSVP confirmation from the saved template", async () => {
-    const world = communityWithChildren();
+    const world = threeLanguages();
     world.tables.message_templates = [
       { key: "rsvp_confirmation", channel: "push", language: "gu", subject: "ખાતરી: {{event}}", body: "{{event}} {{when}}", center_id: "center-1", version: 1 },
     ];
@@ -397,7 +414,7 @@ describe("messages.draft_reminder", () => {
   });
 
   it("says when the saved templates could not be read, and still drafts", async () => {
-    const { ctx } = setup({ world: { ...communityWithChildren(), failTables: { message_templates: { code: "42501", message: "permission denied" } } } });
+    const { ctx } = setup({ world: { ...threeLanguages(), failTables: { message_templates: { code: "42501", message: "permission denied" } } } });
     const data = dataOf<{ drafts: unknown[]; notes: string[] }>(await runCommand(ctx, "messages.draft_reminder", { event_id: DIWALI, kind: "rsvp_confirmation" }));
     expect(data.drafts).toHaveLength(3);
     expect(data.notes[0]).toBe("Could not read the community's saved templates, so this uses the wording built into Weaver.");
@@ -585,6 +602,9 @@ describe("no command result reaches a model with a child in it", () => {
     "giving.waiting_for_second_approver": {},
     "giving.fund_mapping_status": {},
     "giving.draft_payment": { household_id: SHAH, amount: "250", method: "check", reference: "1043", received_on: "2026-10-04", memo: "From Zoya Shah's family" },
+    "giving.record_payment": { household_id: SHAH, amount: "250", method: "check", reference: "1043", received_on: "2026-10-04", memo: "From Zoya Shah's family" },
+    "giving.confirm_exact_zelle_matches": { report_ids: "7d0f3b9a-6a39-4d0c-9f43-0a1a1d7c4001" },
+    "giving.match_deposit": { bank_line_id: "7d0f3b9a-6a39-4d0c-9f43-0a1a1d7c4201", payment_ids: "7d0f3b9a-6a39-4d0c-9f43-0a1a1d7c4301,7d0f3b9a-6a39-4d0c-9f43-0a1a1d7c4302" },
     "accounting.month_close_blockers": {},
     "messages.draft_reminder": { event_id: DIWALI },
     "events.draft_change": { event_id: DIWALI, field: "venue", value: "Hall for Zoya Shah" },

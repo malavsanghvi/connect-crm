@@ -2,9 +2,9 @@
 // (adults) and nothing else. Decision D2: nothing about any learner or anyone under 18 reaches the model: no names, birth dates,
 // attendance, homework, progress, photos, voice notes, and no registration of a named child. People do learner work on the screen.
 //
-//   read       a term's setup (levels, age bands, fees in dollars, rules, whether registration is open); what is missing before
+//   read       a term's setup (levels, age bands, fees in the community's currency, rules, whether registration is open); what is missing before
 //              registration can open; classes with no teacher and adults who could teach them; counts of what is waiting; fee totals
-//   draft      a change to a term's setup, from-and-to in dollars; a teacher for a class (both write nothing)
+//   draft      a change to a term's setup, from-and-to in the community's currency; a teacher for a class (both write nothing)
 //   confirm    assign a teacher to a class; add or change a class; change the fees of levels. All three start OFF for Niva; the fees
 //              are a money rule and need the owner's OK before they are merged.
 //

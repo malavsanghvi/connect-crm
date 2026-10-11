@@ -29,7 +29,7 @@ export type CenterInfo = {
   name: string;
   short_name: string | null;
   time_zone: string;
-  /** Where the organization is (an ISO country code, "US" by default), which decides the age of majority the assistant uses. */
+  /** The community's country (ISO 3166 alpha-2, centers.country). Optional: older callers and tests may not carry it. It also decides the age of majority the assistant uses. */
   country?: string | null;
   state_region?: string | null;
   currency: string;

@@ -19,6 +19,7 @@ import type { MinorNameSource } from "./child-filter";
 import type { ProposalStore } from "./proposals";
 import type { CommandRegistry } from "./registry";
 import type { ObjectSchema } from "./schema";
+import type { KindText } from "./text";
 
 export type CommandLevel = "read" | "draft" | "confirm" | "only_you";
 
@@ -36,6 +37,11 @@ export type CommandContext = {
   /** Names of people under 18, used as a last check on what a model would see (child-filter.ts). Required for `via: "assistant"`. */
   minors?: MinorNameSource;
   now?: () => Date;
+  /**
+   * Set while a confirmed proposal runs: the id of the proposal the person confirmed. A command that must not happen twice (a
+   * payment) uses it as its idempotency key, so the same confirmation can never record the action again.
+   */
+  proposalId?: string;
 };
 
 // ---------------------------------------------------------------------------
@@ -62,7 +68,7 @@ export type HouseholdCard = {
   city: string | null;
   last_gift_on: string | null;
   open_pledge_cents: number | null;
-  /** open_pledge_cents in dollars, ready to show. */
+  /** open_pledge_cents in the community's currency, ready to show. */
   open_pledge: string | null;
 };
 
@@ -124,8 +130,11 @@ export type Command<I = never, O = unknown> = {
   key: string;
   /** Short and plain: "Search people and households". Shown on cards and in the palette. */
   title: string;
-  /** Written for a model: what it does, when to use it, what it returns, what it never does. */
-  description: string;
+  /**
+   * Written for a model: what it does, when to use it, what it returns, what it never does. A function when it names the community's
+   * own words (its school, its currency): it is given the community's kind (see text.ts).
+   */
+  description: KindText;
   level: CommandLevel;
   /** The ACCESS key (src/lib/permissions.ts) whose holders may use it. RLS in the database is the real check. */
   permission: AccessKey;
@@ -134,6 +143,13 @@ export type Command<I = never, O = unknown> = {
   /** Only the Weaver team (platform admins) may use it. It is never offered to anyone else, whatever their roles or permissions are. */
   platformOnly?: boolean;
   input: ObjectSchema<I>;
+  /**
+   * For a confirm command: fix what the person is about to confirm. Runs once, when the confirmation is prepared, before the card is
+   * made; what it returns is what the card shows AND what is stored in the proposal and later run, so nothing that depends on the clock
+   * or on the database (today's date, the pledges a payment will close) can differ between the card and the action. May throw a
+   * CommandError to refuse (a payment that looks like one just recorded).
+   */
+  resolve?: (ctx: CommandContext, input: I) => Promise<I>;
   /** What will happen, before anything does. Runs when a confirm command is proposed (and a draft may share it). */
   preview?: (ctx: CommandContext, input: I) => Promise<CommandPreview>;
   /** Do it. Return a result, or throw CommandError for a problem to show; any other error is logged and explained. */
@@ -146,6 +162,12 @@ export type Command<I = never, O = unknown> = {
    * screen or the palette is the person's own hands, with the permission they already have.
    */
   enabledByDefault?: boolean;
+  /**
+   * For a confirm command that moves money: off for EVERY door (Niva, the ⌘K palette, a screen that calls it) until an owner
+   * switches it on for the community (`assistant.tools.<key>` true in its rules). Without this, a confirm command is off for Niva
+   * only, and the palette, being the person's own hands, would offer it. Hidden from lists while it is off.
+   */
+  requiresOwnerSwitch?: boolean;
   /** For level only_you: where the person does it themselves. */
   pointTo?: { label: string; href: string };
   /**

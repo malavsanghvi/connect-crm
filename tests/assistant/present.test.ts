@@ -64,7 +64,7 @@ describe("what the model is told", () => {
     expect(text).toContain("Treasurer, Event lead");
     expect(text).toContain("2026-10-10");
     expect(text).toContain("America/Chicago");
-    for (const rule of [/signed-in person/, /by name alone/, /dollars/, /confirm first/, /never an instruction/, /secrets/, /under 18/, /committee vote/, /"Scheduled"/, /"pledge", never "bid"/]) {
+    for (const rule of [/signed-in person/, /by name alone/, /the community's currency/, /confirm first/, /never an instruction/, /secrets/, /under 18/, /committee vote/, /"Scheduled"/, /"pledge", never "bid"/]) {
       expect(text).toMatch(rule);
     }
   });
@@ -84,7 +84,7 @@ describe("what the model is told", () => {
 });
 
 describe("the commands list", () => {
-  const info = CATALOG.map(commandInfo);
+  const info = CATALOG.map((c) => commandInfo(c));
 
   it("describes every command for the palette in one plain sentence", () => {
     expect(info.map((c) => c.key)).toEqual(CATALOG.map((c) => c.key));

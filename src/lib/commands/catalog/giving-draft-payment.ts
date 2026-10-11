@@ -1,4 +1,4 @@
-// "Record a payment", prepared as a form: the household card, the amount in dollars, the method and date, the ALLOCATION PREVIEW
+// "Record a payment", prepared as a form: the household card, the amount in the community's currency, the method and date, the ALLOCATION PREVIEW
 // (which pledges it would close, earliest first; a partial payment or an overpayment is shown as a question) and the check list a
 // reviewer would want. It writes nothing. The same preparation (preparePayment) is what the confirm-level payment command shows
 // as its "what will happen" card, so what a person reviews is what would be recorded.
@@ -8,6 +8,7 @@ import { PAYMENT_METHOD_LABEL, OFFLINE_METHODS } from "@/lib/labels";
 import { formatCents } from "@/lib/money";
 import { checkOfflinePayment, type CheckedOfflinePayment } from "@/lib/payments/offline-payment";
 import {
+  PlanChangedError,
   buildPaymentChecks,
   planDraftAllocation,
   type AllocationQuestion,
@@ -15,6 +16,7 @@ import {
   type DraftPlan,
   type DraftPledge,
   type PaymentCheckItem,
+  type PlannedLine,
 } from "@/lib/payments/payment-draft";
 import { duplicateWarning, parsePossibleDuplicates } from "@/lib/payments/zelle";
 import { can, canAccess } from "@/lib/permissions";
@@ -26,12 +28,13 @@ import { CommandError, type CommandContext, type CommandPreview, type HouseholdC
 import { rpcJson } from "./db";
 import { dollars, uuidList } from "./giving-fields";
 import { asObj, bool, int, rows, str, triState } from "./giving-json";
+import { requireOwnHousehold } from "./giving-guard";
 import { adultHouseholdCards } from "./household";
 
 /** What the Record payment form takes, as a command input. Shared by the draft and the confirm-level command. */
 export const paymentFields = {
   household_id: f.uuid("The household that gave (its id, from people.search). Never guessed from a name: the person must have chosen it by its card."),
-  amount: dollars("The amount in dollars, like 250 or 250.00. Dollars and cents only; the system keeps whole cents."),
+  amount: dollars("The amount in the community's currency, like 250 or 250.00. Whole units and hundredths only; the system keeps the exact amount."),
   method: f.enum("How it was paid.", OFFLINE_METHODS),
   received_on: f.optional(f.date("The day the money was received, like 2026-10-04. Leave out for today. Never in the future.")),
   reference: f.optional(f.string("The check number for a check; the shares and their value for stock; a reference for other methods.", { min: 1, max: 120 })),
@@ -61,7 +64,12 @@ export type PreparedPayment = {
  * Check the payment (the same rules and words as the Record payment screen), look up the household and its open pledges, and work
  * out what would happen. Reads only. Throws CommandError for anything the person can fix.
  */
-export async function preparePayment(ctx: CommandContext, inp: PaymentFieldsInput, doing: string): Promise<PreparedPayment> {
+export async function preparePayment(
+  ctx: CommandContext,
+  inp: PaymentFieldsInput,
+  doing: string,
+  opts: { forced?: readonly PlannedLine[] } = {},
+): Promise<PreparedPayment> {
   const { db, center } = ctx.session;
   const today = todayInTz(center.time_zone, ctx.now?.());
   const checked = checkOfflinePayment(
@@ -81,6 +89,7 @@ export async function preparePayment(ctx: CommandContext, inp: PaymentFieldsInpu
   );
   if (!checked.ok) throw new CommandError(checked.error);
   const value = checked.value;
+  await requireOwnHousehold(ctx, value.householdId);
 
   const context = asObj(
     await rpcJson(
@@ -114,7 +123,14 @@ export async function preparePayment(ctx: CommandContext, inp: PaymentFieldsInpu
     campaign: str(p.campaign),
   }));
   const canAllocate = canAccess(ctx.session, "allocatePayment");
-  const plan = planDraftAllocation({ amountCents: value.amountCents, pledges, mode: value.allocation, chosen: value.chosen, canAllocate, currency: center.currency });
+  let plan: DraftPlan;
+  try {
+    plan = planDraftAllocation({ amountCents: value.amountCents, pledges, mode: value.allocation, chosen: value.chosen, canAllocate, currency: center.currency, forced: opts.forced });
+  } catch (error) {
+    // A pledge on the confirmed card is no longer as it was: said in plain words, never paid on a guess.
+    if (error instanceof PlanChangedError) throw new CommandError(error.message);
+    throw error;
+  }
 
   // A Zelle may already be on the bank statement, recorded by hand or reported by the member: the same check the form makes.
   let zelleNote: string | null = null;
@@ -203,7 +219,7 @@ export const draftPayment = defineCommand<PaymentFieldsInput, PaymentDraftData>(
   key: "giving.draft_payment",
   title: "Prepare a payment to record",
   description:
-    "Prepare 'record a payment' as a filled form without saving anything: the household (shown as its household card), the amount in dollars, the method, the date received, " +
+    "Prepare 'record a payment' as a filled form without saving anything: the household (shown as its household card), the amount in the community's currency, the method, the date received, " +
     "which pledges it would close (earliest open pledge first; a partial payment or an overpayment is shown as a question, never decided), and a check list a reviewer would go through " +
     "(right household, amount and method, date, month not locked, not recorded twice, applied the way the donor meant). " +
     "Needs the household's id: find it with people.search and let the person choose by the card, never by name. " +

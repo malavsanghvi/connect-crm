@@ -5,6 +5,7 @@
 import { failure } from "@/lib/errors";
 import { parseStoredDraft, summarizeDraft } from "@/lib/site-draft/parse";
 import type { DraftSummary, StoredDraft } from "@/lib/site-draft/types";
+import { loadCommunityLocale } from "@/lib/community-locale";
 import { parseWeaverData, type WeaverData } from "@/lib/site-draft/weaver";
 import type { AppSupabase } from "@/lib/supabase/server";
 
@@ -36,10 +37,14 @@ export async function loadDraftSummary(db: AppSupabase, centerId: string, doing 
   return { ok: true, summary: loaded.draft ? summarizeDraft(loaded.draft) : null };
 }
 
-export type LoadedWeaver = { ok: true; data: WeaverData } | { ok: false; error: string };
+export type LoadedWeaver = { ok: true; data: WeaverData; note: string | null } | { ok: false; error: string };
 
-/** Weaver's own public-facing records of the organization (0643). */
-export async function loadWeaverData(db: AppSupabase, centerId: string, doing: string): Promise<LoadedWeaver> {
+/**
+ * Weaver's own public-facing records of the organization (0643), with the community's locale and country so the draft writes dates,
+ * times and phone numbers the way the community does. `note` is a plain sentence when the community's languages could not be read.
+ */
+export async function loadWeaverData(db: AppSupabase, center: { id: string; country?: string | null }, doing: string): Promise<LoadedWeaver> {
+  const centerId = center.id;
   const res = await db.rpc("site_draft_data", { p_center: centerId });
   if (res.error) return failure(`Could not ${doing}`, res.error);
   const data = parseWeaverData(res.data);
@@ -47,5 +52,6 @@ export async function loadWeaverData(db: AppSupabase, centerId: string, doing: s
     console.error("[setup/website] site_draft_data returned an unexpected shape:", res.data);
     return { ok: false, error: `Could not ${doing} — the database answered in a shape this screen does not understand (has the latest migration been applied?).` };
   }
-  return { ok: true, data };
+  const community = await loadCommunityLocale(db, center);
+  return { ok: true, data: { ...data, locale: community.locale, country: community.country }, note: community.note };
 }

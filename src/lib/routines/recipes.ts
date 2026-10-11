@@ -8,13 +8,81 @@
 // src/lib/data/today.ts (or the Home task list) already reads. A step without a signal is "by hand": the person ticks it, and the
 // tick is not remembered (remembering it needs a small table, a later step).
 //
+// Built for every organization: a step's words come from the community (its kind's name for its school, the payment ways it has
+// switched on, the way it writes numbers), and a step's day comes from the community's working week, not from a fixed Monday or
+// Friday. A step for a module or a payment way the community does not have is left out.
+//
 // D2 (nothing about a child goes to an AI provider): the counters here are counts only, never names, and no step that is
-// about Pathshala learners carries a question for Niva.
+// about the school's learners carries a question for Niva.
 
+import { DEFAULT_LOCALE } from "@/lib/community-format";
+import { checkWord, learningWord, principalTitle, sample, schoolOrGeneric } from "@/lib/kind-samples";
+import type { KindProfile } from "@/lib/kind";
+import { PAYMENT_PLUGINS, type PluginFamily } from "@/lib/payments/plugins/catalog";
 import type { AccessKey } from "@/lib/permissions";
 import type { ModuleKey } from "@/lib/modules";
 
 import { countOf } from "./clock";
+
+// ---------------------------------------------------------------------------
+// The words a recipe is written in, worked out for one community
+// ---------------------------------------------------------------------------
+export type RoutineWords = {
+  /** What the kind calls its school ("Pathshala", "Religious school"), or the plain word "school". */
+  school: string;
+  /** What the kind calls its learning path, or "learning path". */
+  learning: string;
+  /** What owed money is called in a sentence ("pledges", "dues and pledges"). */
+  pledges: string;
+  /** How the community writes numbers. */
+  locale: string;
+  /** The payment ways switched on (plugin keys); null when they are not known. */
+  plugins: readonly string[] | null;
+};
+
+/** A text a recipe writes: plain, or worked out from the community's words. */
+export type Text = string | ((w: RoutineWords) => string);
+
+export function textOf(t: Text, w: RoutineWords): string {
+  return typeof t === "function" ? t(w) : t;
+}
+
+type RoutineKind = Pick<KindProfile, "terms" | "modules" | "usesTradition">;
+
+/** The words for a community: from its kind, its payment ways and its number convention. Nothing here names a tradition. */
+export function routineWords(kind: RoutineKind, extra: { locale?: string; plugins?: readonly string[] | null } = {}): RoutineWords {
+  return {
+    school: schoolOrGeneric(kind),
+    learning: learningWord(kind) ?? "learning path",
+    pledges: sample(kind, "pledges"),
+    locale: extra.locale ?? DEFAULT_LOCALE,
+    plugins: extra.plugins ?? null,
+  };
+}
+
+/** The names of the payment ways members report themselves and the bank confirms (Zelle, for one), among those switched on. */
+function reportedWays(w: RoutineWords): string[] {
+  const on = w.plugins;
+  return on ? PAYMENT_PLUGINS.filter((p) => p.family === "reported_transfer" && on.includes(p.key)).map((p) => p.label) : [];
+}
+
+function joinWords(parts: readonly string[]): string {
+  return parts.length <= 1 ? (parts[0] ?? "") : `${parts.slice(0, -1).join(", ")} and ${parts[parts.length - 1]}`;
+}
+
+/** "bank lines and Zelle payments", "bank lines", or (when the payment ways are not known) "bank lines and reported payments". */
+function bankAndReported(w: RoutineWords, noun: string): string {
+  if (w.plugins === null) return `bank lines and reported ${noun}`;
+  const ways = reportedWays(w);
+  return ways.length > 0 ? `bank lines and ${joinWords(ways)} ${noun}` : "bank lines";
+}
+
+/** "checks and cash": the paper ways the community accepts, or a plain phrase when they are not known. */
+function offlineWays(w: RoutineWords): string {
+  if (w.plugins === null) return "payments received by hand";
+  const ways = [w.plugins.includes("check") ? `${checkWord(w.locale)}s` : "", w.plugins.includes("cash") ? "cash" : ""].filter(Boolean);
+  return ways.length > 0 ? joinWords(ways) : "payments received by hand";
+}
 
 // ---------------------------------------------------------------------------
 // Roles that have a routine (the real role keys of docs/ROLES.md)
@@ -27,8 +95,19 @@ export const ROUTINE_ROLE_TITLES: Record<RoutineRole, string> = {
   treasurer: "Treasurer",
   membership_coordinator: "Membership coordinator",
   event_lead: "Event lead",
-  pathshala_principal: "Pathshala principal",
+  pathshala_principal: "School principal",
 };
+
+/** A routine's title for a community: the principal of the school carries the kind's own name for it ("Pathshala principal"). */
+export function routineRoleTitle(role: RoutineRole, kind?: RoutineKind): string {
+  return role === "pathshala_principal" && kind ? principalTitle(kind) : ROUTINE_ROLE_TITLES[role];
+}
+
+/** The routines Weaver starts with, as plural phrases for a sentence ("administrators … and Pathshala principals"). */
+export function startingRoleNames(kind?: RoutineKind, schoolOffered = true): string[] {
+  const names = ["administrators", "treasurers", "membership coordinators", "event leads"];
+  return schoolOffered ? [...names, `${routineRoleTitle("pathshala_principal", kind)}s`] : names;
+}
 
 // ---------------------------------------------------------------------------
 // When a step is due
@@ -74,33 +153,48 @@ export type CounterKey = (typeof COUNTER_KEYS)[number];
 
 export type CounterDef = {
   /** What the step says when the counter is at zero ("No approvals are waiting"). */
-  done: string;
+  done: Text;
   /** What it says otherwise. Counters that are task rows rather than exact counts ignore `n`. */
-  waiting: (n: number) => string;
+  waiting: (n: number, w: RoutineWords) => string;
 };
 
+/** "3 approvals": a count in the community's number convention. */
+const count = (n: number, w: RoutineWords, one: string, many?: string) => countOf(n, one, many, w.locale);
+
+function depositsDone(w: RoutineWords): string {
+  if (w.plugins === null) return "Every bank line and reported payment is matched";
+  const ways = reportedWays(w);
+  return ways.length > 0 ? `Every bank line and ${joinWords(ways)} report is matched` : "Every bank line is matched";
+}
+
+function depositsWaiting(w: RoutineWords): string {
+  if (w.plugins === null) return "Bank lines or reported payments are waiting to be matched";
+  const ways = reportedWays(w);
+  return ways.length > 0 ? `Bank lines or ${joinWords(ways)} reports are waiting to be matched` : "Bank lines are waiting to be matched";
+}
+
 export const COUNTERS: Record<CounterKey, CounterDef> = {
-  giving_approvals: { done: "No approvals are waiting", waiting: (n) => `${countOf(n, "approval")} waiting` },
-  voting_overrides: { done: "No eligibility overrides are waiting", waiting: (n) => `${countOf(n, "override")} waiting` },
-  credits: { done: "No credits are waiting", waiting: (n) => `${countOf(n, "credit")} to handle` },
-  deposits: { done: "Every bank line and Zelle report is matched", waiting: () => "Bank lines or Zelle reports are waiting to be matched" },
+  giving_approvals: { done: "No approvals are waiting", waiting: (n, w) => `${count(n, w, "approval")} waiting` },
+  voting_overrides: { done: "No eligibility overrides are waiting", waiting: (n, w) => `${count(n, w, "override")} waiting` },
+  credits: { done: "No credits are waiting", waiting: (n, w) => `${count(n, w, "credit")} to handle` },
+  deposits: { done: depositsDone, waiting: (_n, w) => depositsWaiting(w) },
   quickbooks_problems: { done: "QuickBooks has nothing waiting", waiting: () => "QuickBooks refused some entries" },
   role_requests: { done: "No role changes are waiting", waiting: () => "A role change is waiting for a second person" },
   privacy_requests: { done: "No data requests are open", waiting: () => "Data requests are open" },
   volunteer_waivers: { done: "Every volunteer has signed their waiver", waiting: () => "Some volunteers have not signed their waiver" },
-  applications: { done: "No applications are waiting", waiting: (n) => `${countOf(n, "application")} waiting` },
-  bank_lines: { done: "Every bank line is matched", waiting: (n) => `${countOf(n, "bank line")} to match` },
-  pledges_overdue: { done: "No pledges are past their due date", waiting: (n) => `${countOf(n, "pledge")} past their due date` },
-  pledges_due_week: { done: "No pledges fall due this week", waiting: (n) => `${countOf(n, "pledge")} fall${n === 1 ? "s" : ""} due this week` },
-  events_week: { done: "No events in the next 7 days", waiting: (n) => `${countOf(n, "event")} in the next 7 days` },
-  classes_today: { done: "No classes meet today", waiting: (n) => `${countOf(n, "class", "classes")} meet today` },
+  applications: { done: "No applications are waiting", waiting: (n, w) => `${count(n, w, "application")} waiting` },
+  bank_lines: { done: "Every bank line is matched", waiting: (n, w) => `${count(n, w, "bank line")} to match` },
+  pledges_overdue: { done: "No pledges are past their due date", waiting: (n, w) => `${count(n, w, "pledge")} past their due date` },
+  pledges_due_week: { done: "No pledges fall due this week", waiting: (n, w) => `${count(n, w, "pledge")} fall${n === 1 ? "s" : ""} due this week` },
+  events_week: { done: "No events in the next 7 days", waiting: (n, w) => `${count(n, w, "event")} in the next 7 days` },
+  classes_today: { done: "No classes meet today", waiting: (n, w) => `${count(n, w, "class", "classes")} meet today` },
   attendance_missing: {
     done: "Attendance is recorded for every class today",
-    waiting: (n) => `${countOf(n, "class", "classes")} without attendance so far`,
+    waiting: (n, w) => `${count(n, w, "class", "classes")} without attendance so far`,
   },
-  pathshala_to_place: { done: "No registrations are waiting to be placed", waiting: (n) => `${countOf(n, "registration")} waiting to be placed` },
-  pathshala_assistance: { done: "No fee assistance requests are waiting", waiting: (n) => `${countOf(n, "request")} to decide` },
-  gyan_signoffs: { done: "No sign-offs are waiting on teachers", waiting: (n) => `${countOf(n, "sign-off")} waiting on teachers` },
+  pathshala_to_place: { done: "No registrations are waiting to be placed", waiting: (n, w) => `${count(n, w, "registration")} waiting to be placed` },
+  pathshala_assistance: { done: "No fee assistance requests are waiting", waiting: (n, w) => `${count(n, w, "request")} to decide` },
+  gyan_signoffs: { done: "No sign-offs are waiting on teachers", waiting: (n, w) => `${count(n, w, "sign-off")} waiting on teachers` },
 };
 
 // ---------------------------------------------------------------------------
@@ -110,14 +204,17 @@ export type RoutineStep = {
   /** Stable key, also used as the "by hand" tick. Prefixed by the area it belongs to. */
   key: string;
   /** Plain English, an instruction ("Match bank lines to gifts"). */
-  title: string;
+  title: Text;
   /** One sentence: why this step matters. */
-  why: string;
+  why: Text;
   /** Where the step opens. "/events/{event}" is filled with the event that makes the step due. */
   href: string;
   when: RoutineWhen;
-  /** weekly: the day of the week it is due (0 = Sunday … 6 = Saturday). */
-  weekday?: number;
+  /**
+   * weekly: the day it is due. "start" and "end" are the first and last working day of the community's week (its own setting, else
+   * its country's convention); a number (0 = Sunday … 6 = Saturday) pins a day. Default "start".
+   */
+  weekday?: number | "start" | "end";
   /** month_end: due from this day of the month (default 25). */
   fromDay?: number;
   /** before_event: due when an event starts within this many days (default 2). */
@@ -128,16 +225,18 @@ export type RoutineStep = {
   orRoles?: readonly string[];
   /** The module the step belongs to, when its link does not say (a switched-off module hides the step). */
   module?: ModuleKey;
+  /** The step makes sense only while the community has a payment way of this family switched on (left out when it has none). */
+  needsPaymentFamily?: PluginFamily;
   /** The counter that ticks the step. Without one the step is "by hand". */
   signal?: CounterKey;
   /** The step is shown only while this counter is above zero (attendance, on class days). */
   onlyIf?: CounterKey;
   /** A question Niva can start from. Never for a step about learners (D2), and never with a name in it. */
-  ask?: string;
+  ask?: Text;
 };
 
-const FRIDAY = 5;
-const MONDAY = 1;
+const WEEK_END = "end";
+const WEEK_START = "start";
 
 /** Shared by two roles: the same step, so a person with both sees it once. */
 const DATA_QUALITY: RoutineStep = {
@@ -146,7 +245,7 @@ const DATA_QUALITY: RoutineStep = {
   why: "Possible duplicate households and missing contact details are easier to fix a few at a time.",
   href: "/settings/data-quality",
   when: "weekly",
-  weekday: MONDAY,
+  weekday: WEEK_START,
   access: "dataQuality",
 };
 
@@ -176,7 +275,7 @@ export const RECIPES: Record<RoutineRole, readonly RoutineStep[]> = {
       why: "Unfinished setup is the usual reason something quietly does not work.",
       href: "/setup",
       when: "weekly",
-      weekday: MONDAY,
+      weekday: WEEK_START,
       access: "setup",
     },
     {
@@ -185,7 +284,7 @@ export const RECIPES: Record<RoutineRole, readonly RoutineStep[]> = {
       why: "Role grants, exports and payment-detail changes are all listed in the audit log.",
       href: "/settings/audit",
       when: "weekly",
-      weekday: MONDAY,
+      weekday: WEEK_START,
       access: "audit",
       ask: "What sensitive changes were made last week?",
     },
@@ -195,7 +294,7 @@ export const RECIPES: Record<RoutineRole, readonly RoutineStep[]> = {
       why: "QuickBooks, email and texting stop working quietly when a sign-in expires.",
       href: "/settings/integrations",
       when: "weekly",
-      weekday: MONDAY,
+      weekday: WEEK_START,
       access: "integrations",
     },
     DATA_QUALITY,
@@ -212,7 +311,7 @@ export const RECIPES: Record<RoutineRole, readonly RoutineStep[]> = {
   treasurer: [
     {
       key: "treasurer.deposits",
-      title: "Match bank lines and Zelle payments to gifts",
+      title: (w) => `Match ${bankAndReported(w, "payments")} to gifts`,
       why: "Money that arrives without a matched gift cannot be receipted.",
       href: "/giving/bank",
       when: "every_sign_in",
@@ -248,23 +347,23 @@ export const RECIPES: Record<RoutineRole, readonly RoutineStep[]> = {
     },
     {
       key: "treasurer.offline",
-      title: "Record the weekend's checks and cash",
+      title: (w) => `Record the week's ${offlineWays(w)}`,
       why: "Each one is a payment for a household, picked from its card.",
       href: "/giving/payments",
       when: "weekly",
-      weekday: MONDAY,
+      weekday: WEEK_START,
       access: "recordPayment",
     },
     {
       key: "treasurer.pledge-aging",
-      title: "Look at pledges that are behind",
+      title: (w) => `Look at ${w.pledges} that are behind`,
       why: "Households past their due date are easiest to reach while the pledge is still recent.",
       href: "/giving/pledges",
       when: "weekly",
-      weekday: FRIDAY,
+      weekday: WEEK_END,
       access: "pledges",
       signal: "pledges_overdue",
-      ask: "Which pledges are behind, oldest first?",
+      ask: (w) => `Which ${w.pledges} are behind, oldest first?`,
     },
     {
       key: "treasurer.recurring-failed",
@@ -272,8 +371,9 @@ export const RECIPES: Record<RoutineRole, readonly RoutineStep[]> = {
       why: "Those households need a message before the next cycle.",
       href: "/giving/recurring",
       when: "weekly",
-      weekday: FRIDAY,
+      weekday: WEEK_END,
       access: "recurring",
+      needsPaymentFamily: "provider_checkout",
     },
     {
       key: "treasurer.month-bank",
@@ -401,7 +501,7 @@ export const RECIPES: Record<RoutineRole, readonly RoutineStep[]> = {
     },
     {
       key: "pathshala.signoffs",
-      title: "Follow up Gyan Path sign-offs waiting on teachers",
+      title: (w) => `Follow up ${w.learning} sign-offs waiting on teachers`,
       why: "Students are waiting for a teacher to approve a step they finished.",
       href: "/pathshala/signoffs",
       when: "every_sign_in",
@@ -415,7 +515,7 @@ export const RECIPES: Record<RoutineRole, readonly RoutineStep[]> = {
       why: "It goes to families, never to children.",
       href: "/pathshala/announcements",
       when: "weekly",
-      weekday: FRIDAY,
+      weekday: WEEK_END,
       access: "pathshalaManage",
       module: "pathshala",
     },

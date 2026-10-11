@@ -13,10 +13,14 @@ import {
   ROUTINE_WHEN,
   WHEN_LABEL,
   allSteps,
+  routineWords,
+  textOf,
   type RoutineStep,
 } from "@/lib/routines/recipes";
 
 const root = process.cwd();
+// A community that says nothing about itself, with the Zelle and check ways of paying switched on.
+const W = routineWords({ terms: {}, modules: {}, usesTradition: false }, { plugins: ["zelle", "check"] });
 
 describe("the starting recipes", () => {
   it("cover each role with at least one step, and a name for it", () => {
@@ -53,16 +57,22 @@ describe("the starting recipes", () => {
 
   it("give every step a title, a one-sentence reason, a place to go and a valid timing", () => {
     for (const s of allSteps()) {
-      expect(s.title.trim(), s.key).not.toBe("");
-      expect(s.why.trim(), s.key).toMatch(/\.$/);
-      expect(s.why.slice(0, -1), `${s.key} why is one sentence`).not.toMatch(/[.!?] /);
+      const title = textOf(s.title, W);
+      const why = textOf(s.why, W);
+      expect(title.trim(), s.key).not.toBe("");
+      expect(why.trim(), s.key).toMatch(/\.$/);
+      expect(why.slice(0, -1), `${s.key} why is one sentence`).not.toMatch(/[.!?] /);
       expect(s.href, s.key).toMatch(/^\//);
       expect(ROUTINE_WHEN, s.key).toContain(s.when);
       expect(WHEN_LABEL[s.when], s.key).toBeTruthy();
       if (s.when === "weekly") {
-        expect(Number.isInteger(s.weekday), `${s.key} needs a weekday`).toBe(true);
-        expect(s.weekday!).toBeGreaterThanOrEqual(0);
-        expect(s.weekday!).toBeLessThanOrEqual(6);
+        // A weekly step is on the first or last working day of the community's week, or on a day pinned by number.
+        if (s.weekday !== undefined && typeof s.weekday !== "number") expect(["start", "end"], s.key).toContain(s.weekday);
+        if (typeof s.weekday === "number") {
+          expect(Number.isInteger(s.weekday), `${s.key} weekday`).toBe(true);
+          expect(s.weekday).toBeGreaterThanOrEqual(0);
+          expect(s.weekday).toBeLessThanOrEqual(6);
+        }
       }
       if (s.fromDay !== undefined) expect(s.when, s.key).toBe("month_end");
       if (s.daysBefore !== undefined) expect(s.when, s.key).toBe("before_event");
@@ -84,8 +94,8 @@ describe("the starting recipes", () => {
       if (s.onlyIf) expect([...COUNTER_KEYS], s.key).toContain(s.onlyIf);
     }
     for (const key of COUNTER_KEYS) {
-      expect(COUNTERS[key].done, key).toMatch(/\w/);
-      expect(COUNTERS[key].waiting(3), key).toMatch(/\w/);
+      expect(textOf(COUNTERS[key].done, W), key).toMatch(/\w/);
+      expect(COUNTERS[key].waiting(3, W), key).toMatch(/\w/);
     }
   });
 
@@ -96,7 +106,7 @@ describe("the starting recipes", () => {
   });
 
   it("say pledge, never bid, and keep to plain English", () => {
-    const text = allSteps().flatMap((s) => [s.title, s.why, s.ask ?? ""]).join(" ");
+    const text = allSteps().flatMap((s) => [textOf(s.title, W), textOf(s.why, W), s.ask === undefined ? "" : textOf(s.ask, W)]).join(" ");
     expect(text).not.toMatch(/\bbids?\b/i);
     expect(text).not.toMatch(/\b(RLS|RPC|SQL|JSON|API)\b/);
   });
@@ -105,7 +115,7 @@ describe("the starting recipes", () => {
     for (const s of allSteps()) {
       const aboutLearners = s.module === "pathshala" || s.module === "gyan_path" || s.href.startsWith("/pathshala");
       if (aboutLearners) expect(s.ask, s.key).toBeUndefined();
-      if (s.ask) expect(s.ask, s.key).not.toMatch(/\b(child|children|kid|student|learner)s?\b/i);
+      if (s.ask) expect(textOf(s.ask, W), s.key).not.toMatch(/\b(child|children|kid|student|learner)s?\b/i);
     }
   });
 });

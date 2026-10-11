@@ -1,3 +1,5 @@
+import { schoolOrGeneric } from "@/lib/kind-samples";
+
 import { defineCommand } from "../../define";
 import { f, object, type Infer } from "../../schema";
 
@@ -24,9 +26,13 @@ export type TeacherProposal = {
 export const draftTeacherAssignment = defineCommand<DraftTeacherInput, TeacherProposal>({
   key: "learning.draft_teacher_assignment",
   title: "Prepare a teacher for a class",
-  description:
-    "Prepare a teacher for a Pathshala class and check it without saving anything: whether the adult is already on the class, whether they are free at the class's time or already teach another class then, whether they taught this level before or were selected for a teacher position, and their background-check status. " +
-    "The teacher must be an ADULT; Niva never plans with anyone under 18 and never looks at any learner. To make it happen, use learning.assign_teacher, which asks the person to confirm. It changes nothing.",
+  description: (kind) => {
+    const schoolName = schoolOrGeneric(kind);
+    return (
+      `Prepare a teacher for a ${schoolName} class and check it without saving anything: whether the adult is already on the class, whether they are free at the class's time or already teach another class then, whether they taught this level before or were selected for a teacher position, and their background-check status. ` +
+      `The teacher must be an ADULT; Niva never plans with anyone under 18 and never looks at any learner. To make it happen, use learning.assign_teacher, which asks the person to confirm. It changes nothing.`
+    );
+  },
   level: "draft",
   permission: "pathshala",
   module: "pathshala",

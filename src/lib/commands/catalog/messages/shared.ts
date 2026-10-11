@@ -4,6 +4,7 @@
 import { buildAudience, buildTranslations, parseAudience } from "@/lib/comms";
 import type { Database, Json } from "@/lib/database.types";
 import { localDateTimeToIso, todayInTz } from "@/lib/dates";
+import { isValidLanguageCode } from "@/lib/languages";
 import { can, passesRoleChecks } from "@/lib/permissions";
 import type { CrmSession } from "@/lib/session";
 
@@ -53,7 +54,30 @@ export type CampaignFields = {
   body_gu?: string;
   title_hi?: string;
   body_hi?: string;
+  /** Translations into any language, as JSON: {"es": {"title": "...", "body": "..."}}. Adds to (and overrides) the gu / hi fields above. */
+  translations_json?: string;
 };
+
+/** The translations JSON of a message: an object keyed by language code, each with a title and a body (or body_md). */
+export function parseTranslationsJson(raw: string | undefined): { ok: true; value: Record<string, { title: string; body_md: string }> } | { ok: false; error: string } {
+  const text = (raw ?? "").trim();
+  if (!text) return { ok: true, value: {} };
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(text);
+  } catch {
+    return { ok: false, error: "the translations could not be read (they should be JSON like {\"es\": {\"title\": \"...\", \"body\": \"...\"}})" };
+  }
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return { ok: false, error: "the translations should be an object with one entry per language" };
+  const out: Record<string, { title: string; body_md: string }> = {};
+  for (const [code, v] of Object.entries(parsed as Record<string, unknown>)) {
+    if (!isValidLanguageCode(code)) return { ok: false, error: `"${code}" in the translations is not a language code (use a code like es or pt-BR)` };
+    const o = v && typeof v === "object" && !Array.isArray(v) ? (v as Record<string, unknown>) : {};
+    const str = (x: unknown) => (typeof x === "string" ? x.trim() : "");
+    out[code] = { title: str(o.title), body_md: str(o.body_md) || str(o.body) };
+  }
+  return { ok: true, value: out };
+}
 
 export function campaignValues(
   input: CampaignFields,
@@ -68,9 +92,12 @@ export function campaignValues(
     .filter((c): c is Channel => (CHANNELS as readonly string[]).includes(c));
   const sendAt = (input.send_at ?? "").trim();
   const scheduledAt = sendAt ? localDateTimeToIso(sendAt, tz) : null;
+  const given = parseTranslationsJson(input.translations_json);
+  if (!given.ok) return { ok: false, error: given.error };
   const translations = buildTranslations({
     gu: { title: (input.title_gu ?? "").trim(), body_md: (input.body_gu ?? "").trim() },
     hi: { title: (input.title_hi ?? "").trim(), body_md: (input.body_hi ?? "").trim() },
+    ...given.value,
   });
   if (!name) return { ok: false, error: "give the newsletter a name" };
   if (!title) return { ok: false, error: "add a subject" };

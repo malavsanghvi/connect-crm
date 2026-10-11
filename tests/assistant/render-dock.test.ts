@@ -87,7 +87,7 @@ describe("the panel", () => {
   it("says 'this event' on an event page", () => {
     const html = withNiva(api({ context: { path: "/events/[id]", entityKind: "event", entityId: "e1" } }), createElement(NivaDock));
     expect(html).toContain("Looking at this event");
-    expect(html).toContain("Draft a reminder for this event in English, Gujarati and Hindi");
+    expect(html).toContain("Draft a reminder for this event in every language we use");
   });
 
   it("without a model key it says so plainly and still offers the commands", () => {

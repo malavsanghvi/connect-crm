@@ -4,6 +4,7 @@
 import type { AnyCommand, CommandNeedsConfirmation, CommandPreview, CommandRunResult, PreviewLine } from "@/lib/commands";
 import type { ProposalTicket } from "@/lib/commands/proposals";
 import { fieldLabel, type JsonSchemaProp } from "@/lib/commands/schema";
+import { describe, type CommandKind } from "@/lib/commands/text";
 
 import type { CommandInfo, ConfirmResponse, ProposalCard, RunResponse } from "./protocol";
 
@@ -26,17 +27,19 @@ export function firstSentence(text: string): string {
 }
 
 /** One command as the palette and the panel list it. */
-export function commandInfo(command: AnyCommand): CommandInfo {
+export function commandInfo(command: AnyCommand, kind?: CommandKind): CommandInfo {
   const shape = command.input.shape;
   const json = command.input.json();
   return {
     key: command.key,
     title: command.title,
-    description: firstSentence(command.description),
+    description: firstSentence(describe(command.description, kind)),
     level: command.level,
     /** "people" | "giving" | "events" | "messages" | "accounting" | "tasks": the part of the key before the dot. */
     area: command.key.split(".")[0],
-    fields: Object.keys(shape).map((name) => {
+    fields: Object.keys(shape)
+      .filter((name) => !shape[name].hidden)
+      .map((name) => {
       const kind = fieldKind(json.properties[name]);
       return { name, label: fieldLabel(name), required: !shape[name].optional, ...kind };
     }),

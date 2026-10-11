@@ -1,5 +1,5 @@
 // Turns a command's result (any shape the server cleaned and sent) into something the panel can show without knowing each command:
-// household cards, a few facts, and small tables. Money is shown in dollars, never as raw cents. Nothing is added or inferred
+// household cards, a few facts, and small tables. Money is shown in the community's currency, never as raw cents. Nothing is added or inferred
 // beyond what arrived: the child filter and the secret stripper already ran on the server.
 
 import { formatCents } from "@/lib/money";
@@ -15,7 +15,7 @@ export type HouseholdCardView = {
   zone: string | null;
   city: string | null;
   last_gift_on: string | null;
-  /** Open pledges in dollars, ready to show. */
+  /** Open pledges in the community's currency, ready to show. */
   open_pledge: string | null;
 };
 
@@ -49,7 +49,7 @@ export function humanize(key: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
-/** A key that is only plumbing (ids, raw cents), never shown to a person. Cents are shown as dollars by their own sibling or below. */
+/** A key that is only plumbing (ids, raw cents), never shown to a person. Minor units are shown as money by their own sibling or below. */
 function isHiddenKey(key: string): boolean {
   return key === "id" || key.endsWith("_id") || key.endsWith("Id") || key.endsWith("_ids");
 }
@@ -100,7 +100,7 @@ function asLinks(v: unknown): ResultLink[] | null {
   return links;
 }
 
-/** The scalar fields of one object as labelled facts. Raw cents become dollars unless a formatted sibling already exists. */
+/** The scalar fields of one object as labelled facts. Raw cents become money unless a formatted sibling already exists. */
 function factsOf(obj: Record<string, unknown>, skip: Set<string> = new Set()): ResultFact[] {
   const facts: ResultFact[] = [];
   for (const [key, value] of Object.entries(obj)) {

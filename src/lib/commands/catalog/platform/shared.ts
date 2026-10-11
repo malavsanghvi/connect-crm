@@ -24,7 +24,7 @@ export async function findCommunity(db: AppSupabase, asked: string): Promise<Com
   const exact = byId.length > 0 ? byId : list.filter((c) => c.slug.toLowerCase() === q || c.name.toLowerCase() === q);
   const found = exact.length > 0 ? exact : list.filter((c) => c.name.toLowerCase().includes(q) || c.slug.toLowerCase().includes(q));
   if (found.length === 1) return found[0];
-  if (found.length === 0) throw new CommandError(`There is no community called "${asked}". Use its address (like jsh), its name or its id.`);
+  if (found.length === 0) throw new CommandError(`There is no community called "${asked}". Use its address (like riverside), its name or its id.`);
   throw new CommandError(`More than one community matches "${asked}": ${found.map((c) => `${c.name} (${c.slug})`).join(", ")}. Which one?`);
 }
 

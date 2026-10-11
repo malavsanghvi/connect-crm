@@ -65,7 +65,7 @@ export const waitingForSecondApprover = defineCommand<Infer<typeof input>, Secon
   title: "Show what is waiting for a second approver",
   description:
     "Refunds, write-offs and refunds made in Stripe or PayPal that one person asked for and a second, different person must approve. " +
-    "Each one is a card with the household card, the amount in dollars, who asked and why, the payment or pledge facts the approver needs " +
+    "Each one is a card with the household card, the amount in the community's currency, who asked and why, the payment or pledge facts the approver needs " +
     "(amount, method, date, whether it was matched to a bank deposit, how much is still open), and things to check before approving. " +
     "It says whether the signed-in person asked for it themselves (then someone else must approve). Read only: it never approves, refunds or writes anything off. Approving is done by a person on the Approvals screen.",
   level: "read",

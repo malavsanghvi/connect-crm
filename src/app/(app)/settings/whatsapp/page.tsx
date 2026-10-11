@@ -5,6 +5,8 @@ import { BlockGrid, Card, EmptyState, NoAccess, PageHeader, QueryError, StatusTe
 import { formatDateTime } from "@/lib/dates";
 import { metaStatus } from "@/lib/messaging/labels";
 import { isModuleEnabled } from "@/lib/modules";
+import { loadCommunityLocale } from "@/lib/community-locale";
+import { languageName } from "@/lib/languages";
 import { canAccess } from "@/lib/permissions";
 import { getSession } from "@/lib/session";
 
@@ -40,6 +42,7 @@ export default async function WhatsAppSettingsPage() {
     );
   }
   const canManage = canAccess(session, "messagingManage");
+  const community = await loadCommunityLocale(session.db, center);
   const [accRes, tplRes] = await Promise.all([
     session.db.from("whatsapp_accounts").select("id, waba_id, phone_number_id, display_name, status, detail, updated_at").eq("center_id", center.id).maybeSingle(),
     session.db.from("whatsapp_template_submissions").select("id, name, language, category, body, status, submitted_at, decided_at, rejection_reason").eq("center_id", center.id).order("submitted_at", { ascending: false }),
@@ -139,10 +142,12 @@ export default async function WhatsAppSettingsPage() {
                 </label>
                 <label>
                   <span className="crm-label">Language</span>
-                  <select name="language" className="crm-input" defaultValue="en">
-                    <option value="en">English</option>
-                    <option value="gu">Gujarati</option>
-                    <option value="hi">Hindi</option>
+                  <select name="language" className="crm-input" defaultValue={community.languages[0]}>
+                    {community.languages.map((code) => (
+                      <option key={code} value={code}>
+                        {languageName(code)}
+                      </option>
+                    ))}
                   </select>
                 </label>
                 <label>

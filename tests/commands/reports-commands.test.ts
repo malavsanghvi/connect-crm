@@ -55,8 +55,9 @@ function answers(over: Record<string, unknown> = {}) {
 
 const EVERYTHING = ["reports.view", "people.view", "giving.view", "events.view", "store.view"];
 
-function setup(opts: { permissions?: string[]; via?: CommandVia; modulesOff?: string[]; rpc?: Record<string, unknown>; failRpc?: Record<string, { code?: string; message: string }> } = {}) {
-  const db = fakeDb({ rpc: (opts.rpc ?? answers()) as never, failRpc: opts.failRpc });
+function setup(opts: { permissions?: string[]; via?: CommandVia; modulesOff?: string[]; rpc?: Record<string, unknown>; failRpc?: Record<string, { code?: string; message: string }>; fiscalStartMonth?: number } = {}) {
+  const tables = opts.fiscalStartMonth ? { org_profiles: [{ center_id: "center-1", fiscal_year_start_month: opts.fiscalStartMonth }] } : undefined;
+  const db = fakeDb({ rpc: (opts.rpc ?? answers()) as never, failRpc: opts.failRpc, tables });
   const session = fakeSession({ db, permissions: opts.permissions ?? EVERYTHING, modulesOff: opts.modulesOff ?? [] });
   const registry = new CommandRegistry();
   for (const c of REPORTS_COMMANDS) registry.register(c);
@@ -181,6 +182,38 @@ describe("reports.overview", () => {
       { area: "Event check-ins", reason: "You don't have access to this area." },
     ]);
     expect(db.rpcCalls.map((c) => c.fn)).toEqual(["reports_people_overview"]);
+  });
+
+  it("reports on the community's own financial year when it starts in another month (July 1 to June 30)", async () => {
+    const { ctx, db } = setup({ fiscalStartMonth: 7 });
+    const d = dataOf<{ year: number; year_label: string }>(await runCommand(ctx, "reports.overview", {}));
+    // today in the test is October 10, 2026: the year that began on July 1, 2026
+    expect(d).toMatchObject({ year: 2026, year_label: "2026-27" });
+    expect(rpcNamed(db, "reports_payments_summary").map((c) => [c.args.p_from, c.args.p_to])).toEqual([
+      ["2026-07-01", "2027-06-30"],
+      ["2025-07-01", "2025-10-10"],
+    ]);
+    expect(rpcNamed(db, "reports_attendance").map((c) => [c.args.p_from, c.args.p_to])).toEqual([
+      ["2026-07-01", "2026-10-10"],
+      ["2025-07-01", "2025-10-10"],
+    ]);
+    // the new households of that year come from the same dates, not from the calendar year
+    expect(rpcNamed(db, "reports_period_figures").map((c) => [c.args.p_from, c.args.p_to])).toEqual([["2026-07-01", "2026-10-10"]]);
+    // and "last year" is the financial year before it
+    await runCommand(ctx, "reports.overview", { year: 2025 });
+    expect(rpcNamed(db, "reports_payments_summary").slice(2).map((c) => [c.args.p_from, c.args.p_to])).toEqual([
+      ["2025-07-01", "2026-06-30"],
+      ["2024-07-01", "2025-06-30"],
+    ]);
+  });
+
+  it("starts 'this year so far' on the first day of the financial year when no dates are given", async () => {
+    const { ctx, db } = setup({ fiscalStartMonth: 4 });
+    await runCommand(ctx, "reports.giving_totals", {});
+    expect(rpcNamed(db, "reports_payments_summary").map((c) => [c.args.p_from, c.args.p_to])).toEqual([["2026-04-01", "2026-10-10"]]);
+    const calendar = setup();
+    await runCommand(calendar.ctx, "reports.giving_totals", {});
+    expect(rpcNamed(calendar.db, "reports_payments_summary").map((c) => [c.args.p_from, c.args.p_to])).toEqual([["2026-01-01", "2026-10-10"]]);
   });
 
   it("reports on another year, and compares a finished year with the whole year before", async () => {

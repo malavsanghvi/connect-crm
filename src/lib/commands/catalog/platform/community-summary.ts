@@ -34,7 +34,7 @@ export type CommunitySummaryData = {
 };
 
 const input = object({
-  community: f.string("The community by its address (like jsh), its name or its id.", { min: 1, max: 120 }),
+  community: f.string("The community by its address (like riverside), its name or its id.", { min: 1, max: 120 }),
 });
 
 /** One page about one community. */

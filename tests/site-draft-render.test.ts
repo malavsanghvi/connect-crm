@@ -141,7 +141,11 @@ describe("the preview page", () => {
     expect(html).toContain("Nothing has been published");
     expect(html).toContain('data-page="events"');
     expect(html).toContain("Approve page");
-    expect(db.rpcCalls).toEqual([{ fn: "site_draft_get", args: { p_center: "center-1", p_with_blocks: true } }]);
+    // The draft, and the community's languages (for the style of the dates and times in the preview).
+    expect(db.rpcCalls).toEqual([
+      { fn: "site_draft_get", args: { p_center: "center-1", p_with_blocks: true } },
+      { fn: "community_languages", args: { p_center: "center-1" } },
+    ]);
     const meta = (await import("@/app/(app)/setup/website/preview/page")).metadata;
     expect(meta.robots).toMatchObject({ index: false, follow: false });
   });
