@@ -2,6 +2,7 @@
 // links, contact details, event-like blocks, donate links, JSON-LD, forms, maps and calendar embeds.
 // All of it is data read from the page; nothing here follows a link or runs anything.
 
+import { findInternationalAddresses, findPhones } from "../../../../src/lib/onboarding/intl/contact-text";
 import { closest, elements, findAll, findFirst, hasAncestorTag, isHidden, kids, names, textOf, type El } from "./dom";
 import type { Contact, DonateLink, EventBlock, ImageFact, ImageRole, LogoCandidate, SocialLink } from "./types";
 import { firstDate, firstTime, isInternal, resolveHref, shorten, unique } from "./util";
@@ -184,7 +185,6 @@ export function findEmails(text: string): string[] {
   }
   return out;
 }
-const PHONE = /(?<!\d)(?:\+?1[\s.-]?)?\(?\d{3}\)?[\s.-]\d{3}[\s.-]\d{4}\b/g;
 const US_ADDRESS = /\b\d{1,6}\s+(?:[A-Z0-9][A-Za-z0-9.'-]*\s+){1,4}?(?:Street|St|Road|Rd|Avenue|Ave|Boulevard|Blvd|Drive|Dr|Lane|Ln|Way|Court|Ct|Highway|Hwy|Parkway|Pkwy|Place|Pl|Circle|Cir|Freeway|Fwy)\b\.?(?:,?\s*(?:Suite|Ste|Unit|Apt|Building|Bldg|#)\.?\s*[\w-]+)?,?\s+[A-Z][A-Za-z.'-]+(?:\s[A-Z][A-Za-z.'-]+){0,2},?\s+[A-Z]{2}\.?\s+\d{5}(?:-\d{4})?/g;
 
 export function contactDetails(body: El, jsonLdAddresses: string[], jsonLdPhones: string[], jsonLdEmails: string[]): Contact {
@@ -198,12 +198,14 @@ export function contactDetails(body: El, jsonLdAddresses: string[], jsonLdPhones
   }
   const text = textOf(body, 200_000);
   emails.push(...findEmails(text));
-  for (const m of text.matchAll(PHONE)) phones.push(m[0].trim());
+  // North American, international (+44 ...) and labelled ("Tel: 020 ...") numbers, from the same helper the onboarding engine uses.
+  phones.push(...findPhones(text));
   for (const el of findAll(body, "address")) {
     const t = textOf(el, 400);
     if (t.length >= 8) addresses.push(shorten(t, 200));
   }
   for (const m of text.matchAll(US_ADDRESS)) addresses.push(m[0].replace(/\s+/g, " ").trim());
+  addresses.push(...findInternationalAddresses(text));
   const goodEmail = (e: string) => /^[^@\s]+@[^@\s]+\.[a-z]{2,}$/i.test(e) && !/\.(png|jpe?g|gif|webp|svg)$/i.test(e) && !/^(sentry|noreply|no-reply|example|user|you|name|email)@|@(example|sentry|domain|yourdomain|email)\./i.test(e);
   return {
     emails: unique(emails.map((e) => e.toLowerCase()).filter(goodEmail), (e) => e, 5),

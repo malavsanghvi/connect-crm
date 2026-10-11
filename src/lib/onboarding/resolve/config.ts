@@ -1,10 +1,17 @@
 // Every threshold of the resolve engine in ONE object. Nothing else in resolve/ holds a magic number.
 // The engine reads no clock: `today` is part of the config, so the same rows always give the same result.
 
+import { callingCodeFor, countryForCallingCode, isoCountry } from "../intl/phone";
+
 export type ResolveConfig = {
   /** YYYY-MM-DD in the community's time zone. Decides who is under 18 and how two-digit years are read. */
   today: string;
-  /** Country code for phone numbers without one ("1" = US). */
+  /**
+   * The community's country as an ISO code ("US", "GB", "IN"), from its profile. Reads postal codes and bare phone numbers.
+   * Empty when it is not known: the engine then does NOT assume the United States.
+   */
+  country: string;
+  /** Calling code used for phone numbers without one ("1", "44", "91"); derived from `country` when it is not given. Empty = unknown. */
   defaultCountry: string;
   /** The date order of the file when a reader has found proof; "unknown" flags every day/month ambiguity. */
   dateOrder: "mdy" | "dmy" | "unknown";
@@ -28,6 +35,8 @@ export type ResolveConfig = {
     nameMatch: number;
     /** A spelling variant or a one-letter slip of the same name. */
     nameVariant: number;
+    /** The names agree only through another reading: words in the other order, a double surname's half, a translated first name. */
+    nameWeak: number;
     /** Only an initial and the family name agree. */
     nameInitial: number;
     nameMaiden: number;
@@ -90,7 +99,8 @@ export type ResolveConfig = {
 };
 
 export const DEFAULT_CONFIG: Omit<ResolveConfig, "today"> = {
-  defaultCountry: "1",
+  country: "",
+  defaultCountry: "",
   dateOrder: "unknown",
   dateOrderBySource: {},
   minorAge: 18,
@@ -105,6 +115,7 @@ export const DEFAULT_CONFIG: Omit<ResolveConfig, "today"> = {
     giftAmount: 20,
     nameMatch: 20,
     nameVariant: 14,
+    nameWeak: 6,
     nameInitial: 8,
     nameMaiden: 14,
     nameSurnameOnly: 6,
@@ -123,13 +134,25 @@ export type ConfigOverrides = {
   [K in Exclude<keyof Omit<ResolveConfig, "today">, "dateOrderBySource">]?: ResolveConfig[K] extends object ? Partial<ResolveConfig[K]> : ResolveConfig[K];
 } & { dateOrderBySource?: Record<string, "mdy" | "dmy"> };
 
+/**
+ * The community's country, from either form: an ISO code gives its calling code, a calling code ("44", "+44") gives its main
+ * country. `country` is the ISO code the community's profile holds; `defaultCountry` may be an ISO code or a calling code.
+ */
+export function resolveCountry(country: string | null | undefined, defaultCountry: string | null | undefined): { country: string; defaultCountry: string } {
+  const iso = isoCountry(country) ?? isoCountry(defaultCountry) ?? countryForCallingCode(callingCodeFor(defaultCountry));
+  const cc = callingCodeFor(defaultCountry) ?? callingCodeFor(iso ?? country);
+  return { country: iso ?? "", defaultCountry: cc ?? "" };
+}
+
 /** The defaults plus any overrides. `today` is required: the engine never reads the clock. */
 export function makeConfig(today: string, overrides: ConfigOverrides = {}): ResolveConfig {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(today)) throw new Error(`makeConfig: today must be YYYY-MM-DD, got "${today}"`);
   const d = DEFAULT_CONFIG;
+  const home = resolveCountry(overrides.country ?? d.country, overrides.defaultCountry ?? d.defaultCountry);
   return {
     today,
-    defaultCountry: overrides.defaultCountry ?? d.defaultCountry,
+    country: home.country,
+    defaultCountry: home.defaultCountry,
     dateOrder: overrides.dateOrder ?? d.dateOrder,
     dateOrderBySource: { ...d.dateOrderBySource, ...overrides.dateOrderBySource },
     minorAge: overrides.minorAge ?? d.minorAge,

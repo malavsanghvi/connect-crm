@@ -3,7 +3,8 @@
 // stages, previews, commits and can undo. Pure (no I/O) so the rules are tested.
 
 import { normHeader } from "@/lib/import/mapping";
-import { cleanText, toCents, toDate, toE164, toEmail, type Transformed } from "@/lib/import/transforms";
+import { cleanText, toCents, toDate, toEmail, type Transformed } from "@/lib/import/transforms";
+import { parsePhone } from "./intl/phone";
 import type { PayerInput, Group } from "./match";
 
 export type PayerFieldKey = "name" | "email" | "phone" | "address1" | "address2" | "city" | "state" | "zip" | "amount" | "date" | "method" | "receipt" | "memo";
@@ -100,7 +101,12 @@ export type RowProblem = { rowNo: number; column: string; level: "error" | "warn
 
 export type ValidationResult = { rows: ParsedDonation[]; problems: RowProblem[]; badRows: Set<number> };
 
-export type ValidateOptions = { dateOrder?: "mdy" | "dmy"; defaultMethod?: MethodValue };
+export type ValidateOptions = {
+  dateOrder?: "mdy" | "dmy";
+  defaultMethod?: MethodValue;
+  /** The community's country (an ISO code such as "GB"), read from its profile: a phone number without a country code is read in it. */
+  country?: string | null;
+};
 
 function unwrap<T>(t: Transformed<T>): T | null {
   return t.ok ? t.value : null;
@@ -141,8 +147,9 @@ export function validateDonations(headers: readonly string[], rows: readonly (re
     }
     let phone: string | null = null;
     if (cell("phone")) {
-      phone = unwrap(toE164(cell("phone")));
-      if (!phone) warn("Phone", `"${cell("phone")}" is not a phone number; it was left out`);
+      const parsed = parsePhone(cell("phone"), opts.country);
+      phone = parsed.ok ? parsed.e164 : null;
+      if (!phone) warn("Phone", `"${cell("phone")}" is not a phone number${parsed.ok || parsed.reason !== "country_unknown" ? "" : " with a country code"}; it was left out`);
     }
     let method: MethodValue = opts.defaultMethod ?? "other";
     if (cell("method")) {

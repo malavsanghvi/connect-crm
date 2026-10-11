@@ -3,19 +3,25 @@
 // plainly when it cannot tell (ambiguous dates are flagged, never guessed). The forms are for comparing; the
 // person's own text is what gets stored.
 //
-// Reused rather than rewritten: phones go through `toE164`, money through `toCents`, e-mail keys through `emailKey`,
-// nicknames come from the existing smart-matching pass (onboarding/normalize.ts).
+// Built for every country and script: text is folded, never narrowed to English (intl/fold.ts); names know the honorifics,
+// particles and spelling variants of many cultures (names.ts); phones are read with a country calling-code table, and a number
+// without a country code takes the community's own country (intl/phone.ts); postal codes, street types and month names are
+// those of many countries (intl/postal.ts, intl/address-words.ts).
+//
+// Reused rather than rewritten: money through `toCents`, e-mail keys through `emailKey`.
 
 import { ageOn } from "@/lib/dates";
-import { cleanText, excelSerialToDate, toCents, toE164 } from "@/lib/import/transforms";
-import { emailKey, NICKNAMES } from "@/lib/onboarding/normalize";
+import { cleanText, excelSerialToDate, toCents } from "@/lib/import/transforms";
+import { emailKey } from "@/lib/onboarding/normalize";
 
+import { GLUED_SUFFIXES, MONTH_NUMBERS, NAME_LINKS, NUMBER_WORDS, PREFIX_TYPES, SUFFIX_TYPES, UNIT_WORDS } from "../intl/address-words";
+import { asciiDigits, foldText, table } from "../intl/fold";
+import { countryFromText, parsePhone } from "../intl/phone";
+import { parsePostal } from "../intl/postal";
 import type { ResolveConfig } from "./config";
 import type {
-  Generation,
   MinorReason,
   MoneyProblem,
-  NamePart,
   NormalizedGift,
   NormalizedName,
   NormalizedRecord,
@@ -24,28 +30,11 @@ import type {
   PhoneValue,
   RawRecord,
 } from "./types";
+import { normalizeName } from "./names";
 
 // ---------------------------------------------------------------------------
 // Text basics
 // ---------------------------------------------------------------------------
-
-/** Accents on Latin letters are dropped ("Ramírez" -> "Ramirez"); other scripts are left alone. */
-export function foldAscii(s: string): string {
-  return s
-    .normalize("NFKD")
-    .replace(/(?<=\p{Script=Latin})\p{M}+/gu, "")
-    .replace(/[‘’ʼ`]/g, "'")
-    .replace(/[“”]/g, '"')
-    .replace(/[–—]/g, "-");
-}
-
-/** True when the text has letters from a script other than Latin (Gujarati, Devanagari). */
-export function hasNonLatinLetters(s: string): boolean {
-  for (const ch of s) {
-    if (/\p{L}/u.test(ch) && !/\p{Script=Latin}/u.test(ch)) return true;
-  }
-  return false;
-}
 
 const BLANK_LIKE = /^(?:n\/?a|none|nil|null|unknown|not available|-+|\.+|x+|\?+)$/i;
 
@@ -67,244 +56,9 @@ export function hash32(text: string): string {
 // Names
 // ---------------------------------------------------------------------------
 
-/**
- * A sound-alike key for one name word, so Latin spellings of Gujarati and Hindi names compare equal:
- * Patel = Patil = Pattel, Shah = Saha, Mehta = Metha, Desai = Dessai, Doshi = Dosi, Parekh = Parikh, Thakkar = Thaker.
- * It is deliberately coarse. A key match is never enough to join two records on its own (names alone never join).
- */
-export function phoneticKey(token: string): string {
-  let s = foldAscii(token).toLowerCase().replace(/[^a-z]/g, "");
-  // Applied until nothing changes, so a key of a key is itself.
-  for (let pass = 0; pass < 6; pass++) {
-    const next = phoneticPass(s);
-    if (next === s) break;
-    s = next;
-  }
-  return s;
-}
-
-function phoneticPass(word: string): string {
-  let s = word.replace(/(.)\1+/g, "$1");
-  s = s.replace(/w/g, "v").replace(/q/g, "k").replace(/ph/g, "f").replace(/ck/g, "k");
-  s = s.replace(/sh/g, "s").replace(/ch/g, "c").replace(/kh/g, "k").replace(/gh/g, "g").replace(/bh/g, "b");
-  s = s.replace(/dh/g, "d").replace(/th/g, "t").replace(/jh/g, "j");
-  s = s.replace(/h/g, "");
-  s = s.replace(/er$/, "ar");
-  s = s.replace(/ou|oo/g, "u");
-  s = s.replace(/(?!^)y/g, "i").replace(/e/g, "i");
-  return s.replace(/(.)\1+/g, "$1");
-}
-
-const HONORIFICS = new Set([
-  "mr", "mrs", "ms", "miss", "mx", "dr", "prof", "shri", "shree", "sri", "smt", "shrimati", "kum", "pt", "pandit", "rev", "sir", "sh",
-]);
-const MINOR_TITLES = new Set(["master", "baby"]);
-const FAMILY_WORDS = new Set(["family", "families", "household", "residence", "fam", "hh"]);
-const PROFESSIONAL = new Set(["md", "phd", "cpa", "esq", "dds", "rn", "mba", "dvm", "pe"]);
-const GENERATIONS: Record<string, Generation> = {
-  jr: "jr", junior: "jr", sr: "sr", senior: "sr", ii: "ii", iii: "iii", iv: "iv", "2nd": "ii", "3rd": "iii",
-};
-/** Words in brackets that are not a name: "Mira (wife)". */
-const NOT_A_NAME = new Set(["wife", "husband", "mother", "father", "mom", "dad", "son", "daughter", "home", "work", "cell", "mobile", "jr", "sr", "late", "deceased"]);
-/** Stand-alone words that follow a given name and carry no name of their own. */
-const STANDALONE_SUFFIX = new Set(["bhai", "bhi", "ben", "behn", "bahen", "bein", "ji", "bhaii"]);
-
-const ATTACHED_SUFFIXES: RegExp[] = [/^(.{3,}?)(?:bhai|bhaai|bhi)$/, /^(.{3,}?)(?:ben|behn|bahen|bein|baen)$/, /^(.{3,}?)(?:kumari|kumar)$/, /^(.{3,}?)ji$/];
-
-/** "Rahulbhai" -> "rahul", "Miraben" -> "mira", "Ashokkumar" -> "ashok", "Hasmukhji" -> "hasmukh". One pass. */
-export function stripAttachedSuffix(token: string): string {
-  const t = token.toLowerCase();
-  for (const re of ATTACHED_SUFFIXES) {
-    const m = re.exec(t);
-    if (m) return m[1];
-  }
-  return t;
-}
-
-function cleanWord(t: string): string {
-  return foldAscii(t).toLowerCase().replace(/[^a-z'-]/g, "").replace(/^[-']+|[-']+$/g, "");
-}
-
-function givenKeyOf(word: string): string {
-  const folded = NICKNAMES[word] ?? word;
-  return phoneticKey(folded);
-}
-
-function emptyPart(): NamePart {
-  return { given: null, givenKey: null, initial: null, middleKeys: [], surname: null, surnameKey: null, surnameParts: [], maidenKey: null, generation: null };
-}
-
-type Segment = { tokens: string[]; family: boolean };
-
-/** "R.K." -> "r", "k". Other tokens pass through. */
-function splitInitials(tokens: string[]): string[] {
-  const out: string[] = [];
-  for (const t of tokens) {
-    if (/^(?:[A-Za-z]\.)+[A-Za-z]?\.?$/.test(t) && t.includes(".")) out.push(...t.split(".").filter(Boolean));
-    else out.push(t);
-  }
-  return out;
-}
-
-function buildPart(segment: Segment, surnameRaw: string | null, maidenRaw: string | null, generation: Generation | null): NamePart {
-  const part = emptyPart();
-  const words = segment.tokens;
-  const givenWords: string[] = [];
-  for (const w of words) {
-    const c = cleanWord(w);
-    if (c) givenWords.push(c);
-  }
-  if (givenWords.length > 0) {
-    const first = givenWords[0];
-    if (first.length === 1) {
-      part.initial = first;
-    } else {
-      const stem = stripAttachedSuffix(first);
-      part.given = stem;
-      part.givenKey = givenKeyOf(stem);
-      part.initial = stem[0];
-    }
-    part.middleKeys = givenWords
-      .slice(1)
-      .map((w) => (w.length === 1 ? w : givenKeyOf(stripAttachedSuffix(w))))
-      .filter(Boolean);
-  }
-  if (surnameRaw) {
-    const parts = cleanWord(surnameRaw)
-      .split("-")
-      .filter(Boolean);
-    if (parts.length > 0) {
-      part.surname = parts.join("-");
-      part.surnameParts = parts.map(phoneticKey).filter(Boolean);
-      part.surnameKey = part.surnameParts[part.surnameParts.length - 1] ?? null;
-      // "Shah-Patel": the first half is the maiden name, the last half the name in use.
-      if (parts.length > 1) part.maidenKey = part.surnameParts[0] ?? null;
-    }
-  }
-  if (maidenRaw) {
-    const k = phoneticKey(cleanWord(maidenRaw));
-    if (k) part.maidenKey = k;
-  }
-  part.generation = generation;
-  return part;
-}
-
-/**
- * Splits a name into people, given names, middle names, a surname, a maiden name and a generation (Jr/Sr), however it is
- * written: "Last, First", "First Last", "Rahul & Mira Shah", "Dr. Miraben Patel nee Shah", "Mira Shah-Patel", "R. K. Shah".
- * Honorifics (Shri, Smt, Dr), suffixes (-bhai, -ben, -kumar, -ji), family words (Family, Household) are dropped.
- * Names in another script are flagged (`nonLatin`), not guessed.
- */
-export function normalizeName(input: { full?: string | null; first?: string | null; last?: string | null }): NormalizedName {
-  const full = cleanText(input.full);
-  const first = cleanText(input.first);
-  const last = cleanText(input.last);
-  const raw = full || [first, last].filter(Boolean).join(" ");
-  const nonLatin = hasNonLatinLetters(raw);
-  const missing: NormalizedName = { raw, people: [], nonLatin, minorHint: false, missing: true };
-  if (!raw) return missing;
-
-  // Columns win when the source has them: "first" may hold several people and middle names, "last" is the family name.
-  let text: string;
-  if ((first || last) && !full) text = first && last ? `${last}, ${first}` : last ? `${last},` : first;
-  else text = full;
-
-  let s = foldAscii(text);
-  let maiden: string | null = null;
-  s = s.replace(/\b(?:nee|maiden(?:\s+name)?)\b\.?\s*[:-]?\s*([A-Za-z][A-Za-z'-]+)/i, (_m, w: string) => {
-    maiden = w;
-    return " ";
-  });
-  s = s.replace(/\(([^)]*)\)/g, (_m, inner: string) => {
-    const w = inner.trim();
-    if (/^[A-Za-z][A-Za-z'-]+$/.test(w) && !NOT_A_NAME.has(w.toLowerCase()) && !GENERATIONS[w.toLowerCase()]) maiden = maiden ?? w;
-    return " ";
-  });
-  s = s.replace(/\s+/g, " ").trim();
-
-  let surnameFromComma: string | null = null;
-  let body = s;
-  const comma = s.indexOf(",");
-  if (comma >= 0) {
-    const before = s.slice(0, comma).trim();
-    const after = s.slice(comma + 1).trim();
-    const afterWords = after.split(/\s+/).filter(Boolean).map((w) => w.toLowerCase().replace(/\./g, ""));
-    const onlySuffixes = afterWords.length > 0 && afterWords.every((w) => GENERATIONS[w] || PROFESSIONAL.has(w) || HONORIFICS.has(w));
-    if (onlySuffixes) body = `${before} ${after}`;
-    else if (before) {
-      // "Shah Patel, Mira" -> surname parts joined like "Shah-Patel".
-      surnameFromComma = before.split(/[\s-]+/).filter(Boolean).join("-");
-      body = after;
-    } else body = after;
-  }
-
-  const spaced = body.replace(/\s*[&+]\s*/g, " & ");
-  const rawTokens = splitInitials(spaced.split(/\s+/).filter(Boolean));
-  const segments: Segment[] = [{ tokens: [], family: false }];
-  let generation: Generation | null = null;
-  let minorHint = false;
-  for (let i = 0; i < rawTokens.length; i++) {
-    const tok = rawTokens[i];
-    const lower = tok.toLowerCase().replace(/\.$/, "");
-    if (tok === "&" || (lower === "and" && i > 0 && i < rawTokens.length - 1)) {
-      segments.push({ tokens: [], family: false });
-      continue;
-    }
-    const seg = segments[segments.length - 1];
-    if (lower === "the" && seg.tokens.length === 0) continue;
-    if (MINOR_TITLES.has(lower)) {
-      minorHint = true;
-      continue;
-    }
-    if (HONORIFICS.has(lower) || PROFESSIONAL.has(lower)) continue;
-    if (GENERATIONS[lower] && seg.tokens.length > 0) {
-      generation = GENERATIONS[lower];
-      continue;
-    }
-    if (FAMILY_WORDS.has(lower)) {
-      seg.family = true;
-      continue;
-    }
-    // "Mira Ben Shah": a stand-alone ben/bhai after a given name is an honorific, not a name.
-    if (STANDALONE_SUFFIX.has(lower) && seg.tokens.length > 0) continue;
-    seg.tokens.push(tok);
-  }
-
-  const live = segments.filter((g) => g.tokens.length > 0);
-  if (live.length === 0) {
-    // Only a family name was given ("Shah," from a last-name column, or "Shah family").
-    if (surnameFromComma) {
-      const part = buildPart({ tokens: [], family: false }, surnameFromComma, maiden, generation);
-      return { raw, people: [part], nonLatin, minorHint, missing: !part.surnameKey };
-    }
-    return { ...missing, minorHint };
-  }
-
-  // Work out each segment's surname.
-  let carried: string | null = surnameFromComma;
-  if (carried === null) {
-    // The last word of the last segment is the shared surname when that segment has two words or more (or a family word).
-    const tail = live[live.length - 1];
-    if (tail.tokens.length >= 2 || tail.family) carried = tail.tokens[tail.tokens.length - 1];
-  }
-  const people: NamePart[] = [];
-  live.forEach((g, idx) => {
-    let ownSurname: string | null = null;
-    const tokens = [...g.tokens];
-    if (surnameFromComma !== null) {
-      ownSurname = surnameFromComma;
-    } else if (tokens.length >= 2 || (g.family && tokens.length === 1)) {
-      ownSurname = tokens.pop() ?? null;
-    } else if (idx < live.length - 1) {
-      // A lone word before the last segment takes the family name that follows ("Rahul & Mira Shah").
-      ownSurname = carried;
-    }
-    const segment: Segment = { tokens, family: g.family };
-    people.push(buildPart(segment, ownSurname, idx === 0 ? maiden : null, generation));
-  });
-
-  return { raw, people, nonLatin, minorHint, missing: people.every((p) => !p.givenKey && !p.initial && !p.surnameKey) };
-}
+// Names live in ./names.ts (folding, particles, honorifics and spelling variants for many cultures). They are re-exported here so
+// callers keep one import.
+export { foldAscii, hasNonLatinLetters, normalizeName, phoneticKey, stripAttachedSuffix } from "./names";
 
 // ---------------------------------------------------------------------------
 // Phones and e-mails
@@ -312,29 +66,31 @@ export function normalizeName(input: { full?: string | null; first?: string | nu
 
 export type PhoneResult = { value: string | null; problem: string | null };
 
-/** E.164 with US as the default country. "N/A" and blanks give no value and no problem; a bad number gives a problem. */
-export function normalizePhone(raw: unknown, defaultCountry = "1"): PhoneResult {
+/**
+ * E.164 for a phone number from any country. A number with a country code (+44, 0044) is read with it; one without takes the
+ * community's own country (`defaultCountry`: an ISO code such as "GB" or a calling code such as "44"). When that is not known
+ * either, a bare national number is NOT guessed (it is reported as unreadable), so it is never read as American by default.
+ * "N/A" and blanks give no value and no problem; a bad number gives a problem.
+ */
+export function normalizePhone(raw: unknown, defaultCountry?: string | null): PhoneResult {
   const text = cleanText(raw);
   if (isBlankLike(text)) return { value: null, problem: null };
-  const t = toE164(text, defaultCountry);
-  if (!t.ok) return { value: null, problem: "phone" };
-  const v = t.value;
-  const digits = v.slice(1);
-  if (/^(\d)\1+$/.test(digits)) return { value: null, problem: "phone" };
-  if (v.startsWith("+1")) {
-    if (digits.length !== 11) return { value: null, problem: "phone" };
-    const area = digits.slice(1, 4);
-    const exchange = digits.slice(4, 7);
-    if (!/^[2-9]/.test(area) || !/^[2-9]/.test(exchange) || area === "000") return { value: null, problem: "phone" };
-  }
-  return { value: v, problem: null };
+  const r = parsePhone(text, defaultCountry);
+  return r.ok ? { value: r.e164, problem: null } : { value: null, problem: "phone" };
 }
 
-/** A cell can hold several numbers ("713-555-0142 / 281-555-0199"). */
-export function normalizePhones(raw: unknown, defaultCountry = "1"): { values: string[]; problems: string[] } {
+/** A cell can hold several numbers ("713-555-0142 / 281-555-0199", "98250 12345, 98250 12346"). */
+export function normalizePhones(raw: unknown, defaultCountry?: string | null): { values: string[]; problems: string[] } {
   const text = cleanText(raw);
   if (isBlankLike(text)) return { values: [], problems: [] };
-  const parts = text.split(/\s*(?:\/|;|\||\bor\b|\band\b)\s*/i).filter(Boolean);
+  const rough = text.split(/\s*(?:\/|;|\||\n|،|؛|\bor\b|\band\b|\bou\b|\boder\b|\by\b|\bund\b)\s*/i).filter(Boolean);
+  const parts: string[] = [];
+  for (const piece of rough.length > 0 ? rough : [text]) {
+    // A comma separates two numbers only when each side is long enough to be one ("ext. 5" after a comma is not a number).
+    const bits = piece.split(/\s*,\s*/).filter(Boolean);
+    if (bits.length > 1 && bits.every((b) => b.replace(/\D/g, "").length >= 7)) parts.push(...bits);
+    else parts.push(piece);
+  }
   const values: string[] = [];
   const problems: string[] = [];
   for (const p of parts.length > 0 ? parts : [text]) {
@@ -371,77 +127,81 @@ export function normalizeEmails(raw: unknown): EmailResult {
 // Addresses
 // ---------------------------------------------------------------------------
 
-const STREET_SUFFIX: Record<string, string> = {
-  street: "st", st: "st", str: "st", avenue: "ave", ave: "ave", av: "ave", road: "rd", rd: "rd", drive: "dr", dr: "dr", lane: "ln", ln: "ln",
-  boulevard: "blvd", blvd: "blvd", court: "ct", ct: "ct", circle: "cir", cir: "cir", place: "pl", pl: "pl", terrace: "ter", ter: "ter",
-  parkway: "pkwy", pkwy: "pkwy", highway: "hwy", hwy: "hwy", trail: "trl", trl: "trl", way: "way", square: "sq", sq: "sq", loop: "loop",
-  path: "path", alley: "aly", crossing: "xing", xing: "xing", pike: "pike", run: "run", row: "row", cove: "cv", cv: "cv", bend: "bnd",
-};
-const DIRECTION: Record<string, string> = {
+const DIRECTION: Record<string, string> = table({
   n: "n", north: "n", s: "s", south: "s", e: "e", east: "e", w: "w", west: "w", ne: "ne", northeast: "ne", nw: "nw", northwest: "nw",
   se: "se", southeast: "se", sw: "sw", southwest: "sw",
-};
-const UNIT_WORDS = new Set(["apt", "apartment", "unit", "ste", "suite", "bldg", "building", "fl", "floor", "rm", "room", "lot", "spc", "space"]);
-const ORDINAL_WORDS: Record<string, string> = {
+});
+const ORDINAL_WORDS: Record<string, string> = table({
   first: "1st", second: "2nd", third: "3rd", fourth: "4th", fifth: "5th", sixth: "6th", seventh: "7th", eighth: "8th", ninth: "9th", tenth: "10th",
-};
+});
+/** A house number: 12, 12a, 12-14, 12/3, 12/a. */
+const HOUSE_NUMBER = /^\d{1,6}[a-z]?(?:[/-]\d{1,4}[a-z]?|\/[a-z])?$/;
+const BARE_UNIT = /^[a-z]?\d+[a-z]?$/;
+const PO_BOX_WORDS = new Set(["pobox", "postfach", "apdo", "apartado", "bp"]);
+/** Countries whose addresses put the house number AFTER the street name ("Hauptstrasse 12", "Calle Mayor 12"). */
+const NUMBER_LAST = new Set(["DE", "AT", "CH", "NL", "BE", "LU", "DK", "NO", "SE", "FI", "PL", "CZ", "SK", "HU", "RO", "BG", "GR", "ES", "PT", "IT", "BR", "AR", "MX", "CL", "CO", "PE", "TR", "RU", "UA", "HR", "RS"]);
 
 function cleanUnit(u: string | null | undefined): string | null {
   if (!u) return null;
-  const c = u.toLowerCase().replace(/[^a-z0-9-]/g, "");
+  const c = u.toLowerCase().replace(/[^\p{L}\p{N}-]/gu, "");
   return c || null;
 }
 
-/** A unit written alone on the second line: "Apt 4", "#4", "Suite 200", "4B". */
+const UNIT_PREFIX = new RegExp(`^(?:(?:${[...UNIT_WORDS, ...NUMBER_WORDS].join("|")})\\s*#?\\s*|#\\s*)?([\\p{L}\\p{N}][\\p{L}\\p{N}-]{0,5})$`, "u");
+
+/** A unit written alone on the second line: "Apt 4", "#4", "Suite 200", "4B", "Flat 3", "Piso 2". */
 function unitFromLine2(line2: string): string | null {
-  const s = foldAscii(line2).toLowerCase().replace(/[.,]/g, " ").replace(/\s+/g, " ").trim();
+  const s = foldText(line2).toLowerCase().replace(/[.,]/g, " ").replace(/\s+/g, " ").trim();
   if (!s) return null;
-  const m = /^(?:(?:apt|apartment|unit|ste|suite|bldg|building|fl|floor|rm|room|lot|spc|space|no|number)\s*#?\s*|#\s*)?([a-z0-9][a-z0-9-]{0,5})$/.exec(s);
+  const m = UNIT_PREFIX.exec(s);
   return m ? cleanUnit(m[1]) : null;
 }
 
 /**
- * Splits a street address into house number, direction, street name, suffix, unit and ZIP (+4), however it is written:
- * "12 N. Lotus Lane #4", "12 Lotus Ln, Apt 4B", "12 north lotus lane apartment 4", "PO Box 77".
- * The `streetKey` (number + street name only) is what records are blocked on; ZIP and unit are compared afterwards.
+ * Splits a street address into house number, direction, street name, street type, unit and postal code, however it is
+ * written and in what country: "12 N. Lotus Lane #4", "12 Lotus Ln, Apt 4B", "PO Box 77", "Hauptstrasse 12a", "12 rue de la Paix",
+ * "Calle Mayor 12, 3 B", "Flat 4, 12 Lotus Road". The postal code is read in the format of the country (US ZIP and ZIP+4,
+ * Canadian, British, Indian PIN, German, French ...); `country` is the address's own country, else the community's.
+ * The `streetKey` (number + street name only) is what records are blocked on; postal code and unit are compared afterwards.
  */
-export function normalizeAddress(input: {
-  line1?: string | null;
-  line2?: string | null;
-  city?: string | null;
-  state?: string | null;
-  zip?: string | null;
-}): ParsedAddress | null {
-  const line1 = foldAscii(cleanText(input.line1)).toLowerCase();
+export function normalizeAddress(
+  input: {
+    line1?: string | null;
+    line2?: string | null;
+    city?: string | null;
+    state?: string | null;
+    zip?: string | null;
+    country?: string | null;
+  },
+  opts: { country?: string | null } = {},
+): ParsedAddress | null {
+  const line1 = foldText(cleanText(input.line1)).toLowerCase();
   if (isBlankLike(line1)) return null;
+  const iso = countryFromText(cleanText(input.country)) ?? countryFromText(cleanText(opts.country));
 
-  const zipText = cleanText(input.zip);
-  let zip5: string | null = null;
-  let zip4: string | null = null;
-  const zm = /(\d{5})(?:[-\s]?(\d{4}))?/.exec(zipText.replace(/\s+(?=\d{4}$)/, "-"));
-  if (zm) {
-    zip5 = zm[1];
-    zip4 = zm[2] ?? null;
-  } else if (/^\d{4}$/.test(zipText)) {
-    zip5 = `0${zipText}`; // a spreadsheet ate the leading zero
-  }
+  const postal = parsePostal(input.zip, iso);
+  const zip5 = postal ? postal.code : null;
+  const zip4 = postal ? postal.plus4 : null;
 
-  const tokens = line1
+  const tokens = asciiDigits(line1)
+    .replace(/\bc\/(?!o\b)/g, "calle ")
     .replace(/#/g, " # ")
     .replace(/[.,;]/g, " ")
     .split(/\s+/)
     .filter(Boolean);
 
   const poBox =
-    tokens[0] === "pobox" || (tokens[0] === "po" && tokens[1] === "box") || (tokens[0] === "p" && tokens[1] === "o" && tokens[2] === "box");
+    (PO_BOX_WORDS.has(tokens[0] ?? "") && /\d/.test(tokens[1] ?? "")) ||
+    (tokens[0] === "po" && tokens[1] === "box") ||
+    (tokens[0] === "p" && tokens[1] === "o" && tokens[2] === "box");
   let unit: string | null = null;
   const rest: string[] = [];
   for (let i = 0; i < tokens.length; i++) {
-    const t = tokens[i];
+    const t = tokens[i] ?? "";
     if ((UNIT_WORDS.has(t) || t === "#") && tokens[i + 1] && !poBox) {
-      let u = tokens[i + 1];
+      let u = tokens[i + 1] ?? "";
       if (u === "#" && tokens[i + 2]) {
-        u = tokens[i + 2];
+        u = tokens[i + 2] ?? "";
         i++;
       }
       unit = cleanUnit(u);
@@ -461,42 +221,78 @@ export function normalizeAddress(input: {
     street = "po box";
   } else {
     let body = rest;
-    if (body.length > 0 && /^\d+[a-z]?(?:-\d+[a-z]?)?$/.test(body[0])) {
-      number = body[0];
+    // "No. 12 Lotus Lane", "Nr 12".
+    if (body.length >= 2 && NUMBER_WORDS.has(body[0] ?? "") && HOUSE_NUMBER.test(body[1] ?? "")) body = body.slice(1);
+    // A flat before the house: "Flat 4, 12 Lotus Road" has lost "flat 4" above and starts with the number.
+    if (body.length > 0 && HOUSE_NUMBER.test(body[0] ?? "")) {
+      number = body[0] ?? null;
       body = body.slice(1);
+    } else {
+      // Street name first, number after it (German, Dutch, Spanish, Italian, Portuguese ...): "Hauptstrasse 12a", "Calle Mayor 12".
+      const named = (t: string) => PREFIX_TYPES[t] !== undefined || GLUED_SUFFIXES.some(([w]) => t.length > w.length + 2 && t.endsWith(w)) || SUFFIX_TYPES[t] === "st";
+      const numberLast = (iso !== null && NUMBER_LAST.has(iso)) || (body.length >= 2 && named(body[0] ?? "")) || named(body[body.length - 2] ?? "");
+      if (numberLast) {
+        const at = body.findIndex((t, i) => i >= 1 && HOUSE_NUMBER.test(t) && !/^\d+(?:st|nd|rd|th)$/.test(t));
+        if (at >= 1) {
+          number = body[at] ?? null;
+          const after = body.slice(at + 1);
+          body = body.slice(0, at);
+          // "Calle Mayor 12 3 B": what follows the number is the floor and door, when it is short.
+          if (!unit && after.length > 0 && after.length <= 2 && after.every((t) => t.length <= 4)) unit = cleanUnit(after.join(""));
+        }
+      }
     }
     // Direction before the street name, only when a real street name follows.
-    if (body.length >= 2 && DIRECTION[body[0]] && body.slice(1).some((t) => !STREET_SUFFIX[t] && !DIRECTION[t])) {
-      predir = DIRECTION[body[0]];
+    if (body.length >= 2 && DIRECTION[body[0] ?? ""] && body.slice(1).some((t) => SUFFIX_TYPES[t] === undefined && !DIRECTION[t])) {
+      predir = DIRECTION[body[0] ?? ""] ?? null;
       body = body.slice(1);
     }
     // A bare unit after the suffix: "12 Lotus Ln 4".
-    const sIdx = body.findIndex((t, i) => i > 0 && STREET_SUFFIX[t] !== undefined);
+    const sIdx = body.findIndex((t, i) => i > 0 && SUFFIX_TYPES[t] !== undefined);
     if (sIdx >= 0 && sIdx < body.length - 1) {
       const after = body.slice(sIdx + 1);
-      if (after.length === 1 && DIRECTION[after[0]]) postdir = DIRECTION[after[0]];
-      else if (after.length === 1 && /^[a-z]?\d+[a-z]?$/.test(after[0]) && !unit) unit = cleanUnit(after[0]);
-      else if (after.length === 2 && DIRECTION[after[0]] && /^[a-z]?\d+[a-z]?$/.test(after[1]) && !unit) {
-        postdir = DIRECTION[after[0]];
+      const d0 = DIRECTION[after[0] ?? ""];
+      if (after.length === 1 && d0) postdir = d0;
+      else if (after.length === 1 && BARE_UNIT.test(after[0] ?? "") && !unit) unit = cleanUnit(after[0]);
+      else if (after.length === 2 && d0 && BARE_UNIT.test(after[1] ?? "") && !unit) {
+        postdir = d0;
         unit = cleanUnit(after[1]);
       }
       body = body.slice(0, sIdx + 1);
-    } else if (body.length >= 2 && DIRECTION[body[body.length - 1]] && STREET_SUFFIX[body[body.length - 2]] !== undefined) {
-      postdir = DIRECTION[body[body.length - 1]];
+    } else if (body.length >= 2 && DIRECTION[body[body.length - 1] ?? ""] && SUFFIX_TYPES[body[body.length - 2] ?? ""] !== undefined) {
+      postdir = DIRECTION[body[body.length - 1] ?? ""] ?? null;
       body = body.slice(0, -1);
     }
-    if (body.length >= 2 && STREET_SUFFIX[body[body.length - 1]] !== undefined) {
-      suffix = STREET_SUFFIX[body[body.length - 1]];
+    if (body.length >= 2 && SUFFIX_TYPES[body[body.length - 1] ?? ""] !== undefined) {
+      suffix = SUFFIX_TYPES[body[body.length - 1] ?? ""] ?? null;
       body = body.slice(0, -1);
+    } else if (body.length >= 2 && PREFIX_TYPES[body[0] ?? ""] !== undefined) {
+      // "Calle Mayor", "Rue de la Paix", "Via Roma": the type comes first, and "de la" links it to the name.
+      suffix = PREFIX_TYPES[body[0] ?? ""] ?? null;
+      body = body.slice(1);
+      while (body.length >= 2 && NAME_LINKS.has(body[0] ?? "")) body = body.slice(1);
+    } else if (body.length === 1) {
+      // "Hauptstrasse", "Kerkstraat": the type is written onto the name.
+      const only = body[0] ?? "";
+      const glued = GLUED_SUFFIXES.find(([w]) => only.length >= w.length + 3 && only.endsWith(w));
+      if (glued) {
+        suffix = glued[1];
+        body = [only.slice(0, only.length - glued[0].length).replace(/-+$/, "")];
+      }
     }
-    street = body.map((t) => ORDINAL_WORDS[t] ?? t).join(" ") || null;
+    street =
+      body
+        .flatMap((t) => t.split("-"))
+        .filter(Boolean)
+        .map((t) => ORDINAL_WORDS[t] ?? t)
+        .join(" ") || null;
   }
 
   if (!unit && input.line2) unit = unitFromLine2(cleanText(input.line2));
 
   const streetKey = number && street ? `${number}|${street}` : "";
-  const city = foldAscii(cleanText(input.city)).toLowerCase() || null;
-  const state = foldAscii(cleanText(input.state)).toLowerCase().replace(/[^a-z]/g, "") || null;
+  const city = foldText(cleanText(input.city)).toLowerCase() || null;
+  const state = foldText(cleanText(input.state)).toLowerCase().replace(/[^\p{L}]/gu, "") || null;
   if (!streetKey && !zip5) return null;
   return { number, predir, street, suffix, postdir, unit, city, state, zip5, zip4, poBox, streetKey };
 }
@@ -504,11 +300,6 @@ export function normalizeAddress(input: {
 // ---------------------------------------------------------------------------
 // Dates
 // ---------------------------------------------------------------------------
-
-const MONTHS: Record<string, number> = {
-  jan: 1, january: 1, feb: 2, february: 2, mar: 3, march: 3, apr: 4, april: 4, may: 5, jun: 6, june: 6, jul: 7, july: 7,
-  aug: 8, august: 8, sep: 9, sept: 9, september: 9, oct: 10, october: 10, nov: 11, november: 11, dec: 12, december: 12,
-};
 
 function iso(y: number, m: number, d: number): string | null {
   if (!Number.isInteger(y) || !Number.isInteger(m) || !Number.isInteger(d)) return null;
@@ -584,7 +375,7 @@ export function parseDate(input: unknown, opts: { order: "mdy" | "dmy" | "unknow
     const v = excelSerialToDate(input);
     return v ? parsedFrom([v], false, false) : unreadable("unreadable");
   }
-  const s = cleanText(input);
+  const s = asciiDigits(cleanText(input));
   if (isBlankLike(s)) return unreadable("blank");
   let m: RegExpExecArray | null;
 
@@ -626,12 +417,19 @@ export function parseDate(input: unknown, opts: { order: "mdy" | "dmy" | "unknow
     const usable = sane.length > 0 ? sane : readings;
     return usable.length > 0 ? parsedFrom(usable, twoDigit, false) : unreadable("unreadable");
   }
-  if ((m = /^(\d{1,2})(?:st|nd|rd|th)?[-\s]([A-Za-z]{3,9})\.?,?[-\s]+(\d{2}|\d{4})$/.exec(s))) {
-    const mon = MONTHS[m[2].toLowerCase()];
+  // Chinese, Japanese and Korean: 1987年4月3日, 1987년 4월 3일, 1987. 4. 3.
+  if ((m = /^(\d{4})\s*(?:年|년|\.)\s*(\d{1,2})\s*(?:月|월|\.)\s*(\d{1,2})\s*(?:日|일|\.)?$/.exec(s))) {
+    const v = iso(Number(m[1]), Number(m[2]), Number(m[3]));
+    return v ? parsedFrom([v], false, false) : unreadable("unreadable");
+  }
+  // "3 March 1987", "3rd of March 1987", "3 de marzo de 1987", "3. März 1987", "3 mars 1987", "3 марта 1987".
+  if ((m = /^(\d{1,2})(?:st|nd|rd|th|er|º|\.)?[-\s]*(?:de\s+|del\s+|of\s+)?([\p{L}\p{M}]{3,14})\.?,?[-\s]*(?:de\s+|del\s+)?(\d{2}|\d{4})$/u.exec(s))) {
+    const mon = monthNumber(m[2]);
     if (mon) return fromNamed(Number(m[1]), mon, m[3], opts);
   }
-  if ((m = /^([A-Za-z]{3,9})\.?\s+(\d{1,2})(?:st|nd|rd|th)?,?\s+(\d{2}|\d{4})$/.exec(s))) {
-    const mon = MONTHS[m[1].toLowerCase()];
+  // "March 3, 1987", "Marzo 3 1987".
+  if ((m = /^([\p{L}\p{M}]{3,14})\.?\s+(\d{1,2})(?:st|nd|rd|th)?,?\s+(\d{2}|\d{4})$/u.exec(s))) {
+    const mon = monthNumber(m[1]);
     if (mon) return fromNamed(Number(m[2]), mon, m[3], opts);
   }
   if (/^\d{5}(?:\.\d+)?$/.test(s)) {
@@ -639,6 +437,12 @@ export function parseDate(input: unknown, opts: { order: "mdy" | "dmy" | "unknow
     if (v) return parsedFrom([v], false, false);
   }
   return unreadable("unreadable");
+}
+
+/** A month written as a word in English, Spanish, Portuguese, French, German, Italian, Dutch, Polish, Turkish, Russian, Hindi or Arabic. */
+function monthNumber(word: string | undefined): number | null {
+  if (!word) return null;
+  return MONTH_NUMBERS.get(foldText(word).toLowerCase().replace(/\.$/, "")) ?? null;
 }
 
 function fromNamed(day: number, month: number, yearText: string, opts: { today: string; context: "birth" | "event" }): ParsedDate {
@@ -728,9 +532,11 @@ export function normalizeRecord(raw: RawRecord, order: number, cfg: ResolveConfi
   const name = normalizeName({ full: raw.name, first: raw.firstName, last: raw.lastName });
   const dateOrder = cfg.dateOrderBySource[raw.source] ?? cfg.dateOrder;
 
+  // A row that names its own country reads a bare local number in that country; otherwise the community's country applies.
+  const homeCountry = countryFromText(cleanText(raw.country)) ?? (cfg.defaultCountry || cfg.country || null);
   const phones: PhoneValue[] = [];
   const addPhones = (value: unknown, mobile: boolean) => {
-    const r = normalizePhones(value, cfg.defaultCountry);
+    const r = normalizePhones(value, homeCountry);
     problems.push(...r.problems);
     for (const v of r.values) {
       const existing = phones.find((p) => p.value === v);
@@ -749,7 +555,10 @@ export function normalizeRecord(raw: RawRecord, order: number, cfg: ResolveConfi
     for (const k of r.keys) if (!emails.includes(k)) emails.push(k);
   }
 
-  const address = normalizeAddress({ line1: raw.address1, line2: raw.address2, city: raw.city, state: raw.state, zip: raw.zip });
+  const address = normalizeAddress(
+    { line1: raw.address1, line2: raw.address2, city: raw.city, state: raw.state, zip: raw.zip, country: raw.country },
+    { country: cfg.country || cfg.defaultCountry || null },
+  );
   if (cleanText(raw.address1) && !address) problems.push("address");
 
   let dob: ParsedDate | null = null;

@@ -6,7 +6,7 @@ import type { RawRecord } from "@/lib/onboarding/resolve/types";
 
 import { rec, run, TODAY } from "./fixtures/onboarding-resolve/helpers";
 
-const cfg = makeConfig(TODAY);
+const cfg = makeConfig(TODAY, { country: "US" });
 
 const child = rec({
   id: "k",
