@@ -7,9 +7,14 @@ vi.mock("@/lib/data/home-tasks", () => ({ loadHomeTasks: vi.fn() }));
 import { revalidatePath } from "next/cache";
 
 import { CATALOG } from "@/lib/commands/catalog";
+import { CONTENT_COMMANDS } from "@/lib/commands/catalog/content";
+import { LEARNING_COMMANDS } from "@/lib/commands/catalog/learning";
 import { MESSAGES_COMMANDS } from "@/lib/commands/catalog/messages";
 import { PEOPLE_COMMANDS } from "@/lib/commands/catalog/people";
+import { PLATFORM_COMMANDS } from "@/lib/commands/catalog/platform";
+import { REPORTS_COMMANDS } from "@/lib/commands/catalog/reports";
 import { SETTINGS_COMMANDS } from "@/lib/commands/catalog/settings";
+import { STORE_COMMANDS } from "@/lib/commands/catalog/store";
 import { pickSaved } from "@/lib/commands/catalog/messages-draft-reminder";
 import { draftReminder, fillTemplate, whenText } from "@/lib/commands/catalog/reminder-text";
 import { CommandRegistry } from "@/lib/commands/registry";
@@ -25,7 +30,7 @@ const DIWALI = "7d0f3b9a-6a39-4d0c-9f43-0a1a1d7c1001";
 const PICNIC = "7d0f3b9a-6a39-4d0c-9f43-0a1a1d7c1003";
 const CANCELLED = "7d0f3b9a-6a39-4d0c-9f43-0a1a1d7c1004";
 
-const ALL_PERMISSIONS = ["people.view", "people.manage", "people.approve", "giving.view", "giving.manage", "giving.record_offline", "giving.approve", "events.view", "events.manage", "comms.send", "comms.approve", "comms.inbox", "accounting.close", "settings.manage", "roles.manage", "integrations.manage"];
+const ALL_PERMISSIONS = ["people.view", "people.manage", "people.approve", "giving.view", "giving.manage", "giving.record_offline", "giving.approve", "events.view", "events.manage", "comms.send", "comms.approve", "comms.inbox", "accounting.close", "settings.manage", "roles.manage", "integrations.manage", "content.view", "content.draft", "content.manage", "content.approve", "store.view", "store.manage", "store.pickup", "reports.view", "pathshala.view", "pathshala.manage"];
 
 function catalogRegistry() {
   const r = new CommandRegistry();
@@ -126,7 +131,8 @@ describe("the first commands", () => {
 
   it("are all visible to a person with every permission, and none to a person with none", () => {
     const { session } = setup();
-    expect(catalogRegistry().list(session).map((c) => c.key)).toHaveLength(CATALOG.length - 0);
+    // The Platform commands are for the Weaver team only: a person with every permission in a community still does not get them (tests/commands/platform-commands.test.ts).
+    expect(catalogRegistry().list(session).map((c) => c.key)).toHaveLength(CATALOG.filter((c) => !c.platformOnly).length);
     const none = fakeSession({ permissions: [] });
     // tasks.mine is open to everyone signed in; every other command needs a permission.
     expect(catalogRegistry().list(none).map((c) => c.key)).toEqual(["tasks.mine"]);
@@ -550,9 +556,12 @@ describe("no command result reaches a model with a child in it", () => {
   /**
    * The People commands take real ids, so they run against their own community (a UUID world with children in it) in people-reads.test.ts;
    * the Settings commands run against theirs (tests/commands/settings-commands.test.ts), which has a child holding a role; the Messages
-   * commands against theirs too: tests/commands/messages-commands.test.ts ("D2 across the Messages commands") checks every one of them.
+   * commands against theirs too: tests/commands/messages-commands.test.ts ("D2 across the Messages commands") checks every one of them. The Content and Store commands
+   * run against theirs (tests/commands/content-store-world.ts): content-commands.test.ts and store-commands.test.ts check every one of them for children.
+   * The Learning commands run against a Pathshala full of children, with the learner tables filled: tests/commands/learning-d2.test.ts.
    */
-  const OWN_WORLD = new Set([...PEOPLE_COMMANDS, ...SETTINGS_COMMANDS, ...MESSAGES_COMMANDS].map((c) => c.key));
+  // Reports and Platform: tests/commands/reports-commands.test.ts and platform-commands.test.ts, which check every one of them for children too.
+  const OWN_WORLD = new Set([...PEOPLE_COMMANDS, ...SETTINGS_COMMANDS, ...MESSAGES_COMMANDS, ...REPORTS_COMMANDS, ...PLATFORM_COMMANDS, ...CONTENT_COMMANDS, ...STORE_COMMANDS, ...LEARNING_COMMANDS].map((c) => c.key));
 
   /** A plausible input for every command in the catalog. A new command must be added here, or this file fails. */
   const SAMPLE_INPUT: Record<string, unknown> = {

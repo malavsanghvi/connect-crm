@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
+import { AskNiva } from "@/components/niva/ask-niva";
 import { Card, EmptyState, KpiGrid, Stat, StatusText, TableWrap, buttonClass } from "@/components/ui";
 import { loadClassesOverview, loadLevels, loadTerms, pickTerm, type Term } from "@/lib/data/pathshala";
 import { isModuleEnabled } from "@/lib/modules";
@@ -101,6 +102,7 @@ export default async function PathshalaClassesPage({ searchParams }: { searchPar
         description={termSubtitle(term, billing)}
         actions={
           <>
+            <AskNiva prompt="Which classes have no teacher yet, and who could teach them?" />
             <Link href="/pathshala/announcements" className={buttonClass("ghost", "sm")}>
               Announcements
             </Link>
