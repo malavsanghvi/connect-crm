@@ -128,6 +128,8 @@ export const ENTITLEMENT_INFO: Record<string, { label: string; kind: Entitlement
   },
   public_dashboard: { label: "Public community dashboard", kind: "flag" },
   "niva.monthly_questions": { label: "Niva questions per month", kind: "count" },
+  // Niva for admins (0617, with the database part): one chat message counts as one action.
+  "assistant.monthly_actions": { label: "Niva for admins actions per month", kind: "count" },
   "storage.bytes": { label: "File storage", kind: "bytes" },
   expiry_days_inactive: { label: "Expires after days without activity", kind: "count" },
   // f-sandbox (0500): a sandbox that holds the organization's own records (JSH) goes live in place.

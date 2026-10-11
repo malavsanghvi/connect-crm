@@ -547,6 +547,52 @@ wired into the Deploy workflow: the defaults are right for weaverams.org, so not
 
 The website needs no database and no session: its pages are plain server components, so it keeps working if Supabase is down.
 
+## Niva for admins (the assistant for staff, in the portal)
+
+Staff of a community can ask Niva to look things up, draft, and prepare changes. This is the portal server's part: the
+routes under `/api/assistant/` (`commands`, `run`, `chat`, `confirm`, `reject`). It is **not** the background
+service. Every request runs with the **signed-in person's own session** (their role, row-level security, an audit row that
+says "by Niva, for <person>"); there is no service-role key and no generic SQL. Niva can only use the named commands in
+`src/lib/commands/` that the person's role allows and the community has switched on. The model is told the rules in
+`docs/ADMIN_REDESIGN.md`, and what comes back from a command is cleaned of secrets and of everything about anyone under
+18 before the model sees it. A command that changes something never runs in the chat: the person sees a card and presses
+a button (`/api/assistant/confirm`).
+
+What it needs, in this order:
+
+1. **The database part** (migrations 0616 to 0618: confirmations, the monthly limit, the conversation log). Until it is
+   applied the chat still answers and the commands list still works, but there is no monthly limit, no conversation log or
+   memory, and no write action can be confirmed (the server log says so once).
+2. **An AI key.** `ANTHROPIC_API_KEY` is read like the other platform keys (`src/lib/platform-setup/server-config.ts`):
+   **the one saved in Platform › Setup › AI first** (from the vault, through the `connect_worker` connection that the portal
+   already uses, cached for a minute, no redeploy), then the portal server's environment. The deploy passes the repository
+   secret `ANTHROPIC_API_KEY` to the portal as well as to the background service, so a key set there works for both; a key
+   saved in Platform › Setup replaces it for both. **With no key** the commands list says `aiReady: false`, the ⌘K
+   commands keep working, and the chat answers "Niva for admins needs the AI service to be set up (Platform › Setup). You can
+   still use the search box and the commands list."
+3. **The community's switch.** Off until a platform administrator switches it on in **Platform › Centers › <community> ›
+   Niva for admins** (stored in the community's rules as `assistant.enabled`, with a reason, audited). While it is off every
+   route answers "Niva for admins is not switched on for your community." and the commands list says `enabled: false`.
+
+Settings:
+
+| Setting | Where | Default |
+|---|---|---|
+| `ASSISTANT_MODEL` | repository **variable**, reaches the portal on the next deploy | `claude-sonnet-5-5` |
+| Niva for admins on for a community | Platform › Centers › <community> › Niva for admins (`assistant.enabled`) | off |
+| Write actions Niva may prepare | the same card, one box per action (`assistant.tools["events.set_field"]`) | **off**; the owner approves each one |
+| Actions per month for a community | Platform › Centers › <community> › Limits (`assistant.monthly_actions`) | 300; one chat message counts as one |
+
+Read and draft commands are on as soon as the community is on. Every command that changes something (a "confirm" command)
+is off until the box for it is ticked, and even then a person presses a button on a card for each change; the security
+code, when the database asks for it, opens in its own window.
+
+If something is wrong, the person sees a plain sentence next to what they did, and the server log has the detail
+(`[assistant] …`): "the key was refused" (replace the key in Platform › Setup), "the AI account's spending limit or credit
+has run out" (raise it in the Anthropic console), "the AI model … is not available to this account" (set
+`ASSISTANT_MODEL`), "could not reach the AI service" (busy; try again). One chat message may use at most six actions, then
+Niva has to answer with what it has. Conversation text is kept for 30 days (the database's retention job).
+
 ## When a deploy fails
 
 The failed step in Actions says what is missing or what broke:
