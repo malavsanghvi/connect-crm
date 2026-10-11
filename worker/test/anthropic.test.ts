@@ -1,7 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { describe, expect, it } from "vitest";
 
-import { apiErrorMessage, CLAUDE_MODEL, classifyAnthropicError, claudeModel, errorLabel, regainAccessAt, staffJobFailure } from "../src/anthropic";
+import { apiErrorMessage, cachedSystem, CLAUDE_MODEL, classifyAnthropicError, claudeModel, errorLabel, recordUsage, regainAccessAt, staffJobFailure } from "../src/anthropic";
 
 /** The error the SDK throws for a response with this status and API error body. */
 const apiError = (status: number, type: string, message: string) =>
@@ -106,5 +106,57 @@ describe("staffJobFailure", () => {
       notConfigured: false,
     });
     expect(staffJobFailure(classifyAnthropicError(new Anthropic.APIConnectionTimeoutError()), model, "x").message).toMatch(/^The AI service did not answer in time \(timed out/);
+  });
+});
+
+describe("cachedSystem", () => {
+  const rules = "Answer only from the sources. ".repeat(100); // about 3000 characters: past the 512-token minimum of the current models
+
+  it("sends a long prompt that is the same every time as one block marked for caching, with the same words", () => {
+    expect(cachedSystem({}, "claude-opus-5-5", rules)).toEqual([{ type: "text", text: rules, cache_control: { type: "ephemeral" } }]);
+  });
+
+  it("leaves a prompt that is too short to be cached as the plain string", () => {
+    expect(cachedSystem({}, "claude-opus-5-5", "You help Niva search.")).toBe("You help Niva search.");
+  });
+
+  it("uses the model's own minimum", () => {
+    expect(Array.isArray(cachedSystem({}, "claude-sonnet-5-5", rules))).toBe(true); // 512
+    expect(cachedSystem({}, "claude-opus-4-8", rules)).toBe(rules); // 1024
+    expect(cachedSystem({}, "claude-haiku-4-5", rules)).toBe(rules); // 4096
+  });
+
+  it("gives the plain string when AI_PROMPT_CACHE is off", () => {
+    expect(cachedSystem({ AI_PROMPT_CACHE: "off" }, "claude-opus-5-5", rules)).toBe(rules);
+    expect(Array.isArray(cachedSystem({ AI_PROMPT_CACHE: "on" }, "claude-opus-5-5", rules))).toBe(true);
+  });
+});
+
+describe("recordUsage", () => {
+  const logger = () => {
+    const lines: { msg: string; fields?: Record<string, unknown> }[] = [];
+    const log = { info: (msg: string, fields?: Record<string, unknown>) => lines.push({ msg, fields }), warn() {}, error() {}, debug() {}, child: () => log };
+    return { lines, log: log as unknown as Parameters<typeof recordUsage>[0] };
+  };
+
+  it("logs the model and the four counts, notes the cache marker, and hands the counts back", () => {
+    const { lines, log } = logger();
+    const marked = [{ type: "text", text: "x", cache_control: { type: "ephemeral" } }];
+    const usage = recordUsage(log, "niva.answer", "claude-opus-5-5", { model: "claude-opus-5-5", usage: { input_tokens: 5, output_tokens: 6, cache_creation_input_tokens: 700, cache_read_input_tokens: 0 } }, marked);
+    expect(usage).toEqual({ inputTokens: 5, outputTokens: 6, cacheCreationInputTokens: 700, cacheReadInputTokens: 0 });
+    expect(lines).toEqual([{ msg: "ai call", fields: { kind: "niva.answer", model: "claude-opus-5-5", input: 5, cache_write: 700, cache_read: 0, output: 6, cache_marks: 1 } }]);
+  });
+
+  it("names the model that answered (a fallback may have stepped in), reads a missing cache field as 0, and counts no marker for a plain string", () => {
+    const { lines, log } = logger();
+    const usage = recordUsage(log, "import.suggest_mapping", "claude-opus-5-5", { model: "claude-opus-4-8", usage: { input_tokens: 9, output_tokens: 1 } }, undefined);
+    expect(usage).toEqual({ inputTokens: 9, outputTokens: 1, cacheCreationInputTokens: 0, cacheReadInputTokens: 0 });
+    expect(lines[0]!.fields).toMatchObject({ model: "claude-opus-4-8", cache_write: 0, cache_read: 0, cache_marks: 0 });
+  });
+
+  it("logs nulls and returns nothing when the answer carried no usage", () => {
+    const { lines, log } = logger();
+    expect(recordUsage(log, "qbo.match_suggest_ai", "claude-opus-5-5", {}, undefined)).toBeUndefined();
+    expect(lines[0]!.fields).toMatchObject({ model: "claude-opus-5-5", input: null, output: null });
   });
 });
