@@ -112,7 +112,7 @@ export function safeRouteContext(pathname: string | null | undefined, params?: R
 // ---------------------------------------------------------------------------
 // The area of the screen, for the "Ask Niva" suggestions
 // ---------------------------------------------------------------------------
-export type SuggestionArea = "people" | "giving" | "events" | "messages" | "accounting" | "settings" | "setup" | "general";
+export type SuggestionArea = "people" | "giving" | "events" | "messages" | "accounting" | "settings" | "setup" | "reports" | "platform" | "general";
 
 const AREA_BY_FIRST_SEGMENT: Record<string, SuggestionArea> = {
   people: "people",
@@ -128,6 +128,8 @@ const AREA_BY_FIRST_SEGMENT: Record<string, SuggestionArea> = {
   comms: "messages",
   settings: "settings",
   setup: "setup",
+  reports: "reports",
+  platform: "platform",
 };
 
 export function areaForPath(path: string): SuggestionArea {
@@ -218,6 +220,23 @@ const SUGGESTIONS: Record<SuggestionArea, Suggestion[]> = {
     { text: "Draft a reminder for the next event in English, Gujarati and Hindi", needs: "messages.draft_reminder", onlyWithout: true },
     { text: "What is waiting for me?", needs: "tasks.mine" },
   ],
+  // Reports (B90 phase 4): number questions, answered by the database's own sums.
+  reports: [
+    { text: "How are we doing this year compared with last year?", needs: "reports.overview" },
+    { text: "How much did we receive this year, month by month?", needs: "reports.giving_totals" },
+    { text: "How is each campaign doing?", needs: "reports.campaign_progress" },
+    { text: "Compare this month with last month", needs: "reports.compare_months" },
+    { text: "How many people joined as members this month?", needs: "reports.membership_counts" },
+    { text: "How many people came to events this year?", needs: "reports.event_attendance" },
+    { text: "How much did the store sell this month?", needs: "reports.store_sales" },
+  ],
+  // Platform (the Weaver team only: these commands are never offered to anyone else, so neither are these sentences).
+  platform: [
+    { text: "Who is waiting for us, and what is missing?", needs: "platform.waiting" },
+    { text: "Which sandboxes are waiting for a go-live review?", needs: "platform.waiting" },
+    { text: "Summarise the community with address jsh", needs: "platform.community_summary" },
+    { text: "What would changing a community's kind of organization do?", needs: "platform.preview_kind_change" },
+  ],
   general: [
     { text: "What is waiting for me?", needs: "tasks.mine" },
     { text: "What events are coming up?", needs: "events.upcoming" },
@@ -249,6 +268,8 @@ const AREA_NAME: Record<SuggestionArea, string> = {
   messages: "Messages",
   settings: "Settings",
   setup: "Setup",
+  reports: "Reports",
+  platform: "Platform",
   general: "Home",
 };
 

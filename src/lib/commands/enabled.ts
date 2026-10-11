@@ -48,6 +48,9 @@ function lowerFirst(s: string): string {
 /** Can this person use this command now, through this door? The reason is a sentence. */
 export function commandAvailability(command: AnyCommand, session: AvailabilitySession, via: CommandVia): Availability {
   const doing = lowerFirst(command.title);
+  if (command.platformOnly && !session.isPlatformAdmin) {
+    return { ok: false, code: "no_access", error: `Could not ${doing} — only the Weaver team (platform admins) can do this.` };
+  }
   if (!canAccess(session, command.permission)) {
     return { ok: false, code: "no_access", error: `Could not ${doing} — you don't have permission (needs ${ACCESS[command.permission].join(" or ")}).` };
   }
