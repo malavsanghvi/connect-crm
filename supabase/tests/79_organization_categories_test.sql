@@ -139,7 +139,7 @@ select pg_temp.assert((select faith_based and uses_tradition and path_label = 'W
                       and (select not faith_based and not uses_tradition and path_label is null from app.organization_categories where key = 'nonprofit_secular')
                       and (select faith_based and not uses_tradition and path_label is null from app.organization_categories where key = 'faith_other'),
   'A · only Jain Center uses a tradition and asks a path; the others ask none');
-select pg_temp.assert((select terms->>'greeting' = 'Jai Jinendra' and terms->>'practice_tab' = 'Jain Way' and terms->>'store' = 'Satvik Store'
+select pg_temp.assert((select terms->>'greeting' = 'Jai Jinendra' and terms->>'practice_tab' = 'Jain Way' and terms->>'store' = 'My Store'
                               and terms->>'place' = 'derasar' and terms->>'assistant_context' = 'a Jain community'
                          from app.organization_categories where key = 'jain_center')
                       and (select terms->>'greeting' = 'Welcome' and terms->>'give_tab' = 'Pay' and terms->>'family_tab' = 'My business'
@@ -546,7 +546,7 @@ select pg_temp.assert((select count(*) from app.setup_checklist(:'chm') where mo
   'C · the Setup steps of modules a chamber does not have are skipped with "Not part of a Chamber of commerce organization."');
 select pg_temp.assert((select count(*) from app.setup_checklist(:'chm') where module_key = 'store') > 0
                       and not exists (select 1 from app.setup_checklist(:'chm') where module_key = 'store'
-                                        and (status <> 'skipped' or detail <> 'The Satvik Store module is switched off.')),
+                                        and (status <> 'skipped' or detail <> 'The My Store module is switched off.')),
   'C · and the Store steps, which the chamber may switch on, say what they always said');
 -- Settings › Modules.
 select pg_temp.assert((select count(*) from app.module_states(:'chm')) = 18

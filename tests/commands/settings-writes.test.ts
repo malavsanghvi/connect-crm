@@ -208,17 +208,17 @@ describe("settings.set_module", () => {
     const { ctx, db } = asWriter();
     withReasonDb(db);
     const p = proposed(await runCommand(ctx, "settings.set_module", off));
-    expect(p.preview.summary).toBe("Switch off Satvik Store.");
+    expect(p.preview.summary).toBe("Switch off My Store.");
     expect(p.preview.lines).toEqual([
-      { label: "Module", value: "Satvik Store" },
+      { label: "Module", value: "My Store" },
       { label: "State", before: "On", after: "Off" },
       { label: "Why", value: "We do not run a store" },
     ]);
-    expect(p.preview.warnings).toEqual(["Satvik Store disappears from the portal and the member app, and the database refuses its data until it is switched on again."]);
-    expect(p.confirmText).toBe("Yes, switch off Satvik Store");
+    expect(p.preview.warnings).toEqual(["My Store disappears from the portal and the member app, and the database refuses its data until it is switched on again."]);
+    expect(p.confirmText).toBe("Yes, switch off My Store");
     expect(db.rpcCalls.some((c) => c.fn === "set_module_enabled")).toBe(false);
     const done = await confirmProposal(ctx, p.proposalId, p.inputHash);
-    expect(messageOf(done)).toBe("Satvik Store switched off · audit logged");
+    expect(messageOf(done)).toBe("My Store switched off · audit logged");
     expect(db.rpcCalls.find((c) => c.fn === "set_module_enabled")?.args).toEqual({ p_center: "center-1", p_module: "store", p_enabled: false, p_reason: "We do not run a store" });
     expect(vi.mocked(dbWithReason)).toHaveBeenCalledWith(expect.anything(), "We do not run a store");
     expect(revalidatePath).toHaveBeenCalledWith("/", "layout");
@@ -230,19 +230,19 @@ describe("settings.set_module", () => {
     const dependents = asWriter({ world: addSettingsWorld({ rpc: { module_states: MODULE_STATES.map((m) => (m.key === "bolis" ? { ...m, enabled: true } : m)) } }) });
     expect(failed(await runCommand(dependents.ctx, "settings.set_module", { module: "giving", enabled: false, reason: "x" }))).toBe("Bolis depends on Pledges & donations — switch it off first.");
     const notOffered = asWriter({ world: addSettingsWorld({ rpc: { module_states: MODULE_STATES.map((m) => (m.key === "store" ? { ...m, availability: "not_available", enabled: false } : m)) } }) });
-    expect(failed(await runCommand(notOffered.ctx, "settings.set_module", { module: "store", enabled: true, reason: "x" }))).toBe("Satvik Store is not offered to this kind of organization, so it cannot be switched.");
+    expect(failed(await runCommand(notOffered.ctx, "settings.set_module", { module: "store", enabled: true, reason: "x" }))).toBe("My Store is not offered to this kind of organization, so it cannot be switched.");
     const refused = asWriter({ world: addSettingsWorld({ failRpc: { set_module_enabled: { code: "P0001", message: "Pledges & donations is needed by Bolis" } } }) });
     withReasonDb(refused.db);
     const p = proposed(await runCommand(refused.ctx, "settings.set_module", off));
     const r = await confirmProposal(refused.ctx, p.proposalId, p.inputHash);
-    expect(failed(r)).toMatch(/^Could not switch off Satvik Store — /);
+    expect(failed(r)).toMatch(/^Could not switch off My Store — /);
     expect(JSON.stringify(r)).not.toMatch(/switched off ·/);
   });
 
   it("needs a reason, kept under 500 characters, in the screen's words", async () => {
     const { ctx } = asWriter();
-    expect(failed(await runCommand(ctx, "settings.set_module", { ...off, reason: "  " }))).toBe("Could not switch off Satvik Store — say why. The reason is kept in the audit log.");
-    expect(failed(await runCommand(ctx, "settings.set_module", { ...off, reason: "x".repeat(501) }))).toBe("Could not switch off Satvik Store — keep the reason under 500 characters.");
+    expect(failed(await runCommand(ctx, "settings.set_module", { ...off, reason: "  " }))).toBe("Could not switch off My Store — say why. The reason is kept in the audit log.");
+    expect(failed(await runCommand(ctx, "settings.set_module", { ...off, reason: "x".repeat(501) }))).toBe("Could not switch off My Store — keep the reason under 500 characters.");
   });
 
   it("says so when the database has no module switches yet", async () => {
@@ -250,7 +250,7 @@ describe("settings.set_module", () => {
     withReasonDb(db);
     const p = proposed(await runCommand(ctx, "settings.set_module", off));
     expect(failed(await confirmProposal(ctx, p.proposalId, p.inputHash))).toBe(
-      "Could not switch off Satvik Store — module switches are not in the database yet (the latest database update has not been applied). Every module stays on until then.",
+      "Could not switch off My Store — module switches are not in the database yet (the latest database update has not been applied). Every module stays on until then.",
     );
   });
 });

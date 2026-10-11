@@ -141,11 +141,11 @@ describe("revokeGrantAction", () => {
 describe("setModuleEnabledAction", () => {
   it("switches a module off and on and says what it always said", async () => {
     const { db } = setup();
-    expect(await setModuleEnabledAction("store", false, "  We do not run a store ")).toStrictEqual({ ok: true, message: "Satvik Store switched off · audit logged" });
+    expect(await setModuleEnabledAction("store", false, "  We do not run a store ")).toStrictEqual({ ok: true, message: "My Store switched off · audit logged" });
     expect(db.rpcCalls.find((c) => c.fn === "set_module_enabled")?.args).toEqual({ p_center: "center-1", p_module: "store", p_enabled: false, p_reason: "We do not run a store" });
     expect(await setModuleEnabledAction("bolis", true, "Autumn auction")).toStrictEqual({ ok: true, message: "Bolis switched on · audit logged" });
     expect(stub.asked).toEqual([
-      { key: "centerSettings", doing: "switch off Satvik Store" },
+      { key: "centerSettings", doing: "switch off My Store" },
       { key: "centerSettings", doing: "switch on Bolis" },
     ]);
     expect(vi.mocked(dbWithReason)).toHaveBeenCalledWith(expect.anything(), "We do not run a store");
@@ -157,8 +157,8 @@ describe("setModuleEnabledAction", () => {
     const sorry = (error: string) => ({ ok: false, error });
     expect(await setModuleEnabledAction("nonsense", false, "x")).toStrictEqual(sorry("Could not switch off the module — it is not one this app knows. Reload and try again."));
     expect(await setModuleEnabledAction("nonsense", true, "x")).toStrictEqual(sorry("Could not switch on the module — it is not one this app knows. Reload and try again."));
-    expect(await setModuleEnabledAction("store", false, "   ")).toStrictEqual(sorry("Could not switch off Satvik Store — say why. The reason is kept in the audit log."));
-    expect(await setModuleEnabledAction("store", false, "x".repeat(501))).toStrictEqual(sorry("Could not switch off Satvik Store — keep the reason under 500 characters."));
+    expect(await setModuleEnabledAction("store", false, "   ")).toStrictEqual(sorry("Could not switch off My Store — say why. The reason is kept in the audit log."));
+    expect(await setModuleEnabledAction("store", false, "x".repeat(501))).toStrictEqual(sorry("Could not switch off My Store — keep the reason under 500 characters."));
     stub.refusal = "Could not switch on Bolis — you don't have permission (needs settings.manage).";
     expect(await setModuleEnabledAction("bolis", true, "x")).toStrictEqual(sorry(stub.refusal));
   });
@@ -167,9 +167,9 @@ describe("setModuleEnabledAction", () => {
     setup({ world: addSettingsWorld({ failRpc: { set_module_enabled: { code: "42883", message: "function app.set_module_enabled does not exist" } } }) });
     expect(await setModuleEnabledAction("store", false, "x")).toStrictEqual({
       ok: false,
-      error: "Could not switch off Satvik Store — module switches are not in the database yet (the latest database update has not been applied). Every module stays on until then.",
+      error: "Could not switch off My Store — module switches are not in the database yet (the latest database update has not been applied). Every module stays on until then.",
     });
     setup({ world: addSettingsWorld({ rpc: { module_states: MODULE_STATES }, failRpc: { set_module_enabled: { code: "42501", message: "new row violates row-level security policy" } } }) });
-    expect(await setModuleEnabledAction("store", false, "x")).toStrictEqual({ ok: false, error: "Could not switch off Satvik Store — you don't have permission to make this change." });
+    expect(await setModuleEnabledAction("store", false, "x")).toStrictEqual({ ok: false, error: "Could not switch off My Store — you don't have permission to make this change." });
   });
 });

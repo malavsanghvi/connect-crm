@@ -1,4 +1,4 @@
-// Satvik Store: pure helpers shared by the console (Orders by pickup) and the
+// My Store: pure helpers shared by the console (Orders by pickup) and the
 // kitchen display. Sales, not giving — nothing here touches pledges or funds.
 
 export type OrderLike = { id: string; status: string; pickup_window_id: string | null };

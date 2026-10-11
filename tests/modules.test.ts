@@ -144,7 +144,7 @@ describe("modules-db helpers", () => {
   it("modulesOffFrom ignores core rows and sorts", () => {
     expect(
       modulesOffFrom([
-        { key: "store", label: "Satvik Store", enabled: false, core: false },
+        { key: "store", label: "My Store", enabled: false, core: false },
         { key: "people", label: "Members", enabled: false, core: true },
         { key: "bolis", label: "Bolis", enabled: false, core: false },
         { key: "giving", label: "Giving", enabled: true, core: false },
@@ -156,7 +156,7 @@ describe("modules-db helpers", () => {
 describe("moduleOffMessage", () => {
   it("uses the contract's wording", async () => {
     const { moduleOffMessage } = await import("@/lib/modules");
-    expect(moduleOffMessage("store", "JSH")).toBe("The Satvik Store module is switched off for JSH. An administrator can switch it on in Settings › Modules.");
+    expect(moduleOffMessage("store", "JSH")).toBe("The My Store module is switched off for JSH. An administrator can switch it on in Settings › Modules.");
   });
 });
 
@@ -174,7 +174,7 @@ describe("Settings › Modules rows", () => {
       [
         { key: "giving", label: "Pledges & donations", description: null, core: false, depends_on: ["people"], sort: 20 },
         { key: "people", label: "Members & families", description: "Core", core: true, depends_on: null, sort: 10 },
-        { key: "store", label: "Satvik Store", description: "Shop", core: false, depends_on: ["people"], sort: 30 },
+        { key: "store", label: "My Store", description: "Shop", core: false, depends_on: ["people"], sort: 30 },
       ],
       [
         { module_key: "store", enabled: false, changed_by: "u1", changed_at: "2026-09-24T10:00:00Z", reason: "Closed for renovation" },

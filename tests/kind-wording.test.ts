@@ -247,7 +247,7 @@ describe("The community dashboard", () => {
     });
     expect(before.practice).toHaveLength(5); // gyan_levels is not in this sample
     expect(before.learning.map((r) => r.label)).toEqual(["Pathshala students", "Volunteer teachers", "Class attendance rate"]);
-    expect(before.seva.map((r) => r.label)).toEqual(["Satvik Store orders"]);
+    expect(before.seva.map((r) => r.label)).toEqual(["My Store orders"]);
   });
   it("a chamber's dashboard has no practice, Pathshala or Satvik words", () => {
     const v = buildDashboard(raw, period, chamber);
