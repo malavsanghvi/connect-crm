@@ -2,8 +2,11 @@
 // people file the existing import tool stages. Pure (no I/O).
 
 import { normHeader } from "@/lib/import/mapping";
-import { cleanText, toDate, toE164, toEmail, type Transformed } from "@/lib/import/transforms";
+import { languageFromText } from "@/lib/languages";
+import { cleanText, toDate, toEmail, type Transformed } from "@/lib/import/transforms";
+import { parsePhone } from "./intl/phone";
 import type { Group, PayerInput } from "./match";
+import { splitFullName } from "./resolve/names";
 
 export type PersonFieldKey =
   | "firstName" | "lastName" | "fullName" | "relationship" | "email" | "phone" | "dob" | "gender" | "language"
@@ -22,7 +25,7 @@ export const PERSON_FIELDS: readonly PersonField[] = [
   { key: "phone", label: "Mobile", required: false, hint: "", example: "281-555-0142", synonyms: ["phone", "cell", "mobile phone", "cell phone", "phone number", "phone 1"] },
   { key: "dob", label: "Birth date", required: false, hint: "Decides who is a minor.", example: "1986-04-12", synonyms: ["dob", "birthday", "date of birth", "birthdate"] },
   { key: "gender", label: "Gender", required: false, hint: "Female, male or other.", example: "male", synonyms: ["sex"] },
-  { key: "language", label: "Language", required: false, hint: "English, Gujarati or Hindi.", example: "English", synonyms: ["preferred language"] },
+  { key: "language", label: "Language", required: false, hint: "Any language, by name or code (English, Spanish, es).", example: "English", synonyms: ["preferred language"] },
   { key: "address1", label: "Address", required: false, hint: "Helps match the family.", example: "12 Lotus Lane", synonyms: ["address line 1", "street", "street address", "address 1"] },
   { key: "address2", label: "Address line 2", required: false, hint: "", example: "Apt 4", synonyms: ["address 2", "apt", "unit"] },
   { key: "city", label: "City", required: false, hint: "", example: "Sugar Land", synonyms: ["town"] },
@@ -79,12 +82,9 @@ function genderOf(text: string): "female" | "male" | "other" | null {
   return "other";
 }
 
-function languageOf(text: string): "en" | "gu" | "hi" | null {
-  const s = cleanText(text).toLowerCase();
-  if (/^(en|english)/.test(s)) return "en";
-  if (/^(gu|gujarati)/.test(s)) return "gu";
-  if (/^(hi|hindi)/.test(s)) return "hi";
-  return null;
+/** A language written as its name or code ("Spanish", "es", "pt-BR"); any language, null when it is neither. */
+function languageOf(text: string): string | null {
+  return languageFromText(cleanText(text));
 }
 
 export type ParsedPerson = {
@@ -98,7 +98,7 @@ export type ParsedPerson = {
   phone: string | null;
   dob: string | null;
   gender: "female" | "male" | "other" | null;
-  language: "en" | "gu" | "hi" | null;
+  language: string | null;
   address1: string | null;
   address2: string | null;
   city: string | null;
@@ -112,21 +112,20 @@ export type PersonProblem = { rowNo: number; column: string; level: "error" | "w
 
 const unwrap = <T,>(t: Transformed<T>): T | null => (t.ok ? t.value : null);
 
-function splitFull(full: string): { first: string; last: string } {
-  const s = cleanText(full);
-  const comma = s.indexOf(",");
-  if (comma > 0) return { last: s.slice(0, comma).trim(), first: s.slice(comma + 1).trim() };
-  const parts = s.split(" ");
-  if (parts.length === 1) return { first: "", last: parts[0]! };
-  return { first: parts.slice(0, -1).join(" "), last: parts[parts.length - 1]! };
-}
+const splitFull = splitFullName;
 
 /** Check every row by what the column is. Bad optional values are dropped with a warning; a missing name stops that row. */
 export function validatePeople(
   headers: readonly string[],
   rows: readonly (readonly string[])[],
   choices: readonly PersonChoice[],
-  opts: { dateOrder?: "mdy" | "dmy"; rowOffset?: number; today?: string } = {},
+  opts: {
+    dateOrder?: "mdy" | "dmy";
+    rowOffset?: number;
+    today?: string;
+    /** The community's country (an ISO code such as "GB"), read from its profile: a phone number without a country code is read in it. */
+    country?: string | null;
+  } = {},
 ): { rows: ParsedPerson[]; problems: PersonProblem[]; badRows: Set<number> } {
   const idx = Object.fromEntries(PERSON_FIELDS.map((f) => [f.key, choices.indexOf(f.key)])) as Record<PersonFieldKey, number>;
   const out: ParsedPerson[] = [];
@@ -157,8 +156,9 @@ export function validatePeople(
     }
     let phone: string | null = null;
     if (cell("phone")) {
-      phone = unwrap(toE164(cell("phone")));
-      if (!phone) warn("Mobile", `"${cell("phone")}" is not a phone number; it was left out`);
+      const parsed = parsePhone(cell("phone"), opts.country);
+      phone = parsed.ok ? parsed.e164 : null;
+      if (!phone) warn("Mobile", `"${cell("phone")}" is not a phone number${parsed.ok || parsed.reason !== "country_unknown" ? "" : " with a country code"}; it was left out`);
     }
     let dob: string | null = null;
     if (cell("dob")) {
@@ -201,6 +201,8 @@ export function personToInput(p: ParsedPerson): PayerInput {
   return {
     rowNo: p.rowNo,
     name: `${p.firstName} ${p.lastName}`.trim(),
+    firstName: p.firstName,
+    lastName: p.lastName,
     email: p.email,
     phone: p.phone,
     address1: p.address1,

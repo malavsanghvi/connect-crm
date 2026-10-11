@@ -41,11 +41,15 @@ describe("parseAmountToCents", () => {
     ["+7", 700],
     ["-$12.50", -1250],
     ["($1,000.00)", -100000],
+    // any one currency symbol, and the grouping of the community's country
+    ["£12", 1200],
+    ["₹1,25,000.50", 12500050],
+    ["-₹12.50", -1250],
   ])("parses %j", (input, cents) => {
     expect(parseAmountToCents(input)).toBe(cents);
   });
 
-  it.each(["", "abc", "12.345", "1.2.3", "$", "12,34a", "--5", "-$-5", "(-5)", "+-5", null, undefined])("rejects %j", (input) => {
+  it.each(["", "abc", "12.345", "1.2.3", "$", "12,34a", "--5", "-$-5", "(-5)", "+-5", "££5", "₹", null, undefined])("rejects %j", (input) => {
     expect(parseAmountToCents(input as string)).toBeNull();
   });
 });

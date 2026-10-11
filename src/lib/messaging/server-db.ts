@@ -11,14 +11,14 @@ import pg from "pg";
 // background service uses as WORKER_DATABASE_URL, which is the fallback).
 
 let pool: pg.Pool | null = null;
+let demoPool: pg.Pool | null = null;
 let warned = false;
 
 export function workerDbConfigured(): boolean {
   return !!(process.env.PORTAL_DATABASE_URL?.trim() || process.env.WORKER_DATABASE_URL?.trim());
 }
 
-function getPool(): pg.Pool | null {
-  if (pool) return pool;
+function poolConfig(max: number, applicationName: string, extra: pg.PoolConfig = {}): pg.PoolConfig | null {
   const raw = process.env.PORTAL_DATABASE_URL?.trim() || process.env.WORKER_DATABASE_URL?.trim();
   if (!raw) {
     if (!warned) {
@@ -31,13 +31,21 @@ function getPool(): pg.Pool | null {
   const mode = url.searchParams.get("sslmode");
   for (const p of ["sslmode", "sslrootcert", "sslcert", "sslkey", "uselibpqcompat"]) url.searchParams.delete(p);
   const local = ["localhost", "127.0.0.1", "::1", "[::1]"].includes(url.hostname);
-  pool = new pg.Pool({
+  return {
     connectionString: url.toString(),
-    max: 4,
+    max,
     idleTimeoutMillis: 30000,
-    application_name: "connect-portal-hooks",
+    application_name: applicationName,
     ssl: mode === "disable" || (local && !mode) ? false : { rejectUnauthorized: false },
-  });
+    ...extra,
+  };
+}
+
+function getPool(): pg.Pool | null {
+  if (pool) return pool;
+  const config = poolConfig(4, "connect-portal-hooks");
+  if (!config) return null;
+  pool = new pg.Pool(config);
   pool.on("error", (err) => console.error("[messaging] idle database connection failed:", err.message));
   return pool;
 }
@@ -47,4 +55,40 @@ export async function workerQuery<T extends Record<string, unknown>>(text: strin
   const p = getPool();
   if (!p) return null;
   return (await p.query(text, params)).rows as T[];
+}
+
+// "Try the demo" (B88): its own one-connection pool, so a burst of demo starts can never use up the connections that the sign-in
+// hooks and the webhooks above need. A start that finds others already waiting, or waits more than a few seconds for the
+// connection, is told the demo is busy (src/lib/demo-signin/server.ts turns this into the "busy" answer).
+export class DemoBusyError extends Error {
+  constructor() {
+    super("The demo database connection is busy.");
+    this.name = "DemoBusyError";
+  }
+}
+
+/** How many demo starts may wait for the one connection before the next one is turned away. */
+export const DEMO_MAX_WAITING = 4;
+const DEMO_CONNECT_TIMEOUT_MS = 4000;
+
+function getDemoPool(): pg.Pool | null {
+  if (demoPool) return demoPool;
+  const config = poolConfig(1, "connect-portal-demo", { connectionTimeoutMillis: DEMO_CONNECT_TIMEOUT_MS });
+  if (!config) return null;
+  demoPool = new pg.Pool(config);
+  demoPool.on("error", (err) => console.error("[demo] idle database connection failed:", err.message));
+  return demoPool;
+}
+
+/** Like workerQuery, on the demo's own one-connection pool. Throws DemoBusyError when it is saturated. */
+export async function demoWorkerQuery<T extends Record<string, unknown>>(text: string, params: unknown[]): Promise<T[] | null> {
+  const p = getDemoPool();
+  if (!p) return null;
+  if (p.waitingCount >= DEMO_MAX_WAITING) throw new DemoBusyError();
+  try {
+    return (await p.query(text, params)).rows as T[];
+  } catch (error) {
+    if (error instanceof Error && /timeout exceeded when trying to connect/i.test(error.message)) throw new DemoBusyError();
+    throw error;
+  }
 }

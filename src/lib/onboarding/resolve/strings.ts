@@ -1,8 +1,12 @@
 // Every sentence a person reads from the resolve engine. English now; the Gujarati (gu) and Hindi (hi) keys are present and
-// empty, and a missing translation falls back to English, so nothing is ever blank. Plain words, no jargon.
+// empty, and a missing translation falls back to English, so nothing is ever blank. Any other language a community uses (es, fr,
+// ar ...) is accepted as a locale and reads English until its wording is added. Plain words, no jargon.
 // Placeholders: {n} is a count; plural variants end in ".one".
 
-export type Locale = "en" | "gu" | "hi";
+import { primaryLanguage } from "@/lib/languages";
+
+/** A language code: "en", "gu", "hi", or any other ("es", "pt-BR", "ar"). Languages without wording here read English. */
+export type Locale = string;
 
 type Entry = { en: string; gu: string | null; hi: string | null };
 const s = (en: string): Entry => ({ en, gu: null, hi: null });
@@ -100,7 +104,8 @@ export function text(key: StringKey, locale: Locale = "en", params: Record<strin
   let k: StringKey = key;
   if (params.n === 1 && `${key}.one` in STRINGS) k = `${key}.one` as StringKey;
   const entry: Entry = STRINGS[k];
-  const raw = (locale === "gu" ? entry.gu : locale === "hi" ? entry.hi : entry.en) ?? entry.en;
+  const language = primaryLanguage(locale);
+  const raw = (language === "gu" ? entry.gu : language === "hi" ? entry.hi : entry.en) ?? entry.en;
   return raw.replace(/\{(\w+)\}/g, (_m, name: string) => (name in params ? String(params[name]) : `{${name}}`));
 }
 

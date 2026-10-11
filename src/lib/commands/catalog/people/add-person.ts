@@ -1,6 +1,6 @@
 import { isHouseholdRole, normalizePhone, parseDateInput, RELATIONSHIP_OPTIONS, type HouseholdRole } from "@/lib/people";
 
-import { isAdultMember } from "../../child-filter";
+import { communityMajority, isAdultMember } from "../../child-filter";
 import { defineCommand } from "../../define";
 import { revalidateAfterCommand } from "../../revalidate";
 import { f, object, type Infer } from "../../schema";
@@ -48,7 +48,7 @@ function plan(ctx: CommandContext, inp: AddPersonInput): Plan {
   const email = (inp.email ?? "").trim().toLowerCase();
   if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new CommandError("Could not add the person — that email address does not look right.");
   // D2: Niva does not add children. The screen is the person's own hands.
-  if (ctx.via === "assistant" && !isAdultMember({ date_of_birth: dob.value, role }, today(ctx))) throw new CommandError(CHILD_RECORDS_ON_SCREEN);
+  if (ctx.via === "assistant" && !isAdultMember({ date_of_birth: dob.value, role }, today(ctx), communityMajority(ctx.session.center))) throw new CommandError(CHILD_RECORDS_ON_SCREEN);
   return { household: inp.household_id, first, last, role, dob: dob.value, gender: (inp.gender ?? "").trim(), email, phone: phone.value };
 }
 

@@ -7,14 +7,13 @@ import { Card, buttonClass } from "@/components/ui";
 import {
   DEFAULT_RSVP_STATUSES,
   EMPTY_SELECTION,
-  LANGUAGES,
   buildAudience,
   composeAction,
   parseAudience,
   requiresSecondApprover,
   type AudienceSelection,
-  type LanguageCode,
 } from "@/lib/comms";
+import { languageLabel, primaryLanguage, textDirection } from "@/lib/languages";
 
 import { previewRecipientsAction, saveCampaignAction, submitNewsletterAction } from "./actions";
 import { CustomSegmentPicker, type CustomFieldOption } from "./custom-segment-picker";
@@ -65,17 +64,31 @@ export function NewsletterCompose({
   canApprove,
   myEmail,
   campaign,
+  languages = ["en"],
 }: {
   options: ComposeOptions;
   canApprove: boolean;
   myEmail: string | null;
   campaign?: CampaignDraft;
+  /** The community's languages, preferred first (Setup > Profile). The message is written in the first; each other one can have a translation. */
+  languages?: string[];
 }) {
+  const main = languages[0] ?? "en";
+  // The other languages the community uses, plus any the saved campaign already has a translation in (so none is ever hidden).
+  const translatable = useMemo(() => {
+    const out = languages.filter((l) => primaryLanguage(l) !== primaryLanguage(main));
+    if (campaign && campaign.translations && typeof campaign.translations === "object") {
+      for (const code of Object.keys(campaign.translations as Record<string, unknown>)) if (!out.includes(code) && code !== main) out.push(code);
+    }
+    return out;
+  }, [languages, main, campaign]);
   const [sel, setSel] = useState<AudienceSelection>(() => (campaign ? parseAudience(campaign.audience) : { ...EMPTY_SELECTION }));
   const [channels, setChannels] = useState<string[]>(campaign?.channels ?? ["email", "push", "in_app"]);
-  const [langs, setLangs] = useState<LanguageCode[]>(() => {
-    const out: LanguageCode[] = ["en"];
-    if (campaign) for (const l of LANGUAGES) if (l.code !== "en" && translationOf(campaign.translations, l.code).title) out.push(l.code);
+  const [langs, setLangs] = useState<string[]>(() => {
+    const out: string[] = [];
+    if (campaign && campaign.translations && typeof campaign.translations === "object") {
+      for (const code of Object.keys(campaign.translations as Record<string, unknown>)) if (translationOf(campaign.translations, code).title) out.push(code);
+    }
     return out;
   });
   const [count, setCount] = useState<{ n: number | null; error: string | null }>({ n: null, error: null });
@@ -107,8 +120,7 @@ export function NewsletterCompose({
   const toggle = (k: "allMembers" | "lifeMembers") => setSel((s) => ({ ...s, [k]: !s[k] }));
   const toggleZone = (id: string) => setSel((s) => ({ ...s, zoneIds: s.zoneIds.includes(id) ? s.zoneIds.filter((z) => z !== id) : [...s.zoneIds, id] }));
   const toggleChannel = (v: string) => setChannels((c) => (c.includes(v) ? c.filter((x) => x !== v) : [...c, v]));
-  const toggleLang = (code: LanguageCode) => {
-    if (code === "en") return;
+  const toggleLang = (code: string) => {
     setLangs((l) => (l.includes(code) ? l.filter((x) => x !== code) : [...l, code]));
   };
 
@@ -229,9 +241,12 @@ export function NewsletterCompose({
             <div>
               <p className="crm-label">Language</p>
               <div className="flex flex-wrap gap-1.5" role="group" aria-label="Languages">
-                {LANGUAGES.map((l) => (
-                  <Chip key={l.code} on={langs.includes(l.code)} onClick={() => toggleLang(l.code)} title={l.code === "en" ? "English is always included" : "Add a translation"}>
-                    {l.label}
+                <Chip on disabled title="The message is written in this language">
+                  {languageLabel(main)}
+                </Chip>
+                {translatable.map((code) => (
+                  <Chip key={code} on={langs.includes(code)} onClick={() => toggleLang(code)} title="Add a translation">
+                    {languageLabel(code)}
                   </Chip>
                 ))}
               </div>
@@ -244,24 +259,29 @@ export function NewsletterCompose({
             </div>
             <div className="sm:col-span-2">
               <label htmlFor="nl-body" className="crm-label">
-                Message
+                Message · {languageLabel(main)}
               </label>
-              <textarea id="nl-body" name="body_md" required rows={7} defaultValue={campaign?.body_md ?? ""} className="crm-input" />
+              <textarea id="nl-body" name="body_md" required rows={7} defaultValue={campaign?.body_md ?? ""} className="crm-input" dir={textDirection(main)} />
+              {translatable.some((c) => !langs.includes(c)) ? (
+                <p className="mt-1 text-[12px] text-muted">
+                  Not translated yet: {translatable.filter((c) => !langs.includes(c)).map(languageLabel).join(", ")}. Families who read those languages get this message until a person adds a translation.
+                </p>
+              ) : null}
             </div>
-            {LANGUAGES.filter((l) => l.code !== "en").map((l) =>
-              langs.includes(l.code) ? (
-                <div key={l.code} className="flex flex-col gap-2 sm:col-span-2">
+            {translatable.map((code) =>
+              langs.includes(code) ? (
+                <div key={code} className="flex flex-col gap-2 sm:col-span-2">
                   <div>
-                    <label htmlFor={`nl-title-${l.code}`} className="crm-label">
-                      Subject · {l.label}
+                    <label htmlFor={`nl-title-${code}`} className="crm-label">
+                      Subject · {languageLabel(code)}
                     </label>
-                    <input id={`nl-title-${l.code}`} name={`title_${l.code}`} defaultValue={translationOf(campaign?.translations, l.code).title} className="crm-input" />
+                    <input id={`nl-title-${code}`} name={`title_${code}`} defaultValue={translationOf(campaign?.translations, code).title} className="crm-input" dir={textDirection(code)} lang={code} />
                   </div>
                   <div>
-                    <label htmlFor={`nl-body-${l.code}`} className="crm-label">
-                      Message · {l.label}
+                    <label htmlFor={`nl-body-${code}`} className="crm-label">
+                      Message · {languageLabel(code)}
                     </label>
-                    <textarea id={`nl-body-${l.code}`} name={`body_${l.code}`} rows={4} defaultValue={translationOf(campaign?.translations, l.code).body_md} className="crm-input" />
+                    <textarea id={`nl-body-${code}`} name={`body_${code}`} rows={4} defaultValue={translationOf(campaign?.translations, code).body_md} className="crm-input" dir={textDirection(code)} lang={code} />
                   </div>
                 </div>
               ) : null,

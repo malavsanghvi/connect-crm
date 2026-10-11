@@ -66,7 +66,7 @@ export const recordPayment = defineCommand<RecordPaymentInput, RecordedPaymentDa
   title: "Record a payment",
   description:
     "Record an offline payment (check, cash, ACH, Zelle or stock) for a household and apply it to its pledges, earliest open pledge first. " +
-    "This asks the person to confirm first, showing the household card, the amount in dollars, the method and date, and which pledges it would close; nothing is saved until they press the button, and exactly what the card shows is what is recorded. " +
+    "This asks the person to confirm first, showing the household card, the amount, the method and date, and which pledges it would close; nothing is saved until they press the button, and exactly what the card shows is what is recorded. " +
     "It needs the household's id (find it with people.search; never guess from a name). Use giving.draft_payment first to talk through partial payments and overpayments. " +
     "The payment and its pledge allocations are saved together or not at all, and one confirmation can never record it twice.",
   level: "confirm",

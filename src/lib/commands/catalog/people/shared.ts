@@ -4,7 +4,7 @@
 import { todayInTz } from "@/lib/dates";
 import { relationshipLabel } from "@/lib/people";
 
-import { isAdultMember } from "../../child-filter";
+import { communityMajority, isAdultMember } from "../../child-filter";
 import { CommandError, type CommandContext, type CommandFailure, type HouseholdCard } from "../../types";
 import { failure } from "@/lib/errors";
 import { adultHouseholdCards } from "../household";
@@ -52,7 +52,8 @@ export async function loadPersonBrief(ctx: CommandContext, id: string): Promise<
   if (!p) return null;
   const links = (must(await db.from("household_members").select("household_id, role, is_primary").eq("person_id", id).is("left_at", null), "read the person's households") ?? []) as PersonBrief["links"];
   const now = today(ctx);
-  const isAdult = p.date_of_birth ? isAdultMember({ date_of_birth: p.date_of_birth }, now) : links.length > 0 && links.every((l) => isAdultMember({ date_of_birth: null, role: l.role }, now));
+  const majority = communityMajority(ctx.session.center);
+  const isAdult = p.date_of_birth ? isAdultMember({ date_of_birth: p.date_of_birth }, now, majority) : links.length > 0 && links.every((l) => isAdultMember({ date_of_birth: null, role: l.role }, now, majority));
   return { id: p.id, name: fullName(p), firstName: p.first_name, dateOfBirth: p.date_of_birth, memberNumber: p.member_number, mergedInto: p.merged_into_id, links, isAdult };
 }
 
@@ -65,7 +66,7 @@ export function refuseChildForAssistant(ctx: CommandContext, person: Pick<Person
 export async function cardsFor(ctx: CommandContext, ids: readonly (string | null | undefined)[]): Promise<HouseholdCard[]> {
   const unique = [...new Set(ids.filter((x): x is string => !!x))];
   if (unique.length === 0) return [];
-  const { cards } = await adultHouseholdCards(ctx.session.db, unique, { today: today(ctx), currency: ctx.session.center.currency });
+  const { cards } = await adultHouseholdCards(ctx.session.db, unique, { today: today(ctx), currency: ctx.session.center.currency, majority: communityMajority(ctx.session.center) });
   return cards;
 }
 

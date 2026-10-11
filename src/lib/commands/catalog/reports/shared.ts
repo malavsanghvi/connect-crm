@@ -5,7 +5,9 @@ import { addDays, formatDate, todayInTz } from "@/lib/dates";
 import { formatCents } from "@/lib/money";
 import { isModuleEnabled, moduleDef, moduleOffMessage, type ModuleKey } from "@/lib/modules";
 import { canAccess, type AccessKey } from "@/lib/permissions";
+import { loadFiscalStart } from "@/lib/reports/fiscal";
 import type { Section } from "@/lib/reports/load";
+import { chosenYear, currentFiscalYear, startOfFiscalYear, yearWindow, type YearWindow } from "@/lib/reports/periods";
 
 import { f } from "../../schema";
 import { CommandDbError, CommandError, type CommandContext } from "../../types";
@@ -61,7 +63,28 @@ export function resolveRange(
   return { from, to, today, words: `${formatDate(from, tz)} to ${formatDate(to, tz)}` };
 }
 
+/** The first day of this year: January 1 (use fiscalYearStart for the community's own financial year). */
 export const startOfYear = (today: string): string => `${today.slice(0, 4)}-01-01`;
+
+/**
+ * The community's financial year for a question about "a year": the window asked for (or this year's), and the note to tell the person
+ * when the start of the financial year could not be read and the calendar year was used instead.
+ */
+export async function fiscalYear(ctx: CommandContext, asked?: number): Promise<{ today: string; w: YearWindow; note: string | null }> {
+  const today = todayOf(ctx);
+  const fiscal = await loadFiscalStart(ctx.session.db, ctx.session.center.id);
+  const currentYear = currentFiscalYear(today, fiscal.month);
+  return { today, w: yearWindow(chosenYear(asked ?? currentYear, currentYear), currentYear, today, fiscal.month), note: fiscal.problem };
+}
+
+/**
+ * The start of "this year so far" for a question with no dates: the first day of the community's financial year. Returns the function
+ * resolveRange wants, plus the note to tell the person when the start of the financial year could not be read.
+ */
+export async function fiscalYearStart(ctx: CommandContext): Promise<{ from: (today: string) => string; note: string | null }> {
+  const fiscal = await loadFiscalStart(ctx.session.db, ctx.session.center.id);
+  return { from: (today) => startOfFiscalYear(today, fiscal.month), note: fiscal.problem };
+}
 export const thirtyDaysAgo = (today: string): string => addDays(today, -29);
 
 /** "+12%" style words, or null when there is nothing to compare with. */

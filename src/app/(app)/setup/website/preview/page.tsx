@@ -3,6 +3,7 @@ import Link from "next/link";
 
 import { Card, EmptyState, QueryError, buttonClass } from "@/components/ui";
 import { param, type RawSearchParams } from "@/lib/search-params";
+import { loadCommunityLocale } from "@/lib/community-locale";
 import { getSession } from "@/lib/session";
 
 import { SetupHeader, setupGate } from "../../_components/setup-ui";
@@ -23,6 +24,7 @@ export default async function WebsiteDraftPreviewPage({ searchParams }: { search
   if (gate) return gate;
   const sp = await searchParams;
   const loaded = await loadStoredDraft(session.db, session.center.id, true, "load your website draft");
+  const community = await loadCommunityLocale(session.db, session.center);
   const back = (
     <Link href="/setup/website" className={buttonClass("ghost")}>
       Back to Your website
@@ -78,7 +80,7 @@ export default async function WebsiteDraftPreviewPage({ searchParams }: { search
             </p>
           </div>
         </Card>
-        <SitePreview draft={draft} page={page} basePath={BASE} />
+        <SitePreview draft={draft} page={page} basePath={BASE} locale={community.locale} />
         <Card title="Approve this page">
           <ApprovePage key={page.id} pageId={page.id} title={page.title} initial={page.status} standIns={standIns} />
         </Card>

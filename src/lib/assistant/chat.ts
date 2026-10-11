@@ -12,7 +12,8 @@
 import { randomUUID } from "node:crypto";
 
 import { addUsage, type AiTokens } from "@/lib/anthropic-cache";
-import { filterChildren } from "@/lib/commands/child-filter";
+import { communityFormat } from "@/lib/community-format";
+import { communityMajority, filterChildren, type MinorNameEntry } from "@/lib/commands/child-filter";
 import { defaultRegistry, commandKeyFromToolName } from "@/lib/commands/registry";
 import { runCommand } from "@/lib/commands/run";
 import type { CommandContext } from "@/lib/commands/types";
@@ -161,7 +162,7 @@ async function* converse(deps: ChatDeps, request: ChatRequest, tally: Tally): As
   const minorsOnce = ctx.minors ? ctx.minors.namesOfMinors(session) : Promise.reject(new Error("no way to tell which names belong to children"));
   minorsOnce.catch(() => undefined);
   const run: CommandContext = { ...ctx, via: "assistant", minors: { namesOfMinors: () => minorsOnce } };
-  let minorNames: string[];
+  let minorNames: MinorNameEntry[];
   try {
     minorNames = await minorsOnce;
   } catch (error) {
@@ -170,7 +171,8 @@ async function* converse(deps: ChatDeps, request: ChatRequest, tally: Tally): As
     return;
   }
   const today = todayInTz(session.center.time_zone, ctx.now?.());
-  const clean = (text: string): string => filterChildren(text, { minorNames, today }).value;
+  const majority = communityMajority(session.center);
+  const clean = (text: string): string => filterChildren(text, { minorNames, today, majority }).value;
   const message = clean(typed);
 
   const earlier = fitHistory((await deps.log.history(threadId)).map((turn) => ({ role: turn.role, text: clean(turn.text) })));
@@ -186,6 +188,9 @@ async function* converse(deps: ChatDeps, request: ChatRequest, tally: Tally): As
   // The part that is the same on every request comes first and can be cached; who is asking, the date and the page follow it.
   const prompt = systemPromptParts({
     centerName: session.center.name,
+    currency: session.center.currency,
+    locale: communityFormat(session.center).locale,
+    kind: session.kind,
     roles: session.roles.map((r) => r.name),
     today,
     timeZone: session.center.time_zone,

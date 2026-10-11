@@ -1,23 +1,36 @@
 // Small text helpers for the draft generator. They only re-shape words and numbers that were already in the data
 // (cut at a sentence, write a date out, drop a menu that was read together with a page's text); they never add a fact.
 
-const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+/** What Weaver has always written: used when a community's locale is not known. */
+export const DEFAULT_LOCALE = "en-US";
 
-/** "2026-09-13" as "September 13, 2026"; anything else comes back as it was. */
-export function longDate(iso: string): string {
-  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso);
-  if (!m) return iso;
-  const month = MONTHS[Number(m[2]) - 1];
-  return month ? `${month} ${Number(m[3])}, ${m[1]}` : iso;
+/** A formatter for the locale, or for English (US) when the platform does not know the locale. */
+function formatter(locale: string | null | undefined, options: Intl.DateTimeFormatOptions): Intl.DateTimeFormat {
+  try {
+    return new Intl.DateTimeFormat(locale || DEFAULT_LOCALE, options);
+  } catch {
+    return new Intl.DateTimeFormat(DEFAULT_LOCALE, options);
+  }
 }
 
-/** "18:30" as "6:30 PM". */
-export function clockTime(hhmm: string): string {
+/**
+ * "2026-09-13" written out in the community's locale: "September 13, 2026" in the US, "13 September 2026" in Britain, "13 de septiembre
+ * de 2026" in Spanish. Anything that is not a real date comes back as it was.
+ */
+export function longDate(iso: string, locale?: string | null): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso);
+  if (!m) return iso;
+  const d = new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3])));
+  if (d.getUTCFullYear() !== Number(m[1]) || d.getUTCMonth() !== Number(m[2]) - 1 || d.getUTCDate() !== Number(m[3])) return iso;
+  return formatter(locale, { year: "numeric", month: "long", day: "numeric", timeZone: "UTC" }).format(d);
+}
+
+/** "18:30" as "6:30 PM" in the US, "18:30" in most of the world, in the community's locale. Anything that is not a time comes back as it was. */
+export function clockTime(hhmm: string, locale?: string | null): string {
   const m = /^(\d{2}):(\d{2})/.exec(hhmm);
-  if (!m) return hhmm;
-  const h = Number(m[1]);
-  const hour12 = h % 12 === 0 ? 12 : h % 12;
-  return `${hour12}:${m[2]} ${h < 12 ? "AM" : "PM"}`;
+  if (!m || Number(m[1]) > 23 || Number(m[2]) > 59) return hhmm;
+  const d = new Date(Date.UTC(2000, 0, 1, Number(m[1]), Number(m[2])));
+  return formatter(locale, { hour: "numeric", minute: "2-digit", timeZone: "UTC" }).format(d).replace(/[  ]/g, " ");
 }
 
 /** At most `max` characters, ending at the end of a sentence when there is one in reach, else at a word ("…" added). */

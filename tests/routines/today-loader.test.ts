@@ -95,9 +95,11 @@ describe("what Today counts for a treasurer", () => {
     expect(facts.today).toBe("2026-10-16");
     expect(facts.counts).toMatchObject({ bank_lines: 7, pledges_overdue: 2, pledges_due_week: 3, applications: 4, events_week: 1, deposits: 1, giving_approvals: 0 });
     expect(facts.events).toEqual([{ id: "e9", name: "Diwali Dinner", days: 4 }]);
-    // Nothing about Pathshala is touched for a treasurer.
+    // Nothing about Pathshala is touched for a treasurer. The only database function called is the one that says which payment ways the community has.
     expect(fake.tables().filter((t) => t.startsWith("pathshala") || t === "gyan_signoffs")).toEqual([]);
-    expect(fake.rpcCalls).toEqual([]);
+    expect(fake.rpcCalls).toEqual(["payment_plugin_settings"]);
+    // That answer was not available here, so the routine does not name a payment way (null, not an empty list).
+    expect(facts.paymentPlugins).toBeNull();
     expect(facts.failed).toEqual({});
   });
 

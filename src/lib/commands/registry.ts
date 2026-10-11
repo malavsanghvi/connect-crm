@@ -3,6 +3,7 @@
 
 import { commandAvailability, type AvailabilitySession } from "./enabled";
 import type { JsonObjectSchema } from "./schema";
+import { describe } from "./text";
 import type { AnyCommand, CommandLevel, CommandVia } from "./types";
 
 export const COMMAND_KEY = /^[a-z]+\.[a-z][a-z0-9_]*$/;
@@ -37,7 +38,7 @@ export class CommandRegistry {
     if (!COMMAND_KEY.test(command.key)) throw new Error(`${where}: the key must look like area.verb, in lower case.`);
     if (this.commands.has(command.key)) throw new Error(`${where} is already registered.`);
     if (!LEVELS.includes(command.level)) throw new Error(`${where}: unknown level "${command.level}".`);
-    if (!command.title.trim() || !command.description.trim()) throw new Error(`${where}: it needs a title and a description.`);
+    if (!command.title.trim() || !describe(command.description).trim()) throw new Error(`${where}: it needs a title and a description.`);
     if (command.level === "only_you") {
       if (command.execute) throw new Error(`${where}: an only_you command never runs, so it has no execute.`);
       if (!command.pointTo) throw new Error(`${where}: an only_you command says where the person does it (pointTo).`);
@@ -70,7 +71,7 @@ export class CommandRegistry {
   modelTools(session: AvailabilitySession): ModelTool[] {
     return this.list(session, "assistant").map((c) => ({
       name: toolName(c.key),
-      description: `${c.description.trim()}${LEVEL_NOTE[c.level]}`,
+      description: `${describe(c.description, session.kind).trim()}${LEVEL_NOTE[c.level]}`,
       input_schema: c.input.json(),
     }));
   }

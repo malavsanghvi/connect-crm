@@ -14,6 +14,8 @@ import "server-only";
 import { fetchAll } from "@/lib/data/fetch-all";
 import { explainError, type DbErrorLike } from "@/lib/errors";
 
+import { countryForCallingCode, parsePhone } from "../intl/phone";
+import { countryFromTimeZone } from "../intl/zone";
 import { makeConfig, type ConfigOverrides, type ResolveConfig } from "./config";
 import type { AnswerCode } from "./exceptions";
 import { isExistingRecordId, isResolvableEntity, rawRecordsFromImportRows, type ImportRowLike } from "./from-import";
@@ -48,8 +50,11 @@ import {
   type RunRow,
 } from "./views";
 
-/** Written with every saved result, so a run can be told apart from one made by a later version of the rules. */
-export const RESOLVE_ENGINE_VERSION = "resolve-1";
+/**
+ * Written with every saved result, so a run can be told apart from one made by a later version of the rules.
+ * resolve-2: names, phones, postal codes, street types and month names of every country and script (no default country).
+ */
+export const RESOLVE_ENGINE_VERSION = "resolve-2";
 
 // ---------------------------------------------------------------------------
 // The database, as far as this module needs it
@@ -165,6 +170,9 @@ async function sendPages<T>(pages: readonly T[][], send: (page: T[]) => Promise<
  * day/month order its own dates prove (a date the engine cannot read one way is flagged, never guessed).
  */
 export function makeRunConfig(records: readonly RawRecord[], today: string, overrides: ConfigOverrides = {}): ResolveConfig {
+  // The community's country comes from its profile. Only when nobody passed it, the file's own numbers with a country code
+  // (+44 ...) are asked: when nearly all of them agree, that is the country. It is never assumed to be the United States.
+  const country = overrides.country || overrides.defaultCountry ? overrides : { ...overrides, country: countryOfNumbers(records) ?? undefined };
   const bySource = new Map<string, unknown[]>();
   for (const r of records) {
     const list = bySource.get(r.source) ?? [];
@@ -178,7 +186,25 @@ export function makeRunConfig(records: readonly RawRecord[], today: string, over
     const found = detectDateOrder(values);
     if (found.order !== "unknown") dateOrderBySource[source] = found.order;
   }
-  return makeConfig(today, { ...overrides, dateOrderBySource });
+  return makeConfig(today, { ...country, dateOrderBySource });
+}
+
+/** The country nearly all of the file's phone numbers that carry a country code agree on, or null (at least 3 numbers, 80% of them). */
+export function countryOfNumbers(records: readonly RawRecord[]): string | null {
+  const counts = new Map<string, number>();
+  let total = 0;
+  for (const r of records) {
+    for (const v of [r.mobile, r.phone, r.phone2]) {
+      if (typeof v !== "string" || !/^\s*\(?\+/.test(v)) continue;
+      const p = parsePhone(v, null);
+      if (!p.ok) continue;
+      total += 1;
+      counts.set(p.callingCode, (counts.get(p.callingCode) ?? 0) + 1);
+    }
+  }
+  if (total < 3) return null;
+  const [top, n] = [...counts.entries()].sort((a, b) => b[1] - a[1])[0] ?? ["", 0];
+  return n / total >= 0.8 ? countryForCallingCode(top) : null;
 }
 
 // ---------------------------------------------------------------------------
@@ -254,6 +280,13 @@ export type ResolveRunInput = {
   centerId: string;
   /** YYYY-MM-DD in the community's time zone (decides who is under 18). */
   today: string;
+  /**
+   * The community's country as its profile holds it (an ISO code such as "GB"). It reads bare phone numbers and postal codes; when it
+   * is missing the engine does NOT assume the United States.
+   */
+  country?: string | null;
+  /** The community's time zone: when `country` is not passed, the country is read from it (Asia/Kolkata is India). */
+  timeZone?: string | null;
   overrides?: ConfigOverrides;
   locale?: Locale;
 };
@@ -289,7 +322,8 @@ export async function resolveStagedRun(db: ResolveDb, input: ResolveRunInput): P
     const records = await readStaged(db, input.runId, context);
     if (records.length === 0) return { ok: false, error: `${context} — there are no rows to check.` };
     const loaded = rulesFromRows(await call(db, "resolve_rules", { p_center: input.centerId }, context));
-    const cfg = makeRunConfig(records, input.today, input.overrides);
+    const country = input.country || countryFromTimeZone(input.timeZone);
+    const cfg = makeRunConfig(records, input.today, country ? { country, ...input.overrides } : input.overrides);
     const result = resolveRecords({ records, config: cfg, rules: loaded.rules, locale: input.locale });
     const metrics = metricsForRun(result, cfg, isExistingRecordId);
 

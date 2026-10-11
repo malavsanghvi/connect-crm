@@ -10,7 +10,7 @@ import { priceChange, type PriceChange } from "./pure";
 const input = object({
   item_id: f.optional(f.uuid("An existing product, to prepare a price change for it (its item_id, from store.products). Leave it out to prepare a new product.")),
   name: f.optional(f.string("A new product's name, like 'Samosa pack'. Needed for a new product.", { max: 120 })),
-  price: f.string("The price in dollars, like 8.99. For an existing product this is the new price.", { max: 20 }),
+  price: f.string("The price in the community's currency, like 8.99. For an existing product this is the new price.", { max: 20 }),
   pack_size: f.optional(f.string("A new product's pack size, like '6 pieces'.", { max: 60 })),
   sku: f.optional(f.string("A new product's SKU, if it has one.", { max: 60 })),
   track_stock: f.optional(f.boolean("Whether a new product keeps a stock count.")),
@@ -32,15 +32,15 @@ const MENU = "Store > Menu & pickup";
 const LARGE_CHANGE_PERCENT = 50;
 
 /**
- * Prepare a new product or a price change and show it as before and after in dollars. It writes nothing: the person makes it real on
+ * Prepare a new product or a price change and show it as before and after in the community's currency. It writes nothing: the person makes it real on
  * Menu & pickup. (Niva's own price-change command, store.change_price, is built but switched off until the owner approves it.)
  */
 export const draftProduct = defineCommand<DraftProductInput, DraftProductData>({
   key: "store.draft_product",
   title: "Prepare a new store product or a price change",
   description:
-    "Prepare, without saving anything, either a new store product (give name and price) or a price change for an existing product (give item_id and the new price): the card shows before and after in dollars, " +
-    "the difference, and anything to check, such as a product that already has that name or a very large change. The price is in dollars, like 8.99. " +
+    "Prepare, without saving anything, either a new store product (give name and price) or a price change for an existing product (give item_id and the new price): the card shows before and after in the community's currency, " +
+    "the difference, and anything to check, such as a product that already has that name or a very large change. The price is in the community's currency, like 8.99. " +
     "It changes nothing and the person makes the change on Menu & pickup. Say plainly that nothing has been saved.",
   level: "draft",
   permission: "storeManage",

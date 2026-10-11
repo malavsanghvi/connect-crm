@@ -15,6 +15,7 @@ vi.mock("@/lib/data/home-tasks", () => ({ loadHomeTasks: vi.fn() }));
 import { CATALOG } from "@/lib/commands/catalog";
 import { LEARNING_COMMANDS } from "@/lib/commands/catalog/learning";
 import { confirmProposal, runCommand } from "@/lib/commands/run";
+import { describe as describeText } from "@/lib/commands/text";
 import type { AnyCommand } from "@/lib/commands/types";
 
 import { CHILD_FACTS, ID, LEARNER_TABLES, NIVA_MAY_CHANGE_LEARNING, asPrincipal, catalogRegistry, learningWorld, traceDb } from "./learning-world";
@@ -216,7 +217,7 @@ describe("D2: no command takes a child's record as input, and a child's id is re
     expect(personFields.sort()).toEqual(["learning.assign_teacher.person_id", "learning.draft_teacher_assignment.person_id"]);
     for (const key of ["learning.assign_teacher", "learning.draft_teacher_assignment"]) {
       const c = LEARNING_COMMANDS.find((x) => x.key === key)!;
-      expect(c.description).toMatch(/adult/i);
+      expect(describeText(c.description)).toMatch(/adult/i);
     }
   });
 

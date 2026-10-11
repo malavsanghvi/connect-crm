@@ -10,6 +10,7 @@
 // - Dates become YYYY-MM-DD; an ambiguous 03/04/2020 is read as the run's
 //   date order (month first by default, as US exports are).
 
+import { languageFromText } from "@/lib/languages";
 import { parseAmountToCents } from "@/lib/money";
 
 export type DateOrder = "mdy" | "dmy";
@@ -219,6 +220,14 @@ export function toBoolean(input: unknown): Transformed<boolean> {
   if (TRUE.has(s)) return ok(true);
   if (FALSE.has(s)) return ok(false);
   return bad(`"${cleanText(input)}" is not yes or no`);
+}
+
+/** A language by its name or its code ("Spanish", "español", "es", "pt_BR"): any language, saved as its code. */
+export function toLanguage(input: unknown): Transformed<string> {
+  const s = cleanText(input);
+  if (!s) return bad("is blank");
+  const code = languageFromText(s);
+  return code ? ok(code) : bad(`"${s}" is not a language (use its name, like Spanish, or its code, like es or pt-BR)`);
 }
 
 /** Lower-case, alphanumerics only, single underscores: "Life Member" → "life_member". */

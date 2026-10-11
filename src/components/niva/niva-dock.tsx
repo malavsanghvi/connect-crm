@@ -2,6 +2,7 @@
 
 import { useEffect, useId, useRef, useState, useSyncExternalStore, type FormEvent, type KeyboardEvent } from "react";
 
+import { useKind } from "@/components/kind-context";
 import { buttonClass } from "@/components/ui";
 import { isWaitingForFirstPart, type AssistantPart, type ChatMessage } from "@/lib/assistant/chat-state";
 import { contextLine, suggestionsFor } from "@/lib/assistant/context";
@@ -98,7 +99,15 @@ function Dock({ niva }: { niva: NivaApi }) {
     setDraft("");
   }
 
-  const suggestions = suggestionsFor(niva.context.path, niva.context.entityKind, new Set(niva.commands.map((c) => c.key)));
+  const kind = useKind();
+  const suggestions = suggestionsFor(niva.context.path, niva.context.entityKind, new Set(niva.commands.map((c) => c.key)), {
+    kind,
+    modulesOff: niva.community?.modulesOff,
+    currency: niva.community?.currency,
+    locale: niva.community?.locale,
+    paymentPlugins: niva.community?.paymentPlugins,
+    communitySlug: niva.community?.slug,
+  });
   const lookCommands = niva.commands.filter((c) => c.level === "read" || c.level === "draft").slice(0, 5);
   const used = chat.usage ?? niva.usage;
   const usage = used && used.limit !== null ? `${used.used} of ${used.limit} questions used this month.` : "";
@@ -122,7 +131,7 @@ function Dock({ niva }: { niva: NivaApi }) {
           <h2 id={titleId} className="font-display text-[20px] font-semibold leading-tight text-ink">
             Niva
           </h2>
-          <p className="truncate text-xs text-muted">{contextLine(niva.context)}</p>
+          <p className="truncate text-xs text-muted">{contextLine(niva.context, kind)}</p>
         </div>
         <div className="flex shrink-0 items-center gap-1.5">
           {chat.messages.length > 0 ? (

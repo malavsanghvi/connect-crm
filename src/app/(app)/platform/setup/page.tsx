@@ -14,6 +14,7 @@ import { getSession } from "@/lib/session";
 import { PlatformNoAccess } from "../platform-no-access";
 
 import { HttpsStatusPanel } from "@/components/https/https-status-panel";
+import { DemoSigninPanel } from "./demo-signin-panel";
 import { AutoRefresh, FieldButton, HookTestButton, LaterButton, StepActions, TestButton } from "./setup-client";
 
 export const metadata: Metadata = { title: "Platform setup" };
@@ -115,6 +116,11 @@ export default async function PlatformSetupPage({ searchParams }: { searchParams
         <div className="col-span-12 flex flex-col gap-4 lg:col-span-8">
           <StepDetail step={current} view={view} portalUrl={portalUrl} host={host} tz={tz} />
         </div>
+      </div>
+
+      {/* "Try the demo": its kill switch and what it needs (B88). */}
+      <div className="mt-4">
+        <DemoSigninPanel session={session} tz={tz} />
       </div>
     </>
   );

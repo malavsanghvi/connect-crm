@@ -74,6 +74,15 @@ export async function fetchCommands(f: FetchLike): Promise<CommandsResponse | nu
     if (!isObject(body) || body.ok !== true || !Array.isArray(body.commands)) return null;
     const commands = body.commands.map(normaliseCommand).filter((c): c is CommandInfo => c !== null);
     const out: CommandsResponse = { ok: true, enabled: body.enabled === true, aiReady: body.aiReady === true, commands };
+    if (isObject(body.community) && typeof body.community.currency === "string" && typeof body.community.locale === "string") {
+      out.community = {
+        currency: body.community.currency,
+        locale: body.community.locale,
+        paymentPlugins: Array.isArray(body.community.paymentPlugins) ? body.community.paymentPlugins.filter((x): x is string => typeof x === "string") : null,
+        modulesOff: Array.isArray(body.community.modulesOff) ? body.community.modulesOff.filter((x): x is string => typeof x === "string") : [],
+        ...(typeof body.community.slug === "string" ? { slug: body.community.slug } : {}),
+      };
+    }
     if (isObject(body.usage) && typeof body.usage.used === "number") {
       out.usage = {
         used: body.usage.used,

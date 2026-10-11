@@ -106,7 +106,7 @@ describe("grouping by pattern", () => {
 });
 
 describe("the question budget", () => {
-  const cfg = makeConfig(TODAY);
+  const cfg = makeConfig(TODAY, { country: "US" });
   const res = run(scenario());
   it("counts questions per 1,000 rows against the target of 10", () => {
     const b = questionBudget(res.groups, 1000, cfg);

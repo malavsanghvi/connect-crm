@@ -24,12 +24,22 @@ export interface CommandInfo {
   fields: { name: string; label: string; type: "text" | "number" | "date" | "choice"; required: boolean; choices?: string[] }[];
 }
 
+/** The community's own conventions, so the panel words its examples for THIS community (never a guess about where it is). */
+export interface CommunityHints {
+  currency: string; // ISO 4217: "USD", "INR", "GBP"
+  locale: string; // how it writes digits and days: "en-US", "en-IN"
+  paymentPlugins: string[] | null; // payment ways switched on ("zelle", "check"); null when they could not be read
+  modulesOff: string[]; // modules the community has switched off
+  slug?: string; // the community's address, sent only to the Weaver team
+}
+
 export interface CommandsResponse {
   ok: true;
   enabled: boolean; // is Niva for admins switched on for this community
   aiReady: boolean; // is a model key available (the palette works without it)
   commands: CommandInfo[];
   usage?: { used: number; limit: number | null; month: string };
+  community?: CommunityHints;
 }
 
 export interface RunRequest {
@@ -43,7 +53,7 @@ export type RunResponse =
   | { ok: true; kind: "proposal"; proposal: ProposalCard }
   | { ok: false; error: string; needsStepUp?: boolean };
 
-/** What the person sees before pressing the button. Money is dollars on screen (cents underneath), households are cards. */
+/** What the person sees before pressing the button. Money is shown in the community's currency on screen (minor units underneath), households are cards. */
 export interface ProposalCard {
   id: string;
   command: string;

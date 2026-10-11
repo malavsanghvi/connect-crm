@@ -6,7 +6,7 @@ import { normalizeAddress, normalizeName, parseDate, normalizeRecord } from "@/l
 
 import { gift, labels, pairOf, rec, run, TODAY } from "./fixtures/onboarding-resolve/helpers";
 
-const cfg = makeConfig(TODAY);
+const cfg = makeConfig(TODAY, { country: "US" });
 const names = (a: string, b: string) => compareNames(normalizeName({ full: a }), normalizeName({ full: b }), cfg);
 
 describe("comparing names", () => {

@@ -1,6 +1,8 @@
-import { composeAction, describeAudience, requiresSecondApprover } from "@/lib/comms";
+import { loadCommunityLocale } from "@/lib/community-locale";
+import { composeAction, describeAudience, languagesNeedingTranslation, requiresSecondApprover, translationLanguages } from "@/lib/comms";
 import type { Json } from "@/lib/database.types";
 import { formatDateTime } from "@/lib/dates";
+import { languageList, languageName } from "@/lib/languages";
 import { can } from "@/lib/permissions";
 
 import { defineCommand } from "../../define";
@@ -18,9 +20,12 @@ const DOING = "send the newsletter";
 const input = object({
   name: f.string("A short name for the message, for the staff list.", { min: 0, max: 200 }),
   title: f.string("The subject line members see.", { min: 0, max: 300 }),
-  body: f.string("The message itself, in English. Use messages.draft_reminder for an event reminder.", { min: 0, max: 100_000 }),
+  body: f.string("The message itself, in the community's main language (the first of its languages). Use messages.draft_reminder for an event reminder.", { min: 0, max: 100_000 }),
   channels: f.string("Where it goes, separated by commas: email, push, in_app, sms, whatsapp.", { min: 0, max: 100 }),
   send_at: f.optional(f.string("When it should go out, in the community's time zone, like 2026-10-24T09:00. Leave out for as soon as it is approved.", { min: 1, max: 20 })),
+  translations_json: f.optional(
+    f.string("The subject and message in other languages, as JSON keyed by language code: {\"es\": {\"title\": \"...\", \"body\": \"...\"}}. Only what a person has written or approved: nothing is translated by software.", { min: 2, max: 200_000 }),
+  ),
   title_gu: f.optional(f.string("The subject in Gujarati.", { min: 1, max: 300 })),
   body_gu: f.optional(f.string("The message in Gujarati.", { min: 1, max: 100_000 })),
   title_hi: f.optional(f.string("The subject in Hindi.", { min: 1, max: 300 })),
@@ -58,7 +63,7 @@ export const scheduleCampaign = defineCommand<ScheduleInput, ScheduleData>({
     "Create a newsletter or announcement to families and put it on the approval path. If the person may approve and the audience is not all members, it is approved and Scheduled in one step; otherwise it is sent for approval, " +
     "and a message to all members needs two different approvers. This asks the person to confirm first, showing the audience, the channels, the number of households and the quiet-hours effect. " +
     "It is Scheduled, not Sent: nothing sends newsletters yet, and Niva never sends anything itself. Prepare the wording first with messages.draft_reminder and check the reach with messages.audience_preview. " +
-    "Pass the Gujarati and Hindi text in title_gu/body_gu and title_hi/body_hi when you have it.",
+    "Pass the text in the community's other languages in translations_json (or Gujarati and Hindi in title_gu/body_gu and title_hi/body_hi) when a person has written it; a language without text is shown as needing translation and families who read it get the main-language message.",
   level: "confirm",
   permission: "commsSend",
   module: "comms",
@@ -96,7 +101,15 @@ export const scheduleCampaign = defineCommand<ScheduleInput, ScheduleData>({
     }
     warnings.push(`Scheduled means queued, not sent.${NOT_SENDING.trimEnd()}`);
     warnings.push(NOTHING_SENT_BY_NIVA);
-    const languages = ["English", ...(args.title_gu || args.body_gu ? ["Gujarati"] : []), ...(args.title_hi || args.body_hi ? ["Hindi"] : [])];
+    const community = await loadCommunityLocale(ctx.session.db, center);
+    if (community.note) warnings.push(community.note);
+    const main = community.languages[0] ?? "en";
+    const translated = translationLanguages(p.values.translations);
+    const languages = [languageName(main), ...translated.map(languageName)];
+    const missing = languagesNeedingTranslation(community.languages, p.values.translations);
+    if (missing.length > 0) {
+      warnings.push(`No ${languageList(missing)} text yet, so families who read ${missing.length === 1 ? "it" : "those languages"} get the ${languageName(main)} message. It is marked as needing translation.`);
+    }
     return {
       summary: p.mode === "schedule" ? `Approve and schedule "${p.values.name}" for ${who}.` : `Send "${p.values.name}" for ${who} to the approvers.`,
       lines: [
@@ -106,6 +119,7 @@ export const scheduleCampaign = defineCommand<ScheduleInput, ScheduleData>({
         { label: "Channels", value: p.values.channels.map(channelWord).join(", ") },
         { label: "Goes out", value: p.values.scheduled_at ? formatDateTime(p.values.scheduled_at, center.time_zone) : "As soon as it is approved" },
         { label: "Languages", value: languages.join(", ") },
+        ...(missing.length > 0 ? [{ label: "Needs translation", value: missing.map(languageName).join(", ") }] : []),
         { label: "After you confirm", value: p.mode === "schedule" ? "Scheduled (not yet sent)" : "Waiting for approval" },
       ],
       warnings,
