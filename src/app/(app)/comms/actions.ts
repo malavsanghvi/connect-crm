@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 
+import { withActivity } from "@/lib/activity/with-activity";
 import { buildAudience, buildTranslations, composeAction, parseAudience, requiresSecondApprover } from "@/lib/comms";
 import type { Database, Json, TablesUpdate } from "@/lib/database.types";
 import { localDateTimeToIso } from "@/lib/dates";
@@ -84,6 +85,10 @@ const NOT_SENDING = " It stays queued: email, SMS, WhatsApp and push sending are
  * everyone else sends it for approval.
  */
 export async function submitNewsletterAction(_prev: ActionResult | null, fd: FormData): Promise<ActionResult> {
+  return withActivity("comms.send", () => submitNewsletter(fd));
+}
+
+async function submitNewsletter(fd: FormData): Promise<ActionResult> {
   const auth = await authorizeAction("commsSend", "send the newsletter");
   if (!auth.ok) return auth;
   const { db, center, userId } = auth.session;
@@ -245,6 +250,10 @@ export async function setThreadAction(_prev: ActionResult | null, fd: FormData):
 }
 
 export async function replyToThreadAction(_prev: ActionResult | null, fd: FormData): Promise<ActionResult> {
+  return withActivity("comms.reply_thread", () => replyToThread(fd), { entityFrom: { kind: "thread", id: text(fd, "id") } });
+}
+
+async function replyToThread(fd: FormData): Promise<ActionResult> {
   const auth = await inboxSession("send the reply");
   if (!auth.ok) return auth;
   const { db, userId, center } = auth.session;

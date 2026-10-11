@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 
+import { withActivity } from "@/lib/activity/with-activity";
 import { todayInTz } from "@/lib/dates";
 import { failure, type ActionResult } from "@/lib/errors";
 import {
@@ -30,6 +31,10 @@ function refresh(personId?: string, householdIds: string[] = []) {
 }
 
 export async function updatePersonAction(_prev: ActionResult | null, fd: FormData): Promise<ActionResult> {
+  return withActivity("people.update_person", () => updatePerson(fd), { entityFrom: { kind: "person", id: String(fd.get("id") ?? "") } });
+}
+
+async function updatePerson(fd: FormData): Promise<ActionResult> {
   const id = String(fd.get("id") ?? "");
   if (!isUuid(id)) return { ok: false, error: "Could not save the profile — the person was not found." };
   const auth = await authorizeAction("householdsEdit", "save the profile");

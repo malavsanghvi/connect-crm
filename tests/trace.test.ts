@@ -10,6 +10,10 @@ describe("traceability headers", () => {
     expect(id).toMatch(UUID);
     expect(traceHeaders({ requestId: id })).toEqual({ "x-client-app": "portal", "x-request-id": id });
   });
+  it("records a command run by Niva as the assistant, and nothing else changes", () => {
+    expect(traceHeaders({ requestId: "r", clientApp: "assistant", screen: "/events" })).toEqual({ "x-client-app": "assistant", "x-request-id": "r", "x-client-screen": "/events" });
+    expect(traceHeaders({ requestId: "r", clientApp: "portal" })).toEqual({ "x-client-app": "portal", "x-request-id": "r" });
+  });
   it("makes a uuid on plain-http pages, where browsers hide randomUUID", () => {
     const original = globalThis.crypto.randomUUID;
     Object.defineProperty(globalThis.crypto, "randomUUID", { value: undefined, configurable: true });

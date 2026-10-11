@@ -21,6 +21,8 @@ export function expectedVersion(raw: FormDataEntryValue | null): number | null |
  * each other. `mode: "patch"` merges the given keys; `mode: "replace"`
  * swaps the whole bag (the Advanced JSON editor). Every save bumps
  * rules.version. The centers audit trigger records the before/after.
+ * `options.centerId` writes another community's rules (a platform admin
+ * on Platform › Centers); it defaults to the session's own community.
  */
 export async function writeCenterRules(
   session: CrmSession,
@@ -28,9 +30,11 @@ export async function writeCenterRules(
   expected: number | null,
   what: string,
   successMessage: (version: number) => string,
+  options: { centerId?: string } = {},
 ): Promise<ActionResult> {
-  const { db, center } = session;
-  const current = await db.from("centers").select("rules").eq("id", center.id).maybeSingle();
+  const { db } = session;
+  const centerId = options.centerId ?? session.center.id;
+  const current = await db.from("centers").select("rules").eq("id", centerId).maybeSingle();
   if (current.error) return failure(`Could not save the ${what}`, current.error);
   if (!current.data) return { ok: false, error: `Could not save the ${what} — the center could not be read (you may lack settings.manage).` };
 
@@ -49,12 +53,12 @@ export async function writeCenterRules(
   const checked = validateRulesJson(JSON.stringify(next.rules));
   if (!checked.ok) return { ok: false, error: `Could not save the ${what} — ${checked.errors.join(" ")}` };
 
-  let update = db.from("centers").update({ rules: checked.value }).eq("id", center.id);
+  let update = db.from("centers").update({ rules: checked.value }).eq("id", centerId);
   update = nowVersion === null ? update.is("rules->>version", null) : update.eq("rules->>version", String(nowVersion));
   const { data, error } = await update.select("id");
   if (error) return failure(`Could not save the ${what}`, error);
   if (!data || data.length === 0) {
-    const again = await db.from("centers").select("rules").eq("id", center.id).maybeSingle();
+    const again = await db.from("centers").select("rules").eq("id", centerId).maybeSingle();
     if (again.error) console.error("[settings] re-reading the rules after a refused save failed:", again.error);
     const changed = !again.error && again.data && rulesVersion(again.data.rules) !== nowVersion;
     return {

@@ -2,6 +2,9 @@
 
 import { revalidatePath } from "next/cache";
 
+import { assistantRulesPatch } from "@/lib/assistant/settings";
+import { confirmToolChoices } from "@/lib/assistant/choices";
+import { expectedVersion, writeCenterRules } from "@/lib/data/center-rules-write";
 import { failure, type ActionResult } from "@/lib/errors";
 import { parseKindPreview, type KindPreview } from "@/lib/kind-change";
 import { isUuid } from "@/lib/search-params";
@@ -129,4 +132,38 @@ export async function changeKindAction(centerId: string, kind: string, reasonInp
     message: `Kind of organization changed to ${done?.to.label ?? "the new kind"} · audit logged`,
     data: done ?? undefined,
   };
+}
+
+// ── Niva for admins ──────────────────────────────────────────────────────────
+
+/**
+ * Switch Niva for admins on or off for one community, and choose which write actions Niva may prepare there (the confirm-level
+ * commands; each is off until switched on, and a person still presses a button to confirm). Platform admins only, a reason is
+ * required and kept in the audit log; saved into the community's rules (assistant.enabled, assistant.tools) with the same version
+ * check as every rules save.
+ */
+export async function saveAssistantAction(_prev: ActionResult | null, formData: FormData): Promise<ActionResult> {
+  const doing = "save the Niva for admins settings";
+  const center = String(formData.get("center") ?? "");
+  if (!isUuid(center)) return { ok: false, error: `Could not ${doing} — the form is out of date. Reload and try again.` };
+  const auth = await platformOnly(doing);
+  if (!auth.ok) return auth;
+  const reason = String(formData.get("reason") ?? "").trim();
+  if (!reason) return { ok: false, error: `Could not ${doing} — say why. The reason is kept in the audit log.` };
+  if (reason.length > 500) return { ok: false, error: `Could not ${doing} — keep the reason under 500 characters.` };
+  const expected = expectedVersion(formData.get("version"));
+  if (expected === "invalid") return { ok: false, error: `Could not ${doing} — the page is out of date. Reload and try again.` };
+
+  const chosen = new Set(formData.getAll("tool").map((v) => String(v)));
+  const tools: Record<string, boolean> = {};
+  for (const choice of confirmToolChoices(undefined)) tools[choice.key] = chosen.has(choice.key);
+  const enabled = formData.get("enabled") === "on";
+
+  const db = await dbWithReason(auth.session, reason);
+  const result = await writeCenterRules({ ...auth.session, db }, { mode: "patch", rules: assistantRulesPatch({ enabled, tools }) }, expected, "Niva for admins settings", (version) => {
+    const allowed = Object.values(tools).filter(Boolean).length;
+    return `Niva for admins is now ${enabled ? "on" : "off"} for this community${enabled ? ` · ${allowed} write action${allowed === 1 ? "" : "s"} allowed` : ""} · rules version ${version} · audit logged`;
+  }, { centerId: center });
+  if (result.ok) revalidatePath(`/platform/centers/${center}`);
+  return result;
 }

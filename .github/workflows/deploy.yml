@@ -104,6 +104,10 @@ jobs:
           MESSAGING_EMAIL_PROVIDER: ${{ vars.MESSAGING_EMAIL_PROVIDER }}
           MESSAGING_LINK_SECRET: ${{ secrets.MESSAGING_LINK_SECRET }}
           PORTAL_PUBLIC_URL: ${{ vars.PORTAL_PUBLIC_URL }}
+          # Niva for admins (docs/DEPLOY.md › Niva for admins): the AI key (a key saved in Platform › Setup is read first)
+          # and the model it uses (unset: claude-sonnet-5-5).
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          ASSISTANT_MODEL: ${{ vars.ASSISTANT_MODEL }}
         run: |
           install -m 700 -d ~/.ssh
           printf '%s\n' "$KEY" > ~/.ssh/deploy && chmod 600 ~/.ssh/deploy
@@ -120,7 +124,7 @@ jobs:
             for v in PORTAL_DATABASE_URL SEND_EMAIL_HOOK_SECRET SEND_SMS_HOOK_SECRET RESEND_API_KEY POSTMARK_SERVER_TOKEN \
                      RESEND_WEBHOOK_SECRET POSTMARK_WEBHOOK_TOKEN TWILIO_ACCOUNT_SID TWILIO_AUTH_TOKEN TWILIO_FROM_NUMBER \
                      TWILIO_MESSAGING_SERVICE_SID MESSAGING_FROM_ADDRESS MESSAGING_FROM_NAME MESSAGING_EMAIL_PROVIDER \
-                     MESSAGING_LINK_SECRET PORTAL_PUBLIC_URL; do
+                     MESSAGING_LINK_SECRET PORTAL_PUBLIC_URL ANTHROPIC_API_KEY ASSISTANT_MODEL; do
               if [ -n "${!v}" ]; then printf '%s=%s\n' "$v" "${!v}"; fi
             done
           } | ssh_ "umask 077 && mkdir -p /srv/connect && cat > /srv/connect/$APP.secrets.env"
