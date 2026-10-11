@@ -31,6 +31,12 @@ begin
 end $$;
 create or replace function pg_temp.no_claims() returns void language plpgsql as $$
 begin perform set_config('request.jwt.claims', '', true); end $$;
+-- What differs between two {table: rows} answers, as text (empty = nothing).
+create or replace function pg_temp.diff(a jsonb, b jsonb) returns text language sql as $$
+  select coalesce(string_agg(x.k || ' ' || coalesce(a->>x.k, '0') || ' -> ' || coalesce(b->>x.k, '0'), ', ' order by x.k), '')
+    from (select jsonb_object_keys(coalesce(a, '{}'::jsonb) || coalesce(b, '{}'::jsonb)) as k) x
+   where coalesce(a->>x.k, '0') <> coalesce(b->>x.k, '0')
+$$;
 -- Rows the pack says a table gets, against the rows the community really has (empty text = all the same).
 create or replace function pg_temp.pack_vs_rows(p_center uuid, p_pack text) returns text language plpgsql as $$
 declare r record; n bigint; bad text := '';
@@ -264,7 +270,7 @@ select pg_temp.assert_raises($$select app.reset_demo_community('11600000-0000-40
 select pg_temp.assert((select count(*) = 0 from app.people where center_id = '11600000-0000-4000-8000-0000000000c9'), 'and nothing was loaded into it');
 
 select app.reset_demo_community(:'fc') as rr \gset
-select pg_temp.assert(app.demo_counts_raw(:'fc') = :'snap'::jsonb, 'after a reset every table holds the same number of rows as before');
+select pg_temp.assert(pg_temp.diff(app.demo_counts_raw(:'fc'), :'snap'::jsonb) = '', 'after a reset every table holds the same number of rows as before: ' || pg_temp.diff(app.demo_counts_raw(:'fc'), :'snap'::jsonb));
 select pg_temp.assert(pg_temp.hash_ids(:'fc', 'people') = :'h_people' and pg_temp.hash_ids(:'fc', 'households') = :'h_hh' and pg_temp.hash_ids(:'fc', 'pledges') = :'h_pl'
                       and pg_temp.hash_ids(:'fc', 'events') = :'h_ev' and pg_temp.hash_ids(:'fc', 'demo_personas') = :'h_dp',
   'with the same ids: the demo people keep their ids from night to night');
@@ -283,8 +289,8 @@ select pg_temp.assert((select status = 'loaded' and operation = 'reset' and last
                          and (detail->'cleared') is not null from app.center_demo_state where center_id = :'fc'),
   'the demo state records the reset');
 select app.reset_demo_community(:'fc') as rr2 \gset
-select pg_temp.assert(app.demo_counts_raw(:'fc') = :'snap'::jsonb and pg_temp.hash_ids(:'fc', 'people') = :'h_people' and pg_temp.hash_ids(:'fc', 'demo_personas') = :'h_dp',
-  'a second reset changes nothing more: it is idempotent');
+select pg_temp.assert(pg_temp.diff(app.demo_counts_raw(:'fc'), :'snap'::jsonb) = '' and pg_temp.hash_ids(:'fc', 'people') = :'h_people' and pg_temp.hash_ids(:'fc', 'demo_personas') = :'h_dp',
+  'a second reset changes nothing more: it is idempotent: ' || pg_temp.diff(app.demo_counts_raw(:'fc'), :'snap'::jsonb));
 select pg_temp.assert(pg_temp.hash_ids(:'nc', 'people') = :'n_people' and (select count(*) = 21 from app.demo_personas where center_id = :'nc'),
   'resetting one demo community leaves the other as it was');
 select pg_temp.assert((select count(*) = :jp from app.people where center_id = :jsh) and (select count(*) = :jh from app.households where center_id = :jsh)

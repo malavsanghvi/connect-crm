@@ -32,6 +32,12 @@ begin
 end $$;
 create or replace function pg_temp.no_claims() returns void language plpgsql as $$
 begin perform set_config('request.jwt.claims', '', true); end $$;
+-- What differs between two {table: rows} answers, as text (empty = nothing).
+create or replace function pg_temp.diff(a jsonb, b jsonb) returns text language sql as $$
+  select coalesce(string_agg(x.k || ' ' || coalesce(a->>x.k, '0') || ' -> ' || coalesce(b->>x.k, '0'), ', ' order by x.k), '')
+    from (select jsonb_object_keys(coalesce(a, '{}'::jsonb) || coalesce(b, '{}'::jsonb)) as k) x
+   where coalesce(a->>x.k, '0') <> coalesce(b->>x.k, '0')
+$$;
 create or replace function pg_temp.hash_ids(p_center uuid, p_t text) returns text language plpgsql as $$
 declare h text;
 begin
@@ -117,8 +123,8 @@ set local role connect_worker;
 select app.worker_demo_reset_due() as w2 \gset
 reset role;
 select pg_temp.assert(pg_temp.did((:'w2'::jsonb), :'fc') = 'reset' and (:'w2'::jsonb)->'centers' @> '[{"why": "dates going stale"}]'::jsonb and pg_temp.did((:'w2'::jsonb), :'nc') = 'skipped',
-  'an untouched community is reset when its dates are 3 days old, the other is left alone');
-select pg_temp.assert((select loaded_at > now() - interval '1 hour' from app.center_demo_state where center_id = :'fc') and app.demo_counts_raw(:'fc') = :'snap'::jsonb,
+  'an untouched community is reset when its dates are 3 days old, the other is left alone: ' || :'w2');
+select pg_temp.assert((select loaded_at > now() - interval '1 hour' from app.center_demo_state where center_id = :'fc') and pg_temp.diff(app.demo_counts_raw(:'fc'), :'snap'::jsonb) = '',
   'and its load date is fresh again, with the same data');
 
 -- Loaded 31 hours ago, nobody touched it: still left alone (the audit log would only grow).
@@ -141,7 +147,7 @@ select pg_temp.assert(pg_temp.did((:'w4'::jsonb), :'fc') = 'reset' and pg_temp.d
   'a community someone changed is reset, the other is not');
 select pg_temp.assert(not exists (select 1 from app.households where center_id = :'fc' and display_name = 'Visitor edit')
                       and not exists (select 1 from app.pledges where center_id = :'fc' and amount_cents = 12345)
-                      and app.demo_counts_raw(:'fc') = :'snap'::jsonb and pg_temp.hash_ids(:'fc', 'people') = :'h_people' and pg_temp.hash_ids(:'fc', 'households') = :'h_hh',
+                      and pg_temp.diff(app.demo_counts_raw(:'fc'), :'snap'::jsonb) = '' and pg_temp.hash_ids(:'fc', 'people') = :'h_people' and pg_temp.hash_ids(:'fc', 'households') = :'h_hh',
   'with the visitor''s changes gone and the same data back');
 select pg_temp.assert((select status = 'loaded' and last_error is null and operation = 'reset' and requested_by = :admin from app.center_demo_state where center_id = :'fc'),
   'the state shows a reset; the person who made it is still recorded');
@@ -198,7 +204,7 @@ select pg_temp.assert((:'w9'::jsonb)->>'failed' = '1' and (:'w9'::jsonb)->>'rese
   'a pack that cannot load fails for its own community only');
 select pg_temp.assert((:'w9'::jsonb)->'centers' @> jsonb_build_array(jsonb_build_object('center_id', :'fc', 'status', 'failed')) and (:'w9'::jsonb)::text like '%no_such_table%',
   'the answer names the table that is wrong, in the language of the job log');
-select pg_temp.assert(app.demo_counts_raw(:'fc') = :'snap'::jsonb and pg_temp.hash_ids(:'fc', 'people') = :'h_people' and (select count(*) = 26 from app.demo_personas where center_id = :'fc'),
+select pg_temp.assert(pg_temp.diff(app.demo_counts_raw(:'fc'), :'snap'::jsonb) = '' and pg_temp.hash_ids(:'fc', 'people') = :'h_people' and (select count(*) = 26 from app.demo_personas where center_id = :'fc'),
   'the failed reset kept every row and every demo person that was there');
 select pg_temp.assert((select status = 'loaded' and last_error like '%no_such_table%' from app.center_demo_state where center_id = :'fc'),
   'the failure is written on the community''s demo state, where a screen can show it');
@@ -206,7 +212,7 @@ update app.demo_packs set content = jsonb_set(content, '{steps,store}', :'store_
 set local role connect_worker;
 select app.worker_demo_reset_due(true) as w10 \gset
 reset role;
-select pg_temp.assert((:'w10'::jsonb)->>'failed' = '0' and (select last_error is null from app.center_demo_state where center_id = :'fc') and app.demo_counts_raw(:'fc') = :'snap'::jsonb,
+select pg_temp.assert((:'w10'::jsonb)->>'failed' = '0' and (select last_error is null from app.center_demo_state where center_id = :'fc') and pg_temp.diff(app.demo_counts_raw(:'fc'), :'snap'::jsonb) = '',
   'fixed, the next run loads it and clears the error');
 
 -- A community that is not (any longer) a sandbox is never reset, even if flagged.

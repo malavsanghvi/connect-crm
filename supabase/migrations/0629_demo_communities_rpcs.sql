@@ -104,6 +104,13 @@ begin
     -- Member and household numbers start again from the beginning, so every night gives the same numbers (a clear keeps
     -- the numbering of a real organization; a demo community has nothing to protect).
     delete from app.number_sequences where center_id = p_center;
+    -- A new community gets its standard family-relationship choices from a trigger (0491); a clear removes them with the
+    -- rest, so put the same ones back.
+    insert into app.relationship_options (center_id, name, sort) values
+      (p_center, 'Spouse', 1), (p_center, 'Child', 2), (p_center, 'Parent', 3), (p_center, 'Sibling', 4),
+      (p_center, 'Grandparent', 5), (p_center, 'Grandchild', 6), (p_center, 'Guardian', 7),
+      (p_center, 'Other relative', 8), (p_center, 'Other', 9)
+    on conflict (center_id, name) do nothing;
   end if;
   v_loaded := app.demo_load_pack(p_center, p.key, v_actor);
   v_personas := app.demo_make_personas(p_center, p.key);
@@ -144,6 +151,9 @@ begin
     raise exception 'Choose which demo community to create: "faith" or "neutral".';
   end if;
   perform app.assert_step_up('platform.create_demo_community');
+  -- Everything written from here on is the system's own work, not a person's change: the nightly check counts only changes
+  -- made by people (client app other than 'job') when it decides whether a demo community needs a reset.
+  perform set_config('app.client_app', 'job', true);
   select c.id into v_existing from app.centers c where c.rules->'demo' = 'true'::jsonb and c.rules->>'demo_kind' = v_kind limit 1;
   if v_existing is not null then
     return jsonb_build_object('center_id', v_existing, 'created', false, 'note', 'This demo community already exists. Use reset to start it over.');
@@ -171,6 +181,7 @@ begin
     raise exception 'This is not a demo community, so it cannot be reset. Nothing was changed.';
   end if;
   perform app.assert_step_up('platform.reset_demo_community');
+  perform set_config('app.client_app', 'job', true);
   return app.demo_populate(p_center, 'reset', auth.uid());
 end $$;
 
@@ -226,4 +237,3 @@ revoke execute on function app.create_demo_community(text), app.reset_demo_commu
 grant execute on function app.create_demo_community(text), app.reset_demo_community(uuid) to authenticated;
 revoke execute on function app.worker_demo_reset_due(boolean, interval) from public, anon, authenticated;
 grant execute on function app.worker_demo_reset_due(boolean, interval) to connect_worker;
-grant execute on all functions in schema app to service_role;

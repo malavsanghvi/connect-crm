@@ -272,5 +272,4 @@ revoke execute on function app.demo_resolve(jsonb, uuid, uuid, uuid), app.demo_p
   app.demo_op_rsvp(uuid, uuid, jsonb), app.demo_op_order(uuid, uuid, uuid, jsonb), app.demo_apply_ops(uuid, uuid, uuid, jsonb),
   app.demo_counts_raw(uuid), app.demo_test_mode_only(), app.demo_persona_domain() from public, anon, authenticated;
 revoke execute on function app.is_demo_center(uuid) from public, anon;
-grant execute on function app.is_demo_center(uuid) to authenticated, connect_worker;
-grant execute on all functions in schema app to service_role;
+grant execute on function app.is_demo_center(uuid) to authenticated, connect_worker, service_role;
