@@ -19,13 +19,25 @@
 --
 --   NO ACTOR IDS: a candidate holds the role, the keys, counts and times. How many people (distinct_actors) is a count.
 --
+--   THE MINER RECOMPUTES, IT DOES NOT ONLY ADD. Each run rebuilds the list from the events that are left:
+--     * a NEW idea that is no longer found (fewer than 5 times, or in fewer than 2 sessions, because events were
+--       deleted: an opt-out, the sweep of someone no longer allowed, retention) is deleted;
+--     * a NEW idea that was shown (from 3 or more people) and now comes from fewer is deleted; one that was never shown
+--       stays stored but hidden;
+--     * an idea somebody ACCEPTED, DISMISSED or marked BUILT keeps that decision, its keys and its role, but its numbers
+--       are set to zero once it is no longer found or comes from fewer than 3 people;
+--     * opting out (and the sweep) marks the ideas of the communities concerned STALE: hidden from administrators until
+--       the next run has recomputed them.
+--
 --   WHO SEES IT
---     automation_candidates: people with settings.manage in that community (and platform admins); they can change only
---     status (new | accepted | dismissed | built), and the database stamps who decided and when. The miner never touches
---     status: a dismissed idea stays dismissed.
---   app.activity_mine(center, days)  platform admin ("run now") or the background service
---   app.worker_mine_activity()       connect_worker only: every community with recording on, one after the other (a failure
---                                    in one is logged and does not stop the rest)
+--     automation_candidates: people with settings.manage in that community see an idea only if it is not stale and comes
+--     from at least app.activity_min_actors() (3) people (or has been decided, which can only have happened after it was
+--     shown); platform admins see all. They can change only status (new | accepted | dismissed | built), and the
+--     database stamps who decided and when. The miner never overwrites a decision.
+--   app.activity_mine(center, days)       platform admin ("run now") or the background service
+--   app.worker_activity_centers()         connect_worker only: the communities whose recording is on
+--   app.worker_mine_activity(center)      connect_worker only: mine one community (the worker calls it once per community,
+--                                         so one slow or failing community stops nobody else)
 
 create table if not exists app.automation_candidates (
   id                uuid primary key default gen_random_uuid(),
@@ -43,6 +55,7 @@ create table if not exists app.automation_candidates (
   score             numeric(12, 2) not null default 0,
   suggested_kind    text not null default 'routine' check (suggested_kind in ('routine', 'niva_command', 'playbook', 'scheduled_job', 'default')),
   status            text not null default 'new' check (status in ('new', 'accepted', 'dismissed', 'built')),
+  stale             boolean not null default false,
   decided_by        uuid references auth.users(id) on delete set null,
   decided_at        timestamptz,
   first_seen        timestamptz not null,
@@ -52,16 +65,17 @@ create table if not exists app.automation_candidates (
 );
 create index if not exists automation_candidates_center_idx on app.automation_candidates (center_id, status, score desc);
 comment on table app.automation_candidates is
-  'Repeated sequences of actions found by app.activity_mine (0622): per community and role, 2 to 5 action keys, how often, by how many people, how long, how reliable, a score in minutes a month and a suggested way to automate it. No actor ids. People with settings.manage change only status (the database stamps decided_by and decided_at).';
+  'Repeated sequences of actions found by app.activity_mine (0622): per community and role, 2 to 5 action keys, how often, by how many people, how long, how reliable, a score in minutes a month and a suggested way to automate it. No actor ids. Recomputed every run. Shown to administrators only from 3 people and when not stale. People with settings.manage change only status (the database stamps decided_by and decided_at).';
 comment on column app.automation_candidates.pattern_hash is 'md5 of the keys joined with ">" (the unique key with the community and the role).';
 comment on column app.automation_candidates.sessions is 'In how many different work sessions (30 minutes idle apart) it happened.';
 comment on column app.automation_candidates.median_seconds is 'The middle time one run takes, first step to the end of the last, at least 10 seconds a step.';
+comment on column app.automation_candidates.stale is 'Events behind this idea were deleted (an opt-out, the sweep) and the miner has not run since: hidden from administrators until it has recomputed the list.';
 
 insert into app.module_tables (table_name, module_key) values ('automation_candidates', null)
 on conflict (table_name) do update set module_key = excluded.module_key;
 
--- Audited like every other table, but only when it is CREATED or DECIDED: the miner rewrites the counts every day, and a
--- row for each rewrite would bury the decisions.
+-- Audited like every other table, but only when it is CREATED, DECIDED or deleted: the miner rewrites the counts every day,
+-- and a row for each rewrite would bury the decisions.
 drop trigger if exists audit_automation_candidates on app.automation_candidates;
 create trigger audit_automation_candidates after insert or delete or update of status, decided_by, decided_at on app.automation_candidates
   for each row execute function app.audit_row();
@@ -89,10 +103,14 @@ create trigger automation_candidates_decide before update on app.automation_cand
 alter table app.automation_candidates enable row level security;
 drop policy if exists automation_candidates_read on app.automation_candidates;
 create policy automation_candidates_read on app.automation_candidates for select to authenticated
-  using (app.has_permission(center_id, 'settings.manage') or app.is_platform_admin());
+  using (app.is_platform_admin()
+         or (app.has_permission(center_id, 'settings.manage') and not stale
+             and (distinct_actors >= app.activity_min_actors() or status <> 'new')));
 drop policy if exists automation_candidates_decide on app.automation_candidates;
 create policy automation_candidates_decide on app.automation_candidates for update to authenticated
-  using (app.has_permission(center_id, 'settings.manage') or app.is_platform_admin())
+  using (app.is_platform_admin()
+         or (app.has_permission(center_id, 'settings.manage') and not stale
+             and (distinct_actors >= app.activity_min_actors() or status <> 'new')))
   with check (app.has_permission(center_id, 'settings.manage') or app.is_platform_admin());
 revoke all on app.automation_candidates from public, anon, authenticated, service_role, connect_worker;
 grant select on app.automation_candidates to authenticated;
@@ -104,6 +122,7 @@ language plpgsql security definer set search_path = app, public, extensions as $
 declare
   v_days integer := least(greatest(coalesce(p_days, 60), 7), 400);
   v_worker boolean := coalesce(nullif(current_setting('role', true), 'none'), session_user::text) = 'connect_worker';
+  v_floor integer := app.activity_min_actors();
   v_first timestamptz;
   v_obs numeric;
   v_n integer := 0;
@@ -114,11 +133,20 @@ begin
   if p_center is null then return 0; end if;
 
   -- The days of history there really are (at least 7, at most the window), so a community that started recording last
-  -- week is not rated as if it had 60 days.
+  -- week is not rated as if it had 60 days. With no events at all the list below is simply recomputed to nothing.
   select min(e.occurred_at) into v_first from app.activity_events e
    where e.center_id = p_center and e.kind = 'action' and e.occurred_at >= now() - make_interval(days => v_days);
-  if v_first is null then return 0; end if;
-  v_obs := greatest(7, least(v_days, ceil(extract(epoch from (now() - v_first)) / 86400.0)));
+  v_obs := case when v_first is null then 7
+                else greatest(7, least(v_days, ceil(extract(epoch from (now() - v_first)) / 86400.0))) end;
+
+  -- What the events say now.
+  drop table if exists pg_temp.activity_mine_found;
+  create temporary table activity_mine_found (
+    role_key text not null, pattern text[] not null, pattern_hash text not null, support integer not null,
+    actors integer not null, sessions integer not null, median_seconds integer not null, mpm numeric not null,
+    err_rate numeric not null, regularity numeric not null, score numeric not null, suggested_kind text not null,
+    first_seen timestamptz not null, last_seen timestamptz not null
+  ) on commit drop;
 
   with ev as (
     select e.actor_hash, e.occurred_at, e.id, e.key, e.outcome, e.duration_ms,
@@ -206,10 +234,9 @@ begin
               from unnest(k.pattern) as x(key) left join app.activity_catalog c on c.key = x.key) as all_commands
       from kept k join reg r on r.role_key = k.role_key and r.pattern = k.pattern
   )
-  insert into app.automation_candidates as ac (center_id, role_key, pattern, pattern_hash, support, distinct_actors, sessions,
-                                         median_seconds, minutes_per_month, error_rate, regularity, score, suggested_kind,
-                                         first_seen, last_seen)
-  select p_center, sc.role_key, sc.pattern, md5(array_to_string(sc.pattern, '>')), sc.support, sc.actors, sc.sessions,
+  insert into pg_temp.activity_mine_found (role_key, pattern, pattern_hash, support, actors, sessions, median_seconds, mpm,
+                                           err_rate, regularity, score, suggested_kind, first_seen, last_seen)
+  select sc.role_key, sc.pattern, md5(array_to_string(sc.pattern, '>')), sc.support, sc.actors, sc.sessions,
          sc.median_seconds, round(sc.mpm::numeric, 1), round(sc.err_rate, 4), round(sc.regularity, 4),
          round(sc.mpm::numeric * greatest(sc.regularity - sc.err_rate, 0), 2),
          case when sc.regularity >= 0.8 and sc.support >= 8 then 'scheduled_job'
@@ -218,39 +245,70 @@ begin
               when sc.actors >= 3 then 'playbook'
               else 'routine' end,
          sc.first_seen, sc.last_seen
-    from scored sc
+    from scored sc;
+
+  -- Recompute: a NEW idea that is no longer found, or that was shown and now comes from too few people, is deleted.
+  delete from app.automation_candidates c
+   where c.center_id = p_center and c.status = 'new'
+     and (not exists (select 1 from pg_temp.activity_mine_found f where f.role_key = c.role_key and f.pattern_hash = c.pattern_hash)
+          or (c.distinct_actors >= v_floor
+              and exists (select 1 from pg_temp.activity_mine_found f
+                           where f.role_key = c.role_key and f.pattern_hash = c.pattern_hash and f.actors < v_floor)));
+
+  -- Write what is found. A decision (status, decided_by, decided_at) is never touched.
+  insert into app.automation_candidates as ac (center_id, role_key, pattern, pattern_hash, support, distinct_actors, sessions,
+                                               median_seconds, minutes_per_month, error_rate, regularity, score, suggested_kind,
+                                               first_seen, last_seen)
+  select p_center, f.role_key, f.pattern, f.pattern_hash, f.support, f.actors, f.sessions, f.median_seconds, f.mpm,
+         f.err_rate, f.regularity, f.score, f.suggested_kind, f.first_seen, f.last_seen
+    from pg_temp.activity_mine_found f
   on conflict (center_id, role_key, pattern_hash) do update
     set support = excluded.support, distinct_actors = excluded.distinct_actors, sessions = excluded.sessions,
         median_seconds = excluded.median_seconds, minutes_per_month = excluded.minutes_per_month,
         error_rate = excluded.error_rate, regularity = excluded.regularity, score = excluded.score,
-        suggested_kind = excluded.suggested_kind,
+        suggested_kind = excluded.suggested_kind, stale = false,
         first_seen = least(ac.first_seen, excluded.first_seen),
         last_seen = excluded.last_seen;
   get diagnostics v_n = row_count;
+
+  -- A decided idea keeps its decision, its role and its keys; its numbers go to zero once it is no longer found or comes
+  -- from fewer than 3 people (so a small group is never described by it).
+  update app.automation_candidates c
+     set support = 0, distinct_actors = 0, sessions = 0, median_seconds = 0, minutes_per_month = 0, error_rate = 0,
+         regularity = 0, score = 0, stale = false
+   where c.center_id = p_center and c.status <> 'new' and (c.support > 0 or c.stale)
+     and (c.distinct_actors < v_floor
+          or not exists (select 1 from pg_temp.activity_mine_found f where f.role_key = c.role_key and f.pattern_hash = c.pattern_hash));
+
+  drop table pg_temp.activity_mine_found;
   return v_n;
 end $$;
 comment on function app.activity_mine(uuid, integer) is
-  'Find repeated sequences (2 to 5 actions, at least 5 times in at least 2 sessions) per role in the last p_days days (7 to 400, default 60) of one community''s activity and upsert them into automation_candidates; idempotent, never changes status. Platform admin or the background service. Returns the candidates written (0622).';
+  'Recompute the repeated sequences (2 to 5 actions, at least 5 times in at least 2 sessions) per role in the last p_days days (7 to 400, default 60) of one community''s activity: new ideas no longer found are deleted, found ones updated, decided ones keep their decision (numbers zeroed when the pattern is gone or comes from fewer than 3 people). Idempotent. Platform admin or the background service. Returns the ideas written (0622).';
 
-create or replace function app.worker_mine_activity() returns jsonb
-language plpgsql security definer set search_path = app, public, extensions as $$
-declare r record; v_communities integer := 0; v_candidates integer := 0; v_failed integer := 0;
+create or replace function app.worker_activity_centers() returns table (center_id uuid)
+language plpgsql stable security definer set search_path = app, public, extensions as $$
 begin
   perform app.assert_worker();
-  for r in select c.id from app.centers c where (c.rules -> 'activity' ->> 'enabled') = 'true' order by c.id loop
-    begin
-      v_candidates := v_candidates + app.activity_mine(r.id);
-      v_communities := v_communities + 1;
-    exception when others then
-      v_failed := v_failed + 1;
-      raise warning 'activity.mine failed for community %: %', r.id, sqlerrm;
-    end;
-  end loop;
-  return jsonb_build_object('communities', v_communities, 'candidates', v_candidates, 'failed', v_failed);
+  return query select c.id from app.centers c where (c.rules -> 'activity' ->> 'enabled') = 'true' order by c.id;
 end $$;
-comment on function app.worker_mine_activity() is 'connect_worker (daily, activity.mine): run the miner for every community whose activity recording is on. One community failing does not stop the others (0622).';
+comment on function app.worker_activity_centers() is 'connect_worker: the communities whose activity recording is on (the worker mines each in its own call, 0622).';
 
-revoke execute on function app.activity_mine(uuid, integer), app.worker_mine_activity(), app.automation_candidates_decide()
+create or replace function app.worker_mine_activity(p_center uuid) returns jsonb
+language plpgsql security definer set search_path = app, public, extensions as $$
+declare v_n integer;
+begin
+  perform app.assert_worker();
+  if p_center is null or not app.activity_enabled(p_center) then
+    return jsonb_build_object('candidates', 0, 'skipped', true);
+  end if;
+  v_n := app.activity_mine(p_center);
+  return jsonb_build_object('candidates', v_n, 'skipped', false);
+end $$;
+comment on function app.worker_mine_activity(uuid) is 'connect_worker (daily, activity.mine, once per community): recompute one community''s automation ideas; nothing if its recording is off (0622).';
+
+revoke execute on function app.activity_mine(uuid, integer), app.worker_activity_centers(), app.worker_mine_activity(uuid),
+  app.automation_candidates_decide()
   from public, anon, authenticated, service_role;
 grant execute on function app.activity_mine(uuid, integer) to authenticated, connect_worker;
-grant execute on function app.worker_mine_activity() to connect_worker;
+grant execute on function app.worker_activity_centers(), app.worker_mine_activity(uuid) to connect_worker;

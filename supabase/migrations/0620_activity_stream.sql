@@ -12,13 +12,22 @@
 --                  community to another and the raw id is never stored
 --     role(s)      the role keys the person held at the time (operational / center tier; "member" has none)
 --     what         a key from the allowlist (app.activity_catalog) or a screen ROUTE PATTERN ("screen:/events/[id]")
---     about what   an entity kind from the catalog and, if given, the record's id
---     how it went  ok | error | cancelled, an error CODE, how long it took, how it was started (screen, palette,
---                  assistant, app), the sequence number in the session, the app version and the platform
+--     about what   the entity kind the catalog gives the key and, for kinds that are not about a person or a child, the
+--                  record's id (never for a person, household, student, learner, enrollment ... : app.activity_entity_id_ok)
+--     how it went  ok | error | cancelled, an error CODE (letters and underscores), how long it took, how it was
+--                  started (screen, palette, assistant, app), the sequence number in the session, the session (a uuid),
+--                  the app version (1.2.3) and the platform (ios, android, web)
 --     NO free text and NO values anywhere: no names, amounts, notes, addresses, search words or URLs with ids.
---   Every column has a check; keys that are not in the allowlist, and screen keys that are not route patterns, never get
---   in (0621 drops them). Nothing is recorded for anyone under 18, for any account the records do not show to be an
---   adult's, for a person who opted out, or for a community whose switch is off.
+--   Every column has a check; action keys and screen keys that are not in the allowlist (a screen key is also a route
+--   pattern, with no id-like segment) never get in (0621 drops them). Who is recorded, by SURFACE:
+--     member app   (via = 'app')   only a person whose recorded birth date shows 18 or older. No birth date means not
+--                                  recorded (a 15-year-old who registers herself has none).
+--     portal       (any other via) only a person who holds a current staff role and whose birth date is not under 18
+--                                  (no birth date is allowed: staff are granted roles by an administrator).
+--     never        a platform admin, a person who opted out, a community whose switch is off. The daily sweep
+--                  (app.activity_purge, 0623) deletes what was stored about anyone who no longer passes.
+--   Small groups: an automation idea, a usage row or a backlog row is shown to anyone but a platform admin only when it
+--   comes from at least app.activity_min_actors() (3) different people.
 --
 --   WHO CAN READ WHAT
 --     app.activity_events    raw rows: Weaver platform admins only. Nobody can insert, update or delete through the API;
@@ -100,8 +109,10 @@ end $$;
 
 -- ── The allowlist ────────────────────────────────────────────────────────────
 create table if not exists app.activity_catalog (
-  key             text primary key,
+  key             text not null,
   kind            text not null check (kind in ('action', 'screen')),
+  -- A key can be listed for both surfaces (screen:/events is a portal page and a member app screen): the primary key is
+  -- the key and the surface, and an event is accepted only against the row of the surface it was sent from.
   surface         text not null check (surface in ('portal', 'member')),
   label           text not null check (char_length(label) between 1 and 120),
   entity_kind     text check (entity_kind is null or entity_kind ~ '^[a-z][a-z0-9_]{0,39}$'),
@@ -109,11 +120,12 @@ create table if not exists app.activity_catalog (
   -- proposes a Niva command only for a sequence whose every step has one.
   commandable_key text check (commandable_key is null or commandable_key ~ '^[a-z][a-z0-9_.]{0,79}$'),
   created_at      timestamptz not null default now(),
+  primary key (key, surface),
   check (kind <> 'action' or key ~ '^[a-z][a-z0-9_]{1,40}(\.[a-z][a-z0-9_]{1,40}){0,2}$'),
   check (kind <> 'screen' or coalesce(app.activity_screen_key_norm(key) = key, false))
 );
 comment on table app.activity_catalog is
-  'The allowlist of activity keys (0620): every action key an event may carry, with a plain-English label, the surface (portal | member), the kind of record it is about and, once the command layer has one, the command that does the same. Screens are listed for their labels only: any valid route pattern is accepted. Add keys with app.activity_register in a later migration.';
+  'The allowlist of activity keys (0620): every action key and screen route pattern an event may carry, per surface (portal | member), with a plain-English label, the kind of record it is about (the only entity kind an event can have) and, once the command layer has one, the command that does the same. A key not listed for the surface an event came from is dropped. Add keys with app.activity_register in a later migration.';
 
 -- Add or change a key. For later migrations (the command layer registers its commands here): a null entity kind or command
 -- key keeps what is already there. Not callable through the API.
@@ -123,8 +135,8 @@ returns void language plpgsql security definer set search_path = app, public, ex
 begin
   insert into app.activity_catalog (key, kind, surface, label, entity_kind, commandable_key)
   values (p_key, p_kind, p_surface, p_label, p_entity_kind, p_commandable_key)
-  on conflict (key) do update
-    set kind = excluded.kind, surface = excluded.surface, label = excluded.label,
+  on conflict (key, surface) do update
+    set kind = excluded.kind, label = excluded.label,
         entity_kind = coalesce(excluded.entity_kind, app.activity_catalog.entity_kind),
         commandable_key = coalesce(excluded.commandable_key, app.activity_catalog.commandable_key);
 end $$;
@@ -150,7 +162,7 @@ create table if not exists app.activity_events (
   center_id   uuid not null references app.centers(id) on delete cascade,
   occurred_at timestamptz not null,
   received_at timestamptz not null default now(),
-  session_id  text check (session_id is null or session_id ~ '^[A-Za-z0-9_-]{8,64}$'),
+  session_id  uuid,
   seq         integer check (seq is null or seq between 0 and 1000000),
   surface     text not null check (surface in ('portal', 'member')),
   actor_hash  text not null check (actor_hash ~ '^[0-9a-f]{64}$'),
@@ -160,21 +172,21 @@ create table if not exists app.activity_events (
   entity_kind text check (entity_kind is null or entity_kind ~ '^[a-z][a-z0-9_]{0,39}$'),
   entity_id   uuid,
   outcome     text not null check (outcome in ('ok', 'error', 'cancelled')),
-  error_code  text check (error_code is null or error_code ~ '^[a-z0-9_.-]{1,40}$'),
+  error_code  text check (error_code is null or error_code ~ '^[a-z_]{2,40}$'),
   duration_ms integer check (duration_ms is null or duration_ms between 0 and 3600000),
   via         text not null check (via in ('screen', 'palette', 'assistant', 'app')),
-  app_version text check (app_version is null or app_version ~ '^[0-9A-Za-z._+-]{1,32}$'),
-  platform    text check (platform is null or platform ~ '^[a-z0-9_-]{1,16}$')
+  app_version text check (app_version is null or (char_length(app_version) <= 32 and app_version ~ '^[0-9]+(\.[0-9]+){0,2}$')),
+  platform    text check (platform is null or platform in ('ios', 'android', 'web'))
 );
 comment on table app.activity_events is
   'What staff do in the portal and members do in the apps (0620). Pseudonymous (actor_hash), allowlisted keys only, no free text and no values. Insert only through app.record_activity; raw rows are readable by platform admins only; kept 400 days (app.activity_purge, 0623). Not audited: the volume, and a readable copy would defeat the access rule.';
 comment on column app.activity_events.actor_hash is 'hmac-sha256(user id, the community''s salt), hex. Never the user id.';
 comment on column app.activity_events.received_at is 'When the database stored it (rate limit and retention); occurred_at is the device''s time, held within 7 days before and 5 minutes after it.';
 
--- The two the brief asks for, plus the rate limit's (one person, one community, the last hour) and a small time index the
--- purge scans (events arrive roughly in time order).
+-- The miner's window and the usage totals (a community and a time range); the rate limit and the deletes by pseudonym
+-- (one person, one community: opt-out, sweep); and a small time index the purge scans (events arrive roughly in time order).
+-- No index on (community, person, session, seq): nothing reads events that way.
 create index if not exists activity_events_center_time_idx on app.activity_events (center_id, occurred_at);
-create index if not exists activity_events_actor_session_idx on app.activity_events (center_id, actor_hash, session_id, seq);
 create index if not exists activity_events_actor_received_idx on app.activity_events (center_id, actor_hash, received_at);
 create index if not exists activity_events_time_brin on app.activity_events using brin (occurred_at);
 
@@ -215,23 +227,45 @@ language sql stable security definer set search_path = app, public, extensions a
   select coalesce((select (c.rules -> 'activity' ->> 'enabled') = 'true' from app.centers c where c.id = p_center), false)
 $$;
 
--- May this sign-in be recorded in this community? Only a person the records show to be an ADULT, linked to this sign-in
--- in this community (staff and members alike have that link). Conservative on purpose:
---   a date of birth that says 18 or older                                         -> yes
---   no date of birth, but a current household role of primary or spouse (and not recorded as a child anywhere,
---   app.person_is_minor)                                                          -> yes
---   under 18, or no date of birth and nothing that shows an adult, or no person   -> no
--- (app.i_am_adult counts every person without a birth date as an adult; this does not.)
-create or replace function app.activity_person_ok(p_center uuid, p_user uuid) returns boolean
+-- Small groups: an automation idea, a usage row or a backlog row is shown to anyone but a platform admin only when it comes
+-- from at least this many different people. The one place the number lives.
+create or replace function app.activity_min_actors() returns integer
+language sql immutable set search_path = app, public, extensions as $$ select 3 $$;
+
+-- The MEMBER APP: may this sign-in be recorded there? Only a person whose recorded birth date shows 18 or older. No birth
+-- date means no (a 15-year-old who registers her own household has none and the role "primary"). This is the same test
+-- the daily sweep applies to what is already stored (app.activity_purge, 0623).
+create or replace function app.activity_member_ok(p_center uuid, p_user uuid) returns boolean
 language sql stable security definer set search_path = app, public, extensions as $$
-  select coalesce((
-    select (p.date_of_birth is not null and p.date_of_birth <= current_date - interval '18 years')
-        or (p.date_of_birth is null
-            and exists (select 1 from app.household_members hm
-                         where hm.person_id = p.id and hm.left_at is null and hm.role in ('primary', 'spouse'))
-            and not app.person_is_minor(p.id))
-      from app.center_users cu join app.people p on p.id = cu.person_id
-     where cu.center_id = p_center and cu.user_id = p_user), false)
+  select exists (select 1 from app.center_users cu join app.people p on p.id = cu.person_id
+                  where cu.center_id = p_center and cu.user_id = p_user
+                    and p.date_of_birth is not null and p.date_of_birth <= current_date - interval '18 years')
+$$;
+
+-- The PORTAL: may this sign-in be recorded there? Only a person who holds a current staff role in the community (or owns
+-- it) and whose birth date is not under 18; no birth date on file is allowed, because an administrator granted the role.
+create or replace function app.activity_portal_ok(p_center uuid, p_user uuid) returns boolean
+language sql stable security definer set search_path = app, public, extensions as $$
+  select app.is_staff_of(p_center, p_user)
+     and not exists (select 1 from app.center_users cu join app.people p on p.id = cu.person_id
+                      where cu.center_id = p_center and cu.user_id = p_user
+                        and p.date_of_birth is not null and p.date_of_birth > current_date - interval '18 years')
+$$;
+
+-- For which kinds of record an event may keep the record's id: never a person, a household, a student or learner, an
+-- enrollment, a registration or RSVP, homework or a sign-off, an application or a family change request, or an attendee.
+-- The kind itself is kept either way.
+create or replace function app.activity_entity_id_ok(p_kind text) returns boolean
+language sql immutable set search_path = app, public, extensions as $$
+  select p_kind is not null
+     and p_kind not in ('person', 'household', 'family', 'student', 'learner', 'child', 'enrollment', 'registration', 'rsvp',
+                        'homework', 'signoff', 'application', 'change_request', 'attendee', 'guest')
+$$;
+
+-- The pseudonym of one person for one salt.
+create or replace function app.activity_hash(p_user uuid, p_salt bytea) returns text
+language sql immutable set search_path = app, public, extensions as $$
+  select encode(hmac(convert_to(p_user::text, 'UTF8'), p_salt, 'sha256'), 'hex')
 $$;
 
 -- The pseudonym of one person in one community. p_create false: look only (null if the community has no salt yet).
@@ -246,13 +280,16 @@ begin
     on conflict (center_id) do nothing;
     select s.salt into v_salt from app.activity_salts s where s.center_id = p_center;
   end if;
-  return encode(hmac(convert_to(p_user::text, 'UTF8'), v_salt, 'sha256'), 'hex');
+  return app.activity_hash(p_user, v_salt);
 end $$;
 
--- Internal: none of these is callable through the API (the activity functions of 0621 call them as the owner).
+-- Internal: none of these is callable through the API (the activity functions of 0621 call them as the owner). Not on the
+-- list: app.activity_min_actors(), a constant that the row level security policy of automation_candidates (0622) evaluates
+-- as the signed-in person.
 revoke execute on function app.activity_screen_key_norm(text), app.activity_uuid(text), app.activity_int(text, integer, integer),
   app.activity_ts(text), app.activity_register(text, text, text, text, text, text), app.activity_enabled(uuid),
-  app.activity_person_ok(uuid, uuid), app.activity_actor_hash(uuid, uuid, boolean)
+  app.activity_member_ok(uuid, uuid), app.activity_portal_ok(uuid, uuid),
+  app.activity_entity_id_ok(text), app.activity_hash(uuid, bytea), app.activity_actor_hash(uuid, uuid, boolean)
   from public, anon, authenticated, service_role;
 
 -- ── The allowlist, seeded ────────────────────────────────────────────────────
@@ -339,24 +376,27 @@ select app.activity_register(v.k, 'screen', 'portal', v.l, v.e)
     ('screen:/platform/https', 'HTTPS', null), ('screen:/platform/payments', 'Platform payments', null)
   ) as v(k, l, e);
 
--- Member app screens (connect-mobile app/ routes, route groups removed). Where the portal has the same pattern the row
--- above stands for both: a screen event's surface comes from how it was sent (via = app), not from this table.
+-- Member app screens (connect-mobile app/ routes, route groups removed, placeholders lower-cased: [goalId] is [goalid]). A
+-- pattern the portal also has (screen:/events) is listed again here for the member surface; an event is accepted only
+-- against the row of the surface it was sent from (via = app is the member app).
 select app.activity_register(v.k, 'screen', 'member', v.l, v.e)
   from (values
+    ('screen:/', 'Home', null), ('screen:/events', 'Events', null), ('screen:/bolis', 'Bolis', null),
+    ('screen:/store', 'Store', null), ('screen:/settings', 'Settings', null),
     ('screen:/legal', 'Legal', null), ('screen:/family', 'Family', null), ('screen:/give', 'Give', null), ('screen:/jain-way', 'The Jain Way', null),
     ('screen:/album/[id]', 'Photo album', 'album'), ('screen:/boli/[id]', 'A boli', 'boli'), ('screen:/cart', 'Cart', null),
     ('screen:/darshan', 'Darshan', null), ('screen:/event/[id]', 'An event', 'event'),
     ('screen:/event/[id]/confirm', 'Confirm RSVP', 'event'), ('screen:/event/[id]/tickets', 'Tickets', 'event'),
     ('screen:/family-review', 'Review family details', null), ('screen:/guide', 'Guide', null),
-    ('screen:/guide/[id]', 'A guide page', null), ('screen:/guide/admin', 'Guide: administration', null),
+    ('screen:/guide/[slug]', 'A guide page', null), ('screen:/guide/admin', 'Guide: administration', null),
     ('screen:/guide/apply', 'Guide: apply', null), ('screen:/guide/ask', 'Guide: ask', null),
     ('screen:/guide/links', 'Guide: links', null), ('screen:/guide/membership', 'Guide: membership', null),
     ('screen:/guide/registrations', 'Guide: registrations', null), ('screen:/guide/timings', 'Guide: timings', null),
     ('screen:/guide/volunteer', 'Guide: volunteer', null), ('screen:/guide/whatsapp', 'Guide: WhatsApp', null),
     ('screen:/guide/zones', 'Guide: zones', null), ('screen:/gyan', 'Gyan Path', null),
-    ('screen:/gyan/[id]', 'A Gyan Path goal', null), ('screen:/gyan/[id]/level/[id]', 'A Gyan Path level', null),
-    ('screen:/gyan/homework', 'Homework', null), ('screen:/gyan/homework/[id]', 'One homework', null),
-    ('screen:/labh/[id]', 'Labh', null), ('screen:/listen/playlist', 'Playlist', null),
+    ('screen:/gyan/[goalid]', 'A Gyan Path goal', null), ('screen:/gyan/[goalid]/level/[levelid]', 'A Gyan Path level', null),
+    ('screen:/gyan/homework', 'Homework', null), ('screen:/gyan/homework/[assignmentid]', 'One homework', null),
+    ('screen:/labh/[dayid]', 'Labh', null), ('screen:/listen/playlist', 'Playlist', null),
     ('screen:/listen/podcast-random', 'Random podcast', null), ('screen:/media/[kind]', 'Media list', null),
     ('screen:/media/[kind]/[id]', 'Media item', null), ('screen:/member-card', 'Member card', null),
     ('screen:/niva', 'Niva', null), ('screen:/opportunity/[id]', 'An opportunity', 'opportunity'),
@@ -418,4 +458,4 @@ select app.activity_register(v.k, 'action', 'portal', v.l, v.e)
 -- write a few hundred audit rows for it.
 drop trigger if exists audit_activity_catalog on app.activity_catalog;
 create trigger audit_activity_catalog after insert or update or delete on app.activity_catalog
-  for each row execute function app.audit_row('key');
+  for each row execute function app.audit_row('key', 'surface');
