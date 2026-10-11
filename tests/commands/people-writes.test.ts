@@ -45,6 +45,7 @@ function proposed(r: CommandRunResult): CommandNeedsConfirmation {
   if (!r.ok || !r.needsConfirmation) throw new Error(`expected a proposal, got ${JSON.stringify(r)}`);
   return r;
 }
+const messageOf = (r: CommandRunResult): string | undefined => (r.ok && !r.needsConfirmation ? r.message : undefined);
 const failed = (r: CommandRunResult): string => {
   if (r.ok) throw new Error(`expected a failure, got ${JSON.stringify(r)}`);
   return r.error;
@@ -108,7 +109,7 @@ describe("people.add_person", () => {
       p_email: "meera@example.org",
       p_phone: "+15125550199",
     });
-    if (done.ok) expect(done.message).toMatch(/Meera Shah added to the household · audit logged\. They can sign in/);
+    expect(messageOf(done)).toMatch(/Meera Shah added to the household · audit logged\. They can sign in/);
   });
 
   it("is never used by Niva for a child, whatever way the child is described", async () => {
@@ -140,7 +141,7 @@ describe("people.update_person", () => {
     expect(JSON.stringify(p)).not.toMatch(CHILD_WORDS);
     const done = await confirm();
     expect(done).toMatchObject({ ok: true });
-    if (done.ok) expect(done.message).toBe("Saved Priya's profile (profession and employer) · audit logged");
+    expect(messageOf(done)).toBe("Saved Priya's profile (profession and employer) · audit logged");
     expect(tables.people.find((r) => r.id === ID.priya)).toMatchObject({ profession: "Doctor", employer: "Acme", email: "priya@example.org" });
   });
 
@@ -185,7 +186,7 @@ describe("people.move_person", () => {
     expect(JSON.stringify(p)).not.toMatch(CHILD_WORDS);
     const done = await confirm();
     expect(done).toMatchObject({ ok: true });
-    if (done.ok) expect(done.message).toBe("Rahul moved · pledges and payments stay with the original household · audit logged");
+    expect(messageOf(done)).toBe("Rahul moved · pledges and payments stay with the original household · audit logged");
     expect(db.rpcCalls.find((c) => c.fn === "move_person_household")?.args).toEqual({ p_person: ID.rahul, p_from: ID.hhShah, p_to: ID.hhPatel, p_role: "parent" });
   });
 
@@ -255,7 +256,7 @@ describe("people.merge_people", () => {
     expect(db.rpcCalls.find((c) => c.fn === "merge_people_preview")?.args).toEqual({ p_keep: ID.priya, p_drop: ID.priya2, p_take: ["phone_e164", "email"] });
     const done = await confirm();
     expect(done).toMatchObject({ ok: true });
-    if (done.ok) expect(done.message).toBe("Records merged (2 fields taken from the duplicate) · audit logged");
+    expect(messageOf(done)).toBe("Records merged (2 fields taken from the duplicate) · audit logged");
     expect(db.rpcCalls.find((c) => c.fn === "merge_people")?.args).toEqual({ p_keep: ID.priya, p_drop: ID.priya2, p_take: ["phone_e164", "email"] });
     expect(vi.mocked(dbWithReason)).toHaveBeenCalledWith(expect.anything(), "Same person, new signup");
   });
