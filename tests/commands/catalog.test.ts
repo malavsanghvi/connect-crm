@@ -368,12 +368,20 @@ describe("reminder wording", () => {
     const saved = pickSaved(rows, "center-1");
     expect(saved.get("gu")).toEqual({ subject: "mine new", body: "m2" });
     expect(saved.has("en")).toBe(false);
+    // A language Weaver has no wording for is kept too: any language can have a saved template.
+    expect(saved.get("fr")).toEqual({ subject: "x", body: "x" });
   });
 });
 
 describe("messages.draft_reminder", () => {
+  /** A community that uses English, Gujarati and Hindi (tests/community-languages.test.ts covers the other languages). */
+  const threeLanguages = (): FakeDbOptions => {
+    const w = communityWithChildren();
+    return { ...w, rpc: { ...w.rpc, community_languages: ["en", "gu", "hi"] } };
+  };
+
   it("drafts the reminder in all three languages, and sends nothing", async () => {
-    const { ctx, db } = setup();
+    const { ctx, db } = setup({ world: threeLanguages() });
     const r = await runCommand(ctx, "messages.draft_reminder", { event_id: DIWALI });
     const data = dataOf<{ event: { name: string }; drafts: { language: string; subject: string; body: string; source: string }[]; sent: boolean; notes: string[] }>(r);
     expect(data.event.name).toBe("Diwali Dinner");
@@ -382,11 +390,11 @@ describe("messages.draft_reminder", () => {
     expect(data.notes.join(" ")).toContain("Ask someone who reads the language");
     expect(r).toMatchObject({ message: "This is a draft. Nothing has been sent or scheduled." });
     expect(db.calls.every((c) => c.op === "select")).toBe(true);
-    expect(db.rpcCalls.map((c) => c.fn)).toEqual([]);
+    expect(db.rpcCalls.map((c) => c.fn)).toEqual(["community_languages"]);
   });
 
   it("drafts one language, or an RSVP confirmation from the saved template", async () => {
-    const world = communityWithChildren();
+    const world = threeLanguages();
     world.tables.message_templates = [
       { key: "rsvp_confirmation", channel: "push", language: "gu", subject: "ખાતરી: {{event}}", body: "{{event}} {{when}}", center_id: "center-1", version: 1 },
     ];
@@ -396,7 +404,7 @@ describe("messages.draft_reminder", () => {
   });
 
   it("says when the saved templates could not be read, and still drafts", async () => {
-    const { ctx } = setup({ world: { ...communityWithChildren(), failTables: { message_templates: { code: "42501", message: "permission denied" } } } });
+    const { ctx } = setup({ world: { ...threeLanguages(), failTables: { message_templates: { code: "42501", message: "permission denied" } } } });
     const data = dataOf<{ drafts: unknown[]; notes: string[] }>(await runCommand(ctx, "messages.draft_reminder", { event_id: DIWALI, kind: "rsvp_confirmation" }));
     expect(data.drafts).toHaveLength(3);
     expect(data.notes[0]).toBe("Could not read the community's saved templates, so this uses the wording built into Weaver.");

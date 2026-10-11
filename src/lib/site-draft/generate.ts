@@ -81,7 +81,7 @@ type Contact = { source: BlockSource; emails: string[]; phones: string[]; addres
 
 function contactOf(weaver: WeaverData, own: OwnCrawl | null): Contact {
   const emails = weaver.email ? [weaver.email] : [];
-  const phones = weaver.phone ? [formatPhone(weaver.phone)] : [];
+  const phones = weaver.phone ? [formatPhone(weaver.phone, weaver.country)] : [];
   const addresses = weaver.address ? [weaver.address] : [];
   if (emails.length || phones.length || addresses.length || weaver.officeHours || weaver.social.length) {
     return { source: "weaver_data", emails, phones, addresses, hours: weaver.officeHours, social: weaver.social };
@@ -95,7 +95,7 @@ function contactOf(weaver: WeaverData, own: OwnCrawl | null): Contact {
 function todayLine(weaver: WeaverData, words: SiteWords): string | null {
   const t = weaver.today;
   if (!words.tradition || !t || !t.open || !t.close) return null;
-  return `Open ${clockTime(t.open)} to ${clockTime(t.close)} on ${longDate(t.date)}`;
+  return `Open ${clockTime(t.open, weaver.locale)} to ${clockTime(t.close, weaver.locale)} on ${longDate(t.date, weaver.locale)}`;
 }
 
 // ── The home page's order of sections ────────────────────────────────────────
@@ -231,7 +231,7 @@ export function generateDraft(input: DraftInput): SiteDraft {
     const s = weaver.school;
     if (s.on && (s.term || s.levels.length > 0)) {
       const paras: string[] = [];
-      if (s.term) paras.push(`${s.term.name}: ${longDate(s.term.startsOn)} to ${longDate(s.term.endsOn)}.`);
+      if (s.term) paras.push(`${s.term.name}: ${longDate(s.term.startsOn, weaver.locale)} to ${longDate(s.term.endsOn, weaver.locale)}.`);
       if (s.levels.length > 0) paras.push(`Levels: ${s.levels.join(", ")}.`);
       blocks.push(mk("text", { heading: words.classesHeading, paragraphs: paras } satisfies TextContent, "weaver_data"));
     }

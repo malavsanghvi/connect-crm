@@ -74,7 +74,7 @@ async function buildFirstDraft(replace: boolean): Promise<ActionResult<DraftSumm
     }
   }
 
-  const weaver = await loadWeaverData(db, center.id, doing);
+  const weaver = await loadWeaverData(db, center, doing);
   if (!weaver.ok) return weaver;
 
   let draft;
@@ -93,7 +93,8 @@ async function buildFirstDraft(replace: boolean): Promise<ActionResult<DraftSumm
   const message =
     `Your first draft is ready: ${draft.pages.length} ${draft.pages.length === 1 ? "page" : "pages"}. ` +
     (standIns > 0 ? `${standIns} ${standIns === 1 ? "part has" : "parts have"} short stand-in text for you to replace. ` : "") +
-    "Nothing is published: only you and the other people who manage settings can see it.";
+    "Nothing is published: only you and the other people who manage settings can see it." +
+    (weaver.note ? ` ${weaver.note}` : "");
   // The draft is saved either way; when its summary cannot be read back right now, the screen asks again.
   const summary = await loadDraftSummary(db, center.id, doing);
   return summary.ok && summary.summary ? { ok: true, message, data: summary.summary } : { ok: true, message };
