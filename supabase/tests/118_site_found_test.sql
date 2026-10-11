@@ -43,7 +43,7 @@ end $$;
 \set admin '''11800000-0000-4000-8000-000000000001'''
 \set editor '''11800000-0000-4000-8000-000000000002'''
 \set admin2 '''11800000-0000-4000-8000-000000000003'''
-\insert into auth.users (id, email) values (:admin, 'admin118@example.com'), (:editor, 'editor118@example.com'),
+insert into auth.users (id, email) values (:admin, 'admin118@example.com'), (:editor, 'editor118@example.com'),
   (:admin2, 'admin118b@example.com');
 insert into app.centers (id, slug, name, short_name, state_region, status) values
   (:c, 'site118', 'Website One', 'WS1', 'TX', 'active'),
