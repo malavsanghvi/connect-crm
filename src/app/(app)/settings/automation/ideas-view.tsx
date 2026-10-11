@@ -39,7 +39,7 @@ function Decision({ card }: { card: IdeaCard }) {
   );
 }
 
-function Idea({ card }: { card: IdeaCard }) {
+function Idea({ card, canAnswer }: { card: IdeaCard; canAnswer: boolean }) {
   return (
     <li className="rounded-[12px] border border-line p-3" data-testid="automation-idea">
       <p className="text-[14px] font-semibold text-ink">{card.title}</p>
@@ -52,7 +52,7 @@ function Idea({ card }: { card: IdeaCard }) {
           <Badge tone="success">Built</Badge>
         </p>
       ) : null}
-      <Decision card={card} />
+      {canAnswer ? <Decision card={card} /> : null}
     </li>
   );
 }
@@ -63,12 +63,15 @@ export function IdeaList({
   cards,
   empty,
   span,
+  canAnswer = true,
 }: {
   title: string;
   description?: string;
   cards: IdeaCard[];
   empty: string;
   span?: 12;
+  /** False for Weaver staff looking at a community that shares: they see the ideas but only the community answers them. */
+  canAnswer?: boolean;
 }) {
   return (
     <Card span={span} title={title} description={description}>
@@ -77,7 +80,7 @@ export function IdeaList({
       ) : (
         <ul className="space-y-3">
           {cards.map((card) => (
-            <Idea key={card.id} card={card} />
+            <Idea key={card.id} card={card} canAnswer={canAnswer} />
           ))}
         </ul>
       )}

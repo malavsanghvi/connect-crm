@@ -4,13 +4,10 @@ import { describe, expect, it, vi } from "vitest";
 
 // The forms call Server Actions; here nothing is called, only rendered.
 vi.mock("@/app/(app)/settings/automation/actions", () => ({ decideIdeaAction: vi.fn() }));
-vi.mock("@/app/(app)/platform/centers/[id]/actions", () => ({ setActivityRecordingAction: vi.fn() }));
 // ActionForm's step-up modal verifies a code through a server action.
 vi.mock("@/app/security-actions", () => ({ verifyStepUpAction: vi.fn() }));
 
 import { IdeaList, UsagePanel } from "@/app/(app)/settings/automation/ideas-view";
-import { RecordingCard, recordingStateText } from "@/app/(app)/platform/centers/[id]/recording-card";
-import { activityRecordingOn, activitySince } from "@/lib/activity/enabled";
 import { buildIdeaCard, buildLabelMap, summariseUsage, type IdeaRow } from "@/lib/activity/ideas";
 
 const render = (el: Parameters<typeof renderToStaticMarkup>[0]) => renderToStaticMarkup(el);
@@ -109,41 +106,11 @@ describe("Settings › Automation ideas · how the community uses Weaver", () =>
   });
 });
 
-describe("Platform › Centers · record how this community uses Weaver", () => {
-  const CENTER = "7d0f3b9a-6a39-4d0c-9f43-0a1a1d7c1001";
-
-  it("reads the switch and its date from the community's rules", () => {
-    expect(activityRecordingOn({ activity: { enabled: true, since: "2026-10-10T15:04:00.123456Z" } })).toBe(true);
-    expect(activityRecordingOn({ activity: { enabled: "true" } })).toBe(false);
-    expect(activityRecordingOn({})).toBe(false);
-    expect(activitySince({ activity: { enabled: true, since: "2026-10-10T15:04:00.123456Z" } })).toBe("2026-10-10T15:04:00.123456Z");
-    expect(activitySince({ activity: { since: "yesterday" } })).toBeNull();
-    expect(activitySince({ activity: { enabled: false } })).toBeNull();
-    expect(activitySince(null)).toBeNull();
-  });
-
-  it("says never switched on, on since, off since, or that the date was not kept", () => {
-    expect(recordingStateText(false, null, "America/Chicago")).toBe("Never switched on");
-    expect(recordingStateText(true, null, "America/Chicago")).toMatch(/not kept/);
-    expect(recordingStateText(true, "2026-10-10T15:04:00Z", "America/Chicago")).toMatch(/^On since .*2026/);
-    expect(recordingStateText(false, "2026-10-10T15:04:00Z", "America/Chicago")).toMatch(/^Off since .*2026/);
-  });
-
-  it("offers to switch recording on, with a required reason, when it is off", () => {
-    const html = render(createElement(RecordingCard, { centerId: CENTER, centerName: "Jain Society", on: false, since: null, tz: "America/Chicago" }));
-    expect(html).toContain("Record how this community uses Weaver");
-    expect(html).toContain("Never switched on");
-    expect(html).toContain("Switch recording on");
-    expect(html).toContain('name="enable" value="true"');
-    expect(html).toContain(`name="center" value="${CENTER}"`);
-    expect(html).toContain("Reason (required)");
-    expect(html).toContain("It never keeps names, amounts, notes, searches or anything typed");
-  });
-
-  it("offers to switch it off, and shows since when, when it is on", () => {
-    const html = render(createElement(RecordingCard, { centerId: CENTER, centerName: "Jain Society", on: true, since: "2026-10-10T15:04:00Z", tz: "America/Chicago" }));
-    expect(html).toContain("On since");
-    expect(html).toContain("Switch recording off");
-    expect(html).toContain('name="enable" value="false"');
+describe("Weaver staff looking at a community that shares", () => {
+  it("see the ideas but get no buttons: only the community's own administrator answers", () => {
+    const html = render(createElement(IdeaList, { title: "Ideas to look at", cards: [card()], empty: "", canAnswer: false }));
+    expect(html).toContain("After you record a payment you usually confirm a bank match.");
+    expect(html).not.toContain("<button");
+    expect(html).not.toContain('name="reason"');
   });
 });

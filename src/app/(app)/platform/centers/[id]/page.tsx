@@ -6,7 +6,7 @@ import { ActionForm } from "@/components/action-form";
 import { BlockGrid, Card, DefinitionList, EmptyState, PageHeader, QueryError, StatusText, TableWrap } from "@/components/ui";
 import { confirmToolChoices } from "@/lib/assistant/choices";
 import { assistantApiKey } from "@/lib/assistant/key";
-import { activityRecordingOn, activitySince } from "@/lib/activity/enabled";
+import { consentFromRules } from "@/lib/activity/consent";
 import { assistantEnabled } from "@/lib/assistant/settings";
 import { portalBaseDomain } from "@/lib/center-resolve";
 import { formatDateTime } from "@/lib/dates";
@@ -163,8 +163,7 @@ export default async function PlatformCenterPage({ params }: { params: Promise<{
         <RecordingCard
           centerId={id}
           centerName={center.name}
-          on={activityRecordingOn(center.rules)}
-          since={activitySince(center.rules)}
+          consent={consentFromRules(center.rules)}
           tz={tz}
         />
 

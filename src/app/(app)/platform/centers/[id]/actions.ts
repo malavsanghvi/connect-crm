@@ -137,10 +137,11 @@ export async function changeKindAction(centerId: string, kind: string, reasonInp
 // ── Record how this community uses Weaver ────────────────────────────────────
 
 /**
- * Switch activity recording on or off for one community (app.set_activity_recording: platform admins only; it also keeps the
- * date of the change). A reason is required and travels with the change into the audit log. The form says which way to go
- * (enable = "true" or "false"), so pressing it twice, or after somebody else changed it, ends in the state the person asked for.
- * Nothing is recorded until a community is switched on.
+ * Switch activity recording on or off for one community (app.set_activity_recording: platform admins only). Off is always
+ * allowed; on only while the community's administrator has agreed (the database says "The community's administrator has not
+ * agreed yet." otherwise, and the card does not offer the button). A reason is required and travels with the change into the
+ * audit log. The form says which way to go (enable = "true" or "false"), so pressing it twice, or after somebody else changed
+ * it, ends in the state the person asked for.
  */
 export async function setActivityRecordingAction(_prev: ActionResult | null, formData: FormData): Promise<ActionResult> {
   const doing = "change activity recording";

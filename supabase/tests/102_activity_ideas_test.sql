@@ -1,8 +1,8 @@
 -- 0625 (backlog B91): the portal side of the automation pipeline. The allowlist gets the command layer's eight commands, the
--- two portal actions that had no key and the two new screens; the community's switch keeps the date it last changed.
+-- two portal actions that had no key and the two new screens; the community's agreement and Weaver's switch stay as 0621 has them.
 --   A. The registrations   B. Running the migration again changes nothing   C. The new keys are recorded (and a wrong surface
 --   or an unknown key still is not)   D. A pattern made only of commands is proposed as a Niva command
---   E. What the portal does to answer an idea   F. app.set_activity_recording and its date
+--   E. What the portal does to answer an idea   F. The agreement and Weaver's switch (0625 must not weaken them)
 -- Everything runs in one transaction that is rolled back.
 \set ON_ERROR_STOP 1
 begin;
@@ -61,9 +61,11 @@ insert into auth.users (id, email) values
   (:staff102, 'staff102@ideas.test'), (:adm102, 'adm102@ideas.test'), (:plat102, 'plat102@ideas.test'), (:member102, 'member102@ideas.test');
 insert into app.accounts (user_id, is_platform_admin) values (:plat102, true)
   on conflict (user_id) do update set is_platform_admin = excluded.is_platform_admin;
--- A records (its switch is on). B has other rules and nothing switched on.
+-- A has agreed to recording and to sharing counts with Weaver (as the agreement functions of 0621 leave the rules). B has other
+-- rules and has not agreed.
 insert into app.centers (id, slug, name, short_name, state_region, status, rules) values
-  (:a102, 'ideas102a', 'Ideas 102 A', 'I102A', 'TX', 'active', '{"activity": {"enabled": true}}'::jsonb),
+  (:a102, 'ideas102a', 'Ideas 102 A', 'I102A', 'TX', 'active',
+   '{"activity": {"enabled": true, "share_with_weaver": true, "consent": {"at": "2026-10-11T00:00:00Z", "version": "1"}}}'::jsonb),
   (:b102, 'ideas102b', 'Ideas 102 B', 'I102B', 'CA', 'active', '{"store": {"gift_pack_cents": 299}}'::jsonb);
 insert into app.people (id, center_id, first_name, last_name, date_of_birth) values
   ('10200000-0000-4000-8000-000000000101', :a102, 'Sam', 'Staff102', date '1975-03-01'),
@@ -186,44 +188,48 @@ select pg_temp.as_none();
 select pg_temp.assert(:treasurer_try = 0 and (select status = 'new' from app.automation_candidates where id = :'cand102'),
   'E · and cannot answer one');
 
--- ══ F. app.set_activity_recording and its date ═══════════════════════════════
+-- ══ F. The agreement and Weaver's switch (0625 must not weaken them) ═════════
 select pg_temp.assert(has_function_privilege('authenticated', 'app.set_activity_recording(uuid, boolean)', 'execute')
                       and not has_function_privilege('anon', 'app.set_activity_recording(uuid, boolean)', 'execute')
                       and not has_function_privilege('service_role', 'app.set_activity_recording(uuid, boolean)', 'execute')
                       and (select p.prosecdef and array_to_string(p.proconfig, ',') like '%search_path=app, public, extensions%'
                              from pg_proc p where p.oid = 'app.set_activity_recording(uuid, boolean)'::regprocedure),
-  'F · still callable by signed-in people only, security definer with the pinned search path');
-select pg_temp.assert((select not (rules ? 'activity') from app.centers where id = :b102), 'F · B starts with nothing switched on');
+  'F · set_activity_recording is still callable by signed-in people only, security definer with the pinned search path');
+select pg_temp.assert((select not (rules ? 'activity') from app.centers where id = :b102), 'F · B starts with nothing agreed and nothing switched on');
 
-select pg_temp.as_user(:adm102);
-select pg_temp.assert_raises($q$select app.set_activity_recording('10200000-0000-4000-8000-0000000000b1', true)$q$, 'Only the Weaver team',
-  'F · a community administrator cannot switch recording on');
+-- Weaver cannot switch recording on for a community whose administrator has not agreed.
 select pg_temp.as_user(:plat102);
+select pg_temp.assert_raises($q$select app.set_activity_recording('10200000-0000-4000-8000-0000000000b1', true)$q$, 'has not agreed yet',
+  'F · Weaver cannot switch recording on before the community''s administrator agrees');
 select pg_temp.assert_raises($q$select app.set_activity_recording('10200000-0000-4000-8000-0000000000ff', true)$q$, 'not found',
   'F · a community that does not exist is reported, not ignored');
-select app.set_activity_recording(:b102, true);
 select pg_temp.as_none();
-select rules -> 'activity' ->> 'since' as since1 from app.centers where id = :b102 \gset
-select pg_temp.assert((select (rules -> 'activity' ->> 'enabled') = 'true' and (rules -> 'activity' ->> 'since') is not null
-                              and (rules -> 'activity' ->> 'since')::timestamptz <= clock_timestamp()
-                              and (rules -> 'store' ->> 'gift_pack_cents') = '299'
-                         from app.centers where id = :b102),
-  'F · switching on sets the switch and the date it was switched on, and keeps the community''s other rules');
+select pg_temp.assert((select not (rules ? 'activity') from app.centers where id = :b102), 'F · and nothing was changed on B');
+
+-- The community's own administrator cannot use Weaver's switch.
+select pg_temp.as_user(:adm102);
+select pg_temp.assert_raises($q$select app.set_activity_recording('10200000-0000-4000-8000-0000000000a1', false)$q$, 'Only the Weaver team',
+  'F · a community administrator cannot use Weaver''s switch');
+-- What the portal's Settings page reads about the agreement.
+select pg_temp.assert((select s ->> 'enabled' = 'true' and s ->> 'consented' = 'true' and s #>> '{consent,version}' = '1'
+                              and s #>> '{consent,at}' is not null and s ->> 'share_with_weaver' = 'true'
+                         from (select app.activity_status(:a102) as s) x),
+  'F · the community''s administrator reads whether it agreed, when, which notice version, and whether counts are shared');
+select pg_temp.as_user(:staff102);
+select pg_temp.assert((select s ? 'enabled' and not (s ? 'consented') and not (s ? 'share_with_weaver') from (select app.activity_status(:a102) as s) x),
+  'F · a treasurer without the settings permission is not told about the agreement or the sharing');
+
+-- Weaver may switch off at any time, and back on while the agreement stands.
 select pg_temp.as_user(:plat102);
-select app.set_activity_recording(:b102, true);
+select app.set_activity_recording(:a102, false);
+select pg_temp.assert(not app.activity_shared(:a102), 'F · switched off, the community is no longer shared with Weaver');
 select pg_temp.as_none();
-select pg_temp.assert((select (rules -> 'activity' ->> 'since') = :'since1' from app.centers where id = :b102),
-  'F · switching on again changes nothing: the date stays the day it was first switched on');
+select pg_temp.assert((select (rules -> 'activity' ->> 'enabled') = 'false' and (rules #>> '{activity,consent,at}') is not null and (rules #>> '{activity,share_with_weaver}') = 'true'
+                         from app.centers where id = :a102),
+  'F · switching off keeps the agreement and the sharing choice');
 select pg_temp.as_user(:plat102);
-select app.set_activity_recording(:b102, false);
-select pg_temp.as_none();
-select pg_temp.assert((select (rules -> 'activity' ->> 'enabled') = 'false' and (rules -> 'activity' ->> 'since')::timestamptz > :'since1'::timestamptz
-                         from app.centers where id = :b102),
-  'F · switching off sets the switch and stamps the date it was switched off');
-select pg_temp.as_user(:plat102);
-select pg_temp.assert(app.activity_status(:b102) ->> 'enabled' = 'false', 'F · the status the portal reads says off');
-select app.set_activity_recording(:b102, true);
-select pg_temp.assert(app.activity_status(:b102) ->> 'enabled' = 'true', 'F · and on again');
+select app.set_activity_recording(:a102, true);
+select pg_temp.assert(app.activity_shared(:a102) and app.activity_status(:a102) ->> 'enabled' = 'true', 'F · and on again while the agreement stands');
 select pg_temp.as_none();
 
 rollback;

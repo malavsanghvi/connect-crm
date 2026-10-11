@@ -3,6 +3,7 @@ import Link from "next/link";
 
 import { BlockGrid, Card, EmptyState, PageHeader, QueryError, TableWrap } from "@/components/ui";
 import { backlogItems, nextDirection, parseBacklogSort, sortBacklog, type BacklogSort } from "@/lib/activity/backlog";
+import { countSharingCommunities } from "@/lib/activity/consent";
 import { formatDate } from "@/lib/dates";
 import { hrefWith, param, type RawSearchParams } from "@/lib/search-params";
 import { getSession } from "@/lib/session";
@@ -24,8 +25,9 @@ const COLUMNS: { sort: BacklogSort; label: string; numeric: boolean }[] = [
 ];
 
 /**
- * Platform › Automation backlog (B91): for each action, in how many communities that have recording on it is part of an
- * automation idea, in how many ideas, how often and how many minutes a month that adds up to. Keys and counts only: the
+ * Platform › Automation backlog (B91): for each action, in how many communities it is part of an automation idea, in how many
+ * ideas, how often and how many minutes a month that adds up to. Only communities whose administrator agreed to recording AND
+ * to sharing counts with Weaver are included (owner decision 2026-10-11); the page says how many. Keys and counts only: the
  * database view (app.automation_backlog) holds no community, role, person or event, and gives rows to platform admins alone.
  */
 export default async function PlatformAutomationBacklogPage({ searchParams }: { searchParams: Promise<RawSearchParams> }) {
@@ -41,7 +43,10 @@ export default async function PlatformAutomationBacklogPage({ searchParams }: { 
     );
   }
 
-  const res = await session.db.from("automation_backlog").select("item_key, label, surface, communities, ideas, times, minutes_per_month, last_seen");
+  const [res, centers] = await Promise.all([
+    session.db.from("automation_backlog").select("item_key, label, surface, communities, ideas, times, minutes_per_month, last_seen"),
+    session.db.from("centers").select("id, rules"),
+  ]);
   if (res.error) {
     console.error("[platform/automation] could not read the automation backlog:", res.error);
     return (
@@ -55,6 +60,8 @@ export default async function PlatformAutomationBacklogPage({ searchParams }: { 
   const current = parseBacklogSort(param(sp, "sort"), param(sp, "dir"));
   const items = sortBacklog(backlogItems(res.data), current.sort, current.dir);
   const tz = session.center.time_zone;
+  if (centers.error) console.error("[platform/automation] could not count the communities that share:", centers.error);
+  const included = centers.error ? null : countSharingCommunities(centers.data ?? []);
 
   return (
     <>
@@ -62,15 +69,25 @@ export default async function PlatformAutomationBacklogPage({ searchParams }: { 
       <BlockGrid>
         <Card span={12} title="Privacy" description="What this list is, and what it never shows">
           <p className="text-[13px]">
-            This list shows only the names of actions and counts. It never shows which community, which person or what anyone typed. An action appears only when at least 3 people in
-            one community repeat it in a pattern, ideas that a community marked not useful are left out, and only communities with recording switched on are counted. Whether Weaver
-            staff may see counts across communities is still the owner&apos;s decision.
+            This list shows only the names of actions and counts. It never shows which community, which person or what anyone typed. Only communities whose own administrator agreed to
+            recording <em>and</em> chose to let Weaver staff see counts are included. An action appears only when at least 3 people in one community repeat it in a pattern, and ideas
+            that a community marked not useful are left out.
+          </p>
+          <p className="mt-2 text-[13px]" data-testid="backlog-included">
+            {included === null ? (
+              <span className="text-danger">Could not count the communities included. Reload the page to try again.</span>
+            ) : (
+              <>
+                Communities included: <strong>{included}</strong>
+                {included === 0 ? " · none has agreed to share yet" : ""}
+              </>
+            )}
           </p>
         </Card>
         <Card span={12} title="Most repeated work" description="Click a heading to sort" padded={false}>
           {items.length === 0 ? (
             <EmptyState title="Nothing to show yet">
-              Ideas appear here after at least one community has recording on, the nightly search for repeated work has run, and at least 3 people in that community did the same steps.
+              Ideas appear here after at least one community has agreed to recording and to sharing counts with Weaver, the nightly search for repeated work has run, and at least 3 people in that community did the same steps.
             </EmptyState>
           ) : (
             <TableWrap>
