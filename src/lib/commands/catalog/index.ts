@@ -5,8 +5,7 @@
 import { defaultRegistry } from "../registry";
 import type { AnyCommand } from "../types";
 
-import { draftEventChange, setEventField } from "./events-change";
-import { eventsUpcoming } from "./events-upcoming";
+import { EVENT_COMMANDS } from "./events";
 import { draftReminderCommand } from "./messages-draft-reminder";
 import { monthCloseBlockers } from "./month-close-blockers";
 import { peopleSearch } from "./people-search";
@@ -17,14 +16,12 @@ export const CATALOG: readonly AnyCommand[] = [
   // read
   peopleSearch,
   tasksMine,
-  eventsUpcoming,
   pledgesBehind,
   monthCloseBlockers,
   // draft
   draftReminderCommand,
-  draftEventChange,
-  // confirm (off by default)
-  setEventField,
+  // Events: read, draft and confirm (the confirm ones off by default), see events/index.ts
+  ...EVENT_COMMANDS,
 ];
 
 let registered = false;

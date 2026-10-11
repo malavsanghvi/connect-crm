@@ -110,10 +110,12 @@ describe("the recorder hook", () => {
   });
 });
 
-describe("the command keys the database lists (migration 0625)", () => {
+describe("the command keys the database lists (migration 0625, and the later ones that add commands)", () => {
   const migrations = join(process.cwd(), "supabase", "migrations");
   const file = readdirSync(migrations).find((f) => /^0625_.*\.sql$/.test(f));
-  const sql = file ? readFileSync(join(migrations, file), "utf8") : "";
+  // A command added after 0625 registers its key in its own migration (an applied migration is never edited); each is idempotent.
+  const files = readdirSync(migrations).filter((f) => /^\d{4}_.*\.sql$/.test(f) && Number(f.slice(0, 4)) >= 625);
+  const sql = files.map((f) => readFileSync(join(migrations, f), "utf8")).join("\n");
   // ('assistant.people_search', 'Search people and households', 'people.search')
   const registered = [...sql.matchAll(/\(\s*'(assistant\.[a-z0-9_]+)'\s*,\s*'([^']+)'\s*,\s*'([a-z0-9_.]+)'\s*\)/g)].map((m) => ({ key: m[1], label: m[2], command: m[3] }));
 

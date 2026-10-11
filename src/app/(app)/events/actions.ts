@@ -3,7 +3,6 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
-import { readSurveyNotices } from "@/lib/data/event-survey";
 import { eventActionContext } from "@/lib/data/events";
 import type { TablesUpdate } from "@/lib/database.types";
 import type { ActionResult } from "@/lib/errors";
@@ -12,19 +11,27 @@ import { all, bool, cents, centsList, dateTime, FormError, int, isoDate, must, o
 import { toE164 } from "@/lib/events/format";
 import { defaultConfirmationHours, defaultSlotMinutes, lunchRulesFromCenter } from "@/lib/events/rules";
 import { AUDIENCES, parsePartyLines, planLunchSlots } from "@/lib/events/report";
+import { EVENT_STATUSES } from "@/lib/events/status-machine";
 import { randomToken } from "@/lib/events/tokens";
+import { assignVolunteerCommand, runCommandFromScreen, setEventStatusCommand, setRsvpStatusCommand } from "@/lib/commands/catalog/events";
+import { ASSIGN_DENIED } from "@/lib/commands/catalog/events/assign-volunteer";
+import { RSVP_STATUSES, SET_RSVP_DENIED } from "@/lib/commands/catalog/events/rsvps";
+import { SET_STATUS_DENIED } from "@/lib/commands/catalog/events/set-status";
 import { can } from "@/lib/permissions";
-import { surveySentMessage } from "@/lib/survey/event-survey";
 
 type Result = ActionResult<unknown>;
 
-const EVENT_STATUSES = ["draft", "published", "rsvp_closed", "live", "completed", "cancelled"] as const;
 const STATIONS = ["entry", "food", "gifts", "parking", "kitchen", "app_seva"] as const;
 const FLAGS = ["child_under_12", "senior", "assistance"] as const;
 
 function revalidateEvents() {
   revalidatePath("/events", "layout");
   revalidatePath("/ops", "layout");
+}
+
+/** A command's answer as the ActionResult this action has always returned: the sentence, no data. */
+function asActionResult(r: ActionResult<unknown>): Result {
+  return r.ok ? { ok: true, message: r.message } : r;
 }
 
 /** Donation commitment at RSVP. Switched on with nothing to offer is refused, not saved as Off (it reads back as Off). */
@@ -159,44 +166,16 @@ export async function createEventFromTemplate(_prev: Result | null, fd: FormData
   });
 }
 
-const STATUS_MESSAGES: Record<(typeof EVENT_STATUSES)[number], string> = {
-  draft: "Back to draft.",
-  published: "Published · RSVPs open in the member app",
-  rsvp_closed: "RSVPs closed.",
-  live: "Event is live — check-in is open.",
-  completed: "Marked completed.",
-  cancelled: "Event cancelled.",
-};
-
+/**
+ * Change an event's status. The rule for which moves are allowed (src/lib/events/status-machine.ts) and the change itself are the
+ * command events.set_status, the same one the palette and Niva run; this reads the form and returns the command's sentence.
+ */
 export async function setEventStatus(eventId: string, _prev: Result | null, fd: FormData): Promise<Result> {
   return runAction("events.setEventStatus", "change the event status", async () => {
-    const { db } = await eventActionContext((a) => eventAreas.edit(a, eventId), "only event managers and this event's lead can change its status.");
+    const { session } = await eventActionContext((a) => eventAreas.edit(a, eventId), SET_STATUS_DENIED);
     const status = oneOf(fd, "status", EVENT_STATUSES, "Status");
-    const before = (must(await db.from("events").select("status").eq("id", eventId).limit(1), "load the event") ?? [])[0];
-    const res = must(await db.from("events").update({ status }).eq("id", eventId).select("id"), "change the event status");
-    if (!res?.length) throw new FormError("you can't change this event.");
-    revalidateEvents();
-    if (status === "completed" && before?.status !== "completed") return { ok: true, message: await completedMessage(db, eventId) };
-    return { ok: true, message: STATUS_MESSAGES[status] };
+    return asActionResult(await runCommandFromScreen(setEventStatusCommand, session, { event_id: eventId, status }));
   }, { key: "events.set_status", entityFrom: { kind: "event", id: eventId } });
-}
-
-/**
- * Marking an event completed opens its survey when it is set to send by itself (0544); the database takes the counts
- * at once and the background service queues the pushes (0596). Says what happened, or that it could not be checked.
- */
-async function completedMessage(db: Awaited<ReturnType<typeof eventActionContext>>["db"], eventId: string): Promise<string> {
-  const found = await db.from("surveys").select("id").eq("event_id", eventId).eq("kind", "event_feedback").limit(1);
-  if (found.error) {
-    console.error("[events] events.setEventStatus: the event is completed, but its survey could not be checked:", found.error);
-    return "Marked completed. Whether its survey went out could not be checked; open the event's Survey tab to see.";
-  }
-  const id = found.data?.[0]?.id;
-  if (!id) return STATUS_MESSAGES.completed;
-  const read = await readSurveyNotices(db, id);
-  if (!read.ok) return "Marked completed. Its survey's numbers could not be loaded; open the event's Survey tab to see who gets a push.";
-  if (!read.notices) return STATUS_MESSAGES.completed;
-  return `Marked completed. ${surveySentMessage(read.notices, "The survey opened")}`;
 }
 
 // ---------------------------------------------------------------------------
@@ -204,18 +183,9 @@ async function completedMessage(db: Awaited<ReturnType<typeof eventActionContext
 // ---------------------------------------------------------------------------
 export async function setRsvpStatus(eventId: string, rsvpId: string, _prev: Result | null, fd: FormData): Promise<Result> {
   return runAction("events.setRsvpStatus", "update the RSVP", async () => {
-    const { db } = await eventActionContext((a) => eventAreas.rsvps(a, eventId), "only event staff can change RSVPs.");
-    const status = oneOf(fd, "status", ["rsvpd", "confirmed", "cancelled", "waitlisted", "no_show"] as const, "Status");
-    const now = new Date().toISOString();
-    const patch: TablesUpdate<"rsvps"> = { status };
-    if (status === "confirmed") patch.confirmed_at = now;
-    if (status === "cancelled") patch.cancelled_at = now;
-    const res = must(await db.from("rsvps").update(patch).eq("id", rsvpId).eq("event_id", eventId).select("id"), "update the RSVP");
-    if (!res?.length) throw new FormError("you can't change this RSVP.");
-    // Keep people who haven't arrived in step with their household's RSVP.
-    must(await db.from("attendees").update({ status }).eq("rsvp_id", rsvpId).is("checked_in_at", null), "update the people on this RSVP");
-    revalidateEvents();
-    return { ok: true, message: `RSVP ${status === "rsvpd" ? "reopened" : status === "no_show" ? "marked no-show" : status}.` };
+    const { session } = await eventActionContext((a) => eventAreas.rsvps(a, eventId), SET_RSVP_DENIED);
+    const status = oneOf(fd, "status", RSVP_STATUSES, "Status");
+    return asActionResult(await runCommandFromScreen(setRsvpStatusCommand, session, { event_id: eventId, rsvp_id: rsvpId, status }));
   }, { key: "events.set_rsvp_status", entityFrom: { kind: "rsvp", id: rsvpId } });
 }
 
@@ -306,15 +276,10 @@ export async function deleteShift(eventId: string, shiftId: string, _prev: Resul
 
 export async function assignVolunteer(eventId: string, shiftId: string, _prev: Result | null, fd: FormData): Promise<Result> {
   return runAction("events.assignVolunteer", "assign the volunteer", async () => {
-    const { db, centerId } = await eventActionContext(
-      (a) => eventAreas.volunteers(a, eventId),
-      "only this event's lead or the volunteer coordinator can assign volunteers.",
-    );
+    const { session } = await eventActionContext((a) => eventAreas.volunteers(a, eventId), ASSIGN_DENIED);
     const personIds = all(fd, "person_id");
     if (!personIds.length) throw new FormError("choose who to assign.");
-    must(await db.from("volunteer_assignments").insert(personIds.map((person_id) => ({ center_id: centerId, shift_id: shiftId, person_id }))), "assign the volunteer");
-    revalidateEvents();
-    return { ok: true, message: personIds.length === 1 ? "Volunteer assigned." : `${personIds.length} volunteers assigned.` };
+    return asActionResult(await runCommandFromScreen(assignVolunteerCommand, session, { event_id: eventId, shift_id: shiftId, person_ids: personIds.join(",") }));
   });
 }
 
