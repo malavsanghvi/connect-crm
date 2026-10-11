@@ -164,8 +164,6 @@ select pg_temp.assert_raises(format('insert into app.center_users (center_id, us
   'only belong to its demo community', 'D · a demo sign-in cannot join JSH');
 select pg_temp.assert_raises(format('insert into app.role_grants (center_id, user_id, role_key, scope_kind) values (%L, %L, %L, %L)', :jsh, :'u_admin', 'center_admin', 'center'),
   'only belong to its demo community', 'D · nor be given a role there');
-select pg_temp.assert_raises(format('update app.role_grants set center_id = %L where user_id = %L', :jsh, :'u_admin'),
-  'only belong to its demo community', 'D · nor have a demo role moved there');
 select pg_temp.assert_raises(format('insert into app.center_owners (center_id, user_id) values (%L, %L) on conflict (center_id) do update set user_id = excluded.user_id', :jsh, :'u_admin'),
   'only belong to its demo community', 'D · nor own it');
 select pg_temp.assert_raises(format('insert into app.accounts (user_id, is_platform_admin) values (%L, true) on conflict (user_id) do update set is_platform_admin = true', :'u_admin'),
@@ -215,10 +213,16 @@ select pg_temp.assert(not exists (select 1 from app.accounts x join app.demo_aut
   'C · every demo sign-in has an account, and none is a platform admin');
 select pg_temp.assert_raises(format('update app.accounts set is_platform_admin = true where user_id = %L', :'u_admin'),
   'never be a platform admin', 'C · and an update cannot make one a platform admin either');
+select pg_temp.assert_raises(format('update app.role_grants set center_id = %L where user_id = %L', :jsh, :'u_admin'),
+  'only belong to its demo community', 'C · nor can its role be moved to JSH');
+select pg_temp.assert_raises(format('update app.center_users set center_id = %L where user_id = %L', :jsh, :'u_admin'),
+  'only belong to its demo community', 'C · nor its membership');
 select pg_temp.assert((select bool_and(coalesce(rules #>> '{security,require_2fa_for_staff}', 'true') = 'false') from app.centers where id in (:'fc', :'nc')),
   'C · a demo community asks no one for an authenticator app (nothing in it is real)');
-select pg_temp.assert(not exists (select 1 from app.role_grants g where g.user_id = :sq1) and not exists (select 1 from app.center_users cu where cu.user_id = :sq3),
-  'C · the stranger and the real person are not linked to anything by this');
+select pg_temp.assert(not exists (select 1 from app.role_grants g where g.user_id in (:sq2, :sq3) and app.is_demo_center(g.center_id))
+                      and not exists (select 1 from app.center_users cu where cu.user_id in (:sq2, :sq3) and app.is_demo_center(cu.center_id))
+                      and exists (select 1 from app.role_grants g where g.user_id = :sq2 and g.center_id = :jsh),
+  'C · the real person and the stranger are not linked to any demo community by this, and the real person keeps their role in JSH');
 
 select pg_temp.as_anon();
 select app.demo_choices()::text as ch \gset
