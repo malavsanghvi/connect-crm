@@ -14,6 +14,7 @@ import { formatDate } from "@/lib/dates";
 import { allocationPreviewText, monthYear, paymentRecordedToast, referenceFieldLabel } from "@/lib/giving";
 import { OFFLINE_METHODS, PAYMENT_METHOD_LABEL } from "@/lib/labels";
 import { formatCents, parseAmountToCents } from "@/lib/money";
+import type { RecordPrefill } from "@/lib/giving-workspace/view";
 import { duplicateWarning, type RecordedZelle } from "@/lib/payments/zelle";
 
 import { applyPaymentAction, possibleDuplicateZelleAction, recordOfflinePaymentAction, type RecordPaymentResult } from "./actions";
@@ -33,6 +34,7 @@ export function RecordPaymentForm({
   today,
   canAllocate,
   initialHousehold,
+  initialValues,
 }: {
   labels: CardLabels;
   timeZone: string;
@@ -41,15 +43,17 @@ export function RecordPaymentForm({
   canAllocate: boolean;
   /** Prefilled from ?household= (e.g. "Record payment" on a household). Shown as its card, so it is still checked, never picked by name. */
   initialHousehold?: HouseholdCardData | null;
+  /** Filled in from the Giving page's confirmation card (?amount=&paid_with=&received=&ref=&apply=). The person still checks it and presses Record. */
+  initialValues?: RecordPrefill | null;
 }) {
   const toast = useToast();
   const [household, setHousehold] = useState<HouseholdCardData | null>(null);
   const [pledges, setPledges] = useState<OpenPledge[] | null>(null);
   const [pledgeError, setPledgeError] = useState<string | null>(null);
-  const [amount, setAmount] = useState("");
-  const [method, setMethod] = useState<string>("check");
-  const [receivedOn, setReceivedOn] = useState(today);
-  const [reference, setReference] = useState("");
+  const [amount, setAmount] = useState(initialValues?.amount ?? "");
+  const [method, setMethod] = useState<string>(initialValues?.method ?? "check");
+  const [receivedOn, setReceivedOn] = useState(initialValues?.receivedOn ?? today);
+  const [reference, setReference] = useState(initialValues?.reference ?? "");
   const [envelope, setEnvelope] = useState("");
   const [memo, setMemo] = useState("");
   const [mode, setMode] = useState<Mode>(canAllocate ? "auto" : "none");
@@ -102,12 +106,12 @@ export function RecordPaymentForm({
     [pledges, amountCents, mode, chosen],
   );
 
-  function pick(card: HouseholdCardData) {
+  function pick(card: HouseholdCardData, startMode?: Mode) {
     setHousehold(card);
     setPledges(null);
     setPledgeError(null);
     setChosen([]);
-    setMode(canAllocate ? "auto" : "none");
+    setMode(startMode ?? (canAllocate ? "auto" : "none"));
     setResult(null);
     setError(null);
     startTransition(async () => {
@@ -126,7 +130,7 @@ export function RecordPaymentForm({
   useEffect(() => {
     if (initialHousehold && !prefilled.current) {
       prefilled.current = true;
-      pick(initialHousehold);
+      pick(initialHousehold, initialValues?.allocation === "none" ? "none" : undefined);
     }
     // One-time prefill; pick() only sets state and loads that household's pledges.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -369,6 +373,11 @@ export function RecordPaymentForm({
     <>
       <Card span={7} title="Record an offline payment" description="Check, cash, ACH or stock received at the office or an event">
         <div className="flex flex-col gap-3">
+          {initialValues ? (
+            <p role="status" className="rounded-[10px] border border-navy-300 bg-navy-50 px-3 py-2 text-[13px] font-semibold text-navy">
+              Filled in from your request on the Giving page. Check each detail, then press Record. Nothing is saved until you do.
+            </p>
+          ) : null}
           <div>
             <p className="crm-label">Household</p>
             {household ? (

@@ -81,11 +81,11 @@ describe("the rail", () => {
     h(WorkspaceRail, { workspaces: asItems(treasurer), todayBadge: "3", todayBadgeLabel: "3 tasks waiting", account: h("a", { id: "me", href: "/account/security" }, "PM") }, h("button", { id: "niva-slot" }, "Niva")),
   );
 
-  it("is a labelled navigation landmark of the workspaces the person may open, in order, each opening its first page", () => {
+  it("is a labelled navigation landmark of the workspaces the person may open, in order, each opening its first page (Giving its own page)", () => {
     expect(html).toContain('<nav aria-label="Workspaces"');
     expect(linkLabels(html).filter(Boolean)).toEqual(visibleWorkspaces(treasurer).map((w) => w.label));
     expect(linkHrefs(html).slice(0, 2)).toEqual(["/", "/households"]);
-    expect(linkHrefs(html)).toContain("/giving/pledges");
+    expect(linkHrefs(html)).toContain("/giving");
   });
 
   it("marks the current workspace with aria-current and no other", () => {

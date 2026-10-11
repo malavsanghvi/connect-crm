@@ -39,6 +39,11 @@ export type WorkspaceDef = {
   icon: string;
   /** "end" workspaces sit at the bottom of the rail, apart from the rest. */
   placement: "start" | "end";
+  /**
+   * The workspace's own page (the New look's workspace page), opened from the rail instead of the first module page when the person
+   * can open `module`. Only the rail and the phone bar use it; they exist in the New look alone.
+   */
+  home?: { module: string; href: string };
 };
 
 export const WORKSPACES: readonly WorkspaceDef[] = [
@@ -54,6 +59,7 @@ export const WORKSPACES: readonly WorkspaceDef[] = [
     key: "giving",
     label: "Giving",
     modules: ["giving", "bolis", "accounting"],
+    home: { module: "giving", href: "/giving" },
     icon: "M12 21s-8-5.2-8-11a4.5 4.5 0 0 1 8-2.8A4.5 4.5 0 0 1 20 10c0 5.8-8 11-8 11z",
     placement: "start",
   },
@@ -130,7 +136,7 @@ export function workspacesFor(modules: readonly VisibleModule[], kind?: LabelKin
       {
         key: w.key,
         label: workspaceLabel(w.key, kind),
-        href: mine[0].href,
+        href: w.home && mine.some((m) => m.key === w.home?.module) ? w.home.href : mine[0].href,
         icon: w.icon,
         placement: w.placement,
         paths: mine.flatMap((m) => m.paths),

@@ -22,6 +22,7 @@ import {
   buttonClass,
 } from "@/components/ui";
 import { identifierRules } from "@/lib/center-rules";
+import { readRecordPrefill } from "@/lib/giving-workspace/view";
 import type { Enums } from "@/lib/database.types";
 import { chunk } from "@/lib/data/fetch-all";
 import type { HouseholdCardData } from "@/components/household-card";
@@ -86,6 +87,9 @@ export default async function PaymentsPage({ searchParams }: { searchParams: Pro
     if (cards.error) console.error("[payments] household prefill failed; the form starts empty:", cards.error);
     prefill = cards.map.get(prefillId) ?? null;
   }
+  // "Open in Record payment" on the Giving page (New look) also fills in the amount, method, date and reference. The form is
+  // still checked and recorded by the person here; with none of these in the address it renders exactly as before.
+  const prefillValues = canRecord ? readRecordPrefill(sp, today) : null;
   const canManage = canAccess(session, "givingManage");
   const canApprove = canAccess(session, "givingApprove");
 
@@ -256,7 +260,7 @@ export default async function PaymentsPage({ searchParams }: { searchParams: Pro
       />
       <BlockGrid className="mb-4">
         {canRecord ? (
-          <RecordPaymentForm labels={labels} timeZone={tz} currency={center.currency} today={today} canAllocate={canAccess(session, "allocatePayment")} initialHousehold={prefill} />
+          <RecordPaymentForm labels={labels} timeZone={tz} currency={center.currency} today={today} canAllocate={canAccess(session, "allocatePayment")} initialHousehold={prefill} {...(prefillValues ? { initialValues: prefillValues } : {})} />
         ) : null}
 
         {seesBank ? (
