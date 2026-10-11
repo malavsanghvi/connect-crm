@@ -112,7 +112,7 @@ describe("pressing Look at my website", () => {
     expect(await lookAtWebsiteAction()).toMatchObject({ ok: true, message: expect.stringContaining("Looking at your websites") });
     expect(await lookAtWebsiteAction("ref1")).toMatchObject({ ok: true, message: expect.stringContaining("that website again") });
     expect(calls(db, "site_crawl_start").map((c) => c.args)).toEqual([
-      { p_center: "center-1", p_slot: null },
+      { p_center: "center-1" },
       { p_center: "center-1", p_slot: "ref1" },
     ]);
   });

@@ -12,7 +12,7 @@ import { failure, type ActionResult } from "@/lib/errors";
 import { checkSiteInputs, isSlot } from "@/lib/site-found";
 import { authorizeAction } from "@/lib/session";
 
-import { loadSnapshot, rpc, type Snapshot } from "./load";
+import { loadSnapshot, type Snapshot } from "./load";
 
 const PATH = "/setup/website";
 
@@ -28,7 +28,7 @@ async function saveAddresses(own: string, refs: string[]): Promise<ActionResult<
   const checked = checkSiteInputs(typeof own === "string" ? own : "", Array.isArray(refs) ? refs.filter((r): r is string => typeof r === "string") : []);
   if (!checked.ok) return { ok: false, error: `Could not ${doing} — ${checked.error}` };
   const { db, center } = auth.session;
-  const { error } = await rpc(db)("site_found_save_inputs", { p_center: center.id, p_own: checked.own, p_refs: checked.refs });
+  const { error } = await db.rpc("site_found_save_inputs", { p_center: center.id, p_own: checked.own, p_refs: checked.refs });
   if (error) return failure(`Could not ${doing}`, error);
   revalidatePath(PATH);
   const message = "Website addresses saved.";
@@ -51,7 +51,7 @@ async function lookAtWebsite(slot?: string): Promise<ActionResult<Snapshot>> {
   if (!auth.ok) return auth;
   if (slot !== undefined && slot !== null && !isSlot(slot)) return { ok: false, error: `Could not ${doing} — Weaver does not know which website that is.` };
   const { db, center } = auth.session;
-  const { error } = await rpc(db)("site_crawl_start", { p_center: center.id, p_slot: slot ?? null });
+  const { error } = await db.rpc("site_crawl_start", { p_center: center.id, p_slot: slot });
   if (error) return failure(`Could not ${doing}`, error);
   const message = slot ? "Looking at that website again. This usually takes one to three minutes." : "Looking at your websites. This usually takes one to three minutes.";
   // The reads are queued either way; when the status cannot be read back right now, the screen asks again.

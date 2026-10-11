@@ -1793,6 +1793,30 @@ export type Database = {
         };
         Relationships: [];
       };
+      center_site_inputs: {
+        Row: {
+          center_id: string;
+          own_url: string | null;
+          reference_urls: string[];
+          updated_at: string;
+          updated_by: string | null;
+        };
+        Insert: {
+          center_id: string;
+          own_url?: string | null;
+          reference_urls?: string[];
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Update: {
+          center_id?: string;
+          own_url?: string | null;
+          reference_urls?: string[];
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Relationships: [];
+      };
       center_users: {
         Row: {
           center_id: string;
@@ -14202,6 +14226,34 @@ export type Database = {
           p_center: string;
         };
         Returns: { person_id: string; name: string; roles: string }[];
+      };
+      site_crawl_start: {
+        Args: {
+          p_center: string;
+          p_slot?: string;
+        };
+        Returns: Json;
+      };
+      site_found_report: {
+        Args: {
+          p_center: string;
+          p_job: number;
+        };
+        Returns: Json;
+      };
+      site_found_save_inputs: {
+        Args: {
+          p_center: string;
+          p_own: string;
+          p_refs: string[];
+        };
+        Returns: Json;
+      };
+      site_found_status: {
+        Args: {
+          p_center: string;
+        };
+        Returns: Json;
       };
       sms_segments: {
         Args: {

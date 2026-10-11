@@ -2,14 +2,11 @@
 // Reads go through app.site_found_status (the saved addresses and the latest read of each website, no report) and
 // app.site_found_report (one finished read). Both check settings.manage themselves (migration 0640).
 
-import { failure, type DbErrorLike } from "@/lib/errors";
+import { failure } from "@/lib/errors";
 import { buildFoundView, parseSiteStatus, type FoundView, type SiteStatus } from "@/lib/site-found";
 import type { AppSupabase } from "@/lib/supabase/server";
 
-// The functions are new in 0640: until the generated types include them they are called through the untyped
-// signature (as content/niva/discover-actions.ts does), and every answer is parsed field by field.
-type RpcCaller = (fn: string, args: Record<string, unknown>) => PromiseLike<{ data: unknown; error: DbErrorLike | null }>;
-export const rpc = (db: AppSupabase): RpcCaller => (db as unknown as { rpc: RpcCaller }).rpc.bind(db);
+// The database answers with json; every answer is parsed field by field (src/lib/site-found.ts), never trusted.
 
 /** A finished read as a view, or the sentence saying why it cannot be shown (with its own Try again on the screen). */
 export type ViewSlot = { ok: true; view: FoundView } | { ok: false; error: string };
@@ -22,7 +19,7 @@ export type Loaded = { ok: true; data: Snapshot } | { ok: false; cause: unknown;
  * A report that cannot be fetched or understood is reported next to that website, not as a failure of the whole screen.
  */
 export async function loadSnapshot(db: AppSupabase, centerId: string, have: readonly number[] = [], doing = "load your website's details"): Promise<Loaded> {
-  const res = await rpc(db)("site_found_status", { p_center: centerId });
+  const res = await db.rpc("site_found_status", { p_center: centerId });
   if (res.error) {
     const f = failure(`Could not ${doing}`, res.error);
     return { ok: false, cause: res.error, error: f.error };
@@ -38,7 +35,7 @@ export async function loadSnapshot(db: AppSupabase, centerId: string, have: read
     status.jobs
       .filter((j) => j.status === "done" && !have.includes(j.id))
       .map(async (j) => {
-        const rep = await rpc(db)("site_found_report", { p_center: centerId, p_job: j.id });
+        const rep = await db.rpc("site_found_report", { p_center: centerId, p_job: j.id });
         if (rep.error) {
           views[String(j.id)] = { ok: false, error: failure("Could not load what was found", rep.error).error };
           return;

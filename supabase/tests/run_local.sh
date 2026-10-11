@@ -21,7 +21,7 @@ for f in tests/*_test.sql; do
     echo "$out" | grep -oE 'PASS: .*' | sed 's/^/  /'
     echo "ok    $f"
   else
-    echo "$out" | tail -25 | sed "s/^/  /"
+    echo "$out" | grep -oE '(PASS|FAIL|ERROR): .*' | sed 's/^/  /'
     echo "FAIL  $f"
     status=1
   fi
