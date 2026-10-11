@@ -69,7 +69,13 @@ beforeEach(() => {
 
 describe("Platform › Centers › Niva for admins", () => {
   it("offers the write actions Niva could be allowed to prepare, all off to begin with", () => {
-    expect(confirmToolChoices(undefined)).toEqual([expect.objectContaining({ key: "events.set_field", title: "Change a detail of an event", on: false })]);
+    expect(confirmToolChoices(undefined)).toEqual([
+      expect.objectContaining({ key: "events.set_field", title: "Change a detail of an event", on: false }),
+      expect.objectContaining({ key: "events.set_status", on: false }),
+      expect.objectContaining({ key: "events.set_rsvp_status", on: false }),
+      expect.objectContaining({ key: "events.assign_volunteer", on: false }),
+      expect.objectContaining({ key: "events.create_from_clone", on: false }),
+    ]);
     expect(confirmToolChoices({ assistant: { tools: { "events.set_field": true } } })[0].on).toBe(true);
   });
 
@@ -99,7 +105,9 @@ describe("Platform › Centers › Niva for admins", () => {
     const { state } = world({});
     await saveAssistantAction(null, form({ center: CENTER, version: "", enabled: "on", tool: ["events.set_field", "people.search", "../../etc"], reason: "Trying" }));
     const tools = state.rules.assistant as { tools: Record<string, boolean> };
-    expect(Object.keys(tools.tools)).toEqual(["events.set_field"]);
+    // Every write action is recorded, only the one that was ticked is on, and nothing else gets in.
+    expect(Object.keys(tools.tools)).toEqual(["events.set_field", "events.set_status", "events.set_rsvp_status", "events.assign_volunteer", "events.create_from_clone"]);
+    expect(Object.entries(tools.tools).filter(([, on]) => on).map(([key]) => key)).toEqual(["events.set_field"]);
   });
 
   it("needs a reason, a platform admin and a page that is not out of date", async () => {
