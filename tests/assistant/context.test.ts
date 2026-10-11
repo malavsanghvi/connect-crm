@@ -1,0 +1,114 @@
+import { describe, expect, it } from "vitest";
+
+import { areaForPath, contextLine, routeContext, suggestionsFor } from "@/lib/assistant/context";
+
+const EVENT = "3f2b8d3e-1c1a-4a53-9f55-7a1d2d9f0c11";
+const HOUSEHOLD = "9b9a5f0e-4d6a-4e0b-8f6a-0c2c3b7a1d22";
+
+describe("route context", () => {
+  it("turns an event page into a pattern plus the id", () => {
+    expect(routeContext(`/events/${EVENT}`, { id: EVENT })).toEqual({ path: "/events/[id]", entityKind: "event", entityId: EVENT });
+  });
+
+  it("never lets an id outside entityId", () => {
+    const ctx = routeContext(`/events/${EVENT}`, { id: EVENT });
+    expect(JSON.stringify({ ...ctx, entityId: undefined })).not.toContain(EVENT);
+    // Even when Next gave no params, a raw UUID in the path is replaced.
+    const bare = routeContext(`/households/${HOUSEHOLD}`);
+    expect(bare).toEqual({ path: "/households/[id]", entityKind: "household", entityId: HOUSEHOLD });
+    expect(bare.path).not.toContain(HOUSEHOLD);
+  });
+
+  it("drops the query string and hash, and a trailing slash", () => {
+    expect(routeContext("/giving/payments?search=Rahul%20Shah&page=2#top", {})).toEqual({ path: "/giving/payments" });
+    expect(routeContext(`/events/${EVENT}/?tab=rsvps`, { id: EVENT }).path).toBe("/events/[id]");
+  });
+
+  it("works for a list page and for the home page", () => {
+    expect(routeContext("/events", {})).toEqual({ path: "/events" });
+    expect(routeContext("/", null)).toEqual({ path: "/" });
+    expect(routeContext("", undefined)).toEqual({ path: "/" });
+  });
+
+  it("names the kind of thing from the screen it is", () => {
+    expect(routeContext("/people/abc", { id: "abc" })).toMatchObject({ path: "/people/[id]", entityKind: "person", entityId: "abc" });
+    expect(routeContext("/pathshala/classes/c1", { id: "c1" })).toMatchObject({ entityKind: "class" });
+    expect(routeContext("/events/feedback/s1", { surveyId: "s1" })).toEqual({ path: "/events/feedback/[surveyId]", entityKind: "event survey", entityId: "s1" });
+    expect(routeContext("/comms/threads/t1", { id: "t1" })).toMatchObject({ entityKind: "message thread" });
+  });
+
+  it("a dynamic part that is not an id (a kind of import) stays in the pattern but is not an entity", () => {
+    const ctx = routeContext("/settings/import/template/households", { entity: "households" });
+    expect(ctx).toEqual({ path: "/settings/import/template/[entity]" });
+  });
+
+  it("decodes percent-encoded values when matching, and keeps the real id", () => {
+    expect(routeContext("/people/a%20b", { id: "a b" })).toEqual({ path: "/people/[id]", entityKind: "person", entityId: "a b" });
+  });
+
+  it("a value that is also a word elsewhere in the path replaces only the matching segment once", () => {
+    expect(routeContext("/events/events", { id: "events" })).toEqual({ path: "/events/[id]", entityKind: "event", entityId: "events" });
+  });
+
+  it("a catch-all part covers several segments", () => {
+    expect(routeContext("/site/a/b", { missing: ["a", "b"] })).toEqual({ path: "/site/[...missing]" });
+  });
+
+  it("sends nothing but path, entityKind and entityId", () => {
+    const ctx = routeContext(`/events/${EVENT}?name=Diwali`, { id: EVENT });
+    expect(Object.keys(ctx).sort()).toEqual(["entityId", "entityKind", "path"]);
+  });
+});
+
+describe("the area of a screen", () => {
+  it("groups screens into the areas the suggestions know", () => {
+    expect(areaForPath("/households/[id]")).toBe("people");
+    expect(areaForPath("/giving/payments")).toBe("giving");
+    expect(areaForPath("/bolis")).toBe("giving");
+    expect(areaForPath("/accounting/qbo")).toBe("accounting");
+    expect(areaForPath("/events/[id]")).toBe("events");
+    expect(areaForPath("/comms/campaigns")).toBe("messages");
+    expect(areaForPath("/")).toBe("general");
+    expect(areaForPath("/settings/access")).toBe("general");
+  });
+
+  it("says what Niva is looking at, in words", () => {
+    expect(contextLine({ path: "/events/[id]", entityKind: "event", entityId: "x" })).toBe("Looking at this event");
+    expect(contextLine({ path: "/giving/payments" })).toBe("Looking at Giving");
+    expect(contextLine({ path: "/" })).toBe("Looking at Home");
+    expect(contextLine({ path: "/settings/access" })).toBe("Looking at this page");
+  });
+});
+
+describe("Ask Niva suggestions", () => {
+  const all = new Set(["people.search", "tasks.mine", "giving.pledges_behind", "accounting.month_close_blockers", "events.upcoming", "events.set_field", "messages.draft_reminder"]);
+
+  it("gives up to three plain sentences for each area", () => {
+    for (const path of ["/households", "/giving/payments", "/events", "/comms/campaigns", "/"]) {
+      const list = suggestionsFor(path, undefined, all);
+      expect(list.length).toBeGreaterThan(0);
+      expect(list.length).toBeLessThanOrEqual(3);
+      for (const s of list) expect(s).toMatch(/[a-z]/);
+    }
+    expect(suggestionsFor("/giving/payments", undefined, all)).toContain("Who is behind on pledges?");
+  });
+
+  it("offers 'this event' only on an event page", () => {
+    const onEvent = suggestionsFor("/events/[id]", "event", all);
+    expect(onEvent.some((s) => s.includes("this event"))).toBe(true);
+    const onList = suggestionsFor("/events", undefined, all);
+    expect(onList.some((s) => s.includes("this event"))).toBe(false);
+  });
+
+  it("never offers what the person's role cannot do", () => {
+    const noGiving = new Set(["tasks.mine", "events.upcoming"]);
+    const list = suggestionsFor("/giving/payments", undefined, noGiving);
+    expect(list).not.toContain("Who is behind on pledges?");
+    // Nothing of its own left: falls back to the general examples that are allowed.
+    expect(list).toEqual(["What is waiting for me?", "What events are coming up?"]);
+  });
+
+  it("offers nothing when the person can use nothing", () => {
+    expect(suggestionsFor("/giving/payments", undefined, new Set())).toEqual([]);
+  });
+});

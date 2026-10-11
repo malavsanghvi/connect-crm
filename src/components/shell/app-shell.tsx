@@ -6,6 +6,9 @@ import { ActivityBeacon } from "@/components/shell/activity-beacon";
 import { CenterSwitcher, SandboxWatermark } from "@/components/shell/center-switcher";
 import { GlobalSearch } from "@/components/shell/global-search";
 import { MobileNav } from "@/components/shell/mobile-nav";
+import { NivaDock } from "@/components/niva/niva-dock";
+import { NivaProvider } from "@/components/niva/niva-provider";
+import { NivaTopButton } from "@/components/niva/niva-top-button";
 import { KindProvider } from "@/components/kind-context";
 import { ModulesProvider } from "@/components/shell/module-tabs";
 import { ModuleNav } from "@/components/shell/nav-link";
@@ -15,6 +18,7 @@ import { HistoryAccessProvider } from "@/components/record-history";
 import { StepUpProvider } from "@/components/step-up";
 import { ToastProvider } from "@/components/toast";
 import { activityRecordingOn } from "@/lib/activity/enabled";
+import { navEntries } from "@/lib/assistant/palette";
 import { PRODUCT_NAME } from "@/lib/brand";
 import { readPublicEnv } from "@/lib/env";
 import type { TaskCount } from "@/lib/data/home-tasks";
@@ -57,6 +61,7 @@ export function AppShell({ session, tasks, children }: { session: CrmSession; ta
       <HistoryAccessProvider allowed={canAccess(session, "audit")}>
       <KindProvider kind={session.kind}>
       <ModulesProvider modules={modules}>
+      <NivaProvider nav={navEntries(modules)}>
         <div className="flex min-h-screen flex-col">
           {sandbox ? <SandboxWatermark name={center.name} /> : null}
           {/* Screen visits go to the activity stream only when the community has turned recording on. */}
@@ -87,6 +92,7 @@ export function AppShell({ session, tasks, children }: { session: CrmSession; ta
             )}
             <div className="hidden min-w-0 flex-1 justify-center md:flex">{canSearch ? <GlobalSearch /> : null}</div>
             <div className="flex-1 md:hidden" />
+            <NivaTopButton />
             <UserMenu
               name={name}
               email={session.email}
@@ -112,8 +118,10 @@ export function AppShell({ session, tasks, children }: { session: CrmSession; ta
               ) : null}
               {children}
             </main>
+            <NivaDock />
           </div>
         </div>
+      </NivaProvider>
       </ModulesProvider>
       </KindProvider>
       </HistoryAccessProvider>

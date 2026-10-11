@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 
 import { approveAsSecondAction } from "@/app/(app)/approvals/actions";
 import { ActionForm } from "@/components/action-form";
+import { AskNiva } from "@/components/niva/ask-niva";
 import { BlockGrid, Card, EmptyState, KpiGrid, PageHeader, Stat, Tag, buttonClass, capitalize } from "@/components/ui";
 import { loadHomeKpis } from "@/lib/data/home-kpis";
 import { loadHomeTasks } from "@/lib/data/home-tasks";
@@ -110,6 +111,8 @@ function TaskRow({ task }: { task: HomeTask }) {
             {l.label}
           </Link>
         ))}
+        {/* Only the kind of task is sent (never its title, which can name a person): Niva then looks at the task list itself. */}
+        <AskNiva prompt={`What is the quickest way to clear my ${task.tag.toLowerCase()} tasks?`} label="Ask Niva" />
       </div>
     </div>
   );
