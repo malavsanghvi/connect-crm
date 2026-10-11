@@ -14,12 +14,12 @@
 --        A staff member whose role has ended keeps the events from when they were staff (retention removes them at 400 days).
 --     Returns {expired, swept}.
 --   app.automation_backlog          Weaver (platform admins) only: for each action key, in how many communities that have
---                                   recording on it appears in an automation idea, in how many ideas, and the minutes a
+--                                   recording on AND agreed to share it with Weaver it appears in an automation idea, in how many ideas, and the minutes a
 --                                   month those ideas add up to. KEYS AND COUNTS ONLY: no community, role, person or
 --                                   event. Only ideas from at least app.activity_min_actors() people that are not stale
 --                                   and were not dismissed. (Owner decision pending: whether Weaver staff may see
---                                   cross-community counts at all.)
---   app.activity_usage(center, days) the community's own administrators (settings.manage): totals by key, surface,
+--                                   cross-community counts at all: decided 2026-10-11, only for communities that opt in.)
+--   app.activity_usage(center, days) the community's own administrators (settings.manage; Weaver only for a community that agreed to share): totals by key, surface,
 --                                   platform and app version over the last `days` days: how many times, by how many
 --                                   people, how many failed, the middle duration. Never a person, a role or an event.
 --                                   A row from fewer than app.activity_min_actors() people is shown to a platform admin
@@ -88,11 +88,12 @@ select k.item_key,
        max(a.last_seen) as last_seen
   from app.automation_candidates a
   join app.centers ce on ce.id = a.center_id and (ce.rules -> 'activity' ->> 'enabled') = 'true'
+                     and (ce.rules -> 'activity' ->> 'share_with_weaver') = 'true'
   cross join lateral (select distinct x.item_key from unnest(a.pattern) as x(item_key)) k
  where app.is_platform_admin() and a.status <> 'dismissed' and not a.stale
    and a.distinct_actors >= app.activity_min_actors()
  group by k.item_key;
-comment on view app.automation_backlog is 'For Weaver platform admins only (0623): per action key, how many communities with recording on have it in an automation idea (from 3 or more people, not stale, not dismissed), in how many ideas, how often and how many minutes a month. Keys and counts only.';
+comment on view app.automation_backlog is 'For Weaver platform admins only (0623): per action key, how many communities with recording on that agreed to share with Weaver have it in an automation idea (from 3 or more people, not stale, not dismissed), in how many ideas, how often and how many minutes a month. Keys and counts only.';
 revoke all on app.automation_backlog from public, anon, authenticated, service_role, connect_worker;
 grant select on app.automation_backlog to authenticated;
 
@@ -104,6 +105,10 @@ declare v_days integer := least(greatest(coalesce(p_days, 30), 1), 400); v_admin
 begin
   if p_center is null or not app.has_permission(p_center, 'settings.manage') then
     raise exception 'You don''t have access to this area.' using errcode = '42501';
+  end if;
+  -- Weaver sees a community's totals only if the community agreed to share them.
+  if v_admin and not app.activity_shared(p_center) then
+    raise exception 'This community has not agreed to share its activity with Weaver.' using errcode = '42501';
   end if;
   return query
     select e.key, e.kind, e.surface, e.platform, e.app_version,

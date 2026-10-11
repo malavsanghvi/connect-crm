@@ -69,22 +69,29 @@ $$;
 \set plat100 '''10000100-0000-4000-8000-000000000004'''
 \set opter100 '''10000100-0000-4000-8000-000000000005'''
 \set minor100 '''10000100-0000-4000-8000-000000000006'''
+\set p100 '''10000100-0000-4000-8000-0000000000d1'''
+\set admp100 '''10000100-0000-4000-8000-000000000007'''
 
 select pg_temp.as_none();
 grant connect_worker to postgres;   -- the tests switch to connect_worker; a hosted postgres holds ADMIN on it but not SET
 insert into auth.users (id, email) values
   (:adm100, 'adm100@mine.test'), (:lead100, 'lead100@mine.test'), (:admn100, 'admn100@mine.test'), (:plat100, 'plat100@mine.test'),
-  (:opter100, 'opter100@mine.test'), (:minor100, 'minor100@mine.test');
+  (:opter100, 'opter100@mine.test'), (:minor100, 'minor100@mine.test'), (:admp100, 'admp100@mine.test');
 insert into app.accounts (user_id, is_platform_admin) values (:plat100, true)
   on conflict (user_id) do update set is_platform_admin = excluded.is_platform_admin;
--- M and O record; N has recording off (nothing set).
+-- M and O have agreed and share with Weaver; P has agreed but does not share; N has not agreed (recording off). Written
+-- directly here; test 99 goes through the agreement functions.
 insert into app.centers (id, slug, name, short_name, state_region, status, rules) values
-  (:m100, 'mine100m', 'Mine 100 M', 'M100', 'TX', 'active', '{"activity": {"enabled": true}}'::jsonb),
+  (:m100, 'mine100m', 'Mine 100 M', 'M100', 'TX', 'active',
+   '{"activity": {"enabled": true, "share_with_weaver": true, "consent": {"at": "2026-10-01T00:00:00+00:00", "version": "t100"}}}'::jsonb),
   (:n100, 'mine100n', 'Mine 100 N', 'N100', 'CA', 'active', '{}'::jsonb),
-  (:o100, 'mine100o', 'Mine 100 O', 'O100', 'NY', 'active', '{"activity": {"enabled": true}}'::jsonb);
+  (:o100, 'mine100o', 'Mine 100 O', 'O100', 'NY', 'active',
+   '{"activity": {"enabled": true, "share_with_weaver": true, "consent": {"at": "2026-10-01T00:00:00+00:00", "version": "t100"}}}'::jsonb),
+  (:p100, 'mine100p', 'Mine 100 P', 'P100', 'WA', 'active',
+   '{"activity": {"enabled": true, "consent": {"at": "2026-10-01T00:00:00+00:00", "version": "t100"}}}'::jsonb);
 insert into app.role_grants (center_id, user_id, role_key, scope_kind, reason) values
   (:m100, :adm100, 'center_admin', 'center', 'test 100'), (:m100, :lead100, 'event_lead', 'center', 'test 100'),
-  (:n100, :admn100, 'center_admin', 'center', 'test 100');
+  (:n100, :admn100, 'center_admin', 'center', 'test 100'), (:p100, :admp100, 'center_admin', 'center', 'test 100');
 -- A teenager who is a member of M (the sweep will meet her events).
 insert into app.people (id, center_id, first_name, last_name, date_of_birth) values
   ('10000100-0000-4000-8000-000000000101', :m100, 'Teen', 'Minor100', current_date - interval '16 years');
@@ -340,13 +347,14 @@ select pg_temp.assert((select count(*) = 0 from app.automation_candidates where 
   'E · community N (recording off) and community O (too little history) have no ideas; M still has its 7');
 
 -- ══ F. The cross-community backlog ═══════════════════════════════════════
--- Community O gets an idea with comms.send in it (3 people), and N one too (N has recording off, so it does not count); a
--- third idea in O comes from 2 people and stays out.
+-- Community O (shares) gets an idea with comms.send in it (3 people); N (recording off) and P (agreed, does not share) get
+-- one too, and neither counts; a further idea in O comes from 2 people and stays out.
 insert into app.automation_candidates (center_id, role_key, pattern, pattern_hash, support, distinct_actors, sessions, median_seconds,
                                        minutes_per_month, error_rate, regularity, score, suggested_kind, first_seen, last_seen) values
   (:o100, 'treasurer', array['giving.record_payment', 'comms.send'], md5('o'), 12, 3, 6, 60, 12.0, 0, 0.5, 6, 'routine', now() - interval '10 days', now()),
   (:o100, 'treasurer', array['giving.record_payment', 'bolis.close'], md5('o2'), 12, 2, 6, 60, 12.0, 0, 0.5, 6, 'routine', now() - interval '10 days', now()),
-  (:n100, 'treasurer', array['giving.record_payment', 'comms.send'], md5('n'), 12, 3, 6, 60, 12.0, 0, 0.5, 6, 'routine', now() - interval '10 days', now());
+  (:n100, 'treasurer', array['giving.record_payment', 'comms.send'], md5('n'), 12, 3, 6, 60, 12.0, 0, 0.5, 6, 'routine', now() - interval '10 days', now()),
+  (:p100, 'treasurer', array['giving.record_payment', 'comms.send'], md5('p'), 12, 3, 6, 60, 12.0, 0, 0.5, 6, 'routine', now() - interval '10 days', now());
 select pg_temp.as_user(:plat100);
 select count(*) as bl_rows from app.automation_backlog \gset
 select b.communities as bl_comms_send, b.ideas as bl_ideas_send from app.automation_backlog b where b.item_key = 'comms.send' \gset
@@ -354,7 +362,15 @@ select b.label as bl_label, b.surface as bl_surface from app.automation_backlog 
 select count(*) as bl_close from app.automation_backlog b where b.item_key = 'bolis.close' \gset
 select pg_temp.as_none();
 select pg_temp.assert(:bl_rows > 3 and :bl_comms_send = 2 and :bl_ideas_send = 2 and :'bl_label' = 'Record a payment' and :'bl_surface' = 'portal',
-  'F · a platform admin sees, per key, the communities with recording on that have it in an idea from 3 or more people (M and O, not N) and in how many ideas');
+  'F · a platform admin sees, per key, the communities that record AND share with Weaver that have it in an idea from 3 or more people (M and O; not N, which records nothing, and not P, which does not share) and in how many ideas');
+-- What Weaver reads of a community that did not share: nothing. Its own administrator reads its ideas.
+select pg_temp.as_user(:plat100);
+select pg_temp.seen(:p100) as seen_p_plat, pg_temp.seen(:o100) as seen_o_plat \gset
+select pg_temp.as_user(:admp100);
+select pg_temp.seen(:p100) as seen_p_own \gset
+select pg_temp.as_none();
+select pg_temp.assert(:seen_p_plat = 0 and :seen_o_plat = 2 and :seen_p_own = 1 and (select count(*) = 1 from app.automation_candidates where center_id = :p100),
+  'F · Weaver sees no idea of P, which agreed to record but not to share (the idea is there: its own administrator sees it); it sees both ideas of O, which shares');
 select pg_temp.assert(:bl_close = 0, 'F · ideas from fewer than 3 people (the bolis pair of M, the second idea of O) are not counted at all');
 select pg_temp.as_user(:adm100);
 select count(*) as bl_admin from app.automation_backlog \gset
@@ -376,6 +392,10 @@ select count(*) as use_rows, sum(events) as use_events, min(people) as use_min_p
   from app.activity_usage(:m100, 30) \gset
 select pg_temp.as_user(:plat100);
 select count(*) as use_rows_plat, sum(events) as use_events_plat, min(people) as use_min_people_plat from app.activity_usage(:m100, 30) \gset
+select pg_temp.assert_raises($q$select * from app.activity_usage('10000100-0000-4000-8000-0000000000d1', 30)$q$, 'not agreed to share',
+  'G · Weaver cannot read the usage totals of a community that did not agree to share them');
+select pg_temp.as_user(:admp100);
+select count(*) as use_rows_p from app.activity_usage(:p100, 30) \gset
 select pg_temp.as_user(:lead100);
 select pg_temp.assert_raises($q$select * from app.activity_usage('10000100-0000-4000-8000-0000000000a1', 30)$q$, 'don''t have access to this area',
   'G · a person without settings.manage is told they have no access, not shown an empty table');
@@ -390,7 +410,8 @@ select pg_temp.assert(:use_rows > 3 and :use_min_people >= 3 and :use_send = 13 
   'G · an administrator sees only the rows from 3 or more people, and they add up (comms.send: 13 events, 7 in the planted runs and 6 in the spread-out ones, by 4 people)');
 select pg_temp.assert(:use_rows_plat > :use_rows and :use_min_people_plat = 1
                       and :use_events_plat = (select count(*) from app.activity_events where center_id = :m100 and occurred_at >= now() - interval '30 days'),
-  'G · a platform admin sees every row, however few people are behind it');
+  'G · a platform admin sees every row, however few people are behind it (of a community that shares)');
+select pg_temp.assert(:use_rows_p = 0, 'G · the administrator of a community that does not share still reads its own totals (P has recorded nothing yet)');
 select pg_temp.assert((select p.proargnames from pg_proc p where p.oid = 'app.activity_usage(uuid, integer)'::regprocedure)
                         = array['p_center', 'p_days', 'item_key', 'item_kind', 'surface', 'platform', 'app_version', 'events', 'people', 'errors', 'median_ms'],
   'G · the totals have a key, surface, platform, app version and counts: never a person, a role or an event');
