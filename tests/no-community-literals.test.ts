@@ -123,6 +123,9 @@ const CHANGED = [
   "src/lib/reports/fiscal.ts",
   "src/lib/payments/plugins/enabled.ts",
   "src/app/(app)/reports/page.tsx",
+  "src/lib/people-v2",
+  "src/components/people-v2",
+  "src/app/(app)/people/people-v2.tsx",
 ];
 
 describe("the scanner", () => {
