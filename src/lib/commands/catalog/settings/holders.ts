@@ -14,6 +14,8 @@ type Row = Record<string, unknown>;
 export type RoleRow = { key: string; name: string; tier: string; description: string | null; permissions: unknown };
 
 export type Holder = {
+  /** The grant itself, so a later change (taking it away) can name exactly this one. */
+  grant_id: string;
   name: string;
   member_number: string | null;
   household_number: string | null;
@@ -139,6 +141,7 @@ export async function loadHolders(ctx: CommandContext, roles: readonly RoleRow[]
       continue;
     }
     holders.push({
+      grant_id: String(g.id),
       ...who,
       role_name: roleName.get(String(g.role_key)) ?? String(g.role_key),
       scope: scopeWords(String(g.scope_kind), g.scope_id ? (scopeName.get(String(g.scope_id)) ?? null) : null),

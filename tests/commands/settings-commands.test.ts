@@ -128,7 +128,7 @@ describe("settings.role_holders", () => {
     expect(data.role_name).toBe("Treasurer");
     expect(data.needs_a_second_person).toBe(true);
     expect(data.what_it_allows.join(" ")).toMatch(/pledges and payments/i);
-    expect(data.holders).toEqual([{ name: "Priya Shah", member_number: "1042", household_number: "H-1001", role_name: "Treasurer", scope: "The whole community", until: null, status: "active" }]);
+    expect(data.holders).toEqual([{ grant_id: "g1", name: "Priya Shah", member_number: "1042", household_number: "H-1001", role_name: "Treasurer", scope: "The whole community", until: null, status: "active" }]);
     expect(data.waiting_for_a_second_person.map((h) => h.name)).toEqual(["Rahul Shah"]);
     expect(messageOf(r)).toBe("1 person holds Treasurer: Priya Shah. 1 more is waiting for a second person's approval.");
     expect(writes).toEqual([]);
