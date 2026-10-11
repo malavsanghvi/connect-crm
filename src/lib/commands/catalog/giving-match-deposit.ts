@@ -17,6 +17,7 @@ import { CommandDbError, CommandError, type CommandContext, type CommandPreview,
 
 import { rpcJson } from "./db";
 import { uuidList } from "./giving-fields";
+import { requireConfirmedRun } from "./giving-guard";
 import { asArr, asObj, bool, int, rows, str } from "./giving-json";
 import { adultHouseholdCards } from "./household";
 
@@ -43,6 +44,8 @@ async function look(ctx: CommandContext, { bank_line_id, payment_ids }: Input): 
   const j = asObj(await rpcJson(db, "giving_deposit_context", { p_txn: bank_line_id, p_payment_ids: payment_ids }, "look at the deposit"));
   const line = asObj(j.bank_line);
   if (!str(line.id)) throw new CommandError("That bank line was not found, or you can't see it.");
+  // The bank line must belong to the community the person is working in, whoever they are (a platform admin included).
+  if (str(line.center_id) !== center.id) throw new CommandError("That bank line belongs to a different community than the one you are working in, so nothing can be matched from here.");
   if (str(line.status) === "matched") throw new CommandError("That bank line is already matched.");
   const missing = asArr(j.missing_ids).length;
   if (missing > 0) throw new CommandError(`${missing} of those payments ${missing === 1 ? "was" : "were"} not found, or you can't see ${missing === 1 ? "it" : "them"}.`);
@@ -112,6 +115,7 @@ export const matchDeposit = defineCommand<Input, { count: number }>({
   },
   confirmText: (_i, preview) => `Yes, ${preview.summary.charAt(0).toLowerCase()}${preview.summary.slice(1).replace(/\.$/, "")}`,
   async execute(ctx, inp) {
+    requireConfirmedRun(ctx, "giving.match_deposit");
     // Looked at again now: a payment may have been put on another deposit since the person saw the card.
     await look(ctx, inp);
     const { db, center } = ctx.session;

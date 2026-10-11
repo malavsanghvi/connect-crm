@@ -218,8 +218,11 @@ export async function runCommand<O = unknown>(ctx: CommandContext, key: string, 
 
   if (cmd.level === "confirm") {
     let preview: CommandPreview;
+    let wanted: unknown = parsed.value;
     try {
-      preview = await buildPreview(cmd, run, parsed.value);
+      // The command fixes what will run (its date, its plan) once, here; the card and the proposal both use the fixed input.
+      if (cmd.resolve) wanted = await cmd.resolve(run, parsed.value);
+      preview = await buildPreview(cmd, run, wanted);
     } catch (error) {
       if (error instanceof CommandError) return finish(fail(error.message, error.code));
       const f = failure(`Could not prepare to ${lowerFirst(cmd.title)}`, error);
@@ -227,12 +230,12 @@ export async function runCommand<O = unknown>(ctx: CommandContext, key: string, 
     }
     let ticket;
     try {
-      ticket = await propose(run, cmd, parsed.value, preview, opts.thread ?? null);
+      ticket = await propose(run, cmd, wanted, preview, opts.thread ?? null);
     } catch (error) {
       return finish(proposalFailure(error, `Could not prepare to ${lowerFirst(cmd.title)}`));
     }
     call.proposalId = ticket.proposalId;
-    const shown = await protect(run, { preview, confirmText: confirmTextOf(cmd, parsed.value, preview) });
+    const shown = await protect(run, { preview, confirmText: confirmTextOf(cmd, wanted, preview) });
     if (!shown.ok) return finish(fail(shown.error, "unsafe_result"));
     return finish({ ok: true, needsConfirmation: true, proposalId: ticket.proposalId, inputHash: ticket.inputHash, expiresAt: ticket.expiresAt, ...shown.value }, "proposed");
   }

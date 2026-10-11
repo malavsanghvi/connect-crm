@@ -1,7 +1,7 @@
 -- 0659: what "match this deposit to my checks" needs to look at (BACKLOG B90 phase 4). One read-only function, security invoker
 -- (row-level security applies), integer cents, nothing written:
 --
---   app.giving_deposit_context(bank_line, payment_ids)   the bank line, the payments chosen for it, whether they add up to the
+--   app.giving_deposit_context(bank_line, payment_ids)   the bank line (and the community it belongs to), the payments chosen for it, whether they add up to the
 --                                                        deposit to the cent, and which of them cannot be matched (not found
 --                                                        or not visible, already deposited, not recorded by hand)
 --
@@ -30,7 +30,7 @@ language sql stable security invoker set search_path = app, public, extensions a
   )
   select jsonb_build_object(
     'bank_line', (select jsonb_build_object(
-                    'id', t.id, 'posted_on', t.posted_on, 'amount_cents', t.amount_cents, 'description', left(t.description, 200),
+                    'id', t.id, 'center_id', t.center_id, 'posted_on', t.posted_on, 'amount_cents', t.amount_cents, 'description', left(t.description, 200),
                     'status', t.status, 'is_batch_deposit', t.is_batch_deposit) from t),
     'payments', coalesce((
       select jsonb_agg(jsonb_build_object(

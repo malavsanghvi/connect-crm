@@ -11,6 +11,11 @@ export type Field<T> = {
   readonly description: string;
   /** True when the field may be left out (its value is then undefined, or the default). */
   readonly optional: boolean;
+  /**
+   * True for a value the command itself works out when it prepares a confirmation (`resolve`) and stores in the proposal: it is
+   * accepted when a confirmed proposal runs, but it is not offered to a model or the palette, and a value given for it is replaced.
+   */
+  readonly hidden?: boolean;
   parse(value: unknown, label: string): Parsed<T>;
   json(): JsonSchemaProp;
 };
@@ -191,6 +196,7 @@ export function object<S extends Shape>(shape: S): ObjectSchema<InputOf<S>> {
       const properties: Record<string, JsonSchemaProp> = {};
       const required: string[] = [];
       for (const [name, field] of Object.entries(shape)) {
+        if (field.hidden) continue;
         properties[name] = field.json();
         if (!field.optional) required.push(name);
       }

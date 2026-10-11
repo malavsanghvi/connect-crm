@@ -17,6 +17,7 @@ import { CommandError, type CommandContext, type CommandPreview } from "../types
 
 import { rpcJson } from "./db";
 import { uuidList } from "./giving-fields";
+import { requireConfirmedRun } from "./giving-guard";
 import { asArr } from "./giving-json";
 import { adultHouseholdCards } from "./household";
 
@@ -73,6 +74,9 @@ export const confirmExactZelleMatches = defineCommand<Input, { confirmed: { repo
   },
   confirmText: (_i, preview) => `Yes, ${preview.summary.charAt(0).toLowerCase()}${preview.summary.slice(1).replace(/\.$/, "")}`,
   async execute(ctx, { report_ids }) {
+    requireConfirmedRun(ctx, "giving.confirm_exact_zelle_matches");
+    // The exact matches are read for the community the person is working in (the database function takes it), so a report of
+    // another community is never among them, whoever is asking.
     const { pairs } = await exactPairs(ctx, report_ids);
     if (pairs.length === 0) throw new CommandError(NOTHING_EXACT);
     const raw = await rpcJson(

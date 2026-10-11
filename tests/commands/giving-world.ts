@@ -98,8 +98,9 @@ export const GIVING_ANSWERS: Rpc = {
     provider_refunds: [],
   },
   giving_fund_mapping_status: { required_purposes: ["bank"], missing_purposes: ["bank"], mapped_count: 0, approved_count: 0, mappings: [], funds_count: 1, funds_without_class: [{ id: "f", key: "k", name: "Zoya Shah memorial fund", restricted: true }] },
+  giving_payment_confirm_guard: { unfinished: 0, recorded: 0 },
   giving_deposit_context: {
-    bank_line: { id: "7d0f3b9a-6a39-4d0c-9f43-0a1a1d7c4201", posted_on: "2026-10-01", amount_cents: 30000, description: "Deposit from Zoya Shah's class", status: "unmatched", is_batch_deposit: true },
+    bank_line: { id: "7d0f3b9a-6a39-4d0c-9f43-0a1a1d7c4201", center_id: "center-1", posted_on: "2026-10-01", amount_cents: 30000, description: "Deposit from Zoya Shah's class", status: "unmatched", is_batch_deposit: true },
     payments: [
       { id: "7d0f3b9a-6a39-4d0c-9f43-0a1a1d7c4301", receipt_number: "R-1", household_id: SHAH, amount_cents: 25000, method: "check", check_number: "1043", envelope_number: null, received_on: "2026-09-28", can_match: true, already_deposited: false },
       { id: "7d0f3b9a-6a39-4d0c-9f43-0a1a1d7c4302", receipt_number: "R-2", household_id: MEHTA, amount_cents: 5000, method: "cash", check_number: null, envelope_number: null, received_on: "2026-09-29", can_match: true, already_deposited: false },

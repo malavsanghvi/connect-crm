@@ -136,6 +136,13 @@ export type Command<I = never, O = unknown> = {
   /** Hidden when this module is switched off for the community. */
   module?: ModuleKey;
   input: ObjectSchema<I>;
+  /**
+   * For a confirm command: fix what the person is about to confirm. Runs once, when the confirmation is prepared, before the card is
+   * made; what it returns is what the card shows AND what is stored in the proposal and later run, so nothing that depends on the clock
+   * or on the database (today's date, the pledges a payment will close) can differ between the card and the action. May throw a
+   * CommandError to refuse (a payment that looks like one just recorded).
+   */
+  resolve?: (ctx: CommandContext, input: I) => Promise<I>;
   /** What will happen, before anything does. Runs when a confirm command is proposed (and a draft may share it). */
   preview?: (ctx: CommandContext, input: I) => Promise<CommandPreview>;
   /** Do it. Return a result, or throw CommandError for a problem to show; any other error is logged and explained. */
