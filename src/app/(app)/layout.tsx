@@ -1,3 +1,4 @@
+import { cookies } from "next/headers";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import type { ReactNode } from "react";
@@ -6,6 +7,7 @@ import { AppShell } from "@/components/shell/app-shell";
 import { CenteredPanel, SetupScreen } from "@/components/setup-screen";
 import { PRODUCT_NAME } from "@/lib/brand";
 import { countHomeTasks } from "@/lib/data/home-tasks";
+import { LOOK_COOKIE, parseLook } from "@/lib/look";
 import { centerMissingHint, enforceStaff2fa, loadSession } from "@/lib/session";
 
 export default async function ConsoleLayout({ children }: { children: ReactNode }) {
@@ -52,8 +54,10 @@ export default async function ConsoleLayout({ children }: { children: ReactNode 
       // database refuses sensitive changes on its own either way (assert_step_up).
       await enforceStaff2fa(state.session);
       const tasks = await countHomeTasks(state.session);
+      // The person's own choice of look ("New look" in the user menu); anyone who never chose gets the classic portal.
+      const look = parseLook((await cookies()).get(LOOK_COOKIE)?.value);
       return (
-        <AppShell session={state.session} tasks={tasks}>
+        <AppShell session={state.session} tasks={tasks} look={look}>
           {children}
         </AppShell>
       );
