@@ -7,6 +7,7 @@ vi.mock("@/lib/data/home-tasks", () => ({ loadHomeTasks: vi.fn() }));
 import { revalidatePath } from "next/cache";
 
 import { CATALOG } from "@/lib/commands/catalog";
+import { MESSAGES_COMMANDS } from "@/lib/commands/catalog/messages";
 import { PEOPLE_COMMANDS } from "@/lib/commands/catalog/people";
 import { pickSaved } from "@/lib/commands/catalog/messages-draft-reminder";
 import { draftReminder, fillTemplate, whenText } from "@/lib/commands/catalog/reminder-text";
@@ -23,7 +24,7 @@ const DIWALI = "7d0f3b9a-6a39-4d0c-9f43-0a1a1d7c1001";
 const PICNIC = "7d0f3b9a-6a39-4d0c-9f43-0a1a1d7c1003";
 const CANCELLED = "7d0f3b9a-6a39-4d0c-9f43-0a1a1d7c1004";
 
-const ALL_PERMISSIONS = ["people.view", "people.manage", "people.approve", "giving.view", "giving.manage", "giving.record_offline", "giving.approve", "events.view", "events.manage", "comms.send", "accounting.close"];
+const ALL_PERMISSIONS = ["people.view", "people.manage", "people.approve", "giving.view", "giving.manage", "giving.record_offline", "giving.approve", "events.view", "events.manage", "comms.send", "comms.approve", "comms.inbox", "accounting.close"];
 
 function catalogRegistry() {
   const r = new CommandRegistry();
@@ -92,8 +93,13 @@ describe("the first commands", () => {
   it("have no command that changes roles or permissions, deletes, refunds, writes off or approves; a money word is only ever a read or a draft", () => {
     // A merge changes records and is asked about first, like every write; it is never a read or a draft.
     for (const c of CATALOG) if (/merge/.test(c.key)) expect(c.level).toBe("confirm");
+    // Messages (B90 phase 4) approves and schedules a message to families: those two are named so, and are confirm commands that start
+    // off for Niva. Nothing else in the catalog may carry such a word (and no key says "send": Niva never sends, the person does).
+    const MESSAGE_CHANGES = ["messages.schedule_campaign", "messages.approve_campaign"];
+    for (const key of MESSAGE_CHANGES) expect(CATALOG.find((c) => c.key === key), key).toMatchObject({ level: "confirm", enabledByDefault: false });
     for (const c of CATALOG) {
-      expect(c.key, `${c.key} would refund, write off, approve, delete or change roles`).not.toMatch(/refund|write_?off|role|permission|grant|delete|remove|send|schedule|approve_/);
+      const named = MESSAGE_CHANGES.includes(c.key) ? c.key.replace(/schedule|approve/, "") : c.key;
+      expect(named, `${c.key} would refund, write off, approve, delete or change roles`).not.toMatch(/refund|write_?off|role|permission|grant|delete|remove|send|schedule|approve_/);
       if (/record|payment|zelle|deposit/.test(c.key)) expect(c.level === "read" || c.level === "draft", `${c.key} is ${c.level}`).toBe(true);
     }
     // The one that changes a detail is a single-detail event change; its fields never include prices, status or the owner.
@@ -532,7 +538,8 @@ describe("events.set_field (confirm, off until the owner switches it on)", () =>
 // ---------------------------------------------------------------------------
 describe("no command result reaches a model with a child in it", () => {
   /** The People commands take real ids, so they run against their own community (a UUID world with children in it) in people-reads.test.ts. */
-  const OWN_WORLD = new Set(PEOPLE_COMMANDS.map((c) => c.key));
+  // The Messages commands take real ids too: tests/commands/messages-commands.test.ts ("D2 across the Messages commands") checks every one of them.
+  const OWN_WORLD = new Set([...PEOPLE_COMMANDS, ...MESSAGES_COMMANDS].map((c) => c.key));
 
   /** A plausible input for every command in the catalog. A new command must be added here, or this file fails. */
   const SAMPLE_INPUT: Record<string, unknown> = {

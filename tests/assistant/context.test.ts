@@ -148,6 +148,21 @@ describe("Ask Niva suggestions", () => {
     for (const s of suggestionsFor("/events/[id]", "event", events)) expect(s).not.toMatch(/\b(child|kid|minor)\b/i);
   });
 
+  it("offers the Messages examples a role can use: about this conversation or message first, then the inbox and approvals", () => {
+    const messages = new Set(["messages.inbox_triage", "messages.campaigns", "messages.audience_preview", "messages.why_not_delivered", "messages.draft_reply", "messages.draft_reminder", "tasks.mine"]);
+    expect(suggestionsFor("/comms/threads/[id]", "message thread", messages)).toEqual(["Draft a reply to this conversation from our approved answers", "What is waiting for me?"]);
+    expect(suggestionsFor("/comms/campaigns/[id]", "campaign", messages)).toEqual(["Why has this message not gone out?", "What is waiting for me?"]);
+    expect(suggestionsFor("/comms/inbox", undefined, messages)).toEqual([
+      "What is waiting in the inbox?",
+      "Which messages to families are waiting for approval?",
+      "How many people would a message to all members reach by email, text and WhatsApp?",
+    ]);
+    // A role that only sees the approvals list is not offered the inbox.
+    expect(suggestionsFor("/comms/newsletters", undefined, new Set(["messages.campaigns"]))).toEqual(["Which messages to families are waiting for approval?"]);
+    // The examples never name a child or promise a send.
+    for (const s of suggestionsFor("/comms/inbox", undefined, messages)) expect(s).not.toMatch(/(child|kid|minor)|send/i);
+  });
+
   it("offers People examples for the commands the person may use, and 'this household' only on a household", () => {
     const people = new Set(["people.search", "people.find_household", "people.pending_reviews", "people.suggest_duplicates", "people.household_summary", "people.add_person", "people.update_person"]);
     expect(suggestionsFor("/people", undefined, people)).toEqual([
