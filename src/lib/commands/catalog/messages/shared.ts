@@ -8,7 +8,7 @@ import { isValidLanguageCode } from "@/lib/languages";
 import { can, passesRoleChecks } from "@/lib/permissions";
 import type { CrmSession } from "@/lib/session";
 
-import { isAdultMember } from "../../child-filter";
+import { communityMajority, isAdultMember } from "../../child-filter";
 import { CommandError, type CommandContext, type HouseholdCard } from "../../types";
 import { must } from "../db";
 import { cardsFor } from "../people/shared";
@@ -219,6 +219,7 @@ export async function adultsAmong(ctx: CommandContext, personIds: readonly (stri
   if (wanted.length === 0) return out;
   const { db } = ctx.session;
   const today = todayInTz(ctx.session.center.time_zone, ctx.now?.());
+  const majority = communityMajority(ctx.session.center);
   const people = (must(await db.from("people").select("id, date_of_birth").in("id", wanted), "read the senders") ?? []) as { id: string; date_of_birth: string | null }[];
   const links = (must(await db.from("household_members").select("person_id, role").in("person_id", wanted).is("left_at", null), "read the senders' households") ?? []) as { person_id: string; role: string }[];
   const byPerson = new Map<string, string[]>();
@@ -230,7 +231,7 @@ export async function adultsAmong(ctx: CommandContext, personIds: readonly (stri
       continue;
     }
     const roles = byPerson.get(id) ?? [];
-    out.set(id, p.date_of_birth ? isAdultMember({ date_of_birth: p.date_of_birth }, today) : roles.length > 0 && roles.every((r) => isAdultMember({ date_of_birth: null, role: r }, today)));
+    out.set(id, p.date_of_birth ? isAdultMember({ date_of_birth: p.date_of_birth }, today, majority) : roles.length > 0 && roles.every((r) => isAdultMember({ date_of_birth: null, role: r }, today, majority)));
   }
   return out;
 }

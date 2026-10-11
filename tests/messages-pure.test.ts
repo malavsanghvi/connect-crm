@@ -21,6 +21,8 @@ import {
   type ThreadRow,
 } from "@/lib/commands/catalog/messages/pure";
 
+import { westernMinor } from "./commands/helpers";
+
 const NOW = new Date("2026-10-10T15:00:00Z");
 const ago = (hours: number) => new Date(NOW.getTime() - hours * 3_600_000).toISOString();
 const when = (iso: string) => `on ${iso.slice(0, 10)}`;
@@ -85,10 +87,18 @@ describe("triageCounts", () => {
 });
 
 describe("the child guard for message text", () => {
-  const names = childGivenNames(["Zoya Shah", "Aarav Patel", "Mary Ann Joshi", "Zoé Rao"]);
+  // The way the app gives them (given words identify the child; the family word is shared with the household's adults).
+  const names = childGivenNames([westernMinor("Zoya Shah"), westernMinor("Aarav Patel"), westernMinor("Mary Ann Joshi"), westernMinor("Zoé Rao")]);
 
-  it("keeps the given names and leaves the family names", () => {
-    expect([...names].sort()).toEqual(["aarav", "ann", "mary", "zoe", "zoya"]);
+  it("keeps the given names and leaves a family name the household shares", () => {
+    expect(mentionsChild("Rao family", names)).toBe(false);
+    expect(mentionsChild("Mary", names)).toBe(true);
+    expect(mentionsChild("Joshi", names)).toBe(false);
+  });
+  it("reads a bare name with every word counting, in any order (nothing says which is the family name)", () => {
+    const bare = childGivenNames(["Wang Wei", "Aarav", "María José García López"]);
+    for (const text of ["Wei is sick", "Wang's class", "Wei Wang", "aarav", "JOSE came", "Lopez, Maria"]) expect(mentionsChild(text, bare), text).toBe(true);
+    expect(mentionsChild("Is the dinner vegetarian?", bare)).toBe(false);
   });
   it("finds a child's first name as a word, in any case, with an apostrophe, or with an accent", () => {
     expect(mentionsChild("Zoya needs a gluten free meal", names)).toBe(true);
@@ -102,7 +112,7 @@ describe("the child guard for message text", () => {
     expect(mentionsChild("Shah family parking", names)).toBe(false);
     expect(mentionsChild("Zoyaa", names)).toBe(false);
     expect(mentionsChild(null, names)).toBe(false);
-    expect(mentionsChild("Zoya", new Set())).toBe(false);
+    expect(mentionsChild("Zoya", childGivenNames([]))).toBe(false);
   });
   it("reads Gujarati and Hindi names whole", () => {
     const native = childGivenNames(["ઝોયા શાહ", "आरव पटेल"]);
