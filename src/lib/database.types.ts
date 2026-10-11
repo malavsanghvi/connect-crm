@@ -11586,6 +11586,20 @@ export type Database = {
         };
         Returns: number;
       };
+      content_library_summary: {
+        Args: {
+          p_center: string;
+          p_stale_days?: number;
+        };
+        Returns: Json;
+      };
+      content_queue_summary: {
+        Args: {
+          p_center: string;
+          p_limit?: number;
+        };
+        Returns: Json;
+      };
       create_checkout: {
         Args: {
           p_center: string;
@@ -13331,6 +13345,12 @@ export type Database = {
         };
         Returns: Json;
       };
+      platform_community_summary: {
+        Args: {
+          p_center: string;
+        };
+        Returns: Json;
+      };
       platform_create_sandbox: {
         Args: {
           p_name: string;
@@ -13374,6 +13394,12 @@ export type Database = {
       platform_setting_keys: {
         Args: Record<PropertyKey, never>;
         Returns: string[];
+      };
+      platform_waiting: {
+        Args: {
+          p_limit?: number;
+        };
+        Returns: Json;
       };
       pledge_writeoff_postings: {
         Args: {
@@ -13800,6 +13826,78 @@ export type Database = {
           p_note: string;
         };
         Returns: Json;
+      };
+      reports_attendance: {
+        Args: {
+          p_center: string;
+          p_from: string;
+          p_to: string;
+          p_top?: number;
+        };
+        Returns: Json;
+      };
+      reports_membership_changes: {
+        Args: {
+          p_center: string;
+          p_from: string;
+          p_to: string;
+          p_today?: string;
+        };
+        Returns: Json;
+      };
+      reports_membership_matrix: {
+        Args: {
+          p_center: string;
+        };
+        Returns: Json;
+      };
+      reports_payments_summary: {
+        Args: {
+          p_center: string;
+          p_from: string;
+          p_to: string;
+          p_group?: string;
+        };
+        Returns: Json;
+      };
+      reports_people_overview: {
+        Args: {
+          p_center: string;
+          p_year: number;
+          p_today?: string;
+        };
+        Returns: Json;
+      };
+      reports_period_figures: {
+        Args: {
+          p_center: string;
+          p_from: string;
+          p_to: string;
+        };
+        Returns: Json;
+      };
+      reports_pledges_summary: {
+        Args: {
+          p_center: string;
+          p_from: string;
+          p_to: string;
+        };
+        Returns: Json;
+      };
+      reports_store_sales: {
+        Args: {
+          p_center: string;
+          p_from: string;
+          p_to: string;
+          p_top?: number;
+        };
+        Returns: Json;
+      };
+      reports_tz: {
+        Args: {
+          p_center: string;
+        };
+        Returns: string;
       };
       request_add_family_member: {
         Args: {
@@ -14574,6 +14672,14 @@ export type Database = {
           p_n: number;
         };
         Returns: string;
+      };
+      store_sales_summary: {
+        Args: {
+          p_center: string;
+          p_from: string;
+          p_to: string;
+        };
+        Returns: Json;
       };
       submit_access_request: {
         Args: {

@@ -2,6 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 
+import { plain } from "@/lib/commands/catalog/messages/screen";
+import { runScreenCommand } from "@/lib/commands/screen";
 import { failure, type ActionResult, type DbErrorLike } from "@/lib/errors";
 import {
   NIVA_GROUP_RETRY_MAX,
@@ -164,23 +166,8 @@ export async function retireNivaSourceAction(_prev: ActionResult | null, fd: For
   if (!auth.ok) return auth;
   const id = String(fd.get("id") ?? "").trim();
   if (!isUuid(id)) return { ok: false, error: `Could not ${doing} — no source was given. Reload the page and try again.` };
-  const writer = await dbWithReason(auth.session, "Retired from Niva on Content › Niva");
-  const { data, error } = await writer
-    .from("content_items")
-    .update({ status: "retired" })
-    .eq("id", id)
-    .eq("center_id", auth.session.center.id)
-    .eq("kind", "niva_source")
-    .neq("status", "retired")
-    .select("id, title");
-  if (error) return failure(`Could not ${doing}`, error);
-  const row = data?.[0];
-  if (!row) return { ok: false, error: `Could not ${doing} — it is already retired, or it is not one of this community's sources. Reload the page to see the current list.` };
-  revalidatePath("/content", "layout");
-  return {
-    ok: true,
-    message: `"${row.title}" retired: Niva no longer answers from it. Answers that already cite it stay until you press Regenerate on them.`,
-  };
+  // The work is the command content.archive_item (src/lib/commands/catalog/content): the same code the ⌘K palette and Niva use.
+  return plain(await runScreenCommand("content.archive_item", { item_id: id, kind: "niva_source" }, doing));
 }
 
 // B14: give Niva web pages to learn from (app.niva_import_pages, migration 0540). One job per

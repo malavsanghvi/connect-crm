@@ -192,7 +192,7 @@ describe("GET /api/assistant/commands", () => {
     signIn({ permissions: ["events.view"], rules: { assistant: { enabled: true } } });
     const body = await json<CommandsResponse>(await commandsGET(get("commands")));
     // Showing a person their own tasks needs no permission; the events list and what is read from an event need events.view.
-    expect(body.commands.map((c) => c.key)).toEqual(["tasks.mine", "events.upcoming", "events.summary", "events.readiness", "events.audience_preview", "events.rsvps"]);
+    expect(body.commands.map((c) => c.key)).toEqual(["tasks.mine", "events.upcoming", "events.summary", "events.readiness", "events.audience_preview", "events.rsvps", "reports.event_attendance"]);
   });
 
   it("still answers when the usage numbers or the key cannot be read", async () => {
