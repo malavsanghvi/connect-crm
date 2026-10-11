@@ -21,7 +21,7 @@ import { kindFallbackProblem, kindFromProfileResult, type KindProfile } from "@/
 import { loadMyModules, modulesOffFrom } from "@/lib/modules-db";
 import { requires2faForStaff, securityRedirect } from "@/lib/security";
 import { createSupabaseServerClient, type AppSupabase } from "@/lib/supabase/server";
-import { PATHNAME_HEADER, newRequestId } from "@/lib/supabase/trace";
+import { PATHNAME_HEADER, newRequestId, type PortalClientApp } from "@/lib/supabase/trace";
 
 export type CenterInfo = {
   id: string;
@@ -66,6 +66,8 @@ export type CrmSession = PermissionContext & {
   isOwner: boolean;
   /** x-request-id of this server request / action: every change it makes shares it in the audit log. */
   requestId: string;
+  /** Set only on the session a command run by Niva works with (src/lib/commands/context.ts): its audit rows say "assistant", not "portal". */
+  clientApp?: PortalClientApp;
   /** Module keys switched off for the center (app.my_modules); empty when all are on or unknown. */
   modulesOff: string[];
   /** "missing" before the s-core migrations land, "error" when my_modules failed: both mean "treat everything as on". */
@@ -223,8 +225,8 @@ export const loadSession = cache(async (): Promise<SessionState> => {
  * user and request id, plus x-audit-reason, so the audit rows of this change
  * carry the reason. Use it only for the write(s) the reason explains.
  */
-export async function dbWithReason(session: Pick<CrmSession, "requestId">, reason: string): Promise<AppSupabase> {
-  return createSupabaseServerClient({ requestId: session.requestId, reason });
+export async function dbWithReason(session: Pick<CrmSession, "requestId" | "clientApp">, reason: string): Promise<AppSupabase> {
+  return createSupabaseServerClient({ requestId: session.requestId, reason, clientApp: session.clientApp });
 }
 
 /** What to check when the organization named by the request does not exist. */
