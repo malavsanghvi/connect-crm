@@ -1,6 +1,6 @@
-// The commands. Read and draft commands are on for everyone whose role allows them; the one confirm-level write is registered
-// but OFF until the owner approves it (assistant.tools.<key> in the community's settings). No command here moves money, changes a
-// role or permission, or deletes anything. The Giving commands (giving.*, B90 phase 4) are reads and one draft: they look at pledges,
+// The commands. Read and draft commands are on for everyone whose role allows them; every confirm-level write is registered but OFF
+// until the owner approves it (assistant.tools.<key> in the community's settings). The Settings ones can give or take away a role and
+// switch a module (settings/index.ts). The Giving commands (giving.*, B90 phase 4) are reads and one draft: they look at pledges,
 // bank lines, Zelle reports and approvals, and giving.draft_payment prepares a payment without saving it. The three that move money
 // (giving.record_payment, giving.confirm_exact_zelle_matches, giving.match_deposit) are built but OFF for every door until an owner
 // switches each one on (requiresOwnerSwitch). Refunds and write-offs have no command: they need a second person.

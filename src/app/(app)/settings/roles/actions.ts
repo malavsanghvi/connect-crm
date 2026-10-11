@@ -2,8 +2,9 @@
 
 import { revalidatePath } from "next/cache";
 
+import { SCOPES } from "@/lib/commands/catalog/settings/grant-rules";
+import { runScreenCommand } from "@/lib/commands/screen";
 import { householdsById, orgIds, personName } from "@/lib/data/lookups";
-import { addDays, startOfDayInTz, todayInTz } from "@/lib/dates";
 import { failure, type ActionResult } from "@/lib/errors";
 import { isUuid, safeFilterText } from "@/lib/search-params";
 import { authorizeAction, dbWithReason } from "@/lib/session";
@@ -75,105 +76,44 @@ export async function searchPeopleAction(query: string): Promise<ActionResult<Pe
   };
 }
 
-const SCOPES = ["center", "event", "class", "zone"] as const;
-
+/**
+ * Give a role. The rules are applied by the `settings.grant_role` command (src/lib/commands/catalog/settings/grant-rules.ts), the
+ * same code the ⌘K palette and Niva run once the person confirms. This action keeps the Roles screen's own browser confirmation and
+ * its first checks, then runs the command as the signed-in person.
+ */
 export async function grantRoleAction(_prev: ActionResult | null, formData: FormData): Promise<ActionResult> {
-  const auth = await authorizeAction("roles", "grant the role");
-  if (!auth.ok) return auth;
-  const { db, center, userId, isPlatformAdmin } = auth.session;
   const grantee = String(formData.get("user_id") ?? "");
   const roleKey = String(formData.get("role_key") ?? "");
-  const scopeKind = String(formData.get("scope_kind") ?? "center") as (typeof SCOPES)[number];
+  const scopeKind = String(formData.get("scope_kind") ?? "center");
   const scopeId = String(formData.get("scope_id") ?? "");
   const endsOn = String(formData.get("ends_on") ?? "").trim();
   const reason = String(formData.get("reason") ?? "").trim().slice(0, 500);
 
   if (!isUuid(grantee)) return { ok: false, error: "Could not grant the role — choose a person who has signed in to Weaver at least once." };
-  if (!SCOPES.includes(scopeKind)) return { ok: false, error: "Could not grant the role — choose a scope." };
+  if (!(SCOPES as readonly string[]).includes(scopeKind)) return { ok: false, error: "Could not grant the role — choose a scope." };
+  if (!roleKey || roleKey.length > 80) return { ok: false, error: "Could not grant the role — choose a role." };
+  if (scopeKind !== "center" && !isUuid(scopeId)) return { ok: false, error: `Could not grant the role — choose which ${scopeKind} it is for.` };
+  if (endsOn && !/^\d{4}-\d{2}-\d{2}$/.test(endsOn)) return { ok: false, error: "Could not grant the role — the end date is not a valid date." };
 
-  const role = await db.from("roles").select("key, name, tier").eq("key", roleKey).maybeSingle();
-  if (role.error) return failure("Could not grant the role", role.error);
-  if (!role.data) return { ok: false, error: "Could not grant the role — choose a role." };
-  if (role.data.tier === "platform" && !isPlatformAdmin) {
-    return { ok: false, error: `Could not grant ${role.data.name} — platform roles are granted by the platform team only.` };
-  }
-  if (role.data.tier === "family") {
-    return { ok: false, error: `Could not grant ${role.data.name} — family roles come from household relationships, not grants.` };
-  }
-
-  let scope: string | null = null;
-  if (scopeKind !== "center") {
-    if (!isUuid(scopeId)) return { ok: false, error: `Could not grant the role — choose which ${scopeKind} it is for.` };
-    const table = scopeKind === "event" ? "events" : scopeKind === "class" ? "pathshala_classes" : "zones";
-    const exists = await db.from(table).select("id").eq("id", scopeId).eq("center_id", center.id).maybeSingle();
-    if (exists.error) return failure("Could not grant the role", exists.error);
-    if (!exists.data) return { ok: false, error: `Could not grant the role — that ${scopeKind} was not found.` };
-    scope = scopeId;
-  }
-
-  let endsAt: string | null = null;
-  if (endsOn) {
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(endsOn)) return { ok: false, error: "Could not grant the role — the end date is not a valid date." };
-    if (endsOn < todayInTz(center.time_zone)) return { ok: false, error: "Could not grant the role — the end date is in the past." };
-    endsAt = startOfDayInTz(addDays(endsOn, 1), center.time_zone); // through the end of that day
-  }
-
-  // Refuse an identical live grant (the table allows duplicates; they only confuse).
-  let dupQ = db
-    .from("role_grants")
-    .select("id")
-    .eq("center_id", center.id)
-    .eq("user_id", grantee)
-    .eq("role_key", roleKey)
-    .eq("scope_kind", scopeKind)
-    .or(`ends_at.is.null,ends_at.gt."${new Date().toISOString()}"`);
-  dupQ = scope ? dupQ.eq("scope_id", scope) : dupQ.is("scope_id", null);
-  const dup = await dupQ.limit(1);
-  if (dup.error) return failure("Could not grant the role", dup.error);
-  if ((dup.data ?? []).length > 0) return { ok: false, error: `This person already holds ${role.data.name} for that scope.` };
-
-  const writer = reason ? await dbWithReason(auth.session, reason) : db;
-  const { data: inserted, error } = await writer.from("role_grants").insert({
-    center_id: center.id,
-    user_id: grantee,
-    role_key: roleKey,
-    scope_kind: scopeKind,
-    scope_id: scope,
-    ends_at: endsAt,
-    granted_by: userId,
-    reason: reason || null,
-  }).select("status").single();
-  if (error) return failure(`Could not grant ${role.data.name}`, error);
-  revalidatePath("/settings/roles");
-  revalidatePath("/content/guide"); // zone leads are also assigned from Content › Guide & directory
-  if (inserted?.status === "pending") {
-    return {
-      ok: true,
-      message: `${role.data.name} is waiting for a second person: it starts only when a different administrator approves it under "Waiting for approval".`,
-    };
-  }
-  return { ok: true, message: `Granted ${role.data.name}${endsOn ? ` until ${endsOn}` : ""}.` };
+  return runScreenCommand(
+    "settings.grant_role",
+    {
+      user_id: grantee,
+      role_key: roleKey,
+      scope_kind: scopeKind,
+      ...(scopeKind !== "center" ? { scope_id: scopeId } : {}),
+      ...(endsOn ? { ends_on: endsOn } : {}),
+      ...(reason ? { reason } : {}),
+    },
+    "grant the role",
+  );
 }
 
+/** End a role at once (the `settings.revoke_role` command does the work; see grantRoleAction). */
 export async function revokeGrantAction(_prev: ActionResult | null, formData: FormData): Promise<ActionResult> {
-  const auth = await authorizeAction("roles", "revoke the role");
-  if (!auth.ok) return auth;
   const id = String(formData.get("id") ?? "");
   if (!isUuid(id)) return { ok: false, error: "Could not revoke the role — the grant was not found." };
-  const { db, center } = auth.session;
-  const current = await db.from("role_grants").select("ends_at").eq("id", id).eq("center_id", center.id).maybeSingle();
-  if (current.error) return failure("Could not revoke the role", current.error);
-  if (!current.data) return { ok: false, error: "Could not revoke the role — the grant was not found." };
-  const now = new Date().toISOString();
-  if (current.data.ends_at && current.data.ends_at <= now) return { ok: false, error: "Could not revoke the role — it has already ended." };
-  // Plain filters only: PostgREST 12 rejects or=(…) logic trees on UPDATE.
-  let update = db.from("role_grants").update({ ends_at: now }).eq("id", id).eq("center_id", center.id);
-  update = current.data.ends_at ? update.eq("ends_at", current.data.ends_at) : update.is("ends_at", null);
-  const { data, error } = await update.select("id");
-  if (error) return failure("Could not revoke the role", error);
-  if (!data || data.length === 0) return { ok: false, error: "Could not revoke the role — it changed meanwhile, or you lack permission. Reload and try again." };
-  revalidatePath("/settings/roles");
-  return { ok: true, message: "Role revoked. It stopped working immediately." };
+  return runScreenCommand("settings.revoke_role", { grant_id: id }, "revoke the role");
 }
 
 /** Two-person rule (0017 approve_role_grant): a different person with roles.manage activates a pending grant. */
