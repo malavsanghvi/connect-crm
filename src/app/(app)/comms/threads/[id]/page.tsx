@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 
 import { ActionForm } from "@/components/action-form";
 import { Toggle } from "@/components/controls";
+import { AskNiva } from "@/components/niva/ask-niva";
 import { RowActions, type RowButton } from "@/components/row-actions";
 import { Card, NoAccess, PageHeader, QueryError } from "@/components/ui";
 import { refCode } from "@/lib/comms";
@@ -70,7 +71,12 @@ export default async function ThreadPage({ params }: { params: Promise<{ id: str
         description={`${refCode("Q", thread.id)} · ${inboxName} · from ${from} · ${formatDateTime(thread.created_at, tz)} · ${
           thread.assignee_user ? `assigned to ${thread.assignee_user === session.userId ? "you" : (users.get(thread.assignee_user)?.name ?? "a colleague")}` : "unassigned"
         }${inbox.data ? ` · reply target ${inbox.data.response_target_hours} hours` : ""}`}
-        actions={<RowActions action={setThreadAction} fields={{ id: thread.id }} buttons={buttons} />}
+        actions={
+          <>
+            <RowActions action={setThreadAction} fields={{ id: thread.id }} buttons={buttons} />
+            <AskNiva prompt="Draft a reply to this conversation from our approved answers" label="Draft a reply with Niva" />
+          </>
+        }
       />
       <Card>
         {messages.error ? <QueryError what="the messages" error={messages.error} retryHref={`/comms/threads/${id}`} /> : null}
