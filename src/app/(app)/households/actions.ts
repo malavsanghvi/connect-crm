@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import type { HouseholdFinderResult } from "@/app/(app)/giving/actions";
+import { withActivity } from "@/lib/activity/with-activity";
 import { householdCards } from "@/lib/data/lookups";
 import { searchHouseholds } from "@/lib/data/search";
 import { failure, type ActionResult } from "@/lib/errors";
@@ -48,6 +49,10 @@ function fields(fd: FormData, keys: readonly string[]): Record<string, string | 
 const TIERS: readonly Tier[] = ["community", "yearly", "life"];
 
 export async function updateHouseholdAction(_prev: ActionResult | null, fd: FormData): Promise<ActionResult> {
+  return withActivity("households.update_household", () => updateHousehold(fd), { entityFrom: { kind: "household", id: String(fd.get("id") ?? "") } });
+}
+
+async function updateHousehold(fd: FormData): Promise<ActionResult> {
   const id = String(fd.get("id") ?? "");
   if (!isUuid(id)) return { ok: false, error: "Could not save the household — it was not found." };
   const auth = await authorizeAction("householdsEdit", "save the household");

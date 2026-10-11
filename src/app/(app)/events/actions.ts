@@ -125,7 +125,7 @@ export async function saveEvent(eventId: string | null, _prev: Result | null, fd
       };
     }
     return { ok: true, message: current.status === "draft" ? "Draft saved" : "Event saved" };
-  });
+  }, { key: "events.save_event", entityFrom: eventId ? { kind: "event", id: eventId } : undefined });
 }
 
 /**
@@ -178,7 +178,7 @@ export async function setEventStatus(eventId: string, _prev: Result | null, fd: 
     revalidateEvents();
     if (status === "completed" && before?.status !== "completed") return { ok: true, message: await completedMessage(db, eventId) };
     return { ok: true, message: STATUS_MESSAGES[status] };
-  });
+  }, { key: "events.set_status", entityFrom: { kind: "event", id: eventId } });
 }
 
 /**

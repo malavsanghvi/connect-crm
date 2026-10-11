@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 
+import { withActivity } from "@/lib/activity/with-activity";
 import { planDecision, type ApplicationDecision } from "@/lib/applications";
 import { failure, type ActionResult } from "@/lib/errors";
 import { formatCents } from "@/lib/money";
@@ -10,6 +11,12 @@ import { isUuid } from "@/lib/search-params";
 import { authorizeAction, dbWithReason, type CrmSession } from "@/lib/session";
 
 export async function decideApplicationAction(_prev: ActionResult | null, formData: FormData): Promise<ActionResult> {
+  return withActivity("memberships.decide_application", () => decideApplication(formData), {
+    entityFrom: { kind: "application", id: String(formData.get("id") ?? "") },
+  });
+}
+
+async function decideApplication(formData: FormData): Promise<ActionResult> {
   const decision = String(formData.get("decision") ?? "") as ApplicationDecision;
   const doing = decision === "reject" ? "decline the application" : "approve the application";
   const auth = await authorizeAction("applicationsDecide", doing);

@@ -15,6 +15,7 @@ import {
   type UploadBoli,
   type UploadRow,
 } from "@/lib/bolis";
+import { withActivity } from "@/lib/activity/with-activity";
 import { householdCards } from "@/lib/data/lookups";
 import { searchHouseholds } from "@/lib/data/search";
 import { dateInTz } from "@/lib/dates";
@@ -251,6 +252,10 @@ export async function accommodateOthersAction(boliId: string): Promise<ActionRes
 // In-person pledges, one by one
 // ---------------------------------------------------------------------------
 export async function recordInPersonPledgeAction(boliId: string, _prev: ActionResult | null, fd: FormData): Promise<ActionResult> {
+  return withActivity("bolis.record_pledge", () => recordInPersonPledge(boliId, fd), { entityFrom: { kind: "boli", id: boliId } });
+}
+
+async function recordInPersonPledge(boliId: string, fd: FormData): Promise<ActionResult> {
   const auth = await authorizeAction("bolisRecord", "record the pledge");
   if (!auth.ok) return auth;
   const { db, center, userId } = auth.session;

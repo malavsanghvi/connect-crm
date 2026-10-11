@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 
+import { withActivity } from "@/lib/activity/with-activity";
 import { previewAllocation } from "@/lib/allocation";
 import { todayInTz } from "@/lib/dates";
 import { stockMemo } from "@/lib/giving";
@@ -93,6 +94,12 @@ async function applyToPledges(
 }
 
 export async function recordOfflinePaymentAction(input: RecordPaymentInput): Promise<ActionResult<RecordPaymentResult>> {
+  return withActivity("giving.record_payment", () => recordOfflinePayment(input), {
+    entityFrom: (result) => ({ kind: "payment", id: result?.data?.paymentId }),
+  });
+}
+
+async function recordOfflinePayment(input: RecordPaymentInput): Promise<ActionResult<RecordPaymentResult>> {
   const auth = await authorizeAction("recordPayment", "record the payment");
   if (!auth.ok) return auth;
   const { session } = auth;

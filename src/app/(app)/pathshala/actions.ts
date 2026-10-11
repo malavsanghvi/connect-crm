@@ -379,7 +379,7 @@ export async function markAttendance(input: {
       "save attendance",
     );
     return ok("Saved.", { sessionId: session.id });
-  }) as Promise<ActionResult<{ sessionId: string }>>;
+  }, { key: "pathshala.mark_attendance", entityFrom: { kind: "class", id: input.classId } }) as Promise<ActionResult<{ sessionId: string }>>;
 }
 
 export async function markAllPresent(input: { classId: string; heldOn: string; enrollmentIds: string[] }): Promise<ActionResult<unknown>> {
