@@ -12512,6 +12512,13 @@ export type Database = {
         };
         Returns: undefined;
       };
+      merge_households_preview: {
+        Args: {
+          p_keep: string;
+          p_drop: string;
+        };
+        Returns: Json;
+      };
       merge_people: {
         Args: {
           p_keep: string;
@@ -12519,6 +12526,14 @@ export type Database = {
           p_take?: string[];
         };
         Returns: undefined;
+      };
+      merge_people_preview: {
+        Args: {
+          p_keep: string;
+          p_drop: string;
+          p_take?: string[];
+        };
+        Returns: Json;
       };
       messaging_can_manage: {
         Args: {
