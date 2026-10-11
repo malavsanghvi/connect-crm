@@ -18,6 +18,9 @@ import {
 } from "@/lib/site-found";
 
 import { lookAtWebsiteAction, saveSiteAddressesAction, siteStatusAction } from "./actions";
+import type { DraftSummary } from "@/lib/site-draft/types";
+
+import { DraftPanel } from "./draft-panel";
 import { FoundReport } from "./found-report";
 import type { Snapshot } from "./load";
 
@@ -51,7 +54,7 @@ const pad = (refs: readonly string[]): string[] => Array.from({ length: MAX_REFE
  * Setup › Your website. Give the organization's own website and up to three it likes, press "Look at my website", watch the
  * reads (the screen asks politely, slower as time goes on, and not at all while the tab is hidden), then read "What we found".
  */
-export function WebsiteForm({ initial }: { initial: Snapshot }) {
+export function WebsiteForm({ initial, draft = { summary: null, error: null } }: { initial: Snapshot; draft?: { summary: DraftSummary | null; error: string | null } }) {
   const [snap, setSnap] = useState<Snapshot>(initial);
   const [readAt, setReadAt] = useState(() => Date.now());
   const fromProfile = initial.status.ownUrl === null && initial.status.profileWebsite !== null;
@@ -208,6 +211,17 @@ export function WebsiteForm({ initial }: { initial: Snapshot }) {
     return j !== undefined && j.status === "done" && addressOfSlot(status, slot) !== null;
   });
 
+  // The first draft can be built once Weaver has finished looking: at the website saved as the organization's own, and at a
+  // website it likes when there is no website of its own.
+  const finishedNow = status.jobs.filter((j) => j.status === "done" && readIsCurrent(j, status));
+  const ownFinished = finishedNow.some((j) => j.slot === "own");
+  const canBuild = finishedNow.length > 0 && (status.ownUrl === null || ownFinished);
+  const waitingReason = canBuild
+    ? null
+    : status.ownUrl !== null && !ownFinished && finishedNow.length > 0
+      ? "Weaver has not finished looking at your website yet. When it has, you can build your draft."
+      : "Press Look at my website first. When Weaver has finished looking, you can build your draft.";
+
   return (
     <div className="flex flex-col gap-4">
       <Card
@@ -342,9 +356,11 @@ export function WebsiteForm({ initial }: { initial: Snapshot }) {
               </div>
             );
           })}
-          <p className="text-[13px] text-muted">That is everything Weaver found. Drafting a new website from it comes next; until then, nothing on your website has changed.</p>
+          <p className="text-[13px] text-muted">That is everything Weaver found. Nothing on your website has changed. Next, build your first draft below.</p>
         </section>
       ) : null}
+
+      <DraftPanel initial={draft.summary} canBuild={canBuild} waitingReason={waitingReason} loadError={draft.error} />
     </div>
   );
 }
