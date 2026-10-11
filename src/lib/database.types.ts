@@ -655,6 +655,7 @@ export type Database = {
           score: number;
           suggested_kind: string;
           status: string;
+          stale: boolean;
           decided_by: string | null;
           decided_at: string | null;
           first_seen: string;
@@ -677,6 +678,7 @@ export type Database = {
           score?: number;
           suggested_kind?: string;
           status?: string;
+          stale?: boolean;
           decided_by?: string | null;
           decided_at?: string | null;
           first_seen: string;
@@ -699,6 +701,7 @@ export type Database = {
           score?: number;
           suggested_kind?: string;
           status?: string;
+          stale?: boolean;
           decided_by?: string | null;
           decided_at?: string | null;
           first_seen?: string;
@@ -10634,6 +10637,10 @@ export type Database = {
           p_pack: string;
           p_reason: string;
         };
+        Returns: number;
+      };
+      activity_min_actors: {
+        Args: Record<PropertyKey, never>;
         Returns: number;
       };
       activity_mine: {
