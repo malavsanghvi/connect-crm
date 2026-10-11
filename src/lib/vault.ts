@@ -188,6 +188,7 @@ export const JOB_KIND_LABELS: Record<string, string> = {
   "payments.sync_payouts": "Payout sync",
   "payments.reports_sweep": "Zelle reports not seen at the bank",
   "pathshala.holds_sweep": "Pathshala seats held for payment: reminders and releases",
+  "activity.mine": "Find repeated work to automate and remove old activity records",
   "niva.answer": "Niva answer",
   "niva.import_page": "Niva page import",
   "niva.discover_site": "Find a website's pages for Niva",

@@ -5,6 +5,7 @@
 // ("pending") exactly as before, and nothing invents a result.
 
 import type { HandlerModule } from "../types";
+import * as activityMine from "./activity.mine";
 import * as calendarImportFeed from "./calendar.import_feed";
 import * as calendarRefreshFeeds from "./calendar.refresh_feeds";
 import * as demoClear from "./demo.clear";
@@ -110,4 +111,6 @@ export const HANDLERS: HandlerModule[] = [
   pathshalaHoldsSweep,
   // Member notices (0598): every 5 minutes, the RSVP confirmation, the boli notice before it closes and a special day's labh prompt
   noticesSweep,
+  // Activity stream (0622, 0623): once a day, find repeated sequences of actions (automation ideas) and delete activity older than 400 days
+  activityMine,
 ];
