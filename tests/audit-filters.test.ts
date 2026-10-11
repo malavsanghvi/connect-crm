@@ -12,6 +12,7 @@ describe("parseTraceFilters", () => {
       reason: "write-off Asha",
     });
     expect(parseTraceFilters(from({ mod: "core" })).recordedModule).toBe("core");
+    expect(parseTraceFilters(from({ app: "assistant" })).clientApp).toBe("assistant");
   });
   it("drops anything unknown", () => {
     expect(parseTraceFilters(from({ mod: "bogus", app: "admin", reason: "%%%" }))).toEqual({ recordedModule: null, clientApp: null, reason: null });

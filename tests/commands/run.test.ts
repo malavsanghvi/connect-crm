@@ -403,6 +403,8 @@ describe("the record of a call (the activity recorder plugs in here)", () => {
   it("sends one event per call with the role, the way in, the outcome and the time taken", async () => {
     await runCommand(ctxFor({ via: "palette" }), "events.look", { q: "secret-looking value" });
     expect(hook).toHaveBeenCalledTimes(1);
+    // The recorder is given the signed-in session too (its database and community), which the event does not carry.
+    expect(hook.mock.calls[0][1]).toBeDefined();
     expect(last()).toMatchObject({
       key: "events.look",
       level: "read",

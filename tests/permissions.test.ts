@@ -99,7 +99,7 @@ describe("visibleNav (flat module list)", () => {
   it("shows settings to a center admin and opens on the first tab they can use", () => {
     const nav = visibleNav({ permissions: ["roles.manage", "settings.manage"], isPlatformAdmin: false });
     const settings = nav.find((m) => m.key === "settings")!;
-    expect(settings.tabs.map((t) => t.label)).toEqual(["Rules", "Roles & entitlements", "Onboarding fields", "Notifications", "Security", "Modules", "Access levels", "Team", "Agreements", "Member app", "Limits", "Numbering", "Storage", "Data import", "Custom fields", "Support access", "Email", "Texting", "WhatsApp"]);
+    expect(settings.tabs.map((t) => t.label)).toEqual(["Rules", "Roles & entitlements", "Onboarding fields", "Notifications", "Security", "Modules", "Access levels", "Team", "Agreements", "Member app", "Limits", "Numbering", "Storage", "Data import", "Custom fields", "Automation ideas", "Support access", "Email", "Texting", "WhatsApp"]);
     expect(nav.some((m) => m.key === "platform")).toBe(false);
     expect(nav.some((m) => m.key === "people")).toBe(false);
     const rolesOnly = visibleNav({ permissions: ["roles.manage"], isPlatformAdmin: false }).find((m) => m.key === "settings")!;
@@ -128,12 +128,22 @@ describe("visibleNav (flat module list)", () => {
       "Data import",
       "Custom fields",
       "Data quality",
+      "Automation ideas",
       "Support access",
       "Email",
       "Texting",
       "WhatsApp",
     ]);
-    expect(nav.find((m) => m.key === "platform")!.tabs.map((t) => t.label)).toEqual(["Centers", "Platform setup", "New sandbox", "Verification", "Requests", "Sandbox codes", "Onboarding", "Go-live approvals", "Support access", "Agreements", "HTTPS", "Payments"]);
+    expect(nav.find((m) => m.key === "platform")!.tabs.map((t) => t.label)).toEqual(["Centers", "Platform setup", "New sandbox", "Verification", "Requests", "Sandbox codes", "Onboarding", "Go-live approvals", "Support access", "Agreements", "HTTPS", "Payments", "Automation backlog"]);
+  });
+  it("shows Settings › Automation ideas to settings.manage holders only, and Platform › Automation backlog to platform admins only", () => {
+    const tabs = (ctx: Parameters<typeof visibleNav>[0], module: string) => visibleNav(ctx).find((m) => m.key === module)?.tabs.map((t) => t.href) ?? [];
+    expect(tabs({ permissions: ["settings.manage"], isPlatformAdmin: false }, "settings")).toContain("/settings/automation");
+    expect(tabs({ permissions: ["roles.manage"], isPlatformAdmin: false }, "settings")).not.toContain("/settings/automation");
+    expect(tabs({ permissions: ["audit.view", "giving.view", "people.view"], isPlatformAdmin: false }, "settings")).not.toContain("/settings/automation");
+    expect(tabs({ permissions: [], isPlatformAdmin: true }, "settings")).toContain("/settings/automation");
+    expect(tabs({ permissions: [], isPlatformAdmin: true }, "platform")).toContain("/platform/automation");
+    expect(tabs({ permissions: ["settings.manage", "roles.manage"], isPlatformAdmin: false }, "platform")).toEqual([]);
   });
   it("shows Setup above Settings to settings.manage holders only", () => {
     const admin = visibleNav({ permissions: ["settings.manage"], isPlatformAdmin: false });

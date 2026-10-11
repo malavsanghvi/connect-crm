@@ -63,6 +63,7 @@ describe("labels", () => {
     expect(clientLabel("portal", "/giving/pledges")).toBe("Portal · /giving/pledges");
     expect(clientLabel("member", null)).toBe("Member app");
     expect(clientLabel("job", "")).toBe("Scheduled job");
+    expect(clientLabel("assistant", null)).toBe("Niva assistant");
     expect(clientLabel(null, null)).toBeNull();
   });
 });
