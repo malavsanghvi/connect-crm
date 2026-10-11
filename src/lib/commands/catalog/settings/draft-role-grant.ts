@@ -176,6 +176,7 @@ export const draftRoleGrant = defineCommand<DraftGrantInput, DraftGrantData>({
     "and anyone who has not signed in yet. Show them to the person and let them choose; never choose by name alone. Then call it again with the chosen `user_id` and the `role` to get the prepared card: " +
     "the person, the role and what it allows in words, the part of the community it is for, the last day it works (use `for_months` for 'a year' = 12, or `ends_on`), and whether it will wait for a second person " +
     "(treasurer, administrator, finance volunteer, executive committee and privacy officer roles start pending until a different administrator approves them). " +
+    "To give it, pass the card's `apply_with.input` to settings.grant_role: that asks the person to confirm, and it is only available when the community's owner has switched it on. " +
     "Roles are only for adults; nothing about a child is returned.",
   level: "draft",
   permission: "roles",
