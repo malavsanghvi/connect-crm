@@ -455,7 +455,8 @@ select pg_temp.act(:staff99, :a99, jsonb_build_array(
   jsonb_build_object('key', 'screen:/giving/pledges', 'kind', 'screen', 'outcome', 'ok', 'via', 'app'),                   -- a portal screen from the app
   jsonb_build_object('key', 'screen:/guide/[slug]', 'kind', 'screen', 'outcome', 'ok', 'via', 'app'),                      -- 15 stored
   jsonb_build_object('key', 'screen:/labh/[dayId]', 'kind', 'screen', 'outcome', 'ok', 'via', 'app'),                      -- 16 stored
-  jsonb_build_object('key', 'screen:/events', 'kind', 'screen', 'outcome', 'ok', 'via', 'app'))) as n_screens \gset        -- 17 stored (a shared screen, its member row)
+  -- 17, the next one, is a shared screen sent from the app: stored (its member row)
+  jsonb_build_object('key', 'screen:/events', 'kind', 'screen', 'outcome', 'ok', 'via', 'app'))) as n_screens \gset
 select pg_temp.assert(:n_screens = 7, 'E · of 17 screen events only the 7 that are route patterns listed for the surface they were sent from are stored');
 select pg_temp.assert((select array_agg(key order by id desc) from (select id, key from app.activity_events where center_id = :a99 order by id desc limit 7) t)
                         = array['screen:/events', 'screen:/labh/[dayid]', 'screen:/guide/[slug]', 'screen:/give', 'screen:/', 'screen:/gyan/[goalid]', 'screen:/events/[id]'],
