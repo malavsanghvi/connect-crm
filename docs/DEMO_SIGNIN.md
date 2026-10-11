@@ -60,6 +60,10 @@ session; it takes the demo person's membership away when the switch goes off). A
 and calls Supabase directly keeps, at most, the rest of that token's life (Supabase's access-token lifetime, 1 hour by default)
 after their session ends. Whatever they do in that time is limited to the demo community and is wiped by the next reset.
 
+One thing a visitor can still do from their own browser is sign the shared demo person out everywhere (Auth's global logout). That
+ends the other visitors' sessions of the same demo person; each is sent back to the demo page on its next click and starts again.
+They cannot change the sign-in itself (password, address, phone) or keep a session of their own that is not on record.
+
 ## Not built here
 
 The member app's "Try the demo" (a separate pull request in connect-mobile): it calls an HTTP endpoint that returns the session
