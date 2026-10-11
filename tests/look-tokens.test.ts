@@ -7,7 +7,7 @@ import { describe, expect, it } from "vitest";
 // readable on the surface it is used on (WCAG AA: 4.5:1). The values are read from the stylesheet itself, not copied here.
 const css = readFileSync(fileURLToPath(new URL("../src/app/globals.css", import.meta.url)), "utf8").replace(/\r\n/g, "\n");
 
-const SCOPE_OPEN = 'html:has([data-look="v2"]),\n[data-look="v2"] {\n';
+const SCOPE_OPEN = 'html:has([data-look="v2"]),\n[data-look="v2"],\n[data-v2-tokens] {\n';
 const start = css.indexOf(SCOPE_OPEN);
 const scope = css.slice(start + SCOPE_OPEN.length, css.indexOf("\n}\n", start));
 const v2Section = css.slice(css.indexOf("Look v2 (the redesigned shell"), css.indexOf("Public website (src/app/site)"));
