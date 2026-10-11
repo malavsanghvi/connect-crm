@@ -218,3 +218,7 @@ steps rail, Niva's card, "Coming next" pills, never a fake success), before "Bri
 6. **Onboarding AI allowance?** *Recommend* 40 document reads (up to 60 pages each) and 200 drafted questions per community; Weaver raises it on request.
 7. **May Weaver staff read the memory to help?** *Recommend* only while the owner grants support access for a period, audited.
 8. **Member structure as a lasting setting?** *Recommend* yes: `member_structure` (individuals, households, businesses, mix) read by People and Giving, so individuals-only never shows "family".
+
+## 8. Decisions (owner, 2026-10-11: "approve all")
+
+All eight recommendations above are accepted as written: (1) owner and settings managers read documents, plus a per-document "members may see this" flag; (2) the interview runs inside the sandbox as the first Setup step, the public request form stays short; (3) PDF, images, Word and plain text, 10 MB each; (4) the children's exception ends when onboarding is marked done or after 30 days; (5) at promotion only confirmed facts and documents carry over; (6) onboarding AI allowance of 40 document reads and 200 drafted questions per community; (7) Weaver staff read the memory only while the owner grants support access, audited; (8) `member_structure` is a lasting setting. The children's exception also stays off until the children's-data addendum exists. First build: the five screens of section 6, on fixtures, look first.
