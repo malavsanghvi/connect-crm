@@ -93,6 +93,28 @@ describe("Ask Niva suggestions", () => {
     expect(suggestionsFor("/giving/payments", undefined, all)).toContain("Who is behind on pledges?");
   });
 
+  it("offers the Giving sentences a role can use, the three most useful first", () => {
+    const giving = new Set([
+      "giving.pledges_behind",
+      "giving.draft_payment",
+      "giving.zelle_waiting",
+      "giving.bank_lines_unmatched",
+      "giving.waiting_for_second_approver",
+      "giving.household_summary",
+      "accounting.month_close_blockers",
+    ]);
+    expect(suggestionsFor("/giving/payments", undefined, giving)).toEqual([
+      "Who is behind on pledges?",
+      "Record a $250 check from member number 1042",
+      "Which Zelle reports are waiting for the bank?",
+    ]);
+    // A volunteer who can only record payments is offered the recording sentence and the bank lines, not the approvals.
+    const volunteer = new Set(["giving.draft_payment", "giving.bank_lines_unmatched", "tasks.mine"]);
+    expect(suggestionsFor("/giving/payments/bank", undefined, volunteer)).toEqual(["Record a $250 check from member number 1042", "Which bank lines are still unmatched?"]);
+    // A person is never offered a sentence that names a child: the examples describe a member number, not a person.
+    for (const s of suggestionsFor("/giving/pledges", undefined, giving)) expect(s).not.toMatch(/bid/i);
+  });
+
   it("offers 'this event' only on an event page", () => {
     const onEvent = suggestionsFor("/events/[id]", "event", all);
     expect(onEvent.some((s) => s.includes("this event"))).toBe(true);

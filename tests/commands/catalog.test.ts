@@ -9,13 +9,13 @@ import { revalidatePath } from "next/cache";
 import { CATALOG } from "@/lib/commands/catalog";
 import { PEOPLE_COMMANDS } from "@/lib/commands/catalog/people";
 import { pickSaved } from "@/lib/commands/catalog/messages-draft-reminder";
-import { summarizeBehind } from "@/lib/commands/catalog/pledges-behind";
 import { draftReminder, fillTemplate, whenText } from "@/lib/commands/catalog/reminder-text";
 import { CommandRegistry } from "@/lib/commands/registry";
 import { confirmProposal, runCommand } from "@/lib/commands/run";
 import type { CommandRunResult, CommandVia } from "@/lib/commands/types";
 import { loadHomeTasks } from "@/lib/data/home-tasks";
 
+import { GIVING_ANSWERS, SHAH, givingWorld } from "./giving-world";
 import { addEventsWorld, EV } from "./events-world";
 import { CHILDREN, communityWithChildren, fakeDb, fakeSession, testContext, type FakeDbOptions } from "./helpers";
 
@@ -23,7 +23,7 @@ const DIWALI = "7d0f3b9a-6a39-4d0c-9f43-0a1a1d7c1001";
 const PICNIC = "7d0f3b9a-6a39-4d0c-9f43-0a1a1d7c1003";
 const CANCELLED = "7d0f3b9a-6a39-4d0c-9f43-0a1a1d7c1004";
 
-const ALL_PERMISSIONS = ["people.view", "people.manage", "people.approve", "giving.view", "events.view", "events.manage", "comms.send", "accounting.close"];
+const ALL_PERMISSIONS = ["people.view", "people.manage", "people.approve", "giving.view", "giving.manage", "giving.record_offline", "giving.approve", "events.view", "events.manage", "comms.send", "accounting.close"];
 
 function catalogRegistry() {
   const r = new CommandRegistry();
@@ -60,8 +60,14 @@ describe("the first commands", () => {
       "people.search:read",
       "tasks.mine:read",
       "giving.pledges_behind:read",
+      "giving.household_summary:read",
+      "giving.bank_lines_unmatched:read",
+      "giving.zelle_waiting:read",
+      "giving.waiting_for_second_approver:read",
+      "giving.fund_mapping_status:read",
       "accounting.month_close_blockers:read",
       "messages.draft_reminder:draft",
+      "giving.draft_payment:draft",
       // The Events commands (tests/commands/events-commands.test.ts has their own list and behaviour).
       "events.upcoming:read",
       "events.summary:read",
@@ -83,10 +89,13 @@ describe("the first commands", () => {
     for (const c of confirm) expect(c.enabledByDefault, c.key).not.toBe(true);
   });
 
-  it("have no money, role, permission or delete commands", () => {
+  it("have no command that changes roles or permissions, deletes, refunds, writes off or approves; a money word is only ever a read or a draft", () => {
     // A merge changes records and is asked about first, like every write; it is never a read or a draft.
     for (const c of CATALOG) if (/merge/.test(c.key)) expect(c.level).toBe("confirm");
-    for (const c of CATALOG) expect(c.key).not.toMatch(/record|payment|refund|write_?off|role|permission|grant|delete|remove|approve|send|schedule/);
+    for (const c of CATALOG) {
+      expect(c.key, `${c.key} would refund, write off, approve, delete or change roles`).not.toMatch(/refund|write_?off|role|permission|grant|delete|remove|send|schedule|approve_/);
+      if (/record|payment|zelle|deposit/.test(c.key)) expect(c.level === "read" || c.level === "draft", `${c.key} is ${c.level}`).toBe(true);
+    }
     // The one that changes a detail is a single-detail event change; its fields never include prices, status or the owner.
     expect(JSON.stringify(CATALOG.find((c) => c.key === "events.set_field")!.input.json())).not.toMatch(/price|status|owner|confidential/);
   });
@@ -238,51 +247,6 @@ describe("events.upcoming", () => {
     const { session } = setup();
     const ctx = testContext({ session: fakeSession({ db: session.db, permissions: ALL_PERMISSIONS, modulesOff: ["events"] }), registry: catalogRegistry() });
     expect(await runCommand(ctx, "events.upcoming", {})).toMatchObject({ ok: false, code: "module_off" });
-  });
-});
-
-// ---------------------------------------------------------------------------
-describe("giving.pledges_behind", () => {
-  const TODAY = "2026-10-10";
-  const pledges = communityWithChildren().tables.pledges as never[];
-
-  it("counts a pledge behind when it is past its due date, or 30 days after it was made when it has none", () => {
-    const all = summarizeBehind(pledges, TODAY, "America/Chicago", 1);
-    expect(all.ranked.map(([id, h]) => [id, h.open, h.oldest])).toEqual([
-      ["hh-shah", 250000, 102],
-      ["hh-mehta", 4500, 21],
-    ]);
-    expect(all).toMatchObject({ pledgesBehind: 2, totalOpen: 254500, households: 2 });
-    expect(summarizeBehind(pledges, TODAY, "America/Chicago", 30).ranked.map(([id]) => id)).toEqual(["hh-shah"]);
-  });
-
-  it("keeps money in whole cents, and leaves out a pledge that is paid", () => {
-    const rows = [{ id: "a", household_id: "h", amount_cents: 10001, paid_cents: 10001, pledged_at: "2026-01-01T00:00:00Z", due_on: "2026-02-01" }, { id: "b", household_id: "h", amount_cents: 333, paid_cents: 1, pledged_at: "2026-01-01T00:00:00Z", due_on: "2026-02-01" }];
-    expect(summarizeBehind(rows, TODAY, "America/Chicago", 1).totalOpen).toBe(332);
-  });
-
-  it("lists households as cards, biggest balance first, adults only, with dollars", async () => {
-    const { ctx } = setup();
-    const data = dataOf<{ households_behind: number; total_open_cents: number; total_open: string; showing: { household: Record<string, unknown>; open: string; open_cents: number; oldest_days_overdue: number; pledges_behind: number }[] }>(
-      await runCommand(ctx, "giving.pledges_behind", {}),
-    );
-    expect(data).toMatchObject({ households_behind: 2, total_open_cents: 254500, total_open: "$2,545.00" });
-    expect(data.showing.map((s) => s.household.household_number)).toEqual(["H-1001", "H-1003"]);
-    expect(data.showing[0]).toMatchObject({ open: "$2,500.00", open_cents: 250000, oldest_days_overdue: 102, pledges_behind: 1 });
-    expect(data.showing[0].household).toMatchObject({ adults: ["Priya Shah", "Rahul Shah"], household_name: "Shah, Priya, Rahul" });
-    const text = JSON.stringify(data);
-    for (const word of [...CHILDREN.first, "date_of_birth"]) expect(text).not.toContain(word);
-  });
-
-  it("says when nobody is behind, and respects the limit", async () => {
-    const { ctx } = setup();
-    expect(await runCommand(ctx, "giving.pledges_behind", { min_days_overdue: 500 })).toMatchObject({ ok: true, message: "Nobody is behind on pledges." });
-    expect(await runCommand(ctx, "giving.pledges_behind", { limit: 1 })).toMatchObject({ ok: true, message: "Showing 1 of 2 households." });
-  });
-
-  it("explains a database problem, never a silently shorter list", async () => {
-    const { ctx } = setup({ world: { ...communityWithChildren(), failTables: { pledges: { code: "42501", message: "permission denied" } } } });
-    expect(await runCommand(ctx, "giving.pledges_behind", {})).toMatchObject({ ok: false, error: "Could not read the pledges — you don't have permission to make this change." });
   });
 });
 
@@ -585,6 +549,12 @@ describe("no command result reaches a model with a child in it", () => {
     "events.assign_volunteer": { event_id: DIWALI, shift_id: EV.shiftFood, person_ids: EV.adult },
     "events.create_from_clone": { source_event_id: PICNIC, new_date: "2027-06-01" },
     "giving.pledges_behind": {},
+    "giving.household_summary": { household_id: SHAH },
+    "giving.bank_lines_unmatched": {},
+    "giving.zelle_waiting": {},
+    "giving.waiting_for_second_approver": {},
+    "giving.fund_mapping_status": {},
+    "giving.draft_payment": { household_id: SHAH, amount: "250", method: "check", reference: "1043", received_on: "2026-10-04", memo: "From Zoya Shah's family" },
     "accounting.month_close_blockers": {},
     "messages.draft_reminder": { event_id: DIWALI },
     "events.draft_change": { event_id: DIWALI, field: "venue", value: "Hall for Zoya Shah" },
@@ -601,9 +571,11 @@ describe("no command result reaches a model with a child in it", () => {
         tasks: [{ id: "x:1", source: "pathshala", tag: "Pathshala", color: "purple", title: "Sign-off for Zoya Shah", meta: "Aarav Patel is waiting", links: [] }],
         failures: [],
       } as never);
+      // The Giving commands read database functions and take real-looking ids, so they run in the Giving test community.
+      const world = command.key.startsWith("giving.") ? givingWorld(GIVING_ANSWERS) : addEventsWorld(communityWithChildren());
       // Every confirm command is switched on here, so the card Niva would show for it is checked too.
       const on = Object.fromEntries(CATALOG.filter((c) => c.level === "confirm").map((c) => [c.key, true]));
-      const { ctx } = setup({ via: "assistant", world: addEventsWorld(communityWithChildren()), rules: { assistant: { tools: on } } });
+      const { ctx } = setup({ via: "assistant", world, rules: { assistant: { tools: on } } });
       const result = await runCommand(ctx, command.key, SAMPLE_INPUT[command.key]);
       expect(result.ok, JSON.stringify(result)).toBe(true);
       const text = JSON.stringify(result);
