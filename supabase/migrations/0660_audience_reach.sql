@@ -42,7 +42,7 @@ begin
   if p_center is null then return null; end if;
   if not app.has_permission(p_center, 'comms.send') then return null; end if;
   v_people_ok := app.has_permission(p_center, 'people.view') or app.has_permission(p_center, 'people.manage');
-  v_custom := jsonb_typeof(aud->'custom_fields') = 'array' and jsonb_array_length(aud->'custom_fields') > 0;
+  v_custom := coalesce(jsonb_typeof(aud->'custom_fields') = 'array' and jsonb_array_length(aud->'custom_fields') > 0, false);
 
   if not v_people_ok then
     return jsonb_build_object('people_visible', false, 'custom_fields_not_counted', v_custom,

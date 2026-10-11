@@ -55,6 +55,8 @@ end $$;
 \set cp_all '''12100000-0000-4000-8000-000000000a01'''
 \set cp_small '''12100000-0000-4000-8000-000000000a02'''
 \set ms '''12100000-0000-4000-8000-000000000b01'''
+\set p_zone '''12100000-0000-4000-8000-0000000000d1'''
+\set hh_zone '''12100000-0000-4000-8000-0000000000d2'''
 
 -- ── A. The allowlist (0661) ───────────────────────────────────────────────────────────────
 select pg_temp.assert((select count(*) = 11 from app.activity_catalog c
@@ -71,6 +73,11 @@ insert into auth.users (id, email) values (:u_a, 'a121@example.com'), (:u_b, 'b1
 insert into app.centers (id, slug, name, short_name, state_region, status, time_zone) values (:c, 'mf121', 'Messages Facts Center', 'MFC', 'TX', 'active', 'America/Chicago');
 insert into app.zones (id, center_id, name) values (:z1, :c, 'North'), (:z2, :c, 'South');
 -- Two approvers, a zone lead for the North zone, and a person with no role.
+-- The zone lead is also a member of the community (a person with a login), as a zone lead is in practice; the zone inbox is readable to members.
+insert into app.households (id, center_id, display_name) values (:hh_zone, :c, 'Zone lead family');
+insert into app.people (id, center_id, first_name, last_name, date_of_birth) values (:p_zone, :c, 'Zed', 'Lead', '1975-01-01');
+insert into app.household_members (household_id, person_id, center_id, role, is_primary) values (:hh_zone, :p_zone, :c, 'primary', true);
+insert into app.center_users (center_id, user_id, person_id) values (:c, :u_zone, :p_zone);
 insert into app.role_grants (center_id, user_id, role_key, scope_kind) values (:c, :u_a, 'communications_officer', 'center'), (:c, :u_b, 'communications_officer', 'center');
 insert into app.role_grants (center_id, user_id, role_key, scope_kind, scope_id) values (:c, :u_zone, 'zone_lead', 'zone', :z1);
 insert into app.inboxes (id, center_id, key, name, zone_id) values (:ib_all, :c, 'events', 'Events', null), (:ib_z1, :c, 'zone_north', 'North zone', :z1), (:ib_z2, :c, 'zone_south', 'South zone', :z2);
