@@ -76,6 +76,19 @@ export default async function OnboardingPage() {
       {header}
       <div className="mb-4">
         <Card
+          title="Bring your data in"
+          description="A first look at the new front door: drop what you have and see what each file is, connect a system, or start from a template. Parts of it are coming next."
+          actions={
+            <Link className={buttonClass("primary", "sm")} href="/setup/onboarding/start">
+              Open it
+            </Link>
+          }
+        >
+          <p className="text-[13px] text-muted">Files are only looked at in your browser there: nothing is uploaded or saved. The steps below keep working as they do today.</p>
+        </Card>
+      </div>
+      <div className="mb-4">
+        <Card
           title="Questions about your files"
           description="Uploaded a file in Data import? Weaver looks for the matches in it and asks only what it cannot decide, the most valuable question first."
           actions={

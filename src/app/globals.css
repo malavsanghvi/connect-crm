@@ -797,13 +797,16 @@ body {
  * sets on the shell when the person chose "New look" (src/lib/look.ts). Nobody else sees any of it; the classic tokens above
  * are not touched. The same scope on <html> (via :has) lets a modal, drawer or palette that is drawn outside the shell
  * (straight under <body>) take the same colors. Light mode only: the portal has no dark mode.
+ * [data-v2-tokens] gives one page container the same colors in either shell (the onboarding front door, drawn to match its
+ * board in the classic look too); unlike the shell scope it does not reach <html>, so the classic shell around it is unchanged.
  *
  * Text contrast (WCAG AA, 4.5:1) is checked by tests/look-tokens.test.ts against the values written here. Two changes from
  * the design table: "faint" is #5e6a82, not #6b778c, which is only 4.2:1 on the page surface (#f3f7fb); and teal text on its
  * tint uses --v2-teal-ink (#0a6870), because #0e7c86 is 4.36:1 there.
  */
 html:has([data-look="v2"]),
-[data-look="v2"] {
+[data-look="v2"],
+[data-v2-tokens] {
   /* The logo palette */
   --v2-blue: #1c56b0;
   --v2-blue-hover: #164690;

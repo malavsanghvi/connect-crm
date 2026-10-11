@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 
+import { devPreviewAllowed, isDevPreviewPath } from "@/lib/dev-preview";
 import { readPublicEnv } from "@/lib/env";
 import { requestIsHttps } from "@/lib/https";
 import { SITE_NOT_FOUND_HTML, siteRoute } from "@/lib/site";
@@ -19,6 +20,8 @@ export async function proxy(request: NextRequest) {
   if (site.kind === "not-found") return new NextResponse(SITE_NOT_FOUND_HTML, { status: 404, headers: { "content-type": "text/html; charset=utf-8" } });
   // The website's pages ("/" and "/pricing") are mapped to /site by the host rewrites in next.config.ts, not here.
   if (site.kind === "pass") return NextResponse.next();
+  // Dev-only preview pages (sample data, no database): reachable without a session, and only outside production.
+  if (devPreviewAllowed() && isDevPreviewPath(request.nextUrl.pathname)) return NextResponse.next();
 
   const check = readPublicEnv();
   // Without configuration there is no session to refresh; pages render the
