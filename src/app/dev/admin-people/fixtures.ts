@@ -178,7 +178,7 @@ export function sampleModel(opts: { view: PeopleView; hh: string | null; niva: b
       action: BASE,
     },
     summary: opts.view === "households" ? { count: `${slice.total} households`, open: money(openTotal(filtered, BALANCES) ?? 0) } : null,
-    draftPrompt: opts.niva ? `Draft a reminder message for the ${slice.total} households on my People list (${forNiva}). Only draft it: do not send anything.` : null,
+    draftPrompt: `Draft a reminder message for the ${slice.total} households on my People list (${forNiva}). Only draft it: do not send anything.`,
     households:
       opts.view === "households"
         ? {

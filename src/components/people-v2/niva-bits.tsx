@@ -44,6 +44,12 @@ export function DraftForThese({ prompt }: { prompt: string | null }) {
   );
 }
 
+/** The list's footer hint: Niva can page and sort only when its chat is on. */
+export function ListHint() {
+  const niva = useNiva();
+  return <>{niva?.enabled && niva.aiReady ? "Ask Niva to “show the next 10”, or sort by household, area or open balance." : "Sort by household, area or open balance."}</>;
+}
+
 export function ComingNext({ label = "Coming next" }: { label?: string }) {
   return <span className="inline-flex min-h-6 items-center rounded-full bg-[var(--v2-indigo-tint)] px-2.5 text-[11px] font-extrabold tracking-[0.02em] text-[var(--v2-indigo-dark)]">{label}</span>;
 }

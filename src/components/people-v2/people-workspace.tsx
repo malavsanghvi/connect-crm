@@ -8,7 +8,7 @@ import { NivaHouseholdCard } from "@/components/niva/niva-household-card";
 import type { DuplicateItem, HouseholdPanel, HouseholdsSection, PanelState, PeopleSection, PeopleWorkspaceModel, Problem, QuickChip, ReviewItem, Section } from "@/lib/people-v2/model";
 
 import { PeopleAskBox } from "./ask-box";
-import { ComingNext, DraftForThese, MergeByCard, NoticedLabel } from "./niva-bits";
+import { ComingNext, DraftForThese, ListHint, MergeByCard, NoticedLabel } from "./niva-bits";
 
 // The People workspace in the new look, as drawn on the prototype board "Ask your data, then the household card": the list with
 // the ask box on the left, the household card on the right (a full-screen sheet on a phone). It only draws the model.
@@ -192,17 +192,17 @@ function HouseholdsList({ section }: { section: HouseholdsSection }) {
           ))}
         </ul>
       )}
-      <Paging paging={section.paging} hint="Ask Niva to “show the next 10”, or sort by household, area or open balance." />
+      <Paging paging={section.paging} hint={<ListHint />} />
     </section>
   );
 }
 
-function Paging({ paging, hint }: { paging: { showing: string; prevHref: string | null; nextHref: string | null }; hint?: string }) {
+function Paging({ paging, hint }: { paging: { showing: string; prevHref: string | null; nextHref: string | null }; hint?: ReactNode }) {
   if (!paging.showing) return null;
   return (
     <div className="flex flex-wrap items-center justify-between gap-2 px-2.5 pb-0.5 pt-2.5 text-[13px] text-muted">
       <span>
-        {paging.showing}.{hint ? ` ${hint}` : ""}
+        {paging.showing}.{hint ? <> {hint}</> : null}
       </span>
       {paging.prevHref || paging.nextHref ? (
         <span className="flex gap-2">
