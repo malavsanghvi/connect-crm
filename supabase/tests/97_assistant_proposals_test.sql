@@ -84,7 +84,7 @@ select set_config('app.client_app', '', true);
 select set_config('request.headers', '{"x-client-app":"assistant"}', true);
 update app.households set city = 'Sugar Land' where id = :h1;
 select pg_temp.assert((select client_app = 'assistant' and actor_user_id = :ada::uuid and center_id = :c1::uuid
-                         from app.audit_log where action = 'households.update' and record_id = :'h1' order by id desc limit 1),
+                         from app.audit_log where action = 'households.update' and record_id = :h1::text order by id desc limit 1),
   'A · a change made with the assistant header is audited with client_app assistant, for the signed-in person');
 select pg_temp.no_claims();
 
