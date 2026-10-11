@@ -31,6 +31,14 @@ begin
   perform set_config('request.headers', '', true);
   set local role authenticated;
 end $$;
+-- The same, with a 2FA check passed a minute ago (aal2 and a totp entry in amr): what app.assert_step_up looks for.
+create or replace function pg_temp.as_user_2fa(p_user uuid) returns void language plpgsql as $$
+begin
+  perform set_config('request.jwt.claims', jsonb_build_object('sub', p_user, 'role', 'authenticated', 'aal', 'aal2',
+    'amr', jsonb_build_array(jsonb_build_object('method', 'totp', 'timestamp', floor(extract(epoch from now())) - 60)))::text, true);
+  perform set_config('request.headers', '', true);
+  set local role authenticated;
+end $$;
 create or replace function pg_temp.as_none() returns void language plpgsql as $$
 begin
   reset role;
@@ -99,10 +107,13 @@ insert into auth.users (id, email) values
 insert into app.accounts (user_id, is_platform_admin) values (:plat99, true)
   on conflict (user_id) do update set is_platform_admin = excluded.is_platform_admin;
 
--- A and B record (their switch is on); C is a community nobody has switched on.
+-- A and B have agreed (written directly here; section F goes through the functions): A also shares with Weaver, B does not.
+-- C is a community nobody has agreed for.
 insert into app.centers (id, slug, name, short_name, state_region, status, rules) values
-  (:a99, 'act99a', 'Activity 99 A', 'A99', 'TX', 'active', '{"activity": {"enabled": true}}'::jsonb),
-  (:b99, 'act99b', 'Activity 99 B', 'B99', 'CA', 'active', '{"activity": {"enabled": true}}'::jsonb),
+  (:a99, 'act99a', 'Activity 99 A', 'A99', 'TX', 'active',
+   '{"activity": {"enabled": true, "share_with_weaver": true, "consent": {"at": "2026-10-01T00:00:00+00:00", "version": "t99"}}}'::jsonb),
+  (:b99, 'act99b', 'Activity 99 B', 'B99', 'CA', 'active',
+   '{"activity": {"enabled": true, "consent": {"at": "2026-10-01T00:00:00+00:00", "version": "t99"}}}'::jsonb),
   (:c99, 'act99c', 'Activity 99 C', 'C99', 'NY', 'active', '{}'::jsonb);
 
 insert into app.people (id, center_id, first_name, last_name, date_of_birth) values
@@ -202,12 +213,27 @@ select pg_temp.assert(not has_function_privilege('authenticated', 'app.activity_
                       and not has_function_privilege('authenticated', 'app.centers_activity_guard()', 'execute')
                       and has_function_privilege('authenticated', 'app.activity_min_actors()', 'execute'),
   'A · the helpers (pseudonym, who may be recorded, switch, register, key check) are not callable from outside; the group-size constant is, because a row level policy reads it as the signed-in person');
-select pg_temp.assert((select count(*) = 9 and bool_and(p.prosecdef and array_to_string(p.proconfig, ',') like '%search_path=app, public, extensions%')
+select pg_temp.assert(has_function_privilege('authenticated', 'app.give_activity_consent(uuid, boolean, text)', 'execute')
+                      and has_function_privilege('authenticated', 'app.withdraw_activity_consent(uuid)', 'execute')
+                      and has_function_privilege('authenticated', 'app.set_activity_sharing(uuid, boolean)', 'execute')
+                      and not has_function_privilege('anon', 'app.give_activity_consent(uuid, boolean, text)', 'execute')
+                      and not has_function_privilege('anon', 'app.withdraw_activity_consent(uuid)', 'execute')
+                      and not has_function_privilege('anon', 'app.set_activity_sharing(uuid, boolean)', 'execute')
+                      and not has_function_privilege('service_role', 'app.give_activity_consent(uuid, boolean, text)', 'execute')
+                      and not has_function_privilege('authenticated', 'app.activity_write_rules(uuid, jsonb, text[])', 'execute')
+                      and not has_function_privilege('authenticated', 'app.activity_assert_admin(uuid)', 'execute')
+                      and not has_function_privilege('authenticated', 'app.activity_consented(uuid)', 'execute')
+                      and has_function_privilege('authenticated', 'app.activity_shared(uuid)', 'execute')
+                      and not has_function_privilege('anon', 'app.activity_shared(uuid)', 'execute'),
+  'A · signed-in people call the three agreement functions (each checks that they speak for the community); the writer and the checks behind them are internal');
+select pg_temp.assert((select count(*) = 16 and bool_and(p.prosecdef and array_to_string(p.proconfig, ',') like '%search_path=app, public, extensions%')
                          from pg_proc p where p.pronamespace = 'app'::regnamespace
                           and p.proname in ('record_activity', 'set_activity_opt_out', 'activity_status', 'set_activity_recording',
                                             'activity_enabled', 'activity_member_ok', 'activity_portal_ok', 'activity_actor_hash',
-                                            'centers_activity_guard')),
-  'A · the nine security definer functions pin the search path to app, public, extensions');
+                                            'centers_activity_guard', 'give_activity_consent', 'withdraw_activity_consent',
+                                            'set_activity_sharing', 'activity_write_rules', 'activity_assert_admin',
+                                            'activity_shared', 'activity_consented')),
+  'A · the sixteen security definer functions pin the search path to app, public, extensions');
 select pg_temp.assert((select count(*) = 1 from pg_indexes where schemaname = 'app' and tablename = 'activity_events'
                           and indexdef like '%(center_id, occurred_at)%')
                       and (select count(*) = 1 from pg_indexes where schemaname = 'app' and tablename = 'activity_events'
@@ -469,39 +495,149 @@ select pg_temp.assert(pg_temp.act(:staff99, :a99, '{}'::jsonb) = 0 and pg_temp.a
                       and pg_temp.act(:staff99, null, pg_temp.screens(1)) = 0,
   'E · a payload that is not an array, an empty array, null, or no community: 0, nothing raised');
 
--- ══ F. The switch, and who may flip it ═══════════════════════════════════════
+-- ══ F. The community's agreement, and who may flip the switch ════════════════
+-- C is a community nobody has agreed for. cadm99 is its administrator (center_admin: settings.manage; 2FA is required of
+-- staff by default, so a fresh check is needed for anything sensitive), staff99 a treasurer of A, plat99 a Weaver platform admin.
 select pg_temp.assert(pg_temp.act(:cadm99, :c99, pg_temp.screens(2)) = 0
                       and pg_temp.act(:staff99, :c99, pg_temp.screens(2)) = 0
                       and (select count(*) = 0 from app.activity_events where center_id = :c99),
-  'F · a community nobody has switched on records nothing (the default): not for its own administrator, not for anyone else');
-select pg_temp.as_user(:staff99);
-select pg_temp.assert_raises($q$select app.set_activity_recording('99000000-0000-4000-8000-0000000000c1', true)$q$, 'only the weaver team',
-  'F · a staff member cannot call the platform switch');
-select pg_temp.as_user(:cadm99);
-select pg_temp.assert_raises($q$select app.set_activity_recording('99000000-0000-4000-8000-0000000000c1', true)$q$, 'only the weaver team',
-  'F · neither can the community''s own administrator');
+  'F · a community nobody has agreed for records nothing (the default): not for its own administrator, not for anyone else');
+
+-- Weaver cannot switch it on without the administrator's agreement.
+select pg_temp.as_user(:plat99);
+select pg_temp.assert_raises($q$select app.set_activity_recording('99000000-0000-4000-8000-0000000000c1', true)$q$, 'administrator has not agreed yet',
+  'F · Weaver cannot switch recording on for a community whose administrator has not agreed');
+select pg_temp.assert_raises($q$update app.centers set rules = jsonb_set(rules, '{activity}', '{"enabled": true, "consent": {"at": "2026-10-11T00:00:00Z", "version": "forged"}}') where id = '99000000-0000-4000-8000-0000000000c1'$q$,
+  'privacy page', 'F · nor by writing the rules by hand, with or without a forged agreement');
 select pg_temp.assert_raises($q$update app.centers set rules = jsonb_set(rules, '{activity}', '{"enabled": true}') where id = '99000000-0000-4000-8000-0000000000c1'$q$,
-  'weaver switches activity recording on', 'F · and a direct update that switches it on is refused');
-select pg_temp.assert_raises($q$update app.centers set rules = rules || '{"activity": {"enabled": "true"}}' where id = '99000000-0000-4000-8000-0000000000c1'$q$,
-  'weaver switches activity recording on', 'F · also when written as the text "true"');
+  'privacy page', 'F · (a platform admin''s direct write of the switch is refused too)');
+select pg_temp.assert_raises($q$select app.give_activity_consent('99000000-0000-4000-8000-0000000000c1', true, 'v1')$q$, 'access to this area',
+  'F · a platform admin cannot give the community''s consent for it, even with a fresh 2FA check');
+select pg_temp.as_user_2fa(:plat99);
+select pg_temp.assert_raises($q$select app.give_activity_consent('99000000-0000-4000-8000-0000000000c1', true, 'v1')$q$, 'access to this area',
+  'F · not even a platform admin who has just passed the 2FA check');
+select pg_temp.assert_raises($q$select app.set_activity_sharing('99000000-0000-4000-8000-0000000000c1', true)$q$, 'access to this area',
+  'F · nor decide on its sharing');
+
+-- Who may agree.
+select pg_temp.as_user_2fa(:staff99);
+select pg_temp.assert_raises($q$select app.give_activity_consent('99000000-0000-4000-8000-0000000000a1', false, 'v1')$q$, 'access to this area',
+  'F · a treasurer (no settings.manage) cannot agree for the community, whatever their 2FA');
+select pg_temp.assert_raises($q$select app.withdraw_activity_consent('99000000-0000-4000-8000-0000000000a1')$q$, 'access to this area',
+  'F · nor withdraw its agreement');
+select pg_temp.as_user_2fa(:cadm99);
+select pg_temp.assert_raises($q$select app.give_activity_consent('99000000-0000-4000-8000-0000000000a1', false, 'v1')$q$, 'access to this area',
+  'F · the administrator of one community cannot agree for another');
+select pg_temp.assert_raises($q$select app.give_activity_consent('99000000-0000-4000-8000-0000000000c1', false, '')$q$, 'version of the notice',
+  'F · the notice version has to be given');
+select pg_temp.assert_raises($q$select app.give_activity_consent('99000000-0000-4000-8000-0000000000c1', false, 'two words')$q$, 'version of the notice',
+  'F · and has to look like a version');
+select pg_temp.assert_raises($q$select app.set_activity_sharing('99000000-0000-4000-8000-0000000000c1', true)$q$, 'agree to activity recording first',
+  'F · sharing can only be decided after the agreement');
+select pg_temp.as_user(:cadm99);
+select pg_temp.assert_raises($q$select app.give_activity_consent('99000000-0000-4000-8000-0000000000c1', false, 'v1')$q$, 'fresh 2fa check',
+  'F · the administrator needs a fresh 2FA check to agree (without one: asked for it, nothing changes)');
+select pg_temp.as_none();
+select pg_temp.assert(not app.activity_enabled(:c99) and not app.activity_consented(:c99), 'F · and nothing changed');
+
+-- The administrator agrees (with a fresh 2FA check), without sharing.
+select pg_temp.as_user_2fa(:cadm99);
+select app.give_activity_consent(:c99, false, '2026-10-v1');
+select (app.activity_status(:c99))::text as st_cadm_c \gset
+select pg_temp.as_none();
+select pg_temp.assert((select rules #>> '{activity,enabled}' = 'true' and rules #>> '{activity,share_with_weaver}' = 'false'
+                              and rules #>> '{activity,consent,version}' = '2026-10-v1' and (rules #>> '{activity,consent,by}')::uuid = :cadm99
+                              and (rules #>> '{activity,consent,at}')::timestamptz <= now() and (rules #>> '{activity,consent,at}')::timestamptz > now() - interval '1 minute'
+                         from app.centers where id = :c99)
+                      and app.activity_enabled(:c99) and app.activity_consented(:c99) and not app.activity_shared(:c99),
+  'F · agreeing records who, when and which notice version, switches recording on, and does not share');
+select pg_temp.assert(:'st_cadm_c'::jsonb @> '{"enabled": true, "consented": true, "share_with_weaver": false}'::jsonb
+                      and :'st_cadm_c'::jsonb #>> '{consent,version}' = '2026-10-v1' and :'st_cadm_c'::jsonb -> 'consent' ? 'at'
+                      and not (:'st_cadm_c'::jsonb::text like '%' || :cadm99::text || '%'),
+  'F · activity_status tells the administrator it has agreed, when and to which version, and that it is not shared; it names no one');
+select pg_temp.assert(pg_temp.act(:cadm99, :c99, pg_temp.screens(2)) = 2, 'F · and then it records');
+
+-- Ordinary writes of the rules cannot touch the agreement or the switch.
+select pg_temp.as_user(:cadm99);
+select pg_temp.assert_raises($q$update app.centers set rules = jsonb_set(rules, '{activity,enabled}', 'false') where id = '99000000-0000-4000-8000-0000000000c1'$q$,
+  'privacy page', 'F · the administrator cannot switch recording off by editing the rules (they withdraw instead)');
+select pg_temp.assert_raises($q$update app.centers set rules = jsonb_set(rules, '{activity,share_with_weaver}', 'true') where id = '99000000-0000-4000-8000-0000000000c1'$q$,
+  'privacy page', 'F · cannot turn sharing on that way');
+select pg_temp.assert_raises($q$update app.centers set rules = rules - 'activity' where id = '99000000-0000-4000-8000-0000000000c1'$q$,
+  'privacy page', 'F · cannot delete the agreement that way');
+select pg_temp.assert_raises($q$update app.centers set rules = jsonb_set(rules, '{activity,consent,version}', '"forged"') where id = '99000000-0000-4000-8000-0000000000c1'$q$,
+  'privacy page', 'F · or rewrite it');
 update app.centers set rules = rules || '{"home": {"layout": "grid"}}' where id = :c99;
 select pg_temp.as_none();
-select pg_temp.assert((select rules -> 'home' ->> 'layout' = 'grid' and not (rules ? 'activity') from app.centers where id = :c99),
-  'F · the administrator can still change the community''s other rules (the guard looks at the activity key only)');
+select pg_temp.assert((select rules -> 'home' ->> 'layout' = 'grid' and rules #>> '{activity,consent,version}' = '2026-10-v1' and app.activity_enabled(:c99) from app.centers where id = :c99),
+  'F · other rules can still be edited, and an unchanged activity setting travels with them');
+
+-- Sharing is a second, separate decision (a fresh 2FA check; the administrator only).
+select pg_temp.as_user(:cadm99);
+select pg_temp.assert_raises($q$select app.set_activity_sharing('99000000-0000-4000-8000-0000000000c1', true)$q$, 'fresh 2fa check', 'F · sharing needs the fresh 2FA check');
+select pg_temp.as_user_2fa(:cadm99);
+select app.set_activity_sharing(:c99, true);
+select pg_temp.as_none();
+select pg_temp.assert(app.activity_shared(:c99) and (select rules #>> '{activity,share_with_weaver}' = 'true' and rules #>> '{activity,consent,version}' = '2026-10-v1' from app.centers where id = :c99),
+  'F · the administrator opts in to sharing with Weaver');
+
+-- Weaver may switch it off at any time, and on again while the agreement stands.
+select pg_temp.as_user(:plat99);
+select app.set_activity_recording(:c99, false);
+select pg_temp.as_none();
+select pg_temp.assert(not app.activity_enabled(:c99) and app.activity_consented(:c99) and pg_temp.act(:cadm99, :c99, pg_temp.screens(2)) = 0,
+  'F · Weaver switches recording off (the agreement stays; nothing is recorded)');
 select pg_temp.as_user(:plat99);
 select app.set_activity_recording(:c99, true);
 select pg_temp.as_none();
-select pg_temp.assert((select app.activity_enabled(:c99)) and (select rules #>> '{activity,enabled}' = 'true' and rules -> 'home' ->> 'layout' = 'grid' from app.centers where id = :c99),
-  'F · a platform admin switches the community on (its other rules stay)');
-select pg_temp.assert(pg_temp.act(:cadm99, :c99, pg_temp.screens(2)) = 2, 'F · and then it records');
-select pg_temp.as_user(:cadm99);
+select pg_temp.assert(app.activity_enabled(:c99) and pg_temp.act(:cadm99, :c99, pg_temp.screens(2)) = 2, 'F · and on again, because the administrator''s agreement still stands');
+select pg_temp.as_user(:plat99);
 update app.centers set rules = jsonb_set(rules, '{activity,enabled}', 'false') where id = :c99;
 select pg_temp.as_none();
-select pg_temp.assert(not app.activity_enabled(:c99) and pg_temp.act(:cadm99, :c99, pg_temp.screens(2)) = 0,
-  'F · the community''s own administrator can switch it back off');
+select pg_temp.assert(not app.activity_enabled(:c99), 'F · a platform admin can also switch it off by writing the rules (and only off)');
 select pg_temp.as_user(:plat99);
-select pg_temp.assert_raises($q$select app.set_activity_recording('99000000-0000-4000-8000-0000000000ff', true)$q$, 'not found', 'F · switching on a community that does not exist says so');
+select app.set_activity_recording(:c99, true);
 select pg_temp.as_none();
+
+-- The administrator withdraws: off, the agreement and the sharing removed, a trace kept; Weaver cannot switch it back on.
+select pg_temp.as_user(:staff99);
+select pg_temp.assert_raises($q$select app.withdraw_activity_consent('99000000-0000-4000-8000-0000000000c1')$q$, 'access to this area',
+  'F · only the community''s administrator can withdraw');
+select pg_temp.as_user(:cadm99);
+select app.withdraw_activity_consent(:c99);
+select (app.activity_status(:c99))::text as st_cadm_c2 \gset
+select pg_temp.as_none();
+select pg_temp.assert((select rules #>> '{activity,enabled}' = 'false' and not (rules -> 'activity' ? 'consent') and not (rules -> 'activity' ? 'share_with_weaver')
+                              and (rules #>> '{activity,withdrawn,by}')::uuid = :cadm99 and rules #>> '{activity,withdrawn,at}' is not null
+                         from app.centers where id = :c99)
+                      and not app.activity_enabled(:c99) and not app.activity_consented(:c99) and not app.activity_shared(:c99)
+                      and pg_temp.act(:cadm99, :c99, pg_temp.screens(2)) = 0,
+  'F · withdrawing switches recording off and removes the agreement and the sharing (a trace of who withdrew and when stays)');
+select pg_temp.assert(:'st_cadm_c2'::jsonb @> '{"enabled": false, "consented": false, "share_with_weaver": false}'::jsonb and :'st_cadm_c2'::jsonb -> 'consent' = 'null'::jsonb,
+  'F · activity_status says so');
+select pg_temp.as_user(:plat99);
+select pg_temp.assert_raises($q$select app.set_activity_recording('99000000-0000-4000-8000-0000000000c1', true)$q$, 'administrator has not agreed yet',
+  'F · and Weaver cannot switch it back on');
+select pg_temp.as_user(:cadm99);
+select app.withdraw_activity_consent(:c99);
+select pg_temp.assert_raises($q$select app.set_activity_recording('99000000-0000-4000-8000-0000000000c1', false)$q$, 'only the weaver team',
+  'F · (the administrator has no use of Weaver''s switch)');
+select pg_temp.as_none();
+select pg_temp.assert(not app.activity_consented(:c99) and not app.activity_enabled(:c99), 'F · withdrawing twice is harmless');
+-- Agreeing again after a withdrawal clears the trace of the withdrawal.
+select pg_temp.as_user_2fa(:cadm99);
+select app.give_activity_consent(:c99, true, '2026-10-v2');
+select pg_temp.as_none();
+select pg_temp.assert((select rules #>> '{activity,enabled}' = 'true' and rules #>> '{activity,share_with_weaver}' = 'true' and rules #>> '{activity,consent,version}' = '2026-10-v2'
+                              and not (rules -> 'activity' ? 'withdrawn') from app.centers where id = :c99)
+                      and app.activity_shared(:c99),
+  'F · agreeing again (this time sharing) records the new version and clears the trace of the withdrawal');
+select pg_temp.assert((select count(*) = 2 from app.audit_log where center_id = :c99 and action = 'activity.consent_given' and actor_user_id = :cadm99)
+                      and (select count(*) = 1 from app.audit_log where center_id = :c99 and action = 'activity.consent_withdrawn' and actor_user_id = :cadm99)
+                      and (select count(*) = 1 from app.audit_log where center_id = :c99 and action = 'activity.sharing_changed' and actor_user_id = :cadm99)
+                      and (select count(*) = 2 from app.audit_log where center_id = :c99 and action = 'activity.recording_on' and actor_user_id = :plat99)
+                      and (select count(*) = 1 from app.audit_log where center_id = :c99 and action = 'activity.recording_off' and actor_user_id = :plat99),
+  'F · every step is in the audit log with who did it: agreed twice, withdrawn once, sharing changed once, Weaver switched on twice and off once');
 -- rules.activity.enabled has to be the true value: text "yes", number 1 and missing are all off.
 update app.centers set rules = '{"activity": {"enabled": "yes"}}'::jsonb where id = :c99;
 select pg_temp.assert(not app.activity_enabled(:c99), 'F · only true switches it on ("yes" does not)');
@@ -595,9 +731,13 @@ select pg_temp.as_user(:adm99);
 select count(*) as seen_admin from app.activity_events \gset
 select pg_temp.as_user(:plat99);
 select count(*) as seen_plat from app.activity_events \gset
+select count(*) as seen_plat_b from app.activity_events where center_id = :b99 \gset
 select pg_temp.as_none();
-select pg_temp.assert(:seen_staff = 0 and :seen_admin = 0 and :seen_catalog > 100 and :seen_plat = (select count(*) from app.activity_events) and :seen_plat > 0,
-  'J · staff and even the community''s owner see no raw events (an empty result, not an error); everyone reads the allowlist; a platform admin reads every event');
+select pg_temp.assert(:seen_staff = 0 and :seen_admin = 0 and :seen_catalog > 100
+                      and :seen_plat = (select count(*) from app.activity_events where center_id = :a99) and :seen_plat > 0,
+  'J · staff and even the community''s owner see no raw events (an empty result, not an error); everyone reads the allowlist; a platform admin reads the events of a community that agreed to share them');
+select pg_temp.assert(:seen_plat_b = 0 and (select count(*) > 0 from app.activity_events where center_id = :b99),
+  'J · and none of a community that recorded but did not agree to share (B has events; Weaver sees none)');
 set role anon;
 select pg_temp.assert_raises($q$select count(*) from app.activity_events$q$, 'permission denied', 'J · a guest reads nothing');
 select pg_temp.assert_raises($q$select app.record_activity('99000000-0000-4000-8000-0000000000a1', '[]'::jsonb)$q$, 'permission denied', 'J · a guest cannot record');
@@ -661,6 +801,8 @@ select pg_temp.as_user(:stranger99);
 select (app.activity_status(:a99))::text as st_stranger \gset
 select pg_temp.as_user(:plat99);
 select (app.activity_status(:a99))::text as st_plat \gset
+select pg_temp.as_user(:adm99);
+select (app.activity_status(:a99))::text as st_adm_a \gset
 select pg_temp.as_none();
 select pg_temp.assert(:'st_staff'::jsonb = '{"enabled": true, "opted_out": false, "eligible": true, "member": true, "portal": true}'::jsonb
                       and :'st_member'::jsonb = '{"enabled": true, "opted_out": false, "eligible": true, "member": true, "portal": false}'::jsonb,
@@ -668,8 +810,13 @@ select pg_temp.assert(:'st_staff'::jsonb = '{"enabled": true, "opted_out": false
 select pg_temp.assert(:'st_stranger'::jsonb = '{"enabled": false, "opted_out": false, "eligible": false, "member": false, "portal": false}'::jsonb
                       and :'st_staff_b'::jsonb = '{"enabled": false, "opted_out": false, "eligible": false, "member": false, "portal": false}'::jsonb,
   'M · someone who is not a member or staff member of the community is told nothing about it: not whether it records, not that it exists');
-select pg_temp.assert((:'st_plat'::jsonb ->> 'enabled')::boolean and not (:'st_plat'::jsonb ->> 'eligible')::boolean,
-  'M · a platform admin sees whether a community records, and is never eligible');
+select pg_temp.assert((:'st_plat'::jsonb ->> 'enabled')::boolean and not (:'st_plat'::jsonb ->> 'eligible')::boolean
+                      and (:'st_plat'::jsonb ->> 'consented')::boolean and (:'st_plat'::jsonb ->> 'share_with_weaver')::boolean,
+  'M · a platform admin sees whether a community records, whether it agreed and whether it shares, and is never eligible');
+select pg_temp.assert(:'st_adm_a'::jsonb @> '{"enabled": true, "eligible": true, "consented": true, "share_with_weaver": true}'::jsonb
+                      and :'st_adm_a'::jsonb #>> '{consent,version}' = 't99' and :'st_adm_a'::jsonb #>> '{consent,at}' = '2026-10-01T00:00:00+00:00'
+                      and (select array_agg(k order by k) from jsonb_object_keys(:'st_adm_a'::jsonb -> 'consent') k) = array['at', 'version'],
+  'M · whoever manages the community''s settings also gets consented, consent {at, version} and share_with_weaver (no names); a treasurer and a member get none of it (checked above: their answer is exactly the five keys)');
 
 -- ══ N. No audit rows ════════════════════════════════════════════════════════
 select pg_temp.assert((select count(*) = 0 from app.audit_log where record_table in ('activity_events', 'activity_optouts', 'activity_salts')),

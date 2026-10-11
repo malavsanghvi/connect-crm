@@ -4,7 +4,11 @@
 --   Today only table writes are audited (audit_log). Reads, screens, denied attempts and everything in the member app
 --   leave nothing behind. This adds ONE stream of events for what staff do in the portal and what members do in the apps,
 --   so repeated work can be found and automated (0622). It is built switched OFF: nothing is recorded in any community
---   until a Weaver platform admin switches that community on (centers.rules.activity.enabled, 0621).
+--   until that community's own administrator has AGREED (app.give_activity_consent, 0621: a person with settings.manage,
+--   after a fresh 2FA check, recording who agreed, when and which version of the notice). Owner decisions recorded
+--   2026-10-11: members are told with a notice and can opt out; each community's administrator consents; retention 400
+--   days; Weaver sees cross-community counts, ideas and raw events of a community ONLY if that community also agreed to
+--   share them (centers.rules.activity.share_with_weaver, default false).
 --
 --   WHAT AN EVENT IS (and is not)
 --     who          a pseudonym: hmac-sha256 of the sign-in's user id with a random salt of that community only
@@ -30,9 +34,10 @@
 --   comes from at least app.activity_min_actors() (3) different people.
 --
 --   WHO CAN READ WHAT
---     app.activity_events    raw rows: Weaver platform admins only. Nobody can insert, update or delete through the API;
---                            the only writer is app.record_activity (0621), which takes the person and the community from
---                            the sign-in and never from the payload.
+--     app.activity_events    raw rows: Weaver platform admins only, and only for a community that agreed to share with
+--                            Weaver. Nobody can insert, update or delete through the API; the only writer is
+--                            app.record_activity (0621), which takes the person and the community from the sign-in and
+--                            never from the payload. (Reads cannot be logged by the database; the policy is the control.)
 --     app.activity_catalog   the allowlist with plain-English labels: every signed-in person reads it.
 --     app.activity_optouts   a person reads their own row (the member app's Profile › Privacy switch).
 --     app.activity_salts     nobody through the API.
@@ -179,7 +184,7 @@ create table if not exists app.activity_events (
   platform    text check (platform is null or platform in ('ios', 'android', 'web'))
 );
 comment on table app.activity_events is
-  'What staff do in the portal and members do in the apps (0620). Pseudonymous (actor_hash), allowlisted keys only, no free text and no values. Insert only through app.record_activity; raw rows are readable by platform admins only; kept 400 days (app.activity_purge, 0623). Not audited: the volume, and a readable copy would defeat the access rule.';
+  'What staff do in the portal and members do in the apps (0620). Pseudonymous (actor_hash), allowlisted keys only, no free text and no values. Insert only through app.record_activity; raw rows are readable by platform admins only, and only for a community that agreed to share with Weaver; kept 400 days (app.activity_purge, 0623). Not audited: the volume, and a readable copy would defeat the access rule.';
 comment on column app.activity_events.actor_hash is 'hmac-sha256(user id, the community''s salt), hex. Never the user id.';
 comment on column app.activity_events.received_at is 'When the database stored it (rate limit and retention); occurred_at is the device''s time, held within 7 days before and 5 minutes after it.';
 
@@ -193,6 +198,27 @@ create index if not exists activity_events_time_brin on app.activity_events usin
 insert into app.module_tables (table_name, module_key) values
   ('activity_catalog', null), ('activity_events', null), ('activity_optouts', null), ('activity_salts', null)
 on conflict (table_name) do update set module_key = excluded.module_key;
+
+-- ── The community's agreement and what Weaver may see ───────────────────────
+-- rules.activity = { enabled, share_with_weaver, consent: {by, at, version}, withdrawn: {by, at} }. Recording is on only
+-- while a consent record exists (0621 enforces it); sharing is a second, separate yes, default no.
+
+-- Has the community's administrator agreed (a consent record exists)? Internal.
+create or replace function app.activity_consented(p_center uuid) returns boolean
+language sql stable security definer set search_path = app, public, extensions as $$
+  select coalesce((select nullif(c.rules #>> '{activity,consent,at}', '') is not null from app.centers c where c.id = p_center), false)
+$$;
+
+-- Is recording on AND shared with Weaver? Evaluated for the signed-in person by the policies below (and by the backlog),
+-- so signed-in people may call it; it says nothing but this one yes or no.
+create or replace function app.activity_shared(p_center uuid) returns boolean
+language sql stable security definer set search_path = app, public, extensions as $$
+  select coalesce((select (c.rules #>> '{activity,enabled}') = 'true' and (c.rules #>> '{activity,share_with_weaver}') = 'true'
+                          and nullif(c.rules #>> '{activity,consent,at}', '') is not null
+                     from app.centers c where c.id = p_center), false)
+$$;
+revoke execute on function app.activity_consented(uuid), app.activity_shared(uuid) from public, anon, authenticated, service_role;
+grant execute on function app.activity_shared(uuid) to authenticated;
 
 -- ── Row level security and grants ────────────────────────────────────────────
 alter table app.activity_catalog enable row level security;
@@ -213,7 +239,8 @@ grant select on app.activity_optouts to authenticated;
 
 alter table app.activity_events enable row level security;
 drop policy if exists activity_events_platform_read on app.activity_events;
-create policy activity_events_platform_read on app.activity_events for select to authenticated using (app.is_platform_admin());
+create policy activity_events_platform_read on app.activity_events for select to authenticated
+  using (app.is_platform_admin() and app.activity_shared(center_id));
 -- No insert, update or delete for anyone through the API (not the service key either): app.record_activity writes,
 -- app.activity_purge deletes, both as the database owner.
 revoke all on app.activity_events from public, anon, authenticated, service_role, connect_worker;

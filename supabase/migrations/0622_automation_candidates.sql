@@ -32,8 +32,10 @@
 --   WHO SEES IT
 --     automation_candidates: people with settings.manage in that community see an idea only if it is not stale and comes
 --     from at least app.activity_min_actors() (3) people (or has been decided, which can only have happened after it was
---     shown); platform admins see all. They can change only status (new | accepted | dismissed | built), and the
---     database stamps who decided and when. The miner never overwrites a decision.
+--     shown). Platform admins see a community's ideas (all of them, small groups and stale ones included) ONLY if that
+--     community agreed to share with Weaver (rules.activity.share_with_weaver). Only the community's own administrators
+--     can change status (new | accepted | dismissed | built), and the database stamps who decided and when. The miner
+--     never overwrites a decision.
 --   app.activity_mine(center, days)       platform admin ("run now") or the background service
 --   app.worker_activity_centers()         connect_worker only: the communities whose recording is on
 --   app.worker_mine_activity(center)      connect_worker only: mine one community (the worker calls it once per community,
@@ -103,15 +105,14 @@ create trigger automation_candidates_decide before update on app.automation_cand
 alter table app.automation_candidates enable row level security;
 drop policy if exists automation_candidates_read on app.automation_candidates;
 create policy automation_candidates_read on app.automation_candidates for select to authenticated
-  using (app.is_platform_admin()
-         or (app.has_permission(center_id, 'settings.manage') and not stale
+  using ((app.is_platform_admin() and app.activity_shared(center_id))
+         or (not app.is_platform_admin() and app.has_permission(center_id, 'settings.manage') and not stale
              and (distinct_actors >= app.activity_min_actors() or status <> 'new')));
 drop policy if exists automation_candidates_decide on app.automation_candidates;
 create policy automation_candidates_decide on app.automation_candidates for update to authenticated
-  using (app.is_platform_admin()
-         or (app.has_permission(center_id, 'settings.manage') and not stale
-             and (distinct_actors >= app.activity_min_actors() or status <> 'new')))
-  with check (app.has_permission(center_id, 'settings.manage') or app.is_platform_admin());
+  using (not app.is_platform_admin() and app.has_permission(center_id, 'settings.manage') and not stale
+         and (distinct_actors >= app.activity_min_actors() or status <> 'new'))
+  with check (not app.is_platform_admin() and app.has_permission(center_id, 'settings.manage'));
 revoke all on app.automation_candidates from public, anon, authenticated, service_role, connect_worker;
 grant select on app.automation_candidates to authenticated;
 grant update (status, decided_by, decided_at) on app.automation_candidates to authenticated;

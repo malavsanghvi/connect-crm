@@ -1,4 +1,28 @@
--- 0621 · Recording activity (backlog B91): app.record_activity, the opt-out, the community switch and its guard.
+-- 0621 · Recording activity (backlog B91): the community's agreement, app.record_activity, the opt-out and the guard.
+--
+-- OWNER DECISIONS recorded 2026-10-11: members are told with a notice and can opt out; the ADMINISTRATOR of each community
+-- agrees too (below); retention 400 days; Weaver sees cross-community counts only for a community that opted in to sharing.
+--
+-- THE COMMUNITY'S AGREEMENT (all of it in centers.rules.activity; every step is audited, centers is audited and each function
+-- also writes a named entry: activity.consent_given, activity.consent_withdrawn, activity.sharing_changed, activity.recording_on|off)
+--   app.give_activity_consent(p_center uuid, p_share_with_weaver boolean, p_notice_version text)
+--       a person with settings.manage in THAT community (never a platform admin), after a fresh 2FA check
+--       (app.assert_step_up('activity.consent')): records consent = {by, at, version}, sets enabled = true and
+--       share_with_weaver as given. p_notice_version names the notice they read (letters, digits . _ -, up to 40).
+--   app.withdraw_activity_consent(p_center uuid)
+--       the same permission (no 2FA check: stopping is always safe): enabled = false, the consent record and the share
+--       flag removed, withdrawn = {by, at} kept. What was recorded stays until the 400-day purge.
+--   app.set_activity_sharing(p_center uuid, p_share boolean)
+--       settings.manage + a fresh 2FA check (activity.sharing); only while a consent record exists.
+--   app.set_activity_recording(p_center uuid, p_enabled boolean)
+--       a platform admin: OFF at any time; ON only while the community's consent record exists, else the plain-English error
+--       "The community's administrator has not agreed yet."
+--   Trigger centers_activity_guard
+--       an ordinary write of centers.rules cannot change rules.activity.consent or share_with_weaver, cannot switch
+--       recording on, and a community's own administrators cannot switch it at all outside the functions above (a platform
+--       admin may only switch it off); recording can never be on without a consent record.
+--   Recording is on only while a consent record exists. Weaver (platform admins) reads a community's ideas, usage totals,
+--   cross-community counts and raw events only if recording is on AND share_with_weaver is true.
 --
 -- THE CONTRACT with the portal and the member app (built in parallel against exactly this):
 --   app.record_activity(p_center uuid, p_events jsonb) returns integer      -- how many events were stored
@@ -19,7 +43,7 @@
 --                  none on file is allowed (app.activity_portal_ok)
 --     never        a platform admin, a person who opted out, a sign-in that does not belong to p_center, a community whose
 --                  switch is off (centers.rules.activity.enabled must be the boolean true; absent is off, so merging this
---                  changes nothing until a platform admin switches a community on)
+--                  changes nothing until a community's administrator agrees)
 --   Also dropped: events past the first 100 of a call, events past a person's allowance of 2000 per hour per community.
 --
 --   WHAT IS KEPT of an accepted event (every field is held to its shape; what does not fit is stored as empty):
@@ -34,18 +58,32 @@
 --                                             person's stored events in EVERY community that has a pseudonym for them (also
 --                                             one they have since left) and hides the automation ideas of those communities
 --                                             until the next mining run recomputes them.
---   app.activity_status(p_center uuid)        {enabled, opted_out, eligible, member, portal} for a member or staff member of
---                                             p_center (or a platform admin); anyone else gets enabled false and nothing else
---   app.set_activity_recording(p_center, p_enabled)   platform admins only: the community's switch.
---   Trigger centers_activity_guard            a community's own administrators can switch recording OFF but not ON.
+--   app.activity_status(p_center uuid)        for a member or staff member of p_center (or a platform admin):
+--                                             {enabled, opted_out, eligible, member, portal}; with settings.manage also
+--                                             {consented, consent: {at, version} | null, share_with_weaver} (no names).
+--                                             Anyone else gets enabled false and nothing else.
 
--- ── The community's switch: only a platform admin may turn it on ─────────────
+-- ── The community's switch: only the agreement functions change it ───────────
 create or replace function app.centers_activity_guard() returns trigger
 language plpgsql security definer set search_path = app, public, extensions as $$
+declare
+  v_old jsonb := case when jsonb_typeof(old.rules -> 'activity') = 'object' then old.rules -> 'activity' else '{}'::jsonb end;
+  v_new jsonb := case when jsonb_typeof(new.rules -> 'activity') = 'object' then new.rules -> 'activity' else '{}'::jsonb end;
 begin
-  if auth.uid() is null or app.is_platform_admin() then return new; end if;   -- the database owner, the background service, Weaver
-  if (new.rules #>> '{activity,enabled}') = 'true' then
-    raise exception 'Weaver switches activity recording on for a community. Ask the Weaver team.' using errcode = '42501';
+  -- The database owner, the background service and migrations (no signed-in person), and the agreement functions below,
+  -- which have checked who may do it.
+  if auth.uid() is null or coalesce(current_setting('app.activity_apply', true), '') = 'on' then return new; end if;
+  -- An ordinary write by a signed-in person may not touch the agreement or the sharing.
+  if (v_new - 'enabled') is distinct from (v_old - 'enabled') then
+    raise exception 'Agreeing to activity recording, and sharing it with Weaver, is done on the Privacy page with a 2FA check, not by editing the rules.'
+      using errcode = '42501';
+  end if;
+  -- ... nor the switch, except that a platform admin may switch it off.
+  if (v_new ->> 'enabled') is distinct from (v_old ->> 'enabled') then
+    if not (app.is_platform_admin() and coalesce(v_new ->> 'enabled', 'false') <> 'true') then
+      raise exception 'Activity recording is switched on or off on the Privacy page by the community''s administrator, not by editing the rules.'
+        using errcode = '42501';
+    end if;
   end if;
   return new;
 end $$;
@@ -54,20 +92,103 @@ create trigger centers_activity_guard before update of rules on app.centers
   for each row when ((old.rules -> 'activity') is distinct from (new.rules -> 'activity'))
   execute function app.centers_activity_guard();
 
+-- Writes rules.activity for the functions below (they set the flag the guard looks for, for this write only).
+create or replace function app.activity_write_rules(p_center uuid, p_patch jsonb, p_remove text[] default '{}')
+returns void language plpgsql security definer set search_path = app, public, extensions as $$
+declare v_n integer;
+begin
+  perform set_config('app.activity_apply', 'on', true);
+  update app.centers c
+     set rules = jsonb_set(coalesce(c.rules, '{}'::jsonb), '{activity}',
+                           ((case when jsonb_typeof(c.rules -> 'activity') = 'object' then c.rules -> 'activity' else '{}'::jsonb end)
+                            - p_remove) || p_patch, true)
+   where c.id = p_center;
+  get diagnostics v_n = row_count;
+  perform set_config('app.activity_apply', '', true);
+  if v_n = 0 then
+    raise exception 'That community was not found.' using errcode = 'P0002';
+  end if;
+end $$;
+
+-- May the signed-in person speak for this community's agreement? Its own administrator (settings.manage), never Weaver staff.
+create or replace function app.activity_assert_admin(p_center uuid) returns void
+language plpgsql stable security definer set search_path = app, public, extensions as $$
+begin
+  if auth.uid() is null then
+    raise exception 'Sign in to do this.' using errcode = '28000';
+  end if;
+  if p_center is null or app.is_platform_admin() or not app.has_permission(p_center, 'settings.manage') then
+    raise exception 'You don''t have access to this area. Only the community''s own administrator can decide this.' using errcode = '42501';
+  end if;
+end $$;
+
+create or replace function app.give_activity_consent(p_center uuid, p_share_with_weaver boolean, p_notice_version text)
+returns void language plpgsql security definer set search_path = app, public, extensions as $$
+declare v_version text := btrim(coalesce(p_notice_version, ''));
+begin
+  perform app.activity_assert_admin(p_center);
+  if v_version !~ '^[A-Za-z0-9._-]{1,40}$' then
+    raise exception 'Say which version of the notice was agreed to.' using errcode = '22023';
+  end if;
+  perform app.assert_step_up('activity.consent');
+  perform app.activity_write_rules(p_center,
+    jsonb_build_object('enabled', true, 'share_with_weaver', coalesce(p_share_with_weaver, false),
+                       'consent', jsonb_build_object('by', auth.uid(), 'at', now(), 'version', v_version)),
+    array['withdrawn']);
+  perform app.log_audit(p_center, 'activity.consent_given', 'centers', p_center::text, null,
+                        jsonb_build_object('enabled', true, 'share_with_weaver', coalesce(p_share_with_weaver, false), 'version', v_version),
+                        'Agreed to activity recording; notice version ' || v_version);
+end $$;
+comment on function app.give_activity_consent(uuid, boolean, text) is 'The community''s own administrator (settings.manage, never Weaver staff), after a fresh 2FA check, agrees to activity recording: records {by, at, version}, switches recording on, and says whether the ideas and counts are shared with Weaver (0621).';
+
+create or replace function app.withdraw_activity_consent(p_center uuid) returns void
+language plpgsql security definer set search_path = app, public, extensions as $$
+begin
+  perform app.activity_assert_admin(p_center);
+  if not app.activity_consented(p_center) and not coalesce((select (c.rules #>> '{activity,enabled}') = 'true' from app.centers c where c.id = p_center), false) then
+    return;   -- nothing to withdraw
+  end if;
+  perform app.activity_write_rules(p_center,
+    jsonb_build_object('enabled', false, 'withdrawn', jsonb_build_object('by', auth.uid(), 'at', now())),
+    array['consent', 'share_with_weaver']);
+  perform app.log_audit(p_center, 'activity.consent_withdrawn', 'centers', p_center::text, null,
+                        jsonb_build_object('enabled', false), 'Withdrew the agreement to activity recording');
+end $$;
+comment on function app.withdraw_activity_consent(uuid) is 'The community''s own administrator (settings.manage) withdraws the agreement: recording off, the consent record and the sharing flag removed, withdrawn {by, at} kept; what was recorded stays until the 400-day purge (0621).';
+
+create or replace function app.set_activity_sharing(p_center uuid, p_share boolean) returns void
+language plpgsql security definer set search_path = app, public, extensions as $$
+begin
+  perform app.activity_assert_admin(p_center);
+  if not app.activity_consented(p_center) then
+    raise exception 'Agree to activity recording first.' using errcode = '22023';
+  end if;
+  perform app.assert_step_up('activity.sharing');
+  perform app.activity_write_rules(p_center, jsonb_build_object('share_with_weaver', coalesce(p_share, false)));
+  perform app.log_audit(p_center, 'activity.sharing_changed', 'centers', p_center::text, null,
+                        jsonb_build_object('share_with_weaver', coalesce(p_share, false)),
+                        case when coalesce(p_share, false) then 'Agreed to share activity ideas and counts with Weaver'
+                             else 'Stopped sharing activity ideas and counts with Weaver' end);
+end $$;
+comment on function app.set_activity_sharing(uuid, boolean) is 'The community''s own administrator (settings.manage + a fresh 2FA check) decides whether Weaver may see its activity ideas, usage totals, cross-community counts and raw events; default no (0621).';
+
+-- Weaver's switch: OFF at any time, ON only while the community's administrator has agreed.
 create or replace function app.set_activity_recording(p_center uuid, p_enabled boolean) returns void
 language plpgsql security definer set search_path = app, public, extensions as $$
 begin
   if not app.is_platform_admin() then
     raise exception 'Only the Weaver team can switch activity recording on or off.' using errcode = '42501';
   end if;
-  update app.centers c
-     set rules = jsonb_set(coalesce(c.rules, '{}'::jsonb), '{activity}',
-                           (case when jsonb_typeof(c.rules -> 'activity') = 'object' then c.rules -> 'activity' else '{}'::jsonb end)
-                           || jsonb_build_object('enabled', coalesce(p_enabled, false)), true)
-   where c.id = p_center;
-  if not found then
+  if not exists (select 1 from app.centers c where c.id = p_center) then
     raise exception 'That community was not found.' using errcode = 'P0002';
   end if;
+  if coalesce(p_enabled, false) and not app.activity_consented(p_center) then
+    raise exception 'The community''s administrator has not agreed yet.' using errcode = '22023';
+  end if;
+  perform app.activity_write_rules(p_center, jsonb_build_object('enabled', coalesce(p_enabled, false)));
+  perform app.log_audit(p_center, case when coalesce(p_enabled, false) then 'activity.recording_on' else 'activity.recording_off' end,
+                        'centers', p_center::text, null, jsonb_build_object('enabled', coalesce(p_enabled, false)),
+                        case when coalesce(p_enabled, false) then 'Weaver switched activity recording on' else 'Weaver switched activity recording off' end);
 end $$;
 
 -- ── Recording ────────────────────────────────────────────────────────────────
@@ -210,7 +331,7 @@ comment on function app.set_activity_opt_out(boolean) is 'The signed-in person''
 
 create or replace function app.activity_status(p_center uuid) returns jsonb
 language plpgsql stable security definer set search_path = app, public, extensions as $$
-declare v_uid uuid := auth.uid(); v_admin boolean; v_member boolean := false; v_portal boolean := false;
+declare v_uid uuid := auth.uid(); v_admin boolean; v_member boolean := false; v_portal boolean := false; v_out jsonb;
 begin
   v_admin := coalesce(app.is_platform_admin(), false);
   if v_uid is null or not (v_admin
@@ -225,15 +346,28 @@ begin
     v_member := app.activity_member_ok(p_center, v_uid);
     v_portal := app.activity_portal_ok(p_center, v_uid);
   end if;
-  return jsonb_build_object('enabled', app.activity_enabled(p_center),
-                            'opted_out', exists (select 1 from app.activity_optouts o where o.user_id = v_uid),
-                            'eligible', v_member or v_portal, 'member', v_member, 'portal', v_portal);
+  v_out := jsonb_build_object('enabled', app.activity_enabled(p_center),
+                             'opted_out', exists (select 1 from app.activity_optouts o where o.user_id = v_uid),
+                             'eligible', v_member or v_portal, 'member', v_member, 'portal', v_portal);
+  -- Whoever manages the community's settings (and Weaver) also learns whether it has agreed and whether it shares. No names.
+  if app.has_permission(p_center, 'settings.manage') then
+    v_out := v_out || jsonb_build_object(
+      'consented', app.activity_consented(p_center),
+      'consent', (select case when nullif(c.rules #>> '{activity,consent,at}', '') is null then null
+                                else jsonb_build_object('at', c.rules #>> '{activity,consent,at}', 'version', c.rules #>> '{activity,consent,version}') end
+                       from app.centers c where c.id = p_center),
+      'share_with_weaver', coalesce((select (c.rules #>> '{activity,share_with_weaver}') = 'true' from app.centers c where c.id = p_center), false));
+  end if;
+  return v_out;
 end $$;
-comment on function app.activity_status(uuid) is 'For a member or staff member of p_center (or a platform admin): {enabled: recording is on for the community, opted_out: they chose not to be recorded, eligible: they can be recorded at all, member / portal: on which surface}. Anyone else gets enabled false and nothing else (0621).';
+comment on function app.activity_status(uuid) is 'For a member or staff member of p_center (or a platform admin): {enabled: recording is on for the community, opted_out: they chose not to be recorded, eligible: they can be recorded at all, member / portal: on which surface}; with settings.manage also {consented, consent: {at, version} or null, share_with_weaver}. Anyone else gets enabled false and nothing else (0621).';
 
 -- ── Who may call what ────────────────────────────────────────────────────────
 revoke execute on function app.record_activity(uuid, jsonb), app.set_activity_opt_out(boolean), app.activity_status(uuid),
-  app.set_activity_recording(uuid, boolean), app.centers_activity_guard()
+  app.set_activity_recording(uuid, boolean), app.give_activity_consent(uuid, boolean, text), app.withdraw_activity_consent(uuid),
+  app.set_activity_sharing(uuid, boolean), app.activity_write_rules(uuid, jsonb, text[]), app.activity_assert_admin(uuid),
+  app.centers_activity_guard()
   from public, anon, authenticated, service_role;
 grant execute on function app.record_activity(uuid, jsonb), app.set_activity_opt_out(boolean), app.activity_status(uuid),
-  app.set_activity_recording(uuid, boolean) to authenticated;
+  app.set_activity_recording(uuid, boolean), app.give_activity_consent(uuid, boolean, text), app.withdraw_activity_consent(uuid),
+  app.set_activity_sharing(uuid, boolean) to authenticated;
