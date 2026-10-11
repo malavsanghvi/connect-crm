@@ -152,8 +152,12 @@ const SUGGESTIONS: Record<SuggestionArea, Suggestion[]> = {
   ],
   giving: [
     { text: "Who is behind on pledges?", needs: "giving.pledges_behind" },
+    { text: "Record a $250 check from member number 1042", needs: "giving.draft_payment" },
+    { text: "Which Zelle reports are waiting for the bank?", needs: "giving.zelle_waiting" },
+    { text: "Which bank lines are still unmatched?", needs: "giving.bank_lines_unmatched" },
+    { text: "What is waiting for a second approver?", needs: "giving.waiting_for_second_approver" },
+    { text: "Show the giving of member number 1042", needs: "giving.household_summary" },
     { text: "What is blocking month-end close?", needs: "accounting.month_close_blockers" },
-    { text: "Record a $50 gift from member number 1042", needs: "giving.record_payment" },
   ],
   accounting: [
     { text: "What is blocking month-end close?", needs: "accounting.month_close_blockers" },

@@ -3,6 +3,7 @@ import Link from "next/link";
 
 import { HouseholdDrawerProvider, HouseholdRow } from "@/app/(app)/giving/_components/household-drawer";
 import { ActionForm } from "@/components/action-form";
+import { GivingAskNiva } from "@/app/(app)/giving/_components/giving-ask-niva";
 import { HistoryButton } from "@/components/record-history";
 import { FlaggedRefundControls, RefundControls } from "@/components/two-person-controls";
 import {
@@ -50,7 +51,11 @@ const METHODS = Object.keys(PAYMENT_METHOD_LABEL) as Method[];
 export default async function PaymentsPage({ searchParams }: { searchParams: Promise<RawSearchParams> }) {
   const session = await getSession();
   const header = (
-    <PageHeader title="Giving" description={`Offline payments, deposits, ${word(session.kind, "cash_box")} and refunds`} />
+    <PageHeader
+      title="Giving"
+      description={`Offline payments, deposits, ${word(session.kind, "cash_box")} and refunds`}
+      actions={<GivingAskNiva about="payments" />}
+    />
   );
   if (!canAccess(session, "payments")) {
     return (
