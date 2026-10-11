@@ -11463,6 +11463,20 @@ export type Database = {
         };
         Returns: number;
       };
+      content_library_summary: {
+        Args: {
+          p_center: string;
+          p_stale_days?: number;
+        };
+        Returns: Json;
+      };
+      content_queue_summary: {
+        Args: {
+          p_center: string;
+          p_limit?: number;
+        };
+        Returns: Json;
+      };
       create_checkout: {
         Args: {
           p_center: string;
@@ -14421,6 +14435,14 @@ export type Database = {
           p_n: number;
         };
         Returns: string;
+      };
+      store_sales_summary: {
+        Args: {
+          p_center: string;
+          p_from: string;
+          p_to: string;
+        };
+        Returns: Json;
       };
       submit_access_request: {
         Args: {
