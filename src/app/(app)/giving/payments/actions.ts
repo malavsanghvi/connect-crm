@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 
+import { withActivity } from "@/lib/activity/with-activity";
 import { previewAllocation } from "@/lib/allocation";
 import { todayInTz } from "@/lib/dates";
 import { stockMemo } from "@/lib/giving";
@@ -93,6 +94,12 @@ async function applyToPledges(
 }
 
 export async function recordOfflinePaymentAction(input: RecordPaymentInput): Promise<ActionResult<RecordPaymentResult>> {
+  return withActivity("giving.record_payment", () => recordOfflinePayment(input), {
+    entityFrom: (result) => ({ kind: "payment", id: result?.data?.paymentId }),
+  });
+}
+
+async function recordOfflinePayment(input: RecordPaymentInput): Promise<ActionResult<RecordPaymentResult>> {
   const auth = await authorizeAction("recordPayment", "record the payment");
   if (!auth.ok) return auth;
   const { session } = auth;
@@ -184,7 +191,13 @@ export async function recordOfflinePaymentAction(input: RecordPaymentInput): Pro
 }
 
 /** Retry applying an already-recorded payment's remaining amount to pledges. */
-export async function applyPaymentAction(input: {
+export async function applyPaymentAction(input: ApplyPaymentInput): Promise<ReturnType<typeof applyPayment>> {
+  return withActivity("giving.apply_payment", () => applyPayment(input), { entityFrom: { kind: "payment", id: input.paymentId } });
+}
+
+type ApplyPaymentInput = Parameters<typeof applyPayment>[0];
+
+async function applyPayment(input: {
   paymentId: string;
   householdId: string;
   pledgeIds: string[] | null;
