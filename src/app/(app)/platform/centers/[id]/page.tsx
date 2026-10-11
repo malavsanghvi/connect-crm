@@ -4,15 +4,19 @@ import { notFound } from "next/navigation";
 
 import { ActionForm } from "@/components/action-form";
 import { BlockGrid, Card, DefinitionList, EmptyState, PageHeader, QueryError, StatusText, TableWrap } from "@/components/ui";
+import { confirmToolChoices } from "@/lib/assistant/choices";
+import { assistantApiKey } from "@/lib/assistant/key";
+import { assistantEnabled } from "@/lib/assistant/settings";
 import { portalBaseDomain } from "@/lib/center-resolve";
 import { formatDateTime } from "@/lib/dates";
 import { loadExperiences } from "@/lib/experiences-db";
 import { isUuid } from "@/lib/search-params";
 import { getSession } from "@/lib/session";
+import { rulesVersion } from "@/lib/settings-rules";
 import { ENTITLEMENT_INFO, entitlementLabel, formatEntitlement, formatJoinCode, sortEntitlements } from "@/lib/tenancy";
 
 import { PlatformNoAccess } from "../../platform-no-access";
-import { addDomainAction, removeDomainAction, setEntitlementAction } from "./actions";
+import { addDomainAction, removeDomainAction, saveAssistantAction, setEntitlementAction } from "./actions";
 import { KindPanel } from "./kind-panel";
 
 export const metadata: Metadata = { title: "Center · Platform" };
@@ -31,7 +35,7 @@ export default async function PlatformCenterPage({ params }: { params: Promise<{
     );
   }
   const { db } = session;
-  const centerRes = await db.from("centers").select("id, slug, name, status, environment, sandbox_for, category_key").eq("id", id).maybeSingle();
+  const centerRes = await db.from("centers").select("id, slug, name, status, environment, sandbox_for, category_key, rules").eq("id", id).maybeSingle();
   if (centerRes.error) {
     return (
       <>
@@ -50,6 +54,14 @@ export default async function PlatformCenterPage({ params }: { params: Promise<{
     loadExperiences(db),
   ]);
   const sandbox = center.environment === "sandbox";
+  const assistantOn = assistantEnabled(center.rules);
+  const assistantTools = confirmToolChoices(center.rules);
+  let aiKeySet = false;
+  try {
+    aiKeySet = !!(await assistantApiKey());
+  } catch (error) {
+    console.error("[platform] could not look for the AI key:", error);
+  }
   const base = portalBaseDomain();
   const tz = session.center.time_zone;
 
@@ -96,6 +108,54 @@ export default async function PlatformCenterPage({ params }: { params: Promise<{
           ) : (
             <KindPanel centerId={id} centerName={center.name} currentKey={center.category_key} experiences={kinds.experiences} sandbox={sandbox} />
           )}
+        </Card>
+
+        <Card
+          span={12}
+          title="Niva for admins"
+          description="Lets this community's staff ask Niva to look things up and prepare drafts · every change needs a reason and is audited"
+        >
+          <p className="mb-3 text-[13px]">
+            Now: <StatusText tone={assistantOn ? "ok" : "warn"}>{assistantOn ? "On" : "Off"}</StatusText> · AI key:{" "}
+            {aiKeySet ? (
+              <StatusText tone="ok">set</StatusText>
+            ) : (
+              <>
+                <StatusText tone="warn">not set</StatusText> <span className="text-muted">(Platform › Setup › AI; the search box and commands list work without it)</span>
+              </>
+            )}
+          </p>
+          <ActionForm action={saveAssistantAction} submitLabel="Save" size="sm" className="space-y-3">
+            <input type="hidden" name="center" value={id} />
+            <input type="hidden" name="version" value={rulesVersion(center.rules) ?? ""} />
+            <label className="flex items-start gap-2 text-[13px]">
+              <input type="checkbox" name="enabled" defaultChecked={assistantOn} className="mt-1" />
+              <span>
+                <span className="font-bold">Switch Niva for admins on for this community</span>
+                <span className="block text-muted">
+                  Staff get the search box for actions and the Niva panel. Looking things up and drafting work as soon as this is on. Nothing is changed by Niva unless you also allow it below.
+                </span>
+              </span>
+            </label>
+            {assistantTools.length > 0 ? (
+              <fieldset className="space-y-2">
+                <legend className="crm-label">Changes Niva may prepare (a person always presses a button to confirm)</legend>
+                {assistantTools.map((t) => (
+                  <label key={t.key} className="flex items-start gap-2 text-[13px]">
+                    <input type="checkbox" name="tool" value={t.key} defaultChecked={t.on} className="mt-1" />
+                    <span>
+                      <span className="font-bold">{t.title}</span>
+                      <span className="block text-muted">{t.description}</span>
+                    </span>
+                  </label>
+                ))}
+              </fieldset>
+            ) : null}
+            <label className="block max-w-xl">
+              <span className="crm-label">Reason</span>
+              <input name="reason" className="crm-input" placeholder="Reason (required)" autoComplete="off" />
+            </label>
+          </ActionForm>
         </Card>
 
         <Card span={7} title="Portal web addresses" description="Where this community's staff open the portal">
