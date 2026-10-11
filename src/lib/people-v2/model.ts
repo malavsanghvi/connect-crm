@@ -31,7 +31,6 @@ export type AskModel = {
   unread: boolean;
   filters: HouseholdFilters;
   chips: (AskChip & { removeHref: string })[];
-  clearHref: string | null;
   /** Hidden fields the "Add a filter" form keeps (the view, the sort). */
   keep: Record<string, string>;
   zones: Zone[];
@@ -49,7 +48,7 @@ export type HouseholdRowView = {
   href: string;
   selected: boolean;
   name: string;
-  /** "Household 0212 · RNA-H-2041" */
+  /** "No. 0212 · RNA-H-2041": the household number and the organization's own household IDs. */
   ids: string;
   primary: string;
   area: string;
@@ -80,6 +79,8 @@ export type HouseholdsSection = {
   sortHrefs: Record<SortKey, string>;
   /** Sorting by open balance needs a giving permission. */
   canSortByOpen: boolean;
+  /** The card was opened by the person (not the first row shown by default): highlighted on every screen size. */
+  selectionExplicit: boolean;
   emptyTitle: string;
   emptyHint: string | null;
 };

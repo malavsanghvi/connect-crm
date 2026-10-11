@@ -33,7 +33,6 @@ import type { CrmSession } from "@/lib/session";
 
 const BASE = "/people";
 const PAGE_SIZE = 25;
-const ALL_FILTERS_OFF = Object.fromEntries(Object.values(FILTER_PARAM).map((k) => [k, null])) as Record<string, null>;
 
 /**
  * People in the new look: the household list with the ask-your-data box and the household card beside it, plus the people list,
@@ -102,7 +101,7 @@ export async function PeopleV2({ session, sp }: { session: CrmSession; sp: RawSe
     { key: "all", label: "All households", href: BASE, current: view === "households" && !hasFilters(filters) },
     { key: "duplicates", label: counts.duplicates === null ? "Possible duplicates" : `Possible duplicates · ${counts.duplicates}`, href: `${BASE}?view=duplicates`, current: view === "duplicates" },
     { key: "ending", label: counts.ending === null ? "Memberships ending soon" : `Memberships ending soon · ${counts.ending}`, href: `${BASE}?ending=${ENDING_SOON_DAYS}`, current: view === "households" && onlyEnding, title: `Active memberships that end in the next ${ENDING_SOON_DAYS} days` },
-    ...(seesReviews ? [{ key: "reviews", label: counts.waiting === null ? "Waiting for a decision" : `Waiting for a decision · ${counts.waiting}`, href: `${BASE}?view=reviews`, current: view === "reviews" }] : []),
+    ...(seesReviews ? [{ key: "reviews", label: counts.waiting === null ? "To review" : `To review · ${counts.waiting}`, href: `${BASE}?view=reviews`, current: view === "reviews", title: "Membership applications and family change requests waiting for a decision" }] : []),
     { key: "save", label: "+ Save this view", href: null, current: false, comingNext: true, title: "Saved views are not built yet." },
   ];
 
@@ -119,7 +118,6 @@ export async function PeopleV2({ session, sp }: { session: CrmSession; sp: RawSe
       unread: param(sp, "unread") === "1",
       filters,
       chips: chipsFor(filters, ctx).map((c) => ({ ...c, removeHref: link({ [FILTER_PARAM[c.key as FilterKey]]: null, said: null, unread: null, page: null, hh: null }) })),
-      clearHref: hasFilters(filters) || said ? link({ ...ALL_FILTERS_OFF, said: null, unread: null, page: null, hh: null }) : null,
       keep: { ...(view === "people" ? { view } : {}), ...(sort !== "name" ? { sort } : {}) },
       zones,
       tiers: TIERS.map((t) => ({ key: t, label: tierLabel(t) })),
@@ -162,7 +160,7 @@ export async function PeopleV2({ session, sp }: { session: CrmSession; sp: RawSe
         href: link({ hh: r.id, page: pageKeep }),
         selected: r.id === selected,
         name: r.name,
-        ids: [r.number ? `Household ${r.number}` : "No household number", ...r.orgIds].join(" · "),
+        ids: [r.number ? `No. ${r.number}` : "No household number", ...r.orgIds].join(" · "),
         primary: r.primary?.name ?? "—",
         area: (r.zoneId ? zoneName.get(r.zoneId) : null) ?? r.city ?? "—",
         open: r.openCents === null ? null : moneyIn(r.openCents, fmt),
@@ -177,6 +175,7 @@ export async function PeopleV2({ session, sp }: { session: CrmSession; sp: RawSe
       sort,
       sortHrefs: { name: link({ sort: null, page: null }), open: link({ sort: "open", page: null }), area: link({ sort: "area", page: null }) },
       canSortByOpen: list.canSeeGiving,
+      selectionExplicit: isUuid(hh),
       emptyTitle: hasFilters(filters) ? "No household matches these filters" : "No households yet",
       emptyHint: filters.q ? "Try part of the name, or an identifier exactly as the other system shows it." : hasFilters(filters) ? "Remove a filter above to see more households." : null,
     };

@@ -70,11 +70,11 @@ function QuickChips({ chips }: { chips: QuickChip[] }) {
     <div className="flex flex-wrap gap-2">
       {chips.map((c) =>
         c.comingNext ? (
-          <span key={c.key} className="inline-flex items-center gap-2">
+          <span key={c.key} className="relative inline-flex">
             <button type="button" disabled title={c.title} className={`${CHIP} cursor-not-allowed border-dashed border-[#9FB0C6] bg-transparent font-semibold text-muted`}>
               {c.label}
             </button>
-            <ComingNext />
+            <ComingNext badge />
           </span>
         ) : c.href ? (
           <Link
@@ -170,11 +170,13 @@ function HouseholdsList({ section }: { section: HouseholdsSection }) {
                 scroll={false}
                 aria-current={r.selected ? "true" : undefined}
                 aria-label={`${r.name}, ${r.ids}. Primary member ${r.primary}. Area ${r.area}. Open balance ${r.open ?? "not visible to your role"}. Last gift ${r.lastGift}. Last RSVP ${r.lastRsvp}.`}
-                className={`grid min-h-[52px] grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-0.5 rounded-[10px] px-2.5 py-1.5 text-[13px] font-medium text-ink no-underline ${COLS} ${r.selected ? "bg-[#FFF6DD]" : "hover:bg-canvas"}`}
+                className={`grid min-h-[52px] grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-0.5 rounded-[10px] px-2.5 py-1.5 text-[13px] font-medium text-ink no-underline ${COLS} ${r.selected ? (section.selectionExplicit ? "bg-[#FFF6DD]" : "hover:bg-canvas xl:bg-[#FFF6DD]") : "hover:bg-canvas"}`}
               >
                 <span className="flex min-w-0 flex-col gap-0.5">
-                  <span className="truncate font-bold">{r.name}</span>
-                  <span className="truncate font-mono text-[11px] text-muted">{r.ids}</span>
+                  <span className="font-bold leading-snug">{r.name}</span>
+                  <span className="truncate font-mono text-[11px] text-muted" title={r.ids}>
+                    {r.ids}
+                  </span>
                 </span>
                 <span className="col-start-1 truncate text-[12px] text-ink-2 md:col-start-auto md:text-[13px] md:text-ink">
                   <span className="md:hidden">Primary: </span>
@@ -525,16 +527,15 @@ function CardBody({ card }: { card: HouseholdPanel }) {
             Record a payment
           </Link>
         ) : null}
-        <button type="button" disabled title="Messaging one household from its card is not built yet." className={`${BTN} cursor-not-allowed border border-line-input bg-white text-muted`}>
-          Message the household
-        </button>
+        <span className="relative inline-flex">
+          <button type="button" disabled title="Messaging one household from its card is not built yet." className={`${BTN} cursor-not-allowed border border-line-input bg-white text-muted`}>
+            Message the household
+          </button>
+          <ComingNext badge />
+        </span>
         <Link href={card.fullPageHref} className={`${BTN} border border-line-input bg-white text-ink hover:border-navy`}>
           Open the full page
         </Link>
-      </div>
-      <div className="-mt-2 flex items-center gap-2">
-        <ComingNext />
-        <span className="text-[12px] text-muted">Message the household</span>
       </div>
       {card.noticed ? (
         <div className="flex flex-col gap-2 rounded-[14px] border border-line bg-ground px-4 py-3.5">

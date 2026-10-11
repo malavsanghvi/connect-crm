@@ -160,7 +160,7 @@ export function sampleModel(opts: { view: PeopleView; hh: string | null; niva: b
       { key: "all", label: "All households", href: BASE, current: false },
       { key: "duplicates", label: "Possible duplicates · 4", href: `${BASE}?view=duplicates`, current: opts.view === "duplicates" },
       { key: "ending", label: "Memberships ending soon · 23", href: BASE, current: false },
-      { key: "reviews", label: "Waiting for a decision · 3", href: `${BASE}?view=reviews`, current: opts.view === "reviews" },
+      { key: "reviews", label: "To review · 3", href: `${BASE}?view=reviews`, current: opts.view === "reviews" },
       { key: "save", label: "+ Save this view", href: null, current: false, comingNext: true, title: "Saved views are not built yet." },
     ],
     ask: {
@@ -168,7 +168,6 @@ export function sampleModel(opts: { view: PeopleView; hh: string | null; niva: b
       unread: false,
       filters,
       chips: chipsFor(filters, ctx).map((c) => ({ ...c, removeHref: link({ [FILTER_PARAM[c.key as FilterKey]]: null }) })),
-      clearHref: BASE,
       keep: {},
       zones: ZONES,
       tiers: TIERS.map((t) => ({ key: t, label: tierLabel(t) })),
@@ -187,7 +186,7 @@ export function sampleModel(opts: { view: PeopleView; hh: string | null; niva: b
               href: link({ hh: r.id }),
               selected: r.id === selected,
               name: r.name,
-              ids: `Household ${r.number} · ${r.org}`,
+              ids: `No. ${r.number} · ${r.org}`,
               primary: r.primary,
               area: ZONES.find((z) => z.id === r.zoneId)?.name ?? "—",
               open: money(r.open),
@@ -198,6 +197,7 @@ export function sampleModel(opts: { view: PeopleView; hh: string | null; niva: b
             sort: "name",
             sortHrefs: { name: BASE, open: `${BASE}?sort=open`, area: `${BASE}?sort=area` },
             canSortByOpen: true,
+            selectionExplicit: !!opts.hh,
             emptyTitle: "No household matches these filters",
             emptyHint: null,
           }

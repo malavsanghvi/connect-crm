@@ -72,12 +72,7 @@ export function PeopleAskBox({ ask }: { ask: AskModel }) {
           </span>
         ) : null}
         <AddFilter ask={ask} />
-        {ask.clearHref ? (
-          <Link href={ask.clearHref} scroll={false} className="text-[13px] font-semibold text-muted underline-offset-2 hover:underline">
-            Clear all
-          </Link>
-        ) : null}
-        {canAsk && ask.said ? (
+        {canAsk && ask.said && ask.unread ? (
           <button type="button" onClick={() => niva?.ask(ask.said)} className="ml-auto inline-flex min-h-9 items-center gap-1.5 rounded-[18px] px-3 text-[13px] font-bold text-[var(--v2-sun-ink)] hover:bg-[var(--v2-sun-tint)]">
             <SparkIcon size={14} />
             Ask Niva instead
