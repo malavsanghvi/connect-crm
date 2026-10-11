@@ -368,6 +368,117 @@ export type Database = {
         };
         Relationships: [];
       };
+      assistant_messages: {
+        Row: {
+          id: string;
+          center_id: string;
+          actor_user_id: string;
+          thread_id: string;
+          role: string;
+          content: string;
+          command_key: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          center_id: string;
+          actor_user_id: string;
+          thread_id: string;
+          role: string;
+          content: string;
+          command_key?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          center_id?: string;
+          actor_user_id?: string;
+          thread_id?: string;
+          role?: string;
+          content?: string;
+          command_key?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      assistant_proposals: {
+        Row: {
+          id: string;
+          center_id: string;
+          actor_user_id: string;
+          thread_id: string | null;
+          command_key: string;
+          level: number;
+          input: Json;
+          input_hash: string;
+          preview: Json;
+          status: string;
+          expires_at: string;
+          confirmed_at: string | null;
+          finished_at: string | null;
+          result_summary: string | null;
+          correlation_id: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          center_id: string;
+          actor_user_id: string;
+          thread_id?: string | null;
+          command_key: string;
+          level?: number;
+          input: Json;
+          input_hash: string;
+          preview?: Json;
+          status?: string;
+          expires_at: string;
+          confirmed_at?: string | null;
+          finished_at?: string | null;
+          result_summary?: string | null;
+          correlation_id?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          center_id?: string;
+          actor_user_id?: string;
+          thread_id?: string | null;
+          command_key?: string;
+          level?: number;
+          input?: Json;
+          input_hash?: string;
+          preview?: Json;
+          status?: string;
+          expires_at?: string;
+          confirmed_at?: string | null;
+          finished_at?: string | null;
+          result_summary?: string | null;
+          correlation_id?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      assistant_usage: {
+        Row: {
+          center_id: string;
+          month: string;
+          used: number;
+          updated_at: string;
+        };
+        Insert: {
+          center_id: string;
+          month: string;
+          used?: number;
+          updated_at?: string;
+        };
+        Update: {
+          center_id?: string;
+          month?: string;
+          used?: number;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       attendees: {
         Row: {
           id: string;
@@ -1074,6 +1185,7 @@ export type Database = {
           aliases: string[];
           sort: number;
           active: boolean;
+          template: Json | null;
         };
         Insert: {
           category_key: string;
@@ -1084,6 +1196,7 @@ export type Database = {
           aliases?: string[];
           sort?: number;
           active?: boolean;
+          template?: Json | null;
         };
         Update: {
           category_key?: string;
@@ -1094,6 +1207,7 @@ export type Database = {
           aliases?: string[];
           sort?: number;
           active?: boolean;
+          template?: Json | null;
         };
         Relationships: [];
       };
@@ -5368,6 +5482,7 @@ export type Database = {
           wording_pack: string;
           wording: Json;
           library_pack: string | null;
+          template: Json | null;
         };
         Insert: {
           key: string;
@@ -5385,6 +5500,7 @@ export type Database = {
           wording_pack?: string;
           wording?: Json;
           library_pack?: string | null;
+          template?: Json | null;
         };
         Update: {
           key?: string;
@@ -5402,6 +5518,7 @@ export type Database = {
           wording_pack?: string;
           wording?: Json;
           library_pack?: string | null;
+          template?: Json | null;
         };
         Relationships: [];
       };
@@ -10550,6 +10667,67 @@ export type Database = {
         };
         Returns: undefined;
       };
+      assistant_confirm: {
+        Args: {
+          p_proposal: string;
+          p_input_hash: string;
+        };
+        Returns: Json;
+      };
+      assistant_finish: {
+        Args: {
+          p_proposal: string;
+          p_ok: boolean;
+          p_summary: string;
+          p_correlation?: string;
+        };
+        Returns: undefined;
+      };
+      assistant_is_staff: {
+        Args: {
+          p_center: string;
+        };
+        Returns: boolean;
+      };
+      assistant_log_message: {
+        Args: {
+          p_center: string;
+          p_thread: string;
+          p_role: string;
+          p_content: string;
+          p_command_key?: string;
+        };
+        Returns: string;
+      };
+      assistant_propose: {
+        Args: {
+          p_center: string;
+          p_command: string;
+          p_input: Json;
+          p_preview: Json;
+          p_thread?: string;
+        };
+        Returns: Json;
+      };
+      assistant_reject: {
+        Args: {
+          p_proposal: string;
+        };
+        Returns: undefined;
+      };
+      assistant_usage_check: {
+        Args: {
+          p_center: string;
+          p_cost?: number;
+        };
+        Returns: Json;
+      };
+      assistant_usage_status: {
+        Args: {
+          p_center: string;
+        };
+        Returns: Json;
+      };
       attach_bank_line_to_payment: {
         Args: {
           p_txn: string;
@@ -13160,6 +13338,12 @@ export type Database = {
         };
         Returns: undefined;
       };
+      resolve_template: {
+        Args: {
+          p_center: string;
+        };
+        Returns: Json;
+      };
       review_gyan_submission: {
         Args: {
           p_submission: string;
@@ -13862,6 +14046,12 @@ export type Database = {
           p_center: string;
         };
         Returns: { user_id: string; person_id: string; name: string; email: string; roles: string[]; has_totp: boolean; phone_verified: boolean; is_owner: boolean; is_admin: boolean }[];
+      };
+      template_problems: {
+        Args: {
+          p: Json;
+        };
+        Returns: string[];
       };
       tier_rank: {
         Args: {
