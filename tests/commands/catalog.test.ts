@@ -7,9 +7,11 @@ vi.mock("@/lib/data/home-tasks", () => ({ loadHomeTasks: vi.fn() }));
 import { revalidatePath } from "next/cache";
 
 import { CATALOG } from "@/lib/commands/catalog";
+import { CONTENT_COMMANDS } from "@/lib/commands/catalog/content";
 import { MESSAGES_COMMANDS } from "@/lib/commands/catalog/messages";
 import { PEOPLE_COMMANDS } from "@/lib/commands/catalog/people";
 import { SETTINGS_COMMANDS } from "@/lib/commands/catalog/settings";
+import { STORE_COMMANDS } from "@/lib/commands/catalog/store";
 import { pickSaved } from "@/lib/commands/catalog/messages-draft-reminder";
 import { draftReminder, fillTemplate, whenText } from "@/lib/commands/catalog/reminder-text";
 import { CommandRegistry } from "@/lib/commands/registry";
@@ -25,7 +27,7 @@ const DIWALI = "7d0f3b9a-6a39-4d0c-9f43-0a1a1d7c1001";
 const PICNIC = "7d0f3b9a-6a39-4d0c-9f43-0a1a1d7c1003";
 const CANCELLED = "7d0f3b9a-6a39-4d0c-9f43-0a1a1d7c1004";
 
-const ALL_PERMISSIONS = ["people.view", "people.manage", "people.approve", "giving.view", "giving.manage", "giving.record_offline", "giving.approve", "events.view", "events.manage", "comms.send", "comms.approve", "comms.inbox", "accounting.close", "settings.manage", "roles.manage", "integrations.manage"];
+const ALL_PERMISSIONS = ["people.view", "people.manage", "people.approve", "giving.view", "giving.manage", "giving.record_offline", "giving.approve", "events.view", "events.manage", "comms.send", "comms.approve", "comms.inbox", "accounting.close", "settings.manage", "roles.manage", "integrations.manage", "content.view", "content.draft", "content.manage", "content.approve", "store.view", "store.manage", "store.pickup"];
 
 function catalogRegistry() {
   const r = new CommandRegistry();
@@ -550,9 +552,10 @@ describe("no command result reaches a model with a child in it", () => {
   /**
    * The People commands take real ids, so they run against their own community (a UUID world with children in it) in people-reads.test.ts;
    * the Settings commands run against theirs (tests/commands/settings-commands.test.ts), which has a child holding a role; the Messages
-   * commands against theirs too: tests/commands/messages-commands.test.ts ("D2 across the Messages commands") checks every one of them.
+   * commands against theirs too: tests/commands/messages-commands.test.ts ("D2 across the Messages commands") checks every one of them. The Content and Store commands
+   * run against theirs (tests/commands/content-store-world.ts): content-commands.test.ts and store-commands.test.ts check every one of them for children.
    */
-  const OWN_WORLD = new Set([...PEOPLE_COMMANDS, ...SETTINGS_COMMANDS, ...MESSAGES_COMMANDS].map((c) => c.key));
+  const OWN_WORLD = new Set([...PEOPLE_COMMANDS, ...SETTINGS_COMMANDS, ...MESSAGES_COMMANDS, ...CONTENT_COMMANDS, ...STORE_COMMANDS].map((c) => c.key));
 
   /** A plausible input for every command in the catalog. A new command must be added here, or this file fails. */
   const SAMPLE_INPUT: Record<string, unknown> = {

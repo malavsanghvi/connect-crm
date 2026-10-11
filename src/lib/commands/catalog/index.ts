@@ -6,6 +6,7 @@
 import { defaultRegistry } from "../registry";
 import type { AnyCommand } from "../types";
 
+import { CONTENT_COMMANDS } from "./content";
 import { EVENT_COMMANDS } from "./events";
 import { bankLinesUnmatched } from "./giving-bank-lines";
 import { draftPayment } from "./giving-draft-payment";
@@ -20,6 +21,7 @@ import { PEOPLE_COMMANDS } from "./people";
 import { peopleSearch } from "./people-search";
 import { pledgesBehind } from "./pledges-behind";
 import { SETTINGS_COMMANDS } from "./settings";
+import { STORE_COMMANDS } from "./store";
 import { tasksMine } from "./tasks-mine";
 
 export const CATALOG: readonly AnyCommand[] = [
@@ -44,6 +46,9 @@ export const CATALOG: readonly AnyCommand[] = [
   ...MESSAGES_COMMANDS,
   // Settings and Setup: the setup concierge and the roles helper (reads, one draft, and what only the person can do)
   ...SETTINGS_COMMANDS,
+  // Content (approval queue, Niva's sources, media counts, drafts) and Store (orders, stock, sales): reads, a draft, and confirm ones that are off for Niva by default
+  ...CONTENT_COMMANDS,
+  ...STORE_COMMANDS,
 ];
 
 let registered = false;
