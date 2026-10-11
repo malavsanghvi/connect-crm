@@ -268,7 +268,7 @@ export function leakedMinorNames(value: unknown, minorNames: Iterable<MinorNameE
 const MAX_MINORS = 20_000;
 const PERSON_COLUMNS = "id, first_name, last_name, preferred_name, email, phone_e164, member_number";
 /** The household roles that are not a head, spouse or parent: with no birth date on file, isAdultMember counts these people as children. */
-const NON_ADULT_ROLES = ["child", "sibling", "other"];
+const NON_ADULT_ROLES: ("child" | "sibling" | "other")[] = ["child", "sibling", "other"];
 
 type NamedPerson = {
   id: string;
