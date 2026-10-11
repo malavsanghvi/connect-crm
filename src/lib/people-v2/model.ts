@@ -1,0 +1,162 @@
+// What the People workspace (new look) draws, already worded and formatted: the server page fills it from the database, the dev
+// preview fills it from invented sample data, and the view only draws it. Money is formatted in the organization's currency
+// before it gets here; households always come with their numbers and adults (never a name alone).
+
+import type { HouseholdCard } from "@/lib/commands/types";
+
+import type { AskChip, HouseholdFilters, Zone } from "./ask";
+import type { SortKey } from "./list";
+
+export type PeopleView = "households" | "people" | "reviews" | "duplicates";
+
+export const PEOPLE_VIEWS: readonly PeopleView[] = ["households", "people", "reviews", "duplicates"];
+
+export function peopleView(v: string | undefined): PeopleView {
+  return (PEOPLE_VIEWS as readonly string[]).includes(v ?? "") ? (v as PeopleView) : "households";
+}
+
+/** A section that may be hidden by the person's role or fail to load: said in words either way. */
+export type Section<T> = { state: "ok"; data: T } | { state: "hidden"; reason: string } | { state: "error"; message: string };
+
+export type Problem = { what: string; message: string };
+
+export type TabLink = { key: string; label: string; href: string; current: boolean };
+
+export type QuickChip = { key: string; label: string; href: string | null; current: boolean; comingNext?: boolean; title?: string };
+
+export type AskModel = {
+  /** The sentence as the person typed it (kept in the box). */
+  said: string;
+  /** True when the box was used and nothing in it could be read. */
+  unread: boolean;
+  filters: HouseholdFilters;
+  chips: (AskChip & { removeHref: string })[];
+  clearHref: string | null;
+  /** Hidden fields the "Add a filter" form keeps (the view, the sort). */
+  keep: Record<string, string>;
+  zones: Zone[];
+  tiers: { key: string; label: string }[];
+  placeholder: string;
+  /** The filters in words without any typed search (D2), for the sentences sent to Niva. */
+  forNiva: string;
+  year: number;
+  /** Where the box's GET form goes. */
+  action: string;
+};
+
+export type HouseholdRowView = {
+  id: string;
+  href: string;
+  selected: boolean;
+  name: string;
+  /** "Household 0212 · RNA-H-2041" */
+  ids: string;
+  primary: string;
+  area: string;
+  /** Formatted; null when the role cannot see giving. */
+  open: string | null;
+  lastGift: string;
+  lastRsvp: string;
+};
+
+export type PersonRowView = {
+  id: string;
+  href: string;
+  selected: boolean;
+  name: string;
+  ids: string;
+  relationship: string;
+  household: string;
+  age: string;
+  contact: string;
+};
+
+export type ListPaging = { showing: string; prevHref: string | null; nextHref: string | null };
+
+export type HouseholdsSection = {
+  rows: HouseholdRowView[];
+  paging: ListPaging;
+  sort: SortKey;
+  sortHrefs: Record<SortKey, string>;
+  /** Sorting by open balance needs a giving permission. */
+  canSortByOpen: boolean;
+  emptyTitle: string;
+  emptyHint: string | null;
+};
+
+export type PeopleSection = { rows: PersonRowView[]; paging: ListPaging; bands: QuickChip[]; emptyTitle: string };
+
+export type ReviewItem = { id: string; title: string; detail: string; household: HouseholdCard | null; href: string };
+
+export type ReviewsSection = Section<{
+  applications: ReviewItem[];
+  applicationsTotal: number | null;
+  requests: ReviewItem[];
+  requestsTotal: number;
+  /** Requests that mention a child: counted only, decided on the family requests screen. */
+  forScreen: number;
+  note: string | null;
+  applicationsHref: string;
+  requestsHref: string;
+}>;
+
+export type DuplicateSide = { id: string; title: string; lines: string[]; card: HouseholdCard | null };
+
+export type DuplicateItem = {
+  candidateId: string;
+  kind: "person" | "household";
+  sides: [DuplicateSide, DuplicateSide];
+  compareHref: string;
+  /** People: the record the system would keep (the one that signs in, else the fuller one). The person decides. */
+  suggestedKeepId: string | null;
+  /** Both people sign in to the app: they cannot be merged here. */
+  blocked: string | null;
+};
+
+export type DuplicatesSection = Section<{ items: DuplicateItem[]; forScreen: number; mergeScreenHref: string }>;
+
+export type CardFact = { label: string; value: string; tone?: "money" | "mono" | "strong" };
+
+export type HouseholdPanel = {
+  id: string;
+  name: string;
+  ids: string;
+  facts: CardFact[];
+  recordPaymentHref: string | null;
+  fullPageHref: string;
+  /** Another household the system matched to this one (merge_candidates). */
+  noticed: { name: string; ids: string; place: string | null; compareHref: string; candidateId: string } | null;
+  adults: { name: string; role: string; contact: string; onApp: boolean }[];
+  /** Shown to the person on screen only; never in anything sent to Niva (D2). */
+  children: { name: string; age: string }[];
+  membership: Section<{ label: string; detail: string }[]>;
+  giving: Section<{ open: string; lastGift: string; pledges: { label: string; progress: string; closed: boolean }[] }>;
+  requests: Section<{ what: string; when: string; href: string }[]>;
+  activity: Section<{ when: string; what: string; detail: string }[]>;
+  /** The sentence the card's "Ask Niva" sends: the household's numbers and its ADULTS only (D2). */
+  nivaPrompt: string;
+  problems: Problem[];
+};
+
+export type PanelState =
+  | { state: "none" }
+  | { state: "ok"; card: HouseholdPanel; explicit: boolean; closeHref: string }
+  | { state: "error"; message: string; explicit: boolean; closeHref: string };
+
+export type PeopleWorkspaceModel = {
+  view: PeopleView;
+  tabs: TabLink[];
+  quick: QuickChip[];
+  ask: AskModel;
+  /** "17 households", "$4,860.00" (null when balances are not visible). */
+  summary: { count: string; open: string | null } | null;
+  /** What "Draft a reminder for these" asks Niva (no names: D2). null when there is nothing to draft for. */
+  draftPrompt: string | null;
+  households: HouseholdsSection | null;
+  people: PeopleSection | null;
+  reviews: ReviewsSection | null;
+  duplicates: DuplicatesSection | null;
+  panel: PanelState;
+  problems: Problem[];
+  notes: string[];
+};
