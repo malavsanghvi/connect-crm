@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
+import { GivingAskNiva } from "@/app/(app)/giving/_components/giving-ask-niva";
 import { HouseholdDrawerProvider, HouseholdRow } from "@/app/(app)/giving/_components/household-drawer";
 import { HistoryButton } from "@/components/record-history";
 import { WriteOffControls } from "@/components/two-person-controls";
@@ -27,6 +28,7 @@ export default async function PledgesPage({ searchParams }: { searchParams: Prom
     <PageHeader
       title="Giving"
       description="Cash basis · every commitment is a pledge; payments close the earliest open pledge unless tied to a specific one"
+      actions={<GivingAskNiva about="pledges" />}
     />
   );
   if (!canAccess(session, "pledges")) {
