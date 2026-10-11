@@ -1074,6 +1074,7 @@ export type Database = {
           aliases: string[];
           sort: number;
           active: boolean;
+          template: Json | null;
         };
         Insert: {
           category_key: string;
@@ -1084,6 +1085,7 @@ export type Database = {
           aliases?: string[];
           sort?: number;
           active?: boolean;
+          template?: Json | null;
         };
         Update: {
           category_key?: string;
@@ -1094,6 +1096,7 @@ export type Database = {
           aliases?: string[];
           sort?: number;
           active?: boolean;
+          template?: Json | null;
         };
         Relationships: [];
       };
@@ -5368,6 +5371,7 @@ export type Database = {
           wording_pack: string;
           wording: Json;
           library_pack: string | null;
+          template: Json | null;
         };
         Insert: {
           key: string;
@@ -5385,6 +5389,7 @@ export type Database = {
           wording_pack?: string;
           wording?: Json;
           library_pack?: string | null;
+          template?: Json | null;
         };
         Update: {
           key?: string;
@@ -5402,6 +5407,7 @@ export type Database = {
           wording_pack?: string;
           wording?: Json;
           library_pack?: string | null;
+          template?: Json | null;
         };
         Relationships: [];
       };
@@ -13160,6 +13166,12 @@ export type Database = {
         };
         Returns: undefined;
       };
+      resolve_template: {
+        Args: {
+          p_center: string;
+        };
+        Returns: Json;
+      };
       review_gyan_submission: {
         Args: {
           p_submission: string;
@@ -13862,6 +13874,12 @@ export type Database = {
           p_center: string;
         };
         Returns: { user_id: string; person_id: string; name: string; email: string; roles: string[]; has_totp: boolean; phone_verified: boolean; is_owner: boolean; is_admin: boolean }[];
+      };
+      template_problems: {
+        Args: {
+          p: Json;
+        };
+        Returns: string[];
       };
       tier_rank: {
         Args: {
