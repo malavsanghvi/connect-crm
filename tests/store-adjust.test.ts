@@ -29,10 +29,14 @@ const stub = vi.hoisted(() => ({
 
 vi.mock("server-only", () => ({}));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
+vi.mock("@/lib/data/home-tasks", () => ({ loadHomeTasks: vi.fn() }));
+vi.mock("@/lib/supabase/server", () => ({ createSupabaseServerClient: vi.fn() }));
 vi.mock("@/lib/session", () => ({
   authorizeAction: async (_key: string, doing: string) => {
     if (stub.denied) return { ok: false, error: `Could not ${doing} — ${stub.denied}` };
     const db = {
+      // The actions run the command store.adjust_stock, whose context keeps proposals through the database's rpc (not used here).
+      rpc: async () => ({ data: null, error: null }),
       from: (table: string) => ({
         select: () => {
           const filters: [string, unknown][] = [];

@@ -4,7 +4,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 // and the database by a stand-in client: what is checked is what each action sends to the 0590 functions (and what it
 // refuses to send), and what it answers the screen.
 const CENTER = "00000000-0000-4000-8000-000000000001";
-const TERM = "t1111111-1111-4111-8111-111111111111";
+// A real UUID: Save fees runs the command learning.set_level_fees, whose term id must be one.
+const TERM = "a1111111-1111-4111-8111-111111111111";
 
 type Row = Record<string, unknown>;
 
@@ -42,7 +43,8 @@ vi.mock("@/lib/pathshala/server", () => ({
         },
       }),
     };
-    return { viewer: stub.viewer, supabase: db, centerId: CENTER, tz: "America/Chicago" };
+    // As the real actionContext: the viewer's own database client is the one it hands back.
+    return { viewer: { ...(stub.viewer as object), db }, supabase: db, centerId: CENTER, tz: "America/Chicago" };
   },
 }));
 

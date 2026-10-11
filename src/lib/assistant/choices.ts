@@ -17,6 +17,6 @@ export function confirmToolChoices(rules: Json | undefined): ToolChoice[] {
   ensureCatalog();
   return defaultRegistry
     .all()
-    .filter((c) => c.level === "confirm")
+    .filter((c) => c.level === "confirm" && !c.screenOnly)
     .map((c) => ({ key: c.key, title: c.title, description: firstSentence(c.description), on: isCommandEnabled(c, rules), moneyNote: c.requiresOwnerSwitch ? MONEY_NOTE : null }));
 }

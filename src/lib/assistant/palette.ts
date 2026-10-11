@@ -23,10 +23,13 @@ export const AREA_LABEL: Record<string, string> = {
   events: "Events",
   messages: "Messages",
   accounting: "Accounting",
+  reports: "Reports",
+  platform: "Platform",
+  learning: "Learning",
   tasks: "My tasks",
 };
 
-const AREA_ORDER = ["tasks", "people", "giving", "accounting", "events", "messages"];
+const AREA_ORDER = ["tasks", "people", "giving", "accounting", "events", "learning", "messages", "reports", "platform"];
 
 export function areaLabel(area: string): string {
   return AREA_LABEL[area] ?? (area ? area.charAt(0).toUpperCase() + area.slice(1) : "Other");

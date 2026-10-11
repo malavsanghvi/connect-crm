@@ -92,23 +92,23 @@ export function checkSiteInputs(own: string, refs: readonly string[]): CheckedIn
 }
 
 // ── Small readers for data of an unknown shape ───────────────────────────────
-type Rec = Record<string, unknown>;
-const rec = (v: unknown): Rec | null => (v !== null && typeof v === "object" && !Array.isArray(v) ? (v as Rec) : null);
-const arr = (v: unknown): unknown[] => (Array.isArray(v) ? v : []);
-const str = (v: unknown, max = 300): string => (typeof v === "string" ? v.replace(/\s+/g, " ").trim().slice(0, max) : "");
-const num = (v: unknown): number => {
+export type Rec = Record<string, unknown>;
+export const rec = (v: unknown): Rec | null => (v !== null && typeof v === "object" && !Array.isArray(v) ? (v as Rec) : null);
+export const arr = (v: unknown): unknown[] => (Array.isArray(v) ? v : []);
+export const str = (v: unknown, max = 300): string => (typeof v === "string" ? v.replace(/\s+/g, " ").trim().slice(0, max) : "");
+export const num = (v: unknown): number => {
   const n = typeof v === "number" ? v : typeof v === "string" ? Number(v) : NaN;
   return Number.isFinite(n) ? n : 0;
 };
 const bool = (v: unknown): boolean => v === true;
 const HEX = /^#[0-9a-f]{6}$/i;
-const hex = (v: unknown): string | null => (typeof v === "string" && HEX.test(v) ? v.toLowerCase() : null);
+export const hex = (v: unknown): string | null => (typeof v === "string" && HEX.test(v) ? v.toLowerCase() : null);
 // A font name is short: letters, digits, spaces, hyphens, at most 40 characters and 4 words. Anything longer is not a font name.
 const FONT = /^[\p{L}\p{N}][\p{L}\p{N} _'-]{0,39}$/u;
-const fontName = (v: unknown): string | null => (typeof v === "string" && FONT.test(v.trim()) && v.trim().split(/\s+/).length <= 4 ? v.trim() : null);
+export const fontName = (v: unknown): string | null => (typeof v === "string" && FONT.test(v.trim()) && v.trim().split(/\s+/).length <= 4 ? v.trim() : null);
 const HOST = /^[a-z0-9.-]{1,120}$/;
 const hostOf = (v: unknown): string => (typeof v === "string" && HOST.test(v.toLowerCase()) ? v.toLowerCase() : "");
-const strs = (v: unknown, max = 300, limit = 20): string[] => arr(v).map((x) => str(x, max)).filter(Boolean).slice(0, limit);
+export const strs = (v: unknown, max = 300, limit = 20): string[] => arr(v).map((x) => str(x, max)).filter(Boolean).slice(0, limit);
 
 /** An address that is safe to put in a link or an image: http or https, no user name. */
 export function webAddress(v: unknown): string | null {

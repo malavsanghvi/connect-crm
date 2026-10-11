@@ -8,6 +8,7 @@
 import { defaultRegistry } from "../registry";
 import type { AnyCommand } from "../types";
 
+import { CONTENT_COMMANDS } from "./content";
 import { EVENT_COMMANDS } from "./events";
 import { bankLinesUnmatched } from "./giving-bank-lines";
 import { confirmExactZelleMatches } from "./giving-confirm-zelle";
@@ -18,13 +19,17 @@ import { matchDeposit } from "./giving-match-deposit";
 import { recordPayment } from "./giving-record-payment";
 import { waitingForSecondApprover } from "./giving-second-approver";
 import { zelleWaiting } from "./giving-zelle-waiting";
+import { LEARNING_COMMANDS } from "./learning";
 import { MESSAGES_COMMANDS } from "./messages";
 import { draftReminderCommand } from "./messages-draft-reminder";
 import { monthCloseBlockers } from "./month-close-blockers";
 import { PEOPLE_COMMANDS } from "./people";
 import { peopleSearch } from "./people-search";
+import { PLATFORM_COMMANDS } from "./platform";
 import { pledgesBehind } from "./pledges-behind";
+import { REPORTS_COMMANDS } from "./reports";
 import { SETTINGS_COMMANDS } from "./settings";
+import { STORE_COMMANDS } from "./store";
 import { tasksMine } from "./tasks-mine";
 
 export const CATALOG: readonly AnyCommand[] = [
@@ -49,6 +54,14 @@ export const CATALOG: readonly AnyCommand[] = [
   ...MESSAGES_COMMANDS,
   // Settings and Setup: the setup concierge and the roles helper (reads, one draft, and what only the person can do)
   ...SETTINGS_COMMANDS,
+  // Content (approval queue, Niva's sources, media counts, drafts) and Store (orders, stock, sales): reads, a draft, and confirm ones that are off for Niva by default
+  ...CONTENT_COMMANDS,
+  ...STORE_COMMANDS,
+  // Reports (ask questions of your data; the sums are done in the database) and the Platform console (Weaver team only)
+  ...REPORTS_COMMANDS,
+  ...PLATFORM_COMMANDS,
+  // Learning (docs/ADMIN_REDESIGN.md phase 4): terms, levels, fees, classes and teachers (adults); nothing about a learner (D2)
+  ...LEARNING_COMMANDS,
   // Giving: the three that move money are confirm commands, off for EVERY door until an owner switches each one on (requiresOwnerSwitch)
   recordPayment,
   confirmExactZelleMatches,

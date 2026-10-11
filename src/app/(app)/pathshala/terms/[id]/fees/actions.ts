@@ -2,20 +2,22 @@
 
 import { refresh } from "next/cache";
 
+import { runCommandFromScreen } from "@/lib/commands/catalog/events/bridge";
+import { setLevelFeesCommand } from "@/lib/commands/catalog/learning";
 import type { ActionResult } from "@/lib/errors";
 import { bool, dateTime, DbFailure, FormError, int, isoDate, must, ok, oneOf, runAction, str } from "@/lib/forms";
 import { pathshalaAreas as areas } from "@/lib/pathshala/access";
 import { actionContext } from "@/lib/pathshala/server";
 import { FUND_CLEARED_SENTENCE, PAYMENT_MODES, SEAT_RULES, type ExampleLineInput, type Quote, type TermRulesInput } from "@/lib/pathshala-registration/contract";
-import { feeExample, loadLevelFees, loadLevelRows, loadTermRules, NEEDS_UPDATE, openRegistration, setLevelFees, setTermRules } from "@/lib/pathshala-registration/db";
-import { changedFees, savedFeesSentence } from "@/lib/pathshala-registration/fees";
+import { feeExample, loadTermRules, NEEDS_UPDATE, openRegistration, setTermRules } from "@/lib/pathshala-registration/db";
 import { parseAgeInput } from "@/lib/pathshala-registration/levels";
-import { parseFeeInput, parseMoneyInput } from "@/lib/pathshala-registration/money";
+import { parseMoneyInput } from "@/lib/pathshala-registration/money";
 import { refusal } from "@/lib/pathshala-registration/refusal";
 import { feeEditing, rulesProblem } from "@/lib/pathshala-registration/rules";
 
-// Pathshala › Terms › Fees and rules (PATHSHALA_REGISTRATION_PLAN §2.2, §2.6, §2.7, §3.3). Every write goes through
-// the 0590 functions, which check who may (P9, P16: before the lock the principal or the treasurer; after it the
+// Pathshala › Terms › Fees and rules (PATHSHALA_REGISTRATION_PLAN §2.2, §2.6, §2.7, §3.3). Save fees is the command
+// learning.set_level_fees (src/lib/commands/catalog/learning/set-level-fees.ts): this action reads the form and runs it, the
+// same code the ⌘K palette and Niva run after a confirmation. Every write goes through the 0590 functions, which check who may (P9, P16: before the lock the principal or the treasurer; after it the
 // treasurer with a reason) and every rule; these actions check first so the form can explain before it asks.
 
 /** Most learners "Try a family" works out at once. */
@@ -52,32 +54,16 @@ function reasonFor(fd: FormData, needsReason: boolean, what: string): string | n
  */
 export async function saveFeesAction(termId: string, _prev: unknown, fd: FormData): Promise<ActionResult<unknown>> {
   return runAction("pathshala.saveFees", "save the fees", async () => {
-    const { supabase, centerId, viewer, term, editing } = await termForChange(termId);
-    if (!editing.canEdit) throw new FormError(editing.note);
-    const [levels, fees] = await Promise.all([loadLevelRows(supabase, centerId), loadLevelFees(supabase, centerId)]);
-    if (levels.status === "missing" || fees.status === "missing") throw new FormError(NEEDS_UPDATE);
-    if (levels.status === "error") throw new DbFailure(levels.error, "read the levels");
-    if (fees.status === "error") throw new DbFailure(fees.error, "read the saved fees");
-    if (levels.status === "shape" || fees.status === "shape") throw new FormError("The levels or the saved fees could not be read. Has the latest migration been applied?");
-    const names = new Map(levels.value.map((l) => [l.id, l.name]));
-    const entered = new Map<string, number | null>();
+    const { viewer } = await actionContext(areas.fees, "You don't have access to Pathshala fees.");
+    // Every fee box of the form, in the order it came (blank ones too); the command reads them the way this action always did.
+    const boxes: { level_id: string; fee: string }[] = [];
     for (const [key, value] of fd.entries()) {
-      if (!key.startsWith("fee:")) continue;
-      const levelId = key.slice("fee:".length);
-      const name = names.get(levelId);
-      if (!name) throw new FormError("One of the levels on this page no longer exists. Reload the page.");
-      const parsed = parseFeeInput(typeof value === "string" ? value : "", name, viewer.center.currency);
-      if (!parsed.ok) throw new FormError(parsed.error);
-      entered.set(levelId, parsed.cents);
+      if (key.startsWith("fee:")) boxes.push({ level_id: key.slice("fee:".length), fee: typeof value === "string" ? value : "" });
     }
-    const saved = new Map(fees.value.filter((f) => f.term_id === termId).map((f) => [f.level_id, f.fee_cents]));
-    const changes = changedFees(saved, entered);
-    if (!changes.length) return ok("Nothing to save: every fee is as it was.");
-    const reason = reasonFor(fd, editing.needsReason, "fees");
-    const res = await setLevelFees(supabase, termId, changes, reason);
-    if (!res.ok) return refusal("save the fees", res);
-    refresh();
-    return ok(savedFeesSentence(changes, names, term.name, viewer.center.currency, editing.locked));
+    // The checks and the write are the command learning.set_level_fees, the very one the ⌘K palette and Niva run after a confirmation.
+    const res = await runCommandFromScreen(setLevelFeesCommand, viewer, { term_id: termId, fees: JSON.stringify(boxes), ...(str(fd, "reason") ? { reason: str(fd, "reason") } : {}) });
+    if (res.ok) refresh();
+    return res;
   });
 }
 

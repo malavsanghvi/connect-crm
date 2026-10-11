@@ -35,6 +35,7 @@ export async function runScreenCommand<O = undefined>(key: string, raw: unknown,
   const auth = await authorizeAction(cmd.permission, doing);
   if (!auth.ok) return auth;
   const { session } = auth;
+  if (cmd.platformOnly && !session.isPlatformAdmin) return { ok: false, error: `Could not ${doing} — only the Weaver team (platform admins) can do this.` };
   if (cmd.module && !isModuleEnabled(session, cmd.module)) {
     return { ok: false, error: moduleOffMessage(cmd.module, session.center.name, moduleDef(cmd.module).label) };
   }
