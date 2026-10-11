@@ -53,13 +53,13 @@ end $$;
 -- A day offset from now.
 create or replace function pg_temp.ago(d integer) returns timestamptz language sql stable as $$ select now() - make_interval(days => d) $$;
 
-\set m100 '''10000000-0000-4000-8000-0000000000a1'''
-\set n100 '''10000000-0000-4000-8000-0000000000b1'''
-\set o100 '''10000000-0000-4000-8000-0000000000c1'''
-\set adm100 '''10000000-0000-4000-8000-000000000001'''
-\set lead100 '''10000000-0000-4000-8000-000000000002'''
-\set admn100 '''10000000-0000-4000-8000-000000000003'''
-\set plat100 '''10000000-0000-4000-8000-000000000004'''
+\set m100 '''10000100-0000-4000-8000-0000000000a1'''
+\set n100 '''10000100-0000-4000-8000-0000000000b1'''
+\set o100 '''10000100-0000-4000-8000-0000000000c1'''
+\set adm100 '''10000100-0000-4000-8000-000000000001'''
+\set lead100 '''10000100-0000-4000-8000-000000000002'''
+\set admn100 '''10000100-0000-4000-8000-000000000003'''
+\set plat100 '''10000100-0000-4000-8000-000000000004'''
 
 select pg_temp.as_none();
 grant connect_worker to postgres;   -- the tests switch to connect_worker; a hosted postgres holds ADMIN on it but not SET
@@ -167,13 +167,13 @@ select pg_temp.assert((select count(*) = 5 and bool_and(p.prosecdef and array_to
 
 -- ══ B. Mining ════════════════════════════════════════════════════════════════
 select pg_temp.as_user(:lead100);
-select pg_temp.assert_raises($q$select app.activity_mine('10000000-0000-4000-8000-0000000000a1')$q$, 'background service',
+select pg_temp.assert_raises($q$select app.activity_mine('10000100-0000-4000-8000-0000000000a1')$q$, 'background service',
   'B · an event lead cannot run the miner');
 select pg_temp.as_user(:adm100);
-select pg_temp.assert_raises($q$select app.activity_mine('10000000-0000-4000-8000-0000000000a1')$q$, 'background service',
+select pg_temp.assert_raises($q$select app.activity_mine('10000100-0000-4000-8000-0000000000a1')$q$, 'background service',
   'B · nor can the community''s own administrator');
 select pg_temp.as_none();
-select pg_temp.assert_raises($q$select app.activity_mine('10000000-0000-4000-8000-0000000000a1')$q$, 'background service',
+select pg_temp.assert_raises($q$select app.activity_mine('10000100-0000-4000-8000-0000000000a1')$q$, 'background service',
   'B · nor a session with no worker role and no platform admin');
 select pg_temp.assert((select count(*) = 0 from app.automation_candidates), 'B · before the miner runs there are no ideas');
 
@@ -242,7 +242,7 @@ select pg_temp.assert(:n_mined2 = 7 and (select count(*) = :n_before from app.au
 
 -- A staff member with settings.manage accepts one idea; the database stamps who and when.
 select pg_temp.as_user(:adm100);
-update app.automation_candidates set status = 'accepted', decided_by = '10000000-0000-4000-8000-0000000000ff'
+update app.automation_candidates set status = 'accepted', decided_by = '10000100-0000-4000-8000-0000000000ff'
  where center_id = :m100 and role_key = 'content_editor';
 update app.automation_candidates set status = 'dismissed' where center_id = :m100 and role_key = 'finance_volunteer';
 select pg_temp.as_none();
@@ -344,10 +344,10 @@ select count(*) as use_rows, sum(events) as use_events, max(events) filter (wher
        sum(people) filter (where item_key = 'comms.send') as use_send_people
   from app.activity_usage(:m100, 30) \gset
 select pg_temp.as_user(:lead100);
-select pg_temp.assert_raises($q$select * from app.activity_usage('10000000-0000-4000-8000-0000000000a1', 30)$q$, 'don''t have access to this area',
+select pg_temp.assert_raises($q$select * from app.activity_usage('10000100-0000-4000-8000-0000000000a1', 30)$q$, 'don''t have access to this area',
   'G · a person without settings.manage is told they have no access, not shown an empty table');
 select pg_temp.as_user(:admn100);
-select pg_temp.assert_raises($q$select * from app.activity_usage('10000000-0000-4000-8000-0000000000a1', 30)$q$, 'don''t have access to this area',
+select pg_temp.assert_raises($q$select * from app.activity_usage('10000100-0000-4000-8000-0000000000a1', 30)$q$, 'don''t have access to this area',
   'G · neither is another community''s administrator');
 select pg_temp.as_none();
 select pg_temp.assert(:use_rows > 10 and :use_events = (select count(*) from app.activity_events where center_id = :m100 and occurred_at >= now() - interval '30 days')
