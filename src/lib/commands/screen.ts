@@ -39,6 +39,7 @@ export async function runScreenCommand<O = undefined>(key: string, raw: unknown,
   if (cmd.module && !isModuleEnabled(session, cmd.module)) {
     return { ok: false, error: moduleOffMessage(cmd.module, session.center.name, moduleDef(cmd.module).label) };
   }
+  if (cmd.requiresOwnerSwitch) return { ok: false, error: `Could not ${doing} — it moves money, so it only runs after it is confirmed on its card. It cannot be run straight from a screen.` };
   const parsed = cmd.input.parse(raw);
   if (!parsed.ok) return { ok: false, error: `Could not ${doing} — ${lowerFirst(parsed.error)}` };
   try {
