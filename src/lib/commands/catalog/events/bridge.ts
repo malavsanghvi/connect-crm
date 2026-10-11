@@ -16,6 +16,7 @@ function lowerFirst(s: string): string {
 /** Run `command.execute` for a screen. `input` is what the action read from its form; the command checks it again. */
 export async function runCommandFromScreen<O = unknown>(command: AnyCommand, session: CrmSession, input: unknown): Promise<ActionResult<O>> {
   if (!command.execute) return { ok: false, error: `Could not ${lowerFirst(command.title)} — it cannot be run from here.` };
+  if (command.requiresOwnerSwitch) return { ok: false, error: `Could not ${lowerFirst(command.title)} — it moves money, so it only runs after it is confirmed on its card.` };
   const parsed = command.input.parse(input);
   if (!parsed.ok) return { ok: false, error: `Could not ${lowerFirst(command.title)} — ${lowerFirst(parsed.error)}` };
   const ctx: CommandContext = { session, via: "screen", proposals: createRpcProposalStore(session.db) };

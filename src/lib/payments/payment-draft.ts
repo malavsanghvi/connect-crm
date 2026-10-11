@@ -45,6 +45,21 @@ export type DraftPledge = AllocatablePledge & {
   campaign: string | null;
 };
 
+/**
+ * One line of a plan as it is stored with a confirmation and run exactly as shown: the pledge, how much of the payment goes to it,
+ * and what the pledge looked like when the card was made (its amount and what was paid), so that a pledge that has changed since
+ * is noticed instead of being paid on a guess.
+ */
+export type PlannedLine = { pledge_id: string; amount_cents: number; pledge_amount_cents: number; pledge_paid_cents: number };
+
+/** A pledge on the confirmed card is no longer as it was. The message is a sentence for the person. */
+export class PlanChangedError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "PlanChangedError";
+  }
+}
+
 export type DraftLine = {
   pledge_id: string;
   pledge_number: string | null;
@@ -59,6 +74,8 @@ export type DraftLine = {
   open_after_cents: number;
   open_after: string;
   closes: boolean;
+  pledge_amount_cents: number;
+  pledge_paid_cents: number;
 };
 
 export type QuestionKind = "partial" | "overpayment" | "no_open_pledge" | "not_a_gift" | "named_not_open" | "cannot_apply";
@@ -76,6 +93,8 @@ export type DraftPlan = {
   questions: AllocationQuestion[];
   /** Plain sentences: what the household's pledges look like after this payment. */
   after: string[];
+  /** The lines in the form a confirmation stores and the database runs exactly (empty when nothing is applied). */
+  stored: PlannedLine[];
 };
 
 function pledgeName(p: Pick<DraftPledge, "campaign" | "source" | "pledge_number">): string {
@@ -99,8 +118,13 @@ export function planDraftAllocation(input: {
   chosen: readonly string[] | null;
   canAllocate: boolean;
   currency: string;
+  /**
+   * The lines a confirmation stored. When given, the plan is exactly these lines, checked against the pledges as they are now
+   * (PlanChangedError when one has changed); nothing is worked out again, so what runs is what the card showed.
+   */
+  forced?: readonly PlannedLine[];
 }): DraftPlan {
-  const { amountCents, pledges, mode, chosen, canAllocate, currency } = input;
+  const { amountCents, pledges, mode, chosen, canAllocate, currency, forced } = input;
   const money = (c: number) => formatCents(c, currency);
   const eligible = pledges.filter((p) => (p.status === "open" || p.status === "partially_paid") && openCents(p) > 0);
   const byId = new Map(pledges.map((p) => [p.id, p]));
@@ -115,6 +139,7 @@ export function planDraftAllocation(input: {
     open_pledge_count: eligible.length,
     questions,
     after: [`${money(amountCents)} would be recorded as a general gift and not applied to any pledge.`],
+    stored: [],
   });
 
   if (mode === "none") return empty();
@@ -149,7 +174,7 @@ export function planDraftAllocation(input: {
     return empty();
   }
 
-  const plan = previewAllocation(amountCents, [...eligible], mode === "choose" ? chosen : null);
+  const plan = forced ? forcedAllocation(amountCents, forced, eligible, money) : previewAllocation(amountCents, [...eligible], mode === "choose" ? chosen : null);
   const lines: DraftLine[] = plan.lines.map((l) => {
     const p = byId.get(l.pledge_id)!;
     return {
@@ -165,6 +190,8 @@ export function planDraftAllocation(input: {
       open_after_cents: l.open_after_cents,
       open_after: money(l.open_after_cents),
       closes: l.closes,
+      pledge_amount_cents: p.amount_cents,
+      pledge_paid_cents: p.paid_cents,
     };
   });
 
@@ -211,7 +238,38 @@ export function planDraftAllocation(input: {
     open_pledge_count: eligible.length,
     questions,
     after,
+    stored: lines.map((l) => ({ pledge_id: l.pledge_id, amount_cents: l.applied_cents, pledge_amount_cents: l.pledge_amount_cents, pledge_paid_cents: l.pledge_paid_cents })),
   };
+}
+
+/** The stored lines as an allocation, if every pledge is still as it was when the card was made. */
+function forcedAllocation(
+  amountCents: number,
+  forced: readonly PlannedLine[],
+  eligible: readonly DraftPledge[],
+  money: (cents: number) => string,
+): ReturnType<typeof previewAllocation> {
+  const byId = new Map(eligible.map((p) => [p.id, p]));
+  const seen = new Set<string>();
+  const lines: ReturnType<typeof previewAllocation>["lines"] = [];
+  for (const f of forced) {
+    const p = byId.get(f.pledge_id);
+    const ref = p ? pledgeRef(p) : "A pledge";
+    if (!p) throw new PlanChangedError("A pledge on this card is no longer an open pledge of this household, so nothing was changed. Look at the household again.");
+    if (seen.has(f.pledge_id)) throw new PlanChangedError("The same pledge is on this card twice, so nothing was changed. Look at the household again.");
+    seen.add(f.pledge_id);
+    if (p.amount_cents !== f.pledge_amount_cents || p.paid_cents !== f.pledge_paid_cents) {
+      throw new PlanChangedError(`${ref} changed since this card was made (it is now ${money(p.paid_cents)} paid of ${money(p.amount_cents)}), so nothing was changed. Look at the household again.`);
+    }
+    const open = openCents(p);
+    if (!Number.isSafeInteger(f.amount_cents) || f.amount_cents <= 0 || f.amount_cents > open) {
+      throw new PlanChangedError(`${ref} cannot take ${money(f.amount_cents)} (${money(open)} is open), so nothing was changed. Look at the household again.`);
+    }
+    lines.push({ pledge_id: p.id, amount_cents: f.amount_cents, open_before_cents: open, open_after_cents: open - f.amount_cents, closes: f.amount_cents === open });
+  }
+  const allocated = lines.reduce((sum, l) => sum + l.amount_cents, 0);
+  if (allocated > amountCents) throw new PlanChangedError("The pledges on this card add up to more than the payment, so nothing was changed. Look at the household again.");
+  return { lines, allocated_cents: allocated, unallocated_cents: amountCents - allocated };
 }
 
 // ---------------------------------------------------------------------------

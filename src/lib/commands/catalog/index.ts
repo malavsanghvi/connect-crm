@@ -1,7 +1,9 @@
-// The commands. Read and draft commands are on for everyone whose role allows them; the one confirm-level write is registered
-// but OFF until the owner approves it (assistant.tools.<key> in the community's settings). No command here moves money, changes a
-// role or permission, or deletes anything. The Giving commands (giving.*, B90 phase 4) are reads and one draft: they look at pledges,
-// bank lines, Zelle reports and approvals, and giving.draft_payment prepares a payment without saving it.
+// The commands. Read and draft commands are on for everyone whose role allows them; every confirm-level write is registered but OFF
+// until the owner approves it (assistant.tools.<key> in the community's settings). The Settings ones can give or take away a role and
+// switch a module (settings/index.ts). The Giving commands (giving.*, B90 phase 4) are reads and one draft: they look at pledges,
+// bank lines, Zelle reports and approvals, and giving.draft_payment prepares a payment without saving it. The three that move money
+// (giving.record_payment, giving.confirm_exact_zelle_matches, giving.match_deposit) are built but OFF for every door until an owner
+// switches each one on (requiresOwnerSwitch). Refunds and write-offs have no command: they need a second person.
 
 import { defaultRegistry } from "../registry";
 import type { AnyCommand } from "../types";
@@ -9,11 +11,15 @@ import type { AnyCommand } from "../types";
 import { CONTENT_COMMANDS } from "./content";
 import { EVENT_COMMANDS } from "./events";
 import { bankLinesUnmatched } from "./giving-bank-lines";
+import { confirmExactZelleMatches } from "./giving-confirm-zelle";
 import { draftPayment } from "./giving-draft-payment";
 import { fundMappingStatus } from "./giving-fund-mapping";
 import { householdGivingSummary } from "./giving-household-summary";
+import { matchDeposit } from "./giving-match-deposit";
+import { recordPayment } from "./giving-record-payment";
 import { waitingForSecondApprover } from "./giving-second-approver";
 import { zelleWaiting } from "./giving-zelle-waiting";
+import { LEARNING_COMMANDS } from "./learning";
 import { MESSAGES_COMMANDS } from "./messages";
 import { draftReminderCommand } from "./messages-draft-reminder";
 import { monthCloseBlockers } from "./month-close-blockers";
@@ -54,6 +60,12 @@ export const CATALOG: readonly AnyCommand[] = [
   // Reports (ask questions of your data; the sums are done in the database) and the Platform console (Weaver team only)
   ...REPORTS_COMMANDS,
   ...PLATFORM_COMMANDS,
+  // Learning (docs/ADMIN_REDESIGN.md phase 4): terms, levels, fees, classes and teachers (adults); nothing about a learner (D2)
+  ...LEARNING_COMMANDS,
+  // Giving: the three that move money are confirm commands, off for EVERY door until an owner switches each one on (requiresOwnerSwitch)
+  recordPayment,
+  confirmExactZelleMatches,
+  matchDeposit,
 ];
 
 let registered = false;

@@ -2,6 +2,8 @@
 
 import { refresh } from "next/cache";
 
+import { runCommandFromScreen } from "@/lib/commands/catalog/events/bridge";
+import { assignTeacherCommand, saveClassCommand } from "@/lib/commands/catalog/learning";
 import type { ActionResult } from "@/lib/errors";
 import { bool, dateList, dateTime, DbFailure, FormError, int, isoDate, must, oneOf, reqStr, runAction, str, ok, time } from "@/lib/forms";
 import { reviewSubmission } from "@/lib/gyan-homework/db";
@@ -9,7 +11,8 @@ import { REVIEW_NOTE_MAX } from "@/lib/gyan-homework/homework";
 import { isAttendanceStatus, reportAttendance, type AttendanceStatus } from "@/lib/logic/attendance";
 import { pathshalaAreas as areas } from "@/lib/pathshala/access";
 import { actionContext, searchPeople, type PersonOption } from "@/lib/pathshala/server";
-import { can, hasScopedRole, passesRoleChecks, type ScopedContext } from "@/lib/permissions";
+import { syncTeacherGrant } from "@/lib/pathshala/teacher-grant";
+import { can, hasScopedRole, passesRoleChecks } from "@/lib/permissions";
 import type { AppSupabase } from "@/lib/supabase/server";
 
 /** Where a term that has left Draft can move (a draft leaves Draft only through "Open registration", 0590). */
@@ -62,7 +65,7 @@ export async function saveTerm(termId: string | null, _prev: unknown, fd: FormDa
 // ---------------------------------------------------------------------------
 export async function saveClass(classId: string | null, _prev: unknown, fd: FormData): Promise<ActionResult<unknown>> {
   return runAction("pathshala.saveClass", "save the class", async () => {
-    const { supabase, centerId } = await actionContext(areas.manage, "Only the Pathshala principal can change classes.");
+    const { viewer } = await actionContext(areas.manage, "Only the Pathshala principal can change classes.");
     const starts = time(fd, "starts_time", "Start time");
     const ends = time(fd, "ends_time", "End time");
     if (starts && ends && ends <= starts) throw new FormError("The class must end after it starts.");
@@ -78,29 +81,35 @@ export async function saveClass(classId: string | null, _prev: unknown, fd: Form
       class_email: str(fd, "class_email"),
       waitlist_enabled: bool(fd, "waitlist_enabled"),
     };
-    if (classId) {
-      must(await supabase.from("pathshala_classes").update(values).eq("id", classId), "save the class");
-    } else {
-      must(await supabase.from("pathshala_classes").insert({ ...values, center_id: centerId }), "create the class");
-    }
-    refresh();
-    return ok(classId ? "Class saved." : "Class created.");
+    // The write itself is the command learning.save_class, the very one the ⌘K palette and Niva run after a confirmation.
+    const res = await runCommandFromScreen(saveClassCommand, viewer, {
+      ...(classId ? { class_id: classId } : {}),
+      term_id: values.term_id,
+      level_id: values.level_id,
+      name: values.name,
+      room: values.room ?? "",
+      ...(values.capacity === null ? { no_capacity_limit: true } : { capacity: values.capacity }),
+      meets_on: values.meets_on,
+      starts_time: values.starts_time ?? "",
+      ends_time: values.ends_time ?? "",
+      class_email: values.class_email ?? "",
+      waitlist_enabled: values.waitlist_enabled,
+    });
+    if (res.ok) refresh();
+    return res;
   });
 }
 
 /** Adds the teacher to the class and, when the signed-in user may manage roles, grants the class-scoped teacher role. */
 export async function addTeacher(classId: string, _prev: unknown, fd: FormData): Promise<ActionResult<unknown>> {
   return runAction("pathshala.addTeacher", "add the teacher", async () => {
-    const { supabase, centerId, viewer } = await actionContext(areas.manage, "Only the Pathshala principal can assign teachers.");
+    const { viewer } = await actionContext(areas.manage, "Only the Pathshala principal can assign teachers.");
     const personId = reqStr(fd, "person_id", "Teacher");
     const role = oneOf(fd, "role", TEACHER_ROLES, "Role", "teacher");
-    must(
-      await supabase.from("pathshala_teachers").insert({ center_id: centerId, class_id: classId, person_id: personId, role }),
-      "add the teacher to this class",
-    );
-    const note = await syncTeacherGrant(supabase, viewer, centerId, classId, personId, "grant", viewer.userId);
-    refresh();
-    return ok(`Teacher added.${note ? " " + note : ""}`);
+    // The write and the class's Teacher role are the command learning.assign_teacher, the very one the ⌘K palette and Niva run.
+    const res = await runCommandFromScreen(assignTeacherCommand, viewer, { class_id: classId, person_id: personId, role });
+    if (res.ok) refresh();
+    return res;
   });
 }
 
@@ -115,79 +124,6 @@ export async function removeTeacher(teacherRowId: string, _prev: unknown, fd: Fo
     refresh();
     return ok(`Teacher removed.${note ? " " + note : ""}`);
   });
-}
-
-/**
- * A pathshala_teachers row alone does not give the teacher access: RLS checks
- * role_grants (teacher, scope = class). Keep them in step when we are allowed to
- * (roles.manage); otherwise say plainly what the center admin must do.
- */
-async function syncTeacherGrant(
-  supabase: AppSupabase,
-  access: ScopedContext,
-  centerId: string,
-  classId: string,
-  personId: string,
-  mode: "grant" | "revoke",
-  actorUserId: string,
-): Promise<string | null> {
-  const adminHint =
-    mode === "grant"
-      ? "Their access to this class must be granted by a center admin in Settings → Roles and access (role: Teacher, scoped to this class)."
-      : "Ask a center admin to end their Teacher role for this class.";
-  if (!can(access, "roles.manage")) return adminHint;
-  const { data: cu, error: cuError } = await supabase
-    .from("center_users")
-    .select("user_id")
-    .eq("center_id", centerId)
-    .eq("person_id", personId)
-    .maybeSingle();
-  if (cuError) {
-    console.error("[pathshala] teacher login lookup failed", cuError);
-    return "We couldn't look up their login, so their class access was not changed. " + adminHint;
-  }
-  if (!cu) return "They haven't signed in yet, so their class access will need to be granted after they do.";
-  if (mode === "grant") {
-    const { data: existing, error: exError } = await supabase
-      .from("role_grants")
-      .select("id, ends_at")
-      .eq("center_id", centerId)
-      .eq("user_id", cu.user_id)
-      .eq("role_key", "teacher")
-      .eq("scope_id", classId);
-    if (exError) {
-      console.error("[pathshala] teacher grant lookup failed", exError);
-      return "Their class access could not be checked. " + adminHint;
-    }
-    if ((existing ?? []).some((g) => !g.ends_at || g.ends_at > new Date().toISOString())) return "They already had teacher access to this class.";
-    const { error } = await supabase.from("role_grants").insert({
-      center_id: centerId,
-      user_id: cu.user_id,
-      role_key: "teacher",
-      scope_kind: "class",
-      scope_id: classId,
-      granted_by: actorUserId,
-      reason: "Assigned as Pathshala teacher",
-    });
-    if (error) {
-      console.error("[pathshala] granting teacher role failed", error);
-      return "Their class access could not be granted automatically. " + adminHint;
-    }
-    return "They can now open this class under Pathshala → My classes.";
-  }
-  const { error } = await supabase
-    .from("role_grants")
-    .update({ ends_at: new Date().toISOString() })
-    .eq("center_id", centerId)
-    .eq("user_id", cu.user_id)
-    .eq("role_key", "teacher")
-    .eq("scope_id", classId)
-    .is("ends_at", null);
-  if (error) {
-    console.error("[pathshala] ending teacher role failed", error);
-    return "Their class access could not be ended automatically. " + adminHint;
-  }
-  return "Their teacher access to this class has ended.";
 }
 
 // ---------------------------------------------------------------------------

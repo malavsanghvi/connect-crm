@@ -8,7 +8,7 @@ import { SETTINGS_COMMANDS } from "@/lib/commands/catalog/settings";
 import { runCommand } from "@/lib/commands/run";
 import type { CommandRunResult } from "@/lib/commands/types";
 
-import { addSettingsWorld, asAdmin, EVENT, U } from "./settings-world";
+import { addSettingsWorld, asAdmin, EVENT, G, U } from "./settings-world";
 
 const dataOf = <T,>(r: CommandRunResult): T => {
   if (!r.ok || r.needsConfirmation) throw new Error(`expected data, got ${JSON.stringify(r)}`);
@@ -22,7 +22,7 @@ beforeEach(() => {
 
 // ---------------------------------------------------------------------------
 describe("the Settings commands", () => {
-  it("are listed in the order a person would meet them, and only the five reads, one draft and nine only-you ones are here", () => {
+  it("are listed in the order a person would meet them: five reads, one draft, three changes and nine only-you ones", () => {
     expect(SETTINGS_COMMANDS.map((c) => `${c.key}:${c.level}`)).toEqual([
       "settings.setup_status:read",
       "settings.role_holders:read",
@@ -30,6 +30,9 @@ describe("the Settings commands", () => {
       "settings.integrations_health:read",
       "settings.modules_state:read",
       "settings.draft_role_grant:draft",
+      "settings.grant_role:confirm",
+      "settings.revoke_role:confirm",
+      "settings.set_module:confirm",
       "settings.enter_secret:only_you",
       "settings.accept_agreements:only_you",
       "settings.connect_quickbooks:only_you",
@@ -128,7 +131,7 @@ describe("settings.role_holders", () => {
     expect(data.role_name).toBe("Treasurer");
     expect(data.needs_a_second_person).toBe(true);
     expect(data.what_it_allows.join(" ")).toMatch(/pledges and payments/i);
-    expect(data.holders).toEqual([{ grant_id: "g1", name: "Priya Shah", member_number: "1042", household_number: "H-1001", role_name: "Treasurer", scope: "The whole community", until: null, status: "active" }]);
+    expect(data.holders).toEqual([{ grant_id: G.priya, name: "Priya Shah", member_number: "1042", household_number: "H-1001", role_name: "Treasurer", scope: "The whole community", until: null, status: "active" }]);
     expect(data.waiting_for_a_second_person.map((h) => h.name)).toEqual(["Rahul Shah"]);
     expect(messageOf(r)).toBe("1 person holds Treasurer: Priya Shah. 1 more is waiting for a second person's approval.");
     expect(writes).toEqual([]);
@@ -384,13 +387,13 @@ describe("settings.draft_role_grant", () => {
     };
     expect(await say({})).toBe("Say who the role is for: a name, a member number or an email. After the person has chosen from the people shown, pass their id instead.");
     expect(await say({ user_id: U.admin })).toBe("Nobody can give themselves a role. A different administrator has to do this.");
-    expect(await say({ user_id: U.priya })).toBe("Priya Shah already holds Treasurer for that part of the community.");
+    expect(await say({ user_id: U.priya })).toBe("This person already holds Treasurer for that scope.");
     expect(await say({ user_id: U.nobody })).toBe("That person has not signed in to Weaver yet, so a role cannot be given. Invite them first in Settings › Team.");
     expect(await say({ user_id: U.aarav })).toBe("Roles are only given to adults. Please do this on the Roles screen if it is right.");
-    expect(await say({ user_id: U.priya2, ends_on: "2020-01-01" })).toBe("The end date is in the past.");
+    expect(await say({ user_id: U.priya2, ends_on: "2020-01-01" })).toBe("Could not grant the role — the end date is in the past.");
     expect(await say({ user_id: U.priya2, ends_on: "2030-01-01", for_months: 6 })).toBe("Give an end date or a number of months, not both.");
-    expect(await say({ user_id: U.priya2, scope_kind: "event" })).toBe("Say which event the role is for (its id).");
-    expect(await say({ user_id: U.priya2, scope_kind: "zone", scope_id: "9a000000-0000-4000-8000-0000000000aa" })).toBe("That zone was not found.");
+    expect(await say({ user_id: U.priya2, scope_kind: "event" })).toBe("Could not grant the role — choose which event it is for.");
+    expect(await say({ user_id: U.priya2, scope_kind: "zone", scope_id: "9a000000-0000-4000-8000-0000000000aa" })).toBe("Could not grant the role — that zone was not found.");
     expect(await say({ user_id: U.priya2, scope_id: EVENT })).toBe("A role for the whole community has no event, class or zone. Leave that out, or choose event, class or zone.");
     expect(await say({ user_id: U.priya2, role: "zebra" })).toMatch(/^I could not find a role called "zebra"\./);
     expect(writes).toEqual([]);

@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import type { ReactNode } from "react";
 
 import { ActionForm } from "@/components/action-form";
+import { AskNiva } from "@/components/niva/ask-niva";
 import { Badge, Card } from "@/components/ui";
 import { isPermissionError } from "@/lib/access-db";
 import { loadClasses, loadTerms } from "@/lib/data/pathshala";
@@ -113,6 +114,7 @@ export default async function TermFeesPage({ params }: { params: Promise<{ id: s
       title={`${term.name} · Fees and rules`}
       description={`Pathshala term · ${termStatusLabel(term.status)} · a fee for every level with a class, and how families register and pay`}
       back={{ href: `/pathshala/terms/${term.id}`, label: term.name }}
+      actions={<AskNiva prompt="Is anything missing before registration can open for this term, and what have we billed so far?" />}
     />
   );
 

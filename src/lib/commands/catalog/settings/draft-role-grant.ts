@@ -1,7 +1,6 @@
 import { todayInTz } from "@/lib/dates";
 import { chunk } from "@/lib/data/fetch-all";
-import { isUuid, safeFilterText } from "@/lib/search-params";
-import { needsSecondApprover } from "@/lib/security";
+import { safeFilterText } from "@/lib/search-params";
 import { roleAllows } from "@/lib/settings-help/areas";
 import { endsWords, isAdultHolder, lastDayAfterMonths, matchRoles, scopeWords } from "@/lib/settings-help/role-words";
 import { whereLabel, type FixAt } from "@/lib/settings-help/setup-view";
@@ -13,12 +12,10 @@ import { CommandError, type CommandContext, type HouseholdCard } from "../../typ
 import { must } from "../db";
 import { cardLine, cardsFor } from "../people/shared";
 
+import { SCOPES, planRoleGrant, type GrantScope } from "./grant-rules";
 import { loadRoles, nameList, type RoleRow } from "./holders";
 
 type Row = Record<string, unknown>;
-
-export const SCOPES = ["center", "event", "class", "zone"] as const;
-export type GrantScope = (typeof SCOPES)[number];
 
 const input = object({
   person: f.optional(f.string("Who the role is for: a name, member number or email. Use it the first time; it returns the matching people with their household details so the person can choose.", { min: 2, max: 80 })),
@@ -53,6 +50,8 @@ export type GrantCard = {
   reason: string | null;
   /** True for the roles the database holds as pending until a different administrator approves them. */
   waits_for_a_second_person: boolean;
+  /** The confirm command that gives it, with exactly this input. Calling it asks the person to confirm; it does not give the role by itself. */
+  apply_with: { command: "settings.grant_role"; input: Record<string, string> };
 };
 
 export type DraftGrantData =
@@ -76,7 +75,7 @@ function matchesText(p: Row, tokens: string[]): boolean {
   return hay.some((h) => h.includes(tokens[0]));
 }
 
-async function describePeople(ctx: CommandContext, personIds: string[]): Promise<Found> {
+export async function describePeople(ctx: CommandContext, personIds: string[]): Promise<Found> {
   const { db, center } = ctx.session;
   const today = todayInTz(center.time_zone, ctx.now?.());
   const people: Row[] = [];
@@ -134,7 +133,7 @@ async function searchPeople(ctx: CommandContext, query: string): Promise<Found> 
   return describePeople(ctx, [...ids].slice(0, 25));
 }
 
-async function personForUser(ctx: CommandContext, userId: string): Promise<GrantCandidate> {
+export async function personForUser(ctx: CommandContext, userId: string): Promise<GrantCandidate> {
   const { db, center } = ctx.session;
   const link = must(await db.from("center_users").select("person_id").eq("center_id", center.id).eq("user_id", userId).maybeSingle(), "find the person") as { person_id: string } | null;
   if (!link) throw new CommandError("That person has not signed in to Weaver yet, so a role cannot be given. Invite them first in Settings › Team.");
@@ -161,46 +160,11 @@ export function pickRole(ctx: CommandContext, roles: readonly RoleRow[], text: s
   return { role: found[0] };
 }
 
-export async function resolveScope(ctx: CommandContext, kind: GrantScope, id: string | undefined): Promise<{ scope_id: string | null; name: string | null }> {
-  if (kind === "center") {
-    if (id) throw new CommandError("A role for the whole community has no event, class or zone. Leave that out, or choose event, class or zone.");
-    return { scope_id: null, name: null };
-  }
-  if (!id || !isUuid(id)) throw new CommandError(`Say which ${kind} the role is for (its id).`);
-  const { db, center } = ctx.session;
-  const read = async () => {
-    switch (kind) {
-      case "event":
-        return db.from("events").select("id, name").eq("id", id).eq("center_id", center.id).maybeSingle();
-      case "class":
-        return db.from("pathshala_classes").select("id, name").eq("id", id).eq("center_id", center.id).maybeSingle();
-      default:
-        return db.from("zones").select("id, name").eq("id", id).eq("center_id", center.id).maybeSingle();
-    }
-  };
-  const row = must(await read(), `find the ${kind}`) as { id: string; name: string } | null;
-  if (!row) throw new CommandError(`That ${kind} was not found.`);
-  return { scope_id: row.id, name: row.name };
-}
-
-/** The last day a grant works from what the person asked, or null for no end. Not in the past. */
-export function resolveEnd(ctx: CommandContext, inp: Pick<DraftGrantInput, "ends_on" | "for_months">): string | null {
+/** The last day from what the person asked ("for a year" is 12 months from today), or the date they gave, or null for no end. The rules for the date are the grant's own (grant-rules.ts). */
+export function endFromMonths(ctx: CommandContext, inp: Pick<DraftGrantInput, "ends_on" | "for_months">): string | undefined {
   if (inp.ends_on && inp.for_months) throw new CommandError("Give an end date or a number of months, not both.");
-  const today = todayInTz(ctx.session.center.time_zone, ctx.now?.());
-  if (inp.for_months) return lastDayAfterMonths(today, inp.for_months);
-  if (inp.ends_on) {
-    if (inp.ends_on < today) throw new CommandError("The end date is in the past.");
-    return inp.ends_on;
-  }
-  return null;
-}
-
-/** An identical grant that still works (or still waits for a second person), so a second one would only confuse. */
-export async function holdsAlready(ctx: CommandContext, userId: string, roleKey: string, kind: GrantScope, scopeId: string | null): Promise<boolean> {
-  const { db, center } = ctx.session;
-  const now = ctx.now?.() ?? new Date();
-  const same = (must(await db.from("role_grants").select("id, scope_id, ends_at").eq("center_id", center.id).eq("user_id", userId).eq("role_key", roleKey).eq("scope_kind", kind), "check the roles they hold") ?? []) as Row[];
-  return same.some((g) => (scopeId ? g.scope_id === scopeId : g.scope_id === null || g.scope_id === undefined) && (g.ends_at === null || g.ends_at === undefined || new Date(String(g.ends_at)) > now));
+  if (inp.for_months) return lastDayAfterMonths(todayInTz(ctx.session.center.time_zone, ctx.now?.()), inp.for_months);
+  return inp.ends_on;
 }
 
 export const draftRoleGrant = defineCommand<DraftGrantInput, DraftGrantData>({
@@ -212,6 +176,7 @@ export const draftRoleGrant = defineCommand<DraftGrantInput, DraftGrantData>({
     "and anyone who has not signed in yet. Show them to the person and let them choose; never choose by name alone. Then call it again with the chosen `user_id` and the `role` to get the prepared card: " +
     "the person, the role and what it allows in words, the part of the community it is for, the last day it works (use `for_months` for 'a year' = 12, or `ends_on`), and whether it will wait for a second person " +
     "(treasurer, administrator, finance volunteer, executive committee and privacy officer roles start pending until a different administrator approves them). " +
+    "To give it, pass the card's `apply_with.input` to settings.grant_role: that asks the person to confirm, and it is only available when the community's owner has switched it on. " +
     "Roles are only for adults; nothing about a child is returned.",
   level: "draft",
   permission: "roles",
@@ -244,33 +209,49 @@ export const draftRoleGrant = defineCommand<DraftGrantInput, DraftGrantData>({
 
     const person = await personForUser(ctx, inp.user_id!);
     if (person.user_id === ctx.session.userId) throw new CommandError("Nobody can give themselves a role. A different administrator has to do this.");
-    const scope = await resolveScope(ctx, inp.scope_kind, inp.scope_id);
-    const lastDay = resolveEnd(ctx, inp);
-    const kind = inp.scope_kind;
-    if (await holdsAlready(ctx, person.user_id, role.key, kind, scope.scope_id)) {
-      throw new CommandError(`${person.name} already holds ${role.name} for that part of the community.`);
+    // A role for the whole community never carries an event, class or zone: it would quietly give more than was asked.
+    if (inp.scope_kind === "center" && inp.scope_id) {
+      throw new CommandError("A role for the whole community has no event, class or zone. Leave that out, or choose event, class or zone.");
     }
-    const second = needsSecondApprover(role.key);
-    const where = scopeWords(kind, scope.name);
+    const plan = await planRoleGrant(ctx, {
+      user_id: person.user_id,
+      role_key: role.key,
+      scope_kind: inp.scope_kind,
+      scope_id: inp.scope_id,
+      ends_on: endFromMonths(ctx, inp),
+      reason: inp.reason,
+    });
+    const where = scopeWords(plan.scope_kind, plan.scope_name);
     const grant: GrantCard = {
       person,
       role_key: role.key,
       role_name: role.name,
       what_it_allows: roleAllows(role.permissions),
       scope: where,
-      scope_kind: kind,
-      scope_id: scope.scope_id,
-      last_day: lastDay,
-      lasts: endsWords(lastDay),
-      reason: inp.reason ?? null,
-      waits_for_a_second_person: second,
+      scope_kind: plan.scope_kind,
+      scope_id: plan.scope_id,
+      last_day: plan.ends_on,
+      lasts: endsWords(plan.ends_on),
+      reason: plan.reason,
+      waits_for_a_second_person: plan.waits_for_a_second_person,
+      apply_with: {
+        command: "settings.grant_role",
+        input: {
+          user_id: person.user_id,
+          role_key: role.key,
+          scope_kind: plan.scope_kind,
+          ...(plan.scope_id ? { scope_id: plan.scope_id } : {}),
+          ...(plan.ends_on ? { ends_on: plan.ends_on } : {}),
+          ...(plan.reason ? { reason: plan.reason } : {}),
+        },
+      },
     };
     return {
       ok: true,
       data: { stage: "ready", grant, where: whereLabel("/settings/roles") },
       message:
-        `Nothing has been given yet. This is what is prepared: ${role.name} for ${person.name}${person.household ? ` (${cardLine(person.household)})` : ""}, ${kind === "center" ? "for the whole community" : `for ${where}`}, ${endsWords(lastDay)}.` +
-        (second ? ` ${role.name} needs a second person: it would wait as pending until a different administrator approves it.` : ""),
+        `Nothing has been given yet. This is what is prepared: ${role.name} for ${person.name}${person.household ? ` (${cardLine(person.household)})` : ""}, ${plan.scope_kind === "center" ? "for the whole community" : `for ${where}`}, ${endsWords(plan.ends_on)}.` +
+        (plan.waits_for_a_second_person ? ` ${role.name} needs a second person: it would wait as pending until a different administrator approves it.` : ""),
     };
   },
 });
