@@ -90,11 +90,12 @@ export function addEventsWorld<W extends World>(world: W): W {
   );
   const baseCard = world.rpc.household_card as (a: Record<string, unknown>) => unknown;
   const joshi = { household_id: "hh-joshi", household_name: "Joshi, Meera & Dev", household_number: "H-1004", org_household_id: "2044", members: "Meera, Dev", primary_member: "Meera Joshi", primary_org_member_id: "0420", zone: "East", city: "Aurora", last_gift_on: null, open_pledge_cents: 0 };
-  world.rpc.household_card = (a) => (a.p_household === "hh-joshi" ? [joshi] : baseCard(a));
+  world.rpc.household_card = (a: Record<string, unknown>) => (a.p_household === "hh-joshi" ? [joshi] : baseCard(a));
   const known = [EV.diwali, EV.garba, EV.picnic, EV.cancelled] as string[];
-  world.rpc.event_summary = (a) => (known.includes(String(a.p_event)) ? { ...SUMMARY_ANSWER, event: { ...SUMMARY_ANSWER.event, id: a.p_event } } : null);
-  world.rpc.event_reminder_audience = (a) => (known.includes(String(a.p_event)) ? { ...AUDIENCE_ANSWER, event_id: a.p_event } : null);
-  world.rpc.event_set_rsvp_status = (a) => [EV.rsvpShah, EV.rsvpPatel, EV.rsvpGuest].includes(String(a.p_rsvp)) && a.p_event === EV.diwali;
+  world.rpc.event_summary = (a: Record<string, unknown>) => (known.includes(String(a.p_event)) ? { ...SUMMARY_ANSWER, event: { ...SUMMARY_ANSWER.event, id: a.p_event } } : null);
+  world.rpc.event_reminder_audience = (a: Record<string, unknown>) => (known.includes(String(a.p_event)) ? { ...AUDIENCE_ANSWER, event_id: a.p_event } : null);
+  const rsvps: string[] = [EV.rsvpShah, EV.rsvpPatel, EV.rsvpGuest];
+  world.rpc.event_set_rsvp_status = (a: Record<string, unknown>) => rsvps.includes(String(a.p_rsvp)) && a.p_event === EV.diwali;
   return world;
 }
 
