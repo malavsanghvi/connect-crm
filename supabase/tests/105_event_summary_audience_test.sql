@@ -195,4 +195,11 @@ select pg_temp.assert((select count(*) = 2 from pg_proc p join pg_namespace n on
                           and has_function_privilege('authenticated', p.oid, 'execute') and not has_function_privilege('anon', p.oid, 'execute')),
                       'D5 signed-in people may call them, signed-out people may not');
 
+-- ── E. 0655: the nine new Events commands are in the activity allowlist, each tied to its command ──────────────────────
+select pg_temp.assert((select count(*) = 9 from app.activity_catalog c
+                        where c.surface = 'portal' and c.key = 'assistant.' || replace(c.commandable_key, '.', '_')
+                          and c.commandable_key in ('events.summary', 'events.readiness', 'events.audience_preview', 'events.rsvps', 'events.clone_draft',
+                                                    'events.set_status', 'events.set_rsvp_status', 'events.assign_volunteer', 'events.create_from_clone')),
+                      'E1 all nine are registered under assistant.<area>_<verb> with the command as commandable_key');
+
 rollback;
