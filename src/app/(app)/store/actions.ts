@@ -2,14 +2,15 @@
 
 import { revalidatePath } from "next/cache";
 
-import type { TablesUpdate } from "@/lib/database.types";
+import { plain } from "@/lib/commands/catalog/messages/screen";
+import { runScreenCommand } from "@/lib/commands/screen";
 import { STORE_RULE_DEFAULTS, storeRules, withStoreRules, WEEKDAYS, type Weekday } from "@/lib/center-rules";
 import { failure, type ActionResult } from "@/lib/errors";
 import { localToUtc } from "@/lib/local-time";
 import { parseAmountToCents } from "@/lib/money";
 import { isUuid } from "@/lib/search-params";
 import { authorizeAction } from "@/lib/session";
-import { canMoveOrder, signedDelta } from "@/lib/store";
+import { signedDelta } from "@/lib/store";
 
 // Sales, not giving: nothing here creates pledges or touches funds.
 
@@ -32,6 +33,11 @@ function wholeNumber(value: string): number | null {
 // ---------------------------------------------------------------------------
 // Orders
 // ---------------------------------------------------------------------------
+/**
+ * Move an order along (Orders by pickup). The work is the command store.set_order_status (src/lib/commands/catalog/store): this reads the
+ * form and calls it, the same code the ⌘K palette and Niva use. Marking an order ready sends the member the 'Your order is ready' notice
+ * (a database trigger, 0598).
+ */
 export async function moveOrderAction(orderId: string, _prev: ActionResult | null, fd: FormData): Promise<ActionResult> {
   const to = text(fd, "to");
   const auth = await authorizeAction("storePickup", "update the order");
@@ -39,27 +45,7 @@ export async function moveOrderAction(orderId: string, _prev: ActionResult | nul
   if (!isUuid(orderId) || !["preparing", "ready", "picked_up", "cancelled"].includes(to)) {
     return { ok: false, error: "Could not update the order — unknown change." };
   }
-  const { db, center, userId } = auth.session;
-  const order = await db.from("store_orders").select("status, order_number").eq("id", orderId).eq("center_id", center.id).maybeSingle();
-  if (order.error) return failure("Could not update the order", order.error);
-  if (!order.data) return { ok: false, error: "Could not update the order — it no longer exists, or you can't see it." };
-  const from = order.data.status;
-  if (!canMoveOrder(from, to)) {
-    return { ok: false, error: `Could not update order #${order.data.order_number} — it is ${from.replace("_", " ")} and can't move to ${to.replace("_", " ")}. Refresh to see the latest.` };
-  }
-  const now = new Date().toISOString();
-  const patch: TablesUpdate<"store_orders"> = { status: to };
-  if (to === "ready") patch.ready_at = now;
-  if (to === "picked_up") {
-    patch.picked_up_at = now;
-    patch.picked_up_by = userId;
-  }
-  if (to === "cancelled") patch.cancelled_at = now;
-  const res = await db.from("store_orders").update(patch).eq("id", orderId).eq("status", from).select("id");
-  if (res.error) return failure("Could not update the order", res.error);
-  if (!res.data?.length) return { ok: false, error: "Could not update the order — someone else just changed it. Refresh to see the latest." };
-  refresh();
-  return { ok: true, message: `Order #${order.data.order_number} ${to.replace("_", " ")}.` };
+  return plain(await runScreenCommand("store.set_order_status", { order_id: orderId, to }, "update the order"));
 }
 
 // ---------------------------------------------------------------------------
@@ -164,33 +150,20 @@ export async function saveWindowAction(windowId: string | null, _prev: ActionRes
 // apply the change twice or, as a guarded update, never match. The count is
 // read back afterwards so the message shows what is really on the shelf.
 // ---------------------------------------------------------------------------
-async function applyMovement(itemId: string, delta: number, reason: string, doing: string): Promise<ActionResult> {
+async function applyMovement(itemId: string, reason: string, quantity: number, doing: string): Promise<ActionResult> {
   const auth = await authorizeAction("storeManage", doing);
   if (!auth.ok) return auth;
-  const { db, center, userId } = auth.session;
   if (!isUuid(itemId)) return { ok: false, error: `Could not ${doing} — choose the item.` };
+  const delta = signedDelta(reason, quantity);
   if (!Number.isInteger(delta) || delta === 0) return { ok: false, error: `Could not ${doing} — enter a quantity other than zero.` };
-  const item = await db.from("store_items").select("name, stock_on_hand, track_inventory").eq("id", itemId).eq("center_id", center.id).maybeSingle();
-  if (item.error) return failure(`Could not ${doing}`, item.error);
-  if (!item.data) return { ok: false, error: `Could not ${doing} — that item no longer exists.` };
-  if (!item.data.track_inventory) return { ok: false, error: `Could not ${doing} — "${item.data.name}" does not track stock. Turn on "Track stock" on Menu & pickup first.` };
-  const mv = await db.from("inventory_movements").insert({ center_id: center.id, item_id: itemId, delta, reason, recorded_by: userId });
-  if (mv.error) return failure(`Could not ${doing}`, mv.error);
-  refresh();
-  const change = `${delta > 0 ? "+" : ""}${delta}`;
-  const after = await db.from("store_items").select("stock_on_hand").eq("id", itemId).eq("center_id", center.id).maybeSingle();
-  if (after.error || !after.data) {
-    // The change is recorded and the count moved with it, so this is still a success: failing here would invite a retry
-    // that adjusts the stock a second time.
-    console.error("[store] stock adjusted, but the new count could not be read back:", after.error ?? "item not found");
-    return { ok: true, message: `Adjusted stock ${item.data.name} by ${change}. Refresh to see the new count.` };
-  }
-  return { ok: true, message: `Adjusted stock ${item.data.name} by ${change} (now ${after.data.stock_on_hand})` };
+  // The work is the command store.adjust_stock (src/lib/commands/catalog/store): it records the movement and reads the count back
+  // exactly as this action always did, and shares that code with the ⌘K palette and Niva.
+  return plain(await runScreenCommand("store.adjust_stock", { item_id: itemId, reason, quantity, doing }, doing));
 }
 
 export async function quickAdjustAction(itemId: string, delta: number): Promise<ActionResult> {
   if (delta !== -5 && delta !== 10) return { ok: false, error: "Could not adjust stock — unknown adjustment." };
-  return applyMovement(itemId, delta, "adjustment", "adjust the stock");
+  return applyMovement(itemId, "adjustment", delta, "adjust the stock");
 }
 
 export async function recordMovementAction(_prev: ActionResult | null, fd: FormData): Promise<ActionResult> {
@@ -198,7 +171,7 @@ export async function recordMovementAction(_prev: ActionResult | null, fd: FormD
   if (!["received", "waste", "adjustment", "returned"].includes(reason)) return { ok: false, error: "Could not record the stock change — choose a reason." };
   const qty = Number(text(fd, "quantity"));
   if (!Number.isInteger(qty) || qty === 0) return { ok: false, error: "Could not record the stock change — enter a whole quantity other than zero." };
-  return applyMovement(text(fd, "item_id"), signedDelta(reason, qty), reason, "record the stock change");
+  return applyMovement(text(fd, "item_id"), reason, qty, "record the stock change");
 }
 
 // ---------------------------------------------------------------------------

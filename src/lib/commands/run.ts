@@ -78,7 +78,7 @@ function emit(ctx: CommandContext, call: Call, outcome: CommandEvent["outcome"],
   }
 }
 
-const DENIED: readonly CommandErrorCode[] = ["unknown_command", "no_access", "module_off", "switched_off", "only_you", "wrong_community"];
+const DENIED: readonly CommandErrorCode[] = ["unknown_command", "no_access", "module_off", "switched_off", "screen_only", "only_you", "wrong_community"];
 
 function done(ctx: CommandContext, call: Call, result: CommandRunResult, outcome?: CommandEvent["outcome"]): CommandRunResult {
   if (result.ok) {

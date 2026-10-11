@@ -110,6 +110,7 @@ export type CommandErrorCode =
   | "no_access"
   | "module_off"
   | "switched_off"
+  | "screen_only"
   | "invalid"
   | "only_you"
   | "unsafe_result"
@@ -130,6 +131,8 @@ export type Command<I = never, O = unknown> = {
   permission: AccessKey;
   /** Hidden when this module is switched off for the community. */
   module?: ModuleKey;
+  /** Only the Weaver team (platform admins) may use it. It is never offered to anyone else, whatever their roles or permissions are. */
+  platformOnly?: boolean;
   input: ObjectSchema<I>;
   /** What will happen, before anything does. Runs when a confirm command is proposed (and a draft may share it). */
   preview?: (ctx: CommandContext, input: I) => Promise<CommandPreview>;
@@ -145,6 +148,12 @@ export type Command<I = never, O = unknown> = {
   enabledByDefault?: boolean;
   /** For level only_you: where the person does it themselves. */
   pointTo?: { label: string; href: string };
+  /**
+   * Only the person's own screen may run it. The registry never offers it to Niva or to the palette's AI, and the community cannot
+   * switch it on (there is no switch): used for work that must not go through a model, like anything about a learner (decision D2).
+   * A screen reaches it through runScreenCommand, as for any command.
+   */
+  screenOnly?: boolean;
   /** Server Actions this command replaces, as "src/app/(app)/events/actions.ts#saveEvent" (scripts/commands-coverage.mjs reads this). */
   covers?: readonly string[];
 };

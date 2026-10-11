@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
+import { AskNiva } from "@/components/niva/ask-niva";
 import { Card, EmptyState, TableWrap } from "@/components/ui";
 import { loadTerms } from "@/lib/data/pathshala";
 import { explainError } from "@/lib/errors";
@@ -72,11 +73,14 @@ export default async function TermsPage() {
       <PathshalaHeader
         description="Terms · dates, registration window and no-class days for each Pathshala year; each term's fees and registration rules on its Fees and rules page"
         actions={
-          canEdit ? (
-            <DrawerButton label="New term" title="New term" kicker="Pathshala" size="sm">
-              <TermForm term={null} tz={tz} cols={1} />
-            </DrawerButton>
-          ) : null
+          <>
+            <AskNiva prompt="What is missing before registration can open for each term?" />
+            {canEdit ? (
+              <DrawerButton label="New term" title="New term" kicker="Pathshala" size="sm">
+                <TermForm term={null} tz={tz} cols={1} />
+              </DrawerButton>
+            ) : null}
+          </>
         }
       />
       {feesNote ? (
