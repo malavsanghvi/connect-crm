@@ -123,9 +123,12 @@ const AGE_KEYS = new Set(["age", "age_years", "age_in_years", "years_old", "age_
 const CHILD_FLAG_KEYS = new Set(["is_minor", "is_child", "minor", "child", "is_learner", "under_18", "under18", "is_under_18"]);
 const LEARNER_ID_KEYS = new Set(["learner_id", "learner_person_id", "student_id"]);
 
-/** "age_group", "age_range", "age_band", "agegroup": a child's age by another name, withheld for everyone. */
+/**
+ * "age_group", "age_range", "age_bracket", "agegroup": a child's age by another name, withheld for everyone. ("age_band" is not here:
+ * the Learning commands name the ages a CLASS LEVEL is for, which is setup and not about a person.)
+ */
 function isAgeBandKey(k: string): boolean {
-  return /(^|_)age_?(group|range|band|bracket|class|category|bucket)(_|$)/.test(k) || k === "agegroup";
+  return /(^|_)age_?(group|range|bracket|class|category|bucket)(_|$)/.test(k) || k === "agegroup";
 }
 
 function isDropKey(k: string): boolean {
