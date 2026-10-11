@@ -68,7 +68,7 @@ export async function sendSignInEmail(user: HookUser, data: { token?: string; to
   if (data.token && user.email) sends.push({ to: user.email, code: data.token });
   if (sends.length === 0) return { ok: false, status: 400, message: "The sign-in request had no address or code to send." };
   // Demo people have no mailbox, and a code for one of them must never be sent (or kept anywhere): they are entered with Try the demo.
-  if (sends.some((s) => isDemoEmail(s.to))) {
+  if (isDemoEmail(user.email) || isDemoEmail(user.new_email) || sends.some((s) => isDemoEmail(s.to))) {
     console.error("[auth-hook] a sign-in code was asked for a demo address; nothing was sent");
     return { ok: false, status: 400, message: "This is a demo address, so no sign-in code is sent. Use Try the demo on the sign-in page instead." };
   }

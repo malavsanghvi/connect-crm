@@ -73,3 +73,24 @@ describe("the cookies cleared when a demo session ends", () => {
     ).toEqual(["sb-abc-auth-token", "sb-abc-auth-token.0", "sb-abc-auth-token.1", "sb-abc-auth-token-code-verifier"]);
   });
 });
+
+describe("a demo session is recognised by what the database put in the token, not only by the address", () => {
+  it("checks a token marked demo in app_metadata even if its address is not a demo address", async () => {
+    const check = vi.fn(async () => ({ state: "unknown" }));
+    const out = await guardDemoSession({ email: "visitor@example.org", app_metadata: { demo: true } }, check);
+    expect(check).toHaveBeenCalledTimes(1);
+    expect(out).toEqual({ kind: "ended", reason: "unknown" });
+  });
+
+  it("lets it through only when the database says ok", async () => {
+    expect(await guardDemoSession({ email: "visitor@example.org", app_metadata: { demo: true } }, async () => ({ state: "ok" }))).toEqual({ kind: "ok" });
+  });
+
+  it("does not treat a look-alike mark as one", async () => {
+    const check = vi.fn(async () => ({ state: "ok" }));
+    for (const meta of [{ demo: "true" }, { demo: false }, { Demo: true }, "demo", null]) {
+      expect(await guardDemoSession({ email: "ada@jsh.org", app_metadata: meta }, check)).toEqual({ kind: "not_demo" });
+    }
+    expect(check).not.toHaveBeenCalled();
+  });
+});

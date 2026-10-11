@@ -5,19 +5,19 @@
 // This is the portal's side; the database enforces the same: it deletes the Auth session of an ended demo session, so it cannot be
 // refreshed either (app.demo_session_state, app.demo_end).
 
-import { isDemoEmail, type DemoEndReason } from "./rules";
+import { isDemoClaims, type DemoEndReason } from "./rules";
 
 /** The cookie of the organization chosen with the switcher (src/lib/center-resolve.ts CENTER_COOKIE; a test keeps them equal). The proxy cannot import that server-only file. */
 export const CENTER_COOKIE_NAME = "cc_center";
 
-export type GuardOutcome ={ kind: "not_demo" } | { kind: "ok" } | { kind: "ended"; reason: DemoEndReason };
+export type GuardOutcome = { kind: "not_demo" } | { kind: "ok" } | { kind: "ended"; reason: DemoEndReason };
 
 /** `check` asks app.demo_session_state() as the signed-in person and returns its answer (it may throw). */
 export async function guardDemoSession(
-  claims: { email?: unknown } | null | undefined,
+  claims: { email?: unknown; app_metadata?: unknown } | null | undefined,
   check: () => Promise<unknown>,
 ): Promise<GuardOutcome> {
-  if (!claims || !isDemoEmail(claims.email)) return { kind: "not_demo" };
+  if (!isDemoClaims(claims)) return { kind: "not_demo" };
   let answer: unknown;
   try {
     answer = await check();

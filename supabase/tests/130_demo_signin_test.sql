@@ -3,7 +3,8 @@
 --   own demo community only   D. Nothing real can be made a demo sign-in, nor a demo sign-in made real   E. The switch and the public list
 --   F. Starting a session (worker only), its audit entry, the stored password   G. The limits   H. Attach, state, leave
 --   I. Expiry, the switch and the sweeps end sessions and their refresh   J. A tampered sign-in is repaired   K. A reset takes the links apart
---   and puts them back, and a visitor's changes go   L. Rotating   M. Who may call what
+--   and puts them back, and a visitor's changes go   L. Rotating   M. Who may call what   N. The demo administrator cannot unflag or
+--   rename the community, nor change the shared sign-in   O. not_after   P. The kill switch reaches every community
 -- Everything runs in one transaction that is rolled back.
 \set ON_ERROR_STOP 1
 begin;
@@ -204,6 +205,24 @@ select count(*) as vis_other from app.households where center_id = :'nc' \gset
 select pg_temp.as_none();
 select pg_temp.assert(:vis_demo > 0 and :vis_jsh = 0 and :vis_other = 0,
   'C · signed in as the demo administrator: the faith-based demo''s households are visible, JSH''s and the other demo''s are not');
+-- N. The demo administrator (settings.manage) tries to take the community out of the demo, rename it, and loosen its security rule.
+select pg_temp.as_user(:'u_admin'::uuid, null);
+select pg_temp.assert_raises(format('update app.centers set rules = rules - %L where id = %L', 'demo', :'fc'), 'only be changed by the Community Connect team',
+  'N · the demo administrator cannot take the community out of the demo (the flag every guardrail reads)');
+select pg_temp.assert_raises(format('update app.centers set rules = rules || jsonb_build_object(%L, %L) where id = %L', 'demo_kind', 'neutral', :'fc'), 'only be changed by the Community Connect team',
+  'N · nor change its kind');
+select pg_temp.assert_raises(format('update app.centers set rules = rules || jsonb_build_object(%L, %L) where id = %L', 'demo_pack', 'x', :'fc'), 'only be changed by the Community Connect team',
+  'N · nor its pack');
+select pg_temp.assert_raises(format('update app.centers set name = %L where id = %L', 'Hacked demo', :'fc'), 'only be changed by the Community Connect team',
+  'N · nor rename it (the public list shows the name)');
+select pg_temp.assert_raises(format('update app.centers set short_name = %L where id = %L', 'Hacked', :'fc'), 'only be changed by the Community Connect team',
+  'N · nor its short name');
+select pg_temp.assert_raises(format('update app.centers set rules = jsonb_set(rules, %L, %L::jsonb) where id = %L', '{security,require_2fa_for_staff}', 'true', :'fc'),
+  'only be changed by the Community Connect team', 'N · nor switch its security rule (which would lock the next visitor out)');
+update app.centers set rules = rules || jsonb_build_object('note130', 'x') where id = :'fc';
+select pg_temp.as_none();
+select pg_temp.assert(app.is_demo_center(:'fc') and (select rules ? 'note130' and name like '%(Demo)' from app.centers where id = :'fc'),
+  'N · the flag and the name are still there, and the demo administrator can still change an ordinary setting');
 select pg_temp.assert((select count(*) = :n_people - 1 and bool_and(g.status = 'active') from app.role_grants g join app.demo_auth_users a on a.user_id = g.user_id
                         join app.demo_personas d on d.email = a.email and d.center_id = g.center_id and d.role_key = g.role_key
                          and d.scope_kind = g.scope_kind and d.scope_id is not distinct from g.scope_id),
@@ -287,6 +306,8 @@ select pg_temp.attach_as_worker(:'ds1', :'sid1')::text as at1 \gset
 select pg_temp.attach_as_worker(:'ds2', :'sid2')::text as at2 \gset
 select pg_temp.assert((:'at1'::jsonb ->> 'ok')::boolean and (:'at2'::jsonb ->> 'ok')::boolean
                       and (select auth_session_id = :'sid1' from app.demo_sessions where id = :'ds1'), 'H · the person''s own sessions are attached');
+select pg_temp.assert((select s.not_after = d.expires_at from auth.sessions s join app.demo_sessions d on d.auth_session_id = s.id where d.id = :'ds1'),
+  'O · the Auth session gets the demo session''s end as its own not_after, so Auth refuses to refresh it after the two hours');
 select pg_temp.attach_as_worker(:'ds1', :'sid2')::text as at_again \gset
 select pg_temp.assert((:'at_again'::jsonb ->> 'code') = 'unknown' and (select auth_session_id = :'sid1' from app.demo_sessions where id = :'ds1'),
   'H · and only once');
@@ -369,7 +390,10 @@ select pg_temp.assert((:'at3'::jsonb ->> 'ok')::boolean, 'I · a fresh session f
 select pg_temp.claims(:admin, false);
 select pg_temp.assert_raises($q$select app.set_demo_signin(false, 'Stop it')$q$, 'fresh 2FA', 'I · turning it off needs the fresh check too');
 select pg_temp.claims(:admin, true);
+-- P. Even if a community had lost its flag, the switch takes the demo people's membership, role and ownership away everywhere.
+update app.centers set rules = rules - 'demo' where id = :'fc';
 select app.set_demo_signin(false, 'Stop the demo for the test')::text as sw2 \gset
+update app.centers set rules = rules || jsonb_build_object('demo', true) where id = :'fc';
 select pg_temp.assert(not app.demo_signin_enabled() and (:'sw2'::jsonb ->> 'ended')::int >= 1, 'I · switched off, and it says how many sessions it ended');
 select pg_temp.assert((select ended_reason = 'switched_off' from app.demo_sessions where id = :'ds3') and not exists (select 1 from auth.sessions where id = :'sid3')
                       and not exists (select 1 from auth.sessions s join app.demo_auth_users a on a.user_id = s.user_id)
@@ -429,8 +453,11 @@ select pg_temp.assert((select ended_reason = 'failed' from app.demo_sessions whe
 select pg_temp.assert((:'due1'::jsonb ->> 'checked')::int = 2 and (:'due1'::jsonb ->> 'failed')::int = 0, 'I · and the community check it runs is unchanged');
 
 -- ══ J. A tampered sign-in is repaired ═══════════════════════════════════════
+-- (A change made outside the guard, as a manual edit in the database would be: the guard's own switch is raised for it.)
+select set_config('app.demo_auth_ok', 'on', true);
 update auth.users set encrypted_password = extensions.crypt('guess', extensions.gen_salt('bf')), banned_until = now() + interval '1 day',
-                      phone = '+15550100', email_confirmed_at = null where id = :'u_admin';
+                      phone = '+15550100', email_confirmed_at = null, email_change = 'visitor@example.org', phone_change = '+15550111' where id = :'u_admin';
+select set_config('app.demo_auth_ok', 'off', true);
 insert into auth.mfa_factors (id, user_id, factor_type, status) values (gen_random_uuid(), :'u_admin', 'totp', 'verified');
 select pg_temp.begin_as_worker(:'p_admin', 'hash-eight')::text as b8 \gset
 select pg_temp.assert((:'b8'::jsonb ->> 'ok')::boolean
@@ -438,6 +465,33 @@ select pg_temp.assert((:'b8'::jsonb ->> 'ok')::boolean
                                   and u.email_confirmed_at is not null and u.email = :'b8'::jsonb ->> 'email' from auth.users u where u.id = :'u_admin')
                       and not exists (select 1 from auth.mfa_factors where user_id = :'u_admin'),
   'J · a password, address, phone, ban or authenticator app changed from a browser is put back at the next start');
+select pg_temp.assert((select coalesce(email_change, '') = '' and coalesce(phone_change, '') = '' from auth.users where id = :'u_admin'),
+  'J · and so is a change waiting to be confirmed at an address of the visitor''s own');
+
+-- ══ J2. What a visitor can do to the shared sign-in from their own browser (Auth's own calls) ═══
+select pg_temp.assert_raises(format('update auth.users set encrypted_password = extensions.crypt(%L, extensions.gen_salt(%L, 10)) where id = %L', 'mine', 'bf', :'u_admin'),
+  'cannot be changed', 'J2 · a visitor cannot set their own password on the shared sign-in');
+select pg_temp.assert_raises(format('update auth.users set email = %L where id = %L', 'visitor@example.org', :'u_admin'),
+  'cannot be changed', 'J2 · nor its address');
+select pg_temp.assert_raises(format('update auth.users set phone = %L where id = %L', '+15550123', :'u_admin'),
+  'cannot be changed', 'J2 · nor its phone');
+select pg_temp.assert_raises(format('update auth.users set email_change = %L, email_change_token_new = %L where id = %L', 'visitor@example.org', 'abc', :'u_admin'),
+  'cannot be changed', 'J2 · nor ask for a change to be confirmed at an address of their own');
+select pg_temp.assert_raises(format('update auth.users set phone_change = %L where id = %L', '+15550123', :'u_admin'),
+  'cannot be changed', 'J2 · nor at a phone of their own');
+select pg_temp.assert_raises(format('update auth.users set raw_app_meta_data = raw_app_meta_data - %L where id = %L', 'demo', :'u_admin'),
+  'cannot be changed', 'J2 · nor take the demo mark off it');
+select pg_temp.assert_raises(format('update auth.users set encrypted_password = %L where id = %L', 'not-a-hash', :'u_admin'),
+  'cannot be changed', 'J2 · nor put something that is not a hash');
+update auth.users set last_sign_in_at = now(), updated_at = now() where id = :'u_admin';
+select s.decrypted_secret as pw_admin from app.demo_auth_users a join vault.decrypted_secrets s on s.id = a.vault_secret_id where a.user_id = :'u_admin' \gset
+update auth.users set encrypted_password = extensions.crypt(:'pw_admin', extensions.gen_salt('bf', 12)) where id = :'u_admin';
+select pg_temp.assert((select u.encrypted_password = extensions.crypt(:'pw_admin', u.encrypted_password) and u.last_sign_in_at is not null from auth.users u where u.id = :'u_admin'),
+  'J2 · Auth itself can still note a sign-in and re-hash the very same password');
+update auth.users set phone = '+15550124' where id = :ada;
+update auth.users set email = 'ada130-new@example.org' where id = :sq3;
+select pg_temp.assert((select phone = '+15550124' from auth.users where id = :ada) and (select email = 'ada130-new@example.org' from auth.users where id = :sq3),
+  'J2 · and nobody else''s sign-in is touched by the guard');
 
 -- ══ K. A reset takes the links apart and puts them back ═════════════════════
 select pg_temp.begin_as_worker(:'p_member', 'hash-nine')::text as b9 \gset

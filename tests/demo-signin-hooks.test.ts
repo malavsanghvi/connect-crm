@@ -30,6 +30,12 @@ describe("sign-in codes for demo addresses", () => {
     expect(providers.sendEmail).not.toHaveBeenCalled();
   });
 
+  it("are not sent for a demo person asking for their sign-in to be changed to an address of their own", async () => {
+    const res = await sendSignInEmail({ email: "treasurer@demo.weaverams.org", new_email: "visitor@example.org" }, { token_new: "654321", token: "123456", email_action_type: "email_change" });
+    expect(res).toMatchObject({ ok: false, status: 400 });
+    expect(providers.sendEmail).not.toHaveBeenCalled();
+  });
+
   it("do not stop an ordinary address (it goes on as before, here to the 'not configured' answer)", async () => {
     const res = await sendSignInEmail({ email: "ada@jsh.org" }, { token: "123456", email_action_type: "magiclink" });
     expect(res).toMatchObject({ ok: false, status: 503 });

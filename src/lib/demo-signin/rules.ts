@@ -21,6 +21,39 @@ export function isDemoEmail(email: unknown): boolean {
   return m !== null && m[1] === DEMO_EMAIL_DOMAIN;
 }
 
+/**
+ * True for a demo person's sign-in token: the address is on the demo domain, OR the token's app_metadata says demo (the database sets that
+ * flag, and a person cannot edit their own app_metadata, so it still marks the sign-in if its address were ever changed).
+ */
+export function isDemoClaims(claims: { email?: unknown; app_metadata?: unknown } | null | undefined): boolean {
+  if (!claims) return false;
+  if (isDemoEmail(claims.email)) return true;
+  const meta = claims.app_metadata;
+  return !!meta && typeof meta === "object" && (meta as { demo?: unknown }).demo === true;
+}
+
+/**
+ * What the per-visitor limit counts. An IPv4 address is itself; an IPv6 address is its /64 (the first four groups), because a household
+ * or a phone is given a whole /64 and could otherwise start a demo from a new address every time. An IPv4-mapped IPv6 address counts as
+ * the IPv4 one. Anything that is not an address is counted as itself, lower-cased (the portal only passes on checked addresses).
+ */
+export function ipLimitKey(ip: string | null | undefined): string {
+  const raw = (ip ?? "").trim().toLowerCase();
+  if (!raw) return "unknown";
+  const mapped = raw.match(/^(?:0*:)*:?ffff:(\d{1,3}(?:\.\d{1,3}){3})$/);
+  if (mapped) return mapped[1]!;
+  if (!raw.includes(":")) return raw;
+  const halves = raw.split("::");
+  if (halves.length > 2) return raw;
+  const head = halves[0] ? halves[0].split(":") : [];
+  const tail = halves.length === 2 && halves[1] ? halves[1].split(":") : [];
+  const fill = 8 - head.length - tail.length;
+  if (halves.length === 1 ? head.length !== 8 : fill < 1) return raw;
+  const groups = [...head, ...Array<string>(halves.length === 2 ? fill : 0).fill("0"), ...tail];
+  if (groups.length !== 8 || !groups.every((g) => /^[0-9a-f]{1,4}$/.test(g))) return raw;
+  return `${groups.slice(0, 4).map((g) => g.replace(/^0+(?=.)/, "")).join(":")}::/64`;
+}
+
 // ── The two demo communities ────────────────────────────────────────────────
 export type DemoKind = "faith" | "neutral";
 export const DEMO_KINDS: readonly DemoKind[] = ["faith", "neutral"];

@@ -38,7 +38,12 @@ begin
   if au.email is null then
     return jsonb_build_object('ok', false, 'code', 'not_ready');
   end if;
-  -- One start at a time, so simultaneous requests cannot overrun a limit.
+  -- This visitor's own limit first, WITHOUT the global lock: one address hammering Start must not make everyone else queue behind it.
+  select count(*) into v_n_ip from app.demo_sessions d where d.ip_hash = v_ip and d.started_at > now() - interval '1 hour';
+  if v_n_ip >= (v_lim ->> 'per_ip_hour')::int then
+    return jsonb_build_object('ok', false, 'code', 'ip_limit');
+  end if;
+  -- One start at a time, so simultaneous requests cannot overrun a limit (and all of them are counted again under the lock).
   perform pg_advisory_xact_lock(hashtext('connect.demo_signin'));
   perform app.demo_signin_sweep();
   select count(*) filter (where d.ip_hash = v_ip),
@@ -83,6 +88,13 @@ begin
     return jsonb_build_object('ok', false, 'code', 'mismatch');
   end if;
   update app.demo_sessions set auth_session_id = p_auth_session where id = p_demo;
+  -- Auth refuses to refresh a session after its not_after time (the session's own "expires at"), so the two hours also hold for a token
+  -- kept outside the portal. A project whose Auth has no such column just goes without (the portal and the sweep still end the session).
+  begin
+    update auth.sessions set not_after = s.expires_at where id = p_auth_session;
+  exception when undefined_column then
+    raise warning 'auth.sessions has no not_after column; the session is ended by the portal and the sweep only';
+  end;
   return jsonb_build_object('ok', true, 'expires_at', s.expires_at);
 end $$;
 

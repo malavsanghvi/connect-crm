@@ -7,6 +7,8 @@ import {
   DEMO_EMAIL_DOMAIN,
   DEMO_SESSION_HOURS,
   endedNotice,
+  ipLimitKey,
+  isDemoClaims,
   isDemoEmail,
   isUuid,
   parseBanner,
@@ -231,5 +233,60 @@ describe("the platform panel's status (app.demo_signin_status)", () => {
     expect(nextStep(parseStatus({ ...base, communities: two, people_ready: 10 })!)).toMatch(/Set up the sign-ins/);
     expect(nextStep(parseStatus({ ...base, communities: two, people_ready: 47 })!)).toMatch(/Turn the demo on/);
     expect(nextStep(parseStatus({ ...base, communities: two, people_ready: 47, enabled: true })!)).toMatch(/running demos end at once|Turn it off at any time/);
+  });
+});
+
+describe("a demo person's token", () => {
+  it("is recognised by the demo address, or by the mark the database puts in app_metadata (a person cannot edit that)", () => {
+    expect(isDemoClaims({ email: "treasurer@demo.weaverams.org" })).toBe(true);
+    expect(isDemoClaims({ email: "someone@example.org", app_metadata: { demo: true } })).toBe(true);
+    expect(isDemoClaims({ app_metadata: { demo: true } })).toBe(true);
+  });
+
+  it("is not guessed from anything looser", () => {
+    for (const c of [
+      null,
+      undefined,
+      {},
+      { email: "ada@jsh.org" },
+      { email: "ada@jsh.org", app_metadata: {} },
+      { email: "ada@jsh.org", app_metadata: { demo: "true" } },
+      { email: "ada@jsh.org", app_metadata: { demo: 1 } },
+      { email: "ada@jsh.org", app_metadata: "demo" },
+      { email: "x@demo.weaverams.org.evil.com" },
+    ]) {
+      expect(isDemoClaims(c), JSON.stringify(c)).toBe(false);
+    }
+  });
+});
+
+describe("what the per-visitor limit counts", () => {
+  it("is the address itself for IPv4, and the /64 for IPv6, however it is written", () => {
+    expect(ipLimitKey("203.0.113.9")).toBe("203.0.113.9");
+    expect(ipLimitKey("2001:db8:1:2:aaaa:bbbb:cccc:dddd")).toBe("2001:db8:1:2::/64");
+    expect(ipLimitKey("2001:DB8:1:2::1")).toBe("2001:db8:1:2::/64");
+    expect(ipLimitKey("2001:0db8:0001:0002:0000:0000:0000:0001")).toBe("2001:db8:1:2::/64");
+    expect(ipLimitKey("2001:db8::1")).toBe("2001:db8:0:0::/64");
+    expect(ipLimitKey("2001:db8:0:0:1:2:3:4")).toBe("2001:db8:0:0::/64");
+  });
+
+  it("gives one household's whole /64 the same key, and another /64 a different one", () => {
+    const a = ipLimitKey("2a02:c7f:1234:5678:1111:2222:3333:4444");
+    expect(ipLimitKey("2a02:c7f:1234:5678:ffff:ffff:ffff:ffff")).toBe(a);
+    expect(ipLimitKey("2a02:c7f:1234:5678::9")).toBe(a);
+    expect(ipLimitKey("2a02:c7f:1234:5679:1111:2222:3333:4444")).not.toBe(a);
+  });
+
+  it("counts an IPv4-mapped IPv6 address as the IPv4 one", () => {
+    expect(ipLimitKey("::ffff:203.0.113.9")).toBe("203.0.113.9");
+    expect(ipLimitKey("0:0:0:0:0:ffff:203.0.113.9")).toBe("203.0.113.9");
+  });
+
+  it("does not guess at what it cannot read", () => {
+    expect(ipLimitKey(null)).toBe("unknown");
+    expect(ipLimitKey("  ")).toBe("unknown");
+    expect(ipLimitKey("1:2:3")).toBe("1:2:3");
+    expect(ipLimitKey("1::2::3")).toBe("1::2::3");
+    expect(ipLimitKey("zz::1")).toBe("zz::1");
   });
 });

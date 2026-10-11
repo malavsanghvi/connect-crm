@@ -26,19 +26,27 @@ uses for the sign-in hooks and the platform keys):
 | Guardrail | How |
 | --- | --- |
 | Only the demo community | Triggers refuse any membership, role, ownership or platform-admin flag outside a demo community for a demo sign-in; a real person's sign-in can never be registered as a demo one. |
+| The flag cannot be dropped | A demo community is flagged by its own rules (`rules.demo`); every guardrail reads that flag. A trigger on `app.centers` refuses any change of the flag, kind, pack, name, short name, slug, status, environment, category or the `security` rule of a demo community unless the caller is a platform admin or the system itself, so the demo administrator (who holds settings.manage) cannot take the community out of the demo or rename what the public list shows. |
 | Kill switch | Platform › Setup › Demo sign-in (platform admins, a reason, a fresh 2FA check). Off by default. Off: no new session, every running one ends, **and the demo sign-ins lose their membership, role and ownership at once** (a token kept outside the portal sees nothing). Turning it on gives them back. |
 | 2 hours | `demo_sessions.expires_at`; checked on every request; the hourly `demo.reset` job and every start also sweep what ran out. |
-| Rate limits | 24 starts per hour per visitor address (hashed), 300 per hour and 20 per 5 minutes for the platform (Supabase Auth allows 30 sign-ins per 5 minutes from one address, and they all come from the portal). |
+| Rate limits | 24 starts per hour per visitor address (hashed; an IPv6 visitor is counted by their /64), 300 per hour and 20 per 5 minutes for the platform (Supabase Auth allows 30 sign-ins per 5 minutes from one address, and they all come from the portal). A visitor's own limit is checked before the global lock, and demo starts use their own one-connection database pool, so a burst of starts can never starve the sign-in hooks and webhooks. |
 | Only demo addresses | The address must be on `demo.weaverams.org` (table check, trigger, the portal checks again). Sign-in codes for those addresses are never sent. |
 | Audit | `demo.sign_in` / `demo.sign_out` entries: who = the demo person, role, hash of the address, why it ended. The switch and its reason are audited as a platform setting. |
 | Nothing sent, test payments | Already in 0627: the messaging sender refuses a demo community; payment mode is always test. |
 | Writes wiped | The reset takes the sign-ins apart, clears and reloads the community, and puts them back on the freshly loaded people. |
-| Shared sign-in | A demo person's own sign-in settings (phone, authenticator app, sessions) cannot be changed from the portal; a password, address, phone, ban or factor changed from outside is put back at the next start. |
+| Shared sign-in | A demo person's own sign-in settings cannot be changed from the portal. A trigger on `auth.users` also refuses a change of the password, address or phone, a pending change to be confirmed at another address or phone, and removing the demo mark, for a demo sign-in, unless `app.demo_assert_auth_user` raised the transaction-local setting `app.demo_auth_ok`. Auth's own writes (last sign-in time, tokens, a re-hash of the very same password) pass. A check that fails for any other reason lets the update through, so it can never get in the way of a real sign-in. Whatever changed from outside anyway is put back at the next start. The proxy also treats a token marked `app_metadata.demo` as a demo session (a person cannot edit that), not only an address on the demo domain. |
+| Refresh stops at 2 hours | `app.worker_demo_attach` sets `auth.sessions.not_after` to the end of the demo session. Supabase Auth refuses to refresh a session after its `not_after`; I could not confirm that against the hosted version from here, so the portal's check on every request and the hourly sweep still end the session whether or not Auth honours it. |
 
 ## To turn it on (owner, once)
 
-1. Check Supabase Auth: email sign-ups allowed (they already are), and **"Single session per user" off** (a shared demo sign-in
-   needs several sessions at once).
+1. Check Supabase Auth (the Weaver owner; none of this can be read from the repository):
+   - **"Single session per user" off** (a shared demo sign-in needs several sessions at once);
+   - **"Secure email change" ON** and **manual identity linking OFF**; **phone sign-in auto-confirm OFF**;
+   - **captcha protection off** for password sign-ins (the portal signs in on the server);
+   - the **JWT expiry** (it is the tail described below; 3600 seconds is the default and the longest I would allow);
+   - the migration role (`postgres`) can write `auth.users` and `auth.identities`, delete from `auth.sessions` and
+     `auth.mfa_factors`, create a trigger on `auth.users`, and read the Vault (`vault.decrypted_secrets`, `vault.create_secret`).
+     Migration 0150 already deletes from `auth.sessions`; the rest is new.
 2. Platform › Setup › Demo sign-in: **Create the faith-based demo** and **Create the not faith-based demo**, then
    **Set up the sign-ins**, then **Turn the demo on** (each asks for a reason and the fresh 2FA check).
 3. Open `/demo` in a private window and start as each kind of person. If a sign-in says "Database error querying schema", the

@@ -4,7 +4,7 @@ import { createClient } from "@supabase/supabase-js";
 import { revalidatePath } from "next/cache";
 
 import { PRODUCT_NAME } from "@/lib/brand";
-import { isDemoEmail } from "@/lib/demo-signin/rules";
+import { isDemoClaims } from "@/lib/demo-signin/rules";
 import { readPublicEnv } from "@/lib/env";
 import { failure, type ActionResult } from "@/lib/errors";
 import { explainAuthError, normalizePhone, stepUpFresh } from "@/lib/security";
@@ -30,14 +30,14 @@ function demoRefusal(doing: string): { ok: false; error: string } {
 
 async function signedIn(doing: string): Promise<{ ok: true; db: AppSupabase; centerId: string | null } | { ok: false; error: string }> {
   const state = await loadSession();
-  if (state.status === "ok") return isDemoEmail(state.session.email) ? demoRefusal(doing) : { ok: true, db: state.session.db, centerId: state.session.center.id };
+  if (state.status === "ok") return state.session.demo === true ? demoRefusal(doing) : { ok: true, db: state.session.db, centerId: state.session.center.id };
   if (state.status === "signed_out") return { ok: false, error: `Could not ${doing} — your session has expired. Sign in again.` };
   // A signed-in user whose center did not load can still manage their own sign-in.
   try {
     const db = await createSupabaseServerClient();
     const { data, error } = await db.auth.getClaims();
     if (error || !data?.claims?.sub) return { ok: false, error: `Could not ${doing} — your session has expired. Sign in again.` };
-    if (isDemoEmail(data.claims.email)) return demoRefusal(doing);
+    if (isDemoClaims(data.claims)) return demoRefusal(doing);
     return { ok: true, db, centerId: null };
   } catch (error) {
     return failure(`Could not ${doing}`, error);

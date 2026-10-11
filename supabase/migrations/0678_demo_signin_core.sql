@@ -178,6 +178,72 @@ create trigger zz_demo_user_guard before insert or update on app.center_owners f
 drop trigger if exists zz_demo_user_guard on app.accounts;
 create trigger zz_demo_user_guard before insert or update on app.accounts for each row execute function app.demo_user_guard();
 
+-- A demo community is flagged by its own rules (rules.demo, demo_kind, demo_pack), and everything that refuses to send, takes
+-- payments in test mode only, resets and switches off reads that flag. Its administrator (a demo person) may change settings, but never
+-- the flag, what the public list shows (its name), or the security rule: only the platform team (or the system itself) does.
+create or replace function app.demo_center_guard() returns trigger
+language plpgsql security definer set search_path = app, public, extensions as $$
+begin
+  if auth.uid() is null then return new; end if;   -- the system itself (the background service, a migration)
+  if coalesce(old.rules -> 'demo', 'null'::jsonb) <> 'true'::jsonb and coalesce(new.rules -> 'demo', 'null'::jsonb) <> 'true'::jsonb then
+    return new;   -- not a demo community, before or after
+  end if;
+  if (old.rules -> 'demo', old.rules -> 'demo_kind', old.rules -> 'demo_pack', old.rules -> 'security',
+      old.name, old.short_name, old.slug, old.status, old.environment, old.category_key)
+     is not distinct from
+     (new.rules -> 'demo', new.rules -> 'demo_kind', new.rules -> 'demo_pack', new.rules -> 'security',
+      new.name, new.short_name, new.slug, new.status, new.environment, new.category_key) then
+    return new;
+  end if;
+  if app.is_platform_admin() then return new; end if;
+  raise exception 'A demo community''s name, kind and security rule can only be changed by the Community Connect team.' using errcode = 'insufficient_privilege';
+end $$;
+
+drop trigger if exists zz_demo_center_guard on app.centers;
+create trigger zz_demo_center_guard before update on app.centers for each row execute function app.demo_center_guard();
+
+-- ── The shared sign-in cannot be changed from a browser ─────────────────────
+-- A visitor holds the demo person's session, so they could call Supabase Auth directly (PUT /user) to change the password, address or
+-- phone, or to ask for a change to be confirmed at an address of their own. That would lock the next visitor out and give the first one
+-- access that is not on record in demo_sessions. This refuses it for a demo sign-in, unless app.demo_assert_auth_user raised the
+-- transaction-local setting app.demo_auth_ok. Allowed: everything Auth does by itself (last sign-in time, tokens), and a new hash of the
+-- SAME stored password (Auth may re-hash at login). It never gets in the way of anyone else: a check that fails for any other reason lets
+-- the update through.
+create or replace function app.demo_auth_guard() returns trigger
+language plpgsql security definer set search_path = app, public, extensions as $$
+declare v_demo boolean; v_pw text; v_ok boolean;
+begin
+  begin
+    v_demo := exists (select 1 from app.demo_auth_users a where a.user_id = new.id);
+  exception when others then
+    return new;
+  end;
+  if not v_demo or coalesce(current_setting('app.demo_auth_ok', true), '') = 'on' then return new; end if;
+  if new.email is distinct from old.email
+     or new.phone is distinct from old.phone
+     or coalesce(new.email_change, '') is distinct from coalesce(old.email_change, '')
+     or coalesce(new.phone_change, '') is distinct from coalesce(old.phone_change, '')
+     or coalesce(new.raw_app_meta_data ->> 'demo', '') <> 'true' then
+    raise exception 'A demo sign-in is shared by everyone trying the demo, so its address, phone and password cannot be changed.' using errcode = 'check_violation';
+  end if;
+  if new.encrypted_password is distinct from old.encrypted_password then
+    begin
+      select s.decrypted_secret into v_pw
+        from app.demo_auth_users a join vault.decrypted_secrets s on s.id = a.vault_secret_id where a.user_id = new.id;
+      v_ok := v_pw is not null and new.encrypted_password ~ '^\$2[abxy]\$[0-9]{2}\$.{53}$' and new.encrypted_password = extensions.crypt(v_pw, new.encrypted_password);
+    exception when others then
+      v_ok := false;
+    end;
+    if not coalesce(v_ok, false) then
+      raise exception 'A demo sign-in is shared by everyone trying the demo, so its address, phone and password cannot be changed.' using errcode = 'check_violation';
+    end if;
+  end if;
+  return new;
+end $$;
+
+drop trigger if exists zz_demo_auth_guard on auth.users;
+create trigger zz_demo_auth_guard before update on auth.users for each row execute function app.demo_auth_guard();
+
 -- ── The link between a sign-in and its demo person ──────────────────────────
 -- Put the sign-in back to what the database wants: the persona's address, the stored password, confirmed, not banned, no phone
 -- and no authenticator app of its own, marked as a demo user. Written only when something differs (so a normal start writes nothing),
@@ -185,12 +251,14 @@ create trigger zz_demo_user_guard before insert or update on app.accounts for ea
 create or replace function app.demo_assert_auth_user(p_user uuid, p_email text, p_pw text) returns void
 language plpgsql security definer set search_path = app, public, extensions as $$
 begin
+  perform set_config('app.demo_auth_ok', 'on', true);
   update auth.users u
      set email = p_email,
          encrypted_password = extensions.crypt(p_pw, extensions.gen_salt('bf', 10)),
          email_confirmed_at = coalesce(u.email_confirmed_at, now()),
          banned_until = null,
          phone = null,
+         email_change = '', email_change_token_new = '', email_change_token_current = '', phone_change = '', phone_change_token = '',
          raw_app_meta_data = coalesce(u.raw_app_meta_data, '{}'::jsonb)
                              || jsonb_build_object('provider', 'email', 'providers', jsonb_build_array('email'), 'demo', true),
          updated_at = now()
@@ -199,9 +267,12 @@ begin
           or u.email_confirmed_at is null
           or u.banned_until is not null
           or u.phone is not null
+          or coalesce(u.email_change, '') <> '' or coalesce(u.email_change_token_new, '') <> '' or coalesce(u.email_change_token_current, '') <> ''
+          or coalesce(u.phone_change, '') <> '' or coalesce(u.phone_change_token, '') <> ''
           or coalesce(u.raw_app_meta_data ->> 'demo', '') <> 'true'
           or not coalesce(case when u.encrypted_password ~ '^\$2[abxy]\$[0-9]{2}\$.{53}$'
                                then u.encrypted_password = extensions.crypt(p_pw, u.encrypted_password) end, false));
+  perform set_config('app.demo_auth_ok', 'off', true);
   delete from auth.mfa_factors where user_id = p_user;
 end $$;
 
@@ -248,6 +319,16 @@ begin
   -- The demo administrator is the community's owner (the first active administrator becomes one); without the role there is no ownership either.
   -- It comes back with the role (app.ensure_center_owner).
   delete from app.center_owners o where o.center_id = p_center and o.user_id in (select a.user_id from app.demo_auth_users a);
+end $$;
+
+-- Every membership, role and ownership of any demo sign-in, in EVERY community (not only the flagged ones): the kill switch uses this,
+-- so it does not depend on a community still carrying its flag.
+create or replace function app.demo_unlink_everywhere() returns void
+language plpgsql security definer set search_path = app, public, extensions as $$
+begin
+  delete from app.role_grants g where g.user_id in (select a.user_id from app.demo_auth_users a);
+  delete from app.center_users cu where cu.user_id in (select a.user_id from app.demo_auth_users a);
+  delete from app.center_owners o where o.user_id in (select a.user_id from app.demo_auth_users a);
 end $$;
 
 -- ── Set up (once) or rotate ──────────────────────────────────────────────────
@@ -357,10 +438,9 @@ begin
       v_ended := v_ended + 1;
     end loop;
     delete from auth.sessions where user_id in (select a.user_id from app.demo_auth_users a);
-    -- And the demo people lose their membership and role at once, so a token kept outside the portal can see and change nothing either.
-    for c in select ce.id from app.centers ce where app.is_demo_center(ce.id) order by ce.created_at, ce.id loop
-      perform app.demo_unlink_personas(c.id);
-    end loop;
+    -- And the demo people lose every membership, role and ownership they hold anywhere, at once, so a token kept outside the portal
+    -- can see and change nothing either.
+    perform app.demo_unlink_everywhere();
   end if;
   return jsonb_build_object('enabled', p_enabled, 'ended', v_ended);
 end $$;
@@ -392,7 +472,8 @@ end $$;
 -- ── Who may call what ────────────────────────────────────────────────────────
 revoke execute on function app.demo_signin_hours(), app.demo_signin_limits(), app.demo_signin_enabled(),
   app.demo_audit(uuid, text, uuid, text, jsonb, text), app.demo_end(uuid, text), app.demo_signin_sweep(), app.demo_user_guard(),
-  app.demo_assert_auth_user(uuid, text, text), app.demo_link_personas(uuid), app.demo_unlink_personas(uuid),
+  app.demo_assert_auth_user(uuid, text, text), app.demo_link_personas(uuid), app.demo_unlink_personas(uuid), app.demo_unlink_everywhere(),
+  app.demo_center_guard(), app.demo_auth_guard(),
   app.demo_signin_setup(text, boolean), app.set_demo_signin(boolean, text), app.demo_signin_status()
   from public, anon, authenticated, service_role;
 grant execute on function app.demo_signin_setup(text, boolean), app.set_demo_signin(boolean, text), app.demo_signin_status() to authenticated;

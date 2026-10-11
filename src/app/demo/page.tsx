@@ -12,7 +12,7 @@ import {
   KIND_BLURB,
   KIND_LABEL,
   endedNotice,
-  isDemoEmail,
+  isDemoClaims,
   type DemoCommunity,
   type DemoKind,
 } from "@/lib/demo-signin/rules";
@@ -42,7 +42,7 @@ export default async function DemoPage({ searchParams }: { searchParams: Promise
     const db = await createSupabaseServerClient();
     const { data } = await db.auth.getClaims();
     const email = typeof data?.claims?.email === "string" ? data.claims.email : null;
-    if (email && isDemoEmail(email)) {
+    if (isDemoClaims(data?.claims)) {
       const info = await loadDemoBanner(db);
       inDemoAs = info ? (info.role ? `${info.name}, ${info.role}` : info.name) : null;
     } else if (email) {

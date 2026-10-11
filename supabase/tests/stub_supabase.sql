@@ -90,7 +90,8 @@ create table if not exists auth.sessions (
   id         uuid primary key,
   user_id    uuid not null references auth.users(id) on delete cascade,
   created_at timestamptz not null default now(),
-  aal        text
+  aal        text,
+  not_after  timestamptz
 );
 -- Supabase Vault stand-in (o-vault, 0170): same functions, view and grants as
 -- the supabase_vault extension; the "encryption" is only base64 here. The

@@ -97,6 +97,15 @@ describe("the proxy and a demo session", () => {
     expect(await res.json()).toEqual({ error: "Your demo session has ended. Start a new one at /demo." });
   });
 
+  it("also ends a session marked demo by the database when its address is no longer a demo address", async () => {
+    fake.claims = { sub: "u1", email: "visitor@example.org", app_metadata: { provider: "email", demo: true } };
+    fake.rpc.mockResolvedValue({ data: { state: "unknown" }, error: null });
+    const res = await updateSession(req("/people"), ENV);
+    expect(fake.rpc).toHaveBeenCalledWith("demo_session_state");
+    expect(res.status).toBe(307);
+    expect(res.headers.get("location")).toContain("/demo?ended=unknown");
+  });
+
   it("does not even ask about a person who is not a demo person", async () => {
     fake.claims = { sub: "u2", email: "ada@jsh.org" };
     fake.rpc.mockResolvedValue({ data: { state: "expired" }, error: null });

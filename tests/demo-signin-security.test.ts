@@ -13,7 +13,7 @@ const st = vi.hoisted(() => ({
 vi.mock("@/lib/session", () => ({
   loadSession: async () => ({
     status: "ok",
-    session: { email: st.email, center: { id: "c1" }, db: { auth: { updateUser: st.updateUser, signOut: st.signOut, mfa: { listFactors: st.listFactors } }, rpc: vi.fn() } },
+    session: { email: st.email, demo: st.email?.endsWith("@demo.weaverams.org") ?? false, center: { id: "c1" }, db: { auth: { updateUser: st.updateUser, signOut: st.signOut, mfa: { listFactors: st.listFactors } }, rpc: vi.fn() } },
   }),
 }));
 vi.mock("@/lib/supabase/server", () => ({ createSupabaseServerClient: vi.fn() }));
