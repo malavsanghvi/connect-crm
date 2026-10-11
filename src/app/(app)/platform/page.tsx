@@ -1,12 +1,14 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
+import { AskNiva } from "@/components/niva/ask-niva";
 import { Alert, Card, EmptyState, PageHeader, QueryError, StatusText, TableWrap, buttonClass } from "@/components/ui";
 import { centerStatusLabel, traditionLabel } from "@/lib/center-wizard";
 import { experienceLabel } from "@/lib/experiences";
 import { loadExperiences } from "@/lib/experiences-db";
 import { getSession } from "@/lib/session";
 
+import { WaitingCard } from "./_components/waiting-card";
 import { PlatformNoAccess } from "./platform-no-access";
 import { SetupReminder } from "./setup-reminder";
 
@@ -21,6 +23,7 @@ export default async function PlatformCentersPage() {
       actions={
         session.isPlatformAdmin ? (
           <>
+            <AskNiva prompt="Who is waiting for us, and what is missing?" />
             <Link href="/platform/new-sandbox" className={buttonClass("primary")}>
               New sandbox
             </Link>
@@ -67,6 +70,7 @@ export default async function PlatformCentersPage() {
     <>
       {header}
       <SetupReminder session={session} />
+      <WaitingCard db={db} timeZone={session.center.time_zone} />
       {kinds.status !== "ok" ? (
         <div className="mb-4">
           <Alert tone="warning" title="The names of the kinds of organization could not be loaded">
@@ -122,6 +126,9 @@ export default async function PlatformCentersPage() {
                       <td>{sizes[i]}</td>
                       <td>{kindList.find((k) => k.key === c.category_key)?.usesTradition === false ? "—" : traditionLabel(c.tradition)}</td>
                       <td>
+                        <Link href={`/platform/centers/${c.id}/summary`} className="crm-link mr-3 text-[13px] font-semibold">
+                          Summary
+                        </Link>
                         <Link href={`/platform/centers/${c.id}`} className="crm-link text-[13px] font-semibold">
                           Limits &amp; addresses
                         </Link>

@@ -130,6 +130,8 @@ export type Command<I = never, O = unknown> = {
   permission: AccessKey;
   /** Hidden when this module is switched off for the community. */
   module?: ModuleKey;
+  /** Only the Weaver team (platform admins) may use it. It is never offered to anyone else, whatever their roles or permissions are. */
+  platformOnly?: boolean;
   input: ObjectSchema<I>;
   /** What will happen, before anything does. Runs when a confirm command is proposed (and a draft may share it). */
   preview?: (ctx: CommandContext, input: I) => Promise<CommandPreview>;

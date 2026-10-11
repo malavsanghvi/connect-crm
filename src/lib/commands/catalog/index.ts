@@ -19,7 +19,9 @@ import { draftReminderCommand } from "./messages-draft-reminder";
 import { monthCloseBlockers } from "./month-close-blockers";
 import { PEOPLE_COMMANDS } from "./people";
 import { peopleSearch } from "./people-search";
+import { PLATFORM_COMMANDS } from "./platform";
 import { pledgesBehind } from "./pledges-behind";
+import { REPORTS_COMMANDS } from "./reports";
 import { SETTINGS_COMMANDS } from "./settings";
 import { STORE_COMMANDS } from "./store";
 import { tasksMine } from "./tasks-mine";
@@ -49,6 +51,9 @@ export const CATALOG: readonly AnyCommand[] = [
   // Content (approval queue, Niva's sources, media counts, drafts) and Store (orders, stock, sales): reads, a draft, and confirm ones that are off for Niva by default
   ...CONTENT_COMMANDS,
   ...STORE_COMMANDS,
+  // Reports (ask questions of your data; the sums are done in the database) and the Platform console (Weaver team only)
+  ...REPORTS_COMMANDS,
+  ...PLATFORM_COMMANDS,
 ];
 
 let registered = false;
