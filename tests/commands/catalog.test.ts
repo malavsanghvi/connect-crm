@@ -8,6 +8,7 @@ import { revalidatePath } from "next/cache";
 
 import { CATALOG } from "@/lib/commands/catalog";
 import { CONTENT_COMMANDS } from "@/lib/commands/catalog/content";
+import { LEARNING_COMMANDS } from "@/lib/commands/catalog/learning";
 import { MESSAGES_COMMANDS } from "@/lib/commands/catalog/messages";
 import { PEOPLE_COMMANDS } from "@/lib/commands/catalog/people";
 import { PLATFORM_COMMANDS } from "@/lib/commands/catalog/platform";
@@ -29,7 +30,7 @@ const DIWALI = "7d0f3b9a-6a39-4d0c-9f43-0a1a1d7c1001";
 const PICNIC = "7d0f3b9a-6a39-4d0c-9f43-0a1a1d7c1003";
 const CANCELLED = "7d0f3b9a-6a39-4d0c-9f43-0a1a1d7c1004";
 
-const ALL_PERMISSIONS = ["people.view", "people.manage", "people.approve", "giving.view", "giving.manage", "giving.record_offline", "giving.approve", "events.view", "events.manage", "comms.send", "comms.approve", "comms.inbox", "accounting.close", "settings.manage", "roles.manage", "integrations.manage", "content.view", "content.draft", "content.manage", "content.approve", "store.view", "store.manage", "store.pickup", "reports.view"];
+const ALL_PERMISSIONS = ["people.view", "people.manage", "people.approve", "giving.view", "giving.manage", "giving.record_offline", "giving.approve", "events.view", "events.manage", "comms.send", "comms.approve", "comms.inbox", "accounting.close", "settings.manage", "roles.manage", "integrations.manage", "content.view", "content.draft", "content.manage", "content.approve", "store.view", "store.manage", "store.pickup", "reports.view", "pathshala.view", "pathshala.manage"];
 
 function catalogRegistry() {
   const r = new CommandRegistry();
@@ -557,9 +558,10 @@ describe("no command result reaches a model with a child in it", () => {
    * the Settings commands run against theirs (tests/commands/settings-commands.test.ts), which has a child holding a role; the Messages
    * commands against theirs too: tests/commands/messages-commands.test.ts ("D2 across the Messages commands") checks every one of them. The Content and Store commands
    * run against theirs (tests/commands/content-store-world.ts): content-commands.test.ts and store-commands.test.ts check every one of them for children.
+   * The Learning commands run against a Pathshala full of children, with the learner tables filled: tests/commands/learning-d2.test.ts.
    */
   // Reports and Platform: tests/commands/reports-commands.test.ts and platform-commands.test.ts, which check every one of them for children too.
-  const OWN_WORLD = new Set([...PEOPLE_COMMANDS, ...SETTINGS_COMMANDS, ...MESSAGES_COMMANDS, ...REPORTS_COMMANDS, ...PLATFORM_COMMANDS, ...CONTENT_COMMANDS, ...STORE_COMMANDS].map((c) => c.key));
+  const OWN_WORLD = new Set([...PEOPLE_COMMANDS, ...SETTINGS_COMMANDS, ...MESSAGES_COMMANDS, ...REPORTS_COMMANDS, ...PLATFORM_COMMANDS, ...CONTENT_COMMANDS, ...STORE_COMMANDS, ...LEARNING_COMMANDS].map((c) => c.key));
 
   /** A plausible input for every command in the catalog. A new command must be added here, or this file fails. */
   const SAMPLE_INPUT: Record<string, unknown> = {

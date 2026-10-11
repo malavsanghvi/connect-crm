@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { AskNiva } from "@/components/niva/ask-niva";
 import { Card, buttonClass } from "@/components/ui";
 import { explainError } from "@/lib/errors";
 import { classDaysInTerm } from "@/lib/logic/attendance";
@@ -56,9 +57,12 @@ export default async function TermPage({ params }: { params: Promise<{ id: strin
         description={`Pathshala term · ${termStatusLabel(term.status)}`}
         back={{ href: "/pathshala/terms", label: "Terms" }}
         actions={
-          <Link href={`/pathshala/terms/${term.id}/fees`} className={buttonClass("primary", "sm")}>
-            Fees and rules
-          </Link>
+          <>
+            <AskNiva prompt="How is this term set up, and is anything missing before registration opens?" />
+            <Link href={`/pathshala/terms/${term.id}/fees`} className={buttonClass("primary", "sm")}>
+              Fees and rules
+            </Link>
+          </>
         }
       />
       {rulesNote ? (

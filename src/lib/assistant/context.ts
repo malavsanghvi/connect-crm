@@ -112,7 +112,7 @@ export function safeRouteContext(pathname: string | null | undefined, params?: R
 // ---------------------------------------------------------------------------
 // The area of the screen, for the "Ask Niva" suggestions
 // ---------------------------------------------------------------------------
-export type SuggestionArea = "people" | "giving" | "events" | "messages" | "content" | "store" | "accounting" | "settings" | "setup" | "reports" | "platform" | "general";
+export type SuggestionArea = "people" | "giving" | "events" | "messages" | "content" | "store" | "accounting" | "settings" | "setup" | "reports" | "platform" | "learning" | "general";
 
 const AREA_BY_FIRST_SEGMENT: Record<string, SuggestionArea> = {
   people: "people",
@@ -132,6 +132,7 @@ const AREA_BY_FIRST_SEGMENT: Record<string, SuggestionArea> = {
   setup: "setup",
   reports: "reports",
   platform: "platform",
+  pathshala: "learning",
 };
 
 export function areaForPath(path: string): SuggestionArea {
@@ -150,6 +151,8 @@ export type Suggestion = {
   onlyWithout?: boolean;
   /** Shown only on a screen under this path ("/settings/roles"). */
   onlyOn?: string;
+  /** Shown only on exactly this screen ("/pathshala"), not on the screens under it. */
+  onlyAt?: string;
 };
 
 const SUGGESTIONS: Record<SuggestionArea, Suggestion[]> = {
@@ -261,6 +264,20 @@ const SUGGESTIONS: Record<SuggestionArea, Suggestion[]> = {
     { text: "Summarise the community with address jsh", needs: "platform.community_summary" },
     { text: "What would changing a community's kind of organization do?", needs: "platform.preview_kind_change" },
   ],
+  // Learning (B90 phase 4, decision D2): terms, levels, fees, classes and teachers (adults). A sentence here never speaks of a child or a
+  // learner, and only the term, levels, classes and fees screens have one: the screens about learners (enrollments, a class's roster,
+  // homework, sign-offs, attendance) fall back to the general ones.
+  learning: [
+    { text: "Which classes have no teacher yet, and who could teach them?", needs: "learning.classes_needing_teachers", onlyAt: "/pathshala" },
+    { text: "How many Pathshala tasks are waiting?", needs: "learning.waiting_counts", onlyAt: "/pathshala" },
+    { text: "How is this term set up: its levels, fees and rules?", needs: "learning.term_setup", onlyFor: "term" },
+    { text: "Is anything missing before registration can open for this term?", needs: "learning.registration_checklist", onlyFor: "term" },
+    { text: "What have we billed and collected for Pathshala so far?", needs: "learning.fee_report", onlyOn: "/pathshala/terms" },
+    { text: "What is missing before registration can open for each term?", needs: "learning.registration_checklist", onlyAt: "/pathshala/terms" },
+    { text: "Show how a term is set up: levels, fees and rules", needs: "learning.term_setup", onlyAt: "/pathshala/terms" },
+    { text: "Which levels have no fee set for the term?", needs: "learning.term_setup", onlyOn: "/pathshala/levels" },
+    { text: "What would a fee of $135 for Jainism 2 change?", needs: "learning.draft_term_change", onlyOn: "/pathshala/levels" },
+  ],
   general: [
     { text: "What is waiting for me?", needs: "tasks.mine" },
     { text: "What events are coming up?", needs: "events.upcoming" },
@@ -277,6 +294,7 @@ export function suggestionsFor(path: string, entityKind: string | undefined, ava
       .filter((s) => (s.onlyFor ? s.onlyFor === entityKind : true))
       .filter((s) => (s.onlyWithout ? entityKind === undefined : true))
       .filter((s) => (s.onlyOn ? path === s.onlyOn || path.startsWith(`${s.onlyOn}/`) : true))
+      .filter((s) => (s.onlyAt ? path === s.onlyAt : true))
       .map((s) => s.text);
   const own = pick(SUGGESTIONS[area]);
   // A screen whose role can use none of its own examples still gets the general ones.
@@ -296,6 +314,7 @@ const AREA_NAME: Record<SuggestionArea, string> = {
   setup: "Setup",
   reports: "Reports",
   platform: "Platform",
+  learning: "Learning",
   general: "Home",
 };
 
