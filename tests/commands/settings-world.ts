@@ -3,6 +3,7 @@
 
 import { CATALOG } from "@/lib/commands/catalog";
 import { CommandRegistry } from "@/lib/commands/registry";
+import { needsSecondApprover } from "@/lib/security";
 import type { CommandVia } from "@/lib/commands/types";
 import type { CrmSession } from "@/lib/session";
 
@@ -21,6 +22,16 @@ export const U = {
   owner: "a1000000-0000-4000-8000-000000000006",
   priya2: "a1000000-0000-4000-8000-000000000007",
   nobody: "a1000000-0000-4000-8000-0000000000ff",
+};
+export const G = {
+  priya: "c1000000-0000-4000-8000-000000000001",
+  rahulPending: "c1000000-0000-4000-8000-000000000002",
+  nikhilEvent: "c1000000-0000-4000-8000-000000000003",
+  aarav: "c1000000-0000-4000-8000-000000000004",
+  admin: "c1000000-0000-4000-8000-000000000005",
+  ended: "c1000000-0000-4000-8000-000000000006",
+  owner: "c1000000-0000-4000-8000-000000000007",
+  nobody: "c1000000-0000-4000-8000-0000000000ff",
 };
 export const EVENT = "7d0f3b9a-6a39-4d0c-9f43-0a1a1d7c1001";
 export const ZONE = "9a000000-0000-4000-8000-000000000001";
@@ -75,16 +86,16 @@ export function settingsTables(): Record<string, Row[]> {
     roles: ROLES,
     role_grants: [
       // Priya: treasurer, active. Rahul: treasurer, waiting for a second person (starts "never" until approved).
-      { id: "g1", center_id, user_id: U.priya, role_key: "treasurer", scope_kind: "center", scope_id: null, starts_at: "2026-01-01T00:00:00Z", ends_at: null, status: "active" },
-      { id: "g2", center_id, user_id: U.rahul, role_key: "treasurer", scope_kind: "center", scope_id: null, starts_at: "infinity", ends_at: null, status: "pending" },
+      { id: G.priya, center_id, user_id: U.priya, role_key: "treasurer", scope_kind: "center", scope_id: null, starts_at: "2026-01-01T00:00:00Z", ends_at: null, status: "active" },
+      { id: G.rahulPending, center_id, user_id: U.rahul, role_key: "treasurer", scope_kind: "center", scope_id: null, starts_at: "infinity", ends_at: null, status: "pending" },
       // Nikhil runs one event only: this gives no rights across the community.
-      { id: "g3", center_id, user_id: U.nikhil, role_key: "event_manager", scope_kind: "event", scope_id: EVENT, starts_at: "2026-01-01T00:00:00Z", ends_at: "2026-12-31T06:00:00Z", status: "active" },
+      { id: G.nikhilEvent, center_id, user_id: U.nikhil, role_key: "event_manager", scope_kind: "event", scope_id: EVENT, starts_at: "2026-01-01T00:00:00Z", ends_at: "2026-12-31T06:00:00Z", status: "active" },
       // A child with a login, no birth date on file, household relationship "child": never named.
-      { id: "g4", center_id, user_id: U.aarav, role_key: "event_manager", scope_kind: "center", scope_id: null, starts_at: "2026-01-01T00:00:00Z", ends_at: null, status: "active" },
-      { id: "g5", center_id, user_id: U.admin, role_key: "center_admin", scope_kind: "center", scope_id: null, starts_at: "2026-01-01T00:00:00Z", ends_at: null, status: "active" },
+      { id: G.aarav, center_id, user_id: U.aarav, role_key: "event_manager", scope_kind: "center", scope_id: null, starts_at: "2026-01-01T00:00:00Z", ends_at: null, status: "active" },
+      { id: G.admin, center_id, user_id: U.admin, role_key: "center_admin", scope_kind: "center", scope_id: null, starts_at: "2026-01-01T00:00:00Z", ends_at: null, status: "active" },
       // Ended: not listed.
-      { id: "g6", center_id, user_id: U.priya2, role_key: "finance_volunteer", scope_kind: "center", scope_id: null, starts_at: "2025-01-01T00:00:00Z", ends_at: "2026-01-01T06:00:00Z", status: "active" },
-      { id: "g7", center_id, user_id: U.owner, role_key: "center_admin", scope_kind: "center", scope_id: null, starts_at: "2025-01-01T00:00:00Z", ends_at: FAR, status: "active" },
+      { id: G.ended, center_id, user_id: U.priya2, role_key: "finance_volunteer", scope_kind: "center", scope_id: null, starts_at: "2025-01-01T00:00:00Z", ends_at: "2026-01-01T06:00:00Z", status: "active" },
+      { id: G.owner, center_id, user_id: U.owner, role_key: "center_admin", scope_kind: "center", scope_id: null, starts_at: "2025-01-01T00:00:00Z", ends_at: FAR, status: "active" },
     ],
     events: [{ id: EVENT, center_id, name: "Diwali Dinner" }],
     pathshala_classes: [],
@@ -141,6 +152,32 @@ export function addSettingsWorld(over: Partial<FakeDbOptions> = {}): FakeDbOptio
   };
 }
 
+/**
+ * Make db.from("role_grants").insert(row).select("status").single() work in the fake: it records the row and answers like the database
+ * (a role that needs a second person comes back pending). Everything else on the fake stays as it is.
+ */
+export function recordGrantInserts(fake: unknown, opts: { fail?: { code?: string; message: string }; status?: (row: Row) => string } = {}) {
+  const db = fake as { from: (table: string) => object };
+  const inserts: Row[] = [];
+  const original = db.from.bind(db);
+  db.from = (table: string) => {
+    const builder = original(table);
+    if (table !== "role_grants") return builder;
+    return new Proxy(builder, {
+      get(target, prop, receiver) {
+        if (prop !== "insert") return Reflect.get(target, prop, receiver);
+        return (row: Row) => {
+          if (!opts.fail) inserts.push(row);
+          const status = (opts.status ?? ((r: Row) => (needsSecondApprover(String(r.role_key)) ? "pending" : "active")))(row);
+          const answer = opts.fail ? { data: null, error: opts.fail } : { data: { status }, error: null };
+          return { select: () => ({ single: () => Promise.resolve(answer) }) };
+        };
+      },
+    });
+  };
+  return inserts;
+}
+
 /** A database that answers reads and refuses every write: a command that must not change anything is run against it. */
 export function readOnly(fake: unknown) {
   const db = fake as { from: (table: string) => object; rpc: (fn: string, args?: Record<string, unknown>) => unknown };
@@ -192,4 +229,22 @@ export function asAdmin(opts: { via?: CommandVia; world?: FakeDbOptions; permiss
   });
   const ctx = testContext({ session, registry: catalogRegistry(), via: opts.via ?? "screen", minorNames: opts.minors ?? ["Zoya Shah", "Aarav Patel", "Tia Mehta"] });
   return { ctx, db, session, writes };
+}
+
+/** The community's owner has ticked the three Settings changes for Niva. */
+export const TICKED = { assistant: { enabled: true, tools: { "settings.grant_role": true, "settings.revoke_role": true, "settings.set_module": true } } };
+
+/** The same community, with a database that takes a role grant and the module switch. `rules` decides what Niva may do. */
+export function asWriter(opts: { via?: CommandVia; world?: FakeDbOptions; permissions?: string[]; rules?: unknown; insert?: Parameters<typeof recordGrantInserts>[1]; session?: Partial<Record<keyof CrmSession, unknown>> } = {}) {
+  const db = fakeDb(opts.world ?? addSettingsWorld());
+  const inserts = recordGrantInserts(db, opts.insert);
+  const session = fakeSession({
+    db,
+    userId: U.admin,
+    permissions: opts.permissions ?? ADMIN_PERMISSIONS,
+    center: { ...fakeSession().center, environment: "sandbox", rules: opts.rules ?? TICKED },
+    ...opts.session,
+  });
+  const ctx = testContext({ session, registry: catalogRegistry(), via: opts.via ?? "assistant", minorNames: ["Zoya Shah", "Aarav Patel", "Tia Mehta"] });
+  return { ctx, db, inserts, session };
 }

@@ -6,16 +6,19 @@
 //   only you   secrets, agreements, sign-ins to other services, DNS, the owner's confirmations, going live, acting as the second
 //              approver: each says where the person does it, and nothing else (no execute)
 //
-// Roles, permissions and the module switches are the owner's: the commands that CHANGE them are separate, confirm-level, and off for
-// Niva until the community ticks them. This file lists what ships first.
+//   confirm    give a role, take a role away, switch a module on or off: roles, permissions and what members see are the owner's, so each
+//              of these is OFF for Niva until the community's owner ticks it (Platform › Niva for admins). The Roles and Modules
+//              screens call the same `execute` through runScreenCommand.
 
 import type { AnyCommand } from "../../types";
 
 import { draftRoleGrant } from "./draft-role-grant";
+import { grantRole, revokeRole } from "./grant-role";
 import { integrationsHealth } from "./integrations-health";
 import { modulesState } from "./modules-state";
 import { ONLY_YOU_COMMANDS } from "./only-you";
 import { roleHolders, whoCanAccess } from "./role-holders";
+import { setModule } from "./set-module";
 import { setupStatus } from "./setup-status";
 
 /** In the order a person would meet them: look, prepare, then the things only they can do. */
@@ -28,6 +31,10 @@ export const SETTINGS_COMMANDS: readonly AnyCommand[] = [
   modulesState,
   // draft
   draftRoleGrant,
+  // confirm (off by default)
+  grantRole,
+  revokeRole,
+  setModule,
   // only you
   ...ONLY_YOU_COMMANDS,
 ];
