@@ -11847,6 +11847,39 @@ export type Database = {
         };
         Returns: undefined;
       };
+      giving_draft_context: {
+        Args: {
+          p_household: string;
+          p_amount_cents?: number;
+          p_method?: string;
+          p_check_number?: string;
+          p_received_on?: string;
+        };
+        Returns: Json;
+      };
+      giving_fund_mapping_status: {
+        Args: {
+          p_center: string;
+        };
+        Returns: Json;
+      };
+      giving_household_summary: {
+        Args: {
+          p_household: string;
+          p_today?: string;
+        };
+        Returns: Json;
+      };
+      giving_pledges_behind: {
+        Args: {
+          p_center: string;
+          p_today?: string;
+          p_min_days?: number;
+          p_limit?: number;
+          p_fund?: string;
+        };
+        Returns: Json;
+      };
       giving_row_visible: {
         Args: {
           p_active: boolean;
@@ -11854,6 +11887,28 @@ export type Database = {
           p_visible_until: string;
         };
         Returns: boolean;
+      };
+      giving_second_approver_queue: {
+        Args: {
+          p_center: string;
+        };
+        Returns: Json;
+      };
+      giving_unmatched_bank_lines: {
+        Args: {
+          p_center: string;
+          p_limit?: number;
+          p_today?: string;
+        };
+        Returns: Json;
+      };
+      giving_zelle_waiting: {
+        Args: {
+          p_center: string;
+          p_limit?: number;
+          p_today?: string;
+        };
+        Returns: Json;
       };
       golive_approval_status: {
         Args: {
