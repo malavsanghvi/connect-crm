@@ -11084,6 +11084,13 @@ export type Database = {
         };
         Returns: undefined;
       };
+      audience_reach: {
+        Args: {
+          p_center: string;
+          p_audience: Json;
+        };
+        Returns: Json;
+      };
       audit_clean_app: {
         Args: {
           p: string;

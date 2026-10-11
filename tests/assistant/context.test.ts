@@ -69,14 +69,15 @@ describe("the area of a screen", () => {
     expect(areaForPath("/events/[id]")).toBe("events");
     expect(areaForPath("/comms/campaigns")).toBe("messages");
     expect(areaForPath("/")).toBe("general");
-    expect(areaForPath("/settings/access")).toBe("general");
+    expect(areaForPath("/settings/access")).toBe("settings");
+    expect(areaForPath("/setup/go-live")).toBe("setup");
   });
 
   it("says what Niva is looking at, in words", () => {
     expect(contextLine({ path: "/events/[id]", entityKind: "event", entityId: "x" })).toBe("Looking at this event");
     expect(contextLine({ path: "/giving/payments" })).toBe("Looking at Giving");
     expect(contextLine({ path: "/" })).toBe("Looking at Home");
-    expect(contextLine({ path: "/settings/access" })).toBe("Looking at this page");
+    expect(contextLine({ path: "/settings/access" })).toBe("Looking at Settings");
   });
 });
 
@@ -148,6 +149,21 @@ describe("Ask Niva suggestions", () => {
     for (const s of suggestionsFor("/events/[id]", "event", events)) expect(s).not.toMatch(/\b(child|kid|minor)\b/i);
   });
 
+  it("offers the Messages examples a role can use: about this conversation or message first, then the inbox and approvals", () => {
+    const messages = new Set(["messages.inbox_triage", "messages.campaigns", "messages.audience_preview", "messages.why_not_delivered", "messages.draft_reply", "messages.draft_reminder", "tasks.mine"]);
+    expect(suggestionsFor("/comms/threads/[id]", "message thread", messages)).toEqual(["Draft a reply to this conversation from our approved answers", "What is waiting for me?"]);
+    expect(suggestionsFor("/comms/campaigns/[id]", "campaign", messages)).toEqual(["Why has this message not gone out?", "What is waiting for me?"]);
+    expect(suggestionsFor("/comms/inbox", undefined, messages)).toEqual([
+      "What is waiting in the inbox?",
+      "Which messages to families are waiting for approval?",
+      "How many people would a message to all members reach by email, text and WhatsApp?",
+    ]);
+    // A role that only sees the approvals list is not offered the inbox.
+    expect(suggestionsFor("/comms/newsletters", undefined, new Set(["messages.campaigns"]))).toEqual(["Which messages to families are waiting for approval?"]);
+    // The examples never name a child or promise a send.
+    for (const s of suggestionsFor("/comms/inbox", undefined, messages)) expect(s).not.toMatch(/(child|kid|minor)|send/i);
+  });
+
   it("offers People examples for the commands the person may use, and 'this household' only on a household", () => {
     const people = new Set(["people.search", "people.find_household", "people.pending_reviews", "people.suggest_duplicates", "people.household_summary", "people.add_person", "people.update_person"]);
     expect(suggestionsFor("/people", undefined, people)).toEqual([
@@ -164,6 +180,30 @@ describe("Ask Niva suggestions", () => {
     // A role that cannot change people is not offered a change.
     const lookOnly = new Set(["people.search", "people.pending_reviews"]);
     expect(suggestionsFor("/households/[id]", "household", lookOnly).some((s) => s.startsWith("Add a spouse"))).toBe(false);
+  });
+
+  it("offers the Settings examples a role can use, first the ones about the screen it is on", () => {
+    const keys = new Set(["settings.setup_status", "settings.role_holders", "settings.who_can_access", "settings.draft_role_grant", "settings.integrations_health", "settings.modules_state"]);
+    expect(suggestionsFor("/settings/roles", undefined, keys)).toEqual([
+      "Who can see payments?",
+      "Who holds the treasurer role?",
+      "Prepare the treasurer role for a member for a year",
+    ]);
+    expect(suggestionsFor("/settings/integrations", undefined, keys)).toEqual(["Are all our connected services working?", "Why might a text not go out?", "What is left before we can go live?"]);
+    expect(suggestionsFor("/settings/modules", undefined, keys)).toEqual(["Which modules are switched on?", "What is left before we can go live?", "Are all our connected services working?"]);
+    // On any other Settings screen, the general ones; on a Setup screen, the concierge's.
+    expect(suggestionsFor("/settings/rules", undefined, keys)).toEqual(["What is left before we can go live?", "Are all our connected services working?", "Who can see payments?"]);
+    expect(suggestionsFor("/setup", undefined, keys)).toEqual([
+      "What is left before we can go live?",
+      "Which go-live checks do not pass yet, and where do I fix them?",
+      "Are all our connected services working?",
+    ]);
+    // A role that cannot use a command is never offered it.
+    expect(suggestionsFor("/settings/roles", undefined, new Set(["settings.integrations_health"]))).toEqual(["Are all our connected services working?"]);
+    expect(contextLine({ path: "/setup/go-live" })).toBe("Looking at Setup");
+    expect(contextLine({ path: "/settings/roles" })).toBe("Looking at Settings");
+    // The examples never name a child.
+    for (const s of suggestionsFor("/settings/roles", undefined, keys)) expect(s).not.toMatch(/\b(child|kid|minor)\b/i);
   });
 
   it("offers nothing when the person can use nothing", () => {

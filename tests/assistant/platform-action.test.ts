@@ -69,11 +69,11 @@ beforeEach(() => {
 
 describe("Platform › Centers › Niva for admins", () => {
   it("offers the write actions Niva could be allowed to prepare, all off to begin with", () => {
-    // Every command that changes something is listed, and every one starts off (events, and the People actions).
+    // Every command that changes something is listed, and every one starts off (events, People and Messages).
     const choices = confirmToolChoices(undefined);
     expect(choices).toContainEqual(expect.objectContaining({ key: "events.set_field", title: "Change a detail of an event", on: false }));
     expect(choices.map((c) => c.key)).toEqual(
-      expect.arrayContaining(["events.set_status", "events.set_rsvp_status", "events.assign_volunteer", "events.create_from_clone", "people.merge_people", "people.move_person", "people.decide_application"]),
+      expect.arrayContaining(["events.set_status", "events.set_rsvp_status", "events.assign_volunteer", "events.create_from_clone", "people.merge_people", "people.move_person", "people.decide_application", "messages.schedule_campaign", "messages.approve_campaign", "messages.set_campaign_status", "messages.reply_to_thread", "messages.set_thread", "messages.handle_whatsapp_request"]),
     );
     expect(choices.every((c) => c.on === false)).toBe(true);
     const ticked = confirmToolChoices({ assistant: { tools: { "events.set_field": true } } });

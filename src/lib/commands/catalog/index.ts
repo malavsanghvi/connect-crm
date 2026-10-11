@@ -18,11 +18,13 @@ import { matchDeposit } from "./giving-match-deposit";
 import { recordPayment } from "./giving-record-payment";
 import { waitingForSecondApprover } from "./giving-second-approver";
 import { zelleWaiting } from "./giving-zelle-waiting";
+import { MESSAGES_COMMANDS } from "./messages";
 import { draftReminderCommand } from "./messages-draft-reminder";
 import { monthCloseBlockers } from "./month-close-blockers";
 import { PEOPLE_COMMANDS } from "./people";
 import { peopleSearch } from "./people-search";
 import { pledgesBehind } from "./pledges-behind";
+import { SETTINGS_COMMANDS } from "./settings";
 import { tasksMine } from "./tasks-mine";
 
 export const CATALOG: readonly AnyCommand[] = [
@@ -43,6 +45,10 @@ export const CATALOG: readonly AnyCommand[] = [
   ...EVENT_COMMANDS,
   // People (docs/ADMIN_REDESIGN.md phase 4)
   ...PEOPLE_COMMANDS,
+  // Messages (docs/ADMIN_REDESIGN.md phase 4): the inbox, drafts, audience, approvals and replies
+  ...MESSAGES_COMMANDS,
+  // Settings and Setup: the setup concierge and the roles helper (reads, one draft, and what only the person can do)
+  ...SETTINGS_COMMANDS,
   // Giving: the three that move money are confirm commands, off for EVERY door until an owner switches each one on (requiresOwnerSwitch)
   recordPayment,
   confirmExactZelleMatches,
