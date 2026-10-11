@@ -35,6 +35,12 @@ begin
   perform set_config('request.jwt.claims', '', true);
 end $$;
 create temp table ctx (k text primary key, v text);
+-- One item that claims to be answered by a remembered answer, saved into the check that is being made.
+create or replace function pg_temp.item_with_rule(p_run uuid, p_batch uuid, p_key text, p_sig text, p_kind text, p_tier text, p_rule text, p_answer text) returns integer language sql as $
+  select app.resolve_store_items(p_run, p_batch, jsonb_build_array(jsonb_build_object(
+    'key', p_key, 'signature', p_sig, 'kind', p_kind, 'tier', p_tier, 'subject', 'f#2', 'record_ids', jsonb_build_array('f#1', 'f#2'),
+    'fingerprints', jsonb_build_array('fp1', 'fp2'), 'rule_id', p_rule, 'rule_answer', p_answer)))
+$;
 grant all on ctx to public;
 create or replace function pg_temp.cx(p_k text) returns text language sql stable as $$ select v from ctx where k = p_k $$;
 create or replace function pg_temp.gid(p_sig text) returns uuid language sql stable as $$
@@ -186,6 +192,7 @@ select pg_temp.assert((select count(*) = 0 from app.import_staged_records) and (
                       and (select count(*) = 0 from app.import_exception_items) and (select count(*) = 0 from app.import_run_metrics)
                       and (select count(*) = 0 from app.import_decision_rules),
   'a member reads nothing of it');
+select pg_temp.assert_raises($select app.resolve_runs('110b0000-0000-4000-8000-0000000000c1')$, 'permissions', 'a member cannot list the imports that can be checked');
 select pg_temp.assert(app.resolve_inbox(pg_temp.cx('run')::uuid)->>'status' = 'none' and app.resolve_item_detail(pg_temp.iid('name_only:k8')) is null
                       and app.resolve_staged_page(pg_temp.cx('run')::uuid) = '[]'::jsonb,
   'and the functions that read hand a member nothing');
@@ -244,7 +251,7 @@ select pg_temp.assert((select count(*) = 1 from app.import_decision_rules where 
   'the answer is remembered for the community as a rule about that phone number, with who and when');
 select pg_temp.assert((select count(*) = 0 from app.import_decision_rules where signature = 'name_only'), 'an answer given with "do not remember" is not remembered');
 -- Same answer for the other N.
-select pg_temp.assert((select (app.resolve_answer(pg_temp.gid('shared_phone_households'), 'separate', null, true))->>'answered')::int = 2,
+select pg_temp.assert((app.resolve_answer(pg_temp.gid('shared_phone_households'), 'separate', null, true)->>'answered')::int = 2,
   'the same answer for the other items: the first open item and the rest are answered in one go');
 select pg_temp.assert((select count(*) = 3 and bool_and(answer = 'separate') from app.import_exception_items where signature = 'shared_phone_households')
                       and (select answer_source = 'person_bulk' from app.import_exception_items where key = 'shared_phone_households:k3')
@@ -281,13 +288,14 @@ select pg_temp.su();
 select pg_temp.sign_in('110b0000-0000-4000-8000-000000000002');
 select pg_temp.assert_raises($$select app.resolve_answer(pg_temp.gid('amount_differs'), 'use_first', null, true)$$, 'needs its own answer',
   'a money conflict is never answered in bulk, even by the treasurer');
-select pg_temp.assert((select (app.resolve_answer(pg_temp.gid('amount_differs'), 'use_first'))->>'status') = 'answered'
-                      and (select answer = 'use_first' and answer_source = 'person' from app.import_exception_items where key = 'amount_differs:k5')
+select pg_temp.assert((app.resolve_answer(pg_temp.gid('amount_differs'), 'use_first')->>'status') = 'answered', 'the treasurer answers a money conflict item by item');
+select pg_temp.assert((select answer = 'use_first' and answer_source = 'person' from app.import_exception_items where key = 'amount_differs:k5')
                       and (select count(*) = 0 from app.import_decision_rules where signature = 'amount_differs'),
-  'the treasurer answers it item by item, and it is not remembered');
-select pg_temp.assert((select (app.resolve_answer(pg_temp.gid('duplicate_gift_two_sources'), 'same_gift'))->>'remembered_as') like 'rule:duplicate_gift_two_sources:exact_pair:%'
-                      and (select conditions = '[{"type":"pair","fingerprints":["fp5","fp6"]}]'::jsonb from app.import_decision_rules where signature = 'duplicate_gift_two_sources'),
-  'a duplicate gift answer is remembered for these two rows only');
+  'and it is not remembered');
+select pg_temp.assert((app.resolve_answer(pg_temp.gid('duplicate_gift_two_sources'), 'same_gift')->>'remembered_as') like 'rule:duplicate_gift_two_sources:exact_pair:%',
+  'a duplicate gift answer is remembered...');
+select pg_temp.assert((select conditions = '[{"type":"pair","fingerprints":["fp5","fp6"]}]'::jsonb from app.import_decision_rules where signature = 'duplicate_gift_two_sources'),
+  '...for these two rows only');
 select pg_temp.su();
 
 -- ── F. Putting a question off, skipping it, sending it on ───────────────────
@@ -304,23 +312,25 @@ select pg_temp.assert((select status = 'skipped' from app.import_exceptions wher
 select app.resolve_set_group_status(pg_temp.gid('name_only'), 'sent');
 select pg_temp.assert((select status = 'sent' and routed_to = 'membership' from app.import_exceptions where signature = 'name_only'),
   'or sent on, to the person best placed to answer it');
-select pg_temp.assert((select (app.resolve_answer(pg_temp.gid('name_only'), 'separate'))->>'status') = 'answered', 'answering a question that was put off answers it');
+select pg_temp.assert((app.resolve_answer(pg_temp.gid('name_only'), 'separate')->>'status') = 'answered', 'answering a question that was put off answers it');
 select pg_temp.su();
 
 -- ── G. A result is refused when it uses a remembered answer where it must not ──
 select pg_temp.sign_in('110b0000-0000-4000-8000-000000000001');
 insert into ctx select 'rule_phone', id from app.import_decision_rules where signature = 'shared_phone_households' and conditions->0->>'value' = '+17135550142';
 insert into ctx select 'batch2', app.resolve_begin(pg_temp.cx('run')::uuid, 'resolve-1-test', '{}'::jsonb)::text;
-select pg_temp.assert_raises(format($j$select app.resolve_store_items(%L::uuid, %L::uuid, '[{"key":"minor_record:rec~fp4","signature":"minor_record","kind":"record","tier":"D","subject":"f#4","record_ids":["f#4"],"fingerprints":["fp4"],"rule_id":%L,"rule_answer":"separate"}]'::jsonb)$j$,
+select pg_temp.assert_raises(format($f$select pg_temp.item_with_rule(%L::uuid, %L::uuid, 'minor_record:rec~fp4', 'minor_record', 'record', 'D', %L, 'separate')$f$,
     pg_temp.cx('run'), pg_temp.cx('batch2'), pg_temp.cx('rule_phone')), 'does not apply', 'a remembered answer on a child is refused');
-select pg_temp.assert_raises(format($j$select app.resolve_store_items(%L::uuid, %L::uuid, '[{"key":"amount_differs:k5","signature":"amount_differs","kind":"pair","tier":"D","subject":"f#6","record_ids":["f#5","f#6"],"fingerprints":["fp5","fp6"],"rule_id":%L,"rule_answer":"separate"}]'::jsonb)$j$,
+select pg_temp.assert_raises(format($f$select pg_temp.item_with_rule(%L::uuid, %L::uuid, 'amount_differs:k5', 'amount_differs', 'pair', 'D', %L, 'separate')$f$,
     pg_temp.cx('run'), pg_temp.cx('batch2'), pg_temp.cx('rule_phone')), 'does not apply', 'a remembered answer on a money conflict is refused');
-select pg_temp.assert_raises(format($j$select app.resolve_store_items(%L::uuid, %L::uuid, '[{"key":"name_only:k8","signature":"name_only","kind":"pair","tier":"C","subject":"f#3","record_ids":["f#2","f#3"],"fingerprints":["fp2","fp3"],"rule_id":%L,"rule_answer":"separate"}]'::jsonb)$j$,
+select pg_temp.assert_raises(format($f$select pg_temp.item_with_rule(%L::uuid, %L::uuid, 'name_only:k8', 'name_only', 'pair', 'C', %L, 'separate')$f$,
     pg_temp.cx('run'), pg_temp.cx('batch2'), pg_temp.cx('rule_phone')), 'does not apply', 'a remembered answer for another kind of question is refused');
-select pg_temp.assert_raises(format($j$select app.resolve_store_items(%L::uuid, %L::uuid, '[{"key":"shared_phone_households:k1","signature":"shared_phone_households","kind":"pair","tier":"C","subject":"f#2","record_ids":["f#1","f#2"],"fingerprints":["fp1","fp2"],"rule_id":%L,"rule_answer":"same_household"}]'::jsonb)$j$,
+select pg_temp.assert_raises(format($f$select pg_temp.item_with_rule(%L::uuid, %L::uuid, 'shared_phone_households:k1', 'shared_phone_households', 'pair', 'C', %L, 'same_household')$f$,
     pg_temp.cx('run'), pg_temp.cx('batch2'), pg_temp.cx('rule_phone')), 'does not apply', 'a remembered answer that says something else is refused');
-select pg_temp.assert_raises(format($j$select app.resolve_store_items(%L::uuid, %L::uuid, '[{"key":"shared_phone_households:k1","signature":"shared_phone_households","kind":"pair","tier":"C","subject":"f#2","record_ids":["f#1","f#2"],"fingerprints":["fp1","fp2"],"rule_id":"rule:nobody","rule_answer":"separate"}]'::jsonb)$j$,
+select pg_temp.assert_raises(format($f$select pg_temp.item_with_rule(%L::uuid, %L::uuid, 'shared_phone_households:k1', 'shared_phone_households', 'pair', 'C', 'rule:nobody', 'separate')$f$,
     pg_temp.cx('run'), pg_temp.cx('batch2')), 'does not apply', 'a remembered answer that is not there is refused');
+select pg_temp.assert_raises(format($f$select pg_temp.item_with_rule(%L::uuid, %L::uuid, 'shared_phone_households:k1', 'shared_phone_households', 'record', 'C', %L, 'separate')$f$,
+    pg_temp.cx('run'), pg_temp.cx('batch2'), pg_temp.cx('rule_phone')), 'does not apply', 'a remembered answer on a single record is refused');
 select pg_temp.assert_raises(format($j$select app.resolve_store_pairs(%L::uuid, %L::uuid, '[]'::jsonb)$j$, pg_temp.cx('run'), pg_temp.cx('batch')), 'Another check for matches started',
   'a page of an older check is refused once a newer one has started');
 select pg_temp.assert_raises($$select app.resolve_answer(pg_temp.gid('name_only'), 'separate')$$, 'still being worked out',
@@ -348,8 +358,8 @@ select pg_temp.assert(app.resolve_store_items(pg_temp.cx('run')::uuid, pg_temp.c
   {"key":"amount_differs:k5","signature":"amount_differs","kind":"pair","tier":"D","subject":"f#6","record_ids":["f#5","f#6"],"fingerprints":["fp5","fp6"],"money_cents":5100,"shared":{}},
   {"key":"duplicate_gift_two_sources:k6","signature":"duplicate_gift_two_sources","kind":"pair","tier":"C","subject":"f#6","record_ids":["f#5","f#6"],"fingerprints":["fp5","fp6"],"money_cents":5000,"shared":{}}
 ]$$::jsonb) = 9, 'saving the same items again is allowed...');
-select pg_temp.assert((app.resolve_finish(pg_temp.cx('run')::uuid, pg_temp.cx('batch2')::uuid, '{"rows":7}'::jsonb)->>'items')::int = 9
-                      and (select count(*) = 9 from app.import_exception_items)
+select pg_temp.assert((app.resolve_finish(pg_temp.cx('run')::uuid, pg_temp.cx('batch2')::uuid, '{"rows":7}'::jsonb)->>'items')::int = 9, 'the new check is finished...');
+select pg_temp.assert((select count(*) = 9 from app.import_exception_items)
                       and (select count(*) = 9 from app.import_exception_items where answer is not null),
   '...and the answers people gave are still there (a person''s answer survives a new check)');
 select pg_temp.assert((select count(*) = 5 and bool_and(status = 'answered') from app.import_exceptions),

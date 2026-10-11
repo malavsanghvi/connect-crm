@@ -14,6 +14,7 @@ import {
   RPC,
   answerGroup,
   loadInbox,
+  loadRuns,
   makeRunConfig,
   readImportRows,
   resolveImportRun,
@@ -22,7 +23,7 @@ import {
   stageRecords,
   type ResolveDb,
 } from "@/lib/onboarding/resolve/store";
-import { parseInbox, parseItemDetail } from "@/lib/onboarding/resolve/views";
+import { parseInbox, parseItemDetail, parseRuns } from "@/lib/onboarding/resolve/views";
 import type { RawRecord } from "@/lib/onboarding/resolve/types";
 
 import { buildGolden } from "./fixtures/onboarding-resolve/golden";
@@ -283,6 +284,8 @@ function fakeDb(opts: { rules?: unknown[]; importRows?: ImportRowLike[]; fail?: 
           return { data: {}, error: null };
         case "resolve_inbox":
           return { data: { status: "ready", groups: [] }, error: null };
+        case "resolve_runs":
+          return { data: [{ id: "run-1", run_number: 3, entity: "people", entity_label: "People", file_name: "people.csv", status: "staged", rows_total: 40, result: "ready", groups_total: 2, questions_left: 1 }, { id: "x" }], error: null };
         case "resolve_answer":
           return { data: { answered: 1, open_items: 0, status: "answered", remembered_as: "rule:x" }, error: null };
         default:
@@ -440,6 +443,15 @@ describe("looking for matches in a staged run", () => {
     expect(res.ok && res.data.rows).toBe(40);
     expect(f.calls[0].fn).toBe("resolve_stage_records");
     expect(f.stored.records).toHaveLength(40);
+  });
+
+  it("lists the imports that can be checked, with where each check stands, and leaves out what it cannot read", async () => {
+    const f = fakeDb();
+    const res = await loadRuns(f.db, "center-1");
+    expect(res.ok && res.data).toEqual([
+      { id: "run-1", runNumber: 3, entity: "people", entityLabel: "People", fileName: "people.csv", status: "staged", rowsTotal: 40, createdAt: null, result: "ready", storedAt: null, groupsTotal: 2, questionsLeft: 1 },
+    ]);
+    expect(parseRuns({ not: "a list" })).toBeNull();
   });
 
   it("withdraws a remembered answer through the database", async () => {

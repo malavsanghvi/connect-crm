@@ -278,6 +278,53 @@ export function parseItemDetail(json: unknown): ItemDetail | null {
 }
 
 // ---------------------------------------------------------------------------
+// The imports that can be checked
+// ---------------------------------------------------------------------------
+
+export type RunRow = {
+  id: string;
+  runNumber: number;
+  entity: string;
+  entityLabel: string;
+  fileName: string | null;
+  /** The import's own status: pending, staged, previewed, committed... */
+  status: string;
+  rowsTotal: number;
+  createdAt: string | null;
+  /** Where the check stands: none (never checked), staged, storing, ready. */
+  result: ResultStatus;
+  storedAt: string | null;
+  groupsTotal: number;
+  questionsLeft: number;
+};
+
+export function parseRuns(json: unknown): RunRow[] | null {
+  if (!Array.isArray(json)) return null;
+  const out: RunRow[] = [];
+  for (const raw of json) {
+    const r = rec(raw);
+    const id = text(r.id);
+    const result = text(r.result) as ResultStatus | null;
+    if (!id || !result || !RESULT_STATUSES.includes(result)) continue;
+    out.push({
+      id,
+      runNumber: num(r.run_number),
+      entity: text(r.entity) ?? "",
+      entityLabel: text(r.entity_label) ?? "",
+      fileName: text(r.file_name),
+      status: text(r.status) ?? "",
+      rowsTotal: num(r.rows_total),
+      createdAt: text(r.created_at),
+      result,
+      storedAt: text(r.stored_at),
+      groupsTotal: num(r.groups_total),
+      questionsLeft: num(r.questions_left),
+    });
+  }
+  return out;
+}
+
+// ---------------------------------------------------------------------------
 // The numbers of a run, and the result of an answer
 // ---------------------------------------------------------------------------
 

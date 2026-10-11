@@ -662,6 +662,33 @@ begin
                             'live', app.resolve_progress(p_run, m.config));
 end $$;
 
+-- The imports of a community that can be checked for matches (people, households, payments), newest first, with where each one's
+-- check stands. Only the runs the signed-in person may use.
+create or replace function app.resolve_runs(p_center uuid) returns jsonb
+language plpgsql stable security definer set search_path = app, public, extensions as $
+begin
+  if not app.resolve_center_allowed(p_center) then
+    raise exception 'Seeing the imports that can be checked for matches needs one of these permissions: %.', array_to_string(app.onboarding_perms(null), ', ')
+      using errcode = 'insufficient_privilege';
+  end if;
+  return coalesce((
+    select jsonb_agg(jsonb_build_object(
+             'id', r.id, 'run_number', r.run_number, 'entity', r.entity, 'entity_label', e.label, 'file_name', r.file_name,
+             'status', r.status, 'rows_total', r.rows_total, 'created_at', r.created_at,
+             'result', coalesce(m.status, 'none'), 'stored_at', m.stored_at, 'record_count', coalesce(m.record_count, 0),
+             'groups_total', (select count(*) from app.import_exceptions g where g.run_id = r.id),
+             'questions_left', (select count(*) from app.import_exceptions g
+                                 where g.run_id = r.id and g.status in ('open', 'postponed')
+                                   and exists (select 1 from app.import_exception_items i
+                                                where i.run_id = g.run_id and i.signature = g.signature and i.answer is null))
+           ) order by r.created_at desc)
+      from (select o.* from app.import_runs o
+             where o.center_id = p_center and o.id = any (app.resolve_runs_allowed()) and o.entity in ('people', 'households', 'payments')
+             order by o.created_at desc limit 50) r
+      join app.import_entities e on e.key = r.entity
+      left join app.import_run_metrics m on m.run_id = r.id), '[]'::jsonb);
+end $;
+
 -- ── Who may call what ────────────────────────────────────────────────────────
 revoke execute on function app.resolve_assert_run(uuid), app.resolve_assert_batch(uuid, uuid), app.resolve_refresh_groups(uuid),
   app.resolve_withdraw(uuid, text[]) from public, anon, authenticated;
@@ -672,7 +699,7 @@ revoke execute on function app.resolve_texts(jsonb), app.resolve_list(jsonb, tex
   app.resolve_finish(uuid, uuid, jsonb), app.resolve_answer(uuid, text, uuid, boolean, boolean, text),
   app.resolve_set_group_status(uuid, text, text), app.resolve_reopen(uuid), app.resolve_revoke_rule(uuid, text),
   app.resolve_rules(uuid), app.resolve_progress(uuid, jsonb), app.resolve_inbox(uuid), app.resolve_item_detail(uuid),
-  app.resolve_run_metrics(uuid) from public, anon;
+  app.resolve_run_metrics(uuid), app.resolve_runs(uuid) from public, anon;
 grant execute on function app.resolve_texts(jsonb), app.resolve_list(jsonb, text, integer), app.resolve_card(jsonb),
   app.resolve_stage_records(uuid, jsonb, boolean), app.resolve_staged_page(uuid, integer, integer),
   app.resolve_begin(uuid, text, jsonb), app.resolve_store_records(uuid, uuid, jsonb), app.resolve_store_pairs(uuid, uuid, jsonb),
@@ -680,5 +707,4 @@ grant execute on function app.resolve_texts(jsonb), app.resolve_list(jsonb, text
   app.resolve_finish(uuid, uuid, jsonb), app.resolve_answer(uuid, text, uuid, boolean, boolean, text),
   app.resolve_set_group_status(uuid, text, text), app.resolve_reopen(uuid), app.resolve_revoke_rule(uuid, text),
   app.resolve_rules(uuid), app.resolve_progress(uuid, jsonb), app.resolve_inbox(uuid), app.resolve_item_detail(uuid),
-  app.resolve_run_metrics(uuid) to authenticated;
-grant execute on all functions in schema app to service_role;
+  app.resolve_run_metrics(uuid), app.resolve_runs(uuid) to authenticated;

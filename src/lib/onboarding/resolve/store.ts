@@ -40,10 +40,12 @@ import {
   parseInbox,
   parseItemDetail,
   parseRunMetrics,
+  parseRuns,
   type AnswerOutcome,
   type InboxView,
   type ItemDetail,
   type RunMetricsView,
+  type RunRow,
 } from "./views";
 
 /** Written with every saved result, so a run can be told apart from one made by a later version of the rules. */
@@ -95,6 +97,7 @@ export const RPC = {
   resolve_inbox: ["p_run"],
   resolve_item_detail: ["p_item"],
   resolve_run_metrics: ["p_run"],
+  resolve_runs: ["p_center"],
   resolve_answer: ["p_group", "p_answer", "p_item", "p_apply_rest", "p_remember", "p_scope"],
   resolve_set_group_status: ["p_group", "p_status", "p_routed_to"],
   resolve_reopen: ["p_group"],
@@ -352,6 +355,12 @@ async function read<T>(context: string, get: () => Promise<unknown>, parse: (jso
   } catch (e) {
     return toFailure(context, e);
   }
+}
+
+/** The imports of the community that can be checked for matches, newest first, with where each check stands. */
+export function loadRuns(db: ResolveDb, centerId: string): Promise<StoreResult<RunRow[]>> {
+  const context = "Could not list your imports";
+  return read(context, () => call(db, "resolve_runs", { p_center: centerId }, context), parseRuns);
 }
 
 /** The inbox of a run: the questions ranked by value, and where they stand. */

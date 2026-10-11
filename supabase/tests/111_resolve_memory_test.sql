@@ -33,6 +33,12 @@ begin
   perform set_config('request.jwt.claims', '', true);
 end $$;
 create temp table ctx (k text primary key, v text);
+-- One item that claims to be answered by a remembered answer, saved into the check that is being made.
+create or replace function pg_temp.item_with_rule(p_run uuid, p_batch uuid, p_rule text) returns integer language sql as $
+  select app.resolve_store_items(p_run, p_batch, jsonb_build_array(jsonb_build_object(
+    'key', 'shared_phone_households:k1', 'signature', 'shared_phone_households', 'kind', 'pair', 'tier', 'C', 'subject', 'f#2',
+    'record_ids', jsonb_build_array('f#1', 'f#2'), 'fingerprints', jsonb_build_array('fp1', 'fp2'), 'rule_id', p_rule, 'rule_answer', 'separate')))
+$;
 grant all on ctx to public;
 create or replace function pg_temp.cx(p_k text) returns text language sql stable as $$ select v from ctx where k = p_k $$;
 create or replace function pg_temp.gid(p_run uuid, p_sig text) returns uuid language sql stable as $$
@@ -128,6 +134,13 @@ select pg_temp.assert((app.resolve_run_metrics(pg_temp.cx('runA')::uuid)->'live'
                       and (app.resolve_run_metrics(pg_temp.cx('runA')::uuid)->'live'->>'minutes_left')::numeric = 2.5,
   'how the questions stand: four questions, six items, and 2.5 minutes left by the run''s own time per question');
 select pg_temp.assert(app.resolve_run_metrics('00000000-0000-4000-8000-00000000dead') is null, 'a run with no result has no numbers');
+select pg_temp.assert(jsonb_array_length(app.resolve_runs('111b0000-0000-4000-8000-0000000000c1')) = 1
+                      and app.resolve_runs('111b0000-0000-4000-8000-0000000000c1')->0->>'id' = pg_temp.cx('runA')
+                      and app.resolve_runs('111b0000-0000-4000-8000-0000000000c1')->0->>'result' = 'ready'
+                      and (app.resolve_runs('111b0000-0000-4000-8000-0000000000c1')->0->>'groups_total')::int = 4
+                      and (app.resolve_runs('111b0000-0000-4000-8000-0000000000c1')->0->>'questions_left')::int = 4
+                      and app.resolve_runs('111b0000-0000-4000-8000-0000000000c1')->0->>'entity' = 'people',
+  'the list of imports says which have a result and how many questions are left');
 select pg_temp.assert(app.resolve_inbox(pg_temp.cx('runA')::uuid)->>'status' = 'ready'
                       and (app.resolve_inbox(pg_temp.cx('runA')::uuid)->>'stalled')::boolean is false
                       and app.resolve_inbox(pg_temp.cx('runA')::uuid)->'groups'->0->>'signature' = 'duplicate_gift_two_sources'
@@ -196,9 +209,9 @@ select pg_temp.assert((select answer is null from app.import_exception_items whe
                       and (select status = 'open' from app.import_exceptions where run_id = pg_temp.cx('runA')::uuid and signature = 'shared_phone_households')
                       and (app.resolve_run_metrics(pg_temp.cx('runA')::uuid)->'live'->>'questions_left')::int = 3,
   'an item that comes back is asked again, and its question opens again');
-select pg_temp.assert((app.resolve_answer(pg_temp.gid(pg_temp.cx('runA')::uuid, 'shared_phone_households'), 'separate')->>'status') = 'answered'
-                      and (select count(*) = 1 from app.import_decision_rules where signature = 'shared_phone_households' and revoked_at is null),
-  'answering it again closes the question, and the same answer to the same phone is the same remembered answer');
+select pg_temp.assert((app.resolve_answer(pg_temp.gid(pg_temp.cx('runA')::uuid, 'shared_phone_households'), 'separate')->>'status') = 'answered', 'answering it again closes the question...');
+select pg_temp.assert((select count(*) = 1 from app.import_decision_rules where signature = 'shared_phone_households' and revoked_at is null),
+  '...and the same answer to the same phone is the same remembered answer');
 select pg_temp.assert_raises(format($j$select app.resolve_store_pairs(%L::uuid, %L::uuid, '[]'::jsonb)$j$, pg_temp.cx('runA'), pg_temp.cx('batchA1')),
   'Another check for matches', 'a page of an older check is refused');
 select pg_temp.su();
@@ -256,8 +269,8 @@ select pg_temp.assert((select count(*) = 3 from app.import_exception_items where
                       and app.resolve_rules('111b0000-0000-4000-8000-0000000000c1') = '[]'::jsonb
                       and (select revoked_at is not null from app.import_decision_rules where id = pg_temp.cx('rule')),
   'the first run''s answers stand, the engine is handed no rules, and the rule is marked withdrawn, not deleted');
-select pg_temp.assert_raises(format($j$select app.resolve_store_items(%L::uuid, %L::uuid, '[{"key":"shared_phone_households:k1","signature":"shared_phone_households","kind":"pair","tier":"C","subject":"f#2","record_ids":["f#1","f#2"],"fingerprints":["fp1","fp2"],"rule_id":%L,"rule_answer":"separate"}]'::jsonb)$j$,
-    pg_temp.cx('runB'), app.resolve_begin(pg_temp.cx('runB')::uuid, 'resolve-1-test', '{}'::jsonb), pg_temp.cx('rule')),
+insert into ctx select 'batchB', app.resolve_begin(pg_temp.cx('runB')::uuid, 'resolve-1-test', '{}'::jsonb)::text;
+select pg_temp.assert_raises(format($f$select pg_temp.item_with_rule(%L::uuid, %L::uuid, %L)$f$, pg_temp.cx('runB'), pg_temp.cx('batchB'), pg_temp.cx('rule')),
   'does not apply', 'a withdrawn remembered answer is refused if a result still uses it');
 select pg_temp.store(pg_temp.cx('runB')::uuid);
 select pg_temp.assert((select count(*) = 0 from app.import_exception_items where run_id = pg_temp.cx('runB')::uuid and answer is not null)

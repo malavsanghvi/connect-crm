@@ -351,4 +351,3 @@ grant all on app.import_signatures, app.import_decision_rules, app.import_run_me
 revoke execute on function app.resolve_runs_allowed(), app.resolve_center_allowed(uuid) from public, anon;
 -- The policies call these as the signed-in user.
 grant execute on function app.resolve_runs_allowed(), app.resolve_center_allowed(uuid) to authenticated;
-grant execute on all functions in schema app to service_role;
