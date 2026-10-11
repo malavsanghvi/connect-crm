@@ -3,6 +3,7 @@
 // needs the network. Shapes follow the Messages API: a message is text or blocks; a tool call is a `tool_use` block; its answer
 // goes back as a `tool_result` block in the next user message.
 
+import type { AiUsage } from "@/lib/anthropic-cache";
 import type { ModelTool } from "@/lib/commands";
 
 export type TextBlock = { type: "text"; text: string };
@@ -16,7 +17,13 @@ export type ModelMessage = { role: "user"; content: string | ToolResultBlock[] }
 
 export type ModelRequest = {
   model: string;
+  /** The whole system prompt, exactly as the model reads it. */
   system: string;
+  /**
+   * The leading part of `system` that is the same on every request (a prefix of it). The real client caches up to here; what
+   * follows (who is asking, today's date, the page they are on) differs per request and is never cached. Absent: all of it is stable.
+   */
+  systemStable?: string;
   messages: ModelMessage[];
   tools: ModelTool[];
   /** "none" for the closing answer after the steps ran out: the tools stay listed (the conversation holds tool calls) but may not be used. */
@@ -28,7 +35,8 @@ export type ModelResponse = {
   content: ModelBlock[];
   /** end_turn, tool_use, max_tokens, refusal, … as the API says it. */
   stopReason: string | null;
-  usage?: { inputTokens: number; outputTokens: number };
+  /** What the call used, with the cache counts (0 when the request had no markers). Absent when the service sent no usage. */
+  usage?: AiUsage;
 };
 
 export interface ModelClient {

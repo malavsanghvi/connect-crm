@@ -65,7 +65,8 @@
 
 import Anthropic from "@anthropic-ai/sdk";
 
-import { anthropicClient, classifyAnthropicError, claudeModel, errorLabel, FALLBACK_BETA, type ClassifiedError } from "../anthropic";
+import { addUsage, usageForResult, type AiTokens, type AiUsage } from "../../../src/lib/anthropic-cache";
+import { anthropicClient, cachedSystem, classifyAnthropicError, claudeModel, errorLabel, FALLBACK_BETA, recordUsage, type ClassifiedError } from "../anthropic";
 import { providerStatus, type Env, type Readiness } from "../config";
 import { isRetryable, NotConfiguredError, PermanentError } from "../errors";
 import { asksAboutTimeOrPlace, liveAsOf, liveSources, loadCenterFacts, namesAnEvent, type LiveKind } from "../niva/facts";
@@ -462,13 +463,15 @@ async function rewriteQuestion(
   model: string,
   conversation: Conversation,
   recent: RecentTurn[],
-): Promise<{ rewrite: Rewrite | null } | { error: ClassifiedError; cause: unknown }> {
+): Promise<{ rewrite: Rewrite | null; usage?: AiUsage } | { error: ClassifiedError; cause: unknown }> {
   let response: Anthropic.Beta.BetaMessage;
+  // The system prompt is the same for every question of one kind; it is marked for caching only if it is long enough to be cached.
+  const system = cachedSystem(ctx.env, model, rewriteSystem(promptWords(conversation.kind)));
   try {
     response = await client.beta.messages.create({
       model,
       max_tokens: 4000,
-      system: rewriteSystem(promptWords(conversation.kind)),
+      system,
       output_config: { effort: "low", format: { type: "json_schema", schema: REWRITE_SCHEMA } },
       betas: [FALLBACK_BETA],
       fallbacks: "default",
@@ -483,16 +486,17 @@ async function rewriteQuestion(
     });
     return { rewrite: null };
   }
+  const usage = recordUsage(ctx.log, "niva.rewrite", model, response, system);
   if (response.stop_reason === "refusal" || response.stop_reason === "max_tokens") {
     ctx.log.info("niva.answer: no question rewrite; answering from the first search", { conversation_id: conversation.id, stop_reason: response.stop_reason });
-    return { rewrite: null };
+    return { rewrite: null, usage };
   }
   const text = response.content.flatMap((b) => (b.type === "text" ? [b.text] : [])).join("");
   try {
-    return { rewrite: cleanRewrite(JSON.parse(text)) };
+    return { rewrite: cleanRewrite(JSON.parse(text)), usage };
   } catch {
     ctx.log.info("niva.answer: the question rewrite could not be read; answering from the first search", { conversation_id: conversation.id });
-    return { rewrite: null };
+    return { rewrite: null, usage };
   }
 }
 
@@ -542,10 +546,13 @@ async function answer(job: Job, ctx: JobContext, conversation: Conversation) {
   let approved = first;
   let rewrite: Rewrite | null = null;
   let withContext = false;
+  // What the model calls of this question used (the rewrite, then the answer), for the job's result.
+  let tokens: AiTokens | undefined;
   if (first.length < FEW_SOURCES) {
     const r = await rewriteQuestion(ctx, client, model, conversation, recent);
     if ("error" in r) return await onModelError(job, ctx, conversation, model, r.error, r.cause);
     rewrite = r.rewrite;
+    tokens = addUsage(tokens, r.usage);
     const text = rewrite ? rewriteSearchText(rewrite) : "";
     if (text) {
       approved = union(first, await searchSources(ctx, conversation, text, includeInReview));
@@ -567,16 +574,20 @@ async function answer(job: Job, ctx: JobContext, conversation: Conversation) {
   if (sources.length === 0) {
     await setOutcome(ctx, id, "no_source", "No approved source mentions what was asked.", { clearAnswer: regenerate });
     ctx.log.info("niva.answer: no approved source matched this question", { conversation_id: id, rewritten: rewrite !== null, with_context: withContext });
-    return { answered: false, reason: "no_matching_source", ...(rewrite ? { rewritten: true } : {}) };
+    return { answered: false, reason: "no_matching_source", ...(rewrite ? { rewritten: true } : {}), ...usageForResult(tokens) };
   }
 
   const sourceIds = sources.map((s) => s.id);
   let response: Anthropic.Beta.BetaMessage;
+  // The guardrail rules are the same for every question of one kind: they come first and are cached; the sources and the question
+  // follow in the message. (The answer's JSON schema lists this question's source ids; if Anthropic counts that as part of the
+  // prefix, the system prompt is rewritten each time and the logged cache_read stays 0: see docs/ARCHITECTURE.md.)
+  const system = cachedSystem(ctx.env, model, systemPrompt(promptWords(conversation.kind)));
   try {
     response = await client.beta.messages.create({
       model,
       max_tokens: 16000,
-      system: systemPrompt(promptWords(conversation.kind)),
+      system,
       // Opus 5.5 thinks adaptively (so no thinking parameter); low effort is plenty for a short
       // answer from a few sources, and is set explicitly because this model defaults to medium.
       output_config: { effort: "low", format: { type: "json_schema", schema: answerSchema(sourceIds) } },
@@ -590,11 +601,12 @@ async function answer(job: Job, ctx: JobContext, conversation: Conversation) {
   } catch (err) {
     return await onModelError(job, ctx, conversation, model, classifyAnthropicError(err), err);
   }
+  tokens = addUsage(tokens, recordUsage(ctx.log, "niva.answer", model, response, system));
 
   if (response.stop_reason === "refusal") {
     await setOutcome(ctx, id, "refused", "Niva declined to answer this question.", { clearAnswer: regenerate });
     ctx.log.info("niva.answer: the model declined to answer", { conversation_id: id });
-    return { answered: false, reason: "model_refused" };
+    return { answered: false, reason: "model_refused", ...usageForResult(tokens) };
   }
   if (response.stop_reason === "max_tokens") {
     throw new AttemptError("Niva's answer was cut off before it finished (max_tokens).", "Niva's answer was cut off before it finished.");
@@ -608,7 +620,7 @@ async function answer(job: Job, ctx: JobContext, conversation: Conversation) {
     throw new AttemptError("Niva's answer could not be read (the model did not return valid JSON).", "Niva's answer could not be read.");
   }
   const parsed = cleanAnswer(raw, sources);
-  const extra = { ...(live.length > 0 ? { live_offered: live.length } : {}), ...(rewrite ? { rewritten: true } : {}) };
+  const extra = { ...(live.length > 0 ? { live_offered: live.length } : {}), ...(rewrite ? { rewritten: true } : {}), ...usageForResult(tokens) };
   if (!parsed || !parsed.can_answer || !parsed.answer) {
     if (approved.length === 0) {
       // Only the live schedule was offered: as far as staff can act on it, no approved source covers this.
@@ -641,7 +653,7 @@ async function answer(job: Job, ctx: JobContext, conversation: Conversation) {
   ctx.log.info("niva.answer: answered", {
     conversation_id: id, sources: cited.length, live: liveCited, model: served, rewritten: rewrite !== null, with_context: withContext,
   });
-  return { answered: true, sources: cited.length, model: served, ...(liveCited > 0 ? { live: liveCited } : {}), ...(rewrite ? { rewritten: true } : {}) };
+  return { answered: true, sources: cited.length, model: served, ...(liveCited > 0 ? { live: liveCited } : {}), ...(rewrite ? { rewritten: true } : {}), ...usageForResult(tokens) };
 }
 
 /**
