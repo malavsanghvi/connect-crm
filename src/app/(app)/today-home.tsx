@@ -1,4 +1,5 @@
 import { TodayView } from "@/components/today/today-view";
+import { communityFormat } from "@/lib/community-format";
 import { loadHomeTasks } from "@/lib/data/home-tasks";
 import { loadRoutineFacts } from "@/lib/data/today";
 import { buildBriefing, type BriefingItem } from "@/lib/routines/briefing";
@@ -33,7 +34,7 @@ export async function TodayHome({ session }: { session: CrmSession }) {
     <TodayView
       greeting={greetingFor(hourInTz(center.time_zone))}
       firstName={session.person?.name.split(" ")[0]}
-      dateLabel={todayLabel(center.time_zone)}
+      dateLabel={todayLabel(center.time_zone, new Date(), communityFormat(center).locale)}
       routine={routine}
       briefing={briefing}
       problem={problem}

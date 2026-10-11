@@ -1,9 +1,10 @@
+import { schoolOrGeneric } from "@/lib/kind-samples";
 import { plural } from "@/lib/pathshala/format";
 
 import { defineCommand } from "../../define";
 import { f, object, type Infer } from "../../schema";
 
-import { loadSetup } from "./setup";
+import { loadSetup, school } from "./setup";
 import { loadTeacherPool, suggestTeachers, whenWords, type Suggestion } from "./teachers";
 
 const input = object({
@@ -34,9 +35,13 @@ export type ClassesNeedingTeachersData = {
 export const classesNeedingTeachers = defineCommand<Infer<typeof input>, ClassesNeedingTeachersData>({
   key: "learning.classes_needing_teachers",
   title: "Look at which classes need a teacher",
-  description:
-    "List the Pathshala classes that have no teacher yet, term by term, and for each one up to three adults who could teach it: people who taught that level before, people selected for a teacher position, and whether they are free at the class's time or already teach another class then, with their background-check status. " +
-    "Suggestions are teachers only, adults only, and are never based on any learner. A class's learners are never shown. Use learning.draft_teacher_assignment to prepare one of the suggestions. It changes nothing.",
+  description: (kind) => {
+    const schoolName = schoolOrGeneric(kind);
+    return (
+      `List the ${schoolName} classes that have no teacher yet, term by term, and for each one up to three adults who could teach it: people who taught that level before, people selected for a teacher position, and whether they are free at the class's time or already teach another class then, with their background-check status. ` +
+      `Suggestions are teachers only, adults only, and are never based on any learner. A class's learners are never shown. Use learning.draft_teacher_assignment to prepare one of the suggestions. It changes nothing.`
+    );
+  },
   level: "read",
   permission: "pathshala",
   module: "pathshala",
@@ -77,7 +82,7 @@ export const classesNeedingTeachers = defineCommand<Infer<typeof input>, Classes
       data: { terms, people_left_out_because_their_age_is_not_on_file_as_an_adult: pool.leftOut, notes },
       message:
         terms.length === 0
-          ? "There is no Pathshala term that is not closed."
+          ? `There is no ${school(ctx)} term that is not closed.`
           : total === 0
             ? "Every class has a teacher."
             : `${plural(total, "class", "classes")} ${total === 1 ? "has" : "have"} no teacher yet: ${terms

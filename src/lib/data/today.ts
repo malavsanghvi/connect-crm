@@ -1,8 +1,10 @@
 import "server-only";
 
+import { communityFormat, workWeekFor } from "@/lib/community-format";
 import { addDays, dateInTz, daysBetween, startOfDayInTz, todayInTz } from "@/lib/dates";
 import { explainError, type DbErrorLike } from "@/lib/errors";
 import { isModuleEnabled } from "@/lib/modules";
+import { enabledPaymentPlugins } from "@/lib/payments/plugins/enabled";
 import { canAccess, hasCenterRole, scopeIdsForRole } from "@/lib/permissions";
 import { WEEKDAY_NAMES, dateParts } from "@/lib/routines/clock";
 import { countersNeeded } from "@/lib/routines/needs";
@@ -127,6 +129,9 @@ export async function loadRoutineFacts(session: CrmSession, home: HomeTasks): Pr
   const today = todayInTz(center.time_zone);
   const needed = countersNeeded(session);
   const on = (module: string) => isModuleEnabled(session, module);
+  const fmt = communityFormat(center);
+  // The payment ways are read only for a person whose routine has a step about money.
+  const plugins = canAccess(session, "bank") || canAccess(session, "recordPayment") || canAccess(session, "recurring") ? enabledPaymentPlugins(session) : Promise.resolve(null);
 
   const fromTasks = counterFromTasks(home.tasks, home.failures, visibleTaskSources(session).map((s) => s.key));
   const counts: RoutineFacts["counts"] = { ...fromTasks.counts };
@@ -192,5 +197,5 @@ export async function loadRoutineFacts(session: CrmSession, home: HomeTasks): Pr
     if ("error" in r) failed[r.key] = r.error;
     else counts[r.key] = r.value;
   }
-  return { today, counts, failed, events };
+  return { today, counts, failed, events, locale: fmt.locale, workWeek: workWeekFor(fmt.locale, center.rules), paymentPlugins: await plugins };
 }

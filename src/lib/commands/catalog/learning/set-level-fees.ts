@@ -8,6 +8,7 @@ import { feeLabel, parseFeeInput } from "@/lib/pathshala-registration/money";
 import { loadLevelFees, loadLevelRows, loadTermRules, NEEDS_UPDATE, setLevelFees } from "@/lib/pathshala-registration/db";
 import type { LevelFeeInput } from "@/lib/pathshala-registration/contract";
 import { refusal } from "@/lib/pathshala-registration/refusal";
+import { schoolOrGeneric } from "@/lib/kind-samples";
 
 import { defineCommand } from "../../define";
 import { revalidateAfterCommand } from "../../revalidate";
@@ -15,12 +16,12 @@ import { f, object, type Infer } from "../../schema";
 import { CommandDbError, CommandError, type CommandContext, type CommandPreview } from "../../types";
 import { must } from "../db";
 
-import { NO_TERM } from "./setup";
+import { NO_TERM, school } from "./setup";
 
 const input = object({
   term_id: f.uuid("The term whose fees change (its id, from learning.term_setup)."),
   level_id: f.optional(f.uuid("The level whose fee changes (its id, from learning.term_setup). Use this with fee for one level.")),
-  fee: f.optional(f.string("The new fee for that level in dollars: '130', '130.50' or 'Free'.", { max: 40 })),
+  fee: f.optional(f.string("The new fee for that level, like '130' or '130.50', or 'Free'.", { max: 40 })),
   fees: f.optional(f.string("Several levels at once, as a JSON list like [{\"level_id\":\"…\",\"fee\":\"45.00\"}]. Leave it out when you give level_id and fee for one level.", { max: 30000 })),
   reason: f.optional(f.string("Why the fee changes, in a sentence. It is kept in the audit log, and it is required once registration has opened.", { max: 500 })),
 });
@@ -69,7 +70,7 @@ async function plan(ctx: CommandContext, inp: SetLevelFeesInput): Promise<Plan> 
     name: string;
     status: string;
   } | null;
-  if (!term) throw new CommandError(screen ? "That term no longer exists, or it is a draft only the Pathshala principal can see. Reload the page." : NO_TERM);
+  if (!term) throw new CommandError(screen ? `That term no longer exists, or it is a draft only the ${school(ctx)} principal can see. Reload the page.` : NO_TERM);
   const rules = await loadTermRules(db, [inp.term_id]);
   if (rules.status === "missing") throw new CommandError(NEEDS_UPDATE);
   if (rules.status === "error") throw new CommandDbError(rules.error, "read the term's rules");
@@ -99,11 +100,15 @@ async function plan(ctx: CommandContext, inp: SetLevelFeesInput): Promise<Plan> 
 
 export const setLevelFeesCommand = defineCommand<SetLevelFeesInput, undefined>({
   key: "learning.set_level_fees",
-  title: "Change the fees of Pathshala levels",
-  description:
-    "Change what a Pathshala term charges for one level, or several (a level fee, in dollars; 'Free' for none). It is a MONEY RULE: it shows each fee from-and-to in dollars and asks the person to confirm. " +
-    "Before registration opens the principal or the treasurer may change a fee; once it has opened only the treasurer may, with a reason, and the change applies to new registrations only, never to fees already quoted or billed. " +
-    "Use learning.draft_term_change first to show the change without making it. It never touches a learner or a family's registration.",
+  title: "Change the fees of school levels",
+  description: (kind) => {
+    const schoolName = schoolOrGeneric(kind);
+    return (
+      `Change what a ${schoolName} term charges for one level, or several (a level fee, in the community's currency; 'Free' for none). It is a MONEY RULE: it shows each fee from-and-to in the community's currency and asks the person to confirm. ` +
+      `Before registration opens the principal or the treasurer may change a fee; once it has opened only the treasurer may, with a reason, and the change applies to new registrations only, never to fees already quoted or billed. ` +
+      `Use learning.draft_term_change first to show the change without making it. It never touches a learner or a family's registration.`
+    );
+  },
   level: "confirm",
   permission: "pathshalaFees",
   module: "pathshala",

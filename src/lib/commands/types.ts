@@ -19,6 +19,7 @@ import type { MinorNameSource } from "./child-filter";
 import type { ProposalStore } from "./proposals";
 import type { CommandRegistry } from "./registry";
 import type { ObjectSchema } from "./schema";
+import type { KindText } from "./text";
 
 export type CommandLevel = "read" | "draft" | "confirm" | "only_you";
 
@@ -62,7 +63,7 @@ export type HouseholdCard = {
   city: string | null;
   last_gift_on: string | null;
   open_pledge_cents: number | null;
-  /** open_pledge_cents in dollars, ready to show. */
+  /** open_pledge_cents in the community's currency, ready to show. */
   open_pledge: string | null;
 };
 
@@ -124,8 +125,11 @@ export type Command<I = never, O = unknown> = {
   key: string;
   /** Short and plain: "Search people and households". Shown on cards and in the palette. */
   title: string;
-  /** Written for a model: what it does, when to use it, what it returns, what it never does. */
-  description: string;
+  /**
+   * Written for a model: what it does, when to use it, what it returns, what it never does. A function when it names the community's
+   * own words (its school, its currency): it is given the community's kind (see text.ts).
+   */
+  description: KindText;
   level: CommandLevel;
   /** The ACCESS key (src/lib/permissions.ts) whose holders may use it. RLS in the database is the real check. */
   permission: AccessKey;

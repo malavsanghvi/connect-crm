@@ -55,7 +55,7 @@ export const pledgesBehind = defineCommand<Infer<typeof input>, PledgesBehindDat
     "List the households with pledges past their due date, the largest unpaid balance first. A pledge with no due date counts as due 30 days after it was made. " +
     "Each household is a household card (the adults, number, city, last gift) with how many pledges are behind, the unpaid amount and how many days overdue the oldest one is. " +
     "Also gives the totals across all households and how old the late pledges are (1 to 30 days, 31 to 60, 61 to 90, over 90), and can be limited to one fund. " +
-    "Amounts are in dollars and are exact. Read only: it never contacts anyone or changes a pledge.",
+    "Amounts are in the community's currency and are exact. Read only: it never contacts anyone or changes a pledge.",
   level: "read",
   permission: "pledges",
   module: "giving",

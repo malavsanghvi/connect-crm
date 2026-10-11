@@ -1,4 +1,5 @@
 import { authorizeAssistant, json } from "@/lib/assistant/http";
+import { communityHints } from "@/lib/assistant/community";
 import { assistantApiKey } from "@/lib/assistant/key";
 import { commandInfo } from "@/lib/assistant/present";
 import type { CommandsResponse } from "@/lib/assistant/protocol";
@@ -28,8 +29,9 @@ export async function GET(req: Request) {
   }
 
   ensureCatalog();
-  const commands = defaultRegistry.list(session, "assistant").map(commandInfo);
+  const commands = defaultRegistry.list(session, "assistant").map((c) => commandInfo(c, session.kind));
   const usage = await databaseUsageMeter(session.db, session.center.id).status();
-  const body: CommandsResponse = { ok: true, enabled: true, aiReady, commands, ...(usage ? { usage } : {}) };
+  const community = await communityHints(session);
+  const body: CommandsResponse = { ok: true, enabled: true, aiReady, commands, ...(usage ? { usage } : {}), community };
   return json(200, body);
 }

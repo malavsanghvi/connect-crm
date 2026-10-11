@@ -1,4 +1,4 @@
-// Two input fields the Giving commands need that schema.ts does not have: a list of ids, and an amount of dollars. Built on the
+// Two input fields the Giving commands need that schema.ts does not have: a list of ids, and an amount of money. Built on the
 // same `Field` type so they parse, describe themselves to a model and appear in the tests like every other field.
 
 import type { Field, Parsed } from "../schema";
@@ -32,7 +32,7 @@ export function uuidList(description: string, opts: { max: number }): Field<stri
 }
 
 /**
- * An amount in dollars, as text ("250", "250.00", "$1,250.50"). A plain number is accepted and turned into text. Whether it is a
+ * An amount in the community's currency, as text ("250", "250.00", "$1,250.50"). A plain number is accepted and turned into text. Whether it is a
  * real amount is decided by checkOfflinePayment (src/lib/payments/offline-payment.ts), which turns it into integer cents; this
  * field never does arithmetic on money.
  */
@@ -42,10 +42,10 @@ export function dollars(description: string): Field<string> {
     optional: false,
     parse(value, label) {
       if (typeof value === "number") {
-        if (!Number.isFinite(value)) return bad(`${label} must be an amount in dollars, like 250.00.`);
+        if (!Number.isFinite(value)) return bad(`${label} must be an amount, like 250.00.`);
         return { ok: true, value: String(value) };
       }
-      if (typeof value !== "string") return bad(`${label} must be an amount in dollars, like 250.00.`);
+      if (typeof value !== "string") return bad(`${label} must be an amount, like 250.00.`);
       const v = value.trim();
       if (!v) return bad(`${label} is required.`);
       if (v.length > 24) return bad(`${label} can be at most 24 characters.`);

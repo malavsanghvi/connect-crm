@@ -23,6 +23,8 @@ import { buildBriefing } from "@/lib/routines/briefing";
 import { resolveRoutine } from "@/lib/routines/resolve";
 import type { HomeTask } from "@/lib/tasks";
 
+import { JAIN } from "../fixtures/kinds";
+
 import { FRIDAY, TUESDAY, event, facts, viewer } from "./fixtures";
 
 const h = createElement as unknown as (type: unknown, props: unknown, ...children: unknown[]) => ReactElement;
@@ -42,6 +44,7 @@ const task = (over: Partial<HomeTask> = {}): HomeTask => ({
 const treasurer = viewer(["treasurer"]);
 const treasurerFacts = facts({
   today: FRIDAY,
+  paymentPlugins: ["zelle", "check", "card"],
   counts: { deposits: 1, giving_approvals: 0, credits: 0, quickbooks_problems: 0, bank_lines: 12, applications: 2, pledges_overdue: 5, pledges_due_week: 3, events_week: 1 },
   events: [event(4)],
 });
@@ -185,7 +188,7 @@ describe("the routine card", () => {
   });
 
   it("offers Ask Niva on a step only when Niva is on, and never on a Pathshala step", () => {
-    const routine = resolveRoutine(viewer(["treasurer", "pathshala_principal"]), facts({ today: FRIDAY }));
+    const routine = resolveRoutine(viewer(["treasurer", "pathshala_principal"], { kind: JAIN }), facts({ today: FRIDAY }));
     expect(html(h(RoutineCard, { routine }))).not.toContain("Ask Niva");
     const on = html(withNiva({}, h(RoutineCard, { routine })));
     expect(on).toContain("Which pledges are behind, oldest first?");

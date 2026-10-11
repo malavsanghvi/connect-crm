@@ -2,20 +2,21 @@ import type { TermRulesInput } from "@/lib/pathshala-registration/contract";
 import { PAYMENT_MODES } from "@/lib/pathshala-registration/contract";
 import { parseFeeInput, parseMoneyInput } from "@/lib/pathshala-registration/money";
 import { PAYMENT_MODE_LABEL, feeEditing, rulesProblem } from "@/lib/pathshala-registration/rules";
+import { schoolOrGeneric } from "@/lib/kind-samples";
 
 import { defineCommand } from "../../define";
 import { f, object, type Infer } from "../../schema";
 import type { PreviewLine } from "../../types";
 
-import { day, fee, groupsFor, loadSetup, money, rulesOf } from "./setup";
+import { day, fee, groupsFor, loadSetup, money, rulesOf, school } from "./setup";
 
 const input = object({
   term_id: f.uuid("The term (its id, from learning.term_setup)."),
   level_id: f.optional(f.uuid("A level whose fee would change (its id, from learning.term_setup). Use it with fee.")),
-  fee: f.optional(f.string("The new fee for that level in dollars: '130', '130.50' or 'Free'.", { max: 40 })),
+  fee: f.optional(f.string("The new fee for that level, like '130' or '130.50', or 'Free'.", { max: 40 })),
   sibling_discount_percent: f.optional(f.integer("The sibling discount as a whole percent from 0 to 100 (0 for none).", { min: 0, max: 100 })),
-  family_cap: f.optional(f.string("The most one family pays for the term, in dollars like '300', or 'none' for no cap.", { max: 40 })),
-  late_fee: f.optional(f.string("The late fee in dollars like '25', or 'none'.", { max: 40 })),
+  family_cap: f.optional(f.string("The most one family pays for the term, like '300', or 'none' for no cap.", { max: 40 })),
+  late_fee: f.optional(f.string("The late fee, like '25', or 'none'.", { max: 40 })),
   how_families_pay: f.optional(f.enum("How families pay: 'pledge' (register now, pay later) or 'pay_now' (pay when registering).", PAYMENT_MODES)),
   starts_on: f.optional(f.date("The first day of the term, like 2026-09-06.")),
   ends_on: f.optional(f.date("The last day of the term, like 2027-05-30.")),
@@ -38,14 +39,18 @@ export type TermChangeDraft = {
 
 const NONE = /^(none|no cap|no)$/i;
 
-/** A change to a term's setup, shown as from-and-to in dollars, checked against the same rules the database applies, and not saved. */
+/** A change to a term's setup, shown as from-and-to in the community's currency, checked against the same rules the database applies, and not saved. */
 export const draftTermChange = defineCommand<DraftTermChangeInput, TermChangeDraft>({
   key: "learning.draft_term_change",
   title: "Prepare a change to a term's setup",
-  description:
-    "Prepare a change to a Pathshala term and show it as from-and-to, with every amount in dollars, without saving anything: a level's fee, the sibling discount, the family cap, the late fee, how families pay, or the term's dates. " +
-    "It checks the change against the same rules the database applies and says who may make it (the principal or treasurer before registration opens; only the treasurer with a reason after). " +
-    "A fee change can then be made with learning.set_level_fees, which asks the person to confirm; the other changes are made on the term's Fees and rules page. It never touches a learner or a family's registration.",
+  description: (kind) => {
+    const schoolName = schoolOrGeneric(kind);
+    return (
+      `Prepare a change to a ${schoolName} term and show it as from-and-to, with every amount in the community's currency, without saving anything: a level's fee, the sibling discount, the family cap, the late fee, how families pay, or the term's dates. ` +
+      `It checks the change against the same rules the database applies and says who may make it (the principal or treasurer before registration opens; only the treasurer with a reason after). ` +
+      `A fee change can then be made with learning.set_level_fees, which asks the person to confirm; the other changes are made on the term's Fees and rules page. It never touches a learner or a family's registration.`
+    );
+  },
   level: "draft",
   permission: "pathshalaFees",
   module: "pathshala",
@@ -138,7 +143,7 @@ export const draftTermChange = defineCommand<DraftTermChangeInput, TermChangeDra
     if (inp.ends_on !== undefined && inp.ends_on !== term.ends_on) changes.push({ label: "Last day of the term", before: day(ctx, term.ends_on), after: day(ctx, inp.ends_on) });
     if (ends < starts) problems.push("The term must end after it starts.");
     if ((inp.starts_on !== undefined && inp.starts_on !== term.starts_on) || (inp.ends_on !== undefined && inp.ends_on !== term.ends_on)) {
-      how.push("The dates: change them on Pathshala › Terms. Niva does not change a term's dates.");
+      how.push(`The dates: change them on ${school(ctx)} › Terms. Niva does not change a term's dates.`);
     }
 
     const warnings: string[] = [];

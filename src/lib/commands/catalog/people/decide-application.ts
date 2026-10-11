@@ -123,7 +123,7 @@ export const decideApplication = defineCommand<DecideApplicationInput, undefined
   description:
     "Approve or decline a membership application. Approving a yearly or life application first records the center review and then needs an Executive Committee member; " +
     "approving the final step makes the membership active and records the fee, if any, as an open pledge. Declining needs a reason. " +
-    "It asks the person to confirm first and shows the checks (the reference, their membership, their household, duplicates), the household card and the fee in dollars.",
+    "It asks the person to confirm first and shows the checks (the reference, their membership, their household, duplicates), the household card and the fee in the community's currency.",
   level: "confirm",
   permission: "applicationsDecide",
   module: "membership",

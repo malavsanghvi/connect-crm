@@ -3,7 +3,7 @@ import { reportReads } from "@/lib/reports/load";
 import { defineCommand } from "../../define";
 import { f, object, type Infer } from "../../schema";
 
-import { dateFields, got, moneyOf, plural, requireModule, resolveRange, startOfYear } from "./shared";
+import { dateFields, got, moneyOf, plural, requireModule, resolveRange, fiscalYearStart } from "./shared";
 
 export type StoreSalesData = {
   from: string;
@@ -26,7 +26,7 @@ export const storeSales = defineCommand<Infer<typeof input>, StoreSalesData>({
   key: "reports.store_sales",
   title: "Add up store sales",
   description:
-    "Add up the store orders and sales between two days: how many orders, the sales in dollars, the sales by month and the best-selling items. Leave the dates out for this year so far. " +
+    "Add up the store orders and sales between two days: how many orders, the sales in the community's currency, the sales by month and the best-selling items. Leave the dates out for the year so far (the community's financial year). " +
     "Use it for 'how much did the store sell this month?' and 'what sells best?'. Orders still in a cart and cancelled orders are left out. " +
     "The sums are done by the database and are exact. Counts and sums only: no customer is named. Read only.",
   level: "read",
@@ -35,7 +35,8 @@ export const storeSales = defineCommand<Infer<typeof input>, StoreSalesData>({
   input,
   async execute(ctx, { from, to, top }) {
     requireModule(ctx, "store");
-    const range = resolveRange(ctx, { from, to }, startOfYear);
+    const start = await fiscalYearStart(ctx);
+    const range = resolveRange(ctx, { from, to }, start.from);
     const money = moneyOf(ctx);
     const s = got(await reportReads.storeSales(ctx.session.db, ctx.session.center.id, range.from, range.to, top), "add up the store sales");
     const data: StoreSalesData = {
@@ -48,6 +49,6 @@ export const storeSales = defineCommand<Infer<typeof input>, StoreSalesData>({
       top_items: s.topItems.map((i) => ({ item: i.item, units: i.units, sales: money(i.salesCents), sales_cents: i.salesCents })),
       basis: "Orders placed, being prepared, ready or picked up, counted on the day they were placed.",
     };
-    return { ok: true, data, message: `${range.words}: ${data.sales} from ${plural(s.orders, "order")}.` };
+    return { ok: true, data, message: `${range.words}: ${data.sales} from ${plural(s.orders, "order")}.${start.note ? ` ${start.note}.` : ""}` };
   },
 });
