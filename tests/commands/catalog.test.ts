@@ -94,9 +94,12 @@ describe("the first commands", () => {
     const confirm = CATALOG.filter((c) => c.level === "confirm");
     expect(confirm.map((c) => c.key)).toContain("events.set_field");
     for (const c of confirm) expect(c.enabledByDefault, c.key).not.toBe(true);
+    // The three Giving commands that move money are confirm commands that need the owner's switch for EVERY door, not only Niva.
+    const money = CATALOG.filter((c) => c.requiresOwnerSwitch);
+    expect(money.map((c) => `${c.key}:${c.level}`)).toEqual(["giving.record_payment:confirm", "giving.confirm_exact_zelle_matches:confirm", "giving.match_deposit:confirm"]);
   });
 
-  it("have no command that changes roles or permissions, deletes, refunds, writes off or approves; a money word is only ever a read or a draft", () => {
+  it("have no command that changes roles or permissions, deletes, refunds, writes off or approves; a money word is a read, a draft, or a confirm command that needs the owner's switch", () => {
     // A merge changes records and is asked about first, like every write; it is never a read or a draft.
     for (const c of CATALOG) if (/merge/.test(c.key)) expect(c.level).toBe("confirm");
     // Messages (B90 phase 4) approves and schedules a message to families: those two are named so, and are confirm commands that start
@@ -109,7 +112,10 @@ describe("the first commands", () => {
       if (settings.has(c.key)) continue;
       const named = MESSAGE_CHANGES.includes(c.key) ? c.key.replace(/schedule|approve/, "") : c.key;
       expect(named, `${c.key} would refund, write off, approve, delete or change roles`).not.toMatch(/refund|write_?off|role|permission|grant|delete|remove|send|schedule|approve_/);
-      if (/record|payment|zelle|deposit/.test(c.key)) expect(c.level === "read" || c.level === "draft", `${c.key} is ${c.level}`).toBe(true);
+      // A money word is a read or a draft, or a confirm command that needs the owner's switch for every door.
+      if (/record|payment|zelle|deposit/.test(c.key)) {
+        expect(c.level === "read" || c.level === "draft" || (c.level === "confirm" && c.requiresOwnerSwitch === true), `${c.key} is ${c.level}`).toBe(true);
+      }
     }
     for (const c of SETTINGS_COMMANDS) {
       // Looking and preparing never change a role or a permission; a change is confirm-level (off for Niva until ticked) or only the person's own.
@@ -131,8 +137,9 @@ describe("the first commands", () => {
 
   it("are all visible to a person with every permission, and none to a person with none", () => {
     const { session } = setup();
-    // The Platform commands are for the Weaver team only: a person with every permission in a community still does not get them (tests/commands/platform-commands.test.ts).
-    expect(catalogRegistry().list(session).map((c) => c.key)).toHaveLength(CATALOG.filter((c) => !c.platformOnly).length);
+    // The Platform commands are for the Weaver team only, and the three money commands are hidden until an owner switches them on
+    // (tests/commands/platform-commands.test.ts, tests/commands/giving-money.test.ts).
+    expect(catalogRegistry().list(session).map((c) => c.key)).toHaveLength(CATALOG.filter((c) => !c.platformOnly && !c.requiresOwnerSwitch).length);
     const none = fakeSession({ permissions: [] });
     // tasks.mine is open to everyone signed in; every other command needs a permission.
     expect(catalogRegistry().list(none).map((c) => c.key)).toEqual(["tasks.mine"]);
@@ -592,6 +599,9 @@ describe("no command result reaches a model with a child in it", () => {
     "giving.waiting_for_second_approver": {},
     "giving.fund_mapping_status": {},
     "giving.draft_payment": { household_id: SHAH, amount: "250", method: "check", reference: "1043", received_on: "2026-10-04", memo: "From Zoya Shah's family" },
+    "giving.record_payment": { household_id: SHAH, amount: "250", method: "check", reference: "1043", received_on: "2026-10-04", memo: "From Zoya Shah's family" },
+    "giving.confirm_exact_zelle_matches": { report_ids: "7d0f3b9a-6a39-4d0c-9f43-0a1a1d7c4001" },
+    "giving.match_deposit": { bank_line_id: "7d0f3b9a-6a39-4d0c-9f43-0a1a1d7c4201", payment_ids: "7d0f3b9a-6a39-4d0c-9f43-0a1a1d7c4301,7d0f3b9a-6a39-4d0c-9f43-0a1a1d7c4302" },
     "accounting.month_close_blockers": {},
     "messages.draft_reminder": { event_id: DIWALI },
     "events.draft_change": { event_id: DIWALI, field: "venue", value: "Hall for Zoya Shah" },

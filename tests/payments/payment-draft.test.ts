@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { buildPaymentChecks, planDraftAllocation, type DraftPlan, type DraftPledge } from "@/lib/payments/payment-draft";
+import { PlanChangedError, buildPaymentChecks, planDraftAllocation, type DraftPlan, type DraftPledge } from "@/lib/payments/payment-draft";
 
 const pledge = (over: Partial<DraftPledge> & Pick<DraftPledge, "id">): DraftPledge => ({
   pledge_number: null,
@@ -110,6 +110,47 @@ describe("planDraftAllocation: what a payment would close", () => {
       expect(p.applied_cents + p.unallocated_cents).toBe(cents);
       expect(Number.isInteger(p.applied_cents) && Number.isInteger(p.unallocated_cents)).toBe(true);
     }
+  });
+});
+
+describe("planDraftAllocation: a stored plan is run exactly, or refused", () => {
+  it("stores each line with the pledge as it was, and orders pledges made at the same moment by id", () => {
+    const same = "2026-02-01T12:00:00Z";
+    const a = pledge({ id: "aaa", pledge_number: "P-10", pledged_at: same, amount_cents: 30000 });
+    const b = pledge({ id: "bbb", pledge_number: "P-11", pledged_at: same, amount_cents: 30000 });
+    // However the list arrives, the lower id is first and the plan says so.
+    for (const order of [[a, b], [b, a]]) {
+      const p = planDraftAllocation({ amountCents: 10000, pledges: order, mode: "auto", chosen: null, canAllocate: true, currency: "USD" });
+      expect(p.stored).toEqual([{ pledge_id: "aaa", amount_cents: 10000, pledge_amount_cents: 30000, pledge_paid_cents: 0 }]);
+    }
+  });
+
+  it("gives back the same plan when the pledges are unchanged, whatever order would be worked out now", () => {
+    const first = plan({ amountCents: 40000 });
+    const again = plan({ amountCents: 40000, forced: first.stored });
+    expect(again.lines).toEqual(first.lines);
+    expect(again.stored).toEqual(first.stored);
+    expect(again.questions).toEqual(first.questions);
+  });
+
+  it("refuses a plan when a pledge was paid, changed or closed since the card was made", () => {
+    const stored = plan({ amountCents: 25000 }).stored;
+    const paidMore = { ...PARYUSHAN, paid_cents: 30000 };
+    expect(() => plan({ amountCents: 25000, pledges: [BUILDING, paidMore], forced: stored })).toThrow(PlanChangedError);
+    expect(() => plan({ amountCents: 25000, pledges: [BUILDING, paidMore], forced: stored })).toThrow("changed since this card was made (it is now $300.00 paid of $500.00)");
+    const raised = { ...PARYUSHAN, amount_cents: 60000 };
+    expect(() => plan({ amountCents: 25000, pledges: [BUILDING, raised], forced: stored })).toThrow("changed since this card was made");
+    const closed = { ...PARYUSHAN, status: "paid", paid_cents: 50000 };
+    expect(() => plan({ amountCents: 25000, pledges: [BUILDING, closed], forced: stored })).toThrow("no longer an open pledge");
+    expect(() => plan({ amountCents: 25000, pledges: [BUILDING], forced: stored })).toThrow("no longer an open pledge");
+  });
+
+  it("refuses a plan that asks for more than the pledge has open, repeats a pledge, or adds up to more than the payment", () => {
+    const line = { pledge_id: "p1", amount_cents: 26000, pledge_amount_cents: 50000, pledge_paid_cents: 25000 };
+    expect(() => plan({ amountCents: 30000, forced: [line] })).toThrow("cannot take $260.00 ($250.00 is open)");
+    const ok = { ...line, amount_cents: 25000 };
+    expect(() => plan({ amountCents: 50000, forced: [ok, ok] })).toThrow("The same pledge is on this card twice");
+    expect(() => plan({ amountCents: 10000, forced: [ok] })).toThrow("add up to more than the payment");
   });
 });
 

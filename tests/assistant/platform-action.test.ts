@@ -79,6 +79,11 @@ describe("Platform › Centers › Niva for admins", () => {
     const ticked = confirmToolChoices({ assistant: { tools: { "events.set_field": true } } });
     expect(ticked.find((c) => c.key === "events.set_field")?.on).toBe(true);
     expect(ticked.filter((c) => c.on).map((c) => c.key)).toEqual(["events.set_field"]);
+    // The three Giving commands that move money are listed with a plain note, and stay off unless each one is ticked.
+    for (const key of ["giving.record_payment", "giving.confirm_exact_zelle_matches", "giving.match_deposit"]) {
+      expect(choices.find((c) => c.key === key), key).toMatchObject({ on: false, moneyNote: expect.stringContaining("Moves money") });
+    }
+    expect(choices.find((c) => c.key === "events.set_field")?.moneyNote).toBeNull();
   });
 
   it("switches Niva on for the community, keeps the other rules, and records the reason", async () => {
@@ -112,6 +117,8 @@ describe("Platform › Centers › Niva for admins", () => {
     expect(Object.keys(tools.tools)).not.toContain("people.search");
     expect(Object.keys(tools.tools).every((k) => /^[a-z_]+\.[a-z_]+$/.test(k))).toBe(true);
     expect(Object.entries(tools.tools).filter(([, on]) => on).map(([key]) => key)).toEqual(["events.set_field"]);
+    // The three that move money are among them, each off unless ticked.
+    expect(tools.tools).toMatchObject({ "giving.record_payment": false, "giving.confirm_exact_zelle_matches": false, "giving.match_deposit": false });
   });
 
   it("needs a reason, a platform admin and a page that is not out of date", async () => {
