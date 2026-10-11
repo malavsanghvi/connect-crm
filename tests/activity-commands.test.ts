@@ -113,7 +113,13 @@ describe("the recorder hook", () => {
 describe("the command keys the database lists (migration 0625)", () => {
   const migrations = join(process.cwd(), "supabase", "migrations");
   const file = readdirSync(migrations).find((f) => /^0625_.*\.sql$/.test(f));
-  const sql = file ? readFileSync(join(migrations, file), "utf8") : "";
+  // 0625 lists the first commands; a command added later is listed by the migration that adds it (an applied migration is never
+  // edited), so the keys are read from 0625 and every migration after it.
+  const sql = readdirSync(migrations)
+    .filter((f) => f.endsWith(".sql") && f >= "0625")
+    .sort()
+    .map((f) => readFileSync(join(migrations, f), "utf8"))
+    .join("\n");
   // ('assistant.people_search', 'Search people and households', 'people.search')
   const registered = [...sql.matchAll(/\(\s*'(assistant\.[a-z0-9_]+)'\s*,\s*'([^']+)'\s*,\s*'([a-z0-9_.]+)'\s*\)/g)].map((m) => ({ key: m[1], label: m[2], command: m[3] }));
 
@@ -124,7 +130,7 @@ describe("the command keys the database lists (migration 0625)", () => {
   it("lists every command of the command layer, with commandable_key set to the command", () => {
     for (const c of CATALOG) {
       const row = registered.find((r) => r.command === c.key);
-      expect(row, `${c.key} is not registered in 0625`).toBeDefined();
+      expect(row, `${c.key} is not registered in 0625 or a later migration`).toBeDefined();
       expect(row?.key).toBe(commandActivityKey(c.key));
     }
   });

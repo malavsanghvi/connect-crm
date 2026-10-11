@@ -201,3 +201,16 @@ comment on function app.giving_fund_mapping_status(uuid) is
   'QuickBooks account mapping per purpose (mapped, approved, missing) and funds without a QuickBooks class. Security invoker. Read only.';
 comment on function app.giving_draft_context(uuid, bigint, text, text, date) is
   'What a prepared payment looks at: open pledges in allocation order, month lock, likely duplicates. Null when the household is not visible. Security invoker. Read only.';
+
+-- ── The Giving commands, in the activity catalog ─────────────────────────────
+-- Every command of the command layer is listed so that its runs can be recorded and offered as an automation idea (0625). The
+-- label finishes the sentence "After you ..." and has no apostrophe (the test that reads this file reads plain quotes).
+select app.activity_register(v.k, 'action', 'portal', v.l, null, v.c)
+  from (values
+    ('assistant.giving_household_summary',           'Look at the giving of a household',                'giving.household_summary'),
+    ('assistant.giving_bank_lines_unmatched',        'Look at the bank lines nobody has matched',        'giving.bank_lines_unmatched'),
+    ('assistant.giving_zelle_waiting',               'Look at the Zelle reports waiting for the bank',   'giving.zelle_waiting'),
+    ('assistant.giving_waiting_for_second_approver', 'Look at what is waiting for a second approver',    'giving.waiting_for_second_approver'),
+    ('assistant.giving_fund_mapping_status',         'Check how funds map to QuickBooks accounts',       'giving.fund_mapping_status'),
+    ('assistant.giving_draft_payment',               'Prepare a payment to record',                      'giving.draft_payment')
+  ) as v(k, l, c);
