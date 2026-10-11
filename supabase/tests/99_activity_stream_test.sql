@@ -621,14 +621,18 @@ insert into app.accounts (user_id, is_platform_admin) values (:latepa99, true) o
 select pg_temp.assert_raises($q$select app.activity_purge(10, true)$q$, 'background service', 'K · only the worker can run the sweep');
 set local role connect_worker;
 select app.activity_purge(10, false)::text as pres0 \gset
-select app.activity_purge(10, true)::text as pres1 \gset
-select app.activity_purge(10, true)::text as pres2 \gset
 reset role;
 select pg_temp.assert((:'pres0'::jsonb ->> 'swept')::integer = 0 and (select count(*) = 3 from app.activity_events where actor_hash = :'h_18'),
   'K · without the sweep nothing is deleted');
+set local role connect_worker;
+select app.activity_purge(10, true)::text as pres1 \gset
+reset role;
 select pg_temp.assert((:'pres1'::jsonb ->> 'swept')::integer = 10 and (:'pres1'::jsonb ->> 'expired')::integer = 0
                       and (select count(*) = 0 from app.activity_events where actor_hash in (:'h_18', :'h_snd', :'h_late', :'h_latepa')),
   'K · the sweep removes the events of a person now under 18 (member surface and portal), of a platform admin and of a person who opted out: 3 + 3 + 2 + 2');
+set local role connect_worker;
+select app.activity_purge(10, true)::text as pres2 \gset
+reset role;
 select pg_temp.assert((:'pres2'::jsonb ->> 'swept')::integer = 0
                       and (select count(*) = :keep_staff from app.activity_events where actor_hash = :'h_s99')
                       and (select count(*) = :keep_member from app.activity_events where actor_hash = :'h_m99'),
