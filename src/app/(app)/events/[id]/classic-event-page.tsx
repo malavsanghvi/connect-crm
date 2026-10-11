@@ -1,0 +1,170 @@
+import Link from "next/link";
+import { notFound } from "next/navigation";
+
+import { ActionButton } from "@/components/events/action-button";
+import { LoadProblem } from "@/components/events/load-problem";
+import { MoreDetails } from "@/components/more-details";
+import { HistoryButton } from "@/components/record-history";
+import { AskNiva } from "@/components/niva/ask-niva";
+import { NoAccess, PageHeader, Tabs, buttonClass } from "@/components/ui";
+import { load, loadEventAccess, resolvePeopleNames, row } from "@/lib/data/events";
+import { eventAreas } from "@/lib/events/access";
+import { formatDateTime } from "@/lib/events/format";
+import { STATUS_TEXT_CLASS, eventRef, eventStatusLabel } from "@/lib/events/status";
+import { EVENT_CANCEL_BUTTON, EVENT_STATUS_BUTTONS, allowedNextStatuses, isEventStatus } from "@/lib/events/status-machine";
+import { isUuid, param, type RawSearchParams } from "@/lib/search-params";
+import { kindSchool } from "@/lib/kind";
+import { getSession } from "@/lib/session";
+
+import { setEventStatus } from "../actions";
+import { ChecklistTab } from "./checklist-tab";
+import { DetailsTab } from "./details-tab";
+import { flyerPreviewUrlAction } from "../builder/flyer-actions";
+import { LunchTab } from "./lunch-tab";
+import { ReportTab } from "./report-tab";
+import { RsvpsTab } from "./rsvps-tab";
+import { SurveyTab } from "./survey-tab";
+import { VolunteersTab } from "./volunteers-tab";
+
+const TABS = [
+  { key: "details", label: "Details" },
+  { key: "checklist", label: "Checklist" },
+  { key: "rsvps", label: "RSVPs" },
+  { key: "volunteers", label: "Volunteers" },
+  { key: "lunch", label: "Lunch" },
+  { key: "survey", label: "Survey" },
+  { key: "report", label: "Report" },
+] as const;
+type TabKey = (typeof TABS)[number]["key"];
+
+/**
+ * The event page in the classic look, exactly as it was before the new look's workspace (moved here unchanged from page.tsx, which
+ * now chooses between this and the new look's EventWorkspacePage by the person's look).
+ */
+export async function ClassicEventPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<RawSearchParams> }) {
+  const { id } = await params;
+  const sp = await searchParams;
+  if (!isUuid(id)) notFound();
+  const tab: TabKey = TABS.find((t) => t.key === param(sp, "tab"))?.key ?? "details";
+  const session = await getSession();
+  const access = await loadEventAccess(session);
+  if (!eventAreas.event(access, id)) {
+    return (
+      <>
+        <PageHeader title="Event" />
+        <NoAccess area="This event" access="events" />
+      </>
+    );
+  }
+  const tz = session.center.time_zone;
+  const res = await load(async () => {
+    const event = row(await session.db.from("events").select("*").eq("id", id).maybeSingle(), "the event");
+    if (!event) return null;
+    const names = await resolvePeopleNames(session.db, [event.owner_person_id]);
+    return { event, ownerName: event.owner_person_id ? (names.get(event.owner_person_id) ?? "assigned") : null };
+  });
+  if (!res.ok) {
+    return (
+      <>
+        <PageHeader title="Event" />
+        <LoadProblem message={res.error} retryHref={`/events/${id}`} />
+      </>
+    );
+  }
+  if (!res.data) notFound();
+  const { event, ownerName } = res.data;
+  const canEdit = eventAreas.edit(access, id);
+  const st = eventStatusLabel(event.status);
+  const flyer =
+    tab === "details" && event.flyer_path
+      ? await (async () => {
+          const r = await flyerPreviewUrlAction(id);
+          return r.ok ? { url: r.data!.url, error: null } : { url: null, error: r.error };
+        })()
+      : { url: null, error: null };
+
+  return (
+    <>
+      <PageHeader
+        eyebrow={
+          <Link href="/events" className="crm-link">
+            ← All events
+          </Link>
+        }
+        title={event.name}
+        description={
+          <span className="flex flex-wrap items-center gap-x-2">
+            <span className="font-mono text-xs">{eventRef(event)}</span>
+            <span className={STATUS_TEXT_CLASS[st.tone]}>{st.label}</span>
+            <span>· {event.starts_at ? formatDateTime(event.starts_at, tz) : "No date yet"}</span>
+            {event.venue ? <span>· {event.venue}</span> : null}
+            {event.program_year ? <span>· {kindSchool(session.kind) ?? "Program"} {event.program_year}</span> : null}
+            {ownerName ? <span>· Lead: {ownerName}</span> : null}
+          </span>
+        }
+        actions={
+          <>
+            {eventAreas.checkIn(access, id) ? (
+              <Link href={`/ops/${id}/checkin`} className={buttonClass("ghost")}>
+                Check-in screen
+              </Link>
+            ) : null}
+            {eventAreas.kitchen(access, id) ? (
+              <Link href={`/ops/${id}/kitchen`} className={buttonClass("ghost")}>
+                Kitchen display
+              </Link>
+            ) : null}
+            <Link href={`/events/live?event=${id}`} className={buttonClass("ghost")}>
+              Live check-in
+            </Link>
+            <AskNiva prompt="What is blocking this event from going live, and how is it doing?" />
+            <HistoryButton table="events" recordId={id} title={event.name} variant="ghost" size="md" />
+            {canEdit ? (
+              <Link href={`/events/builder?event=${id}`} className={buttonClass("primary")}>
+                Edit in builder
+              </Link>
+            ) : null}
+          </>
+        }
+      />
+      {canEdit ? (
+        <div className="mb-4 flex flex-wrap gap-2">
+          {(isEventStatus(event.status) ? EVENT_STATUS_BUTTONS[event.status] : []).map((n) => (
+            <ActionButton
+              key={n.to}
+              action={setEventStatus.bind(null, event.id)}
+              fields={{ status: n.to }}
+              label={n.label}
+              variant={n.variant}
+              size="sm"
+              confirm={n.confirm}
+            />
+          ))}
+          {allowedNextStatuses(event.status).includes(EVENT_CANCEL_BUTTON.to) ? (
+            <ActionButton
+              action={setEventStatus.bind(null, event.id)}
+              fields={{ status: EVENT_CANCEL_BUTTON.to }}
+              label={EVENT_CANCEL_BUTTON.label}
+              variant={EVENT_CANCEL_BUTTON.variant}
+              size="sm"
+              confirm={EVENT_CANCEL_BUTTON.confirm}
+            />
+          ) : null}
+        </div>
+      ) : null}
+      <Tabs active={tab} tabs={TABS.map((t) => ({ key: t.key, label: t.label, href: `/events/${event.id}${t.key === "details" ? "" : `?tab=${t.key}`}` }))} />
+      {tab === "details" ? (
+        <DetailsTab event={event} tz={tz} currency={session.center.currency} ownerName={ownerName} canEdit={canEdit} flyerUrl={flyer.url} flyerError={flyer.error} />
+      ) : null}
+      {tab === "details" ? (
+        <MoreDetails session={session} entity="events" recordId={event.id} editable={canEdit} variant="card" className="mt-4" />
+      ) : null}
+      {tab === "checklist" ? <ChecklistTab event={event} session={session} access={access} /> : null}
+      {tab === "rsvps" ? <RsvpsTab event={event} session={session} access={access} status={param(sp, "rsvp") ?? null} /> : null}
+      {tab === "volunteers" ? <VolunteersTab event={event} session={session} access={access} /> : null}
+      {tab === "lunch" ? <LunchTab event={event} session={session} access={access} /> : null}
+      {tab === "survey" ? <SurveyTab event={event} session={session} access={access} /> : null}
+      {tab === "report" ? <ReportTab event={event} session={session} /> : null}
+    </>
+  );
+}
