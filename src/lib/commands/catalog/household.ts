@@ -29,7 +29,7 @@ export type AdultDirectory = {
 };
 
 /** The adults of each household (members who have not left, 18 or older by birth date or, with none on file, a head, spouse or parent). */
-export async function loadAdults(db: AppSupabase, householdIds: string[], today: string): Promise<AdultDirectory> {
+export async function loadAdults(db: AppSupabase, householdIds: string[], today: string, majority?: number): Promise<AdultDirectory> {
   const byHousehold = new Map<string, { id: string; name: string; isPrimary: boolean }[]>();
   const adultIds = new Set<string>();
   const minorFirstNames = new Map<string, string[]>();
@@ -47,7 +47,7 @@ export async function loadAdults(db: AppSupabase, householdIds: string[], today:
     const p = people.get(m.person_id);
     // A person the role cannot read is not shown; nothing is guessed about them.
     if (!p) continue;
-    if (!isAdultMember({ date_of_birth: p.date_of_birth, role: m.role }, today)) {
+    if (!isAdultMember({ date_of_birth: p.date_of_birth, role: m.role }, today, majority)) {
       const names = minorFirstNames.get(m.household_id) ?? [];
       names.push(p.first_name, ...(p.preferred_name ? [p.preferred_name] : []));
       minorFirstNames.set(m.household_id, names);
@@ -74,13 +74,13 @@ export async function loadAdults(db: AppSupabase, householdIds: string[], today:
 export async function adultHouseholdCards(
   db: AppSupabase,
   householdIds: string[],
-  opts: { today: string; currency: string },
+  opts: { today: string; currency: string; /** The community's age of majority (communityMajority); 18 when not given. */ majority?: number },
 ): Promise<{ cards: HouseholdCard[]; hidden: number; adults: AdultDirectory }> {
   const ids = [...new Set(householdIds)];
   if (ids.length === 0) return { cards: [], hidden: 0, adults: { byHousehold: new Map(), adultIds: new Set(), minorFirstNames: new Map() } };
   const raw = await householdCards(db, ids);
   if (raw.error && raw.map.size === 0) throw new CommandDbError(raw.error, "read the household cards");
-  const adults = await loadAdults(db, [...raw.map.keys()], opts.today);
+  const adults = await loadAdults(db, [...raw.map.keys()], opts.today, opts.majority);
   const cards: HouseholdCard[] = [];
   for (const id of ids) {
     const c = raw.map.get(id);

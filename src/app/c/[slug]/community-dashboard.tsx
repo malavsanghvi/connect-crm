@@ -40,7 +40,7 @@ export function CommunityDashboard({
   branding: TenantBranding;
   today: string;
   joinUrl: string | null;
-  /** The organization's kind: which sections and words the dashboard has (a Jain Center when the database does not say). */
+  /** The organization's kind: which sections and words the dashboard has (the neutral kind, with no faith's words, when the database does not say). */
   kind: KindProfile;
 }) {
   const all = useMemo(() => periods(today), [today]);

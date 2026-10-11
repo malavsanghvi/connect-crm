@@ -3,6 +3,8 @@
 // not go out. No database, no clock of its own, no I/O: everything is given in, so every rule here is tested on its own
 // (tests/messages-pure.test.ts).
 
+import { compileMinorNames, type MinorNameEntry, type MinorNameScanner } from "../../minor-names";
+
 // ---------------------------------------------------------------------------
 // Age
 // ---------------------------------------------------------------------------
@@ -139,9 +141,10 @@ export function triageCounts(threads: readonly ThreadRow[], inboxes: readonly In
 // The child guard for message text (D2)
 // ---------------------------------------------------------------------------
 // A member's message can name a child ("Zoya's class", "Aarav is allergic to nuts"). The command layer already replaces a child's
-// FULL name (child-filter.ts); a message usually says only the first name. So a message that uses the first name of anyone under 18
-// is not shown to Niva at all: it is replaced by a sentence and the person reads it on the screen. This errs on the side of
-// withholding (an adult who shares a child's first name has their messages withheld too).
+// name wherever it is in a result (child-filter.ts); a message usually says only the first name. So a message that uses a name of
+// anyone under 18 is not shown to Niva at all: it is replaced by a sentence and the person reads it on the screen. The names are
+// matched the same way everywhere (minor-names.ts): any order, one name or many, any script. This errs on the side of withholding
+// (an adult who shares a child's given name has their messages withheld too; a family name the household's adults share does not).
 
 function fold(word: string): string {
   // Accents on Latin letters are ignored; the vowel signs of Gujarati and Hindi are part of the letters and stay.
@@ -154,22 +157,17 @@ function wordsOf(text: string): string[] {
   return (text.match(WORD) ?? []).map(fold);
 }
 
-/** The given names of the community's minors: every word of each full name except the last (the family name). */
-export function childGivenNames(fullNames: Iterable<string>): Set<string> {
-  const out = new Set<string>();
-  for (const full of fullNames) {
-    const parts = wordsOf(full);
-    if (parts.length === 0) continue;
-    const given = parts.length === 1 ? parts : parts.slice(0, -1);
-    for (const g of given) if (Array.from(g).length >= 2) out.add(g);
-  }
-  return out;
+/**
+ * What to look for in a message: the community's minors, in any culture. A name the source gives in parts (the app does) is found by
+ * the words that identify the child; a bare name is found by every word of it, in any order, because nothing says which is which.
+ */
+export function childGivenNames(minors: Iterable<MinorNameEntry>): MinorNameScanner {
+  return compileMinorNames(minors);
 }
 
-/** True when the text uses a child's given name as a word (any case, any accent). */
-export function mentionsChild(text: string | null | undefined, givenNames: ReadonlySet<string>): boolean {
-  if (!text || givenNames.size === 0) return false;
-  return wordsOf(text).some((w) => givenNames.has(w));
+/** True when the text uses a child's name (any case, any accent, any script, any order). */
+export function mentionsChild(text: string | null | undefined, names: MinorNameScanner): boolean {
+  return names.mentions(text);
 }
 
 export const WITHHELD_FOR_CHILD = "This message is about a child, so it is not shown here. Please read it on the screen.";

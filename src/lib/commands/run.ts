@@ -12,7 +12,7 @@
 import { todayInTz } from "@/lib/dates";
 import { failure } from "@/lib/errors";
 
-import { filterChildren, leakedMinorNames } from "./child-filter";
+import { communityMajority, filterChildren, leakedMinorNames, type MinorNameEntry } from "./child-filter";
 import { commandAvailability } from "./enabled";
 import { onCommandEvent } from "./hooks";
 import { ProposalError } from "./proposals";
@@ -93,9 +93,9 @@ function done(ctx: CommandContext, call: Call, result: CommandRunResult, outcome
 // ---------------------------------------------------------------------------
 // What a model may see (D2 and the secrets rule)
 // ---------------------------------------------------------------------------
-const minorCache = new WeakMap<object, Promise<string[]>>();
+const minorCache = new WeakMap<object, Promise<MinorNameEntry[]>>();
 
-async function minorNames(ctx: CommandContext): Promise<string[]> {
+async function minorNames(ctx: CommandContext): Promise<MinorNameEntry[]> {
   if (!ctx.minors) throw new Error("no way to tell which names belong to children");
   const cached = minorCache.get(ctx.session);
   if (cached) return cached;
@@ -115,7 +115,7 @@ async function protect<T>(ctx: CommandContext, value: T): Promise<{ ok: true; va
   if (ctx.via !== "assistant") return { ok: true, value };
   try {
     const names = await minorNames(ctx);
-    const clean = filterChildren(stripSecrets(value).value, { minorNames: names, today: todayInTz(ctx.session.center.time_zone, ctx.now?.()) }).value;
+    const clean = filterChildren(stripSecrets(value).value, { minorNames: names, today: todayInTz(ctx.session.center.time_zone, ctx.now?.()), majority: communityMajority(ctx.session.center) }).value;
     const leaked = leakedMinorNames(clean, names);
     if (leaked.length > 0) {
       console.error(`[commands] withheld a result: ${leaked.length} name(s) of people under 18 were still in it`);

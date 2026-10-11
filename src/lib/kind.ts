@@ -26,10 +26,9 @@ export type KindProfile = {
 };
 
 /**
- * What the portal showed before kinds existed: a Jain Center, which has every module and today's words.
- * Used ONLY when the database cannot answer (category_profile missing or failing), so the live organization
- * never changes because of a hiccup; a test pins it to the 0594 seed of the Jain Center row. Every other kind
- * comes from the database.
+ * The Jain Center kind exactly as migration 0594 seeds it: every module and the tradition's words. It is ONE kind among
+ * many, kept as a fixture for the screens and tests that need a faith kind with a tradition pack; it is NOT a fallback. A test
+ * pins it to the 0594 seed of the Jain Center row.
  */
 export const LEGACY_KIND: KindProfile = {
   key: "jain_center",
@@ -48,6 +47,36 @@ export const LEGACY_KIND: KindProfile = {
     assistant_context: "a Jain community",
   },
   modules: {},
+};
+
+/**
+ * What the portal shows when the database cannot say which kind an organization is (category_profile missing, failing, or
+ * unreadable): the neutral kind, the "Community organization" row of 0594/0600, with none of a tradition's words and none of the
+ * modules that only a faith kind has. Any organization can be anything; a lookup that fails must never make one look like a Jain
+ * Center. The database still enforces what is on; this is only wording. A test pins it to the migration rows.
+ */
+export const NEUTRAL_KIND: KindProfile = {
+  key: "nonprofit_secular",
+  label: "Community organization",
+  faithBased: false,
+  usesTradition: false,
+  terms: {
+    greeting: "Welcome",
+    practice_tab: null,
+    give_tab: "Give",
+    family_tab: "Family",
+    store: "Store",
+    school: null,
+    learning: null,
+    place: "office",
+    assistant_context: "a community organization",
+  },
+  modules: {
+    bolis: { availability: "not_available", label: null },
+    jain_way: { availability: "not_available", label: null },
+    pathshala: { availability: "not_available", label: null },
+    gyan_path: { availability: "not_available", label: null },
+  },
 };
 
 function isRecord(v: unknown): v is Record<string, unknown> {
@@ -161,17 +190,30 @@ type KindProfileResult = { data: Json | null; error: { code?: string | null; mes
 
 /**
  * The result of `app.category_profile(center)` for the session. When the function is not in the database yet
- * ("missing") or fails ("error"), the portal keeps showing what it showed before kinds existed (LEGACY_KIND:
- * a Jain Center, every module) rather than breaking the page; the failure is logged by the caller.
+ * ("missing"), fails ("error") or answers with something unreadable, the portal shows the NEUTRAL kind (NEUTRAL_KIND: no
+ * tradition words) rather than breaking the page or guessing a faith; the failure is logged by the caller, once.
  */
 export function kindFromProfileResult(res: KindProfileResult): LoadedKind {
   if (res.error) {
     const code = res.error.code ?? "";
     const missing = ["PGRST202", "42883"].includes(code) || /could not find the function|function .* does not exist/i.test(res.error.message ?? "");
-    return { kind: LEGACY_KIND, status: missing ? "missing" : "error" };
+    return { kind: NEUTRAL_KIND, status: missing ? "missing" : "error" };
   }
   const parsed = parseKindProfile(res.data);
-  return parsed ? { kind: parsed, status: "ok" } : { kind: LEGACY_KIND, status: "error" };
+  return parsed ? { kind: parsed, status: "ok" } : { kind: NEUTRAL_KIND, status: "error" };
+}
+
+const quietUntil = new Map<string, number>();
+const QUIET_MS = 10 * 60_000;
+
+/**
+ * True the first time a fallback is reported for `key` (an organization and why), then false for ten minutes: a database that
+ * is down logs the neutral fallback once, not once for every page and request.
+ */
+export function shouldReportKindFallback(key: string, now: number = Date.now()): boolean {
+  if ((quietUntil.get(key) ?? 0) > now) return false;
+  quietUntil.set(key, now + QUIET_MS);
+  return true;
 }
 
 /**

@@ -12,6 +12,7 @@ import {
   type PersonProfile,
 } from "@/lib/people";
 import { ageOn } from "@/lib/dates";
+import { communityMajority } from "../../child-filter";
 
 import { defineCommand } from "../../define";
 import { revalidateAfterCommand } from "../../revalidate";
@@ -84,7 +85,7 @@ async function plan(ctx: CommandContext, inp: UpdatePersonInput): Promise<Plan> 
     // A new birth date that makes an adult a child is a child's record too (the form accepts MM/DD/YYYY or YYYY-MM-DD).
     const dob = parseDateInput(raw.date_of_birth ?? "");
     const age = dob.ok && dob.value ? ageOn(dob.value, today(ctx)) : null;
-    if (age !== null && age < 18) throw new CommandError(CHILD_RECORDS_ON_SCREEN);
+    if (age !== null && age < communityMajority(ctx.session.center)) throw new CommandError(CHILD_RECORDS_ON_SCREEN);
   }
 
   const parsed = parsePersonForm(raw, today(ctx));

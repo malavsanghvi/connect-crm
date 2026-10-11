@@ -4,7 +4,7 @@ import type { Metadata } from "next";
 import type { Database } from "@/lib/database.types";
 import { todayInTz } from "@/lib/dates";
 import { readPublicEnv } from "@/lib/env";
-import { kindFromProfileResult } from "@/lib/kind";
+import { kindFallbackProblem, kindFromProfileResult, shouldReportKindFallback } from "@/lib/kind";
 import { newRequestId, traceHeaders } from "@/lib/supabase/trace";
 import { explainError } from "@/lib/errors";
 import { tenantBranding } from "@/lib/shell";
@@ -69,10 +69,11 @@ export default async function PublicDashboardPage({ params }: { params: Params }
     return <Problem title={`${b.shortName} community dashboard`} body={`${center.name} isn't publishing its community dashboard right now. Please check back later.`} />;
   }
   // The kind of organization decides which sections the dashboard has and what it calls them. If the database cannot say,
-  // the dashboard reads as it always did (a Jain Center).
+  // the dashboard shows the neutral kind's sections (no faith's words), never a guessed kind.
   const profile = await c.db.rpc("category_profile", { p_center: center.id });
   const kind = kindFromProfileResult(profile);
-  if (kind.status === "error") console.error("[public-dashboard] could not load the kind of organization; showing the default sections:", profile.error);
+  const kindProblem = kindFallbackProblem(kind, profile);
+  if (kindProblem && shouldReportKindFallback(`${String(center.slug)}:${kind.status}`)) console.error(`[public-dashboard] ${kindProblem.context}:`, kindProblem.error);
   const raw = center.branding && typeof center.branding === "object" && !Array.isArray(center.branding) ? (center.branding as Record<string, unknown>) : {};
   const joinUrl = [raw.join_url, raw.website_url, raw.website].find((v): v is string => typeof v === "string" && /^https:\/\//i.test(v)) ?? null;
 

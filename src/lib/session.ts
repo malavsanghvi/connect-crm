@@ -17,7 +17,7 @@ import {
   type ScopedGrant,
 } from "@/lib/permissions";
 import { resolveCenterChoice, type CenterChoice } from "@/lib/center-resolve";
-import { kindFallbackProblem, kindFromProfileResult, type KindProfile } from "@/lib/kind";
+import { kindFallbackProblem, kindFromProfileResult, shouldReportKindFallback, type KindProfile } from "@/lib/kind";
 import { loadMyModules, modulesOffFrom } from "@/lib/modules-db";
 import { requires2faForStaff, securityRedirect } from "@/lib/security";
 import { createSupabaseServerClient, type AppSupabase } from "@/lib/supabase/server";
@@ -29,6 +29,9 @@ export type CenterInfo = {
   name: string;
   short_name: string | null;
   time_zone: string;
+  /** Where the organization is (an ISO country code, "US" by default), which decides the age of majority the assistant uses. */
+  country?: string | null;
+  state_region?: string | null;
   currency: string;
   branding: Json;
   feature_flags: Json;
@@ -75,7 +78,7 @@ export type CrmSession = PermissionContext & {
   /**
    * The organization's kind (an experience: Jain Temple, Church, Chamber of commerce, Neutral …) from
    * app.category_profile: its name, its wording terms and which modules it offers. Never null: when the database
-   * cannot answer (kindStatus "missing" / "error") it is the legacy Jain Center the portal always showed.
+   * cannot answer (kindStatus "missing" / "error") it is the neutral kind, with no tradition words (src/lib/kind.ts NEUTRAL_KIND).
    */
   kind: KindProfile;
   kindStatus: "ok" | "missing" | "error";
@@ -118,7 +121,7 @@ export const loadSession = cache(async (): Promise<SessionState> => {
   const slug = choice.slug;
   const centerRes = await db
     .from("centers")
-    .select("id, slug, name, short_name, time_zone, currency, branding, feature_flags, rules, status, environment")
+    .select("id, slug, name, short_name, time_zone, country, state_region, currency, branding, feature_flags, rules, status, environment")
     .eq("slug", slug)
     .maybeSingle();
   if (centerRes.error) {
@@ -143,11 +146,11 @@ export const loadSession = cache(async (): Promise<SessionState> => {
     db.rpc("category_profile", { p_center: center.id }),
   ]);
   // The kind is a convenience for wording and for explaining a module the kind does not offer: the database
-  // enforces the modules either way. If it cannot be read the portal shows what it showed before kinds existed.
+  // enforces the modules either way. If it cannot be read the portal shows the neutral kind (no faith's words), never a guessed one.
   const loadedKind = kindFromProfileResult(kindRes);
   // Every fallback is logged, never silent: the function missing, the call failing, and an answer the portal cannot read.
   const kindProblem = kindFallbackProblem(loadedKind, kindRes);
-  if (kindProblem) failure(kindProblem.context, kindProblem.error);
+  if (kindProblem && shouldReportKindFallback(`${slug}:${loadedKind.status}`)) failure(kindProblem.context, kindProblem.error);
   // The switcher is a convenience: without it the user still works in this organization.
   if (switchRes.error) console.error("[session] could not list the organizations for the switcher (showing none):", switchRes.error);
   const firstError = grantsRes.error ?? rolesRes.error ?? accountRes.error ?? linkRes.error ?? ownerRes.error;

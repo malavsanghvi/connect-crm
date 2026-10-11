@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 
-import { filterChildren, householdNameWithoutChildren, isAdultMember, leakedMinorNames, nameMatcher } from "@/lib/commands/child-filter";
+import { compileMinorNames, filterChildren, householdNameWithoutChildren, isAdultMember, leakedMinorNames } from "@/lib/commands/child-filter";
+
+import { westernMinor } from "./helpers";
 
 const TODAY = "2026-10-10";
 
@@ -54,13 +56,13 @@ describe("removing children from a result", () => {
   });
 
   it("replaces the names of minors in any text, as whole words, without case", () => {
-    const names = ["Zoya Shah", "Aarav Patel"];
+    const names = [westernMinor("Zoya Shah"), westernMinor("Aarav Patel")];
     const { value, removed } = filterChildren(
-      { a: "Pickup for ZOYA  SHAH at 5", b: ["Aarav Patel's class", "Zoya Shahid is an adult", "Priya Shah"] },
+      { a: "Pickup for ZOYA  SHAH at 5", b: ["Aarav Patel's class", "Priya Shahid is an adult", "Priya Shah"] },
       { minorNames: names, today: TODAY },
     );
     expect(JSON.stringify(value)).not.toMatch(/Zoya Shah\b|Aarav Patel/i);
-    expect(value.b[1]).toBe("Zoya Shahid is an adult");
+    expect(value.b[1]).toBe("Priya Shahid is an adult");
     expect(value.b[2]).toBe("Priya Shah");
     expect(removed).toBe(2);
   });
@@ -81,12 +83,15 @@ describe("checking a result for a child's name", () => {
   it("finds a name that is still there, whatever its case, accents or spacing", () => {
     expect(leakedMinorNames({ x: ["fine", { y: "zoya  SHAH" }] }, ["Zoya Shah", "Aarav Patel"])).toEqual(["Zoya Shah"]);
     expect(leakedMinorNames({ x: "René Müller" }, ["Rene Muller"])).toEqual(["Rene Muller"]);
-    expect(leakedMinorNames({ x: "Zoya Shahid" }, ["Zoya Shah"])).toEqual([]);
+    expect(leakedMinorNames({ x: "Priya Shahid" }, [westernMinor("Zoya Shah")])).toEqual([]);
+    expect(leakedMinorNames({ x: "Zoya Shahid" }, ["Zoya Shah"])).toEqual(["Zoya Shah"]); // a bare name: every word of it counts
     expect(leakedMinorNames({ x: "nothing" }, [])).toEqual([]);
   });
-  it("only matches names of two words or more, so a first name alone cannot blank a result", () => {
-    expect(nameMatcher(["Om", "Zoya"])).toBeNull();
-    expect(nameMatcher(["Zoya Shah"])).not.toBeNull();
+  it("matches a single name, but never a one-letter word, so a result cannot be blanked by an initial", () => {
+    expect(compileMinorNames(["Zoya"]).size).toBe(1);
+    expect(compileMinorNames(["Zoya"]).mentions("Zoya is here")).toBe(true);
+    expect(compileMinorNames(["A"]).mentions("a b c")).toBe(false);
+    expect(compileMinorNames([]).size).toBe(0);
   });
 });
 
@@ -102,5 +107,11 @@ describe("a household's display name without its children's first names", () => 
     expect(householdNameWithoutChildren("Zoya", ["Zoya"])).toBeNull();
     expect(householdNameWithoutChildren(null, ["Zoya"])).toBeNull();
     expect(householdNameWithoutChildren("Zoyal Shah", ["Zoya"])).toBe("Zoyal Shah");
+  });
+  it("takes out a child's names in any culture: two given names, accents, no spaces", () => {
+    const out = householdNameWithoutChildren("García López, Ana, María José & Pedro", ["Maria Jose"]);
+    expect(out).toBe("García López, Ana, Pedro");
+    expect(householdNameWithoutChildren("王, 建国 & 王伟", ["王伟"])).toBe("王, 建国");
+    expect(householdNameWithoutChildren("Nguyễn, Minh & Văn An", ["Văn An"])).toBe("Nguyễn, Minh");
   });
 });

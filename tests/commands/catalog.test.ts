@@ -7,6 +7,7 @@ vi.mock("@/lib/data/home-tasks", () => ({ loadHomeTasks: vi.fn() }));
 import { revalidatePath } from "next/cache";
 
 import { CATALOG } from "@/lib/commands/catalog";
+import type { MinorNameEntry } from "@/lib/commands/child-filter";
 import { CONTENT_COMMANDS } from "@/lib/commands/catalog/content";
 import { LEARNING_COMMANDS } from "@/lib/commands/catalog/learning";
 import { MESSAGES_COMMANDS } from "@/lib/commands/catalog/messages";
@@ -24,7 +25,7 @@ import { loadHomeTasks } from "@/lib/data/home-tasks";
 
 import { GIVING_ANSWERS, SHAH, givingWorld } from "./giving-world";
 import { addEventsWorld, EV } from "./events-world";
-import { CHILDREN, communityWithChildren, fakeDb, fakeSession, testContext, type FakeDbOptions } from "./helpers";
+import { CHILDREN, INTERNATIONAL, communityWithChildren, fakeDb, fakeSession, testContext, withInternationalChildren, type FakeDbOptions } from "./helpers";
 
 const DIWALI = "7d0f3b9a-6a39-4d0c-9f43-0a1a1d7c1001";
 const PICNIC = "7d0f3b9a-6a39-4d0c-9f43-0a1a1d7c1003";
@@ -38,14 +39,14 @@ function catalogRegistry() {
   return r;
 }
 
-function setup(opts: { via?: CommandVia; permissions?: string[]; world?: FakeDbOptions; rules?: unknown } = {}) {
+function setup(opts: { via?: CommandVia; permissions?: string[]; world?: FakeDbOptions; rules?: unknown; minorNames?: MinorNameEntry[] } = {}) {
   const db = fakeDb(opts.world ?? communityWithChildren());
   const session = fakeSession({
     db,
     permissions: opts.permissions ?? ALL_PERMISSIONS,
     center: { ...fakeSession().center, rules: opts.rules ?? {} },
   });
-  const ctx = testContext({ session, registry: catalogRegistry(), via: opts.via ?? "screen", minorNames: CHILDREN.full });
+  const ctx = testContext({ session, registry: catalogRegistry(), via: opts.via ?? "screen", minorNames: opts.minorNames ?? CHILDREN.full });
   return { ctx, db, session };
 }
 
@@ -610,6 +611,24 @@ describe("no command result reaches a model with a child in it", () => {
       const text = JSON.stringify(result);
       for (const name of [...CHILDREN.full, ...CHILDREN.first]) expect(text, `${name} reached a result of ${command.key}`).not.toContain(name);
       expect(text).not.toContain("2018-05-05");
+      expect(text).not.toContain("date_of_birth");
+    });
+
+    // The same, with children whose names the first version could not match: family name first, no spaces, a particle, two given
+    // names and two family names, one name only (tests/commands/helpers.ts INTERNATIONAL). Adults are still named.
+    it(`${command.key}: nothing about a child of any culture in what Niva is given`, async () => {
+      vi.mocked(loadHomeTasks).mockResolvedValue({
+        tasks: [{ id: "x:1", source: "pathshala", tag: "Pathshala", color: "purple", title: "Sign-off for Wang Wei and 王伟", meta: "María José García López and Sukarno are waiting", links: [] }],
+        failures: [],
+      } as never);
+      const base = command.key.startsWith("giving.") ? givingWorld(GIVING_ANSWERS) : addEventsWorld(communityWithChildren());
+      const world = withInternationalChildren(base);
+      const on = Object.fromEntries(CATALOG.filter((c) => c.level === "confirm").map((c) => [c.key, true]));
+      const { ctx } = setup({ via: "assistant", world, rules: { assistant: { tools: on } }, minorNames: [...CHILDREN.full, ...INTERNATIONAL.entries()] });
+      const result = await runCommand(ctx, command.key, SAMPLE_INPUT[command.key]);
+      expect(result.ok, JSON.stringify(result)).toBe(true);
+      const text = JSON.stringify(result);
+      for (const name of [...CHILDREN.full, ...CHILDREN.first, ...INTERNATIONAL.forbidden]) expect(text, `${name} reached a result of ${command.key}`).not.toContain(name);
       expect(text).not.toContain("date_of_birth");
     });
   }
