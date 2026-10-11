@@ -11965,6 +11965,12 @@ export type Database = {
         };
         Returns: { slug: string; name: string; short_name: string; state_region: string; environment: string }[];
       };
+      community_languages: {
+        Args: {
+          p_center: string;
+        };
+        Returns: string[];
+      };
       community_open: {
         Args: {
           p_center: string;

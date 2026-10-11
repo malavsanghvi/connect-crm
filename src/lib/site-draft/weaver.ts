@@ -10,6 +10,10 @@ export type WeaverData = {
   name: string;
   shortName: string | null;
   timeZone: string | null;
+  /** The community's locale for dates, times and numbers ("en-US", "es-MX"); set when the data is loaded. English (US) when absent. */
+  locale?: string | null;
+  /** The community's country (ISO 3166), for phone numbers; set when the data is loaded. */
+  country?: string | null;
   mission: string | null;
   about: string | null;
   email: string | null;
@@ -43,10 +47,20 @@ const DATE = /^\d{4}-\d{2}-\d{2}$/;
 const TIME = /^\d{2}:\d{2}/;
 const STAMP = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/;
 
-/** "+12815550142" as "(281) 555-0142"; any other number is shown as it was saved. */
-export function formatPhone(raw: string): string {
-  const m = /^\+1(\d{3})(\d{3})(\d{4})$/.exec(raw.trim());
-  return m ? `(${m[1]}) ${m[2]}-${m[3]}` : raw.trim();
+/** The countries that share the +1 numbering plan, where (281) 555-0142 is how people write a number. */
+const NANP = new Set(["US", "CA", "PR", "VI", "GU", "AS", "MP", "BS", "BB", "BM", "JM", "DO", "TT", "AG", "AI", "DM", "GD", "KN", "LC", "VC", "KY", "SX", "TC", "VG"]);
+
+/**
+ * A phone number in the way the community's country writes it. "+12815550142" is "(281) 555-0142" where numbers are written that way
+ * (the US, Canada and the rest of the +1 plan, and when the country is not known), and "+1 281 555 0142" anywhere else;
+ * "+919876543210" is "+91 98765 43210". Any other number is shown as it was saved: Weaver does not guess how a country groups digits.
+ */
+export function formatPhone(raw: string, country?: string | null): string {
+  const t = raw.trim();
+  const us = /^\+1(\d{3})(\d{3})(\d{4})$/.exec(t);
+  if (us) return !country || NANP.has(country.toUpperCase()) ? `(${us[1]}) ${us[2]}-${us[3]}` : `+1 ${us[1]} ${us[2]} ${us[3]}`;
+  const india = /^\+91(\d{5})(\d{5})$/.exec(t);
+  return india ? `+91 ${india[1]} ${india[2]}` : t;
 }
 
 export function parseWeaverData(data: unknown): WeaverData | null {

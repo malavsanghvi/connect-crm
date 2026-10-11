@@ -18,6 +18,7 @@ import {
   toEnum,
   toIdentifier,
   toInteger,
+  toLanguage,
   toList,
   toName,
   toNumber,
@@ -257,6 +258,8 @@ function transformField(f: FieldDef, cell: unknown, mapping: Mapping): Transform
       return toBoolean(cell);
     case "enum":
       return toEnum(cell, f.options ?? [], { ...(f.valueMap ?? {}), ...(mapping.valueMaps[f.key] ?? {}) });
+    case "language":
+      return toLanguage(cell);
     case "list":
       return toList(cell);
   }

@@ -35,6 +35,7 @@ export type FieldType =
   | "number"
   | "boolean"
   | "enum"
+  | "language"
   | "list"
   | "ref";
 
@@ -218,12 +219,6 @@ const GENDERS = [
   { value: "female", label: "Female" },
   { value: "male", label: "Male" },
   { value: "other", label: "Other" },
-] as const;
-
-const LANGUAGES = [
-  { value: "en", label: "English" },
-  { value: "gu", label: "Gujarati" },
-  { value: "hi", label: "Hindi" },
 ] as const;
 
 const CHANNELS = [
@@ -957,7 +952,7 @@ export const ENTITIES: readonly EntityDef[] = [
         personal: true,
         synonyms: ["phone", "mobile", "cell", "phone 1", "phone 1 number", "mobile phone", "cell phone"],
       }),
-      col("language", "Language", "enum", "English, Gujarati or Hindi.", "en", { options: LANGUAGES }),
+      col("language", "Language", "language", "Any language, by name or code (English, Spanish, es, pt-BR). Blank means English.", "en"),
       col("profession", "Profession", "text", "Optional.", "Physician", { synonyms: ["occupation", "job title"] }),
       col("employer", "Employer", "text", "Optional.", "Memorial Hermann", { synonyms: ["company", "organization"] }),
       col("is_deceased", "Deceased", "boolean", "Yes when the person has passed away.", "No", { synonyms: ["deceased"] }),

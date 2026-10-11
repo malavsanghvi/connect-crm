@@ -2,6 +2,7 @@
 // people file the existing import tool stages. Pure (no I/O).
 
 import { normHeader } from "@/lib/import/mapping";
+import { languageFromText } from "@/lib/languages";
 import { cleanText, toDate, toE164, toEmail, type Transformed } from "@/lib/import/transforms";
 import type { Group, PayerInput } from "./match";
 
@@ -22,7 +23,7 @@ export const PERSON_FIELDS: readonly PersonField[] = [
   { key: "phone", label: "Mobile", required: false, hint: "", example: "281-555-0142", synonyms: ["phone", "cell", "mobile phone", "cell phone", "phone number", "phone 1"] },
   { key: "dob", label: "Birth date", required: false, hint: "Decides who is a minor.", example: "1986-04-12", synonyms: ["dob", "birthday", "date of birth", "birthdate"] },
   { key: "gender", label: "Gender", required: false, hint: "Female, male or other.", example: "male", synonyms: ["sex"] },
-  { key: "language", label: "Language", required: false, hint: "English, Gujarati or Hindi.", example: "English", synonyms: ["preferred language"] },
+  { key: "language", label: "Language", required: false, hint: "Any language, by name or code (English, Spanish, es).", example: "English", synonyms: ["preferred language"] },
   { key: "address1", label: "Address", required: false, hint: "Helps match the family.", example: "12 Lotus Lane", synonyms: ["address line 1", "street", "street address", "address 1"] },
   { key: "address2", label: "Address line 2", required: false, hint: "", example: "Apt 4", synonyms: ["address 2", "apt", "unit"] },
   { key: "city", label: "City", required: false, hint: "", example: "Sugar Land", synonyms: ["town"] },
@@ -79,12 +80,9 @@ function genderOf(text: string): "female" | "male" | "other" | null {
   return "other";
 }
 
-function languageOf(text: string): "en" | "gu" | "hi" | null {
-  const s = cleanText(text).toLowerCase();
-  if (/^(en|english)/.test(s)) return "en";
-  if (/^(gu|gujarati)/.test(s)) return "gu";
-  if (/^(hi|hindi)/.test(s)) return "hi";
-  return null;
+/** A language written as its name or code ("Spanish", "es", "pt-BR"); any language, null when it is neither. */
+function languageOf(text: string): string | null {
+  return languageFromText(cleanText(text));
 }
 
 export type ParsedPerson = {
@@ -98,7 +96,7 @@ export type ParsedPerson = {
   phone: string | null;
   dob: string | null;
   gender: "female" | "male" | "other" | null;
-  language: "en" | "gu" | "hi" | null;
+  language: string | null;
   address1: string | null;
   address2: string | null;
   city: string | null;

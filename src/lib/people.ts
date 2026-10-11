@@ -3,6 +3,7 @@
 // No server-only imports, so the forms, the actions and the tests share them.
 
 import type { Enums } from "@/lib/database.types";
+import { communityLanguages, languageFromText, languageList, languageName, normalizeLanguageCode } from "@/lib/languages";
 
 export type HouseholdRole = Enums<"person_role_in_household">;
 export type Tier = Enums<"membership_tier">;
@@ -16,11 +17,17 @@ export const GENDER_OPTIONS = [
   { value: "prefer_not_to_say", label: "Prefer not to say" },
 ] as const;
 
-export const LANGUAGE_OPTIONS = [
-  { value: "en", label: "English" },
-  { value: "gu", label: "Gujarati" },
-  { value: "hi", label: "Hindi" },
-] as const;
+/**
+ * The languages a person's record can be set to on a screen: the community's own languages (Setup > Profile), plus the person's current
+ * language when it is not among them, so editing someone never hides what is saved. Any language is a valid value (the database
+ * takes any language code); this is only the list offered.
+ */
+export function personLanguageOptions(community: readonly string[], current?: string | null): { value: string; label: string }[] {
+  const codes = communityLanguages(community);
+  const cur = normalizeLanguageCode(current ?? "");
+  if (cur && !codes.includes(cur)) codes.push(cur);
+  return codes.map((value) => ({ value, label: languageName(value) }));
+}
 
 /** Relationships staff can choose (the primary member is set by "Make primary", not by this chip). */
 export const RELATIONSHIP_OPTIONS: { value: HouseholdRole; label: string }[] = [
@@ -53,7 +60,7 @@ export function genderValue(g: string | null | undefined): string {
 }
 
 export function languageLabel(code: string | null | undefined): string {
-  return LANGUAGE_OPTIONS.find((o) => o.value === code)?.label ?? (code || "—");
+  return code ? languageName(code) : "—";
 }
 
 /** "Primary", "Spouse", "Son" / "Daughter" (child + gender), "Parent", "Sibling", "Other". */
@@ -247,7 +254,7 @@ export const PERSON_FIELDS = [
  * minor's form (no contact fields) never blanks them. Booleans arrive as
  * "on" / "off" from hidden inputs.
  */
-export function parsePersonForm(f: FieldMap, today: string): Parsed<Partial<PersonProfile>> {
+export function parsePersonForm(f: FieldMap, today: string, languages?: readonly string[]): Parsed<Partial<PersonProfile>> {
   const out: Partial<PersonProfile> = {};
   if (f.first_name !== undefined) {
     const v = text(f.first_name, 80);
@@ -283,8 +290,14 @@ export function parsePersonForm(f: FieldMap, today: string): Parsed<Partial<Pers
     out.email = e ? e.toLowerCase() : null;
   }
   if (f.language !== undefined) {
-    if (!LANGUAGE_OPTIONS.some((o) => o.value === f.language)) return { ok: false, error: "Choose English, Gujarati or Hindi" };
-    out.language = f.language;
+    const code = languageFromText(f.language);
+    if (!code) return { ok: false, error: "Choose a language from the list (or give its code, like es or pt-BR)" };
+    // With the community's list given, the language must be one of them; without it any language code is taken (an import).
+    const allowed = languages ? communityLanguages(languages) : null;
+    if (allowed && !allowed.includes(code)) {
+      return { ok: false, error: `${languageName(code)} is not one of this community's languages (${languageList(allowed)}). Add it in Setup > Profile first` };
+    }
+    out.language = code;
   }
   for (const k of ["photo_opt_in", "new_member_contact_opt_in", "expertise_opt_in"] as const) {
     if (f[k] !== undefined) out[k] = f[k] === "on";

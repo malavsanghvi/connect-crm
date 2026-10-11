@@ -11,7 +11,8 @@ import { formatDate } from "@/lib/dates";
 import { explainError } from "@/lib/errors";
 import { formatCents } from "@/lib/money";
 import { can, canAccess } from "@/lib/permissions";
-import { formatPhone, householdSubline, relationshipLabel, toUsDate } from "@/lib/people";
+import { loadCommunityLocale } from "@/lib/community-locale";
+import { formatPhone, householdSubline, personLanguageOptions, relationshipLabel, toUsDate } from "@/lib/people";
 import { hrefWith, isUuid, param, type RawSearchParams } from "@/lib/search-params";
 import type { CrmSession } from "@/lib/session";
 
@@ -263,6 +264,7 @@ async function PersonDrawerView({ session, id, sp, base, mode }: { session: CrmS
   const { record: p, error } = await loadPersonRecord(session, id);
   if (error || !p) return <NotFoundDrawer closeHref={closeHref} kind="Person" error={error ?? undefined} />;
   const center = session.center;
+  const community = await loadCommunityLocale(session.db, center);
   const tz = center.time_zone;
   const canEdit = canAccess(session, "householdsEdit") && !p.mergedIntoId;
   const self = drawerHref(base, sp, { person: id });
@@ -420,6 +422,7 @@ async function PersonDrawerView({ session, id, sp, base, mode }: { session: CrmS
         phone: formatPhone(p.phone),
         email: p.email ?? "",
         language: p.language,
+        languageOptions: personLanguageOptions(community.languages, p.language),
         photos: p.photoOptIn,
         newMember: p.newMemberContact,
         expertiseOptIn: p.expertiseOptIn,

@@ -2,6 +2,8 @@
 // Audience JSON is comms_campaigns.audience / surveys.audience / alerts.audience.
 // app.segment_recipient_count (0025) reads the same keys and OR-s them.
 
+import { matchLanguage, normalizeLanguageCode, primaryLanguage } from "@/lib/languages";
+
 /** A custom-field segment: households whose own value (households) or a member's value (people) equals `value`. */
 export type CustomSegment = { entity: "people" | "households"; key: string; value: string | number | boolean; label?: string };
 
@@ -186,20 +188,17 @@ export function composeAction(audience: unknown, canApprove: boolean): "schedule
 }
 
 // ---------------------------------------------------------------------------
-// Translations (comms_campaigns.translations: {gu: {title, body_md}, hi: {...}})
+// Translations (comms_campaigns.translations: { "<language code>": { title, body_md } }, any language)
+// A campaign's own title and body_md are written in the community's main language (the first of its languages, Setup > Profile);
+// every other language the community uses is an entry here, or "needs translation" until a person writes it.
 // ---------------------------------------------------------------------------
-export const LANGUAGES = [
-  { code: "en", label: "English" },
-  { code: "gu", label: "ગુજરાતી" },
-  { code: "hi", label: "हिन्दी" },
-] as const;
-export type LanguageCode = (typeof LANGUAGES)[number]["code"];
 
-export function buildTranslations(input: Partial<Record<LanguageCode, { title?: string; body_md?: string }>>): Obj {
+/** The translations a person filled in, keyed by any language code; empty ones and keys that are not language codes are left out. */
+export function buildTranslations(input: Record<string, { title?: string; body_md?: string } | undefined>): Obj {
   const out: Obj = {};
-  for (const { code } of LANGUAGES) {
-    if (code === "en") continue;
-    const t = input[code];
+  for (const [raw, t] of Object.entries(input)) {
+    const code = normalizeLanguageCode(raw);
+    if (!code) continue;
     const title = t?.title?.trim() ?? "";
     const body = t?.body_md?.trim() ?? "";
     if (title || body) out[code] = { title, body_md: body };
@@ -207,9 +206,37 @@ export function buildTranslations(input: Partial<Record<LanguageCode, { title?: 
   return out;
 }
 
-export function translationLanguages(translations: unknown): LanguageCode[] {
+/** The languages a campaign has a translation for. */
+export function translationLanguages(translations: unknown): string[] {
   if (!translations || typeof translations !== "object" || Array.isArray(translations)) return [];
-  return LANGUAGES.map((l) => l.code).filter((c) => c !== "en" && Boolean((translations as Obj)[c]));
+  return Object.entries(translations as Obj)
+    .filter(([code, v]) => normalizeLanguageCode(code) !== null && Boolean(v))
+    .map(([code]) => code);
+}
+
+/** The community's languages (other than its main one) that this campaign has no translation for yet: they read the main-language text until someone translates it. */
+export function languagesNeedingTranslation(community: readonly string[], translations: unknown): string[] {
+  const main = community[0];
+  const have = translationLanguages(translations);
+  return community.filter((l) => (main === undefined || primaryLanguage(l) !== primaryLanguage(main)) && matchLanguage(l, have) === null);
+}
+
+/**
+ * Translation fields from a form: title_<code> and body_<code> for any language code (title_es, body_pt-BR). The newsletter's own
+ * subject and message are "title" and "body_md", so body_md is not read as a language.
+ */
+export function translationsFromFields(keys: Iterable<string>, get: (key: string) => string): Record<string, { title: string; body_md: string }> {
+  const out: Record<string, { title: string; body_md: string }> = {};
+  for (const key of keys) {
+    const m = /^(title|body)_([A-Za-z0-9-]+)$/.exec(key);
+    if (!m || m[2]!.toLowerCase() === "md") continue;
+    const code = normalizeLanguageCode(m[2]);
+    if (!code) continue;
+    const entry = (out[code] ??= { title: "", body_md: "" });
+    if (m[1] === "title") entry.title = get(key);
+    else entry.body_md = get(key);
+  }
+  return out;
 }
 
 // ---------------------------------------------------------------------------
