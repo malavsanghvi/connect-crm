@@ -6,8 +6,7 @@
 import { defaultRegistry } from "../registry";
 import type { AnyCommand } from "../types";
 
-import { draftEventChange, setEventField } from "./events-change";
-import { eventsUpcoming } from "./events-upcoming";
+import { EVENT_COMMANDS } from "./events";
 import { bankLinesUnmatched } from "./giving-bank-lines";
 import { draftPayment } from "./giving-draft-payment";
 import { fundMappingStatus } from "./giving-fund-mapping";
@@ -24,7 +23,6 @@ export const CATALOG: readonly AnyCommand[] = [
   // read
   peopleSearch,
   tasksMine,
-  eventsUpcoming,
   pledgesBehind,
   householdGivingSummary,
   bankLinesUnmatched,
@@ -34,10 +32,9 @@ export const CATALOG: readonly AnyCommand[] = [
   monthCloseBlockers,
   // draft
   draftReminderCommand,
-  draftEventChange,
   draftPayment,
-  // confirm (off by default)
-  setEventField,
+  // Events: read, draft and confirm (the confirm ones off by default), see events/index.ts
+  ...EVENT_COMMANDS,
 ];
 
 let registered = false;

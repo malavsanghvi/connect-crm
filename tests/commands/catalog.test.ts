@@ -15,6 +15,7 @@ import type { CommandRunResult, CommandVia } from "@/lib/commands/types";
 import { loadHomeTasks } from "@/lib/data/home-tasks";
 
 import { GIVING_ANSWERS, SHAH, givingWorld } from "./giving-world";
+import { addEventsWorld, EV } from "./events-world";
 import { CHILDREN, communityWithChildren, fakeDb, fakeSession, testContext, type FakeDbOptions } from "./helpers";
 
 const DIWALI = "7d0f3b9a-6a39-4d0c-9f43-0a1a1d7c1001";
@@ -53,11 +54,10 @@ beforeEach(() => {
 
 // ---------------------------------------------------------------------------
 describe("the first commands", () => {
-  it("are these, and only the one write is a confirm command, switched off by default", () => {
+  it("are these, and every write is a confirm command, switched off by default", () => {
     expect(CATALOG.map((c) => `${c.key}:${c.level}`)).toEqual([
       "people.search:read",
       "tasks.mine:read",
-      "events.upcoming:read",
       "giving.pledges_behind:read",
       "giving.household_summary:read",
       "giving.bank_lines_unmatched:read",
@@ -66,23 +66,33 @@ describe("the first commands", () => {
       "giving.fund_mapping_status:read",
       "accounting.month_close_blockers:read",
       "messages.draft_reminder:draft",
-      "events.draft_change:draft",
       "giving.draft_payment:draft",
+      // The Events commands (tests/commands/events-commands.test.ts has their own list and behaviour).
+      "events.upcoming:read",
+      "events.summary:read",
+      "events.readiness:read",
+      "events.audience_preview:read",
+      "events.rsvps:read",
+      "events.draft_change:draft",
+      "events.clone_draft:draft",
       "events.set_field:confirm",
+      "events.set_status:confirm",
+      "events.set_rsvp_status:confirm",
+      "events.assign_volunteer:confirm",
+      "events.create_from_clone:confirm",
     ]);
     const confirm = CATALOG.filter((c) => c.level === "confirm");
-    expect(confirm).toHaveLength(1);
-    expect(confirm[0].enabledByDefault).not.toBe(true);
+    expect(confirm).toHaveLength(5);
+    for (const c of confirm) expect(c.enabledByDefault, c.key).not.toBe(true);
   });
 
-  it("have no command that writes money, roles, permissions or deletes: a money word is only ever a read or a draft", () => {
+  it("have no command that changes roles or permissions, deletes, refunds, writes off or approves; a money word is only ever a read or a draft", () => {
     for (const c of CATALOG) {
-      if (/record|payment|refund|write_?off|role|permission|grant|delete|remove|merge|approve|send|schedule/.test(c.key)) {
-        expect(c.level === "read" || c.level === "draft", `${c.key} is ${c.level}`).toBe(true);
-      }
+      expect(c.key, `${c.key} would refund, write off, approve, merge, delete or change roles`).not.toMatch(/refund|write_?off|role|permission|grant|delete|remove|merge|send|schedule|approve_/);
+      if (/record|payment|zelle|deposit/.test(c.key)) expect(c.level === "read" || c.level === "draft", `${c.key} is ${c.level}`).toBe(true);
     }
-    // The one that touches data is a single-detail event change; its fields never include prices, status or the owner.
-    expect(JSON.stringify(CATALOG.find((c) => c.key === "events.set_field")!.input.json())).not.toMatch(/price|status|owner|audience|confidential/);
+    // The one that changes a detail is a single-detail event change; its fields never include prices, status or the owner.
+    expect(JSON.stringify(CATALOG.find((c) => c.key === "events.set_field")!.input.json())).not.toMatch(/price|status|owner|confidential/);
   });
 
   it("are described for a model", () => {
@@ -412,7 +422,7 @@ describe("events.draft_change", () => {
 
   it("will not take a field it does not own (price, status, owner)", async () => {
     const { ctx } = setup();
-    for (const field of ["member_price_cents", "status", "owner_person_id", "audience", "confidential"]) {
+    for (const field of ["member_price_cents", "status", "owner_person_id", "confidential", "lunch_starts_at"]) {
       expect(await runCommand(ctx, "events.draft_change", { event_id: DIWALI, field, value: "1" })).toMatchObject({ ok: false, code: "invalid" });
     }
   });
@@ -521,6 +531,15 @@ describe("no command result reaches a model with a child in it", () => {
     "people.search": { query: "Shah" },
     "tasks.mine": {},
     "events.upcoming": {},
+    "events.summary": { event_id: DIWALI },
+    "events.readiness": { event_id: DIWALI },
+    "events.audience_preview": { event_id: DIWALI },
+    "events.rsvps": { event_id: DIWALI },
+    "events.clone_draft": { find: "Old Picnic", new_date: "2027-06-01" },
+    "events.set_status": { event_id: DIWALI, status: "rsvp_closed" },
+    "events.set_rsvp_status": { event_id: DIWALI, rsvp_id: EV.rsvpShah, status: "cancelled" },
+    "events.assign_volunteer": { event_id: DIWALI, shift_id: EV.shiftFood, person_ids: EV.adult },
+    "events.create_from_clone": { source_event_id: PICNIC, new_date: "2027-06-01" },
     "giving.pledges_behind": {},
     "giving.household_summary": { household_id: SHAH },
     "giving.bank_lines_unmatched": {},
@@ -545,8 +564,10 @@ describe("no command result reaches a model with a child in it", () => {
         failures: [],
       } as never);
       // The Giving commands read database functions and take real-looking ids, so they run in the Giving test community.
-      const world = command.key.startsWith("giving.") ? givingWorld(GIVING_ANSWERS) : undefined;
-      const { ctx } = setup({ via: "assistant", world, rules: { assistant: { tools: { "events.set_field": true } } } });
+      const world = command.key.startsWith("giving.") ? givingWorld(GIVING_ANSWERS) : addEventsWorld(communityWithChildren());
+      // Every confirm command is switched on here, so the card Niva would show for it is checked too.
+      const on = Object.fromEntries(CATALOG.filter((c) => c.level === "confirm").map((c) => [c.key, true]));
+      const { ctx } = setup({ via: "assistant", world, rules: { assistant: { tools: on } } });
       const result = await runCommand(ctx, command.key, SAMPLE_INPUT[command.key]);
       expect(result.ok, JSON.stringify(result)).toBe(true);
       const text = JSON.stringify(result);

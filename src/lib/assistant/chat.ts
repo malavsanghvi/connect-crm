@@ -11,6 +11,7 @@
 
 import { randomUUID } from "node:crypto";
 
+import { addUsage, type AiTokens } from "@/lib/anthropic-cache";
 import { filterChildren } from "@/lib/commands/child-filter";
 import { defaultRegistry, commandKeyFromToolName } from "@/lib/commands/registry";
 import { runCommand } from "@/lib/commands/run";
@@ -20,7 +21,7 @@ import { isUuid } from "@/lib/search-params";
 
 import { ModelError, isText, isToolUse, type ModelClient, type ModelMessage, type ModelResponse, type ToolResultBlock, type ToolUseBlock } from "./model";
 import { previewSentences, proposalCard } from "./present";
-import { cleanContext, systemPrompt } from "./prompt";
+import { cleanContext, systemPromptParts } from "./prompt";
 import type { ChatEvent, ChatRequest } from "./protocol";
 import { NO_AI_KEY } from "./settings";
 import type { ConversationLog, UsageMeter } from "./store";
@@ -106,7 +107,7 @@ export function fitHistory<T extends { role: "user" | "assistant"; text: string 
   return kept;
 }
 
-type Tally = { usage?: { used: number; limit: number | null } };
+type Tally = { usage?: { used: number; limit: number | null }; tokens?: AiTokens };
 
 /** One chat message. The stream always ends with "done". */
 export async function* chat(deps: ChatDeps, request: ChatRequest): AsyncGenerator<ChatEvent> {
@@ -117,7 +118,7 @@ export async function* chat(deps: ChatDeps, request: ChatRequest): AsyncGenerato
     console.error("[assistant] the chat failed unexpectedly:", error);
     yield err("Something went wrong inside Niva. Nothing was changed. Try again; if it keeps happening, tell a platform administrator.", true);
   }
-  yield { type: "done", ...(tally.usage ? { usage: tally.usage } : {}) };
+  yield { type: "done", ...(tally.usage ? { usage: tally.usage } : {}), ...(tally.tokens ? { tokens: tally.tokens } : {}) };
 }
 
 async function* converse(deps: ChatDeps, request: ChatRequest, tally: Tally): AsyncGenerator<ChatEvent> {
@@ -182,13 +183,15 @@ async function* converse(deps: ChatDeps, request: ChatRequest, tally: Tally): As
   const registry = run.registry ?? defaultRegistry;
   const tools = registry.modelTools(session);
   const offered = new Set(tools.map((t) => t.name));
-  const system = systemPrompt({
+  // The part that is the same on every request comes first and can be cached; who is asking, the date and the page follow it.
+  const prompt = systemPromptParts({
     centerName: session.center.name,
     roles: session.roles.map((r) => r.name),
     today,
     timeZone: session.center.time_zone,
     context: cleanContext(request.context),
   });
+  const system = prompt.stable + prompt.perRequest;
 
   const messages: ModelMessage[] = [...earlier.map((t): ModelMessage => ({ role: t.role, content: t.text })), { role: "user", content: message }];
 
@@ -203,7 +206,7 @@ async function* converse(deps: ChatDeps, request: ChatRequest, tally: Tally): As
     let response: ModelResponse;
     try {
       response = await deps.model.create(
-        { model: deps.modelId, system, messages, tools, toolChoice: closing ? "none" : "auto", maxTokens: MAX_ANSWER_TOKENS },
+        { model: deps.modelId, system, systemStable: prompt.stable, messages, tools, toolChoice: closing ? "none" : "auto", maxTokens: MAX_ANSWER_TOKENS },
         { signal },
       );
     } catch (error) {
@@ -218,6 +221,8 @@ async function* converse(deps: ChatDeps, request: ChatRequest, tally: Tally): As
       }
       break;
     }
+
+    tally.tokens = addUsage(tally.tokens, response.usage);
 
     // What the model said goes back unchanged on the next call (it may hold blocks that must be returned as they came).
     messages.push({ role: "assistant", content: response.content });

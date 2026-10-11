@@ -130,6 +130,24 @@ describe("Ask Niva suggestions", () => {
     expect(list).toEqual(["What is waiting for me?", "What events are coming up?"]);
   });
 
+  it("offers the Events examples a role can use, first the ones about this event", () => {
+    const events = new Set(["events.upcoming", "events.summary", "events.readiness", "events.audience_preview", "events.clone_draft", "messages.draft_reminder", "events.set_field"]);
+    expect(suggestionsFor("/events/[id]", "event", events)).toEqual([
+      "What is blocking this event from going live?",
+      "How is this event doing: RSVPs, lunch and volunteers?",
+      "How many people would a reminder for this event reach, and when would it go out?",
+    ]);
+    // Without those, the next ones the role may use.
+    expect(suggestionsFor("/events/[id]", "event", new Set(["messages.draft_reminder", "events.set_field", "events.upcoming"]))).toEqual([
+      "Draft a reminder for this event in English, Gujarati and Hindi",
+      "Move this event to the second Saturday of November",
+      "Change the venue of this event to the main hall",
+    ]);
+    expect(suggestionsFor("/events", undefined, events)).toEqual(["What events are coming up?", "Copy last year's Diwali Dinner to November 8 as a draft", "Draft a reminder for the next event"]);
+    // The examples never name a child.
+    for (const s of suggestionsFor("/events/[id]", "event", events)) expect(s).not.toMatch(/\b(child|kid|minor)\b/i);
+  });
+
   it("offers nothing when the person can use nothing", () => {
     expect(suggestionsFor("/giving/payments", undefined, new Set())).toEqual([]);
   });

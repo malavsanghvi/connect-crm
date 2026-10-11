@@ -20,7 +20,8 @@
 // The model, the client and what a failed call means come from worker/src/anthropic.ts, shared
 // with niva.answer and qbo.match_suggest_ai (the CLAUDE_MODEL variable overrides the model).
 
-import { anthropicClient, classifyAnthropicError, claudeModel, FALLBACK_BETA, staffJobFailure } from "../anthropic";
+import { addUsage, usageForResult } from "../../../src/lib/anthropic-cache";
+import { anthropicClient, classifyAnthropicError, claudeModel, FALLBACK_BETA, recordUsage, staffJobFailure } from "../anthropic";
 import { providerStatus, type Env, type Readiness } from "../config";
 import { NotConfiguredError, PermanentError } from "../errors";
 import type { Job, JobContext } from "../types";
@@ -144,6 +145,9 @@ export async function run(job: Job, ctx: JobContext) {
     if (!f.retry) throw new PermanentError(f.message);
     throw new Error(f.message, { cause: err });
   }
+  // No system prompt and no repeated start (the whole request is this file's columns), so nothing is marked for caching here;
+  // the counts are recorded so the cost of a mapping can be seen.
+  const tokens = addUsage(undefined, recordUsage(ctx.log, "import.suggest_mapping", model, response, undefined));
   if (response.stop_reason === "refusal") throw new PermanentError("The model declined to suggest a mapping for this file.");
   if (response.stop_reason === "max_tokens") throw new PermanentError("The suggestion was cut off; map the columns by hand.");
   const text = response.content.flatMap((b) => (b.type === "text" ? [b.text] : [])).join("");
@@ -155,5 +159,5 @@ export async function run(job: Job, ctx: JobContext) {
   }
   const suggestions = cleanSuggestions(parsed, columns, fields);
   ctx.log.info("mapping suggested", { run: (job.payload as { run_id?: string } | null)?.run_id ?? null, columns: columns.length, matched: suggestions.filter((s) => s.field).length });
-  return { suggestions, model: response.model };
+  return { suggestions, model: response.model, ...usageForResult(tokens) };
 }

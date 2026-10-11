@@ -2,6 +2,7 @@
 // no SDK (so no new dependency); it reads a failure with the same helpers the setup wizard and the background service use
 // (src/lib/anthropic-errors.ts), and it tries a busy moment once more before giving up.
 
+import { aiCallFields, parseUsage, withPromptCaching, type CacheMarks } from "@/lib/anthropic-cache";
 import { anthropicErrorBody, anthropicErrorKind } from "@/lib/anthropic-errors";
 
 import { ModelError, type ModelBlock, type ModelClient, type ModelRequest, type ModelResponse } from "./model";
@@ -19,6 +20,13 @@ export type AnthropicClientOptions = {
   retries?: number;
   retryDelayMs?: number;
   sleep?: (ms: number) => Promise<void>;
+  /**
+   * Mark the stable start of each request for prompt caching (default true; AI_PROMPT_CACHE=off turns it off, see
+   * src/lib/assistant/key.ts). The answers are the same either way; only what the call costs differs.
+   */
+  promptCache?: boolean;
+  /** Where the one line per call goes (the model, the four token counts, how many cache markers; never any content). Default: the server log. */
+  log?: (line: string) => void;
 };
 
 const API_VERSION = "2023-06-01";
@@ -40,24 +48,39 @@ function parseResponse(text: string): ModelResponse {
   }
   const o = body && typeof body === "object" ? (body as Record<string, unknown>) : {};
   if (!Array.isArray(o.content)) throw new ModelError("bad_request", `the AI service answered without content: ${text.slice(0, 200)}`);
-  const usage = o.usage && typeof o.usage === "object" ? (o.usage as Record<string, unknown>) : null;
   return {
     content: o.content.filter((b): b is ModelBlock => !!b && typeof b === "object" && typeof (b as { type?: unknown }).type === "string"),
     stopReason: typeof o.stop_reason === "string" ? o.stop_reason : null,
-    usage: usage ? { inputTokens: Number(usage.input_tokens) || 0, outputTokens: Number(usage.output_tokens) || 0 } : undefined,
+    usage: parseUsage(o.usage),
   };
 }
 
-function requestBody(req: ModelRequest, withEffort: boolean): string {
+/**
+ * The JSON sent to the Messages API. With caching on, the stable start of the request carries `cache_control` markers (the last
+ * tool, the end of the stable system text, and the last block of the conversation so far, so each step of the tool loop reads
+ * what the step before wrote); the text itself is unchanged. The closing call (tool_choice "none") marks no message block: it
+ * cannot be followed by another step, and a changed tool_choice does not reuse the message cache anyway.
+ */
+export function requestBody(req: ModelRequest, withEffort: boolean, caching = true): { json: string; marks: CacheMarks } {
   const effort = withEffort ? effortFor(req.model) : undefined;
-  return JSON.stringify({
+  const plain = {
     model: req.model,
     max_tokens: req.maxTokens,
     system: req.system,
     messages: req.messages,
-    ...(req.tools.length > 0 ? { tools: req.tools, tool_choice: { type: req.toolChoice ?? "auto" } } : {}),
-    ...(effort ? { output_config: { effort } } : {}),
-  });
+    ...(req.tools.length > 0 ? { tools: req.tools } : {}),
+  };
+  const { request, marks } = caching
+    ? withPromptCaching(plain, { systemStable: req.systemStable, marksMessages: req.toolChoice !== "none" })
+    : { request: plain, marks: { tools: false, system: false, messages: false } };
+  return {
+    json: JSON.stringify({
+      ...request,
+      ...(req.tools.length > 0 ? { tool_choice: { type: req.toolChoice ?? "auto" } } : {}),
+      ...(effort ? { output_config: { effort } } : {}),
+    }),
+    marks,
+  };
 }
 
 export function createAnthropicClient(options: AnthropicClientOptions): ModelClient {
@@ -72,6 +95,8 @@ export function createAnthropicClient(options: AnthropicClientOptions): ModelCli
   /** The key is never part of anything logged. */
   const scrub = (text: string): string => (options.apiKey ? text.split(options.apiKey).join("[key]") : text);
   const sleep = options.sleep ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms)));
+  const caching = options.promptCache !== false;
+  const log = options.log ?? ((line: string) => console.info(line));
 
   async function attempt(req: ModelRequest, withEffort: boolean, outer?: AbortSignal): Promise<ModelResponse> {
     if (outer?.aborted) throw new ModelError("cancelled", "the request was cancelled");
@@ -80,14 +105,19 @@ export function createAnthropicClient(options: AnthropicClientOptions): ModelCli
     outer?.addEventListener("abort", onAbort, { once: true });
     const timeout = setTimeout(() => timer.abort(), timeoutMs);
     try {
+      const { json, marks } = requestBody(req, withEffort, caching);
       const res = await send(`${base}/v1/messages`, {
         method: "POST",
         headers: { "x-api-key": options.apiKey, "anthropic-version": API_VERSION, "content-type": "application/json" },
-        body: requestBody(req, withEffort),
+        body: json,
         signal: timer.signal,
       });
       const text = await res.text();
-      if (res.status >= 200 && res.status < 300) return parseResponse(text);
+      if (res.status >= 200 && res.status < 300) {
+        const answer = parseResponse(text);
+        log(JSON.stringify({ msg: "ai call", ...aiCallFields("assistant", req.model, answer.usage, marks), stop_reason: answer.stopReason }));
+        return answer;
+      }
       const { type, message } = anthropicErrorBody(text);
       const kind = anthropicErrorKind(res.status, type, message);
       throw new ModelError(kind, scrub(`HTTP ${res.status}${type ? ` ${type}` : ""}: ${message}`.slice(0, 500)), res.status);

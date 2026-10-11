@@ -164,10 +164,16 @@ const SUGGESTIONS: Record<SuggestionArea, Suggestion[]> = {
     { text: "Who is behind on pledges?", needs: "giving.pledges_behind" },
     { text: "What is waiting for me?", needs: "tasks.mine" },
   ],
+  // Events (B90 phase 4): on an event page the first three the role may use are shown; on the list, the last four.
   events: [
+    { text: "What is blocking this event from going live?", needs: "events.readiness", onlyFor: "event" },
+    { text: "How is this event doing: RSVPs, lunch and volunteers?", needs: "events.summary", onlyFor: "event" },
+    { text: "How many people would a reminder for this event reach, and when would it go out?", needs: "events.audience_preview", onlyFor: "event" },
     { text: "Draft a reminder for this event in English, Gujarati and Hindi", needs: "messages.draft_reminder", onlyFor: "event" },
+    { text: "Move this event to the second Saturday of November", needs: "events.set_field", onlyFor: "event" },
     { text: "Change the venue of this event to the main hall", needs: "events.set_field", onlyFor: "event" },
     { text: "What events are coming up?", needs: "events.upcoming" },
+    { text: "Copy last year's Diwali Dinner to November 8 as a draft", needs: "events.clone_draft", onlyWithout: true },
     { text: "Draft a reminder for the next event", needs: "messages.draft_reminder", onlyWithout: true },
   ],
   messages: [

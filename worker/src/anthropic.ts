@@ -8,9 +8,11 @@
 
 import Anthropic from "@anthropic-ai/sdk";
 
+import { aiCallFields, parseUsage, promptCacheEnabled, withPromptCaching, type AiUsage, type CacheMarks, type CacheableRequest } from "../../src/lib/anthropic-cache";
 import { anthropicErrorKind, regainAccessAt, type AnthropicErrorKind } from "../../src/lib/anthropic-errors";
 import { aiStatus, recordAnthropicNoAnswer, recordAnthropicResponse, type AiStatus } from "./ai-status";
 import type { Env } from "./config";
+import type { Logger } from "./log";
 
 export { regainAccessAt, type AnthropicErrorKind };
 
@@ -24,6 +26,29 @@ export const CLAUDE_MODEL = "claude-opus-5-5";
 
 export function claudeModel(env: Env): string {
   return env.CLAUDE_MODEL?.trim() || CLAUDE_MODEL;
+}
+
+/**
+ * A system prompt that is the same on every call, ready for the request: marked for prompt caching (a one-block list with
+ * cache_control) when it is long enough for the model to cache, else the plain string, which is also what AI_PROMPT_CACHE=off
+ * gives. The text is never changed. Only put text here that is the same for every question: nothing about the member, the day
+ * or the question (those go in the message, after it).
+ */
+export function cachedSystem(env: Env, model: string, system: string): string | Anthropic.Beta.BetaTextBlockParam[] {
+  if (!promptCacheEnabled(env)) return system;
+  const { request, marks } = withPromptCaching<CacheableRequest>({ model, system, messages: [] });
+  return marks.system && Array.isArray(request.system) ? (request.system as Anthropic.Beta.BetaTextBlockParam[]) : system;
+}
+
+/**
+ * Write the one log line for a finished call (the model, the four token counts, whether the system prompt carried a cache marker;
+ * never any text) and hand back the counts, for the job's result. `kind` says which step it was ("niva.answer", "niva.rewrite", ...).
+ */
+export function recordUsage(log: Logger, kind: string, model: string, response: { model?: string; usage?: unknown }, system: unknown): AiUsage | undefined {
+  const usage = parseUsage(response.usage);
+  const marks: CacheMarks = { tools: false, system: Array.isArray(system) && system.some((b) => (b as { cache_control?: unknown }).cache_control), messages: false };
+  log.info("ai call", aiCallFields(kind, response.model || model, usage, marks));
+  return usage;
 }
 
 /** A policy decline is re-run on Anthropic's recommended fallback model (fallbacks: "default"). */

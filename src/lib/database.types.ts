@@ -11710,6 +11710,27 @@ export type Database = {
         };
         Returns: { checked_in_at: string; household_label: string; lunch_slot_label: string }[];
       };
+      event_reminder_audience: {
+        Args: {
+          p_event: string;
+          p_statuses?: string[];
+        };
+        Returns: Json;
+      };
+      event_set_rsvp_status: {
+        Args: {
+          p_event: string;
+          p_rsvp: string;
+          p_status: Database["app"]["Enums"]["rsvp_status"];
+        };
+        Returns: boolean;
+      };
+      event_summary: {
+        Args: {
+          p_event: string;
+        };
+        Returns: Json;
+      };
       event_survey_stats: {
         Args: {
           p_survey: string;
