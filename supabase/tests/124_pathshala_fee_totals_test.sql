@@ -23,8 +23,7 @@ exception when others then
   end if;
   raise notice 'PASS: %', label;
 end $$;
--- The call is refused, in either of the two ways the database refuses: no access (42501) or not found (P0002, a draft term is
--- staff-only so a parent does not even see that it exists).
+-- The call is refused, in either of the two ways the database refuses: no access (42501) or not found (P0002).
 create or replace function pg_temp.assert_refused(stmt text, label text) returns void language plpgsql as $$
 begin
   execute stmt;
@@ -99,9 +98,10 @@ insert into app.role_grants (center_id, user_id, role_key) values
 insert into app.pathshala_tracks (id, center_id, key, name) values (:tr, :c, 'jainism', 'Jainism');
 insert into app.pathshala_levels (id, center_id, track_id, key, name, sort_order, min_age, max_age) values
   (:lv1, :c, :tr, '1', 'Jainism 1', 1, 5, 7), (:lv2, :c, :tr, '2', 'Jainism 2', 2, 8, 10);
-insert into app.pathshala_terms (id, center_id, name, starts_on, ends_on, fee_per_child_cents) values
-  (:t1, :c, '2026-27', '2026-09-06', '2027-05-30', 0), (:t_empty, :c, 'Empty term', '2027-09-05', '2028-05-28', 0),
-  (:t_other, :c2, 'Other temple term', '2026-09-06', '2027-05-30', 0);
+-- Out of Draft, so the treasurer (who is not Pathshala staff) can see them: a draft term is read by Pathshala staff only (0010).
+insert into app.pathshala_terms (id, center_id, name, starts_on, ends_on, fee_per_child_cents, status) values
+  (:t1, :c, '2026-27', '2026-09-06', '2027-05-30', 0, 'registration'), (:t_empty, :c, 'Empty term', '2027-09-05', '2028-05-28', 0, 'registration'),
+  (:t_other, :c2, 'Other temple term', '2026-09-06', '2027-05-30', 0, 'registration');
 
 -- Four fee lines: Jainism 1 has one paid ($130) and one billed ($117, after a $13 sibling discount), a cancelled one ($130) that must
 -- be left out; Jainism 2 has one quoted ($45).
