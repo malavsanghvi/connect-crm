@@ -6,6 +6,7 @@ import { ActionForm } from "@/components/action-form";
 import { BlockGrid, Card, DefinitionList, EmptyState, PageHeader, QueryError, StatusText, TableWrap } from "@/components/ui";
 import { confirmToolChoices } from "@/lib/assistant/choices";
 import { assistantApiKey } from "@/lib/assistant/key";
+import { activityRecordingOn, activitySince } from "@/lib/activity/enabled";
 import { assistantEnabled } from "@/lib/assistant/settings";
 import { portalBaseDomain } from "@/lib/center-resolve";
 import { formatDateTime } from "@/lib/dates";
@@ -18,6 +19,7 @@ import { ENTITLEMENT_INFO, entitlementLabel, formatEntitlement, formatJoinCode, 
 import { PlatformNoAccess } from "../../platform-no-access";
 import { addDomainAction, removeDomainAction, saveAssistantAction, setEntitlementAction } from "./actions";
 import { KindPanel } from "./kind-panel";
+import { RecordingCard } from "./recording-card";
 
 export const metadata: Metadata = { title: "Center · Platform" };
 
@@ -157,6 +159,14 @@ export default async function PlatformCenterPage({ params }: { params: Promise<{
             </label>
           </ActionForm>
         </Card>
+
+        <RecordingCard
+          centerId={id}
+          centerName={center.name}
+          on={activityRecordingOn(center.rules)}
+          since={activitySince(center.rules)}
+          tz={tz}
+        />
 
         <Card span={7} title="Portal web addresses" description="Where this community's staff open the portal">
           <ul className="mb-3 space-y-1.5 text-[13px]">

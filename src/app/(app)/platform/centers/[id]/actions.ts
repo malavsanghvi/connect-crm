@@ -134,6 +134,35 @@ export async function changeKindAction(centerId: string, kind: string, reasonInp
   };
 }
 
+// ── Record how this community uses Weaver ────────────────────────────────────
+
+/**
+ * Switch activity recording on or off for one community (app.set_activity_recording: platform admins only; it also keeps the
+ * date of the change). A reason is required and travels with the change into the audit log. The form says which way to go
+ * (enable = "true" or "false"), so pressing it twice, or after somebody else changed it, ends in the state the person asked for.
+ * Nothing is recorded until a community is switched on.
+ */
+export async function setActivityRecordingAction(_prev: ActionResult | null, formData: FormData): Promise<ActionResult> {
+  const doing = "change activity recording";
+  const center = String(formData.get("center") ?? "");
+  const enable = formData.get("enable");
+  if (!isUuid(center) || (enable !== "true" && enable !== "false")) {
+    return { ok: false, error: `Could not ${doing} — the form is out of date. Reload and try again.` };
+  }
+  const auth = await platformOnly(doing);
+  if (!auth.ok) return auth;
+  const reason = String(formData.get("reason") ?? "").trim();
+  if (!reason) return { ok: false, error: `Could not ${doing} — say why, for example who agreed and when. The reason is kept in the audit log.` };
+  if (reason.length > 500) return { ok: false, error: `Could not ${doing} — keep the reason under 500 characters.` };
+  const on = enable === "true";
+  const db = await dbWithReason(auth.session, reason);
+  const { error } = await db.rpc("set_activity_recording", { p_center: center, p_enabled: on });
+  if (error) return failure(`Could not ${doing}`, error);
+  revalidatePath(`/platform/centers/${center}`);
+  revalidatePath("/settings/automation");
+  return { ok: true, message: `Recording is now ${on ? "on" : "off"} for this community · audit logged` };
+}
+
 // ── Niva for admins ──────────────────────────────────────────────────────────
 
 /**

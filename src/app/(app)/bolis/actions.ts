@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import type { HouseholdCardData } from "@/components/household-card";
+import { withActivity } from "@/lib/activity/with-activity";
 import {
   checkUploadRows,
   householdKey,
@@ -251,6 +252,10 @@ export async function accommodateOthersAction(boliId: string): Promise<ActionRes
 // In-person pledges, one by one
 // ---------------------------------------------------------------------------
 export async function recordInPersonPledgeAction(boliId: string, _prev: ActionResult | null, fd: FormData): Promise<ActionResult> {
+  return withActivity("bolis.record_pledge", () => recordInPersonPledge(boliId, fd), { entityFrom: { kind: "boli", id: boliId } });
+}
+
+async function recordInPersonPledge(boliId: string, fd: FormData): Promise<ActionResult> {
   const auth = await authorizeAction("bolisRecord", "record the pledge");
   if (!auth.ok) return auth;
   const { db, center, userId } = auth.session;
