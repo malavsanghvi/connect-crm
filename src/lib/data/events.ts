@@ -6,7 +6,8 @@ import { fetchAll } from "@/lib/data/fetch-all";
 import { householdsById, personName } from "@/lib/data/lookups";
 import type { DbErrorLike } from "@/lib/errors";
 import { explainError } from "@/lib/errors";
-import type { EventAccess, ScopedGrant } from "@/lib/events/access";
+import type { EventAccess } from "@/lib/events/access";
+import { loadEventAccessFor } from "@/lib/events/access-load";
 import { eventReport, lunchSlotCounts, medianCheckinSeconds, recentCheckins, slotBoard, type RecentCheckin } from "@/lib/events/report";
 import { FormError } from "@/lib/events/forms";
 import { loadSession, type CrmSession } from "@/lib/session";
@@ -72,16 +73,7 @@ export async function allRows<T>(page: (from: number, to: number) => PromiseLike
  * A failed read falls back to center-wide permissions only, and says so in the log.
  */
 export async function loadEventAccess(session: CrmSession): Promise<EventAccess> {
-  const { data, error } = await session.db
-    .from("role_grants")
-    .select("role_key, scope_kind, scope_id, starts_at, ends_at")
-    .eq("center_id", session.center.id)
-    .eq("user_id", session.userId);
-  if (error) {
-    console.error("[events] could not load event-scoped roles; using center-wide permissions only:", error);
-  }
-  const grants: ScopedGrant[] = data ?? [];
-  return { permissions: session.permissions, isPlatformAdmin: session.isPlatformAdmin, isOwner: session.isOwner, grants };
+  return loadEventAccessFor(session);
 }
 
 /** Names for person ids (people the user may see, then the opt-in directory). Missing names stay absent. */

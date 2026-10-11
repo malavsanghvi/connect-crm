@@ -31,6 +31,17 @@ type ToSend = {
 
 export const PORTAL_URL_MARK = "%PORTAL_URL%";
 
+/**
+ * B88: a demo community is made of invented people with invented addresses. Nothing is ever delivered to one, whatever the
+ * channel; the message is recorded as suppressed with this reason (the Messages screen shows it) and logged.
+ */
+export const DEMO_REFUSAL = "demo community: nothing is sent";
+
+async function isDemoCenter(ctx: JobContext, centerId: string): Promise<boolean> {
+  const rows = await ctx.db.query<{ demo: boolean | null }>("select app.is_demo_center($1::uuid) as demo", [centerId]);
+  return rows[0]?.demo === true;
+}
+
 const str = (v: unknown): string | null => (typeof v === "string" && v.trim() !== "" ? v : null);
 
 async function record(ctx: JobContext, id: string, status: string, provider: string | null, ref: string | null, error: string | null, segments: number | null) {
@@ -74,6 +85,11 @@ export async function sendMessage(ctx: JobContext, messageId: string, job: Pick<
     if (m.skip.startsWith("The message is already")) return { message_id: m.id, skipped: m.skip };
     await record(ctx, m.id, "suppressed", null, null, m.skip, null);
     return { message_id: m.id, status: "suppressed", reason: m.skip };
+  }
+  if (m.center_id !== null && (await isDemoCenter(ctx, m.center_id))) {
+    ctx.log.info(`messaging: ${DEMO_REFUSAL}`, { message: m.id, channel: m.channel, center: m.center_id });
+    await record(ctx, m.id, "suppressed", null, null, DEMO_REFUSAL, null);
+    return { message_id: m.id, status: "suppressed", reason: DEMO_REFUSAL };
   }
   const req = reqFrom(ctx.http);
   // o-https: PORTAL_PUBLIC_URL, else the portal domain saved in Platform setup.

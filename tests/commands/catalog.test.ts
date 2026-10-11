@@ -15,6 +15,7 @@ import { confirmProposal, runCommand } from "@/lib/commands/run";
 import type { CommandRunResult, CommandVia } from "@/lib/commands/types";
 import { loadHomeTasks } from "@/lib/data/home-tasks";
 
+import { addEventsWorld, EV } from "./events-world";
 import { CHILDREN, communityWithChildren, fakeDb, fakeSession, testContext, type FakeDbOptions } from "./helpers";
 
 const DIWALI = "7d0f3b9a-6a39-4d0c-9f43-0a1a1d7c1001";
@@ -53,26 +54,36 @@ beforeEach(() => {
 
 // ---------------------------------------------------------------------------
 describe("the first commands", () => {
-  it("are these eight, and only the one write is a confirm command, switched off by default", () => {
+  it("are these, and every write is a confirm command, switched off by default", () => {
     expect(CATALOG.map((c) => `${c.key}:${c.level}`)).toEqual([
       "people.search:read",
       "tasks.mine:read",
-      "events.upcoming:read",
       "giving.pledges_behind:read",
       "accounting.month_close_blockers:read",
       "messages.draft_reminder:draft",
+      // The Events commands (tests/commands/events-commands.test.ts has their own list and behaviour).
+      "events.upcoming:read",
+      "events.summary:read",
+      "events.readiness:read",
+      "events.audience_preview:read",
+      "events.rsvps:read",
       "events.draft_change:draft",
+      "events.clone_draft:draft",
       "events.set_field:confirm",
+      "events.set_status:confirm",
+      "events.set_rsvp_status:confirm",
+      "events.assign_volunteer:confirm",
+      "events.create_from_clone:confirm",
     ]);
     const confirm = CATALOG.filter((c) => c.level === "confirm");
-    expect(confirm).toHaveLength(1);
-    expect(confirm[0].enabledByDefault).not.toBe(true);
+    expect(confirm).toHaveLength(5);
+    for (const c of confirm) expect(c.enabledByDefault, c.key).not.toBe(true);
   });
 
   it("have no money, role, permission or delete commands", () => {
     for (const c of CATALOG) expect(c.key).not.toMatch(/record|payment|refund|write_?off|role|permission|grant|delete|remove|merge|approve|send|schedule/);
-    // The one that touches data is a single-detail event change; its fields never include prices, status or the owner.
-    expect(JSON.stringify(CATALOG.find((c) => c.key === "events.set_field")!.input.json())).not.toMatch(/price|status|owner|audience|confidential/);
+    // The one that changes a detail is a single-detail event change; its fields never include prices, status or the owner.
+    expect(JSON.stringify(CATALOG.find((c) => c.key === "events.set_field")!.input.json())).not.toMatch(/price|status|owner|confidential/);
   });
 
   it("are described for a model", () => {
@@ -447,7 +458,7 @@ describe("events.draft_change", () => {
 
   it("will not take a field it does not own (price, status, owner)", async () => {
     const { ctx } = setup();
-    for (const field of ["member_price_cents", "status", "owner_person_id", "audience", "confidential"]) {
+    for (const field of ["member_price_cents", "status", "owner_person_id", "confidential", "lunch_starts_at"]) {
       expect(await runCommand(ctx, "events.draft_change", { event_id: DIWALI, field, value: "1" })).toMatchObject({ ok: false, code: "invalid" });
     }
   });
@@ -556,6 +567,15 @@ describe("no command result reaches a model with a child in it", () => {
     "people.search": { query: "Shah" },
     "tasks.mine": {},
     "events.upcoming": {},
+    "events.summary": { event_id: DIWALI },
+    "events.readiness": { event_id: DIWALI },
+    "events.audience_preview": { event_id: DIWALI },
+    "events.rsvps": { event_id: DIWALI },
+    "events.clone_draft": { find: "Old Picnic", new_date: "2027-06-01" },
+    "events.set_status": { event_id: DIWALI, status: "rsvp_closed" },
+    "events.set_rsvp_status": { event_id: DIWALI, rsvp_id: EV.rsvpShah, status: "cancelled" },
+    "events.assign_volunteer": { event_id: DIWALI, shift_id: EV.shiftFood, person_ids: EV.adult },
+    "events.create_from_clone": { source_event_id: PICNIC, new_date: "2027-06-01" },
     "giving.pledges_behind": {},
     "accounting.month_close_blockers": {},
     "messages.draft_reminder": { event_id: DIWALI },
@@ -573,7 +593,9 @@ describe("no command result reaches a model with a child in it", () => {
         tasks: [{ id: "x:1", source: "pathshala", tag: "Pathshala", color: "purple", title: "Sign-off for Zoya Shah", meta: "Aarav Patel is waiting", links: [] }],
         failures: [],
       } as never);
-      const { ctx } = setup({ via: "assistant", rules: { assistant: { tools: { "events.set_field": true } } } });
+      // Every confirm command is switched on here, so the card Niva would show for it is checked too.
+      const on = Object.fromEntries(CATALOG.filter((c) => c.level === "confirm").map((c) => [c.key, true]));
+      const { ctx } = setup({ via: "assistant", world: addEventsWorld(communityWithChildren()), rules: { assistant: { tools: on } } });
       const result = await runCommand(ctx, command.key, SAMPLE_INPUT[command.key]);
       expect(result.ok, JSON.stringify(result)).toBe(true);
       const text = JSON.stringify(result);

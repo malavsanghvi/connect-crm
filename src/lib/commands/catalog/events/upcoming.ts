@@ -3,10 +3,10 @@ import { eventStatusLabel, eventRef } from "@/lib/events/status";
 import { formatDateTime, formatEventRange, fromDateTimeLocal, todayIso } from "@/lib/events/format";
 import { audienceLabel } from "@/lib/events/report";
 
-import { defineCommand } from "../define";
-import { f, object, type Infer } from "../schema";
+import { defineCommand } from "../../define";
+import { f, object, type Infer } from "../../schema";
 
-import { must } from "./db";
+import { must } from "../db";
 
 export type UpcomingEvent = {
   id: string;

@@ -162,6 +162,10 @@ export async function saveCampaignAction(_prev: ActionResult | null, fd: FormDat
  * approver, whose approval (app.approve_as_second) then schedules it.
  */
 export async function approveCampaignAction(_prev: ActionResult | null, fd: FormData): Promise<ActionResult> {
+  return withActivity("comms.approve_campaign", () => approveCampaign(fd), { entityFrom: { kind: "message", id: text(fd, "id") } });
+}
+
+async function approveCampaign(fd: FormData): Promise<ActionResult> {
   const auth = await authorizeAction("commsApprove", "approve the newsletter");
   if (!auth.ok) return auth;
   const { db, userId } = auth.session;

@@ -1,0 +1,254 @@
+{
+  "temple": {
+    "base": "https://www.riverbendtemple.example",
+    "pages": {
+      "home.html": {
+        "kind": "home",
+        "path": "/"
+      },
+      "about-us.html": {
+        "kind": "about",
+        "path": "/about-us"
+      },
+      "events.html": {
+        "kind": "events",
+        "path": "/events"
+      },
+      "panchang-calendar.html": {
+        "kind": "calendar",
+        "path": "/panchang-calendar"
+      },
+      "give.html": {
+        "kind": "donate",
+        "path": "/give"
+      },
+      "contact.html": {
+        "kind": "contact",
+        "path": "/contact"
+      },
+      "pathshala.html": {
+        "kind": "school",
+        "path": "/pathshala"
+      },
+      "photo-gallery.html": {
+        "kind": "gallery",
+        "path": "/photo-gallery"
+      },
+      "news.html": {
+        "kind": "news",
+        "path": "/news"
+      },
+      "board-of-trustees.html": {
+        "kind": "leadership",
+        "path": "/board-of-trustees"
+      },
+      "membership.html": {
+        "kind": "membership",
+        "path": "/membership"
+      },
+      "privacy-policy.html": {
+        "kind": "other",
+        "path": "/privacy-policy"
+      },
+      "opaque-aarti.html": {
+        "kind": "calendar",
+        "path": "/page-id-42"
+      },
+      "opaque-building.html": {
+        "kind": "donate",
+        "path": "/content/19"
+      },
+      "news-injection.html": {
+        "kind": "news",
+        "path": "/news"
+      },
+      "script-built.html": {
+        "kind": "other",
+        "path": "/app"
+      }
+    }
+  },
+  "chamber": {
+    "base": "https://www.lakeshorechamber.example",
+    "pages": {
+      "home.html": {
+        "kind": "home",
+        "path": "/"
+      },
+      "about-who-we-are.html": {
+        "kind": "about",
+        "path": "/about/who-we-are/"
+      },
+      "events.html": {
+        "kind": "events",
+        "path": "/events/"
+      },
+      "calendar.html": {
+        "kind": "calendar",
+        "path": "/calendar/"
+      },
+      "foundation-support.html": {
+        "kind": "donate",
+        "path": "/foundation/support-the-foundation/"
+      },
+      "contact-us.html": {
+        "kind": "contact",
+        "path": "/contact-us/"
+      },
+      "education-workshops.html": {
+        "kind": "school",
+        "path": "/education/workshops/"
+      },
+      "gallery.html": {
+        "kind": "gallery",
+        "path": "/gallery/"
+      },
+      "blog-2026-09-ribbon-cutting.html": {
+        "kind": "news",
+        "path": "/blog/2026/09/ribbon-cutting/"
+      },
+      "about-board-of-directors.html": {
+        "kind": "leadership",
+        "path": "/about/board-of-directors/"
+      },
+      "membership-join.html": {
+        "kind": "membership",
+        "path": "/membership/join/"
+      },
+      "member-directory.html": {
+        "kind": "membership",
+        "path": "/member-directory/"
+      },
+      "opaque-212.html": {
+        "kind": "events",
+        "path": "/?page_id=212"
+      },
+      "opaque-87.html": {
+        "kind": "leadership",
+        "path": "/?page_id=87"
+      }
+    }
+  },
+  "church": {
+    "base": "https://www.gracefellowship.example",
+    "pages": {
+      "home.html": {
+        "kind": "home",
+        "path": "/"
+      },
+      "our-story.html": {
+        "kind": "about",
+        "path": "/our-story"
+      },
+      "whats-on.html": {
+        "kind": "events",
+        "path": "/whats-on"
+      },
+      "calendar.html": {
+        "kind": "calendar",
+        "path": "/calendar"
+      },
+      "giving.html": {
+        "kind": "donate",
+        "path": "/giving"
+      },
+      "visit-us.html": {
+        "kind": "contact",
+        "path": "/visit-us"
+      },
+      "kids-and-youth.html": {
+        "kind": "school",
+        "path": "/kids-and-youth"
+      },
+      "photos.html": {
+        "kind": "gallery",
+        "path": "/photos"
+      },
+      "announcements.html": {
+        "kind": "news",
+        "path": "/announcements"
+      },
+      "our-pastors.html": {
+        "kind": "leadership",
+        "path": "/our-pastors"
+      },
+      "get-involved.html": {
+        "kind": "membership",
+        "path": "/get-involved"
+      },
+      "opaque-1042.html": {
+        "kind": "calendar",
+        "path": "/p/1042"
+      },
+      "opaque-55.html": {
+        "kind": "gallery",
+        "path": "/node/55"
+      },
+      "prayer-requests.html": {
+        "kind": "other",
+        "path": "/prayer-requests"
+      }
+    }
+  },
+  "club": {
+    "base": "https://www.harborlightgardens.example",
+    "pages": {
+      "home.html": {
+        "kind": "home",
+        "path": "/"
+      },
+      "about.html": {
+        "kind": "about",
+        "path": "/about"
+      },
+      "meetings-and-events.html": {
+        "kind": "events",
+        "path": "/meetings-and-events"
+      },
+      "calendar.html": {
+        "kind": "calendar",
+        "path": "/calendar"
+      },
+      "support.html": {
+        "kind": "donate",
+        "path": "/support"
+      },
+      "contact.html": {
+        "kind": "contact",
+        "path": "/contact"
+      },
+      "workshops-and-classes.html": {
+        "kind": "school",
+        "path": "/workshops-and-classes"
+      },
+      "gallery.html": {
+        "kind": "gallery",
+        "path": "/gallery"
+      },
+      "newsletter.html": {
+        "kind": "news",
+        "path": "/newsletter"
+      },
+      "officers.html": {
+        "kind": "leadership",
+        "path": "/officers"
+      },
+      "join.html": {
+        "kind": "membership",
+        "path": "/join"
+      },
+      "opaque-7.html": {
+        "kind": "membership",
+        "path": "/index.php?id=7"
+      },
+      "opaque-8.html": {
+        "kind": "news",
+        "path": "/pages/8"
+      },
+      "links-resources.html": {
+        "kind": "other",
+        "path": "/links-resources"
+      }
+    }
+  }
+}
