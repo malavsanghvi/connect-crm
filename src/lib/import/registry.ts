@@ -422,7 +422,7 @@ export const ENTITIES: readonly EntityDef[] = [
     module: "store",
     writePerms: ["store.manage"],
     dependsOn: [],
-    description: "Satvik Store menu categories.",
+    description: "My Store menu categories.",
     matchNote: "Matched on the category name.",
     sourceKey: ["name"],
     fields: [
@@ -807,7 +807,7 @@ export const ENTITIES: readonly EntityDef[] = [
     module: "store",
     writePerms: ["store.manage"],
     dependsOn: [],
-    description: "Satvik Store pickup windows with order cut-off.",
+    description: "My Store pickup windows with order cut-off.",
     matchNote: "Matched on the start time.",
     sourceKey: ["starts_at"],
     fields: [

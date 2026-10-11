@@ -402,7 +402,7 @@ describe("the rail", () => {
     expect(workspaceLabel("learning")).toBe("Learning");
     expect(workspaceLabel("giving", JAIN)).toBe("Giving");
     expect(workspaceLabel("learning", JAIN)).toBe("Pathshala");
-    expect(workspaceLabel("store", JAIN)).toBe("Satvik Store");
+    expect(workspaceLabel("store", JAIN)).toBe("My Store");
     expect(workspaceLabel("giving", CHURCH)).toBe("Offering");
     expect(workspaceLabel("learning", CHURCH)).toBe("Sunday school");
     expect(workspaceLabel("store", CHURCH)).toBe("Bookshop");

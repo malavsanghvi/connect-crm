@@ -60,7 +60,7 @@ Every claim about today's code names the file it came from, read on main: connec
 | Member sign-up steps | `signIn, match, about, address, details, family, planDays, whatsapp, contact`; address, "A little more about you", special days and WhatsApp are for adults only | `mob/src/features/onboarding/steps.ts:7,11` |
 | Ways a community is created | (1) public request, Platform › Requests, sandbox code, `/start` (`redeem_sandbox_code`); (2) Platform › New sandbox (`platform_create_sandbox`, 10 arguments); (3) the legacy six-step wizard (Platform › New center; tradition at step 2; creates a production community); (4) promotion: in place for JSH, otherwise a copy whose `insert into app.centers` lists its columns one by one; (5) seed and tests. Both sandbox routes share `_create_sandbox_center` | `0502:25-123,206-257`; `src/app/(app)/platform/new/*`, `src/app/(app)/platform/actions.ts:56-59`; `0203:209-216` (renamed `_worker_promote_sandbox_copy` by `0500_sandbox_real_data.sql:111-115`); `supabase/seed.sql:118-120` |
 | Demo data | One pack, "Demo community" ("A small Jain community"). **Only its Giving step stops when a module is off**; the Pathshala, learning and community steps load their rows whatever the switches say (the rows are then hidden) | `0312_demo_pack_community.sql:22-44,482`; `0311_demo_rpcs.sql:145-175` |
-| connect-admin (event day) | No module awareness, one community; Pathshala, Bolis and "Satvik Store" shown by permission | `adm/src/lib/nav.ts` |
+| connect-admin (event day) | No module awareness, one community; Pathshala, Bolis and "My Store" shown by permission | `adm/src/lib/nav.ts` |
 
 ### 2.2 Findings worth fixing on the way
 
@@ -122,7 +122,7 @@ Three platform tables, written only by migrations, readable by everyone (guests 
 | Pledges & donations | On | On, named "Dues & payments" | On | On |
 | Labh (new in DB 2, split out of Giving) | On | Never | Never | Never |
 | Bolis | On | Never | Never | Never |
-| Satvik Store | On | Off, named "Store" | Off, "Store" | Off, "Store" |
+| My Store | On | Off, named "Store" | Off, "Store" | Off, "Store" |
 | Pathshala | On | Never | Never | Off, named "Religious school" |
 | Gyan Path | On | Never | Never | Off, named "Learning path" |
 | My Jain Way | On | Never | Never | Never |
@@ -148,7 +148,7 @@ Jain Center "On" everywhere is, by construction, today's "no row means on". An o
 | `practice_tab` | Jain Way | (no tab) | (no tab) | Learn |
 | `give_tab` | Give | Pay | Give | Give |
 | `family_tab` | Family | My business | Family | Family |
-| `store` | Satvik Store | Store | Store | Store |
+| `store` | My Store | Store | Store | Store |
 | `school` | Pathshala | (none) | (none) | Religious school |
 | `learning` | Gyan Path | (none) | (none) | Learning path |
 | `place` | derasar | office | office | place of worship |

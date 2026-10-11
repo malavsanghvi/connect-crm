@@ -234,7 +234,7 @@ export function validateFlags(value: unknown): string[] {
 }
 
 // ---------------------------------------------------------------------------
-// Satvik Store settings (Satvik Store → Menu & pickup → "Order and pickup
+// My Store settings (My Store → Menu & pickup → "Order and pickup
 // settings"). Keys live under rules.store; defaults apply when a key is unset.
 // ---------------------------------------------------------------------------
 export const WEEKDAYS = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"] as const;

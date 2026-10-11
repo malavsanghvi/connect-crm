@@ -48,7 +48,7 @@ export const MODULES: readonly ModuleDef[] = [
   { key: "events", label: "Events & RSVP", core: false, dependsOn: ["people"], description: "Events, templates, RSVPs, tickets, check-in, lunch slots, event volunteers and feedback." },
   { key: "giving", label: "Pledges & donations", core: false, dependsOn: ["people"], description: "Funds, campaigns, opportunities, pledges, payments, recurring gifts, labh, receipts, statements, bank and bhandar counting." },
   { key: "bolis", label: "Bolis", core: false, dependsOn: ["giving"], description: "Bolis, boli pledges and the in-person upload." },
-  { key: "store", label: "Satvik Store", core: false, dependsOn: ["people"], description: "Store items, inventory, orders and pickup windows." },
+  { key: "store", label: "My Store", core: false, dependsOn: ["people"], description: "Store items, inventory, orders and pickup windows." },
   { key: "pathshala", label: "Pathshala", core: false, dependsOn: ["people"], description: "Terms, tracks, classes, teachers, enrollments, attendance, progress reports and the committee." },
   { key: "gyan_path", label: "Gyan Path (learning)", core: false, dependsOn: [], description: "Gyan goals, levels, steps, progress and sign-offs." },
   { key: "jain_way", label: "My Jain Way", core: false, dependsOn: [], description: "Practices, logs, streaks, points, saathi, anumodana, pachchakhan and daily timings." },

@@ -220,7 +220,7 @@ name, to `audit.view` holders of that center and platform admins only (the same 
 - **Permissions:** bolis.view, bolis.record, bolis.manage
 - **Switching off:** bolis are hidden; pledging and closing refuse.
 
-## Satvik Store (depends on People)
+## My Store (depends on People)
 
 - **Tables:** store_categories, store_items, pickup_windows, store_orders, store_order_lines,
   inventory_movements

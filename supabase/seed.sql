@@ -46,7 +46,7 @@ insert into app.notification_topics (key, name, default_on, marketing, has_sende
 ('timings', 'Daily temple timings', false, false, false),
 ('jain_way', 'My Jain Way reminders', true, false, false),
 ('family', 'Family celebrations and support', true, false, false),
-('store', 'Satvik Store', false, true, true),
+('store', 'My Store', false, true, true),
 ('newsletter', 'Newsletters', true, true, false),
 ('alerts', 'Important alerts', true, false, false),
 ('account', 'Account and security', true, false, false)

@@ -42,7 +42,7 @@ describe("the nav for a Jain Center is what it always was", () => {
     const giving = visibleNav({ ...admin, kind: fromDb }).find((m) => m.key === "giving")!;
     expect(giving.label).toBe("Giving");
     expect(giving.tabs.map((t) => t.href)).toContain("/giving/labh");
-    expect(visibleNav({ ...admin, kind: fromDb }).find((m) => m.key === "store")!.label).toBe("Satvik Store");
+    expect(visibleNav({ ...admin, kind: fromDb }).find((m) => m.key === "store")!.label).toBe("My Store");
     expect(visibleNav({ ...admin, kind: fromDb }).find((m) => m.key === "pathshala")!.label).toBe("Pathshala");
   });
 });
@@ -89,7 +89,7 @@ describe("a kind's names for modules", () => {
     expect(kindName(chamber, "giving", "Giving")).toBe("Dues & payments");
     expect(kindName(church, "pathshala", "Pathshala")).toBe("Religious school");
     expect(kindName(church, "gyan_path", "Gyan Path")).toBe("Learning path");
-    expect(kindName(LEGACY_KIND, "store", "Satvik Store")).toBe("Satvik Store");
+    expect(kindName(LEGACY_KIND, "store", "My Store")).toBe("My Store");
     expect(kindName(LEGACY_KIND, "events", "Events")).toBe("Events");
   });
 });
