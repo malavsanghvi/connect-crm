@@ -8,8 +8,7 @@
 import { defaultRegistry } from "../registry";
 import type { AnyCommand } from "../types";
 
-import { draftEventChange, setEventField } from "./events-change";
-import { eventsUpcoming } from "./events-upcoming";
+import { EVENT_COMMANDS } from "./events";
 import { bankLinesUnmatched } from "./giving-bank-lines";
 import { confirmExactZelleMatches } from "./giving-confirm-zelle";
 import { draftPayment } from "./giving-draft-payment";
@@ -21,6 +20,7 @@ import { waitingForSecondApprover } from "./giving-second-approver";
 import { zelleWaiting } from "./giving-zelle-waiting";
 import { draftReminderCommand } from "./messages-draft-reminder";
 import { monthCloseBlockers } from "./month-close-blockers";
+import { PEOPLE_COMMANDS } from "./people";
 import { peopleSearch } from "./people-search";
 import { pledgesBehind } from "./pledges-behind";
 import { tasksMine } from "./tasks-mine";
@@ -29,7 +29,6 @@ export const CATALOG: readonly AnyCommand[] = [
   // read
   peopleSearch,
   tasksMine,
-  eventsUpcoming,
   pledgesBehind,
   householdGivingSummary,
   bankLinesUnmatched,
@@ -39,10 +38,12 @@ export const CATALOG: readonly AnyCommand[] = [
   monthCloseBlockers,
   // draft
   draftReminderCommand,
-  draftEventChange,
   draftPayment,
-  // confirm (off by default; the three money commands also need the owner's switch for every door, see requiresOwnerSwitch)
-  setEventField,
+  // Events: read, draft and confirm (the confirm ones off by default), see events/index.ts
+  ...EVENT_COMMANDS,
+  // People (docs/ADMIN_REDESIGN.md phase 4)
+  ...PEOPLE_COMMANDS,
+  // Giving: the three that move money are confirm commands, off for EVERY door until an owner switches each one on (requiresOwnerSwitch)
   recordPayment,
   confirmExactZelleMatches,
   matchDeposit,

@@ -1,5 +1,6 @@
 import "server-only";
 
+import { promptCacheEnabled } from "@/lib/anthropic-cache";
 import { loadPlatformConfig, platformValue } from "@/lib/platform-setup/server-config";
 
 import { createAnthropicClient } from "./anthropic-http";
@@ -19,5 +20,5 @@ export async function assistantApiKey(): Promise<string> {
 export async function assistantModelClient(): Promise<ModelClient | null> {
   const apiKey = await assistantApiKey();
   if (!apiKey) return null;
-  return createAnthropicClient({ apiKey, baseUrl: process.env.ANTHROPIC_BASE_URL });
+  return createAnthropicClient({ apiKey, baseUrl: process.env.ANTHROPIC_BASE_URL, promptCache: promptCacheEnabled(process.env) });
 }

@@ -69,15 +69,21 @@ beforeEach(() => {
 
 describe("Platform › Centers › Niva for admins", () => {
   it("offers the write actions Niva could be allowed to prepare, all off to begin with", () => {
-    expect(confirmToolChoices(undefined)).toEqual([
-      expect.objectContaining({ key: "events.set_field", title: "Change a detail of an event", on: false, moneyNote: null }),
-      expect.objectContaining({ key: "giving.record_payment", on: false, moneyNote: expect.stringContaining("Moves money") }),
-      expect.objectContaining({ key: "giving.confirm_exact_zelle_matches", on: false, moneyNote: expect.stringContaining("Moves money") }),
-      expect.objectContaining({ key: "giving.match_deposit", on: false, moneyNote: expect.stringContaining("Moves money") }),
-    ]);
-    expect(confirmToolChoices({ assistant: { tools: { "events.set_field": true } } })[0].on).toBe(true);
-    // The three that move money stay off unless each is ticked: nothing else switches them on.
-    expect(confirmToolChoices({ assistant: { tools: { "events.set_field": true } } }).filter((t) => t.on).map((t) => t.key)).toEqual(["events.set_field"]);
+    // Every command that changes something is listed, and every one starts off (events, and the People actions).
+    const choices = confirmToolChoices(undefined);
+    expect(choices).toContainEqual(expect.objectContaining({ key: "events.set_field", title: "Change a detail of an event", on: false }));
+    expect(choices.map((c) => c.key)).toEqual(
+      expect.arrayContaining(["events.set_status", "events.set_rsvp_status", "events.assign_volunteer", "events.create_from_clone", "people.merge_people", "people.move_person", "people.decide_application"]),
+    );
+    expect(choices.every((c) => c.on === false)).toBe(true);
+    const ticked = confirmToolChoices({ assistant: { tools: { "events.set_field": true } } });
+    expect(ticked.find((c) => c.key === "events.set_field")?.on).toBe(true);
+    expect(ticked.filter((c) => c.on).map((c) => c.key)).toEqual(["events.set_field"]);
+    // The three Giving commands that move money are listed with a plain note, and stay off unless each one is ticked.
+    for (const key of ["giving.record_payment", "giving.confirm_exact_zelle_matches", "giving.match_deposit"]) {
+      expect(choices.find((c) => c.key === key), key).toMatchObject({ on: false, moneyNote: expect.stringContaining("Moves money") });
+    }
+    expect(choices.find((c) => c.key === "events.set_field")?.moneyNote).toBeNull();
   });
 
   it("switches Niva on for the community, keeps the other rules, and records the reason", async () => {
@@ -106,9 +112,13 @@ describe("Platform › Centers › Niva for admins", () => {
     const { state } = world({});
     await saveAssistantAction(null, form({ center: CENTER, version: "", enabled: "on", tool: ["events.set_field", "people.search", "../../etc"], reason: "Trying" }));
     const tools = state.rules.assistant as { tools: Record<string, boolean> };
-    // Only the confirm-level commands can be ticked: the event change and the three that move money (each off until ticked).
-    expect(Object.keys(tools.tools)).toEqual(["events.set_field", "giving.record_payment", "giving.confirm_exact_zelle_matches", "giving.match_deposit"]);
-    expect(tools.tools).toEqual({ "events.set_field": true, "giving.record_payment": false, "giving.confirm_exact_zelle_matches": false, "giving.match_deposit": false });
+    // Every write action is recorded, only the one that was ticked is on, and nothing else gets in.
+    expect(Object.keys(tools.tools)).toEqual(expect.arrayContaining(["events.set_field", "events.set_status", "events.create_from_clone", "people.merge_people", "people.decide_application"]));
+    expect(Object.keys(tools.tools)).not.toContain("people.search");
+    expect(Object.keys(tools.tools).every((k) => /^[a-z_]+\.[a-z_]+$/.test(k))).toBe(true);
+    expect(Object.entries(tools.tools).filter(([, on]) => on).map(([key]) => key)).toEqual(["events.set_field"]);
+    // The three that move money are among them, each off unless ticked.
+    expect(tools.tools).toMatchObject({ "giving.record_payment": false, "giving.confirm_exact_zelle_matches": false, "giving.match_deposit": false });
   });
 
   it("needs a reason, a platform admin and a page that is not out of date", async () => {

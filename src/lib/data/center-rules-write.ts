@@ -7,6 +7,13 @@ import { failure, type ActionResult } from "@/lib/errors";
 import type { CrmSession } from "@/lib/session";
 import { applyRulesPatch, rulesVersion, type RulesObject } from "@/lib/settings-rules";
 
+/** The activity-recording setting as stored, for a replace to carry over unchanged (the database refuses any other write of it). */
+function storedActivity(rules: unknown): RulesObject {
+  if (typeof rules !== "object" || rules === null || Array.isArray(rules)) return {};
+  const activity = (rules as Record<string, unknown>).activity;
+  return activity === undefined ? {} : { activity: activity as RulesObject[string] };
+}
+
 /** The version the form was opened on ("" = the rules were never versioned). */
 export function expectedVersion(raw: FormDataEntryValue | null): number | null | "invalid" {
   const v = String(raw ?? "").trim();
@@ -49,7 +56,7 @@ export async function writeCenterRules(
   const next =
     change.mode === "patch"
       ? applyRulesPatch(current.data.rules, change.rules)
-      : { rules: { ...change.rules, version: (nowVersion ?? 0) + 1 }, version: (nowVersion ?? 0) + 1 };
+      : { rules: { ...change.rules, ...storedActivity(current.data.rules), version: (nowVersion ?? 0) + 1 }, version: (nowVersion ?? 0) + 1 };
   const checked = validateRulesJson(JSON.stringify(next.rules));
   if (!checked.ok) return { ok: false, error: `Could not save the ${what} — ${checked.errors.join(" ")}` };
 

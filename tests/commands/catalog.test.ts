@@ -7,6 +7,7 @@ vi.mock("@/lib/data/home-tasks", () => ({ loadHomeTasks: vi.fn() }));
 import { revalidatePath } from "next/cache";
 
 import { CATALOG } from "@/lib/commands/catalog";
+import { PEOPLE_COMMANDS } from "@/lib/commands/catalog/people";
 import { pickSaved } from "@/lib/commands/catalog/messages-draft-reminder";
 import { draftReminder, fillTemplate, whenText } from "@/lib/commands/catalog/reminder-text";
 import { CommandRegistry } from "@/lib/commands/registry";
@@ -15,13 +16,14 @@ import type { CommandRunResult, CommandVia } from "@/lib/commands/types";
 import { loadHomeTasks } from "@/lib/data/home-tasks";
 
 import { GIVING_ANSWERS, SHAH, givingWorld } from "./giving-world";
+import { addEventsWorld, EV } from "./events-world";
 import { CHILDREN, communityWithChildren, fakeDb, fakeSession, testContext, type FakeDbOptions } from "./helpers";
 
 const DIWALI = "7d0f3b9a-6a39-4d0c-9f43-0a1a1d7c1001";
 const PICNIC = "7d0f3b9a-6a39-4d0c-9f43-0a1a1d7c1003";
 const CANCELLED = "7d0f3b9a-6a39-4d0c-9f43-0a1a1d7c1004";
 
-const ALL_PERMISSIONS = ["people.view", "giving.view", "giving.manage", "giving.record_offline", "giving.approve", "events.view", "events.manage", "comms.send", "accounting.close"];
+const ALL_PERMISSIONS = ["people.view", "people.manage", "people.approve", "giving.view", "giving.manage", "giving.record_offline", "giving.approve", "events.view", "events.manage", "comms.send", "accounting.close"];
 
 function catalogRegistry() {
   const r = new CommandRegistry();
@@ -53,11 +55,10 @@ beforeEach(() => {
 
 // ---------------------------------------------------------------------------
 describe("the first commands", () => {
-  it("are these, and only the one write is a confirm command, switched off by default", () => {
-    expect(CATALOG.map((c) => `${c.key}:${c.level}`)).toEqual([
+  it("start with these, and every write is a confirm command, switched off by default", () => {
+    const expected = [
       "people.search:read",
       "tasks.mine:read",
-      "events.upcoming:read",
       "giving.pledges_behind:read",
       "giving.household_summary:read",
       "giving.bank_lines_unmatched:read",
@@ -66,29 +67,43 @@ describe("the first commands", () => {
       "giving.fund_mapping_status:read",
       "accounting.month_close_blockers:read",
       "messages.draft_reminder:draft",
-      "events.draft_change:draft",
       "giving.draft_payment:draft",
+      // The Events commands (tests/commands/events-commands.test.ts has their own list and behaviour).
+      "events.upcoming:read",
+      "events.summary:read",
+      "events.readiness:read",
+      "events.audience_preview:read",
+      "events.rsvps:read",
+      "events.draft_change:draft",
+      "events.clone_draft:draft",
       "events.set_field:confirm",
-      "giving.record_payment:confirm",
-      "giving.confirm_exact_zelle_matches:confirm",
-      "giving.match_deposit:confirm",
-    ]);
-    // Every confirm command is off until the owner approves it; the three that move money are off for EVERY door, not only Niva.
+      "events.set_status:confirm",
+      "events.set_rsvp_status:confirm",
+      "events.assign_volunteer:confirm",
+      "events.create_from_clone:confirm",
+    ];
+    // The Events commands are followed by other workspaces' commands (People: tests/commands/people-reads.test.ts).
+    expect(CATALOG.slice(0, expected.length).map((c) => `${c.key}:${c.level}`)).toEqual(expected);
     const confirm = CATALOG.filter((c) => c.level === "confirm");
-    expect(confirm).toHaveLength(4);
-    for (const c of confirm) expect(c.enabledByDefault).not.toBe(true);
-    expect(confirm.filter((c) => c.requiresOwnerSwitch).map((c) => c.key)).toEqual(["giving.record_payment", "giving.confirm_exact_zelle_matches", "giving.match_deposit"]);
+    expect(confirm.map((c) => c.key)).toContain("events.set_field");
+    for (const c of confirm) expect(c.enabledByDefault, c.key).not.toBe(true);
+    // The three Giving commands that move money are confirm commands that need the owner's switch for EVERY door, not only Niva.
+    const money = CATALOG.filter((c) => c.requiresOwnerSwitch);
+    expect(money.map((c) => `${c.key}:${c.level}`)).toEqual(["giving.record_payment:confirm", "giving.confirm_exact_zelle_matches:confirm", "giving.match_deposit:confirm"]);
   });
 
-  it("have no command that changes roles or permissions, deletes, refunds, writes off or approves; a money word that writes needs the owner's switch", () => {
+  it("have no command that changes roles or permissions, deletes, refunds, writes off or approves; a money word is a read, a draft, or a confirm command that needs the owner's switch", () => {
+    // A merge changes records and is asked about first, like every write; it is never a read or a draft.
+    for (const c of CATALOG) if (/merge/.test(c.key)) expect(c.level).toBe("confirm");
     for (const c of CATALOG) {
-      expect(c.key, `${c.key} would refund, write off, approve, merge, delete or change roles`).not.toMatch(/refund|write_?off|role|permission|grant|delete|remove|merge|send|schedule|approve_/);
-      if (/record|payment|zelle|deposit/.test(c.key) && c.level === "confirm") {
-        expect(c.requiresOwnerSwitch, `${c.key} moves money, so it needs the owner's switch`).toBe(true);
+      expect(c.key, `${c.key} would refund, write off, approve, delete or change roles`).not.toMatch(/refund|write_?off|role|permission|grant|delete|remove|send|schedule|approve_/);
+      // A money word is a read or a draft, or a confirm command that needs the owner's switch for every door.
+      if (/record|payment|zelle|deposit/.test(c.key)) {
+        expect(c.level === "read" || c.level === "draft" || (c.level === "confirm" && c.requiresOwnerSwitch === true), `${c.key} is ${c.level}`).toBe(true);
       }
     }
-    // The one that touches data is a single-detail event change; its fields never include prices, status or the owner.
-    expect(JSON.stringify(CATALOG.find((c) => c.key === "events.set_field")!.input.json())).not.toMatch(/price|status|owner|audience|confidential/);
+    // The one that changes a detail is a single-detail event change; its fields never include prices, status or the owner.
+    expect(JSON.stringify(CATALOG.find((c) => c.key === "events.set_field")!.input.json())).not.toMatch(/price|status|owner|confidential/);
   });
 
   it("are described for a model", () => {
@@ -419,7 +434,7 @@ describe("events.draft_change", () => {
 
   it("will not take a field it does not own (price, status, owner)", async () => {
     const { ctx } = setup();
-    for (const field of ["member_price_cents", "status", "owner_person_id", "audience", "confidential"]) {
+    for (const field of ["member_price_cents", "status", "owner_person_id", "confidential", "lunch_starts_at"]) {
       expect(await runCommand(ctx, "events.draft_change", { event_id: DIWALI, field, value: "1" })).toMatchObject({ ok: false, code: "invalid" });
     }
   });
@@ -523,11 +538,23 @@ describe("events.set_field (confirm, off until the owner switches it on)", () =>
 // The check that fails if a child's name reaches a result (decision D2).
 // ---------------------------------------------------------------------------
 describe("no command result reaches a model with a child in it", () => {
+  /** The People commands take real ids, so they run against their own community (a UUID world with children in it) in people-reads.test.ts. */
+  const OWN_WORLD = new Set(PEOPLE_COMMANDS.map((c) => c.key));
+
   /** A plausible input for every command in the catalog. A new command must be added here, or this file fails. */
   const SAMPLE_INPUT: Record<string, unknown> = {
     "people.search": { query: "Shah" },
     "tasks.mine": {},
     "events.upcoming": {},
+    "events.summary": { event_id: DIWALI },
+    "events.readiness": { event_id: DIWALI },
+    "events.audience_preview": { event_id: DIWALI },
+    "events.rsvps": { event_id: DIWALI },
+    "events.clone_draft": { find: "Old Picnic", new_date: "2027-06-01" },
+    "events.set_status": { event_id: DIWALI, status: "rsvp_closed" },
+    "events.set_rsvp_status": { event_id: DIWALI, rsvp_id: EV.rsvpShah, status: "cancelled" },
+    "events.assign_volunteer": { event_id: DIWALI, shift_id: EV.shiftFood, person_ids: EV.adult },
+    "events.create_from_clone": { source_event_id: PICNIC, new_date: "2027-06-01" },
     "giving.pledges_behind": {},
     "giving.household_summary": { household_id: SHAH },
     "giving.bank_lines_unmatched": {},
@@ -545,19 +572,19 @@ describe("no command result reaches a model with a child in it", () => {
   };
 
   it("has a sample input for every command in the catalog", () => {
-    for (const c of CATALOG) expect(Object.keys(SAMPLE_INPUT), `Add a sample input for ${c.key} so the child check covers it.`).toContain(c.key);
+    for (const c of CATALOG) if (!OWN_WORLD.has(c.key)) expect(Object.keys(SAMPLE_INPUT), `Add a sample input for ${c.key} so the child check covers it.`).toContain(c.key);
   });
 
-  for (const command of CATALOG) {
+  for (const command of CATALOG.filter((c) => !OWN_WORLD.has(c.key))) {
     it(`${command.key}: nothing about a child in what Niva is given`, async () => {
       vi.mocked(loadHomeTasks).mockResolvedValue({
         tasks: [{ id: "x:1", source: "pathshala", tag: "Pathshala", color: "purple", title: "Sign-off for Zoya Shah", meta: "Aarav Patel is waiting", links: [] }],
         failures: [],
       } as never);
       // The Giving commands read database functions and take real-looking ids, so they run in the Giving test community.
-      const world = command.key.startsWith("giving.") ? givingWorld(GIVING_ANSWERS) : undefined;
-      // The owner has switched on every confirm command, so that what each one would show on its confirm card is checked too.
-      const on = { "events.set_field": true, "giving.record_payment": true, "giving.confirm_exact_zelle_matches": true, "giving.match_deposit": true };
+      const world = command.key.startsWith("giving.") ? givingWorld(GIVING_ANSWERS) : addEventsWorld(communityWithChildren());
+      // Every confirm command is switched on here, so the card Niva would show for it is checked too.
+      const on = Object.fromEntries(CATALOG.filter((c) => c.level === "confirm").map((c) => [c.key, true]));
       const { ctx } = setup({ via: "assistant", world, rules: { assistant: { tools: on } } });
       const result = await runCommand(ctx, command.key, SAMPLE_INPUT[command.key]);
       expect(result.ok, JSON.stringify(result)).toBe(true);

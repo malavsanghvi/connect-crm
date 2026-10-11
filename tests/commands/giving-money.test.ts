@@ -142,7 +142,7 @@ describe("giving.record_payment", () => {
       },
     ]);
     expect(done).toMatchObject({ ok: true, message: "Recorded $250.00 — receipt R-0042.", data: { payment_id: "pay-new", amount: "$250.00", replayed: false, unallocated_cents: 0 } });
-    expect(done.ok && (done.data as { applied: unknown[] }).applied).toEqual([{ pledge_id: P1, pledge_number: "P-101", amount_cents: 25000, amount: "$250.00", closed: true }]);
+    expect(done.ok && !done.needsConfirmation && (done.data as { applied: unknown[] }).applied).toEqual([{ pledge_id: P1, pledge_number: "P-101", amount_cents: 25000, amount: "$250.00", closed: true }]);
     expect(vi.mocked(revalidatePath)).toHaveBeenCalledWith("/giving/payments", "layout");
   });
 

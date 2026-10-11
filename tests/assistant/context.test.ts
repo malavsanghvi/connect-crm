@@ -130,6 +130,42 @@ describe("Ask Niva suggestions", () => {
     expect(list).toEqual(["What is waiting for me?", "What events are coming up?"]);
   });
 
+  it("offers the Events examples a role can use, first the ones about this event", () => {
+    const events = new Set(["events.upcoming", "events.summary", "events.readiness", "events.audience_preview", "events.clone_draft", "messages.draft_reminder", "events.set_field"]);
+    expect(suggestionsFor("/events/[id]", "event", events)).toEqual([
+      "What is blocking this event from going live?",
+      "How is this event doing: RSVPs, lunch and volunteers?",
+      "How many people would a reminder for this event reach, and when would it go out?",
+    ]);
+    // Without those, the next ones the role may use.
+    expect(suggestionsFor("/events/[id]", "event", new Set(["messages.draft_reminder", "events.set_field", "events.upcoming"]))).toEqual([
+      "Draft a reminder for this event in English, Gujarati and Hindi",
+      "Move this event to the second Saturday of November",
+      "Change the venue of this event to the main hall",
+    ]);
+    expect(suggestionsFor("/events", undefined, events)).toEqual(["What events are coming up?", "Copy last year's Diwali Dinner to November 8 as a draft", "Draft a reminder for the next event"]);
+    // The examples never name a child.
+    for (const s of suggestionsFor("/events/[id]", "event", events)) expect(s).not.toMatch(/\b(child|kid|minor)\b/i);
+  });
+
+  it("offers People examples for the commands the person may use, and 'this household' only on a household", () => {
+    const people = new Set(["people.search", "people.find_household", "people.pending_reviews", "people.suggest_duplicates", "people.household_summary", "people.add_person", "people.update_person"]);
+    expect(suggestionsFor("/people", undefined, people)).toEqual([
+      "Find the household with member number 1042",
+      "Which applications and family requests are waiting?",
+      "Find the household with QuickBooks customer 2217",
+    ]);
+    expect(suggestionsFor("/households/[id]", "household", people)).toEqual([
+      "Show everything we have on this household, including its IDs",
+      "Add a spouse to this household",
+      "Find the household with member number 1042",
+    ]);
+    expect(suggestionsFor("/people/[id]", "person", people)[0]).toBe("Change this person's mobile number");
+    // A role that cannot change people is not offered a change.
+    const lookOnly = new Set(["people.search", "people.pending_reviews"]);
+    expect(suggestionsFor("/households/[id]", "household", lookOnly).some((s) => s.startsWith("Add a spouse"))).toBe(false);
+  });
+
   it("offers nothing when the person can use nothing", () => {
     expect(suggestionsFor("/giving/payments", undefined, new Set())).toEqual([]);
   });

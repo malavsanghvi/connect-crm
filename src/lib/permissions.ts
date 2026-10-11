@@ -561,6 +561,8 @@ export const NAV: NavModule[] = [
       { href: "/settings/import", label: "Data import", access: "dataImport" },
       { href: "/settings/custom-fields", label: "Custom fields", access: "centerSettings" },
       { href: "/settings/data-quality", label: "Data quality", access: "dataQuality" },
+      // B91 (record every action, then automate it): the repeated work Weaver found, to accept or set aside. While recording is off the page says so.
+      { href: "/settings/automation", label: "Automation ideas", access: "centerSettings" },
       // Onboarding (o-platform): the owner's time-boxed support grants to Weaver.
       { href: "/settings/support-access", label: "Support access", access: "centerSettings" },
       // Onboarding (o-messaging): email domain and senders, texting registration, WhatsApp Business.
@@ -591,6 +593,8 @@ export const NAV: NavModule[] = [
       { href: "/platform/https", label: "HTTPS", access: "dashboard", platformOnly: true },
       // Payments plan PR 5: Community Connect pauses a way to pay (the only power the platform team has over payments).
       { href: "/platform/payments", label: "Payments", access: "dashboard", platformOnly: true },
+      // B91: keys and counts of the repeated work found across the communities that agreed to recording (no community, no person).
+      { href: "/platform/automation", label: "Automation backlog", access: "dashboard", platformOnly: true },
     ],
     paths: ["/platform"],
   },

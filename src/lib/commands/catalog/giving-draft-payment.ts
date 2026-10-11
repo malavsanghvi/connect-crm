@@ -17,7 +17,7 @@ import {
   type PaymentCheckItem,
 } from "@/lib/payments/payment-draft";
 import { duplicateWarning, parsePossibleDuplicates } from "@/lib/payments/zelle";
-import { canAccess } from "@/lib/permissions";
+import { can, canAccess } from "@/lib/permissions";
 
 import { defineCommand } from "../define";
 import { f, object, type Infer } from "../schema";
@@ -145,6 +145,7 @@ export async function preparePayment(ctx: CommandContext, inp: PaymentFieldsInpu
     duplicates,
     checkNumberElsewhere: int(context.check_number_elsewhere),
     zelleNote,
+    seesAllPayments: can(ctx.session, ["giving.view", "giving.manage"]),
     plan,
     household: { number: household.household_number, city: household.city, adults: household.adults },
   });

@@ -9,7 +9,7 @@ const JOINERS = new Set(["and", "&", "+"]);
 const FAMILY_WORDS = new Set(["family", "families", "household", "residence", "fam", "hh"]);
 
 /** Common nicknames to one canonical given name, so "Mike" and "Michael" compare equal. */
-const NICKNAMES: Record<string, string> = {
+export const NICKNAMES: Record<string, string> = {
   mike: "michael", mick: "michael", bob: "robert", rob: "robert", bobby: "robert", bill: "william", will: "william", billy: "william",
   jim: "james", jimmy: "james", joe: "joseph", joey: "joseph", dave: "david", dan: "daniel", danny: "daniel", tom: "thomas", tommy: "thomas",
   steve: "steven", stephen: "steven", chris: "christopher", nick: "nicholas", matt: "matthew", andy: "andrew", tony: "anthony", rick: "richard",

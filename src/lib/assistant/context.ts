@@ -146,7 +146,15 @@ export type Suggestion = {
 
 const SUGGESTIONS: Record<SuggestionArea, Suggestion[]> = {
   people: [
+    // On a household or a person: about that one (a sentence never names a child).
+    { text: "Show everything we have on this household, including its IDs", needs: "people.household_summary", onlyFor: "household" },
+    { text: "Add a spouse to this household", needs: "people.add_person", onlyFor: "household" },
+    { text: "Change this person's mobile number", needs: "people.update_person", onlyFor: "person" },
+    // On the list: look things up and see what is waiting.
     { text: "Find the household with member number 1042", needs: "people.search" },
+    { text: "Which applications and family requests are waiting?", needs: "people.pending_reviews" },
+    { text: "Find the household with QuickBooks customer 2217", needs: "people.find_household" },
+    { text: "Show me the suggested duplicates", needs: "people.suggest_duplicates" },
     { text: "Find the family whose phone number ends in 4821", needs: "people.search" },
     { text: "What is waiting for me?", needs: "tasks.mine" },
   ],
@@ -164,10 +172,16 @@ const SUGGESTIONS: Record<SuggestionArea, Suggestion[]> = {
     { text: "Who is behind on pledges?", needs: "giving.pledges_behind" },
     { text: "What is waiting for me?", needs: "tasks.mine" },
   ],
+  // Events (B90 phase 4): on an event page the first three the role may use are shown; on the list, the last four.
   events: [
+    { text: "What is blocking this event from going live?", needs: "events.readiness", onlyFor: "event" },
+    { text: "How is this event doing: RSVPs, lunch and volunteers?", needs: "events.summary", onlyFor: "event" },
+    { text: "How many people would a reminder for this event reach, and when would it go out?", needs: "events.audience_preview", onlyFor: "event" },
     { text: "Draft a reminder for this event in English, Gujarati and Hindi", needs: "messages.draft_reminder", onlyFor: "event" },
+    { text: "Move this event to the second Saturday of November", needs: "events.set_field", onlyFor: "event" },
     { text: "Change the venue of this event to the main hall", needs: "events.set_field", onlyFor: "event" },
     { text: "What events are coming up?", needs: "events.upcoming" },
+    { text: "Copy last year's Diwali Dinner to November 8 as a draft", needs: "events.clone_draft", onlyWithout: true },
     { text: "Draft a reminder for the next event", needs: "messages.draft_reminder", onlyWithout: true },
   ],
   messages: [

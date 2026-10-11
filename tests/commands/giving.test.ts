@@ -224,6 +224,15 @@ describe("giving.household_summary", () => {
     noChild(everything(r));
   });
 
+  it("tells a finance volunteer they see only the payments they recorded, so the totals may be low", async () => {
+    const { ctx } = setup({ permissions: ["giving.record_offline"], rpc: { giving_household_summary: summary } });
+    const r = await runCommand(ctx, "giving.household_summary", { household_id: SHAH });
+    expect(r).toMatchObject({ ok: true, message: expect.stringContaining("only the payments you recorded yourself") });
+    expect(dataOf<{ limited_view: string }>(r).limited_view).toContain("Open pledges are complete");
+    const full = dataOf<{ limited_view: string | null }>(await runCommand(setup({ rpc: { giving_household_summary: summary } }).ctx, "giving.household_summary", { household_id: SHAH }));
+    expect(full.limited_view).toBeNull();
+  });
+
   it("says plainly when the household is not found or cannot be seen", async () => {
     const { ctx } = setup({ rpc: { giving_household_summary: null } });
     expect(await runCommand(ctx, "giving.household_summary", { household_id: SHAH })).toMatchObject({ ok: false, error: "That household was not found, or you can't see its giving." });
@@ -507,6 +516,12 @@ describe("giving.draft_payment: record a payment, prepared and not recorded", ()
     const { ctx } = setup({ rpc: { giving_draft_context: { ...draftContext, month_closed: null } } });
     const d = dataOf<Draft>(await runCommand(ctx, "giving.draft_payment", ask));
     expect(d.checks.find((c) => c.key === "month")!.status).toBe("unknown");
+  });
+
+  it("does not say 'not recorded twice' when the person sees only their own payments", async () => {
+    const { ctx } = setup({ permissions: ["giving.record_offline"], rpc: { giving_draft_context: draftContext } });
+    const d = dataOf<Draft>(await runCommand(ctx, "giving.draft_payment", ask));
+    expect(d.checks.find((c) => c.key === "duplicates")).toMatchObject({ status: "unknown", detail: expect.stringContaining("only the payments you recorded yourself") });
   });
 
   it("tells a recorder who cannot apply payments that it would stay a general gift", async () => {

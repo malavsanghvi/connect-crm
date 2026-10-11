@@ -71,7 +71,7 @@ function emit(ctx: CommandContext, call: Call, outcome: CommandEvent["outcome"],
     error: result?.error,
   };
   try {
-    onCommandEvent(event);
+    onCommandEvent(event, session);
   } catch (error) {
     // The recorder must never break the action it records.
     console.error("[commands] the activity hook failed:", error);
