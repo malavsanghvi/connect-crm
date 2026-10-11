@@ -84,6 +84,7 @@ export const assignVolunteerCommand = defineCommand<AssignInput, AssignData>({
   module: "events",
   // Off until the owner switches it on in the community's settings (assistant.tools.events.assign_volunteer).
   enabledByDefault: false,
+  covers: ["src/app/(app)/events/actions.ts#assignVolunteer"],
   input,
   async preview(ctx, { event_id, shift_id, person_ids }): Promise<CommandPreview> {
     const parsed = parsePersonIds(person_ids);

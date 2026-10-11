@@ -127,6 +127,7 @@ export const setRsvpStatusCommand = defineCommand<SetRsvpInput, SetRsvpData>({
   module: "events",
   // Off until the owner switches it on in the community's settings (assistant.tools.events.set_rsvp_status).
   enabledByDefault: false,
+  covers: ["src/app/(app)/events/actions.ts#setRsvpStatus"],
   input: setInput,
   async preview(ctx, { event_id, rsvp_id, status }): Promise<CommandPreview> {
     const { db, center } = ctx.session;
