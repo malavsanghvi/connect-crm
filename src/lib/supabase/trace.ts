@@ -5,6 +5,11 @@
 // the server, browser and proxy code.
 
 export const CLIENT_APP = "portal";
+/**
+ * The apps a portal request can be recorded as in audit_log.client_app. "assistant" is a command run by Niva for the signed-in
+ * person (src/lib/commands); the database accepts the value once migration 0616 is applied, and until then a row simply has no app.
+ */
+export type PortalClientApp = "portal" | "assistant";
 /** Request header the proxy sets to the page's pathname (read by server clients). */
 export const PATHNAME_HEADER = "x-pathname";
 
@@ -41,8 +46,8 @@ export function clientScreen(pathname: string | null | undefined): string | null
 }
 
 /** The headers for one client: x-client-app, x-request-id, x-client-screen and (optionally) x-audit-reason. */
-export function traceHeaders(opts: { requestId: string; screen?: string | null; reason?: string | null }): Record<string, string> {
-  const h: Record<string, string> = { "x-client-app": CLIENT_APP, "x-request-id": opts.requestId };
+export function traceHeaders(opts: { requestId: string; screen?: string | null; reason?: string | null; clientApp?: PortalClientApp }): Record<string, string> {
+  const h: Record<string, string> = { "x-client-app": opts.clientApp ?? CLIENT_APP, "x-request-id": opts.requestId };
   const screen = clientScreen(opts.screen);
   if (screen) h["x-client-screen"] = screen;
   if (opts.reason && opts.reason.trim()) h["x-audit-reason"] = encodeAuditReason(opts.reason);
