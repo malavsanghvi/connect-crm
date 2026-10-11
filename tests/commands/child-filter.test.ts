@@ -106,7 +106,9 @@ describe("a household's display name without its children's first names", () => 
     expect(householdNameWithoutChildren("Patel family", ["Zoya"])).toBe("Patel family");
     expect(householdNameWithoutChildren("Zoya", ["Zoya"])).toBeNull();
     expect(householdNameWithoutChildren(null, ["Zoya"])).toBeNull();
-    expect(householdNameWithoutChildren("Zoyal Shah", ["Zoya"])).toBe("Zoyal Shah");
+    // A name of four letters or more is found where a word starts, so "Zoyal" goes too.
+    expect(householdNameWithoutChildren("Zoyal Shah", ["Zoya"])).toBe("Shah");
+    expect(householdNameWithoutChildren("Tzoyal Shah", ["Zoya"])).toBe("Tzoyal Shah");
   });
   it("takes out a child's names in any culture: two given names, accents, no spaces", () => {
     const out = householdNameWithoutChildren("García López, Ana, María José & Pedro", ["Maria Jose"]);

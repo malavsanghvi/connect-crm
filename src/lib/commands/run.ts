@@ -128,15 +128,16 @@ async function protect<T>(ctx: CommandContext, value: T): Promise<{ ok: true; va
   }
 }
 
-/** Failures whose sentence comes from the command or the database (it may name a record), not from this file's own fixed wording. */
-const DYNAMIC_FAILURES: readonly CommandErrorCode[] = ["failed", "needs_step_up", "proposal_failed"];
-
-/** A failure's sentence, cleaned the same way before a model reads it. */
+/**
+ * A failure, cleaned the same way before a model reads it: EVERY failure, whatever its code, because any of them can carry a name
+ * ("Zoya Shah is already booked" from a preview, a conflict, a database message), and every field of it. If it cannot be checked
+ * the model is given the one fixed sentence and the code, nothing else.
+ */
 async function protectFailure(ctx: CommandContext, result: Failed): Promise<Failed> {
   if (ctx.via !== "assistant") return result;
-  if (!DYNAMIC_FAILURES.includes(result.code)) return { ...result, error: scrubSecretText(result.error) };
-  const text = await protect(ctx, scrubSecretText(result.error));
-  return { ...result, error: text.ok ? (text.value as string) : UNSAFE };
+  const text = await protect(ctx, { ...result, error: scrubSecretText(result.error) });
+  if (!text.ok) return { ok: false, error: UNSAFE, code: result.code };
+  return { ...(text.value as Failed), ok: false, code: result.code };
 }
 
 // ---------------------------------------------------------------------------

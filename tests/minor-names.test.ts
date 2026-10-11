@@ -21,7 +21,7 @@ describe("folding", () => {
     expect(foldName("ＷＡＮＧ")).toBe("wang");
     expect(foldName("Nguyễn Văn Đức")).toBe("nguyen van duc");
     expect(foldName("Łukasz Ørsted")).toBe("lukasz orsted");
-    expect(foldName("Σωκράτης")).toBe("σωκρατης");
+    expect(foldName("Σωκράτης")).toBe("σωκρατησ");
     expect(foldName("Дмитрий")).toBe("дмитрии");
   });
   it("keeps the vowel signs of Indic scripts, which are letters", () => {
@@ -50,13 +50,16 @@ describe("a name whose parts are not known (every word counts, in any order)", (
   });
   it("finds a single name (a mononym) as a word, and not inside a longer word", () => {
     for (const text of ["Aarav", "AARAV's pledge", "ask aarav, please", "Aarav."]) hidden(["Aarav"], text, "aarav");
-    expect(redact(["Aarav"], "Aaravind is an adult")).toBe("Aaravind is an adult");
+    // Five letters or more: also inside a longer word, an address or a file name (a different person called Aaravind is removed too).
+    expect(redact(["Aarav"], "Aaravind is an adult")).toBe(`${M} is an adult`);
+    expect(redact(["Dev"], "Device and Devon")).toBe("Device and Devon");
     expect(redact(["Sukarno"], "Sukarno")).toBe(M);
   });
   it("finds two given names and two family names, in any order, with accents or without", () => {
     const name = "María José García López";
     for (const text of ["María José García López", "Maria Jose Garcia Lopez", "LÓPEZ GARCÍA, JOSÉ MARÍA", "garcía-lópez maría", "José", "Lopez"]) hidden([name], text, "maria", "jose", "garcia", "lopez");
-    expect(redact([name], "Lopezo and Garciaa")).toBe("Lopezo and Garciaa");
+    expect(redact([name], "Lopa and Marcia")).toBe("Lopa and Marcia");
+    expect(redact([name], "Lopes")).toBe(M); // the Portuguese spelling of López
   });
   it("merges a whole name into one removal instead of one per word", () => {
     expect(redact(["María José García López"], "Pickup for María José García López at 5")).toBe(`Pickup for ${M} at 5`);

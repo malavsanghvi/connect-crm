@@ -638,7 +638,7 @@ describe("no command result reaches a model with a child in it", () => {
     // names and two family names, one name only (tests/commands/helpers.ts INTERNATIONAL). Adults are still named.
     it(`${command.key}: nothing about a child of any culture in what Niva is given`, async () => {
       vi.mocked(loadHomeTasks).mockResolvedValue({
-        tasks: [{ id: "x:1", source: "pathshala", tag: "Pathshala", color: "purple", title: "Sign-off for Wang Wei and 王伟", meta: "María José García López and Sukarno are waiting", links: [] }],
+        tasks: [{ id: "x:1", source: "pathshala", tag: "Pathshala", color: "purple", title: "Sign-off for Wang Wei and 王伟 (#TeamSukarno, Sukarno2015, sukarno2015@example.org, call 630-555-0142, member M-70421)", meta: "María José García López, Tanvi Rao and Sukarno are waiting", links: [] }],
         failures: [],
       } as never);
       const base = command.key.startsWith("giving.") ? givingWorld(GIVING_ANSWERS) : addEventsWorld(communityWithChildren());

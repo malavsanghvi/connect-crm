@@ -254,7 +254,7 @@ const SCENARIOS: Scenario[] = [
     family: { id: "g", people: [adult("Nikhil", "Shah"), kid("Aarav", ""), kid("આરવ", "")] },
     gone: ["aarav", "આરવ"],
     hide: ["Aarav", "AARAV's pledge", "ask aarav, please", "આરવની ટીમ", "આરવ"],
-    keep: ["Nikhil Shah", "Aaravind"],
+    keep: ["Nikhil Shah", "Aaru"],
   },
   {
     name: "Sukarno (a mononym)",
@@ -324,11 +324,14 @@ describe("a result that names people reaches the model without any child, whatev
     });
   }
 
-  it("also withholds a result that carries a child's name as a key, in any script", async () => {
+  it("renames a key that carries a child's name, in any script (two such keys stay two keys)", async () => {
     for (const s of [SCENARIOS[2], SCENARIOS[4], SCENARIOS[7]]) {
       const key = s.hide[0];
-      const r = await runCommand(assistantContext(worldOf([s.family])), "events.look", { payload: JSON.stringify({ [key]: 1 }) });
-      expect(r, key).toMatchObject({ ok: false });
+      const r = await runCommand(assistantContext(worldOf([s.family])), "events.look", { payload: JSON.stringify({ [key]: 1, [`${key}2`]: 2, other: 3 }) });
+      expect(r.ok, key).toBe(true);
+      const data = (r as { data: Record<string, number> }).data;
+      expect(Object.keys(data)).toHaveLength(3);
+      expect(Object.keys(data)).toContain("other");
       expect(JSON.stringify(r)).not.toContain(key);
     }
   });
