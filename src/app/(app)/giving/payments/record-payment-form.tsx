@@ -106,12 +106,12 @@ export function RecordPaymentForm({
     [pledges, amountCents, mode, chosen],
   );
 
-  function pick(card: HouseholdCardData) {
+  function pick(card: HouseholdCardData, startMode?: Mode) {
     setHousehold(card);
     setPledges(null);
     setPledgeError(null);
     setChosen([]);
-    setMode(canAllocate ? "auto" : "none");
+    setMode(startMode ?? (canAllocate ? "auto" : "none"));
     setResult(null);
     setError(null);
     startTransition(async () => {
@@ -130,8 +130,7 @@ export function RecordPaymentForm({
   useEffect(() => {
     if (initialHousehold && !prefilled.current) {
       prefilled.current = true;
-      pick(initialHousehold);
-      if (initialValues?.allocation === "none") setMode("none");
+      pick(initialHousehold, initialValues?.allocation === "none" ? "none" : undefined);
     }
     // One-time prefill; pick() only sets state and loads that household's pledges.
     // eslint-disable-next-line react-hooks/exhaustive-deps
