@@ -8,6 +8,7 @@ import type { AnyCommand } from "../types";
 import { EVENT_COMMANDS } from "./events";
 import { draftReminderCommand } from "./messages-draft-reminder";
 import { monthCloseBlockers } from "./month-close-blockers";
+import { PEOPLE_COMMANDS } from "./people";
 import { peopleSearch } from "./people-search";
 import { pledgesBehind } from "./pledges-behind";
 import { tasksMine } from "./tasks-mine";
@@ -22,6 +23,8 @@ export const CATALOG: readonly AnyCommand[] = [
   draftReminderCommand,
   // Events: read, draft and confirm (the confirm ones off by default), see events/index.ts
   ...EVENT_COMMANDS,
+  // People (docs/ADMIN_REDESIGN.md phase 4)
+  ...PEOPLE_COMMANDS,
 ];
 
 let registered = false;

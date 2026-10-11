@@ -7,6 +7,7 @@ vi.mock("@/lib/data/home-tasks", () => ({ loadHomeTasks: vi.fn() }));
 import { revalidatePath } from "next/cache";
 
 import { CATALOG } from "@/lib/commands/catalog";
+import { PEOPLE_COMMANDS } from "@/lib/commands/catalog/people";
 import { pickSaved } from "@/lib/commands/catalog/messages-draft-reminder";
 import { summarizeBehind } from "@/lib/commands/catalog/pledges-behind";
 import { draftReminder, fillTemplate, whenText } from "@/lib/commands/catalog/reminder-text";
@@ -22,7 +23,7 @@ const DIWALI = "7d0f3b9a-6a39-4d0c-9f43-0a1a1d7c1001";
 const PICNIC = "7d0f3b9a-6a39-4d0c-9f43-0a1a1d7c1003";
 const CANCELLED = "7d0f3b9a-6a39-4d0c-9f43-0a1a1d7c1004";
 
-const ALL_PERMISSIONS = ["people.view", "giving.view", "events.view", "events.manage", "comms.send", "accounting.close"];
+const ALL_PERMISSIONS = ["people.view", "people.manage", "people.approve", "giving.view", "events.view", "events.manage", "comms.send", "accounting.close"];
 
 function catalogRegistry() {
   const r = new CommandRegistry();
@@ -54,8 +55,8 @@ beforeEach(() => {
 
 // ---------------------------------------------------------------------------
 describe("the first commands", () => {
-  it("are these, and every write is a confirm command, switched off by default", () => {
-    expect(CATALOG.map((c) => `${c.key}:${c.level}`)).toEqual([
+  it("start with these, and every write is a confirm command, switched off by default", () => {
+    const expected = [
       "people.search:read",
       "tasks.mine:read",
       "giving.pledges_behind:read",
@@ -74,14 +75,18 @@ describe("the first commands", () => {
       "events.set_rsvp_status:confirm",
       "events.assign_volunteer:confirm",
       "events.create_from_clone:confirm",
-    ]);
+    ];
+    // The Events commands are followed by other workspaces' commands (People: tests/commands/people-reads.test.ts).
+    expect(CATALOG.slice(0, expected.length).map((c) => `${c.key}:${c.level}`)).toEqual(expected);
     const confirm = CATALOG.filter((c) => c.level === "confirm");
-    expect(confirm).toHaveLength(5);
+    expect(confirm.map((c) => c.key)).toContain("events.set_field");
     for (const c of confirm) expect(c.enabledByDefault, c.key).not.toBe(true);
   });
 
   it("have no money, role, permission or delete commands", () => {
-    for (const c of CATALOG) expect(c.key).not.toMatch(/record|payment|refund|write_?off|role|permission|grant|delete|remove|merge|approve|send|schedule/);
+    // A merge changes records and is asked about first, like every write; it is never a read or a draft.
+    for (const c of CATALOG) if (/merge/.test(c.key)) expect(c.level).toBe("confirm");
+    for (const c of CATALOG) expect(c.key).not.toMatch(/record|payment|refund|write_?off|role|permission|grant|delete|remove|approve|send|schedule/);
     // The one that changes a detail is a single-detail event change; its fields never include prices, status or the owner.
     expect(JSON.stringify(CATALOG.find((c) => c.key === "events.set_field")!.input.json())).not.toMatch(/price|status|owner|confidential/);
   });
@@ -562,6 +567,9 @@ describe("events.set_field (confirm, off until the owner switches it on)", () =>
 // The check that fails if a child's name reaches a result (decision D2).
 // ---------------------------------------------------------------------------
 describe("no command result reaches a model with a child in it", () => {
+  /** The People commands take real ids, so they run against their own community (a UUID world with children in it) in people-reads.test.ts. */
+  const OWN_WORLD = new Set(PEOPLE_COMMANDS.map((c) => c.key));
+
   /** A plausible input for every command in the catalog. A new command must be added here, or this file fails. */
   const SAMPLE_INPUT: Record<string, unknown> = {
     "people.search": { query: "Shah" },
@@ -584,10 +592,10 @@ describe("no command result reaches a model with a child in it", () => {
   };
 
   it("has a sample input for every command in the catalog", () => {
-    for (const c of CATALOG) expect(Object.keys(SAMPLE_INPUT), `Add a sample input for ${c.key} so the child check covers it.`).toContain(c.key);
+    for (const c of CATALOG) if (!OWN_WORLD.has(c.key)) expect(Object.keys(SAMPLE_INPUT), `Add a sample input for ${c.key} so the child check covers it.`).toContain(c.key);
   });
 
-  for (const command of CATALOG) {
+  for (const command of CATALOG.filter((c) => !OWN_WORLD.has(c.key))) {
     it(`${command.key}: nothing about a child in what Niva is given`, async () => {
       vi.mocked(loadHomeTasks).mockResolvedValue({
         tasks: [{ id: "x:1", source: "pathshala", tag: "Pathshala", color: "purple", title: "Sign-off for Zoya Shah", meta: "Aarav Patel is waiting", links: [] }],

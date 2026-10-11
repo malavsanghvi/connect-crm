@@ -69,14 +69,16 @@ beforeEach(() => {
 
 describe("Platform › Centers › Niva for admins", () => {
   it("offers the write actions Niva could be allowed to prepare, all off to begin with", () => {
-    expect(confirmToolChoices(undefined)).toEqual([
-      expect.objectContaining({ key: "events.set_field", title: "Change a detail of an event", on: false }),
-      expect.objectContaining({ key: "events.set_status", on: false }),
-      expect.objectContaining({ key: "events.set_rsvp_status", on: false }),
-      expect.objectContaining({ key: "events.assign_volunteer", on: false }),
-      expect.objectContaining({ key: "events.create_from_clone", on: false }),
-    ]);
-    expect(confirmToolChoices({ assistant: { tools: { "events.set_field": true } } })[0].on).toBe(true);
+    // Every command that changes something is listed, and every one starts off (events, and the People actions).
+    const choices = confirmToolChoices(undefined);
+    expect(choices).toContainEqual(expect.objectContaining({ key: "events.set_field", title: "Change a detail of an event", on: false }));
+    expect(choices.map((c) => c.key)).toEqual(
+      expect.arrayContaining(["events.set_status", "events.set_rsvp_status", "events.assign_volunteer", "events.create_from_clone", "people.merge_people", "people.move_person", "people.decide_application"]),
+    );
+    expect(choices.every((c) => c.on === false)).toBe(true);
+    const ticked = confirmToolChoices({ assistant: { tools: { "events.set_field": true } } });
+    expect(ticked.find((c) => c.key === "events.set_field")?.on).toBe(true);
+    expect(ticked.filter((c) => c.on).map((c) => c.key)).toEqual(["events.set_field"]);
   });
 
   it("switches Niva on for the community, keeps the other rules, and records the reason", async () => {
@@ -106,7 +108,9 @@ describe("Platform › Centers › Niva for admins", () => {
     await saveAssistantAction(null, form({ center: CENTER, version: "", enabled: "on", tool: ["events.set_field", "people.search", "../../etc"], reason: "Trying" }));
     const tools = state.rules.assistant as { tools: Record<string, boolean> };
     // Every write action is recorded, only the one that was ticked is on, and nothing else gets in.
-    expect(Object.keys(tools.tools)).toEqual(["events.set_field", "events.set_status", "events.set_rsvp_status", "events.assign_volunteer", "events.create_from_clone"]);
+    expect(Object.keys(tools.tools)).toEqual(expect.arrayContaining(["events.set_field", "events.set_status", "events.create_from_clone", "people.merge_people", "people.decide_application"]));
+    expect(Object.keys(tools.tools)).not.toContain("people.search");
+    expect(Object.keys(tools.tools).every((k) => /^[a-z_]+\.[a-z_]+$/.test(k))).toBe(true);
     expect(Object.entries(tools.tools).filter(([, on]) => on).map(([key]) => key)).toEqual(["events.set_field"]);
   });
 

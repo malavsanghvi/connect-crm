@@ -112,6 +112,7 @@ describe("the recorder hook", () => {
 
 describe("the command keys the database lists (migration 0625, and the later ones that add commands)", () => {
   const migrations = join(process.cwd(), "supabase", "migrations");
+  // 0625 listed the first eight commands; a later migration lists the commands a workspace adds (0651: People).
   const file = readdirSync(migrations).find((f) => /^0625_.*\.sql$/.test(f));
   // A command added after 0625 registers its key in its own migration (an applied migration is never edited); each is idempotent.
   const files = readdirSync(migrations).filter((f) => /^\d{4}_.*\.sql$/.test(f) && Number(f.slice(0, 4)) >= 625);
@@ -126,7 +127,7 @@ describe("the command keys the database lists (migration 0625, and the later one
   it("lists every command of the command layer, with commandable_key set to the command", () => {
     for (const c of CATALOG) {
       const row = registered.find((r) => r.command === c.key);
-      expect(row, `${c.key} is not registered in 0625`).toBeDefined();
+      expect(row, `${c.key} is not registered in 0625 or a later migration (add it with app.activity_register)`).toBeDefined();
       expect(row?.key).toBe(commandActivityKey(c.key));
     }
   });
