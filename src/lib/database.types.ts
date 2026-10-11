@@ -4425,6 +4425,8 @@ export type Database = {
           route_to: string | null;
           money: boolean;
           same_for_rest: boolean;
+          scopes: string[];
+          item_kind: string;
         };
         Insert: {
           signature: string;
@@ -4435,6 +4437,8 @@ export type Database = {
           route_to?: string | null;
           money: boolean;
           same_for_rest: boolean;
+          scopes?: string[];
+          item_kind: string;
         };
         Update: {
           signature?: string;
@@ -4445,6 +4449,8 @@ export type Database = {
           route_to?: string | null;
           money?: boolean;
           same_for_rest?: boolean;
+          scopes?: string[];
+          item_kind?: string;
         };
         Relationships: [];
       };
@@ -11540,6 +11546,13 @@ export type Database = {
         };
         Returns: undefined;
       };
+      audience_reach: {
+        Args: {
+          p_center: string;
+          p_audience: Json;
+        };
+        Returns: Json;
+      };
       audit_clean_app: {
         Args: {
           p: string;
@@ -14231,6 +14244,8 @@ export type Database = {
           p_apply_rest?: boolean;
           p_remember?: boolean;
           p_scope?: string;
+          p_expected_others?: number;
+          p_change?: boolean;
         };
         Returns: Json;
       };
@@ -14243,6 +14258,12 @@ export type Database = {
         Returns: string;
       };
       resolve_card: {
+        Args: {
+          p_raw: Json;
+        };
+        Returns: Json;
+      };
+      resolve_card_limited: {
         Args: {
           p_raw: Json;
         };
