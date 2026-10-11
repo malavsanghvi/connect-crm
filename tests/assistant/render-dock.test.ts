@@ -48,7 +48,7 @@ function api(over: Partial<NivaApi> = {}): NivaApi {
 // A Jain Center unless a test says otherwise; `null` renders with no kind provided (the neutral kind is then assumed).
 const withNiva = (value: NivaApi | null, child: ReturnType<typeof createElement>, kind: KindProfile | null = LEGACY_KIND) => {
   const inner = createElement(NivaContext.Provider, { value }, child);
-  return renderToStaticMarkup(kind ? createElement(KindProvider, { kind }, inner) : inner);
+  return renderToStaticMarkup(kind ? createElement(KindProvider, { kind, children: inner }) : inner);
 };
 const chatAfter = (actions: ChatAction[]) => actions.reduce(chatReducer, initialChatState);
 
