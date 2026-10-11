@@ -10650,6 +10650,12 @@ export type Database = {
         };
         Returns: number;
       };
+      activity_shared: {
+        Args: {
+          p_center: string;
+        };
+        Returns: boolean;
+      };
       activity_status: {
         Args: {
           p_center: string;
@@ -11582,6 +11588,14 @@ export type Database = {
           p_center: string;
         };
         Returns: Json;
+      };
+      give_activity_consent: {
+        Args: {
+          p_center: string;
+          p_share_with_weaver: boolean;
+          p_notice_version: string;
+        };
+        Returns: undefined;
       };
       giving_row_visible: {
         Args: {
@@ -13624,6 +13638,13 @@ export type Database = {
         };
         Returns: undefined;
       };
+      set_activity_sharing: {
+        Args: {
+          p_center: string;
+          p_share: boolean;
+        };
+        Returns: undefined;
+      };
       set_audit_context: {
         Args: {
           p_reason: string;
@@ -14235,6 +14256,12 @@ export type Database = {
           p_provider: string;
         };
         Returns: string;
+      };
+      withdraw_activity_consent: {
+        Args: {
+          p_center: string;
+        };
+        Returns: undefined;
       };
       withdraw_payment_report: {
         Args: {
