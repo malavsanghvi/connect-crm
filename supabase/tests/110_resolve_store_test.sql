@@ -36,11 +36,11 @@ begin
 end $$;
 create temp table ctx (k text primary key, v text);
 -- One item that claims to be answered by a remembered answer, saved into the check that is being made.
-create or replace function pg_temp.item_with_rule(p_run uuid, p_batch uuid, p_key text, p_sig text, p_kind text, p_tier text, p_rule text, p_answer text) returns integer language sql as $
+create or replace function pg_temp.item_with_rule(p_run uuid, p_batch uuid, p_key text, p_sig text, p_kind text, p_tier text, p_rule text, p_answer text) returns integer language sql as $$
   select app.resolve_store_items(p_run, p_batch, jsonb_build_array(jsonb_build_object(
     'key', p_key, 'signature', p_sig, 'kind', p_kind, 'tier', p_tier, 'subject', 'f#2', 'record_ids', jsonb_build_array('f#1', 'f#2'),
     'fingerprints', jsonb_build_array('fp1', 'fp2'), 'rule_id', p_rule, 'rule_answer', p_answer)))
-$;
+$$;
 grant all on ctx to public;
 create or replace function pg_temp.cx(p_k text) returns text language sql stable as $$ select v from ctx where k = p_k $$;
 create or replace function pg_temp.gid(p_sig text) returns uuid language sql stable as $$
@@ -192,7 +192,7 @@ select pg_temp.assert((select count(*) = 0 from app.import_staged_records) and (
                       and (select count(*) = 0 from app.import_exception_items) and (select count(*) = 0 from app.import_run_metrics)
                       and (select count(*) = 0 from app.import_decision_rules),
   'a member reads nothing of it');
-select pg_temp.assert_raises($select app.resolve_runs('110b0000-0000-4000-8000-0000000000c1')$, 'permissions', 'a member cannot list the imports that can be checked');
+select pg_temp.assert_raises($$select app.resolve_runs('110b0000-0000-4000-8000-0000000000c1')$$, 'permissions', 'a member cannot list the imports that can be checked');
 select pg_temp.assert(app.resolve_inbox(pg_temp.cx('run')::uuid)->>'status' = 'none' and app.resolve_item_detail(pg_temp.iid('name_only:k8')) is null
                       and app.resolve_staged_page(pg_temp.cx('run')::uuid) = '[]'::jsonb,
   'and the functions that read hand a member nothing');

@@ -665,7 +665,7 @@ end $$;
 -- The imports of a community that can be checked for matches (people, households, payments), newest first, with where each one's
 -- check stands. Only the runs the signed-in person may use.
 create or replace function app.resolve_runs(p_center uuid) returns jsonb
-language plpgsql stable security definer set search_path = app, public, extensions as $
+language plpgsql stable security definer set search_path = app, public, extensions as $$
 begin
   if not app.resolve_center_allowed(p_center) then
     raise exception 'Seeing the imports that can be checked for matches needs one of these permissions: %.', array_to_string(app.onboarding_perms(null), ', ')
@@ -687,7 +687,7 @@ begin
              order by o.created_at desc limit 50) r
       join app.import_entities e on e.key = r.entity
       left join app.import_run_metrics m on m.run_id = r.id), '[]'::jsonb);
-end $;
+end $$;
 
 -- ── Who may call what ────────────────────────────────────────────────────────
 revoke execute on function app.resolve_assert_run(uuid), app.resolve_assert_batch(uuid, uuid), app.resolve_refresh_groups(uuid),

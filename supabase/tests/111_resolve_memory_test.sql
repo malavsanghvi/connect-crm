@@ -34,11 +34,11 @@ begin
 end $$;
 create temp table ctx (k text primary key, v text);
 -- One item that claims to be answered by a remembered answer, saved into the check that is being made.
-create or replace function pg_temp.item_with_rule(p_run uuid, p_batch uuid, p_rule text) returns integer language sql as $
+create or replace function pg_temp.item_with_rule(p_run uuid, p_batch uuid, p_rule text) returns integer language sql as $$
   select app.resolve_store_items(p_run, p_batch, jsonb_build_array(jsonb_build_object(
     'key', 'shared_phone_households:k1', 'signature', 'shared_phone_households', 'kind', 'pair', 'tier', 'C', 'subject', 'f#2',
     'record_ids', jsonb_build_array('f#1', 'f#2'), 'fingerprints', jsonb_build_array('fp1', 'fp2'), 'rule_id', p_rule, 'rule_answer', 'separate')))
-$;
+$$;
 grant all on ctx to public;
 create or replace function pg_temp.cx(p_k text) returns text language sql stable as $$ select v from ctx where k = p_k $$;
 create or replace function pg_temp.gid(p_run uuid, p_sig text) returns uuid language sql stable as $$
