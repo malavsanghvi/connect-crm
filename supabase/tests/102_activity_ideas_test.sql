@@ -210,6 +210,19 @@ select pg_temp.assert((select not (rules ? 'activity') from app.centers where id
 select pg_temp.as_user(:adm102);
 select pg_temp.assert_raises($q$select app.set_activity_recording('10200000-0000-4000-8000-0000000000a1', false)$q$, 'Only the Weaver team',
   'F · a community administrator cannot use Weaver''s switch');
+-- Editing the rules by hand is refused, and the refusal points to where the agreement is made (0625 corrected the wording).
+select pg_temp.assert_raises($q$update app.centers set rules = jsonb_set(rules, '{activity,share_with_weaver}', 'false') where id = '10200000-0000-4000-8000-0000000000a1'$q$, 'Settings > Automation ideas',
+  'F · changing the agreement by editing the rules is refused, and the message points to Settings > Automation ideas');
+select pg_temp.assert_raises($q$update app.centers set rules = jsonb_set(rules, '{activity,enabled}', 'false') where id = '10200000-0000-4000-8000-0000000000a1'$q$, 'Settings > Automation ideas',
+  'F · so is switching recording on or off that way, with the same pointer');
+select pg_temp.as_none();
+select pg_temp.assert((select p.prosrc not like '%Privacy page%' and p.prosrc like '%Settings > Automation ideas%' and p.prosecdef
+                              and array_to_string(p.proconfig, ',') like '%search_path=app, public, extensions%'
+                              and not has_function_privilege('authenticated', p.oid, 'execute') and not has_function_privilege('anon', p.oid, 'execute')
+                         from pg_proc p where p.oid = 'app.centers_activity_guard()'::regprocedure)
+                      and exists (select 1 from pg_trigger t where t.tgrelid = 'app.centers'::regclass and t.tgname = 'centers_activity_guard' and not t.tgisinternal),
+  'F · the guard no longer names the Privacy page; it is still security definer with the pinned search path, not callable by anyone, and still wired as the trigger');
+select pg_temp.as_user(:adm102);
 -- What the portal's Settings page reads about the agreement.
 select pg_temp.assert((select s ->> 'enabled' = 'true' and s ->> 'consented' = 'true' and s #>> '{consent,version}' = '1'
                               and s #>> '{consent,at}' is not null and s ->> 'share_with_weaver' = 'true'

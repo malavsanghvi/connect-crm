@@ -11,6 +11,7 @@ import * as calendarRefreshFeeds from "./calendar.refresh_feeds";
 import * as demoClear from "./demo.clear";
 import * as demoLoad from "./demo.load";
 import * as demoPing from "./demo.ping";
+import * as demoReset from "./demo.reset";
 import * as eventsGenerateFlyer from "./events.generate_flyer";
 import * as homeworkPublishNotify from "./homework.publish_notify";
 import * as homeworkRemindersSweep from "./homework.reminders_sweep";
@@ -51,6 +52,7 @@ import * as storageScanSweep from "./storage.scan_sweep";
 
 export const HANDLERS: HandlerModule[] = [
   demoPing,
+  demoReset,
   importSuggestMapping,
   eventsGenerateFlyer,
   oauthExchange,

@@ -86,6 +86,7 @@ describe("job kind labels", () => {
     expect(jobKindLabel("niva.answer")).toBe("Niva answer");
     expect(jobKindLabel("niva.import_page")).toBe("Niva page import");
     expect(jobKindLabel("niva.retention")).toBe("Remove Niva questions older than 30 days");
+    expect(jobKindLabel("demo.reset")).toBe("Reset the demo communities");
     expect(jobKindLabel("calendar.refresh_feeds")).toBe("Daily calendar feed refresh");
     expect(jobKindLabel("qbo.post")).toBe("Post to QuickBooks");
     expect(jobKindLabel("something.new")).toBe("something.new");
