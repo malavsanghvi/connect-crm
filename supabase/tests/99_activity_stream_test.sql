@@ -508,9 +508,9 @@ select pg_temp.as_user(:plat99);
 select pg_temp.assert_raises($q$select app.set_activity_recording('99000000-0000-4000-8000-0000000000c1', true)$q$, 'administrator has not agreed yet',
   'F · Weaver cannot switch recording on for a community whose administrator has not agreed');
 select pg_temp.assert_raises($q$update app.centers set rules = jsonb_set(rules, '{activity}', '{"enabled": true, "consent": {"at": "2026-10-11T00:00:00Z", "version": "forged"}}') where id = '99000000-0000-4000-8000-0000000000c1'$q$,
-  'privacy page', 'F · nor by writing the rules by hand, with or without a forged agreement');
+  'automation ideas', 'F · nor by writing the rules by hand, with or without a forged agreement');
 select pg_temp.assert_raises($q$update app.centers set rules = jsonb_set(rules, '{activity}', '{"enabled": true}') where id = '99000000-0000-4000-8000-0000000000c1'$q$,
-  'privacy page', 'F · (a platform admin''s direct write of the switch is refused too)');
+  'automation ideas', 'F · (a platform admin''s direct write of the switch is refused too)');
 select pg_temp.assert_raises($q$select app.give_activity_consent('99000000-0000-4000-8000-0000000000c1', true, 'v1')$q$, 'access to this area',
   'F · a platform admin cannot give the community''s consent for it, even with a fresh 2FA check');
 select pg_temp.as_user_2fa(:plat99);
@@ -560,13 +560,13 @@ select pg_temp.assert(pg_temp.act(:cadm99, :c99, pg_temp.screens(2)) = 2, 'F · 
 -- Ordinary writes of the rules cannot touch the agreement or the switch.
 select pg_temp.as_user(:cadm99);
 select pg_temp.assert_raises($q$update app.centers set rules = jsonb_set(rules, '{activity,enabled}', 'false') where id = '99000000-0000-4000-8000-0000000000c1'$q$,
-  'privacy page', 'F · the administrator cannot switch recording off by editing the rules (they withdraw instead)');
+  'automation ideas', 'F · the administrator cannot switch recording off by editing the rules (they withdraw instead)');
 select pg_temp.assert_raises($q$update app.centers set rules = jsonb_set(rules, '{activity,share_with_weaver}', 'true') where id = '99000000-0000-4000-8000-0000000000c1'$q$,
-  'privacy page', 'F · cannot turn sharing on that way');
+  'automation ideas', 'F · cannot turn sharing on that way');
 select pg_temp.assert_raises($q$update app.centers set rules = rules - 'activity' where id = '99000000-0000-4000-8000-0000000000c1'$q$,
-  'privacy page', 'F · cannot delete the agreement that way');
+  'automation ideas', 'F · cannot delete the agreement that way');
 select pg_temp.assert_raises($q$update app.centers set rules = jsonb_set(rules, '{activity,consent,version}', '"forged"') where id = '99000000-0000-4000-8000-0000000000c1'$q$,
-  'privacy page', 'F · or rewrite it');
+  'automation ideas', 'F · or rewrite it');
 update app.centers set rules = rules || '{"home": {"layout": "grid"}}' where id = :c99;
 select pg_temp.as_none();
 select pg_temp.assert((select rules -> 'home' ->> 'layout' = 'grid' and rules #>> '{activity,consent,version}' = '2026-10-v1' and app.activity_enabled(:c99) from app.centers where id = :c99),
