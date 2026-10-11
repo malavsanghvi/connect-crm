@@ -8,6 +8,7 @@ vi.mock("@/app/(app)/setup/website/actions", () => ({
   lookAtWebsiteAction: vi.fn(),
   siteStatusAction: vi.fn(),
 }));
+vi.mock("@/app/(app)/setup/website/draft-actions", () => ({ buildFirstDraftAction: vi.fn(), setDraftPageStatusAction: vi.fn() }));
 
 import { FoundReport, REFERENCE_PROMISE } from "@/app/(app)/setup/website/found-report";
 import type { Snapshot } from "@/app/(app)/setup/website/load";

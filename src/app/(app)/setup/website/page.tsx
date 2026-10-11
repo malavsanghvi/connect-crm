@@ -4,6 +4,7 @@ import { QueryError } from "@/components/ui";
 import { getSession } from "@/lib/session";
 
 import { SetupHeader, setupGate } from "../_components/setup-ui";
+import { loadDraftSummary } from "./draft-load";
 import { loadSnapshot } from "./load";
 import { WebsiteForm } from "./website-form";
 
@@ -26,10 +27,12 @@ export default async function YourWebsitePage() {
       </>
     );
   }
+  // The draft is a second thing on this screen: when it cannot be read, the screen says so beside it and still works.
+  const draft = await loadDraftSummary(db, center.id);
   return (
     <>
       <SetupHeader session={session} sub={SUB} />
-      <WebsiteForm initial={loaded.data} />
+      <WebsiteForm initial={loaded.data} draft={draft.ok ? { summary: draft.summary, error: null } : { summary: null, error: draft.error }} />
     </>
   );
 }
