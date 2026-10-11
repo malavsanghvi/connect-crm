@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { ActionForm } from "@/components/action-form";
+import { AskNiva } from "@/components/niva/ask-niva";
 import { HistoryButton } from "@/components/record-history";
 import { BlockGrid, Card, EmptyState, NoAccess, PageHeader, QueryError, StatusText, TableWrap } from "@/components/ui";
 import { formatDateTime } from "@/lib/dates";
@@ -27,6 +28,7 @@ export default async function StoreInventoryPage() {
     <PageHeader
       title={storeName}
       description="Made to order · sales post to QuickBooks as store income with sales tax, never as donations"
+      actions={<AskNiva prompt="What needs attention in the store: orders waiting for pickup, items running low, and this month's sales?" />}
     />
   );
   if (!canAccess(session, "store")) {

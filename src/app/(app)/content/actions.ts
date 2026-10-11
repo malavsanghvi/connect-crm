@@ -2,6 +2,10 @@
 
 import { revalidatePath } from "next/cache";
 
+import { retryNivaQuestions } from "@/lib/commands/catalog/content/niva-retry";
+import { NOT_A_MANAGER } from "@/lib/commands/catalog/content/shared";
+import { plain } from "@/lib/commands/catalog/messages/screen";
+import { runScreenCommand } from "@/lib/commands/screen";
 import type { Json, TablesInsert } from "@/lib/database.types";
 import {
   defaultMemberStep,
@@ -19,7 +23,6 @@ import {
   type MediaKind,
 } from "@/lib/content";
 import { failure, type ActionResult } from "@/lib/errors";
-import { isModuleEnabled } from "@/lib/modules";
 import {
   cleanNivaBody,
   NIVA_AUTO_RETRY_LIMIT,
@@ -50,32 +53,19 @@ const DATE = /^\d{4}-\d{2}-\d{2}$/;
 // ---------------------------------------------------------------------------
 // Approval queue (content_items.status in_review → published | draft)
 // ---------------------------------------------------------------------------
-const NOT_A_MANAGER = "publishing also needs content.manage (the database only lets content managers change an item's status).";
-
-/**
- * After a Niva source is published, Niva tries its unanswered questions again (app.niva_retry_unanswered,
- * 0572: content.manage; it adds no question, so the monthly limit is untouched). `retried` is null when the
- * Niva module is switched off: members cannot ask then, so there is nothing to try. A publish asks for the
- * function's default (NIVA_AUTO_RETRY_LIMIT): each question may ask the model again.
- */
-async function retryNivaQuestions(session: CrmSession, centerId: string, limit: number): Promise<{ ok: true; retried: number | null } | { ok: false; error: unknown }> {
-  if (!isModuleEnabled(session, "niva")) return { ok: true, retried: null };
-  const { data, error } = await session.db.rpc("niva_retry_unanswered", { p_center: centerId, p_limit: limit });
-  if (error) return { ok: false, error };
-  return { ok: true, retried: typeof data === "number" ? data : 0 };
-}
 
 /**
  * Publish or return one waiting item. `seen` is the item's updated_at when the queue showed its text: a
  * publish needs it and changes the item only while it is still that version (any edit moves updated_at),
  * so text changed after the approver read it is never published unseen. A return checks it when given.
+ * The work is the command content.decide_item (src/lib/commands/catalog/content): this reads the form and
+ * calls it, the same code the ⌘K palette and Niva use. The checks that came first stay here, in their order.
  */
 export async function decideContentAction(_prev: ActionResult | null, fd: FormData): Promise<ActionResult> {
   const decision = text(fd, "decision");
   const doing = decision === "return" ? "return the item to its author" : "publish the item";
   const auth = await authorizeAction("contentApprove", doing);
   if (!auth.ok) return auth;
-  const { db, userId } = auth.session;
   if (!can(auth.session, "content.manage")) return { ok: false, error: `Could not ${doing} — ${NOT_A_MANAGER}` };
   const id = text(fd, "id");
   const seenRaw = text(fd, "seen");
@@ -83,36 +73,7 @@ export async function decideContentAction(_prev: ActionResult | null, fd: FormDa
   if (!isUuid(id) || (decision !== "approve" && decision !== "return") || (seenRaw && !seen) || (decision === "approve" && !seen)) {
     return { ok: false, error: `Could not ${doing} — the request was incomplete. Reload the queue and try again.` };
   }
-  const cur = await db.from("content_items").select("id, title, status, kind, center_id").eq("id", id).maybeSingle();
-  if (cur.error) return failure(`Could not ${doing}`, cur.error);
-  if (!cur.data) return { ok: false, error: `Could not ${doing} — the item no longer exists, or you can't see it.` };
-  if (cur.data.status !== "in_review") return { ok: false, error: `Could not ${doing} — "${cur.data.title}" is no longer awaiting approval.` };
-  const reason = text(fd, "reason").slice(0, 500);
-  if (decision === "return" && !reason) return { ok: false, error: `Could not ${doing} — say what the author should change.` };
-  const patch =
-    decision === "approve"
-      ? { status: "published", approved_by: userId, published_at: new Date().toISOString() }
-      : { status: "draft", approved_by: null };
-  // A return carries its reason onto the audit entry (x-audit-reason).
-  const writer = decision === "return" ? await dbWithReason(auth.session, reason) : db;
-  let update = writer.from("content_items").update(patch).eq("id", id).eq("status", "in_review");
-  if (seen) update = update.eq("updated_at", seen);
-  const { data, error } = await update.select("id");
-  if (error) return failure(`Could not ${doing}`, error);
-  if (!data?.length) {
-    return {
-      ok: false,
-      error: seen
-        ? `Could not ${doing} — "${cur.data.title}" was changed after you opened the queue, or is no longer awaiting approval. Reload the queue and read it again.`
-        : `Could not ${doing} — "${cur.data.title}" is no longer awaiting approval. Reload the queue to see where it is.`,
-    };
-  }
-  revalidatePath("/content", "layout");
-  if (decision === "return") return { ok: true, message: `"${cur.data.title}" returned to its author.` };
-  if (cur.data.kind !== "niva_source" || !cur.data.center_id) return { ok: true, message: `"${cur.data.title}" published.` };
-  const retry = await retryNivaQuestions(auth.session, cur.data.center_id, NIVA_AUTO_RETRY_LIMIT);
-  if (!retry.ok) return failure(retryFailedContext(`"${cur.data.title}"`, true), retry.error);
-  return { ok: true, message: publishedMessage(`"${cur.data.title}"`, retry.retried, NIVA_AUTO_RETRY_LIMIT) };
+  return plain(await runScreenCommand("content.decide_item", { item_id: id, decision, seen: seenRaw, reason: text(fd, "reason").slice(0, 500) }, doing));
 }
 
 /**

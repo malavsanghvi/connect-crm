@@ -149,6 +149,21 @@ describe("Ask Niva suggestions", () => {
     for (const s of suggestionsFor("/events/[id]", "event", events)) expect(s).not.toMatch(/\b(child|kid|minor)\b/i);
   });
 
+  it("offers the Messages examples a role can use: about this conversation or message first, then the inbox and approvals", () => {
+    const messages = new Set(["messages.inbox_triage", "messages.campaigns", "messages.audience_preview", "messages.why_not_delivered", "messages.draft_reply", "messages.draft_reminder", "tasks.mine"]);
+    expect(suggestionsFor("/comms/threads/[id]", "message thread", messages)).toEqual(["Draft a reply to this conversation from our approved answers", "What is waiting for me?"]);
+    expect(suggestionsFor("/comms/campaigns/[id]", "campaign", messages)).toEqual(["Why has this message not gone out?", "What is waiting for me?"]);
+    expect(suggestionsFor("/comms/inbox", undefined, messages)).toEqual([
+      "What is waiting in the inbox?",
+      "Which messages to families are waiting for approval?",
+      "How many people would a message to all members reach by email, text and WhatsApp?",
+    ]);
+    // A role that only sees the approvals list is not offered the inbox.
+    expect(suggestionsFor("/comms/newsletters", undefined, new Set(["messages.campaigns"]))).toEqual(["Which messages to families are waiting for approval?"]);
+    // The examples never name a child or promise a send.
+    for (const s of suggestionsFor("/comms/inbox", undefined, messages)) expect(s).not.toMatch(/(child|kid|minor)|send/i);
+  });
+
   it("offers People examples for the commands the person may use, and 'this household' only on a household", () => {
     const people = new Set(["people.search", "people.find_household", "people.pending_reviews", "people.suggest_duplicates", "people.household_summary", "people.add_person", "people.update_person"]);
     expect(suggestionsFor("/people", undefined, people)).toEqual([
@@ -189,6 +204,37 @@ describe("Ask Niva suggestions", () => {
     expect(contextLine({ path: "/settings/roles" })).toBe("Looking at Settings");
     // The examples never name a child.
     for (const s of suggestionsFor("/settings/roles", undefined, keys)) expect(s).not.toMatch(/\b(child|kid|minor)\b/i);
+  });
+
+  it("offers the Content examples a role can use, first the ones about the tab it is on", () => {
+    const keys = new Set(["content.approval_queue", "content.niva_sources", "content.media_library", "content.draft_item", "tasks.mine"]);
+    expect(suggestionsFor("/content/queue", undefined, keys)).toEqual(["What is waiting in the approval queue, and for how long?", "What is waiting in the approval queue?", "Are Niva's sources up to date?"]);
+    expect(suggestionsFor("/content/niva", undefined, keys)).toEqual([
+      "Which of Niva's sources are out of date?",
+      "Draft a Niva source about parking at the Diwali dinner",
+      "What is waiting in the approval queue?",
+    ]);
+    expect(suggestionsFor("/content/media", undefined, keys)[0]).toBe("How many stavans, videos and podcasts are in the media library?");
+    expect(suggestionsFor("/content", undefined, keys)).toEqual(["What is waiting in the approval queue?", "Are Niva's sources up to date?", "Draft an announcement about the Diwali dinner for approval"]);
+    // A role that can only look at the queue is offered only that.
+    expect(suggestionsFor("/content/niva", undefined, new Set(["content.approval_queue"]))).toEqual(["What is waiting in the approval queue?"]);
+    expect(contextLine({ path: "/content/queue" })).toBe("Looking at Content");
+    // The examples never name a child.
+    for (const text of suggestionsFor("/content/niva", undefined, keys)) expect(text).not.toMatch(/(child|kid|minor)/i);
+  });
+
+  it("offers the Store examples a role can use, first the ones about the orders screen", () => {
+    const keys = new Set(["store.orders_waiting", "store.set_order_status", "store.low_stock", "store.sales_summary", "store.draft_product", "store.adjust_stock", "tasks.mine"]);
+    expect(suggestionsFor("/store/orders", undefined, keys)).toEqual([
+      "Which orders are ready for pickup, and which are not ready yet?",
+      "Mark the next order for pickup ready",
+      "What is running low?",
+    ]);
+    expect(suggestionsFor("/store", undefined, keys)).toEqual(["What is running low?", "How much did the store sell this month?", "Which orders are waiting for pickup?"]);
+    // A pickup volunteer is never offered stock or sales.
+    expect(suggestionsFor("/store", undefined, new Set(["store.orders_waiting", "store.set_order_status"]))).toEqual(["Which orders are waiting for pickup?"]);
+    expect(contextLine({ path: "/store/orders" })).toBe("Looking at Store");
+    for (const text of suggestionsFor("/store", undefined, keys)) expect(text).not.toMatch(/(child|kid|minor)/i);
   });
 
   it("offers nothing when the person can use nothing", () => {

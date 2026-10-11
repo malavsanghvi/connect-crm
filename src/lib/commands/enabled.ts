@@ -39,7 +39,7 @@ export function isCommandEnabled(command: Pick<AnyCommand, "key" | "level" | "en
 
 export type AvailabilitySession = PermissionContext & ModuleContext & { center: { name: string; rules: Json } };
 
-export type Availability = { ok: true } | { ok: false; code: Extract<CommandErrorCode, "no_access" | "module_off" | "switched_off">; error: string };
+export type Availability = { ok: true } | { ok: false; code: Extract<CommandErrorCode, "no_access" | "module_off" | "switched_off" | "screen_only">; error: string };
 
 function lowerFirst(s: string): string {
   return s ? s[0].toLowerCase() + s.slice(1) : s;
@@ -48,11 +48,17 @@ function lowerFirst(s: string): string {
 /** Can this person use this command now, through this door? The reason is a sentence. */
 export function commandAvailability(command: AnyCommand, session: AvailabilitySession, via: CommandVia): Availability {
   const doing = lowerFirst(command.title);
+  if (command.platformOnly && !session.isPlatformAdmin) {
+    return { ok: false, code: "no_access", error: `Could not ${doing} — only the Weaver team (platform admins) can do this.` };
+  }
   if (!canAccess(session, command.permission)) {
     return { ok: false, code: "no_access", error: `Could not ${doing} — you don't have permission (needs ${ACCESS[command.permission].join(" or ")}).` };
   }
   if (command.module && !isModuleEnabled(session, command.module)) {
     return { ok: false, code: "module_off", error: moduleOffMessage(command.module, session.center.name, moduleDef(command.module).label) };
+  }
+  if (command.screenOnly && via !== "screen") {
+    return { ok: false, code: "screen_only", error: `Niva does not ${doing}. That is done on the screen, by a person.` };
   }
   if (via === "assistant" && !isCommandEnabled(command, session.center.rules)) {
     return {

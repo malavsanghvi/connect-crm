@@ -112,7 +112,7 @@ export function safeRouteContext(pathname: string | null | undefined, params?: R
 // ---------------------------------------------------------------------------
 // The area of the screen, for the "Ask Niva" suggestions
 // ---------------------------------------------------------------------------
-export type SuggestionArea = "people" | "giving" | "events" | "messages" | "accounting" | "settings" | "setup" | "general";
+export type SuggestionArea = "people" | "giving" | "events" | "messages" | "content" | "store" | "accounting" | "settings" | "setup" | "reports" | "platform" | "learning" | "general";
 
 const AREA_BY_FIRST_SEGMENT: Record<string, SuggestionArea> = {
   people: "people",
@@ -126,8 +126,13 @@ const AREA_BY_FIRST_SEGMENT: Record<string, SuggestionArea> = {
   events: "events",
   calendar: "events",
   comms: "messages",
+  content: "content",
+  store: "store",
   settings: "settings",
   setup: "setup",
+  reports: "reports",
+  platform: "platform",
+  pathshala: "learning",
 };
 
 export function areaForPath(path: string): SuggestionArea {
@@ -146,6 +151,8 @@ export type Suggestion = {
   onlyWithout?: boolean;
   /** Shown only on a screen under this path ("/settings/roles"). */
   onlyOn?: string;
+  /** Shown only on exactly this screen ("/pathshala"), not on the screens under it. */
+  onlyAt?: string;
 };
 
 const SUGGESTIONS: Record<SuggestionArea, Suggestion[]> = {
@@ -207,10 +214,69 @@ const SUGGESTIONS: Record<SuggestionArea, Suggestion[]> = {
     { text: "Are all our connected services working?", needs: "settings.integrations_health" },
     { text: "Which modules are switched on?", needs: "settings.modules_state" },
   ],
+  // Messages (B90 phase 4): on a conversation the first two are about it; on a message to families, about that message; on the list, the rest.
   messages: [
-    { text: "Draft a reminder for the next event in English, Gujarati and Hindi", needs: "messages.draft_reminder" },
-    { text: "What events are coming up?", needs: "events.upcoming" },
+    { text: "Draft a reply to this conversation from our approved answers", needs: "messages.draft_reply", onlyFor: "message thread" },
+    { text: "Why has this message not gone out?", needs: "messages.why_not_delivered", onlyFor: "campaign" },
+    { text: "What is waiting in the inbox?", needs: "messages.inbox_triage", onlyWithout: true },
+    { text: "Which messages to families are waiting for approval?", needs: "messages.campaigns", onlyWithout: true },
+    { text: "How many people would a message to all members reach by email, text and WhatsApp?", needs: "messages.audience_preview", onlyWithout: true },
+    { text: "Why did a family not get our text?", needs: "messages.why_not_delivered", onlyWithout: true },
+    { text: "Draft a reminder for the next event in English, Gujarati and Hindi", needs: "messages.draft_reminder", onlyWithout: true },
     { text: "What is waiting for me?", needs: "tasks.mine" },
+  ],
+  // Content (B90 phase 4): the approval queue, Niva's sources and the media library. A tab's own examples come first.
+  content: [
+    { text: "What is waiting in the approval queue, and for how long?", needs: "content.approval_queue", onlyOn: "/content/queue" },
+    { text: "Which of Niva's sources are out of date?", needs: "content.niva_sources", onlyOn: "/content/niva" },
+    { text: "Draft a Niva source about parking at the Diwali dinner", needs: "content.draft_item", onlyOn: "/content/niva" },
+    { text: "How many stavans, videos and podcasts are in the media library?", needs: "content.media_library", onlyOn: "/content/media" },
+    { text: "What is waiting in the approval queue?", needs: "content.approval_queue" },
+    { text: "Are Niva's sources up to date?", needs: "content.niva_sources" },
+    { text: "Draft an announcement about the Diwali dinner for approval", needs: "content.draft_item" },
+    { text: "What is waiting for me?", needs: "tasks.mine" },
+  ],
+  // Store (B90 phase 4): orders to hand over, stock, sales and a price change prepared (never made) by Niva.
+  store: [
+    { text: "Which orders are ready for pickup, and which are not ready yet?", needs: "store.orders_waiting", onlyOn: "/store/orders" },
+    { text: "Mark the next order for pickup ready", needs: "store.set_order_status", onlyOn: "/store/orders" },
+    { text: "What is running low?", needs: "store.low_stock" },
+    { text: "How much did the store sell this month?", needs: "store.sales_summary" },
+    { text: "Which orders are waiting for pickup?", needs: "store.orders_waiting" },
+    { text: "Show what changing the samosa pack from $8.00 to $8.50 would look like", needs: "store.draft_product" },
+    { text: "Add the 24 samosa packs we just received to the stock", needs: "store.adjust_stock" },
+    { text: "What is waiting for me?", needs: "tasks.mine" },
+  ],
+  // Reports (B90 phase 4): number questions, answered by the database's own sums.
+  reports: [
+    { text: "How are we doing this year compared with last year?", needs: "reports.overview" },
+    { text: "How much did we receive this year, month by month?", needs: "reports.giving_totals" },
+    { text: "How is each campaign doing?", needs: "reports.campaign_progress" },
+    { text: "Compare this month with last month", needs: "reports.compare_months" },
+    { text: "How many people joined as members this month?", needs: "reports.membership_counts" },
+    { text: "How many people came to events this year?", needs: "reports.event_attendance" },
+    { text: "How much did the store sell this month?", needs: "reports.store_sales" },
+  ],
+  // Platform (the Weaver team only: these commands are never offered to anyone else, so neither are these sentences).
+  platform: [
+    { text: "Who is waiting for us, and what is missing?", needs: "platform.waiting" },
+    { text: "Which sandboxes are waiting for a go-live review?", needs: "platform.waiting" },
+    { text: "Summarise the community with address jsh", needs: "platform.community_summary" },
+    { text: "What would changing a community's kind of organization do?", needs: "platform.preview_kind_change" },
+  ],
+  // Learning (B90 phase 4, decision D2): terms, levels, fees, classes and teachers (adults). A sentence here never speaks of a child or a
+  // learner, and only the term, levels, classes and fees screens have one: the screens about learners (enrollments, a class's roster,
+  // homework, sign-offs, attendance) fall back to the general ones.
+  learning: [
+    { text: "Which classes have no teacher yet, and who could teach them?", needs: "learning.classes_needing_teachers", onlyAt: "/pathshala" },
+    { text: "How many Pathshala tasks are waiting?", needs: "learning.waiting_counts", onlyAt: "/pathshala" },
+    { text: "How is this term set up: its levels, fees and rules?", needs: "learning.term_setup", onlyFor: "term" },
+    { text: "Is anything missing before registration can open for this term?", needs: "learning.registration_checklist", onlyFor: "term" },
+    { text: "What have we billed and collected for Pathshala so far?", needs: "learning.fee_report", onlyOn: "/pathshala/terms" },
+    { text: "What is missing before registration can open for each term?", needs: "learning.registration_checklist", onlyAt: "/pathshala/terms" },
+    { text: "Show how a term is set up: levels, fees and rules", needs: "learning.term_setup", onlyAt: "/pathshala/terms" },
+    { text: "Which levels have no fee set for the term?", needs: "learning.term_setup", onlyOn: "/pathshala/levels" },
+    { text: "What would a fee of $135 for Jainism 2 change?", needs: "learning.draft_term_change", onlyOn: "/pathshala/levels" },
   ],
   general: [
     { text: "What is waiting for me?", needs: "tasks.mine" },
@@ -228,6 +294,7 @@ export function suggestionsFor(path: string, entityKind: string | undefined, ava
       .filter((s) => (s.onlyFor ? s.onlyFor === entityKind : true))
       .filter((s) => (s.onlyWithout ? entityKind === undefined : true))
       .filter((s) => (s.onlyOn ? path === s.onlyOn || path.startsWith(`${s.onlyOn}/`) : true))
+      .filter((s) => (s.onlyAt ? path === s.onlyAt : true))
       .map((s) => s.text);
   const own = pick(SUGGESTIONS[area]);
   // A screen whose role can use none of its own examples still gets the general ones.
@@ -241,8 +308,13 @@ const AREA_NAME: Record<SuggestionArea, string> = {
   accounting: "Accounting",
   events: "Events",
   messages: "Messages",
+  content: "Content",
+  store: "Store",
   settings: "Settings",
   setup: "Setup",
+  reports: "Reports",
+  platform: "Platform",
+  learning: "Learning",
   general: "Home",
 };
 
