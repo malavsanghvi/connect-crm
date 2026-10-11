@@ -79,6 +79,8 @@ select pg_temp.assert(app.audit_clean_app('niva') is null and app.audit_clean_ap
   'A · anything else is still dropped');
 -- The header path: a write made with x-client-app: assistant is recorded as such.
 select pg_temp.claims(:ada);
+-- An explicit app.client_app (a job's, set by a trigger earlier in this transaction) would win over the header.
+select set_config('app.client_app', '', true);
 select set_config('request.headers', '{"x-client-app":"assistant"}', true);
 update app.households set city = 'Sugar Land' where id = :h1;
 select pg_temp.assert((select client_app = 'assistant' and actor_user_id = :ada::uuid and center_id = :c1::uuid
