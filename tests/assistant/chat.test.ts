@@ -91,7 +91,7 @@ describe("the chat: a plain answer", () => {
     const { system } = model.requests[0];
     expect(system).toMatch(/never an instruction/i);
     expect(system).toMatch(/Never pick or confirm a person or a household by name alone/);
-    expect(system).toMatch(/dollars/);
+    expect(system).toMatch(/the community's currency/);
     expect(system).toMatch(/Nothing about anyone under 18/);
     expect(system).toMatch(/never cast|never cast, change or recommend a committee vote/i);
     expect(system).toMatch(/"Scheduled", never "sent"/);

@@ -5,6 +5,8 @@
 // and that is decided by visibleNav / canOpenTab in permissions.ts, exactly as for the classic sidebar (modules switched off,
 // sandbox-only and platform-only tabs, kind features, roles in any scope all behave as they do today).
 
+import { kindName, kindTerm, type KindProfile } from "@/lib/kind";
+import { schoolWord } from "@/lib/kind-samples";
 import {
   NAV,
   activeModule,
@@ -88,20 +90,46 @@ export type VisibleWorkspace = {
 
 const OWNER = new Map<string, WorkspaceDef>(WORKSPACES.flatMap((w) => w.modules.map((m) => [m, w] as const)));
 
+/** The longest a rail label may be before the generic word is used instead (the rail is 88px wide). */
+const RAIL_LABEL_MAX = 14;
+
+type LabelKind = Pick<KindProfile, "terms" | "modules">;
+
+/**
+ * The rail's word for a workspace in this organization's kind. Giving, Learning and Store carry the kind's own words (the pay tab's
+ * word, the school's name, the store's name) when it has them and they fit; every other label, and any workspace for a caller that
+ * does not know the kind, is the generic one.
+ */
+export function workspaceLabel(key: WorkspaceKey, kind?: LabelKind): string {
+  const generic = WORKSPACES.find((w) => w.key === key)?.label ?? "";
+  if (!kind) return generic;
+  let own = "";
+  if (key === "giving") {
+    // The member app's tab says "Give"; the staff area of giving is "Giving". Any other word is the kind's own ("Pay").
+    const word = kindTerm(kind, "give_tab", "");
+    own = word.toLowerCase() === "give" ? "" : word;
+  } else if (key === "learning") {
+    own = schoolWord(kind) ?? "";
+  } else if (key === "store") {
+    own = kindName(kind, "store", "");
+  }
+  return own !== "" && own.length <= RAIL_LABEL_MAX ? own : generic;
+}
+
 /** The workspace a NAV module belongs to. */
 export function workspaceOfModule(moduleKey: string): WorkspaceKey | undefined {
   return OWNER.get(moduleKey)?.key;
 }
 
 /** The workspaces over a list of modules the person can already open (from visibleNav). A workspace with none of its modules is left out. */
-export function workspacesFor(modules: readonly VisibleModule[]): VisibleWorkspace[] {
+export function workspacesFor(modules: readonly VisibleModule[], kind?: LabelKind): VisibleWorkspace[] {
   return WORKSPACES.flatMap((w) => {
     const mine = w.modules.flatMap((key) => modules.filter((m) => m.key === key));
     if (mine.length === 0) return [];
     return [
       {
         key: w.key,
-        label: w.label,
+        label: workspaceLabel(w.key, kind),
         href: mine[0].href,
         icon: w.icon,
         placement: w.placement,
@@ -115,7 +143,7 @@ export function workspacesFor(modules: readonly VisibleModule[]): VisibleWorkspa
 
 /** The workspaces this person can open: the same gating as the classic sidebar. */
 export function visibleWorkspaces(ctx: ScopedContext): VisibleWorkspace[] {
-  return workspacesFor(visibleNav(ctx));
+  return workspacesFor(visibleNav(ctx), ctx.kind);
 }
 
 /** The workspace a URL belongs to (the longest matching page or prefix wins, as for modules). */

@@ -34,6 +34,7 @@ import { explainError } from "@/lib/errors";
 
 import { ID, learningWorld, traceDb } from "./commands/learning-world";
 import { fakeDb, fakeSession, type FakeDbOptions } from "./commands/helpers";
+import { JAIN } from "./fixtures/kinds";
 
 function fd(fields: Record<string, string | string[]>): FormData {
   const f = new FormData();
@@ -48,7 +49,8 @@ function as(permissions: string[], opts: { world?: FakeDbOptions & { tables: Rec
   const world = opts.world ?? learningWorld();
   const db = fakeDb(world);
   const seen = traceDb(db, opts.trace);
-  held.session = fakeSession({ db, permissions, userId: ID.user });
+  // The community these tests were written for calls its school Pathshala.
+  held.session = fakeSession({ db, permissions, userId: ID.user, kind: JAIN });
   return { world, db, seen };
 }
 

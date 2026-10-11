@@ -5,7 +5,7 @@ import { createContext, useContext } from "react";
 import type { ChatState } from "@/lib/assistant/chat-state";
 import type { NavEntry } from "@/lib/assistant/palette";
 import type { RouteContext } from "@/lib/assistant/context";
-import type { CommandInfo, ProposalCard } from "@/lib/assistant/protocol";
+import type { CommandInfo, CommunityHints, ProposalCard } from "@/lib/assistant/protocol";
 
 /** What every part of Niva's interface shares. Everything here is inert (and `enabled` is false) until the server says Niva is on. */
 export type NivaApi = {
@@ -16,6 +16,8 @@ export type NivaApi = {
   commands: CommandInfo[];
   nav: NavEntry[];
   usage?: { used: number; limit: number | null; month: string };
+  /** How this community writes money and which payment ways it has: what the suggestions are worded from. */
+  community?: CommunityHints;
   /** Where the person is, as it is sent with a question. */
   context: RouteContext;
 

@@ -184,6 +184,7 @@ export function NivaProvider({ nav, children }: { nav: NavEntry[]; children: Rea
       commands: commands.status === "on" ? commands.data.commands : [],
       nav,
       usage: commands.status === "on" ? commands.data.usage : undefined,
+      community: commands.status === "on" ? commands.data.community : undefined,
       context,
       dockOpen,
       paletteOpen,

@@ -6,7 +6,10 @@ vi.mock("@/lib/data/home-tasks", () => ({ loadHomeTasks: vi.fn() }));
 
 import { LEARNING_COMMANDS } from "@/lib/commands/catalog/learning";
 import { confirmProposal, runCommand } from "@/lib/commands/run";
+import { describe as describeText } from "@/lib/commands/text";
 import type { CommandRunResult } from "@/lib/commands/types";
+
+import { JAIN } from "../fixtures/kinds";
 
 import { ID, NIVA_MAY_CHANGE_LEARNING, asPrincipal, learningWorld, traceDb } from "./learning-world";
 
@@ -60,15 +63,16 @@ describe("the Learning commands", () => {
 
   it("have a plain title and a description written for a model, and never the word bid", () => {
     for (const c of LEARNING_COMMANDS) {
+      const text = describeText(c.description, JAIN);
       expect(c.title.length, c.key).toBeGreaterThan(8);
-      expect(c.description.length, c.key).toBeGreaterThan(120);
-      expect(`${c.title} ${c.description}`, c.key).not.toMatch(/\bbid\b/i);
+      expect(text.length, c.key).toBeGreaterThan(120);
+      expect(`${c.title} ${text}`, c.key).not.toMatch(/\bbid\b/i);
     }
   });
 
   it("say in their own description that they never touch a learner", () => {
     for (const c of LEARNING_COMMANDS) {
-      if (c.level === "read" || c.level === "draft") expect(c.description, c.key).toMatch(/never|only|nothing/i);
+      if (c.level === "read" || c.level === "draft") expect(describeText(c.description, JAIN), c.key).toMatch(/never|only|nothing/i);
     }
   });
 });

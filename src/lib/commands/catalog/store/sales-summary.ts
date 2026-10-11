@@ -21,7 +21,7 @@ export const salesSummary = defineCommand<Infer<typeof input>, SalesData>({
   key: "store.sales_summary",
   title: "See the store sales for a period",
   description:
-    "What the store sold between two days (the community's own days): the number of orders and units, the subtotal, gift packing, sales tax and total in dollars (the cents are in the *_cents fields), " +
+    "What the store sold between two days (the community's own days): the number of orders and units, the subtotal, gift packing, sales tax and total in the community's currency (the cents are in the *_cents fields), " +
     "the orders by status, and the five items that sold most. Added up in the database. Cancelled and refunded orders are not sales; they are counted apart. " +
     "Leave the days out for this month so far. Read only: it refunds nothing and changes no order.",
   level: "read",

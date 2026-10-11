@@ -49,7 +49,7 @@ export const bankLinesUnmatched = defineCommand<Infer<typeof input>, UnmatchedBa
   title: "Show bank lines nobody has matched",
   description:
     "The bank lines still waiting to be matched to a household or to recorded checks: single gifts (for example Zelle and ACH) and batch deposits of checks or cash, " +
-    "with how many there are, their total in dollars, how long the oldest has waited, and the oldest ones with the payer, the bank's wording and the amount. " +
+    "with how many there are, their total in the community's currency, how long the oldest has waited, and the oldest ones with the payer, the bank's wording and the amount. " +
     "Money-out lines and card payouts are counted. Read only: it does not match anything. Matching is done on Giving > Payments > Bank.",
   level: "read",
   permission: "bank",

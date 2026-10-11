@@ -18,6 +18,7 @@ import { STORE_COMMANDS } from "@/lib/commands/catalog/store";
 import { pickSaved } from "@/lib/commands/catalog/messages-draft-reminder";
 import { draftReminder, fillTemplate, whenText } from "@/lib/commands/catalog/reminder-text";
 import { CommandRegistry } from "@/lib/commands/registry";
+import { describe as describeText } from "@/lib/commands/text";
 import { confirmProposal, runCommand } from "@/lib/commands/run";
 import type { CommandRunResult, CommandVia } from "@/lib/commands/types";
 import { loadHomeTasks } from "@/lib/data/home-tasks";
@@ -130,8 +131,9 @@ describe("the first commands", () => {
   it("are described for a model", () => {
     for (const c of CATALOG) {
       expect(c.title.length).toBeGreaterThan(8);
-      expect(c.description.length).toBeGreaterThan(80);
-      expect(c.description).not.toMatch(/\bbid\b/i);
+      const text = describeText(c.description);
+      expect(text.length).toBeGreaterThan(80);
+      expect(text).not.toMatch(/\bbid\b/i);
     }
   });
 

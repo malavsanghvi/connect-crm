@@ -3,6 +3,8 @@
 // its own: everything is given in, so every rule here is tested on its own (tests/commands/content-pure.test.ts).
 
 import { contentKindLabel } from "@/lib/content";
+import type { KindProfile } from "@/lib/kind";
+import { MEDIA_KIND_KEYS, mediaKindLabel } from "@/lib/kind-samples";
 import { displayUrl, groupQueueItems, type QueueSourceRow } from "@/lib/niva-queue";
 
 import { asObj, bool, int, rows, str, type Obj } from "../giving-json";
@@ -202,23 +204,26 @@ export function buildNivaSources(j: Obj, opts: { now: Date }): NivaSourcesData {
   };
 }
 
-export const MEDIA_KIND_ORDER = ["stavan", "video", "podcast", "recipe"] as const;
-
 export type MediaLibraryData = {
   total: number;
   kinds: { kind: string; label: string; published: number; waiting_for_approval: number; drafts: number; retired: number; total: number }[];
   notes: string[];
 };
 
-export function buildMediaLibrary(j: Obj): MediaLibraryData {
+/**
+ * The media library by kind. The database keeps one key per kind of item; the label follows the community's kind (the devotional
+ * song library is "Stavan" for a kind that keeps a tradition and "Song" for every other kind: src/lib/kind-samples.ts).
+ */
+export function buildMediaLibrary(j: Obj, kindOfCommunity?: Pick<KindProfile, "terms" | "modules" | "usesTradition">): MediaLibraryData {
   const media = asObj(j.media);
-  const kinds = MEDIA_KIND_ORDER.map((kind) => {
+  const words = kindOfCommunity ?? { terms: {}, modules: {}, usesTradition: false };
+  const kinds = MEDIA_KIND_KEYS.map((kind) => {
     const s = asObj(media[kind]);
     const published = int(s.published) + int(s.approved);
     const waiting = int(s.in_review);
     const drafts = int(s.draft);
     const retired = int(s.retired);
-    return { kind, label: contentKindLabel(kind), published, waiting_for_approval: waiting, drafts, retired, total: published + waiting + drafts + retired };
+    return { kind, label: mediaKindLabel(words, kind), published, waiting_for_approval: waiting, drafts, retired, total: published + waiting + drafts + retired };
   });
   const total = kinds.reduce((s, k) => s + k.total, 0);
   const notes: string[] = ["Uploading, listening and editing stay on Content > Media library."];

@@ -1,4 +1,5 @@
 import { isPermissionError } from "@/lib/access-db";
+import { schoolOrGeneric } from "@/lib/kind-samples";
 
 import { defineCommand } from "../../define";
 import { f, object, type Infer } from "../../schema";
@@ -6,7 +7,7 @@ import { CommandDbError, CommandError } from "../../types";
 import { must, rpcJson } from "../db";
 import { asObj, int, isObj, rows, str } from "../giving-json";
 
-import { NO_ACCESS_HERE, NO_TERM, money, type Term } from "./setup";
+import { NO_ACCESS_HERE, NO_TERM, money, school, type Term } from "./setup";
 
 const input = object({
   term_id: f.optional(f.uuid("One term (its id, from learning.term_setup). Leave it out for the term that is running, else the one open for registration.")),
@@ -40,13 +41,17 @@ function chooseTerm(terms: Term[], asked: string | undefined): Term | null {
   return terms.find((t) => t.status === "active") ?? terms.find((t) => t.status === "registration") ?? null;
 }
 
-/** The fee totals of a term: sums in dollars, in all and by level. Never who paid or owes. */
+/** The fee totals of a term: sums in the community's currency, in all and by level. Never who paid or owes. */
 export const feeReport = defineCommand<Infer<typeof input>, FeeReportData>({
   key: "learning.fee_report",
-  title: "Look at the Pathshala fee totals",
-  description:
-    "Give the Pathshala fee totals for a term, in dollars: what the fees add up to, what has been collected, what is billed but not paid yet, what is not billed yet, and the discounts, late fees and fee assistance, in all and level by level. " +
-    "It is SUMS only. It never says which family or which learner paid or owes anything; a level with fewer than three fee lines is added to 'other levels' so a total never stands for one or two learners. Needs access to Pathshala fees or to Giving. It changes nothing.",
+  title: "Look at the school fee totals",
+  description: (kind) => {
+    const schoolName = schoolOrGeneric(kind);
+    return (
+      `Give the ${schoolName} fee totals for a term, in the community's currency: what the fees add up to, what has been collected, what is billed but not paid yet, what is not billed yet, and the discounts, late fees and fee assistance, in all and level by level. ` +
+      `It is SUMS only. It never says which family or which learner paid or owes anything; a level with fewer than three fee lines is added to 'other levels' so a total never stands for one or two learners. Needs access to ${schoolName} fees or to Giving. It changes nothing.`
+    );
+  },
   level: "read",
   permission: "pathshalaFees",
   module: "pathshala",
@@ -57,12 +62,12 @@ export const feeReport = defineCommand<Infer<typeof input>, FeeReportData>({
     const term = chooseTerm(terms, inp.term_id);
     if (!term) {
       if (inp.term_id) throw new CommandError(NO_TERM);
-      throw new CommandError("No Pathshala term is running or open for registration. Give term_id (from learning.term_setup) to look at another one.");
+      throw new CommandError(`No ${school(ctx)} term is running or open for registration. Give term_id (from learning.term_setup) to look at another one.`);
     }
 
     let raw: unknown;
     try {
-      raw = await rpcJson(db, "pathshala_fee_totals", { p_term: term.id }, "add up the Pathshala fees");
+      raw = await rpcJson(db, "pathshala_fee_totals", { p_term: term.id }, `add up the ${school(ctx)} fees`);
     } catch (error) {
       if (error instanceof CommandDbError && isPermissionError(error.dbError)) throw new CommandError(NO_ACCESS_HERE);
       throw error;

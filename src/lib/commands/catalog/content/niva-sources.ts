@@ -1,3 +1,5 @@
+import { mediaKindsPhrase } from "@/lib/kind-samples";
+
 import { defineCommand } from "../../define";
 import { f, object, type Infer } from "../../schema";
 import type { CommandContext } from "../../types";
@@ -45,12 +47,12 @@ export const nivaSources = defineCommand<Infer<typeof input>, NivaSourcesData>({
 
 const mediaInput = object({});
 
-/** The media library (stavans, videos, podcasts, recipes) by kind and state. Counts only. */
+/** The media library (songs, videos, podcasts, recipes) by kind and state. Counts only. */
 export const mediaLibrary = defineCommand<Infer<typeof mediaInput>, MediaLibraryData>({
   key: "content.media_library",
   title: "See the media library",
-  description:
-    "How many stavans, videos, podcasts and recipes are in the media library, and how many of each are published, waiting for approval, drafts or retired. Counts only: " +
+  description: (kind) =>
+    `How many ${mediaKindsPhrase(kind, 4)} are in the media library, and how many of each are published, waiting for approval, drafts or retired. Counts only: ` +
     "no titles, files or text. Uploading and editing stay on the Media library screen. Read only.",
   level: "read",
   permission: "content",
@@ -58,7 +60,7 @@ export const mediaLibrary = defineCommand<Infer<typeof mediaInput>, MediaLibrary
   input: mediaInput,
   async execute(ctx) {
     const j = await librarySummary(ctx, 180, "The media library");
-    const data = buildMediaLibrary(j);
+    const data = buildMediaLibrary(j, ctx.session.kind);
     return { ok: true, data, message: data.total === 0 ? "The media library is empty." : `${data.total} items in the media library.` };
   },
 });
