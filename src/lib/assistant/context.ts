@@ -146,7 +146,15 @@ export type Suggestion = {
 
 const SUGGESTIONS: Record<SuggestionArea, Suggestion[]> = {
   people: [
+    // On a household or a person: about that one (a sentence never names a child).
+    { text: "Show everything we have on this household, including its IDs", needs: "people.household_summary", onlyFor: "household" },
+    { text: "Add a spouse to this household", needs: "people.add_person", onlyFor: "household" },
+    { text: "Change this person's mobile number", needs: "people.update_person", onlyFor: "person" },
+    // On the list: look things up and see what is waiting.
     { text: "Find the household with member number 1042", needs: "people.search" },
+    { text: "Which applications and family requests are waiting?", needs: "people.pending_reviews" },
+    { text: "Find the household with QuickBooks customer 2217", needs: "people.find_household" },
+    { text: "Show me the suggested duplicates", needs: "people.suggest_duplicates" },
     { text: "Find the family whose phone number ends in 4821", needs: "people.search" },
     { text: "What is waiting for me?", needs: "tasks.mine" },
   ],

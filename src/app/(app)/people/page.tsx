@@ -3,6 +3,7 @@ import Link from "next/link";
 
 import { Card, ChipLinks, EmptyState, NoAccess, PageHeader, Pagination, QueryError, TableWrap, buttonClass } from "@/components/ui";
 import { CustomColumnPicker } from "@/components/custom-column-picker";
+import { AskNiva } from "@/components/niva/ask-niva";
 import { identifierRules } from "@/lib/center-rules";
 import { formatCustomValue } from "@/lib/custom-fields";
 import { loadCustomColumn, loadCustomFieldDefs } from "@/lib/data/custom-fields";
@@ -54,6 +55,7 @@ export default async function PeopleListPage({ searchParams }: { searchParams: P
             ? `${totals.people.toLocaleString("en-US")} people across ${totals.households.toLocaleString("en-US")} households · open anyone to view or edit`
             : "Open anyone to view or edit"
         }
+        actions={<AskNiva prompt="What needs attention in People: applications, family requests and suggested duplicates?" />}
       />
       <Card className="mb-4">
         <form method="get" action={base}>
