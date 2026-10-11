@@ -1,8 +1,6 @@
 // What the two merge previews (migration 0650: app.merge_people_preview, app.merge_households_preview) answer, read defensively and
 // put into sentences. Pure except for the call itself.
 
-import { untypedRpc } from "@/lib/payments/rpc";
-
 import { CommandDbError, type CommandContext, type PreviewLine } from "../../types";
 
 export type MergePreviewData = { canMerge: boolean; blockers: string[]; moves: Record<string, number> };
@@ -23,12 +21,21 @@ export function parseMergePreview(data: unknown): MergePreviewData | null {
   return { canMerge: o.can_merge, blockers, moves };
 }
 
-export async function callMergePreview(ctx: CommandContext, fn: "merge_people_preview" | "merge_households_preview", args: Record<string, unknown>): Promise<MergePreviewData> {
-  const res = await untypedRpc(ctx.session.db)(fn, args);
+function read(res: { data: unknown; error: unknown }, fn: string): MergePreviewData {
   if (res.error) throw new CommandDbError(res.error, "check what the merge would do");
   const parsed = parseMergePreview(res.data);
   if (!parsed) throw new CommandDbError(new Error(`${fn} answered in an unexpected shape`), "check what the merge would do");
   return parsed;
+}
+
+/** What merging these two records would do, and why the database would refuse it (app.merge_people_preview, 0650). */
+export async function previewMergePeople(ctx: CommandContext, keep: string, drop: string, take: string[]): Promise<MergePreviewData> {
+  return read(await ctx.session.db.rpc("merge_people_preview", { p_keep: keep, p_drop: drop, p_take: take }), "merge_people_preview");
+}
+
+/** What merging these two households would do, and why the database would refuse it (app.merge_households_preview, 0650). */
+export async function previewMergeHouseholds(ctx: CommandContext, keep: string, drop: string): Promise<MergePreviewData> {
+  return read(await ctx.session.db.rpc("merge_households_preview", { p_keep: keep, p_drop: drop }), "merge_households_preview");
 }
 
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;

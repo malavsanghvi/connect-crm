@@ -6,7 +6,7 @@ import { f, object, type Infer } from "../../schema";
 import { CommandDbError, CommandError, type CommandContext, type CommandPreview, type PreviewLine } from "../../types";
 import { must } from "../db";
 
-import { callMergePreview, peopleMoveLines } from "./merge-preview";
+import { peopleMoveLines, previewMergePeople } from "./merge-preview";
 import { cardsFor, loadPersonBrief, refuseChildForAssistant } from "./shared";
 
 /** The profile fields a merge may copy from the duplicate (the same list as the database function). */
@@ -62,7 +62,7 @@ export const mergePeople = defineCommand<MergePeopleInput, undefined>({
   async preview(ctx, inp): Promise<CommandPreview> {
     const p = plan(inp);
     const { k, d } = await checkBoth(ctx, p.keep, p.drop);
-    const pv = await callMergePreview(ctx, "merge_people_preview", { p_keep: p.keep, p_drop: p.drop, p_take: p.take });
+    const pv = await previewMergePeople(ctx, p.keep, p.drop, p.take);
     if (!pv.canMerge) throw new CommandError(`Could not merge the two records — ${pv.blockers[0] ?? "the database would refuse it"}.`);
     const cols = Object.keys(TAKE_FIELDS).join(", ");
     const rows = must(await ctx.session.db.from("people").select(`id, ${cols}`).in("id", [p.keep, p.drop]), "read the two records") as unknown as Record<string, unknown>[] | null;

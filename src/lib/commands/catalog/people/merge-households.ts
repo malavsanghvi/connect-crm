@@ -5,7 +5,7 @@ import { revalidateAfterCommand } from "../../revalidate";
 import { f, object, type Infer } from "../../schema";
 import { CommandDbError, CommandError, type CommandContext, type CommandPreview } from "../../types";
 
-import { callMergePreview, householdMoveLines } from "./merge-preview";
+import { householdMoveLines, previewMergeHouseholds } from "./merge-preview";
 import { cardLine, cardsFor } from "./shared";
 
 const input = object({
@@ -43,7 +43,7 @@ export const mergeHouseholds = defineCommand<MergeHouseholdsInput, undefined>({
   async preview(ctx, inp): Promise<CommandPreview> {
     const p = plan(inp);
     const { cards, k, d } = await bothCards(ctx, p.keep, p.drop);
-    const pv = await callMergePreview(ctx, "merge_households_preview", { p_keep: p.keep, p_drop: p.drop });
+    const pv = await previewMergeHouseholds(ctx, p.keep, p.drop);
     if (!pv.canMerge) throw new CommandError(`Could not merge the households — ${pv.blockers[0] ?? "the database would refuse it"}.`);
     return {
       summary: `Merge the duplicate household (${cardLine(d)}) into the household to keep (${cardLine(k)}).`,
