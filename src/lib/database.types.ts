@@ -2435,6 +2435,30 @@ export type Database = {
         };
         Relationships: [];
       };
+      demo_auth_users: {
+        Row: {
+          email: string;
+          user_id: string;
+          vault_secret_id: string;
+          created_at: string;
+          rotated_at: string | null;
+        };
+        Insert: {
+          email: string;
+          user_id: string;
+          vault_secret_id: string;
+          created_at?: string;
+          rotated_at?: string | null;
+        };
+        Update: {
+          email?: string;
+          user_id?: string;
+          vault_secret_id?: string;
+          created_at?: string;
+          rotated_at?: string | null;
+        };
+        Relationships: [];
+      };
       demo_packs: {
         Row: {
           key: string;
@@ -2513,6 +2537,45 @@ export type Database = {
           scope_id?: string | null;
           sort_order?: number;
           created_at?: string;
+        };
+        Relationships: [];
+      };
+      demo_sessions: {
+        Row: {
+          id: string;
+          persona_email: string;
+          user_id: string;
+          role_key: string;
+          ip_hash: string;
+          started_at: string;
+          expires_at: string;
+          auth_session_id: string | null;
+          ended_at: string | null;
+          ended_reason: string | null;
+        };
+        Insert: {
+          id?: string;
+          persona_email: string;
+          user_id: string;
+          role_key: string;
+          ip_hash: string;
+          started_at?: string;
+          expires_at: string;
+          auth_session_id?: string | null;
+          ended_at?: string | null;
+          ended_reason?: string | null;
+        };
+        Update: {
+          id?: string;
+          persona_email?: string;
+          user_id?: string;
+          role_key?: string;
+          ip_hash?: string;
+          started_at?: string;
+          expires_at?: string;
+          auth_session_id?: string | null;
+          ended_at?: string | null;
+          ended_reason?: string | null;
         };
         Relationships: [];
       };
@@ -3791,6 +3854,87 @@ export type Database = {
         };
         Relationships: [];
       };
+      import_clusters: {
+        Row: {
+          run_id: string;
+          center_id: string;
+          kind: string;
+          id: string;
+          record_ids: string[];
+          existing: string[];
+          batch: string | null;
+        };
+        Insert: {
+          run_id: string;
+          center_id: string;
+          kind: string;
+          id: string;
+          record_ids: string[];
+          existing?: string[];
+          batch?: string | null;
+        };
+        Update: {
+          run_id?: string;
+          center_id?: string;
+          kind?: string;
+          id?: string;
+          record_ids?: string[];
+          existing?: string[];
+          batch?: string | null;
+        };
+        Relationships: [];
+      };
+      import_decision_rules: {
+        Row: {
+          id: string;
+          center_id: string;
+          signature: string;
+          scope: string;
+          conditions: Json;
+          answer: string;
+          decided_by: string | null;
+          decided_at: string;
+          from_group: string | null;
+          from_run: string | null;
+          uses: number;
+          last_used_at: string | null;
+          revoked_at: string | null;
+          revoked_by: string | null;
+        };
+        Insert: {
+          id: string;
+          center_id: string;
+          signature: string;
+          scope: string;
+          conditions: Json;
+          answer: string;
+          decided_by?: string | null;
+          decided_at?: string;
+          from_group?: string | null;
+          from_run?: string | null;
+          uses?: number;
+          last_used_at?: string | null;
+          revoked_at?: string | null;
+          revoked_by?: string | null;
+        };
+        Update: {
+          id?: string;
+          center_id?: string;
+          signature?: string;
+          scope?: string;
+          conditions?: Json;
+          answer?: string;
+          decided_by?: string | null;
+          decided_at?: string;
+          from_group?: string | null;
+          from_run?: string | null;
+          uses?: number;
+          last_used_at?: string | null;
+          revoked_at?: string | null;
+          revoked_by?: string | null;
+        };
+        Relationships: [];
+      };
       import_entities: {
         Row: {
           key: string;
@@ -3833,6 +3977,159 @@ export type Database = {
           natural_key?: string[];
           money_columns?: string[];
           has_center?: boolean;
+        };
+        Relationships: [];
+      };
+      import_exception_items: {
+        Row: {
+          id: string;
+          center_id: string;
+          run_id: string;
+          key: string;
+          signature: string;
+          kind: string;
+          tier: string;
+          subject: string;
+          record_ids: string[];
+          fingerprints: string[];
+          evidence_kinds: string[];
+          conflict_kinds: string[];
+          shared: Json;
+          money_cents: number;
+          members: number;
+          contacts: number;
+          batch: string | null;
+          answer: string | null;
+          answer_source: string | null;
+          answered_by: string | null;
+          answered_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          center_id: string;
+          run_id: string;
+          key: string;
+          signature: string;
+          kind: string;
+          tier: string;
+          subject: string;
+          record_ids: string[];
+          fingerprints: string[];
+          evidence_kinds?: string[];
+          conflict_kinds?: string[];
+          shared?: Json;
+          money_cents?: number;
+          members?: number;
+          contacts?: number;
+          batch?: string | null;
+          answer?: string | null;
+          answer_source?: string | null;
+          answered_by?: string | null;
+          answered_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          center_id?: string;
+          run_id?: string;
+          key?: string;
+          signature?: string;
+          kind?: string;
+          tier?: string;
+          subject?: string;
+          record_ids?: string[];
+          fingerprints?: string[];
+          evidence_kinds?: string[];
+          conflict_kinds?: string[];
+          shared?: Json;
+          money_cents?: number;
+          members?: number;
+          contacts?: number;
+          batch?: string | null;
+          answer?: string | null;
+          answer_source?: string | null;
+          answered_by?: string | null;
+          answered_at?: string | null;
+        };
+        Relationships: [];
+      };
+      import_exceptions: {
+        Row: {
+          id: string;
+          center_id: string;
+          run_id: string;
+          signature: string;
+          tier: string;
+          batch: string | null;
+          question: Json;
+          recommended: string;
+          subject_count: number;
+          item_count: number;
+          money_cents: number;
+          members: number;
+          contacts: number;
+          rank_no: number;
+          route_suggested: string | null;
+          status: string;
+          answer: string | null;
+          apply_to_rest: boolean;
+          answered_by: string | null;
+          answered_at: string | null;
+          routed_to: string | null;
+          status_by: string | null;
+          status_at: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          center_id: string;
+          run_id: string;
+          signature: string;
+          tier: string;
+          batch?: string | null;
+          question: Json;
+          recommended: string;
+          subject_count?: number;
+          item_count?: number;
+          money_cents?: number;
+          members?: number;
+          contacts?: number;
+          rank_no: number;
+          route_suggested?: string | null;
+          status?: string;
+          answer?: string | null;
+          apply_to_rest?: boolean;
+          answered_by?: string | null;
+          answered_at?: string | null;
+          routed_to?: string | null;
+          status_by?: string | null;
+          status_at?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          center_id?: string;
+          run_id?: string;
+          signature?: string;
+          tier?: string;
+          batch?: string | null;
+          question?: Json;
+          recommended?: string;
+          subject_count?: number;
+          item_count?: number;
+          money_cents?: number;
+          members?: number;
+          contacts?: number;
+          rank_no?: number;
+          route_suggested?: string | null;
+          status?: string;
+          answer?: string | null;
+          apply_to_rest?: boolean;
+          answered_by?: string | null;
+          answered_at?: string | null;
+          routed_to?: string | null;
+          status_by?: string | null;
+          status_at?: string | null;
+          created_at?: string;
         };
         Relationships: [];
       };
@@ -3896,6 +4193,78 @@ export type Database = {
         };
         Relationships: [];
       };
+      import_record_links: {
+        Row: {
+          run_id: string;
+          center_id: string;
+          a: string;
+          b: string;
+          relation: string;
+          strength: string;
+          score: number;
+          independent: number;
+          evidence: Json;
+          conflicts: Json;
+          name_level: string | null;
+          name_only: boolean;
+          via_keys: string[];
+          money: Json | null;
+          tier: string;
+          tier_reasons: string[];
+          hold: string | null;
+          signature: string | null;
+          affected: string[];
+          implied: boolean;
+          batch: string | null;
+        };
+        Insert: {
+          run_id: string;
+          center_id: string;
+          a: string;
+          b: string;
+          relation: string;
+          strength: string;
+          score: number;
+          independent: number;
+          evidence?: Json;
+          conflicts?: Json;
+          name_level?: string | null;
+          name_only?: boolean;
+          via_keys?: string[];
+          money?: Json | null;
+          tier: string;
+          tier_reasons?: string[];
+          hold?: string | null;
+          signature?: string | null;
+          affected?: string[];
+          implied?: boolean;
+          batch?: string | null;
+        };
+        Update: {
+          run_id?: string;
+          center_id?: string;
+          a?: string;
+          b?: string;
+          relation?: string;
+          strength?: string;
+          score?: number;
+          independent?: number;
+          evidence?: Json;
+          conflicts?: Json;
+          name_level?: string | null;
+          name_only?: boolean;
+          via_keys?: string[];
+          money?: Json | null;
+          tier?: string;
+          tier_reasons?: string[];
+          hold?: string | null;
+          signature?: string | null;
+          affected?: string[];
+          implied?: boolean;
+          batch?: string | null;
+        };
+        Relationships: [];
+      };
       import_rows: {
         Row: {
           id: number;
@@ -3950,6 +4319,51 @@ export type Database = {
           status?: string;
           target_id?: string | null;
           message?: string | null;
+        };
+        Relationships: [];
+      };
+      import_run_metrics: {
+        Row: {
+          run_id: string;
+          center_id: string;
+          status: string;
+          batch: string | null;
+          engine_version: string | null;
+          config: Json | null;
+          metrics: Json | null;
+          record_count: number;
+          started_by: string | null;
+          started_at: string | null;
+          stored_at: string | null;
+          created_at: string;
+        };
+        Insert: {
+          run_id: string;
+          center_id: string;
+          status?: string;
+          batch?: string | null;
+          engine_version?: string | null;
+          config?: Json | null;
+          metrics?: Json | null;
+          record_count?: number;
+          started_by?: string | null;
+          started_at?: string | null;
+          stored_at?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          run_id?: string;
+          center_id?: string;
+          status?: string;
+          batch?: string | null;
+          engine_version?: string | null;
+          config?: Json | null;
+          metrics?: Json | null;
+          record_count?: number;
+          started_by?: string | null;
+          started_at?: string | null;
+          stored_at?: string | null;
+          created_at?: string;
         };
         Relationships: [];
       };
@@ -4061,6 +4475,117 @@ export type Database = {
           ai_job_id?: number | null;
           created_at?: string;
           raw_purged_at?: string | null;
+        };
+        Relationships: [];
+      };
+      import_signatures: {
+        Row: {
+          signature: string;
+          tier: string;
+          answers: string[];
+          rememberable: boolean;
+          default_scope: string;
+          route_to: string | null;
+          money: boolean;
+          same_for_rest: boolean;
+          scopes: string[];
+          item_kind: string;
+        };
+        Insert: {
+          signature: string;
+          tier: string;
+          answers: string[];
+          rememberable: boolean;
+          default_scope: string;
+          route_to?: string | null;
+          money: boolean;
+          same_for_rest: boolean;
+          scopes?: string[];
+          item_kind: string;
+        };
+        Update: {
+          signature?: string;
+          tier?: string;
+          answers?: string[];
+          rememberable?: boolean;
+          default_scope?: string;
+          route_to?: string | null;
+          money?: boolean;
+          same_for_rest?: boolean;
+          scopes?: string[];
+          item_kind?: string;
+        };
+        Relationships: [];
+      };
+      import_staged_records: {
+        Row: {
+          run_id: string;
+          center_id: string;
+          id: string;
+          source: string;
+          source_kind: string;
+          row_no: number;
+          order_no: number;
+          kind: string;
+          read_confidence: number | null;
+          raw: Json | null;
+          normalized: Json | null;
+          fingerprint: string | null;
+          minor: boolean;
+          minor_reasons: string[];
+          type_uncertain: boolean;
+          problems: string[];
+          status: string | null;
+          how: string | null;
+          tier: string | null;
+          cluster_id: string | null;
+          duplicate_of: string | null;
+        };
+        Insert: {
+          run_id: string;
+          center_id: string;
+          id: string;
+          source: string;
+          source_kind: string;
+          row_no: number;
+          order_no: number;
+          kind: string;
+          read_confidence?: number | null;
+          raw?: Json | null;
+          normalized?: Json | null;
+          fingerprint?: string | null;
+          minor?: boolean;
+          minor_reasons?: string[];
+          type_uncertain?: boolean;
+          problems?: string[];
+          status?: string | null;
+          how?: string | null;
+          tier?: string | null;
+          cluster_id?: string | null;
+          duplicate_of?: string | null;
+        };
+        Update: {
+          run_id?: string;
+          center_id?: string;
+          id?: string;
+          source?: string;
+          source_kind?: string;
+          row_no?: number;
+          order_no?: number;
+          kind?: string;
+          read_confidence?: number | null;
+          raw?: Json | null;
+          normalized?: Json | null;
+          fingerprint?: string | null;
+          minor?: boolean;
+          minor_reasons?: string[];
+          type_uncertain?: boolean;
+          problems?: string[];
+          status?: string | null;
+          how?: string | null;
+          tier?: string | null;
+          cluster_id?: string | null;
+          duplicate_of?: string | null;
         };
         Relationships: [];
       };
@@ -11771,6 +12296,10 @@ export type Database = {
         };
         Returns: string;
       };
+      demo_choices: {
+        Args: Record<PropertyKey, never>;
+        Returns: Json;
+      };
       demo_confirm_word: {
         Args: {
           p_center: string;
@@ -11798,10 +12327,29 @@ export type Database = {
         Args: Record<PropertyKey, never>;
         Returns: string[];
       };
+      demo_leave: {
+        Args: Record<PropertyKey, never>;
+        Returns: Json;
+      };
       demo_pack_steps: {
         Args: {
           p_pack: string;
         };
+        Returns: Json;
+      };
+      demo_session_state: {
+        Args: Record<PropertyKey, never>;
+        Returns: Json;
+      };
+      demo_signin_setup: {
+        Args: {
+          p_reason: string;
+          p_rotate?: boolean;
+        };
+        Returns: Json;
+      };
+      demo_signin_status: {
+        Args: Record<PropertyKey, never>;
         Returns: Json;
       };
       directory_listing: {
@@ -13086,6 +13634,12 @@ export type Database = {
         };
         Returns: string;
       };
+      pathshala_fee_totals: {
+        Args: {
+          p_term: string;
+        };
+        Returns: Json;
+      };
       pathshala_i_am_adult: {
         Args: {
           p_center: string;
@@ -13995,12 +14549,99 @@ export type Database = {
         };
         Returns: number;
       };
+      resolve_answer: {
+        Args: {
+          p_group: string;
+          p_answer: string;
+          p_item?: string;
+          p_apply_rest?: boolean;
+          p_remember?: boolean;
+          p_scope?: string;
+          p_expected_others?: number;
+          p_change?: boolean;
+        };
+        Returns: Json;
+      };
+      resolve_begin: {
+        Args: {
+          p_run: string;
+          p_engine_version: string;
+          p_config: Json;
+        };
+        Returns: string;
+      };
+      resolve_card: {
+        Args: {
+          p_raw: Json;
+        };
+        Returns: Json;
+      };
+      resolve_card_limited: {
+        Args: {
+          p_raw: Json;
+        };
+        Returns: Json;
+      };
+      resolve_center_allowed: {
+        Args: {
+          p_center: string;
+        };
+        Returns: boolean;
+      };
+      resolve_finish: {
+        Args: {
+          p_run: string;
+          p_batch: string;
+          p_metrics: Json;
+        };
+        Returns: Json;
+      };
       resolve_identifier: {
         Args: {
           p_center: string;
           p_value: string;
         };
         Returns: { kind: string; system: string; value: string; person_id: string; household_id: string; display_name: string; household_name: string; household_number: string; org_household_id: string; members: string }[];
+      };
+      resolve_inbox: {
+        Args: {
+          p_run: string;
+        };
+        Returns: Json;
+      };
+      resolve_item_detail: {
+        Args: {
+          p_item: string;
+        };
+        Returns: Json;
+      };
+      resolve_list: {
+        Args: {
+          p_j: Json;
+          p_what: string;
+          p_max?: number;
+        };
+        Returns: undefined;
+      };
+      resolve_progress: {
+        Args: {
+          p_run: string;
+          p_config: Json;
+        };
+        Returns: Json;
+      };
+      resolve_reopen: {
+        Args: {
+          p_group: string;
+        };
+        Returns: Json;
+      };
+      resolve_revoke_rule: {
+        Args: {
+          p_center: string;
+          p_rule: string;
+        };
+        Returns: Json;
       };
       resolve_rsvp_credit: {
         Args: {
@@ -14009,11 +14650,103 @@ export type Database = {
         };
         Returns: undefined;
       };
+      resolve_rules: {
+        Args: {
+          p_center: string;
+        };
+        Returns: Json;
+      };
+      resolve_run_metrics: {
+        Args: {
+          p_run: string;
+        };
+        Returns: Json;
+      };
+      resolve_runs: {
+        Args: {
+          p_center: string;
+        };
+        Returns: Json;
+      };
+      resolve_runs_allowed: {
+        Args: Record<PropertyKey, never>;
+        Returns: string[];
+      };
+      resolve_set_group_status: {
+        Args: {
+          p_group: string;
+          p_status: string;
+          p_routed_to?: string;
+        };
+        Returns: undefined;
+      };
+      resolve_stage_records: {
+        Args: {
+          p_run: string;
+          p_records: Json;
+          p_first?: boolean;
+        };
+        Returns: number;
+      };
+      resolve_staged_page: {
+        Args: {
+          p_run: string;
+          p_after?: number;
+          p_limit?: number;
+        };
+        Returns: Json;
+      };
+      resolve_store_clusters: {
+        Args: {
+          p_run: string;
+          p_batch: string;
+          p_clusters: Json;
+        };
+        Returns: number;
+      };
+      resolve_store_groups: {
+        Args: {
+          p_run: string;
+          p_batch: string;
+          p_groups: Json;
+        };
+        Returns: number;
+      };
+      resolve_store_items: {
+        Args: {
+          p_run: string;
+          p_batch: string;
+          p_items: Json;
+        };
+        Returns: number;
+      };
+      resolve_store_pairs: {
+        Args: {
+          p_run: string;
+          p_batch: string;
+          p_pairs: Json;
+        };
+        Returns: number;
+      };
+      resolve_store_records: {
+        Args: {
+          p_run: string;
+          p_batch: string;
+          p_records: Json;
+        };
+        Returns: number;
+      };
       resolve_template: {
         Args: {
           p_center: string;
         };
         Returns: Json;
+      };
+      resolve_texts: {
+        Args: {
+          p_j: Json;
+        };
+        Returns: string[];
       };
       review_gyan_submission: {
         Args: {
@@ -14282,6 +15015,13 @@ export type Database = {
           p_reason: string;
         };
         Returns: undefined;
+      };
+      set_demo_signin: {
+        Args: {
+          p_enabled: boolean;
+          p_reason: string;
+        };
+        Returns: Json;
       };
       set_email_provider: {
         Args: {
