@@ -4,6 +4,7 @@ import { brandingUrl, fromHeader, renderEmail } from "./email";
 import { emailKey, sendEmail, sendTwilio, type EmailProvider, type Req } from "./providers";
 import { workerQuery } from "./server-db";
 import { platformEnv } from "@/lib/platform-setup/server-config";
+import { isDemoEmail } from "@/lib/demo-signin/rules";
 
 // Branded sign-in codes for the Supabase Auth "send email" and "send SMS" hooks.
 // Sign-in must be synchronous, so the code goes straight to the provider here —
@@ -66,6 +67,11 @@ export async function sendSignInEmail(user: HookUser, data: { token?: string; to
   if (data.email_action_type === "email_change" && data.token_new && user.new_email) sends.push({ to: user.new_email, code: data.token_new });
   if (data.token && user.email) sends.push({ to: user.email, code: data.token });
   if (sends.length === 0) return { ok: false, status: 400, message: "The sign-in request had no address or code to send." };
+  // Demo people have no mailbox, and a code for one of them must never be sent (or kept anywhere): they are entered with Try the demo.
+  if (sends.some((s) => isDemoEmail(s.to))) {
+    console.error("[auth-hook] a sign-in code was asked for a demo address; nothing was sent");
+    return { ok: false, status: 400, message: "This is a demo address, so no sign-in code is sent. Use Try the demo on the sign-in page instead." };
+  }
   if (ctx?.email.suppressed) {
     await record(brand?.id ?? null, "email", sends[0]!.to, null, "suppressed", ctx.email.provider, null, "The address bounced or complained earlier", brand?.environment === "sandbox");
     return { ok: false, status: 400, message: "Email to this address bounced earlier, so the code was not sent. Ask your community's office to check it." };

@@ -54,7 +54,7 @@ export function isPublicSiteHost(rawHost: string | null | undefined, domain: str
 }
 
 /** Portal paths that may be linked from the website; a request for one is sent to the portal's address. */
-export const PORTAL_PATH_PREFIXES = ["/login", "/request-access", "/start", "/invite", "/c", "/api"] as const;
+export const PORTAL_PATH_PREFIXES = ["/login", "/request-access", "/start", "/invite", "/c", "/api", "/demo"] as const;
 
 /** Files the website serves itself (robots.txt, sitemap.xml, icons, the social preview image). */
 const SITE_FILES = ["/robots.txt", "/sitemap.xml", "/icon.svg", "/apple-icon.png", "/favicon.ico"] as const;

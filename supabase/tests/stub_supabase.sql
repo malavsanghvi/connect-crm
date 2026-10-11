@@ -39,6 +39,36 @@ grant execute on function auth.uid(), auth.jwt() to anon, authenticated, service
 -- Supabase Auth MFA and sessions (o-security, 0150+): the columns the step-up and
 -- lost-device reset functions read. Hosted Supabase (GoTrue) owns the real tables.
 alter table auth.users add column if not exists phone_confirmed_at timestamptz;
+-- Demo sign-in (B88 part 2, 0678): the Auth columns and tables its functions read and write. GoTrue owns the real ones.
+alter table auth.users add column if not exists instance_id uuid;
+alter table auth.users add column if not exists aud text;
+alter table auth.users add column if not exists role text;
+alter table auth.users add column if not exists encrypted_password text;
+alter table auth.users add column if not exists email_confirmed_at timestamptz;
+alter table auth.users add column if not exists banned_until timestamptz;
+alter table auth.users add column if not exists last_sign_in_at timestamptz;
+alter table auth.users add column if not exists updated_at timestamptz;
+alter table auth.users add column if not exists raw_app_meta_data jsonb;
+alter table auth.users add column if not exists raw_user_meta_data jsonb;
+alter table auth.users add column if not exists confirmation_token text;
+alter table auth.users add column if not exists recovery_token text;
+alter table auth.users add column if not exists email_change_token_new text;
+alter table auth.users add column if not exists email_change text;
+alter table auth.users add column if not exists email_change_token_current text;
+alter table auth.users add column if not exists phone_change text;
+alter table auth.users add column if not exists phone_change_token text;
+alter table auth.users add column if not exists reauthentication_token text;
+create table if not exists auth.identities (
+  id              uuid primary key default gen_random_uuid(),
+  user_id         uuid not null references auth.users(id) on delete cascade,
+  provider_id     text not null,
+  provider        text not null,
+  identity_data   jsonb not null,
+  last_sign_in_at timestamptz,
+  created_at      timestamptz not null default now(),
+  updated_at      timestamptz not null default now(),
+  unique (provider_id, provider)
+);
 do $$ begin
   create type auth.factor_type as enum ('totp', 'webauthn', 'phone');
 exception when duplicate_object then null; end $$;

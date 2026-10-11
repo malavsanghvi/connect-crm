@@ -4,6 +4,7 @@ import { createClient } from "@supabase/supabase-js";
 import { revalidatePath } from "next/cache";
 
 import { PRODUCT_NAME } from "@/lib/brand";
+import { isDemoEmail } from "@/lib/demo-signin/rules";
 import { readPublicEnv } from "@/lib/env";
 import { failure, type ActionResult } from "@/lib/errors";
 import { explainAuthError, normalizePhone, stepUpFresh } from "@/lib/security";
@@ -22,15 +23,21 @@ function authFailure(doing: string, error: AuthLike): { ok: false; error: string
   return /fresh 2FA check/.test(text) ? { ok: false, error: text, stepUp: true } : { ok: false, error: text };
 }
 
+/** A demo person's sign-in is shared by everyone who tries the demo, so its own sign-in settings (phone, authenticator app, other sessions) are not theirs to change. */
+function demoRefusal(doing: string): { ok: false; error: string } {
+  return { ok: false, error: `Could not ${doing} — this is a demo sign-in, shared by everyone trying the demo, so its sign-in settings cannot be changed.` };
+}
+
 async function signedIn(doing: string): Promise<{ ok: true; db: AppSupabase; centerId: string | null } | { ok: false; error: string }> {
   const state = await loadSession();
-  if (state.status === "ok") return { ok: true, db: state.session.db, centerId: state.session.center.id };
+  if (state.status === "ok") return isDemoEmail(state.session.email) ? demoRefusal(doing) : { ok: true, db: state.session.db, centerId: state.session.center.id };
   if (state.status === "signed_out") return { ok: false, error: `Could not ${doing} — your session has expired. Sign in again.` };
   // A signed-in user whose center did not load can still manage their own sign-in.
   try {
     const db = await createSupabaseServerClient();
     const { data, error } = await db.auth.getClaims();
     if (error || !data?.claims?.sub) return { ok: false, error: `Could not ${doing} — your session has expired. Sign in again.` };
+    if (isDemoEmail(data.claims.email)) return demoRefusal(doing);
     return { ok: true, db, centerId: null };
   } catch (error) {
     return failure(`Could not ${doing}`, error);
