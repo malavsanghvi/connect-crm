@@ -6998,6 +6998,7 @@ export type Database = {
           is_historical: boolean;
           crm_external_id: string | null;
           is_opening_balance: boolean;
+          idempotency_key: string | null;
         };
         Insert: {
           id?: string;
@@ -7034,6 +7035,7 @@ export type Database = {
           is_historical?: boolean;
           crm_external_id?: string | null;
           is_opening_balance?: boolean;
+          idempotency_key?: string | null;
         };
         Update: {
           id?: string;
@@ -7070,6 +7072,7 @@ export type Database = {
           is_historical?: boolean;
           crm_external_id?: string | null;
           is_opening_balance?: boolean;
+          idempotency_key?: string | null;
         };
         Relationships: [];
       };
@@ -11847,6 +11850,13 @@ export type Database = {
         };
         Returns: undefined;
       };
+      giving_deposit_context: {
+        Args: {
+          p_txn: string;
+          p_payment_ids: string[];
+        };
+        Returns: Json;
+      };
       giving_draft_context: {
         Args: {
           p_household: string;
@@ -13523,6 +13533,21 @@ export type Database = {
           p_joint?: boolean;
         };
         Returns: string;
+      };
+      record_offline_payment_once: {
+        Args: {
+          p_idempotency_key: string;
+          p_household: string;
+          p_amount_cents: number;
+          p_method: Database["app"]["Enums"]["payment_method"];
+          p_received_on: string;
+          p_pledge_ids?: string[];
+          p_apply?: boolean;
+          p_check_number?: string;
+          p_envelope_number?: string;
+          p_memo?: string;
+        };
+        Returns: Json;
       };
       record_security_event: {
         Args: {
