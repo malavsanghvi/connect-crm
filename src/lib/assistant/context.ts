@@ -234,7 +234,7 @@ const SUGGESTIONS: Record<SuggestionArea, Suggestion[]> = {
     { text: "What is blocking this event from going live?", needs: "events.readiness", onlyFor: "event" },
     { text: "How is this event doing: RSVPs, lunch and volunteers?", needs: "events.summary", onlyFor: "event" },
     { text: "How many people would a reminder for this event reach, and when would it go out?", needs: "events.audience_preview", onlyFor: "event" },
-    { text: "Draft a reminder for this event in each language we use", needs: "messages.draft_reminder", onlyFor: "event" },
+    { text: "Draft a reminder for this event in every language we use", needs: "messages.draft_reminder", onlyFor: "event" },
     { text: "Move this event to the second Saturday of November", needs: "events.set_field", onlyFor: "event" },
     { text: "Change the venue of this event to the main hall", needs: "events.set_field", onlyFor: "event" },
     { text: "What events are coming up?", needs: "events.upcoming" },
@@ -268,7 +268,7 @@ const SUGGESTIONS: Record<SuggestionArea, Suggestion[]> = {
     { text: "Which messages to families are waiting for approval?", needs: "messages.campaigns", onlyWithout: true },
     { text: "How many people would a message to all members reach by email, text and WhatsApp?", needs: "messages.audience_preview", onlyWithout: true },
     { text: "Why did a family not get our text?", needs: "messages.why_not_delivered", onlyWithout: true },
-    { text: "Draft a reminder for the next event in each language we use", needs: "messages.draft_reminder", onlyWithout: true },
+    { text: "Draft a reminder for the next event in every language we use", needs: "messages.draft_reminder", onlyWithout: true },
     { text: "What is waiting for me?", needs: "tasks.mine" },
   ],
   // Content (B90 phase 4): the approval queue, Niva's sources and the media library. A tab's own examples come first.

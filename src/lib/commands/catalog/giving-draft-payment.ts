@@ -8,6 +8,7 @@ import { PAYMENT_METHOD_LABEL, OFFLINE_METHODS } from "@/lib/labels";
 import { formatCents } from "@/lib/money";
 import { checkOfflinePayment, type CheckedOfflinePayment } from "@/lib/payments/offline-payment";
 import {
+  PlanChangedError,
   buildPaymentChecks,
   planDraftAllocation,
   type AllocationQuestion,
@@ -15,6 +16,7 @@ import {
   type DraftPlan,
   type DraftPledge,
   type PaymentCheckItem,
+  type PlannedLine,
 } from "@/lib/payments/payment-draft";
 import { duplicateWarning, parsePossibleDuplicates } from "@/lib/payments/zelle";
 import { can, canAccess } from "@/lib/permissions";
@@ -26,6 +28,7 @@ import { CommandError, type CommandContext, type CommandPreview, type HouseholdC
 import { rpcJson } from "./db";
 import { dollars, uuidList } from "./giving-fields";
 import { asObj, bool, int, rows, str, triState } from "./giving-json";
+import { requireOwnHousehold } from "./giving-guard";
 import { adultHouseholdCards } from "./household";
 
 /** What the Record payment form takes, as a command input. Shared by the draft and the confirm-level command. */
@@ -61,7 +64,12 @@ export type PreparedPayment = {
  * Check the payment (the same rules and words as the Record payment screen), look up the household and its open pledges, and work
  * out what would happen. Reads only. Throws CommandError for anything the person can fix.
  */
-export async function preparePayment(ctx: CommandContext, inp: PaymentFieldsInput, doing: string): Promise<PreparedPayment> {
+export async function preparePayment(
+  ctx: CommandContext,
+  inp: PaymentFieldsInput,
+  doing: string,
+  opts: { forced?: readonly PlannedLine[] } = {},
+): Promise<PreparedPayment> {
   const { db, center } = ctx.session;
   const today = todayInTz(center.time_zone, ctx.now?.());
   const checked = checkOfflinePayment(
@@ -81,6 +89,7 @@ export async function preparePayment(ctx: CommandContext, inp: PaymentFieldsInpu
   );
   if (!checked.ok) throw new CommandError(checked.error);
   const value = checked.value;
+  await requireOwnHousehold(ctx, value.householdId);
 
   const context = asObj(
     await rpcJson(
@@ -114,7 +123,14 @@ export async function preparePayment(ctx: CommandContext, inp: PaymentFieldsInpu
     campaign: str(p.campaign),
   }));
   const canAllocate = canAccess(ctx.session, "allocatePayment");
-  const plan = planDraftAllocation({ amountCents: value.amountCents, pledges, mode: value.allocation, chosen: value.chosen, canAllocate, currency: center.currency });
+  let plan: DraftPlan;
+  try {
+    plan = planDraftAllocation({ amountCents: value.amountCents, pledges, mode: value.allocation, chosen: value.chosen, canAllocate, currency: center.currency, forced: opts.forced });
+  } catch (error) {
+    // A pledge on the confirmed card is no longer as it was: said in plain words, never paid on a guess.
+    if (error instanceof PlanChangedError) throw new CommandError(error.message);
+    throw error;
+  }
 
   // A Zelle may already be on the bank statement, recorded by hand or reported by the member: the same check the form makes.
   let zelleNote: string | null = null;

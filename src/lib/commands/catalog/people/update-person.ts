@@ -11,6 +11,7 @@ import {
   type HouseholdRole,
   type PersonProfile,
 } from "@/lib/people";
+import { loadCommunityLocale } from "@/lib/community-locale";
 import { ageOn } from "@/lib/dates";
 
 import { defineCommand } from "../../define";
@@ -33,7 +34,7 @@ const input = object({
   employer: text("Employer (for matching gifts). Empty clears it."),
   phone_e164: text("Mobile number with area code. Empty clears it."),
   email: text("Email address. Empty clears it."),
-  language: text("English, Gujarati or Hindi, as the codes en, gu or hi."),
+  language: text("One of the community's languages, as its code (en, es, gu, pt-BR ...) or its name (Spanish)."),
   photo_opt_in: text("Screen only: the person's own photo consent. Niva does not change it."),
   new_member_contact_opt_in: text("Screen only: open to new members. Niva does not change it."),
   expertise_opt_in: text("Screen only: expertise listing. Niva does not change it."),
@@ -87,7 +88,14 @@ async function plan(ctx: CommandContext, inp: UpdatePersonInput): Promise<Plan> 
     if (age !== null && age < 18) throw new CommandError(CHILD_RECORDS_ON_SCREEN);
   }
 
-  const parsed = parsePersonForm(raw, today(ctx));
+  // A new language must be one the community uses (Setup > Profile), or the one the person already has. If the community's list cannot be
+  // read just now, any language code is taken rather than refusing a harmless change.
+  let languages: string[] | undefined;
+  if (raw.language !== undefined) {
+    const community = await loadCommunityLocale(db, center);
+    languages = community.known ? [...community.languages, (current.data as { language?: string }).language ?? "en"] : undefined;
+  }
+  const parsed = parsePersonForm(raw, today(ctx), languages);
   if (!parsed.ok) throw new CommandError(`Could not save the profile — ${parsed.error}.`);
   const original = { ...(current.data as unknown as PersonProfile) };
   // Legacy values the form shows normalised ("F" → Female, mixed-case email) are not changes.

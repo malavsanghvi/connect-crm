@@ -6,7 +6,9 @@ import { HistoryButton } from "@/components/record-history";
 import { RowActions } from "@/components/row-actions";
 import { AskNiva } from "@/components/niva/ask-niva";
 import { Alert, BlockGrid, Card, KeyValueRow, NoAccess, PageHeader, QueryError, StatusText } from "@/components/ui";
-import { campaignStatusLabel, campaignStatusTone, describeAudience, openRate, requiresSecondApprover, translationLanguages } from "@/lib/comms";
+import { loadCommunityLocale } from "@/lib/community-locale";
+import { campaignStatusLabel, campaignStatusTone, describeAudience, languagesNeedingTranslation, openRate, requiresSecondApprover, translationLanguages } from "@/lib/comms";
+import { languageName } from "@/lib/languages";
 import { audienceOptions } from "@/lib/data/content-comms";
 import { kindSchool } from "@/lib/kind";
 import { userNames } from "@/lib/data/lookups";
@@ -42,7 +44,11 @@ export default async function CampaignPage({ params }: { params: Promise<{ id: s
   }
   const { db, center } = session;
   const tz = center.time_zone;
-  const [res, opts] = await Promise.all([db.from("comms_campaigns").select("*").eq("id", id).maybeSingle(), audienceOptions(db, center.id, kindSchool(session.kind))]);
+  const [res, opts, community] = await Promise.all([
+    db.from("comms_campaigns").select("*").eq("id", id).maybeSingle(),
+    audienceOptions(db, center.id, kindSchool(session.kind)),
+    loadCommunityLocale(db, center),
+  ]);
   if (res.error) {
     return (
       <>
@@ -113,6 +119,7 @@ export default async function CampaignPage({ params }: { params: Promise<{ id: s
             options={opts.data}
             canApprove={canApprove}
             myEmail={session.email}
+            languages={community.languages}
             campaign={{
               id: c.id,
               name: c.name,
@@ -129,7 +136,8 @@ export default async function CampaignPage({ params }: { params: Promise<{ id: s
             <p className="whitespace-pre-line text-sm">{c.body_md}</p>
             <p className="mt-3 text-xs text-muted">
               Channels: {c.channels.map((ch) => CHANNEL_LABEL[ch] ?? ch).join(", ")}
-              {translationLanguages(c.translations).length ? ` · translations: ${translationLanguages(c.translations).join(", ")}` : ""}
+              {translationLanguages(c.translations).length ? ` · translations: ${translationLanguages(c.translations).map(languageName).join(", ")}` : ""}
+              {languagesNeedingTranslation(community.languages, c.translations).length ? ` · needs translation: ${languagesNeedingTranslation(community.languages, c.translations).map(languageName).join(", ")}` : ""}
             </p>
           </Card>
         )}

@@ -8,7 +8,8 @@ import { readPublicEnv } from "@/lib/env";
 import { kindTerm } from "@/lib/kind";
 import { getSession } from "@/lib/session";
 import { word } from "@/lib/wording";
-import { BRAND_FILES, LANGUAGES, MONTHS, osmEmbedUrl, osmLinkUrl, publicObjectUrl, SOCIAL_KEYS } from "@/lib/setup";
+import { communityLanguages, languageChoices } from "@/lib/languages";
+import { BRAND_FILES, MONTHS, osmEmbedUrl, osmLinkUrl, publicObjectUrl, SOCIAL_KEYS } from "@/lib/setup";
 
 import { removeBrandFileAction, saveProfileAction, uploadBrandFileAction } from "../actions";
 import { SetupHeader, setupGate } from "../_components/setup-ui";
@@ -60,7 +61,8 @@ export default async function ProfilePage() {
   const colors = isPlainObject(b.colors) ? b.colors : {};
   const lat = p?.latitude ?? null;
   const lon = p?.longitude ?? null;
-  const langs = p?.languages ?? ["en"];
+  const langs = communityLanguages(p?.languages ?? ["en"]);
+  const languageOptions = languageChoices(langs);
 
   return (
     <>
@@ -138,13 +140,37 @@ export default async function ProfilePage() {
               ))}
               <fieldset className="md:col-span-2 xl:col-span-3">
                 <legend className="crm-label">Languages offered</legend>
+                <p className="crm-hint mb-2">
+                  Reminders, newsletters and the website draft are written for each language you tick, and a person&apos;s language is chosen from this list.
+                </p>
+                <div className="mb-3 max-w-xs">
+                  <label className="crm-label" htmlFor="p-main_language">
+                    Main language
+                  </label>
+                  <select id="p-main_language" name="main_language" className="crm-input" defaultValue={langs[0]}>
+                    {languageOptions.map((l) => (
+                      <option key={l.value} value={l.value}>
+                        {l.label}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="crm-hint">The first language: messages are written in it, and dates and times follow it.</p>
+                </div>
                 <div className="flex flex-wrap gap-3">
-                  {LANGUAGES.map((l) => (
+                  {languageOptions.map((l) => (
                     <label key={l.value} className="flex items-center gap-1.5 text-[13px]">
                       <input type="checkbox" name="languages" value={l.value} defaultChecked={langs.includes(l.value)} />
                       {l.label}
                     </label>
                   ))}
+                </div>
+                <div className="mt-3 max-w-md">
+                  <Text
+                    name="other_languages"
+                    label="Other languages (optional)"
+                    placeholder="e.g. sw, pt-BR"
+                    hint="Language codes, separated by commas, for a language that is not in the list above."
+                  />
                 </div>
               </fieldset>
               <fieldset className="md:col-span-2 xl:col-span-3">

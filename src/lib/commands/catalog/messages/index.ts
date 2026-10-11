@@ -1,7 +1,7 @@
 // The Messages commands (B90 phase 4). Read and draft ones are on for everyone whose role allows them; the confirm-level ones are
 // registered but OFF for Niva until the owner switches each on (assistant.tools.<key>). A message to a member is always confirm-level:
 // Niva prepares it, the person presses the button. The Server Actions in src/app/(app)/comms/actions.ts call the same `execute`, so a
-// screen, the ⌘K palette and Niva share one code path. messages.draft_reminder (an event reminder in English, Gujarati and Hindi)
+// screen, the ⌘K palette and Niva share one code path. messages.draft_reminder (an event reminder in each of the community's languages)
 // lives beside the first commands (../messages-draft-reminder.ts).
 
 import type { AnyCommand } from "../../types";

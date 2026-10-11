@@ -5,6 +5,7 @@
 // The portal's own words are English, so the locale is "en-" plus the community's region ("en-IN", "en-GB"). A community with no
 // usable country gets the generic English convention ("en-US"), the same one the portal always used.
 
+import { communityLocale as localeOfLanguages } from "./languages";
 import { formatCents } from "./money";
 
 export const DEFAULT_LOCALE = "en-US";
@@ -16,22 +17,19 @@ export type CommunityFormat = {
   locale: string;
 };
 
-/** "en-" plus the community's country code when the platform knows how to write it; otherwise the generic English convention. */
-export function communityLocale(country: string | null | undefined, language = "en"): string {
-  const region = (country ?? "").trim().toUpperCase();
-  if (!/^[A-Z]{2}$/.test(region)) return DEFAULT_LOCALE;
-  try {
-    const tag = Intl.getCanonicalLocales(`${language}-${region}`)[0];
-    return tag && Intl.NumberFormat.supportedLocalesOf(tag).length > 0 ? tag : DEFAULT_LOCALE;
-  } catch {
-    return DEFAULT_LOCALE;
-  }
+/**
+ * The convention the staff portal writes digits, money and days in for a community: English (the portal's own language) in the
+ * community's country ("en-IN", "en-GB"); the generic English convention when it has no usable country. The same rule the community's
+ * own languages use (src/lib/languages.ts), with English as the language because the portal is read in English.
+ */
+export function regionLocale(country: string | null | undefined): string {
+  return localeOfLanguages(["en"], country);
 }
 
 /** The community's money and number convention from its row (the currency has no default: a row always has one). */
-export function communityFormat(center: { currency?: string | null; country?: string | null }, language = "en"): CommunityFormat {
+export function communityFormat(center: { currency?: string | null; country?: string | null }): CommunityFormat {
   const currency = (center.currency ?? "").trim().toUpperCase();
-  return { currency: /^[A-Z]{3}$/.test(currency) ? currency : "USD", locale: communityLocale(center.country, language) };
+  return { currency: /^[A-Z]{3}$/.test(currency) ? currency : "USD", locale: regionLocale(center.country) };
 }
 
 /** An amount in minor units, written the way this community writes money. The same writer the whole portal uses. */

@@ -31,6 +31,7 @@ const TYPE_WORDS: Record<FieldDef["type"], string> = {
   number: "Number",
   boolean: "Yes or no",
   enum: "One of the allowed values",
+  language: "Language (name or code, like Spanish or es)",
   list: "List, separated by semicolons",
   ref: "Link to another record",
 };

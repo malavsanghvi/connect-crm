@@ -37,6 +37,11 @@ export type CommandContext = {
   /** Names of people under 18, used as a last check on what a model would see (child-filter.ts). Required for `via: "assistant"`. */
   minors?: MinorNameSource;
   now?: () => Date;
+  /**
+   * Set while a confirmed proposal runs: the id of the proposal the person confirmed. A command that must not happen twice (a
+   * payment) uses it as its idempotency key, so the same confirmation can never record the action again.
+   */
+  proposalId?: string;
 };
 
 // ---------------------------------------------------------------------------
@@ -138,6 +143,13 @@ export type Command<I = never, O = unknown> = {
   /** Only the Weaver team (platform admins) may use it. It is never offered to anyone else, whatever their roles or permissions are. */
   platformOnly?: boolean;
   input: ObjectSchema<I>;
+  /**
+   * For a confirm command: fix what the person is about to confirm. Runs once, when the confirmation is prepared, before the card is
+   * made; what it returns is what the card shows AND what is stored in the proposal and later run, so nothing that depends on the clock
+   * or on the database (today's date, the pledges a payment will close) can differ between the card and the action. May throw a
+   * CommandError to refuse (a payment that looks like one just recorded).
+   */
+  resolve?: (ctx: CommandContext, input: I) => Promise<I>;
   /** What will happen, before anything does. Runs when a confirm command is proposed (and a draft may share it). */
   preview?: (ctx: CommandContext, input: I) => Promise<CommandPreview>;
   /** Do it. Return a result, or throw CommandError for a problem to show; any other error is logged and explained. */
@@ -150,6 +162,12 @@ export type Command<I = never, O = unknown> = {
    * screen or the palette is the person's own hands, with the permission they already have.
    */
   enabledByDefault?: boolean;
+  /**
+   * For a confirm command that moves money: off for EVERY door (Niva, the ⌘K palette, a screen that calls it) until an owner
+   * switches it on for the community (`assistant.tools.<key>` true in its rules). Without this, a confirm command is off for Niva
+   * only, and the palette, being the person's own hands, would offer it. Hidden from lists while it is off.
+   */
+  requiresOwnerSwitch?: boolean;
   /** For level only_you: where the person does it themselves. */
   pointTo?: { label: string; href: string };
   /**

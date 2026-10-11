@@ -29,9 +29,9 @@ export type CenterInfo = {
   name: string;
   short_name: string | null;
   time_zone: string;
-  currency: string;
-  /** ISO country code (centers.country): with the currency it decides how money and days are written (src/lib/community-format.ts). */
+  /** The community's country (ISO 3166 alpha-2, centers.country). Optional: older callers and tests may not carry it. */
   country?: string | null;
+  currency: string;
   branding: Json;
   feature_flags: Json;
   rules: Json;
@@ -120,7 +120,7 @@ export const loadSession = cache(async (): Promise<SessionState> => {
   const slug = choice.slug;
   const centerRes = await db
     .from("centers")
-    .select("id, slug, name, short_name, time_zone, currency, country, branding, feature_flags, rules, status, environment")
+    .select("id, slug, name, short_name, time_zone, country, currency, branding, feature_flags, rules, status, environment")
     .eq("slug", slug)
     .maybeSingle();
   if (centerRes.error) {

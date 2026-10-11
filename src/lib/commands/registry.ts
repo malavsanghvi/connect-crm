@@ -45,6 +45,9 @@ export class CommandRegistry {
     } else if (!command.execute) {
       throw new Error(`${where}: it needs an execute.`);
     }
+    if (command.requiresOwnerSwitch && command.level !== "confirm") {
+      throw new Error(`${where}: only a confirm command needs the owner's switch.`);
+    }
     if (command.enabledByDefault && (command.level === "confirm" || command.level === "only_you")) {
       throw new Error(`${where}: a ${command.level} command cannot be on by default; the owner switches it on.`);
     }

@@ -61,6 +61,13 @@ export function commandAvailability(command: AnyCommand, session: AvailabilitySe
   if (command.screenOnly && via !== "screen") {
     return { ok: false, code: "screen_only", error: `Niva does not ${doing}. That is done on the screen, by a person.` };
   }
+  if (command.requiresOwnerSwitch && assistantToolSetting(session.center.rules, command.key) !== true) {
+    return {
+      ok: false,
+      code: "switched_off",
+      error: `Weaver is not set up to ${doing} by command for ${session.center.name} yet: it moves money, so an owner has to approve it first. Until then it can be done on the screen.`,
+    };
+  }
   if (via === "assistant" && !isCommandEnabled(command, session.center.rules)) {
     return {
       ok: false,

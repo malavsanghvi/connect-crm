@@ -143,7 +143,7 @@ describe("Ask Niva suggestions", () => {
     ]);
     // Without those, the next ones the role may use.
     expect(suggestionsFor("/events/[id]", "event", new Set(["messages.draft_reminder", "events.set_field", "events.upcoming"]))).toEqual([
-      "Draft a reminder for this event in each language we use",
+      "Draft a reminder for this event in every language we use",
       "Move this event to the second Saturday of November",
       "Change the venue of this event to the main hall",
     ]);

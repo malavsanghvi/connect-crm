@@ -18,13 +18,13 @@ import { runCommand } from "@/lib/commands/run";
 import { describe as describeText } from "@/lib/commands/text";
 import {
   communityFormat,
-  communityLocale,
   compactMoney,
   currencyPhrase,
   currencySymbol,
   moneyExample,
   moneyIn,
   numberIn,
+  regionLocale,
   regionalWorkWeek,
   weekdayName,
   workWeekFor,
@@ -71,12 +71,12 @@ const ALL_KEYS = new Set([
 // ---------------------------------------------------------------------------
 describe("how a community writes money, numbers and days", () => {
   it("takes the convention from its country and its currency from its own row", () => {
-    expect(communityLocale("US")).toBe("en-US");
-    expect(communityLocale("in")).toBe("en-IN");
-    expect(communityLocale("GB")).toBe("en-GB");
+    expect(regionLocale("US")).toBe("en-US");
+    expect(regionLocale("in")).toBe("en-IN");
+    expect(regionLocale("GB")).toBe("en-GB");
     // no usable country: the generic English convention, never a failure
-    expect(communityLocale(null)).toBe("en-US");
-    expect(communityLocale("United States")).toBe("en-US");
+    expect(regionLocale(null)).toBe("en-US");
+    expect(regionLocale("United States")).toBe("en-US");
     expect(communityFormat({ currency: "inr", country: "IN" })).toEqual(INR);
     expect(communityFormat({ currency: "GBP", country: "GB" })).toEqual(GBP);
     expect(communityFormat({ currency: "USD", country: "US" })).toEqual(USD);

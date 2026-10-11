@@ -37,7 +37,9 @@ export function commandInfo(command: AnyCommand, kind?: CommandKind): CommandInf
     level: command.level,
     /** "people" | "giving" | "events" | "messages" | "accounting" | "tasks": the part of the key before the dot. */
     area: command.key.split(".")[0],
-    fields: Object.keys(shape).map((name) => {
+    fields: Object.keys(shape)
+      .filter((name) => !shape[name].hidden)
+      .map((name) => {
       const kind = fieldKind(json.properties[name]);
       return { name, label: fieldLabel(name), required: !shape[name].optional, ...kind };
     }),
