@@ -4,12 +4,15 @@ import Link from "next/link";
 import { useActionState } from "react";
 
 import { signOutAction } from "@/app/auth-actions";
+import { LookSwitch } from "@/components/shell/look-switch";
 import { buttonClass } from "@/components/ui";
+import type { Look } from "@/lib/look";
 
 /**
  * The top bar's user block, as in the prototype: navy initial avatar, name
  * (13/700) and role (11px) inline, then a plain "Sign out" text button.
- * Email and every role are in the avatar's tooltip.
+ * Email and every role are in the avatar's tooltip. "New look" / "Classic look"
+ * switches this browser between the classic portal and the redesigned shell.
  */
 export function UserMenu({
   name,
@@ -17,12 +20,14 @@ export function UserMenu({
   role,
   roles,
   initials,
+  look = "classic",
 }: {
   name: string;
   email: string | null;
   role: string;
   roles: string[];
   initials: string;
+  look?: Look;
 }) {
   const [state, action, pending] = useActionState(async () => signOutAction(), null);
   const tooltip = [name, email, roles.length > 0 ? `Roles: ${roles.join(", ")}` : "No staff roles at this center"]
@@ -37,6 +42,7 @@ export function UserMenu({
         <span className="block max-w-[11rem] truncate text-[13px] font-bold text-ink">{name}</span>
         <span className="block max-w-[11rem] truncate text-[11px] text-muted">{role}</span>
       </span>
+      <LookSwitch look={look} className="hidden sm:inline-flex" />
       <Link href="/account/security" className={`${buttonClass("plain")} min-h-9 text-[13px] no-underline`} title="Two-step verification, phone and sessions">
         Account
       </Link>

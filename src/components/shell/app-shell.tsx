@@ -11,8 +11,10 @@ import { NivaDock } from "@/components/niva/niva-dock";
 import { NivaProvider } from "@/components/niva/niva-provider";
 import { NivaTopButton } from "@/components/niva/niva-top-button";
 import { KindProvider } from "@/components/kind-context";
+import { LookProvider } from "@/components/shell/look-context";
 import { ModulesProvider } from "@/components/shell/module-tabs";
 import { ModuleNav } from "@/components/shell/nav-link";
+import { ShellV2 } from "@/components/shell/shell-v2";
 import { TenantMark } from "@/components/shell/tenant-mark";
 import { UserMenu } from "@/components/shell/user-menu";
 import { HistoryAccessProvider } from "@/components/record-history";
@@ -22,10 +24,12 @@ import { activityRecordingOn } from "@/lib/activity/enabled";
 import { navEntries } from "@/lib/assistant/palette";
 import { PRODUCT_NAME } from "@/lib/brand";
 import { readPublicEnv } from "@/lib/env";
+import type { Look } from "@/lib/look";
 import type { TaskCount } from "@/lib/data/home-tasks";
 import { canAccess, visibleNav } from "@/lib/permissions";
 import type { CrmSession } from "@/lib/session";
 import { initials, navFooter, roleSummary, tenantBranding } from "@/lib/shell";
+import { workspacesFor } from "@/lib/workspaces";
 
 function homeBadge(tasks: TaskCount): { badge: string | null; label?: string } {
   if (!tasks) return { badge: null };
@@ -38,8 +42,12 @@ function homeBadge(tasks: TaskCount): { badge: string | null; label?: string } {
  * The portal shell, as in the prototype: a white 60px top bar (tenant mark,
  * product name, center pill, search, user) over a white 220px flat sidebar
  * of modules with a role footer. Each module's pages are its tabs.
+ *
+ * `look` is the person's own choice ("New look" in the user menu): "classic" is the shell above, "v2" the redesigned frame
+ * (ShellV2: 64px top bar, 88px rail of workspaces, a bottom bar on phones). Both sit inside the same providers and show the
+ * same pages to the same people.
  */
-export function AppShell({ session, tasks, children }: { session: CrmSession; tasks: TaskCount; children: ReactNode }) {
+export function AppShell({ session, tasks, look = "classic", children }: { session: CrmSession; tasks: TaskCount; look?: Look; children: ReactNode }) {
   const modules = visibleNav(session);
   const center = session.center;
   const env = readPublicEnv();
@@ -63,7 +71,24 @@ export function AppShell({ session, tasks, children }: { session: CrmSession; ta
       <KindProvider kind={session.kind}>
       <ModulesProvider modules={modules}>
       <NivaProvider nav={navEntries(modules)}>
-        <div className="flex min-h-screen flex-col">
+      <LookProvider look={look}>
+        {look === "v2" ? (
+          <ShellV2
+            session={session}
+            workspaces={workspacesFor(modules)}
+            branding={branding}
+            name={name}
+            roleLabels={roleLabels}
+            noStaffRoles={noStaffRoles}
+            canSearch={canSearch}
+            footer={footer}
+            todayBadge={home.badge}
+            todayBadgeLabel={home.label}
+          >
+            {children}
+          </ShellV2>
+        ) : (
+        <div data-look="classic" className="flex min-h-screen flex-col">
           {sandbox ? <SandboxWatermark name={center.name} /> : null}
           {/* Screen visits go to the activity stream only when the community has turned recording on. */}
           <ActivityBeacon centerId={center.id} enabled={activityRecordingOn(center.rules)} />
@@ -126,6 +151,8 @@ export function AppShell({ session, tasks, children }: { session: CrmSession; ta
             </NivaBoundary>
           </div>
         </div>
+        )}
+      </LookProvider>
       </NivaProvider>
       </ModulesProvider>
       </KindProvider>
