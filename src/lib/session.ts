@@ -17,6 +17,7 @@ import {
   type ScopedGrant,
 } from "@/lib/permissions";
 import { resolveCenterChoice, type CenterChoice } from "@/lib/center-resolve";
+import { isDemoClaims } from "@/lib/demo-signin/rules";
 import { kindFallbackProblem, kindFromProfileResult, shouldReportKindFallback, type KindProfile } from "@/lib/kind";
 import { loadMyModules, modulesOffFrom } from "@/lib/modules-db";
 import { requires2faForStaff, securityRedirect } from "@/lib/security";
@@ -56,6 +57,8 @@ export type CrmSession = PermissionContext & {
   db: AppSupabase;
   userId: string;
   email: string | null;
+  /** True for a demo person's sign-in ("Try the demo"): an address on the demo domain, or the app_metadata.demo flag the database sets. */
+  demo?: boolean;
   center: CenterInfo;
   person: { id: string; name: string; memberNumber: string | null } | null;
   /** Active grants, for display (includes scoped grants). */
@@ -190,6 +193,7 @@ export const loadSession = cache(async (): Promise<SessionState> => {
       db,
       userId,
       email,
+      demo: isDemoClaims(claims),
       center: { ...center, slug: String(center.slug) },
       isPlatformAdmin: accountRes.data?.is_platform_admin ?? false,
       isOwner,

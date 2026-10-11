@@ -84,6 +84,9 @@ function Hero() {
             <SiteLink to="/#product" className={`${buttonStyles.ghost} !min-h-[58px] !px-8 !text-[17px]`}>
               Take the tour
             </SiteLink>
+            <a href={portalUrl("/demo")} className={`${buttonStyles.ghost} !min-h-[58px] !px-8 !text-[17px]`}>
+              Try the demo
+            </a>
           </div>
           <ul className="flex flex-wrap gap-x-6 gap-y-2 text-[15px] font-semibold text-ink-2">
             {["No credit card", "No setup fee", "No contract"].map((t) => (

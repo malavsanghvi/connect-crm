@@ -73,10 +73,15 @@ function PlanCard() {
               ))}
               <span className="text-[13px] text-navy-300">The same plan, free for all three.</span>
             </div>
-            <a href={portalUrl("/request-access")} className={`${buttonStyles.gold} mt-2 w-full sm:w-auto`}>
-              Get started free
-              <Icon name="arrow" className="h-5 w-5" />
-            </a>
+            <div className="mt-2 flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+              <a href={portalUrl("/request-access")} className={`${buttonStyles.gold} w-full sm:w-auto`}>
+                Get started free
+                <Icon name="arrow" className="h-5 w-5" />
+              </a>
+              <a href={portalUrl("/demo")} className={`${buttonStyles.ghostOnNavy} w-full sm:w-auto`}>
+                Try the demo
+              </a>
+            </div>
           </div>
           <div className="p-8 sm:p-12">
             <p className="mb-5 text-[13px] font-bold uppercase tracking-[0.08em] text-brown">Every feature is included</p>
