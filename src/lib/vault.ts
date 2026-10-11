@@ -177,6 +177,7 @@ export const JOB_KIND_LABELS: Record<string, string> = {
   "demo.ping": "Test job",
   "demo.load": "Load demo data",
   "demo.clear": "Clear the sandbox",
+  "demo.reset": "Reset the demo communities",
   "oauth.exchange": "Connect a service",
   "storage.retention": "Remove expired files",
   "storage.scan": "Virus check of an uploaded file",
