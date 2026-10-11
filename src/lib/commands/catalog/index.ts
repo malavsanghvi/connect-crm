@@ -18,7 +18,9 @@ import { draftReminderCommand } from "./messages-draft-reminder";
 import { monthCloseBlockers } from "./month-close-blockers";
 import { PEOPLE_COMMANDS } from "./people";
 import { peopleSearch } from "./people-search";
+import { PLATFORM_COMMANDS } from "./platform";
 import { pledgesBehind } from "./pledges-behind";
+import { REPORTS_COMMANDS } from "./reports";
 import { SETTINGS_COMMANDS } from "./settings";
 import { tasksMine } from "./tasks-mine";
 
@@ -44,6 +46,9 @@ export const CATALOG: readonly AnyCommand[] = [
   ...MESSAGES_COMMANDS,
   // Settings and Setup: the setup concierge and the roles helper (reads, one draft, and what only the person can do)
   ...SETTINGS_COMMANDS,
+  // Reports (ask questions of your data; the sums are done in the database) and the Platform console (Weaver team only)
+  ...REPORTS_COMMANDS,
+  ...PLATFORM_COMMANDS,
 ];
 
 let registered = false;
