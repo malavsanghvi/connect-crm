@@ -297,7 +297,7 @@ describe("wording follows the organization's kind", () => {
     const hero = jain.pages[0]!.blocks[0]!;
     expect(hero.type === "hero" && hero.content.eyebrow).toBe("Jai Jinendra");
     expect(jain.pages.find((p) => p.kind === "events")!.blocks[0]!.type === "events_list" && (jain.pages.find((p) => p.kind === "events")!.blocks[0]!.content as { heading: string }).heading).toBe("Events and festivals");
-    expect(jain.pages.find((p) => p.kind === "give")!.blocks.some((b) => b.type === "text" && b.content.heading === "Satvik Store")).toBe(true);
+    expect(jain.pages.find((p) => p.kind === "give")!.blocks.some((b) => b.type === "text" && b.content.heading === "My Store")).toBe(true);
 
     const chamber = generateDraft({ own: null, references: [], weaver: weaver(), kind: CHAMBER });
     expect(chamber.pages.find((p) => p.kind === "give")!.title).toBe("Pay");

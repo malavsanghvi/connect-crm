@@ -43,7 +43,7 @@ This matches design-doc 06's estimate of about 10–12 weeks from agreement to l
 4. **Every step is resumable and assignable to a named person.** Both the organization and Community Connect can see where it stands.
 5. **Credentials are never readable by anyone.** Changing them needs a fresh second-factor (2FA) check, even for a signed-in admin.
 6. **Every import is a traceable, reversible run.** Each row it touches is audited with the run number, the file and the person, and the run can be undone.
-7. **Setup follows the module switches.** Switch Satvik Store off and its setup steps disappear.
+7. **Setup follows the module switches.** Switch My Store off and its setup steps disappear.
 
 ## 2. Who does what
 

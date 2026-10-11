@@ -123,7 +123,7 @@ export const MODULE_STATES = [
   { key: "people", label: "Members & families", description: "People", core: true, depends_on: [], sort: 1, availability: "default_on", enabled: true, switchable: false, changed_by: null, changed_at: null, reason: null },
   { key: "giving", label: "Pledges & donations", description: "Giving", core: false, depends_on: ["people"], sort: 2, availability: "default_on", enabled: true, switchable: true, changed_by: null, changed_at: null, reason: null },
   { key: "bolis", label: "Bolis", description: "Bolis", core: false, depends_on: ["giving"], sort: 3, availability: "default_on", enabled: false, switchable: true, changed_by: U.admin, changed_at: "2026-10-03T15:00:00Z", reason: "We do not hold boli auctions." },
-  { key: "store", label: "Satvik Store", description: "Store", core: false, depends_on: ["people"], sort: 4, availability: "default_on", enabled: true, switchable: true, changed_by: null, changed_at: null, reason: null },
+  { key: "store", label: "My Store", description: "Store", core: false, depends_on: ["people"], sort: 4, availability: "default_on", enabled: true, switchable: true, changed_by: null, changed_at: null, reason: null },
   { key: "labh", label: "Labh", description: "Not for this kind", core: false, depends_on: [], sort: 5, availability: "not_available", enabled: false, switchable: false, changed_by: null, changed_at: null, reason: null },
 ];
 

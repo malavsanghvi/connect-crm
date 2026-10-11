@@ -85,11 +85,15 @@ describe("the organization's kind", () => {
 });
 
 describe("the Jain Center kind (one kind among many, not a fallback)", () => {
-  it("is the Jain Center row of migration 0594, word for word", () => {
+  it("is the Jain Center row of migration 0594, word for word, plus the one word 0690 renamed (Satvik Store to My Store)", () => {
     const sql = readFileSync(new URL("../supabase/migrations/0594_organization_categories.sql", import.meta.url), "utf8");
     const m = sql.match(/\('jain_center', 'Jain Center', '[^']*', true, true, '[^']*',\s*'(\{[^']*\})'::jsonb/);
     expect(m).not.toBeNull();
-    expect(LEGACY_KIND.terms).toEqual(JSON.parse(m![1]));
+    const seed = JSON.parse(m![1]);
+    const rename = readFileSync(new URL("../supabase/migrations/0690_rename_my_store.sql", import.meta.url), "utf8");
+    expect(seed.store).toBe("Satvik Store");
+    expect(rename).toContain("terms->>'store' = 'Satvik Store'");
+    expect(LEGACY_KIND.terms).toEqual({ ...seed, store: "My Store" });
     expect(LEGACY_KIND.label).toBe("Jain Center");
   });
   it("is never what the portal falls back to when the database cannot answer", () => {

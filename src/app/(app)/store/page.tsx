@@ -16,14 +16,14 @@ import { isLowStock } from "@/lib/store";
 import { recordMovementAction } from "./actions";
 import { QuickAdjust } from "./quick-adjust";
 
-export const generateMetadata = (): Promise<Metadata> => kindTitle((k) => kindTerm(k, "store", "Satvik Store"), "Satvik Store");
+export const generateMetadata = (): Promise<Metadata> => kindTitle((k) => kindTerm(k, "store", "My Store"), "My Store");
 
 const REASON = { received: "received", waste: "waste", returned: "returned", adjustment: "adjustment" } as Record<string, string>;
 
 export default async function StoreInventoryPage() {
   const session = await getSession();
-  // The store is "Satvik Store" for a Jain Center; any other kind names its own.
-  const storeName = kindTerm(session.kind, "store", "Satvik Store");
+  // The store is "My Store" for a Jain Center; any other kind names its own.
+  const storeName = kindTerm(session.kind, "store", "My Store");
   const header = (
     <PageHeader
       title={storeName}

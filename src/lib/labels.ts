@@ -91,7 +91,7 @@ export const QBO_PURPOSES: { purpose: string; label: string; hint: string }[] = 
   { purpose: "income.construction", label: "Construction fund income", hint: "Restricted: temple construction" },
   { purpose: "income.pathshala", label: "Pathshala income", hint: "Pathshala fees and gifts" },
   { purpose: "income.jeevdaya", label: "Jeevdaya income", hint: "Restricted: jeevdaya" },
-  { purpose: "store.sales", label: "Store sales", hint: "Satvik Store — sales, not donations" },
+  { purpose: "store.sales", label: "Store sales", hint: "My Store — sales, not donations" },
   { purpose: "store.gift_packing", label: "Store gift packing", hint: "Gift-pack charges" },
   { purpose: "sales_tax_payable", label: "Sales tax payable", hint: "Tax collected on store sales" },
   { purpose: "merchant_fees", label: "Merchant fees", hint: "Card-processor fees (expense)" },

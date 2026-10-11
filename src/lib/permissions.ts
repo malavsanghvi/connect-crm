@@ -419,7 +419,7 @@ export const NAV: NavModule[] = [
   {
     key: "store",
     module: "store",
-    label: "Satvik Store",
+    label: "My Store",
     tabs: [
       { href: "/store", label: "Inventory", access: "store" },
       { href: "/store/menu", label: "Menu & pickup", access: "store" },

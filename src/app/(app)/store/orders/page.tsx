@@ -20,7 +20,7 @@ import { prepList, slotStatus, topItems, windowCounts, type SlotStatus } from "@
 
 import { moveOrderAction } from "../actions";
 
-export const generateMetadata = (): Promise<Metadata> => kindTitle((k) => `Orders by pickup · ${kindTerm(k, "store", "Satvik Store")}`, "Orders by pickup · Satvik Store");
+export const generateMetadata = (): Promise<Metadata> => kindTitle((k) => `Orders by pickup · ${kindTerm(k, "store", "My Store")}`, "Orders by pickup · My Store");
 
 const NEXT_STEP: Record<string, { to: string; label: string; variant: "ghost" | "ok" | "primary" }[]> = {
   placed: [{ to: "preparing", label: "Start preparing", variant: "ghost" }],
@@ -39,8 +39,8 @@ const STATUS_TONE: Record<SlotStatus, "ok" | "warn" | "bad" | null> = {
 
 export default async function StoreOrdersPage({ searchParams }: { searchParams: Promise<RawSearchParams> }) {
   const session = await getSession();
-  // The store is "Satvik Store" for a Jain Center; any other kind names its own.
-  const storeName = kindTerm(session.kind, "store", "Satvik Store");
+  // The store is "My Store" for a Jain Center; any other kind names its own.
+  const storeName = kindTerm(session.kind, "store", "My Store");
   const header = <PageHeader title={storeName} description="Kitchen prep lists by pickup slot" actions={<AskNiva prompt="What needs attention in the store: orders waiting for pickup, items running low, and this month's sales?" />} />;
   if (!canAccess(session, "storeOrders")) {
     return (
