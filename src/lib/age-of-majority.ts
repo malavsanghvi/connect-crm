@@ -4,11 +4,14 @@
 // of majority higher (Singapore 21, Alabama 19 …), and a community there must not have its 18-year-olds treated as adults by the
 // assistant. So the answer is always max(18, what the community's place says), and never lower than 18, whatever is configured.
 //
-// The place is data the organization already has: centers.country (an ISO code, "US" by default) and centers.state_region.
+// The place is data the organization already has: centers.country (an ISO code, "US" by default; Setup > Profile sets it, and a name or
+// a three-letter code is understood too) and centers.state_region.
 // A community can also record its own age in its rules (`rules.age_of_majority`, a whole number from 18 to 25); nothing sets
 // that yet, but the assistant honours it the moment something does. A country this table does not know is simply 18.
 //
 // Pure: no server imports, so it is tested directly and usable anywhere.
+
+import { countryCodeOf } from "./countries";
 
 export const MIN_AGE_OF_MAJORITY = 18;
 const MAX_AGE_OF_MAJORITY = 25;
@@ -34,30 +37,6 @@ const COUNTRY_MAJORITY: Readonly<Record<string, number>> = {
   DZ: 19, // Algeria
 };
 
-/** Names people type into a country box, mapped to the code above. */
-const COUNTRY_NAMES: Readonly<Record<string, string>> = {
-  usa: "US",
-  "united states": "US",
-  "united states of america": "US",
-  canada: "CA",
-  singapore: "SG",
-  egypt: "EG",
-  kuwait: "KW",
-  "united arab emirates": "AE",
-  uae: "AE",
-  oman: "OM",
-  bahrain: "BH",
-  cameroon: "CM",
-  "ivory coast": "CI",
-  "cote d'ivoire": "CI",
-  "côte d'ivoire": "CI",
-  thailand: "TH",
-  "south korea": "KR",
-  "republic of korea": "KR",
-  korea: "KR",
-  algeria: "DZ",
-};
-
 /** Regions inside a country with their own age: US states and Canadian provinces (code or name, lower case). */
 const REGION_MAJORITY: Readonly<Record<string, Readonly<Record<string, number>>>> = {
   US: { al: 19, alabama: 19, ne: 19, nebraska: 19, ms: 21, mississippi: 21 },
@@ -66,13 +45,6 @@ const REGION_MAJORITY: Readonly<Record<string, Readonly<Record<string, number>>>
     ns: 19, "nova scotia": 19, nt: 19, "northwest territories": 19, nu: 19, nunavut: 19, yt: 19, yukon: 19,
   },
 };
-
-function countryCode(country: string | null | undefined): string | null {
-  const t = (country ?? "").trim();
-  if (!t) return null;
-  if (/^[A-Za-z]{2}$/.test(t)) return t.toUpperCase();
-  return COUNTRY_NAMES[t.toLowerCase()] ?? null;
-}
 
 function configuredAge(rules: unknown): number | null {
   if (!rules || typeof rules !== "object" || Array.isArray(rules)) return null;
@@ -83,7 +55,7 @@ function configuredAge(rules: unknown): number | null {
 /** The age a person must reach in this community to count as an adult: max(18, the place's age, the community's own setting). */
 export function ageOfMajority(place?: MajorityPlace | null): number {
   if (!place) return MIN_AGE_OF_MAJORITY;
-  const code = countryCode(place.country);
+  const code = countryCodeOf(place.country);
   const region = (place.state_region ?? "").trim().toLowerCase();
   const fromRegion = code && region ? REGION_MAJORITY[code]?.[region] : undefined;
   const fromCountry = fromRegion ?? (code ? COUNTRY_MAJORITY[code] : undefined);

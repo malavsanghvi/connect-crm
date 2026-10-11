@@ -224,6 +224,23 @@ const SPELLING_GROUPS: readonly string[] = [
 
 const SPELLING = indexGroups(SPELLING_GROUPS);
 
+const SPELLING_MEMBERS = new Map<string, string[]>();
+for (const g of SPELLING_GROUPS) {
+  const list = g.split(/\s+/).filter(Boolean);
+  const head = list[0];
+  if (!head) continue;
+  const id = SPELLING.get(head) ?? head;
+  const members = SPELLING_MEMBERS.get(id) ?? [];
+  for (const w of list) if (!members.includes(w)) members.push(w);
+  SPELLING_MEMBERS.set(id, members);
+}
+
+/** Every spelling of a name that has spelling variants (Muhammad: Mohammed, Mohamed ...), the word itself first; just the word otherwise. */
+export function spellingVariantsOf(word: string): readonly string[] {
+  const members = SPELLING_MEMBERS.get(SPELLING.get(word) ?? "");
+  return members ? [word, ...members.filter((w) => w !== word)] : [word];
+}
+
 /** The canonical spelling of a name that has spelling variants (Mohammed -> muhammad); the word itself otherwise. */
 export function spellingCanonical(word: string): string {
   return SPELLING.get(word) ?? word;

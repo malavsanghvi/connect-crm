@@ -110,7 +110,8 @@ describe("the child guard for message text", () => {
   it("does not match part of a word, an adult's family name or nothing", () => {
     expect(mentionsChild("Is the dinner vegetarian?", names)).toBe(false);
     expect(mentionsChild("Shah family parking", names)).toBe(false);
-    expect(mentionsChild("Zoyaa", names)).toBe(false);
+    expect(mentionsChild("Zoyaa", names)).toBe(true); // a name of four letters or more is found where a word starts
+    expect(mentionsChild("Tzoya", names)).toBe(false);
     expect(mentionsChild(null, names)).toBe(false);
     expect(mentionsChild("Zoya", childGivenNames([]))).toBe(false);
   });

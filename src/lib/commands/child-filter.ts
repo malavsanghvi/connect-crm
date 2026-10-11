@@ -87,6 +87,11 @@ function snake(key: string): string {
 
 const BIRTH_KEYS = new Set(["date_of_birth", "dob", "birth_date", "birthdate", "birthday", "born_on", "birth_year", "year_of_birth", "birth_month", "birth_day"]);
 
+/** Any key that says "born": born, born_on, dob_iso, birth, birthyear, date_of_birth_text, bday, yob. */
+function isBirthKey(k: string): boolean {
+  return BIRTH_KEYS.has(k) || /birth/.test(k) || /(^|_)(dob|born|yob|bday)(_|$)/.test(k);
+}
+
 /** A list or record of children: removed with everything under it. */
 const CHILD_KEYS = new Set(["children", "child", "kids", "minors", "minor", "dependents", "dependants", "sons", "daughters", "grandchildren", "child_members", "kids_members"]);
 
@@ -96,6 +101,8 @@ const LEARNER_KEYS = new Set([
   "registration", "registrations", "attendance", "attendances", "homework", "progress", "progress_notes", "progress_reports",
   "report_card", "report_cards", "grades", "sign_off", "sign_offs", "signoff", "signoffs", "gyan_progress", "roster", "class_roster",
   "learner_notes", "teacher_notes",
+  // What a school knows about a pupil, other than the pupil's name.
+  "grade", "grade_level", "school_grade", "year_group", "class_year",
 ]);
 
 /** Photos, voice notes, dietary and health notes: withheld for everyone, since the filter cannot tell whose they are. */
@@ -107,28 +114,68 @@ const SENSITIVE_KEYS = new Set([
 /** A household card or search row lists everyone's first names in one text: it cannot be filtered by name, so it is dropped. */
 const WHOLE_HOUSEHOLD_TEXT_KEYS = new Set(["members", "household_members", "primary_member", "member_names", "family_members"]);
 
-const CHILD_ROLE_WORDS = new Set(["child", "son", "daughter", "kid", "minor", "student", "learner", "pupil", "grandchild", "dependent"]);
+const CHILD_ROLE_WORDS = new Set([
+  "child", "son", "daughter", "kid", "minor", "student", "learner", "pupil", "grandchild", "dependent", "boy", "girl", "teen", "teenager", "youth",
+  "infant", "baby", "toddler", "stepchild", "stepson", "stepdaughter", "grandson", "granddaughter", "nephew", "niece", "ward", "foster child",
+]);
 const ROLE_KEYS = new Set(["role", "relationship", "relation", "role_in_household", "household_role", "member_role", "relationship_to_primary"]);
-const AGE_KEYS = new Set(["age", "age_years", "age_in_years", "years_old"]);
-const CHILD_FLAG_KEYS = new Set(["is_minor", "is_child", "minor", "child", "is_learner", "under_18", "under18"]);
+const AGE_KEYS = new Set(["age", "age_years", "age_in_years", "years_old", "age_now", "current_age", "age_at"]);
+const CHILD_FLAG_KEYS = new Set(["is_minor", "is_child", "minor", "child", "is_learner", "under_18", "under18", "is_under_18"]);
 const LEARNER_ID_KEYS = new Set(["learner_id", "learner_person_id", "student_id"]);
 
-function isDropKey(k: string): boolean {
-  return BIRTH_KEYS.has(k) || CHILD_KEYS.has(k) || LEARNER_KEYS.has(k) || SENSITIVE_KEYS.has(k) || WHOLE_HOUSEHOLD_TEXT_KEYS.has(k);
+/** "age_group", "age_range", "age_band", "agegroup": a child's age by another name, withheld for everyone. */
+function isAgeBandKey(k: string): boolean {
+  return /(^|_)age_?(group|range|band|bracket|class|category|bucket)(_|$)/.test(k) || k === "agegroup";
 }
+
+function isDropKey(k: string): boolean {
+  return isBirthKey(k) || isAgeBandKey(k) || CHILD_KEYS.has(k) || LEARNER_KEYS.has(k) || SENSITIVE_KEYS.has(k) || WHOLE_HOUSEHOLD_TEXT_KEYS.has(k);
+}
+
+/** The keys a field's name is kept under when a record is a list of {label, value} pairs. */
+const LABEL_KEYS = new Set(["label", "name", "field", "key", "title", "attribute", "question", "heading", "caption", "type"]);
+const SENSITIVE_LABEL = /^\s*(?:date\s+of\s+birth|birth\s*date|birthday|d\.?o\.?b\.?|born(?:\s+on)?|year\s+of\s+birth|birth\s+year|age|age\s+group|age\s+range|grade|school(?:\s+grade)?|class\s+year|dietary(?:\s+needs)?|allergies|health|medical)\s*:?\s*$/i;
+
+/** A {label: "Date of birth", value: "2015-05-05"} pair: the label says what the value is. */
+function isSensitiveLabel(o: Record<string, unknown>): boolean {
+  for (const [rawKey, value] of Object.entries(o)) {
+    if (typeof value === "string" && LABEL_KEYS.has(snake(rawKey)) && SENSITIVE_LABEL.test(value)) return true;
+  }
+  return false;
+}
+
+/** What an age field says: a number of years, in a number or text ("12", "12 yrs", "12y"), or none. */
+function ageValue(value: unknown): number | null {
+  if (typeof value === "number") return Number.isFinite(value) ? value : null;
+  if (typeof value !== "string") return null;
+  const m = /^\s*(\d{1,3}(?:\.\d+)?)\s*(?:y|yr|yrs|yo|years?)?(?:\s*old)?\s*$/i.exec(value);
+  return m ? Number(m[1]) : null;
+}
+
+/** Text that says the person is a child, in an age field ("child", "teen", "under 18"). */
+const CHILD_AGE_WORDS = /child|kid|teen|minor|youth|junior|infant|toddler|baby|under|adolescent|boy|girl|juvenile|preschool|school.?age/i;
 
 /** True when a record says, by its own fields, that it is about a person under the age of majority or a learner. */
 function describesMinor(o: Record<string, unknown>, today: string, majority: number): boolean {
   for (const [rawKey, value] of Object.entries(o)) {
     const k = snake(rawKey);
-    if (CHILD_FLAG_KEYS.has(k) && value === true) return true;
+    if (CHILD_FLAG_KEYS.has(k) && (value === true || value === "true" || value === "yes" || value === 1)) return true;
     if (LEARNER_ID_KEYS.has(k) && value !== null && value !== undefined && value !== "") return true;
     if (ROLE_KEYS.has(k) && typeof value === "string" && CHILD_ROLE_WORDS.has(value.trim().toLowerCase())) return true;
-    if (AGE_KEYS.has(k) && typeof value === "number" && value >= 0 && value < majority) return true;
-    if (BIRTH_KEYS.has(k) && typeof value === "string") {
-      const age = ageOn(value.slice(0, 10), today);
-      if (age !== null && age < majority) return true;
+    if (AGE_KEYS.has(k)) {
+      const age = ageValue(value);
+      if (age !== null && age >= 0 && age < majority) return true;
+      if (age === null && typeof value === "string" && CHILD_AGE_WORDS.test(value)) return true;
     }
+    if (isBirthKey(k) && typeof value === "string") {
+      const iso = /\d{4}-\d{2}-\d{2}/.exec(value);
+      const age = ageOn(iso ? iso[0] : value.slice(0, 10), today);
+      if (age !== null && age < majority) return true;
+      // A birth year alone ("2015") is enough to tell.
+      const year = /^\s*(\d{4})\s*$/.exec(value);
+      if (year && Number(today.slice(0, 4)) - Number(year[1]) < majority) return true;
+    }
+    if (isBirthKey(k) && typeof value === "number" && value > 1900 && value < 2200 && Number(today.slice(0, 4)) - value < majority) return true;
   }
   return false;
 }
@@ -174,7 +221,7 @@ export function filterChildren<T>(value: T, opts: ChildFilterOptions = {}): Chil
     }
     if (v && typeof v === "object" && !(v instanceof Date)) {
       const o = v as Record<string, unknown>;
-      if (describesMinor(o, today, majority)) {
+      if (describesMinor(o, today, majority) || isSensitiveLabel(o)) {
         removed += 1;
         return REMOVE;
       }
@@ -186,7 +233,17 @@ export function filterChildren<T>(value: T, opts: ChildFilterOptions = {}): Chil
         }
         const w = walk(child);
         if (w === REMOVE) continue;
-        out[rawKey] = w;
+        // A key can carry a name too ("ZoyaNote", "zoya2015"): it is renamed, and kept distinct from the keys already there.
+        let key = rawKey;
+        if (names.size > 0) {
+          const renamed = names.redact(rawKey);
+          if (renamed.count > 0) {
+            removed += renamed.count;
+            key = renamed.text;
+            for (let n = 2; key in out; n += 1) key = `${renamed.text} (${n})`;
+          }
+        }
+        out[key] = w;
       }
       return out;
     }
@@ -206,17 +263,28 @@ export function leakedMinorNames(value: unknown, minorNames: Iterable<MinorNameE
 // The community's minors, from the database
 // ---------------------------------------------------------------------------
 const MAX_MINORS = 20_000;
-const PERSON_COLUMNS = "id, first_name, last_name, preferred_name";
+const PERSON_COLUMNS = "id, first_name, last_name, preferred_name, email, phone_e164, member_number";
+/** The household roles that are not a head, spouse or parent: with no birth date on file, isAdultMember counts these people as children. */
+const NON_ADULT_ROLES = ["child", "sibling", "other"];
 
-type NamedPerson = { id: string; first_name: string; last_name: string; preferred_name: string | null };
+type NamedPerson = {
+  id: string;
+  first_name: string;
+  last_name: string;
+  preferred_name: string | null;
+  email?: string | null;
+  phone_e164?: string | null;
+  member_number?: string | null;
+};
 
 /**
  * One person under the age of majority as the filter wants them. Given names, a preferred name and any single name identify the
  * child on their own. A family word that an adult of the same household shares (`sharedFamily`) does not: it names the family, so
  * it is removed only beside the child's other words, and the adults keep their surname. Any other family word identifies the child
  * too (a family-name-first entry such as first "Wang", last "Wei" is safe this way: nothing in the household shares "Wei").
+ * The child's e-mail address, phone number and member number are found as they are written.
  */
-export function minorNameEntry(p: Pick<NamedPerson, "first_name" | "last_name" | "preferred_name">, sharedFamily?: ReadonlySet<string>): MinorName {
+export function minorNameEntry(p: Pick<NamedPerson, "first_name" | "last_name" | "preferred_name"> & Partial<NamedPerson>, sharedFamily?: ReadonlySet<string>): MinorName {
   const first = p.first_name.trim();
   const last = p.last_name.trim();
   const preferred = (p.preferred_name ?? "").trim();
@@ -225,15 +293,19 @@ export function minorNameEntry(p: Pick<NamedPerson, "first_name" | "last_name" |
   const familyTokens = nameTokens(last);
   const ownFamily = familyTokens.filter((t) => !sharedFamily?.has(t) && !(familyTokens.length >= 2 && isNameParticle(t)));
   const words = [first, nickname, ...(ownFamily.length > 0 ? [ownFamily.join(" ")] : [])].filter(Boolean);
+  const ids = [p.email, p.member_number].map((x) => (x ?? "").trim()).filter(Boolean);
+  const phones = [(p.phone_e164 ?? "").trim()].filter(Boolean);
   return {
     full: [join(first, last), ...(nickname ? [join(nickname, last)] : [])].filter(Boolean),
     // With nothing to go on (no given name at all) the name is matched by every word of it.
     words: words.length > 0 ? words : undefined,
+    ...(ids.length > 0 ? { ids } : {}),
+    ...(phones.length > 0 ? { phones } : {}),
   };
 }
 
 /** Reads each chunk of ids at the same time: a community of thousands is a handful of requests at once, not a long line of them. */
-async function inChunks<T>(ids: readonly string[], size: number, read: (part: string[]) => PromiseLike<{ data: T[] | null; error: { message?: string | null } | null }>, doing: string): Promise<T[]> {
+async function inChunks<T>(ids: readonly string[], size: number, read: (part: string[]) => PromiseLike<{ data: T[] | null; error: { message?: string | null; code?: string | null } | null }>, doing: string): Promise<T[]> {
   const parts = await Promise.all(chunk([...ids], size).map((part) => read(part)));
   const out: T[] = [];
   for (const res of parts) {
@@ -287,9 +359,51 @@ async function adultFamilyWords(db: AppSupabase, minorIds: string[], today: stri
 }
 
 /**
- * Everyone under the community's age of majority that the signed-in person's role can see: born after the cutoff, or listed as a
- * child of a household with no birth date on file. RLS decides what comes back, so a person who may not see people gets an empty
- * list (and then no command can show them a person either).
+ * Family words that two or more adults of the community carry are the name of families, not of a child ("Shah"): they do not
+ * identify a child on their own even when the child's own household has no adult with that name. Only where this community
+ * writes the family name in the last-name column (most children share it with an adult of their household): in a community that
+ * writes the family name first, the last-name column holds given names ("Wei") and the rule would let one through.
+ */
+async function communityFamilyWords(
+  db: AppSupabase,
+  centerId: string,
+  minors: Map<string, NamedPerson>,
+  shared: Map<string, Set<string>>,
+  today: string,
+  majority: number,
+): Promise<Set<string>> {
+  const withAdults = [...minors.keys()].filter((id) => (shared.get(id)?.size ?? 0) > 0);
+  if (withAdults.length < 5) return new Set();
+  const sharing = withAdults.filter((id) => nameTokens(minors.get(id)?.last_name ?? "").some((t) => shared.get(id)?.has(t))).length;
+  if (sharing / withAdults.length < 0.6) return new Set();
+  const unshared = new Map<string, string>();
+  for (const id of withAdults) {
+    const p = minors.get(id) as NamedPerson;
+    if (nameTokens(p.last_name).some((t) => !shared.get(id)?.has(t))) unshared.set(p.last_name.trim(), p.last_name.trim());
+  }
+  if (unshared.size === 0) return new Set();
+  const rows = await inChunks(
+    [...unshared.keys()],
+    100,
+    (part) => db.from("people").select("id, last_name, date_of_birth").eq("center_id", centerId).in("last_name", part),
+    "the family names of the adults",
+  );
+  const carriers = new Map<string, Set<string>>();
+  for (const r of rows) {
+    if (minors.has(r.id) || !r.date_of_birth || !isAdultMember({ date_of_birth: r.date_of_birth }, today, majority)) continue;
+    for (const t of nameTokens(r.last_name)) carriers.set(t, (carriers.get(t) ?? new Set<string>()).add(r.id));
+  }
+  return new Set([...carriers].filter(([, ids]) => ids.size >= 2).map(([t]) => t));
+}
+
+/**
+ * Everyone the assistant must never see a word about, as far as the signed-in person's role can see them:
+ *   - born after the birth date that makes an adult in this community (18 or more; see age-of-majority.ts);
+ *   - with no birth date, a household relationship that is not head, spouse or parent, now or in the past (the rule isAdultMember
+ *     uses: a child, a sibling or "other" with no birth date counts as a child; a child who has left the household still does);
+ *   - enrolled in the religious school (any learner).
+ * RLS decides what comes back, so a person who may not see people gets an empty list (and then no command can show them a person
+ * either).
  */
 export const databaseMinorNames: MinorNameSource = {
   async namesOfMinors(session) {
@@ -314,21 +428,39 @@ export const databaseMinorNames: MinorNameSource = {
     if (byBirth.truncated) throw new Error("there are too many people under 18 to check");
     for (const p of byBirth.data) minors.set(p.id, p);
 
-    const children = await fetchAll<{ person_id: string }>(
-      (from, to) =>
-        db.from("household_members").select("person_id").eq("center_id", center.id).eq("role", "child").is("left_at", null).order("person_id").range(from, to),
+    const byRole = await fetchAll<{ person_id: string }>(
+      (from, to) => db.from("household_members").select("person_id").eq("center_id", center.id).in("role", NON_ADULT_ROLES).order("person_id").range(from, to),
       { max: MAX_MINORS },
     );
-    if (children.error) throw new Error(`could not read the children of households: ${children.error.message ?? "unknown error"}`);
+    if (byRole.error) throw new Error(`could not read the children of households: ${byRole.error.message ?? "unknown error"}`);
     const undated = await inChunks<NamedPerson>(
-      [...new Set(children.data.map((c) => c.person_id))],
+      [...new Set(byRole.data.map((c) => c.person_id))],
       150,
       (part) => db.from("people").select(PERSON_COLUMNS).in("id", part).is("date_of_birth", null),
       "the children of households",
     );
     for (const p of undated) minors.set(p.id, p);
 
+    // Learners of the religious school, of any age: nothing about a learner reaches the assistant.
+    const enrolled = await fetchAll<{ student_person_id: string }>(
+      (from, to) => db.from("pathshala_enrollments").select("student_person_id").eq("center_id", center.id).order("student_person_id").range(from, to),
+      { max: MAX_MINORS },
+    );
+    // A role that may not read enrolments sees none (and cannot be shown a learner by a command either).
+    if (enrolled.error && enrolled.error.code !== "42501") throw new Error(`could not read the learners: ${enrolled.error.message ?? "unknown error"}`);
+    const learners = await inChunks<NamedPerson>(
+      [...new Set((enrolled.error ? [] : enrolled.data).map((e) => e.student_person_id))].filter((id) => !minors.has(id)),
+      150,
+      (part) => db.from("people").select(PERSON_COLUMNS).in("id", part),
+      "the learners",
+    );
+    for (const p of learners) minors.set(p.id, p);
+
     const family = await adultFamilyWords(db, [...minors.keys()], today, majority);
-    return [...minors.values()].map((p) => minorNameEntry(p, family.get(p.id)));
+    const common = await communityFamilyWords(db, center.id, minors, family, today, majority);
+    return [...minors.values()].map((p) => {
+      const sharedWords = family.get(p.id);
+      return minorNameEntry(p, common.size > 0 ? new Set([...(sharedWords ?? []), ...common]) : sharedWords);
+    });
   },
 };

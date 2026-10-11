@@ -4,6 +4,7 @@ import { ActionForm } from "@/components/action-form";
 import { BlockGrid, Card, InfoBox, QueryError } from "@/components/ui";
 import { isPlainObject } from "@/lib/center-rules";
 import { TIME_ZONES } from "@/lib/center-wizard";
+import { COUNTRIES, countryCodeOf } from "@/lib/countries";
 import { readPublicEnv } from "@/lib/env";
 import { kindTerm } from "@/lib/kind";
 import { getSession } from "@/lib/session";
@@ -93,6 +94,21 @@ export default async function ProfilePage() {
                 </select>
               </div>
               <Text name="currency" label="Currency" value={center.currency} maxLength={3} className="crm-input w-24 uppercase" />
+              <div>
+                <label className="crm-label" htmlFor="p-country">
+                  Country
+                </label>
+                <select id="p-country" name="country" className="crm-input" defaultValue={countryCodeOf(center.country) ?? ""}>
+                  <option value="">Not listed</option>
+                  {COUNTRIES.map(([code, , name]) => (
+                    <option key={code} value={code}>
+                      {name}
+                    </option>
+                  ))}
+                </select>
+                <p className="crm-hint">Where you are decides the age at which Niva stops treating someone as a child: 18, or more where the law says so.</p>
+              </div>
+              <Text name="state_region" label="State or province" value={center.state_region} maxLength={60} hint="Optional. A few places set a different age by state or province." />
               <div>
                 <label className="crm-label" htmlFor="p-fy">
                   Fiscal year starts in

@@ -3,6 +3,7 @@
 // exist in this build, form parsing for the Step 0 screens, the brand-kit
 // contrast check and public file URLs. No server imports; tested directly.
 
+import { countryCodeOf } from "@/lib/countries";
 import { kindName, moduleNotOffered } from "@/lib/kind";
 import { isKnownLanguage, languageChoices, normalizeLanguageCode } from "@/lib/languages";
 import { NAV } from "@/lib/permissions";
@@ -529,6 +530,10 @@ export type ProfileInput = {
   short_name: string | null;
   time_zone: string;
   currency: string;
+  /** The community's country (ISO alpha-2), which decides the age of majority the assistant uses; null leaves it as it is. */
+  country: string | null;
+  /** The state or province; undefined leaves it as it is, null clears it. */
+  state_region: string | null | undefined;
   mission: string | null;
   about: string | null;
   website: string | null;
@@ -564,6 +569,11 @@ export function parseProfile(read: Read, readAll: (name: string) => string[], ti
   if (!timeZones.includes(tz)) errors.push("Choose the time zone.");
   const currency = t("currency").toUpperCase() || "USD";
   if (!/^[A-Z]{3}$/.test(currency)) errors.push("The currency is a three-letter code, e.g. USD.");
+  const countryRaw = t("country");
+  const country = countryRaw ? countryCodeOf(countryRaw) : null;
+  if (countryRaw && !country) errors.push("Choose the country from the list.");
+  const stateRaw = read("state_region");
+  const state = stateRaw === null ? undefined : stateRaw.trim().slice(0, 60) || null;
   const mission = t("mission");
   if (mission.length > 1000) errors.push("Keep the mission under 1,000 characters.");
   const about = t("about");
@@ -617,6 +627,8 @@ export function parseProfile(read: Read, readAll: (name: string) => string[], ti
       short_name: short || null,
       time_zone: tz,
       currency,
+      country,
+      state_region: state,
       mission: mission || null,
       about: about || null,
       website: website || null,
