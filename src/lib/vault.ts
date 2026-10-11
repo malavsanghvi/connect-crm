@@ -193,6 +193,7 @@ export const JOB_KIND_LABELS: Record<string, string> = {
   "niva.answer": "Niva answer",
   "niva.import_page": "Niva page import",
   "niva.discover_site": "Find a website's pages for Niva",
+  "site.crawl": "Read a website for its look and pages",
   "niva.retention": "Remove Niva questions older than 30 days",
   "calendar.import_feed": "Calendar feed import",
   "calendar.refresh_feeds": "Daily calendar feed refresh",

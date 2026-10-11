@@ -22,7 +22,8 @@ export const MAX_PAGE_BYTES = 2 * 1024 * 1024;
 export const IMPORT_AGENT = "CommunityConnect-Niva/1.0";
 const MAX_REDIRECTS = 5;
 
-export type FetchOpts = { allowPrivate: boolean; resolve?: Resolve };
+/** beforeRedirect: called with every redirect's target before it is looked up or requested; it may throw to stop (the site crawl refuses to leave its site). */
+export type FetchOpts = { allowPrivate: boolean; resolve?: Resolve; beforeRedirect?: (from: URL, to: URL) => void };
 
 const defaultResolve: Resolve = async (host) => (await lookup(host, { all: true, verbatim: true })).map((a) => a.address);
 
@@ -73,7 +74,9 @@ export async function get(http: Http, first: URL, accept: string, opts: FetchOpt
     if (res.status >= 300 && res.status < 400) {
       const to = res.headers.get("location");
       if (!to) throw new Error(`The website answered ${res.status} without saying where the page moved.`);
-      url = await assertPublicPage(new URL(to, url).toString(), opts);
+      const next = new URL(to, url);
+      opts.beforeRedirect?.(url, next);
+      url = await assertPublicPage(next.toString(), opts);
       continue;
     }
     return { status: res.status, headers: res.headers, text: res.text, bytes: () => res.bytes(), url };

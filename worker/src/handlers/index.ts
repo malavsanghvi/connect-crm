@@ -45,6 +45,7 @@ import * as paymentsWebhookPaypal from "./payments.webhook.paypal";
 import * as paymentsWebhookStripe from "./payments.webhook.stripe";
 import * as pathshalaHoldsSweep from "./pathshala.holds_sweep";
 import * as photosImportAlbum from "./photos.import_album";
+import * as siteCrawl from "./site.crawl";
 import * as storageRetention from "./storage.retention";
 import * as surveysLaunchNotify from "./surveys.launch_notify";
 import * as storageScan from "./storage.scan";
@@ -109,6 +110,8 @@ export const HANDLERS: HandlerModule[] = [
   // in the queue while scanning is off (Platform › Setup), which is the default
   storageScan,
   storageScanSweep,
+  // B92 W1: read a website (the organization's own, or one it likes) and report what was found
+  siteCrawl,
   // Pathshala registration (0591): every 15 minutes, reminders and releases of the seats held for payment, and the waitlist
   pathshalaHoldsSweep,
   // Member notices (0598): every 5 minutes, the RSVP confirmation, the boli notice before it closes and a special day's labh prompt
