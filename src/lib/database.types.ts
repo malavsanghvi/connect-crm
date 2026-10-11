@@ -2420,6 +2420,7 @@ export type Database = {
           contents: Json;
           active: boolean;
           created_at: string;
+          content: Json | null;
         };
         Insert: {
           key: string;
@@ -2429,6 +2430,7 @@ export type Database = {
           contents?: Json;
           active?: boolean;
           created_at?: string;
+          content?: Json | null;
         };
         Update: {
           key?: string;
@@ -2437,6 +2439,55 @@ export type Database = {
           description?: string;
           contents?: Json;
           active?: boolean;
+          created_at?: string;
+          content?: Json | null;
+        };
+        Relationships: [];
+      };
+      demo_personas: {
+        Row: {
+          id: string;
+          center_id: string;
+          role_key: string;
+          display_name: string;
+          headline: string;
+          story: string;
+          email: string;
+          person_id: string;
+          household_id: string | null;
+          scope_kind: Database["app"]["Enums"]["scope_kind"];
+          scope_id: string | null;
+          sort_order: number;
+          created_at: string;
+        };
+        Insert: {
+          id: string;
+          center_id: string;
+          role_key: string;
+          display_name: string;
+          headline: string;
+          story: string;
+          email: string;
+          person_id: string;
+          household_id?: string | null;
+          scope_kind?: Database["app"]["Enums"]["scope_kind"];
+          scope_id?: string | null;
+          sort_order?: number;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          center_id?: string;
+          role_key?: string;
+          display_name?: string;
+          headline?: string;
+          story?: string;
+          email?: string;
+          person_id?: string;
+          household_id?: string | null;
+          scope_kind?: Database["app"]["Enums"]["scope_kind"];
+          scope_id?: string | null;
+          sort_order?: number;
           created_at?: string;
         };
         Relationships: [];
@@ -11393,6 +11444,12 @@ export type Database = {
         };
         Returns: Json;
       };
+      create_demo_community: {
+        Args: {
+          p_kind: string;
+        };
+        Returns: Json;
+      };
       create_event_from_template: {
         Args: {
           p_template: string;
@@ -12173,6 +12230,12 @@ export type Database = {
         Returns: boolean;
       };
       is_center_staff: {
+        Args: {
+          p_center: string;
+        };
+        Returns: boolean;
+      };
+      is_demo_center: {
         Args: {
           p_center: string;
         };
@@ -13565,6 +13628,12 @@ export type Database = {
           p_valid_days?: number;
         };
         Returns: { invitation_id: string; token: string; expires_at: string }[];
+      };
+      reset_demo_community: {
+        Args: {
+          p_center: string;
+        };
+        Returns: Json;
       };
       reset_sandbox: {
         Args: {
