@@ -58,14 +58,14 @@ describe("answering", () => {
   it("answers the item in front and hands the screen the inbox as it is now", async () => {
     stub.answers.resolve_answer = { data: { answered: 14, open_items: 0, status: "answered", remembered_as: "rule:x" } };
     stub.answers.resolve_inbox = { data: readyInbox };
-    const res = await answerQuestionAction({ runId: RUN, groupId: GROUP, itemId: ITEM, answer: "separate", scope: "rest" });
+    const res = await answerQuestionAction({ runId: RUN, groupId: GROUP, itemId: ITEM, answer: "separate", scope: "rest", expectedOthers: 13 });
     expect(res.ok).toBe(true);
     if (!res.ok) return;
-    expect(res.data.outcome).toEqual({ answered: 14, openItems: 0, status: "answered", rememberedAs: "rule:x" });
+    expect(res.data.outcome).toEqual({ answered: 14, openItems: 0, status: "answered", rememberedAs: "rule:x", notRemembered: null });
     expect(res.data.view.status).toBe("ready");
     expect(stub.rpc[0]).toEqual({
       name: "resolve_answer",
-      args: { p_group: GROUP, p_answer: "separate", p_item: ITEM, p_apply_rest: true, p_remember: true },
+      args: { p_group: GROUP, p_answer: "separate", p_item: ITEM, p_apply_rest: true, p_remember: true, p_expected_others: 13 },
     });
     expect(stub.rpc[1].name).toBe("resolve_inbox");
     expect(stub.activity).toEqual(["onboarding.answer_question"]);
@@ -76,6 +76,20 @@ describe("answering", () => {
     stub.answers.resolve_inbox = { data: readyInbox };
     await answerQuestionAction({ runId: RUN, groupId: GROUP, itemId: ITEM, answer: "same_household", scope: "one" });
     expect(stub.rpc[0].args.p_apply_rest).toBe(false);
+  });
+
+  it("will not give the same answer to the others without the number the person was shown", async () => {
+    const res = await answerQuestionAction({ runId: RUN, groupId: GROUP, itemId: ITEM, answer: "separate", scope: "rest" });
+    expect(res).toEqual({ ok: false, error: "Could not record your answer — this page lost track of how many others the answer is for. Reload the page." });
+    expect(stub.rpc).toEqual([]);
+  });
+
+  it("says what changed when the number of others is no longer the number shown", async () => {
+    stub.answers.resolve_answer = { error: { code: "P0001", message: "There are now 12 other items in this question, not 13. Look at the question again before giving the same answer to the others." } };
+    const res = await answerQuestionAction({ runId: RUN, groupId: GROUP, itemId: ITEM, answer: "separate", scope: "rest", expectedOthers: 13 });
+    expect(res.ok).toBe(false);
+    if (res.ok) return;
+    expect(res.error).toMatch(/^Could not record your answer — There are now 12 other items/);
   });
 
   it("sends nothing for a question or item it cannot make sense of", async () => {

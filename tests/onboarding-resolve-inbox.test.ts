@@ -49,6 +49,10 @@ function question(signature: keyof typeof SIGNATURES, openItems = 3): Question {
   };
 }
 
+/** What the database's catalog says (stricter than the engine's SIGNATURES in three places; tests/onboarding-resolve-store.test.ts keeps the two honest). */
+const dbRememberable = (signature: keyof typeof SIGNATURES) => SIGNATURES[signature].rememberable && signature !== "name_only" && signature !== "duplicate_gift_two_sources";
+const dbSameForRest = (signature: keyof typeof SIGNATURES) => SIGNATURES[signature].sameForRest && signature !== "minor_record";
+
 function group(signature: keyof typeof SIGNATURES, over: Partial<InboxGroup> = {}): InboxGroup {
   const spec = SIGNATURES[signature];
   return {
@@ -72,8 +76,8 @@ function group(signature: keyof typeof SIGNATURES, over: Partial<InboxGroup> = {
     applyToRest: false,
     nextItemId: `i-${signature}-1`,
     money: spec.money,
-    sameForRest: spec.sameForRest,
-    rememberable: spec.rememberable,
+    sameForRest: dbSameForRest(signature),
+    rememberable: dbRememberable(signature),
     ...over,
   };
 }
@@ -172,6 +176,7 @@ describe("the answer in front", () => {
     expect(noBulkReason(group("amount_differs", { openItems: 5 }))).toBe("Each of these needs its own answer, because it involves money");
     expect(noBulkReason(group("amount_differs", { openItems: 1 }))).toBeNull();
     expect(noBulkReason(group("shared_phone_households", { openItems: 5 }))).toBeNull();
+    expect(noBulkReason(group("minor_record", { openItems: 5 }))).toBe("Rows about children are answered one at a time.");
   });
 
   it("says in advance what 'the same answer' will do", () => {
@@ -184,6 +189,8 @@ describe("the answer in front", () => {
   it("says whether the answer is remembered, and who is best placed to give it", () => {
     expect(rememberNote(group("shared_phone_households"))).toMatch(/remembers this answer/);
     expect(rememberNote(group("minor_record"))).toBe("Answers about children and money are never remembered");
+    expect(rememberNote(group("duplicate_gift_two_sources"))).toBe("Answers about children and money are never remembered");
+    expect(rememberNote(group("name_only"))).toMatch(/a name alone is never enough/);
     expect(routeHint(group("duplicate_gift_two_sources"))).toBe("The treasurer is best placed to answer this one.");
     expect(routeHint(group("name_only"))).toBe("The membership coordinator is best placed to answer this one.");
     expect(routeHint(group("low_confidence_read"))).toBeNull();
@@ -196,22 +203,29 @@ describe("what an answer asks the database to do", () => {
   it("answers the item in front, with the answer chosen", () => {
     expect(answerRequestFor(g, "separate", "one")).toEqual({
       ok: true,
-      request: { groupId: g.id, answer: "separate", itemId: g.nextItemId, applyToRest: false, remember: true },
+      request: { groupId: g.id, answer: "separate", itemId: g.nextItemId, applyToRest: false, expectedOthers: null, remember: true },
     });
   });
 
   it("uses the same answer for the rest when asked to", () => {
     expect(answerRequestFor(g, "same_household", "rest")).toEqual({
       ok: true,
-      request: { groupId: g.id, answer: "same_household", itemId: g.nextItemId, applyToRest: true, remember: true },
+      request: { groupId: g.id, answer: "same_household", itemId: g.nextItemId, applyToRest: true, expectedOthers: 13, remember: true },
     });
   });
 
-  it("does not remember what cannot be remembered (a child, a money conflict)", () => {
-    const r = answerRequestFor(group("minor_record", { openItems: 3 }), "person_will_add", "rest");
+  it("does not remember what cannot be remembered (a child, a money conflict, a gift, a name alone)", () => {
+    const r = answerRequestFor(group("minor_record", { openItems: 3 }), "person_will_add", "one");
     expect(r.ok && r.request.remember).toBe(false);
-    const m = answerRequestFor(group("amount_differs", { openItems: 1 }), "use_first", "one");
-    expect(m.ok && m.request.remember).toBe(false);
+    for (const sig of ["amount_differs", "duplicate_gift_two_sources", "name_only"] as const) {
+      const m = answerRequestFor(group(sig, { openItems: 1 }), SIGNATURES[sig].answers[0], "one");
+      expect(m.ok && m.request.remember, sig).toBe(false);
+    }
+  });
+
+  it("answers a child's row one at a time: never the same answer for the others", () => {
+    expect(answerRequestFor(group("minor_record", { openItems: 3 }), "person_will_add", "rest")).toEqual({ ok: false, error: "Rows about children are answered one at a time." });
+    expect(sameForRestLabel(group("minor_record", { openItems: 3 }))).toBeNull();
   });
 
   it("refuses an answer that is not one of the question's, or none", () => {
@@ -246,11 +260,19 @@ describe("what an answer asks the database to do", () => {
     const rest = answerRequestFor(g, "separate", "rest");
     expect(rest.ok).toBe(true);
     if (!rest.ok) return;
-    const res = await answerGroup(db, { groupId: rest.request.groupId, answer: rest.request.answer, itemId: rest.request.itemId, applyToRest: rest.request.applyToRest, remember: rest.request.remember });
-    expect(res).toEqual({ ok: true, data: { answered: 14, openItems: 0, status: "answered", rememberedAs: "rule:x" } });
+    const res = await answerGroup(db, {
+      groupId: rest.request.groupId,
+      answer: rest.request.answer,
+      itemId: rest.request.itemId,
+      applyToRest: rest.request.applyToRest,
+      expectedOthers: rest.request.expectedOthers ?? undefined,
+      remember: rest.request.remember,
+    });
+    expect(res).toEqual({ ok: true, data: { answered: 14, openItems: 0, status: "answered", rememberedAs: "rule:x", notRemembered: null } });
+    // The number on the button goes with the answer: the database refuses if the number it would answer is another.
     expect(calls[0]).toEqual({
       fn: "resolve_answer",
-      args: { p_group: g.id, p_answer: "separate", p_item: g.nextItemId, p_apply_rest: true, p_remember: true },
+      args: { p_group: g.id, p_answer: "separate", p_item: g.nextItemId, p_apply_rest: true, p_remember: true, p_expected_others: 13 },
     });
     const one = answerRequestFor(g, "separate", "one");
     if (!one.ok) throw new Error("expected a request");
@@ -260,14 +282,14 @@ describe("what an answer asks the database to do", () => {
 });
 
 describe("the same answer for the others, on the real engine's questions", () => {
-  it("is offered exactly for the kinds of question the engine lets one answer cover, and the rest are one at a time", () => {
+  it("is offered exactly for the kinds of question that one answer may cover, and the rest are one at a time", () => {
     const golden = buildGolden({ rows: 300, seed: 1 });
     const { groups } = run(golden.records, { dateOrderBySource: makeRunConfig(golden.records, TODAY).dateOrderBySource });
     expect(groups.length).toBeGreaterThan(3);
     for (const g of groups) {
       const asView = group(g.signature, { openItems: g.items.length + 1 });
-      expect(sameForRestLabel(asView) !== null, g.signature).toBe(SIGNATURES[g.signature].sameForRest);
-      if (SIGNATURES[g.signature].money && !SIGNATURES[g.signature].sameForRest) expect(answerRequestFor(asView, SIGNATURES[g.signature].answers[0], "rest").ok, g.signature).toBe(false);
+      expect(sameForRestLabel(asView) !== null, g.signature).toBe(dbSameForRest(g.signature));
+      if (!dbSameForRest(g.signature)) expect(answerRequestFor(asView, SIGNATURES[g.signature].answers[0], "rest").ok, g.signature).toBe(false);
     }
   });
 });

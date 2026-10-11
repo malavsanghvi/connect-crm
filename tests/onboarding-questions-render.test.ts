@@ -157,6 +157,13 @@ describe("the questions screen", () => {
     expect(out).toContain("The treasurer is best placed to answer this one.");
   });
 
+  it("answers a child's row one at a time: no 'same answer for the others'", () => {
+    const child: InboxGroup = { ...phone, id: "g-child", signature: "minor_record", tier: "D", question: question("minor_record"), recommended: "person_will_add", sameForRest: false, rememberable: false };
+    const out = html(view([child]));
+    expect(out).not.toContain("Use the same answer for the other");
+    expect(out).toContain("Rows about children are answered one at a time.");
+  });
+
   it("lists every question with where it stands, and offers to take answers back", () => {
     const answered: InboxGroup = { ...phone, id: "g-done", signature: "name_only", question: { ...question("name_only"), title: "2 rows only share a name. Are they the same person?" }, status: "answered", openItems: 0, answeredItems: 2, rank: 1, nextItemId: null };
     const out = html(view([phone, answered]));

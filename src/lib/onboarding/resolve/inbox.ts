@@ -62,12 +62,15 @@ export function sameForRestLabel(group: InboxGroup): string | null {
 /** Why one answer cannot be used for the rest, when there are others and the answer is held to one item at a time. */
 export function noBulkReason(group: InboxGroup): string | null {
   if (group.sameForRest || group.openItems < 2) return null;
+  if (group.signature === "minor_record") return "Rows about children are answered one at a time.";
   return group.money ? text("q.same_for_rest.no_hold") : "Each of these needs its own answer.";
 }
 
 /** One line about whether the answer is remembered. */
 export function rememberNote(group: InboxGroup): string {
-  return group.rememberable ? "Weaver remembers this answer, so you are not asked the same thing again." : text("q.not_remembered_hold");
+  if (group.rememberable) return "Weaver remembers this answer, so you are not asked the same thing again.";
+  if (group.signature === "name_only") return "This answer is not remembered: a name alone is never enough to join two records, so Weaver asks again next time.";
+  return text("q.not_remembered_hold");
 }
 
 /** Who is best placed to answer, as one sentence (the helper link that sends it there comes later). */
@@ -83,6 +86,11 @@ export type AnswerRequest = {
   /** The item shown, so a second tab or a slow click cannot answer another one. */
   itemId: string;
   applyToRest: boolean;
+  /**
+   * With "the same answer for the other N": the N on the button. The database refuses when the number it would answer is not this
+   * one (someone else answered in the meantime), so the label the person read is the number of rows that change.
+   */
+  expectedOthers: number | null;
   remember: boolean;
 };
 
@@ -100,7 +108,17 @@ export function answerRequestFor(group: InboxGroup, pick: AnswerCode | null, sco
     if (!group.sameForRest) return { ok: false, error: noBulkReason(group) ?? "One answer cannot be used for the others in this question." };
     if (group.openItems < 2) return { ok: false, error: "There is nothing else in this question to use the same answer for." };
   }
-  return { ok: true, request: { groupId: group.id, answer: pick, itemId: group.nextItemId, applyToRest: scope === "rest", remember: group.rememberable } };
+  return {
+    ok: true,
+    request: {
+      groupId: group.id,
+      answer: pick,
+      itemId: group.nextItemId,
+      applyToRest: scope === "rest",
+      expectedOthers: scope === "rest" ? group.openItems - 1 : null,
+      remember: group.rememberable,
+    },
+  };
 }
 
 /** What a click on "Same answer for the other N" will change, in words, before it is made. */

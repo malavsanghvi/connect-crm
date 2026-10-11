@@ -85,7 +85,9 @@ export function InboxScreen({ runId, runLabel, initial }: { runId: string; runLa
       return;
     }
     const r = req.request;
-    void act(scope === "rest" ? "rest" : "answer", () => answerQuestionAction({ runId, groupId: r.groupId, itemId: r.itemId, answer: r.answer, scope }));
+    void act(scope === "rest" ? "rest" : "answer", () =>
+        answerQuestionAction({ runId, groupId: r.groupId, itemId: r.itemId, answer: r.answer, scope, ...(r.expectedOthers !== null ? { expectedOthers: r.expectedOthers } : {}) }),
+    );
   };
 
   const defer = (status: "postponed" | "skipped") => {
@@ -296,6 +298,7 @@ function ItemCards({ detail, itemId, onRetry }: { detail: Detail | null; itemId:
         ))}
       </div>
       {evidence.summary ? <p className="mt-2 text-[13px]">{evidence.summary}</p> : null}
+      {d.limited ? <p className="mt-1 text-[12px] text-muted">This row is held, so phone numbers, e-mail addresses and street addresses are not shown here.</p> : null}
       {d.answer ? <p className="mt-1 text-[12px] text-muted">Already answered.</p> : null}
     </div>
   );

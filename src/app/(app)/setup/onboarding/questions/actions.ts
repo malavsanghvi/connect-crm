@@ -127,6 +127,8 @@ export type AnswerInput = {
   answer: AnswerCode;
   /** "one": this item. "rest": this item and the other open ones of the question. */
   scope: "one" | "rest";
+  /** With "rest": the number of other items the person was shown. The database refuses if it is not the number it would answer. */
+  expectedOthers?: number;
 };
 
 /** A person's answer to the item in front; with scope "rest", the same answer for the other open items of the question. */
@@ -141,7 +143,16 @@ async function answerQuestion(input: AnswerInput): Promise<QuestionsResult<Answe
   if (!isUuid(input.runId) || !isUuid(input.groupId) || !isUuid(input.itemId)) return refused(context, "this page lost track of the question. Reload the page.");
   if (input.scope !== "one" && input.scope !== "rest") return refused(context, "choose whether the answer is for this one or for the others too.");
   const db = dbOf(a.session);
-  const answered = await answerGroup(db, { groupId: input.groupId, itemId: input.itemId, answer: input.answer, applyToRest: input.scope === "rest" });
+  if (input.scope === "rest" && !(Number.isInteger(input.expectedOthers) && (input.expectedOthers as number) >= 0)) {
+    return refused(context, "this page lost track of how many others the answer is for. Reload the page.");
+  }
+  const answered = await answerGroup(db, {
+    groupId: input.groupId,
+    itemId: input.itemId,
+    answer: input.answer,
+    applyToRest: input.scope === "rest",
+    ...(input.scope === "rest" ? { expectedOthers: input.expectedOthers } : {}),
+  });
   if (!answered.ok) return answered;
   revalidatePath("/setup/onboarding/questions");
   return withFreshView(db, input.runId, { outcome: answered.data });
