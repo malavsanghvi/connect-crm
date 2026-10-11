@@ -24,7 +24,7 @@ export function requireConfirmedRun(ctx: CommandContext, key: string): string {
 /** The household must belong to the community the person is working in, whoever they are (a platform admin included). */
 export async function requireOwnHousehold(ctx: CommandContext, householdId: string): Promise<void> {
   const { db, center } = ctx.session;
-  const row = must(await db.from("households").select("id, center_id").eq("id", householdId).maybeSingle(), "look up the household");
+  const row: { id: string; center_id: string } | null = must(await db.from("households").select("id, center_id").eq("id", householdId).maybeSingle(), "look up the household");
   if (!row) throw new CommandError("That household was not found, or you can't record payments for it.");
   if (row.center_id !== center.id) {
     throw new CommandError("That household belongs to a different community than the one you are working in, so nothing can be recorded for it from here.");
