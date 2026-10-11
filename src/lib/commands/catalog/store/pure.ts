@@ -1,6 +1,6 @@
-// The pure pieces of the Store commands: sales in dollars from the database's cents, the low-stock rule, how an order is worded, and
+// The pure pieces of the Store commands: sales in the community's currency from the database's cents, the low-stock rule, how an order is worded, and
 // the before/after of a price. No database, no clock of its own: everything is given in, so every rule here is tested on its own
-// (tests/commands/store-pure.test.ts). Money is integer cents underneath; dollars are only ever formatted from them.
+// (tests/commands/store-pure.test.ts). Money is integer cents underneath; amounts are only ever formatted from them.
 
 import { daysBetween } from "@/lib/dates";
 import { formatCents } from "@/lib/money";

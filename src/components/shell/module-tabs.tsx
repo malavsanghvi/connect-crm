@@ -4,9 +4,10 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { createContext, useContext, type ReactNode } from "react";
 
+import { useKind } from "@/components/kind-context";
 import { useLook } from "@/components/shell/look-context";
 import { activeModule, activeTabHref, type VisibleModule } from "@/lib/permissions";
-import { WORKSPACES, modulesInWorkspace, workspaceOfModule } from "@/lib/workspaces";
+import { modulesInWorkspace, workspaceLabel as labelOfWorkspace, workspaceOfModule } from "@/lib/workspaces";
 
 const ModulesContext = createContext<VisibleModule[] | null>(null);
 
@@ -29,6 +30,7 @@ export function ModuleTabs() {
   const modules = useModules();
   const pathname = usePathname();
   const look = useLook();
+  const kind = useKind();
   if (!modules) return null;
   const mod = activeModule(modules, pathname);
   if (!mod) return null;
@@ -37,7 +39,7 @@ export function ModuleTabs() {
   // reachable from this row, and each module keeps its own tab strip below it.
   const workspaceKey = look === "v2" ? workspaceOfModule(mod.key) : undefined;
   const areas = workspaceKey ? modulesInWorkspace(workspaceKey, modules) : [];
-  const workspaceLabel = WORKSPACES.find((w) => w.key === workspaceKey)?.label ?? "";
+  const workspaceLabel = workspaceKey ? labelOfWorkspace(workspaceKey, kind) : "";
   const showTabs = mod.tabs.length >= 2;
   if (areas.length < 2 && !showTabs) return null;
   return (

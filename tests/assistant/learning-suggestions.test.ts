@@ -14,13 +14,17 @@ import { areaForPath, contextLine, routeContext, suggestionsFor } from "@/lib/as
 import { areaLabel } from "@/lib/assistant/palette";
 import { LEARNING_COMMANDS } from "@/lib/commands/catalog/learning";
 
+import { JAIN } from "../fixtures/kinds";
+
+// The Jain Center these examples were first written for: its school is called Pathshala and it writes dollars.
+const JAIN_CTX = { kind: JAIN, currency: "USD", locale: "en-US" };
 const ALL = new Set(LEARNING_COMMANDS.map((c) => c.key));
 const GENERAL = ["What is waiting for me?", "What events are coming up?", "Who is behind on pledges?"];
 const CHILD_WORDS = /child|kid|learner|student|pupil|minor|\bson\b|daughter|\bboy\b|\bgirl\b|attendance|homework|birth|allerg|health|photo/i;
 
 const on = (pathname: string, params?: Record<string, string>) => {
   const c = routeContext(pathname, params);
-  return suggestionsFor(c.path, c.entityKind, new Set([...ALL, "tasks.mine", "events.upcoming", "giving.pledges_behind"]));
+  return suggestionsFor(c.path, c.entityKind, new Set([...ALL, "tasks.mine", "events.upcoming", "giving.pledges_behind"]), JAIN_CTX);
 };
 
 describe("Niva's examples for Pathshala", () => {
@@ -79,8 +83,8 @@ describe("Niva's examples for Pathshala", () => {
   });
 
   it("only offers a sentence the person's role can act on", () => {
-    expect(suggestionsFor("/pathshala", undefined, new Set(["tasks.mine"]))).toEqual(["What is waiting for me?"]);
-    expect(suggestionsFor("/pathshala", undefined, new Set(["learning.waiting_counts"]))).toEqual(["How many Pathshala tasks are waiting?"]);
+    expect(suggestionsFor("/pathshala", undefined, new Set(["tasks.mine"]), JAIN_CTX)).toEqual(["What is waiting for me?"]);
+    expect(suggestionsFor("/pathshala", undefined, new Set(["learning.waiting_counts"]), JAIN_CTX)).toEqual(["How many Pathshala tasks are waiting?"]);
   });
 });
 

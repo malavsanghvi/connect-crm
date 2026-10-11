@@ -57,7 +57,7 @@ export const connectQuickbooks = onlyYou({
 export const connectPayments = onlyYou({
   key: "settings.connect_payments",
   title: "Sign in to connect a payment account",
-  description: "Connect Stripe or PayPal so the community can take payments online, and run the $1 test charge. The person signs in to the payment account themselves.",
+  description: "Connect Stripe or PayPal so the community can take payments online, and run a small test charge. The person signs in to the payment account themselves.",
   permission: "paymentSettings",
   label: "Open Settings › Payments, choose Stripe or PayPal and sign in to your own account",
   href: "/settings/payments",

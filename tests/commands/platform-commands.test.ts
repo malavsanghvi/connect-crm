@@ -187,10 +187,16 @@ describe("Platform commands are never offered to anyone outside the Weaver team"
     const text = suggestionsFor("/platform", undefined, nonPlatform).join(" ");
     expect(text).not.toMatch(/waiting for us|go-live review|community with address|kind of organization/);
     const platform = new Set(PLATFORM_COMMANDS.map((c) => c.key));
+    // The community in the example is the one the Weaver team is looking at, never a fixed one; with no address known there is none.
+    expect(suggestionsFor("/platform", undefined, platform, { communitySlug: "houston-chamber" })).toEqual([
+      "Who is waiting for us, and what is missing?",
+      "Which sandboxes are waiting for a go-live review?",
+      "Summarise the community with address houston-chamber",
+    ]);
     expect(suggestionsFor("/platform", undefined, platform)).toEqual([
       "Who is waiting for us, and what is missing?",
       "Which sandboxes are waiting for a go-live review?",
-      "Summarise the community with address jsh",
+      "What would changing a community's kind of organization do?",
     ]);
   });
 });
@@ -300,7 +306,7 @@ describe("platform.community_summary", () => {
     const two = await runCommand(ctx, "platform.community_summary", { community: "sandbox" });
     expect(two).toMatchObject({ ok: false, error: 'More than one community matches "sandbox": G129 Sandbox A (g129-sandbox-a), G129 Sandbox B (g129-sandbox-b). Which one?' });
     const none = await runCommand(ctx, "platform.community_summary", { community: "nowhere" });
-    expect(none).toMatchObject({ ok: false, error: 'There is no community called "nowhere". Use its address (like jsh), its name or its id.' });
+    expect(none).toMatchObject({ ok: false, error: 'There is no community called "nowhere". Use its address (like riverside), its name or its id.' });
     expect(db.rpcCalls).toEqual([]);
   });
 

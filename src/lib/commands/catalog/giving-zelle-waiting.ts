@@ -51,7 +51,7 @@ export const zelleWaiting = defineCommand<Infer<typeof input>, ZelleWaitingData>
   key: "giving.zelle_waiting",
   title: "Show Zelle reports waiting for the bank",
   description:
-    "The Zelle payments members say they sent that the treasurer has not matched to a bank line yet: how many, the total in dollars, which are past the community's report window, " +
+    "The Zelle payments members say they sent that the treasurer has not matched to a bank line yet: how many, the total in the community's currency, which are past the community's report window, " +
     "and which already have a bank line with the same confirmation number and amount (ready to confirm in one step). Each is shown with its household card. " +
     "A report credits nobody until a bank line is matched. Read only: it does not confirm or close anything. Matching is done on Giving > Payments > Bank > Zelle reports.",
   level: "read",

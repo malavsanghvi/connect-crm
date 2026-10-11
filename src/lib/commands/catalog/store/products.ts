@@ -49,12 +49,12 @@ const input = object({
 
 const READ_MAX = 1000;
 
-/** The store's products with their prices in dollars (the cents are in price_cents). Reads only. */
+/** The store's products with their prices in the community's currency (the cents are in price_cents). Reads only. */
 export const products = defineCommand<Infer<typeof input>, ProductsData>({
   key: "store.products",
   title: "See the store products and prices",
   description:
-    "The store's products: name, SKU, price in dollars (price_cents has the cents), pack size, whether it is on sale, its category, whether it is sold gift packed, and the stock on hand for items that keep a count. " +
+    "The store's products: name, SKU, price in the community's currency (price_cents has the cents), pack size, whether it is on sale, its category, whether it is sold gift packed, and the stock on hand for items that keep a count. " +
     "Use the item_id with store.draft_product (to prepare a price change) or store.adjust_stock. Read only: it changes no product.",
   level: "read",
   permission: "store",

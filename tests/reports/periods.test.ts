@@ -26,6 +26,7 @@ describe("the year a report covers", () => {
   it("runs to today in the current year and compares with the same days last year", () => {
     expect(yearWindow(2026, 2026, "2026-10-10")).toEqual({
       year: 2026,
+      label: "2026",
       isCurrentYear: true,
       from: "2026-01-01",
       yearEnd: "2026-12-31",

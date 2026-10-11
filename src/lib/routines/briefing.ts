@@ -1,6 +1,7 @@
 // The morning briefing: a few facts, each a number and a link. No model writes it and no sentence is invented: every line is a
 // counter the portal already keeps, in the same words each day. Pure; the numbers come in as RoutineFacts.
 
+import { DEFAULT_LOCALE, numberIn } from "@/lib/community-format";
 import { isModuleEnabled, type ModuleKey } from "@/lib/modules";
 import { canAccess, hasRole, type AccessKey, type ScopedContext } from "@/lib/permissions";
 
@@ -18,6 +19,8 @@ export type BriefingItem = {
   href: string;
   tone: BriefingTone;
   error?: string;
+  /** How the community writes numbers, so the sentence reads the same way as the rest of the portal. */
+  locale?: string;
 };
 
 type Spec = {
@@ -84,7 +87,7 @@ export function buildBriefing(viewer: ScopedContext, facts: RoutineFacts): Brief
 
     const n = facts.counts[spec.key];
     if (n !== undefined) {
-      items.push({ key: spec.key, value: n, label: spec.label(n), href, tone: n === 0 ? "quiet" : spec.alert ? "alert" : "attention" });
+      items.push({ key: spec.key, value: n, label: spec.label(n), href, tone: n === 0 ? "quiet" : spec.alert ? "alert" : "attention", locale: facts.locale });
       continue;
     }
     const why = facts.failed[spec.key];
@@ -95,5 +98,5 @@ export function buildBriefing(viewer: ScopedContext, facts: RoutineFacts): Brief
 
 /** A line for the page: "3 membership applications waiting" (screen readers and the plain-text fallback). */
 export function briefingSentence(item: BriefingItem): string {
-  return item.value === null ? `Could not count: ${item.label}` : `${item.value.toLocaleString("en-US")} ${item.label}`;
+  return item.value === null ? `Could not count: ${item.label}` : `${numberIn(item.value, item.locale ?? DEFAULT_LOCALE)} ${item.label}`;
 }

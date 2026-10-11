@@ -12,6 +12,7 @@ import { CONTENT_COMMANDS } from "@/lib/commands/catalog/content";
 import { archiveItem } from "@/lib/commands/catalog/content/archive-item";
 import { decideItem } from "@/lib/commands/catalog/content/decide-item";
 import { confirmProposal, runCommand } from "@/lib/commands/run";
+import { describe as describeText } from "@/lib/commands/text";
 import type { CommandContext, CommandNeedsConfirmation, CommandRunResult, CommandVia } from "@/lib/commands/types";
 import { dbWithReason } from "@/lib/session";
 
@@ -72,8 +73,8 @@ describe("the Content commands", () => {
 
   it("describe what they do for a model, name the screens they replace, and never say 'bid'", () => {
     for (const c of CONTENT_COMMANDS) {
-      expect(c.description.length, c.key).toBeGreaterThan(120);
-      expect(c.description, c.key).not.toMatch(/\bbid\b/i);
+      expect(describeText(c.description).length, c.key).toBeGreaterThan(120);
+      expect(describeText(c.description), c.key).not.toMatch(/\bbid\b/i);
     }
     expect(decideItem.covers).toEqual(["src/app/(app)/content/actions.ts#decideContentAction"]);
     expect(archiveItem.covers).toEqual(["src/app/(app)/content/niva/actions.ts#retireNivaSourceAction"]);

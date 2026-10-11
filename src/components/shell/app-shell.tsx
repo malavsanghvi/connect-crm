@@ -75,7 +75,7 @@ export function AppShell({ session, tasks, look = "classic", children }: { sessi
         {look === "v2" ? (
           <ShellV2
             session={session}
-            workspaces={workspacesFor(modules)}
+            workspaces={workspacesFor(modules, session.kind)}
             branding={branding}
             name={name}
             roleLabels={roleLabels}

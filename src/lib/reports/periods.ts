@@ -25,24 +25,64 @@ export function sameDayLastYear(day: string): string {
   return `${pad(year, 4)}-${m[2]}-${pad(d)}`;
 }
 
+/** The month a community's financial year starts in (centers' org profile, 1 to 12). Anything else is read as January: the calendar year. */
+export function fiscalStartMonth(raw: unknown): number {
+  return typeof raw === "number" && Number.isInteger(raw) && raw >= 1 && raw <= 12 ? raw : 1;
+}
+
+/**
+ * The financial year a day falls in, named by the calendar year it STARTS in (a year starting in July 2025 is 2025, shown as
+ * "2025-26"). With a January start it is simply the calendar year.
+ */
+export function currentFiscalYear(today: string, startMonth = 1): number {
+  const m = DAY.exec(today);
+  if (!m) return Number(today.slice(0, 4));
+  return Number(m[2]) < startMonth ? Number(m[1]) - 1 : Number(m[1]);
+}
+
+/** "2026" for a calendar year, "2025-26" for a year that starts in another month. */
+export function fiscalYearLabel(year: number, startMonth = 1): string {
+  return startMonth === 1 ? String(year) : `${year}-${pad((year + 1) % 100)}`;
+}
+
+/** The first day of the financial year that today is in. */
+export function startOfFiscalYear(today: string, startMonth = 1): string {
+  return `${pad(currentFiscalYear(today, startMonth), 4)}-${pad(startMonth)}-01`;
+}
+
 export type YearWindow = {
+  /** The year's number: the calendar year it starts in (the same as the calendar year for a January start). */
   year: number;
+  /** How a person reads it: "2026", or "2025-26" when the year does not start in January. */
+  label: string;
   isCurrentYear: boolean;
-  /** January 1 and December 31 of the year. */
+  /** The first and last day of the year (January 1 and December 31, or the community's own financial year). */
   from: string;
   yearEnd: string;
-  /** Where the year's figures stop: today for the current year, December 31 for any other. */
+  /** Where the year's figures stop: today for the current year, the last day of the year for any other. */
   periodEnd: string;
-  /** The year before, from January 1 to the same day (the "vs last year" comparison). */
+  /** The year before, from its first day to the same day (the "vs last year" comparison). */
   prevFrom: string;
   prevEnd: string;
 };
 
-export function yearWindow(year: number, currentYear: number, today: string): YearWindow {
+export function yearWindow(year: number, currentYear: number, today: string, startMonth = 1): YearWindow {
   const isCurrentYear = year === currentYear;
-  const yearEnd = `${pad(year, 4)}-12-31`;
+  const start = fiscalStartMonth(startMonth);
+  const endMonth = start === 1 ? 12 : start - 1;
+  const endYear = start === 1 ? year : year + 1;
+  const yearEnd = `${pad(endYear, 4)}-${pad(endMonth)}-${pad(daysInMonth(endYear, endMonth))}`;
   const periodEnd = isCurrentYear ? today : yearEnd;
-  return { year, isCurrentYear, from: `${pad(year, 4)}-01-01`, yearEnd, periodEnd, prevFrom: `${pad(year - 1, 4)}-01-01`, prevEnd: sameDayLastYear(periodEnd) };
+  return {
+    year,
+    label: fiscalYearLabel(year, start),
+    isCurrentYear,
+    from: `${pad(year, 4)}-${pad(start)}-01`,
+    yearEnd,
+    periodEnd,
+    prevFrom: `${pad(year - 1, 4)}-${pad(start)}-01`,
+    prevEnd: sameDayLastYear(periodEnd),
+  };
 }
 
 /** A year typed in an address: a whole year after 1990 and no later than next year; anything else is this year. */

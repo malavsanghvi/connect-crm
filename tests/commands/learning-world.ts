@@ -8,6 +8,8 @@ import { CommandRegistry } from "@/lib/commands/registry";
 import type { CommandVia } from "@/lib/commands/types";
 import type { CrmSession } from "@/lib/session";
 
+import { JAIN } from "../fixtures/kinds";
+
 import { fakeDb, fakeSession, testContext, type FakeDbOptions } from "./helpers";
 
 type Row = Record<string, unknown>;
@@ -267,6 +269,8 @@ export function asPrincipal(opts: { via?: CommandVia; world?: FakeDbOptions; per
     person: { id: ID.priya, name: "Priya Admin", memberNumber: "1001" },
     permissions: opts.permissions ?? PRINCIPAL,
     center: { ...fakeSession().center, rules: opts.rules ?? { assistant: { enabled: true } } },
+    // The community these tests were written for keeps a tradition and calls its school Pathshala.
+    kind: JAIN,
     ...opts.session,
   });
   const ctx = testContext({ session, registry: catalogRegistry(), via: opts.via ?? "assistant", minorNames: opts.minors ?? CHILD_FACTS.names });
