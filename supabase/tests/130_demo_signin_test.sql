@@ -168,7 +168,7 @@ select pg_temp.assert_raises(format('update app.role_grants set center_id = %L w
   'only belong to its demo community', 'D · nor have a demo role moved there');
 select pg_temp.assert_raises(format('insert into app.center_owners (center_id, user_id) values (%L, %L) on conflict (center_id) do update set user_id = excluded.user_id', :jsh, :'u_admin'),
   'only belong to its demo community', 'D · nor own it');
-select pg_temp.assert_raises(format('update app.accounts set is_platform_admin = true where user_id = %L', :'u_admin'),
+select pg_temp.assert_raises(format('insert into app.accounts (user_id, is_platform_admin) values (%L, true) on conflict (user_id) do update set is_platform_admin = true', :'u_admin'),
   'never be a platform admin', 'D · nor be a platform admin');
 select pg_temp.assert_raises(format('insert into app.demo_auth_users (email, user_id, vault_secret_id) values (%L, %L, gen_random_uuid())', 'ada130@demo.weaverams.org', :ada),
   'real person', 'D · a real person''s sign-in (Ada, who works in JSH) cannot be registered as a demo one');
@@ -213,6 +213,8 @@ select pg_temp.assert((select count(*) = :n_people - 1 and bool_and(g.status = '
 select pg_temp.assert(not exists (select 1 from app.accounts x join app.demo_auth_users a on a.user_id = x.user_id where x.is_platform_admin)
                       and (select count(*) = :n_people - 1 from app.accounts x join app.demo_auth_users a on a.user_id = x.user_id where x.status::text = 'active'),
   'C · every demo sign-in has an account, and none is a platform admin');
+select pg_temp.assert_raises(format('update app.accounts set is_platform_admin = true where user_id = %L', :'u_admin'),
+  'never be a platform admin', 'C · and an update cannot make one a platform admin either');
 select pg_temp.assert((select bool_and(coalesce(rules #>> '{security,require_2fa_for_staff}', 'true') = 'false') from app.centers where id in (:'fc', :'nc')),
   'C · a demo community asks no one for an authenticator app (nothing in it is real)');
 select pg_temp.assert(not exists (select 1 from app.role_grants g where g.user_id = :sq1) and not exists (select 1 from app.center_users cu where cu.user_id = :sq3),

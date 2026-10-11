@@ -155,7 +155,7 @@ language sql stable security definer set search_path = app, public, extensions a
                                             order by d.sort_order, d.display_name)
                              from app.demo_personas d join app.demo_auth_users a on a.email = d.email where d.center_id = c.id)) as x
                 from app.centers c where app.is_demo_center(c.id) and c.environment = 'sandbox') q
-       where q.x -> 'people' is not null), '[]'::jsonb))
+       where jsonb_typeof(q.x -> 'people') = 'array'), '[]'::jsonb))
 $$;
 
 -- ── A reset takes the sign-ins apart first and puts them back after ──────────
