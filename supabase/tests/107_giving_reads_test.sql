@@ -38,6 +38,10 @@ end $$;
 \set ba '''10700000-0000-4000-8000-000000000701'''
 \set nobody '''10700000-0000-4000-8000-0000000009ff'''
 
+-- One transaction for the whole test, rolled back at the end, so nothing it creates (a report past its window, say) is
+-- seen by the tests that run after it.
+begin;
+
 -- ── Fixtures ────────────────────────────────────────────────────────────────
 insert into app.centers (id, slug, name, short_name, time_zone) values
   (:c, 'g107-temple', 'G107 Jain Temple', 'G107', 'America/Chicago'),
@@ -111,25 +115,22 @@ update app.center_payment_methods set accepted = true where center_id = :c and m
 select (now() at time zone 'America/Chicago')::date as today \gset
 
 -- Two Zelle reports from a member of H1: one sent 2 days ago, one 12 days ago (past the 10-day window).
-begin;
 set local role authenticated;
 select pg_temp.as_user(:mira);
 select (app.report_payment(:c, :h1, 'zelle', 25100, :'today'::date - 2, null, null, null, null))->>'report_id' as rep1 \gset
 select (app.report_payment(:c, :h1, 'zelle', 10800, :'today'::date - 12, null, null, null, null))->>'report_id' as rep2 \gset
-commit;
+reset role;
 
 -- A refund asked for on pay1 and a write-off asked for on pl2, both by the treasurer (a second person has not approved).
-begin;
 set local role authenticated;
 select pg_temp.as_user(:tara);
 update app.payments set refund_approved_by = :tara, refund_reason = 'Duplicate check', refund_requested_cents = 10000 where id = :pay1;
 update app.pledges set written_off_by = :tara, write_off_reason = 'Moved away' where id = :pl2;
-commit;
+reset role;
 
 -- ═════════════════════════════════════════════════════════════════════════════
 -- What each person gets (the answers are kept in psql variables, then checked below)
 -- ═════════════════════════════════════════════════════════════════════════════
-begin;
 set local role authenticated;
 select pg_temp.as_user(:tara);
 select app.giving_pledges_behind(:c, date '2026-10-10')::text as behind \gset
@@ -151,18 +152,16 @@ select app.giving_draft_context(:h1, 1, 'check', '2002', date '2026-10-04')::tex
 select app.giving_draft_context(:h1, 1, 'check', '9999', date '2026-10-04')::text as ctx_clean \gset
 select app.giving_draft_context(:h2, 1, 'check', null, date '2026-10-04')::text as ctx_h2 \gset
 select coalesce(app.giving_draft_context(:nobody, 1, 'check', null, date '2026-10-04')::text, 'null') as ctx_nobody \gset
-commit;
+reset role;
 
-begin;
 set local role authenticated;
 select pg_temp.as_user(:vina);
 select app.giving_pledges_behind(:c, date '2026-10-10')::text as v_behind \gset
 select coalesce(app.giving_household_summary(:h1, date '2026-10-10')::text, 'null') as v_sum \gset
 select app.giving_second_approver_queue(:c)::text as v_queue \gset
 select coalesce(app.giving_draft_context(:h1, 25000, 'check', '1043', date '2026-09-14')::text, 'null') as v_ctx \gset
-commit;
+reset role;
 
-begin;
 set local role authenticated;
 select pg_temp.as_user(:mira);
 select coalesce(app.giving_household_summary(:h1, date '2026-10-10')::text, 'null') as m_sum_h1 \gset
@@ -170,9 +169,8 @@ select coalesce(app.giving_household_summary(:h2, date '2026-10-10')::text, 'nul
 select app.giving_pledges_behind(:c, date '2026-10-10')::text as m_behind \gset
 select app.giving_unmatched_bank_lines(:c, 10, date '2026-10-10')::text as m_bank \gset
 select app.giving_second_approver_queue(:c)::text as m_queue \gset
-commit;
+reset role;
 
-begin;
 set local role authenticated;
 select pg_temp.as_user(:zed);
 select app.giving_pledges_behind(:c, date '2026-10-10')::text as z_behind \gset
@@ -182,7 +180,7 @@ select app.giving_unmatched_bank_lines(:c, 10, date '2026-10-10')::text as z_ban
 select app.giving_zelle_waiting(:c, 10, :'today'::date)::text as z_zelle \gset
 select app.giving_second_approver_queue(:c)::text as z_queue \gset
 select app.giving_fund_mapping_status(:c)::text as z_mapping \gset
-commit;
+reset role;
 
 -- ═════════════════════════════════════════════════════════════════════════════
 -- A. Who is behind on pledges
@@ -371,3 +369,5 @@ select pg_temp.assert(not has_function_privilege('anon', 'app.giving_pledges_beh
   'I: signed-out visitors cannot call them; signed-in people can (and see only what row-level security lets them)');
 select pg_temp.assert((select count(*) from app.payments where center_id = :c) = 7 and (select count(*) from app.pledges where center_id = :c) = 5,
   'I: reading changed nothing: no payment or pledge was added');
+
+rollback;
