@@ -21,7 +21,7 @@ export function gift(fields: Partial<RawRecord> & { amount: string; date: string
 }
 
 export function run(records: RawRecord[], overrides: ConfigOverrides = {}, rules: DecisionRule[] = []): ResolveResult {
-  return resolveRecords({ records, config: makeConfig(TODAY, overrides), rules });
+  return resolveRecords({ records, config: makeConfig(TODAY, { country: "US", ...overrides }), rules });
 }
 
 /** The scored pair between two records, whichever way round. */

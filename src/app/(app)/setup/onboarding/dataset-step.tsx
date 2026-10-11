@@ -88,6 +88,7 @@ function sameHeaders(a: readonly string[] | undefined, b: readonly string[]): bo
 
 export function DatasetStep({
   kind,
+  country,
   initial,
   meta,
   blocked,
@@ -98,6 +99,8 @@ export function DatasetStep({
   onBack,
 }: {
   kind: Dataset;
+  /** The community's country (an ISO code), read from its time zone: a phone number without a country code is read in it. */
+  country?: string | null;
   /** Checked rows already saved (from an earlier visit or upload). */
   initial: Result | null;
   /** What was saved about this list: its file, its column choices, whether it was skipped. */
@@ -143,12 +146,12 @@ export function DatasetStep({
   const result = useMemo(() => {
     if (!parsed || sub !== "check") return null;
     if (kind === "donations") {
-      const v = validateDonations(parsed.headers, parsed.rows, choices as never, { dateOrder, defaultMethod });
+      const v = validateDonations(parsed.headers, parsed.rows, choices as never, { dateOrder, defaultMethod, country });
       return { rows: v.rows, problems: v.problems as Problem[], badRows: v.badRows, total: v.rows.reduce((sum, r) => sum + r.amountCents, 0) };
     }
-    const v = validatePeople(parsed.headers, parsed.rows, choices as never, { dateOrder, rowOffset: ROW_OFFSET[kind] });
+    const v = validatePeople(parsed.headers, parsed.rows, choices as never, { dateOrder, rowOffset: ROW_OFFSET[kind], country });
     return { rows: v.rows, problems: v.problems as Problem[], badRows: v.badRows, total: 0 };
-  }, [parsed, choices, dateOrder, defaultMethod, sub, kind]);
+  }, [parsed, choices, dateOrder, defaultMethod, sub, kind, country]);
 
   const metaOf = (p: Parsed, c: string[], order: "mdy" | "dmy", method: MethodValue): DatasetMeta => ({
     status: "mapping",
