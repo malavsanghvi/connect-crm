@@ -357,7 +357,8 @@ function NivaColumn(p: OverviewProps) {
         </div>
       </div>
 
-      <div className="flex min-h-0 flex-1 flex-col gap-3.5 px-5 py-[18px] xl:overflow-y-auto">
+      {/* Each part keeps its own height (shrink-0): in the scrolling column a part with overflow hidden would otherwise shrink to nothing. */}
+      <div className="flex min-h-0 flex-1 flex-col gap-3.5 px-5 py-[18px] xl:overflow-y-auto [&>*]:shrink-0">
         <Bubble>{nivaOpening(p.summary.ok ? p.summary.data : null, blockers, languages)}</Bubble>
         {p.drafts.ok ? (
           <>

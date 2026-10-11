@@ -145,7 +145,7 @@ export function sampleSession(): CrmSession {
       environment: "production",
     },
     person: { id: "p-lead", name: "Mariana Souza", memberNumber: "0007" },
-    permissions: [],
+    permissions: ["people.view", "people.manage", "giving.view", "events.view", "events.manage", "comms.view", "comms.send", "reports.view", "settings.manage"],
     isPlatformAdmin: false,
     isOwner: true,
     roles: [{ key: "owner", name: "Owner", scopeKind: "center" }],

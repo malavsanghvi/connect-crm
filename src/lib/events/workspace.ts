@@ -273,7 +273,7 @@ export function eventWhenLine(startsAt: string | null, tz: string, locale = "en-
   if (Number.isNaN(d.getTime())) return "No date yet";
   try {
     const day = new Intl.DateTimeFormat(locale, { timeZone: tz, weekday: "long", day: "numeric", month: "long", year: "numeric" }).format(d);
-    const time = new Intl.DateTimeFormat(locale, { timeZone: tz, hour: "numeric", minute: "2-digit" }).format(d);
+    const time = new Intl.DateTimeFormat(locale, { timeZone: tz, timeStyle: "short" }).format(d);
     return `${day} · ${time}`;
   } catch {
     return d.toISOString().slice(0, 16).replace("T", " ");
