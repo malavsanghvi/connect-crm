@@ -131,9 +131,17 @@ describe("which workspaces a person sees (the same gating as the classic sidebar
   });
 
   it("opens a workspace on its first page the person can open", () => {
+    const w = visibleWorkspaces(ctx({ permissions: ["events.view"] })).find((x) => x.key === "events")!;
+    expect(w.href).toBe("/events");
+  });
+
+  it("opens Giving on its own page when the person can open the giving module, and on the first page otherwise", () => {
     const w = visibleWorkspaces(ctx({ permissions: ["giving.record_offline"] })).find((x) => x.key === "giving")!;
-    expect(w.href).toBe("/giving/pledges");
+    expect(w.href).toBe("/giving");
     expect(w.tabs.map((t) => t.href)).toEqual(["/giving/pledges", "/giving/payments"]);
+    expect(activeWorkspace(visibleWorkspaces(ctx({ permissions: ["giving.record_offline"] })), "/giving")?.key).toBe("giving");
+    const bolisOnly = visibleWorkspaces(ctx({ permissions: ["bolis.view"] })).find((x) => x.key === "giving")!;
+    expect(bolisOnly.href).toBe("/bolis");
   });
 
   it("is exactly the modules and tabs visibleNav gives, regrouped (nothing added, nothing hidden)", () => {
