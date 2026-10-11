@@ -9395,6 +9395,129 @@ export type Database = {
         };
         Relationships: [];
       };
+      site_blocks: {
+        Row: {
+          id: string;
+          center_id: string;
+          page_id: string;
+          sort: number;
+          type: string;
+          content: Json;
+          source: string;
+          source_page: string | null;
+          needs_text: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          center_id: string;
+          page_id: string;
+          sort: number;
+          type: string;
+          content: Json;
+          source: string;
+          source_page?: string | null;
+          needs_text?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          center_id?: string;
+          page_id?: string;
+          sort?: number;
+          type?: string;
+          content?: Json;
+          source?: string;
+          source_page?: string | null;
+          needs_text?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      site_pages: {
+        Row: {
+          id: string;
+          center_id: string;
+          slug: string;
+          title: string;
+          kind: string;
+          sort: number;
+          status: string;
+          approved_by: string | null;
+          approved_at: string | null;
+          source_path: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          center_id: string;
+          slug: string;
+          title: string;
+          kind: string;
+          sort?: number;
+          status?: string;
+          approved_by?: string | null;
+          approved_at?: string | null;
+          source_path?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          center_id?: string;
+          slug?: string;
+          title?: string;
+          kind?: string;
+          sort?: number;
+          status?: string;
+          approved_by?: string | null;
+          approved_at?: string | null;
+          source_path?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      sites: {
+        Row: {
+          center_id: string;
+          name: string;
+          status: string;
+          theme: Json;
+          draft_version: number;
+          source_job: number | null;
+          built_at: string;
+          built_by: string | null;
+          updated_at: string;
+        };
+        Insert: {
+          center_id: string;
+          name: string;
+          status?: string;
+          theme?: Json;
+          draft_version?: number;
+          source_job?: number | null;
+          built_at?: string;
+          built_by?: string | null;
+          updated_at?: string;
+        };
+        Update: {
+          center_id?: string;
+          name?: string;
+          status?: string;
+          theme?: Json;
+          draft_version?: number;
+          source_job?: number | null;
+          built_at?: string;
+          built_by?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       special_days: {
         Row: {
           id: string;
@@ -14296,6 +14419,28 @@ export type Database = {
         };
         Returns: Json;
       };
+      site_draft_data: {
+        Args: {
+          p_center: string;
+        };
+        Returns: Json;
+      };
+      site_draft_get: {
+        Args: {
+          p_center: string;
+          p_with_blocks?: boolean;
+        };
+        Returns: Json;
+      };
+      site_draft_save: {
+        Args: {
+          p_center: string;
+          p_draft: Json;
+          p_job?: number;
+          p_replace?: boolean;
+        };
+        Returns: Json;
+      };
       site_found_report: {
         Args: {
           p_center: string;
@@ -14314,6 +14459,14 @@ export type Database = {
       site_found_status: {
         Args: {
           p_center: string;
+        };
+        Returns: Json;
+      };
+      site_page_set_status: {
+        Args: {
+          p_center: string;
+          p_page: string;
+          p_status: string;
         };
         Returns: Json;
       };
