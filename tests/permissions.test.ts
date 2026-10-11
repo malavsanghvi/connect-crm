@@ -149,7 +149,7 @@ describe("visibleNav (flat module list)", () => {
     const admin = visibleNav({ permissions: ["settings.manage"], isPlatformAdmin: false });
     const keys = admin.map((m) => m.key);
     expect(keys.indexOf("setup")).toBe(keys.indexOf("settings") - 1);
-    expect(admin.find((m) => m.key === "setup")!.tabs.map((t) => t.href)).toEqual(["/setup", "/setup/organization", "/setup/profile", "/setup/leaders", "/setup/lists", "/setup/readiness", "/setup/go-live"]);
+    expect(admin.find((m) => m.key === "setup")!.tabs.map((t) => t.href)).toEqual(["/setup", "/setup/organization", "/setup/profile", "/setup/website", "/setup/leaders", "/setup/lists", "/setup/readiness", "/setup/go-live"]);
     expect(visibleNav({ permissions: ["roles.manage", "people.view"], isPlatformAdmin: false }).some((m) => m.key === "setup")).toBe(false);
   });
   it("never shows Platform to a center admin, whatever they hold", () => {

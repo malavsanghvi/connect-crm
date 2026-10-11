@@ -519,6 +519,8 @@ export const NAV: NavModule[] = [
       { href: "/setup", label: "Checklist", access: "setup" },
       { href: "/setup/organization", label: "Legal identity", access: "setup" },
       { href: "/setup/profile", label: "Profile & brand", access: "setup" },
+      // B92 W2: the organization's current website and sites it likes, and what Weaver finds on them.
+      { href: "/setup/website", label: "Your website", access: "setup" },
       { href: "/setup/leaders", label: "Leaders", access: "setup" },
       // Onboarding (o-golive): membership types, funds, inboxes, zones and Pathshala tracks.
       { href: "/setup/lists", label: "Lists", access: "setupLists" },
