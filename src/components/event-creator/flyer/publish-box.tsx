@@ -12,7 +12,7 @@ import { Toggle } from "@/components/controls";
 import { btn, card, ComingNext, Pill, type PillTone } from "@/components/onboarding-front/parts";
 import type { ActionResult } from "@/lib/errors";
 import type { FlyerDesign } from "@/lib/events/flyer";
-import { formatDateTime } from "@/lib/events/format";
+import { formatDateTime, toDateTimeLocal } from "@/lib/events/format";
 import {
   approvalProblem,
   channelRows,
@@ -71,6 +71,7 @@ export function PublishBox({
   canApprove,
   run,
   services,
+  onReload,
 }: {
   eventId: string;
   setup: FlyerPanelSetup;
@@ -91,7 +92,9 @@ export function PublishBox({
   const rows = channelRows(snapshot, tz);
   const suggestion = useMemo(() => suggestedPublishTime(eventNow.starts_at, tz), [eventNow.starts_at, tz]);
 
-  const [mode, setMode] = useState<"now" | "schedule">(ev.publish_at ? "schedule" : "now");
+  const [mode, setMode] = useState<"now" | "schedule">("now");
+  // A scheduled event shows its schedule; the controls open again with "Change the time".
+  const [changing, setChanging] = useState(false);
   // The suggestion follows the event's date until the person types a time of their own.
   const [typed, setTyped] = useState<string | null>(null);
   const when = typed ?? suggestion;
@@ -107,7 +110,10 @@ export function PublishBox({
     const res = await run(fn);
     setPending(null);
     if (!res.ok) setError({ text: res.error, retry });
-    else setDone(res.message ?? null);
+    else {
+      setDone(res.message ?? null);
+      setChanging(false);
+    }
   }
 
   const approved = approval.state === "approved";
@@ -128,6 +134,11 @@ export function PublishBox({
       return;
     }
     void act("schedule", () => services.schedule(eventId, when), schedule);
+  }
+  function changeTime() {
+    setMode("schedule");
+    setChanging(true);
+    if (ev.publish_at) setTyped(toDateTimeLocal(ev.publish_at, tz));
   }
   function cancelSchedule() {
     void act("cancel", () => services.cancelSchedule(eventId), cancelSchedule);
@@ -162,6 +173,7 @@ export function PublishBox({
           </p>
           <p className={`m-0 mt-0.5 text-[12px] leading-[1.5] ${approval.state === "changed" || approval.state === "stale" ? "text-danger" : "text-muted"}`}>{approvalText}</p>
         </div>
+        <div className="flex-none whitespace-nowrap">
         <Toggle
           label="Approve this flyer"
           checked={approved}
@@ -170,7 +182,47 @@ export function PublishBox({
           onNote={pending === "withdraw" ? "Withdrawing…" : "Approved"}
           offNote={pending === "approve" ? "Saving…" : approval.state === "none" ? "Not yet" : "Approve again"}
         />
+        </div>
       </div>
+
+      {/* Where it stands: published, scheduled, or a scheduled publish that did not happen */}
+      {state === "live" ? (
+        <p className="m-0 mt-3 rounded-[10px] bg-success-50 px-3 py-2 text-[13px] text-success-900" role="status">
+          Published. Members can RSVP in the app{setup.guestVisible ? ", and guests on the event page" : ""}.
+        </p>
+      ) : state === "ended" || state === "cancelled" ? (
+        <p className="m-0 mt-3 text-[13px] text-muted">{state === "ended" ? "This event has ended." : "This event is cancelled. Restore it as a draft on its page to publish it again."}</p>
+      ) : !setup.canEdit ? (
+        <p className="m-0 mt-3 text-[13px] text-muted">Your role can see this event but not publish it.</p>
+      ) : state === "scheduled" && ev.publish_at ? (
+        <div className="mt-3 rounded-[12px] border border-navy-300 bg-navy-50 px-3 py-2.5" role="status">
+          <p className="m-0 text-[14px] font-bold text-ink">Scheduled for {formatDateTime(ev.publish_at, tz)}</p>
+          <p className="m-0 mt-0.5 text-[12px] leading-[1.5] text-ink-2">
+            {scheduledLater
+              ? `It will be published then (${zoneName(tz)}), after the same checks: if the event or its flyer changed in a way that stops it, it stays a draft and you are told why here. You can change or cancel until then.`
+              : "The time has come: it is published within a few minutes."}
+          </p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {scheduledLater ? null : (
+              <button type="button" className={btn.outline} onClick={onReload} disabled={pending !== null}>
+                Check again
+              </button>
+            )}
+            <button type="button" className={btn.outline} onClick={changeTime} disabled={pending !== null || changing}>
+              Change the time
+            </button>
+            <button type="button" className={btn.outline} onClick={cancelSchedule} disabled={pending !== null}>
+              {pending === "cancel" ? "Cancelling…" : "Cancel the schedule"}
+            </button>
+          </div>
+        </div>
+      ) : null}
+
+      {state === "failed" && ev.publish_failure && canPublish ? (
+        <InlineProblem onRetry={publishNow} retryLabel={pending === "publish" ? "Publishing…" : "Try again"}>
+          {ev.publish_failure} Fix it, then try again (it publishes now) or schedule a new time.
+        </InlineProblem>
+      ) : null}
 
       {/* 2. Channels */}
       <ul className="m-0 flex list-none flex-col p-0" aria-label="Where the event is published">
@@ -209,7 +261,7 @@ export function PublishBox({
         <textarea
           id={ids.caption}
           disabled
-          rows={2}
+          rows={3}
           aria-describedby={`${ids.caption}-why`}
           className="mt-1 block w-full cursor-not-allowed rounded-[10px] border border-line-input bg-white px-3 py-2 text-[13px] text-muted"
           defaultValue={`${eventNow.name}. ${eventNow.starts_at ? formatDateTime(eventNow.starts_at, tz) : ""}${eventNow.venue ? `, ${eventNow.venue}` : ""}. RSVP in the app or on our website.`}
@@ -224,40 +276,7 @@ export function PublishBox({
       </div>
 
       {/* 3. Now or later */}
-      {state === "live" ? (
-        <p className="m-0 mt-3 rounded-[10px] bg-success-50 px-3 py-2 text-[13px] text-success-900" role="status">
-          Published. Members can RSVP in the app{setup.guestVisible ? ", and guests on the event page" : ""}.
-        </p>
-      ) : state === "ended" || state === "cancelled" ? (
-        <p className="m-0 mt-3 text-[13px] text-muted">{state === "ended" ? "This event has ended." : "This event is cancelled. Restore it as a draft on its page to publish it again."}</p>
-      ) : !setup.canEdit ? (
-        <p className="m-0 mt-3 text-[13px] text-muted">Your role can see this event but not publish it.</p>
-      ) : state === "scheduled" && ev.publish_at ? (
-        <div className="mt-3 rounded-[12px] border border-navy-300 bg-navy-50 px-3 py-2.5" role="status">
-          <p className="m-0 text-[14px] font-bold text-ink">Scheduled for {formatDateTime(ev.publish_at, tz)}</p>
-          <p className="m-0 mt-0.5 text-[12px] leading-[1.5] text-ink-2">
-            {scheduledLater
-              ? `It will be published then (${zoneName(tz)}), after the same checks: if the event or its flyer changed in a way that stops it, it stays a draft and you are told why here. You can change or cancel until then.`
-              : "The time has come: it is published within a few minutes."}
-          </p>
-          <div className="mt-2 flex flex-wrap gap-2">
-            <button type="button" className={btn.outline} onClick={() => setMode("schedule")} disabled={pending !== null}>
-              Change the time
-            </button>
-            <button type="button" className={btn.outline} onClick={cancelSchedule} disabled={pending !== null}>
-              {pending === "cancel" ? "Cancelling…" : "Cancel the schedule"}
-            </button>
-          </div>
-        </div>
-      ) : null}
-
-      {state === "failed" && ev.publish_failure && canPublish ? (
-        <InlineProblem onRetry={publishNow} retryLabel={pending === "publish" ? "Publishing…" : "Try again"}>
-          {ev.publish_failure} Fix it, then try again (it publishes now) or schedule a new time.
-        </InlineProblem>
-      ) : null}
-
-      {canPublish && (state !== "scheduled" || mode === "schedule") ? (
+      {canPublish && (state !== "scheduled" || changing) ? (
         <div className="mt-3">
           <div role="radiogroup" aria-label="When to publish" className="flex flex-wrap gap-1.5" id={ids.mode}>
             {(["now", "schedule"] as const).map((m) => (

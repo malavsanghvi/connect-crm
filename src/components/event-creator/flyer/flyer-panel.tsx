@@ -65,6 +65,9 @@ export type FlyerPanelServices = {
   cancelSchedule: (eventId: string) => Promise<ActionResult>;
 };
 
+/** The styles in the order the panel offers them: the Poster (the default, with drawn art) first. */
+const PANEL_TEMPLATES = ["poster", ...FLYER_TEMPLATES.filter((t) => t !== "poster")] as const;
+
 const NO_ANSWER = "the server did not respond. Check the connection and try again.";
 
 /** Turn a thrown error (the server not answering) into a plain result, logged. */
@@ -349,7 +352,7 @@ export function FlyerPanelView({
           </span>
           <ChipGroup
             label="Flyer style"
-            options={FLYER_TEMPLATES.map((t) => ({ value: t, label: FLYER_TEMPLATE_LABEL[t], disabled: t === "photo" && !photoOk }))}
+            options={PANEL_TEMPLATES.map((t) => ({ value: t, label: FLYER_TEMPLATE_LABEL[t], disabled: t === "photo" && !photoOk }))}
             value={design.template}
             onChange={(v) => setDesign((d) => ({ ...d, template: v as FlyerDesign["template"], ...(v === "poster" && !d.poster ? { poster: setup.defaults.poster } : {}) }))}
           />
@@ -373,7 +376,7 @@ export function FlyerPanelView({
                   requestAnimationFrame(() => layersRef.current?.scrollIntoView({ block: "nearest" }));
                 }}
               >
-                Ask Gemini for new art ({formatArtCost(artReady.cents)} a picture)
+                Ask Gemini for new art ({formatArtCost(artReady.cents)} each)
               </button>
             ) : (
               <button type="button" className={btn.off} disabled aria-describedby="flyer-art-note">
