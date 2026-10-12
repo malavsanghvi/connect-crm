@@ -210,12 +210,15 @@ const SUGGESTIONS: Record<SuggestionArea, Suggestion[]> = {
     // On the list: look things up and see what is waiting.
     { text: "Find the household with member number 1042", needs: "people.search" },
     { text: "Which applications and family requests are waiting?", needs: "people.pending_reviews" },
-    { text: "Find the household with QuickBooks customer 2217", needs: "people.find_household", module: "accounting" },
     { text: "Show me the suggested duplicates", needs: "people.suggest_duplicates" },
+    { text: "Find the household with QuickBooks customer 2217", needs: "people.find_household", module: "accounting" },
     { text: "Find the household whose phone number ends in 4821", needs: "people.search" },
     { text: "What is waiting for me?", needs: "tasks.mine" },
   ],
+  // Giving: the payments screen and the bank screen each lead with what they are for; the pledges screen leads with the pledges question.
   giving: [
+    { text: "What is waiting for a second approver?", needs: "giving.waiting_for_second_approver", onlyAt: "/giving/payments" },
+    { text: "Which bank lines are still unmatched?", needs: "giving.bank_lines_unmatched", onlyOn: "/giving/payments/bank" },
     { text: (w) => `Who is behind on ${w.pledges}?`, needs: "giving.pledges_behind" },
     { text: (w) => `Record ${w.payment(25_000)} from member number 1042`, needs: "giving.draft_payment" },
     { text: (w) => `Which ${w.plugin("zelle")} reports are waiting for the bank?`, needs: "giving.zelle_waiting", plugin: "zelle" },
@@ -263,11 +266,12 @@ const SUGGESTIONS: Record<SuggestionArea, Suggestion[]> = {
   // Messages (B90 phase 4): on a conversation the first two are about it; on a message to families, about that message; on the list, the rest.
   messages: [
     { text: "Draft a reply to this conversation from our approved answers", needs: "messages.draft_reply", onlyFor: "message thread" },
+    { text: "Where is this message in approval, who is it for, and has it gone out?", needs: "messages.campaigns", onlyFor: "campaign" },
     { text: "Why has this message not gone out?", needs: "messages.why_not_delivered", onlyFor: "campaign" },
     { text: "What is waiting in the inbox?", needs: "messages.inbox_triage", onlyWithout: true },
     { text: "Which messages to families are waiting for approval?", needs: "messages.campaigns", onlyWithout: true },
-    { text: "How many people would a message to all members reach by email, text and WhatsApp?", needs: "messages.audience_preview", onlyWithout: true },
     { text: "Why did a family not get our text?", needs: "messages.why_not_delivered", onlyWithout: true },
+    { text: "How many people would a message to all members reach by email, text and WhatsApp?", needs: "messages.audience_preview", onlyWithout: true },
     { text: "Draft a reminder for the next event in every language we use", needs: "messages.draft_reminder", onlyWithout: true },
     { text: "What is waiting for me?", needs: "tasks.mine" },
   ],
@@ -324,7 +328,7 @@ const SUGGESTIONS: Record<SuggestionArea, Suggestion[]> = {
     { text: (w) => `What have we billed and collected for ${w.school} so far?`, needs: "learning.fee_report", onlyOn: "/pathshala/terms", module: "pathshala" },
     { text: "What is missing before registration can open for each term?", needs: "learning.registration_checklist", onlyAt: "/pathshala/terms", module: "pathshala" },
     { text: "Show how a term is set up: levels, fees and rules", needs: "learning.term_setup", onlyAt: "/pathshala/terms", module: "pathshala" },
-    { text: "Which levels have no fee set for the term?", needs: "learning.term_setup", onlyOn: "/pathshala/levels", module: "pathshala" },
+    { text: "Which levels have no fee set for the term, and what are their age bands?", needs: "learning.term_setup", onlyOn: "/pathshala/levels", module: "pathshala" },
     {
       text: (w) => `What would a ${w.amount(13_500) ? `fee of ${w.amount(13_500)}` : "new fee"} for ${w.level} change?`,
       needs: "learning.draft_term_change",
@@ -400,7 +404,7 @@ export function suggestionsFor(path: string, entityKind: string | undefined, ava
   const own = pick(SUGGESTIONS[area]);
   // A screen whose role can use none of its own examples still gets the general ones.
   const list = own.length > 0 ? own : pick(SUGGESTIONS.general);
-  return list.slice(0, 3);
+  return [...new Set(list)].slice(0, 3);
 }
 
 const AREA_NAME: Record<SuggestionArea, string> = {

@@ -6,7 +6,6 @@ import { ActionButton } from "@/components/events/action-button";
 import { LoadProblem } from "@/components/events/load-problem";
 import { MoreDetails } from "@/components/more-details";
 import { HistoryButton } from "@/components/record-history";
-import { AskNiva } from "@/components/niva/ask-niva";
 import { NoAccess, PageHeader, Tabs, buttonClass } from "@/components/ui";
 import { load, loadEventAccess, resolvePeopleNames, row } from "@/lib/data/events";
 import { eventAreas } from "@/lib/events/access";
@@ -116,7 +115,6 @@ export default async function EventPage({ params, searchParams }: { params: Prom
             <Link href={`/events/live?event=${id}`} className={buttonClass("ghost")}>
               Live check-in
             </Link>
-            <AskNiva prompt="What is blocking this event from going live, and how is it doing?" />
             <HistoryButton table="events" recordId={id} title={event.name} variant="ghost" size="md" />
             {canEdit ? (
               <Link href={`/events/builder?event=${id}`} className={buttonClass("primary")}>

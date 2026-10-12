@@ -176,23 +176,28 @@ describe("Niva's example sentences", () => {
   it("read as before for a Jain temple that writes dollars and takes checks and Zelle", () => {
     const ctx = forKind(JAIN, USD, ["zelle", "check"]);
     expect(suggestionsFor("/giving/payments", undefined, ALL_KEYS, ctx)).toEqual([
+      "What is waiting for a second approver?",
+      "Who is behind on pledges?",
+      "Record a $250 check from member number 1042",
+    ]);
+    expect(suggestionsFor("/giving/pledges", undefined, ALL_KEYS, ctx)).toEqual([
       "Who is behind on pledges?",
       "Record a $250 check from member number 1042",
       "Which Zelle reports are waiting for the bank?",
     ]);
     expect(suggestionsFor("/events", undefined, ALL_KEYS, ctx)).toContain("Copy last year's Diwali Dinner to November 8 as a draft");
     expect(suggestionsFor("/content/media", undefined, ALL_KEYS, ctx)[0]).toBe("How many stavans, videos and podcasts are in the media library?");
-    expect(suggestionsFor("/pathshala/levels", undefined, ALL_KEYS, ctx)).toEqual(["Which levels have no fee set for the term?", "What would a fee of $135 for Jainism 2 change?"]);
+    expect(suggestionsFor("/pathshala/levels", undefined, ALL_KEYS, ctx)).toEqual(["Which levels have no fee set for the term, and what are their age bands?", "What would a fee of $135 for Jainism 2 change?"]);
   });
 
   it("use the community's currency and the paper payment its country calls by that name", () => {
-    expect(suggestionsFor("/giving/payments", undefined, ALL_KEYS, forKind(CHURCH, GBP, ["check"]))).toEqual([
+    expect(suggestionsFor("/giving/pledges", undefined, ALL_KEYS, forKind(CHURCH, GBP, ["check"]))).toEqual([
       "Who is behind on pledges?",
       "Record a £250 cheque from member number 1042",
       "Which bank lines are still unmatched?",
     ]);
-    expect(suggestionsFor("/giving/payments", undefined, ALL_KEYS, forKind(MOSQUE, INR, ["cash"]))[1]).toBe("Record a ₹250 cash from member number 1042");
-    expect(suggestionsFor("/giving/payments", undefined, ALL_KEYS, forKind(CHAMBER, USD, []))).toEqual([
+    expect(suggestionsFor("/giving/payments", undefined, ALL_KEYS, forKind(MOSQUE, INR, ["cash"]))[2]).toBe("Record a ₹250 cash from member number 1042");
+    expect(suggestionsFor("/giving/pledges", undefined, ALL_KEYS, forKind(CHAMBER, USD, []))).toEqual([
       "Who is behind on dues and pledges?",
       "Record a $250 payment from member number 1042",
       "Which bank lines are still unmatched?",
@@ -203,10 +208,10 @@ describe("Niva's example sentences", () => {
     // payment ways not read: no Zelle, no check
     const unknownWays = suggestionsFor("/giving/payments", undefined, ALL_KEYS, { kind: JAIN, currency: "USD", locale: "en-US", paymentPlugins: null });
     expect(unknownWays.join(" ")).not.toMatch(/zelle/i);
-    expect(unknownWays[1]).toBe("Record a $250 payment from member number 1042");
+    expect(unknownWays[2]).toBe("Record a $250 payment from member number 1042");
     // no currency: no amount at all
-    expect(suggestionsFor("/giving/payments", undefined, ALL_KEYS, { kind: JAIN })[1]).toBe("Record a payment from member number 1042");
-    expect(suggestionsFor("/pathshala/levels", undefined, ALL_KEYS, { kind: JAIN })).toEqual(["Which levels have no fee set for the term?", "What would a new fee for Jainism 2 change?"]);
+    expect(suggestionsFor("/giving/payments", undefined, ALL_KEYS, { kind: JAIN })[2]).toBe("Record a payment from member number 1042");
+    expect(suggestionsFor("/pathshala/levels", undefined, ALL_KEYS, { kind: JAIN })).toEqual(["Which levels have no fee set for the term, and what are their age bands?", "What would a new fee for Jainism 2 change?"]);
   });
 
   it.each(NOT_JAIN)("never speak of a Jain temple, a Jain festival or a dollar to %s", (_name, kind) => {

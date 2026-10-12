@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 
-import { AskNiva } from "@/components/niva/ask-niva";
 import { Alert, Card, NoAccess, PageHeader } from "@/components/ui";
 import { userNames } from "@/lib/data/lookups";
 import { formatDateTime } from "@/lib/dates";
@@ -22,7 +21,6 @@ export default async function ModulesPage() {
     <PageHeader
       title="Settings"
       description={`Switch whole areas on or off for ${center} · switched-off modules disappear from the portal and the member app, and the database refuses their data`}
-      actions={<AskNiva prompt="Which modules are switched on, and which are off?" />}
     />
   );
   if (!canAccess(session, "centerSettings")) {

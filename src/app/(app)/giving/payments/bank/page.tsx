@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
-import { GivingAskNiva } from "@/app/(app)/giving/_components/giving-ask-niva";
 import { ActionForm } from "@/components/action-form";
 import { Badge, Card, ChipLinks, EmptyState, NoAccess, PageHeader, Pagination, QueryError, TableWrap, Tabs, buttonClass } from "@/components/ui";
 import { identifierRules } from "@/lib/center-rules";
@@ -47,7 +46,6 @@ export default async function BankPage({ searchParams }: { searchParams: Promise
       <PageHeader
         title="Giving"
         description="Bank reconciliation · import the bank statement, then match each line: Zelle, ACH and fund grants to a household; check and cash deposits to the payments recorded for them. Card payouts are never gifts."
-        actions={<GivingAskNiva about="bank" />}
       />
       <ChipLinks
         label="Payments and deposits views"

@@ -321,7 +321,6 @@ function ReviewsList({ section }: { section: NonNullable<PeopleWorkspaceModel["r
         <SectionShell
           title="Waiting for a decision"
           intro="Applications and family change requests, oldest first. Each shows its household card, so two families with the same name are never confused. Decide on the review screens."
-          aside={<AskNiva prompt="Which applications and family requests are waiting?" />}
         >
           {d.note ? <p className="m-0 text-[13px] text-muted">{d.note}</p> : null}
           <h3 className="m-0 text-[13px] font-extrabold uppercase tracking-[0.04em] text-muted">
@@ -428,7 +427,6 @@ function DuplicatesList({ section }: { section: NonNullable<PeopleWorkspaceModel
         <SectionShell
           title="Possible duplicates"
           intro="The system matched these pairs. Niva only suggests: a person compares the two cards and confirms before anything is merged."
-          aside={<AskNiva prompt="Show me the suggested duplicates" />}
         >
           {d.items.length ? (
             <ul className="m-0 flex list-none flex-col gap-2 p-0">

@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 
 import { ActionForm } from "@/components/action-form";
-import { AskNiva } from "@/components/niva/ask-niva";
 import { BlockGrid, Card, EmptyState, NoAccess, PageHeader, QueryError } from "@/components/ui";
 import { storeRules } from "@/lib/center-rules";
 import { formatDate, formatDateTime } from "@/lib/dates";
@@ -21,7 +20,7 @@ export default async function StoreMenuPage() {
   const session = await getSession();
   // The store is "My Store" for a Jain Center; any other kind names its own.
   const storeName = kindTerm(session.kind, "store", "My Store");
-  const header = <PageHeader title={storeName} description="What members see in the store, how orders are cut off and picked up" actions={<AskNiva prompt="What needs attention in the store: orders waiting for pickup, items running low, and this month's sales?" />} />;
+  const header = <PageHeader title={storeName} description="What members see in the store, how orders are cut off and picked up" />;
   if (!canAccess(session, "store")) {
     return (
       <>

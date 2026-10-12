@@ -1,6 +1,5 @@
 import type { ReactNode } from "react";
 
-import { AskNiva } from "@/components/niva/ask-niva";
 import { NoAccess, PageHeader } from "@/components/ui";
 import type { AudienceNames } from "@/lib/comms";
 import type { AudienceOptions } from "@/lib/data/content-comms";
@@ -13,12 +12,7 @@ export function CommsHeader({ sub, actions }: { sub: ReactNode; actions?: ReactN
     <PageHeader
       title="Communications"
       description={sub}
-      actions={
-        <>
-          {actions}
-          <AskNiva prompt="What needs attention in Messages: the inbox, messages waiting for approval, and anything that did not go out?" />
-        </>
-      }
+      actions={actions}
     />
   );
 }

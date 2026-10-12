@@ -3,7 +3,6 @@ import Link from "next/link";
 
 import { HouseholdDrawerProvider, HouseholdRow } from "@/app/(app)/giving/_components/household-drawer";
 import { ActionForm } from "@/components/action-form";
-import { GivingAskNiva } from "@/app/(app)/giving/_components/giving-ask-niva";
 import { HistoryButton } from "@/components/record-history";
 import { FlaggedRefundControls, RefundControls } from "@/components/two-person-controls";
 import {
@@ -55,7 +54,6 @@ export default async function PaymentsPage({ searchParams }: { searchParams: Pro
     <PageHeader
       title="Giving"
       description={`Offline payments, deposits, ${word(session.kind, "cash_box")} and refunds`}
-      actions={<GivingAskNiva about="payments" />}
     />
   );
   if (!canAccess(session, "payments")) {
