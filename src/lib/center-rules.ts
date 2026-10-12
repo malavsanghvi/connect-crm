@@ -1,4 +1,5 @@
 import type { Json } from "@/lib/database.types";
+import { givingRuleProblems } from "@/lib/giving-glance/levels";
 import { HOME_SHORTCUT_KEYS } from "@/lib/home-shortcuts";
 
 // centers.rules is a per-center rule bag (0001 comment + seed). Helpers here
@@ -203,6 +204,8 @@ export function validateRulesJson(text: string): RulesValidation {
       if (typeof v !== "boolean") errors.push(`"notifications.triggers.${k}" must be true or false.`);
     }
   }
+  // rules.giving.show_by: whether "Giving at a glance" reads giving by household or by person.
+  errors.push(...givingRuleProblems(get(parsed, ["giving"])));
   errors.push(...storeRuleProblems(get(parsed, ["store"])));
   errors.push(...assistantRuleProblems(get(parsed, ["assistant"])));
   const basis = get(parsed, ["accounting", "basis"]);

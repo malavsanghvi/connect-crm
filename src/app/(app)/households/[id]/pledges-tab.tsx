@@ -1,25 +1,30 @@
 import { CustomDetailsCell } from "@/components/custom-details-cell";
+import { PeriodNote } from "@/components/giving-glance/period-note";
 import { Badge, Card, EmptyState, NoAccess, QueryError, TableWrap } from "@/components/ui";
 import { loadCustomFieldDefs, withCustomValues } from "@/lib/data/custom-fields";
-import { formatDate } from "@/lib/dates";
+import { addDays, formatDate, startOfDayInTz } from "@/lib/dates";
+import type { TabPeriod } from "@/lib/giving-glance/page";
 import { PLEDGE_STATUS_LABEL, PLEDGE_STATUS_TONE } from "@/lib/labels";
 import { formatCents, sumCents } from "@/lib/money";
 import { canAccess } from "@/lib/permissions";
 import type { CrmSession } from "@/lib/session";
 
-export async function PledgesTab({ session, householdId }: { session: CrmSession; householdId: string }) {
+/** `period`: only the pledges made in this year (the year chosen in "Giving at a glance"); all of them when it is left out. */
+export async function PledgesTab({ session, householdId, period }: { session: CrmSession; householdId: string; period?: TabPeriod }) {
   if (!canAccess(session, "pledges")) return <NoAccess area="Pledges" access="pledges" />;
   const { db, center } = session;
   const tz = center.time_zone;
   const retry = `/households/${householdId}?tab=pledges`;
 
+  let pledgeQuery = db
+    .from("pledges")
+    .select("id, pledge_number, crm_external_id, campaign_id, source, amount_cents, paid_cents, status, pledged_at, due_on, dedication, anonymous, custom")
+    .eq("household_id", householdId);
+  // By the day the pledge was made, in the community's time zone.
+  if (period?.from) pledgeQuery = pledgeQuery.gte("pledged_at", startOfDayInTz(period.from, tz));
+  if (period?.to) pledgeQuery = pledgeQuery.lt("pledged_at", startOfDayInTz(addDays(period.to, 1), tz));
   const [pRes, cRes, defs] = await Promise.all([
-    db
-      .from("pledges")
-      .select("id, pledge_number, crm_external_id, campaign_id, source, amount_cents, paid_cents, status, pledged_at, due_on, dedication, anonymous, custom")
-      .eq("household_id", householdId)
-      .order("pledged_at", { ascending: false })
-      .limit(500),
+    pledgeQuery.order("pledged_at", { ascending: false }).limit(500),
     db.from("campaigns").select("id, name").eq("center_id", center.id),
     loadCustomFieldDefs(db, center.id, "pledges", true),
   ]);
@@ -35,15 +40,22 @@ export async function PledgesTab({ session, householdId }: { session: CrmSession
     <Card
       padded={false}
       title="Pledges"
-      description={`${pledges.length} pledges · ${formatCents(sumCents(outstanding.map((p) => p.amount_cents - p.paid_cents)), center.currency)} outstanding on ${outstanding.length}`}
+      description={`${pledges.length} pledges${period ? ` made in ${period.label}` : ""} · ${formatCents(sumCents(outstanding.map((p) => p.amount_cents - p.paid_cents)), center.currency)} outstanding on ${outstanding.length}`}
     >
+      {period ? <PeriodNote period={period} what="pledges" /> : null}
       {cRes.error ? (
         <div className="p-4">
           <QueryError what="campaign names" error={cRes.error} retryHref={retry} />
         </div>
       ) : null}
       {pledges.length === 0 ? (
-        <EmptyState title="No pledges" />
+        <EmptyState title={period ? `No pledges made in ${period.label}` : "No pledges"}>
+          {period ? (
+            <a href={period.showAllHref} className="crm-link font-semibold">
+              Show all years
+            </a>
+          ) : null}
+        </EmptyState>
       ) : (
         <TableWrap>
           <table className="crm-table">
