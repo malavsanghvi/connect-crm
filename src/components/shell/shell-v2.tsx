@@ -4,7 +4,8 @@ import type { ReactNode } from "react";
 import { WeaverMark } from "@/components/brand/weaver-mark";
 import { ActivityBeacon } from "@/components/shell/activity-beacon";
 import { CenterSwitcher, SandboxWatermark } from "@/components/shell/center-switcher";
-import { GlobalSearch } from "@/components/shell/global-search";
+import { FamilyVisitTracker } from "@/components/people-v2/find/family-visit-tracker";
+import { FindBox } from "@/components/people-v2/find/find-box";
 import { NivaSunButton } from "@/components/shell/niva-sun-button";
 import { PhoneBar } from "@/components/shell/phone-bar";
 import { TenantMark } from "@/components/shell/tenant-mark";
@@ -13,6 +14,7 @@ import { WorkspaceRail } from "@/components/shell/workspace-rail";
 import { NivaBoundary } from "@/components/niva/niva-boundary";
 import { NivaDock } from "@/components/niva/niva-dock";
 import { activityRecordingOn } from "@/lib/activity/enabled";
+import { recentCookieName } from "@/lib/find/recents";
 import { PRODUCT_NAME } from "@/lib/brand";
 import type { CrmSession } from "@/lib/session";
 import type { TenantBranding } from "@/lib/shell";
@@ -55,6 +57,8 @@ export function ShellV2({
   const switchable = session.switchable.some((c) => c.slug !== center.slug);
   const items = workspaces.map(({ key, label, href, icon, placement, paths, tabs }) => ({ key, label, href, icon, placement, paths, tabs }));
   const userInitials = initials(name, 1);
+  // The find box remembers the families this person opens (in this browser) for the People home.
+  const recentCookie = recentCookieName(session.userId, center.id);
 
   return (
     <div data-look="v2" className="v2-shell flex min-h-screen flex-col">
@@ -87,7 +91,8 @@ export function ShellV2({
             {center.name}
           </span>
         )}
-        <div className="hidden min-w-0 flex-1 justify-center md:flex">{canSearch ? <GlobalSearch /> : null}</div>
+        <div className="hidden min-w-0 flex-1 justify-center md:flex">{canSearch ? <FindBox variant="bar" cookieName={recentCookie} /> : null}</div>
+        {canSearch ? <FamilyVisitTracker cookieName={recentCookie} /> : null}
         <div className="flex-1 md:hidden" />
         {/* Niva has one way in on this look: the rail item (the bottom bar on a phone) and Ctrl+J. */}
         <UserMenuV2 name={name} email={session.email} role={roleSummary(session)} roles={roleLabels} initials={userInitials} />

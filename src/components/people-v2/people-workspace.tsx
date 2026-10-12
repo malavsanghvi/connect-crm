@@ -8,6 +8,7 @@ import { NivaHouseholdCard } from "@/components/niva/niva-household-card";
 import type { DuplicateItem, HouseholdPanel, HouseholdsSection, PanelState, PeopleSection, PeopleWorkspaceModel, Problem, QuickChip, ReviewItem, Section } from "@/lib/people-v2/model";
 
 import { PeopleAskBox } from "./ask-box";
+import { ListsMenu } from "./people-home";
 import { ComingNext, DraftForThese, ListHint, MergeByCard, NoticedLabel } from "./niva-bits";
 
 // The People workspace in the new look, as drawn on the prototype board "Ask your data, then the household card": the list with
@@ -23,19 +24,13 @@ export function PeopleWorkspace({ model }: { model: PeopleWorkspaceModel }) {
     <div className="xl:-mb-10 xl:-mr-7 xl:-mt-[22px] xl:flex xl:min-h-[calc(100vh-4rem)]">
       <div className="flex min-w-0 flex-1 flex-col gap-4 xl:pb-10 xl:pr-9 xl:pt-[26px]">
         <div className="flex flex-wrap items-end justify-between gap-4">
-          <h1 className="m-0 font-display text-[30px] font-semibold leading-tight text-ink">People</h1>
-          <nav aria-label="Show" className="flex max-w-full gap-1 overflow-x-auto rounded-3xl bg-[#E9EFF7] p-1">
-            {m.tabs.map((t) => (
-              <Link
-                key={t.key}
-                href={t.href}
-                aria-current={t.current ? "page" : undefined}
-                className={`inline-flex min-h-10 shrink-0 items-center rounded-[20px] px-4 text-[14px] no-underline ${t.current ? "bg-white font-bold text-navy" : "font-semibold text-ink-2 hover:bg-white/60"}`}
-              >
-                {t.label}
-              </Link>
-            ))}
-          </nav>
+          <div>
+            <Link href="/people" className="inline-flex min-h-9 items-center text-[13px] font-bold text-navy no-underline hover:underline">
+              ‹ People
+            </Link>
+            <h1 className="m-0 font-display text-[30px] font-semibold leading-tight text-ink">{m.title}</h1>
+          </div>
+          <ListsMenu lists={m.lists} />
         </div>
 
         <QuickChips chips={m.quick} />

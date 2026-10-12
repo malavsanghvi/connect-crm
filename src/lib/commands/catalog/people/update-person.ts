@@ -13,6 +13,8 @@ import {
 } from "@/lib/people";
 import { loadCommunityLocale } from "@/lib/community-locale";
 import { ageOn } from "@/lib/dates";
+import { REASON_MAX, conflictKeys, conflictSentence, parseExpect } from "@/lib/people-v2/inline-edit";
+import { dbWithReason } from "@/lib/session";
 import { communityMajority } from "../../child-filter";
 
 import { defineCommand } from "../../define";
@@ -20,7 +22,7 @@ import { revalidateAfterCommand } from "../../revalidate";
 import { f, object, type Infer } from "../../schema";
 import { CommandDbError, CommandError, type CommandContext, type CommandPreview } from "../../types";
 
-import { CHILD_RECORDS_ON_SCREEN, cardsFor, dbFail, loadPersonBrief, refuseChildForAssistant, relationshipWords, today } from "./shared";
+import { CHILD_RECORDS_ON_SCREEN, cardsFor, dbFail, loadPersonBrief, lowerFirst, refuseChildForAssistant, relationshipWords, today } from "./shared";
 
 const ROLES = RELATIONSHIP_OPTIONS.map((o) => o.value) as ["spouse", ...string[]];
 const text = (what: string) => f.optional(f.string(what, { min: 0, max: 1000 }));
@@ -42,6 +44,10 @@ const input = object({
   expertise_headline: text("Screen only: expertise headline. Niva does not change it."),
   household_id: f.optional(f.uuid("With role: the household this person's relationship is changed in.")),
   role: f.optional(f.enum("A new relationship to that household (never primary). Needs household_id.", ROLES)),
+  expect: text(
+    "Screen only: the value(s) the person saw before changing them, as JSON like {\"phone_e164\": \"+15125550101\"}. If someone else changed one of them meanwhile, nothing is saved and the screen shows the new value.",
+  ),
+  reason: text("Why the details are changing (goes in the audit log). Optional."),
 });
 export type UpdatePersonInput = Infer<typeof input>;
 
@@ -57,6 +63,8 @@ type Plan = {
   household: string | null;
   role: HouseholdRole | null;
   roleChanged: boolean;
+  /** Why, when the person said (the audit log carries it). */
+  reason: string;
 };
 
 async function plan(ctx: CommandContext, inp: UpdatePersonInput): Promise<Plan> {
@@ -98,6 +106,8 @@ async function plan(ctx: CommandContext, inp: UpdatePersonInput): Promise<Plan> 
   }
   const parsed = parsePersonForm(raw, today(ctx), languages);
   if (!parsed.ok) throw new CommandError(`Could not save the profile — ${parsed.error}.`);
+  const expected = parseExpect(inp.expect);
+  if (!expected.ok) throw new CommandError(`Could not save the profile — ${lowerFirst(expected.error)}`);
   const original = { ...(current.data as unknown as PersonProfile) };
   // Legacy values the form shows normalised ("F" → Female, mixed-case email) are not changes.
   original.gender = genderValue(original.gender) || original.gender;
@@ -109,16 +119,22 @@ async function plan(ctx: CommandContext, inp: UpdatePersonInput): Promise<Plan> 
   const household = inp.household_id ?? null;
   const role = inp.role ?? "";
   let roleChanged = false;
+  let currentRole: string | null = null;
   if (household && role) {
     if (!isHouseholdRole(role) || role === "primary") throw new CommandError("Could not save the profile — choose a relationship from the list.");
     const link = await db.from("household_members").select("role, is_primary").eq("household_id", household).eq("person_id", id).is("left_at", null).maybeSingle();
     if (link.error) throw new CommandDbError(link.error, "save the relationship");
+    currentRole = link.data?.role ?? null;
     roleChanged = Boolean(link.data && !link.data.is_primary && link.data.role !== role);
   }
+  // The value the person saw is no longer the value on file: someone else changed it. Nothing is saved; the screen shows both.
+  const clash = conflictKeys(expected.value, { ...(current.data as Record<string, unknown>), role: currentRole }, [...keys, ...(roleChanged ? ["role"] : [])]);
+  if (clash.length > 0) throw new CommandError(conflictSentence(clash));
   const first = parsed.value.first_name ?? original.first_name;
   const changes: Partial<PersonProfile> = {};
   for (const k of keys) (changes as Record<string, unknown>)[k] = parsed.value[k];
-  return { id, first, original, changes, keys, household, role: roleChanged && isHouseholdRole(role) ? role : null, roleChanged };
+  const why = (inp.reason ?? "").trim().slice(0, REASON_MAX);
+  return { id, first, original, changes, keys, household, role: roleChanged && isHouseholdRole(role) ? role : null, roleChanged, reason: why };
 }
 
 const shown = (v: unknown): string | null => (v === null || v === undefined || v === "" ? null : typeof v === "boolean" ? (v ? "yes" : "no") : String(v));
@@ -155,7 +171,9 @@ export const updatePerson = defineCommand<UpdatePersonInput, undefined>({
   async execute(ctx, inp) {
     const p = await plan(ctx, inp);
     if (p.keys.length === 0 && !p.roleChanged) return { ok: true, data: undefined, message: "No changes to save." };
-    const { db, center } = ctx.session;
+    const { center } = ctx.session;
+    // With a reason the writes go out carrying it, so the audit log shows why.
+    const db = p.reason ? await dbWithReason(ctx.session, p.reason) : ctx.session.db;
     if (p.keys.length > 0) {
       const upd = await db.from("people").update(p.changes).eq("id", p.id).eq("center_id", center.id).select("id");
       if (upd.error) throw new CommandDbError(upd.error, `save ${p.first}'s profile`);

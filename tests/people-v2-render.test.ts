@@ -15,6 +15,7 @@ vi.mock("next/navigation", async (orig) => ({
 vi.mock("@/app/(app)/households/actions", () => ({ dismissDuplicateAction: vi.fn() }));
 vi.mock("@/app/security-actions", () => ({ verifyStepUpAction: vi.fn() }));
 vi.mock("@/app/(app)/search/actions", () => ({ globalSearchAction: vi.fn() }));
+vi.mock("@/app/(app)/search/find-actions", () => ({ findAction: vi.fn() }));
 vi.mock("@/app/auth-actions", () => ({ signOutAction: vi.fn() }));
 vi.mock("@/app/tenancy-actions", () => ({ switchCenterAction: vi.fn() }));
 vi.mock("@/app/history-actions", () => ({ loadRecordHistoryAction: vi.fn() }));
@@ -36,9 +37,15 @@ describe("the households view", () => {
   const html = draw(sampleModel({ view: "households", hh: null, niva: true }));
   const words = text(html);
 
-  it("draws the board: title, tabs, chips, the ask box read into chips, the summary and the list", () => {
+  it("draws the list: a way back to the People home, the Lists menu, chips, the sentence read into chips, the summary and the list", () => {
     expect(words).toContain("People");
-    expect(html).toMatch(/aria-current="page"[^>]*>Households</);
+    expect(html).toMatch(/<h1[^>]*>Families<\/h1>/);
+    expect(html).toMatch(/href="\/people">‹ People</);
+    expect(words).toContain("Lists");
+    expect(words).toContain("All people");
+    // The pill and the tab row are gone, and so is the list's own input: the find box takes the words.
+    expect(html).not.toContain("aria-label=\"Show\"");
+    expect(html).not.toContain("name=\"ask\"");
     expect(words).toContain("Possible duplicates · 4");
     expect(words).toContain("Niva read this as");
     expect(words).toContain("Area is North Riverside");

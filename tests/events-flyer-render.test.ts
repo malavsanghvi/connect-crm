@@ -456,7 +456,7 @@ const sizeDims = (size: FlyerSize) => flyerDims(size, "preview");
 describe("poster layout: nothing is cut off, whatever is switched on or off", () => {
   it("has the Poster among the templates, and Tall among the sizes", () => {
     expect([...FLYER_TEMPLATES]).toContain("poster");
-    expect([...FLYER_SIZE_KEYS]).toEqual(["post", "tall", "story", "print"]);
+    expect([...FLYER_SIZE_KEYS]).toEqual(["post", "square", "tall", "story", "print"]);
     expect(flyerDims("tall", "full")).toEqual({ w: 1080, h: 1620 });
     expect(flyerDims("tall", "preview")).toEqual({ w: 540, h: 810 });
   });

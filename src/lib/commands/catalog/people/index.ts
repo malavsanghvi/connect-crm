@@ -4,6 +4,7 @@
 
 import type { AnyCommand } from "../../types";
 
+import { addHousehold } from "./add-household";
 import { addIdentifier } from "./add-identifier";
 import { addPerson } from "./add-person";
 import { decideApplication } from "./decide-application";
@@ -44,4 +45,6 @@ export const PEOPLE_COMMANDS: readonly AnyCommand[] = [
   setPrimary,
   addIdentifier,
   retireIdentifier,
+  // Add a family (People redesign slice 6, migration 0721)
+  addHousehold,
 ];

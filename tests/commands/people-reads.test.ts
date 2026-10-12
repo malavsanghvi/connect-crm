@@ -42,6 +42,7 @@ describe("the People commands in the catalog", () => {
     expect(changes.map((c) => c.key).sort()).toEqual(
       [
         "people.add_identifier",
+        "people.add_household",
         "people.add_person",
         "people.decide_application",
         "people.decide_household_request",
@@ -179,6 +180,40 @@ describe("people.pending_reviews", () => {
     expect(JSON.stringify(r)).not.toMatch(CHILD_WORDS);
   });
 
+  type Reviewed = {
+    applications: { since: string; next: string | null; blocked: string | null }[];
+    family_requests: { since: string; who: string; asked: string | null; asked_role: string | null }[];
+  };
+
+  it("says since when each row has waited, what approving would do for this person, and what a request asked for", async () => {
+    const data = dataOf<Reviewed>(await runCommand(peopleContext(), "people.pending_reviews", {}));
+    expect(data.applications[0]).toMatchObject({ since: "2026-10-04", next: "approved", blocked: null });
+    expect(data.family_requests[0]).toMatchObject({ since: "2026-10-05", who: "Meera Shah", asked: "parent", asked_role: "parent" });
+  });
+
+  it("offers the center review (not the final approval) for a life membership, and says who a final step waits for", async () => {
+    const { db, tables } = peopleDb();
+    const app = tables.membership_applications[0];
+    const first = async (over: Parameters<typeof peopleContext>[0] = {}) => dataOf<Reviewed>(await runCommand(peopleContext({ db, ...over }), "people.pending_reviews", {})).applications[0];
+
+    app.tier = "life";
+    expect(await first()).toMatchObject({ next: "awaiting_ec", blocked: null });
+
+    app.status = "awaiting_ec";
+    const notEc = await first();
+    expect(notEc.next).toBeNull();
+    expect(notEc.blocked).toMatch(/Executive Committee step/);
+
+    const ec = [{ key: "executive_committee", name: "Executive Committee", scopeKind: "center" }];
+    app.center_decided_by = "user-1";
+    const same = await first({ session: { roles: ec } });
+    expect(same.next).toBeNull();
+    expect(same.blocked).toMatch(/different Executive Committee member/);
+
+    app.center_decided_by = "someone-else";
+    expect(await first({ session: { roles: ec } })).toMatchObject({ next: "approved", blocked: null });
+  });
+
   it("leaves applications out, and says so, for a role that cannot see them", async () => {
     const ctx = peopleContext({ via: "assistant", permissions: ["people.manage"] });
     const data = dataOf<{ applications: unknown[]; applications_total: number | null; note?: string }>(await runCommand(ctx, "people.pending_reviews", {}));
@@ -248,6 +283,7 @@ describe("nothing about a child reaches Niva from any People command", () => {
     "people.set_primary": { household_id: ID.hhShah, person_id: ID.rahul, reason: "Priya asked" },
     "people.add_identifier": { kind: "crm", target_kind: "household", target_id: ID.hhShah, value: "N-1001", system: "neon" },
     "people.retire_identifier": { identifier_id: ID.extNikhil, reason: "Moved to a new system" },
+    "people.add_household": { first_name: "Nia", last_name: "Okafor", mobile: "(512) 555-0188", email: "nia@example.org", street: "12 River Road" },
   };
 
   function assistant() {

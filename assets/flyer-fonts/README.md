@@ -16,7 +16,9 @@ depends on the network for the default fonts.
 | `Fraunces-700.woff` | Fraunces | 700 | `@fontsource/fraunces@5.3.0` · `files/fraunces-latin-700-normal.woff` |
 | `Fraunces-800.woff` | Fraunces | 800 | `@fontsource/fraunces@5.3.0` · `files/fraunces-latin-800-normal.woff` |
 | `Fraunces-900.woff` | Fraunces | 900 | `@fontsource/fraunces@5.3.0` · `files/fraunces-latin-900-normal.woff` |
+| `KaushanScript-400.woff` | Kaushan Script | 400 | `@fontsource/kaushan-script@5.3.0` · `files/kaushan-script-latin-400-normal.woff` |
 
+- Kaushan Script (2026-10-12) is the brush-script accent of the flyer layouts (flyer-layout.ts): one accent word of a title, a "Save the date" line, a greeting. It is only read when a flyer uses a layout, and never for Gujarati or Devanagari words (those use the display font).
 - Fetched with `npm pack` on 2026-10-01 (the 500, 800 and 900 weights, for the
   Poster template, on 2026-10-02) and copied unchanged. There is no
   runtime dependency on the fontsource packages.

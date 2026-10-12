@@ -11520,6 +11520,18 @@ export type Database = {
         };
         Returns: string;
       };
+      add_household: {
+        Args: {
+          p_center: string;
+          p_first: string;
+          p_last: string;
+          p_phone?: string;
+          p_email?: string;
+          p_street?: string;
+          p_none_of_these?: boolean;
+        };
+        Returns: Json;
+      };
       add_message_suppression: {
         Args: {
           p_center: string;
@@ -12520,6 +12532,12 @@ export type Database = {
         };
         Returns: Json;
       };
+      family_name_key: {
+        Args: {
+          p_text: string;
+        };
+        Returns: string;
+      };
       feature_access_for_me: {
         Args: {
           p_center: string;
@@ -12814,6 +12832,16 @@ export type Database = {
           p_household: string;
         };
         Returns: number;
+      };
+      household_possible_matches: {
+        Args: {
+          p_center: string;
+          p_first: string;
+          p_last: string;
+          p_phone?: string;
+          p_email?: string;
+        };
+        Returns: Json;
       };
       i_am_adult: {
         Args: {
