@@ -1,6 +1,6 @@
 # Smart, consolidated event creation (plan)
 
-Status: plan, 2026-10-11. Owner ask (2026-10-11): "Get the whole event creation consolidated and made smart"; the unified command box (B94, [`UNIFIED_BOX.md`](UNIFIED_BOX.md)) runs simple commands straight away, and when a command needs questions ("create an event") it opens the chat that asks them and finishes with a FULL event page. Built for every organization Weaver onboards (any kind, any faith or none, any language): questions, words and defaults come from data (kind and its terms, modules, the community's languages, its past events), never from one community. The owner sees an interactive prototype separately; this is the written plan behind it.
+Status: plan, 2026-10-11. Owner ask (2026-10-11): "Get the whole event creation consolidated and made smart"; the unified command box (B94, [`UNIFIED_BOX.md`](UNIFIED_BOX.md)) runs simple commands straight away, and when a command needs questions ("create an event") it opens the chat that asks them and finishes with a FULL event page. Owner addition (same day): the flyer draft must appear at once, with the option to publish it now or schedule it on all channels (website, Facebook, Instagram); see section 3. Built for every organization Weaver onboards (any kind, any faith or none, any language): questions, words and defaults come from data (kind and its terms, modules, the community's languages, its past events), never from one community. The owner sees an interactive prototype separately; this is the written plan behind it.
 
 ## 1. Today (read from the code on 2026-10-11)
 
@@ -32,15 +32,15 @@ Result: finishing one event takes 5-7 visits across 3 screens plus Messages. Rea
 |---|---|---|
 | Event | `events` row, `status = 'draft'` | members cannot see it (the app lists published statuses only) |
 | Event page | the fields the member app and guest page render; preview drawn from the same fields | preview only |
-| Readiness | `eventReadiness(…, "publish")` plus the creation checks in section 3 | live beside the questions |
+| Readiness | `eventReadiness(…, "publish")` plus the creation checks in section 4 | live beside the questions |
 | Reminders | `comms_campaigns` (`kind 'event'`, `status 'draft'`, planned `scheduled_at`, audience with `event_id`); `confirmation_hours_before` | drafts; nothing queued |
 | Volunteer shifts | `volunteer_shifts`; the community names its own roles | empty shifts; nobody asked yet |
 | Meals | `lunch_enabled`, slot length, seats; `lunch_slots` from `planLunchSlots` (`src/lib/events/report.ts`) | slots exist; nobody seated |
 | Tickets and money | `is_paid`, member/guest price (integer cents), `commitment_options`; sponsorships through `opportunities.event_id` | settings only; no money moves |
 | Checklist | template items → `actions`, else readiness items as tasks | open tasks |
-| Flyer | `flyer_design` (0578), brand kit (`src/lib/events/flyer-brand.ts`) | draft; not on the page until approved |
+| Flyer and posts | `flyer_design` (0578), brand kit (`src/lib/events/flyer-brand.ts`); drawn the moment the sentence is understood (section 3) | draft; nothing posted until approved |
 
-- **One review, existing approvals.** The last screen lists what will happen: "Publish the event", "Send 2 reminders for approval", "Show the flyer". Each line is ticked and runs its own existing command (`events.set_status`, `messages.schedule_campaign` with its approvers). A failed line says so in plain English, and the others stand.
+- **One review, existing approvals.** The last screen lists what will happen: "Publish the event", "Post the flyer on the app, website, Facebook and Instagram on 25 Oct, 10:00", "Send 2 reminders for approval". Each line is ticked and runs its own command (`events.set_status`, the publish panel in section 3, and `messages.schedule_campaign` with its approvers). A failed line says so in plain English, and the others stand.
 - **The same questions two ways.** With AI on, Niva asks in the chat. With AI off or not ready, the same question catalog appears as cards (one per screen on a phone). AI only adds suggestions and drafts; rules supply everything else.
 - **Only ask what cannot be worked out.** Each question has an `infer()` that reads the typed text, the chosen starting point, the kind and the community's history. Worked-out answers appear as editable chips ("We used Main hall, like last year").
 
@@ -61,13 +61,50 @@ Result: finishing one event takes 5-7 visits across 3 screens plus Messages. Rea
 | 3 | Who | audience; RSVP or not; capacity; waitlist; RSVP window; attendee counts asked (children, seniors, needs help: counts only) | audience always; the rest when RSVP is on | audience choices from modules (school families only with a school module); capacity hint from history |
 | 4 | Money | free or paid (member/guest price); donation commitment at RSVP; sponsorships; pledges | the Giving module is on | pledges only where the community records them; prices from history; nothing is charged here |
 | 5 | Help | volunteer roles and shifts; meals (seats, slot length) | volunteers on, or the source had shifts; food mentioned, or the source had meals | shift times move with the new date |
-| 6 | Words and look | description in each `communityLanguages()` language; flyer; photo | always (a draft is offered) | AI draft, or a draft built by rule from the fields |
+| 6 | Words and look | description in each `communityLanguages()` language; changes to the flyer (the draft already exists); photo | always (a draft is offered) | AI draft, or a draft built by rule from the fields |
 | 7 | Communication | reminder times; channels (opt-in counts, quiet hours); guest link when guests may come | comms module on | timing from past events; `planSend` (`src/lib/events/quiet-hours.ts`) |
 | 8 | Review | preview, readiness, approvals | always | none |
 
-**Live preview.** Beside the questions (two columns on desktop, a "Preview" tab on a phone) the event appears as the member app shows it, in the interface language with a language switch. Under it is the readiness list: **Blocks publishing**, **Worth a look**, **Done**. The pure renderer is `eventPreview(draft, locale, kind)`.
+**Live preview.** Beside the questions (two columns on desktop, a "Preview" tab on a phone) the flyer draft sits on top with its publish panel; below it the event appears as the member app shows it, in the interface language with a language switch. Under it is the readiness list: **Blocks publishing**, **Worth a look**, **Done**. The pure renderer is `eventPreview(draft, locale, kind)`.
 
-## 3. Smart features
+## 3. Flyer first, then publish everywhere (owner, 2026-10-11)
+
+- **The draft appears immediately.** As soon as the box understands the sentence, and before the first question, a flyer draft is drawn from: the sentence (name, day, time); the brand kit (logo, colours, fonts); the community's past flyers (the similar event's `flyer_design`: layout, art and tagline); and the art library the flyer maker already has (`flyer-art-library.ts`, `flyer-art-packs.ts`, picked from the name by `flyer-art.ts`). It is rule-based, so nobody waits for AI; AI art is an optional swap later. Unknown parts show as placeholders ("Place to be confirmed"), and readiness counts them.
+- **Answers refine it live.** Each answer redraws the poster (venue, time, price, the RSVP QR to `/e/<id>`). Before the draft is saved, the existing renderer draws a preview without saving anything (`flyerPreviewUrlAction`). What a person changes by hand on the poster is never overwritten by later answers.
+
+| Publish panel (beside the flyer) | Behaviour |
+|---|---|
+| Channels | Member app + calendar (both come from publishing the event); Website (the community's Weaver site once B55 is live, until then the guest page `/e/<id>`); Facebook Page; Instagram. A channel with no connection says "Connect Facebook: your administrator does this once" |
+| When | Publish now, or Schedule. The suggested time is N days before the event (N from the community's past events, else 14) at 10:00 in the community's time zone, moved out of quiet hours. Each channel can have its own time |
+| Caption | One draft per channel in each of the community's languages: built by rule from the fields, with an AI draft in slice 4. It includes the short RSVP link (B57); for Instagram, where a caption link cannot be clicked, it says where to RSVP |
+| Image | Website, app and Facebook use Post 1080×1350; Instagram uses Post (4:5) or a new Square 1080×1080; exported as JPEG for Instagram |
+| Approval | A person with `events.manage` approves the flyer, the captions and the channels together (social channels: see question 7). Nothing goes out without it; changing the flyer or a caption afterwards needs a new approval |
+| Status per channel | Scheduled (time) · Posted (link) · Failed (plain reason + Try again) · Waiting for a connection. Shown on the event page and as a box answer ("Diwali flyer status") |
+| Change or cancel | App and website follow the event at once. For a social post, Weaver suggests a follow-up post; it never edits a post silently, and deleting one is a person's action |
+
+| Part | Today | Missing |
+|---|---|---|
+| Flyer | maker with Post, Tall, Story and Print sizes (`FLYER_SIZES`, `src/lib/events/flyer.ts`), brand kit, art packs, AI art (worker `events.generate_flyer`); photos only from albums without children (`flyer-actions.ts:223`) | a flyer before the draft is saved; Square size; JPEG export (the renderer, Satori, draws PNG) |
+| App, calendar | publishing makes the event visible (member app, calendar) | publishing at a scheduled time |
+| Website | Weaver's own marketing site (`src/app/site`); the community-site draft built from data (B55/W3, `src/lib/site-draft/`) is not live; the guest page `/e/<id>` | an events page on the community's site |
+| Facebook, Instagram | profile links only (`SOCIAL_KEYS`, `src/lib/setup.ts:518`); B54/B75 are backlog; no posting code; `integration_connections.provider` has no Meta value | connections, a posting job, status per channel |
+| Secrets | vault `app.integration_secrets` (0170): the portal sees fingerprints only; step-up 2FA (`src/lib/vault.ts`) | Meta tokens kept there |
+
+| Meta rule (read on developers.facebook.com, 2026-10-11) | Facebook Page | Instagram professional account |
+|---|---|---|
+| Permissions | `pages_manage_posts`, `pages_read_engagement`, and others; the person needs the CREATE_CONTENT task on the Page | Instagram Login: `instagram_business_basic`, `instagram_business_content_publish`. Facebook Login: `instagram_basic`, `instagram_content_publish`, `pages_read_engagement` |
+| Scheduling | native: `published=false` + `scheduled_publish_time`, 10 minutes to 30 days ahead | none: Weaver's worker publishes at the chosen time |
+| Image | photo by URL | JPEG only, from a public URL; an unpublished container expires after 24 h; 4:5 to 1.91:1 and 8 MB max (media reference, read only in an excerpt) |
+| Rate limit | not stated on the page | 100 API posts per rolling 24 h (another section of the same page says 50); check `content_publishing_limit` |
+| Review | **Unverified, check before building:** posting to accounts Weaver does not own needs Advanced Access through App Review and Business Verification (Meta's overview, seen only in an excerpt); a Tech Provider check may also apply | same |
+
+- **Connections.** Each community signs in through a per-community OAuth step in Settings › Integrations (Facebook Page, Instagram account). It is an "only you" step for the community's administrator. The token goes to the vault and is never shown; when it expires, a "Reconnect" notice appears.
+- **Posting job.** A worker job `events.publish_post` (the job table already holds future jobs, 0598 item 5) posts at the scheduled time. Before posting it checks again that the post is approved and the event is still on; then it uploads the image in the channel's format, posts and records the result. One path for both: Facebook's native scheduling is not used, so there is one status model, no 30-day ceiling, and edits stay in Weaver until the time. Temporary errors and rate limits get 3 retries with growing waits; a lost permission or an expired token becomes Failed with a plain reason. It respects the Instagram limit.
+- **New data.** Slice 2's migration adds `event_posts` (event, channel, scheduled_at, status, captions per language, image per format, external id and link, attempts, error, approved_by) for the app and the website. Slice 6 adds the Facebook and Instagram channels and a `meta` value for `integration_connections.provider`.
+- **Audit.** `withActivity` keys `events.post_schedule`, `events.post_approve` and `events.post_retry`; the worker records each channel's outcome.
+- **D2.** Flyer photos come only from albums marked `contains_children = false` (as today). Captions and flyers never name a person under 18 (`filterChildren` on the caption). Only event fields go to a model, never a photo of a person.
+
+## 4. Smart features
 
 | Feature | Data it reads | Code (rule) | AI adds | Slice |
 |---|---|---|---|---|
@@ -79,17 +116,17 @@ Result: finishing one event takes 5-7 visits across 3 screens plus Messages. Rea
 | Volunteers | source `volunteer_shifts`, `volunteer_assignments`, `volunteer_interests` | copy roles, times and numbers; "who did it last time and is free" (adults; not on an overlapping shift) | none | 3 |
 | Reminder timing | past `comms_campaigns` of kind `event` relative to the start; `confirmation_hours_before`; `channel_optins` | the same offsets as last time, moved out of quiet hours | none | 3 |
 | Description | the answers | text built by rule from the fields, using saved templates per language | a draft in every community language, marked "check by a reader" | 4 |
-| Flyer | brand kit, `flyer_design`, art library | poster defaults filled from the answers | art (worker `events.generate_flyer`) | 4 |
+| Flyer | brand kit, past flyers (`flyer_design`), art library | the instant draft (section 3), redrawn from each answer | art (worker `events.generate_flyer`) | 4 |
 | Duplicate warning | same folded name within ±14 days, or an open draft from the same source | "You already have Diwali Dinner 2026 as a draft: continue it?" | none | 3 |
 | Lessons learned | source `events.lessons_learned`, `event_templates.lessons_learned` | shown at the matching group by keyword (food → Help, parking → Where); all of them at Review | picks the relevant one for each question | 3 / 4 |
 
 History is used as counts only (who came, how many, prices, offsets). Suggestions stay hidden until the community has at least 2 similar past events.
 
-## 4. Hand-off from the unified box
+## 5. Hand-off from the unified box
 
 - **Recognition.** The box registers an `events.create` slot extractor (UNIFIED_BOX section 2). It triggers on create/plan/organise/set up/schedule/clone/copy plus an event word or a kind term, and reads the name, the day ("Nov 8", "next Thursday" in the community's time zone), times, prices and a source event from the events vocab. Trigger + 1 slot = Sure (0.88). Examples: "create an event", "plan a Diwali dinner for Nov 8", "clone last year's picnic".
 - **Contract change to B94.** `Candidate.action` gains `{ type: "wizard"; key: "events.plan"; input: { text: string; source_id?: string; day?: string } }`. Enter opens it at once: this is safe because nothing is written until the first answer, and nothing goes out until Review.
-- **Niva on (and `aiReady`).** The Niva panel (`src/components/niva/niva-dock.tsx`) opens with "I understood: Diwali dinner, Sunday 8 November" and the first unanswered question already asked, drawn as the same card inside the chat. AI turns typed replies into answers; chips accept suggestions.
+- **Niva on (and `aiReady`).** The Niva panel (`src/components/niva/niva-dock.tsx`) opens with "I understood: Diwali dinner, Sunday 8 November", the flyer draft (section 3), and the first unanswered question already asked, drawn as the same card inside the chat. AI turns typed replies into answers; chips accept suggestions.
 - **Niva off or no key.** `/events/new?plan=<event id>` opens a full page with the same cards and the same preview. Suggestions come only from rules and history; typed answers are read by rule extractors (dates, numbers, money).
 - **Leave and resume.** State is saved on every answer. "Continue setting up Diwali Dinner" appears in the events list and on Today, and as a box result for "continue Diwali dinner".
 
@@ -123,7 +160,7 @@ savePlan(state, session): Promise<{ ok: true; eventId: string } | { ok: false; e
 
 The final result is the draft event id plus the Review: nothing is published. The person lands on `/events/<id>` (the new-look workspace once the parked page ships, the classic page until then) with a "Draft: members cannot see this yet" banner and the readiness list.
 
-## 5. Data and permissions
+## 6. Data and permissions
 
 **Already exists:** draft status and `status-machine.ts`; `event_templates` + items + RPC; `prepareClone`; shifts and assignments; `lunch_slots` + `planLunchSlots`; `actions` (checklist); lessons on events and templates; `flyer_design` and art; `comms_campaigns` drafts; `opportunities.event_id`; calendar layers and entries; `eventReadiness`; `EVENT_FIELD_INFO` (`field-patch.ts`); the 12 event commands.
 
@@ -131,7 +168,8 @@ The final result is the draft event id plus the Review: nothing is published. Th
 |---|---|---|
 | Answers with no column (skipped groups, starting point, reminder plan, version) | `events.setup jsonb not null default '{}'` | 2: one migration, number from the coordinator |
 | Name and description per language | `events.translations jsonb` in the `content_items.translations` shape (`{"es": {"name", "description"}}`); connect-mobile reads it later | 2 (same migration) |
-| Activity for the new commands | allowlist rows for `events.plan`, `events.plan_save` | 2 (same migration) |
+| Posts per channel, now or scheduled | `event_posts` (section 3) | 2 (same migration) |
+| Activity for the new commands | allowlist rows for `events.plan`, `events.plan_save`, `events.post_*` | 2 (same migration) |
 | Roles named by the community | drop the fixed `STATIONS` check in `createShift` (the column is already free text) | 2, code only |
 | A wizard sessions table | not needed: the state is the draft event plus `setup` | none |
 
@@ -143,18 +181,19 @@ Slice 1 needs no migration.
 - **Words.** Every prompt goes through `describe(text, kind)` / `KindProfile.terms`. "Meals", not "lunch". Audience choices come from modules, roles are named by the community, and languages come from `communityLanguages()`, with no fixed list. Bolis say "pledge". Golden tests include a chamber of commerce.
 - **Locale.** Time zone, date format and currency come from the community (`center.time_zone`, `communityLocale`, `center.currency`); money is integer cents.
 - **Phone.** One question per screen, a sticky Next, preview as a tab, 44 px targets, works at 200% zoom.
-- **Failures.** In plain English next to the step: "Could not save the draft. Your answers are kept; try again." / "Could not load past events, so there are no suggestions; you can still answer." / "Niva could not draft the description; write it or try again." / "Published, but the 2 reminders could not be sent for approval; open Messages to retry." Detail goes through `failure()`.
+- **Failures.** In plain English next to the step: "Could not save the draft. Your answers are kept; try again." / "Could not load past events, so there are no suggestions; you can still answer." / "Niva could not draft the description; write it or try again." / "Published, but the 2 reminders could not be sent for approval; open Messages to retry." / "Instagram did not take the post: the connection has expired. Ask your administrator to reconnect, then Try again." Detail goes through `failure()`.
 
-## 6. Build slices (look first, screenshots on fixtures)
+## 7. Build slices (look first, screenshots on fixtures)
 
 | Slice | What | Size | Main risk → answer |
 |---|---|---|---|
-| 1 | Pure core `src/lib/events/plan/` (`catalog.ts`, `infer.ts`, `next.ts`, `preview.ts`, `review.ts`); golden tests `tests/events/plan-golden.test.ts`; cards and preview `src/components/events-plan/`; dev page `/dev/event-plan` on fixtures; screenshots per kind, light and dark, phone width. No AI, no migration | M (about 1,100 lines with tests) | catalog grows → golden rows pin which questions are asked |
-| 2 | Real data: `savePlan` reuses `eventValues` (moved into a pure helper), `create_event_from_template`, `prepareClone`, shifts, `planLunchSlots`, checklist and campaign drafts; live readiness; Review approvals; `/events/new`; the migration in section 5 | M-L | half-saved parts → each part idempotent; Review shows each part's state |
-| 3 | Smart suggestions from history (section 3): a `PlanHistory` loader (counts only), start, dates, clashes, capacity, food, price, volunteers, timing, duplicates, lessons | M | thin history → hidden under 2 similar events |
-| 4 | AI: description in every language, flyer art from the brand kit, typed answers turned into answers; D2 filter, prompt caching, the community's monthly Niva limit | M | translation quality → "check by a reader" badge; never published unseen |
+| 1 | Pure core `src/lib/events/plan/` (`catalog.ts`, `infer.ts`, `next.ts`, `preview.ts`, `review.ts`) plus **the instant flyer draft** (`flyerFromSentence`: sentence + brand kit + past flyer + art library, through the existing poster renderer); golden tests `tests/events/plan-golden.test.ts`; cards, flyer and preview `src/components/events-plan/`; dev page `/dev/event-plan` on fixtures; screenshots per kind, light and dark, phone width. No AI, no migration | M (about 1,300 lines with tests) | catalog grows → golden rows pin which questions are asked |
+| 2 | Real data: `savePlan` reuses `eventValues` (moved into a pure helper), `create_event_from_template`, `prepareClone`, shifts, `planLunchSlots`, checklist and campaign drafts; live readiness; Review; `/events/new`; **publish panel for the app, calendar and website/guest page, now or scheduled** (worker job, Square + JPEG export); the migration in section 6 | L | half-saved parts → each part idempotent; Review shows each part's state |
+| 3 | Smart suggestions from history (section 4): a `PlanHistory` loader (counts only), start, dates, clashes, capacity, food, price, volunteers, timing, duplicates, lessons | M | thin history → hidden under 2 similar events |
+| 4 | AI: description and captions in every language, flyer art from the brand kit, typed answers turned into answers; D2 filter, prompt caching, the community's monthly Niva limit | M | translation quality → "check by a reader" badge; never published unseen |
 | 5 | Box hand-off: the `events.create` extractor, `wizard` action type, Niva panel draws question cards, command `events.plan` | S-M | depends on B94 slice 1 |
-| 6 | Tidy-up: template editing moves to Events › Templates (out of the school area); connect-admin's form links to the portal | S | connect-admin users → one release note |
+| 6 | **Facebook and Instagram**: per-community connections (the "only you" OAuth step, token in the vault), the `facebook`/`instagram` channels, `events.publish_post` posting to Meta, the rate limit, status and retry; ships once Weaver's Meta app has passed review | L | Meta review time and rules → re-check section 3's unverified row first; until then the panel shows "Waiting for a connection" |
+| 7 | Tidy-up: template editing moves to Events › Templates (out of the school area); connect-admin's form links to the portal | S | connect-admin users → one release note |
 
 | # | Kind (fixture) | Typed | First question | Not asked |
 |---|---|---|---|---|
@@ -167,15 +206,19 @@ Slice 1 needs no migration.
 | 7 | chamber | "annual gala, $150 members $200 guests" | When | prices (read from the text) |
 | 8 | chamber, comms off | "board meeting" | When | Communication, Help |
 
+**Order.** The flyer comes first: slices 1-2 ship the instant flyer and publishing to the app and website before anything else. Facebook and Instagram (slice 6) follow once the connections exist; it needs only slice 2, not slices 3-5.
+
 **Dependencies.** Drafted reminders go out only once campaigns really send (B60); until then the automatic notices sent after publishing (0598) are the only messages that leave. The final page is the parked workspace (`feat/admin-events-page`) once it merges. The box hand-off (slice 5) needs B94 slice 1.
 
 **The old builder.** It stays as it is until slice 2 covers every field (a test lists the `eventValues` fields against the catalog). Then it becomes "Advanced" (a link from Review and from the event page) and nothing is deleted. New events stop defaulting to meals on: meals are on only when asked for or copied.
 
-## 7. Open questions for the owner
+## 8. Open questions for the owner
 
 1. **Save the draft at the first answer** (name and day), not only at the end? *Recommend yes*: resuming works and nothing is lost, and drafts are never visible to members.
 2. **One Review screen with ticked lines** (publish, reminders for approval, flyer), each through its existing approval? *Recommend yes*; message approval rules stay unchanged.
-3. **One migration in slice 2** (`events.setup`, `events.translations`, activity rows)? *Recommend yes*; slice 1 needs none.
+3. **One migration in slice 2** (`events.setup`, `events.translations`, `event_posts`, activity rows)? *Recommend yes*; slice 1 needs none.
 4. **Retire event creation in connect-admin** and link to the portal, keeping its day-of editing? *Recommend yes*: one way to create, no drift.
 5. **AI drafts in languages without built-in wording** (description, reminders): show the AI draft marked "check by a reader", instead of English marked "needs translation"? *Recommend yes*; nothing goes out without a person's OK.
-6. **Starter checklist for communities with no templates**: a short list per kind from the experiences catalog, editable? *Recommend yes, in slice 3*; until then readiness items act as the checklist.
+6. **One Weaver Meta app** that passes App Review once, and every community connects its own Page and Instagram account to it (rather than each community registering its own Meta app)? *Recommend yes*: a small organization cannot run App Review itself.
+7. **Who approves a social post?** *Recommend*: whoever may publish the event approves the app and the website; Facebook and Instagram also need `comms.approve` (one person, no second approver), because a public post speaks for the organization.
+8. **Children in flyers and captions.** Keep "no child's name or photo, ever" with no community override in this plan? *Recommend yes*: photos already exclude albums with children. Add a community rule later only if one asks.
