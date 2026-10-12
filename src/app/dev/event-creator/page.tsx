@@ -44,7 +44,7 @@ const TEMPLE_EXISTING: CreatorExisting = {
 /**
  * DEV ONLY. The guided event creator (New look) inside the shell with invented data, drawn without a database or a session.
  * `?kind=temple|church|chamber|club` picks the community; `?step=<card>` opens a card (what, where, who, money, help, words,
- * sending, more, review); `?more=1` opens More settings. Returns notFound() in production.
+ * sending, more, review); `?more=1` opens More settings; `?pane=preview` opens the phone's Preview pane (the flyer panel). Returns notFound() in production.
  */
 export default async function EventCreatorPreview({ searchParams }: { searchParams?: Search }) {
   if (!devPreviewAllowed()) notFound();
@@ -58,7 +58,7 @@ export default async function EventCreatorPreview({ searchParams }: { searchPara
   const existing = step === "review" && kind === "temple" ? TEMPLE_EXISTING : NO_EXISTING;
   return (
     <PreviewShell community={ctx.community.name} workspaces={sampleRail()}>
-      <PreviewCreator ctx={ctx} draft={draft} existing={existing} step={step} />
+      <PreviewCreator ctx={ctx} draft={draft} existing={existing} step={step} pane={one(sp.pane) === "preview" ? "preview" : "questions"} />
     </PreviewShell>
   );
 }

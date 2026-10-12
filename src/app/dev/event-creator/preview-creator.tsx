@@ -17,7 +17,7 @@ import { makePreviewServices } from "../event-flyer-panel/preview-services";
 /** The sample brand kit and drawn art for the creator's communities (the flyer panel's dev fixtures). */
 const RENDER_KIND: Record<string, string> = { hindu_temple: "temple", church: "church", chamber_of_commerce: "chamber", club: "club" };
 
-export function PreviewCreator({ ctx, draft, existing, step }: { ctx: CreatorCtx; draft: EventDraft; existing: CreatorExisting; step?: CardId }) {
+export function PreviewCreator({ ctx, draft, existing, step, pane }: { ctx: CreatorCtx; draft: EventDraft; existing: CreatorExisting; step?: CardId; pane?: "questions" | "preview" }) {
   const [state, setState] = useState(existing);
   const api: CreatorApi = {
     save: async (id) => ({ ok: true, message: "Preview only: nothing was saved", data: { id: id ?? "preview-event" } }),
@@ -73,7 +73,7 @@ export function PreviewCreator({ ctx, draft, existing, step }: { ctx: CreatorCtx
   }, [ctx, draft]);
   return (
     <FlyerServicesProvider services={flyer}>
-      <EventCreator ctx={ctx} initialDraft={draft} existing={state} api={api} initialStep={step} demo />
+      <EventCreator ctx={ctx} initialDraft={draft} existing={state} api={api} initialStep={step} demo initialPane={pane} />
     </FlyerServicesProvider>
   );
 }

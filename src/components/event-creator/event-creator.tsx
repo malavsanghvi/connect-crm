@@ -77,9 +77,11 @@ export type EventCreatorProps = {
   initialStep?: CardId;
   /** The dev preview: stand-in actions, no address changes, no refresh. */
   demo?: boolean;
+  /** On a phone, which pane opens first (the dev preview shows the flyer panel with "preview"). */
+  initialPane?: "questions" | "preview";
 };
 
-export function EventCreator({ ctx, initialDraft, existing, api, sessionParam = null, initialStep, demo = false }: EventCreatorProps) {
+export function EventCreator({ ctx, initialDraft, existing, api, sessionParam = null, initialStep, demo = false, initialPane = "questions" }: EventCreatorProps) {
   const router = useRouter();
   const [draft, setDraft] = useState(initialDraft);
   // The flyer panel saves the flyer itself (approving it): keep the draft's copy in step, so the readiness list follows.
@@ -97,7 +99,7 @@ export function EventCreator({ ctx, initialDraft, existing, api, sessionParam = 
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [cardError, setCardError] = useState<string | null>(null);
-  const [pane, setPane] = useState<"questions" | "preview">("questions");
+  const [pane, setPane] = useState<"questions" | "preview">(initialPane);
   const [previewMode, setPreviewMode] = useState<"web" | "phone">("web");
   const headingRef = useRef<HTMLHeadingElement>(null);
   const moved = useRef(false);
