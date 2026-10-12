@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 import { ChipGroup, Toggle } from "@/components/controls";
 import { InfoBox } from "@/components/ui";
 import { validateRulesJson } from "@/lib/center-rules";
+import { SHOW_BY_OPTIONS } from "@/lib/giving-glance/levels";
 import type { RuleSettings } from "@/lib/settings-rules";
 
 import { countChanges, FieldGrid, SettingField, SettingsForm } from "../_components/settings-form";
@@ -89,7 +90,7 @@ export function MembershipForm({
 
 // ---------------------------------------------------------------------------
 export function GivingForm({ settings, showBolis = true, ...c }: Common & { settings: RuleSettings; showBolis?: boolean }) {
-  const initial = { fee: settings.askDonorToCoverFees, soft: settings.boliSoftCloseMinutes > 0 };
+  const initial = { fee: settings.askDonorToCoverFees, soft: settings.boliSoftCloseMinutes > 0, showBy: settings.givingShowBy as string };
   const [v, setV] = useState(initial);
   return (
     <SettingsForm action={saveRulesSectionAction} section="giving" version={c.version} dirty={countChanges(initial, v)} readOnly={c.readOnly} readOnlyNote={READ_ONLY}>
@@ -102,6 +103,23 @@ export function GivingForm({ settings, showBolis = true, ...c }: Common & { sett
             onChange={(x) => setV({ ...v, fee: x })}
             onNote="Ask at checkout"
             offNote="Do not ask"
+            disabled={c.readOnly}
+          />
+        </SettingField>
+        <SettingField
+          label="Show giving by"
+          hint={
+            v.showBy === "person"
+              ? "Giving at a glance on a household lets you pick each adult, with the gifts not tied to a person kept apart. On a person it shows that person's own giving."
+              : "Giving at a glance on a household shows the whole household together. On a person it shows their household's giving."
+          }
+        >
+          <ChipGroup
+            name="giving_show_by"
+            label="Show giving by"
+            value={v.showBy}
+            onChange={(x) => setV({ ...v, showBy: x })}
+            options={SHOW_BY_OPTIONS.map((o) => ({ value: o.value, label: o.label }))}
             disabled={c.readOnly}
           />
         </SettingField>

@@ -17,6 +17,7 @@
 
 import { isPlainObject } from "@/lib/center-rules";
 import type { Json } from "@/lib/database.types";
+import { givingShowBy, type GivingShowBy } from "@/lib/giving-glance/levels";
 import { kindHas, moduleNotOffered } from "@/lib/kind";
 import type { KindLike } from "@/lib/wording";
 
@@ -46,6 +47,8 @@ export type RuleSettings = {
   lifeReferencesRequired: number;
   lifePriorYearlyMonths: number;
   askDonorToCoverFees: boolean;
+  /** Whether "Giving at a glance" reads a household's giving as one household or person by person (rules.giving.show_by). */
+  givingShowBy: GivingShowBy;
   boliSoftCloseMinutes: number;
   boliStepCents: number;
   lunch: { slotMinutes: number; familyWithChildUnder12AtStart: boolean; seniorAtStart: boolean; reminderMinutesBefore: number };
@@ -70,6 +73,7 @@ export const RULE_DEFAULTS: RuleSettings = {
   lifeReferencesRequired: 1,
   lifePriorYearlyMonths: 0,
   askDonorToCoverFees: true,
+  givingShowBy: "household",
   boliSoftCloseMinutes: 0,
   boliStepCents: 2100,
   lunch: { slotMinutes: 15, familyWithChildUnder12AtStart: true, seniorAtStart: true, reminderMinutesBefore: 5 },
@@ -87,6 +91,7 @@ export function readRuleSettings(rules: Json): RuleSettings {
     lifeReferencesRequired: int(r("membership", "life_references_required"), d.lifeReferencesRequired),
     lifePriorYearlyMonths: int(r("membership", "life_prior_yearly_months"), d.lifePriorYearlyMonths),
     askDonorToCoverFees: bool(r("fees", "ask_donor_to_cover"), d.askDonorToCoverFees),
+    givingShowBy: givingShowBy(rules),
     boliSoftCloseMinutes: int(r("boli", "soft_close_minutes"), d.boliSoftCloseMinutes),
     boliStepCents: int(r("boli", "step_cents"), d.boliStepCents),
     lunch: {
@@ -441,11 +446,19 @@ export function parseSection(section: RulesSection, read: Read): ParsedSection {
         patch: { child_login_age: ok.age, membership: { life_references_required: ok.refs, life_prior_yearly_months: ok.prior } },
       };
     }
-    case "giving":
+    case "giving": {
+      // "Show giving by": only written when the form sent it, so a save from a form without it leaves the setting as it is.
+      const showBy = read("giving_show_by");
+      if (showBy !== null && showBy !== "household" && showBy !== "person") return fail(["Choose whether giving is shown by household or by person."]);
       return {
         ok: true,
-        patch: { fees: { ask_donor_to_cover: on(read, "ask_donor_to_cover") }, boli: { soft_close_minutes: on(read, "boli_soft_close") ? 5 : 0 } },
+        patch: {
+          fees: { ask_donor_to_cover: on(read, "ask_donor_to_cover") },
+          boli: { soft_close_minutes: on(read, "boli_soft_close") ? 5 : 0 },
+          ...(showBy ? { giving: { show_by: showBy } } : {}),
+        },
       };
+    }
     case "lunch": {
       const { errors, ok } = collect({
         slot: wholeNumber(read, "slot_minutes", "The slot length", 5, 240),

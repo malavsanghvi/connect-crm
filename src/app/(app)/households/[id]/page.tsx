@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { PeopleDrawers, drawerHref } from "@/app/(app)/people/_components/drawers";
+import { HouseholdGlance } from "@/components/giving-glance/glance-panels";
 import { MoreDetails } from "@/components/more-details";
 import { QboCustomerLine } from "@/components/qbo-customer-line";
 import { HistoryButton } from "@/components/record-history";
@@ -13,6 +14,8 @@ import { householdSubline } from "@/lib/people";
 import { identifierRules } from "@/lib/center-rules";
 import { orgIds } from "@/lib/data/lookups";
 import { formatDate } from "@/lib/dates";
+import { prepareGlance, tabPeriod } from "@/lib/giving-glance/page";
+import { glanceHref } from "@/lib/giving-glance/period";
 import { formatCents } from "@/lib/money";
 import { isModuleEnabled } from "@/lib/modules";
 import { can, canAccess } from "@/lib/permissions";
@@ -64,6 +67,10 @@ export default async function HouseholdPage({
   const tabs = TABS.filter((t) => givingOn || (t.key !== "pledges" && t.key !== "payments"));
   const tab: TabKey = tabs.find((t) => t.key === tabParam)?.key ?? "members";
 
+  // "Giving at a glance" and the year it is set to: the Pledges and Payments tabs follow the same year.
+  const glance = givingOn ? await prepareGlance(session, sp) : null;
+  const givingFor = param(sp, "giving_for") ?? null;
+  const keepYear = glance?.explicitYear ? glance.yearParam : undefined;
   const { db, center } = session;
   const rules = identifierRules(center.rules);
   const tz = center.time_zone;
@@ -189,6 +196,8 @@ export default async function HouseholdPage({
         />
       </section>
 
+      {glance ? <HouseholdGlance session={session} householdId={id} sp={sp} prep={glance} path={base} /> : null}
+
       {record ? (
         <BlockGrid className="mb-5">
           <Card span={6} title="Preferences and consent">
@@ -229,13 +238,13 @@ export default async function HouseholdPage({
       <QboCustomerLine session={session} householdIds={[id]} />
       <MoreDetails session={session} entity="households" recordId={id} editable={canAccess(session, "householdsEdit")} variant="card" className="mb-5" />
 
-      <Tabs active={tab} tabs={tabs.map((t) => ({ key: t.key, label: t.label, href: `/households/${id}?tab=${t.key}` }))} />
+      <Tabs active={tab} tabs={tabs.map((t) => ({ key: t.key, label: t.label, href: glanceHref(base, { tab: t.key, year: keepYear, giving_for: givingFor }) }))} />
 
       {tab === "members" ? <MembersTab session={session} householdId={id} /> : null}
       {tab === "identifiers" ? <IdentifiersTab session={session} householdId={id} household={household} /> : null}
       {tab === "memberships" ? <MembershipsTab session={session} householdId={id} /> : null}
-      {tab === "pledges" ? <PledgesTab session={session} householdId={id} /> : null}
-      {tab === "payments" ? <PaymentsTab session={session} householdId={id} /> : null}
+      {tab === "pledges" ? <PledgesTab session={session} householdId={id} period={glance ? tabPeriod(glance, glanceHref(base, { tab: "pledges", year: "all", giving_for: givingFor })) : undefined} /> : null}
+      {tab === "payments" ? <PaymentsTab session={session} householdId={id} period={glance ? tabPeriod(glance, glanceHref(base, { tab: "payments", year: "all", giving_for: givingFor })) : undefined} /> : null}
       {tab === "audit" ? <AuditTab session={session} householdId={id} /> : null}
       <PeopleDrawers session={session} sp={sp} base={base} />
     </>

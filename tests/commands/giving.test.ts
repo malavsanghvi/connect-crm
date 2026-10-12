@@ -248,6 +248,65 @@ describe("giving.household_summary", () => {
 });
 
 // ---------------------------------------------------------------------------
+describe("giving.household_summary with a year", () => {
+  const summary = { household_id: SHAH, as_of: "2026-10-10", lifetime: { payments: 0, received_cents: 0, refunded_cents: 0, first_gift_on: null, last_gift_on: null }, years: [], recent_payments: [], open_pledge_count: 0, open_cents: 0, behind_cents: 0, open_pledges: [], recurring_active: 0 };
+  const pay = (id: string, received_on: string, amount_cents: number, extra: Record<string, unknown> = {}) => ({ id, household_id: SHAH, payer_person_id: null, amount_cents, refunded_cents: 0, status: "settled", received_on, is_opening_balance: false, ...extra });
+  const tables = {
+    // The community's year starts in July, so 2025 means 1 July 2025 to 30 June 2026.
+    org_profiles: [{ center_id: "center-1", fiscal_year_start_month: 7 }],
+    funds: [{ id: "f1", center_id: "center-1", name: "General fund" }],
+    campaigns: [{ id: "c1", center_id: "center-1", name: "Hall roof" }],
+    pledges: [
+      { id: "pl1", household_id: SHAH, pledged_by_person_id: null, campaign_id: "c1", fund_id: null, amount_cents: 100000, paid_cents: 40000, status: "partially_paid", pledged_at: "2025-09-01T12:00:00Z", due_on: null },
+      { id: "pl0", household_id: SHAH, pledged_by_person_id: null, campaign_id: null, fund_id: "f1", amount_cents: 50000, paid_cents: 50000, status: "paid", pledged_at: "2024-09-01T12:00:00Z", due_on: null },
+    ],
+    payments: [pay("a", "2025-10-05", 30000), pay("b", "2026-02-01", 20000, { refunded_cents: 5000 }), pay("c", "2026-07-02", 99900), pay("d", "2025-03-01", 12500), pay("e", "2025-11-01", 7700, { status: "failed" })],
+    payment_allocations: [{ payment_id: "a", pledge_id: "pl1", amount_cents: 30000 }],
+  };
+
+  it("adds up the community's own year, not the calendar year", async () => {
+    const { ctx } = setup({ rpc: { giving_household_summary: summary }, tables });
+    const r = await runCommand(ctx, "giving.household_summary", { household_id: SHAH, year: 2025 });
+    const y = dataOf<{ year_summary: { label: string; from: string; to: string; paid_cents: number; paid: string; refunded: string; gifts: number; pledged: string; pledge_count: number; fulfilment_percent: number; average_gift: string; by_cause: { label: string; amount: string }[]; previous: { label: string; paid: string; pledged: string } } }>(r).year_summary;
+    expect(y).toMatchObject({ label: "2025-26", from: "2025-07-01", to: "2026-06-30", paid_cents: 45000, paid: "$450.00", refunded: "$50.00", gifts: 2, average_gift: "$225.00", pledged: "$1,000.00", pledge_count: 1, fulfilment_percent: 40 });
+    expect(y.by_cause.map((c) => [c.label, c.amount])).toEqual([["Hall roof", "$300.00"], ["General giving", "$150.00"]]);
+    // The year before, to compare with: July 2024 to June 2025.
+    expect(y.previous).toMatchObject({ label: "2024-25", paid: "$125.00", pledged: "$500.00" });
+    noChild(everything(r));
+  });
+
+  it("leaves year_summary out when no year is asked for, and asks the database the same thing as before", async () => {
+    const seen: Record<string, unknown>[] = [];
+    const { ctx } = setup({ rpc: { giving_household_summary: spy(seen, summary) }, tables });
+    const d = dataOf<{ year_summary?: unknown }>(await runCommand(ctx, "giving.household_summary", { household_id: SHAH }));
+    expect(d.year_summary).toBeUndefined();
+    expect(seen).toEqual([{ p_household: SHAH, p_today: "2026-10-10" }]);
+  });
+
+  it("says plainly when the year has nothing, and when it has not started", async () => {
+    const { ctx } = setup({ rpc: { giving_household_summary: summary }, tables });
+    expect(await runCommand(ctx, "giving.household_summary", { household_id: SHAH, year: 2019 })).toMatchObject({ ok: true, message: "This household has no pledges or payments in 2019-20." });
+    expect(await runCommand(ctx, "giving.household_summary", { household_id: SHAH, year: 2027 })).toMatchObject({ ok: false, error: "2027 has not started yet, so there is no giving to show for it." });
+    expect(await runCommand(ctx, "giving.household_summary", { household_id: SHAH, year: 1800 })).toMatchObject({ ok: false, code: "invalid" });
+    expect(await runCommand(ctx, "giving.household_summary", { household_id: SHAH, year: "last year" })).toMatchObject({ ok: false, code: "invalid" });
+  });
+
+  it("is the calendar year when the community has not said when its year starts, and still tells a finance volunteer the totals may be low", async () => {
+    const { ctx } = setup({ permissions: ["giving.record_offline"], rpc: { giving_household_summary: summary }, tables: { ...tables, org_profiles: [] } });
+    const r = await runCommand(ctx, "giving.household_summary", { household_id: SHAH, year: 2026 });
+    const d = dataOf<{ limited_view: string; year_summary: { label: string; from: string; paid_cents: number } }>(r);
+    expect(d.year_summary).toMatchObject({ label: "2026", from: "2026-01-01", paid_cents: 15000 + 99900 });
+    expect(d.limited_view).toContain("only the payments you recorded yourself");
+  });
+
+  it("takes the year as an optional whole number in the tool list", () => {
+    const schema = CATALOG.find((c) => c.key === "giving.household_summary")!.input.json();
+    expect(schema.required).toEqual(["household_id"]);
+    expect(schema.properties.year).toMatchObject({ type: "integer", minimum: 1991 });
+  });
+});
+
+// ---------------------------------------------------------------------------
 describe("giving.bank_lines_unmatched and giving.zelle_waiting", () => {
   it("lists the bank lines nobody has matched, oldest first, in dollars", async () => {
     const seen: Record<string, unknown>[] = [];
