@@ -15,6 +15,7 @@
 import { contrastRatio, parseHexColor, textOn } from "@/lib/setup";
 
 import type { FlyerOccasion } from "./flyer-art";
+import { occasionSpec } from "./flyer-occasions";
 
 // ── Palettes ─────────────────────────────────────────────────────────────────
 
@@ -41,7 +42,8 @@ export type PosterPalette = {
   footerText: string;
 };
 
-const FIXED: Record<Exclude<FlyerOccasion, "general">, PosterPalette> = {
+// The traditional palettes of the Flyers v2 packs; every other occasion takes the brand kit (brandPalette).
+const FIXED: Partial<Record<FlyerOccasion, PosterPalette>> = {
   // The reference: the owner's JAINA 2027 Houston Host City Kick-Off poster.
   convention: { paper: "#FBF3E4", ink: "#1B2C5C", body: "#27325A", gold: "#C9A227", goldText: "#9C7A12", accent: "#8C1D2E", accentDeep: "#5E101C", onAccent: "#FBF3E4", ribbonHi: "#DDB740", footerBg: "#1B2C5C", footerText: "#D8B23A" },
   garba: { paper: "#FFF4E6", ink: "#5A1446", body: "#4A2340", gold: "#D9A21B", goldText: "#8A5A00", accent: "#B0174F", accentDeep: "#6E0B30", onAccent: "#FFF4E6", ribbonHi: "#FFD36B", footerBg: "#5A1446", footerText: "#F6C445" },
@@ -895,7 +897,8 @@ export type ArtPack = {
 
 type PackSpec = { blurb: string; frame: FrameFn; scene: SceneFn; sceneHeight: number; busy: number; fade: { from: number; to: number }; scrim: number; topInset: number };
 
-const SPECS: Record<FlyerOccasion, PackSpec> = {
+// The drawn packs, by pack key (an occasion names its pack in flyer-occasions.ts). General is always here.
+const SPECS: Partial<Record<string, PackSpec>> & { general: PackSpec } = {
   garba: { blurb: "Dancers, bunting and lanterns; mirror-work border", frame: garbaFrame, scene: garbaScene, sceneHeight: 470, busy: 330, fade: { from: 0.12, to: 0.4 }, scrim: 0.84, topInset: 54 },
   paryushan: { blurb: "A calm lotus pond at dawn; a quiet gold border", frame: lotusFrame, scene: lotusScene, sceneHeight: 420, busy: 250, fade: { from: 0.15, to: 0.42 }, scrim: 0.8, topInset: 54 },
   diwali: { blurb: "Glowing diyas and rangoli; a marigold toran", frame: diwaliFrame, scene: diwaliScene, sceneHeight: 450, busy: 320, fade: { from: 0.12, to: 0.4 }, scrim: 0.84, topInset: 128 },
@@ -906,10 +909,13 @@ const SPECS: Record<FlyerOccasion, PackSpec> = {
   general: { blurb: "Your brand colours; mandala corners and soft hills", frame: simpleFrame, scene: hillsScene, sceneHeight: 400, busy: 200, fade: { from: 0.15, to: 0.45 }, scrim: 0.8, topInset: 54 },
 };
 
-/** The pack for an occasion. General takes its palette from the community's brand kit. */
+/**
+ * The pack for an occasion: the one its catalog entry names, or General while that pack is not drawn yet. The Flyers v2
+ * packs keep their traditional palettes; every other occasion takes its palette from the community's brand kit.
+ */
 export function artPack(occasion: FlyerOccasion, brand: { primary: string; accent: string; background: string }): ArtPack {
-  const spec = SPECS[occasion];
-  const palette = occasion === "general" ? brandPalette(brand) : FIXED[occasion];
+  const spec = SPECS[occasionSpec(occasion).pack] ?? SPECS.general;
+  const palette = FIXED[occasion] ?? brandPalette(brand);
   return {
     occasion,
     blurb: spec.blurb,
