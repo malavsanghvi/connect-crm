@@ -29,8 +29,11 @@ export function SlideOverFrame({ label, onClose, children }: { label: string; on
       closeNow.current();
     }
     document.addEventListener("keydown", onKey);
+    // The Undo bar moves to the middle of the page that is still showing, so it never covers the panel's buttons.
+    document.documentElement.setAttribute("data-slideover", "open");
     return () => {
       document.removeEventListener("keydown", onKey);
+      document.documentElement.removeAttribute("data-slideover");
       if (opener.current instanceof HTMLElement && document.contains(opener.current)) opener.current.focus({ preventScroll: true });
     };
   }, []);

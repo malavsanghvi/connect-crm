@@ -260,7 +260,14 @@ function SectionFor({ s, detail, ctx, slots }: { s: SectionPlan; detail: PersonD
     case "giving":
       return (
         <Section id="giving" title={s.title} open={s.open}>
-          {slots.glance ?? <PartNote part={{ state: "no-access" }} what="giving" />}
+          {slots.glance ? (
+            // The panel is 520 px wide whatever the screen: the figures sit two to a row and the breakdown one under the other.
+            <div className="[&_[data-testid=giving-glance]]:mb-0 [&_[data-testid=giving-glance-breakdown]]:grid-cols-1 [&_[data-testid=giving-glance-tiles]]:grid-cols-2">
+              {slots.glance}
+            </div>
+          ) : (
+            <PartNote part={{ state: "no-access" }} what="giving" />
+          )}
         </Section>
       );
     case "history":

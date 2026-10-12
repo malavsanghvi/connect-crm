@@ -1,8 +1,8 @@
-import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
 import { AuditTab } from "@/app/(app)/households/[id]/audit-tab";
 import { PersonGlance } from "@/components/giving-glance/glance-panels";
+import { ChooseFamilyList } from "@/components/people-v2/slideover/choose-family";
 import { PersonSlideOver } from "@/components/people-v2/slideover/person-slideover";
 import { PageHeader, QueryError } from "@/components/ui";
 import { adultHouseholdCards } from "@/lib/commands/catalog/household";
@@ -103,41 +103,27 @@ async function ChooseFamily({
     <>
       <PageHeader title={name} description={`${name} is in more than one family. Choose the family to open.`} />
       {problem ? <QueryError what="the family details" error={problem} retryHref={`/people/${personId}`} /> : null}
-      <ul className="m-0 mt-4 grid list-none gap-3 p-0 md:grid-cols-2" aria-label={`Families of ${name}`}>
-        {householdIds.map((hid) => {
+      <ChooseFamilyList
+        name={name}
+        choices={householdIds.map((hid) => {
           const c = byId.get(hid);
           const link = links.find((l) => l.household_id === hid);
-          const lines = householdLine({
+          return {
             id: hid,
-            name: c?.household_name ?? "Family",
-            number: c?.household_number ?? null,
-            orgLabel: "",
-            orgIds: c?.org_household_id ? [c.org_household_id] : [],
-            adults: c?.adults ?? [],
-            place: [c?.city, c?.zone].filter(Boolean).join(", ") || null,
-          });
-          return (
-            <li key={hid}>
-              <Link
-                href={familyHrefFor(hid, personId, sp)}
-                className="block rounded-2xl border border-line bg-white p-4 no-underline hover:border-[var(--v2-blue)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--v2-blue)]"
-              >
-                <span className="block text-[16px] font-semibold text-ink" dir="auto">
-                  {lines[0]}
-                </span>
-                <span className="mt-1 block text-[13.5px] text-muted" dir="auto">
-                  {lines.slice(1).join(" · ")}
-                </span>
-                {link ? (
-                  <span className="mt-2 inline-flex min-h-6 items-center rounded-full bg-[var(--v2-blue-tint)] px-2.5 text-[12px] font-bold text-[var(--v2-blue)]">
-                    {link.is_primary ? "Primary member" : relationshipLabel(link.role)}
-                  </span>
-                ) : null}
-              </Link>
-            </li>
-          );
+            href: familyHrefFor(hid, personId, sp),
+            lines: householdLine({
+              id: hid,
+              name: c?.household_name ?? "Family",
+              number: c?.household_number ?? null,
+              orgLabel: "",
+              orgIds: c?.org_household_id ? [c.org_household_id] : [],
+              adults: c?.adults ?? [],
+              place: [c?.city, c?.zone].filter(Boolean).join(", ") || null,
+            }),
+            part: link ? (link.is_primary ? "Primary member" : relationshipLabel(link.role)) : null,
+          };
         })}
-      </ul>
+      />
     </>
   );
 }

@@ -31,6 +31,8 @@ export async function addPersonInlineAction(input: AddPersonCall): Promise<AddPe
   const raw: Record<string, string> = {};
   for (const k of SENDABLE) {
     const v = (input as Record<string, unknown>)[k];
+    // The names are always sent, even empty, so the command answers "first and last name are required" as the classic form does.
+    if (k === "first_name" || k === "last_name") raw[k] = typeof v === "string" ? v : "";
     if (v === undefined || v === null || v === "") continue;
     if (typeof v !== "string" || v.length > 200) return { ok: false, error: "Could not add the person — a detail was not understood." };
     raw[k] = v;

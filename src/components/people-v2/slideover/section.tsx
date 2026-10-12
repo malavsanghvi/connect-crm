@@ -54,7 +54,7 @@ export function Section({
             aria-expanded={open}
             aria-controls={panel}
             onClick={() => setOpen((v) => !v)}
-            className="flex min-h-12 w-full items-center justify-between gap-2 rounded-lg py-3 text-left font-display text-[17px] font-semibold text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--v2-blue)]"
+            className="flex min-h-12 w-full items-center justify-between gap-2 rounded-lg py-3 text-left text-[16px] font-bold text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--v2-blue)]"
           >
             <span>{title}</span>
             <Chevron open={open} />

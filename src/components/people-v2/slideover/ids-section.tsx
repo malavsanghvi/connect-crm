@@ -18,7 +18,6 @@ import { INPUT, Problem } from "../family/inline-ui";
 // and keeps it in the history.
 
 const LABEL = "block text-[12.5px] font-bold text-muted";
-const GRID = "grid grid-cols-[6.75rem_minmax(0,1fr)] items-start gap-x-3 py-1.5 sm:grid-cols-[7.5rem_minmax(0,1fr)]";
 
 export function IdsSection({ detail, facts }: { detail: PersonDetailModel; facts: IdsFacts }) {
   const groups = groupIds(facts.rows);
@@ -32,8 +31,8 @@ export function IdsSection({ detail, facts }: { detail: PersonDetailModel; facts
     <div data-testid="ids-section">
       {visible.length === 0 ? <p className="m-0 py-1 text-[14px] text-muted">No IDs recorded for {detail.person.firstName}.</p> : null}
       {visible.map((g) => (
-        <div key={g.kind} className={GRID} data-kind={g.kind}>
-          <span className="pt-2 text-[13px] text-muted">{g.label}</span>
+        <div key={g.kind} className="py-1.5" data-kind={g.kind}>
+          <p className="m-0 mb-1 text-[13px] text-muted">{g.label}</p>
           <ul className="m-0 flex list-none flex-wrap gap-2 p-0">
             {g.items.map((i) => (
               <IdChip key={i.id} id={i} detail={detail} onGone={() => setGone((s) => new Set(s).add(i.id))} />

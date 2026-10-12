@@ -26,7 +26,7 @@ import {
 } from "@/lib/people";
 import { hrefWith, type RawSearchParams } from "@/lib/search-params";
 
-import type { FamilyCheck, FamilyPerson } from "./family-model";
+import { adultsLine, type FamilyCheck, type FamilyModel, type FamilyPerson } from "./family-model";
 import type { Values } from "./inline-edit";
 
 // ---------------------------------------------------------------------------
@@ -56,6 +56,11 @@ export type DetailHousehold = {
   adults: string[];
   place: string | null;
 };
+
+/** The household of a Family page, as the slide-over shows it (its card line in parts). */
+export function detailHousehold(model: FamilyModel): DetailHousehold {
+  return { id: model.id, name: model.name, number: model.number, orgLabel: model.orgLabel, orgIds: model.card.orgIds, adults: model.card.adults, place: model.card.place };
+}
 
 export type AccountFacts = {
   /** When the person's app account was linked (an instant); null: not signed in yet. */
@@ -265,7 +270,7 @@ export function detailSubline(p: Pick<FamilyPerson, "role" | "isPrimary" | "age"
 
 /** The household card line as plain facts (never a name alone): the number, the organization's id, the adults and the place. */
 export function householdLine(h: DetailHousehold): string[] {
-  return [h.name, h.number ? `No. ${h.number}` : "No household number yet", ...h.orgIds, h.adults.length ? h.adults.join(" & ") : null, h.place].filter(
+  return [h.name, h.number ? `No. ${h.number}` : "No household number yet", ...h.orgIds, h.adults.length ? adultsLine(h.adults) : null, h.place].filter(
     (x): x is string => Boolean(x),
   );
 }

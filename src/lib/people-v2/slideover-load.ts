@@ -15,6 +15,7 @@ import type { CrmSession } from "@/lib/session";
 import { personValues, privacyValues, type FamilyModel, type FamilyPerson } from "./family-model";
 import {
   addIdKinds,
+  detailHousehold,
   part,
   shapeIdRows,
   type AccountFacts,
@@ -48,10 +49,6 @@ const KIND_HINTS: Partial<Record<string, string>> = {
 
 const PERSON_COLUMNS =
   "id, first_name, last_name, preferred_name, member_number, gender, date_of_birth, profession, employer, phone_e164, email, language, is_deceased, deceased_on, merged_into_id, interests, photo_opt_in, new_member_contact_opt_in, expertise_opt_in, expertise_headline";
-
-export function detailHousehold(model: FamilyModel): DetailHousehold {
-  return { id: model.id, name: model.name, number: model.number, orgLabel: model.orgLabel, orgIds: model.card.orgIds, adults: model.card.adults, place: model.card.place };
-}
 
 function childLoginAge(rules: unknown): number {
   const v = rules && typeof rules === "object" ? (rules as Record<string, unknown>).child_login_age : undefined;
