@@ -160,7 +160,7 @@ describe("savePersonFieldsAction", () => {
 describe("saveHouseholdFieldsAction", () => {
   it("saves the address block, with the values seen for each line", async () => {
     const { tables } = setup();
-    const r = await saveHouseholdFieldsAction({ householdId: ID.hhShah, fields: { city: "Round Rock", postal_code: "78664" }, expect: { city: "Austin", postal_code: "73301" }, label: "the Shah household's address" });
+    const r = await saveHouseholdFieldsAction({ householdId: ID.hhShah, fields: { city: "Round Rock", postal_code: "78664" }, expect: { city: "Austin", postal_code: "78701" }, label: "the Shah household's address" });
     expect(r).toMatchObject({ ok: true, changed: true });
     expect(household(tables, ID.hhShah)).toMatchObject({ city: "Round Rock", postal_code: "78664" });
     expect(stub.activity).toEqual([{ key: "people.update_household", entity: { kind: "household", id: ID.hhShah } }]);
