@@ -21,7 +21,10 @@ import type { AppSupabase } from "@/lib/supabase/server";
 import { DbFailure, FormError } from "./forms";
 import { findBlockedArtTerm, readArtJob, withLayerGuardrail } from "./flyer";
 import {
-  FLYER_LAYER_PROMPTS,
+  AI_LAYER_NOT_YET,
+  canAskAiLayer,
+  englishOnlyNote,
+  firstNonEnglishLetter,
   flyerArtFolder,
   flyerArtPath,
   isCenterArtPath,
@@ -34,6 +37,7 @@ import {
   type FlyerLayerKind,
   type FlyerOccasion,
 } from "./flyer-art";
+import { buildLayerPrompt, encodeArtFacts, styleFromTemplates, type FlyerArtFacts, type FlyerStyle } from "./flyer-art-prompt";
 import { MAX_PICTURE_PIXELS, MAX_PICTURE_SIDE, oversizePicture, sniffImage } from "./flyer-image";
 
 const BUCKET = "content";
@@ -56,6 +60,36 @@ function alreadyThere(error: StorageLike): boolean {
 }
 
 // ── Is AI art available? ─────────────────────────────────────────────────────
+
+/**
+ * The festival dates on the calendars this person can see within two days of the event (their titles: "Eid al-Adha",
+ * "Diwali"), so a festival that moves through the year is still suggested for the poster. Only a hint: when the calendar
+ * cannot be read the suggestion goes without it (and the reason is logged here).
+ */
+export async function festivalTitlesNear(db: AppSupabase, startsAt: string | null): Promise<{ title: string }[]> {
+  const at = startsAt ? Date.parse(startsAt) : NaN;
+  if (Number.isNaN(at)) return [];
+  const day = (ms: number) => new Date(ms).toISOString().slice(0, 10);
+  const layers = await db.from("calendar_layers").select("id").eq("kind", "festival").limit(50);
+  if (layers.error) {
+    console.error("[events/flyer] could not read the festival calendars for the occasion suggestion:", layers.error);
+    return [];
+  }
+  const ids = (layers.data ?? []).map((l) => l.id);
+  if (ids.length === 0) return [];
+  const entries = await db
+    .from("calendar_entries")
+    .select("title")
+    .in("layer_id", ids)
+    .gte("starts_on", day(at - 2 * 86_400_000))
+    .lte("starts_on", day(at + 2 * 86_400_000))
+    .limit(20);
+  if (entries.error) {
+    console.error("[events/flyer] could not read the festival dates for the occasion suggestion:", entries.error);
+    return [];
+  }
+  return (entries.data ?? []).filter((e) => typeof e.title === "string" && e.title.trim()).map((e) => ({ title: e.title }));
+}
 
 /** app.flyer_art_status, read for the panel: ready (with the price), or why not, in plain English. Never throws. */
 export async function flyerArtReadiness(db: AppSupabase, centerId: string): Promise<FlyerArtReadiness> {
@@ -178,21 +212,58 @@ async function isGone(db: AppSupabase, path: string): Promise<boolean> {
 }
 
 /**
+ * The look of the community's past flyers (the template chosen most often among its last dozen designed flyers), for
+ * the AI art's description. Only a hint: when it cannot be read the picture is described without it (and the reason is
+ * logged here).
+ */
+export async function pastFlyerStyle(db: AppSupabase, centerId: string, exceptEventId: string): Promise<FlyerStyle | null> {
+  const res = await db
+    .from("events")
+    .select("flyer_design")
+    .eq("center_id", centerId)
+    .neq("id", exceptEventId)
+    .not("flyer_design", "is", null)
+    .order("starts_at", { ascending: false })
+    .limit(12);
+  if (res.error) {
+    console.error("[events/flyer] could not read past flyers for their style:", res.error);
+    return null;
+  }
+  const templates = (res.data ?? []).map((r) => {
+    const d = r.flyer_design;
+    return d && typeof d === "object" && !Array.isArray(d) && typeof (d as Record<string, unknown>).template === "string" ? String((d as Record<string, unknown>).template) : "";
+  });
+  return styleFromTemplates(templates);
+}
+
+/**
  * Ask Gemini for one layer of an occasion's art. Only when AI art is ready (a key,
- * a running and current service); a finished picture that was not collected yet is
- * kept first, and only one request runs at a time. The prompt is code-set (never typed).
+ * a running and current service) and the database stores AI layers for the occasion;
+ * a finished picture that was not collected yet is kept first, and only one request
+ * runs at a time. The description is code-set from the catalog and `facts` (never typed,
+ * except the checked "Other occasion" description); the database is sent the facts and
+ * the background service builds the same description from them.
  */
 export async function requestFlyerArt(
   db: AppSupabase,
-  a: { eventId: string; centerId: string; occasion: FlyerOccasion; layer: FlyerLayerKind; seed?: number },
+  a: { eventId: string; centerId: string; occasion: FlyerOccasion; layer: FlyerLayerKind; seed?: number; facts?: FlyerArtFacts | null },
 ): Promise<FlyerArtProgress> {
   const ready = await flyerArtReadiness(db, a.centerId);
   if (ready.state !== "ready") return { status: "unavailable", reason: ready.message };
+  if (!canAskAiLayer(a.occasion)) return { status: "unavailable", reason: AI_LAYER_NOT_YET };
+
+  const facts: FlyerArtFacts = { ...(a.facts ?? {}), occasion: a.occasion, layer: a.layer };
+  if (facts.note) {
+    const foreign = firstNonEnglishLetter(facts.note);
+    if (foreign) throw new FormError(englishOnlyNote(foreign).replace("background art", "occasion"));
+    const said = findBlockedArtTerm(facts.note);
+    if (said) throw new FormError(`the description of the occasion mentions "${said}": AI art never shows people up close, deities or lettering. Describe how the occasion looks instead.`);
+  }
 
   const pending = await collectFlyerArt(db, a);
   if (pending.status === "queued" || pending.status === "running") return pending;
 
-  const prompt = withLayerGuardrail(FLYER_LAYER_PROMPTS[a.occasion][a.layer]);
+  const prompt = withLayerGuardrail(buildLayerPrompt({ ...facts, layer: a.layer }));
   const blocked = findBlockedArtTerm(prompt);
   if (blocked) {
     console.error(`[events/flyer] the built-in ${a.occasion} ${a.layer} prompt mentions "${blocked}"`);
@@ -203,7 +274,7 @@ export async function requestFlyerArt(
     p_occasion: a.occasion,
     p_layer: a.layer,
     p_seed: a.seed ?? newArtSeed(),
-    p_prompt: prompt,
+    p_prompt: encodeArtFacts(facts),
   });
   if (res.error) throw new DbFailure(res.error, "ask for AI art");
   const job = readArtJob(res.data);

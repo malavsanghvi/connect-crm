@@ -914,7 +914,7 @@ const SPECS: Partial<Record<string, PackSpec>> & { general: PackSpec } = {
  * packs keep their traditional palettes; every other occasion takes its palette from the community's brand kit.
  */
 export function artPack(occasion: FlyerOccasion, brand: { primary: string; accent: string; background: string }): ArtPack {
-  const spec = SPECS[occasionSpec(occasion).pack] ?? SPECS.general;
+  const spec = SPECS[drawnPackKey(occasion)] ?? SPECS.general;
   const palette = FIXED[occasion] ?? brandPalette(brand);
   return {
     occasion,
@@ -926,6 +926,12 @@ export function artPack(occasion: FlyerOccasion, brand: { primary: string; accen
     scrim: spec.scrim,
     topInset: spec.topInset,
   };
+}
+
+/** The drawn pack an occasion is drawn with today: the one its catalog entry names when it is drawn, else General. */
+export function drawnPackKey(occasion: FlyerOccasion): string {
+  const key = occasionSpec(occasion).pack;
+  return SPECS[key] ? key : "general";
 }
 
 /** An SVG as a data URI (base64 of ASCII: works in the browser and on the server). */

@@ -18,8 +18,10 @@ import { eventActionContext } from "@/lib/data/events";
 import type { ActionResult } from "@/lib/errors";
 import { eventAreas } from "@/lib/events/access";
 import { isFlyerOccasion, type FlyerArtProgress, type FlyerArtSetup, type FlyerLayerKind, type FlyerOccasion } from "@/lib/events/flyer-art";
-import { collectFlyerArt, discardFlyerArt, flyerArtReadiness, listFlyerArt, requestFlyerArt, storePartnerLogo } from "@/lib/events/flyer-art-library";
-import { FormError, runAction } from "@/lib/events/forms";
+import { collectFlyerArt, discardFlyerArt, flyerArtReadiness, listFlyerArt, pastFlyerStyle, requestFlyerArt, storePartnerLogo } from "@/lib/events/flyer-art-library";
+import { artFactsFor } from "@/lib/events/flyer-art-prompt";
+import { readFlyerBrand } from "@/lib/events/flyer-brand";
+import { DbFailure, FormError, runAction } from "@/lib/events/forms";
 import { isUuid } from "@/lib/search-params";
 
 const DENIED = "only event managers and this event's lead can make this event's flyer.";
@@ -47,14 +49,30 @@ export async function loadFlyerArtAction(eventId: string, occasion: string): Pro
 /**
  * Ask Gemini for one layer of this occasion's art. Never needed for the drawn
  * art. Answers that it was queued, or why not (no key, the service is down or
- * out of date, the day's limit) — the panel shows the sentence as it is.
+ * out of date, the day's limit) — the panel shows the sentence as it is. The
+ * picture is described from the occasion and what the community is (its kind
+ * and tradition, the season of the event, its brand colours, the style of its
+ * past flyers); `note` is the organizer's description for "Other occasion".
  */
-export async function requestFlyerArtAction(eventId: string, occasion: string, layer: string): Promise<ActionResult<FlyerArtProgress>> {
+export async function requestFlyerArtAction(eventId: string, occasion: string, layer: string, note?: string | null): Promise<ActionResult<FlyerArtProgress>> {
   return runAction<FlyerArtProgress>("events.flyer_art.request", "ask for AI art", async () => {
     const o = occasionOf(occasion);
     if (layer !== "frame" && layer !== "scene") throw new FormError("ask for a frame or a bottom scene.");
-    const { db, centerId } = await artContext(eventId);
-    return { ok: true, data: await requestFlyerArt(db, { eventId, centerId, occasion: o, layer: layer as FlyerLayerKind }) };
+    const { db, centerId, session, tz } = await artContext(eventId);
+    const ev = await db.from("events").select("starts_at").eq("id", eventId).maybeSingle();
+    if (ev.error) throw new DbFailure(ev.error, "load the event");
+    const facts = artFactsFor({
+      occasion: o,
+      layer: layer as FlyerLayerKind,
+      kind: session.kind,
+      startsAt: ev.data?.starts_at ?? null,
+      country: session.center.country,
+      tz,
+      brand: readFlyerBrand(session.center.branding, process.env.NEXT_PUBLIC_SUPABASE_URL),
+      style: await pastFlyerStyle(db, centerId, eventId),
+      note: typeof note === "string" ? note : null,
+    });
+    return { ok: true, data: await requestFlyerArt(db, { eventId, centerId, occasion: o, layer: layer as FlyerLayerKind, facts }) };
   });
 }
 

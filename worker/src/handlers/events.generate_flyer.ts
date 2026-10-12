@@ -6,11 +6,16 @@
 //
 //   a Poster layer   { event_id, occasion, layer: "frame" | "scene", seed, prompt }
 //                    app.events_request_flyer_art (0585). The picture's description is
-//                    NEVER read from the payload: the database takes any text from an
-//                    organizer who calls it directly, and these pictures are made on the
+//                    NEVER taken as text from the payload: the database takes any text from
+//                    an organizer who calls it directly, and these pictures are made on the
 //                    owner's key and shared with the whole community. The worker builds it
-//                    itself from the occasion and layer (FLYER_LAYER_PROMPTS, the same
-//                    table the portal sends from), ending with FLYER_LAYER_GUARDRAIL
+//                    itself (buildLayerPrompt, flyer-art-prompt.ts, the same code the portal
+//                    uses) from the occasion's catalog words and the FACTS the portal sends
+//                    in `prompt` (readArtFacts: kind, tradition, season, brand colours, past
+//                    style, each checked against a fixed list or pattern; the one free-text
+//                    field, the "Other occasion" description, is held to the background
+//                    rules below). A prompt that is not facts gets the occasion's base
+//                    description (FLYER_LAYER_PROMPTS). It ends with FLYER_LAYER_GUARDRAIL
 //   a background     { event_id, prompt }  app.events_request_flyer (0578): the
 //                    organizer's own words (English only: the blocked-word check reads
 //                    English), abstract or decorative only, with FLYER_ART_GUARDRAIL
@@ -67,6 +72,7 @@
 // and app.audit_mask keeps the bytes out of the audit log.
 
 import { FLYER_LAYER_ASPECT, FLYER_LAYER_PROMPTS, NO_GEMINI_KEY, firstNonEnglishLetter, flyerArtModel, isFlyerOccasion, type FlyerArtModel } from "../../../src/lib/events/flyer-art";
+import { buildLayerPrompt, readArtFacts } from "../../../src/lib/events/flyer-art-prompt";
 import type { Env, Readiness } from "../config";
 import { NotConfiguredError, PermanentError } from "../errors";
 import { findBlockedArtTerm, withArtGuardrail, withLayerGuardrail } from "../flyer-guard";
@@ -103,8 +109,17 @@ export function readPayload(p: unknown): FlyerArtPayload {
     if (!isFlyerOccasion(o.occasion)) throw new PermanentError("events.generate_flyer: the payload names no occasion.");
     const seed = Number(o.seed);
     if (!Number.isInteger(seed) || seed < 1 || seed > 2_147_483_647) throw new PermanentError("events.generate_flyer: the seed is out of range.");
-    // The description is ours, whatever text came with the request (see the top of this file).
-    const prompt = withLayerGuardrail(FLYER_LAYER_PROMPTS[o.occasion][o.layer], MAX_PROMPT_CHARS);
+    // The description is ours, whatever text came with the request (see the top of this file): built from checked facts,
+    // else the occasion's base description.
+    const facts = readArtFacts(o.prompt);
+    const own = facts && facts.occasion === o.occasion && facts.layer === o.layer ? facts : null;
+    if (own?.note) {
+      const foreign = firstNonEnglishLetter(own.note);
+      if (foreign) throw new PermanentError(`AI art for "Other occasion" is described in English: the check for people, deities and lettering reads English words only, and the description has "${foreign}".`);
+      const said = findBlockedArtTerm(own.note);
+      if (said) throw new PermanentError(`AI flyer art never shows people up close, deities or lettering: the description of the occasion mentioned "${said}".`);
+    }
+    const prompt = withLayerGuardrail(own ? buildLayerPrompt({ ...own, layer: o.layer }) : FLYER_LAYER_PROMPTS[o.occasion][o.layer], MAX_PROMPT_CHARS);
     // Our own descriptions never name a blocked word (a test checks every one); this stays as a second lock.
     const blocked = findBlockedArtTerm(prompt);
     if (blocked) throw new PermanentError(`AI flyer art never shows people up close, deities or lettering: the built-in description mentioned "${blocked}".`);

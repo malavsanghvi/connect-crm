@@ -3,10 +3,12 @@
 
 import type { FlyerPanelSetup, PanelEvent } from "@/app/(app)/events/flyer-publish-actions";
 import { defaultFlyerDesign, flyerMadeFor, memberAppEventLink } from "@/lib/events/flyer";
-import type { FlyerArtSetup, FlyerOccasion } from "@/lib/events/flyer-art";
+import type { FlyerArtSetup } from "@/lib/events/flyer-art";
 import { flyerBrandSummary, readFlyerBrand, type FlyerBrand } from "@/lib/events/flyer-brand";
+import { suggestOccasion } from "@/lib/events/flyer-occasions";
 import { fromDateTimeLocal } from "@/lib/events/format";
-import { makeFlyerApproval, suggestedPublishTime } from "@/lib/events/publish-schedule";
+import { drawnTakeOccasions, makeFlyerApproval, suggestedPublishTime } from "@/lib/events/publish-schedule";
+import { LEGACY_KIND, NEUTRAL_KIND, type KindProfile } from "@/lib/kind";
 
 export const PREVIEW_KINDS = ["church", "chamber", "temple"] as const;
 export type PreviewKind = (typeof PREVIEW_KINDS)[number];
@@ -17,9 +19,19 @@ export type Fixture = {
   tz: string;
   brand: FlyerBrand;
   tradition: boolean;
+  /** The organization's kind (the occasions it is offered follow it); absent: the Jain fixture kind or the neutral one, by `tradition`. */
+  kind?: KindProfile;
   art: FlyerArtSetup;
   event: { id: string; name: string; description: string; venue: string; starts_at: string; ends_at: string; audience: string };
 };
+
+/** A sample kind per kind of organization (only what the flyer's occasions read: the key, faith-based, the terms). */
+export function previewKindProfile(kind: string): KindProfile {
+  if (kind === "temple") return LEGACY_KIND;
+  if (kind === "church") return { ...NEUTRAL_KIND, key: "church", label: "Church", faithBased: true, terms: { ...NEUTRAL_KIND.terms, place: "church" } };
+  if (kind === "chamber") return { ...NEUTRAL_KIND, key: "chamber_of_commerce", label: "Chamber of commerce" };
+  return NEUTRAL_KIND;
+}
 
 const NO_KEY: FlyerArtSetup = { readiness: { state: "no_key", message: "AI art needs a Gemini key — ask your Weaver admin (Platform › Setup)." }, entries: [], problem: null };
 const READY: FlyerArtSetup = { readiness: { state: "ready", model: "gemini-3.1-flash-image", cents: 4 }, entries: [], problem: null };
@@ -30,6 +42,7 @@ export const FIXTURES: Record<PreviewKind, Fixture> = {
     tz: "America/Chicago",
     brand: readFlyerBrand({ primary: "#1F3A68", accent: "#B8862B", background: "#FBF8F2" }, null),
     tradition: false,
+    kind: previewKindProfile("church"),
     art: NO_KEY,
     event: {
       id: "d0000000-0000-4000-8000-00000000c401",
@@ -46,6 +59,7 @@ export const FIXTURES: Record<PreviewKind, Fixture> = {
     tz: "America/New_York",
     brand: readFlyerBrand({ primary: "#0E5A61", accent: "#C2571A", background: "#F6FAFA" }, null),
     tradition: false,
+    kind: previewKindProfile("chamber"),
     art: READY,
     event: {
       id: "d0000000-0000-4000-8000-00000000c402",
@@ -62,6 +76,7 @@ export const FIXTURES: Record<PreviewKind, Fixture> = {
     tz: "America/Los_Angeles",
     brand: readFlyerBrand({ primary: "#6B1F3A", accent: "#D98E04", background: "#FFF8EC" }, null),
     tradition: true,
+    kind: previewKindProfile("temple"),
     art: READY,
     event: {
       id: "d0000000-0000-4000-8000-00000000c403",
@@ -99,9 +114,10 @@ export function brandForKind(kind: unknown): FlyerBrand {
 /** The panel's setup for any sample event (the panel's own preview, or the creator's preview with the real panel in its slot). */
 export function setupForEvent(f: Fixture, state: PreviewState, now: Date = new Date()): FlyerPanelSetup {
   const memberAppLink = memberAppEventLink(PREVIEW_APP, f.event.id);
-  const occasions: FlyerOccasion[] = f.tradition ? ["diwali", "general"] : ["general"];
-  const defaults = defaultFlyerDesign({ name: f.event.name, description: f.event.description, venue: f.event.venue, startsAt: f.event.starts_at, endsAt: f.event.ends_at, tz: f.tz, qrAvailable: true });
-  if (defaults.poster && !occasions.includes(defaults.poster.occasion)) defaults.poster = { ...defaults.poster, occasion: occasions[0]! };
+  const kind = f.kind ?? (f.tradition ? LEGACY_KIND : NEUTRAL_KIND);
+  const defaults = defaultFlyerDesign({ name: f.event.name, description: f.event.description, venue: f.event.venue, startsAt: f.event.starts_at, endsAt: f.event.ends_at, tz: f.tz, qrAvailable: true, community: { kind } });
+  const occasions = drawnTakeOccasions(kind, defaults.poster?.occasion ?? null);
+  const suggestions = suggestOccasion({ title: f.event.name, description: f.event.description, startsAt: f.event.starts_at, tz: f.tz, kind });
   const approved = state !== "draft";
   const scheduledLocal = suggestedPublishTime(f.event.starts_at, f.tz, now);
   const event: PanelEvent = {
@@ -134,6 +150,7 @@ export function setupForEvent(f: Fixture, state: PreviewState, now: Date = new D
     guestVisible: true,
     art: f.art,
     occasions,
+    suggestions,
     canEdit: true,
     userId: "dev-user",
   };

@@ -23,13 +23,13 @@ import type { Json } from "@/lib/database.types";
 import type { ActionResult } from "@/lib/errors";
 import { eventAreas } from "@/lib/events/access";
 import { defaultFlyerDesign, memberAppEventLink, parseFlyerDesign, readFlyerSource, type FlyerDesign, type FlyerSource } from "@/lib/events/flyer";
-import { FLYER_OCCASIONS, type FlyerArtSetup, type FlyerOccasion } from "@/lib/events/flyer-art";
-import { flyerArtReadiness, listFlyerArt } from "@/lib/events/flyer-art-library";
+import type { FlyerArtSetup, FlyerOccasion } from "@/lib/events/flyer-art";
+import { festivalTitlesNear, flyerArtReadiness, listFlyerArt } from "@/lib/events/flyer-art-library";
+import { suggestOccasion, type OccasionSuggestion } from "@/lib/events/flyer-occasions";
 import { flyerBrandSummary, readFlyerBrand, type FlyerBrand } from "@/lib/events/flyer-brand";
 import { DbFailure, FormError, runAction } from "@/lib/events/forms";
-import { approvalState, checkPublishTime, isGuestVisible, publishProblems } from "@/lib/events/publish-schedule";
+import { approvalState, checkPublishTime, drawnTakeOccasions, isGuestVisible, publishProblems } from "@/lib/events/publish-schedule";
 import type { ReadinessEvent } from "@/lib/events/readiness";
-import { kindHas } from "@/lib/kind";
 import { isUuid } from "@/lib/search-params";
 
 const EDIT_DENIED = "only event managers and this event's lead can make this event's flyer.";
@@ -60,6 +60,8 @@ export type FlyerPanelSetup = {
   art: FlyerArtSetup;
   /** The art packs "Another drawn take" may use for this kind of organization. */
   occasions: FlyerOccasion[];
+  /** The occasions that suit this event, best first, each with its reason (shown in the art picker). */
+  suggestions: OccasionSuggestion[];
   canEdit: boolean;
   userId: string;
 };
@@ -67,15 +69,6 @@ export type FlyerPanelSetup = {
 function revalidate(eventId: string) {
   revalidatePath("/events", "layout");
   revalidatePath(`/events/${eventId}`, "page");
-}
-
-/**
- * The art packs drawn in code that suit the organization: every pack for a kind that keeps a tradition (its own occasions);
- * otherwise only the general pack (brand colours, mandala corners, soft hills). The "convention" pack is left out for the
- * others on purpose: its scene draws Garba dancers, which is one tradition's dance (B96, flyer art for every kind).
- */
-function occasionsFor(tradition: boolean): FlyerOccasion[] {
-  return tradition ? [...FLYER_OCCASIONS] : ["general"];
 }
 
 async function loadEvent(db: Awaited<ReturnType<typeof eventActionContext>>["db"], eventId: string, centerId: string): Promise<PanelEvent> {
@@ -95,7 +88,7 @@ export async function loadFlyerPanelAction(eventId: string): Promise<ActionResul
     const event = await loadEvent(db, eventId, centerId);
     const brand = readFlyerBrand(session.center.branding, process.env.NEXT_PUBLIC_SUPABASE_URL);
     const memberAppLink = memberAppEventLink(process.env.NEXT_PUBLIC_MEMBER_APP_URL, eventId);
-    const occasions = occasionsFor(kindHas(session.kind, "tradition"));
+    const community = { kind: session.kind };
     const defaults = defaultFlyerDesign({
       name: event.name,
       description: event.description,
@@ -104,11 +97,13 @@ export async function loadFlyerPanelAction(eventId: string): Promise<ActionResul
       endsAt: event.ends_at,
       tz,
       qrAvailable: memberAppLink !== null,
+      community,
     });
-    if (defaults.poster && !occasions.includes(defaults.poster.occasion)) defaults.poster = { ...defaults.poster, occasion: occasions[0]! };
     const saved = parseFlyerDesign(event.flyer_design);
     const occasion = (saved.ok ? saved.design.poster?.occasion : null) ?? defaults.poster?.occasion ?? "general";
-    const [readiness, library] = await Promise.all([flyerArtReadiness(db, centerId), listFlyerArt(db, centerId, occasion)]);
+    const occasions = drawnTakeOccasions(session.kind, occasion);
+    const [readiness, library, calendar] = await Promise.all([flyerArtReadiness(db, centerId), listFlyerArt(db, centerId, occasion), festivalTitlesNear(db, event.starts_at)]);
+    const suggestions = suggestOccasion({ title: event.name, description: event.description, startsAt: event.starts_at, tz, kind: session.kind, calendar });
     return {
       ok: true,
       data: {
@@ -122,6 +117,7 @@ export async function loadFlyerPanelAction(eventId: string): Promise<ActionResul
         guestVisible: isGuestVisible(event),
         art: { readiness, entries: library.entries, problem: library.problem },
         occasions,
+        suggestions,
         canEdit: eventAreas.edit(ctx.access, eventId),
         userId,
       },

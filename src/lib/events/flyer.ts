@@ -21,6 +21,8 @@
 // every design saved before stays valid).
 
 import { FLYER_ART_SEED_MAX, FLYER_LAYER_KINDS, isCenterArtPath, isFlyerOccasion, occasionFor, parseFlyerArtPath, type FlyerLayer, type FlyerLayerKind, type FlyerOccasion } from "./flyer-art";
+import { artFactsFor, buildBackgroundPrompt, cleanArtNote } from "./flyer-art-prompt";
+import type { OccasionKind } from "./flyer-occasions";
 import { isPosterIcon, type PosterIcon } from "./flyer-icons";
 import { formatEventRange, formatTime } from "./format";
 
@@ -84,6 +86,8 @@ export type PosterAgendaRow = { icon: PosterIcon; time: string; text: string };
  */
 export type PosterContent = {
   occasion: FlyerOccasion;
+  /** "Other occasion": what it is, in the organizer's words (English: it feeds the AI art's description). Empty otherwise. */
+  occasion_note?: string;
   frame: FlyerLayer;
   scene: FlyerLayer;
   /** The community's logo (brand kit) at the top. */
@@ -117,6 +121,7 @@ export const POSTER_LIMITS = {
   agenda_text: 80,
   paragraph: 320,
   footer: 60,
+  occasion_note: 160,
 } as const;
 export const POSTER_AGENDA_MAX = 5;
 
@@ -134,6 +139,7 @@ const POSTER_FIELD_LABEL: Record<keyof typeof POSTER_LIMITS, string> = {
   agenda_text: "agenda line",
   paragraph: "paragraph",
   footer: "footer line",
+  occasion_note: "description of the occasion",
 };
 
 /** events.flyer_design, v1 (contract C2, migration 0578; `poster` added by 0585). */
@@ -226,8 +232,10 @@ export function parsePosterContent(raw: unknown): { ok: true; poster: PosterCont
     if (!time && !text) continue;
     agenda.push({ icon: isPosterIcon(row.icon) ? row.icon : "clock", time, text });
   }
+  const note = occasion === "other" ? cleanArtNote(o.occasion_note) : "";
   const poster: PosterContent = {
     occasion,
+    ...(note ? { occasion_note: note } : {}),
     frame: frame.value,
     scene: scene.value,
     logo: o.logo !== false,
@@ -258,6 +266,7 @@ export function parsePosterContent(raw: unknown): { ok: true; poster: PosterCont
     ["ribbon_time", poster.ribbon.time],
     ["paragraph", poster.paragraph],
     ["footer", poster.footer],
+    ["occasion_note", poster.occasion_note ?? ""],
     ...poster.agenda.flatMap((r): [keyof typeof POSTER_LIMITS, string][] => [
       ["agenda_time", r.time],
       ["agenda_text", r.text],
@@ -446,11 +455,17 @@ function paragraphFrom(desc: string | null | undefined, max: number): string {
   return firstSentence(text, max);
 }
 
-/** A new poster for an event: its own words and date, the pack that suits its name, every optional section ready to fill. */
-export function defaultPoster(e: { name: string; description: string | null; startsAt: string | null; endsAt: string | null; tz: string }): PosterContent {
+/** The organization a flyer is for, as the occasion rules read it (its kind, and a tradition when the caller knows one). */
+export type FlyerCommunity = { kind: OccasionKind; tradition?: string | null };
+
+/**
+ * A new poster for an event: its own words and date, the occasion its name points to among the community's own (the
+ * kind's default when it points to none), every optional section ready to fill.
+ */
+export function defaultPoster(e: { name: string; description: string | null; startsAt: string | null; endsAt: string | null; tz: string; community?: FlyerCommunity | null }): PosterContent {
   const when = posterWhen(e.startsAt, e.endsAt, e.tz);
   return {
-    occasion: occasionFor(e.name, e.description),
+    occasion: occasionFor(e.name, e.description, e.community),
     frame: { source: "code" },
     scene: { source: "code" },
     logo: true,
@@ -474,6 +489,7 @@ export function defaultFlyerDesign(e: {
   tz: string;
   qrAvailable: boolean;
   now?: Date;
+  community?: FlyerCommunity | null;
 }): FlyerDesign {
   return {
     v: 1,
@@ -595,65 +611,41 @@ export function withLayerGuardrail(text: string, max = 2000): string {
 /** The longest art description an organizer may type (the guardrail is added after it, within the 2,000-character job limit). */
 export const FLYER_ART_PROMPT_MAX = 1200;
 
-const NAMED_COLORS: readonly { name: string; rgb: [number, number, number] }[] = [
-  { name: "deep navy", rgb: [0x1b, 0x2c, 0x5c] },
-  { name: "royal blue", rgb: [0x2f, 0x5b, 0xd3] },
-  { name: "sky blue", rgb: [0x7f, 0xb8, 0xe6] },
-  { name: "teal", rgb: [0x1f, 0x7a, 0x7a] },
-  { name: "emerald green", rgb: [0x1f, 0x7a, 0x4d] },
-  { name: "sage green", rgb: [0x9c, 0xb8, 0x9a] },
-  { name: "saffron", rgb: [0xe0, 0x82, 0x1c] },
-  { name: "marigold gold", rgb: [0xe6, 0xb4, 0x2c] },
-  { name: "maroon", rgb: [0x7a, 0x2e, 0x1f] },
-  { name: "crimson red", rgb: [0xc0, 0x26, 0x2d] },
-  { name: "rose pink", rgb: [0xe5, 0x8f, 0xa8] },
-  { name: "plum purple", rgb: [0x5b, 0x4b, 0x8a] },
-  { name: "ivory cream", rgb: [0xfb, 0xf7, 0xf0] },
-  { name: "charcoal grey", rgb: [0x3a, 0x3a, 0x3a] },
-];
-
-/** The nearest of a dozen named colours, for a prompt ("saffron", "deep navy"); "warm" when the value is not a hex colour. */
-export function colorWord(hex: string): string {
-  const m = /^#?([0-9a-f]{6})$/i.exec(hex.trim());
-  if (!m) return "warm";
-  const n = parseInt(m[1], 16);
-  const [r, g, b] = [(n >> 16) & 255, (n >> 8) & 255, n & 255];
-  let best = NAMED_COLORS[0];
-  let bestD = Infinity;
-  for (const c of NAMED_COLORS) {
-    // Weighted RGB distance ("redmean"), close enough to how people see colour for naming.
-    const rm = (r + c.rgb[0]) / 2;
-    const dr = r - c.rgb[0];
-    const dg = g - c.rgb[1];
-    const db = b - c.rgb[2];
-    const d = (2 + rm / 256) * dr * dr + 4 * dg * dg + (2 + (255 - rm) / 256) * db * db;
-    if (d < bestD) {
-      bestD = d;
-      best = c;
-    }
-  }
-  return best.name;
-}
-
-const MOTIF_ART: Record<FlyerPattern, string> = {
-  diya: "rows of small glowing oil lamps as soft points of golden light over a gentle dotted pattern",
-  lotus: "stylised lotus petals and soft concentric water ripples",
-  rangoli: "a symmetrical rangoli rosette of petals, dots and fine curved lines",
-  mandala: "concentric mandala rings of petals and fine geometric lines",
-};
+/** The nearest of a dozen named colours, for a prompt ("saffron", "deep navy"): flyer-art-prompt.ts. */
+export { colorWord } from "./flyer-art-prompt";
 
 /**
- * The starting description for AI background art: the event's motif in the
- * brand's named colours. Abstract and decorative only, and it never includes
- * the event's name (names such as "Mahavir Jayanti" would invite a figure).
- * The guardrail is added when the art is requested (withArtGuardrail).
+ * The starting description for AI background art: the occasion's own motif (the one given, else the one the event's name
+ * points to among the community's occasions) in the brand's named colours, with the season when the occasion has none of
+ * its own. Abstract and decorative only, and it never includes the event's name (names such as "Mahavir Jayanti" would
+ * invite a figure, and a title can name a person). The guardrail is added when the art is requested (withArtGuardrail).
  */
-export function buildFlyerArtPrompt(e: { eventName: string; primary: string; accent: string }): string {
-  const motif = artMotifFor(e.eventName);
-  const primary = colorWord(e.primary);
-  const accent = colorWord(e.accent);
-  const colours = primary === accent ? `${primary} tones` : `${primary} and ${accent} tones`;
-  return `An elegant, festive background of ${MOTIF_ART[motif]}, in ${colours}, softly lit, with a smooth gradient and generous calm space in the middle.`;
+export function buildFlyerArtPrompt(e: {
+  eventName: string;
+  primary: string;
+  accent: string;
+  background?: string;
+  occasion?: FlyerOccasion | null;
+  occasionNote?: string | null;
+  community?: FlyerCommunity | null;
+  startsAt?: string | null;
+  country?: string | null;
+  tz?: string | null;
+}): string {
+  const occasion = e.occasion ?? occasionFor(e.eventName, null, e.community);
+  return buildBackgroundPrompt(
+    artFactsFor({
+      occasion,
+      layer: "background",
+      kind: e.community?.kind ?? null,
+      tradition: e.community?.tradition ?? null,
+      startsAt: e.startsAt,
+      country: e.country,
+      tz: e.tz,
+      brand: { primary: e.primary, accent: e.accent, background: e.background ?? "#FBF7F0" },
+      note: e.occasionNote,
+    }),
+  );
 }
 
 /** A Poster layer job's own key parts (null: a background request). */

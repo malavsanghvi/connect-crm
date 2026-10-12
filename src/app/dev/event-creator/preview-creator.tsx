@@ -11,7 +11,7 @@ import { FlyerServicesProvider } from "@/components/event-creator/flyer/flyer-pa
 import type { CardId, CreatorCtx, CreatorExisting, EventDraft } from "@/lib/event-creator/types";
 import { fromDateTimeLocal } from "@/lib/events/format";
 
-import { brandForKind, setupForEvent } from "../event-flyer-panel/fixtures";
+import { brandForKind, previewKindProfile, setupForEvent } from "../event-flyer-panel/fixtures";
 import { makePreviewServices } from "../event-flyer-panel/preview-services";
 
 /** The sample brand kit and drawn art for the creator's communities (the flyer panel's dev fixtures). */
@@ -55,6 +55,7 @@ export function PreviewCreator({ ctx, draft, existing, step, pane }: { ctx: Crea
             tz: ctx.tz,
             brand: brandForKind(kind),
             tradition: kind === "temple",
+            kind: previewKindProfile(kind),
             art: { readiness: { state: "ready", model: "gemini-3.1-flash-image", cents: 4 }, entries: [], problem: null },
             event: {
               id,
