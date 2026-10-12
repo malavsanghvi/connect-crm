@@ -126,3 +126,10 @@ export type Clash = { level: "warn" | "info"; text: string };
 
 /** Where a builder field or feature lives in the creator (see fields.ts). */
 export type Place = CardId | `link:${string}` | `later:${string}`;
+
+/** What already hangs off a saved draft (read again after each change). Times are ISO instants. */
+export type ExistingShift = { id: string; station: string; notes: string | null; capacity: number | null; starts_at: string | null; ends_at: string | null };
+export type ExistingAction = { id: string; name: string; phase: string | null; due_on: string | null; state: string };
+export type CreatorExisting = { shifts: ExistingShift[]; checklist: ExistingAction[]; lunchSlots: number; problems: string[] };
+
+export const NO_EXISTING: CreatorExisting = { shifts: [], checklist: [], lunchSlots: 0, problems: [] };

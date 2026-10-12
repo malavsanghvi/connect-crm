@@ -21,6 +21,7 @@ export function PersonPicker({
   hint,
   required,
   placeholder = "Type a name, email or phone",
+  onChange,
 }: {
   name: string;
   label: string;
@@ -29,6 +30,8 @@ export function PersonPicker({
   hint?: string;
   required?: boolean;
   placeholder?: string;
+  /** Told the new choice whenever the person picks or removes someone (a screen that keeps its own state, not a form). */
+  onChange?: (picked: Option[]) => void;
 }) {
   const [picked, setPicked] = useState<Option[]>(initial);
   const [query, setQuery] = useState("");
@@ -80,7 +83,9 @@ export function PersonPicker({
   }, [query, attempt]);
 
   function choose(o: Option) {
-    setPicked((cur) => (multiple ? (cur.some((c) => c.id === o.id) ? cur : [...cur, o]) : [o]));
+    const next = multiple ? (picked.some((c) => c.id === o.id) ? picked : [...picked, o]) : [o];
+    setPicked(next);
+    onChange?.(next);
     setQuery("");
     setResults([]);
   }
@@ -104,7 +109,11 @@ export function PersonPicker({
                 type="button"
                 aria-label={`Remove ${p.name}`}
                 className="inline-flex h-7 w-7 items-center justify-center rounded-full text-muted hover:bg-white"
-                onClick={() => setPicked((cur) => cur.filter((c) => c.id !== p.id))}
+                onClick={() => {
+                  const next = picked.filter((c) => c.id !== p.id);
+                  setPicked(next);
+                  onChange?.(next);
+                }}
               >
                 ×
               </button>
