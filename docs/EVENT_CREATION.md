@@ -69,7 +69,7 @@ Result: finishing one event takes 5-7 visits across 3 screens plus Messages. Rea
 
 ## 3. Flyer first, then publish everywhere (owner, 2026-10-11)
 
-- **The draft appears immediately.** As soon as the box understands the sentence, and before the first question, a flyer draft is drawn from: the sentence (name, day, time); the brand kit (logo, colours, fonts); the community's past flyers (the similar event's `flyer_design`: layout, art and tagline); and the art library the flyer maker already has (`flyer-art-library.ts`, `flyer-art-packs.ts`, picked from the name by `flyer-art.ts`). It is rule-based, so nobody waits for AI; AI art is an optional swap later. Unknown parts show as placeholders ("Place to be confirmed"), and readiness counts them.
+- **The draft appears immediately.** As soon as the box understands the sentence, and before the first question, a flyer draft is drawn from: the sentence (name, day, time); the brand kit (logo, colours, fonts); the community's past flyers (the similar event's `flyer_design`: layout, art and tagline); and the art library the flyer maker already has (`flyer-art-library.ts`, `flyer-art-packs.ts`, picked from the name by `flyer-art.ts`). It is rule-based, so nobody waits for AI; Gemini art (already built) is an optional swap, see "Flyer art for any kind of event" below. Unknown parts show as placeholders ("Place to be confirmed"), and readiness counts them.
 - **Answers refine it live.** Each answer redraws the poster (venue, time, price, the RSVP QR to `/e/<id>`). Before the draft is saved, the existing renderer draws a preview without saving anything (`flyerPreviewUrlAction`). What a person changes by hand on the poster is never overwritten by later answers.
 
 | Publish panel (beside the flyer) | Behaviour |
@@ -84,7 +84,7 @@ Result: finishing one event takes 5-7 visits across 3 screens plus Messages. Rea
 
 | Part | Today | Missing |
 |---|---|---|
-| Flyer | maker with Post, Tall, Story and Print sizes (`FLYER_SIZES`, `src/lib/events/flyer.ts`), brand kit, art packs, AI art (worker `events.generate_flyer`); photos only from albums without children (`flyer-actions.ts:223`) | a flyer before the draft is saved; Square size; JPEG export (the renderer, Satori, draws PNG) |
+| Flyer | maker with 5 templates (Poster, Classic, Festival, Minimal, Photo) and Post, Tall, Story and Print sizes (`src/lib/events/flyer.ts`); the Poster (`flyer-poster.tsx`) sets every word in code over art layers (frame + bottom scene) that are drawn in code (free) or made by Google Gemini (worker `events.generate_flyer`, `flyer-art-actions.ts`, `flyer-art-picker.tsx`; about 4¢ a picture, 30 a day per community, cached per community; key in Platform › Setup, `docs/DEPLOY.md`); brand kit; photos only from albums without children (`flyer-actions.ts:223`) | a flyer before the draft is saved; Square size; JPEG export (the renderer, Satori, draws PNG); occasions for every kind (below) |
 | App, calendar | publishing makes the event visible (member app, calendar) | publishing at a scheduled time |
 | Website | Weaver's own marketing site (`src/app/site`); the community-site draft built from data (B55/W3, `src/lib/site-draft/`) is not live; the guest page `/e/<id>` | an events page on the community's site |
 | Facebook, Instagram | profile links only (`SOCIAL_KEYS`, `src/lib/setup.ts:518`); B54/B75 are backlog; no posting code; `integration_connections.provider` has no Meta value | connections, a posting job, status per channel |
@@ -104,6 +104,21 @@ Result: finishing one event takes 5-7 visits across 3 screens plus Messages. Rea
 - **Audit.** `withActivity` keys `events.post_schedule`, `events.post_approve` and `events.post_retry`; the worker records each channel's outcome.
 - **D2.** Flyer photos come only from albums marked `contains_children = false` (as today). Captions and flyers never name a person under 18 (`filterChildren` on the caption). Only event fields go to a model, never a photo of a person.
 
+**Flyer art for any kind of event.** Will connecting Gemini give better flyers? Only partly. Gemini already draws the art layers, but two things in code cap the quality. (1) The occasions belong to one tradition: `FLYER_OCCASIONS` (`src/lib/events/flyer-art.ts`) is garba, paryushan, diwali, mahavir, convention, pathshala, bhakti and general, and a kind without a tradition is offered only convention and general (`flyerOccasionsFor`). A church's Easter, a mosque's Eid dinner, a chamber's ribbon cutting or a club's picnic therefore all get generic art, which breaks the owner rule. (2) The prompts are fixed per occasion (`FLYER_LAYER_PROMPTS`), so the event itself, the season and the brand barely shape the picture. *Recommend*: connect Gemini AND make the changes below.
+
+| Decision | How |
+|---|---|
+| Occasions are data, not code | A catalog of occasions: key, a label in each language, the kinds and traditions it suits, keywords in many languages, palette hints, and frame and scene briefs. It is seeded for many kinds (faith calendars such as Christmas, Easter, Eid, Vaisakhi, Hanukkah, Lunar New Year, Diwali and Paryushan; civic events such as a gala, mixer, ribbon cutting, fundraising walk, annual meeting, sports day, concert or kids' day), and a community can add its own. `occasionFor()` reads the keywords from data; today's code list becomes part of the seed |
+| The prompt is built, not fixed | From the event name's words (after the child filter), the kind, the tradition, the season (month and hemisphere, from the country), the brand colours, the occasion's briefs, and one of the community's past flyers as a style reference. Never a person's name, a photo of a person, or anything about a child (D2). `FLYER_LAYER_GUARDRAIL` and the blocked-word test stay |
+| Art in separate layers; words set by code | Frame, scene and a new background/hero layer, none with text in it. Every word, date, price and the QR are set by `flyer-poster.tsx`, so the words are always right, in every language and script |
+| Several compositions | 3-4 new Poster compositions (centred hero, split image and text, photo-led, bold type) beside today's five templates; the instant draft offers 3 thumbnails to choose from |
+| Community photos | Approved album photos (`contains_children = false`) as the background or hero, with a colour wash so the text stays readable |
+| QR and sponsors | The QR to `/e/<id>` is always on the flyer; a sponsor strip comes from the event's sponsorships (`opportunities.event_id`), with logos (`uploadPartnerLogoAction`) |
+| Cost and limits | Today's rules stay: the price shown on the button, 30 pictures a day per community, each picture cached for the whole community (`content/<center>/flyer-art/…`). The instant draft uses code art or a cached picture (no wait, no cost); a new Gemini picture is made only on "Make new art" |
+| Review | A person approves the flyer before any post (the panel above) |
+
+Golden flyer tests pick a fitting occasion for: a church's "Christmas Eve candlelight service", a mosque's "Eid dinner", a chamber's "ribbon cutting at Lopez Bakery", a club's "summer picnic" and a temple's "Diwali dinner".
+
 ## 4. Smart features
 
 | Feature | Data it reads | Code (rule) | AI adds | Slice |
@@ -116,7 +131,7 @@ Result: finishing one event takes 5-7 visits across 3 screens plus Messages. Rea
 | Volunteers | source `volunteer_shifts`, `volunteer_assignments`, `volunteer_interests` | copy roles, times and numbers; "who did it last time and is free" (adults; not on an overlapping shift) | none | 3 |
 | Reminder timing | past `comms_campaigns` of kind `event` relative to the start; `confirmation_hours_before`; `channel_optins` | the same offsets as last time, moved out of quiet hours | none | 3 |
 | Description | the answers | text built by rule from the fields, using saved templates per language | a draft in every community language, marked "check by a reader" | 4 |
-| Flyer | brand kit, past flyers (`flyer_design`), art library | the instant draft (section 3), redrawn from each answer | art (worker `events.generate_flyer`) | 4 |
+| Flyer | brand kit, past flyers (`flyer_design`), art library | the instant draft (section 3), redrawn from each answer | Gemini art from the built prompt (section 3) | 4 |
 | Duplicate warning | same folded name within ±14 days, or an open draft from the same source | "You already have Diwali Dinner 2026 as a draft: continue it?" | none | 3 |
 | Lessons learned | source `events.lessons_learned`, `event_templates.lessons_learned` | shown at the matching group by keyword (food → Help, parking → Where); all of them at Review | picks the relevant one for each question | 3 / 4 |
 
@@ -169,6 +184,7 @@ The final result is the draft event id plus the Review: nothing is published. Th
 | Answers with no column (skipped groups, starting point, reminder plan, version) | `events.setup jsonb not null default '{}'` | 2: one migration, number from the coordinator |
 | Name and description per language | `events.translations jsonb` in the `content_items.translations` shape (`{"es": {"name", "description"}}`); connect-mobile reads it later | 2 (same migration) |
 | Posts per channel, now or scheduled | `event_posts` (section 3) | 2 (same migration) |
+| Flyer occasions for every kind | an occasion catalog table, seeded, which a community can extend (section 3) | 2 (same migration) |
 | Activity for the new commands | allowlist rows for `events.plan`, `events.plan_save`, `events.post_*` | 2 (same migration) |
 | Roles named by the community | drop the fixed `STATIONS` check in `createShift` (the column is already free text) | 2, code only |
 | A wizard sessions table | not needed: the state is the draft event plus `setup` | none |
@@ -187,10 +203,10 @@ Slice 1 needs no migration.
 
 | Slice | What | Size | Main risk → answer |
 |---|---|---|---|
-| 1 | Pure core `src/lib/events/plan/` (`catalog.ts`, `infer.ts`, `next.ts`, `preview.ts`, `review.ts`) plus **the instant flyer draft** (`flyerFromSentence`: sentence + brand kit + past flyer + art library, through the existing poster renderer); golden tests `tests/events/plan-golden.test.ts`; cards, flyer and preview `src/components/events-plan/`; dev page `/dev/event-plan` on fixtures; screenshots per kind, light and dark, phone width. No AI, no migration | M (about 1,300 lines with tests) | catalog grows → golden rows pin which questions are asked |
+| 1 | Pure core `src/lib/events/plan/` (`catalog.ts`, `infer.ts`, `next.ts`, `preview.ts`, `review.ts`) plus **the instant flyer draft** (`flyerFromSentence`: sentence + brand kit + past flyer + art library, through the existing poster renderer) and the occasion catalog as a data-shaped seed; golden tests `tests/events/plan-golden.test.ts` and the flyer occasion rows; cards, flyer and preview `src/components/events-plan/`; dev page `/dev/event-plan` on fixtures; screenshots per kind, light and dark, phone width. No AI, no migration | M (about 1,300 lines with tests) | catalog grows → golden rows pin which questions are asked |
 | 2 | Real data: `savePlan` reuses `eventValues` (moved into a pure helper), `create_event_from_template`, `prepareClone`, shifts, `planLunchSlots`, checklist and campaign drafts; live readiness; Review; `/events/new`; **publish panel for the app, calendar and website/guest page, now or scheduled** (worker job, Square + JPEG export); the migration in section 6 | L | half-saved parts → each part idempotent; Review shows each part's state |
 | 3 | Smart suggestions from history (section 4): a `PlanHistory` loader (counts only), start, dates, clashes, capacity, food, price, volunteers, timing, duplicates, lessons | M | thin history → hidden under 2 similar events |
-| 4 | AI: description and captions in every language, flyer art from the brand kit, typed answers turned into answers; D2 filter, prompt caching, the community's monthly Niva limit | M | translation quality → "check by a reader" badge; never published unseen |
+| 4 | AI: description and captions in every language; Gemini art from the built prompt (with a past flyer as the style reference), new compositions, album photos and the sponsor strip; typed answers turned into answers; D2 filter, prompt caching, the community's monthly Niva limit | M | translation quality → "check by a reader" badge; never published unseen |
 | 5 | Box hand-off: the `events.create` extractor, `wizard` action type, Niva panel draws question cards, command `events.plan` | S-M | depends on B94 slice 1 |
 | 6 | **Facebook and Instagram**: per-community connections (the "only you" OAuth step, token in the vault), the `facebook`/`instagram` channels, `events.publish_post` posting to Meta, the rate limit, status and retry; ships once Weaver's Meta app has passed review | L | Meta review time and rules → re-check section 3's unverified row first; until then the panel shows "Waiting for a connection" |
 | 7 | Tidy-up: template editing moves to Events › Templates (out of the school area); connect-admin's form links to the portal | S | connect-admin users → one release note |
@@ -216,7 +232,7 @@ Slice 1 needs no migration.
 
 1. **Save the draft at the first answer** (name and day), not only at the end? *Recommend yes*: resuming works and nothing is lost, and drafts are never visible to members.
 2. **One Review screen with ticked lines** (publish, reminders for approval, flyer), each through its existing approval? *Recommend yes*; message approval rules stay unchanged.
-3. **One migration in slice 2** (`events.setup`, `events.translations`, `event_posts`, activity rows)? *Recommend yes*; slice 1 needs none.
+3. **One migration in slice 2** (`events.setup`, `events.translations`, `event_posts`, the occasion catalog, activity rows)? *Recommend yes*; slice 1 needs none.
 4. **Retire event creation in connect-admin** and link to the portal, keeping its day-of editing? *Recommend yes*: one way to create, no drift.
 5. **AI drafts in languages without built-in wording** (description, reminders): show the AI draft marked "check by a reader", instead of English marked "needs translation"? *Recommend yes*; nothing goes out without a person's OK.
 6. **One Weaver Meta app** that passes App Review once, and every community connects its own Page and Instagram account to it (rather than each community registering its own Meta app)? *Recommend yes*: a small organization cannot run App Review itself.
