@@ -107,6 +107,13 @@ export function AutoDo({ step }: { step: Step }) {
       if (step === "delete-go") at(1300, () => byText("Delete view")?.click());
     } else if (step === "unpin-home") {
       at(600, () => byLabel("Unpin ")?.click());
+    } else if (step === "find") {
+      at(600, () => {
+        const box = document.querySelector<HTMLInputElement>('section[aria-label="Find a family or a person"] input');
+        if (!box) return;
+        box.focus();
+        setValue(box, "adults with no email");
+      });
     } else if (step === "pin") {
       at(600, () => button((b) => b.hasAttribute("aria-pressed") && b.offsetParent !== null)?.click());
     }

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { communityFormat } from "@/lib/community-format";
 import { classifyInput, readsAsFilter } from "@/lib/find/classify";
+import { buildUiRows, enterAction, understoodLine } from "@/lib/find/rows";
 import { filterFor } from "@/lib/find/search";
 import { tierLabel } from "@/lib/people";
 import {
@@ -187,6 +188,16 @@ describe("the find box and the gap filters", () => {
     const f = filterFor("show adults with no email", vocab, ctx.fmt);
     expect(f?.list).toBe("people");
     expect(classifyInput("show adults with no email", vocab).kind).toBe("question");
+  });
+
+  it("calls the sentence a list of people, shows the row with its count, and Enter opens the list", () => {
+    expect(understoodLine("filter", null, 0, 0, "people")).toBe("a list of people");
+    expect(understoodLine("filter", null, 0, 0)).toBe("a list of families");
+    const filter = { href: "/people?noemail=1&band=adults&view=people", chips: ["Adults only", "No email on file"], understood: "Adults only · No email on file", list: "people" as const, label: "Show 8 adults with no email" };
+    const { understood, rows } = buildUiRows({ query: "adults with no email", kind: "filter", rows: [], more: 0, filter, problem: null }, { niva: "off" });
+    expect(understood).toBe("a list of people");
+    expect(rows[0]).toMatchObject({ type: "filter", filter: { label: "Show 8 adults with no email" } });
+    expect(enterAction(rows, -1)).toEqual({ type: "open", href: filter.href, familyId: null });
   });
 
   it("leaves the families filters as they were (no 'people' list, no label)", () => {

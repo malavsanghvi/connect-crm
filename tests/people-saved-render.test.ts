@@ -97,6 +97,16 @@ describe("pinned families", () => {
   });
 });
 
+describe("pinned families that could not be read", () => {
+  it("says so in words with a way to try again, and does not look like there are none", () => {
+    const out = html(createElement(PinnedFamilies, { pins: [], hidden: 0, loadError: "the database could not be reached" }));
+    expect(out).toContain('role="alert"');
+    expect(out).toContain("Could not load your pinned families — the database could not be reached");
+    expect(out).toContain("Try again");
+    expect(out).not.toContain("Pin a family with the star");
+  });
+});
+
 describe("the pin star", () => {
   it("shows the state, and what a press does", () => {
     const off = html(createElement(PinStar, { pin: { householdId: "h1", pinned: false, loadError: null }, familyName: "Hassan household" }));
@@ -191,6 +201,12 @@ describe("the People home", () => {
     expect(out).toContain("名簿の更新");
     for (const label of ["Directory &amp; expertise", "Voting eligibility", "Memberships history"]) expect(out).toContain(label);
     expect(out.toLowerCase()).not.toContain("coming next");
+  });
+
+  it("shows a problem reading the pinned families once, where the pins would be", () => {
+    const out = html(createElement(PeopleHome, { model: { ...model, pins: [], problems: [{ what: "your pinned families", message: "it failed" }] } }));
+    expect((out.match(/Could not load your pinned families/g) ?? []).length).toBe(1);
+    expect(out.indexOf("Could not load your pinned families")).toBeGreaterThan(out.indexOf("Pinned families"));
   });
 
   it("shows a problem reading the saved views once, in the strip", () => {
