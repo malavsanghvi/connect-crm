@@ -88,7 +88,7 @@ describe("the Family page", () => {
     const html = page("empty", { links: { ...links, payment: null } });
     expect(html).toContain("Add a mobile number");
     expect(html).toContain("Add an address");
-    expect(html).toContain("Add a note");
+    expect(html).toContain("No notes.");
     expect(html).not.toContain("Record payment");
     expect(page("hassan")).toContain("Record payment");
   });

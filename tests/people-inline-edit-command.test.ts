@@ -149,18 +149,12 @@ describe("people.update_household with expect and reason", () => {
     expect(household(tables, ID.hhShah)).toMatchObject({ address_line1: "9 Elm Street", city: "Austin" });
   });
 
-  it("keeps the household note: edited on the screen, never by Niva, and checked against what was seen", async () => {
+  it("does not write the household note: it is not an input of the command, so nothing changes", async () => {
     const { ctx, tables } = world();
-    household(tables, ID.hhShah).notes = null;
-    const saved = await updateHousehold.execute!(ctx, { id: ID.hhShah, notes: "Prefers evening calls.", expect: expectText({ notes: "" }) });
-    expect(saved).toMatchObject({ ok: true, message: "Household saved (notes) · audit logged" });
+    household(tables, ID.hhShah).notes = "Prefers evening calls.";
+    const r = await updateHousehold.execute!(ctx, { id: ID.hhShah, notes: "Changed" } as never);
+    expect(r).toMatchObject({ ok: true, message: "No changes to save." });
     expect(household(tables, ID.hhShah).notes).toBe("Prefers evening calls.");
-    await expect(updateHousehold.execute!(ctx, { id: ID.hhShah, notes: "Changed again", expect: expectText({ notes: "" }) })).rejects.toThrow(CONFLICT_PREFIX);
-    expect(household(tables, ID.hhShah).notes).toBe("Prefers evening calls.");
-    const asNiva = world({ via: "assistant" });
-    await expect(updateHousehold.execute!(asNiva.ctx, { id: ID.hhShah, notes: "x" })).rejects.toThrow(
-      "Niva does not change household notes. Do it on the People screen.",
-    );
   });
 
   it("checks a switch the way it is saved: on or off", async () => {

@@ -135,7 +135,7 @@ export function FamilyView({
                     <IdsCard model={model} manageHref={links.manageIds} />
                   </div>
                   <div className="order-8">
-                    <NotesCard model={model} canEdit={canEdit} />
+                    <NotesCard model={model} />
                   </div>
                 </div>
               </div>

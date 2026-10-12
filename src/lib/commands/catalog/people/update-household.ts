@@ -35,7 +35,6 @@ const input = object({
   physical_mail_opt_in: text("Screen only: physical mail. Niva does not change it."),
   tier: f.optional(f.enum("Screen only: the membership tier. Niva does not change it.", TIERS)),
   tier_reason: text("Screen only: why the tier is changing."),
-  notes: text("Screen only: the household's note. Niva does not change it."),
   expect: text(
     "Screen only: the value(s) the person saw before changing them, as JSON like {\"city\": \"Austin\"}. If someone else changed one of them meanwhile, nothing is saved and the screen shows the new value.",
   ),
@@ -65,14 +64,13 @@ async function plan(ctx: CommandContext, inp: UpdateHouseholdInput): Promise<Pla
   if (ctx.via === "assistant") {
     // Privacy choices are the household's own; a membership tier is a membership decision made on the household screen.
     if (raw.directory_opt_in !== undefined || raw.physical_mail_opt_in !== undefined) throw new CommandError("Directory and mail choices are the household's own to make. Change them on the People screen.");
-    if (raw.notes !== undefined) throw new CommandError("Niva does not change household notes. Do it on the People screen.");
     if (inp.tier !== undefined) throw new CommandError("Niva does not change membership tiers yet. Do it on the household screen, where the reason goes in the audit log.");
   }
 
   const [current, zones, active] = await Promise.all([
     db
       .from("households")
-      .select("display_name, address_line1, address_line2, city, state_region, postal_code, zone_id, directory_opt_in, physical_mail_opt_in, notes, merged_into_id")
+      .select("display_name, address_line1, address_line2, city, state_region, postal_code, zone_id, directory_opt_in, physical_mail_opt_in, merged_into_id")
       .eq("id", id)
       .eq("center_id", center.id)
       .maybeSingle(),

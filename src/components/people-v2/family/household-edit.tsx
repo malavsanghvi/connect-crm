@@ -6,11 +6,11 @@ import { useId, type ReactNode } from "react";
 import { addressLines, toCheckContext, type FamilyModel } from "@/lib/people-v2/family-model";
 import { HOUSEHOLD_UNITS } from "@/lib/people-v2/inline-edit";
 
-import { ConflictPanel, EditActions, INPUT, Pencil, Problem, SaveError, ValueButton, editorKeys, leftEditor, useFocusBack } from "./inline-ui";
+import { ConflictPanel, EditActions, INPUT, Pencil, Problem, SaveError, editorKeys, leftEditor, useFocusBack } from "./inline-ui";
 import { useInlineEdit } from "./use-inline-edit";
 
 // The household's own things on the Family page, edited in place: its name (the heading), the address block, the two preferences
-// (switches that save at once) and the note. The same rules as a person's fields: Enter saves, leaving saves, Esc cancels, a
+// (switches that save at once) and the note (shown, never edited here). The same rules as a person's fields: Enter saves, leaving saves, Esc cancels, a
 // failed save keeps what was typed and says why, and every save has an Undo for 30 seconds.
 
 type Common = { model: FamilyModel; canEdit: boolean };
@@ -306,60 +306,18 @@ export function PreferencesCard({ model, canEdit }: Common) {
   );
 }
 
-/** The household's note: click, type, and leave (or Ctrl+Enter) to save. */
-export function NotesCard({ model, canEdit }: Common) {
-  const edit = useInlineEdit({
-    unit: HOUSEHOLD_UNITS.notes,
-    values: model.values,
-    check: toCheckContext(model.check),
-    owner: owner(model),
-    target: target(model),
-  });
-  const open = edit.editing || edit.busy;
-  const { button, restore } = useFocusBack(open);
-  const onKeys = editorKeys(edit, restore, { multiline: true });
+/**
+ * The household's note, read-only. It is the one free-text column that members can read today, so this screen does not offer to
+ * write it; the protected notes (plan slice 10) replace it.
+ */
+export function NotesCard({ model }: { model: FamilyModel }) {
   const id = useId();
-  const text = edit.shown.notes ?? "";
-  let body: ReactNode;
-  if (edit.state.phase === "conflict") body = <ConflictPanel edit={edit} unit={HOUSEHOLD_UNITS.notes} />;
-  else if (edit.editing) {
-    body = (
-      <div onBlur={(e) => leftEditor(e) && edit.leave()} onKeyDown={onKeys}>
-        <textarea
-          autoFocus
-          dir="auto"
-          rows={4}
-          maxLength={2000}
-          aria-label="Notes about this household"
-          value={edit.state.draft.notes ?? ""}
-          onChange={(e) => edit.change("notes", e.target.value)}
-          className={`${INPUT} min-h-24 py-2 leading-snug`}
-        />
-        {edit.state.problem ? <Problem>{edit.state.problem}</Problem> : null}
-        <SaveError edit={edit} />
-        <p className="m-0 mt-1 hidden text-[12px] text-muted md:block">Click away or press Ctrl+Enter to save · Esc cancels</p>
-        <EditActions edit={edit} />
-      </div>
-    );
-  } else if (canEdit) {
-    body = (
-      <ValueButton
-        text={text}
-        placeholder="Add a note"
-        editable
-        label="Notes"
-        onStart={edit.start}
-        busy={edit.busy}
-        buttonRef={button}
-        className="whitespace-pre-wrap text-left"
-      />
-    );
-  } else {
-    body = <p className="m-0 whitespace-pre-wrap text-[14.5px] text-ink">{text || <span className="text-muted">No notes.</span>}</p>;
-  }
+  const text = model.values.notes ?? "";
   return (
     <CardBox title="Notes" id={id}>
-      {body}
+      <p dir="auto" className="m-0 whitespace-pre-wrap text-[14.5px] text-ink">
+        {text || <span className="text-muted">No notes.</span>}
+      </p>
     </CardBox>
   );
 }

@@ -36,8 +36,7 @@ export type HouseholdFieldKey =
   | "postal_code"
   | "zone_id"
   | "directory_opt_in"
-  | "physical_mail_opt_in"
-  | "notes";
+  | "physical_mail_opt_in";
 export type FieldKey = PersonFieldKey | HouseholdFieldKey;
 
 /** Values as the database holds them, in text: a missing value is "", a switch is "on" or "off". */
@@ -69,7 +68,6 @@ export const PERSON_UNITS = {
 export const HOUSEHOLD_UNITS = {
   name: unit("hh-name", "name", ["display_name"]),
   address: unit("address", "address", ["address_line1", "address_line2", "city", "state_region", "postal_code", "zone_id"]),
-  notes: unit("notes", "notes", ["notes"]),
   directory: unit("directory", "directory listing", ["directory_opt_in"]),
   mail: unit("mail", "physical mail", ["physical_mail_opt_in"]),
 } as const satisfies Record<string, EditUnit>;
@@ -97,7 +95,6 @@ export const HOUSEHOLD_EDITABLE: readonly HouseholdFieldKey[] = [
   "zone_id",
   "directory_opt_in",
   "physical_mail_opt_in",
-  "notes",
 ];
 
 export function fieldNoun(key: string): string {

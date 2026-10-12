@@ -85,11 +85,6 @@ describe("checkDraft", () => {
     expect(checkDraft(HOUSEHOLD_UNITS.directory, { directory_opt_in: "on" }, ctx)).toEqual({ ok: true, stored: { directory_opt_in: "on" } });
     expect(checkDraft(HOUSEHOLD_UNITS.mail, { physical_mail_opt_in: "off" }, ctx)).toEqual({ ok: true, stored: { physical_mail_opt_in: "off" } });
   });
-
-  it("takes a note, trims it and clears it when empty", () => {
-    expect(checkDraft(HOUSEHOLD_UNITS.notes, { notes: "  Prefers evening calls.  " }, ctx)).toEqual({ ok: true, stored: { notes: "Prefers evening calls." } });
-    expect(checkDraft(HOUSEHOLD_UNITS.notes, { notes: "   " }, ctx)).toEqual({ ok: true, stored: { notes: "" } });
-  });
 });
 
 describe("showing values", () => {
@@ -134,8 +129,8 @@ describe("expect", () => {
     expect(parseExpect('{"city": 5}')).toMatchObject({ ok: false });
   });
   it("round-trips what a screen sends", () => {
-    const sent = expectText({ phone_e164: "+17135550136", notes: "" });
-    expect(parseExpect(sent)).toEqual({ ok: true, value: { phone_e164: "+17135550136", notes: "" } });
+    const sent = expectText({ phone_e164: "+17135550136", postal_code: "" });
+    expect(parseExpect(sent)).toEqual({ ok: true, value: { phone_e164: "+17135550136", postal_code: "" } });
     expect(parseExpect('{"directory_opt_in": true}')).toEqual({ ok: true, value: { directory_opt_in: "on" } });
   });
   it("finds the fields that changed under the person, and only among those about to change", () => {

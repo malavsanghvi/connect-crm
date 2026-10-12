@@ -176,9 +176,11 @@ describe("saveHouseholdFieldsAction", () => {
     expect(stale).toMatchObject({ ok: false, kind: "conflict", conflict: { theirs: { physical_mail_opt_in: "off" } } });
   });
 
-  it("saves the household's note and the household's name", async () => {
+  it("saves the household's name, and refuses to write the household's note (it is read-only on this screen)", async () => {
     const { tables } = setup();
-    expect(await saveHouseholdFieldsAction({ householdId: ID.hhShah, fields: { notes: "Prefers evening calls." }, expect: { notes: "" }, label: "the household's notes" })).toMatchObject({ ok: true, changed: true });
+    household(tables, ID.hhShah).notes = "Prefers evening calls.";
+    const refused = await saveHouseholdFieldsAction({ householdId: ID.hhShah, fields: { notes: "Changed" }, expect: { notes: "Prefers evening calls." }, label: "the household's notes" });
+    expect(refused).toMatchObject({ ok: false, kind: "other" });
     expect(household(tables, ID.hhShah).notes).toBe("Prefers evening calls.");
     expect(
       await saveHouseholdFieldsAction({ householdId: ID.hhShah, fields: { display_name: "田中・Haddad の家" }, expect: { display_name: "Shah, Priya, Rahul & Zoya" }, reason: "Correction", label: "the household's name" }),
