@@ -7,54 +7,34 @@ import { useNiva } from "@/components/niva/niva-context";
 import { buttonClass } from "@/components/ui";
 import type { AskModel } from "@/lib/people-v2/model";
 
-import { SendIcon, SparkIcon } from "./icons";
+import { FindBox } from "./find/find-box";
+import { SparkIcon } from "./icons";
 
 const CHIP = "inline-flex min-h-9 items-center gap-2 rounded-[18px] border px-3 text-[13px] font-bold";
 
 /**
- * The ask-your-data box. The sentence goes to the server as a plain GET (it works without JavaScript); the server reads it by rules
- * into filters and shows them here as chips the person can remove, or change with "Add a filter". Words it cannot read become a
- * search by name or any identifier. With Niva on (and a model key) the person can also send the sentence to Niva's panel as typed.
+ * The filters of a list. The box that takes the words is the find box (the top bar, or the People home): a sentence it reads by rules
+ * as filters opens this list with the filters shown here as chips the person can remove, or change with "Add a filter". This
+ * component no longer has an input of its own; on a phone, where the top bar has no box, the find box sits at the top of it.
+ * With Niva on (and a model key) the person can also send the sentence to Niva's panel as typed.
  */
 export function PeopleAskBox({ ask }: { ask: AskModel }) {
   const niva = useNiva();
   const nivaOn = !!niva?.enabled;
   const canAsk = !!niva?.enabled && !!niva.aiReady;
-  const id = useId();
 
   return (
-    <section aria-label="Ask your data" className="flex flex-col gap-3 rounded-[18px] border border-line bg-white px-4 py-3.5">
-      <form
-        method="get"
-        action={ask.action}
-        role="search"
-        className="flex min-h-[52px] items-center gap-3 rounded-[26px] border border-line-input bg-canvas pl-4 pr-2 focus-within:border-navy focus-within:ring-2 focus-within:ring-navy/30"
-      >
-        {Object.entries(ask.keep).map(([k, v]) => (
-          <input key={k} type="hidden" name={k} value={v} />
-        ))}
-        <SparkIcon />
-        <label htmlFor={`${id}-ask`} className="sr-only">
-          Ask about your households, or search by a name or any ID
-        </label>
-        <input
-          id={`${id}-ask`}
-          name="ask"
-          type="text"
-          autoComplete="off"
-          defaultValue={ask.said}
-          placeholder={ask.placeholder}
-          className="min-w-0 flex-1 bg-transparent py-2 text-[16px] text-ink outline-none placeholder:text-muted"
-        />
-        <button
-          type="submit"
-          aria-label="Read my question"
-          title="Read my question"
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-ink [background:var(--v2-sun)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy"
-        >
-          <SendIcon />
-        </button>
-      </form>
+    <section aria-label="Filters" className="flex flex-col gap-3 rounded-[18px] border border-line bg-white px-4 py-3.5">
+      <div className="md:hidden">
+        <FindBox variant="bar" cookieName={ask.cookieName} />
+      </div>
+      {ask.said ? (
+        <p className="m-0 text-[14px] text-ink-2">
+          You asked: <strong className="font-semibold text-ink">“{ask.said}”</strong>
+        </p>
+      ) : (
+        <p className="m-0 hidden text-[14px] text-muted md:block">Type a name, a number or a question in the box at the top of the page.</p>
+      )}
 
       <div className="flex flex-wrap items-center gap-2">
         <span className="text-[12px] font-extrabold uppercase tracking-[0.04em] text-muted">{nivaOn ? "Niva read this as" : "Read as"}</span>
