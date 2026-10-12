@@ -3,7 +3,6 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { BarList } from "@/components/bar-list";
-import { AskNiva } from "@/components/niva/ask-niva";
 import { BlockGrid, Card, EmptyState, KpiGrid, NoAccess, PageHeader, QueryError, Stat, TableWrap, buttonClass } from "@/components/ui";
 import { compactMoney, communityFormat, moneyIn, numberIn } from "@/lib/community-format";
 import { todayInTz } from "@/lib/dates";
@@ -33,7 +32,6 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
     <PageHeader
       title="Reports"
       description="Sums are done by the database and filtered by your permissions"
-      actions={<AskNiva prompt="How are we doing this year compared with last year?" />}
     />
   );
   if (!canAccess(session, "reports")) {

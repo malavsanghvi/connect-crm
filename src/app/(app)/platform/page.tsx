@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
-import { AskNiva } from "@/components/niva/ask-niva";
 import { Alert, Card, EmptyState, PageHeader, QueryError, StatusText, TableWrap, buttonClass } from "@/components/ui";
 import { centerStatusLabel, traditionLabel } from "@/lib/center-wizard";
 import { experienceLabel } from "@/lib/experiences";
@@ -23,7 +22,6 @@ export default async function PlatformCentersPage() {
       actions={
         session.isPlatformAdmin ? (
           <>
-            <AskNiva prompt="Who is waiting for us, and what is missing?" />
             <Link href="/platform/new-sandbox" className={buttonClass("primary")}>
               New sandbox
             </Link>

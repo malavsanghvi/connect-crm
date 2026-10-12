@@ -107,14 +107,18 @@ describe("Ask Niva suggestions", () => {
       "giving.household_summary",
       "accounting.month_close_blockers",
     ]);
+    // Each Giving screen leads with what it is for (the page header no longer carries an "Ask Niva" button): the payments screen with the
+    // second approver, the bank screen with the unmatched lines, the pledges screen with the pledges.
     expect(suggestionsFor("/giving/payments", undefined, giving, JAIN_CTX)).toEqual([
+      "What is waiting for a second approver?",
       "Who is behind on pledges?",
       "Record a $250 check from member number 1042",
-      "Which Zelle reports are waiting for the bank?",
     ]);
-    // A volunteer who can only record payments is offered the recording sentence and the bank lines, not the approvals.
+    expect(suggestionsFor("/giving/payments/bank", undefined, giving, JAIN_CTX)[0]).toBe("Which bank lines are still unmatched?");
+    expect(suggestionsFor("/giving/pledges", undefined, giving, JAIN_CTX)[0]).toBe("Who is behind on pledges?");
+    // A volunteer who can only record payments is offered the bank lines and the recording sentence, not the approvals, and no sentence twice.
     const volunteer = new Set(["giving.draft_payment", "giving.bank_lines_unmatched", "tasks.mine"]);
-    expect(suggestionsFor("/giving/payments/bank", undefined, volunteer, JAIN_CTX)).toEqual(["Record a $250 check from member number 1042", "Which bank lines are still unmatched?"]);
+    expect(suggestionsFor("/giving/payments/bank", undefined, volunteer, JAIN_CTX)).toEqual(["Which bank lines are still unmatched?", "Record a $250 check from member number 1042"]);
     // A person is never offered a sentence that names a child: the examples describe a member number, not a person.
     for (const s of suggestionsFor("/giving/pledges", undefined, giving)) expect(s).not.toMatch(/bid/i);
   });
@@ -155,11 +159,15 @@ describe("Ask Niva suggestions", () => {
   it("offers the Messages examples a role can use: about this conversation or message first, then the inbox and approvals", () => {
     const messages = new Set(["messages.inbox_triage", "messages.campaigns", "messages.audience_preview", "messages.why_not_delivered", "messages.draft_reply", "messages.draft_reminder", "tasks.mine"]);
     expect(suggestionsFor("/comms/threads/[id]", "message thread", messages)).toEqual(["Draft a reply to this conversation from our approved answers", "What is waiting for me?"]);
-    expect(suggestionsFor("/comms/campaigns/[id]", "campaign", messages)).toEqual(["Why has this message not gone out?", "What is waiting for me?"]);
+    expect(suggestionsFor("/comms/campaigns/[id]", "campaign", messages)).toEqual([
+      "Where is this message in approval, who is it for, and has it gone out?",
+      "Why has this message not gone out?",
+      "What is waiting for me?",
+    ]);
     expect(suggestionsFor("/comms/inbox", undefined, messages)).toEqual([
       "What is waiting in the inbox?",
       "Which messages to families are waiting for approval?",
-      "How many people would a message to all members reach by email, text and WhatsApp?",
+      "Why did a family not get our text?",
     ]);
     // A role that only sees the approvals list is not offered the inbox.
     expect(suggestionsFor("/comms/newsletters", undefined, new Set(["messages.campaigns"]))).toEqual(["Which messages to families are waiting for approval?"]);
@@ -172,7 +180,7 @@ describe("Ask Niva suggestions", () => {
     expect(suggestionsFor("/people", undefined, people)).toEqual([
       "Find the household with member number 1042",
       "Which applications and family requests are waiting?",
-      "Find the household with QuickBooks customer 2217",
+      "Show me the suggested duplicates",
     ]);
     expect(suggestionsFor("/households/[id]", "household", people)).toEqual([
       "Show everything we have on this household, including its IDs",

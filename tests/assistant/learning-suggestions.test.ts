@@ -1,6 +1,7 @@
 // Niva's example sentences for Pathshala (decision D2): only the term, levels, classes and fees screens have any; none ever speaks of a
 // child or a learner; the screens about learners (enrollments, a class's roster, homework, sign-offs, attendance) have none of their own,
-// and carry no "Ask Niva" button either.
+// and carry no "Ask Niva" button either. No Pathshala header has one: the shell's Niva button is the one way in, and these sentences are
+// what the panel offers on each screen.
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
@@ -51,7 +52,7 @@ describe("Niva's examples for Pathshala", () => {
       "What is missing before registration can open for each term?",
       "Show how a term is set up: levels, fees and rules",
     ]);
-    expect(on("/pathshala/levels")).toEqual(["Which levels have no fee set for the term?", "What would a fee of $135 for Jainism 2 change?"]);
+    expect(on("/pathshala/levels")).toEqual(["Which levels have no fee set for the term, and what are their age bands?", "What would a fee of $135 for Jainism 2 change?"]);
   });
 
   it("offers nothing about Pathshala on the screens about learners: only the general examples", () => {
@@ -90,13 +91,13 @@ describe("Niva's examples for Pathshala", () => {
 
 describe("the Ask Niva buttons", () => {
   const read = (rel: string) => readFileSync(join(process.cwd(), "src/app/(app)/pathshala", rel), "utf8");
-  const prompts = (source: string) => [...source.matchAll(/<AskNiva\s+prompt="([^"]+)"/g)].map((m) => m[1]);
 
-  it("are on the terms, term, fees, levels and classes headers, and say nothing about a child", () => {
+  it("are on no Pathshala header: the panel offers the same questions on the terms, term, fees, levels and classes screens", () => {
     for (const file of ["terms/page.tsx", "terms/[id]/page.tsx", "terms/[id]/fees/page.tsx", "levels/page.tsx", "page.tsx"]) {
-      const found = prompts(read(file));
-      expect(found.length, file).toBe(1);
-      expect(found[0], file).not.toMatch(CHILD_WORDS);
+      expect(read(file), file).not.toContain("AskNiva");
+    }
+    for (const path of ["/pathshala", "/pathshala/terms", "/pathshala/terms/[id]", "/pathshala/terms/[id]/fees", "/pathshala/levels"]) {
+      expect(on(path.replace("[id]", "7d0f3b9a-6a39-4d0c-9f43-0a1a1d7c1001"), path.includes("[id]") ? { id: "7d0f3b9a-6a39-4d0c-9f43-0a1a1d7c1001" } : undefined).length, path).toBeGreaterThan(0);
     }
   });
 

@@ -1,6 +1,5 @@
 import type { ReactNode } from "react";
 
-import { AskNiva } from "@/components/niva/ask-niva";
 import { NoAccess, PageHeader } from "@/components/ui";
 import { canAccess } from "@/lib/permissions";
 import type { CrmSession } from "@/lib/session";
@@ -11,12 +10,7 @@ export function ContentHeader({ sub, actions }: { sub: ReactNode; actions?: Reac
     <PageHeader
       title="Content"
       description={sub}
-      actions={
-        <>
-          {actions}
-          <AskNiva prompt="What needs attention in Content: what is waiting in the approval queue, and are Niva's sources up to date?" />
-        </>
-      }
+      actions={actions}
     />
   );
 }

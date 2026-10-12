@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { ActionForm } from "@/components/action-form";
-import { AskNiva } from "@/components/niva/ask-niva";
 import { HistoryButton } from "@/components/record-history";
 import { Alert, Badge, BlockGrid, Card, EmptyState, NoAccess, PageHeader, QueryError, TableWrap, Tabs, buttonClass } from "@/components/ui";
 import { identifierRules } from "@/lib/center-rules";
@@ -26,7 +25,6 @@ export default async function RolesPage({ searchParams }: { searchParams: Promis
     <PageHeader
       title="Settings"
       description="Granular entitlements for every module · default roles out of the box · custom roles for limited access"
-      actions={<AskNiva prompt="Who can see payments, and who holds the treasurer role?" />}
     />
   );
   if (!canAccess(session, "roles")) {

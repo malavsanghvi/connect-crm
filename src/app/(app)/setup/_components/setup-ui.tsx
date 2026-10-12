@@ -1,6 +1,5 @@
 import type { ReactNode } from "react";
 
-import { AskNiva } from "@/components/niva/ask-niva";
 import { NoAccess, PageHeader, StatusText } from "@/components/ui";
 import { canAccess } from "@/lib/permissions";
 import type { CrmSession } from "@/lib/session";
@@ -12,12 +11,7 @@ export function SetupHeader({ session, sub, actions }: { session: CrmSession; su
     <PageHeader
       title="Setup"
       description={`${session.center.short_name || session.center.name} · ${sub}`}
-      actions={
-        <>
-          <AskNiva prompt="What is left before we can go live?" />
-          {actions}
-        </>
-      }
+      actions={actions}
     />
   );
 }

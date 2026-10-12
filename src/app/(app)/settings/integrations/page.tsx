@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
-import { AskNiva } from "@/components/niva/ask-niva";
 import { Card, NoAccess, PageHeader, QueryError, StatusText, TableWrap } from "@/components/ui";
 import { aiServiceFromStatus } from "@/lib/ai-service";
 import { formatDateTime } from "@/lib/dates";
@@ -23,7 +22,7 @@ type PersonRow = { id: string; first_name: string; last_name: string; preferred_
 
 export default async function IntegrationsPage() {
   const session = await getSession();
-  const header = <PageHeader title="Settings" description="Connected services for this center" actions={<AskNiva prompt="Are all our connected services working, and what do I fix first?" />} />;
+  const header = <PageHeader title="Settings" description="Connected services for this center" />;
   if (!canAccess(session, "integrations")) {
     return (
       <>

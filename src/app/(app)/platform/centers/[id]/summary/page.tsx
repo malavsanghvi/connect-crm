@@ -60,7 +60,7 @@ export default async function PlatformCommunitySummaryPage({ params }: { params:
         description={`${s.community.environment === "sandbox" ? "Sandbox" : "Community"} · ${kind} · ${communityStatusWords(s.community.status)}`}
         actions={
           <>
-            <AskNiva prompt={`Summarise the community with address ${s.community.slug}.`} />
+            <AskNiva prompt={`Summarise the community with address ${s.community.slug}.`} label="Summarise with Niva" />
             <Link href={`/platform/centers/${id}`} className="crm-link text-[13px] font-semibold">
               Limits &amp; addresses
             </Link>

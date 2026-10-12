@@ -3,7 +3,6 @@ import Link from "next/link";
 
 import { ActionForm } from "@/components/action-form";
 import { ClickableRow } from "@/components/clickable-row";
-import { AskNiva } from "@/components/niva/ask-niva";
 import { HistoryButton } from "@/components/record-history";
 import { BlockGrid, buttonClass, Card, EmptyState, NoAccess, PageHeader, QueryError, StatusText, TableWrap } from "@/components/ui";
 import { chunk } from "@/lib/data/fetch-all";
@@ -41,7 +40,7 @@ export default async function StoreOrdersPage({ searchParams }: { searchParams: 
   const session = await getSession();
   // The store is "My Store" for a Jain Center; any other kind names its own.
   const storeName = kindTerm(session.kind, "store", "My Store");
-  const header = <PageHeader title={storeName} description="Kitchen prep lists by pickup slot" actions={<AskNiva prompt="What needs attention in the store: orders waiting for pickup, items running low, and this month's sales?" />} />;
+  const header = <PageHeader title={storeName} description="Kitchen prep lists by pickup slot" />;
   if (!canAccess(session, "storeOrders")) {
     return (
       <>
