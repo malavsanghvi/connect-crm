@@ -97,7 +97,7 @@ function UndoBar({ entry, windowMs, onUndo, onDismiss }: { entry: Entry | null; 
           key={entry.id}
           role={entry.status === "failed" ? "alert" : "status"}
           data-testid="undo-bar"
-          className="fixed bottom-[9.5rem] left-1/2 z-50 w-[min(34rem,calc(100vw-1.5rem))] -translate-x-1/2 overflow-hidden rounded-[14px] bg-[var(--v2-ink)] text-white shadow-[0_10px_30px_rgba(18,32,58,0.35)] md:bottom-6"
+          className="fixed bottom-[9.5rem] left-1/2 z-50 w-[min(34rem,calc(100vw-1.5rem))] -translate-x-1/2 overflow-hidden rounded-[14px] bg-[var(--v2-ink)] text-white shadow-[0_10px_30px_rgba(18,32,58,0.35)] md:bottom-6 md:[html[data-slideover]_&]:left-[calc((100vw-520px)/2)] md:[html[data-slideover]_&]:w-[min(34rem,calc(100vw-560px))]"
         >
           <div className="flex items-center gap-3 px-4 py-3 text-[14px]">
             <span className="min-w-0 flex-1">

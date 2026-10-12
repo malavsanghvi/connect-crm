@@ -147,6 +147,23 @@ export function personValues(row: PersonRow, role: string): Values {
   };
 }
 
+type PrivacyRow = {
+  photo_opt_in: boolean | null;
+  new_member_contact_opt_in: boolean | null;
+  expertise_opt_in: boolean | null;
+  expertise_headline: string | null;
+};
+
+/** The person's own privacy choices as the editors hold them ("on" or "off", the headline as text). A choice never made is off. */
+export function privacyValues(row: PrivacyRow): Values {
+  return {
+    photo_opt_in: row.photo_opt_in ? "on" : "off",
+    new_member_contact_opt_in: row.new_member_contact_opt_in ? "on" : "off",
+    expertise_opt_in: row.expertise_opt_in ? "on" : "off",
+    expertise_headline: row.expertise_headline ?? "",
+  };
+}
+
 type HouseholdRow = {
   display_name: string;
   address_line1: string | null;
