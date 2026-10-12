@@ -76,6 +76,7 @@ export async function PersonSlideOverServer({
 
   return (
     <PersonSlideOver
+      key={p.id}
       mode="panel"
       detail={detail}
       plan={plan}

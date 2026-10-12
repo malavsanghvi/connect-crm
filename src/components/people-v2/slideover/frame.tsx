@@ -19,7 +19,12 @@ export function SlideOverFrame({ label, onClose, children }: { label: string; on
     closeNow.current = onClose;
   });
 
+  // The panel is opened by the address (?person=…), so it renders on the server too, where there is no document.body to portal into;
+  // it appears once the page hydrates, and focus moves into it then.
+  const onClient = useSyncExternalStore(noSubscribe, () => true, () => false);
+
   useEffect(() => {
+    if (!onClient) return;
     opener.current = document.activeElement;
     panel.current?.focus({ preventScroll: true });
     function onKey(e: KeyboardEvent) {
@@ -36,11 +41,8 @@ export function SlideOverFrame({ label, onClose, children }: { label: string; on
       document.documentElement.removeAttribute("data-slideover");
       if (opener.current instanceof HTMLElement && document.contains(opener.current)) opener.current.focus({ preventScroll: true });
     };
-  }, []);
+  }, [onClient]);
 
-  // The panel is opened by the address (?person=…), so it renders on the server too, where there is no document.body to portal into;
-  // it appears once the page hydrates.
-  const onClient = useSyncExternalStore(noSubscribe, () => true, () => false);
   if (!onClient) return null;
 
   return createPortal(
