@@ -41,13 +41,17 @@ describe("the People commands in the catalog", () => {
     const changes = PEOPLE_COMMANDS.filter((c) => c.level === "confirm");
     expect(changes.map((c) => c.key).sort()).toEqual(
       [
+        "people.add_identifier",
         "people.add_person",
         "people.decide_application",
         "people.decide_household_request",
         "people.dismiss_duplicate",
+        "people.mark_deceased",
         "people.merge_households",
         "people.merge_people",
         "people.move_person",
+        "people.retire_identifier",
+        "people.set_primary",
         "people.update_household",
         "people.update_person",
       ].sort(),
@@ -240,6 +244,10 @@ describe("nothing about a child reaches Niva from any People command", () => {
     "people.dismiss_duplicate": { candidate_id: ID.candPerson },
     "people.decide_application": { id: ID.app, decision: "approve" },
     "people.decide_household_request": { id: ID.reqAdult, decision: "approve", role: "parent" },
+    "people.mark_deceased": { person_id: ID.rahul, deceased_on: "2026-10-01", reason: "His son called the office", confirmed: true },
+    "people.set_primary": { household_id: ID.hhShah, person_id: ID.rahul, reason: "Priya asked" },
+    "people.add_identifier": { kind: "crm", target_kind: "household", target_id: ID.hhShah, value: "N-1001", system: "neon" },
+    "people.retire_identifier": { identifier_id: ID.extNikhil, reason: "Moved to a new system" },
   };
 
   function assistant() {
@@ -255,7 +263,12 @@ describe("nothing about a child reaches Niva from any People command", () => {
   for (const command of PEOPLE_COMMANDS) {
     it(`${command.key}: no child's name, birth date or record in what Niva is given`, async () => {
       const r = await runCommand(assistant(), command.key, SAMPLE[command.key]);
-      expect(r.ok, JSON.stringify(r)).toBe(true);
+      // A screen-only command is never given to Niva at all: it answers in words, with nothing from the record in it.
+      if (command.screenOnly) {
+        expect(r, command.key).toMatchObject({ ok: false, code: "screen_only" });
+      } else {
+        expect(r.ok, JSON.stringify(r)).toBe(true);
+      }
       const text = JSON.stringify(r);
       for (const name of [...MINORS, "Zoya", "Aarav"]) expect(text, `${name} reached a result of ${command.key}`).not.toContain(name);
       expect(text).not.toContain("2018-05-05");
@@ -272,6 +285,8 @@ describe("nothing about a child reaches Niva from any People command", () => {
       ["people.merge_people", { keep_id: ID.zoya, drop_id: ID.aarav }],
       ["people.dismiss_duplicate", { candidate_id: ID.candChildren }],
       ["people.decide_household_request", { id: ID.reqChild, decision: "reject", reason: "no" }],
+      ["people.add_identifier", { kind: "crm", target_kind: "person", target_id: ID.aarav, value: "N-5", system: "neon" }],
+      ["people.retire_identifier", { identifier_id: ID.extAarav, reason: "Moved" }],
     ];
     for (const [key, input] of tries) {
       const r = await runCommand(ctx, key, input);
