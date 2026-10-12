@@ -316,6 +316,8 @@ export type HouseholdDetails = {
   zone_id: string | null;
   directory_opt_in: boolean;
   physical_mail_opt_in: boolean;
+  /** The household's one free-text note (staff). */
+  notes: string | null;
 };
 
 export const HOUSEHOLD_FIELDS = [
@@ -328,6 +330,7 @@ export const HOUSEHOLD_FIELDS = [
   "zone_id",
   "directory_opt_in",
   "physical_mail_opt_in",
+  "notes",
 ] as const satisfies readonly (keyof HouseholdDetails)[];
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -356,6 +359,7 @@ export function parseHouseholdForm(f: FieldMap, zoneIds: readonly string[]): Par
   for (const k of ["directory_opt_in", "physical_mail_opt_in"] as const) {
     if (f[k] !== undefined) out[k] = f[k] === "on";
   }
+  if (f.notes !== undefined) out.notes = text(f.notes, 2000);
   return { ok: true, value: out };
 }
 
@@ -395,5 +399,6 @@ export const FIELD_LABELS: Record<string, string> = {
   zone_id: "zone",
   directory_opt_in: "directory listing",
   physical_mail_opt_in: "physical mail",
+  notes: "notes",
   tier: "membership tier",
 };

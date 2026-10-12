@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { cookies } from "next/headers";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
@@ -19,10 +20,12 @@ import { glanceHref } from "@/lib/giving-glance/period";
 import { formatCents } from "@/lib/money";
 import { isModuleEnabled } from "@/lib/modules";
 import { can, canAccess } from "@/lib/permissions";
+import { LOOK_COOKIE, parseLook } from "@/lib/look";
 import { isUuid, param, type RawSearchParams } from "@/lib/search-params";
 import { getSession } from "@/lib/session";
 
 import { AuditTab } from "./audit-tab";
+import { FamilyPageV2 } from "./family-v2";
 import { IdentifiersTab } from "./identifiers-tab";
 import { MembersTab } from "./members-tab";
 import { MembershipsTab } from "./memberships-tab";
@@ -61,6 +64,8 @@ export default async function HouseholdPage({
   const { id } = await params;
   if (!isUuid(id)) notFound();
   const sp = await searchParams;
+  // The New look draws a household as the Family page (people on top, click to edit); the classic page below is unchanged.
+  if (parseLook((await cookies()).get(LOOK_COOKIE)?.value) === "v2") return <FamilyPageV2 session={session} id={id} sp={sp} />;
   const tabParam = param(sp, "tab");
   // Pledges & donations switched off (Settings › Modules): no money tabs, stat or Record payment.
   const givingOn = isModuleEnabled(session, "giving");
