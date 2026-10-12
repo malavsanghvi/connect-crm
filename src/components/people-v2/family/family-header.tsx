@@ -5,6 +5,7 @@ import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 
 import { adultsLine, type FamilyModel, type HeaderChip } from "@/lib/people-v2/family-model";
 
+import { PinStar, type PinInfo } from "../saved/pin-star";
 import { HouseholdTitle } from "./household-edit";
 import { Chip } from "./person-card";
 
@@ -20,30 +21,14 @@ export type FamilyLinks = {
   manageIds: string | null;
   /** Items of the More menu for the household. */
   more: { key: string; label: string; href: string; hint?: string }[];
+  /** The person's pin for this family (the star). Absent: no star is drawn. */
+  pin?: PinInfo;
 };
 
 const PILL_BASE =
   "inline-flex min-h-11 items-center justify-center whitespace-nowrap rounded-full px-3 text-[14px] font-bold no-underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--v2-blue)] md:px-5 md:text-[14.5px]";
 const PRIMARY = `${PILL_BASE} bg-navy text-white hover:bg-navy-hover`;
 const SECONDARY = `${PILL_BASE} border border-[var(--v2-line-input)] bg-white text-ink hover:border-[var(--v2-blue)]`;
-
-/** The pin star: another stream builds pinned families. Switched off, and says so. */
-function PinStar() {
-  return (
-    <button
-      type="button"
-      disabled
-      aria-label="Pin this family. Coming next."
-      title="Pin this family: coming next"
-      className="grid size-11 cursor-not-allowed place-items-center rounded-full text-faint"
-    >
-      <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" aria-hidden="true">
-        <path d="M12 3.5l2.6 5.4 5.9.8-4.3 4.1 1 5.9-5.2-2.8-5.2 2.8 1-5.9L3.5 9.7l5.9-.8z" />
-      </svg>
-      <span className="sr-only">Coming next</span>
-    </button>
-  );
-}
 
 /** More ⋯: a small menu of the things done rarely. Opens with Enter, closes with Esc or a click elsewhere. */
 export function MoreMenu({ items, align = "right", direction = "down" }: { items: FamilyLinks["more"]; align?: "left" | "right"; direction?: "down" | "up" }) {
@@ -163,6 +148,11 @@ export function FamilyHeader({
         <span dir="auto" className="truncate">
           {model.name}
         </span>
+        {links.pin ? (
+          <span className="ml-auto md:hidden">
+            <PinStar pin={links.pin} familyName={model.name} />
+          </span>
+        ) : null}
       </nav>
 
       <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-3">
@@ -186,7 +176,7 @@ export function FamilyHeader({
           </p>
         </div>
         <div className="hidden items-center gap-2 md:flex">
-          <PinStar />
+          {links.pin ? <PinStar pin={links.pin} familyName={model.name} /> : null}
           <ActionButtons links={links} direction="down" />
         </div>
       </div>

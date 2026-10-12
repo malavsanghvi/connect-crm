@@ -272,6 +272,8 @@ export function sampleModel(opts: { view: PeopleView; hh: string | null; niva: b
             },
           }
         : null,
+    gap: null,
+    actions: null,
     panel,
     problems: [],
     notes: [],

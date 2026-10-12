@@ -10,30 +10,38 @@ import { runScreenCommand } from "@/lib/commands/screen";
 import type { HouseholdCard } from "@/lib/commands/types";
 import { communityFormat, moneyExample, moneyIn } from "@/lib/community-format";
 import { listPeople } from "@/lib/data/people-list";
-import { todayInTz } from "@/lib/dates";
+import { ageOn, todayInTz } from "@/lib/dates";
 import { explainError } from "@/lib/errors";
 import { peopleHomeRequested } from "@/lib/find/home";
 import { listsMenu } from "@/lib/find/lists";
 import { recentCookieName } from "@/lib/find/recents";
+import { personHref } from "@/lib/find/rows";
 import { parseAmountToCents } from "@/lib/money";
-import { AGE_BANDS, isAgeBand, relationshipLabel, tierLabel, type AgeBand } from "@/lib/people";
+import { AGE_BANDS, relationshipLabel, tierLabel, type AgeBand } from "@/lib/people";
 import { canAccess, visibleNav } from "@/lib/permissions";
 import {
   chipsFor,
+  countText,
   FILTER_PARAM,
   filtersForNiva,
   filtersFromParams,
   hasFilters,
+  hasGap,
+  listFor,
+  listHeading,
   paramsFromFilters,
   readAsk,
   TIERS,
   type FilterKey,
   type HouseholdFilters,
 } from "@/lib/people-v2/ask";
+import { contactCell } from "@/lib/people-v2/gaps";
+import { loadGapPageExtras, loadGapPeople } from "@/lib/people-v2/gap-load";
 import { loadPeopleHome } from "@/lib/people-v2/home";
-import { showingText, sortKey } from "@/lib/people-v2/list";
+import { pageOf, showingText, sortKey } from "@/lib/people-v2/list";
 import { ENDING_SOON_DAYS, loadHouseholdList, loadHouseholdPanel, loadQuickCounts, loadZones } from "@/lib/people-v2/load";
-import { peopleView, type DuplicateItem, type DuplicateSide, type PanelState, type PeopleWorkspaceModel, type Problem, type QuickChip } from "@/lib/people-v2/model";
+import { peopleView, type DuplicateItem, type DuplicateSide, type GapRowView, type ListActions, type PanelState, type PeopleWorkspaceModel, type Problem, type QuickChip } from "@/lib/people-v2/model";
+import { suggestedViewName, viewParams } from "@/lib/people-v2/saved-views";
 import { hrefWith, isUuid, pageParam, param, type RawSearchParams } from "@/lib/search-params";
 import type { CrmSession } from "@/lib/session";
 
@@ -81,7 +89,7 @@ export async function PeopleV2({ session, sp }: { session: CrmSession; sp: RawSe
     const keepSort = sort !== "name" ? sort : undefined;
     if (asked !== undefined) {
       const reading = readAsk(asked, { zones, year });
-      redirect(hrefWith(BASE, {}, { ...paramsFromFilters(reading.filters), view: keepView, sort: keepSort, said: asked.trim().slice(0, 300) || undefined, unread: reading.understood || !asked.trim() ? undefined : "1" }));
+      redirect(hrefWith(BASE, {}, { ...paramsFromFilters(reading.filters), view: listFor(reading.filters) === "people" ? "people" : keepView, sort: keepSort, said: asked.trim().slice(0, 300) || undefined, unread: reading.understood || !asked.trim() ? undefined : "1" }));
     }
     const typed = (Array.isArray(overAmount) ? overAmount[0] : overAmount)?.trim() ?? "";
     const cents = typed === "" ? null : parseAmountToCents(typed);
@@ -92,15 +100,13 @@ export async function PeopleV2({ session, sp }: { session: CrmSession; sp: RawSe
 
   const filters = filtersFromParams(sp);
   const fparams = paramsFromFilters(filters);
-  const bandParam = param(sp, "band");
-  const band: AgeBand = isAgeBand(bandParam) ? bandParam : "all";
+  const band: AgeBand = filters.band ?? "all";
   const keep: Record<string, string> = {
     ...fparams,
     // Every list address names its view: with none at all, /people is the People home.
     view,
     ...(sort !== "name" ? { sort } : {}),
     ...(said ? { said } : {}),
-    ...(view === "people" && band !== "all" ? { band } : {}),
   };
   const link = (over: Record<string, string | number | null | undefined>) => hrefWith(BASE, keep, over);
   const ctx = { zones, fmt, tierLabel };
@@ -115,12 +121,11 @@ export async function PeopleV2({ session, sp }: { session: CrmSession; sp: RawSe
     { key: "duplicates", label: counts.duplicates === null ? "Possible duplicates" : `Possible duplicates · ${counts.duplicates}`, href: `${BASE}?view=duplicates`, current: view === "duplicates" },
     { key: "ending", label: counts.ending === null ? "Memberships ending soon" : `Memberships ending soon · ${counts.ending}`, href: `${BASE}?ending=${ENDING_SOON_DAYS}`, current: view === "households" && onlyEnding, title: `Active memberships that end in the next ${ENDING_SOON_DAYS} days` },
     ...(seesReviews ? [{ key: "reviews", label: counts.waiting === null ? "To review" : `To review · ${counts.waiting}`, href: `${BASE}?view=reviews`, current: view === "reviews", title: "Membership applications and family change requests waiting for a decision" }] : []),
-    { key: "save", label: "+ Save this view", href: null, current: false, comingNext: true, title: "Saved views are not built yet." },
   ];
 
   const model: PeopleWorkspaceModel = {
     view,
-    title: view === "people" ? "People" : view === "reviews" ? "To review" : view === "duplicates" ? "Possible duplicates" : "Families",
+    title: view === "people" ? (listHeading(filters) ?? "People") : view === "reviews" ? "To review" : view === "duplicates" ? "Possible duplicates" : "Families",
     lists: listsMenu(visibleNav(session).find((m) => m.key === "people")?.tabs ?? []),
     quick,
     ask: {
@@ -141,6 +146,8 @@ export async function PeopleV2({ session, sp }: { session: CrmSession; sp: RawSe
     draftPrompt: null,
     households: null,
     people: null,
+    gap: null,
+    actions: null,
     reviews: null,
     duplicates: null,
     panel: { state: "none" },
@@ -150,6 +157,26 @@ export async function PeopleV2({ session, sp }: { session: CrmSession; sp: RawSe
 
   let selected: string | null = isUuid(hh) ? hh : null;
   let pageKeep: number | null = null;
+
+  // Save this view and Export, for the two lists (a saved view keeps the filters and the sort, never a typed search).
+  if (view === "households" || view === "people") {
+    const saved = viewParams(filters);
+    const children = view === "people" && !hasGap(filters) && filters.band === "minors";
+    const exportQuery: Record<string, string> = { ...fparams, list: view, ...(sort !== "name" ? { sort } : {}) };
+    model.actions = {
+      list: view,
+      params: saved,
+      sort: sort !== "name" ? sort : null,
+      suggested: suggestedViewName(filters, model.ask.chips.map((c) => c.label)),
+      blockedReason: Object.keys(saved).length === 0 ? "Add a filter first; then you can save this list as a view." : null,
+      exportHref: children ? null : hrefWith("/people/export", {}, exportQuery),
+      exportNote: children
+        ? "A list of children is not exported."
+        : view === "people"
+          ? "Export holds adults only: a child's record is not part of a list export. It asks for a fresh 2FA code and is recorded in the audit log."
+          : "Export holds each family's number, IDs, adults and area, without any child's name. It asks for a fresh 2FA code and is recorded in the audit log.",
+    } satisfies ListActions;
+  }
 
   if (view === "households") {
     const list = await loadHouseholdList(session, filters, { sort, page, pageSize: PAGE_SIZE, zones });
@@ -189,6 +216,42 @@ export async function PeopleV2({ session, sp }: { session: CrmSession; sp: RawSe
       selectionExplicit: isUuid(hh),
       emptyTitle: hasFilters(filters) ? "No household matches these filters" : "No households yet",
       emptyHint: filters.q ? "Try part of the name, or an identifier exactly as the other system shows it." : hasFilters(filters) ? "Remove a filter above to see more households." : null,
+    };
+  } else if (view === "people" && hasGap(filters)) {
+    const data = await loadGapPeople(session, filters);
+    problems.push(...data.problems);
+    notes.push(...data.notes);
+    if (filters.overCents !== null || filters.noRsvpYear !== null || filters.endingDays !== null || filters.tier) {
+      notes.push("Balance, RSVP and membership filters apply to the Families list; this list of adults uses the contact gaps, the area and the name or ID search.");
+    }
+    const slice = pageOf(data.people, page, PAGE_SIZE);
+    pageKeep = slice.page > 1 ? slice.page : null;
+    const extras = await loadGapPageExtras(session, slice.items);
+    problems.push(...extras.problems);
+    const today = todayInTz(center.time_zone);
+    const rows: GapRowView[] = slice.items.map((p) => ({
+      id: p.id,
+      href: personHref(p.id, p.household?.id ?? null),
+      name: p.name,
+      ids: [p.memberNumber ? `Member ${p.memberNumber}` : "No member number", ...(extras.orgIds.get(p.id) ?? [])].join(" · "),
+      relationship: p.role ? relationshipLabel(p.role, null) : "—",
+      family: p.household ? (extras.cardName.get(p.household.id) ?? "Family") : "Not in a family",
+      cardLine: p.household ? (extras.cardLine.get(p.household.id) ?? null) : null,
+      mobile: contactCell(p.phone, "phone"),
+      email: contactCell(p.email, "email"),
+      app: p.onApp ? "On the app" : "Not on the app",
+      age: ageText(p.dateOfBirth, today),
+    }));
+    model.gap = {
+      rows,
+      count: countText(filters, slice.total, fmt.locale),
+      paging: {
+        showing: showingText(slice, fmt.locale),
+        prevHref: slice.page > 1 ? link({ page: slice.page - 1 > 1 ? slice.page - 1 : null }) : null,
+        nextHref: slice.page < slice.pages ? link({ page: slice.page + 1 }) : null,
+      },
+      emptyTitle: data.failed ? "This list could not be read" : "No adult matches",
+      emptyHint: data.failed ? "The problem is said above. Reload the page to try again." : "Everyone here has what you asked about on file, or a filter above narrows it too far. Remove a filter to see more.",
     };
   } else if (view === "people") {
     const list = await listPeople(session, { search: filters.q ?? undefined, band, page, pageSize: PAGE_SIZE });
@@ -244,6 +307,12 @@ export async function PeopleV2({ session, sp }: { session: CrmSession; sp: RawSe
   }
 
   return <PeopleWorkspace model={model} />;
+}
+
+/** An age in years for a list, or a dash when no birth date is on file. */
+function ageText(dateOfBirth: string | null, today: string): string {
+  const age = ageOn(dateOfBirth, today);
+  return age === null ? "—" : String(age);
 }
 
 async function reviews(session: CrmSession): Promise<PeopleWorkspaceModel["reviews"]> {
