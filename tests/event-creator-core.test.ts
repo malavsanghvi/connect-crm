@@ -171,6 +171,8 @@ describe("suggestions from the community's own data, each with its reason", () =
     expect(lessonCard("Announce the date a month ahead.")).toBe("sending");
     expect(lessonCard("Thank the sponsors by name.")).toBe("money");
     expect(lessonCard("Start on time.")).toBe("review");
+    // "service" is not "serving": the church's overflow lesson belongs to the place.
+    expect(lessonsFor("where", named("church"), fixtureCtx("church")).map((l) => l.text)).toEqual(["The 7 pm service filled by 6:40; open the fellowship hall as an overflow room."]);
   });
 
   it("clashes: same venue is a warning, the calendar is information", () => {

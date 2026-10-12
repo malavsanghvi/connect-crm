@@ -393,7 +393,7 @@ export function reminderSuggestion(draft: EventDraft, ctx: CreatorCtx, ruleHours
 // ---------------------------------------------------------------------------
 
 const LESSON_CARD: [CardId, RegExp][] = [
-  ["help", /\b(food|meal|lunch|dinner|kitchen|ran out|serv|volunteer|helper|shift|queue|line|cleanup|setup|set up)/i],
+  ["help", /\b(food|meal|lunch|dinner|kitchen|ran out|serve|served|serving|volunteer|helper|shift|queue|line|cleanup|setup|set up)/i],
   ["where", /\b(parking|room|hall|venue|space|seat|chairs|tables|stage|sound|overflow|crowd)/i],
   ["money", /\b(ticket|price|paid|pay|cash|card|donat|pledge|sponsor)/i],
   ["sending", /\b(remind|email|message|text|sms|whatsapp|notice|announce)/i],

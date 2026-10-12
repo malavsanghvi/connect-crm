@@ -270,7 +270,7 @@ export function EventCreator({ ctx, initialDraft, existing, api, sessionParam = 
         <div className="grid grid-cols-1 items-start gap-5 @[1000px]:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)]">
           <div className={`min-w-0 flex-col gap-3 ${pane === "preview" ? "hidden @[1000px]:flex" : "flex"}`}>
             <nav aria-label="Steps">
-              <ol className="m-0 flex list-none flex-wrap gap-1.5 p-0">
+              <ol className="m-0 flex list-none gap-1.5 overflow-x-auto p-0 pb-1 @[1000px]:flex-wrap @[1000px]:overflow-visible @[1000px]:pb-0">
                 {asked.map((c, i) => {
                   const current = c === step;
                   const locked = c !== "what" && !draft.id;
@@ -281,7 +281,7 @@ export function EventCreator({ ctx, initialDraft, existing, api, sessionParam = 
                         aria-current={current ? "step" : undefined}
                         disabled={locked}
                         onClick={() => go(c)}
-                        className={`min-h-[32px] rounded-full border px-3 text-[12px] font-semibold disabled:cursor-not-allowed disabled:opacity-50 ${current ? "border-navy bg-navy text-white" : passed.includes(c) || i < index ? "border-line bg-white text-ink" : "border-line bg-white text-muted"}`}
+                        className={`min-h-[32px] whitespace-nowrap rounded-full border px-3 text-[12px] font-semibold disabled:cursor-not-allowed disabled:opacity-50 ${current ? "border-navy bg-navy text-white" : passed.includes(c) || i < index ? "border-line bg-white text-ink" : "border-line bg-white text-muted"}`}
                       >
                         {i + 1} {cardDef(c).label}
                       </button>
@@ -307,7 +307,7 @@ export function EventCreator({ ctx, initialDraft, existing, api, sessionParam = 
 
             <section aria-labelledby="creator-question" className="rounded-[16px] border border-line bg-white p-4 sm:p-5">
               <p className="m-0 text-[12px] font-bold uppercase tracking-[0.06em] text-muted">
-                Question {index + 1} of {total}
+                Step {index + 1} of {total}
               </p>
               <h2 id="creator-question" ref={headingRef} tabIndex={-1} className="m-0 mb-4 mt-1 font-display text-[21px] font-semibold leading-[1.25] text-ink outline-none">
                 {cardDef(step).question}

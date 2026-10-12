@@ -204,7 +204,7 @@ export function fixtureDraft(kind: FixtureKind, opts: { saved: boolean }): Event
   const base: Record<FixtureKind, Partial<EventDraft>> = {
     temple: { starts_at: "2026-11-08T18:00", ends_at: "2026-11-08T21:30", venue: "Main hall", capacity: "260", lunch_enabled: true, lunch_starts_at: "2026-11-08T19:00", lunch_slot_minutes: "20", lunch_seats_per_slot: "60", is_paid: true, member_price: "12", guest_price: "18", commitments_enabled: true, commit_per_person: "3, 5, 7", commit_lump_sum: "10, 25, 50", commit_open: true, description: "An evening of lights, music and a shared meal. All families are welcome." },
     church: { starts_at: "2026-12-24T19:00", ends_at: "2026-12-24T20:30", venue: "Sanctuary", capacity: "440", audience: "public", description: "Carols, readings and candlelight. Everyone is welcome." },
-    chamber: { starts_at: "2026-11-12T17:30", ends_at: "2026-11-12T19:30", venue: "Chamber hall", capacity: "120", audience: "public" },
+    chamber: { starts_at: "2026-11-12T17:30", ends_at: "2026-11-12T19:30", venue: "Chamber hall", capacity: "120", audience: "public", is_paid: true },
     club: { starts_at: "2026-12-05T18:00", venue: "Clubhouse" },
   };
   return { ...d, ...base[kind], name: FIXTURE_NAMES[kind], id: opts.saved ? `preview-${kind}` : null };
