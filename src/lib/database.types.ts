@@ -2883,6 +2883,8 @@ export type Database = {
           flyer_generated_at: string | null;
           flyer_job_id: number | null;
           flyer_design: Json | null;
+          publish_at: string | null;
+          publish_failure: string | null;
         };
         Insert: {
           id?: string;
@@ -2926,6 +2928,8 @@ export type Database = {
           flyer_generated_at?: string | null;
           flyer_job_id?: number | null;
           flyer_design?: Json | null;
+          publish_at?: string | null;
+          publish_failure?: string | null;
         };
         Update: {
           id?: string;
@@ -2969,6 +2973,8 @@ export type Database = {
           flyer_generated_at?: string | null;
           flyer_job_id?: number | null;
           flyer_design?: Json | null;
+          publish_at?: string | null;
+          publish_failure?: string | null;
         };
         Relationships: [];
       };
