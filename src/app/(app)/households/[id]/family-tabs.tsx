@@ -8,6 +8,7 @@ import { isUuid, param, type RawSearchParams } from "@/lib/search-params";
 import type { CrmSession } from "@/lib/session";
 
 import { AuditTab } from "./audit-tab";
+import { EventsTab } from "./events-tab";
 import { IdentifiersTab } from "./identifiers-tab";
 import { MembershipsTab } from "./memberships-tab";
 import { PaymentsTab } from "./payments-tab";
@@ -15,7 +16,7 @@ import { PledgesTab } from "./pledges-tab";
 
 /**
  * The one tab row under the Family page: Giving (pledges and payments, following the year chosen in "Giving at a glance"),
- * Memberships and History (the household and every person in it, with a filter by person). The old Members and Identifiers tabs
+ * Memberships, Events (only with the Events module: RSVPs and who came) and History (the household and every person in it, with a filter by person). The old Members and Identifiers tabs
  * are gone: the people are on the page and the IDs are a section of it. `?tab=pledges|payments|audit` from older links still open
  * Giving and History.
  */
@@ -35,7 +36,7 @@ export async function FamilyTabs({
   const id = model.id;
   const givingOn = isModuleEnabled(session, "giving");
   const asked = param(sp, "tab");
-  const tabs = familyTabs({ giving: givingOn, events: false, history: true });
+  const tabs = familyTabs({ giving: givingOn, events: isModuleEnabled(session, "events"), history: true });
   const legacyIds = asked === "identifiers";
   const active = pickFamilyTab(asked, tabs);
   const keepYear = glance?.explicitYear ? glance.yearParam : undefined;
@@ -72,6 +73,7 @@ export async function FamilyTabs({
         </div>
       ) : null}
       {!legacyIds && active === "memberships" ? <MembershipsTab session={session} householdId={id} /> : null}
+      {!legacyIds && active === "events" ? <EventsTab session={session} householdId={id} /> : null}
       {!legacyIds && active === "history" ? (
         <div>
           <nav aria-label="History of" className="mb-3 flex flex-wrap items-center gap-1.5">
