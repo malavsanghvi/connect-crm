@@ -21,6 +21,8 @@ import {
   type FlyerOccasion,
   type OccasionKind,
 } from "@/lib/events/flyer-occasions";
+import { drawnPackKey } from "@/lib/events/flyer-art-packs";
+import { drawnTakeOccasions } from "@/lib/events/publish-schedule";
 import { LEGACY_KIND } from "@/lib/kind";
 
 // Five kinds of organization (and two more), as app.category_profile describes them (key, faith-based, terms).
@@ -131,6 +133,14 @@ describe("the suggested occasion (golden: three titles per kind)", () => {
   for (const [kind, title, want] of cases) {
     it(`${kind.key}: "${title}" → ${want}`, () => expect(first(kind, title)).toBe(want));
   }
+
+  it("picks the occasions docs/EVENT_CREATION.md names", () => {
+    expect(first(CHURCH, "Christmas Eve candlelight service")).toBe("christmas_eve");
+    expect(first(MOSQUE, "Eid dinner")).toBe("eid");
+    expect(first(CHAMBER, "Ribbon cutting at Lopez Bakery")).toBe("ribbon_cutting");
+    expect(first(CLUB, "Summer picnic")).toBe("picnic");
+    expect(first({ key: "swaminarayan_temple", faithBased: true }, "Diwali dinner")).toBe("diwali");
+  });
 
   it("gives its reason in plain words", () => {
     const [top] = suggestOccasion({ title: "Christmas Eve at St. Mark's", kind: CHURCH });
@@ -270,6 +280,18 @@ describe("the facts the background service builds a layer prompt from", () => {
     expect(readArtFacts(JSON.stringify({ occasion: "eid", layer: "frame" }))).toBeNull();
     expect(readArtFacts(JSON.stringify({ flyer_art_facts: 1, occasion: "birthday", layer: "frame" }))).toBeNull();
     expect(readArtFacts("{not json")).toBeNull();
+  });
+});
+
+describe("drawn takes", () => {
+  it("cycle through one occasion per drawn pack, the poster's own first, never Other occasion unless it is the poster's", () => {
+    const jain = drawnTakeOccasions(JAIN, "diwali");
+    expect(jain[0]).toBe("diwali");
+    expect(jain).toEqual(expect.arrayContaining(["garba", "paryushan", "mahavir", "convention", "pathshala", "bhakti"]));
+    expect(new Set(jain.map(drawnPackKey)).size).toBe(jain.length);
+    expect(drawnTakeOccasions(CHAMBER, null)).not.toContain("other");
+    expect(drawnTakeOccasions(CHAMBER, null)).not.toContain("convention");
+    expect(drawnTakeOccasions(CLUB, "other")[0]).toBe("other");
   });
 });
 

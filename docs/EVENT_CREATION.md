@@ -119,6 +119,8 @@ Result: finishing one event takes 5-7 visits across 3 screens plus Messages. Rea
 
 Golden flyer tests pick a fitting occasion for: a church's "Christmas Eve candlelight service", a mosque's "Eid dinner", a chamber's "ribbon cutting at Lopez Bakery", a club's "summer picnic" and a temple's "Diwali dinner".
 
+**Built (B96, 2026-10-11).** The catalog is `src/lib/events/flyer-occasions.ts` (TypeScript data: who each occasion is for by kind and tradition, its label in the kind's or tradition's words, season, drawn pack, keywords in several languages, prompt words, and which faith should review it); `suggestOccasion` ranks occasions from the title, the description, the community's festival calendar and the season, and only the event's own words preselect one. `src/lib/events/flyer-art-prompt.ts` builds the AI prompts from that data plus a fixed rubric; the portal sends the database checked FACTS, not prose, and the background service builds the same prompt from them. `src/lib/events/flyer-art-palette.ts` turns the brand kit into the colours drawn art uses (`paletteFromBrand`, contrast-checked). Not yet: AI frames and scenes for the new occasions, because 0585's `events_request_flyer_art` and `flyer_art_name_ok` list the eight Flyers v2 occasions (a later migration widens them; until then those occasions have drawn art and AI backgrounds).
+
 ## 4. Smart features
 
 | Feature | Data it reads | Code (rule) | AI adds | Slice |
