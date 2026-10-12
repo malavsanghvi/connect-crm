@@ -8,6 +8,7 @@ import { ChipGroup, Toggle } from "@/components/controls";
 import { buttonClass } from "@/components/ui";
 import { POSTER_LIMITS, type PosterContent } from "@/lib/events/flyer";
 import { artPack, svgDataUri } from "@/lib/events/flyer-art-packs";
+import { ORNAMENT_FAMILIES, ORNAMENT_LABEL, type OrnamentFamily } from "@/lib/events/flyer-decor";
 import type { FlyerBrand } from "@/lib/events/flyer-brand";
 import {
   CREDIT_GROUPS_MAX,
@@ -43,6 +44,7 @@ export function LayoutChooser({
   brand,
   headline,
   greeting,
+  ornament,
   onPoster,
   disabled,
 }: {
@@ -51,6 +53,8 @@ export function LayoutChooser({
   headline: string;
   /** The greeting of the community's tradition, or "" (none): offered when a layout is chosen. */
   greeting: string;
+  /** The corner decoration of the community's tradition (leaves for most, a lotus for the traditions that use it): where a new layout starts. */
+  ornament: OrnamentFamily;
   onPoster: UpdatePoster;
   disabled: boolean;
 }) {
@@ -64,7 +68,7 @@ export function LayoutChooser({
   const choose = (key: string) => {
     if (key === current) return;
     if (key === "original") onPoster((p) => withoutLayout(p));
-    else onPoster((p) => withLayoutPreset(p, key as never, { headline, greeting }));
+    else onPoster((p) => withLayoutPreset(p, key as never, { headline, greeting, ornament }));
   };
   return (
     <div role="radiogroup" aria-label="Flyer layout" className="grid grid-cols-1 gap-2 sm:grid-cols-2">
@@ -165,6 +169,16 @@ export function LayoutBlockEditors({
             </div>
           ) : null}
         </div>
+      </SectionBox>
+
+      <SectionBox title="Decoration" note="The leaves, blossoms or lotus in the corners, drawn over a drawn frame in your brand's colours. An AI frame or no frame is left as it is.">
+        <ChipGroup
+          label="Corner decoration"
+          options={ORNAMENT_FAMILIES.map((family) => ({ value: family, label: ORNAMENT_LABEL[family] }))}
+          value={layout.ornament}
+          onChange={(v) => patch({ ornament: v as OrnamentFamily })}
+          disabled={disabled}
+        />
       </SectionBox>
 
       <SectionBox title="Greetings" note="A greeting at the top and one at the bottom, in your community's own words. Leave one empty to leave it out.">

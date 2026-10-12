@@ -41,7 +41,7 @@ import {
   type FlyerDesign,
 } from "@/lib/events/flyer";
 import { FLYER_LAYER_LABEL, NO_GEMINI_KEY, formatArtCost } from "@/lib/events/flyer-art";
-import { greetingFor } from "@/lib/events/flyer-layout";
+import { greetingFor, ornamentFor } from "@/lib/events/flyer-layout";
 import { fromDateTimeLocal } from "@/lib/events/format";
 import { approvalState, drawnTakes, nextDrawnTake } from "@/lib/events/publish-schedule";
 
@@ -232,7 +232,9 @@ export function FlyerPanelView({
   });
   const patch = (p: Partial<FlyerDesign>) => setDesign((d) => ({ ...d, ...p }));
   // Flyers v3: the layout of the poster's words, and the greeting of the community's tradition offered with it ("" when it has none).
-  const greeting = greetingFor({ kind: useKind() });
+  const kind = useKind();
+  const greeting = greetingFor({ kind });
+  const ornament = ornamentFor({ kind });
   const onPoster = (fn: (p: NonNullable<FlyerDesign["poster"]>) => NonNullable<FlyerDesign["poster"]>) => setDesign((d) => (d.poster ? { ...d, poster: fn(d.poster) } : d));
 
   // The event's words follow the answers: what the design still shows from the event's previous words is replaced.
@@ -409,7 +411,7 @@ export function FlyerPanelView({
           {isPoster && design.poster ? (
             <>
               <span className="mt-1 text-[12px] font-bold text-ink-2">Layout</span>
-              <LayoutChooser poster={design.poster} brand={setup.brand} headline={design.headline} greeting={greeting} onPoster={onPoster} disabled={false} />
+              <LayoutChooser poster={design.poster} brand={setup.brand} headline={design.headline} greeting={greeting} ornament={ornament} onPoster={onPoster} disabled={false} />
             </>
           ) : null}
         </div>

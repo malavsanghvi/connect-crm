@@ -17,7 +17,8 @@ import { artPack, mix, ribbonSvg, svgDataUri, type ArtPack, type PosterPalette }
 import { readableOn } from "./flyer-art-palette";
 import { posterIconUri, type PosterIcon } from "./flyer-icons";
 import { blockPresent, layoutPreset, presentBlocks, scriptSafe, titleWords, type BlockKey, type CreditGroup, type HeroShape, type PosterLayout, type PresetSpec } from "./flyer-layout";
-import { bannerSvg, dividerSvg, sprigSvg, windowSvg } from "./flyer-ornaments";
+import { decorSvg } from "./flyer-decor";
+import { bannerSvg, dividerSvg, sprigSvg, windowCapSvg } from "./flyer-ornaments";
 import { POSTER_UNITS, badgeSizes, box, diamond, haloLayers, image, lineCount, posterLayers, qrCardElement, ribbonLayout, textWidth, txt, type PosterImage, type PosterInput } from "./flyer-poster";
 
 export type LayoutFonts = { display: string; body: string; script: string };
@@ -30,7 +31,7 @@ const COL = W - 2 * SIDE;
 const CARD = 920;
 const K_MIN = 0.58;
 const K_FLOOR = 0.4;
-const K_MAX = 1.3;
+const K_MAX = 1.45;
 const STORY_FROM = 1800;
 const SCENE_MAX_STORY = 1.42;
 const SLACK = 24;
@@ -52,18 +53,31 @@ type Ctx = {
   centerName: string;
   /** The picture the layout shows, loaded (null: none chosen, or it could not be loaded). */
   hero: PosterImage | null;
-  /** The blocks drawn inside the arched window, and its width, when the preset has one and any of its blocks is present. */
-  win: { members: BlockKey[]; width: number } | null;
+  /**
+   * A group of blocks drawn together in one container that grows with them: the arched window (Ceremony), or the header column
+   * beside a side picture (Notice). Its members are the blocks of the preset's window or side list that are present.
+   */
+  group: { kind: "window" | "side"; members: BlockKey[]; width: number } | null;
+  /** The thank-you cards and the donors' names as they are drawn (shortened with "and N more" when the flyer is too full for all of them). */
+  credits: CreditGroup[];
+  donors: string;
 };
 
-/** How wide the words of a block may be: narrower inside the arched window, else undefined (the block's own measure). */
-const innerWidth = (ctx: Ctx, key: BlockKey): number | undefined => (ctx.win && ctx.win.members.includes(key) ? ctx.win.width - 100 : undefined);
+/** How wide the words of a block may be inside a group (narrower than the column), else undefined (the block's own measure). */
+const innerWidth = (ctx: Ctx, key: BlockKey): number | undefined => {
+  if (!ctx.group || !ctx.group.members.includes(key)) return undefined;
+  return ctx.group.kind === "window" ? ctx.group.width - 100 : ctx.group.width - 24;
+};
 
-/** How far the window's arch rises above its first block, and the room under its last one (units). */
-const WINDOW_RISE = 96;
-const WINDOW_FOOT = 48;
-/** The window's bottom edge sits this far above the end of its last block (the rest of the foot is air below it). */
-const WINDOW_EDGE = 24;
+/** The arched window: air above its first block (the arch's apex is above that), the arch's height, and air under its last block (units). */
+const WINDOW_TOP = 84;
+const WINDOW_CAP = 220;
+const WINDOW_FOOT = 56;
+/** Between the blocks of a group (and a tighter step for a block that belongs with the one above). */
+const GROUP_GAP = 16;
+const GROUP_TIGHT = 5;
+/** The side picture's frame (units), beside the header column. */
+const SIDE_HERO: Record<HeroShape, { w: number; h: number }> = { arch: { w: 330, h: 470 }, rounded: { w: 330, h: 440 }, circle: { w: 330, h: 330 }, free: { w: 330, h: 440 } };
 /** The corner RSVP card is drawn at this scale in a layout (190 units of code at 0.78 is still easily scanned). */
 const LAYOUT_QR_SCALE = 0.78;
 
@@ -379,13 +393,15 @@ const statLayout = (ctx: Ctx, s = 1) => {
 };
 
 const agendaLayout = (ctx: Ctx, s = 1) => {
+  // Drawn: each row has 10 of padding above and below its icon (84) or words, and a dashed line (2) under all but the last.
+  const n = ctx.poster.agenda.length;
   let rows = 14;
   for (const r of ctx.poster.agenda) {
-    const t = Math.max(lineCount(r.time, 29, 262 / s), 1) * 36;
-    const x = Math.max(lineCount(r.text, 28, 490 / s), 1) * 35;
-    rows += Math.max(74, t, x) + 20;
+    const t = Math.max(lineCount(r.time, 33, 280 / s), 1) * 40;
+    const x = Math.max(lineCount(r.text, 31, 440 / s), 1) * 38;
+    rows += Math.max(84, t, x) + 20;
   }
-  return { h: rows };
+  return { h: rows + 2 * Math.max(0, n - 1) };
 };
 
 const paragraphType = (story: boolean) => (story ? { size: 32, line: 46 } : { size: 26, line: 38 });
@@ -458,7 +474,7 @@ export const creditTints = (pal: PosterPalette): string[] =>
 const logosHeight = 132;
 
 /** The RSVP code as a block of its own: the code 190 across in a white card with "RSVP" and "Scan to reply". */
-const QR_BLOCK_IMAGE = 190;
+const QR_BLOCK_IMAGE = 160;
 const qrBlockHeight = 16 + 6 + 12 + QR_BLOCK_IMAGE + 6 + 26 + 17 + 8;
 
 /** The height of one block (units; scale 1 with the line counts of scale `s`: the drawn height is `s` times as much). */
@@ -484,9 +500,9 @@ export function blockHeight(key: BlockKey, ctx: Ctx, s = 1): number {
     case "hero":
       return heroLayout(layout.hero.shape, ctx.hero).h_block;
     case "credits":
-      return creditsLayout(layout.credits, s).h;
+      return creditsLayout(ctx.credits, s).h;
     case "donors":
-      return donorsLayout(layout.donors.heading, layout.donors.names, s).h;
+      return donorsLayout(layout.donors.heading, ctx.donors, s).h;
     case "closing":
       return closingLayout(layout.closing, s).h;
     case "host":
@@ -516,11 +532,14 @@ export function blockHeight(key: BlockKey, ctx: Ctx, s = 1): number {
 }
 
 /** A banner title keeps to the banner; a plain one keeps clear of the ornaments some frames hang in the top corners (140 units a side). */
-const titleWidth = (spec: PresetSpec, inner?: number) => inner ?? (spec.style.title.set === "banner" ? CARD - 150 : COL - 180);
+const titleWidth = (spec: PresetSpec, inner?: number) => (inner !== undefined ? (spec.style.title.set === "banner" ? inner - 100 : inner) : spec.style.title.set === "banner" ? CARD - 150 : COL - 180);
 const bannerPad = 24;
 const bannerHeight = (t: TitlePlan) => t.height + 2 * bannerPad;
 
 // ── The plan ─────────────────────────────────────────────────────────────────
+
+/** What is stacked down the flyer: a block, or "group" (the window or the side column, one container for several blocks). */
+export type PlanKey = BlockKey | "group";
 
 export type LayoutPlan = {
   /** The scale every block is drawn at (1 = the reference sizes). */
@@ -531,24 +550,26 @@ export type LayoutPlan = {
   sceneH: number;
   /** Units above the bottom edge the scene (or the QR card) needs. */
   reserve: number;
-  /** The blocks drawn, in order. */
-  blocks: BlockKey[];
-  /** The height of each block at the scale it is drawn at, divided by that scale (margins included). */
-  heights: Partial<Record<BlockKey, number>>;
-  /** Extra air between blocks (units, after scaling) and at the top. */
+  /** What is stacked, in order (the group is one entry). */
+  blocks: PlanKey[];
+  /** The height of each entry at the scale it is drawn at, divided by that scale (margins included). */
+  heights: Partial<Record<PlanKey, number>>;
+  /** Extra air between entries (units, after scaling) and at the top. */
   gap: number;
   top: number;
-  /** Blocks left out because there was not room even at the smallest comfortable scale (in the order they went). */
+  /** Blocks left out because there was not room at the smallest comfortable scale (in the order they went). */
   dropped: BlockKey[];
-  /** How much larger than its usual size the picture is drawn (it takes room that is left over). */
+  /** How much larger (or, when the flyer is crowded, smaller: down to 60%) than its usual size the picture is drawn. */
   heroGrow: number;
-  /** The arched window behind the first to the last of its blocks that are drawn, or null. */
-  win: { first: BlockKey; last: BlockKey; width: number } | null;
+  /** The group of blocks drawn together (window or side column) with the members still drawn, or null. */
+  group: { kind: "window" | "side"; members: BlockKey[]; width: number } | null;
+  /** The thank-you cards and donors' names as drawn: shortened with "and N more" when the flyer was too full for all of them. */
+  shown: { credits: CreditGroup[]; donors: string; level: number };
 };
 
-/** Where each block is drawn (units from the top of the flyer), from the plan. */
-export function blockPositions(plan: LayoutPlan): { key: BlockKey; y: number; h: number }[] {
-  const out: { key: BlockKey; y: number; h: number }[] = [];
+/** Where each entry is drawn (units from the top of the flyer), from the plan. The boxes follow one another: none overlaps the next. */
+export function blockPositions(plan: LayoutPlan): { key: PlanKey; y: number; h: number }[] {
+  const out: { key: PlanKey; y: number; h: number }[] = [];
   let y = plan.top;
   plan.blocks.forEach((key, i) => {
     if (i > 0) y += (tightBetween(plan.blocks[i - 1]!, key) ? 0.3 : 1) * plan.gap;
@@ -559,9 +580,9 @@ export function blockPositions(plan: LayoutPlan): { key: BlockKey; y: number; h:
   return out;
 }
 
-/** Blocks that sit close to the one before (the spacer between them is a fraction of the usual). */
-const TIGHT_AFTER: readonly BlockKey[] = ["eyebrow", "greeting_top"];
-const tightBetween = (prev: BlockKey, next: BlockKey) => TIGHT_AFTER.includes(prev) || (prev === "title" && (next === "subhead" || next === "tagline")) || (prev === "subhead" && next === "tagline") || (prev === "cta" && next === "contacts");
+/** Entries that sit close to the one before (the spacer between them is a fraction of the usual). */
+const TIGHT_AFTER: readonly PlanKey[] = ["eyebrow", "greeting_top"];
+const tightBetween = (prev: PlanKey, next: PlanKey) => TIGHT_AFTER.includes(prev) || (prev === "title" && (next === "subhead" || next === "tagline")) || (prev === "subhead" && next === "tagline") || (prev === "cta" && next === "contacts");
 
 /** Where the stack of blocks ends, in units from the top of the flyer (the tests check it stays above the bottom scene). */
 export function stackBottom(plan: LayoutPlan): number {
@@ -571,13 +592,42 @@ export function stackBottom(plan: LayoutPlan): number {
 
 export const LAYOUT_SCALES = { min: K_MIN, floor: K_FLOOR, max: K_MAX } as const;
 
+/** The side picture's size: its frame by shape, a free picture fitted into the same room as it is. */
+const sideHeroLayout = (shape: HeroShape, img: PosterImage | null) => {
+  const box = SIDE_HERO[shape];
+  if (shape === "free" && img && img.w > 0 && img.h > 0) {
+    const ratio = img.w / img.h;
+    const w = Math.min(box.w, box.h * ratio);
+    return { w: Math.round(w), h: Math.round(w / ratio) };
+  }
+  return box;
+};
+
+/** The step between two blocks inside a group. */
+const groupStep = (a: BlockKey, b: BlockKey) => (tightBetween(a, b) ? GROUP_TIGHT : GROUP_GAP);
+
+/** The height of the whole group at scale `s` (units, divided by the scale): its blocks and the steps between them, plus the window's air or the side picture. */
+export function groupHeight(ctx: Ctx, members: readonly BlockKey[], s: number): number {
+  let h = 0;
+  members.forEach((m, i) => {
+    if (i) h += groupStep(members[i - 1]!, m);
+    h += blockHeight(m, ctx, s);
+  });
+  if (ctx.group?.kind === "window") return WINDOW_TOP + h + WINDOW_FOOT;
+  const hero = sideHeroLayout(ctx.layout.hero.shape, ctx.hero);
+  return Math.max(h + 16, hero.h + 24);
+}
+
 export function layoutCtx(input: Pick<PosterInput, "design" | "poster" | "logo" | "assets"> & { centerName?: string }, H: number): Ctx {
   const layout = input.poster.layout!;
   const venue = input.design.venue_line;
   const hero = input.assets.hero ?? null;
   const has = { poster: input.poster, layout, hasLogo: Boolean(input.logo), venue, hero: Boolean(hero) };
   const spec = layoutPreset(layout.preset);
-  const members = spec.style.window ? presentBlocks(input.poster, layout, { hasLogo: has.hasLogo, venue, hero: has.hero }).filter((b) => spec.style.window!.blocks.includes(b)) : [];
+  const presentNow = presentBlocks(input.poster, layout, { hasLogo: has.hasLogo, venue, hero: has.hero });
+  const win = spec.style.window ? presentNow.filter((b) => spec.style.window!.blocks.includes(b)) : [];
+  const side = spec.style.side && hero && presentNow.includes("hero") ? presentNow.filter((b) => spec.style.side!.blocks.includes(b)) : [];
+  const group: Ctx["group"] = win.length ? { kind: "window", members: win, width: spec.style.window!.width } : side.length ? { kind: "side", members: side, width: spec.style.side!.width } : null;
   const ctx: Ctx = {
     headline: input.design.headline,
     heading: blockPresent("cta", has) && blockPresent("contacts", has),
@@ -590,10 +640,44 @@ export function layoutCtx(input: Pick<PosterInput, "design" | "poster" | "logo" 
     logo: Boolean(input.logo),
     centerName: input.centerName ?? "",
     hero,
-    win: spec.style.window && members.length ? { members, width: spec.style.window.width } : null,
+    group,
+    credits: layout.credits,
+    donors: layout.donors.names,
   };
   return ctx;
 }
+
+/**
+ * Names cut to fit: the first names that fit `max` characters, then "and N more". A list is split at commas and "and"; one long
+ * name with no split is cut at a word. The community's own words come back unchanged when they already fit.
+ */
+export function shortenNames(text: string, max: number): string {
+  const t = text.trim();
+  if (flyerTextLength(t) <= max) return t;
+  const parts = t.split(/\s*,\s*|\s+and\s+|\s*&\s*/i).filter(Boolean);
+  if (parts.length < 2) return `${Array.from(t).slice(0, Math.max(1, max - 1)).join("").replace(/\s+\S*$/, "")}…`;
+  const kept: string[] = [];
+  for (let i = 0; i < parts.length; i++) {
+    const rest = parts.length - (i + 1);
+    const suffix = rest > 0 ? ` and ${rest} more` : "";
+    const next = [...kept, parts[i]!].join(", ") + suffix;
+    if (flyerTextLength(next) > max && kept.length > 0) break;
+    kept.push(parts[i]!);
+  }
+  const more = parts.length - kept.length;
+  return kept.join(", ") + (more > 0 ? ` and ${more} more` : "");
+}
+
+/** How small the picture is drawn, as a share of its usual size, before any words are left out. */
+const HERO_MIN_SHRINK = 0.6;
+
+/** The shortening levels for the thank-you cards' and the donors' names (characters): none, then each step shorter. */
+const NAME_LEVELS: readonly { card: number; donors: number }[] = [
+  { card: 220, donors: 300 },
+  { card: 110, donors: 190 },
+  { card: 70, donors: 120 },
+  { card: 44, donors: 70 },
+];
 
 /** What goes on the flyer, how big, and how much room is left: pure, so the tests can check it. */
 export function planLayout(input: Pick<PosterInput, "design" | "poster" | "logo" | "assets"> & { centerName?: string }, dims: { w: number; h: number }, pack: ArtPack, o: { qr?: boolean } = {}): LayoutPlan {
@@ -603,28 +687,35 @@ export function planLayout(input: Pick<PosterInput, "design" | "poster" | "logo"
   const { poster, layout, spec } = ctx;
   const qrOn = o.qr ?? input.design.show_qr;
   const present = presentBlocks(poster, layout, { hasLogo: ctx.logo, venue: ctx.venue, qr: qrOn, hero: Boolean(ctx.hero) });
-  // A call to action beside contacts is drawn inside their card: it takes no room of its own.
-  let blocks = present.filter((b) => !(b === "cta" && ctx.heading));
+  // A call to action beside contacts is drawn inside their card: it takes no room of its own. A side picture is drawn in its group.
+  const candidates = present.filter((b) => !(b === "cta" && ctx.heading) && !(b === "hero" && ctx.group?.kind === "side"));
+  // The stack: the blocks in order, the group's blocks gathered into one entry where its first member stood.
+  let members: BlockKey[] = ctx.group ? candidates.filter((b) => ctx.group!.members.includes(b)) : [];
+  let blocks: PlanKey[] = [];
+  for (const b of candidates) {
+    if (members.includes(b)) {
+      if (!blocks.includes("group")) blocks.push("group");
+    } else blocks.push(b);
+  }
+  const has = (b: BlockKey) => blocks.includes(b) || members.includes(b);
 
   const sceneOn = poster.scene.source !== "none";
   let sceneScale = Math.min(ctx.story ? SCENE_MAX_STORY : 1.12, Math.max(0.78, ctx.story ? (H / 1620) * 1.2 : H / 1620));
   // A code in the flow is a block; one that is not is a small card in the corner, over the art, which the bottom needs room for.
   const showQr = qrOn && spec.style.qr === "corner";
   const reserveFor = (s: number) => Math.max(sceneOn ? pack.scene.busy * s : 0, showQr ? POSTER_UNITS.qrCard * LAYOUT_QR_SCALE + 18 + 22 : 0, 24);
-  // The window's arch rises above its first block: the words start lower to leave it room.
-  const topPad = Math.max(64, pack.topInset + 12) + (ctx.win ? WINDOW_RISE - 24 : 0);
+  const topPad = Math.max(64, pack.topInset + 12);
   const room = (s: number) => H - reserveFor(s) - SLACK;
   const dropped: BlockKey[] = [];
+  // The picture gives way before any words are left out: it can be drawn down to 60% of its size (a smaller picture loses nothing).
+  let heroK = 1;
 
   const heightsAt = (k: number) => {
-    const hs: Partial<Record<BlockKey, number>> = {};
-    for (const b of blocks) hs[b] = blockHeight(b, ctx, k);
-    // The window needs a little room under its last block.
-    const last = ctx.win ? [...blocks].reverse().find((b) => ctx.win!.members.includes(b)) : undefined;
-    if (last) hs[last] = (hs[last] ?? 0) + WINDOW_FOOT;
+    const hs: Partial<Record<PlanKey, number>> = {};
+    for (const b of blocks) hs[b] = b === "group" ? groupHeight(ctx, members, k) : b === "hero" ? 20 + (blockHeight(b, ctx, k) - 20) * heroK : blockHeight(b, ctx, k);
     return hs;
   };
-  const sum = (hs: Partial<Record<BlockKey, number>>) => Object.values(hs).reduce((a, b) => a + (b ?? 0), 0);
+  const sum = (hs: Partial<Record<PlanKey, number>>) => Object.values(hs).reduce((a, b) => a + (b ?? 0), 0);
   /** The largest scale (to 0.01, between `lowest` and K_MAX) at which the blocks fit above the scene, or null. */
   const solve = (lowest: number) => {
     const fitsAt = (k: number) => {
@@ -655,15 +746,37 @@ export function planLayout(input: Pick<PosterInput, "design" | "poster" | "logo"
     sceneScale = Math.max(0.5, sceneScale * 0.92);
     fitted = solve(K_MIN);
   }
-  // Still too much at the smallest comfortable scale: leave the least important block out (the render says so) and look again. Only when
-  // nothing more can go does the scale fall below it, so nothing is ever pushed off the flyer.
-  while (!fitted) {
-    const next = spec.dropOrder.find((b) => blocks.includes(b));
+  // Still too small for the preset (or too much for any scale): first the words of the thank-you cards and donors are shortened to
+  // "and N more" before any of those blocks goes; then the least important block is left out (the render says so) and we look again.
+  // Only when nothing more can go does the scale fall below the floor, so nothing is ever pushed off the flyer.
+  let level = 0;
+  const content: readonly BlockKey[] = ["closing", "donors", "credits"];
+  const shorten = (lv: number) => {
+    const lim = NAME_LEVELS[lv]!;
+    ctx.credits = layout.credits.map((g) => ({ ...g, names: shortenNames(g.names, lim.card) }));
+    ctx.donors = shortenNames(layout.donors.names, lim.donors);
+  };
+  for (;;) {
+    if (fitted && fitted.k >= spec.style.minScale) break;
+    if (blocks.includes("hero") && heroK > HERO_MIN_SHRINK + 0.001) {
+      heroK = Math.max(HERO_MIN_SHRINK, Math.round((heroK - 0.1) * 100) / 100);
+      fitted = solve(K_MIN);
+      continue;
+    }
+    const next = spec.dropOrder.find((b) => has(b));
+    if (next && content.includes(next) && level < NAME_LEVELS.length - 1 && (has("credits") || has("donors"))) {
+      level++;
+      shorten(level);
+      fitted = solve(K_MIN);
+      continue;
+    }
     if (!next) {
-      fitted = solve(K_FLOOR) ?? { k: K_FLOOR, heights: heightsAt(K_FLOOR) };
+      if (!fitted) fitted = solve(K_FLOOR) ?? { k: K_FLOOR, heights: heightsAt(K_FLOOR) };
       break;
     }
     blocks = blocks.filter((b) => b !== next);
+    members = members.filter((b) => b !== next);
+    if (!members.length) blocks = blocks.filter((b) => b !== "group");
     dropped.push(next);
     fitted = solve(K_MIN);
   }
@@ -671,13 +784,14 @@ export function planLayout(input: Pick<PosterInput, "design" | "poster" | "logo"
   const reserve = reserveFor(sceneScale);
   let left = Math.max(0, room(sceneScale) - (sum(heights) + topPad) * k);
   // The picture is the one block that can grow: it takes up to three quarters of the room left over, to half as large again, and never wider than the column.
-  let heroGrow = 1;
+  let heroGrow = heroK;
   if (blocks.includes("hero") && heights.hero) {
     const base = heights.hero - 20;
     const shape = layout.hero.shape;
     const widest = shape === "free" ? Number.POSITIVE_INFINITY : 880 / HERO_BOX[shape].w;
-    heroGrow = Math.max(1, Math.min(1.5, widest, 1 + (0.75 * left) / (base * k)));
-    heights.hero = 20 + base * heroGrow;
+    const grow = Math.max(1, Math.min(1.5, widest / heroK, 1 + (0.75 * left) / (base * k)));
+    heroGrow = heroK * grow;
+    heights.hero = 20 + base * grow;
     left = Math.max(0, room(sceneScale) - (sum(heights) + topPad) * k);
   }
   let weights = 0;
@@ -685,9 +799,8 @@ export function planLayout(input: Pick<PosterInput, "design" | "poster" | "logo"
   const gap = Math.min(ctx.story ? 170 : H > 1700 ? 100 : H > 1500 ? 90 : H > 1200 ? 70 : 50, left / (weights + 1));
   // What is still left goes above the stack and below it in equal parts (a Story's counts only the gaps really drawn, between the blocks).
   const extraTop = Math.max(0, left - gap * weights) * 0.5;
-  const inWindow = ctx.win ? blocks.filter((b) => ctx.win!.members.includes(b)) : [];
-  const win = ctx.win && inWindow.length ? { first: inWindow[0]!, last: inWindow[inWindow.length - 1]!, width: ctx.win.width } : null;
-  return { k: Math.round(k * 1000) / 1000, H, sceneScale, sceneH: pack.scene.height * sceneScale, reserve, blocks, heights, gap, top: topPad * k + extraTop, dropped, heroGrow, win };
+  const group = ctx.group && members.length ? { kind: ctx.group.kind, members, width: ctx.group.width } : null;
+  return { k: Math.round(k * 1000) / 1000, H, sceneScale, sceneH: pack.scene.height * sceneScale, reserve, blocks, heights, gap, top: topPad * k + extraTop, dropped, heroGrow, group, shown: { credits: ctx.credits, donors: ctx.donors, level } };
 }
 
 /** What the organizer should be told about the layout at this size, in plain sentences (the same plan the picture is drawn from). */
@@ -698,6 +811,9 @@ export function layoutNotes(input: Pick<PosterInput, "design" | "poster" | "logo
     const names = plan.dropped.map((b) => BLOCK_NAME[b]);
     const list = names.length > 1 ? `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}` : names[0];
     notes.push(`There was not room for the ${list} on this flyer, so ${plan.dropped.length > 1 ? "they were" : "it was"} left out. Shorten the text, switch a block off, or choose the Tall or Story size, which have more room.`);
+  }
+  if (plan.shown.level > 0) {
+    notes.push("There was not room for every name, so some thank-you or donor names are shown as “and N more”. Shorten the lists, or choose the Tall or Story size, which have more room.");
   }
   if (plan.k < 0.7) {
     notes.push(`This flyer is crowded, so its words are set small (${Math.round(plan.k * 100)}% of the usual size). Shorten some text, switch a block off, or choose the Tall or Story size.`);
@@ -760,6 +876,9 @@ export function layoutElement(input: PosterInput, dims: { w: number; h: number }
   const qr = input.design.show_qr && qrDataUri ? qrDataUri : null;
   const plan = planLayout(input, dims, pack, { qr: Boolean(qr) });
   const ctx = layoutCtx(input, plan.H);
+  // The words of the thank-you cards and the donors as the plan decided to show them (shortened when the flyer was too full).
+  ctx.credits = plan.shown.credits;
+  ctx.donors = plan.shown.donors;
   const { spec } = ctx;
   const u = dims.w / W;
   const k = plan.k;
@@ -790,6 +909,27 @@ export function layoutElement(input: PosterInput, dims: { w: number; h: number }
     </div>
   );
   const ornamentRow = (label: ReactNode, side: ReactNode, sideFlip: ReactNode, gap = 14) => box({ alignItems: "center", justifyContent: "center", gap: px(gap) }, side, label, sideFlip);
+
+  /** The picture in its frame (arched window, rounded, circle) or as it is (free): `wpx` by `hpx` pixels. */
+  const heroNode = (img: PosterImage, shape: HeroShape, wpx: number, hpx: number, marginTop: number): ReactNode => {
+    if (shape === "free") {
+      return (
+        <div key="hero" style={{ display: "flex", marginTop: px(marginTop), flexShrink: 0 }}>
+          {image(img.dataUri, wpx, hpx)}
+        </div>
+      );
+    }
+    const radius = shape === "arch" ? { borderTopLeftRadius: wpx / 2, borderTopRightRadius: wpx / 2, borderBottomLeftRadius: px(28), borderBottomRightRadius: px(28) } : shape === "circle" ? { borderRadius: wpx / 2 } : { borderRadius: px(36) };
+    const edge = unit(5);
+    return (
+      <div key="hero" style={{ display: "flex", position: "relative", marginTop: px(marginTop), width: wpx, height: hpx, flexShrink: 0 }}>
+        {shape === "rounded" ? haloLayers({ rgb: "27,44,92", alpha: 0.18, radius: px(36), spread: px(16), dy: px(8) }) : null}
+        <div style={{ display: "flex", position: "relative", width: wpx, height: hpx, overflow: "hidden", border: `${edge}px solid ${pal.gold}`, backgroundColor: pal.paper, ...radius }}>
+          {image(img.dataUri, Math.max(1, wpx - 2 * edge), Math.max(1, hpx - 2 * edge), { objectFit: "cover" })}
+        </div>
+      </div>
+    );
+  };
 
   const draw: Record<BlockKey, () => ReactNode> = {
     greeting_top: () => {
@@ -889,7 +1029,7 @@ export function layoutElement(input: PosterInput, dims: { w: number; h: number }
         );
       }
       const bh = bannerHeight(tp);
-      const bw = CARD;
+      const bw = innerWidth(ctx, "title") ?? CARD;
       return (
         <div key="title" style={{ display: "flex", position: "relative", width: ux(bw), height: px(bh), marginTop: px(14), flexShrink: 0, alignItems: "center", justifyContent: "center" }}>
           {image(svgDataUri(bannerSvg({ w: bw, h: bh, light: mix(pal.accent, "#FFFFFF", 0.14), dark: mix(pal.accent, "#000000", 0.24), gold: pal.gold })), ux(bw), px(bh), { position: "absolute", left: 0, top: 0 })}
@@ -950,28 +1090,8 @@ export function layoutElement(input: PosterInput, dims: { w: number; h: number }
       );
     },
     hero: () => {
-      const shape = layout.hero.shape;
-      const img = input.assets.hero!;
-      const hl = heroLayout(shape, img);
-      const wpx = px(hl.w * plan.heroGrow);
-      const hpx = px(hl.h * plan.heroGrow);
-      if (shape === "free") {
-        return (
-          <div key="hero" style={{ display: "flex", marginTop: px(20), flexShrink: 0 }}>
-            {image(img.dataUri, wpx, hpx)}
-          </div>
-        );
-      }
-      const radius = shape === "arch" ? { borderTopLeftRadius: wpx / 2, borderTopRightRadius: wpx / 2, borderBottomLeftRadius: px(28), borderBottomRightRadius: px(28) } : shape === "circle" ? { borderRadius: wpx / 2 } : { borderRadius: px(36) };
-      const edge = unit(5);
-      return (
-        <div key="hero" style={{ display: "flex", position: "relative", marginTop: px(20), width: wpx, height: hpx, flexShrink: 0 }}>
-          {shape === "rounded" ? haloLayers({ rgb: "27,44,92", alpha: 0.18, radius: px(36), spread: px(16), dy: px(8) }) : null}
-          <div style={{ display: "flex", position: "relative", width: wpx, height: hpx, overflow: "hidden", border: `${edge}px solid ${pal.gold}`, backgroundColor: pal.paper, ...radius }}>
-            {image(img.dataUri, Math.max(1, wpx - 2 * edge), Math.max(1, hpx - 2 * edge), { objectFit: "cover" })}
-          </div>
-        </div>
-      );
+      const hl = heroLayout(layout.hero.shape, input.assets.hero ?? null);
+      return heroNode(input.assets.hero!, layout.hero.shape, px(hl.w * plan.heroGrow), px(hl.h * plan.heroGrow), 20);
     },
     host: () => {
       const hl = hostLayout(layout.host.label, layout.host.names, k);
@@ -1124,9 +1244,9 @@ export function layoutElement(input: PosterInput, dims: { w: number; h: number }
       <div key="agenda" style={{ display: "flex", flexDirection: "column", marginTop: px(14), width: ux(870), flexShrink: 0 }}>
         {poster.agenda.map((row, i) => (
           <div key={i} style={{ display: "flex", alignItems: "center", paddingTop: px(10), paddingBottom: px(10), borderBottom: i < poster.agenda.length - 1 ? `${unit(2)}px dashed ${pal.gold}` : `0px solid ${pal.paper}` }}>
-            {iconCircle(row.icon, 74)}
-            <div style={{ display: "flex", width: ux(262), marginLeft: px(24), fontWeight: 800, fontSize: px(29), color: pal.accent, flexShrink: 0, lineHeight: 1.2 }}>{row.time}</div>
-            <div style={{ display: "flex", flex: 1, marginLeft: px(14), fontWeight: 700, fontSize: px(28), lineHeight: 1.22, color: pal.ink }}>{row.text}</div>
+            {iconCircle(row.icon, 84)}
+            <div style={{ display: "flex", width: ux(280), marginLeft: px(24), fontWeight: 800, fontSize: px(33), color: pal.accent, flexShrink: 0, lineHeight: 1.2 }}>{row.time}</div>
+            <div style={{ display: "flex", flex: 1, marginLeft: px(14), fontWeight: 700, fontSize: px(31), lineHeight: 1.22, color: pal.ink }}>{row.text}</div>
           </div>
         ))}
       </div>
@@ -1151,7 +1271,7 @@ export function layoutElement(input: PosterInput, dims: { w: number; h: number }
       );
     },
     credits: () => {
-      const cl = creditsLayout(layout.credits, k);
+      const cl = creditsLayout(ctx.credits, k);
       const tints = creditTints(pal);
       return (
         <div key="credits" style={{ display: "flex", flexDirection: "column", marginTop: px(16), width: ux(CARD), gap: px(16), flexShrink: 0 }}>
@@ -1178,7 +1298,7 @@ export function layoutElement(input: PosterInput, dims: { w: number; h: number }
       );
     },
     donors: () => {
-      const dl = donorsLayout(layout.donors.heading, layout.donors.names, k);
+      const dl = donorsLayout(layout.donors.heading, ctx.donors, k);
       return (
         <div key="donors" style={{ display: "flex", flexDirection: "column", alignItems: "center", marginTop: px(18), width: ux(CARD), flexShrink: 0 }}>
           {layout.donors.heading ? (
@@ -1192,7 +1312,7 @@ export function layoutElement(input: PosterInput, dims: { w: number; h: number }
             CARD,
             cardFill(pal),
             28,
-            [<div key="in" style={{ ...center, position: "relative", fontFamily: fonts.display, fontWeight: 600, fontSize: px(dl.size), lineHeight: 1.3, color: pal.ink, maxWidth: ux(CARD - 120) }}>{layout.donors.names}</div>],
+            [<div key="in" style={{ ...center, position: "relative", fontFamily: fonts.display, fontWeight: 600, fontSize: px(dl.size), lineHeight: 1.3, color: pal.ink, maxWidth: ux(CARD - 120) }}>{ctx.donors}</div>],
             dl.panel,
           )}
         </div>
@@ -1277,22 +1397,55 @@ export function layoutElement(input: PosterInput, dims: { w: number; h: number }
     },
   };
 
-  // The arched window (a panel with a pointed arch on top) behind its blocks, from the arch's apex above the first to the foot under the last.
-  const winEl = (() => {
-    if (!plan.win) return null;
-    const pos = blockPositions(plan);
-    const first = pos.find((p) => p.key === plan.win!.first)!;
-    const last = pos.find((p) => p.key === plan.win!.last)!;
-    const top = first.y - WINDOW_RISE * k;
-    // The drawing keeps 14 units under the panel for its shadow.
-    const hUnits = last.y + last.h - top - WINDOW_EDGE * k + 14;
-    const wUnits = plan.win.width;
-    return image(svgDataUri(windowSvg({ w: wUnits, h: Math.max(200, hUnits / 1), rise: 300, fill: pal.paper, gold: pal.gold, shadow: pal.ink })), ux(wUnits), Math.max(1, Math.round(hUnits * u * 10) / 10), { position: "absolute", left: (w - ux(wUnits)) / 2, top: Math.round(top * u * 10) / 10 });
-  })();
+  /**
+   * A group of blocks in one container that grows with them. The arched window: an arch on top (the cap), the straight sides and foot
+   * under it, and the blocks inside, so its border can never cross its words and the block after it always starts below it. The side
+   * column: the header blocks in a column on the left and the picture beside them on the right.
+   */
+  const groupNode = (): ReactNode => {
+    const g = plan.group!;
+    const inner: ReactNode[] = [];
+    g.members.forEach((m, i) => {
+      if (i) inner.push(<div key={`gs-${m}`} style={{ display: "flex", height: px(groupStep(g.members[i - 1]!, m)), flexShrink: 0 }} />);
+      inner.push(draw[m]());
+    });
+    if (g.kind === "side") {
+      const hs = sideHeroLayout(layout.hero.shape, input.assets.hero ?? null);
+      return (
+        <div key="group" style={{ display: "flex", flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", width: ux(COL), height: px(plan.heights.group ?? 0), flexShrink: 0 }}>
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", width: ux(g.width), paddingTop: px(8) }}>{inner}</div>
+          {heroNode(input.assets.hero!, layout.hero.shape, px(hs.w), px(hs.h), 12)}
+        </div>
+      );
+    }
+    const wpx = ux(g.width);
+    const capH = px(WINDOW_CAP);
+    const edge = ux(5);
+    const line = ux(1.6);
+    return (
+      <div key="group" style={{ display: "flex", flexDirection: "column", alignItems: "center", position: "relative", width: wpx, paddingTop: px(WINDOW_TOP), paddingBottom: px(WINDOW_FOOT), flexShrink: 0 }}>
+        {image(svgDataUri(windowCapSvg({ w: g.width, h: WINDOW_CAP * k, fill: pal.paper, gold: pal.gold })), wpx, capH, { position: "absolute", left: 0, top: 0 })}
+        {box({ position: "absolute", left: 0, right: 0, top: capH - 1, bottom: 0, backgroundColor: pal.paper, borderLeft: `${edge}px solid ${pal.gold}`, borderRight: `${edge}px solid ${pal.gold}`, borderBottom: `${edge}px solid ${pal.gold}`, borderBottomLeftRadius: ux(26), borderBottomRightRadius: ux(26) })}
+        {box({ position: "absolute", left: ux(14) - line / 2, right: ux(14) - line / 2, top: capH - 1, bottom: ux(14) - line / 2, borderLeft: `${line}px solid ${pal.gold}`, borderRight: `${line}px solid ${pal.gold}`, borderBottom: `${line}px solid ${pal.gold}`, borderBottomLeftRadius: ux(14), borderBottomRightRadius: ux(14), opacity: 0.85 })}
+        {inner}
+      </div>
+    );
+  };
+  // The decoration over a drawn frame: the brand's colours washed over the page, corner clusters, ornament columns. An AI frame is already rich, and "none" means none.
+  const decor = spec.style.decor;
+  const decorEl =
+    poster.frame.source === "code" && (decor.wash > 0 || decor.corners || decor.columns)
+      ? image(
+          svgDataUri(decorSvg({ w: W, h: plan.H, family: layout.ornament, wash: decor.wash, corners: decor.corners, columns: decor.columns, pattern: decor.pattern, bottom: poster.scene.source === "none", colors: { paper: pal.paper, ink: pal.ink, primary: input.brand.primary, accent: pal.accent, gold: pal.gold } })),
+          w,
+          h,
+          { position: "absolute", left: 0, top: 0 },
+        )
+      : null;
   const sections: ReactNode[] = [];
   plan.blocks.forEach((key, i) => {
     if (i > 0) sections.push(<div key={`g-${key}`} style={{ display: "flex", height: tightBetween(plan.blocks[i - 1]!, key) ? gapPx * 0.3 : gapPx, flexShrink: 0 }} />);
-    sections.push(draw[key]());
+    sections.push(key === "group" ? groupNode() : draw[key]());
   });
   const column = (
     <div key="column" style={{ display: "flex", flexDirection: "column", alignItems: "center", flexGrow: 1, flexShrink: 0, paddingTop: ux(plan.top) }}>
@@ -1304,7 +1457,7 @@ export function layoutElement(input: PosterInput, dims: { w: number; h: number }
   return (
     <div style={{ width: w, height: h, display: "flex", flexDirection: "column", position: "relative", backgroundColor: pal.paper, fontFamily: fonts.body, color: pal.ink, wordBreak: "break-word" }}>
       {layers}
-      {winEl}
+      {decorEl}
       {column}
       {qr && spec.style.qr === "corner" ? qrCardElement({ qr, sceneScale: plan.sceneScale, u, pal, bottom: ux(18), scale: LAYOUT_QR_SCALE }) : null}
       {/* A small honest line when AI made some of the art; nothing when it was all drawn in code. */}

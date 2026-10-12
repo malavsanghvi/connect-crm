@@ -59,26 +59,25 @@ export function bannerSvg(o: { w: number; h: number; light: string; dark: string
 }
 
 /**
- * An arched window: a panel whose top is a pointed (ogee) arch, with a gold line round it, a second thinner one inside and a soft
- * shadow. `rise` is how far down the arch runs before its sides go straight. The words are set on `fill` (the paper).
+ * The top of an arched window: a pointed (ogee) arch `h` tall and `w` wide, filled with `fill`, edged in gold, with a second thin gold
+ * line inside it. Only the arch: the straight sides and the foot under it are drawn by the container, so the window grows with its words.
+ * Its sides end at the bottom edge, 2.5 in from each side (the centre of the container's 5-thick border).
  */
-export function windowSvg(o: { w: number; h: number; rise: number; fill: string; gold: string; shadow: string }): string {
+export function windowCapSvg(o: { w: number; h: number; fill: string; gold: string }): string {
   const { w, h } = o;
-  const r = Math.min(o.rise, h * 0.45);
-  const path = (inset: number, dy = 0) => {
+  const arch = (inset: number) => {
     const x0 = inset;
     const x1 = w - inset;
-    const top = inset + dy;
-    const bottom = h - 8 - inset + dy;
     const cx = w / 2;
-    // From the foot up the straight side to the shoulder, an ogee curve to the apex, and down the other side.
-    return `M${n(x0)} ${n(bottom)}V${n(top + r)}C${n(x0)} ${n(top + r * 0.55)} ${n(cx - (cx - x0) * 0.62)} ${n(top + r * 0.42)} ${n(cx - (cx - x0) * 0.26)} ${n(top + r * 0.2)}C${n(cx - 8)} ${n(top + r * 0.06)} ${n(cx)} ${n(top)} ${n(cx)} ${n(top)}C${n(cx)} ${n(top)} ${n(cx + 8)} ${n(top + r * 0.06)} ${n(cx + (cx - x0) * 0.26)} ${n(top + r * 0.2)}C${n(cx + (cx - x0) * 0.62)} ${n(top + r * 0.42)} ${n(x1)} ${n(top + r * 0.55)} ${n(x1)} ${n(top + r)}V${n(bottom)}Z`;
+    const top = inset;
+    const r = h - top;
+    return `M${n(x0)} ${n(h)}C${n(x0)} ${n(top + r * 0.55)} ${n(cx - (cx - x0) * 0.62)} ${n(top + r * 0.42)} ${n(cx - (cx - x0) * 0.26)} ${n(top + r * 0.2)}C${n(cx - 8)} ${n(top + r * 0.06)} ${n(cx)} ${n(top)} ${n(cx)} ${n(top)}C${n(cx)} ${n(top)} ${n(cx + 8)} ${n(top + r * 0.06)} ${n(cx + (cx - x0) * 0.26)} ${n(top + r * 0.2)}C${n(cx + (cx - x0) * 0.62)} ${n(top + r * 0.42)} ${n(x1)} ${n(top + r * 0.55)} ${n(x1)} ${n(h)}`;
   };
   return doc(
     w,
     h,
-    `<path d="${path(6, 6)}" fill="${o.shadow}" fill-opacity="0.12"/>` +
-      `<path d="${path(6)}" fill="${o.fill}" stroke="${o.gold}" stroke-width="5"/>` +
-      `<path d="${path(18)}" fill="none" stroke="${o.gold}" stroke-width="1.6" stroke-opacity="0.85"/>`,
+    `<path d="${arch(2.5)}V${n(h + 1)}H2.5Z" fill="${o.fill}"/>` +
+      `<path d="${arch(2.5)}" fill="none" stroke="${o.gold}" stroke-width="5"/>` +
+      `<path d="${arch(14)}" fill="none" stroke="${o.gold}" stroke-width="1.6" stroke-opacity="0.85"/>`,
   );
 }

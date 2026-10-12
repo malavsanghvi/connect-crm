@@ -1,121 +1,19 @@
 import { describe, expect, it } from "vitest";
 
-import { FLYER_SIZES, FLYER_SIZE_KEYS, defaultPoster, type FlyerDesign, type FlyerSize, type PosterContent } from "@/lib/events/flyer";
+import { FLYER_SIZES, FLYER_SIZE_KEYS, type FlyerDesign } from "@/lib/events/flyer";
 import { FLYER_OCCASIONS } from "@/lib/events/flyer-art";
 import { artPack } from "@/lib/events/flyer-art-packs";
-import { readFlyerBrand } from "@/lib/events/flyer-brand";
 import { BUNDLED_SCRIPT, BUNDLED_SCRIPT_FILE, flyerFontPath, getFlyerFonts } from "@/lib/events/flyer-fonts";
-import { LAYOUT_PRESETS, LAYOUT_PRESET_KEYS, defaultLayout, greetingFor, withLayoutPreset, type LayoutPreset, type PosterLayout } from "@/lib/events/flyer-layout";
-import { LAYOUT_SCALES, blockPositions, breakWords, creditTints, layoutColors, layoutNotes, planLayout, splitDate, splitDetail, stackBottom, titlePlan } from "@/lib/events/flyer-layout-render";
+import { LAYOUT_PRESETS, defaultLayout, greetingFor, type PosterLayout } from "@/lib/events/flyer-layout";
+import { LAYOUT_SCALES, blockPositions, breakWords, creditTints, layoutColors, layoutNotes, planLayout, shortenNames, splitDate, splitDetail, stackBottom, titlePlan } from "@/lib/events/flyer-layout-render";
 import { flyerDims, flyerText, isPng, renderFlyerPng, type FlyerRenderInput } from "@/lib/events/flyer-render";
 import { contrastRatio } from "@/lib/setup";
+import { flyerTextLength as flyerLen } from "@/lib/events/flyer-text";
 import { readFile } from "node:fs/promises";
 
-const brand = readFlyerBrand(null, undefined);
-const svgUri = (svg: string) => `data:image/svg+xml;base64,${Buffer.from(svg).toString("base64")}`;
-const logo = { dataUri: svgUri('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 60" width="200" height="60"><rect width="200" height="60" rx="8" fill="#7A2E1F"/></svg>'), w: 200, h: 60 };
-const PRESETS: readonly LayoutPreset[] = LAYOUT_PRESET_KEYS;
-/** A picture standing in for an album photo (a drawn landscape). */
-const heroPic = {
-  dataUri: svgUri('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 750" width="1000" height="750"><rect width="1000" height="750" fill="#F6C27A"/><circle cx="500" cy="440" r="140" fill="#F4B942"/><path d="M0 560Q300 480 600 560T1000 540V750H0Z" fill="#1F3A5F"/></svg>'),
-  w: 1000,
-  h: 750,
-};
-const PHOTO = "33333333-3333-4333-8333-333333333333";
+import { decodePng } from "./flyer-png-helper";
+import { PHOTO, PRESETS, brand, build, dimsOf, heroPic, logo, planOf, svgUri } from "./flyer-layout-fixtures";
 
-type Content = "bare" | "typical" | "longest";
-
-const long = (s: string, n: number) => `${s} ${"and more words ".repeat(40)}`.slice(0, n).trimEnd();
-
-/** A layout poster at one of three amounts of content: only a headline, an ordinary flyer, or every field at its limit. */
-function build(preset: LayoutPreset, content: Content, over: { size?: FlyerSize; qr?: boolean; scene?: boolean; occasion?: PosterContent["occasion"]; headline?: string } = {}): FlyerDesign {
-  const headline = over.headline ?? (content === "longest" ? long("Annual Neighbourhood Supper and Community Celebration of the Whole Street", 90) : content === "bare" ? "Supper" : "Community Supper");
-  const base = defaultPoster({ name: headline, description: null, startsAt: null, endsAt: null, tz: "UTC" });
-  let poster: PosterContent = { ...base, occasion: over.occasion ?? "general", partner: { on: content !== "bare", label: "", sub: "", logo_path: null } };
-  poster = withLayoutPreset(poster, preset, { headline, greeting: content === "bare" ? "" : "Welcome" });
-  if (content === "typical") {
-    poster = {
-      ...poster,
-      subhead: "October 2026",
-      slogan: "Come hungry, bring a friend",
-      ribbon: { on: true, date: "Sunday, October 18, 2026", time: "12:30–3:00 PM" },
-      layout: {
-        ...poster.layout!,
-        eyebrow: "Monthly",
-        host: { label: "Hosted by", names: "The Okafor & Alvarez Families" },
-        note: { icon: "food", text: "Please bring a dish to share and stay to help clear the tables afterwards." },
-        cta: "Would your family like to host a future supper?",
-        contacts: [
-          { name: "Dana Whitfield", detail: "555-0142" },
-          { name: "Marcus Ellery", detail: "marcus@example.org" },
-        ],
-      },
-    };
-  }
-  if (content === "typical" && preset === "thank_you") {
-    poster = {
-      ...poster,
-      layout: {
-        ...poster.layout!,
-        hero: { photo_id: PHOTO, shape: "rounded" },
-        credits: [
-          { heading: "Welcome Team", names: "Dana Whitfield, Marcus Ellery, Priya Raman", icon: "people" },
-          { heading: "Music Team", names: "Jonas Berg, Mira Cole and the choir", icon: "music" },
-          { heading: "Hospitality", names: "Sam Ito, Hana Park", icon: "food" },
-        ],
-        donors: { heading: "Our generous donors", names: "Ava Lindqvist, the Okafor Family, Harbor Bakery" },
-        closing: "Thank you to every family for your time and your kindness this year.",
-      },
-    };
-  }
-  if (content === "typical" && preset === "ceremony") poster = { ...poster, layout: { ...poster.layout!, hero: { photo_id: PHOTO, shape: "arch" } } };
-  if (content === "longest") {
-    poster = {
-      ...poster,
-      subhead: long("Our thirtieth year", 48),
-      slogan: long("Come hungry and bring someone new", 60),
-      stat: { on: true, icon: "people", label: long("MORE THAN", 24), value: "1,250", caption: long("PEOPLE HAVE ALREADY SAID YES", 80) },
-      ribbon: { on: true, date: long("Thursday, September 10 – Thursday, September 17, 2026", 44), time: long("6:00 PM–9:30 PM each evening", 36) },
-      agenda: [1, 2, 3, 4, 5].map((n) => ({ icon: "clock" as const, time: long(`${n}:00 PM`, 22), text: long("Doors open and everyone is welcome to come in", 80) })),
-      paragraph: long("Connect with your neighbours. Meet the people who live on your street.", 320),
-      footer: long("The organising team", 60),
-      layout: {
-        ...poster.layout!,
-        accent: "Celebration",
-        eyebrow: long("Our annual", 28),
-        greeting: { top: long("Welcome, friends", 32), bottom: long("See you at the table", 32) },
-        host: { label: long("Sponsored by", 24), names: long("The Okafor, Alvarez, Whitfield and Ellery Families", 90) },
-        note: { icon: "leaf", text: long("Please bring a dish to share and stay to help clear the tables", 160) },
-        cta: long("Would your family like to host a future supper?", 90),
-        contacts_label: long("Please contact", 32),
-        contacts: [1, 2, 3].map((n) => ({ name: long(`Dana Whitfield ${n}`, 32), detail: long("dana.whitfield@neighbourhoodsupper.example", 40) })),
-        hero: { photo_id: PHOTO, shape: (["arch", "rounded", "circle", "free"] as const)[poster.layout!.preset.length % 4]! },
-        credits: [1, 2, 3, 4, 5, 6].map((n) => ({ heading: long(`Welcome and hospitality team ${n}`, 36), names: long("Dana Whitfield, Marcus Ellery, Priya Raman, Tom Eastley and Lena Okafor", 220), icon: "people" as const })),
-        donors: { heading: long("Our generous donors", 36), names: long("Ava Lindqvist, the Okafor Family, Brightwater Credit Union, Harbor Bakery", 300) },
-        closing: long("Most importantly: thank you to every family for your time", 220),
-      },
-    };
-  }
-  return {
-    v: 1,
-    template: "poster",
-    size: over.size ?? "tall",
-    headline,
-    tagline: "",
-    date_line: "",
-    venue_line: content === "bare" ? "" : content === "longest" ? long("Fellowship Hall of the Greater Riverside Community Centre, 120 Maple Street", 120) : "Fellowship Hall, 120 Maple Street",
-    show_qr: over.qr ?? false,
-    background: { source: "plain" },
-    poster: over.scene === false ? { ...poster, scene: { source: "none" } } : poster,
-  };
-}
-
-const dimsOf = (size: FlyerSize) => flyerDims(size, "full");
-const planOf = (d: FlyerDesign, size: FlyerSize = d.size) => {
-  const poster = d.poster!;
-  const input = { design: d, poster, logo, assets: { frame: null, scene: null, partnerLogo: null, hero: poster.layout?.hero.photo_id ? heroPic : null }, centerName: "Maple Street Neighbours" };
-  return planLayout(input, dimsOf(size), artPack(poster.occasion, brand), {});
-};
 
 describe("breakWords", () => {
   it("makes the fewest lines, then moves the breaks so they are even", () => {
@@ -192,7 +90,8 @@ describe("planLayout: everything fits, at every size, with little, ordinary and 
           it(`${preset} · ${size} · ${content}${qr ? " · RSVP code" : ""}`, () => {
             const d = build(preset, content, { size, qr });
             const plan = planOf(d);
-            expect(plan.blocks).toContain("title");
+            // The title is in the stack, or in the window / side column that holds it.
+            expect([...plan.blocks, ...(plan.group?.members ?? [])]).toContain("title");
             expect(plan.k).toBeGreaterThanOrEqual(LAYOUT_SCALES.floor);
             expect(plan.k).toBeLessThanOrEqual(LAYOUT_SCALES.max);
             // Only the blocks the preset says may be left out go, and the title and the logos never.
@@ -200,11 +99,16 @@ describe("planLayout: everything fits, at every size, with little, ordinary and 
             for (const b of plan.dropped) {
               expect(spec.dropOrder).toContain(b);
               expect(plan.blocks).not.toContain(b);
+              expect(plan.group?.members ?? []).not.toContain(b);
             }
             // The stack ends above the scene (unless nothing more could be done: the scale is at its floor).
             if (plan.k > LAYOUT_SCALES.floor + 0.001) expect(stackBottom(plan)).toBeLessThanOrEqual(plan.H - plan.reserve + 1);
             // And it starts below the top edge.
             expect(plan.top).toBeGreaterThanOrEqual(0);
+            // No block's box overlaps another's: each entry (a block, or the window or side column as one) starts where the one before it ends.
+            const pos = blockPositions(plan);
+            for (let i = 1; i < pos.length; i++) expect(pos[i]!.y, `${pos[i]!.key} starts above the end of ${pos[i - 1]!.key}`).toBeGreaterThanOrEqual(pos[i - 1]!.y + pos[i - 1]!.h - 0.01);
+            for (const p of pos) expect(p.h, `${p.key} has a height`).toBeGreaterThan(0);
           });
         }
       }
@@ -223,9 +127,12 @@ describe("planLayout: everything fits, at every size, with little, ordinary and 
   it("sets typical content at full size or larger on Tall, without leaving anything out", () => {
     for (const preset of PRESETS) {
       const plan = planOf(build(preset, "typical", { size: "tall", scene: preset === "notice" ? false : true }));
-      // Only what the preset itself says goes first may go: the thank-you has no use for the host card the ordinary content carries.
-      expect(plan.dropped.filter((b) => b !== "host")).toEqual([]);
-      expect(plan.k).toBeGreaterThanOrEqual(0.6);
+      // Only what the preset itself says goes first may go: the thank-you has no use for the host card the ordinary content carries, and it
+      // keeps its cards, donors and closing message at a readable size by leaving out the date, note and contacts the ordinary content also carries.
+      const allowed = preset === "thank_you" ? ["host", "when", "note", "contacts"] : ["host"];
+      expect(plan.dropped.filter((b) => !allowed.includes(b))).toEqual([]);
+      if (preset === "thank_you") for (const b of ["credits", "donors", "closing"] as const) expect(plan.blocks).toContain(b);
+      expect(plan.k).toBeGreaterThanOrEqual(preset === "thank_you" ? 0.8 : 0.6);
     }
   });
 
@@ -238,21 +145,46 @@ describe("planLayout: everything fits, at every size, with little, ordinary and 
     expect(layoutNotes({ design: fine, poster: fine.poster!, brand, logo, assets: { frame: null, scene: null, partnerLogo: null }, centerName: "x" }, dimsOf("tall"))).toEqual([]);
   });
 
-  it("keeps the arched window around its blocks, with the arch below the top edge and the picture growing only into room that is left", () => {
-    const d = build("ceremony", "typical", { size: "tall" });
-    const plan = planOf(d);
-    expect(plan.win).toMatchObject({ first: "logos", last: "tagline", width: LAYOUT_PRESETS.ceremony.style.window!.width });
-    const pos = blockPositions(plan);
-    const first = pos.find((p) => p.key === plan.win!.first)!;
-    const last = pos.find((p) => p.key === plan.win!.last)!;
-    // The arch rises 96 units (scaled) above the first block and must stay inside the flyer; the blocks inside run top to bottom.
-    expect(first.y - 96 * plan.k).toBeGreaterThanOrEqual(0);
-    expect(last.y).toBeGreaterThan(first.y);
-    expect(plan.heroGrow).toBeGreaterThanOrEqual(1);
-    expect(plan.heroGrow).toBeLessThanOrEqual(1.5);
-    expect(stackBottom(plan)).toBeLessThanOrEqual(plan.H - plan.reserve + 1);
+  it("keeps the arched window as one container: one entry in the stack, its blocks inside it, and the block after it below it", () => {
+    for (const size of ["post", "tall", "story", "square"] as const) {
+      const d = build("ceremony", "typical", { size });
+      const plan = planOf(d);
+      expect(plan.group).toMatchObject({ kind: "window", width: LAYOUT_PRESETS.ceremony.style.window!.width });
+      expect(plan.group!.members).toContain("title");
+      for (const m of plan.group!.members) {
+        expect(LAYOUT_PRESETS.ceremony.style.window!.blocks).toContain(m);
+        // A block inside the window is not also in the stack.
+        expect(plan.blocks).not.toContain(m);
+      }
+      const at = plan.blocks.indexOf("group");
+      expect(at).toBeGreaterThanOrEqual(0);
+      // The group's height holds its blocks, the arch's air above them and the foot under them.
+      expect(plan.heights.group!).toBeGreaterThan(300);
+      const pos = blockPositions(plan);
+      const win = pos[at]!;
+      const next = pos[at + 1]!;
+      // The date (the entry after the window) starts below the window's bottom edge, with air between them.
+      expect(next.y).toBeGreaterThanOrEqual(win.y + win.h);
+      expect(win.y).toBeGreaterThanOrEqual(0);
+      expect(plan.heroGrow).toBeGreaterThanOrEqual(0.6);
+      expect(plan.heroGrow).toBeLessThanOrEqual(1.5);
+      expect(stackBottom(plan)).toBeLessThanOrEqual(plan.H - plan.reserve + 1);
+    }
     // Without a window in the preset there is none.
-    expect(planOf(build("notice", "typical", { size: "tall" })).win).toBeNull();
+    expect(planOf(build("notice", "typical", { size: "tall" })).group).toBeNull();
+  });
+
+  it("puts a notice's header blocks in a side column when it has a picture, and the picture beside them (not in the flow)", () => {
+    const d = build("notice", "typical", { size: "tall" });
+    d.poster = { ...d.poster!, layout: { ...d.poster!.layout!, hero: { photo_id: PHOTO, shape: "arch" } } };
+    const plan = planOf(d);
+    expect(plan.group).toMatchObject({ kind: "side", width: LAYOUT_PRESETS.notice.style.side!.width });
+    expect(plan.group!.members).toContain("title");
+    expect(plan.blocks).not.toContain("hero");
+    // The column is at least as tall as the picture, so the card under it never overlaps it.
+    expect(plan.heights.group!).toBeGreaterThanOrEqual(430);
+    // Without a picture there is no side column.
+    expect(planOf(build("notice", "typical", { size: "tall" })).group).toBeNull();
   });
 
   it("leaves the picture out of the plan when the renderer does not have it (a photo that could not be loaded)", () => {
@@ -263,11 +195,24 @@ describe("planLayout: everything fits, at every size, with little, ordinary and 
     expect(planOf(d).blocks).toContain("hero");
   });
 
-  it("sets the thank-you cards two to a row, an odd last card across the whole row", () => {
-    const d = build("thank_you", "longest", { size: "story" });
+  it("shortens the thank-you cards' and donors' names to \"and N more\" before it leaves a block out, and says so", () => {
+    const d = build("thank_you", "longest", { size: "square" });
+    const poster = d.poster!;
     const plan = planOf(d);
-    expect(plan.blocks).toContain("credits");
-    expect(plan.heights.credits).toBeGreaterThan(0);
+    expect(plan.shown.level).toBeGreaterThan(0);
+    // Each shortened card ends in "and N more" and the first names are kept.
+    const first = plan.shown.credits[0]!.names;
+    expect(first).toMatch(/ and \d+ more$/);
+    expect(poster.layout!.credits[0]!.names.startsWith(first.split(" and ")[0]!)).toBe(true);
+    const notes = layoutNotes({ design: d, poster, brand, logo, assets: { frame: null, scene: null, partnerLogo: null, hero: heroPic }, centerName: "x" }, dimsOf("square"));
+    expect(notes.join(" ")).toMatch(/some thank-you or donor names are shown as/);
+    // On a Story the same words fit, so nothing is shortened and nothing of the cards is left out.
+    const roomy = planOf(build("thank_you", "typical", { size: "story" }));
+    expect(roomy.shown.level).toBe(0);
+    expect(roomy.blocks).toContain("credits");
+    // The thank-you keeps its words readable: at least 80% of the usual size, unless nothing more could be done.
+    expect(plan.k).toBeGreaterThanOrEqual(0.4);
+    expect(roomy.k).toBeGreaterThanOrEqual(0.8);
   });
 
   it("gives a call to action beside contacts no room of its own (it is the contacts card's heading)", () => {
@@ -385,6 +330,71 @@ describe("renderFlyerPng draws every layout at every size", () => {
     }
   }
 
+  it("draws the arched window's bottom edge below its last words with clear space, at every size and amount of content (the picture itself, not the plan)", async () => {
+    // No frame, no bottom scene and no code: nothing is drawn but the blocks. The window's bottom edge is found in the picture (the lowest row, inside the
+    // window's span, that is a line across the whole window); the foot above it and the row of the edge itself hold nothing dark. The old defect was that
+    // edge running through the tagline and the date.
+    let looked = 0;
+    for (const size of FLYER_SIZE_KEYS) {
+      for (const content of ["bare", "typical", "longest"] as const) {
+        const d = build("ceremony", content, { size, qr: false });
+        d.poster = { ...d.poster!, frame: { source: "none" }, scene: { source: "none" } };
+        const dims = flyerDims(size, "preview");
+        const r = await renderFlyerPng(input(d), "preview");
+        const { w, h, px } = decodePng(r.png);
+        expect([w, h]).toEqual([dims.w, dims.h]);
+        const plan = planLayout({ design: d, poster: d.poster, logo, assets: { frame: null, scene: null, partnerLogo: null, hero: d.poster.layout?.hero.photo_id ? heroPic : null }, centerName: "Maple Street Neighbours" }, dims, artPack(d.poster.occasion, brand), {});
+        const u = dims.w / 1080;
+        const win = blockPositions(plan).find((p) => p.key === "group")!;
+        const left = Math.round(((1080 - plan.group!.width) / 2 + 70) * u);
+        const right = Math.round(((1080 + plan.group!.width) / 2 - 70) * u);
+        const rgb = (x: number, y: number) => [px[(y * w + x) * 4]!, px[(y * w + x) * 4 + 1]!, px[(y * w + x) * 4 + 2]!] as const;
+        const paper = rgb(2, 2);
+        const isPaper = (x: number, y: number) => {
+          const p = rgb(x, y);
+          return Math.abs(p[0] - paper[0]) + Math.abs(p[1] - paper[1]) + Math.abs(p[2] - paper[2]) < 30;
+        };
+        const dark = (x: number, y: number) => {
+          const p = rgb(x, y);
+          return 0.299 * p[0] + 0.587 * p[1] + 0.114 * p[2] < 120;
+        };
+        // The edge: the lowest row of the window's span in which nearly every pixel is a line (not the paper), and not dark (the border is gold).
+        let edge = -1;
+        for (let y = Math.max(0, Math.floor(win.y * u)); y < Math.min(h, Math.ceil((win.y + win.h) * u)); y++) {
+          let line = 0;
+          for (let x = left; x < right; x++) if (!isPaper(x, y) && !dark(x, y)) line++;
+          if (line >= 0.95 * (right - left)) edge = y;
+        }
+        expect(edge, `${size} · ${content}: the window's bottom edge is in the picture`).toBeGreaterThan(0);
+        // The foot: from 44 to 18 units (at this scale) above the edge, and the rows of the edge itself.
+        for (const [from, to] of [[edge - 44 * plan.k * u, edge - 18 * plan.k * u], [edge - 2, edge + 2]] as const) {
+          for (let y = Math.max(0, Math.ceil(from)); y < Math.min(h, Math.floor(to)); y++) {
+            looked++;
+            for (let x = left; x < right; x++) expect(dark(x, y), `${size} · ${content}: dark pixel at (${x}, ${y}) in the window's foot (its bottom edge is at ${edge})`).toBe(false);
+          }
+        }
+      }
+    }
+    expect(looked).toBeGreaterThan(100);
+  }, 120_000);
+
+  it("draws every layout over an AI-made frame and bottom scene too (a drawn picture stands in for the generated one here), with the AI credit line and no drawn decoration over it", async () => {
+    for (const preset of PRESETS) {
+      const d = build(preset, "typical", { size: "tall", qr: true });
+      const pack = artPack(d.poster!.occasion, brand);
+      d.poster = { ...d.poster!, frame: { source: "ai", path: "x/frame.png" }, scene: { source: "ai", path: "x/scene.png" } };
+      const frame = { dataUri: svgUri(pack.frame(1080, 1620)), w: 1080, h: 1620 };
+      const scene = { dataUri: svgUri(pack.scene.draw(1080, pack.scene.height)), w: 1080, h: pack.scene.height };
+      const withAi = await renderFlyerPng(input(d, { posterAssets: { frame, scene, partnerLogo: null, hero: d.poster.layout?.hero.photo_id ? heroPic : null } }), "preview");
+      expect(isPng(withAi.png), preset).toBe(true);
+      expect(withAi.dims).toEqual(flyerDims("tall", "preview"));
+      // The same words with the drawn art draw a different picture (the decoration is drawn only over drawn art).
+      const drawn = build(preset, "typical", { size: "tall", qr: true });
+      const plain = await renderFlyerPng(input(drawn), "preview");
+      expect(Buffer.from(plain.png).equals(Buffer.from(withAi.png)), preset).toBe(false);
+    }
+  }, 120_000);
+
   it("says nothing about a flyer that fits, and the square size is square", async () => {
     const r = await renderFlyerPng(input(build("notice", "typical", { size: "tall", scene: false, qr: false })), "preview");
     expect(r.notes).toEqual([]);
@@ -413,6 +423,26 @@ describe("renderFlyerPng draws every layout at every size", () => {
     const greeting = greetingFor({ kind: { key: "jain_center" } });
     const l: PosterLayout = defaultLayout("notice", { headline: "Snatra Puja", greeting });
     expect(l.greeting.top).toBe(greeting);
+  });
+});
+
+describe("shortenNames", () => {
+  it("keeps the names that fit, then says how many more", () => {
+    const list = "Dana Whitfield, Marcus Ellery, Priya Raman, Tom Eastley and Lena Okafor";
+    expect(shortenNames(list, 200)).toBe(list);
+    expect(shortenNames(list, 39)).toBe("Dana Whitfield and 4 more");
+    expect(shortenNames(list, 45)).toBe("Dana Whitfield, Marcus Ellery and 3 more");
+    expect(shortenNames(list, 60)).toBe("Dana Whitfield, Marcus Ellery, Priya Raman and 2 more");
+    expect(shortenNames("Ruth Aman and the Saturday crew", 18).endsWith("more")).toBe(true);
+  });
+  it("cuts one long name with no list at a word", () => {
+    const one = shortenNames("The Okafor Alvarez Whitfield Ellery Family Foundation Trust", 30);
+    expect(one.endsWith("…")).toBe(true);
+    expect(flyerLen(one)).toBeLessThanOrEqual(30);
+  });
+  it("never returns an empty list and never loses the first name", () => {
+    for (const max of [1, 5, 12, 30]) expect(shortenNames("Aarav Shah, Mia Brown, Sam Ito", max).length).toBeGreaterThan(0);
+    expect(shortenNames("Aarav Shah, Mia Brown, Sam Ito", 12).startsWith("Aarav Shah")).toBe(true);
   });
 });
 

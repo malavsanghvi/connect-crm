@@ -7,6 +7,7 @@ import {
   BLOCK_LABEL,
   CREDIT_GROUPS_MAX,
   FLYER_GREETINGS,
+  FLYER_ORNAMENTS,
   HERO_SHAPES,
   LAYOUT_BLOCKS,
   LAYOUT_CONTACTS_MAX,
@@ -21,6 +22,7 @@ import {
   layoutNames,
   layoutPeople,
   layoutText,
+  ornamentFor,
   originalThumbnailSvg,
   parseLayout,
   presentBlocks,
@@ -127,6 +129,42 @@ describe("the greeting comes from data by tradition", () => {
   });
 });
 
+describe("the corner decoration comes from data by tradition", () => {
+  it("is leaves for everyone, and what a tradition's row says for the traditions that have one", () => {
+    expect(ornamentFor(null)).toBe("leaf");
+    expect(ornamentFor(undefined)).toBe("leaf");
+    expect(ornamentFor(church)).toBe("leaf");
+    expect(ornamentFor(chamber)).toBe("leaf");
+    expect(ornamentFor({ kind: { key: "club" } })).toBe("leaf");
+    expect(ornamentFor(jainCentre)).toBe(FLYER_ORNAMENTS.jain);
+    expect(ornamentFor({ kind: { key: "temple" }, tradition: "sthanakvasi" })).toBe(FLYER_ORNAMENTS.jain);
+  });
+
+  it("has a row only for a tradition the flyer art knows", () => {
+    for (const key of Object.keys(FLYER_ORNAMENTS)) expect(FLYER_TRADITIONS as readonly string[]).toContain(key);
+  });
+
+  it("starts a new layout with the community's decoration, and the organizer's choice survives a change of layout", () => {
+    expect(defaultLayout("notice", { headline: "x", ornament: "lotus" }).ornament).toBe("lotus");
+    expect(defaultLayout("notice", { headline: "x" }).ornament).toBe("leaf");
+    expect(defaultLayout("notice", { headline: "x", ornament: "rainbow" }).ornament).toBe("leaf");
+    const lotus = withLayoutPreset(base(), "notice", { headline: "x", ornament: "lotus" });
+    const next = withLayoutPreset(lotus, "ceremony", { headline: "x" });
+    expect(next.layout!.ornament).toBe("lotus");
+  });
+
+  it("turns on a decor for each preset as data, with the wash a fraction", () => {
+    for (const spec of Object.values(LAYOUT_PRESETS)) {
+      expect(spec.style.decor.wash).toBeGreaterThanOrEqual(0);
+      expect(spec.style.decor.wash).toBeLessThanOrEqual(1);
+      expect(spec.style.minScale).toBeGreaterThan(0.3);
+      expect(spec.style.minScale).toBeLessThanOrEqual(1);
+    }
+    expect(LAYOUT_PRESETS.ceremony.style.decor.columns).toBe(true);
+    expect(LAYOUT_PRESETS.thank_you.style.minScale).toBeGreaterThanOrEqual(0.8);
+  });
+});
+
 describe("parseLayout", () => {
   it("accepts a layout and cleans every line", () => {
     const r = parseLayout({
@@ -174,8 +212,15 @@ describe("parseLayout", () => {
         credits: [],
         donors: { heading: "", names: "" },
         closing: "",
+        ornament: "leaf",
       },
     });
+  });
+
+  it("reads the corner decoration, and a family it does not know is leaves (a newer version may add one)", () => {
+    expect(parseLayout({ preset: "notice", ornament: "lotus" })).toMatchObject({ ok: true, layout: { ornament: "lotus" } });
+    expect(parseLayout({ preset: "notice", ornament: "none" })).toMatchObject({ ok: true, layout: { ornament: "none" } });
+    expect(parseLayout({ preset: "notice", ornament: "dragon" })).toMatchObject({ ok: true, layout: { ornament: "leaf" } });
   });
 
   it("says in plain words what is wrong", () => {

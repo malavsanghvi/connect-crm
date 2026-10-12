@@ -16,6 +16,7 @@
 import type { FlyerCommunity, FlyerSize, PosterContent } from "./flyer";
 import { cleanLine, flyerTextLength } from "./flyer-text";
 import { flyerTraditionFor } from "./flyer-occasions";
+import { isOrnamentFamily, type OrnamentFamily } from "./flyer-decor";
 import { isPosterIcon, type PosterIcon } from "./flyer-icons";
 
 // ── Blocks ───────────────────────────────────────────────────────────────────
@@ -132,6 +133,8 @@ export type PosterLayout = {
   donors: { heading: string; names: string };
   /** For a thank-you: a closing message. */
   closing: string;
+  /** The corner decoration (leaves, blossoms, a lotus) drawn over a drawn frame; "none" leaves the frame as it is. */
+  ornament: OrnamentFamily;
 };
 
 export const LAYOUT_CONTACTS_MAX = 3;
@@ -188,6 +191,18 @@ export const FLYER_GREETINGS: Readonly<Record<string, string>> = Object.freeze({
   jewish: "Shalom",
 });
 
+/**
+ * The corner decoration a community starts with, from its tradition: leaves for everyone, and the lotus for the traditions that use
+ * it. DATA, keyed by the tradition, so a new tradition is a new row; the organizer can change it or turn it off.
+ */
+export const FLYER_ORNAMENTS: Readonly<Record<string, OrnamentFamily>> = Object.freeze({ jain: "lotus", hindu: "lotus", buddhist: "lotus" });
+
+export function ornamentFor(community: FlyerCommunity | null | undefined): OrnamentFamily {
+  if (!community) return "leaf";
+  const tradition = flyerTraditionFor(community.kind, community.tradition);
+  return (tradition && FLYER_ORNAMENTS[tradition]) || "leaf";
+}
+
 /** The greeting for a community's tradition, or "" (none). */
 export function greetingFor(community: FlyerCommunity | null | undefined): string {
   if (!community) return "";
@@ -216,6 +231,12 @@ export type LayoutStyle = {
   when: "cells" | "plain" | "rules" | "band";
   /** The blocks drawn inside an arched window (a panel with a pointed arch on top) and how wide it is, or none. */
   window: { blocks: readonly BlockKey[]; width: number } | null;
+  /** The header blocks that sit in a narrower column beside the picture when it is a side picture (top right), and how wide the column is. */
+  side: { blocks: readonly BlockKey[]; width: number } | null;
+  /** What is drawn over the frame: how strongly the brand's colours wash the page, corner clusters, ornament columns down the sides. */
+  decor: { wash: number; corners: boolean; columns: boolean; pattern: boolean };
+  /** The smallest scale the words are set at before something is left out (the thank-you keeps its cards readable). */
+  minScale: number;
   /** The RSVP code: a block of its own in the flow (centred), or a small card in the bottom-left corner over the art. */
   qr: "block" | "corner";
 };
@@ -262,7 +283,7 @@ export const LAYOUT_PRESETS: Readonly<Record<LayoutPreset, PresetSpec>> = {
     suits: "tall",
     order: ["greeting_top", "logos", "eyebrow", "title", "subhead", "tagline", "hero", "host", "stat", "when", "agenda", "note", "paragraph", "credits", "donors", "closing", "cta", "contacts", "qr", "footer", "greeting_bottom"],
     dropOrder: ["footer", "paragraph", "closing", "donors", "credits", "hero", "greeting_top", "agenda", "note", "tagline", "subhead", "eyebrow", "stat", "greeting_bottom"],
-    style: { title: { set: "banner", face: "display", caps: false, max: 104, accent: "colour" }, subhead: "serif", tagline: "line", when: "cells", window: null, qr: "block" },
+    style: { title: { set: "banner", face: "display", caps: false, max: 104, accent: "colour" }, subhead: "serif", tagline: "line", when: "cells", window: null, side: { blocks: ["greeting_top", "logos", "eyebrow", "title", "subhead", "tagline"], width: 590 }, decor: { wash: 0.55, corners: true, columns: false, pattern: true }, minScale: 0.62, qr: "block" },
     scene: "none",
     seed: { greeting: "both", accent: true, subhead: "", host_label: "Hosted by", contacts_label: "Please contact", note_icon: "leaf", hero_shape: "rounded", donors_heading: "Our generous donors", when: true },
   },
@@ -274,7 +295,7 @@ export const LAYOUT_PRESETS: Readonly<Record<LayoutPreset, PresetSpec>> = {
     suits: "square",
     order: ["greeting_top", "logos", "eyebrow", "title", "subhead", "tagline", "hero", "when", "host", "stat", "agenda", "note", "paragraph", "credits", "donors", "closing", "cta", "contacts", "footer", "greeting_bottom"],
     dropOrder: ["footer", "paragraph", "closing", "donors", "credits", "hero", "greeting_top", "contacts", "agenda", "note", "host", "stat", "eyebrow", "greeting_bottom", "tagline"],
-    style: { title: { set: "plain", face: "sans", caps: true, max: 176, accent: "colour" }, subhead: "script", tagline: "pill", when: "plain", window: null, qr: "corner" },
+    style: { title: { set: "plain", face: "sans", caps: true, max: 176, accent: "colour" }, subhead: "script", tagline: "pill", when: "plain", window: null, side: null, decor: { wash: 0.38, corners: false, columns: false, pattern: false }, minScale: 0.58, qr: "corner" },
     scene: "code",
     seed: { greeting: "none", accent: false, subhead: "Save the date", host_label: "Hosted by", contacts_label: "Please contact", note_icon: "star", hero_shape: "rounded", donors_heading: "Our generous donors", when: true },
   },
@@ -285,7 +306,7 @@ export const LAYOUT_PRESETS: Readonly<Record<LayoutPreset, PresetSpec>> = {
     label: "Ceremony",
     blurb: "An arched window with the title, the date between ornament rules, and a picture of what the event is about",
     suits: "post",
-    order: ["greeting_top", "logos", "eyebrow", "title", "subhead", "tagline", "when", "hero", "host", "stat", "agenda", "note", "paragraph", "credits", "donors", "closing", "cta", "contacts", "footer", "greeting_bottom"],
+    order: ["greeting_top", "logos", "eyebrow", "title", "subhead", "tagline", "when", "hero", "host", "stat", "agenda", "note", "paragraph", "credits", "donors", "closing", "cta", "contacts", "qr", "footer", "greeting_bottom"],
     dropOrder: ["footer", "paragraph", "closing", "donors", "credits", "agenda", "note", "greeting_top", "contacts", "cta", "host", "stat", "eyebrow", "subhead", "greeting_bottom", "hero"],
     style: {
       title: { set: "plain", face: "display", caps: false, max: 112, accent: "script" },
@@ -293,7 +314,10 @@ export const LAYOUT_PRESETS: Readonly<Record<LayoutPreset, PresetSpec>> = {
       tagline: "script",
       when: "rules",
       window: { blocks: ["logos", "eyebrow", "title", "subhead", "tagline"], width: 800 },
-      qr: "corner",
+      side: null,
+      decor: { wash: 0.55, corners: false, columns: true, pattern: true },
+      minScale: 0.6,
+      qr: "block",
     },
     scene: "none",
     seed: { greeting: "bottom", accent: true, subhead: "", host_label: "Hosted by", contacts_label: "Please contact", note_icon: "leaf", hero_shape: "arch", donors_heading: "Our generous donors", when: true },
@@ -306,7 +330,7 @@ export const LAYOUT_PRESETS: Readonly<Record<LayoutPreset, PresetSpec>> = {
     suits: "tall",
     order: ["greeting_top", "logos", "eyebrow", "title", "subhead", "tagline", "stat", "when", "agenda", "hero", "host", "note", "paragraph", "credits", "donors", "closing", "cta", "contacts", "footer", "greeting_bottom"],
     dropOrder: ["footer", "paragraph", "closing", "donors", "credits", "hero", "greeting_top", "note", "host", "contacts", "cta", "eyebrow", "greeting_bottom", "tagline", "stat", "subhead"],
-    style: { title: { set: "plain", face: "display", caps: false, max: 142, accent: "colour" }, subhead: "caps", tagline: "line", when: "band", window: null, qr: "corner" },
+    style: { title: { set: "plain", face: "display", caps: false, max: 142, accent: "colour" }, subhead: "caps", tagline: "line", when: "band", window: null, side: null, decor: { wash: 0.42, corners: false, columns: false, pattern: false }, minScale: 0.58, qr: "corner" },
     scene: "code",
     seed: { greeting: "none", accent: true, subhead: "", host_label: "Hosted by", contacts_label: "Please contact", note_icon: "star", hero_shape: "rounded", donors_heading: "Our generous donors", when: true },
   },
@@ -319,7 +343,7 @@ export const LAYOUT_PRESETS: Readonly<Record<LayoutPreset, PresetSpec>> = {
     suits: "tall",
     order: ["greeting_top", "logos", "eyebrow", "title", "subhead", "tagline", "paragraph", "hero", "credits", "donors", "closing", "host", "stat", "when", "agenda", "note", "cta", "contacts", "footer", "greeting_bottom"],
     dropOrder: ["footer", "host", "stat", "when", "agenda", "note", "cta", "contacts", "greeting_top", "tagline", "eyebrow", "paragraph", "hero", "closing", "donors", "subhead", "greeting_bottom", "credits"],
-    style: { title: { set: "banner", face: "display", caps: false, max: 104, accent: "colour" }, subhead: "serif", tagline: "line", when: "cells", window: null, qr: "corner" },
+    style: { title: { set: "banner", face: "display", caps: false, max: 104, accent: "colour" }, subhead: "serif", tagline: "line", when: "cells", window: null, side: null, decor: { wash: 0.55, corners: true, columns: false, pattern: true }, minScale: 0.8, qr: "corner" },
     scene: "none",
     seed: { greeting: "bottom", accent: false, subhead: "", host_label: "Hosted by", contacts_label: "Please contact", note_icon: "heart", hero_shape: "rounded", donors_heading: "Our generous donors", when: false },
   },
@@ -453,6 +477,7 @@ export function parseLayout(raw: unknown): { ok: true; layout: PosterLayout } | 
     credits,
     donors: { heading: cleanLine(donors.heading), names: cleanLine(donors.names) },
     closing: cleanLine(o.closing),
+    ornament: isOrnamentFamily(o.ornament) ? o.ornament : "leaf",
   };
   const checks: [keyof typeof LAYOUT_LIMITS, string][] = [
     ["accent", layout.accent],
@@ -495,7 +520,7 @@ export function defaultAccent(headline: string): string {
  * A new layout's content for a preset: what its seed says, and the community's own greeting when it has one (`greeting`: the
  * server works it out with greetingFor(), so the panels need not know the community's tradition).
  */
-export function defaultLayout(preset: LayoutPreset, e: { headline: string; greeting?: string }): PosterLayout {
+export function defaultLayout(preset: LayoutPreset, e: { headline: string; greeting?: string; ornament?: string }): PosterLayout {
   const spec = layoutPreset(preset);
   const greeting = cleanLine(e.greeting);
   return {
@@ -513,6 +538,7 @@ export function defaultLayout(preset: LayoutPreset, e: { headline: string; greet
     credits: [],
     donors: { heading: spec.seed.donors_heading, names: "" },
     closing: "",
+    ornament: isOrnamentFamily(e.ornament) ? e.ornament : "leaf",
   };
 }
 
@@ -521,7 +547,7 @@ export function defaultLayout(preset: LayoutPreset, e: { headline: string; greet
  * moving from one layout to another loses nothing; a layout chosen for the first time starts from its own seed. The poster's
  * sub-title starts as the preset's own words when it has none, and the bottom scene follows the preset (a dense notice has none).
  */
-export function withLayoutPreset(poster: PosterContent, preset: LayoutPreset, e: { headline: string; greeting?: string }): PosterContent {
+export function withLayoutPreset(poster: PosterContent, preset: LayoutPreset, e: { headline: string; greeting?: string; ornament?: string }): PosterContent {
   const spec = layoutPreset(preset);
   const layout: PosterLayout = poster.layout ? { ...poster.layout, preset } : defaultLayout(preset, e);
   return {

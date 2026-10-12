@@ -18,17 +18,17 @@ const html = (el: Parameters<typeof renderToStaticMarkup>[0]) => renderToStaticM
 
 describe("the Layout choice", () => {
   it("offers the original poster and each layout, with a drawing of each, and marks the one in use", () => {
-    const out = html(createElement(LayoutChooser, { poster: base, brand, headline: "Community Supper", greeting: "", onPoster: noop, disabled: false }));
+    const out = html(createElement(LayoutChooser, { poster: base, brand, headline: "Community Supper", greeting: "", ornament: "leaf", onPoster: noop, disabled: false }));
     expect(out.match(/role="radio"/g)).toHaveLength(6);
     for (const label of ["Original", "Notice", "Save the date", "Ceremony", "Event day", "Thank you"]) expect(out).toContain(label);
     expect(out.match(/<img /g)).toHaveLength(6);
     expect(out).toMatch(/aria-checked="true"[^>]*>(?:(?!<\/button>).)*Original/);
-    const withIt = html(createElement(LayoutChooser, { poster: withLayoutPreset(base, "notice", { headline: "x" }), brand, headline: "x", greeting: "", onPoster: noop, disabled: false }));
+    const withIt = html(createElement(LayoutChooser, { poster: withLayoutPreset(base, "notice", { headline: "x" }), brand, headline: "x", greeting: "", ornament: "leaf", onPoster: noop, disabled: false }));
     expect(withIt).toMatch(/aria-checked="true"[^>]*>(?:(?!<\/button>).)*Notice/);
   });
 
   it("is disabled as a whole while the flyer maker is busy", () => {
-    const out = html(createElement(LayoutChooser, { poster: base, brand, headline: "x", greeting: "", onPoster: noop, disabled: true }));
+    const out = html(createElement(LayoutChooser, { poster: base, brand, headline: "x", greeting: "", ornament: "leaf", onPoster: noop, disabled: true }));
     expect(out.match(/disabled=""/g)).toHaveLength(6);
   });
 });
@@ -42,7 +42,7 @@ describe("the block editors", () => {
   });
 
   it("have a section for each block of the layout, in plain words", () => {
-    for (const heading of ["Above the title", "Greetings", "Picture", "Host or sponsor card", "Note box", "Thank-you cards", "Donors and closing message", "Call to action and contacts"]) expect(out).toContain(heading);
+    for (const heading of ["Above the title", "Decoration", "Greetings", "Picture", "Host or sponsor card", "Note box", "Thank-you cards", "Donors and closing message", "Call to action and contacts"]) expect(out).toContain(heading);
     expect(out).toContain("Accent word (optional)");
     expect(out).toContain("Add a contact");
   });
@@ -64,6 +64,11 @@ describe("the block editors", () => {
     expect(o).not.toContain("layout-note");
     expect(o).not.toContain("Add a contact");
     expect(l.host.names).toBe("The Okafors");
+  });
+
+  it("let the organizer pick the corner decoration, by a name that is the same for every community", () => {
+    for (const label of ["Leaves", "Blossoms", "Lotus", "None"]) expect(out).toContain(label);
+    expect(out).toContain("Corner decoration");
   });
 
   it("tell the organizer that names are set by Weaver and never sent to an AI", () => {

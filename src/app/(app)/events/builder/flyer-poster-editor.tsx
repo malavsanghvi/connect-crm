@@ -9,7 +9,7 @@ import type { FlyerArtSetup } from "@/lib/events/flyer-art";
 import type { FlyerBrand } from "@/lib/events/flyer-brand";
 import type { OccasionSuggestion } from "@/lib/events/flyer-occasions";
 import { POSTER_ICONS, POSTER_ICON_LABEL, posterIconUri, type PosterIcon } from "@/lib/events/flyer-icons";
-import { greetingFor } from "@/lib/events/flyer-layout";
+import { greetingFor, ornamentFor } from "@/lib/events/flyer-layout";
 import { useKind } from "@/components/kind-context";
 
 import { uploadPartnerLogoAction } from "./flyer-art-actions";
@@ -57,7 +57,9 @@ export function FlyerPosterEditor({
   const poster = design.poster ?? defaults.poster;
   const patchPoster = (fn: (p: PosterContent) => PosterContent) => update((d) => ({ ...d, poster: fn(d.poster ?? defaults.poster) }));
   // The greeting of the community's tradition, offered when a layout is chosen ("" when it has none).
-  const greeting = greetingFor({ kind: useKind() });
+  const kind = useKind();
+  const greeting = greetingFor({ kind });
+  const ornament = ornamentFor({ kind });
   const setPoster = (patch: Partial<PosterContent>) => patchPoster((p) => ({ ...p, ...patch }));
 
   // ── The partner's logo ──
@@ -141,7 +143,7 @@ export function FlyerPosterEditor({
   return (
     <div className="flex flex-col gap-3">
       <SectionBox title="Layout" note="How the words are arranged. Everything you have typed is kept when you change layout.">
-        <LayoutChooser poster={poster} brand={brand} headline={design.headline} greeting={greeting} onPoster={patchPoster} disabled={disabled} />
+        <LayoutChooser poster={poster} brand={brand} headline={design.headline} greeting={greeting} ornament={ornament} onPoster={patchPoster} disabled={disabled} />
       </SectionBox>
 
       <SectionBox title="Headline" note="Big and set in a serif face. It is the one thing a poster must have.">
