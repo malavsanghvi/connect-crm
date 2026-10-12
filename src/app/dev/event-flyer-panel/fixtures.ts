@@ -12,7 +12,7 @@ export const PREVIEW_KINDS = ["church", "chamber", "temple"] as const;
 export type PreviewKind = (typeof PREVIEW_KINDS)[number];
 export const PREVIEW_APP = "https://app.example.org";
 
-type Fixture = {
+export type Fixture = {
   org: string;
   tz: string;
   brand: FlyerBrand;
@@ -84,8 +84,20 @@ export function isPreviewKind(v: unknown): v is PreviewKind {
  * "scheduled" (the flyer approved and the publish set for the suggested time), "live" (published) or "failed" (the scheduled
  * publish refused, with its reason).
  */
-export function sampleSetup(kind: PreviewKind, state: "draft" | "scheduled" | "live" | "failed", now: Date = new Date()): FlyerPanelSetup {
-  const f = FIXTURES[kind];
+export type PreviewState = "draft" | "scheduled" | "live" | "failed";
+
+export function sampleSetup(kind: PreviewKind, state: PreviewState, now: Date = new Date()): FlyerPanelSetup {
+  return setupForEvent(FIXTURES[kind], state, now);
+}
+
+/** A sample brand kit per kind of organization (the creator's dev preview has a club as well). */
+const CLUB_BRAND = readFlyerBrand({ primary: "#1E5631", accent: "#C2571A", background: "#F7FAF5" }, null);
+export function brandForKind(kind: unknown): FlyerBrand {
+  return isPreviewKind(kind) ? FIXTURES[kind].brand : kind === "club" ? CLUB_BRAND : FIXTURES.church.brand;
+}
+
+/** The panel's setup for any sample event (the panel's own preview, or the creator's preview with the real panel in its slot). */
+export function setupForEvent(f: Fixture, state: PreviewState, now: Date = new Date()): FlyerPanelSetup {
   const memberAppLink = memberAppEventLink(PREVIEW_APP, f.event.id);
   const occasions: FlyerOccasion[] = f.tradition ? ["diwali", "general"] : ["general"];
   const defaults = defaultFlyerDesign({ name: f.event.name, description: f.event.description, venue: f.event.venue, startsAt: f.event.starts_at, endsAt: f.event.ends_at, tz: f.tz, qrAvailable: true });

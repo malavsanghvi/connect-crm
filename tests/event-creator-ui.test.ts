@@ -34,7 +34,7 @@ describe("the dev preview of the creator", () => {
     await expect(call()).rejects.toMatchObject({ digest: expect.stringContaining("404") });
   });
 
-  it("draws the temple's first card with its calendar and history suggestions, and a placeholder flyer", async () => {
+  it("draws the temple's first card with its calendar and history suggestions, and the flyer panel waiting for card 1", async () => {
     vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", "");
     const html = renderToStaticMarkup(await call());
     expect(html).toContain("DEV PREVIEW · SAMPLE DATA");
@@ -43,7 +43,8 @@ describe("the dev preview of the creator", () => {
     expect(html).toContain("Diwali, on your Festivals calendar.");
     expect(html).toContain("From your calendar");
     expect(html).toContain("From your history");
-    expect(html).toContain("Your flyer draft appears here");
+    // The flyer panel waits for card 1 (no draft yet): it says the flyer is drawn as soon as there is a name and a date.
+    expect(html).toContain("The flyer is drawn as soon as the event has a name and a date.");
     expect(html).toContain("Ready to publish");
     expect(html).toContain("Advanced form");
   });
@@ -76,7 +77,7 @@ describe("the dev preview of the creator", () => {
   it("Sending shows what is not built yet as Coming next", async () => {
     const html = renderToStaticMarkup(await call({ step: "sending" }));
     expect(html).toContain("Coming next");
-    expect(html).toContain("Publishing to your website, Facebook and Instagram from here");
+    expect(html).toContain("Posting the flyer to Facebook and Instagram");
   });
 });
 

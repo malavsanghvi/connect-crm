@@ -44,7 +44,7 @@ export function ReviewCard({ draft, ctx, existing, goTo, readiness, dirty, savin
           Publishing is blocked until: {blocked.map((b) => b.label.toLowerCase()).join(", ")}.
         </Note>
       ) : (
-        <Note tone="ok">Nothing blocks publishing. A person publishes it from the event page when it is ready.</Note>
+        <Note tone="ok">Nothing blocks publishing. Approve the flyer, then publish now or schedule it in the publish box beside the questions (or from the event page).</Note>
       )}
       <LessonNotes lessons={lessonsFor("review", draft, ctx)} />
       {id ? (

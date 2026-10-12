@@ -99,7 +99,7 @@ export function creatorReadiness(d: EventDraft, ctx: CreatorCtx, counts: Creator
   add("description", "A description", d.description.trim() !== "", "words", "A line or two about the event.");
   if (asked.includes("help") || ctx.modules.volunteers) add("shifts", counts.shifts > 0 ? `${counts.shifts} volunteer shift${counts.shifts === 1 ? "" : "s"}` : "Volunteer shifts", counts.shifts > 0, "help", "Add them on the Help card.");
   add("lead", d.owner ? `Led by ${d.owner.name}` : "An event lead", d.owner !== null, "more", "Choose who is in charge, under More settings.");
-  add("flyer", "A flyer", d.flyer_path !== "", "words", "Make it with the flyer maker.");
+  add("flyer", "A flyer", d.flyer_path !== "", "words", "Approve the flyer draft beside the questions.");
 
   const done = items.filter((i) => i.ok).length;
   return { items, percent: Math.round((done / items.length) * 100), blocking: items.filter((i) => i.blocks).length };
