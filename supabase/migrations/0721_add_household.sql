@@ -160,7 +160,6 @@ revoke execute on function app.family_name_key(text), app.household_possible_mat
   app.add_household(uuid, text, text, text, text, text, boolean) from public, anon;
 grant execute on function app.family_name_key(text), app.household_possible_matches(uuid, text, text, text, text),
   app.add_household(uuid, text, text, text, text, text, boolean) to authenticated;
-grant execute on all functions in schema app to service_role;
 
 -- ---------------------------------------------------------------------------
 -- Activity: the command and the screen's own button are recorded under their keys (like 0651 and 0720).
