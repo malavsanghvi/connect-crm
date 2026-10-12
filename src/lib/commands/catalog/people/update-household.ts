@@ -9,6 +9,7 @@ import {
   type HouseholdDetails,
   type Tier,
 } from "@/lib/people";
+import { REASON_MAX, conflictKeys, conflictSentence, parseExpect } from "@/lib/people-v2/inline-edit";
 import { dbWithReason } from "@/lib/session";
 
 import { defineCommand } from "../../define";
@@ -16,7 +17,7 @@ import { revalidateAfterCommand } from "../../revalidate";
 import { f, object, type Infer } from "../../schema";
 import { CommandDbError, CommandError, type CommandContext, type CommandPreview } from "../../types";
 
-import { cardsFor, dbFail } from "./shared";
+import { cardsFor, dbFail, lowerFirst } from "./shared";
 
 const TIERS = ["community", "yearly", "life"] as const;
 const text = (what: string) => f.optional(f.string(what, { min: 0, max: 1000 }));
@@ -34,6 +35,10 @@ const input = object({
   physical_mail_opt_in: text("Screen only: physical mail. Niva does not change it."),
   tier: f.optional(f.enum("Screen only: the membership tier. Niva does not change it.", TIERS)),
   tier_reason: text("Screen only: why the tier is changing."),
+  expect: text(
+    "Screen only: the value(s) the person saw before changing them, as JSON like {\"city\": \"Austin\"}. If someone else changed one of them meanwhile, nothing is saved and the screen shows the new value.",
+  ),
+  reason: text("Why the details are changing (goes in the audit log). Optional. A tier change has its own reason (tier_reason)."),
 });
 export type UpdateHouseholdInput = Infer<typeof input>;
 
@@ -45,6 +50,8 @@ type Plan = {
   tier: Tier | undefined;
   tierChanged: boolean;
   reason: string;
+  /** Why the details changed, when the person said (the audit log carries it). */
+  why: string;
 };
 
 async function plan(ctx: CommandContext, inp: UpdateHouseholdInput): Promise<Plan> {
@@ -79,6 +86,11 @@ async function plan(ctx: CommandContext, inp: UpdateHouseholdInput): Promise<Pla
   if (!parsed.ok) throw new CommandError(`Could not save the household — ${parsed.error}.`);
   const original: HouseholdDetails = { ...current.data, physical_mail_opt_in: current.data.physical_mail_opt_in !== false };
   const keys = changedKeys(original, parsed.value);
+  // The value the person saw is no longer the value on file: someone else changed it. Nothing is saved; the screen shows both.
+  const expected = parseExpect(inp.expect);
+  if (!expected.ok) throw new CommandError(`Could not save the household — ${lowerFirst(expected.error)}`);
+  const clash = conflictKeys(expected.value, original as unknown as Record<string, unknown>, keys as string[]);
+  if (clash.length > 0) throw new CommandError(conflictSentence(clash));
 
   // Tier: only with people.approve, and always with a reason.
   const tier = TIERS.find((t) => t === inp.tier);
@@ -92,7 +104,7 @@ async function plan(ctx: CommandContext, inp: UpdateHouseholdInput): Promise<Pla
 
   const changes: Partial<HouseholdDetails> = {};
   for (const k of keys) (changes as Record<string, unknown>)[k] = parsed.value[k];
-  return { id, original, changes, keys, tier, tierChanged, reason };
+  return { id, original, changes, keys, tier, tierChanged, reason, why: (inp.reason ?? "").trim().slice(0, REASON_MAX) };
 }
 
 const shown = (v: unknown): string | null => (v === null || v === undefined || v === "" ? null : typeof v === "boolean" ? (v ? "yes" : "no") : String(v));
@@ -128,7 +140,9 @@ export const updateHousehold = defineCommand<UpdateHouseholdInput, undefined>({
   async execute(ctx, inp) {
     const p = await plan(ctx, inp);
     if (p.keys.length === 0 && !p.tierChanged) return { ok: true, data: undefined, message: "No changes to save." };
-    const { db, center } = ctx.session;
+    const { center } = ctx.session;
+    // With a reason the write goes out carrying it, so the audit log shows why.
+    const db = p.why ? await dbWithReason(ctx.session, p.why) : ctx.session.db;
     if (p.keys.length > 0) {
       const upd = await db.from("households").update(p.changes).eq("id", p.id).eq("center_id", center.id).select("id");
       if (upd.error) throw new CommandDbError(upd.error, "save the household");

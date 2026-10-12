@@ -17,6 +17,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 
 import { readFlyerAnswer, postFlyer, type FlyerAnswer } from "@/app/(app)/events/builder/flyer-panel";
 import { FlyerArtPicker } from "@/app/(app)/events/builder/flyer-art-picker";
+import { LayoutBlockEditors, LayoutChooser, LayoutPosterWords } from "@/app/(app)/events/builder/flyer-layout-editor";
 import { saveDesignedFlyerAction } from "@/app/(app)/events/builder/flyer-actions";
 import {
   cancelScheduledPublishAction,
@@ -27,6 +28,7 @@ import {
   type FlyerPanelSetup,
 } from "@/app/(app)/events/flyer-publish-actions";
 import { ChipGroup } from "@/components/controls";
+import { useKind } from "@/components/kind-context";
 import { btn, card } from "@/components/onboarding-front/parts";
 import type { ActionResult } from "@/lib/errors";
 import {
@@ -39,6 +41,7 @@ import {
   type FlyerDesign,
 } from "@/lib/events/flyer";
 import { FLYER_LAYER_LABEL, NO_GEMINI_KEY, formatArtCost } from "@/lib/events/flyer-art";
+import { greetingFor, ornamentFor } from "@/lib/events/flyer-layout";
 import { fromDateTimeLocal } from "@/lib/events/format";
 import { approvalState, drawnTakes, nextDrawnTake } from "@/lib/events/publish-schedule";
 
@@ -228,6 +231,11 @@ export function FlyerPanelView({
     return { ...start, show_qr: start.show_qr && Boolean(setup.memberAppLink) };
   });
   const patch = (p: Partial<FlyerDesign>) => setDesign((d) => ({ ...d, ...p }));
+  // Flyers v3: the layout of the poster's words, and the greeting of the community's tradition offered with it ("" when it has none).
+  const kind = useKind();
+  const greeting = greetingFor({ kind });
+  const ornament = ornamentFor({ kind });
+  const onPoster = (fn: (p: NonNullable<FlyerDesign["poster"]>) => NonNullable<FlyerDesign["poster"]>) => setDesign((d) => (d.poster ? { ...d, poster: fn(d.poster) } : d));
 
   // The event's words follow the answers: what the design still shows from the event's previous words is replaced.
   const startsIso = useMemo(() => startInstant(startsAt, setup.tz), [startsAt, setup.tz]);
@@ -248,7 +256,7 @@ export function FlyerPanelView({
     const before = suggestedRef.current;
     suggestedRef.current = suggested;
     if (!suggested || before === suggested || pickedArt.current) return;
-    setDesign((d) => (d.poster && d.poster.occasion === before ? { ...d, poster: { ...d.poster, occasion: suggested, frame: { source: "code" }, scene: { source: "code" } } } : d));
+    setDesign((d) => (d.poster && d.poster.occasion === before ? { ...d, poster: { ...d.poster, occasion: suggested, frame: { source: "code" }, scene: d.poster.scene.source === "none" ? d.poster.scene : { source: "code" } } } : d));
   }, [suggested]);
 
   // ── The preview, rendered by the server ──
@@ -399,8 +407,24 @@ export function FlyerPanelView({
           {!photoOk ? <p className="m-0 text-[12px] text-muted">Photo needs a photo or an AI picture behind the words: choose one in the full flyer maker.</p> : null}
           <span className="mt-1 text-[12px] font-bold text-ink-2">Size</span>
           <ChipGroup label="Flyer size" options={FLYER_SIZE_KEYS.map((s) => ({ value: s, label: FLYER_SIZES[s].label }))} value={design.size} onChange={(v) => patch({ size: v as FlyerDesign["size"] })} />
-          {design.size === "print" ? <p className="m-0 text-[12px] text-muted">Print is for downloading from the full flyer maker. Choose Post, Tall or Story to approve and publish.</p> : null}
+          {design.size === "print" ? <p className="m-0 text-[12px] text-muted">Print is for downloading from the full flyer maker. Choose Post, Square, Tall or Story to approve and publish.</p> : null}
+          {isPoster && design.poster ? (
+            <>
+              <span className="mt-1 text-[12px] font-bold text-ink-2">Layout</span>
+              <LayoutChooser poster={design.poster} brand={setup.brand} headline={design.headline} greeting={greeting} ornament={ornament} onPoster={onPoster} disabled={false} />
+            </>
+          ) : null}
         </div>
+
+        {isPoster && design.poster?.layout ? (
+          <details className="mt-3 rounded-[12px] border border-line px-3 py-2">
+            <summary className="cursor-pointer text-[13px] font-bold text-ink">Edit the words on the layout</summary>
+            <div className="mt-2 flex flex-col gap-3">
+              <LayoutPosterWords poster={design.poster} onPoster={onPoster} disabled={false} />
+              <LayoutBlockEditors eventId={eventId} poster={design.poster} headline={design.headline} greeting={greeting} onPoster={onPoster} disabled={false} isGuestVisible={setup.guestVisible} />
+            </div>
+          </details>
+        ) : null}
 
         <div className="mt-3 flex flex-wrap gap-2">
           <button type="button" className={btn.outline} onClick={anotherTake}>

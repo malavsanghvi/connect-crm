@@ -45,11 +45,29 @@ export function isCategorical(values: readonly string[]): boolean {
   return distinct.size <= 6 && distinct.size * 2 <= vals.length && [...distinct].every((v) => v.length <= 30 && !/\d{3,}/.test(v) && !v.includes("@"));
 }
 
+// D2 (docs/ADMIN_REDESIGN.md): nothing about a child reaches an AI provider. A heading that talks about children, a
+// school or a learner ("Child 1 name", "Kids' DOB", "Student", "School", "Minor") is sent so the model can read it,
+// but none of that column's values are, not even as a repeated category. Over-matching only costs a suggestion, so the
+// long stems match anywhere in a heading ("childname", "Preschool"); the short words (kid, son, minor) must stand alone,
+// so "Person", "Mason", "Kidney" and "Minority" do not match.
+const CHILD_HEADING =
+  /child|student|school|pupil|learner|daughter|(?<![a-z])(?:grand|step)?(?:kids?|sons?|minors?)(?![a-z])|under ?18/;
+
+/** True when a column heading looks like it holds children's data (its samples are never sent). */
+export function looksLikeChildrenData(header: string): boolean {
+  const words = cleanText(header)
+    .replace(/([a-z])([A-Z])/g, "$1 $2") // ChildName → Child Name
+    .replace(/[^A-Za-z0-9]+/g, " ")
+    .toLowerCase();
+  return CHILD_HEADING.test(words);
+}
+
 export type MaskedColumn = { header: string; samples: string[]; categorical: boolean };
 
-/** Headers plus at most `perColumn` masked samples each (categories unmasked). */
+/** Headers plus at most `perColumn` masked samples each (categories unmasked; a children's column sends none). */
 export function maskedSamples(headers: readonly string[], rows: readonly (readonly string[])[], perColumn = 3): MaskedColumn[] {
   return headers.map((header, i) => {
+    if (looksLikeChildrenData(header)) return { header, categorical: false, samples: [] };
     const values = rows.map((r) => cleanText(r[i] ?? "")).filter(Boolean);
     const categorical = isCategorical(values);
     const unique = [...new Set(values)].slice(0, perColumn);

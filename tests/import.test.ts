@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { autoMap, buildRow, convertCustom, customKeyFor, DEFAULT_OPTIONS, inferCustomType, missingRequired, normHeader, summarize } from "@/lib/import/mapping";
-import { isCategorical, maskedSamples, maskValue } from "@/lib/import/mask";
+import { isCategorical, looksLikeChildrenData, maskedSamples, maskValue } from "@/lib/import/mask";
 import { entityDef } from "@/lib/import/registry";
 import { csvCell, dictionaryCsv, problemRowsCsv, templateCsv } from "@/lib/import/templates";
 import { splitName, toBoolean, toCents, toDate, toDateTime, toE164, toEnum, toIdentifier, toTime } from "@/lib/import/transforms";
@@ -199,6 +199,33 @@ describe("masking for mapping suggestions", () => {
     ]);
     expect(cols[0]).toEqual({ header: "Name", categorical: false, samples: ["M••• S•••", "D•• S•••", "A••• S•••"] });
     expect(cols[1]).toEqual({ header: "Senior", categorical: true, samples: ["Yes", "No"] });
+  });
+
+  it("recognises headings that hold children's data (D2) and leaves ordinary ones alone", () => {
+    for (const h of ["Child name", "Child 1 DOB", "CHILDREN", "child_name", "ChildName", "Kids' names", "Kid", "Son", "Sons",
+      "Daughter's birthday", "Student", "Student ID", "School", "Sunday School grade", "Preschool", "Grandchildren", "Minor", "Under 18", "under-18"]) {
+      expect(looksLikeChildrenData(h), h).toBe(true);
+    }
+    for (const h of ["Name", "First name", "Person ID", "Mason", "Johnson", "Kidney donor", "Minority", "Email", "Date of birth", "Senior", ""]) {
+      expect(looksLikeChildrenData(h), h).toBe(false);
+    }
+  });
+
+  it("sends no samples at all for a children's column, even a short repeated list, but still sends the heading", () => {
+    const cols = maskedSamples(["Name", "Child name", "Student", "Kid's school", "Date of birth"], [
+      ["Mira Shah", "Anya", "Yes", "Oakwood", "1987-04-12"],
+      ["Dev Shah", "Raj", "No", "Oakwood", "1990-01-02"],
+      ["Anya Shah", "Anya", "Yes", "Oakwood", "1991-05-06"],
+      ["Raj Mehta", "Raj", "No", "Oakwood", "1992-07-08"],
+    ]);
+    expect(cols[0]).toEqual({ header: "Name", categorical: false, samples: ["M••• S•••", "D•• S•••", "A••• S•••"] });
+    // "Child name" repeats (Anya, Raj), so isCategorical would have sent both names as they are.
+    expect(isCategorical(["Anya", "Raj", "Anya", "Raj"])).toBe(true);
+    expect(cols[1]).toEqual({ header: "Child name", categorical: false, samples: [] });
+    expect(cols[2]).toEqual({ header: "Student", categorical: false, samples: [] });
+    expect(cols[3]).toEqual({ header: "Kid's school", categorical: false, samples: [] });
+    expect(cols[4]).toEqual({ header: "Date of birth", categorical: false, samples: ["1987-••-••", "1990-••-••", "1991-••-••"] });
+    expect(JSON.stringify(cols)).not.toMatch(/Anya"|Raj"|Oakwood/);
   });
 });
 
