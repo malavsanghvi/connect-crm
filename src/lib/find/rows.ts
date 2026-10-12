@@ -6,9 +6,9 @@
 
 import type { Classified, EnterAction, FindFilter, FindResponse, FindRow, NivaState, UiRow } from "./types";
 
-/** Where a family opens. With a person, the family page opens that person's details over it (the family page reads `p`). */
+/** Where a family opens. With a person, the family page opens that person's details over it (the family page reads `person`). */
 export function familyHref(householdId: string, personId?: string | null): string {
-  return personId ? `/households/${householdId}?p=${personId}` : `/households/${householdId}`;
+  return personId ? `/households/${householdId}?person=${personId}` : `/households/${householdId}`;
 }
 
 /** A person's row opens their family with their details open; a person in no household opens on their own page. */

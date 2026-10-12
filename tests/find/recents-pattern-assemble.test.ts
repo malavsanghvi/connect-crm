@@ -133,7 +133,7 @@ describe("the card line and the rows", () => {
   it("a child is a 'Child · staff only' row that opens the family with their details; the card line names adults only", () => {
     const rows = toFindRows(items, new Map([["h-hassan", card()]]));
     const child = rows.find((r) => r.kind === "person" && r.id === "p-layla");
-    expect(child).toMatchObject({ kind: "person", subtitle: CHILD_SUBTITLE, child: true, href: "/households/h-hassan?p=p-layla" });
+    expect(child).toMatchObject({ kind: "person", subtitle: CHILD_SUBTITLE, child: true, href: "/households/h-hassan?person=p-layla" });
     // The card line lists the adults of the family, never the child.
     expect((child as { cardLine: string }).cardLine).not.toContain("Layla");
   });

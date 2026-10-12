@@ -23,8 +23,8 @@ const resp = (over: Partial<FindResponse>): FindResponse => ({ query: "sam", kin
 describe("addresses", () => {
   it("a family opens on its page; a person opens their family with their details open, or their own page when in no family", () => {
     expect(familyHref("h1")).toBe("/households/h1");
-    expect(familyHref("h1", "p1")).toBe("/households/h1?p=p1");
-    expect(personHref("p1", "h1")).toBe("/households/h1?p=p1");
+    expect(familyHref("h1", "p1")).toBe("/households/h1?person=p1");
+    expect(personHref("p1", "h1")).toBe("/households/h1?person=p1");
     expect(personHref("p1", null)).toBe("/people/p1");
   });
 });
@@ -114,8 +114,8 @@ describe("keys", () => {
   it("Enter opens the family of the highlighted row (the first when none is)", () => {
     expect(enterAction(rows, 0)).toEqual({ type: "open", href: "/households/h1", familyId: "h1" });
     expect(enterAction(rows, -1)).toEqual({ type: "open", href: "/households/h1", familyId: "h1" });
-    expect(enterAction(rows, 1)).toEqual({ type: "open", href: "/households/h1?p=p1", familyId: "h1" });
-    expect(enterAction(rows, 2)).toEqual({ type: "open", href: "/households/h1?p=p2", familyId: "h1" });
+    expect(enterAction(rows, 1)).toEqual({ type: "open", href: "/households/h1?person=p1", familyId: "h1" });
+    expect(enterAction(rows, 2)).toEqual({ type: "open", href: "/households/h1?person=p2", familyId: "h1" });
   });
 
   it("Enter on a question asks Niva; Shift+Enter asks Niva with the typed words when it is on, and does nothing when it is off", () => {
