@@ -73,7 +73,7 @@ describe("parseFlyerDesign", () => {
 
   it("refuses unknown templates, sizes and backgrounds", () => {
     expect(parseFlyerDesign(design({ template: "neon" }))).toEqual({ ok: false, error: "Choose a template: Poster, Classic, Festival, Minimal or Photo." });
-    expect(parseFlyerDesign(design({ size: "a3" }))).toEqual({ ok: false, error: "Choose a size: Post, Tall, Story or Print." });
+    expect(parseFlyerDesign(design({ size: "a3" }))).toEqual({ ok: false, error: "Choose a size: Post, Square, Tall, Story or Print." });
     expect(parseFlyerDesign(design({ background: { source: "pattern", pattern: "paisley" } })).ok).toBe(false);
     expect(parseFlyerDesign(design({ background: { source: "photo", photo_id: "nope" } })).ok).toBe(false);
     expect(parseFlyerDesign(design({ background: { source: "ai", path: "https://evil.example/x.jpg", prompt: "" } })).ok).toBe(false);

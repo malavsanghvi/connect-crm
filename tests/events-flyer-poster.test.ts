@@ -353,7 +353,8 @@ describe("the icon library", () => {
 
   it("knows its names", () => {
     expect(isPosterIcon("clock")).toBe(true);
-    expect(isPosterIcon("calendar")).toBe(false);
+    expect(isPosterIcon("calendar")).toBe(true);
+    expect(isPosterIcon("sparkle")).toBe(false);
     expect(isPosterIcon(undefined)).toBe(false);
   });
 });
