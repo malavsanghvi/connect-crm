@@ -1,7 +1,8 @@
 import { isAdultMember } from "../../child-filter";
 import { formatCents } from "@/lib/money";
-import { canAccess } from "@/lib/permissions";
-import { tierLabel } from "@/lib/people";
+import { planDecision } from "@/lib/applications";
+import { canAccess, passesRoleChecks } from "@/lib/permissions";
+import { isHouseholdRole, tierLabel } from "@/lib/people";
 
 import { defineCommand } from "../../define";
 import { object, type Infer } from "../../schema";
@@ -20,9 +21,35 @@ const KIND_LABEL: Record<string, string> = {
 };
 
 export type PendingReviewsData = {
-  applications: { id: string; applicant: string; tier: string; step: string; fee: string | null; household: HouseholdCard | null }[];
+  applications: {
+    id: string;
+    applicant: string;
+    tier: string;
+    step: string;
+    fee: string | null;
+    household: HouseholdCard | null;
+    /** When it was sent (ISO). */
+    since: string;
+    /** What approving would do for the person asking: "approved" (final), "awaiting_ec" (records the center review, then the Executive Committee decides), or null when they cannot approve it now (see `blocked`). */
+    next: "approved" | "awaiting_ec" | null;
+    /** Why this person cannot approve it now, as a sentence fragment ("you already made the center review, so ..."), or null. Declining stays possible. */
+    blocked: string | null;
+  }[];
   applications_total: number | null;
-  family_requests: { id: string; kind: string; summary: string; household: HouseholdCard | null }[];
+  family_requests: {
+    id: string;
+    kind: string;
+    summary: string;
+    household: HouseholdCard | null;
+    /** When it was sent (ISO). */
+    since: string;
+    /** The name of the adult being added. */
+    who: string;
+    /** What the member typed as the relationship, if anything. */
+    asked: string | null;
+    /** That, when it is one of the relationships a person can be given (never "primary"); otherwise null. */
+    asked_role: string | null;
+  }[];
   family_requests_total: number;
   /** Requests that mention a child: they are not described here and are decided on the People screen. */
   family_requests_for_the_screen: number;
@@ -50,7 +77,7 @@ export const pendingReviews = defineCommand<Infer<typeof input>, PendingReviewsD
       showApplications
         ? db
             .from("membership_applications")
-            .select("id, applicant_person_id, household_id, tier, status, fee_cents, created_at", { count: "exact" })
+            .select("id, applicant_person_id, household_id, tier, status, fee_cents, created_at, membership_type_id, center_decided_by", { count: "exact" })
             .eq("center_id", center.id)
             .in("status", ["awaiting_center", "awaiting_ec"])
             .order("created_at", { ascending: true })
@@ -67,6 +94,13 @@ export const pendingReviews = defineCommand<Infer<typeof input>, PendingReviewsD
     if (apps?.error) throw new CommandDbError(apps.error, "read the membership applications");
     if (reqs.error) throw new CommandDbError(reqs.error, "read the family change requests");
 
+    // What approving would do for THIS person (the same pure rule the decision uses), so a row never offers a button that will fail.
+    const typeIds = [...new Set((apps?.data ?? []).map((a) => a.membership_type_id))];
+    const types = typeIds.length ? await db.from("membership_types").select("id, ec_approval_required").in("id", typeIds) : null;
+    if (types?.error) throw new CommandDbError(types.error, "read the membership types");
+    const ecRequired = new Map((types?.data ?? []).map((t) => [t.id, t.ec_approval_required ?? false]));
+    const isEc = passesRoleChecks(ctx.session) || ctx.session.roles.some((r) => r.key === "executive_committee" && r.scopeKind === "center");
+
     const applicantIds = [...new Set((apps?.data ?? []).map((a) => a.applicant_person_id))];
     const people = applicantIds.length ? await db.from("people").select("id, first_name, last_name, preferred_name, date_of_birth").in("id", applicantIds) : null;
     if (people?.error) throw new CommandDbError(people.error, "read the applicants");
@@ -80,6 +114,11 @@ export const pendingReviews = defineCommand<Infer<typeof input>, PendingReviewsD
     let forScreen = 0;
     for (const a of apps?.data ?? []) {
       const p = personById.get(a.applicant_person_id);
+      const plan = planDecision(
+        { status: a.status, tier: a.tier, ecApprovalRequired: ecRequired.get(a.membership_type_id) ?? false, centerDecidedBy: a.center_decided_by },
+        "approve",
+        { userId: ctx.session.userId, isExecutiveCommittee: isEc },
+      );
       applications.push({
         id: a.id,
         applicant: p && (p.date_of_birth ? isAdultMember({ date_of_birth: p.date_of_birth }, now) : true) ? fullName(p) : "someone you can't see",
@@ -87,6 +126,9 @@ export const pendingReviews = defineCommand<Infer<typeof input>, PendingReviewsD
         step: a.status === "awaiting_ec" ? "waiting for the Executive Committee" : "waiting for the center review",
         fee: a.fee_cents > 0 ? formatCents(a.fee_cents, center.currency) : null,
         household: cardOf(a.household_id),
+        since: a.created_at,
+        next: plan.ok && plan.next !== "rejected" ? plan.next : null,
+        blocked: plan.ok ? null : plan.reason,
       });
     }
 
@@ -100,7 +142,17 @@ export const pendingReviews = defineCommand<Infer<typeof input>, PendingReviewsD
         continue;
       }
       const who = [text(d.first_name), text(d.last_name)].filter(Boolean).join(" ") || "a new person";
-      family_requests.push({ id: r.id, kind: KIND_LABEL[r.kind] ?? r.kind, summary: `Add ${who}${text(d.relationship) ? `, asked for as their ${text(d.relationship)}` : ""}`, household: cardOf(r.household_id) });
+      const asked = text(d.relationship);
+      family_requests.push({
+        id: r.id,
+        kind: KIND_LABEL[r.kind] ?? r.kind,
+        summary: `Add ${who}${asked ? `, asked for as their ${asked}` : ""}`,
+        household: cardOf(r.household_id),
+        since: r.created_at,
+        who,
+        asked,
+        asked_role: asked && isHouseholdRole(asked.toLowerCase()) && asked.toLowerCase() !== "primary" ? asked.toLowerCase() : null,
+      });
     }
 
     return {
