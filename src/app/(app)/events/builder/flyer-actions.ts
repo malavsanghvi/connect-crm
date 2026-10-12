@@ -260,7 +260,7 @@ async function saveDesign(eventId: string, rawDesign: unknown, approve: boolean)
   const parsed = parseFlyerDesign(rawDesign);
   if (!parsed.ok) throw new FormError(parsed.error);
   const design = parsed.design;
-  if (design.size === "print") throw new FormError("Print size is for downloading — switch to Post, Tall or Story to use it as the event's flyer.");
+  if (design.size === "print") throw new FormError("Print size is for downloading — switch to Post, Square, Tall or Story to use it as the event's flyer.");
   const { db, centerId, session, userId } = await flyerEventContext(eventId, "only event managers and this event's lead can set this event's flyer.");
   const ev = await db.from("events").select("id, center_id, name, flyer_path, starts_at, ends_at, venue").eq("id", eventId).maybeSingle();
   if (ev.error) throw new DbFailure(ev.error, "load the event");

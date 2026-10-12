@@ -148,6 +148,52 @@ async function cachedFetch(url: string, o: Parameters<typeof fetchCapped>[1]): P
 }
 
 // ── Background ───────────────────────────────────────────────────────────────
+/**
+ * One approved photo from the community's albums as a picture the renderer can draw. The same rules for every use of a photo on a
+ * flyer (the background, a layout's picture): the content module is on, the photo is approved, it does not show children, and its
+ * album is not staff-only (a guest-visible flyer shows it to anyone). Throws FlyerBackgroundError with a plain sentence.
+ */
+export async function loadAlbumPhoto(db: AppSupabase, centerId: string, photoId: string, o: { size: FlyerSize; contentModuleOn: boolean }): Promise<FlyerImage> {
+  if (!o.contentModuleOn) throw new FlyerBackgroundError("Photo albums are switched off (Settings › Modules) — no album photo can be used until they are on.");
+  const photo = await db.from("photos").select("id, center_id, album_id, storage_path, status, contains_children").eq("id", photoId).maybeSingle();
+  if (photo.error) {
+    console.error("[events/flyer] could not read the photo row:", photo.error);
+    throw new FlyerBackgroundError(`The photo could not be loaded — ${explainError(photo.error)}.`);
+  }
+  const p = photo.data;
+  if (!p || p.center_id !== centerId) throw new FlyerBackgroundError("That photo is no longer available, or you can't see it. Choose another photo.");
+  if (p.status !== "approved") throw new FlyerBackgroundError("That photo is not approved for sharing. Choose another photo.");
+  if (p.contains_children) throw new FlyerBackgroundError("Photos showing children can't be used on a flyer. Choose another photo.");
+  const album = await db.from("photo_albums").select("id, visibility").eq("id", p.album_id).maybeSingle();
+  if (album.error) {
+    console.error("[events/flyer] could not read the photo's album:", album.error);
+    throw new FlyerBackgroundError(`The photo's album could not be loaded — ${explainError(album.error)}.`);
+  }
+  if (!album.data || album.data.visibility === "private") {
+    throw new FlyerBackgroundError("Photos from staff-only albums can't be used on a flyer. Choose a photo from an album members can see.");
+  }
+  const loc = photoLocation(p.storage_path);
+  if (!loc) throw new FlyerBackgroundError("That photo has no file attached. Choose another photo.");
+  if (loc.kind === "storage") {
+    const { data, error } = await db.storage.from(loc.bucket).download(loc.key);
+    if (error || !data) {
+      console.error(`[events/flyer] could not download ${loc.bucket}/${loc.key}:`, error);
+      throw new FlyerBackgroundError("The photo could not be loaded from storage. Choose another photo.");
+    }
+    return asBackground(new Uint8Array(await data.arrayBuffer()), "photo");
+  }
+  if (!isGoogleImageBase(loc.url)) throw new FlyerBackgroundError("This photo's address can't be used on a flyer. Choose another photo.");
+  const url = `${loc.url.trim()}${o.size === "print" ? "=w2400" : "=w1600"}`;
+  let bytes: Uint8Array;
+  try {
+    bytes = await cachedFetch(url, { maxBytes: 15 * 1024 * 1024, timeoutMs: 15_000, accept: "image/jpeg,image/png", allow: isGooglePhotoHost });
+  } catch (err) {
+    console.error("[events/flyer] could not fetch the Google Photos image:", err);
+    throw new FlyerBackgroundError("The photo could not be fetched from Google Photos. Try again, or choose another photo.");
+  }
+  return asBackground(bytes, "photo");
+}
+
 export type LoadedBackground = { image: FlyerImage | null; notes: string[] };
 
 export async function loadBackground(
@@ -175,44 +221,7 @@ export async function loadBackground(
   }
 
   // An album photo.
-  if (!o.contentModuleOn) throw new FlyerBackgroundError("Photo albums are switched off (Settings › Modules) — choose a pattern or AI art instead.");
-  const photo = await db.from("photos").select("id, center_id, album_id, storage_path, status, contains_children").eq("id", bg.photo_id).maybeSingle();
-  if (photo.error) {
-    console.error("[events/flyer] could not read the photo row:", photo.error);
-    throw new FlyerBackgroundError(`The photo could not be loaded — ${explainError(photo.error)}.`);
-  }
-  const p = photo.data;
-  if (!p || p.center_id !== centerId) throw new FlyerBackgroundError("That photo is no longer available, or you can't see it. Choose another photo.");
-  if (p.status !== "approved") throw new FlyerBackgroundError("That photo is not approved for sharing. Choose another photo.");
-  if (p.contains_children) throw new FlyerBackgroundError("Photos showing children can't be used on a flyer. Choose another photo.");
-  const album = await db.from("photo_albums").select("id, visibility").eq("id", p.album_id).maybeSingle();
-  if (album.error) {
-    console.error("[events/flyer] could not read the photo's album:", album.error);
-    throw new FlyerBackgroundError(`The photo's album could not be loaded — ${explainError(album.error)}.`);
-  }
-  if (!album.data || album.data.visibility === "private") {
-    throw new FlyerBackgroundError("Photos from staff-only albums can't be used on a flyer. Choose a photo from an album members can see.");
-  }
-  const loc = photoLocation(p.storage_path);
-  if (!loc) throw new FlyerBackgroundError("That photo has no file attached. Choose another photo.");
-  if (loc.kind === "storage") {
-    const { data, error } = await db.storage.from(loc.bucket).download(loc.key);
-    if (error || !data) {
-      console.error(`[events/flyer] could not download ${loc.bucket}/${loc.key}:`, error);
-      throw new FlyerBackgroundError("The photo could not be loaded from storage. Choose another photo.");
-    }
-    return { image: asBackground(new Uint8Array(await data.arrayBuffer()), "photo"), notes: [] };
-  }
-  if (!isGoogleImageBase(loc.url)) throw new FlyerBackgroundError("This photo's address can't be used on a flyer. Choose another photo.");
-  const url = `${loc.url.trim()}${o.size === "print" ? "=w2400" : "=w1600"}`;
-  let bytes: Uint8Array;
-  try {
-    bytes = await cachedFetch(url, { maxBytes: 15 * 1024 * 1024, timeoutMs: 15_000, accept: "image/jpeg,image/png", allow: isGooglePhotoHost });
-  } catch (err) {
-    console.error("[events/flyer] could not fetch the Google Photos image:", err);
-    throw new FlyerBackgroundError("The photo could not be fetched from Google Photos. Try again, or choose another photo.");
-  }
-  return { image: asBackground(bytes, "photo"), notes: [] };
+  return { image: await loadAlbumPhoto(db, centerId, bg.photo_id, { size: o.size, contentModuleOn: o.contentModuleOn }), notes: [] };
 }
 
 // ── The Poster's pictures ────────────────────────────────────────────────────
@@ -245,8 +254,31 @@ async function contentPicture(db: AppSupabase, path: string): Promise<{ image: F
  * that can't be used falls back to the drawn art, and the logo to the badge,
  * each with a note for the organizer (the poster is still made).
  */
-export async function loadPosterAssets(db: AppSupabase, centerId: string, eventId: string, poster: PosterContent): Promise<{ assets: PosterAssets; notes: string[] }> {
+export async function loadPosterAssets(
+  db: AppSupabase,
+  centerId: string,
+  eventId: string,
+  poster: PosterContent,
+  o: { size?: FlyerSize; contentModuleOn?: boolean } = {},
+): Promise<{ assets: PosterAssets; notes: string[] }> {
   const notes: string[] = [];
+  // A layout's picture: an approved album photo of the community's own, under the same rules as a photo background. A photo that
+  // cannot be used leaves the picture out of the flyer, with a sentence, and the rest is still made.
+  const hero = async (): Promise<FlyerImage | null> => {
+    const id = poster.layout?.hero.photo_id;
+    if (!id) return null;
+    try {
+      return await loadAlbumPhoto(db, centerId, id, { size: o.size ?? "post", contentModuleOn: o.contentModuleOn ?? false });
+    } catch (err) {
+      if (err instanceof FlyerBackgroundError) {
+        notes.push(`The picture was left out: ${err.message}`);
+        return null;
+      }
+      console.error("[events/flyer] could not load the layout's picture:", err);
+      notes.push("The picture was left out: it could not be loaded. Try again, or choose another photo.");
+      return null;
+    }
+  };
   const layer = async (kind: FlyerLayerKind): Promise<FlyerImage | null> => {
     const l = poster[kind];
     if (l.source !== "ai") return null;
@@ -276,8 +308,9 @@ export async function loadPosterAssets(db: AppSupabase, centerId: string, eventI
     }
     return got.image;
   };
-  const [frame, scene, partnerLogo] = await Promise.all([layer("frame"), layer("scene"), partner()]);
-  return { assets: { frame, scene, partnerLogo }, notes };
+  const [frame, scene, partnerLogo, heroImage] = await Promise.all([layer("frame"), layer("scene"), partner(), hero()]);
+  // The hero key is there only when a picture was loaded, so a poster without a layout gets exactly the assets it always did.
+  return { assets: { frame, scene, partnerLogo, ...(heroImage ? { hero: heroImage } : {}) }, notes };
 }
 
 // ── Logo ─────────────────────────────────────────────────────────────────────
@@ -338,7 +371,7 @@ export async function composeFlyer(a: ComposeArgs): Promise<{ png: Uint8Array; n
       : loadBackground(a.db, a.centerId, a.eventId, a.design.background, { box, template: a.design.template, size: a.design.size, brand, contentModuleOn: a.contentModuleOn }),
     loadMainLogo(brand),
     wantsDarkLogo ? loadLogo(brand.logoDarkUrl) : Promise.resolve<LoadedLogo>({ image: null, note: null, webp: false }),
-    isPoster ? loadPosterAssets(a.db, a.centerId, a.eventId, a.design.poster!) : Promise.resolve(null),
+    isPoster ? loadPosterAssets(a.db, a.centerId, a.eventId, a.design.poster!, { size: a.design.size, contentModuleOn: a.contentModuleOn }) : Promise.resolve(null),
   ]);
   const notes = [...bg.notes, ...(poster?.notes ?? [])];
   if (logo.note) notes.push(logo.note);
