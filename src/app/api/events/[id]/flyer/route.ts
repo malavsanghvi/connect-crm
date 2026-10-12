@@ -23,6 +23,7 @@ import { explainError } from "@/lib/errors";
 import { eventAreas } from "@/lib/events/access";
 import { flyerFileName, parseFlyerDesign } from "@/lib/events/flyer";
 import { FlyerBackgroundError, composeFlyer } from "@/lib/events/flyer-assets";
+import { flyerNameNotes } from "@/lib/events/flyer-names";
 import { FlyerFontsMissingError } from "@/lib/events/flyer-fonts";
 import { FlyerBusyError, renderFlyerPdf } from "@/lib/events/flyer-render";
 import { FormError } from "@/lib/events/forms";
@@ -86,13 +87,15 @@ export async function POST(req: NextRequest, ctx: RouteContext<"/api/events/[id]
       contentModuleOn: isModuleEnabled(c.session, "content"),
     });
     const bytes = format === "pdf" ? await renderFlyerPdf(made.png, design.headline) : made.png;
+    // Names typed into a layout's blocks are checked against the community's children: a reminder beside the preview, never a block.
+    const notes = [...made.notes, ...(await flyerNameNotes(c.session, design.poster?.layout))];
     return new Response(Buffer.from(bytes), {
       status: 200,
       headers: {
         "Content-Type": format === "pdf" ? "application/pdf" : "image/png",
         "Cache-Control": "private, no-store",
         "Content-Disposition": `attachment; filename="${flyerFileName(ev.data.name, design.size, format)}"`,
-        "X-Flyer-Notes": encodeURIComponent(JSON.stringify(made.notes)),
+        "X-Flyer-Notes": encodeURIComponent(JSON.stringify(notes)),
       },
     });
   } catch (err) {

@@ -26,6 +26,7 @@ import { flyerTextLength, type FlyerDesign, type PosterContent } from "./flyer";
 import { artPack, frameEdgeSvg, plainPaperSvg, ribbonSvg, svgDataUri, type ArtPack, type PosterPalette } from "./flyer-art-packs";
 import type { FlyerBrand } from "./flyer-brand";
 import { posterIconUri, type PosterIcon } from "./flyer-icons";
+import { layoutText } from "./flyer-layout";
 
 export type PosterImage = { dataUri: string; w: number; h: number };
 
@@ -345,7 +346,7 @@ export function posterNotes(input: Pick<PosterInput, "design" | "poster" | "logo
 
 /** Every word on the poster (for choosing fonts). */
 export function posterText(p: PosterContent): string {
-  return [p.subhead, p.slogan, p.partner.label, p.partner.sub, p.stat.label, p.stat.value, p.stat.caption, p.ribbon.date, p.ribbon.time, p.paragraph, p.footer, ...p.agenda.flatMap((r) => [r.time, r.text]), "RSVP Scan to reply"].join(" ");
+  return [p.subhead, p.slogan, p.partner.label, p.partner.sub, p.stat.label, p.stat.value, p.stat.caption, p.ribbon.date, p.ribbon.time, p.paragraph, p.footer, ...p.agenda.flatMap((r) => [r.time, r.text]), p.layout ? layoutText(p.layout) : "", "RSVP Scan to reply"].join(" ");
 }
 
 /**
@@ -395,7 +396,7 @@ function fitImage(img: PosterImage, maxW: number, maxH: number): { width: number
  * outward, drawn as absolutely positioned children of the box they surround. (`box-shadow` with a blur becomes an SVG
  * Gaussian blur, which the renderer runs over a big area at Print size: one shadow cost seconds there.)
  */
-function haloLayers(o: { rgb: string; alpha: number; radius: number; spread: number; dy?: number; steps?: number }): ReactNode[] {
+export function haloLayers(o: { rgb: string; alpha: number; radius: number; spread: number; dy?: number; steps?: number }): ReactNode[] {
   const steps = o.steps ?? 4;
   const dy = o.dy ?? 0;
   return Array.from({ length: steps }, (_, i) => {
@@ -409,39 +410,45 @@ function haloLayers(o: { rgb: string; alpha: number; radius: number; spread: num
   });
 }
 
-export function posterElement(input: PosterInput, dims: { w: number; h: number }, fonts: Fonts, qrDataUri: string | null): ReactElement {
-  const { design, poster } = input;
-  const pack = artPack(poster.occasion, input.brand);
-  const pal: PosterPalette = pack.palette;
-  const plan = planPoster(input, dims, pack);
-  const u = dims.w / W;
-  const k = plan.k;
-  /** Units at scale k to pixels. */
-  const px = (v: number) => Math.round(v * k * u * 10) / 10;
-  /** Units (unscaled) to pixels. */
+/** The helpers every poster element is built from. */
+export const box = (style: Record<string, string | number>, ...children: ReactNode[]) => <div style={{ display: "flex", ...style }}>{children}</div>;
+export const txt = (style: Record<string, string | number>, s: string) => <div style={{ display: "flex", ...style }}>{s}</div>;
+export const image = (src: string, iw: number, ih: number, style: Record<string, string | number> = {}) => (
+  // eslint-disable-next-line @next/next/no-img-element
+  <img alt="" src={src} width={iw} height={ih} style={{ width: iw, height: ih, ...style }} />
+);
+export const diamond = (size: number, color: string) => box({ width: size, height: size, backgroundColor: color, transform: "rotate(45deg)", flexShrink: 0 });
+
+/**
+ * The art under the words: the pack's frame (drawn, an AI picture laid over the poster without distorting it, or plain
+ * paper), the bottom scene anchored to the bottom edge, and the soft paper panel behind the words when the frame is AI art.
+ * Shared by the original stacked poster and the layouts (flyer-layout-render.tsx).
+ */
+export function posterLayers(o: {
+  poster: PosterContent;
+  assets: PosterAssets;
+  pack: ArtPack;
+  pal: PosterPalette;
+  dims: { w: number; h: number };
+  H: number;
+  sceneScale: number;
+  sceneH: number;
+  reserve: number;
+  /** The height of the footer band the layer sits above (the original poster has one, the layouts none: 0). */
+  footer?: number;
+}): ReactNode[] {
+  const { poster, pack, pal, H } = o;
+  const { w, h } = o.dims;
+  const u = w / W;
   const ux = (v: number) => Math.round(v * u * 10) / 10;
-  const { w, h } = dims;
-  const H = plan.H;
-  const gap = ux(plan.gap);
-
-  const box = (style: Record<string, string | number>, ...children: ReactNode[]) => <div style={{ display: "flex", ...style }}>{children}</div>;
-  const txt = (style: Record<string, string | number>, s: string) => <div style={{ display: "flex", ...style }}>{s}</div>;
-  const image = (src: string, iw: number, ih: number, style: Record<string, string | number> = {}) => (
-    // eslint-disable-next-line @next/next/no-img-element
-    <img alt="" src={src} width={iw} height={ih} style={{ width: iw, height: ih, ...style }} />
-  );
-  const diamond = (size: number, color: string) => box({ width: size, height: size, backgroundColor: color, transform: "rotate(45deg)", flexShrink: 0 });
-  const iconCircle = (name: PosterIcon, size: number) =>
-    box(
-      { width: px(size), height: px(size), borderRadius: px(size / 2), border: `${Math.max(1, px(3))}px solid ${pal.gold}`, backgroundColor: "rgba(255,255,255,0.82)", alignItems: "center", justifyContent: "center", flexShrink: 0 },
-      image(posterIconUri(name, pal.ink), px(size * 0.56), px(size * 0.56)),
-    );
-
+  const plan = { sceneScale: o.sceneScale, sceneH: o.sceneH, reserve: o.reserve };
+  const input = { assets: o.assets };
+  const aiFrame = poster.frame.source === "ai" ? input.assets.frame : null;
   const layers: ReactNode[] = [];
+
 
   // 1. Frame: the pack's drawing, an AI picture (laid over the poster without distorting it, with a drawn gold edge and a soft
   //    panel behind the words), or plain paper.
-  const aiFrame = poster.frame.source === "ai" ? input.assets.frame : null;
   if (aiFrame) {
     for (const s of frameSlices(aiFrame, w, h)) {
       layers.push(
@@ -489,12 +496,67 @@ export function posterElement(input: PosterInput, dims: { w: number; h: number }
         left: ux(SIDE + 34),
         top: ux(50),
         width: ux(W - 2 * (SIDE + 34)),
-        height: Math.max(1, h - ux(FOOTER + plan.reserve + 70)),
+        height: Math.max(1, h - ux((o.footer ?? FOOTER) + plan.reserve + 70)),
         borderRadius: ux(60),
         backgroundColor: `rgba(${rgb},${pack.scrim})`,
       }, ...haloLayers({ rgb, alpha: pack.scrim, radius: ux(60), spread: ux(44), steps: 9 })),
     );
   }
+
+  return layers;
+}
+
+/**
+ * The RSVP card (the QR code, "RSVP", "Scan to reply") for the bottom-left corner, `bottom` pixels above the poster's bottom edge.
+ * It scales with the bottom scene (never below 80%).
+ */
+export function qrCardElement(o: { qr: string; sceneScale: number; u: number; pal: PosterPalette; bottom: number }): ReactElement {
+  const { pal } = o;
+  const qs = Math.max(o.sceneScale, 0.8);
+  const q = (v: number) => Math.round(v * qs * o.u * 10) / 10;
+  return box(
+    { position: "absolute", left: Math.round(40 * o.u * 10) / 10, bottom: o.bottom, width: q(QR_CARD_WIDTH) },
+    ...haloLayers({ rgb: "27,44,92", alpha: 0.25, radius: q(16), spread: q(12), dy: q(6) }),
+    box(
+      {
+        width: q(QR_CARD_WIDTH),
+        padding: `${q(QR_PAD)}px ${q(QR_PAD)}px ${q(8)}px`,
+        backgroundColor: "#FFFFFF",
+        borderRadius: q(16),
+        border: `${Math.max(1, q(QR_BORDER))}px solid ${pal.gold}`,
+        flexDirection: "column",
+        alignItems: "center",
+      },
+      image(o.qr, q(QR_IMAGE), q(QR_IMAGE)),
+      txt({ fontWeight: 800, fontSize: q(20), lineHeight: 1.2, letterSpacing: q(5), color: pal.ink, marginTop: q(6), marginLeft: q(5) }, "RSVP"),
+      txt({ fontWeight: 500, fontSize: q(13), lineHeight: 1.2, color: pal.body }, "Scan to reply"),
+    ),
+  );
+}
+
+export function posterElement(input: PosterInput, dims: { w: number; h: number }, fonts: Fonts, qrDataUri: string | null): ReactElement {
+  const { design, poster } = input;
+  const pack = artPack(poster.occasion, input.brand);
+  const pal: PosterPalette = pack.palette;
+  const plan = planPoster(input, dims, pack);
+  const u = dims.w / W;
+  const k = plan.k;
+  /** Units at scale k to pixels. */
+  const px = (v: number) => Math.round(v * k * u * 10) / 10;
+  /** Units (unscaled) to pixels. */
+  const ux = (v: number) => Math.round(v * u * 10) / 10;
+  const { w, h } = dims;
+  const H = plan.H;
+  const gap = ux(plan.gap);
+
+  const iconCircle = (name: PosterIcon, size: number) =>
+    box(
+      { width: px(size), height: px(size), borderRadius: px(size / 2), border: `${Math.max(1, px(3))}px solid ${pal.gold}`, backgroundColor: "rgba(255,255,255,0.82)", alignItems: "center", justifyContent: "center", flexShrink: 0 },
+      image(posterIconUri(name, pal.ink), px(size * 0.56), px(size * 0.56)),
+    );
+
+  const aiFrame = poster.frame.source === "ai" ? input.assets.frame : null;
+  const layers = posterLayers({ poster, assets: input.assets, pack, pal, dims, H, sceneScale: plan.sceneScale, sceneH: plan.sceneH, reserve: plan.reserve });
 
   // 4. The words.
   const sections: ReactNode[] = [];
@@ -677,8 +739,6 @@ export function posterElement(input: PosterInput, dims: { w: number; h: number }
 
   // 5. QR code and footer.
   const qr = design.show_qr && qrDataUri ? qrDataUri : null;
-  const qs = Math.max(plan.sceneScale, 0.8);
-  const q = (v: number) => Math.round(v * qs * u * 10) / 10;
   // A small honest line when AI made some of the art; nothing when it was all drawn in code.
   const credit = (aiFrame ? 1 : 0) + (input.assets.scene && poster.scene.source === "ai" ? 1 : 0) > 0 ? "Art: Google Gemini (AI)" : "";
   const footerText = poster.footer || input.centerName;
@@ -687,26 +747,7 @@ export function posterElement(input: PosterInput, dims: { w: number; h: number }
     <div style={{ width: w, height: h, display: "flex", flexDirection: "column", position: "relative", backgroundColor: pal.paper, fontFamily: fonts.body, color: pal.ink, wordBreak: "break-word" }}>
       {layers}
       {column}
-      {qr
-        ? box(
-            { position: "absolute", left: ux(40), bottom: ux(FOOTER + 18), width: q(QR_CARD_WIDTH) },
-            ...haloLayers({ rgb: "27,44,92", alpha: 0.25, radius: q(16), spread: q(12), dy: q(6) }),
-            box(
-              {
-                width: q(QR_CARD_WIDTH),
-                padding: `${q(QR_PAD)}px ${q(QR_PAD)}px ${q(8)}px`,
-                backgroundColor: "#FFFFFF",
-                borderRadius: q(16),
-                border: `${Math.max(1, q(QR_BORDER))}px solid ${pal.gold}`,
-                flexDirection: "column",
-                alignItems: "center",
-              },
-              image(qr, q(QR_IMAGE), q(QR_IMAGE)),
-              txt({ fontWeight: 800, fontSize: q(20), lineHeight: 1.2, letterSpacing: q(5), color: pal.ink, marginTop: q(6), marginLeft: q(5) }, "RSVP"),
-              txt({ fontWeight: 500, fontSize: q(13), lineHeight: 1.2, color: pal.body }, "Scan to reply"),
-            ),
-          )
-        : null}
+      {qr ? qrCardElement({ qr, sceneScale: plan.sceneScale, u, pal, bottom: ux(FOOTER + 18) }) : null}
       {/* Pinned to the bottom edge, after everything else: a wrong estimate above can never push it out of the picture. */}
       <div style={{ display: "flex", position: "absolute", left: 0, bottom: 0, width: w, height: ux(FOOTER), backgroundColor: pal.footerBg, borderTop: `${Math.max(1, ux(3))}px solid ${pal.gold}`, alignItems: "center", justifyContent: "center", gap: ux(18) }}>
         {diamond(ux(9), pal.gold)}

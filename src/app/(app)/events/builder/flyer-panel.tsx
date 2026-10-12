@@ -83,7 +83,7 @@ export function postFlyer(eventId: string, design: FlyerDesign, format: "png" | 
  * Event builder › Flyer maker (owner decisions 2026-10-01): design a flyer
  * from the brand kit — background, template, size, words, RSVP QR code — with
  * a live preview rendered by the server (POST /api/events/<id>/flyer), then
- * "Use this flyer" (Post, Tall or Story) or download a PNG, or a PDF at Print size.
+ * "Use this flyer" (Post, Square, Tall or Story) or download a PNG, or a PDF at Print size.
  * Uploading your own flyer stays. The admin console links here as
  * /events/builder?event=<id>#flyer.
  */
@@ -524,7 +524,7 @@ export function FlyerPanel({
                   </button>
                 ) : null}
               </div>
-              {!canUse ? <p className="crm-hint mt-1">Print is for downloading. Switch to Post, Tall or Story to use the design as the event&apos;s flyer.</p> : null}
+              {!canUse ? <p className="crm-hint mt-1">Print is for downloading. Switch to Post, Square, Tall or Story to use the design as the event&apos;s flyer.</p> : null}
               {saveError ? <InlineError onRetry={save}>{saveError}</InlineError> : null}
               {downloadError ? <InlineError onRetry={() => void download(downloadError.format)}>{downloadError.message}</InlineError> : null}
               <p className="crm-hint mt-2">

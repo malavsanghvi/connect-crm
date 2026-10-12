@@ -25,6 +25,7 @@ import { contrastRatio, parseHexColor, textOn } from "@/lib/setup";
 import { FLYER_SIZES, defaultPoster, fitFontSize, flyerTextRoom, type FlyerDesign, type FlyerSize, type FlyerTemplate } from "./flyer";
 import type { FlyerBrand } from "./flyer-brand";
 import { getFlyerFonts } from "./flyer-fonts";
+import { layoutElement, layoutNotes } from "./flyer-layout-render";
 import { posterElement, posterNotes, posterText, type PosterAssets } from "./flyer-poster";
 
 export type FlyerImage = { dataUri: string; w: number; h: number };
@@ -45,7 +46,8 @@ export type FlyerRenderInput = {
 };
 
 export type FlyerDims = { w: number; h: number };
-type Fonts = { display: string; body: string };
+/** `script` is the brush-script family a layout uses for accents; without one the display family stands in. */
+type Fonts = { display: string; body: string; script?: string };
 
 /** Too many renders at once: the route answers 503 and the panel offers to try again. */
 export class FlyerBusyError extends Error {
@@ -186,7 +188,9 @@ function Ornament({ u, color, compact = false }: { u: number; color: string; com
 export function flyerElement(input: FlyerRenderInput, dims: FlyerDims, fonts: Fonts, qrDataUri: string | null): ReactElement {
   const { design, brand } = input;
   const { w, h } = dims;
-  const u = w / 1080;
+  // The Square size (1080 × 1080) has a fifth less height than Post: the older templates draw everything at 80% there, so a long
+  // headline and the other lines still fit without anything being cut off.
+  const u = (w / 1080) * (h / w < 1.15 ? 0.8 : 1);
   const px = (n: number) => Math.round(n * u * 10) / 10;
   const primary = brand.primary;
   const accent = brand.accent;
@@ -199,6 +203,15 @@ export function flyerElement(input: FlyerRenderInput, dims: FlyerDims, fonts: Fo
   if (design.template === "poster") {
     // A design always carries its poster content when the Poster is chosen (parseFlyerDesign); this fallback only guards the type.
     const poster = design.poster ?? defaultPoster({ name: design.headline, description: design.tagline, startsAt: null, endsAt: null, tz: "UTC" });
+    // Flyers v3: a poster with a layout is drawn from its blocks; one without is the original stacked poster, exactly as before.
+    if (poster.layout) {
+      return layoutElement(
+        { design, poster, brand, centerName: input.centerName, logo: input.logo, assets: input.posterAssets ?? { frame: null, scene: null, partnerLogo: null } },
+        dims,
+        { display: fonts.display, body: fonts.body, script: fonts.script ?? fonts.display },
+        qrDataUri,
+      );
+    }
     return posterElement(
       { design, poster, brand, centerName: input.centerName, logo: input.logo, assets: input.posterAssets ?? { frame: null, scene: null, partnerLogo: null } },
       dims,
@@ -427,13 +440,12 @@ export async function renderFlyerPng(
   try {
     const dims = dimsOverride ?? flyerDims(input.design.size, scale);
     const notes: string[] = [];
-    const set = await getFlyerFonts(input.brand, flyerText(input), { poster: input.design.template === "poster" });
+    const set = await getFlyerFonts(input.brand, flyerText(input), { poster: input.design.template === "poster", script: input.design.template === "poster" && Boolean(input.design.poster?.layout) });
     notes.push(...set.notes);
     // The Poster says so when it is too full for its size: a section left out, or the words set small.
     if (input.design.template === "poster" && input.design.poster) {
-      notes.push(
-        ...posterNotes({ design: input.design, poster: input.design.poster, brand: input.brand, logo: input.logo, assets: input.posterAssets ?? { frame: null, scene: null, partnerLogo: null } }, dims),
-      );
+      const planInput = { design: input.design, poster: input.design.poster, brand: input.brand, logo: input.logo, assets: input.posterAssets ?? { frame: null, scene: null, partnerLogo: null } };
+      notes.push(...(input.design.poster.layout ? layoutNotes({ ...planInput, centerName: input.centerName }, dims) : posterNotes(planInput, dims)));
     }
     let qr: string | null = null;
     if (input.design.show_qr) {
@@ -443,7 +455,7 @@ export async function renderFlyerPng(
         notes.push("The flyer has no QR code: the member web app's address is not set, so there is no RSVP link to put in it.");
       }
     }
-    const el = flyerElement(input, dims, { display: set.display, body: set.body }, qr);
+    const el = flyerElement(input, dims, { display: set.display, body: set.body, script: set.script }, qr);
     const res = new ImageResponse(el, { width: dims.w, height: dims.h, fonts: set.fonts });
     const png = new Uint8Array(await res.arrayBuffer());
     if (!isPng(png)) throw new Error("the image renderer returned no picture");
