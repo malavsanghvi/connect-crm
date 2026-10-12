@@ -8,8 +8,11 @@ import type { CrmSession } from "@/lib/session";
 
 const LIMIT = 150;
 
-/** Audit trail for the household record and the records hanging off it. */
-export async function AuditTab({ session, householdId }: { session: CrmSession; householdId: string }) {
+/**
+ * Audit trail for the household record and the records hanging off it. With `personId` (the Family page's History filter) only that
+ * person's own record and identifiers are shown.
+ */
+export async function AuditTab({ session, householdId, personId }: { session: CrmSession; householdId: string; personId?: string }) {
   if (!canAccess(session, "audit")) return <NoAccess area="The audit log" access="audit" />;
   const { db, center } = session;
   const retry = `/households/${householdId}?tab=audit`;
@@ -23,9 +26,19 @@ export async function AuditTab({ session, householdId }: { session: CrmSession; 
     db.from("payments").select("id").eq("household_id", householdId).limit(500),
     db.from("membership_applications").select("id").eq("household_id", householdId).limit(500),
   ]);
-  const related: [string, string[]][] = [
+  const memberIds = (members.data ?? []).map((m) => m.person_id);
+  // Only a person of this household can be the filter (nothing else is asked for).
+  const only = personId && memberIds.includes(personId) ? personId : null;
+  const personExt = only ? await db.from("external_ids").select("id").eq("person_id", only).limit(500) : null;
+  const related: [string, string[]][] = only
+    ? [
+        ["people", [only]],
+        ["household_members", []],
+        ["external_ids", (personExt?.data ?? []).map((r) => r.id)],
+      ]
+    : [
     ["households", [householdId]],
-    ["people", (members.data ?? []).map((m) => m.person_id)],
+    ["people", memberIds],
     ["household_members", []],
     ["external_ids", (extIds.data ?? []).map((r) => r.id)],
     ["memberships", (memberships.data ?? []).map((r) => r.id)],

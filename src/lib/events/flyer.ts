@@ -24,7 +24,9 @@ import { FLYER_ART_SEED_MAX, FLYER_LAYER_KINDS, isCenterArtPath, isFlyerOccasion
 import { artFactsFor, buildBackgroundPrompt, cleanArtNote } from "./flyer-art-prompt";
 import type { OccasionKind } from "./flyer-occasions";
 import { isPosterIcon, type PosterIcon } from "./flyer-icons";
+import { parseLayout, type PosterLayout } from "./flyer-layout";
 import { formatEventRange, formatTime } from "./format";
+import { cleanLine, flyerTextLength } from "./flyer-text";
 
 // ── Sources, templates, sizes, backgrounds ──────────────────────────────────
 
@@ -51,18 +53,20 @@ export const FLYER_TEMPLATE_LABEL: Record<FlyerTemplate, string> = {
   poster: "Poster",
 };
 
-export type FlyerSize = "post" | "tall" | "story" | "print";
+export type FlyerSize = "post" | "square" | "tall" | "story" | "print";
 /**
  * Print is US Letter at 300 dpi: twice the 1275 × 1650 layout, so the PDF is
  * sharp (the drawn art is vector and scales with it).
  */
 export const FLYER_SIZES = {
   post: { w: 1080, h: 1350, label: "Post 1080×1350" },
+  // Flyers v3: the shape most social posts take.
+  square: { w: 1080, h: 1080, label: "Square 1080×1080" },
   tall: { w: 1080, h: 1620, label: "Tall 1080×1620" },
   story: { w: 1080, h: 1920, label: "Story 1080×1920" },
   print: { w: 2550, h: 3300, label: "Print — US Letter (PDF)" },
 } as const satisfies Record<FlyerSize, { w: number; h: number; label: string }>;
-export const FLYER_SIZE_KEYS: readonly FlyerSize[] = ["post", "tall", "story", "print"];
+export const FLYER_SIZE_KEYS: readonly FlyerSize[] = ["post", "square", "tall", "story", "print"];
 
 export type FlyerPattern = "lotus" | "rangoli" | "diya" | "mandala";
 export const FLYER_PATTERNS: readonly FlyerPattern[] = ["lotus", "rangoli", "diya", "mandala"];
@@ -104,6 +108,11 @@ export type PosterContent = {
   paragraph: string;
   /** The footer band's line; empty shows the community's name. */
   footer: string;
+  /**
+   * Flyers v3: the words arranged as blocks in a preset layout (flyer-layout.ts). Absent: the original stacked poster, drawn
+   * exactly as before. Kept while another template is chosen, like the rest of the poster.
+   */
+  layout?: PosterLayout;
 };
 
 export const POSTER_LIMITS = {
@@ -165,10 +174,7 @@ const FIELD_LABEL: Record<keyof typeof FLYER_LIMITS, string> = {
   venue_line: "venue line",
 };
 
-/** Characters as a person counts them (code points, so a Gujarati letter with its sign counts per symbol, not per UTF-16 unit). */
-export function flyerTextLength(s: string): number {
-  return Array.from(s).length;
-}
+export { flyerTextLength };
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const ART_PATH = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/events\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/art-\d{1,16}\.(?:jpg|png)$/i;
@@ -176,12 +182,6 @@ const ART_PATH = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\
 /** Is this the storage key of THIS event's AI background art (content/<center>/events/<event>/art-<ms>.<jpg|png>)? */
 export function isFlyerArtPath(path: string, centerId: string, eventId: string): boolean {
   return ART_PATH.test(path) && path.toLowerCase().startsWith(`${centerId}/events/${eventId}/art-`.toLowerCase());
-}
-
-function cleanLine(v: unknown): string {
-  // Control characters (tabs, line breaks) and no-break spaces (a time such as "5:00 PM" may carry one) become
-  // spaces: the flyer lays out its own lines, and a font may not have the glyph.
-  return typeof v === "string" ? v.replace(/[\u0000-\u001F\u007F\u00A0\u202F]+/g, " ").replace(/ {2,}/g, " ").trim() : "";
 }
 
 const PARTNER_LOGO = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/events\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/partner-\d{1,16}\.(?:jpg|png)$/i;
@@ -222,6 +222,12 @@ export function parsePosterContent(raw: unknown): { ok: true; poster: PosterCont
   const ribbon = obj(o.ribbon);
   const logoPath = typeof partner.logo_path === "string" && partner.logo_path.trim() ? partner.logo_path.trim() : null;
   if (logoPath && !PARTNER_LOGO.test(logoPath)) return { ok: false, error: "The partner logo is not one uploaded here. Upload it again." };
+  let layout: PosterLayout | undefined;
+  if (o.layout !== undefined && o.layout !== null) {
+    const l = parseLayout(o.layout);
+    if (!l.ok) return l;
+    layout = l.layout;
+  }
   const rawRows = Array.isArray(o.agenda) ? o.agenda : [];
   if (rawRows.length > POSTER_AGENDA_MAX) return { ok: false, error: `The agenda has room for ${POSTER_AGENDA_MAX} rows.` };
   const agenda: PosterAgendaRow[] = [];
@@ -253,6 +259,7 @@ export function parsePosterContent(raw: unknown): { ok: true; poster: PosterCont
     agenda,
     paragraph: cleanLine(o.paragraph),
     footer: cleanLine(o.footer),
+    ...(layout ? { layout } : {}),
   };
   const checks: [keyof typeof POSTER_LIMITS, string][] = [
     ["subhead", poster.subhead],
@@ -321,7 +328,7 @@ export function parseFlyerDesign(raw: unknown): { ok: true; design: FlyerDesign 
   }
   const size = o.size;
   if (typeof size !== "string" || !(FLYER_SIZE_KEYS as readonly string[]).includes(size)) {
-    return { ok: false, error: "Choose a size: Post, Tall, Story or Print." };
+    return { ok: false, error: "Choose a size: Post, Square, Tall, Story or Print." };
   }
   const text = {
     headline: cleanLine(o.headline),

@@ -4,7 +4,8 @@
 //
 // What leaves the database (app.qbo_worker_ai_input): the customer's names,
 // city and ZIP and email DOMAINS; for each candidate household its name, city,
-// ZIP, members' first names and email domains. Never a full email, a phone
+// ZIP, adult members' first names and email domains (never a child's or an
+// unknown age's: D2, migration 0680). Never a full email, a phone
 // number, an amount or a note. The model only proposes: proposals are stored
 // as suggestions (method "ai", confidence at most 0.85) for the treasury to
 // approve or reject. Customers with no candidate household are marked checked
