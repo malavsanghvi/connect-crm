@@ -153,9 +153,9 @@ select pg_temp.assert((select (r ->> 'published')::int = 0 and (r ->> 'refused')
   'B · a second run finds nothing to do');
 -- Scheduling again (what the panel does on Try again) clears nothing by itself; publishing clears the old failure.
 update app.events set is_paid = false, publish_at = now() - interval '1 minute', publish_failure = null where id = :ev_paid;
-select pg_temp.assert((select (r ->> 'published')::int = 1 from (select pg_temp.publish_due() as r) x)
-                      and (select status = 'published' and publish_failure is null from app.events where id = :ev_paid),
-  'B · fixed and scheduled again, it is published');
+-- (Two statements: a statement does not see what a function it calls changed.)
+select pg_temp.assert((select (r ->> 'published')::int = 1 from (select pg_temp.publish_due() as r) x), 'B · fixed and scheduled again, it is published');
+select pg_temp.assert((select status = 'published' and publish_failure is null from app.events where id = :ev_paid), 'B · and its old failure is cleared');
 
 -- ══ E. Who may call what ═══════════════════════════════════════════════════
 select pg_temp.assert(has_function_privilege('connect_worker', 'app.worker_events_publish_due(integer)', 'execute')
