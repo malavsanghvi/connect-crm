@@ -14,7 +14,7 @@ import { attempt, useSavedActions } from "./saved-actions";
 
 const CARD = "rounded-[18px] border border-line bg-white";
 
-export function PinnedFamilies({ pins, hidden }: { pins: PinnedFamilyCard[]; hidden: number }) {
+export function PinnedFamilies({ pins, hidden, loadError }: { pins: PinnedFamilyCard[]; hidden: number; /** The pins could not be read: said in words, never an empty strip that looks like "none". */ loadError?: string | null }) {
   const actions = useSavedActions();
   const router = useRouter();
   const [items, setItems] = useState(pins);
@@ -39,6 +39,16 @@ export function PinnedFamilies({ pins, hidden }: { pins: PinnedFamilyCard[]; hid
     router.refresh();
   }
 
+  if (loadError) {
+    return (
+      <p role="alert" className="m-0 text-[13px] text-danger">
+        Could not load your pinned families — {loadError}{" "}
+        <Link href="/people" className="font-semibold text-navy">
+          Try again
+        </Link>
+      </p>
+    );
+  }
   if (items.length === 0 && hidden === 0) {
     return <p className="m-0 rounded-[14px] border border-dashed border-line-input px-4 py-5 text-[13px] text-muted">Pin a family with the star at the top of its page, and it stays here, one click away. Only you see your pins.</p>;
   }

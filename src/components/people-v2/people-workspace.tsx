@@ -117,21 +117,23 @@ function ProblemLine({ problem }: { problem: Problem }) {
 function SummaryRow({ model }: { model: PeopleWorkspaceModel }) {
   if (!model.summary) return null;
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3">
-      <span className="text-[15px] text-ink">
-        <b>{model.summary.count}</b>
-        {model.summary.open ? (
-          <>
-            {" "}
-            · <b className="text-[var(--v2-sun-ink)]">{model.summary.open}</b> open in total
-          </>
-        ) : null}
-      </span>
-      <div className="flex flex-wrap items-center gap-2">
+    <div className="flex flex-wrap items-start justify-between gap-3">
+      <div className="flex min-w-0 max-w-[40rem] flex-col gap-1">
+        <span className="text-[15px] text-ink">
+          <b>{model.summary.count}</b>
+          {model.summary.open ? (
+            <>
+              {" "}
+              · <b className="text-[var(--v2-sun-ink)]">{model.summary.open}</b> open in total
+            </>
+          ) : null}
+        </span>
+        {model.actions ? <p className="m-0 text-[12px] text-muted">{model.actions.exportNote}</p> : null}
+      </div>
+      <div className="flex flex-wrap items-start gap-2">
         <DraftForThese prompt={model.draftPrompt} />
         <ListActionButtons actions={model.actions} />
       </div>
-      {model.actions ? <p className="m-0 w-full text-[12px] text-muted">{model.actions.exportNote}</p> : null}
     </div>
   );
 }
@@ -151,9 +153,11 @@ function ListActionButtons({ actions }: { actions: ListActions | null }) {
 function ListToolbar({ summary, actions }: { summary: string | null; actions: ListActions | null }) {
   return (
     <div className="flex flex-wrap items-start justify-between gap-3">
-      <span className="text-[15px] text-ink">{summary ? <b>{summary}</b> : null}</span>
+      <div className="flex min-w-0 max-w-[40rem] flex-col gap-1">
+        <span className="text-[15px] text-ink">{summary ? <b>{summary}</b> : null}</span>
+        {actions ? <p className="m-0 text-[12px] text-muted">{actions.exportNote}</p> : null}
+      </div>
       <ListActionButtons actions={actions} />
-      {actions ? <p className="m-0 w-full text-[12px] text-muted">{actions.exportNote}</p> : null}
     </div>
   );
 }

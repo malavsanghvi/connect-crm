@@ -36,7 +36,7 @@ export function PeopleHome({ model, inbox }: { model: PeopleHomeModel; /** The i
       </section>
 
       {model.problems
-        .filter((p) => p.what !== "your saved views")
+        .filter((p) => p.what !== "your saved views" && p.what !== "your pinned families")
         .map((p) => (
           <ProblemLine key={p.what} problem={p} />
         ))}
@@ -45,7 +45,7 @@ export function PeopleHome({ model, inbox }: { model: PeopleHomeModel; /** The i
 
       <section aria-label="Pinned families" className="flex flex-col gap-3">
         <SectionHeading title="Pinned families" note="Yours alone: pin one with the star on its page" />
-        <PinnedFamilies pins={model.pins} hidden={model.pinsHidden} />
+        <PinnedFamilies pins={model.pins} hidden={model.pinsHidden} loadError={model.problems.find((p) => p.what === "your pinned families")?.message ?? null} />
       </section>
 
       <RecentFamilies recents={model.recents} />

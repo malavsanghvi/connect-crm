@@ -12,8 +12,8 @@ import { devPreviewAllowed } from "@/lib/dev-preview";
 import { filtersFromParams, hasFilters, NO_FILTERS, type HouseholdFilters } from "@/lib/people-v2/ask";
 import { familyChips } from "@/lib/people-v2/family-model";
 
-import { COMMUNITY, gapWorkspace, GAP_FILTERS, sampleHomeViews } from "./fixtures";
-import { PreviewSaved } from "./preview-client";
+import { COMMUNITY, gapWorkspace, GAP_FILTERS, isStep, sampleHomeViews } from "./fixtures";
+import { AutoDo, PreviewSaved } from "./preview-client";
 
 export const metadata: Metadata = { title: "Saved views · Dev preview" };
 
@@ -32,12 +32,15 @@ type State = (typeof STATES)[number];
  *       gaplist-empty  a gap list nobody matches                       family  the Family page with the pin star (?pinned=1 starts pinned)
  *       noaccess       a role that cannot open People
  *   ?fail=1            every write fails the way a lost connection does (the error is shown next to what the person did)
+ *   ?do=save|save-go|save-dup|rename|rename-go|delete|delete-go|unpin-home|pin   opens a control (and types, and presses) so a screenshot catches that state
  */
 export default async function PeopleViewsPreview({ searchParams }: { searchParams?: Search }) {
   if (!devPreviewAllowed()) notFound();
   const sp = (await searchParams) ?? {};
   const state: State = (STATES as readonly string[]).includes(one(sp.state) ?? "") ? (one(sp.state) as State) : "home";
   const fail = one(sp.fail) === "1";
+  const doParam = one(sp.do);
+  const step = isStep(doParam) ? doParam : "none";
 
   let body;
   if (state === "noaccess") {
@@ -80,7 +83,10 @@ export default async function PeopleViewsPreview({ searchParams }: { searchParam
 
   return (
     <PreviewShell community={COMMUNITY} extraPath="/dev/people-views">
-      <PreviewSaved fail={fail}>{body}</PreviewSaved>
+      <PreviewSaved fail={fail}>
+        {body}
+        <AutoDo step={step} />
+      </PreviewSaved>
     </PreviewShell>
   );
 }

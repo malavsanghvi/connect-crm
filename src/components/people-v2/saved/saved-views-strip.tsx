@@ -68,7 +68,10 @@ export function SavedViewsStrip({
       </div>
       {loadError ? (
         <p role="alert" className="m-0 text-[13px] text-danger">
-          Could not load your saved views — {loadError} Reload the page to try again.
+          Could not load your saved views — {loadError}{" "}
+          <Link href="/people#saved-views" className="font-semibold text-navy">
+            Try again
+          </Link>
         </p>
       ) : items.length === 0 ? (
         <p className="m-0 text-[13px] text-muted">
@@ -133,56 +136,60 @@ function ViewChip({ view, onRenamed, onDeleted }: { view: SavedViewItem; onRenam
 
   if (mode === "rename") {
     return (
-      <form
-        className="flex w-full flex-col gap-2 rounded-2xl border border-line bg-white p-3 sm:w-auto sm:min-w-[22rem]"
-        onSubmit={(e) => {
-          e.preventDefault();
-          if (!busy) void rename();
-        }}
-        onKeyDown={(e) => {
-          if (e.key === "Escape") close();
-        }}
-      >
-        <label htmlFor={inputId} className="text-[12px] font-extrabold uppercase tracking-[0.04em] text-muted">
-          New name for this view
-        </label>
-        <input id={inputId} ref={input} autoFocus value={name} onChange={(e) => setName(e.target.value)} maxLength={120} dir="auto" className="crm-input w-full" aria-describedby={error ? `${inputId}-err` : undefined} />
-        <div className="flex flex-wrap items-center gap-2">
-          <button type="submit" disabled={busy} className={`${SMALL_BTN} bg-navy text-white hover:bg-navy-hover disabled:opacity-60`}>
-            {busy ? "Saving…" : "Save name"}
-          </button>
-          <button type="button" onClick={close} disabled={busy} className={`${SMALL_BTN} border border-line-input bg-white text-ink`}>
-            Cancel
-          </button>
-        </div>
-        {error ? (
-          <p id={`${inputId}-err`} role="alert" className="m-0 text-[13px] text-danger">
-            {error}
-          </p>
-        ) : null}
-      </form>
+      <div className="w-full">
+        <form
+          className="flex w-full max-w-[30rem] flex-col gap-2 rounded-2xl border border-line bg-white p-3"
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (!busy) void rename();
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Escape") close();
+          }}
+        >
+          <label htmlFor={inputId} className="text-[12px] font-extrabold uppercase tracking-[0.04em] text-muted">
+            New name for this view
+          </label>
+          <input id={inputId} ref={input} autoFocus value={name} onChange={(e) => setName(e.target.value)} maxLength={120} dir="auto" className="crm-input w-full" aria-describedby={error ? `${inputId}-err` : undefined} />
+          <div className="flex flex-wrap items-center gap-2">
+            <button type="submit" disabled={busy} className={`${SMALL_BTN} bg-navy text-white hover:bg-navy-hover disabled:opacity-60`}>
+              {busy ? "Saving…" : "Save name"}
+            </button>
+            <button type="button" onClick={close} disabled={busy} className={`${SMALL_BTN} border border-line-input bg-white text-ink`}>
+              Cancel
+            </button>
+          </div>
+          {error ? (
+            <p id={`${inputId}-err`} role="alert" className="m-0 text-[13px] text-danger">
+              {error}
+            </p>
+          ) : null}
+        </form>
+      </div>
     );
   }
 
   if (mode === "delete") {
     return (
-      <div className="flex w-full flex-col gap-2 rounded-2xl border border-danger/30 bg-danger-50 p-3 sm:w-auto sm:max-w-[26rem]" role="group" aria-label={`Delete the saved view ${view.name}`}>
-        <p className="m-0 text-[14px] text-ink">
-          Delete the saved view <strong dir="auto">“{view.name}”</strong>? Only this view is removed: no family or person is changed.
-        </p>
-        <div className="flex flex-wrap items-center gap-2">
-          <button type="button" onClick={() => void remove()} disabled={busy} className={`${SMALL_BTN} bg-danger text-white disabled:opacity-60`}>
-            {busy ? "Deleting…" : "Delete view"}
-          </button>
-          <button type="button" onClick={close} disabled={busy} className={`${SMALL_BTN} border border-line-input bg-white text-ink`}>
-            Keep it
-          </button>
-        </div>
-        {error ? (
-          <p role="alert" className="m-0 text-[13px] text-danger">
-            {error}
+      <div className="w-full">
+        <div className="flex w-full max-w-[30rem] flex-col gap-2 rounded-2xl border border-danger/30 bg-danger-50 p-3" role="group" aria-label={`Delete the saved view ${view.name}`}>
+          <p className="m-0 text-[14px] text-ink">
+            Delete the saved view <strong dir="auto">“{view.name}”</strong>? Only this view is removed: no family or person is changed.
           </p>
-        ) : null}
+          <div className="flex flex-wrap items-center gap-2">
+            <button type="button" onClick={() => void remove()} disabled={busy} className={`${SMALL_BTN} bg-danger text-white disabled:opacity-60`}>
+              {busy ? "Deleting…" : "Delete view"}
+            </button>
+            <button type="button" onClick={close} disabled={busy} className={`${SMALL_BTN} border border-line-input bg-white text-ink`}>
+              Keep it
+            </button>
+          </div>
+          {error ? (
+            <p role="alert" className="m-0 text-[13px] text-danger">
+              {error}
+            </p>
+          ) : null}
+        </div>
       </div>
     );
   }

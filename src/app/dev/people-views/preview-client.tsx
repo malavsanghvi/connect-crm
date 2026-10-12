@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, type ReactNode } from "react";
+import { useEffect, useMemo, type ReactNode } from "react";
 
 import { fixtureSearch } from "@/app/dev/people-home/fixtures";
 import { FindBackendContext } from "@/components/people-v2/find/find-backend";
@@ -9,7 +9,7 @@ import { readsAsFilter } from "@/lib/find/classify";
 import { showText } from "@/lib/people-v2/ask";
 import { cleanViewName, sameViewName, viewToSave } from "@/lib/people-v2/saved-views";
 
-import { gapRows, SAVED_NAMES, ZONES } from "./fixtures";
+import { gapRows, SAVED_NAMES, ZONES, type Step } from "./fixtures";
 
 // DEV ONLY. The saved-views screens with fake writes, so each state can be drawn and checked without a database: every write waits a
 // moment and then either works or (with ?fail=1) fails the way a lost connection does. The find box reads the invented people and
@@ -70,4 +70,47 @@ export function PreviewSaved({ fail, children }: { fail: boolean; children: Reac
       <SavedActionsProvider actions={actions}>{children}</SavedActionsProvider>
     </FindBackendContext.Provider>
   );
+}
+
+// ── A short script that opens a control and types, so a screenshot can catch the state (?do=…) ───────────────────────────────────────
+
+
+function setValue(el: HTMLInputElement, text: string) {
+  const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
+  set?.call(el, text);
+  el.dispatchEvent(new Event("input", { bubbles: true }));
+}
+
+const button = (match: (b: HTMLButtonElement) => boolean) => Array.from(document.querySelectorAll<HTMLButtonElement>("button")).find(match);
+const byText = (text: string) => button((b) => b.textContent?.trim() === text);
+const byLabel = (start: string) => button((b) => (b.getAttribute("aria-label") ?? "").startsWith(start));
+
+export function AutoDo({ step }: { step: Step }) {
+  useEffect(() => {
+    if (step === "none") return;
+    const timers: ReturnType<typeof setTimeout>[] = [];
+    const at = (ms: number, fn: () => void) => timers.push(setTimeout(fn, ms));
+    if (step.startsWith("save")) {
+      at(600, () => byText("Save this view")?.click());
+      if (step === "save-dup") at(900, () => setValue(document.querySelector<HTMLInputElement>('input[aria-describedby$="-hint"], input[aria-describedby*="-hint"]') as HTMLInputElement, "seniors with no mobile"));
+      if (step === "save-go" || step === "save-dup") at(1300, () => byText("Save view")?.click());
+    } else if (step.startsWith("rename")) {
+      at(600, () => byLabel("Rename or delete the saved view")?.click());
+      at(900, () => byText("Rename")?.click());
+      if (step === "rename-go") {
+        at(1200, () => setValue(document.querySelector<HTMLInputElement>("form input[dir=auto]") as HTMLInputElement, "Adults to phone"));
+        at(1500, () => byText("Save name")?.click());
+      }
+    } else if (step.startsWith("delete")) {
+      at(600, () => byLabel("Rename or delete the saved view")?.click());
+      at(900, () => byText("Delete")?.click());
+      if (step === "delete-go") at(1300, () => byText("Delete view")?.click());
+    } else if (step === "unpin-home") {
+      at(600, () => byLabel("Unpin ")?.click());
+    } else if (step === "pin") {
+      at(600, () => button((b) => b.hasAttribute("aria-pressed") && b.offsetParent !== null)?.click());
+    }
+    return () => timers.forEach(clearTimeout);
+  }, [step]);
+  return null;
 }

@@ -200,3 +200,8 @@ export function sampleHomeViews(opts: { empty: boolean; error: boolean }): Peopl
       : [],
   };
 }
+
+// ── The scripts the page can run (?do=…): see preview-client.tsx ───────────────────────────────────────────────────────────────────
+const STEPS = ["save", "save-go", "save-dup", "rename", "rename-go", "delete", "delete-go", "unpin-home", "pin", "none"] as const;
+export type Step = (typeof STEPS)[number];
+export const isStep = (v: string | undefined): v is Step => (STEPS as readonly string[]).includes(v ?? "");
