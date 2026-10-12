@@ -53,13 +53,18 @@ export async function HouseholdGlance({
   const g = gate(session);
   if (g === "off") return null;
   if (g === "none") return <GivingGlanceView view={{ state: "no-access" }} />;
+  return <GivingGlanceView view={await householdView(session, householdId, sp, prep, path, heading)} idPrefix={idPrefix} />;
+}
+
+/** Reads the household's rows and works the panel out. A failed read is a view of its own (said plainly, with a retry), never an empty panel. */
+async function householdView(session: CrmSession, householdId: string, sp: RawSearchParams, prep: GlancePrep, path: string, heading?: string): Promise<GlanceView> {
   const { db, center } = session;
   const keep = { tab: param(sp, "tab") ?? null };
   const retryHref = glanceHref(path, { ...keep, year: prep.yearParam, giving_for: param(sp, "giving_for") });
   const showBy = givingShowBy(center.rules);
   try {
     const loaded = await loadGlanceRows(db, center.id, center.time_zone, { households: [householdId] });
-    if (!loaded.ok) return <GivingGlanceView view={{ state: "error", what: ERROR_WHAT, error: loaded.error, retryHref }} />;
+    if (!loaded.ok) return { state: "error", what: ERROR_WHAT, error: loaded.error, retryHref };
     const majority = communityMajority(center);
     // The household's adults: the only people who can be listed or chosen. A child is never named here.
     const { cards, adults } = await adultHouseholdCards(db, [householdId], { today: prep.today, currency: center.currency, majority });
@@ -86,10 +91,10 @@ export async function HouseholdGlance({
       heading,
       cardLine,
     });
-    return <GivingGlanceView view={readyView(session, model)} idPrefix={idPrefix} />;
+    return readyView(session, model);
   } catch (error) {
     console.error("[giving-glance] could not build the household panel:", error);
-    return <GivingGlanceView view={{ state: "error", what: ERROR_WHAT, error, retryHref }} idPrefix={idPrefix} />;
+    return { state: "error", what: ERROR_WHAT, error, retryHref };
   }
 }
 
@@ -129,10 +134,7 @@ export async function PersonGlance({
       </section>
     );
   }
-  const { db, center } = session;
-  const retryHref = glanceHref(path, { year: prep.yearParam });
-  const showBy = givingShowBy(center.rules);
-  if (showBy === "household") {
+  if (givingShowBy(session.center.rules) === "household") {
     if (householdIds.length === 0) {
       return (
         <section aria-labelledby="gg-title" className="cc-card mb-5 px-[18px] py-4" data-testid="giving-glance">
@@ -151,13 +153,25 @@ export async function PersonGlance({
       </>
     );
   }
+  return <GivingGlanceView view={await personView(session, person, householdIds, prep, path)} />;
+}
+
+async function personView(
+  session: CrmSession,
+  person: { id: string; name: string; firstName: string },
+  householdIds: string[],
+  prep: GlancePrep,
+  path: string,
+): Promise<GlanceView> {
+  const { db, center } = session;
+  const retryHref = glanceHref(path, { year: prep.yearParam });
   try {
     const [mine, household] = await Promise.all([
       loadGlanceRows(db, center.id, center.time_zone, { person: person.id }),
       loadGlanceRows(db, center.id, center.time_zone, { households: householdIds }),
     ]);
-    if (!mine.ok) return <GivingGlanceView view={{ state: "error", what: ERROR_WHAT, error: mine.error, retryHref }} />;
-    if (!household.ok) return <GivingGlanceView view={{ state: "error", what: ERROR_WHAT, error: household.error, retryHref }} />;
+    if (!mine.ok) return { state: "error", what: ERROR_WHAT, error: mine.error, retryHref };
+    if (!household.ok) return { state: "error", what: ERROR_WHAT, error: household.error, retryHref };
     const model = composePerson({
       personRows: mine.rows,
       householdRows: household.rows,
@@ -172,9 +186,9 @@ export async function PersonGlance({
       fiscalNote: prep.fiscalNote,
       truncated: mine.truncated || household.truncated,
     });
-    return <GivingGlanceView view={readyView(session, model)} />;
+    return readyView(session, model);
   } catch (error) {
     console.error("[giving-glance] could not build the person panel:", error);
-    return <GivingGlanceView view={{ state: "error", what: ERROR_WHAT, error, retryHref }} />;
+    return { state: "error", what: ERROR_WHAT, error, retryHref };
   }
 }

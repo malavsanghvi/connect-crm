@@ -27,7 +27,7 @@ export type GlanceModel = {
   /** The household page, when the community shows giving by person: everyone, each adult and "Not tied to a person". */
   chooser: { label: string; links: GlanceLink[]; explain: string } | null;
   /** The person page: what is left of the household's giving once this person's is taken out. */
-  personRest: { firstName: string; paidCents: number; pledgedCents: number; periodLabel: string; seeHouseholdHref: string } | null;
+  personRest: { firstName: string; paidCents: number; pledgedCents: number; /** "in 2026" or "over all time". */ period: string; seeHouseholdHref: string } | null;
   /** Things to say next to the figures: a limited view, a year that could not be read, too many records. */
   notes: GlanceNote[];
 };
@@ -157,7 +157,7 @@ export function composePerson(i: PersonGlanceInput): GlanceModel {
     yearsWithData: years.withData,
     chooser: null,
     personRest: i.householdHref
-      ? { firstName: i.person.firstName, paidCents: restPart.paidCents, pledgedCents: restPart.pledgedCents, periodLabel: w.title, seeHouseholdHref: glanceHref(i.householdHref, { year: w.param }) }
+      ? { firstName: i.person.firstName, paidCents: restPart.paidCents, pledgedCents: restPart.pledgedCents, period: w.selection.kind === "all" ? "over all time" : `in ${w.label}`, seeHouseholdHref: glanceHref(i.householdHref, { year: w.param }) }
       : null,
     notes: commonNotes(i),
   };

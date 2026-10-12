@@ -298,7 +298,7 @@ export function deltaText(now: number, before: number | null, beforeLabel: strin
   if (before === null) return null;
   if (before === 0 && now === 0) return null;
   if (before === 0) return `Nothing ${beforeLabel === "the same time last year" ? "at this time last year" : `in ${beforeLabel}`}`;
-  if (now === before) return `Same as ${beforeLabel} (${money(before)})`;
+  if (now === before) return `${beforeLabel.startsWith("the ") ? "No change from" : "Same as"} ${beforeLabel} (${money(before)})`;
   const pct = Math.round((Math.abs(now - before) * 100) / before);
   const dir = now > before ? "Up" : "Down";
   return pct === 0 ? `${dir} slightly on ${beforeLabel} (${money(before)})` : `${dir} ${pct}% on ${beforeLabel} (${money(before)})`;

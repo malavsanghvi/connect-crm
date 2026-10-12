@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 
-import { ChipLinks, EmptyState, QueryError } from "@/components/ui";
+import { ChipLinks, QueryError } from "@/components/ui";
 import { formatDate } from "@/lib/dates";
 import { frequencyText } from "@/lib/giving";
 import type { GlanceLink, GlanceModel } from "@/lib/giving-glance/compose";
@@ -104,8 +104,8 @@ function Ready({ model, currency, timeZone, titleId }: { model: GlanceModel; cur
 
       {model.personRest ? (
         <p className="mt-3 rounded-[10px] bg-ground px-3 py-2 text-[13px] text-ink-2" data-testid="giving-glance-rest">
-          <strong className="text-ink">Not tied to {model.personRest.firstName}:</strong> {money(model.personRest.paidCents)} paid and {money(model.personRest.pledgedCents)} pledged in{" "}
-          {model.personRest.periodLabel.toLowerCase()}. These are gifts and pledges with no named giver, or recorded under someone else in the household.{" "}
+          <strong className="text-ink">Not tied to {model.personRest.firstName}:</strong> {money(model.personRest.paidCents)} paid and {money(model.personRest.pledgedCents)} pledged{" "}
+          {model.personRest.period}. These are gifts and pledges with no named giver, or recorded under someone else in the household.{" "}
           <a href={model.personRest.seeHouseholdHref} className="crm-link font-semibold">
             See the household&apos;s total
           </a>
@@ -136,20 +136,19 @@ function ChooserLabel({ link, money }: { link: GlanceLink; money: (c: number) =>
 function EmptyGlance({ model }: { model: GlanceModel }) {
   const w = model.summary.window;
   return (
-    <div data-testid="giving-glance-empty">
-      <EmptyState title={w.selection.kind === "all" ? "No giving recorded yet" : "No giving recorded for this year"}>
-        {w.selection.kind === "all" ? null : <span>Nothing was pledged or paid in {w.label}.</span>}
-        {model.yearsWithData.length > 0 ? (
-          <span className="mt-2 flex flex-wrap items-center justify-center gap-1.5">
-            <span>See</span>
-            {model.yearsWithData.map((l) => (
-              <a key={l.key} href={l.href} className="cc-chip">
-                {l.key === "all" ? "All time" : l.label}
-              </a>
-            ))}
-          </span>
-        ) : null}
-      </EmptyState>
+    <div className="rounded-[12px] bg-ground px-4 py-5" data-testid="giving-glance-empty">
+      <p className="text-[15px] font-semibold text-ink">{w.selection.kind === "all" ? "No giving recorded yet" : "No giving recorded for this year"}</p>
+      {w.selection.kind === "all" ? null : <p className="mt-0.5 text-[13px] text-muted">Nothing was pledged or paid in {w.label}.</p>}
+      {model.yearsWithData.length > 0 ? (
+        <div className="mt-3 flex flex-wrap items-center gap-1.5">
+          <span className="text-[13px] text-muted">See</span>
+          {model.yearsWithData.map((l) => (
+            <a key={l.key} href={l.href} className="cc-chip">
+              {l.label}
+            </a>
+          ))}
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -293,7 +292,7 @@ function Breakdown({ s, money }: { s: GlanceSummary; money: (c: number) => strin
           <>
             <div role="img" aria-label={timeSeriesText(s.byTime, what, money)} className="flex h-20 items-end gap-1" data-testid="giving-glance-sparkline">
               {s.byTime.map((b) => (
-                <div key={b.key} className="flex h-full min-w-0 flex-1 items-end" title={`${b.label}: ${money(b.cents)}`}>
+                <div key={b.key} className={`flex h-full min-w-0 flex-1 items-end ${yearly ? "max-w-[56px]" : ""}`} title={`${b.label}: ${money(b.cents)}`}>
                   <div
                     aria-hidden="true"
                     className={`w-full rounded-t-[3px] ${b.cents > 0 ? "bg-navy" : "bg-line"}`}
@@ -304,7 +303,7 @@ function Breakdown({ s, money }: { s: GlanceSummary; money: (c: number) => strin
             </div>
             <div className="mt-1 flex gap-1 text-[10px] text-muted" aria-hidden="true">
               {s.byTime.map((b) => (
-                <span key={b.key} className="min-w-0 flex-1 truncate text-center">
+                <span key={b.key} className={`min-w-0 flex-1 truncate text-center ${yearly ? "max-w-[56px]" : ""}`}>
                   {yearly ? b.key : b.label}
                 </span>
               ))}

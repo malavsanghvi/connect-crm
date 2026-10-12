@@ -277,6 +277,7 @@ describe("plain words for a change", () => {
     expect(deltaText(150, 100, "2024", money)).toBe("Up 50% on 2024 ($1.00)");
     expect(deltaText(50, 100, "2024", money)).toBe("Down 50% on 2024 ($1.00)");
     expect(deltaText(100, 100, "2024", money)).toBe("Same as 2024 ($1.00)");
+    expect(deltaText(100, 100, "the same time last year", money)).toBe("No change from the same time last year ($1.00)");
     expect(deltaText(996, 1000, "2024", money)).toBe("Down slightly on 2024 ($10.00)");
     expect(deltaText(500, 0, "2024", money)).toBe("Nothing in 2024");
     expect(deltaText(500, 0, "the same time last year", money)).toBe("Nothing at this time last year");
