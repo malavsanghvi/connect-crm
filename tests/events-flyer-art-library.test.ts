@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { FLYER_LAYER_GUARDRAIL, findBlockedArtTerm, withLayerGuardrail } from "@/lib/events/flyer";
-import { AI_LAYER_NOT_YET, NO_GEMINI_KEY, flyerArtPath } from "@/lib/events/flyer-art";
+import { NO_GEMINI_KEY, flyerArtPath } from "@/lib/events/flyer-art";
 import { artFactsFor, buildLayerPrompt, readArtFacts } from "@/lib/events/flyer-art-prompt";
 import { PARTNER_LOGO_MAX_BYTES, collectFlyerArt, discardFlyerArt, flyerArtReadiness, listFlyerArt, requestFlyerArt, storePartnerLogo } from "@/lib/events/flyer-art-library";
 import { MAX_PICTURE_PIXELS, MAX_PICTURE_SIDE, oversizePicture, sniffImage } from "@/lib/events/flyer-image";
@@ -314,10 +314,12 @@ describe("requestFlyerArt (asking Gemini for a frame or a scene)", () => {
     expect(prompt).toMatch(/a Jain community/);
   });
 
-  it("does not ask for an AI frame or scene the database cannot keep yet (a new occasion): the drawn art works", async () => {
+  it("asks for a new occasion's frame or scene too (0703), with that occasion's facts", async () => {
     const { db, calls } = fake({ rpc: { flyer_art_status: ready, events_flyer_result: { data: { status: "none" } }, events_request_flyer_art: { data: { status: "queued" } } } });
-    expect(await requestFlyerArt(db, { ...ask, occasion: "christmas_eve" })).toEqual({ status: "unavailable", reason: AI_LAYER_NOT_YET });
-    expect(called(calls, "rpc:events_request_flyer_art")).toHaveLength(0);
+    expect(await requestFlyerArt(db, { ...ask, occasion: "christmas_eve", layer: "scene" })).toEqual({ status: "queued" });
+    const sent = called(calls, "rpc:events_request_flyer_art")[0]!.args[0] as Record<string, unknown>;
+    expect(sent).toMatchObject({ p_occasion: "christmas_eve", p_layer: "scene" });
+    expect(readArtFacts(String(sent.p_prompt))).toMatchObject({ occasion: "christmas_eve", layer: "scene" });
   });
 
   it("refuses an Other occasion description in another script or with a blocked word, in plain words", async () => {
