@@ -43,9 +43,9 @@ export function moreDb(over: FakeDbOptions & { insertError?: { code?: string; me
   tables.external_ids.push({ id: MING.identifier, center_id, household_id: MING.household, person_id: MING.person, kind: "org_member", system: "riverside_register", value: "00021", valid_to: null });
 
   const inserted: Row[] = [];
-  const realFrom = db.from.bind(db);
+  const realFrom = db.from.bind(db) as unknown as (table: string) => Record<string, unknown>;
   const from = (table: string) => {
-    const builder = realFrom(table) as unknown as Record<string, unknown>;
+    const builder = realFrom(table);
     if (table !== "external_ids") return builder;
     return new Proxy(builder, {
       get(target, prop) {

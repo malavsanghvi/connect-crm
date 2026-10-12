@@ -295,7 +295,7 @@ describe("people.retire_identifier", () => {
 
   it("explains a refusal by the database when nothing was changed", async () => {
     const { ctx, db } = world({ permissions: ["people.view", "people.manage", "giving.manage"] });
-    const real = db.from.bind(db);
+    const real = db.from.bind(db) as unknown as (t: string) => unknown;
     vi.mocked(dbWithReason).mockResolvedValue({ ...db, from: (t: string) => (t === "external_ids" ? { update: () => ({ eq: () => ({ is: () => ({ select: () => Promise.resolve({ data: [], error: null }) }) }) }) } : real(t)) } as never);
     await expect(retireIdentifier.execute!(ctx, { ...input, identifier_id: ID.extQb })).rejects.toThrow("Could not retire the Accounting (QuickBooks) customer — no change was saved (you may not have permission).");
   });
