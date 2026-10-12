@@ -13,6 +13,7 @@ import * as demoLoad from "./demo.load";
 import * as demoPing from "./demo.ping";
 import * as demoReset from "./demo.reset";
 import * as eventsGenerateFlyer from "./events.generate_flyer";
+import * as eventsPublishDue from "./events.publish_due";
 import * as homeworkPublishNotify from "./homework.publish_notify";
 import * as homeworkRemindersSweep from "./homework.reminders_sweep";
 import * as importSuggestMapping from "./import.suggest_mapping";
@@ -118,4 +119,6 @@ export const HANDLERS: HandlerModule[] = [
   noticesSweep,
   // Activity stream (0622, 0623): once a day, find repeated sequences of actions (automation ideas) and delete activity older than 400 days
   activityMine,
+  // Event creator (0700): every 5 minutes, publish the draft events whose scheduled time has come, each checked again first
+  eventsPublishDue,
 ];

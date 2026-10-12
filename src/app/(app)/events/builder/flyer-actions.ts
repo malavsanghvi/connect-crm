@@ -44,6 +44,7 @@ import { FlyerBackgroundError, composeFlyer, sniffImage } from "@/lib/events/fly
 import { FlyerFontsMissingError } from "@/lib/events/flyer-fonts";
 import { FlyerBusyError } from "@/lib/events/flyer-render";
 import { DbFailure, FormError, runAction } from "@/lib/events/forms";
+import { makeFlyerApproval } from "@/lib/events/publish-schedule";
 import { isModuleEnabled } from "@/lib/modules";
 import { can } from "@/lib/permissions";
 import { isUuid } from "@/lib/search-params";
@@ -244,59 +245,67 @@ export async function listFlyerPhotosAction(eventId: string, albumId: string | n
 
 // ── Saving ───────────────────────────────────────────────────────────────────
 
-/** "Use this flyer": render the design at full size, store it, make it the event's flyer, tidy older files. */
-export async function saveDesignedFlyerAction(eventId: string, rawDesign: unknown): Promise<ActionResult> {
-  return runAction("events.flyer.save_design", "save the flyer", async () => {
-    const parsed = parseFlyerDesign(rawDesign);
-    if (!parsed.ok) throw new FormError(parsed.error);
-    const design = parsed.design;
-    if (design.size === "print") throw new FormError("Print size is for downloading — switch to Post, Tall or Story to use it as the event's flyer.");
-    const { db, centerId, session } = await flyerEventContext(eventId, "only event managers and this event's lead can set this event's flyer.");
-    const ev = await db.from("events").select("id, center_id, flyer_path, starts_at, ends_at, venue").eq("id", eventId).maybeSingle();
-    if (ev.error) throw new DbFailure(ev.error, "load the event");
-    if (!ev.data || ev.data.center_id !== centerId) throw new FormError("that event was not found.");
+/**
+ * "Use this flyer": render the design at full size, store it, make it the event's flyer, tidy older files.
+ * `approve` (the event creator's "Approve this flyer", 2026-10-11) also records who approved it and when, inside the
+ * design (flyer_design.approval, src/lib/events/publish-schedule.ts), in the same update; any later save drops it.
+ */
+export async function saveDesignedFlyerAction(eventId: string, rawDesign: unknown, opts?: { approve?: boolean }): Promise<ActionResult> {
+  const approve = opts?.approve === true;
+  if (approve) return runAction("events.flyer.approve", "approve the flyer", () => saveDesign(eventId, rawDesign, true), { key: "events.flyer_approve", entityFrom: { kind: "event", id: eventId } });
+  return runAction("events.flyer.save_design", "save the flyer", () => saveDesign(eventId, rawDesign, false));
+}
 
-    let png: Uint8Array;
-    try {
-      png = (
-        await composeFlyer({
-          db,
-          centerId,
-          centerName: session.center.name,
-          branding: session.center.branding,
-          eventId,
-          design,
-          scale: "full",
-          contentModuleOn: isModuleEnabled(session, "content"),
-        })
-      ).png;
-    } catch (err) {
-      if (err instanceof FlyerBackgroundError || err instanceof FlyerBusyError || err instanceof FlyerFontsMissingError) throw new FormError(err.message);
-      throw err;
-    }
+async function saveDesign(eventId: string, rawDesign: unknown, approve: boolean): Promise<ActionResult> {
+  const parsed = parseFlyerDesign(rawDesign);
+  if (!parsed.ok) throw new FormError(parsed.error);
+  const design = parsed.design;
+  if (design.size === "print") throw new FormError("Print size is for downloading — switch to Post, Tall or Story to use it as the event's flyer.");
+  const { db, centerId, session, userId } = await flyerEventContext(eventId, "only event managers and this event's lead can set this event's flyer.");
+  const ev = await db.from("events").select("id, center_id, name, flyer_path, starts_at, ends_at, venue").eq("id", eventId).maybeSingle();
+  if (ev.error) throw new DbFailure(ev.error, "load the event");
+  if (!ev.data || ev.data.center_id !== centerId) throw new FormError("that event was not found.");
 
-    const path = `${centerId}/events/${eventId}/flyer-${Date.now()}.png`;
-    const up = await db.storage.from("content").upload(path, Buffer.from(png), { contentType: "image/png", upsert: false });
-    if (up.error) {
-      console.error(`[events/flyer] upload to content/${path} failed:`, up.error);
-      storageFailure(up.error, "save the flyer");
-    }
-    const patch: TablesUpdate<"events"> = {
-      flyer_path: path,
-      flyer_source: "designed",
-      // made_for: the event's start, end and venue now, so a later change to the event is flagged (flyerOutOfDate).
-      flyer_design: { ...design, made_for: flyerMadeFor(ev.data) } as unknown as Json,
-      flyer_prompt: design.background.source === "ai" ? withArtGuardrail(design.background.prompt) : null,
-      flyer_generated_at: new Date().toISOString(),
-    };
-    const res = await db.from("events").update(patch).eq("id", eventId).select("id");
-    if (res.error) throw new DbFailure(res.error, "the flyer was made, but the event could not be updated to use it");
-    if (!res.data?.length) throw new FormError("you can't edit this event.");
-    const previous = ownFlyerKey(ev.data.flyer_path, centerId, eventId);
-    const tidy = await cleanup(db, eventId, [previous !== path ? previous : null]);
-    revalidate(eventId);
-    return { ok: true, message: withCleanupNote("Flyer saved.", tidy) };
-  });
+  let png: Uint8Array;
+  try {
+    png = (
+      await composeFlyer({
+        db,
+        centerId,
+        centerName: session.center.name,
+        branding: session.center.branding,
+        eventId,
+        design,
+        scale: "full",
+        contentModuleOn: isModuleEnabled(session, "content"),
+      })
+    ).png;
+  } catch (err) {
+    if (err instanceof FlyerBackgroundError || err instanceof FlyerBusyError || err instanceof FlyerFontsMissingError) throw new FormError(err.message);
+    throw err;
+  }
+
+  const path = `${centerId}/events/${eventId}/flyer-${Date.now()}.png`;
+  const up = await db.storage.from("content").upload(path, Buffer.from(png), { contentType: "image/png", upsert: false });
+  if (up.error) {
+    console.error(`[events/flyer] upload to content/${path} failed:`, up.error);
+    storageFailure(up.error, "save the flyer");
+  }
+  const patch: TablesUpdate<"events"> = {
+    flyer_path: path,
+    flyer_source: "designed",
+    // made_for: the event's start, end and venue now, so a later change to the event is flagged (flyerOutOfDate).
+    flyer_design: { ...design, made_for: flyerMadeFor(ev.data), ...(approve ? { approval: makeFlyerApproval(design, ev.data.name, userId) } : {}) } as unknown as Json,
+    flyer_prompt: design.background.source === "ai" ? withArtGuardrail(design.background.prompt) : null,
+    flyer_generated_at: new Date().toISOString(),
+  };
+  const res = await db.from("events").update(patch).eq("id", eventId).select("id");
+  if (res.error) throw new DbFailure(res.error, "the flyer was made, but the event could not be updated to use it");
+  if (!res.data?.length) throw new FormError("you can't edit this event.");
+  const previous = ownFlyerKey(ev.data.flyer_path, centerId, eventId);
+  const tidy = await cleanup(db, eventId, [previous !== path ? previous : null]);
+  revalidate(eventId);
+  return { ok: true, message: withCleanupNote(approve ? "Flyer approved." : "Flyer saved.", tidy) };
 }
 
 /** Manual upload, in place of a designed flyer. */
