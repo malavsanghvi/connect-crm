@@ -329,3 +329,14 @@ describe("renderFlyerPng draws every layout at every size", () => {
     expect(l.greeting.top).toBe(greeting);
   });
 });
+
+describe("a very long title", () => {
+  it("is wrapped line by line at the floor size, never set as one endless line (a row far wider than its box can hang the image renderer)", () => {
+    const save = LAYOUT_PRESETS.save_the_date;
+    const t = titlePlan("Annual Neighbourhood Supper and Community Celebration of the Whole Street and Everyone Who Lives Near It", "", save, { width: 740, story: false, height: 1350 });
+    expect(t.lines.length).toBeGreaterThan(3);
+    expect(t.widest).toBeLessThanOrEqual(740);
+    for (const line of t.lines) expect(line.length).toBeGreaterThan(0);
+    expect(t.lines.flat().map((w) => w.text).join(" ")).toBe("Annual Neighbourhood Supper and Community Celebration of the Whole Street and Everyone Who Lives Near It");
+  });
+});

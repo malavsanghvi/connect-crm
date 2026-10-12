@@ -163,10 +163,28 @@ export function titlePlan(headline: string, accent: string, spec: PresetSpec, o:
     if (lines.length === 1) break;
   }
   if (chosen) return chosen.plan;
-  // Nothing fits even at the floor (a very long word): the floor, broken where it must (a long word wraps).
-  const size = floor;
-  const plans: TitleWordPlan[] = words.map((w) => ({ text: w.text, accent: w.accent, script: false, size, width: textWidth(w.text, size, { ...SERIF, caps: t.caps }) }));
-  return { size, lines: [plans], lineHeight: lh, height: Math.round(Math.max(1, Math.ceil(plans.reduce((a, p) => a + p.width, 0) / ((o.width * FILL) / sc))) * size * lh * 1.05), widest: o.width };
+  // Nothing fits in the most lines allowed, even at the floor (a very long title, or a word wider than a line): the floor size, wrapped
+  // line by line as far as it takes (more lines than usual; the plan then shrinks the flyer or leaves other blocks out). Never one
+  // endless line: a row far wider than its box can hang the image renderer.
+  const room = (o.width * FILL) / sc;
+  // A single word wider than a line is set smaller still (down to 24), so it never runs out of its box.
+  const widestWord = Math.max(1, ...words.map((w) => textWidth(w.text, floor, { ...SERIF, caps: t.caps, spacing: t.caps ? floor * 0.02 : 0 })));
+  const size = widestWord > room ? Math.max(24, Math.floor((floor * room) / widestWord)) : floor;
+  const space = textWidth(" ", size, SERIF) + (t.caps ? size * 0.02 : 0);
+  const plans: TitleWordPlan[] = words.map((w) => ({ text: w.text, accent: w.accent, script: false, size, width: textWidth(w.text, size, { ...SERIF, caps: t.caps, spacing: t.caps ? size * 0.02 : 0 }) }));
+  const lines: TitleWordPlan[][] = [];
+  let used = 0;
+  for (const p of plans) {
+    if (lines.length && used + space + p.width <= room) {
+      lines[lines.length - 1]!.push(p);
+      used += space + p.width;
+    } else {
+      lines.push([p]);
+      used = p.width;
+    }
+  }
+  const widest = Math.max(0, ...lines.map((l) => l.reduce((a, p) => a + p.width, 0) + space * (l.length - 1)));
+  return { size, lines, lineHeight: lh, height: Math.round(Math.max(1, lines.length) * size * lh * 1.05), widest };
 }
 
 // ── Block layouts: each block's sizes and its natural height (units, scale 1, margins included) ──
