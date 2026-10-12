@@ -5,6 +5,10 @@ import { describe, expect, it, vi } from "vitest";
 // The Family page draws from a model; here nothing is called, only rendered.
 vi.mock("@/app/(app)/households/[id]/inline-actions", () => ({ savePersonFieldsAction: vi.fn(), saveHouseholdFieldsAction: vi.fn() }));
 vi.mock("@/app/security-actions", () => ({ verifyStepUpAction: vi.fn() }));
+vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn(), push: vi.fn(), replace: vi.fn() }) }));
+vi.mock("@/app/(app)/households/[id]/slideover-actions", () => ({ addPersonInlineAction: vi.fn() }));
+vi.mock("@/app/(app)/identifiers/person-id-seam", () => ({ addPersonId: vi.fn(), retirePersonId: vi.fn() }));
+vi.mock("@/app/(app)/people/deceased-actions", () => ({ markDeceasedAction: vi.fn(), undoDeceasedAction: vi.fn() }));
 
 import { familyFixture } from "@/app/dev/people-family/fixtures";
 import { FamilyView } from "@/components/people-v2/family/family-view";

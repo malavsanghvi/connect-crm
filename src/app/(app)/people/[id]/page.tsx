@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { cookies } from "next/headers";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
@@ -22,10 +23,12 @@ import { ageOn, formatDate, todayInTz } from "@/lib/dates";
 import { prepareGlance } from "@/lib/giving-glance/page";
 import { MEMBERSHIP_STATUS_TONE } from "@/lib/labels";
 import { isModuleEnabled } from "@/lib/modules";
+import { LOOK_COOKIE, parseLook } from "@/lib/look";
 import { canAccess } from "@/lib/permissions";
 import { isUuid } from "@/lib/search-params";
 import { getSession } from "@/lib/session";
 
+import { PersonPageV2 } from "./person-v2";
 import { markDeceasedAction, undoDeceasedAction } from "../deceased-actions";
 
 export const metadata: Metadata = { title: "Person" };
@@ -42,6 +45,8 @@ export default async function PersonPage({ params, searchParams }: { params: Pro
   }
   const { id } = await params;
   if (!isUuid(id)) notFound();
+  // The New look: the person lives on the Family page with the slide-over open (or here, if they are in no family). The page below is the classic one.
+  if (parseLook((await cookies()).get(LOOK_COOKIE)?.value) === "v2") return <PersonPageV2 session={session} id={id} sp={await searchParams} />;
   const { db, center } = session;
   const rules = identifierRules(center.rules);
   const tz = center.time_zone;

@@ -5,6 +5,7 @@ import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 
 import { adultsLine, type FamilyModel, type HeaderChip } from "@/lib/people-v2/family-model";
 
+import { useRequestAddPerson } from "./add-person-card";
 import { HouseholdTitle } from "./household-edit";
 import { Chip } from "./person-card";
 
@@ -115,6 +116,26 @@ export function MoreMenu({ items, align = "right", direction = "down" }: { items
   );
 }
 
+/** "+ Add person": opens the inline card on this page; where there is none, it follows its link. */
+function AddPersonButton({ href }: { href: string }) {
+  const request = useRequestAddPerson();
+  return (
+    <Link
+      href={href}
+      scroll={false}
+      onClick={(e) => {
+        if (request()) e.preventDefault();
+      }}
+      className={`${SECONDARY} flex-1 md:flex-none`}
+    >
+      <span aria-hidden="true" className="mr-1.5 text-[18px] leading-none">
+        +
+      </span>
+      Add person
+    </Link>
+  );
+}
+
 function ActionButtons({ links, direction }: { links: FamilyLinks; direction: "down" | "up" }) {
   return (
     <>
@@ -123,14 +144,7 @@ function ActionButtons({ links, direction }: { links: FamilyLinks; direction: "d
           Record payment
         </Link>
       ) : null}
-      {links.addPerson ? (
-        <Link href={links.addPerson} scroll={false} className={`${SECONDARY} flex-1 md:flex-none`}>
-          <span aria-hidden="true" className="mr-1.5 text-[18px] leading-none">
-            +
-          </span>
-          Add person
-        </Link>
-      ) : null}
+      {links.addPerson ? <AddPersonButton href={links.addPerson} /> : null}
       <MoreMenu items={links.more} direction={direction} />
     </>
   );

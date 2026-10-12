@@ -111,20 +111,22 @@ export async function loadFamily(session: CrmSession, id: string): Promise<Famil
       hiddenPeople += 1;
       continue;
     }
+    const isChild = !isAdultMember({ date_of_birth: p.date_of_birth, role: l.role }, today, majority);
     all.push({
       id: p.id,
       name: personName(p),
       firstName: p.preferred_name || p.first_name,
       role: l.role,
       isPrimary: l.is_primary,
-      isChild: !isAdultMember({ date_of_birth: p.date_of_birth, role: l.role }, today, majority),
+      isChild,
       age: ageOn(p.date_of_birth, today),
       memberNumber: p.member_number,
       orgIds: org.byPerson.get(p.id) ?? [],
       onApp: onApp.has(p.id),
       deceased: p.is_deceased === true,
       alsoPrimaryOf: primaryOf.get(p.id) ?? null,
-      values: personValues(p, l.role),
+      // D2: a child has no mobile or email on the page ("contact via parents"), so the model never carries them.
+      values: personValues(isChild ? { ...p, phone_e164: null, email: null } : p, l.role),
     });
   }
   const byAge = (a: FamilyPerson, b: FamilyPerson) =>

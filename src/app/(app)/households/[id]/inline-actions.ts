@@ -5,7 +5,7 @@ import { runScreenCommand } from "@/lib/commands/screen";
 import { userNames } from "@/lib/data/lookups";
 import { can } from "@/lib/permissions";
 import { HOUSEHOLD_EDITABLE, PERSON_EDITABLE, REASON_MAX, expectText, friendlySaveError, type SaveKind, type Values } from "@/lib/people-v2/inline-edit";
-import { householdValues, personValues } from "@/lib/people-v2/family-model";
+import { householdValues, personValues, privacyValues } from "@/lib/people-v2/family-model";
 import { isUuid } from "@/lib/search-params";
 import { loadSession, type CrmSession } from "@/lib/session";
 
@@ -65,17 +65,22 @@ async function finish(
   return { ok: false, error: friendly.message, kind: friendly.kind, ...(result.stepUp ? { stepUp: true } : {}) };
 }
 
-/** Change one person's details. `householdId` is the household the page is about (a relationship change is made in it). */
-export async function savePersonFieldsAction(input: Common & { personId: string; householdId: string }): Promise<InlineSave> {
+/**
+ * Change one person's details. `householdId` is the household the page is about (a relationship change is made in it); it is null on
+ * the person's own page when they are in no household, where a relationship cannot be changed.
+ */
+export async function savePersonFieldsAction(input: Common & { personId: string; householdId: string | null }): Promise<InlineSave> {
   const bad = shapeProblem(input, PERSON_EDITABLE);
   if (bad) return { ok: false, error: `Could not save ${input?.label ?? "that"} — ${bad}.`, kind: "other" };
-  if (!isUuid(input.personId) || !isUuid(input.householdId))
+  if (!isUuid(input.personId) || (input.householdId !== null && !isUuid(input.householdId)))
     return { ok: false, error: `Could not save ${input.label} — the person or household was not found.`, kind: "other" };
+  if ("role" in input.fields && !input.householdId)
+    return { ok: false, error: `Could not save ${input.label} — a relationship belongs to a family, and this person is in none.`, kind: "other" };
   const reason = (input.reason ?? "").trim().slice(0, REASON_MAX);
   const raw: Record<string, string> = {
     id: input.personId,
     ...input.fields,
-    ...("role" in input.fields ? { household_id: input.householdId } : {}),
+    ...("role" in input.fields && input.householdId ? { household_id: input.householdId } : {}),
     expect: expectText(input.expect),
     ...(reason ? { reason } : {}),
   };
@@ -131,23 +136,25 @@ async function lastChange(s: CrmSession, table: string, recordId: string, keys: 
   }
 }
 
-async function personConflict(personId: string, householdId: string, keys: string[]): Promise<InlineConflict | null> {
+async function personConflict(personId: string, householdId: string | null, keys: string[]): Promise<InlineConflict | null> {
   const s = await session();
   if (!s) return null;
   try {
     const [p, link] = await Promise.all([
       s.db
         .from("people")
-        .select("first_name, last_name, date_of_birth, gender, profession, employer, phone_e164, email, language")
+        .select(
+          "first_name, last_name, date_of_birth, gender, profession, employer, phone_e164, email, language, photo_opt_in, new_member_contact_opt_in, expertise_opt_in, expertise_headline",
+        )
         .eq("id", personId)
         .eq("center_id", s.center.id)
         .maybeSingle(),
-      keys.includes("role")
+      keys.includes("role") && householdId
         ? s.db.from("household_members").select("role").eq("household_id", householdId).eq("person_id", personId).is("left_at", null).maybeSingle()
         : null,
     ]);
     if (p.error || !p.data) throw p.error ?? new Error("the person was not found");
-    const all = personValues(p.data, link?.data?.role ?? "");
+    const all = { ...personValues(p.data, link?.data?.role ?? ""), ...privacyValues(p.data) };
     const theirs: Values = Object.fromEntries(keys.map((k) => [k, all[k] ?? ""]));
     return { theirs, ...(await lastChange(s, "people", personId, keys)) };
   } catch (error) {
