@@ -73,7 +73,7 @@ const ROW = "grid grid-cols-[6.75rem_minmax(0,1fr)] items-start gap-x-3 py-1.5 s
 
 export function ComingNext() {
   return (
-    <span className="mr-1.5 inline-flex min-h-6 items-center rounded-full bg-[var(--v2-sun-tint)] px-2.5 text-[11px] font-extrabold tracking-[0.02em] text-[var(--v2-sun-ink)]">
+    <span className="mr-1.5 inline-flex min-h-6 shrink-0 items-center whitespace-nowrap rounded-full bg-[var(--v2-sun-tint)] px-2.5 text-[11px] font-extrabold tracking-[0.02em] text-[var(--v2-sun-ink)]">
       Coming next
     </span>
   );

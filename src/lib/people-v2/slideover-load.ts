@@ -25,7 +25,6 @@ import {
   type Part,
   type PersonDetailModel,
   type ProfileDetails,
-  type RolesFacts,
 } from "./slideover";
 
 // Reads one person for the slide-over, as the signed-in person (the database's security decides what comes back), and works out the

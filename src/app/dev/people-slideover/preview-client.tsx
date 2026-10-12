@@ -161,11 +161,8 @@ function run(step: Step) {
         const more = [...document.querySelectorAll<HTMLElement>("#add-person form button")].find((b) => /More details/.test(b.textContent ?? ""));
         more?.click();
       }
-      if (step === "add-person-save" || step === "add-person-bad")
-        later(120, () => {
-          const f = document.querySelector<HTMLInputElement>('#add-person form input[id$="-first"]');
-          if (f) enter(f);
-        });
+      // A pressed Enter submits the form in a real browser; a script has to ask the form to submit.
+      if (step === "add-person-save" || step === "add-person-bad") later(120, () => document.querySelector<HTMLFormElement>("#add-person form")?.requestSubmit());
     });
   }
 }

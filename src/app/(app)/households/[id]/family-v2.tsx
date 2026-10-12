@@ -10,8 +10,8 @@ import { prepareGlance } from "@/lib/giving-glance/page";
 import { isModuleEnabled } from "@/lib/modules";
 import { loadFamily } from "@/lib/people-v2/family-load";
 import { familyChips } from "@/lib/people-v2/family-model";
-import { slideOverHref } from "@/lib/people-v2/slideover";
-import { isUuid, param, type RawSearchParams } from "@/lib/search-params";
+import { slideOverHref, slideOverRequest } from "@/lib/people-v2/slideover";
+import type { RawSearchParams } from "@/lib/search-params";
 import type { CrmSession } from "@/lib/session";
 
 import { FamilyTabs } from "./family-tabs";
@@ -39,8 +39,7 @@ export async function FamilyPageV2({ session, id, sp }: { session: CrmSession; i
   const givingOn = isModuleEnabled(session, "giving");
   const glance = givingOn ? await prepareGlance(session, sp) : null;
   const canEdit = model.canEdit;
-  const personParam = param(sp, "person");
-  const slideOver = isUuid(personParam) && param(sp, "mode") !== "move";
+  const request = slideOverRequest(sp);
 
   const links: FamilyLinks = {
     people: "/people",
@@ -76,8 +75,8 @@ export async function FamilyPageV2({ session, id, sp }: { session: CrmSession; i
           tabs: <FamilyTabs session={session} model={model} sp={sp} glance={glance} base={base} />,
           prompt: model.mergedIntoId ? null : <PrimaryPrompt session={session} householdId={id} />,
           after:
-            slideOver && isUuid(personParam) ? (
-              <PersonSlideOverServer session={session} model={model} sp={sp} base={base} personId={personParam} prep={glance} />
+            request.kind === "slideover" ? (
+              <PersonSlideOverServer session={session} model={model} sp={sp} base={base} personId={request.personId} prep={glance} />
             ) : (
               <PeopleDrawers session={session} sp={sp} base={base} />
             ),

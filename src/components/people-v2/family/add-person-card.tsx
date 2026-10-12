@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { createContext, useCallback, useContext, useEffect, useId, useRef, useState, type FormEvent, type ReactNode, type RefObject } from "react";
+import { createContext, useCallback, useContext, useEffect, useId, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
 
 import { useStepUp } from "@/components/step-up";
 import type { FamilyCheck } from "@/lib/people-v2/family-model";
@@ -17,24 +17,32 @@ import { INPUT, Problem } from "./inline-ui";
 // refusal from the server is said in words next to the button with what was typed still there. A child has no mobile or email
 // ("contact via parents"), so the card does not offer them.
 
-type Slot = { ref: RefObject<(() => void) | null> };
+type Slot = { register: (open: (() => void) | null) => void; request: () => boolean };
 const SlotCtx = createContext<Slot | null>(null);
 
 /** Lets the header's "+ Add person" button open and focus the card. */
 export function AddPersonProvider({ children }: { children: ReactNode }) {
-  const ref = useRef<(() => void) | null>(null);
-  return <SlotCtx.Provider value={{ ref }}>{children}</SlotCtx.Provider>;
+  const open = useRef<(() => void) | null>(null);
+  const api = useMemo<Slot>(
+    () => ({
+      register: (fn) => {
+        open.current = fn;
+      },
+      request: () => {
+        if (!open.current) return false;
+        open.current();
+        return true;
+      },
+    }),
+    [],
+  );
+  return <SlotCtx.Provider value={api}>{children}</SlotCtx.Provider>;
 }
 
 /** Asks the card to open. True when there is a card to open; false means the caller should follow its link instead. */
 export function useRequestAddPerson(): () => boolean {
   const slot = useContext(SlotCtx);
-  return useCallback(() => {
-    const open = slot?.ref.current;
-    if (!open) return false;
-    open();
-    return true;
-  }, [slot]);
+  return () => slot?.request() ?? false;
 }
 
 const LABEL = "block text-[12.5px] font-bold text-muted";
@@ -42,12 +50,15 @@ const LABEL = "block text-[12.5px] font-bold text-muted";
 export function AddPersonCard({
   householdId,
   householdName,
+  householdNumber,
   lastName,
   check,
   detailsHref,
 }: {
   householdId: string;
   householdName: string;
+  /** The household number, so the family is not named alone ("No. 0301"). */
+  householdNumber: string | null;
   /** The primary member's last name, as stored: the card starts with it. */
   lastName: string;
   check: Pick<FamilyCheck, "today" | "majority">;
@@ -60,8 +71,8 @@ export function AddPersonCard({
   const router = useRouter();
   const uid = useId();
   const root = useRef<HTMLDivElement>(null);
-  const first = useRef<HTMLInputElement>(null);
-  const fields = useRef<Partial<Record<keyof AddPersonDraft, HTMLInputElement | null>>>({});
+  /** Moves focus to one of the card's fields (by its id: the card is the only one on the page). */
+  const focusField = useCallback((field: keyof AddPersonDraft) => document.getElementById(`${uid}-${field}`)?.focus(), [uid]);
   const [open, setOpen] = useState(false);
   const [more, setMore] = useState(false);
   const [draft, setDraft] = useState<AddPersonDraft>({ ...EMPTY_ADD, last: lastName });
@@ -76,16 +87,14 @@ export function AddPersonCard({
     setAdded(null);
     window.setTimeout(() => {
       root.current?.scrollIntoView({ block: "center", behavior: "smooth" });
-      first.current?.focus();
+      focusField("first");
     }, 0);
-  }, []);
+  }, [focusField]);
 
   useEffect(() => {
     if (!slot) return;
-    slot.ref.current = show;
-    return () => {
-      slot.ref.current = null;
-    };
+    slot.register(show);
+    return () => slot.register(null);
   }, [slot, show]);
 
   const set = (patch: Partial<AddPersonDraft>) => {
@@ -109,7 +118,7 @@ export function AddPersonCard({
     if (!checked.ok) {
       setProblem({ field: checked.field, error: checked.error });
       if (checked.field === "dob" || checked.field === "phone" || checked.field === "email") setMore(true);
-      window.setTimeout(() => fields.current[checked.field]?.focus(), 0);
+      window.setTimeout(() => focusField(checked.field), 0);
       return;
     }
     const name = `${draft.first.trim()} ${draft.last.trim()}`;
@@ -135,10 +144,8 @@ export function AddPersonCard({
     setPhase("idle");
   }
 
-  const ref = (field: keyof AddPersonDraft) => (el: HTMLInputElement | null) => {
-    fields.current[field] = el;
-    if (field === "first") first.current = el;
-  };
+  /** The sentence for a mistake, right under the field it is about. */
+  const under = (field: keyof AddPersonDraft) => (problem?.field === field ? <Problem id={`${uid}-problem`}>{problem.error}</Problem> : null);
   const invalid = (field: keyof AddPersonDraft) => (problem?.field === field ? { "aria-invalid": true as const, "aria-describedby": `${uid}-problem` } : {});
 
   return (
@@ -186,6 +193,7 @@ export function AddPersonCard({
           <div className="flex items-start justify-between gap-2">
             <h2 id={`${uid}-h`} dir="auto" className="m-0 text-[16px] font-semibold text-ink">
               Add a person to {householdName}
+              {householdNumber ? <span className="ml-2 font-mono text-[13px] font-normal text-muted">No. {householdNumber}</span> : null}
             </h2>
             <button
               type="button"
@@ -206,7 +214,6 @@ export function AddPersonCard({
               </label>
               <input
                 id={`${uid}-first`}
-                ref={ref("first")}
                 value={draft.first}
                 onChange={(e) => set({ first: e.target.value })}
                 dir="auto"
@@ -214,6 +221,7 @@ export function AddPersonCard({
                 className={INPUT}
                 {...invalid("first")}
               />
+              {under("first")}
             </div>
             <div>
               <label htmlFor={`${uid}-last`} className={LABEL}>
@@ -221,7 +229,6 @@ export function AddPersonCard({
               </label>
               <input
                 id={`${uid}-last`}
-                ref={ref("last")}
                 value={draft.last}
                 onChange={(e) => set({ last: e.target.value })}
                 dir="auto"
@@ -229,6 +236,7 @@ export function AddPersonCard({
                 className={INPUT}
                 {...invalid("last")}
               />
+              {under("last")}
             </div>
           </div>
 
@@ -253,6 +261,7 @@ export function AddPersonCard({
                 </button>
               ))}
             </div>
+            {under("role")}
           </div>
 
           <button
@@ -272,7 +281,6 @@ export function AddPersonCard({
                 </label>
                 <input
                   id={`${uid}-dob`}
-                  ref={ref("dob")}
                   value={draft.dob}
                   onChange={(e) => set({ dob: e.target.value })}
                   inputMode="numeric"
@@ -281,6 +289,7 @@ export function AddPersonCard({
                   className={INPUT}
                   {...invalid("dob")}
                 />
+                {under("dob")}
               </div>
               {child ? (
                 <p className="m-0 self-end pb-2 text-[12.5px] text-muted">Children are contacted through their parents, so there is no mobile or email.</p>
@@ -292,7 +301,6 @@ export function AddPersonCard({
                     </label>
                     <input
                       id={`${uid}-phone`}
-                      ref={ref("phone")}
                       type="tel"
                       value={draft.phone}
                       onChange={(e) => set({ phone: e.target.value })}
@@ -301,6 +309,7 @@ export function AddPersonCard({
                       className={INPUT}
                       {...invalid("phone")}
                     />
+                    {under("phone")}
                   </div>
                   <div className="sm:col-span-2">
                     <label htmlFor={`${uid}-email`} className={LABEL}>
@@ -308,7 +317,6 @@ export function AddPersonCard({
                     </label>
                     <input
                       id={`${uid}-email`}
-                      ref={ref("email")}
                       type="email"
                       value={draft.email}
                       onChange={(e) => set({ email: e.target.value })}
@@ -317,13 +325,13 @@ export function AddPersonCard({
                       className={INPUT}
                       {...invalid("email")}
                     />
+                    {under("email")}
                   </div>
                 </>
               )}
             </div>
           ) : null}
 
-          {problem ? <Problem id={`${uid}-problem`}>{problem.error}</Problem> : null}
           {failure ? (
             <div role="alert" className="mt-3 rounded-[10px] border border-danger/30 bg-danger-50 px-3 py-2 text-[13px] text-danger">
               {failure}

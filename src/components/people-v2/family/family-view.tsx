@@ -102,6 +102,7 @@ export function FamilyView({
                     <AddPersonCard
                       householdId={model.id}
                       householdName={model.name}
+                    householdNumber={model.number}
                       lastName={suggestedLastName(model.adults)}
                       check={model.check}
                       detailsHref={detailsTemplate}

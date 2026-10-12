@@ -25,6 +25,7 @@ import {
   sectionPlan,
   shapeIdRows,
   slideOverHref,
+  slideOverRequest,
   suggestedLastName,
   type AccountFacts,
   type DetailHousehold,
@@ -295,6 +296,16 @@ describe("addresses", () => {
 
   it("sends /people/[id] to the person's family with the slide-over open", () => {
     expect(familyHrefFor("h9", "p9", { year: "all" })).toBe("/households/h9?year=all&person=p9");
+  });
+
+  it("opens the slide-over for ?person=<id>, and keeps the classic drawers for the move flow and the household's old links", () => {
+    const id = "b0000000-0000-4000-8000-000000000001";
+    expect(slideOverRequest({ person: id })).toEqual({ kind: "slideover", personId: id });
+    expect(slideOverRequest({ person: id, year: "2025" })).toEqual({ kind: "slideover", personId: id });
+    expect(slideOverRequest({ person: id, mode: "move" })).toEqual({ kind: "classic" });
+    expect(slideOverRequest({ hh: id })).toEqual({ kind: "classic" });
+    expect(slideOverRequest({ person: "not-an-id" })).toEqual({ kind: "classic" });
+    expect(slideOverRequest({})).toEqual({ kind: "classic" });
   });
 
   it("chooses where a person lives: one family, several, or none (a family they left does not count)", () => {

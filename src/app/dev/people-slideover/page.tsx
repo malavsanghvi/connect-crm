@@ -147,7 +147,7 @@ export default async function PeopleSlideOverPreview({ searchParams }: { searchP
         links={links}
         tabs={
           <section aria-label="Giving, memberships and history">
-            <p className="m-0 text-[13.5px] text-muted">(The Family page's tabs sit here, as on the Family page preview.)</p>
+            <p className="m-0 text-[13.5px] text-muted">(The Family page&apos;s tabs sit here, as on the Family page preview.)</p>
           </section>
         }
         detail={detail}

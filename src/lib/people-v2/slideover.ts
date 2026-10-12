@@ -24,7 +24,7 @@ import {
   toUsDate,
   type HouseholdRole,
 } from "@/lib/people";
-import { hrefWith, type RawSearchParams } from "@/lib/search-params";
+import { hrefWith, isUuid, param, type RawSearchParams } from "@/lib/search-params";
 
 import { adultsLine, type FamilyCheck, type FamilyModel, type FamilyPerson } from "./family-model";
 import type { Values } from "./inline-edit";
@@ -385,6 +385,15 @@ export function personMenu(o: {
 /** The family page's address with this person's slide-over open (`?person=<id>`), other parts of the address kept. */
 export function slideOverHref(path: string, sp: RawSearchParams, personId: string, mode?: string): string {
   return hrefWith(path, sp, { person: personId, mode: mode ?? null, hh: null, app: null });
+}
+
+/**
+ * What the family page's address asks for: a person's slide-over (`?person=<id>`), or the classic drawers (the household's own old
+ * links `?hh=…`, and the move flow `?person=<id>&mode=move`, which is still the classic drawer).
+ */
+export function slideOverRequest(sp: RawSearchParams): { kind: "slideover"; personId: string } | { kind: "classic" } {
+  const person = param(sp, "person");
+  return isUuid(person) && param(sp, "mode") !== "move" ? { kind: "slideover", personId: person } : { kind: "classic" };
 }
 
 /** The same page with the slide-over closed. */

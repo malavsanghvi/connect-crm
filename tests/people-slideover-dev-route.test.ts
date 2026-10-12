@@ -21,7 +21,7 @@ describe("the dev preview of the person slide-over", () => {
   });
 
   it("draws outside production, for every family and state the screenshots use", async () => {
-    for (const sp of [
+    const states: Record<string, string>[] = [
       {},
       { family: "tanaka" },
       { family: "empty", open: "all" },
@@ -31,9 +31,8 @@ describe("the dev preview of the person slide-over", () => {
       { mode: "page", person: "p-ines", family: "empty" },
       { view: "choose" },
       { do: "ids-add" },
-    ]) {
-      expect(await call(sp), JSON.stringify(sp)).toBeTruthy();
-    }
+    ];
+    for (const sp of states) expect(await call(sp), JSON.stringify(sp)).toBeTruthy();
   });
 
   it("has a person with children, names in other scripts and a fixture for each state without a database", () => {
