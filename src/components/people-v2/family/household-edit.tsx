@@ -20,7 +20,13 @@ const target = (m: FamilyModel) => ({ kind: "household", householdId: m.id }) as
 
 /** The household's name as the page heading: click it to rename the household. */
 export function HouseholdTitle({ model, canEdit }: Common) {
-  const edit = useInlineEdit({ unit: HOUSEHOLD_UNITS.name, values: model.values, check: toCheckContext(model.check), owner: owner(model), target: target(model) });
+  const edit = useInlineEdit({
+    unit: HOUSEHOLD_UNITS.name,
+    values: model.values,
+    check: toCheckContext(model.check),
+    owner: owner(model),
+    target: target(model),
+  });
   const open = edit.editing || edit.busy;
   const { button, restore } = useFocusBack(open);
   const onKeys = editorKeys(edit, restore);
@@ -66,7 +72,11 @@ export function HouseholdTitle({ model, canEdit }: Common) {
           <span dir="auto" className="break-words">
             {name}
           </span>
-          {edit.busy ? <span aria-hidden="true" className="size-2.5 animate-pulse rounded-full bg-[var(--v2-sun-from)]" /> : <Pencil className="size-4 shrink-0 text-faint opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100" />}
+          {edit.busy ? (
+            <span aria-hidden="true" className="size-2.5 animate-pulse rounded-full bg-[var(--v2-sun-from)]" />
+          ) : (
+            <Pencil className="size-4 shrink-0 text-faint opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100" />
+          )}
         </button>
       ) : (
         <span dir="auto">{name}</span>
@@ -93,7 +103,13 @@ const LABEL = "block text-[12px] font-bold text-muted";
 
 /** The address as one block: click it, change any line, Enter or leave to save. The zone is chosen from the community's own. */
 export function AddressCard({ model, canEdit }: Common) {
-  const edit = useInlineEdit({ unit: HOUSEHOLD_UNITS.address, values: model.values, check: toCheckContext(model.check), owner: owner(model), target: target(model) });
+  const edit = useInlineEdit({
+    unit: HOUSEHOLD_UNITS.address,
+    values: model.values,
+    check: toCheckContext(model.check),
+    owner: owner(model),
+    target: target(model),
+  });
   const open = edit.editing || edit.busy;
   const { button, restore } = useFocusBack(open);
   const onKeys = editorKeys(edit, restore);
@@ -147,10 +163,18 @@ export function AddressCard({ model, canEdit }: Common) {
         {edit.state.problem ? <Problem>{edit.state.problem}</Problem> : null}
         <SaveError edit={edit} />
         <div className="flex items-center gap-2">
-          <button type="button" onClick={edit.submit} className="inline-flex min-h-11 items-center rounded-full bg-navy px-5 text-[14px] font-bold text-white hover:bg-navy-hover">
+          <button
+            type="button"
+            onClick={edit.submit}
+            className="inline-flex min-h-11 items-center rounded-full bg-navy px-5 text-[14px] font-bold text-white hover:bg-navy-hover"
+          >
             Save address
           </button>
-          <button type="button" onClick={edit.cancel} className="inline-flex min-h-11 items-center rounded-full border border-[var(--v2-line-input)] bg-white px-5 text-[14px] font-bold text-ink">
+          <button
+            type="button"
+            onClick={edit.cancel}
+            className="inline-flex min-h-11 items-center rounded-full border border-[var(--v2-line-input)] bg-white px-5 text-[14px] font-bold text-ink"
+          >
             Cancel
           </button>
           <span className="hidden text-[12px] text-muted md:inline">Enter saves · Esc cancels</span>
@@ -177,7 +201,11 @@ export function AddressCard({ model, canEdit }: Common) {
         className="group -mx-2 flex w-[calc(100%+1rem)] items-start justify-between gap-2 rounded-xl px-2 py-1.5 text-[15.5px] leading-snug text-ink hover:bg-[var(--v2-blue-tint)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--v2-blue)]"
       >
         {text ?? <span className="text-[var(--v2-blue)]">Add an address</span>}
-        {edit.busy ? <span aria-hidden="true" className="mt-1.5 size-2 shrink-0 animate-pulse rounded-full bg-[var(--v2-sun-from)]" /> : <Pencil className="mt-1 shrink-0 text-faint opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100" />}
+        {edit.busy ? (
+          <span aria-hidden="true" className="mt-1.5 size-2 shrink-0 animate-pulse rounded-full bg-[var(--v2-sun-from)]" />
+        ) : (
+          <Pencil className="mt-1 shrink-0 text-faint opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100" />
+        )}
       </button>
     ) : (
       <div className="text-[15.5px] leading-snug text-ink">{text ?? <span className="text-muted">No address on file.</span>}</div>
@@ -185,14 +213,34 @@ export function AddressCard({ model, canEdit }: Common) {
   }
 
   return (
-    <CardBox title="Address" id={`${id}-h`} aside={zone && !edit.editing ? <span className="rounded-full border border-[var(--v2-line-input)] px-2.5 py-0.5 text-[12px] font-semibold text-ink-2">{zone}</span> : null}>
+    <CardBox
+      title="Address"
+      id={`${id}-h`}
+      aside={
+        zone && !edit.editing ? (
+          <span className="rounded-full border border-[var(--v2-line-input)] px-2.5 py-0.5 text-[12px] font-semibold text-ink-2">{zone}</span>
+        ) : null
+      }
+    >
       {body}
     </CardBox>
   );
 }
 
 /** One switch: saves the moment it is flipped. A failed save puts it back and says why. */
-function Switch({ model, canEdit, unit, fieldKey, label, hint }: Common & { unit: typeof HOUSEHOLD_UNITS.directory | typeof HOUSEHOLD_UNITS.mail; fieldKey: "directory_opt_in" | "physical_mail_opt_in"; label: string; hint: string }) {
+function Switch({
+  model,
+  canEdit,
+  unit,
+  fieldKey,
+  label,
+  hint,
+}: Common & {
+  unit: typeof HOUSEHOLD_UNITS.directory | typeof HOUSEHOLD_UNITS.mail;
+  fieldKey: "directory_opt_in" | "physical_mail_opt_in";
+  label: string;
+  hint: string;
+}) {
   const edit = useInlineEdit({ unit, values: model.values, check: toCheckContext(model.check), owner: owner(model), target: target(model) });
   const id = useId();
   const on = (edit.state.phase === "error" ? edit.state.committed : edit.shown)[fieldKey] === "on";
@@ -233,16 +281,40 @@ function Switch({ model, canEdit, unit, fieldKey, label, hint }: Common & { unit
 export function PreferencesCard({ model, canEdit }: Common) {
   const id = useId();
   return (
-    <CardBox title="Preferences" id={id} aside={canEdit ? null : <span className="rounded-full bg-[var(--v2-ground)] px-2.5 py-0.5 text-[12px] font-semibold text-muted">View only</span>}>
-      <Switch model={model} canEdit={canEdit} unit={HOUSEHOLD_UNITS.directory} fieldKey="directory_opt_in" label="Listed in the member directory" hint="Members can find this family in the directory." />
-      <Switch model={model} canEdit={canEdit} unit={HOUSEHOLD_UNITS.mail} fieldKey="physical_mail_opt_in" label="Send physical mail" hint="Letters and printed statements to the address above." />
+    <CardBox
+      title="Preferences"
+      id={id}
+      aside={canEdit ? null : <span className="rounded-full bg-[var(--v2-ground)] px-2.5 py-0.5 text-[12px] font-semibold text-muted">View only</span>}
+    >
+      <Switch
+        model={model}
+        canEdit={canEdit}
+        unit={HOUSEHOLD_UNITS.directory}
+        fieldKey="directory_opt_in"
+        label="Listed in the member directory"
+        hint="Members can find this family in the directory."
+      />
+      <Switch
+        model={model}
+        canEdit={canEdit}
+        unit={HOUSEHOLD_UNITS.mail}
+        fieldKey="physical_mail_opt_in"
+        label="Send physical mail"
+        hint="Letters and printed statements to the address above."
+      />
     </CardBox>
   );
 }
 
 /** The household's note: click, type, and leave (or Ctrl+Enter) to save. */
 export function NotesCard({ model, canEdit }: Common) {
-  const edit = useInlineEdit({ unit: HOUSEHOLD_UNITS.notes, values: model.values, check: toCheckContext(model.check), owner: owner(model), target: target(model) });
+  const edit = useInlineEdit({
+    unit: HOUSEHOLD_UNITS.notes,
+    values: model.values,
+    check: toCheckContext(model.check),
+    owner: owner(model),
+    target: target(model),
+  });
   const open = edit.editing || edit.busy;
   const { button, restore } = useFocusBack(open);
   const onKeys = editorKeys(edit, restore, { multiline: true });
@@ -271,7 +343,16 @@ export function NotesCard({ model, canEdit }: Common) {
     );
   } else if (canEdit) {
     body = (
-      <ValueButton text={text} placeholder="Add a note" editable label="Notes" onStart={edit.start} busy={edit.busy} buttonRef={button} className="whitespace-pre-wrap text-left" />
+      <ValueButton
+        text={text}
+        placeholder="Add a note"
+        editable
+        label="Notes"
+        onStart={edit.start}
+        busy={edit.busy}
+        buttonRef={button}
+        className="whitespace-pre-wrap text-left"
+      />
     );
   } else {
     body = <p className="m-0 whitespace-pre-wrap text-[14.5px] text-ink">{text || <span className="text-muted">No notes.</span>}</p>;
@@ -287,13 +368,26 @@ export function NotesCard({ model, canEdit }: Common) {
 export function IdsCard({ model, manageHref }: { model: FamilyModel; manageHref: string | null }) {
   const id = useId();
   return (
-    <CardBox title="IDs" id={id} aside={manageHref ? <Link href={manageHref} className="text-[13px] font-bold text-[var(--v2-blue)] hover:underline">Manage IDs</Link> : null}>
+    <CardBox
+      title="IDs"
+      id={id}
+      aside={
+        manageHref ? (
+          <Link href={manageHref} className="text-[13px] font-bold text-[var(--v2-blue)] hover:underline">
+            Manage IDs
+          </Link>
+        ) : null
+      }
+    >
       {model.ids.length === 0 ? (
         <p className="m-0 text-[14px] text-muted">No IDs recorded for this household.</p>
       ) : (
         <ul className="m-0 flex list-none flex-wrap gap-2 p-0">
           {model.ids.map((i) => (
-            <li key={i.id} className="inline-flex min-h-9 items-center gap-2 rounded-full border border-[var(--v2-line-input)] bg-white px-3 text-[13px] text-ink-2">
+            <li
+              key={i.id}
+              className="inline-flex min-h-9 items-center gap-2 rounded-full border border-[var(--v2-line-input)] bg-white px-3 text-[13px] text-ink-2"
+            >
               <span>{i.label}</span>
               <span className="font-mono text-[13px] font-semibold text-ink" dir="auto">
                 {i.value}
@@ -306,4 +400,3 @@ export function IdsCard({ model, manageHref }: { model: FamilyModel; manageHref:
     </CardBox>
   );
 }
-

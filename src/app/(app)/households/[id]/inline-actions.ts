@@ -4,15 +4,7 @@ import { withActivity } from "@/lib/activity/with-activity";
 import { runScreenCommand } from "@/lib/commands/screen";
 import { userNames } from "@/lib/data/lookups";
 import { can } from "@/lib/permissions";
-import {
-  HOUSEHOLD_EDITABLE,
-  PERSON_EDITABLE,
-  REASON_MAX,
-  expectText,
-  friendlySaveError,
-  type SaveKind,
-  type Values,
-} from "@/lib/people-v2/inline-edit";
+import { HOUSEHOLD_EDITABLE, PERSON_EDITABLE, REASON_MAX, expectText, friendlySaveError, type SaveKind, type Values } from "@/lib/people-v2/inline-edit";
 import { householdValues, personValues } from "@/lib/people-v2/family-model";
 import { isUuid } from "@/lib/search-params";
 import { loadSession, type CrmSession } from "@/lib/session";
@@ -45,7 +37,10 @@ function shapeProblem(c: Common, allowed: readonly string[]): string | null {
   const text = (v: unknown, max: number) => typeof v === "string" && v.length <= max;
   if (!text(c.label, 120)) return "the request was not understood";
   if (c.reason !== undefined && c.reason !== null && !text(c.reason, 2000)) return "the reason is too long";
-  for (const [name, bag] of [["fields", c.fields], ["expect", c.expect]] as const) {
+  for (const [name, bag] of [
+    ["fields", c.fields],
+    ["expect", c.expect],
+  ] as const) {
     if (!bag || typeof bag !== "object" || Array.isArray(bag)) return "the request was not understood";
     for (const [k, v] of Object.entries(bag)) {
       if (!allowed.includes(k)) return `${name === "fields" ? "that detail" : "the value you saw"} (${k}) cannot be changed here`;
@@ -74,7 +69,8 @@ async function finish(
 export async function savePersonFieldsAction(input: Common & { personId: string; householdId: string }): Promise<InlineSave> {
   const bad = shapeProblem(input, PERSON_EDITABLE);
   if (bad) return { ok: false, error: `Could not save ${input?.label ?? "that"} — ${bad}.`, kind: "other" };
-  if (!isUuid(input.personId) || !isUuid(input.householdId)) return { ok: false, error: `Could not save ${input.label} — the person or household was not found.`, kind: "other" };
+  if (!isUuid(input.personId) || !isUuid(input.householdId))
+    return { ok: false, error: `Could not save ${input.label} — the person or household was not found.`, kind: "other" };
   const reason = (input.reason ?? "").trim().slice(0, REASON_MAX);
   const raw: Record<string, string> = {
     id: input.personId,
@@ -146,7 +142,9 @@ async function personConflict(personId: string, householdId: string, keys: strin
         .eq("id", personId)
         .eq("center_id", s.center.id)
         .maybeSingle(),
-      keys.includes("role") ? s.db.from("household_members").select("role").eq("household_id", householdId).eq("person_id", personId).is("left_at", null).maybeSingle() : null,
+      keys.includes("role")
+        ? s.db.from("household_members").select("role").eq("household_id", householdId).eq("person_id", personId).is("left_at", null).maybeSingle()
+        : null,
     ]);
     if (p.error || !p.data) throw p.error ?? new Error("the person was not found");
     const all = personValues(p.data, link?.data?.role ?? "");

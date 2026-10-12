@@ -75,7 +75,18 @@ export const HOUSEHOLD_UNITS = {
 } as const satisfies Record<string, EditUnit>;
 
 /** The people fields a screen may send (anything else is dropped by the action). */
-export const PERSON_EDITABLE: readonly PersonFieldKey[] = ["first_name", "last_name", "date_of_birth", "gender", "profession", "employer", "phone_e164", "email", "language", "role"];
+export const PERSON_EDITABLE: readonly PersonFieldKey[] = [
+  "first_name",
+  "last_name",
+  "date_of_birth",
+  "gender",
+  "profession",
+  "employer",
+  "phone_e164",
+  "email",
+  "language",
+  "role",
+];
 export const HOUSEHOLD_EDITABLE: readonly HouseholdFieldKey[] = [
   "display_name",
   "address_line1",
@@ -195,7 +206,13 @@ export function sameValue(key: string, a: unknown, b: unknown): boolean {
 // Children and the age line
 // ---------------------------------------------------------------------------
 /** A birth date that moves someone across the age of majority says so ("This makes Aarav 12, a child"); null when nothing changes class. */
-export function ageCrossing(a: { firstName: string; before: string | null | undefined; after: string | null | undefined; today: string; majority: number }): string | null {
+export function ageCrossing(a: {
+  firstName: string;
+  before: string | null | undefined;
+  after: string | null | undefined;
+  today: string;
+  majority: number;
+}): string | null {
   const now = ageOn(a.after, a.today);
   if (now === null) return null;
   const was = ageOn(a.before, a.today);
@@ -236,9 +253,10 @@ export function parseExpect(raw: string | null | undefined): ParsedExpect {
   try {
     data = JSON.parse(text);
   } catch {
-    return { ok: false, error: "The value you saw (expect) must be JSON like {\"phone_e164\": \"+15125550101\"}." };
+    return { ok: false, error: 'The value you saw (expect) must be JSON like {"phone_e164": "+15125550101"}.' };
   }
-  if (!data || typeof data !== "object" || Array.isArray(data)) return { ok: false, error: "The value you saw (expect) must be JSON like {\"phone_e164\": \"+15125550101\"}." };
+  if (!data || typeof data !== "object" || Array.isArray(data))
+    return { ok: false, error: 'The value you saw (expect) must be JSON like {"phone_e164": "+15125550101"}.' };
   const out: Values = {};
   for (const [k, v] of Object.entries(data as Record<string, unknown>)) {
     if (v !== null && typeof v !== "string" && typeof v !== "boolean") return { ok: false, error: `The value you saw for ${fieldNoun(k)} must be text.` };

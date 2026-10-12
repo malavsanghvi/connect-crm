@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 
-import { RELATIONSHIP_OPTIONS } from "@/lib/people";
+import { RELATIONSHIP_OPTIONS, relationshipLabel } from "@/lib/people";
 import { avatarTone, initialsOf, toCheckContext, type AvatarTone, type FamilyCheck, type FamilyPerson } from "@/lib/people-v2/family-model";
 import { PERSON_UNITS, ageCrossing, checkDraft } from "@/lib/people-v2/inline-edit";
 
@@ -75,7 +75,15 @@ function PersonRow(props: {
     fieldKey === "date_of_birth"
       ? (draft: string) => {
           const c = checkDraft(unit, { date_of_birth: draft }, toCheckContext(ctx.check));
-          return c.ok ? ageCrossing({ firstName: p.firstName, before: p.values.date_of_birth, after: c.stored.date_of_birth, today: ctx.check.today, majority: ctx.check.majority }) : null;
+          return c.ok
+            ? ageCrossing({
+                firstName: p.firstName,
+                before: p.values.date_of_birth,
+                after: c.stored.date_of_birth,
+                today: ctx.check.today,
+                majority: ctx.check.majority,
+              })
+            : null;
         }
       : undefined;
   return (
@@ -99,29 +107,51 @@ function NameLine({ person: p, ctx, compact = false }: { person: FamilyPerson; c
   const open = edit.editing || edit.busy;
   const { button, restore } = useFocusBack(open);
   const shown = edit.shown;
-  const unchanged = edit.state.committed.first_name === p.values.first_name && edit.state.committed.last_name === p.values.last_name && edit.state.phase === "idle";
+  const unchanged =
+    edit.state.committed.first_name === p.values.first_name && edit.state.committed.last_name === p.values.last_name && edit.state.phase === "idle";
   const display = unchanged ? p.name : `${shown.first_name ?? ""} ${shown.last_name ?? ""}`.trim() || p.name;
   if (edit.state.phase === "conflict") return <ConflictPanel edit={edit} unit={PERSON_UNITS.name} />;
   if (edit.editing) return <NameEditor edit={edit} restore={restore} />;
   return (
     <h3 className={`m-0 font-semibold text-ink ${compact ? "text-[15.5px]" : "text-[17px]"}`}>
-      <ValueButton text={display} placeholder="Add a name" editable={ctx.canEdit} label={`Name of ${p.name}`} onStart={edit.start} busy={edit.busy} buttonRef={button} className={compact ? "font-semibold" : "text-[17px] font-semibold"} />
+      <ValueButton
+        text={display}
+        placeholder="Add a name"
+        editable={ctx.canEdit}
+        label={`Name of ${p.name}`}
+        onStart={edit.start}
+        busy={edit.busy}
+        buttonRef={button}
+        className={compact ? "font-semibold" : "text-[17px] font-semibold"}
+      />
     </h3>
   );
 }
 
 /** Spouse, Parent, Sibling… next to the age. The primary member is a chip: that is changed under More. */
 function Relationship({ person: p, ctx }: { person: FamilyPerson; ctx: PersonCtx }) {
-  const edit = useInlineEdit({ unit: PERSON_UNITS.relationship, values: p.values, check: toCheckContext(ctx.check), owner: p.firstName, target: target(p, ctx) });
+  const edit = useInlineEdit({
+    unit: PERSON_UNITS.relationship,
+    values: p.values,
+    check: toCheckContext(ctx.check),
+    owner: p.firstName,
+    target: target(p, ctx),
+  });
   const { button, restore } = useFocusBack(edit.editing || edit.busy);
   const onKeys = editorKeys(edit, restore);
   if (p.isPrimary) return <Chip tone="blue">Primary</Chip>;
-  const label = RELATIONSHIP_OPTIONS.find((o) => o.value === (edit.shown.role ?? p.role))?.label ?? "Other";
+  const label = relationshipLabel(edit.shown.role ?? p.role, p.values.gender);
   if (edit.state.phase === "conflict") return <ConflictPanel edit={edit} unit={PERSON_UNITS.relationship} />;
   if (edit.editing) {
     return (
       <span onBlur={(e) => leftEditor(e) && edit.leave()} onKeyDown={onKeys} className="inline-flex flex-col">
-        <select autoFocus aria-label={`Relationship of ${p.name}`} value={edit.state.draft.role ?? ""} onChange={(e) => edit.commit({ role: e.target.value })} className={`${INPUT} !min-h-9 !w-auto`}>
+        <select
+          autoFocus
+          aria-label={`Relationship of ${p.name}`}
+          value={edit.state.draft.role ?? ""}
+          onChange={(e) => edit.commit({ role: e.target.value })}
+          className={`${INPUT} !min-h-9 !w-auto`}
+        >
           {RELATIONSHIP_OPTIONS.map((o) => (
             <option key={o.value} value={o.value}>
               {o.label}
@@ -133,7 +163,18 @@ function Relationship({ person: p, ctx }: { person: FamilyPerson; ctx: PersonCtx
       </span>
     );
   }
-  return <ValueButton text={label} placeholder="Relationship" editable={ctx.canEdit} label={`Relationship of ${p.name}`} onStart={edit.start} busy={edit.busy} buttonRef={button} className="text-[13.5px] text-ink-2" />;
+  return (
+    <ValueButton
+      text={label}
+      placeholder="Relationship"
+      editable={ctx.canEdit}
+      label={`Relationship of ${p.name}`}
+      onStart={edit.start}
+      busy={edit.busy}
+      buttonRef={button}
+      className="text-[13.5px] text-ink-2 md:!min-h-6"
+    />
+  );
 }
 
 export function PersonCard({ person: p, ctx, orgMemberLabel }: { person: FamilyPerson; ctx: PersonCtx; orgMemberLabel: string }) {
@@ -157,18 +198,40 @@ export function PersonCard({ person: p, ctx, orgMemberLabel }: { person: FamilyP
       <div className="mt-3">
         <PersonRow person={p} ctx={ctx} unit={PERSON_UNITS.mobile} fieldKey="phone_e164" label="Mobile" kind="tel" placeholder="Add a mobile number" />
         <PersonRow person={p} ctx={ctx} unit={PERSON_UNITS.email} fieldKey="email" label="Email" kind="email" placeholder="Add an email address" />
-        <PersonRow person={p} ctx={ctx} unit={PERSON_UNITS.language} fieldKey="language" label="Language" kind="select" placeholder="Choose a language" options={ctx.check.languages} />
+        <PersonRow
+          person={p}
+          ctx={ctx}
+          unit={PERSON_UNITS.language}
+          fieldKey="language"
+          label="Language"
+          kind="select"
+          placeholder="Choose a language"
+          options={ctx.check.languages}
+        />
         {more ? (
           <div id={`more-${p.id}`}>
             <PersonRow person={p} ctx={ctx} unit={PERSON_UNITS.dob} fieldKey="date_of_birth" label="Birth date" kind="date" placeholder="Add a birth date" />
-            <PersonRow person={p} ctx={ctx} unit={PERSON_UNITS.gender} fieldKey="gender" label="Gender" kind="select" placeholder="Add gender" options={GENDER_CHOICES} />
+            <PersonRow
+              person={p}
+              ctx={ctx}
+              unit={PERSON_UNITS.gender}
+              fieldKey="gender"
+              label="Gender"
+              kind="select"
+              placeholder="Add gender"
+              options={GENDER_CHOICES}
+            />
             <PersonRow person={p} ctx={ctx} unit={PERSON_UNITS.profession} fieldKey="profession" label="Profession" placeholder="Add a profession" />
           </div>
         ) : null}
       </div>
 
       <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2 border-t border-line pt-3">
-        <Link href={ctx.detailsHref(p.id)} scroll={false} className="inline-flex min-h-10 items-center rounded-full border border-[var(--v2-line-input)] bg-white px-4 text-[13.5px] font-bold text-ink no-underline hover:border-[var(--v2-blue)]">
+        <Link
+          href={ctx.detailsHref(p.id)}
+          scroll={false}
+          className="inline-flex min-h-10 items-center rounded-full border border-[var(--v2-line-input)] bg-white px-4 text-[13.5px] font-bold text-ink no-underline hover:border-[var(--v2-blue)]"
+        >
           Open details
         </Link>
         <button
@@ -185,9 +248,21 @@ export function PersonCard({ person: p, ctx, orgMemberLabel }: { person: FamilyP
             {ids}
           </span>
         ) : null}
-        {p.alsoPrimaryOf ? <span className="basis-full text-[12.5px] text-muted">Also the primary member of household {p.alsoPrimaryOf.number ?? "another household"}</span> : null}
+        {p.alsoPrimaryOf ? (
+          <span className="basis-full text-[12.5px] text-muted">Also the primary member of household {p.alsoPrimaryOf.number ?? "another household"}</span>
+        ) : null}
       </div>
     </article>
+  );
+}
+
+/** A label beside a value, the same grid as a field row (for the name and the relationship of a child). */
+function LabelledRow({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="grid grid-cols-[4.75rem_minmax(0,1fr)] items-start gap-x-3 py-0.5 sm:grid-cols-[5.25rem_minmax(0,1fr)]">
+      <span className="pt-[11px] text-[13px] text-muted md:pt-[7px]">{label}</span>
+      <div className="min-w-0 pt-1 md:pt-0.5">{children}</div>
+    </div>
   );
 }
 
@@ -203,7 +278,7 @@ export function ChildRow({ person: p, ctx }: { person: FamilyPerson; ctx: Person
             {p.name}
           </p>
           <p className="m-0 text-[13px] text-muted">
-            {[p.values.gender === "female" ? "Daughter" : p.values.gender === "male" ? "Son" : "Child", p.age !== null ? `age ${p.age}` : "age not recorded", "contact via parents"].join(" · ")}
+            {[relationshipLabel(p.role, p.values.gender), p.age !== null ? `age ${p.age}` : "age not recorded", "contact via parents"].join(" · ")}
           </p>
         </div>
         <button
@@ -217,15 +292,30 @@ export function ChildRow({ person: p, ctx }: { person: FamilyPerson; ctx: Person
       </div>
       {open ? (
         <div className="mt-3 rounded-xl bg-[var(--v2-ground)] p-3">
-          <NameLine person={p} ctx={ctx} compact />
-          <div className="mt-2 flex flex-wrap items-center gap-2">
+          <LabelledRow label="Name">
+            <NameLine person={p} ctx={ctx} compact />
+          </LabelledRow>
+          <LabelledRow label="Relationship">
             <Relationship person={p} ctx={ctx} />
-            <Link href={ctx.detailsHref(p.id)} scroll={false} className="ml-auto inline-flex min-h-10 items-center rounded-full border border-[var(--v2-line-input)] bg-white px-4 text-[13px] font-bold text-ink no-underline hover:border-[var(--v2-blue)]">
-              Open details
-            </Link>
-          </div>
+          </LabelledRow>
           <PersonRow person={p} ctx={ctx} unit={PERSON_UNITS.dob} fieldKey="date_of_birth" label="Birth date" kind="date" placeholder="Add a birth date" />
-          <PersonRow person={p} ctx={ctx} unit={PERSON_UNITS.gender} fieldKey="gender" label="Gender" kind="select" placeholder="Add gender" options={GENDER_CHOICES} />
+          <PersonRow
+            person={p}
+            ctx={ctx}
+            unit={PERSON_UNITS.gender}
+            fieldKey="gender"
+            label="Gender"
+            kind="select"
+            placeholder="Add gender"
+            options={GENDER_CHOICES}
+          />
+          <Link
+            href={ctx.detailsHref(p.id)}
+            scroll={false}
+            className="mt-2 inline-flex min-h-10 items-center rounded-full border border-[var(--v2-line-input)] bg-white px-4 text-[13px] font-bold text-ink no-underline hover:border-[var(--v2-blue)]"
+          >
+            Open details
+          </Link>
         </div>
       ) : null}
     </li>

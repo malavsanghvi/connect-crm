@@ -18,7 +18,18 @@ const BTN_SMALL =
 
 export function Pencil({ className = "" }: { className?: string }) {
   return (
-    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className={className}>
+    <svg
+      viewBox="0 0 24 24"
+      width="14"
+      height="14"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      className={className}
+    >
       <path d="M12 20h9" />
       <path d="M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4z" />
     </svg>
@@ -46,22 +57,28 @@ export function ValueButton({
   buttonRef?: React.RefObject<HTMLButtonElement | null>;
   className?: string;
 }) {
-  const body = text ? <span dir="auto" className="min-w-0 break-words">{text}</span> : <span className={editable ? "text-[var(--v2-blue)]" : "text-faint"}>{editable ? placeholder : "—"}</span>;
-  if (!editable) return <span className={`inline-flex min-h-9 items-center text-[14.5px] text-ink ${className}`}>{body}</span>;
+  const body = text ? (
+    <span dir="auto" className="min-w-0 break-words">
+      {text}
+    </span>
+  ) : (
+    <span className={editable ? "text-[var(--v2-blue)]" : "text-faint"}>{editable ? placeholder : "—"}</span>
+  );
+  if (!editable) return <span className={`inline-flex min-h-10 items-center text-[14.5px] text-ink md:min-h-8 ${className}`}>{body}</span>;
   return (
     <button
       ref={buttonRef}
       type="button"
       onClick={onStart}
-      aria-label={`Edit ${label.toLowerCase()}: ${text || "nothing yet"}`}
+      aria-label={`Edit ${label.charAt(0).toLowerCase()}${label.slice(1)}: ${text || "nothing yet"}`}
       aria-busy={busy || undefined}
-      className={`group -mx-1.5 inline-flex min-h-9 max-w-full items-center gap-1.5 rounded-lg px-1.5 text-left text-[14.5px] text-ink hover:bg-[var(--v2-blue-tint)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--v2-blue)] ${className}`}
+      className={`group -mx-1.5 inline-flex min-h-10 max-w-full md:min-h-8 items-center gap-1.5 rounded-lg px-1.5 text-left text-[14.5px] text-ink hover:bg-[var(--v2-blue-tint)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--v2-blue)] ${className}`}
     >
       {body}
       {busy ? (
         <span aria-hidden="true" className="size-2 shrink-0 animate-pulse rounded-full bg-[var(--v2-sun-from)]" />
       ) : (
-        <Pencil className="shrink-0 text-faint opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100" />
+        <Pencil className="hidden shrink-0 text-faint opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100 md:block" />
       )}
       {busy ? <span className="sr-only">Saving…</span> : null}
     </button>
@@ -93,16 +110,25 @@ export function SaveError({ edit }: { edit: InlineEdit }) {
 export function ConflictPanel({ edit, unit }: { edit: InlineEdit; unit: EditUnit }) {
   const c = edit.state.conflict;
   if (edit.state.phase !== "conflict" || !c) return null;
-  const mine = edit.state.pending ? unit.fields.filter((k) => k in (edit.state.pending?.fields ?? {})).map((k) => displayValue(k, edit.state.pending?.fields[k] ?? "") || "empty").join(" ") : "";
+  const mine = edit.state.pending
+    ? unit.fields
+        .filter((k) => k in (edit.state.pending?.fields ?? {}))
+        .map((k) => displayValue(k, edit.state.pending?.fields[k] ?? "") || "empty")
+        .join(" ")
+    : "";
   return (
-    <div role="alert" data-testid="conflict" className="rounded-[10px] border border-[var(--v2-sun-from)]/60 bg-[var(--v2-sun-tint)] px-3 py-2.5 text-[13.5px] text-[var(--v2-sun-ink)]">
+    <div
+      role="alert"
+      data-testid="conflict"
+      className="rounded-[10px] border border-[var(--v2-sun-from)]/60 bg-[var(--v2-sun-tint)] px-3 py-2.5 text-[13.5px] text-[var(--v2-sun-ink)]"
+    >
       <p className="m-0">{conflictLine({ who: c.who, at: c.at, keys: unit.fields.filter((k) => k in c.theirs), theirs: c.theirs }, new Date())}</p>
       <div className="mt-2 flex flex-wrap gap-2">
         <button type="button" onClick={edit.useTheirs} className={`${BTN_SMALL} border-[var(--v2-line-input)] bg-white text-ink hover:border-[var(--v2-blue)]`}>
           Use theirs
         </button>
         <button type="button" onClick={edit.keepMine} className={`${BTN_SMALL} border-transparent bg-navy text-white hover:bg-navy-hover`}>
-          Keep mine{mine ? ` (${mine})` : ""}
+          Keep mine{mine ? ` · ${mine}` : ""}
         </button>
       </div>
     </div>
@@ -125,7 +151,9 @@ export function ReasonPicker({ edit }: { edit: InlineEdit }) {
             aria-pressed={edit.state.reason === r}
             onClick={() => edit.setReason(r)}
             className={`min-h-8 rounded-full border px-3 text-[12.5px] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--v2-blue)] ${
-              edit.state.reason === r ? "border-[var(--v2-blue)] bg-[var(--v2-blue-tint)] font-bold text-[var(--v2-blue)]" : "border-[var(--v2-line-input)] bg-white text-ink-2 hover:border-[var(--v2-blue)]"
+              edit.state.reason === r
+                ? "border-[var(--v2-blue)] bg-[var(--v2-blue-tint)] font-bold text-[var(--v2-blue)]"
+                : "border-[var(--v2-line-input)] bg-white text-ink-2 hover:border-[var(--v2-blue)]"
             }`}
           >
             {r}
@@ -207,7 +235,6 @@ export function FieldRow({
   placeholder,
   options,
   ageNote,
-  labelWidth = "5.25rem",
 }: {
   label: string;
   fieldKey: string;
@@ -220,7 +247,6 @@ export function FieldRow({
   options?: { value: string; label: string }[];
   /** Under a birth date as it is typed: "This makes Aarav 12, a child". */
   ageNote?: (draft: string) => string | null;
-  labelWidth?: string;
 }) {
   const id = useId();
   const open = edit.editing || edit.busy;
@@ -238,14 +264,7 @@ export function FieldRow({
     body = (
       <div onBlur={(e) => leftEditor(e) && edit.leave()} onKeyDown={onKeys}>
         {kind === "select" ? (
-          <select
-            id={id}
-            autoFocus
-            value={draft}
-            onChange={(e) => edit.commit({ [fieldKey]: e.target.value })}
-            aria-label={label}
-            className={INPUT}
-          >
+          <select id={id} autoFocus value={draft} onChange={(e) => edit.commit({ [fieldKey]: e.target.value })} aria-label={label} className={INPUT}>
             {!options?.some((o) => o.value === draft) ? <option value={draft}>{displayValue(fieldKey, draft) || "Choose…"}</option> : null}
             {options?.map((o) => (
               <option key={o.value} value={o.value}>
@@ -292,8 +311,8 @@ export function FieldRow({
     );
   }
   return (
-    <div className="grid items-start gap-x-3 py-0.5" style={{ gridTemplateColumns: `${labelWidth} minmax(0,1fr)` }}>
-      <label htmlFor={edit.editing && kind !== "select" ? id : undefined} className="pt-[9px] text-[13px] text-muted">
+    <div className="grid grid-cols-[4.75rem_minmax(0,1fr)] items-start gap-x-3 py-0.5 sm:grid-cols-[5.25rem_minmax(0,1fr)]">
+      <label htmlFor={edit.editing && kind !== "select" ? id : undefined} className="pt-[11px] text-[13px] text-muted md:pt-[7px]">
         {label}
       </label>
       <div className="min-w-0">{body}</div>

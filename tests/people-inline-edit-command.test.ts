@@ -32,7 +32,12 @@ beforeEach(() => {
 describe("people.update_person with expect and reason", () => {
   it("saves when the value is still the one the person saw, and the write carries the reason", async () => {
     const { ctx, tables } = world();
-    const r = await updatePerson.execute!(ctx, { id: ID.priya, phone_e164: "(512) 555-0188", expect: expectText({ phone_e164: "+15125550101" }), reason: "Verified from ID" });
+    const r = await updatePerson.execute!(ctx, {
+      id: ID.priya,
+      phone_e164: "(512) 555-0188",
+      expect: expectText({ phone_e164: "+15125550101" }),
+      reason: "Verified from ID",
+    });
     expect(r).toMatchObject({ ok: true, message: "Saved Priya's profile (mobile) · audit logged" });
     expect(person(tables, ID.priya).phone_e164).toBe("+15125550188");
     expect(dbWithReason).toHaveBeenCalledTimes(1);
@@ -42,7 +47,9 @@ describe("people.update_person with expect and reason", () => {
   it("refuses, and changes nothing, when someone else changed the value first", async () => {
     const { ctx, tables } = world();
     person(tables, ID.priya).phone_e164 = "+18325550199"; // Ravi changed it
-    const err = await updatePerson.execute!(ctx, { id: ID.priya, phone_e164: "(512) 555-0188", expect: expectText({ phone_e164: "+15125550101" }) }).catch((e: Error) => e);
+    const err = await updatePerson.execute!(ctx, { id: ID.priya, phone_e164: "(512) 555-0188", expect: expectText({ phone_e164: "+15125550101" }) }).catch(
+      (e: Error) => e,
+    );
     expect(err).toBeInstanceOf(Error);
     expect((err as Error).message.startsWith(CONFLICT_PREFIX)).toBe(true);
     expect((err as Error).message).toContain("mobile");
@@ -53,7 +60,11 @@ describe("people.update_person with expect and reason", () => {
   it("is no conflict when the other change was to a field this edit does not touch", async () => {
     const { ctx, tables } = world();
     person(tables, ID.priya).profession = "Surgeon"; // someone else changed the profession
-    const r = await updatePerson.execute!(ctx, { id: ID.priya, phone_e164: "(512) 555-0188", expect: expectText({ phone_e164: "+15125550101", profession: "Engineer" }) });
+    const r = await updatePerson.execute!(ctx, {
+      id: ID.priya,
+      phone_e164: "(512) 555-0188",
+      expect: expectText({ phone_e164: "+15125550101", profession: "Engineer" }),
+    });
     expect(r).toMatchObject({ ok: true });
     expect(person(tables, ID.priya)).toMatchObject({ phone_e164: "+15125550188", profession: "Surgeon" });
   });
@@ -69,7 +80,9 @@ describe("people.update_person with expect and reason", () => {
     const { ctx, tables } = world();
     const members = tables.household_members as Record<string, unknown>[];
     members.find((m) => m.person_id === ID.rahul)!.role = "parent"; // changed meanwhile
-    await expect(updatePerson.execute!(ctx, { id: ID.rahul, household_id: ID.hhShah, role: "sibling", expect: expectText({ role: "spouse" }) })).rejects.toThrow(CONFLICT_PREFIX);
+    await expect(
+      updatePerson.execute!(ctx, { id: ID.rahul, household_id: ID.hhShah, role: "sibling", expect: expectText({ role: "spouse" }) }),
+    ).rejects.toThrow(CONFLICT_PREFIX);
     expect(members.find((m) => m.person_id === ID.rahul)!.role).toBe("parent");
     const ok = await updatePerson.execute!(ctx, { id: ID.rahul, household_id: ID.hhShah, role: "sibling", expect: expectText({ role: "parent" }) });
     expect(ok).toMatchObject({ ok: true });
@@ -78,7 +91,9 @@ describe("people.update_person with expect and reason", () => {
 
   it("refuses an expectation that is not JSON, in words", async () => {
     const { ctx } = world();
-    await expect(updatePerson.execute!(ctx, { id: ID.priya, profession: "Doctor", expect: "the old one" })).rejects.toThrow(/^Could not save the profile — the value you saw \(expect\) must be JSON/);
+    await expect(updatePerson.execute!(ctx, { id: ID.priya, profession: "Doctor", expect: "the old one" })).rejects.toThrow(
+      /^Could not save the profile — the value you saw \(expect\) must be JSON/,
+    );
   });
 
   it("takes a name in another script, with the reason that explains it", async () => {
@@ -105,7 +120,9 @@ describe("people.update_person with expect and reason", () => {
 
   it("still keeps the children's records away from Niva when it sends these", async () => {
     const { ctx } = world({ via: "assistant" });
-    await expect(updatePerson.execute!(ctx, { id: ID.zoya, profession: "x", expect: expectText({ profession: "" }) })).rejects.toThrow(/does not work with children's records/);
+    await expect(updatePerson.execute!(ctx, { id: ID.zoya, profession: "x", expect: expectText({ profession: "" }) })).rejects.toThrow(
+      /does not work with children's records/,
+    );
   });
 });
 
@@ -121,7 +138,12 @@ describe("people.update_household with expect and reason", () => {
   it("refuses when any line of the address changed under the person", async () => {
     const { ctx, tables } = world();
     household(tables, ID.hhShah).address_line1 = "9 Elm Street";
-    const err = await updateHousehold.execute!(ctx, { id: ID.hhShah, address_line1: "2 Oak St", city: "Round Rock", expect: expectText({ address_line1: "1 Oak St", city: "Austin" }) }).catch((e: Error) => e);
+    const err = await updateHousehold.execute!(ctx, {
+      id: ID.hhShah,
+      address_line1: "2 Oak St",
+      city: "Round Rock",
+      expect: expectText({ address_line1: "1 Oak St", city: "Austin" }),
+    }).catch((e: Error) => e);
     expect((err as Error).message.startsWith(CONFLICT_PREFIX)).toBe(true);
     expect((err as Error).message).toContain("street address");
     expect(household(tables, ID.hhShah)).toMatchObject({ address_line1: "9 Elm Street", city: "Austin" });
@@ -136,7 +158,9 @@ describe("people.update_household with expect and reason", () => {
     await expect(updateHousehold.execute!(ctx, { id: ID.hhShah, notes: "Changed again", expect: expectText({ notes: "" }) })).rejects.toThrow(CONFLICT_PREFIX);
     expect(household(tables, ID.hhShah).notes).toBe("Prefers evening calls.");
     const asNiva = world({ via: "assistant" });
-    await expect(updateHousehold.execute!(asNiva.ctx, { id: ID.hhShah, notes: "x" })).rejects.toThrow("Niva does not change household notes. Do it on the People screen.");
+    await expect(updateHousehold.execute!(asNiva.ctx, { id: ID.hhShah, notes: "x" })).rejects.toThrow(
+      "Niva does not change household notes. Do it on the People screen.",
+    );
   });
 
   it("checks a switch the way it is saved: on or off", async () => {

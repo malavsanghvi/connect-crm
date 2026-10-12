@@ -57,7 +57,9 @@ export function UndoProvider({ children, windowMs = UNDO_MS }: { children: React
       result = await current.offer.run();
     } catch (error) {
       console.error("[family] undo did not complete:", error);
-      setEntry((cur) => (cur && cur.id === current.id ? { ...cur, status: "failed", error: "Could not put it back — the server did not respond. Nothing was changed." } : cur));
+      setEntry((cur) =>
+        cur && cur.id === current.id ? { ...cur, status: "failed", error: "Could not put it back — the server did not respond. Nothing was changed." } : cur,
+      );
       return;
     }
     setEntry((cur) => {
@@ -103,11 +105,20 @@ function UndoBar({ entry, windowMs, onUndo, onDismiss }: { entry: Entry | null; 
               {entry.status === "working" ? "…" : ""}
             </span>
             {entry.status === "offered" ? (
-              <button type="button" onClick={onUndo} className="min-h-10 rounded-full bg-white/15 px-4 text-[14px] font-bold text-white hover:bg-white/25 focus-visible:outline focus-visible:outline-2 focus-visible:outline-white">
+              <button
+                type="button"
+                onClick={onUndo}
+                className="min-h-10 rounded-full bg-white/15 px-4 text-[14px] font-bold text-white hover:bg-white/25 focus-visible:outline focus-visible:outline-2 focus-visible:outline-white"
+              >
                 Undo
               </button>
             ) : null}
-            <button type="button" onClick={onDismiss} aria-label="Close" className="grid size-10 place-items-center rounded-full text-white/80 hover:bg-white/15 hover:text-white">
+            <button
+              type="button"
+              onClick={onDismiss}
+              aria-label="Close"
+              className="grid size-10 place-items-center rounded-full text-white/80 hover:bg-white/15 hover:text-white"
+            >
               <span aria-hidden="true">×</span>
             </button>
           </div>

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 
-import { adultsLine, type FamilyModel } from "@/lib/people-v2/family-model";
+import { adultsLine, type FamilyModel, type HeaderChip } from "@/lib/people-v2/family-model";
 
 import { HouseholdTitle } from "./household-edit";
 import { Chip } from "./person-card";
@@ -11,8 +11,6 @@ import { Chip } from "./person-card";
 // The top of the Family page: where you are, the household's name (click to rename), the household card line as plain facts (never
 // a name alone), the status chips, and three actions: Record payment, Add person and More. On a phone the three actions move to a
 // bar fixed above the bottom navigation, so they are always under the thumb.
-
-export type HeaderChip = { key: string; label: string; tone: "blue" | "green" | "grey" | "sun" };
 
 export type FamilyLinks = {
   people: string;
@@ -24,7 +22,8 @@ export type FamilyLinks = {
   more: { key: string; label: string; href: string; hint?: string }[];
 };
 
-const PILL_BASE = "inline-flex min-h-11 items-center justify-center whitespace-nowrap rounded-full px-5 text-[14.5px] font-bold no-underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--v2-blue)]";
+const PILL_BASE =
+  "inline-flex min-h-11 items-center justify-center whitespace-nowrap rounded-full px-3 text-[14px] font-bold no-underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--v2-blue)] md:px-5 md:text-[14.5px]";
 const PRIMARY = `${PILL_BASE} bg-navy text-white hover:bg-navy-hover`;
 const SECONDARY = `${PILL_BASE} border border-[var(--v2-line-input)] bg-white text-ink hover:border-[var(--v2-blue)]`;
 
@@ -67,7 +66,7 @@ export function MoreMenu({ items, align = "right", direction = "down" }: { items
   return (
     <div
       ref={root}
-      className="relative"
+      className="relative min-w-0 flex-1 md:flex-none"
       onKeyDown={(e) => {
         if (e.key === "Escape" && open) {
           e.stopPropagation();
@@ -76,8 +75,16 @@ export function MoreMenu({ items, align = "right", direction = "down" }: { items
         }
       }}
     >
-      <button ref={button} type="button" aria-haspopup="menu" aria-expanded={open} aria-controls={open ? menuId : undefined} onClick={() => setOpen((v) => !v)} className={SECONDARY}>
-        <span aria-hidden="true" className="mr-1.5 tracking-widest">
+      <button
+        ref={button}
+        type="button"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-controls={open ? menuId : undefined}
+        onClick={() => setOpen((v) => !v)}
+        className={`${SECONDARY} w-full md:w-auto`}
+      >
+        <span aria-hidden="true" className="mr-1.5 hidden tracking-widest md:inline">
           •••
         </span>
         More
@@ -91,7 +98,12 @@ export function MoreMenu({ items, align = "right", direction = "down" }: { items
         >
           {items.map((i) => (
             <li key={i.key} role="none">
-              <Link role="menuitem" href={i.href} onClick={() => setOpen(false)} className="flex min-h-11 flex-col justify-center rounded-xl px-3 py-1.5 text-[14.5px] font-semibold text-ink no-underline hover:bg-[var(--v2-blue-tint)] focus-visible:bg-[var(--v2-blue-tint)] focus-visible:outline-none">
+              <Link
+                role="menuitem"
+                href={i.href}
+                onClick={() => setOpen(false)}
+                className="flex min-h-11 flex-col justify-center rounded-xl px-3 py-1.5 text-[14.5px] font-semibold text-ink no-underline hover:bg-[var(--v2-blue-tint)] focus-visible:bg-[var(--v2-blue-tint)] focus-visible:outline-none"
+              >
                 {i.label}
                 {i.hint ? <span className="text-[12px] font-normal text-muted">{i.hint}</span> : null}
               </Link>
@@ -107,12 +119,12 @@ function ActionButtons({ links, direction }: { links: FamilyLinks; direction: "d
   return (
     <>
       {links.payment ? (
-        <Link href={links.payment} className={PRIMARY}>
+        <Link href={links.payment} className={`${PRIMARY} flex-1 md:flex-none`}>
           Record payment
         </Link>
       ) : null}
       {links.addPerson ? (
-        <Link href={links.addPerson} scroll={false} className={SECONDARY}>
+        <Link href={links.addPerson} scroll={false} className={`${SECONDARY} flex-1 md:flex-none`}>
           <span aria-hidden="true" className="mr-1.5 text-[18px] leading-none">
             +
           </span>
@@ -124,7 +136,19 @@ function ActionButtons({ links, direction }: { links: FamilyLinks; direction: "d
   );
 }
 
-export function FamilyHeader({ model, chips, links, canEdit, children }: { model: FamilyModel; chips: HeaderChip[]; links: FamilyLinks; canEdit: boolean; children?: ReactNode }) {
+export function FamilyHeader({
+  model,
+  chips,
+  links,
+  canEdit,
+  children,
+}: {
+  model: FamilyModel;
+  chips: HeaderChip[];
+  links: FamilyLinks;
+  canEdit: boolean;
+  children?: ReactNode;
+}) {
   const adults = adultsLine(model.card.adults);
   return (
     <header className="mb-1">

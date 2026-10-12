@@ -51,7 +51,10 @@ describe("checkDraft", () => {
   });
 
   it("takes names in any script, and needs both", () => {
-    expect(checkDraft(PERSON_UNITS.name, { first_name: "太郎", last_name: "山田" }, ctx)).toEqual({ ok: true, stored: { first_name: "太郎", last_name: "山田" } });
+    expect(checkDraft(PERSON_UNITS.name, { first_name: "太郎", last_name: "山田" }, ctx)).toEqual({
+      ok: true,
+      stored: { first_name: "太郎", last_name: "山田" },
+    });
     expect(checkDraft(PERSON_UNITS.name, { first_name: "Фёдор", last_name: "Иванов" }, ctx).ok).toBe(true);
     expect(checkDraft(PERSON_UNITS.name, { first_name: "عمر", last_name: "" }, ctx)).toEqual({ ok: false, error: "Last name is required" });
   });
@@ -307,6 +310,8 @@ describe("sentences", () => {
     expect(conflictLine({ who: "Ravi", at: "2026-10-12T10:03:30Z", keys: ["phone_e164"], theirs: { phone_e164: "+18325550199" } }, now)).toBe(
       "Ravi changed this a minute ago to (832) 555-0199. Your change was not saved.",
     );
-    expect(conflictLine({ who: null, at: null, keys: ["profession"], theirs: { profession: "" } }, now)).toBe("Someone changed this a moment ago to empty. Your change was not saved.");
+    expect(conflictLine({ who: null, at: null, keys: ["profession"], theirs: { profession: "" } }, now)).toBe(
+      "Someone changed this a moment ago to empty. Your change was not saved.",
+    );
   });
 });

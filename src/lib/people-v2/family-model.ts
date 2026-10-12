@@ -3,7 +3,8 @@
 // tests need no database. A child is a person under the community's age of majority (D2): the loader marks them, and the model
 // never carries a child's contact details, because a child has none on the page ("contact via parents").
 
-import { formatPhone, genderValue, relationshipLabel, type HouseholdRole } from "@/lib/people";
+import { formatDate } from "@/lib/dates";
+import { formatPhone, genderValue, relationshipLabel, tierLabel, type HouseholdRole } from "@/lib/people";
 
 import type { CheckContext, Values } from "./inline-edit";
 
@@ -98,7 +99,11 @@ export function adultsLine(adults: readonly string[]): string {
   });
   if (split.length === 0) return "";
   if (split.length === 1) return adults[0];
-  if (split.every((s) => s.last && s.last === split[0].last)) return `${split.slice(0, -1).map((s) => s.first).join(", ")} & ${split[split.length - 1].first} ${split[0].last}`;
+  if (split.every((s) => s.last && s.last === split[0].last))
+    return `${split
+      .slice(0, -1)
+      .map((s) => s.first)
+      .join(", ")} & ${split[split.length - 1].first} ${split[0].last}`;
   return adults.slice(0, -1).join(", ") + " & " + adults[adults.length - 1];
 }
 
@@ -180,6 +185,20 @@ export function addressLines(v: Values): string[] {
 /** "(713) 555-0136" or "—", for a row that is not being edited. */
 export function phoneText(stored: string): string {
   return stored ? formatPhone(stored) : "";
+}
+
+export type HeaderChip = { key: string; label: string; tone: "blue" | "green" | "grey" | "sun" };
+
+/** The status chips under the household's name: membership and when it ends, open pledges (only with giving access), and who is on the app. */
+export function familyChips(model: FamilyModel, timeZone: string): HeaderChip[] {
+  const chips: HeaderChip[] = [];
+  if (model.membership) {
+    const m = model.membership;
+    chips.push({ key: "membership", tone: "blue", label: `${tierLabel(m.tier)} membership${m.endsOn ? ` · ${formatDate(m.endsOn, timeZone)}` : ""}` });
+  }
+  if (model.openPledge && model.openPledge.cents > 0) chips.push({ key: "pledges", tone: "sun", label: `Open pledges ${model.openPledge.text}` });
+  if (model.adults.length > 0) chips.push({ key: "app", tone: "grey", label: onAppSummary(model.adults).text });
+  return chips;
 }
 
 /** The tab keys the Family page offers, in order, for what the viewer may see. Events appears only with the Events module. */
