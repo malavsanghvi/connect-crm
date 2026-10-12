@@ -150,7 +150,7 @@ const NO_COUNTS = { lunch_slots: 0, shifts: 0, shifts_empty: null, checklist_ove
  * approval first, then the same publish blockers as the readiness list (no start, start passed, ends before it starts,
  * the RSVP window, lunch without a time, a paid event without a price). The background service checks the same again.
  */
-export function publishProblems(event: ReadinessEvent, approval: ApprovalState, when: Date, tz: string): string[] {
+export function publishProblems(event: ReadinessEvent, approval: ApprovalState, when: Date, tz: string, now: Date = new Date()): string[] {
   const out: string[] = [];
   const a = approvalProblem(approval);
   if (a) out.push(a);
@@ -159,7 +159,13 @@ export function publishProblems(event: ReadinessEvent, approval: ApprovalState, 
     return out;
   }
   const ready = eventReadiness(event, NO_COUNTS, "publish", when, tz);
-  for (const b of ready.blockers) out.push(`${b.text} ${b.fix}`);
+  const scheduling = when.getTime() > now.getTime() + 60_000;
+  for (const b of ready.blockers) {
+    // At a scheduled time, "has passed" is not yet true: say it will have, by then.
+    if (scheduling && b.code === "rsvp_closed_already" && event.rsvp_closes_at) {
+      out.push(`RSVPs close on ${formatDateTime(event.rsvp_closes_at, tz)}, before the publish time. Change when RSVPs close, or publish earlier.`);
+    } else out.push(`${b.text} ${b.fix}`);
+  }
   return out;
 }
 

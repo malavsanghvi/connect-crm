@@ -149,7 +149,7 @@ describe("what stops a publish", () => {
   it("is checked at the scheduled time: RSVPs that close before then stop a schedule", () => {
     const ev = readyEvent({ rsvp_closes_at: "2026-11-01T00:00:00Z" });
     expect(publishProblems(ev, approved, NOW, TZ)).toEqual([]);
-    expect(publishProblems(ev, approved, new Date("2026-11-02T15:00:00Z"), TZ).join(" ")).toMatch(/RSVPs are set to close/);
+    expect(publishProblems(ev, approved, new Date("2026-11-02T15:00:00Z"), TZ, NOW).join(" ")).toMatch(/^RSVPs close on .*, before the publish time./);
   });
 
   it("refuses an event that is not a draft", () => {

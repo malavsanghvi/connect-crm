@@ -148,7 +148,8 @@ export async function withdrawFlyerApprovalAction(eventId: string): Promise<Acti
 
 function firstProblem(problems: string[]): string {
   const p = problems[0] ?? "";
-  return p ? p[0]!.toLowerCase() + p.slice(1) : p;
+  // Keep an acronym at the start readable ("RSVPs close…"), as runAction does.
+  return !p || /^[A-Z]{2}/.test(p) ? p : p[0]!.toLowerCase() + p.slice(1);
 }
 
 /**
@@ -180,9 +181,9 @@ export async function scheduleEventPublishAction(eventId: string, local: string)
     // Checked as it will be at the publish time (a start or an RSVP close before then would stop it there).
     const problems = publishProblems(event, approvalState(event, event), new Date(time.iso), tz);
     if (problems.length) return { ok: false, error: `Could not schedule the publish — ${firstProblem(problems)}` };
-    const res = await db.from("events").update({ publish_at: time.iso, publish_failure: null }).eq("id", eventId).eq("status", "draft").select("id, publish_at");
+    const res = await db.from("events").update({ publish_at: time.iso, publish_failure: null }).eq("id", eventId).eq("status", "draft").select("id");
     if (res.error) throw new DbFailure(res.error, "schedule the publish");
-    if (!res.data?.length || !res.data[0]?.publish_at) throw new FormError("the event is no longer a draft, or you can't edit it. Reload the page.");
+    if (!res.data?.length) throw new FormError("the event is no longer a draft, or you can't edit it. Reload the page.");
     revalidate(eventId);
     return { ok: true, message: "Scheduled. It will be published at that time, after the same checks.", data: { publishAt: time.iso } };
   }, { key: "events.publish_schedule", entityFrom: { kind: "event", id: eventId } });
