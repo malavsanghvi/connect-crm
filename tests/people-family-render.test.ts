@@ -5,6 +5,8 @@ import { describe, expect, it, vi } from "vitest";
 // The Family page draws from a model; here nothing is called, only rendered.
 vi.mock("@/app/(app)/households/[id]/inline-actions", () => ({ savePersonFieldsAction: vi.fn(), saveHouseholdFieldsAction: vi.fn() }));
 vi.mock("@/app/security-actions", () => ({ verifyStepUpAction: vi.fn() }));
+vi.mock("@/app/(app)/people/saved-actions", () => ({ saveViewAction: vi.fn(), renameViewAction: vi.fn(), deleteViewAction: vi.fn(), setPinAction: vi.fn() }));
+vi.mock("next/navigation", async (orig) => ({ ...((await orig()) as object), useRouter: () => ({ push: vi.fn(), replace: vi.fn(), refresh: vi.fn() }) }));
 
 import { familyFixture } from "@/app/dev/people-family/fixtures";
 import { FamilyView } from "@/components/people-v2/family/family-view";
@@ -93,9 +95,19 @@ describe("the Family page", () => {
     expect(page("hassan")).toContain("Record payment");
   });
 
-  it("puts the pin star in as 'coming next', switched off", () => {
-    const html = page("hassan");
-    expect(html).toMatch(/<button[^>]*disabled[^>]*aria-label="Pin this family\. Coming next\."/);
+  it("draws the pin star as a real toggle that shows its state, and no star when the page has no pin to show", () => {
+    const off = page("hassan", { links: { ...links, pin: { householdId: "hh", pinned: false, loadError: null } } });
+    expect(off).toMatch(/<button[^>]*aria-pressed="false"[^>]*aria-label="Pin Hassan household"/);
+    expect(off).not.toContain("Coming next");
+    const on = page("hassan", { links: { ...links, pin: { householdId: "hh", pinned: true, loadError: null } } });
+    expect(on).toMatch(/<button[^>]*aria-pressed="true"[^>]*aria-label="Unpin Hassan household"/);
+    expect(page("hassan")).not.toContain("aria-pressed");
+  });
+
+  it("says when the pin could not be read, and does not pretend it is pinned or not", () => {
+    const html = page("hassan", { links: { ...links, pin: { householdId: "hh", pinned: null, loadError: "the database could not be reached" } } });
+    expect(html).toContain("Could not check whether this family is pinned — the database could not be reached");
+    expect(html).not.toContain("aria-pressed");
   });
 
   it("lists the household IDs as chips and says what finds the family", () => {

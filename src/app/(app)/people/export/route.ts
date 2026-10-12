@@ -19,7 +19,7 @@ import { loadSession, type CrmSession } from "@/lib/session";
 // x-step-up header so the page opens the step-up box and tries once more. A child's record is never part of an export from here: the
 // people list is adults only, whatever age band the address asks for, and a family's name has any child's first name taken out.
 
-const BOM = "﻿";
+const BOM = "\uFEFF";
 const MAX_FAMILIES = 100_000;
 
 function problem(message: string, status: number) {
