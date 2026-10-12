@@ -4,6 +4,7 @@
 
 import type { AnyCommand } from "../../types";
 
+import { addHousehold } from "./add-household";
 import { addPerson } from "./add-person";
 import { decideApplication } from "./decide-application";
 import { decideHouseholdRequest } from "./decide-request";
@@ -35,4 +36,6 @@ export const PEOPLE_COMMANDS: readonly AnyCommand[] = [
   dismissDuplicate,
   decideApplication,
   decideHouseholdRequest,
+  // Add a family (People redesign slice 6, migration 0721)
+  addHousehold,
 ];
