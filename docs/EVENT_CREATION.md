@@ -240,3 +240,9 @@ Slice 1 needs no migration.
 6. **One Weaver Meta app** that passes App Review once, and every community connects its own Page and Instagram account to it (rather than each community registering its own Meta app)? *Recommend yes*: a small organization cannot run App Review itself.
 7. **Who approves a social post?** *Recommend*: whoever may publish the event approves the app and the website; Facebook and Instagram also need `comms.approve` (one person, no second approver), because a public post speaks for the organization.
 8. **Children in flyers and captions.** Keep "no child's name or photo, ever" with no community override in this plan? *Recommend yes*: photos already exclude albums with children. Add a community rule later only if one asks.
+
+## 9. Decisions (owner, 2026-10-11)
+
+- **Approved ("keep going for #1"): questions 4, 6 and 7.** (4) Event creation in connect-admin is retired: its creation form is replaced by a link to the portal's guided creator, and its day-of features stay. (6) One Weaver-owned Meta app passes App Review once; every community connects its own Facebook Page and Instagram professional account to it. (7) Whoever may publish an event approves the app and website posts; Facebook and Instagram posts also need `comms.approve` (one person).
+- **Applied in the builds so far, by their recommendations, and open to change:** 1 (the draft is saved after the first card), 3 (one migration, `0700`, for the schedule), 8 (no child's name or photo on flyers or in prompts, with no community override). Questions 2 and 5 stay as recommended for the slices that reach them.
+- **Also decided:** build B96, flyer art for every kind of organization, as its own slice (occasions as data by kind and tradition, drawn art packs for more occasions, art colours that follow the brand kit, AI prompts built from the event).
