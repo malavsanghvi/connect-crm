@@ -272,23 +272,23 @@ export function flyerElement(input: FlyerRenderInput, dims: FlyerDims, fonts: Fo
     const box = backgroundBox("minimal", dims);
     const head = readable(primary, paper);
     const pad = px(96);
-    // A photo or AI art is part of the layout (the words start below it, so they never run over a busy picture);
-    // a pattern is drawn faintly, so it stays a corner behind the words.
+    // A photo or AI art is part of the layout (the words start below it, so they never run over a busy picture). A pattern
+    // is drawn faintly in the same corner and keeps the same room: the words used to start beside it and a long headline ran
+    // under it (fixed 2026-10-11). The corner gives way to the words down to pictureMinHeight; a pattern then shrinks whole,
+    // kept in the top-right corner, and a photo is cropped (never squashed).
     const picture = bg !== null && design.background.source !== "pattern";
+    const corner = bg !== null;
     const size = lineSizes(design, { date: 40, venue: 32, tagline: 30 });
     const spacer = <div style={{ display: "flex", flexGrow: 1, flexShrink: 1 }} />;
     return (
       <div style={{ ...root, position: "relative", flexDirection: "column", backgroundColor: paper, color: onPaper }}>
-        {bg && !picture ? (
-          <div style={{ position: "absolute", top: 0, right: 0, display: "flex", width: box.w, height: box.h, overflow: "hidden" }}>{bgImg(box.w, box.h)}</div>
-        ) : null}
         <div
           style={{
             display: "flex",
             flexDirection: "row",
             justifyContent: "space-between",
             flexGrow: 0,
-            ...(picture ? { flexBasis: box.h, flexShrink: 1, minHeight: pictureMinHeight("minimal", dims) } : { flexShrink: 0 }),
+            ...(corner ? { flexBasis: box.h, flexShrink: 1, minHeight: pictureMinHeight("minimal", dims) } : { flexShrink: 0 }),
           }}
         >
           <div style={{ display: "flex", alignItems: "flex-start", padding: `${pad}px ${px(48)}px 0 ${pad}px`, minHeight: pad + px(84) }}>
@@ -296,13 +296,18 @@ export function flyerElement(input: FlyerRenderInput, dims: FlyerDims, fonts: Fo
           </div>
           {picture ? (
             <div style={{ position: "relative", display: "flex", width: box.w, flexShrink: 0, overflow: "hidden", borderBottomLeftRadius: px(48) }}>{coverImg(box.w, box.h)}</div>
+          ) : corner && bg ? (
+            <div style={{ position: "relative", display: "flex", width: box.w, flexShrink: 0, overflow: "hidden" }}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img alt="" src={bg.dataUri} width={box.w} height={box.h} style={{ position: "absolute", top: 0, right: 0, width: box.w, height: "100%", objectFit: "contain", objectPosition: "right top" }} />
+            </div>
           ) : null}
         </div>
-        <div style={{ display: "flex", flexDirection: "column", flexGrow: 1, flexShrink: 0, padding: `${picture ? px(48) : 0}px ${pad}px ${pad}px` }}>
+        <div style={{ display: "flex", flexDirection: "column", flexGrow: 1, flexShrink: 0, padding: `${corner ? px(48) : 0}px ${pad}px ${pad}px` }}>
           {spacer}
           <div style={{ display: "flex", flexDirection: "column", flexShrink: 0 }}>
             <div style={{ display: "flex", width: px(96), height: px(6), backgroundColor: accent, marginBottom: px(36) }} />
-            {headline(picture ? 112 : 124, 26, head)}
+            {headline(corner ? 112 : 124, 26, head)}
             {design.date_line ? <Line style={{ marginTop: px(36), fontSize: px(size.date), fontWeight: 700, color: head }}>{design.date_line}</Line> : null}
             {design.venue_line ? <Line style={{ marginTop: px(12), fontSize: px(size.venue) }}>{design.venue_line}</Line> : null}
             {design.tagline ? <Line style={{ marginTop: px(28), fontSize: px(size.tagline), lineHeight: 1.4, maxWidth: px(820) }}>{design.tagline}</Line> : null}

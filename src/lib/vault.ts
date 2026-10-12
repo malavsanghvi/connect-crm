@@ -198,6 +198,7 @@ export const JOB_KIND_LABELS: Record<string, string> = {
   "calendar.import_feed": "Calendar feed import",
   "calendar.refresh_feeds": "Daily calendar feed refresh",
   "events.generate_flyer": "Event flyer",
+  "events.publish_due": "Publish events at their scheduled time",
   "photos.import_album": "Google Photos album import",
   "homework.publish_notify": "Tell learners and their parents about new homework",
   "homework.reminders_sweep": "Remind learners of homework that is due soon",

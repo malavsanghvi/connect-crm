@@ -56,6 +56,12 @@ const K_MIN = 0.58;
 const K_FLOOR = 0.4;
 /** Short content may grow a little (never past the frame: the agenda is 870 × 1.08 = 940 wide, the column's width). */
 const K_MAX = 1.08;
+/** A poster this tall (units) is laid out as a Story: Tall is 1620, Story 1920. */
+const STORY_FROM = 1800;
+/** How big the bottom scene may grow on a Story (Tall's is 1.12 at most). */
+const SCENE_MAX_STORY = 1.42;
+/** The paragraph's type (units) and line height: larger on a Story, which has the room. */
+const paragraphType = (story: boolean) => (story ? { size: 28, line: 41 } : { size: 23, line: 34 });
 
 /** Roughly how wide a line is, in units: generous on purpose (an overestimate only leaves more air). */
 export function textWidth(s: string, size: number, o: { caps?: boolean; spacing?: number; serif?: boolean } = {}): number {
@@ -117,12 +123,19 @@ const HEADLINE_FILL = 0.95;
  * for long ones. The lines are counted word by word (lineCount), and no word is ever wider than a line: a long word
  * ("Dasalakshanaparva") makes the type smaller until it fits.
  */
-export function headlineFit(text: string, maxWidth = COL - 20): { size: number; lines: number } {
+export function headlineFit(text: string, maxWidth = COL - 20, o: { tall?: boolean } = {}): { size: number; lines: number } {
   const floors = [100, 74, 58, 44];
   const measure = (size: number) => lineCount(text, size, maxWidth, { serif: true, fill: HEADLINE_FILL });
   // The biggest type at which the longest word still fits on one line.
   const longest = Math.max(1, ...text.split(/\s+/).map((word) => textWidth(word, 100, { serif: true })));
   const widest = Math.floor((maxWidth * HEADLINE_FILL * 100) / longest);
+  // A Story has the height to spare: the biggest type that fits in up to three lines (a two-line headline set larger as three).
+  if (o.tall) {
+    for (let size = Math.min(142, widest); size >= floors[2]!; size--) {
+      const n = measure(size);
+      if (n <= 3) return { size, lines: n };
+    }
+  }
   for (let lines = 1; lines <= 4; lines++) {
     for (let size = Math.min(142, widest); size >= floors[lines - 1]!; size--) {
       const n = measure(size);
@@ -218,7 +231,8 @@ export function planPoster(input: Pick<PosterInput, "design" | "poster" | "logo"
   const heights: Partial<Record<PosterSection, number>> = {};
   const hasHeader = (poster.logo && Boolean(input.logo)) || poster.partner.on;
   if (hasHeader) heights.header = 132;
-  const headline = headlineFit(design.headline);
+  const story = H > STORY_FROM;
+  const headline = headlineFit(design.headline, COL - 20, { tall: story });
   heights.headline = 10 + headline.lines * headline.size * 1.04;
   if (poster.subhead) heights.subhead = 12 + lineCount(poster.subhead, 35, SUBHEAD_W, { caps: true, spacing: 5 }) * 44;
   if (poster.slogan) heights.slogan = 12 + lineCount(poster.slogan, 46, COL - 20, { spacing: 1.5 }) * 56;
@@ -238,10 +252,13 @@ export function planPoster(input: Pick<PosterInput, "design" | "poster" | "logo"
     }
     heights.agenda = rows;
   }
-  if (poster.paragraph) heights.paragraph = 18 + lineCount(poster.paragraph, 23, 830) * 34;
+  const para = paragraphType(story);
+  if (poster.paragraph) heights.paragraph = 18 + lineCount(poster.paragraph, para.size, 830) * para.line;
 
-  // The scene: a little smaller on the shorter sizes, a little bigger on Story.
-  let sceneScale = Math.min(1.12, Math.max(0.78, H / 1620));
+  // The scene: a little smaller on the shorter sizes, bigger on Story. Story (1920 tall) used to keep Tall's scene and
+  // spacing, which left a large empty band in the middle (fixed 2026-10-11): its scene grows to fill the extra height
+  // (drawn wider, so still in proportion) and the sections spread further apart.
+  let sceneScale = Math.min(story ? SCENE_MAX_STORY : 1.12, Math.max(0.78, story ? (H / 1620) * 1.2 : H / 1620));
   const showQr = design.show_qr;
   const sceneOn = poster.scene.source !== "none";
   const reserveFor = (s: number) => Math.max(sceneOn ? pack.scene.busy * s - FOOTER : 0, showQr ? QR_CARD * Math.max(s, 0.8) + 22 : 24);
@@ -283,9 +300,11 @@ export function planPoster(input: Pick<PosterInput, "design" | "poster" | "logo"
   const reserve = reserveFor(sceneScale);
   const left = Math.max(0, room(sceneScale) - (natural + topPad) * k);
   const sections = Object.keys(heights).length;
-  // Spare room: some between the sections (never so much that they drift apart), then the stack is centred in what is left.
-  const gap = Math.min(H > 1700 ? 92 : H > 1500 ? 74 : 44, left / (sections + 1));
-  const extraTop = Math.max(0, left - gap * sections) * 0.42;
+  // Spare room: some between the sections (never so much that they drift apart), then the stack is centred in what is left
+  // (a little above the middle; on Story, in the middle of the room between the frame's top and the scene).
+  const gap = Math.min(story ? 170 : H > 1700 ? 92 : H > 1500 ? 74 : 44, left / (sections + 1));
+  // (A Story counts only the gaps really drawn, between the sections, so the stack sits in the true middle.)
+  const extraTop = story ? Math.max(0, left - gap * Math.max(0, sections - 1)) * 0.5 : Math.max(0, left - gap * sections) * 0.42;
   return {
     k: Math.round(k * 1000) / 1000,
     H,
@@ -327,6 +346,37 @@ export function posterNotes(input: Pick<PosterInput, "design" | "poster" | "logo
 /** Every word on the poster (for choosing fonts). */
 export function posterText(p: PosterContent): string {
   return [p.subhead, p.slogan, p.partner.label, p.partner.sub, p.stat.label, p.stat.value, p.stat.caption, p.ribbon.date, p.ribbon.time, p.paragraph, p.footer, ...p.agenda.flatMap((r) => [r.time, r.text]), "RSVP Scan to reply"].join(" ");
+}
+
+/**
+ * How an AI frame (a portrait picture of its own shape, asked for at 2:3) covers a poster of another shape without being
+ * stretched or squashed (it used to be drawn with object-fit: fill, so a Story pulled it 18% taller): the picture is drawn at
+ * the poster's width in its own proportions; its top half is pinned to the top and its bottom half to the bottom. On a taller
+ * poster the band between them repeats the picture's middle row stretched downwards only (a frame's middle is its side borders,
+ * which carry on unchanged); on a shorter one the halves overlap in the middle (the words cover it). Pure, for the tests.
+ */
+export function frameSlices(img: { w: number; h: number }, w: number, h: number): { top: number; height: number; imageTop: number; imageHeight: number }[] {
+  const ih = Math.max(1, Math.round((w * Math.max(1, img.h)) / Math.max(1, img.w)));
+  if (Math.abs(ih - h) <= 2) return [{ top: 0, height: h, imageTop: 0, imageHeight: h }];
+  const half = Math.floor(h / 2);
+  if (ih > h) {
+    // Shorter poster: the picture's top half from the top, its bottom half from the bottom.
+    return [
+      { top: 0, height: half, imageTop: 0, imageHeight: ih },
+      { top: half, height: h - half, imageTop: -(ih - (h - half)), imageHeight: ih },
+    ];
+  }
+  const piece = Math.floor(ih / 2);
+  const gap = h - 2 * piece;
+  // A band from the picture's middle (a tenth of it, or half the gap if that is more), stretched over the gap: at most
+  // twice its height, and only in the middle of the frame.
+  const band = Math.max(1, Math.round(Math.min(ih, Math.max(ih * 0.1, gap / 2))));
+  const stretched = Math.round((ih * gap) / band);
+  return [
+    { top: 0, height: piece, imageTop: 0, imageHeight: ih },
+    { top: piece, height: gap, imageTop: -Math.round((stretched * (piece - band / 2)) / ih), imageHeight: stretched },
+    { top: piece + gap, height: h - piece - gap, imageTop: -(ih - (h - piece - gap)), imageHeight: ih },
+  ];
 }
 
 function fitImage(img: PosterImage, maxW: number, maxH: number): { width: number; height: number } {
@@ -389,10 +439,15 @@ export function posterElement(input: PosterInput, dims: { w: number; h: number }
 
   const layers: ReactNode[] = [];
 
-  // 1. Frame: the pack's drawing, an AI picture (stretched to the poster, with a drawn gold edge and a soft panel behind the words), or plain paper.
+  // 1. Frame: the pack's drawing, an AI picture (laid over the poster without distorting it, with a drawn gold edge and a soft
+  //    panel behind the words), or plain paper.
   const aiFrame = poster.frame.source === "ai" ? input.assets.frame : null;
   if (aiFrame) {
-    layers.push(image(aiFrame.dataUri, w, h, { position: "absolute", left: 0, top: 0, objectFit: "fill" }));
+    for (const s of frameSlices(aiFrame, w, h)) {
+      layers.push(
+        box({ position: "absolute", left: 0, top: s.top, width: w, height: s.height, overflow: "hidden" }, image(aiFrame.dataUri, w, s.imageHeight, { position: "absolute", left: 0, top: s.imageTop })),
+      );
+    }
     layers.push(image(svgDataUri(frameEdgeSvg(W, H, pal.gold)), w, h, { position: "absolute", left: 0, top: 0 }));
   } else {
     const svg = poster.frame.source === "none" ? plainPaperSvg(W, H, pal) : pack.frame(W, H);
@@ -610,7 +665,8 @@ export function posterElement(input: PosterInput, dims: { w: number; h: number }
 
   if (plan.heights.paragraph) {
     sections.push(spacer("g-para"));
-    sections.push(<div key="paragraph" style={{ ...center, marginTop: px(18), width: px(830), fontSize: px(23), lineHeight: 1.45, fontWeight: 500, color: pal.body }}>{poster.paragraph}</div>);
+    const para = paragraphType(H > STORY_FROM);
+    sections.push(<div key="paragraph" style={{ ...center, marginTop: px(18), width: px(830), fontSize: px(para.size), lineHeight: para.line / para.size, fontWeight: 500, color: pal.body }}>{poster.paragraph}</div>);
   }
 
   const column = (

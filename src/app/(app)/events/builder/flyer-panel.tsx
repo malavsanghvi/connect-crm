@@ -35,10 +35,10 @@ import { FlyerPosterEditor } from "./flyer-poster-editor";
 const SESSION_EXPIRED = "Your session has expired. Sign in again, then retry.";
 const NO_MEMBER_APP = "The member web app's address (repository variable MEMBER_APP_URL) is not set, so there is no link to put in a QR code.";
 
-type FlyerAnswer = { ok: true; blob: Blob; notes: string[] } | { ok: false; error: string };
+export type FlyerAnswer = { ok: true; blob: Blob; notes: string[] } | { ok: false; error: string };
 
 /** Read the render route's answer: an image or PDF with notes, a JSON { error }, or (a sign-in page) an expired session. */
-async function readFlyerAnswer(res: Response): Promise<FlyerAnswer> {
+export async function readFlyerAnswer(res: Response): Promise<FlyerAnswer> {
   const type = (res.headers.get("content-type") ?? "").toLowerCase();
   if (res.ok && (type.startsWith("image/png") || type.startsWith("application/pdf"))) {
     let notes: string[] = [];
@@ -66,7 +66,7 @@ async function readFlyerAnswer(res: Response): Promise<FlyerAnswer> {
   return { ok: false, error: SESSION_EXPIRED };
 }
 
-function postFlyer(eventId: string, design: FlyerDesign, format: "png" | "pdf", scale: "preview" | "full", signal?: AbortSignal) {
+export function postFlyer(eventId: string, design: FlyerDesign, format: "png" | "pdf", scale: "preview" | "full", signal?: AbortSignal) {
   return fetch(`/api/events/${eventId}/flyer`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
