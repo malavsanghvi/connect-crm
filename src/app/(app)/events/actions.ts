@@ -7,10 +7,11 @@ import { eventActionContext } from "@/lib/data/events";
 import type { TablesUpdate } from "@/lib/database.types";
 import type { ActionResult } from "@/lib/errors";
 import { eventAreas } from "@/lib/events/access";
-import { all, bool, cents, centsList, dateTime, FormError, int, isoDate, must, oneOf, reqStr, runAction, str } from "@/lib/events/forms";
+import { eventValues } from "@/lib/events/event-values";
+import { all, bool, dateTime, FormError, int, isoDate, must, oneOf, reqStr, runAction, str } from "@/lib/events/forms";
 import { toE164 } from "@/lib/events/format";
-import { defaultConfirmationHours, defaultSlotMinutes, lunchRulesFromCenter } from "@/lib/events/rules";
-import { AUDIENCES, parsePartyLines, planLunchSlots } from "@/lib/events/report";
+import { defaultConfirmationHours, defaultSlotMinutes } from "@/lib/events/rules";
+import { parsePartyLines, planLunchSlots } from "@/lib/events/report";
 import { EVENT_STATUSES } from "@/lib/events/status-machine";
 import { randomToken } from "@/lib/events/tokens";
 import { assignVolunteerCommand, runCommandFromScreen, setEventStatusCommand, setRsvpStatusCommand } from "@/lib/commands/catalog/events";
@@ -22,7 +23,6 @@ import { can } from "@/lib/permissions";
 type Result = ActionResult<unknown>;
 
 const STATIONS = ["entry", "food", "gifts", "parking", "kitchen", "app_seva"] as const;
-const FLAGS = ["child_under_12", "senior", "assistance"] as const;
 
 function revalidateEvents() {
   revalidatePath("/events", "layout");
@@ -34,72 +34,32 @@ function asActionResult(r: ActionResult<unknown>): Result {
   return r.ok ? { ok: true, message: r.message } : r;
 }
 
-/** Donation commitment at RSVP. Switched on with nothing to offer is refused, not saved as Off (it reads back as Off). */
-function commitmentOptions(fd: FormData) {
-  if (!bool(fd, "commitments_enabled")) return { per_person: [], lump_sum: [], open: false };
-  const per_person = centsList(str(fd, "commit_per_person"), "Per-person amounts");
-  const lump_sum = centsList(str(fd, "commit_lump_sum"), "Lump-sum amounts");
-  const open = bool(fd, "commit_open");
-  if (per_person.length + lump_sum.length === 0 && !open) {
-    throw new FormError("Donation commitment is on but has no amounts. Enter per-person or lump-sum amounts (for example 3, 5, 7), allow an open amount, or turn it off.");
-  }
-  return { per_person, lump_sum, open };
-}
+/** What happens once a new event row exists: the builder opens it; the guided creator stays where it is and is told the id. */
+type OnCreated = (id: string, publish: boolean) => ActionResult<{ id: string }>;
 
-function eventValues(fd: FormData, tz: string, rules: unknown, publishing: boolean) {
-  const startsAt = dateTime(fd, "starts_at", "Starts", tz);
-  const endsAt = dateTime(fd, "ends_at", "Ends", tz);
-  if (startsAt && endsAt && endsAt <= startsAt) throw new FormError("The event must end after it starts.");
-  const rsvpOpens = dateTime(fd, "rsvp_opens_at", "RSVP opens", tz);
-  const rsvpCloses = dateTime(fd, "rsvp_closes_at", "RSVP closes", tz);
-  if (rsvpOpens && rsvpCloses && rsvpCloses <= rsvpOpens) throw new FormError("RSVPs must close after they open.");
-  const lunchEnabled = bool(fd, "lunch_enabled");
-  const lunchStarts = dateTime(fd, "lunch_starts_at", "Lunch starts", tz);
-  // A draft may leave lunch time for later; a published event needs it.
-  if (publishing && lunchEnabled && !lunchStarts) throw new FormError("Set when lunch starts, or turn lunch slots off.");
-  const isPaid = bool(fd, "is_paid");
-  const reminderOn = bool(fd, "reminder_enabled");
-  const lunch = lunchRulesFromCenter(rules);
-  return {
-    name: reqStr(fd, "name", "Event name"),
-    description: str(fd, "description"),
-    // flyer_path/flyer_source/flyer_prompt are NOT touched here: they are owned by the
-    // Flyer panel's own actions (events/builder/flyer-actions.ts), the same way a
-    // leader's photo_path is set by uploadLeaderPhotoAction, never by saveLeaderAction.
-    // Including flyer_path here (even as "unchanged") would null it out on every
-    // unrelated save, since a removed form field reads as null via str().
-    venue: str(fd, "venue"),
-    starts_at: startsAt,
-    ends_at: endsAt,
-    program_year: str(fd, "program_year"),
-    capacity: int(fd, "capacity", "Capacity", { min: 0 }),
-    waitlist_enabled: bool(fd, "waitlist_enabled"),
-    audience: oneOf(fd, "audience", AUDIENCES, "Audience", "members_and_guests"),
-    rsvp_opens_at: rsvpOpens,
-    rsvp_closes_at: rsvpCloses,
-    // 0 = no confirmation reminder.
-    confirmation_hours_before: reminderOn ? (int(fd, "confirmation_hours_before", "Confirmation reminder", { min: 1, max: 336 }) ?? 24) : 0,
-    attendee_flags: all(fd, "attendee_flags").filter((f) => (FLAGS as readonly string[]).includes(f)),
-    commitment_options: commitmentOptions(fd),
-    lunch_enabled: lunchEnabled,
-    lunch_starts_at: lunchStarts,
-    lunch_slot_minutes: int(fd, "lunch_slot_minutes", "Slot length", { min: 5, max: 120 }) ?? 15,
-    lunch_seats_per_slot: int(fd, "lunch_seats_per_slot", "Seats per slot", { min: 1 }),
-    // Priority comes from Settings › Rules (read-only in the builder).
-    lunch_priority_rules: { family_with_child_under_12_at_start: lunch.childAtStart, senior_at_start: lunch.seniorAtStart },
-    is_paid: isPaid,
-    member_price_cents: isPaid ? cents(fd, "member_price", "Member price") : null,
-    guest_price_cents: isPaid ? cents(fd, "guest_price", "Guest price") : null,
-    owner_person_id: str(fd, "owner_person_id"),
-    confidential: bool(fd, "confidential"),
-  };
-}
-
+// The event's settings are read by eventValues (src/lib/events/event-values.ts): the builder's rules, kept pure so the guided
+// creator checks a card with the very same rules and sentences before it saves.
 /** Event builder: "Save draft" or "Publish event" (the submit button's `intent`). */
 export async function saveEvent(eventId: string | null, _prev: Result | null, fd: FormData): Promise<Result> {
+  return saveEventWith(eventId, fd, (id, publish) => redirect(`/events/builder?event=${id}&saved=${publish ? "published" : "draft"}`));
+}
+
+/**
+ * The guided event creator (/events/new): the builder's "Save draft", nothing else. The same rules, the same write, the same
+ * sentences and the same activity key; it never publishes (any `intent` sent is replaced by "draft"), and a new draft answers
+ * with its id instead of opening the builder, so the creator stays on its card.
+ */
+export async function saveEventDraftInPlace(eventId: string | null, fd: FormData): Promise<ActionResult<{ id: string }>> {
+  const draft = new FormData();
+  for (const [k, v] of fd.entries()) if (k !== "intent") draft.append(k, v);
+  draft.set("intent", "draft");
+  return saveEventWith(eventId, draft, (id) => ({ ok: true, message: "Draft saved", data: { id } }));
+}
+
+async function saveEventWith(eventId: string | null, fd: FormData, onCreated: OnCreated): Promise<ActionResult<{ id: string }>> {
   const publish = str(fd, "intent") === "publish";
   const doing = publish ? "publish the event" : eventId ? "save the event" : "save the draft";
-  return runAction("events.saveEvent", doing, async () => {
+  return runAction<{ id: string }>("events.saveEvent", doing, async () => {
     const ctx = await eventActionContext(
       (a) => (eventId ? eventAreas.edit(a, eventId) : eventAreas.manage(a)),
       eventId ? "only event managers and this event's lead can edit it." : "only event managers can create events.",
@@ -116,7 +76,7 @@ export async function saveEvent(eventId: string | null, _prev: Result | null, fd
         doing,
       );
       revalidateEvents();
-      redirect(`/events/builder?event=${created!.id}&saved=${publish ? "published" : "draft"}`);
+      return onCreated(created!.id, publish);
     }
     const current = must(await ctx.db.from("events").select("status").eq("id", eventId).maybeSingle(), "load the event");
     if (!current) throw new FormError("that event no longer exists, or you can't see it.");
@@ -141,7 +101,16 @@ export async function saveEvent(eventId: string | null, _prev: Result | null, fd
  * dates offset from the start date), then the builder opens the new draft.
  */
 export async function createEventFromTemplate(_prev: Result | null, fd: FormData): Promise<Result> {
-  return runAction("events.createEventFromTemplate", "create the event from the template", async () => {
+  return createFromTemplateWith(fd, (id) => redirect(`/events/builder?event=${id}&saved=template`));
+}
+
+/** The guided event creator's "Start from a template": the same RPC and defaults as the builder's card; it answers with the new draft's id. */
+export async function createEventFromTemplateInPlace(fd: FormData): Promise<ActionResult<{ id: string }>> {
+  return createFromTemplateWith(fd, (id) => ({ ok: true, message: "Draft created from the template", data: { id } }));
+}
+
+async function createFromTemplateWith(fd: FormData, onCreated: OnCreated): Promise<ActionResult<{ id: string }>> {
+  return runAction<{ id: string }>("events.createEventFromTemplate", "create the event from the template", async () => {
     const ctx = await eventActionContext((a) => eventAreas.manage(a), "only event managers can create events.");
     const templateId = reqStr(fd, "template_id", "Template");
     const name = reqStr(fd, "name", "Event name");
@@ -162,7 +131,7 @@ export async function createEventFromTemplate(_prev: Result | null, fd: FormData
       "apply the builder's defaults to the new event",
     );
     revalidateEvents();
-    redirect(`/events/builder?event=${id}&saved=template`);
+    return onCreated(id, false);
   });
 }
 
