@@ -3,10 +3,11 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 import { findBlockedArtTerm, withLayerGuardrail } from "@/lib/events/flyer";
-import { FLYER_AI_LAYER_OCCASIONS, canAskAiLayer, flyerOccasionsFor, occasionFor } from "@/lib/events/flyer-art";
+import { flyerArtPath, flyerOccasionsFor, occasionFor, parseFlyerArtPath } from "@/lib/events/flyer-art";
 import { artFactsFor, buildBackgroundPrompt, buildLayerPrompt, encodeArtFacts, readArtFacts, styleFromTemplates } from "@/lib/events/flyer-art-prompt";
 import {
   FLYER_OCCASIONS,
+  FLYER_OCCASION_KEY_SHAPE,
   LEGACY_OCCASIONS,
   OCCASION_CATALOG,
   defaultOccasionFor,
@@ -309,13 +310,18 @@ describe("seasons, styles and the database's list", () => {
     expect(styleFromTemplates(["poster", "photo", "poster"])).toBeNull();
   });
 
-  it("asks for AI frames and scenes only for the occasions the database stores (0585)", () => {
-    const sql = readFileSync("supabase/migrations/0585_flyers_v2.sql", "utf8");
-    const list = /p_occasion not in \(([^)]+)\)/.exec(sql)![1]!.split(",").map((s) => s.trim().replace(/'/g, ""));
-    expect([...FLYER_AI_LAYER_OCCASIONS].sort()).toEqual([...list].sort());
-    expect(sql).toContain(`/flyer-art/(${list.join("|")})/`);
-    expect(canAskAiLayer("diwali")).toBe(true);
-    expect(canAskAiLayer("christmas_eve")).toBe(false);
+  it("lets the database keep AI frames and scenes for every occasion: it checks the key's shape, the catalog is the list (0703)", () => {
+    const sql = readFileSync("supabase/migrations/0703_flyer_ai_every_occasion.sql", "utf8");
+    expect(sql).toContain(`p_occasion !~ '^${FLYER_OCCASION_KEY_SHAPE}$'`);
+    expect(sql).toContain(`/flyer-art/${FLYER_OCCASION_KEY_SHAPE}/(frame|scene)-`);
+    // The list is not copied into SQL.
+    for (const key of FLYER_OCCASIONS) expect(sql, key).not.toMatch(new RegExp(`'${key}'|\\|${key}\\||\\(${key}\\|`));
+    const shape = new RegExp(`^${FLYER_OCCASION_KEY_SHAPE}$`);
+    for (const key of FLYER_OCCASIONS) expect(key, key).toMatch(shape);
+    // Every occasion's picture has a cache path the portal reads back.
+    const center = "13800000-0000-4000-8000-0000000000c1";
+    for (const key of FLYER_OCCASIONS) expect(parseFlyerArtPath(flyerArtPath(center, key, "scene", 7, "jpg"))).toMatchObject({ occasion: key, layer: "scene", seed: 7 });
+    expect(parseFlyerArtPath(`${center}/flyer-art/birthday/frame-1.png`)).toBeNull();
   });
 
   it("lists the occasions a member of the faith should review, each tied to that tradition", () => {

@@ -7,8 +7,8 @@
 // another by default.
 //
 // Pure, no imports: the portal, the renderer and the background service (worker/, through flyer-art.ts) all read it.
-// A database catalog is a later step; until then a new occasion is one entry here (plus, for AI frames and scenes,
-// the database's list of occasions: see FLYER_AI_LAYER_OCCASIONS in flyer-art.ts).
+// A database catalog is a later step; until then a new occasion is one entry here. The database checks only a key's
+// shape (0703: FLYER_OCCASION_KEY_SHAPE), so AI frames and scenes work for a new entry without a migration.
 
 // ── Traditions ───────────────────────────────────────────────────────────────
 
@@ -562,6 +562,12 @@ export const OCCASION_CATALOG = [
 ] as const satisfies readonly OccasionSpec[];
 
 export type FlyerOccasion = (typeof OCCASION_CATALOG)[number]["key"];
+
+/**
+ * The shape every occasion key has: what the database accepts for an AI layer and its picture's path (0703,
+ * app.events_request_flyer_art and app.flyer_art_name_ok; a test keeps the two equal and every key in this shape).
+ */
+export const FLYER_OCCASION_KEY_SHAPE = "[a-z][a-z0-9_]{1,39}";
 export const FLYER_OCCASIONS: readonly FlyerOccasion[] = OCCASION_CATALOG.map((o) => o.key);
 
 /** The eight occasions of Flyers v2 (0585), unchanged: the database stores AI art for these. */

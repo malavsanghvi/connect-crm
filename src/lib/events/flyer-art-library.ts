@@ -21,8 +21,6 @@ import type { AppSupabase } from "@/lib/supabase/server";
 import { DbFailure, FormError } from "./forms";
 import { findBlockedArtTerm, readArtJob, withLayerGuardrail } from "./flyer";
 import {
-  AI_LAYER_NOT_YET,
-  canAskAiLayer,
   englishOnlyNote,
   firstNonEnglishLetter,
   flyerArtFolder,
@@ -237,8 +235,8 @@ export async function pastFlyerStyle(db: AppSupabase, centerId: string, exceptEv
 }
 
 /**
- * Ask Gemini for one layer of an occasion's art. Only when AI art is ready (a key,
- * a running and current service) and the database stores AI layers for the occasion;
+ * Ask Gemini for one layer of an occasion's art (any occasion in the catalog). Only when AI art is ready (a key,
+ * a running and current service);
  * a finished picture that was not collected yet is kept first, and only one request
  * runs at a time. The description is code-set from the catalog and `facts` (never typed,
  * except the checked "Other occasion" description); the database is sent the facts and
@@ -250,7 +248,6 @@ export async function requestFlyerArt(
 ): Promise<FlyerArtProgress> {
   const ready = await flyerArtReadiness(db, a.centerId);
   if (ready.state !== "ready") return { status: "unavailable", reason: ready.message };
-  if (!canAskAiLayer(a.occasion)) return { status: "unavailable", reason: AI_LAYER_NOT_YET };
 
   const facts: FlyerArtFacts = { ...(a.facts ?? {}), occasion: a.occasion, layer: a.layer };
   if (facts.note) {

@@ -8,11 +8,9 @@ import { useToast } from "@/components/toast";
 import { buttonClass } from "@/components/ui";
 import { POSTER_LIMITS, type PosterContent } from "@/lib/events/flyer";
 import {
-  AI_LAYER_NOT_YET,
   FLYER_LAYER_KINDS,
   FLYER_LAYER_LABEL,
   artCostSentence,
-  canAskAiLayer,
   formatArtCost,
   isNewPicture,
   type FlyerArtEntry,
@@ -124,7 +122,6 @@ export function FlyerArtPicker({
   }, [choices]);
   // The best suggestion the community is offered (the kind's default is not news).
   const top = (suggestions ?? []).find((s) => s.basis !== "default" && occasions.includes(s.occasion)) ?? null;
-  const aiLayer = canAskAiLayer(poster.occasion);
   const packs = useMemo(() => occasions.map((o) => ({ occasion: o, pack: artPack(o, brand) })), [brandKey, occasions]); // eslint-disable-line react-hooks/exhaustive-deps
   const pack = packs.find((p) => p.occasion === poster.occasion)?.pack ?? packs[0]!.pack;
   const thumbs = useMemo(
@@ -478,7 +475,7 @@ export function FlyerArtPicker({
                 Discard this {label.toLowerCase()} picture…
               </button>
             ) : null}
-            {ready && aiLayer ? (
+            {ready ? (
               <div className="mt-2">
                 <button type="button" className={buttonClass("primary", "sm")} disabled={disabled || waiting || loading} onClick={() => void ask(kind)}>
                   {busy === kind ? "Asking Gemini…" : `Ask Gemini for ${entries.length ? "another" : "a"} ${label.toLowerCase()} (${formatArtCost(ready.cents)})`}
@@ -490,9 +487,7 @@ export function FlyerArtPicker({
         );
       })}
 
-      {ready && !aiLayer ? (
-        <p className="crm-hint">{AI_LAYER_NOT_YET}</p>
-      ) : ready ? (
+      {ready ? (
         <p className="crm-hint">
           {artCostSentence(ready.model)} Look at the preview: AI art can still include shapes you don&apos;t want — Discard it if so.
         </p>
