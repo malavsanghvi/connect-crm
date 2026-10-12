@@ -37,6 +37,7 @@ export function FlyerPosterEditor({
   art,
   suggestions,
   defaults,
+  isGuestVisible,
 }: {
   eventId: string;
   design: FlyerDesign;
@@ -50,6 +51,8 @@ export function FlyerPosterEditor({
   suggestions?: readonly OccasionSuggestion[];
   /** The event's own words and date (what "Use the event's…" puts back). */
   defaults: { poster: PosterContent; venue_line: string };
+  /** Anyone who sees the flyer sees a picture from an album, guests included (a note beside the picture choice). */
+  isGuestVisible?: boolean;
 }) {
   const poster = design.poster ?? defaults.poster;
   const patchPoster = (fn: (p: PosterContent) => PosterContent) => update((d) => ({ ...d, poster: fn(d.poster ?? defaults.poster) }));
@@ -155,7 +158,7 @@ export function FlyerPosterEditor({
         <TextField id="poster-slogan" label="Slogan (optional)" value={poster.slogan} max={POSTER_LIMITS.slogan} onChange={(v) => setPoster({ slogan: v })} disabled={disabled} />
       </SectionBox>
 
-      {poster.layout ? <LayoutBlockEditors poster={poster} headline={design.headline} greeting={greeting} onPoster={patchPoster} disabled={disabled} /> : null}
+      {poster.layout ? <LayoutBlockEditors eventId={eventId} poster={poster} headline={design.headline} greeting={greeting} onPoster={patchPoster} disabled={disabled} isGuestVisible={isGuestVisible} /> : null}
 
       <SectionBox
         title="Logos"

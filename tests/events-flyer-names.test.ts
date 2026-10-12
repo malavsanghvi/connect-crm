@@ -30,6 +30,14 @@ describe("flyerNameNotes: a reminder, never a block", () => {
     expect(src.calls).toBe(0);
   });
 
+  it("also looks at the thank-you cards' names and the donors' names", async () => {
+    const cards = layout({ credits: [{ heading: "Welcome", names: "Dana Whitfield, Aarav Shah", icon: "people" }] });
+    expect(await flyerNameNotes(session, cards, sourceOf(["Aarav Shah"]))).toEqual([NAME_MATCHES_CHILD_NOTE]);
+    const donors = layout({ donors: { heading: "Donors", names: "Ava Lindqvist and Mia Brown" } });
+    expect(await flyerNameNotes(session, donors, sourceOf(["Mia Brown"]))).toEqual([NAME_MATCHES_CHILD_NOTE]);
+    expect(await flyerNameNotes(session, donors, sourceOf(["Aarav Shah"]))).toEqual([]);
+  });
+
   it("says nothing when no name matches a child", async () => {
     expect(await flyerNameNotes(session, l, sourceOf(["Aarav Shah", "Mia Brown"]))).toEqual([]);
   });

@@ -31,7 +31,7 @@ import { layoutText } from "./flyer-layout";
 export type PosterImage = { dataUri: string; w: number; h: number };
 
 /** Pictures the poster needs that are not drawn in code: AI layers and the partner's logo (null: use the drawn art / the badge). */
-export type PosterAssets = { frame: PosterImage | null; scene: PosterImage | null; partnerLogo: PosterImage | null };
+export type PosterAssets = { frame: PosterImage | null; scene: PosterImage | null; partnerLogo: PosterImage | null; /** The picture a layout shows (a photo from the community's albums), or none. */ hero?: PosterImage | null };
 
 export type PosterInput = {
   design: FlyerDesign;
@@ -160,7 +160,7 @@ export function badgeSizes(label: string, sub: string): { label: number; labelGa
 }
 
 /** The ribbon: one row (date and time | venue) when it fits at scale `k`, else the venue on its own line(s) below. */
-function ribbonLayout(date: string, time: string, venue: string, k = 1) {
+export function ribbonLayout(date: string, time: string, venue: string, k = 1) {
   const left = 58 + 22 + Math.max(textWidth(date, 35), textWidth(time, 29));
   const right = venue ? 44 + 16 + textWidth(venue, 32) : 0;
   // The ribbon's box does not scale (it spans the poster), the words do.
@@ -510,9 +510,9 @@ export function posterLayers(o: {
  * The RSVP card (the QR code, "RSVP", "Scan to reply") for the bottom-left corner, `bottom` pixels above the poster's bottom edge.
  * It scales with the bottom scene (never below 80%).
  */
-export function qrCardElement(o: { qr: string; sceneScale: number; u: number; pal: PosterPalette; bottom: number }): ReactElement {
+export function qrCardElement(o: { qr: string; sceneScale: number; u: number; pal: PosterPalette; bottom: number; /** A fixed scale (the layouts use one), instead of following the scene's. */ scale?: number }): ReactElement {
   const { pal } = o;
-  const qs = Math.max(o.sceneScale, 0.8);
+  const qs = o.scale ?? Math.max(o.sceneScale, 0.8);
   const q = (v: number) => Math.round(v * qs * o.u * 10) / 10;
   return box(
     { position: "absolute", left: Math.round(40 * o.u * 10) / 10, bottom: o.bottom, width: q(QR_CARD_WIDTH) },

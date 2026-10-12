@@ -57,3 +57,28 @@ export function bannerSvg(o: { w: number; h: number; light: string; dark: string
     `<linearGradient id="bn" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${o.light}"/><stop offset="1" stop-color="${o.dark}"/></linearGradient>`,
   );
 }
+
+/**
+ * An arched window: a panel whose top is a pointed (ogee) arch, with a gold line round it, a second thinner one inside and a soft
+ * shadow. `rise` is how far down the arch runs before its sides go straight. The words are set on `fill` (the paper).
+ */
+export function windowSvg(o: { w: number; h: number; rise: number; fill: string; gold: string; shadow: string }): string {
+  const { w, h } = o;
+  const r = Math.min(o.rise, h * 0.45);
+  const path = (inset: number, dy = 0) => {
+    const x0 = inset;
+    const x1 = w - inset;
+    const top = inset + dy;
+    const bottom = h - 8 - inset + dy;
+    const cx = w / 2;
+    // From the foot up the straight side to the shoulder, an ogee curve to the apex, and down the other side.
+    return `M${n(x0)} ${n(bottom)}V${n(top + r)}C${n(x0)} ${n(top + r * 0.55)} ${n(cx - (cx - x0) * 0.62)} ${n(top + r * 0.42)} ${n(cx - (cx - x0) * 0.26)} ${n(top + r * 0.2)}C${n(cx - 8)} ${n(top + r * 0.06)} ${n(cx)} ${n(top)} ${n(cx)} ${n(top)}C${n(cx)} ${n(top)} ${n(cx + 8)} ${n(top + r * 0.06)} ${n(cx + (cx - x0) * 0.26)} ${n(top + r * 0.2)}C${n(cx + (cx - x0) * 0.62)} ${n(top + r * 0.42)} ${n(x1)} ${n(top + r * 0.55)} ${n(x1)} ${n(top + r)}V${n(bottom)}Z`;
+  };
+  return doc(
+    w,
+    h,
+    `<path d="${path(6, 6)}" fill="${o.shadow}" fill-opacity="0.12"/>` +
+      `<path d="${path(6)}" fill="${o.fill}" stroke="${o.gold}" stroke-width="5"/>` +
+      `<path d="${path(18)}" fill="none" stroke="${o.gold}" stroke-width="1.6" stroke-opacity="0.85"/>`,
+  );
+}

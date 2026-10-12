@@ -13,12 +13,12 @@
 import type { ReactElement, ReactNode } from "react";
 
 import { flyerTextLength } from "./flyer";
-import { artPack, mix, svgDataUri, type ArtPack, type PosterPalette } from "./flyer-art-packs";
+import { artPack, mix, ribbonSvg, svgDataUri, type ArtPack, type PosterPalette } from "./flyer-art-packs";
 import { readableOn } from "./flyer-art-palette";
 import { posterIconUri, type PosterIcon } from "./flyer-icons";
-import { blockPresent, layoutPreset, presentBlocks, scriptSafe, titleWords, type BlockKey, type PosterLayout, type PresetSpec } from "./flyer-layout";
-import { bannerSvg, dividerSvg, sprigSvg } from "./flyer-ornaments";
-import { POSTER_UNITS, badgeSizes, box, diamond, haloLayers, image, lineCount, posterLayers, qrCardElement, textWidth, txt, type PosterInput } from "./flyer-poster";
+import { blockPresent, layoutPreset, presentBlocks, scriptSafe, titleWords, type BlockKey, type CreditGroup, type HeroShape, type PosterLayout, type PresetSpec } from "./flyer-layout";
+import { bannerSvg, dividerSvg, sprigSvg, windowSvg } from "./flyer-ornaments";
+import { POSTER_UNITS, badgeSizes, box, diamond, haloLayers, image, lineCount, posterLayers, qrCardElement, ribbonLayout, textWidth, txt, type PosterImage, type PosterInput } from "./flyer-poster";
 
 export type LayoutFonts = { display: string; body: string; script: string };
 
@@ -50,7 +50,22 @@ type Ctx = {
   /** The community's logo is available (a picture). */
   logo: boolean;
   centerName: string;
+  /** The picture the layout shows, loaded (null: none chosen, or it could not be loaded). */
+  hero: PosterImage | null;
+  /** The blocks drawn inside the arched window, and its width, when the preset has one and any of its blocks is present. */
+  win: { members: BlockKey[]; width: number } | null;
 };
+
+/** How wide the words of a block may be: narrower inside the arched window, else undefined (the block's own measure). */
+const innerWidth = (ctx: Ctx, key: BlockKey): number | undefined => (ctx.win && ctx.win.members.includes(key) ? ctx.win.width - 100 : undefined);
+
+/** How far the window's arch rises above its first block, and the room under its last one (units). */
+const WINDOW_RISE = 96;
+const WINDOW_FOOT = 48;
+/** The window's bottom edge sits this far above the end of its last block (the rest of the foot is air below it). */
+const WINDOW_EDGE = 24;
+/** The corner RSVP card is drawn at this scale in a layout (190 units of code at 0.78 is still easily scanned). */
+const LAYOUT_QR_SCALE = 0.78;
 
 const SERIF = { serif: true } as const;
 
@@ -204,14 +219,14 @@ const greetingLayout = (text: string, kind: "top" | "bottom", s = 1) => {
   return { size, script, h: kind === "top" ? 14 + Math.round(size * 1.2) + 10 + 18 : 8 + 20 + 8 + Math.round(size * 1.25) };
 };
 
-const eyebrowLayout = (text: string, caps: boolean, s = 1) => {
+const eyebrowLayout = (text: string, caps: boolean, s = 1, maxW = 700) => {
   const size = caps ? 34 : 54;
-  const lines = lineCount(text, size, 700 / s, { caps, spacing: caps ? 8 : 1, serif: !caps });
+  const lines = lineCount(text, size, Math.min(700, maxW) / s, { caps, spacing: caps ? 8 : 1, serif: !caps });
   return { size, caps, lines, h: 8 + lines * Math.round(size * 1.2) };
 };
 
-const subheadLayout = (text: string, kind: "serif" | "script" | "caps", s = 1) => {
-  const room = (COL * FILL) / s;
+const subheadLayout = (text: string, kind: "serif" | "script" | "caps", s = 1, maxW?: number) => {
+  const room = ((maxW ?? COL) * FILL) / s;
   if (kind === "script") {
     const script = scriptSafe(text);
     const wide = (size: number) => (script ? scriptWidth(text, size) : textWidth(text, size * 0.8, SERIF));
@@ -220,22 +235,30 @@ const subheadLayout = (text: string, kind: "serif" | "script" | "caps", s = 1) =
     return { size, script, lines, h: 6 + Math.round(lines * size * 1.15) + 4 };
   }
   if (kind === "caps") {
-    const lines = lineCount(text, 35, (COL - 200) / s, { caps: true, spacing: 5 });
+    const lines = lineCount(text, 35, ((maxW ?? COL) - 200) / s, { caps: true, spacing: 5 });
     return { size: 35, script: false, lines, h: 12 + lines * 44 };
   }
-  const lines = lineCount(text, 56, (COL - 160) / s, SERIF);
+  const lines = lineCount(text, 56, ((maxW ?? COL) - 160) / s, SERIF);
   return { size: 56, script: false, lines, h: 10 + lines * 68 };
 };
 
-const taglineLayout = (text: string, kind: "line" | "pill", s = 1) => {
+const taglineLayout = (text: string, kind: "line" | "pill" | "script", s = 1, maxW?: number) => {
+  if (kind === "script") {
+    const script = scriptSafe(text);
+    const room = (((maxW ?? COL - 60) * FILL) / s) * 1;
+    const wide = (z: number) => (script ? scriptWidth(text, z) : textWidth(text, z * 0.8, SERIF));
+    const size = pick([80, 70, 62, 54, 46, 40], (z) => wide(z) <= room);
+    const lines = Math.max(1, Math.ceil(wide(size) / room));
+    return { size, script, lines, h: 10 + Math.round(lines * size * 1.2) + 4 };
+  }
   if (kind === "pill") {
-    const size = pick([52, 48, 44, 40, 36], (z) => lineCount(text, z, 800 / s, SERIF) <= 2);
-    const lines = lineCount(text, size, 800 / s, SERIF);
+    const size = pick([52, 48, 44, 40, 36], (z) => lineCount(text, z, Math.min(800, maxW ?? 800) / s, SERIF) <= 2);
+    const lines = lineCount(text, size, Math.min(800, maxW ?? 800) / s, SERIF);
     // Drawn: padding 20 above and below, a 3 border each side.
     return { size, lines, h: 14 + 2 * 20 + 2 * 3 + lines * Math.round(size * 1.22) };
   }
-  const size = pick([54, 48, 42, 36], (z) => lineCount(text, z, (COL - 20) / s, { spacing: 1.5 }) <= 2);
-  const lines = lineCount(text, size, (COL - 20) / s, { spacing: 1.5 });
+  const size = pick([54, 48, 42, 36], (z) => lineCount(text, z, (maxW ?? COL - 20) / s, { spacing: 1.5 }) <= 2);
+  const lines = lineCount(text, size, (maxW ?? COL - 20) / s, { spacing: 1.5 });
   return { size, lines, h: 12 + lines * Math.round(size * 1.2) };
 };
 
@@ -265,9 +288,23 @@ export function splitDetail(detail: string): string[] {
 const ICON = 72;
 const ICON_W = ICON + 22 + 6;
 
-const whenLayout = (ctx: Ctx, kind: "cells" | "plain", s = 1) => {
+const whenLayout = (ctx: Ctx, kind: "cells" | "plain" | "rules" | "band", s = 1) => {
   const { date, time } = ctx.poster.ribbon;
   const venue = ctx.venue;
+  if (kind === "band") {
+    // The coloured band (the original poster's ribbon): one row of date and place when they fit, else the place below.
+    const rl = ribbonLayout(date, time, venue, s);
+    return { kind, dateSize: 0, timeSize: 0, venueSize: 0, venueLines: rl.venueLines, dateLines: 0, timeLines: 0, cell: 0, inner: 0, band: rl, h: 22 + rl.band + 24 };
+  }
+  if (kind === "rules") {
+    // Big plain lines between two ornament rules (a divider 20 tall above and below, 10 of air beside each).
+    const dateSize = date ? pick([60, 54, 48, 44, 40, 36], (z) => lineCount(date, z, COL / s, SERIF) <= 1) : 0;
+    const timeSize = time ? pick([56, 52, 48, 44, 40, 36], (z) => z <= Math.max(34, dateSize || 60) && lineCount(time, z, COL / s, SERIF) <= 1) : 0;
+    const venueSize = 36;
+    const venueLines = venue ? lineCount(venue, venueSize, 800 / s, {}) : 0;
+    const h = 10 + 20 + 10 + (date ? Math.round(dateSize * 1.2) : 0) + (time ? Math.round(timeSize * 1.2) + 2 : 0) + (venue ? 10 + venueLines * Math.round(venueSize * 1.24) : 0) + 10 + 20 + 4;
+    return { kind, dateSize, timeSize, venueSize, venueLines, dateLines: 1, timeLines: 1, cell: 0, inner: 0, h };
+  }
   if (kind === "plain") {
     const dateSize = date ? pick([84, 74, 66, 58, 50, 44, 38], (z) => lineCount(date, z, COL / s, { ...SERIF }) <= 1) : 0;
     const timeSize = time ? pick([104, 94, 82, 72, 62, 52, 44], (z) => lineCount(time, z, COL / s, { ...SERIF }) <= 1) : 0;
@@ -360,6 +397,64 @@ const footerLayout = (text: string, s = 1) => {
   return { size, h: 22 + 14 + 8 + lines * Math.round(size * 1.25) };
 };
 
+// The picture: the size of its frame by shape (units); a free picture is fitted into the same room, as it is.
+const HERO_BOX: Record<HeroShape, { w: number; h: number }> = { arch: { w: 470, h: 560 }, rounded: { w: 820, h: 480 }, circle: { w: 440, h: 440 }, free: { w: 820, h: 480 } };
+const heroLayout = (shape: HeroShape, img: PosterImage | null) => {
+  const box = HERO_BOX[shape];
+  if (shape === "free" && img && img.w > 0 && img.h > 0) {
+    const ratio = img.w / img.h;
+    const w = Math.min(box.w, box.h * ratio);
+    return { w: Math.round(w), h: Math.round(w / ratio), h_block: 20 + Math.round(w / ratio) };
+  }
+  return { w: box.w, h: box.h, h_block: 20 + box.h };
+};
+
+/** One card for each group of people, two to a row (an odd last one takes the whole row). */
+const CREDIT_TEXT = 27;
+const creditsLayout = (groups: readonly CreditGroup[], s = 1) => {
+  const shown = groups.filter((g) => g.heading || g.names);
+  const colW = Math.floor((CARD - 20) / 2);
+  const cards = shown.map((g, i) => {
+    const full = shown.length % 2 === 1 && i === shown.length - 1;
+    const w = full ? CARD : colW;
+    const headLines = g.heading ? lineCount(g.heading, 36, (w - 56 - 76) / s, SERIF) : 0;
+    const nameLines = g.names ? lineCount(g.names, CREDIT_TEXT, (w - 56) / s, {}) : 0;
+    const head = Math.max(64, headLines * Math.round(36 * 1.2));
+    const h = EDGE + 18 + head + (g.names ? 8 + nameLines * Math.round(CREDIT_TEXT * 1.32) : 0) + 20;
+    return { w, h, full };
+  });
+  const rows: number[][] = [];
+  for (let i = 0; i < cards.length; ) {
+    if (cards[i]!.full || i === cards.length - 1) rows.push([i++]);
+    else {
+      rows.push([i, i + 1]);
+      i += 2;
+    }
+  }
+  const rowH = rows.map((r) => Math.max(...r.map((j) => cards[j]!.h)));
+  return { shown, cards, rows, rowH, h: shown.length ? 16 + rowH.reduce((a, b) => a + b, 0) + 16 * (rows.length - 1) : 0 };
+};
+
+const donorsLayout = (heading: string, names: string, s = 1) => {
+  const size = 36;
+  const lines = lineCount(names, size, (CARD - 120) / s, SERIF);
+  const panel = EDGE + 22 + lines * Math.round(size * 1.3) + 24;
+  const pill = heading ? 52 : 0;
+  return { size, lines, panel, pill, h: 18 + pill + (pill ? 10 : 0) + panel };
+};
+
+const closingLayout = (text: string, s = 1) => {
+  const size = pick([34, 32, 30, 28], (z) => lineCount(text, z, (CARD - 120) / s, {}) <= 4);
+  const lines = lineCount(text, size, (CARD - 120) / s, {});
+  const inner = EDGE + 2 * 22 + lines * Math.round(size * 1.36);
+  return { size, lines, inner, h: 16 + inner };
+};
+
+/** The pastel fills of the thank-you cards, from the palette: each one light enough for the ink to read at 7:1. */
+export const creditTints = (pal: PosterPalette): string[] =>
+  // A soft sage, rose, sky, apricot, lilac and sand, each warmed by the palette's own accent so they sit with the brand.
+  ["#A9CBA4", "#E8B1A8", "#A9C8E6", "#F2C98B", "#C9B9E8", "#D8CBA7"].map((hue) => mix(mix(pal.paper, hue, 0.4), pal.accent, 0.04));
+
 const logosHeight = 132;
 
 /** The RSVP code as a block of its own: the code 190 across in a white card with "RSVP" and "Scan to reply". */
@@ -377,15 +472,23 @@ export function blockHeight(key: BlockKey, ctx: Ctx, s = 1): number {
     case "logos":
       return logosHeight;
     case "eyebrow":
-      return eyebrowLayout(layout.eyebrow, spec.style.title.caps, s).h;
+      return eyebrowLayout(layout.eyebrow, spec.style.title.caps, s, innerWidth(ctx, "eyebrow")).h;
     case "title": {
-      const t = titlePlan(ctx.headline, layout.accent, spec, { width: titleWidth(spec), story: ctx.story, scale: s, height: ctx.H });
+      const t = titlePlan(ctx.headline, layout.accent, spec, { width: titleWidth(spec, innerWidth(ctx, "title")), story: ctx.story, scale: s, height: ctx.H });
       return spec.style.title.set === "banner" ? bannerHeight(t) + 14 : t.height + 8;
     }
     case "subhead":
-      return subheadLayout(poster.subhead, spec.style.subhead, s).h;
+      return subheadLayout(poster.subhead, spec.style.subhead, s, innerWidth(ctx, "subhead")).h;
     case "tagline":
-      return taglineLayout(poster.slogan, spec.style.tagline, s).h;
+      return taglineLayout(poster.slogan, spec.style.tagline, s, innerWidth(ctx, "tagline")).h;
+    case "hero":
+      return heroLayout(layout.hero.shape, ctx.hero).h_block;
+    case "credits":
+      return creditsLayout(layout.credits, s).h;
+    case "donors":
+      return donorsLayout(layout.donors.heading, layout.donors.names, s).h;
+    case "closing":
+      return closingLayout(layout.closing, s).h;
     case "host":
       return hostLayout(layout.host.label, layout.host.names, s).h;
     case "stat":
@@ -412,7 +515,8 @@ export function blockHeight(key: BlockKey, ctx: Ctx, s = 1): number {
   }
 }
 
-const titleWidth = (spec: PresetSpec) => (spec.style.title.set === "banner" ? CARD - 150 : COL - 20);
+/** A banner title keeps to the banner; a plain one keeps clear of the ornaments some frames hang in the top corners (140 units a side). */
+const titleWidth = (spec: PresetSpec, inner?: number) => inner ?? (spec.style.title.set === "banner" ? CARD - 150 : COL - 180);
 const bannerPad = 24;
 const bannerHeight = (t: TitlePlan) => t.height + 2 * bannerPad;
 
@@ -436,7 +540,24 @@ export type LayoutPlan = {
   top: number;
   /** Blocks left out because there was not room even at the smallest comfortable scale (in the order they went). */
   dropped: BlockKey[];
+  /** How much larger than its usual size the picture is drawn (it takes room that is left over). */
+  heroGrow: number;
+  /** The arched window behind the first to the last of its blocks that are drawn, or null. */
+  win: { first: BlockKey; last: BlockKey; width: number } | null;
 };
+
+/** Where each block is drawn (units from the top of the flyer), from the plan. */
+export function blockPositions(plan: LayoutPlan): { key: BlockKey; y: number; h: number }[] {
+  const out: { key: BlockKey; y: number; h: number }[] = [];
+  let y = plan.top;
+  plan.blocks.forEach((key, i) => {
+    if (i > 0) y += (tightBetween(plan.blocks[i - 1]!, key) ? 0.3 : 1) * plan.gap;
+    const h = plan.k * (plan.heights[key] ?? 0);
+    out.push({ key, y, h });
+    y += h;
+  });
+  return out;
+}
 
 /** Blocks that sit close to the one before (the spacer between them is a fraction of the usual). */
 const TIGHT_AFTER: readonly BlockKey[] = ["eyebrow", "greeting_top"];
@@ -444,29 +565,32 @@ const tightBetween = (prev: BlockKey, next: BlockKey) => TIGHT_AFTER.includes(pr
 
 /** Where the stack of blocks ends, in units from the top of the flyer (the tests check it stays above the bottom scene). */
 export function stackBottom(plan: LayoutPlan): number {
-  let weights = 0;
-  for (let i = 1; i < plan.blocks.length; i++) weights += tightBetween(plan.blocks[i - 1]!, plan.blocks[i]!) ? 0.3 : 1;
-  const total = Object.values(plan.heights).reduce((a, b) => a + (b ?? 0), 0);
-  return plan.top + plan.k * total + plan.gap * weights;
+  const last = blockPositions(plan).pop();
+  return last ? last.y + last.h : plan.top;
 }
 
 export const LAYOUT_SCALES = { min: K_MIN, floor: K_FLOOR, max: K_MAX } as const;
 
-export function layoutCtx(input: Pick<PosterInput, "design" | "poster" | "logo"> & { centerName?: string }, H: number): Ctx {
+export function layoutCtx(input: Pick<PosterInput, "design" | "poster" | "logo" | "assets"> & { centerName?: string }, H: number): Ctx {
   const layout = input.poster.layout!;
   const venue = input.design.venue_line;
-  const has = { poster: input.poster, layout, hasLogo: Boolean(input.logo), venue };
+  const hero = input.assets.hero ?? null;
+  const has = { poster: input.poster, layout, hasLogo: Boolean(input.logo), venue, hero: Boolean(hero) };
+  const spec = layoutPreset(layout.preset);
+  const members = spec.style.window ? presentBlocks(input.poster, layout, { hasLogo: has.hasLogo, venue, hero: has.hero }).filter((b) => spec.style.window!.blocks.includes(b)) : [];
   const ctx: Ctx = {
     headline: input.design.headline,
     heading: blockPresent("cta", has) && blockPresent("contacts", has),
     poster: input.poster,
     layout,
-    spec: layoutPreset(layout.preset),
+    spec,
     venue,
     story: H > STORY_FROM,
     H,
     logo: Boolean(input.logo),
     centerName: input.centerName ?? "",
+    hero,
+    win: spec.style.window && members.length ? { members, width: spec.style.window.width } : null,
   };
   return ctx;
 }
@@ -478,7 +602,7 @@ export function planLayout(input: Pick<PosterInput, "design" | "poster" | "logo"
   const ctx = layoutCtx(input, H);
   const { poster, layout, spec } = ctx;
   const qrOn = o.qr ?? input.design.show_qr;
-  const present = presentBlocks(poster, layout, { hasLogo: ctx.logo, venue: ctx.venue, qr: qrOn });
+  const present = presentBlocks(poster, layout, { hasLogo: ctx.logo, venue: ctx.venue, qr: qrOn, hero: Boolean(ctx.hero) });
   // A call to action beside contacts is drawn inside their card: it takes no room of its own.
   let blocks = present.filter((b) => !(b === "cta" && ctx.heading));
 
@@ -486,24 +610,44 @@ export function planLayout(input: Pick<PosterInput, "design" | "poster" | "logo"
   let sceneScale = Math.min(ctx.story ? SCENE_MAX_STORY : 1.12, Math.max(0.78, ctx.story ? (H / 1620) * 1.2 : H / 1620));
   // A code in the flow is a block; one that is not is a small card in the corner, over the art, which the bottom needs room for.
   const showQr = qrOn && spec.style.qr === "corner";
-  const reserveFor = (s: number) => Math.max(sceneOn ? pack.scene.busy * s : 0, showQr ? POSTER_UNITS.qrCard * Math.max(s, 0.8) + 18 + 22 : 0, 24);
-  const topPad = Math.max(64, pack.topInset + 12);
+  const reserveFor = (s: number) => Math.max(sceneOn ? pack.scene.busy * s : 0, showQr ? POSTER_UNITS.qrCard * LAYOUT_QR_SCALE + 18 + 22 : 0, 24);
+  // The window's arch rises above its first block: the words start lower to leave it room.
+  const topPad = Math.max(64, pack.topInset + 12) + (ctx.win ? WINDOW_RISE - 24 : 0);
   const room = (s: number) => H - reserveFor(s) - SLACK;
   const dropped: BlockKey[] = [];
 
   const heightsAt = (k: number) => {
     const hs: Partial<Record<BlockKey, number>> = {};
     for (const b of blocks) hs[b] = blockHeight(b, ctx, k);
+    // The window needs a little room under its last block.
+    const last = ctx.win ? [...blocks].reverse().find((b) => ctx.win!.members.includes(b)) : undefined;
+    if (last) hs[last] = (hs[last] ?? 0) + WINDOW_FOOT;
     return hs;
   };
   const sum = (hs: Partial<Record<BlockKey, number>>) => Object.values(hs).reduce((a, b) => a + (b ?? 0), 0);
-  /** The largest scale (in steps of 0.01, from K_MAX down to `lowest`) at which the blocks fit above the scene, or null. */
+  /** The largest scale (to 0.01, between `lowest` and K_MAX) at which the blocks fit above the scene, or null. */
   const solve = (lowest: number) => {
-    for (let k = K_MAX; k >= lowest - 1e-9; k = Math.round((k - 0.01) * 100) / 100) {
+    const fitsAt = (k: number) => {
       const hs = heightsAt(k);
-      if (k * (sum(hs) + topPad) <= room(sceneScale)) return { k, heights: hs };
+      return k * (sum(hs) + topPad) <= room(sceneScale) ? hs : null;
+    };
+    const top = fitsAt(K_MAX);
+    if (top) return { k: K_MAX, heights: top };
+    let best = fitsAt(lowest);
+    if (!best) return null;
+    // Bisection: the drawn height grows with the scale, so the largest scale that fits (to 0.01) is found in a handful of looks.
+    let lo = lowest;
+    let hi = K_MAX;
+    while (hi - lo > 0.0105) {
+      const mid = Math.round(((lo + hi) / 2) * 100) / 100;
+      if (mid <= lo || mid >= hi) break;
+      const hs = fitsAt(mid);
+      if (hs) {
+        lo = mid;
+        best = hs;
+      } else hi = mid;
     }
-    return null;
+    return { k: lo, heights: best };
   };
   let fitted = solve(K_MIN);
   // Long content on a short flyer: the scene gives way first (down to half its size), then the words.
@@ -525,13 +669,25 @@ export function planLayout(input: Pick<PosterInput, "design" | "poster" | "logo"
   }
   const { k, heights } = fitted!;
   const reserve = reserveFor(sceneScale);
-  const left = Math.max(0, room(sceneScale) - (sum(heights) + topPad) * k);
+  let left = Math.max(0, room(sceneScale) - (sum(heights) + topPad) * k);
+  // The picture is the one block that can grow: it takes up to three quarters of the room left over, to half as large again, and never wider than the column.
+  let heroGrow = 1;
+  if (blocks.includes("hero") && heights.hero) {
+    const base = heights.hero - 20;
+    const shape = layout.hero.shape;
+    const widest = shape === "free" ? Number.POSITIVE_INFINITY : 880 / HERO_BOX[shape].w;
+    heroGrow = Math.max(1, Math.min(1.5, widest, 1 + (0.75 * left) / (base * k)));
+    heights.hero = 20 + base * heroGrow;
+    left = Math.max(0, room(sceneScale) - (sum(heights) + topPad) * k);
+  }
   let weights = 0;
   for (let i = 1; i < blocks.length; i++) weights += tightBetween(blocks[i - 1]!, blocks[i]!) ? 0.3 : 1;
   const gap = Math.min(ctx.story ? 170 : H > 1700 ? 100 : H > 1500 ? 90 : H > 1200 ? 70 : 50, left / (weights + 1));
   // What is still left goes above the stack and below it in equal parts (a Story's counts only the gaps really drawn, between the blocks).
   const extraTop = Math.max(0, left - gap * weights) * 0.5;
-  return { k: Math.round(k * 1000) / 1000, H, sceneScale, sceneH: pack.scene.height * sceneScale, reserve, blocks, heights, gap, top: topPad * k + extraTop, dropped };
+  const inWindow = ctx.win ? blocks.filter((b) => ctx.win!.members.includes(b)) : [];
+  const win = ctx.win && inWindow.length ? { first: inWindow[0]!, last: inWindow[inWindow.length - 1]!, width: ctx.win.width } : null;
+  return { k: Math.round(k * 1000) / 1000, H, sceneScale, sceneH: pack.scene.height * sceneScale, reserve, blocks, heights, gap, top: topPad * k + extraTop, dropped, heroGrow, win };
 }
 
 /** What the organizer should be told about the layout at this size, in plain sentences (the same plan the picture is drawn from). */
@@ -556,12 +712,16 @@ const BLOCK_NAME: Record<BlockKey, string> = {
   title: "title",
   subhead: "sub-title",
   tagline: "tagline",
+  hero: "picture",
   host: "host card",
   stat: "highlight box",
   when: "date, time and place",
   agenda: "agenda",
   note: "note box",
   paragraph: "paragraph",
+  credits: "thank-you cards",
+  donors: "donors panel",
+  closing: "closing message",
   cta: "call to action",
   contacts: "contacts",
   qr: "RSVP code",
@@ -679,10 +839,10 @@ export function layoutElement(input: PosterInput, dims: { w: number; h: number }
       );
     },
     eyebrow: () => {
-      const e = eyebrowLayout(layout.eyebrow, spec.style.title.caps, k);
+      const e = eyebrowLayout(layout.eyebrow, spec.style.title.caps, k, innerWidth(ctx, "eyebrow"));
       const text = e.caps
-        ? txt({ fontWeight: 800, fontSize: px(e.size), letterSpacing: px(8), color: lc.goldOnPaper, textTransform: "uppercase", lineHeight: 1.2, textAlign: "center", justifyContent: "center", maxWidth: ux(640) }, layout.eyebrow)
-        : txt({ fontFamily: fonts.display, fontWeight: 700, fontSize: px(e.size), letterSpacing: px(1), color: pal.ink, lineHeight: 1.2, textAlign: "center", justifyContent: "center", maxWidth: ux(640) }, layout.eyebrow);
+        ? txt({ fontWeight: 800, fontSize: px(e.size), letterSpacing: px(8), color: lc.goldOnPaper, textTransform: "uppercase", lineHeight: 1.2, textAlign: "center", justifyContent: "center", maxWidth: ux(Math.min(640, innerWidth(ctx, "eyebrow") ?? 640)) }, layout.eyebrow)
+        : txt({ fontFamily: fonts.display, fontWeight: 700, fontSize: px(e.size), letterSpacing: px(1), color: pal.ink, lineHeight: 1.2, textAlign: "center", justifyContent: "center", maxWidth: ux(Math.min(640, innerWidth(ctx, "eyebrow") ?? 640)) }, layout.eyebrow);
       return (
         <div key="eyebrow" style={{ display: "flex", justifyContent: "center", marginTop: px(8), flexShrink: 0 }}>
           {ornamentRow(text, sprig(false, pal.gold), sprig(true, pal.gold), 16)}
@@ -691,14 +851,15 @@ export function layoutElement(input: PosterInput, dims: { w: number; h: number }
     },
     title: () => {
       const t = spec.style.title;
-      const tp = titlePlan(design.headline, layout.accent, spec, { width: titleWidth(spec), story: ctx.story, scale: k, height: plan.H });
+      const tw = titleWidth(spec, innerWidth(ctx, "title"));
+      const tp = titlePlan(design.headline, layout.accent, spec, { width: tw, story: ctx.story, scale: k, height: plan.H });
       const onBanner = t.set === "banner";
       const ink = onBanner ? pal.onAccent : pal.ink;
       const accentColor = onBanner ? pal.ribbonHi : pal.accent;
       const face = t.face === "display" ? fonts.display : fonts.body;
       const space = (tp.size * 0.27 + (t.caps ? tp.size * 0.02 : 0)) * k * u;
       const lines = tp.lines.map((line, i) => (
-        <div key={i} style={{ display: "flex", flexDirection: "row", alignItems: "center", justifyContent: "center", whiteSpace: "nowrap", width: ux(titleWidth(spec) + 40), height: Math.round(tp.size * tp.lineHeight * k * u * 10) / 10 }}>
+        <div key={i} style={{ display: "flex", flexDirection: "row", alignItems: "center", justifyContent: "center", whiteSpace: "nowrap", width: ux(tw + 40), height: Math.round(tp.size * tp.lineHeight * k * u * 10) / 10 }}>
           {line.map((word, j) => (
             <div
               key={j}
@@ -737,10 +898,11 @@ export function layoutElement(input: PosterInput, dims: { w: number; h: number }
       );
     },
     subhead: () => {
-      const s = subheadLayout(poster.subhead, spec.style.subhead, k);
+      const mws = innerWidth(ctx, "subhead");
+      const s = subheadLayout(poster.subhead, spec.style.subhead, k, mws);
       if (spec.style.subhead === "script") {
         return (
-          <div key="subhead" style={{ ...center, width: ux(COL), marginTop: px(6), fontFamily: s.script ? fonts.script : fonts.display, fontWeight: s.script ? 400 : 700, fontSize: px(s.script ? s.size : s.size * 0.8), lineHeight: 1.15, color: pal.accent }}>
+          <div key="subhead" style={{ ...center, width: ux(mws ?? COL), marginTop: px(6), fontFamily: s.script ? fonts.script : fonts.display, fontWeight: s.script ? 400 : 700, fontSize: px(s.script ? s.size : s.size * 0.8), lineHeight: 1.15, color: pal.accent }}>
             {poster.subhead}
           </div>
         );
@@ -749,9 +911,9 @@ export function layoutElement(input: PosterInput, dims: { w: number; h: number }
         const rule = (flip: boolean) =>
           box({ alignItems: "center", gap: px(6), flexShrink: 0 }, ...(flip ? [box({ width: px(64), height: unit(2.5), backgroundColor: pal.gold }), diamond(px(7), pal.gold)] : [diamond(px(7), pal.gold), box({ width: px(64), height: unit(2.5), backgroundColor: pal.gold })]));
         return (
-          <div key="subhead" style={{ display: "flex", alignItems: "center", gap: px(18), marginTop: px(12), flexShrink: 0, maxWidth: ux(COL) }}>
+          <div key="subhead" style={{ display: "flex", alignItems: "center", gap: px(18), marginTop: px(12), flexShrink: 0, maxWidth: ux(mws ?? COL) }}>
             {rule(false)}
-            <div style={{ ...center, fontWeight: 800, fontSize: px(35), letterSpacing: px(5), color: lc.goldOnPaper, textTransform: "uppercase", lineHeight: 1.2, maxWidth: ux(COL - 200) }}>{poster.subhead}</div>
+            <div style={{ ...center, fontWeight: 800, fontSize: px(35), letterSpacing: px(5), color: lc.goldOnPaper, textTransform: "uppercase", lineHeight: 1.2, maxWidth: ux((mws ?? COL) - 200) }}>{poster.subhead}</div>
             {rule(true)}
           </div>
         );
@@ -759,23 +921,55 @@ export function layoutElement(input: PosterInput, dims: { w: number; h: number }
       return (
         <div key="subhead" style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: px(20), marginTop: px(10), flexShrink: 0 }}>
           {diamond(px(10), pal.gold)}
-          <div style={{ ...center, fontFamily: fonts.display, fontWeight: 600, fontSize: px(s.size), lineHeight: 1.2, color: pal.ink, maxWidth: ux(COL - 160) }}>{poster.subhead}</div>
+          <div style={{ ...center, fontFamily: fonts.display, fontWeight: 600, fontSize: px(s.size), lineHeight: 1.2, color: pal.ink, maxWidth: ux((mws ?? COL) - 160) }}>{poster.subhead}</div>
           {diamond(px(10), pal.gold)}
         </div>
       );
     },
     tagline: () => {
-      const t = taglineLayout(poster.slogan, spec.style.tagline, k);
+      const mwt = innerWidth(ctx, "tagline");
+      const t = taglineLayout(poster.slogan, spec.style.tagline, k, mwt);
+      if (spec.style.tagline === "script") {
+        return (
+          <div key="tagline" style={{ ...center, width: ux(mwt ?? COL - 60), marginTop: px(10), fontFamily: t.script ? fonts.script : fonts.display, fontWeight: t.script ? 400 : 700, fontSize: px(t.script ? t.size : t.size * 0.8), lineHeight: 1.2, color: pal.accent }}>
+            {poster.slogan}
+          </div>
+        );
+      }
       if (spec.style.tagline === "pill") {
         return (
-          <div key="tagline" style={{ display: "flex", marginTop: px(14), flexShrink: 0, maxWidth: ux(820) }}>
-            <div style={{ ...center, fontFamily: fonts.body, fontWeight: 700, fontSize: px(t.size), lineHeight: 1.22, color: pal.onAccent, backgroundColor: pal.accent, borderRadius: px(46), padding: `${px(20)}px ${px(54)}px`, border: `${unit(3)}px solid ${pal.gold}`, maxWidth: ux(820) }}>{poster.slogan}</div>
+          <div key="tagline" style={{ display: "flex", marginTop: px(14), flexShrink: 0, maxWidth: ux(Math.min(820, mwt ?? 820)) }}>
+            <div style={{ ...center, fontFamily: fonts.body, fontWeight: 700, fontSize: px(t.size), lineHeight: 1.22, color: pal.onAccent, backgroundColor: pal.accent, borderRadius: px(46), padding: `${px(20)}px ${px(54)}px`, border: `${unit(3)}px solid ${pal.gold}`, maxWidth: ux(Math.min(820, mwt ?? 820)) }}>{poster.slogan}</div>
           </div>
         );
       }
       return (
-        <div key="tagline" style={{ ...center, width: ux(COL - 20), marginTop: px(12), fontWeight: 800, fontSize: px(t.size), letterSpacing: px(1.5), color: pal.ink, lineHeight: 1.2 }}>
+        <div key="tagline" style={{ ...center, width: ux(mwt ?? COL - 20), marginTop: px(12), fontWeight: 800, fontSize: px(t.size), letterSpacing: px(1.5), color: pal.ink, lineHeight: 1.2 }}>
           {poster.slogan}
+        </div>
+      );
+    },
+    hero: () => {
+      const shape = layout.hero.shape;
+      const img = input.assets.hero!;
+      const hl = heroLayout(shape, img);
+      const wpx = px(hl.w * plan.heroGrow);
+      const hpx = px(hl.h * plan.heroGrow);
+      if (shape === "free") {
+        return (
+          <div key="hero" style={{ display: "flex", marginTop: px(20), flexShrink: 0 }}>
+            {image(img.dataUri, wpx, hpx)}
+          </div>
+        );
+      }
+      const radius = shape === "arch" ? { borderTopLeftRadius: wpx / 2, borderTopRightRadius: wpx / 2, borderBottomLeftRadius: px(28), borderBottomRightRadius: px(28) } : shape === "circle" ? { borderRadius: wpx / 2 } : { borderRadius: px(36) };
+      const edge = unit(5);
+      return (
+        <div key="hero" style={{ display: "flex", position: "relative", marginTop: px(20), width: wpx, height: hpx, flexShrink: 0 }}>
+          {shape === "rounded" ? haloLayers({ rgb: "27,44,92", alpha: 0.18, radius: px(36), spread: px(16), dy: px(8) }) : null}
+          <div style={{ display: "flex", position: "relative", width: wpx, height: hpx, overflow: "hidden", border: `${edge}px solid ${pal.gold}`, backgroundColor: pal.paper, ...radius }}>
+            {image(img.dataUri, Math.max(1, wpx - 2 * edge), Math.max(1, hpx - 2 * edge), { objectFit: "cover" })}
+          </div>
         </div>
       );
     },
@@ -826,6 +1020,54 @@ export function layoutElement(input: PosterInput, dims: { w: number; h: number }
       const wl = whenLayout(ctx, spec.style.when, k);
       const { date, time } = poster.ribbon;
       const venue = design.venue_line;
+      if (wl.kind === "band" && "band" in wl && wl.band) {
+        const rl = wl.band;
+        const tall = rl.band + 24;
+        const whenBox = box(
+          { alignItems: "center", gap: px(22), flexShrink: 1 },
+          date || time ? image(posterIconUri("calendar", pal.ribbonHi, 2.8), px(58), px(58)) : null,
+          box(
+            { flexDirection: "column", flexShrink: 1 },
+            date ? txt({ fontWeight: 700, fontSize: px(35), color: pal.onAccent, lineHeight: 1.12 }, date) : null,
+            time ? txt({ fontWeight: 800, fontSize: px(29), color: pal.ribbonHi, lineHeight: 1.15, marginTop: px(2) }, time) : null,
+          ),
+        );
+        const where = venue
+          ? box(
+              { alignItems: "center", gap: px(16), flexShrink: 1 },
+              image(posterIconUri("pin", pal.ribbonHi, 2.8), px(44), px(44)),
+              txt({ fontWeight: 700, fontSize: px(rl.oneRow ? 32 : 31), color: pal.onAccent, lineHeight: 1.2, flexShrink: 1 }, venue),
+            )
+          : null;
+        return (
+          <div key="when" style={{ display: "flex", position: "relative", width: w, height: px(tall), marginTop: px(22), flexShrink: 0 }}>
+            {image(svgDataUri(ribbonSvg({ W: Math.round(W / k), H: tall, band: rl.band, pal })), w, px(tall), { position: "absolute", left: 0, top: 0 })}
+            <div style={{ position: "absolute", left: ux(SIDE), top: 0, width: ux(COL), height: px(rl.band), display: "flex", flexDirection: rl.oneRow ? "row" : "column", alignItems: "center", justifyContent: "center", gap: px(rl.oneRow ? 22 : 10), padding: `${px(14)}px ${px(20)}px` }}>
+              {whenBox}
+              {rl.oneRow && where && (date || time) ? box({ width: Math.max(1, px(2)), height: px(72), backgroundColor: pal.ribbonHi, marginLeft: px(8), marginRight: px(8), opacity: 0.75 }) : null}
+              {where}
+            </div>
+          </div>
+        );
+      }
+      if (wl.kind === "rules") {
+        return (
+          <div key="when" style={{ display: "flex", flexDirection: "column", alignItems: "center", marginTop: px(10), width: ux(COL), flexShrink: 0 }}>
+            {divider(560, 20, pal.gold)}
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginTop: px(10) }}>
+              {date ? <div style={{ ...center, fontFamily: fonts.display, fontWeight: 600, fontSize: px(wl.dateSize), lineHeight: 1.2, color: pal.ink }}>{date}</div> : null}
+              {time ? <div style={{ ...center, fontFamily: fonts.display, fontWeight: 600, fontSize: px(wl.timeSize), lineHeight: 1.2, color: pal.accent, marginTop: px(2) }}>{time}</div> : null}
+              {venue ? (
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: px(12), marginTop: px(10), maxWidth: ux(860) }}>
+                  {icon("pin", pal.accent, 38)}
+                  <div style={{ ...center, fontWeight: 600, fontSize: px(wl.venueSize), lineHeight: 1.24, color: pal.body, maxWidth: ux(780) }}>{venue}</div>
+                </div>
+              ) : null}
+            </div>
+            <div style={{ display: "flex", marginTop: px(10) }}>{divider(560, 20, pal.gold)}</div>
+          </div>
+        );
+      }
       if (wl.kind === "plain") {
         return (
           <div key="when" style={{ display: "flex", flexDirection: "column", alignItems: "center", marginTop: px(8), flexShrink: 0, width: ux(COL) }}>
@@ -841,6 +1083,7 @@ export function layoutElement(input: PosterInput, dims: { w: number; h: number }
         );
       }
       const both = Boolean(date && time);
+      if (wl.kind !== "cells") return null;
       return (
         <div key="when" style={{ display: "flex", marginTop: px(16), flexShrink: 0 }}>
           {card(CARD, cardFill(pal), 30, [
@@ -907,11 +1150,67 @@ export function layoutElement(input: PosterInput, dims: { w: number; h: number }
         </div>
       );
     },
+    credits: () => {
+      const cl = creditsLayout(layout.credits, k);
+      const tints = creditTints(pal);
+      return (
+        <div key="credits" style={{ display: "flex", flexDirection: "column", marginTop: px(16), width: ux(CARD), gap: px(16), flexShrink: 0 }}>
+          {cl.rows.map((row, ri) => (
+            <div key={ri} style={{ display: "flex", flexDirection: "row", gap: ux(20), height: px(cl.rowH[ri]!) }}>
+              {row.map((ci) => {
+                const g = cl.shown[ci]!;
+                const c = cl.cards[ci]!;
+                const fill = tints[ci % tints.length]!;
+                const head = readableOn(pal.accent, fill, 4.5);
+                return (
+                  <div key={ci} style={{ display: "flex", flexDirection: "column", width: ux(c.w), height: px(cl.rowH[ri]!), padding: `${px(18)}px ${px(28)}px ${px(20)}px`, backgroundColor: fill, border: `${unit(3)}px solid ${pal.gold}`, borderRadius: px(26) }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: px(12) }}>
+                      {iconCircle(g.icon, 64)}
+                      <div style={{ display: "flex", flex: 1, fontFamily: fonts.display, fontWeight: 600, fontSize: px(36), lineHeight: 1.2, color: head }}>{g.heading}</div>
+                    </div>
+                    {g.names ? <div style={{ display: "flex", marginTop: px(8), fontWeight: 500, fontSize: px(CREDIT_TEXT), lineHeight: 1.32, color: pal.ink }}>{g.names}</div> : null}
+                  </div>
+                );
+              })}
+            </div>
+          ))}
+        </div>
+      );
+    },
+    donors: () => {
+      const dl = donorsLayout(layout.donors.heading, layout.donors.names, k);
+      return (
+        <div key="donors" style={{ display: "flex", flexDirection: "column", alignItems: "center", marginTop: px(18), width: ux(CARD), flexShrink: 0 }}>
+          {layout.donors.heading ? (
+            <div style={{ display: "flex", alignItems: "center", gap: px(14), marginBottom: px(10) }}>
+              {sprig(false, pal.gold)}
+              <div style={{ ...center, fontWeight: 800, fontSize: px(30), letterSpacing: px(3), color: pal.onAccent, backgroundColor: pal.accent, borderRadius: px(30), padding: `${px(6)}px ${px(40)}px`, border: `${unit(2)}px solid ${pal.gold}`, textTransform: "uppercase" }}>{layout.donors.heading}</div>
+              {sprig(true, pal.gold)}
+            </div>
+          ) : null}
+          {card(
+            CARD,
+            cardFill(pal),
+            28,
+            [<div key="in" style={{ ...center, position: "relative", fontFamily: fonts.display, fontWeight: 600, fontSize: px(dl.size), lineHeight: 1.3, color: pal.ink, maxWidth: ux(CARD - 120) }}>{layout.donors.names}</div>],
+            dl.panel,
+          )}
+        </div>
+      );
+    },
+    closing: () => {
+      const cl = closingLayout(layout.closing, k);
+      return (
+        <div key="closing" style={{ display: "flex", marginTop: px(16), flexShrink: 0 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", width: ux(CARD), height: px(cl.inner), padding: `0px ${px(40)}px`, backgroundColor: tintFill(pal), border: `${unit(3)}px solid ${pal.gold}`, borderRadius: px(30), fontWeight: 700, fontSize: px(cl.size), lineHeight: 1.36, color: pal.ink, textAlign: "center" }}>{layout.closing}</div>
+        </div>
+      );
+    },
     cta: () => {
       const c = ctaLayout(layout.cta, k);
       return (
         <div key="cta" style={{ display: "flex", marginTop: px(12), flexShrink: 0, maxWidth: ux(820) }}>
-          <div style={{ ...center, fontFamily: fonts.display, fontWeight: 600, fontSize: px(c.size), lineHeight: 1.2, color: pal.accent, border: `${unit(2.5)}px solid ${pal.accent}`, borderRadius: px(44), padding: `${px(14)}px ${px(40)}px`, maxWidth: ux(820) }}>{layout.cta}</div>
+          <div style={{ ...center, fontFamily: fonts.display, fontWeight: 600, fontSize: px(c.size), lineHeight: 1.2, color: pal.accent, border: `${Math.max(1, Math.round(px(2.5)))}px solid ${pal.accent}`, borderRadius: px(44), padding: `${px(14)}px ${px(40)}px`, maxWidth: ux(820) }}>{layout.cta}</div>
         </div>
       );
     },
@@ -978,6 +1277,18 @@ export function layoutElement(input: PosterInput, dims: { w: number; h: number }
     },
   };
 
+  // The arched window (a panel with a pointed arch on top) behind its blocks, from the arch's apex above the first to the foot under the last.
+  const winEl = (() => {
+    if (!plan.win) return null;
+    const pos = blockPositions(plan);
+    const first = pos.find((p) => p.key === plan.win!.first)!;
+    const last = pos.find((p) => p.key === plan.win!.last)!;
+    const top = first.y - WINDOW_RISE * k;
+    // The drawing keeps 14 units under the panel for its shadow.
+    const hUnits = last.y + last.h - top - WINDOW_EDGE * k + 14;
+    const wUnits = plan.win.width;
+    return image(svgDataUri(windowSvg({ w: wUnits, h: Math.max(200, hUnits / 1), rise: 300, fill: pal.paper, gold: pal.gold, shadow: pal.ink })), ux(wUnits), Math.max(1, Math.round(hUnits * u * 10) / 10), { position: "absolute", left: (w - ux(wUnits)) / 2, top: Math.round(top * u * 10) / 10 });
+  })();
   const sections: ReactNode[] = [];
   plan.blocks.forEach((key, i) => {
     if (i > 0) sections.push(<div key={`g-${key}`} style={{ display: "flex", height: tightBetween(plan.blocks[i - 1]!, key) ? gapPx * 0.3 : gapPx, flexShrink: 0 }} />);
@@ -993,8 +1304,9 @@ export function layoutElement(input: PosterInput, dims: { w: number; h: number }
   return (
     <div style={{ width: w, height: h, display: "flex", flexDirection: "column", position: "relative", backgroundColor: pal.paper, fontFamily: fonts.body, color: pal.ink, wordBreak: "break-word" }}>
       {layers}
+      {winEl}
       {column}
-      {qr && spec.style.qr === "corner" ? qrCardElement({ qr, sceneScale: plan.sceneScale, u, pal, bottom: ux(18) }) : null}
+      {qr && spec.style.qr === "corner" ? qrCardElement({ qr, sceneScale: plan.sceneScale, u, pal, bottom: ux(18), scale: LAYOUT_QR_SCALE }) : null}
       {/* A small honest line when AI made some of the art; nothing when it was all drawn in code. */}
       {aiUsed ? <div style={{ display: "flex", position: "absolute", right: ux(16), bottom: ux(8), fontSize: ux(12), fontWeight: 500, color: pal.body, opacity: 0.8 }}>Art: Google Gemini (AI)</div> : null}
     </div>

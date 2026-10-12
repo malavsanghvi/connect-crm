@@ -419,7 +419,7 @@ export function FlyerPanelView({
             <summary className="cursor-pointer text-[13px] font-bold text-ink">Edit the words on the layout</summary>
             <div className="mt-2 flex flex-col gap-3">
               <LayoutPosterWords poster={design.poster} onPoster={onPoster} disabled={false} />
-              <LayoutBlockEditors poster={design.poster} headline={design.headline} greeting={greeting} onPoster={onPoster} disabled={false} />
+              <LayoutBlockEditors eventId={eventId} poster={design.poster} headline={design.headline} greeting={greeting} onPoster={onPoster} disabled={false} isGuestVisible={setup.guestVisible} />
             </div>
           </details>
         ) : null}

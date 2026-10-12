@@ -359,6 +359,7 @@ export function FlyerPanel({
                   art={art}
                   suggestions={suggestions}
                   defaults={{ poster: posterDefaults, venue_line: eventLines.venue_line }}
+                  isGuestVisible={isGuestVisible}
                 />
               </section>
             ) : (

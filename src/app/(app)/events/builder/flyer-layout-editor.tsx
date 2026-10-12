@@ -4,12 +4,15 @@
 // editor) and by the guided creator's flyer panel, so both change the same poster.layout. Every block is optional: switch it
 // off, or leave it empty, and the flyer closes up around what is left.
 
-import { Toggle } from "@/components/controls";
+import { ChipGroup, Toggle } from "@/components/controls";
 import { buttonClass } from "@/components/ui";
 import { POSTER_LIMITS, type PosterContent } from "@/lib/events/flyer";
 import { artPack, svgDataUri } from "@/lib/events/flyer-art-packs";
 import type { FlyerBrand } from "@/lib/events/flyer-brand";
 import {
+  CREDIT_GROUPS_MAX,
+  HERO_SHAPES,
+  HERO_SHAPE_LABEL,
   LAYOUT_CONTACTS_MAX,
   LAYOUT_LIMITS,
   LAYOUT_PRESET_LIST,
@@ -19,11 +22,14 @@ import {
   withLayoutPreset,
   withoutLayout,
   type BlockKey,
+  type CreditGroup,
+  type HeroShape,
   type LayoutContact,
   type PosterLayout,
 } from "@/lib/events/flyer-layout";
 
 import { SectionBox, TextField } from "./flyer-fields";
+import { HeroPicker } from "./flyer-hero-picker";
 import { IconPicker } from "./flyer-icon-picker";
 
 type UpdatePoster = (fn: (p: PosterContent) => PosterContent) => void;
@@ -104,17 +110,22 @@ export function LayoutPosterWords({ poster, onPoster, disabled }: { poster: Post
  * action and the contacts. Shown only while a layout is chosen. A block with a switch is left out when it is off even if it has words.
  */
 export function LayoutBlockEditors({
+  eventId,
   poster,
   headline,
   greeting,
   onPoster,
   disabled,
+  isGuestVisible,
 }: {
+  eventId: string;
   poster: PosterContent;
   headline: string;
   greeting: string;
   onPoster: UpdatePoster;
   disabled: boolean;
+  /** Anyone who sees this flyer sees the picture, guests included. */
+  isGuestVisible?: boolean;
 }) {
   const layout = poster.layout;
   if (!layout) return null;
@@ -126,6 +137,9 @@ export function LayoutBlockEditors({
   const words = titleWords(headline, "");
   const rows = layout.contacts;
   const setRows = (next: LayoutContact[]) => patch({ contacts: next });
+  const groups = layout.credits;
+  const setGroups = (next: CreditGroup[]) => patch({ credits: next });
+  const patchGroup = (i: number, partial: Partial<CreditGroup>) => setGroups(groups.map((g, at) => (at === i ? { ...g, ...partial } : g)));
 
   return (
     <div className="flex flex-col gap-3">
@@ -165,6 +179,20 @@ export function LayoutBlockEditors({
             </button>
           </div>
         ) : null}
+      </SectionBox>
+
+      <SectionBox
+        title="Picture"
+        note="A picture of what the event is about, from your own photo albums (Weaver never makes it, and photos of children are not offered). Choose how it is framed; Weaver places it."
+      >
+        <ChipGroup
+          label="Picture frame"
+          options={HERO_SHAPES.map((shape) => ({ value: shape, label: HERO_SHAPE_LABEL[shape] }))}
+          value={layout.hero.shape}
+          onChange={(v) => patch({ hero: { ...layout.hero, shape: v as HeroShape } })}
+          disabled={disabled}
+        />
+        <HeroPicker eventId={eventId} value={layout.hero.photo_id} onChange={(photo_id) => patch({ hero: { ...layout.hero, photo_id } })} disabled={disabled} isGuestVisible={isGuestVisible} />
       </SectionBox>
 
       <SectionBox
@@ -214,6 +242,49 @@ export function LayoutBlockEditors({
             />
           </>
         ) : null}
+      </SectionBox>
+
+      <SectionBox
+        title="Thank-you cards"
+        control={
+          <button type="button" className={buttonClass("ghost", "xs")} disabled={disabled || groups.length >= CREDIT_GROUPS_MAX} onClick={() => setGroups([...groups, { heading: "", names: "", icon: "people" }])}>
+            {groups.length >= CREDIT_GROUPS_MAX ? `All ${CREDIT_GROUPS_MAX} cards used` : "Add a card"}
+          </button>
+        }
+        note={`One card for each team or group you want to thank (up to ${CREDIT_GROUPS_MAX}): a heading, a picture and their names. Names are set by Weaver and never sent to an AI.`}
+      >
+        {groups.length ? (
+          <ol className="flex flex-col gap-3">
+            {groups.map((g, i) => (
+              <li key={i} className="rounded-[10px] border border-line-soft bg-ground p-2">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-[12px] font-bold">Card {i + 1}</p>
+                  <button type="button" className={`${buttonClass("ghost", "xs")} min-h-9`} aria-label={`Remove card ${i + 1}`} disabled={disabled} onClick={() => setGroups(groups.filter((_, at) => at !== i))}>
+                    Remove
+                  </button>
+                </div>
+                <div className="mt-2 flex flex-col gap-2">
+                  <TextField id={`layout-credit-${i}-heading`} label="Heading" value={g.heading} max={LAYOUT_LIMITS.credit_heading} onChange={(v) => patchGroup(i, { heading: v })} disabled={disabled} compact placeholder="Welcome team" />
+                  <div>
+                    <p className="crm-label" aria-hidden="true">
+                      Picture
+                    </p>
+                    <IconPicker label={`Picture for card ${i + 1}`} value={g.icon} onChange={(icon) => patchGroup(i, { icon })} disabled={disabled} />
+                  </div>
+                  <TextField id={`layout-credit-${i}-names`} label="Names" value={g.names} max={LAYOUT_LIMITS.credit_names} onChange={(v) => patchGroup(i, { names: v })} multiline rows={2} disabled={disabled} compact />
+                </div>
+              </li>
+            ))}
+          </ol>
+        ) : null}
+      </SectionBox>
+
+      <SectionBox title="Donors and closing message" note="A panel for the donors, with its own heading, and a closing message under it.">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-[220px_1fr]">
+          <TextField id="layout-donors-heading" label="Heading" value={layout.donors.heading} max={LAYOUT_LIMITS.donors_heading} onChange={(v) => patch({ donors: { ...layout.donors, heading: v } })} disabled={disabled} />
+          <TextField id="layout-donors-names" label="Names of the donors" value={layout.donors.names} max={LAYOUT_LIMITS.donors_names} onChange={(v) => patch({ donors: { ...layout.donors, names: v } })} multiline rows={3} disabled={disabled} hint={!layout.donors.names ? "The panel shows once it has names." : undefined} />
+        </div>
+        <TextField id="layout-closing" label="Closing message" value={layout.closing} max={LAYOUT_LIMITS.closing} onChange={(v) => patch({ closing: v })} multiline rows={2} disabled={disabled} />
       </SectionBox>
 
       <SectionBox

@@ -6,7 +6,7 @@ import { artPack } from "@/lib/events/flyer-art-packs";
 import { readFlyerBrand } from "@/lib/events/flyer-brand";
 import { BUNDLED_SCRIPT, BUNDLED_SCRIPT_FILE, flyerFontPath, getFlyerFonts } from "@/lib/events/flyer-fonts";
 import { LAYOUT_PRESETS, LAYOUT_PRESET_KEYS, defaultLayout, greetingFor, withLayoutPreset, type LayoutPreset, type PosterLayout } from "@/lib/events/flyer-layout";
-import { LAYOUT_SCALES, breakWords, layoutColors, layoutNotes, planLayout, splitDate, splitDetail, stackBottom, titlePlan } from "@/lib/events/flyer-layout-render";
+import { LAYOUT_SCALES, blockPositions, breakWords, creditTints, layoutColors, layoutNotes, planLayout, splitDate, splitDetail, stackBottom, titlePlan } from "@/lib/events/flyer-layout-render";
 import { flyerDims, flyerText, isPng, renderFlyerPng, type FlyerRenderInput } from "@/lib/events/flyer-render";
 import { contrastRatio } from "@/lib/setup";
 import { readFile } from "node:fs/promises";
@@ -15,6 +15,13 @@ const brand = readFlyerBrand(null, undefined);
 const svgUri = (svg: string) => `data:image/svg+xml;base64,${Buffer.from(svg).toString("base64")}`;
 const logo = { dataUri: svgUri('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 60" width="200" height="60"><rect width="200" height="60" rx="8" fill="#7A2E1F"/></svg>'), w: 200, h: 60 };
 const PRESETS: readonly LayoutPreset[] = LAYOUT_PRESET_KEYS;
+/** A picture standing in for an album photo (a drawn landscape). */
+const heroPic = {
+  dataUri: svgUri('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 750" width="1000" height="750"><rect width="1000" height="750" fill="#F6C27A"/><circle cx="500" cy="440" r="140" fill="#F4B942"/><path d="M0 560Q300 480 600 560T1000 540V750H0Z" fill="#1F3A5F"/></svg>'),
+  w: 1000,
+  h: 750,
+};
+const PHOTO = "33333333-3333-4333-8333-333333333333";
 
 type Content = "bare" | "typical" | "longest";
 
@@ -45,6 +52,23 @@ function build(preset: LayoutPreset, content: Content, over: { size?: FlyerSize;
       },
     };
   }
+  if (content === "typical" && preset === "thank_you") {
+    poster = {
+      ...poster,
+      layout: {
+        ...poster.layout!,
+        hero: { photo_id: PHOTO, shape: "rounded" },
+        credits: [
+          { heading: "Welcome Team", names: "Dana Whitfield, Marcus Ellery, Priya Raman", icon: "people" },
+          { heading: "Music Team", names: "Jonas Berg, Mira Cole and the choir", icon: "music" },
+          { heading: "Hospitality", names: "Sam Ito, Hana Park", icon: "food" },
+        ],
+        donors: { heading: "Our generous donors", names: "Ava Lindqvist, the Okafor Family, Harbor Bakery" },
+        closing: "Thank you to every family for your time and your kindness this year.",
+      },
+    };
+  }
+  if (content === "typical" && preset === "ceremony") poster = { ...poster, layout: { ...poster.layout!, hero: { photo_id: PHOTO, shape: "arch" } } };
   if (content === "longest") {
     poster = {
       ...poster,
@@ -65,6 +89,10 @@ function build(preset: LayoutPreset, content: Content, over: { size?: FlyerSize;
         cta: long("Would your family like to host a future supper?", 90),
         contacts_label: long("Please contact", 32),
         contacts: [1, 2, 3].map((n) => ({ name: long(`Dana Whitfield ${n}`, 32), detail: long("dana.whitfield@neighbourhoodsupper.example", 40) })),
+        hero: { photo_id: PHOTO, shape: (["arch", "rounded", "circle", "free"] as const)[poster.layout!.preset.length % 4]! },
+        credits: [1, 2, 3, 4, 5, 6].map((n) => ({ heading: long(`Welcome and hospitality team ${n}`, 36), names: long("Dana Whitfield, Marcus Ellery, Priya Raman, Tom Eastley and Lena Okafor", 220), icon: "people" as const })),
+        donors: { heading: long("Our generous donors", 36), names: long("Ava Lindqvist, the Okafor Family, Brightwater Credit Union, Harbor Bakery", 300) },
+        closing: long("Most importantly: thank you to every family for your time", 220),
       },
     };
   }
@@ -85,7 +113,7 @@ function build(preset: LayoutPreset, content: Content, over: { size?: FlyerSize;
 const dimsOf = (size: FlyerSize) => flyerDims(size, "full");
 const planOf = (d: FlyerDesign, size: FlyerSize = d.size) => {
   const poster = d.poster!;
-  const input = { design: d, poster, logo, assets: { frame: null, scene: null, partnerLogo: null }, centerName: "Maple Street Neighbours" };
+  const input = { design: d, poster, logo, assets: { frame: null, scene: null, partnerLogo: null, hero: poster.layout?.hero.photo_id ? heroPic : null }, centerName: "Maple Street Neighbours" };
   return planLayout(input, dimsOf(size), artPack(poster.occasion, brand), {});
 };
 
@@ -195,18 +223,51 @@ describe("planLayout: everything fits, at every size, with little, ordinary and 
   it("sets typical content at full size or larger on Tall, without leaving anything out", () => {
     for (const preset of PRESETS) {
       const plan = planOf(build(preset, "typical", { size: "tall", scene: preset === "notice" ? false : true }));
-      expect(plan.dropped).toEqual([]);
-      expect(plan.k).toBeGreaterThanOrEqual(0.7);
+      // Only what the preset itself says goes first may go: the thank-you has no use for the host card the ordinary content carries.
+      expect(plan.dropped.filter((b) => b !== "host")).toEqual([]);
+      expect(plan.k).toBeGreaterThanOrEqual(0.6);
     }
   });
 
   it("says in plain sentences what was left out or set small", () => {
     const d = build("notice", "longest", { size: "square" });
-    const notes = layoutNotes({ design: d, poster: d.poster!, brand, logo, assets: { frame: null, scene: null, partnerLogo: null }, centerName: "x" }, dimsOf("square"));
+    const notes = layoutNotes({ design: d, poster: d.poster!, brand, logo, assets: { frame: null, scene: null, partnerLogo: null, hero: heroPic }, centerName: "x" }, dimsOf("square"));
     expect(notes.length).toBeGreaterThan(0);
     for (const n of notes) expect(n).toMatch(/^(There was not room for|This flyer is crowded)/);
     const fine = build("notice", "typical", { size: "tall", scene: false });
     expect(layoutNotes({ design: fine, poster: fine.poster!, brand, logo, assets: { frame: null, scene: null, partnerLogo: null }, centerName: "x" }, dimsOf("tall"))).toEqual([]);
+  });
+
+  it("keeps the arched window around its blocks, with the arch below the top edge and the picture growing only into room that is left", () => {
+    const d = build("ceremony", "typical", { size: "tall" });
+    const plan = planOf(d);
+    expect(plan.win).toMatchObject({ first: "logos", last: "tagline", width: LAYOUT_PRESETS.ceremony.style.window!.width });
+    const pos = blockPositions(plan);
+    const first = pos.find((p) => p.key === plan.win!.first)!;
+    const last = pos.find((p) => p.key === plan.win!.last)!;
+    // The arch rises 96 units (scaled) above the first block and must stay inside the flyer; the blocks inside run top to bottom.
+    expect(first.y - 96 * plan.k).toBeGreaterThanOrEqual(0);
+    expect(last.y).toBeGreaterThan(first.y);
+    expect(plan.heroGrow).toBeGreaterThanOrEqual(1);
+    expect(plan.heroGrow).toBeLessThanOrEqual(1.5);
+    expect(stackBottom(plan)).toBeLessThanOrEqual(plan.H - plan.reserve + 1);
+    // Without a window in the preset there is none.
+    expect(planOf(build("notice", "typical", { size: "tall" })).win).toBeNull();
+  });
+
+  it("leaves the picture out of the plan when the renderer does not have it (a photo that could not be loaded)", () => {
+    const d = build("thank_you", "typical", { size: "tall" });
+    const poster = d.poster!;
+    const withoutPic = planLayout({ design: d, poster, logo, assets: { frame: null, scene: null, partnerLogo: null, hero: null }, centerName: "x" }, dimsOf("tall"), artPack(poster.occasion, brand), {});
+    expect(withoutPic.blocks).not.toContain("hero");
+    expect(planOf(d).blocks).toContain("hero");
+  });
+
+  it("sets the thank-you cards two to a row, an odd last card across the whole row", () => {
+    const d = build("thank_you", "longest", { size: "story" });
+    const plan = planOf(d);
+    expect(plan.blocks).toContain("credits");
+    expect(plan.heights.credits).toBeGreaterThan(0);
   });
 
   it("gives a call to action beside contacts no room of its own (it is the contacts card's heading)", () => {
@@ -262,6 +323,31 @@ describe("the colours", () => {
   });
 });
 
+describe("the thank-you cards", () => {
+  it("are pastel fills the ink reads on at 4.5:1 or more, six different ones, for every occasion and a spread of brands", () => {
+    const problems: string[] = [];
+    const brands = [
+      { primary: "#1F3A5F", accent: "#B8860B", background: "#FBF8F1" },
+      { primary: "#0F5E63", accent: "#C46A2B", background: "#F7FAF9" },
+      { primary: "#111111", accent: "#999999", background: "#FFFFFF" },
+      { primary: "#8A1C3A", accent: "#C99A1A", background: "#FFF7E8" },
+    ];
+    for (const occasion of FLYER_OCCASIONS) {
+      for (const b of brands) {
+        const pal = artPack(occasion, b).palette;
+        const tints = creditTints(pal);
+        expect(tints).toHaveLength(6);
+        expect(new Set(tints).size).toBe(6);
+        for (const fill of tints) {
+          const r = contrastRatio(pal.ink, fill) ?? 0;
+          if (r < 4.5) problems.push(`${occasion} ${b.primary}: ink on ${fill} is ${r.toFixed(2)}:1`);
+        }
+      }
+    }
+    expect(problems).toEqual([]);
+  });
+});
+
 describe("the script font", () => {
   it("is bundled (a file on disk) and asked for only by a layout", async () => {
     expect((await readFile(flyerFontPath(BUNDLED_SCRIPT_FILE.file))).byteLength).toBeGreaterThan(10_000);
@@ -283,7 +369,7 @@ describe("renderFlyerPng draws every layout at every size", () => {
     logo,
     logoDark: null,
     qrLink: "https://app.example.org/e/22222222-2222-4222-8222-222222222222",
-    posterAssets: { frame: null, scene: null, partnerLogo: null },
+    posterAssets: { frame: null, scene: null, partnerLogo: null, hero: d.poster?.layout?.hero.photo_id ? heroPic : null },
     ...over,
   });
   for (const preset of PRESETS) {

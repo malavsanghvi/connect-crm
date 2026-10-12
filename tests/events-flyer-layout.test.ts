@@ -5,7 +5,9 @@ import { FLYER_TRADITIONS } from "@/lib/events/flyer-occasions";
 import { POSTER_ICONS, POSTER_ICON_LABEL, posterIconSvg } from "@/lib/events/flyer-icons";
 import {
   BLOCK_LABEL,
+  CREDIT_GROUPS_MAX,
   FLYER_GREETINGS,
+  HERO_SHAPES,
   LAYOUT_BLOCKS,
   LAYOUT_CONTACTS_MAX,
   LAYOUT_LIMITS,
@@ -16,6 +18,8 @@ import {
   defaultLayout,
   greetingFor,
   isBlockKey,
+  layoutNames,
+  layoutPeople,
   layoutText,
   originalThumbnailSvg,
   parseLayout,
@@ -25,12 +29,13 @@ import {
   titleWords,
   withLayoutPreset,
   withoutLayout,
+  type LayoutPreset,
   type PosterLayout,
 } from "@/lib/events/flyer-layout";
 import { cleanLine, flyerTextLength } from "@/lib/events/flyer-text";
 
 const base = () => defaultPoster({ name: "Community Supper", description: null, startsAt: "2026-10-18T17:30:00Z", endsAt: null, tz: "UTC" });
-const layoutOf = (preset: "notice" | "save_the_date" = "notice", over: Partial<PosterLayout> = {}): PosterLayout => ({ ...defaultLayout(preset, { headline: "Community Supper" }), ...over });
+const layoutOf = (preset: LayoutPreset = "notice", over: Partial<PosterLayout> = {}): PosterLayout => ({ ...defaultLayout(preset, { headline: "Community Supper" }), ...over });
 const church = { kind: { key: "church" } };
 const chamber = { kind: { key: "chamber" } };
 const jainCentre = { kind: { key: "jain_center" } };
@@ -56,23 +61,44 @@ describe("the layout presets are data", () => {
     }
   });
 
+  it("has the five layouts of the brief, each with a window only when it draws one, and the window's blocks inside its own order", () => {
+    expect([...LAYOUT_PRESET_KEYS]).toEqual(["notice", "save_the_date", "ceremony", "event_day", "thank_you"]);
+    expect(layoutNames()).toBe("Notice, Save the date, Ceremony, Event day or Thank you");
+    for (const spec of Object.values(LAYOUT_PRESETS)) {
+      if (spec.style.window) {
+        expect(spec.style.window.width).toBeGreaterThan(500);
+        expect(spec.style.window.width).toBeLessThanOrEqual(900);
+        for (const b of spec.style.window.blocks) expect(spec.order).toContain(b);
+      }
+      expect(HERO_SHAPES).toContain(spec.seed.hero_shape);
+    }
+    expect(LAYOUT_PRESETS.ceremony.style.window).not.toBeNull();
+    expect(LAYOUT_PRESETS.notice.style.window).toBeNull();
+    // The thank-you has no date by default; the others do.
+    expect(LAYOUT_PRESETS.thank_you.seed.when).toBe(false);
+    expect(LAYOUT_PRESETS.event_day.seed.when).toBe(true);
+  });
+
   it("has a label for every block", () => {
     for (const b of LAYOUT_BLOCKS) expect(BLOCK_LABEL[b].length).toBeGreaterThan(2);
     expect(isBlockKey("host")).toBe(true);
-    expect(isBlockKey("hero")).toBe(false);
+    expect(isBlockKey("hero")).toBe(true);
+    expect(isBlockKey("sparkles")).toBe(false);
   });
 
   it("draws a thumbnail for each preset and for the original, in the palette it is given", () => {
     const c = { paper: "#FBF7F0", ink: "#1B2C5C", accent: "#8C1D2E", gold: "#C9A227" };
     for (const key of LAYOUT_PRESET_KEYS) {
       const svg = presetThumbnailSvg(key, c);
-      expect(svg).toMatch(/^<svg [^>]*viewBox="0 0 100 1[02]5?0?"/);
+      expect(svg).toMatch(/^<svg [^>]*viewBox="0 0 100 1(?:00|25)"/);
       expect(svg).toContain("#C9A227");
       expect(svg.match(/<rect/g)!.length).toBeGreaterThan(5);
     }
     expect(originalThumbnailSvg(c)).toContain("<svg");
     // The square layout is drawn square.
     expect(presetThumbnailSvg("save_the_date", c)).toContain('viewBox="0 0 100 100"');
+    // Every preset has its own drawing (a thumbnail is made from the preset's blocks, so a new preset needs none by hand).
+    expect(new Set(LAYOUT_PRESET_KEYS.map((k) => presetThumbnailSvg(k, c))).size).toBe(LAYOUT_PRESET_KEYS.length);
   });
 });
 
@@ -133,13 +159,28 @@ describe("parseLayout", () => {
     const r = parseLayout({ preset: "save_the_date" });
     expect(r).toEqual({
       ok: true,
-      layout: { preset: "save_the_date", off: [], accent: "", eyebrow: "", greeting: { top: "", bottom: "" }, host: { label: "", names: "" }, note: { icon: "leaf", text: "" }, cta: "", contacts_label: "", contacts: [] },
+      layout: {
+        preset: "save_the_date",
+        off: [],
+        accent: "",
+        eyebrow: "",
+        greeting: { top: "", bottom: "" },
+        host: { label: "", names: "" },
+        note: { icon: "leaf", text: "" },
+        cta: "",
+        contacts_label: "",
+        contacts: [],
+        hero: { photo_id: null, shape: "rounded" },
+        credits: [],
+        donors: { heading: "", names: "" },
+        closing: "",
+      },
     });
   });
 
   it("says in plain words what is wrong", () => {
     expect(parseLayout(null)).toEqual({ ok: false, error: "The layout is missing. Choose a layout again." });
-    expect(parseLayout({ preset: "poster" })).toEqual({ ok: false, error: "Choose a layout: Notice or Save the date." });
+    expect(parseLayout({ preset: "poster" })).toEqual({ ok: false, error: "Choose a layout: Notice, Save the date, Ceremony, Event day or Thank you." });
     expect(parseLayout({ preset: "notice", contacts: [1, 2, 3, 4].map((n) => ({ name: `P${n}`, detail: "" })) })).toEqual({
       ok: false,
       error: `The contacts block has room for ${LAYOUT_CONTACTS_MAX} people.`,
@@ -150,6 +191,40 @@ describe("parseLayout", () => {
       ok: false,
       error: `The contact's name is longer than ${LAYOUT_LIMITS.contact_name} characters.`,
     });
+  });
+
+  it("reads the picture, the thank-you cards, the donors and the closing message, and refuses what is wrong in plain words", () => {
+    const id = "33333333-3333-4333-8333-333333333333";
+    const r = parseLayout({
+      preset: "thank_you",
+      hero: { photo_id: id.toUpperCase(), shape: "arch" },
+      credits: [{ heading: " Welcome team ", names: "Dana, Marcus", icon: "people" }, { heading: "", names: "" }, { heading: "Music", names: "", icon: "nonsense" }],
+      donors: { heading: "Our donors", names: "Ava and Sam" },
+      closing: " Thank you all ",
+    });
+    expect(r.ok).toBe(true);
+    if (r.ok) {
+      expect(r.layout.hero).toEqual({ photo_id: id, shape: "arch" });
+      expect(r.layout.credits).toEqual([
+        { heading: "Welcome team", names: "Dana, Marcus", icon: "people" },
+        { heading: "Music", names: "", icon: "people" },
+      ]);
+      expect(r.layout.donors).toEqual({ heading: "Our donors", names: "Ava and Sam" });
+      expect(r.layout.closing).toBe("Thank you all");
+    }
+    // A shape it does not know is the rounded frame, not an error (a newer version may add one).
+    expect(parseLayout({ preset: "thank_you", hero: { shape: "star" } })).toMatchObject({ ok: true, layout: { hero: { photo_id: null, shape: "rounded" } } });
+    expect(parseLayout({ preset: "thank_you", hero: { photo_id: "not-a-photo" } })).toEqual({ ok: false, error: "Choose a picture from one of the albums." });
+    expect(parseLayout({ preset: "thank_you", credits: Array.from({ length: CREDIT_GROUPS_MAX + 1 }, (_, i) => ({ heading: `G${i}`, names: "" })) })).toEqual({
+      ok: false,
+      error: `The thank-you cards have room for ${CREDIT_GROUPS_MAX} groups.`,
+    });
+    expect(parseLayout({ preset: "thank_you", credits: [{ heading: "h".repeat(LAYOUT_LIMITS.credit_heading + 1), names: "" }] })).toEqual({
+      ok: false,
+      error: `The thank-you card's heading is longer than ${LAYOUT_LIMITS.credit_heading} characters.`,
+    });
+    expect(parseLayout({ preset: "thank_you", donors: { names: "n".repeat(LAYOUT_LIMITS.donors_names + 1) } })).toEqual({ ok: false, error: `The donors' names is longer than ${LAYOUT_LIMITS.donors_names} characters.` });
+    expect(parseLayout({ preset: "thank_you", closing: "c".repeat(LAYOUT_LIMITS.closing + 1) })).toEqual({ ok: false, error: `The closing message is longer than ${LAYOUT_LIMITS.closing} characters.` });
   });
 
   it("counts a letter with its sign as one character (Gujarati), like the rest of the flyer", () => {
@@ -172,7 +247,7 @@ describe("a layout in the poster and in the design", () => {
 
   it("refuses a bad layout inside a poster with the layout's own sentence", () => {
     const r = parsePosterContent({ ...base(), layout: { preset: "mystery" } });
-    expect(r).toEqual({ ok: false, error: "Choose a layout: Notice or Save the date." });
+    expect(r).toEqual({ ok: false, error: "Choose a layout: Notice, Save the date, Ceremony, Event day or Thank you." });
   });
 
   it("has the Square size (1080 by 1080) among the sizes, and the message names it", () => {
@@ -181,6 +256,14 @@ describe("a layout in the poster and in the design", () => {
     const d = defaultFlyerDesign({ name: "Picnic", description: null, venue: "Park", startsAt: null, endsAt: null, tz: "UTC", qrAvailable: false });
     expect(parseFlyerDesign({ ...d, size: "square" }).ok).toBe(true);
     expect(parseFlyerDesign({ ...d, size: "a3" })).toEqual({ ok: false, error: "Choose a size: Post, Square, Tall, Story or Print." });
+  });
+
+  it("lists the names typed into every block that carries people (host, contacts, thank-you cards, donors), unless the block is off", () => {
+    const l = layoutOf("thank_you", { host: { label: "", names: "The Okafors" }, contacts: [{ name: "Dana", detail: "555" }], credits: [{ heading: "Welcome", names: "Marcus, Lena", icon: "people" }], donors: { heading: "", names: "Ava Lindqvist" } });
+    expect(layoutPeople(l)).toEqual(["The Okafors", "Dana", "Marcus, Lena", "Ava Lindqvist"]);
+    expect(layoutPeople({ ...l, off: ["credits", "donors"] })).toEqual(["The Okafors", "Dana"]);
+    expect(layoutText(l)).toContain("Ava Lindqvist");
+    expect(layoutText(l)).toContain("Marcus, Lena");
   });
 
   it("starts new flyers as the original poster: no layout until one is chosen", () => {
@@ -214,6 +297,19 @@ describe("choosing a layout", () => {
     expect(withLayoutPreset({ ...base(), scene: ai }, "save_the_date", { headline: "x" }).scene).toEqual(ai);
     // The frame is never touched by a layout.
     expect(withLayoutPreset({ ...base(), frame: { source: "none" } }, "notice", { headline: "x" }).frame).toEqual({ source: "none" });
+  });
+
+  it("shows the date for a layout that has one and hides it for the thank-you, keeping what was typed", () => {
+    const typed: PosterContent = { ...base(), ribbon: { on: true, date: "Sunday", time: "5 PM" } };
+    const ty = withLayoutPreset(typed, "thank_you", { headline: "x" });
+    expect(ty.ribbon).toEqual({ on: false, date: "Sunday", time: "5 PM" });
+    expect(withLayoutPreset(ty, "event_day", { headline: "x" }).ribbon).toEqual({ on: true, date: "Sunday", time: "5 PM" });
+  });
+
+  it("seeds the ceremony with the greeting at the bottom only", () => {
+    expect(defaultLayout("ceremony", { headline: "Navpad Puja", greeting: "Welcome" }).greeting).toEqual({ top: "", bottom: "Welcome" });
+    expect(defaultLayout("thank_you", { headline: "Thanks", greeting: "Welcome" }).greeting).toEqual({ top: "", bottom: "Welcome" });
+    expect(defaultLayout("event_day", { headline: "Kick-off", greeting: "Welcome" }).greeting).toEqual({ top: "", bottom: "" });
   });
 
   it("goes back to the original poster with every word it had", () => {
@@ -254,6 +350,19 @@ describe("which blocks are drawn", () => {
     expect(l.host.names).toBe("The Okafors");
     // The title cannot be switched off.
     expect(blockPresent("title", { poster: base(), layout: { ...l, off: ["title"] }, ...opts })).toBe(true);
+  });
+
+  it("draws the picture only when one is chosen and the renderer has it, and a thank-you's cards, donors and closing when they have words", () => {
+    const l = layoutOf("thank_you", { hero: { photo_id: "33333333-3333-4333-8333-333333333333", shape: "arch" }, credits: [{ heading: "Welcome", names: "", icon: "people" }], donors: { heading: "h", names: "Ava" }, closing: "Thanks" });
+    const p = { poster: base(), layout: l, ...opts };
+    expect(blockPresent("hero", p)).toBe(false);
+    expect(blockPresent("hero", { ...p, hero: true })).toBe(true);
+    expect(blockPresent("hero", { ...p, hero: true, layout: { ...l, hero: { ...l.hero, photo_id: null } } })).toBe(false);
+    expect(blockPresent("credits", p)).toBe(true);
+    expect(blockPresent("credits", { ...p, layout: { ...l, credits: [{ heading: "", names: "", icon: "people" }] } })).toBe(false);
+    expect(blockPresent("donors", p)).toBe(true);
+    expect(blockPresent("closing", p)).toBe(true);
+    expect(blockPresent("donors", { ...p, layout: { ...l, off: ["donors"] } })).toBe(false);
   });
 
   it("shows the date block for a venue alone, and the RSVP code only when there is one", () => {
