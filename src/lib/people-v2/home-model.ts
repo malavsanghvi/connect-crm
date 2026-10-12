@@ -21,5 +21,7 @@ export type PeopleHomeModel = {
   /** The one saved view that exists today: memberships ending soon (null when it cannot be counted). */
   endingSoon: { count: number | null; href: string } | null;
   lists: ListLink[];
+  /** The viewer may add a family (people.manage, with the People module on), so the home offers "Add a family". */
+  canAddFamily: boolean;
   problems: Problem[];
 };

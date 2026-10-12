@@ -16,6 +16,7 @@ vi.mock("@/app/(app)/households/actions", () => ({ dismissDuplicateAction: vi.fn
 vi.mock("@/app/security-actions", () => ({ verifyStepUpAction: vi.fn() }));
 vi.mock("@/app/(app)/search/actions", () => ({ globalSearchAction: vi.fn() }));
 vi.mock("@/app/(app)/search/find-actions", () => ({ findAction: vi.fn() }));
+vi.mock("@/app/(app)/people/add-family-actions", () => ({ addFamilyAction: vi.fn(), findFamilyMatchesAction: vi.fn() }));
 vi.mock("@/app/auth-actions", () => ({ signOutAction: vi.fn() }));
 vi.mock("@/app/tenancy-actions", () => ({ switchCenterAction: vi.fn() }));
 vi.mock("@/app/history-actions", () => ({ loadRecordHistoryAction: vi.fn() }));

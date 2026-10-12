@@ -9,6 +9,7 @@ import { householdCardLine } from "@/lib/find/labels";
 import { listsMenu } from "@/lib/find/lists";
 import { parseRecents, recentCookieName } from "@/lib/find/recents";
 import { familyHref } from "@/lib/find/rows";
+import { isModuleEnabled } from "@/lib/modules";
 import { canAccess, visibleNav } from "@/lib/permissions";
 import type { CrmSession } from "@/lib/session";
 
@@ -66,6 +67,7 @@ export async function loadPeopleHome(session: CrmSession, recentCookieValue: str
     inbox,
     endingSoon: { count: counts.ending, href: `${BASE}?ending=${ENDING_SOON_DAYS}` },
     lists: listsMenu(peopleTabs),
+    canAddFamily: canAccess(session, "householdsEdit") && isModuleEnabled(session, "people"),
     problems,
   };
 }

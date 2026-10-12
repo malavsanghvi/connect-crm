@@ -166,6 +166,7 @@ export function sampleHome(opts: { recents: boolean; withInbox: boolean }): Peop
         ]
       : [],
     endingSoon: { count: 23, href: "/people?ending=60" },
+    canAddFamily: true,
     lists: listsMenu([{ href: "/people/directory" }, { href: "/people/voting" }, { href: "/memberships/applications" }]),
     problems: [],
   };
