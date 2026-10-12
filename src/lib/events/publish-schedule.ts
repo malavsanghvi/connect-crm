@@ -15,7 +15,9 @@
 // longer the one approved.
 
 import { flyerOutOfDate, outOfDateWhat, parseFlyerDesign, type FlyerDesign } from "./flyer";
-import type { FlyerOccasion } from "./flyer-art";
+import { flyerOccasionsFor, type FlyerOccasion } from "./flyer-art";
+import { drawnPackKey } from "./flyer-art-packs";
+import type { OccasionKind } from "./flyer-occasions";
 import { formatDateTime, fromDateTimeLocal, toDateTimeLocal } from "./format";
 import { eventReadiness, type ReadinessEvent } from "./readiness";
 
@@ -261,6 +263,24 @@ export function drawnTakes(occasions: readonly DrawnTake["occasion"][]): DrawnTa
   const first = occasions[0];
   if (first) takes.push({ occasion: first, frame: true, scene: false }, { occasion: first, frame: false, scene: true });
   return takes;
+}
+
+/**
+ * The drawn takes that suit the organization: its own occasions (flyer-occasions.ts, by kind and tradition: a faith's
+ * occasions only for that faith, so Garba's convention scene is never offered to a chamber), one per drawn pack (an
+ * occasion whose pack is not drawn yet would repeat General), the poster's own occasion first.
+ */
+export function drawnTakeOccasions(kind: OccasionKind, current: FlyerOccasion | null): FlyerOccasion[] {
+  const seen = new Set<string>();
+  const out: FlyerOccasion[] = [];
+  for (const o of [...(current ? [current] : []), ...flyerOccasionsFor(kind)]) {
+    if (o === "other" && o !== current) continue;
+    const pack = drawnPackKey(o);
+    if (seen.has(pack)) continue;
+    seen.add(pack);
+    out.push(o);
+  }
+  return out;
 }
 
 /** The take after the one the poster shows now (by occasion and which layers are drawn). */

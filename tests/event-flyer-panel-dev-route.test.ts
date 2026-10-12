@@ -45,9 +45,11 @@ describe("the dev preview of the flyer and publish panel", () => {
     expect(publishState({ ...scheduled.event, guestVisible: true })).toBe("scheduled");
     expect(publishState({ ...sampleSetup("church", "live").event, guestVisible: true })).toBe("live");
     expect(publishState({ ...sampleSetup("church", "failed").event, guestVisible: true })).toBe("failed");
-    // Only a kind that keeps a tradition gets its occasion packs; the others draw the general pack.
-    expect(sampleSetup("church", "draft").defaults.poster?.occasion).toBe("general");
+    // Each kind gets its own occasions (B96): the church's Christmas Eve service, the temple's Diwali, the chamber's own.
+    expect(sampleSetup("church", "draft").defaults.poster?.occasion).toBe("christmas_eve");
     expect(sampleSetup("temple", "draft").defaults.poster?.occasion).toBe("diwali");
+    expect(sampleSetup("chamber", "draft").occasions).not.toContain("diwali");
+    expect(sampleSetup("church", "draft").suggestions[0]).toMatchObject({ occasion: "christmas_eve", basis: "title" });
   });
 
   it("renders a real PNG without a database, and refuses a photo it cannot load", async () => {

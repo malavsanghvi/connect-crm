@@ -239,6 +239,18 @@ export function FlyerPanelView({
     if (before !== words) setDesign((d) => applyWords(d, before, words));
   }, [words]);
 
+  // The poster's occasion follows the event's name (the suggestion the setup brings back after each answer) until the
+  // person chooses one, or chooses any of the art, themselves: their choice is kept from then on.
+  const pickedArt = useRef(Boolean(setup.saved));
+  const suggested = setup.defaults.poster?.occasion ?? null;
+  const suggestedRef = useRef(suggested);
+  useEffect(() => {
+    const before = suggestedRef.current;
+    suggestedRef.current = suggested;
+    if (!suggested || before === suggested || pickedArt.current) return;
+    setDesign((d) => (d.poster && d.poster.occasion === before ? { ...d, poster: { ...d.poster, occasion: suggested, frame: { source: "code" }, scene: { source: "code" } } } : d));
+  }, [suggested]);
+
   // ── The preview, rendered by the server ──
   const check = useMemo(() => parseFlyerDesign(design), [design]);
   const designKey = JSON.stringify(design);
@@ -287,6 +299,7 @@ export function FlyerPanelView({
   const [showLayers, setShowLayers] = useState(false);
   const layersRef = useRef<HTMLDetailsElement | null>(null);
   function anotherTake() {
+    pickedArt.current = true;
     if (isPoster && design.poster) {
       const p = design.poster;
       const take = nextDrawnTake(takes, { occasion: p.occasion, frame: p.frame.source === "code", scene: p.scene.source === "code" });
@@ -440,7 +453,18 @@ export function FlyerPanelView({
             <summary className="cursor-pointer text-[13px] font-bold text-ink">Choose the art layers</summary>
             {showLayers ? (
               <div className="mt-2">
-                <FlyerArtPicker eventId={eventId} brand={setup.brand} poster={design.poster} onPoster={(p) => setDesign((d) => (d.poster ? { ...d, poster: { ...d.poster, ...p } } : d))} art={setup.art} disabled={false} />
+                <FlyerArtPicker
+                  eventId={eventId}
+                  brand={setup.brand}
+                  poster={design.poster}
+                  onPoster={(p) => {
+                    pickedArt.current = true;
+                    setDesign((d) => (d.poster ? { ...d, poster: { ...d.poster, ...p } } : d));
+                  }}
+                  art={setup.art}
+                  suggestions={setup.suggestions}
+                  disabled={false}
+                />
               </div>
             ) : null}
           </details>

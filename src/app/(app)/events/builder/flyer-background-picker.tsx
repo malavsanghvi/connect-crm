@@ -116,6 +116,13 @@ export function FlyerBackgroundPicker({
 
   // ── AI art ──
   const [prompt, setPrompt] = useState(value.source === "ai" && value.prompt ? value.prompt : artPromptSeed);
+  // The starting description follows the poster's occasion (artPromptSeed changes with it) until the person edits it.
+  const seedRef = useRef(artPromptSeed);
+  useEffect(() => {
+    const before = seedRef.current;
+    seedRef.current = artPromptSeed;
+    if (before !== artPromptSeed) setPrompt((p) => (p === before ? artPromptSeed : p));
+  }, [artPromptSeed]);
   const [art, setArt] = useState<FlyerArtState | null>(null);
   const [artError, setArtError] = useState<string | null>(initialArtError);
   const [artBusy, setArtBusy] = useState(false);

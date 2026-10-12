@@ -16,49 +16,53 @@
 // sees the price before anything is asked for.
 
 // Relative imports: the background service (worker/) imports this file and does not know the "@/" alias.
-import { kindHas } from "../kind";
-import type { KindLike } from "../wording";
+import {
+  FLYER_OCCASIONS,
+  LEGACY_OCCASIONS,
+  occasionsFor,
+  preselectOccasion,
+  suggestOccasion,
+  type FlyerOccasion,
+  type OccasionKind,
+} from "./flyer-occasions";
 
 // ── Occasions ────────────────────────────────────────────────────────────────
+// The occasions are DATA: src/lib/events/flyer-occasions.ts (which kinds and traditions each is for, its season, its
+// art pack, its prompt words). These names stay here for the files that always imported them from this one.
 
-export type FlyerOccasion = "garba" | "paryushan" | "diwali" | "mahavir" | "convention" | "pathshala" | "bhakti" | "general";
-export const FLYER_OCCASIONS: readonly FlyerOccasion[] = ["garba", "paryushan", "diwali", "mahavir", "convention", "pathshala", "bhakti", "general"];
-export const FLYER_OCCASION_LABEL: Record<FlyerOccasion, string> = {
-  garba: "Garba / Navratri",
-  paryushan: "Paryushan",
-  diwali: "Diwali",
-  mahavir: "Mahavir Janma Kalyanak",
-  convention: "Convention / kick-off",
-  pathshala: "Pathshala / kids",
-  bhakti: "Bhakti / music",
-  general: "General",
-};
+export { FLYER_OCCASIONS, FLYER_OCCASION_LABEL, isFlyerOccasion, occasionLabel, type FlyerOccasion } from "./flyer-occasions";
 
 /**
- * The occasions a poster can be drawn for. A kind with a tradition pack has all of them; any other kind (a chamber, a club,
- * a neutral organization) is offered the general and the convention packs, plus the one a poster already has.
+ * The occasions a poster can be drawn for in this community, in the order it sees them (flyer-occasions.ts decides,
+ * by kind and tradition): a Jain community has all eight Flyers v2 occasions plus the ones every community has, a
+ * church its own, a chamber its own, and everyone "Other occasion". `current`: a poster's occasion stays listed.
  */
-export function flyerOccasionsFor(kind: KindLike, current?: FlyerOccasion): readonly FlyerOccasion[] {
-  if (kindHas(kind, "tradition")) return FLYER_OCCASIONS;
-  return FLYER_OCCASIONS.filter((o) => o === "convention" || o === "general" || o === current);
+export function flyerOccasionsFor(kind: OccasionKind, current?: FlyerOccasion | null, tradition?: string | null): readonly FlyerOccasion[] {
+  return occasionsFor(kind, tradition, current);
 }
 
-export function isFlyerOccasion(v: unknown): v is FlyerOccasion {
-  return typeof v === "string" && (FLYER_OCCASIONS as readonly string[]).includes(v);
+/**
+ * The occasion that suits an event, from its name (and description): the organizer can always choose another. With a
+ * community, only its own occasions are considered and its kind's default is the fallback; without one, every occasion.
+ */
+export function occasionFor(name: string, description?: string | null, community?: { kind: OccasionKind; tradition?: string | null } | null): FlyerOccasion {
+  if (community) return preselectOccasion(suggestOccasion({ title: name, description, kind: community.kind, tradition: community.tradition }));
+  return preselectOccasion(suggestOccasion({ title: name, description, kind: null }));
 }
 
-/** The pack that suits an event, from its name (and description): the organizer can always choose another. */
-export function occasionFor(name: string, description?: string | null): FlyerOccasion {
-  const n = `${name} ${description ?? ""}`.toLowerCase();
-  if (/\b(?:garba|navratri|navaratri|dandiya|raas)\b/.test(n)) return "garba";
-  if (/\b(?:paryushan|paryushana|das lakshan|daslakshan|samvatsari|pratikraman)\b/.test(n)) return "paryushan";
-  if (/\b(?:diwali|deepavali|dipawali|annakut|nutan varsh)\b/.test(n)) return "diwali";
-  if (/\b(?:mahavir|mahaveer|janma kalyanak|jayanti)\b/.test(n)) return "mahavir";
-  if (/\b(?:convention|kick-?off|jaina|summit|conference|gala)\b/.test(n)) return "convention";
-  if (/\b(?:pathshala|kids|children|youth|school|class|camp)\b/.test(n)) return "pathshala";
-  if (/\b(?:bhakti|bhajan|bhavna|music|concert|stavan|sangeet|kirtan)\b/.test(n)) return "bhakti";
-  return "general";
+/**
+ * The occasions the database stores AI frames and scenes for (app.events_request_flyer_art and app.flyer_art_name_ok,
+ * 0585: a test keeps this equal to that migration). The other occasions have drawn art and AI backgrounds; their AI
+ * frames and scenes need those two functions to accept them (a later migration).
+ */
+export const FLYER_AI_LAYER_OCCASIONS: readonly FlyerOccasion[] = LEGACY_OCCASIONS;
+
+export function canAskAiLayer(occasion: FlyerOccasion): boolean {
+  return FLYER_AI_LAYER_OCCASIONS.includes(occasion);
 }
+
+export const AI_LAYER_NOT_YET =
+  "AI frames and scenes for this occasion are not available yet: the drawn art works, and an AI background can be asked for under the other templates.";
 
 // ── Layers ───────────────────────────────────────────────────────────────────
 
@@ -245,50 +249,8 @@ export type FlyerArtProgress =
   | { status: "ready"; entry: FlyerArtEntry };
 
 // ── The prompts (code-set; the organizer never types them) ───────────────────
-// Each prompt describes ornament, colour and light only. None names an
-// occasion that is also a person (no "Mahavir"), and none may contain a
-// blocked word (tests/events-flyer-art.test.ts checks every one); the worker
-// appends FLYER_LAYER_GUARDRAIL as the last sentence and checks again.
+// Built from the occasion catalog in src/lib/events/flyer-art-prompt.ts. None may contain a blocked word
+// (tests/events-flyer-art.test.ts checks every one); the worker appends FLYER_LAYER_GUARDRAIL as the last sentence and
+// checks again.
 
-const FRAME_BRIEF =
-  "A decorative border frame for a tall, upright poster, ornaments only along the four edges and in the corners, " +
-  "the whole centre left as a large, plain, empty, evenly lit area in the background colour, flat and calm, for type to be set on later. " +
-  "High detail, crisp edges, elegant print design.";
-const SCENE_BRIEF =
-  "A wide panoramic illustration for the bottom strip of a poster, everything sitting low along the bottom edge, " +
-  "the top third fading to a plain soft sky that blends into the background colour. Flat illustrated style, rich colour, crisp shapes.";
-
-export const FLYER_LAYER_PROMPTS: Record<FlyerOccasion, Record<FlyerLayerKind, string>> = {
-  garba: {
-    frame: `${FRAME_BRIEF} Navratri festival ornaments: gold mandalas in the corners, mirror-work and bandhani dots in magenta, saffron and emerald, small dandiya sticks and marigold accents, on a warm cream background.`,
-    scene: `${SCENE_BRIEF} A festive Navratri night: colourful hanging lanterns, triangle bunting and string lights over a decorated stage arch, swirling dandiya sticks and marigold garlands, magenta, saffron and gold on a deep plum ground, warm cream sky above.`,
-  },
-  paryushan: {
-    frame: `${FRAME_BRIEF} Serene and minimal: thin gold lines, small lotus buds in the corners and gentle leaf vines in soft sage green, on an ivory background.`,
-    scene: `${SCENE_BRIEF} A calm lotus pond at dawn: pink and white lotus flowers and round green leaves on still water with soft ripples, distant low hills, pale gold light, ivory sky above.`,
-  },
-  diwali: {
-    frame: `${FRAME_BRIEF} Festival of lights ornaments: a marigold and mango-leaf toran garland across the top, gold rangoli rosettes in the corners, tiny glowing oil lamps along the sides, deep plum and saffron accents, on a warm cream background.`,
-    scene: `${SCENE_BRIEF} Rows of small glowing clay oil lamps on a colourful rangoli floor, soft sparkles and gentle fireworks bursts in a deep plum twilight, saffron and gold glow, warm cream sky above.`,
-  },
-  mahavir: {
-    frame: `${FRAME_BRIEF} Auspicious geometric ornaments: saffron and gold lotus rosettes in the corners, a mango-leaf toran across the top, fine gold filigree along the sides, on a warm ivory background.`,
-    scene: `${SCENE_BRIEF} Carved white marble temple spires with small saffron flags at sunrise, a row of lotus flowers in front, soft saffron and gold light, ivory sky above. Architecture only.`,
-  },
-  convention: {
-    frame: `${FRAME_BRIEF} Elegant gold double border with gold mandalas in the corners and soft green eucalyptus sprigs, refined and celebratory, on a cream background.`,
-    scene: `${SCENE_BRIEF} A modern city skyline at dusk in purple, rose and gold, glowing windows, festive string lights across the top of the strip, a dark ground line, cream sky above.`,
-  },
-  pathshala: {
-    frame: `${FRAME_BRIEF} Playful and bright for young learners: rounded corners with stars, dots and small open books in sunny yellow, coral and sky blue, on a very light blue background.`,
-    scene: `${SCENE_BRIEF} Rolling green hills with a stack of colourful books, pencils, paper kites in the sky and a smiling sun shape, cheerful sky blue, coral and sunny yellow, light sky above.`,
-  },
-  bhakti: {
-    frame: `${FRAME_BRIEF} Devotional music ornaments: gold paisley corners, jasmine flower vines and small brass bells along the sides, indigo and rose accents, on a soft blush background.`,
-    scene: `${SCENE_BRIEF} A row of classical Indian musical instruments — tabla drums, a harmonium and small brass cymbals — beside glowing oil lamps and marigold garlands, flowing ribbons of light like sound waves, indigo and gold, soft blush sky above.`,
-  },
-  general: {
-    frame: `${FRAME_BRIEF} A refined double border in gold with small mandala rosettes in the corners and fine filigree, on a warm cream background.`,
-    scene: `${SCENE_BRIEF} A gentle landscape of soft rolling hills and a large faint mandala rising like a sun, warm gold and deep blue, cream sky above.`,
-  },
-};
+export { FLYER_LAYER_PROMPTS } from "./flyer-art-prompt";

@@ -6,10 +6,12 @@ import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 
 import { ActionForm } from "@/components/action-form";
 import { ChipGroup, Toggle } from "@/components/controls";
+import { useKind } from "@/components/kind-context";
 import { Modal } from "@/components/modal";
 import { useToast } from "@/components/toast";
 import { Alert, Card, buttonClass } from "@/components/ui";
 import {
+  buildFlyerArtPrompt,
   FLYER_LIMITS,
   FLYER_SIZES,
   FLYER_SIZE_KEYS,
@@ -26,6 +28,7 @@ import {
 } from "@/lib/events/flyer";
 import type { FlyerArtSetup } from "@/lib/events/flyer-art";
 import { flyerBrandSummary, type FlyerBrand } from "@/lib/events/flyer-brand";
+import type { OccasionSuggestion } from "@/lib/events/flyer-occasions";
 
 import { saveDesignedFlyerAction, removeEventFlyerAction, uploadEventFlyerAction } from "./flyer-actions";
 import { FlyerBackgroundPicker } from "./flyer-background-picker";
@@ -100,6 +103,8 @@ export function FlyerPanel({
   eventLines,
   outOfDate,
   artPromptSeed,
+  artPrompt,
+  suggestions,
   artPreview,
   art,
   posterDefaults,
@@ -121,6 +126,10 @@ export function FlyerPanel({
   /** The event's date or venue changed after the saved flyer was made (flyerOutOfDate). */
   outOfDate: { date: boolean; venue: boolean };
   artPromptSeed: string;
+  /** What the AI background description reads besides the occasion; absent: the seed stays as the page made it. */
+  artPrompt?: { startsAt: string | null; country: string | null; tz: string };
+  /** The occasions that suit this event, best first, with their reasons (shown in the poster's art picker). */
+  suggestions?: readonly OccasionSuggestion[];
   artPreview: { url: string | null; error: string | null };
   /** AI art as it stands: is it available (and at what price), and the pictures kept for the poster's occasion. */
   art: FlyerArtSetup;
@@ -131,6 +140,17 @@ export function FlyerPanel({
   const toast = useToast();
   const [design, setDesign] = useState<FlyerDesign>(() => ({ ...initialDesign, show_qr: initialDesign.show_qr && Boolean(memberAppLink) }));
   const patch = (p: Partial<FlyerDesign>) => setDesign((d) => ({ ...d, ...p }));
+  // The AI background's starting description follows the poster's occasion (and its "Other occasion" description).
+  const kind = useKind();
+  const occasion = design.poster?.occasion ?? posterDefaults.occasion;
+  const occasionNote = design.poster?.occasion_note ?? "";
+  const backgroundSeed = useMemo(
+    () =>
+      artPrompt
+        ? buildFlyerArtPrompt({ eventName, primary: brand.primary, accent: brand.accent, background: brand.background, occasion, occasionNote, community: { kind }, ...artPrompt })
+        : artPromptSeed,
+    [artPrompt, artPromptSeed, eventName, brand.primary, brand.accent, brand.background, occasion, occasionNote, kind],
+  );
   /** The Poster's content is kept while another template is chosen, so switching back loses nothing. */
   const chooseTemplate = (t: FlyerDesign["template"]) => setDesign((d) => ({ ...d, template: t, ...(t === "poster" && !d.poster ? { poster: posterDefaults } : {}) }));
 
@@ -337,6 +357,7 @@ export function FlyerPanel({
                   hasLogo={Boolean(brand.logoUrl)}
                   brand={brand}
                   art={art}
+                  suggestions={suggestions}
                   defaults={{ poster: posterDefaults, venue_line: eventLines.venue_line }}
                 />
               </section>
@@ -352,7 +373,7 @@ export function FlyerPanel({
                     onChange={onBackground}
                     brand={brand}
                     isGuestVisible={isGuestVisible}
-                    artPromptSeed={artPromptSeed}
+                    artPromptSeed={backgroundSeed}
                     initialArtUrl={artPreview.url}
                     initialArtError={artPreview.error}
                     artReadiness={art.readiness}

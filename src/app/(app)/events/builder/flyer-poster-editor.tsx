@@ -7,6 +7,7 @@ import { buttonClass } from "@/components/ui";
 import { FLYER_LIMITS, POSTER_AGENDA_MAX, POSTER_LIMITS, type FlyerDesign, type PosterAgendaRow, type PosterContent } from "@/lib/events/flyer";
 import type { FlyerArtSetup } from "@/lib/events/flyer-art";
 import type { FlyerBrand } from "@/lib/events/flyer-brand";
+import type { OccasionSuggestion } from "@/lib/events/flyer-occasions";
 import { POSTER_ICONS, POSTER_ICON_LABEL, posterIconUri, type PosterIcon } from "@/lib/events/flyer-icons";
 
 import { uploadPartnerLogoAction } from "./flyer-art-actions";
@@ -57,6 +58,7 @@ export function FlyerPosterEditor({
   hasLogo,
   brand,
   art,
+  suggestions,
   defaults,
 }: {
   eventId: string;
@@ -67,6 +69,8 @@ export function FlyerPosterEditor({
   hasLogo: boolean;
   brand: FlyerBrand;
   art: FlyerArtSetup;
+  /** The occasions that suit this event, best first, with their reasons. */
+  suggestions?: readonly OccasionSuggestion[];
   /** The event's own words and date (what "Use the event's…" puts back). */
   defaults: { poster: PosterContent; venue_line: string };
 }) {
@@ -422,7 +426,7 @@ export function FlyerPosterEditor({
       </SectionBox>
 
       <SectionBox title="Art" note="The border and the picture along the bottom. The words, logos and layout are always drawn by the flyer maker.">
-        <FlyerArtPicker eventId={eventId} brand={brand} poster={poster} onPoster={setPoster} art={art} disabled={disabled} />
+        <FlyerArtPicker eventId={eventId} brand={brand} poster={poster} onPoster={setPoster} art={art} suggestions={suggestions} disabled={disabled} />
       </SectionBox>
     </div>
   );
