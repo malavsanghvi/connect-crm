@@ -13,10 +13,11 @@ import { listPeople } from "@/lib/data/people-list";
 import { todayInTz } from "@/lib/dates";
 import { explainError } from "@/lib/errors";
 import { peopleHomeRequested } from "@/lib/find/home";
+import { listsMenu } from "@/lib/find/lists";
 import { recentCookieName } from "@/lib/find/recents";
 import { parseAmountToCents } from "@/lib/money";
 import { AGE_BANDS, isAgeBand, relationshipLabel, tierLabel, type AgeBand } from "@/lib/people";
-import { canAccess } from "@/lib/permissions";
+import { canAccess, visibleNav } from "@/lib/permissions";
 import {
   chipsFor,
   FILTER_PARAM,
@@ -95,7 +96,8 @@ export async function PeopleV2({ session, sp }: { session: CrmSession; sp: RawSe
   const band: AgeBand = isAgeBand(bandParam) ? bandParam : "all";
   const keep: Record<string, string> = {
     ...fparams,
-    ...(view !== "households" ? { view } : {}),
+    // Every list address names its view: with none at all, /people is the People home.
+    view,
     ...(sort !== "name" ? { sort } : {}),
     ...(said ? { said } : {}),
     ...(view === "people" && band !== "all" ? { band } : {}),
@@ -109,7 +111,7 @@ export async function PeopleV2({ session, sp }: { session: CrmSession; sp: RawSe
   const seesReviews = canAccess(session, "householdRequests") || canAccess(session, "applications");
   const onlyEnding = filters.endingDays === ENDING_SOON_DAYS && Object.keys(fparams).length === 1;
   const quick: QuickChip[] = [
-    { key: "all", label: "All households", href: BASE, current: view === "households" && !hasFilters(filters) },
+    { key: "all", label: "All households", href: `${BASE}?view=households`, current: view === "households" && !hasFilters(filters) },
     { key: "duplicates", label: counts.duplicates === null ? "Possible duplicates" : `Possible duplicates · ${counts.duplicates}`, href: `${BASE}?view=duplicates`, current: view === "duplicates" },
     { key: "ending", label: counts.ending === null ? "Memberships ending soon" : `Memberships ending soon · ${counts.ending}`, href: `${BASE}?ending=${ENDING_SOON_DAYS}`, current: view === "households" && onlyEnding, title: `Active memberships that end in the next ${ENDING_SOON_DAYS} days` },
     ...(seesReviews ? [{ key: "reviews", label: counts.waiting === null ? "To review" : `To review · ${counts.waiting}`, href: `${BASE}?view=reviews`, current: view === "reviews", title: "Membership applications and family change requests waiting for a decision" }] : []),
@@ -118,13 +120,11 @@ export async function PeopleV2({ session, sp }: { session: CrmSession; sp: RawSe
 
   const model: PeopleWorkspaceModel = {
     view,
-    tabs: [
-      { key: "people", label: "People", href: hrefWith(BASE, {}, { view: "people", q: filters.q ?? undefined }), current: view === "people" },
-      { key: "households", label: "Households", href: hrefWith(BASE, {}, { ...fparams, sort: sort !== "name" ? sort : undefined, said: said || undefined }), current: view === "households" },
-      { key: "memberships", label: "Memberships", href: "/memberships/applications", current: false },
-    ],
+    title: view === "people" ? "People" : view === "reviews" ? "To review" : view === "duplicates" ? "Possible duplicates" : "Families",
+    lists: listsMenu(visibleNav(session).find((m) => m.key === "people")?.tabs ?? []),
     quick,
     ask: {
+      cookieName: recentCookieName(session.userId, center.id),
       said,
       unread: param(sp, "unread") === "1",
       filters,

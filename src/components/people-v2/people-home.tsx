@@ -55,7 +55,7 @@ function ProblemLine({ problem }: { problem: Problem }) {
 }
 
 /** "Lists": the whole lists, and the screens that stay as they are, behind the same permissions as today. No script needed. */
-function ListsMenu({ lists }: { lists: ListLink[] }) {
+export function ListsMenu({ lists }: { lists: ListLink[] }) {
   return (
     <details className="relative">
       <summary className="inline-flex min-h-11 cursor-pointer list-none items-center gap-1.5 rounded-[22px] border border-line bg-white px-[18px] text-[14px] font-bold text-ink [&::-webkit-details-marker]:hidden">

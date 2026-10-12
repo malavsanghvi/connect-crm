@@ -204,7 +204,7 @@ export function FindBox({ variant, cookieName, autoFocus = false }: { variant: "
           onChange={(e) => onChange(e.target.value)}
           onFocus={() => setOpen(true)}
           onKeyDown={onKeyDown}
-          className={`min-w-0 flex-1 bg-transparent text-ink outline-none placeholder:text-muted ${page ? "py-3 text-[18px]" : "py-2 text-[14px]"}`}
+          className={`min-w-0 flex-1 bg-transparent text-ink outline-none! placeholder:text-muted ${page ? "py-3 text-[18px]" : "py-2 text-[14px]"}`}
         />
         <kbd className="hidden shrink-0 rounded-md border border-line bg-canvas px-1.5 py-0.5 font-mono text-[11px] text-muted sm:inline" title={`Press ${mod} K from anywhere`}>
           {mod} K

@@ -11,16 +11,14 @@ import { explainError } from "@/lib/errors";
 import { householdIdsNeeded, toFindRows } from "@/lib/find/assemble";
 import { isChildRecord } from "@/lib/find/child";
 import { classifyInput, readsAsFilter } from "@/lib/find/classify";
-import { familyOfAdult, scoreFamily, scorePerson } from "@/lib/find/match";
 import { hitKindVisible, nameColumnFilter, personNameFilter, typedWords } from "@/lib/find/pattern";
-import { rankMatches } from "@/lib/find/rank";
+import { filterFor, rankCandidates } from "@/lib/find/search";
 import type { Classified, FamilyCandidate, FindFilter, FindResponse, IdentifierHit, PersonCandidate } from "@/lib/find/types";
 import { GLOBAL_SEARCH_MIN_CHARS } from "@/lib/global-search";
 import { can, canViewIdentifierKind } from "@/lib/permissions";
-import { tierLabel } from "@/lib/people";
-import { chipsFor, paramsFromFilters, type AskVocab } from "@/lib/people-v2/ask";
+import type { AskVocab } from "@/lib/people-v2/ask";
 import { loadZones } from "@/lib/people-v2/load";
-import { hrefWith, safeFilterText } from "@/lib/search-params";
+import { safeFilterText } from "@/lib/search-params";
 import type { CrmSession } from "@/lib/session";
 
 // The find box's lookup for the signed-in person. READ ONLY. Everything is read with the person's own database access (row level
@@ -47,17 +45,6 @@ type HouseholdRow = { id: string; display_name: string | null; household_number:
 type Link = { household_id: string; person_id: string; role: string; is_primary: boolean; joined_at: string | null };
 type RawHit = { kind: string; system: string | null; value: string; person_id: string | null; household_id: string | null };
 
-export type FindVocab = AskVocab;
-
-/** The address of "show these as a list" and the chips that say what was understood; null when the rule-based reader found no filter. */
-export function filterFor(session: CrmSession, text: string, vocab: AskVocab): FindFilter | null {
-  const reading = readsAsFilter(text, vocab);
-  if (!reading) return null;
-  const ctx = { zones: vocab.zones, fmt: communityFormat(session.center), tierLabel };
-  const chips = chipsFor(reading.filters, ctx).map((c) => c.label);
-  return { href: hrefWith("/people", {}, { ...paramsFromFilters(reading.filters), said: text.slice(0, 300) }), chips, understood: chips.join(" · ") };
-}
-
 const empty = (q: Classified, extra: Partial<FindResponse> = {}): FindResponse => ({ query: q.text, kind: q.kind, rows: [], more: 0, filter: null, problem: null, ...extra });
 
 /** Look up what was typed. Never throws: a part that fails is reported in `problem` and the rest is still shown. */
@@ -75,11 +62,12 @@ export async function findRecords(session: CrmSession, raw: string): Promise<Fin
   }
   const q = classifyInput(typed, vocab);
 
-  if (q.kind === "question") return empty(q, { filter: filterFor(session, typed, vocab) });
+  const fmt = communityFormat(session.center);
+  if (q.kind === "question") return empty(q, { filter: filterFor(typed, vocab, fmt) });
   let search = q;
   let filter: FindFilter | null = null;
   if (q.kind === "filter") {
-    filter = filterFor(session, typed, vocab);
+    filter = filterFor(typed, vocab, fmt);
     // What is left of the sentence after the filters are read (a name, an ID) is still looked up.
     const leftover = readsAsFilter(typed, vocab)?.filters.q ?? null;
     if (!leftover) return empty(q, { filter });
@@ -200,17 +188,12 @@ async function lookup(session: CrmSession, q: Classified, problems: string[]): P
     return h ? { id, displayName: h.display_name, householdNumber: h.household_number, hits: familyHits.get(id) ?? [] } : null;
   };
 
-  const scoredPeople = candidates.filter((c) => canSeeChildren || !c.isChild).flatMap((c) => scorePerson(q, c, rules) ?? []);
-  const scoredFamilies = [...families.keys()].flatMap((id) => {
+  const familyById = new Map<string, FamilyCandidate>();
+  for (const id of families.keys()) {
     const f = familyCandidate(id);
-    return f ? (scoreFamily(q, f, rules) ?? []) : [];
-  });
-  for (const p of scoredPeople) {
-    const family = p.item.householdId ? familyCandidate(p.item.householdId) : null;
-    const derived = family ? familyOfAdult(p, family) : null;
-    if (derived) scoredFamilies.push(derived);
+    if (f) familyById.set(id, f);
   }
-  const { items, more } = rankMatches(scoredPeople, scoredFamilies);
+  const { items, more } = rankCandidates(q, rules, candidates, familyById, { canSeeChildren });
 
   let cards = new Map<string, HouseholdCard>();
   const ids = householdIdsNeeded(items);

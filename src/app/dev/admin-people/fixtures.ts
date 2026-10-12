@@ -3,6 +3,7 @@
 
 import { communityFormat, moneyExample, moneyIn } from "@/lib/community-format";
 import type { HouseholdCard } from "@/lib/commands/types";
+import { listsMenu } from "@/lib/find/lists";
 import { AGE_BANDS, tierLabel } from "@/lib/people";
 import { chipsFor, FILTER_PARAM, filtersForNiva, readAsk, TIERS, type FilterKey, type Zone } from "@/lib/people-v2/ask";
 import { filterHouseholds, openTotal, pageOf, showingText, sortHouseholds, type BaseHousehold } from "@/lib/people-v2/list";
@@ -151,11 +152,8 @@ export function sampleModel(opts: { view: PeopleView; hh: string | null; niva: b
 
   return {
     view: opts.view,
-    tabs: [
-      { key: "people", label: "People", href: `${BASE}?view=people`, current: opts.view === "people" },
-      { key: "households", label: "Households", href: BASE, current: opts.view === "households" },
-      { key: "memberships", label: "Memberships", href: "/memberships/applications", current: false },
-    ],
+    title: opts.view === "people" ? "People" : opts.view === "reviews" ? "To review" : opts.view === "duplicates" ? "Possible duplicates" : "Families",
+    lists: listsMenu([{ href: "/people/directory" }, { href: "/people/voting" }, { href: "/memberships/applications" }]),
     quick: [
       { key: "all", label: "All households", href: BASE, current: false },
       { key: "duplicates", label: "Possible duplicates · 4", href: `${BASE}?view=duplicates`, current: opts.view === "duplicates" },
@@ -164,6 +162,7 @@ export function sampleModel(opts: { view: PeopleView; hh: string | null; niva: b
       { key: "save", label: "+ Save this view", href: null, current: false, comingNext: true, title: "Saved views are not built yet." },
     ],
     ask: {
+      cookieName: null,
       said: SAID,
       unread: false,
       filters,

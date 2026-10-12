@@ -3,6 +3,7 @@
 // before it gets here; households always come with their numbers and adults (never a name alone).
 
 import type { HouseholdCard } from "@/lib/commands/types";
+import type { ListLink } from "@/lib/find/lists";
 
 import type { AskChip, HouseholdFilters, Zone } from "./ask";
 import type { SortKey } from "./list";
@@ -20,11 +21,11 @@ export type Section<T> = { state: "ok"; data: T } | { state: "hidden"; reason: s
 
 export type Problem = { what: string; message: string };
 
-export type TabLink = { key: string; label: string; href: string; current: boolean };
-
 export type QuickChip = { key: string; label: string; href: string | null; current: boolean; comingNext?: boolean; title?: string };
 
 export type AskModel = {
+  /** The cookie that remembers recent families for the find box on a phone (null in the dev preview). */
+  cookieName: string | null;
   /** The sentence as the person typed it (kept in the box). */
   said: string;
   /** True when the box was used and nothing in it could be read. */
@@ -146,7 +147,10 @@ export type PanelState =
 
 export type PeopleWorkspaceModel = {
   view: PeopleView;
-  tabs: TabLink[];
+  /** The heading of this list: "Families", "People", "To review" or "Possible duplicates". */
+  title: string;
+  /** The Lists menu (the whole lists and the screens that stay), the same as on the People home. */
+  lists: ListLink[];
   quick: QuickChip[];
   ask: AskModel;
   /** "17 households", "$4,860.00" (null when balances are not visible). */
