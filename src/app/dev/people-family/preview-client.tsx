@@ -15,7 +15,7 @@ import { conflictSentence } from "@/lib/people-v2/inline-edit";
 //             phone-edit, phone-save, name, dob-child, address, child, conflict, error, access
 
 export type Scenario = "ok" | "conflict" | "error" | "access";
-export type Step = "phone-edit" | "phone-save" | "name" | "dob-child" | "address" | "child" | "none";
+export type Step = "phone-edit" | "phone-save" | "name" | "dob-child" | "address" | "child" | "more" | "more-phone" | "none";
 
 function fakeActions(scenario: Scenario): FamilyActions {
   return {
@@ -82,6 +82,8 @@ function run(step: Step, who: string) {
     });
   }
   if (step === "address") click(document, 'button[aria-label^="Edit the address"]');
+  if (step === "more") click(document, 'header button[aria-haspopup="menu"]');
+  if (step === "more-phone") click(document, '[data-testid="sticky-actions"] button[aria-haspopup="menu"]');
   if (step === "child") click(document, '[data-testid="child-row"] button[aria-expanded]');
 }
 

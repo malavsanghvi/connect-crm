@@ -34,7 +34,7 @@ export default async function PeopleFamilyPreview({ searchParams }: { searchPara
   const sp = (await searchParams) ?? {};
   const family = pick<FamilyKey>(one(sp.family), ["hassan", "adeyemi", "tanaka", "empty"], "hassan");
   const scenario = pick<Scenario>(one(sp.scenario), ["ok", "conflict", "error", "access"], "ok");
-  const step = pick<Step>(one(sp.do), ["phone-edit", "phone-save", "name", "dob-child", "address", "child", "none"], "none");
+  const step = pick<Step>(one(sp.do), ["phone-edit", "phone-save", "name", "dob-child", "address", "child", "more", "more-phone", "none"], "none");
   const model = familyFixture(family, { canEdit: one(sp.access) !== "view" });
   const who = model.adults[0].name;
   const target = step === "phone-edit" || step === "phone-save" ? (family === "adeyemi" ? "Tunde Adeyemi" : who) : who;
