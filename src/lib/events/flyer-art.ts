@@ -18,7 +18,6 @@
 // Relative imports: the background service (worker/) imports this file and does not know the "@/" alias.
 import {
   FLYER_OCCASIONS,
-  LEGACY_OCCASIONS,
   occasionsFor,
   preselectOccasion,
   suggestOccasion,
@@ -50,19 +49,9 @@ export function occasionFor(name: string, description?: string | null, community
   return preselectOccasion(suggestOccasion({ title: name, description, kind: null }));
 }
 
-/**
- * The occasions the database stores AI frames and scenes for (app.events_request_flyer_art and app.flyer_art_name_ok,
- * 0585: a test keeps this equal to that migration). The other occasions have drawn art and AI backgrounds; their AI
- * frames and scenes need those two functions to accept them (a later migration).
- */
-export const FLYER_AI_LAYER_OCCASIONS: readonly FlyerOccasion[] = LEGACY_OCCASIONS;
-
-export function canAskAiLayer(occasion: FlyerOccasion): boolean {
-  return FLYER_AI_LAYER_OCCASIONS.includes(occasion);
-}
-
-export const AI_LAYER_NOT_YET =
-  "AI frames and scenes for this occasion are not available yet: the drawn art works, and an AI background can be asked for under the other templates.";
+// AI frames and scenes work for every occasion in the catalog: the database checks only an occasion key's SHAPE
+// (0703, FLYER_OCCASION_KEY_SHAPE), and the allow-list is the catalog, checked here (isFlyerOccasion) by the portal's
+// actions, the cache paths below and the background service.
 
 // ── Layers ───────────────────────────────────────────────────────────────────
 
