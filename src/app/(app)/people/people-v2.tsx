@@ -1,6 +1,8 @@
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
 import { NoAccess } from "@/components/ui";
+import { PeopleHome } from "@/components/people-v2/people-home";
 import { PeopleWorkspace } from "@/components/people-v2/people-workspace";
 import type { PendingReviewsData } from "@/lib/commands/catalog/people/pending-reviews";
 import type { SuggestDuplicatesData } from "@/lib/commands/catalog/people/suggest-duplicates";
@@ -10,6 +12,8 @@ import { communityFormat, moneyExample, moneyIn } from "@/lib/community-format";
 import { listPeople } from "@/lib/data/people-list";
 import { todayInTz } from "@/lib/dates";
 import { explainError } from "@/lib/errors";
+import { peopleHomeRequested } from "@/lib/find/home";
+import { recentCookieName } from "@/lib/find/recents";
 import { parseAmountToCents } from "@/lib/money";
 import { AGE_BANDS, isAgeBand, relationshipLabel, tierLabel, type AgeBand } from "@/lib/people";
 import { canAccess } from "@/lib/permissions";
@@ -25,6 +29,7 @@ import {
   type FilterKey,
   type HouseholdFilters,
 } from "@/lib/people-v2/ask";
+import { loadPeopleHome } from "@/lib/people-v2/home";
 import { showingText, sortKey } from "@/lib/people-v2/list";
 import { ENDING_SOON_DAYS, loadHouseholdList, loadHouseholdPanel, loadQuickCounts, loadZones } from "@/lib/people-v2/load";
 import { peopleView, type DuplicateItem, type DuplicateSide, type PanelState, type PeopleWorkspaceModel, type Problem, type QuickChip } from "@/lib/people-v2/model";
@@ -35,8 +40,10 @@ const BASE = "/people";
 const PAGE_SIZE = 25;
 
 /**
- * People in the new look: the household list with the ask-your-data box and the household card beside it, plus the people list,
- * what is waiting for a decision and the suggested duplicates. The classic People page is untouched (page.tsx picks by look).
+ * People in the new look. With no list address, /people is the People home: the one find box, the inbox, recent families, saved
+ * views and the Lists menu. With any list address (a filter, a view, a page, a selected household) it is the list: the household
+ * list with its filters as chips and the household card beside it, the people list, what is waiting for a decision and the suggested
+ * duplicates. The classic People page is untouched (page.tsx picks by look).
  */
 export async function PeopleV2({ session, sp }: { session: CrmSession; sp: RawSearchParams }) {
   if (!canAccess(session, "households")) {
@@ -48,6 +55,10 @@ export async function PeopleV2({ session, sp }: { session: CrmSession; sp: RawSe
     );
   }
   const { center } = session;
+  if (peopleHomeRequested(sp)) {
+    const model = await loadPeopleHome(session, (await cookies()).get(recentCookieName(session.userId, center.id))?.value);
+    return <PeopleHome model={model} />;
+  }
   const fmt = communityFormat(center);
   const year = Number(todayInTz(center.time_zone).slice(0, 4));
   const view = peopleView(param(sp, "view"));
