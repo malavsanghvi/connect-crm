@@ -8,7 +8,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 
 import { fromDateTimeLocal } from "@/lib/events/format";
 import { toEntries, toFormData } from "@/lib/event-creator/mapping";
@@ -82,6 +82,8 @@ export type EventCreatorProps = {
 export function EventCreator({ ctx, initialDraft, existing, api, sessionParam = null, initialStep, demo = false }: EventCreatorProps) {
   const router = useRouter();
   const [draft, setDraft] = useState(initialDraft);
+  // The flyer panel saves the flyer itself (approving it): keep the draft's copy in step, so the readiness list follows.
+  const onFlyerChange = useCallback((path: string | null) => setDraft((d) => (d.flyer_path === (path ?? "") ? d : { ...d, flyer_path: path ?? "" })), []);
   const [savedKey, setSavedKey] = useState<string | null>(() => (initialDraft.id ? draftKey(initialDraft) : null));
   // This browser's memory of the cards already passed for this draft (a convenience; the draft itself is in the database).
   const storeKey = initialDraft.id ? passedKey(initialDraft.id) : null;
@@ -344,7 +346,7 @@ export function EventCreator({ ctx, initialDraft, existing, api, sessionParam = 
           </div>
 
           <aside aria-label="Preview" className={`min-w-0 flex-col gap-4 ${pane === "questions" ? "hidden @[1000px]:flex" : "flex"}`}>
-            <FlyerSlot eventId={draft.id} name={draft.name} startsAt={fromDateTimeLocal(draft.starts_at, ctx.tz) ? draft.starts_at : null} venue={draft.venue.trim() || null} kindKey={ctx.community.kindKey} />
+            <FlyerSlot eventId={draft.id} name={draft.name} startsAt={fromDateTimeLocal(draft.starts_at, ctx.tz) ? draft.starts_at : null} venue={draft.venue.trim() || null} kindKey={ctx.community.kindKey} onFlyerChange={onFlyerChange} />
             <EventPreview draft={draft} ctx={ctx} existing={existing} mode={previewMode} onMode={setPreviewMode} />
             <ReadinessList readiness={readiness} onGo={go} />
           </aside>

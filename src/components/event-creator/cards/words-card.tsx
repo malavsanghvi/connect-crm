@@ -30,12 +30,12 @@ export function WordsCard({ draft, set, ctx }: CardProps) {
         </div>
       ) : null}
       <Note>
-        The flyer draft beside the questions uses these words.{" "}
+        The flyer draft beside the questions uses these words: approve it there, then publish or schedule it.{" "}
         {draft.id ? (
           <>
-            The full flyer maker (templates, sizes, your brand kit and AI art) is in the{" "}
+            To change its words by hand, use a photo or upload your own file, open the{" "}
             <Link className={linkClass} href={`/events/builder?event=${draft.id}#flyer`}>
-              Advanced form
+              full flyer maker
             </Link>
             .
           </>

@@ -8,6 +8,9 @@ vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 import EventFlyerPanelPreview from "@/app/dev/event-flyer-panel/page";
 import { FIXTURES, PREVIEW_KINDS, sampleSetup } from "@/app/dev/event-flyer-panel/fixtures";
 import { POST as render } from "@/app/dev/event-flyer-panel/render/route";
+import { FlyerSlot } from "@/components/event-creator/flyer-slot";
+import { startInstant } from "@/components/event-creator/flyer/flyer-panel";
+import { FEATURE_MAP, FIELD_MAP, hrefOf } from "@/lib/event-creator/fields";
 import { approvalState, publishState } from "@/lib/events/publish-schedule";
 
 // The dev-only preview of the event creator's flyer and publish panel (src/app/dev/event-flyer-panel): sample events for a
@@ -57,4 +60,24 @@ describe("the dev preview of the flyer and publish panel", () => {
     expect(photo.status).toBe(422);
     expect((await post({ design: { nope: true } })).status).toBe(400);
   }, 60_000);
+});
+
+describe("the panel in the guided creator's slot", () => {
+  it("renders the flyer panel, which waits for card 1 before drawing", () => {
+    const html = renderToStaticMarkup(FlyerSlot({ eventId: null, name: "", startsAt: null, venue: null, kindKey: "church" }));
+    expect(html).toContain('id="flyer-panel"');
+    expect(html).toContain("The flyer is drawn as soon as the event has a name and a date.");
+  });
+
+  it("reads the creator's wall-clock start in the community's zone, and an ISO instant as it is", () => {
+    expect(startInstant("2026-11-08T18:00", "America/Chicago")).toBe("2026-11-09T00:00:00.000Z");
+    expect(startInstant("2026-11-09T00:00:00Z", "America/Chicago")).toBe("2026-11-09T00:00:00Z");
+    expect(startInstant(null, "America/Chicago")).toBeNull();
+    expect(startInstant("soon", "America/Chicago")).toBeNull();
+  });
+
+  it("is where the creator's parity map sends the flyer and publishing", () => {
+    for (const p of [FIELD_MAP.flyer_path, FIELD_MAP.flyer_source, FEATURE_MAP["card:Flyer maker"]]) expect(hrefOf(p, "e-1")).toBe("/events/new?event=e-1#flyer-panel");
+    for (const p of [FIELD_MAP.status, FIELD_MAP.intent, FEATURE_MAP["card:Publish"]]) expect(hrefOf(p, "e-1")).toBe("/events/new?event=e-1#publish-box");
+  });
 });

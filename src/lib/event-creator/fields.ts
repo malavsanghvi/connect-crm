@@ -14,8 +14,10 @@ import type { CardId, CreatorCtx, Place } from "./types";
 export const FIELD_MAP: Record<string, Place> = {
   // BuilderEvent and the form, card by card
   id: "what", // the draft row is created when card 1 is answered, so everything after it has an event id
-  status: "review", // stays "draft": the Review card says so and links to the event page, where a person publishes
-  intent: "review", // the creator always saves "draft" (saveEventDraftInPlace); publishing happens on the event page
+  // The creator's cards always save "draft" (saveEventDraftInPlace); a person publishes, now or at a chosen time, in the flyer
+  // panel's publish box beside the cards (after approving the flyer), or on the event page.
+  status: "link:/events/new?event=[id]#publish-box",
+  intent: "link:/events/new?event=[id]#publish-box",
   name: "what",
   starts_at: "what",
   ends_at: "what",
@@ -37,9 +39,10 @@ export const FIELD_MAP: Record<string, Place> = {
   lunch_slot_minutes: "help",
   lunch_seats_per_slot: "help",
   description: "words",
-  // The flyer maker is the builder's flyer panel; the creator's flyer slot (EV-B) replaces this link once it lands.
-  flyer_path: "words",
-  flyer_source: "words",
+  // The flyer panel beside the cards (the slot) makes, approves and saves the flyer; the full flyer maker stays one link away in
+  // it ("Open the full flyer maker": words by hand, photos, uploads, downloads).
+  flyer_path: "link:/events/new?event=[id]#flyer-panel",
+  flyer_source: "link:/events/new?event=[id]#flyer-panel",
   reminder_enabled: "sending",
   confirmation_hours_before: "sending",
   rsvp_opens_at: "more",
@@ -60,9 +63,9 @@ export const FEATURE_MAP: Record<string, Place> = {
   "card:Details and audience": "what",
   "card:Lunch slots": "help",
   "card:Preview with these settings": "help", // the slot engine's preview, beside the meal settings
-  "card:Publish": "link:/events/[id]", // never from the creator: a person publishes on the event page
+  "card:Publish": "link:/events/new?event=[id]#publish-box", // the publish box beside the cards: publish now or schedule
   "card:More settings": "more",
-  "card:Flyer maker": "words",
+  "card:Flyer maker": "link:/events/new?event=[id]#flyer-panel", // the flyer panel; it links to the full flyer maker
   // The event page's tabs (events/[id]/page.tsx): what is set up after saving
   "tab:details": "review", // "Open the event page"; custom fields (More details) live there
   "tab:checklist": "help", // checklist items are added on the Help card; lessons learned on the tab

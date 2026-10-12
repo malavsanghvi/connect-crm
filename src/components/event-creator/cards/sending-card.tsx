@@ -90,7 +90,7 @@ export function SendingCard({ draft, set, ctx, api }: CardProps) {
           <ComingNext />
         </div>
         <div className="flex flex-wrap items-center justify-between gap-2 rounded-[12px] border border-line bg-ground px-3.5 py-2.5">
-          <span className="text-[14px] text-ink-2">Publishing to your website, Facebook and Instagram from here</span>
+          <span className="text-[14px] text-ink-2">Posting the flyer to Facebook and Instagram (the website, the member app and the calendar are in the publish box beside the questions)</span>
           <ComingNext />
         </div>
       </section>

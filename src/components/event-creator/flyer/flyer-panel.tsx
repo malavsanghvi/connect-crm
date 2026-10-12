@@ -13,7 +13,7 @@
 // it needs by itself (loadFlyerPanelAction), so the creator only passes the event's id and words.
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
 import { readFlyerAnswer, postFlyer, type FlyerAnswer } from "@/app/(app)/events/builder/flyer-panel";
 import { FlyerArtPicker } from "@/app/(app)/events/builder/flyer-art-picker";
@@ -39,20 +39,23 @@ import {
   type FlyerDesign,
 } from "@/lib/events/flyer";
 import { FLYER_LAYER_LABEL, NO_GEMINI_KEY, formatArtCost } from "@/lib/events/flyer-art";
+import { fromDateTimeLocal } from "@/lib/events/format";
 import { approvalState, drawnTakes, nextDrawnTake } from "@/lib/events/publish-schedule";
 
+import type { FlyerSlotProps } from "../flyer-slot";
 import { PublishBox } from "./publish-box";
 
-/** The props the creator's flyer slot passes (src/components/event-creator/flyer-slot.tsx). */
-export type FlyerSlotProps = {
-  eventId: string | null;
-  name: string;
-  /** ISO instant, or null before the "when" card is answered. */
-  startsAt: string | null;
-  venue: string | null;
-  /** The creator's key for the kind of event; the art follows the organization's kind (useKind), not this. */
-  kindKey: string;
-};
+export type { FlyerSlotProps };
+
+/**
+ * The event's start as an instant. The creator passes its wall-clock answer ("2026-11-08T18:00", in the community's zone);
+ * an ISO instant (with Z or an offset) is taken as it is.
+ */
+export function startInstant(startsAt: string | null, tz: string): string | null {
+  if (!startsAt) return null;
+  if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2})?$/.test(startsAt)) return fromDateTimeLocal(startsAt, tz);
+  return Number.isNaN(Date.parse(startsAt)) ? null : startsAt;
+}
 
 /** What the panel does on the server: the real ones call the flyer maker and the Server Actions; the dev preview fakes them. */
 export type FlyerPanelServices = {
@@ -78,6 +81,12 @@ async function safely<T>(doing: string, fn: () => Promise<ActionResult<T>>): Pro
     console.error(`[event-creator/flyer] ${doing} failed:`, err);
     return { ok: false, error: `Could not ${doing} — ${NO_ANSWER}` };
   }
+}
+
+/** The services a page gives every flyer panel under it (the dev previews give stand-ins); none means the real ones. */
+const ServicesContext = createContext<FlyerPanelServices | null>(null);
+export function FlyerServicesProvider({ services, children }: { services: FlyerPanelServices; children: ReactNode }) {
+  return <ServicesContext.Provider value={services}>{children}</ServicesContext.Provider>;
 }
 
 export const realFlyerServices: FlyerPanelServices = {
@@ -125,11 +134,28 @@ function applyWords(design: FlyerDesign, before: Words, after: Words): FlyerDesi
  * The flyer slot's panel. Before the draft event exists (no id yet, or no name or date) it says the flyer appears as soon as
  * they are given. Then it loads its setup and shows the flyer and the publish box.
  */
-export function FlyerPanel({ eventId, name, startsAt, venue, services = realFlyerServices }: FlyerSlotProps & { services?: FlyerPanelServices }) {
+export function FlyerPanel({ eventId, name, startsAt, venue, onFlyerChange, services: given }: FlyerSlotProps & { services?: FlyerPanelServices }) {
+  const fromPage = useContext(ServicesContext);
+  const services = given ?? fromPage ?? realFlyerServices;
   const [setup, setSetup] = useState<FlyerPanelSetup | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
   const [tick, setTick] = useState(0);
   const ready = Boolean(eventId && name.trim() && startsAt);
+  // The creator saves the event as the cards are answered: after the event's words change, look again (shortly after).
+  const wordsKey = `${name}|${startsAt ?? ""}|${venue ?? ""}`;
+  const firstWords = useRef(wordsKey);
+  useEffect(() => {
+    if (firstWords.current === wordsKey) return;
+    firstWords.current = wordsKey;
+    const t = setTimeout(() => setTick((n) => n + 1), 1200);
+    return () => clearTimeout(t);
+  }, [wordsKey]);
+  // Tell the creator when the event's flyer changes (approving saves it), so its readiness list is right at once.
+  const flyerPath = setup?.event.flyer_path ?? null;
+  const loaded = setup !== null;
+  useEffect(() => {
+    if (loaded) onFlyerChange?.(flyerPath);
+  }, [loaded, flyerPath, onFlyerChange]);
 
   useEffect(() => {
     if (!ready || !eventId) return;
@@ -204,7 +230,8 @@ export function FlyerPanelView({
   const patch = (p: Partial<FlyerDesign>) => setDesign((d) => ({ ...d, ...p }));
 
   // The event's words follow the answers: what the design still shows from the event's previous words is replaced.
-  const words = useMemo(() => eventWords(setup, name, startsAt, venue), [setup, name, startsAt, venue]);
+  const startsIso = useMemo(() => startInstant(startsAt, setup.tz), [startsAt, setup.tz]);
+  const words = useMemo(() => eventWords(setup, name, startsIso, venue), [setup, name, startsIso, venue]);
   const wordsRef = useRef(words);
   useEffect(() => {
     const before = wordsRef.current;
@@ -275,7 +302,7 @@ export function FlyerPanelView({
   const artNote = setup.art.readiness.state === "ready" ? null : setup.art.readiness.state === "no_key" ? NO_GEMINI_KEY : setup.art.readiness.message;
 
   // ── Approval ──
-  const eventNow = { name: name || setup.event.name, starts_at: startsAt ?? setup.event.starts_at, ends_at: setup.event.ends_at, venue: venue ?? setup.event.venue };
+  const eventNow = { name: name || setup.event.name, starts_at: startsIso ?? setup.event.starts_at, ends_at: setup.event.ends_at, venue: venue ?? setup.event.venue };
   const approval = approvalState(setup.event, eventNow, check.ok ? check.design : null);
 
   const busyRef = useRef(false);
