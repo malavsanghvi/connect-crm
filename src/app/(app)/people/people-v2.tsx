@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
 import { NoAccess } from "@/components/ui";
+import { InboxError, InboxSection } from "@/components/people-v2/inbox/inbox-section";
 import { PeopleHome } from "@/components/people-v2/people-home";
 import { PeopleWorkspace } from "@/components/people-v2/people-workspace";
 import type { PendingReviewsData } from "@/lib/commands/catalog/people/pending-reviews";
@@ -31,6 +32,7 @@ import {
   type HouseholdFilters,
 } from "@/lib/people-v2/ask";
 import { loadPeopleHome } from "@/lib/people-v2/home";
+import { loadInbox } from "@/lib/people-v2/inbox-load";
 import { showingText, sortKey } from "@/lib/people-v2/list";
 import { ENDING_SOON_DAYS, loadHouseholdList, loadHouseholdPanel, loadQuickCounts, loadZones } from "@/lib/people-v2/load";
 import { peopleView, type DuplicateItem, type DuplicateSide, type PanelState, type PeopleWorkspaceModel, type Problem, type QuickChip } from "@/lib/people-v2/model";
@@ -58,7 +60,10 @@ export async function PeopleV2({ session, sp }: { session: CrmSession; sp: RawSe
   const { center } = session;
   if (peopleHomeRequested(sp)) {
     const model = await loadPeopleHome(session, (await cookies()).get(recentCookieName(session.userId, center.id))?.value);
-    return <PeopleHome model={model} />;
+    // Applications and family requests are decided in the row; a role without access to them keeps the counts the home always had.
+    const dup = model.inbox.find((t) => t.key === "duplicates");
+    const inbox = await loadInbox(session, dup ? { count: dup.count, href: dup.href } : null);
+    return <PeopleHome model={model} inbox={inbox ? inbox.ok ? <InboxSection model={inbox.model} /> : <InboxError message={inbox.error} /> : undefined} />;
   }
   const fmt = communityFormat(center);
   const year = Number(todayInTz(center.time_zone).slice(0, 4));
