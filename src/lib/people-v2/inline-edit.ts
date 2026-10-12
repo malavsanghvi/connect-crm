@@ -26,7 +26,21 @@ import {
 // ---------------------------------------------------------------------------
 // Fields and edit units
 // ---------------------------------------------------------------------------
-export type PersonFieldKey = "first_name" | "last_name" | "date_of_birth" | "gender" | "profession" | "employer" | "phone_e164" | "email" | "language" | "role";
+export type PersonFieldKey =
+  | "first_name"
+  | "last_name"
+  | "date_of_birth"
+  | "gender"
+  | "profession"
+  | "employer"
+  | "phone_e164"
+  | "email"
+  | "language"
+  | "role"
+  | "photo_opt_in"
+  | "new_member_contact_opt_in"
+  | "expertise_opt_in"
+  | "expertise_headline";
 export type HouseholdFieldKey =
   | "display_name"
   | "address_line1"
@@ -63,6 +77,12 @@ export const PERSON_UNITS = {
   dob: unit("dob", "birth date", ["date_of_birth"], true),
   gender: unit("gender", "gender", ["gender"]),
   profession: unit("profession", "profession", ["profession"]),
+  employer: unit("employer", "employer", ["employer"]),
+  // The person's own privacy choices (the slide-over's Privacy section): switches that save at once, and a headline.
+  photo: unit("photo", "photo consent", ["photo_opt_in"]),
+  newMember: unit("new-member", "choice to hear from new members", ["new_member_contact_opt_in"]),
+  expertise: unit("expertise", "expertise listing", ["expertise_opt_in"]),
+  expertiseHeadline: unit("expertise-headline", "expertise", ["expertise_headline"]),
 } as const satisfies Record<string, EditUnit>;
 
 export const HOUSEHOLD_UNITS = {
@@ -84,6 +104,10 @@ export const PERSON_EDITABLE: readonly PersonFieldKey[] = [
   "email",
   "language",
   "role",
+  "photo_opt_in",
+  "new_member_contact_opt_in",
+  "expertise_opt_in",
+  "expertise_headline",
 ];
 export const HOUSEHOLD_EDITABLE: readonly HouseholdFieldKey[] = [
   "display_name",
@@ -111,7 +135,8 @@ export const REASON_MAX = 300;
 // ---------------------------------------------------------------------------
 // Showing and checking values
 // ---------------------------------------------------------------------------
-const isSwitch = (key: string) => key === "directory_opt_in" || key === "physical_mail_opt_in";
+const isSwitch = (key: string) =>
+  key === "directory_opt_in" || key === "physical_mail_opt_in" || key === "photo_opt_in" || key === "new_member_contact_opt_in" || key === "expertise_opt_in";
 
 /** The text a stored value is shown as when it is not being edited. "" stands for nothing recorded. */
 export function displayValue(key: string, stored: string): string {

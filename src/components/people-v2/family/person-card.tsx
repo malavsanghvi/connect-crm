@@ -5,16 +5,35 @@ import { useState } from "react";
 
 import { RELATIONSHIP_OPTIONS, relationshipLabel } from "@/lib/people";
 import { avatarTone, initialsOf, toCheckContext, type AvatarTone, type FamilyCheck, type FamilyPerson } from "@/lib/people-v2/family-model";
-import { PERSON_UNITS, ageCrossing, checkDraft } from "@/lib/people-v2/inline-edit";
+import { PERSON_UNITS, ageCrossing, checkDraft, type EditUnit } from "@/lib/people-v2/inline-edit";
 
 import { ConflictPanel, FieldRow, INPUT, NameEditor, ValueButton, editorKeys, leftEditor, useFocusBack, SaveError } from "./inline-ui";
 import { useInlineEdit } from "./use-inline-edit";
+import { PersonMenu, type MenuPerson } from "../slideover/person-menu";
 
 // A person on the Family page. Adults are cards with their contact details; children are compact rows (D2: staff only, no contact
 // fields, never offered to Niva). Every value is click-to-edit when the viewer may edit people (people.manage): without it a value
 // is plain text, no pencil.
 
-export type PersonCtx = { householdId: string; canEdit: boolean; check: FamilyCheck; detailsHref: (personId: string) => string };
+export type PersonCtx = {
+  /** The household the page is about; null on the person's own page when they are in none. */
+  householdId: string | null;
+  canEdit: boolean;
+  check: FamilyCheck;
+  detailsHref: (personId: string) => string;
+  /** Where "Move to another family" and "Merge with another person" go (the existing screens); the card says nothing when left out. */
+  moveHref?: (personId: string) => string;
+  mergeHref?: (personId: string) => string;
+};
+
+/** What the ⋯ menu needs to know about a person. */
+export function menuPerson(p: FamilyPerson, ctx: PersonCtx): MenuPerson {
+  return { id: p.id, name: p.name, firstName: p.firstName, dateOfBirth: p.values.date_of_birth || null, householdIds: ctx.householdId ? [ctx.householdId] : [], isChild: p.isChild, deceased: p.deceased };
+}
+
+export function menuHrefs(p: FamilyPerson, ctx: PersonCtx) {
+  return { details: ctx.detailsHref(p.id), move: ctx.moveHref?.(p.id) ?? ctx.detailsHref(p.id), merge: ctx.mergeHref?.(p.id) ?? `/people/merge?person=${p.id}` };
+}
 
 const TONE: Record<AvatarTone, string> = {
   teal: "bg-[var(--v2-teal-tint)] text-[var(--v2-teal-ink)]",
@@ -47,7 +66,7 @@ export function Chip({ tone, children }: { tone: "blue" | "green" | "grey" | "su
   return <span className={`inline-flex min-h-6 items-center whitespace-nowrap rounded-full px-2.5 text-[12px] font-bold ${c}`}>{children}</span>;
 }
 
-const GENDER_CHOICES = [
+export const GENDER_CHOICES = [
   { value: "", label: "Not recorded" },
   { value: "female", label: "Female" },
   { value: "male", label: "Male" },
@@ -59,15 +78,16 @@ function target(p: FamilyPerson, ctx: PersonCtx) {
 }
 
 /** One value of one person: its own edit state, drawn as a row. */
-function PersonRow(props: {
+export function PersonRow(props: {
   person: FamilyPerson;
   ctx: PersonCtx;
-  unit: (typeof PERSON_UNITS)[keyof typeof PERSON_UNITS];
+  unit: EditUnit;
   fieldKey: string;
   label: string;
   kind?: "text" | "tel" | "email" | "select" | "date";
   placeholder: string;
   options?: { value: string; label: string }[];
+  wide?: boolean;
 }) {
   const { person: p, ctx, unit, fieldKey } = props;
   const edit = useInlineEdit({ unit, values: p.values, check: toCheckContext(ctx.check), owner: p.firstName, target: target(p, ctx) });
@@ -97,12 +117,13 @@ function PersonRow(props: {
       placeholder={props.placeholder}
       options={props.options}
       ageNote={ageNote}
+      wide={props.wide}
     />
   );
 }
 
 /** The person's name: a heading that edits in place (first and last name, with a reason). */
-function NameLine({ person: p, ctx, compact = false }: { person: FamilyPerson; ctx: PersonCtx; compact?: boolean }) {
+export function NameLine({ person: p, ctx, compact = false, large = false }: { person: FamilyPerson; ctx: PersonCtx; compact?: boolean; large?: boolean }) {
   const edit = useInlineEdit({ unit: PERSON_UNITS.name, values: p.values, check: toCheckContext(ctx.check), owner: p.firstName, target: target(p, ctx) });
   const open = edit.editing || edit.busy;
   const { button, restore } = useFocusBack(open);
@@ -113,7 +134,7 @@ function NameLine({ person: p, ctx, compact = false }: { person: FamilyPerson; c
   if (edit.state.phase === "conflict") return <ConflictPanel edit={edit} unit={PERSON_UNITS.name} />;
   if (edit.editing) return <NameEditor edit={edit} restore={restore} />;
   return (
-    <h3 className={`m-0 font-semibold text-ink ${compact ? "text-[15.5px]" : "text-[17px]"}`}>
+    <h3 className={`m-0 font-semibold text-ink ${large ? "font-display text-[22px] leading-tight" : compact ? "text-[15.5px]" : "text-[17px]"}`}>
       <ValueButton
         text={display}
         placeholder="Add a name"
@@ -122,14 +143,14 @@ function NameLine({ person: p, ctx, compact = false }: { person: FamilyPerson; c
         onStart={edit.start}
         busy={edit.busy}
         buttonRef={button}
-        className={compact ? "font-semibold" : "text-[17px] font-semibold"}
+        className={large ? "font-display text-[22px] font-semibold" : compact ? "font-semibold" : "text-[17px] font-semibold"}
       />
     </h3>
   );
 }
 
 /** Spouse, Parent, Sibling… next to the age. The primary member is a chip: that is changed under More. */
-function Relationship({ person: p, ctx }: { person: FamilyPerson; ctx: PersonCtx }) {
+export function Relationship({ person: p, ctx }: { person: FamilyPerson; ctx: PersonCtx }) {
   const edit = useInlineEdit({
     unit: PERSON_UNITS.relationship,
     values: p.values,
@@ -193,6 +214,7 @@ export function PersonCard({ person: p, ctx, orgMemberLabel }: { person: FamilyP
             {p.deceased ? <Chip tone="grey">In memory</Chip> : null}
           </div>
         </div>
+        <PersonMenu surface="card" person={menuPerson(p, ctx)} canEdit={ctx.canEdit} hasHousehold={ctx.householdId !== null} hrefs={menuHrefs(p, ctx)} today={ctx.check.today} />
       </div>
 
       <div className="mt-3">
@@ -256,19 +278,8 @@ export function PersonCard({ person: p, ctx, orgMemberLabel }: { person: FamilyP
   );
 }
 
-/** A label beside a value, the same grid as a field row (for the name and the relationship of a child). */
-function LabelledRow({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div className="grid grid-cols-[4.75rem_minmax(0,1fr)] items-start gap-x-3 py-0.5 sm:grid-cols-[5.25rem_minmax(0,1fr)]">
-      <span className="pt-[11px] text-[13px] text-muted md:pt-[7px]">{label}</span>
-      <div className="min-w-0 pt-1 md:pt-0.5">{children}</div>
-    </div>
-  );
-}
-
-/** A child, compact: name, relationship, age. No contact fields: "contact via parents". Open it to correct the name or birth date. */
+/** A child, compact: name, relationship, age. No contact fields ("contact via parents"). Open it to see or correct the rest: the birth date is in the slide-over. */
 export function ChildRow({ person: p, ctx }: { person: FamilyPerson; ctx: PersonCtx }) {
-  const [open, setOpen] = useState(false);
   return (
     <li data-testid="child-row" className="px-4 py-3">
       <div className="flex items-center gap-3">
@@ -279,45 +290,19 @@ export function ChildRow({ person: p, ctx }: { person: FamilyPerson; ctx: Person
           </p>
           <p className="m-0 text-[13px] text-muted">
             {[relationshipLabel(p.role, p.values.gender), p.age !== null ? `age ${p.age}` : "age not recorded", "contact via parents"].join(" · ")}
+            {p.deceased ? " · in memory" : ""}
           </p>
         </div>
-        <button
-          type="button"
-          onClick={() => setOpen((v) => !v)}
-          aria-expanded={open}
-          className="min-h-10 rounded-full border border-[var(--v2-line-input)] bg-white px-4 text-[13px] font-bold text-ink-2 hover:border-[var(--v2-blue)]"
+        <Link
+          href={ctx.detailsHref(p.id)}
+          scroll={false}
+          aria-label={`Open details for ${p.name}`}
+          className="inline-flex min-h-10 items-center rounded-full border border-[var(--v2-line-input)] bg-white px-4 text-[13px] font-bold text-ink-2 no-underline hover:border-[var(--v2-blue)]"
         >
-          {open ? "Close" : ctx.canEdit ? "Edit" : "Open"}
-        </button>
+          Open
+        </Link>
+        <PersonMenu surface="card" person={menuPerson(p, ctx)} canEdit={ctx.canEdit} hasHousehold={ctx.householdId !== null} hrefs={menuHrefs(p, ctx)} today={ctx.check.today} />
       </div>
-      {open ? (
-        <div className="mt-3 rounded-xl bg-[var(--v2-ground)] p-3">
-          <LabelledRow label="Name">
-            <NameLine person={p} ctx={ctx} compact />
-          </LabelledRow>
-          <LabelledRow label="Relationship">
-            <Relationship person={p} ctx={ctx} />
-          </LabelledRow>
-          <PersonRow person={p} ctx={ctx} unit={PERSON_UNITS.dob} fieldKey="date_of_birth" label="Birth date" kind="date" placeholder="Add a birth date" />
-          <PersonRow
-            person={p}
-            ctx={ctx}
-            unit={PERSON_UNITS.gender}
-            fieldKey="gender"
-            label="Gender"
-            kind="select"
-            placeholder="Add gender"
-            options={GENDER_CHOICES}
-          />
-          <Link
-            href={ctx.detailsHref(p.id)}
-            scroll={false}
-            className="mt-2 inline-flex min-h-10 items-center rounded-full border border-[var(--v2-line-input)] bg-white px-4 text-[13px] font-bold text-ink no-underline hover:border-[var(--v2-blue)]"
-          >
-            Open details
-          </Link>
-        </div>
-      ) : null}
     </li>
   );
 }
