@@ -39,7 +39,6 @@ export type Cleaned = { ok: true; name: string } | { ok: false; error: string };
 /** A view's name as it will be stored: one line, single spaces, no control characters, 1 to 60 characters (counted as people see them). */
 export function cleanViewName(raw: unknown): Cleaned {
   if (typeof raw !== "string") return { ok: false, error: "Give the view a name first." };
-  // eslint-disable-next-line no-control-regex
   const name = raw.replace(/[\u0000-\u001f\u007f\u2028\u2029]/g, " ").replace(/\s+/g, " ").trim();
   if (name === "") return { ok: false, error: "Give the view a name first." };
   if ([...name].length > MAX_NAME) return { ok: false, error: `Use ${MAX_NAME} characters or fewer for the name.` };

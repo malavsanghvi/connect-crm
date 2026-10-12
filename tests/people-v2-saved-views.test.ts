@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { filtersFromParams, NO_FILTERS, paramsFromFilters, readAsk } from "@/lib/people-v2/ask";
+import { filtersFromParams, NO_FILTERS, paramsFromFilters, readAsk, type HouseholdFilters } from "@/lib/people-v2/ask";
 import {
   cleanViewName,
   inOrder,
@@ -102,7 +102,7 @@ describe("opening a saved view", () => {
   });
 
   it("round-trips: what the list had is what the view opens", () => {
-    const filters = { ...NO_FILTERS, noEmail: true, notOnApp: true, band: "seniors" as const, zone: "11111111-1111-4111-8111-111111111111" };
+    const filters: HouseholdFilters = { ...NO_FILTERS, noEmail: true, notOnApp: true, band: "seniors", zone: "11111111-1111-4111-8111-111111111111" };
     const saved = viewToSave({ name: "Seniors off the app", list: "people", params: paramsFromFilters(filters), sort: null });
     expect(saved.ok).toBe(true);
     if (!saved.ok) return;
