@@ -12,7 +12,6 @@ import { UserMenuV2 } from "@/components/shell/user-menu-v2";
 import { WorkspaceRail } from "@/components/shell/workspace-rail";
 import { NivaBoundary } from "@/components/niva/niva-boundary";
 import { NivaDock } from "@/components/niva/niva-dock";
-import { NivaTopButton } from "@/components/niva/niva-top-button";
 import { activityRecordingOn } from "@/lib/activity/enabled";
 import { PRODUCT_NAME } from "@/lib/brand";
 import type { CrmSession } from "@/lib/session";
@@ -90,12 +89,7 @@ export function ShellV2({
         )}
         <div className="hidden min-w-0 flex-1 justify-center md:flex">{canSearch ? <GlobalSearch /> : null}</div>
         <div className="flex-1 md:hidden" />
-        {/* On a phone Niva's button is in the bottom bar. */}
-        <div className="hidden md:contents">
-          <NivaBoundary name="top bar button">
-            <NivaTopButton />
-          </NivaBoundary>
-        </div>
+        {/* Niva has one way in on this look: the rail item (the bottom bar on a phone) and Ctrl+J. */}
         <UserMenuV2 name={name} email={session.email} role={roleSummary(session)} roles={roleLabels} initials={userInitials} />
       </header>
 
