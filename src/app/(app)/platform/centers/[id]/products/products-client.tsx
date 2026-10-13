@@ -57,12 +57,20 @@ export function ProductsClient({
   const [working, startTransition] = useTransition();
   const requests = products.filter((p) => p.state === "requested");
 
-  function start(p: Product, turningOn: boolean, presetReason = "") {
+  function start(p: Product, turningOn: boolean, presetReason = "", reveal = false) {
     setOpen({ key: p.key, turningOn });
     setReason(presetReason);
     setCode("");
     setError(null);
     setDone(null);
+    // From the requests list the form opens in the products list: bring it into view and put the cursor in the code field.
+    if (reveal) {
+      requestAnimationFrame(() => {
+        const form = document.getElementById(`switch-${p.key}`);
+        form?.scrollIntoView({ behavior: "smooth", block: "center" });
+        form?.querySelector<HTMLInputElement>("input[inputmode='numeric']")?.focus({ preventScroll: true });
+      });
+    }
   }
 
   function confirm(p: Product, turningOn: boolean) {
@@ -76,12 +84,15 @@ export function ProductsClient({
       try {
         // A fresh code for every change: the step-up flow's own check, which upgrades the session for the change below.
         const verified = await verifyStepUpAction(code.trim());
+        // After any failed attempt the code is cleared: it was used (or wrong), so a retry asks for the one showing now.
         if (!verified.ok) {
+          setCode("");
           setError(codeFailed(verified.error));
           return;
         }
         const res = await setProductAction(centerId, p.key, p.name, turningOn, reason);
         if (!res.ok) {
+          setCode("");
           setError(res.error);
           return;
         }
@@ -92,6 +103,7 @@ export function ProductsClient({
         router.refresh();
       } catch (err) {
         console.error("[platform/products] the switch failed:", err);
+        setCode("");
         setError(`Could not turn ${turningOn ? "on" : "off"} ${p.name} — the server did not respond. Nothing was changed. Try again.`);
       }
     });
@@ -140,7 +152,11 @@ export function ProductsClient({
                   </div>
 
                   {isOpen ? (
-                    <div role="group" aria-label={`${turningOn ? "Turn on" : "Turn off"} ${p.name} for ${centerName}`} className="mt-3 space-y-3 rounded-[12px] border border-line bg-highlight p-3">
+                    <div
+                      id={`switch-${p.key}`}
+                      role="group"
+                      aria-label={`${turningOn ? "Turn on" : "Turn off"} ${p.name} for ${centerName}`}
+                      className="mt-3 space-y-3 rounded-[12px] border border-line bg-highlight p-3">
                       <h3 className="text-[13px] font-bold text-ink">
                         {turningOn ? "Turn on" : "Turn off"} {p.name} for {centerName}
                       </h3>
@@ -169,7 +185,7 @@ export function ProductsClient({
                           placeholder="For example: request from the community's admin, reviewed"
                           onChange={(e) => setReason(e.target.value)}
                         />
-                        <p className="text-[12px] text-muted">The reason is internal: it stays in Weaver&apos;s audit log. The community&apos;s admins get a message in fixed words, without it.</p>
+                        <p className="text-[12px] text-muted">The reason is saved in the audit log, which this community&apos;s admins can read. It is not included in the email.</p>
                       </div>
                       <div className="space-y-1">
                         <label htmlFor={codeId} className="block text-[13px] font-bold text-ink">
@@ -230,6 +246,7 @@ export function ProductsClient({
                           p,
                           true,
                           `Request from ${p.requestedByName ?? "the community"}${p.requestedAt ? ` (${formatDate(p.requestedAt, timeZone)})` : ""}, reviewed`,
+                          true,
                         )
                       }
                     >
