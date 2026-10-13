@@ -216,7 +216,7 @@ select pg_temp.assert((select jsonb_agg(jsonb_build_array(m->>'month', (m->>'thi
   'F · twelve months from April, each against the same month last year');
 
 -- G
-select pg_temp.assert((select j->'pledges' - 'ageing' from r) = '{"made": 5, "pledged_cents": 72500, "paid_cents": 33000, "written_off_cents": 5000}'::jsonb,
+select pg_temp.assert((select (j->'pledges') - 'ageing'::text from r) = '{"made": 5, "pledged_cents": 72500, "paid_cents": 33000, "written_off_cents": 5000}'::jsonb,
   'G · 5 pledges made this year (the cancelled one and the fees left out): 725.00 pledged, 330.00 paid, 50.00 written off');
 select pg_temp.assert((select j->'pledges'->'ageing' from r) = '[{"bucket": "not_due", "pledges": 1, "open_cents": 2500}, {"bucket": "1_30", "pledges": 0, "open_cents": 0},
     {"bucket": "31_60", "pledges": 0, "open_cents": 0}, {"bucket": "61_90", "pledges": 1, "open_cents": 30000},
