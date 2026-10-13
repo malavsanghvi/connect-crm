@@ -104,7 +104,7 @@ select pg_temp.assert((select bool_and(p.prosecdef and array_to_string(p.proconf
                                                                   '_module_on_snapshot', '_module_snapshot_diff', '_grandfather_module_grants')),
   'A · every function of 0740 runs as the definer with the pinned search path');
 select pg_temp.assert(app._module_chain('bolis') = array['giving', 'bolis'] and app._module_chain('people') = '{}'
-                      and app._module_chain('niva') = array['content', 'niva'] and app._module_chain('nope') = '{}',
+                      and app._module_chain('niva') = array['content', 'niva', 'ai'] and app._module_chain('nope') = '{}',
   'A · a module''s chain is itself and the non-core modules it needs, in catalog order (People is core, so never part of it)');
 
 -- ══ B. Grandfathering ════════════════════════════════════════════════════════
@@ -196,8 +196,9 @@ insert into app.center_users (center_id, user_id, person_id) values (:chm, :chme
 insert into app.store_categories (id, center_id, name) values (:storecat, :chm, 'Chamber store category 150');
 insert into app.bolis (id, center_id, name, kind) values (:boli, :jc, 'Temple boli 150', 'digital');
 select pg_temp.assert((select category_key from app.centers where id = :jc) = 'jain_center'
-                      and not exists (select 1 from app.center_module_grants where center_id in (:chm, :jc, :oc)),
-  'Fixtures · a new community has no grant rows: its kind''s default decides');
+                      and not exists (select 1 from app.center_module_grants where center_id in (:chm, :jc, :oc) and module_key <> 'ai')
+                      and (select count(*) from app.center_module_grants where center_id = :chm and module_key = 'ai' and reason = app._ai_trial_reason()) = 1,
+  'Fixtures · a new community has no grant rows: its kind''s default decides (0750: a new sandbox has one, the iWeaver trial)');
 
 -- ══ C. A chamber of commerce ═════════════════════════════════════════════════
 set role authenticated;
@@ -263,7 +264,7 @@ select pg_temp.assert_raises(format($$select app.set_module_grant(%L, 'store', t
   'Store is already enabled', 'C · granting it again changes nothing and says so');
 -- Who reads the grants.
 select pg_temp.claims(:chadmin, true);
-select pg_temp.assert((select count(*) from app.center_module_grants where center_id = :chm) = 1
+select pg_temp.assert((select count(*) from app.center_module_grants where center_id = :chm and module_key <> 'ai') = 1
                       and (select count(*) from app.store_categories where center_id = :chm) = 1
                       and (select enabled from app.my_modules(:chm) where key = 'store'),
   'C · the chamber''s administrator reads its grant, and Store''s rows; my_modules says on');
