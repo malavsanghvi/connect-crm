@@ -5,6 +5,7 @@ import {
   chipFor,
   codeFailed,
   dialogNote,
+  marketplaceHref,
   needMark,
   parseProduct,
   parseProducts,
@@ -177,6 +178,10 @@ describe("Platform › Communities › Products", () => {
 });
 
 describe("a product that is off says where to go", () => {
+  it("every link to the Marketplace is the one route, opened on the product when there is one", () => {
+    expect(marketplaceHref()).toBe("/settings/marketplace");
+    expect(marketplaceHref("website")).toBe("/settings/marketplace?product=website");
+  });
   it("the Marketplace for the five products, Settings › Modules for the rest", () => {
     expect(["ai", "website", "channels", "care", "matching"].every(isProductModule)).toBe(true);
     expect(isProductModule("giving")).toBe(false);
