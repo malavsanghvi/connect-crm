@@ -115,8 +115,9 @@ drop trigger if exists center_module_grants_close_requests on app.center_module_
 create trigger center_module_grants_close_requests after insert or update on app.center_module_grants
   for each row execute function app.center_module_grants_close_requests();
 
--- "We will tell your admins when it is ready" is kept: when a migration marks a product built (not_built -> available), every
--- community that asked is emailed (whoever asked, and the owner), and the interest row records when and whether it was queued.
+-- "We will tell your admins when it is ready" is kept: when a migration marks a product built (not_built -> available), the
+-- person who asked is emailed if they still manage the community's settings at that moment (a former administrator is not),
+-- and the interest row records when and whether it was queued.
 insert into app.message_templates (center_id, key, channel, language, subject, body)
 select null, v.key, v.channel::app.channel, 'en', v.subject, v.body
   from (values
@@ -129,6 +130,19 @@ The Weaver team')
   ) as v(key, channel, subject, body)
  where not exists (select 1 from app.message_templates t
                     where t.center_id is null and t.key = v.key and t.channel = v.channel::app.channel and t.language = 'en');
+
+-- Does this person still manage the community's settings: its owner, or an active role grant holding settings.manage (or *).
+-- The same rule as app.has_permission for a given user, without the platform-admin branch (an email to a customer).
+create or replace function app._marketplace_user_manages(p_center uuid, p_user uuid) returns boolean
+language sql stable security definer set search_path = app, public, extensions as $$
+  select p_user is not null and (
+         exists (select 1 from app.center_owners o where o.center_id = p_center and o.user_id = p_user)
+      or exists (select 1 from app.role_grants g join app.roles r on r.key = g.role_key
+                  where g.center_id = p_center and g.user_id = p_user and g.status = 'active'
+                    and g.scope_kind in ('center', 'platform', 'pathshala', 'store')
+                    and g.starts_at <= now() and (g.ends_at is null or g.ends_at > now())
+                    and (r.permissions ? 'settings.manage' or r.permissions ? '*')))
+$$;
 
 create or replace function app.marketplace_products_ready_notice() returns trigger
 language plpgsql security definer set search_path = app, public, extensions as $$
@@ -143,15 +157,15 @@ begin
     for v_to in
       select distinct lower(u.email)
         from auth.users u
-       where u.email is not null
-         and (u.id = i.requested_by or u.id in (select o.user_id from app.center_owners o where o.center_id = i.center_id))
+       where u.email is not null and u.id = i.requested_by and app._marketplace_user_manages(i.center_id, u.id)
     loop
       v_mail := app.platform_send_message(v_to, 'marketplace_product_ready',
                   jsonb_build_object('product', new.name, 'center_name', i.center_name), 'notification');
       v_sent := v_sent || app.message_status_text(v_mail);
     end loop;
     update app.marketplace_interest
-       set told_at = now(), told_status = case when cardinality(v_sent) = 0 then 'no one to email' else array_to_string(v_sent, ', ') end
+       set told_at = now(), told_status = case when cardinality(v_sent) = 0 then 'no one to email: the person who asked no longer manages the community''s settings'
+                                               else array_to_string(v_sent, ', ') end
      where center_id = i.center_id and product_key = new.key;
   end loop;
   return null;
@@ -178,14 +192,14 @@ language sql stable security definer set search_path = app, public, extensions a
 $$;
 
 -- Where a grant came from, in one word: kind_default (no row; the kind starts it on), weaver (a platform admin), grandfathered
--- (a migration kept what was in use), trial (a sandbox's iWeaver), trial_ended, or none (not granted, no row).
+-- (a migration kept what was in use), trial (a sandbox's iWeaver, 0750's is_trial), trial_ended, or none (not granted, no row).
 create or replace function app._marketplace_grant_source(p_center uuid, p_module text) returns text
 language sql stable security definer set search_path = app, public, extensions as $$
   select case
     when g.center_id is null then case when app._module_granted(p_center, p_module) then 'kind_default' else 'none' end
+    when g.is_trial and g.granted then 'trial'
+    when g.is_trial then 'trial_ended'
     when g.granted_by is not null then 'weaver'
-    when g.reason = app._ai_trial_reason() then 'trial'
-    when g.reason = app._ai_trial_ended_reason() then 'trial_ended'
     else 'grandfathered' end
   from (select 1) one
   left join app.center_module_grants g on g.center_id = p_center and g.module_key = p_module
@@ -217,7 +231,7 @@ begin
            pr.module_key is not null and app._module_granted(p_center, pr.module_key) as is_granted,
            coalesce(x.enabled is false, false) as is_paused,
            x.changed_at as x_at, x.changed_by as x_by, x.reason as x_reason,
-           g.granted_at as g_at, g.granted_by as g_by, g.reason as g_reason,
+           g.granted_at as g_at, g.granted_by as g_by, g.reason as g_reason, coalesce(g.is_trial, false) as g_trial,
            r.id as r_id, r.note as r_note, r.requested_at as r_at, r.requested_by as r_by,
            i.created_at as i_at
       from app.marketplace_products pr
@@ -256,7 +270,9 @@ begin
                       where ch.k <> p.module_key and not app._module_self_on(p_center, ch.k, app.module_availability(p_center, ch.k))),
                     '{}'::text[]) end,
          case when p.module_key is null then 'none' else app._marketplace_grant_source(p_center, p.module_key) end,
-         p.g_at, app._marketplace_person(p_center, p.g_by, v_platform), p.g_reason,
+         -- Weaver's reason is internal (the audit log and this screen for the Weaver team); the community sees only the
+         -- trial's fixed sentence.
+         p.g_at, app._marketplace_person(p_center, p.g_by, v_platform), case when v_platform or p.g_trial then p.g_reason end,
          case when p.is_paused then p.x_at end, case when p.is_paused then app._marketplace_person(p_center, p.x_by, v_platform) end,
          case when p.is_paused then p.x_reason end,
          p.r_id, p.r_note, p.r_at, app._marketplace_person(p_center, p.r_by, v_platform),
@@ -370,14 +386,15 @@ insert into app.message_templates (center_id, key, channel, language, subject, b
 select null, v.key, v.channel::app.channel, 'en', v.subject, v.body
   from (values
   ('marketplace_product_on', 'email', '{{product}} is on for {{center_name}}',
-   E'Hello,\n\nThe Weaver team turned on {{product}} for {{center_name}}.\n\nReason: {{reason}}\n\nYour administrators can pause and resume it in Settings › Marketplace. Pausing never deletes anything.\n\nThe Weaver team'),
+   E'Hello,\n\nWeaver turned on {{product}} for your community, {{center_name}}.\n\nYour administrators can pause and resume it in Settings › Marketplace. Pausing never deletes anything.\n\nThe Weaver team'),
   ('marketplace_product_off', 'email', '{{product}} is off for {{center_name}}',
-   E'Hello,\n\nThe Weaver team turned off {{product}} for {{center_name}}.\n\nReason: {{reason}}\n\nNothing was deleted: turning it on again brings everything back. An administrator can request it again in Settings › Marketplace.\n\nThe Weaver team')
+   E'Hello,\n\nWeaver turned off {{product}} for your community, {{center_name}}. Nothing was deleted: turning it on again brings everything back. An administrator can request it again in Settings › Marketplace.\n\nThe Weaver team')
   ) as v(key, channel, subject, body)
  where not exists (select 1 from app.message_templates t
                     where t.center_id is null and t.key = v.key and t.channel = v.channel::app.channel and t.language = 'en');
 
--- Turn a product on or off for a community. Returns 0740's answer {module, label, granted, paused, enabled} plus the product,
+-- Turn a product on or off for a community. The email says, in fixed words, what Weaver did; the reason stays in the audit log.
+-- Returns 0740's answer {module, label, granted, paused, enabled} plus the product,
 -- whether an open request was marked done, and whether the emails were queued.
 create or replace function app.marketplace_set_product(p_center uuid, p_product text, p_on boolean, p_reason text) returns jsonb
 language plpgsql security definer set search_path = app, public, extensions as $$
@@ -416,7 +433,7 @@ begin
        and (u.id = v_requester or u.id in (select o.user_id from app.center_owners o where o.center_id = p_center))
   loop
     v_mail := app.platform_send_message(v_to, case when p_on then 'marketplace_product_on' else 'marketplace_product_off' end,
-                jsonb_build_object('product', p.name, 'center_name', v_center.name, 'reason', v_reason), 'notification');
+                jsonb_build_object('product', p.name, 'center_name', v_center.name), 'notification');
     v_sent := v_sent || app.message_status_text(v_mail);
   end loop;
 
@@ -438,7 +455,7 @@ begin
   end if;
   return query
   with a as (
-    select l.id, l.occurred_at, l.actor_user_id, l.action, l.record_table, l.reason, coalesce(l.after, l.before) as row_now,
+    select l.id, l.occurred_at, l.actor_user_id, l.action, l.record_table, l.reason, l.client_app, coalesce(l.after, l.before) as row_now,
            l.before, l.after
       from app.audit_log l
      where l.center_id = p_center
@@ -454,8 +471,13 @@ begin
   select n.occurred_at, n.who,
          case n.record_table
            when 'center_module_grants' then
-             case when n.actor_user_id is null and (n.row_now->>'reason') = app._ai_trial_reason() then n.product || ' trial started (sandbox)'
-                  when n.actor_user_id is null and (n.row_now->>'reason') = app._ai_trial_ended_reason() then n.product || ' trial ended (went live)'
+             case when coalesce((n.row_now->>'is_trial')::boolean, false) and (n.row_now->>'granted')::boolean
+                    then n.product || ' trial started (sandbox)'
+                  when coalesce((n.row_now->>'is_trial')::boolean, false)
+                    then n.product || ' trial ended: the sandbox was promoted'
+                  -- A promotion (the worker, 0203) copies the sandbox's grants into the production community.
+                  when n.actor_user_id is null and n.client_app = 'job' and n.action like '%.insert'
+                    then n.product || ' copied from the sandbox when it was promoted'
                   when n.actor_user_id is null then n.product || ' included by a migration'
                   when (n.row_now->>'granted')::boolean then n.who || ' turned on ' || n.product
                   else n.who || ' turned off ' || n.product end
@@ -484,7 +506,8 @@ select app.activity_register(v.k, 'screen', 'portal', v.l, v.e)
   ) as v(k, l, e);
 
 -- ── 7. Grants ────────────────────────────────────────────────────────────────
-revoke execute on function app.center_module_grants_close_requests(), app.marketplace_products_ready_notice(), app._marketplace_person(uuid, uuid, boolean),
+revoke execute on function app.center_module_grants_close_requests(), app.marketplace_products_ready_notice(),
+  app._marketplace_user_manages(uuid, uuid), app._marketplace_person(uuid, uuid, boolean),
   app._marketplace_grant_source(uuid, text), app._marketplace_settings_manager(uuid, text) from public, anon, authenticated;
 grant execute on function app._marketplace_person(uuid, uuid, boolean), app._marketplace_grant_source(uuid, text) to service_role;
 revoke execute on function app.marketplace_states(uuid), app.marketplace_request(uuid, text, text),

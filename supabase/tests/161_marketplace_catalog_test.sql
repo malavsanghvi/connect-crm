@@ -55,6 +55,7 @@ $$;
 \set p_admin '''16100000-0000-4000-8000-0000000000a1'''
 \set p_member '''16100000-0000-4000-8000-0000000000a2'''
 \set h1 '''16100000-0000-4000-8000-0000000000b1'''
+\set admin2 '''16100000-0000-4000-8000-000000000006'''
 \set chm '''16100000-0000-4000-8000-0000000000c3'''
 
 -- ══ A. The shape ═════════════════════════════════════════════════════════════
@@ -107,7 +108,7 @@ select pg_temp.assert((select bool_and(has_function_privilege('authenticated', p
 -- ══ Fixtures ═════════════════════════════════════════════════════════════════
 insert into auth.users (id, email) values
   (:plat, 'plat161@platform.test'), (:admin, 'sam161@temple.test'), (:member, 'mira161@temple.test'),
-  (:otheradmin, 'other161@club.test'), (:chadmin, 'chet161@chamber.test');
+  (:otheradmin, 'other161@club.test'), (:chadmin, 'chet161@chamber.test'), (:admin2, 'ravi161@temple.test');
 insert into app.accounts (user_id, is_platform_admin) values (:plat, true)
   on conflict (user_id) do update set is_platform_admin = excluded.is_platform_admin;
 insert into auth.mfa_factors (id, user_id, friendly_name, factor_type, status) values
@@ -117,6 +118,8 @@ insert into app.centers (id, slug, name, short_name, state_region, status, time_
   (:oc, 'mk161b', 'Other Club 161', 'O161', 'TX', 'active', 'America/Chicago');
 insert into app.role_grants (center_id, user_id, role_key, reason) values
   (:c, :admin, 'center_admin', 'marketplace test 161'), (:oc, :otheradmin, 'center_admin', 'marketplace test 161');
+-- A second administrator, after Sam (who became the owner as the first one).
+insert into app.role_grants (center_id, user_id, role_key, reason) values (:c, :admin2, 'center_admin', 'marketplace test 161');
 insert into app.households (id, center_id, display_name) values (:h1, :c, 'Kumar161, Sam');
 insert into app.people (id, center_id, first_name, last_name, date_of_birth) values
   (:p_admin, :c, 'Sam', 'Kumar161', date '1975-01-01'), (:p_member, :c, 'Mira', 'Kumar161', date '1978-01-01');
@@ -244,14 +247,17 @@ select pg_temp.assert(((:'on1'::jsonb)->>'enabled')::boolean and ((:'on1'::jsonb
                       and (select status = 'done' and closed_by = :plat and closed_at is not null from app.marketplace_requests
                             where center_id = :c and product_key = 'website' and note like 'Our events%')
                       and (select count(*) from app.messages where template_key = 'marketplace_product_on' and to_address = 'sam161@temple.test'
-                              and subject = 'WeaverSite is on for Temple 161') = 1,
-  'E · Weaver turns WeaverSite on: it is on at once, the request is done, and the person who asked is emailed');
+                              and subject = 'WeaverSite is on for Temple 161'
+                              and body like '%Weaver turned on WeaverSite for your community, Temple 161.%'
+                              and body not like '%reviewed%' and body not like '%Reason%') = 1,
+  'E · Weaver turns WeaverSite on: it is on at once, the request is done, and the person who asked is emailed in fixed words (Weaver''s reason stays in the audit log)');
 select pg_temp.assert((select state = 'on' and source = 'weaver' and grant_reason = 'Request from Sam K., reviewed' and granted_by_name = 'plat161@platform.test'
                          from app.marketplace_states(:c) where key = 'website'),
   'E · the Weaver team sees who turned it on and why');
 select pg_temp.claims(:admin);
-select pg_temp.assert((select state = 'on' and source = 'weaver' and granted_by_name = 'Weaver' from app.marketplace_states(:c) where key = 'website'),
-  'E · the community sees "Weaver" turned it on, never a Weaver person''s address');
+select pg_temp.assert((select state = 'on' and source = 'weaver' and granted_by_name = 'Weaver' and grant_reason is null
+                         from app.marketplace_states(:c) where key = 'website'),
+  'E · the community sees "Weaver" turned it on, never a Weaver person''s address, and never Weaver''s internal reason');
 select pg_temp.claims(:admin, true);
 select app.set_module_enabled(:c, 'comms', false, 'Test 161: Communications paused');
 select pg_temp.claims(:plat, true);
@@ -264,7 +270,7 @@ select app.marketplace_set_product(:c, 'website', false, 'Trial over') as off1 \
 select pg_temp.assert(not ((:'off1'::jsonb)->>'enabled')::boolean and not ((:'off1'::jsonb)->>'request_done')::boolean
                       and pg_temp.st(:c, 'website') = 'available'
                       and (select count(*) from app.messages where template_key = 'marketplace_product_off' and to_address = 'sam161@temple.test'
-                              and subject = 'WeaverSite is off for Temple 161') = 1
+                              and subject = 'WeaverSite is off for Temple 161' and body not like '%Trial over%') = 1
                       and (:'off1'::jsonb)->>'email_status' = 'queued',
   'E · turning it off hides it again (nothing deleted), and the community''s owner (its first administrator) is emailed');
 select pg_temp.assert((select count(*) from app.marketplace_audit(:c) where what like '%WeaverSite%') = 6
@@ -281,11 +287,20 @@ select pg_temp.assert((select why from app.marketplace_audit(:c) where what = 'p
   'E · with the reason or the note, and the pauses and the interest too');
 select pg_temp.no_claims();
 
--- "We will tell your admins when it is ready": a migration marks WeCare built, and the community that asked is emailed.
+-- "We will tell your admins when it is ready": a migration marks a product built, and whoever asked is emailed while they
+-- still manage the community's settings. Ravi asks about CatchTheMatch, then stops being an administrator.
+select pg_temp.claims(:admin2);
+select app.marketplace_notify_me(:c, 'matching');
+select pg_temp.no_claims();
+update app.role_grants set status = 'revoked' where center_id = :c and user_id = :admin2;
 update app.marketplace_products set status = 'available' where key = 'care';
+update app.marketplace_products set status = 'available' where key = 'matching';
 select pg_temp.assert((select told_at is not null and told_status = 'queued' from app.marketplace_interest where center_id = :c and product_key = 'care')
                       and (select count(*) from app.messages where template_key = 'marketplace_product_ready' and to_address = 'sam161@temple.test'
                               and subject = 'WeCare is ready') = 1,
-  'F · when a product is marked built, every community that asked to be told is emailed, and the interest row records it');
+  'F · when a product is marked built, the person who asked to be told is emailed, and the interest row records it');
+select pg_temp.assert((select told_at is not null and told_status like 'no one to email%' from app.marketplace_interest where center_id = :c and product_key = 'matching')
+                      and not exists (select 1 from app.messages where template_key = 'marketplace_product_ready' and to_address = 'ravi161@temple.test'),
+  'F · someone who no longer manages the community''s settings is not emailed (and the row says so)');
 
 rollback;

@@ -1,15 +1,17 @@
 -- 0750 and 0751: the Marketplace products as modules (docs/MARKETPLACE_PACKS.md, docs/WECARE.md, docs/CATCH_THE_MATCH.md).
 --   A. The catalog: five neutral keys with brand labels, off for every kind (P5: the 0594 trigger would have made them on for a
---      Jain Center), WeCare named by the kind, Niva behind iWeaver, the helpers private.
---   B. Grandfathering by use, replayed on test communities: Niva on, Niva paused, AI flyer art in the last 90 days (a finished
---      job, or an event's AI flyer), art older than that, a WhatsApp account, a website draft, nothing. What each community
---      sees is the same before and after (the old modules), and each new module is on exactly where it was granted.
---   C. The sandbox trial of iWeaver: a new sandbox starts with it; it never reaches production (a copied trial row arrives off,
---      a sandbox that goes live in place has it turned off), and the finished promotion emails the owner.
+--      Jain Center), WeCare named by the kind, Niva behind iWeaver, trials marked by a column, the helpers private.
+--   B. Grandfathering by ACTUAL use, replayed on test communities: a Niva question, Niva for admins on, Niva switched on by the
+--      community, AI flyer art (a finished job, an event) in the last 90 days; older use, no use, a paused Niva; a WhatsApp
+--      account; a website draft; a sandbox (the trial only). The check compares with the intended new state (Niva off exactly
+--      where no AI was used), records who loses Niva, and fails closed when anything else would differ.
+--   C. The sandbox trial: _marketplace_sandbox_trial for an existing sandbox; a person's grant is never a trial; a real promotion
+--      (worker_promote_sandbox, promotion_copy_table) never carries it to production, emails the owner in plain words, and the
+--      product history names the promotion's copies.
 --   D. The gates: Niva is off wherever iWeaver is; the website draft functions need WeaverSite; the WhatsApp Business
 --      functions and the send-time check need CommunityConnect; the tables belong to their product; WhatsApp group links stay
 --      in Communications.
--- Everything runs in one transaction that is rolled back.
+-- Nothing here relies on the seed community's own grant. Everything runs in one transaction that is rolled back.
 \set ON_ERROR_STOP 1
 begin;
 create or replace function pg_temp.assert(cond boolean, label text) returns void language plpgsql as $$
@@ -26,9 +28,14 @@ exception when others then
   if position(lower(expect) in lower(sqlerrm)) = 0 then raise exception 'FAIL: % (got "%")', label, sqlerrm; end if;
   raise notice 'PASS: %', label;
 end $$;
-create or replace function pg_temp.claims(p_user uuid) returns void language plpgsql as $$
+-- Sign in as a user; a fresh 2FA check (aal2 and a totp step a minute ago) when asked.
+create or replace function pg_temp.claims(p_user uuid, p_step_up boolean default false) returns void language plpgsql as $$
 begin
-  perform set_config('request.jwt.claims', jsonb_build_object('sub', p_user, 'role', 'authenticated', 'aal', 'aal1')::text, true);
+  perform set_config('request.jwt.claims', jsonb_build_object(
+    'sub', p_user, 'role', 'authenticated', 'aal', case when p_step_up then 'aal2' else 'aal1' end,
+    'amr', case when p_step_up
+                then jsonb_build_array(jsonb_build_object('method', 'totp', 'timestamp', extract(epoch from now())::bigint - 60))
+                else jsonb_build_array(jsonb_build_object('method', 'otp', 'timestamp', extract(epoch from now())::bigint - 60)) end)::text, true);
   perform set_config('request.headers', '', true);
 end $$;
 create or replace function pg_temp.no_claims() returns void language plpgsql as $$
@@ -39,19 +46,24 @@ end $$;
 grant connect_worker to postgres;
 
 \set FIVE 'array[''ai'', ''website'', ''channels'', ''care'', ''matching'']'
-\set g_niva '''16000000-0000-4000-8000-0000000000c1'''
-\set g_paused '''16000000-0000-4000-8000-0000000000c2'''
-\set g_art '''16000000-0000-4000-8000-0000000000c3'''
-\set g_job '''16000000-0000-4000-8000-0000000000c4'''
-\set g_old '''16000000-0000-4000-8000-0000000000c5'''
-\set g_wa '''16000000-0000-4000-8000-0000000000c6'''
-\set g_site '''16000000-0000-4000-8000-0000000000c7'''
-\set g_none '''16000000-0000-4000-8000-0000000000c8'''
-\set sbx '''16000000-0000-4000-8000-0000000000d1'''
-\set sbx2 '''16000000-0000-4000-8000-0000000000d2'''
-\set prodcopy '''16000000-0000-4000-8000-0000000000d3'''
+\set FIX 'array[''gq160'', ''gd160'', ''gc160'', ''ga160'', ''gj160'', ''go160'', ''gx160'', ''gp160'', ''gw160'', ''gs160'', ''gb160-sandbox'']'
+\set g_q '''16000000-0000-4000-8000-0000000000c1'''
+\set g_admin '''16000000-0000-4000-8000-0000000000c2'''
+\set g_chose '''16000000-0000-4000-8000-0000000000c3'''
+\set g_art '''16000000-0000-4000-8000-0000000000c4'''
+\set g_job '''16000000-0000-4000-8000-0000000000c5'''
+\set g_old '''16000000-0000-4000-8000-0000000000c6'''
+\set g_none '''16000000-0000-4000-8000-0000000000c7'''
+\set g_paused '''16000000-0000-4000-8000-0000000000c8'''
+\set g_wa '''16000000-0000-4000-8000-0000000000ca'''
+\set g_site '''16000000-0000-4000-8000-0000000000cb'''
+\set g_sbx '''16000000-0000-4000-8000-0000000000cc'''
+\set sbx_a '''16000000-0000-4000-8000-0000000000d1'''
+\set sbx_p '''16000000-0000-4000-8000-0000000000d2'''
+\set sbx_c '''16000000-0000-4000-8000-0000000000d3'''
 \set admin '''16000000-0000-4000-8000-000000000001'''
 \set owner '''16000000-0000-4000-8000-000000000002'''
+\set plat '''16000000-0000-4000-8000-000000000003'''
 
 -- ══ A. The catalog ═══════════════════════════════════════════════════════════
 select pg_temp.assert((select array_agg(key || '=' || label || ':' || array_to_string(depends_on, ',') order by sort)
@@ -73,35 +85,45 @@ select pg_temp.assert(not exists (
 select pg_temp.assert((select depends_on from app.modules where key = 'niva') = '{content,ai}'
                       and app._module_chain('niva') = array['content', 'niva', 'ai'],
   'A · Niva needs iWeaver: its chain is Content, Niva and iWeaver');
+select pg_temp.assert(exists (select 1 from pg_attribute where attrelid = 'app.center_module_grants'::regclass and attname = 'is_trial'
+                                and atttypid = 'boolean'::regtype and attnotnull and not attisdropped),
+  'A · a trial is marked by a column (is_trial), never by its reason');
 select pg_temp.assert(not has_function_privilege('authenticated', 'app._marketplace_grandfather()', 'execute')
                       and not has_function_privilege('authenticated', 'app._marketplace_sandbox_trial()', 'execute')
+                      and not has_function_privilege('authenticated', 'app._marketplace_ai_use(uuid)', 'execute')
+                      and not has_function_privilege('authenticated', 'app._marketplace_0750_problems(text[])', 'execute')
                       and not has_function_privilege('anon', 'app._ai_trial_reason()', 'execute')
                       and (select bool_and(p.prosecdef and array_to_string(p.proconfig, ',') like '%search_path=app, public, extensions%')
                              from pg_proc p join pg_namespace n on n.oid = p.pronamespace
-                            where n.nspname = 'app' and p.proname in ('_marketplace_grandfather', '_marketplace_sandbox_trial', 'centers_ai_trial',
-                                                                      'center_module_grants_trial_rule', 'centers_ai_trial_end',
-                                                                      'sandbox_promotions_trial_notice')),
+                            where n.nspname = 'app' and p.proname in ('_marketplace_grandfather', '_marketplace_sandbox_trial', '_marketplace_ai_use',
+                                                                      '_marketplace_open_sandbox', '_marketplace_0750_problems',
+                                                                      '_marketplace_record_niva_off', 'centers_ai_trial',
+                                                                      'center_module_grants_trial_rule', 'center_module_grants_trial_mark',
+                                                                      'centers_ai_trial_end', 'sandbox_promotions_trial_notice')),
   'A · the helpers are private and run as the definer with the pinned search path');
-select pg_temp.assert(exists (select 1 from app.center_module_grants g where g.center_id = '00000000-0000-4000-8000-000000000001' and g.module_key = 'ai' and g.granted)
-                      and app.module_enabled('00000000-0000-4000-8000-000000000001', 'niva'),
-  'A · the seed community (which uses Niva) holds iWeaver, so its Niva stays on');
 
--- ══ B. Grandfathering by use ═════════════════════════════════════════════════
--- Eight communities (Jain Centers: Niva starts on for that kind). Three have Niva disabled by Weaver, so only flyer art
--- can grandfather iWeaver for them.
-insert into app.centers (id, slug, name, short_name, state_region, status, time_zone) values
-  (:g_niva,   'gn160', 'Niva 160',   'GN', 'TX', 'active', 'America/Chicago'),
-  (:g_paused, 'gp160', 'Paused 160', 'GP', 'TX', 'active', 'America/Chicago'),
-  (:g_art,    'ga160', 'Art 160',    'GA', 'TX', 'active', 'America/Chicago'),
-  (:g_job,    'gj160', 'Job 160',    'GJ', 'TX', 'active', 'America/Chicago'),
-  (:g_old,    'go160', 'Old 160',    'GO', 'TX', 'active', 'America/Chicago'),
-  (:g_wa,     'gw160', 'WhatsApp 160', 'GW', 'TX', 'active', 'America/Chicago'),
-  (:g_site,   'gs160', 'Site 160',   'GS', 'TX', 'active', 'America/Chicago'),
-  (:g_none,   'gx160', 'None 160',   'GX', 'TX', 'active', 'America/Chicago');
-insert into app.center_module_grants (center_id, module_key, granted, reason) values
-  (:g_art, 'niva', false, 'Test 160: Niva disabled'), (:g_job, 'niva', false, 'Test 160: Niva disabled'),
-  (:g_old, 'niva', false, 'Test 160: Niva disabled'), (:g_none, 'niva', false, 'Test 160: Niva disabled');
-insert into app.center_modules (center_id, module_key, enabled, reason) values (:g_paused, 'niva', false, 'Test 160: paused');
+-- ══ B. Grandfathering by actual use ══════════════════════════════════════════
+-- Eleven communities. All are Jain Centers, so Niva starts on for each by its kind: the kind's default is not use.
+insert into app.centers (id, slug, name, short_name, state_region, status, time_zone, rules) values
+  (:g_q,      'gq160', 'Question 160', 'GQ', 'TX', 'active', 'America/Chicago', '{}'),
+  (:g_admin,  'gd160', 'Admin Niva 160', 'GD', 'TX', 'active', 'America/Chicago', '{"assistant":{"enabled":true}}'),
+  (:g_chose,  'gc160', 'Chose Niva 160', 'GC', 'TX', 'active', 'America/Chicago', '{}'),
+  (:g_art,    'ga160', 'Art 160',    'GA', 'TX', 'active', 'America/Chicago', '{}'),
+  (:g_job,    'gj160', 'Job 160',    'GJ', 'TX', 'active', 'America/Chicago', '{}'),
+  (:g_old,    'go160', 'Old 160',    'GO', 'TX', 'active', 'America/Chicago', '{}'),
+  (:g_none,   'gx160', 'None 160',   'GX', 'TX', 'active', 'America/Chicago', '{}'),
+  (:g_paused, 'gp160', 'Paused 160', 'GP', 'TX', 'active', 'America/Chicago', '{}'),
+  (:g_wa,     'gw160', 'WhatsApp 160', 'GW', 'TX', 'active', 'America/Chicago', '{}'),
+  (:g_site,   'gs160', 'Site 160',   'GS', 'TX', 'active', 'America/Chicago', '{}');
+insert into app.centers (id, slug, name, environment, category_key, status) values
+  (:g_sbx, 'gb160-sandbox', 'Sandbox 160', 'sandbox', 'jain_center', 'onboarding');
+insert into app.niva_conversations (center_id, question, created_at) values
+  (:g_q, 'When is the temple open?', now() - interval '10 days'),
+  (:g_old, 'When is the temple open?', now() - interval '120 days'),
+  (:g_sbx, 'When is the temple open?', now() - interval '1 day');
+insert into app.center_modules (center_id, module_key, enabled, reason) values
+  (:g_chose, 'niva', true, 'Test 160: switched on by the community'),
+  (:g_paused, 'niva', false, 'Test 160: paused');
 insert into app.events (id, center_id, name, status, audience, confidential, flyer_source, flyer_generated_at) values
   ('16000000-0000-4000-8000-0000000000e1', :g_art, 'Art 160 event', 'published', 'public', false, 'ai', now() - interval '30 days'),
   ('16000000-0000-4000-8000-0000000000e2', :g_old, 'Old 160 event', 'published', 'public', false, 'ai', now() - interval '120 days');
@@ -111,93 +133,147 @@ insert into app.jobs (center_id, kind, payload, status, finished_at) values
   (:g_none, 'events.generate_flyer', '{}', 'failed', now() - interval '1 day');
 insert into app.whatsapp_accounts (center_id, display_name, status) values (:g_wa, 'WhatsApp 160', 'pending_meta');
 insert into app.sites (center_id, name) values (:g_site, 'Site 160');
-select pg_temp.assert(not exists (select 1 from app.center_module_grants where center_id in (:g_niva, :g_paused, :g_art, :g_job, :g_old, :g_wa, :g_site, :g_none)
-                                     and module_key = any (:FIVE)),
-  'B · a community created after 0750 holds none of the products: every kind starts them off');
+select pg_temp.assert(not exists (select 1 from app.center_module_grants g join app.centers c on c.id = g.center_id
+                                   where c.slug = any (:FIX) and g.module_key = any (:FIVE) and not (c.slug = 'gb160-sandbox' and g.is_trial)),
+  'B · a community created after 0750 holds none of the products; a new sandbox holds only the iWeaver trial');
 
 -- What each community saw under the rules before 0750 (Niva needing Content only), for the snapshot only.
 savepoint before_0750;
 update app.modules set depends_on = '{content}' where key = 'niva';
-select coalesce(array_agg(x order by x), '{}') as on_before from unnest(app._module_on_snapshot()) x
- where split_part(x, ':', 1) in (:g_niva, :g_paused, :g_art, :g_job, :g_old, :g_wa, :g_site, :g_none) \gset
+select app._module_on_snapshot() as on_before \gset
 rollback to savepoint before_0750;
-select pg_temp.assert((:g_niva || ':niva') = any (:'on_before'::text[]) and not ((:g_paused || ':niva') = any (:'on_before'::text[]))
-                      and not ((:g_art || ':niva') = any (:'on_before'::text[])),
-  'B · before 0750, Niva was on in the first community, paused in the second, disabled in the flyer-art ones');
-select pg_temp.assert(not app.module_enabled(:g_niva, 'niva'),
-  'B · without iWeaver, Niva would now be off: the grandfathering is what keeps it');
+select pg_temp.assert((select count(*) from unnest(:'on_before'::text[]) x
+                        where x in (:g_q || ':niva', :g_none || ':niva', :g_wa || ':niva', :g_old || ':niva', :g_sbx || ':niva')) = 5
+                      and not ((:g_paused || ':niva') = any (:'on_before'::text[])),
+  'B · before 0750, Niva was on in each of them by the kind''s default, except where the community paused it');
+select pg_temp.assert(coalesce((select array_agg(x order by x) from unnest(app._marketplace_0750_problems(:'on_before'::text[])) x
+                                 where split_part(x, ':', 1) = any (:FIX)), '{}')
+                        = array['ga160: ai would be off', 'ga160: niva would be off', 'gc160: ai would be off', 'gc160: niva would be off',
+                                'gd160: ai would be off', 'gd160: niva would be off', 'gj160: ai would be off', 'gj160: niva would be off',
+                                'gq160: ai would be off', 'gq160: niva would be off', 'gs160: website would be off', 'gw160: channels would be off'],
+  'B · without grants, the check names in words every community that would not be as intended (it fails closed)');
 
 select app._marketplace_grandfather() as added \gset
-select pg_temp.assert((select array_agg(c.slug::text || ':' || g.module_key order by c.slug, g.module_key)
+select pg_temp.assert((select array_agg(c.slug::text || ':' || g.module_key || case when g.is_trial then ' (trial)' else '' end
+                                        order by c.slug, g.module_key)
                          from app.center_module_grants g join app.centers c on c.id = g.center_id
-                        where g.center_id in (:g_niva, :g_paused, :g_art, :g_job, :g_old, :g_wa, :g_site, :g_none)
-                          and g.module_key = any (:FIVE) and g.granted)
-                        = array['ga160:ai', 'gj160:ai', 'gn160:ai', 'gp160:ai', 'gs160:ai', 'gs160:website', 'gw160:ai', 'gw160:channels']
-                      and :'added'::int >= 8,
-  'B · iWeaver where Niva is on or paused or AI art was made in 90 days, CommunityConnect where a WhatsApp account exists, WeaverSite where a draft exists, nothing else');
-select pg_temp.assert((select reason like 'Grandfathered (0750): Niva was on%' and granted_by is null from app.center_module_grants where center_id = :g_paused and module_key = 'ai')
+                        where c.slug = any (:FIX) and g.module_key = any (:FIVE) and g.granted)
+                        = array['ga160:ai', 'gb160-sandbox:ai (trial)', 'gc160:ai', 'gd160:ai', 'gj160:ai', 'gq160:ai', 'gs160:website', 'gw160:channels']
+                      and :'added'::int >= 7,
+  'B · iWeaver only where AI was used (a question, Niva for admins, Niva switched on, flyer art), never by the kind''s default or old use; a sandbox keeps only its trial; CommunityConnect and WeaverSite where used');
+select pg_temp.assert((select reason like 'Grandfathered (0750): Niva answered questions%' and granted_by is null and not is_trial
+                         from app.center_module_grants where center_id = :g_q and module_key = 'ai')
+                      and (select reason like 'Grandfathered (0750): Niva for admins%' from app.center_module_grants where center_id = :g_admin and module_key = 'ai')
+                      and (select reason like 'Grandfathered (0750): this community had switched Niva on itself%' from app.center_module_grants where center_id = :g_chose and module_key = 'ai')
                       and (select reason like 'Grandfathered (0750): AI flyer art%' from app.center_module_grants where center_id = :g_art and module_key = 'ai')
                       and (select reason like 'Grandfathered (0750): AI flyer art%' from app.center_module_grants where center_id = :g_job and module_key = 'ai')
                       and (select reason like 'Grandfathered (0750)%WhatsApp Business account%' from app.center_module_grants where center_id = :g_wa and module_key = 'channels')
                       and (select reason like 'Grandfathered (0750)%website draft%' from app.center_module_grants where center_id = :g_site and module_key = 'website'),
-  'B · each grant says why, with no person behind it');
-select pg_temp.assert(coalesce((select array_agg(x order by x) from unnest(app._module_snapshot_diff(:'on_before'::text[])) x
-                                 where split_part(x, ':', 1) in ('gn160', 'gp160', 'ga160', 'gj160', 'go160', 'gw160', 'gs160', 'gx160')
-                                   and split_part(split_part(x, ': ', 2), ' ', 1) <> all (:FIVE)), '{}') = '{}',
-  'B · every module that existed before is on and off exactly as before, in every one of the eight communities');
-select pg_temp.assert(app.module_enabled(:g_niva, 'niva') and not app.module_enabled(:g_paused, 'niva')
-                      and app.module_enabled(:g_paused, 'ai') and not app.module_enabled(:g_old, 'ai')
+  'B · each grant says which use kept it, with no person behind it');
+select pg_temp.assert(coalesce((select array_agg(x order by x) from unnest(app._marketplace_0750_problems(:'on_before'::text[])) x
+                                 where split_part(x, ':', 1) = any (:FIX)), '{}') = '{}',
+  'B · and now every one of them is as intended: Niva off exactly where no AI was used, everything else as before');
+select pg_temp.assert(app.module_enabled(:g_q, 'niva') and app.module_enabled(:g_admin, 'niva') and app.module_enabled(:g_chose, 'niva')
+                      and app.module_enabled(:g_sbx, 'niva')
+                      and not app.module_enabled(:g_none, 'niva') and not app.module_enabled(:g_old, 'niva')
+                      and not app.module_enabled(:g_wa, 'niva') and not app.module_enabled(:g_paused, 'niva')
                       and app.module_enabled(:g_wa, 'channels') and app.module_enabled(:g_site, 'website')
                       and not app.module_enabled(:g_none, 'website') and not app.module_enabled(:g_none, 'channels')
                       and not app.module_enabled(:g_none, 'care') and not app.module_enabled(:g_none, 'matching'),
-  'B · Niva stays on, a paused Niva stays paused (and comes back when resumed), and each product is on only where it was granted');
+  'B · Niva stays on where AI was used and in the sandbox (its trial), and goes off where only the kind''s default had it on');
 update app.center_modules set enabled = true, reason = 'Test 160: resumed' where center_id = :g_paused and module_key = 'niva';
-select pg_temp.assert(app.module_enabled(:g_paused, 'niva'), 'B · resuming the paused Niva brings it back (owner answer 1)');
-select pg_temp.assert(app._marketplace_grandfather() = 0, 'B · running it again adds nothing');
+select pg_temp.assert(not app.module_enabled(:g_paused, 'niva'),
+  'B · a Niva that was paused with no AI used stays off when resumed: it needs iWeaver, which Weaver grants on request');
+update app.center_modules set enabled = false, reason = 'Test 160: paused again' where center_id = :g_paused and module_key = 'niva';
+-- Who loses Niva is recorded, one audit entry per community, and named.
+select app._marketplace_record_niva_off(:'on_before'::text[]) as niva_off \gset
+select pg_temp.assert((select array_agg(x order by x) from unnest(:'niva_off'::text[]) x where x = any (:FIX)) = array['go160', 'gs160', 'gw160', 'gx160']
+                      and (select count(*) from app.audit_log where center_id = :g_none and action = 'marketplace.niva_off'
+                              and reason like 'Niva needs iWeaver since the Marketplace packs (0750)%') = 1
+                      and not exists (select 1 from app.audit_log where center_id in (:g_q, :g_sbx, :g_paused) and action = 'marketplace.niva_off'),
+  'B · the communities whose Niva goes off are named and each gets an audit entry saying why; nobody else does');
+-- Fail-closed: a state that is not the intended one stops the migration, in words.
+savepoint mismatch;
+update app.center_module_grants set granted = false where center_id = :g_q and module_key = 'ai';
+insert into app.center_modules (center_id, module_key, enabled, reason) values (:g_none, 'events', false, 'Test 160: a mismatch');
+select pg_temp.assert((select array_agg(x order by x) from unnest(app._marketplace_0750_problems(:'on_before'::text[])) x
+                        where split_part(x, ':', 1) = any (:FIX))
+                        = array['gq160: ai would be off', 'gq160: niva would be off', 'gx160: events would be off'],
+  'B · forced mismatches (iWeaver lost where used, Events changed elsewhere) are each named, so 0750 would stop');
+rollback to savepoint mismatch;
+select pg_temp.assert(app._marketplace_grandfather() = 0, 'B · running the grandfathering again adds nothing');
 
 -- ══ C. The sandbox trial ═════════════════════════════════════════════════════
-insert into auth.users (id, email) values (:admin, 'admin160@club.test'), (:owner, 'owner160@club.test');
+insert into auth.users (id, email) values (:admin, 'admin160@club.test'), (:owner, 'owner160@club.test'), (:plat, 'plat160@weaver.test');
+insert into app.accounts (user_id, is_platform_admin) values (:plat, true)
+  on conflict (user_id) do update set is_platform_admin = excluded.is_platform_admin;
 insert into app.centers (id, slug, name, environment, category_key, status) values
-  (:sbx, 'sbx160-sandbox', 'Sandbox 160', 'sandbox', 'jain_center', 'onboarding'),
-  (:sbx2, 'sbx160b-sandbox', 'Sandbox 160 B', 'sandbox', 'jain_center', 'onboarding');
-select pg_temp.assert((select granted and granted_by is null and reason = app._ai_trial_reason() from app.center_module_grants where center_id = :sbx and module_key = 'ai')
-                      and app.module_enabled(:sbx, 'ai') and app.module_enabled(:sbx, 'niva')
-                      and not exists (select 1 from app.center_module_grants where center_id = :sbx and module_key <> 'ai'),
-  'C · a new sandbox starts with the iWeaver trial (and only that), so Niva works there as it does for every prospect');
--- Promotion copies the grants (0740): the copied trial row arrives at the production community turned off, saying why.
-insert into app.centers (id, slug, name, short_name, state_region, status, time_zone) values
-  (:prodcopy, 'prod160', 'Production 160', 'P160', 'TX', 'onboarding', 'America/Chicago');
-insert into app.center_module_grants (center_id, module_key, granted, reason, granted_by, granted_at)
-select :prodcopy, g.module_key, g.granted, g.reason, g.granted_by, g.granted_at from app.center_module_grants g where g.center_id = :sbx;
-select pg_temp.assert((select not granted and reason = app._ai_trial_ended_reason() from app.center_module_grants where center_id = :prodcopy and module_key = 'ai')
-                      and not app.module_enabled(:prodcopy, 'ai') and not app.module_enabled(:prodcopy, 'niva')
-                      and app._ai_trial_ended_reason() like '%can request iWeaver in Settings › Marketplace.',
-  'C · a copied trial never reaches production: it arrives off, and its reason says iWeaver can be requested in the Marketplace');
--- A platform admin's own grant is never mistaken for the trial, whatever its reason says.
-insert into app.centers (id, slug, name, short_name, state_region, status, time_zone) values
-  ('16000000-0000-4000-8000-0000000000d4', 'pa160', 'Admin grant 160', 'PA', 'TX', 'onboarding', 'America/Chicago');
+  (:sbx_a, 'sbxa160-sandbox', 'Sandbox A 160', 'sandbox', 'jain_center', 'onboarding'),
+  (:sbx_p, 'sbxp160-sandbox', 'Sandbox P 160', 'sandbox', 'jain_center', 'onboarding');
+select pg_temp.assert((select granted and is_trial and granted_by is null and reason = app._ai_trial_reason()
+                         from app.center_module_grants where center_id = :sbx_a and module_key = 'ai')
+                      and app.module_enabled(:sbx_a, 'ai') and app.module_enabled(:sbx_a, 'niva'),
+  'C · a new sandbox starts with the iWeaver trial, so Niva works there as it does for every prospect');
+-- _marketplace_sandbox_trial for sandboxes that existed before: an open one gets the trial, a promoted one and production do not.
+delete from app.center_module_grants where center_id in (:sbx_a, :sbx_p) and module_key = 'ai';
+update app.centers set sandbox_for = :g_none where id = :sbx_p;
+select app._marketplace_sandbox_trial() as trials \gset
+select pg_temp.assert(:'trials'::int >= 1
+                      and (select is_trial and granted from app.center_module_grants where center_id = :sbx_a and module_key = 'ai')
+                      and not exists (select 1 from app.center_module_grants where center_id = :sbx_p and module_key = 'ai')
+                      and not exists (select 1 from app.center_module_grants where center_id = :g_none and module_key = 'ai')
+                      and app._marketplace_sandbox_trial() = 0,
+  'C · an existing open sandbox gets the trial; a promoted sandbox and a production community do not; running it again adds nothing');
+-- A person's grant is never a trial.
+update app.center_module_grants set granted_by = :plat, reason = 'Weaver turned it on', granted_at = now()
+ where center_id = :sbx_a and module_key = 'ai';
+select pg_temp.assert((select not is_trial from app.center_module_grants where center_id = :sbx_a and module_key = 'ai'),
+  'C · once a platform admin makes the grant, it is no longer a trial (and so it would carry over)');
+
+-- A real promotion by copy (worker_promote_sandbox, promotion_copy_table): the sandbox has its trial and a grant Weaver made.
+insert into app.centers (id, slug, name, short_name, environment, category_key, status) values
+  (:sbx_c, 'prodc160-sandbox', 'Copy Temple 160', 'CT160', 'sandbox', 'jain_center', 'onboarding');
+insert into app.center_owners (center_id, user_id) values (:sbx_c, :owner);
 insert into app.center_module_grants (center_id, module_key, granted, reason, granted_by)
-values ('16000000-0000-4000-8000-0000000000d4', 'ai', true, app._ai_trial_reason(), :admin);
-select pg_temp.assert((select granted from app.center_module_grants where center_id = '16000000-0000-4000-8000-0000000000d4' and module_key = 'ai'),
-  'C · only an iWeaver row with no person behind it is a trial');
--- A sandbox that goes live in place keeps its rows: its trial is turned off.
-update app.centers set environment = 'production' where id = :sbx2;
-select pg_temp.assert((select not granted and reason = app._ai_trial_ended_reason() from app.center_module_grants where center_id = :sbx2 and module_key = 'ai'),
-  'C · a sandbox that goes live in place has its trial turned off');
--- The finished promotion emails the owner (and whoever asked for it), and records that it did.
-insert into app.center_owners (center_id, user_id) values (:prodcopy, :owner);
-insert into app.golive_requests (id, center_id, requested_by) values ('16000000-0000-4000-8000-0000000000f1', :sbx, :admin);
-insert into app.sandbox_promotions (id, sandbox_id, golive_id, slug, reason, requested_by)
-values ('16000000-0000-4000-8000-0000000000f2', :sbx, '16000000-0000-4000-8000-0000000000f1', 'prod160', 'Test 160', :admin);
-update app.sandbox_promotions set status = 'done', production_id = :prodcopy, finished_at = now(), result = '{"in_place": false}'
- where id = '16000000-0000-4000-8000-0000000000f2';
-select pg_temp.assert((select result->>'ai_trial_notice' = 'queued, queued' and result->>'in_place' = 'false'
-                         from app.sandbox_promotions where id = '16000000-0000-4000-8000-0000000000f2')
-                      and (select count(*) from app.messages where template_key = 'marketplace_trial_ended'
-                              and to_address in ('owner160@club.test', 'admin160@club.test')) = 2
-                      and (select body like '%Production 160 is live.%request it in Settings › Marketplace%'
+values (:sbx_c, 'website', true, 'Test 160: Weaver turned on WeaverSite', :plat);
+insert into app.golive_requests (id, center_id, requested_by, status, first_approver, first_approved_at, second_approver, second_approved_at)
+values ('16000000-0000-4000-8000-0000000000f1', :sbx_c, :owner, 'approved', :plat, now(), :admin, now());
+select pg_temp.assert((select is_trial and granted from app.center_module_grants where center_id = :sbx_c and module_key = 'ai'),
+  'C · the sandbox to promote holds the trial');
+set local role authenticated;
+select pg_temp.claims(:owner, true);
+select app.promote_sandbox(:sbx_c, 'prodc160', 'Test 160: go live') as promotion \gset
+reset role;
+select pg_temp.no_claims();
+set local role connect_worker;
+select app.worker_promote_sandbox(:'promotion') as promoted \gset
+reset role;
+select pg_temp.no_claims();
+select id as prodc from app.centers where slug = 'prodc160' \gset
+select pg_temp.assert((select environment = 'production' and status = 'onboarding' from app.centers where id = :'prodc')
+                      and (select not granted and is_trial and reason = app._ai_trial_ended_reason()
+                             from app.center_module_grants where center_id = :'prodc' and module_key = 'ai')
+                      and not app.module_enabled(:'prodc', 'ai') and not app.module_enabled(:'prodc', 'niva')
+                      and (select granted and not is_trial and granted_by = :plat from app.center_module_grants where center_id = :'prodc' and module_key = 'website'),
+  'C · the copy never carries the trial to production (it arrives off, saying why), while a grant Weaver made is copied');
+select pg_temp.assert((select result->>'ai_trial_notice' = 'queued' from app.sandbox_promotions where id = :'promotion')
+                      and (select count(*) from app.messages where template_key = 'marketplace_trial_ended' and to_address = 'owner160@club.test') = 1
+                      and (select body like '%Copy Temple 160 has moved from its sandbox to production.%request it in Settings › Marketplace%'
+                                  and body not like '%is live%'
                              from app.messages where template_key = 'marketplace_trial_ended' and to_address = 'owner160@club.test'),
-  'C · when the promotion finishes, the owner and the person who promoted get an email in plain words, and the promotion records it');
+  'C · the owner who promoted is emailed in plain words what happened (not "live": the copy starts onboarding), and the promotion records it');
+select pg_temp.claims(:plat);
+select pg_temp.assert(exists (select 1 from app.marketplace_audit(:'prodc') where what = 'iWeaver trial ended: the sandbox was promoted')
+                      and exists (select 1 from app.marketplace_audit(:'prodc') where what = 'WeaverSite copied from the sandbox when it was promoted')
+                      and not exists (select 1 from app.marketplace_audit(:'prodc') where what like '%included by a migration%'),
+  'C · the product history names a promotion''s copies as such, not as a migration''s');
+select pg_temp.no_claims();
+-- A sandbox that goes live in place keeps its rows: its trial is turned off.
+update app.centers set environment = 'production' where id = :g_sbx;
+select pg_temp.assert((select not granted and is_trial and reason = app._ai_trial_ended_reason()
+                         from app.center_module_grants where center_id = :g_sbx and module_key = 'ai')
+                      and not app.module_enabled(:g_sbx, 'niva'),
+  'C · a sandbox that goes live in place has its trial turned off');
 
 -- ══ D. The gates ═════════════════════════════════════════════════════════════
 select pg_temp.assert(not app.module_enabled(:g_none, 'ai') and not app.module_enabled(:g_none, 'niva')
