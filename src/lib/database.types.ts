@@ -13223,6 +13223,13 @@ export type Database = {
         };
         Returns: { input: string; match_kind: string; household_id: string; person_id: string; household_name: string; household_number: string; org_household_id: string; primary_member: string; city: string }[];
       };
+      giving_upload_payment_repeats: {
+        Args: {
+          p_center: string;
+          p_rows: Json;
+        };
+        Returns: { row_no: number; receipt_number: string; received_on: string }[];
+      };
       giving_zelle_waiting: {
         Args: {
           p_center: string;
@@ -14957,6 +14964,17 @@ export type Database = {
           p_events: Json;
         };
         Returns: number;
+      };
+      record_donation_upload: {
+        Args: {
+          p_center: string;
+          p_idempotency_key: string;
+          p_file_name: string;
+          p_file_sha256: string;
+          p_reason: string;
+          p_rows: Json;
+        };
+        Returns: Json;
       };
       record_export: {
         Args: {
