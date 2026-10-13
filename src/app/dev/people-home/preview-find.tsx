@@ -37,6 +37,7 @@ export function PreviewFind({ mode, niva, type, into, children }: { mode: Previe
   const api: NivaApi = {
     enabled: niva !== "off",
     aiReady: niva === "on",
+    aiOff: false,
     commands: [],
     nav: [],
     context: { path: "/people" },

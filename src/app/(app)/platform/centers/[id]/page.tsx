@@ -60,13 +60,14 @@ export default async function PlatformCenterPage({ params }: { params: Promise<{
   ]);
   const moduleRows = statesRes.error ? [] : buildModuleRowsFromStates(statesRes.data ?? []);
   const kindLabel = (kinds.status === "ok" ? kinds.experiences.find((k) => k.key === center.category_key)?.label : null) ?? null;
-  // Niva for admins follows the `niva` module (0740): on only while it is enabled here and not paused by the community.
-  // Unknown (null) when the modules could not be read: the card says so instead of guessing.
-  const nivaRow = moduleRows.find((r) => r.key === "niva");
-  const nivaModuleOn: boolean | null = statesRes.error || !nivaRow ? null : nivaRow.enabled;
+  // Niva for admins (0755): its commands follow the switch here; its chat needs iWeaver (`ai`) as well, except on the onboarding
+  // pages while the community is onboarding. Unknown (null) when the modules could not be read: the card says so instead of
+  // guessing. No `ai` row (before the catalog has it) reads as on, as everywhere.
+  const aiRow = moduleRows.find((r) => r.key === "ai");
+  const chatAiOn: boolean | null = statesRes.error ? null : aiRow ? aiRow.enabled : true;
   const sandbox = center.environment === "sandbox";
   const assistantSwitch = assistantEnabled(center.rules);
-  const assistantOn = assistantSwitch && nivaModuleOn === true;
+  const assistantOn = assistantSwitch;
   const assistantTools = confirmToolChoices(center.rules);
   let aiKeySet = false;
   try {
@@ -140,17 +141,16 @@ export default async function PlatformCenterPage({ params }: { params: Promise<{
           description="Lets this community's staff ask Niva to look things up and prepare drafts · every change needs a reason and is audited"
         >
           <p className="mb-3 text-[13px]">
-            Now:{" "}
-            {assistantSwitch && nivaModuleOn === null ? (
-              <>
-                <StatusText tone="warn">Unknown</StatusText>
-                <span className="text-muted"> (the modules could not be read, so whether the Niva assistant module is on is not known; reload to try again)</span>
-              </>
-            ) : (
-              <StatusText tone={assistantOn ? "ok" : "warn"}>{assistantOn ? "On" : "Off"}</StatusText>
-            )}
-            {assistantSwitch && nivaModuleOn === false ? (
-              <span className="text-muted"> (switched on here, but the {nivaRow?.label ?? "Niva assistant"} module is not on for this community, so it stays off)</span>
+            Now: <StatusText tone={assistantOn ? "ok" : "warn"}>{assistantOn ? "On" : "Off"}</StatusText>
+            {assistantSwitch && chatAiOn === null ? (
+              <span className="text-muted"> (the modules could not be read, so whether the chat can answer is not known; reload to try again)</span>
+            ) : null}
+            {assistantSwitch && chatAiOn === false ? (
+              <span className="text-muted">
+                {" "}
+                (the commands work; the chat is part of {aiRow?.label ?? "iWeaver"}, which is not on for this community
+                {center.status === "onboarding" ? ", so it answers only on the onboarding pages while the community is onboarding" : ""})
+              </span>
             ) : null}{" "}
             · AI key:{" "}
             {aiKeySet ? (

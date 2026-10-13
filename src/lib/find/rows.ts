@@ -4,6 +4,8 @@
 // reader (src/lib/people-v2/ask.ts) understood them, and otherwise the box says so plainly. Nothing about a child is ever put in
 // text that goes to Niva: only the typed words are handed over, never a result row.
 
+import { AI_OFF } from "@/lib/ai-gate";
+
 import { givingEnter, type FindScope, type GivingRow } from "./giving";
 import type { Classified, EnterAction, FindFilter, FindResponse, FindRow, NivaState, UiRow } from "./types";
 
@@ -53,6 +55,8 @@ function givingRows(rows: readonly GivingRow[]): UiRow[] {
 
 export const NIVA_OFF_TEXT = "Niva is off; try a name or number.";
 export const NIVA_NO_KEY_TEXT = "Niva is on but has no AI key connected, so it cannot answer questions yet; try a name or number.";
+/** iWeaver is off (0755): Niva cannot answer a question in words, but the box's commands still work. */
+export const NIVA_AI_OFF_TEXT = `${AI_OFF} Ask for it in Settings › Marketplace, or try a name or number.`;
 
 /**
  * The rows for one answer. `shape` is how the typed text was read (a payer name, a code…), only for the sentence above the rows.
@@ -77,6 +81,7 @@ export function buildUiRows(
     if (niva === "on") rows.push({ type: "niva", key: "niva", text: resp.query });
     if (resp.filter) rows.push(filterRow(resp.filter));
     if (niva === "no_key") rows.push({ type: "message", key: "no-niva", text: NIVA_NO_KEY_TEXT, tone: "plain" });
+    if (niva === "ai_off") rows.push({ type: "message", key: "no-niva", text: NIVA_AI_OFF_TEXT, tone: "plain" });
     if (niva === "off" && !resp.filter) rows.push({ type: "message", key: "no-niva", text: NIVA_OFF_TEXT, tone: "plain" });
   } else {
     if (givingFirst) rows.push(...lane);

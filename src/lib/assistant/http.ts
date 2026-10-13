@@ -1,15 +1,20 @@
 import "server-only";
 
+import { chatMode, type ChatMode } from "@/lib/ai-gate";
 import { requires2faForStaff, securityRedirect } from "@/lib/security";
 import { loadSession, type CrmSession } from "@/lib/session";
 
 import type { ChatEvent } from "./protocol";
-import { ASSISTANT_MODULE_OFF, ASSISTANT_MODULES_UNKNOWN, ASSISTANT_OFF, assistantEnabled, nivaForAdminsOn } from "./settings";
+import { ASSISTANT_MODULES_UNKNOWN, ASSISTANT_OFF, assistantEnabled, CHAT_AI_OFF, nivaForAdminsOn } from "./settings";
 
 // What every route under /api/assistant does first: find the signed-in person (their own session, never a service account), make
 // sure they work for this community, and make sure Niva for admins is switched on for it. Every refusal is a JSON answer
 // { ok:false, error } in plain English with the right status; a signed-out person gets 401, not a redirect to the sign-in page
 // ("/api/assistant" is in PUBLIC_PATHS, src/lib/supabase/proxy.ts, and each route checks its own session).
+//
+// The commands (/run, /confirm, /reject) use no model and need the community's switch only. The chat (/chat) calls the AI
+// provider from here, so it also needs iWeaver (0755; `chat` says what it may do, src/lib/ai-gate.ts chatMode), and
+// app.assistant_usage_check checks the same again in the database before every model call.
 
 const NO_STORE = { "cache-control": "no-store" };
 
@@ -19,7 +24,7 @@ export function json(status: number, body: unknown): Response {
 
 export const fail = (status: number, error: string): Response => json(status, { ok: false, error });
 
-export type Authorized = { ok: true; session: CrmSession; enabled: boolean } | { ok: false; response: Response };
+export type Authorized = { ok: true; session: CrmSession; enabled: boolean; chat: ChatMode } | { ok: false; response: Response };
 
 /** A POST from another website must not act as the signed-in person: the browser names the page it came from. */
 export function sameOrigin(headers: Pick<Headers, "get">): boolean {
@@ -40,6 +45,8 @@ export type GateOptions = {
   post: boolean;
   /** Answer 403 when the community has not switched Niva for admins on. /commands says so in its own answer instead. */
   needsEnabled: boolean;
+  /** The chat: answer 403 when iWeaver is off and the community is not onboarding (the route checks the onboarding page itself). */
+  needsChat?: boolean;
 };
 
 export async function authorizeAssistant(req: Pick<Request, "headers">, gate: GateOptions): Promise<Authorized> {
@@ -60,17 +67,16 @@ export async function authorizeAssistant(req: Pick<Request, "headers">, gate: Ga
   if (securityRedirect({ requires: requires2faForStaff(session.center.rules), isStaff, aal: session.aal, pathname: "/" })) {
     return { ok: false, response: fail(403, "Finish your security check first (Account › Security), then use Niva.") };
   }
-  // The community's switch AND the `niva` module (enabled by Weaver, not paused; 0740).
+  // The community's switch, with its modules read (the commands); the chat needs iWeaver as well (0755).
   const enabled = nivaForAdminsOn(session.center.rules, session);
-  if (gate.needsEnabled && !enabled) {
+  if ((gate.needsEnabled || gate.needsChat) && !enabled) {
     if (!assistantEnabled(session.center.rules)) return { ok: false, response: fail(403, ASSISTANT_OFF) };
-    if (session.modulesStatus !== "ok") {
-      console.error(`[assistant] the community's modules could not be read (${session.modulesStatus}); Niva for admins stays off`);
-      return { ok: false, response: fail(503, ASSISTANT_MODULES_UNKNOWN) };
-    }
-    return { ok: false, response: fail(403, ASSISTANT_MODULE_OFF) };
+    console.error(`[assistant] the community's modules could not be read (${session.modulesStatus}); Niva for admins stays off`);
+    return { ok: false, response: fail(503, ASSISTANT_MODULES_UNKNOWN) };
   }
-  return { ok: true, session, enabled };
+  const chat = enabled ? chatMode(session) : "off";
+  if (gate.needsChat && chat === "off") return { ok: false, response: fail(403, CHAT_AI_OFF) };
+  return { ok: true, session, enabled, chat };
 }
 
 /** The JSON body of a POST, or the 400 answer. */

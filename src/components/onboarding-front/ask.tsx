@@ -2,11 +2,13 @@
 
 // The foot of the front door (board 1): three common questions with written answers, and the box that asks Niva. The box
 // opens Niva's panel with the question when Niva is on for this person and has a model; otherwise it is switched off and
-// says so, never pretending to send.
+// says so, never pretending to send. Asking here is AI used in onboarding, so it stays core (0755): while the community is
+// onboarding the chat answers on this page without iWeaver; after that it needs iWeaver like the rest of the chat.
 
 import { useId, useState } from "react";
 
 import { useNiva } from "@/components/niva/niva-context";
+import { AI_OFF } from "@/lib/ai-gate";
 
 import { NivaBubble, NivaMark, UserBubble } from "./parts";
 
@@ -108,7 +110,11 @@ export function AskNivaBar() {
         </button>
       </div>
       <p id={noteId} className="m-0 pl-[18px] text-[12px] leading-[1.5] text-muted">
-        {ready ? "Describe the kind of thing, not the person: please leave out names of children." : "Niva is not available here yet, so this box is switched off."}
+        {ready
+          ? "Describe the kind of thing, not the person: please leave out names of children."
+          : niva?.enabled && niva.aiOff
+            ? `${AI_OFF} This box is switched off; an administrator can ask for it in Settings › Marketplace.`
+            : "Niva is not available here yet, so this box is switched off."}
       </p>
     </form>
   );

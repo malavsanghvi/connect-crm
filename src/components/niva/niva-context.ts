@@ -11,8 +11,10 @@ import type { CommandInfo, CommunityHints, ProposalCard } from "@/lib/assistant/
 export type NivaApi = {
   /** The community has switched Niva for admins on and the person may use it. Nothing renders when this is false. */
   enabled: boolean;
-  /** A model key is available. The palette works without one. */
+  /** The chat can answer here: a model key is available and iWeaver allows it on this page. The palette works without it. */
   aiReady: boolean;
+  /** The chat cannot answer here because iWeaver is not on for the community (0755): say so (AiOffNote), the commands still work. */
+  aiOff: boolean;
   commands: CommandInfo[];
   nav: NavEntry[];
   usage?: { used: number; limit: number | null; month: string };

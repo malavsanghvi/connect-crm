@@ -21,6 +21,7 @@ function api(over: Partial<NivaApi> = {}): NivaApi {
   return {
     enabled: true,
     aiReady: true,
+    aiOff: false,
     commands: sampleCommands,
     nav: [],
     usage: { used: 3, limit: 200, month: "2026-10" },

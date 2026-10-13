@@ -64,7 +64,7 @@ export function FindBox({
   const seq = useRef(0);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const nivaState: NivaState = !niva?.enabled ? "off" : niva.aiReady ? "on" : "no_key";
+  const nivaState: NivaState = !niva?.enabled ? "off" : niva.aiReady ? "on" : niva.aiOff ? "ai_off" : "no_key";
   const live = useRef({ niva, nivaState });
   useEffect(() => {
     live.current = { niva, nivaState };

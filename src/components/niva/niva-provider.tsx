@@ -3,6 +3,7 @@
 import { useParams, usePathname } from "next/navigation";
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState, type ReactNode } from "react";
 
+import { chatAllowedAt } from "@/lib/ai-gate";
 import { canRetry, chatReducer, initialChatState } from "@/lib/assistant/chat-state";
 import { browserFetch, ChatStreamError, getCommandsOnce, streamChat } from "@/lib/assistant/client";
 import { safeRouteContext } from "@/lib/assistant/context";
@@ -69,7 +70,10 @@ export function NivaProvider({ nav, children }: { nav: NavEntry[]; children: Rea
   }, []);
 
   const enabled = commands.status === "on";
-  const aiReady = commands.status === "on" && commands.data.aiReady;
+  // iWeaver (0755): the chat answers everywhere, only on the onboarding pages, or nowhere; the commands work in every case.
+  const chatHere = commands.status === "on" && chatAllowedAt(commands.data.chat ?? "on", context.path);
+  const aiOff = commands.status === "on" && !chatHere;
+  const aiReady = commands.status === "on" && commands.data.aiReady && chatHere;
 
   // The chat stream. One at a time; a new question while one is arriving is ignored.
   const run = useCallback(async (text: string) => {
@@ -181,6 +185,7 @@ export function NivaProvider({ nav, children }: { nav: NavEntry[]; children: Rea
     () => ({
       enabled,
       aiReady,
+      aiOff,
       commands: commands.status === "on" ? commands.data.commands : [],
       nav,
       usage: commands.status === "on" ? commands.data.usage : undefined,
@@ -203,7 +208,7 @@ export function NivaProvider({ nav, children }: { nav: NavEntry[]; children: Rea
       showResult,
       showProposal,
     }),
-    [enabled, aiReady, commands, nav, context, dockOpen, paletteOpen, chat, send, stop, retry, newChat, ask, showResult, showProposal, paletteQuery, openDock, closeDock, toggleDock, openPalette, closePalette],
+    [enabled, aiReady, aiOff, commands, nav, context, dockOpen, paletteOpen, chat, send, stop, retry, newChat, ask, showResult, showProposal, paletteQuery, openDock, closeDock, toggleDock, openPalette, closePalette],
   );
 
   return <NivaScope value={value}>{children}</NivaScope>;
