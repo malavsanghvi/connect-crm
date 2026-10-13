@@ -138,6 +138,13 @@ values ('00000000-0000-4000-8000-000000000001', 'jsh', 'Jain Society of Houston'
     "security":{"require_2fa_for_staff":false}}')
 on conflict (id) do nothing;
 
+-- The seed community uses Niva, so it holds iWeaver (module `ai`, which Niva needs since 0750), as every community that used
+-- Niva before the Marketplace packs began does (0750's grandfathering, which ran before this seed).
+insert into app.center_module_grants (center_id, module_key, granted, reason, granted_by)
+values ('00000000-0000-4000-8000-000000000001', 'ai', true,
+        'Grandfathered (0750): Niva was on for this community, or paused by it, when the Marketplace packs began.', null)
+on conflict (center_id, module_key) do nothing;
+
 
 insert into app.zones (center_id, name, zip_codes) values
 ('00000000-0000-4000-8000-000000000001', 'North',     '{77379,77380,77381,77382,77388,77389,77373}'),
