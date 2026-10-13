@@ -10,7 +10,7 @@
 --   gave: nothing in these two tables names a person or a community, and nothing here counts them.
 --     app.match_programs        one row per program (a company may have one per country)
 --     app.match_program_names   the company's name and the other names it goes by, each with a key for matching
---     app.employer_name_key(t)  the key: Unicode compatibility form (full-width letters, ligatures), lower case, Latin accents
+--     app.employer_name_key(t)  the key: Unicode compatibility form (full-width letters, ligatures), lower case, accents
 --                               dropped, spaces and punctuation of every script dropped. Letters and digits of every script
 --                               are kept as they are, and no word of any language is treated specially: "ＡＣＭＥ Corp.",
 --                               "acme corp" and "ACME-CORP" share a key, and "株式会社日立製作所" contains "日立製作所".
@@ -65,15 +65,16 @@ language sql immutable set search_path = app, public, extensions as $$
 $$;
 
 -- ── The key a name is matched on ─────────────────────────────────────────────
--- NFKC (full-width and compatibility characters), lower case, NFKD and the Latin combining accents (U+0300-U+036F) dropped,
--- then white space and punctuation dropped: ASCII and Latin-1 punctuation and symbols, the general and supplemental
+-- NFKD (full-width and compatibility characters become plain ones, accented letters a letter and its accent), lower case,
+-- the combining accents of the Latin, Greek and Cyrillic scripts (U+0300-U+036F) dropped, then white space and punctuation
+-- dropped: ASCII and Latin-1 punctuation and symbols, the general and supplemental
 -- punctuation blocks, CJK and full-width punctuation, and the punctuation of the Armenian, Hebrew, Arabic, Devanagari and
 -- Thai blocks. Every letter, digit and mark of every script stays. Null when nothing is left.
 create or replace function app.employer_name_key(p text) returns text
 language sql immutable parallel safe set search_path = app, public, extensions as $$
   select nullif(
            regexp_replace(
-             regexp_replace(normalize(lower(normalize(coalesce(p, ''), nfkc)), nfkd), '[\u0300-\u036f]', '', 'g'),
+             regexp_replace(lower(normalize(coalesce(p, ''), nfkd)), '[\u0300-\u036f]', '', 'g'),
              '[[:space:]\u0001-\u002f\u003a-\u0040\u005b-\u0060\u007b-\u00bf\u00d7\u00f7\u055a-\u055f\u0589\u05be\u05c0\u05c3\u05f3\u05f4\u060c\u061b\u061f\u066a-\u066d\u06d4\u0964\u0965\u0970\u0e4f\u0e5a\u0e5b\u2000-\u206f\u2e00-\u2e7f\u3000-\u303f\u30fb\ufe10-\ufe1f\ufe30-\ufe4f\uff01-\uff0f\uff1a-\uff20\uff3b-\uff40\uff5b-\uff65]+',
              '', 'g'),
            '')

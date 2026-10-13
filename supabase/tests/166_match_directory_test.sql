@@ -73,7 +73,7 @@ select pg_temp.assert((select bool_and(c.relrowsecurity) and count(*) = 4 from p
                       and not has_table_privilege('anon', 'app.match_programs', 'select')
                       and has_table_privilege('authenticated', 'app.match_programs', 'select'),
   'A · the four tables have RLS and nobody writes them directly; anon reads nothing');
-select pg_temp.assert((select array_agg(table_name || '=' || coalesce(module_key, 'core') order by table_name) from app.module_tables
+select pg_temp.assert((select array_agg(table_name || '=' || coalesce(module_key, 'core') order by table_name collate "C") from app.module_tables
                         where table_name in ('match_programs', 'match_program_names', 'match_program_submissions', 'person_match_programs'))
                         = array['match_program_names=core', 'match_program_submissions=matching', 'match_programs=core', 'person_match_programs=matching'],
   'A · the directory is the platform''s (shared); the submissions and the links are CatchTheMatch''s, the organization''s own');
