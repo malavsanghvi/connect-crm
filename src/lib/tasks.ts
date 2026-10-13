@@ -55,7 +55,7 @@ export const TASK_SOURCES: readonly TaskSource[] = [
   { key: "payee", tag: "Payee", color: "danger", anyOf: ["giving.approve"], href: "/settings/payments", module: "giving" },
   { key: "writeoff", tag: "Write-off", color: "brown", anyOf: ["giving.approve", "giving.manage"], href: "/giving/pledges" },
   { key: "credit", tag: "Credit", color: "brown", anyOf: ["giving.manage"], href: "/giving/payments" },
-  { key: "deposits", tag: "Deposits", color: "brown", anyOf: ["giving.record_offline", "giving.manage"], href: "/giving/bank" },
+  { key: "deposits", tag: "Deposits", color: "brown", anyOf: ["giving.record_offline", "giving.manage"], href: "/giving/bank", module: "giving_bank" },
   { key: "membership", tag: "Membership", color: "navy", anyOf: ["people.approve"], href: "/memberships/applications" },
   { key: "override", tag: "Voting", color: "navy", anyOf: ["people.approve"], href: "/people/voting" },
   { key: "newsletter", tag: "Newsletter", color: "purple", anyOf: ["comms.approve"], alsoNeeds: ["comms.view", "comms.send"], href: "/comms" },

@@ -52,12 +52,14 @@ export function word(kind: KindLike, key: WordKey): string {
 type CountsKind = Pick<KindProfile, "key" | "terms" | "modules" | "usesTradition" | "faithBased">;
 
 /**
- * Giving's counts tile and tab (owner, 2026-10-12): the kind's own term first; then the tradition pack's "Bhandar counts",
- * a church's "Collection counts", any other faith's "Offering counts", and "Cash counts" for an organization that is not a faith.
- * TODO(GV-M2): category_modules will hold this label per kind (docs/GIVING_REDESIGN.md section 11); read it from there and drop
- * this fallback once M2 lands.
+ * Giving's counts tile and tab (owner, 2026-10-12): the kind's own term first; then the name the kind gives the Offering counts
+ * module (category_modules.label for giving_counts, 0741: Bhandar, Collection, Offering or Cash counts); then, for a database
+ * or a kind that has none, the same rule written out: the tradition pack's "Bhandar counts", a church's "Collection counts",
+ * any other faith's "Offering counts", and "Cash counts" for an organization that is not a faith.
  */
 export function countsWord(kind: CountsKind): string {
+  const named = kind.modules.giving_counts?.label;
+  if (named) return kindTerm(kind, "offering_counts", named);
   const fallback = kindHas(kind, "tradition")
     ? "Bhandar counts"
     : kind.key === "church"

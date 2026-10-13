@@ -148,7 +148,7 @@ export async function loadRoutineFacts(session: CrmSession, home: HomeTasks): Pr
     read("applications", needed, canAccess(session, "applications") && on("membership"), async () =>
       n(await db.from("membership_applications").select("id", { count: "exact", head: true }).eq("center_id", center.id).in("status", ["awaiting_center", "awaiting_ec"])),
     ),
-    read("bank_lines", needed, canAccess(session, "bank") && on("giving"), async () =>
+    read("bank_lines", needed, canAccess(session, "bank") && on("giving_bank"), async () =>
       n(
         await db
           .from("bank_transactions")

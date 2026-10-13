@@ -46,7 +46,7 @@ export const confirmExactZelleMatches = defineCommand<Input, { confirmed: { repo
     "Take the report ids from giving.zelle_waiting. A report that is not an exact match is left out and must be matched by hand.",
   level: "confirm",
   permission: "bankConfirm",
-  module: "giving",
+  module: "giving_bank",
   enabledByDefault: false,
   requiresOwnerSwitch: true,
   covers: ["src/app/(app)/giving/payments/bank/zelle-actions.ts#confirmExactMatchesAction"],

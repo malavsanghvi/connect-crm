@@ -106,7 +106,7 @@ export default async function BringYourDataInPage() {
           setup: "/setup",
           guided: "/setup/onboarding",
           dataImport: "/settings/import/new",
-          bank: givingOn ? "/giving/payments/bank" : null,
+          bank: givingOn && isModuleEnabled(session, "giving_bank") ? "/giving/payments/bank" : null,
           qboSetup: canAccess(session, "qbo") && isModuleEnabled(session, "accounting") ? "/accounting/qbo/setup" : null,
           peopleTemplate: "/setup/onboarding/template?kind=people&format=xlsx",
           donationsTemplate: givingOn ? "/setup/onboarding/template?kind=donations&format=xlsx" : null,
