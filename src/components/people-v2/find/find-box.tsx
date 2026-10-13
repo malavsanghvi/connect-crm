@@ -112,6 +112,11 @@ export function FindBox({
       setOpen(false);
       if (sheets?.canRecord) sheets.openRecordPayment(act.request);
       else router.push(act.href);
+    } else if (act.type === "record-pledge") {
+      // The Record pledge sheet opens filled in (slice 7); nothing is saved until its own button is pressed.
+      setOpen(false);
+      if (sheets?.canRecordPledge) sheets.openRecordPledge(act.request);
+      else router.push(act.href);
     } else if (act.type === "family-giving") {
       recordRecentFamily(cookieName, act.householdId);
       setOpen(false);

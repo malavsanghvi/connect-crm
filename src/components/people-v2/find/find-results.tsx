@@ -4,7 +4,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 
 import { SparkIcon } from "@/components/people-v2/icons";
-import type { GivingRow } from "@/lib/find/giving";
+import { isRecordRow, type GivingRow } from "@/lib/find/giving";
 import { selectable } from "@/lib/find/rows";
 import type { UiRow } from "@/lib/find/types";
 
@@ -49,6 +49,7 @@ function Heading({ children }: { children: ReactNode }) {
 
 const GIVING_HEADING: Record<GivingRow["kind"], string | null> = {
   record: null,
+  record_pledge: null,
   go: null,
   payment: "Payments",
   pledge: "Pledges",
@@ -61,8 +62,8 @@ function headingFor(rows: readonly UiRow[], i: number): string | null {
   const prev = rows[i - 1];
   if (cur.type === "giving") {
     if (prev && prev.type === "giving" && prev.row.kind === cur.row.kind) return null;
-    if (i === 0 && (cur.row.kind === "record" || cur.row.kind === "go")) return null;
-    return GIVING_HEADING[cur.row.kind] ?? (cur.row.kind === "record" ? "Record" : null);
+    if (i === 0 && (isRecordRow(cur.row) || cur.row.kind === "go")) return null;
+    return GIVING_HEADING[cur.row.kind] ?? (isRecordRow(cur.row) ? "Record" : null);
   }
   if (i === 0 || cur.type === "message" || cur.type === "palette") return null;
   if (prev && prev.type === cur.type) return null;
@@ -85,18 +86,18 @@ type Props = {
   hints: ReactNode;
 };
 
-const GIVING_MARK: Record<GivingRow["kind"], string> = { record: "+", go: "→", payment: "R", pledge: "P", bank: "B", campaign: "C" };
-const GIVING_PILL: Record<GivingRow["kind"], string> = { record: "Opens the sheet", go: "Opens the list", payment: "Payment", pledge: "Pledge", bank: "Bank line", campaign: "Campaign" };
+const GIVING_MARK: Record<GivingRow["kind"], string> = { record: "+", record_pledge: "+", go: "→", payment: "R", pledge: "P", bank: "B", campaign: "C" };
+const GIVING_PILL: Record<GivingRow["kind"], string> = { record: "Opens the sheet", record_pledge: "Opens the sheet", go: "Opens the list", payment: "Payment", pledge: "Pledge", bank: "Bank line", campaign: "Campaign" };
 
 /** A Giving row: what it is, its facts, and the household card line whenever a family is involved (never a name alone). */
 function GivingBody({ row }: { row: GivingRow }) {
   const household = "household" in row ? row.household : null;
-  const big = row.kind === "record" && row.best;
+  const big = isRecordRow(row) && row.best;
   return (
     <>
       <span
         aria-hidden="true"
-        className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-[15px] font-extrabold ${row.kind === "record" ? "bg-navy text-white" : "bg-[var(--v2-sun-tint)] text-[var(--v2-sun-ink)]"}`}
+        className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-[15px] font-extrabold ${isRecordRow(row) ? "bg-navy text-white" : "bg-[var(--v2-sun-tint)] text-[var(--v2-sun-ink)]"}`}
       >
         {GIVING_MARK[row.kind]}
       </span>
@@ -145,7 +146,7 @@ export function FindRows({ listId, rows, active, understood, inPlace = false, on
           );
         }
         if (row.type === "giving") {
-          const big = row.row.kind === "record" && row.row.best;
+          const big = isRecordRow(row.row) && row.row.best;
           body = (
             <button type="button" {...common} onClick={() => onPick(row)} className={`${ROW} ${bg} ${big ? "border border-navy-300" : ""}`}>
               <GivingBody row={row.row} />

@@ -8,6 +8,8 @@
 //   sheets?.openRecordPayment({ householdId, prefill, onRecorded });
 //   sheets?.openFamilyGiving(householdId, { kind: "payment", id });
 //   <RecordPaymentButton householdId={id} href={`/giving/payments?household=${id}`}>Record payment</RecordPaymentButton>
+//   sheets?.openRecordPledge({ householdId, prefill });          (giving.manage only; slice 7)
+//   <RecordPledgeButton householdId={id} />                       (nothing where no sheet can open: there is no other screen)
 //
 // The sheets only open; the Record payment sheet's own button records (through the existing recordOfflinePaymentAction). Where no
 // sheet can open (the classic look, or a person without Giving) useGivingSheets() is null and RecordPaymentButton is its plain link.
@@ -17,15 +19,22 @@ import { createContext, lazy, Suspense, useCallback, useContext, useMemo, useRef
 
 import type { RecordPaymentResult } from "@/app/(app)/giving/payments/actions";
 import type { FamilyFocus } from "@/lib/giving-actions/family-giving";
+import type { RecordedPledge, RecordPledgeRequest } from "@/lib/giving-actions/record-pledge";
 import type { GivingSheetContext, RecordPaymentRequest } from "@/lib/giving-actions/record-sheet";
 
 // The sheets (and the Server Actions behind them) load when one is first opened, not with every page of the shell.
 const RecordPaymentSheet = lazy(() => import("./record-payment-sheet").then((m) => ({ default: m.RecordPaymentSheet })));
 const FamilyGivingPanel = lazy(() => import("./family-giving").then((m) => ({ default: m.FamilyGivingPanel })));
+const RecordPledgeSheet = lazy(() => import("./record-pledge-sheet").then((m) => ({ default: m.RecordPledgeSheet })));
 
 export type OpenRecordPayment = RecordPaymentRequest & {
   /** Called once the server confirmed the payment (a list can show the new row as done). */
   onRecorded?: (result: RecordPaymentResult) => void;
+};
+
+export type OpenRecordPledge = RecordPledgeRequest & {
+  /** Called once the server confirmed the pledge. */
+  onRecorded?: (result: RecordedPledge) => void;
 };
 
 export type GivingSheetsApi = {
@@ -33,10 +42,16 @@ export type GivingSheetsApi = {
   canRecord: boolean;
   openRecordPayment: (request?: OpenRecordPayment) => void;
   openFamilyGiving: (householdId: string, focus?: FamilyFocus | null) => void;
-  // Slice 7 adds `openRecordPledge` here, beside openRecordPayment, once recording a pledge has its owner's OK.
+  /** The person may record a pledge by hand (giving.manage; slice 7). */
+  canRecordPledge: boolean;
+  openRecordPledge: (request?: OpenRecordPledge) => void;
 };
 
-type Open = { kind: "record"; request: OpenRecordPayment; n: number } | { kind: "family"; householdId: string; focus: FamilyFocus | null; n: number } | null;
+type Open =
+  | { kind: "record"; request: OpenRecordPayment; n: number }
+  | { kind: "pledge"; request: OpenRecordPledge; n: number }
+  | { kind: "family"; householdId: string; focus: FamilyFocus | null; n: number }
+  | null;
 
 const GivingSheetsContext = createContext<GivingSheetsApi | null>(null);
 
@@ -70,6 +85,12 @@ export function GivingSheetsProvider({ ctx, children }: { ctx: GivingSheetContex
         remember();
         setOpen({ kind: "family", householdId, focus, n: ++count.current });
       },
+      canRecordPledge: ctx.canRecordPledge === true,
+      openRecordPledge: (request = {}) => {
+        if (ctx.canRecordPledge !== true) return;
+        remember();
+        setOpen({ kind: "pledge", request, n: ++count.current });
+      },
     };
   }, [ctx, remember]);
 
@@ -96,6 +117,9 @@ export function GivingSheetsProvider({ ctx, children }: { ctx: GivingSheetContex
         {ctx && open?.kind === "record" ? (
           <RecordPaymentSheet key={open.n} ctx={ctx} request={open.request} onRecorded={open.request.onRecorded} onClose={close} />
         ) : null}
+        {ctx && open?.kind === "pledge" ? (
+          <RecordPledgeSheet key={open.n} ctx={ctx} request={open.request} onRecorded={open.request.onRecorded} onClose={close} />
+        ) : null}
         {ctx && open?.kind === "family" ? (
           <FamilyGivingPanel
             key={open.n}
@@ -104,6 +128,7 @@ export function GivingSheetsProvider({ ctx, children }: { ctx: GivingSheetContex
             focus={open.focus}
             onClose={close}
             onRecordPayment={ctx.canRecord ? (family) => setOpen({ kind: "record", request: { household: family }, n: ++count.current }) : undefined}
+            onRecordPledge={ctx.canRecordPledge === true ? (family) => setOpen({ kind: "pledge", request: { household: family }, n: ++count.current }) : undefined}
           />
         ) : null}
       </Suspense>
@@ -126,6 +151,20 @@ export function RecordPaymentButton({ householdId, href, className, children }: 
   }
   return (
     <button type="button" className={className} onClick={() => sheets.openRecordPayment(householdId ? { householdId } : {})}>
+      {children}
+    </button>
+  );
+}
+
+/**
+ * "Record pledge": opens the Record pledge sheet in place for someone with giving.manage where the sheets are mounted (the New look).
+ * There is no Record pledge screen, so elsewhere (the classic look, or without the permission) it renders nothing.
+ */
+export function RecordPledgeButton({ householdId, className, children = "Record pledge" }: { householdId?: string | null; className?: string; children?: ReactNode }) {
+  const sheets = useGivingSheets();
+  if (!sheets?.canRecordPledge) return null;
+  return (
+    <button type="button" className={className} onClick={() => sheets.openRecordPledge(householdId ? { householdId } : {})}>
       {children}
     </button>
   );

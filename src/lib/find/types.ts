@@ -3,6 +3,7 @@
 // them. Nothing here names one organization, tradition or language.
 
 import type { FamilyFocus } from "@/lib/giving-actions/family-giving";
+import type { RecordPledgeRequest } from "@/lib/giving-actions/record-pledge";
 import type { RecordPaymentRequest } from "@/lib/giving-actions/record-sheet";
 
 import type { GivingLane, GivingRow } from "./giving";
@@ -149,6 +150,8 @@ export type EnterAction =
   | { type: "open"; href: string; familyId: string | null }
   /** Open the Record payment sheet filled in (it never saves by itself); `href` is where to go when no sheet can open there. */
   | { type: "record-payment"; request: RecordPaymentRequest; href: string }
+  /** Open the Record pledge sheet filled in (slice 7; it never saves by itself); `href` is where to go when no sheet can open there. */
+  | { type: "record-pledge"; request: RecordPledgeRequest; href: string }
   /** Open the family's giving in place (on Giving pages); `href` is where to go when it cannot open there. */
   | { type: "family-giving"; householdId: string; focus: FamilyFocus | null; href: string }
   | { type: "niva"; text: string }

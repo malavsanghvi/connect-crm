@@ -10,6 +10,7 @@ import type { ActionResult } from "@/lib/errors";
 import { buildGivingLane, readGivingIntent, type FindScope, type GivingFound } from "@/lib/find/giving";
 import type { FindResult, FindRow } from "@/lib/find/types";
 import { composeFamilyGiving, type FamilyFocus, type GivingHousehold } from "@/lib/giving-actions/family-giving";
+import { checkPledge, splitPledgeWords, type PledgeDesignation, type PledgeSheetOptions, type RecordedPledge, type RecordPledgeInput } from "@/lib/giving-actions/record-pledge";
 import type { GivingSheetContext } from "@/lib/giving-actions/record-sheet";
 import { familyLine } from "@/lib/giving-today/queue";
 import { TODAY_FAMILIES } from "@/lib/giving-today/fixtures";
@@ -31,6 +32,7 @@ export function previewContext(role: PreviewRole): GivingSheetContext {
     canAllocate: role === "treasurer",
     bankOn: true,
     canOpenFamily: role === "treasurer",
+    canRecordPledge: role === "treasurer",
   };
 }
 
@@ -54,6 +56,19 @@ const CAMPAIGNS = [
   { id: "c2", name: "Youth league", status: "active", goalCents: null },
 ];
 
+const FUNDS = [
+  { id: "9d000000-0000-4000-8000-000000000001", name: "Building fund" },
+  { id: "9d000000-0000-4000-8000-000000000002", name: "General fund" },
+];
+const PLEDGE_CAMPAIGNS = [
+  { id: "9d000000-0000-4000-8000-000000000011", name: "Clubhouse roof", fundName: "Building fund" },
+  { id: "9d000000-0000-4000-8000-000000000012", name: "Youth league", fundName: null },
+];
+const DESIGNATIONS: PledgeDesignation[] = [
+  ...FUNDS.map((f) => ({ kind: "fund" as const, ...f })),
+  ...PLEDGE_CAMPAIGNS.map((c) => ({ kind: "campaign" as const, id: c.id, name: c.name })),
+];
+
 const has = (hay: string | null | undefined, needle: string) => !!hay && hay.toLowerCase().includes(needle.toLowerCase());
 
 /** The box's lookup over the invented rows, through the real Giving rules. */
@@ -69,8 +84,10 @@ export async function previewSearch(q: string, scope: FindScope, role: PreviewRo
   const token = intent.kind === "lookup" ? intent.code : intent.kind === "refund" || intent.kind === "write_off" ? intent.token : null;
   const cents = intent.kind === "lookup" ? intent.cents : null;
   const words = intent.kind === "lookup" ? intent.words : null;
+  const split = intent.kind === "pledge" && ctx.canRecordPledge ? splitPledgeWords(intent.who, DESIGNATIONS) : null;
   const found: GivingFound = {
-    families: intent.kind === "record" ? nameHits(intent.who) : [],
+    families: intent.kind === "record" ? nameHits(intent.who) : split ? nameHits(split.familyWords) : [],
+    ...(split ? { designation: split.designation, pledgeWho: split.familyWords } : {}),
     moreFamilies: false,
     payments: PAYMENTS.filter((p) => (token && p.receipt_number.toLowerCase() === token.toLowerCase()) || (cents !== null && p.amount_cents === cents)).map((p) => ({
       id: p.id,
@@ -95,12 +112,14 @@ export async function previewSearch(q: string, scope: FindScope, role: PreviewRo
     campaigns: words ? CAMPAIGNS.filter((c) => has(c.name, words)) : [],
     cards: byId,
   };
-  const lane = buildGivingLane(intent, found, { currency: ctx.currency, locale: ctx.locale, timeZone: ctx.timeZone, canRecord: ctx.canRecord });
+  const lane = buildGivingLane(intent, found, { currency: ctx.currency, locale: ctx.locale, timeZone: ctx.timeZone, canRecord: ctx.canRecord, canRecordPledge: ctx.canRecordPledge });
   return { ok: true, data: { query: q, kind: "name", rows: people, more: 0, filter: null, problem: null, giving: lane } };
 }
 
 const later = <T,>(value: T): Promise<T> => new Promise((resolve) => setTimeout(() => resolve(value), 250));
 let receipt = 412;
+let pledgeNumber = 20500;
+const recordedPledges = new Map<string, RecordedPledge>();
 
 /** The sheets' reads and the record call, over the invented rows. Recording here saves nothing: the receipt says PREVIEW. */
 export const PREVIEW_BACKEND: GivingSheetBackend = {
@@ -171,5 +190,22 @@ export const PREVIEW_BACKEND: GivingSheetBackend = {
         open_pledge_cents: null,
       }));
     return later({ ok: true as const, data: { cards, hits: [], more: false } });
+  },
+  pledgeOptions: async (householdId: string | null) => {
+    const h = householdId ? byId.get(householdId) : null;
+    // Invented adults: the household card's primary adult (a child is never offered).
+    const adults = h?.primary ? [{ id: "9c000000-0000-4000-8000-000000000001", name: h.primary, isPrimary: true }] : [];
+    return later<ActionResult<PledgeSheetOptions>>({ ok: true, data: { funds: FUNDS, campaigns: PLEDGE_CAMPAIGNS, opportunities: [], adults } });
+  },
+  recordPledge: async (input: RecordPledgeInput) => {
+    const checked = checkPledge(input, TODAY);
+    if (!checked.ok) return later<ActionResult<RecordedPledge>>({ ok: false, error: `Could not record the pledge — ${checked.error}` });
+    // The same request id twice records once, as in the database.
+    const again = recordedPledges.get(input.requestId);
+    if (again) return later<ActionResult<RecordedPledge>>({ ok: true, data: { ...again, replayed: true }, message: "Preview: nothing was saved." });
+    pledgeNumber += 1;
+    const recorded: RecordedPledge = { pledgeId: `preview-${pledgeNumber}`, pledgeNumber: `PL-PREVIEW-${pledgeNumber}`, householdId: checked.value.householdId, amountCents: checked.value.amountCents, replayed: false };
+    recordedPledges.set(input.requestId, recorded);
+    return later<ActionResult<RecordedPledge>>({ ok: true, data: recorded, message: "Preview: nothing was saved." });
   },
 };
