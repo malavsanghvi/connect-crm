@@ -85,8 +85,9 @@ begin;
 insert into app.centers (id, slug, name, short_name, time_zone) values
   (:c, 'g154-temple', 'G154 Temple', 'G154', 'America/Chicago'),
   (:d, 'g154-other', 'G154 Other Temple', 'G154B', 'America/Chicago');
-insert into app.centers (id, slug, name, short_name, category_key, status, time_zone)
-  values (:np, 'g154-food-bank', 'G154 Food Bank', 'G154F', 'nonprofit_secular', 'active', 'Europe/London');
+-- A secular non-profit (that category is still a sandbox preview, as in test 151).
+insert into app.centers (id, slug, name, short_name, environment, category_key, status, time_zone)
+  values (:np, 'g154-food-bank-sandbox', 'G154 Food Bank', 'G154F', 'sandbox', 'nonprofit_secular', 'onboarding', 'Europe/London');
 insert into auth.users (id, email) values (:tara, 'tara@g154.test'), (:vina, 'vina@g154.test'), (:apu, 'apu@g154.test'),
   (:mira, 'mira@g154.test'), (:zed, 'zed@g154.test'), (:nora, 'nora@g154.test');
 insert into app.roles (key, tier, name, permissions) values ('approver_only154', 'center', 'Approver only 154', '["giving.view","giving.approve"]');
