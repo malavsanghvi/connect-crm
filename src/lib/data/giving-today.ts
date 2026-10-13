@@ -13,6 +13,7 @@ import type { CloseBlockersData } from "@/lib/commands/catalog/month-close-block
 import { runScreenCommand } from "@/lib/commands/screen";
 import { communityFormat } from "@/lib/community-format";
 import { readPaypalEmailOnly } from "@/lib/data/giving-lists";
+import { loadStatementsDue } from "@/lib/data/giving-statements";
 import { canFindGiving } from "@/lib/giving-actions/context";
 import { loadPledgeTotals } from "@/lib/data/giving-workspace";
 import { loadHomeTasks } from "@/lib/data/home-tasks";
@@ -21,6 +22,7 @@ import { chunk, fetchAll } from "@/lib/data/fetch-all";
 import { addDays, todayInTz } from "@/lib/dates";
 import { failure } from "@/lib/errors";
 import { CLOSE_ITEMS, firstOfMonth, longMonth } from "@/lib/giving";
+import { statementSeason } from "@/lib/giving-statements/review";
 import { GIVING_ADDONS, givingTabs, type GivingTab, type GivingTabKey } from "@/lib/giving-today/tabs";
 import {
   bankTotalsFromTasks,
@@ -412,6 +414,13 @@ export async function loadGivingToday(session: CrmSession, opts: { show?: string
   const taskFailures = home.failures.filter((f) => GIVING_TASK_SOURCES.includes(f.source));
   const zelleOn = Array.isArray(plugins) && plugins.includes("zelle");
 
+  // Year-end statements: a row from January to March for whoever reviews them, while Statements is on (slice 8).
+  const season = statementSeason(today);
+  const statementsP =
+    season !== null && canAccess(session, "statements") && isModuleEnabled(session, GIVING_ADDONS.statements)
+      ? loadStatementsDue(session, season)
+      : Promise.resolve(null);
+
   const [bank, behind, apply, counts, close, recorded, open, matched, recent] = await Promise.all([
     seesBank ? loadBank(session, bankTotalsFromTasks(tasks), zelleOn, can.bankConfirm) : Promise.resolve(null),
     seesPledges ? loadBehind() : Promise.resolve(null),
@@ -435,7 +444,7 @@ export async function loadGivingToday(session: CrmSession, opts: { show?: string
   // An approved card refund is recorded in place (slice 3); a PayPal connected by email only is refunded in PayPal, then recorded.
   const paypalEmailOnly = can.manage ? await readPaypalEmailOnly(session) : false;
   const queue = buildQueue(
-    { tasks, taskFailures, families, bank, behind, apply, counts, close },
+    { tasks, taskFailures, families, bank, behind, apply, counts, close, statements: await statementsP },
     {
       can,
       currency: fmt.currency,
