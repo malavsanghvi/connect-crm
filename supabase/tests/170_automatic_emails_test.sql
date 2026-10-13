@@ -65,6 +65,8 @@ insert into auth.users (id, email) values
   (:vol, 'volunteer170@temple.test'), (:nptreas, 'treasurer170@nonprofit.test'), (:sbtreas, 'treasurer170@sandbox.test');
 insert into app.centers (id, slug, name, short_name, state_region, status, time_zone) values
   (:jc, 'jc170', 'Temple 170', 'T170', 'TX', 'active', 'America/Chicago');
+-- A live non-faith community: its category is switched on for this test only (the transaction is rolled back).
+update app.organization_categories set active = true where key = 'chamber_of_commerce';
 insert into app.centers (id, slug, name, category_key, status, time_zone, currency, country, environment) values
   (:np, 'np170', 'Chamber 170', 'chamber_of_commerce', 'active', 'Asia/Kolkata', 'INR', 'IN', 'production');
 insert into app.centers (id, slug, name, environment, category_key, status) values

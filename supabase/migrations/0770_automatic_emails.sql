@@ -1,7 +1,7 @@
 -- 0770 · Automatic emails with mail merge: a receipt for a payment, a pledge confirmation and a registration confirmation, each
 -- with the community's own wording, placeholders filled from the record, a switch per email (OFF until someone turns it on), a
--- preview from a recent real record, a test to yourself and a log of what was sent (docs/AUTOMATIC_EMAILS.md; owner approval of
--- plan GV-E, 2026-10-13). Scheduled emails come in 0771.
+-- preview from a recent real record, a test to yourself and a log of what was sent (plan GV-E, approved by the owner
+-- 2026-10-13). Scheduled emails come in 0771.
 --
 -- WHAT THIS DOES, IN PLAIN WORDS
 --   Nothing is sent by this migration and nothing changes for any community until a person switches an email on.
