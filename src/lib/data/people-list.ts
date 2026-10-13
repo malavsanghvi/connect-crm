@@ -39,7 +39,7 @@ export type PeopleList = {
 const NONE = "00000000-0000-0000-0000-000000000000";
 
 /** People who hold a staff role or serve on a volunteer team or class, as far as the viewer can see. */
-async function teamPersonIds(session: CrmSession): Promise<{ ids: string[]; error: DbErrorLike | null; partial: boolean }> {
+export async function teamPersonIds(session: CrmSession): Promise<{ ids: string[]; error: DbErrorLike | null; partial: boolean }> {
   const { db, center } = session;
   const nowIso = new Date().toISOString();
   const [grants, interests, teachers] = await Promise.all([

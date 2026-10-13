@@ -13,6 +13,7 @@ vi.mock("next/navigation", async (orig) => ({
   useSearchParams: () => new URLSearchParams(),
 }));
 vi.mock("@/app/(app)/households/actions", () => ({ dismissDuplicateAction: vi.fn() }));
+vi.mock("@/app/(app)/people/saved-actions", () => ({ saveViewAction: vi.fn(), renameViewAction: vi.fn(), deleteViewAction: vi.fn(), setPinAction: vi.fn() }));
 vi.mock("@/app/security-actions", () => ({ verifyStepUpAction: vi.fn() }));
 vi.mock("@/app/(app)/search/actions", () => ({ globalSearchAction: vi.fn() }));
 vi.mock("@/app/(app)/search/find-actions", () => ({ findAction: vi.fn() }));
@@ -58,10 +59,14 @@ describe("the households view", () => {
     expect(words).toContain("Household 0212 · RNA-H-2041");
   });
 
-  it("shows what is not built as switched off with Coming next, never as working", () => {
-    expect(words).toContain("+ Save this view");
+  it("saves a list as a view and exports it for real, and still shows what is not built as switched off with Coming next", () => {
+    // Save this view and Export are working controls now (slice 8); the export asks for a fresh 2FA code and says what it holds.
+    expect(words).toContain("Save this view");
+    expect(html).toMatch(/<button type="button" class="[^"]*">Export</);
+    expect(words).toContain("without any child's name");
+    expect(words).toContain("fresh 2FA code");
+    expect(words).not.toContain("+ Save this view");
     expect(words).toContain("Coming next");
-    expect(html).toMatch(/<button type="button" disabled[^>]*>Export</);
     expect(html).toMatch(/<button type="button" disabled[^>]*>Message the household</);
   });
 

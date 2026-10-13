@@ -27,10 +27,10 @@ end $$;
 -- ── Coverage ─────────────────────────────────────────────────────────────────
 select pg_temp.assert(not exists (
     select 1 from pg_class c join pg_namespace n on n.oid = c.relnamespace
-     where n.nspname = 'app' and c.relkind in ('r','p') and c.relname not in ('audit_log', 'activity_events', 'activity_optouts', 'activity_salts', 'import_staged_records', 'import_record_links', 'import_clusters', 'import_exceptions', 'import_exception_items', 'import_decision_rules')
+     where n.nspname = 'app' and c.relkind in ('r','p') and c.relname not in ('audit_log', 'activity_events', 'activity_optouts', 'activity_salts', 'import_staged_records', 'import_record_links', 'import_clusters', 'import_exceptions', 'import_exception_items', 'import_decision_rules', 'people_saved')
        and not exists (select 1 from pg_trigger t where t.tgrelid = c.oid and t.tgname = 'audit_' || c.relname
                          and t.tgfoid = 'app.audit_row'::regproc and not t.tgisinternal)),
-  'every app base table except audit_log (and the three activity stream tables of 0620, left out on purpose: test 99, and the six matching tables of 0630 that hold uploaded rows or what was made from them: test 110) has an audit_<table> trigger on app.audit_row');
+  'every app base table except audit_log (and the three activity stream tables of 0620, left out on purpose: test 99, and the six matching tables of 0630 that hold uploaded rows or what was made from them: test 110, and people_saved of 0722, one person''s list names and pins that no audit reader may see: test 143) has an audit_<table> trigger on app.audit_row');
 select pg_temp.assert(not exists (
     select 1 from pg_class c join pg_namespace n on n.oid = c.relnamespace
      where n.nspname = 'app' and c.relkind in ('r','p')

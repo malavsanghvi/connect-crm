@@ -10,6 +10,7 @@ import { prepareGlance } from "@/lib/giving-glance/page";
 import { isModuleEnabled } from "@/lib/modules";
 import { loadFamily } from "@/lib/people-v2/family-load";
 import { familyChips } from "@/lib/people-v2/family-model";
+import { loadPinState } from "@/lib/people-v2/saved-load";
 import { slideOverHref, slideOverRequest } from "@/lib/people-v2/slideover";
 import type { RawSearchParams } from "@/lib/search-params";
 import type { CrmSession } from "@/lib/session";
@@ -39,6 +40,8 @@ export async function FamilyPageV2({ session, id, sp }: { session: CrmSession; i
   const givingOn = isModuleEnabled(session, "giving");
   const glance = givingOn ? await prepareGlance(session, sp) : null;
   const canEdit = model.canEdit;
+  // The star: whether this person pinned the family (their own pin, read under their own session). A merged family cannot be pinned.
+  const pinState = model.mergedIntoId ? null : await loadPinState(session, id);
   const request = slideOverRequest(sp);
 
   const links: FamilyLinks = {
@@ -50,6 +53,7 @@ export async function FamilyPageV2({ session, id, sp }: { session: CrmSession; i
     more: canEdit
       ? [{ key: "merge", label: "Merge with another family", href: `/people/merge?household=${id}`, hint: "Compare two households and keep one" }]
       : [],
+    pin: pinState ? { householdId: id, pinned: pinState.pinned, loadError: pinState.error } : undefined,
   };
 
   return (

@@ -10,6 +10,7 @@
 import { moneyIn, type CommunityFormat } from "@/lib/community-format";
 import { normalizeSearchQuery } from "@/lib/global-search";
 import { parseAmountToCents } from "@/lib/money";
+import { isAgeBand, type AgeBand } from "@/lib/people";
 
 export const TIERS = ["life", "yearly", "community"] as const;
 export type TierKey = (typeof TIERS)[number];
@@ -26,11 +27,36 @@ export type HouseholdFilters = {
   noRsvpYear: number | null;
   /** An active membership that ends within this many days. */
   endingDays: number | null;
+  /** Contact gaps (a work list of people to reach another way). Each is true or not asked; they look at ADULTS only. */
+  noEmail: true | null;
+  noMobile: true | null;
+  /** The family's record has no street address. */
+  noAddress: true | null;
+  /** No signed-in app account. */
+  notOnApp: true | null;
+  /** An age band for the people list (never "all": that is not asked). A sentence only ever reads adults or seniors; a child list is not offered by words. */
+  band: Exclude<AgeBand, "all"> | null;
 };
 
 export type FilterKey = keyof HouseholdFilters;
 
-export const NO_FILTERS: HouseholdFilters = { q: null, zone: null, tier: null, overCents: null, noRsvpYear: null, endingDays: null };
+export const NO_FILTERS: HouseholdFilters = {
+  q: null,
+  zone: null,
+  tier: null,
+  overCents: null,
+  noRsvpYear: null,
+  endingDays: null,
+  noEmail: null,
+  noMobile: null,
+  noAddress: null,
+  notOnApp: null,
+  band: null,
+};
+
+/** The contact gaps, in the order they are listed and worded. */
+export const GAP_KEYS = ["noEmail", "noMobile", "noAddress", "notOnApp"] as const satisfies readonly FilterKey[];
+export type GapKey = (typeof GAP_KEYS)[number];
 
 export type Zone = { id: string; name: string };
 
@@ -42,10 +68,23 @@ export type AskReading = {
   understood: boolean;
 };
 
-export type AskChip = { key: FilterKey; label: string };
+/** `fixed`: the chip says a rule that always holds (contact-gap lists are adults only), so it has no way to remove it. */
+export type AskChip = { key: FilterKey; label: string; fixed?: boolean };
 
 /** The URL names of the filters (the page's GET form and links use these). */
-export const FILTER_PARAM: Record<FilterKey, string> = { q: "q", zone: "zone", tier: "tier", overCents: "over", noRsvpYear: "norsvp", endingDays: "ending" };
+export const FILTER_PARAM: Record<FilterKey, string> = {
+  q: "q",
+  zone: "zone",
+  tier: "tier",
+  overCents: "over",
+  noRsvpYear: "norsvp",
+  endingDays: "ending",
+  noEmail: "noemail",
+  noMobile: "nomobile",
+  noAddress: "noaddress",
+  notOnApp: "noapp",
+  band: "band",
+};
 
 const DEFAULT_ENDING_DAYS = 60;
 const MAX_CENTS = 100_000_000_000; // a billion in major units: anything larger is not a balance someone typed
@@ -62,6 +101,8 @@ const STOP = new Set(
     "record", "records", "this", "these", "those", "there", "here", "year", "yet", "still", "also", "but", "not", "no", "yes", "than", "then",
     "number", "numbers", "no.", "num", "id", "ids", "identifier", "code", "customer", "bank", "payer", "name", "names", "called", "named",
     "zone", "area", "areas", "zones", "live", "lives", "living", "anyone", "somebody", "someone",
+    // The words of the contact-gap filters ("adults with no email on the app"): a leftover one is not a name.
+    "adults", "seniors", "email", "emails", "e-mail", "mobile", "cell", "phone", "phones", "telephone", "address", "addresses", "app", "file", "mailing",
   ].map((w) => w.toLowerCase()),
 );
 
@@ -184,6 +225,31 @@ export function readAsk(sentence: string, vocab: AskVocab): AskReading {
     });
   }
 
+  // --- contact gaps: adults with no email, no mobile, no address, not on the app -------------------------------------------------
+  // They look at adults only (a child has no email or mobile field), whatever the sentence says about children.
+  const LACK = String.raw`(?:(?:with\s+)?no|without|missing|lacking|(?:(?:who|that|and)\s+)?(?:have|has)\s+no|(?:(?:who|that|and)\s+)?(?:don't|do\s+not|doesn't|does\s+not)\s+have)`;
+  const gap = (key: "noEmail" | "noMobile" | "noAddress", what: string) =>
+    take(new RegExp(String.raw`\b${LACK}\s+(?:an?\s+|any\s+|their\s+)?${what}(?![\p{L}\p{N}])`, "iu"), () => {
+      out[key] = true;
+      return true;
+    });
+  gap("noEmail", String.raw`e-?mails?(?:\s+address(?:es)?)?(?:\s+on\s+file)?`);
+  gap("noMobile", String.raw`(?:mobile|cell|phone|telephone)(?:\s+(?:phone|number|numbers))?(?:\s+on\s+file)?`);
+  gap("noAddress", String.raw`(?:(?:mailing|street|postal|home)\s+)?address(?:es)?(?:\s+on\s+file)?`);
+  take(
+    /\b(?:(?:who|that|and)\s+)?(?:are\s+|is\s+|were\s+)?not\s+(?:yet\s+)?(?:on|using|registered\s+on|signed\s+up\s+(?:on|for))\s+the\s+app\b|\b(?:(?:with|and)\s+)?(?:no|without)\s+(?:an?\s+)?app\s+(?:account|login|log-in|sign-?in)\b|\b(?:(?:who|that|and)\s+)?(?:have\s+not|haven't|has\s+not|hasn't|never)\s+(?:yet\s+)?(?:signed|logged)\s+in(?:\s+to\s+the\s+app)?\b/iu,
+    () => {
+      out.notOnApp = true;
+      return true;
+    },
+  );
+
+  // --- an age band: adults or seniors (a list of children is never offered by words) ----------------------------------------------
+  take(/(?<![\p{L}\p{N}])(adults|seniors|senior\s+citizens)(?![\p{L}\p{N}])(?:\s+only)?/iu, (m) => {
+    out.band = /^adult/i.test(m[1]) ? "adults" : "seniors";
+    return true;
+  });
+
   // --- area (the organization's own zones, longest name first) ----------------------------------------------------------------------
   const zones = [...vocab.zones].filter((z) => z.name.trim()).sort((a, b) => b.name.length - a.name.length);
   for (const z of zones) {
@@ -202,7 +268,7 @@ export function readAsk(sentence: string, vocab: AskVocab): AskReading {
     .filter((w) => w && !STOP.has(w.toLowerCase()) && !/^'s$/i.test(w));
   out.q = words.length ? normalizeSearchQuery(words.join(" ")) : null;
 
-  const understood = out.q !== null || out.zone !== null || out.tier !== null || out.overCents !== null || out.noRsvpYear !== null || out.endingDays !== null;
+  const understood = out.q !== null || (Object.keys(FILTER_PARAM) as FilterKey[]).some((k) => out[k] !== null);
   return { filters: out, understood };
 }
 
@@ -231,6 +297,8 @@ export function filtersFromParams(sp: Params): HouseholdFilters {
   const tier = one(sp, FILTER_PARAM.tier);
   const zone = one(sp, FILTER_PARAM.zone);
   const q = one(sp, FILTER_PARAM.q);
+  const band = one(sp, FILTER_PARAM.band);
+  const flag = (key: GapKey) => (one(sp, FILTER_PARAM[key]) === "1" ? true : null);
   return {
     q: q ? normalizeSearchQuery(q) : null,
     zone: zone && UUID.test(zone) ? zone : null,
@@ -238,6 +306,11 @@ export function filtersFromParams(sp: Params): HouseholdFilters {
     overCents: int(one(sp, FILTER_PARAM.overCents), 0, MAX_CENTS),
     noRsvpYear: int(one(sp, FILTER_PARAM.noRsvpYear), 1900, 2200),
     endingDays: int(one(sp, FILTER_PARAM.endingDays), 1, 366),
+    noEmail: flag("noEmail"),
+    noMobile: flag("noMobile"),
+    noAddress: flag("noAddress"),
+    notOnApp: flag("notOnApp"),
+    band: isAgeBand(band) && band !== "all" ? band : null,
   };
 }
 
@@ -246,7 +319,8 @@ export function paramsFromFilters(f: HouseholdFilters): Record<string, string> {
   const out: Record<string, string> = {};
   for (const key of Object.keys(FILTER_PARAM) as FilterKey[]) {
     const v = f[key];
-    if (v !== null && v !== undefined && v !== "") out[FILTER_PARAM[key]] = String(v);
+    if (v === true) out[FILTER_PARAM[key]] = "1";
+    else if (v !== null && v !== undefined && v !== "") out[FILTER_PARAM[key]] = String(v);
   }
   return out;
 }
@@ -255,9 +329,86 @@ export function hasFilters(f: HouseholdFilters): boolean {
   return (Object.keys(FILTER_PARAM) as FilterKey[]).some((k) => f[k] !== null);
 }
 
+// ---------------------------------------------------------------------------------------------------------------------------------
+// Contact gaps and age bands: a list of PEOPLE rather than families
+// ---------------------------------------------------------------------------------------------------------------------------------
+
+/** Is any contact gap asked for? */
+export function hasGap(f: HouseholdFilters): boolean {
+  return GAP_KEYS.some((k) => f[k] === true);
+}
+
+/**
+ * The age band a list really uses. A contact-gap list is for adults: a child has no email or mobile field, and a child's record is
+ * never part of a work list (D2), so asking for under 18 (or nothing) with a gap gives adults. Seniors and "on a team or role" are
+ * adults already and stay as asked.
+ */
+export function effectiveBand(f: Pick<HouseholdFilters, "band" | GapKey>): AgeBand {
+  if (GAP_KEYS.some((k) => f[k] === true)) return f.band === "seniors" || f.band === "roles" ? f.band : "adults";
+  return f.band ?? "all";
+}
+
+/** Filters that only a family can answer (a balance, an RSVP, a membership): they make a list of families, not of people. */
+function hasFamilyOnlyFilter(f: HouseholdFilters): boolean {
+  return f.overCents !== null || f.noRsvpYear !== null || f.endingDays !== null || f.tier !== null;
+}
+
+/** Which list these filters are about: people when a contact gap or an age band is asked and nothing asks about the family itself. */
+export function listFor(f: HouseholdFilters): "people" | "households" {
+  return (hasGap(f) || f.band !== null) && !hasFamilyOnlyFilter(f) ? "people" : "households";
+}
+
+const GAP_WORDS: Record<GapKey, string> = { noEmail: "no email", noMobile: "no mobile", noAddress: "no address", notOnApp: "not on the app" };
+
+const BAND_LABEL: Record<Exclude<AgeBand, "all">, string> = { adults: "Adults only", minors: "Under 18", seniors: "Seniors 65+", roles: "On a team or role" };
+
+/** "no email, no mobile and no address", then " who are not on the app": the gaps as one phrase after "adults with …"; "" when none. */
+function gapPhrase(f: HouseholdFilters): string {
+  const lacks = (["noEmail", "noMobile", "noAddress"] as const).filter((k) => f[k] === true).map((k) => GAP_WORDS[k]);
+  const head = lacks.length === 0 ? "" : lacks.length === 1 ? `with ${lacks[0]}` : `with ${lacks.slice(0, -1).join(", ")} and ${lacks[lacks.length - 1]}`;
+  const app = f.notOnApp === true ? (head ? "who are not on the app" : "not on the app") : "";
+  return [head, app].filter(Boolean).join(" ");
+}
+
+/** The people a gap list is about: "adults", "seniors", or "people on a team or role"; always adults when a gap is asked. */
+function subject(f: HouseholdFilters, n: number | null): string {
+  const one = n === 1;
+  const band = effectiveBand(f);
+  if (band === "seniors") return one ? "senior" : "seniors";
+  if (band === "roles") return one ? "person on a team or role" : "people on a team or role";
+  if (band === "minors") return one ? "person under 18" : "people under 18";
+  return band === "adults" ? (one ? "adult" : "adults") : one ? "person" : "people";
+}
+
+/** "Adults with no email" (the heading of a gap list, and the name a saved view starts with); null when no gap or band is asked. */
+export function listHeading(f: HouseholdFilters): string | null {
+  if (!hasGap(f) && f.band === null) return null;
+  const words = [subject(f, null), gapPhrase(f)].filter(Boolean).join(" ");
+  return words.charAt(0).toUpperCase() + words.slice(1);
+}
+
+/** "42 adults" / "1 senior": how many people a list of people holds, said with who they are. */
+export function countText(f: HouseholdFilters, count: number, locale = "en-US"): string {
+  return `${count.toLocaleString(locale)} ${subject(f, count)}`;
+}
+
+/** "Show 42 adults with no email": the find box's row for a sentence that reads as a list of people; null when it is not one. */
+export function showText(f: HouseholdFilters, count: number | null): string | null {
+  if (listFor(f) !== "people" || (!hasGap(f) && f.band === null)) return null;
+  const n = count === null ? "" : `${count.toLocaleString("en-US")} `;
+  return `Show ${n}${[subject(f, count), gapPhrase(f)].filter(Boolean).join(" ")}`;
+}
+
 /** Each filter in words, for the chips the person can see and remove. */
 export function chipsFor(f: HouseholdFilters, ctx: { zones: readonly Zone[]; fmt: CommunityFormat; tierLabel: (t: string) => string }): AskChip[] {
   const chips: AskChip[] = [];
+  const gap = hasGap(f);
+  // A gap list is always adults (or seniors): that chip says so and cannot be removed.
+  if (gap || f.band !== null) {
+    const band = effectiveBand(f);
+    chips.push({ key: "band", label: band === "all" ? "Everyone" : BAND_LABEL[band as Exclude<AgeBand, "all">], ...(gap && band !== f.band ? { fixed: true } : {}) });
+  }
+  for (const k of GAP_KEYS) if (f[k] === true) chips.push({ key: k, label: k === "notOnApp" ? "Not on the app" : `${GAP_WORDS[k].charAt(0).toUpperCase()}${GAP_WORDS[k].slice(1)} on file` });
   if (f.zone) chips.push({ key: "zone", label: `Area is ${ctx.zones.find((z) => z.id === f.zone)?.name ?? "an area you can't see"}` });
   if (f.overCents !== null) {
     chips.push({

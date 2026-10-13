@@ -4,7 +4,7 @@
 import type { CommunityFormat } from "@/lib/community-format";
 import { hrefWith } from "@/lib/search-params";
 import { tierLabel } from "@/lib/people";
-import { chipsFor, paramsFromFilters, type AskVocab } from "@/lib/people-v2/ask";
+import { chipsFor, listFor, paramsFromFilters, showText, type AskVocab } from "@/lib/people-v2/ask";
 
 import { readsAsFilter } from "./classify";
 import type { IdLabelRules } from "./labels";
@@ -17,7 +17,15 @@ export function filterFor(text: string, vocab: AskVocab, fmt: CommunityFormat): 
   const reading = readsAsFilter(text, vocab);
   if (!reading) return null;
   const chips = chipsFor(reading.filters, { zones: vocab.zones, fmt, tierLabel }).map((c) => c.label);
-  return { href: hrefWith("/people", {}, { ...paramsFromFilters(reading.filters), said: text.slice(0, 300) }), chips, understood: chips.join(" · ") };
+  // Contact gaps and age bands are lists of PEOPLE (adults): the sentence opens the People list, with a "Show N adults with no email" row.
+  const list = listFor(reading.filters);
+  const label = showText(reading.filters, null);
+  return {
+    href: hrefWith("/people", {}, { ...paramsFromFilters(reading.filters), view: list === "people" ? "people" : undefined, said: text.slice(0, 300) }),
+    chips,
+    understood: chips.join(" · "),
+    ...(list === "people" && label ? { list, label } : {}),
+  };
 }
 
 /**
