@@ -319,9 +319,11 @@ select pg_temp.claims(:nptreas, 30);
 select pg_temp.assert(app.module_enabled(:np, 'accounting') and app.module_enabled(:np, 'giving_bank'),
   'D · a secular non-profit has Accounting and Bank reconciliation on');
 select app.record_giving_export(:np, 'payments', '{"rows": 1}');
-select pg_temp.assert((app.explain_payout(:po3, :b3)->>'difference_cents')::bigint = 0
-                      and (app.payouts_close_state(:np, :'m'::date)->>'proven')::boolean,
-  'D · the non-profit''s treasurer exports, pairs its payout and proves the close the same way');
+select pg_temp.assert((app.explain_payout(:po3, :b3)->>'difference_cents')::bigint = 0,
+  'D · the non-profit''s treasurer exports and pairs its payout the same way');
+-- A separate statement: a stable function sees the rows as they were when its statement began.
+select pg_temp.assert((app.payouts_close_state(:np, :'m'::date)->>'proven')::boolean,
+  'D · and the close item is proven');
 select pg_temp.assert_raises(format($$select app.explain_payout(%L, %L)$$, :po2, :b2), 'needs giving.manage',
   'D · and cannot touch the temple''s payouts');
 
