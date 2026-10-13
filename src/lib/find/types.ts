@@ -28,9 +28,15 @@ export type IdentifierHit = {
 /** Why a row matched, in words the person reads next to it ("Old system ID 20417"). */
 export type Why = {
   /** A stable code (tests and styling); the words are in `label`. */
-  code: "name" | "adult" | "phone" | "email" | "member_number" | "household_number" | "identifier" | "recent";
+  code: "name" | "adult" | "phone" | "email" | "member_number" | "household_number" | "identifier" | "custom" | "recent";
   label: string;
 };
+
+/**
+ * A searchable custom field of a record, with the value it holds, as the viewer may read it (the label is the field's own name; the value is
+ * as it reads on screen). Only fields marked "found by the one box" are looked up, and only under the viewer's own access.
+ */
+export type CustomHit = { label: string; value: string };
 
 /** A person as the database lookup returns them, ready to be scored. */
 export type PersonCandidate = {
@@ -48,6 +54,8 @@ export type PersonCandidate = {
   relationship: string | null;
   /** Identifiers of this person that matched the typed text. */
   hits: IdentifierHit[];
+  /** Searchable custom fields of this person that the lookup found a value for. */
+  customHits?: CustomHit[];
 };
 
 /** A family (household) as the lookup returns it, ready to be scored. */
@@ -57,6 +65,8 @@ export type FamilyCandidate = {
   householdNumber: string | null;
   /** Identifiers of this family that matched the typed text. */
   hits: IdentifierHit[];
+  /** Searchable custom fields of this family that the lookup found a value for. */
+  customHits?: CustomHit[];
 };
 
 export type Scored<T> = { item: T; score: number; why: Why };
