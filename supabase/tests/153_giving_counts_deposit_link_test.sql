@@ -270,8 +270,8 @@ select app.link_count_to_bank_deposit(:snp, :lnp);
 select pg_temp.assert((select bank_transaction_id from app.counting_sessions where id = :snp) = :lnp::uuid
                       and (select label from app.category_modules where category_key = 'nonprofit_secular' and module_key = 'giving_counts') = 'Cash counts',
   'F · a food bank (not a faith) matches its cash count the same way; its kind calls them Cash counts');
-select pg_temp.assert_raises(format('select app.link_count_to_bank_deposit(%L, %L)', :s4, :lnp), 'not found',
-  'F · and cannot reach a count of another community');
+select pg_temp.assert_raises(format('select app.link_count_to_bank_deposit(%L, %L)', :s4, :lnp), 'permission',
+  'F · and cannot reach a count of another community (no permission there)');
 select pg_temp.claims(:vol);
 select pg_temp.assert_raises(format($$insert into app.counting_sessions (center_id, kind, counters, total_cents) values (%L, 'bhandar', array[%L, %L]::uuid[], 100)$$,
                                     :jc, :c1, :c3),
