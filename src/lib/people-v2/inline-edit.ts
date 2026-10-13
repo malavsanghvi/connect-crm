@@ -56,14 +56,23 @@ export type FieldKey = PersonFieldKey | HouseholdFieldKey;
 /** Values as the database holds them, in text: a missing value is "", a switch is "on" or "off". */
 export type Values = Record<string, string>;
 
+/** The key of a custom value in an edit unit: "cf:" and the field's key, so a field named "email" never meets the email column. */
+export type CustomFieldKey = `cf:${string}`;
+
 /** A thing that is edited in one go: one or several fields, saved together. */
 export type EditUnit = {
   id: string;
   /** "Mobile", used in the field label and in sentences ("Saved Tunde's mobile"). */
   label: string;
-  fields: readonly FieldKey[];
+  fields: readonly (FieldKey | CustomFieldKey)[];
   /** Name and date of birth: Enter saves, with a one-line why (plan section 5). Leaving the field does not save. */
   needsReason: boolean;
+  /**
+   * A unit that is not a column of the person or household (a custom field, src/lib/people-v2/custom-fields.ts) brings its own check
+   * and its own way of reading a stored value in the input; checkDraft and the state machine use them instead of the column rules.
+   */
+  check?: (draft: Values) => Checked;
+  draft?: (stored: string) => string;
 };
 
 const unit = (id: string, label: string, fields: readonly FieldKey[], needsReason = false): EditUnit => ({ id, label, fields, needsReason });
@@ -183,6 +192,7 @@ function asStored(v: unknown): string {
 
 /** What was typed for these fields, as the stored values (phone as +1713…, date as 1984-03-14, email in lower case), or the sentence for a mistake. */
 export function checkDraft(u: EditUnit, draft: Values, ctx: CheckContext): Checked {
+  if (u.check) return u.check(draft);
   const stored: Values = {};
   const person: Record<string, string> = {};
   const household: Record<string, string> = {};
@@ -337,7 +347,7 @@ export type EditEvent =
 const pick = (from: Values, keys: readonly string[]): Values => Object.fromEntries(keys.map((k) => [k, from[k] ?? ""]));
 
 function draftOf(u: EditUnit, committed: Values): Values {
-  return Object.fromEntries(u.fields.map((k) => [k, toDraft(k, committed[k] ?? "")]));
+  return Object.fromEntries(u.fields.map((k) => [k, u.draft ? u.draft(committed[k] ?? "") : toDraft(k, committed[k] ?? "")]));
 }
 
 export function initialEdit(u: EditUnit, committed: Values): EditState {

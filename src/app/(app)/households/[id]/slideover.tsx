@@ -1,12 +1,14 @@
 import Link from "next/link";
 
 import { PersonGlance } from "@/components/giving-glance/glance-panels";
+import { CustomFieldsSection } from "@/components/people-v2/custom/custom-group";
 import { PersonSlideOver } from "@/components/people-v2/slideover/person-slideover";
 import { SlideOverMessage } from "@/components/people-v2/slideover/message";
 import { explainError } from "@/lib/errors";
 import { givingShowBy } from "@/lib/giving-glance/levels";
 import type { GlancePrep } from "@/lib/giving-glance/page";
 import { isModuleEnabled } from "@/lib/modules";
+import type { CustomFieldsPayload } from "@/lib/people-v2/custom-fields";
 import type { FamilyModel } from "@/lib/people-v2/family-model";
 import { sectionPlan, slideOverHref, closeHref as closeUrl } from "@/lib/people-v2/slideover";
 import { loadPersonDetail } from "@/lib/people-v2/slideover-load";
@@ -28,6 +30,7 @@ export async function PersonSlideOverServer({
   base,
   personId,
   prep,
+  custom,
 }: {
   session: CrmSession;
   model: FamilyModel;
@@ -36,6 +39,8 @@ export async function PersonSlideOverServer({
   personId: string;
   /** The page's own "Giving at a glance" settings (the year), or null when Giving is off. */
   prep: GlancePrep | null;
+  /** The community's custom fields as the Family page read them (null: the section is not drawn). */
+  custom?: CustomFieldsPayload | null;
 }) {
   const closeHref = closeUrl(base, sp);
   const loaded = await loadPersonDetail(session, { personId, family: model });
@@ -80,7 +85,11 @@ export async function PersonSlideOverServer({
       mode="panel"
       detail={detail}
       plan={plan}
-      slots={{ glance, history: <AuditTab session={session} householdId={model.id} personId={p.id} bare /> }}
+      slots={{
+        glance,
+        history: <AuditTab session={session} householdId={model.id} personId={p.id} bare />,
+        customFields: custom ? <CustomFieldsSection payload={custom} personId={p.id} firstName={p.firstName} isChild={p.isChild} path={base} /> : undefined,
+      }}
       closeHref={closeHref}
       closeLabel={model.name}
       hrefs={{ details: slideOverHref(base, sp, p.id), move: slideOverHref(base, sp, p.id, "move"), merge: `/people/merge?person=${p.id}` }}

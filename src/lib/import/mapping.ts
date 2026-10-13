@@ -140,8 +140,15 @@ export function convertCustom(type: CustomType, cell: string, choices: readonly 
     case "url":
       return URL_RE.test(s) ? { ok: true, value: s } : { ok: false, error: `"${s}" is not a web address` };
     case "choice": {
-      const hit = (choices ?? []).find((c) => slug(c) === slug(s));
-      return hit ? { ok: true, value: hit } : { ok: false, error: `"${s}" is not one of: ${(choices ?? []).join(", ")}` };
+      // The exact choice first, then the same letters in another case or width, and only then the import's looser spelling. slug() keeps
+      // letters a-z and digits only, so choices written in another script all slug to "" and would match whichever comes first.
+      const list = choices ?? [];
+      const typed = s.normalize("NFKC").toLowerCase();
+      const hit =
+        list.find((c) => c === s) ??
+        list.find((c) => c.normalize("NFKC").toLowerCase() === typed) ??
+        (slug(s) ? list.find((c) => slug(c) === slug(s)) : undefined);
+      return hit ? { ok: true, value: hit } : { ok: false, error: `"${s}" is not one of: ${list.join(", ")}` };
     }
   }
 }

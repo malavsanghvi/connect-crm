@@ -2,8 +2,12 @@
 
 import type { ReactNode } from "react";
 
+import type { CustomFieldsPayload } from "@/lib/people-v2/custom-fields";
 import type { FamilyModel, HeaderChip } from "@/lib/people-v2/family-model";
 import { suggestedLastName } from "@/lib/people-v2/slideover";
+
+import { CustomFieldsProvider } from "../custom/custom-context";
+import { HouseholdCustomCard } from "../custom/custom-group";
 
 import { FamilyActionsProvider, type FamilyActions } from "./actions";
 import { AddPersonCard, AddPersonProvider } from "./add-person-card";
@@ -39,6 +43,7 @@ export function FamilyView({
   slots,
   actions,
   undoWindowMs,
+  custom,
 }: {
   model: FamilyModel;
   chips: HeaderChip[];
@@ -53,6 +58,8 @@ export function FamilyView({
   /** The writes (the dev previews pass fakes for some of them). */
   actions?: Partial<FamilyActions>;
   undoWindowMs?: number;
+  /** The community's custom fields and their values, as the server read them; left out, no card draws a custom group. */
+  custom?: CustomFieldsPayload | null;
 }) {
   const canEdit = model.canEdit;
   const ctx: PersonCtx = {
@@ -67,6 +74,7 @@ export function FamilyView({
     <FamilyActionsProvider actions={actions}>
       <UndoProvider windowMs={undoWindowMs}>
         <AddPersonProvider>
+          <CustomFieldsProvider payload={custom}>
           <div className="pb-24 md:pb-0">
             <FamilyHeader model={model} chips={chips} links={links} canEdit={canEdit} />
 
@@ -153,8 +161,9 @@ export function FamilyView({
                 </div>
 
                 <div className="contents xl:flex xl:flex-col xl:gap-4">
-                  <div className="order-4">
+                  <div className="order-4 flex flex-col gap-4">
                     <AddressCard model={model} canEdit={canEdit} />
+                    <HouseholdCustomCard householdId={model.id} householdName={model.name} path={`/households/${model.id}`} />
                   </div>
                   <div className="order-6">
                     <PreferencesCard model={model} canEdit={canEdit} />
@@ -167,6 +176,7 @@ export function FamilyView({
             <div className="mt-6">{slots.tabs}</div>
             {slots.after}
           </div>
+          </CustomFieldsProvider>
         </AddPersonProvider>
       </UndoProvider>
     </FamilyActionsProvider>

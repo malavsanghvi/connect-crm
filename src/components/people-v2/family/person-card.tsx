@@ -9,6 +9,7 @@ import { PERSON_UNITS, ageCrossing, checkDraft, type EditUnit } from "@/lib/peop
 
 import { ConflictPanel, FieldRow, INPUT, NameEditor, ValueButton, editorKeys, leftEditor, useFocusBack, SaveError } from "./inline-ui";
 import { useInlineEdit } from "./use-inline-edit";
+import { PersonCustomGroup } from "../custom/custom-group";
 import { PersonMenu, type MenuPerson } from "../slideover/person-menu";
 
 // A person on the Family page. Adults are cards with their contact details; children are compact rows (D2: staff only, no contact
@@ -247,6 +248,8 @@ export function PersonCard({ person: p, ctx, orgMemberLabel }: { person: FamilyP
           </div>
         ) : null}
       </div>
+
+      <PersonCustomGroup personId={p.id} firstName={p.firstName} path={ctx.householdId ? `/households/${ctx.householdId}` : `/people/${p.id}`} />
 
       <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2 border-t border-line pt-3">
         <Link
