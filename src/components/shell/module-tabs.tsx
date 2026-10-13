@@ -33,8 +33,8 @@ export function ModuleTabs() {
   const look = useLook();
   const kind = useKind();
   const givingTabs = useGivingTabs();
-  // Giving in the New look has ONE tab row (Today, Pledges, Payments, Bank …), handed down by the /giving layout.
-  if (look === "v2" && givingTabs && givingTabs.length >= 2 && pathUnder(pathname, "/giving")) {
+  // Giving in the New look has ONE tab row (Today, Pledges, Payments, Bank …), handed down by the /giving and /bolis layouts.
+  if (look === "v2" && givingTabs && givingTabs.length >= 2 && (pathUnder(pathname, "/giving") || pathUnder(pathname, "/bolis"))) {
     return <GivingTabRow tabs={givingTabs} className="mt-4" />;
   }
   if (!modules) return null;

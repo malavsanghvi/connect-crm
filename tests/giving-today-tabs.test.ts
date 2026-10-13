@@ -14,7 +14,7 @@ describe("Giving's one tab row", () => {
     const tabs = givingTabs(ctx(treasurer));
     // Until slice 5 the counts are a view of Payments.
     expect(tabs.find((t) => t.key === "counts")).toMatchObject({ label: "Cash counts", href: "/giving/payments?view=counts" });
-    expect(tabs.find((t) => t.key === "campaigns")).toMatchObject({ label: "Campaigns & opportunities", href: "/giving/opportunities" });
+    expect(tabs.find((t) => t.key === "campaigns")).toMatchObject({ label: "Campaigns & opportunities", href: "/giving/campaigns" });
     expect(tabs.find((t) => t.key === "books")?.href).toBe("/accounting/close");
     // Insights has no screen yet: it is not offered.
     expect(keys(ctx(treasurer))).not.toContain("insights");
@@ -23,15 +23,16 @@ describe("Giving's one tab row", () => {
   it("an add-on the community switched off takes its tab with it (unknown keys count as on until M2)", () => {
     const off = ctx(treasurer, ["bolis", "giving_bank", "giving_counts", "giving_recurring", "giving_statements", "giving_opportunities"]);
     expect(keys(off)).toEqual(["today", "pledges", "payments", "campaigns", "books"]);
-    expect(givingTabs(off).find((t) => t.key === "campaigns")).toMatchObject({ label: "Campaigns", href: "/giving/opportunities/campaigns" });
+    expect(givingTabs(off).find((t) => t.key === "campaigns")).toMatchObject({ label: "Campaigns", href: "/giving/campaigns" });
     expect(keys(ctx(treasurer, ["bolis", "accounting"]))).not.toContain("books");
   });
 
-  it("a kind with Labh and Bolis keeps their tabs, in its own words, until slice 6 folds them in", () => {
+  it("a kind with Labh and Bolis finds them as views of Campaigns & opportunities (slice 6), not tabs of their own", () => {
     const jain = ctx([...treasurer, "bolis.manage"], [], LEGACY_KIND);
-    expect(keys(jain)).toEqual(["today", "pledges", "payments", "bank", "campaigns", "labh", "bolis", "statements", "counts", "books"]);
+    expect(keys(jain)).toEqual(["today", "pledges", "payments", "bank", "campaigns", "statements", "counts", "books"]);
     expect(givingTabs(jain).find((t) => t.key === "counts")?.label).toBe("Bhandar counts");
-    expect(keys(ctx(treasurer, ["labh"], LEGACY_KIND))).not.toContain("labh");
+    // Someone who holds only the Bolis permission inside Giving opens the tab on the Bolis view.
+    expect(givingTabs(ctx(["giving.record_offline", "bolis.view"], [], LEGACY_KIND)).find((t) => t.key === "campaigns")?.href).toBe("/giving/campaigns?view=bolis");
   });
 
   it("a volunteer and a second approver see only what they can open", () => {
@@ -48,8 +49,8 @@ describe("Giving's one tab row", () => {
     expect(activeGivingTab(tabs, "/giving/payments")).toBe("payments");
     expect(activeGivingTab(tabs, "/giving/payments/bank")).toBe("bank");
     expect(activeGivingTab(tabs, "/giving/opportunities/campaigns")).toBe("campaigns");
-    expect(activeGivingTab(tabs, "/giving/labh")).toBe("labh");
+    expect(activeGivingTab(tabs, "/giving/labh")).toBe("campaigns");
     expect(activeGivingTab(tabs, "/giving/pledges")).toBe("pledges");
-    expect(activeGivingTab(tabs, "/bolis")).toBeNull();
+    expect(activeGivingTab(tabs, "/bolis")).toBe("campaigns");
   });
 });
