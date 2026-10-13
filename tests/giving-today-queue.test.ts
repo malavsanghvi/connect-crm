@@ -222,6 +222,12 @@ describe("the counts tile speaks the organization's own word (owner, 2026-10-12)
     expect(countsWord({ ...faith, terms: { ...faith.terms, offering_counts: "Sadaqah box counts" } })).toBe("Sadaqah box counts");
     expect(countsWord(NEUTRAL_KIND)).not.toMatch(/offering|bhandar|collection/i);
   });
+  it("reads the kind's name for the Offering counts module (category_modules, 0741) before the written-out rule", () => {
+    const named = (label: string): KindProfile => ({ ...faith, modules: { ...faith.modules, giving_counts: { availability: "default_on", label } } });
+    expect(countsWord(named("Plate counts"))).toBe("Plate counts");
+    expect(countsWord({ ...chamber, modules: { ...chamber.modules, giving_counts: { availability: "default_on", label: "Cash counts" } } })).toBe("Cash counts");
+    expect(countsWord({ ...named("Plate counts"), terms: { ...faith.terms, offering_counts: "Sadaqah box counts" } })).toBe("Sadaqah box counts");
+  });
   it("the tile and the tab say it", () => {
     expect(sampleTodayModel("treasurer", { kind: church }).queue.tiles.map((t) => t.label)).toContain("Collection counts");
     expect(sampleTodayModel("treasurer").tabs.find((t) => t.key === "counts")?.label).toBe("Cash counts");
