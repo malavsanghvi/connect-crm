@@ -775,8 +775,8 @@ select pg_temp.claims(:matchlead);
 select app.record_match_employer(:c1, :pq, 'Quinn Ltd');
 select app.record_match_employer(:c1, :pr, 'Rae Ltd');
 select pg_temp.claims(:quinn);
-select pg_temp.assert(app.link_account(:c1, :pq) = :pq
-                      and (app.my_match_employer(:c1)) @> '{"employer": "Quinn Ltd", "source": "paper_form"}'::jsonb,
+select pg_temp.assert(app.link_account(:c1, :pq) = :pq, 'N · Quinn signs in for the first time and links to their record');
+select pg_temp.assert((app.my_match_employer(:c1)) @> '{"employer": "Quinn Ltd", "source": "paper_form"}'::jsonb,
   'N · Quinn links with the email on file (another case): the paper form is now theirs to see');
 select pg_temp.assert(app.remove_my_match_employer(:c1), 'N · and to remove');
 reset role;
@@ -798,7 +798,8 @@ select pg_temp.no_claims();
 delete from app.center_users where center_id = :c1 and user_id = :raealt;
 set role authenticated;
 select pg_temp.claims(:rae);
-select pg_temp.assert(app.link_account(:c1, :pr) = :pr and (app.my_match_employer(:c1))->>'employer' is null,
+select pg_temp.assert(app.link_account(:c1, :pr) = :pr, 'N · the genuine Rae links later');
+select pg_temp.assert((app.my_match_employer(:c1))->>'employer' is null,
   'N · a sign-in with the right email that links later binds nothing either: only the office changes or withdraws it');
 select pg_temp.claims(:matchlead);
 select pg_temp.assert(app.withdraw_match_employer(:c1, :pr, 'Test 163: Rae asked at the front desk'), 'N · (the office withdraws it when Rae asks)');
