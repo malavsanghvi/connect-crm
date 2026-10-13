@@ -251,8 +251,9 @@ $$;
 -- ── Nobody gives themselves a role, Weaver's team included ───────────────────
 -- 0152's enforce_role_grant with the self rules moved ahead of the platform team's early return, and extended to updates:
 -- nobody inserts a grant for themselves (accepting an invitation someone else sent is the one exception: the inviter is the
--- giver) or widens a grant of their own. Everything else is 0152's, word for word: the platform team still sets up other
--- people at once (no platform-role check, no second approver), as onboarding, promotion and demo communities need.
+-- giver) or widens a grant of their own. The rest is 0152's: the platform team still sets up other people at once (no
+-- platform-role check, no second approver), as onboarding, promotion and demo communities need; for everyone else a platform
+-- role is refused on an update that widens a grant too, now that the trigger also fires on updates.
 create or replace function app.enforce_role_grant() returns trigger
 language plpgsql security definer set search_path = app, public, extensions as $$
 declare v_tier text; v_inviter uuid;
@@ -267,8 +268,11 @@ begin
     raise exception 'you cannot widen a role of your own; a different administrator has to' using errcode = 'check_violation';
   end if;
   if app.is_platform_admin() then return new; end if;   -- platform team (0017): as before for other people's grants
-  select tier into v_tier from app.roles where key = new.role_key;
-  if v_tier = 'platform' then raise exception 'platform roles are granted by the platform team only' using errcode = 'check_violation'; end if;
+  -- A platform role is given (or widened) by the platform team only; ending one stays open to whoever may write the row.
+  if tg_op = 'INSERT' or app._grant_widens(old, new) then
+    select tier into v_tier from app.roles where key = new.role_key;
+    if v_tier = 'platform' then raise exception 'platform roles are granted by the platform team only' using errcode = 'check_violation'; end if;
+  end if;
   if tg_op = 'INSERT' then
     new.granted_by := coalesce(v_inviter, auth.uid());
     if new.role_key in ('center_admin','treasurer','finance_volunteer','executive_committee','privacy_officer') then
@@ -278,6 +282,10 @@ begin
   end if;
   return new;
 end $$;
+-- 0017 fired it on INSERT only; the self rule needs updates too.
+drop trigger if exists role_grants_rules on app.role_grants;
+create trigger role_grants_rules before insert or update on app.role_grants
+  for each row execute function app.enforce_role_grant();
 
 -- ── Granting a private role ──────────────────────────────────────────────────
 -- BEFORE INSERT OR UPDATE on role_grants (it fires before role_grants_rules). Without a signed-in user (service role,
