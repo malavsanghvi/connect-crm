@@ -29,6 +29,7 @@ import { hrefWith, isUuid, param, type RawSearchParams } from "@/lib/search-para
 
 import { adultsLine, type FamilyCheck, type FamilyModel, type FamilyPerson } from "./family-model";
 import type { Values } from "./inline-edit";
+import type { ProfileEditFacts } from "./profile-details";
 
 // ---------------------------------------------------------------------------
 // A section's state
@@ -74,12 +75,14 @@ export type AccountFacts = {
 
 export type RolesFacts = { roles: Part<string[]>; waiver: Part<string>; background: Part<string> };
 
-/** What the member told the community in the app (read-only here: members change it in the app). */
+/** What the member told the community in the app. Members change it in the app; staff with people.manage change it here (migration 0723). */
 export type ProfileDetails = {
   anniversary: string | null;
   dietary: { label: string; retired: boolean }[];
   emergency: { name: string; relationship: string | null; phone: string } | null;
   labelsNote: string | null;
+  /** What the editor needs (the keys and the community's list). Left out where nothing edits: the details then read as lines. */
+  edit?: ProfileEditFacts;
 };
 
 export type DetailId = {

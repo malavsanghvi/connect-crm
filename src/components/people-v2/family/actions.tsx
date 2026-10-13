@@ -4,6 +4,7 @@ import { createContext, useContext, useMemo, type ReactNode } from "react";
 
 import { addCustomFieldAction, saveCustomValueAction, setCustomFieldStatusAction, type AddFieldCall, type AddFieldSave } from "@/app/(app)/households/[id]/custom-actions";
 import { saveHouseholdFieldsAction, savePersonFieldsAction, type InlineSave } from "@/app/(app)/households/[id]/inline-actions";
+import { saveProfileDetailsAction } from "@/app/(app)/households/[id]/profile-details-actions";
 import { addToEventAction, loadAddToEventAction, type AddToEventCall, type AddToEventLoadCall } from "@/app/(app)/households/[id]/event-add-actions";
 import { addPersonInlineAction, type AddPersonCall, type AddPersonSave } from "@/app/(app)/households/[id]/slideover-actions";
 import { addPersonId, retirePersonId, type AddIdInput, type RetireIdInput } from "@/app/(app)/identifiers/person-id-seam";
@@ -23,7 +24,9 @@ export type EditTarget =
   | { kind: "person"; personId: string; householdId: string | null }
   | { kind: "household"; householdId: string }
   /** One custom field's value (src/lib/people-v2/custom-fields.ts); `path` is the page to refresh after a save. */
-  | { kind: "custom"; entity: "people" | "households"; recordId: string; path: string };
+  | { kind: "custom"; entity: "people" | "households"; recordId: string; path: string }
+  /** What the member gave about themselves (anniversary, dietary needs, emergency contact): the staff function of migration 0723. */
+  | { kind: "profile"; personId: string };
 
 export type SaveInput = { fields: Values; expect: Values; reason?: string | null; label: string };
 
@@ -65,6 +68,7 @@ export const realActions: FamilyActions = {
         path: target.path,
       });
     }
+    if (target.kind === "profile") return saveProfileDetailsAction({ ...input, personId: target.personId });
     return target.kind === "person"
       ? savePersonFieldsAction({ ...input, personId: target.personId, householdId: target.householdId })
       : saveHouseholdFieldsAction({ ...input, householdId: target.householdId });
