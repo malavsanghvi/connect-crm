@@ -109,7 +109,7 @@ community first, then any community that takes CatchTheMatch.
 
 | Slice | What | Size | Owner OK |
 |---|---|---|---|
-| 1 | Module `catch_the_match` (default off, grant-only, Marketplace "Request" card), `matching.view` and `matching.manage`, the Weaver filing role, the employer field and consent in People | M | **Yes: permissions/RLS, personal data** |
+| 1 | Module `matching` (a neutral key; the label is CatchTheMatch, [`MARKETPLACE_PACKS.md`](MARKETPLACE_PACKS.md) P6) (default off, grant-only, Marketplace "Request" card), `matching.view` and `matching.manage`, the Weaver filing role, the employer field and consent in People | M | **Yes: permissions/RLS, personal data** |
 | 2 | Shared employer-program directory, member submissions, verification | M | No |
 | 3 | Claims: the eligible-gift finder, the pre-filled donor request (message and member-app card), states and deadlines, the Weaver filing queue | L | **Yes: messaging** |
 | 4 | Received: match payment against the claim in the Bank tab, soft credit, the donor's thank-you (a WeCare touch when WeCare is on), statements show the match as the employer's gift | M | **Yes: money (allocation, statements)** |

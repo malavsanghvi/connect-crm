@@ -486,6 +486,8 @@ The kind names it (category_modules.label): Bhandar counts (Jain Center), Collec
 
 ## Niva assistant (depends on Content)
 
+- **Planned 2026-10-13:** also depends on `ai` (the iWeaver pack, [`MARKETPLACE_PACKS.md`](MARKETPLACE_PACKS.md)).
+
 - **Tables:** niva_conversations
 - **RPCs guarded:** none
 - **Portal:** /content/niva
