@@ -1580,6 +1580,33 @@ export type Database = {
         };
         Relationships: [];
       };
+      center_module_grants: {
+        Row: {
+          center_id: string;
+          module_key: string;
+          granted: boolean;
+          reason: string;
+          granted_by: string | null;
+          granted_at: string;
+        };
+        Insert: {
+          center_id: string;
+          module_key: string;
+          granted: boolean;
+          reason: string;
+          granted_by?: string | null;
+          granted_at?: string;
+        };
+        Update: {
+          center_id?: string;
+          module_key?: string;
+          granted?: boolean;
+          reason?: string;
+          granted_by?: string | null;
+          granted_at?: string;
+        };
+        Relationships: [];
+      };
       center_modules: {
         Row: {
           center_id: string;
@@ -13383,7 +13410,7 @@ export type Database = {
         Args: {
           p_center: string;
         };
-        Returns: { key: string; label: string; description: string; core: boolean; depends_on: string[]; sort: number; availability: string; enabled: boolean; switchable: boolean; changed_by: string; changed_at: string; reason: string }[];
+        Returns: { key: string; label: string; description: string; core: boolean; depends_on: string[]; sort: number; availability: string; enabled: boolean; switchable: boolean; changed_by: string; changed_at: string; reason: string; granted: boolean; granted_by: string; granted_at: string; grant_reason: string; paused: boolean; waiting_for: string[] }[];
       };
       move_lunch_slot: {
         Args: {
@@ -15201,6 +15228,15 @@ export type Database = {
           p_reason: string;
         };
         Returns: undefined;
+      };
+      set_module_grant: {
+        Args: {
+          p_center: string;
+          p_module: string;
+          p_granted: boolean;
+          p_reason: string;
+        };
+        Returns: Json;
       };
       set_pathshala_level_fees: {
         Args: {

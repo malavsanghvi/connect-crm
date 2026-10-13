@@ -561,6 +561,12 @@ select pg_temp.assert((select tradition = 'other' from app.centers where id = :'
 -- Store starts off; the chamber switches it on and off.
 select pg_temp.assert(not app.module_enabled(:'chm', 'store') and (select count(*) from app.store_categories where center_id = :'chm') = 0,
   'C · Store starts off');
+-- 0740: Store and Niva start off for a chamber and wait for Weaver, so a platform admin grants them first (test 150 covers
+-- the refusal without a grant).
+select pg_temp.claims(:cc, true);
+select app.set_module_grant(:'chm', 'store', true, 'Test 79: the chamber may open a store');
+select app.set_module_grant(:'chm', 'niva', true, 'Test 79: the chamber may try Niva');
+select pg_temp.claims(:chadmin, true);
 select app.set_module_enabled(:'chm', 'store', true, 'Opening a store for members');
 select pg_temp.assert(app.module_enabled(:'chm', 'store') and (select count(*) from app.store_categories where center_id = :'chm') = 1
                       and not (:'chm'::uuid = any (app.module_off_centers('store')))
@@ -701,7 +707,7 @@ select pg_temp.assert((:'preview'::jsonb->>'changed')::boolean
                       and (select h->>'text' from jsonb_array_elements(:'preview'::jsonb->'hidden') h where h->>'module' = 'bolis')
                             = 'Bolis: 1 record will be hidden, not deleted (1 in bolis).'
                       and (select h->>'text' from jsonb_array_elements(:'preview'::jsonb->'hidden') h where h->>'module' = 'niva')
-                            = 'Niva assistant: nothing is stored yet, so nothing is hidden; it can be switched on again in Settings › Modules.'
+                            = 'Niva assistant: nothing is stored yet, so nothing is hidden; Weaver can enable it again.'
                       and (:'preview'::jsonb->>'paths_kept')::int = 2
                       and :'preview'::jsonb->'tradition'->>'after' = 'other'
                       and :'preview'::jsonb->'summary' ? 'Nothing is deleted; changing back restores it.',
