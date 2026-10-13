@@ -5,6 +5,8 @@ Status: plan, 2026-10-13, nothing built. It merges B73 (donor playbooks) and B98
 onboards (temple, church, mosque, chamber, club, food bank, school; any faith or none; any language): behaviour comes
 from the organization's kind, its own settings and its own records, never from code written for one community.
 
+**Priority (owner, 2026-10-13):** build slices 2 to 4 (care basics, thank-you tracker, engagement signs), the usable core; then Marketplace billing (MARKETPLACE_PLAN phases 2 and 3) before any further paid slice. Slices 5 to 10 wait.
+
 ## 1. In short
 
 - **The problem.** Most organizations reach their donors when they need money: an appeal, a campaign, a gala. The
