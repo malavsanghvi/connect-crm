@@ -58,6 +58,12 @@ Honest limit: people who run Weaver's database (service role, backups) can techn
 enforced by policy, audit and process, not by encryption. Encrypting care notes with a per-organization key is a
 later option; it costs search and AI drafting, so it is not in v1.
 
+**Built (2026-10-13, migrations 0757 and 0758, test 163):** `app.org_private_can`, `app.care_can`, `app.care_amounts_can`,
+the three keys and the roles `care_lead` and `relationship_owner` (given only by the owner or a `care.manage` holder; each
+grant audited and the owner emailed), the `care.settings` support area (`app.care_settings_can`), read logging
+(`app.log_private_read`), the masked audit trigger (`app.audit_private_row`) and the audit-log rule. The contract every care
+table follows is in the 0757 header and [`ROLES.md`](ROLES.md).
+
 ## 4. Product and module
 
 - **Module key `care`** (a neutral key; the label is WeCare, [`MARKETPLACE_PACKS.md`](MARKETPLACE_PACKS.md) P6), depends on **People** only. It reads Giving when Giving is on (amount signs, thank-you

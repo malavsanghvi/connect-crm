@@ -2,6 +2,7 @@ import { notFound, redirect } from "next/navigation";
 
 import { AuditTab } from "@/app/(app)/households/[id]/audit-tab";
 import { PersonEventsServer } from "@/app/(app)/households/[id]/person-events";
+import { PersonMatchingServer } from "@/app/(app)/households/[id]/person-matching";
 import { PersonGlance } from "@/components/giving-glance/glance-panels";
 import { CustomFieldsSection } from "@/components/people-v2/custom/custom-group";
 import { ChooseFamilyList } from "@/components/people-v2/slideover/choose-family";
@@ -58,7 +59,8 @@ export async function PersonPageV2({ session, id, sp }: { session: CrmSession; i
   const p = detail.person;
   const givingOn = isModuleEnabled(session, "giving");
   const eventsOn = isModuleEnabled(session, "events");
-  const plan = sectionPlan({ isChild: p.isChild, givingByPerson: givingShowBy(center.rules) === "person", givingOn, hasHistory: true, hasEvents: eventsOn });
+  const matchingOn = isModuleEnabled(session, "matching");
+  const plan = sectionPlan({ isChild: p.isChild, givingByPerson: givingShowBy(center.rules) === "person", givingOn, hasHistory: true, hasEvents: eventsOn, matchingOn });
   const glance = plan.some((s) => s.key === "giving") ? (
     <PersonGlance session={session} person={{ id: p.id, name: p.name, firstName: p.firstName, adult: !p.isChild }} householdIds={[]} sp={sp} prep={await prepareGlance(session, sp)} />
   ) : null;
@@ -72,6 +74,7 @@ export async function PersonPageV2({ session, id, sp }: { session: CrmSession; i
         glance,
         history: <AuditTab session={session} householdId={null} personId={p.id} bare />,
         events: eventsOn ? <PersonEventsServer session={session} person={{ id: p.id, firstName: p.firstName }} model={null} /> : undefined,
+        matching: matchingOn && !p.isChild ? <PersonMatchingServer session={session} person={{ id: p.id, firstName: p.firstName, profileEmployer: p.values.employer || null }} /> : undefined,
         customFields: <CustomFieldsSection payload={custom} personId={p.id} firstName={p.firstName} isChild={p.isChild} path={retry} />,
       }}
       closeHref="/people"

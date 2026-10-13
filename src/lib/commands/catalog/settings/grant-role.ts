@@ -4,6 +4,7 @@
 // grant-rules.ts. The two-person rule is the database's (app.enforce_role_grant makes the roles that need it start as pending); a
 // role granted here lands pending exactly as it does on the screen, and only a different administrator approves it (settings.second_approval).
 
+import { rolePrivateProducts } from "@/lib/permissions";
 import { endsWords, scopeWords } from "@/lib/settings-help/role-words";
 import { roleAllows } from "@/lib/settings-help/areas";
 import { dbWithReason } from "@/lib/session";
@@ -102,7 +103,9 @@ export const grantRole = defineCommand<GrantInput, undefined>({
         message: `${plan.role.name} is waiting for a second person: it starts only when a different administrator approves it under "Waiting for approval".`,
       };
     }
-    return { ok: true, data: undefined, message: `Granted ${plan.role.name}${plan.ends_on ? ` until ${plan.ends_on}` : ""}.` };
+    // WeCare and CatchTheMatch roles (0757): the database emails the organization's owner about each one.
+    const ownerTold = rolePrivateProducts(plan.role).length > 0 ? " The organization's owner gets an email about it." : "";
+    return { ok: true, data: undefined, message: `Granted ${plan.role.name}${plan.ends_on ? ` until ${plan.ends_on}` : ""}.${ownerTold}` };
   },
 });
 

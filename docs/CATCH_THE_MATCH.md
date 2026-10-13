@@ -89,6 +89,14 @@ Slices 1 to 4 can be built and used while this is settled; the fee ledger (slice
 - **The employer-program directory is shared** across organizations: public facts only (company, ratio, minimum and
   maximum, portal, deadlines, volunteer-grant rules), never who works there or who gave.
 
+**Built (2026-10-13, migrations 0757 to 0759, test 163):** `app.matching_can`; `matching.view` and `matching.manage` and the
+role `matching_lead`; the Weaver filing grant (`app.matching_filing_grants`, `app.grant_weaver_filing` /
+`app.end_weaver_filing`: the owner or a `matching.manage` holder gives a named Weaver team member CatchTheMatch view and
+filing for at most 366 days, the owner is emailed, it ends when Weaver turns CatchTheMatch off, every read is logged with
+`app.log_private_read`); the employer for gift matching (`app.person_match_employers`, consent kind `employer_matching`,
+adults only, set and removed by the person, or recorded from a signed paper form by `matching.manage`; `people.employer`
+is untouched and only prefills it) with a Gift matching section in the person slide-over. The filing queue is slice 3.
+
 ## 7. Where the employer-program facts come from
 
 1. Weaver's team seeds and maintains the shared directory.

@@ -13,7 +13,40 @@ export type GrantLike = {
   ends_at: string | null;
 };
 
-export type RoleLike = { key: string; permissions: Json };
+export type RoleLike = { key: string; permissions: Json; tier?: string };
+
+// ---------------------------------------------------------------------------
+// The organization's own data (migration 0757, docs/WECARE.md section 3 and docs/CATCH_THE_MATCH.md section 6): WeCare
+// (module `care`) and CatchTheMatch (module `matching`). Only the owner and the roles the organization grants see it; a
+// platform admin as such never does (app.org_private_can has no platform-admin branch), so `can` below does not let a
+// platform admin through on these keys either. Amounts in WeCare also need giving.view (app.care_amounts_can).
+// ---------------------------------------------------------------------------
+export const ORG_PRIVATE_KEYS = ["care.view", "care.own", "care.manage", "matching.view", "matching.manage"] as const;
+export type OrgPrivateKey = (typeof ORG_PRIVATE_KEYS)[number];
+export type OrgPrivateProduct = "care" | "matching";
+
+/** The product a key belongs to when it is the organization's own (care.*, matching.*), else null (app.org_private_product). */
+export function orgPrivateProduct(key: string): OrgPrivateProduct | null {
+  const head = key.split(".")[0];
+  return head === "care" || head === "matching" ? head : null;
+}
+
+/** The private products a role opens (app.role_private_products): none for a platform-tier role; "*" opens both. */
+export function rolePrivateProducts(role: { permissions: Json | unknown; tier?: string }): OrgPrivateProduct[] {
+  if (role.tier === "platform") return [];
+  const list = Array.isArray(role.permissions) ? role.permissions.filter((x): x is string => typeof x === "string") : [];
+  const out = new Set<OrgPrivateProduct>();
+  for (const p of list) {
+    if (p === "*") {
+      out.add("care");
+      out.add("matching");
+    } else {
+      const product = orgPrivateProduct(p);
+      if (product) out.add(product);
+    }
+  }
+  return [...out].sort();
+}
 
 export type PermissionContext = {
   permissions: readonly string[];
@@ -64,12 +97,17 @@ function permissionList(p: Json): string[] {
  * so neither does this.
  */
 export function computePermissions(grants: GrantLike[], roles: RoleLike[], now: Date = new Date()): string[] {
-  const byKey = new Map(roles.map((r) => [r.key, permissionList(r.permissions)]));
+  const byKey = new Map(roles.map((r) => [r.key, { perms: permissionList(r.permissions), platformTier: r.tier === "platform" }]));
   const out = new Set<string>();
   for (const g of grants) {
     if (g.scope_kind !== "center" && g.scope_kind !== "platform") continue;
     if (!isGrantActive(g, now)) continue;
-    for (const p of byKey.get(g.role_key) ?? []) out.add(p);
+    const role = byKey.get(g.role_key);
+    for (const p of role?.perms ?? []) {
+      // The organization's own keys come only from a center-wide grant of a role that is not a platform-tier role (0757).
+      if (orgPrivateProduct(p) && (role?.platformTier || g.scope_kind !== "center")) continue;
+      out.add(p);
+    }
   }
   return [...out].sort();
 }
@@ -80,7 +118,7 @@ export function computePermissions(grants: GrantLike[], roles: RoleLike[], now: 
  * 2026-09-25: the owner can do every task in their organization).
  */
 export function allPermissionKeys(roles: RoleLike[]): string[] {
-  const out = new Set<string>();
+  const out = new Set<string>(ORG_PRIVATE_KEYS);
   for (const r of roles) for (const p of permissionList(r.permissions)) if (p !== "*") out.add(p);
   return [...out].sort();
 }
@@ -90,11 +128,47 @@ export function sessionPermissions(grants: GrantLike[], roles: RoleLike[], isOwn
   return isOwner ? allPermissionKeys(roles) : computePermissions(grants, roles, now);
 }
 
-/** True when the user holds ANY of the listed permissions (platform admins hold all). */
+/**
+ * True when the user holds ANY of the listed permissions. Platform admins hold all of them except the organization's own
+ * keys (care.*, matching.*): those only through a role the organization granted, as in the database (0757).
+ */
 export function can(ctx: PermissionContext, anyOf: string | readonly string[]): boolean {
-  if (ctx.isPlatformAdmin) return true;
   const list = typeof anyOf === "string" ? [anyOf] : anyOf;
-  return list.some((p) => ctx.permissions.includes(p));
+  return list.some((p) => (ctx.isPlatformAdmin && !orgPrivateProduct(p)) || ctx.permissions.includes(p));
+}
+
+/**
+ * One of the organization's own keys, as app.org_private_can decides it: the product's module is on and the key is held (the
+ * owner holds every key). Never because the user is a platform admin. Convenience only: the database decides.
+ */
+export function canPrivate(ctx: ScopedContext, key: OrgPrivateKey): boolean {
+  const product = orgPrivateProduct(key);
+  return product !== null && moduleOn(ctx, product) && ctx.permissions.includes(key);
+}
+
+/** WeCare levels (app.care_can): view = every care record, own = only my households (view and manage include it), manage. */
+export function careCan(ctx: ScopedContext, level: "view" | "own" | "manage"): boolean {
+  if (level === "manage") return canPrivate(ctx, "care.manage");
+  if (level === "view") return canPrivate(ctx, "care.view") || canPrivate(ctx, "care.manage");
+  return canPrivate(ctx, "care.own") || canPrivate(ctx, "care.view") || canPrivate(ctx, "care.manage");
+}
+
+/** CatchTheMatch levels (app.matching_can), the organization's side: view (view or manage) and manage. The Weaver filing grant is the database's. */
+export function matchingCan(ctx: ScopedContext, level: "view" | "manage"): boolean {
+  if (level === "manage") return canPrivate(ctx, "matching.manage");
+  return canPrivate(ctx, "matching.view") || canPrivate(ctx, "matching.manage");
+}
+
+/**
+ * May this user give the role? For a role that opens WeCare or CatchTheMatch: only the owner, or a holder of each product's
+ * .manage key (app.role_grants_private_rule): roles.manage alone is not enough, and being a platform admin counts for nothing.
+ * Any other role: true here (roles.manage and the database's own rules decide).
+ */
+export function canGrantRole(ctx: PermissionContext, role: { permissions: Json | unknown; tier?: string }): boolean {
+  const products = rolePrivateProducts(role);
+  if (products.length === 0) return true;
+  if (ctx.isOwner) return true;
+  return products.every((p) => ctx.permissions.includes(`${p}.manage`));
 }
 
 // ---------------------------------------------------------------------------
@@ -290,6 +364,14 @@ export const ACCESS = {
   ],
   /** Settings › Data quality (app.data_quality). */
   dataQuality: ["people.view", "people.manage"],
+  /**
+   * The organization's own data (0757): WeCare and CatchTheMatch. `can` never lets a platform admin through on these keys;
+   * screens also check the module (careCan / matchingCan above, which do).
+   */
+  care: ["care.view", "care.own", "care.manage"],
+  careManage: ["care.manage"],
+  matching: ["matching.view", "matching.manage"],
+  matchingManage: ["matching.manage"],
 } as const satisfies Record<string, readonly string[]>;
 
 export type AccessKey = keyof typeof ACCESS;
