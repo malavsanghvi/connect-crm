@@ -47,14 +47,15 @@ export function GivingSheet({
   what?: ReactNode;
   children?: ReactNode;
   error?: ReactNode;
-  confirmLabel: string;
+  /** Left out (with onConfirm) for a sheet whose work is done by its own controls, such as importing a statement: it only closes. */
+  confirmLabel?: string;
   pendingLabel?: string;
   pending: boolean;
   confirmDisabled?: boolean;
   tone?: "primary" | "danger";
   /** "Close" once the work is done (a payment that was recorded cannot be cancelled). */
   cancelLabel?: string;
-  onConfirm: () => void;
+  onConfirm?: () => void;
   onClose: () => void;
 }) {
   const titleId = useId();
@@ -134,17 +135,19 @@ export function GivingSheet({
         {/* The buttons stay in view while a long sheet scrolls (a phone with the keypad open). */}
         <div className="sticky bottom-0 -mx-5 mt-1 flex flex-col-reverse gap-2 border-t border-line-soft bg-white px-5 pb-5 pt-3 sm:-mx-6 sm:flex-row sm:justify-end sm:px-6">
           <button type="button" onClick={onClose} disabled={pending} className={`${buttonClass("ghost")} min-h-[44px] whitespace-normal py-2 text-center`}>
-            {cancelLabel}
+            {onConfirm && confirmLabel ? cancelLabel : "Close"}
           </button>
-          <button
-            type="button"
-            data-confirm
-            onClick={onConfirm}
-            disabled={pending || confirmDisabled}
-            className={`${buttonClass(tone === "danger" ? "bad-solid" : "primary")} min-h-[44px] whitespace-normal py-2 text-center`}
-          >
-            {pending ? pendingLabel : confirmLabel}
-          </button>
+          {onConfirm && confirmLabel ? (
+            <button
+              type="button"
+              data-confirm
+              onClick={onConfirm}
+              disabled={pending || confirmDisabled}
+              className={`${buttonClass(tone === "danger" ? "bad-solid" : "primary")} min-h-[44px] whitespace-normal py-2 text-center`}
+            >
+              {pending ? pendingLabel : confirmLabel}
+            </button>
+          ) : null}
         </div>
       </div>
     </div>,

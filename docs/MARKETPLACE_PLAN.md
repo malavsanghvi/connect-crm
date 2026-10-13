@@ -62,14 +62,15 @@ product they use today, and a test compares their module states before and after
 | **Accounting and QuickBooks** | `accounting` (needs Giving) | available |
 | **Event Weaver** (events, RSVP, tickets, check-in, lunch, flyers) | `events` | available |
 | **Digital Store** (B71 grows it into custom and ready-made products) | `store` | available, expanding |
-| **MatchMyGenerosity** (employer matching, B63) | new module (needs Giving) | coming soon |
+| **CatchTheMatch** (employer and grant matching, Weaver files, paid only on success; B103, [`CATCH_THE_MATCH.md`](CATCH_THE_MATCH.md)) | new module `matching` (needs Giving) | coming soon, subscription |
 | **Gala and Auctions** (B74) | new module (needs Event Weaver and Giving) | coming soon |
-| **Donor Playbooks** (B73) | new module (needs Giving and Communications) | coming soon |
+| **WeCare** (Donor care / Member care; absorbs B73 and B98; B102, [`WECARE.md`](WECARE.md)) | new module `care` (needs People; uses Giving when on) | coming soon, subscription |
 | **Special Days and Occasions** (B72) | partly `calendar`; new | coming soon |
 | **Newsletters and Messaging** (B60) | `comms` | available, expanding |
-| **Website and Social** (B75, B54, B55, B57, B61) | new module | coming soon |
+| **WeaverSite** (working name: the organization's own website; B55, B61, B75; [`MARKETPLACE_PACKS.md`](MARKETPLACE_PACKS.md)) | new module `website` (site tables of 0642) | partly built (private draft), subscription |
+| **CommunityConnect** (Facebook and Instagram for events, WhatsApp Business messages; B54; [`MARKETPLACE_PACKS.md`](MARKETPLACE_PACKS.md)) | new module `channels` (needs `comms`) | WhatsApp sending built, Meta not built; subscription |
 | **Pathshala** (B41), **Gyan Path**, **My Jain Way** | `pathshala`, `gyan_path`, `jain_way` | available (shown by kind of organization) |
-| **Niva assistant** | `niva` | available |
+| **iWeaver** (every AI feature except AI used in onboarding: Niva for members and admins, AI flyer art, future AI; [`MARKETPLACE_PACKS.md`](MARKETPLACE_PACKS.md)) | new module `ai`; `niva` depends on it | available, subscription |
 | Membership, Volunteers, Surveys, Governance, Calendar, Content and library, Reports and dashboard | the same-named modules | available |
 | Not products (always on): people and families, Setup, roles, audit, Settings | core | core |
 
