@@ -285,6 +285,12 @@ export const ACCESS = {
   publicKpisManage: ["settings.manage"],
   roles: ["roles.manage"],
   centerSettings: ["settings.manage"],
+  /**
+   * Settings › Automatic emails (0770): read by whoever reads one of the emails (Giving: giving.view or giving.manage; the
+   * registration email: events.manage; settings.manage reads them all). Each email is switched and worded with its own
+   * permission, which the database checks (giving.manage, events.manage).
+   */
+  automaticEmails: ["settings.manage", "giving.view", "giving.manage", "events.manage"],
   /** Setup checklist, Step 0 screens and go-live readiness (settings.manage; the owner too, in the database). */
   setup: ["settings.manage"],
   /** Setup › Lists (o-golive): each card checks its own writer — settings.manage, giving.manage (funds) or pathshala.manage (tracks). */
@@ -670,6 +676,8 @@ export const NAV: NavModule[] = [
       { href: "/settings/support-access", label: "Support access", access: "centerSettings" },
       // Onboarding (o-messaging): email domain and senders, texting registration, WhatsApp Business.
       { href: "/settings/email", label: "Email", access: "messaging" },
+      // 0770: receipts, pledge confirmations and registration confirmations, with the community's own wording.
+      { href: "/settings/automatic-emails", label: "Automatic emails", access: "automaticEmails" },
       { href: "/settings/texting", label: "Texting", access: "messaging" },
       // The WhatsApp Business account is CommunityConnect (0751); WhatsApp group links (/comms/whatsapp) stay in Communications.
       { href: "/settings/whatsapp", label: "WhatsApp", access: "messaging", module: "channels" },

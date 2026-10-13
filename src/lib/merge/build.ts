@@ -5,10 +5,9 @@
 // Pure (no "@/" imports): the background service imports it too.
 
 import { PAYMENT_METHOD_LABEL } from "../labels";
-import { compileMinorNames } from "../commands/minor-names";
 import { PLACEHOLDERS, type EmailTrigger } from "./catalogue";
 import { emailDay, emailEventDay, emailList, emailMoney, emailPlace, emailTime, type EmailPlace } from "./format";
-import { householdNameForEmail } from "./household-name";
+import { householdNameForEmail, withoutChildNames } from "./household-name";
 import { oneLine } from "./render";
 
 export type EmailRecipient = {
@@ -87,10 +86,9 @@ export function factValues(trigger: EmailTrigger, facts: EmailFacts, recipient: 
 // typed into an event title) has it replaced. The recipient is an adult whose first name is not on the list (the database
 // leaves out a first name an adult of the household shares).
 function guardChildren(values: Record<string, string | null>, minorFirstNames: readonly string[]): Record<string, string | null> {
-  const minors = compileMinorNames(minorFirstNames.map((n) => n.trim()).filter(Boolean));
-  if (minors.size === 0) return values;
+  if (minorFirstNames.length === 0) return values;
   const out: Record<string, string | null> = {};
-  for (const [k, val] of Object.entries(values)) out[k] = val === null || k.startsWith("recipient_") ? val : minors.redact(val).text;
+  for (const [k, val] of Object.entries(values)) out[k] = val === null || k.startsWith("recipient_") ? val : withoutChildNames(val, minorFirstNames) || null;
   return out;
 }
 

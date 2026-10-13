@@ -75,6 +75,5 @@ export function renderMerge(text: string, values: Readonly<Record<string, string
 
 /** A value fit for a subject line or a one-line field: no line breaks, no control characters, spaces collapsed. */
 export function oneLine(value: string): string {
-  // eslint-disable-next-line no-control-regex
   return value.replace(/[\u0000-\u001f\u007f]+/g, " ").replace(/\s{2,}/g, " ").trim();
 }

@@ -667,7 +667,7 @@ end $$;
 
 -- Queue one email: once per record, period and address (the duplicate guard), through app.enqueue_notice. The values are the
 -- service's (src/lib/merge/build.ts); the community's own wording in the recipient's language, else in the community's main
--- language, else the standard wording.
+-- language, else the standard wording (or, for an email with no standard wording, the community's in any language).
 create or replace function app.worker_email_enqueue(p_automation uuid, p_ref uuid, p_period text, p_household uuid, p_person uuid,
                                                     p_address text, p_vars jsonb) returns jsonb
 language plpgsql security definer set search_path = app, public, extensions as $$
@@ -697,6 +697,10 @@ begin
                     and t.channel = 'email' and t.language = v_plang) then v_plang
     when exists (select 1 from app.message_templates t where t.center_id = a.center_id and t.key = a.template_key
                     and t.channel = 'email' and t.language = v_main) then v_main
+    -- No standard wording in either language (a scheduled email has only the community's own): any language it was written in.
+    when not exists (select 1 from app.message_templates t where t.center_id is null and t.key = a.template_key and t.channel = 'email') then
+      coalesce((select t.language from app.message_templates t where t.center_id = a.center_id and t.key = a.template_key
+                   and t.channel = 'email' order by t.version desc, t.language limit 1), v_plang)
     else v_plang end;
 
   if not app.messaging_recipient_ok(a.center_id, 'email', v_to, m->>'purpose') then
@@ -755,6 +759,9 @@ select null, v.key, 'email'::app.channel, 'en', v.subject, v.body, v.version
   ) as v(key, version, subject, body)
  where not exists (select 1 from app.message_templates t
                     where t.center_id is null and t.key = v.key and t.channel = 'email' and t.language = 'en' and t.version = v.version);
+
+-- The new screen, in the activity catalog (0620: an event whose key is not listed is dropped).
+select app.activity_register('screen:/settings/automatic-emails', 'screen', 'portal', 'Automatic emails');
 
 -- ══ Who may call what ════════════════════════════════════════════════════════
 do $$
