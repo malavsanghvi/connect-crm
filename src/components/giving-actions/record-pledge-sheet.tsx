@@ -13,6 +13,7 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import { HouseholdPicker } from "@/components/household-picker";
 import { buttonClass } from "@/components/ui";
 import { currencySymbol } from "@/lib/community-format";
+import { dueRuleSentence } from "@/lib/giving-due";
 import {
   DEDICATION_MAX,
   PLEDGE_NO_UNDO,
@@ -71,7 +72,8 @@ export function RecordPledgeSheet({
   const [designation, setDesignation] = useState(designationValue(request.prefill?.designation ?? null));
   /** "" = the household (no one named); null = not chosen yet (the primary adult is offered once the adults are known). */
   const [pledgedBy, setPledgedBy] = useState<string | null>(null);
-  const [dueOn, setDueOn] = useState("");
+  // null until the person changes it: the community's default for a pledge made today (every pledge has a due date, 0775).
+  const [dueOn, setDueOn] = useState<string | null>(null);
   const [dedication, setDedication] = useState("");
   const [reason, setReason] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -124,6 +126,7 @@ export function RecordPledgeSheet({
   const primary = adults.find((a) => a.isPrimary) ?? null;
   // Until the person chooses, the primary adult is the one who pledged (when there is one); "" is the household.
   const pledger = pledgedBy ?? primary?.id ?? "";
+  const dueShown = dueOn ?? opts?.data?.defaultDueOn ?? "";
 
   // Everything the box could fill is filled: the cursor goes to the reason (the one thing only the person knows).
   const prefilled = !!family && !!request.prefill?.amount;
@@ -164,7 +167,7 @@ export function RecordPledgeSheet({
           householdId: family.id,
           amount,
           designation,
-          dueOn: dueOn || null,
+          dueOn: dueShown || null,
           pledgedBy: pledger || null,
           dedication: dedication || null,
           reason,
@@ -421,15 +424,25 @@ export function RecordPledgeSheet({
               <p className="crm-hint">Adults of this household only.</p>
             </div>
           ) : null}
+          <div>
+            <label htmlFor="plg-due" className="crm-label">
+              Due on
+            </label>
+            <input
+              id="plg-due"
+              type="date"
+              value={dueShown}
+              onChange={(e) => setDueOn(e.target.value)}
+              aria-describedby="plg-due-hint"
+              className="crm-input min-h-[44px]"
+            />
+            <p id="plg-due-hint" className="crm-hint">
+              {opts?.data ? `${dueRuleSentence(opts.data.dueDays)} Change it if this pledge is due on another day.` : "Every pledge has a due date."}
+            </p>
+          </div>
           <details className="text-[14px]">
-            <summary className="min-h-[44px] cursor-pointer py-2 font-semibold text-navy">Due date and dedication</summary>
+            <summary className="min-h-[44px] cursor-pointer py-2 font-semibold text-navy">Dedication</summary>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <div>
-                <label htmlFor="plg-due" className="crm-label">
-                  Due on (optional)
-                </label>
-                <input id="plg-due" type="date" value={dueOn} onChange={(e) => setDueOn(e.target.value)} className="crm-input min-h-[44px]" />
-              </div>
               <div>
                 <label htmlFor="plg-dedication" className="crm-label">
                   Dedication (optional)

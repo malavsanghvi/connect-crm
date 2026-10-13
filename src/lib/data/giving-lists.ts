@@ -272,6 +272,8 @@ export async function loadPledgesList(session: CrmSession, sp: RawSearchParams):
     pager: pager(page, total, (n) => hrefWith("/giving/pledges", sp, { page: n })),
     expandSingle: search !== null && total === 1,
     problems,
+    // Upload pledges (GV-U): giving.manage, as Record pledge.
+    uploadHref: canAccess(session, "recordPledge") ? "/giving/pledges/upload" : null,
     exportOffer: rowsError
       ? null
       : exportOffer(
