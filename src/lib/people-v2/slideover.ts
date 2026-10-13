@@ -16,6 +16,7 @@ import { formatDate } from "@/lib/dates";
 import { identifierTarget, isRetired, systemOptions, type SystemOption } from "@/lib/identifiers";
 import {
   RELATIONSHIP_OPTIONS,
+  contactChannelLabel,
   formatPhone,
   isEmail,
   normalizePhone,
@@ -123,6 +124,20 @@ export type PrivacyFacts = {
   mail: string | null;
 };
 
+/**
+ * What else is on an adult's record (the Profile section): interests, expertise areas, best call time and the daily learning goal,
+ * which staff can change, and the ways the member said they like to be reached, which only the member changes (their sign-in consent
+ * is kept with it). Null for a child: none of this is kept or offered for anyone under the age of majority (D2).
+ */
+export type PreferenceFacts = {
+  /** interests, expertise_tags, best_call_time, gyan_daily_minutes (the editors' values). */
+  values: Values;
+  /** people.contact_channels as stored. */
+  channels: string[];
+  /** The learning module is on for the community, so the daily goal is offered (a goal already on file is shown whatever the module). */
+  learningOn: boolean;
+};
+
 export type PersonDetailModel = {
   person: FamilyPerson;
   /** The household the page is about; null on the person's own page when they are in none. */
@@ -138,6 +153,7 @@ export type PersonDetailModel = {
   roles: RolesFacts;
   profileDetails: Part<ProfileDetails>;
   privacy: PrivacyFacts;
+  preferences: PreferenceFacts | null;
   ids: Part<IdsFacts>;
   memberships: Part<MembershipHeld[]>;
   /** Links to the screens that own roles (null: this role has none). */
@@ -147,7 +163,7 @@ export type PersonDetailModel = {
 // ---------------------------------------------------------------------------
 // Sections
 // ---------------------------------------------------------------------------
-export type SectionKey = "profile" | "custom_fields" | "account" | "roles" | "privacy" | "ids" | "memberships" | "giving" | "notes" | "history";
+export type SectionKey = "profile" | "custom_fields" | "account" | "roles" | "privacy" | "ids" | "memberships" | "events" | "giving" | "notes" | "history";
 
 export type SectionPlan = {
   key: SectionKey;
@@ -162,9 +178,9 @@ export type SectionPlan = {
  * The sections in the order the plan gives them. Profile and Account and sign-in open by default. Custom fields (slice 2) sit right
  * under Profile and Notes (slices 10 to 13) before History: both are reserved places, drawn by whoever builds them.
  * Giving at a glance is there only when the Giving module is on and the community reads giving by person, and never for a child (D2: giving is kept with the
- * household, and nothing about a child is shown there).
+ * household, and nothing about a child is shown there). Events (this person's tickets, and "Add to an event") is there only with the Events module (`hasEvents`).
  */
-export function sectionPlan(o: { isChild: boolean; givingByPerson: boolean; givingOn: boolean; hasHistory: boolean }): SectionPlan[] {
+export function sectionPlan(o: { isChild: boolean; givingByPerson: boolean; givingOn: boolean; hasHistory: boolean; hasEvents?: boolean }): SectionPlan[] {
   const out: SectionPlan[] = [
     { key: "profile", title: "Profile", open: true },
     { key: "custom_fields", title: "Custom fields", open: true, reserved: "custom-fields" },
@@ -174,6 +190,7 @@ export function sectionPlan(o: { isChild: boolean; givingByPerson: boolean; givi
     { key: "ids", title: "IDs", open: false },
     { key: "memberships", title: "Memberships held", open: false },
   ];
+  if (o.hasEvents) out.push({ key: "events", title: "Events", open: false });
   if (o.givingByPerson && o.givingOn && !o.isChild) out.push({ key: "giving", title: "Giving at a glance", open: false });
   out.push({ key: "notes", title: "Notes", open: false, reserved: "notes" });
   if (o.hasHistory) out.push({ key: "history", title: "History", open: false });
@@ -263,6 +280,11 @@ export function profileDetailLines(o: { isChild: boolean; firstName: string; det
     { label: "Dietary needs", value: given(p.dietary.map((x) => (x.retired ? `${x.label} (no longer offered)` : x.label)).join(", ") || null) },
     { label: o.isChild ? `Emergency contact for ${o.firstName}` : "Emergency contact", value: given(emergency) },
   ];
+}
+
+/** How the member said they like to be reached, as a read-only line ("Phone call, Email"); staff do not set it. */
+export function reachedByLine(channels: readonly string[]): DetailLine {
+  return { label: "Reached by", value: channels.length ? channels.map(contactChannelLabel).join(", ") : "Not given" };
 }
 
 /** The line under the name: "Primary · age 41", "Daughter · age 11", or just the age for someone in no household. */

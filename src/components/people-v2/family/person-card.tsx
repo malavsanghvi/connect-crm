@@ -131,7 +131,7 @@ export function NameLine({ person: p, ctx, compact = false, large = false }: { p
   const shown = edit.shown;
   const unchanged =
     edit.state.committed.first_name === p.values.first_name && edit.state.committed.last_name === p.values.last_name && edit.state.phase === "idle";
-  const display = unchanged ? p.name : `${shown.first_name ?? ""} ${shown.last_name ?? ""}`.trim() || p.name;
+  const display = unchanged ? p.name : `${p.values.preferred_name || (shown.first_name ?? "")} ${shown.last_name ?? ""}`.trim() || p.name;
   if (edit.state.phase === "conflict") return <ConflictPanel edit={edit} unit={PERSON_UNITS.name} />;
   if (edit.editing) return <NameEditor edit={edit} restore={restore} />;
   return (
@@ -199,6 +199,12 @@ export function Relationship({ person: p, ctx }: { person: FamilyPerson; ctx: Pe
   );
 }
 
+/** The name a person goes by, when it is not simply their first name. */
+export function goesBy(p: Pick<FamilyPerson, "values">): string {
+  const preferred = (p.values.preferred_name ?? "").trim();
+  return preferred && preferred.toLowerCase() !== (p.values.first_name ?? "").trim().toLowerCase() ? preferred : "";
+}
+
 export function PersonCard({ person: p, ctx, orgMemberLabel }: { person: FamilyPerson; ctx: PersonCtx; orgMemberLabel: string }) {
   const [more, setMore] = useState(false);
   const ids = [p.memberNumber, ...p.orgIds].filter(Boolean).join(" · ");
@@ -214,6 +220,11 @@ export function PersonCard({ person: p, ctx, orgMemberLabel }: { person: FamilyP
             {p.onApp ? <Chip tone="green">On the app</Chip> : null}
             {p.deceased ? <Chip tone="grey">In memory</Chip> : null}
           </div>
+          {goesBy(p) ? (
+            <p data-testid="goes-by" dir="auto" className="m-0 mt-0.5 text-[13px] text-muted">
+              Goes by {goesBy(p)}
+            </p>
+          ) : null}
         </div>
         <PersonMenu surface="card" person={menuPerson(p, ctx)} canEdit={ctx.canEdit} hasHousehold={ctx.householdId !== null} hrefs={menuHrefs(p, ctx)} today={ctx.check.today} />
       </div>

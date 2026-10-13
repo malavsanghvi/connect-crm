@@ -1,10 +1,10 @@
-// Switching a module (an area of Weaver) on or off for the community. It hides or shows whole screens in the portal and the member
-// app, so it is confirm-level and OFF for Niva until the owner ticks it. The Modules screen's Server Action (setModuleEnabledAction) is
-// a thin wrapper over this `execute`. The rules about what may be switched (a core module never, nothing another module depends on)
-// are the database's (app.set_module_enabled), which refuses with a plain sentence; the preview mirrors them from src/lib/modules.ts
-// only to explain before asking.
+// Switching a module (an area of Weaver) on or off for the community: pausing it, or switching it back on. It hides or shows whole
+// screens in the portal and the member app, so it is confirm-level and OFF for Niva until the owner ticks it. The Modules screen's
+// Server Action (setModuleEnabledAction) is a thin wrapper over this `execute`. The rules about what may be switched (a core module
+// never; only a module Weaver has enabled, 0740) are the database's (app.set_module_enabled), which refuses with a plain sentence; the
+// preview mirrors them from src/lib/modules.ts only to explain before asking, and says which modules go off with it or what it waits for.
 
-import { MODULE_KEYS, buildModuleRowsFromStates, moduleDef, switchBlocker } from "@/lib/modules";
+import { MODULE_KEYS, buildModuleRowsFromStates, moduleDef, switchBlocker, switchWarning } from "@/lib/modules";
 import { isMissingObject, modulesDb, warnMissingOnce } from "@/lib/modules-db";
 import { dbWithReason } from "@/lib/session";
 
@@ -41,7 +41,7 @@ export const setModule = defineCommand<SetModuleInput, undefined>({
   description:
     "Switch one area of Weaver (a module: Events, Giving, Bolis, the Store, Pathshala, Communications, Accounting, Niva, ...) on or off for this community, with a reason that is kept in the audit log. " +
     "A switched-off module disappears from the portal and the member app, and the database refuses its data until it is switched on again. A core module cannot be switched off, " +
-    "and a module another one depends on can only be switched off after that one (use settings.modules_state to see what blocks a switch). " +
+    "and only a module Weaver has enabled for the community can be switched on. A module that needs another is off while that one is off (use settings.modules_state to see each state). " +
     "This asks the person to confirm; nothing changes until they do.",
   level: "confirm",
   permission: "centerSettings",
@@ -63,16 +63,19 @@ export const setModule = defineCommand<SetModuleInput, undefined>({
     if (!row || row.availability === "not_available") throw new CommandError(`${label} is not offered to this kind of organization, so it cannot be switched.`);
     const blocker = switchBlocker(inp.module, inp.enabled, rows);
     if (blocker) throw new CommandError(blocker);
+    const ownOn = !row.paused;
+    const also = switchWarning(inp.module, inp.enabled, rows);
     return {
       summary: `${inp.enabled ? "Switch on" : "Switch off"} ${row.label}.`,
       lines: [
         { label: "Module", value: row.label },
-        { label: "State", before: row.enabled ? "On" : "Off", after: inp.enabled ? "On" : "Off" },
+        { label: "State", before: ownOn ? "On" : "Off", after: inp.enabled ? "On" : "Off" },
         { label: "Why", value: reason },
       ],
       warnings: [
-        ...(row.enabled === inp.enabled ? [`${row.label} is already ${inp.enabled ? "on" : "off"}, so nothing would change.`] : []),
+        ...(ownOn === inp.enabled ? [`${row.label} is already ${inp.enabled ? "on" : "off"}, so nothing would change.`] : []),
         ...(inp.enabled ? [] : [`${row.label} disappears from the portal and the member app, and the database refuses its data until it is switched on again.`]),
+        ...(also ? [also] : []),
       ],
     };
   },

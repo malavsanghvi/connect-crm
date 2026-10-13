@@ -3,6 +3,9 @@
 import { useEffect, useMemo, type ReactNode } from "react";
 
 import type { InlineSave } from "@/app/(app)/households/[id]/inline-actions";
+import { fakeEventAdd, type EventState } from "@/app/dev/people-event-add/fixtures";
+import { isEventStep, runEventStep, type EventStep } from "@/app/dev/people-event-add/script";
+import type { FamilyKey } from "@/app/dev/people-family/fixtures";
 import type { FamilyActions } from "@/components/people-v2/family/actions";
 import type { FamilyLinks } from "@/components/people-v2/family/family-header";
 import { FamilyView } from "@/components/people-v2/family/family-view";
@@ -24,6 +27,13 @@ export type Step =
   | "name"
   | "dob"
   | "gender"
+  | "goes-by"
+  | "interests-edit"
+  | "interests-save"
+  | "interests-remove-old"
+  | "areas-edit"
+  | "call-time"
+  | "daily-goal"
   | "switch"
   | "ids-add"
   | "ids-add-save"
@@ -44,7 +54,8 @@ export type Step =
   | "pd-emergency"
   | "pd-emergency-save"
   | "pd-emergency-bad"
-  | "pd-view";
+  | "pd-view"
+  | EventStep;
 
 // What someone else "just saved" for the member's details, for the conflict state (every field of each group, as the server sends).
 const PROFILE_THEIRS = {
@@ -56,9 +67,20 @@ const PROFILE_THEIRS = {
   emergency_contact_phone: "+17135550111",
 };
 
-function fakeActions(scenario: Scenario): Partial<FamilyActions> {
+/** What "someone else" changed it to, for the conflict scenario. */
+const THEIRS: Record<string, string> = {
+  phone_e164: "+17135550100",
+  preferred_name: "Sami",
+  interests: '["events","seniors"]',
+  expertise_tags: '["Accounting"]',
+  best_call_time: "morning",
+  gyan_daily_minutes: "15",
+};
+
+function fakeActions(scenario: Scenario, family: FamilyKey, eventsState: EventState): Partial<FamilyActions> {
   const wait = () => new Promise((r) => setTimeout(r, 140));
   return {
+    eventAdd: fakeEventAdd(eventsState, family),
     async save(target, input): Promise<InlineSave> {
       await wait();
       const keys = Object.keys(input.fields);
@@ -68,13 +90,20 @@ function fakeActions(scenario: Scenario): Partial<FamilyActions> {
           kind: "conflict",
           error: conflictSentence(keys),
           conflict: {
-            theirs: target.kind === "profile" ? PROFILE_THEIRS : Object.fromEntries(keys.map((k) => [k, k === "phone_e164" ? "+17135550100" : (input.expect[k] ?? "")])),
+            theirs: target.kind === "profile" ? PROFILE_THEIRS : Object.fromEntries(keys.map((k) => [k, THEIRS[k] ?? (input.expect[k] ?? "")])),
             who: "Ravi",
             at: new Date(Date.now() - 70_000).toISOString(),
           },
         };
       }
-      if (scenario === "error") return { ok: false, kind: "other", error: `Could not save ${input.label} — the number needs an area code, like (713) 555-0142. Try again.` };
+      if (scenario === "error")
+        return {
+          ok: false,
+          kind: "other",
+          error: keys.includes("phone_e164")
+            ? `Could not save ${input.label} — the number needs an area code, like (713) 555-0142. Try again.`
+            : `Could not save ${input.label} — the server did not accept it. Nothing was changed. Try again.`,
+        };
       if (scenario === "access") return { ok: false, kind: "access", error: `You don't have access to this area. ${input.label[0].toUpperCase()}${input.label.slice(1)} was not changed.` };
       return { ok: true, message: "Saved", changed: true };
     },
@@ -142,6 +171,30 @@ function run(step: Step) {
     typeInto('input[aria-label="Birth date"]', "03/14/2014");
   }
   if (step === "gender") click(root, 'button[aria-label^="Edit gender"]');
+  if (step === "goes-by") {
+    click(root, 'button[aria-label^="Edit goes by"]');
+    typeInto('input[aria-label="Goes by"]', "Sami");
+  }
+  if (step === "interests-edit" || step === "interests-save") {
+    click(root, 'button[aria-label^="Edit interests"]');
+    later(160, () => {
+      click(root, 'button[data-interest="giving"]');
+      if (step === "interests-save") later(120, () => click(root, '[data-testid="interests-done"]'));
+    });
+  }
+  if (step === "interests-remove-old") {
+    click(root, 'button[aria-label^="Edit interests"]');
+    later(160, () => {
+      click(root, '[data-testid="legacy-interests"] button[aria-label^="Remove"]');
+      later(120, () => click(root, '[data-testid="interests-done"]'));
+    });
+  }
+  if (step === "areas-edit") {
+    click(root, 'button[aria-label^="Edit expertise areas"]');
+    typeInto('input[aria-label="Expertise areas"]', "Law, Tax, ");
+  }
+  if (step === "call-time") click(root, 'button[aria-label^="Edit best call time"]');
+  if (step === "daily-goal") click(root, 'button[aria-label^="Edit daily goal"]');
   if (step === "switch") click(root, '[data-section="privacy"] button[role="switch"]');
   if (step === "ids-add" || step === "ids-add-save") {
     click(root, '[data-testid="ids-section"] > button');
@@ -199,6 +252,7 @@ function run(step: Step) {
         });
     });
   }
+  if (isEventStep(step)) runEventStep(step, '[data-section="events"] [data-testid="add-to-event"]');
   if (step.startsWith("add-person")) {
     click(document, '#add-person button[class*="border-dashed"]');
     later(160, () => {
@@ -229,9 +283,11 @@ export function PreviewSlideOver(props: {
   standalone: boolean;
   scenario: Scenario;
   step: Step;
+  family: FamilyKey;
+  eventsState: EventState;
 }) {
-  const { scenario, step, detail, standalone } = props;
-  const actions = useMemo(() => fakeActions(scenario), [scenario]);
+  const { scenario, step, detail, standalone, family, eventsState } = props;
+  const actions = useMemo(() => fakeActions(scenario, family, eventsState), [scenario, family, eventsState]);
   useEffect(() => {
     if (step === "none") return;
     const t = window.setTimeout(() => run(step), 700);

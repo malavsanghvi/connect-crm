@@ -5,12 +5,14 @@ import { createContext, useContext, useMemo, type ReactNode } from "react";
 import { addCustomFieldAction, saveCustomValueAction, setCustomFieldStatusAction, type AddFieldCall, type AddFieldSave } from "@/app/(app)/households/[id]/custom-actions";
 import { saveHouseholdFieldsAction, savePersonFieldsAction, type InlineSave } from "@/app/(app)/households/[id]/inline-actions";
 import { saveProfileDetailsAction } from "@/app/(app)/households/[id]/profile-details-actions";
+import { addToEventAction, loadAddToEventAction, type AddToEventCall, type AddToEventLoadCall } from "@/app/(app)/households/[id]/event-add-actions";
 import { addPersonInlineAction, type AddPersonCall, type AddPersonSave } from "@/app/(app)/households/[id]/slideover-actions";
 import { addPersonId, retirePersonId, type AddIdInput, type RetireIdInput } from "@/app/(app)/identifiers/person-id-seam";
 import { markDeceasedAction, undoDeceasedAction } from "@/app/(app)/people/deceased-actions";
 import type { FormAction } from "@/components/action-form";
 import type { ActionResult } from "@/lib/errors";
 import { defKeyOf } from "@/lib/people-v2/custom-fields";
+import type { AddLoad, AddResult } from "@/lib/people-v2/event-add";
 import type { Values } from "@/lib/people-v2/inline-edit";
 
 // The writes the Family page and the person slide-over make, behind one small interface. The page gives it the real Server Actions;
@@ -45,6 +47,11 @@ export type FamilyActions = {
     add: (input: AddFieldCall) => Promise<AddFieldSave>;
     setStatus: (input: { id: string; status: "active" | "archived" }) => Promise<ActionResult>;
   };
+  /** "Add to an event" (the Events section and the Events tab): read the events this role may add to, then add people to one. */
+  eventAdd: {
+    load: (input: AddToEventLoadCall) => Promise<AddLoad>;
+    add: (input: AddToEventCall) => Promise<AddResult>;
+  };
 };
 
 export const realActions: FamilyActions = {
@@ -70,6 +77,7 @@ export const realActions: FamilyActions = {
   ids: { add: addPersonId, retire: retirePersonId },
   deceased: { mark: markDeceasedAction, undo: undoDeceasedAction },
   custom: { add: addCustomFieldAction, setStatus: setCustomFieldStatusAction },
+  eventAdd: { load: loadAddToEventAction, add: addToEventAction },
 };
 
 const Ctx = createContext<FamilyActions>(realActions);

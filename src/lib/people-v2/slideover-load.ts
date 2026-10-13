@@ -9,10 +9,11 @@ import { ageOn, todayInTz } from "@/lib/dates";
 import { explainError } from "@/lib/errors";
 import { identifierKindLabel } from "@/lib/identifiers";
 import { IDENTIFIER_KINDS, can, canAccess, canManageIdentifierKind, canViewIdentifierKind } from "@/lib/permissions";
+import { isModuleEnabled } from "@/lib/modules";
 import { personLanguageOptions } from "@/lib/people";
 import type { CrmSession } from "@/lib/session";
 
-import { personValues, privacyValues, type FamilyModel, type FamilyPerson } from "./family-model";
+import { contactChannelsOf, personValues, preferenceValues, privacyValues, type FamilyModel, type FamilyPerson } from "./family-model";
 import {
   addIdKinds,
   detailHousehold,
@@ -47,7 +48,7 @@ const KIND_HINTS: Partial<Record<string, string>> = {
 };
 
 const PERSON_COLUMNS =
-  "id, first_name, last_name, preferred_name, member_number, gender, date_of_birth, profession, employer, phone_e164, email, language, is_deceased, deceased_on, merged_into_id, interests, photo_opt_in, new_member_contact_opt_in, expertise_opt_in, expertise_headline";
+  "id, first_name, last_name, preferred_name, member_number, gender, date_of_birth, profession, employer, phone_e164, email, language, is_deceased, deceased_on, merged_into_id, interests, photo_opt_in, new_member_contact_opt_in, expertise_opt_in, expertise_headline, expertise_tags, best_call_time, contact_channels, gyan_daily_minutes";
 
 function childLoginAge(rules: unknown): number {
   const v = rules && typeof rules === "object" ? (rules as Record<string, unknown>).child_login_age : undefined;
@@ -165,6 +166,8 @@ export async function loadPersonDetail(session: CrmSession, o: { personId: strin
         directory: inHome ? (inHome.directory ? "Listed with the household" : "Not listed") : null,
         mail: inHome ? (inHome.mail ? "Opted in (household)" : "Opted out (household)") : null,
       },
+      // D2: nothing of this is kept or read out for anyone under the age of majority.
+      preferences: isChild ? null : { values: preferenceValues(p), channels: contactChannelsOf(p), learningOn: isModuleEnabled(session, "gyan_path") },
       ids,
       memberships,
       ownerLinks: { roles: canAccess(session, "roles") ? "/settings/team" : null },

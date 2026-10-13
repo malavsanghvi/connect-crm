@@ -5,7 +5,7 @@ import { runScreenCommand } from "@/lib/commands/screen";
 import { userNames } from "@/lib/data/lookups";
 import { can } from "@/lib/permissions";
 import { HOUSEHOLD_EDITABLE, PERSON_EDITABLE, REASON_MAX, expectText, friendlySaveError, type SaveKind, type Values } from "@/lib/people-v2/inline-edit";
-import { householdValues, personValues, privacyValues } from "@/lib/people-v2/family-model";
+import { householdValues, personValues, preferenceValues, privacyValues } from "@/lib/people-v2/family-model";
 import { isUuid } from "@/lib/search-params";
 import { loadSession, type CrmSession } from "@/lib/session";
 
@@ -144,7 +144,7 @@ async function personConflict(personId: string, householdId: string | null, keys
       s.db
         .from("people")
         .select(
-          "first_name, last_name, date_of_birth, gender, profession, employer, phone_e164, email, language, photo_opt_in, new_member_contact_opt_in, expertise_opt_in, expertise_headline",
+          "first_name, last_name, preferred_name, date_of_birth, gender, profession, employer, phone_e164, email, language, photo_opt_in, new_member_contact_opt_in, expertise_opt_in, expertise_headline, interests, expertise_tags, best_call_time, gyan_daily_minutes",
         )
         .eq("id", personId)
         .eq("center_id", s.center.id)
@@ -154,7 +154,7 @@ async function personConflict(personId: string, householdId: string | null, keys
         : null,
     ]);
     if (p.error || !p.data) throw p.error ?? new Error("the person was not found");
-    const all = { ...personValues(p.data, link?.data?.role ?? ""), ...privacyValues(p.data) };
+    const all = { ...personValues(p.data, link?.data?.role ?? ""), ...privacyValues(p.data), ...preferenceValues(p.data) };
     const theirs: Values = Object.fromEntries(keys.map((k) => [k, all[k] ?? ""]));
     return { theirs, ...(await lastChange(s, "people", personId, keys)) };
   } catch (error) {

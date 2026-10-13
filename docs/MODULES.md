@@ -1,27 +1,43 @@
 # Modules
 
-Each major subsystem is a **module** that an organization's admin can switch on or off
-(Settings › Modules, `settings.manage`). This page lists, per module, the tables, RPCs, portal
-routes, member-app screens and permissions that belong to it, and what switching it off does.
+Each major subsystem is a **module**. Since 0740, **Weaver (a platform admin) decides which modules a community has**
+(Platform › Communities › [community] › Modules), and the community's admin (`settings.manage`) can pause any of them and
+switch it back on (Settings › Modules). This page lists, per module, the tables, RPCs, portal routes, member-app screens and
+permissions that belong to it, and what switching it off does.
 
-Schema: `supabase/migrations/0100`–`0104`, and `0594` (organization categories, below). Tests:
-`supabase/tests/13_modules_audit_test.sql` and `79_organization_categories_test.sql`.
+Schema: `supabase/migrations/0100`–`0104`, `0594` (organization categories, below) and `0740` (platform grants). Tests:
+`supabase/tests/13_modules_audit_test.sql`, `79_organization_categories_test.sql` and `150_module_grants_test.sql`.
 Owner decisions recorded in [DECISIONS.md](DECISIONS.md); the categories plan is
 [ORGANIZATION_CATEGORIES_PLAN.md](ORGANIZATION_CATEGORIES_PLAN.md).
 
 ## How the switch works
 
+A module is **on** for a community when all four hold (0740):
+
+1. the community's kind offers it (`app.category_modules`: not `not_available`);
+2. Weaver has **granted** it: a row in `app.center_module_grants`, or, without a row, the kind's `default_on` (so a new
+   community gets its kind's `default_on` set without anyone acting, and a `default_off` module waits for Weaver);
+3. the community has **not paused** it (`app.center_modules`, its own switch);
+4. every module it **depends on** is on, worked out the same way. Dependencies are evaluated, not checked at the switch:
+   pausing Giving pauses Bolis and Accounting with it, and switching Giving back on brings them back as they were.
+
+Core modules (People) are always on. Communities that existed before 0740 were grandfathered: every module that was on, or
+that the community had switched itself, got a granted row, so nothing anyone saw changed.
+
 | Piece | What it does |
 |---|---|
 | `app.modules` | The catalog: `key`, `label`, `description`, `core`, `depends_on`, `sort`. Readable by any signed-in user. |
-| `app.center_modules` | One row per switch a center has flipped: `enabled`, `changed_by`, `changed_at`, `reason`. **No row means on**, so existing centers keep everything. Readable by members of the center; written only by `set_module_enabled`. Audited. |
+| `app.center_modules` | The community's own switch (a pause): `enabled`, `changed_by`, `changed_at`, `reason`. No row means not paused. Readable by members of the center; written only by `set_module_enabled`. Audited; a fresh 2FA check (0154). |
+| `app.center_module_grants` | Weaver's decision per community and module: `granted`, `reason`, `granted_by`, `granted_at` (0740). No row means the kind's availability decides. Readable by platform admins and the community's settings managers; written only by `set_module_grant`. Audited. A sandbox reset keeps it; promotion copies it. |
+| `app.set_module_grant(center, key, granted, reason)` | Platform admins only, a reason, a fresh 2FA check (`platform.module_grant`). Refuses a core module (*"… is part of the core platform and is always on."*), a module the kind does not offer, and a change that changes nothing. Enabling switches the module on at once unless the community paused it; disabling hides it and its data (nothing is deleted). Returns `{module, label, granted, paused, enabled}`. |
 | `app.module_tables` | Which module each app table belongs to. `NULL` = core platform (never switched off). A DB test fails if any app table is missing. |
-| `app.module_enabled(center, key)` | The category's row for the module decides (see *Organization categories* below); for a Jain Center, and for any module with no category row, it is `true` unless the center switched the module off. |
-| `app.module_off_centers(key)` | The centers where the module is off, as one array (the policies call it as an InitPlan, so a query evaluates it once). |
-| `app.assert_module_enabled(center, key)` | Raises *"The {label} module is switched off for this community."* (hint: *An administrator can switch it on in Settings › Modules.*), or, for a module the center's category does not have, *"{Module} is not part of a {Category} organization."* (hint: *Community Connect can change an organization's category.*). Platform admins pass. |
-| `app.set_module_enabled(center, key, enabled, reason)` | Needs `settings.manage` in that center (or platform admin) and a reason. Refuses to switch off a core module, a module that an enabled module depends on (the error names it), to switch on a module whose dependency is off, or to switch on a module the category does not have. The reason goes on the audit entry. |
-| `app.my_modules(center)` | `(key, label, enabled, core)` for the apps; empty for someone who is not a member. A module the category does not have comes back `enabled = false`. |
-| `app.module_states(center)` | For Settings › Modules (`settings.manage`, platform admins): every module with its category availability, the category's own name for it, whether it is on and whether it can be switched, and who last changed it and why. |
+| `app.module_enabled(center, key)` | The four rules above, for the module and every non-core module it needs. A NULL center (a global row) is never off. |
+| `app.module_off_centers(key)` | The centers where the module is off, as one array: one SQL set query (the module's dependency chain, three rows at most, times the centers, joined on primary keys). The policies call it as an InitPlan, so a query evaluates it once. |
+| `app.assert_module_enabled(center, key)` | Raises, in this order: *"{Module} is not part of a {Category} organization."* (the kind does not offer it); *"Weaver has not enabled {Module} for this community."* (hint: *Ask Weaver to enable it.*); *"{Module} is off because {Dependency} is off for this community."* (hint: *Settings › Modules shows why.*); *"The {label} module is switched off for this community."* (hint: *An administrator can switch it on in Settings › Modules.*). Platform admins pass. |
+| `app.set_module_enabled(center, key, enabled, reason)` | The community's pause and resume. Needs `settings.manage` in that center (or platform admin) and a reason. Refuses a core module, a module the kind does not offer, and a module Weaver has not enabled (*"Weaver has not enabled {Module} for this community."*, also for a platform admin: grant it first). Dependencies do not block it. The reason goes on the audit entry. |
+| `app.my_modules(center)` | `(key, label, enabled, core)` for the apps; empty for someone who is not a member. `enabled` is the result of the four rules, so a module that is not granted, paused, or waiting for another comes back `false`. Unchanged columns for the installed member apps. |
+| `app.module_states(center)` | For Settings › Modules and Platform › Communities › Modules (`settings.manage`, platform admins): every module with its kind availability and name, whether it is on and switchable, who last switched it and why, and (0740) `granted`, `granted_by`, `granted_at`, `grant_reason`, `paused`, `waiting_for` (the keys of the modules it needs that are off). |
+| Niva for admins | `rules.assistant.enabled` is the community's own switch; Niva for admins is on only while the `niva` module is also on (read where it is used: `nivaForAdminsOn`, `src/lib/assistant/settings.ts`), so a revoke or a pause turns it off at once. |
 | RLS `module_switch` | One **restrictive** policy per table of a switchable module (generated from `module_tables`): rows of a switched-off center are neither readable nor writable, except for platform admins. It is AND-ed with the existing policies, so it can only take access away. |
 | RPC guards | Every security-definer RPC of a module calls `assert_module_enabled` once the center is known (listed per module below). |
 
@@ -35,7 +51,7 @@ Plan: [ORGANIZATION_CATEGORIES_PLAN.md](ORGANIZATION_CATEGORIES_PLAN.md).
 | Piece | What it does |
 |---|---|
 | `app.organization_categories` | The four categories: `key`, `label`, `faith_based`, `uses_tradition` (true only for Jain Center), `path_label` (the sign-up question; null = none), `terms` (nine named words, keys checked by the database), `active`, `sort`. Platform data: written only by migrations, read by everyone (guests included). Only Jain Center is `active`; an inactive category can be chosen only by Community Connect, for a sandbox, to preview it. |
-| `app.category_modules` | One row per category and module: `availability` is `default_on` (on unless the organization switches it off: today's rule), `default_off` (off until the organization switches it on) or `not_available` (never on, not even offered as a switch), with an optional name of the category's own (`label`, `description`). Every category has a row for every module; core modules are always `default_on`; an available module never depends on one that is not (test 79). |
+| `app.category_modules` | One row per category and module: `availability` is `default_on` (on unless the organization switches it off: today's rule), `default_off` (off until Weaver enables it, 0740; before 0740 the organization switched it on itself) or `not_available` (never on, not even offered as a switch), with an optional name of the category's own (`label`, `description`). Every category has a row for every module; core modules are always `default_on`; an available module never depends on one that is not (test 79). |
 | `app.category_paths` | A person's possible paths inside the category (Jain Center: Shwetambar and Digambar, each with their paths, plus "Another path" and "Not sure"). |
 | `app.module_availability(center, key)` | The category's row for a module; no row means `default_on`. Internal. |
 | `app.category_profile(center)` | What the apps ask once per community, with or without a session: the category, its terms, the modules' availability, its paths and the community's default path (from `centers.tradition`). "That community was not found." for an unknown or closed one. |
@@ -169,19 +185,19 @@ name, to `audit.view` holders of that center and platform admins only (the same 
 
 ## Pledges & donations — Giving (depends on People)
 
-- **Tables:** funds, campaigns, opportunities, pledges, payments, payment_allocations,
-  recurring_gifts, statements, counting_sessions, valuables_register, bank_accounts,
-  bank_statement_imports, bank_transactions, known_originators, receipt_templates, labh_options,
-  labh_fulfillments, center_payment_plugins (the payment plugins catalog, `payment_plugins`, is platform
-  data: readable by every signed-in user, in no module), payment_reports (members' Zelle reports; 0582)
+Giving is **a core plus seven add-ons** (0741-0743, docs/GIVING_REDESIGN.md section 11). The core keeps the key
+`giving` (installed member apps know only `giving` and `bolis`). Each add-on needs Giving only, no add-on needs another,
+and each is off while Giving is off (0740 evaluates dependencies), so pausing Giving pauses them all and resuming brings
+them back as they were. A kind has each add-on as it has Giving (so a new community starts with them on), and Labh as it
+has Bolis. Every add-on's function keeps its Giving check and adds its own right after it, so the sentence names the
+module that is off. Consumers outside Giving that create pledges or payments (RSVP commitments, membership and Pathshala
+fees, store orders, QuickBooks bring-in) write the core only.
+
+- **Tables (core):** funds, campaigns, pledges, payments, payment_allocations, payment_refunds,
+  rsvp_credit_releases, receipt_templates, center_payment_plugins (the payment plugins catalog, `payment_plugins`, is
+  platform data: readable by every signed-in user, in no module) and the other payment plugin tables
 - **RPCs guarded:** record_offline_payment, allocate_payment, preview_allocation,
-  confirm_bank_match, match_deposit, suggest_bank_matches, suggest_deposit_payments,
-  report_payment, withdraw_payment_report, my_payment_reports, reject_payment_report,
-  link_payment_report, payment_report_queue, payment_report_counts, possible_duplicate_zelle,
-  zelle_exact_matches, confirm_exact_zelle_matches, attach_bank_line_to_payment,
-  set_zelle_reporting (Zelle reports and the double-count guard, 0582-0583; worker job
-  payments.reports_sweep calls worker_payment_reports_sweep, which skips Giving-off organizations),
-  commit_labh, create_recurring_gift, opportunity_availability, approve_as_second (payments,
+  every function of the add-ons below (first), approve_as_second (payments,
   pledges), enqueue_payment_posting and recompute_pledge_status (when called directly; not from
   the Giving triggers), payment_plugin_settings, set_payment_plugin and member_payment_methods
   (the payment plugins, 0580-0581; the status and member-answer helpers are not callable over the
@@ -199,16 +215,86 @@ name, to `audit.view` holders of that center and platform admins only (the same 
   the community only, one entry per connected processor, a sandbox's Zelle is a rehearsal that never
   carries the real address), served as `GET /api/payments/methods` with the member's own token.
   `member_payment_options` is unchanged for installed apps.
-- **Portal:** /giving/pledges, /giving/payments, /giving/payments/bank, /giving/bank,
-  /giving/opportunities, /giving/campaigns, /giving/recurring, /giving/labh, /giving/statements
-- **Member app:** Give tab, pledges, recurring, recurring-setup, opportunity/[id], labh/[dayId]
+- **Portal:** /giving/pledges, /giving/payments, /giving/opportunities/campaigns (and /giving/campaigns),
+  /giving/statements (receipts, their templates and the treasurer's approval; the statements part follows Statements)
+- **Member app:** Give tab summary and pledges; online pay (per payment method)
 - **Permissions:** giving.view, giving.manage, giving.approve, giving.record_offline
-- **Switching off:** refused while Bolis or Accounting is on. Money data is hidden and frozen for
+- **Switching off:** Bolis, Accounting and the seven add-ons go off with it and come back as they were (0740). Money data is hidden and frozen for
   everyone but platform admins; recording, matching, labh and recurring set-up refuse. The People
   household card (`household_card`) keeps identifying the household but returns no open-pledge total
   or last-gift date (0110), and the household page drops Record payment and its Pledges/Payments tabs.
   The member app hides "Plan labh". Money rules (allocation, write-off, refunds) are unchanged.
   The payment plugin rows are hidden too, and their functions refuse.
+
+### Bank reconciliation — `giving_bank` (add-on of Giving)
+
+- **Tables:** bank_accounts, bank_statement_imports, bank_transactions, known_originators (a platform-wide row is never
+  hidden), payment_reports (members' Zelle reports; 0582)
+- **RPCs guarded (0742):** confirm_bank_match, match_deposit, suggest_bank_matches, suggest_deposit_payments,
+  attach_bank_line_to_payment, zelle_exact_matches, confirm_exact_zelle_matches, payment_report_queue,
+  payment_report_counts, link_payment_report, reject_payment_report, report_payment, withdraw_payment_report,
+  set_zelle_reporting, giving_unmatched_bank_lines, giving_zelle_waiting, giving_deposit_context
+- **Answers instead of refusing:** my_payment_reports (an empty list), worker_payment_reports_sweep (skips the
+  community), possible_duplicate_zelle (still warns about a Zelle payment recorded twice, without member reports, so
+  recording a payment works), member_payment_methods (Zelle stays a way to give; "report a Zelle payment" is not offered)
+- **Portal:** /giving/payments/bank, /giving/bank; the bank, DAF and deposit parts of Payments; Today's bank lines; the
+  Deposits task; the Niva commands giving.bank_lines_unmatched, giving.match_deposit, giving.confirm_exact_zelle_matches,
+  giving.zelle_waiting; Setup's bank accounts step; the bank accounts import
+- **Member app:** zelle-report (1.18.0)
+- **Switching off:** bank lines, deposits and Zelle reports are hidden and frozen; payments stay captured with no deposit
+  link. Zelle as a way to pay still needs a bank account chosen here (owner, 2026-10-12: Zelle reporting needs Bank).
+
+### Offering counts — `giving_counts` (add-on of Giving)
+
+The kind names it (category_modules.label): Bhandar counts (Jain Center), Collection counts (Church), Offering counts
+(other faiths), Cash counts (a kind that is not faith-based).
+
+- **Tables:** counting_sessions, valuables_register
+- **Portal:** the counting part of Payments (and the Offering counts tab of the new Giving, slice 5)
+- **Switching off:** counts are hidden and frozen (no new count can be written).
+
+### Opportunities — `giving_opportunities` (add-on of Giving)
+
+- **Tables:** opportunities
+- **RPCs guarded (0743):** opportunity_availability; trigger pledges_opportunity_available refuses a person's pledge on
+  an opportunity (a webhook or the worker is never refused); create_recurring_gift refuses a link to an opportunity;
+  site_draft_data leaves opportunities out of the website draft
+- **Portal:** /giving/opportunities (while it is off, its tab opens the Campaigns list, which stays core); the
+  opportunities import
+- **Member app:** Give tab opportunities, opportunity/[id] (1.18.0)
+- **Switching off:** members cannot pledge to an opportunity; existing pledges keep their numbers and amounts.
+
+### Recurring gifts — `giving_recurring` (add-on of Giving)
+
+- **Tables:** recurring_gifts
+- **RPCs guarded (0743):** create_recurring_gift, run_recurring_gift_cycle, the repeat-every-year path of commit_labh
+  ("Repeating this every year needs Recurring gifts ..."), trigger opportunities_recurring_template (an opportunity
+  cannot turn recurring on)
+- **Portal:** /giving/recurring; Setup's past recurring gifts step; the recurring gifts import
+- **Member app:** recurring, recurring-setup, the "repeat" choices (1.18.0)
+- **Switching off:** no new recurring gift and no cycle; the list is hidden.
+
+### Special-day offerings — `labh` (add-on of Giving; "Labh" for a Jain Center)
+
+- **Tables:** labh_options, labh_fulfillments
+- **RPCs guarded (0743):** commit_labh; _special_day_labh_sweep (the special-day notice is not sent)
+- **Portal:** /giving/labh; the Labh options import
+- **Member app:** labh/[dayId], "Plan labh" on special days and Home (1.18.0)
+- **Kinds:** as Bolis: a Jain Center has it, every other kind never (`not_available`; "... is not part of a ...
+  organization."). The member_experience `labh` flag and the portal's kindHas("labh") read this module.
+
+### Statements — `giving_statements` (add-on of Giving)
+
+- **Tables:** statements, and the `statements` storage bucket (storage_bucket_module)
+- **RPCs guarded (0743):** year_end_statement (which also gains the Giving check it never had)
+- **Portal:** the year-end and issued statements parts of /giving/statements; the Family page's year-end totals; Setup's
+  past statements step. Receipt numbers, receipt templates and their go-live approval stay core.
+- **Member app:** tax statements in Pledges, the Settings receipts row (1.18.0)
+
+### Insights — `giving_insights` (add-on of Giving)
+
+- **Tables:** none yet (B98's later tables join it)
+- **Portal:** the Insights tab and the household panel under Giving at a glance (when they are built)
 
 ## Bolis (depends on Giving)
 

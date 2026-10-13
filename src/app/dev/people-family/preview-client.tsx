@@ -3,9 +3,12 @@
 import { useEffect, useMemo } from "react";
 
 import type { InlineSave } from "@/app/(app)/households/[id]/inline-actions";
+import { fakeEventAdd, type EventState } from "@/app/dev/people-event-add/fixtures";
+import { isEventStep, runEventStep, type EventStep } from "@/app/dev/people-event-add/script";
 import type { FamilyActions } from "@/components/people-v2/family/actions";
 import type { FamilyLinks } from "@/components/people-v2/family/family-header";
 import { FamilyView, type FamilySlots } from "@/components/people-v2/family/family-view";
+import type { FamilyKey } from "@/app/dev/people-family/fixtures";
 import type { FamilyModel, HeaderChip } from "@/lib/people-v2/family-model";
 import { conflictSentence } from "@/lib/people-v2/inline-edit";
 
@@ -15,10 +18,11 @@ import { conflictSentence } from "@/lib/people-v2/inline-edit";
 //             phone-edit, phone-save, name, dob-child, address, child, conflict, error, access
 
 export type Scenario = "ok" | "conflict" | "error" | "access";
-export type Step = "phone-edit" | "phone-save" | "name" | "dob-child" | "address" | "child" | "more" | "more-phone" | "none";
+export type Step = "phone-edit" | "phone-save" | "name" | "dob-child" | "address" | "child" | "more" | "more-phone" | "none" | EventStep;
 
-function fakeActions(scenario: Scenario): Partial<FamilyActions> {
+function fakeActions(scenario: Scenario, family: FamilyKey, eventsState: EventState): Partial<FamilyActions> {
   return {
+    eventAdd: fakeEventAdd(eventsState, family),
     async save(_target, input): Promise<InlineSave> {
       await new Promise((r) => setTimeout(r, 120));
       const keys = Object.keys(input.fields);
@@ -58,6 +62,10 @@ function enter(el: HTMLElement) {
 }
 
 function run(step: Step, who: string) {
+  if (isEventStep(step)) {
+    runEventStep(step, '[data-testid="add-to-event"]');
+    return;
+  }
   const card = document.querySelector<HTMLElement>(`article[aria-label="${who}"]`);
   const click = (root: ParentNode | null, sel: string) => root?.querySelector<HTMLElement>(sel)?.click();
   const later = (ms: number, fn: () => void) => window.setTimeout(fn, ms);
@@ -95,9 +103,11 @@ export function PreviewFamily(props: {
   scenario: Scenario;
   step: Step;
   who: string;
+  family?: FamilyKey;
+  eventsState?: EventState;
 }) {
-  const { scenario, step, who, ...rest } = props;
-  const actions = useMemo(() => fakeActions(scenario), [scenario]);
+  const { scenario, step, who, family = "hassan", eventsState = "ok", ...rest } = props;
+  const actions = useMemo(() => fakeActions(scenario, family, eventsState), [scenario, family, eventsState]);
   useEffect(() => {
     if (step === "none") return;
     const t = window.setTimeout(() => run(step, who), 400);

@@ -7,6 +7,7 @@ import { formatDate, todayInTz } from "@/lib/dates";
 import type { TabPeriod } from "@/lib/giving-glance/page";
 import { givingHistoryTotals, OPENING_BALANCE_HINT, OPENING_BALANCE_LABEL, parseYearEndStatement, type YearEndStatement } from "@/lib/giving";
 import { PAYMENT_METHOD_LABEL } from "@/lib/labels";
+import { isModuleEnabled } from "@/lib/modules";
 import { formatCents, sumCents } from "@/lib/money";
 import { can, canAccess } from "@/lib/permissions";
 import type { CrmSession } from "@/lib/session";
@@ -64,7 +65,8 @@ export async function PaymentsTab({ session, householdId, period }: { session: C
     .slice(0, 3);
   const statements: YearEndStatement[] = [];
   let statementError: unknown = null;
-  for (const y of years) {
+  // Statements is an add-on of Giving (0741): none are asked for while it is off.
+  for (const y of isModuleEnabled(session, "giving_statements") ? years : []) {
     const r = await db.rpc("year_end_statement", { p_household: householdId, p_year: y });
     if (r.error) {
       statementError = r.error;
