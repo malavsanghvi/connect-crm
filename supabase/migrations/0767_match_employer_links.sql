@@ -231,6 +231,11 @@ begin
   return jsonb_build_object('total', v_total, 'rows', v_rows);
 end $$;
 
+-- ── The screens (the activity catalog lists every tab: 0620) ─────────────────
+-- Only which screen was opened, never what was on it.
+select app.activity_register('screen:/giving/matching', 'screen', 'portal', 'Gift matching');
+select app.activity_register('screen:/platform/matching', 'screen', 'portal', 'Platform: gift matching directory');
+
 -- ── Who may call what ────────────────────────────────────────────────────────
 revoke execute on function app._match_entry_brief(uuid), app._match_link_card(uuid), app._match_candidates(text, int)
   from public, anon, authenticated;

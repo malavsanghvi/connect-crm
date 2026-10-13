@@ -6,6 +6,8 @@ import { formatDate } from "@/lib/dates";
 import { loadMatchEmployer, matchEmployerSourceLine } from "@/lib/people-v2/match-employer";
 import type { CrmSession } from "@/lib/session";
 
+import { PersonMatchingProgram } from "./person-matching-program";
+
 /**
  * The Gift matching section of the person slide-over (CatchTheMatch, migration 0759; drawn only with CatchTheMatch on and never for a
  * child): the employer the person put on file for gift matching, where it came from and when. CatchTheMatch's own roles read it; anyone
@@ -29,6 +31,7 @@ export async function PersonMatchingServer({ session, person }: { session: CrmSe
             </span>
           </p>
           <p className="m-0 mt-0.5 text-[13px] text-muted">{matchEmployerSourceLine(f, person.firstName, when)}</p>
+          <PersonMatchingProgram session={session} person={{ id: person.id, firstName: person.firstName }} />
         </>
       ) : (
         <p className="m-0 py-1 text-[14px] text-muted">

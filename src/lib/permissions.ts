@@ -502,6 +502,9 @@ export const NAV: NavModule[] = [
       { href: "/giving/recurring", label: "Recurring", access: "recurring", module: "giving_recurring" },
       { href: "/giving/labh", label: "Labh fulfillment", access: "labh", kindFeature: "labh", module: "labh" },
       { href: "/giving/statements", label: "Receipts & statements", access: "statements" },
+      // CatchTheMatch (0765-0767): the shared employer-program directory, submissions, employers on file. Its own keys only
+      // (matching.view / matching.manage): never a platform admin as such (0757); Weaver's team uses Platform › Gift matching directory.
+      { href: "/giving/matching", label: "Gift matching", access: "matching", module: "matching" },
     ],
     paths: ["/giving"],
   },
@@ -699,6 +702,8 @@ export const NAV: NavModule[] = [
       { href: "/platform/payments", label: "Payments", access: "dashboard", platformOnly: true },
       // B91: keys and counts of the repeated work found across the communities that agreed to recording (no community, no person).
       { href: "/platform/automation", label: "Automation backlog", access: "dashboard", platformOnly: true },
+      // CatchTheMatch (0765-0766): the employer-program directory every community shares, and what communities sent.
+      { href: "/platform/matching", label: "Gift matching directory", access: "dashboard", platformOnly: true },
     ],
     paths: ["/platform"],
   },

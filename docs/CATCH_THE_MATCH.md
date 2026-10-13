@@ -1,6 +1,6 @@
 # CatchTheMatch: employer and grant matching (plan)
 
-Status: plan, 2026-10-13, nothing built. Replaces B63 ("MatchMyGenerosity", the community-driven employer matching
+Status: plan, 2026-10-13; slice 1 built (0757 to 0759), slice 2 built (0765 to 0767, waiting for the owner's OK on its RLS). Replaces B63 ("MatchMyGenerosity", the community-driven employer matching
 flow) as backlog **B103**. A Marketplace product for every organization Weaver onboards; behaviour comes from data,
 never from code written for one community. Related: [`WECARE.md`](WECARE.md) (a WeCare playbook step can prompt a
 donor whose gift may be matched), [`MARKETPLACE_PLAN.md`](MARKETPLACE_PLAN.md), [`ZELLE_REPORTS.md`](ZELLE_REPORTS.md)
@@ -99,6 +99,37 @@ recorded from a signed paper form by `matching.manage`; `people.employer` is unt
 matching section in the person slide-over. The record is bound to the sign-in that consented; a paper form for someone with no sign-in binds to their first sign-in if its verified email is the email on file when it was recorded (any later change of that email, or a first link by another account, leaves it to the office). Weaver's team never holds `matching_lead`; a filing grant counts only while
 Weaver's grant of CatchTheMatch is older than it. The filing queue is slice 3.
 
+**Built (slice 2, migrations 0765 to 0767, test 166; owner answers of 2026-10-13: start empty, a community's approval
+publishes at once, Weaver sees the community's name never the person, eligible kinds of organization with the rule for
+religious organizations, a `partner` source only):**
+- **The shared directory** (`app.match_programs`, `app.match_program_names`, 0765): public facts only, never who works
+  there or who gave; nothing in it names a person or a community or counts them. Company and the other names it goes by
+  (any script; `app.employer_name_key`: compatibility forms, case, accents, every script's spaces and punctuation, no
+  word of any language treated specially), country (one entry per name and country), ratio in basis points, currency,
+  minimum and maximum per gift and per year in cents, gifts matched, kinds of organization, religious organizations
+  (eligible, only their programs that are not worship, not eligible, not known; said plainly on the entry), portal and
+  link, deadline (end of the gift's year, months after the gift, a date the next year, none) and note, volunteer grants
+  (per hour, fewest hours, most per year), source (`partner` is a licensed database, later) and link, last checked and by
+  whom (Weaver's team, or "a community": other communities never see which). Read by Weaver's team and by CatchTheMatch
+  readers of any community where it is on; written only by Weaver's team (`app.save_match_program`,
+  `app.set_match_program_retired`, `app.merge_match_programs`, a reason each) and by approving a submission. Its history
+  (`app.audit_shared_row`) has no community and names only Weaver's team; a community's approval is named by the
+  community, in the reason. It starts empty.
+- **Submissions** (`app.match_program_submissions`, 0766) are the community's own record (0757's contract: module
+  `matching`, `matching_can` readers, private audit). Sent with `matching.view` or `matching.manage`; decided by the
+  community's `matching.manage` (its own only) or by Weaver's team: approve (the facts as sent or edited), reject with a
+  reason, or mark a duplicate of an entry or another submission. A community's approval publishes at once, "verified by a
+  community" today, except a change to an entry Weaver's team checked (or a retired one), which is forwarded to Weaver's
+  team with the manager's edits. Weaver's team reads submissions only through `app.platform_match_submissions`: the facts,
+  the note and the community's name, never who sent or decided.
+- **Employers on file linked to entries** (`app.person_match_programs`, 0767, the organization's own): candidates by name
+  only, no AI (`app.match_program_candidates`, `app.match_employers_queue`, both logged reads); a `matching.manage` holder
+  confirms (`app.link_match_program`) or removes (`app.unlink_match_program`) the link; it goes when the employer on file
+  changes or is withdrawn; an entry merged into another is followed when read.
+- **Portal:** Giving › Gift matching (`/giving/matching`: Directory, an entry's page with "Tell the directory what a member
+  told you", Submissions with the three decisions, Employers on file), the entry under the employer in the person
+  slide-over, and Platform › Gift matching directory (`/platform/matching`) for Weaver's team.
+
 ## 7. Where the employer-program facts come from
 
 1. Weaver's team seeds and maintains the shared directory.
@@ -120,7 +151,7 @@ community first, then any community that takes CatchTheMatch.
 | Slice | What | Size | Owner OK |
 |---|---|---|---|
 | 1 | Module `matching` (a neutral key; the label is CatchTheMatch, [`MARKETPLACE_PACKS.md`](MARKETPLACE_PACKS.md) P6) (default off, grant-only, Marketplace "Request" card), `matching.view` and `matching.manage`, the Weaver filing role, the employer field and consent in People | M | **Yes: permissions/RLS, personal data** |
-| 2 | Shared employer-program directory, member submissions, verification | M | No |
+| 2 | Shared employer-program directory, member submissions, verification (**built**, 0765 to 0767, test 166) | M | No (it adds RLS policies: the owner OKs the PR) |
 | 3 | Claims: the eligible-gift finder, the pre-filled donor request (message and member-app card), states and deadlines, the Weaver filing queue | L | **Yes: messaging** |
 | 4 | Received: match payment against the claim in the Bank tab, soft credit, the donor's thank-you (a WeCare touch when WeCare is on), statements show the match as the employer's gift | M | **Yes: money (allocation, statements)** |
 | 5 | Fee ledger: fee per claim at receipt, monthly invoice to the organization, credits on reversal | M | **Yes: money and pricing; lawyer first; charging needs Marketplace phase 3** |
