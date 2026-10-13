@@ -24,7 +24,8 @@
 --   nothing). Each does its own checks FIRST and in this order: the row's own community, people.approve AND people.manage in
 --   THAT community (platform admins pass has_permission, as everywhere), the Membership module, a non-empty reason. Nothing is
 --   read from or written to another community. EXECUTE goes to `authenticated` only: not to anon, not to service_role, not to
---   the worker (there is deliberately NO `grant execute on all functions in schema app to service_role` in this file).
+--   the worker (there is deliberately no blanket grant to service_role in this file: that old habit would re-open worker-only
+--   functions).
 --
 -- THE RULES THIS FILE DECIDES (from the existing data model; no new status, no new table, no new permission)
 --   "Live" means what the rest of the system already means (app.household_active_tier, 0586 access levels, the Pathshala trigger):

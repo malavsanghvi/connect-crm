@@ -79,6 +79,7 @@ end $$;
 \set u_member '''14600000-0000-4000-8000-0000000000a5'''
 \set u_bothb '''14600000-0000-4000-8000-0000000000a6'''
 \set u_c '''14600000-0000-4000-8000-0000000000a7'''
+\set u_owner '''14600000-0000-4000-8000-0000000000a8'''
 \set h_hassan '''14600000-0000-4000-8000-0000000000e1'''
 \set h_li '''14600000-0000-4000-8000-0000000000e2'''
 \set h_arab '''14600000-0000-4000-8000-0000000000e3'''
@@ -119,7 +120,8 @@ end $$;
 -- ── Fixtures: a neighbourhood association, a second community, and a chess club that is not faith-based ──────────────────────
 insert into auth.users (id, email) values
   (:u_both, 'both146@example.com'), (:u_manage, 'manage146@example.com'), (:u_approve, 'approve146@example.com'),
-  (:u_view, 'view146@example.com'), (:u_member, 'member146@example.com'), (:u_bothb, 'bothb146@example.com'), (:u_c, 'c146@example.com');
+  (:u_view, 'view146@example.com'), (:u_member, 'member146@example.com'), (:u_bothb, 'bothb146@example.com'), (:u_c, 'c146@example.com'),
+  (:u_owner, 'owner146@example.com');
 insert into app.centers (id, slug, name, short_name, state_region, status, time_zone) values
   (:ca, 'riv146', 'Riverside Neighbourhood Association', 'RIV', 'TX', 'active', 'America/Chicago'),
   (:cb, 'oth146', 'Other Club 146', 'OC1', 'TX', 'active', 'America/Chicago');
@@ -129,11 +131,12 @@ insert into app.centers (id, slug, name, short_name, state_region, status, time_
 insert into app.roles (key, tier, name, permissions) values ('approver_only146', 'center', 'Approver only 146', '["people.approve"]');
 insert into app.role_grants (center_id, user_id, role_key, scope_kind, reason) values
   (:ca, :u_both, 'membership_coordinator', 'center', 'test 146'),   -- people.view + people.manage + people.approve
-  (:ca, :u_manage, 'center_admin', 'center', 'test 146'),           -- people.manage, NOT people.approve
+  (:ca, :u_manage, 'treasurer', 'center', 'test 146'),              -- people.manage, NOT people.approve
   (:ca, :u_approve, 'approver_only146', 'center', 'test 146'),      -- people.approve, NOT people.manage
   (:ca, :u_view, 'privacy_officer', 'center', 'test 146'),          -- people.view only
   (:cb, :u_bothb, 'membership_coordinator', 'center', 'test 146'),  -- both, but in the OTHER community
-  (:cc, :u_c, 'membership_coordinator', 'center', 'test 146');
+  (:cc, :u_c, 'membership_coordinator', 'center', 'test 146'),
+  (:ca, :u_owner, 'center_admin', 'center', 'test 146');        -- the earliest center_admin becomes the owner (0151), who holds every permission (0400)
 insert into app.membership_types (id, center_id, key, tier, name, fee_cents, period_months, ec_approval_required, active) values
   (:t_comm, :ca, 'friend146', 'community', 'Friend', 0, null, false, true),
   (:t_year, :ca, 'annual146', 'yearly', 'Annual member', 5000, 12, false, true),
@@ -304,6 +307,14 @@ select pg_temp.run(pg_temp.update_sql(:m_over_a, :'today_a'::date - 400, :'today
 select pg_temp.sign_out();
 select pg_temp.assert((select m.starts_on = :'today_a'::date - 35 from app.memberships m where m.id = :m_over_b) and (select m.notes = 'Lapsed in the spring' and m.status = 'active' from app.memberships m where m.id = :m_over_a),
                       'C · sharing one boundary day is allowed; an expired membership''s note can be corrected');
+
+-- C3b. The community's owner (its earliest center_admin, 0151) holds every permission (0400), so passes the same gate.
+select pg_temp.assert(exists (select 1 from app.center_owners o where o.center_id = :ca and o.user_id = :u_owner), 'C · fixture: the community''s first center_admin is its owner');
+select pg_temp.assert(not exists (select 1 from app.center_owners o where o.center_id = :ca and o.user_id in (:u_both, :u_manage, :u_approve, :u_view)), 'C · fixture: none of the other staff users is the owner');
+select pg_temp.sign_in(:u_owner);
+select pg_temp.run(pg_temp.update_sql(:m_over_b, :'today_a'::date - 35, :'today_a'::date + 335, 'Checked by the owner', 'Owner check'));
+select pg_temp.sign_out();
+select pg_temp.assert((select m.notes = 'Checked by the owner' from app.memberships m where m.id = :m_over_b), 'C · the community''s owner (who holds every permission) may edit a membership too');
 
 -- C4. The Membership module off.
 insert into app.center_modules (center_id, module_key, enabled, reason) values (:ca, 'membership', false, 'test 146')
