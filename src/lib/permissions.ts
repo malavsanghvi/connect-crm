@@ -165,6 +165,10 @@ export const ACCESS = {
   bankIgnore: ["giving.manage"],
   /** Request / complete a write-off or refund (first person). */
   givingManage: ["giving.manage"],
+  /** Export a Giving list (0747): the one data-export permission (owner decision 2026-10-13: treasurers hold it). The database also asks for the list's own read permission and a fresh 2FA code for every file. */
+  givingExport: ["data.export"],
+  /** Pair a card payout with its bank line, or undo it (app.explain_payout, app.unpair_payout, 0747). */
+  payoutPair: ["giving.manage"],
   /** Second approver for refunds and write-offs (app.approve_as_second). */
   givingApprove: ["giving.approve"],
   /** Second approver for voting-eligibility overrides. */

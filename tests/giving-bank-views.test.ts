@@ -195,7 +195,7 @@ describe("the page model for each role and community", () => {
     expect(m.views.map((v) => v.label)).toEqual(["To match", "Deposits", "Zelle", "Card payouts", "History"]);
     // One payout differs from its bank line; one is linked and equal; one arrives today and is not due at the bank yet.
     expect(m.views.find((v) => v.key === "payouts")?.count).toBe(1);
-    expect(m.can).toEqual({ confirm: true, ignore: true, import: true, configureZelle: true });
+    expect(m.can).toEqual({ confirm: true, ignore: true, import: true, configureZelle: true, pairPayouts: true });
     expect(m.note).toBeNull();
   });
 

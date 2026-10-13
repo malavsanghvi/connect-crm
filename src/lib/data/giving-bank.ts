@@ -87,7 +87,13 @@ export async function loadBankTab(session: CrmSession, sp: RawSearchParams): Pro
     problems,
     note: null,
     empty: "",
-    can: { confirm: canConfirm, ignore: canIgnore, import: canAccess(session, "bankImport"), configureZelle: can(session, ["giving.manage", "integrations.manage"]) },
+    can: {
+      confirm: canConfirm,
+      ignore: canIgnore,
+      import: canAccess(session, "bankImport"),
+      configureZelle: can(session, ["giving.manage", "integrations.manage"]),
+      pairPayouts: canAccess(session, "payoutPair"),
+    },
   };
   if (!canAccess(session, "bank") && !canConfirm) return { ...base, body: { state: "no_access", area: "Bank reconciliation", access: "bank" } };
   if (!isModuleEnabled(session, GIVING_ADDONS.bank)) return { ...base, body: switchedOff(session.kind, GIVING_ADDONS.bank, center.short_name || center.name) };
@@ -289,7 +295,7 @@ async function loadPayoutPairs(session: CrmSession, accountId: string, since: st
   const [providers, lines] = await Promise.all([
     db
       .from("payouts")
-      .select("id, provider, provider_ref, gross_cents, fee_cents, net_cents, arrives_on")
+      .select("id, provider, provider_ref, gross_cents, fee_cents, net_cents, arrives_on, matched, difference_code, difference_note")
       .eq("center_id", center.id)
       .gte("arrives_on", since)
       .order("arrives_on", { ascending: false })
@@ -316,6 +322,9 @@ async function loadPayoutPairs(session: CrmSession, accountId: string, since: st
         feeCents: p.fee_cents,
         netCents: p.net_cents,
         arrivesOn: p.arrives_on,
+        matched: p.matched,
+        differenceCode: p.difference_code,
+        differenceNote: p.difference_note,
       })),
       (lines.data ?? []).map((l) => ({ id: l.id, postedOn: l.posted_on, amountCents: l.amount_cents, description: l.description, payoutId: l.payout_id })),
     ),

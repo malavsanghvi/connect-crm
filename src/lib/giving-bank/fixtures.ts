@@ -178,7 +178,7 @@ const CLUB: Community = {
   ],
   providers: [
     { id: lid(501), provider: "stripe", ref: "po_1Q2W3E", grossCents: 51_200, feeCents: 1_515, netCents: 49_685, arrivesOn: "2026-10-07" },
-    { id: lid(502), provider: "stripe", ref: "po_1Q2W9K", grossCents: 20_000, feeCents: 610, netCents: 19_390, arrivesOn: "2026-10-01" },
+    { id: lid(502), provider: "stripe", ref: "po_1Q2W9K", grossCents: 20_000, feeCents: 610, netCents: 19_390, arrivesOn: "2026-10-01", matched: true },
     { id: lid(503), provider: "stripe", ref: "po_1Q3A7Z", grossCents: 8_000, feeCents: 262, netCents: 7_738, arrivesOn: "2026-10-12" },
   ],
   payoutLines: [
@@ -317,7 +317,13 @@ export function sampleBankModel(
     problems: [],
     note: canConfirm ? null : READ_ONLY_NOTE,
     empty: emptyText(view, history),
-    can: { confirm: canConfirm, ignore: canIgnore, import: canAccess(ctx, "bankImport"), configureZelle: can(ctx, ["giving.manage", "integrations.manage"]) },
+    can: {
+      confirm: canConfirm,
+      ignore: canIgnore,
+      import: canAccess(ctx, "bankImport"),
+      configureZelle: can(ctx, ["giving.manage", "integrations.manage"]),
+      pairPayouts: canAccess(ctx, "payoutPair"),
+    },
   };
   if (!canAccess(ctx, "bank") && !canConfirm) return { ...base, views: [], body: { state: "no_access", area: "Bank reconciliation", access: "bank" } };
   if (opts.bankOff) return { ...base, views: [], body: { state: "off", title: "Bank reconciliation is switched off", message: `${c.name} has switched off Bank reconciliation.` } };

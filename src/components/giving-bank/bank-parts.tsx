@@ -5,8 +5,10 @@
 
 import { useState, type ReactNode } from "react";
 
+import { ExplainPayoutButton, UnpairPayoutButton } from "@/components/giving-actions/explain-payout";
 import type { ActContext } from "@/components/giving-actions/row-actions";
 import { GivingSheet } from "@/components/giving-actions/sheet";
+import type { CardLabels } from "@/components/household-card";
 import { buttonClass } from "@/components/ui";
 import { formatDate } from "@/lib/dates";
 import type { BankModel, HistoryRowView, PayoutRowView } from "@/lib/giving-bank/views";
@@ -99,8 +101,11 @@ const DIFF_TONE: Record<PayoutRowView["difference"]["tone"], string> = {
   muted: "bg-ground text-muted",
 };
 
-/** One card payout: what the provider paid out, what reached the bank, and the difference. Read-only until slice 9. */
-export function PayoutRow({ row }: { row: PayoutRowView }) {
+/**
+ * One card payout: what the provider paid out, what reached the bank, and the difference. With giving.manage (slice 9): "Explain
+ * and accept" on a pair found by date, and "Undo pairing" on a pair the treasurer accepted.
+ */
+export function PayoutRow({ row, canPair = false, labels }: { row: PayoutRowView; canPair?: boolean; labels: CardLabels }) {
   return (
     <div className="grid grid-cols-1 gap-3 border-t border-line py-3.5 first:border-t-0 md:grid-cols-[1fr_1fr_minmax(0,14rem)]" data-row={row.id}>
       <div className="min-w-0">
@@ -132,6 +137,14 @@ export function PayoutRow({ row }: { row: PayoutRowView }) {
       <div className="flex min-w-0 flex-col gap-1">
         <span className={`self-start rounded-full px-2.5 py-0.5 text-[13px] font-bold ${DIFF_TONE[row.difference.tone]}`}>{row.difference.text}</span>
         <p className="m-0 text-[12px] text-faint">{row.how}</p>
+        {row.paired?.reason ? (
+          <p className="m-0 text-[12px] text-muted">
+            {row.paired.reason}
+            {row.paired.note ? `: ${row.paired.note}` : ""}
+          </p>
+        ) : null}
+        {canPair && row.explain ? <ExplainPayoutButton row={row} labels={labels} /> : null}
+        {canPair && row.paired ? <UnpairPayoutButton row={row} labels={labels} /> : null}
       </div>
     </div>
   );

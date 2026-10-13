@@ -168,6 +168,18 @@ describe("Giving › Payments", () => {
     expect(out).toContain("Limited view: you see the payments you recorded yourself.");
     expect(out).not.toContain(">Refund…</button>");
   });
+
+  it("offers Export and the Year chips to the treasurer; a second approver is told why there is no Export (slice 9)", () => {
+    const out = html(h(PaymentsView, { model: samplePaymentsModel("treasurer", { year: "2026" }) }));
+    expect(out).toMatch(/<button[^>]*>Export<\/button>/);
+    expect(out).toContain('aria-label="Year"');
+    expect(out).toMatch(/aria-current="page"[^>]*>2026</);
+    const approver = html(h(PledgesView, { model: samplePledgesModel("approver") }));
+    expect(approver).not.toMatch(/<button[^>]*>Export<\/button>/);
+    expect(approver).toContain("Exporting needs the data-export permission. Ask your administrator.");
+    // Grants to match has no export.
+    expect(html(h(PaymentsView, { model: samplePaymentsModel("treasurer", { view: "grants" }) }))).not.toMatch(/<button[^>]*>Export<\/button>/);
+  });
 });
 
 describe("the routes", () => {
