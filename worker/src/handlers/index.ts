@@ -19,6 +19,7 @@ import * as homeworkRemindersSweep from "./homework.reminders_sweep";
 import * as importSuggestMapping from "./import.suggest_mapping";
 import * as messagingCompose from "./messaging.compose";
 import * as messagingDomainVerify from "./messaging.domain_verify";
+import * as messagingEmailSchedulesSweep from "./messaging.email_schedules_sweep";
 import * as messagingSend from "./messaging.send";
 import * as messagingTestSend from "./messaging.test_send";
 import * as messagingWebhookEmail from "./messaging.webhook.email";
@@ -82,6 +83,8 @@ export const HANDLERS: HandlerModule[] = [
   messagingWebhookTwilio,
   // Automatic emails (0770): write one receipt, pledge or registration email from its record and queue it for each adult
   messagingCompose,
+  // Scheduled emails (0771): every 5 minutes, the runs that are due, each household's adults once per run, 500 emails per run per sweep
+  messagingEmailSchedulesSweep,
   // o-payments
   paymentsWebhookStripe,
   paymentsWebhookPaypal,
