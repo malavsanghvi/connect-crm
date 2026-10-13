@@ -134,12 +134,16 @@ select pg_temp.claims(:writer);
 select app.save_email_schedule(:jc, null, 'Pledges due this week', 'pledges_due_soon', '{"days": 7}', 'weekly', 1, null, null, 9, 'en',
                                'Your pledges due soon, {{recipient_first_name}}', E'Dear {{recipient_first_name}},\n\n{{pledges_list}}\n\nTotal {{pledges_balance}}, first due {{next_due_date}}.') as s1 \gset
 select (:'s1'::jsonb->>'id') as sid \gset
+reset role;
 select pg_temp.assert(:'s1'::jsonb->>'status' = 'draft'
                       and (select status = 'draft' and not enabled and next_run_at is null and template_key like 'schedule\_%'
                              from app.email_automations where id = :'sid'),
   'A · someone with comms.send and giving.view writes one; it starts as a draft that sends nothing');
+set role authenticated;
 select pg_temp.assert_raises(format($$select app.approve_email_schedule(%L, %L)$$, :jc, :'sid'), 'needs comms.approve',
   'A · and cannot switch it on (comms.approve)');
+select pg_temp.assert_raises($$select count(*) from app.email_automations$$, 'permission denied',
+  'A · nobody reads the scheduled emails directly (who has pledges past due): only through the functions');
 
 -- ══ B. What is refused ═══════════════════════════════════════════════════════
 select pg_temp.assert_raises(format($$select app.save_email_schedule(%L, null, 'X', 'pledges_due_soon', '{}', 'monthly', null, 1, null, 9, 'en', 'Due', 'Hi {{payment_amount}}')$$, :jc),
@@ -249,20 +253,26 @@ select pg_temp.assert((select (s->'week'->>'queued')::int = 3 and s->>'status' =
 -- ══ F. Changes, pause, modules ═══════════════════════════════════════════════
 select app.save_email_schedule(:jc, :'sid', 'Pledges due this week', 'pledges_due_soon', '{"days": 7}', 'weekly', 1, null, null, 9, 'en',
                                'Your pledges due soon, {{recipient_first_name}}', E'Dear {{recipient_first_name}},\n\n{{pledges_list}}\n\nTotal {{pledges_balance}}, first due {{next_due_date}}.') as same \gset
+reset role;
 select pg_temp.assert(:'same'::jsonb->>'unchanged' = 'true' and (select status = 'active' from app.email_automations where id = :'sid'),
   'F · saving it unchanged leaves it on');
+set role authenticated;
 select app.save_email_schedule(:jc, :'sid', 'Pledges due this week', 'pledges_due_soon', '{"days": 14}', 'weekly', 1, null, null, 9, 'en',
                                'Your pledges due soon, {{recipient_first_name}}', 'Dear {{recipient_first_name}}, {{pledges_list}}') as changed \gset
+reset role;
 select pg_temp.assert(:'changed'::jsonb->>'was_active' = 'true'
                       and (select status = 'draft' and not enabled and next_run_at is null and approved_by is null
                              from app.email_automations where id = :'sid'),
   'F · changing an active one puts it back to draft: it goes again only when switched on again');
+set role authenticated;
 select pg_temp.claims(:admin);
 select app.approve_email_schedule(:jc, :'sid');
 select app.pause_email_schedule(:jc, :'sid') as paused \gset
+reset role;
 select pg_temp.assert(:'paused'::jsonb->>'status' = 'paused'
                       and (select next_run_at is null and not enabled from app.email_automations where id = :'sid'),
   'F · paused: no next run');
+set role authenticated;
 select app.approve_email_schedule(:jc, :'sid');
 savepoint comms_off;
 select pg_temp.claims(:owner, 60);
