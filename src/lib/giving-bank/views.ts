@@ -260,6 +260,8 @@ export type HistoryLineIn = {
   at: string | null;
   notes: string | null;
   isDeposit: boolean;
+  /** The count this deposit was matched to (Offering counts, slice 5): "Count of Oct 5, 2026 · $412.50 · bags 118, 119". */
+  count?: string | null;
 };
 
 export type HistoryRowView = {
@@ -281,7 +283,9 @@ export function historyRowView(l: HistoryLineIn, key: HistoryKey, ctx: Pick<Bank
   if (key === "matched") {
     what = l.family
       ? `Matched to ${familyRef(l.family)}${l.receipt ? `, receipt ${l.receipt}` : ""}${by}${when}`
-      : l.isDeposit
+      : l.count
+        ? `Matched to the ${l.count[0].toLowerCase()}${l.count.slice(1)}${by}${when}`
+        : l.isDeposit
         ? `Deposit matched to the payments recorded for it${by}${when}`
         : `Matched${l.receipt ? ` to receipt ${l.receipt}` : ""}${by}${when}`;
   } else if (key === "ignored") {

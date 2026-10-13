@@ -258,3 +258,30 @@ describe("Today's counts row acts in place (slice 5)", () => {
     expect(sampleTodayModel("approver").can.countStart).toBe(false);
   });
 });
+
+describe("the Bank tab names the count a deposit was matched to (read-only)", () => {
+  it("says which count, who matched it and when", async () => {
+    const { historyRowView } = await import("@/lib/giving-bank/views");
+    const row = historyRowView(
+      {
+        id: "l1",
+        postedOn: "2026-10-06",
+        amountCents: 38_000,
+        description: "DEPOSIT BRANCH 0212 SLIP 4476",
+        status: "matched",
+        family: null,
+        receipt: null,
+        by: "Ama Mensah",
+        at: "2026-10-07",
+        notes: null,
+        isDeposit: false,
+        count: linkedCountLabel({ countedOn: "2026-10-04", totalCents: 38_000, bags: ["116", "117"] }, CTX()),
+      },
+      "matched",
+      CTX(),
+      false,
+    );
+    expect(row.what).toBe("Matched to the count of Oct 4, 2026 · $380.00 · bags 116, 117 by Ama Mensah on Oct 7, 2026");
+    expect(row.family).toBeNull();
+  });
+});

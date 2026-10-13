@@ -6,6 +6,7 @@ import "server-only";
 
 import { identifierRules } from "@/lib/center-rules";
 import { communityFormat } from "@/lib/community-format";
+import { countsForBankLines } from "@/lib/data/giving-counts";
 import { depositLinesIn, giftLinesIn, loadExact } from "@/lib/data/giving-today";
 import { householdCards, userNames } from "@/lib/data/lookups";
 import { chunk } from "@/lib/data/fetch-all";
@@ -222,12 +223,15 @@ export async function loadBankTab(session: CrmSession, sp: RawSearchParams): Pro
   const res = await lists[history]().order("posted_on", { ascending: false }).order("id").range(from, from + BANK_PAGE_SIZE - 1);
   if (res.error) return { ...model, body: { state: "error", error: failure("Could not read the bank lines", res.error).error, retry } };
   const lines = res.data ?? [];
-  const [cards, names, receipts] = await Promise.all([
+  const [cards, names, receipts, counts] = await Promise.all([
     history === "matched" ? householdCards(db, lines.map((l) => l.matched_household_id)) : Promise.resolve(null),
     history === "out" ? Promise.resolve(null) : userNames(db, center.id, lines.map((l) => l.matched_by)),
     history === "matched" ? readReceipts(session, lines.map((l) => l.payment_id)) : Promise.resolve(new Map<string, string | null>()),
+    // A deposit matched to a count (slice 5) names that count, read-only.
+    history === "matched" ? countsForBankLines(session, lines.map((l) => l.id)) : Promise.resolve(null),
   ]);
   if (cards?.error) problems.push(failure("Could not read some of the families; those lines show the receipt only", cards.error).error);
+  if (counts?.error) problems.push(counts.error);
   const historyLines: HistoryLineIn[] = lines.map((l) => {
     const card = l.matched_household_id ? cards?.map.get(l.matched_household_id) : undefined;
     return {
@@ -242,6 +246,7 @@ export async function loadBankTab(session: CrmSession, sp: RawSearchParams): Pro
       at: l.matched_at,
       notes: l.notes,
       isDeposit: l.is_batch_deposit,
+      count: counts?.map.get(l.id)?.label ?? null,
     };
   });
   return {
