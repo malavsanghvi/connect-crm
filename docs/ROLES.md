@@ -77,8 +77,17 @@ volunteers until midnight; EC roles at term end). Delegation is a grant with
   matching table and function uses `app.care_can` / `app.matching_can`; amounts in WeCare also need `giving.view`
   (`app.care_amounts_can`).
 - The three roles above are granted by nobody by default. Only the owner or that product's `.manage` holder gives them
-  (`roles.manage` alone is not enough), never to oneself, for the whole community only. No second approver: each grant is
-  audited under its product and the owner is emailed (`private_access_granted`).
+  (`roles.manage` alone is not enough), never to oneself, never to a platform-admin account, for the whole community only.
+  No second approver: each grant is audited under its product and the owner is emailed (`private_access_granted`). A
+  change to such a grant other than ending it is checked the same way and records who made it. Only a migration can make
+  a role hold a private key or `*` (`app.roles_private_guard`).
+- Nobody makes themselves owner or administrator, platform admins included: no self-grant and no widening one's own grant
+  (`enforce_role_grant`), no taking ownership (`center_owners_self`); the one way in is accepting an invitation someone
+  else sent. A platform admin still sets up other people; every Center admin grant and ownership change they make is
+  audited and emailed to the owner (`weaver_access_change`). The first-owner rule never picks a platform-admin account
+  when a signed-in change sets it off.
+- Sign-in links (`center_users`): through the API nobody changes the person their own sign-in is linked to, and platform
+  admins change no link; the linking functions (invitations, join codes, onboarding, promotion) keep their own checks.
 - Weaver's team: a support grant opens WeCare **settings** only when the owner names the area `care.settings`, never care
   records. CatchTheMatch filing is a separate grant the organization gives a named Weaver team member
   (`app.grant_weaver_filing`, at most 366 days, ended when CatchTheMatch is turned off); every read is logged.

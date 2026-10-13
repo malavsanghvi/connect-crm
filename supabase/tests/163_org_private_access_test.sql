@@ -13,8 +13,19 @@
 --   F. C8: the Weaver filing grant: who gives it, to whom, for how long; what it opens; ended when Weaver turns
 --      CatchTheMatch off; expiry.
 --   G. Reads logged; the audit log keeps care and matching entries from platform admins and from audit.view alone.
---   H. The employer for gift matching: adults only, with consent, by the person or from a paper form; who reads it; the
---      person removes it at once; people.employer is untouched.
+--   H. The employer for gift matching: adults only, with the consent kept in the record (not in app.consents), by the
+--      person or from a paper form; who reads it; the person withdraws it at once; people.employer is untouched.
+--   I. Nobody makes themselves owner or administrator, Weaver's team included: no self-grant, no widening one's own grant,
+--      no transfer of ownership to oneself; a platform admin still sets up another person (who becomes the owner of a
+--      community without one, never a platform-admin account); every such change is audited and emailed to the owner.
+--   J. Only a migration makes a role hold a private key or "*": platform admins cannot, through the API.
+--   K. Sign-in links: nobody re-links their own sign-in, a platform admin links none; the linking functions still work.
+--   L. Private roles: never to a platform-admin account (by grant or invitation); an invitee accepting a private-role
+--      invitation from the owner gets it; a product manager without roles.manage cannot give other roles or act in another
+--      community; a platform admin cannot widen, take over or re-sign an existing private grant; a widening change records
+--      who made it.
+--   M. Filing grants count only while Weaver's grant of CatchTheMatch is older than them; one open grant per person; adults
+--      only at read time; the change-of-kind counts leave WeCare and CatchTheMatch out for a platform admin.
 -- Everything runs in one transaction that is rolled back.
 \set ON_ERROR_STOP 1
 begin;
@@ -72,6 +83,12 @@ end $$;
 \set pa '''16300000-0000-4000-8000-0000000000a3'''
 \set pn '''16300000-0000-4000-8000-0000000000a4'''
 \set teachgrant '''16300000-0000-4000-8000-0000000000d1'''
+\set platteach '''16300000-0000-4000-8000-0000000000d2'''
+\set c3 '''16300000-0000-4000-8000-0000000000c3'''
+\set c4 '''16300000-0000-4000-8000-0000000000c4'''
+\set invitee '''16300000-0000-4000-8000-000000000011'''
+\set weaverinv '''16300000-0000-4000-8000-000000000012'''
+\set pc '''16300000-0000-4000-8000-0000000000a5'''
 
 -- ══ A. The shape ═════════════════════════════════════════════════════════════
 select pg_temp.assert((select bool_and(p.prosecdef and array_to_string(p.proconfig, ',') like '%search_path=app, public, extensions%')
@@ -81,8 +98,18 @@ select pg_temp.assert((select bool_and(p.prosecdef and array_to_string(p.proconf
                               'staff_invitations_private_rule', 'role_grants_private_notice', 'log_private_audit', 'care_settings_can',
                               'set_support_grant_areas', 'grant_weaver_filing', 'end_weaver_filing', '_weaver_filing_live',
                               'log_private_read', 'audit_private_row', 'person_match_employers_check', 'my_match_employer',
-                              'set_my_match_employer', 'remove_my_match_employer', 'record_match_employer', 'has_permission')),
-  'A · every function of 0757-0759 (and has_permission) runs as the definer with the pinned search path');
+                              'set_my_match_employer', 'remove_my_match_employer', 'record_match_employer', 'has_permission',
+                              'enforce_role_grant', 'ensure_center_owner', 'center_owners_self_rule', 'center_owners_weaver_notice',
+                              'role_grants_weaver_notice', '_weaver_change_email', 'matching_readable_centers', '_module_records',
+                              'may_grant_private_role', 'demo_missing_roles')),
+  'A · every function of 0757-0759 (and the ones they replace) runs as the definer with the pinned search path');
+select pg_temp.assert((select bool_and(not p.prosecdef and array_to_string(p.proconfig, ',') like '%search_path=app, public, extensions%')
+                         from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+                        where n.nspname = 'app' and p.proname in ('roles_private_guard', 'center_users_link_rule'))
+                      and (select count(*) from pg_trigger t where not t.tgisinternal and t.tgname in
+                             ('roles_private_guard', 'center_users_link_rule', 'center_owners_self', 'center_owners_weaver_notice',
+                              'role_grants_weaver_notice', 'role_grants_private', 'role_grants_private_notice')) = 7,
+  'A · the roles guard and the sign-in link rule run as the caller on purpose (they read current_user), and every new trigger is there');
 select pg_temp.assert(not exists (select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
                                    where n.nspname = 'app' and p.proname in ('org_private_can', '_org_holds', '_org_private_module_on',
                                          'care_can', 'care_amounts_can', 'matching_can', '_weaver_filing_live', 'care_settings_can',
@@ -110,8 +137,9 @@ select pg_temp.assert(app.role_private_products('care_lead') = array['care'] and
                       and app.role_private_products('treasurer') = '{}' and app.role_private_products('platform_owner') = '{}'
                       and app.org_private_product('care.view') = 'care' and app.org_private_product('caretaker.view') is null,
   'A · which products a role opens (platform_owner''s "*" opens none: it is a platform-tier role)');
-select pg_temp.assert(exists (select 1 from app.message_templates where center_id is null and key = 'private_access_granted' and channel = 'email'),
-  'A · the owner''s email has a platform template');
+select pg_temp.assert(exists (select 1 from app.message_templates where center_id is null and key = 'private_access_granted' and channel = 'email')
+                      and exists (select 1 from app.message_templates where center_id is null and key = 'weaver_access_change' and channel = 'email'),
+  'A · the owner''s two emails have platform templates');
 select pg_temp.assert(exists (select 1 from app.module_tables where table_name = 'person_match_employers' and module_key = 'matching')
                       and exists (select 1 from app.module_tables where table_name = 'matching_filing_grants' and module_key is null)
                       and (select relrowsecurity from pg_class where oid = 'app.person_match_employers'::regclass)
@@ -126,12 +154,16 @@ insert into auth.users (id, email) values
   (:carelead, 'carelead163@c1.test'), (:relowner, 'relowner163@c1.test'), (:treas, 'treas163@c1.test'),
   (:cadmin, 'cadmin163@c1.test'), (:member, 'member163@c1.test'), (:kid, 'kid163@c1.test'), (:matchlead, 'match163@c1.test'),
   (:carefin, 'carefin163@c1.test'), (:c2owner, 'owner163@c2.test'), (:newbie, 'newbie163@c1.test'),
-  (:expired, 'expired163@c1.test'), (:scoped, 'scoped163@c1.test'), (:pending, 'pending163@c1.test');
-insert into app.accounts (user_id, is_platform_admin) values (:plat, true), (:weaver, true)
+  (:expired, 'expired163@c1.test'), (:scoped, 'scoped163@c1.test'), (:pending, 'pending163@c1.test'),
+  (:invitee, 'invitee163@c1.test'), (:weaverinv, 'weaverinv163@weaver.test');
+insert into app.accounts (user_id, is_platform_admin) values (:plat, true), (:weaver, true), (:weaverinv, true)
   on conflict (user_id) do update set is_platform_admin = excluded.is_platform_admin;
+-- c3 and c4 have no owner yet (section I).
 insert into app.centers (id, slug, name, short_name, state_region, status, time_zone) values
   (:c1, 'pv163', 'Private Temple 163', 'P163', 'TX', 'active', 'America/Chicago'),
-  (:c2, 'pv163b', 'Other Temple 163', 'O163', 'TX', 'active', 'America/Chicago');
+  (:c2, 'pv163b', 'Other Temple 163', 'O163', 'TX', 'active', 'America/Chicago'),
+  (:c3, 'pv163c', 'Ownerless Temple 163', 'N163', 'TX', 'active', 'America/Chicago'),
+  (:c4, 'pv163d', 'Another Ownerless 163', 'M163', 'TX', 'active', 'America/Chicago');
 insert into app.center_owners (center_id, user_id) values (:c1, :owner), (:c2, :c2owner);
 -- Weaver grants both products to the first community only (0740's table; the kinds start them off, 0750).
 insert into app.center_module_grants (center_id, module_key, granted, reason) values
@@ -152,15 +184,18 @@ insert into app.role_grants (center_id, user_id, role_key, scope_kind, reason, s
   (:c1, :pending, 'care_lead', 'center', 'Test 163: waiting', 'pending');
 insert into app.role_grants (id, center_id, user_id, role_key, scope_kind, reason) values
   (:teachgrant, :c1, :newbie, 'teacher', 'center', 'Test 163: a teacher');
+insert into app.role_grants (id, center_id, user_id, role_key, scope_kind, reason, ends_at) values
+  (:platteach, :c1, :plat, 'teacher', 'center', 'Test 163: a platform admin''s grant that ends tomorrow', now() + interval '1 day');
 insert into app.households (id, center_id, display_name) values (:h1, :c1, 'Member163, Mia'), (:h2, :c1, 'Newbie163, Ned');
 insert into app.people (id, center_id, first_name, last_name, date_of_birth, employer) values
   (:pm, :c1, 'Mia', 'Member163', date '1985-04-01', 'Acme Corp'),
   (:pk, :c1, 'Kit', 'Member163', (current_date - interval '10 years')::date, null),
   (:pa, :c1, 'Ari', 'Member163', null, 'Globex'),
-  (:pn, :c1, 'Ned', 'Newbie163', date '1990-01-01', null);
+  (:pn, :c1, 'Ned', 'Newbie163', date '1990-01-01', null),
+  (:pc, :c1, 'Cal', 'Admin163', date '1970-01-01', null);
 insert into app.household_members (household_id, person_id, center_id, role, is_primary) values
   (:h1, :pm, :c1, 'primary', true), (:h1, :pk, :c1, 'child', false), (:h1, :pa, :c1, 'spouse', false), (:h2, :pn, :c1, 'primary', true);
-insert into app.center_users (center_id, user_id, person_id) values (:c1, :member, :pm), (:c1, :kid, :pk), (:c1, :newbie, :pn);
+insert into app.center_users (center_id, user_id, person_id) values (:c1, :member, :pm), (:c1, :kid, :pk), (:c1, :newbie, :pn), (:c1, :cadmin, :pc);
 select pg_temp.assert((select status from app.role_grants where center_id = :c1 and user_id = :pending) = 'pending'
                       and app.module_enabled(:c1, 'care') and app.module_enabled(:c1, 'matching') and not app.module_enabled(:c2, 'care'),
   'Fixtures · WeCare and CatchTheMatch are on in the first community only');
@@ -273,9 +308,11 @@ select pg_temp.assert_raises(format($$insert into app.role_grants (center_id, us
   'D · the Center admin (roles.manage) cannot give a WeCare role');
 select pg_temp.claims(:plat);
 select pg_temp.assert_raises(format($$insert into app.role_grants (center_id, user_id, role_key, scope_kind, reason) values (%L, %L, 'care_lead', 'center', 'x')$$, :c1, :plat),
-  'Nobody can give themselves Care lead', 'D · a platform admin cannot give themselves a WeCare role');
+  'Weaver''s team cannot hold Care lead', 'D · a platform admin cannot give themselves a WeCare role');
 select pg_temp.assert_raises(format($$insert into app.role_grants (center_id, user_id, role_key, scope_kind, reason, granted_by) values (%L, %L, 'matching_lead', 'center', 'x', %L)$$, :c1, :weaver, :owner),
-  'Matching lead can be given only by', 'D · nor give one to a colleague, even naming the owner as the giver');
+  'Weaver''s team cannot hold Matching lead', 'D · nor give one to a colleague on the team');
+select pg_temp.assert_raises(format($$insert into app.role_grants (center_id, user_id, role_key, scope_kind, reason, granted_by) values (%L, %L, 'matching_lead', 'center', 'x', %L)$$, :c1, :newbie, :owner),
+  'Matching lead can be given only by', 'D · nor to anyone in the community, even naming the owner as the giver');
 select pg_temp.claims(:carelead);
 select pg_temp.assert_raises(format($$insert into app.role_grants (center_id, user_id, role_key, scope_kind, reason) values (%L, %L, 'matching_lead', 'center', 'x')$$, :c1, :newbie),
   'Matching lead can be given only by', 'D · a Care lead cannot give a CatchTheMatch role');
@@ -313,8 +350,9 @@ select pg_temp.claims(:cadmin);
 select pg_temp.assert_raises(format($$select * from app.invite_staff(%L, 'invitee163@c1.test', null, null, array['care_lead'], '{"kind":"center"}'::jsonb, 'In', 'Vitee', 7)$$, :c1),
   'Care lead can be given only by', 'D · the Center admin cannot invite someone as Care lead');
 select pg_temp.claims(:owner);
-select pg_temp.assert((select count(*) from app.invite_staff(:c1, 'invitee163@c1.test', null, null, array['care_lead'], '{"kind":"center"}'::jsonb, 'In', 'Vitee', 7)) = 1,
-  'D · the owner can');
+select token as invite_token from app.invite_staff(:c1, 'invitee163@c1.test', null, null, array['care_lead'], '{"kind":"center"}'::jsonb, 'In', 'Vitee', 7) \gset
+select pg_temp.assert(length(:'invite_token') >= 16, 'D · the owner can');
+select token as weaver_invite_token from app.invite_staff(:c1, 'weaverinv163@weaver.test', null, null, array['care_lead'], '{"kind":"center"}'::jsonb, 'We', 'Aver', 7) \gset
 select pg_temp.assert_raises(format($$select * from app.invite_staff(%L, 'invitee163b@c1.test', null, null, array['matching_lead'], '{"kind":"zone","id":"16300000-0000-4000-8000-0000000000e3"}'::jsonb, 'In', 'Vitee', 7)$$, :c1),
   'whole organization only', 'D · and never for one zone');
 
@@ -463,10 +501,12 @@ select pg_temp.claims(:member);
 select pg_temp.assert((select count(*) from app.person_match_employers where center_id = :c1) = 1,
   'H · a person reads their own only, not their household''s');
 reset role;
-select pg_temp.assert((select count(*) from app.consents where person_id = :pm and kind = 'employer_matching' and granted and source = 'app' and given_by_user = :member) = 1
-                      and (select count(*) from app.consents where person_id = :pa and kind = 'employer_matching' and granted and source = 'paper_form' and given_by_user = :matchlead) = 1
-                      and (select recorded_by = :matchlead and recorded_at is not null from app.person_match_employers where person_id = :pa),
-  'H · each one is the person''s consent: from the app, or from a paper form with who recorded it and when');
+select pg_temp.assert((select source = 'member' and recorded_by = :member and consented_at is not null and withdrawn_at is null
+                         from app.person_match_employers where person_id = :pm)
+                      and (select source = 'paper_form' and recorded_by = :matchlead and consented_at is not null
+                             from app.person_match_employers where person_id = :pa)
+                      and not exists (select 1 from app.consents where kind = 'employer_matching'),
+  'H · each one carries the person''s consent in the record (from the app, or from a paper form with who recorded it and when); nothing goes to app.consents');
 select pg_temp.assert(not exists (select 1 from app.audit_log where record_table = 'person_match_employers' and (after::text like '%Acme%' or after::text like '%Globex%'))
                       and (select bool_and(module = 'matching' and after->>'employer_name' = '***') from app.audit_log where record_table = 'person_match_employers'),
   'H · the audit trail says who and when, never the employer''s name, and belongs to CatchTheMatch');
@@ -487,11 +527,15 @@ select pg_temp.assert((select count(*) from app.person_match_employers where cen
                       and (app.my_match_employer(:c1))->>'employer' = 'Acme Corp',
   'H · the table hides it while CatchTheMatch is off, but the person still sees their own');
 select pg_temp.assert(app.remove_my_match_employer(:c1) and not app.remove_my_match_employer(:c1),
-  'H · and removes it at once (a second removal finds nothing)');
+  'H · and withdraws it at once (a second withdrawal finds nothing)');
+select pg_temp.assert((app.my_match_employer(:c1))->>'employer' is null and (app.my_match_employer(:c1))->>'withdrawn_at' is not null
+                      and (app.my_match_employer(:c1))->>'suggestion' = 'Acme Corp',
+  'H · the person sees it withdrawn, and the profile''s employer is offered again');
 reset role;
-select pg_temp.assert(not exists (select 1 from app.person_match_employers where person_id = :pm)
-                      and (select count(*) from app.consents where person_id = :pm and kind = 'employer_matching' and not granted) = 1,
-  'H · the row is gone and the withdrawal is recorded');
+select pg_temp.assert((select employer_name is null and withdrawn_at is not null and withdrawn_by = :member
+                         from app.person_match_employers where person_id = :pm)
+                      and not exists (select 1 from app.consents where kind = 'employer_matching'),
+  'H · the employer is erased and the withdrawal kept in the record');
 
 -- An expired filing grant opens nothing.
 update app.center_module_grants set granted = true where center_id = :c1 and module_key = 'matching';
@@ -502,6 +546,190 @@ select pg_temp.claims(:weaver);
 select pg_temp.assert(not app.matching_can(:c1, 'view'), 'F · an expired filing grant opens nothing');
 select pg_temp.claims(:owner);
 select pg_temp.assert(app.matching_can(:c1, 'view'), 'F · while the organization''s own access comes back with the module');
+
+-- ══ I. Nobody makes themselves owner or administrator ═══════════════════════
+select pg_temp.claims(:plat);
+select pg_temp.assert_raises(format($$insert into app.role_grants (center_id, user_id, role_key, scope_kind, reason) values (%L, %L, 'center_admin', 'center', 'x')$$, :c1, :plat),
+  'you cannot grant a role to yourself', 'I · a platform admin cannot give themselves Center admin');
+select pg_temp.assert_raises(format($$insert into app.role_grants (center_id, user_id, role_key, scope_kind, reason) values (%L, %L, 'center_admin', 'center', 'x')$$, :c3, :plat),
+  'you cannot grant a role to yourself', 'I · not even in a community that has no owner yet');
+select pg_temp.assert_raises(format($$update app.role_grants set ends_at = null where id = %L$$, :platteach),
+  'you cannot widen a role of your own', 'I · nor widen a grant of their own');
+reset role;
+select pg_temp.assert(not exists (select 1 from app.center_owners where center_id = :c3)
+                      and (select ends_at is not null from app.role_grants where id = :platteach),
+  'I · nothing changed');
+set role authenticated;
+select pg_temp.claims(:plat);
+insert into app.role_grants (center_id, user_id, role_key, scope_kind, reason) values (:c3, :newbie, 'center_admin', 'center', 'Test 163: Weaver sets up the first administrator');
+reset role;
+select pg_temp.assert((select user_id from app.center_owners where center_id = :c3) = :newbie
+                      and exists (select 1 from app.audit_log where center_id = :c3 and action = 'roles.center_admin_by_weaver' and after->>'user_id' = :newbie)
+                      and exists (select 1 from app.audit_log where center_id = :c3 and action = 'ownership.changed_by_weaver' and after->>'user_id' = :newbie)
+                      and exists (select 1 from app.messages where template_key = 'weaver_access_change' and to_address = 'newbie163@c1.test'),
+  'I · a platform admin still sets up another person: the first Center admin of a community without an owner becomes its owner; both changes are audited and the new owner is emailed');
+-- c4: a platform-admin account already holds Center admin there (from before these rules), and there is no owner.
+select pg_temp.no_claims();
+insert into app.role_grants (center_id, user_id, role_key, scope_kind, reason, starts_at) values
+  (:c4, :weaver, 'center_admin', 'center', 'Test 163: an older grant', now() - interval '1 day');
+delete from app.center_owners where center_id = :c4;
+set role authenticated;
+select pg_temp.claims(:plat);
+insert into app.role_grants (center_id, user_id, role_key, scope_kind, reason) values (:c4, :member, 'center_admin', 'center', 'Test 163: Weaver sets up an administrator');
+reset role;
+select pg_temp.assert((select user_id from app.center_owners where center_id = :c4) = :member,
+  'I · when a signed-in change makes a first owner, a platform-admin account is never chosen (the older Weaver grant is passed over)');
+-- Ownership transfers.
+savepoint transfer;
+select pg_temp.no_claims();
+insert into app.role_grants (center_id, user_id, role_key, scope_kind, reason) values (:c1, :plat, 'center_admin', 'center', 'Test 163: a platform admin who is an administrator here');
+set role authenticated;
+select pg_temp.claims(:plat);
+select pg_temp.assert_raises(format($$select app.transfer_ownership(%L, %L, 'Take it over')$$, :c1, :plat),
+  'Nobody can make themselves the owner', 'I · a platform admin cannot transfer ownership to themselves');
+select app.transfer_ownership(:c1, :cadmin, 'Test 163: the owner asked Weaver to hand it over');
+reset role;
+select pg_temp.assert((select user_id from app.center_owners where center_id = :c1) = :cadmin
+                      and exists (select 1 from app.audit_log where center_id = :c1 and action = 'ownership.changed_by_weaver'
+                                    and before->>'user_id' = :owner and after->>'user_id' = :cadmin)
+                      and exists (select 1 from app.messages where template_key = 'weaver_access_change' and to_address = 'owner163@c1.test'
+                                    and body like '%made Cal Admin163 the owner%'),
+  'I · but may transfer it to another administrator: audited, and the owner it replaces is emailed');
+rollback to savepoint transfer;
+savepoint weaver_admin;
+set role authenticated;
+select pg_temp.claims(:plat);
+insert into app.role_grants (center_id, user_id, role_key, scope_kind, reason) values (:c1, :treas, 'center_admin', 'center', 'Test 163: the owner asked for a second administrator');
+reset role;
+select pg_temp.assert(exists (select 1 from app.audit_log where center_id = :c1 and action = 'roles.center_admin_by_weaver' and after->>'user_id' = :treas)
+                      and exists (select 1 from app.messages where template_key = 'weaver_access_change' and to_address = 'owner163@c1.test'
+                                    and body like '%gave % the Center admin role%'),
+  'I · every Center admin grant a platform admin makes is audited and emailed to the owner');
+rollback to savepoint weaver_admin;
+
+-- ══ J. Only a migration makes a role private ═════════════════════════════════
+set role authenticated;
+select pg_temp.claims(:plat);
+select pg_temp.assert_raises($$update app.roles set permissions = permissions || '["care.view"]'::jsonb where key = 'treasurer'$$,
+  'changed only by a database migration', 'J · a platform admin cannot add a private key to a role');
+select pg_temp.assert_raises($$insert into app.roles (key, tier, name, default_scope, description, permissions) values ('sneaky163', 'center', 'Sneaky', 'center', 'x', '["*"]')$$,
+  'changed only by a database migration', 'J · nor create a role that holds every permission');
+select pg_temp.assert_raises($$update app.roles set description = 'Changed' where key = 'care_lead'$$,
+  'changed only by a database migration', 'J · nor change a role that opens WeCare at all');
+select pg_temp.assert_raises($$update app.roles set tier = 'center' where key = 'platform_owner'$$,
+  'changed only by a database migration', 'J · nor bring platform_owner''s "*" into the organization''s roles');
+savepoint role_edit;
+update app.roles set description = 'Test 163: still editable' where key = 'treasurer';
+select pg_temp.assert((select description from app.roles where key = 'treasurer') = 'Test 163: still editable',
+  'J · other roles are edited as before');
+rollback to savepoint role_edit;
+reset role;
+select pg_temp.assert((select permissions from app.roles where key = 'treasurer') ? 'giving.view'
+                      and not app._perms_open_private((select permissions from app.roles where key = 'treasurer')),
+  'J · nothing changed');
+
+-- ══ L. Private roles: who may hold and change them ═══════════════════════════
+set role authenticated;
+select pg_temp.claims(:invitee);
+select (app.accept_invitation(:'invite_token'))->'active_roles' as accepted \gset
+select pg_temp.assert(:'accepted'::jsonb = '["care_lead"]'::jsonb and app.care_can(:c1, 'manage'),
+  'L · an invitee accepting the owner''s Care lead invitation holds it at once');
+reset role;
+select pg_temp.assert((select granted_by = :owner and status = 'active' from app.role_grants where center_id = :c1 and user_id = :invitee and role_key = 'care_lead'),
+  'L · and the grant records the owner as the one who gave it');
+set role authenticated;
+select pg_temp.claims(:weaverinv);
+select pg_temp.assert_raises(format($$select app.accept_invitation(%L)$$, :'weaver_invite_token'),
+  'Weaver''s team cannot hold Care lead', 'L · a Weaver team member cannot take a private role by accepting an invitation');
+select pg_temp.claims(:owner);
+select pg_temp.assert_raises(format($$insert into app.role_grants (center_id, user_id, role_key, scope_kind, reason) values (%L, %L, 'care_lead', 'center', 'x')$$, :c1, :plat),
+  'Weaver''s team cannot hold Care lead', 'L · nor can the owner give one to a platform-admin account');
+select pg_temp.claims(:carelead);
+select pg_temp.assert_raises(format($$insert into app.role_grants (center_id, user_id, role_key, scope_kind, reason) values (%L, %L, 'teacher', 'center', 'x')$$, :c1, :newbie),
+  'row-level security', 'L · a WeCare manager without roles.manage cannot give any other role');
+select pg_temp.assert_raises(format($$insert into app.role_grants (center_id, user_id, role_key, scope_kind, reason) values (%L, %L, 'relationship_owner', 'center', 'x')$$, :c3, :newbie),
+  'can be given only by', 'L · nor a WeCare role in a community where they manage nothing');
+select pg_temp.claims(:plat);
+select pg_temp.assert_raises(format($$update app.role_grants set ends_at = null where center_id = %L and user_id = %L and role_key = 'care_lead'$$, :c1, :expired),
+  'Care lead can be given only by', 'L · a platform admin cannot bring a private grant back');
+select pg_temp.assert_raises(format($$update app.role_grants set user_id = %L where center_id = %L and user_id = %L and role_key = 'care_lead'$$, :plat, :c1, :carelead),
+  'Weaver''s team cannot hold Care lead', 'L · nor move one to themselves');
+select pg_temp.assert_raises(format($$update app.role_grants set granted_by = %L where center_id = %L and user_id = %L and role_key = 'care_lead'$$, :owner, :c1, :carelead),
+  'Care lead can be given only by', 'L · nor re-sign one as if someone else had given it');
+select pg_temp.claims(:owner);
+update app.role_grants set ends_at = now() + interval '30 days' where center_id = :c1 and user_id = :relowner and role_key = 'relationship_owner';
+reset role;
+select pg_temp.assert((select granted_by is null from app.role_grants where center_id = :c1 and user_id = :relowner and role_key = 'relationship_owner'),
+  'L · shortening a private grant keeps who gave it');
+set role authenticated;
+select pg_temp.claims(:owner);
+update app.role_grants set ends_at = null where center_id = :c1 and user_id = :relowner and role_key = 'relationship_owner';
+reset role;
+select pg_temp.assert((select granted_by = :owner and ends_at is null from app.role_grants where center_id = :c1 and user_id = :relowner and role_key = 'relationship_owner'),
+  'L · widening it again is checked as a new grant and records who did it');
+
+-- ══ K. Sign-in links ═════════════════════════════════════════════════════════
+set role authenticated;
+select pg_temp.claims(:cadmin);
+select pg_temp.assert_raises(format($$update app.center_users set person_id = %L where center_id = %L and user_id = %L$$, :pm, :c1, :cadmin),
+  'Nobody can link their own sign-in', 'K · an administrator cannot point their own sign-in at another person');
+select pg_temp.assert_raises(format($$insert into app.center_users (center_id, user_id, person_id) values (%L, %L, %L)$$, :c2, :cadmin, :pn),
+  'Nobody can link their own sign-in', 'K · nor link their sign-in anywhere else');
+select pg_temp.claims(:plat);
+select pg_temp.assert_raises(format($$update app.center_users set person_id = %L where center_id = %L and user_id = %L$$, :pa, :c1, :member),
+  'Weaver''s team cannot link a sign-in', 'K · a platform admin cannot re-link anyone''s sign-in');
+select pg_temp.assert_raises(format($$insert into app.center_users (center_id, user_id, person_id) values (%L, %L, %L)$$, :c1, :plat, :pa),
+  'Nobody can link their own sign-in', 'K · nor link their own to a person');
+reset role;
+select pg_temp.assert((select person_id from app.center_users where center_id = :c1 and user_id = :member) = :pm
+                      and (select person_id from app.center_users where center_id = :c1 and user_id = :cadmin) = :pc
+                      and (select person_id from app.center_users where center_id = :c1 and user_id = :invitee) is not null,
+  'K · the links are as the organization made them, and the linking functions still link (the invitee of section L)');
+
+-- ══ M. Filing grants, read-time checks and counts ═════════════════════════════
+select pg_temp.no_claims();
+select pg_temp.assert_raises(format($$insert into app.matching_filing_grants (center_id, grantee_user_id, granted_by, ends_at, reason) values (%L, %L, %L, now() + interval '1 day', 'x')$$, :c1, :weaver, :owner),
+  'duplicate key', 'M · one open filing grant per person (the one that ran out is still open)');
+set role authenticated;
+select pg_temp.claims(:matchlead);
+select app.grant_weaver_filing(:c1, :weaver, 30, 'Test 163: again, the old one ran out') as filing2 \gset
+select pg_temp.claims(:weaver);
+select pg_temp.assert(app.matching_can(:c1, 'view'), 'M · a new grant closes the one that ran out, and works');
+reset role;
+select pg_temp.assert((select count(*) from app.matching_filing_grants where center_id = :c1 and grantee_user_id = :weaver and ended_at is null) = 1
+                      and (select end_reason = 'It ran out' from app.matching_filing_grants where center_id = :c1 and grantee_user_id = :weaver and reason = 'Test 163: ended yesterday'),
+  'M · the old one is closed as run out');
+-- Weaver's grant of CatchTheMatch made again later: the older filing grant does not come back.
+select pg_temp.no_claims();
+update app.center_module_grants set granted_at = now() + interval '1 minute' where center_id = :c1 and module_key = 'matching';
+set role authenticated;
+select pg_temp.claims(:weaver);
+select pg_temp.assert(not app.matching_can(:c1, 'view') and (select count(*) from app.person_match_employers where center_id = :c1) = 0,
+  'M · a filing grant counts only while Weaver''s grant of CatchTheMatch is older than it');
+reset role;
+select pg_temp.no_claims();
+delete from app.center_module_grants where center_id = :c1 and module_key = 'matching';
+select pg_temp.assert((select ended_at is not null from app.matching_filing_grants where id = :'filing2'),
+  'M · removing Weaver''s grant row ends the open filing grants');
+insert into app.center_module_grants (center_id, module_key, granted, reason, granted_at) values (:c1, 'matching', true, 'Test 163: again', now() + interval '2 minutes');
+set role authenticated;
+select pg_temp.claims(:matchlead);
+select pg_temp.assert((select count(*) from app.person_match_employers where center_id = :c1) = 1,
+  'M · the manager reads the one employer on file (the withdrawn one is not shown)');
+reset role;
+select pg_temp.no_claims();
+update app.people set date_of_birth = (current_date - interval '16 years')::date where id = :pa;
+set role authenticated;
+select pg_temp.claims(:matchlead);
+select pg_temp.assert((select count(*) from app.person_match_employers where center_id = :c1) = 0,
+  'M · adults only, checked again when it is read');
+reset role;
+select pg_temp.claims(:plat);
+select pg_temp.assert(app._module_records(:c1, 'matching') = '{}'::jsonb,
+  'M · the change-of-kind counts show a platform admin nothing of CatchTheMatch');
+select pg_temp.claims(:matchlead);
+select pg_temp.assert(app._module_records(:c1, 'matching') ? 'person_match_employers',
+  'M · while its manager sees them');
 
 reset role;
 select pg_temp.no_claims();

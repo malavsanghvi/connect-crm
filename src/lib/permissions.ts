@@ -134,16 +134,23 @@ export function sessionPermissions(grants: GrantLike[], roles: RoleLike[], isOwn
  */
 export function can(ctx: PermissionContext, anyOf: string | readonly string[]): boolean {
   const list = typeof anyOf === "string" ? [anyOf] : anyOf;
-  return list.some((p) => (ctx.isPlatformAdmin && !orgPrivateProduct(p)) || ctx.permissions.includes(p));
+  return list.some((p) => {
+    if (!orgPrivateProduct(p)) return ctx.isPlatformAdmin || ctx.permissions.includes(p);
+    // A platform-admin account holds a private key only as the community's owner (0757).
+    return (!ctx.isPlatformAdmin || ctx.isOwner === true) && ctx.permissions.includes(p);
+  });
 }
 
 /**
  * One of the organization's own keys, as app.org_private_can decides it: the product's module is on and the key is held (the
- * owner holds every key). Never because the user is a platform admin. Convenience only: the database decides.
+ * owner holds every key). Never because the user is a platform admin, and a platform-admin account counts only as the owner:
+ * its role grants open none of these keys (0757). Convenience only: the database decides.
  */
 export function canPrivate(ctx: ScopedContext, key: OrgPrivateKey): boolean {
   const product = orgPrivateProduct(key);
-  return product !== null && moduleOn(ctx, product) && ctx.permissions.includes(key);
+  if (product === null || !moduleOn(ctx, product)) return false;
+  if (ctx.isPlatformAdmin && !ctx.isOwner) return false;
+  return ctx.permissions.includes(key);
 }
 
 /** WeCare levels (app.care_can): view = every care record, own = only my households (view and manage include it), manage. */
@@ -168,6 +175,7 @@ export function canGrantRole(ctx: PermissionContext, role: { permissions: Json |
   const products = rolePrivateProducts(role);
   if (products.length === 0) return true;
   if (ctx.isOwner) return true;
+  if (ctx.isPlatformAdmin) return false;
   return products.every((p) => ctx.permissions.includes(`${p}.manage`));
 }
 

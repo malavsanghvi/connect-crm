@@ -80,8 +80,11 @@ describe("can: a platform admin is not let through on the organization's own dat
     expect(matchingCan(admin, "view")).toBe(false);
   });
 
-  it("lets a platform admin through where the organization granted them a role (permissions carry it)", () => {
-    expect(canPrivate(ctx(["care.view"], { isPlatformAdmin: true }), "care.view")).toBe(true);
+  it("counts a platform-admin account only as the community's owner, never through a role grant", () => {
+    expect(canPrivate(ctx(["care.view"], { isPlatformAdmin: true }), "care.view")).toBe(false);
+    expect(can(ctx(["care.view"], { isPlatformAdmin: true }), "care.view")).toBe(false);
+    expect(canPrivate(ctx(["care.view"], { isPlatformAdmin: true, isOwner: true }), "care.view")).toBe(true);
+    expect(canGrantRole(ctx(["care.manage"], { isPlatformAdmin: true }), roles[1])).toBe(false);
   });
 });
 
@@ -170,15 +173,15 @@ describe("the Gift matching section", () => {
   });
 
   it("tells a role without CatchTheMatch it has no access, without reading anything", async () => {
-    const db = fakeDb({ tables: { person_match_employers: [{ person_id: "p-1", center_id: "center-1", employer_name: "Acme", source: "member", recorded_by: "u-1", recorded_at: "2026-10-13T12:00:00Z" }] } });
+    const db = fakeDb({ tables: { person_match_employers: [{ person_id: "p-1", center_id: "center-1", employer_name: "Acme", source: "member", recorded_by: "u-1", consented_at: "2026-10-13T12:00:00Z" }] } });
     const res = await loadMatchEmployer(fakeSession({ db, permissions: ["people.view", "people.manage"], isPlatformAdmin: true }), { id: "p-1", profileEmployer: null });
     expect(res).toEqual({ state: "no-access" });
   });
 
   it("reads what is on file for a CatchTheMatch reader, and offers the profile's employer only when nothing is", async () => {
-    const row = { person_id: "p-1", center_id: "center-1", employer_name: "Acme", source: "member", recorded_by: "u-1", recorded_at: "2026-10-13T12:00:00Z" };
+    const row = { person_id: "p-1", center_id: "center-1", employer_name: "Acme", source: "member", recorded_by: "u-1", consented_at: "2026-10-13T12:00:00Z" };
     const on = await loadMatchEmployer(fakeSession({ db: fakeDb({ tables: { person_match_employers: [row] } }), permissions: ["matching.view"] }), { id: "p-1", profileEmployer: "Globex" });
-    expect(on).toEqual({ state: "ok", data: { employer: "Acme", source: "member", recordedAt: row.recorded_at, recordedBy: null, suggestion: null, canRecord: false } });
+    expect(on).toEqual({ state: "ok", data: { employer: "Acme", source: "member", recordedAt: row.consented_at, recordedBy: null, suggestion: null, canRecord: false } });
     const none = await loadMatchEmployer(fakeSession({ db: fakeDb({ tables: { person_match_employers: [] } }), permissions: ["matching.manage"] }), { id: "p-1", profileEmployer: " Globex " });
     expect(none).toEqual({ state: "ok", data: { employer: null, source: null, recordedAt: null, recordedBy: null, suggestion: "Globex", canRecord: true } });
   });

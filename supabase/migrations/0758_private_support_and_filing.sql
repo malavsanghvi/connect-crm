@@ -11,15 +11,21 @@
 --   audited). The Support access screen gets its tick box with the first WeCare settings screen; until then nothing reads it.
 --
 --   C8, THE WEAVER FILING ROLE. CatchTheMatch is filed by Weaver's team, so the organization gives NAMED Weaver team members
---   a filing grant: app.matching_filing_grants, its own table (like support_grants), NOT a role grant: 0152's
---   enforce_role_grant lets a platform admin write any role grant unchecked, so a role here could be taken rather than given.
+--   a filing grant: app.matching_filing_grants, its own table (like support_grants), NOT a role grant: Weaver's team can
+--   never hold the organization's private roles (0757), and the filing access has limits of its own (a named person, an end
+--   date, the product on, CatchTheMatch data only).
 --     app.grant_weaver_filing(center, grantee, days, reason)   the owner or a matching.manage holder (0757's check, so
 --                                     CatchTheMatch must be on); the grantee must be on Weaver's team; not oneself; 1 to 366
 --                                     days; a reason; a fresh 2FA check ('matching.filing_grant'); one live grant per person.
 --                                     Audited (the table's audit_row) and the owner is emailed (0757's notice).
 --     app.end_weaver_filing(grant, reason)   the owner, a matching.manage holder, or the grantee; at once.
---     Weaver turning CatchTheMatch off for the community (app.set_module_grant) ends every live filing grant at once
---     ("time-limited to the subscription"). A community pausing it suspends the grant, as it suspends everyone's access.
+--     Weaver turning CatchTheMatch off for the community (app.set_module_grant, or its grant row removed) ends every open
+--     filing grant at once ("time-limited to the subscription"), and a filing grant counts only while Weaver's grant of
+--     CatchTheMatch is older than it (checked at read time), so turning the product off and on again never brings an old
+--     filing grant back. A community pausing it suspends the grant, as it suspends everyone's access. One open grant per
+--     person and community (a unique index).
+--     app.matching_readable_centers()  the communities whose CatchTheMatch data the caller may read, for RLS (once per
+--                                     statement).
 --     app.matching_can(center, level)  'view': matching.view or matching.manage, or a live filing grant; 'file' (the filing
 --                                     queue's actions, slice 3): matching.manage or a live filing grant; 'manage':
 --                                     matching.manage only. A filing grant never opens WeCare, notes or other giving.
@@ -98,6 +104,9 @@ create table if not exists app.matching_filing_grants (
 );
 create index if not exists matching_filing_grants_center_idx on app.matching_filing_grants (center_id, ends_at desc);
 create index if not exists matching_filing_grants_grantee_idx on app.matching_filing_grants (grantee_user_id);
+-- One open grant per person and community (grant_weaver_filing closes a person's expired one before giving a new one).
+create unique index if not exists matching_filing_grants_one_open on app.matching_filing_grants (center_id, grantee_user_id)
+  where ended_at is null;
 comment on table app.matching_filing_grants is
   'The Weaver filing role (0758, CatchTheMatch C8): the organization gives a named Weaver team member access to CatchTheMatch data only, for a set time; ended at once when Weaver turns CatchTheMatch off. Written only by grant_weaver_filing / end_weaver_filing.';
 
@@ -116,13 +125,17 @@ create trigger audit_matching_filing_grants after insert or update or delete on 
 insert into app.module_tables (table_name, module_key) values ('matching_filing_grants', null)
   on conflict (table_name) do update set module_key = excluded.module_key;
 
--- A live filing grant for this caller, with CatchTheMatch on.
+-- A live filing grant for this caller, with CatchTheMatch on now AND granted by Weaver without a break since the filing
+-- grant was given: when Weaver turns CatchTheMatch off and on again (or its grant row is removed and made again) the grant's
+-- granted_at moves on, so an older filing grant never comes back to life, whatever happened to it in between.
 create or replace function app._weaver_filing_live(p_center uuid) returns boolean
 language sql stable security definer set search_path = app, public, extensions as $$
   select auth.uid() is not null and app._org_private_module_on(p_center, 'matching')
      and exists (select 1 from app.matching_filing_grants f
+                   join app.center_module_grants mg on mg.center_id = f.center_id and mg.module_key = 'matching' and mg.granted
                   where f.center_id = p_center and f.grantee_user_id = auth.uid()
-                    and f.ended_at is null and f.granted_at <= now() and f.ends_at > now())
+                    and f.ended_at is null and f.granted_at <= now() and f.ends_at > now()
+                    and mg.granted_at <= f.granted_at)
 $$;
 
 create or replace function app.matching_can(p_center uuid, p_level text) returns boolean
@@ -159,6 +172,9 @@ begin
   end if;
   if p_days is null or p_days < 1 or p_days > 366 then raise exception 'Choose how long, from 1 day to 366 days.'; end if;
   if app.audit_clean_reason(p_reason) is null then raise exception 'Say what the filing access is for. It goes in the audit log.'; end if;
+  -- A grant of this person's that ran out is closed first (one open grant per person).
+  update app.matching_filing_grants set ended_at = ends_at, end_reason = 'It ran out'
+   where center_id = p_center and grantee_user_id = p_grantee and ended_at is null and ends_at <= now();
   select * into v_live from app.matching_filing_grants f
    where f.center_id = p_center and f.grantee_user_id = p_grantee and f.ended_at is null and f.ends_at > now()
    order by f.ends_at desc limit 1;
@@ -197,21 +213,35 @@ begin
    where id = p_grant;
 end $$;
 
--- Weaver turning CatchTheMatch off ends every live filing grant of the community at once.
+-- Weaver turning CatchTheMatch off (or removing its grant row) ends every open filing grant of the community at once.
 create or replace function app.matching_grant_off_ends_filing() returns trigger
 language plpgsql security definer set search_path = app, public, extensions as $$
+declare r app.center_module_grants := coalesce(new, old);
 begin
-  if new.module_key = 'matching' and not new.granted and (tg_op = 'INSERT' or old.granted) then
+  if r.module_key = 'matching' and (tg_op = 'DELETE' or (not new.granted and (tg_op = 'INSERT' or old.granted))) then
     update app.matching_filing_grants
        set ended_at = now(), ended_by = auth.uid(), end_reason = 'CatchTheMatch was turned off for this community'
-     where center_id = new.center_id and ended_at is null and ends_at > now();
+     where center_id = r.center_id and ended_at is null;
   end if;
-  return new;
+  return null;
 end $$;
 revoke execute on function app.matching_grant_off_ends_filing() from public, anon, authenticated;
 drop trigger if exists matching_grant_off_ends_filing on app.center_module_grants;
-create trigger matching_grant_off_ends_filing after insert or update of granted on app.center_module_grants
+create trigger matching_grant_off_ends_filing after insert or update of granted or delete on app.center_module_grants
   for each row execute function app.matching_grant_off_ends_filing();
+
+-- The communities whose CatchTheMatch data the caller may read (app.matching_can 'view'), worked out once per statement:
+-- RLS policies call it as an InitPlan ((select ...)), so a list of thousands of rows does not ask per row.
+create or replace function app.matching_readable_centers() returns uuid[]
+language sql stable security definer set search_path = app, public, extensions as $$
+  select coalesce(array_agg(s.c), '{}'::uuid[])
+    from (select o.center_id as c from app.center_owners o where o.user_id = auth.uid()
+          union
+          select g.center_id from app.role_grants g where g.user_id = auth.uid() and g.status = 'active'
+          union
+          select f.center_id from app.matching_filing_grants f where f.grantee_user_id = auth.uid() and f.ended_at is null) s
+   where auth.uid() is not null and app.matching_can(s.c, 'view')
+$$;
 
 -- ══ Reads are logged; the audit log keeps them in the organization ══════════
 create or replace function app.log_private_read(p_center uuid, p_product text, p_what text, p_rows int) returns void
@@ -315,9 +345,9 @@ revoke execute on function app._weaver_filing_live(uuid) from public, anon, auth
 -- log_private_read checks that the caller may read the product before it writes; the portal and future functions call it.
 revoke execute on function app.log_private_read(uuid, text, text, int) from public, anon;
 grant execute on function app.log_private_read(uuid, text, text, int) to authenticated;
-revoke execute on function app.care_settings_can(uuid), app.set_support_grant_areas(uuid, text[], text), app.matching_can(uuid, text),
+revoke execute on function app.care_settings_can(uuid), app.set_support_grant_areas(uuid, text[], text), app.matching_can(uuid, text), app.matching_readable_centers(),
   app.grant_weaver_filing(uuid, uuid, int, text), app.end_weaver_filing(uuid, text), app.support_grant_areas() from public, anon;
-grant execute on function app.care_settings_can(uuid), app.set_support_grant_areas(uuid, text[], text), app.matching_can(uuid, text),
+grant execute on function app.care_settings_can(uuid), app.set_support_grant_areas(uuid, text[], text), app.matching_can(uuid, text), app.matching_readable_centers(),
   app.grant_weaver_filing(uuid, uuid, int, text), app.end_weaver_filing(uuid, text), app.support_grant_areas() to authenticated;
 revoke execute on function app.record_history(text, text) from public, anon;
 grant execute on function app.record_history(text, text) to authenticated;

@@ -30,7 +30,7 @@ export async function loadMatchEmployer(session: CrmSession, person: { id: strin
   const { db, center } = session;
   const r = await db
     .from("person_match_employers")
-    .select("employer_name, source, recorded_by, recorded_at")
+    .select("employer_name, source, recorded_by, consented_at")
     .eq("center_id", center.id)
     .eq("person_id", person.id)
     .maybeSingle();
@@ -38,7 +38,8 @@ export async function loadMatchEmployer(session: CrmSession, person: { id: strin
     console.error("[match-employer] the employer for gift matching could not be read:", r.error);
     return part.error(`Could not load the employer for gift matching: ${explainError(r.error)}`);
   }
-  const row = r.data;
+  // A withdrawn record keeps no employer (0759): it reads as nothing on file.
+  const row = r.data?.employer_name ? r.data : null;
   const source = row?.source === "member" || row?.source === "paper_form" ? row.source : null;
   let recordedBy: string | null = null;
   if (row && source === "paper_form") {
@@ -49,7 +50,7 @@ export async function loadMatchEmployer(session: CrmSession, person: { id: strin
   return part.ok({
     employer: row?.employer_name ?? null,
     source,
-    recordedAt: row?.recorded_at ?? null,
+    recordedAt: row?.consented_at ?? null,
     recordedBy,
     suggestion: row ? null : profile,
     canRecord: matchingCan(session, "manage"),

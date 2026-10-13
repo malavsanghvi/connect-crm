@@ -93,9 +93,11 @@ Slices 1 to 4 can be built and used while this is settled; the fee ledger (slice
 role `matching_lead`; the Weaver filing grant (`app.matching_filing_grants`, `app.grant_weaver_filing` /
 `app.end_weaver_filing`: the owner or a `matching.manage` holder gives a named Weaver team member CatchTheMatch view and
 filing for at most 366 days, the owner is emailed, it ends when Weaver turns CatchTheMatch off, every read is logged with
-`app.log_private_read`); the employer for gift matching (`app.person_match_employers`, consent kind `employer_matching`,
-adults only, set and removed by the person, or recorded from a signed paper form by `matching.manage`; `people.employer`
-is untouched and only prefills it) with a Gift matching section in the person slide-over. The filing queue is slice 3.
+`app.log_private_read`); the employer for gift matching (`app.person_match_employers`, with the consent kept in the record:
+source, recorded_by, consented_at, withdrawn_at; adults only, also at read time; set and withdrawn by the person, or
+recorded from a signed paper form by `matching.manage`; `people.employer` is untouched and only prefills it) with a Gift
+matching section in the person slide-over. Weaver's team never holds `matching_lead`; a filing grant counts only while
+Weaver's grant of CatchTheMatch is older than it. The filing queue is slice 3.
 
 ## 7. Where the employer-program facts come from
 
