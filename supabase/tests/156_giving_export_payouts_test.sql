@@ -62,6 +62,7 @@ end $$;
 \set vol '''15600000-0000-4000-8000-000000000003'''
 \set admin '''15600000-0000-4000-8000-000000000004'''
 \set nptreas '''15600000-0000-4000-8000-000000000005'''
+\set exec '''15600000-0000-4000-8000-000000000006'''
 \set acct '''15600000-0000-4000-8000-0000000000a1'''
 \set npacct '''15600000-0000-4000-8000-0000000000a2'''
 \set po1 '''15600000-0000-4000-8000-0000000000d1'''
@@ -77,19 +78,20 @@ end $$;
 select date_trunc('month', current_date)::date as m \gset
 insert into auth.users (id, email) values
   (:treas, 'treasurer156@temple.test'), (:treas0, 'treasurer0156@temple.test'), (:vol, 'volunteer156@temple.test'),
-  (:admin, 'admin156@temple.test'), (:nptreas, 'treasurer156@nonprofit.test');
+  (:admin, 'admin156@temple.test'), (:nptreas, 'treasurer156@nonprofit.test'), (:exec, 'committee156@temple.test');
 insert into auth.mfa_factors (id, user_id, friendly_name, factor_type, status) values
   ('15600000-0000-4000-8000-0000000000f1', :treas, 'phone', 'totp', 'verified'),
   ('15600000-0000-4000-8000-0000000000f2', :nptreas, 'phone', 'totp', 'verified'),
   ('15600000-0000-4000-8000-0000000000f3', :admin, 'phone', 'totp', 'verified'),
-  ('15600000-0000-4000-8000-0000000000f4', :vol, 'phone', 'totp', 'verified');
+  ('15600000-0000-4000-8000-0000000000f4', :vol, 'phone', 'totp', 'verified'),
+  ('15600000-0000-4000-8000-0000000000f5', :exec, 'phone', 'totp', 'verified');
 insert into app.centers (id, slug, name, short_name, state_region, status, time_zone) values
   (:jc, 'jc156', 'Temple 156', 'T156', 'TX', 'active', 'America/Chicago');
 insert into app.centers (id, slug, name, environment, category_key, status)
 values (:np, 'np156-sandbox', 'Non-profit 156', 'sandbox', 'nonprofit_secular', 'onboarding');
 insert into app.role_grants (center_id, user_id, role_key, reason) values
   (:jc, :treas, 'treasurer', 'test 156'), (:jc, :treas0, 'treasurer', 'test 156'), (:jc, :vol, 'finance_volunteer', 'test 156'),
-  (:jc, :admin, 'center_admin', 'test 156'), (:np, :nptreas, 'treasurer', 'test 156');
+  (:jc, :admin, 'center_admin', 'test 156'), (:jc, :exec, 'executive_committee', 'test 156'), (:np, :nptreas, 'treasurer', 'test 156');
 insert into app.bank_accounts (id, center_id, name, institution, last4) values
   (:acct, :jc, 'Operating 156', 'Bank', '1560'), (:npacct, :np, 'Checking 156', 'Bank', '1561');
 -- Two Stripe payouts that arrived this month in the temple (one $2.00 short at the bank, one exact) and one in the non-profit.
@@ -111,13 +113,14 @@ set role authenticated;
 select pg_temp.claims(:treas);
 select pg_temp.assert(app.has_permission(:jc, 'data.export') and not app.has_permission(:np, 'data.export'),
   'A · a treasurer may export in their own community only');
-select pg_temp.claims(:admin);
-select pg_temp.assert(not app.has_permission(:jc, 'data.export'), 'A · a center admin has no data.export');
+select pg_temp.claims(:exec);
+select pg_temp.assert(not app.has_permission(:jc, 'data.export') and app.has_permission(:jc, 'giving.view'),
+  'A · a committee member who reads Giving has no data.export');
 
 -- ══ B. Giving exports ═══════════════════════════════════════════════════════
-select pg_temp.claims(:admin, 60);
+select pg_temp.claims(:exec, 60);
 select pg_temp.assert_raises(format($$select app.giving_export_check(%L, 'payments')$$, :jc), 'data-export permission',
-  'B · a center admin with a fresh code cannot export (no data.export)');
+  'B · a committee member who reads Giving, with a fresh code, cannot export (no data.export)');
 select pg_temp.claims(:vol, 60);
 select pg_temp.assert_raises(format($$select app.giving_export_check(%L, 'payments')$$, :jc), 'data-export permission',
   'B · a finance volunteer cannot export');
@@ -180,9 +183,9 @@ rollback to savepoint modules_off;
 select pg_temp.claims(:vol);
 select pg_temp.assert_raises(format($$select app.explain_payout(%L, %L, 'bank_fee', 'Bank fee')$$, :po1, :b1), 'needs giving.manage',
   'C · a finance volunteer cannot pair a payout');
-select pg_temp.claims(:admin);
+select pg_temp.claims(:exec);
 select pg_temp.assert_raises(format($$select app.explain_payout(%L, %L, 'bank_fee', 'Bank fee')$$, :po1, :b1), 'needs giving.manage',
-  'C · neither can a center admin');
+  'C · neither can a committee member who reads Giving');
 select pg_temp.claims(:treas);
 select pg_temp.assert_raises(format($$select app.explain_payout(%L, %L)$$, :po1, :b1), 'Choose why',
   'C · a $2.00 difference needs a typed reason');
