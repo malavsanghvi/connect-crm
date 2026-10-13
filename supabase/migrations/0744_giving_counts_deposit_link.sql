@@ -12,8 +12,11 @@
 --         Giving, Offering counts and Bank reconciliation on; giving.record_offline or giving.manage (the rule of
 --         match_deposit, latest body 0742); the count and the line in the same community; the count has its total and is not
 --         matched yet; the line is money in, not matched to payments, a payout or another count, not ignored; and the AMOUNTS
---         ARE EXACTLY EQUAL (owner: a deposit that holds more than one count, or a count plus checks, uses Mark deposited).
+--         ARE EXACTLY EQUAL (owner: a deposit that holds more than one count, or a count plus checks, uses Mark deposited);
+--         a count already posted as a payment (0003's payment_id) is not matched again.
 --         It links the count and marks the line matched. It posts nothing to QuickBooks (owner: no posting for counts).
+--         A closed month does not stop it, as it does not stop match_deposit or confirm_bank_match today (0742: a closed
+--         month is posted as an adjustment); only the undo is refused there.
 --     * app.unlink_count_from_bank_deposit(p_session, p_reason)
 --         The undo (owner, 2026-10-13): giving.manage only, a reason that is required and lands in the audit trail, refused
 --         once the month of the deposit or of the count is locked (accounting_periods.status 'closed', as month-end close
@@ -22,6 +25,9 @@
 --     * a guard trigger: the link is written only by these two functions. A direct write through row-level security (the
 --       portal's insert and update of counts) cannot set or clear it, and a matched count's total, deposit reference and
 --       date cannot change, nor can it be deleted, until the match is undone.
+--     * a guard on the bank line: while a count is matched to it, a direct write (bank_txn_update, 0012, giving.manage)
+--       cannot change its status, amount, date or community, so the line cannot be reopened past the undo's reason and
+--       month lock and matched a second time.
 --   Nothing else changes: the counting_sessions policies (0010, 0741's module_switch), counters_distinct_households (0016),
 --   match_deposit and confirm_bank_match (0742) are untouched. Money rules are unchanged: no payment, allocation or ledger
 --   row is written.
@@ -74,6 +80,33 @@ create trigger counting_deposit_link_guard before insert or update or delete on 
   for each row execute function app.counting_deposit_link_guard();
 revoke execute on function app.counting_deposit_link_guard() from public, anon, authenticated;
 
+-- ── The guard on the bank line: a line a count is matched to changes only through the undo ────
+-- Whether a count references the line, read past row-level security (a paused Offering counts module hides the counts from
+-- the person, but the line is still theirs to keep).
+create or replace function app._bank_line_has_count(p_txn uuid) returns boolean
+language sql stable security definer set search_path = app, public, extensions as $$
+  select exists (select 1 from app.counting_sessions c where c.bank_transaction_id = p_txn)
+$$;
+revoke execute on function app._bank_line_has_count(uuid) from public, anon;
+grant execute on function app._bank_line_has_count(uuid) to authenticated;
+
+create or replace function app.bank_line_count_guard() returns trigger
+language plpgsql set search_path = app, public, extensions as $$
+begin
+  -- The functions run as their owner and the worker as service_role: only a signed-in person's direct write is held.
+  if current_user not in ('authenticated', 'anon') then return new; end if;
+  if (new.status is distinct from old.status or new.amount_cents is distinct from old.amount_cents
+      or new.posted_on is distinct from old.posted_on or new.center_id is distinct from old.center_id)
+     and app._bank_line_has_count(old.id) then
+    raise exception 'This bank line is matched to a count. A treasurer undoes the count''s match, with a reason, before the line can change.'
+      using errcode = 'check_violation';
+  end if;
+  return new;
+end $$;
+create trigger bank_line_count_guard before update on app.bank_transactions
+  for each row execute function app.bank_line_count_guard();
+revoke execute on function app.bank_line_count_guard() from public, anon, authenticated;
+
 -- ── Match a count to its bank deposit line ──────────────────────────────────────────────────────
 create or replace function app.link_count_to_bank_deposit(p_session uuid, p_txn uuid) returns jsonb
 language plpgsql security definer set search_path = app, public, extensions as $$
@@ -93,6 +126,9 @@ begin
   end if;
   if s.bank_transaction_id is not null then
     raise exception 'This count is already matched to a bank deposit.' using errcode = 'check_violation';
+  end if;
+  if s.payment_id is not null then
+    raise exception 'This count is already posted as a payment, so it is not matched to a bank line again.' using errcode = 'check_violation';
   end if;
   if s.total_cents <= 0 then
     raise exception 'Record the counted total before matching the deposit.' using errcode = 'check_violation';

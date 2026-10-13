@@ -5,9 +5,11 @@
 --      nothing is posted to QuickBooks. Refused: a viewer without giving.record_offline, a line of another community, a count
 --      without its total, an amount that differs, a line already matched (to payments, a payout, another count), money out.
 --   C. The link is the functions' to write: a direct write cannot set or clear it, and a matched count's total, date and
---      deposit reference cannot change, nor can it be removed.
---   D. The undo: giving.manage only, a reason that lands in the audit trail, refused in a locked month; it reopens the line
---      only when the match had closed it.
+--      deposit reference cannot change, nor can it be removed; the matched bank line's status, amount and date cannot be
+--      changed directly either (only the undo reopens it). The worker (service_role) is not held.
+--   D. The undo: giving.manage only, a reason that lands in the audit trail, refused when the deposit's or the count's month
+--      is locked; it reopens the line only when the match had closed it. Matching itself is allowed in a closed month, as
+--      match_deposit and confirm_bank_match allow it.
 --   E. The modules: Offering counts or Bank reconciliation paused refuses both, with the module sentence.
 --   F. A non-faith community counts and matches the same way; the counters stay two people from different households.
 -- Everything runs in one transaction that is rolled back.
@@ -70,11 +72,19 @@ end $$;
 \set l6 '''15300000-0000-4000-8000-0000000000e6'''
 \set l7 '''15300000-0000-4000-8000-0000000000e7'''
 \set lnp '''15300000-0000-4000-8000-0000000000e8'''
+\set l9 '''15300000-0000-4000-8000-0000000000e9'''
+\set l10 '''15300000-0000-4000-8000-0000000000ea'''
+\set l11 '''15300000-0000-4000-8000-0000000000eb'''
+\set l12 '''15300000-0000-4000-8000-0000000000ec'''
+\set pay1 '''15300000-0000-4000-8000-0000000000aa'''
+\set po '''15300000-0000-4000-8000-0000000000ab'''
 \set s1 '''15300000-0000-4000-8000-0000000000f1'''
 \set s2 '''15300000-0000-4000-8000-0000000000f2'''
 \set s3 '''15300000-0000-4000-8000-0000000000f3'''
 \set s4 '''15300000-0000-4000-8000-0000000000f4'''
 \set snp '''15300000-0000-4000-8000-0000000000f5'''
+\set s5 '''15300000-0000-4000-8000-0000000000f6'''
+\set s6 '''15300000-0000-4000-8000-0000000000f7'''
 
 -- ══ A. The shape ═════════════════════════════════════════════════════════════
 select pg_temp.assert(exists (select 1 from information_schema.columns
@@ -85,7 +95,9 @@ select pg_temp.assert(exists (select 1 from information_schema.columns
 select pg_temp.assert((select bool_and(p.proconfig::text like '%search_path=app, public, extensions%') from pg_proc p
                         where p.oid in ('app.link_count_to_bank_deposit(uuid,uuid)'::regprocedure,
                                         'app.unlink_count_from_bank_deposit(uuid,text)'::regprocedure,
-                                        'app.counting_deposit_link_guard()'::regprocedure))
+                                        'app.counting_deposit_link_guard()'::regprocedure,
+                                        'app.bank_line_count_guard()'::regprocedure,
+                                        'app._bank_line_has_count(uuid)'::regprocedure))
                       and (select bool_and(p.prosecdef) from pg_proc p
                             where p.oid in ('app.link_count_to_bank_deposit(uuid,uuid)'::regprocedure, 'app.unlink_count_from_bank_deposit(uuid,text)'::regprocedure)),
   'A · the two functions are security definer and every new function pins app, public, extensions');
@@ -95,8 +107,9 @@ select pg_temp.assert(not has_function_privilege('anon', 'app.link_count_to_bank
                       and has_function_privilege('authenticated', 'app.unlink_count_from_bank_deposit(uuid,text)', 'execute'),
   'A · signed-in people can call them; anon cannot');
 select pg_temp.assert(exists (select 1 from pg_trigger where tgname = 'counting_deposit_link_guard' and tgrelid = 'app.counting_sessions'::regclass)
-                      and exists (select 1 from pg_trigger where tgname = 'counting_distinct_households' and tgrelid = 'app.counting_sessions'::regclass),
-  'A · the guard trigger is on counting_sessions, next to 0016''s distinct-households trigger (kept)');
+                      and exists (select 1 from pg_trigger where tgname = 'counting_distinct_households' and tgrelid = 'app.counting_sessions'::regclass)
+                      and exists (select 1 from pg_trigger where tgname = 'bank_line_count_guard' and tgrelid = 'app.bank_transactions'::regclass),
+  'A · the guard triggers are on counting_sessions (next to 0016''s distinct-households trigger, kept) and on bank_transactions');
 
 -- ══ Fixtures ═════════════════════════════════════════════════════════════════
 insert into auth.users (id, email) values
@@ -130,14 +143,27 @@ insert into app.bank_transactions (id, center_id, bank_account_id, posted_on, am
   (:l7, :jc, :acct, current_date, 38000, 'DEPOSIT 153 G', 'suggested'),
   (:lnp, :np, :npacct, current_date, 41250, 'DEPOSIT 153 NP', 'unmatched');
 -- L4 holds a payment deposited by match_deposit's rule (payments.deposit_bank_transaction_id), though its status was left open.
-insert into app.payments (center_id, household_id, amount_cents, method, provider, received_on, deposit_bank_transaction_id)
-values (:jc, :hA, 41250, 'check', 'offline', current_date, :l4);
+insert into app.payments (id, center_id, household_id, amount_cents, method, provider, received_on, deposit_bank_transaction_id)
+values (:pay1, :jc, :hA, 41250, 'check', 'offline', current_date, :l4);
+insert into app.payouts (id, center_id, provider, provider_ref, gross_cents, fee_cents, net_cents, arrives_on)
+values (:po, :jc, 'stripe', 'po_153', 42000, 750, 41250, current_date);
+-- A card payout line, a line paired with that payout but left open, an open line that names a payment, and the deposit of
+-- last month's count.
+insert into app.bank_transactions (id, center_id, bank_account_id, posted_on, amount_cents, description, status, payout_id, payment_id) values
+  (:l9, :jc, :acct, current_date, 41250, 'STRIPE PAYOUT 153', 'payout', null, null),
+  (:l10, :jc, :acct, current_date, 41250, 'STRIPE TRANSFER 153', 'unmatched', :po, null),
+  (:l11, :jc, :acct, current_date, 41250, 'DEPOSIT 153 H', 'unmatched', null, :pay1),
+  (:l12, :jc, :acct, current_date, 27500, 'DEPOSIT 153 I', 'unmatched', null, null);
 insert into app.counting_sessions (id, center_id, kind, counted_on, counters, total_cents, bag_numbers) values
   (:s1, :jc, 'bhandar', current_date, array[:c1, :c2]::uuid[], 41250, '{118,119}'),
   (:s2, :jc, 'bhandar', current_date, array[:c1, :c2]::uuid[], 0, '{120}'),
   (:s3, :jc, 'bhandar', current_date, array[:c1, :c2]::uuid[], 38000, '{121}'),
   (:s4, :jc, 'bhandar', current_date, array[:c1, :c2]::uuid[], 41250, '{122}'),
-  (:snp, :np, 'other', current_date, array[:npadmin, :npc1]::uuid[], 41250, '{}');
+  (:snp, :np, 'other', current_date, array[:npadmin, :npc1]::uuid[], 41250, '{}'),
+  (:s5, :jc, 'bhandar', (date_trunc('month', current_date) - interval '1 day')::date, array[:c1, :c2]::uuid[], 27500, '{123}');
+-- A count already posted as an anonymous payment (0003's payment_id).
+insert into app.counting_sessions (id, center_id, kind, counted_on, counters, total_cents, payment_id) values
+  (:s6, :jc, 'bhandar', current_date, array[:c1, :c2]::uuid[], 41250, :pay1);
 
 -- ══ B. Matching ══════════════════════════════════════════════════════════════
 set role authenticated;
@@ -160,6 +186,14 @@ select pg_temp.assert_raises(format('select app.link_count_to_bank_deposit(%L, %
   'B · a line set aside (ignored) is refused');
 select pg_temp.assert_raises(format('select app.link_count_to_bank_deposit(%L, %L)', :s1, :l5), 'money going out',
   'B · money going out is not a deposit');
+select pg_temp.assert_raises(format('select app.link_count_to_bank_deposit(%L, %L)', :s1, :l9), 'already matched or set aside',
+  'B · a card payout line is refused');
+select pg_temp.assert_raises(format('select app.link_count_to_bank_deposit(%L, %L)', :s1, :l10), 'already matched or set aside',
+  'B · a line paired with a payout is refused, even while its status is open');
+select pg_temp.assert_raises(format('select app.link_count_to_bank_deposit(%L, %L)', :s1, :l11), 'already matched or set aside',
+  'B · an open line that names a payment is refused');
+select pg_temp.assert_raises(format('select app.link_count_to_bank_deposit(%L, %L)', :s6, :l3), 'already posted as a payment',
+  'B · a count already posted as a payment is not matched to a bank line');
 
 select app.link_count_to_bank_deposit(:s1, :l1);
 select pg_temp.assert((select bank_transaction_id = :l1::uuid and bank_line_marked and deposit_ref is null and total_cents = 41250
@@ -191,8 +225,38 @@ select pg_temp.assert_raises(format('update app.counting_sessions set total_cent
   'C · a matched count''s total cannot change');
 select pg_temp.assert_raises(format('update app.counting_sessions set deposit_ref = %L where id = %L', 'SLIP-1', :s1), 'cannot change',
   'C · a matched count''s deposit reference cannot change');
+select pg_temp.assert_raises(format('update app.counting_sessions set counted_on = counted_on - 1 where id = %L', :s1), 'cannot change',
+  'C · a matched count''s date cannot change');
 select pg_temp.assert_raises(format('delete from app.counting_sessions where id = %L', :s1), 'undoes the match',
   'C · a matched count cannot be removed');
+-- The matched line: a treasurer (bank_txn_update, giving.manage) cannot reopen or change it directly.
+select pg_temp.claims(:admin);
+select pg_temp.assert_raises(format($$update app.bank_transactions set status = 'unmatched' where id = %L$$, :l1), 'matched to a count',
+  'C · a treasurer cannot set a count''s bank line back to unmatched past the undo''s reason and month lock');
+select pg_temp.assert_raises(format('update app.bank_transactions set amount_cents = 41000 where id = %L', :l1), 'matched to a count',
+  'C · nor change its amount');
+select pg_temp.assert_raises(format('update app.bank_transactions set posted_on = posted_on - 1 where id = %L', :l1), 'matched to a count',
+  'C · nor its date');
+update app.bank_transactions set notes = 'Branch deposit, two bags' where id = :l1;
+update app.bank_transactions set status = 'ignored' where id = :l3;
+select pg_temp.assert((select notes from app.bank_transactions where id = :l1) = 'Branch deposit, two bags'
+                      and (select status from app.bank_transactions where id = :l3) = 'ignored',
+  'C · a note on the matched line still changes, and a line no count references still changes as before');
+reset role;
+update app.bank_transactions set status = 'unmatched' where id = :l3;
+-- The worker (service_role) is not held by either guard.
+savepoint worker;
+set role service_role;
+update app.counting_sessions set total_cents = 41000, counted_on = counted_on - 1 where id = :s1;
+update app.bank_transactions set status = 'unmatched' where id = :l1;
+delete from app.counting_sessions where id = :s1;
+reset role;
+select pg_temp.assert(not exists (select 1 from app.counting_sessions where id = :s1)
+                      and (select status from app.bank_transactions where id = :l1) = 'unmatched',
+  'C · service_role still updates and removes a matched count and changes its line (the guards hold signed-in people only)');
+rollback to savepoint worker;
+set role authenticated;
+select pg_temp.claims(:vol);
 select pg_temp.assert_raises(format($$insert into app.counting_sessions (center_id, kind, counters, total_cents, bank_transaction_id) values (%L, 'bhandar', array[%L, %L]::uuid[], 100, %L)$$,
                                     :jc, :c1, :c2, :l3), 'Match its deposit',
   'C · a new count cannot arrive already matched');
@@ -218,6 +282,22 @@ set role authenticated;
 select pg_temp.claims(:admin);
 select pg_temp.assert_raises(format('select app.unlink_count_from_bank_deposit(%L, %L)', :s1, 'Wrong line'), 'locked',
   'D · refused once the month is locked');
+reset role;
+update app.accounting_periods set status = 'open' where center_id = :jc;
+set role authenticated;
+-- Only the COUNT's month is locked: last month's count, deposited this month. Matching it is not refused in a closed month
+-- (as match_deposit and confirm_bank_match), the undo is.
+reset role;
+insert into app.accounting_periods (center_id, period_month, status)
+values (:jc, date_trunc('month', current_date - interval '1 month')::date, 'closed');
+set role authenticated;
+select pg_temp.claims(:vol);
+select app.link_count_to_bank_deposit(:s5, :l12);
+select pg_temp.assert((select bank_transaction_id from app.counting_sessions where id = :s5) = :l12::uuid,
+  'D · a count of a closed month is still matched to its deposit (as match_deposit and confirm_bank_match allow)');
+select pg_temp.claims(:admin);
+select pg_temp.assert_raises(format('select app.unlink_count_from_bank_deposit(%L, %L)', :s5, 'Wrong line'), 'locked',
+  'D · the undo is refused when only the count''s month is locked');
 reset role;
 update app.accounting_periods set status = 'open' where center_id = :jc;
 set role authenticated;
