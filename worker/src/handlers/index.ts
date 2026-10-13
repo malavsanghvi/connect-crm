@@ -17,6 +17,7 @@ import * as eventsPublishDue from "./events.publish_due";
 import * as homeworkPublishNotify from "./homework.publish_notify";
 import * as homeworkRemindersSweep from "./homework.reminders_sweep";
 import * as importSuggestMapping from "./import.suggest_mapping";
+import * as messagingCompose from "./messaging.compose";
 import * as messagingDomainVerify from "./messaging.domain_verify";
 import * as messagingSend from "./messaging.send";
 import * as messagingTestSend from "./messaging.test_send";
@@ -79,6 +80,8 @@ export const HANDLERS: HandlerModule[] = [
   messagingDomainVerify,
   messagingWebhookEmail,
   messagingWebhookTwilio,
+  // Automatic emails (0770): write one receipt, pledge or registration email from its record and queue it for each adult
+  messagingCompose,
   // o-payments
   paymentsWebhookStripe,
   paymentsWebhookPaypal,
