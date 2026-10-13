@@ -29,6 +29,10 @@ from the organization's kind, its own settings and its own records, never from c
 | W2 | **Proprietary data.** Only people in roles the organization gives WeCare access can see care data, and only roles that can also see amounts see amounts. **Nobody else**: not other staff, not members, not Weaver's platform admins. |
 | W3 | WeCare is a **subscription product in the Marketplace** that an organization chooses to take. |
 | W4 | Volunteers see what their role allows (W2); there is no separate "volunteers never see amounts" rule. |
+| W5 | `giving_insights` keeps the numbers (B98 slices 1 and 2); people and relationships move to WeCare (section 4). |
+| W6 | A narrower `wecare.own` level (only my own households) alongside `wecare.view`. |
+| W7 | The thank-you tracker is part of WeCare; organizations without WeCare keep receipts as today. |
+| W8 | Weaver support may open WeCare settings with a support grant, never care records. |
 
 ## 3. Who can see (W2, the proprietary rule)
 
@@ -176,12 +180,12 @@ Measured per organization, inside that organization only: first-year retention a
 earlier year; at least 80% of gifts thanked within the window; 3 or more no-ask touches per ask; at least 60% of
 weekly tasks done. These are targets to measure, not promises to make to anyone.
 
-## 11. Open questions for the owner
+## 11. Owner answers (2026-10-13: every recommendation approved, recorded as W5 to W8)
 
 1. **The `giving_insights` split** (section 4): numbers stay in the Giving add-on, people and relationships move to
-   WeCare. *Recommend* yes; it leaves the Insights slice in progress (S10b) unchanged.
+   WeCare. **Approved**; it leaves the Insights slice in progress (S10b) unchanged.
 2. **`wecare.own`**: a narrower level so an organization can give a volunteer only their own households.
-   *Recommend* yes, alongside `wecare.view`.
+   **Approved**, alongside `wecare.view`.
 3. **Thank-you tracker inside WeCare** (paid), while organizations without WeCare keep receipts as today.
-   *Recommend* yes.
-4. **Weaver support** may open WeCare settings with a support grant, never care records. *Recommend* yes.
+   **Approved.**
+4. **Weaver support** may open WeCare settings with a support grant, never care records. **Approved.**

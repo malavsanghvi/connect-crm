@@ -25,7 +25,12 @@ and the Bank tab (where a match payment is reconciled).
 | C1 | Product name **CatchTheMatch** (employer and grant matching for donations the organization receives); replaces "MatchMyGenerosity" (B63). |
 | C2 | A **subscription product in the Marketplace** an organization chooses to take. |
 | C3 | **Weaver manages the filing** for the matching funds. |
-| C4 | **Weaver is paid only if the match is received**: a percentage of the match, **never more than a cap per match**. Rate and cap are not set yet. |
+| C4 | **Weaver is paid only if the match is received**: a percentage of the match, **never more than a cap per match**. |
+| C5 | **Fee: 10% of each match received, capped at $500 per match** (`rate_bp = 1000`, `cap_cents = 50000`, US dollars). **Success fee only**: no base subscription fee. |
+| C6 | Only claims opened in CatchTheMatch before the employer paid count; a match with no claim behind it is free. |
+| C7 | v1 covers employer matching gifts and employer volunteer grants; a foundation's challenge grant comes later, as a Giving campaign with a match target. |
+| C8 | The organization grants a **Weaver filing** role: CatchTheMatch data only, audited (section 6). |
+| C9 | **A lawyer's view before any fee is live** (section 5); slices 1 to 4 are built meanwhile. |
 
 ## 3. How matching really works (and what "we file" can mean)
 
@@ -41,12 +46,12 @@ and the Bank tab (where a match payment is reconciled).
 "We manage the filing" therefore means: we do everything except the one step the employer requires of its
 employee, and we make that step a single tap.
 
-## 4. The fee (a money rule: exact values need the owner)
+## 4. The fee (a money rule; values set by the owner 2026-10-13, C5)
 
 | Rule | Proposal |
 |---|---|
 | When a fee is owed | A match payment is **received and reconciled** to a claim that was **opened in CatchTheMatch** before the employer paid. A match that arrives with no claim behind it is free. |
-| How much | `fee_cents = min(floor(match_cents * rate_bp / 10000), cap_cents)`: integer cents, the rate in basis points, rounding down (in the organization's favour). |
+| How much | `fee_cents = min(floor(match_cents * rate_bp / 10000), cap_cents)`: integer cents, the rate in basis points, rounding down (in the organization's favour). With C5 (`rate_bp = 1000`, `cap_cents = 50000`): a $25.05 match costs $2.50; a $1,000 match costs $100; a $5,000 match costs $500; a $12,000 match costs $500 (the cap). |
 | Per match | One claim (one donor gift and one employer program) is one match. When an employer pays a batch, each claim's share is its own match, so the cap applies per claim. |
 | Never taken from the gift | The match reaches the organization in full. Weaver invoices its fee separately, monthly, with every claim listed. Many matching programs require the funds go to the charity in full, and it keeps receipts, statements and the books clean. |
 | On which amount | What the organization actually received (after any portal fee), not the amount the employer announced. |
@@ -117,15 +122,15 @@ community first, then any community that takes CatchTheMatch.
 Per organization: matched money received against eligible money (the capture rate), days from gift to match
 received, claims lost to deadlines. For Weaver: fee revenue per organization against the cost of the filing team.
 
-## 11. Open questions for the owner
+## 11. Owner answers (2026-10-13: every recommendation approved, recorded as C5 to C9)
 
-1. **Rate and cap** (the "xxx"): the percentage, the cap per match, and the currency (US dollars first).
-2. **Success fee only, or also a base subscription?** *Recommend* success fee only, as stated in C4.
-3. **What counts as ours:** only claims opened in CatchTheMatch before the employer paid. *Recommend* yes; matches
+1. **Rate and cap:** **10%, capped at $500 per match**, US dollars first (C5).
+2. **Success fee only, or also a base subscription?** **Approved:** success fee only (C5).
+3. **What counts as ours:** only claims opened in CatchTheMatch before the employer paid. **Approved** (C6); matches
    with no claim are free.
-4. **"Grant matching" in v1.** *Recommend* employer matching gifts and employer volunteer grants (same portals,
+4. **"Grant matching" in v1.** **Approved** (C7): employer matching gifts and employer volunteer grants (same portals,
    same flow) first; a foundation's challenge grant (a match on what the organization raises) later, as a Giving
    campaign with a match target.
 5. **The Weaver filing role** (section 6): the organization grants Weaver's team access to CatchTheMatch data only.
-   *Recommend* yes; the filing in C3 cannot happen without it.
-6. **Legal review before any fee is live** (section 5). *Recommend* yes, building slices 1 to 4 meanwhile.
+   **Approved** (C8); the filing in C3 cannot happen without it.
+6. **Legal review before any fee is live** (section 5). **Approved** (C9), building slices 1 to 4 meanwhile.
