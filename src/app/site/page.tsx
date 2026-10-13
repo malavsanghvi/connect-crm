@@ -73,7 +73,7 @@ function Hero() {
                 <Icon name="arrow" className="h-5 w-5" />
               </a>
               <a href={portalUrl("/demo")} className={`${buttonStyles.ghost} !min-h-[56px] !px-8 !text-[17px]`}>
-                Try the live demo
+                Try the demo
               </a>
             </div>
             <ul className="flex flex-wrap gap-x-5 gap-y-2 text-[15px] font-semibold text-ink-2">
@@ -450,7 +450,7 @@ function GetStarted() {
                 <Icon name="arrow" className="h-5 w-5" />
               </a>
               <a href={portalUrl("/demo")} className={`${buttonStyles.ghostOnNavy} !min-h-[56px] !px-8 !text-[17px]`}>
-                Try the live demo
+                Try the demo
               </a>
             </div>
             <a href="/get-ready/checklist.csv" download className="text-[15px] font-semibold text-navy-200 underline underline-offset-4 hover:text-white">
