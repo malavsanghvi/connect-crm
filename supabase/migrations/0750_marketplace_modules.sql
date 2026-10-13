@@ -21,25 +21,27 @@
 --   off Niva reads off everywhere (RLS, RPC guards, my_modules, member_experience) and installed member apps hide it with no
 --   release.
 --
--- GRANDFATHERED BY ACTUAL USE (section 5; app._marketplace_grandfather). A community that is not a sandbox keeps what it uses:
---   ai        AI was used in the 90 days before this migration (app._marketplace_ai_use): a Niva question (niva_conversations),
---             Niva for admins switched on (centers.rules.assistant.enabled), Niva switched on by the community itself (a
---             center_modules row for niva with enabled = true), or AI flyer art (a finished events.generate_flyer job, or an
---             event whose flyer is AI art). The kind's default (Niva starts on for a Jain Center) is NOT use.
---   channels  a WhatsApp Business account is recorded (any community, a sandbox too)
---   website   a website draft exists (any community, a sandbox too)
+-- GRANDFATHERED BY ACTUAL USE (section 5; app._marketplace_grandfather). EVERY community keeps what it uses, a sandbox too
+-- (use beats sandbox status, so a sandbox that uses a product keeps it through promotion and an in-place go-live):
+--   ai        AI was used (app._marketplace_ai_use): a Niva question in the last 90 days (niva_conversations), Niva for admins
+--             switched on (centers.rules.assistant.enabled), an explicit choice about Niva by the community itself (a
+--             center_modules row for niva, switched on OR paused, so resuming it still works), or AI flyer art in the last 90
+--             days (a finished events.generate_flyer job, or an event whose flyer is AI art). The kind's default (Niva starts
+--             on for a Jain Center) is NOT use.
+--   channels  a WhatsApp Business account is recorded
+--   website   a website draft exists
 --   Each grant is a 0740 grant row with no granted_by, is_trial false and a reason that starts "Grandfathered (0750)".
 --
--- WHO SEES A CHANGE (exactly): Niva turns OFF in every community that is not an open sandbox, had Niva on, and used no AI in
---   the last 90 days by the rule above. Each such community gets an audit entry 'marketplace.niva_off' (with the reason), and
+-- WHO SEES A CHANGE (exactly): Niva turns OFF in every community that had Niva on, used no AI by the rule above, and is not
+--   an open sandbox (an open sandbox with no use keeps Niva through the trial). Each such community gets an audit entry 'marketplace.niva_off' (with the reason), and
 --   the migration prints their web names. Nothing else that any community sees changes: every other module is on and off
 --   exactly as before, open sandboxes keep Niva through the trial below, and the new modules are on only where granted.
 --   (WhatsApp Business, the website draft and AI flyer art can no longer be STARTED where the product is not held: 0751 and the
 --   AI gate.)
 --
--- SANDBOXES GET AN iWEAVER TRIAL, NEVER A PERMANENT GRANT (section 5; owner answer 4):
---   every open sandbox (demo communities included) gets iWeaver as a trial (is_trial = true), and so does every sandbox created
---   from now on (a trigger on app.centers). The trial never reaches production: promotion copies a community's grants (0740),
+-- SANDBOXES WITH NO USE GET AN iWEAVER TRIAL (section 5; owner answer 4):
+--   every open sandbox (demo communities included) that did not earn the grandfathered grant above gets iWeaver as a trial
+--   (is_trial = true), and so does every sandbox created from now on (a trigger on app.centers). The trial never reaches production: promotion copies a community's grants (0740),
 --   and a trial row arriving at a community that is not a sandbox arrives turned off; a sandbox that goes live in place has
 --   its trial turned off. The row then says, in plain words, that iWeaver was a trial and can be requested in Settings ›
 --   Marketplace, and the community's owner (and whoever promoted it) gets an email saying the same when the promotion finishes.
@@ -47,7 +49,7 @@
 --
 -- CHECKED, FAIL-CLOSED (app._marketplace_0750_problems): what is on for every community and module is recorded before anything
 -- changes and compared at the end with the INTENDED new state: every module that existed before is unchanged, except Niva,
--- which is on exactly where it was on and iWeaver is now held (by use or as a sandbox trial); iWeaver, WeaverSite and
+-- which is on exactly where it was on and iWeaver is now held (by use, or as an open sandbox's trial); iWeaver, WeaverSite and
 -- CommunityConnect are on exactly where use (or the trial) says; WeCare and CatchTheMatch are off everywhere. If anything
 -- differs the migration stops with the list and nothing changes.
 set client_min_messages = warning;
@@ -126,8 +128,8 @@ language sql stable security definer set search_path = app, public, extensions a
       then 'Grandfathered (0750): Niva answered questions for this community in the 90 days before the Marketplace packs began.'
     when exists (select 1 from app.centers c where c.id = p_center and (c.rules #>> '{assistant,enabled}') = 'true')
       then 'Grandfathered (0750): Niva for admins was switched on for this community when the Marketplace packs began.'
-    when exists (select 1 from app.center_modules x where x.center_id = p_center and x.module_key = 'niva' and x.enabled)
-      then 'Grandfathered (0750): this community had switched Niva on itself when the Marketplace packs began.'
+    when exists (select 1 from app.center_modules x where x.center_id = p_center and x.module_key = 'niva')
+      then 'Grandfathered (0750): this community had switched Niva on or paused it itself when the Marketplace packs began.'
     when exists (select 1 from app.jobs j where j.center_id = p_center and j.kind = 'events.generate_flyer' and j.status = 'done'
                     and coalesce(j.finished_at, j.created_at) >= now() - interval '90 days')
       or exists (select 1 from app.events e where e.center_id = p_center and e.flyer_source = 'ai'
@@ -136,22 +138,22 @@ language sql stable security definer set search_path = app, public, extensions a
   end
 $$;
 
--- An open sandbox (not promoted yet): it holds iWeaver as a trial, never as a permanent grant.
+-- An open sandbox (not promoted yet): with no use, it holds iWeaver as a trial.
 create or replace function app._marketplace_open_sandbox(p_center uuid) returns boolean
 language sql stable security definer set search_path = app, public, extensions as $$
   select exists (select 1 from app.centers c where c.id = p_center and c.environment = 'sandbox' and c.sandbox_for is null)
 $$;
 
 -- ── 5. Grandfathered by use ──────────────────────────────────────────────────
--- Grants iWeaver (communities that are not sandboxes), CommunityConnect and WeaverSite (any community) where they are used, with
--- the reason that says why. Existing rows are left alone. Returns the number of rows added.
+-- Grants iWeaver, CommunityConnect and WeaverSite to every community (a sandbox too) where they are used, with the reason that
+-- says why. Existing rows are left alone. Returns the number of rows added.
 create or replace function app._marketplace_grandfather() returns integer
 language plpgsql security definer set search_path = app, public, extensions as $$
 declare n integer := 0; k integer;
 begin
   insert into app.center_module_grants (center_id, module_key, granted, reason, granted_by, granted_at, is_trial)
   select u.id, 'ai', true, u.why, null, now(), false
-    from (select c.id, app._marketplace_ai_use(c.id) as why from app.centers c where c.environment is distinct from 'sandbox') u
+    from (select c.id, app._marketplace_ai_use(c.id) as why from app.centers c) u
    where u.why is not null
   on conflict (center_id, module_key) do nothing;
   get diagnostics k = row_count; n := n + k;
@@ -172,7 +174,8 @@ begin
   return n;
 end $$;
 
--- Every open sandbox that holds no iWeaver row gets the trial. Returns the number of rows added.
+-- Every open sandbox that holds no iWeaver row (no use earned it the grandfathered grant) gets the trial. Returns the number of
+-- rows added.
 create or replace function app._marketplace_sandbox_trial() returns integer
 language plpgsql security definer set search_path = app, public, extensions as $$
 declare n integer;
@@ -193,7 +196,7 @@ create or replace function app._marketplace_0750_problems(p_before text[]) retur
 language sql stable security definer set search_path = app, public, extensions as $$
   with before as (select distinct unnest(coalesce(p_before, '{}'::text[])) as k),
        ai_held as (
-         select c.id, (app._marketplace_open_sandbox(c.id) or (c.environment is distinct from 'sandbox' and app._marketplace_ai_use(c.id) is not null)) as held
+         select c.id, (app._marketplace_ai_use(c.id) is not null or app._marketplace_open_sandbox(c.id)) as held
            from app.centers c),
        expected as (
          select c.id as center_id, m.key as module_key,
@@ -217,7 +220,8 @@ language sql stable security definer set search_path = app, public, extensions a
    where app.module_enabled(e.center_id, e.module_key) is distinct from e.want
 $$;
 
--- The communities whose Niva goes off because they used no AI (Niva was on before, iWeaver is not held now): one audit entry
+-- The communities whose Niva goes off because they used no AI and are not open sandboxes (Niva was on before, iWeaver is not
+-- held now): one audit entry
 -- each, in the community's own log. Returns their web names.
 create or replace function app._marketplace_record_niva_off(p_before text[]) returns text[]
 language plpgsql security definer set search_path = app, public, extensions as $$
