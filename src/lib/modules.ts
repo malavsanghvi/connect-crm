@@ -127,6 +127,7 @@ const EXTRA_PATHS: readonly [string, ModuleKey][] = [
   ["/giving/opportunities", "giving_opportunities"],
   ["/giving/opportunities/campaigns", "giving"],
   ["/giving/campaigns", "giving"],
+  ["/giving/insights", "giving_insights"],
   // The Pathshala committee holds governance (resolutions, concerns) and event planning.
   ["/pathshala/committee/resolutions", "governance"],
   ["/pathshala/committee/concerns", "governance"],

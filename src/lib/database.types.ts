@@ -12698,6 +12698,15 @@ export type Database = {
         };
         Returns: Json;
       };
+      giving_insights: {
+        Args: {
+          p_center: string;
+          p_from: string;
+          p_to: string;
+          p_today?: string;
+        };
+        Returns: Json;
+      };
       giving_payment_confirm_guard: {
         Args: {
           p_household: string;
