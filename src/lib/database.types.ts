@@ -8251,6 +8251,7 @@ export type Database = {
           opportunity_option: string | null;
           custom: Json;
           written_off_by_name: string | null;
+          idempotency_key: string | null;
         };
         Insert: {
           id?: string;
@@ -8283,6 +8284,7 @@ export type Database = {
           opportunity_option?: string | null;
           custom?: Json;
           written_off_by_name?: string | null;
+          idempotency_key?: string | null;
         };
         Update: {
           id?: string;
@@ -8315,6 +8317,7 @@ export type Database = {
           opportunity_option?: string | null;
           custom?: Json;
           written_off_by_name?: string | null;
+          idempotency_key?: string | null;
         };
         Relationships: [];
       };
@@ -14379,6 +14382,23 @@ export type Database = {
         };
         Returns: Json;
       };
+      record_manual_pledge: {
+        Args: {
+          p_idempotency_key: string;
+          p_center: string;
+          p_household: string;
+          p_amount_cents: number;
+          p_reason: string;
+          p_fund?: string;
+          p_campaign?: string;
+          p_opportunity?: string;
+          p_opportunity_option?: string;
+          p_due_on?: string;
+          p_pledged_by_person?: string;
+          p_dedication?: string;
+        };
+        Returns: Json;
+      };
       record_member_legal_answers: {
         Args: {
           p_center: string;
@@ -15917,7 +15937,7 @@ export type Database = {
       payment_method: "card" | "ach" | "apple_pay" | "google_pay" | "check" | "cash" | "stock" | "daf" | "matching_gift" | "zelle" | "other" | "paypal" | "venmo";
       payment_status: "authorized" | "captured" | "pending_clearing" | "settled" | "refunded" | "partially_refunded" | "failed" | "voided";
       person_role_in_household: "primary" | "spouse" | "child" | "parent" | "sibling" | "other";
-      pledge_source: "rsvp_commitment" | "boli" | "sponsorship" | "pujan" | "labh" | "construction" | "membership_fee" | "pathshala_fee" | "general" | "recurring" | "store" | "other";
+      pledge_source: "rsvp_commitment" | "boli" | "sponsorship" | "pujan" | "labh" | "construction" | "membership_fee" | "pathshala_fee" | "general" | "recurring" | "store" | "other" | "manual";
       pledge_status: "open" | "partially_paid" | "paid" | "written_off" | "cancelled";
       rsvp_status: "invited" | "rsvpd" | "confirmed" | "cancelled" | "waitlisted" | "no_show" | "attended";
       scope_kind: "platform" | "center" | "zone" | "event" | "campaign" | "class" | "store" | "pathshala";
