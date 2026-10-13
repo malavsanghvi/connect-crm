@@ -10,7 +10,7 @@
 
 import type { CardLabels } from "@/components/household-card";
 import { formatDate } from "@/lib/dates";
-import type { ListBody } from "@/lib/giving-lists/model";
+import type { ExportOffer, ListBody } from "@/lib/giving-lists/model";
 import type { Chip } from "@/lib/giving-lists/types";
 import {
   depositRow,
@@ -389,6 +389,8 @@ export type BankModel = {
   note: string | null;
   empty: string;
   can: BankCan;
+  /** Export this view's bank lines (slice 9); null where the view has none (Zelle lists reports, not bank lines). */
+  exportOffer?: ExportOffer | null;
 };
 
 export function bankPager(page: number, total: number, hrefFor: (n: number) => string, size = BANK_PAGE_SIZE): BankModel["pager"] {

@@ -238,6 +238,12 @@ export async function findGiving(
     canRecord,
     canRecordPledge,
     canCreate: { campaign: createsCampaigns, opportunity: createsCampaigns && isModuleEnabled(session, GIVING_ADDONS.opportunities) },
+    // "export payments 2026" (slice 9): the list opens with its Export sheet; data.export, and the list's add-on on.
+    canExport: canAccess(session, "givingExport"),
+    exportBlocked: {
+      bank_lines: isModuleEnabled(session, GIVING_ADDONS.bank) ? undefined : "Bank reconciliation is switched off for this community, so there are no bank lines to export.",
+      year_end_totals: isModuleEnabled(session, GIVING_ADDONS.statements) ? undefined : "Statements are switched off for this community, so there are no year-end totals to export.",
+    },
   });
   // Someone who cannot open People still finds a family by name in Giving (its giving opens in place, never its page).
   const families: FindRow[] =

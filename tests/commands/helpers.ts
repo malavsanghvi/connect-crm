@@ -233,6 +233,8 @@ export function communityWithChildren(): Required<Pick<FakeDbOptions, "tables" |
       household_card: (a: Record<string, unknown>) => (cards[String(a.p_household)] ? [cards[String(a.p_household)]] : []),
       resolve_identifier: [],
       flagged_refund_count: 0,
+      // app.payouts_close_state (0747): no card payouts this month, nothing left unpaired.
+      payouts_close_state: { payouts: 0, paired: 0, unpaired: 0, explained: 0, net_cents: 0, bank_on: true, bank_lines: 0, bank_lines_unpaired: 0, bank_cents: 0, proven: true },
     },
   };
 }

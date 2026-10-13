@@ -122,6 +122,12 @@ describe("Giving › Bank for a treasurer of a community club", () => {
     expect(out).toMatch(/<button[^>]*>Undo pairing<\/button>/);
   });
 
+  it("draws the view's Export button the page passes in (slice 9), and none where the tab cannot show lines", () => {
+    const slot = h("button", { type: "button" }, "EXPORT-SLOT");
+    expect(renderToStaticMarkup(h(BankTab, { model: sampleBankModel({ view: "history" }), exportSlot: slot }))).toContain("EXPORT-SLOT");
+    expect(renderToStaticMarkup(h(BankTab, { model: sampleBankModel({ bankOff: true }), exportSlot: slot }))).not.toContain("EXPORT-SLOT");
+  });
+
   it("shows card payouts read-only to someone without giving.manage", () => {
     const out = draw({ view: "payouts", role: "viewer" });
     expect(out).toContain("$3.20 less at the bank than the payout");

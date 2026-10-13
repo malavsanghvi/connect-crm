@@ -4,6 +4,7 @@
 import type { CardLabels } from "@/components/household-card";
 import type { ReceiptPreviewLine } from "@/lib/giving";
 import type { Family } from "@/lib/giving-today/queue";
+import type { ExportOffer } from "@/lib/giving-lists/model";
 import type { GivingTab } from "@/lib/giving-today/tabs";
 
 import type { ReceiptCopyIn } from "./receipt-copy";
@@ -58,6 +59,8 @@ export type StatementsModel = {
   receipt: ReceiptPart;
   /** Where a printable copy lives: `${printBase}/${paymentId}`; null in the dev preview. */
   printBase: string | null;
+  /** Export the year's totals as the review shows them (year, Show chip; slice 9); null when the review could not be read. */
+  exportOffer?: ExportOffer | null;
 };
 
 export type StatementsQuery = { year?: number; show?: ReviewFilter; page?: number; review?: boolean; receipt?: string | null };

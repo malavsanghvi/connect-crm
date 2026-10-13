@@ -70,7 +70,7 @@ function ReviewRow({ row, model }: { row: ReviewRowView; model: StatementsModel 
   );
 }
 
-function ReviewSection({ model }: { model: StatementsModel }) {
+function ReviewSection({ model, exportSlot }: { model: StatementsModel; exportSlot?: ReactNode }) {
   const { review, year } = model;
   const soFar = model.yearOver ? "" : " (so far)";
   const href = (q: { show?: ReviewFilter; page?: number; year?: number }) =>
@@ -167,7 +167,12 @@ function ReviewSection({ model }: { model: StatementsModel }) {
             is addressed to the household&apos;s adults.
           </p>
         </div>
-        {action}
+        {action || exportSlot ? (
+          <div className="flex flex-wrap items-center gap-2">
+            {review.state === "ok" && review.rows.length > 0 ? exportSlot : null}
+            {action}
+          </div>
+        ) : null}
       </div>
       <ChipRow label="Year" chips={years} />
       {body}
@@ -235,7 +240,8 @@ function ReceiptSection({ model }: { model: StatementsModel }) {
   );
 }
 
-export function StatementsView({ model, children }: { model: StatementsModel; children?: ReactNode }) {
+/** `exportSlot`: the year's Export button (slice 9), passed in by the page so this file stays free of the step-up pieces. */
+export function StatementsView({ model, children, exportSlot }: { model: StatementsModel; children?: ReactNode; exportSlot?: ReactNode }) {
   return (
     <>
       <header className="mb-4 flex flex-col gap-4">
@@ -246,7 +252,7 @@ export function StatementsView({ model, children }: { model: StatementsModel; ch
         <GivingTabRow tabs={model.tabs} active="statements" />
       </header>
       <div className="flex flex-col gap-4">
-        <ReviewSection model={model} />
+        <ReviewSection model={model} exportSlot={exportSlot} />
         <ReceiptSection model={model} />
         {children}
       </div>

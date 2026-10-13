@@ -304,27 +304,43 @@ describe("accounting.month_close_blockers", () => {
   it("leaves a check to a person when the data shows something waiting, and says what", async () => {
     const world = communityWithChildren();
     world.tables.payments = [{ id: "pay-1", center_id: "center-1", refund_approved_by: "user-2", refunded_cents: 0 }];
-    world.tables.payouts = [{ id: "po-1", center_id: "center-1", arrives_on: "2026-10-03", net_cents: 120_050, matched: false }];
-    world.tables.bank_transactions = [{ id: "bt-1", center_id: "center-1", channel: "card_payout", posted_on: "2026-10-04", amount_cents: 120_000 }];
+    // app.payouts_close_state (0747): one payout and one bank line in October, neither paired yet.
+    world.rpc.payouts_close_state = (a: Record<string, unknown>) =>
+      a.p_month === "2026-10-01"
+        ? { payouts: 1, paired: 0, unpaired: 1, explained: 0, net_cents: 120_050, bank_on: true, bank_lines: 1, bank_lines_unpaired: 1, bank_cents: 120_000, proven: false }
+        : null;
     const { ctx } = setup({ world });
     const data = dataOf<{ blockers: { item: string; why: string }[] }>(await runCommand(ctx, "accounting.month_close_blockers", {}));
     const why = (item: string) => data.blockers.find((b) => b.item === item)?.why;
     expect(why("Refunds reviewed and approved")).toBe("1 refund request waits for approval or recording (Giving › Payments)");
     expect(why("Payment payouts matched to bank deposits")).toBe(
-      "1 card payout arrived in October 2026, $1,200.50 net; the bank shows 1 card payout line, $1,200.00: a difference of $0.50. Mark this done once each payout is matched.",
+      "1 card payout arrived in October 2026, $1,200.50 net; the bank shows 1 card payout line, $1,200.00: a difference of $0.50. 1 card payout not paired with a bank line; 1 bank card-payout line not paired with a payout: pair them in Giving › Bank › Card payouts (Explain and accept), or mark this done.",
     );
   });
 
-  it("never ticks a check the reader cannot see: a month-end closer without giving.view", async () => {
+  it("never ticks a check the reader cannot see: a month-end closer without giving.view (card payouts are theirs to prove, 0747)", async () => {
     const { ctx } = setup({ permissions: ["accounting.close"] });
-    const data = dataOf<{ blockers: { item: string; why: string }[]; proven: unknown[] }>(await runCommand(ctx, "accounting.month_close_blockers", {}));
-    expect(data.proven).toEqual([]);
+    const data = dataOf<{ blockers: { item: string; why: string }[]; proven: { item: string; why: string }[] }>(await runCommand(ctx, "accounting.month_close_blockers", {}));
+    // app.payouts_close_state answers whoever closes the month, so the payouts check is proven from it; the rest stays unseen.
+    expect(data.proven.map((p) => p.why)).toEqual(["Checked by Weaver: no card payouts arrived in October 2026"]);
     expect(data.blockers.map((b) => b.why)).toEqual([
       "Weaver could not check this with your access: someone who can see QuickBooks postings checks it",
       "Weaver could not check this with your access",
-      "Weaver could not check this with your access",
       "Mark done",
     ]);
+  });
+
+  it("proves the card payouts when every payout and every bank card-payout line is paired, and keeps them a person's check with Bank reconciliation off", async () => {
+    const paired = communityWithChildren();
+    paired.rpc.payouts_close_state = { payouts: 2, paired: 2, unpaired: 0, explained: 1, net_cents: 300_000, bank_on: true, bank_lines: 2, bank_lines_unpaired: 0, bank_cents: 299_800, proven: true };
+    const proven = dataOf<{ proven: { item: string; why: string }[] }>(await runCommand(setup({ world: paired }).ctx, "accounting.month_close_blockers", {}));
+    expect(proven.proven.map((p) => p.why)).toContain("Checked by Weaver: all 2 card payouts are paired with their bank lines (1 difference explained)");
+    const bankOff = communityWithChildren();
+    bankOff.rpc.payouts_close_state = { payouts: 2, paired: 2, unpaired: 0, explained: 0, net_cents: 300_000, bank_on: false, bank_lines: null, bank_lines_unpaired: null, bank_cents: null, proven: null };
+    const manual = dataOf<{ blockers: { item: string; why: string }[] }>(await runCommand(setup({ world: bankOff }).ctx, "accounting.month_close_blockers", {}));
+    expect(manual.blockers.find((b) => b.item === "Payment payouts matched to bank deposits")?.why).toBe(
+      "2 card payouts arrived in October 2026, $3,000.00 net. Compare them with the bank's card payout lines, then mark this done.",
+    );
   });
 
   it("names refunds that still wait for two approvals", async () => {

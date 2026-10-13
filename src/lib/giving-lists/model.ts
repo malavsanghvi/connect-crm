@@ -5,6 +5,7 @@ import type { CardLabels } from "@/components/household-card";
 import type { GivingTab } from "@/lib/giving-today/tabs";
 import { kindModuleLabel, moduleNotOffered, notOfferedExplanation, notPartOfKindSentence, type KindProfile } from "@/lib/kind";
 import { moduleDef, moduleOffMessage, type ModuleKey } from "@/lib/modules";
+import type { GivingExportList } from "@/lib/giving-export/csv";
 import { canAccess, type AccessKey, type PermissionContext } from "@/lib/permissions";
 
 import type { PaymentViewKey } from "./payments";
@@ -56,11 +57,38 @@ export type ListsCommon = {
  * list's word. `no_permission`: the person sees the list but may not export it (data.export), said in a line, never a dead button.
  */
 export type ExportOffer =
-  | { state: "ready"; href: string; list: "payments" | "pledges"; count: number; /** "check, received in 2026", or "every payment". */ filterText: string }
+  | {
+      state: "ready";
+      href: string;
+      list: GivingExportList;
+      count: number;
+      /** "check, received in 2026", or "every payment". */
+      filterText: string;
+      /** The address asked for the sheet (?export=1, from the box's "export payments 2026"): it opens once the page is drawn. */
+      open?: boolean;
+    }
   | { state: "no_permission" };
 
-export function exportOffer(ctx: PermissionContext, list: "payments" | "pledges", href: string, count: number, filterText: string): ExportOffer {
-  return canAccess(ctx, "givingExport") ? { state: "ready", href, list, count, filterText } : { state: "no_permission" };
+export function exportOffer(
+  ctx: PermissionContext,
+  list: GivingExportList,
+  href: string,
+  count: number,
+  filterText: string,
+  open = false,
+): ExportOffer {
+  return canAccess(ctx, "givingExport") ? { state: "ready", href, list, count, filterText, open } : { state: "no_permission" };
+}
+
+/** The export route's address for a list: the list's own filters, without paging or the ?export=1 that opened the sheet. */
+export function exportHref(list: GivingExportList, sp: Record<string, string | string[] | undefined>): string {
+  const usp = new URLSearchParams();
+  for (const [k, v] of Object.entries(sp)) {
+    const s = Array.isArray(v) ? v[0] : v;
+    if (s !== undefined && s !== "" && k !== "page" && k !== "export" && k !== "list") usp.set(k, s);
+  }
+  usp.set("list", list);
+  return `/giving/export?${usp.toString()}`;
 }
 
 export type PledgesModel = ListsCommon & {

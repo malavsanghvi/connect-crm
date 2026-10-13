@@ -1,36 +1,56 @@
 import "server-only";
 
 // The rows of a Giving export (slice 9): every row of the list as it is filtered, read through the SAME queries the list pages
-// (src/lib/data/giving-lists.ts: paymentsInDb, pledgesInDb, openPledgesLite, readPledges, runSearch), so the file is the list.
+// (src/lib/data/giving-lists.ts: paymentsInDb, pledgesInDb, openPledgesLite, readPledges, runSearch; src/lib/data/giving-bank.ts:
+// bankLinesQuery; src/lib/data/giving-statements.ts: loadYearEndReview), so the file is the list.
 // Row-level security decides every row, as on the list. Nothing here writes; the route records the export once the rows are read.
 // A part that cannot be read stops the export with a sentence: a file is never silently partial.
 
 import { identifierRules } from "@/lib/center-rules";
 import { communityFormat } from "@/lib/community-format";
 import { chunk, fetchAll } from "@/lib/data/fetch-all";
+import { bankLinesOrdered, bankLinesQuery } from "@/lib/data/giving-bank";
 import { openPledgesLite, paymentsInDb, pledgesInDb, readPledges, runSearch, type PaymentRowDb, type PledgeRowDb } from "@/lib/data/giving-lists";
+import { loadYearEndReview } from "@/lib/data/giving-statements";
 import { campaignsForCenter } from "@/lib/data/lookups";
-import { todayInTz } from "@/lib/dates";
+import { addDays, todayInTz } from "@/lib/dates";
 import { explainError } from "@/lib/errors";
 import {
   MAX_EXPORT_ROWS,
+  bankLineExportHeader,
+  bankLineExportLines,
   paymentExportHeader,
   paymentExportLines,
   pledgeExportHeader,
   pledgeExportLines,
+  yearEndExportHeader,
+  yearEndExportLines,
+  type BankLineExportRow,
   type ExportFilter,
   type ExportHousehold,
   type GivingExportList,
   type PaymentExportRow,
   type PledgeExportRow,
+  type YearEndExportRow,
 } from "@/lib/giving-export/csv";
-import { methodWord, paymentExportFilter, pledgeExportFilter, sourceWord } from "@/lib/giving-export/filters";
+import {
+  bankExportFilter,
+  bankLineKey,
+  methodWord,
+  paymentExportFilter,
+  pledgeExportFilter,
+  sourceWord,
+  yearEndExportFilter,
+} from "@/lib/giving-export/filters";
+import { PAYOUT_LOOKBACK_DAYS, bankViewFromParam, providerName } from "@/lib/giving-bank/views";
 import { paymentQuery, paymentViewFromParam } from "@/lib/giving-lists/payments";
 import { bucketFromParam, isOpenStatus, pledgeChipFromParam, selectOpen } from "@/lib/giving-lists/pledges";
 import { searchFilter } from "@/lib/giving-lists/search";
+import { chosenStatementYear, matchesFilter, parseFilter, type Delivery } from "@/lib/giving-statements/review";
+import { isModuleEnabled } from "@/lib/modules";
 import { loadExportCards } from "@/lib/people-v2/gap-load";
 import { canAccess } from "@/lib/permissions";
-import { param, type RawSearchParams } from "@/lib/search-params";
+import { isUuid, param, type RawSearchParams } from "@/lib/search-params";
 import type { CrmSession } from "@/lib/session";
 
 export type ExportRead =
@@ -45,7 +65,10 @@ const unread = (what: string, error: unknown) => {
 const tooMany = (word: string) => fail(400, `it has more than ${MAX_EXPORT_ROWS.toLocaleString("en-US")} ${word}. Narrow it with a chip, a year or a search first.`);
 
 export async function readGivingExport(session: CrmSession, list: GivingExportList, sp: RawSearchParams): Promise<ExportRead> {
-  return list === "payments" ? readPayments(session, sp) : readPledgesExport(session, sp);
+  if (list === "payments") return readPayments(session, sp);
+  if (list === "pledges") return readPledgesExport(session, sp);
+  if (list === "bank_lines") return readBankLines(session, sp);
+  return readYearEnd(session, sp);
 }
 
 /** Household number, community household ID and the adults' household name for each family (never a child's name). */
@@ -192,4 +215,117 @@ async function readPledgesExport(session: CrmSession, sp: RawSearchParams): Prom
     writeOffWaiting: isOpenStatus(r.status) && r.written_off_by !== null,
   }));
   return { ok: true, header, lines: pledgeExportLines(exportRows, fams.map, { currency: fmt.currency }), filter, count: exportRows.length };
+}
+
+// -------------------------------------------------------------------------------------------------------------------------- Bank lines
+
+type BankLineDb = {
+  id: string;
+  posted_on: string;
+  amount_cents: number;
+  description: string;
+  payer_name: string | null;
+  status: string;
+  is_batch_deposit: boolean;
+  matched_household_id: string | null;
+  payment_id: string | null;
+  payout_id: string | null;
+  channel: string | null;
+  reference: string | null;
+};
+
+async function readBankLines(session: CrmSession, sp: RawSearchParams): Promise<ExportRead> {
+  const { db, center } = session;
+  if (!canAccess(session, "bank") && !canAccess(session, "bankConfirm")) return fail(403, "you don't have access to this area.");
+  const accountId = param(sp, "account");
+  if (!isUuid(accountId)) return fail(400, "choose the bank account first.");
+  const acct = await db.from("bank_accounts").select("id, name, last4").eq("center_id", center.id).eq("id", accountId).maybeSingle();
+  if (acct.error) return unread("The bank account", acct.error);
+  if (!acct.data) return fail(400, "that bank account was not found.");
+  const account = acct.data;
+  const { view, history } = bankViewFromParam(param(sp, "view"), param(sp, "show"), { zelle: true, payouts: isModuleEnabled(session, "accounting") });
+  const key = bankLineKey(view, history);
+  if (!key) return fail(400, "this view lists the members' reports, not bank lines. Export another view.");
+  const label = `${account.name}${account.last4 ? ` ··${account.last4}` : ""}`;
+  const filter = bankExportFilter(key, label);
+  const fmt = communityFormat(center);
+  const since = key === "payouts" ? addDays(todayInTz(center.time_zone), -PAYOUT_LOOKBACK_DAYS) : undefined;
+
+  const read = await fetchAll((f, t) => bankLinesOrdered(bankLinesQuery(session, account.id, key, { count: false, since }), key).range(f, t), { max: MAX_EXPORT_ROWS });
+  if (read.error) return unread("The bank lines", read.error);
+  if (read.truncated) return tooMany("bank lines");
+  const rows = read.data as unknown as BankLineDb[];
+
+  // The receipt a matched line became, and the card payout a payout line is paired with.
+  const receipts = new Map<string, string | null>();
+  for (const part of chunk([...new Set(rows.flatMap((r) => (r.payment_id ? [r.payment_id] : [])))])) {
+    const p = await db.from("payments").select("id, receipt_number").in("id", part);
+    if (p.error) return unread("The receipts of the matched lines", p.error);
+    for (const x of p.data ?? []) receipts.set(x.id, x.receipt_number);
+  }
+  const payouts = new Map<string, string>();
+  for (const part of chunk([...new Set(rows.flatMap((r) => (r.payout_id ? [r.payout_id] : [])))])) {
+    const p = await db.from("payouts").select("id, provider, provider_ref").in("id", part);
+    if (p.error) return unread("The card payouts", p.error);
+    for (const x of p.data ?? []) payouts.set(x.id, `${providerName(x.provider)} ${x.provider_ref}`);
+  }
+  const fams = await households(session, rows.flatMap((r) => (r.matched_household_id ? [r.matched_household_id] : [])));
+  if (fams.error) return unread("The household cards", fams.error);
+
+  const exportRows: BankLineExportRow[] = rows.map((r) => ({
+    postedOn: r.posted_on,
+    account: label,
+    amountCents: r.amount_cents,
+    channel: r.channel,
+    description: r.description,
+    payerName: r.payer_name,
+    reference: r.reference,
+    status: r.status,
+    householdId: r.matched_household_id,
+    receipt: r.payment_id ? (receipts.get(r.payment_id) ?? null) : null,
+    payout: r.payout_id ? (payouts.get(r.payout_id) ?? null) : null,
+    deposit: r.is_batch_deposit,
+  }));
+  return {
+    ok: true,
+    header: bankLineExportHeader(householdIdLabel(session)),
+    lines: bankLineExportLines(exportRows, fams.map, { currency: fmt.currency }),
+    filter,
+    count: exportRows.length,
+  };
+}
+
+// --------------------------------------------------------------------------------------------------------------------- Year-end totals
+
+const DELIVERY_WORD: Record<Delivery, string> = { post: "By post", email: "By email", app: "In the member app", none: "Needs a fix" };
+
+async function readYearEnd(session: CrmSession, sp: RawSearchParams): Promise<ExportRead> {
+  const { center } = session;
+  if (!canAccess(session, "statements")) return fail(403, "you don't have access to this area.");
+  const year = chosenStatementYear(param(sp, "year"), todayInTz(center.time_zone));
+  const show = parseFilter(param(sp, "show"));
+  const review = await loadYearEndReview(session, year);
+  if (review.state === "off") return fail(403, "the Statements module is switched off for this community.");
+  if (review.state === "no_access") return fail(403, "you don't have access to this area.");
+  if (review.state === "error") return { ok: false, status: 500, error: `${review.message} Nothing was exported; try again.` };
+  const rows = review.rows.filter((r) => matchesFilter(r, show));
+  const fams = await households(session, rows.map((r) => r.householdId));
+  if (fams.error) return unread("The household cards", fams.error);
+  const exportRows: YearEndExportRow[] = rows.map((r) => ({
+    year,
+    householdId: r.householdId,
+    adults: r.adults.map((a) => a.name),
+    gifts: r.giftCount,
+    givenCents: r.givenCents,
+    refundedCents: r.refundedCents,
+    openingCents: r.openingCents,
+    delivery: r.problems.length > 0 ? "Needs a fix" : DELIVERY_WORD[r.delivery],
+  }));
+  return {
+    ok: true,
+    header: yearEndExportHeader(householdIdLabel(session)),
+    lines: yearEndExportLines(exportRows, fams.map, { currency: communityFormat(center).currency }),
+    filter: yearEndExportFilter(year, show),
+    count: exportRows.length,
+  };
 }
