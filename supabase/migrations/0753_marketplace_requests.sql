@@ -476,7 +476,14 @@ begin
    limit greatest(1, least(coalesce(p_limit, 50), 200));
 end $$;
 
--- ── 6. Grants ────────────────────────────────────────────────────────────────
+-- ── 6. The activity stream records the two screens like every other (0620's catalog) ─────────────────────────────
+select app.activity_register(v.k, 'screen', 'portal', v.l, v.e)
+  from (values
+    ('screen:/settings/marketplace', 'Marketplace', null::text),
+    ('screen:/platform/centers/[id]/products', 'A community''s products', 'community')
+  ) as v(k, l, e);
+
+-- ── 7. Grants ────────────────────────────────────────────────────────────────
 revoke execute on function app.center_module_grants_close_requests(), app.marketplace_products_ready_notice(), app._marketplace_person(uuid, uuid, boolean),
   app._marketplace_grant_source(uuid, text), app._marketplace_settings_manager(uuid, text) from public, anon, authenticated;
 grant execute on function app._marketplace_person(uuid, uuid, boolean), app._marketplace_grant_source(uuid, text) to service_role;
