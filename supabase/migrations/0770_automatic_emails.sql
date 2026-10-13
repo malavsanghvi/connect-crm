@@ -20,9 +20,10 @@
 --   WHEN AN EMAIL GOES (only while its switch is on and its module is on)
 --     payment_receipt         a payment is recorded, or a provider payment goes through (captured, clearing, settled) with a
 --                             receipt number. Never for imported history, opening balances, CRM imports, or rows uploaded in a
---                             transaction marked with app.mark_donation_upload(): uploaded donations get a receipt only when the
---                             community also switches on "email receipts for uploaded donations" and the upload calls
---                             app.email_receipts_for_uploaded (src/lib/automatic-emails/hooks.ts onDonationsUploaded).
+--                             transaction marked with app.mark_donation_upload() (app.email_upload_marks remembers them):
+--                             uploaded donations get a receipt only when the community also switches on "email receipts for
+--                             uploaded donations" and the upload calls app.email_receipts_for_uploaded within 24 hours
+--                             (src/lib/automatic-emails/hooks.ts onDonationsUploaded).
 --                             And only while the treasurer's approval of the receipt templates is current (0300): saving new
 --                             receipt or pledge wording makes it "changed" until the treasurer approves again.
 --     pledge_recorded         a pledge is recorded (general, manual, labh, pledges at events and on items). Not for fees,
@@ -50,7 +51,11 @@
 --   every current approval stays current.
 --
 --   Permissions: the Giving emails are switched and worded with giving.manage and read with giving.view; the registration
---   email with events.manage and events.view; settings.manage reads them all. Test 170.
+--   email with events.manage and events.view; settings.manage reads them all. Nobody selects the tables directly: every read
+--   goes through these functions (review of PR 239).
+--
+--   NEVER FOR THE IMPORT TOOL: rows written with app.client_app = 'import' (0192, 0413) get no automatic email, and a pledge
+--   gets one only when it is still to be paid (open or partly paid) when it is recorded. Test 170.
 set client_min_messages = warning;
 
 -- ══ Tables ═══════════════════════════════════════════════════════════════════
@@ -101,27 +106,35 @@ drop trigger if exists audit_email_automation_sends on app.email_automation_send
 create trigger audit_email_automation_sends after update or delete on app.email_automation_sends
   for each row execute function app.audit_row();
 
+-- Payments a donation upload inserted (its transaction called app.mark_donation_upload()): only these can get a receipt
+-- through app.email_receipts_for_uploaded, and only for 24 hours. Written by the payment trigger only.
+create table if not exists app.email_upload_marks (
+  payment_id uuid primary key references app.payments(id) on delete cascade,
+  center_id  uuid not null references app.centers(id) on delete cascade,
+  created_at timestamptz not null default now()
+);
+create index if not exists email_upload_marks_center_idx on app.email_upload_marks (center_id, created_at desc);
+comment on table app.email_upload_marks is
+  'Payments inserted by a donation upload (0770: the transaction called app.mark_donation_upload()). app.email_receipts_for_uploaded queues receipts only for these, within 24 hours. Inserts are not audited (the payment is); changes and deletions are.';
+drop trigger if exists audit_email_upload_marks on app.email_upload_marks;
+create trigger audit_email_upload_marks after update or delete on app.email_upload_marks
+  for each row execute function app.audit_row('payment_id');
+
 -- Core platform tables: each row is guarded by its own email's module in the functions below.
-insert into app.module_tables (table_name, module_key) values ('email_automations', null), ('email_automation_sends', null)
+insert into app.module_tables (table_name, module_key)
+values ('email_automations', null), ('email_automation_sends', null), ('email_upload_marks', null)
 on conflict (table_name) do update set module_key = excluded.module_key;
 
+-- No direct reads (review of PR 239): the sends name households and adults' addresses, and after 0771 who has pledges past
+-- due. Every read goes through the functions below, which check each email's own permission. Row level security stays on
+-- with no policy, so a grant added by mistake still shows nothing.
 alter table app.email_automations enable row level security;
 alter table app.email_automation_sends enable row level security;
+alter table app.email_upload_marks enable row level security;
 drop policy if exists email_automations_read on app.email_automations;
-create policy email_automations_read on app.email_automations for select to authenticated
-  using (app.has_permission(center_id, 'settings.manage') or app.has_permission(center_id, 'giving.view')
-         or app.has_permission(center_id, 'giving.manage') or app.has_permission(center_id, 'events.view')
-         or app.has_permission(center_id, 'events.manage') or app.has_permission(center_id, 'comms.view')
-         or app.has_permission(center_id, 'comms.send'));
 drop policy if exists email_automation_sends_read on app.email_automation_sends;
-create policy email_automation_sends_read on app.email_automation_sends for select to authenticated
-  using (app.has_permission(center_id, 'settings.manage') or app.has_permission(center_id, 'giving.view')
-         or app.has_permission(center_id, 'giving.manage') or app.has_permission(center_id, 'events.view')
-         or app.has_permission(center_id, 'events.manage') or app.has_permission(center_id, 'comms.view')
-         or app.has_permission(center_id, 'comms.send'));
-revoke all on app.email_automations, app.email_automation_sends from anon, authenticated;
-grant select on app.email_automations, app.email_automation_sends to authenticated;
-grant all on app.email_automations, app.email_automation_sends to service_role;
+revoke all on app.email_automations, app.email_automation_sends, app.email_upload_marks from public, anon, authenticated;
+grant all on app.email_automations, app.email_automation_sends, app.email_upload_marks to service_role;
 
 -- ══ What each email is ═══════════════════════════════════════════════════════
 create or replace function app._email_trigger_meta(p_key text) returns jsonb
@@ -187,22 +200,37 @@ language sql stable set search_path = app, public, extensions as $$
   select coalesce(current_setting('app.donation_upload', true), '') = 'on'
 $$;
 
+-- The import tool (0192, 0413) marks its writes with app.client_app = 'import': nothing it writes gets an automatic email.
+create or replace function app._email_in_import() returns boolean
+language sql stable set search_path = app, public, extensions as $$
+  select coalesce(current_setting('app.client_app', true), '') = 'import'
+$$;
+
 create or replace function app.payments_receipt_email() returns trigger
 language plpgsql security definer set search_path = app, public, extensions as $$
 declare v_auto uuid;
 begin
+  -- A donation upload: remember the payment for app.email_receipts_for_uploaded, and send nothing from here.
+  if app._email_in_upload() then
+    if tg_op = 'INSERT' then
+      insert into app.email_upload_marks (payment_id, center_id) values (new.id, new.center_id) on conflict (payment_id) do nothing;
+    end if;
+    return null;
+  end if;
+  if app._email_in_import() then return null; end if;
   if not app.statement_counted_status(new.status) or new.is_opening_balance or new.is_historical
      or coalesce(btrim(new.receipt_number), '') = '' or new.crm_external_id is not null then
     return null;
   end if;
   if tg_op = 'UPDATE' and app.statement_counted_status(old.status) then return null; end if;
-  if app._email_in_upload() then return null; end if;
   v_auto := app._email_automation_on(new.center_id, 'payment_receipt');
-  if v_auto is not null then perform app._email_compose_later(new.center_id, v_auto, new.id); end if;
-  return null;
-exception when others then
-  -- The payment is recorded whatever happens to its email; the reason is in the database log.
-  raise warning 'payments_receipt_email: could not queue the receipt email for payment %: %', new.id, sqlerrm;
+  if v_auto is null then return null; end if;
+  begin
+    perform app._email_compose_later(new.center_id, v_auto, new.id);
+  exception when others then
+    -- The payment is recorded whatever happens to its email; the reason is in the database log.
+    raise warning 'payments_receipt_email: could not queue the receipt email for payment %: %', new.id, sqlerrm;
+  end;
   return null;
 end $$;
 drop trigger if exists payments_receipt_email on app.payments;
@@ -219,13 +247,19 @@ create or replace function app.pledges_recorded_email() returns trigger
 language plpgsql security definer set search_path = app, public, extensions as $$
 declare v_auto uuid;
 begin
-  if not app._email_pledge_source_ok(new.source) or new.crm_external_id is not null or new.status = 'cancelled' then return null; end if;
-  if app._email_in_upload() then return null; end if;
+  if app._email_in_upload() or app._email_in_import() then return null; end if;
+  -- Only a pledge that is still to be paid when it is recorded (an imported or settled one is history, not a new promise).
+  if not app._email_pledge_source_ok(new.source) or new.crm_external_id is not null
+     or new.status not in ('open', 'partially_paid') then
+    return null;
+  end if;
   v_auto := app._email_automation_on(new.center_id, 'pledge_recorded');
-  if v_auto is not null then perform app._email_compose_later(new.center_id, v_auto, new.id); end if;
-  return null;
-exception when others then
-  raise warning 'pledges_recorded_email: could not queue the pledge email for pledge %: %', new.id, sqlerrm;
+  if v_auto is null then return null; end if;
+  begin
+    perform app._email_compose_later(new.center_id, v_auto, new.id);
+  exception when others then
+    raise warning 'pledges_recorded_email: could not queue the pledge email for pledge %: %', new.id, sqlerrm;
+  end;
   return null;
 end $$;
 drop trigger if exists pledges_recorded_email on app.pledges;
@@ -236,13 +270,16 @@ create or replace function app.rsvps_registered_email() returns trigger
 language plpgsql security definer set search_path = app, public, extensions as $$
 declare v_auto uuid;
 begin
+  if app._email_in_import() then return null; end if;
   if new.status not in ('rsvpd', 'confirmed') or new.source = 'import' then return null; end if;
   if tg_op = 'UPDATE' and old.status in ('rsvpd', 'confirmed') then return null; end if;
   v_auto := app._email_automation_on(new.center_id, 'registration_confirmed');
-  if v_auto is not null then perform app._email_compose_later(new.center_id, v_auto, new.id); end if;
-  return null;
-exception when others then
-  raise warning 'rsvps_registered_email: could not queue the registration email for RSVP %: %', new.id, sqlerrm;
+  if v_auto is null then return null; end if;
+  begin
+    perform app._email_compose_later(new.center_id, v_auto, new.id);
+  exception when others then
+    raise warning 'rsvps_registered_email: could not queue the registration email for RSVP %: %', new.id, sqlerrm;
+  end;
   return null;
 end $$;
 drop trigger if exists rsvps_registered_email on app.rsvps;
@@ -416,6 +453,38 @@ language sql stable security definer set search_path = app, public, extensions a
   end
 $$;
 
+-- A text with these first names taken out as whole words (any case, with a possessive), separators tidied as
+-- src/lib/merge/household-name.ts does. For the screens' previews, which never receive a child's name: the background service
+-- uses the TypeScript version on the full facts.
+create or replace function app._email_strip_names(p_text text, p_names jsonb) returns text
+language plpgsql immutable set search_path = app, public, extensions as $$
+declare v text := p_text; n text; v_hit boolean := false; v_before text;
+begin
+  if p_text is null or p_names is null or jsonb_typeof(p_names) <> 'array' then return p_text; end if;
+  for n in select btrim(x) from jsonb_array_elements_text(p_names) x where length(btrim(x)) >= 2 loop
+    v_before := v;
+    v := regexp_replace(v, '\m' || regexp_replace(n, '([.^$*+?()\[\]{}|\\-])', '\\\1', 'g') || '(''s|’s)?\M', '', 'gi');
+    v_hit := v_hit or v is distinct from v_before;
+  end loop;
+  if not v_hit then return p_text; end if;
+  v := regexp_replace(v, '\(\s*[,&]*\s*\)', '', 'g');
+  v := regexp_replace(v, '\s+(and|&)\s*(?=[,)]|$)', '', 'gi');
+  v := regexp_replace(v, '(\s*[,&]\s*){2,}', ', ', 'g');
+  v := regexp_replace(v, '\s*[,&]\s*(?=\)|$)', '', 'g');
+  v := regexp_replace(v, '^[\s,&]+', '');
+  v := regexp_replace(v, '\s{2,}', ' ', 'g');
+  return nullif(btrim(v), '');
+end $$;
+
+-- A preview's facts as the screens may see them: no child's first name, the household's name without them.
+create or replace function app._email_preview_facts(p_facts jsonb) returns jsonb
+language sql immutable set search_path = app, public, extensions as $$
+  select case when p_facts ? 'household' and jsonb_typeof(p_facts->'household') = 'object'
+              then jsonb_set(p_facts #- '{household,minor_first_names}', '{household,name}',
+                             coalesce(to_jsonb(app._email_strip_names(p_facts #>> '{household,name}', p_facts #> '{household,minor_first_names}')), 'null'::jsonb))
+              else p_facts end
+$$;
+
 -- ══ The screen: Settings › Automatic emails ═══════════════════════════════════
 create or replace function app.email_automations_state(p_center uuid, p_majority int default 18) returns jsonb
 language plpgsql stable security definer set search_path = app, public, extensions as $$
@@ -438,8 +507,9 @@ begin
       v_ref := app._email_sample_ref(p_center, k);
       if v_ref is not null then
         v_sample := app._email_facts(k, p_center, v_ref, p_majority);
-        -- A preview needs names, not addresses.
+        -- A preview needs names, not addresses, and never a child's first name.
         v_sample := jsonb_set(v_sample, '{recipients}', coalesce((select jsonb_agg(x - 'address') from jsonb_array_elements(v_sample->'recipients') x), '[]'::jsonb));
+        v_sample := app._email_preview_facts(v_sample);
       end if;
     end if;
     v_row := jsonb_build_object(
@@ -609,9 +679,13 @@ begin
   if not coalesce((v_appr->>'ok')::boolean, false) then
     return jsonb_build_object('queued', 0, 'skipped', v_total, 'reason', v_appr->>'detail');
   end if;
+  -- Only payments a donation upload of this community inserted in the last 24 hours (app.email_upload_marks), that went
+  -- through, carry a receipt number and are not imported history.
   for p in select distinct x.id from app.payments x
+             join app.email_upload_marks mk on mk.payment_id = x.id and mk.center_id = p_center and mk.created_at > now() - interval '24 hours'
             where x.id = any (p_payments) and x.center_id = p_center and app.statement_counted_status(x.status)
-              and not x.is_opening_balance and not x.is_historical and coalesce(btrim(x.receipt_number), '') <> '' loop
+              and not x.is_opening_balance and not x.is_historical and x.crm_external_id is null
+              and coalesce(btrim(x.receipt_number), '') <> '' loop
     perform app._email_compose_later(p_center, a.id, p.id);
     v_n := v_n + 1;
   end loop;
@@ -715,10 +789,13 @@ begin
                                   jsonb_build_object('automation_id', a.id, 'ref_id', p_ref), true);
       select msg.status, msg.failure_reason into v_status, v_reason from app.messages msg where msg.id = v_msg;
       if v_status <> 'queued' then v_outcome := 'skipped'; else v_reason := null; end if;
-    exception when others then
-      v_outcome := 'skipped';
-      v_reason := 'Not sent: ' || sqlerrm;
-      v_msg := null;
+    exception
+      -- What will not change on a retry is written to the log: the wording or an address the message cannot use (22023), a
+      -- sandbox's recipient rule (CCENT). Anything else fails the call, so the job is tried again.
+      when invalid_parameter_value or sqlstate 'CCENT' then
+        v_outcome := 'skipped';
+        v_reason := 'Not sent: ' || sqlerrm;
+        v_msg := null;
     end;
   end if;
   insert into app.email_automation_sends (center_id, automation_id, ref_id, period, household_id, person_id, to_address, outcome, reason, message_id)
@@ -770,10 +847,11 @@ begin
   -- Internal: only the functions above call them.
   foreach f in array array[
     'app._email_trigger_meta(text)', 'app._email_placeholders(text)', 'app._email_can(uuid, text, boolean)',
-    'app._email_automation_on(uuid, text)', 'app._email_compose_later(uuid, uuid, uuid)', 'app._email_in_upload()',
+    'app._email_automation_on(uuid, text)', 'app._email_compose_later(uuid, uuid, uuid)', 'app._email_in_upload()', 'app._email_in_import()',
     'app._email_pledge_source_ok(app.pledge_source)', 'app.payments_receipt_email()', 'app.pledges_recorded_email()',
     'app.rsvps_registered_email()', 'app._email_recipients(uuid, uuid, integer)', 'app._email_minor_first_names(uuid, integer)',
-    'app._email_facts(text, uuid, uuid, integer)', 'app._email_sample_ref(uuid, text)'] loop
+    'app._email_facts(text, uuid, uuid, integer)', 'app._email_sample_ref(uuid, text)',
+    'app._email_strip_names(text, jsonb)', 'app._email_preview_facts(jsonb)'] loop
     execute format('revoke execute on function %s from public, anon, authenticated', f);
     execute format('grant execute on function %s to service_role', f);
   end loop;

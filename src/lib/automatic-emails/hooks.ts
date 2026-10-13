@@ -4,8 +4,9 @@
 // default: the upload marks its own transaction (select app.mark_donation_upload(); in the database function that inserts the
 // rows), so the payment trigger stays quiet, and this hook asks the database to queue receipts for the uploaded payments, which
 // it does only when the community switched on automatic receipts AND "email receipts for uploaded donations too" (Settings ›
-// Automatic emails; off by default) and the treasurer's approval of the receipt templates is current. Calling it twice for the
-// same payments sends nothing twice (one email per payment and address).
+// Automatic emails; off by default) and the treasurer's approval of the receipt templates is current, and only for payments that a
+// donation upload of this community inserted in the last 24 hours (app.email_upload_marks). Calling it twice for the same
+// payments sends nothing twice (one email per payment and address).
 
 import { failure } from "@/lib/errors";
 import type { AppSupabase } from "@/lib/supabase/server";

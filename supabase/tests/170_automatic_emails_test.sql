@@ -47,6 +47,13 @@ $$;
 \set nptreas '''17000000-0000-4000-8000-000000000005'''
 \set sbtreas '''17000000-0000-4000-8000-000000000006'''
 \set owner '''17000000-0000-4000-8000-000000000007'''
+\set cofficer '''17000000-0000-4000-8000-000000000008'''
+\set evlead '''17000000-0000-4000-8000-000000000009'''
+\set h5 '''17000000-0000-4000-8000-0000000000a5'''
+\set ann '''17000000-0000-4000-8000-0000000000c5'''
+\set dee '''17000000-0000-4000-8000-0000000000c6'''
+\set dan '''17000000-0000-4000-8000-0000000000c7'''
+\set mo '''17000000-0000-4000-8000-0000000000c8'''
 \set h1 '''17000000-0000-4000-8000-0000000000a1'''
 \set h2 '''17000000-0000-4000-8000-0000000000a2'''
 \set hn '''17000000-0000-4000-8000-0000000000a3'''
@@ -64,7 +71,7 @@ $$;
 insert into auth.users (id, email) values
   (:treas, 'treasurer170@temple.test'), (:admin, 'admin170@temple.test'), (:exec, 'committee170@temple.test'),
   (:vol, 'volunteer170@temple.test'), (:nptreas, 'treasurer170@nonprofit.test'), (:sbtreas, 'treasurer170@sandbox.test'),
-  (:owner, 'owner170@temple.test');
+  (:owner, 'owner170@temple.test'), (:cofficer, 'comms170@temple.test'), (:evlead, 'events170@temple.test');
 insert into app.centers (id, slug, name, short_name, state_region, status, time_zone) values
   (:jc, 'jc170', 'Temple 170', 'T170', 'TX', 'active', 'America/Chicago');
 -- A live non-faith community: its category is switched on for this test only (the transaction is rolled back).
@@ -77,7 +84,8 @@ insert into app.centers (id, slug, name, environment, category_key, status) valu
 insert into app.role_grants (center_id, user_id, role_key, reason) values (:jc, :owner, 'center_admin', 'test 170');
 insert into app.role_grants (center_id, user_id, role_key, reason) values
   (:jc, :treas, 'treasurer', 'test 170'), (:jc, :admin, 'center_admin', 'test 170'), (:jc, :exec, 'executive_committee', 'test 170'),
-  (:jc, :vol, 'finance_volunteer', 'test 170'), (:np, :nptreas, 'treasurer', 'test 170'), (:sb, :sbtreas, 'treasurer', 'test 170');
+  (:jc, :vol, 'finance_volunteer', 'test 170'), (:np, :nptreas, 'treasurer', 'test 170'), (:sb, :sbtreas, 'treasurer', 'test 170'),
+  (:jc, :cofficer, 'communications_officer', 'test 170'), (:jc, :evlead, 'event_lead', 'test 170');
 insert into app.households (id, center_id, display_name) values
   (:h1, :jc, 'Member170, Mira & Kiran'), (:h2, :jc, 'Second170, Ravi & Asha'), (:hn, :np, 'Nonprofit170, Pat'), (:hs, :sb, 'Sandbox170, Sam');
 insert into app.people (id, center_id, first_name, last_name, date_of_birth, email) values
@@ -139,7 +147,8 @@ select pg_temp.claims(:admin);
 select pg_temp.assert_raises(format($$select app.set_email_automation(%L, 'payment_receipt', true)$$, :jc), 'needs giving.manage',
   'B · a center admin (giving.view, not giving.manage) cannot switch receipts');
 select app.set_email_automation(:jc, 'registration_confirmed', true);
-select pg_temp.assert((select enabled from app.email_automations where center_id = :jc and trigger_key = 'registration_confirmed'),
+select pg_temp.assert((select (e->>'enabled')::boolean from jsonb_array_elements(app.email_automations_state(:jc, 18)->'emails') e
+                         where e->>'key' = 'registration_confirmed'),
   'B · a center admin (events.manage) switches the registration email on with a sign-in session only: no 2FA step');
 select pg_temp.assert_raises(format($$select app.set_email_automation(%L, 'registration_confirmed', true, true)$$, :jc), 'only receipts',
   'B · the uploaded-donations choice belongs to receipts only');
@@ -151,8 +160,9 @@ select pg_temp.assert_raises(format($$select app.set_email_automation(%L, 'payme
 select app.approve_statement_templates(:jc, 'Approved in test 170');
 select app.set_email_automation(:jc, 'payment_receipt', true);
 select app.set_email_automation(:jc, 'pledge_recorded', true);
-select pg_temp.assert((select count(*) from app.email_automations where center_id = :jc and enabled) = 3
-                      and (select options = '{}'::jsonb from app.email_automations where center_id = :jc and trigger_key = 'payment_receipt'),
+select pg_temp.assert((select count(*) filter (where (e->>'enabled')::boolean) = 3
+                                 and bool_and(e->'options' = '{}'::jsonb or e->>'key' <> 'payment_receipt')
+                            from jsonb_array_elements(app.email_automations_state(:jc, 18)->'emails') e),
   'C · after the approval the treasurer switches receipts and pledge confirmations on; uploaded donations stay off');
 reset role;
 select pg_temp.assert(app.statement_templates_evidence(:np) ? 'templates' and not (app.statement_templates_evidence(:np) ? 'emails')
@@ -180,6 +190,23 @@ insert into app.payments (id, center_id, household_id, payer_person_id, amount_c
 values ('17000000-0000-4000-8000-000000000105', :jc, :h1, :mira, 900, 'check', 'settled', 'import', 'R-170-0105', 'CRM-170-1');
 select pg_temp.assert(pg_temp.jobs('17000000-0000-4000-8000-000000000104') + pg_temp.jobs('17000000-0000-4000-8000-000000000105') = 0,
   'D · imported history and CRM imports get no receipt email');
+savepoint import_tool;
+-- The import tool (0192, 0413) marks its writes; a pledge it brings in has no CRM id and may be open.
+select set_config('app.client_app', 'import', true);
+insert into app.payments (id, center_id, household_id, payer_person_id, amount_cents, method, status, provider, receipt_number)
+values ('17000000-0000-4000-8000-000000000113', :jc, :h1, :mira, 1300, 'check', 'settled', 'offline', 'R-170-0113');
+insert into app.pledges (id, center_id, household_id, pledged_by_person_id, amount_cents, source)
+values ('17000000-0000-4000-8000-000000000211', :jc, :h1, :mira, 8000, 'general');
+insert into app.rsvps (id, center_id, event_id, household_id, submitted_by_person_id, status, source)
+values ('17000000-0000-4000-8000-000000000311', :jc, :ev1, :h1, :mira, 'rsvpd', 'app');
+select pg_temp.assert(pg_temp.jobs('17000000-0000-4000-8000-000000000113') + pg_temp.jobs('17000000-0000-4000-8000-000000000211')
+                      + pg_temp.jobs('17000000-0000-4000-8000-000000000311') = 0,
+  'D · what the import tool writes (a payment, an open pledge, a registration) gets no automatic email');
+rollback to savepoint import_tool;
+insert into app.pledges (id, center_id, household_id, pledged_by_person_id, amount_cents, paid_cents, source, status)
+values ('17000000-0000-4000-8000-000000000212', :jc, :h1, :mira, 8000, 8000, 'general', 'paid');
+select pg_temp.assert(pg_temp.jobs('17000000-0000-4000-8000-000000000212') = 0,
+  'D · a pledge recorded as already paid is history, not a new promise: no confirmation');
 savepoint upload;
 select app.mark_donation_upload();
 insert into app.payments (id, center_id, household_id, payer_person_id, amount_cents, method, status, provider, receipt_number)
@@ -193,11 +220,22 @@ select pg_temp.assert(app.email_receipts_for_uploaded(:jc, array['17000000-0000-
   'D · the upload hook queues nothing while "uploaded donations too" is off (the default)');
 select app.set_email_automation(:jc, 'payment_receipt', true, true);
 select pg_temp.assert(app.email_receipts_for_uploaded(:jc, array['17000000-0000-4000-8000-000000000106', '17000000-0000-4000-8000-000000000104',
-                                                             '17000000-0000-4000-8000-0000000009ff']::uuid[]) @> '{"queued": 1, "skipped": 2}',
-  'D · with it on, the hook queues the uploaded payment and skips imported history and an unknown id');
+                                                             '17000000-0000-4000-8000-0000000009ff', '17000000-0000-4000-8000-000000000102']::uuid[])
+                        @> '{"queued": 1, "skipped": 3}',
+  'D · with it on, the hook queues the uploaded payment only: not imported history, an unknown id, or a payment no upload made');
 select pg_temp.claims(:exec);
 select pg_temp.assert_raises(format($$select app.email_receipts_for_uploaded(%L, array[]::uuid[])$$, :jc), 'need giving.manage',
   'D · the hook needs giving.manage');
+reset role;
+select pg_temp.assert(exists (select 1 from app.email_upload_marks where payment_id = '17000000-0000-4000-8000-000000000106')
+                      and not exists (select 1 from app.email_upload_marks where payment_id = '17000000-0000-4000-8000-000000000102'),
+  'D · the upload''s payment is remembered for the hook; a payment recorded by hand is not');
+update app.email_upload_marks set created_at = now() - interval '25 hours' where payment_id = '17000000-0000-4000-8000-000000000106';
+delete from app.email_automation_sends where ref_id = '17000000-0000-4000-8000-000000000106';
+set role authenticated;
+select pg_temp.claims(:treas);
+select pg_temp.assert(app.email_receipts_for_uploaded(:jc, array['17000000-0000-4000-8000-000000000106']::uuid[]) @> '{"queued": 0, "skipped": 1}',
+  'D · after 24 hours the hook no longer sends receipts for that upload');
 reset role;
 rollback to savepoint upload;
 select pg_temp.assert(coalesce(current_setting('app.donation_upload', true), '') <> 'on', 'D · the upload mark ends with its transaction');
@@ -248,6 +286,25 @@ select pg_temp.assert(:'q3'::jsonb->>'outcome' = 'skipped' and :'q3'::jsonb->>'r
                       and exists (select 1 from app.email_automation_sends s where s.ref_id = '17000000-0000-4000-8000-000000000108'
                                     and s.outcome = 'skipped' and s.to_address = 'asha170@temple.test'),
   'E · values the wording needs but were not given: not sent, and the reason is in the log');
+
+-- A household whose other adults died, moved out or were merged into another record: only the adult still there gets it.
+insert into app.households (id, center_id, display_name) values (:h5, :jc, 'Fifth170 household');
+insert into app.people (id, center_id, first_name, last_name, date_of_birth, email, is_deceased) values
+  (:ann, :jc, 'Ann', 'Fifth170', date '1960-01-01', 'ann170@temple.test', false),
+  (:dee, :jc, 'Dee', 'Fifth170', date '1958-01-01', 'dee170@temple.test', true),
+  (:dan, :jc, 'Dan', 'Fifth170', date '1959-01-01', 'dan170@temple.test', false),
+  (:mo, :jc, 'Mo', 'Fifth170', date '1961-01-01', 'mo170@temple.test', false);
+update app.people set merged_into_id = :ann where id = :mo;
+insert into app.household_members (household_id, person_id, center_id, role, is_primary, left_at) values
+  (:h5, :ann, :jc, 'spouse', false, null), (:h5, :dee, :jc, 'primary', true, null),
+  (:h5, :dan, :jc, 'parent', false, current_date - 30), (:h5, :mo, :jc, 'parent', false, null);
+insert into app.payments (id, center_id, household_id, payer_person_id, amount_cents, method, status, provider, receipt_number)
+values ('17000000-0000-4000-8000-000000000114', :jc, :h5, :dee, 6000, 'check', 'captured', 'offline', 'R-170-0114');
+set role connect_worker;
+select app.worker_email_facts(:'auto_pay', '17000000-0000-4000-8000-000000000114', 18) as f114 \gset
+reset role;
+select pg_temp.assert((select array_agg(r->>'address') from jsonb_array_elements(:'f114'::jsonb->'recipients') r) = array['ann170@temple.test'],
+  'E · a payment in the name of someone who has died goes to the household''s living adult; nobody who moved out or was merged gets it');
 
 -- Nobody with an email: the reason is written once.
 update app.people set email = null where id = :asha;
@@ -382,6 +439,25 @@ select app.worker_email_enqueue(:'auto_pay', '17000000-0000-4000-8000-0000000001
 reset role;
 select pg_temp.assert((select subject = 'Gracias, v-recipient_first_name' from app.messages where id = (:'q6'::jsonb->>'message_id')::uuid),
   'G · a recipient whose language has no wording of the community''s own gets the community''s main language (Spanish here)');
+
+-- ══ I. Nobody reads the tables directly ═════════════════════════════════════════
+select pg_temp.assert(not has_table_privilege('authenticated', 'app.email_automation_sends', 'select')
+                      and not has_table_privilege('authenticated', 'app.email_automations', 'select')
+                      and not has_table_privilege('authenticated', 'app.email_upload_marks', 'select'),
+  'I · signed-in people have no direct read of the switches, the sends or the upload marks');
+set role authenticated;
+select pg_temp.claims(:cofficer);
+select pg_temp.assert_raises($$select count(*) from app.email_automation_sends$$, 'permission denied',
+  'I · a communications officer cannot read the sends (households, addresses)');
+select pg_temp.assert_raises($$select count(*) from app.email_automations$$, 'permission denied',
+  'I · nor the switches');
+select pg_temp.claims(:evlead);
+select pg_temp.assert_raises($$select count(*) from app.email_automation_sends$$, 'permission denied',
+  'I · nor can an event lead (events.view)');
+select pg_temp.claims(:treas);
+select pg_temp.assert(jsonb_array_length(app.email_automation_log(:jc, 'payment_receipt', 5)) > 0,
+  'I · the treasurer reads the receipts'' log through its function');
+reset role;
 
 -- ══ H. A sandbox, and a non-faith community ══════════════════════════════════
 set role authenticated;
