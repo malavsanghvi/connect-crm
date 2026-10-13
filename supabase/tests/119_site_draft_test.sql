@@ -229,8 +229,9 @@ select pg_temp.assert(not exists (
      where has_table_privilege(r, t, p)),
   'F · the three tables have no grant for the API at all');
 select pg_temp.assert((select count(*) from pg_class where oid in ('app.sites'::regclass, 'app.site_pages'::regclass, 'app.site_blocks'::regclass) and relrowsecurity) = 3
-                      and not exists (select 1 from pg_policy where polrelid in ('app.sites'::regclass, 'app.site_pages'::regclass, 'app.site_blocks'::regclass)),
-  'F · row level security is on and there is NO policy: nothing but the checked functions reaches the draft');
+                      and not exists (select 1 from pg_policy where polrelid in ('app.sites'::regclass, 'app.site_pages'::regclass, 'app.site_blocks'::regclass)
+                                         and (polpermissive or polname <> 'module_switch')),
+  'F · row level security is on and no policy lets anything in (0751 adds only the restrictive module_switch, which can only narrow): nothing but the checked functions reaches the draft');
 select pg_temp.sign_in(:admin);
 select pg_temp.assert_raises('select * from app.sites', 'permission denied', 'F · even an administrator cannot read the sites table directly');
 select pg_temp.assert_raises('select * from app.site_pages', 'permission denied', 'F · nor the pages');

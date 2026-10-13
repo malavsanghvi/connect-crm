@@ -124,6 +124,8 @@ select pg_temp.assert(not exists (select 1 from app.center_module_grants g join 
 -- that switched Store on (its kind starts it off) and had paused Niva under an earlier kind.
 insert into app.centers (id, slug, name, short_name, state_region, status, time_zone) values
   (:gf, 'gf150', 'Grandfather Temple 150', 'GF150', 'TX', 'active', 'America/Chicago');
+-- 0750: the temple uses Niva, so it holds iWeaver (Niva needs it), as 0750 grandfathered every community that did.
+insert into app.center_module_grants (center_id, module_key, granted, reason) values (:gf, 'ai', true, 'Test 150: Niva needs iWeaver (0750)');
 insert into app.centers (id, slug, name, environment, category_key, status)
 values (:gc, 'gc150-sandbox', 'Grandfather Chamber 150', 'sandbox', 'chamber_of_commerce', 'onboarding');
 insert into app.center_modules (center_id, module_key, enabled, reason) values
@@ -149,7 +151,7 @@ select pg_temp.assert((:gf || ':accounting') = any (:'on_before'::text[]) and (:
                       and not ((:gc || ':niva') = any (:'on_before'::text[])),
   'B · under 0594 the temple''s Bolis and Accounting were on with Giving paused, and the chamber''s Store was on');
 select pg_temp.assert(array(select x from unnest(app._module_snapshot_diff(:'on_before'::text[])) x where x like 'gf150:%' or x like 'gc150-sandbox:%')
-                        = array['gc150-sandbox: store was on and would be off', 'gf150: accounting was on and would be off', 'gf150: bolis was on and would be off', 'gf150: giving_bank was on and would be off', 'gf150: giving_counts was on and would be off', 'gf150: giving_insights was on and would be off',
+                        = array['gc150-sandbox: ai was off and would be on', 'gc150-sandbox: store was on and would be off', 'gf150: accounting was on and would be off', 'gf150: ai was off and would be on', 'gf150: bolis was on and would be off', 'gf150: giving_bank was on and would be off', 'gf150: giving_counts was on and would be off', 'gf150: giving_insights was on and would be off',
                                 'gf150: giving_opportunities was on and would be off', 'gf150: giving_recurring was on and would be off',
                                 'gf150: giving_statements was on and would be off', 'gf150: labh was on and would be off'],
   'B · without grants, the check names every module that would change, in words (Giving''s add-ons, 0741, wait for Giving too)');
@@ -164,7 +166,7 @@ select pg_temp.assert((select granted and reason = 'Test 150: grandfathered' and
 select pg_temp.assert(app.module_enabled(:gc, 'store') and not app.module_enabled(:gc, 'niva') and not app.module_enabled(:gc, 'bolis'),
   'B · so the chamber''s Store stays on, Niva stays off, and Bolis (not offered) stays off');
 select pg_temp.assert(array(select x from unnest(app._module_snapshot_diff(:'on_before'::text[])) x where x like 'gf150:%' or x like 'gc150-sandbox:%')
-                        = array['gf150: accounting was on and would be off', 'gf150: bolis was on and would be off', 'gf150: giving_bank was on and would be off', 'gf150: giving_counts was on and would be off', 'gf150: giving_insights was on and would be off',
+                        = array['gc150-sandbox: ai was off and would be on', 'gf150: accounting was on and would be off', 'gf150: ai was off and would be on', 'gf150: bolis was on and would be off', 'gf150: giving_bank was on and would be off', 'gf150: giving_counts was on and would be off', 'gf150: giving_insights was on and would be off',
                                 'gf150: giving_opportunities was on and would be off', 'gf150: giving_recurring was on and would be off',
                                 'gf150: giving_statements was on and would be off', 'gf150: labh was on and would be off'],
   'B · what a grant cannot keep (a module waiting for a paused one) is still reported, so 0740 stops instead of switching it off');

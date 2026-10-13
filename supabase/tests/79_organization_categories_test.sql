@@ -225,7 +225,7 @@ select pg_temp.assert((select count(*) from app.module_tables where table_name i
                              and t.tgname in ('audit_organization_categories', 'audit_category_modules', 'audit_category_paths')) = 3,
   'A · the three catalogs are core platform tables and audited');
 set role anon;
-select pg_temp.assert((select count(*) from app.organization_categories) = 7 and (select count(*) from app.category_modules) = 175
+select pg_temp.assert((select count(*) from app.organization_categories) = 7 and (select count(*) from app.category_modules) = 210
                       and (select count(*) from app.category_paths) = 10, 'A · guests read the three catalogs');
 select pg_temp.assert_raises($$insert into app.organization_categories (key, label, faith_based, terms) values ('guest_made', 'Guest', false, '{}')$$,
   'permission denied', 'A · a guest cannot write a catalog');
