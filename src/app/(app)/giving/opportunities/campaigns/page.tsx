@@ -7,6 +7,7 @@ import { fetchAll } from "@/lib/data/fetch-all";
 import { formatDate } from "@/lib/dates";
 import { campaignKindsFor } from "@/lib/giving";
 import { kindName } from "@/lib/kind";
+import { isModuleEnabled } from "@/lib/modules";
 import { formatCents } from "@/lib/money";
 import { canAccess } from "@/lib/permissions";
 import { getSession } from "@/lib/session";
@@ -26,7 +27,8 @@ export default async function CampaignsPage() {
         label="Opportunities views"
         active="campaigns"
         items={[
-          { key: "opportunities", label: "Opportunities", href: "/giving/opportunities" },
+          // Opportunities is an add-on of Giving (0741); the Campaigns list is not.
+          ...(isModuleEnabled(session, "giving_opportunities") ? [{ key: "opportunities", label: "Opportunities", href: "/giving/opportunities" }] : []),
           { key: "campaigns", label: "Campaigns", href: "/giving/opportunities/campaigns" },
         ]}
       />
