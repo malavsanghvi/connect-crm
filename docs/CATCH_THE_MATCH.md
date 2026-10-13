@@ -2,7 +2,11 @@
 
 Status: plan, 2026-10-13, nothing built. Replaces B63 ("MatchMyGenerosity", the community-driven employer matching
 flow) as backlog **B103**. A Marketplace product for every organization Weaver onboards; behaviour comes from data,
-never from code written for one community. Related: [`WECARE.md`](WECARE.md) (a WeCare playbook step can prompt a
+never from code written for one community.
+
+**Paused after slice 2 (owner, 2026-10-13).** Slice 2 (the shared employer-program directory) is built; slices 3 to 7 wait for (a) a lawyer's view on the fee (section 5), (b) a secular nonprofit willing to pilot it (many matching programs exclude religious organizations, and today's customers are mostly faith communities), and (c) Marketplace billing, since the fee cannot be charged without it. Weaver's filing is also an ongoing staffed service, not only software.
+
+Related: [`WECARE.md`](WECARE.md) (a WeCare playbook step can prompt a
 donor whose gift may be matched), [`MARKETPLACE_PLAN.md`](MARKETPLACE_PLAN.md), [`ZELLE_REPORTS.md`](ZELLE_REPORTS.md)
 and the Bank tab (where a match payment is reconciled).
 
