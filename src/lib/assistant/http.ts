@@ -4,7 +4,7 @@ import { requires2faForStaff, securityRedirect } from "@/lib/security";
 import { loadSession, type CrmSession } from "@/lib/session";
 
 import type { ChatEvent } from "./protocol";
-import { ASSISTANT_OFF, assistantEnabled } from "./settings";
+import { ASSISTANT_MODULE_OFF, ASSISTANT_OFF, assistantEnabled, nivaForAdminsOn } from "./settings";
 
 // What every route under /api/assistant does first: find the signed-in person (their own session, never a service account), make
 // sure they work for this community, and make sure Niva for admins is switched on for it. Every refusal is a JSON answer
@@ -60,8 +60,11 @@ export async function authorizeAssistant(req: Pick<Request, "headers">, gate: Ga
   if (securityRedirect({ requires: requires2faForStaff(session.center.rules), isStaff, aal: session.aal, pathname: "/" })) {
     return { ok: false, response: fail(403, "Finish your security check first (Account › Security), then use Niva.") };
   }
-  const enabled = assistantEnabled(session.center.rules);
-  if (gate.needsEnabled && !enabled) return { ok: false, response: fail(403, ASSISTANT_OFF) };
+  // The community's switch AND the `niva` module (enabled by Weaver, not paused; 0740).
+  const enabled = nivaForAdminsOn(session.center.rules, session);
+  if (gate.needsEnabled && !enabled) {
+    return { ok: false, response: fail(403, assistantEnabled(session.center.rules) ? ASSISTANT_MODULE_OFF : ASSISTANT_OFF) };
+  }
   return { ok: true, session, enabled };
 }
 

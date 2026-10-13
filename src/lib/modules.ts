@@ -130,12 +130,14 @@ export function moduleForPath(pathname: string): ModuleKey | null {
 }
 
 // ---------------------------------------------------------------------------
-// Dependency rules (mirrors app.set_module_enabled so the Settings screen can
-// explain before asking; the database still decides).
+// Dependency rules. Since 0740 the database evaluates them instead of refusing
+// a switch: a module is off while a module it needs is off. These helpers say
+// so before asking (switchWarning); only a core module and a module Weaver has
+// not enabled block a switch (switchBlocker).
 // ---------------------------------------------------------------------------
 export type ModuleState = { key: string; enabled: boolean; core: boolean; dependsOn: readonly string[] };
 
-/** Why a module cannot be switched off right now: it is core, or enabled modules depend on it (their keys). */
+/** Is it core, and which enabled modules depend on it (their keys): they go off with it. */
 export function blockersToDisable(key: string, states: readonly ModuleState[]): { core: boolean; dependents: string[] } {
   const me = states.find((s) => s.key === key);
   return {
@@ -144,7 +146,7 @@ export function blockersToDisable(key: string, states: readonly ModuleState[]): 
   };
 }
 
-/** Dependencies that are switched off, so the module cannot be switched on yet. */
+/** Dependencies that are off, so the module stays off until they are on. */
 export function missingToEnable(key: string, states: readonly ModuleState[]): string[] {
   const me = states.find((s) => s.key === key);
   if (!me) return [];
@@ -172,10 +174,20 @@ export type ModuleRow = {
   availability: "default_on" | "default_off" | "not_available";
   /** False for a core module and for one the kind never offers: no switch. */
   switchable: boolean;
+  /** On for the community: offered, enabled by Weaver, not paused, and every module it needs on. */
   enabled: boolean;
   changedBy: string | null;
   changedAt: string | null;
   reason: string | null;
+  /** Weaver has enabled it for this community (0740; the kind's default_on counts). Always true for a core module. */
+  granted: boolean;
+  /** The community switched it off itself (its own switch; kept while Weaver's grant changes). */
+  paused: boolean;
+  /** Modules it needs that are off (keys): it is off until they are on. */
+  waitingFor: string[];
+  grantedBy: string | null;
+  grantedAt: string | null;
+  grantReason: string | null;
 };
 
 /** With `catalog` null (not in the database yet), the registry above stands in. */
@@ -200,6 +212,12 @@ export function buildModuleRows(catalog: readonly CatalogLike[] | null, switches
         changedBy: s?.changed_by ?? null,
         changedAt: s?.changed_at ?? null,
         reason: s?.reason ?? null,
+        granted: true,
+        paused: !c.core && s?.enabled === false,
+        waitingFor: [],
+        grantedBy: null,
+        grantedAt: null,
+        grantReason: null,
       };
     });
 }
@@ -218,6 +236,13 @@ export type ModuleStateLike = {
   changed_by: string | null;
   changed_at: string | null;
   reason: string | null;
+  /** 0740's columns; absent before that database update (then every offered module counts as granted). */
+  granted?: boolean | null;
+  granted_by?: string | null;
+  granted_at?: string | null;
+  grant_reason?: string | null;
+  paused?: boolean | null;
+  waiting_for?: string[] | null;
 };
 
 const AVAILABILITY = ["default_on", "default_off", "not_available"] as const;
@@ -232,6 +257,7 @@ export function buildModuleRowsFromStates(states: readonly ModuleStateLike[]): M
     .map((m): ModuleRow => {
       const availability = AVAILABILITY.find((a) => a === m.availability) ?? "default_on";
       const locked = availability === "not_available";
+      const enabled = m.core ? true : locked ? false : (m.enabled ?? availability !== "default_off");
       return {
         key: m.key,
         label: m.label,
@@ -240,27 +266,68 @@ export function buildModuleRowsFromStates(states: readonly ModuleStateLike[]): M
         dependsOn: m.depends_on ?? [],
         availability,
         switchable: !m.core && !locked && m.switchable !== false,
-        enabled: m.core ? true : locked ? false : (m.enabled ?? availability !== "default_off"),
+        enabled,
         changedBy: m.changed_by ?? null,
         changedAt: m.changed_at ?? null,
         reason: m.reason ?? null,
+        granted: m.core || (!locked && m.granted !== false),
+        paused: !m.core && !locked && (m.paused ?? !enabled),
+        waitingFor: m.waiting_for ?? [],
+        grantedBy: m.granted_by ?? null,
+        grantedAt: m.granted_at ?? null,
+        grantReason: m.grant_reason ?? null,
       };
     });
   return [...rows.filter((r) => r.availability !== "not_available"), ...rows.filter((r) => r.availability === "not_available")];
 }
 
-/** Plain-English reason a switch cannot be flipped right now, or null when it can. */
+/** The sentence for a module Weaver has not enabled for the community (the database's own words, 0740). */
+export function notGrantedSentence(label: string): string {
+  return `Weaver has not enabled ${label} for this community.`;
+}
+
+/**
+ * Plain-English reason a switch cannot be flipped right now, or null when it can: a core module is always on, and a module
+ * Weaver has not enabled cannot be switched on (or off: it is off already). Dependencies no longer block (see switchWarning).
+ */
 export function switchBlocker(key: string, turnOn: boolean, rows: readonly ModuleRow[]): string | null {
   const label = (k: string) => rows.find((r) => r.key === k)?.label ?? moduleLabelFor(k);
-  const states = rows.map((r) => ({ key: r.key, enabled: r.enabled, core: r.core, dependsOn: r.dependsOn }));
-  if (turnOn) {
-    const missing = missingToEnable(key, states);
-    return missing.length > 0 ? `${label(key)} needs ${missing.map(label).join(" and ")} — switch that on first.` : null;
-  }
-  const b = blockersToDisable(key, states);
-  if (b.core) return `${label(key)} is a core module and is always on.`;
-  if (b.dependents.length > 0) {
-    return `${b.dependents.map(label).join(" and ")} ${b.dependents.length === 1 ? "depends" : "depend"} on ${label(key)} — switch ${b.dependents.length === 1 ? "it" : "them"} off first.`;
+  const me = rows.find((r) => r.key === key);
+  if (me?.core) return turnOn ? null : `${label(key)} is a core module and is always on.`;
+  if (me && me.availability !== "not_available" && !me.granted) {
+    return turnOn ? `${notGrantedSentence(label(key))} Ask Weaver to enable it.` : `${notGrantedSentence(label(key))} It is off already.`;
   }
   return null;
+}
+
+/** What else a switch does, in plain English, or null: the modules that go off with it, or what it waits for. */
+export function switchWarning(key: string, turnOn: boolean, rows: readonly ModuleRow[]): string | null {
+  const label = (k: string) => rows.find((r) => r.key === k)?.label ?? moduleLabelFor(k);
+  const states = rows.map((r) => ({ key: r.key, enabled: r.enabled, core: r.core, dependsOn: r.dependsOn }));
+  const list = (keys: readonly string[]) => keys.map(label).join(" and ");
+  if (turnOn) {
+    const me = rows.find((r) => r.key === key);
+    const waiting = me && me.waitingFor.length > 0 ? me.waitingFor : missingToEnable(key, states);
+    if (waiting.length === 0) return null;
+    return `${label(key)} stays off until ${list(waiting)} ${waiting.length === 1 ? "is" : "are"} on.`;
+  }
+  const { dependents } = blockersToDisable(key, states);
+  if (dependents.length === 0) return null;
+  const one = dependents.length === 1;
+  return `${list(dependents)} ${one ? "goes" : "go"} off with it and ${one ? "comes" : "come"} back when ${label(key)} is switched on again.`;
+}
+
+export type ModuleStatus = { key: "always_on" | "on" | "paused" | "not_granted" | "waiting" | "not_offered"; text: string };
+
+/** What Settings › Modules (and Niva) say about a module: On, Paused, Not enabled by Weaver, Off while … is off. */
+export function moduleStatus(row: ModuleRow, rows: readonly ModuleRow[]): ModuleStatus {
+  const label = (k: string) => rows.find((r) => r.key === k)?.label ?? moduleLabelFor(k);
+  if (row.core) return { key: "always_on", text: "Always on" };
+  if (row.availability === "not_available") return { key: "not_offered", text: "Not offered" };
+  if (!row.granted) return { key: "not_granted", text: "Not enabled by Weaver" };
+  if (row.paused) return { key: "paused", text: "Paused" };
+  if (!row.enabled && row.waitingFor.length > 0) {
+    return { key: "waiting", text: `Off while ${row.waitingFor.map(label).join(" and ")} ${row.waitingFor.length === 1 ? "is" : "are"} off` };
+  }
+  return row.enabled ? { key: "on", text: "On" } : { key: "paused", text: "Paused" };
 }

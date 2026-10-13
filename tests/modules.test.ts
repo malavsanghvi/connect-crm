@@ -189,17 +189,21 @@ describe("Settings › Modules rows", () => {
     expect(rows[1].description).toBe(MODULES.find((m) => m.key === "giving")!.description);
     expect(rows[2].reason).toBe("Closed for renovation");
   });
-  it("explains blocked switches in plain English", async () => {
-    const { buildModuleRows, switchBlocker } = await import("@/lib/modules");
+  it("explains blocked switches in plain English; dependencies only warn (0740)", async () => {
+    const { buildModuleRows, switchBlocker, switchWarning } = await import("@/lib/modules");
     const rows = buildModuleRows(null, [
       { module_key: "content", enabled: false, changed_by: null, changed_at: null, reason: null },
       { module_key: "niva", enabled: false, changed_by: null, changed_at: null, reason: null },
     ]);
     expect(switchBlocker("people", false, rows)).toBe("Members & families is a core module and is always on.");
-    expect(switchBlocker("giving", false, rows)).toBe("Bolis and Accounting & QuickBooks depend on Pledges & donations — switch them off first.");
+    expect(switchBlocker("giving", false, rows)).toBeNull();
+    expect(switchWarning("giving", false, rows)).toBe("Bolis and Accounting & QuickBooks go off with it and come back when Pledges & donations is switched on again.");
     expect(switchBlocker("bolis", false, rows)).toBeNull();
-    expect(switchBlocker("niva", true, rows)).toBe("Niva assistant needs Content & library — switch that on first.");
+    expect(switchWarning("bolis", false, rows)).toBeNull();
+    expect(switchBlocker("niva", true, rows)).toBeNull();
+    expect(switchWarning("niva", true, rows)).toBe("Niva assistant stays off until Content & library is on.");
     expect(switchBlocker("content", true, rows)).toBeNull();
+    expect(switchWarning("content", true, rows)).toBeNull();
   });
 });
 
