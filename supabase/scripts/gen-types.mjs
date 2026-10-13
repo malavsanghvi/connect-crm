@@ -47,7 +47,8 @@ fns as (
 select json_build_object(
   'cols', (select json_agg(cols order by table_name, attnum) from cols),
   'enums', (select json_agg(enums order by typname) from enums),
-  'fns', (select json_agg(fns order by proname) from fns)
+  -- overloads in a fixed order (widest signature first, then argument types) so the kept one never flips between runs
+  'fns', (select json_agg(fns order by proname, pronargs desc, argtypes::text) from fns)
 )`;
 
 const raw = execFileSync("psql", [url, "-AtX", "-c", sql], { encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
@@ -118,7 +119,7 @@ out.push(`    };`);
 out.push(`    Functions: {`);
 const seen = new Set();
 for (const f of fns) {
-  if (seen.has(f.proname)) continue; // overloads: first wins (none today)
+  if (seen.has(f.proname)) continue; // overloads: the widest signature wins (fixed order from the query above)
   seen.add(f.proname);
   const modes = f.argmodes.length ? f.argmodes : Array(f.argtypes?.length || 0).fill("i");
   const args = [];

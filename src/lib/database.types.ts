@@ -1331,192 +1331,6 @@ export type Database = {
         };
         Relationships: [];
       };
-      care_message_kinds: {
-        Row: {
-          source: string;
-          key: string;
-          counts: boolean;
-        };
-        Insert: {
-          source: string;
-          key: string;
-          counts: boolean;
-        };
-        Update: {
-          source?: string;
-          key?: string;
-          counts?: boolean;
-        };
-        Relationships: [];
-      };
-      care_notes: {
-        Row: {
-          id: string;
-          center_id: string;
-          household_id: string;
-          person_id: string | null;
-          body: string;
-          created_by: string | null;
-          created_at: string;
-          edited_at: string | null;
-          archived_at: string | null;
-          archived_by: string | null;
-        };
-        Insert: {
-          id?: string;
-          center_id: string;
-          household_id: string;
-          person_id?: string | null;
-          body: string;
-          created_by?: string | null;
-          created_at?: string;
-          edited_at?: string | null;
-          archived_at?: string | null;
-          archived_by?: string | null;
-        };
-        Update: {
-          id?: string;
-          center_id?: string;
-          household_id?: string;
-          person_id?: string | null;
-          body?: string;
-          created_by?: string | null;
-          created_at?: string;
-          edited_at?: string | null;
-          archived_at?: string | null;
-          archived_by?: string | null;
-        };
-        Relationships: [];
-      };
-      care_owners: {
-        Row: {
-          household_id: string;
-          center_id: string;
-          owner_user_id: string | null;
-          backup_user_id: string | null;
-          assigned_by: string | null;
-          assigned_at: string;
-          created_at: string;
-        };
-        Insert: {
-          household_id: string;
-          center_id: string;
-          owner_user_id?: string | null;
-          backup_user_id?: string | null;
-          assigned_by?: string | null;
-          assigned_at?: string;
-          created_at?: string;
-        };
-        Update: {
-          household_id?: string;
-          center_id?: string;
-          owner_user_id?: string | null;
-          backup_user_id?: string | null;
-          assigned_by?: string | null;
-          assigned_at?: string;
-          created_at?: string;
-        };
-        Relationships: [];
-      };
-      care_profiles: {
-        Row: {
-          household_id: string;
-          center_id: string;
-          thanks: string | null;
-          recognition: string | null;
-          channel: string | null;
-          language: string | null;
-          contact_person_id: string | null;
-          do_not_ask: boolean;
-          rest_until: string | null;
-          updated_by: string | null;
-          updated_at: string;
-          created_at: string;
-        };
-        Insert: {
-          household_id: string;
-          center_id: string;
-          thanks?: string | null;
-          recognition?: string | null;
-          channel?: string | null;
-          language?: string | null;
-          contact_person_id?: string | null;
-          do_not_ask?: boolean;
-          rest_until?: string | null;
-          updated_by?: string | null;
-          updated_at?: string;
-          created_at?: string;
-        };
-        Update: {
-          household_id?: string;
-          center_id?: string;
-          thanks?: string | null;
-          recognition?: string | null;
-          channel?: string | null;
-          language?: string | null;
-          contact_person_id?: string | null;
-          do_not_ask?: boolean;
-          rest_until?: string | null;
-          updated_by?: string | null;
-          updated_at?: string;
-          created_at?: string;
-        };
-        Relationships: [];
-      };
-      care_touches: {
-        Row: {
-          id: string;
-          center_id: string;
-          household_id: string;
-          person_id: string | null;
-          kind: string;
-          channel: string;
-          outcome: string;
-          is_ask: boolean;
-          note: string | null;
-          touched_at: string;
-          by_user_id: string | null;
-          created_at: string;
-          voided_at: string | null;
-          voided_by: string | null;
-          void_reason: string | null;
-        };
-        Insert: {
-          id?: string;
-          center_id: string;
-          household_id: string;
-          person_id?: string | null;
-          kind: string;
-          channel: string;
-          outcome?: string;
-          is_ask?: boolean;
-          note?: string | null;
-          touched_at?: string;
-          by_user_id?: string | null;
-          created_at?: string;
-          voided_at?: string | null;
-          voided_by?: string | null;
-          void_reason?: string | null;
-        };
-        Update: {
-          id?: string;
-          center_id?: string;
-          household_id?: string;
-          person_id?: string | null;
-          kind?: string;
-          channel?: string;
-          outcome?: string;
-          is_ask?: boolean;
-          note?: string | null;
-          touched_at?: string;
-          by_user_id?: string | null;
-          created_at?: string;
-          voided_at?: string | null;
-          voided_by?: string | null;
-          void_reason?: string | null;
-        };
-        Relationships: [];
-      };
       category_dietary_options: {
         Row: {
           category_key: string;
@@ -2879,6 +2693,93 @@ export type Database = {
         };
         Relationships: [];
       };
+      email_automation_sends: {
+        Row: {
+          id: string;
+          center_id: string;
+          automation_id: string;
+          ref_id: string;
+          period: string;
+          household_id: string | null;
+          person_id: string | null;
+          to_address: string;
+          outcome: string;
+          reason: string | null;
+          message_id: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          center_id: string;
+          automation_id: string;
+          ref_id: string;
+          period?: string;
+          household_id?: string | null;
+          person_id?: string | null;
+          to_address?: string;
+          outcome: string;
+          reason?: string | null;
+          message_id?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          center_id?: string;
+          automation_id?: string;
+          ref_id?: string;
+          period?: string;
+          household_id?: string | null;
+          person_id?: string | null;
+          to_address?: string;
+          outcome?: string;
+          reason?: string | null;
+          message_id?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      email_automations: {
+        Row: {
+          id: string;
+          center_id: string;
+          kind: string;
+          trigger_key: string | null;
+          template_key: string;
+          enabled: boolean;
+          options: Json;
+          created_by: string | null;
+          created_at: string;
+          updated_by: string | null;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          center_id: string;
+          kind?: string;
+          trigger_key?: string | null;
+          template_key: string;
+          enabled?: boolean;
+          options?: Json;
+          created_by?: string | null;
+          created_at?: string;
+          updated_by?: string | null;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          center_id?: string;
+          kind?: string;
+          trigger_key?: string | null;
+          template_key?: string;
+          enabled?: boolean;
+          options?: Json;
+          created_by?: string | null;
+          created_at?: string;
+          updated_by?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       email_domains: {
         Row: {
           id: string;
@@ -2957,6 +2858,24 @@ export type Database = {
           verified?: boolean;
           updated_by?: string | null;
           updated_at?: string;
+        };
+        Relationships: [];
+      };
+      email_upload_marks: {
+        Row: {
+          payment_id: string;
+          center_id: string;
+          created_at: string;
+        };
+        Insert: {
+          payment_id: string;
+          center_id: string;
+          created_at?: string;
+        };
+        Update: {
+          payment_id?: string;
+          center_id?: string;
+          created_at?: string;
         };
         Relationships: [];
       };
@@ -3329,6 +3248,57 @@ export type Database = {
           qbo_class_id?: string | null;
           active?: boolean;
           custom?: Json;
+        };
+        Relationships: [];
+      };
+      giving_uploads: {
+        Row: {
+          id: string;
+          center_id: string;
+          kind: string;
+          idempotency_key: string;
+          file_name: string | null;
+          file_sha256: string | null;
+          reason: string;
+          row_count: number;
+          total_cents: number;
+          created_by: string | null;
+          created_at: string;
+          cancelled_at: string | null;
+          cancelled_by: string | null;
+          cancel_reason: string | null;
+        };
+        Insert: {
+          id?: string;
+          center_id: string;
+          kind: string;
+          idempotency_key: string;
+          file_name?: string | null;
+          file_sha256?: string | null;
+          reason: string;
+          row_count: number;
+          total_cents: number;
+          created_by?: string | null;
+          created_at?: string;
+          cancelled_at?: string | null;
+          cancelled_by?: string | null;
+          cancel_reason?: string | null;
+        };
+        Update: {
+          id?: string;
+          center_id?: string;
+          kind?: string;
+          idempotency_key?: string;
+          file_name?: string | null;
+          file_sha256?: string | null;
+          reason?: string;
+          row_count?: number;
+          total_cents?: number;
+          created_by?: string | null;
+          created_at?: string;
+          cancelled_at?: string | null;
+          cancelled_by?: string | null;
+          cancel_reason?: string | null;
         };
         Relationships: [];
       };
@@ -12004,14 +11974,6 @@ export type Database = {
         };
         Returns: { item_key: string; item_kind: string; surface: string; platform: string; app_version: string; events: number; people: number; errors: number; median_ms: number }[];
       };
-      add_care_note: {
-        Args: {
-          p_household: string;
-          p_body: string;
-          p_person?: string;
-        };
-        Returns: string;
-      };
       add_email_domain: {
         Args: {
           p_center: string;
@@ -12133,13 +12095,6 @@ export type Database = {
           p_note?: string;
         };
         Returns: Json;
-      };
-      archive_care_note: {
-        Args: {
-          p_note: string;
-          p_reason?: string;
-        };
-        Returns: undefined;
       };
       assert_entitlement: {
         Args: {
@@ -12382,6 +12337,14 @@ export type Database = {
         };
         Returns: undefined;
       };
+      cancel_pledge_upload: {
+        Args: {
+          p_center: string;
+          p_upload: string;
+          p_reason: string;
+        };
+        Returns: Json;
+      };
       cancel_rsvp: {
         Args: {
           p_rsvp: string;
@@ -12416,56 +12379,11 @@ export type Database = {
         };
         Returns: boolean;
       };
-      care_holders: {
-        Args: {
-          p_center: string;
-        };
-        Returns: { user_id: string; name: string; level: string }[];
-      };
-      care_household_can: {
-        Args: {
-          p_household: string;
-        };
-        Returns: boolean;
-      };
-      care_household_card: {
-        Args: {
-          p_household: string;
-        };
-        Returns: Json;
-      };
-      care_household_touches: {
-        Args: {
-          p_household: string;
-          p_before_at?: string;
-          p_before_key?: string;
-          p_limit?: number;
-        };
-        Returns: Json;
-      };
-      care_households: {
-        Args: {
-          p_center: string;
-          p_filter?: string;
-          p_search?: string;
-          p_limit?: number;
-          p_offset?: number;
-        };
-        Returns: Json;
-      };
-      care_my_households: {
-        Args: Record<PropertyKey, never>;
-        Returns: string[];
-      };
       care_settings_can: {
         Args: {
           p_center: string;
         };
         Returns: boolean;
-      };
-      care_view_centers: {
-        Args: Record<PropertyKey, never>;
-        Returns: string[];
       };
       catalog_shows: {
         Args: {
@@ -12978,12 +12896,27 @@ export type Database = {
         };
         Returns: Json;
       };
-      edit_care_note: {
+      email_automation_log: {
         Args: {
-          p_note: string;
-          p_body: string;
+          p_center: string;
+          p_key: string;
+          p_limit?: number;
         };
-        Returns: undefined;
+        Returns: Json;
+      };
+      email_automations_state: {
+        Args: {
+          p_center: string;
+          p_majority?: number;
+        };
+        Returns: Json;
+      };
+      email_receipts_for_uploaded: {
+        Args: {
+          p_center: string;
+          p_payments: string[];
+        };
+        Returns: Json;
       };
       end_weaver_filing: {
         Args: {
@@ -13282,6 +13215,13 @@ export type Database = {
           p_today?: string;
         };
         Returns: Json;
+      };
+      giving_upload_households: {
+        Args: {
+          p_center: string;
+          p_values: string[];
+        };
+        Returns: { input: string; match_kind: string; household_id: string; person_id: string; household_name: string; household_number: string; org_household_id: string; primary_member: string; city: string }[];
       };
       giving_zelle_waiting: {
         Args: {
@@ -13811,13 +13751,6 @@ export type Database = {
         Args: Record<PropertyKey, never>;
         Returns: { key: string; label: string; description: string; family_key: string; family_label: string; faith_based: boolean; active: boolean; sort: number }[];
       };
-      log_care_touch: {
-        Args: {
-          p_household: string;
-          p_touch: Json;
-        };
-        Returns: string;
-      };
       log_practice: {
         Args: {
           p_center: string;
@@ -13857,6 +13790,10 @@ export type Database = {
           p_reason?: string;
         };
         Returns: Json;
+      };
+      mark_donation_upload: {
+        Args: Record<PropertyKey, never>;
+        Returns: undefined;
       };
       mark_person_deceased: {
         Args: {
@@ -15130,6 +15067,17 @@ export type Database = {
         };
         Returns: Json;
       };
+      record_pledge_upload: {
+        Args: {
+          p_center: string;
+          p_idempotency_key: string;
+          p_file_name: string;
+          p_file_sha256: string;
+          p_reason: string;
+          p_rows: Json;
+        };
+        Returns: Json;
+      };
       record_security_event: {
         Args: {
           p_center: string;
@@ -15705,11 +15653,13 @@ export type Database = {
         };
         Returns: undefined;
       };
-      save_care_profile: {
+      save_email_automation_wording: {
         Args: {
-          p_household: string;
-          p_profile: Json;
-          p_reason?: string;
+          p_center: string;
+          p_key: string;
+          p_language: string;
+          p_subject: string;
+          p_body: string;
         };
         Returns: Json;
       };
@@ -15813,6 +15763,15 @@ export type Database = {
         };
         Returns: number;
       };
+      send_email_automation_test: {
+        Args: {
+          p_center: string;
+          p_key: string;
+          p_language: string;
+          p_vars: Json;
+        };
+        Returns: string;
+      };
       send_recipient_verification: {
         Args: {
           p_recipient: string;
@@ -15867,15 +15826,6 @@ export type Database = {
         };
         Returns: undefined;
       };
-      set_care_owner: {
-        Args: {
-          p_household: string;
-          p_owner?: string;
-          p_backup?: string;
-          p_reason?: string;
-        };
-        Returns: Json;
-      };
       set_center_branding: {
         Args: {
           p_center: string;
@@ -15921,6 +15871,15 @@ export type Database = {
         Args: {
           p_enabled: boolean;
           p_reason: string;
+        };
+        Returns: Json;
+      };
+      set_email_automation: {
+        Args: {
+          p_center: string;
+          p_key: string;
+          p_enabled: boolean;
+          p_uploaded?: boolean;
         };
         Returns: Json;
       };
@@ -16079,6 +16038,15 @@ export type Database = {
         Args: {
           p_key: string;
           p_value: string;
+          p_reason: string;
+        };
+        Returns: Json;
+      };
+      set_pledge_due_on: {
+        Args: {
+          p_center: string;
+          p_pledge: string;
+          p_due_on: string;
           p_reason: string;
         };
         Returns: Json;
@@ -16617,13 +16585,6 @@ export type Database = {
           p: string;
         };
         Returns: string;
-      };
-      void_care_touch: {
-        Args: {
-          p_touch: string;
-          p_reason?: string;
-        };
-        Returns: undefined;
       };
       webhook_job_kind: {
         Args: {

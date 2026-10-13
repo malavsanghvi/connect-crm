@@ -7,6 +7,8 @@
 // one of the adults shown (a child is never listed or named, so what is recorded under a child falls here). The parts always add up
 // to the household's total.
 
+import { pledgeDueDaysProblem } from "@/lib/giving-due";
+
 import type { GlanceWindow } from "./period";
 import { paidBetween, periodTotals, type GlanceRows } from "./summary";
 
@@ -29,9 +31,13 @@ export function givingShowBy(rules: unknown): GivingShowBy {
 export function givingRuleProblems(giving: unknown): string[] {
   if (giving === undefined || giving === null) return [];
   if (!isRecord(giving)) return [`"giving" must be an object.`];
+  const out: string[] = [];
   const v = giving.show_by;
-  if (v === undefined || v === null || v === "household" || v === "person") return [];
-  return [`"giving.show_by" must be "household" or "person".`];
+  if (!(v === undefined || v === null || v === "household" || v === "person")) out.push(`"giving.show_by" must be "household" or "person".`);
+  // rules.giving.pledge_due_days: pledges are due this many days after they are made when no due date is given (0775).
+  const due = pledgeDueDaysProblem(giving.pledge_due_days);
+  if (due) out.push(due);
+  return out;
 }
 
 export type GlanceScope = { kind: "household" } | { kind: "person"; personId: string } | { kind: "rest" };

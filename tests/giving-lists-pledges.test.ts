@@ -139,6 +139,23 @@ describe("a pledge row acts as Today does", () => {
     expect(kinds(r, "menu")).toEqual(["record_payment", "link"]);
   });
 
+  it("a treasurer can change an open pledge's due date, not before the day it was pledged (0775); nobody else is offered it", () => {
+    const p = byNumber("PL-0455");
+    const r = pledgeRow(p, F.adeyemi, ctx());
+    expect(r.menu).toContainEqual({
+      kind: "change_due",
+      id: p.id,
+      reference: "PL-0455",
+      dueOn: p.dueOn,
+      pledgedOn: new Intl.DateTimeFormat("en-CA", { timeZone: TZ }).format(new Date(p.pledgedAt)),
+      label: "Change due date…",
+    });
+    expect(kinds(pledgeRow(p, F.adeyemi, ctx({ can: { manage: false } })), "menu")).not.toContain("change_due");
+    expect(kinds(pledgeRow(byNumber("PL-0301"), F.kim, ctx()), "menu")).not.toContain("change_due");
+    // A write-off waiting for approval: the due date stays.
+    expect(kinds(pledgeRow(byNumber("PL-0388"), F.okafor2, ctx()), "menu")).not.toContain("change_due");
+  });
+
   it("a closed pledge only opens the family; a written-off one says why and what QuickBooks did", () => {
     const r = pledgeRow(byNumber("PL-0301"), F.kim, ctx());
     expect(r.status.label).toBe("Written off");
