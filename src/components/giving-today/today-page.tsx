@@ -65,7 +65,7 @@ function Problem({ message }: { message: string }) {
   );
 }
 
-function Row({ row, ctx, done }: { row: QueueRow; ctx: ActContext; done: string | undefined }) {
+export function Row({ row, ctx, done }: { row: QueueRow; ctx: ActContext; done: string | undefined }) {
   if (done) {
     return (
       <div className="flex items-center gap-3.5 border-t border-line py-3.5 first:border-t-0" data-row={row.id} role="status">

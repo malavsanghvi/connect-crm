@@ -41,11 +41,14 @@ export function ZelleReports({
   queue,
   accounts,
   canConfigure,
+  withExact = true,
   ...shared
 }: Shared & {
   queue: ReportQueue;
   accounts: { id: string; name: string; last4: string | null; active: boolean }[];
   canConfigure: boolean;
+  /** false: the New look's Bank tab draws the exact matches itself, as Today's row (docs/GIVING_REDESIGN.md slice 4). */
+  withExact?: boolean;
 }) {
   const sections = queueSections(queue);
   const anyTest = queue.reports.some((r) => r.is_test);
@@ -62,7 +65,7 @@ export function ZelleReports({
         </p>
       ) : null}
 
-      <ExactMatches pairs={sections.exact} {...shared} />
+      {withExact ? <ExactMatches pairs={sections.exact} {...shared} /> : null}
 
       <ReportSection
         title="Waiting for the bank"
