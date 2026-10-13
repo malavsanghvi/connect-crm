@@ -9,10 +9,12 @@ import { chunk } from "@/lib/data/fetch-all";
 import { loadPledgeDesignations } from "@/lib/data/record-pledge";
 import { addDays, dateInTz, startOfDayInTz, todayInTz } from "@/lib/dates";
 import { pledgeDueDays } from "@/lib/giving-due";
+import { repeatProbe, type DonationLookups, type ReadDonations, type UploadPledge } from "@/lib/giving-upload/donations";
 import { hitsFrom, type HouseholdHit } from "@/lib/giving-upload/households";
 import type { ExistingPledge, PledgeLookups, PledgeTarget, UploadAdult } from "@/lib/giving-upload/pledges";
 import { conventionsFor, type Conventions, type EarlierUpload } from "@/lib/giving-upload/sheet";
 import { kindTerm } from "@/lib/kind";
+import { canAccess } from "@/lib/permissions";
 import type { CrmSession } from "@/lib/session";
 
 // Giving uploads (GV-U) on the server: what the review needs, read with the person's own access (row level security), and the
@@ -234,4 +236,124 @@ export async function earlierPledgeUploads(session: CrmSession): Promise<Earlier
       };
     }),
   );
+}
+
+// ---------------------------------------------------------------------------------------------------------------------- Donations
+
+/** The open pledges of these households, as the allocation plan reads them (with the campaign's and fund's names). */
+export async function openPledgesOf(session: CrmSession, householdIds: readonly string[]): Promise<Record<string, UploadPledge[]>> {
+  const { db, center } = session;
+  const ids = [...new Set(householdIds)];
+  const out: Record<string, UploadPledge[]> = {};
+  if (ids.length === 0) return out;
+  const rows: {
+    id: string;
+    household_id: string;
+    pledge_number: string | null;
+    amount_cents: number;
+    paid_cents: number;
+    pledged_at: string;
+    status: string;
+    source: string;
+    due_on: string | null;
+    campaign_id: string | null;
+    fund_id: string | null;
+  }[] = [];
+  for (const part of chunk(ids, 100)) {
+    rows.push(
+      ...(must(
+        await db
+          .from("pledges")
+          .select("id, household_id, pledge_number, amount_cents, paid_cents, pledged_at, status, source, due_on, campaign_id, fund_id")
+          .eq("center_id", center.id)
+          .in("household_id", part)
+          .in("status", ["open", "partially_paid"])
+          .order("pledged_at")
+          .limit(5000),
+        "read the households' open pledges",
+      ) ?? []),
+    );
+  }
+  const [campaigns, funds] = await Promise.all([
+    db.from("campaigns").select("id, name").eq("center_id", center.id),
+    db.from("funds").select("id, name").eq("center_id", center.id),
+  ]);
+  const campaignName = new Map((must(campaigns, "read the campaigns") ?? []).map((c) => [c.id, c.name]));
+  const fundName = new Map((must(funds, "read the funds") ?? []).map((f) => [f.id, f.name]));
+  for (const r of rows) {
+    (out[r.household_id] ??= []).push({
+      id: r.id,
+      amount_cents: r.amount_cents,
+      paid_cents: r.paid_cents,
+      pledged_at: r.pledged_at,
+      status: r.status,
+      pledge_number: r.pledge_number,
+      source: r.source,
+      due_on: r.due_on,
+      campaign: r.campaign_id ? (campaignName.get(r.campaign_id) ?? null) : null,
+      fund: r.fund_id ? (fundName.get(r.fund_id) ?? null) : null,
+      campaignId: r.campaign_id,
+      fundId: r.fund_id,
+    });
+  }
+  return out;
+}
+
+type ZelleSeen = { kind?: string; receipt_number?: string | null; date?: string | null };
+
+/** Everything the donations review needs for these rows. */
+export async function donationLookups(session: CrmSession, read: ReadDonations): Promise<DonationLookups> {
+  const s = uploadSetting(session);
+  const values = [...new Set(read.lines.map((l) => l.household.trim()).filter(Boolean))];
+  const [hits, targets] = await Promise.all([lookupHouseholds(session, values), pledgeTargets(session)]);
+  const households = [...new Set(hits.map((h) => h.householdId))];
+  const probe = repeatProbe(read, { hits, labels: s.labels });
+  const [pledges, repeatRows] = await Promise.all([
+    openPledgesOf(session, households),
+    probe.length > 0
+      ? (rpcJson(session.db, "giving_upload_payment_repeats", { p_center: session.center.id, p_rows: probe }, "check for payments already recorded") as Promise<
+          { row_no: number; receipt_number: string | null; received_on: string }[] | null
+        >)
+      : Promise.resolve([]),
+  ]);
+  // Zelle rows: a Zelle of the same amount recorded or reported near that day (app.possible_duplicate_zelle, as the sheet asks).
+  const zelle: DonationLookups["zelle"] = [];
+  const zelleRows = probe.filter((p) => p.method === "zelle");
+  for (const part of chunk(zelleRows, 8)) {
+    const answers = await Promise.all(
+      part.map((p) =>
+        rpcJson(session.db, "possible_duplicate_zelle", { p_household: p.household_id, p_amount_cents: p.amount_cents, p_on: p.received_on }, "check for a Zelle recorded twice") as Promise<
+          ZelleSeen[] | null
+        >,
+      ),
+    );
+    answers.forEach((list, i) => {
+      const first = (list ?? [])[0];
+      if (!first) return;
+      const when = first.date ? ` around ${first.date}` : "";
+      zelle.push({
+        line: part[i].row,
+        what: first.kind === "report" ? `reported by the family${when}` : `recorded${when}${first.receipt_number ? ` (receipt ${first.receipt_number})` : ""}`,
+      });
+    });
+  }
+  return {
+    today: s.today,
+    currency: s.currency,
+    locale: s.locale,
+    labels: s.labels,
+    household: s.household,
+    canAllocate: canAccess(session, "allocatePayment"),
+    hits,
+    targets,
+    pledges,
+    repeats: (repeatRows ?? []).map((r) => ({ line: r.row_no, receiptNumber: r.receipt_number, receivedOn: r.received_on })),
+    zelle,
+  };
+}
+
+/** The latest donation uploads (a donations upload is never cancelled). */
+export async function earlierDonationUploads(session: CrmSession): Promise<EarlierUpload[]> {
+  const list = await recentUploads(session, "payments");
+  return list.map((u) => ({ ...u, cancellable: false, note: null }));
 }
