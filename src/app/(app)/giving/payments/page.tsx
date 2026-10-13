@@ -30,6 +30,7 @@ import { formatDate, todayInTz } from "@/lib/dates";
 import { explainError } from "@/lib/errors";
 import { countingStatusText, monthDay, OPENING_BALANCE_HINT, OPENING_BALANCE_LABEL, refundStatusText } from "@/lib/giving";
 import { ORIGINATOR_LABEL, PAYMENT_METHOD_LABEL } from "@/lib/labels";
+import { isModuleEnabled } from "@/lib/modules";
 import { formatCents } from "@/lib/money";
 import { can, canAccess } from "@/lib/permissions";
 import { hrefWith, isUuid, pageParam, param, type RawSearchParams } from "@/lib/search-params";
@@ -122,9 +123,11 @@ export default async function PaymentsPage({ searchParams }: { searchParams: Pro
   ]);
 
   const labels = { orgMemberLabel: rules.orgMemberLabel, orgHouseholdLabel: rules.orgHouseholdLabel };
-  const seesBank = canAccess(session, "bank");
-  const seesCounting = canAccess(session, "counting");
-  const canCount = canAccess(session, "countingRecord");
+  // Bank reconciliation and Offering counts are add-ons of Giving (0741): their parts of this page go when they are off.
+  const bankOn = isModuleEnabled(session, "giving_bank");
+  const seesBank = bankOn && canAccess(session, "bank");
+  const seesCounting = isModuleEnabled(session, "giving_counts") && canAccess(session, "counting");
+  const canCount = seesCounting && canAccess(session, "countingRecord");
   const seesAll = canAccess(session, "paymentsAll");
 
   // DAF grants and matching gifts (bank lines flagged by known_originators), newest first.
@@ -258,7 +261,7 @@ export default async function PaymentsPage({ searchParams }: { searchParams: Pro
       />
       <BlockGrid className="mb-4">
         {canRecord ? (
-          <RecordPaymentForm labels={labels} timeZone={tz} currency={center.currency} today={today} canAllocate={canAccess(session, "allocatePayment")} initialHousehold={prefill} {...(prefillValues ? { initialValues: prefillValues } : {})} />
+          <RecordPaymentForm labels={labels} timeZone={tz} currency={center.currency} today={today} canAllocate={canAccess(session, "allocatePayment")} bankOn={bankOn} initialHousehold={prefill} {...(prefillValues ? { initialValues: prefillValues } : {})} />
         ) : null}
 
         {seesBank ? (

@@ -7,6 +7,7 @@ import { parsePayeeQueue, parsePaymentReadiness } from "@/lib/payments/change-co
 import { parsePluginSettings } from "@/lib/payments/plugins/view";
 import { untypedRpc } from "@/lib/payments/rpc";
 import type { PaymentSettings } from "@/lib/payments/view";
+import { isModuleEnabled } from "@/lib/modules";
 import { canAccess } from "@/lib/permissions";
 import { getSession } from "@/lib/session";
 
@@ -127,7 +128,7 @@ export default async function PaymentsSettingsPage({ searchParams }: { searchPar
         tz={center.time_zone}
         env={env.ok ? { supabaseUrl: env.env.supabaseUrl, supabaseAnonKey: env.env.supabaseAnonKey } : null}
       >
-        <PluginCards s={settings} ps={plugins.value} tz={center.time_zone} cc={cc} />
+        <PluginCards s={settings} ps={plugins.value} tz={center.time_zone} cc={cc} bankOn={isModuleEnabled(session, "giving_bank")} />
       </PaymentsPanel>
     </>
   );

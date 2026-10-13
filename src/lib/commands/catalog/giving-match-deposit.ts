@@ -91,7 +91,7 @@ export const matchDeposit = defineCommand<Input, { count: number }>({
     "The payments must add up to the deposit exactly, none may already be on a deposit, and all must be payments recorded by hand. Find the bank line with giving.bank_lines_unmatched.",
   level: "confirm",
   permission: "bankConfirm",
-  module: "giving",
+  module: "giving_bank",
   enabledByDefault: false,
   requiresOwnerSwitch: true,
   covers: ["src/app/(app)/giving/payments/bank/actions.ts#matchDepositAction"],

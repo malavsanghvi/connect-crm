@@ -97,7 +97,18 @@ export type ModuleContext = { modulesOff?: readonly string[] };
 
 /** True unless the module is switched off for the center. Missing data means ON (the contract's default). */
 export function isModuleEnabled(ctx: ModuleContext, key: ModuleKey | string): boolean {
-  return !(ctx.modulesOff ?? []).includes(key);
+  const off = ctx.modulesOff ?? [];
+  if (off.length === 0) return true;
+  // 0740: a module is off while a module it needs is off (dependencies are evaluated), as the database answers; so Giving's
+  // add-ons (0741) are off whenever Giving is, even before my_modules says so for each of them.
+  const seen = new Set<string>();
+  const on = (k: string): boolean => {
+    if (off.includes(k)) return false;
+    if (seen.has(k)) return true;
+    seen.add(k);
+    return (BY_KEY.get(k as ModuleKey)?.dependsOn ?? []).every(on);
+  };
+  return on(key);
 }
 
 // ---------------------------------------------------------------------------
@@ -110,6 +121,12 @@ const EXTRA_PATHS: readonly [string, ModuleKey][] = [
   ["/events/volunteers", "volunteers"],
   ["/ops", "events"],
   ["/comms/surveys", "surveys"],
+  // Giving's add-ons (0741) that are not NAV tabs of their own; the Campaigns list under Opportunities stays core.
+  ["/giving/payments/bank", "giving_bank"],
+  ["/giving/bank", "giving_bank"],
+  ["/giving/opportunities", "giving_opportunities"],
+  ["/giving/opportunities/campaigns", "giving"],
+  ["/giving/campaigns", "giving"],
   // The Pathshala committee holds governance (resolutions, concerns) and event planning.
   ["/pathshala/committee/resolutions", "governance"],
   ["/pathshala/committee/concerns", "governance"],

@@ -45,7 +45,10 @@ describe("module registry", () => {
     expect(isModuleEnabled({}, "giving")).toBe(true);
     expect(isModuleEnabled({ modulesOff: [] }, "giving")).toBe(true);
     expect(isModuleEnabled({ modulesOff: ["giving"] }, "giving")).toBe(false);
-    expect(isModuleEnabled({ modulesOff: ["giving"] }, "bolis")).toBe(true);
+    // 0740: dependencies are evaluated, so Bolis and Giving's add-ons (0741) are off while Giving is.
+    expect(isModuleEnabled({ modulesOff: ["giving"] }, "bolis")).toBe(false);
+    expect(isModuleEnabled({ modulesOff: ["giving"] }, "giving_bank")).toBe(false);
+    expect(isModuleEnabled({ modulesOff: ["giving_bank"] }, "giving")).toBe(true);
   });
 });
 
@@ -226,7 +229,7 @@ describe("Home tasks follow module switches", () => {
     expect(off).not.toContain("writeoff");
     expect(off).not.toContain("deposits");
     expect(off).not.toContain("pathshala");
-    expect(off).toContain("bolis"); // its own module (the database keeps bolis off when giving is off)
+    expect(off).not.toContain("bolis"); // 0740: Bolis needs Giving, so it is off while Giving is
     expect(off).toContain("privacy"); // core platform
     const noMembership = visibleTaskSources({ ...admin, modulesOff: ["membership"] }).map((s) => s.key);
     expect(noMembership).not.toContain("membership");
