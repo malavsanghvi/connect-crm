@@ -47,7 +47,25 @@ export type Step =
   | "add-person-save"
   | "add-person-child"
   | "add-person-bad"
+  | "pd-anniversary"
+  | "pd-anniversary-save"
+  | "pd-dietary"
+  | "pd-dietary-save"
+  | "pd-emergency"
+  | "pd-emergency-save"
+  | "pd-emergency-bad"
+  | "pd-view"
   | EventStep;
+
+// What someone else "just saved" for the member's details, for the conflict state (every field of each group, as the server sends).
+const PROFILE_THEIRS = {
+  anniversary: "2010-01-05",
+  dietary: "vegan",
+  dietary_other: "",
+  emergency_contact_name: "Layla Haddad",
+  emergency_contact_relationship: "Sister",
+  emergency_contact_phone: "+17135550111",
+};
 
 /** What "someone else" changed it to, for the conflict scenario. */
 const THEIRS: Record<string, string> = {
@@ -63,7 +81,7 @@ function fakeActions(scenario: Scenario, family: FamilyKey, eventsState: EventSt
   const wait = () => new Promise((r) => setTimeout(r, 140));
   return {
     eventAdd: fakeEventAdd(eventsState, family),
-    async save(_target, input): Promise<InlineSave> {
+    async save(target, input): Promise<InlineSave> {
       await wait();
       const keys = Object.keys(input.fields);
       if (scenario === "conflict") {
@@ -72,7 +90,7 @@ function fakeActions(scenario: Scenario, family: FamilyKey, eventsState: EventSt
           kind: "conflict",
           error: conflictSentence(keys),
           conflict: {
-            theirs: Object.fromEntries(keys.map((k) => [k, THEIRS[k] ?? (input.expect[k] ?? "")])),
+            theirs: target.kind === "profile" ? PROFILE_THEIRS : Object.fromEntries(keys.map((k) => [k, THEIRS[k] ?? (input.expect[k] ?? "")])),
             who: "Ravi",
             at: new Date(Date.now() - 70_000).toISOString(),
           },
@@ -185,6 +203,35 @@ function run(step: Step) {
   if (step === "ids-retire" || step === "ids-retire-save") {
     click(root, '[data-testid="ids-section"] button[aria-label^="Retire"]');
     if (step === "ids-retire-save") later(120, () => document.querySelector<HTMLElement>('[data-testid="ids-section"] [role="group"] button')?.click());
+  }
+  if (step === "pd-view") document.querySelector('[data-testid="profile-row"][data-group="dietary"]')?.scrollIntoView({ block: "center" });
+  else if (step.startsWith("pd-")) {
+    const group = step.includes("anniversary") ? "anniversary" : step.includes("dietary") ? "dietary" : "emergency";
+    const row = () => document.querySelector<HTMLElement>(`[data-testid="profile-row"][data-group="${group}"]`);
+    row()?.scrollIntoView({ block: "center" });
+    click(row(), "button[aria-label^='Edit']");
+    const save = step.endsWith("-save") || step.endsWith("-bad");
+    later(160, () => {
+      const r = row();
+      if (group === "anniversary") {
+        const el = r?.querySelector<HTMLInputElement>("input");
+        if (el) {
+          setValue(el, "07/04/2010");
+          if (save) later(90, () => enter(el));
+        }
+      }
+      if (group === "dietary" && save) {
+        [...(r?.querySelectorAll<HTMLElement>("button[aria-pressed]") ?? [])].find((b) => /^Vegan/.test(b.textContent ?? ""))?.click();
+        later(120, () => [...(row()?.querySelectorAll<HTMLElement>("button") ?? [])].find((b) => b.textContent === "Save")?.click());
+      }
+      if (group === "emergency") {
+        const name = r?.querySelector<HTMLInputElement>('input[id$="-name"]');
+        const phone = r?.querySelector<HTMLInputElement>('input[id$="-phone"]');
+        if (name) setValue(name, "Ngozi Okonkwo");
+        if (phone) setValue(phone, step.endsWith("-bad") ? "" : save ? "(713) 555-0142" : "713 555");
+        if (save) later(120, () => [...(row()?.querySelectorAll<HTMLElement>("button") ?? [])].find((b) => b.textContent === "Save")?.click());
+      }
+    });
   }
   if (step === "menu") click(root, "footer button[aria-haspopup='menu']");
   if (step === "card-menu") click(document, 'article button[aria-label^="More about"]');

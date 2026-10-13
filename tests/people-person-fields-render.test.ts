@@ -11,6 +11,7 @@ vi.mock("@/app/(app)/households/[id]/slideover-actions", () => ({ addPersonInlin
 vi.mock("@/app/(app)/identifiers/person-id-seam", () => ({ addPersonId: vi.fn(), retirePersonId: vi.fn() }));
 vi.mock("@/app/(app)/people/deceased-actions", () => ({ markDeceasedAction: vi.fn(), undoDeceasedAction: vi.fn() }));
 vi.mock("@/app/(app)/households/[id]/event-add-actions", () => ({ addToEventAction: vi.fn(), loadAddToEventAction: vi.fn() }));
+vi.mock("@/app/(app)/households/[id]/profile-details-actions", () => ({ saveProfileDetailsAction: vi.fn() }));
 vi.mock("@/app/security-actions", () => ({ verifyStepUpAction: vi.fn() }));
 
 import { detailFixture, type Access } from "@/app/dev/people-slideover/fixtures";

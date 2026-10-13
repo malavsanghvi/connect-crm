@@ -61,6 +61,14 @@ export type HouseholdFieldKey =
   | "directory_opt_in"
   | "physical_mail_opt_in";
 export type FieldKey = PersonFieldKey | HouseholdFieldKey;
+/** What a member gave about themselves (src/lib/people-v2/profile-details.ts): their own table, saved by its own staff function. */
+export type ProfileFieldKey =
+  | "anniversary"
+  | "dietary"
+  | "dietary_other"
+  | "emergency_contact_name"
+  | "emergency_contact_relationship"
+  | "emergency_contact_phone";
 
 /** Values as the database holds them, in text: a missing value is "", a switch is "on" or "off". */
 export type Values = Record<string, string>;
@@ -73,7 +81,7 @@ export type EditUnit = {
   id: string;
   /** "Mobile", used in the field label and in sentences ("Saved Tunde's mobile"). */
   label: string;
-  fields: readonly (FieldKey | CustomFieldKey)[];
+  fields: readonly (FieldKey | CustomFieldKey | ProfileFieldKey)[];
   /** Name and date of birth: Enter saves, with a one-line why (plan section 5). Leaving the field does not save. */
   needsReason: boolean;
   /**

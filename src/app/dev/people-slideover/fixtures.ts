@@ -4,6 +4,7 @@
 import type { AuditRow } from "@/components/audit-table";
 import type { FamilyModel, FamilyPerson } from "@/lib/people-v2/family-model";
 import { preferenceValues, privacyValues } from "@/lib/people-v2/family-model";
+import type { DietaryOption } from "@/lib/people-v2/profile-details";
 import {
   addIdKinds,
   detailHousehold,
@@ -59,7 +60,19 @@ type Extra = {
   memberships: MembershipHeld[];
 };
 
-const NONE: ProfileDetails = { anniversary: null, dietary: [], emergency: null, labelsNote: null };
+// The community's own dietary list (a choice it switched off is still shown on the person who has it).
+const OPTIONS: DietaryOption[] = [
+  { key: "vegetarian", label: "Vegetarian", active: true },
+  { key: "vegan", label: "Vegan", active: true },
+  { key: "gluten_free", label: "Gluten-free", active: true },
+  { key: "nut_allergy", label: "Nut allergy", active: true },
+  { key: "halal", label: "Halal", active: true },
+  { key: "dairy_free", label: "Dairy-free", active: false },
+  { key: "other", label: "Other", active: true },
+];
+const facts = (dietaryKeys: string[], dietaryOther = "") => ({ dietaryKeys, dietaryOther, options: OPTIONS });
+
+const NONE: ProfileDetails = { anniversary: null, dietary: [], emergency: null, labelsNote: null, edit: facts([]) };
 
 const EXTRA: Record<string, Extra> = {
   "p-samira": {
@@ -76,6 +89,7 @@ const EXTRA: Record<string, Extra> = {
       ],
       emergency: { name: "Layla Haddad", relationship: "Sister", phone: "+17135550100" },
       labelsNote: null,
+      edit: facts(["vegetarian", "nut_allergy"]),
     },
     expertise: "Clinical pharmacist, happy to guide students",
     photo: true,
@@ -111,7 +125,7 @@ const EXTRA: Record<string, Extra> = {
     roles: [],
     waiver: "",
     background: "",
-    details: { anniversary: null, dietary: [{ label: "Dairy-free", retired: false }], emergency: null, labelsNote: null },
+    details: { anniversary: null, dietary: [{ label: "Dairy-free", retired: true }], emergency: null, labelsNote: null, edit: facts(["dairy_free"]) },
     expertise: "",
     photo: true,
     newMember: false,
@@ -126,7 +140,16 @@ const EXTRA: Record<string, Extra> = {
     roles: [],
     waiver: "No volunteer shifts",
     background: "None on file",
-    details: { anniversary: "2012-10-08", dietary: [{ label: "Halal", retired: false }], emergency: { name: "田中 健", relationship: "Brother", phone: "+81398765432" }, labelsNote: null },
+    details: {
+      anniversary: "2012-10-08",
+      dietary: [
+        { label: "Halal", retired: false },
+        { label: "Other: エビ・カニにアレルギー", retired: false },
+      ],
+      emergency: { name: "田中 健", relationship: "Brother", phone: "+81398765432" },
+      labelsNote: null,
+      edit: facts(["halal", "other"], "エビ・カニにアレルギー"),
+    },
     expertise: "薬剤師。薬の相談に乗れます",
     photo: true,
     newMember: true,

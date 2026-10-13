@@ -9,7 +9,6 @@ import {
   NO_ACCESS_TEXT,
   accountLines,
   allNoAccess,
-  profileDetailLines,
   reachedByLine,
   rolesLines,
   type PersonDetailModel,
@@ -21,6 +20,7 @@ import { InterestsRow, ListRow } from "../family/list-row";
 import { GENDER_CHOICES, PersonRow, Relationship, type PersonCtx } from "../family/person-card";
 import { useInlineEdit } from "../family/use-inline-edit";
 
+import { ProfileDetailsEditor } from "./profile-details-editor";
 import { Lines, PartNote } from "./section";
 
 // The slide-over's Profile, Account, Roles and Privacy sections. Every editable value is the Family page's own click-to-edit
@@ -33,7 +33,6 @@ export function ProfileSection({ detail, ctx }: { detail: PersonDetailModel; ctx
   const row = (unit: EditUnit, fieldKey: string, label: string, placeholder: string, kind?: "text" | "tel" | "email" | "select" | "date", options?: { value: string; label: string }[]) => (
     <PersonRow person={p} ctx={ctx} unit={unit} fieldKey={fieldKey} label={label} placeholder={placeholder} kind={kind} options={options} wide />
   );
-  const details = profileDetailLines({ isChild: child, firstName: p.firstName, details: detail.profileDetails });
   return (
     <div>
       {row(PERSON_UNITS.preferredName, "preferred_name", "Goes by", "Add a name they go by")}
@@ -54,9 +53,7 @@ export function ProfileSection({ detail, ctx }: { detail: PersonDetailModel; ctx
       {detail.preferences && !child ? <PreferencesBlock detail={detail} prefs={detail.preferences} ctx={ctx} /> : null}
       <div className="mt-3 border-t border-line pt-3">
         <p className="m-0 mb-1 text-[12px] font-bold uppercase tracking-[0.04em] text-muted">Given by the member in the app</p>
-        <Lines lines={details} />
-        {detail.profileDetails.state === "error" ? <PartNote part={detail.profileDetails} what="what this member gave in the app" /> : null}
-        <p className="m-0 mt-1 text-[12px] text-muted">Dietary and emergency details are private: use them only for the event or emergency in hand. Members change them in the app.</p>
+        <ProfileDetailsEditor detail={detail} ctx={ctx} />
       </div>
     </div>
   );
