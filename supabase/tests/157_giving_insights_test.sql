@@ -86,9 +86,10 @@ end $$;
 
 -- ══ Fixtures ═════════════════════════════════════════════════════════════════
 insert into auth.users (id, email) values (:tres, 'treasurer157@chamber.test'), (:vol, 'volunteer157@chamber.test'), (:other, 'other157@elsewhere.test');
-insert into app.centers (id, slug, name, short_name, category_key, time_zone, currency) values
-  (:c, 'chamber157', 'Lakeside Chamber 157', 'LC157', 'chamber_of_commerce', 'America/Toronto', 'CAD'),
-  (:d, 'elsewhere157', 'Elsewhere Club 157', 'EC157', 'nonprofit_secular', 'America/Toronto', 'CAD');
+-- The chamber category can only be chosen for a sandbox while it is being previewed (0594).
+insert into app.centers (id, slug, name, short_name, category_key, time_zone, currency, environment) values
+  (:c, 'chamber157-sandbox', 'Lakeside Chamber 157', 'LC157', 'chamber_of_commerce', 'America/Toronto', 'CAD', 'sandbox'),
+  (:d, 'elsewhere157-sandbox', 'Elsewhere Club 157', 'EC157', 'nonprofit_secular', 'America/Toronto', 'CAD', 'sandbox');
 insert into app.org_profiles (center_id, fiscal_year_start_month) values (:c, 4) on conflict (center_id) do update set fiscal_year_start_month = 4;
 insert into app.role_grants (center_id, user_id, role_key, reason) values
   (:c, :tres, 'treasurer', 'giving insights test 157'), (:c, :vol, 'finance_volunteer', 'giving insights test 157'),
