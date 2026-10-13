@@ -9,8 +9,11 @@ import { useToast } from "@/components/toast";
 import { formatDate } from "@/lib/dates";
 import { tierLabel } from "@/lib/people";
 import {
+  ASSIGN_NOTE_LINE,
   MEMBERSHIP_NOTE_MAX,
   MEMBERSHIP_REASON_MAX,
+  NOTE_READABLE_HINT,
+  TIER_NOTE_LINE,
   assignDraftOf,
   assignSentence,
   assignedMessage,
@@ -213,7 +216,7 @@ export function EditPanel({
         </Field>
         <DateProblem uid={uid} problem={problem} />
         <div className="sm:col-span-2">
-          <Field id={`${uid}-notes`} label="Note" problem={problem} field="notes">
+          <Field id={`${uid}-notes`} label="Note" hint={NOTE_READABLE_HINT} problem={problem} field="notes">
             <textarea
               id={`${uid}-notes`}
               value={draft.notes}
@@ -226,7 +229,7 @@ export function EditPanel({
           </Field>
         </div>
         <div className="sm:col-span-2">
-          <Field id={`${uid}-reason`} label="Why? It goes in the audit log." problem={problem} field="reason">
+          <Field id={`${uid}-reason`} label="Reason (kept in the audit log only)" problem={problem} field="reason">
             <input
               id={`${uid}-reason`}
               type="text"
@@ -340,6 +343,9 @@ export function TierPanel({
         <div role="group" aria-label="Confirm the tier change" data-testid="membership-confirm" className="rounded-[10px] bg-[var(--v2-ground)] px-3 py-2.5 text-[14px] leading-relaxed text-ink" dir="auto">
           <p className="m-0">{tierSentence({ household: ctx.household, from: live.tier, to: checked.input.tier })}</p>
           <p className="m-0 mt-1.5 text-[13px] text-ink-2">Reason: {checked.input.reason}</p>
+          <p data-testid="membership-note-line" className="m-0 mt-1 text-[12.5px] text-muted">
+            {TIER_NOTE_LINE}
+          </p>
         </div>
         {failure ? <Failure>{failure}</Failure> : null}
         <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -380,7 +386,7 @@ export function TierPanel({
             ))}
           </select>
         </Field>
-        <Field id={`${uid}-reason`} label="Why? It goes in the audit log." problem={problem} field="reason">
+        <Field id={`${uid}-reason`} label="Reason (kept in the audit log only)" problem={problem} field="reason">
           <input
             id={`${uid}-reason`}
             type="text"
@@ -480,6 +486,9 @@ export function AssignPanel({
         <div role="group" aria-label="Confirm the new membership" data-testid="membership-confirm" className="rounded-[10px] bg-[var(--v2-ground)] px-3 py-2.5 text-[14px] leading-relaxed text-ink" dir="auto">
           <p className="m-0">{assignSentence(ctx, checked.input, timeZone)}</p>
           <p className="m-0 mt-1.5 text-[13px] text-ink-2">Reason: {checked.input.request.reason}</p>
+          <p data-testid="membership-note-line" className="m-0 mt-1 text-[12.5px] text-muted">
+            {ASSIGN_NOTE_LINE}
+          </p>
         </div>
         {failure ? <Failure>{failure}</Failure> : null}
         <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -579,7 +588,7 @@ export function AssignPanel({
           </div>
         ) : null}
         <div className="sm:col-span-2">
-          <Field id={`${uid}-reason`} label="Why? It goes in the audit log." problem={problem} field="reason">
+          <Field id={`${uid}-reason`} label="Reason (kept in the audit log only)" problem={problem} field="reason">
             <input
               id={`${uid}-reason`}
               type="text"

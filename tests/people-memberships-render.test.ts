@@ -39,7 +39,7 @@ function section(o: { family?: FamilyKey; person?: string; canChange?: boolean; 
 }
 
 const count = (html: string, needle: string) => html.split(needle).length - 1;
-const text = (html: string) => html.replace(/<[^>]+>/g, " ").replace(/&amp;/g, "&").replace(/&#x27;/g, "'").replace(/\s+/g, " ");
+const text = (html: string) => html.replace(/<[^>]+>/g, " ").replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#x27;/g, "'").replace(/\s+/g, " ");
 
 describe("the list", () => {
   it("shows each membership with its tier, status, dates, the family's card line, who holds it and its note", () => {
@@ -53,7 +53,8 @@ describe("the list", () => {
     expect(t).toContain("Ended");
     expect(t).toContain("Apr 1, 2022 – Mar 31, 2026");
     expect(t).toContain("Held by Samira Hassan");
-    expect(t).toContain("Note: Assigned by staff: Paid at the office desk");
+    expect(t).toContain("Note: Assigned by staff");
+    expect(t).not.toContain("Paid at the office desk");
     // never a family by its name alone
     const lines = [...html.matchAll(/data-testid="membership-household"[^>]*>([^<]*)</g)].map((m) => m[1].replace(/&amp;/g, "&"));
     expect(lines).toEqual(["Hassan household · No. 0301 · RCC-H-1102 · Samira & Karim Hassan · Riverside, North Riverside", "Hassan household · No. 0301 · RCC-H-1102 · Samira & Karim Hassan · Riverside, North Riverside"]);
@@ -108,7 +109,7 @@ describe("the list", () => {
     expect(t).toContain("Held by 田中 美咲");
     expect(t).toContain("Life");
     expect(t).toContain("Jun 15, 2024 – no end date");
-    expect(t).toContain("Note: Assigned by staff: 生涯会員の会費を窓口で受領");
+    expect(t).toContain("Note: 会費は窓口で受領しました");
     expect(t).toContain("田中・Haddad の家 · No. 0507");
   });
 });
@@ -118,10 +119,12 @@ describe("edit dates and notes", () => {
     const html = section({ ms: "edit" });
     const t = text(html);
     expect(html).toContain('data-testid="membership-edit"');
-    for (const label of ["Starts on", "Ends on", "Note", "Why? It goes in the audit log."]) expect(t).toContain(label);
+    for (const label of ["Starts on", "Ends on", "Note", "Reason (kept in the audit log only)"]) expect(t).toContain(label);
+    // members can read a note: the line under it says where the reason goes
+    expect(t).toContain("Members of this household can read this note. Put the reason in the Reason box below: it only goes in the audit log.");
     expect(html).toContain('value="2026-03-20"');
     expect(html).toContain('value="2027-03-31"');
-    expect(html).toContain("Assigned by staff: Paid at the office desk");
+    expect(html).toContain("Assigned by staff");
     expect(html).toContain('value="Corrected from the paper form"');
     expect(t).toContain("Start date: Apr 1, 2026 → Mar 20, 2026");
     expect(t).toContain("Save changes");
@@ -166,6 +169,11 @@ describe("change tier", () => {
     expect(t).toContain("It is active at once and does not wait for the Executive Committee. No fee is recorded.");
     expect(t).toContain("Reason: Paid the life fee at the office");
     expect(t).toContain("Yes, change the tier");
+  });
+
+  it("says the existing tier change copies the reason into the membership's note, which members can read, so keep it factual", () => {
+    const t = text(section({ ms: "tier-confirm" }));
+    expect(t).toContain("The reason goes in the audit log. The tier change also copies it into the new membership's note, which members of this household can read, so keep it factual.");
   });
 
   it("says a refusal in words with a retry", () => {
@@ -232,6 +240,12 @@ describe("assign a membership", () => {
     expect(text(html)).toContain("Back");
     // the form is gone: one confirmation, not two
     expect(html).not.toContain('type="date"');
+  });
+
+  it("says the reason is kept in the audit log only, and that the note will be neutral, because members can read a note", () => {
+    const t = text(section({ family: "adeyemi", ms: "assign-confirm" }));
+    expect(t).toContain("Reason: Paid at the office desk");
+    expect(t).toContain(`The reason is kept in the audit log only. The membership's note will say just "Assigned by staff", which members of this household can read.`);
   });
 
   it("says it for a Life membership", () => {

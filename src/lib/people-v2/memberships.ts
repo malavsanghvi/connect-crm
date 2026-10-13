@@ -25,6 +25,12 @@ export const MEMBERSHIP_MAX_DATE = "2200-12-31";
 export const FEE_DUE_DAYS = 30;
 
 export const CHANGE_NEEDS = "You can see memberships here but not change them. Changing one needs both the manage and the approve permission for People.";
+/** Under the Notes box of the edit panel: members can read a note, so the reason belongs in the Reason box (audit log only). */
+export const NOTE_READABLE_HINT = "Members of this household can read this note. Put the reason in the Reason box below: it only goes in the audit log.";
+/** In the assign confirmation: the reason is audit-only and the note the database writes is neutral. */
+export const ASSIGN_NOTE_LINE = "The reason is kept in the audit log only. The membership's note will say just \"Assigned by staff\", which members of this household can read.";
+/** In the Change tier panel: the existing tier change copies the reason into the new membership's note (migration 0030/0104). */
+export const TIER_NOTE_LINE = "The reason goes in the audit log. The tier change also copies it into the new membership's note, which members of this household can read, so keep it factual.";
 export const NO_FAMILY_NOTE = "This person is not in a family yet, so a membership cannot be assigned here.";
 
 // ---------------------------------------------------------------------------

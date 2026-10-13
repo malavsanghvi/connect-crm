@@ -26,7 +26,7 @@ const ROWS: Record<string, Draft[]> = {
       status: "active",
       startsOn: "2026-04-01",
       endsOn: "2027-03-31",
-      notes: "Assigned by staff: Paid at the office desk",
+      notes: "Assigned by staff",
       holder: { id: "p-samira", name: "Samira Hassan" },
       hasFeePledge: true,
       fixedTerm: true,
@@ -49,7 +49,7 @@ const ROWS: Record<string, Draft[]> = {
     { id: "m2", tier: "community", typeName: "Friend", status: "ended", startsOn: "2021-02-01", endsOn: "2025-03-31", notes: null, holder: null, hasFeePledge: false, fixedTerm: false },
   ],
   "hh-tanaka": [
-    { id: "m4", tier: "life", typeName: "Lifetime member", status: "active", startsOn: "2024-06-15", endsOn: null, notes: "Assigned by staff: 生涯会員の会費を窓口で受領", holder: { id: "p-misaki", name: "田中 美咲" }, hasFeePledge: true, fixedTerm: false },
+    { id: "m4", tier: "life", typeName: "Lifetime member", status: "active", startsOn: "2024-06-15", endsOn: null, notes: "会費は窓口で受領しました", holder: { id: "p-misaki", name: "田中 美咲" }, hasFeePledge: true, fixedTerm: false },
   ],
   "hh-valdes": [],
 };

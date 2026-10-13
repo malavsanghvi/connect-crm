@@ -59,8 +59,10 @@
 --       row is 'active' per family. This is the only status written, and only on such expired rows.
 --     * The new membership is 'active' at once, starts today or earlier (never in the future), and ends on the given date or, when
 --       none is given and the type has a period (period_months), start + period_months months, exactly as the approval path
---       counts from its start. An end date that has already passed is refused. granted_by = the caller; notes = 'Assigned by
---       staff: <reason>'.
+--       counts from its start. An end date that has already passed is refused. granted_by = the caller; notes = the NEUTRAL text
+--       'Assigned by staff' (never the reason: members can read their own household's memberships row, notes included
+--       (memberships_mine, 0010), so a reason such as "hardship, complimentary" must not become visible to them. The reason is
+--       AUDIT-ONLY, below).
 --     * FEE. When record_fee is true AND the type's fee_cents > 0 AND Pledges & donations is on, ONE open pledge is created the
 --       way app.grant_membership_on_approval() (0130) creates it: source 'membership_fee', source_ref_id = the membership,
 --       amount_cents = the type's fee_cents (integer cents), status 'open', due_on = current_date + 30, pledged_by_person_id =
@@ -71,7 +73,9 @@
 --       When record_fee is false, or null, NO pledge is ever created.
 --
 --   AUDIT. Both call app.set_audit_context(reason) before writing, so every row they touch (memberships, the pledge, and the
---   rows marked lapsed) carries that reason through the table audit triggers (0102), with the caller as the actor.
+--   rows marked lapsed) carries that reason through the table audit triggers (0102), with the caller as the actor. The reason is
+--   AUDIT-ONLY: it is never written to memberships.notes. (The note of an EDIT is whatever staff type in the note box; members of
+--   the family can read it, and the screen says so under the box.)
 --
 -- KEPT AS THEY ARE: the Pathshala trigger pathshala_membership_active (0591) fires on the insert / the ends_on update these functions
 -- make (a family's membership becoming live lifts its learners' membership holds); app.change_household_tier still works after.
@@ -271,7 +275,9 @@ begin
   perform app.set_audit_context(v_reason);
   update app.memberships set status = 'lapsed' where household_id = p_household and status = 'active';
 
-  v_note := 'Assigned by staff: ' || btrim(p_reason);
+  -- The note is NEUTRAL: the staff member's reason is never copied into memberships.notes (a member can read that column). The
+  -- reason lives in the audit log only (set_audit_context above). The suffix below is about the community's own fee, not the reason.
+  v_note := 'Assigned by staff';
   v_giving := app.module_enabled(v_center, 'giving');
   if coalesce(p_record_fee, false) and v_type.fee_cents > 0 and not v_giving then
     v_note := v_note || ' · fee of ' || to_char(v_type.fee_cents / 100.0, 'FM999,999,990.00') || ' not recorded: Pledges & donations is switched off';
@@ -305,7 +311,7 @@ grant execute on function app.staff_update_membership(uuid, date, date, text, te
 comment on function app.staff_update_membership(uuid, date, date, text, text) is
   'Edits ONLY the start date, end date and note of a membership. Needs people.approve AND people.manage in the membership''s community, the Membership module and a reason; audited. Never changes tier, status, type, household, fee or pledge.';
 comment on function app.staff_assign_membership(uuid, uuid, uuid, date, date, text, boolean) is
-  'Assigns a new membership to a family: ACTIVE AT ONCE for every tier including life, with NO Executive Committee step (owner decision 2026-10-13). Needs people.approve AND people.manage, the Membership module and a reason; audited. Optionally records the fee as an open membership_fee pledge exactly as app.grant_membership_on_approval does.';
+  'Assigns a new membership to a family: ACTIVE AT ONCE for every tier including life, with NO Executive Committee step (owner decision 2026-10-13). Needs people.approve AND people.manage, the Membership module and a reason; audited. Optionally records the fee as an open membership_fee pledge exactly as app.grant_membership_on_approval does. The reason is audit-only: the note is the neutral text ''Assigned by staff''.';
 
 -- ---------------------------------------------------------------------------------------------------------------------------
 -- Activity: the portal's two screen actions, in the allowlist (like 0720 and 0722). The tier change keeps its existing key

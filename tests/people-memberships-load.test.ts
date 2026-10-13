@@ -36,7 +36,7 @@ const row = (o: Record<string, unknown>) => ({
 function world(over: { memberships?: Record<string, unknown>[]; perms?: string[]; modulesOff?: string[]; failTables?: Record<string, { message: string }> } = {}) {
   const db = fakeDb({
     tables: {
-      memberships: over.memberships ?? [row({ id: "m1", fee_pledge_id: "pl-1", notes: "Assigned by staff: Paid at the desk" })],
+      memberships: over.memberships ?? [row({ id: "m1", fee_pledge_id: "pl-1", notes: "Assigned by staff" })],
       membership_types: TYPES,
       people: [{ id: "p-visitor", first_name: "Aiko", last_name: "Tanaka", preferred_name: null, member_number: null }],
       households: [],
@@ -68,7 +68,7 @@ describe("loadMembershipsPanel", () => {
         status: "active",
         startsOn: "2026-04-01",
         endsOn: "2099-03-31",
-        notes: "Assigned by staff: Paid at the desk",
+        notes: "Assigned by staff",
         holder: { id: "p-samira", name: "Samira Hassan" },
         household: ["Hassan household", "No. 0301", "RCC-H-1102", "Samira & Karim Hassan", "Riverside, North Riverside"],
         hasFeePledge: true,

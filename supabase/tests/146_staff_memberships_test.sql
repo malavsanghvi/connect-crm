@@ -358,7 +358,7 @@ select app.staff_assign_membership(:h_li, :p_ming, :t_year, null, null, '  Paid 
 select pg_temp.sign_out();
 select pg_temp.assert((select m.status = 'active' and m.tier = 'yearly' and m.membership_type_id = :t_year and m.person_id = :p_ming and m.center_id = :ca and m.household_id = :h_li
                               and m.starts_on = :'today_a'::date and m.ends_on = (:'today_a'::date + interval '12 months')::date and m.granted_by = :u_both
-                              and m.notes = 'Assigned by staff: Paid at the office desk'
+                              and m.notes = 'Assigned by staff'
                          from app.memberships m where m.id = :'m_li'),
                       'D · a yearly membership is active at once, for the holder, starting today and ending after the type''s 12 months, granted by the caller');
 select pg_temp.assert((select p.amount_cents = 5000 and p.status = 'open' and p.source = 'membership_fee' and p.source_ref_id = :'m_li'::uuid and p.household_id = :h_li and p.center_id = :ca
@@ -399,9 +399,10 @@ select pg_temp.assert((select string_agg(m.tier::text || ':' || m.status::text, 
 select pg_temp.sign_in(:u_both);
 select app.staff_assign_membership(pg_temp.hh(2), pg_temp.pp(2), :t_year, null, null, 'Member since last year, no fee now', false) as m_nofee \gset
 select app.staff_assign_membership(pg_temp.hh(3), pg_temp.pp(3), :t_year, null, null, 'Fee waived by the board', null) as m_nullfee \gset
+select app.staff_assign_membership(pg_temp.hh(10), pg_temp.pp(10), :t_year, null, null, 'Hardship, complimentary membership', false) as m_hard \gset
 select pg_temp.sign_out();
-select pg_temp.assert((select m.status = 'active' and m.fee_pledge_id is null and m.notes = 'Assigned by staff: Member since last year, no fee now' from app.memberships m where m.id = :'m_nofee')
-                      and (select m.status = 'active' and m.fee_pledge_id is null and m.notes = 'Assigned by staff: Fee waived by the board' from app.memberships m where m.id = :'m_nullfee')
+select pg_temp.assert((select m.status = 'active' and m.fee_pledge_id is null and m.notes = 'Assigned by staff' from app.memberships m where m.id = :'m_nofee')
+                      and (select m.status = 'active' and m.fee_pledge_id is null and m.notes = 'Assigned by staff' from app.memberships m where m.id = :'m_nullfee')
                       and (select count(*) = 0 from app.pledges p where p.household_id in (pg_temp.hh(2), pg_temp.hh(3))),
                       'D · without the fee box (false or not given) NO pledge is created and the note says nothing about a fee');
 
@@ -409,7 +410,7 @@ select pg_temp.assert((select m.status = 'active' and m.fee_pledge_id is null an
 select pg_temp.sign_in(:u_both);
 select app.staff_assign_membership(pg_temp.hh(4), pg_temp.pp(4), :t_free, null, null, 'Student rate', true) as m_free \gset
 select pg_temp.sign_out();
-select pg_temp.assert((select m.status = 'active' and m.fee_pledge_id is null and m.notes = 'Assigned by staff: Student rate' from app.memberships m where m.id = :'m_free')
+select pg_temp.assert((select m.status = 'active' and m.fee_pledge_id is null and m.notes = 'Assigned by staff' from app.memberships m where m.id = :'m_free')
                       and (select count(*) = 0 from app.pledges p where p.household_id = pg_temp.hh(4)),
                       'D · asked to record a fee on a type that has none: the membership is made, no pledge, no failure');
 
@@ -451,10 +452,10 @@ select app.staff_assign_membership(pg_temp.hh(7), pg_temp.pp(7), :t_year, null, 
 select app.staff_assign_membership(pg_temp.hh(8), pg_temp.pp(8), :t_year, null, null, 'Office desk', false) as m_nogiving2 \gset
 select pg_temp.sign_out();
 delete from app.center_modules where center_id = :ca and module_key = 'giving';
-select pg_temp.assert((select m.status = 'active' and m.fee_pledge_id is null and m.notes = 'Assigned by staff: Office desk · fee of 50.00 not recorded: Pledges & donations is switched off' from app.memberships m where m.id = :'m_nogiving')
+select pg_temp.assert((select m.status = 'active' and m.fee_pledge_id is null and m.notes = 'Assigned by staff · fee of 50.00 not recorded: Pledges & donations is switched off' from app.memberships m where m.id = :'m_nogiving')
                       and (select count(*) = 0 from app.pledges p where p.household_id = pg_temp.hh(7)),
                       'D · with Pledges & donations off: the membership is made, no pledge, and the note says the fee was not recorded');
-select pg_temp.assert((select m.status = 'active' and m.fee_pledge_id is null and m.notes = 'Assigned by staff: Office desk' from app.memberships m where m.id = :'m_nogiving2'),
+select pg_temp.assert((select m.status = 'active' and m.fee_pledge_id is null and m.notes = 'Assigned by staff' from app.memberships m where m.id = :'m_nogiving2'),
                       'D · with Pledges & donations off and no fee asked for, the note says nothing about a fee');
 
 -- ── E. A community that is not faith-based, in another time zone: the same rules ───────────────────────────────────────────────
@@ -483,6 +484,28 @@ select pg_temp.run(pg_temp.update_sql(:m_act6, :'today_a'::date - 210, :'today_a
 select pg_temp.sign_out();
 select pg_temp.assert(position(:'m_trig' in current_setting('t146.fired')) > 0 and position(:m_act6::text in current_setting('t146.fired')) > 0,
                       'E · the Pathshala membership trigger fired for the assignment and for the end-date edit');
+
+-- E3. The reason is AUDIT-ONLY. Members can read their own household's memberships row, notes included (memberships_mine, 0010), so
+-- the staff member's reason (here even "Hardship, complimentary") is never copied into memberships.notes: the note is the neutral
+-- 'Assigned by staff' (plus, only when Pledges & donations is off, the sentence about the community's own fee). The reason is in the
+-- audit entry of the new membership, and the audit entry's own copy of the new row carries the neutral note too.
+select pg_temp.assert(
+  (select count(*) = 13
+          and bool_and(m.notes like 'Assigned by staff%' and position(v.reason in coalesce(m.notes, '')) = 0
+                       and exists (select 1 from app.audit_log a
+                                    where a.record_table = 'memberships' and a.record_id = m.id::text and a.action = 'memberships.insert'
+                                      and a.reason = v.reason and a.actor_user_id is not null
+                                      and position(v.reason in coalesce(a.after->>'notes', '')) = 0 and (a.after->>'notes') like 'Assigned by staff%'))
+     from (values (:'m_li'::uuid, 'Paid at the office desk'), (:'m_life'::uuid, 'Life fee paid by cheque 1031'),
+                  (:'m_nofee'::uuid, 'Member since last year, no fee now'), (:'m_nullfee'::uuid, 'Fee waived by the board'),
+                  (:'m_hard'::uuid, 'Hardship, complimentary membership'), (:'m_free'::uuid, 'Student rate'),
+                  (:'m_nohold'::uuid, 'Assigned from the old paper register'), (:'m_dates'::uuid, 'Joined a month ago, short first term'),
+                  (:'m_renew'::uuid, 'Renewed at the fair'), (:'m_nogiving'::uuid, 'Office desk'), (:'m_nogiving2'::uuid, 'Office desk'),
+                  (:'m_club'::uuid, 'Joined at the tournament'), (:'m_trig'::uuid, 'Checking the Pathshala trigger')) as v(id, reason)
+     join app.memberships m on m.id = v.id),
+  'E · the reason is audit-only: in the audit entry of each of the 13 assignments, and in none of their notes (nor in the audit copy of the new row)');
+select pg_temp.assert((select m.notes = 'Assigned by staff' from app.memberships m where m.id = :'m_hard'),
+                      'E · "Hardship, complimentary membership" is not in the note, which stays neutral');
 
 rollback;
 \echo 'PASS: staff memberships tests'
