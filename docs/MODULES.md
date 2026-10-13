@@ -511,8 +511,10 @@ The kind names it (category_modules.label): Bhandar counts (Jain Center), Collec
 
 Neutral keys, brand labels ([`MARKETPLACE_PACKS.md`](MARKETPLACE_PACKS.md) P6). Every kind starts each `default_off`;
 a platform admin grants one with a reason and a fresh 2FA check (0740); the community pauses and resumes it. Communities
-that used one before 0750 hold it ("Grandfathered (0750)"); an open sandbox holds iWeaver as a trial that never reaches
-production. The card copy is `app.marketplace_products` (0752); requests and "tell me when it is ready" are
+that actually used one before 0750 hold it ("Grandfathered (0750)": for iWeaver, a Niva question, Niva for admins on, Niva
+switched on by the community, or AI flyer art in the last 90 days; the kind's default is not use, so Niva went off where no
+AI was used, each with a `marketplace.niva_off` audit entry). An open sandbox holds iWeaver as a trial (`is_trial`) that
+never reaches production. The card copy is `app.marketplace_products` (0752); requests and "tell me when it is ready" are
 `app.marketplace_requests` and `app.marketplace_interest`; `app.marketplace_states(center)` is the one read (0753).
 
 | Key | Label | Depends on | Tables | Guards |
