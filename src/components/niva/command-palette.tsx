@@ -312,7 +312,11 @@ function PaletteDialog({ niva }: { niva: NivaApi }) {
             </div>
             <p className="border-t border-line-soft px-4 py-2 text-[11px] text-muted">
               Up and down to move · Enter to choose · Esc to close · {modKey}+J opens Niva
-              {niva.aiReady ? "" : " · Chat is not switched on yet, but every command here still works"}
+              {niva.aiReady
+                ? ""
+                : niva.aiOff
+                  ? " · Chat is part of iWeaver, which is not on for your community, but every command here still works"
+                  : " · Chat is not switched on yet, but every command here still works"}
             </p>
           </>
         ) : null}

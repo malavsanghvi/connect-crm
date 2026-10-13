@@ -14,10 +14,15 @@
 // calls keep working, nothing in it moves ("since" says how long it has been working).
 
 import { anthropicErrorBody, anthropicErrorKind, regainAccessAt, type AnthropicErrorKind } from "../../src/lib/anthropic-errors";
+import { AI_JOB_KINDS } from "./ai-kinds";
 import { scrubText } from "./log";
 
-/** The job kinds that call Anthropic: the heartbeat adds the status to each of their handler entries. */
-export const ANTHROPIC_KINDS: ReadonlySet<string> = new Set(["niva.answer", "import.suggest_mapping", "qbo.match_suggest_ai"]);
+/** The job kinds that call Anthropic (from the one AI list, ai-kinds.ts): the heartbeat adds the status to each of their handler entries. */
+export const ANTHROPIC_KINDS: ReadonlySet<string> = new Set(
+  Object.entries(AI_JOB_KINDS)
+    .filter(([, k]) => k.provider === "anthropic")
+    .map(([kind]) => kind),
+);
 
 /**
  * untested     no call since this service started

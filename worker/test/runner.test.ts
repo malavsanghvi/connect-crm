@@ -84,6 +84,85 @@ describe("processJob", () => {
   });
 });
 
+describe("processJob: AI jobs need iWeaver (0755)", () => {
+  const OFF = "AI features are part of iWeaver, which is not on for your community.";
+  const gateCalls = (calls: { fn: string; args: unknown[] }[]) =>
+    calls.filter((c) => c.fn === "query" && String(c.args[0]).includes("worker_job_blocked"));
+  /** A database whose gate answers `blocked` (null: everything is on), and that records the outcome queries. */
+  const gated = (blocked: string | null | Error) =>
+    fakeDb({
+      query: (text) => {
+        if (text.includes("worker_job_blocked")) {
+          if (blocked instanceof Error) throw blocked;
+          return [{ r: blocked }];
+        }
+        return [];
+      },
+    });
+
+  it("does not run a Niva answer for a community without iWeaver: it fails for good and the question says why", async () => {
+    const { db, calls } = gated(OFF);
+    const { d, lines } = deps(db, { ANTHROPIC_API_KEY: "sk-ant-test" });
+    const out = await processJob(d, job({ kind: "niva.answer", payload: { conversation_id: "c1" }, center_id: "c0000000-0000-4000-8000-000000000001" }));
+    expect(out).toMatchObject({ status: "failed", error: OFF });
+    expect(gateCalls(calls)[0]!.args[1]).toEqual(["c0000000-0000-4000-8000-000000000001", ["ai", "niva"]]);
+    const outcome = calls.find((c) => c.fn === "query" && String(c.args[0]).includes("niva_worker_set_outcome"))!;
+    expect(outcome.args[1]).toEqual(["c1", "failed", "AI features are part of iWeaver, which is not on for your community, so this question was not answered.", false, null]);
+    expect(calls.find((c) => c.fn === "fail")!.args).toEqual(["1", OFF, false]);
+    expect(calls.some((c) => c.fn === "finish")).toBe(false);
+    // Nothing else of the job ran: no source search, no AI call.
+    expect(calls.some((c) => c.fn === "query" && String(c.args[0]).includes("niva_worker_get_conversation"))).toBe(false);
+    expect(lines.some((l) => l.msg === "job not run: a module it needs is off for the community")).toBe(true);
+  });
+
+  it("ends a queued Niva retry once Niva is switched off, with a plain sentence on the question", async () => {
+    const { db, calls } = gated("Niva assistant is switched off for your community.");
+    const { d } = deps(db, { ANTHROPIC_API_KEY: "sk-ant-test" });
+    const out = await processJob(d, job({ kind: "niva.answer", payload: { conversation_id: "c2", retry: true } }));
+    expect(out.status).toBe("failed");
+    const outcome = calls.find((c) => c.fn === "query" && String(c.args[0]).includes("niva_worker_set_outcome"))!;
+    expect(outcome.args[1]).toEqual(["c2", "failed", "Niva assistant is switched off for your community, so this question was not answered.", false, null]);
+  });
+
+  it("does not make AI flyer art for a community without iWeaver, even with no key set", async () => {
+    const { db, calls } = gated(OFF);
+    const { d } = deps(db);
+    const out = await processJob(d, job({ kind: "events.generate_flyer", payload: { event_id: "e1", prompt: "x" } }));
+    expect(out).toMatchObject({ status: "failed", error: OFF });
+    expect(gateCalls(calls)[0]!.args[1]).toEqual(["00000000-0000-4000-8000-000000000001", ["ai", "events"]]);
+    expect(calls.find((c) => c.fn === "fail")!.args[2]).toBe(false);
+  });
+
+  it("runs as before when the community has everything on", async () => {
+    const { db, calls } = gated(null);
+    const { d } = deps(db);
+    // No key here: the gate passes, then the job fails as not configured, exactly as before.
+    const out = await processJob(d, job({ kind: "niva.answer", payload: { conversation_id: "c1" } }));
+    expect(out.status).toBe("failed");
+    expect(out.error).toMatch(/Anthropic/);
+    expect(gateCalls(calls)).toHaveLength(1);
+  });
+
+  it("retries, without running the job, when the check itself cannot be read", async () => {
+    const { db, calls } = gated(Object.assign(new Error("function app.worker_job_blocked does not exist"), { code: "42883" }));
+    const { d } = deps(db, { ANTHROPIC_API_KEY: "sk-ant-test" });
+    const out = await processJob(d, job({ kind: "niva.answer", payload: { conversation_id: "c1" } }));
+    expect(out.status).toBe("retrying");
+    expect(out.error).toMatch(/^Could not check whether the community has ai and niva on/);
+    expect(calls.some((c) => c.fn === "query" && String(c.args[0]).includes("niva_worker_get_conversation"))).toBe(false);
+  });
+
+  it("never checks a core AI kind (onboarding), a kind that is not AI, or a platform-wide job", async () => {
+    const { db, calls } = gated(OFF);
+    const { d } = deps(db);
+    await processJob(d, job({ kind: "import.suggest_mapping" }));
+    await processJob(d, job({ kind: "qbo.match_suggest_ai" }));
+    expect(await processJob(d, job({ kind: "demo.ping" }))).toMatchObject({ status: "done" });
+    await processJob(d, job({ kind: "niva.answer", center_id: null, payload: { conversation_id: "c1" } }));
+    expect(gateCalls(calls)).toHaveLength(0);
+  });
+});
+
 describe("runner", () => {
   it("claims only up to the free concurrency and drains", async () => {
     // Niva first (none due), then the rest into all but the slot kept for Niva.
@@ -224,7 +303,11 @@ describe("runner: a slot kept for Niva", () => {
     };
     const { log } = captureLog();
     const runner = createRunner({ db, reg, env: {}, http: createHttp(), log, workerId: "w" }, 4);
-    const releaseAll = () => release.splice(0).forEach((f) => f());
+    // A Niva answer starts once the runner has checked the community's modules (0755): let those checks finish first.
+    const releaseAll = async () => {
+      await new Promise((r) => setTimeout(r, 0));
+      release.splice(0).forEach((f) => f());
+    };
     return { runner, calls, queue, releaseAll };
   }
   const claims = (calls: { fn: string; args: unknown[] }[]) => calls.filter((c) => c.fn === "claim").map((c) => c.args.slice(1));
@@ -253,7 +336,7 @@ describe("runner: a slot kept for Niva", () => {
     expect(claims(calls)).toEqual([[["niva.answer"], 1]]);
     expect(runner.inFlight()).toBe(4);
     expect(queue.map((j) => j.id)).toEqual(["L3", "L4", "L5"]);
-    releaseAll();
+    await releaseAll();
     expect(await runner.drain(1000)).toBe(true);
   });
 
@@ -263,7 +346,7 @@ describe("runner: a slot kept for Niva", () => {
     expect(await runner.tick()).toBe(4);
     expect(claims(calls)).toEqual([[["niva.answer"], 4]]);
     expect(queue.map((j) => j.id)).toEqual(["N4", "L0"]);
-    releaseAll();
+    await releaseAll();
     expect(await runner.drain(1000)).toBe(true);
     calls.length = 0;
     expect(await runner.tick()).toBe(2);
@@ -271,7 +354,7 @@ describe("runner: a slot kept for Niva", () => {
       [["niva.answer"], 4],
       [["photos.import_album", "qbo.bring_in_history"], 3],
     ]);
-    releaseAll();
+    await releaseAll();
     expect(await runner.drain(1000)).toBe(true);
   });
 

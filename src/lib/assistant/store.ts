@@ -63,12 +63,24 @@ export interface UsageMeter {
 
 const num = (v: unknown, fallback = 0): number => (typeof v === "number" && Number.isFinite(v) ? v : fallback);
 
-export function databaseUsageMeter(db: AppSupabase, centerId: string): UsageMeter {
+/**
+ * `purpose` "onboarding" (0755): a message asked on the onboarding pages while the community is onboarding and iWeaver is off.
+ * The database allows it only while the community's status is 'onboarding', and counts it against the same month.
+ */
+export function databaseUsageMeter(db: AppSupabase, centerId: string, purpose: "chat" | "onboarding" = "chat"): UsageMeter {
   const rpc = untypedRpc(db);
   return {
     async check() {
-      const res = await rpc("assistant_usage_check", { p_center: centerId, p_cost: 1 });
+      const res =
+        purpose === "onboarding"
+          ? await rpc("assistant_usage_check", { p_center: centerId, p_cost: 1, p_purpose: "onboarding" })
+          : await rpc("assistant_usage_check", { p_center: centerId, p_cost: 1 });
       if (res.error) {
+        if (purpose === "onboarding" && isMissingFunction(res.error)) {
+          // Without 0755 the database cannot say whether onboarding may use the chat: no model call is made.
+          console.error("[assistant] app.assistant_usage_check(uuid, integer, text) does not exist yet (migration 0755 is not applied).");
+          return { state: "failed", error: "Could not start — the database is not up to date for Niva during onboarding yet. Try again later." };
+        }
         if (isMissingFunction(res.error)) {
           sayOnce("usage-check", "app.assistant_usage_check does not exist yet (migration 0617 is not applied), so no monthly limit applies.");
           return { state: "unmetered" };

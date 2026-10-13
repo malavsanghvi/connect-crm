@@ -68,6 +68,10 @@ insert into auth.users (id, email) values
 insert into app.centers (id, slug, name, short_name, state_region, status) values
   (:c, 'orbit65', 'Orbit 65 Community', 'O65', 'TX', 'active'),
   (:c2, 'orbit65b', 'Other 65 Community', 'O65B', 'TX', 'active');
+-- AI flyers need iWeaver (0755): granted here once the catalog has the `ai` module (0750-0754); test 162 covers it off.
+insert into app.center_module_grants (center_id, module_key, granted, reason)
+select x.id, 'ai', true, 'Test: iWeaver granted.' from app.centers x where x.id in (:c::uuid, :c2::uuid) and exists (select 1 from app.modules where key = 'ai')
+on conflict (center_id, module_key) do update set granted = true;
 insert into app.people (id, center_id, first_name, last_name, date_of_birth) values
   (:p_manager, :c, 'Mona', 'Manager', date '1980-01-01'),
   (:p_lead, :c, 'Lalit', 'Lead', date '1981-01-01'),

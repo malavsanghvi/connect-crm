@@ -6,6 +6,7 @@ import { GlobalSearch } from "@/components/shell/global-search";
 import { Sparkle } from "@/components/niva/sparkle";
 import { useNiva } from "@/components/niva/niva-context";
 import { buttonClass } from "@/components/ui";
+import { AI_OFF } from "@/lib/ai-gate";
 
 /**
  * Today's one box. When Niva is on, it takes anything: Enter opens Niva beside the work and asks it. When Niva is off (or has not
@@ -62,7 +63,9 @@ export function AskBox() {
       <p className="mt-1 pl-7 text-[12px] text-muted">
         {niva.aiReady
           ? "Press Enter. Niva opens beside your work and nothing changes until you confirm it."
-          : "Niva's chat is not switched on yet, so Enter opens the command search with your words."}
+          : niva.aiOff
+            ? `${AI_OFF} Enter opens the command search with your words.`
+            : "Niva's chat is not switched on yet, so Enter opens the command search with your words."}
       </p>
     </form>
   );

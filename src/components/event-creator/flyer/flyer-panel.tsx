@@ -30,6 +30,7 @@ import {
 import { ChipGroup } from "@/components/controls";
 import { useKind } from "@/components/kind-context";
 import { btn, card } from "@/components/onboarding-front/parts";
+import { MARKETPLACE_HREF } from "@/lib/ai-gate";
 import type { ActionResult } from "@/lib/errors";
 import {
   FLYER_SIZES,
@@ -452,6 +453,16 @@ export function FlyerPanelView({
         {isPoster && artNote ? (
           <p id="flyer-art-note" className="mt-1 text-[12px] text-muted">
             {artNote}
+            {setup.art.readiness.state === "ai_off" ? (
+              <>
+                {" "}
+                An administrator can ask for it in{" "}
+                <Link href={MARKETPLACE_HREF} className="font-semibold text-navy underline">
+                  Settings › Marketplace
+                </Link>
+                .
+              </>
+            ) : null}
           </p>
         ) : null}
 

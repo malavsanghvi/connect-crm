@@ -37,6 +37,14 @@ export interface CommandsResponse {
   ok: true;
   enabled: boolean; // is Niva for admins switched on for this community
   aiReady: boolean; // is a model key available (the palette works without it)
+  /**
+   * Whether the chat may answer (0755): "on" everywhere (iWeaver and Niva on), "onboarding" only on the onboarding pages
+   * (iWeaver is off, the community is onboarding, Niva is on), "off" not at all (the commands still work). Absent from an
+   * older server: "on".
+   */
+  chat?: "on" | "onboarding" | "off";
+  /** Why the chat is off: iWeaver ("ai"), Niva paused or never enabled ("niva"), or it could not be checked ("unknown"). */
+  chatOff?: "ai" | "niva" | "unknown";
   commands: CommandInfo[];
   usage?: { used: number; limit: number | null; month: string };
   community?: CommunityHints;

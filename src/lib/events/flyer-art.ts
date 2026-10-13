@@ -16,6 +16,7 @@
 // sees the price before anything is asked for.
 
 // Relative imports: the background service (worker/) imports this file and does not know the "@/" alias.
+import { AI_OFF } from "../ai-off";
 import {
   FLYER_OCCASIONS,
   occasionsFor,
@@ -183,15 +184,18 @@ export function englishOnlyNote(foreign: string): string {
 export const NO_GEMINI_KEY = "AI art needs a Gemini key — ask your Weaver admin (Platform › Setup).";
 export const ART_SERVICE_DOWN = "The background service is not running, so AI art can't be made right now. The drawn art always works.";
 export const ART_SERVICE_OLD = "The background service needs updating before it can make AI art (ask your Weaver admin to redeploy). The drawn art always works.";
+/** iWeaver is not on for the community (0755): AI art is part of it; the drawn art always works. */
+export const ART_AI_OFF = `${AI_OFF} The drawn art always works.`;
 
 export type FlyerArtReadiness =
   | { state: "ready"; model: FlyerArtModel; cents: number }
-  /** `unknown`: the status could not be read (the portal says why); the drawn art still works. */
-  | { state: "no_key" | "no_service" | "update_needed" | "unknown"; message: string };
+  /** `unknown`: the status could not be read (the portal says why); `ai_off`: iWeaver is off (0755); the drawn art still works. */
+  | { state: "no_key" | "no_service" | "update_needed" | "unknown" | "ai_off"; message: string };
 
 /** What app.flyer_art_status answered, read defensively. */
 export function readFlyerArtStatus(raw: unknown): FlyerArtReadiness {
   const o = raw && typeof raw === "object" && !Array.isArray(raw) ? (raw as Record<string, unknown>) : {};
+  if (o.state === "ai_off") return { state: "ai_off", message: ART_AI_OFF };
   if (o.state === "ready") {
     const model = flyerArtModel(typeof o.model === "string" ? o.model : null);
     return { state: "ready", model, cents: FLYER_ART_MODELS[model].cents };

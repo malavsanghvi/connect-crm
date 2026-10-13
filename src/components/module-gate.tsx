@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 
 import { buttonClass } from "@/components/ui";
+import { AI_OFF, aiOn, MARKETPLACE_HREF, moduleNeedsAi } from "@/lib/ai-gate";
 import { kindHas, kindModuleLabel, moduleNotOffered, notOfferedExplanation, notPartOfKindSentence, type KindFeature } from "@/lib/kind";
 import { isModuleEnabled, moduleDef, moduleOffMessage, type ModuleKey } from "@/lib/modules";
 import { canAccess } from "@/lib/permissions";
@@ -28,6 +29,24 @@ export async function ModuleGate({ module, children }: { module: ModuleKey; chil
         <p role="status" className="mx-auto mt-2 max-w-lg text-[13px] text-muted">
           {notOfferedExplanation(center, session.kind.label)}
         </p>
+      </div>
+    );
+  }
+  // iWeaver (0755): a module that needs it (Niva) is off because iWeaver is: say that, and where to ask for it.
+  if (moduleNeedsAi(module) && !aiOn(session)) {
+    return (
+      <div className="cc-card px-6 py-10 text-center" data-testid="module-ai-off">
+        <p className="font-display text-[22px] font-semibold text-ink">{label} is part of iWeaver</p>
+        <p role="status" className="mx-auto mt-2 max-w-lg text-[13px] text-muted">
+          {AI_OFF} {canAccess(session, "centerSettings") ? "You can ask for it in Settings › Marketplace." : "An administrator can ask for it in Settings › Marketplace."}
+        </p>
+        {canAccess(session, "centerSettings") ? (
+          <p className="mt-4">
+            <Link href={MARKETPLACE_HREF} className={buttonClass("primary", "sm")}>
+              Open Settings › Marketplace
+            </Link>
+          </p>
+        ) : null}
       </div>
     );
   }

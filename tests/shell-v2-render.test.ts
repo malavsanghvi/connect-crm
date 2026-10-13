@@ -45,6 +45,7 @@ function niva(over: Partial<NivaApi> = {}): NivaApi {
   return {
     enabled: true,
     aiReady: true,
+    aiOff: false,
     commands: [],
     nav: [],
     context: { path: "/" },

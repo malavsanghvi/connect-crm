@@ -11877,6 +11877,12 @@ export type Database = {
         };
         Returns: undefined;
       };
+      assistant_chat_mode: {
+        Args: {
+          p_center: string;
+        };
+        Returns: string;
+      };
       assistant_confirm: {
         Args: {
           p_proposal: string;
@@ -11928,7 +11934,8 @@ export type Database = {
       assistant_usage_check: {
         Args: {
           p_center: string;
-          p_cost?: number;
+          p_cost: number;
+          p_purpose: string;
         };
         Returns: Json;
       };

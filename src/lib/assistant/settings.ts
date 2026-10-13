@@ -4,9 +4,15 @@
 // The switches live in the community's rules bag (centers.rules), like every other per-community setting:
 //   assistant.enabled              true | false     Niva for admins is switched on for this community (default: off)
 //   assistant.tools["events.x"]    true | false     one confirm-level command, for Niva (default: off; src/lib/commands/enabled.ts)
-// Since 0740 Niva for admins also follows the `niva` module: it is on only while Weaver has enabled that module for the community
-// and the community has not paused it (nivaForAdminsOn). The rules switch alone no longer turns it on.
+//
+// Two parts since 0755 (iWeaver, docs/MARKETPLACE_PACKS.md section 2):
+//   the commands   the ⌘K palette, the find box's command rows, results and confirmation cards: no model. They follow the
+//                  community's switch only (nivaForAdminsOn) and keep working whether iWeaver or Niva is on or not.
+//   the chat       the model: it needs the `niva` module (0740) and iWeaver (`ai`) as well, except that iWeaver is not
+//                  needed on the onboarding pages while the community is onboarding (src/lib/ai-gate.ts chatMode; the
+//                  database's app.assistant_chat_mode). Pausing or never having Niva keeps the chat off.
 
+import { AI_OFF } from "@/lib/ai-gate";
 import { assistantEnabled } from "@/lib/center-rules";
 
 /** What every route answers (except /commands) while the community has not switched Niva for admins on. */
@@ -16,9 +22,15 @@ export const ASSISTANT_OFF = "Niva for admins is not switched on for your commun
 export const NO_AI_KEY =
   "Niva for admins needs the AI service to be set up (Platform › Setup). You can still use the search box and the commands list.";
 
-/** What every route answers while the community's switch is on but the `niva` module is not on for it (0740). */
-export const ASSISTANT_MODULE_OFF =
-  "Niva for admins is off for your community because the Niva assistant module is not on. Weaver enables it; an administrator can pause it in Settings › Modules.";
+/** What /chat answers while iWeaver is off for the community (0755): the commands still work. */
+export const CHAT_AI_OFF = `${AI_OFF} Niva can't answer questions in words here, but the search box and the commands list still work.`;
+
+/** What /chat answers while Niva is paused or not enabled for the community (0755): the commands still work. */
+export const CHAT_NIVA_OFF =
+  "Niva can't answer questions in words because Niva is switched off for your community. The search box and the commands list still work.";
+
+/** What /chat answers when whether it may answer could not be checked (app.assistant_chat_mode failed). */
+export const CHAT_MODE_UNKNOWN = "Niva could not check whether it may answer questions for your community. Reload the page and try again.";
 
 /** What every route answers when the community's modules could not be read (app.my_modules failed): Niva stays off. */
 export const ASSISTANT_MODULES_UNKNOWN = "Niva for admins could not check which modules your community has. Reload the page and try again.";
@@ -27,16 +39,15 @@ export const ASSISTANT_MODULES_UNKNOWN = "Niva for admins could not check which 
 export { assistantEnabled };
 
 /**
- * Is Niva for admins on for this community: its own switch (rules.assistant.enabled) AND the `niva` module on for it (enabled by
- * Weaver, not paused; `modulesOff` from app.my_modules, as on every session). Read where it is used, so a later revoke or pause
- * turns it off at once without touching the rules. Off unless the modules were read (`modulesStatus` "ok"): no guessing when
- * app.my_modules failed or is missing.
+ * Are Niva for admins' commands on for this community: its own switch (rules.assistant.enabled), read where it is used, and the
+ * modules read (`modulesStatus` "ok"), because which commands a person sees depends on them: no guessing when app.my_modules
+ * failed or is missing. No module is needed: the commands use no model (0755). The chat needs iWeaver too (ai-gate.ts).
  */
 export function nivaForAdminsOn(
   rules: Parameters<typeof assistantEnabled>[0],
   modules: { modulesOff?: readonly string[]; modulesStatus?: string },
 ): boolean {
-  return assistantEnabled(rules) && modules.modulesStatus === "ok" && !(modules.modulesOff ?? []).includes("niva");
+  return assistantEnabled(rules) && modules.modulesStatus === "ok";
 }
 
 /** The model Niva for admins uses unless ASSISTANT_MODEL says otherwise. */

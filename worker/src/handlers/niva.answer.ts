@@ -430,6 +430,22 @@ async function recordFailed(ctx: JobContext, id: string, detail: string) {
   }
 }
 
+/** The question's outcome when the runner did not run its job (iWeaver or Niva is off for the community, 0755). */
+export function refusedDetail(reason: string): string {
+  return `${reason.trim().replace(/[.\s]+$/, "")}, so this question was not answered.`;
+}
+
+/**
+ * The runner did not run this job because iWeaver or Niva is off for the community (worker/src/ai-kinds.ts): the question says
+ * so instead of staying "pending". The member app shows its usual "unable to answer" message for it, with Send to the team;
+ * Content › Niva shows this sentence. A conversation that is gone (retention) has nothing to mark.
+ */
+export async function refused(job: Job, ctx: JobContext, reason: string): Promise<void> {
+  const id = job.payload?.conversation_id;
+  if (typeof id !== "string") return;
+  await setOutcome(ctx, id, "failed", refusedDetail(reason));
+}
+
 /** `text` is what is searched: the question (and the member's recent questions), or the rewrite's words. */
 async function searchSources(ctx: JobContext, conversation: Conversation, text: string, includeInReview: boolean): Promise<Source[]> {
   if (includeInReview) {
