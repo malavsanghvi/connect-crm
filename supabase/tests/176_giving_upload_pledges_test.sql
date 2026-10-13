@@ -33,13 +33,14 @@ begin
     'amr', json_build_array(json_build_object('method','totp','timestamp',extract(epoch from now())::bigint)))::text, true);
   perform set_config('request.headers', '{"x-client-app":"portal","x-client-screen":"/giving/pledges/upload"}', true);
 end $$;
-create or replace function pg_temp.up(p_user uuid, p_center uuid, p_key text, p_rows jsonb, p_reason text default 'Pledge cards from the dinner')
+create or replace function pg_temp.up(p_user uuid, p_center uuid, p_key text, p_rows jsonb, p_reason text default 'Pledge cards from the dinner',
+                                      p_sha text default repeat('a', 64))
 returns jsonb language plpgsql as $$
 declare r jsonb;
 begin
   perform pg_temp.claims(p_user);
   set local role authenticated;
-  r := app.record_pledge_upload(p_center, p_key, 'pledges.csv', repeat('a', 64), p_reason, p_rows);
+  r := app.record_pledge_upload(p_center, p_key, 'pledges.csv', p_sha, p_reason, p_rows);
   reset role;
   return r;
 exception when others then
@@ -118,6 +119,7 @@ $$;
 \set kiran '''17600000-0000-4000-8000-000000000104'''
 \set asha '''17600000-0000-4000-8000-000000000105'''
 \set noor '''17600000-0000-4000-8000-000000000106'''
+\set dev '''17600000-0000-4000-8000-000000000107'''
 \set f1 '''17600000-0000-4000-8000-000000000401'''
 \set fn '''17600000-0000-4000-8000-000000000402'''
 \set camp '''17600000-0000-4000-8000-000000000501'''
@@ -140,14 +142,18 @@ insert into app.people (id, center_id, first_name, last_name, email, date_of_bir
   (:kid, :c, 'Kavi', 'Shah', null, (now() - interval '10 years')::date, 'M-1763'),
   (:kiran, :c, 'Kiran', 'Mehta', null, null, 'M-1764'),
   (:asha, :c, 'Asha', 'Patel', null, '1975-01-01', 'M-1765'),
-  (:noor, :np, 'Noor', 'Haddad', null, '1985-03-03', 'M-1766');
+  (:noor, :np, 'Noor', 'Haddad', null, '1985-03-03', 'M-1766'),
+  (:dev, :c, 'Dev', 'Rao', null, '1990-02-02', 'M-1767');
+-- The community's own member ID for Dev, recorded before Dev joined a household: the ID itself carries no household.
+insert into app.external_ids (center_id, person_id, kind, system, value) values (:c, :dev, 'org_member', 'register', '1777');
 insert into app.households (id, center_id, display_name, household_number) values
   (:h1, :c, 'Shah family', 'H-1761'), (:h2, :c, 'Mehta family', 'H-1762'), (:h3, :c, 'Patel family', 'H-1763'),
   (:hd, :d, 'Other family', 'H-1764'), (:hn, :np, 'Haddad household', 'H-1765');
 insert into app.households (id, center_id, display_name, household_number, merged_into_id) values (:hold, :c, 'Old Shah record', 'H-1769', :h1);
 insert into app.household_members (household_id, person_id, center_id, role, is_primary) values
   (:h1, :rahul, :c, 'primary', true), (:h1, :mirap, :c, 'spouse', false), (:h1, :kid, :c, 'child', false),
-  (:h2, :kiran, :c, 'primary', true), (:h3, :asha, :c, 'primary', true), (:hn, :noor, :np, 'primary', true);
+  (:h2, :kiran, :c, 'primary', true), (:h3, :asha, :c, 'primary', true), (:hn, :noor, :np, 'primary', true),
+  (:h2, :dev, :c, 'parent', false);
 insert into app.external_ids (center_id, household_id, kind, system, value) values
   (:c, :h1, 'crm', 'neon', 'NEON-55'),
   (:c, :h2, 'accounting', 'quickbooks', 'QB-1187'),
@@ -169,7 +175,8 @@ select (now() at time zone 'America/Chicago')::date as today \gset
 -- A. Which households
 -- ═══════════════════════════════════════════════════════════════════════════
 create temp table hits as
-  select * from pg_temp.hh(:tara, :c, array['H-1761', 'M-1764', 'NEON-55', 'QB-1187', 'SHAH OR PATEL', 'Patel', 'NEON-OLD', 'nobody at all', ' '])
+  select * from pg_temp.hh(:tara, :c, array['H-1761', 'M-1764', 'NEON-55', 'QB-1187', 'SHAH OR PATEL', 'Patel', 'NEON-OLD', 'nobody at all', ' ',
+                                            '1777', 'Kavi'])
     as t(input text, match_kind text, household_id uuid);
 select pg_temp.assert((select household_id = :h1 and match_kind = 'connect_household' from hits where input = 'H-1761'),
   'A: the community''s household number names its household');
@@ -182,6 +189,12 @@ select pg_temp.assert((select count(*) = 1 and bool_and(household_id = :h3 and m
   'A: a name no identifier matches is found by name only (match_kind name: always a pick)');
 select pg_temp.assert(not exists (select 1 from hits where input in ('NEON-OLD', 'nobody at all', ' ', '')),
   'A: a merged household, an unknown value and a blank give nothing');
+select pg_temp.assert((select count(*) = 1 and bool_and(household_id = :h2 and match_kind = 'org_member')
+                         from hits where input = '1777')
+                      and (select household_id is null from app.external_ids where value = '1777'),
+  'A: a person''s own member ID names the household the person is in now, even when the ID was recorded before they joined it');
+select pg_temp.assert(not exists (select 1 from hits where input = 'Kavi'),
+  'A: a child''s name never finds a household (the name search reads adults only)');
 select pg_temp.assert(not exists (select 1 from information_schema.routines r join information_schema.parameters p on p.specific_name = r.specific_name
                                    where r.routine_schema = 'app' and r.routine_name = 'giving_upload_households' and p.parameter_name = 'members'),
   'A: the answer never carries the member list (a child''s name stays out of Giving)');
@@ -223,6 +236,9 @@ select pg_temp.assert((select kind = 'pledges' and row_count = 3 and total_cents
                               and reason = 'Pledge cards from the dinner'
                          from app.giving_uploads where id = :'u1'::uuid),
   'B: the upload row: kind, rows, total, who, the file and the reason');
+select pg_temp.assert((select reason = 'Upload: Pledge cards from the dinner' from app.audit_log
+                        where record_table = 'giving_uploads' and action = 'giving_uploads.insert' and record_id = :'u1'),
+  'B: the upload row''s own audit entry carries the reason');
 select pg_temp.assert(not exists (select 1 from app.ledger_postings lp where lp.center_id = :c), 'B: a pledge is not cash: nothing goes to the books');
 
 -- ═══════════════════════════════════════════════════════════════════════════
@@ -238,6 +254,15 @@ select pg_temp.assert(((:'c1'::jsonb)->>'replayed')::boolean and (:'c1'::jsonb)-
   'C: the same confirmation again returns the same upload and records nothing more');
 select pg_temp.assert_raises(format($$select pg_temp.up(%L, %L, 'upl-176-b-0001', jsonb_build_array(pg_temp.r(2, %L, 999)))$$, :tara, :c, :h1),
   'different upload', 'C: the same confirmation for different rows is refused');
+select pg_temp.assert_raises(format($$select pg_temp.up(%L, %L, 'upl-176-b-0001', jsonb_build_array(
+    pg_temp.r(2, %L, 50000, %L, %L, jsonb_build_object('pledged_by_person_id', %L, 'note', 'card 14')),
+    pg_temp.r(3, %L, 12550, %L, null, jsonb_build_object('fund_id', %L)),
+    pg_temp.r(4, %L, 250000, null, null, jsonb_build_object('opportunity_id', %L, 'dedication', 'In memory of Ba'))),
+    'Pledge cards from the dinner', repeat('c', 64))$$,
+    :tara, :c, :h1, :'today'::date - 5, :'today'::date + 60, :rahul, :h2, :'today'::date - 5, :f1, :h3, :opp),
+  'different upload', 'C: the same confirmation with another file (its fingerprint) is refused');
+select pg_temp.assert_raises(format($$select pg_temp.up(%L, %L, 'upl-176-c-0002', jsonb_build_array(pg_temp.r(2, %L, 1000), pg_temp.r(2, %L, 2000)))$$, :tara, :c, :h2, :h3),
+  'same row number appears twice', 'C: a row number twice is refused (it would give two rows one key and skew the total)');
 
 -- ═══════════════════════════════════════════════════════════════════════════
 -- D. All or nothing

@@ -94,11 +94,18 @@ begin
      where btrim(coalesce(x, '')) <> ''
      limit 1000
   ),
+  -- A person's own ID (a member number, the community's member ID, a contact ID of the old CRM) names the household the person is in
+  -- now: an ID recorded before the person joined a household carries none of its own.
   hits as (
-    select v.input, r.kind as match_kind, r.household_id, r.person_id
-      from v
-      cross join lateral app.resolve_identifier(p_center, v.input) r
-     where r.household_id is not null
+    select x.input, x.match_kind, x.household_id, x.person_id
+      from (select v.input, r.kind as match_kind, r.person_id,
+                   coalesce(r.household_id,
+                            (select hm.household_id from app.household_members hm
+                              where hm.person_id = r.person_id and hm.left_at is null
+                              order by hm.is_primary desc limit 1)) as household_id
+              from v
+              cross join lateral app.resolve_identifier(p_center, v.input) r) x
+     where x.household_id is not null
   ),
   names as (
     select v.input, 'name'::text as match_kind, h.id as household_id, null::uuid as person_id,
@@ -108,8 +115,11 @@ begin
      where char_length(v.input) >= 2
        and not exists (select 1 from hits where hits.input = v.input)
        and (h.display_name ilike '%' || replace(replace(replace(v.input, '\', '\\'), '%', '\%'), '_', '\_') || '%'
+            -- An adult's name only (the rule of 0653 and 0745): a child's name never finds a household here, nor does someone who has died.
             or exists (select 1 from app.household_members hm join app.people p on p.id = hm.person_id
-                        where hm.household_id = h.id and hm.left_at is null and p.merged_into_id is null
+                        where hm.household_id = h.id and hm.left_at is null and p.merged_into_id is null and not p.is_deceased
+                          and ((p.date_of_birth is not null and p.date_of_birth <= (current_date - interval '18 years')::date)
+                               or (p.date_of_birth is null and hm.role in ('primary', 'spouse', 'parent')))
                           and (p.first_name || ' ' || p.last_name) ilike '%' || replace(replace(replace(v.input, '\', '\\'), '%', '\%'), '_', '\_') || '%'))
   ),
   found as (
@@ -184,15 +194,20 @@ begin
   if v_total <= 0 then
     raise exception 'The rows add up to nothing; there is nothing to record.' using errcode = '22023';
   end if;
+  -- Each row once: a row number twice would give two rows one key (the second a replay of the first) and skew the count and total.
+  if (select count(distinct e->>'row') from jsonb_array_elements(p_rows) e) <> v_count then
+    raise exception 'The same row number appears twice. Nothing was recorded; check the file again.' using errcode = '22023';
+  end if;
 
   -- Once: the same confirmation returns the upload it recorded (a retry after a lost answer, or two clicks that arrived together).
+  perform app.set_audit_context(format('Upload: %s', v_reason));
   insert into app.giving_uploads (center_id, kind, idempotency_key, file_name, file_sha256, reason, row_count, total_cents, created_by)
     values (p_center, 'pledges', v_key, v_file, v_sha, v_reason, v_count, v_total, auth.uid())
     on conflict (center_id, idempotency_key) do nothing
     returning * into v_up;
   if not found then
     select * into v_up from app.giving_uploads u where u.center_id = p_center and u.idempotency_key = v_key;
-    if v_up.kind <> 'pledges' or v_up.row_count <> v_count or v_up.total_cents <> v_total then
+    if v_up.kind <> 'pledges' or v_up.row_count <> v_count or v_up.total_cents <> v_total or v_up.file_sha256 is distinct from v_sha then
       raise exception 'This confirmation was already used for a different upload. Nothing was recorded.' using errcode = '23505';
     end if;
     return jsonb_build_object(
@@ -293,6 +308,8 @@ begin
     raise exception 'A donations upload cannot be cancelled. A payment recorded by mistake is fixed with a refund that a second person approves.'
       using errcode = '22023';
   end if;
+  -- The upload row first, then its pledges: two cancellations at once wait for each other, and the second finds it cancelled.
+  select * into v_up from app.giving_uploads u where u.id = p_upload for update;
   if v_up.cancelled_at is not null then
     return jsonb_build_object('upload_id', v_up.id, 'cancelled', 0, 'already', true);
   end if;
