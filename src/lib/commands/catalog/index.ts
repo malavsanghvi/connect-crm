@@ -2,8 +2,8 @@
 // until the owner approves it (assistant.tools.<key> in the community's settings). The Settings ones can give or take away a role and
 // switch a module (settings/index.ts). The Giving commands (giving.*, B90 phase 4) are reads and one draft: they look at pledges,
 // bank lines, Zelle reports and approvals, and giving.draft_payment prepares a payment without saving it. The three that move money
-// (giving.record_payment, giving.confirm_exact_zelle_matches, giving.match_deposit) are built but OFF for every door until an owner
-// switches each one on (requiresOwnerSwitch). Refunds and write-offs have no command: they need a second person.
+// (giving.record_payment, giving.confirm_exact_zelle_matches, giving.match_deposit) and giving.record_pledge (a money record: it moves
+// no money, but adds what a family owes) are built but OFF for every door until an owner switches each one on (requiresOwnerSwitch). Refunds and write-offs have no command: they need a second person.
 
 import { defaultRegistry } from "../registry";
 import type { AnyCommand } from "../types";
@@ -17,6 +17,7 @@ import { fundMappingStatus } from "./giving-fund-mapping";
 import { householdGivingSummary } from "./giving-household-summary";
 import { matchDeposit } from "./giving-match-deposit";
 import { recordPayment } from "./giving-record-payment";
+import { recordPledge } from "./giving-record-pledge";
 import { waitingForSecondApprover } from "./giving-second-approver";
 import { zelleWaiting } from "./giving-zelle-waiting";
 import { LEARNING_COMMANDS } from "./learning";
@@ -66,6 +67,8 @@ export const CATALOG: readonly AnyCommand[] = [
   recordPayment,
   confirmExactZelleMatches,
   matchDeposit,
+  // Recording a pledge by hand (slice 7, 0745): a money record, off for every door until an owner switches it on, like the three above
+  recordPledge,
 ];
 
 let registered = false;

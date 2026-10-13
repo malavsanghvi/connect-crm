@@ -96,9 +96,10 @@ describe("the first commands", () => {
     const confirm = CATALOG.filter((c) => c.level === "confirm");
     expect(confirm.map((c) => c.key)).toContain("events.set_field");
     for (const c of confirm) expect(c.enabledByDefault, c.key).not.toBe(true);
-    // The three Giving commands that move money are confirm commands that need the owner's switch for EVERY door, not only Niva.
+    // The three Giving commands that move money, and recording a pledge by hand, are confirm commands that need the owner's switch for
+    // EVERY door, not only Niva.
     const money = CATALOG.filter((c) => c.requiresOwnerSwitch);
-    expect(money.map((c) => `${c.key}:${c.level}`)).toEqual(["giving.record_payment:confirm", "giving.confirm_exact_zelle_matches:confirm", "giving.match_deposit:confirm"]);
+    expect(money.map((c) => `${c.key}:${c.level}`)).toEqual(["giving.record_payment:confirm", "giving.confirm_exact_zelle_matches:confirm", "giving.match_deposit:confirm", "giving.record_pledge:confirm"]);
   });
 
   it("have no command that changes roles or permissions, deletes, refunds, writes off or approves; a money word is a read, a draft, or a confirm command that needs the owner's switch", () => {
@@ -638,6 +639,7 @@ describe("no command result reaches a model with a child in it", () => {
     "giving.record_payment": { household_id: SHAH, amount: "250", method: "check", reference: "1043", received_on: "2026-10-04", memo: "From Zoya Shah's family" },
     "giving.confirm_exact_zelle_matches": { report_ids: "7d0f3b9a-6a39-4d0c-9f43-0a1a1d7c4001" },
     "giving.match_deposit": { bank_line_id: "7d0f3b9a-6a39-4d0c-9f43-0a1a1d7c4201", payment_ids: "7d0f3b9a-6a39-4d0c-9f43-0a1a1d7c4301,7d0f3b9a-6a39-4d0c-9f43-0a1a1d7c4302" },
+    "giving.record_pledge": { household_id: SHAH, amount: "500", reason: "Pledged in person" },
     "accounting.month_close_blockers": {},
     "messages.draft_reminder": { event_id: DIWALI },
     "events.draft_change": { event_id: DIWALI, field: "venue", value: "Hall for Zoya Shah" },

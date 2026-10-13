@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 
-import { RecordPaymentButton } from "@/components/giving-actions/provider";
+import { RecordPaymentButton, RecordPledgeButton } from "@/components/giving-actions/provider";
 import { adultsLine, type FamilyModel, type HeaderChip } from "@/lib/people-v2/family-model";
 
 import { PinStar, type PinInfo } from "../saved/pin-star";
@@ -131,6 +131,8 @@ function ActionButtons({ links, direction, householdId }: { links: FamilyLinks; 
           Record payment
         </RecordPaymentButton>
       ) : null}
+      {/* Record pledge (giving.manage; slice 7) in the header on a computer. The phone bar keeps three actions: on a phone it is on the Pledges tab. */}
+      {direction === "down" ? <RecordPledgeButton householdId={householdId} className={SECONDARY} /> : null}
       {links.addPerson ? <AddPersonButton href={links.addPerson} /> : null}
       <MoreMenu items={links.more} direction={direction} />
     </>

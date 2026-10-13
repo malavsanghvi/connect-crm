@@ -32,6 +32,7 @@ export function givingSheetContext(session: CrmSession, now: Date = new Date()):
     labels: { orgMemberLabel: rules.orgMemberLabel, orgHouseholdLabel: rules.orgHouseholdLabel },
     canRecord,
     canAllocate: canAccess(session, "allocatePayment"),
+    canRecordPledge: canAccess(session, "recordPledge"),
     bankOn: isModuleEnabled(session, GIVING_ADDONS.bank),
     canOpenFamily: canAccess(session, "households"),
   };

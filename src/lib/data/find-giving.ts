@@ -3,6 +3,7 @@ import "server-only";
 import { adultHouseholdCards } from "@/lib/commands/catalog/household";
 import { communityMajority } from "@/lib/commands/child-filter";
 import { communityFormat } from "@/lib/community-format";
+import { designationNames, loadPledgeDesignations } from "@/lib/data/record-pledge";
 import { searchHouseholds } from "@/lib/data/search";
 import { todayInTz } from "@/lib/dates";
 import { familyHref } from "@/lib/find/rows";
@@ -20,6 +21,7 @@ import {
 } from "@/lib/find/giving";
 import type { FindRow } from "@/lib/find/types";
 import type { GivingHousehold } from "@/lib/giving-actions/family-giving";
+import { splitPledgeWords, type PledgeDesignation } from "@/lib/giving-actions/record-pledge";
 import { GIVING_ADDONS } from "@/lib/giving-today/tabs";
 import { isModuleEnabled } from "@/lib/modules";
 import { canAccess } from "@/lib/permissions";
@@ -74,13 +76,27 @@ export async function findGiving(
     failed = true;
   };
 
+  // "pledge 500 patel building fund": the words that name a fund, campaign or opportunity are taken out first; the rest is who.
+  const canRecordPledge = canAccess(session, "recordPledge");
+  let pledge: { designation: PledgeDesignation | null; familyWords: string | null } | null = null;
+  if (intent.kind === "pledge" && canRecordPledge) {
+    try {
+      pledge = splitPledgeWords(intent.who, designationNames(await loadPledgeDesignations(session)));
+    } catch (error) {
+      note("reading the funds and campaigns", error);
+      pledge = { designation: null, familyWords: intent.who };
+    }
+  }
+
   // Who a sentence is about: looked up the way Record payment's own household search does it, then read as adult-only cards.
   const familyWords =
     intent.kind === "record" && canRecord
       ? intent.who
-      : intent.kind === "lookup" && !people && intent.words && canRecord
-        ? intent.words
-        : null;
+      : pledge
+        ? pledge.familyWords
+        : intent.kind === "lookup" && !people && intent.words && canRecord
+          ? intent.words
+          : null;
 
   const token = intent.kind === "refund" || intent.kind === "write_off" ? intent.token : intent.kind === "lookup" ? intent.code : null;
   const numbered = intent.kind === "lookup" ? intent.numbered : null;
@@ -211,6 +227,7 @@ export async function findGiving(
     bank: bankHits,
     campaigns: campaignHits,
     cards,
+    ...(pledge ? { designation: pledge.designation, pledgeWho: pledge.familyWords } : {}),
   };
 
   const createsCampaigns = canAccess(session, "campaignsManage");
@@ -219,6 +236,7 @@ export async function findGiving(
     locale: fmt.locale,
     timeZone: center.time_zone,
     canRecord,
+    canRecordPledge,
     canCreate: { campaign: createsCampaigns, opportunity: createsCampaigns && isModuleEnabled(session, GIVING_ADDONS.opportunities) },
   });
   // Someone who cannot open People still finds a family by name in Giving (its giving opens in place, never its page).
