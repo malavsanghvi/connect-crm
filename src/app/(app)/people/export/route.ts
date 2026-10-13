@@ -51,7 +51,8 @@ async function run(request: NextRequest): Promise<NextResponse> {
   if (state.status === "signed_out") return problem("Could not export the list — your session has expired. Sign in again.", 401);
   if (state.status !== "ok") return problem("Could not export the list — the app could not load your session.", 500);
   const session = state.session;
-  if (!canAccess(session, "households")) return problem("Could not export the list — you don't have access to this area.", 403);
+  // Exporting hands over contact details in bulk, so it needs permission to manage people (people.manage), not only to view them.
+  if (!canAccess(session, "householdsEdit")) return problem("Could not export the list — you don't have access to this area. Exporting a list needs permission to manage people.", 403);
 
   const sp: Record<string, string> = {};
   for (const [k, v] of request.nextUrl.searchParams) if (!(k in sp)) sp[k] = v;
