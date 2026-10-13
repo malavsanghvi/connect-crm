@@ -226,7 +226,7 @@ select pg_temp.assert(((:'g1'::jsonb)->>'changed')::boolean and ((:'g1'::jsonb)-
                       and (select due_on = :'today'::date + 90 from app.pledges where id = :p2),
   'G: a treasurer moves a due date');
 select pg_temp.assert((select count(*) = 1 and bool_and(reason = 'Asked for more time at the meeting')
-                         from app.audit_log where record_table = 'pledges' and record_id = :'p2' and action = 'pledges.update'),
+                         from app.audit_log where record_table = 'pledges' and record_id = :p2 and action = 'pledges.update'),
   'G: the audit entry carries the reason (the family''s History shows it)');
 select pg_temp.due(:tara, :c, :p2, (:'today'::date + 90))::text as g2 \gset
 select pg_temp.assert(not ((:'g2'::jsonb)->>'changed')::boolean, 'G: the same date again changes nothing');
