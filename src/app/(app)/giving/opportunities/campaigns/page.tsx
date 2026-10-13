@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { cookies } from "next/headers";
 
 import { ActionForm } from "@/components/action-form";
 import { HistoryButton } from "@/components/record-history";
@@ -7,6 +8,7 @@ import { fetchAll } from "@/lib/data/fetch-all";
 import { formatDate } from "@/lib/dates";
 import { campaignKindsFor } from "@/lib/giving";
 import { kindName } from "@/lib/kind";
+import { LOOK_COOKIE, parseLook } from "@/lib/look";
 import { isModuleEnabled } from "@/lib/modules";
 import { formatCents } from "@/lib/money";
 import { canAccess } from "@/lib/permissions";
@@ -20,18 +22,22 @@ const STATUS_TONE = { draft: "neutral", published: "success", closed: "navy", ar
 
 export default async function CampaignsPage() {
   const session = await getSession();
+  // The New look shows Campaigns and Opportunities as views of Giving › Campaigns & opportunities; this page is the campaign's every field.
+  const v2 = parseLook((await cookies()).get(LOOK_COOKIE)?.value) === "v2";
   const header = (
     <>
       <PageHeader title="Giving" description="Campaigns group opportunities and carry the goal. Drafts are visible to staff only; published campaigns appear in the member app." />
-      <ChipLinks
-        label="Opportunities views"
-        active="campaigns"
-        items={[
-          // Opportunities is an add-on of Giving (0741); the Campaigns list is not.
-          ...(isModuleEnabled(session, "giving_opportunities") ? [{ key: "opportunities", label: "Opportunities", href: "/giving/opportunities" }] : []),
-          { key: "campaigns", label: "Campaigns", href: "/giving/opportunities/campaigns" },
-        ]}
-      />
+      {v2 ? null : (
+        <ChipLinks
+          label="Opportunities views"
+          active="campaigns"
+          items={[
+            // Opportunities is an add-on of Giving (0741); the Campaigns list is not.
+            ...(isModuleEnabled(session, "giving_opportunities") ? [{ key: "opportunities", label: "Opportunities", href: "/giving/opportunities" }] : []),
+            { key: "campaigns", label: "Campaigns", href: "/giving/opportunities/campaigns" },
+          ]}
+        />
+      )}
     </>
   );
   if (!canAccess(session, "campaigns")) {

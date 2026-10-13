@@ -155,7 +155,8 @@ export type TodayContext = {
 
 // ---------------------------------------------------------------------------- What the page draws
 
-export type SuggestionView = { family: Family; reason: string; reportId: string | null; label: string };
+/** `ambiguous`: several families could be this payer, so the person ticks that they checked the details before confirming. */
+export type SuggestionView = { family: Family; reason: string; reportId: string | null; label: string; ambiguous: boolean };
 export type DepositCandidateView = DepositCandidateIn & { amount: string; line: string };
 export type BehindView = { family: Family; open: string; line: string };
 export type CloseItemView = { text: string; why: string | null; done: boolean; key: string | null };
@@ -168,7 +169,7 @@ export type Act =
   | { kind: "complete_write_off"; id: string; label: string; what: string }
   | { kind: "record_refund"; id: string; amountCents: number; label: string; what: string; familyRef: string }
   | { kind: "zelle_exact"; pairs: ZellePairView[] }
-  | { kind: "gift"; txnId: string; amountCents: number; best: SuggestionView | null; others: SuggestionView[]; learnPayer: boolean }
+  | { kind: "gift"; txnId: string; amountCents: number; best: SuggestionView | null; others: SuggestionView[]; learnPayer: boolean; payerName: string | null }
   | { kind: "deposit"; txnId: string; amountCents: number; candidates: DepositCandidateView[]; exact: boolean; label: string }
   | { kind: "behind"; households: BehindView[] }
   | { kind: "count_deposit"; id: string; totalCents: number | null; label: string; what: string }
@@ -242,7 +243,7 @@ export function canActOn(d: GivingTaskDetail, can: TodayCan): boolean {
   }
 }
 
-function money(cents: number | null | undefined, ctx: TodayContext): string {
+function money(cents: number | null | undefined, ctx: Pick<TodayContext, "currency" | "locale">): string {
   return formatCents(cents ?? 0, ctx.currency, ctx.locale);
 }
 
@@ -250,7 +251,7 @@ function since(value: string | null, ctx: TodayContext, word = "Waiting since"):
   return value ? `${word} ${formatDate(value, ctx.timeZone)}` : null;
 }
 
-function daysAgo(date: string, ctx: TodayContext): number {
+function daysAgo(date: string, ctx: Pick<TodayContext, "today">): number {
   const a = Date.parse(`${date.slice(0, 10)}T00:00:00Z`);
   const b = Date.parse(`${ctx.today}T00:00:00Z`);
   return Number.isFinite(a) && Number.isFinite(b) ? Math.max(0, Math.round((b - a) / 86_400_000)) : 0;
@@ -540,8 +541,124 @@ export function bankTotalsFromTasks(tasks: readonly HomeTask[]): BankTotals | nu
   return { lines: lines?.count ?? 0, deposits: lines?.deposits ?? 0, zelleUnseen: unseen?.count ?? 0 };
 }
 
-function suggestionView(s: SuggestionIn, amountCents: number, ctx: TodayContext): SuggestionView {
-  return { family: s.family, reason: s.reason, reportId: s.reportId, label: `Confirm ${money(amountCents, ctx)} for ${familyRef(s.family)}` };
+function suggestionView(s: SuggestionIn, amountCents: number, ctx: Pick<TodayContext, "currency" | "locale">): SuggestionView {
+  return { family: s.family, reason: s.reason, reportId: s.reportId, label: `Confirm ${money(amountCents, ctx)} for ${familyRef(s.family)}`, ambiguous: s.ambiguous };
+}
+
+/** What a bank row needs from its page: Today's queue and the Bank tab draw the same rows (docs/GIVING_REDESIGN.md slice 4). */
+export type BankRowContext = Pick<TodayContext, "currency" | "locale" | "timeZone" | "today" | "zelleWord">;
+/** `inBank`: the row is on the Bank tab itself, so it never links to the Bank tab. */
+export type BankRowOptions = { inBank?: boolean };
+
+/** One row for every Zelle report that matches a bank line exactly, each pair listed and ticked; null when there are none. */
+export function zelleExactRow(exact: readonly ExactPairIn[], ctx: BankRowContext): QueueRow | null {
+  if (exact.length === 0) return null;
+  return {
+    id: "bank:zelle-exact",
+    group: "bank",
+    tone: "blue",
+    icon: "bank",
+    title: `${plural(exact.length, `${ctx.zelleWord} report matches`, `${ctx.zelleWord} reports match`)} a bank line exactly`,
+    lines: ["Same confirmation number, amount and dates, one report to one bank line. Each pair is checked again when you confirm."],
+    family: null,
+    since: null,
+    acts: [
+      {
+        kind: "zelle_exact",
+        pairs: exact.map((p) => ({
+          reportId: p.reportId,
+          bankTransactionId: p.bankTransactionId,
+          amountCents: p.amountCents,
+          family: p.family,
+          line: [
+            p.confirmation ? `Confirmation ${p.confirmation}` : "No confirmation number",
+            `sent ${formatDate(p.sentOn, ctx.timeZone)}`,
+            `bank line ${formatDate(p.postedOn, ctx.timeZone)}${p.payerName ? ` from ${p.payerName}` : ""}`,
+          ].join(" · "),
+        })),
+      },
+    ],
+    count: exact.length,
+  };
+}
+
+/** A gift line (Zelle, ACH, a fund grant): one click on a clear suggestion, otherwise the family is chosen or found in the sheet. */
+export function giftRow(g: GiftLineIn, ctx: BankRowContext): QueueRow {
+  const amt = money(g.amountCents, ctx);
+  const kindWord = g.originatorKind ? GRANT_WORD[g.originatorKind] : undefined;
+  const best = g.suggestions[0] && !g.suggestions[0].ambiguous ? g.suggestions[0] : null;
+  const others = g.suggestions.filter((s) => s !== best).map((s) => suggestionView(s, g.amountCents, ctx));
+  const noun = kindWord ?? "Bank gift";
+  const lines = [g.description];
+  if (g.suggestionError) lines.push(g.suggestionError);
+  else if (best) lines.push(best.reason);
+  else lines.push(g.suggestions.length > 0 ? "More than one family could be this payer. Choose the right one." : "No family matched this payer name. Find the family.");
+  return {
+    id: `bank:gift:${g.id}`,
+    group: "bank",
+    tone: best ? "blue" : "indigo",
+    icon: "bank",
+    title: best ? `${noun} ${amt}: best match found` : `${noun} ${amt}: choose the family`,
+    lines,
+    family: best ? best.family : null,
+    since: `Posted ${formatDate(g.postedOn, ctx.timeZone)} · ${plural(daysAgo(g.postedOn, ctx), "day")} waiting`,
+    acts: [
+      {
+        kind: "gift",
+        txnId: g.id,
+        amountCents: g.amountCents,
+        best: best ? suggestionView(best, g.amountCents, ctx) : null,
+        others,
+        // A fund or platform is not the family: its name is never learned as theirs (as on the Bank screen).
+        learnPayer: g.originatorKind === null,
+        payerName: g.payerName,
+      },
+    ],
+    count: 1,
+  };
+}
+
+/** A check-and-cash deposit: the recorded payments that add up are ticked in the sheet, confirmed with the amount on the button. */
+export function depositRow(dl: DepositLineIn, ctx: BankRowContext, opts: BankRowOptions = {}): QueueRow {
+  const amt = money(dl.amountCents, ctx);
+  const n = dl.candidates.length;
+  return {
+    id: `bank:deposit:${dl.id}`,
+    group: "bank",
+    tone: "blue",
+    icon: "deposit",
+    title: dl.exact && n > 0 ? `Deposit ${amt}: ${plural(n, "recorded payment")} add up exactly` : `Deposit ${amt}: choose the payments in it`,
+    lines: [dl.description, ...(dl.error ? [dl.error] : n === 0 ? ["No undeposited checks or cash recorded in the 3 weeks before this deposit."] : [])],
+    family: null,
+    since: `Posted ${formatDate(dl.postedOn, ctx.timeZone)} · ${plural(daysAgo(dl.postedOn, ctx), "day")} waiting`,
+    acts:
+      n > 0 && !dl.error
+        ? [
+            {
+              kind: "deposit",
+              txnId: dl.id,
+              amountCents: dl.amountCents,
+              exact: dl.exact,
+              label: `Review deposit of ${amt}`,
+              candidates: dl.candidates.map((c) => ({
+                ...c,
+                amount: money(c.amountCents, ctx),
+                line: [
+                  c.receipt ? `Receipt ${c.receipt}` : "No receipt number",
+                  c.method,
+                  c.checkNumber ? `check ${c.checkNumber}` : null,
+                  `received ${formatDate(c.receivedOn, ctx.timeZone)}`,
+                ]
+                  .filter(Boolean)
+                  .join(" · "),
+              })),
+            },
+          ]
+        : opts.inBank
+          ? []
+          : [{ kind: "link", href: "/giving/payments/bank?view=deposits", label: "Open deposits in Bank" }],
+    count: 1,
+  };
 }
 
 function bankRows(bank: BankIn, ctx: TodayContext): QueueRow[] {
@@ -569,115 +686,12 @@ function bankRows(bank: BankIn, ctx: TodayContext): QueueRow[] {
       },
     ];
   }
-  let shown = 0;
   const exact = bank.exact ?? [];
-  if (exact.length > 0) {
-    shown += exact.length;
-    rows.push({
-      id: "bank:zelle-exact",
-      group: "bank",
-      tone: "blue",
-      icon: "bank",
-      title: `${plural(exact.length, `${ctx.zelleWord} report matches`, `${ctx.zelleWord} reports match`)} a bank line exactly`,
-      lines: ["Same confirmation number, amount and dates, one report to one bank line. Each pair is checked again when you confirm."],
-      family: null,
-      since: null,
-      acts: [
-        {
-          kind: "zelle_exact",
-          pairs: exact.map((p) => ({
-            reportId: p.reportId,
-            bankTransactionId: p.bankTransactionId,
-            amountCents: p.amountCents,
-            family: p.family,
-            line: [
-              p.confirmation ? `Confirmation ${p.confirmation}` : "No confirmation number",
-              `sent ${formatDate(p.sentOn, ctx.timeZone)}`,
-              `bank line ${formatDate(p.postedOn, ctx.timeZone)}${p.payerName ? ` from ${p.payerName}` : ""}`,
-            ].join(" · "),
-          })),
-        },
-      ],
-      count: exact.length,
-    });
-  }
-  for (const g of bank.gifts) {
-    shown += 1;
-    const amt = money(g.amountCents, ctx);
-    const kindWord = g.originatorKind ? GRANT_WORD[g.originatorKind] : undefined;
-    const best = g.suggestions[0] && !g.suggestions[0].ambiguous ? g.suggestions[0] : null;
-    const others = g.suggestions.filter((s) => s !== best).map((s) => suggestionView(s, g.amountCents, ctx));
-    const noun = kindWord ?? "Bank gift";
-    const lines = [g.description];
-    if (g.suggestionError) lines.push(g.suggestionError);
-    else if (best) lines.push(best.reason);
-    else lines.push(g.suggestions.length > 0 ? "More than one family could be this payer. Choose the right one." : "No family matched this payer name.");
-    rows.push({
-      id: `bank:gift:${g.id}`,
-      group: "bank",
-      tone: best ? "blue" : "indigo",
-      icon: "bank",
-      title: best ? `${noun} ${amt}: best match found` : `${noun} ${amt}: choose the family`,
-      lines,
-      family: best ? best.family : null,
-      since: `Posted ${formatDate(g.postedOn, ctx.timeZone)} · ${plural(daysAgo(g.postedOn, ctx), "day")} waiting`,
-      acts:
-        best || others.length > 0
-          ? [
-              {
-                kind: "gift",
-                txnId: g.id,
-                amountCents: g.amountCents,
-                best: best ? suggestionView(best, g.amountCents, ctx) : null,
-                others,
-                // A fund or platform is not the family: its name is never learned as theirs (as on the Bank screen).
-                learnPayer: g.originatorKind === null,
-              },
-            ]
-          : [{ kind: "link", href: "/giving/payments/bank", label: "Find the family in Bank", primary: true }],
-      count: 1,
-    });
-  }
-  for (const dl of bank.deposits) {
-    shown += 1;
-    const amt = money(dl.amountCents, ctx);
-    const n = dl.candidates.length;
-    rows.push({
-      id: `bank:deposit:${dl.id}`,
-      group: "bank",
-      tone: "blue",
-      icon: "deposit",
-      title: dl.exact && n > 0 ? `Deposit ${amt}: ${plural(n, "recorded payment")} add up exactly` : `Deposit ${amt}: choose the payments in it`,
-      lines: [dl.description, ...(dl.error ? [dl.error] : n === 0 ? ["No undeposited checks or cash recorded in the 3 weeks before this deposit."] : [])],
-      family: null,
-      since: `Posted ${formatDate(dl.postedOn, ctx.timeZone)} · ${plural(daysAgo(dl.postedOn, ctx), "day")} waiting`,
-      acts:
-        n > 0 && !dl.error
-          ? [
-              {
-                kind: "deposit",
-                txnId: dl.id,
-                amountCents: dl.amountCents,
-                exact: dl.exact,
-                label: `Review deposit of ${amt}`,
-                candidates: dl.candidates.map((c) => ({
-                  ...c,
-                  amount: money(c.amountCents, ctx),
-                  line: [
-                    c.receipt ? `Receipt ${c.receipt}` : "No receipt number",
-                    c.method,
-                    c.checkNumber ? `check ${c.checkNumber}` : null,
-                    `received ${formatDate(c.receivedOn, ctx.timeZone)}`,
-                  ]
-                    .filter(Boolean)
-                    .join(" · "),
-                })),
-              },
-            ]
-          : [{ kind: "link", href: "/giving/payments/bank?view=deposits", label: "Open deposits in Bank" }],
-      count: 1,
-    });
-  }
+  const exactRow = zelleExactRow(exact, ctx);
+  if (exactRow) rows.push(exactRow);
+  for (const g of bank.gifts) rows.push(giftRow(g, ctx));
+  for (const dl of bank.deposits) rows.push(depositRow(dl, ctx));
+  const shown = exact.length + bank.gifts.length + bank.deposits.length;
   const more = Math.max(0, totals.lines - shown);
   if (more > 0) {
     rows.push({

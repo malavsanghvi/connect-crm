@@ -10,7 +10,8 @@ import { authorizeAction } from "@/lib/session";
 const KINDS = ["general", "boli", "sponsorship", "construction", "pathshala", "event", "membership", "store", "other"];
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 
-export async function createCampaignAction(_prev: ActionResult | null, formData: FormData): Promise<ActionResult> {
+/** Creates a draft campaign; returns its id (the New look's quick sheet offers Undo on the draft it just made). */
+export async function createCampaignAction(_prev: ActionResult | null, formData: FormData): Promise<ActionResult<{ id: string }>> {
   const auth = await authorizeAction("campaignsManage", "create the campaign");
   if (!auth.ok) return auth;
   const { db, center, userId } = auth.session;
@@ -35,24 +36,29 @@ export async function createCampaignAction(_prev: ActionResult | null, formData:
     return { ok: false, error: "Could not create the campaign — \"visible until\" must be after \"visible from\"." };
   }
 
-  const { error } = await db.from("campaigns").insert({
-    center_id: center.id,
-    name,
-    kind,
-    fund_id: isUuid(fundId) ? fundId : null,
-    goal_cents: goal,
-    starts_on: startsOn || null,
-    ends_on: endsOn || null,
-    description: description || null,
-    status: "draft",
-    created_by: userId,
-    visible_from: visibleFrom ? new Date(visibleFrom).toISOString() : null,
-    visible_until: visibleUntil ? new Date(visibleUntil).toISOString() : null,
-  });
+  const { data, error } = await db
+    .from("campaigns")
+    .insert({
+      center_id: center.id,
+      name,
+      kind,
+      fund_id: isUuid(fundId) ? fundId : null,
+      goal_cents: goal,
+      starts_on: startsOn || null,
+      ends_on: endsOn || null,
+      description: description || null,
+      status: "draft",
+      created_by: userId,
+      visible_from: visibleFrom ? new Date(visibleFrom).toISOString() : null,
+      visible_until: visibleUntil ? new Date(visibleUntil).toISOString() : null,
+    })
+    .select("id")
+    .single();
   if (error) return failure("Could not create the campaign", error);
   revalidatePath("/giving/opportunities/campaigns");
   revalidatePath("/giving/opportunities");
-  return { ok: true, message: `Created "${name}" as a draft. Publish it when it is ready for members.` };
+  revalidatePath("/giving/campaigns");
+  return { ok: true, message: `Created "${name}" as a draft. Publish it when it is ready for members.`, data: { id: data.id } };
 }
 
 const TRANSITIONS: Record<string, { from: string[]; label: string }> = {
@@ -80,6 +86,7 @@ export async function setCampaignStatusAction(_prev: ActionResult | null, formDa
   if (!data || data.length === 0) return { ok: false, error: `Could not ${t.label} the campaign — its status changed meanwhile. Reload and try again.` };
   revalidatePath("/giving/opportunities/campaigns");
   revalidatePath("/giving/opportunities");
+  revalidatePath("/giving/campaigns");
   return { ok: true, message: `"${data[0].name}" is now ${next}.` };
 }
 
@@ -95,5 +102,6 @@ export async function setCampaignActiveAction(_prev: ActionResult | null, formDa
   if (!data || data.length === 0) return { ok: false, error: "Could not change the campaign — it was not found, or you lack permission." };
   revalidatePath("/giving/opportunities/campaigns");
   revalidatePath("/giving/opportunities");
+  revalidatePath("/giving/campaigns");
   return { ok: true, message: `"${data[0].name}" is now ${active ? "active" : "hidden from members (inactive)"} · audit logged.` };
 }
