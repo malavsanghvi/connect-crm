@@ -4,6 +4,7 @@
 
 import type { Family } from "@/lib/giving-today/queue";
 
+import { readDonationLines, type DonationLookups, type ReadDonations, type UploadPledge } from "./donations";
 import type { HouseholdHit } from "./households";
 import { readPledgeLines, type PledgeLookups, type ReadPledges } from "./pledges";
 import { conventionsFor, type Conventions, type EarlierUpload, type UploadTable } from "./sheet";
@@ -153,4 +154,72 @@ export function sampleEarlier(c: UploadCommunity): EarlierUpload[] {
       note: "4 of its pledges have money applied or another status, so each pledge is handled on its own.",
     },
   ];
+}
+
+// ---------------------------------------------------------------------------------------------------------------------- Donations
+
+const openPledge = (id: string, number: string, amount: number, paid: number, pledgedAt: string, campaign: string | null, campaignId: string | null, source = "general"): UploadPledge => ({
+  id,
+  pledge_number: number,
+  amount_cents: amount,
+  paid_cents: paid,
+  pledged_at: pledgedAt,
+  status: paid > 0 ? "partially_paid" : "open",
+  source,
+  due_on: null,
+  fund: null,
+  campaign,
+  campaignId,
+  fundId: null,
+});
+
+export function sampleDonationLookups(c: UploadCommunity, canAllocate = true): DonationLookups {
+  const p = sampleLookups(c);
+  const pledges: Record<string, UploadPledge[]> =
+    c === "foodbank"
+      ? { [HADDAD.id]: [openPledge("9c000000-0000-4000-8000-000000000021", "PL-0021", 8_000, 0, "2026-10-01T12:00:00Z", "Winter appeal", "9f000000-0000-4000-8000-000000000012")] }
+      : {
+          [ADEYEMI.id]: [
+            openPledge("9c000000-0000-4000-8000-000000000001", "PL-0450", 50_000, 20_000, "2026-08-01T12:00:00Z", "New hall", "9f000000-0000-4000-8000-000000000002"),
+            openPledge("9c000000-0000-4000-8000-000000000002", "PL-0461", 25_000, 0, "2026-09-15T12:00:00Z", null, null, "membership_fee"),
+          ],
+          [OKAFOR.id]: [openPledge("9c000000-0000-4000-8000-000000000003", "PL-0455", 80_000, 0, "2026-10-01T12:00:00Z", "New hall", "9f000000-0000-4000-8000-000000000002")],
+        };
+  return {
+    today: p.today,
+    currency: p.currency,
+    locale: p.locale,
+    labels: p.labels,
+    household: p.household,
+    canAllocate,
+    hits: p.hits,
+    targets: p.targets,
+    pledges,
+    repeats: c === "foodbank" ? [] : [{ line: 6, receiptNumber: "R-2026-0410", receivedOn: "2026-10-11" }],
+    zelle: c === "foodbank" ? [] : [{ line: 5, what: "reported by the family around 2026-10-10" }],
+  };
+}
+
+export function sampleDonationTable(c: UploadCommunity): UploadTable {
+  const headers = ["Household ID", "Name (to check)", "Amount", "Method", "Received on", "Check number or reference", "Envelope", "For", "Apply to pledge", "Note"];
+  const rows =
+    c === "foodbank"
+      ? [
+          ["H-0021", "Haddad", "£80", "bank transfer", "12/10/2026", "BACS 7781", "", "Winter appeal", "", ""],
+          ["Morgan", "", "£15", "cash", "12/10/2026", "", "", "", "", "Collection tin"],
+        ]
+      : [
+          ["0127", "Adeyemi", "$300.00", "check", "10/11/2026", "1044", "12", "", "", "Sunday"],
+          ["M-0417", "", "250", "cash", "10/11/2026", "", "", "", "PL-0455", ""],
+          ["NEON-55", "", "40", "cash", "10/11/2026", "", "", "", "none", ""],
+          ["QB-1187", "", "100", "zelle", "10/10/2026", "ZL-55120", "", "", "", ""],
+          ["M-0417", "", "75", "check", "10/11/2026", "2002", "", "", "", ""],
+          ["0127", "", "20", "card", "10/11/2026", "", "", "", "", ""],
+          ["Okafor", "", "30", "cash", "10/11/2026", "", "", "", "", ""],
+        ];
+  return { fileName: c === "foodbank" ? "october-gifts.csv" : "sunday-collection.csv", source: "csv", headers, rows: rows.map((cells, i) => ({ line: i + 2, cells })) };
+}
+
+export function sampleDonationRead(c: UploadCommunity): ReadDonations {
+  return readDonationLines(sampleDonationTable(c), uploadConventions(c), UPLOAD_TODAY, { household: "household" });
 }
