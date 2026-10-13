@@ -27,7 +27,7 @@ export type Step =
   | "goes-by"
   | "interests-edit"
   | "interests-save"
-  | "interests-long"
+  | "interests-remove-old"
   | "areas-edit"
   | "call-time"
   | "daily-goal"
@@ -49,7 +49,7 @@ export type Step =
 const THEIRS: Record<string, string> = {
   phone_e164: "+17135550100",
   preferred_name: "Sami",
-  interests: '["Hiking","Board games"]',
+  interests: '["events","seniors"]',
   expertise_tags: '["Accounting"]',
   best_call_time: "morning",
   gyan_daily_minutes: "15",
@@ -154,11 +154,17 @@ function run(step: Step) {
   }
   if (step === "interests-edit" || step === "interests-save") {
     click(root, 'button[aria-label^="Edit interests"]');
-    typeInto('input[aria-label="Interests"]', "Chess, कविता, Origami, ", step === "interests-save" ? enter : undefined);
+    later(160, () => {
+      click(root, 'button[data-interest="giving"]');
+      if (step === "interests-save") later(120, () => click(root, '[data-testid="interests-done"]'));
+    });
   }
-  if (step === "interests-long") {
+  if (step === "interests-remove-old") {
     click(root, 'button[aria-label^="Edit interests"]');
-    typeInto('input[aria-label="Interests"]', `${"A very long interest that goes on and on and on forever and ever"}, `, enter);
+    later(160, () => {
+      click(root, '[data-testid="legacy-interests"] button[aria-label^="Remove"]');
+      later(120, () => click(root, '[data-testid="interests-done"]'));
+    });
   }
   if (step === "areas-edit") {
     click(root, 'button[aria-label^="Edit expertise areas"]');

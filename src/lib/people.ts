@@ -4,6 +4,7 @@
 
 import type { Enums } from "@/lib/database.types";
 import { communityLanguages, languageFromText, languageList, languageName, normalizeLanguageCode } from "@/lib/languages";
+import { checkInterests } from "@/lib/person-interests";
 import { parseListInput, sameList } from "@/lib/person-lists";
 
 export type HouseholdRole = Enums<"person_role_in_household">;
@@ -306,7 +307,13 @@ export const ADULT_ONLY_FIELDS = ["interests", "expertise_tags", "best_call_time
  * minor's form (no contact fields) never blanks them. Booleans arrive as
  * "on" / "off" from hidden inputs.
  */
-export function parsePersonForm(f: FieldMap, today: string, languages?: readonly string[]): Parsed<Partial<PersonProfile>> {
+export function parsePersonForm(
+  f: FieldMap,
+  today: string,
+  languages?: readonly string[],
+  /** What is already on the person's record. An interest on file that is not one of the app's keys may stay; no other may be added. */
+  onFile?: { interests?: readonly string[] | null },
+): Parsed<Partial<PersonProfile>> {
   const out: Partial<PersonProfile> = {};
   if (f.first_name !== undefined) {
     const v = text(f.first_name, 80);
@@ -360,7 +367,10 @@ export function parsePersonForm(f: FieldMap, today: string, languages?: readonly
     if (f[k] === undefined) continue;
     const list = parseListInput(k, f[k] ?? "");
     if (!list.ok) return list;
-    out[k] = list.value;
+    // Interests are a fixed choice (the member app keeps only its own keys); expertise areas are the member's own words.
+    const checked = k === "interests" ? checkInterests(list.value, onFile?.interests ?? []) : list;
+    if (!checked.ok) return checked;
+    out[k] = checked.value;
   }
   if (f.best_call_time !== undefined) {
     const t = f.best_call_time.trim().toLowerCase();

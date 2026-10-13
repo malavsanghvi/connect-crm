@@ -17,7 +17,7 @@ import {
 } from "@/lib/people-v2/slideover";
 
 import { ConflictPanel, FieldRow, SaveError } from "../family/inline-ui";
-import { ListRow } from "../family/list-row";
+import { InterestsRow, ListRow } from "../family/list-row";
 import { GENDER_CHOICES, PersonRow, Relationship, type PersonCtx } from "../family/person-card";
 import { useInlineEdit } from "../family/use-inline-edit";
 
@@ -96,6 +96,11 @@ function PreferenceList({
   return <ListRow label={label} fieldKey={fieldKey} unit={unit} edit={edit} editable={ctx.canEdit} placeholder={placeholder} wide />;
 }
 
+function PreferenceInterests({ detail, prefs, ctx }: { detail: PersonDetailModel; prefs: PreferenceFacts; ctx: PersonCtx }) {
+  const edit = usePreferenceEdit(detail, prefs, ctx, PERSON_UNITS.interests);
+  return <InterestsRow label="Interests" fieldKey="interests" unit={PERSON_UNITS.interests} edit={edit} editable={ctx.canEdit} placeholder="Add interests" wide />;
+}
+
 function PreferenceChoice({
   detail,
   prefs,
@@ -132,7 +137,7 @@ function PreferencesBlock({ detail, prefs, ctx }: { detail: PersonDetailModel; p
   return (
     <div className="mt-3 border-t border-line pt-3" data-testid="profile-preferences">
       <p className="m-0 mb-1 text-[12px] font-bold uppercase tracking-[0.04em] text-muted">Interests and contact preferences</p>
-      <PreferenceList detail={detail} prefs={prefs} ctx={ctx} unit={PERSON_UNITS.interests} fieldKey="interests" label="Interests" placeholder="Add interests" />
+      <PreferenceInterests detail={detail} prefs={prefs} ctx={ctx} />
       <PreferenceList
         detail={detail}
         prefs={prefs}
@@ -142,7 +147,7 @@ function PreferencesBlock({ detail, prefs, ctx }: { detail: PersonDetailModel; p
         label="Expertise areas"
         placeholder="Add expertise areas"
       />
-      <p className={NOTE}>Shown in the directory only while the expertise listing (Privacy and directory) is on.</p>
+      <p className={NOTE}>Shown in the directory only while their expertise listing is on.</p>
       <PreferenceChoice detail={detail} prefs={prefs} ctx={ctx} unit={PERSON_UNITS.callTime} fieldKey="best_call_time" label="Best call time" placeholder="Add a call time" options={CALL_TIME_CHOICES} />
       {!callsOk && prefs.values.best_call_time !== "" ? (
         <p className={NOTE}>They have not chosen phone calls in the app, so the app may clear this when they next save their profile.</p>

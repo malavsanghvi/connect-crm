@@ -29,7 +29,7 @@ const center_id = "center-1";
 function world(over: { failTables?: Record<string, { message: string }> } = {}) {
   const tables: Record<string, Row[]> = {
     people: [
-      { id: "p-priya", center_id, first_name: "Priya", last_name: "Shah", preferred_name: null, member_number: "M-1", gender: "female", date_of_birth: "1984-03-02", profession: "Doctor", employer: null, phone_e164: "+15125550101", email: "priya@example.org", language: "en", is_deceased: false, deceased_on: null, merged_into_id: null, interests: ["chess", "茶道"], expertise_tags: ["Medicine"], best_call_time: "evening", contact_channels: ["phone_call", "sms"], gyan_daily_minutes: 10, photo_opt_in: true, new_member_contact_opt_in: false, expertise_opt_in: true, expertise_headline: "GP" },
+      { id: "p-priya", center_id, first_name: "Priya", last_name: "Shah", preferred_name: null, member_number: "M-1", gender: "female", date_of_birth: "1984-03-02", profession: "Doctor", employer: null, phone_e164: "+15125550101", email: "priya@example.org", language: "en", is_deceased: false, deceased_on: null, merged_into_id: null, interests: ["youth", "茶道"], expertise_tags: ["Medicine"], best_call_time: "evening", contact_channels: ["phone_call", "sms"], gyan_daily_minutes: 10, photo_opt_in: true, new_member_contact_opt_in: false, expertise_opt_in: true, expertise_headline: "GP" },
       { id: "p-zoya", center_id, first_name: "Zoya", last_name: "Shah", preferred_name: null, member_number: "M-3", gender: "female", date_of_birth: "2018-05-05", profession: null, employer: null, phone_e164: "+15125550999", email: "zoya@example.org", language: "en", is_deceased: false, deceased_on: null, merged_into_id: null, interests: ["dinosaurs"], expertise_tags: [], best_call_time: "morning", contact_channels: ["sms"], gyan_daily_minutes: 5, photo_opt_in: false, new_member_contact_opt_in: false, expertise_opt_in: false, expertise_headline: null },
     ],
     center_users: [{ center_id, person_id: "p-priya", user_id: "u-priya", created_at: "2026-03-03T15:00:00Z" }],
@@ -130,7 +130,7 @@ describe("what else is on the record (interests, expertise areas, call time, dai
     const r = await loadPersonDetail(session(FULL), { personId: "p-priya", family: family() });
     if (r.status !== "ok") throw new Error("not loaded");
     expect(r.detail.preferences).toEqual({
-      values: { interests: '["chess","茶道"]', expertise_tags: '["Medicine"]', best_call_time: "evening", gyan_daily_minutes: "10" },
+      values: { interests: '["youth","茶道"]', expertise_tags: '["Medicine"]', best_call_time: "evening", gyan_daily_minutes: "10" },
       channels: ["phone_call", "sms"],
       learningOn: true,
     });

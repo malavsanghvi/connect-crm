@@ -228,9 +228,9 @@ describe("the name a person goes by, interests, expertise areas, call time and d
     const r = await save(ID.priya, { preferred_name: "प्रिया" }, { preferred_name: "" }, "Priya's preferred name");
     expect(r).toMatchObject({ ok: true, changed: true });
     expect(person(tables, ID.priya).preferred_name).toBe("प्रिया");
-    const l = await save(ID.priya, { interests: '["chess","茶道"]' }, { interests: "" }, "Priya's interests");
+    const l = await save(ID.priya, { interests: '["giving","youth"]' }, { interests: "" }, "Priya's interests");
     expect(l).toMatchObject({ ok: true, changed: true });
-    expect(person(tables, ID.priya).interests).toEqual(["chess", "茶道"]);
+    expect(person(tables, ID.priya).interests).toEqual(["youth", "giving"]);
     expect(stub.activity.map((a) => a.key)).toEqual(["people.update_person", "people.update_person"]);
   });
 
@@ -243,27 +243,27 @@ describe("the name a person goes by, interests, expertise areas, call time and d
 
   it("is no change when the list is the one on file in another order", async () => {
     const { tables } = setup();
-    person(tables, ID.priya).interests = ["chess", "art"];
-    const r = await save(ID.priya, { interests: '["art","Chess"]' }, { interests: '["chess","art"]' }, "Priya's interests");
+    person(tables, ID.priya).interests = ["events", "youth"];
+    const r = await save(ID.priya, { interests: '["Youth","events"]' }, { interests: '["events","youth"]' }, "Priya's interests");
     expect(r).toMatchObject({ ok: true, changed: false });
   });
 
   it("an Undo writes the earlier list back, expecting the one it wrote", async () => {
     const { tables } = setup();
-    person(tables, ID.priya).interests = ["chess"];
-    await save(ID.priya, { interests: '["chess","art"]' }, { interests: '["chess"]' }, "Priya's interests");
-    const undo = await save(ID.priya, { interests: '["chess"]' }, { interests: '["chess","art"]' }, "Priya's interests");
+    person(tables, ID.priya).interests = ["events"];
+    await save(ID.priya, { interests: '["events","giving"]' }, { interests: '["events"]' }, "Priya's interests");
+    const undo = await save(ID.priya, { interests: '["events"]' }, { interests: '["events","giving"]' }, "Priya's interests");
     expect(undo).toMatchObject({ ok: true, changed: true });
-    expect(person(tables, ID.priya).interests).toEqual(["chess"]);
+    expect(person(tables, ID.priya).interests).toEqual(["events"]);
   });
 
   it("shows the other person's list, as stored text, when someone else changed it first", async () => {
     const { tables } = setup();
-    person(tables, ID.priya).interests = ["hiking", "board games"];
-    const r = await save(ID.priya, { interests: '["chess"]' }, { interests: "" }, "Priya's interests");
-    expect(r).toMatchObject({ ok: false, kind: "conflict", conflict: { theirs: { interests: '["hiking","board games"]' } } });
+    person(tables, ID.priya).interests = ["seniors", "events"];
+    const r = await save(ID.priya, { interests: '["youth"]' }, { interests: "" }, "Priya's interests");
+    expect(r).toMatchObject({ ok: false, kind: "conflict", conflict: { theirs: { interests: '["seniors","events"]' } } });
     expect((r as { error: string }).error.startsWith(CONFLICT_PREFIX)).toBe(true);
-    expect(person(tables, ID.priya).interests).toEqual(["hiking", "board games"]);
+    expect(person(tables, ID.priya).interests).toEqual(["seniors", "events"]);
   });
 
   it("shows the other person's call time and goal, and the name they go by", async () => {
@@ -293,9 +293,22 @@ describe("the name a person goes by, interests, expertise areas, call time and d
 
   it("says a value that is too long, in words, without writing it", async () => {
     const { tables } = setup();
-    const r = await save(ID.priya, { interests: JSON.stringify(["x".repeat(51)]) }, { interests: "" }, "Priya's interests");
+    const r = await save(ID.priya, { expertise_tags: JSON.stringify(["x".repeat(51)]) }, { expertise_tags: "" }, "Priya's expertise areas");
     expect(r).toMatchObject({ ok: false, kind: "other" });
-    expect((r as { error: string }).error).toContain("Each interest can be 50 characters at most");
-    expect(person(tables, ID.priya).interests).toBeUndefined();
+    expect((r as { error: string }).error).toContain("Each expertise area can be 50 characters at most");
+    expect(person(tables, ID.priya).expertise_tags).toBeUndefined();
+  });
+
+  it("refuses a new interest that is not one of the member app's keys, in words, and keeps the one on file when it is sent back", async () => {
+    const { tables } = setup();
+    person(tables, ID.priya).interests = ["youth", "茶道"];
+    const bad = await save(ID.priya, { interests: '["youth","茶道","chess"]' }, { interests: '["youth","茶道"]' }, "Priya's interests");
+    expect(bad).toMatchObject({ ok: false, kind: "other" });
+    expect((bad as { error: string }).error).toContain('Choose interests from the list');
+    expect((bad as { error: string }).error).toContain('"chess" is not on it');
+    expect(person(tables, ID.priya).interests).toEqual(["youth", "茶道"]);
+    const ok = await save(ID.priya, { interests: '["youth","茶道","giving"]' }, { interests: '["youth","茶道"]' }, "Priya's interests");
+    expect(ok).toMatchObject({ ok: true, changed: true });
+    expect(person(tables, ID.priya).interests).toEqual(["youth", "giving", "茶道"]);
   });
 });

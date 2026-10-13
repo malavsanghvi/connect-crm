@@ -12,15 +12,25 @@
 type Read = (name: string) => string | null;
 type Parsed<T> = { ok: true; value: T } | { ok: false; error: string };
 
-/** The six interest tags the member app offers (people.interests holds the keys). */
-export const INTEREST_LABELS: Record<string, string> = {
-  events: "Events",
-  pathshala: "Pathshala",
-  volunteering: "Volunteering",
-  youth: "Youth",
-  seniors: "Seniors",
-  giving: "Giving",
-};
+/**
+ * The interest keys the member app keeps (people.interests holds exactly these). THIS MIRRORS the member app's INTEREST_CATALOG
+ * (connect-mobile, src/lib/categories.ts) and must change together with it: on a member's next profile save the app drops every value
+ * that is not one of its keys. The one list in this repo; staff choose from it, and the commands accept only these for a new value.
+ */
+export const INTEREST_CATALOG = [
+  { key: "events", label: "Events" },
+  { key: "pathshala", label: "Pathshala" },
+  { key: "volunteering", label: "Volunteering" },
+  { key: "youth", label: "Youth" },
+  { key: "seniors", label: "Seniors" },
+  { key: "giving", label: "Giving" },
+] as const;
+
+export type InterestKey = (typeof INTEREST_CATALOG)[number]["key"];
+
+export const INTEREST_KEYS: readonly InterestKey[] = INTEREST_CATALOG.map((i) => i.key);
+
+export const INTEREST_LABELS: Record<string, string> = Object.fromEntries(INTEREST_CATALOG.map((i) => [i.key, i.label]));
 
 /** "nut_allergy" → "Nut allergy": the last-resort name for a key nobody labelled. */
 export function humanizeKey(key: string): string {

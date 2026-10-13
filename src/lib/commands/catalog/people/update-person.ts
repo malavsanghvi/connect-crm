@@ -16,7 +16,9 @@ import {
 import { loadCommunityLocale } from "@/lib/community-locale";
 import { ageOn } from "@/lib/dates";
 import { REASON_MAX, conflictKeys, conflictSentence, parseExpect } from "@/lib/people-v2/inline-edit";
+import { interestsDisplay } from "@/lib/person-interests";
 import { listDisplay } from "@/lib/person-lists";
+import { INTEREST_KEYS } from "@/lib/profile-details";
 import { dbWithReason } from "@/lib/session";
 import { communityMajority } from "../../child-filter";
 
@@ -48,7 +50,9 @@ const input = object({
   expertise_opt_in: text("Screen only: expertise listing. Niva does not change it."),
   expertise_headline: text("Screen only: expertise headline. Niva does not change it."),
   preferred_name: text("Screen only: the name the person goes by, in place of their first name. Empty clears it. Niva does not change it."),
-  interests: list('Screen only: interests, as a JSON list like ["chess","music"] or items separated by commas. Empty clears them. Not for children. Niva does not change them.'),
+  interests: list(
+    `Screen only: interests, as a JSON list of the member app's keys (${INTEREST_KEYS.join(", ")}) like ["events","youth"]. Only those keys can be added; one already on file may stay. Empty clears them. Not for children. Niva does not change them.`,
+  ),
   expertise_tags: list('Screen only: areas of expertise, as a JSON list like ["law","tax"] or items separated by commas. Empty clears them. Not for children. Niva does not change them.'),
   best_call_time: text("Screen only: best time to call: morning, afternoon or evening. Empty clears it. Not for children. Niva does not change it."),
   gyan_daily_minutes: text("Screen only: daily learning goal in minutes: 5, 10 or 15. Empty clears it. Not for children. Niva does not change it."),
@@ -119,19 +123,21 @@ async function plan(ctx: CommandContext, inp: UpdatePersonInput): Promise<Plan> 
     const community = await loadCommunityLocale(db, center);
     languages = community.known ? [...community.languages, (current.data as { language?: string }).language ?? "en"] : undefined;
   }
-  const parsed = parsePersonForm(raw, today(ctx), languages);
-  if (!parsed.ok) throw new CommandError(`Could not save the profile — ${parsed.error}.`);
   // D2: interests, expertise areas, a call time and a daily goal are not kept for anyone under the age of majority, by any caller. A
-  // child's record can carry a preferred name and nothing else of these. The birth date sent with them counts too.
+  // child's record can carry a preferred name and nothing else of these. The birth date sent with them counts too. This is asked
+  // before the values are checked, so a child's record is refused as a child's, whatever was sent.
   const adultOnly = ADULT_ONLY_FIELDS.filter((k) => raw[k] !== undefined);
   if (adultOnly.length > 0) {
     const brief = await loadPersonBrief(ctx, id);
-    const dob = parsed.value.date_of_birth;
-    const age = typeof dob === "string" ? ageOn(dob, today(ctx)) : null;
+    const sent = raw.date_of_birth === undefined ? null : parseDateInput(raw.date_of_birth);
+    const age = sent && sent.ok && sent.value ? ageOn(sent.value, today(ctx)) : null;
     if (!brief || !brief.isAdult || (age !== null && age < communityMajority(center))) {
       throw new CommandError(`Could not save the profile — a child's record does not hold ${listPhrase(adultOnly.map((k) => FIELD_LABELS[k] ?? k))}. Only a preferred name can be set for a child.`);
     }
   }
+  // An interest already on the record may stay; any other must be one of the member app's keys (src/lib/person-interests.ts).
+  const parsed = parsePersonForm(raw, today(ctx), languages, { interests: (current.data as { interests?: string[] | null }).interests });
+  if (!parsed.ok) throw new CommandError(`Could not save the profile — ${parsed.error}.`);
   const expected = parseExpect(inp.expect);
   if (!expected.ok) throw new CommandError(`Could not save the profile — ${lowerFirst(expected.error)}`);
   const original = { ...(current.data as unknown as PersonProfile) };
@@ -163,8 +169,10 @@ async function plan(ctx: CommandContext, inp: UpdatePersonInput): Promise<Plan> 
   return { id, first, original, changes, keys, household, role: roleChanged && isHouseholdRole(role) ? role : null, roleChanged, reason: why };
 }
 
-const shown = (v: unknown): string | null =>
-  v === null || v === undefined || v === "" || (Array.isArray(v) && v.length === 0)
+const shown = (v: unknown, key?: string): string | null =>
+  key === "interests" && Array.isArray(v) && v.length > 0
+    ? interestsDisplay(v)
+    : v === null || v === undefined || v === "" || (Array.isArray(v) && v.length === 0)
     ? null
     : Array.isArray(v)
       ? listDisplay(v)
@@ -195,7 +203,7 @@ export const updatePerson = defineCommand<UpdatePersonInput, undefined>({
     return {
       summary: labels.length ? `Change ${listPhrase([...new Set(labels)])} for ${brief?.name ?? p.first}.` : `No changes for ${brief?.name ?? p.first}.`,
       lines: [
-        ...p.keys.map((k) => ({ label: FIELD_LABELS[k] ?? String(k), before: shown(p.original[k]), after: shown(p.changes[k]) })),
+        ...p.keys.map((k) => ({ label: FIELD_LABELS[k] ?? String(k), before: shown(p.original[k], k), after: shown(p.changes[k], k) })),
         ...(p.roleChanged && p.role ? [{ label: "Relationship", after: relationshipWords(p.role) }] : []),
       ],
       households,

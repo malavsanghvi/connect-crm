@@ -59,9 +59,9 @@ describe("the name a person goes by", () => {
 describe("interests and expertise areas", () => {
   it("saves a list as an array, from the stored JSON the screen sends, in any script", async () => {
     const { ctx, tables } = world();
-    const r = await updatePerson.execute!(ctx, { id: ID.priya, interests: '["chess","茶道","ગુજરાતી"]', expect: expectText({ interests: "" }) });
+    const r = await updatePerson.execute!(ctx, { id: ID.priya, interests: '["giving","Events"]', expect: expectText({ interests: "" }) });
     expect(r).toMatchObject({ ok: true, message: "Saved Priya's profile (interests) · audit logged" });
-    expect(person(tables, ID.priya).interests).toEqual(["chess", "茶道", "ગુજરાતી"]);
+    expect(person(tables, ID.priya).interests).toEqual(["events", "giving"]); // the app's keys, in the app's order
   });
 
   it("also takes plain text with commas, and drops a repeat in another letter case", async () => {
@@ -72,27 +72,26 @@ describe("interests and expertise areas", () => {
 
   it("is no change when the list is the same in another order and letter case", async () => {
     const { ctx, tables } = world();
-    person(tables, ID.priya).interests = ["Chess", "art"];
-    const r = await updatePerson.execute!(ctx, { id: ID.priya, interests: '["ART","chess"]', expect: expectText({ interests: '["Chess","art"]' }) });
+    person(tables, ID.priya).interests = ["Events", "youth"];
+    const r = await updatePerson.execute!(ctx, { id: ID.priya, interests: '["YOUTH","events"]', expect: expectText({ interests: '["Events","youth"]' }) });
     expect(r).toEqual({ ok: true, data: undefined, message: "No changes to save." });
-    expect(person(tables, ID.priya).interests).toEqual(["Chess", "art"]);
+    expect(person(tables, ID.priya).interests).toEqual(["Events", "youth"]);
   });
 
   it("clears with an empty value", async () => {
     const { ctx, tables } = world();
-    person(tables, ID.priya).interests = ["chess"];
-    await updatePerson.execute!(ctx, { id: ID.priya, interests: "", expect: expectText({ interests: '["chess"]' }) });
+    person(tables, ID.priya).interests = ["events"];
+    await updatePerson.execute!(ctx, { id: ID.priya, interests: "", expect: expectText({ interests: '["events"]' }) });
     expect(person(tables, ID.priya).interests).toEqual([]);
   });
 
   it("refuses, and changes nothing, when someone else changed the list first", async () => {
     const { ctx, tables } = world();
-    person(tables, ID.priya).interests = ["chess"];
-    person(tables, ID.priya).interests = ["chess", "hiking"]; // Ravi added one meanwhile
-    const err = await updatePerson.execute!(ctx, { id: ID.priya, interests: '["chess","art"]', expect: expectText({ interests: '["chess"]' }) }).catch((e: Error) => e);
+    person(tables, ID.priya).interests = ["events", "youth"]; // Ravi added one meanwhile
+    const err = await updatePerson.execute!(ctx, { id: ID.priya, interests: '["events","giving"]', expect: expectText({ interests: '["events"]' }) }).catch((e: Error) => e);
     expect((err as Error).message.startsWith(CONFLICT_PREFIX)).toBe(true);
     expect((err as Error).message).toContain("interests");
-    expect(person(tables, ID.priya).interests).toEqual(["chess", "hiking"]);
+    expect(person(tables, ID.priya).interests).toEqual(["events", "youth"]);
     expect(dbWithReason).not.toHaveBeenCalled();
   });
 
@@ -107,9 +106,47 @@ describe("interests and expertise areas", () => {
 
   it("shows the before and after of a list in the preview, as words", async () => {
     const { ctx, tables } = world();
-    person(tables, ID.priya).interests = ["chess"];
-    const p = await updatePerson.preview!(ctx, { id: ID.priya, interests: '["chess","art"]' });
-    expect(p.lines).toEqual([{ label: "interests", before: "chess", after: "chess, art" }]);
+    person(tables, ID.priya).interests = ["events"];
+    const p = await updatePerson.preview!(ctx, { id: ID.priya, interests: '["events","giving"]' });
+    expect(p.lines).toEqual([{ label: "interests", before: "Events", after: "Events, Giving" }]);
+  });
+});
+
+describe("interests are a fixed choice (the member app keeps only its keys)", () => {
+  it("refuses a new word that is not one of the keys, in words, and writes nothing", async () => {
+    const { ctx, tables } = world();
+    await expect(updatePerson.execute!(ctx, { id: ID.priya, interests: '["events","chess"]' })).rejects.toThrow(
+      'Could not save the profile — Choose interests from the list: Events, Pathshala, Volunteering, Youth, Seniors and Giving ("chess" is not on it).',
+    );
+    await expect(updatePerson.execute!(ctx, { id: ID.priya, interests: "茶道" })).rejects.toThrow(/"茶道" is not on it/);
+    expect(person(tables, ID.priya).interests).toBeUndefined();
+    expect(dbWithReason).not.toHaveBeenCalled();
+  });
+
+  it("keeps an older value on file, in any script, through a save that changes something else in the list", async () => {
+    const { ctx, tables } = world();
+    person(tables, ID.priya).interests = ["youth", "茶道"];
+    const r = await updatePerson.execute!(ctx, { id: ID.priya, interests: '["youth","茶道","giving"]', expect: expectText({ interests: '["youth","茶道"]' }) });
+    expect(r).toMatchObject({ ok: true });
+    expect(person(tables, ID.priya).interests).toEqual(["youth", "giving", "茶道"]);
+  });
+
+  it("lets the older value be removed, and then refuses it as a new word", async () => {
+    const { ctx, tables } = world();
+    person(tables, ID.priya).interests = ["youth", "茶道"];
+    const removed = await updatePerson.execute!(ctx, { id: ID.priya, interests: '["youth"]', expect: expectText({ interests: '["youth","茶道"]' }) });
+    expect(removed).toMatchObject({ ok: true });
+    expect(person(tables, ID.priya).interests).toEqual(["youth"]);
+    await expect(updatePerson.execute!(ctx, { id: ID.priya, interests: '["youth","茶道"]' })).rejects.toThrow(/"茶道" is not on it/);
+    expect(person(tables, ID.priya).interests).toEqual(["youth"]);
+  });
+
+  it("is no change when an older value is sent back as it is", async () => {
+    const { ctx, tables } = world();
+    person(tables, ID.priya).interests = ["Chess club"];
+    const r = await updatePerson.execute!(ctx, { id: ID.priya, interests: '["chess CLUB"]' });
+    expect(r).toEqual({ ok: true, data: undefined, message: "No changes to save." });
+    expect(person(tables, ID.priya).interests).toEqual(["Chess club"]);
   });
 });
 
@@ -143,7 +180,8 @@ describe("a child's record (D2)", () => {
 
   it("holds none of interests, expertise areas, call time or daily goal, whoever asks", async () => {
     const { ctx, tables } = world();
-    await expect(updatePerson.execute!(ctx, { id: ID.zoya, interests: "chess" })).rejects.toThrow(HOLD);
+    await expect(updatePerson.execute!(ctx, { id: ID.zoya, interests: "events" })).rejects.toThrow(HOLD);
+    await expect(updatePerson.execute!(ctx, { id: ID.zoya, interests: "chess" })).rejects.toThrow(HOLD); // refused as a child's record first
     await expect(updatePerson.execute!(ctx, { id: ID.zoya, expertise_tags: "law" })).rejects.toThrow(HOLD);
     await expect(updatePerson.execute!(ctx, { id: ID.zoya, best_call_time: "morning" })).rejects.toThrow(HOLD);
     await expect(updatePerson.execute!(ctx, { id: ID.zoya, gyan_daily_minutes: "5" })).rejects.toThrow(HOLD);
@@ -153,28 +191,28 @@ describe("a child's record (D2)", () => {
 
   it("says which of them, in words", async () => {
     const { ctx } = world();
-    await expect(updatePerson.execute!(ctx, { id: ID.zoya, interests: "chess", best_call_time: "morning" })).rejects.toThrow(
+    await expect(updatePerson.execute!(ctx, { id: ID.zoya, interests: "events", best_call_time: "morning" })).rejects.toThrow(
       "does not hold interests and best time to call. Only a preferred name can be set for a child.",
     );
   });
 
   it("includes a child with no birth date on file whose household role is child", async () => {
     const { ctx } = world();
-    await expect(updatePerson.execute!(ctx, { id: ID.aarav, interests: "chess" })).rejects.toThrow(HOLD);
+    await expect(updatePerson.execute!(ctx, { id: ID.aarav, interests: "events" })).rejects.toThrow(HOLD);
   });
 
   it("includes an adult whose birth date is changed to a child's in the same save", async () => {
     const { ctx, tables } = world();
-    await expect(updatePerson.execute!(ctx, { id: ID.rahul, date_of_birth: "03/04/2018", interests: "chess" })).rejects.toThrow(HOLD);
+    await expect(updatePerson.execute!(ctx, { id: ID.rahul, date_of_birth: "03/04/2018", interests: "events" })).rejects.toThrow(HOLD);
     expect(person(tables, ID.rahul).interests).toBeUndefined();
     expect(person(tables, ID.rahul).date_of_birth).toBe("1982-07-19");
   });
 
   it("still lets the same adult have them once the birth date is an adult's", async () => {
     const { ctx, tables } = world();
-    const r = await updatePerson.execute!(ctx, { id: ID.rahul, date_of_birth: "07/19/1982", interests: "chess" });
+    const r = await updatePerson.execute!(ctx, { id: ID.rahul, date_of_birth: "07/19/1982", interests: "events" });
     expect(r).toMatchObject({ ok: true });
-    expect(person(tables, ID.rahul).interests).toEqual(["chess"]);
+    expect(person(tables, ID.rahul).interests).toEqual(["events"]);
   });
 });
 
@@ -192,7 +230,7 @@ describe("a child's preferred name never goes toward an AI provider (D2)", () =>
 describe("Niva does not change them", () => {
   it("is told they are set on the People screen, for an adult too, and nothing is written", async () => {
     const { ctx, tables } = world({ via: "assistant" });
-    for (const input of [{ preferred_name: "Pia" }, { interests: "chess" }, { expertise_tags: "law" }, { best_call_time: "morning" }, { gyan_daily_minutes: "5" }]) {
+    for (const input of [{ preferred_name: "Pia" }, { interests: "events" }, { expertise_tags: "law" }, { best_call_time: "morning" }, { gyan_daily_minutes: "5" }]) {
       await expect(updatePerson.execute!(ctx, { id: ID.priya, ...input })).rejects.toThrow(SCREEN_ONLY_ON_SCREEN);
     }
     expect(person(tables, ID.priya).preferred_name).toBeNull();

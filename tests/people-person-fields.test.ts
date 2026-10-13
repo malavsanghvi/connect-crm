@@ -21,8 +21,9 @@ import {
 } from "@/lib/people-v2/inline-edit";
 import { reachedByLine } from "@/lib/people-v2/slideover";
 
-// The five details of a person's record that were read-only until now: the name they go by, interests, expertise areas, the best time
-// to call and the daily learning goal. The pure core: parsing, the stored text of a list, "did it change", the edit state machine.
+// The five details of a person's record that were read-only until now: the name they go by, interests (a fixed choice), expertise areas
+// (free text), the best time to call and the daily learning goal. The pure core: parsing, the stored text of a list, "did it change",
+// the edit state machine.
 
 const ctx: CheckContext = { today: "2026-10-12", languages: ["en", "es"], zoneIds: [] };
 const run = (u: EditUnit, start: Record<string, string>, events: EditEvent[]) => events.reduce((s, e) => reduce(s, e, u, ctx), initialEdit(u, start));
@@ -35,15 +36,38 @@ describe("parsePersonForm: the five details", () => {
     expect(parsePersonForm({ preferred_name: "  " }, ctx.today)).toEqual({ ok: true, value: { preferred_name: null } });
   });
 
-  it("takes interests and expertise areas as lists, from text or from the stored JSON, in any script", () => {
-    expect(parsePersonForm({ interests: "chess, 茶道, ગુજરાતી" }, ctx.today)).toEqual({ ok: true, value: { interests: ["chess", "茶道", "ગુજરાતી"] } });
+  it("takes expertise areas as free text in any script, from text or from the stored JSON", () => {
+    expect(parsePersonForm({ expertise_tags: "chess, 茶道, ગુજરાતી" }, ctx.today)).toEqual({ ok: true, value: { expertise_tags: ["chess", "茶道", "ગુજરાતી"] } });
     expect(parsePersonForm({ expertise_tags: '["Law","tax"]' }, ctx.today)).toEqual({ ok: true, value: { expertise_tags: ["Law", "tax"] } });
+    expect(parsePersonForm({ expertise_tags: "" }, ctx.today)).toEqual({ ok: true, value: { expertise_tags: [] } });
+  });
+
+  it("takes interests only from the member app's keys, in the app's order, in any letter case or by their names", () => {
+    expect(parsePersonForm({ interests: '["youth","Events"]' }, ctx.today)).toEqual({ ok: true, value: { interests: ["events", "youth"] } });
+    expect(parsePersonForm({ interests: "Seniors, giving" }, ctx.today)).toEqual({ ok: true, value: { interests: ["seniors", "giving"] } });
     expect(parsePersonForm({ interests: "" }, ctx.today)).toEqual({ ok: true, value: { interests: [] } });
+  });
+
+  it("refuses an interest that is not one of the keys, in words, whatever the script", () => {
+    expect(parsePersonForm({ interests: "events, chess" }, ctx.today)).toEqual({
+      ok: false,
+      error: 'Choose interests from the list: Events, Pathshala, Volunteering, Youth, Seniors and Giving ("chess" is not on it)',
+    });
+    expect(parsePersonForm({ interests: "茶道, कविता" }, ctx.today)).toMatchObject({ ok: false, error: expect.stringContaining('"茶道" and "कविता" are not on it') });
+  });
+
+  it("lets an interest that is already on file stay, but no other that is not a key", () => {
+    const onFile = { interests: ["youth", "茶道"] };
+    expect(parsePersonForm({ interests: '["youth","茶道","giving"]' }, ctx.today, undefined, onFile)).toEqual({ ok: true, value: { interests: ["youth", "giving", "茶道"] } });
+    expect(parsePersonForm({ interests: '["茶道"]' }, ctx.today, undefined, onFile)).toEqual({ ok: true, value: { interests: ["茶道"] } });
+    expect(parsePersonForm({ interests: '["茶道","俳句"]' }, ctx.today, undefined, onFile)).toMatchObject({ ok: false });
+    // removed from the record, it can no longer be put back by a save
+    expect(parsePersonForm({ interests: '["茶道"]' }, ctx.today, undefined, { interests: ["youth"] })).toMatchObject({ ok: false });
   });
 
   it("refuses a list that is too long, in words", () => {
     const many = Array.from({ length: 21 }, (_, i) => `i${i}`).join(",");
-    expect(parsePersonForm({ interests: many }, ctx.today)).toEqual({ ok: false, error: "Add at most 20 interests" });
+    expect(parsePersonForm({ expertise_tags: many }, ctx.today)).toEqual({ ok: false, error: "Add at most 20 expertise areas" });
   });
 
   it("takes only morning, afternoon or evening for the call time", () => {
@@ -74,9 +98,9 @@ describe("parsePersonForm: the five details", () => {
 
 describe("changedKeys with lists", () => {
   it("a list in another order or letter case is not a change; a different list is", () => {
-    const original: Record<string, unknown> = { interests: ["Chess", "art"], expertise_tags: [], preferred_name: null, best_call_time: null, gyan_daily_minutes: 10 };
-    expect(changedKeys(original, { interests: ["ART", "chess"], expertise_tags: [], preferred_name: null, best_call_time: null, gyan_daily_minutes: 10 })).toEqual([]);
-    expect(changedKeys(original, { interests: ["art"], expertise_tags: ["law"], preferred_name: "Sami", best_call_time: "morning", gyan_daily_minutes: 5 })).toEqual([
+    const original: Record<string, unknown> = { interests: ["Events", "youth"], expertise_tags: [], preferred_name: null, best_call_time: null, gyan_daily_minutes: 10 };
+    expect(changedKeys(original, { interests: ["YOUTH", "events"], expertise_tags: [], preferred_name: null, best_call_time: null, gyan_daily_minutes: 10 })).toEqual([]);
+    expect(changedKeys(original, { interests: ["youth"], expertise_tags: ["law"], preferred_name: "Sami", best_call_time: "morning", gyan_daily_minutes: 5 })).toEqual([
       "interests",
       "expertise_tags",
       "preferred_name",
@@ -86,31 +110,54 @@ describe("changedKeys with lists", () => {
   });
   it("treats a missing list on file as an empty one", () => {
     expect(changedKeys({ interests: undefined } as Record<string, unknown>, { interests: [] })).toEqual([]);
-    expect(changedKeys({ interests: null } as Record<string, unknown>, { interests: ["x"] })).toEqual(["interests"]);
+    expect(changedKeys({ interests: null } as Record<string, unknown>, { interests: ["giving"] })).toEqual(["interests"]);
   });
 });
 
 describe("the stored text of a list and the draft in the editor", () => {
-  it("a list is stored as JSON and edited as one item per line", () => {
+  it("expertise areas are stored as JSON and edited as one item per line", () => {
     const stored = '["chess","ગુજરાતી"]';
-    expect(toDraft("interests", stored)).toBe("chess\nગુજરાતી\n");
+    expect(toDraft("expertise_tags", stored)).toBe("chess\nગુજરાતી\n");
     expect(toDraft("expertise_tags", "")).toBe("");
-    expect(displayValue("interests", stored)).toBe("chess, ગુજરાતી");
-    expect(displayValue("interests", "")).toBe("");
+    expect(displayValue("expertise_tags", stored)).toBe("chess, ગુજરાતી");
+    expect(displayValue("expertise_tags", "")).toBe("");
   });
 
-  it("checkDraft turns the lines (the one still being typed included) into the stored JSON", () => {
-    expect(checkDraft(PERSON_UNITS.interests, { interests: "chess\nart\nmusi" }, ctx)).toEqual({ ok: true, stored: { interests: '["chess","art","musi"]' } });
-    expect(checkDraft(PERSON_UNITS.interests, { interests: "Chess\nchess\n" }, ctx)).toEqual({ ok: true, stored: { interests: '["Chess"]' } });
-    expect(checkDraft(PERSON_UNITS.interests, { interests: "" }, ctx)).toEqual({ ok: true, stored: { interests: "" } });
+  it("interests are shown by their names, the keys first in the app's order, then an older value as written", () => {
+    const stored = '["茶道","youth","Events"]';
+    expect(displayValue("interests", stored)).toBe("Events, Youth, 茶道");
+    expect(toDraft("interests", stored)).toBe("events\nyouth\n茶道\n");
+    expect(toDraft("interests", "")).toBe("");
+  });
+
+  it("checkDraft turns expertise lines (the one still being typed included) into the stored JSON", () => {
+    expect(checkDraft(PERSON_UNITS.expertiseAreas, { expertise_tags: "chess\nart\nmusi" }, ctx)).toEqual({ ok: true, stored: { expertise_tags: '["chess","art","musi"]' } });
+    expect(checkDraft(PERSON_UNITS.expertiseAreas, { expertise_tags: "Chess\nchess\n" }, ctx)).toEqual({ ok: true, stored: { expertise_tags: '["Chess"]' } });
+    expect(checkDraft(PERSON_UNITS.expertiseAreas, { expertise_tags: "" }, ctx)).toEqual({ ok: true, stored: { expertise_tags: "" } });
     expect(checkDraft(PERSON_UNITS.expertiseAreas, { expertise_tags: "[beta]\n" }, ctx)).toEqual({ ok: true, stored: { expertise_tags: '["[beta]"]' } });
+  });
+
+  it("checkDraft stores chosen interests as keys in the app's order, and refuses a new word that is not a key", () => {
+    expect(checkDraft(PERSON_UNITS.interests, { interests: "youth\nevents\n" }, ctx)).toEqual({ ok: true, stored: { interests: '["events","youth"]' } });
+    expect(checkDraft(PERSON_UNITS.interests, { interests: "" }, ctx)).toEqual({ ok: true, stored: { interests: "" } });
+    const r = checkDraft(PERSON_UNITS.interests, { interests: "events\nchess\n" }, ctx, { interests: '["events"]' });
+    expect(r.ok).toBe(false);
+    expect(r.ok ? "" : r.error).toContain('"chess" is not on it');
+  });
+
+  it("checkDraft keeps an older value that is on file, in any script, and lets it go when removed", () => {
+    const committed = { interests: '["youth","茶道"]' };
+    expect(checkDraft(PERSON_UNITS.interests, { interests: "youth\n茶道\n" }, ctx, committed)).toEqual({ ok: true, stored: { interests: '["youth","茶道"]' } });
+    expect(checkDraft(PERSON_UNITS.interests, { interests: "youth\n" }, ctx, committed)).toEqual({ ok: true, stored: { interests: '["youth"]' } });
+    // not on file: refused, so it can never be added
+    expect(checkDraft(PERSON_UNITS.interests, { interests: "youth\n茶道\n" }, ctx, { interests: '["youth"]' }).ok).toBe(false);
   });
 
   it("checkDraft says what is wrong in words", () => {
     const long = "y".repeat(51);
-    const r = checkDraft(PERSON_UNITS.interests, { interests: `ok\n${long}\n` }, ctx);
+    const r = checkDraft(PERSON_UNITS.expertiseAreas, { expertise_tags: `ok\n${long}\n` }, ctx);
     expect(r.ok).toBe(false);
-    expect(r.ok ? "" : r.error).toContain("Each interest can be 50 characters at most");
+    expect(r.ok ? "" : r.error).toContain("Each expertise area can be 50 characters at most");
     expect(checkDraft(PERSON_UNITS.callTime, { best_call_time: "midnight" }, ctx)).toEqual({ ok: false, error: "Choose morning, afternoon or evening" });
     expect(checkDraft(PERSON_UNITS.dailyGoal, { gyan_daily_minutes: "12" }, ctx)).toEqual({ ok: false, error: "Choose 5, 10 or 15 minutes a day" });
     expect(checkDraft(PERSON_UNITS.dailyGoal, { gyan_daily_minutes: "15" }, ctx)).toEqual({ ok: true, stored: { gyan_daily_minutes: "15" } });
@@ -138,10 +185,10 @@ describe("the stored text of a list and the draft in the editor", () => {
 
 describe("a value that did not change is not a change", () => {
   it("compares lists without order or letter case, and the database array with the stored text", () => {
-    expect(sameValue("interests", ["b", "A"], '["a","B"]')).toBe(true);
+    expect(sameValue("interests", ["youth", "Events"], '["events","Youth"]')).toBe(true);
     expect(sameValue("interests", [], "")).toBe(true);
     expect(sameValue("interests", null, undefined)).toBe(true);
-    expect(sameValue("interests", ["a"], '["a","b"]')).toBe(false);
+    expect(sameValue("interests", ["youth"], '["youth","giving"]')).toBe(false);
     expect(normalizeStored("expertise_tags", ["Law", "tax"])).toBe(normalizeStored("expertise_tags", '["TAX","law"]'));
   });
   it("compares a number from the database with the text the screen holds, and the call time without letter case", () => {
@@ -152,68 +199,99 @@ describe("a value that did not change is not a change", () => {
     expect(sameValue("preferred_name", null, "")).toBe(true);
   });
   it("finds the conflict on a list the same way", () => {
-    const current = { interests: ["chess", "art"], best_call_time: "morning" };
-    expect(conflictKeys({ interests: '["art","chess"]' }, current, ["interests"])).toEqual([]);
-    expect(conflictKeys({ interests: '["chess"]' }, current, ["interests", "best_call_time"])).toEqual(["interests"]);
+    const current = { interests: ["events", "youth"], best_call_time: "morning" };
+    expect(conflictKeys({ interests: '["youth","events"]' }, current, ["interests"])).toEqual([]);
+    expect(conflictKeys({ interests: '["events"]' }, current, ["interests", "best_call_time"])).toEqual(["interests"]);
   });
-  it("says in words what the other person changed it to", () => {
-    const line = conflictLine({ who: "Ravi", at: null, keys: ["interests"], theirs: { interests: '["Hiking","Board games"]' } }, new Date());
-    expect(line).toBe("Ravi changed this a moment ago to Hiking, Board games. Your change was not saved.");
+  it("says in words what the other person changed interests to, by their names", () => {
+    const line = conflictLine({ who: "Ravi", at: null, keys: ["interests"], theirs: { interests: '["seniors","events"]' } }, new Date());
+    expect(line).toBe("Ravi changed this a moment ago to Events, Seniors. Your change was not saved.");
   });
 });
 
-describe("the edit of a list, step by step", () => {
-  const start = { interests: '["chess"]' };
+describe("the edit of expertise areas, step by step", () => {
+  const u = PERSON_UNITS.expertiseAreas;
+  const start = { expertise_tags: '["chess"]' };
 
   it("save: adds a chip and sends the change with what was seen", () => {
-    const s = run(PERSON_UNITS.interests, start, [
-      { type: "start" },
-      { type: "change", key: "interests", value: "chess\nart\n" },
-      { type: "submit" },
-    ]);
+    const s = run(u, start, [{ type: "start" }, { type: "change", key: "expertise_tags", value: "chess\nart\n" }, { type: "submit" }]);
     expect(s.phase).toBe("saving");
-    expect(s.pending).toEqual({ fields: { interests: '["chess","art"]' }, expect: { interests: '["chess"]' }, reason: null });
+    expect(s.pending).toEqual({ fields: { expertise_tags: '["chess","art"]' }, expect: { expertise_tags: '["chess"]' }, reason: null });
   });
 
   it("save with nothing typed or changed is no save", () => {
-    const s = run(PERSON_UNITS.interests, start, [{ type: "start" }, { type: "submit" }]);
+    const s = run(u, start, [{ type: "start" }, { type: "submit" }]);
     expect(s.phase).toBe("idle");
     expect(s.pending).toBeNull();
-    const reordered = run(PERSON_UNITS.interests, { interests: '["chess","art"]' }, [{ type: "start" }, { type: "change", key: "interests", value: "ART\nChess\n" }, { type: "submit" }]);
+    const reordered = run(u, { expertise_tags: '["chess","art"]' }, [{ type: "start" }, { type: "change", key: "expertise_tags", value: "ART\nChess\n" }, { type: "submit" }]);
     expect(reordered.phase).toBe("idle");
   });
 
   it("a mistake stays in the field with its sentence, and what was typed is kept", () => {
-    const s = run(PERSON_UNITS.interests, start, [{ type: "start" }, { type: "change", key: "interests", value: `chess\n${"z".repeat(60)}` }, { type: "submit" }]);
+    const s = run(u, start, [{ type: "start" }, { type: "change", key: "expertise_tags", value: `chess\n${"z".repeat(60)}` }, { type: "submit" }]);
     expect(s.phase).toBe("editing");
     expect(s.problem).toContain("50 characters at most");
-    expect(s.draft.interests).toBe(`chess\n${"z".repeat(60)}`);
+    expect(s.draft.expertise_tags).toBe(`chess\n${"z".repeat(60)}`);
   });
 
   it("clearing the list sends an empty value, and a failed save keeps what was typed", () => {
-    let s = run(PERSON_UNITS.interests, start, [{ type: "start" }, { type: "change", key: "interests", value: "" }, { type: "submit" }]);
-    expect(s.pending?.fields).toEqual({ interests: "" });
-    s = reduce(s, { type: "failed", message: "Could not save Sami's interests — the server did not accept it." }, PERSON_UNITS.interests, ctx);
+    let s = run(u, start, [{ type: "start" }, { type: "change", key: "expertise_tags", value: "" }, { type: "submit" }]);
+    expect(s.pending?.fields).toEqual({ expertise_tags: "" });
+    s = reduce(s, { type: "failed", message: "Could not save Sami's expertise areas — the server did not accept it." }, u, ctx);
     expect(s.phase).toBe("error");
-    expect(s.draft.interests).toBe("");
-    expect(s.committed.interests).toBe('["chess"]');
+    expect(s.draft.expertise_tags).toBe("");
+    expect(s.committed.expertise_tags).toBe('["chess"]');
   });
 
   it("a conflict offers theirs, and theirs becomes the list the editor starts from", () => {
-    let s = run(PERSON_UNITS.interests, start, [{ type: "start" }, { type: "change", key: "interests", value: "chess\nart\n" }, { type: "submit" }]);
-    s = reduce(s, { type: "conflicted", theirs: { interests: '["Hiking"]' }, who: "Ravi", at: null }, PERSON_UNITS.interests, ctx);
-    s = reduce(s, { type: "use_theirs" }, PERSON_UNITS.interests, ctx);
+    let s = run(u, start, [{ type: "start" }, { type: "change", key: "expertise_tags", value: "chess\nart\n" }, { type: "submit" }]);
+    s = reduce(s, { type: "conflicted", theirs: { expertise_tags: '["Hiking"]' }, who: "Ravi", at: null }, u, ctx);
+    s = reduce(s, { type: "use_theirs" }, u, ctx);
     expect(s.phase).toBe("idle");
-    expect(s.committed.interests).toBe('["Hiking"]');
-    expect(s.draft.interests).toBe("Hiking\n");
+    expect(s.committed.expertise_tags).toBe('["Hiking"]');
+    expect(s.draft.expertise_tags).toBe("Hiking\n");
   });
 
   it("a non-Latin list round-trips through the draft unchanged", () => {
     const stored = '["茶道","ગુજરાતી","الشطرنج"]';
-    const s = run(PERSON_UNITS.interests, { interests: stored }, [{ type: "start" }, { type: "submit" }]);
+    const s = run(u, { expertise_tags: stored }, [{ type: "start" }, { type: "submit" }]);
     expect(s.phase).toBe("idle"); // starting and leaving a list as it was changes nothing
-    const again = checkDraft(PERSON_UNITS.interests, { interests: toDraft("interests", stored) }, ctx);
-    expect(again).toEqual({ ok: true, stored: { interests: stored } });
+    expect(checkDraft(u, { expertise_tags: toDraft("expertise_tags", stored) }, ctx)).toEqual({ ok: true, stored: { expertise_tags: stored } });
+  });
+});
+
+describe("the edit of interests, step by step", () => {
+  const u = PERSON_UNITS.interests;
+  const start = { interests: '["youth","茶道"]' }; // one key, and an older value in another script
+
+  it("choosing a key sends the keys in the app's order and keeps the older value", () => {
+    const s = run(u, start, [{ type: "start" }, { type: "change", key: "interests", value: "youth\n茶道\nevents\n" }, { type: "submit" }]);
+    expect(s.phase).toBe("saving");
+    expect(s.pending).toEqual({ fields: { interests: '["events","youth","茶道"]' }, expect: { interests: '["youth","茶道"]' }, reason: null });
+  });
+
+  it("removing the older value sends the list without it", () => {
+    const s = run(u, start, [{ type: "start" }, { type: "change", key: "interests", value: "youth\n" }, { type: "submit" }]);
+    expect(s.pending?.fields).toEqual({ interests: '["youth"]' });
+  });
+
+  it("a word that is not a key is refused in the field and nothing is sent", () => {
+    const s = run(u, start, [{ type: "start" }, { type: "change", key: "interests", value: "youth\n茶道\nchess\n" }, { type: "submit" }]);
+    expect(s.phase).toBe("editing");
+    expect(s.problem).toContain('"chess" is not on it');
+    expect(s.pending).toBeNull();
+  });
+
+  it("leaving it as it was is no save", () => {
+    const s = run(u, start, [{ type: "start" }, { type: "submit" }]);
+    expect(s.phase).toBe("idle");
+  });
+
+  it("Undo is offered unless the change removed an older value (putting it back would add what is not a key)", () => {
+    expect(u.canUndo?.('["youth","茶道"]', '["events","youth","茶道"]')).toBe(true);
+    expect(u.canUndo?.('["youth"]', '["youth","events"]')).toBe(true);
+    expect(u.canUndo?.('["youth","茶道"]', '["youth"]')).toBe(false);
+    expect(u.canUndo?.("", '["events"]')).toBe(true);
   });
 });
 
@@ -226,8 +304,8 @@ describe("the values the editors start from", () => {
   });
 
   it("preferenceValues makes the lists stored text, the call time and the goal as text", () => {
-    expect(preferenceValues({ interests: ["chess", "茶道"], expertise_tags: ["Law"], best_call_time: "evening", gyan_daily_minutes: 10 })).toEqual({
-      interests: '["chess","茶道"]',
+    expect(preferenceValues({ interests: ["youth", "茶道"], expertise_tags: ["Law"], best_call_time: "evening", gyan_daily_minutes: 10 })).toEqual({
+      interests: '["youth","茶道"]',
       expertise_tags: '["Law"]',
       best_call_time: "evening",
       gyan_daily_minutes: "10",
@@ -252,8 +330,8 @@ describe("History names the new details in plain words", () => {
   it("says what changed", () => {
     expect(
       changedFields(
-        { interests: ["a"], best_call_time: null, gyan_daily_minutes: 5, expertise_tags: [], contact_channels: [], preferred_name: null },
-        { interests: ["a", "b"], best_call_time: "morning", gyan_daily_minutes: 10, expertise_tags: ["law"], contact_channels: ["sms"], preferred_name: "Sami" },
+        { interests: ["events"], best_call_time: null, gyan_daily_minutes: 5, expertise_tags: [], contact_channels: [], preferred_name: null },
+        { interests: ["events", "youth"], best_call_time: "morning", gyan_daily_minutes: 10, expertise_tags: ["law"], contact_channels: ["sms"], preferred_name: "Sami" },
       ),
     ).toEqual(["interests", "best time to call", "daily learning goal", "expertise areas", "contact choices", "preferred name"]);
   });

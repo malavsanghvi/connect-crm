@@ -24,7 +24,8 @@ import {
   relationshipLabel,
   toUsDate,
 } from "@/lib/people";
-import { draftItems, encodeList, isListField, listComparable, listDisplay, listToDraft } from "@/lib/person-lists";
+import { canUndoInterests, interestsDisplay, interestsToDraft } from "@/lib/person-interests";
+import { decodeList, draftItems, encodeList, isListField, listComparable, listDisplay, listToDraft } from "@/lib/person-lists";
 
 // ---------------------------------------------------------------------------
 // Fields and edit units
@@ -81,6 +82,8 @@ export type EditUnit = {
    */
   check?: (draft: Values) => Checked;
   draft?: (stored: string) => string;
+  /** Whether a change to this unit can be undone from the toast, given the value before and after. Left out: it can. */
+  canUndo?: (before: string, after: string) => boolean;
 };
 
 const unit = (id: string, label: string, fields: readonly FieldKey[], needsReason = false): EditUnit => ({ id, label, fields, needsReason });
@@ -102,7 +105,7 @@ export const PERSON_UNITS = {
   expertiseHeadline: unit("expertise-headline", "expertise", ["expertise_headline"]),
   // What else is on the person's record (the slide-over's Profile section). The four after the name are for adults only (D2).
   preferredName: unit("preferred-name", "preferred name", ["preferred_name"]),
-  interests: unit("interests", "interests", ["interests"]),
+  interests: { ...unit("interests", "interests", ["interests"]), canUndo: (before, after) => canUndoInterests(before, after) },
   expertiseAreas: unit("expertise-areas", "expertise areas", ["expertise_tags"]),
   callTime: unit("call-time", "best time to call", ["best_call_time"]),
   dailyGoal: unit("daily-goal", "daily learning goal", ["gyan_daily_minutes"]),
@@ -169,6 +172,7 @@ const isSwitch = (key: string) =>
 /** The text a stored value is shown as when it is not being edited. "" stands for nothing recorded. */
 export function displayValue(key: string, stored: string): string {
   if (!stored) return "";
+  if (key === "interests") return interestsDisplay(stored);
   if (isListField(key)) return listDisplay(stored);
   switch (key) {
     case "phone_e164":
@@ -192,6 +196,7 @@ export function displayValue(key: string, stored: string): string {
 
 /** What the input holds when editing starts. */
 export function toDraft(key: string, stored: string): string {
+  if (key === "interests") return interestsToDraft(stored);
   if (isListField(key)) return listToDraft(stored);
   if (key === "phone_e164") return formatPhone(stored);
   if (key === "date_of_birth") return toUsDate(stored);
@@ -217,7 +222,7 @@ function asStored(v: unknown): string {
 }
 
 /** What was typed for these fields, as the stored values (phone as +1713…, date as 1984-03-14, email in lower case), or the sentence for a mistake. */
-export function checkDraft(u: EditUnit, draft: Values, ctx: CheckContext): Checked {
+export function checkDraft(u: EditUnit, draft: Values, ctx: CheckContext, committed?: Values): Checked {
   if (u.check) return u.check(draft);
   const stored: Values = {};
   const person: Record<string, string> = {};
@@ -235,7 +240,8 @@ export function checkDraft(u: EditUnit, draft: Values, ctx: CheckContext): Check
     else person[k] = v;
   }
   if (Object.keys(person).length > 0) {
-    const parsed = parsePersonForm(person, ctx.today, ctx.languages);
+    // The interests already on file may stay; no other value that is not one of the app's keys may be added.
+    const parsed = parsePersonForm(person, ctx.today, ctx.languages, { interests: decodeList(committed?.interests) });
     if (!parsed.ok) return { ok: false, error: parsed.error };
     for (const k of Object.keys(person)) stored[k] = asStored((parsed.value as Record<string, unknown>)[k]);
   }
@@ -400,7 +406,7 @@ export function reduce(state: EditState, event: EditEvent, u: EditUnit, ctx: Che
       return { ...state, phase: "idle", draft: draftOf(u, state.committed), problem: null, message: null, conflict: null, pending: null };
     case "submit": {
       if (state.phase !== "editing" && state.phase !== "error") return state;
-      const checked = checkDraft(u, state.draft, ctx);
+      const checked = checkDraft(u, state.draft, ctx, state.committed);
       if (!checked.ok) return { ...state, phase: "editing", problem: checked.error, message: null };
       const changed = u.fields.filter((k) => !sameValue(k, checked.stored[k], state.committed[k]));
       if (changed.length === 0) return { ...state, phase: "idle", draft: draftOf(u, state.committed), problem: null, message: null };

@@ -35,7 +35,7 @@ const STEPS = [
   "goes-by",
   "interests-edit",
   "interests-save",
-  "interests-long",
+  "interests-remove-old",
   "areas-edit",
   "call-time",
   "daily-goal",

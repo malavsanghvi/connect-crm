@@ -63,7 +63,7 @@ const NONE: ProfileDetails = { anniversary: null, dietary: [], emergency: null, 
 
 const EXTRA: Record<string, Extra> = {
   "p-samira": {
-    prefs: { interests: ["Community kitchen", "Youth mentoring", "Gardening"], areas: ["Pharmacy", "Health"], callTime: "evening", channels: ["phone_call", "email"], goal: 10 },
+    prefs: { interests: ["volunteering", "youth", "Community kitchen"], areas: ["Pharmacy", "Health"], callTime: "evening", channels: ["phone_call", "email"], goal: 10 },
     linkedAt: "2026-03-03T15:00:00Z",
     roles: ["Volunteer coordinator"],
     waiver: "Signed",
@@ -121,7 +121,7 @@ const EXTRA: Record<string, Extra> = {
   },
   "p-omar2": { prefs: NO_PREFS, linkedAt: null, roles: [], waiver: "", background: "", details: NONE, expertise: "", photo: false, newMember: false, expertiseOn: false, ids: [], memberships: [] },
   "p-misaki": {
-    prefs: { interests: ["茶道", "俳句", "Gardening"], areas: ["薬学"], callTime: "morning", channels: ["whatsapp", "email"], goal: 5 },
+    prefs: { interests: ["events", "seniors", "茶道"], areas: ["薬学"], callTime: "morning", channels: ["whatsapp", "email"], goal: 5 },
     linkedAt: "2026-05-11T18:30:00Z",
     roles: [],
     waiver: "No volunteer shifts",
