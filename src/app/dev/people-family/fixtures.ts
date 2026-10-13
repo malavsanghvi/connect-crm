@@ -15,6 +15,8 @@ function person(o: {
   id: string;
   first: string;
   last: string;
+  /** The name the person goes by (people.preferred_name); the card then reads "Fola Adeyemi" and says "Goes by Fola". */
+  preferred?: string;
   role: HouseholdRole;
   primary?: boolean;
   dob: string;
@@ -32,8 +34,8 @@ function person(o: {
 }): FamilyPerson {
   return {
     id: o.id,
-    name: o.name ?? `${o.first} ${o.last}`,
-    firstName: o.first,
+    name: o.name ?? `${o.preferred || o.first} ${o.last}`,
+    firstName: o.preferred || o.first,
     role: o.role,
     isPrimary: o.primary ?? false,
     isChild: o.child ?? false,
@@ -46,6 +48,7 @@ function person(o: {
     values: {
       first_name: o.first,
       last_name: o.last,
+      preferred_name: o.preferred ?? "",
       date_of_birth: o.dob,
       gender: o.gender ?? "",
       profession: o.profession ?? "",
@@ -122,6 +125,7 @@ export function familyFixture(key: FamilyKey, opts: { canEdit?: boolean } = {}):
       person({
         id: "p-folake",
         first: "Folake",
+        preferred: "Fola",
         last: "Adeyemi",
         role: "spouse",
         dob: "1977-08-30",

@@ -5,6 +5,7 @@
 
 import { formatDate } from "@/lib/dates";
 import { formatPhone, genderValue, relationshipLabel, tierLabel, type HouseholdRole } from "@/lib/people";
+import { decodeList, encodeList } from "@/lib/person-lists";
 
 import type { CheckContext, Values } from "./inline-edit";
 
@@ -25,7 +26,7 @@ export type FamilyPerson = {
   deceased: boolean;
   /** Another household this person is primary of (an adult child with a household of their own). */
   alsoPrimaryOf: { id: string; number: string | null } | null;
-  /** The editable values as stored: first_name, last_name, date_of_birth, gender, profession, employer, phone_e164, email, language, role. */
+  /** The editable values as stored: first_name, last_name, preferred_name, date_of_birth, gender, profession, employer, phone_e164, email, language, role. */
   values: Values;
 };
 
@@ -122,6 +123,8 @@ export function personSubline(p: Pick<FamilyPerson, "role" | "isPrimary" | "age"
 type PersonRow = {
   first_name: string;
   last_name: string;
+  /** The name the person goes by; left out by a reader that does not need it. */
+  preferred_name?: string | null;
   date_of_birth: string | null;
   gender: string | null;
   profession: string | null;
@@ -136,6 +139,7 @@ export function personValues(row: PersonRow, role: string): Values {
   return {
     first_name: row.first_name ?? "",
     last_name: row.last_name ?? "",
+    preferred_name: row.preferred_name ?? "",
     date_of_birth: row.date_of_birth ?? "",
     gender: genderValue(row.gender) || (row.gender ?? ""),
     profession: row.profession ?? "",
@@ -162,6 +166,32 @@ export function privacyValues(row: PrivacyRow): Values {
     expertise_opt_in: row.expertise_opt_in ? "on" : "off",
     expertise_headline: row.expertise_headline ?? "",
   };
+}
+
+type PreferenceRow = {
+  interests?: string[] | null;
+  expertise_tags?: string[] | null;
+  best_call_time?: string | null;
+  gyan_daily_minutes?: number | null;
+  contact_channels?: string[] | null;
+};
+
+/**
+ * What else is on an adult's record, as the editors hold it: the lists as stored text (src/lib/person-lists.ts), the call time as
+ * morning / afternoon / evening, the daily goal as "5", "10" or "15". A value never given is "". Never built for a child (D2).
+ */
+export function preferenceValues(row: PreferenceRow): Values {
+  return {
+    interests: encodeList(decodeList(row.interests ?? [])),
+    expertise_tags: encodeList(decodeList(row.expertise_tags ?? [])),
+    best_call_time: row.best_call_time ?? "",
+    gyan_daily_minutes: row.gyan_daily_minutes === null || row.gyan_daily_minutes === undefined ? "" : String(row.gyan_daily_minutes),
+  };
+}
+
+/** The ways the member said they like to be reached, as stored ("phone_call", "sms", "whatsapp", "email"). Staff read these; the member sets them. */
+export function contactChannelsOf(row: PreferenceRow): string[] {
+  return decodeList(row.contact_channels ?? []);
 }
 
 type HouseholdRow = {

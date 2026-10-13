@@ -16,6 +16,7 @@ import { formatDate } from "@/lib/dates";
 import { identifierTarget, isRetired, systemOptions, type SystemOption } from "@/lib/identifiers";
 import {
   RELATIONSHIP_OPTIONS,
+  contactChannelLabel,
   formatPhone,
   isEmail,
   normalizePhone,
@@ -120,6 +121,20 @@ export type PrivacyFacts = {
   mail: string | null;
 };
 
+/**
+ * What else is on an adult's record (the Profile section): interests, expertise areas, best call time and the daily learning goal,
+ * which staff can change, and the ways the member said they like to be reached, which only the member changes (their sign-in consent
+ * is kept with it). Null for a child: none of this is kept or offered for anyone under the age of majority (D2).
+ */
+export type PreferenceFacts = {
+  /** interests, expertise_tags, best_call_time, gyan_daily_minutes (the editors' values). */
+  values: Values;
+  /** people.contact_channels as stored. */
+  channels: string[];
+  /** The learning module is on for the community, so the daily goal is offered (a goal already on file is shown whatever the module). */
+  learningOn: boolean;
+};
+
 export type PersonDetailModel = {
   person: FamilyPerson;
   /** The household the page is about; null on the person's own page when they are in none. */
@@ -135,6 +150,7 @@ export type PersonDetailModel = {
   roles: RolesFacts;
   profileDetails: Part<ProfileDetails>;
   privacy: PrivacyFacts;
+  preferences: PreferenceFacts | null;
   ids: Part<IdsFacts>;
   memberships: Part<MembershipHeld[]>;
   /** Links to the screens that own roles (null: this role has none). */
@@ -261,6 +277,11 @@ export function profileDetailLines(o: { isChild: boolean; firstName: string; det
     { label: "Dietary needs", value: given(p.dietary.map((x) => (x.retired ? `${x.label} (no longer offered)` : x.label)).join(", ") || null) },
     { label: o.isChild ? `Emergency contact for ${o.firstName}` : "Emergency contact", value: given(emergency) },
   ];
+}
+
+/** How the member said they like to be reached, as a read-only line ("Phone call, Email"); staff do not set it. */
+export function reachedByLine(channels: readonly string[]): DetailLine {
+  return { label: "Reached by", value: channels.length ? channels.map(contactChannelLabel).join(", ") : "Not given" };
 }
 
 /** The line under the name: "Primary · age 41", "Daughter · age 11", or just the age for someone in no household. */
