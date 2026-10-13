@@ -48,7 +48,7 @@ import { parseReportQueue, queueSections } from "@/lib/payments/zelle";
 import { canAccess } from "@/lib/permissions";
 import type { CrmSession } from "@/lib/session";
 import { GIVING_TASK_SOURCES } from "@/lib/tasks";
-import { word } from "@/lib/wording";
+import { countsWord as countsWordFor } from "@/lib/wording";
 import { workspaceLabel } from "@/lib/workspaces";
 
 /** Bank lines listed in the queue (the oldest first); the rest are one "more" row. */
@@ -401,7 +401,7 @@ export async function loadGivingToday(session: CrmSession, opts: { show?: string
   const seesApply = seesPledges && canAccess(session, "paymentsAll");
   const seesCounts = canAccess(session, "counting") && isModuleEnabled(session, GIVING_ADDONS.counts);
   const seesClose = canAccess(session, "close") && isModuleEnabled(session, "accounting");
-  const countsWord = word(session.kind, "offering_counts");
+  const countsWord = countsWordFor(session.kind);
   const zelleWord = pluginName("zelle");
 
   const [home, plugins] = await Promise.all([loadHomeTasks(session), seesBank ? enabledPaymentPlugins(session) : Promise.resolve(null)]);

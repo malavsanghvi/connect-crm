@@ -19,7 +19,7 @@ import {
 import { SAMPLE_CARDS } from "@/lib/giving-workspace/fixtures";
 import { LEGACY_KIND, NEUTRAL_KIND, type KindProfile } from "@/lib/kind";
 import { visibleTaskSources, type GivingTaskDetail } from "@/lib/tasks";
-import { word } from "@/lib/wording";
+import { countsWord } from "@/lib/wording";
 
 const LABELS = { orgMemberLabel: "member", orgHouseholdLabel: "Club household ID" };
 const NONE: TodayCan = { approve: false, manage: false, bankConfirm: false, allocate: false, countRecord: false, closeManage: false };
@@ -32,7 +32,7 @@ function ctx(can: Partial<TodayCan>, visible: Partial<TodayContext["visible"]> =
     timeZone: "America/Chicago",
     today: "2026-10-12",
     labels: LABELS,
-    countsWord: "Offering counts",
+    countsWord: "Cash counts",
     zelleWord: "Zelle",
     visible: { approvals: true, bank: true, pledges: true, counts: true, books: true, ...visible },
   };
@@ -126,10 +126,10 @@ describe("the treasurer's queue", () => {
 
   it("tiles count what the person can act on, and a row marked done stops counting", () => {
     const tiles = model.queue.tiles;
-    expect(tiles.map((t) => t.label)).toEqual(["Everything", "Approvals", "Bank", "Pledges", "Offering counts", "Books"]);
+    expect(tiles.map((t) => t.label)).toEqual(["Everything", "Approvals", "Bank", "Pledges", "Cash counts", "Books"]);
     const approvals = tiles.find((t) => t.key === "approvals")!.count;
     expect(approvals).toBe(3);
-    const after = queueTiles(rows, { countsWord: "Offering counts", visible: { approvals: true, bank: true, pledges: true, counts: true, books: true } }, new Set([rows[0].id]));
+    const after = queueTiles(rows, { countsWord: "Cash counts", visible: { approvals: true, bank: true, pledges: true, counts: true, books: true } }, new Set([rows[0].id]));
     expect(after.find((t) => t.key === "approvals")!.count).toBe(2);
     expect(after[0].count).toBe(tiles[0].count - 1);
   });
@@ -209,12 +209,21 @@ describe("what could not be read is said next to its group", () => {
   });
 });
 
-describe("the counts tile speaks the organization's own word", () => {
-  const church: KindProfile = { ...NEUTRAL_KIND, key: "church", label: "Church", faithBased: true, terms: { ...NEUTRAL_KIND.terms, offering_counts: "Collection counts" } };
-  it("neutral, a church with its own term, a kind that keeps a tradition", () => {
-    expect(word(NEUTRAL_KIND, "offering_counts")).toBe("Offering counts");
-    expect(word(church, "offering_counts")).toBe("Collection counts");
-    expect(word(LEGACY_KIND, "offering_counts")).toBe("Bhandar counts");
+describe("the counts tile speaks the organization's own word (owner, 2026-10-12)", () => {
+  const faith: KindProfile = { ...NEUTRAL_KIND, key: "mosque", label: "Mosque", faithBased: true };
+  const church: KindProfile = { ...NEUTRAL_KIND, key: "church", label: "Church", faithBased: true };
+  const chamber: KindProfile = { ...NEUTRAL_KIND, key: "chamber_of_commerce", label: "Chamber of commerce", faithBased: false };
+  it("cash for an organization that is not a faith; the faith's own word otherwise; a kind's own term wins", () => {
+    expect(countsWord(NEUTRAL_KIND)).toBe("Cash counts");
+    expect(countsWord(chamber)).toBe("Cash counts");
+    expect(countsWord(faith)).toBe("Offering counts");
+    expect(countsWord(church)).toBe("Collection counts");
+    expect(countsWord(LEGACY_KIND)).toBe("Bhandar counts");
+    expect(countsWord({ ...faith, terms: { ...faith.terms, offering_counts: "Sadaqah box counts" } })).toBe("Sadaqah box counts");
+    expect(countsWord(NEUTRAL_KIND)).not.toMatch(/offering|bhandar|collection/i);
+  });
+  it("the tile and the tab say it", () => {
     expect(sampleTodayModel("treasurer", { kind: church }).queue.tiles.map((t) => t.label)).toContain("Collection counts");
+    expect(sampleTodayModel("treasurer").tabs.find((t) => t.key === "counts")?.label).toBe("Cash counts");
   });
 });

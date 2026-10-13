@@ -26,8 +26,6 @@ const WORDS = {
   cash_box: ["bhandar", "cash box"],
   cash_box_counting: ["Bhandar counting sessions", "Cash box counting sessions"],
   cash_box_new_session: ["New bhandar counting session", "New cash box counting session"],
-  // Giving › Today and its tab row: the offering box's counts (a church's own term can say "Collection counts").
-  offering_counts: ["Bhandar counts", "Offering counts"],
   cash_method: ["Cash (bhandar)", "Cash"],
   pledge_item: ["Pujan", "Item"],
   pledge_items_section: ["Pujans and fixed bolis", "Fixed items"],
@@ -49,6 +47,25 @@ export type WordKey = keyof typeof WORDS;
 export function word(kind: KindLike, key: WordKey): string {
   const [tradition, neutral] = WORDS[key];
   return kindTerm(kind, key, kindHas(kind, "tradition") ? tradition : neutral);
+}
+
+type CountsKind = Pick<KindProfile, "key" | "terms" | "modules" | "usesTradition" | "faithBased">;
+
+/**
+ * Giving's counts tile and tab (owner, 2026-10-12): the kind's own term first; then the tradition pack's "Bhandar counts",
+ * a church's "Collection counts", any other faith's "Offering counts", and "Cash counts" for an organization that is not a faith.
+ * TODO(GV-M2): category_modules will hold this label per kind (docs/GIVING_REDESIGN.md section 11); read it from there and drop
+ * this fallback once M2 lands.
+ */
+export function countsWord(kind: CountsKind): string {
+  const fallback = kindHas(kind, "tradition")
+    ? "Bhandar counts"
+    : kind.key === "church"
+      ? "Collection counts"
+      : kind.faithBased
+        ? "Offering counts"
+        : "Cash counts";
+  return kindTerm(kind, "offering_counts", fallback);
 }
 
 /** Every word for a kind, for a test or a screen that needs several. */

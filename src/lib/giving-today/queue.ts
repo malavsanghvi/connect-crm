@@ -138,7 +138,7 @@ export type TodayContext = {
   timeZone: string;
   today: string;
   labels: CardLabels;
-  /** The kind's word for the counts tile ("Offering counts", "Bhandar counts"). */
+  /** The kind's word for the counts tile ("Cash counts", "Offering counts", "Collection counts", "Bhandar counts"). */
   countsWord: string;
   /** The Zelle plugin's name. */
   zelleWord: string;

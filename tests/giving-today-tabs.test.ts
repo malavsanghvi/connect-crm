@@ -12,7 +12,7 @@ describe("Giving's one tab row", () => {
   it("a treasurer in a neutral community: every tab with a screen today, in the plan's order (no Labh, Bolis off)", () => {
     expect(keys(ctx(treasurer))).toEqual(["today", "pledges", "payments", "recurring", "bank", "campaigns", "statements", "counts", "books"]);
     const tabs = givingTabs(ctx(treasurer));
-    expect(tabs.find((t) => t.key === "counts")).toMatchObject({ label: "Offering counts", href: "/giving/payments#counting" });
+    expect(tabs.find((t) => t.key === "counts")).toMatchObject({ label: "Cash counts", href: "/giving/payments#counting" });
     expect(tabs.find((t) => t.key === "campaigns")).toMatchObject({ label: "Campaigns & opportunities", href: "/giving/opportunities" });
     expect(tabs.find((t) => t.key === "books")?.href).toBe("/accounting/close");
     // Insights has no screen yet: it is not offered.

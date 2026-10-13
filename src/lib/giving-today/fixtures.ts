@@ -8,7 +8,7 @@ import { NEUTRAL_KIND, type KindProfile } from "@/lib/kind";
 import type { PermissionContext } from "@/lib/permissions";
 import { canAccess } from "@/lib/permissions";
 import { makeTask, visibleTaskSources, type GivingTaskDetail, type HomeTask } from "@/lib/tasks";
-import { word } from "@/lib/wording";
+import { countsWord as countsWordFor } from "@/lib/wording";
 
 import { buildQueue, type Family, type TodayCan, type TodayInput } from "./queue";
 import { givingTabs } from "./tabs";
@@ -180,7 +180,7 @@ export function sampleTodayModel(role: TodayRole = "treasurer", opts: { kind?: K
     countRecord: canAccess(ctx, "countingRecord"),
     closeManage: canAccess(ctx, "closeManage"),
   };
-  const countsWord = word(kind, "offering_counts");
+  const countsWord = countsWordFor(kind);
   const input = sampleTodayInput(ctx, role);
   const queue = buildQueue(input, {
     can,

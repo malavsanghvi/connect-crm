@@ -1,5 +1,5 @@
 // Giving's one tab row in the New look (docs/GIVING_REDESIGN.md section 4): Today, Pledges, Payments, Bank, Campaigns &
-// opportunities, Statements, Insights, the kind's word for Offering counts, Books. Each tab points at a screen that exists today
+// opportunities, Statements, Insights, the kind's word for the counts (Cash, Offering, Collection, Bhandar), Books. Each tab points at a screen that exists today
 // and shows only when the person can open it AND its module is on. Pure: the layout, Today and the tests read the same list.
 //
 // The add-on keys (section 11) are not in the module catalog until M2 lands; isModuleEnabled counts a key the community has
@@ -9,7 +9,7 @@
 import type { KindProfile } from "@/lib/kind";
 import { isModuleEnabled } from "@/lib/modules";
 import { canAccess, pathUnder, visibleNav, type ScopedContext } from "@/lib/permissions";
-import { word } from "@/lib/wording";
+import { countsWord } from "@/lib/wording";
 
 /** Giving's add-on modules (section 11.1), by what they hold. */
 export const GIVING_ADDONS = {
@@ -84,7 +84,7 @@ export function givingTabs(ctx: TabContext): GivingTab[] {
   const statements = tab("/giving/statements");
   if (statements && on(GIVING_ADDONS.statements)) out.push({ key: "statements", label: "Statements", href: statements.href, paths: ["/giving/statements"] });
   if (giving && canAccess(ctx, "counting") && on(GIVING_ADDONS.counts)) {
-    out.push({ key: "counts", label: word(ctx.kind, "offering_counts"), href: "/giving/payments#counting", paths: [] });
+    out.push({ key: "counts", label: countsWord(ctx.kind), href: "/giving/payments#counting", paths: [] });
   }
   const accounting = nav.find((m) => m.key === "accounting");
   const close = accounting?.tabs.find((t) => t.href === "/accounting/close");

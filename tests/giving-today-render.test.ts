@@ -69,7 +69,7 @@ describe("Giving › Today for a treasurer", () => {
     expect(out).toContain('aria-label="Giving sections"');
     expect(out).toMatch(/aria-current="page"[^>]*>Today</);
     expect(out).toContain("Work queue");
-    for (const t of ["Everything", "Approvals", "Bank", "Pledges", "Offering counts", "Books"]) expect(out).toContain(`>${t}</span>`);
+    for (const t of ["Everything", "Approvals", "Bank", "Pledges", "Cash counts", "Books"]) expect(out).toContain(`>${t}</span>`);
     for (const text of [
       "Approve $25.00 card refund for Kim household 0398 (first approval)",
       "Write off $120.00 for Nguyen household 0441",
