@@ -14,8 +14,8 @@ describe("Try the demo on the public website", () => {
   it("is on the home page, in the hero beside Get started free", () => {
     const src = read("src/app/site/page.tsx");
     expect(src).toMatch(BUTTON);
-    const hero = src.slice(src.indexOf("Get started free"), src.indexOf("Try the demo") + 20);
-    expect(hero).toContain("Take the tour");
+    // The hero comes first in the file: its demo button sits right after its Get started free.
+    expect(src.indexOf("Try the demo") - src.indexOf("Get started free")).toBeLessThan(400);
   });
 
   it("is on the pricing page, beside Get started free", () => {

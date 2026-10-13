@@ -1,0 +1,31 @@
+/*
+ * The public website's look: the warm option chosen in the 2026-10-13 home page review (indigo and sunrise orange from
+ * the Weaver logo, Bricolage Grotesque and Hanken Grotesk). It re-points the portal's theme tokens inside .site-root
+ * only, so every site component and the pricing page follow and the portal is untouched.
+ */
+.site-root {
+  --color-navy: #2b2a8a;
+  --color-navy-hover: #1e1d5c;
+  --color-navy-50: #f1eefc;
+  --color-navy-100: #e6e2fa;
+  --color-navy-200: #d4d2f5;
+  --color-navy-300: #b9b5ec;
+  --color-saffron: #ff7640;
+  --color-saffron-50: #fff1e6;
+  --color-saffron-200: #ffd6b8;
+  --color-gold: #ffb82a;
+  --color-brown: #a8400d;
+  --color-brown-900: #7a2e09;
+  --color-canvas: #fffaf5;
+  --color-ground: #fff6ee;
+  --color-track: #f6eee6;
+  --color-line: #eee3d9;
+  --color-line-soft: #f6eee6;
+  --color-line-input: #e3d6ca;
+  --color-ink: #1e1d5c;
+  --color-ink-2: #33325f;
+  --color-muted: #555a79;
+  --font-display: var(--font-bricolage), "Hanken Grotesk", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: var(--font-hanken), ui-sans-serif, system-ui, sans-serif;
+  font-family: var(--font-sans);
+}
