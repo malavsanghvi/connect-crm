@@ -169,6 +169,7 @@ export function ProductsClient({
                           placeholder="For example: request from the community's admin, reviewed"
                           onChange={(e) => setReason(e.target.value)}
                         />
+                        <p className="text-[12px] text-muted">The reason is internal: it stays in Weaver&apos;s audit log. The community&apos;s admins get a message in fixed words, without it.</p>
                       </div>
                       <div className="space-y-1">
                         <label htmlFor={codeId} className="block text-[13px] font-bold text-ink">
