@@ -8,6 +8,8 @@ import type { Problem } from "@/lib/people-v2/model";
 import { AddFamilyButton } from "./add-family-button";
 import { FindBox } from "./find/find-box";
 import { ChevronDownIcon } from "./find/icons";
+import { PinnedFamilies } from "./saved/pinned-families";
+import { SavedViewsStrip } from "./saved/saved-views-strip";
 
 // The People home in the New look, as drawn in the redesign plan (docs/PEOPLE_REDESIGN.md, section 4): the title, ONE big find box
 // (the same box as the top bar, which hides here), the inbox, the families opened lately, the saved views strip and the Lists menu.
@@ -37,15 +39,31 @@ export function PeopleHome({ model, inbox }: { model: PeopleHomeModel; /** The i
         <p className="m-0 mt-2.5 px-2 text-[13px] text-muted">Type anything. Enter opens the family. A question goes to Niva when Niva is on. The same box is in the top bar on every other page.</p>
       </section>
 
-      {model.problems.map((p) => (
-        <ProblemLine key={p.what} problem={p} />
-      ))}
+      {model.problems
+        .filter((p) => p.what !== "your saved views" && p.what !== "your pinned families")
+        .map((p) => (
+          <ProblemLine key={p.what} problem={p} />
+        ))}
 
       {inbox ?? <InboxCounts tiles={model.inbox} />}
 
+      <section aria-label="Pinned families" className="flex flex-col gap-3">
+        <SectionHeading title="Pinned families" note="Yours alone: pin one with the star on its page" />
+        <PinnedFamilies pins={model.pins} hidden={model.pinsHidden} loadError={model.problems.find((p) => p.what === "your pinned families")?.message ?? null} />
+      </section>
+
       <RecentFamilies recents={model.recents} />
 
-      <SavedViews endingSoon={model.endingSoon} />
+      <section id="saved-views" aria-label="Saved views" className="flex scroll-mt-6 flex-col gap-3">
+        <SectionHeading title="Saved views" />
+        <SavedViewsStrip
+          endingSoon={model.endingSoon}
+          contactGapHref={model.contactGapHref}
+          views={model.savedViews}
+          max={model.maxViews}
+          loadError={model.problems.find((p) => p.what === "your saved views")?.message ?? null}
+        />
+      </section>
     </div>
   );
 }
@@ -77,7 +95,13 @@ export function ListsMenu({ lists }: { lists: ListLink[] }) {
             </li>
           ))}
         </ul>
-        <p className="m-0 mt-1 border-t border-line-soft px-3 pb-1 pt-2 text-[12px] text-muted">Your own saved lists: coming next.</p>
+        <p className="m-0 mt-1 border-t border-line-soft px-3 pb-1 pt-2 text-[12px] text-muted">
+          Your own saved views are on the{" "}
+          <Link href="/people#saved-views" className="font-semibold text-navy">
+            People home
+          </Link>
+          .
+        </p>
       </div>
     </details>
   );
@@ -132,29 +156,6 @@ function RecentFamilies({ recents }: { recents: RecentFamily[] }) {
           ))}
         </ul>
       )}
-    </section>
-  );
-}
-
-/** Saved views: the one that exists today, and the place for the rest. */
-function SavedViews({ endingSoon }: { endingSoon: PeopleHomeModel["endingSoon"] }) {
-  return (
-    <section aria-label="Saved views" className="flex flex-col gap-3">
-      <SectionHeading title="Saved views" />
-      <div className="flex flex-wrap items-center gap-2">
-        {endingSoon ? (
-          <Link
-            href={endingSoon.href}
-            title="Active memberships that end soon"
-            className="inline-flex min-h-10 items-center gap-1.5 rounded-[20px] border border-line bg-white px-3.5 text-[13px] font-bold text-ink no-underline hover:border-navy"
-          >
-            Memberships ending soon{endingSoon.count === null ? "" : ` · ${endingSoon.count}`}
-          </Link>
-        ) : null}
-        <button type="button" disabled title="Saved views are not built yet." className="inline-flex min-h-10 cursor-not-allowed items-center gap-1.5 rounded-[20px] border border-dashed border-line-input px-3.5 text-[13px] font-semibold text-faint">
-          + Save a view · Coming next
-        </button>
-      </div>
     </section>
   );
 }

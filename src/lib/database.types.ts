@@ -7823,6 +7823,51 @@ export type Database = {
         };
         Relationships: [];
       };
+      people_saved: {
+        Row: {
+          id: string;
+          center_id: string;
+          user_id: string;
+          kind: string;
+          name: string | null;
+          list_view: string | null;
+          params: Json;
+          sort: string | null;
+          household_id: string | null;
+          position: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          center_id: string;
+          user_id: string;
+          kind: string;
+          name?: string | null;
+          list_view?: string | null;
+          params?: Json;
+          sort?: string | null;
+          household_id?: string | null;
+          position?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          center_id?: string;
+          user_id?: string;
+          kind?: string;
+          name?: string | null;
+          list_view?: string | null;
+          params?: Json;
+          sort?: string | null;
+          household_id?: string | null;
+          position?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       person_deceased_events: {
         Row: {
           id: string;

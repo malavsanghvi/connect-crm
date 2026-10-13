@@ -2,6 +2,7 @@ import "server-only";
 
 import { adultHouseholdCards } from "@/lib/commands/catalog/household";
 import { communityMajority } from "@/lib/commands/child-filter";
+import { communityFormat } from "@/lib/community-format";
 import { peopleTotals } from "@/lib/data/people-list";
 import { todayInTz } from "@/lib/dates";
 import { explainError } from "@/lib/errors";
@@ -10,12 +11,17 @@ import { listsMenu } from "@/lib/find/lists";
 import { parseRecents, recentCookieName } from "@/lib/find/recents";
 import { familyHref } from "@/lib/find/rows";
 import { isModuleEnabled } from "@/lib/modules";
+import { tierLabel } from "@/lib/people";
 import { canAccess, visibleNav } from "@/lib/permissions";
+import { hrefWith } from "@/lib/search-params";
 import type { CrmSession } from "@/lib/session";
 
-import { ENDING_SOON_DAYS, loadQuickCounts } from "./load";
-import type { InboxTile, PeopleHomeModel, RecentFamily } from "./home-model";
+import { chipsFor, NO_FILTERS, paramsFromFilters } from "./ask";
+import { ENDING_SOON_DAYS, loadQuickCounts, loadZones } from "./load";
+import type { InboxTile, PeopleHomeModel, RecentFamily, SavedViewItem } from "./home-model";
 import type { Problem } from "./model";
+import { loadPinnedFamilies, loadSavedViews } from "./saved-load";
+import { MAX_VIEWS, viewFilters, viewHref } from "./saved-views";
 
 const BASE = "/people";
 
@@ -42,7 +48,19 @@ async function loadRecents(session: CrmSession, cookieValue: string | undefined,
 /** Everything the People home draws. Each part fails alone and says so; nothing is hidden or shown as zero when it could not be read. */
 export async function loadPeopleHome(session: CrmSession, recentCookieValue: string | undefined): Promise<PeopleHomeModel> {
   const problems: Problem[] = [];
-  const [totals, counts, recents] = await Promise.all([peopleTotals(session), loadQuickCounts(session), loadRecents(session, recentCookieValue, problems)]);
+  const [totals, counts, recents, views, pinned, zones] = await Promise.all([
+    peopleTotals(session),
+    loadQuickCounts(session),
+    loadRecents(session, recentCookieValue, problems),
+    loadSavedViews(session),
+    loadPinnedFamilies(session),
+    loadZones(session),
+  ]);
+  if (views.error) problems.push({ what: "your saved views", message: views.error });
+  if (pinned.error) problems.push({ what: "your pinned families", message: pinned.error });
+  // Each view's filters in words (an area by its name), for the hover text; with the areas unread it says "an area you can't see".
+  const wording = { zones: zones.zones, fmt: communityFormat(session.center), tierLabel };
+  const savedViews: SavedViewItem[] = views.views.map((v) => ({ id: v.id, name: v.name, href: viewHref(v), summary: chipsFor(viewFilters(v), wording).map((c) => c.label).join(" · ") }));
   if (totals.error) {
     console.error("[people home] totals failed; showing none:", totals.error);
     problems.push({ what: "the totals", message: explainError(totals.error) });
@@ -66,6 +84,11 @@ export async function loadPeopleHome(session: CrmSession, recentCookieValue: str
     recents,
     inbox,
     endingSoon: { count: counts.ending, href: `${BASE}?ending=${ENDING_SOON_DAYS}` },
+    pins: pinned.pinned,
+    pinsHidden: pinned.hidden,
+    savedViews,
+    maxViews: MAX_VIEWS,
+    contactGapHref: hrefWith(BASE, {}, { ...paramsFromFilters({ ...NO_FILTERS, noEmail: true }), view: "people" }),
     lists: listsMenu(peopleTabs),
     canAddFamily: canAccess(session, "householdsEdit") && isModuleEnabled(session, "people"),
     problems,

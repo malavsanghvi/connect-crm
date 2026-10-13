@@ -154,17 +154,26 @@ describe("the IDs seam", () => {
     expect(stub.idCalls[0].fd.get("returnPath")).toBe(`/people/${ID.priya}`);
   });
 
-  it("retires an ID through the existing action, with no reason asked (slice 6 adds that)", async () => {
+  it("retires an ID through the existing action, carrying the reason it now needs", async () => {
     setup();
     const id = "e0000000-0000-4000-8000-0000000000e1";
-    expect(await retirePersonId({ id, personId: ID.priya, householdId: ID.hhShah })).toEqual({ ok: true, message: 'Retired "20417". It stays in the history.' });
-    expect(Object.fromEntries(stub.idCalls[0].fd.entries())).toEqual({ id, returnPath: `/households/${ID.hhShah}` });
+    expect(await retirePersonId({ id, personId: ID.priya, householdId: ID.hhShah, reason: "  Moved to a new system  " })).toEqual({ ok: true, message: 'Retired "20417". It stays in the history.' });
+    expect(Object.fromEntries(stub.idCalls[0].fd.entries())).toEqual({ id, reason: "Moved to a new system", returnPath: `/households/${ID.hhShah}` });
+  });
+
+  it("will not retire an ID without a reason, and says so before calling anything", async () => {
+    setup();
+    const id = "e0000000-0000-4000-8000-0000000000e1";
+    const refused = { ok: false, error: "Could not retire the identifier — give a reason. It goes in the audit log." };
+    expect(await retirePersonId({ id, personId: ID.priya, householdId: ID.hhShah, reason: "   " })).toEqual(refused);
+    expect(await retirePersonId({ id, personId: ID.priya, householdId: ID.hhShah } as never)).toEqual(refused);
+    expect(stub.idCalls).toEqual([]);
   });
 
   it("refuses something that is not a person or an ID before calling anything", async () => {
     setup();
     expect(await addPersonId({ ...input, personId: "nope" })).toEqual({ ok: false, error: "Could not add the identifier — the person was not found." });
-    expect(await retirePersonId({ id: "nope", personId: ID.priya, householdId: null })).toEqual({ ok: false, error: "Could not retire the identifier — it was not found." });
+    expect(await retirePersonId({ id: "nope", personId: ID.priya, householdId: null, reason: "x" })).toEqual({ ok: false, error: "Could not retire the identifier — it was not found." });
     expect(stub.idCalls).toEqual([]);
   });
 });

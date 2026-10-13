@@ -4,7 +4,7 @@ import { identifierRules } from "@/lib/center-rules";
 import { adultHouseholdCards } from "@/lib/commands/catalog/household";
 import { communityMajority } from "@/lib/commands/child-filter";
 import type { HouseholdCard } from "@/lib/commands/types";
-import { communityFormat } from "@/lib/community-format";
+import { communityFormat, type CommunityFormat } from "@/lib/community-format";
 import { chunk } from "@/lib/data/fetch-all";
 import { todayInTz } from "@/lib/dates";
 import { explainError } from "@/lib/errors";
@@ -16,7 +16,8 @@ import { filterFor, rankCandidates } from "@/lib/find/search";
 import type { Classified, FamilyCandidate, FindFilter, FindResponse, IdentifierHit, PersonCandidate } from "@/lib/find/types";
 import { GLOBAL_SEARCH_MIN_CHARS } from "@/lib/global-search";
 import { can, canViewIdentifierKind } from "@/lib/permissions";
-import type { AskVocab } from "@/lib/people-v2/ask";
+import { showText, type AskVocab } from "@/lib/people-v2/ask";
+import { loadGapPeople } from "@/lib/people-v2/gap-load";
 import { loadZones } from "@/lib/people-v2/load";
 import { safeFilterText } from "@/lib/search-params";
 import type { CrmSession } from "@/lib/session";
@@ -47,6 +48,25 @@ type RawHit = { kind: string; system: string | null; value: string; person_id: s
 
 const empty = (q: Classified, extra: Partial<FindResponse> = {}): FindResponse => ({ query: q.text, kind: q.kind, rows: [], more: 0, filter: null, problem: null, ...extra });
 
+/**
+ * The list a sentence opens, with its count when it is a list of people ("Show 42 adults with no email"). The count is the number of ADULTS
+ * who have the gap, read under this person's own access; when it cannot be read the row still opens the list, without a number.
+ */
+async function filterWithCount(session: CrmSession, typed: string, vocab: AskVocab, fmt: CommunityFormat): Promise<FindFilter | null> {
+  const filter = filterFor(typed, vocab, fmt);
+  if (!filter || filter.list !== "people") return filter;
+  const reading = readsAsFilter(typed, vocab);
+  if (!reading) return filter;
+  try {
+    const found = await loadGapPeople(session, { ...reading.filters, q: null });
+    const label = found.failed ? null : showText(reading.filters, found.people.length);
+    return label ? { ...filter, label } : filter;
+  } catch (error) {
+    console.error("[find] could not count the people for the list:", error);
+    return filter;
+  }
+}
+
 /** Look up what was typed. Never throws: a part that fails is reported in `problem` and the rest is still shown. */
 export async function findRecords(session: CrmSession, raw: string): Promise<FindResponse> {
   const typed = raw.replace(/\s+/g, " ").trim().slice(0, 120);
@@ -63,11 +83,11 @@ export async function findRecords(session: CrmSession, raw: string): Promise<Fin
   const q = classifyInput(typed, vocab);
 
   const fmt = communityFormat(session.center);
-  if (q.kind === "question") return empty(q, { filter: filterFor(typed, vocab, fmt) });
+  if (q.kind === "question") return empty(q, { filter: await filterWithCount(session, typed, vocab, fmt) });
   let search = q;
   let filter: FindFilter | null = null;
   if (q.kind === "filter") {
-    filter = filterFor(typed, vocab, fmt);
+    filter = await filterWithCount(session, typed, vocab, fmt);
     // What is left of the sentence after the filters are read (a name, an ID) is still looked up.
     const leftover = readsAsFilter(typed, vocab)?.filters.q ?? null;
     if (!leftover) return empty(q, { filter });

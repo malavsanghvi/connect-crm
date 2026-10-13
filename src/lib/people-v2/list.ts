@@ -1,7 +1,7 @@
 // The People workspace's household list, the pure part: filter the households by what the database told us, sort, take one page,
 // and add up the open balances. The loader (load.ts) fetches; this decides. Nothing here reads or writes.
 
-import type { HouseholdFilters } from "./ask";
+import { hasGap, type HouseholdFilters } from "./ask";
 
 export type BaseHousehold = { id: string; name: string; number: string | null; zoneId: string | null; city: string | null; tiers: string[] };
 
@@ -15,6 +15,8 @@ export type FilterSets = {
   rsvpd: Set<string> | null;
   /** Households with an active membership ending within the asked days. */
   ending: Set<string> | null;
+  /** Households that have at least one ADULT with every contact gap the filters ask for. */
+  gap?: Set<string> | null;
 };
 
 export const SORTS = ["name", "open", "area"] as const;
@@ -36,6 +38,7 @@ export function filterHouseholds(rows: readonly BaseHousehold[], f: HouseholdFil
     if (f.overCents !== null && sets.balances && (sets.balances.get(h.id) ?? 0) <= f.overCents) return false;
     if (f.noRsvpYear !== null && sets.rsvpd && sets.rsvpd.has(h.id)) return false;
     if (f.endingDays !== null && sets.ending && !sets.ending.has(h.id)) return false;
+    if (hasGap(f) && sets.gap && !sets.gap.has(h.id)) return false;
     return true;
   });
 }

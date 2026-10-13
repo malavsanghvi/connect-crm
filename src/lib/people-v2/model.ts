@@ -88,6 +88,45 @@ export type HouseholdsSection = {
 
 export type PeopleSection = { rows: PersonRowView[]; paging: ListPaging; bands: QuickChip[]; emptyTitle: string };
 
+/** One adult on a contact-gap list: who they are, which family (the household card line, never a name alone) and what is on file. */
+export type GapRowView = {
+  id: string;
+  /** Opens the family (with this person's details when that screen exists). */
+  href: string;
+  name: string;
+  /** "Member 1042 · RCC-M-77", or "No member number". */
+  ids: string;
+  relationship: string;
+  /** The family's name without any child's first name, or "Not in a family". */
+  family: string;
+  /** "No. 0127 · RCC-H-0961 · Priya & Anil · Riverside"; null for a person in no family. */
+  cardLine: string | null;
+  mobile: string;
+  email: string;
+  /** "On the app" / "Not on the app". */
+  app: string;
+  age: string;
+};
+
+/** A list of ADULTS who have a contact gap (no email, no mobile, no address, not on the app): adults only, always. */
+export type GapSection = { rows: GapRowView[]; paging: ListPaging; /** "6 adults". */ count: string; emptyTitle: string; emptyHint: string };
+
+/** What can be done with the list on screen: save it as a view, export it. */
+export type ListActions = {
+  list: "households" | "people";
+  /** The filters as the address holds them: what a saved view keeps (a typed search is dropped). */
+  params: Record<string, string>;
+  sort: string | null;
+  /** The name the "Save this view" field starts with. */
+  suggested: string;
+  /** Why the list cannot be saved yet (it has no filter), in words; null when it can. */
+  blockedReason: string | null;
+  /** Where the export is fetched (it asks for a fresh 2FA code); null when this list is not exported. */
+  exportHref: string | null;
+  /** Said next to the export: what it holds, or why there is none. */
+  exportNote: string;
+};
+
 export type ReviewItem = { id: string; title: string; detail: string; household: HouseholdCard | null; href: string };
 
 export type ReviewsSection = Section<{
@@ -159,6 +198,10 @@ export type PeopleWorkspaceModel = {
   draftPrompt: string | null;
   households: HouseholdsSection | null;
   people: PeopleSection | null;
+  /** A list of adults with a contact gap (replaces `people` when a gap is asked). */
+  gap: GapSection | null;
+  /** Save this view, Export: null for the review and duplicate views. */
+  actions: ListActions | null;
   reviews: ReviewsSection | null;
   duplicates: DuplicatesSection | null;
   panel: PanelState;

@@ -5,10 +5,13 @@ import { dismissDuplicateAction } from "@/app/(app)/households/actions";
 import { ActionForm } from "@/components/action-form";
 import { AskNiva } from "@/components/niva/ask-niva";
 import { NivaHouseholdCard } from "@/components/niva/niva-household-card";
-import type { DuplicateItem, HouseholdPanel, HouseholdsSection, PanelState, PeopleSection, PeopleWorkspaceModel, Problem, QuickChip, ReviewItem, Section } from "@/lib/people-v2/model";
+import { StepUpDownload } from "@/components/step-up-download";
+import type { DuplicateItem, HouseholdPanel, HouseholdsSection, ListActions, PanelState, PeopleSection, PeopleWorkspaceModel, Problem, QuickChip, ReviewItem, Section } from "@/lib/people-v2/model";
 
 import { PeopleAskBox } from "./ask-box";
+import { GapList } from "./gap-list";
 import { ListsMenu } from "./people-home";
+import { SaveViewControl } from "./saved/save-view-control";
 import { ComingNext, DraftForThese, ListHint, MergeByCard, NoticedLabel } from "./niva-bits";
 
 // The People workspace in the new look, as drawn on the prototype board "Ask your data, then the household card": the list with
@@ -51,7 +54,18 @@ export function PeopleWorkspace({ model }: { model: PeopleWorkspaceModel }) {
             <HouseholdsList section={m.households} />
           </>
         ) : null}
-        {m.people ? <PeopleList section={m.people} /> : null}
+        {m.gap ? (
+          <>
+            <ListToolbar summary={m.gap.count} actions={m.actions} />
+            <GapList section={m.gap} />
+          </>
+        ) : null}
+        {m.people ? (
+          <>
+            <ListToolbar summary={null} actions={m.actions} />
+            <PeopleList section={m.people} />
+          </>
+        ) : null}
         {m.reviews ? <ReviewsList section={m.reviews} /> : null}
         {m.duplicates ? <DuplicatesList section={m.duplicates} /> : null}
       </div>
@@ -103,28 +117,47 @@ function ProblemLine({ problem }: { problem: Problem }) {
 function SummaryRow({ model }: { model: PeopleWorkspaceModel }) {
   if (!model.summary) return null;
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3">
-      <span className="text-[15px] text-ink">
-        <b>{model.summary.count}</b>
-        {model.summary.open ? (
-          <>
-            {" "}
-            · <b className="text-[var(--v2-sun-ink)]">{model.summary.open}</b> open in total
-          </>
-        ) : null}
-      </span>
-      <div className="flex flex-wrap items-center gap-2">
-        <DraftForThese prompt={model.draftPrompt} />
-        <span className="inline-flex items-center gap-2">
-          <button type="button" disabled className={`${BTN} cursor-not-allowed border border-line-input bg-white text-muted`} title="Exports are not available yet: they need a data.export permission and a watermarked, audited export on the server.">
-            Export
-          </button>
-          <button type="button" disabled className={`${BTN} cursor-not-allowed border border-line-input bg-white text-muted`} title="Saved lists are not built yet.">
-            Save as a list
-          </button>
-          <ComingNext />
+    <div className="flex flex-wrap items-start justify-between gap-3">
+      <div className="flex min-w-0 max-w-[40rem] flex-col gap-1">
+        <span className="text-[15px] text-ink">
+          <b>{model.summary.count}</b>
+          {model.summary.open ? (
+            <>
+              {" "}
+              · <b className="text-[var(--v2-sun-ink)]">{model.summary.open}</b> open in total
+            </>
+          ) : null}
         </span>
+        {model.actions ? <p className="m-0 text-[12px] text-muted">{model.actions.exportNote}</p> : null}
       </div>
+      <div className="flex flex-wrap items-start gap-2">
+        <DraftForThese prompt={model.draftPrompt} />
+        <ListActionButtons actions={model.actions} />
+      </div>
+    </div>
+  );
+}
+
+/** Export (it asks for a fresh 2FA code) and Save this view, for the list on screen. */
+function ListActionButtons({ actions }: { actions: ListActions | null }) {
+  if (!actions) return null;
+  return (
+    <span className="inline-flex flex-wrap items-start gap-2">
+      {actions.exportHref ? <StepUpDownload href={actions.exportHref} label="Export" fallbackName="people-list.csv" variant="ghost" size="md" /> : null}
+      <SaveViewControl list={actions.list} params={actions.params} sort={actions.sort} suggested={actions.suggested} blockedReason={actions.blockedReason} />
+    </span>
+  );
+}
+
+/** The line above a list of people: how many, and what can be done with the list. */
+function ListToolbar({ summary, actions }: { summary: string | null; actions: ListActions | null }) {
+  return (
+    <div className="flex flex-wrap items-start justify-between gap-3">
+      <div className="flex min-w-0 max-w-[40rem] flex-col gap-1">
+        <span className="text-[15px] text-ink">{summary ? <b>{summary}</b> : null}</span>
+        {actions ? <p className="m-0 text-[12px] text-muted">{actions.exportNote}</p> : null}
+      </div>
+      <ListActionButtons actions={actions} />
     </div>
   );
 }

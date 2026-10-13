@@ -159,7 +159,6 @@ export function sampleModel(opts: { view: PeopleView; hh: string | null; niva: b
       { key: "duplicates", label: "Possible duplicates · 4", href: `${BASE}?view=duplicates`, current: opts.view === "duplicates" },
       { key: "ending", label: "Memberships ending soon · 23", href: BASE, current: false },
       { key: "reviews", label: "To review · 3", href: `${BASE}?view=reviews`, current: opts.view === "reviews" },
-      { key: "save", label: "+ Save this view", href: null, current: false, comingNext: true, title: "Saved views are not built yet." },
     ],
     ask: {
       cookieName: null,
@@ -270,6 +269,19 @@ export function sampleModel(opts: { view: PeopleView; hh: string | null; niva: b
               forScreen: 1,
               mergeScreenHref: "/people/merge",
             },
+          }
+        : null,
+    gap: null,
+    actions:
+      opts.view === "households" || opts.view === "people"
+        ? {
+            list: opts.view,
+            params: { ending: "60" },
+            sort: null,
+            suggested: "Membership ends within 60 days",
+            blockedReason: null,
+            exportHref: `/people/export?list=${opts.view}&ending=60`,
+            exportNote: "Export holds each family's number, IDs, adults and area, without any child's name. It asks for a fresh 2FA code and is recorded in the audit log.",
           }
         : null,
     panel,
