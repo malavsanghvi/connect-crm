@@ -176,7 +176,7 @@ end $$;
 
 create or replace function app._put_match_employer(p_center uuid, p_person uuid, p_employer text, p_source text, p_consented_by uuid,
                                                    p_consent_email text default null)
-returns void language plpgsql security definer set search_path = app, public, extensions as $
+returns void language plpgsql security definer set search_path = app, public, extensions as $$
 begin
   if app.person_is_minor(p_person) then
     raise exception 'An employer for gift matching can be recorded for an adult only.' using errcode = '23514';
@@ -279,13 +279,13 @@ end $$;
 -- ── A paper form waiting for the person's first sign-in ─────────────────────
 -- The email on file changes after the recording (staff set it to another address): the snapshot is used up, nothing binds.
 create or replace function app.match_employer_email_changed() returns trigger
-language plpgsql security definer set search_path = app, public, extensions as $
+language plpgsql security definer set search_path = app, public, extensions as $$
 begin
   if lower(btrim(coalesce(new.email::text, ''))) is distinct from lower(btrim(coalesce(old.email::text, ''))) then
     update app.person_match_employers set consent_email = null where person_id = new.id and consent_email is not null;
   end if;
   return null;
-end $;
+end $$;
 revoke execute on function app.match_employer_email_changed() from public, anon, authenticated;
 drop trigger if exists match_employer_email_changed on app.people;
 create trigger match_employer_email_changed after update of email on app.people
@@ -294,7 +294,7 @@ create trigger match_employer_email_changed after update of email on app.people
 -- The first sign-in linked to the person (any linking function writes app.center_users): bound when its verified sign-in
 -- email is the snapshot (and still the email on file); either way the snapshot is used up, so no later sign-in binds.
 create or replace function app.match_employer_first_link() returns trigger
-language plpgsql security definer set search_path = app, public, extensions as $
+language plpgsql security definer set search_path = app, public, extensions as $$
 declare e app.person_match_employers; v_signin text; v_on_file text;
 begin
   if tg_op = 'UPDATE' and new.person_id is not distinct from old.person_id and new.user_id is not distinct from old.user_id then
@@ -311,7 +311,7 @@ begin
          consent_email = null
    where person_id = new.person_id;
   return null;
-end $;
+end $$;
 revoke execute on function app.match_employer_first_link() from public, anon, authenticated;
 drop trigger if exists match_employer_first_link on app.center_users;
 create trigger match_employer_first_link after insert or update of person_id, user_id on app.center_users
