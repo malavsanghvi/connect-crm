@@ -105,12 +105,13 @@ export function ListRow({
             aria-invalid={problem ? true : undefined}
             aria-describedby={problem ? `${id}-problem` : `${id}-hint`}
             placeholder={chips.length === 0 ? placeholder : undefined}
-            className="min-h-8 min-w-[9ch] flex-1 bg-transparent px-1 text-[14.5px] text-ink outline-none placeholder:text-faint"
+            className="min-h-8 min-w-[9ch] flex-1 bg-transparent px-1 text-[14.5px] text-ink outline-none! placeholder:text-faint"
           />
         </div>
         {problem ? <Problem id={`${id}-problem`}>{problem}</Problem> : null}
         <p id={`${id}-hint`} className="m-0 mt-1 text-[12px] text-muted">
-          A comma or Enter adds one · Enter on an empty line saves · Esc cancels
+          <span className="md:hidden">A comma adds one · Done saves</span>
+          <span className="hidden md:inline">A comma or Enter adds one · Enter on an empty line saves · Esc cancels</span>
         </p>
         <SaveError edit={edit} />
         <EditActions edit={edit} />

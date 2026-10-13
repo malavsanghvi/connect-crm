@@ -5,6 +5,7 @@ vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 vi.mock("@/lib/session", () => ({ dbWithReason: vi.fn() }));
 
 import { SCREEN_ONLY_ON_SCREEN, updatePerson } from "@/lib/commands/catalog/people/update-person";
+import { filterChildren, minorNameEntry } from "@/lib/commands/child-filter";
 import { CONFLICT_PREFIX, expectText } from "@/lib/people-v2/inline-edit";
 import { dbWithReason } from "@/lib/session";
 
@@ -174,6 +175,17 @@ describe("a child's record (D2)", () => {
     const r = await updatePerson.execute!(ctx, { id: ID.rahul, date_of_birth: "07/19/1982", interests: "chess" });
     expect(r).toMatchObject({ ok: true });
     expect(person(tables, ID.rahul).interests).toEqual(["chess"]);
+  });
+});
+
+describe("a child's preferred name never goes toward an AI provider (D2)", () => {
+  it("is one of the names the child filter removes from any text, in any script", () => {
+    const zoya = minorNameEntry({ first_name: "Zoya", last_name: "Shah", preferred_name: "Zo" });
+    const filtered = filterChildren({ note: "Zo said hello, and so did Zoya Shah." }, { minorNames: [zoya] });
+    expect(JSON.stringify(filtered.value)).not.toMatch(/Zo/);
+    expect(filtered.removed).toBeGreaterThan(0);
+    const aarav = minorNameEntry({ first_name: "आरव", last_name: "पटेल", preferred_name: "आरू" });
+    expect(JSON.stringify(filterChildren({ text: "आरू आया था" }, { minorNames: [aarav] }).value)).not.toContain("आरू");
   });
 });
 
