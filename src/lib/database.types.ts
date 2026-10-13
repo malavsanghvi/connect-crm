@@ -164,6 +164,141 @@ export type Database = {
         };
         Relationships: [];
       };
+      account_mapping_changes: {
+        Row: {
+          id: string;
+          center_id: string;
+          subject: string;
+          target_key: string;
+          target_label: string;
+          connection_id: string | null;
+          realm_id: string | null;
+          from_ref: string | null;
+          from_name: string | null;
+          to_ref: string | null;
+          to_name: string | null;
+          to_type: string | null;
+          mode: string;
+          status: string;
+          requested_by: string;
+          requested_at: string;
+          request_reason: string;
+          expires_at: string | null;
+          decided_by: string | null;
+          decided_at: string | null;
+          decision_reason: string | null;
+          cancelled_by: string | null;
+          applied_at: string | null;
+          queued_postings: number | null;
+          requeued_postings: number | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          center_id: string;
+          subject: string;
+          target_key: string;
+          target_label: string;
+          connection_id?: string | null;
+          realm_id?: string | null;
+          from_ref?: string | null;
+          from_name?: string | null;
+          to_ref?: string | null;
+          to_name?: string | null;
+          to_type?: string | null;
+          mode?: string;
+          status?: string;
+          requested_by: string;
+          requested_at?: string;
+          request_reason: string;
+          expires_at?: string | null;
+          decided_by?: string | null;
+          decided_at?: string | null;
+          decision_reason?: string | null;
+          cancelled_by?: string | null;
+          applied_at?: string | null;
+          queued_postings?: number | null;
+          requeued_postings?: number | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          center_id?: string;
+          subject?: string;
+          target_key?: string;
+          target_label?: string;
+          connection_id?: string | null;
+          realm_id?: string | null;
+          from_ref?: string | null;
+          from_name?: string | null;
+          to_ref?: string | null;
+          to_name?: string | null;
+          to_type?: string | null;
+          mode?: string;
+          status?: string;
+          requested_by?: string;
+          requested_at?: string;
+          request_reason?: string;
+          expires_at?: string | null;
+          decided_by?: string | null;
+          decided_at?: string | null;
+          decision_reason?: string | null;
+          cancelled_by?: string | null;
+          applied_at?: string | null;
+          queued_postings?: number | null;
+          requeued_postings?: number | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      account_roles: {
+        Row: {
+          key: string;
+          kind: string;
+          label: string;
+          hint: string | null;
+          account_types: string[];
+          aliases: string[];
+          needs_item: boolean;
+          required_when: string;
+          module_key: string | null;
+          listed: string;
+          sort: number;
+          active: boolean;
+          created_at: string;
+        };
+        Insert: {
+          key: string;
+          kind: string;
+          label: string;
+          hint?: string | null;
+          account_types: string[];
+          aliases?: string[];
+          needs_item?: boolean;
+          required_when?: string;
+          module_key?: string | null;
+          listed?: string;
+          sort?: number;
+          active?: boolean;
+          created_at?: string;
+        };
+        Update: {
+          key?: string;
+          kind?: string;
+          label?: string;
+          hint?: string | null;
+          account_types?: string[];
+          aliases?: string[];
+          needs_item?: boolean;
+          required_when?: string;
+          module_key?: string | null;
+          listed?: string;
+          sort?: number;
+          active?: boolean;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
       accounting_periods: {
         Row: {
           center_id: string;
@@ -875,6 +1010,7 @@ export type Database = {
           active: boolean;
           statement_format: string;
           custom: Json;
+          qbo_account_realm: string | null;
         };
         Insert: {
           id?: string;
@@ -887,6 +1023,7 @@ export type Database = {
           active?: boolean;
           statement_format?: string;
           custom?: Json;
+          qbo_account_realm?: string | null;
         };
         Update: {
           id?: string;
@@ -899,6 +1036,7 @@ export type Database = {
           active?: boolean;
           statement_format?: string;
           custom?: Json;
+          qbo_account_realm?: string | null;
         };
         Relationships: [];
       };
@@ -3462,6 +3600,7 @@ export type Database = {
           qbo_class_id: string | null;
           active: boolean;
           custom: Json;
+          qbo_class_realm: string | null;
         };
         Insert: {
           id?: string;
@@ -3472,6 +3611,7 @@ export type Database = {
           qbo_class_id?: string | null;
           active?: boolean;
           custom?: Json;
+          qbo_class_realm?: string | null;
         };
         Update: {
           id?: string;
@@ -3482,6 +3622,7 @@ export type Database = {
           qbo_class_id?: string | null;
           active?: boolean;
           custom?: Json;
+          qbo_class_realm?: string | null;
         };
         Relationships: [];
       };
@@ -5388,6 +5529,9 @@ export type Database = {
           created_at: string;
           claimed_at: string | null;
           request_id: string | null;
+          qbo_doc: Json | null;
+          qbo_realm: string | null;
+          needs_mapping: string | null;
         };
         Insert: {
           id?: string;
@@ -5410,6 +5554,9 @@ export type Database = {
           created_at?: string;
           claimed_at?: string | null;
           request_id?: string | null;
+          qbo_doc?: Json | null;
+          qbo_realm?: string | null;
+          needs_mapping?: string | null;
         };
         Update: {
           id?: string;
@@ -5432,6 +5579,9 @@ export type Database = {
           created_at?: string;
           claimed_at?: string | null;
           request_id?: string | null;
+          qbo_doc?: Json | null;
+          qbo_realm?: string | null;
+          needs_mapping?: string | null;
         };
         Relationships: [];
       };
@@ -9161,6 +9311,8 @@ export type Database = {
           qbo_account_name: string | null;
           approved_by: string | null;
           approved_at: string | null;
+          realm_id: string | null;
+          first_approved_at: string | null;
         };
         Insert: {
           id?: string;
@@ -9170,6 +9322,8 @@ export type Database = {
           qbo_account_name?: string | null;
           approved_by?: string | null;
           approved_at?: string | null;
+          realm_id?: string | null;
+          first_approved_at?: string | null;
         };
         Update: {
           id?: string;
@@ -9179,6 +9333,8 @@ export type Database = {
           qbo_account_name?: string | null;
           approved_by?: string | null;
           approved_at?: string | null;
+          realm_id?: string | null;
+          first_approved_at?: string | null;
         };
         Relationships: [];
       };
@@ -12170,6 +12326,36 @@ export type Database = {
         };
         Returns: Json;
       };
+      account_map_can_approve: {
+        Args: {
+          p_center: string;
+        };
+        Returns: boolean;
+      };
+      account_map_can_request: {
+        Args: {
+          p_center: string;
+        };
+        Returns: boolean;
+      };
+      account_mapping_in_use: {
+        Args: {
+          p_center: string;
+        };
+        Returns: boolean;
+      };
+      account_mapping_overview: {
+        Args: {
+          p_center: string;
+        };
+        Returns: Json;
+      };
+      account_mapping_waiting: {
+        Args: {
+          p_center: string;
+        };
+        Returns: Json;
+      };
       activate_demo_pack: {
         Args: {
           p_center: string;
@@ -12570,6 +12756,13 @@ export type Database = {
           name: string;
         };
         Returns: boolean;
+      };
+      cancel_account_mapping_change: {
+        Args: {
+          p_request: string;
+          p_reason: string;
+        };
+        Returns: Json;
       };
       cancel_my_rsvp: {
         Args: {
@@ -13057,6 +13250,14 @@ export type Database = {
           p_request: string;
           p_decision: string;
           p_note?: string;
+        };
+        Returns: Json;
+      };
+      decide_account_mapping_change: {
+        Args: {
+          p_request: string;
+          p_approve: boolean;
+          p_reason: string;
         };
         Returns: Json;
       };
@@ -15643,6 +15844,16 @@ export type Database = {
           p_center: string;
         };
         Returns: string;
+      };
+      request_account_mapping_change: {
+        Args: {
+          p_center: string;
+          p_subject: string;
+          p_target: string;
+          p_to: string;
+          p_reason: string;
+        };
+        Returns: Json;
       };
       request_add_family_member: {
         Args: {

@@ -83,20 +83,30 @@ export function humanize(value: string | null | undefined): string {
   return value ? value.replace(/_/g, " ") : "—";
 }
 
-/** QuickBooks account-mapping purposes (0009 qbo_account_mappings.purpose). */
+/**
+ * QuickBooks account-mapping purposes (0009 qbo_account_mappings.purpose). The database's catalog is app.account_roles (0779),
+ * which names each role in the organization's words (a module's role uses the module's name in its kind) and lists only the
+ * roles the organization uses; Books › Account mapping and QuickBooks setup read it from there. This list is the fallback for
+ * the screens that name a purpose without asking the database (the QuickBooks sync exceptions, the read-only command).
+ */
 export const QBO_PURPOSES: { purpose: string; label: string; hint: string }[] = [
-  { purpose: "income.general", label: "General donations income", hint: "Unrestricted gifts" },
-  { purpose: "income.boli", label: "Boli income", hint: "Boli pledges once paid" },
-  { purpose: "income.sponsorship", label: "Sponsorship income", hint: "Event and pujan sponsorships" },
-  { purpose: "income.construction", label: "Construction fund income", hint: "Restricted: temple construction" },
-  { purpose: "income.pathshala", label: "Pathshala income", hint: "Pathshala fees and gifts" },
-  { purpose: "income.jeevdaya", label: "Jeevdaya income", hint: "Restricted: jeevdaya" },
-  { purpose: "store.sales", label: "Store sales", hint: "My Store — sales, not donations" },
-  { purpose: "store.gift_packing", label: "Store gift packing", hint: "Gift-pack charges" },
+  { purpose: "income.general", label: "General donations income", hint: "Unrestricted gifts, and money not tied to a pledge or a campaign" },
+  { purpose: "income.boli", label: "Boli income", hint: "Pledges made in Bolis, once paid" },
+  { purpose: "income.sponsorship", label: "Sponsorship income", hint: "Sponsorship pledges and sponsorship campaigns" },
+  { purpose: "income.construction", label: "Construction fund income", hint: "Building and construction campaigns (usually a restricted fund)" },
+  { purpose: "income.pathshala", label: "Pathshala income", hint: "School fees and gifts" },
+  { purpose: "income.jeevdaya", label: "Jeevdaya income", hint: "Chosen before; no campaign or pledge posts to it now" },
+  { purpose: "income.event", label: "Event income", hint: "Event commitments and event campaigns" },
+  { purpose: "income.membership", label: "Membership dues income", hint: "Membership fees (dues)" },
+  { purpose: "income.store", label: "Store giving income", hint: "Gifts to store campaigns (store sales have their own account)" },
+  { purpose: "income.other", label: "Other income", hint: 'Campaigns of the kind "other"' },
+  { purpose: "store.sales", label: "Store sales", hint: "Store sales, not donations" },
+  { purpose: "store.gift_packing", label: "Store gift packing", hint: "Gift-pack charges on store orders" },
+  { purpose: "store.cost", label: "Store cost of goods", hint: "What sold store items cost (cost of goods sold)" },
   { purpose: "sales_tax_payable", label: "Sales tax payable", hint: "Tax collected on store sales" },
   { purpose: "merchant_fees", label: "Merchant fees", hint: "Card-processor fees (expense)" },
   { purpose: "payment_clearing", label: "Payment clearing", hint: "Card money before the payout lands" },
-  { purpose: "bank", label: "Bank account", hint: "Operating account deposits land in" },
+  { purpose: "bank", label: "Bank account", hint: "The operating account deposits land in" },
   { purpose: "undeposited_funds", label: "Undeposited funds", hint: "Checks and cash until the deposit" },
   { purpose: "pledges_receivable", label: "Pledges receivable", hint: "Only used on accrual basis" },
   { purpose: "stock_clearing", label: "Stock clearing", hint: "Stock gifts until sold" },
@@ -105,6 +115,7 @@ export const QBO_PURPOSES: { purpose: string; label: string; hint: string }[] = 
     label: "Pledge write-offs",
     hint: "Written-off pledge balances (bad debt expense, or a contra-income account); a QuickBooks item must post to it",
   },
+  { purpose: "refunds", label: "Refunds", hint: "Money given back, when your books keep refunds in an account of their own" },
 ];
 
 export const LEDGER_TXN_LABEL: Record<string, string> = {

@@ -275,6 +275,8 @@ export const ACCESS = {
   qboLedger: ["giving.view", "accounting.manage"],
   qboManage: ["accounting.manage"],
   qbo: ["integrations.view", "integrations.manage", "giving.view", "accounting.manage"],
+  /** Books › Account mapping (0779): the QuickBooks setup readers, and giving.approve (the second person who confirms a change). */
+  qboMapping: ["accounting.manage", "giving.approve", "giving.view", "integrations.view", "integrations.manage"],
   /** QuickBooks donor matching (o-qbo-match, 0240): read accounting.manage or giving.manage; decide accounting.manage. */
   qboMatch: ["accounting.manage", "giving.manage"],
   qboMatchManage: ["accounting.manage"],
@@ -602,6 +604,8 @@ export const NAV: NavModule[] = [
     tabs: [
       { href: "/accounting/qbo", label: "QuickBooks sync", access: "qbo" },
       { href: "/accounting/qbo/setup", label: "QuickBooks setup", access: "qbo" },
+      // The page lets in qboMapping (giving.approve too: the second person opens it from the Home or Today task).
+      { href: "/accounting/qbo/mapping", label: "Account mapping", access: "qbo" },
       { href: "/accounting/qbo/matching", label: "Donor matching", access: "qboMatch" },
       { href: "/accounting/close", label: "Month-end close", access: "close" },
     ],

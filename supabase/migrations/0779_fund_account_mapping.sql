@@ -1573,6 +1573,9 @@ begin
                             'skipped', v_skipped, 'failed', v_failed);
 end $$;
 
+-- The activity stream records the new screen like every other (0620's catalog).
+select app.activity_register('screen:/accounting/qbo/mapping', 'screen', 'portal', 'Account mapping');
+
 -- ═════════════════════════════════════════════════════════════════════════════
 -- Grants
 -- ═════════════════════════════════════════════════════════════════════════════

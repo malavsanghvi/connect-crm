@@ -3,6 +3,7 @@ import "server-only";
 import { cache } from "react";
 
 import { householdsById, peopleById, userNames } from "@/lib/data/lookups";
+import { mappingTaskTitle, parseMappingWaiting, waitingRequests as waitingMappingRequests } from "@/lib/books/mapping";
 import { addDays, daysBetween, dateInTz, formatDate, todayInTz } from "@/lib/dates";
 import { explainError, type DbErrorLike } from "@/lib/errors";
 import { formatCents } from "@/lib/money";
@@ -101,6 +102,31 @@ const loaders: Record<TaskSourceKey, Loader> = {
             provider: r.plugin_key,
             count: 1,
           },
+        ),
+      );
+  },
+
+  // Changes to which QuickBooks account a fund or role posts to that someone else asked for (migration 0779), for the second
+  // person (giving.approve). Nothing changes until a different person confirms it.
+  async mapping(session) {
+    const res = await untypedRpc(session.db)("account_mapping_waiting", { p_center: session.center.id });
+    if (res.error) {
+      // Only a database without the function yet is skipped silently; anything else is this source's failure.
+      if (res.error.code === "PGRST202" || res.error.code === "42883") return [];
+      throw new SourceError(res.error);
+    }
+    const parsed = parseMappingWaiting(res.data);
+    if (!parsed.ok) throw new SourceError({ message: parsed.error });
+    if (!parsed.value.can_approve) return [];
+    return waitingMappingRequests(parsed.value.requests)
+      .filter((r) => !r.mine)
+      .map((r) =>
+        makeTask(
+          "mapping",
+          r.id,
+          mappingTaskTitle(r),
+          `Asked by ${r.requested_by_name} · ${r.request_reason} · nothing changes until a different person confirms it`,
+          [{ label: "Review", href: "/accounting/qbo/mapping#waiting" }],
         ),
       );
   },

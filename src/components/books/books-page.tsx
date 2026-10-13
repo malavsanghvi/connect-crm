@@ -196,6 +196,9 @@ function QuickBooksCard({ q, timeZone: tz }: { q: QuickBooksGlance; timeZone: st
         <Link href={q.ledger?.failed ? "/accounting/qbo?status=failed" : "/accounting/qbo"} className={buttonClass(q.ledger?.failed ? "primary" : "ghost", "sm")}>
           {q.ledger?.failed ? "Fix the exceptions" : "Sync and exceptions"}
         </Link>
+        <Link href="/accounting/qbo/mapping" className={buttonClass("ghost", "sm")}>
+          Account mapping
+        </Link>
         <Link href="/accounting/qbo/setup" className={buttonClass("ghost", "sm")}>
           QuickBooks setup
         </Link>

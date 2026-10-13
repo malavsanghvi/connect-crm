@@ -132,9 +132,11 @@ describe("Books inside Giving's tab row (New look)", () => {
     expect(activeGivingTab(tabs, "/giving")).toBe("today");
   });
 
-  it("Books' views: close first, then QuickBooks sync, donor matching, setup; any other tab after them", () => {
-    const tabs = ["/accounting/qbo", "/accounting/qbo/setup", "/accounting/qbo/mapping", "/accounting/qbo/matching", "/accounting/close"].map((href) => ({ href }));
-    expect(booksViewOrder(tabs).map((t) => t.href)).toEqual(["/accounting/close", "/accounting/qbo", "/accounting/qbo/matching", "/accounting/qbo/setup", "/accounting/qbo/mapping"]);
+  it("Books' views: close first, then QuickBooks sync, account mapping (0779), donor matching, setup; any other tab after them", () => {
+    const tabs = ["/accounting/other", "/accounting/qbo", "/accounting/qbo/setup", "/accounting/qbo/mapping", "/accounting/qbo/matching", "/accounting/close"].map((href) => ({ href }));
+    expect(booksViewOrder(tabs).map((t) => t.href)).toEqual([
+      "/accounting/close", "/accounting/qbo", "/accounting/qbo/mapping", "/accounting/qbo/matching", "/accounting/qbo/setup", "/accounting/other",
+    ]);
   });
 
   it("Books leaves the row when the accounting module is off", () => {
