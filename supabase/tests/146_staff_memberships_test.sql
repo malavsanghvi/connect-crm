@@ -508,7 +508,11 @@ select pg_temp.assert(pg_temp.audit_only(v.id, v.reason) = '', 'E · the reason 
                (:'m_hard'::uuid, 'Hardship, complimentary membership'), (:'m_free'::uuid, 'Student rate'),
                (:'m_nohold'::uuid, 'Assigned from the old paper register'), (:'m_dates'::uuid, 'Joined a month ago, short first term'),
                (:'m_renew'::uuid, 'Renewed at the fair'), (:'m_nogiving'::uuid, 'Office desk'), (:'m_nogiving2'::uuid, 'Office desk'),
-               (:'m_club'::uuid, 'Joined at the tournament'), (:'m_trig'::uuid, 'Checking the Pathshala trigger')) as v(id, reason);
+               (:'m_trig'::uuid, 'Checking the Pathshala trigger')) as v(id, reason);
+-- (The club's membership had its note edited by staff afterwards, so only its audit entry is checked.)
+select pg_temp.assert(exists (select 1 from app.audit_log a where a.record_table = 'memberships' and a.record_id = :'m_club' and a.action = 'memberships.insert'
+                                 and a.reason = 'Joined at the tournament' and (a.after->>'notes') = 'Assigned by staff'),
+                      'E · the club''s assignment: the reason is in its audit entry and the audit copy of the note is neutral');
 select pg_temp.assert((select m.notes = 'Assigned by staff' from app.memberships m where m.id = :'m_hard'),
                       'E · "Hardship, complimentary membership" is not in the note, which stays neutral');
 
