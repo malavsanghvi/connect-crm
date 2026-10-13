@@ -281,8 +281,9 @@ function Profile({ data, householdId }: { data: CardData; householdId: string })
     channel: p?.channel ?? "",
     language: p?.language ?? "",
     contact: p?.contactPersonId ?? "",
-    doNotAsk: p?.doNotAsk ?? false,
-    restUntil: p?.restUntil ?? "",
+    // An ended rest is not carried into the form (saving it again would be refused as a date in the past).
+    doNotAsk: p?.resting ?? false,
+    restUntil: p?.resting ? (p.restUntil ?? "") : "",
   }));
   const w = useWrite();
   const ids = { thanks: useId(), recognition: useId(), channel: useId(), language: useId(), contact: useId(), dna: useId(), rest: useId() };
@@ -294,8 +295,8 @@ function Profile({ data, householdId }: { data: CardData; householdId: string })
       channel: draft.channel || null,
       language: draft.language || null,
       contact_person_id: draft.contact || null,
-      do_not_ask: draft.doNotAsk || Boolean(draft.restUntil),
-      rest_until: draft.doNotAsk || draft.restUntil ? draft.restUntil || null : null,
+      do_not_ask: draft.doNotAsk,
+      rest_until: draft.doNotAsk ? draft.restUntil || null : null,
     };
     w.run(() => saveCareProfileAction({ householdId, fields }), () => setEditing(false));
   };
