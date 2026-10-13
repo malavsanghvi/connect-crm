@@ -221,7 +221,7 @@ describe("entitlement catalogue", () => {
   it("lists the prototype's groups in order and marks missing entitlements as planned", () => {
     expect(ENTITLEMENT_GROUPS.map((g) => g.name).slice(0, 8)).toEqual(["People", "Events", "Giving", "Bolis", "Store", "Pathshala", "Content", "Communications"]);
     const planned = ENTITLEMENT_GROUPS.flatMap((g) => g.items.filter((i) => i.planned).map((i) => i.key));
-    expect(planned.sort()).toEqual(["data.export", "giving.amounts", "people.children", "people.merge"]);
+    expect(planned.sort()).toEqual(["giving.amounts", "people.children", "people.merge"]);
     expect(unknownPermissions(["giving.amounts"])).toEqual(["giving.amounts"]);
   });
   it("counts rights", () => {

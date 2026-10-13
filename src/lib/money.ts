@@ -79,3 +79,14 @@ export function sumCents(values: Array<number | null | undefined>): number {
   for (const v of values) if (typeof v === "number" && Number.isFinite(v)) t += v;
   return t;
 }
+
+/**
+ * Integer cents as a plain decimal amount for a file a spreadsheet or accounting tool reads: "1234.56", "-2.00", "0.05". No
+ * currency sign, no grouping, a dot for the decimals whatever the community's locale (the currency goes in its own column).
+ * Integer arithmetic only, so a large amount never picks up float error.
+ */
+export function centsAsDecimal(cents: number | bigint): string {
+  const n = Math.round(typeof cents === "bigint" ? Number(cents) : cents);
+  const abs = Math.abs(n);
+  return `${n < 0 ? "-" : ""}${Math.trunc(abs / 100)}.${String(abs % 100).padStart(2, "0")}`;
+}

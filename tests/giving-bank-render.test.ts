@@ -109,14 +109,24 @@ describe("Giving › Bank for a treasurer of a community club", () => {
     expect(out).not.toContain(">Exact matches<");
   });
 
-  it("shows each card payout with both sides and the difference, read-only", () => {
+  it("shows each card payout with both sides and the difference; the treasurer explains and accepts it, or undoes a pairing", () => {
     const out = draw({ view: "payouts" });
     expect(out).toContain("Stripe payout po_1Q2W3E");
     expect(out).toContain("STRIPE TRANSFER ST-P8Q2");
     expect(out).toContain("$3.20 less at the bank than the payout");
     expect(out).toContain("Paired by date");
-    expect(out).toContain("Explaining a difference comes in a later release.");
-    expect(out).not.toMatch(/<button[^>]*>Explain/);
+    expect(out).toContain("Explain and accept pairs them; a difference needs a reason.");
+    // Slice 9: the pair found by date gets Explain and accept; the pair the treasurer accepted gets Undo pairing.
+    expect(out).toMatch(/<button[^>]*>Explain and accept<\/button>/);
+    expect(out).toContain("Paired with this bank line.");
+    expect(out).toMatch(/<button[^>]*>Undo pairing<\/button>/);
+  });
+
+  it("shows card payouts read-only to someone without giving.manage", () => {
+    const out = draw({ view: "payouts", role: "viewer" });
+    expect(out).toContain("$3.20 less at the bank than the payout");
+    expect(out).not.toMatch(/<button[^>]*>Explain and accept/);
+    expect(out).not.toMatch(/<button[^>]*>Undo pairing/);
   });
 
   it("keeps matched, ignored and money out under History", () => {

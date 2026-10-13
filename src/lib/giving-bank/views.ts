@@ -4,8 +4,9 @@
 //   one row with the difference; only with the Accounting module, which owns payouts) · History (matched, ignored, money out).
 // The To match, Deposits and Zelle rows are Today's own rows (giftRow, depositRow, zelleExactRow), so they look and act the same.
 //
-// Card payouts: nothing links a provider payout to its bank line yet (bank_transactions.payout_id is never set), so the row pairs
-// them by date, one to one, and says so ("Paired by date"). Explaining a difference is slice 9; until then the row only shows it.
+// Card payouts: the row pairs a provider payout with its bank line by date, one to one, and says so ("Paired by date"). Slice 9
+// (0747): the treasurer confirms the pair with "Explain and accept" (a typed reason when the amounts differ); the bank line then
+// names the payout (payout_id), the row says "Paired" with the reason, and it can be undone until the month is locked.
 
 import type { CardLabels } from "@/components/household-card";
 import { formatDate } from "@/lib/dates";
@@ -24,6 +25,7 @@ import {
   type QueueRow,
 } from "@/lib/giving-today/queue";
 import type { GivingTab } from "@/lib/giving-today/tabs";
+import { acceptLabel, differenceSentence, reasonLabel } from "@/lib/giving-payouts/explain";
 import { formatCents } from "@/lib/money";
 import type { ReportQueue } from "@/lib/payments/zelle";
 
@@ -126,7 +128,19 @@ function readOnly(r: BankRow): BankRow {
 
 // ---------------------------------------------------------------------------- Card payouts
 
-export type ProviderPayoutIn = { id: string; provider: string; ref: string; grossCents: number; feeCents: number; netCents: number; arrivesOn: string | null };
+export type ProviderPayoutIn = {
+  id: string;
+  provider: string;
+  ref: string;
+  grossCents: number;
+  feeCents: number;
+  netCents: number;
+  arrivesOn: string | null;
+  /** Paired with its bank line in the database (0747), and the reason given for a difference. */
+  matched?: boolean;
+  differenceCode?: string | null;
+  differenceNote?: string | null;
+};
 export type BankPayoutLineIn = { id: string; postedOn: string; amountCents: number; description: string; payoutId: string | null };
 export type PayoutPair = {
   provider: ProviderPayoutIn | null;
@@ -196,6 +210,18 @@ export type PayoutRowView = {
   how: string;
   /** Needs a look: a difference, or one side missing past its window. */
   attention: boolean;
+  /** Both sides are there, paired by date only: "Explain and accept" confirms the pair (slice 9). */
+  explain: {
+    payoutId: string;
+    bankLineId: string;
+    differenceCents: number;
+    /** "The bank received $2.00 less than the payout." */
+    sentence: string;
+    /** "Accept the $2.00 difference", or "Pair them: the amounts agree". */
+    button: string;
+  } | null;
+  /** Paired in the database: the reason for a difference, and the undo (until the month is locked). */
+  paired: { payoutId: string; reason: string | null; note: string | null } | null;
 };
 
 export function payoutRowView(pair: PayoutPair, ctx: Pick<BankRowContext, "currency" | "locale" | "timeZone" | "today">): PayoutRowView {
@@ -204,13 +230,16 @@ export function payoutRowView(pair: PayoutPair, ctx: Pick<BankRowContext, "curre
   const b = pair.bank;
   let difference: PayoutRowView["difference"];
   let attention = false;
+  const accepted = pair.how === "linked" && p?.matched === true;
   if (p && b) {
     const d = pair.differenceCents ?? 0;
-    attention = d !== 0;
+    attention = d !== 0 && !accepted;
     difference =
       d === 0
         ? { text: "No difference", tone: "ok" }
-        : { text: d > 0 ? `${money(d)} more at the bank than the payout` : `${money(-d)} less at the bank than the payout`, tone: "warn" };
+        : accepted
+          ? { text: `${money(Math.abs(d))} ${d > 0 ? "more" : "less"} at the bank, explained`, tone: "ok" }
+          : { text: d > 0 ? `${money(d)} more at the bank than the payout` : `${money(-d)} less at the bank than the payout`, tone: "warn" };
   } else if (p) {
     const late = p.arrivesOn ? dayNumber(ctx.today) - dayNumber(p.arrivesOn) > PAYOUT_WINDOW_DAYS : false;
     attention = late;
@@ -221,7 +250,9 @@ export function payoutRowView(pair: PayoutPair, ctx: Pick<BankRowContext, "curre
   }
   const how =
     pair.how === "linked"
-      ? "The bank line names this payout."
+      ? accepted
+        ? "Paired with this bank line."
+        : "The bank line names this payout."
       : pair.how === "date"
         ? `Paired by date: the bank line is within ${PAYOUT_WINDOW_DAYS} days of the payout. Not confirmed.`
         : p
@@ -242,6 +273,17 @@ export function payoutRowView(pair: PayoutPair, ctx: Pick<BankRowContext, "curre
     difference,
     how,
     attention,
+    explain:
+      p && b && pair.how === "date" && !p.matched
+        ? {
+            payoutId: p.id,
+            bankLineId: b.id,
+            differenceCents: pair.differenceCents ?? 0,
+            sentence: differenceSentence(pair.differenceCents ?? 0, money),
+            button: acceptLabel(pair.differenceCents ?? 0, money),
+          }
+        : null,
+    paired: p && accepted ? { payoutId: p.id, reason: reasonLabel(p.differenceCode), note: p.differenceNote ?? null } : null,
   };
 }
 
@@ -309,7 +351,14 @@ export function historyRowView(l: HistoryLineIn, key: HistoryKey, ctx: Pick<Bank
 
 export type LearnedView = { id: string; value: string; family: Family | null; times: number; last: string | null };
 export type BankAccountView = { id: string; name: string; last4: string | null; active: boolean; statementFormat: string };
-export type BankCan = { confirm: boolean; ignore: boolean; import: boolean; configureZelle: boolean };
+export type BankCan = {
+  confirm: boolean;
+  ignore: boolean;
+  import: boolean;
+  configureZelle: boolean;
+  /** Pair a card payout with its bank line, or undo it (giving.manage; slice 9). */
+  pairPayouts?: boolean;
+};
 export type BankBody = Exclude<ListBody, { state: "ok" }> | { state: "ok" } | { state: "no_account"; canAdd: boolean };
 
 export type BankModel = {

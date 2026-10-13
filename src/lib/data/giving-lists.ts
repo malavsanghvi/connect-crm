@@ -17,26 +17,29 @@ import { campaignsForCenter, householdCards, userNames } from "@/lib/data/lookup
 import { searchHouseholds } from "@/lib/data/search";
 import { todayInTz } from "@/lib/dates";
 import { failure } from "@/lib/errors";
+import { LIST_WORDS, filterSentence } from "@/lib/giving-export/csv";
+import { paymentExportFilter, pledgeExportFilter } from "@/lib/giving-export/filters";
 import { writeOffPostingText, type WriteOffPosting } from "@/lib/giving";
 import { recordPaymentHref } from "@/lib/giving-lists/links";
-import { PAGE_SIZE, pager, switchedOff, type ListBody, type PaymentsModel, type PledgesModel } from "@/lib/giving-lists/model";
+import { PAGE_SIZE, exportOffer, pager, switchedOff, type ListBody, type PaymentsModel, type PledgesModel } from "@/lib/giving-lists/model";
 import {
   GRANT_KINDS,
   RECURRING_CHIPS,
   flaggedRow,
   grantRow,
-  methodChip,
   methodChips,
   paymentRow,
+  paymentQuery,
   paymentViewChips,
   paymentViewFromParam,
   recurringChipFromParam,
   recurringRow,
-  sourceChip,
   sourceChips,
   type FlaggedIn,
   type PaymentViewKey,
+  type PaymentQuery,
   type ViewState,
+  yearChips,
 } from "@/lib/giving-lists/payments";
 import {
   CLOSED_STATUSES,
@@ -97,7 +100,7 @@ function listContext(session: CrmSession, paypalEmailOnly: boolean): ListContext
 
 type Searched = { search: ListSearch | null; householdIds: string[]; problem: string | null };
 
-async function runSearch(session: CrmSession, q: string, currency: string): Promise<Searched> {
+export async function runSearch(session: CrmSession, q: string, currency: string): Promise<Searched> {
   const search = readListSearch(q, currency);
   if (!search?.familyText) return { search, householdIds: [], problem: null };
   const found = await searchHouseholds(session.db, session.center.id, search.familyText, { limit: MAX_FAMILIES });
@@ -169,28 +172,7 @@ export async function loadPledgesList(session: CrmSession, sp: RawSearchParams):
   const [openRes, closedRes] = nothing
     ? [{ data: [] as OpenPledgeLite[], error: null, truncated: false }, { count: 0, error: null }]
     : await Promise.all([
-        fetchAll((f, t) => {
-          let x = db
-            .from("pledges")
-            .select("id, amount_cents, paid_cents, status, pledged_at, due_on, written_off_by")
-            .eq("center_id", center.id)
-            .in("status", [...OPEN_STATUSES]);
-          if (filter) x = x.or(filter);
-          return x.order("id").range(f, t);
-        }).then((r) => ({
-          ...r,
-          data: r.data.map(
-            (p): OpenPledgeLite => ({
-              id: p.id,
-              amountCents: p.amount_cents,
-              paidCents: p.paid_cents,
-              status: p.status,
-              pledgedAt: p.pledged_at,
-              dueOn: p.due_on,
-              writeOffBy: p.written_off_by,
-            }),
-          ),
-        })),
+        openPledgesLite(session, filter),
         (() => {
           let x = db.from("pledges").select("id", { count: "exact", head: true }).eq("center_id", center.id).in("status", [...CLOSED_STATUSES]);
           if (filter) x = x.or(filter);
@@ -230,10 +212,7 @@ export async function loadPledgesList(session: CrmSession, sp: RawSearchParams):
       rows = [...res.data].sort((a, b) => (at.get(a.id) ?? 0) - (at.get(b.id) ?? 0));
     }
   } else {
-    let x = db.from("pledges").select(PLEDGE_COLUMNS, { count: "exact" }).eq("center_id", center.id);
-    if (chip === "closed") x = x.in("status", [...CLOSED_STATUSES]);
-    if (filter) x = x.or(filter);
-    const res = await x.order("pledged_at", { ascending: false }).order("id", { ascending: false }).range(from, from + PAGE_SIZE - 1);
+    const res = await pledgesInDb(session, chip === "closed" ? "closed" : "all", filter, true).range(from, from + PAGE_SIZE - 1);
     if (res.error) rowsError = failure("Could not read the pledges", res.error).error;
     rows = res.data ?? [];
     total = res.count ?? rows.length;
@@ -293,19 +272,63 @@ export async function loadPledgesList(session: CrmSession, sp: RawSearchParams):
     pager: pager(page, total, (n) => hrefWith("/giving/pledges", sp, { page: n })),
     expandSingle: search !== null && total === 1,
     problems,
+    exportOffer: rowsError
+      ? null
+      : exportOffer(
+          session,
+          "pledges",
+          hrefWith("/giving/export", sp, { list: "pledges", page: undefined }),
+          total,
+          filterSentence(pledgeExportFilter(chip, bucket, search ? q : null), LIST_WORDS.pledges.whole),
+        ),
     chips,
     buckets,
     summary: summaryText,
   };
 }
 
-async function readPledges(session: CrmSession, ids: string[]) {
+/** The community's open pledges, a few columns: every chip count, the aging buckets, and the Open, Behind and Waiting views and their export. */
+export function openPledgesLite(session: CrmSession, filter: string | null) {
+  const { db, center } = session;
+  return fetchAll((f, t) => {
+    let x = db
+      .from("pledges")
+      .select("id, amount_cents, paid_cents, status, pledged_at, due_on, written_off_by")
+      .eq("center_id", center.id)
+      .in("status", [...OPEN_STATUSES]);
+    if (filter) x = x.or(filter);
+    return x.order("id").range(f, t);
+  }).then((r) => ({
+    ...r,
+    data: r.data.map(
+      (p): OpenPledgeLite => ({
+        id: p.id,
+        amountCents: p.amount_cents,
+        paidCents: p.paid_cents,
+        status: p.status,
+        pledgedAt: p.pledged_at,
+        dueOn: p.due_on,
+        writeOffBy: p.written_off_by,
+      }),
+    ),
+  }));
+}
+
+/** Closed or All pledges, newest first, read in the database: the list pages them, the export reads them all. */
+export function pledgesInDb(session: CrmSession, chip: "closed" | "all", filter: string | null, count: boolean) {
+  let x = session.db.from("pledges").select(PLEDGE_COLUMNS, { count: count ? "exact" : undefined }).eq("center_id", session.center.id);
+  if (chip === "closed") x = x.in("status", [...CLOSED_STATUSES]);
+  if (filter) x = x.or(filter);
+  return x.order("pledged_at", { ascending: false }).order("id", { ascending: false });
+}
+
+export async function readPledges(session: CrmSession, ids: string[]) {
   if (ids.length === 0) return { data: [] as PledgeRowDb[], error: null };
   const r = await session.db.from("pledges").select(PLEDGE_COLUMNS).eq("center_id", session.center.id).in("id", ids);
   return { data: (r.data ?? []) as PledgeRowDb[], error: r.error };
 }
 
-type PledgeRowDb = {
+export type PledgeRowDb = {
   id: string;
   pledge_number: string | null;
   household_id: string;
@@ -327,7 +350,7 @@ type PledgeRowDb = {
 const PAYMENT_COLUMNS =
   "id, receipt_number, household_id, received_on, method, amount_cents, status, provider, check_number, envelope_number, recorded_by, refunded_cents, refund_approved_by, refund_second_approver, refund_reason, refund_requested_cents, updated_at, deposit_bank_transaction_id, is_opening_balance";
 
-type PaymentRowDb = {
+export type PaymentRowDb = {
   id: string;
   receipt_number: string | null;
   household_id: string;
@@ -349,6 +372,22 @@ type PaymentRowDb = {
   is_opening_balance: boolean;
 };
 
+/** All payments or Refund requests, in the list's order: the list pages them, the export reads them all. */
+export function paymentsInDb(session: CrmSession, q: PaymentQuery, filter: string | null, count: boolean) {
+  let x = session.db.from("payments").select(PAYMENT_COLUMNS, { count: count ? "exact" : undefined }).eq("center_id", session.center.id);
+  if (q.view === "refunds") x = x.not("refund_approved_by", "is", null);
+  if (q.method) x = x.in("method", [...q.method.methods] as Enums<"payment_method">[]);
+  if (q.source?.key === "offline" || q.source?.key === "bank") x = x.eq("provider", q.source.key);
+  if (q.source?.key === "online") x = x.not("provider", "in", "(offline,bank)");
+  if (q.year !== null) x = x.gte("received_on", `${q.year}-01-01`).lt("received_on", `${q.year + 1}-01-01`);
+  if (filter) x = x.or(filter);
+  const ordered =
+    q.view === "refunds"
+      ? x.order("refunded_cents", { ascending: true }).order("updated_at", { ascending: false })
+      : x.order("received_on", { ascending: false }).order("created_at", { ascending: false });
+  return ordered.order("id", { ascending: false });
+}
+
 export type RecordSlot = { household: HouseholdCardData | null; values: RecordPrefill | null; canAllocate: boolean; bankOn: boolean };
 
 export type PaymentsPage = PaymentsModel & { record: RecordSlot | null };
@@ -365,6 +404,7 @@ export async function loadPaymentsList(session: CrmSession, sp: RawSearchParams)
     views: [],
     methods: [],
     sources: [],
+    years: [],
     statuses: [],
     flagged: [],
     record: null,
@@ -451,23 +491,13 @@ export async function loadPaymentsList(session: CrmSession, sp: RawSearchParams)
   if (view === "all" || view === "refunds") {
     const filter = search ? searchFilter(search, { numberColumn: "receipt_number", householdIds }) : null;
     const nothing = search !== null && filter === null;
-    const method = view === "all" ? methodChip(param(sp, "method")) : null;
-    const source = view === "all" ? sourceChip(param(sp, "source")) : null;
+    const query = paymentQuery(view, (k) => param(sp, k), ctx.today);
+    const { method, source, year } = query;
     let rows: PaymentRowDb[] = [];
     let total = 0;
     let rowsError: string | null = null;
     if (!nothing && (view === "all" || seesAll)) {
-      let x = db.from("payments").select(PAYMENT_COLUMNS, { count: "exact" }).eq("center_id", center.id);
-      if (view === "refunds") x = x.not("refund_approved_by", "is", null);
-      if (method) x = x.in("method", [...method.methods] as Enums<"payment_method">[]);
-      if (source?.key === "offline" || source?.key === "bank") x = x.eq("provider", source.key);
-      if (source?.key === "online") x = x.not("provider", "in", "(offline,bank)");
-      if (filter) x = x.or(filter);
-      const ordered =
-        view === "refunds"
-          ? x.order("refunded_cents", { ascending: true }).order("updated_at", { ascending: false })
-          : x.order("received_on", { ascending: false }).order("created_at", { ascending: false });
-      const res = await ordered.range(from, from + PAGE_SIZE - 1);
+      const res = await paymentsInDb(session, query, filter, true).range(from, from + PAGE_SIZE - 1);
       if (res.error) rowsError = failure(view === "refunds" ? "Could not read the refund requests" : "Could not read the payments", res.error).error;
       rows = (res.data ?? []) as PaymentRowDb[];
       total = res.count ?? rows.length;
@@ -532,6 +562,7 @@ export async function loadPaymentsList(session: CrmSession, sp: RawSearchParams)
       searchLabel: view === "refunds" ? "Find a refund by family, receipt number or amount" : "Find a payment by family, receipt number or amount",
       methods: view === "all" ? methodChips(method?.key ?? null, ctx.locale, plugins ?? [], (k) => chipHref("method", k)) : [],
       sources: view === "all" ? sourceChips(source?.key ?? null, bankOn, (k) => chipHref("source", k)) : [],
+      years: view === "all" ? yearChips(year, ctx.today, (k) => chipHref("year", k)) : [],
       flagged: flaggedRows.map((f) => flaggedRow(f, families.map.get(f.householdId) ?? null, ctx)),
       body: rowsError
         ? err(rowsError, retry)
@@ -548,6 +579,16 @@ export async function loadPaymentsList(session: CrmSession, sp: RawSearchParams)
             },
       pager: pager(page, total, pageHref),
       expandSingle: search !== null && total === 1,
+      exportOffer:
+        rowsError || (view === "refunds" && !seesAll)
+          ? null
+          : exportOffer(
+              session,
+              "payments",
+              hrefWith("/giving/export", sp, { list: "payments", page: undefined }),
+              total,
+              filterSentence(paymentExportFilter(query, search ? q : null, ctx.locale), LIST_WORDS.payments.whole),
+            ),
     };
   }
 

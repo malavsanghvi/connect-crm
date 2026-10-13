@@ -1,6 +1,6 @@
 // Giving › Payments in the New look (docs/GIVING_REDESIGN.md section 4, slice 3): every payment, searchable by family, receipt
-// number or amount, with chips for the method and the source; the views Refunds, Grants to match and Recurring (read-only). The
-// offering counts have their own tab (slice 5). Today's Record payment form sits on top when the address asks for it.
+// number or amount, with chips for the method, the source and the year; the views Refunds, Grants to match and Recurring
+// (read-only). The offering counts have their own tab (slice 5). Today's Record payment form sits on top when the address asks for it.
 
 import type { ReactNode } from "react";
 
@@ -43,6 +43,7 @@ export function PaymentsView({ model, recordSlot }: { model: PaymentsModel; reco
             {model.searchLabel ? <ListSearch label={model.searchLabel} initial={model.q} base={model.searchBase} /> : null}
             <ChipRow chips={model.methods} label="Method" />
             <ChipRow chips={model.sources} label="Source" />
+            <ChipRow chips={model.years} label="Year" />
             <ChipRow chips={model.statuses} label="Recurring gifts to show" />
             {model.view === "recurring" ? (
               <p className="m-0 text-[13px] text-muted">Recurring gifts are set up in the member app. They never close a pledge unless the giver links them.</p>

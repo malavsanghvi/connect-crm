@@ -5,7 +5,7 @@ import type { CardLabels } from "@/components/household-card";
 import type { GivingTab } from "@/lib/giving-today/tabs";
 import { kindModuleLabel, moduleNotOffered, notOfferedExplanation, notPartOfKindSentence, type KindProfile } from "@/lib/kind";
 import { moduleDef, moduleOffMessage, type ModuleKey } from "@/lib/modules";
-import type { AccessKey } from "@/lib/permissions";
+import { canAccess, type AccessKey, type PermissionContext } from "@/lib/permissions";
 
 import type { PaymentViewKey } from "./payments";
 import type { Chip, ListRow } from "./types";
@@ -47,7 +47,21 @@ export type ListsCommon = {
   note: string | null;
   /** Where Record payment goes until slice 2's sheet is wired in; null without the right. */
   recordHref: string | null;
+  /** Export this list as it is filtered (slice 9); null where the list has no export (or it could not be read). */
+  exportOffer?: ExportOffer | null;
 };
+
+/**
+ * The Export button of a list. `ready`: the route to download from (the list's own filters), how many rows the list has now and the
+ * list's word. `no_permission`: the person sees the list but may not export it (data.export), said in a line, never a dead button.
+ */
+export type ExportOffer =
+  | { state: "ready"; href: string; list: "payments" | "pledges"; count: number; /** "check, received in 2026", or "every payment". */ filterText: string }
+  | { state: "no_permission" };
+
+export function exportOffer(ctx: PermissionContext, list: "payments" | "pledges", href: string, count: number, filterText: string): ExportOffer {
+  return canAccess(ctx, "givingExport") ? { state: "ready", href, list, count, filterText } : { state: "no_permission" };
+}
 
 export type PledgesModel = ListsCommon & {
   chips: Chip[];
@@ -61,6 +75,8 @@ export type PaymentsModel = ListsCommon & {
   views: Chip[];
   methods: Chip[];
   sources: Chip[];
+  /** All payments: All years, this year and the two before it (?year=). */
+  years: Chip[];
   /** The Recurring view's status chips. */
   statuses: Chip[];
   /** Flagged refunds, made in a card provider's dashboard, above the refund requests. */

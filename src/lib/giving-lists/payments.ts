@@ -92,6 +92,40 @@ export function sourceChips(active: string | null, bankOn: boolean, hrefFor: (ke
   ];
 }
 
+// ---------------------------------------------------------------------------- The year, and the query a list and its export share
+
+/** ?year=2026: payments received in that calendar year (1990 to next year); anything else means every year. */
+export function yearFromParam(value: string | undefined, today: string): number | null {
+  if (!value || !/^\d{4}$/.test(value)) return null;
+  const year = Number(value);
+  return year >= 1990 && year <= Number(today.slice(0, 4)) + 1 ? year : null;
+}
+
+/** All years, this year and the two before it (and a year the address asks for that is older). */
+export function yearChips(active: number | null, today: string, hrefFor: (key: string | null) => string): Chip[] {
+  const now = Number(today.slice(0, 4));
+  const years = [now, now - 1, now - 2];
+  if (active !== null && !years.includes(active)) years.push(active);
+  return [
+    { key: "", label: "All years", href: hrefFor(null), count: null, on: active === null },
+    ...years.map((y) => ({ key: String(y), label: String(y), href: hrefFor(String(y)), count: null, on: active === y })),
+  ];
+}
+
+/** What All payments and Refund requests read. The list and its export build their query from this, so the file is the list. */
+export type PaymentQuery = {
+  view: "all" | "refunds";
+  method: (typeof METHOD_CHIPS)[number] | null;
+  source: (typeof SOURCE_CHIPS)[number] | null;
+  year: number | null;
+};
+
+/** The chips apply to All payments only (Refund requests has none), as the list shows them. */
+export function paymentQuery(view: "all" | "refunds", get: (key: string) => string | undefined, today: string): PaymentQuery {
+  if (view === "refunds") return { view, method: null, source: null, year: null };
+  return { view, method: methodChip(get("method")), source: sourceChip(get("source")), year: yearFromParam(get("year"), today) };
+}
+
 // ---------------------------------------------------------------------------- Payment rows
 
 export type PaymentIn = {

@@ -14,19 +14,30 @@ import { canAccess, type ScopedContext } from "@/lib/permissions";
 import { hrefWith, type RawSearchParams } from "@/lib/search-params";
 
 import { recordPaymentHref } from "./links";
-import { pager, switchedOff, type ListBody, type PaymentsModel, type PledgesModel } from "./model";
+import { exportOffer, pager, switchedOff, type ListBody, type PaymentsModel, type PledgesModel } from "./model";
+import {
+  LIST_WORDS,
+  filterSentence,
+  paymentExportHeader,
+  paymentExportLines,
+  pledgeExportHeader,
+  pledgeExportLines,
+  watermarkLine,
+  type ExportHousehold,
+  type GivingExportList,
+} from "@/lib/giving-export/csv";
+import { methodWord, paymentExportFilter, pledgeExportFilter, sourceWord } from "@/lib/giving-export/filters";
 import {
   flaggedRow,
   grantRow,
-  methodChip,
   methodChips,
+  paymentQuery,
   paymentRow,
   paymentViewChips,
   paymentViewFromParam,
   RECURRING_CHIPS,
   recurringChipFromParam,
   recurringRow,
-  sourceChip,
   sourceChips,
   type FlaggedIn,
   type GrantIn,
@@ -34,6 +45,7 @@ import {
   type PaymentViewKey,
   type RecurringIn,
   type ViewState,
+  yearChips,
 } from "./payments";
 import {
   bucketChips,
@@ -56,7 +68,7 @@ const U = LISTS_USERS;
 const NAMES: Record<string, string> = { [U.grace]: "Grace Lindqvist", [U.sam]: "Sam Carter", [U.lee]: "Lee Park", [U.ama]: "Ama Mensah" };
 
 export const LISTS_ROLES: Record<ListsRole, { me: string; permissions: string[] }> = {
-  treasurer: { me: U.grace, permissions: ["giving.view", "giving.manage", "giving.record_offline", "accounting.close"] },
+  treasurer: { me: U.grace, permissions: ["giving.view", "giving.manage", "giving.record_offline", "accounting.close", "data.export"] },
   // A second approver who also reads Giving (giving.approve alone opens Today only).
   approver: { me: U.lee, permissions: ["giving.view", "giving.approve"] },
   volunteer: { me: U.ama, permissions: ["giving.record_offline"] },
@@ -240,6 +252,13 @@ export function samplePledgesModel(role: ListsRole = "treasurer", sp: RawSearchP
     },
     pager: pager(1, rows.length, () => "#"),
     expandSingle: search !== null && rows.length === 1,
+    exportOffer: exportOffer(
+      tabCtx(role, c, []),
+      "pledges",
+      hrefWith("/dev/giving-lists/export", sp, { list: "pledges", tab: undefined, page: undefined }),
+      rows.length,
+      filterSentence(pledgeExportFilter(chip, bucket, search ? q : null), LIST_WORDS.pledges.whole),
+    ),
   };
 }
 
@@ -262,6 +281,7 @@ export function samplePaymentsModel(
     views: [],
     methods: [],
     sources: [],
+    years: [],
     statuses: [],
     flagged: [],
   };
@@ -294,18 +314,20 @@ export function samplePaymentsModel(
   const ids = familiesFound(search);
   const chipHref = (key: string, value: string | null) => hrefWith(path, psp, { [key]: value ?? undefined, page: undefined });
   if (view === "all" || view === "refunds") {
-    const method = view === "all" ? methodChip(typeof sp.method === "string" ? sp.method : undefined) : null;
-    const source = view === "all" ? sourceChip(typeof sp.source === "string" ? sp.source : undefined) : null;
+    const query = paymentQuery(view, (k) => (typeof sp[k] === "string" ? (sp[k] as string) : undefined), TODAY_DATE);
+    const { method, source, year } = query;
     const rows = visible
       .filter((p) => view === "all" || p.refundBy)
       .filter((p) => !method || method.methods.includes(p.method))
       .filter((p) => !source || (source.key === "online" ? p.provider !== "offline" && p.provider !== "bank" : p.provider === source.key))
+      .filter((p) => year === null || p.receivedOn.startsWith(`${year}-`))
       .filter((p) => hit(search, ids, { number: p.receipt, amountCents: p.amountCents, householdId: p.householdId }));
     return {
       ...shell,
       searchLabel: view === "refunds" ? "Find a refund by family, receipt number or amount" : "Find a payment by family, receipt number or amount",
       methods: view === "all" ? methodChips(method?.key ?? null, c.locale, c.plugins, (k) => chipHref("method", k)) : [],
       sources: view === "all" ? sourceChips(source?.key ?? null, bankOn, (k) => chipHref("source", k)) : [],
+      years: view === "all" ? yearChips(year, TODAY_DATE, (k) => chipHref("year", k)) : [],
       flagged: view === "refunds" ? SAMPLE_FLAGGED.map((f) => flaggedRow(f, famById.get(f.householdId) ?? null, ctx)) : [],
       body: {
         state: "ok",
@@ -315,6 +337,16 @@ export function samplePaymentsModel(
         empty: search ? `No payment matches “${search.text}”.` : "No payments match.",
       },
       expandSingle: search !== null && rows.length === 1,
+      exportOffer:
+        view === "refunds" && !seesAll
+          ? null
+          : exportOffer(
+              tctx,
+              "payments",
+              hrefWith("/dev/giving-lists/export", psp, { list: "payments", tab: undefined, page: undefined }),
+              rows.length,
+              filterSentence(paymentExportFilter(query, search ? q : null, c.locale), LIST_WORDS.payments.whole),
+            ),
     };
   }
   if (view === "grants") {
@@ -329,4 +361,75 @@ export function samplePaymentsModel(
     statuses: RECURRING_CHIPS.map((x) => ({ key: x.key, label: x.label, href: chipHref("rstatus", x.key === "all" ? null : x.key), count: null, on: x.key === status })),
     body: { state: "ok", rows: rows.map((r) => recurringRow(r, famById.get(r.householdId) ?? null, ctx)), empty: "No recurring gifts here." },
   };
+}
+
+/**
+ * DEV PREVIEW ONLY: the file the Export button downloads on /dev/giving-lists (no 2FA and no audit here), built from the same
+ * invented rows, filters and pure core as the real export (src/lib/giving-export/*). Lines: the watermark, the header, the rows.
+ */
+export function sampleExportLines(list: GivingExportList, role: ListsRole, sp: RawSearchParams, c: Community = LISTS_COMMUNITY): string[][] {
+  const tctx = tabCtx(role, c, []);
+  if (!canAccess(tctx, "givingExport")) return [["You don't have access to this area. Exporting needs the data-export permission."]];
+  const get = (k: string) => (typeof sp[k] === "string" ? (sp[k] as string) : undefined);
+  const q = get("q") ?? "";
+  const search = readListSearch(q, c.currency);
+  const ids = familiesFound(search);
+  const households = new Map<string, ExportHousehold>(FAMILIES.map((f) => [f.id, { number: f.number, orgId: f.orgId, name: f.name }]));
+  const seesAll = canAccess(tctx, "paymentsAll");
+  const mark = (filter: Parameters<typeof watermarkLine>[0]["filter"], rows: number) =>
+    watermarkLine({ community: c.name, who: "Grace Okafor", email: "grace@example.org", at: `${TODAY_DATE} 10:15 (${c.timeZone})`, list, filter, rows });
+  if (list === "payments") {
+    const view = paymentViewFromParam(get("view")) === "refunds" ? "refunds" : "all";
+    const query = paymentQuery(view, get, TODAY_DATE);
+    const rows = SAMPLE_PAYMENTS.filter((p) => seesAll || p.recordedBy === LISTS_ROLES[role].me)
+      .filter((p) => view === "all" || p.refundBy)
+      .filter((p) => !query.method || query.method.methods.includes(p.method))
+      .filter((p) => !query.source || (query.source.key === "online" ? p.provider !== "offline" && p.provider !== "bank" : p.provider === query.source.key))
+      .filter((p) => query.year === null || p.receivedOn.startsWith(`${query.year}-`))
+      .filter((p) => hit(search, ids, { number: p.receipt, amountCents: p.amountCents, householdId: p.householdId }));
+    const filter = paymentExportFilter(query, search ? q : null, c.locale);
+    const lines = paymentExportLines(
+      rows.map((p) => ({
+        receipt: p.receipt,
+        receivedOn: p.receivedOn,
+        householdId: p.householdId,
+        method: p.method,
+        checkNumber: p.checkNumber,
+        source: sourceWord(p.provider),
+        status: p.status,
+        amountCents: p.amountCents,
+        refundedCents: p.refundedCents,
+        appliedTo: [],
+        openingBalance: p.openingBalance,
+      })),
+      households,
+      { currency: c.currency, methodWord: methodWord(c.locale) },
+    );
+    return [[mark(filter, rows.length)], paymentExportHeader("Community household ID"), ...lines];
+  }
+  const chip = pledgeChipFromParam(get("status"));
+  const bucket = bucketFromParam(get("age"));
+  const matching = SAMPLE_PLEDGES.filter((p) => hit(search, ids, { number: p.number, amountCents: p.amountCents, householdId: p.householdId }));
+  const open = matching.filter((p) => isOpenStatus(p.status));
+  const rows =
+    bucket || chip === "open" || chip === "behind" || chip === "waiting"
+      ? selectOpen(open, chip === "closed" || chip === "all" ? "open" : chip, bucket, TODAY_DATE, c.timeZone).map((l) => open.find((p) => p.id === l.id)!)
+      : matching.filter((p) => chip === "all" || !isOpenStatus(p.status));
+  const filter = pledgeExportFilter(chip, bucket, search ? q : null);
+  const lines = pledgeExportLines(
+    rows.map((p) => ({
+      number: p.number,
+      pledgedOn: p.pledgedAt,
+      dueOn: p.dueOn,
+      householdId: p.householdId,
+      campaign: p.campaign,
+      status: p.status,
+      amountCents: p.amountCents,
+      paidCents: p.paidCents,
+      writeOffWaiting: isOpenStatus(p.status) && p.writeOffBy !== null,
+    })),
+    households,
+    { currency: c.currency },
+  );
+  return [[mark(filter, rows.length)], pledgeExportHeader("Community household ID"), ...lines];
 }

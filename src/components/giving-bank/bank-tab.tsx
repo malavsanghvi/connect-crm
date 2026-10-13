@@ -26,7 +26,7 @@ const INTRO: Record<BankModel["view"], string> = {
   deposits: "Deposits of paper payments and cash: tick the recorded payments in each one. They must add up to the cent.",
   zelle: "What members reported sending, against the bank statement. Nothing is credited until you confirm it.",
   payouts:
-    "Card payouts move money the platform already recorded; they are never matched to a family. The provider's side and the bank's side are shown together, with the difference. Explaining a difference comes in a later release.",
+    "Card payouts move money the platform already recorded; they are never matched to a family. The provider's side and the bank's side are shown together, with the difference. Explain and accept pairs them; a difference needs a reason.",
   history: "Lines already dealt with, and money out to check.",
 };
 
@@ -97,7 +97,7 @@ export function BankTab({ model, importer, noAccount }: { model: BankModel; impo
                   </div>
                 ))
               : null}
-            {model.view === "payouts" ? model.payouts.map((p) => <PayoutRow key={p.id} row={p} />) : null}
+            {model.view === "payouts" ? model.payouts.map((p) => <PayoutRow key={p.id} row={p} canPair={model.can.pairPayouts === true} labels={model.labels} />) : null}
             {model.view === "history"
               ? model.historyRows.map((h) => <HistoryRow key={h.id} row={h} ctx={ctxFor(h.id)} done={done[h.id]} labels={model.labels} />)
               : null}
