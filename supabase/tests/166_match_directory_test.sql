@@ -430,7 +430,8 @@ select app.decide_match_submission(:'s2', 'approve')->>'status' as s2_status \gs
 select pg_temp.assert(:'s2_status' = 'approved'
                       and (select match_ratio_bp = 20000 and verified_by_kind = 'weaver' and last_verified_on = current_date
                              from app.match_programs where id = :'acme')
-                      and (select status = 'approved' and decided_kind = 'weaver' from app.match_program_submissions where id = :'s2'),
+                      and exists (select 1 from jsonb_array_elements(app.platform_match_submissions('decided')) e
+                                   where e->>'id' = :'s2' and e->>'status' = 'approved' and e->>'decided_kind' = 'weaver'),
   'E · Weaver''s team approves it: the entry changes, checked by Weaver''s team today');
 reset role;
 
