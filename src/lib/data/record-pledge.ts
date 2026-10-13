@@ -5,6 +5,7 @@ import { loadAdults } from "@/lib/commands/catalog/household";
 import { communityMajority } from "@/lib/commands/child-filter";
 import { CommandError } from "@/lib/commands/types";
 import { todayInTz } from "@/lib/dates";
+import { defaultDueOn, pledgeDueDays } from "@/lib/giving-due";
 import {
   OWN_FLOW_CAMPAIGN_KINDS,
   type CheckedPledge,
@@ -89,7 +90,9 @@ export async function householdAdults(session: CrmSession, householdId: string):
 
 export async function loadPledgeSheetOptions(session: CrmSession, householdId: string | null): Promise<PledgeSheetOptions> {
   const [designations, adults] = await Promise.all([loadPledgeDesignations(session), householdId ? householdAdults(session, householdId) : Promise.resolve([])]);
-  return { ...designations, adults };
+  // Every pledge has a due date (0775): the sheet shows the community's default for a pledge made today, and the person may change it.
+  const dueDays = pledgeDueDays(session.center.rules);
+  return { ...designations, adults, dueDays, defaultDueOn: defaultDueOn(todayInTz(session.center.time_zone), dueDays) };
 }
 
 const str = (v: unknown): string | null => (typeof v === "string" && v ? v : null);
