@@ -205,6 +205,8 @@ export const JOB_KIND_LABELS: Record<string, string> = {
   "import.suggest_mapping": "Suggest column matches for an import",
   "messaging.send": "Send a message",
   "messaging.test_send": "Test message",
+  "messaging.compose": "Write an automatic email (receipt, pledge or registration confirmation)",
+  "messaging.email_schedules_sweep": "Scheduled emails that are due (pledges due soon, past due, givers)",
   "messaging.domain_verify": "Email sending domain check",
   "messaging.webhook.email": "Email delivery event",
   "messaging.webhook.twilio": "Text message event",

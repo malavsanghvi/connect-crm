@@ -272,6 +272,8 @@ export async function loadPledgesList(session: CrmSession, sp: RawSearchParams):
     pager: pager(page, total, (n) => hrefWith("/giving/pledges", sp, { page: n })),
     expandSingle: search !== null && total === 1,
     problems,
+    // Upload pledges (GV-U): giving.manage, as Record pledge.
+    uploadHref: canAccess(session, "recordPledge") ? "/giving/pledges/upload" : null,
     exportOffer: rowsError
       ? null
       : exportOffer(
@@ -409,6 +411,8 @@ export async function loadPaymentsList(session: CrmSession, sp: RawSearchParams)
     statuses: [],
     flagged: [],
     record: null,
+    // Upload donations (GV-U): whoever records a payment by hand (giving.record_offline or giving.manage).
+    uploadHref: canAccess(session, "recordPayment") ? "/giving/payments/upload" : null,
   };
   if (!canAccess(session, "payments")) return { ...base, body: { state: "no_access", area: "Payments", access: "payments" } };
 

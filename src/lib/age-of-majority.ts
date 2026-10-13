@@ -71,7 +71,7 @@ function daysIn(year: number, month1: number): number {
  * that does not exist in that year (29 February) counts from the last day of the month, so nobody is treated as an adult a day early.
  */
 export function birthCutoff(today: string, majority: number): string {
-  const [y, m, d] = today.split("-").map(Number);
+  const [y = 0, m = 1, d = 1] = today.split("-").map(Number);
   const year = y - Math.max(majority, MIN_AGE_OF_MAJORITY);
   const day = Math.min(d, daysIn(year, m));
   return `${String(year).padStart(4, "0")}-${String(m).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
