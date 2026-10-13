@@ -23,6 +23,12 @@ export function ListHeader({ model, active, description, actions }: { model: Lis
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {actions}
+          {/* Upload many from a spreadsheet (GV-U): a page of its own, works best on a computer. */}
+          {model.uploadHref ? (
+            <Link href={model.uploadHref} className={`${buttonClass("ghost", "sm")} min-h-[44px]`}>
+              Upload
+            </Link>
+          ) : null}
           {/* Pledges: Record pledge opens its sheet in place (giving.manage, the New look); nothing is drawn without it. */}
           {active === "pledges" ? <RecordPledgeButton className={`${buttonClass("ghost", "sm")} min-h-[44px]`} /> : null}
           {/* The sheet in place where the New-look shell mounts it; `recordHref` (?record=1) without it. */}

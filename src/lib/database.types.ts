@@ -3146,6 +3146,57 @@ export type Database = {
         };
         Relationships: [];
       };
+      giving_uploads: {
+        Row: {
+          id: string;
+          center_id: string;
+          kind: string;
+          idempotency_key: string;
+          file_name: string | null;
+          file_sha256: string | null;
+          reason: string;
+          row_count: number;
+          total_cents: number;
+          created_by: string | null;
+          created_at: string;
+          cancelled_at: string | null;
+          cancelled_by: string | null;
+          cancel_reason: string | null;
+        };
+        Insert: {
+          id?: string;
+          center_id: string;
+          kind: string;
+          idempotency_key: string;
+          file_name?: string | null;
+          file_sha256?: string | null;
+          reason: string;
+          row_count: number;
+          total_cents: number;
+          created_by?: string | null;
+          created_at?: string;
+          cancelled_at?: string | null;
+          cancelled_by?: string | null;
+          cancel_reason?: string | null;
+        };
+        Update: {
+          id?: string;
+          center_id?: string;
+          kind?: string;
+          idempotency_key?: string;
+          file_name?: string | null;
+          file_sha256?: string | null;
+          reason?: string;
+          row_count?: number;
+          total_cents?: number;
+          created_by?: string | null;
+          created_at?: string;
+          cancelled_at?: string | null;
+          cancelled_by?: string | null;
+          cancel_reason?: string | null;
+        };
+        Relationships: [];
+      };
       golive_approvals: {
         Row: {
           center_id: string;
@@ -12181,6 +12232,14 @@ export type Database = {
         };
         Returns: undefined;
       };
+      cancel_pledge_upload: {
+        Args: {
+          p_center: string;
+          p_upload: string;
+          p_reason: string;
+        };
+        Returns: Json;
+      };
       cancel_rsvp: {
         Args: {
           p_rsvp: string;
@@ -13029,6 +13088,13 @@ export type Database = {
           p_today?: string;
         };
         Returns: Json;
+      };
+      giving_upload_households: {
+        Args: {
+          p_center: string;
+          p_values: string[];
+        };
+        Returns: { input: string; match_kind: string; household_id: string; person_id: string; household_name: string; household_number: string; org_household_id: string; primary_member: string; city: string }[];
       };
       giving_zelle_waiting: {
         Args: {
@@ -14867,6 +14933,17 @@ export type Database = {
           p_check_number?: string;
           p_envelope_number?: string;
           p_memo?: string;
+        };
+        Returns: Json;
+      };
+      record_pledge_upload: {
+        Args: {
+          p_center: string;
+          p_idempotency_key: string;
+          p_file_name: string;
+          p_file_sha256: string;
+          p_reason: string;
+          p_rows: Json;
         };
         Returns: Json;
       };

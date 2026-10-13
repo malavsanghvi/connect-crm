@@ -50,6 +50,8 @@ export type ListsCommon = {
   recordHref: string | null;
   /** Export this list as it is filtered (slice 9); null where the list has no export (or it could not be read). */
   exportOffer?: ExportOffer | null;
+  /** Upload many at once from a spreadsheet (GV-U); null or absent without the right. */
+  uploadHref?: string | null;
 };
 
 /**
