@@ -292,9 +292,10 @@ insert into app.households (id, center_id, display_name) values (:h5, :jc, 'Fift
 insert into app.people (id, center_id, first_name, last_name, date_of_birth, email, is_deceased) values
   (:ann, :jc, 'Ann', 'Fifth170', date '1960-01-01', 'ann170@temple.test', false),
   (:dee, :jc, 'Dee', 'Fifth170', date '1958-01-01', 'dee170@temple.test', true),
-  (:dan, :jc, 'Dan', 'Fifth170', date '1959-01-01', 'dan170@temple.test', false),
-  (:mo, :jc, 'Mo', 'Fifth170', date '1961-01-01', 'mo170@temple.test', false);
-update app.people set merged_into_id = :ann where id = :mo;
+  (:dan, :jc, 'Dan', 'Fifth170', date '1959-01-01', 'dan170@temple.test', false);
+-- Mo's record was merged into Ann's (written as the merge leaves it).
+insert into app.people (id, center_id, first_name, last_name, date_of_birth, email, merged_into_id) values
+  (:mo, :jc, 'Mo', 'Fifth170', date '1961-01-01', 'mo170@temple.test', :ann);
 insert into app.household_members (household_id, person_id, center_id, role, is_primary, left_at) values
   (:h5, :ann, :jc, 'spouse', false, null), (:h5, :dee, :jc, 'primary', true, null),
   (:h5, :dan, :jc, 'parent', false, current_date - 30), (:h5, :mo, :jc, 'parent', false, null);
