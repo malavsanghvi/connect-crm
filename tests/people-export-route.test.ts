@@ -10,7 +10,7 @@ import { NO_FILTERS, type HouseholdFilters } from "@/lib/people-v2/ask";
 import { gapPeople, type GapPerson } from "@/lib/people-v2/gaps";
 
 const rpc = vi.fn();
-let permissions = ["people.view"];
+let permissions = ["people.view", "people.manage"];
 let signedIn: "ok" | "signed_out" = "ok";
 const session = () => ({
   permissions,
@@ -53,7 +53,7 @@ beforeEach(() => {
   loadExportCards.mockReset();
   loadExportCards.mockResolvedValue({ cards: new Map([["h1", { name: "Patel household", number: "0127", orgId: "RCC-H-0961", city: "Riverside", zone: "North Riverside", adults: ["Anil Patel"] }]]), error: null });
   loadFilteredHouseholds.mockReset();
-  permissions = ["people.view"];
+  permissions = ["people.view", "people.manage"];
   signedIn = "ok";
 });
 
@@ -70,6 +70,28 @@ describe("who may export, and the fresh 2FA check", () => {
     expect(await res.text()).toContain("you don't have access to this area");
     expect(loadGapPeople).not.toHaveBeenCalled();
     expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it("refuses a role that may only view people: 403 in words, and nothing is read, checked or recorded", async () => {
+    permissions = ["people.view"];
+    for (const qs of ["list=people&noemail=1", "list=households"]) {
+      const res = await GET(req(qs));
+      expect(res.status).toBe(403);
+      expect(res.headers.get("x-step-up")).toBeNull();
+      const text = await res.text();
+      expect(text).toContain("you don't have access to this area");
+      expect(text).toContain("needs permission to manage people");
+    }
+    expect(loadGapPeople).not.toHaveBeenCalled();
+    expect(loadFilteredHouseholds).not.toHaveBeenCalled();
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it("lets a role that manages people go on to the fresh-code check", async () => {
+    permissions = ["people.manage"];
+    const res = await GET(req("list=people&noemail=1"));
+    expect(res.status).toBe(200);
+    expect(rpc).toHaveBeenCalledWith("assert_step_up", { p_action: "export.people_list" });
   });
 
   it("asks for the fresh code first: 403 with the step-up header, before anything is read or recorded", async () => {

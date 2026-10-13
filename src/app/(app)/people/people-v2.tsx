@@ -168,16 +168,20 @@ export async function PeopleV2({ session, sp }: { session: CrmSession; sp: RawSe
     const saved = viewParams(filters);
     const children = view === "people" && !hasGap(filters) && filters.band === "minors";
     const exportQuery: Record<string, string> = { ...fparams, list: view, ...(sort !== "name" ? { sort } : {}) };
+    // The same rule as the export itself (people.manage): a role that may only view people is told so, not shown a button that is refused.
+    const canExport = canAccess(session, "householdsEdit");
     model.actions = {
       list: view,
       params: saved,
       sort: sort !== "name" ? sort : null,
       suggested: suggestedViewName(filters, model.ask.chips.map((c) => c.label)),
       blockedReason: Object.keys(saved).length === 0 ? "Add a filter first; then you can save this list as a view." : null,
-      exportHref: children ? null : hrefWith("/people/export", {}, exportQuery),
+      exportHref: children || !canExport ? null : hrefWith("/people/export", {}, exportQuery),
       exportNote: children
         ? "A list of children is not exported."
-        : view === "people"
+        : !canExport
+          ? "Exporting a list needs permission to manage people. Ask your organization's admin."
+          : view === "people"
           ? "Export holds adults only: a child's record is not part of a list export. It asks for a fresh 2FA code and is recorded in the audit log."
           : "Export holds each family's number, IDs, adults and area, without any child's name. It asks for a fresh 2FA code and is recorded in the audit log.",
     } satisfies ListActions;
