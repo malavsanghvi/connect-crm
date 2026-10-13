@@ -4,8 +4,10 @@
 --      no earlier Giving export used (one code, one file), the audit entry (counts and filter words, never contents), module
 --      guards (bank lines need Bank reconciliation, year-end totals need Statements), another community refused.
 --   C. Card payouts: pairing needs giving.manage, a typed reason and a sentence when the amounts differ, none when they agree;
---      the same pair again changes nothing; one bank line holds one payout; another community refused; the undo; a locked
---      month refuses both; module guards; the close state; the check constraint.
+--      the same pair again changes nothing; one bank line holds one payout (and the unique index says so to a direct write);
+--      the sign check; another community refused; the undo; a locked month refuses both; module guards; the close state; the
+--      check constraint; direct writes to the pairing columns refused for staff (the functions pass); the worker's payout sync
+--      leaves a matched payout untouched and still updates an unpaired one.
 --   D. A non-faith community exports and pairs the same way.
 -- Everything runs in one transaction that is rolled back.
 \set ON_ERROR_STOP 1
@@ -139,17 +141,20 @@ select pg_temp.assert_raises(format($$select app.giving_export_check(%L, 'donors
 select pg_temp.claims(:treas, 60);
 select app.giving_export_check(:jc, 'payments');
 select app.record_giving_export(:jc, 'payments',
-  '{"rows": 3, "chips": {"method": "check", "year": "2026"}, "searched": true, "step_up_at": "forged", "list": "forged"}');
+  '{"rows": 3, "chips": {"method": "check", "year": "2026", "search": "shah", "source": "Shah household"}, "searched": true,
+    "q": "Shah", "file": "R-2026-0413,200.00", "step_up_at": "forged", "list": "forged"}');
 reset role;
 select pg_temp.assert((select count(*) from app.audit_log where action = 'export.giving_payments' and center_id = :jc and actor_user_id = :treas) = 1
-                      and (select after->>'rows' = '3' and after->'chips'->>'method' = 'check' and (after->>'searched')::boolean
+                      and (select after->>'rows' = '3' and after->'chips' = '{"method": "check", "year": "2026"}'::jsonb and (after->>'searched')::boolean
                                   and after->>'list' = 'payments' and after->>'step_up_at' = (extract(epoch from now())::bigint - 60)::text
-                                  and record_table is null
+                                  and record_table = 'giving_export' and record_id = :treas::text
                              from app.audit_log where action = 'export.giving_payments' and center_id = :jc),
-  'B · one audit entry: the count, the chips, whether a search was used, the list and the code''s time (not the forged ones)');
-select pg_temp.assert((select bool_and(k in ('rows', 'chips', 'searched', 'list', 'step_up_at', 'year', 'view'))
-                         from app.audit_log l, jsonb_object_keys(l.after) k where l.action = 'export.giving_payments' and l.center_id = :jc),
-  'B · the audit entry holds counts and filter words only, never the contents');
+  'B · one audit entry under (giving_export, the person): the count, the known chips, whether a search was used, the list and the code''s time (not the forged ones)');
+select pg_temp.assert((select array_agg(k order by k) from app.audit_log l, jsonb_object_keys(l.after) k
+                        where l.action = 'export.giving_payments' and l.center_id = :jc) = array['chips', 'list', 'rows', 'searched', 'step_up_at']
+                      and (select position('shah' in lower(after::text)) = 0 and position('R-2026' in after::text) = 0
+                             from app.audit_log where action = 'export.giving_payments' and center_id = :jc),
+  'B · anything else the caller sends is dropped: the search''s text ("q": "Shah"), an unknown chip, a chip value that is not a fixed word, the file');
 set role authenticated;
 select pg_temp.claims(:treas, 60);
 select pg_temp.assert_step_up(format($$select app.record_giving_export(%L, 'pledges', '{"rows": 2}')$$, :jc), 'Each export needs a new code',
@@ -234,8 +239,30 @@ select pg_temp.assert((app.explain_payout(:po2, :b2)->>'difference_cents')::bigi
 reset role;
 select pg_temp.assert((select matched and variance_cents = 0 and difference_code is null and difference_note is null from app.payouts where id = :po2),
   'C · with no difference and no reason stored');
+select pg_temp.no_claims();
 select pg_temp.assert_raises(format($$update app.payouts set variance_cents = 5 where id = %L$$, :po2), 'payouts_difference_explained',
   'C · a matched payout cannot carry a difference without its reason (check constraint)');
+select pg_temp.assert_raises(format($$update app.bank_transactions set payout_id = %L where id = %L$$, :po1, :gift), 'bank_transactions_payout_once',
+  'C · the unique index refuses a second bank line for the same payout, even written directly');
+
+-- Direct writes cannot pair: the treasurer may write payouts (accounting.manage) and bank lines (giving.manage) through the API,
+-- but not the pairing columns.
+set role authenticated;
+select pg_temp.claims(:treas);
+select pg_temp.assert_raises(format($$update app.payouts set matched = false where id = %L$$, :po2), 'never by a direct change',
+  'C · a staff member cannot unpair a payout by writing it directly');
+select pg_temp.assert_raises(format($$update app.payouts set variance_cents = 0, difference_code = null where id = %L$$, :po1), 'never by a direct change',
+  'C · nor change an accepted difference');
+select pg_temp.assert_raises(format($$update app.bank_transactions set payout_id = null where id = %L$$, :b1), 'never by a direct change',
+  'C · nor take the payout off its bank line');
+select pg_temp.assert_raises(format($$insert into app.bank_transactions (center_id, bank_account_id, posted_on, amount_cents, description, channel, status, payout_id)
+                                      values (%L, %L, current_date, 100, 'STRIPE TRANSFER 156 FORGED', 'card_payout', 'payout', %L)$$, :jc, :acct, :po3),
+  'never by a direct change', 'C · nor import a bank line that already names a payout');
+update app.bank_transactions set notes = 'Checked against the Stripe dashboard' where id = :b1;
+reset role;
+select pg_temp.assert((select notes = 'Checked against the Stripe dashboard' and payout_id = :po1 from app.bank_transactions where id = :b1)
+                      and (select matched and variance_cents = -200 from app.payouts where id = :po1),
+  'C · other columns stay writable, and the pairing is unchanged');
 
 -- The close: both payouts that arrived are paired; one bank card-payout line is still unpaired.
 insert into app.bank_transactions (id, center_id, bank_account_id, posted_on, amount_cents, description, channel, status) values
@@ -279,6 +306,32 @@ select pg_temp.assert((app.unpair_payout(:po2, 'Again')->>'already')::boolean, '
 select pg_temp.assert(not (app.payouts_close_state(:jc, :'m'::date)->>'proven')::boolean
                       and (app.payouts_close_state(:jc, :'m'::date)->>'unpaired')::int = 1,
   'C · and the close is no longer proven');
+
+-- The worker's payout sync: a matched payout is left as the treasurer accepted it; an unpaired one still takes the provider's update.
+reset role;
+select pg_temp.no_claims();
+set role connect_worker;
+select app.worker_upsert_payout(:jc, 'stripe', 'po_156_one', 99999, 1, 99998, :'m'::date + 5);
+select app.worker_upsert_payout(:jc, 'stripe', 'po_156_two', 5200, 200, 5000, :'m'::date + 2);
+reset role;
+select pg_temp.assert((select net_cents = 10000 and gross_cents = 10300 and arrives_on = :'m'::date + 1 and matched and variance_cents = -200
+                         and difference_code = 'bank_fee' from app.payouts where id = :po1)
+                      and (select gross_cents = 5200 and fee_cents = 200 and net_cents = 5000 and not matched from app.payouts where id = :po2),
+  'C · the worker leaves a matched payout untouched and still updates an unpaired one');
+
+-- The sign check: a bank line that takes money out is not a payout that brought money in.
+savepoint sign;
+insert into app.payouts (id, center_id, provider, provider_ref, gross_cents, fee_cents, net_cents, arrives_on) values
+  ('15600000-0000-4000-8000-0000000000d4', :jc, 'stripe', 'po_156_four', 3100, 100, 3000, :'m'::date + 1);
+insert into app.bank_transactions (id, center_id, bank_account_id, posted_on, amount_cents, description, channel, status) values
+  ('15600000-0000-4000-8000-0000000000e6', :jc, :acct, :'m'::date + 1, -3000, 'STRIPE DEBIT 156', 'card_payout', 'payout');
+set role authenticated;
+select pg_temp.claims(:treas);
+select pg_temp.assert_raises($$select app.explain_payout('15600000-0000-4000-8000-0000000000d4', '15600000-0000-4000-8000-0000000000e6', 'other', 'Debit')$$,
+  'do not move money the same way', 'C · a payout and a bank line that move money in opposite directions are not paired');
+rollback to savepoint sign;
+set role authenticated;
+select pg_temp.claims(:treas);
 
 -- A locked month refuses both.
 savepoint locked;

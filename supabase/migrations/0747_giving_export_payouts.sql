@@ -9,9 +9,13 @@
 --   Giving exports       app.giving_export_check(center, list) and app.record_giving_export(center, list, detail). Lists: payments,
 --                        pledges, bank_lines (needs Bank reconciliation) and year_end_totals (needs Statements). Each needs
 --                        data.export AND the list's own read permission, Giving on, an authenticator app, a 2FA code from the last
---                        5 minutes AND a code that no earlier Giving export used: one code, one file. The check writes nothing; the
---                        record writes one audit entry export.giving_<list> with what the portal passes (row count, chips, year,
---                        whether a search was used) plus the code's time. Never the file, never a search's text.
+--                        5 minutes AND a code that no earlier Giving export used: one code, one file (the record takes a lock per
+--                        person first, so two exports racing on one code cannot both pass). The check writes nothing; the record
+--                        writes one audit entry export.giving_<list> built HERE from allowed keys only: rows (an integer), chips
+--                        (known keys, short lower-case values), searched (true/false), plus the list and the code's time. Anything
+--                        else the caller sends (a search's text, the file) is dropped. The entry is filed under record_table
+--                        'giving_export' and record_id = the person, so the reused-code check reads the existing audit_log_record_idx
+--                        (0100) and no new index is built on audit_log.
 --   Card payouts         payouts gains the reason for a difference (difference_code, difference_note) and who paired it and when.
 --                        A paired payout with a difference always has its reason (check constraint), and a bank line holds at most
 --                        one payout (unique index).
@@ -26,9 +30,29 @@
 --                        the month, how many are paired, explained differences, and the bank's card-payout lines still unpaired.
 --                        proven = nothing left unpaired on either side (null when Bank reconciliation is off: then the item stays a
 --                        person's check).
+--   Direct writes   Staff may write payouts (payouts_staff_write, 0010) and bank lines (bank_txn_update, 0012) through the API. Two
+--                   BEFORE INSERT OR UPDATE triggers refuse a signed-in person's change to the pairing columns (payouts.matched,
+--                   variance_cents, difference_code, difference_note, matched_by, matched_at; bank_transactions.payout_id) unless
+--                   explain_payout or unpair_payout set the transaction-local flag app.payout_pairing. The service role and the
+--                   worker (no signed-in person) pass; worker_upsert_payout never touches these columns anyway.
+--   Pre-check       The migration stops, with counts, if existing rows would break the new unique index or constraint.
 --   The worker's payout sync (worker_upsert_payout, 0212) already leaves a matched payout untouched: it is not redefined.
 --   Nothing here is redefined; every function is new. Row changes are audited by the existing audit_<table> triggers with the
 --   reason set by app.set_audit_context.
+
+-- ── Pre-check: fail loudly, before anything changes, if existing rows would break what follows ────────────────────────
+do $$
+declare v_dup int; v_unexplained int;
+begin
+  select count(*) into v_dup
+    from (select payout_id from app.bank_transactions where payout_id is not null group by payout_id having count(*) > 1) d;
+  -- The reason columns are new, so every matched payout with a difference has no reason yet.
+  select count(*) into v_unexplained from app.payouts where matched and variance_cents <> 0;
+  if v_dup > 0 or v_unexplained > 0 then
+    raise exception '0747 cannot be applied: % payout(s) are named by more than one bank line, and % matched payout(s) carry a difference with no reason. Fix those rows, then apply it again.',
+      v_dup, v_unexplained;
+  end if;
+end $$;
 
 -- ── The data-export permission, for treasurers ─────────────────────────────────────────────────────────────────────────
 update app.roles
@@ -42,9 +66,6 @@ language sql stable set search_path = app, public, extensions as $$
     from jsonb_array_elements(case when jsonb_typeof(auth.jwt()->'amr') = 'array' then auth.jwt()->'amr' else '[]'::jsonb end) a
    where jsonb_typeof(a) = 'object' and a->>'method' = 'totp' and coalesce(a->>'timestamp', '') ~ '^[0-9]+(\.[0-9]+)?$'
 $$;
-
--- A person's recent exports, found fast (the reused-code check reads the last few minutes only).
-create index if not exists audit_log_export_actor_idx on app.audit_log (actor_user_id, occurred_at desc) where action like 'export.%';
 
 -- ── app.giving_export_check (new) ─────────────────────────────────────────────────────────────────────────────────────
 create or replace function app.giving_export_check(p_center uuid, p_list text) returns void
@@ -78,8 +99,9 @@ begin
       hint = 'Enter the 6-digit code from your authenticator app, then try again.';
   end if;
   v_stamp := app.step_up_stamp();
+  -- A person's Giving exports are filed under ('giving_export', the person): audit_log_record_idx (0100) finds them.
   if exists (select 1 from app.audit_log l
-              where l.actor_user_id = v_user and l.action like 'export.%' and l.action like 'export.giving\_%'
+              where l.record_table = 'giving_export' and l.record_id = v_user::text
                 and l.occurred_at > now() - interval '15 minutes'
                 and l.after->>'step_up_at' = v_stamp::text) then
     raise exception using errcode = 'CCSTP', message = 'This needs a fresh 2FA check.', detail = 'export.giving_' || v_list,
@@ -93,18 +115,24 @@ comment on function app.giving_export_check(uuid, text) is
 -- ── app.record_giving_export (new) ────────────────────────────────────────────────────────────────────────────────────
 create or replace function app.record_giving_export(p_center uuid, p_list text, p_detail jsonb default '{}'::jsonb) returns void
 language plpgsql security definer set search_path = app, public, extensions as $$
-declare v_list text := lower(btrim(coalesce(p_list, ''))); v_detail jsonb;
+declare v_list text := lower(btrim(coalesce(p_list, ''))); v_in jsonb; v_rows int; v_chips jsonb; v_searched boolean;
 begin
+  -- One person's exports one at a time: two requests racing on the same code cannot both pass the reused-code check.
+  perform pg_advisory_xact_lock(hashtextextended('giving_export:' || coalesce(auth.uid()::text, ''), 0));
   perform app.giving_export_check(p_center, v_list);
-  v_detail := case when jsonb_typeof(p_detail) = 'object' then p_detail else '{}'::jsonb end;
-  -- Counts and filter words only (the portal never passes data); the code's time makes the next export ask for a new one.
-  v_detail := v_detail - 'step_up_at' - 'list'
-              || jsonb_build_object('list', v_list, 'step_up_at', app.step_up_stamp()::text);
-  perform app.log_audit(p_center, 'export.giving_' || v_list, null, null, null, v_detail, null);
+  -- The entry is built from allowed keys only; anything else (a search's text, the file) is dropped.
+  v_in := case when jsonb_typeof(p_detail) = 'object' then p_detail else '{}'::jsonb end;
+  v_rows := case when jsonb_typeof(v_in->'rows') = 'number' and (v_in->>'rows') ~ '^[0-9]{1,9}$' then (v_in->>'rows')::int end;
+  select coalesce(jsonb_object_agg(c.key, c.value), '{}'::jsonb) into v_chips
+    from jsonb_each_text(case when jsonb_typeof(v_in->'chips') = 'object' then v_in->'chips' else '{}'::jsonb end) c
+   where c.key in ('view', 'method', 'source', 'year', 'status', 'age') and c.value ~ '^[a-z0-9_]{1,24}$';
+  v_searched := jsonb_typeof(v_in->'searched') = 'boolean' and (v_in->'searched')::boolean;
+  perform app.log_audit(p_center, 'export.giving_' || v_list, 'giving_export', auth.uid()::text, null,
+    jsonb_build_object('list', v_list, 'rows', v_rows, 'chips', v_chips, 'searched', v_searched, 'step_up_at', app.step_up_stamp()::text), null);
 end $$;
 
 comment on function app.record_giving_export(uuid, text, jsonb) is
-  'Records one Giving export (audit export.giving_<list>: rows, chips, year, searched; never the contents) after app.giving_export_check (0747).';
+  'Records one Giving export after app.giving_export_check: audit export.giving_<list> under (giving_export, the person) with rows, known chips, searched and the code''s time only; never the contents or a search''s text (0747).';
 
 -- ── Card payouts: the reason for a difference ─────────────────────────────────────────────────────────────────────────
 alter table app.payouts
@@ -125,6 +153,42 @@ comment on column app.payouts.difference_code is
 comment on column app.payouts.difference_note is 'The treasurer''s sentence about the difference (0747).';
 
 create unique index if not exists bank_transactions_payout_once on app.bank_transactions (payout_id) where payout_id is not null;
+
+-- Direct writes cannot pair: a signed-in person changes the pairing columns only through explain_payout or unpair_payout, which set
+-- the transaction-local flag app.payout_pairing around their own updates. The service role and the worker (no signed-in person)
+-- pass; worker_upsert_payout never writes these columns.
+create or replace function app.payout_pairing_guard() returns trigger
+language plpgsql set search_path = app, public, extensions as $$
+declare v_changed boolean;
+begin
+  if coalesce(auth.jwt()->>'role', '') <> 'authenticated' or coalesce(current_setting('app.payout_pairing', true), '') = 'on' then
+    return new;
+  end if;
+  if tg_table_name = 'payouts' and tg_op = 'INSERT' then
+    v_changed := new.matched or new.variance_cents <> 0 or new.difference_code is not null or new.difference_note is not null
+                 or new.matched_by is not null or new.matched_at is not null;
+  elsif tg_table_name = 'payouts' then
+    v_changed := (new.matched, new.variance_cents, new.difference_code, new.difference_note, new.matched_by, new.matched_at)
+                 is distinct from (old.matched, old.variance_cents, old.difference_code, old.difference_note, old.matched_by, old.matched_at);
+  elsif tg_op = 'INSERT' then
+    v_changed := new.payout_id is not null;
+  else
+    v_changed := new.payout_id is distinct from old.payout_id;
+  end if;
+  if v_changed then
+    raise exception 'A card payout is paired with its bank line through Explain and accept (or undone through Undo pairing), never by a direct change.'
+      using errcode = '42501';
+  end if;
+  return new;
+end $$;
+revoke execute on function app.payout_pairing_guard() from public, anon, authenticated;
+
+drop trigger if exists payouts_pairing_guard on app.payouts;
+create trigger payouts_pairing_guard before insert or update on app.payouts
+  for each row execute function app.payout_pairing_guard();
+drop trigger if exists bank_transactions_pairing_guard on app.bank_transactions;
+create trigger bank_transactions_pairing_guard before insert or update on app.bank_transactions
+  for each row execute function app.payout_pairing_guard();
 
 -- The month a payout or bank line belongs to is locked (accounting_periods.status closed).
 create or replace function app._payout_month_locked(p_center uuid, p_days date[]) returns date
@@ -186,12 +250,14 @@ begin
     v_code := null;
     perform app.set_audit_context(coalesce(app.audit_clean_reason(p_note), 'Card payout paired with its bank line; the amounts agree'));
   end if;
+  perform set_config('app.payout_pairing', 'on', true);
   update app.payouts
      set matched = true, variance_cents = v_diff, difference_code = v_code,
          difference_note = case when v_diff <> 0 then app.audit_clean_reason(p_note) end,
          matched_by = auth.uid(), matched_at = now()
    where id = po.id;
   update app.bank_transactions set payout_id = po.id, matched_by = auth.uid(), matched_at = now() where id = b.id;
+  perform set_config('app.payout_pairing', '', true);
   return jsonb_build_object('already', false, 'payout_id', po.id, 'bank_transaction_id', b.id, 'difference_cents', v_diff);
 end $$;
 
@@ -221,10 +287,12 @@ begin
   if v_locked is not null then
     raise exception '% is locked, so its card payouts cannot be unpaired.', to_char(v_locked, 'FMMonth YYYY') using errcode = '22023';
   end if;
+  perform set_config('app.payout_pairing', 'on', true);
   update app.bank_transactions set payout_id = null, matched_by = null, matched_at = null where payout_id = po.id;
   update app.payouts
      set matched = false, variance_cents = 0, difference_code = null, difference_note = null, matched_by = null, matched_at = null
    where id = po.id;
+  perform set_config('app.payout_pairing', '', true);
   return jsonb_build_object('already', false, 'payout_id', po.id);
 end $$;
 
