@@ -4,9 +4,10 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { createContext, useContext, type ReactNode } from "react";
 
+import { GivingTabRow, useGivingTabs } from "@/components/giving-today/giving-tabs";
 import { useKind } from "@/components/kind-context";
 import { useLook } from "@/components/shell/look-context";
-import { activeModule, activeTabHref, type VisibleModule } from "@/lib/permissions";
+import { activeModule, activeTabHref, pathUnder, type VisibleModule } from "@/lib/permissions";
 import { modulesInWorkspace, workspaceLabel as labelOfWorkspace, workspaceOfModule } from "@/lib/workspaces";
 
 const ModulesContext = createContext<VisibleModule[] | null>(null);
@@ -31,6 +32,11 @@ export function ModuleTabs() {
   const pathname = usePathname();
   const look = useLook();
   const kind = useKind();
+  const givingTabs = useGivingTabs();
+  // Giving in the New look has ONE tab row (Today, Pledges, Payments, Bank …), handed down by the /giving layout.
+  if (look === "v2" && givingTabs && givingTabs.length >= 2 && pathUnder(pathname, "/giving")) {
+    return <GivingTabRow tabs={givingTabs} className="mt-4" />;
+  }
   if (!modules) return null;
   const mod = activeModule(modules, pathname);
   if (!mod) return null;

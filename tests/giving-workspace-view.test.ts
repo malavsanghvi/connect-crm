@@ -106,6 +106,6 @@ describe("the side lists", () => {
     const none = bankRow({ ...{ as_of: TODAY, gifts: 0, gifts_cents: 0, gifts_total: "$0.00", deposits: 0, deposits_cents: 0, deposits_total: "$0.00", debits: 0, payouts: 0, oldest_posted_on: null, oldest_days: null, lines: [], where_to_match: "/giving/payments/bank" } });
     expect(none).toMatchObject({ text: "Every bank line is matched or set aside", detail: null, count: 0 });
     expect(zelleRow({ as_of: TODAY, waiting: 2, reported: 2, unmatched: 0, past_window: 1, total_cents: 100, total: "$1.00", exact_matches: 0, reports: [], where_to_match: "" }, "Zelle").text).toBe("2 Zelle reports waiting for the bank");
-    expect(approvalsRow({ total: 2, refunds: 1, write_offs: 1, provider_refunds: 0, items: [], note: null })).toMatchObject({ text: "2 requests waiting for a second approver", detail: "1 refund · 1 write-off", href: "/approvals" });
+    expect(approvalsRow({ total: 2, refunds: 1, write_offs: 1, provider_refunds: 0, items: [], note: null })).toMatchObject({ text: "2 requests waiting for a second approver", detail: "1 refund · 1 write-off", href: "/giving?show=approvals" });
   });
 });
