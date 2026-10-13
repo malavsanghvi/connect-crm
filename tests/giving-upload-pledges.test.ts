@@ -239,6 +239,7 @@ describe("the review", () => {
     expect(r.rows[0].problems[0]).toMatch(/^No household/);
     expect(r.rows[1].problems[0]).toBe("Amount “ten” is not an amount.");
     expect(r.rows[2].problems[0]).toMatch(/No fund, campaign or opportunity open for pledges is called “Roof appeal”/);
+    expect(r.rows[2].forLabel).toBe("“Roof appeal” (not found)");
     expect(r.rows[3].problems[0]).toMatch(/in the future/);
     expect(r.rows[4].problems[0]).toMatch(/before the day it was pledged/);
     expect(r.rows[5].problems[0]).toMatch(/No household has the ID “0000”/);

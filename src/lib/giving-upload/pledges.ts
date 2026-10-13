@@ -399,7 +399,7 @@ export function reviewPledges(read: ReadPledges, lookups: PledgeLookups, choices
       candidates,
       amountCents: l.amountCents,
       target: t,
-      forLabel: t ? t.name : "General (no fund)",
+      forLabel: t ? t.name : l.forText ? `“${l.forText}” (not found)` : "General (no fund)",
       pledgedOn,
       dueOn,
       dueIsDefault,

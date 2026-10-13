@@ -14,7 +14,7 @@ import { Alert, buttonClass } from "@/components/ui";
 import type { RecordedPledgeUpload, RecordPledgeUploadInput, FileForReview, PreparedPledges } from "@/app/(app)/giving/pledges/upload/actions";
 import { formatDate, formatDateTime } from "@/lib/dates";
 import type { ActionResult } from "@/lib/errors";
-import { familyRef } from "@/lib/giving-today/queue";
+import { familyLine, familyRef } from "@/lib/giving-today/queue";
 import {
   NO_CHOICES,
   PLEDGE_UPLOAD_NO_UNDO,
@@ -257,7 +257,7 @@ export function PledgeUpload({
             value={reason}
             onChange={setReason}
             label="Why these pledges are recorded"
-            hint="Each family's History shows it, with the row's note."
+            hint={`Each ${setting.household}'s History shows it, with the row's note.`}
             quick={UPLOAD_REASONS}
           />
           <p className="m-0 text-[13px] text-muted">{PLEDGE_UPLOAD_NO_UNDO}</p>
@@ -328,7 +328,14 @@ function PledgeRowCard({
               <legend className="mb-1 text-[13px] font-bold text-ink">Which {setting.household}?</legend>
               {row.candidates.map((c) => (
                 <label key={c.id} className="flex cursor-pointer items-start gap-2">
-                  <input type="radio" name={`pick-${row.line}`} checked={row.family?.id === c.id} onChange={() => onPick(c.id)} className="mt-3 h-5 w-5" />
+                  <input
+                    type="radio"
+                    name={`pick-${row.line}`}
+                    checked={row.family?.id === c.id}
+                    onChange={() => onPick(c.id)}
+                    aria-label={`${familyRef(c)}: ${familyLine(c, setting.labels)}`}
+                    className="mt-3 h-5 w-5"
+                  />
                   <span className="min-w-0 flex-1">
                     <FamilyCard family={c} labels={setting.labels} />
                   </span>
