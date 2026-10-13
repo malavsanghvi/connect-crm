@@ -10,6 +10,17 @@ import { buildFirstDraftAction } from "./draft-actions";
 
 type Note = { tone: "ok" | "bad"; text: string };
 
+/** The draft panel when WeaverSite (module `website`, 0751) is not on for the community: what it is, and that nothing is lost. */
+export function DraftPanelOff({ text }: { text: string }) {
+  return (
+    <Card title="Your first website draft" description="Weaver drafts your new website from what it found and from your records in Weaver.">
+      <p role="status" className="text-[13px] text-muted" data-draft-panel="off">
+        {text}
+      </p>
+    </Card>
+  );
+}
+
 /**
  * Setup › Your website › "Your first website draft". After Weaver has finished looking at the website, "Build my first draft"
  * turns what it found and Weaver's own records into a draft of the new website. The draft is opened in a private preview and

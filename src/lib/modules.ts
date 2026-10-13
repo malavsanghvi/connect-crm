@@ -45,6 +45,12 @@ export const MODULE_KEYS = [
   "reports",
   "niva",
   "governance",
+  // The Marketplace products (connect-crm 0750): neutral keys, brand labels. Installed member apps ignore keys they do not know.
+  "ai",
+  "website",
+  "channels",
+  "care",
+  "matching",
 ] as const;
 export type ModuleKey = (typeof MODULE_KEYS)[number];
 
@@ -73,8 +79,13 @@ export const MODULES: readonly ModuleDef[] = [
   { key: "volunteers", label: "Volunteers", core: false, dependsOn: ["people"], description: "Volunteer groups, shifts, assignments, interests and background checks." },
   { key: "accounting", label: "Accounting & QuickBooks", core: false, dependsOn: ["giving"], description: "Accounts, QuickBooks mappings, ledger postings, payouts, month-end close and the sync log." },
   { key: "reports", label: "Reports & dashboard", core: false, dependsOn: [], description: "Center health and the public community dashboard." },
-  { key: "niva", label: "Niva assistant", core: false, dependsOn: ["content"], description: "Niva conversations." },
+  { key: "niva", label: "Niva assistant", core: false, dependsOn: ["content", "ai"], description: "Niva conversations. Needs iWeaver (0750)." },
   { key: "governance", label: "Governance", core: false, dependsOn: ["people"], description: "Resolutions, votes, concerns and comments." },
+  { key: "ai", label: "iWeaver", core: false, dependsOn: [], description: "Every AI feature except AI used in onboarding: Niva for members and staff, and AI flyer art." },
+  { key: "website", label: "WeaverSite", core: false, dependsOn: ["people"], description: "The organization's website draft, its pages and the private preview." },
+  { key: "channels", label: "CommunityConnect", core: false, dependsOn: ["comms"], description: "WhatsApp Business messages: the account, its templates and sending." },
+  { key: "care", label: "WeCare", core: false, dependsOn: ["people"], description: "Donor care and member care. Not built yet." },
+  { key: "matching", label: "CatchTheMatch", core: false, dependsOn: ["giving"], description: "Employer and grant matching. Not built yet." },
 ];
 
 const BY_KEY = new Map(MODULES.map((m) => [m.key, m]));
@@ -128,6 +139,9 @@ const EXTRA_PATHS: readonly [string, ModuleKey][] = [
   ["/giving/opportunities/campaigns", "giving"],
   ["/giving/campaigns", "giving"],
   ["/giving/insights", "giving_insights"],
+  // WeaverSite (0751): the private preview of the website draft. Setup › Your website itself stays core (reading the current
+  // website teaches the organization's agent at onboarding); its draft panel checks the module on its own.
+  ["/setup/website/preview", "website"],
   // The Pathshala committee holds governance (resolutions, concerns) and event planning.
   ["/pathshala/committee/resolutions", "governance"],
   ["/pathshala/committee/concerns", "governance"],

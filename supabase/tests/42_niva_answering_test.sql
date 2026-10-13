@@ -34,6 +34,10 @@ insert into auth.users (id, email) values (:admin, 'admin44@example.com'), (:mem
 insert into app.centers (id, slug, name, short_name, state_region, status) values
   (:c, 'orbit44', 'Orbit Test Community', 'OTC', 'TX', 'active'),
   (:c2, 'orbit44b', 'Other Test Community', 'OTC2', 'TX', 'active');
+-- 0750: Niva needs iWeaver (module `ai`), which every kind starts off; these test communities hold it, as every community
+-- that used Niva before the Marketplace packs does (a sandbox starts with the iWeaver trial).
+insert into app.center_module_grants (center_id, module_key, granted, reason) values (:c, 'ai', true, 'Test 42: Niva needs iWeaver (0750)'), (:c2, 'ai', true, 'Test 42: Niva needs iWeaver (0750)')
+on conflict (center_id, module_key) do nothing;
 insert into app.role_grants (center_id, user_id, role_key) values (:c, :admin, 'center_admin');
 insert into app.households (id, center_id, display_name) values ('44000000-0000-4000-8000-0000000000a1', :c, 'Shah household');
 insert into app.people (id, center_id, first_name, last_name) values ('44000000-0000-4000-8000-0000000000a2', :c, 'Asha', 'Shah');

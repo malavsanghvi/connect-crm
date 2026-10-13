@@ -124,6 +124,10 @@ insert into app.centers (id, slug, name, short_name, state_region, status, rules
   (:c,  'orbit71',  'Orbit 71 Community', 'O71',  'TX', 'active', '{"security":{"require_2fa_for_staff":false}}'),
   (:c2, 'orbit71b', 'Other 71 Community', 'O71B', 'TX', 'active', '{}'),
   (:c3, 'orbit71c', 'Third 71 Community', 'O71C', 'TX', 'active', '{"security":{"require_2fa_for_staff":false}}');
+-- 0750: Niva needs iWeaver (module `ai`), which every kind starts off; these test communities hold it, as every community
+-- that used Niva before the Marketplace packs does (a sandbox starts with the iWeaver trial).
+insert into app.center_module_grants (center_id, module_key, granted, reason) values (:c, 'ai', true, 'Test 71: Niva needs iWeaver (0750)'), (:c2, 'ai', true, 'Test 71: Niva needs iWeaver (0750)'), (:c3, 'ai', true, 'Test 71: Niva needs iWeaver (0750)')
+on conflict (center_id, module_key) do nothing;
 insert into app.membership_types (center_id, key, tier, name) values
   (:c, 'community', 'community', 'Community membership'), (:c, 'yearly', 'yearly', 'Yearly membership'),
   (:c, 'life', 'life', 'Life membership'), (:c, 'senior_yearly', 'yearly', 'Senior yearly membership');
@@ -412,6 +416,10 @@ insert into app.centers (id, slug, name, short_name, state_region, status) value
   (:c5, 'orbit71e', 'Suspended 71 Community',  'O71E', 'TX', 'suspended'),
   (:c6, 'orbit71f', 'Exited 71 Community',     'O71F', 'TX', 'exited'),
   (:c7, 'orbit71g', 'Onboarding 71 Community', 'O71G', 'TX', 'onboarding');
+-- 0750: Niva needs iWeaver (module `ai`), which every kind starts off; these test communities hold it, as every community
+-- that used Niva before the Marketplace packs does (a sandbox starts with the iWeaver trial).
+insert into app.center_module_grants (center_id, module_key, granted, reason) values (:c5, 'ai', true, 'Test 71: Niva needs iWeaver (0750)'), (:c6, 'ai', true, 'Test 71: Niva needs iWeaver (0750)'), (:c7, 'ai', true, 'Test 71: Niva needs iWeaver (0750)')
+on conflict (center_id, module_key) do nothing;
 insert into app.people (id, center_id, first_name, last_name, date_of_birth) values (:u_sm, :c5, 'Sue', 'Acc71', date '1995-01-01');
 insert into app.center_users (center_id, user_id, person_id) values (:c5, :u_sm, :u_sm);
 insert into app.content_items (id, center_id, kind, slug, title, media_url, status, published_at) values
