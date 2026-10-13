@@ -62,9 +62,9 @@ product they use today, and a test compares their module states before and after
 | **Accounting and QuickBooks** | `accounting` (needs Giving) | available |
 | **Event Weaver** (events, RSVP, tickets, check-in, lunch, flyers) | `events` | available |
 | **Digital Store** (B71 grows it into custom and ready-made products) | `store` | available, expanding |
-| **MatchMyGenerosity** (employer matching, B63) | new module (needs Giving) | coming soon |
+| **CatchTheMatch** (employer and grant matching, Weaver files, paid only on success; B103, [`CATCH_THE_MATCH.md`](CATCH_THE_MATCH.md)) | new module `catch_the_match` (needs Giving) | coming soon, subscription |
 | **Gala and Auctions** (B74) | new module (needs Event Weaver and Giving) | coming soon |
-| **Donor Playbooks** (B73) | new module (needs Giving and Communications) | coming soon |
+| **WeCare** (Donor care / Member care; absorbs B73 and B98; B102, [`WECARE.md`](WECARE.md)) | new module `wecare` (needs People; uses Giving when on) | coming soon, subscription |
 | **Special Days and Occasions** (B72) | partly `calendar`; new | coming soon |
 | **Newsletters and Messaging** (B60) | `comms` | available, expanding |
 | **Website and Social** (B75, B54, B55, B57, B61) | new module | coming soon |

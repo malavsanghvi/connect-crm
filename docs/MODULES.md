@@ -293,7 +293,7 @@ The kind names it (category_modules.label): Bhandar counts (Jain Center), Collec
 
 ### Insights — `giving_insights` (add-on of Giving)
 
-- **Tables:** none yet (B98's later tables join it)
+- **Tables:** none yet (B98's people-and-relationship slices moved to WeCare, [`WECARE.md`](WECARE.md), 2026-10-13)
 - **Portal:** the Insights tab and the household panel under Giving at a glance (when they are built)
 
 ## Bolis (depends on Giving)
