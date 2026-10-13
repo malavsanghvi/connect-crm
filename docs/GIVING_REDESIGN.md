@@ -1,8 +1,8 @@
 # Giving area redesign (plan)
 
-Status: plan and clickable prototype, 2026-10-12, nothing built. Owner request (2026-10-12): "Start a similar exercise as People to prototype/plan the Giving area consolidation." His reasons after the People exercise: the admin clicks far too many buttons for ordinary jobs, screens repeat tab sets, things that belong together are spread over pages; he wants ONE find box, in-place actions, a work queue instead of hunting, fewer screens and fewer clicks, for every kind of organization (donations, dues, fundraising, any currency). Built for every organization Weaver onboards: wording comes from the kind terms (`src/lib/kind.ts`, `src/lib/wording.ts`), nothing here names one community. The invented community in the prototype is a neutral "Riverside Community" (the same one as the People prototype, so the two areas fit). Money is integer cents in the community's currency; in a community that uses another currency or number format the same screens show, for example, "1,25,000.00 rupees" or "1.250,00 euros" from its settings.
+Status: plan and clickable prototype, 2026-10-12; **owner approved building it the same day** (section 10), with one new rule: every part of Giving is a module a platform admin enables per community (section 11). Nothing built yet. Backlog B101. Owner request (2026-10-12): "Start a similar exercise as People to prototype/plan the Giving area consolidation." His reasons after the People exercise: the admin clicks far too many buttons for ordinary jobs, screens repeat tab sets, things that belong together are spread over pages; he wants ONE find box, in-place actions, a work queue instead of hunting, fewer screens and fewer clicks, for every kind of organization (donations, dues, fundraising, any currency). Built for every organization Weaver onboards: wording comes from the kind terms (`src/lib/kind.ts`, `src/lib/wording.ts`), nothing here names one community. The invented community in the prototype is a neutral "Riverside Community" (the same one as the People prototype, so the two areas fit). Money is integer cents in the community's currency; in a community that uses another currency or number format the same screens show, for example, "1,25,000.00 rupees" or "1.250,00 euros" from its settings.
 
-**Prototype** (clickable, desktop and phone): `giving-redesign-prototype.html`, published as an artifact by the coordinator. Screenshots: `giving-redesign-*.png`. Related plans: `PEOPLE_REDESIGN.md` (the Family page this plan plugs into), `UNIFIED_BOX.md` (B94, the one box), `GIVING_INSIGHTS.md` (B98, Insights and Who to approach), B93 (Bhandar counting in its own tab).
+**Prototype** (clickable, desktop and phone): `giving-redesign-prototype.html` (kept with the coordinator's handoff files, not in the repo; prototypes are reference only). Screenshots: `giving-redesign-*.png`. Related plans: `PEOPLE_REDESIGN.md` (the Family page this plan plugs into), `UNIFIED_BOX.md` (B94, the one box), `GIVING_INSIGHTS.md` (B98, Insights and Who to approach), B93 (Bhandar counting in its own tab).
 
 ## Owner decisions this plan follows (People exercise, 2026-10-12)
 
@@ -166,13 +166,80 @@ The bottom bar keeps Today, People, Giving, Events and **Ask** (the box as a she
 
 **Recommend slice 1.** It covers the treasurer's weekly routine in one place (Zelle 5 to 2, deposits 5 to 3, approvals), needs no migration and no new rule, uses actions that already exist, and replaces a link that goes nowhere. It does not wait for B94. Slice 2 is next: it is where the two-click find and the three-click record arrive.
 
-## 10. Open questions for the owner
+## 10. Owner decisions (2026-10-12)
 
-1. **Recurring, Bolis and Labh.** Fold Recurring into Payments (read-only, needs the provider), and Bolis and Labh into Campaigns & opportunities? *Recommend*: yes; each appears only when the module, kind or data exists.
-2. **Where does Accounting live?** *Recommend*: a **Books** tab in Giving (close first, then QuickBooks and donor matching); setup stays reachable from Books and Settings; the module pill row goes.
-3. **Who may record a pledge for a family**, and does a large one need a second person? *Recommend*: anyone with `giving.manage`; no second approver (it moves no money); shown in History with a reason; source "manual".
-4. **A payment recorded in error**: allow the same person to void it within ten minutes if no deposit or statement uses it? *Recommend*: **no new rule**; keep refund with a second approver, and keep the repeat check.
-5. **Export for the treasurer.** *Recommend*: share People's decision: a data-export permission for the treasurer, a fresh 2FA code each time, a watermarked audited file; lists: payments, pledges, bank lines, year-end totals.
-6. **Offering counts.** *Recommend*: its own tab, on by default only for kinds that have an offering box; counters stay two adults from different households; match the count to the bank deposit by picking the line, not typing a slip number.
-7. **Queue scope.** Show every waiting item to anyone with giving view, or only what they can act on? *Recommend*: only what they can act on, the rest as counts.
-8. **Statements.** Build the review and receipt-copy screens now and keep Send off until the statements service exists? *Recommend*: yes; the send button says "Coming next", never a fake success.
+The owner accepted every recommendation below on 2026-10-12. Slices 7, 8 and 9 still come back to the owner before they merge (money rules, messages to donors, a new permission).
+
+1. **Recurring, Bolis and Labh** fold into views: Recurring under Payments, Bolis and Labh under Campaigns & opportunities, each shown only when its module is on (section 11).
+2. **Accounting** becomes a **Books** tab in Giving (close first, then QuickBooks and donor matching); setup stays reachable from Books and Settings; the module pill row goes in the New look.
+3. **Record a pledge**: anyone with `giving.manage`; no second approver (it moves no money); shown in History with a reason; source "manual".
+4. **A payment recorded in error**: no new rule; a refund approved by a second person, and the repeat check, stay.
+5. **Export**: People's decision: a data-export permission for the treasurer, a fresh 2FA code each time, a watermarked audited file; lists: payments, pledges, bank lines, year-end totals.
+6. **Offering counts**: their own tab (the kind's word) and a module of their own (section 11); counters stay two adults from different households; the count is matched to the bank deposit by picking the line when Bank is on.
+7. **Queue scope**: only what the person can act on; the rest as counts.
+8. **Statements**: build the review and receipt-copy screens; Send says "Coming next" until the statements service exists, never a fake success.
+
+## 11. Giving as modules (owner rule, 2026-10-12)
+
+Owner: "each module must be independent to be enabled by the platform admin at a community level." Owner choices the same day: **platform grants, the community's admin may pause**; the grant rule covers **every non-core module** (not only Giving); Giving becomes **a core plus seven add-ons**. Giving's rework is on the admin side; the member app changes only where its screens belong to an add-on (11.3).
+
+### 11.1 The modules
+
+The core keeps the key `giving`: installed member apps know only `giving` and `bolis`, ignore keys they do not know, and treat a known key the server stops sending as on, so renaming it would switch everything on in old apps. Each add-on depends on `giving` only; **no add-on needs another**. Where two add-ons are both on, a joint view may appear (Card payouts in Bank when Accounting is on; matching a count to a bank line when Bank is on, otherwise "mark deposited" with the slip number).
+
+| Key (label; the kind's own word where it has one) | Owns | Portal (New look) | Member app | Guard added to | When off |
+|---|---|---|---|---|---|
+| `giving` core ("Giving"; chamber: "Dues & payments") | funds, campaigns, pledges, payments, payment_allocations, payment_refunds, rsvp_credit_releases, receipt_templates, the payment plugin tables | Today, Pledges, Payments, the Campaigns list; Family page giving; Giving at a glance | Give tab summary and pledges; online pay (per payment method, as today) | unchanged (75 functions) | as today (MODULES.md) |
+| `giving_bank` ("Bank reconciliation") | bank_accounts, bank_statement_imports, bank_transactions, known_originators, payment_reports (Zelle reports) | Bank tab; Today's Zelle, gift-line and deposit rows | Report a Zelle payment | confirm_bank_match, match_deposit, suggest_bank_matches, suggest_deposit_payments, attach_bank_line_to_payment, zelle_exact_matches, confirm_exact_zelle_matches, payment_report_queue, payment_report_counts, link/reject_payment_report, report_payment, withdraw_payment_report, my_payment_reports, set_zelle_reporting, giving_unmatched_bank_lines, giving_zelle_waiting; worker payments.reports_sweep skips | Zelle reporting closes in the app; `possible_duplicate_zelle` answers "none" instead of refusing, so recording a payment still works; payments stay captured with no deposit link |
+| `giving_counts` ("Offering counts"; Bhandar, collection, plate) | counting_sessions, valuables_register | Offering counts tab; Today's count row | none | the new count functions of slice 5 | counts hidden and frozen |
+| `giving_opportunities` ("Opportunities") | opportunities | Opportunities view of Campaigns & opportunities | Give tab opportunities; opportunity/[id] | opportunity_availability; trigger `pledges_opportunity_available` refuses a new pledge on an opportunity | members cannot pledge to an opportunity; existing pledges keep their numbers and amounts |
+| `giving_recurring` ("Recurring gifts") | recurring_gifts | Recurring view of Payments | recurring, recurring-setup, the "repeat" choices | create_recurring_gift, run_recurring_gift_cycle, the repeat path of commit_labh, trigger `opportunities_recurring_template` | no new recurring gifts; the list is hidden |
+| `labh` ("Special-day offerings"; the kind's word) | labh_options, labh_fulfillments | Labh view of Campaigns & opportunities | labh/[dayId], "Plan labh" on special days and Home | commit_labh, `_special_day_labh_sweep` (notices.sweep skips) | hidden; `not_available` for kinds without it, as Bolis; the seams exist: `kindFeature: "labh"`, `kindHas("labh")`, the `labh` flag of `member_experience` |
+| `giving_statements` ("Statements") | statements, the `statements` storage bucket | Statements tab | tax statements in Pledges; the Settings receipts row | year_end_statement (closes today's missing guard), statement_counted_status | statements hidden; receipt numbers, receipt templates and their go-live approval stay core |
+| `giving_insights` ("Insights") | none yet (B98's later tables join it) | Insights tab; the household panel under Giving at a glance | none | B98's functions | hidden; Who to approach keeps its own stricter switch inside |
+| `bolis`, `accounting` (Books) | unchanged | Bolis view; Books tab | unchanged | unchanged | unchanged |
+
+Consumers outside Giving that create pledges or payments (RSVP commitments, membership fees, Pathshala fees, store orders, QuickBooks bring-in) write the core only, so no add-on can break them. Webhooks and workers that run as `service_role` keep posting as today.
+
+### 11.2 Platform grants (every non-core module)
+
+- **New layer** `app.center_module_grants` (community, module, granted, reason, by, at), written only by `app.set_module_grant(center, key, granted, reason)`: platform admins, a reason, a fresh 2FA code, audited.
+- **Effective state**: a module is on when it is **granted**, the community has **not paused** it, and **every module it depends on is on**. Without a grant row the kind's availability decides (`default_on` counts as granted). `default_off` now means "waits for a grant" (today a community admin can switch it on); only inactive kinds use it, so nothing live changes.
+- **The community's admin** (`settings.manage`) can pause a granted module and switch it back on; switching on an ungranted one is refused: "Weaver has not enabled {Module} for this community." Platform admins grant and revoke on Platform › Communities › [community] › Modules (add-ons nested under their core, with the last change and its reason). Settings › Modules shows granted modules as On or Paused and the rest greyed "Not enabled by Weaver" (never an empty list).
+- **Dependencies are evaluated, not enforced at the switch**: an add-on is off while Giving is off, so Giving can be paused in one step (today it is refused while Bolis or Accounting is on); turning Giving back on restores every add-on as it was.
+- **Grandfathered**: the migration grants every module that is on today in every existing community, and each new Giving add-on wherever Giving is on, so JSH and every sandbox see no change. A new community gets its kind's `default_on` set granted when it is created (already a platform admin act); everything else waits for a grant. This replaces the Marketplace draft's M1 (a community admin enables a product).
+- **Niva for admins** (`rules.assistant.enabled`) has no database guard today: a `settings.manage` holder can change it through the rules editor. Under this rule it follows the `niva` module grant; fixed in M1.
+
+### 11.3 Member app (connect-mobile)
+
+**1.18.0** (JavaScript only, OTA on runtime 3): `MODULE_KEYS` and `MODULE_DEPENDS_ON` gain the seven keys; `GIVE_SECTION_MODULE` maps opportunities, recurring and labh to their keys; `ROUTE_MODULE` maps opportunity/[id], recurring, recurring-setup, labh/[dayId] and zelle-report (`giving_bank`); `canPlanLabh` reads `labh`; tax statements and the Settings receipts row read `giving_statements`; the Give tab stays `['giving','bolis']`; online pay stays `giving` plus the payment plugins. Types copied from crm. Apps not yet updated (and 1.5.x phones on runtime 2) keep showing those sections; the server refuses each write with a plain sentence and hidden lists come back empty, so nothing breaks and nothing is recorded where it should not be.
+
+### 11.4 Impact on the portal and the database
+
+| Area | Change |
+|---|---|
+| `src/lib/modules.ts` | the seven keys, labels, dependencies; `moduleForPath` for /giving/payments/bank, /giving/statements, /giving/recurring, /giving/labh, /giving/opportunities |
+| `src/lib/permissions.ts` NAV, `canOpenTab`; `src/lib/workspaces.ts` | each tab names its module; the Giving workspace groups the core, the add-ons, Bolis and Books |
+| Route layouts | `ModuleGate` per add-on route; Labh's `KindGate` becomes the `labh` module |
+| Commands (`src/lib/commands/catalog/giving-*`) | bank-lines, match-deposit, confirm-zelle, zelle-waiting move to `giving_bank` (Niva's command list follows) |
+| `src/lib/tasks.ts`, `data/today.ts`, `data/home-kpis.ts`, `routines/briefing.ts` | deposit and bank items read `giving_bank` |
+| `src/lib/import/registry.ts` | bank_accounts to `giving_bank`, opportunities to `giving_opportunities`, labh_options to `labh`, recurring_gifts to `giving_recurring` |
+| Setup checklist, go-live checks | steps of an add-on that is off are skipped ("Not enabled for this community"); statement template approval stays core |
+| Database | `app.modules` rows; `category_modules` rows (labh as Bolis: Jain Center only); `module_tables` re-pointed for 11 tables and their restrictive `module_switch` policies recreated (no generator exists; each is written out); `storage_bucket_module` for statements; about 25 functions redefined from their **latest** bodies with one added guard; `module_enabled`, `module_off_centers`, `assert_module_enabled`, `set_module_enabled`, `module_states`, `my_modules` learn grants and evaluated dependencies |
+| Tests | 13 (every app table mapped) and 79 (JSH reads unchanged) stay green; new: 150 grants, 151 add-ons (each off: its tables hidden, its functions refuse with the sentence, the core still records and allocates) |
+| connect-admin | types copy only (event-day app) |
+
+**Risks**: copying a stale function body when adding a guard (review diffs each against its latest definition); a policy left on the old key (test 13 plus a new check that every mapped table's policy names its module); old member apps showing an add-on that is off (covered by refusals, then the OTA). **Money rules are unchanged**: guards only refuse. M1 and M2 change who may switch modules and RLS, so they are **NEEDS OWNER OK** before merge.
+
+### 11.5 Build order and numbers
+
+Migrations **0740-0749**, tests **150-159** (People holds 0720-0723).
+
+| # | Slice | Migration, test | Needs |
+|---|---|---|---|
+| M1 | Platform grants: layer, functions, grandfathering, Niva guard; Platform › Communities › Modules; Settings › Modules states | 0740, 150 | **NEEDS OWNER OK** (who may switch modules) |
+| M2 | Giving add-ons: catalog, tables and policies, guards; portal gates, commands, tasks, import registry; MODULES.md | 0741-0743, 151 | **NEEDS OWNER OK** (RLS); after M1 |
+| M3 | Member app 1.18.0 gates, types, OTA | none | after M2 merges |
+| 1-10 | Section 9's slices, each tab behind its module; slice 5 uses 0744, slice 7 0745, slice 8 0746, slice 9 0747 | as listed | as section 9 |
+
+Slice 1 (Today) can be built alongside M1: it asks `isModuleEnabled` for the add-on keys, which count as on until M2 lands. **Every builder first sends a plan with expectations** (files, numbers, screens, tests, risks) and starts only after the owner approves it.
