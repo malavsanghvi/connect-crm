@@ -201,9 +201,9 @@ select pg_temp.assert((select result->>'ai_trial_notice' = 'queued, queued' and 
 
 -- ══ D. The gates ═════════════════════════════════════════════════════════════
 select pg_temp.assert(not app.module_enabled(:g_none, 'ai') and not app.module_enabled(:g_none, 'niva')
-                      and (select not enabled from app.my_modules(:g_none) m where m.key = 'niva')
-                      and :g_none::uuid = any (app.module_off_centers('niva')),
-  'D · where iWeaver is off, Niva reads off everywhere: module_enabled, the policies'' set and my_modules (installed apps hide it)');
+                      and :g_none::uuid = any (app.module_off_centers('niva'))
+                      and :g_none::uuid = any (app.module_off_centers('ai')),
+  'D · where iWeaver is off, Niva reads off everywhere: module_enabled (which my_modules and member_experience read, so installed apps hide it) and the policies'' set');
 select pg_temp.assert_raises(format($$select app.assert_module_enabled(%L, 'niva')$$, :g_old),
   'Niva assistant is off because iWeaver is off for this community.', 'D · and the RPC guard says why in plain words');
 

@@ -263,8 +263,10 @@ select pg_temp.claims(:plat, true);
 select app.marketplace_set_product(:c, 'website', false, 'Trial over') as off1 \gset
 select pg_temp.assert(not ((:'off1'::jsonb)->>'enabled')::boolean and not ((:'off1'::jsonb)->>'request_done')::boolean
                       and pg_temp.st(:c, 'website') = 'available'
-                      and (select count(*) from app.messages where template_key = 'marketplace_product_off' and subject = 'WeaverSite is off for Temple 161') = 0,
-  'E · turning it off hides it again (nothing deleted); with no request open and no owner there is no one to email');
+                      and (select count(*) from app.messages where template_key = 'marketplace_product_off' and to_address = 'sam161@temple.test'
+                              and subject = 'WeaverSite is off for Temple 161') = 1
+                      and (:'off1'::jsonb)->>'email_status' = 'queued',
+  'E · turning it off hides it again (nothing deleted), and the community''s owner (its first administrator) is emailed');
 select pg_temp.assert((select count(*) from app.marketplace_audit(:c) where what like '%WeaverSite%') = 6
                       and (select count(*) from app.marketplace_audit(:c) where what = 'Sam K. requested WeaverSite') = 2
                       and exists (select 1 from app.marketplace_audit(:c) where what = 'Sam K. cancelled the request for WeaverSite')

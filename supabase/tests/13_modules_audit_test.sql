@@ -236,8 +236,8 @@ commit;
 begin;
 set local role authenticated;
 set local request.jwt.claim.sub = '10000000-0000-4000-8000-000000000007';
-select pg_temp.assert((select bool_and(enabled) from app.my_modules(:other) where key <> all (array['ai', 'website', 'channels', 'care', 'matching'])),
-  'another center keeps every module on (the Marketplace products of 0750 start off for every kind)');
+select pg_temp.assert((select bool_and(enabled) from app.my_modules(:other) where key <> all (array['ai', 'website', 'channels', 'care', 'matching']) and key <> 'niva'),
+  'another center keeps every module on (the Marketplace products of 0750 start off for every kind, and Niva needs iWeaver, which test 01''s community never used)');
 commit;
 
 -- RLS: reads and writes are blocked for the switched-off module.

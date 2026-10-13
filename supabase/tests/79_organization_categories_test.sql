@@ -330,9 +330,11 @@ select pg_temp.assert((:'a_new'::jsonb->'counts'->>'bolis')::bigint >= 1 and (:'
 select pg_temp.assert(not exists (
     select 1 from app.centers c cross join app.modules m
      where c.category_key = 'jain_center'
+       -- 0750: the Marketplace products start off for every kind, and Niva needs iWeaver (held wherever Niva was in use).
+       and m.key <> all (array['ai', 'website', 'channels', 'care', 'matching']) and not (m.key = 'niva' and not app.module_enabled(c.id, 'ai'))
        and app.module_enabled(c.id, m.key) is distinct from (not exists (select 1 from app.center_modules x
                                                                           where x.center_id = c.id and x.module_key = m.key and not x.enabled))),
-  'B · for every Jain Center and every module, module_enabled equals the 0101 rule');
+  'B · for every Jain Center and every module, module_enabled equals the 0101 rule (the Marketplace products of 0750 aside)');
 select pg_temp.assert(not exists (
     select 1 from app.modules m
      where (select coalesce(array_agg(x order by x), '{}') from unnest(app.module_off_centers(m.key)) as x)
