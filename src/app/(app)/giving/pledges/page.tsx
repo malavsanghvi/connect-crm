@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { cookies } from "next/headers";
 import Link from "next/link";
 
 import { HouseholdDrawerProvider, HouseholdRow } from "@/app/(app)/giving/_components/household-drawer";
@@ -15,13 +16,22 @@ import { PLEDGE_VIEWS, monthYear, pledgeStatusText, pledgeViewFromParam, writeOf
 import { formatCents } from "@/lib/money";
 import { canAccess } from "@/lib/permissions";
 import { hrefWith, isUuid, pageParam, param, type RawSearchParams } from "@/lib/search-params";
+import { LOOK_COOKIE, parseLook } from "@/lib/look";
 import { getSession } from "@/lib/session";
+
+import { PledgesV2 } from "./pledges-v2";
 
 export const metadata: Metadata = { title: "Pledges" };
 
 const PAGE_SIZE = 50;
 
-export default async function PledgesPage({ searchParams }: { searchParams: Promise<RawSearchParams> }) {
+/** The New look draws Pledges anew (docs/GIVING_REDESIGN.md slice 3); the classic look is the page below, unchanged. */
+export default async function PledgesRoute({ searchParams }: { searchParams: Promise<RawSearchParams> }) {
+  if (parseLook((await cookies()).get(LOOK_COOKIE)?.value) === "v2") return <PledgesV2 searchParams={searchParams} />;
+  return <PledgesPage searchParams={searchParams} />;
+}
+
+async function PledgesPage({ searchParams }: { searchParams: Promise<RawSearchParams> }) {
   const session = await getSession();
   const header = (
     <PageHeader

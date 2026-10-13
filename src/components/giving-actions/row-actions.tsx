@@ -12,20 +12,27 @@ import { setCloseItemAction } from "@/app/(app)/accounting/close/actions";
 import {
   approveAsSecondAction,
   approveFlaggedRefundAction,
+  cancelWriteOffRequestAction,
   completeWriteOffAction,
+  recordPaypalRefundAction,
   recordRefundAction,
+  refundThroughProviderAction,
+  requestRefundAction,
   requestWriteOffAction,
 } from "@/app/(app)/approvals/actions";
 import { openPledgesAction, type OpenPledge } from "@/app/(app)/giving/actions";
+import { grantSuggestionsAction, type GrantSuggestion } from "@/app/(app)/giving/lists-actions";
 import { applyPaymentAction } from "@/app/(app)/giving/payments/actions";
 import { confirmBankMatchAction, matchDepositAction } from "@/app/(app)/giving/payments/bank/actions";
 import { confirmExactMatchesAction } from "@/app/(app)/giving/payments/bank/zelle-actions";
 import { recordCountingDepositAction } from "@/app/(app)/giving/payments/counting-actions";
 import type { CardLabels } from "@/components/household-card";
+import { HouseholdPicker } from "@/components/household-picker";
 import { useStepUp } from "@/components/step-up";
 import { buttonClass } from "@/components/ui";
+import { previewAllocation } from "@/lib/allocation";
 import { formatDate } from "@/lib/dates";
-import { familyLine, familyRef, type Act, type BehindView, type CloseItemView, type Family, type QueueRow, type SuggestionView, type ZellePairView } from "@/lib/giving-today/queue";
+import { familyFrom, familyLine, familyRef, type Act, type BehindView, type CloseItemView, type Family, type QueueRow, type SuggestionView, type ZellePairView } from "@/lib/giving-today/queue";
 import { formatCents, parseAmountToCents } from "@/lib/money";
 
 import { FamilyCard, GivingSheet, NO_UNDO } from "./sheet";
@@ -37,7 +44,22 @@ export type ActContext = {
   labels: CardLabels;
   /** The row is done: it stays on the page as "Done: …" until the page is reloaded. */
   onDone: (text: string) => void;
+  /** "menu": the act opens from a row menu (⋯) item instead of a button (Pledges and Payments). */
+  trigger?: "button" | "menu";
+  /** The community's today (YYYY-MM-DD), the default date of a refund made in PayPal. */
+  today?: string;
 };
+
+/** What an act repeats from its row in its sheet: the household card, then the evidence (a Today row or a list row). */
+export type RowLike = Pick<QueueRow, "family" | "title" | "lines">;
+
+const MENU_ITEM = "flex min-h-[44px] w-full items-center rounded-[10px] px-3 py-2 text-left text-[14px] font-semibold hover:bg-canvas";
+
+/** The button that opens an act: a small button on a row, or an item of the row menu. */
+function triggerClass(ctx: ActContext, primary: boolean, tone?: "primary" | "danger"): string {
+  if (ctx.trigger === "menu") return `${MENU_ITEM} ${tone === "danger" ? "text-danger" : "text-ink"}`;
+  return `${buttonClass(primary ? (tone === "danger" ? "bad" : "primary") : "ghost", "sm")} ${SMALL}`;
+}
 
 type Result = { ok: boolean; error?: string; message?: string; stepUp?: boolean };
 
@@ -126,7 +148,7 @@ function SheetAct({
     <>
       <button
         type="button"
-        className={`${buttonClass(primary ? (tone === "danger" ? "bad" : "primary") : "ghost", "sm")} ${SMALL}`}
+        className={triggerClass(ctx, primary, tone)}
         onClick={() => {
           setError(null);
           onOpen?.();
@@ -174,7 +196,7 @@ function ReasonField({ id, value, onChange, label }: { id: string; value: string
 
 // ---------------------------------------------------------------------------- Approvals
 
-function ApproveAct({ act, row, ctx }: { act: Extract<Act, { kind: "approve" }>; row: QueueRow; ctx: ActContext }) {
+function ApproveAct({ act, row, ctx }: { act: Extract<Act, { kind: "approve" }>; row: RowLike; ctx: ActContext }) {
   return (
     <SheetAct
       buttonLabel={act.label}
@@ -200,7 +222,7 @@ function ApproveAct({ act, row, ctx }: { act: Extract<Act, { kind: "approve" }>;
   );
 }
 
-function CreditAct({ act, row, ctx }: { act: Extract<Act, { kind: "credit" }>; row: QueueRow; ctx: ActContext }) {
+function CreditAct({ act, row, ctx }: { act: Extract<Act, { kind: "credit" }>; row: RowLike; ctx: ActContext }) {
   return (
     <SheetAct
       buttonLabel={act.label}
@@ -216,7 +238,7 @@ function CreditAct({ act, row, ctx }: { act: Extract<Act, { kind: "credit" }>; r
   );
 }
 
-function FlaggedAct({ act, row, ctx }: { act: Extract<Act, { kind: "flagged" }>; row: QueueRow; ctx: ActContext }) {
+function FlaggedAct({ act, row, ctx }: { act: Extract<Act, { kind: "flagged" }>; row: RowLike; ctx: ActContext }) {
   const [reason, setReason] = useState("");
   return (
     <SheetAct
@@ -242,7 +264,7 @@ function FlaggedAct({ act, row, ctx }: { act: Extract<Act, { kind: "flagged" }>;
   );
 }
 
-function CompleteWriteOffAct({ act, row, ctx }: { act: Extract<Act, { kind: "complete_write_off" }>; row: QueueRow; ctx: ActContext }) {
+function CompleteWriteOffAct({ act, row, ctx }: { act: Extract<Act, { kind: "complete_write_off" }>; row: RowLike; ctx: ActContext }) {
   return (
     <SheetAct
       buttonLabel={act.label}
@@ -259,7 +281,7 @@ function CompleteWriteOffAct({ act, row, ctx }: { act: Extract<Act, { kind: "com
   );
 }
 
-function RecordRefundAct({ act, row, ctx }: { act: Extract<Act, { kind: "record_refund" }>; row: QueueRow; ctx: ActContext }) {
+function RecordRefundAct({ act, row, ctx }: { act: Extract<Act, { kind: "record_refund" }>; row: RowLike; ctx: ActContext }) {
   const initial = (act.amountCents / 100).toFixed(2);
   const [amount, setAmount] = useState(initial);
   const cents = parseAmountToCents(amount);
@@ -534,7 +556,12 @@ function BehindFamily({ h, ctx }: { h: BehindView; ctx: ActContext }) {
       try {
         const res = await openPledgesAction(h.family.id);
         if (!res.ok) setLoadError(res.error);
-        else setPledges(res.data ?? []);
+        else {
+          const list = res.data ?? [];
+          setPledges(list);
+          // One open pledge: it is the one (Giving, Write off…, Ask: three clicks).
+          if (list.length === 1) setPick(list[0].id);
+        }
       } catch (err) {
         console.error("[giving-today] loading the pledges failed:", err);
         setLoadError("Could not load the family's pledges: the server did not respond. Try again.");
@@ -615,7 +642,7 @@ function BehindFamily({ h, ctx }: { h: BehindView; ctx: ActContext }) {
   );
 }
 
-function ApplyAct({ act, row, ctx }: { act: Extract<Act, { kind: "apply" }>; row: QueueRow; ctx: ActContext }) {
+function ApplyAct({ act, row, ctx }: { act: Extract<Act, { kind: "apply" }>; row: RowLike; ctx: ActContext }) {
   return (
     <SheetAct
       buttonLabel={act.label}
@@ -638,7 +665,7 @@ function ApplyAct({ act, row, ctx }: { act: Extract<Act, { kind: "apply" }>; row
 
 // ---------------------------------------------------------------------------- Counts and books
 
-function CountDepositAct({ act, row, ctx }: { act: Extract<Act, { kind: "count_deposit" }>; row: QueueRow; ctx: ActContext }) {
+function CountDepositAct({ act, row, ctx }: { act: Extract<Act, { kind: "count_deposit" }>; row: RowLike; ctx: ActContext }) {
   const [ref, setRef] = useState("");
   const [total, setTotal] = useState(act.totalCents === null ? "" : (act.totalCents / 100).toFixed(2));
   return (
@@ -720,6 +747,355 @@ function CloseItem({ item, month, canMark }: { item: CloseItemView; month: strin
   );
 }
 
+// ---------------------------------------------------------------------------- One pledge or one payment (Pledges and Payments)
+
+function MoneyField({ id, label, value, onChange, hint }: { id: string; label: string; value: string; onChange: (v: string) => void; hint?: string }) {
+  return (
+    <div>
+      <label htmlFor={id} className="mb-1 block text-[13px] font-bold text-ink">
+        {label}
+      </label>
+      <input id={id} value={value} onChange={(e) => onChange(e.target.value)} inputMode="decimal" autoComplete="off" className="crm-input w-full sm:w-48" />
+      {hint ? <p className="m-0 mt-1 text-[12.5px] text-muted">{hint}</p> : null}
+    </div>
+  );
+}
+
+function RequestWriteOffAct({ act, row, ctx }: { act: Extract<Act, { kind: "request_write_off" }>; row: RowLike; ctx: ActContext }) {
+  const [reason, setReason] = useState("");
+  const money = formatCents(act.openCents, ctx.currency, ctx.locale);
+  return (
+    <SheetAct
+      buttonLabel={act.label}
+      primary={false}
+      tone="danger"
+      title="Ask for a write-off"
+      family={row.family}
+      what={
+        <>
+          <p className="m-0 font-bold text-ink">{row.title}</p>
+          <p className="m-0">A write-off needs a reason the second approver reads. Nothing changes until a different person approves it and a treasurer completes it.</p>
+        </>
+      }
+      confirmLabel={`Ask to write off ${money} on ${act.reference} for ${familyRef(row.family)}`}
+      ctx={ctx}
+      ready={reason.trim().length > 0}
+      onOpen={() => setReason("")}
+      doing="Request the write-off"
+      call={() => requestWriteOffAction(null, fd({ id: act.id, reason: reason.trim() }))}
+      done={(r) => doneFrom(r.message, "Done: write-off requested.")}
+    >
+      <ReasonField id={`wo-${act.id}`} value={reason} onChange={setReason} label="Reason (the second approver reads it)" />
+    </SheetAct>
+  );
+}
+
+function WithdrawWriteOffAct({ act, row, ctx }: { act: Extract<Act, { kind: "withdraw_write_off" }>; row: RowLike; ctx: ActContext }) {
+  return (
+    <SheetAct
+      buttonLabel={act.label}
+      primary={false}
+      title="Withdraw the write-off request"
+      family={row.family}
+      what={
+        <>
+          <p className="m-0 font-bold text-ink">{row.title}</p>
+          <p className="m-0">The pledge stays open, as it was before anyone asked. No money moves.</p>
+        </>
+      }
+      confirmLabel={`Withdraw the request on ${act.reference}`}
+      ctx={ctx}
+      doing="Withdraw the write-off request"
+      call={() => cancelWriteOffRequestAction(null, fd({ id: act.id }))}
+      done={(r) => doneFrom(r.message, "Done: write-off request withdrawn.")}
+    />
+  );
+}
+
+function RequestRefundAct({ act, row, ctx }: { act: Extract<Act, { kind: "request_refund" }>; row: RowLike; ctx: ActContext }) {
+  const initial = (act.refundableCents / 100).toFixed(2);
+  const [amount, setAmount] = useState(initial);
+  const [reason, setReason] = useState("");
+  const cents = parseAmountToCents(amount);
+  const most = formatCents(act.refundableCents, ctx.currency, ctx.locale);
+  const fits = cents !== null && cents > 0 && cents <= act.refundableCents;
+  return (
+    <SheetAct
+      buttonLabel={act.label}
+      primary={false}
+      tone="danger"
+      title="Ask for a refund"
+      family={row.family}
+      what={
+        <>
+          <p className="m-0 font-bold text-ink">{row.title}</p>
+          <p className="m-0">A refund needs a reason the second approver reads. Nothing changes until a different person approves it; then a treasurer records it.</p>
+        </>
+      }
+      confirmLabel={fits && cents !== null ? `Ask to refund ${formatCents(cents, ctx.currency, ctx.locale)} to ${familyRef(row.family)}` : `Enter an amount up to ${most}`}
+      ctx={ctx}
+      ready={fits && reason.trim().length > 0}
+      onOpen={() => {
+        setAmount(initial);
+        setReason("");
+      }}
+      doing="Request the refund"
+      call={() => requestRefundAction(null, fd({ id: act.id, amount: amount.trim(), reason: reason.trim() }))}
+      done={(r) => doneFrom(r.message, "Done: refund requested.")}
+    >
+      <MoneyField id={`rfa-${act.id}`} label="Amount to refund" value={amount} onChange={setAmount} hint={`At most ${most} of ${act.reference} can be refunded.`} />
+      <ReasonField id={`rfr-${act.id}`} value={reason} onChange={setReason} label="Reason (the second approver reads it)" />
+    </SheetAct>
+  );
+}
+
+function ProviderRefundAct({ act, row, ctx }: { act: Extract<Act, { kind: "provider_refund" }>; row: RowLike; ctx: ActContext }) {
+  const name = act.provider === "paypal" ? "PayPal" : "Stripe";
+  return (
+    <SheetAct
+      buttonLabel={act.label}
+      tone="danger"
+      title={`Refund through ${name}`}
+      family={row.family}
+      what={
+        <>
+          <p className="m-0 font-bold text-ink">{row.title}</p>
+          {row.lines.map((l) => (
+            <p key={l} className="m-0">
+              {l}
+            </p>
+          ))}
+          <p className="m-0 mt-1">{act.what}</p>
+        </>
+      }
+      confirmLabel={act.label}
+      ctx={ctx}
+      doing="Send the refund"
+      call={() => refundThroughProviderAction(null, fd({ id: act.id }))}
+      done={(r) => doneFrom(r.message, `Done: refund sent to ${name}.`)}
+    />
+  );
+}
+
+function PaypalRefundAct({ act, row, ctx }: { act: Extract<Act, { kind: "paypal_refund" }>; row: RowLike; ctx: ActContext }) {
+  const initial = (act.amountCents / 100).toFixed(2);
+  const [amount, setAmount] = useState(initial);
+  const [on, setOn] = useState(ctx.today ?? "");
+  const [txn, setTxn] = useState("");
+  const [reason, setReason] = useState(act.reason ?? "");
+  const cents = parseAmountToCents(amount);
+  const ok = cents !== null && cents > 0 && /^\d{4}-\d{2}-\d{2}$/.test(on) && txn.trim().length > 0;
+  return (
+    <SheetAct
+      buttonLabel={act.label}
+      tone="danger"
+      title="Record the refund made in PayPal"
+      family={row.family}
+      what={
+        <>
+          <p className="m-0 font-bold text-ink">{row.title}</p>
+          <p className="m-0">{act.what}</p>
+        </>
+      }
+      confirmLabel={cents !== null && cents > 0 ? `Record ${formatCents(cents, ctx.currency, ctx.locale)} PayPal refund for ${familyRef(row.family)}` : "Enter the amount refunded"}
+      ctx={ctx}
+      ready={ok}
+      onOpen={() => {
+        setAmount(initial);
+        setOn(ctx.today ?? "");
+        setTxn("");
+        setReason(act.reason ?? "");
+      }}
+      doing="Record the PayPal refund"
+      call={() => recordPaypalRefundAction(null, fd({ id: act.id, amount: amount.trim(), refunded_on: on, paypal_txn: txn.trim(), reason: reason.trim() }))}
+      done={(r) => doneFrom(r.message, "Done: PayPal refund recorded.")}
+    >
+      <div className="grid gap-3 sm:grid-cols-2">
+        <MoneyField id={`ppa-${act.id}`} label="Amount refunded in PayPal" value={amount} onChange={setAmount} />
+        <div>
+          <label htmlFor={`ppd-${act.id}`} className="mb-1 block text-[13px] font-bold text-ink">
+            Date PayPal made the refund
+          </label>
+          <input id={`ppd-${act.id}`} type="date" value={on} onChange={(e) => setOn(e.target.value)} className="crm-input w-full" />
+        </div>
+      </div>
+      <div>
+        <label htmlFor={`ppt-${act.id}`} className="mb-1 block text-[13px] font-bold text-ink">
+          PayPal transaction id of the refund
+        </label>
+        <input id={`ppt-${act.id}`} value={txn} onChange={(e) => setTxn(e.target.value)} maxLength={30} autoComplete="off" className="crm-input w-full font-mono" />
+      </div>
+      <ReasonField id={`ppr-${act.id}`} value={reason} onChange={setReason} label="Reason" />
+    </SheetAct>
+  );
+}
+
+const GRANT_WORD: Record<Extract<Act, { kind: "grant_match" }>["grant"], string> = {
+  daf: "fund grant",
+  matching_gift: "matching gift",
+  payroll_giving: "payroll gift",
+};
+
+/** A fund grant or matching gift from the bank, matched to a family: the former DAF drawer as a sheet. The payer is never learned. */
+function GrantMatchAct({ act, ctx }: { act: Extract<Act, { kind: "grant_match" }>; ctx: ActContext }) {
+  const [open, setOpen] = useState(false);
+  const [suggestions, setSuggestions] = useState<GrantSuggestion[] | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [pick, setPick] = useState<Family | null>(null);
+  const [picking, setPicking] = useState(false);
+  const [pledges, setPledges] = useState<OpenPledge[] | null>(null);
+  const [pledgeError, setPledgeError] = useState<string | null>(null);
+  const [loading, startLoading] = useTransition();
+  const { pending, error, setError, run } = useRun();
+  const money = (c: number) => formatCents(c, ctx.currency, ctx.locale);
+  const amount = money(act.amountCents);
+
+  function choose(f: Family) {
+    setPick(f);
+    setPicking(false);
+    setPledges(null);
+    setPledgeError(null);
+    startLoading(async () => {
+      try {
+        const res = await openPledgesAction(f.id);
+        if (!res.ok) setPledgeError(res.error);
+        else setPledges(res.data ?? []);
+      } catch (err) {
+        console.error("[giving-lists] loading the family's pledges failed:", err);
+        setPledgeError("Could not load the family's open pledges: the server did not respond. Choose the family again.");
+      }
+    });
+  }
+
+  function openSheet() {
+    setOpen(true);
+    setError(null);
+    setPick(null);
+    setPicking(false);
+    setPledges(null);
+    setSuggestions(null);
+    setLoadError(null);
+    startLoading(async () => {
+      try {
+        const res = await grantSuggestionsAction(act.txnId);
+        if (!res.ok) {
+          setLoadError(res.error);
+          setSuggestions([]);
+          return;
+        }
+        const list = res.data ?? [];
+        setSuggestions(list);
+        const first = list.find((s) => !s.ambiguous);
+        if (first) choose(first.family);
+      } catch (err) {
+        console.error("[giving-lists] loading the suggested families failed:", err);
+        setLoadError("Could not load the suggested families: the server did not respond. Find the family below.");
+        setSuggestions([]);
+      }
+    });
+  }
+
+  const preview = pledges ? previewAllocation(act.amountCents, pledges) : null;
+  const byId = new Map((pledges ?? []).map((p) => [p.id, p]));
+  return (
+    <>
+      <button type="button" className={triggerClass(ctx, true)} onClick={openSheet}>
+        {act.label}
+      </button>
+      {open ? (
+        <GivingSheet
+          title={`Which family is the ${GRANT_WORD[act.grant]} of ${amount} for?`}
+          family={pick}
+          labels={ctx.labels}
+          what={
+            <>
+              <p className="m-0 font-bold text-ink">
+                {act.reference} · from {act.source} · {formatDate(act.postedOn, ctx.timeZone)}
+              </p>
+              {act.memo ? <p className="m-0">{act.memo}</p> : null}
+              <p className="m-0 mt-1">
+                It is recorded as the family&apos;s gift and applied to their earliest open pledges.{" "}
+                {act.grant === "matching_gift" ? "No tax receipt: the matching platform receipts its donor." : "No tax receipt: the fund's sponsor receipts the donor."} The
+                sender&apos;s name is not learned, because it is not the family. {NO_UNDO}
+              </p>
+            </>
+          }
+          error={error ?? loadError ?? pledgeError}
+          confirmLabel={pick ? `Record ${amount} ${GRANT_WORD[act.grant]} for ${familyRef(pick)}` : "Choose the family"}
+          confirmDisabled={!pick || loading}
+          pending={pending}
+          onClose={() => setOpen(false)}
+          onConfirm={() =>
+            pick &&
+            run(
+              "Match the gift",
+              () => confirmBankMatchAction({ txnId: act.txnId, householdId: pick.id, pledgeIds: null, learnPayer: false }),
+              (r) => {
+                setOpen(false);
+                const d = r.data;
+                ctx.onDone(d ? `Done: ${money(d.amountCents)} matched to ${d.householdName}, receipt ${d.receiptNumber ?? "pending"}.` : `Done: ${amount} matched to ${familyRef(pick)}.`);
+              },
+            )
+          }
+        >
+          {loading && !suggestions ? <p className="m-0 text-[13px] text-muted">Looking for the family…</p> : null}
+          {suggestions && suggestions.length > 0 ? (
+            <fieldset className="m-0 flex flex-col gap-2 border-0 p-0">
+              <legend className="mb-1 text-[13px] font-bold text-ink">Suggested families</legend>
+              {suggestions.map((s) => (
+                <label key={s.family.id} className="flex cursor-pointer items-start gap-2.5">
+                  <input type="radio" name={`grant-${act.txnId}`} className="mt-3 h-[18px] w-[18px] flex-none" checked={pick?.id === s.family.id} onChange={() => choose(s.family)} />
+                  <span className="min-w-0 flex-1">
+                    <FamilyCard family={s.family} labels={ctx.labels}>
+                      <p className="m-0 mt-1 text-[12.5px] text-ink-2">
+                        {s.reason}
+                        {s.ambiguous ? " · several families match: check the details" : ""}
+                      </p>
+                    </FamilyCard>
+                  </span>
+                </label>
+              ))}
+            </fieldset>
+          ) : suggestions ? (
+            <p className="m-0 text-[13px] text-muted">No family is suggested. Find it by name or any number below.</p>
+          ) : null}
+          {picking ? (
+            <HouseholdPicker
+              labels={ctx.labels}
+              timeZone={ctx.timeZone}
+              currency={ctx.currency}
+              onSelect={(card) => choose(familyFrom(card))}
+              idPrefix={`grant-${act.txnId.slice(0, 6)}`}
+            />
+          ) : (
+            <button type="button" className={`${buttonClass("ghost", "sm")} ${SMALL} self-start`} onClick={() => setPicking(true)}>
+              Find another family
+            </button>
+          )}
+          {pick && preview ? (
+            <div className="rounded-[12px] border border-line px-3 py-2 text-[13.5px]">
+              <p className="m-0 mb-1 font-bold text-ink">Where it goes</p>
+              {preview.lines.length === 0 ? <p className="m-0 text-muted">No open pledge: it stays a general gift.</p> : null}
+              {preview.lines.map((l) => (
+                <p key={l.pledge_id} className="m-0 flex justify-between gap-3">
+                  <span>{byId.get(l.pledge_id)?.pledge_number ?? "A pledge"}</span>
+                  <span className="whitespace-nowrap font-bold tabular-nums">{money(l.amount_cents)}</span>
+                </p>
+              ))}
+              {preview.unallocated_cents > 0 ? (
+                <p className="m-0 flex justify-between gap-3 text-muted">
+                  <span>Left as a general gift</span>
+                  <span className="whitespace-nowrap tabular-nums">{money(preview.unallocated_cents)}</span>
+                </p>
+              ) : null}
+            </div>
+          ) : null}
+        </GivingSheet>
+      ) : null}
+    </>
+  );
+}
+
 // ---------------------------------------------------------------------------- A row's actions
 
 /** The part of a row that sits under its text: lists that act item by item (Zelle pairs, families behind, close checks). */
@@ -754,9 +1130,17 @@ export function RowInline({ row, ctx }: { row: QueueRow; ctx: ActContext }) {
 
 /** The row's buttons, on the right on a computer and under the text on a phone. */
 export function RowButtons({ row, ctx }: { row: QueueRow; ctx: ActContext }) {
+  return <ActButtons acts={row.acts} row={row} ctx={ctx} />;
+}
+
+/**
+ * Any list of acts with its row's evidence: Today's row buttons, a list row's buttons, or its menu items (ctx.trigger "menu").
+ * Pledges, Payments and (later) the Family page draw their rows with this, so a row acts the same everywhere.
+ */
+export function ActButtons({ acts, row, ctx }: { acts: readonly Act[]; row: RowLike; ctx: ActContext }) {
   return (
     <>
-      {row.acts.map((a, i) => {
+      {acts.map((a, i) => {
         switch (a.kind) {
           case "approve":
             return <ApproveAct key={i} act={a} row={row} ctx={ctx} />;
@@ -776,9 +1160,25 @@ export function RowButtons({ row, ctx }: { row: QueueRow; ctx: ActContext }) {
             return <ApplyAct key={i} act={a} row={row} ctx={ctx} />;
           case "count_deposit":
             return <CountDepositAct key={i} act={a} row={row} ctx={ctx} />;
+          case "request_write_off":
+            return <RequestWriteOffAct key={i} act={a} row={row} ctx={ctx} />;
+          case "withdraw_write_off":
+            return <WithdrawWriteOffAct key={i} act={a} row={row} ctx={ctx} />;
+          case "request_refund":
+            return <RequestRefundAct key={i} act={a} row={row} ctx={ctx} />;
+          case "provider_refund":
+            return <ProviderRefundAct key={i} act={a} row={row} ctx={ctx} />;
+          case "paypal_refund":
+            return <PaypalRefundAct key={i} act={a} row={row} ctx={ctx} />;
+          case "grant_match":
+            return <GrantMatchAct key={i} act={a} ctx={ctx} />;
           case "link":
             return (
-              <Link key={i} href={a.href} className={`${buttonClass(a.primary ? "primary" : "ghost", "sm")} ${SMALL}`}>
+              <Link
+                key={i}
+                href={a.href}
+                className={ctx.trigger === "menu" ? `${MENU_ITEM} text-ink no-underline` : `${buttonClass(a.primary ? "primary" : "ghost", "sm")} ${SMALL}`}
+              >
                 {a.label}
               </Link>
             );

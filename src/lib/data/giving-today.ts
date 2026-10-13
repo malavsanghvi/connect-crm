@@ -12,6 +12,7 @@ import type { PledgesBehindData } from "@/lib/commands/catalog/pledges-behind";
 import type { CloseBlockersData } from "@/lib/commands/catalog/month-close-blockers";
 import { runScreenCommand } from "@/lib/commands/screen";
 import { communityFormat } from "@/lib/community-format";
+import { readPaypalEmailOnly } from "@/lib/data/giving-lists";
 import { loadPledgeTotals } from "@/lib/data/giving-workspace";
 import { loadHomeTasks } from "@/lib/data/home-tasks";
 import { householdCards, userNames } from "@/lib/data/lookups";
@@ -429,6 +430,8 @@ export async function loadGivingToday(session: CrmSession, opts: { show?: string
   for (const [id, c] of cards.map) families[id] = familyFrom(c);
 
   const labels = { orgMemberLabel: rules.orgMemberLabel, orgHouseholdLabel: rules.orgHouseholdLabel };
+  // An approved card refund is recorded in place (slice 3); a PayPal connected by email only is refunded in PayPal, then recorded.
+  const paypalEmailOnly = can.manage ? await readPaypalEmailOnly(session) : false;
   const queue = buildQueue(
     { tasks, taskFailures, families, bank, behind, apply, counts, close },
     {
@@ -440,6 +443,7 @@ export async function loadGivingToday(session: CrmSession, opts: { show?: string
       labels,
       countsWord,
       zelleWord,
+      paypalEmailOnly,
       visible: {
         approvals: tasks.some((t) => ["refund", "payee", "writeoff", "credit"].includes(t.source)) || can.approve || can.manage,
         bank: seesBank,

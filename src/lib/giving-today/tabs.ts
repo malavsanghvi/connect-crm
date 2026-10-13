@@ -3,8 +3,8 @@
 // and shows only when the person can open it AND its module is on. Pure: the layout, Today and the tests read the same list.
 //
 // The add-on keys (section 11) are not in the module catalog until M2 lands; isModuleEnabled counts a key the community has
-// not switched off as on, so every add-on tab shows until then. Recurring, Labh and Bolis keep a tab of their own until
-// slices 3 and 6 fold them into Payments and Campaigns & opportunities.
+// not switched off as on, so every add-on tab shows until then. Recurring is a view of Payments (slice 3); Labh and Bolis keep a
+// tab of their own until slice 6 folds them into Campaigns & opportunities.
 
 import type { KindProfile } from "@/lib/kind";
 import { isModuleEnabled } from "@/lib/modules";
@@ -61,9 +61,7 @@ export function givingTabs(ctx: TabContext): GivingTab[] {
 
   if (canOpenToday(ctx)) out.push({ key: "today", label: "Today", href: "/giving", paths: ["/giving", "/giving/ask"] });
   if (tab("/giving/pledges")) out.push({ key: "pledges", label: "Pledges", href: "/giving/pledges", paths: ["/giving/pledges"] });
-  if (tab("/giving/payments")) out.push({ key: "payments", label: "Payments", href: "/giving/payments", paths: ["/giving/payments"] });
-  const recurring = tab("/giving/recurring");
-  if (recurring && on(GIVING_ADDONS.recurring)) out.push({ key: "recurring", label: recurring.label, href: recurring.href, paths: ["/giving/recurring"] });
+  if (tab("/giving/payments")) out.push({ key: "payments", label: "Payments", href: "/giving/payments", paths: ["/giving/payments", "/giving/recurring"] });
   if (giving && canAccess(ctx, "bank") && on(GIVING_ADDONS.bank)) {
     out.push({ key: "bank", label: "Bank", href: "/giving/payments/bank", paths: ["/giving/payments/bank", "/giving/bank"] });
   }
@@ -84,7 +82,8 @@ export function givingTabs(ctx: TabContext): GivingTab[] {
   const statements = tab("/giving/statements");
   if (statements && on(GIVING_ADDONS.statements)) out.push({ key: "statements", label: "Statements", href: statements.href, paths: ["/giving/statements"] });
   if (giving && canAccess(ctx, "counting") && on(GIVING_ADDONS.counts)) {
-    out.push({ key: "counts", label: countsWord(ctx.kind), href: "/giving/payments#counting", paths: [] });
+    // A view of Payments until slice 5 gives the counts their own tab.
+    out.push({ key: "counts", label: countsWord(ctx.kind), href: "/giving/payments?view=counts", paths: [] });
   }
   const accounting = nav.find((m) => m.key === "accounting");
   const close = accounting?.tabs.find((t) => t.href === "/accounting/close");
