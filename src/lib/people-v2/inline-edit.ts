@@ -12,6 +12,8 @@ import { ageOn } from "@/lib/dates";
 import {
   FIELD_LABELS,
   RELATIONSHIP_OPTIONS,
+  callTimeLabel,
+  dailyMinutesLabel,
   formatPhone,
   genderLabel,
   genderValue,
@@ -22,6 +24,7 @@ import {
   relationshipLabel,
   toUsDate,
 } from "@/lib/people";
+import { draftItems, encodeList, isListField, listComparable, listDisplay, listToDraft } from "@/lib/person-lists";
 
 // ---------------------------------------------------------------------------
 // Fields and edit units
@@ -40,7 +43,12 @@ export type PersonFieldKey =
   | "photo_opt_in"
   | "new_member_contact_opt_in"
   | "expertise_opt_in"
-  | "expertise_headline";
+  | "expertise_headline"
+  | "preferred_name"
+  | "interests"
+  | "expertise_tags"
+  | "best_call_time"
+  | "gyan_daily_minutes";
 export type HouseholdFieldKey =
   | "display_name"
   | "address_line1"
@@ -92,6 +100,12 @@ export const PERSON_UNITS = {
   newMember: unit("new-member", "choice to hear from new members", ["new_member_contact_opt_in"]),
   expertise: unit("expertise", "expertise listing", ["expertise_opt_in"]),
   expertiseHeadline: unit("expertise-headline", "expertise", ["expertise_headline"]),
+  // What else is on the person's record (the slide-over's Profile section). The four after the name are for adults only (D2).
+  preferredName: unit("preferred-name", "preferred name", ["preferred_name"]),
+  interests: unit("interests", "interests", ["interests"]),
+  expertiseAreas: unit("expertise-areas", "expertise areas", ["expertise_tags"]),
+  callTime: unit("call-time", "best time to call", ["best_call_time"]),
+  dailyGoal: unit("daily-goal", "daily learning goal", ["gyan_daily_minutes"]),
 } as const satisfies Record<string, EditUnit>;
 
 export const HOUSEHOLD_UNITS = {
@@ -117,6 +131,11 @@ export const PERSON_EDITABLE: readonly PersonFieldKey[] = [
   "new_member_contact_opt_in",
   "expertise_opt_in",
   "expertise_headline",
+  "preferred_name",
+  "interests",
+  "expertise_tags",
+  "best_call_time",
+  "gyan_daily_minutes",
 ];
 export const HOUSEHOLD_EDITABLE: readonly HouseholdFieldKey[] = [
   "display_name",
@@ -150,6 +169,7 @@ const isSwitch = (key: string) =>
 /** The text a stored value is shown as when it is not being edited. "" stands for nothing recorded. */
 export function displayValue(key: string, stored: string): string {
   if (!stored) return "";
+  if (isListField(key)) return listDisplay(stored);
   switch (key) {
     case "phone_e164":
       return formatPhone(stored);
@@ -161,6 +181,10 @@ export function displayValue(key: string, stored: string): string {
       return languageLabel(stored);
     case "role":
       return relationshipLabel(stored);
+    case "best_call_time":
+      return callTimeLabel(stored) || stored;
+    case "gyan_daily_minutes":
+      return dailyMinutesLabel(stored) || stored;
     default:
       return stored;
   }
@@ -168,6 +192,7 @@ export function displayValue(key: string, stored: string): string {
 
 /** What the input holds when editing starts. */
 export function toDraft(key: string, stored: string): string {
+  if (isListField(key)) return listToDraft(stored);
   if (key === "phone_e164") return formatPhone(stored);
   if (key === "date_of_birth") return toUsDate(stored);
   return stored;
@@ -187,6 +212,7 @@ export type Checked = { ok: true; stored: Values } | { ok: false; error: string 
 function asStored(v: unknown): string {
   if (v === null || v === undefined) return "";
   if (typeof v === "boolean") return v ? "on" : "off";
+  if (Array.isArray(v)) return encodeList(v.filter((x): x is string => typeof x === "string"));
   return String(v);
 }
 
@@ -197,7 +223,9 @@ export function checkDraft(u: EditUnit, draft: Values, ctx: CheckContext): Check
   const person: Record<string, string> = {};
   const household: Record<string, string> = {};
   for (const k of u.fields) {
-    const v = draft[k] ?? "";
+    const raw = draft[k] ?? "";
+    // A list is held as one item per line (src/lib/person-lists.ts); the parser is given it as the JSON it also reads from a command.
+    const v = isListField(k) ? JSON.stringify(draftItems(raw)) : raw;
     if (k === "role") {
       if (!RELATIONSHIP_OPTIONS.some((o) => o.value === v)) return { ok: false, error: "Choose a relationship from the list" };
       stored.role = v;
@@ -221,11 +249,12 @@ export function checkDraft(u: EditUnit, draft: Values, ctx: CheckContext): Check
 
 /** One value as text, for comparing: nothing, "" and null are the same; case does not matter for an email or a language; a legacy "F" is "female". */
 export function normalizeStored(key: string, v: unknown): string {
+  if (isListField(key)) return listComparable(v);
   if (v === null || v === undefined) return "";
   if (typeof v === "boolean") return v ? "on" : "off";
   const s = String(v).trim();
   if (isSwitch(key)) return s === "on" || s === "true" || s === "yes" ? "on" : "off";
-  if (key === "email" || key === "language") return s.toLowerCase();
+  if (key === "email" || key === "language" || key === "best_call_time") return s.toLowerCase();
   if (key === "gender") return genderValue(s) || s.toLowerCase();
   return s;
 }

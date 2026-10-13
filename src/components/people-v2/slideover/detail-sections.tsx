@@ -2,6 +2,7 @@
 
 import { useId } from "react";
 
+import { BEST_CALL_TIMES, DAILY_MINUTES } from "@/lib/people";
 import { toCheckContext } from "@/lib/people-v2/family-model";
 import { PERSON_UNITS, type EditUnit } from "@/lib/people-v2/inline-edit";
 import {
@@ -9,11 +10,14 @@ import {
   accountLines,
   allNoAccess,
   profileDetailLines,
+  reachedByLine,
   rolesLines,
   type PersonDetailModel,
+  type PreferenceFacts,
 } from "@/lib/people-v2/slideover";
 
 import { ConflictPanel, FieldRow, SaveError } from "../family/inline-ui";
+import { ListRow } from "../family/list-row";
 import { GENDER_CHOICES, PersonRow, Relationship, type PersonCtx } from "../family/person-card";
 import { useInlineEdit } from "../family/use-inline-edit";
 
@@ -32,6 +36,7 @@ export function ProfileSection({ detail, ctx }: { detail: PersonDetailModel; ctx
   const details = profileDetailLines({ isChild: child, firstName: p.firstName, details: detail.profileDetails });
   return (
     <div>
+      {row(PERSON_UNITS.preferredName, "preferred_name", "Goes by", "Add a name they go by")}
       {row(PERSON_UNITS.dob, "date_of_birth", "Birth date", "Add a birth date", "date")}
       {row(PERSON_UNITS.gender, "gender", "Gender", "Add gender", "select", GENDER_CHOICES)}
       {child ? null : row(PERSON_UNITS.profession, "profession", "Profession", "Add a profession")}
@@ -46,12 +51,107 @@ export function ProfileSection({ detail, ctx }: { detail: PersonDetailModel; ctx
         </div>
       ) : null}
       {detail.household ? <RelationshipRow detail={detail} ctx={ctx} /> : null}
+      {detail.preferences && !child ? <PreferencesBlock detail={detail} prefs={detail.preferences} ctx={ctx} /> : null}
       <div className="mt-3 border-t border-line pt-3">
         <p className="m-0 mb-1 text-[12px] font-bold uppercase tracking-[0.04em] text-muted">Given by the member in the app</p>
         <Lines lines={details} />
         {detail.profileDetails.state === "error" ? <PartNote part={detail.profileDetails} what="what this member gave in the app" /> : null}
         <p className="m-0 mt-1 text-[12px] text-muted">Dietary and emergency details are private: use them only for the event or emergency in hand. Members change them in the app.</p>
       </div>
+    </div>
+  );
+}
+
+const CALL_TIME_CHOICES = [{ value: "", label: "Not recorded" }, ...BEST_CALL_TIMES.map((o) => ({ value: o.value, label: o.label }))];
+const DAILY_GOAL_CHOICES = [{ value: "", label: "Not recorded" }, ...DAILY_MINUTES.map((m) => ({ value: String(m), label: `${m} minutes a day` }))];
+
+function usePreferenceEdit(detail: PersonDetailModel, prefs: PreferenceFacts, ctx: PersonCtx, unit: EditUnit) {
+  return useInlineEdit({
+    unit,
+    values: prefs.values,
+    check: toCheckContext(ctx.check),
+    owner: detail.person.firstName,
+    target: { kind: "person", personId: detail.person.id, householdId: ctx.householdId },
+  });
+}
+
+function PreferenceList({
+  detail,
+  prefs,
+  ctx,
+  unit,
+  fieldKey,
+  label,
+  placeholder,
+}: {
+  detail: PersonDetailModel;
+  prefs: PreferenceFacts;
+  ctx: PersonCtx;
+  unit: EditUnit;
+  fieldKey: string;
+  label: string;
+  placeholder: string;
+}) {
+  const edit = usePreferenceEdit(detail, prefs, ctx, unit);
+  return <ListRow label={label} fieldKey={fieldKey} unit={unit} edit={edit} editable={ctx.canEdit} placeholder={placeholder} wide />;
+}
+
+function PreferenceChoice({
+  detail,
+  prefs,
+  ctx,
+  unit,
+  fieldKey,
+  label,
+  placeholder,
+  options,
+}: {
+  detail: PersonDetailModel;
+  prefs: PreferenceFacts;
+  ctx: PersonCtx;
+  unit: EditUnit;
+  fieldKey: string;
+  label: string;
+  placeholder: string;
+  options: { value: string; label: string }[];
+}) {
+  const edit = usePreferenceEdit(detail, prefs, ctx, unit);
+  return <FieldRow label={label} fieldKey={fieldKey} unit={unit} edit={edit} editable={ctx.canEdit} kind="select" placeholder={placeholder} options={options} wide />;
+}
+
+const NOTE = "m-0 mb-1 pl-[7.5rem] text-[12px] text-muted sm:pl-[8.25rem]";
+
+/**
+ * What else is on an adult's record: interests and expertise areas (lists), when to call, how the member likes to be reached (read
+ * only: the member chooses it, with their consent, in the app) and the daily learning goal when the community uses learning. Never
+ * drawn for a child (D2).
+ */
+function PreferencesBlock({ detail, prefs, ctx }: { detail: PersonDetailModel; prefs: PreferenceFacts; ctx: PersonCtx }) {
+  const callsOk = prefs.channels.includes("phone_call");
+  const showGoal = prefs.learningOn || prefs.values.gyan_daily_minutes !== "";
+  return (
+    <div className="mt-3 border-t border-line pt-3" data-testid="profile-preferences">
+      <p className="m-0 mb-1 text-[12px] font-bold uppercase tracking-[0.04em] text-muted">Interests and contact preferences</p>
+      <PreferenceList detail={detail} prefs={prefs} ctx={ctx} unit={PERSON_UNITS.interests} fieldKey="interests" label="Interests" placeholder="Add interests" />
+      <PreferenceList
+        detail={detail}
+        prefs={prefs}
+        ctx={ctx}
+        unit={PERSON_UNITS.expertiseAreas}
+        fieldKey="expertise_tags"
+        label="Expertise areas"
+        placeholder="Add expertise areas"
+      />
+      <p className={NOTE}>Shown in the directory only while the expertise listing (Privacy and directory) is on.</p>
+      <PreferenceChoice detail={detail} prefs={prefs} ctx={ctx} unit={PERSON_UNITS.callTime} fieldKey="best_call_time" label="Best call time" placeholder="Add a call time" options={CALL_TIME_CHOICES} />
+      {!callsOk && prefs.values.best_call_time !== "" ? (
+        <p className={NOTE}>They have not chosen phone calls in the app, so the app may clear this when they next save their profile.</p>
+      ) : null}
+      <Lines lines={[reachedByLine(prefs.channels)]} />
+      <p className={NOTE}>The member chooses how they are reached in the app, and their opt-ins with it. It is not changed here.</p>
+      {showGoal ? (
+        <PreferenceChoice detail={detail} prefs={prefs} ctx={ctx} unit={PERSON_UNITS.dailyGoal} fieldKey="gyan_daily_minutes" label="Daily goal" placeholder="Set a daily goal" options={DAILY_GOAL_CHOICES} />
+      ) : null}
     </div>
   );
 }

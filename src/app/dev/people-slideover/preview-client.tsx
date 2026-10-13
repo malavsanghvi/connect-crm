@@ -24,6 +24,13 @@ export type Step =
   | "name"
   | "dob"
   | "gender"
+  | "goes-by"
+  | "interests-edit"
+  | "interests-save"
+  | "interests-long"
+  | "areas-edit"
+  | "call-time"
+  | "daily-goal"
   | "switch"
   | "ids-add"
   | "ids-add-save"
@@ -38,6 +45,16 @@ export type Step =
   | "add-person-child"
   | "add-person-bad";
 
+/** What "someone else" changed it to, for the conflict scenario. */
+const THEIRS: Record<string, string> = {
+  phone_e164: "+17135550100",
+  preferred_name: "Sami",
+  interests: '["Hiking","Board games"]',
+  expertise_tags: '["Accounting"]',
+  best_call_time: "morning",
+  gyan_daily_minutes: "15",
+};
+
 function fakeActions(scenario: Scenario): Partial<FamilyActions> {
   const wait = () => new Promise((r) => setTimeout(r, 140));
   return {
@@ -50,13 +67,20 @@ function fakeActions(scenario: Scenario): Partial<FamilyActions> {
           kind: "conflict",
           error: conflictSentence(keys),
           conflict: {
-            theirs: Object.fromEntries(keys.map((k) => [k, k === "phone_e164" ? "+17135550100" : (input.expect[k] ?? "")])),
+            theirs: Object.fromEntries(keys.map((k) => [k, THEIRS[k] ?? (input.expect[k] ?? "")])),
             who: "Ravi",
             at: new Date(Date.now() - 70_000).toISOString(),
           },
         };
       }
-      if (scenario === "error") return { ok: false, kind: "other", error: `Could not save ${input.label} — the number needs an area code, like (713) 555-0142. Try again.` };
+      if (scenario === "error")
+        return {
+          ok: false,
+          kind: "other",
+          error: keys.includes("phone_e164")
+            ? `Could not save ${input.label} — the number needs an area code, like (713) 555-0142. Try again.`
+            : `Could not save ${input.label} — the server did not accept it. Nothing was changed. Try again.`,
+        };
       if (scenario === "access") return { ok: false, kind: "access", error: `You don't have access to this area. ${input.label[0].toUpperCase()}${input.label.slice(1)} was not changed.` };
       return { ok: true, message: "Saved", changed: true };
     },
@@ -124,6 +148,24 @@ function run(step: Step) {
     typeInto('input[aria-label="Birth date"]', "03/14/2014");
   }
   if (step === "gender") click(root, 'button[aria-label^="Edit gender"]');
+  if (step === "goes-by") {
+    click(root, 'button[aria-label^="Edit goes by"]');
+    typeInto('input[aria-label="Goes by"]', "Sami");
+  }
+  if (step === "interests-edit" || step === "interests-save") {
+    click(root, 'button[aria-label^="Edit interests"]');
+    typeInto('input[aria-label="Interests"]', "Chess, कविता, Origami, ", step === "interests-save" ? enter : undefined);
+  }
+  if (step === "interests-long") {
+    click(root, 'button[aria-label^="Edit interests"]');
+    typeInto('input[aria-label="Interests"]', `${"A very long interest that goes on and on and on forever and ever"}, `, enter);
+  }
+  if (step === "areas-edit") {
+    click(root, 'button[aria-label^="Edit expertise areas"]');
+    typeInto('input[aria-label="Expertise areas"]', "Law, Tax, ");
+  }
+  if (step === "call-time") click(root, 'button[aria-label^="Edit best call time"]');
+  if (step === "daily-goal") click(root, 'button[aria-label^="Edit daily goal"]');
   if (step === "switch") click(root, '[data-section="privacy"] button[role="switch"]');
   if (step === "ids-add" || step === "ids-add-save") {
     click(root, '[data-testid="ids-section"] > button');
