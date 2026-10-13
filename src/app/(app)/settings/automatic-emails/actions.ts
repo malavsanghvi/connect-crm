@@ -123,14 +123,15 @@ export async function saveScheduleAction(_prev: ActionResult | null, fd: FormDat
   if (!auth.ok) return auth;
   const { data, error } = await auth.session.db.rpc("save_email_schedule", {
     p_center: auth.session.center.id,
-    p_id: UUID.test(id) ? id : undefined,
+    // A new one has no id yet; the parameters without a value go as null (PostgREST matches every argument by name).
+    p_id: UUID.test(id) ? id : (null as unknown as string),
     p_name: String(fd.get("name") ?? ""),
     p_audience: audience,
     p_params: scheduleParams(fd) as Json,
     p_frequency: frequency,
-    p_day_of_week: intOf(fd, "day_of_week"),
-    p_day_of_month: intOf(fd, "day_of_month"),
-    p_month: intOf(fd, "month"),
+    p_day_of_week: intOf(fd, "day_of_week") ?? (null as unknown as number),
+    p_day_of_month: intOf(fd, "day_of_month") ?? (null as unknown as number),
+    p_month: intOf(fd, "month") ?? (null as unknown as number),
     p_hour: intOf(fd, "hour") ?? 9,
     p_language: String(fd.get("language") ?? ""),
     p_subject: String(fd.get("subject") ?? ""),
