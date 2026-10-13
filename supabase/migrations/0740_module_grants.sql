@@ -28,10 +28,16 @@
 --   app.my_modules                            NOT redefined: it calls module_enabled, so it follows; same columns for the
 --                                             installed member apps.
 --
--- GRANDFATHERED: before the functions change, every existing community gets a granted row for every non-core module that is
--- on today, or that the community switched itself (on or paused), so nothing anyone sees changes. A community created later
--- has no rows: the kind's default_on set counts as granted, which covers every way a community is made (a sandbox from a
--- request or from the console, a promotion, a demo community) without touching those functions.
+-- GRANDFATHERED (app._grandfather_module_grants): before the functions change, every existing community gets a granted row for
+-- every non-core module that is on today, or that the community switched itself (on or paused, under this kind or an earlier
+-- one, so changing the kind back still restores it). A community created later has no rows: the kind's default_on set counts as
+-- granted, which covers every way a community is made (a sandbox from a request or from the console, a promotion, a demo
+-- community) without touching those functions.
+--
+-- CHECKED: what is on for every community and module is recorded before the functions change (app._module_on_snapshot) and
+-- compared after (app._module_snapshot_diff). If anything would differ (for example a module whose own switch is on while a
+-- module it needs is off, which the evaluated dependencies would turn off), the migration stops with the list and nothing
+-- changes.
 --
 -- module_off_centers runs inside every restrictive module_switch policy as an InitPlan ((select ...)), so it stays ONE SQL set
 -- query: the module's chain of non-core dependencies (three rows at most) times the communities, joined on primary keys of the
@@ -51,18 +57,60 @@ create index if not exists center_module_grants_module_idx on app.center_module_
 comment on table app.center_module_grants is
   'Weaver''s decision about one module for one community (0740). No row: the kind''s availability decides (default_on = granted, default_off waits for a grant). Written only by app.set_module_grant.';
 
--- Grandfathering: with the 0594 functions still in place, so "on today" means what it meant.
-insert into app.center_module_grants (center_id, module_key, granted, reason, granted_by, granted_at)
-select c.id, m.key, true,
-       'Enabled when platform grants began (0740): it was on for this community, or the community had switched it itself.',
-       null, now()
-  from app.centers c
-  cross join app.modules m
- where not m.core
-   and app.module_availability(c.id, m.key) <> 'not_available'
-   and (app.module_enabled(c.id, m.key)
-        or exists (select 1 from app.center_modules x where x.center_id = c.id and x.module_key = m.key))
-on conflict (center_id, module_key) do nothing;
+-- ── Grandfathering, and the check that nothing changes ───────────────────────
+
+-- Every (community, non-core module) that is on, as 'community id:module key', by whichever module_enabled is in place when
+-- it is called (0594's before this migration replaces it, 0740's after).
+create or replace function app._module_on_snapshot() returns text[]
+language sql stable security definer set search_path = app, public, extensions as $$
+  select coalesce(array_agg(c.id::text || ':' || m.key order by c.id, m.key), '{}')
+    from app.centers c
+    cross join app.modules m
+   where not m.core and app.module_enabled(c.id, m.key)
+$$;
+
+-- What differs between a snapshot and now, in words ('<slug>: <module> was on and would be off'); empty when nothing does.
+create or replace function app._module_snapshot_diff(p_before text[]) returns text[]
+language sql stable security definer set search_path = app, public, extensions as $$
+  with prev as (select distinct unnest(coalesce(p_before, '{}'::text[])) as k),
+       cur as (select unnest(app._module_on_snapshot()) as k),
+       d as (select b.k, 'was on and would be off' as what from prev b where not exists (select 1 from cur n where n.k = b.k)
+             union all
+             select n.k, 'was off and would be on' from cur n where not exists (select 1 from prev b where b.k = n.k))
+  select coalesce(array_agg(coalesce(c.slug::text, split_part(d.k, ':', 1)) || ': ' || split_part(d.k, ':', 2) || ' ' || d.what
+                            order by c.slug, d.k), '{}')
+    from d
+    left join app.centers c on c.id::text = split_part(d.k, ':', 1)
+$$;
+
+-- The grants that keep everything as it was: every module in p_on ('community id:module key', from _module_on_snapshot taken
+-- with the old rules), and every module a community switched itself, under any kind. Existing rows are left alone. Returns the
+-- number of rows added.
+create or replace function app._grandfather_module_grants(p_on text[], p_reason text) returns integer
+language plpgsql security definer set search_path = app, public, extensions as $$
+declare n integer;
+begin
+  insert into app.center_module_grants (center_id, module_key, granted, reason, granted_by, granted_at)
+  select c.id, m.key, true, p_reason, null, now()
+    from app.centers c
+    cross join app.modules m
+   where not m.core
+     and ((c.id::text || ':' || m.key) = any (coalesce(p_on, '{}'::text[]))
+          or exists (select 1 from app.center_modules x where x.center_id = c.id and x.module_key = m.key))
+  on conflict (center_id, module_key) do nothing;
+  get diagnostics n = row_count;
+  return n;
+end $$;
+
+-- With the 0594 functions still in place, so "on today" means what it meant. The snapshot is kept for the check at the end of
+-- this file (a session setting: the file may run as one transaction or statement by statement).
+do $$
+declare v_on text[] := app._module_on_snapshot();
+begin
+  perform set_config('app.m0740_on_before', v_on::text, false);
+  perform app._grandfather_module_grants(v_on,
+    'Enabled when platform grants began (0740): it was on for this community, or the community had switched it itself.');
+end $$;
 
 -- Module map, audit (after the grandfathering, which this migration itself records), access.
 insert into app.module_tables (table_name, module_key) values ('center_module_grants', null)
@@ -245,10 +293,11 @@ begin
     raise exception 'Give a reason for switching the % module %. It goes in the audit log.', m.label,
       case when p_enabled then 'on' else 'off' end;
   end if;
-  if p_enabled and app.module_availability(p_center, p_module) = 'not_available' then
-    raise exception '% is not part of a % organization, so it cannot be switched on.',
+  if app.module_availability(p_center, p_module) = 'not_available' then
+    raise exception '% is not part of a % organization, so it %.',
       coalesce((select cm.label from app.category_modules cm where cm.category_key = app.center_category(p_center) and cm.module_key = p_module), m.label),
-      coalesce((select k.label from app.organization_categories k where k.key = app.center_category(p_center)), 'this')
+      coalesce((select k.label from app.organization_categories k where k.key = app.center_category(p_center)), 'this'),
+      case when p_enabled then 'cannot be switched on' else 'is off already' end
       using errcode = 'insufficient_privilege', hint = 'Community Connect can change an organization''s category.';
   end if;
   if not m.core and not app._module_granted(p_center, p_module) then
@@ -344,8 +393,10 @@ begin
       left join app.category_modules cm on cm.category_key = nxt.key and cm.module_key = mo.key
      order by mo.sort, mo.key
   loop
+    -- 0740: the module's own state now and after, both without its dependencies, so a module waiting for a paused one is
+    -- not listed as changing.
     v_before := case when m.before_avail = 'not_available' then 'never'
-                     when m.core or app.module_enabled(p_center, m.key) then 'on' else 'off' end;
+                     when m.core or app._module_self_on(p_center, m.key, m.before_avail) then 'on' else 'off' end;
     -- 0740: under the next kind, the module is on when it is granted (Weaver's row, else that kind's default_on), not paused
     -- and offered; its dependencies are not part of the preview, as before.
     v_granted := m.core or (m.after_avail <> 'not_available'
@@ -434,9 +485,23 @@ language sql immutable set search_path = app, public, extensions as $$
                'calendar_layers','volunteer_groups']
 $$;
 
+-- ── The check: nothing anyone sees has changed ──────────────────────────────
+do $$
+declare v_diff text[] := app._module_snapshot_diff(nullif(current_setting('app.m0740_on_before', true), '')::text[]);
+begin
+  perform set_config('app.m0740_on_before', '', false);
+  if cardinality(v_diff) > 0 then
+    raise exception 'Platform grants (0740) would change which modules are on: %. Nothing was changed; fix these communities'' switches first.',
+      array_to_string(v_diff, '; ');
+  end if;
+end $$;
+
 -- ── Grants ───────────────────────────────────────────────────────────────────
 revoke execute on function app._module_chain(text), app._module_granted(uuid, text), app._module_self_on(uuid, text, text),
-  app._module_label(uuid, text) from public, anon, authenticated;
+  app._module_label(uuid, text), app._module_on_snapshot(), app._module_snapshot_diff(text[]),
+  app._grandfather_module_grants(text[], text) from public, anon, authenticated;
+grant execute on function app._module_on_snapshot(), app._module_snapshot_diff(text[]), app._grandfather_module_grants(text[], text)
+  to service_role;
 revoke execute on function app.module_states(uuid), app.set_module_grant(uuid, text, boolean, text) from public, anon;
 grant execute on function app.module_states(uuid), app.set_module_grant(uuid, text, boolean, text) to authenticated, service_role;
 grant execute on function app._module_chain(text), app._module_granted(uuid, text), app._module_self_on(uuid, text, text),

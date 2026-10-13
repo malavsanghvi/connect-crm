@@ -207,10 +207,14 @@ describe("setModuleGrantAction", () => {
 describe("Niva for admins follows the niva module", () => {
   const on = { assistant: { enabled: true } };
   it("is on only when the community's switch is on and the module is on", () => {
-    expect(nivaForAdminsOn(on, { modulesOff: [] })).toBe(true);
-    expect(nivaForAdminsOn(on, {})).toBe(true);
-    expect(nivaForAdminsOn(on, { modulesOff: ["niva"] })).toBe(false);
-    expect(nivaForAdminsOn({ assistant: { enabled: false } }, { modulesOff: [] })).toBe(false);
+    expect(nivaForAdminsOn(on, { modulesOff: [], modulesStatus: "ok" })).toBe(true);
+    expect(nivaForAdminsOn(on, { modulesOff: ["niva"], modulesStatus: "ok" })).toBe(false);
+    expect(nivaForAdminsOn({ assistant: { enabled: false } }, { modulesOff: [], modulesStatus: "ok" })).toBe(false);
+  });
+  it("is off when the modules could not be read (no guessing)", () => {
+    expect(nivaForAdminsOn(on, { modulesOff: [], modulesStatus: "error" })).toBe(false);
+    expect(nivaForAdminsOn(on, { modulesOff: [], modulesStatus: "missing" })).toBe(false);
+    expect(nivaForAdminsOn(on, {})).toBe(false);
     expect(ASSISTANT_MODULE_OFF).toMatch(/Niva assistant module is not on/);
   });
 });

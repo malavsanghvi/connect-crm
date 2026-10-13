@@ -1,7 +1,9 @@
 -- 0740: platform grants for every non-core module (docs/GIVING_REDESIGN.md section 11.2, slice M1).
 --   A. The shape: the grants table (RLS on, nobody writes it directly, audited, core platform), the private helpers, the
 --      sandbox reset keeps the grants and promotion copies them, module_states has the new columns.
---   B. Grandfathering: no existing community lost a module it had switched on itself.
+--   B. Grandfathering: no existing community lost a module it had switched on itself; the grandfathering function grants what
+--      keeps a community as it was, and the check reports, in words, what it cannot keep (a module whose own switch is on while
+--      a module it needs is paused), which stops the migration.
 --   C. A chamber of commerce (not faith-based): a module its kind starts off waits for Weaver; its administrator cannot switch
 --      it on ("Weaver has not enabled ..."); only a platform admin grants, with a reason and a fresh 2FA check, audited;
 --      the community pauses and resumes what is granted; a revoke hides it whatever the community's switch says, and a new
@@ -62,6 +64,8 @@ end $$;
 \set h_chm '''15000000-0000-4000-8000-0000000000b1'''
 \set p_chm '''15000000-0000-4000-8000-0000000000a1'''
 \set boli '''15000000-0000-4000-8000-0000000000e1'''
+\set gf '''15000000-0000-4000-8000-0000000000c4'''
+\set gc '''15000000-0000-4000-8000-0000000000c5'''
 \set storecat '''15000000-0000-4000-8000-0000000000e2'''
 
 -- ══ A. The shape ═════════════════════════════════════════════════════════════
@@ -85,6 +89,9 @@ select pg_temp.assert(not has_function_privilege('authenticated', 'app._module_c
                       and not has_function_privilege('authenticated', 'app._module_granted(uuid, text)', 'execute')
                       and not has_function_privilege('authenticated', 'app._module_self_on(uuid, text, text)', 'execute')
                       and not has_function_privilege('authenticated', 'app._module_label(uuid, text)', 'execute')
+                      and not has_function_privilege('authenticated', 'app._module_on_snapshot()', 'execute')
+                      and not has_function_privilege('authenticated', 'app._module_snapshot_diff(text[])', 'execute')
+                      and not has_function_privilege('authenticated', 'app._grandfather_module_grants(text[], text)', 'execute')
                       and has_function_privilege('authenticated', 'app.set_module_grant(uuid, text, boolean, text)', 'execute')
                       and not has_function_privilege('anon', 'app.set_module_grant(uuid, text, boolean, text)', 'execute')
                       and not has_function_privilege('anon', 'app.module_states(uuid)', 'execute'),
@@ -93,7 +100,8 @@ select pg_temp.assert((select bool_and(p.prosecdef and array_to_string(p.proconf
                          from pg_proc p join pg_namespace n on n.oid = p.pronamespace
                         where n.nspname = 'app' and p.proname in ('set_module_grant', '_module_chain', '_module_granted', '_module_self_on',
                                                                   '_module_label', 'module_enabled', 'module_off_centers',
-                                                                  'assert_module_enabled', 'set_module_enabled', 'module_states')),
+                                                                  'assert_module_enabled', 'set_module_enabled', 'module_states',
+                                                                  '_module_on_snapshot', '_module_snapshot_diff', '_grandfather_module_grants')),
   'A · every function of 0740 runs as the definer with the pinned search path');
 select pg_temp.assert(app._module_chain('bolis') = array['giving', 'bolis'] and app._module_chain('people') = '{}'
                       and app._module_chain('niva') = array['content', 'niva'] and app._module_chain('nope') = '{}',
@@ -111,6 +119,53 @@ select pg_temp.assert(not exists (
   'B · no community lost a module it had switched on itself');
 select pg_temp.assert(not exists (select 1 from app.center_module_grants g join app.modules m on m.key = g.module_key where m.core),
   'B · no core module has a grant row (core is always on)');
+-- Two communities as 0740 could find them: a Jain Center that paused Giving while Bolis and Accounting kept their own switch
+-- (rows written directly: 0594's switch refused it, but a direct write or a later kind change could leave it), and a chamber
+-- that switched Store on (its kind starts it off) and had paused Niva under an earlier kind.
+insert into app.centers (id, slug, name, short_name, state_region, status, time_zone) values
+  (:gf, 'gf150', 'Grandfather Temple 150', 'GF150', 'TX', 'active', 'America/Chicago');
+insert into app.centers (id, slug, name, environment, category_key, status)
+values (:gc, 'gc150-sandbox', 'Grandfather Chamber 150', 'sandbox', 'chamber_of_commerce', 'onboarding');
+insert into app.center_modules (center_id, module_key, enabled, reason) values
+  (:gf, 'giving', false, 'Test 150: paused parent'),
+  (:gc, 'store', true, 'Test 150: switched on before 0740'),
+  (:gc, 'bolis', false, 'Test 150: switched under an earlier kind');
+-- What was on under 0594's rule (its module_enabled, put back for the snapshot only).
+savepoint as_in_0594;
+create or replace function app.module_enabled(p_center uuid, p_module text) returns boolean
+language sql stable security definer set search_path = app, public, extensions as $$
+  select case app.module_availability(p_center, p_module)
+           when 'not_available' then false
+           when 'default_off' then exists (select 1 from app.center_modules
+                                            where center_id = p_center and module_key = p_module and enabled)
+           else not exists (select 1 from app.center_modules
+                             where center_id = p_center and module_key = p_module and not enabled)
+         end
+$$;
+select app._module_on_snapshot() as on_before \gset
+rollback to savepoint as_in_0594;
+select pg_temp.assert((:gf || ':accounting') = any (:'on_before'::text[]) and (:gf || ':bolis') = any (:'on_before'::text[])
+                      and not ((:gf || ':giving') = any (:'on_before'::text[])) and (:gc || ':store') = any (:'on_before'::text[])
+                      and not ((:gc || ':niva') = any (:'on_before'::text[])),
+  'B · under 0594 the temple''s Bolis and Accounting were on with Giving paused, and the chamber''s Store was on');
+select pg_temp.assert(array(select x from unnest(app._module_snapshot_diff(:'on_before'::text[])) x where x like 'gf150:%' or x like 'gc150-sandbox:%')
+                        = array['gc150-sandbox: store was on and would be off', 'gf150: accounting was on and would be off', 'gf150: bolis was on and would be off'],
+  'B · without grants, the check names every module that would change, in words');
+select app._grandfather_module_grants(:'on_before'::text[], 'Test 150: grandfathered') as added \gset
+select pg_temp.assert((select granted and reason = 'Test 150: grandfathered' and granted_by is null from app.center_module_grants where center_id = :gc and module_key = 'store')
+                      and exists (select 1 from app.center_module_grants where center_id = :gc and module_key = 'bolis' and granted)
+                      and exists (select 1 from app.center_module_grants where center_id = :gf and module_key = 'giving' and granted)
+                      and exists (select 1 from app.center_module_grants where center_id = :gf and module_key = 'accounting' and granted)
+                      and not exists (select 1 from app.center_module_grants where center_id = :gc and module_key = 'niva')
+                      and :'added'::int >= 6,
+  'B · the grandfathering grants what was on and what each community switched itself (under any kind), and nothing else');
+select pg_temp.assert(app.module_enabled(:gc, 'store') and not app.module_enabled(:gc, 'niva') and not app.module_enabled(:gc, 'bolis'),
+  'B · so the chamber''s Store stays on, Niva stays off, and Bolis (not offered) stays off');
+select pg_temp.assert(array(select x from unnest(app._module_snapshot_diff(:'on_before'::text[])) x where x like 'gf150:%' or x like 'gc150-sandbox:%')
+                        = array['gf150: accounting was on and would be off', 'gf150: bolis was on and would be off'],
+  'B · what a grant cannot keep (a module waiting for a paused one) is still reported, so 0740 stops instead of switching it off');
+select pg_temp.assert(app._grandfather_module_grants(:'on_before'::text[], 'Again') = 0,
+  'B · running it again adds nothing');
 
 -- ══ Fixtures ═════════════════════════════════════════════════════════════════
 insert into auth.users (id, email) values
@@ -162,6 +217,8 @@ select pg_temp.assert_raises(format($$select app.assert_module_enabled(%L, 'stor
   'Weaver has not enabled Store for this community', 'C · the module''s functions refuse with the same sentence');
 select pg_temp.assert_raises(format($$select app.assert_module_enabled(%L, 'bolis')$$, :chm),
   'Bolis is not part of a Chamber of commerce organization', 'C · a module the kind does not offer keeps its 0594 sentence');
+select pg_temp.assert_raises(format($$select app.set_module_enabled(%L, 'bolis', false, 'Pause it')$$, :chm),
+  'Bolis is not part of a Chamber of commerce organization, so it is off already', 'C · pausing a module the kind does not offer says so first');
 select pg_temp.assert_raises(format($$select app.set_module_grant(%L, 'store', true, 'I would like a store')$$, :chm),
   'Only the Weaver team', 'C · a community''s administrator cannot grant');
 select pg_temp.assert_raises(format($$insert into app.center_module_grants (center_id, module_key, granted, reason) values (%L, 'store', true, 'x')$$, :chm),
@@ -287,11 +344,18 @@ select pg_temp.assert(app.module_enabled(:jc, 'bolis') and app.module_enabled(:j
   'D · and enabling it again brings them back');
 
 -- ══ E. The preview of a change of kind ═══════════════════════════════════════
+-- Giving paused by the temple: Accounting waits for it, now and under the next kind, so the preview must not list it as changing.
+select pg_temp.claims(:jadmin, true);
+select app.set_module_enabled(:jc, 'giving', false, 'Paused for the preview');
+select pg_temp.claims(:plat, true);
 select app.category_change_preview(:jc, 'chamber_of_commerce') as preview \gset
 select pg_temp.assert((select h->>'text' from jsonb_array_elements(:'preview'::jsonb->'hidden') h where h->>'module' = 'niva')
                         = 'Niva assistant: nothing is stored yet, so nothing is hidden; Weaver can enable it again.'
                       and (select h->>'becomes' from jsonb_array_elements(:'preview'::jsonb->'hidden') h where h->>'module' = 'store') = 'off',
   'E · as a chamber, the Jain Center''s Niva and Store would wait for Weaver (no grant: the chamber''s kind starts them off)');
+select pg_temp.assert(not exists (select 1 from jsonb_array_elements(:'preview'::jsonb->'available') h where h->>'module' in ('accounting', 'giving'))
+                      and not exists (select 1 from jsonb_array_elements(:'preview'::jsonb->'hidden') h where h->>'module' in ('accounting', 'giving')),
+  'E · with Giving paused, neither Giving nor Accounting (waiting for it) is listed as changing');
 select app.category_change_preview(:chm, 'nonprofit_secular') as preview2 \gset
 select pg_temp.assert(not exists (select 1 from jsonb_array_elements(:'preview2'::jsonb->'hidden') h where h->>'module' = 'store'),
   'E · the chamber''s granted Store stays on under another kind that starts it off (Weaver''s grant is kept)');

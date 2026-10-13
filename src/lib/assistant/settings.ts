@@ -20,16 +20,23 @@ export const NO_AI_KEY =
 export const ASSISTANT_MODULE_OFF =
   "Niva for admins is off for your community because the Niva assistant module is not on. Weaver enables it; an administrator can pause it in Settings › Modules.";
 
+/** What every route answers when the community's modules could not be read (app.my_modules failed): Niva stays off. */
+export const ASSISTANT_MODULES_UNKNOWN = "Niva for admins could not check which modules your community has. Reload the page and try again.";
+
 /** Is Niva for admins switched on for this community? (Defined with the other rules readers, src/lib/center-rules.ts.) */
 export { assistantEnabled };
 
 /**
  * Is Niva for admins on for this community: its own switch (rules.assistant.enabled) AND the `niva` module on for it (enabled by
  * Weaver, not paused; `modulesOff` from app.my_modules, as on every session). Read where it is used, so a later revoke or pause
- * turns it off at once without touching the rules.
+ * turns it off at once without touching the rules. Off unless the modules were read (`modulesStatus` "ok"): no guessing when
+ * app.my_modules failed or is missing.
  */
-export function nivaForAdminsOn(rules: Parameters<typeof assistantEnabled>[0], modules: { modulesOff?: readonly string[] }): boolean {
-  return assistantEnabled(rules) && !(modules.modulesOff ?? []).includes("niva");
+export function nivaForAdminsOn(
+  rules: Parameters<typeof assistantEnabled>[0],
+  modules: { modulesOff?: readonly string[]; modulesStatus?: string },
+): boolean {
+  return assistantEnabled(rules) && modules.modulesStatus === "ok" && !(modules.modulesOff ?? []).includes("niva");
 }
 
 /** The model Niva for admins uses unless ASSISTANT_MODEL says otherwise. */

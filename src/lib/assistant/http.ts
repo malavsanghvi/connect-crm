@@ -4,7 +4,7 @@ import { requires2faForStaff, securityRedirect } from "@/lib/security";
 import { loadSession, type CrmSession } from "@/lib/session";
 
 import type { ChatEvent } from "./protocol";
-import { ASSISTANT_MODULE_OFF, ASSISTANT_OFF, assistantEnabled, nivaForAdminsOn } from "./settings";
+import { ASSISTANT_MODULE_OFF, ASSISTANT_MODULES_UNKNOWN, ASSISTANT_OFF, assistantEnabled, nivaForAdminsOn } from "./settings";
 
 // What every route under /api/assistant does first: find the signed-in person (their own session, never a service account), make
 // sure they work for this community, and make sure Niva for admins is switched on for it. Every refusal is a JSON answer
@@ -63,7 +63,12 @@ export async function authorizeAssistant(req: Pick<Request, "headers">, gate: Ga
   // The community's switch AND the `niva` module (enabled by Weaver, not paused; 0740).
   const enabled = nivaForAdminsOn(session.center.rules, session);
   if (gate.needsEnabled && !enabled) {
-    return { ok: false, response: fail(403, assistantEnabled(session.center.rules) ? ASSISTANT_MODULE_OFF : ASSISTANT_OFF) };
+    if (!assistantEnabled(session.center.rules)) return { ok: false, response: fail(403, ASSISTANT_OFF) };
+    if (session.modulesStatus !== "ok") {
+      console.error(`[assistant] the community's modules could not be read (${session.modulesStatus}); Niva for admins stays off`);
+      return { ok: false, response: fail(503, ASSISTANT_MODULES_UNKNOWN) };
+    }
+    return { ok: false, response: fail(403, ASSISTANT_MODULE_OFF) };
   }
   return { ok: true, session, enabled };
 }

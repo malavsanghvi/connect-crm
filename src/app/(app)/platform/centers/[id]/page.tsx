@@ -61,11 +61,12 @@ export default async function PlatformCenterPage({ params }: { params: Promise<{
   const moduleRows = statesRes.error ? [] : buildModuleRowsFromStates(statesRes.data ?? []);
   const kindLabel = (kinds.status === "ok" ? kinds.experiences.find((k) => k.key === center.category_key)?.label : null) ?? null;
   // Niva for admins follows the `niva` module (0740): on only while it is enabled here and not paused by the community.
+  // Unknown (null) when the modules could not be read: the card says so instead of guessing.
   const nivaRow = moduleRows.find((r) => r.key === "niva");
-  const nivaModuleOn = nivaRow ? nivaRow.enabled : true;
+  const nivaModuleOn: boolean | null = statesRes.error || !nivaRow ? null : nivaRow.enabled;
   const sandbox = center.environment === "sandbox";
   const assistantSwitch = assistantEnabled(center.rules);
-  const assistantOn = assistantSwitch && nivaModuleOn;
+  const assistantOn = assistantSwitch && nivaModuleOn === true;
   const assistantTools = confirmToolChoices(center.rules);
   let aiKeySet = false;
   try {
@@ -139,8 +140,16 @@ export default async function PlatformCenterPage({ params }: { params: Promise<{
           description="Lets this community's staff ask Niva to look things up and prepare drafts · every change needs a reason and is audited"
         >
           <p className="mb-3 text-[13px]">
-            Now: <StatusText tone={assistantOn ? "ok" : "warn"}>{assistantOn ? "On" : "Off"}</StatusText>
-            {assistantSwitch && !nivaModuleOn ? (
+            Now:{" "}
+            {assistantSwitch && nivaModuleOn === null ? (
+              <>
+                <StatusText tone="warn">Unknown</StatusText>
+                <span className="text-muted"> (the modules could not be read, so whether the Niva assistant module is on is not known; reload to try again)</span>
+              </>
+            ) : (
+              <StatusText tone={assistantOn ? "ok" : "warn"}>{assistantOn ? "On" : "Off"}</StatusText>
+            )}
+            {assistantSwitch && nivaModuleOn === false ? (
               <span className="text-muted"> (switched on here, but the {nivaRow?.label ?? "Niva assistant"} module is not on for this community, so it stays off)</span>
             ) : null}{" "}
             · AI key:{" "}
