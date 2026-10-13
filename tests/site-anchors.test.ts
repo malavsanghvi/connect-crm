@@ -10,13 +10,13 @@ import { WEAVERS } from "@/components/site/weavers";
 // keep every such jump pointing at an id that exists (a section that is merged or renamed must take its links along).
 const source = readFileSync(join(process.cwd(), "src/app/site/page.tsx"), "utf8");
 
-/** The ids the home page defines: written out in the markup, plus the Weaver cards and the "Also included" items. */
+/** The ids the home page defines: written out in the markup, plus the Weaver cards and the mission-partner promises. */
 function homePageIds(): Set<string> {
   const ids = new Set<string>();
   for (const m of source.matchAll(/\bid="([a-z][a-z0-9-]*)"/g)) ids.add(m[1]);
   for (const w of WEAVERS) ids.add(w.id);
-  const alsoIncluded = source.slice(source.indexOf("const ALSO_INCLUDED"), source.indexOf("function Product()"));
-  for (const m of alsoIncluded.matchAll(/\bid: "([a-z][a-z0-9-]*)"/g)) ids.add(m[1]);
+  const partner = source.slice(source.indexOf("function Partner()"), source.indexOf("function GetStarted()"));
+  for (const m of partner.matchAll(/\bid: "([a-z][a-z0-9-]*)"/g)) ids.add(m[1]);
   return ids;
 }
 
@@ -24,7 +24,7 @@ describe("the home page's in-page links", () => {
   const ids = homePageIds();
 
   it("has an id for each of its sections", () => {
-    for (const id of ["weavers", "product", "raise", "get-ready", "free", "security", "faq"]) expect(ids.has(id)).toBe(true);
+    for (const id of ["pains", "ai", "product", "partner", "free", "own", "security", "get-ready", "faq"]) expect(ids.has(id)).toBe(true);
   });
 
   it("every menu link to /#something lands on an id that exists on the home page", () => {

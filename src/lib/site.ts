@@ -15,9 +15,9 @@ import { hostName } from "@/lib/tenancy";
 export { DEFAULT_SITE_DOMAIN, SITE_PAGES };
 
 export const SITE_NAME = "Weaver";
-export const SITE_TAGLINE = "AI Native Community Weaver Platform - Paid Forward Already";
+export const SITE_TAGLINE = "Do more good. Weaver handles the operations. For free. Forever.";
 export const SITE_DESCRIPTION =
-  "Faith Weaver, Community Weaver and Org Weaver bring your members, households, events, giving, classes and accounting into one trusted place. Built and runs on generosity: free for your organization, for everyone, forever.";
+  "Weaver takes members, giving, events, classes and the books off your volunteers' plates. AI does the busywork and people make the final decisions. Free for your organization, with no lock-in.";
 
 /**
  * The optional Chip In: the most one account is ever asked to add, in total across every transaction in

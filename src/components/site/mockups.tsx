@@ -332,3 +332,41 @@ export function TipCheckoutMock({ className = "" }: { className?: string }) {
     </div>
   );
 }
+
+/** A new treasurer's first day: the handover on record, then Niva answering "what's waiting on me?" for that role. */
+export function HandoverMock({ className = "" }: { className?: string }) {
+  const steps: [string, string][] = [
+    ["Ownership moved to Ravi Mehta", "Reason: new committee year · two-step check passed"],
+    ["Second administrator: Lena Okafor", "Two-step sign-in on · approves refunds"],
+  ];
+  return (
+    <WindowFrame title="A new treasurer's first day" className={className}>
+      <div className="flex flex-col gap-4 p-4 sm:p-5">
+        <ol className="flex flex-col gap-3">
+          {steps.map(([title, body]) => (
+            <li key={title} className="flex gap-3">
+              <span aria-hidden className="mt-1.5 h-3 w-3 flex-none rounded-full bg-navy ring-4 ring-navy-50" />
+              <div>
+                <p className="text-[14.5px] font-bold text-ink">{title}</p>
+                <p className="text-[12.5px] text-muted">{body}</p>
+              </div>
+            </li>
+          ))}
+        </ol>
+        <div className="flex flex-col gap-2">
+          <p className="text-[12px] font-semibold text-muted">Ravi asks Niva</p>
+          <p className="self-end rounded-2xl rounded-br-md bg-navy px-3.5 py-2 text-[14px] text-white">What&apos;s waiting on me?</p>
+          <div className="max-w-[92%] rounded-2xl rounded-bl-md border border-saffron-200 bg-saffron-50 px-3.5 py-2.5 text-[13.5px] text-ink-2">
+            <p className="text-[11px] font-bold uppercase tracking-wide text-brown">Niva</p>
+            <p className="mt-0.5">Three things for the treasurer role:</p>
+            <ul className="mt-1 list-disc pl-4">
+              <li>2 Zelle payments to confirm</li>
+              <li>1 refund waiting for a second approver</li>
+              <li>September close: 1 unmatched deposit</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </WindowFrame>
+  );
+}
