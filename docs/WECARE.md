@@ -30,7 +30,7 @@ from the organization's kind, its own settings and its own records, never from c
 | W3 | WeCare is a **subscription product in the Marketplace** that an organization chooses to take. |
 | W4 | Volunteers see what their role allows (W2); there is no separate "volunteers never see amounts" rule. |
 | W5 | `giving_insights` keeps the numbers (B98 slices 1 and 2); people and relationships move to WeCare (section 4). |
-| W6 | A narrower `wecare.own` level (only my own households) alongside `wecare.view`. |
+| W6 | A narrower `care.own` level (only my own households) alongside `care.view`. |
 | W7 | The thank-you tracker is part of WeCare; organizations without WeCare keep receipts as today. |
 | W8 | Weaver support may open WeCare settings with a support grant, never care records. |
 
@@ -42,14 +42,14 @@ would let Weaver staff read every organization's care records. WeCare therefore 
 
 | Rule | How |
 |---|---|
-| Own access check | `app.wecare_can(center, level)`: the center owner, or an active role grant in that center whose role holds the WeCare key (or `*`, the organization's own admin roles). **No `is_platform_admin()` branch.** Every WeCare table's RLS and every WeCare function uses it. |
-| Permission keys | `wecare.view` (all care records), `wecare.own` (only households where I am the relationship owner), `wecare.manage` (owners, playbooks, gesture library, care plan, settings). Given to roles by the organization, never by default. |
+| Own access check | `app.care_can(center, level)`: the center owner, or an active role grant in that center whose role holds the WeCare key (or `*`, the organization's own admin roles). **No `is_platform_admin()` branch.** Every WeCare table's RLS and every WeCare function uses it. |
+| Permission keys | `care.view` (all care records), `care.own` (only households where I am the relationship owner), `care.manage` (owners, playbooks, gesture library, care plan, settings). Given to roles by the organization, never by default. |
 | Amounts | A gift amount, range or total appears in WeCare only if the person **also** holds `giving.view` (or `giving.manage`). Without it the screen says "thank them warmly", never a number. Enforced in the functions that return the rows, not only in the UI. |
 | Platform admins | No read of care records, even with a support grant (`app.support_grants`). A support grant may open WeCare **settings** (to fix setup), never touches, notes, scores or lists. |
 | Platform screens | `platform_community_summary` and every cross-community count leave WeCare out (at most "WeCare: on"). |
 | Activity stream (0620) | WeCare actions record an action key only, no entity id, and are never in the share-with-Weaver set. |
-| AI | Off until the organization turns it on, using that organization's own AI key; drafts only, a person sends; nothing about anyone under 18; nothing kept by Weaver for training or across organizations (section 8). |
-| Export | Only `wecare.manage`, step-up 2FA, audited. The organization can export everything it holds at any time, including after it cancels. |
+| AI | Needs **iWeaver** (module `ai`, [`MARKETPLACE_PACKS.md`](MARKETPLACE_PACKS.md)) as well as WeCare, and the organization's own tick; it runs on Weaver's platform AI keys (no community has its own key today); drafts only, a person sends; nothing about anyone under 18; nothing kept by Weaver for training or across organizations (section 8). |
+| Export | Only `care.manage`, step-up 2FA, audited. The organization can export everything it holds at any time, including after it cancels. |
 | Audit | Every list view, export, owner change and settings change writes an audit row (who, when, what, row count; no names). |
 | Members | A member sees only their own care preferences (section 5, slice 9): never notes, signs, owners or lists. |
 | Children | No one under 18 in a list, a sign, a reason, an export or a prompt (D2; `GIVING_INSIGHTS.md` section 5.1 rules carry over). |
@@ -60,7 +60,7 @@ later option; it costs search and AI drafting, so it is not in v1.
 
 ## 4. Product and module
 
-- **Module key `wecare`**, depends on **People** only. It reads Giving when Giving is on (amount signs, thank-you
+- **Module key `care`** (a neutral key; the label is WeCare, [`MARKETPLACE_PACKS.md`](MARKETPLACE_PACKS.md) P6), depends on **People** only. It reads Giving when Giving is on (amount signs, thank-you
   tracker, who to approach); without Giving it still runs member care (welcome visits, care moments, involvement).
 - **Off until granted.** `category_modules.availability = default_off` for every kind; a platform admin grants it per
   community through the module grants of 0740 (reason, fresh 2FA, audit); the organization's admin may pause it.
@@ -83,7 +83,7 @@ later option; it costs search and AI drafting, so it is not in v1.
    language, do-not-ask with a rest-until date, care notes. Reuses People fields rather than copying them (interests,
    expertise areas, best call time, anniversary, dietary needs, special days, consents). WeCare-only fields live in
    WeCare tables so W2 applies to them; the People fields keep their own visibility.
-2. **Relationship owner**: one person per household (staff or volunteer with `wecare.own` or more), with a backup.
+2. **Relationship owner**: one person per household (staff or volunteer with `care.own` or more), with a backup.
    When an owner leaves or loses the role, their households show as "needs an owner" and the history hands over
    intact: this is what fixes "the relationship leaves with the person".
 3. **Touch log**: every touch with kind, channel, who, when, outcome and an optional note. Manual touches take one tap
@@ -145,22 +145,23 @@ never an ask.
 WeCare is a first job for the per-organization agent (the owner's direction of 2026-10-11, see
 [`ONBOARDING_INTERVIEW.md`](ONBOARDING_INTERVIEW.md)): it learns
 the mission at onboarding and the people through WeCare. Commands only, with the asking person's own rights (W2
-applies to Niva exactly as to a screen): `wecare.my_week`, `wecare.household_brief` (what to know before you call),
-`wecare.draft_note` (a personal note from the mission, the household's history and their preferences),
-`wecare.log_touch` (a dictated note becomes a touch the person confirms), `wecare.draft_care_plan`. Off until the
+applies to Niva exactly as to a screen): `care.my_week`, `care.household_brief` (what to know before you call),
+`care.draft_note` (a personal note from the mission, the household's history and their preferences),
+`care.log_touch` (a dictated note becomes a touch the person confirms), `care.draft_care_plan`. Needs iWeaver
+(module `ai`) as well as WeCare. Off until the
 organization ticks it; at most 10 households per answer; never sends anything; never the reason a household is
 excluded; nothing about anyone under 18 goes to the AI provider.
 
 ## 9. Build order
 
 Each slice ships on its own. S is under about 500 lines with tests, M up to about 1,500, L more. Pure logic first
-(`src/lib/wecare/`, plain functions with fixtures for a church, a chamber, a temple and a food bank), screens after.
+(`src/lib/care/`, plain functions with fixtures for a church, a chamber, a temple and a food bank), screens after.
 Migration and test numbers are reserved when a slice is approved, not here. Rollout: a sandbox community first, then
 any community that takes WeCare.
 
 | Slice | What | Size | Owner OK |
 |---|---|---|---|
-| 1 | Module `wecare` (default off, grant-only, Marketplace "Request" card), labels per kind, permission keys, `app.wecare_can` without the platform-admin branch, Setup step | M | **Yes: permissions/RLS** |
+| 1 | Module `care` (default off, grant-only, Marketplace "Request" card), labels per kind, permission keys, `app.care_can` without the platform-admin branch, Setup step | M | **Yes: permissions/RLS** |
 | 2 | Care profile, relationship owners, touch log, care notes; a Care card on the Family page | L | **Yes: RLS, sensitive data** |
 | 3 | Thank-you tracker and Today; thank-you speed | M | No new rule (reads payments inside slice 1 access) |
 | 4 | Engagement signs: household health with reasons; organization dashboard | M | No |
@@ -184,8 +185,8 @@ weekly tasks done. These are targets to measure, not promises to make to anyone.
 
 1. **The `giving_insights` split** (section 4): numbers stay in the Giving add-on, people and relationships move to
    WeCare. **Approved**; it leaves the Insights slice in progress (S10b) unchanged.
-2. **`wecare.own`**: a narrower level so an organization can give a volunteer only their own households.
-   **Approved**, alongside `wecare.view`.
+2. **`care.own`**: a narrower level so an organization can give a volunteer only their own households.
+   **Approved**, alongside `care.view`.
 3. **Thank-you tracker inside WeCare** (paid), while organizations without WeCare keep receipts as today.
    **Approved.**
 4. **Weaver support** may open WeCare settings with a support grant, never care records. **Approved.**
