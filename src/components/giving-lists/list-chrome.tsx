@@ -5,6 +5,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 
+import { RecordPaymentButton } from "@/components/giving-actions/provider";
 import { GivingTabRow } from "@/components/giving-today/giving-tabs";
 import { Alert, NoAccess, buttonClass } from "@/components/ui";
 import type { GivingTabKey } from "@/lib/giving-today/tabs";
@@ -19,10 +20,11 @@ export function ListHeader({ model, active, description }: { model: ListsCommon;
           <h1 className="m-0 font-display text-[30px] font-semibold leading-[1.15] text-ink">{model.title}</h1>
           <p className="m-0 text-[14px] text-muted">{description}</p>
         </div>
+        {/* The sheet in place where the New-look shell mounts it; `recordHref` (?record=1) without it. */}
         {model.recordHref ? (
-          <Link href={model.recordHref} className={`${buttonClass("primary", "sm")} min-h-[44px]`}>
+          <RecordPaymentButton href={model.recordHref} className={`${buttonClass("primary", "sm")} min-h-[44px]`}>
             Record payment
-          </Link>
+          </RecordPaymentButton>
         ) : null}
       </div>
       <GivingTabRow tabs={model.tabs} active={active} />

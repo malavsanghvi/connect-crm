@@ -107,7 +107,7 @@ describe("a pledge row acts as Today does", () => {
     expect(r.title).toBe("Pledge PL-0455 · $800.00 open of $1,200.00");
     expect(r.family).toEqual(F.adeyemi);
     expect(r.status).toEqual({ label: "12 days behind", tone: "warn" });
-    expect(r.menu).toContainEqual({ kind: "link", href: recordPaymentHref(F.adeyemi.id), label: "Record payment" });
+    expect(r.menu).toContainEqual({ kind: "record_payment", householdId: F.adeyemi.id, href: recordPaymentHref(F.adeyemi.id), label: "Record payment" });
     expect(r.menu).toContainEqual(expect.objectContaining({ kind: "request_write_off", openCents: 80_000, reference: "PL-0455" }));
     expect(r.menu.at(-1)).toEqual({ kind: "link", href: `/households/${F.adeyemi.id}?tab=pledges`, label: "Open family" });
   });
@@ -136,7 +136,7 @@ describe("a pledge row acts as Today does", () => {
 
   it("a finance volunteer can record a payment but never asks for a write-off", () => {
     const r = pledgeRow(byNumber("PL-0455"), F.adeyemi, ctx({ me: LISTS_USERS.ama, can: { manage: false, approve: false, allocate: false } }));
-    expect(kinds(r, "menu")).toEqual(["link", "link"]);
+    expect(kinds(r, "menu")).toEqual(["record_payment", "link"]);
   });
 
   it("a closed pledge only opens the family; a written-off one says why and what QuickBooks did", () => {
@@ -177,7 +177,7 @@ describe("the Pledges model (dev preview data, the same pure core)", () => {
     expect(byAmount.body.state === "ok" && byAmount.body.rows.map((r) => r.reference)).toEqual(["PL-0480"]);
   });
 
-  it("Record payment goes to today's form until slice 2's sheet is wired in; a volunteer gets it too", () => {
+  it("Record payment falls back to today's form where the sheet cannot open; a volunteer gets it too", () => {
     expect(samplePledgesModel("treasurer").recordHref).toBe("/giving/payments?record=1");
     expect(samplePledgesModel("volunteer").recordHref).toBe("/giving/payments?record=1");
     expect(samplePledgesModel("approver").recordHref).toBeNull();

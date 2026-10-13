@@ -212,7 +212,7 @@ export function sampleTodayModel(role: TodayRole = "treasurer", opts: { kind?: K
     tabs: givingTabs(ctx),
     tabCounts: { bank: tile("bank"), pledges: tile("pledges"), counts: tile("counts"), books: tile("books") },
     queue,
-    can: { ...can, record: canAccess(ctx, "recordPayment") },
+    can: { ...can, record: canAccess(ctx, "recordPayment"), find: canAccess(ctx, "households") || seesPayments || canAccess(ctx, "recordPayment") },
     countsWord,
     roleNote:
       role === "approver"

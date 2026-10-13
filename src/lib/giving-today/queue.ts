@@ -170,6 +170,8 @@ export type Act =
   | { kind: "apply"; paymentId: string; householdId: string; label: string; what: string }
   | { kind: "close"; month: string; items: CloseItemView[]; canMark: boolean }
   | { kind: "link"; href: string; label: string; primary?: boolean }
+  /** Record payment for this family: the sheet in place (slice 2), `href` (the Record payment screen) where no sheet can open. */
+  | { kind: "record_payment"; householdId: string; href: string; label: string }
   // Pledges and Payments (slice 3): the same sheets, one pledge or one payment at a time.
   | { kind: "request_write_off"; id: string; openCents: number; reference: string; label: string }
   | { kind: "withdraw_write_off"; id: string; reference: string; label: string }

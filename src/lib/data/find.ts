@@ -6,11 +6,13 @@ import { communityMajority } from "@/lib/commands/child-filter";
 import type { HouseholdCard } from "@/lib/commands/types";
 import { communityFormat, type CommunityFormat } from "@/lib/community-format";
 import { chunk } from "@/lib/data/fetch-all";
+import { findGiving, type GivingFindResult } from "@/lib/data/find-giving";
 import { todayInTz } from "@/lib/dates";
 import { explainError } from "@/lib/errors";
 import { householdIdsNeeded, toFindRows } from "@/lib/find/assemble";
 import { isChildRecord } from "@/lib/find/child";
 import { classifyInput, readsAsFilter } from "@/lib/find/classify";
+import { readGivingIntent, type FindScope } from "@/lib/find/giving";
 import { customValueFilter, hitKindVisible, nameColumnFilter, personNameFilter, typedWords } from "@/lib/find/pattern";
 import { filterFor, rankCandidates } from "@/lib/find/search";
 import type { Classified, CustomHit, FamilyCandidate, FindFilter, FindResponse, IdentifierHit, PersonCandidate } from "@/lib/find/types";
@@ -119,8 +121,41 @@ async function filterWithCount(session: CrmSession, typed: string, vocab: AskVoc
   }
 }
 
-/** Look up what was typed. Never throws: a part that fails is reported in `problem` and the rest is still shown. */
-export async function findRecords(session: CrmSession, raw: string): Promise<FindResponse> {
+export type FindOptions = {
+  /** Where the box is: "giving" on Giving pages (the Giving lane looks wider there, and a family opens its giving). */
+  scope?: FindScope;
+  /** The person may look up families and people (People). */
+  people?: boolean;
+  /** The person may use the Giving lane (src/lib/data/find-giving.ts, canFindGiving). */
+  giving?: boolean;
+};
+
+/**
+ * Look up what was typed: families and people (People), and the Giving lane (payments, pledges, bank lines, campaigns, and a payment
+ * to record) when the text asks something of Giving. A sentence about money ("200 check patel") is the Giving lane's alone: no family
+ * or person is looked up by those words, the lane looks the family up itself. Never throws: a part that fails is reported in `problem`
+ * and the rest is still shown.
+ */
+export async function findRecords(session: CrmSession, raw: string, opts: FindOptions = {}): Promise<FindResponse> {
+  const scope = opts.scope ?? "people";
+  const people = opts.people ?? true;
+  const typed = raw.replace(/\s+/g, " ").trim().slice(0, 120);
+  if (typed.length < GLOBAL_SEARCH_MIN_CHARS) return empty(classifyInput(typed));
+  const intent = opts.giving ? readGivingIntent(typed, { today: todayInTz(session.center.time_zone), fmt: communityFormat(session.center), scope }) : null;
+  const giving: Promise<GivingFindResult | null> = intent
+    ? findGiving(session, intent, { scope, people }).catch((error: unknown) => {
+        console.error("[find] the Giving lookup failed:", error);
+        return null;
+      })
+    : Promise.resolve(null);
+  const peopleToo = people && (!intent || intent.kind === "lookup");
+  const [found, lane] = await Promise.all([peopleToo ? findPeople(session, typed) : Promise.resolve(empty(classifyInput(typed))), giving]);
+  if (!intent) return found;
+  if (!lane) return { ...found, giving: null, problem: found.problem ?? `Could not look up Giving just now — the server did not answer. Try again.` };
+  return { ...found, rows: [...found.rows, ...lane.families], giving: lane.lane, problem: found.problem ?? lane.problem };
+}
+
+async function findPeople(session: CrmSession, raw: string): Promise<FindResponse> {
   const typed = raw.replace(/\s+/g, " ").trim().slice(0, 120);
   if (typed.length < GLOBAL_SEARCH_MIN_CHARS) return empty(classifyInput(typed));
 

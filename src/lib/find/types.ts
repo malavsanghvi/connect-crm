@@ -2,6 +2,11 @@
 // box shows. Pure types, no imports from the server, so the top-bar box, the People home, the dev preview and the tests all use
 // them. Nothing here names one organization, tradition or language.
 
+import type { FamilyFocus } from "@/lib/giving-actions/family-giving";
+import type { RecordPaymentRequest } from "@/lib/giving-actions/record-sheet";
+
+import type { GivingLane, GivingRow } from "./giving";
+
 /** What a typed text is read as. Decided by rules on the page, never by a model. */
 export type InputKind = "identifier" | "name" | "phone" | "email" | "question" | "filter";
 
@@ -121,6 +126,8 @@ export type FindResponse = {
   filter: FindFilter | null;
   /** A part of the lookup failed: plain words, shown with the rows that did load. */
   problem: string | null;
+  /** The Giving lane (src/lib/find/giving.ts): absent when the text asks nothing of Giving or the person cannot see Giving. */
+  giving?: GivingLane | null;
 };
 
 export type FindResult = { ok: true; data: FindResponse } | { ok: false; error: string };
@@ -135,10 +142,15 @@ export type UiRow =
   | { type: "niva"; key: string; text: string }
   | { type: "filter"; key: string; filter: FindFilter }
   | { type: "palette"; key: string; text: string }
-  | { type: "message"; key: string; text: string; tone: "plain" | "problem" };
+  | { type: "message"; key: string; text: string; tone: "plain" | "problem" }
+  | { type: "giving"; key: string; row: GivingRow };
 
 export type EnterAction =
   | { type: "open"; href: string; familyId: string | null }
+  /** Open the Record payment sheet filled in (it never saves by itself); `href` is where to go when no sheet can open there. */
+  | { type: "record-payment"; request: RecordPaymentRequest; href: string }
+  /** Open the family's giving in place (on Giving pages); `href` is where to go when it cannot open there. */
+  | { type: "family-giving"; householdId: string; focus: FamilyFocus | null; href: string }
   | { type: "niva"; text: string }
   | { type: "palette"; text: string }
   | { type: "none" };

@@ -13,6 +13,7 @@ import type { CloseBlockersData } from "@/lib/commands/catalog/month-close-block
 import { runScreenCommand } from "@/lib/commands/screen";
 import { communityFormat } from "@/lib/community-format";
 import { readPaypalEmailOnly } from "@/lib/data/giving-lists";
+import { canFindGiving } from "@/lib/giving-actions/context";
 import { loadPledgeTotals } from "@/lib/data/giving-workspace";
 import { loadHomeTasks } from "@/lib/data/home-tasks";
 import { householdCards, userNames } from "@/lib/data/lookups";
@@ -79,7 +80,8 @@ export type GivingTodayModel = {
   tabs: GivingTab[];
   tabCounts: Partial<Record<GivingTabKey, number>>;
   queue: TodayQueue;
-  can: TodayCan & { record: boolean };
+  /** `find`: the large box on Today can look things up for this person (People, or the Giving lane). */
+  can: TodayCan & { record: boolean; find: boolean };
   /** The kind's word for the counts tile and tab. */
   countsWord: string;
   /** A note for a limited role (a finance volunteer, a second approver only), or null. */
@@ -466,7 +468,7 @@ export async function loadGivingToday(session: CrmSession, opts: { show?: string
     tabs: givingTabs(session),
     tabCounts: { bank: tile("bank"), pledges: tile("pledges"), counts: tile("counts"), books: tile("books") },
     queue,
-    can: { ...can, record: canAccess(session, "recordPayment") },
+    can: { ...can, record: canAccess(session, "recordPayment"), find: canAccess(session, "households") || canFindGiving(session) },
     countsWord,
     roleNote: roleNote(session, can),
     month: { label: longMonth(monthStart), recorded, open, matched },

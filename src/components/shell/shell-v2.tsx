@@ -6,6 +6,7 @@ import { ActivityBeacon } from "@/components/shell/activity-beacon";
 import { CenterSwitcher, SandboxWatermark } from "@/components/shell/center-switcher";
 import { FamilyVisitTracker } from "@/components/people-v2/find/family-visit-tracker";
 import { FindBox } from "@/components/people-v2/find/find-box";
+import { GivingSheetsProvider } from "@/components/giving-actions/provider";
 import { NivaSunButton } from "@/components/shell/niva-sun-button";
 import { PhoneBar } from "@/components/shell/phone-bar";
 import { TenantMark } from "@/components/shell/tenant-mark";
@@ -15,6 +16,7 @@ import { NivaBoundary } from "@/components/niva/niva-boundary";
 import { NivaDock } from "@/components/niva/niva-dock";
 import { activityRecordingOn } from "@/lib/activity/enabled";
 import { recentCookieName } from "@/lib/find/recents";
+import { canFindGiving, givingSheetContext } from "@/lib/giving-actions/context";
 import { PRODUCT_NAME } from "@/lib/brand";
 import type { CrmSession } from "@/lib/session";
 import type { TenantBranding } from "@/lib/shell";
@@ -59,8 +61,13 @@ export function ShellV2({
   const userInitials = initials(name, 1);
   // The find box remembers the families this person opens (in this browser) for the People home.
   const recentCookie = recentCookieName(session.userId, center.id);
+  // Giving's sheets open in place on every page of this look (Record payment, a family's giving); null when the person has no Giving.
+  const givingSheets = givingSheetContext(session);
+  // The box also serves people who only work with Giving (a finance volunteer): it then finds Giving's things only.
+  const showFind = canSearch || canFindGiving(session);
 
   return (
+    <GivingSheetsProvider ctx={givingSheets}>
     <div data-look="v2" className="v2-shell flex min-h-screen flex-col">
       <a href="#v2-main" className="v2-skip">
         Skip to the page
@@ -91,7 +98,7 @@ export function ShellV2({
             {center.name}
           </span>
         )}
-        <div className="hidden min-w-0 flex-1 justify-center md:flex">{canSearch ? <FindBox variant="bar" cookieName={recentCookie} /> : null}</div>
+        <div className="hidden min-w-0 flex-1 justify-center md:flex">{showFind ? <FindBox variant="bar" cookieName={recentCookie} /> : null}</div>
         {canSearch ? <FamilyVisitTracker cookieName={recentCookie} /> : null}
         <div className="flex-1 md:hidden" />
         {/* Niva has one way in on this look: the rail item (the bottom bar on a phone) and Ctrl+J. */}
@@ -136,5 +143,6 @@ export function ShellV2({
         </NivaBoundary>
       </PhoneBar>
     </div>
+    </GivingSheetsProvider>
   );
 }

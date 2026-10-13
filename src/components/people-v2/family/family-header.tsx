@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 
+import { RecordPaymentButton } from "@/components/giving-actions/provider";
 import { adultsLine, type FamilyModel, type HeaderChip } from "@/lib/people-v2/family-model";
 
 import { PinStar, type PinInfo } from "../saved/pin-star";
@@ -121,13 +122,14 @@ function AddPersonButton({ href }: { href: string }) {
   );
 }
 
-function ActionButtons({ links, direction }: { links: FamilyLinks; direction: "down" | "up" }) {
+function ActionButtons({ links, direction, householdId }: { links: FamilyLinks; direction: "down" | "up"; householdId: string }) {
   return (
     <>
+      {/* Opens Giving's Record payment sheet in place (New look); the link to the Record payment screen elsewhere. */}
       {links.payment ? (
-        <Link href={links.payment} className={`${PRIMARY} flex-1 md:flex-none`}>
+        <RecordPaymentButton householdId={householdId} href={links.payment} className={`${PRIMARY} flex-1 md:flex-none`}>
           Record payment
-        </Link>
+        </RecordPaymentButton>
       ) : null}
       {links.addPerson ? <AddPersonButton href={links.addPerson} /> : null}
       <MoreMenu items={links.more} direction={direction} />
@@ -191,7 +193,7 @@ export function FamilyHeader({
         </div>
         <div className="hidden items-center gap-2 md:flex">
           {links.pin ? <PinStar pin={links.pin} familyName={model.name} /> : null}
-          <ActionButtons links={links} direction="down" />
+          <ActionButtons links={links} direction="down" householdId={model.id} />
         </div>
       </div>
 
@@ -216,7 +218,7 @@ export function FamilyHeader({
         data-testid="sticky-actions"
         className="fixed inset-x-0 bottom-[calc(67px+env(safe-area-inset-bottom))] z-20 flex items-center gap-2 border-t border-line bg-white/95 px-3 py-2 backdrop-blur md:hidden"
       >
-        <ActionButtons links={links} direction="up" />
+        <ActionButtons links={links} direction="up" householdId={model.id} />
       </div>
     </header>
   );

@@ -35,6 +35,7 @@ import { formatDate } from "@/lib/dates";
 import { familyFrom, familyLine, familyRef, type Act, type BehindView, type CloseItemView, type Family, type QueueRow, type SuggestionView, type ZellePairView } from "@/lib/giving-today/queue";
 import { formatCents, parseAmountToCents } from "@/lib/money";
 
+import { RecordPaymentButton } from "./provider";
 import { FamilyCard, GivingSheet, NO_UNDO } from "./sheet";
 
 export type ActContext = {
@@ -1181,6 +1182,18 @@ export function ActButtons({ acts, row, ctx }: { acts: readonly Act[]; row: RowL
               >
                 {a.label}
               </Link>
+            );
+          case "record_payment":
+            // The Record payment sheet in place, with the family's card read first; the screen's address where no sheet can open.
+            return (
+              <RecordPaymentButton
+                key={i}
+                householdId={a.householdId}
+                href={a.href}
+                className={ctx.trigger === "menu" ? `${MENU_ITEM} text-ink no-underline` : `${buttonClass("ghost", "sm")} ${SMALL}`}
+              >
+                {a.label}
+              </RecordPaymentButton>
             );
           default:
             return null;
