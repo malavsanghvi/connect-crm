@@ -7,7 +7,11 @@
 --     * every function below keeps its "giving" check word for word and gains the same check for "giving_bank" right
 --       after it, so the sentence names the module that is actually off ("The Bank reconciliation module is switched off
 --       for this community.", or 0740's "... is off because Pledges & donations is off ...");
---     * the two summary reads (SQL, security invoker) check it in the WHERE of their single row;
+--     * the two summary reads (SQL, security invoker) check it in the WHERE of their single row, so they refuse with the
+--       sentence; giving_deposit_context (also invoker) checks it on the bank line, which row-level security has already
+--       hidden from a caller while Bank reconciliation is off, so that caller gets null (nothing found), not the sentence;
+--     * pathshala_hold_live (latest 0591): a member's Zelle report keeps a Pathshala place on hold only while Bank
+--       reconciliation is on; paused, nothing would ever match the report and the office hold would never end;
 --     * some answers instead of refusing, so nothing that is not part of Bank reconciliation breaks:
 --         my_payment_reports           an empty list (an installed member app asks on its Pledges screen)
 --         worker_payment_reports_sweep skips the community's reports
@@ -1103,4 +1107,33 @@ begin
   end if;
   return jsonb_build_object('environment', c.environment, 'currency', lower(coalesce(c.currency, 'usd')),
                             'online_unavailable', v_unavailable, 'methods', v_methods);
+end $$;
+
+-- ── app.pathshala_hold_live (latest body: 0591) ─────────────────────────────────────────────
+create or replace function app.pathshala_hold_live(p_enrollment uuid) returns boolean
+language plpgsql stable security definer set search_path = app, public, extensions as $$
+declare e app.pathshala_enrollments; v_pledges uuid[]; v_hold text;
+begin
+  select * into e from app.pathshala_enrollments where id = p_enrollment;
+  if e.id is null or e.status <> 'requested' then return false; end if;
+  v_hold := app._pathshala_hold(e.id);
+  if v_hold = 'assistance' then return true; end if;
+  if coalesce(v_hold, '') not in ('payment', 'office_payment') then return false; end if;
+  if e.hold_expires_at is null or e.hold_expires_at > now() then return true; end if;
+  select coalesce(array_agg(f.pledge_id) filter (where f.pledge_id is not null), '{}') into v_pledges
+    from app.pathshala_enrollments o join app.pathshala_enrollment_fees f on f.enrollment_id = o.id
+   where (o.id = e.id or (e.registration_id is not null and o.registration_id = e.registration_id))
+     and o.status = 'requested' and f.hold_reason in ('payment', 'office_payment');
+  if cardinality(v_pledges) = 0 then return false; end if;
+  if exists (select 1 from app.payment_checkouts k where k.center_id = e.center_id and k.context = 'pathshala'
+               and k.status in ('created', 'pending') and k.created_at > now() - interval '24 hours' and k.pledge_ids && v_pledges) then
+    return true;
+  end if;
+  -- 0742: a member's Zelle report keeps the place only while Bank reconciliation is on (paused, nothing would ever match it).
+  if v_hold = 'office_payment' and app.module_enabled(e.center_id, 'giving_bank')
+     and exists (select 1 from app.payment_reports r where r.household_id = e.household_id
+               and r.status = 'reported' and r.pledge_ids && v_pledges) then
+    return true;
+  end if;
+  return false;
 end $$;

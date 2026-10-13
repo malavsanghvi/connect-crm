@@ -203,3 +203,25 @@ select c.id, a.key, true,
  where app._module_granted(c.id, 'giving')
    and app.module_availability(c.id, a.key) <> 'not_available'
 on conflict (center_id, module_key) do nothing;
+
+-- ── 9. The check: every add-on is on exactly where Giving is ───────────────────
+-- In every community whose kind offers an add-on, the add-on must now be on exactly when Giving is (on, or paused, or
+-- waiting for Weaver), with or without an explicit grant row. If anything differs, the migration stops with the list and
+-- nothing changes.
+do $$
+declare v_bad text[];
+begin
+  select array_agg(c.slug::text || ': ' || a.key || case when app.module_enabled(c.id, a.key) then ' would be on' else ' would be off' end
+                   || ' while Giving is ' || case when app.module_enabled(c.id, 'giving') then 'on' else 'off' end
+                   order by c.slug, a.key)
+    into v_bad
+    from app.centers c
+    cross join (values ('giving_bank'), ('giving_counts'), ('giving_opportunities'), ('giving_recurring'), ('labh'),
+                       ('giving_statements'), ('giving_insights')) a(key)
+   where app.module_availability(c.id, a.key) <> 'not_available'
+     and app.module_enabled(c.id, a.key) is distinct from app.module_enabled(c.id, 'giving');
+  if v_bad is not null then
+    raise exception '0741 would change what a community sees: %. An add-on must be on exactly where Giving is.',
+      array_to_string(v_bad, '; ');
+  end if;
+end $$;

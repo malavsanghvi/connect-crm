@@ -5,9 +5,12 @@
 --   giving_opportunities  opportunity_availability refuses; a person cannot pledge to an opportunity (trigger
 --                         pledges_opportunity_available) nor link a recurring gift to one; the website draft leaves
 --                         opportunities out. Pledges that already exist keep their numbers and amounts.
---   giving_recurring      no new recurring gift (create_recurring_gift), no cycle (run_recurring_gift_cycle), an opportunity
---                         cannot turn recurring on (trigger opportunities_recurring_template), and a labh cannot be repeated
---                         every year (commit_labh says so in plain words).
+--   giving_recurring      no new recurring gift (create_recurring_gift); no cycle (run_recurring_gift_cycle returns null, so a
+--                         scheduler simply skips the gift); an opportunity cannot turn recurring on (trigger
+--                         opportunities_recurring_template); a labh cannot be repeated every year (commit_labh says so in
+--                         plain words; platform admins pass, as everywhere).
+--   Existing commitments are honoured: a cycle run by the worker for a recurring gift linked to an opportunity still makes
+--   its pledge while Opportunities is off (the trigger refuses only a person's request).
 --   labh                  commit_labh refuses ("Special-day offerings ..."), and the special-day labh notice is not sent.
 --                         For a kind without Labh the sentence is 0594's "... is not part of a ... organization."
 --   giving_statements     year_end_statement refuses; it also gains the Giving check it never had. statement_counted_status
@@ -171,8 +174,8 @@ declare
 begin
   select * into g from app.recurring_gifts where id = p_recurring_gift for update;
   if g.id is null then raise exception 'recurring gift not found'; end if;
-  perform app.assert_module_enabled(g.center_id, 'giving');
-  perform app.assert_module_enabled(g.center_id, 'giving_recurring');
+  -- 0743: while Recurring gifts (or Giving) is off no cycle runs; the scheduler is told nothing was made (null).
+  if not app.module_enabled(g.center_id, 'giving_recurring') then return null; end if;
   if g.status <> 'active' then raise exception 'this recurring gift is % — only an active gift can run a cycle', g.status; end if;
   if g.next_charge_on is null or g.next_charge_on > current_date then raise exception 'this recurring gift is not due yet'; end if;
 
@@ -245,9 +248,9 @@ begin
   select * into d from app.special_days where id = p_special_day;
   perform app.assert_module_enabled(d.center_id, 'giving');
   perform app.assert_module_enabled(d.center_id, 'labh');
-  if coalesce(p_repeat_yearly, false) and not app.module_enabled(d.center_id, 'giving_recurring') then
-    raise exception 'Repeating this every year needs Recurring gifts, which is switched off for this community. Take it without repeating.'
-      using errcode = 'insufficient_privilege';
+  if coalesce(p_repeat_yearly, false) and not app.module_enabled(d.center_id, 'giving_recurring') and not app.is_platform_admin() then
+    raise exception 'Repeating this every year needs %, which is switched off for this community. Take it without repeating.',
+      app._module_label(d.center_id, 'giving_recurring') using errcode = 'insufficient_privilege';
   end if;
   if d.id is null then raise exception 'special day not found'; end if;
   if not app.adult_of_household(d.center_id, d.household_id) then
@@ -530,6 +533,7 @@ begin
     'store', jsonb_build_object('on', v_store_on, 'items', v_store_items),
     'school', jsonb_build_object('on', v_school_on and (jsonb_array_length(v_levels) > 0 or v_term is not null), 'levels', v_levels, 'term', v_term));
 end $$;
+
 -- ── The import list (app.import_entities): bank accounts, opportunities, Labh options and recurring gifts move to their add-on, so
 -- the import engine's module check (0192) refuses them while it is off. Generated from src/lib/import/registry.ts (the whole
 -- list, as every re-seed since 0192; only those four rows change).

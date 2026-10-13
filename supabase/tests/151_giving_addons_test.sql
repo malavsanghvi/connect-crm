@@ -59,6 +59,10 @@ end $$;
 \set stmt '''15100000-0000-4000-8000-0000000000d8'''
 \set pl1 '''15100000-0000-4000-8000-0000000000e1'''
 \set pl2 '''15100000-0000-4000-8000-0000000000e2'''
+\set plopp '''15100000-0000-4000-8000-0000000000e3'''
+\set plrec '''15100000-0000-4000-8000-0000000000e4'''
+\set pllabh '''15100000-0000-4000-8000-0000000000e5'''
+\set imp '''15100000-0000-4000-8000-0000000000f1'''
 
 -- ══ A. The catalog ══════════════════════════════════════════════════════════
 select pg_temp.assert((select count(*) from app.modules
@@ -124,6 +128,8 @@ select pg_temp.assert((select count(distinct m->>'module') from app.demo_packs p
                       and not exists (select 1 from app.demo_packs p, jsonb_array_elements(p.contents) m
                                        where p.key = 'community' and m->>'module' = 'giving' and m->'rows' ? 'bank_accounts'),
   'A · the demo pack lists its bank, opportunity, recurring and Labh rows under their add-on');
+select pg_temp.assert(pg_get_functiondef('app.pathshala_hold_live(uuid)'::regprocedure) like '%app.module_enabled(e.center_id, ''giving_bank'')%',
+  'A · a member''s Zelle report keeps a Pathshala place on hold only while Bank reconciliation is on (0742)');
 -- Grandfathered: wherever Giving is granted, each add-on the kind offers is granted, so nothing anyone sees changes.
 select pg_temp.assert(not exists (
     select 1 from app.centers c
@@ -167,6 +173,30 @@ insert into app.special_days (id, center_id, household_id, person_id, kind, labe
   (:day, :jc, :h1, :p1, 'birthday', 'Mira''s birthday', (current_date + 20) - interval '40 years');
 insert into app.statements (id, center_id, household_id, kind, tax_year) values (:stmt, :jc, :h1, 'tax_year', 2025);
 insert into app.pledges (id, center_id, household_id, amount_cents) values (:pl1, :jc, :h1, 5000), (:pl2, :np, :h2, 4000);
+-- Existing commitments: a pledge on the opportunity, a recurring gift's pledge and a labh pledge with its fulfillment.
+insert into app.pledges (id, center_id, household_id, source, source_ref_id, amount_cents, opportunity_id) values
+  (:plopp, :jc, :h1, 'sponsorship', null, 5100, :opp), (:plrec, :jc, :h1, 'recurring', :gift, 1100, null),
+  (:pllabh, :jc, :h1, 'labh', :day, 2100, null);
+insert into app.labh_fulfillments (pledge_id, center_id, labh_option_id, occasion) values (:pllabh, :jc, :lo, 'Birthday');
+insert into app.bank_statement_imports (id, center_id, bank_account_id) values (:imp, :jc, :acct);
+insert into app.known_originators (center_id, pattern, kind, label) values (:jc, 'TEMPLE151 FUND', 'daf', 'Test 151 fund');
+insert into app.valuables_register (center_id, description, kind) values (:jc, 'Silver crown 151', 'silver');
+insert into app.payment_reports (center_id, household_id, reported_by, amount_cents, sent_on, window_days, due_on) values
+  (:jc, :h1, :member, 2500, current_date - 1, 10, current_date + 9);
+-- Zelle is a way to give in the temple, with member reports.
+insert into app.center_payment_methods (center_id, method, accepted, instructions, sort) values
+  (:jc, 'zelle', true, '{"recipient":"give@temple151.test","name":"Temple 151","memo_hint":"Your member number"}', 3);
+
+-- Every community whose kind offers an add-on has it on exactly where Giving is on, with or without a grant row (the two
+-- communities above have none).
+select pg_temp.assert(not exists (
+    select 1 from app.centers c
+      cross join (values ('giving_bank'), ('giving_counts'), ('giving_opportunities'), ('giving_recurring'), ('labh'),
+                         ('giving_statements'), ('giving_insights')) a(key)
+     where app.module_availability(c.id, a.key) <> 'not_available'
+       and app.module_enabled(c.id, a.key) is distinct from app.module_enabled(c.id, 'giving'))
+                      and not exists (select 1 from app.center_module_grants where center_id in (:jc, :np)),
+  'A · every community (with or without grant rows) has each add-on its kind offers on exactly where Giving is on');
 
 -- Before anything is paused, staff and the family see their rows.
 set role authenticated;
@@ -177,13 +207,21 @@ select pg_temp.assert((select count(*) from app.bank_accounts where center_id = 
                       and (select count(*) from app.opportunities where center_id = :jc) = 1
                       and (select count(*) from app.recurring_gifts where center_id = :jc) = 1
                       and (select count(*) from app.labh_options where center_id = :jc) = 1
-                      and (select count(*) from app.statements where center_id = :jc) = 1,
+                      and (select count(*) from app.statements where center_id = :jc) = 1
+                      and (select count(*) from app.bank_statement_imports where center_id = :jc) = 1
+                      and (select count(*) from app.known_originators where center_id = :jc) = 1
+                      and (select count(*) from app.valuables_register where center_id = :jc) = 1
+                      and (select count(*) from app.labh_fulfillments where center_id = :jc) = 1,
   'B · with every add-on on, the treasurer sees the bank, counts, opportunities, recurring gifts, Labh menu and statements');
 select pg_temp.claims(:member);
 select pg_temp.assert((select count(*) from app.recurring_gifts where center_id = :jc) = 1
                       and (select count(*) from app.labh_options where center_id = :jc) = 1
-                      and (select count(*) from app.statements where center_id = :jc) = 1,
-  'B · and the family sees its recurring gift, the Labh menu and its statement');
+                      and (select count(*) from app.statements where center_id = :jc) = 1
+                      and (select count(*) from app.payment_reports where center_id = :jc) = 1,
+  'B · and the family sees its recurring gift, the Labh menu, its statement and its Zelle report');
+select pg_temp.assert((select (m->'report'->>'available')::boolean from jsonb_array_elements(app.member_payment_methods(:jc)->'methods') m
+                        where m->>'key' = 'zelle'),
+  'B · and the ways to give offer "report a Zelle payment"');
 
 -- ══ B. Each add-on paused ═══════════════════════════════════════════════════
 -- Bank reconciliation
@@ -192,7 +230,10 @@ select pg_temp.claims(:admin, true);
 select app.set_module_enabled(:jc, 'giving_bank', false, 'Test 151: the bank is reconciled elsewhere');
 select pg_temp.assert(not app.module_enabled(:jc, 'giving_bank') and app.module_enabled(:jc, 'giving')
                       and (select count(*) from app.bank_accounts where center_id = :jc) = 0
-                      and (select count(*) from app.bank_transactions where center_id = :jc) = 0,
+                      and (select count(*) from app.bank_transactions where center_id = :jc) = 0
+                      and (select count(*) from app.bank_statement_imports where center_id = :jc) = 0
+                      and (select count(*) from app.known_originators where center_id = :jc) = 0
+                      and (select count(*) from app.payment_reports where center_id = :jc) = 0,
   'B · Bank reconciliation paused: its tables are hidden from the treasurer; Giving stays on');
 select pg_temp.assert_raises(format($$select count(*) from app.suggest_bank_matches(%L)$$, :txn),
   'The Bank reconciliation module is switched off', 'B · suggesting matches for a bank line refuses with the module sentence');
@@ -216,8 +257,11 @@ select pg_temp.assert(app.my_payment_reports(:jc, :h1) = '[]'::jsonb,
   'B · a family''s Zelle reports come back empty (an installed app still asks on its Pledges screen)');
 select pg_temp.assert_raises(format($$select app.report_payment(%L, %L, 'zelle', 2500, current_date, null, 'Mira', null, null)$$, :jc, :h1),
   'Bank reconciliation module is switched off', 'B · a member cannot report a Zelle payment');
-select pg_temp.assert(jsonb_typeof(app.member_payment_methods(:jc)) is not null,
-  'B · the ways to give still answer (Zelle reporting is simply not offered)');
+select pg_temp.assert((select count(*) from app.payment_reports where center_id = :jc) = 0,
+  'B · the family no longer sees its Zelle report');
+select pg_temp.assert((select (m->'report'->>'available')::boolean = false from jsonb_array_elements(app.member_payment_methods(:jc)->'methods') m
+                        where m->>'key' = 'zelle'),
+  'B · Zelle stays a way to give, and "report a Zelle payment" is not offered');
 rollback to savepoint bank_off;
 
 -- Offering counts
@@ -225,8 +269,9 @@ savepoint counts_off;
 set role authenticated;
 select pg_temp.claims(:admin, true);
 select app.set_module_enabled(:jc, 'giving_counts', false, 'Test 151: counting is done on paper');
-select pg_temp.assert((select count(*) from app.counting_sessions where center_id = :jc) = 0 and app.module_enabled(:jc, 'giving'),
-  'B · Offering counts paused: the counting sessions are hidden');
+select pg_temp.assert((select count(*) from app.counting_sessions where center_id = :jc) = 0 and app.module_enabled(:jc, 'giving')
+                      and (select count(*) from app.valuables_register where center_id = :jc) = 0,
+  'B · Offering counts paused: the counting sessions and the valuables register are hidden');
 select pg_temp.assert_raises(format($$insert into app.counting_sessions (center_id, kind, counters) values (%L, 'bhandar', array[%L, %L]::uuid[])$$,
                                     :jc, :admin, :member),
   'row-level security', 'B · and no new count can be written');
@@ -246,6 +291,10 @@ select pg_temp.assert_raises(format($$select count(*) from app.opportunity_avail
   'Opportunities module is switched off', 'B · an opportunity''s availability refuses');
 select pg_temp.assert_raises(format($$select app.create_recurring_gift(%L, null, null, 1000, 'monthly', current_date, 'until_stopped', null, null, null, %L)$$, :h1, :opp),
   'Opportunities module is switched off', 'B · a recurring gift cannot be linked to an opportunity');
+select pg_temp.claims(:admin);
+select app.record_offline_payment(:h1, 1000, 'check', current_date, array[:plopp]::uuid[], '153', null) as payopp \gset
+select pg_temp.assert((select coalesce(sum(amount_cents), 0) from app.payment_allocations where payment_id = :'payopp' and pledge_id = :plopp) = 1000,
+  'B · a payment is still recorded and allocated to an existing pledge on the opportunity (existing commitments are honoured)');
 -- The trigger refuses a person's pledge on an opportunity; a write without a person (a provider's webhook) still lands.
 reset role;
 select pg_temp.claims(:member);
@@ -254,7 +303,7 @@ select pg_temp.assert_raises(format($$insert into app.pledges (center_id, househ
   'Opportunities module is switched off', 'B · a person cannot pledge to an opportunity while Opportunities is off');
 select pg_temp.no_claims();
 insert into app.pledges (center_id, household_id, source, amount_cents, opportunity_id) values (:jc, :h1, 'sponsorship', 5100, :opp);
-select pg_temp.assert((select count(*) from app.pledges where opportunity_id = :opp) = 1,
+select pg_temp.assert((select count(*) from app.pledges where opportunity_id = :opp) = 2,
   'B · a write without a person (a payment provider settling a checkout started earlier) is never refused, so money that arrived is recorded');
 rollback to savepoint opps_off;
 
@@ -264,6 +313,9 @@ set role authenticated;
 select pg_temp.claims(:admin, true);
 select app.set_module_enabled(:jc, 'giving_recurring', false, 'Test 151: no recurring gifts for now');
 select pg_temp.assert((select count(*) from app.recurring_gifts where center_id = :jc) = 0, 'B · Recurring gifts paused: hidden from the treasurer');
+select app.record_offline_payment(:h1, 1100, 'check', current_date, array[:plrec]::uuid[], '154', null) as payrec \gset
+select pg_temp.assert((select coalesce(sum(amount_cents), 0) from app.payment_allocations where payment_id = :'payrec' and pledge_id = :plrec) = 1100,
+  'B · a payment is still recorded and allocated to a recurring gift''s existing pledge');
 select pg_temp.claims(:member);
 select pg_temp.assert((select count(*) from app.recurring_gifts where center_id = :jc) = 0, 'B · and from the family');
 select pg_temp.assert_raises(format($$select app.create_recurring_gift(%L, null, %L, 1000, 'monthly')$$, :h1, :camp),
@@ -274,8 +326,9 @@ select app.commit_labh(:day, array[:lo]::uuid[], null, false) as labh_numbers \g
 select pg_temp.assert(cardinality(:'labh_numbers'::text[]) = 1, 'B · the labh itself is still taken (one pledge)');
 reset role;
 select pg_temp.no_claims();
-select pg_temp.assert_raises(format($$select app.run_recurring_gift_cycle(%L)$$, :gift), 'Recurring gifts module is switched off',
-  'B · a recurring gift''s cycle does not run');
+select pg_temp.assert(app.run_recurring_gift_cycle(:gift) is null
+                      and (select count(*) from app.pledges where source = 'recurring' and source_ref_id = :gift) = 1,
+  'B · a recurring gift''s cycle does not run: the scheduler gets nothing back and no pledge is made');
 select pg_temp.claims(:admin);
 select pg_temp.assert_raises(format($$update app.opportunities set allow_recurring = true where id = %L$$, :opp),
   'Recurring gifts module is switched off', 'B · an opportunity cannot turn recurring on');
@@ -286,7 +339,9 @@ savepoint labh_off;
 set role authenticated;
 select pg_temp.claims(:admin, true);
 select app.set_module_enabled(:jc, 'labh', false, 'Test 151: no labh menu');
-select pg_temp.assert((select count(*) from app.labh_options where center_id = :jc) = 0, 'B · Labh paused: the menu is hidden from the treasurer');
+select pg_temp.assert((select count(*) from app.labh_options where center_id = :jc) = 0
+                      and (select count(*) from app.labh_fulfillments where center_id = :jc) = 0,
+  'B · Labh paused: the menu and the fulfillments are hidden from the treasurer');
 select pg_temp.claims(:member);
 select pg_temp.assert((select count(*) from app.labh_options where center_id = :jc) = 0, 'B · and from the family');
 select pg_temp.assert_raises(format($$select app.commit_labh(%L, array[%L]::uuid[], null, false)$$, :day, :lo),
