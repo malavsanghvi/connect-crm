@@ -166,6 +166,8 @@ export type CareCard = {
 export type CareTouchRow = {
   source: string;
   id: string;
+  /** source:id, the tie-breaker of the log's cursor. */
+  key: string;
   at: string;
   kind: string | null;
   channel: string | null;
@@ -336,6 +338,7 @@ export function parseTouchPage(v: unknown): CareTouchPage {
       return {
         source: str(x.source) ?? "manual",
         id: str(x.id) ?? "",
+        key: str(x.key) ?? `${str(x.source) ?? "manual"}:${str(x.id) ?? ""}`,
         at: str(x.at) ?? "",
         kind: str(x.kind),
         channel: str(x.channel),

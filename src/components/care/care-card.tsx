@@ -420,7 +420,7 @@ function Touches({ data, first, householdId, timeZone }: { data: CardData; first
     const last = rows[rows.length - 1];
     if (!last) return;
     startLoading(async () => {
-      const res = await moreCareTouchesAction({ householdId, before: last.at }).catch((e: unknown) => {
+      const res = await moreCareTouchesAction({ householdId, beforeAt: last.at, beforeKey: last.key }).catch((e: unknown) => {
         console.error("[care] could not load more touches:", e);
         return { ok: false as const, error: "Could not load more touches — the server could not be reached." };
       });
@@ -469,7 +469,7 @@ function Touches({ data, first, householdId, timeZone }: { data: CardData; first
         ) : (
           <ul className="m-0 mt-2 list-none divide-y divide-line p-0">
             {rows.map((t) => (
-              <li key={`${t.source}:${t.id}`} className="py-2 text-[13.5px]">
+              <li key={t.key} className="py-2 text-[13.5px]">
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
                     <p className="m-0 text-ink">

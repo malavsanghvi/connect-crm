@@ -168,7 +168,7 @@ describe("the touch log, the list and the picker", () => {
       amounts: false,
     });
     expect(page.rows[0].amountCents).toBeNull();
-    expect(page.rows[1]).toMatchObject({ source: "manual", canRemove: true });
+    expect(page.rows[1]).toMatchObject({ source: "manual", canRemove: true, key: "manual:t1" });
     expect(page.more).toBe(true);
   });
 

@@ -156,12 +156,13 @@ export async function voidCareTouchAction(call: { householdId: string; touchId: 
 }
 
 /** The next page of the touch log (older touches). */
-export async function moreCareTouchesAction(call: { householdId: string; before: string }): Promise<CareTouchesLoad> {
+export async function moreCareTouchesAction(call: { householdId: string; beforeAt: string; beforeKey: string }): Promise<CareTouchesLoad> {
   const doing = "load more touches";
-  if (!call || !isUuid(call.householdId) || typeof call.before !== "string" || Number.isNaN(Date.parse(call.before))) return notUnderstood(doing);
+  if (!call || !isUuid(call.householdId) || typeof call.beforeAt !== "string" || Number.isNaN(Date.parse(call.beforeAt))) return notUnderstood(doing);
+  if (typeof call.beforeKey !== "string" || !/^[a-z_]{1,20}:[0-9a-f-]{36}$/.test(call.beforeKey)) return notUnderstood(doing);
   const auth = await authorize(doing);
   if (!auth.ok) return auth;
-  const read = await readTouches(auth.session, call.householdId, call.before);
+  const read = await readTouches(auth.session, call.householdId, { at: call.beforeAt, key: call.beforeKey });
   if (read.status === "ok") return { ok: true, page: read.data };
   if (read.status === "no_access") return { ok: false, error: `Could not ${doing} — ${NO_ACCESS}.` };
   if (read.status === "off") return { ok: false, error: `Could not ${doing} — ${read.message}` };

@@ -56,8 +56,16 @@ export async function readCard(session: CrmSession, householdId: string): Promis
   return { status: "ok", data: parseCard(res.data) };
 }
 
-export async function readTouches(session: CrmSession, householdId: string, before: string | null): Promise<CareRead<CareTouchPage>> {
-  const res = await session.db.rpc("care_household_touches", { p_household: householdId, p_before: before ?? undefined, p_limit: 30 });
+/** Where the next page of the touch log starts: the time and key of the last row shown (rows sharing a time stay in order). */
+export type TouchCursor = { at: string; key: string };
+
+export async function readTouches(session: CrmSession, householdId: string, before: TouchCursor | null): Promise<CareRead<CareTouchPage>> {
+  const res = await session.db.rpc("care_household_touches", {
+    p_household: householdId,
+    p_before_at: before?.at ?? undefined,
+    p_before_key: before?.key ?? undefined,
+    p_limit: 30,
+  });
   if (res.error) return refusal("could not read the touch log", res.error);
   return { status: "ok", data: parseTouchPage(res.data) };
 }
