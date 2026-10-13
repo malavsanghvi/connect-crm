@@ -14,9 +14,9 @@ import { defaultRegistry } from "@/lib/commands/registry";
 export const dynamic = "force-dynamic";
 
 export async function GET(req: Request) {
-  const auth = await authorizeAssistant(req, { post: false, needsEnabled: false });
+  const auth = await authorizeAssistant(req, { post: false, needsEnabled: false, reportsChat: true });
   if (!auth.ok) return auth.response;
-  const { session, enabled, chat } = auth;
+  const { session, enabled, chat, chatOff } = auth;
 
   let aiReady = false;
   try {
@@ -33,6 +33,6 @@ export async function GET(req: Request) {
   const commands = defaultRegistry.list(session, "assistant").map((c) => commandInfo(c, session.kind));
   const usage = await databaseUsageMeter(session.db, session.center.id).status();
   const community = await communityHints(session);
-  const body: CommandsResponse = { ok: true, enabled: true, aiReady, chat, commands, ...(usage ? { usage } : {}), community };
+  const body: CommandsResponse = { ok: true, enabled: true, aiReady, chat, ...(chatOff ? { chatOff } : {}), commands, ...(usage ? { usage } : {}), community };
   return json(200, body);
 }

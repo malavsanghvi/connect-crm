@@ -25,6 +25,9 @@ export const AI_JOB_KINDS: Readonly<Record<string, AiJobKind>> = {
   "qbo.match_suggest_ai": { provider: "anthropic", needs: [] },
 };
 
+/** Kinds that call an AI provider for Weaver itself, not for a community (the Platform › Setup Test buttons): never gated. */
+export const PLATFORM_AI_KINDS: readonly string[] = ["platform.test_provider"];
+
 /** The modules a job of this kind needs on (empty for a kind that is not gated, AI or not). */
 export function modulesNeeded(kind: string): readonly string[] {
   return Object.hasOwn(AI_JOB_KINDS, kind) ? AI_JOB_KINDS[kind]!.needs : [];

@@ -7,10 +7,10 @@
 //
 // Two parts since 0755 (iWeaver, docs/MARKETPLACE_PACKS.md section 2):
 //   the commands   the ⌘K palette, the find box's command rows, results and confirmation cards: no model. They follow the
-//                  community's switch only (nivaForAdminsOn) and keep working whether iWeaver is on or not.
-//   the chat       the model: it needs iWeaver (`ai`) on as well, except on the onboarding pages while the community is
-//                  onboarding (src/lib/ai-gate.ts, chatMode). 0740 had both follow the `niva` module; Niva now depends on
-//                  iWeaver, and only the AI part moves there.
+//                  community's switch only (nivaForAdminsOn) and keep working whether iWeaver or Niva is on or not.
+//   the chat       the model: it needs the `niva` module (0740) and iWeaver (`ai`) as well, except that iWeaver is not
+//                  needed on the onboarding pages while the community is onboarding (src/lib/ai-gate.ts chatMode; the
+//                  database's app.assistant_chat_mode). Pausing or never having Niva keeps the chat off.
 
 import { AI_OFF } from "@/lib/ai-gate";
 import { assistantEnabled } from "@/lib/center-rules";
@@ -24,6 +24,13 @@ export const NO_AI_KEY =
 
 /** What /chat answers while iWeaver is off for the community (0755): the commands still work. */
 export const CHAT_AI_OFF = `${AI_OFF} Niva can't answer questions in words here, but the search box and the commands list still work.`;
+
+/** What /chat answers while Niva is paused or not enabled for the community (0755): the commands still work. */
+export const CHAT_NIVA_OFF =
+  "Niva can't answer questions in words because Niva is switched off for your community. The search box and the commands list still work.";
+
+/** What /chat answers when whether it may answer could not be checked (app.assistant_chat_mode failed). */
+export const CHAT_MODE_UNKNOWN = "Niva could not check whether it may answer questions for your community. Reload the page and try again.";
 
 /** What every route answers when the community's modules could not be read (app.my_modules failed): Niva stays off. */
 export const ASSISTANT_MODULES_UNKNOWN = "Niva for admins could not check which modules your community has. Reload the page and try again.";

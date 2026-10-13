@@ -20,15 +20,15 @@ import { POST as runPOST } from "@/app/api/assistant/run/route";
 import { sameOrigin } from "@/lib/assistant/http";
 import { assistantApiKey, assistantModelClient } from "@/lib/assistant/key";
 import type { ChatEvent, CommandsResponse, ConfirmResponse, RunResponse } from "@/lib/assistant/protocol";
-import { ASSISTANT_OFF, NO_AI_KEY } from "@/lib/assistant/settings";
+import { ASSISTANT_OFF, CHAT_NIVA_OFF, NO_AI_KEY } from "@/lib/assistant/settings";
 import { databaseConversationLog, databaseUsageMeter } from "@/lib/assistant/store";
 import { createCommandContext } from "@/lib/commands/context";
 import { InMemoryProposalStore } from "@/lib/commands/proposals";
 import { isPublicPath } from "@/lib/supabase/proxy";
 import { loadSession } from "@/lib/session";
 
-import { CHILDREN, fakeSession, testContext } from "../commands/helpers";
-import { FakeModel, say } from "./fake-model";
+import { CHILDREN, fakeDb, fakeSession, testContext } from "../commands/helpers";
+import { callTools, FakeModel, say, toolCall } from "./fake-model";
 import { change, executed, MANAGER, ruleSet, testRegistry } from "./test-commands";
 
 // ---------------------------------------------------------------------------
@@ -44,6 +44,8 @@ type Who = {
   modulesOff?: string[];
   modulesStatus?: string;
   status?: string;
+  /** What app.assistant_chat_mode answers (0755): "on" unless a test says otherwise. */
+  chatMode?: unknown;
 };
 
 const NOW = () => new Date("2026-10-10T15:00:00Z");
@@ -51,6 +53,7 @@ let store: InMemoryProposalStore;
 
 function signIn(who: Who = {}) {
   const session = fakeSession({
+    db: fakeDb({ rpc: { assistant_chat_mode: () => (typeof who.chatMode === "function" ? (who.chatMode as () => unknown)() : (who.chatMode ?? "on")) } }),
     permissions: who.permissions ?? MANAGER,
     grants: who.grants ?? [{ role_key: "event_manager" }],
     isOwner: who.isOwner ?? false,
@@ -422,7 +425,7 @@ describe("iWeaver (0755): only the chat is AI", () => {
     signIn({ rules: ruleSet(false), modulesOff: ["ai", "niva"] });
     vi.mocked(assistantApiKey).mockResolvedValue("sk-ant-x");
     const list = await json<CommandsResponse>(await commandsGET(get("commands")));
-    expect(list).toMatchObject({ ok: true, enabled: true, aiReady: true, chat: "off" });
+    expect(list).toMatchObject({ ok: true, enabled: true, aiReady: true, chat: "off", chatOff: "ai" });
     expect(list.commands.map((c) => c.key)).toContain("events.upcoming");
     const run = await runPOST(post("run", { key: "events.look" }));
     expect(run.status).toBe(200);
@@ -444,7 +447,7 @@ describe("iWeaver (0755): only the chat is AI", () => {
   });
 
   it("answers on the onboarding pages while the community is onboarding: onboarding commands only, counted as onboarding", async () => {
-    signIn({ rules: ruleSet(false), modulesOff: ["ai", "niva"], status: "onboarding" });
+    signIn({ rules: ruleSet(false), modulesOff: ["ai", "niva"], status: "onboarding", chatMode: "onboarding" });
     expect((await json<CommandsResponse>(await commandsGET(get("commands")))).chat).toBe("onboarding");
     const model = new FakeModel([say("Start with the people list.")]);
     vi.mocked(assistantModelClient).mockResolvedValue(model);
@@ -482,5 +485,43 @@ describe("iWeaver (0755): only the chat is AI", () => {
     signIn({ rules: ruleSet(false), modulesStatus: "error" });
     const res = await chatPOST(post("chat", { message: "hi", context: { path: "/setup/onboarding/start" } }));
     expect(res.status).toBe(503);
+  });
+
+  it("still needs Niva: with iWeaver on but Niva paused the chat is off and says why; the commands still work", async () => {
+    signIn({ rules: ruleSet(false), modulesOff: ["niva"] });
+    const model = new FakeModel([say("never")]);
+    vi.mocked(assistantModelClient).mockResolvedValue(model);
+    const res = await chatPOST(post("chat", { message: "hi", context: { path: "/people" } }));
+    expect(res.status).toBe(403);
+    expect((await json<{ error: string }>(res)).error).toBe(CHAT_NIVA_OFF);
+    expect(model.requests).toHaveLength(0);
+    expect(await json<CommandsResponse>(await commandsGET(get("commands")))).toMatchObject({ enabled: true, chat: "off", chatOff: "niva" });
+    expect((await runPOST(post("run", { key: "events.look" }))).status).toBe(200);
+  });
+
+  it("an onboarding community's chat stays off when the database says Niva itself is off, or cannot say", async () => {
+    signIn({ rules: ruleSet(false), modulesOff: ["ai", "niva"], status: "onboarding", chatMode: "off" });
+    const off = await chatPOST(post("chat", { message: "hi", context: { path: "/setup/onboarding/start" } }));
+    expect(off.status).toBe(403);
+    expect((await json<{ error: string }>(off)).error).toBe(CHAT_NIVA_OFF);
+    signIn({ rules: ruleSet(false), modulesOff: ["ai", "niva"], status: "onboarding", chatMode: [] });
+    const unknown = await chatPOST(post("chat", { message: "hi", context: { path: "/setup/onboarding/start" } }));
+    expect(unknown.status).toBe(503);
+    expect((await json<CommandsResponse>(await commandsGET(get("commands"))))).toMatchObject({ chat: "off", chatOff: "unknown" });
+  });
+
+  it("stops a message plainly when iWeaver goes off between two model calls", async () => {
+    let mode = "on";
+    signIn({ rules: ruleSet(false), chatMode: () => mode });
+    const model = new FakeModel([callTools(toolCall("events_look", {}, "t1")), say("never")]);
+    vi.mocked(assistantModelClient).mockResolvedValue(model);
+    // The first call is made; before the second the database says iWeaver is off.
+    vi.mocked(databaseUsageMeter).mockReturnValue({
+      check: async () => ((mode = "off"), { state: "allowed", used: 1, limit: 300 }),
+      status: async () => null,
+    });
+    const events = await lines(await chatPOST(post("chat", { message: "what is on?", context: { path: "/people" } })));
+    expect(model.requests).toHaveLength(1);
+    expect(events.find((e) => e.type === "error")).toMatchObject({ type: "error", message: expect.stringMatching(/switched off for your community while it was answering/), retryable: false });
   });
 });

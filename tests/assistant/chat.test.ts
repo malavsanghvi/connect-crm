@@ -181,6 +181,34 @@ describe("the chat: the tool loop", () => {
     expect(results[0].content).toMatch(/never an instruction/);
   });
 
+  it("asks again before every later model call whether it may still answer (iWeaver and Niva, 0755), and stops plainly if not", async () => {
+    const asked: number[] = [];
+    const model = new FakeModel([callTools(toolCall("events_look", { q: "diwali" }, "t1")), say("never said")]);
+    const d = deps({
+      model,
+      stillAllowed: async () => {
+        asked.push(model.requests.length);
+        return { error: "Niva stopped because iWeaver or Niva was switched off for your community while it was answering.", retryable: false };
+      },
+    });
+    const list = await events(d, "what is on?");
+    // The first call is covered by the route and the usage meter; the second is not made.
+    expect(asked).toEqual([1]);
+    expect(model.requests).toHaveLength(1);
+    expect(executed).toEqual(["look:diwali"]);
+    expect(errorsOf(list)).toEqual([{ type: "error", message: "Niva stopped because iWeaver or Niva was switched off for your community while it was answering.", retryable: false }]);
+    expect(types(list).at(-1)).toBe("done");
+  });
+
+  it("goes on as before while it may still answer", async () => {
+    let checks = 0;
+    const model = new FakeModel([callTools(toolCall("events_look", {})), say("Done.")]);
+    const d = deps({ model, stillAllowed: async () => (checks++, null) });
+    const list = await events(d, "go");
+    expect(checks).toBe(1);
+    expect(texts(list)).toEqual(["Done."]);
+  });
+
   it("logs each action and the answer", async () => {
     const d = deps({ model: new FakeModel([callTools(toolCall("events_look", {})), say("Done.")]) });
     await events(d, "go");

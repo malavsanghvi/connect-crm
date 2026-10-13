@@ -1,12 +1,14 @@
--- 0755: the iWeaver gate. Without the `ai` module nothing a community asks for reaches an AI provider, and whoever asked is
--- told "AI features are part of iWeaver, which is not on for your community.":
+-- 0755 and 0756: the iWeaver gate. Without the `ai` module nothing a community asks for reaches an AI provider, and whoever
+-- asked is told "AI features are part of iWeaver, which is not on for your community.":
 --   A. the sentence and the list of AI job kinds   B. Niva depends on iWeaver (module_enabled walks the chain)
---   C. the member app's niva_ask, the staff test, retry and regenerate refuse early and queue nothing
+--   C. the member app's niva_ask, the staff test, retry and regenerate refuse early and queue nothing; the guard's reasons
+--      come in order (not offered, not enabled by Weaver, then iWeaver)
 --   D. AI flyer art answers 'unavailable' with the sentence; its status says ai_off
 --   E. enqueue_job refuses the iWeaver kinds for a community without `ai`, whoever asks (a platform admin too); the
 --      onboarding AI kinds (import mapping, QuickBooks match suggestions) and every other kind are queued as before
---   F. Niva for admins: assistant_usage_check refuses the model call without iWeaver and counts nothing; 'onboarding' is
---      allowed only while the community's own status is 'onboarding', and counts against the same month
+--   F. Niva for admins: the chat mode needs iWeaver AND Niva; assistant_usage_check refuses the model call otherwise and
+--      counts nothing; 'onboarding' is allowed only while the community's own status is 'onboarding' and Niva itself is on
+--   J. the onboarding state cannot be faked: only Weaver changes a community's status (0756)
 --   G. the background service's check (worker_job_blocked): iWeaver first, then the kind's own module; worker only
 --   H. with iWeaver granted everything works as before   I. grants and search paths
 -- Everything runs in one transaction that is rolled back. It does not depend on the catalog migration having added `ai`
@@ -108,6 +110,8 @@ select pg_temp.assert_raises(format('select app.niva_retry_unanswered(%L::uuid)'
 select pg_temp.assert_raises(format('select app.niva_regenerate(%L::uuid)', :conv), :off, 'C · and regenerating one answer (which checked no module before)');
 select pg_temp.assert_raises(format('select app.assert_module_enabled(%L::uuid, %L)', :c, 'niva'), :off, 'C · every Niva guard says the same sentence');
 select pg_temp.assert(app.assert_module_enabled(:c, 'events'), 'C · a module that needs no AI passes as before');
+select pg_temp.assert_raises(format('select app.assert_module_enabled(%L::uuid, %L)', :c, 'ai'), 'Weaver has not enabled iWeaver for this community.',
+  'C · the guard''s reasons keep their order: a module Weaver has not enabled says so first');
 select pg_temp.as_owner();
 select pg_temp.assert((select count(*) from app.niva_conversations where center_id = :c::uuid) = 1, 'C · no question was saved');
 select pg_temp.assert(pg_temp.jobs_of(:c, 'niva.answer') = 1
@@ -146,7 +150,23 @@ select pg_temp.assert(:'e4', 'E · a platform-wide job (no community) is never r
 select pg_temp.assert_raises($$select app.enqueue_job(null, 'Bad Kind', '{}')$$, 'area.action', 'E · a malformed kind is still refused first');
 delete from app.jobs where center_id is null and kind = 'niva.answer' and payload = '{}'::jsonb;
 
--- ── F. Niva for admins: the model call's count ───────────────────────────────
+-- ── F. Niva for admins: the chat mode and the model call's count ─────────────
+select pg_temp.assert(app.assistant_chat_mode(:c) = 'off' and app.assistant_chat_mode(:cg) = 'on' and app.assistant_chat_mode(:co) = 'onboarding',
+  'F · the chat: off without iWeaver, on with iWeaver and Niva, onboarding pages only while onboarding');
+insert into app.center_modules (center_id, module_key, enabled, reason) values
+  (:cg, 'niva', false, 'Test 162: Niva paused.'), (:co, 'niva', false, 'Test 162: Niva paused.');
+select pg_temp.assert(app.assistant_chat_mode(:cg) = 'off' and app.assistant_chat_mode(:co) = 'off',
+  'F · pausing Niva keeps the chat off, with iWeaver or while onboarding');
+select pg_temp.sign_in(:admin);
+select app.assistant_usage_check(:cg) as f0 \gset
+select app.assistant_usage_check(:co, 1, 'onboarding') as f00 \gset
+select pg_temp.assert((:'f0'::jsonb ->> 'allowed')::boolean = false and (:'f00'::jsonb ->> 'allowed')::boolean = false
+                      and :'f0'::jsonb ->> 'reason' like '% is switched off for your community, so Niva for admins can''t answer questions.'
+                      and :'f00'::jsonb ->> 'reason' = :'f0'::jsonb ->> 'reason',
+  'F · and the count says so in plain words, counting nothing');
+select pg_temp.as_owner();
+delete from app.center_modules where center_id in (:cg::uuid, :co::uuid) and module_key = 'niva';
+select pg_temp.assert(not exists (select 1 from app.assistant_usage where center_id in (:cg::uuid, :co::uuid)), 'F · nothing was counted while Niva was paused');
 select pg_temp.sign_in(:admin);
 select app.assistant_usage_check(:c) as f1 \gset
 select pg_temp.assert((:'f1'::jsonb ->> 'allowed')::boolean = false and :'f1'::jsonb ->> 'reason' = :off and (:'f1'::jsonb ->> 'used')::int = 0,
@@ -173,6 +193,27 @@ select app.assistant_usage_check(:co, 1, 'onboarding') as f7 \gset
 select pg_temp.assert((:'f7'::jsonb ->> 'allowed')::boolean = false, 'F · once the community is live, onboarding no longer opens the chat');
 select pg_temp.as_owner();
 select pg_temp.assert(not exists (select 1 from app.assistant_usage where center_id = :c::uuid), 'F · the refused community''s month is untouched');
+
+-- ── J. The onboarding state cannot be faked (0756) ───────────────────────────
+-- The community's admin may update its own row (centers_admin_update), but never its status.
+select pg_temp.sign_in(:admin);
+select pg_temp.assert_raises(format('update app.centers set status = %L where id = %L::uuid', 'onboarding', :c), 'Only the Weaver team',
+  'J · a live community''s admin cannot set it back to onboarding to get the chat without iWeaver');
+select pg_temp.assert_raises(format('update app.centers set status = %L where id = %L::uuid', 'onboarding', :co), 'Only the Weaver team',
+  'J · not even for a community that was onboarding before');
+select pg_temp.assert_raises(format('update app.centers set status = %L where id = %L::uuid', 'suspended', :c), 'Only the Weaver team',
+  'J · nor change it any other way');
+update app.centers set short_name = 'O162C' where id = :c::uuid;
+select app.assistant_usage_check(:c, 1, 'onboarding') ->> 'allowed' as j1 \gset
+select pg_temp.as_owner();
+select pg_temp.assert((select status = 'active' and short_name = 'O162C' from app.centers where id = :c::uuid),
+  'J · the status is unchanged, and the rest of the row is still the admin''s to change');
+select pg_temp.assert(:'j1' = 'false' and app.assistant_chat_mode(:c) = 'off', 'J · so the chat stays off without iWeaver');
+select pg_temp.sign_in(:plat);
+update app.centers set status = 'onboarding' where id = :co::uuid;
+select pg_temp.as_owner();
+select pg_temp.assert((select status from app.centers where id = :co::uuid) = 'onboarding' and app.assistant_chat_mode(:co) = 'onboarding',
+  'J · Weaver still sets a community''s status');
 
 -- ── G. The background service's check ────────────────────────────────────────
 set local role connect_worker;
@@ -214,8 +255,14 @@ select pg_temp.assert(has_function_privilege('connect_worker', 'app.worker_job_b
   'I · the worker''s check is the worker''s alone');
 select pg_temp.assert((select bool_and(not has_function_privilege('authenticated', f, 'execute') and not has_function_privilege('anon', f, 'execute'))
                          from unnest(array['app.ai_off_message()', 'app.ai_job_kinds()', 'app.assert_ai_enabled(uuid)', 'app.ai_onboarding_exempt(uuid)',
-                                           'app.flyer_art_over_limit(uuid)']) f),
+                                           'app._module_on_apart_from_ai(uuid, text)', 'app.flyer_art_over_limit(uuid)',
+                                           'app.centers_guard_status()']) f),
   'I · the helpers cannot be called from outside');
+select pg_temp.assert(has_function_privilege('authenticated', 'app.assistant_chat_mode(uuid)', 'execute')
+                      and not has_function_privilege('anon', 'app.assistant_chat_mode(uuid)', 'execute'),
+  'I · the chat mode is for signed-in people (the portal reads it before the chat answers)');
+select pg_temp.assert(exists (select 1 from pg_trigger t where t.tgrelid = 'app.centers'::regclass and t.tgname = 'centers_guard_status' and not t.tgisinternal),
+  'I · the status guard is on the communities table');
 select pg_temp.assert(has_function_privilege('authenticated', 'app.assistant_usage_check(uuid, integer, text)', 'execute')
                       and has_function_privilege('authenticated', 'app.assistant_usage_check(uuid, integer)', 'execute')
                       and not has_function_privilege('anon', 'app.assistant_usage_check(uuid, integer, text)', 'execute'),
@@ -225,7 +272,8 @@ select pg_temp.assert(not has_function_privilege('authenticated', 'app.enqueue_j
 select pg_temp.assert((select count(*) from pg_proc p
                         where p.oid in ('app.ai_off_message()'::regprocedure, 'app.ai_job_kinds()'::regprocedure, 'app.assert_ai_enabled(uuid)'::regprocedure,
                                         'app.ai_onboarding_exempt(uuid)'::regprocedure, 'app.worker_job_blocked(uuid, text[])'::regprocedure,
-                                        'app.assistant_usage_check(uuid, integer, text)'::regprocedure)
+                                        'app.assistant_usage_check(uuid, integer, text)'::regprocedure, 'app.assistant_chat_mode(uuid)'::regprocedure,
+                                        'app._module_on_apart_from_ai(uuid, text)'::regprocedure, 'app.centers_guard_status()'::regprocedure)
                           and (p.proacl is null or exists (select 1 from aclexplode(p.proacl) a where a.grantee = 0 and a.privilege_type = 'EXECUTE'))) = 0,
   'I · none of the new functions is open to PUBLIC');
 select pg_temp.assert((select bool_and(p.proconfig @> array['search_path=app, public, extensions'])
@@ -233,6 +281,6 @@ select pg_temp.assert((select bool_and(p.proconfig @> array['search_path=app, pu
                         where n.nspname = 'app'
                           and p.proname in ('ai_off_message', 'ai_job_kinds', 'assert_ai_enabled', 'ai_onboarding_exempt', 'assert_module_enabled',
                                             'enqueue_job', 'niva_regenerate', 'flyer_art_over_limit', 'flyer_art_status', 'assistant_usage_check',
-                                            'worker_job_blocked')),
+                                            'worker_job_blocked', 'assistant_chat_mode', '_module_on_apart_from_ai', 'centers_guard_status')),
   'I · every function here pins the search path with extensions');
 rollback;

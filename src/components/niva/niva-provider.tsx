@@ -71,8 +71,10 @@ export function NivaProvider({ nav, children }: { nav: NavEntry[]; children: Rea
 
   const enabled = commands.status === "on";
   // iWeaver (0755): the chat answers everywhere, only on the onboarding pages, or nowhere; the commands work in every case.
-  const chatHere = commands.status === "on" && chatAllowedAt(commands.data.chat ?? "on", context.path);
-  const aiOff = commands.status === "on" && !chatHere;
+  // The iWeaver note shows only when iWeaver is the reason (not when Niva itself is off, or the check failed).
+  const chatMode = commands.status === "on" ? (commands.data.chat ?? "on") : "off";
+  const chatHere = commands.status === "on" && chatAllowedAt(chatMode, context.path);
+  const aiOff = commands.status === "on" && !chatHere && (chatMode === "onboarding" || commands.data.chatOff === "ai");
   const aiReady = commands.status === "on" && commands.data.aiReady && chatHere;
 
   // The chat stream. One at a time; a new question while one is arriving is ignored.

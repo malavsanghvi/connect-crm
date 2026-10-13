@@ -51,6 +51,9 @@ describe("is iWeaver on", () => {
 describe("what the chat may do", () => {
   it("answers everywhere with iWeaver, only on the onboarding pages while onboarding without it, else nowhere", () => {
     expect(chatMode(session([]))).toBe("on");
+    // Niva is needed too: pausing or never having it (or what it needs) keeps the chat off, with iWeaver or not.
+    expect(chatMode(session(["niva"]))).toBe("off");
+    expect(chatMode(session(["content"]))).toBe("off");
     expect(chatMode(session(["ai", "niva"], "onboarding"))).toBe("onboarding");
     expect(chatMode(session(["ai", "niva"], "active"))).toBe("off");
     expect(chatMode(session([], "active", "error"))).toBe("off");

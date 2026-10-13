@@ -57,22 +57,31 @@ export function isOnboardingPath(path: string | null | undefined): boolean {
   return typeof path === "string" && pathUnder(path.split("?")[0]!.split("#")[0]!, ONBOARDING_PATH);
 }
 
-/** The community's own state says it is onboarding (app.centers.status, which Weaver sets and going live changes). */
+/** The community's own state says it is onboarding (app.centers.status: only Weaver changes it, 0756). */
 export function communityOnboarding(center: { status?: string | null }): boolean {
   return center.status === "onboarding";
 }
 
 /**
- * What Niva for admins' chat may do for this community:
- *   on          iWeaver is on: the chat as before
- *   onboarding  iWeaver is off but the community is onboarding: the chat only on the onboarding pages, with the onboarding
- *               commands only (src/lib/assistant/onboarding.ts), counted against the same monthly limit
- *   off         iWeaver is off (or the modules could not be read): no chat; the commands still work
+ * What Niva for admins' chat may do for this community (the database's app.assistant_chat_mode decides the same):
+ *   on          iWeaver AND Niva are on: the chat as before
+ *   onboarding  iWeaver is off, the community is onboarding and Niva itself is on apart from iWeaver: the chat only on the
+ *               onboarding pages, with the onboarding commands only (src/lib/assistant/onboarding.ts), counted against the
+ *               same monthly limit
+ *   off         anything else (iWeaver off, Niva paused or never had, the modules not read): no chat; the commands still work
  */
 export type ChatMode = "on" | "onboarding" | "off";
 
+export function isChatMode(v: unknown): v is ChatMode {
+  return v === "on" || v === "onboarding" || v === "off";
+}
+
+/**
+ * The chat mode as far as the session can tell. "onboarding" is only a candidate: whether Niva itself is on apart from
+ * iWeaver is not in `modulesOff` (Niva reads off whenever iWeaver is), so the server confirms it with app.assistant_chat_mode.
+ */
 export function chatMode(session: ModuleContext & { modulesStatus?: string; center: { status?: string | null } }): ChatMode {
-  if (aiKnownOn(session)) return "on";
+  if (aiKnownOn(session)) return isModuleEnabled(session, "niva") ? "on" : "off";
   if (session.modulesStatus === "ok" && communityOnboarding(session.center)) return "onboarding";
   return "off";
 }

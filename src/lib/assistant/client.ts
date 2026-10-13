@@ -75,6 +75,7 @@ export async function fetchCommands(f: FetchLike): Promise<CommandsResponse | nu
     const commands = body.commands.map(normaliseCommand).filter((c): c is CommandInfo => c !== null);
     const out: CommandsResponse = { ok: true, enabled: body.enabled === true, aiReady: body.aiReady === true, commands };
     if (body.chat === "on" || body.chat === "onboarding" || body.chat === "off") out.chat = body.chat;
+    if (body.chatOff === "ai" || body.chatOff === "niva" || body.chatOff === "unknown") out.chatOff = body.chatOff;
     if (isObject(body.community) && typeof body.community.currency === "string" && typeof body.community.locale === "string") {
       out.community = {
         currency: body.community.currency,

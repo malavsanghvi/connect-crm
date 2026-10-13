@@ -20,12 +20,16 @@
 --     app.flyer_art_over_limit          (0585) gives the sentence first, so app.events_request_flyer_art (0703) and
 --                                       app.events_request_flyer (0585) answer {status: 'unavailable', reason} and queue nothing.
 --     app.flyer_art_status              (0585) says {state: 'ai_off', reason} first, for the flyer panels.
---     app.assistant_usage_check         (0617) runs before every model call of Niva for admins (the portal calls the provider
---                                       itself): it answers {allowed: false, reason} without counting. A new three-argument form
---                                       takes what the call is for ('chat' or 'onboarding'); 'onboarding' is allowed without
---                                       `ai` only while the community's own status is 'onboarding' (app.centers.status, which
---                                       Weaver sets and going live changes), never on the caller's word alone. The monthly
---                                       limit (assistant.monthly_actions) counts both. The two-argument form is 'chat'.
+--     app.assistant_chat_mode           new: what Niva for admins' chat (the portal calls the provider itself) may do: 'on'
+--                                       (iWeaver AND Niva on), 'onboarding' (iWeaver off, the community is onboarding and Niva
+--                                       itself is on apart from iWeaver), else 'off'. Pausing or never having Niva keeps the
+--                                       chat off. The portal asks it before a message and again before every later model call.
+--     app.assistant_usage_check         (0617) runs before every chat message: it answers {allowed: false, reason} without
+--                                       counting unless the chat mode allows the call. A new three-argument form takes what the
+--                                       call is for ('chat' or 'onboarding'); 'onboarding' is allowed without `ai` only in the
+--                                       'onboarding' mode, which reads the community's own status (app.centers.status: only
+--                                       Weaver changes it, 0756), never the caller's word. The monthly limit
+--                                       (assistant.monthly_actions) counts both. The two-argument form is 'chat'.
 --     app.worker_job_blocked            new, for the background service only: before an AI job runs, why it may not (the
 --                                       sentence, or "<module> is switched off for your community."), or null. A job queued
 --                                       before `ai` or Niva went off ends with that message and is not tried again.
@@ -34,8 +38,8 @@
 --   (qbo.match_suggest_ai) are used in onboarding and stay core; the provider Test buttons are platform-only.
 --
 --   A NULL community (a platform-wide job) is never refused. An unknown module key reads as on (0740), so before the catalog
---   has an `ai` row nothing here refuses anything. No table, policy or grant changes, except the new worker-only function.
---   Test 162.
+--   has an `ai` row nothing here refuses anything. No table or policy changes; the new functions are private, except
+--   app.worker_job_blocked (the background service) and app.assistant_chat_mode (signed-in callers). Test 162.
 
 -- ── The sentence and the list ────────────────────────────────────────────────
 
@@ -62,24 +66,46 @@ begin
     using errcode = 'insufficient_privilege', hint = 'An administrator can ask for iWeaver in Settings › Marketplace.';
 end $$;
 
--- Asking Niva for admins during onboarding stays core: while the community's own status is 'onboarding'.
+-- Asking Niva for admins during onboarding stays core: while the community's own status is 'onboarding' (only Weaver changes
+-- a community's status, 0756).
 create or replace function app.ai_onboarding_exempt(p_center uuid) returns boolean
 language sql stable security definer set search_path = app, public, extensions as $$
   select exists (select 1 from app.centers c where c.id = p_center and c.status = 'onboarding')
 $$;
 
+-- Is the module on for the community apart from iWeaver: every module in its chain but `ai` offered, granted and not paused.
+create or replace function app._module_on_apart_from_ai(p_center uuid, p_module text) returns boolean
+language sql stable security definer set search_path = app, public, extensions as $$
+  select not exists (select 1 from unnest(app._module_chain(p_module)) as ch(k)
+                      where ch.k <> 'ai' and not app._module_self_on(p_center, ch.k, app.module_availability(p_center, ch.k)))
+$$;
+
+-- What Niva for admins' chat may do for the community (the commands, which use no model, need neither module):
+--   on          iWeaver and Niva are on
+--   onboarding  iWeaver is off, the community is onboarding, and Niva itself is on apart from iWeaver: the chat answers on the
+--               onboarding pages only (the portal checks the page and offers the onboarding commands only)
+--   off         anything else: pausing or never having Niva keeps the chat off, and so does iWeaver being off
+create or replace function app.assistant_chat_mode(p_center uuid) returns text
+language sql stable security definer set search_path = app, public, extensions as $$
+  select case
+           when app.module_enabled(p_center, 'ai') and app.module_enabled(p_center, 'niva') then 'on'
+           when not app.module_enabled(p_center, 'ai') and app.ai_onboarding_exempt(p_center)
+                and app._module_on_apart_from_ai(p_center, 'niva') then 'onboarding'
+           else 'off'
+         end
+$$;
+comment on function app.assistant_chat_mode(uuid) is
+  'iWeaver (0755): what Niva for admins'' chat may do for the community: on (iWeaver and Niva on), onboarding (iWeaver off while the community is onboarding and Niva is on apart from it: the onboarding pages only), off.';
+
 -- ── Module guard (0740's body; the `ai` branch is new) ───────────────────────
+-- The reasons in order: the kind does not offer it, Weaver has not enabled it, iWeaver is off (0755: one sentence for a module
+-- that needs it, itself or through a module it depends on), a module it needs is off, the community paused it.
 
 create or replace function app.assert_module_enabled(p_center uuid, p_module text) returns boolean
 language plpgsql stable security definer set search_path = app, public, extensions as $$
 declare v_dep text;
 begin
   if app.module_enabled(p_center, p_module) or app.is_platform_admin() then return true; end if;
-  -- 0755: a module that needs iWeaver (itself, or a module it depends on) while iWeaver is off: the one sentence.
-  if 'ai' = any (app._module_chain(p_module)) and not app.module_enabled(p_center, 'ai') then
-    raise exception '%', app.ai_off_message()
-      using errcode = 'insufficient_privilege', hint = 'An administrator can ask for iWeaver in Settings › Marketplace.';
-  end if;
   if app.module_availability(p_center, p_module) = 'not_available' then
     raise exception '% is not part of a % organization.',
       coalesce((select cm.label from app.category_modules cm where cm.category_key = app.center_category(p_center) and cm.module_key = p_module),
@@ -90,6 +116,10 @@ begin
   if not app._module_granted(p_center, p_module) then
     raise exception 'Weaver has not enabled % for this community.', app._module_label(p_center, p_module)
       using errcode = 'insufficient_privilege', hint = 'Ask Weaver to enable it.';
+  end if;
+  if 'ai' = any (app._module_chain(p_module)) and not app.module_enabled(p_center, 'ai') then
+    raise exception '%', app.ai_off_message()
+      using errcode = 'insufficient_privilege', hint = 'An administrator can ask for iWeaver in Settings › Marketplace.';
   end if;
   if app._module_self_on(p_center, p_module, app.module_availability(p_center, p_module)) then
     -- Its own switch is on: a module it needs is off.
@@ -217,7 +247,7 @@ end $$;
 
 create or replace function app.assistant_usage_check(p_center uuid, p_cost integer, p_purpose text) returns jsonb
 language plpgsql security definer set search_path = app, public, extensions as $$
-declare v_user uuid; v_limit integer; v_month date := app._assistant_month(); v_used integer; v_why text;
+declare v_user uuid; v_limit integer; v_month date := app._assistant_month(); v_used integer; v_why text; v_mode text;
 begin
   v_user := app._assistant_actor(p_center);
   -- Refused, not clamped: a direct call cannot burn the community's month in one go, and nobody is told a bigger use
@@ -229,10 +259,14 @@ begin
     raise exception 'Say what the action is for: chat or onboarding.';
   end if;
   v_limit := app._assistant_limit(p_center);
-  -- 0755: the model call is part of iWeaver; asking during onboarding stays core while the community is onboarding.
-  if not app.module_enabled(p_center, 'ai') and not (p_purpose = 'onboarding' and app.ai_onboarding_exempt(p_center)) then
+  -- 0755: the model call needs iWeaver and Niva; asking during onboarding stays core while the community is onboarding.
+  v_mode := app.assistant_chat_mode(p_center);
+  if not (v_mode = 'on' or (v_mode = 'onboarding' and p_purpose = 'onboarding')) then
+    v_why := case when not app._module_on_apart_from_ai(p_center, 'niva')
+                  then app._module_label(p_center, 'niva') || ' is switched off for your community, so Niva for admins can''t answer questions.'
+                  else app.ai_off_message() end;
     select coalesce((select u.used from app.assistant_usage u where u.center_id = p_center and u.month = v_month), 0) into v_used;
-    return jsonb_build_object('allowed', false, 'used', v_used, 'limit', v_limit, 'month', v_month, 'reason', app.ai_off_message());
+    return jsonb_build_object('allowed', false, 'used', v_used, 'limit', v_limit, 'month', v_month, 'reason', v_why);
   end if;
   if v_limit is null or p_cost <= v_limit then
     insert into app.assistant_usage as u (center_id, month, used) values (p_center, v_month, p_cost)
@@ -280,9 +314,13 @@ end $$;
 -- ── Grants ───────────────────────────────────────────────────────────────────
 -- CREATE OR REPLACE keeps a function's privileges; the lines for the redefined ones are repeated so the file is complete.
 revoke execute on function app.ai_off_message(), app.ai_job_kinds(), app.assert_ai_enabled(uuid), app.ai_onboarding_exempt(uuid),
-  app.worker_job_blocked(uuid, text[]) from public, anon, authenticated;
-grant execute on function app.ai_off_message(), app.ai_job_kinds(), app.assert_ai_enabled(uuid), app.ai_onboarding_exempt(uuid)
-  to service_role;
+  app._module_on_apart_from_ai(uuid, text), app.worker_job_blocked(uuid, text[]) from public, anon, authenticated;
+grant execute on function app.ai_off_message(), app.ai_job_kinds(), app.assert_ai_enabled(uuid), app.ai_onboarding_exempt(uuid),
+  app._module_on_apart_from_ai(uuid, text) to service_role;
+-- The chat mode says which of the community's modules are on (as app.my_modules does) and whether it is onboarding (as its
+-- public row does): for signed-in callers, as the portal reads it before the chat answers.
+revoke execute on function app.assistant_chat_mode(uuid) from public, anon;
+grant execute on function app.assistant_chat_mode(uuid) to authenticated, service_role;
 revoke execute on function app.worker_job_blocked(uuid, text[]) from service_role;
 grant execute on function app.worker_job_blocked(uuid, text[]) to connect_worker;
 
@@ -296,7 +334,7 @@ revoke execute on function app.assistant_usage_check(uuid, integer, text), app.a
 grant execute on function app.assistant_usage_check(uuid, integer, text), app.assistant_usage_check(uuid, integer) to authenticated;
 
 comment on function app.assistant_usage_check(uuid, integer, text) is
-  'Niva for admins (0617, 0755): count p_cost actions (1 to 5) against the community''s month (entitlement assistant.monthly_actions) for p_purpose (''chat'' or ''onboarding''). Without iWeaver (`ai`) only ''onboarding'' is allowed, and only while the community''s status is ''onboarding''. Returns {allowed, used, limit, month, reason?}.';
+  'Niva for admins (0617, 0755): count p_cost actions (1 to 5) against the community''s month (entitlement assistant.monthly_actions) for p_purpose (''chat'' or ''onboarding''), when app.assistant_chat_mode allows it: ''chat'' needs iWeaver and Niva on; ''onboarding'' is allowed without iWeaver only while the community is onboarding and Niva itself is on. Returns {allowed, used, limit, month, reason?}.';
 comment on function app.assistant_usage_check(uuid, integer) is
   'Niva for admins (0617): app.assistant_usage_check(p_center, p_cost, ''chat'').';
 comment on function app.worker_job_blocked(uuid, text[]) is
