@@ -138,6 +138,7 @@ const EXTRA_PATHS: readonly [string, ModuleKey][] = [
   ["/giving/opportunities", "giving_opportunities"],
   ["/giving/opportunities/campaigns", "giving"],
   ["/giving/campaigns", "giving"],
+  ["/giving/insights", "giving_insights"],
   // WeaverSite (0751): the private preview of the website draft. Setup › Your website itself stays core (reading the current
   // website teaches the organization's agent at onboarding); its draft panel checks the module on its own.
   ["/setup/website/preview", "website"],

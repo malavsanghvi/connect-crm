@@ -12,7 +12,9 @@ import type { PledgesBehindData } from "@/lib/commands/catalog/pledges-behind";
 import type { CloseBlockersData } from "@/lib/commands/catalog/month-close-blockers";
 import { runScreenCommand } from "@/lib/commands/screen";
 import { communityFormat } from "@/lib/community-format";
+import { loadDonorMatches, seesDonorMatches } from "@/lib/data/books-donors";
 import { readPaypalEmailOnly } from "@/lib/data/giving-lists";
+import { loadStatementsDue } from "@/lib/data/giving-statements";
 import { canFindGiving } from "@/lib/giving-actions/context";
 import { loadPledgeTotals } from "@/lib/data/giving-workspace";
 import { loadHomeTasks } from "@/lib/data/home-tasks";
@@ -21,6 +23,7 @@ import { chunk, fetchAll } from "@/lib/data/fetch-all";
 import { addDays, todayInTz } from "@/lib/dates";
 import { failure } from "@/lib/errors";
 import { CLOSE_ITEMS, firstOfMonth, longMonth } from "@/lib/giving";
+import { statementSeason } from "@/lib/giving-statements/review";
 import { GIVING_ADDONS, givingTabs, type GivingTab, type GivingTabKey } from "@/lib/giving-today/tabs";
 import {
   bankTotalsFromTasks,
@@ -57,6 +60,8 @@ import { workspaceLabel } from "@/lib/workspaces";
 const GIFT_ROWS = 5;
 const DEPOSIT_ROWS = 3;
 const APPLY_ROWS = 5;
+/** QuickBooks donor matches approved in a row (the surest first); the rest are one "more" row pointing at Donor matching. */
+const DONOR_ROWS = 3;
 /** A payment recorded in the last 30 days whose family has an open pledge, not yet applied (older ones stay on Payments). */
 const APPLY_WINDOW_DAYS = 30;
 const COUNTED_STATUSES = ["captured", "pending_clearing", "settled", "partially_refunded"] as const;
@@ -333,7 +338,14 @@ async function loadClose(today: string): Promise<Part<CloseIn>> {
   const d = res.data;
   if (!d) return { state: "error", error: "Could not read the month-end checklist — nothing came back." };
   const keyOf = (label: string) => CLOSE_ITEMS.find((i) => i.label === label && !i.automatic)?.key ?? null;
-  return ok({ month: firstOfMonth(today), label: d.month, locked: d.locked, done: d.done, blockers: d.blockers.map((b) => ({ ...b, key: keyOf(b.item) })) });
+  return ok({
+    month: firstOfMonth(today),
+    label: d.month,
+    locked: d.locked,
+    done: d.done,
+    blockers: d.blockers.map((b) => ({ ...b, key: keyOf(b.item) })),
+    proven: d.proven ?? [],
+  });
 }
 
 // ---------------------------------------------------------------------------- The month and the recent families
@@ -418,6 +430,7 @@ export async function loadGivingToday(session: CrmSession, opts: { show?: string
   const seesApply = seesPledges && canAccess(session, "paymentsAll");
   const seesCounts = canAccess(session, "counting") && isModuleEnabled(session, GIVING_ADDONS.counts);
   const seesClose = canAccess(session, "close") && isModuleEnabled(session, "accounting");
+  const seesDonors = seesDonorMatches(session);
   const countsWord = countsWordFor(session.kind);
   const zelleWord = pluginName("zelle");
 
@@ -426,12 +439,20 @@ export async function loadGivingToday(session: CrmSession, opts: { show?: string
   const taskFailures = home.failures.filter((f) => GIVING_TASK_SOURCES.includes(f.source));
   const zelleOn = Array.isArray(plugins) && plugins.includes("zelle");
 
-  const [bank, behind, apply, counts, close, recorded, open, matched, recent] = await Promise.all([
+  // Year-end statements: a row from January to March for whoever reviews them, while Statements is on (slice 8).
+  const season = statementSeason(today);
+  const statementsP =
+    season !== null && canAccess(session, "statements") && isModuleEnabled(session, GIVING_ADDONS.statements)
+      ? loadStatementsDue(session, season)
+      : Promise.resolve(null);
+
+  const [bank, behind, apply, counts, close, donors, recorded, open, matched, recent] = await Promise.all([
     seesBank ? loadBank(session, bankTotalsFromTasks(tasks), zelleOn, can.bankConfirm) : Promise.resolve(null),
     seesPledges ? loadBehind() : Promise.resolve(null),
     seesApply ? loadToApply(session, today) : Promise.resolve(null),
     seesCounts ? loadCounts(session) : Promise.resolve(null),
     seesClose ? loadClose(today) : Promise.resolve(null),
+    seesDonors ? loadDonorMatches(session, DONOR_ROWS) : Promise.resolve(null),
     seesPayments ? loadRecorded(session, monthStart) : Promise.resolve<MonthNumbers["recorded"]>({ state: "no_access" }),
     seesPledges ? loadPledgeTotals(session) : Promise.resolve<Part<PledgeTotals>>({ state: "no_access" }),
     seesBank ? loadMatched(session, monthStart) : Promise.resolve<MonthNumbers["matched"]>({ state: "no_access" }),
@@ -449,7 +470,7 @@ export async function loadGivingToday(session: CrmSession, opts: { show?: string
   // An approved card refund is recorded in place (slice 3); a PayPal connected by email only is refunded in PayPal, then recorded.
   const paypalEmailOnly = can.manage ? await readPaypalEmailOnly(session) : false;
   const queue = buildQueue(
-    { tasks, taskFailures, families, bank, behind, apply, counts, close },
+    { tasks, taskFailures, families, bank, behind, apply, counts, close, donors, statements: await statementsP },
     {
       can,
       currency: fmt.currency,
@@ -465,7 +486,7 @@ export async function loadGivingToday(session: CrmSession, opts: { show?: string
         bank: seesBank,
         pledges: seesPledges,
         counts: seesCounts,
-        books: seesClose,
+        books: seesClose || seesDonors,
       },
     },
   );

@@ -3,9 +3,10 @@
 // and shows only when the person can open it AND its module is on. Pure: the layout, Today and the tests read the same list.
 //
 // The add-on keys (section 11) are not in the module catalog until M2 lands; isModuleEnabled counts a key the community has
-// not switched off as on, so every add-on tab shows until then. Recurring is a view of Payments (slice 3); Labh and Bolis keep a
-// tab of their own until slice 6 folds them into Campaigns & opportunities.
+// not switched off as on, so every add-on tab shows until then. Recurring is a view of Payments (slice 3); Labh and Bolis are
+// views of Campaigns & opportunities (slice 6, src/lib/giving-campaigns/views.ts).
 
+import { campaignViews, campaignsTabLabel, shownViews } from "@/lib/giving-campaigns/views";
 import type { KindProfile } from "@/lib/kind";
 import { isModuleEnabled } from "@/lib/modules";
 import { canAccess, pathUnder, visibleNav, type ScopedContext } from "@/lib/permissions";
@@ -51,7 +52,7 @@ export function canOpenToday(ctx: ScopedContext): boolean {
   return canAccess(ctx, "payments") || canAccess(ctx, "givingApprove");
 }
 
-/** The tab row for this person, in the plan's order. Insights has no screen yet, so it is not offered. */
+/** The tab row for this person, in the plan's order. */
 export function givingTabs(ctx: TabContext): GivingTab[] {
   const nav = visibleNav(ctx);
   const giving = nav.find((m) => m.key === "giving");
@@ -65,29 +66,29 @@ export function givingTabs(ctx: TabContext): GivingTab[] {
   if (giving && canAccess(ctx, "bank") && on(GIVING_ADDONS.bank)) {
     out.push({ key: "bank", label: "Bank", href: "/giving/payments/bank", paths: ["/giving/payments/bank", "/giving/bank"] });
   }
-  if (tab("/giving/opportunities")) {
-    const withOpportunities = on(GIVING_ADDONS.opportunities);
+  // Campaigns & opportunities holds the Campaigns list, Opportunities, Bolis and Labh as views (slice 6): shown when any of
+  // them is open to the person, opening on the first; Bolis and Labh keep their screens, which light this tab.
+  const views = campaignViews(ctx);
+  const firstView = shownViews(views)[0];
+  if (giving && firstView) {
     out.push({
       key: "campaigns",
-      label: withOpportunities ? "Campaigns & opportunities" : "Campaigns",
-      href: withOpportunities ? "/giving/opportunities" : "/giving/opportunities/campaigns",
-      paths: ["/giving/opportunities", "/giving/campaigns"],
+      label: campaignsTabLabel(views),
+      href: firstView.href,
+      paths: ["/giving/campaigns", "/giving/opportunities", "/giving/labh", "/bolis"],
     });
   }
-  // The NAV tab already hides Labh for a kind without it and when the labh module is off.
-  const labh = tab("/giving/labh");
-  if (labh) out.push({ key: "labh", label: labh.label, href: labh.href, paths: ["/giving/labh"] });
-  const bolis = nav.find((m) => m.key === "bolis");
-  if (bolis) out.push({ key: "bolis", label: bolis.label, href: bolis.href, paths: [] });
   const statements = tab("/giving/statements");
   if (statements && on(GIVING_ADDONS.statements)) out.push({ key: "statements", label: "Statements", href: statements.href, paths: ["/giving/statements"] });
+  // Insights (B98 slice 1): the community's own numbers, for the giving staff (giving.view or giving.manage).
+  if (giving && canAccess(ctx, "paymentsAll") && on(GIVING_ADDONS.insights)) out.push({ key: "insights", label: "Insights", href: "/giving/insights", paths: ["/giving/insights"] });
   if (giving && canAccess(ctx, "counting") && on(GIVING_ADDONS.counts)) {
     // A view of Payments until slice 5 gives the counts their own tab.
     out.push({ key: "counts", label: countsWord(ctx.kind), href: "/giving/payments?view=counts", paths: [] });
   }
   const accounting = nav.find((m) => m.key === "accounting");
   const close = accounting?.tabs.find((t) => t.href === "/accounting/close");
-  if (accounting) out.push({ key: "books", label: "Books", href: close ? close.href : accounting.href, paths: [] });
+  if (accounting) out.push({ key: "books", label: "Books", href: close ? close.href : accounting.href, paths: ["/accounting"] });
   return out;
 }
 

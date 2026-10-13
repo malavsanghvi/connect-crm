@@ -213,7 +213,14 @@ export async function findGiving(
     cards,
   };
 
-  const lane = buildGivingLane(intent, found, { currency: fmt.currency, locale: fmt.locale, timeZone: center.time_zone, canRecord });
+  const createsCampaigns = canAccess(session, "campaignsManage");
+  const lane = buildGivingLane(intent, found, {
+    currency: fmt.currency,
+    locale: fmt.locale,
+    timeZone: center.time_zone,
+    canRecord,
+    canCreate: { campaign: createsCampaigns, opportunity: createsCampaigns && isModuleEnabled(session, GIVING_ADDONS.opportunities) },
+  });
   // Someone who cannot open People still finds a family by name in Giving (its giving opens in place, never its page).
   const families: FindRow[] =
     intent.kind === "lookup" && !people
