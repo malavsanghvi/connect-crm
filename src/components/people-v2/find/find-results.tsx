@@ -4,6 +4,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 
 import { SparkIcon } from "@/components/people-v2/icons";
+import type { GivingRow } from "@/lib/find/giving";
 import { selectable } from "@/lib/find/rows";
 import type { UiRow } from "@/lib/find/types";
 
@@ -16,6 +17,11 @@ const TONES = [
   "bg-[var(--v2-lavender-tint)] text-[var(--v2-lavender)]",
   "bg-[var(--v2-green-tint)] text-[var(--v2-green-ink)]",
 ];
+
+/** On Giving pages an adult with a family opens that family's giving in place; anyone else opens as a link. */
+function opensInPlace(row: Extract<UiRow, { type: "person" }>): boolean {
+  return !!row.row.householdId && !row.row.child;
+}
 
 function toneFor(id: string): string {
   let n = 0;
@@ -41,9 +47,23 @@ function Heading({ children }: { children: ReactNode }) {
   );
 }
 
+const GIVING_HEADING: Record<GivingRow["kind"], string | null> = {
+  record: null,
+  go: null,
+  payment: "Payments",
+  pledge: "Pledges",
+  bank: "Bank lines",
+  campaign: "Campaigns",
+};
+
 function headingFor(rows: readonly UiRow[], i: number): string | null {
   const cur = rows[i];
   const prev = rows[i - 1];
+  if (cur.type === "giving") {
+    if (prev && prev.type === "giving" && prev.row.kind === cur.row.kind) return null;
+    if (i === 0 && (cur.row.kind === "record" || cur.row.kind === "go")) return null;
+    return GIVING_HEADING[cur.row.kind] ?? (cur.row.kind === "record" ? "Record" : null);
+  }
   if (i === 0 || cur.type === "message" || cur.type === "palette") return null;
   if (prev && prev.type === cur.type) return null;
   if (cur.type === "family") return "Families";
@@ -58,13 +78,44 @@ type Props = {
   rows: readonly UiRow[];
   active: number;
   understood: string | null;
+  /** On Giving pages a family (or an adult's family) opens its giving in place: the rows are buttons, not links. */
+  inPlace?: boolean;
   onHover: (index: number) => void;
   onPick: (row: UiRow) => void;
   hints: ReactNode;
 };
 
+const GIVING_MARK: Record<GivingRow["kind"], string> = { record: "+", go: "→", payment: "R", pledge: "P", bank: "B", campaign: "C" };
+const GIVING_PILL: Record<GivingRow["kind"], string> = { record: "Opens the sheet", go: "Opens the list", payment: "Payment", pledge: "Pledge", bank: "Bank line", campaign: "Campaign" };
+
+/** A Giving row: what it is, its facts, and the household card line whenever a family is involved (never a name alone). */
+function GivingBody({ row }: { row: GivingRow }) {
+  const household = "household" in row ? row.household : null;
+  const big = row.kind === "record" && row.best;
+  return (
+    <>
+      <span
+        aria-hidden="true"
+        className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-[15px] font-extrabold ${row.kind === "record" ? "bg-navy text-white" : "bg-[var(--v2-sun-tint)] text-[var(--v2-sun-ink)]"}`}
+      >
+        {GIVING_MARK[row.kind]}
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className={`block font-bold text-ink ${big ? "text-[16px]" : "truncate text-[15px]"}`}>{row.title}</span>
+        {household ? (
+          <span className="block truncate text-[13px] text-muted">
+            {household.name} · {household.cardLine}
+          </span>
+        ) : null}
+        <span className={`block text-[13px] text-muted ${big ? "" : "truncate"}`}>{row.detail}</span>
+      </span>
+      <span className={`${PILL} hidden sm:inline`}>{GIVING_PILL[row.kind]}</span>
+    </>
+  );
+}
+
 /** The rows under the find box: "I understood", the best match first, then families, then people; each with the household card line. */
-export function FindRows({ listId, rows, active, understood, onHover, onPick, hints }: Props) {
+export function FindRows({ listId, rows, active, understood, inPlace = false, onHover, onPick, hints }: Props) {
   const items = selectable(rows);
   const indexOf = (row: UiRow) => items.indexOf(row);
   return (
@@ -93,10 +144,17 @@ export function FindRows({ listId, rows, active, understood, onHover, onPick, hi
             </p>
           );
         }
-        if (row.type === "family") {
-          const r = row.row;
+        if (row.type === "giving") {
+          const big = row.row.kind === "record" && row.row.best;
           body = (
-            <Link href={r.href} {...common} onClick={() => onPick(row)} className={`${ROW} ${bg}`}>
+            <button type="button" {...common} onClick={() => onPick(row)} className={`${ROW} ${bg} ${big ? "border border-navy-300" : ""}`}>
+              <GivingBody row={row.row} />
+            </button>
+          );
+        } else if (row.type === "family") {
+          const r = row.row;
+          const inner = (
+            <>
               <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-navy-50 text-navy">
                 <HomeIcon />
               </span>
@@ -105,7 +163,34 @@ export function FindRows({ listId, rows, active, understood, onHover, onPick, hi
                 <span className="block truncate text-[13px] text-muted">{r.cardLine}</span>
               </span>
               <span className={PILL}>{r.why.label}</span>
+            </>
+          );
+          body = inPlace ? (
+            <button type="button" {...common} onClick={() => onPick(row)} className={`${ROW} ${bg}`}>
+              {inner}
+            </button>
+          ) : (
+            <Link href={r.href} {...common} onClick={() => onPick(row)} className={`${ROW} ${bg}`}>
+              {inner}
             </Link>
+          );
+        } else if (row.type === "person" && inPlace && opensInPlace(row)) {
+          const r = row.row;
+          body = (
+            <button type="button" {...common} onClick={() => onPick(row)} className={`${ROW} ${bg}`}>
+              <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-[13px] font-extrabold ${toneFor(r.id)}`} aria-hidden="true">
+                {initialsOf(r.title)}
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-[15px] font-bold text-ink">{r.title}</span>
+                <span className="block truncate text-[13px] text-muted">
+                  {r.subtitle}
+                  {r.familyName ? ` · in ${r.familyName}` : ""}
+                  {r.cardLine ? ` · ${r.cardLine}` : ""}
+                </span>
+              </span>
+              <span className={PILL}>{r.why.label}</span>
+            </button>
           );
         } else if (row.type === "person") {
           const r = row.row;

@@ -36,6 +36,7 @@ export function GivingSheet({
   pending,
   confirmDisabled = false,
   tone = "primary",
+  cancelLabel = "Cancel",
   onConfirm,
   onClose,
 }: {
@@ -51,6 +52,8 @@ export function GivingSheet({
   pending: boolean;
   confirmDisabled?: boolean;
   tone?: "primary" | "danger";
+  /** "Close" once the work is done (a payment that was recorded cannot be cancelled). */
+  cancelLabel?: string;
   onConfirm: () => void;
   onClose: () => void;
 }) {
@@ -103,7 +106,7 @@ export function GivingSheet({
         tabIndex={-1}
         onKeyDown={onKeyDown}
         data-testid="giving-sheet"
-        className="flex max-h-[94vh] w-full flex-col gap-3 overflow-y-auto rounded-t-[22px] bg-white px-5 pb-5 pt-5 shadow-[0_24px_60px_rgba(18,32,58,0.28)] sm:max-w-[540px] sm:rounded-[22px] sm:px-6"
+        className="flex max-h-[94vh] w-full flex-col gap-3 overflow-y-auto rounded-t-[22px] bg-white px-5 pt-5 shadow-[0_24px_60px_rgba(18,32,58,0.28)] sm:max-w-[540px] sm:rounded-[22px] sm:px-6"
       >
         <div className="flex items-start justify-between gap-3">
           <h2 id={titleId} className="m-0 font-display text-[22px] font-semibold leading-tight text-ink">
@@ -128,9 +131,10 @@ export function GivingSheet({
             {error}
           </p>
         ) : null}
-        <div className="mt-1 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+        {/* The buttons stay in view while a long sheet scrolls (a phone with the keypad open). */}
+        <div className="sticky bottom-0 -mx-5 mt-1 flex flex-col-reverse gap-2 border-t border-line-soft bg-white px-5 pb-5 pt-3 sm:-mx-6 sm:flex-row sm:justify-end sm:px-6">
           <button type="button" onClick={onClose} disabled={pending} className={`${buttonClass("ghost")} min-h-[44px] whitespace-normal py-2 text-center`}>
-            Cancel
+            {cancelLabel}
           </button>
           <button
             type="button"

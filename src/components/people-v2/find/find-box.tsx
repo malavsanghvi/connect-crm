@@ -1,11 +1,13 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent } from "react";
 
+import { useGivingSheets } from "@/components/giving-actions/provider";
 import { useNiva } from "@/components/niva/niva-context";
 import { useModKey } from "@/components/niva/use-mod-key";
 import { classifyInput, squeeze } from "@/lib/find/classify";
+import type { FindScope } from "@/lib/find/giving";
 import { buildUiRows, enterAction, moveActive, selectable } from "@/lib/find/rows";
 import type { EnterAction, FindResponse, NivaState, UiRow } from "@/lib/find/types";
 import { GLOBAL_SEARCH_MIN_CHARS } from "@/lib/global-search";
@@ -28,9 +30,26 @@ const PAUSE_MS = 200;
  *
  * A question goes to Niva when Niva is on. When Niva is off the same words are offered as a list if the page's own reader understands
  * them, and otherwise the box says so. Nothing is looked up for fewer than two characters. Failures are said in words, never swallowed.
+ *
+ * Giving (docs/GIVING_REDESIGN.md section 4): "200 check patel" offers to record that payment (Enter opens the Record payment sheet
+ * filled in; only the sheet's own button records), a receipt or pledge number or an amount finds it. On Giving pages (`scope`
+ * "giving", from the address when not given) a family opens its giving in place instead of its page.
  */
-export function FindBox({ variant, cookieName, autoFocus = false }: { variant: "page" | "bar"; cookieName: string | null; autoFocus?: boolean }) {
+export function FindBox({
+  variant,
+  cookieName,
+  autoFocus = false,
+  scope: scopeProp,
+}: {
+  variant: "page" | "bar";
+  cookieName: string | null;
+  autoFocus?: boolean;
+  scope?: FindScope;
+}) {
   const router = useRouter();
+  const pathname = usePathname();
+  const scope: FindScope = scopeProp ?? (pathname === "/giving" || pathname?.startsWith("/giving/") ? "giving" : "people");
+  const sheets = useGivingSheets();
   const search = useFindSearch();
   const niva = useNiva();
   const mod = useModKey();
@@ -72,8 +91,8 @@ export function FindBox({ variant, cookieName, autoFocus = false }: { variant: "
 
   const ui = useMemo(() => {
     if (!result || !("data" in result)) return null;
-    return buildUiRows(result.data, { niva: nivaState, withPalette: !!niva?.enabled, shape: classifyInput(result.query).shape });
-  }, [result, nivaState, niva?.enabled]);
+    return buildUiRows(result.data, { niva: nivaState, withPalette: !!niva?.enabled, shape: classifyInput(result.query).shape, scope });
+  }, [result, nivaState, niva?.enabled, scope]);
 
   function perform(act: EnterAction) {
     if (act.type === "open") {
@@ -88,6 +107,16 @@ export function FindBox({ variant, cookieName, autoFocus = false }: { variant: "
     } else if (act.type === "palette") {
       setOpen(false);
       live.current.niva?.openPalette(act.text);
+    } else if (act.type === "record-payment") {
+      // The sheet opens filled in; nothing is saved until its own button is pressed. Without the sheets (no Giving here), the screen.
+      setOpen(false);
+      if (sheets?.canRecord) sheets.openRecordPayment(act.request);
+      else router.push(act.href);
+    } else if (act.type === "family-giving") {
+      recordRecentFamily(cookieName, act.householdId);
+      setOpen(false);
+      if (sheets) sheets.openFamilyGiving(act.householdId, act.focus);
+      else router.push(act.href);
     }
   }
 
@@ -102,7 +131,7 @@ export function FindBox({ variant, cookieName, autoFocus = false }: { variant: "
       return;
     }
     setLoading(true);
-    search(q)
+    search(q, { scope })
       .then((res) => {
         if (mine !== seq.current) return; // a newer look-up is on its way
         setLoading(false);
@@ -114,8 +143,8 @@ export function FindBox({ variant, cookieName, autoFocus = false }: { variant: "
         setActive(0);
         if (then) {
           const { nivaState: state, niva: n } = live.current;
-          const built = buildUiRows(res.data, { niva: state, withPalette: !!n?.enabled, shape: classifyInput(q).shape });
-          perform(enterAction(built.rows, 0, { shift: then.shift, niva: state, typed: q }));
+          const built = buildUiRows(res.data, { niva: state, withPalette: !!n?.enabled, shape: classifyInput(q).shape, scope });
+          perform(enterAction(built.rows, 0, { shift: then.shift, niva: state, typed: q, scope }));
         }
       })
       .catch((error: unknown) => {
@@ -155,7 +184,7 @@ export function FindBox({ variant, cookieName, autoFocus = false }: { variant: "
     } else if (e.key === "Enter") {
       e.preventDefault();
       if (typed.length < GLOBAL_SEARCH_MIN_CHARS) return;
-      if (fresh && ui) perform(enterAction(ui.rows, active, { shift: e.shiftKey, niva: nivaState, typed }));
+      if (fresh && ui) perform(enterAction(ui.rows, active, { shift: e.shiftKey, niva: nivaState, typed, scope }));
       else run(text, { shift: e.shiftKey });
     } else if (e.key === "Escape") {
       if (open && (typed || result)) setOpen(false);
@@ -180,7 +209,9 @@ export function FindBox({ variant, cookieName, autoFocus = false }: { variant: "
   return (
     <div ref={boxRef} role="search" data-find-bar={page ? undefined : ""} className={`relative w-full ${page ? "" : "max-w-[560px]"}`}>
       <label htmlFor={`${listId}-input`} className="sr-only">
-        Find a family or a person: a name, phone number, email, member number or any ID
+        {scope === "giving"
+          ? "Find a family, a receipt or pledge number or an amount, or say what you received, like 200 check patel"
+          : "Find a family or a person: a name, phone number, email, member number or any ID"}
       </label>
       <div className={`flex items-center gap-3 border border-line-input bg-white focus-within:border-navy focus-within:ring-2 focus-within:ring-navy/30 ${page ? "min-h-[60px] rounded-[30px] pl-5 pr-4 shadow-sm" : "min-h-[40px] rounded-[20px] bg-canvas pl-3.5 pr-3"}`}>
         <span className="text-muted">
@@ -199,7 +230,15 @@ export function FindBox({ variant, cookieName, autoFocus = false }: { variant: "
           autoCorrect="off"
           spellCheck={false}
           enterKeyHint="go"
-          placeholder={page ? "A name, a phone number, an email, a member number, any old ID, or a question" : "Find a family or person: name, phone, email, any ID"}
+          placeholder={
+            scope === "giving"
+              ? page
+                ? "A family, a receipt number, an amount, or what you received: 200 check patel"
+                : "Family, receipt, amount, or 200 check patel"
+              : page
+                ? "A name, a phone number, an email, a member number, any old ID, or a question"
+                : "Find a family or person: name, phone, email, any ID"
+          }
           value={text}
           onChange={(e) => onChange(e.target.value)}
           onFocus={() => setOpen(true)}
@@ -232,11 +271,13 @@ export function FindBox({ variant, cookieName, autoFocus = false }: { variant: "
               rows={ui.rows}
               active={active}
               understood={ui.understood}
+              inPlace={scope === "giving"}
               onHover={(i) => i >= 0 && setActive(i)}
               onPick={(row) => {
                 if (row.type === "family") recordRecentFamily(cookieName, row.row.id);
                 else if (row.type === "person") recordRecentFamily(cookieName, row.row.householdId);
-                if (row.type === "niva" || row.type === "palette") perform(enterAction([row], 0));
+                const inPlace = row.type === "giving" || (scope === "giving" && (row.type === "family" || row.type === "person"));
+                if (row.type === "niva" || row.type === "palette" || inPlace) perform(enterAction([row], 0, { scope }));
                 else setOpen(false);
               }}
               hints={
@@ -245,7 +286,7 @@ export function FindBox({ variant, cookieName, autoFocus = false }: { variant: "
                     <kbd className="rounded border border-line bg-canvas px-1 font-mono">↑</kbd> <kbd className="rounded border border-line bg-canvas px-1 font-mono">↓</kbd> move
                   </span>
                   <span>
-                    <kbd className="rounded border border-line bg-canvas px-1 font-mono">Enter</kbd> opens the family
+                    <kbd className="rounded border border-line bg-canvas px-1 font-mono">Enter</kbd> {scope === "giving" ? "opens it" : "opens the family"}
                   </span>
                   {nivaState === "on" ? (
                     <span>

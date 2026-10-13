@@ -18,8 +18,13 @@ vi.mock("@/app/(app)/giving/payments/bank/zelle-actions", () => ({ confirmExactM
 vi.mock("@/app/(app)/giving/payments/counting-actions", () => ({ recordCountingDepositAction: vi.fn() }));
 vi.mock("@/app/(app)/accounting/close/actions", () => ({ setCloseItemAction: vi.fn() }));
 vi.mock("@/app/security-actions", () => ({ verifyStepUpAction: vi.fn() }));
+vi.mock("@/app/(app)/search/find-actions", () => ({ findAction: vi.fn() }));
 let pathname = "/giving";
-vi.mock("next/navigation", async (actual) => ({ ...(await actual<typeof import("next/navigation")>()), usePathname: () => pathname }));
+vi.mock("next/navigation", async (actual) => ({
+  ...(await actual<typeof import("next/navigation")>()),
+  usePathname: () => pathname,
+  useRouter: () => ({ push: vi.fn(), replace: vi.fn(), refresh: vi.fn() }),
+}));
 
 // The route: the look cookie, the session and the loader are stand-ins.
 const look = { value: "v2" as string | undefined };
@@ -108,7 +113,16 @@ describe("Giving › Today for a treasurer", () => {
     expect(out).toContain("Recent families");
     expect(out).toContain('href="/households/1a2b3c4d-0000-4000-8000-000000000127"');
     expect(out).toContain(">Record payment</a>");
-    expect(out).toContain(">Find</a>");
+    // The phone bar's Find focuses the large box on the page (slice 2), it no longer opens the palette or another page.
+    expect(out).toContain(">Find</button>");
+  });
+
+  it("puts the large Giving box above the queue, and the old conversation page is no longer linked (slice 2)", () => {
+    expect(out).toContain('aria-label="Find in Giving"');
+    expect(out).toContain("A family, a receipt number, an amount, or what you received: 200 check patel");
+    expect(out.indexOf('aria-label="Find in Giving"')).toBeLessThan(out.indexOf("Work queue"));
+    expect(out).not.toContain("Type what you received");
+    expect(out).not.toContain("/giving/ask");
   });
 
   it("opens on the tile in the address and lists only its rows", () => {

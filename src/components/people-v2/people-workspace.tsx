@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 
 import { dismissDuplicateAction } from "@/app/(app)/households/actions";
 import { ActionForm } from "@/components/action-form";
+import { RecordPaymentButton } from "@/components/giving-actions/provider";
 import { AskNiva } from "@/components/niva/ask-niva";
 import { NivaHouseholdCard } from "@/components/niva/niva-household-card";
 import { StepUpDownload } from "@/components/step-up-download";
@@ -549,9 +550,9 @@ function CardBody({ card }: { card: HouseholdPanel }) {
       </dl>
       <div className="flex flex-wrap items-center gap-2">
         {card.recordPaymentHref ? (
-          <Link href={card.recordPaymentHref} className={`${BTN} bg-navy text-white hover:bg-navy-hover`}>
+          <RecordPaymentButton householdId={card.id} href={card.recordPaymentHref} className={`${BTN} bg-navy text-white hover:bg-navy-hover`}>
             Record a payment
-          </Link>
+          </RecordPaymentButton>
         ) : null}
         <span className="relative inline-flex">
           <button type="button" disabled title="Messaging one household from its card is not built yet." className={`${BTN} cursor-not-allowed border border-line-input bg-white text-muted`}>

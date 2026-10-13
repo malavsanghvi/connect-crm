@@ -3,13 +3,18 @@
 // Giving › Today in the New look (docs/GIVING_REDESIGN.md section 4): the work queue first, its tiles filtering the rows, each
 // row acting in place; then three numbers for the month and the families seen most recently. On a phone the rows stack, the
 // tab row scrolls sideways and a bar above the bottom bar holds Record payment and Find.
+//
+// The large box (slice 2) sits above the queue: "200 check patel" opens the Record payment sheet filled in, a receipt number or an
+// amount finds the payment, a family opens its giving in place. Record payment opens the same sheet; nothing leaves Giving.
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, type ReactNode } from "react";
 
+import { FamilyGivingLink, RecordPaymentButton } from "@/components/giving-actions/provider";
 import { RowButtons, RowInline, type ActContext } from "@/components/giving-actions/row-actions";
 import { useNiva } from "@/components/niva/niva-context";
+import { FindBox } from "@/components/people-v2/find/find-box";
 import { buttonClass } from "@/components/ui";
 import type { GivingTodayModel } from "@/lib/data/giving-today";
 import { familyLine, queueTiles, type GroupKey, type QueueRow, type RowIcon, type RowTone } from "@/lib/giving-today/queue";
@@ -127,6 +132,13 @@ export function TodayPage({ model }: { model: GivingTodayModel }) {
     onDone: (text) => setDone((d) => ({ ...d, [row.id]: text })),
   });
 
+  /** The phone bar's Find: the large box at the top of the page, focused. */
+  function focusFind() {
+    const input = document.querySelector<HTMLInputElement>("[data-giving-find] input");
+    input?.scrollIntoView({ block: "center" });
+    input?.focus();
+  }
+
   function choose(k: GroupKey | "all") {
     setTile(k);
     try {
@@ -148,17 +160,20 @@ export function TodayPage({ model }: { model: GivingTodayModel }) {
         </div>
         {model.can.record ? (
           <div className="hidden flex-wrap gap-2 md:flex">
-            <Link href="/giving/ask" className={buttonClass("ghost", "sm")}>
-              Type what you received
-            </Link>
-            <Link href="/giving/payments" className={buttonClass("primary", "sm")}>
+            <RecordPaymentButton href="/giving/payments" className={buttonClass("primary", "sm")}>
               Record payment
-            </Link>
+            </RecordPaymentButton>
           </div>
         ) : null}
       </header>
 
       <GivingTabRow tabs={model.tabs} counts={model.tabCounts} active="today" />
+
+      {model.can.find ? (
+        <section aria-label="Find in Giving" data-giving-find="">
+          <FindBox variant="page" scope="giving" cookieName={null} />
+        </section>
+      ) : null}
 
       <section aria-labelledby="giving-queue" className="rounded-[18px] border border-line bg-white px-4 py-4 sm:px-5">
         <div className="flex flex-wrap items-center gap-2.5">
@@ -264,10 +279,10 @@ export function TodayPage({ model }: { model: GivingTodayModel }) {
             <ul className="m-0 grid list-none grid-cols-1 gap-3 p-0 sm:grid-cols-2 xl:grid-cols-4">
               {model.recent.data.map((f) => (
                 <li key={f.id}>
-                  <Link href={`/households/${f.id}`} className="block rounded-[16px] border border-line bg-white px-3.5 py-3 no-underline hover:border-navy-300">
+                  <FamilyGivingLink householdId={f.id} className="block w-full rounded-[16px] border border-line bg-white px-3.5 py-3 text-left no-underline hover:border-navy-300">
                     <span className="block font-display text-[17px] font-semibold text-ink">{f.name}</span>
                     <span className="block text-[13px] text-muted">{familyLine(f, model.labels)}</span>
-                  </Link>
+                  </FamilyGivingLink>
                 </li>
               ))}
             </ul>
@@ -277,11 +292,15 @@ export function TodayPage({ model }: { model: GivingTodayModel }) {
 
       <div className="fixed inset-x-0 bottom-[calc(67px+env(safe-area-inset-bottom))] z-20 flex gap-2 border-t border-line bg-white px-4 py-2 md:hidden">
         {model.can.record ? (
-          <Link href="/giving/payments" className={`${buttonClass("primary")} min-h-[44px] flex-1 justify-center`}>
+          <RecordPaymentButton href="/giving/payments" className={`${buttonClass("primary")} min-h-[44px] flex-1 justify-center`}>
             Record payment
-          </Link>
+          </RecordPaymentButton>
         ) : null}
-        {niva ? (
+        {model.can.find ? (
+          <button type="button" onClick={focusFind} className={`${buttonClass("ghost")} min-h-[44px] flex-1 justify-center`}>
+            Find
+          </button>
+        ) : niva ? (
           <button type="button" onClick={() => niva.openPalette()} className={`${buttonClass("ghost")} min-h-[44px] flex-1 justify-center`}>
             Find
           </button>
