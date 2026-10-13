@@ -557,6 +557,8 @@ export const NAV: NavModule[] = [
       { href: "/settings/audit", label: "Audit log", access: "audit" },
       // Not in the prototype: org-level module switches (WAVE2), after the prototype's eight.
       { href: "/settings/modules", label: "Modules", access: "centerSettings" },
+      // The Marketplace (0753): request a product, pause or resume one, "tell me when it is ready".
+      { href: "/settings/marketplace", label: "Marketplace", access: "centerSettings" },
       // Access levels (0586): who can use each member-app area (darshan, puja, listen …), per organization.
       { href: "/settings/access", label: "Access levels", access: "centerSettings" },
       // Not in the prototype (onboarding, o-security): staff invitations, 2FA and the owner; the organization's agreements.

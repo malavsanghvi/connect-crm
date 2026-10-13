@@ -199,8 +199,18 @@ export function missingToEnable(key: string, states: readonly ModuleState[]): st
   return me.dependsOn.filter((d) => states.find((s) => s.key === d)?.enabled === false);
 }
 
+/** The Marketplace products (0750): Weaver turns them on (an administrator requests one); the community pauses and resumes them. */
+export const PRODUCT_MODULES: readonly ModuleKey[] = ["ai", "website", "channels", "care", "matching"];
+
+export function isProductModule(key: string): boolean {
+  return (PRODUCT_MODULES as readonly string[]).includes(key);
+}
+
 /** The contract's wording for a direct URL to a switched-off module (`label`: the organization's kind's own name for it). */
 export function moduleOffMessage(key: ModuleKey, centerName: string, label: string = moduleDef(key).label): string {
+  if (isProductModule(key)) {
+    return `${label} is not on for ${centerName}. It is a Marketplace product: an administrator can request it, or resume it if it is paused, in Settings › Marketplace.`;
+  }
   return `The ${label} module is switched off for ${centerName}. An administrator can switch it on in Settings › Modules.`;
 }
 

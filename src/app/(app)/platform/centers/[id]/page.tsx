@@ -3,7 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { ActionForm } from "@/components/action-form";
-import { BlockGrid, Card, DefinitionList, EmptyState, PageHeader, QueryError, StatusText, TableWrap } from "@/components/ui";
+import { BlockGrid, Card, DefinitionList, EmptyState, PageHeader, QueryError, StatusText, TableWrap, buttonClass } from "@/components/ui";
 import { confirmToolChoices } from "@/lib/assistant/choices";
 import { assistantApiKey } from "@/lib/assistant/key";
 import { consentFromRules } from "@/lib/activity/consent";
@@ -121,6 +121,21 @@ export default async function PlatformCenterPage({ params }: { params: Promise<{
           ) : (
             <KindPanel centerId={id} centerName={center.name} currentKey={center.category_key} experiences={kinds.experiences} sandbox={sandbox} />
           )}
+        </Card>
+
+        <Card
+          span={12}
+          title="Products"
+          description="The Marketplace products: turn one on or off with a reason and a fresh code, see the community's requests and the product history"
+          actions={
+            <Link href={`/platform/centers/${id}/products`} className={buttonClass("primary", "sm")}>
+              Open products
+            </Link>
+          }
+        >
+          <p className="text-[13px] text-muted">
+            The modules below are the low-level view of the same switches. Use Products for what a community asked for; use Modules for an exception.
+          </p>
         </Card>
 
         <Card

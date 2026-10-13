@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 
 import { Card, StatusText, buttonClass } from "@/components/ui";
+import { marketplaceHref } from "@/lib/marketplace";
 import type { DraftSummary } from "@/lib/site-draft/types";
 
 import { buildFirstDraftAction } from "./draft-actions";
@@ -16,6 +17,11 @@ export function DraftPanelOff({ text }: { text: string }) {
     <Card title="Your first website draft" description="Weaver drafts your new website from what it found and from your records in Weaver.">
       <p role="status" className="text-[13px] text-muted" data-draft-panel="off">
         {text}
+      </p>
+      <p className="mt-3">
+        <Link href={marketplaceHref("website")} className={buttonClass("primary", "sm")}>
+          See WeaverSite in the Marketplace
+        </Link>
       </p>
     </Card>
   );
