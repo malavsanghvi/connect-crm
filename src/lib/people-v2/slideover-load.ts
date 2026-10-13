@@ -219,6 +219,7 @@ async function loadProfile(session: CrmSession, p: { id: string; interests: stri
     dietary: d.dietary.map((x) => ({ label: x.label, retired: x.retired })),
     emergency: d.emergency,
     labelsNote: d.labelsNote,
+    edit: { dietaryKeys: d.dietary.map((x) => x.key), dietaryOther: d.dietaryOther ?? "", options: d.options ?? [] },
   });
 }
 

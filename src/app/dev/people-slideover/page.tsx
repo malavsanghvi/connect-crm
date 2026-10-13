@@ -45,6 +45,13 @@ const STEPS = [
   "add-person-save",
   "add-person-child",
   "add-person-bad",
+  "pd-anniversary",
+  "pd-anniversary-save",
+  "pd-dietary",
+  "pd-dietary-save",
+  "pd-emergency",
+  "pd-emergency-save",
+  "pd-emergency-bad",
 ] as const satisfies readonly Step[];
 
 /**

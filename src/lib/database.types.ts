@@ -15460,6 +15460,14 @@ export type Database = {
         };
         Returns: { person_id: string; name: string; household_id: string; household_name: string }[];
       };
+      staff_save_profile_details: {
+        Args: {
+          p_person: string;
+          p_patch: Json;
+          p_reason?: string;
+        };
+        Returns: undefined;
+      };
       start_paypal_email_verification: {
         Args: {
           p_center: string;
