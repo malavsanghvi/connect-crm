@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useId, useRef, useState, type FormEvent } from "react";
+import { useEffect, useId, useRef, useState, type FormEvent } from "react";
 
 import { useToast } from "@/components/toast";
 import { suggestionsFor } from "@/lib/custom-field-suggestions";
@@ -50,9 +50,15 @@ export function AddFieldSheet({ mode, entity: first, payload, onClose }: { mode:
   const [problem, setProblem] = useState<{ on: "label" | "choices" | "type"; text: string } | null>(null);
   const [failed, setFailed] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  const [copy, setCopy] = useState<{ state: "idle" | "copied" | "failed"; text: string }>({ state: "idle", text: "" });
+  const [copy, setCopy] = useState<{ state: "idle" | "copying" | "copied" | "failed"; text: string }>({ state: "idle", text: "" });
   const nameBox = useRef<HTMLInputElement>(null);
+  const choicesBox = useRef<HTMLInputElement>(null);
   const asking = mode === "ask";
+
+  // The sheet opens on the name: that is what is typed first.
+  useEffect(() => {
+    nameBox.current?.focus();
+  }, []);
 
   const group = payload[form.entity];
   const existing = [...group.active, ...group.archived].map((d) => ({ label: d.label, archived: d.status === "archived" }));
@@ -72,12 +78,18 @@ export function AddFieldSheet({ mode, entity: first, payload, onClose }: { mode:
     if (!checked.ok) {
       setProblem({ on: checked.on, text: checked.error });
       setCopy({ state: "idle", text: "" });
+      (checked.on === "choices" ? choicesBox : nameBox).current?.focus();
       return;
     }
     if (asking) {
       const text = askAdminRequest(form, { community: payload.community, label: checked.label });
+      // The request is shown at once, so it can be read and copied by hand even if the browser is slow to answer or refuses.
+      setCopy({ state: "copying", text });
       try {
-        await navigator.clipboard.writeText(text);
+        await Promise.race([
+          navigator.clipboard.writeText(text),
+          new Promise((_, reject) => setTimeout(() => reject(new Error("the browser did not answer the copy")), 2500)),
+        ]);
         setCopy({ state: "copied", text });
       } catch (error) {
         console.error("[custom fields] the request could not be copied:", error);
@@ -219,6 +231,7 @@ export function AddFieldSheet({ mode, entity: first, payload, onClose }: { mode:
             </label>
             <input
               id={`${uid}-choices`}
+              ref={choicesBox}
               dir="auto"
               autoComplete="off"
               value={form.choicesText}
@@ -266,10 +279,14 @@ export function AddFieldSheet({ mode, entity: first, payload, onClose }: { mode:
 
         {copy.state !== "idle" ? (
           <div data-testid="ask-admin-request">
-            <p role="status" className={`m-0 mb-1.5 text-[13px] font-semibold ${copy.state === "copied" ? "text-[var(--v2-green-ink)]" : "text-danger"}`}>
-              {copy.state === "copied" ? "Copied. Send it to an admin." : "Could not copy it automatically. Select the text below and copy it yourself."}
+            <p role="status" className={`m-0 mb-1.5 text-[13px] font-semibold ${copy.state === "copied" ? "text-[var(--v2-green-ink)]" : copy.state === "failed" ? "text-danger" : "text-muted"}`}>
+              {copy.state === "copied"
+                ? "Copied. Send it to an admin."
+                : copy.state === "failed"
+                  ? "Could not copy it automatically. Select the text below and copy it yourself."
+                  : "Copying…"}
             </p>
-            <textarea readOnly value={copy.text} rows={6} dir="auto" onFocus={(e) => e.currentTarget.select()} className={`${INPUT} py-2 text-[13px]`} aria-label="Your request for an admin" />
+            <textarea readOnly value={copy.text} rows={7} dir="auto" onFocus={(e) => e.currentTarget.select()} className={`${INPUT} py-2 text-[13px]`} aria-label="Your request for an admin" />
           </div>
         ) : null}
 

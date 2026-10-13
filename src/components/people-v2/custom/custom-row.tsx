@@ -46,7 +46,7 @@ export function VisibilityIcon({ visibility }: { visibility: CustomRowModel["vis
 export function VisibilityMark({ visibility }: { visibility: CustomRowModel["visibility"] }) {
   const text = visibility === "staff" ? "Staff only" : visibility === "member_self" ? "Members can see this" : "Members can see this (in the directory)";
   return (
-    <span role="img" aria-label={text} title={text} data-visibility={visibility} className="ml-1 inline-flex translate-y-[2px] items-center text-faint">
+    <span role="img" aria-label={text} title={text} data-visibility={visibility} className="inline-flex items-center text-faint">
       <VisibilityIcon visibility={visibility} />
     </span>
   );
@@ -161,13 +161,16 @@ export function CustomValueRow({ row, entity, recordId, owner, canEdit, currency
     <div
       data-testid="custom-row"
       data-field={row.key}
-      className={`grid items-start gap-x-3 py-0.5 ${wide ? "grid-cols-[6.75rem_minmax(0,1fr)] sm:grid-cols-[7.5rem_minmax(0,1fr)]" : "grid-cols-[5.5rem_minmax(0,1fr)] sm:grid-cols-[6.25rem_minmax(0,1fr)]"}`}
+      className={`grid items-start gap-x-3 py-0.5 ${wide ? "grid-cols-[6.75rem_minmax(0,1fr)_auto] sm:grid-cols-[7.5rem_minmax(0,1fr)_auto]" : "grid-cols-[4.75rem_minmax(0,1fr)_auto] sm:grid-cols-[5.25rem_minmax(0,1fr)_auto]"}`}
     >
       <label htmlFor={edit.editing && shape.control === "input" ? id : undefined} className="pt-[11px] text-[13px] leading-snug text-muted md:pt-[7px]">
         <span dir="auto">{row.label}</span>
-        <VisibilityMark visibility={row.visibility} />
       </label>
       <div className="min-w-0">{body}</div>
+      {/* Who sees it: at the end of the row, so a long name or a narrow phone never pushes the mark onto the value. */}
+      <span className="pl-1 pt-[13px] md:pt-[9px]">
+        <VisibilityMark visibility={row.visibility} />
+      </span>
     </div>
   );
 }

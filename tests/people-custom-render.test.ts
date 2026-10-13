@@ -30,6 +30,9 @@ afterEach(() => {
   vi.unstubAllEnvs();
 });
 
+/** The page's words without its markup (a field's name is drawn in two pieces so its mark never stands alone). */
+const text = (html: string) => html.replace(/<[^>]+>/g, "");
+
 const links: FamilyLinks = { people: "/people", payment: null, addPerson: null, manageIds: null, more: [] };
 
 function page(state: FieldsState | "none", key: Parameters<typeof familyFixture>[0] = "hassan") {
@@ -57,7 +60,7 @@ describe("a Custom group on each adult's card", () => {
     const html = page("default");
     expect(html.match(/data-testid="custom-group"/g)).toHaveLength(2);
     const first = html.slice(html.indexOf('aria-label="Custom fields of Samira"'), html.indexOf('aria-label="Custom fields of Karim"'));
-    const order = ["Shirt size", "Volunteer skills", "Anniversary", "Newsletter", "Dues paid"].map((l) => first.indexOf(`>${l}<`));
+    const order = ["shirt_size", "volunteer_skills", "anniversary", "newsletter", "dues_paid"].map((k) => first.indexOf(`data-field="${k}"`));
     expect(order.every((n) => n > 0)).toBe(true);
     expect([...order].sort((a, b) => a - b)).toEqual(order);
     expect(first).toContain("Catering, first aid");
@@ -96,7 +99,7 @@ describe("a Custom group on each adult's card", () => {
 
   it("works with field labels and values in another script", () => {
     const html = page("default", "tanaka");
-    expect(html).toContain("ボランティアの技能");
+    expect(text(html)).toContain("ボランティアの技能");
     expect(html).toContain("料理, 応急手当");
     expect(html).toContain("大阪");
   });
@@ -113,9 +116,9 @@ describe("Custom details for the household", () => {
     const html = page("default");
     const card = html.slice(html.indexOf('data-testid="custom-details"'));
     expect(card).toContain("Custom details");
-    expect(card).toContain("Hometown");
+    expect(text(card)).toContain("Hometown");
     expect(card).toContain("Beirut");
-    expect(card).toContain("Preferred contact time");
+    expect(text(card)).toContain("Preferred contact time");
     expect(html.indexOf('aria-label="Address"')).toBeLessThan(html.indexOf('data-testid="custom-details"'));
   });
 });
@@ -161,7 +164,7 @@ describe("a role that cannot read custom fields", () => {
   it("says 'You don't have access to this area' in each group, never an empty group, and shows no field", () => {
     const html = page("no-access");
     expect(html.match(/You don&#x27;t have access to this area/g)).toHaveLength(3);
-    expect(html).not.toContain("Shirt size");
+    expect(text(html)).not.toContain("Shirt size");
     expect(html).not.toContain("No custom fields yet");
     expect(html).not.toContain('data-testid="add-field-link"');
   });
@@ -179,12 +182,12 @@ describe("children (D2)", () => {
     const children = html.slice(html.indexOf('aria-label="Children"'), html.indexOf('aria-label="Children"') + 6000);
     expect(children).toContain('data-testid="child-row"');
     expect(children).not.toContain('data-testid="custom-row"');
-    expect(children).not.toContain("Shirt size");
+    expect(text(children)).not.toContain("Shirt size");
   });
 
   it("shows a child's custom fields in the slide-over to staff, with the staff-only note, and no Niva anywhere", () => {
     const html = section("default", "p-layla", true);
-    expect(html).toContain("Shirt size");
+    expect(text(html)).toContain("Shirt size");
     expect(html).toContain('data-testid="child-custom-note"');
     expect(html).toContain("Staff only · never sent to Niva");
     expect(html.replace("never sent to Niva", "")).not.toMatch(/niva/i);
@@ -198,7 +201,7 @@ describe("the slide-over section", () => {
     expect(html).toContain('data-section="custom_fields"');
     expect(html).toContain('aria-expanded="true"');
     expect(html).toContain("Custom fields");
-    expect(html).toContain("Volunteer skills");
+    expect(text(html)).toContain("Volunteer skills");
     expect(html).toContain('data-testid="add-field-link"');
     expect(html).toContain('data-testid="manage-fields-link"');
   });

@@ -62,7 +62,7 @@ export function ManageSheet({ entity, payload, onClose, onAdd }: { entity: Custo
                   <div className="min-w-0 flex-1">
                     <p className={`m-0 text-[14.5px] font-bold ${archived ? "text-muted" : "text-ink"}`} dir="auto">
                       {r.label}
-                      <VisibilityMark visibility={r.visibility} />
+                      <span className="ml-1.5"><VisibilityMark visibility={r.visibility} /></span>
                       {archived ? <span className="ml-2 text-[12px] font-semibold text-muted">Archived</span> : null}
                     </p>
                     <p className="m-0 text-[12.5px] text-muted">{r.detail}</p>

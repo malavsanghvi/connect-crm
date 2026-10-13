@@ -5,9 +5,12 @@ import { useEffect, useMemo } from "react";
 import type { InlineSave } from "@/app/(app)/households/[id]/inline-actions";
 import type { FamilyActions } from "@/components/people-v2/family/actions";
 import type { FamilyLinks } from "@/components/people-v2/family/family-header";
+import { CustomFieldsSection } from "@/components/people-v2/custom/custom-group";
 import { FamilyView, type FamilySlots } from "@/components/people-v2/family/family-view";
+import { PersonSlideOver } from "@/components/people-v2/slideover/person-slideover";
 import type { CustomFieldsPayload } from "@/lib/people-v2/custom-fields";
 import type { FamilyModel, HeaderChip } from "@/lib/people-v2/family-model";
+import type { MenuHrefs, PersonDetailModel, SectionPlan } from "@/lib/people-v2/slideover";
 
 // DEV ONLY. The Family page with custom fields and fake writes, so each state can be drawn and checked without a database:
 //   scenario  ok (default) | conflict | error | access        what the next save of a value answers
@@ -143,13 +146,26 @@ export function PreviewFields(props: {
   step: Step;
   who: string;
   detailsTemplate: string;
+  /** The person's slide-over, when it is open: its content, with the custom fields section filled in here. */
+  panel: { detail: PersonDetailModel; plan: SectionPlan[]; personId: string; firstName: string; isChild: boolean; closeHref: string; hrefs: MenuHrefs } | null;
 }) {
-  const { scenario, step, who, detailsTemplate, ...rest } = props;
+  const { scenario, step, who, detailsTemplate, panel, ...rest } = props;
   const actions = useMemo(() => fakeActions(scenario), [scenario]);
   useEffect(() => {
     if (step === "none") return;
     const t = window.setTimeout(() => run(step, who), 500);
     return () => window.clearTimeout(t);
   }, [step, who]);
-  return <FamilyView {...rest} detailsTemplate={detailsTemplate} actions={actions} />;
+  const after = panel ? (
+    <PersonSlideOver
+      mode="panel"
+      detail={panel.detail}
+      plan={panel.plan}
+      slots={{ customFields: <CustomFieldsSection payload={rest.custom} personId={panel.personId} firstName={panel.firstName} isChild={panel.isChild} path="/dev/people-fields" /> }}
+      closeHref={panel.closeHref}
+      closeLabel={rest.model.name}
+      hrefs={panel.hrefs}
+    />
+  ) : null;
+  return <FamilyView {...rest} slots={{ ...rest.slots, after }} detailsTemplate={detailsTemplate} actions={actions} />;
 }

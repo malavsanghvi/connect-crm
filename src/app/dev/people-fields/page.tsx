@@ -2,9 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
 import { PreviewShell } from "@/app/dev/people-shell";
-import { CustomFieldsSection } from "@/components/people-v2/custom/custom-group";
 import type { FamilyLinks } from "@/components/people-v2/family/family-header";
-import { PersonSlideOver } from "@/components/people-v2/slideover/person-slideover";
 import { devPreviewAllowed } from "@/lib/dev-preview";
 import { familyChips } from "@/lib/people-v2/family-model";
 import { sectionPlan } from "@/lib/people-v2/slideover";
@@ -77,17 +75,17 @@ export default async function PeopleFieldsPreview({ searchParams }: { searchPara
   const detail = slideover ? detailFixture(family, personId, { access: state === "view" ? "view" : "full", standalone: false }) : null;
   const person = slideover ? findPerson(model, personId) : null;
   const panel =
-    detail && person ? (
-      <PersonSlideOver
-        mode="panel"
-        detail={detail}
-        plan={sectionPlan({ isChild: person.isChild, givingByPerson: false, givingOn: false, hasHistory: false }).map((s) => ({ ...s, open: s.key === "profile" || s.key === "custom_fields" }))}
-        slots={{ customFields: <CustomFieldsSection payload={custom} personId={person.id} firstName={person.firstName} isChild={person.isChild} path="/dev/people-fields" /> }}
-        closeHref={`/dev/people-fields${base}`}
-        closeLabel={model.name}
-        hrefs={{ details: `/dev/people-fields${base}`, move: `/dev/people-fields${base}`, merge: "/dev/people-fields" }}
-      />
-    ) : null;
+    detail && person
+      ? {
+          detail,
+          plan: sectionPlan({ isChild: person.isChild, givingByPerson: false, givingOn: false, hasHistory: false }).map((s) => ({ ...s, open: s.key === "profile" || s.key === "custom_fields" })),
+          personId: person.id,
+          firstName: person.firstName,
+          isChild: person.isChild,
+          closeHref: `/dev/people-fields${base}`,
+          hrefs: { details: `/dev/people-fields${base}`, move: `/dev/people-fields${base}`, merge: "/dev/people-fields" },
+        }
+      : null;
 
   return (
     <PreviewShell community={PREVIEW_COMMUNITY} extraPath="/dev/people-fields">
@@ -100,7 +98,8 @@ export default async function PeopleFieldsPreview({ searchParams }: { searchPara
         step={step}
         who={model.adults[0].name}
         detailsTemplate={`/dev/people-fields${base}&view=slideover&person=__ID__`}
-        slots={{ glance: null, tabs: null, after: panel }}
+        slots={{ glance: null, tabs: null }}
+        panel={panel}
       />
     </PreviewShell>
   );
