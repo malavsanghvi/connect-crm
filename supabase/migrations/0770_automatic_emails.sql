@@ -129,7 +129,7 @@ language sql immutable set search_path = app, public, extensions as $$
   select case p_key
     when 'payment_receipt' then jsonb_build_object(
       'title', 'Receipt for a payment', 'module', 'giving', 'manage', 'giving.manage', 'view', jsonb_build_array('giving.view', 'giving.manage'),
-      'template', 'receipt', 'purpose', 'receipt', 'topic', null, 'wording_kind', 'donation_receipt', 'approval', true)
+      'template', 'payment_receipt', 'purpose', 'receipt', 'topic', null, 'wording_kind', 'donation_receipt', 'approval', true)
     when 'pledge_recorded' then jsonb_build_object(
       'title', 'Pledge confirmation', 'module', 'giving', 'manage', 'giving.manage', 'view', jsonb_build_array('giving.view', 'giving.manage'),
       'template', 'pledge_recorded', 'purpose', 'receipt', 'topic', null, 'wording_kind', 'pledge_confirmation', 'approval', true)
@@ -736,17 +736,17 @@ language sql stable security definer set search_path = app, public, extensions a
                             order by e.key, e.language))
                      from (select distinct on (mt.key, mt.language) mt.key, mt.language, mt.version, mt.subject, mt.body
                              from app.message_templates mt
-                            where mt.center_id = p_center and mt.channel = 'email' and mt.key in ('receipt', 'pledge_recorded')
+                            where mt.center_id = p_center and mt.channel = 'email' and mt.key in ('payment_receipt', 'pledge_recorded')
                             order by mt.key, mt.language, mt.version desc) e
                    having count(*) > 0), '{}'::jsonb)
 $$;
 
 -- ══ The standard wording (platform defaults, English; a community writes its own in any language) ═════
--- "receipt" (0220) was never sent by anything; version 2 uses this email's placeholders.
+-- Their own keys: "receipt" (0220, never sent by anything) keeps its wording and placeholders for whatever uses it.
 insert into app.message_templates (center_id, key, channel, language, subject, body, version)
 select null, v.key, 'email'::app.channel, 'en', v.subject, v.body, v.version
   from (values
-  ('receipt', 2, 'Receipt {{payment_receipt_number}} from {{center_name}}',
+  ('payment_receipt', 1, 'Receipt {{payment_receipt_number}} from {{center_name}}',
    E'Dear {{recipient_first_name}},\n\nThank you. {{center_name}} received {{payment_amount}} on {{payment_date}} ({{payment_method}}), for {{payment_applied_to}}.\n\nReceipt number: {{payment_receipt_number}}\nHousehold: {{household_name}} ({{household_number}})\n\n{{receipt_note}}\n\n{{receipt_signed_by}}'),
   ('pledge_recorded', 1, 'Your pledge {{pledge_number}} to {{center_name}}',
    E'Dear {{recipient_first_name}},\n\nThank you for your pledge of {{pledge_amount}} for {{pledge_for}}, made on {{pledge_date}}.\n\nPledge number: {{pledge_number}}\nDue: {{pledge_due_date}}\nStill to pay: {{pledge_balance}}\nHousehold: {{household_name}} ({{household_number}})\n\n{{pledge_note}}\n\n{{pledge_signed_by}}'),

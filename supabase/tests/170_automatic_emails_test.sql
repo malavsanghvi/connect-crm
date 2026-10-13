@@ -65,8 +65,8 @@ insert into auth.users (id, email) values
   (:vol, 'volunteer170@temple.test'), (:nptreas, 'treasurer170@nonprofit.test'), (:sbtreas, 'treasurer170@sandbox.test');
 insert into app.centers (id, slug, name, short_name, state_region, status, time_zone) values
   (:jc, 'jc170', 'Temple 170', 'T170', 'TX', 'active', 'America/Chicago');
-insert into app.centers (id, slug, name, category_key, status, time_zone, currency, country) values
-  (:np, 'np170', 'Non-profit 170', 'nonprofit_secular', 'active', 'Asia/Kolkata', 'INR', 'IN');
+insert into app.centers (id, slug, name, category_key, status, time_zone, currency, country, environment) values
+  (:np, 'np170', 'Chamber 170', 'chamber_of_commerce', 'active', 'Asia/Kolkata', 'INR', 'IN', 'production');
 insert into app.centers (id, slug, name, environment, category_key, status) values
   (:sb, 'sb170-sandbox', 'Sandbox 170', 'sandbox', 'nonprofit_secular', 'onboarding');
 insert into app.role_grants (center_id, user_id, role_key, reason) values
@@ -101,10 +101,11 @@ select pg_temp.assert(pg_temp.jobs('17000000-0000-4000-8000-000000000101') + pg_
                       and not exists (select 1 from app.email_automations where center_id = :jc),
   'A · with no switch on, a payment, a pledge and a registration queue no email');
 select pg_temp.assert((select count(*) from app.message_templates where center_id is null and channel = 'email' and language = 'en'
-                         and ((key = 'receipt' and version = 2) or key in ('pledge_recorded', 'registration_confirmed'))) = 3
-                      and (select body from app.message_templates where center_id is null and key = 'receipt' and channel = 'email' and version = 2)
-                          like '%{{payment_amount}}%',
-  'A · the standard wording of the three emails is on file (the receipt as version 2 with this email''s placeholders)');
+                         and key in ('payment_receipt', 'pledge_recorded', 'registration_confirmed')) = 3
+                      and (select body from app.message_templates where center_id is null and key = 'payment_receipt' and channel = 'email')
+                          like '%{{payment_amount}}%'
+                      and (select max(version) from app.message_templates where center_id is null and key = 'receipt' and channel = 'email') = 1,
+  'A · the standard wording of the three emails is on file under their own keys; the older "receipt" template is untouched');
 
 set role authenticated;
 select pg_temp.claims(:exec);
@@ -232,10 +233,10 @@ select pg_temp.assert((select array_agg(r->>'address') from jsonb_array_elements
   'E · an adult payer with no email: the household''s other adult gets it');
 select pg_temp.assert(:'q1'::jsonb->>'outcome' = 'queued' and :'q2'::jsonb->>'outcome' = 'duplicate',
   'E · queued once; the same record and address again (any case) is a duplicate');
-select pg_temp.assert((select count(*) = 1 and bool_and(m.purpose = 'receipt' and m.template_key = 'receipt' and m.status = 'queued'
+select pg_temp.assert((select count(*) = 1 and bool_and(m.purpose = 'receipt' and m.template_key = 'payment_receipt' and m.status = 'queued'
                                                         and m.subject = 'Receipt v-payment_receipt_number from v-center_name'
                                                         and m.person_id = :mira and m.topic_key is null and m.created_by is null)
-                         from app.messages m where m.to_address = 'mira170@temple.test' and m.template_key = 'receipt'),
+                         from app.messages m where m.to_address = 'mira170@temple.test' and m.template_key = 'payment_receipt'),
   'E · one message: purpose receipt (no unsubscribe link, the receipts sender), the wording filled with the values, tied to the person');
 select pg_temp.assert(:'q3'::jsonb->>'outcome' = 'skipped' and :'q3'::jsonb->>'reason' like 'Not sent:%needs a value%'
                       and exists (select 1 from app.email_automation_sends s where s.ref_id = '17000000-0000-4000-8000-000000000108'
@@ -406,6 +407,6 @@ select app.worker_email_enqueue(:'auto_np', '17000000-0000-4000-8000-00000000011
 reset role;
 select pg_temp.assert(pg_temp.jobs('17000000-0000-4000-8000-000000000112') = 1 and :'f112'::jsonb #>> '{center,currency}' = 'INR'
                       and :'f112'::jsonb #>> '{center,country}' = 'IN' and :'q8'::jsonb->>'outcome' = 'queued',
-  'H · a non-faith community in another country and currency sends its receipts the same way (the service writes rupees)');
+  'H · a non-faith community (a chamber of commerce) in another country and currency sends its receipts the same way (the service writes rupees)');
 
 rollback;
