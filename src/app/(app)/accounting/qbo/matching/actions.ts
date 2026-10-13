@@ -18,6 +18,9 @@ const PATH = "/accounting/qbo/matching";
 
 function refresh() {
   revalidatePath(PATH);
+  // Giving › Today and Books list the suggestions too.
+  revalidatePath("/giving");
+  revalidatePath("/accounting/close");
 }
 
 function reasonOf(fd: FormData): string {

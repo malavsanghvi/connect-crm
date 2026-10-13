@@ -26,6 +26,7 @@ import { applyPaymentAction } from "@/app/(app)/giving/payments/actions";
 import { confirmBankMatchAction, matchDepositAction } from "@/app/(app)/giving/payments/bank/actions";
 import { confirmExactMatchesAction } from "@/app/(app)/giving/payments/bank/zelle-actions";
 import { recordCountingDepositAction } from "@/app/(app)/giving/payments/counting-actions";
+import { DonorMatchApprove } from "@/components/books/donor-match-act";
 import type { CardLabels } from "@/components/household-card";
 import { HouseholdPicker } from "@/components/household-picker";
 import { useStepUp } from "@/components/step-up";
@@ -615,7 +616,7 @@ function CloseItem({ item, month, canMark }: { item: CloseItemView; month: strin
           {item.text}
         </span>
         <span className="sr-only">{done ? " (done)" : " (still to do)"}</span>
-        {note ? <span className="block text-[12.5px] font-bold text-success">{note}</span> : item.why && !done ? <span className="block text-[12.5px] text-muted">{item.why}</span> : null}
+        {note ? <span className="block text-[12.5px] font-bold text-success">{note}</span> : item.why ? <span className="block text-[12.5px] text-muted">{item.why}</span> : null}
         {error ? <InlineError>{error}</InlineError> : null}
       </span>
       {!done && canMark && item.key ? (
@@ -1012,6 +1013,7 @@ export function RowInline({ row, ctx }: { row: QueueRow; ctx: ActContext }) {
             </ul>
           );
         }
+        if (a.kind === "qbo_match") return <DonorMatchApprove key={i} matchId={a.matchId} label={a.label} onDone={ctx.onDone} />;
         return null;
       })}
     </>

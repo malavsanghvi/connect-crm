@@ -113,7 +113,19 @@ export type ApplyListIn = { list: ApplyIn[]; more: number };
 
 export type CountIn = { id: string; countedOn: string; totalCents: number | null; bags: string[]; counters: string[] };
 
-export type CloseIn = { month: string; label: string; locked: boolean; done: string[]; blockers: { item: string; why: string; key: string | null }[] };
+export type CloseIn = {
+  month: string;
+  label: string;
+  locked: boolean;
+  done: string[];
+  blockers: { item: string; why: string; key: string | null }[];
+  /** Checks the data proved, with what was checked (shown on the ticked line). */
+  proven?: { item: string; why: string }[];
+};
+
+/** QuickBooks customers with a suggested household (src/lib/data/books-donors.ts). */
+export type DonorMatchIn = { matchId: string; qboName: string; how: string; family: Family };
+export type DonorMatchesIn = { canApprove: boolean; customers: number; several: number; shown: DonorMatchIn[]; more: number };
 
 /** Year-end statements waiting for review (src/lib/giving-statements/review.ts statementSeason). */
 export type StatementsDueIn = { year: number; households: number; needFix: number; sentence: string };
@@ -131,6 +143,8 @@ export type TodayInput = {
   close: Part<CloseIn> | null;
   /** Last year's statements, January to March only (slice 8); left out, or null, the rest of the year and for whoever cannot see them. */
   statements?: Part<StatementsDueIn> | null;
+  /** QuickBooks donor matches (Books); left out when the accounting module is off or the person cannot see them. */
+  donors?: Part<DonorMatchesIn> | null;
 };
 
 /** What the person may do (UI convenience: the database refuses the rest anyway). */
@@ -175,6 +189,7 @@ export type Act =
   | { kind: "count_deposit"; id: string; totalCents: number | null; label: string; what: string }
   | { kind: "apply"; paymentId: string; householdId: string; label: string; what: string }
   | { kind: "close"; month: string; items: CloseItemView[]; canMark: boolean }
+  | { kind: "qbo_match"; matchId: string; qboName: string; label: string }
   | { kind: "link"; href: string; label: string; primary?: boolean }
   /** Record payment for this family: the sheet in place (slice 2), `href` (the Record payment screen) where no sheet can open. */
   | { kind: "record_payment"; householdId: string; href: string; label: string }
@@ -889,7 +904,7 @@ function closeRows(c: CloseIn, ctx: TodayContext): QueueRow[] {
   if (c.locked || c.blockers.length === 0) return [];
   const total = c.done.length + c.blockers.length;
   const items: CloseItemView[] = [
-    ...c.done.map((t) => ({ text: t, why: null, done: true, key: null })),
+    ...c.done.map((t) => ({ text: t, why: c.proven?.find((p) => p.item === t)?.why ?? null, done: true, key: null })),
     // The checklist's own hint for a manual item is "Mark done": the button says it already.
     ...c.blockers.map((b) => ({ text: b.item, why: b.why === "Mark done" ? null : b.why, done: false, key: b.key })),
   ];
@@ -949,6 +964,60 @@ function statementRows(s: StatementsDueIn): QueueRow[] {
   ];
 }
 
+function donorRows(d: DonorMatchesIn): QueueRow[] {
+  if (d.customers === 0) return [];
+  const books = { kind: "link" as const, href: "/accounting/close#donor-matching", label: "Review in Books" };
+  if (!d.canApprove) {
+    return [
+      {
+        id: "books:qbo-matches",
+        group: "books",
+        tone: "plain",
+        icon: "info",
+        title: `${plural(d.customers, "QuickBooks customer")} ${d.customers === 1 ? "has" : "have"} a suggested household`,
+        lines: ["A person with accounting.manage approves them, each next to its household card."],
+        family: null,
+        since: null,
+        acts: [books],
+        count: d.customers,
+        info: true,
+      },
+    ];
+  }
+  const rows: QueueRow[] = d.shown.map((m) => ({
+    id: `books:qbo:${m.matchId}`,
+    group: "books" as const,
+    tone: "sun" as const,
+    icon: "book" as const,
+    title: `QuickBooks customer “${m.qboName}” looks like the ${familyRef(m.family)}`,
+    lines: [`${m.how}. Approving links them and brings the customer's QuickBooks history in to the household; no money moves.`],
+    family: m.family,
+    since: null,
+    acts: [
+      { kind: "qbo_match" as const, matchId: m.matchId, qboName: m.qboName, label: `Approve: “${m.qboName}” is the ${familyRef(m.family)}` },
+      { kind: "link" as const, href: "/accounting/qbo/matching", label: "Pick another or reject" },
+    ],
+    count: 1,
+  }));
+  const rest = d.customers - d.shown.length;
+  if (rest > 0) {
+    const several = d.several > 0 ? ` ${plural(d.several, "customer")} ${d.several === 1 ? "has" : "have"} more than one possible household.` : "";
+    rows.push({
+      id: "books:qbo-more",
+      group: "books",
+      tone: "plain",
+      icon: "book",
+      title: `${plural(rest, "more QuickBooks customer", "more QuickBooks customers")} with a suggested household`,
+      lines: [`Each is approved next to its household card in Donor matching.${several}`],
+      family: null,
+      since: null,
+      acts: [{ kind: "link", href: "/accounting/qbo/matching", label: "Open donor matching", primary: true }],
+      count: rest,
+    });
+  }
+  return rows;
+}
+
 // ---------------------------------------------------------------------------- The queue
 
 const SOURCE_GROUP: Record<string, GroupKey> = { refund: "approvals", payee: "approvals", writeoff: "approvals", credit: "approvals", deposits: "bank", quickbooks: "books" };
@@ -982,6 +1051,7 @@ export function buildQueue(input: TodayInput, ctx: TodayContext): TodayQueue {
     ...partRows(input.counts, "counts", problems, (c) => countRows(c, ctx)),
     ...partRows(input.close, "books", problems, (c) => closeRows(c, ctx)),
     ...partRows(input.statements ?? null, "books", problems, statementRows),
+    ...partRows(input.donors ?? null, "books", problems, donorRows),
     ...bookTaskRows(input.tasks),
   ];
   problems.sort((a, b) => GROUP_ORDER.indexOf(a.group) - GROUP_ORDER.indexOf(b.group));
