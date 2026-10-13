@@ -326,5 +326,5 @@ set local request.jwt.claim.sub = '10000000-0000-4000-8000-000000000011';
 select app.set_module_enabled(:jsh, 'membership', true, 'Back on after the test');
 commit;
 select pg_temp.assert(not exists (select 1 from app.center_modules where not enabled), 'the test leaves every module on');
-select pg_temp.assert(not exists (select 1 from app.modules m where not app.module_enabled(:jsh, m.key)),
-  'and every one of the 18 modules reads as on for JSH again (the category adds nothing for a Jain Center)');
+select pg_temp.assert(not exists (select 1 from app.modules m where not app.module_enabled(:jsh, m.key) and m.key <> all (array['ai', 'website', 'channels', 'care', 'matching']) or (m.key = 'ai' and not app.module_enabled(:jsh, m.key))),
+  'and every module reads as on for JSH again (the category adds nothing for a Jain Center; of the Marketplace products of 0750 JSH holds iWeaver)');

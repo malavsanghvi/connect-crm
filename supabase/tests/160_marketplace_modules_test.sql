@@ -204,7 +204,10 @@ select pg_temp.assert(not app.module_enabled(:g_none, 'ai') and not app.module_e
                       and :g_none::uuid = any (app.module_off_centers('niva'))
                       and :g_none::uuid = any (app.module_off_centers('ai')),
   'D · where iWeaver is off, Niva reads off everywhere: module_enabled (which my_modules and member_experience read, so installed apps hide it) and the policies'' set');
-select pg_temp.assert_raises(format($$select app.assert_module_enabled(%L, 'niva')$$, :g_old),
+-- A Jain Center created now: Niva is granted by its kind, iWeaver is not.
+insert into app.centers (id, slug, name, short_name, state_region, status, time_zone) values
+  ('16000000-0000-4000-8000-0000000000c9', 'gy160', 'Fresh 160', 'GY', 'TX', 'active', 'America/Chicago');
+select pg_temp.assert_raises($$select app.assert_module_enabled('16000000-0000-4000-8000-0000000000c9', 'niva')$$,
   'Niva assistant is off because iWeaver is off for this community.', 'D · and the RPC guard says why in plain words');
 
 insert into app.role_grants (center_id, user_id, role_key, reason) values

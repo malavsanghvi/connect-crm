@@ -337,9 +337,12 @@ select pg_temp.assert(not exists (
   'B · for every Jain Center and every module, module_enabled equals the 0101 rule (the Marketplace products of 0750 aside)');
 select pg_temp.assert(not exists (
     select 1 from app.modules m
-     where (select coalesce(array_agg(x order by x), '{}') from unnest(app.module_off_centers(m.key)) as x)
+     where m.key <> all (array['ai', 'website', 'channels', 'care', 'matching'])
+       -- 0750: Niva is also off wherever iWeaver is not held (test 01''s community never used Niva).
+       and (select coalesce(array_agg(x order by x), '{}') from unnest(app.module_off_centers(m.key)) as x
+             where m.key <> 'niva' or app.module_enabled(x, 'ai'))
            is distinct from (select coalesce(array_agg(center_id order by center_id), '{}') from app.center_modules where module_key = m.key and not enabled)),
-  'B · module_off_centers is the 0101 set, module by module (every community is a Jain Center so far)');
+  'B · module_off_centers is the 0101 set, module by module (every community is a Jain Center so far; the Marketplace products of 0750 aside)');
 select pg_temp.assert(pg_temp.hint_of($$select app.assert_module_enabled('00000000-0000-4000-8000-000000000001', 'bolis')$$)
                         = 'An administrator can switch it on in Settings › Modules.',
   'B · a module JSH switched off refuses with the sentence and hint it always had');
