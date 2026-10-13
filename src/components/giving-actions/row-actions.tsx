@@ -32,9 +32,10 @@ import { useStepUp } from "@/components/step-up";
 import { buttonClass } from "@/components/ui";
 import { previewAllocation } from "@/lib/allocation";
 import { formatDate } from "@/lib/dates";
-import { familyFrom, familyLine, familyRef, type Act, type BehindView, type CloseItemView, type Family, type QueueRow, type SuggestionView, type ZellePairView } from "@/lib/giving-today/queue";
+import { familyFrom, familyLine, familyRef, type Act, type BehindView, type CloseItemView, type Family, type QueueRow, type ZellePairView } from "@/lib/giving-today/queue";
 import { formatCents, parseAmountToCents } from "@/lib/money";
 
+import { GiftAct } from "./gift-act";
 import { RecordPaymentButton } from "./provider";
 import { FamilyCard, GivingSheet, NO_UNDO } from "./sheet";
 
@@ -65,7 +66,7 @@ function triggerClass(ctx: ActContext, primary: boolean, tone?: "primary" | "dan
 type Result = { ok: boolean; error?: string; message?: string; stepUp?: boolean };
 
 // A button that names the amount and the family can be long: it wraps instead of running off a phone screen.
-const SMALL = "min-h-[40px] max-w-full whitespace-normal py-1.5 text-center";
+export const SMALL = "min-h-[40px] max-w-full whitespace-normal py-1.5 text-center";
 
 function fd(fields: Record<string, string>): FormData {
   const f = new FormData();
@@ -74,7 +75,7 @@ function fd(fields: Record<string, string>): FormData {
 }
 
 /** Run a server action: a fresh 2FA check when the database asks for one, the error in plain English otherwise. */
-function useRun() {
+export function useRun() {
   const stepUp = useStepUp();
   const [pending, start] = useTransition();
   const [error, setError] = useState<ReactNode>(null);
@@ -102,7 +103,7 @@ function doneFrom(message: string | undefined, fallback: string): string {
   return m ? `Done: ${m}` : fallback;
 }
 
-function InlineError({ children }: { children: ReactNode }) {
+export function InlineError({ children }: { children: ReactNode }) {
   return (
     <p role="alert" className="m-0 mt-2 rounded-[10px] border border-[#f0b9b4] bg-danger-50 px-3 py-2 text-[13px] leading-[1.45] text-[#7a1a14]">
       {children}
@@ -366,118 +367,6 @@ function ZelleExact({ pairs, ctx }: { pairs: ZellePairView[]; ctx: ActContext })
       </div>
       {error ? <InlineError>{error}</InlineError> : null}
     </div>
-  );
-}
-
-function GiftAct({ act, ctx }: { act: Extract<Act, { kind: "gift" }>; ctx: ActContext }) {
-  const { pending, error, run } = useRun();
-  const [open, setOpen] = useState(false);
-  const all = [...(act.best ? [act.best] : []), ...act.others];
-  const [pick, setPick] = useState<SuggestionView | null>(null);
-  const [duplicate, setDuplicate] = useState(false);
-  const money = formatCents(act.amountCents, ctx.currency, ctx.locale);
-
-  function confirm(s: SuggestionView, close: () => void) {
-    setDuplicate(false);
-    run(
-      "Confirm the match",
-      async () => {
-        const res = await confirmBankMatchAction({ txnId: act.txnId, householdId: s.family.id, pledgeIds: null, learnPayer: act.learnPayer, reportId: s.reportId });
-        if (!res.ok && res.duplicate) setDuplicate(true);
-        return res;
-      },
-      (r) => {
-        close();
-        const d = r.data;
-        const applied = d && d.applied.length > 0 ? ` Applied to ${d.applied.map((a) => `${a.pledge_number ?? "a pledge"} (${formatCents(a.amount_cents, ctx.currency, ctx.locale)})`).join(", ")}.` : "";
-        ctx.onDone(
-          d
-            ? `Done: ${formatCents(d.amountCents, ctx.currency, ctx.locale)} matched to ${d.householdName}, receipt ${d.receiptNumber ?? "pending"}.${applied}`
-            : `Done: ${money} matched to ${familyRef(s.family)}.`,
-        );
-      },
-    );
-  }
-
-  return (
-    <>
-      {act.best ? (
-        <button type="button" className={`${buttonClass("primary", "sm")} ${SMALL}`} disabled={pending} onClick={() => confirm(act.best!, () => {})}>
-          {pending && !open ? "Confirming…" : act.best.label}
-        </button>
-      ) : null}
-      <button
-        type="button"
-        className={`${buttonClass(act.best ? "ghost" : "primary", "sm")} ${SMALL}`}
-        disabled={pending}
-        onClick={() => {
-          setPick(act.best ? (act.others[0] ?? null) : (all[0] ?? null));
-          setOpen(true);
-        }}
-      >
-        {act.best ? "Pick another" : "Choose the family"}
-      </button>
-      {!open && error ? (
-        <InlineError>
-          {error}
-          {duplicate ? (
-            <>
-              {" "}
-              <Link href="/giving/payments/bank" className="font-bold underline">
-                Open Bank to decide
-              </Link>
-            </>
-          ) : null}
-        </InlineError>
-      ) : null}
-      {open ? (
-        <GivingSheet
-          title={`Which family gave ${money}?`}
-          labels={ctx.labels}
-          what="Each family is shown with its number, household id and primary adult. The bank line is recorded as their gift and applied to their open pledges."
-          error={
-            error ? (
-              <>
-                {error}
-                {duplicate ? (
-                  <>
-                    {" "}
-                    <Link href="/giving/payments/bank" className="font-bold underline">
-                      Open Bank to decide
-                    </Link>
-                  </>
-                ) : null}
-              </>
-            ) : null
-          }
-          confirmLabel={pick ? pick.label : "Choose a family"}
-          confirmDisabled={!pick}
-          pending={pending}
-          onClose={() => setOpen(false)}
-          onConfirm={() => pick && confirm(pick, () => setOpen(false))}
-        >
-          <fieldset className="m-0 flex flex-col gap-2 border-0 p-0">
-            <legend className="sr-only">Suggested families</legend>
-            {all.map((s) => (
-              <label key={s.family.id} className="flex cursor-pointer items-start gap-2.5">
-                <input type="radio" name={`gift-${act.txnId}`} className="mt-3 h-[18px] w-[18px] flex-none" checked={pick?.family.id === s.family.id} onChange={() => setPick(s)} />
-                <span className="min-w-0 flex-1">
-                  <FamilyCard family={s.family} labels={ctx.labels}>
-                    {s.reason ? <p className="m-0 mt-1 text-[12.5px] text-ink-2">{s.reason}</p> : null}
-                  </FamilyCard>
-                </span>
-              </label>
-            ))}
-          </fieldset>
-          <p className="m-0 text-[13px] text-muted">
-            Not here?{" "}
-            <Link href="/giving/payments/bank" className="font-bold text-navy">
-              Search every family on the Bank screen
-            </Link>
-          </p>
-        </GivingSheet>
-      ) : null}
-    </>
   );
 }
 

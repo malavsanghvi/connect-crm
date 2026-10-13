@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
+import { cookies } from "next/headers";
 import Link from "next/link";
 
 import { ActionForm } from "@/components/action-form";
 import { Badge, Card, ChipLinks, EmptyState, NoAccess, PageHeader, Pagination, QueryError, TableWrap, Tabs, buttonClass } from "@/components/ui";
 import { identifierRules } from "@/lib/center-rules";
+import { LOOK_COOKIE, parseLook } from "@/lib/look";
 import { householdsById, toCard, userNames } from "@/lib/data/lookups";
 import { explainError } from "@/lib/errors";
 import { formatDate, formatDateTime } from "@/lib/dates";
@@ -17,6 +19,7 @@ import { getSession } from "@/lib/session";
 import { createBankAccountAction, ignoreBankLineAction, restoreBankLineAction } from "./actions";
 import { BankImport } from "./bank-import";
 import { BankResultsProvider } from "./bank-results";
+import { BankV2 } from "./bank-v2";
 import { DepositMatcher, type DepositCandidate } from "./deposit-matcher";
 import { GiftLineMatcher, type Suggestion } from "./gift-line-matcher";
 import { ZelleReports } from "./zelle-reports";
@@ -39,7 +42,13 @@ const VIEW_LABEL: Record<View, string> = {
   zelle: "Zelle reports",
 };
 
-export default async function BankPage({ searchParams }: { searchParams: Promise<RawSearchParams> }) {
+/** The New look draws Bank anew (docs/GIVING_REDESIGN.md slice 4); the classic look is the page below, unchanged. */
+export default async function BankRoute({ searchParams }: { searchParams: Promise<RawSearchParams> }) {
+  if (parseLook((await cookies()).get(LOOK_COOKIE)?.value) === "v2") return <BankV2 searchParams={searchParams} />;
+  return <BankPage searchParams={searchParams} />;
+}
+
+async function BankPage({ searchParams }: { searchParams: Promise<RawSearchParams> }) {
   const session = await getSession();
   const header = (
     <>

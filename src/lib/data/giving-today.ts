@@ -113,7 +113,8 @@ async function countBank(session: CrmSession): Promise<BankTotals | { error: unk
   return { lines: lines.count ?? 0, deposits: deposits.count ?? 0, zelleUnseen: Number(c?.unmatched) || 0 };
 }
 
-async function loadExact(session: CrmSession): Promise<{ pairs: ExactPairIn[] } | { error: string }> {
+/** The Zelle reports that match a bank line exactly (Today's row and the Bank tab's Zelle and To match views). */
+export async function loadExact(session: CrmSession): Promise<{ pairs: ExactPairIn[] } | { error: string }> {
   const r = await session.db.rpc("payment_report_queue", { p_center: session.center.id });
   if (r.error) return { error: failure("Could not read the Zelle reports", r.error).error };
   const q = parseReportQueue(r.data);
@@ -133,6 +134,78 @@ async function loadExact(session: CrmSession): Promise<{ pairs: ExactPairIn[] } 
       family: p.household ? familyFrom(p.household) : null,
     })),
   };
+}
+
+type GiftLineRow = { id: string; posted_on: string; amount_cents: number; description: string; payer_name: string | null; originator_kind: string | null };
+type DepositLineRow = { id: string; posted_on: string; amount_cents: number; description: string };
+
+/** Gift lines with their suggested families (app.suggest_bank_matches), read the same way for Today and the Bank tab. */
+export async function giftLinesIn(session: CrmSession, giftLines: readonly GiftLineRow[]): Promise<GiftLineIn[]> {
+  const { db } = session;
+  return Promise.all(
+    giftLines.map(async (l) => {
+      const r = await db.rpc("suggest_bank_matches", { p_txn: l.id });
+      return {
+        id: l.id,
+        postedOn: l.posted_on,
+        amountCents: l.amount_cents,
+        description: l.description,
+        payerName: l.payer_name,
+        originatorKind: l.originator_kind,
+        suggestions: (r.data ?? []).map((s) => ({
+          family: familyFrom({ ...s, primary_member: s.primary_member ?? null }),
+          reason: s.reason ?? "",
+          ambiguous: Boolean(s.ambiguous),
+          reportId: s.report_id ?? null,
+        })),
+        suggestionError: r.error ? failure("Could not load the suggested families", r.error).error : null,
+      };
+    }),
+  );
+}
+
+/** Deposit lines with the recorded payments that may be in them (app.suggest_deposit_payments), each with its household card. */
+export async function depositLinesIn(session: CrmSession, lines: readonly DepositLineRow[]): Promise<DepositLineIn[]> {
+  const { db } = session;
+  const depositRows = await Promise.all(
+    lines.map(async (l) => {
+      const r = await db.rpc("suggest_deposit_payments", { p_txn: l.id });
+      return { line: l, rows: r.data ?? [], error: r.error ? failure("Could not load the recorded payments", r.error).error : null };
+    }),
+  );
+  // The deposit screen names each payment's family; here each gets its household card where the person may read the payment.
+  const paymentIds = depositRows.flatMap((d) => d.rows.map((c) => c.payment_id));
+  const owners = new Map<string, string>();
+  for (const part of chunk(paymentIds)) {
+    const p = await db.from("payments").select("id, household_id").in("id", part);
+    if (p.error) {
+      console.error("[giving-today] reading the deposit's payments failed; the deposit lists names and receipts only:", p.error);
+      break;
+    }
+    for (const x of p.data ?? []) owners.set(x.id, x.household_id);
+  }
+  const cards = await householdCards(db, [...owners.values()]);
+  return depositRows.map(({ line, rows, error }) => ({
+    id: line.id,
+    postedOn: line.posted_on,
+    amountCents: line.amount_cents,
+    description: line.description,
+    exact: Boolean(rows[0]?.exact_total),
+    error,
+    candidates: rows.map((c) => {
+      const card = cards.map.get(owners.get(c.payment_id) ?? "");
+      return {
+        paymentId: c.payment_id,
+        receipt: c.receipt_number ?? null,
+        method: PAYMENT_METHOD_LABEL[c.method] ?? c.method,
+        amountCents: c.amount_cents,
+        receivedOn: c.received_on,
+        checkNumber: c.check_number ?? null,
+        family: card ? familyFrom(card) : null,
+        householdName: c.household_name ?? null,
+      };
+    }),
+  }));
 }
 
 async function loadBank(session: CrmSession, homeTotals: BankTotals | null, zelleOn: boolean, canConfirm: boolean): Promise<Part<BankIn>> {
@@ -163,66 +236,7 @@ async function loadBank(session: CrmSession, homeTotals: BankTotals | null, zell
   if (depositRes.error) return err("Could not read the bank deposits", depositRes.error);
   const giftLines = (giftRes.data ?? []).filter((l) => !inExact.has(l.id)).slice(0, GIFT_ROWS);
 
-  const gifts: GiftLineIn[] = await Promise.all(
-    giftLines.map(async (l) => {
-      const r = await db.rpc("suggest_bank_matches", { p_txn: l.id });
-      return {
-        id: l.id,
-        postedOn: l.posted_on,
-        amountCents: l.amount_cents,
-        description: l.description,
-        payerName: l.payer_name,
-        originatorKind: l.originator_kind,
-        suggestions: (r.data ?? []).map((s) => ({
-          family: familyFrom({ ...s, primary_member: s.primary_member ?? null }),
-          reason: s.reason ?? "",
-          ambiguous: Boolean(s.ambiguous),
-          reportId: s.report_id ?? null,
-        })),
-        suggestionError: r.error ? failure("Could not load the suggested families", r.error).error : null,
-      };
-    }),
-  );
-
-  const depositRows = await Promise.all(
-    (depositRes.data ?? []).map(async (l) => {
-      const r = await db.rpc("suggest_deposit_payments", { p_txn: l.id });
-      return { line: l, rows: r.data ?? [], error: r.error ? failure("Could not load the recorded payments", r.error).error : null };
-    }),
-  );
-  // The deposit screen names each payment's family; here each gets its household card where the person may read the payment.
-  const paymentIds = depositRows.flatMap((d) => d.rows.map((c) => c.payment_id));
-  const owners = new Map<string, string>();
-  for (const part of chunk(paymentIds)) {
-    const p = await db.from("payments").select("id, household_id").in("id", part);
-    if (p.error) {
-      console.error("[giving-today] reading the deposit's payments failed; the deposit lists names and receipts only:", p.error);
-      break;
-    }
-    for (const x of p.data ?? []) owners.set(x.id, x.household_id);
-  }
-  const cards = await householdCards(db, [...owners.values()]);
-  const deposits: DepositLineIn[] = depositRows.map(({ line, rows, error }) => ({
-    id: line.id,
-    postedOn: line.posted_on,
-    amountCents: line.amount_cents,
-    description: line.description,
-    exact: Boolean(rows[0]?.exact_total),
-    error,
-    candidates: rows.map((c) => {
-      const card = cards.map.get(owners.get(c.payment_id) ?? "");
-      return {
-        paymentId: c.payment_id,
-        receipt: c.receipt_number ?? null,
-        method: PAYMENT_METHOD_LABEL[c.method] ?? c.method,
-        amountCents: c.amount_cents,
-        receivedOn: c.received_on,
-        checkNumber: c.check_number ?? null,
-        family: card ? familyFrom(card) : null,
-        householdName: c.household_name ?? null,
-      };
-    }),
-  }));
+  const [gifts, deposits] = await Promise.all([giftLinesIn(session, giftLines), depositLinesIn(session, depositRes.data ?? [])]);
   return ok({ totals, exact, gifts, deposits, problems });
 }
 
