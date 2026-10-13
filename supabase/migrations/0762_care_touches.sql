@@ -40,6 +40,7 @@ create table if not exists app.care_touches (
 );
 create index if not exists care_touches_household_idx on app.care_touches (household_id, touched_at desc);
 create index if not exists care_touches_center_idx on app.care_touches (center_id, touched_at desc);
+create index if not exists care_touches_person_idx on app.care_touches (person_id) where person_id is not null;
 comment on table app.care_touches is
   'WeCare (0762): personal touches recorded for a household (kind, channel, who, when, outcome, note, ask or no ask). Written only by app.log_care_touch / app.void_care_touch; voided, never deleted. Read with app.care_household_can. The touches Weaver already knows are read from their own tables (0763), not copied.';
 
@@ -252,8 +253,9 @@ begin
   if dro.owner_user_id is not null then
     select * into ko from app.care_owners where household_id = v_keep;
     if ko.household_id is null or ko.owner_user_id is null then
+      -- Who chose them and when stay as they were; who merged the households is the audit entry's actor.
       insert into app.care_owners as o (household_id, center_id, owner_user_id, backup_user_id, assigned_by, assigned_at)
-      values (v_keep, new.center_id, dro.owner_user_id, dro.backup_user_id, coalesce(auth.uid(), dro.assigned_by), now())
+      values (v_keep, new.center_id, dro.owner_user_id, dro.backup_user_id, dro.assigned_by, dro.assigned_at)
       on conflict (household_id) do update
         set owner_user_id = excluded.owner_user_id, backup_user_id = excluded.backup_user_id,
             assigned_by = excluded.assigned_by, assigned_at = excluded.assigned_at;
@@ -265,6 +267,30 @@ revoke execute on function app.care_households_merged() from public, anon, authe
 drop trigger if exists care_households_merged on app.households;
 create trigger care_households_merged after update of merged_into_id on app.households
   for each row execute function app.care_households_merged();
+
+-- ══ Merging two person records moves their care references ═════════════════
+-- When a person is merged into another (people.merged_into_id is set: app.merge_people of 0104, which first moves the
+-- duplicate's current households to the kept record), every care row that named the duplicate names the kept record:
+-- notes and touches (in their own household, whether or not the kept record lives there), and a profile's contact when the
+-- kept record is a current adult member of that household (otherwise the contact is cleared and the primary member is
+-- reached first). Never a child: a kept record under 18 is not named. Audited (app.audit_private_row, the merge's reason).
+create or replace function app.care_people_merged() returns trigger
+language plpgsql security definer set search_path = app, public, extensions as $$
+declare v_keep uuid := new.merged_into_id; v_adult boolean;
+begin
+  if v_keep is null or old.merged_into_id is not distinct from v_keep then return new; end if;
+  v_adult := not app.person_is_minor(v_keep);
+  update app.care_profiles
+     set contact_person_id = case when app._care_current_adult(household_id, v_keep) then v_keep end
+   where contact_person_id = new.id;
+  update app.care_notes set person_id = case when v_adult then v_keep end where person_id = new.id;
+  update app.care_touches set person_id = case when v_adult then v_keep end where person_id = new.id;
+  return new;
+end $$;
+revoke execute on function app.care_people_merged() from public, anon, authenticated;
+drop trigger if exists care_people_merged on app.people;
+create trigger care_people_merged after update of merged_into_id on app.people
+  for each row execute function app.care_people_merged();
 
 revoke execute on function app.log_care_touch(uuid, jsonb), app.void_care_touch(uuid, text) from public, anon;
 grant execute on function app.log_care_touch(uuid, jsonb), app.void_care_touch(uuid, text) to authenticated;

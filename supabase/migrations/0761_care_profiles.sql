@@ -37,6 +37,7 @@ create table if not exists app.care_profiles (
   constraint care_profiles_rest_needs_do_not_ask check (rest_until is null or do_not_ask)
 );
 create index if not exists care_profiles_center_idx on app.care_profiles (center_id);
+create index if not exists care_profiles_contact_idx on app.care_profiles (contact_person_id) where contact_person_id is not null;
 comment on table app.care_profiles is
   'WeCare (0761): how a household''s adults like to be thanked and recognised, the channel and language to use, the adult to reach first, and do-not-ask with a rest-until date. Written only by app.save_care_profile. Read with app.care_household_can.';
 comment on column app.care_profiles.rest_until is
@@ -101,6 +102,7 @@ create table if not exists app.care_notes (
 );
 create index if not exists care_notes_household_idx on app.care_notes (household_id, created_at desc);
 create index if not exists care_notes_center_idx on app.care_notes (center_id);
+create index if not exists care_notes_person_idx on app.care_notes (person_id) where person_id is not null;
 comment on table app.care_notes is
   'WeCare (0761): notes about a household''s adults. Written only by app.add_care_note / app.edit_care_note / app.archive_care_note; archived, never deleted. Read with app.care_household_can.';
 

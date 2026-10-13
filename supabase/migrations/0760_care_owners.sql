@@ -56,6 +56,14 @@ begin
   v_person := (to_jsonb(new) ->> tg_argv[0])::uuid;
   if v_person is null then return new; end if;
   if tg_op = 'UPDATE' and v_person is not distinct from (to_jsonb(old) ->> tg_argv[0])::uuid then return new; end if;
+  -- A row that follows its person into the record they were merged into (0762's person merge rule) keeps its household,
+  -- whether or not the kept record lives there; it is still never about a child.
+  if tg_op = 'UPDATE' and exists (select 1 from app.people d where d.id = (to_jsonb(old) ->> tg_argv[0])::uuid and d.merged_into_id = v_person) then
+    if app.person_is_minor(v_person) then
+      raise exception 'WeCare keeps nothing about anyone under 18. Choose an adult of the household.' using errcode = '23514';
+    end if;
+    return new;
+  end if;
   -- INSERT ... ON CONFLICT runs the insert trigger first: a profile's contact already on file is not checked again here.
   if tg_op = 'INSERT' and tg_table_name = 'care_profiles'
      and exists (select 1 from app.care_profiles x where x.household_id = new.household_id and x.contact_person_id = v_person) then

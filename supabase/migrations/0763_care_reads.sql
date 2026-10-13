@@ -24,7 +24,8 @@
 --                     announcements, event invitations), or a campaign send on a topic that counts. Never a message
 --                     without a campaign or a campaign purpose (receipts, codes, account and security, reminders), never a
 --                     topic about children or learning. The campaign or topic name, never the subject or the words.
---         receipt     a completed payment's receipt sent (payments.receipt_sent_at), never one whose payer is under 18;
+--         receipt     a completed payment's receipt sent (payments.receipt_sent_at; status captured or settled, so never
+--                     a pending, failed, voided or refunded one), never one whose payer is under 18;
 --                     the amount ONLY with app.care_amounts_can
 --         statement   a statement prepared for the household
 --         check_in    an adult checked in at an event
@@ -332,7 +333,7 @@ begin
            case when v_amounts then pay.amount_cents end, null
       from app.payments pay
      where v_giving and pay.household_id = p_household and pay.receipt_sent_at is not null
-       and pay.status not in ('failed', 'voided', 'authorized')
+       and pay.status in ('captured', 'settled')   -- completed only: never pending, failed, voided or refunded
        and (pay.payer_person_id is null or not app.person_is_minor(pay.payer_person_id))
     union all
     select 'statement', s.id::text, s.generated_at, null, null, 'done', false, null, null, null,
@@ -383,6 +384,31 @@ begin
   end if;
   perform app.log_private_read(v_center, 'care', 'touches', jsonb_array_length(v_rows));
   return jsonb_build_object('rows', v_rows, 'more', v_n > v_limit, 'amounts', v_amounts);
+end $$;
+
+-- ── Platform screens leave WeCare out (W2) ───────────────────────────────────
+-- 0310's Demo data counts, unchanged except that a WeCare or CatchTheMatch table (by app.module_tables) is counted only for
+-- the community's owner or that product's manager, as 0757's _module_records does: settings.manage alone, or a platform
+-- admin, never learns how many care or matching rows a community holds.
+create or replace function app.demo_data_counts(p_center uuid) returns jsonb
+language plpgsql stable security definer set search_path = app, public, extensions as $$
+declare t text; n bigint; v jsonb := '{}'::jsonb; v_mod text;
+begin
+  if auth.uid() is not null and not app.demo_can_manage(p_center) then
+    raise exception 'Only the owner or an administrator with settings.manage can see this.' using errcode = '42501';
+  end if;
+  foreach t in array app.demo_clear_tables() loop
+    v_mod := (select mt.module_key from app.module_tables mt where mt.table_name = t);
+    if v_mod in ('care', 'matching') and not (app.is_center_owner(p_center) or app.org_private_can(p_center, v_mod || '.manage')) then
+      continue;
+    end if;
+    execute format('select count(*) from app.%I t where %s', t,
+                   case t when 'gyan_levels' then 't.goal_id in (select g.id from app.gyan_goals g where g.center_id = $1)'
+                          when 'gyan_steps' then 't.level_id in (select l.id from app.gyan_levels l join app.gyan_goals g on g.id = l.goal_id where g.center_id = $1)'
+                          else 't.center_id = $1' end) into n using p_center;
+    if n > 0 then v := v || jsonb_build_object(t, n); end if;
+  end loop;
+  return v;
 end $$;
 
 -- ── Who may call what ────────────────────────────────────────────────────────

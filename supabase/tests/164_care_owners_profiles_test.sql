@@ -14,7 +14,8 @@
 --   G. Audit and reads: who, when and which columns, never the words; kept from platform admins and audit.view alone;
 --      every read logged without names.
 --   H. Care records stay with their family: deleting a household or a person they name is refused in plain words
---      (directly, by a platform admin, and when undoing an import); merging two households moves them.
+--      (directly, by a platform admin, and when undoing an import); merging two households or two person records moves
+--      them; Demo data counts show care rows only to the owner or a WeCare manager.
 --   I. WeCare paused or not granted: nothing, through the functions or the tables.
 -- Everything runs in one transaction that is rolled back.
 \set ON_ERROR_STOP 1
@@ -485,6 +486,56 @@ select pg_temp.assert((select count(*) from app.audit_log l where l.record_table
                             and l.action like '%.update' and l.module = 'care'
                             and l.record_id in (:'note6', :'touch6', :h5)) >= 3,
   'H · every move is audited under WeCare');
+
+-- Merging two person records: Quinn's duplicate record (pq) is merged into Ben's (pb), the kept one.
+\set pq '''16400000-0000-4000-8000-0000000000ab'''
+\set setadmin '''16400000-0000-4000-8000-00000000000c'''
+insert into app.people (id, center_id, first_name, last_name, date_of_birth) values (:pq, :c1, 'Ben', 'Rivera164 (duplicate)', date '1979-02-02');
+insert into app.household_members (household_id, person_id, center_id, role, is_primary) values (:h1, :pq, :c1, 'other', false);
+set role authenticated;
+select pg_temp.claims(:lead);
+select app.save_care_profile(:h1, jsonb_build_object('contact_person_id', :pq));
+select app.add_care_note(:h1, 'Ben (duplicate record) prefers texts.', :pq) as noteq \gset
+select app.log_care_touch(:h1, jsonb_build_object('kind', 'check_in', 'channel', 'text', 'person_id', :pq)) as touchq \gset
+select pg_temp.claims_up(:owner);
+select app.merge_people(:pb, :pq);
+select pg_temp.claims(:lead);
+select pg_temp.assert((select person_id = :pb from app.care_notes where id = :'noteq')
+                      and (select person_id = :pb from app.care_touches where id = :'touchq')
+                      and (select contact_person_id = :pb from app.care_profiles where household_id = :h1)
+                      and not exists (select 1 from app.care_notes where person_id = :pq)
+                      and not exists (select 1 from app.care_touches where person_id = :pq),
+  'H · merging two person records moves the notes, touches and the contact to the kept record');
+reset role;
+select pg_temp.no_claims();
+select pg_temp.assert(exists (select 1 from app.audit_log l where l.module = 'care' and l.action = 'care_notes.update' and l.record_id = :'noteq'
+                                 and l.before->>'person_id' = :pq and l.after->>'person_id' = :pb)
+                      and exists (select 1 from app.audit_log l where l.module = 'care' and l.action = 'care_touches.update' and l.record_id = :'touchq'
+                                 and l.before->>'person_id' = :pq and l.after->>'person_id' = :pb)
+                      and exists (select 1 from app.audit_log l where l.module = 'care' and l.action = 'care_profiles.update' and l.record_id = :h1
+                                 and l.before->>'contact_person_id' = :pq and l.after->>'contact_person_id' = :pb),
+  'H · and each move is audited under WeCare');
+select pg_temp.assert((select assigned_by = :lead from app.care_owners where household_id = :h5),
+  'H · after a household merge the owner keeps who chose them; the merge itself is the audit entry''s actor');
+
+-- Demo data counts (Settings > Demo data): WeCare's tables only for the owner or a WeCare manager.
+insert into auth.users (id, email) values (:setadmin, 'setadmin164@c1.test');
+insert into app.roles (key, tier, name, default_scope, description, permissions) values
+  ('settings_admin_164', 'center', 'Settings admin 164', 'center', 'Test 164', '["settings.manage"]');
+insert into app.role_grants (center_id, user_id, role_key, scope_kind, reason) values (:c1, :setadmin, 'settings_admin_164', 'center', 'Test 164');
+set role authenticated;
+select pg_temp.claims(:setadmin);
+select pg_temp.assert(not exists (select 1 from jsonb_object_keys(app.demo_data_counts(:c1)) k where k like 'care\_%')
+                      and app.demo_data_counts(:c1) ? 'households',
+  'H · settings.manage alone sees the community''s other counts, never how many care rows it holds');
+select pg_temp.claims(:plat);
+select pg_temp.assert(not exists (select 1 from jsonb_object_keys(app.demo_data_counts(:c1)) k where k like 'care\_%'),
+  'H · nor does a platform admin');
+select pg_temp.claims(:owner);
+select pg_temp.assert(app.demo_data_counts(:c1) ? 'care_notes' and app.demo_data_counts(:c1) ? 'care_touches',
+  'H · the community''s owner does');
+reset role;
+select pg_temp.no_claims();
 
 -- ══ I. WeCare paused or not granted ══════════════════════════════════════════
 reset role;

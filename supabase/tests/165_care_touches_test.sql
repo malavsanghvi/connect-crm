@@ -60,6 +60,8 @@ $$;
 \set pay '''16500000-0000-4000-8000-0000000000f1'''
 \set pay2 '''16500000-0000-4000-8000-0000000000f2'''
 \set pay3 '''16500000-0000-4000-8000-0000000000f3'''
+\set pay4 '''16500000-0000-4000-8000-0000000000f4'''
+\set pay5 '''16500000-0000-4000-8000-0000000000f5'''
 \set pf '''16500000-0000-4000-8000-0000000000a5'''
 \set pn '''16500000-0000-4000-8000-0000000000a6'''
 \set cc1 '''16500000-0000-4000-8000-0000000000d1'''
@@ -133,9 +135,11 @@ insert into app.messages (center_id, campaign_id, purpose, person_id, channel, t
   (:c1, :cc1, 'campaign', :pf, 'email', 'fia@example.org', 'Spring newsletter', 'Body', 'sent', now() - interval '2 days', now() - interval '2 days', null, null, null);
 insert into app.payments (id, center_id, household_id, payer_person_id, amount_cents, method, status, provider, received_on, receipt_number, receipt_sent_at) values
   (:pay, :c1, :h1, :pa, 5000, 'check', 'captured', 'offline', current_date - 3, 'R-165', now() - interval '3 days'),
-  -- never: a failed payment, and a payment whose payer is a child
+  -- never: a failed payment, a payment whose payer is a child, a refunded one, one still clearing
   (:pay2, :c1, :h1, :pa, 7000, 'check', 'failed', 'offline', current_date - 4, 'R-166', now() - interval '4 days'),
-  (:pay3, :c1, :h1, :pk, 300, 'check', 'captured', 'offline', current_date - 4, 'R-167', now() - interval '4 days');
+  (:pay3, :c1, :h1, :pk, 300, 'check', 'captured', 'offline', current_date - 4, 'R-167', now() - interval '4 days'),
+  (:pay4, :c1, :h1, :pa, 900, 'check', 'refunded', 'offline', current_date - 4, 'R-168', now() - interval '4 days'),
+  (:pay5, :c1, :h1, :pa, 800, 'check', 'pending_clearing', 'offline', current_date - 4, 'R-169', now() - interval '4 days');
 insert into app.statements (center_id, household_id, kind, tax_year, generated_at) values (:c1, :h1, 'tax_year', 2025, now() - interval '6 days');
 insert into app.events (id, center_id, name, starts_at, ends_at, status) values
   (:ev, :c1, 'Harvest supper 165', now() - interval '5 days', now() - interval '5 days' + interval '3 hours', 'published');
@@ -236,8 +240,9 @@ select pg_temp.assert(jsonb_array_length((:'log1'::jsonb)->'rows') = 9 and (pg_t
 select pg_temp.assert(position('Esi' in (:'log1'::jsonb)::text) = 0 and position('Nana' in (:'log1'::jsonb)::text) = 0
                       and position('pledge of' in (:'log1'::jsonb)::text) = 0 and position('$500' in (:'log1'::jsonb)::text) = 0
                       and position('Class news' in (:'log1'::jsonb)::text) = 0 and position('R-166' in (:'log1'::jsonb)::text) = 0
-                      and position('R-167' in (:'log1'::jsonb)::text) = 0,
-  'B · never a child (with or without a birth date), a subject, a learning programme, account or receipt message, a failed payment or a child''s payment');
+                      and position('R-167' in (:'log1'::jsonb)::text) = 0 and position('R-168' in (:'log1'::jsonb)::text) = 0
+                      and position('R-169' in (:'log1'::jsonb)::text) = 0,
+  'B · never a child (with or without a birth date), a subject, a learning programme, account or receipt message, a failed, refunded or still-clearing payment, or a child''s payment');
 select pg_temp.assert((select e->>'label' = 'Spring newsletter 165' and e->>'outcome' = 'sent'
                          from jsonb_array_elements((:'log1'::jsonb)->'rows') e where e->>'source' = 'message' and e->>'person_name' = 'Ama Mensah165')
                       and (select ((e->>'opened')::boolean) and e->>'outcome' = 'opened'
