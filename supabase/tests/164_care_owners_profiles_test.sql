@@ -124,9 +124,10 @@ insert into auth.users (id, email) values
 insert into app.accounts (user_id, is_platform_admin) values (:plat, true), (:sup, true)
   on conflict (user_id) do update set is_platform_admin = excluded.is_platform_admin;
 -- A non-profit (WeCare is "Donor care" there) and a second community without WeCare.
-insert into app.centers (id, slug, name, short_name, state_region, status, time_zone, category_key) values
-  (:c1, 'care164', 'Food Bank 164', 'F164', 'TX', 'active', 'America/Chicago', 'nonprofit_secular'),
-  (:c2, 'care164b', 'Club 164', 'K164', 'TX', 'active', 'America/Chicago', 'nonprofit_secular');
+-- (Sandboxes: a kind that is not switched on yet can be chosen for a sandbox only.)
+insert into app.centers (id, slug, name, short_name, state_region, status, time_zone, category_key, environment) values
+  (:c1, 'care164', 'Food Bank 164', 'F164', 'TX', 'active', 'America/Chicago', 'nonprofit_secular', 'sandbox'),
+  (:c2, 'care164b', 'Club 164', 'K164', 'TX', 'active', 'America/Chicago', 'nonprofit_secular', 'sandbox');
 insert into app.org_profiles (center_id, languages) values (:c1, array['en', 'es']);
 insert into app.center_owners (center_id, user_id) values (:c1, :owner);
 insert into app.center_module_grants (center_id, module_key, granted, reason) values (:c1, 'care', true, 'Test 164: WeCare');

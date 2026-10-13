@@ -203,7 +203,7 @@ language sql stable security definer set search_path = app, public, extensions a
    where h.id = p_household
 $$;
 
-create or replace function app.set_care_owner(p_household uuid, p_owner uuid, p_backup uuid default null, p_reason text default null)
+create or replace function app.set_care_owner(p_household uuid, p_owner uuid default null, p_backup uuid default null, p_reason text default null)
 returns jsonb
 language plpgsql security definer set search_path = app, public, extensions as $$
 declare v_center uuid;

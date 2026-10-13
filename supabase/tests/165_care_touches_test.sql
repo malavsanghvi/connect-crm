@@ -66,8 +66,8 @@ insert into auth.users (id, email) values
 insert into app.accounts (user_id, is_platform_admin) values (:plat, true)
   on conflict (user_id) do update set is_platform_admin = excluded.is_platform_admin;
 -- A church (a faith kind: WeCare is "Member care" there).
-insert into app.centers (id, slug, name, short_name, state_region, status, time_zone, category_key) values
-  (:c1, 'care165', 'Grace Church 165', 'G165', 'TX', 'active', 'America/Chicago', 'church');
+insert into app.centers (id, slug, name, short_name, state_region, status, time_zone, category_key, environment) values
+  (:c1, 'care165', 'Grace Church 165', 'G165', 'TX', 'active', 'America/Chicago', 'church', 'sandbox');
 insert into app.center_owners (center_id, user_id) values (:c1, :owner);
 insert into app.center_module_grants (center_id, module_key, granted, reason) values (:c1, 'care', true, 'Test 165: WeCare');
 insert into app.roles (key, tier, name, default_scope, description, permissions) values
