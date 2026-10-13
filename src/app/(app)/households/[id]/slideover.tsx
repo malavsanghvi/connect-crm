@@ -16,6 +16,7 @@ import type { RawSearchParams } from "@/lib/search-params";
 import type { CrmSession } from "@/lib/session";
 
 import { AuditTab } from "./audit-tab";
+import { PersonEventsServer } from "./person-events";
 
 /**
  * The person slide-over on the Family page (the New look): opened from a person's card or from the address (?person=<id>), so it can
@@ -73,7 +74,8 @@ export async function PersonSlideOverServer({
   const { detail } = loaded;
   const p = detail.person;
   const givingOn = isModuleEnabled(session, "giving");
-  const plan = sectionPlan({ isChild: p.isChild, givingByPerson: givingShowBy(session.center.rules) === "person", givingOn, hasHistory: true });
+  const eventsOn = isModuleEnabled(session, "events");
+  const plan = sectionPlan({ isChild: p.isChild, givingByPerson: givingShowBy(session.center.rules) === "person", givingOn, hasHistory: true, hasEvents: eventsOn });
   const glance =
     prep && plan.some((s) => s.key === "giving") ? (
       <PersonGlance session={session} person={{ id: p.id, name: p.name, firstName: p.firstName, adult: !p.isChild }} householdIds={[model.id]} sp={sp} prep={prep} />
@@ -88,6 +90,7 @@ export async function PersonSlideOverServer({
       slots={{
         glance,
         history: <AuditTab session={session} householdId={model.id} personId={p.id} bare />,
+        events: eventsOn ? <PersonEventsServer session={session} person={{ id: p.id, firstName: p.firstName }} model={model} /> : undefined,
         customFields: custom ? <CustomFieldsSection payload={custom} personId={p.id} firstName={p.firstName} isChild={p.isChild} path={base} /> : undefined,
       }}
       closeHref={closeHref}
