@@ -1,5 +1,6 @@
 import { todayInTz } from "@/lib/dates";
-import { closeChecklist, firstOfMonth, longMonth } from "@/lib/giving";
+import { loadCloseState } from "@/lib/data/books-close";
+import { firstOfMonth } from "@/lib/giving";
 
 import { defineCommand } from "../define";
 import { f, object, type Infer } from "../schema";
@@ -11,6 +12,8 @@ export type CloseBlockersData = {
   ready_to_lock: boolean;
   blockers: { item: string; why: string }[];
   done: string[];
+  /** The checks the data proved (ticked by the system, with what was checked). */
+  proven?: { item: string; why: string }[];
 };
 
 const input = object({
@@ -24,31 +27,24 @@ export const monthCloseBlockers = defineCommand<Infer<typeof input>, CloseBlocke
   description:
     "For one month (this month unless a date is given), list what must still be done before the month can be locked: " +
     "QuickBooks exceptions to clear, payouts to match to bank deposits, refunds to review (including refunds made outside Weaver that still need two approvals) and statements to generate. " +
+    "Checks the data can prove tick themselves (no refund waiting, no card payout to match) and are listed with what was checked. " +
     "Says whether the month is already locked. Read only: it cannot mark an item done or lock a month.",
   level: "read",
   permission: "close",
   module: "accounting",
   input,
   async execute(ctx, { month: asked }) {
-    const { db, center } = ctx.session;
-    const month = firstOfMonth(asked ?? todayInTz(center.time_zone, ctx.now?.()));
-    const [period, exceptions, flagged] = await Promise.all([
-      db.from("accounting_periods").select("status, checklist").eq("center_id", center.id).eq("period_month", month).maybeSingle(),
-      db.from("ledger_postings").select("id", { count: "exact", head: true }).eq("center_id", center.id).eq("status", "failed").lte("period_month", month),
-      db.rpc("flagged_refund_count", { p_center: center.id }),
-    ]);
-    if (period.error) throw new CommandDbError(period.error, "read the month-end checklist");
-    // Same as the screen: a count that cannot be read is said, not treated as zero.
-    if (exceptions.error) console.error("[commands] accounting.month_close_blockers: exception count failed:", exceptions.error);
-    if (flagged.error) console.error("[commands] accounting.month_close_blockers: flagged refund count failed:", flagged.error);
-    const items = closeChecklist(period.data?.checklist ?? {}, exceptions.error ? null : (exceptions.count ?? 0), flagged.error ? 0 : (flagged.data ?? 0));
-    const blockers = items.filter((i) => !i.done).map((i) => ({ item: i.label, why: i.sub }));
-    if (flagged.error) blockers.push({ item: "Refunds made outside Weaver", why: "Could not count the refunds waiting for approval" });
-    const locked = period.data?.status === "closed";
+    const month = firstOfMonth(asked ?? todayInTz(ctx.session.center.time_zone, ctx.now?.()));
+    // The same reader as the Month-end close screen and the lock: the checks the data proves are ticked, the rest are a person's.
+    const state = await loadCloseState(ctx.session, month);
+    if (state.periodError) throw new CommandDbError(state.periodError, "read the month-end checklist");
+    const blockers = state.items.filter((i) => !i.done).map((i) => ({ item: i.label, why: i.sub }));
+    const proven = state.items.filter((i) => i.proven).map((i) => ({ item: i.label, why: i.sub }));
+    const { locked, label } = state;
     return {
       ok: true,
-      data: { month: longMonth(month), locked, ready_to_lock: !locked && blockers.length === 0, blockers, done: items.filter((i) => i.done).map((i) => i.label) },
-      message: locked ? `${longMonth(month)} is already locked.` : blockers.length === 0 ? `Nothing is blocking the lock for ${longMonth(month)}.` : undefined,
+      data: { month: label, locked, ready_to_lock: !locked && blockers.length === 0, blockers, done: state.items.filter((i) => i.done).map((i) => i.label), proven },
+      message: locked ? `${label} is already locked.` : blockers.length === 0 ? `Nothing is blocking the lock for ${label}.` : undefined,
     };
   },
 });
