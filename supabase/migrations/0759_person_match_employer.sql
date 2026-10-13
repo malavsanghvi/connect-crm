@@ -84,6 +84,14 @@ create trigger audit_person_match_employers after insert or update or delete on 
 insert into app.module_tables (table_name, module_key) values ('person_match_employers', 'matching')
   on conflict (table_name) do update set module_key = excluded.module_key;
 
+-- Is the person an adult (app.person_is_minor, 0587, which signed-in callers cannot run themselves)? For the read policy.
+create or replace function app.match_employer_is_adult(p_person uuid) returns boolean
+language sql stable security definer set search_path = app, public, extensions as $$
+  select not app.person_is_minor(p_person)
+$$;
+revoke execute on function app.match_employer_is_adult(uuid) from public, anon;
+grant execute on function app.match_employer_is_adult(uuid) to authenticated;
+
 alter table app.person_match_employers enable row level security;
 -- The person: their own record, withdrawn or not.
 drop policy if exists person_match_employers_own_read on app.person_match_employers;
@@ -94,7 +102,7 @@ drop policy if exists person_match_employers_staff_read on app.person_match_empl
 create policy person_match_employers_staff_read on app.person_match_employers for select to authenticated
   using (withdrawn_at is null
          and center_id = any ((select app.matching_readable_centers())::uuid[])
-         and not app.person_is_minor(person_id));
+         and app.match_employer_is_adult(person_id));
 -- CatchTheMatch off: hidden from every direct read (no platform-admin pass: platform admins have no read here at all).
 drop policy if exists module_switch on app.person_match_employers;
 create policy module_switch on app.person_match_employers as restrictive for all to public
