@@ -186,6 +186,7 @@ export function sampleHomeViews(opts: { empty: boolean; error: boolean }): Peopl
       { key: "duplicates", label: "Possible duplicates", count: 1, href: "/people?view=duplicates", hint: "Pairs of families or people that may be the same" },
     ],
     endingSoon: { count: 23, href: "/dev/people-views?state=gaplist&ending=60" },
+    canAddFamily: true,
     pins: opts.empty || opts.error ? [] : [pin("f-hassan", "pin-1"), pin("f-nakamura", "pin-2"), pin("f-fernandez", "pin-3")],
     pinsHidden: opts.empty ? 0 : opts.error ? 0 : 1,
     savedViews: opts.empty || opts.error ? [] : viewItems(),

@@ -5,6 +5,7 @@ import type { ListLink } from "@/lib/find/lists";
 import type { InboxTile, PeopleHomeModel, RecentFamily } from "@/lib/people-v2/home-model";
 import type { Problem } from "@/lib/people-v2/model";
 
+import { AddFamilyButton } from "./add-family-button";
 import { FindBox } from "./find/find-box";
 import { ChevronDownIcon } from "./find/icons";
 import { PinnedFamilies } from "./saved/pinned-families";
@@ -27,7 +28,10 @@ export function PeopleHome({ model, inbox }: { model: PeopleHomeModel; /** The i
           <h1 className="m-0 font-display text-[30px] font-semibold leading-tight text-ink">People</h1>
           {model.summary ? <p className="m-0 mt-0.5 text-[14px] text-muted">{model.summary}</p> : null}
         </div>
-        <ListsMenu lists={model.lists} />
+        <div className="flex flex-wrap items-center gap-2">
+          {model.canAddFamily ? <AddFamilyButton /> : null}
+          <ListsMenu lists={model.lists} />
+        </div>
       </div>
 
       <section aria-label="Find a family or a person">

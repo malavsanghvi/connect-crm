@@ -10,6 +10,7 @@ import { householdCardLine } from "@/lib/find/labels";
 import { listsMenu } from "@/lib/find/lists";
 import { parseRecents, recentCookieName } from "@/lib/find/recents";
 import { familyHref } from "@/lib/find/rows";
+import { isModuleEnabled } from "@/lib/modules";
 import { tierLabel } from "@/lib/people";
 import { canAccess, visibleNav } from "@/lib/permissions";
 import { hrefWith } from "@/lib/search-params";
@@ -89,6 +90,7 @@ export async function loadPeopleHome(session: CrmSession, recentCookieValue: str
     maxViews: MAX_VIEWS,
     contactGapHref: hrefWith(BASE, {}, { ...paramsFromFilters({ ...NO_FILTERS, noEmail: true }), view: "people" }),
     lists: listsMenu(peopleTabs),
+    canAddFamily: canAccess(session, "householdsEdit") && isModuleEnabled(session, "people"),
     problems,
   };
 }

@@ -166,6 +166,7 @@ export function sampleHome(opts: { recents: boolean; withInbox: boolean }): Peop
         ]
       : [],
     endingSoon: { count: 23, href: "/people?ending=60" },
+    canAddFamily: true,
     pins: [],
     pinsHidden: 0,
     savedViews: [],

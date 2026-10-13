@@ -180,6 +180,7 @@ describe("the People home", () => {
     recents: [{ id: "r1", title: "Osei household", cardLine: "No. 0614", href: "/households/r1" }],
     inbox: [],
     endingSoon: { count: 23, href: "/people?ending=60" },
+    canAddFamily: true,
     pins: [{ id: "p1", householdId: "h1", title: "Hassan household", cardLine: "No. 0301 · RCC-H-1102 · Samira & Karim", href: "/households/h1" }],
     pinsHidden: 0,
     savedViews: VIEWS,

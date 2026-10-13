@@ -37,5 +37,7 @@ export type PeopleHomeModel = {
   /** Where "Adults with no email" opens: the first contact-gap list, offered to everyone as a place to start. */
   contactGapHref: string;
   lists: ListLink[];
+  /** The viewer may add a family (people.manage, with the People module on), so the home offers "Add a family". */
+  canAddFamily: boolean;
   problems: Problem[];
 };
