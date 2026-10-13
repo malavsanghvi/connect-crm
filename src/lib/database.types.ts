@@ -12018,7 +12018,8 @@ export type Database = {
       assistant_usage_check: {
         Args: {
           p_center: string;
-          p_cost?: number;
+          p_cost: number;
+          p_purpose: string;
         };
         Returns: Json;
       };
