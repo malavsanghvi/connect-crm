@@ -2751,6 +2751,22 @@ export type Database = {
           created_at: string;
           updated_by: string | null;
           updated_at: string;
+          name: string | null;
+          audience: string | null;
+          audience_params: Json;
+          frequency: string | null;
+          day_of_week: number | null;
+          day_of_month: number | null;
+          month_of_year: number | null;
+          send_hour: number | null;
+          status: string;
+          approved_by: string | null;
+          approved_at: string | null;
+          next_run_at: string | null;
+          run_period: string | null;
+          last_run_at: string | null;
+          last_run: Json | null;
+          run_claimed_until: string | null;
         };
         Insert: {
           id?: string;
@@ -2764,6 +2780,22 @@ export type Database = {
           created_at?: string;
           updated_by?: string | null;
           updated_at?: string;
+          name?: string | null;
+          audience?: string | null;
+          audience_params?: Json;
+          frequency?: string | null;
+          day_of_week?: number | null;
+          day_of_month?: number | null;
+          month_of_year?: number | null;
+          send_hour?: number | null;
+          status?: string;
+          approved_by?: string | null;
+          approved_at?: string | null;
+          next_run_at?: string | null;
+          run_period?: string | null;
+          last_run_at?: string | null;
+          last_run?: Json | null;
+          run_claimed_until?: string | null;
         };
         Update: {
           id?: string;
@@ -2777,6 +2809,22 @@ export type Database = {
           created_at?: string;
           updated_by?: string | null;
           updated_at?: string;
+          name?: string | null;
+          audience?: string | null;
+          audience_params?: Json;
+          frequency?: string | null;
+          day_of_week?: number | null;
+          day_of_month?: number | null;
+          month_of_year?: number | null;
+          send_hour?: number | null;
+          status?: string;
+          approved_by?: string | null;
+          approved_at?: string | null;
+          next_run_at?: string | null;
+          run_period?: string | null;
+          last_run_at?: string | null;
+          last_run?: Json | null;
+          run_claimed_until?: string | null;
         };
         Relationships: [];
       };
@@ -12034,6 +12082,13 @@ export type Database = {
         };
         Returns: undefined;
       };
+      approve_email_schedule: {
+        Args: {
+          p_center: string;
+          p_id: string;
+        };
+        Returns: Json;
+      };
       approve_flagged_refund: {
         Args: {
           p_refund: string;
@@ -12915,6 +12970,31 @@ export type Database = {
         Args: {
           p_center: string;
           p_payments: string[];
+        };
+        Returns: Json;
+      };
+      email_schedule_log: {
+        Args: {
+          p_center: string;
+          p_id: string;
+          p_limit?: number;
+        };
+        Returns: Json;
+      };
+      email_schedule_preview: {
+        Args: {
+          p_center: string;
+          p_audience: string;
+          p_params: Json;
+          p_frequency: string;
+          p_majority?: number;
+        };
+        Returns: Json;
+      };
+      email_schedules_state: {
+        Args: {
+          p_center: string;
+          p_majority?: number;
         };
         Returns: Json;
       };
@@ -14466,6 +14546,13 @@ export type Database = {
         };
         Returns: { students: number; waitlisted: number; teachers: number; background_checks_expiring: number; attendance_percent: number; signoffs_waiting: number }[];
       };
+      pause_email_schedule: {
+        Args: {
+          p_center: string;
+          p_id: string;
+        };
+        Returns: Json;
+      };
       payee_can_approve: {
         Args: {
           p_center: string;
@@ -15671,6 +15758,24 @@ export type Database = {
           p_reason: string;
         };
         Returns: undefined;
+      };
+      save_email_schedule: {
+        Args: {
+          p_center: string;
+          p_id: string;
+          p_name: string;
+          p_audience: string;
+          p_params: Json;
+          p_frequency: string;
+          p_day_of_week: number;
+          p_day_of_month: number;
+          p_month: number;
+          p_hour: number;
+          p_language: string;
+          p_subject: string;
+          p_body: string;
+        };
+        Returns: Json;
       };
       save_email_sender: {
         Args: {
