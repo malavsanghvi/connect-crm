@@ -20,6 +20,7 @@ import type { CrmSession } from "@/lib/session";
 import { AuditTab } from "./audit-tab";
 import { assignMembershipAction, changeTierAction, editMembershipAction } from "./membership-actions";
 import { PersonEventsServer } from "./person-events";
+import { PersonMatchingServer } from "./person-matching";
 
 /**
  * The person slide-over on the Family page (the New look): opened from a person's card or from the address (?person=<id>), so it can
@@ -79,7 +80,9 @@ export async function PersonSlideOverServer({
   const givingOn = isModuleEnabled(session, "giving");
   const membershipOn = isModuleEnabled(session, "membership");
   const eventsOn = isModuleEnabled(session, "events");
-  const plan = sectionPlan({ isChild: p.isChild, givingByPerson: givingShowBy(session.center.rules) === "person", givingOn, hasHistory: true, hasEvents: eventsOn, membershipOn });
+  // CatchTheMatch (0759): the employer for gift matching, only with the product on (the section checks who may read it).
+  const matchingOn = isModuleEnabled(session, "matching");
+  const plan = sectionPlan({ isChild: p.isChild, givingByPerson: givingShowBy(session.center.rules) === "person", givingOn, hasHistory: true, hasEvents: eventsOn, membershipOn, matchingOn });
   // The Memberships section: the person's and the family's memberships, and (for a person with both people.approve and people.manage)
   // edit dates and notes, change tier and assign a membership. Drawn here so the Server Actions are passed down from the server.
   const memberships = membershipOn ? (
@@ -106,6 +109,7 @@ export async function PersonSlideOverServer({
         history: <AuditTab session={session} householdId={model.id} personId={p.id} bare />,
         memberships,
         events: eventsOn ? <PersonEventsServer session={session} person={{ id: p.id, firstName: p.firstName }} model={model} /> : undefined,
+        matching: matchingOn && !p.isChild ? <PersonMatchingServer session={session} person={{ id: p.id, firstName: p.firstName, profileEmployer: p.values.employer || null }} /> : undefined,
         customFields: custom ? <CustomFieldsSection payload={custom} personId={p.id} firstName={p.firstName} isChild={p.isChild} path={base} /> : undefined,
       }}
       closeHref={closeHref}

@@ -8,7 +8,7 @@ import { identifierRules } from "@/lib/center-rules";
 import { entitlementGroupsFor, rightsCount, rolePermissions, unknownPermissions } from "@/lib/entitlements";
 import { userNames } from "@/lib/data/lookups";
 import { formatDate, todayInTz } from "@/lib/dates";
-import { canAccess, isGrantActive } from "@/lib/permissions";
+import { canAccess, canGrantRole, isGrantActive, orgPrivateProduct, rolePrivateProducts } from "@/lib/permissions";
 import { hrefWith, param, type RawSearchParams } from "@/lib/search-params";
 import { CC_FIRST_ADMIN_REASON, isFirstSecondAdminGrant } from "@/lib/security";
 import { loadRoleFilter } from "@/lib/role-tags";
@@ -71,7 +71,9 @@ export default async function RolesPage({ searchParams }: { searchParams: Promis
   const listed = await loadRoleFilter(db, session.kind.key);
   const allRoles = rolesRes.data ?? [];
   const roleName = new Map(allRoles.map((r) => [r.key, r.name]));
-  const roles = allRoles.filter((r) => listed(r.key));
+  // A role of a Marketplace product the community does not have on (WeCare, CatchTheMatch: 0757) is not listed either.
+  const productOff = (r: { permissions: unknown; tier: string }) => rolePrivateProducts(r).some((p) => session.modulesOff.includes(p));
+  const roles = allRoles.filter((r) => listed(r.key) && !productOff(r));
   const now = new Date();
   // Finance and admin roles wait for a second person (status 'pending', starts_at 'infinity') until approved.
   const isPending = (g: { status: string; ends_at: string | null }) => g.status === "pending" && (g.ends_at === null || new Date(g.ends_at) > now);
@@ -86,8 +88,9 @@ export default async function RolesPage({ searchParams }: { searchParams: Promis
     ...(events.data ?? []).map((e) => [e.id, `${e.name}${e.starts_at ? ` (${formatDate(e.starts_at, tz)})` : ""}`] as [string, string]),
     ...(classes.data ?? []).map((c) => [c.id, c.name] as [string, string]),
   ]);
+  // The roles of the organization's own data (WeCare, CatchTheMatch) are offered only to the owner and that product's manager.
   const grantable = roles
-    .filter((r) => r.tier !== "family" && (r.tier !== "platform" || session.isPlatformAdmin))
+    .filter((r) => r.tier !== "family" && (r.tier !== "platform" || session.isPlatformAdmin) && canGrantRole(session, r))
     .map((r) => ({ key: r.key, name: r.name, tier: r.tier, default_scope: r.default_scope }));
 
   // Roles table + entitlement grid (prototype Settings › Roles & entitlements).
@@ -156,12 +159,15 @@ export default async function RolesPage({ searchParams }: { searchParams: Promis
           {selected ? (
             <>
               <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 xl:grid-cols-3">
-                {entitlementGroupsFor(session.kind).filter((g) => g.name !== "Platform" || wildcard).map((g) => (
+                {entitlementGroupsFor(session.kind, session.modulesOff).filter((g) => g.name !== "Platform" || wildcard).map((g) => (
                   <section key={g.name} className="rounded-[12px] bg-ground px-3 py-2.5" aria-label={g.name}>
                     <p className="cc-section">{g.name.toUpperCase()}</p>
+                    {g.note ? <p className="mt-1 text-[12px] text-muted">{g.note}</p> : null}
                     <ul className="mt-1.5 flex flex-col gap-1.5">
                       {g.items.map((e) => {
-                        const held = !e.planned && (wildcard || selectedPerms.includes(e.key));
+                        // A platform-tier role's "*" never reaches the organization's own data (0757).
+                        const wild = wildcard && !(selected.tier === "platform" && orgPrivateProduct(e.key));
+                        const held = !e.planned && (wild || selectedPerms.includes(e.key));
                         return (
                           <li key={e.key} className={`flex items-start gap-2.5 text-[13px] ${e.planned ? "text-muted" : "text-ink-2"}`}>
                             <span

@@ -34,6 +34,8 @@ volunteers until midnight; EC roles at term end). Delegation is a grant with
 | Governance | `governance.view`, `governance.manage`, `governance.vote` |
 | Volunteers / safety | `volunteers.view`, `volunteers.manage`, `safety.view`, `safety.manage` |
 | Platform | `settings.manage`, `roles.manage`, `audit.view`, `integrations.view`, `integrations.manage`, `privacy.manage`, `reports.view` |
+| WeCare (`care`, the organization's own data) | `care.view`, `care.own`, `care.manage` |
+| CatchTheMatch (`matching`, the organization's own data) | `matching.view`, `matching.manage` |
 
 ## Default roles
 
@@ -62,7 +64,35 @@ volunteers until midnight; EC roles at term end). Delegation is a grant with
 | Operational | `pathshala_committee` | Pathshala | Year planning, checklists, resolutions |
 | Operational | `teacher` | Own classes | Attendance, sign-offs, class announcements |
 | Operational | `zone_lead` | One zone | Zone inbox, zone families |
+| Center | `care_lead` | Center | WeCare: every care record, relationship owners, playbooks, care settings (amounts only with a giving role) |
+| Center | `relationship_owner` | Center | WeCare: the care records of the households they own |
+| Center | `matching_lead` | Center | CatchTheMatch: claims, employers on file, match history, settings |
 | Family | `community_member`, `membership_reference`, `primary_adult`, `adult_member`, `child` | Own household | Derived from relationships, not granted |
+
+## The organization's own data: WeCare and CatchTheMatch (0757-0759)
+
+- `app.org_private_can(center, key)` decides `care.*` and `matching.*`: the owner, or an active center-wide grant of a role
+  that is not a platform-tier role, with the product's module on. **No platform-admin branch** (`has_permission` is true for
+  every platform admin, 0400). `has_permission` and the portal's `can` give the same answer for these keys. Every care or
+  matching table and function uses `app.care_can` / `app.matching_can`; amounts in WeCare also need `giving.view`
+  (`app.care_amounts_can`).
+- The three roles above are granted by nobody by default. Only the owner or that product's `.manage` holder gives them
+  (`roles.manage` alone is not enough), never to oneself, never to a platform-admin account, for the whole community only.
+  No second approver: each grant is audited under its product and the owner is emailed (`private_access_granted`). A
+  change to such a grant other than ending it is checked the same way and records who made it. Only a migration can make
+  a role hold a private key or `*` (`app.roles_private_guard`).
+- Nobody makes themselves owner or administrator, platform admins included: no self-grant and no widening one's own grant
+  (`enforce_role_grant`), no taking ownership (`center_owners_self`); the one way in is accepting an invitation someone
+  else sent. A platform admin still sets up other people; every Center admin grant and ownership change they make is
+  audited and emailed to the owner (`weaver_access_change`). The first-owner rule never picks a platform-admin account
+  when a signed-in change sets it off.
+- Sign-in links (`center_users`): through the API nobody changes the person their own sign-in is linked to, and platform
+  admins change no link; the linking functions (invitations, join codes, onboarding, promotion) keep their own checks.
+- Weaver's team: a support grant opens WeCare **settings** only when the owner names the area `care.settings`, never care
+  records. CatchTheMatch filing is a separate grant the organization gives a named Weaver team member
+  (`app.grant_weaver_filing`, at most 366 days, ended when CatchTheMatch is turned off); every read is logged.
+- Audit entries of these products are read by the owner and the product's manager only, not by `audit.view` alone and not by
+  platform admins.
 
 ## What families can do
 

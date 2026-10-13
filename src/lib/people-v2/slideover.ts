@@ -163,7 +163,7 @@ export type PersonDetailModel = {
 // ---------------------------------------------------------------------------
 // Sections
 // ---------------------------------------------------------------------------
-export type SectionKey = "profile" | "custom_fields" | "account" | "roles" | "privacy" | "ids" | "memberships" | "events" | "giving" | "notes" | "history";
+export type SectionKey = "profile" | "custom_fields" | "account" | "roles" | "privacy" | "ids" | "memberships" | "events" | "giving" | "matching" | "notes" | "history";
 
 export type SectionPlan = {
   key: SectionKey;
@@ -180,7 +180,7 @@ export type SectionPlan = {
  * Giving at a glance is there only when the Giving module is on and the community reads giving by person, and never for a child (D2: giving is kept with the
  * household, and nothing about a child is shown there). Events (this person's tickets, and "Add to an event") is there only with the Events module (`hasEvents`).
  */
-export function sectionPlan(o: { isChild: boolean; givingByPerson: boolean; givingOn: boolean; hasHistory: boolean; hasEvents?: boolean; membershipOn?: boolean }): SectionPlan[] {
+export function sectionPlan(o: { isChild: boolean; givingByPerson: boolean; givingOn: boolean; hasHistory: boolean; hasEvents?: boolean; membershipOn?: boolean; matchingOn?: boolean }): SectionPlan[] {
   const out: SectionPlan[] = [
     { key: "profile", title: "Profile", open: true },
     { key: "custom_fields", title: "Custom fields", open: true, reserved: "custom-fields" },
@@ -194,6 +194,8 @@ export function sectionPlan(o: { isChild: boolean; givingByPerson: boolean; givi
   ];
   if (o.hasEvents) out.push({ key: "events", title: "Events", open: false });
   if (o.givingByPerson && o.givingOn && !o.isChild) out.push({ key: "giving", title: "Giving at a glance", open: false });
+  // CatchTheMatch (0759): the employer for gift matching, adults only (D2), only while the community has CatchTheMatch on.
+  if (o.matchingOn && !o.isChild) out.push({ key: "matching", title: "Gift matching", open: false });
   out.push({ key: "notes", title: "Notes", open: false, reserved: "notes" });
   if (o.hasHistory) out.push({ key: "history", title: "History", open: false });
   return out;

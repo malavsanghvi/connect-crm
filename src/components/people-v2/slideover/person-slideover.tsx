@@ -40,6 +40,8 @@ export type SlideOverSlots = {
   memberships?: ReactNode;
   /** "Events": this person's own tickets and the control that adds them to an event (server-rendered); null when the section is not there. */
   events?: ReactNode;
+  /** "Gift matching" (CatchTheMatch, 0759): the employer on file for gift matching (server-rendered); only with CatchTheMatch on. */
+  matching?: ReactNode;
   /** SLICE 2 (custom fields): the community's person fields, right under Profile. Not drawn until that slice passes a node. */
   customFields?: ReactNode;
   /** SLICES 10-13 (notes): that person's notes. Not drawn until those slices pass a node. */
@@ -265,6 +267,12 @@ function SectionFor({ s, detail, ctx, slots }: { s: SectionPlan; detail: PersonD
       return (
         <Section id="events" title={s.title} open={s.open}>
           {slots.events ?? <PartNote part={{ state: "no-access" }} what="the events" />}
+        </Section>
+      );
+    case "matching":
+      return (
+        <Section id="matching" title={s.title} open={s.open}>
+          {slots.matching ?? <PartNote part={{ state: "no-access" }} what="gift matching" />}
         </Section>
       );
     case "giving":

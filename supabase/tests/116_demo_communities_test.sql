@@ -138,7 +138,8 @@ select pg_temp.assert((select count(*) >= 10 from app.pledges where center_id = 
                       and (select count(*) >= 3 from app.pathshala_classes where center_id = :'fc') and (select count(*) >= 5 from app.pathshala_enrollments where center_id = :'fc'),
   'pledges, payments, events with RSVPs and tickets, a store, notices, volunteer groups and a Pathshala term with enrolled children');
 select pg_temp.assert((select count(*) = 26 from app.demo_personas where center_id = :'fc')
-                      and (select count(*) = 26 from app.roles r where r.tier <> 'platform' and app.catalog_shows(r.category_keys, app.center_category(:'fc')))
+                      and (select count(*) = 26 from app.roles r where r.tier <> 'platform' and app.catalog_shows(r.category_keys, app.center_category(:'fc'))
+                                                       and cardinality(app.role_private_products(r.key)) = 0)   -- 0757: no demo person for a WeCare or CatchTheMatch role
                       and app.demo_missing_roles(:'fc') = '{}'::text[],
   'one demo person for every role of a Jain Center''s role catalog (26), none missing');
 select pg_temp.assert((select count(*) = count(distinct role_key) and count(*) = count(distinct person_id) and count(*) = count(distinct email) from app.demo_personas where center_id = :'fc'),
@@ -185,7 +186,8 @@ select pg_temp.assert((select count(*) between 11 and 14 from app.households whe
                       and (select count(*) >= 4 from app.store_items where center_id = :'nc') and (select count(*) >= 2 from app.alerts where center_id = :'nc'),
   'about 12 households and 30 people, with giving, events, a store and notices');
 select pg_temp.assert((select count(*) = 21 from app.demo_personas where center_id = :'nc')
-                      and (select count(*) = 21 from app.roles r where r.tier <> 'platform' and app.catalog_shows(r.category_keys, app.center_category(:'nc')))
+                      and (select count(*) = 21 from app.roles r where r.tier <> 'platform' and app.catalog_shows(r.category_keys, app.center_category(:'nc'))
+                                                       and cardinality(app.role_private_products(r.key)) = 0)
                       and app.demo_missing_roles(:'nc') = '{}'::text[]
                       and not exists (select 1 from app.demo_personas where center_id = :'nc'
                                        and role_key in ('boli_recorder','religious_coordinator','pathshala_principal','pathshala_committee','teacher')),

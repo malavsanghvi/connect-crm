@@ -5255,6 +5255,45 @@ export type Database = {
         };
         Relationships: [];
       };
+      matching_filing_grants: {
+        Row: {
+          id: string;
+          center_id: string;
+          grantee_user_id: string;
+          granted_by: string;
+          granted_at: string;
+          ends_at: string;
+          ended_at: string | null;
+          ended_by: string | null;
+          end_reason: string | null;
+          reason: string;
+        };
+        Insert: {
+          id?: string;
+          center_id: string;
+          grantee_user_id: string;
+          granted_by: string;
+          granted_at?: string;
+          ends_at: string;
+          ended_at?: string | null;
+          ended_by?: string | null;
+          end_reason?: string | null;
+          reason: string;
+        };
+        Update: {
+          id?: string;
+          center_id?: string;
+          grantee_user_id?: string;
+          granted_by?: string;
+          granted_at?: string;
+          ends_at?: string;
+          ended_at?: string | null;
+          ended_by?: string | null;
+          end_reason?: string | null;
+          reason?: string;
+        };
+        Relationships: [];
+      };
       media_likes: {
         Row: {
           center_id: string;
@@ -8114,6 +8153,48 @@ export type Database = {
         };
         Relationships: [];
       };
+      person_match_employers: {
+        Row: {
+          person_id: string;
+          center_id: string;
+          employer_name: string | null;
+          source: string;
+          recorded_by: string;
+          consented_by_user: string | null;
+          consent_email: string | null;
+          consented_at: string;
+          withdrawn_at: string | null;
+          withdrawn_by: string | null;
+          created_at: string;
+        };
+        Insert: {
+          person_id: string;
+          center_id: string;
+          employer_name?: string | null;
+          source: string;
+          recorded_by: string;
+          consented_by_user?: string | null;
+          consent_email?: string | null;
+          consented_at?: string;
+          withdrawn_at?: string | null;
+          withdrawn_by?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          person_id?: string;
+          center_id?: string;
+          employer_name?: string | null;
+          source?: string;
+          recorded_by?: string;
+          consented_by_user?: string | null;
+          consent_email?: string | null;
+          consented_at?: string;
+          withdrawn_at?: string | null;
+          withdrawn_by?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
       person_profile_details: {
         Row: {
           person_id: string;
@@ -10663,6 +10744,7 @@ export type Database = {
           revoked_at: string | null;
           revoked_by: string | null;
           reason: string;
+          areas: string[];
         };
         Insert: {
           id?: string;
@@ -10674,6 +10756,7 @@ export type Database = {
           revoked_at?: string | null;
           revoked_by?: string | null;
           reason: string;
+          areas?: string[];
         };
         Update: {
           id?: string;
@@ -10685,6 +10768,7 @@ export type Database = {
           revoked_at?: string | null;
           revoked_by?: string | null;
           reason?: string;
+          areas?: string[];
         };
         Relationships: [];
       };
@@ -12118,6 +12202,25 @@ export type Database = {
         };
         Returns: string;
       };
+      care_amounts_can: {
+        Args: {
+          p_center: string;
+        };
+        Returns: boolean;
+      };
+      care_can: {
+        Args: {
+          p_center: string;
+          p_level: string;
+        };
+        Returns: boolean;
+      };
+      care_settings_can: {
+        Args: {
+          p_center: string;
+        };
+        Returns: boolean;
+      };
       catalog_shows: {
         Args: {
           p_keys: string[];
@@ -12629,6 +12732,13 @@ export type Database = {
         };
         Returns: Json;
       };
+      end_weaver_filing: {
+        Args: {
+          p_grant: string;
+          p_reason?: string;
+        };
+        Returns: undefined;
+      };
       enqueue_platform_test: {
         Args: {
           p_step: string;
@@ -12939,6 +13049,15 @@ export type Database = {
           p_center: string;
           p_grantee: string;
           p_hours: number;
+          p_reason: string;
+        };
+        Returns: string;
+      };
+      grant_weaver_filing: {
+        Args: {
+          p_center: string;
+          p_grantee: string;
+          p_days: number;
           p_reason: string;
         };
         Returns: string;
@@ -13447,6 +13566,15 @@ export type Database = {
         };
         Returns: { points_awarded: number; day_complete: boolean; streak_days: number }[];
       };
+      log_private_read: {
+        Args: {
+          p_center: string;
+          p_product: string;
+          p_what: string;
+          p_rows: number;
+        };
+        Returns: undefined;
+      };
       make_primary_of_own_household: {
         Args: {
           p_person: string;
@@ -13539,6 +13667,31 @@ export type Database = {
           p_payment_ids: string[];
         };
         Returns: number;
+      };
+      match_employer_adult: {
+        Args: {
+          p_center: string;
+          p_person: string;
+        };
+        Returns: boolean;
+      };
+      matching_can: {
+        Args: {
+          p_center: string;
+          p_level: string;
+        };
+        Returns: boolean;
+      };
+      matching_readable_centers: {
+        Args: Record<PropertyKey, never>;
+        Returns: string[];
+      };
+      may_grant_private_role: {
+        Args: {
+          p_center: string;
+          p_role: string;
+        };
+        Returns: boolean;
       };
       media_item: {
         Args: {
@@ -13696,6 +13849,12 @@ export type Database = {
           p_center: string;
         };
         Returns: string[];
+      };
+      my_match_employer: {
+        Args: {
+          p_center: string;
+        };
+        Returns: Json;
       };
       my_membership_application: {
         Args: {
@@ -13951,6 +14110,23 @@ export type Database = {
           p_center: string;
         };
         Returns: { kind: string; title: string; required: boolean; document_id: string; version: string; published: boolean; accepted: boolean; accepted_version: string; accepted_at: string; accepted_by_name: string }[];
+      };
+      org_private_can: {
+        Args: {
+          p_center: string;
+          p_perm: string;
+        };
+        Returns: boolean;
+      };
+      org_private_keys: {
+        Args: Record<PropertyKey, never>;
+        Returns: string[];
+      };
+      org_private_product: {
+        Args: {
+          p_perm: string;
+        };
+        Returns: string;
       };
       org_verification_queue: {
         Args: Record<PropertyKey, never>;
@@ -14645,6 +14821,14 @@ export type Database = {
         };
         Returns: Json;
       };
+      record_match_employer: {
+        Args: {
+          p_center: string;
+          p_person: string;
+          p_employer: string;
+        };
+        Returns: Json;
+      };
       record_member_legal_answers: {
         Args: {
           p_center: string;
@@ -14780,6 +14964,12 @@ export type Database = {
           p_center?: string;
         };
         Returns: undefined;
+      };
+      remove_my_match_employer: {
+        Args: {
+          p_center: string;
+        };
+        Returns: boolean;
       };
       reopen_platform_setup_step: {
         Args: {
@@ -15213,6 +15403,12 @@ export type Database = {
         };
         Returns: undefined;
       };
+      role_private_products: {
+        Args: {
+          p_role: string;
+        };
+        Returns: string[];
+      };
       rotate_member_join_code: {
         Args: {
           p_center: string;
@@ -15520,6 +15716,13 @@ export type Database = {
         };
         Returns: Json;
       };
+      set_my_match_employer: {
+        Args: {
+          p_center: string;
+          p_employer: string;
+        };
+        Returns: Json;
+      };
       set_pathshala_level_fees: {
         Args: {
           p_term: string;
@@ -15647,6 +15850,14 @@ export type Database = {
           p_reason: string;
         };
         Returns: Json;
+      };
+      set_support_grant_areas: {
+        Args: {
+          p_grant: string;
+          p_areas: string[];
+          p_reason: string;
+        };
+        Returns: string[];
       };
       set_zelle_reporting: {
         Args: {
@@ -15988,6 +16199,10 @@ export type Database = {
         };
         Returns: { sunrise: string; sunset: string };
       };
+      support_grant_areas: {
+        Args: Record<PropertyKey, never>;
+        Returns: string[];
+      };
       support_staff_options: {
         Args: {
           p_center: string;
@@ -16137,6 +16352,14 @@ export type Database = {
           p_center: string;
         };
         Returns: undefined;
+      };
+      withdraw_match_employer: {
+        Args: {
+          p_center: string;
+          p_person: string;
+          p_reason: string;
+        };
+        Returns: boolean;
       };
       withdraw_payment_report: {
         Args: {

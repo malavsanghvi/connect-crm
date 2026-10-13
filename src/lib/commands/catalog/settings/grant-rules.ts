@@ -4,6 +4,8 @@
 // person), and RLS decides who may write at all. The sentences are the screen's, word for word.
 
 import { addDays, startOfDayInTz, todayInTz } from "@/lib/dates";
+import { kindName, type KindProfile } from "@/lib/kind";
+import { canGrantRole, rolePrivateProducts, type OrgPrivateProduct } from "@/lib/permissions";
 import { isUuid } from "@/lib/search-params";
 import { needsSecondApprover } from "@/lib/security";
 
@@ -38,6 +40,9 @@ export type GrantPlan = {
 
 const DOING = "grant the role";
 
+/** The products' catalog names (app.modules.label, 0750), when the kind has no name of its own for them. */
+const PRODUCT_NAMES: Readonly<Record<OrgPrivateProduct, string>> = { care: "WeCare", matching: "CatchTheMatch" };
+
 /** An identical grant that still works (or still waits for a second person): the table allows duplicates; they only confuse. */
 export async function holdsAlready(ctx: CommandContext, userId: string, roleKey: string, kind: GrantScope, scopeId: string | null, doing = DOING): Promise<boolean> {
   const { db, center } = ctx.session;
@@ -60,6 +65,18 @@ export async function planRoleGrant(ctx: CommandContext, req: GrantRequest): Pro
   if (!role) throw new CommandError("Could not grant the role — choose a role.");
   if (role.tier === "platform" && !isPlatformAdmin) throw new CommandError(`Could not grant ${role.name} — platform roles are granted by the platform team only.`);
   if (role.tier === "family") throw new CommandError(`Could not grant ${role.name} — family roles come from household relationships, not grants.`);
+  // The organization's own data (0757, app.role_grants_private_rule says the same): WeCare and CatchTheMatch roles.
+  const products = rolePrivateProducts(role);
+  if (products.length > 0) {
+    if (!canGrantRole(ctx.session, role)) {
+      const kind = ctx.session.kind as KindProfile | undefined;
+      const names = products.map((p) => (kind ? kindName(kind, p, PRODUCT_NAMES[p]) : PRODUCT_NAMES[p])).join(" and ");
+      throw new CommandError(`Could not grant ${role.name} — only the organization's owner or someone who manages ${names} can give it.`);
+    }
+    if (req.scope_kind !== "center") {
+      throw new CommandError(`Could not grant ${role.name} — it works for the whole organization only. Give it without an event, class or zone.`);
+    }
+  }
 
   let scopeId: string | null = null;
   let scopeName: string | null = null;

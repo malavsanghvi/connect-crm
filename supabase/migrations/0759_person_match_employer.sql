@@ -1,0 +1,343 @@
+-- 0759 · CatchTheMatch slice 1, the People part: an employer for gift matching, on file only with the person's consent
+-- (docs/CATCH_THE_MATCH.md section 6; owner answers of 2026-10-13). Builder PRIV.
+--
+-- WHAT THIS DOES, IN PLAIN WORDS
+--   app.person_match_employers   one row per person: the employer whose matching program their gifts may go to, and the
+--                                consent behind it, kept IN the record (not in app.consents, so platform admins, the other
+--                                adults of the household and the general audit log never see it, and nothing cascades from
+--                                the consents table): where it came from (the person in the app, or a signed paper form the
+--                                office recorded), who recorded it, WHICH SIGN-IN consented (consented_by_user), when the
+--                                consent was given, and when it was withdrawn.
+--   It is NOT app.people.employer: that field is edited by staff, filled by imports and seen with people.view, with no
+--   consent. It stays exactly as it is; it only PREFILLS the person's own answer ("Is this still your employer?").
+--
+--   Adults only (D2): a person under 18 by app.person_is_minor (0587) never has an employer put on file, whoever writes it,
+--   and a record of someone who turns out to be under 18 is not shown (checked again at every read).
+--
+--   BOUND TO THE SIGN-IN THAT CONSENTED. The person's own read, change and withdrawal need auth.uid() = consented_by_user,
+--   not only today's link from a sign-in to the person: a sign-in re-linked to the person, or a new account linked later
+--   (someone who changed the person's email to their own, or was invited as them), can neither read the employer nor change
+--   or withdraw it. A record from a paper form is bound to the sign-in the person had when the office recorded it. When they
+--   had none, the person's email on file at that moment is kept (consent_email, normalised), and the FIRST sign-in that
+--   links to the person afterwards (through the existing linking functions: link_account, an invitation, ...) is bound to it
+--   if, and only if, its verified sign-in email is that same email. Any change of the email on file after the recording
+--   (the forged-email path: staff setting it to their own), or a first link by any other sign-in (a second account), uses
+--   the snapshot up: nothing binds, and only the office changes or withdraws it. A withdrawn record holds nothing, so anyone
+--   linked to the person may consent again.
+--     app.my_match_employer(center)                 what is on file (only if it is this sign-in's), how it got there, and
+--                                                   the suggestion from their profile
+--     app.set_my_match_employer(center, employer)   adds or changes it (CatchTheMatch must be on): their consent, now
+--     app.remove_my_match_employer(center)          withdraws it at once (even with CatchTheMatch off): the employer is
+--                                                   erased, the withdrawal is recorded (withdrawn_at, withdrawn_by)
+--   The office (matching.manage, through 0757's check: never a platform admin, never the filing grant):
+--     app.record_match_employer(center, person, employer)   from a signed paper form: source 'paper_form', who recorded it
+--                                                   and when, as the person's consent.
+--     app.withdraw_match_employer(center, person, reason)   withdraws it when the person asks (a reason, audited).
+--   Staff read the rows on file (not withdrawn, adults) in the communities of app.matching_readable_centers (0758):
+--   CatchTheMatch's own readers and a live Weaver filing grant. People.view alone sees nothing. No AI feature reads this.
+--   Module 'matching' in app.module_tables, with a restrictive module_switch policy that has no platform-admin pass. The
+--   person's own functions are SECURITY DEFINER, so withdrawing works whatever the module says.
+--   Audit: app.audit_private_row (0758): who, when and which columns, never the employer's name; the entries belong to
+--   CatchTheMatch (0758's audit_read keeps them from platform admins and from audit.view alone).
+set client_min_messages = warning;
+
+create table if not exists app.person_match_employers (
+  person_id         uuid primary key references app.people(id) on delete cascade,
+  center_id         uuid not null references app.centers(id) on delete cascade,
+  employer_name     text check (employer_name is null or char_length(btrim(employer_name)) between 1 and 120),
+  source            text not null check (source in ('member', 'paper_form')),
+  recorded_by       uuid not null references auth.users(id),
+  consented_by_user uuid references auth.users(id),
+  consent_email     text check (consent_email is null or consent_email = lower(btrim(consent_email))),
+  consented_at      timestamptz not null default now(),
+  withdrawn_at      timestamptz,
+  withdrawn_by      uuid references auth.users(id),
+  created_at        timestamptz not null default now(),
+  -- On file with consent, or withdrawn with nothing kept.
+  constraint person_match_employers_consent check ((withdrawn_at is null) = (employer_name is not null)),
+  constraint person_match_employers_withdrawn check (withdrawn_at is null or withdrawn_at >= consented_at),
+  -- The person in the app consents with their own sign-in.
+  constraint person_match_employers_member_signin check (source <> 'member' or consented_by_user is not null)
+);
+create index if not exists person_match_employers_center_idx on app.person_match_employers (center_id);
+comment on table app.person_match_employers is
+  'An adult''s employer for gift matching (0759, CatchTheMatch) and the consent behind it, kept in the record: source (member | paper_form), recorded_by, consented_by_user (the sign-in that consented; the person''s own read and changes need it), consented_at, withdrawn_at. Written only by set_my_match_employer / record_match_employer / remove_my_match_employer / withdraw_match_employer. Not people.employer.';
+comment on column app.person_match_employers.source is 'member: the person gave it in the app. paper_form: the office recorded it from a signed paper form (recorded_by, consented_at).';
+comment on column app.person_match_employers.consented_by_user is
+  'The sign-in that consented: the person''s own in the app, the one linked to the person when the office recorded a paper form, or the first sign-in linked afterwards whose verified email is consent_email. Only this sign-in reads, changes or withdraws it itself.';
+comment on column app.person_match_employers.consent_email is
+  'A paper form for a person with no sign-in: their email on file when it was recorded (lower case, trimmed). Used up by the first link to the person and by any change of the email on file; null otherwise.';
+
+-- The row belongs to its person's community and, while an employer is on file, to an adult; the name is trimmed.
+-- SECURITY DEFINER so the birth date and household roles can be read whoever writes.
+create or replace function app.person_match_employers_check() returns trigger
+language plpgsql security definer set search_path = app, public, extensions as $$
+declare p app.people;
+begin
+  select * into p from app.people where id = new.person_id;
+  if p.id is null then raise exception 'That person was not found.' using errcode = '23503'; end if;
+  if tg_op = 'UPDATE' and new.person_id is distinct from old.person_id then
+    raise exception 'An employer on file belongs to one person and cannot be moved to another.' using errcode = '23514';
+  end if;
+  new.center_id := p.center_id;
+  -- Checked when an employer is put on file or changed (clearing the waiting email of someone now under 18 is not refused).
+  if new.employer_name is not null and (tg_op = 'INSERT' or new.employer_name is distinct from old.employer_name) then
+    if app.person_is_minor(p.id) then
+      raise exception 'An employer for gift matching can be recorded for an adult only.' using errcode = '23514';
+    end if;
+    new.employer_name := btrim(regexp_replace(new.employer_name, '\s+', ' ', 'g'));
+    if char_length(new.employer_name) not between 1 and 120 then
+      raise exception 'Enter the employer''s name (at most 120 characters).' using errcode = '23514';
+    end if;
+  end if;
+  return new;
+end $$;
+revoke execute on function app.person_match_employers_check() from public, anon, authenticated;
+drop trigger if exists person_match_employers_check on app.person_match_employers;
+create trigger person_match_employers_check before insert or update on app.person_match_employers
+  for each row execute function app.person_match_employers_check();
+
+drop trigger if exists audit_person_match_employers on app.person_match_employers;
+create trigger audit_person_match_employers after insert or update or delete on app.person_match_employers
+  for each row execute function app.audit_private_row('matching', 'person_id');
+insert into app.module_tables (table_name, module_key) values ('person_match_employers', 'matching')
+  on conflict (table_name) do update set module_key = excluded.module_key;
+
+-- For the staff read policy: may the caller read this community's CatchTheMatch data, and is the person an adult? It answers
+-- false to anyone who may not, so it tells nobody else whether a person is under 18.
+create or replace function app.match_employer_adult(p_center uuid, p_person uuid) returns boolean
+language sql stable security definer set search_path = app, public, extensions as $$
+  select app.matching_can(p_center, 'view') and not app.person_is_minor(p_person)
+$$;
+revoke execute on function app.match_employer_adult(uuid, uuid) from public, anon;
+grant execute on function app.match_employer_adult(uuid, uuid) to authenticated;
+
+alter table app.person_match_employers enable row level security;
+-- The person: their own record, withdrawn or not, only from the sign-in that consented.
+drop policy if exists person_match_employers_own_read on app.person_match_employers;
+create policy person_match_employers_own_read on app.person_match_employers for select to authenticated
+  using (consented_by_user = auth.uid() and person_id = app.my_person_id(center_id));
+-- CatchTheMatch's readers: what is on file, of adults, in the communities they may read (worked out once per statement).
+drop policy if exists person_match_employers_staff_read on app.person_match_employers;
+create policy person_match_employers_staff_read on app.person_match_employers for select to authenticated
+  using (withdrawn_at is null
+         and center_id = any ((select app.matching_readable_centers())::uuid[])
+         and app.match_employer_adult(center_id, person_id));
+-- CatchTheMatch off: hidden from every direct read (no platform-admin pass: platform admins have no read here at all).
+drop policy if exists module_switch on app.person_match_employers;
+create policy module_switch on app.person_match_employers as restrictive for all to public
+  using (center_id is null or not (center_id = any ((select app.module_off_centers('matching'))::uuid[])))
+  with check (center_id is null or not (center_id = any ((select app.module_off_centers('matching'))::uuid[])));
+-- No write policies: only the functions below write.
+revoke all on app.person_match_employers from public, anon, authenticated;
+grant select on app.person_match_employers to authenticated;
+grant all on app.person_match_employers to service_role;
+
+-- ── The person ───────────────────────────────────────────────────────────────
+
+-- The caller's own person in the community, or a plain-English error.
+create or replace function app._my_person_or_raise(p_center uuid) returns uuid
+language plpgsql stable security definer set search_path = app, public, extensions as $$
+declare v uuid;
+begin
+  if auth.uid() is null then raise exception 'Sign in first.' using errcode = 'insufficient_privilege'; end if;
+  v := app.my_person_id(p_center);
+  if v is null then
+    raise exception 'Your sign-in is not linked to a person in this community.' using errcode = 'insufficient_privilege';
+  end if;
+  return v;
+end $$;
+
+-- What a sign-in sees of its person's record: the employer and its story only when this sign-in consented to it and the
+-- person is an adult; otherwise as if nothing were on file.
+create or replace function app._match_employer_card(p_person uuid, p_viewer uuid) returns jsonb
+language sql stable security definer set search_path = app, public, extensions as $$
+  select jsonb_build_object(
+    'employer', case when mine then e.employer_name end,
+    'source', case when mine and e.employer_name is not null then e.source end,
+    'consented_at', case when mine and e.employer_name is not null then e.consented_at end,
+    'recorded_by', case when mine and e.employer_name is not null and e.source = 'paper_form' then app._user_label(p.center_id, e.recorded_by) end,
+    'withdrawn_at', case when mine then e.withdrawn_at end,
+    -- From the profile, to confirm: only while nothing of theirs is on file, and only for an adult.
+    'suggestion', case when not (mine and e.employer_name is not null) and adult then nullif(btrim(coalesce(p.employer, '')), '') end,
+    'is_adult', adult,
+    'matching_on', app._org_private_module_on(p.center_id, 'matching'))
+    from app.people p
+    left join app.person_match_employers e on e.person_id = p.id
+    cross join lateral (select not app.person_is_minor(p.id) as adult) a
+    cross join lateral (select coalesce(e.consented_by_user = p_viewer, false) and not app.person_is_minor(p.id) as mine) m
+   where p.id = p_person
+$$;
+
+create or replace function app.my_match_employer(p_center uuid) returns jsonb
+language plpgsql stable security definer set search_path = app, public, extensions as $$
+begin
+  return app._match_employer_card(app._my_person_or_raise(p_center), auth.uid());
+end $$;
+
+create or replace function app._put_match_employer(p_center uuid, p_person uuid, p_employer text, p_source text, p_consented_by uuid,
+                                                   p_consent_email text default null)
+returns void language plpgsql security definer set search_path = app, public, extensions as $$
+begin
+  if app.person_is_minor(p_person) then
+    raise exception 'An employer for gift matching can be recorded for an adult only.' using errcode = '23514';
+  end if;
+  if char_length(btrim(coalesce(p_employer, ''))) not between 1 and 120 then
+    raise exception 'Enter the employer''s name (at most 120 characters).' using errcode = '22023';
+  end if;
+  insert into app.person_match_employers (person_id, center_id, employer_name, source, recorded_by, consented_by_user, consent_email,
+                                          consented_at, withdrawn_at, withdrawn_by)
+  values (p_person, p_center, p_employer, p_source, auth.uid(), p_consented_by,
+          case when p_consented_by is null then nullif(lower(btrim(coalesce(p_consent_email, ''))), '') end, now(), null, null)
+  on conflict (person_id) do update
+    set employer_name = excluded.employer_name, source = excluded.source, recorded_by = excluded.recorded_by,
+        consented_by_user = excluded.consented_by_user, consent_email = excluded.consent_email,
+        consented_at = excluded.consented_at, withdrawn_at = null, withdrawn_by = null;
+end $$;
+
+create or replace function app.set_my_match_employer(p_center uuid, p_employer text) returns jsonb
+language plpgsql security definer set search_path = app, public, extensions as $$
+declare v_person uuid := app._my_person_or_raise(p_center);
+begin
+  if not app._org_private_module_on(p_center, 'matching') then
+    raise exception '% is not on for this community, so an employer for gift matching cannot be added.',
+      app._module_label(p_center, 'matching') using errcode = 'insufficient_privilege';
+  end if;
+  -- An employer on file that another sign-in (or a paper form) consented to is changed only by that sign-in or the office.
+  if exists (select 1 from app.person_match_employers e
+              where e.person_id = v_person and e.employer_name is not null and e.consented_by_user is distinct from auth.uid()) then
+    raise exception 'An employer for gift matching is already on file for you, from another sign-in or a paper form. Ask your organization to change or remove it.'
+      using errcode = 'insufficient_privilege';
+  end if;
+  perform app.set_audit_context('Added or changed by the person in the app');
+  perform app._put_match_employer(p_center, v_person, p_employer, 'member', auth.uid());
+  return app._match_employer_card(v_person, auth.uid());
+end $$;
+
+-- Withdrawn at once: the employer is erased, the withdrawal kept. True when something of this sign-in's was on file.
+create or replace function app.remove_my_match_employer(p_center uuid) returns boolean
+language plpgsql security definer set search_path = app, public, extensions as $$
+declare v_person uuid := app._my_person_or_raise(p_center); v_gone int;
+begin
+  perform app.set_audit_context('Withdrawn by the person');
+  update app.person_match_employers
+     set employer_name = null, withdrawn_at = now(), withdrawn_by = auth.uid()
+   where person_id = v_person and withdrawn_at is null and consented_by_user = auth.uid();
+  get diagnostics v_gone = row_count;
+  return v_gone > 0;
+end $$;
+
+-- ── The office: from a signed paper form, and withdrawing on the person's request ──
+create or replace function app._match_office_check(p_center uuid, p_person uuid) returns void
+language plpgsql stable security definer set search_path = app, public, extensions as $$
+begin
+  if not app.matching_can(p_center, 'manage') then
+    raise exception 'This needs the CatchTheMatch manager role (matching.manage).' using errcode = 'insufficient_privilege';
+  end if;
+  if p_person is null or not exists (select 1 from app.people where id = p_person and center_id = p_center) then
+    raise exception 'That person was not found in this community.';
+  end if;
+end $$;
+
+create or replace function app.record_match_employer(p_center uuid, p_person uuid, p_employer text) returns jsonb
+language plpgsql security definer set search_path = app, public, extensions as $$
+declare v_user uuid; v_on_file text;
+begin
+  if not app.matching_can(p_center, 'manage') then
+    raise exception 'Recording an employer for gift matching needs the CatchTheMatch manager role (matching.manage).'
+      using errcode = 'insufficient_privilege';
+  end if;
+  perform app._match_office_check(p_center, p_person);
+  if exists (select 1 from app.people where id = p_person and (is_deceased or merged_into_id is not null)) then
+    raise exception 'This person''s record is closed (deceased or merged), so nothing new can be recorded for them.';
+  end if;
+  perform app.set_audit_context('Recorded from a signed paper form');
+  -- Bound to the sign-in the person has now only when its verified email is the email on file now; otherwise (no sign-in,
+  -- or another email: a sign-in linked through a changed email, then restored) it waits for a first link with that email.
+  select cu.user_id into v_user from app.center_users cu where cu.center_id = p_center and cu.person_id = p_person;
+  select nullif(lower(btrim(coalesce(p.email::text, ''))), '') into v_on_file from app.people p where p.id = p_person;
+  if v_user is not null and (v_on_file is null or app._verified_signin_email(v_user) is distinct from v_on_file) then
+    v_user := null;
+  end if;
+  perform app._put_match_employer(p_center, p_person, p_employer, 'paper_form', v_user, v_on_file);
+  return (select jsonb_build_object('employer', e.employer_name, 'source', e.source, 'consented_at', e.consented_at,
+                                    'person_can_manage_it', e.consented_by_user is not null,
+                                    'waits_for_first_sign_in', e.consent_email is not null)
+            from app.person_match_employers e where e.person_id = p_person);
+end $$;
+
+create or replace function app.withdraw_match_employer(p_center uuid, p_person uuid, p_reason text) returns boolean
+language plpgsql security definer set search_path = app, public, extensions as $$
+declare v_gone int;
+begin
+  perform app._match_office_check(p_center, p_person);
+  if app.audit_clean_reason(p_reason) is null then
+    raise exception 'Say how the person asked (for example "by phone on 14 October"). It goes in the audit log.';
+  end if;
+  perform app.set_audit_context('Withdrawn by the office at the person''s request: ' || app.audit_clean_reason(p_reason));
+  update app.person_match_employers
+     set employer_name = null, withdrawn_at = now(), withdrawn_by = auth.uid(), consent_email = null
+   where person_id = p_person and center_id = p_center and withdrawn_at is null;
+  get diagnostics v_gone = row_count;
+  return v_gone > 0;
+end $$;
+
+-- ── A paper form waiting for the person's first sign-in ─────────────────────
+-- A sign-in's email, normalised, only when it is confirmed and no change of it is pending; null otherwise.
+create or replace function app._verified_signin_email(p_user uuid) returns text
+language sql stable security definer set search_path = app, public, extensions as $$
+  select lower(btrim(u.email::text)) from auth.users u
+   where u.id = p_user and u.email is not null and u.email_confirmed_at is not null and coalesce(u.email_change, '') = ''
+$$;
+revoke execute on function app._verified_signin_email(uuid) from public, anon, authenticated;
+
+-- The email on file changes after the recording (staff set it to another address): the snapshot is used up, nothing binds.
+create or replace function app.match_employer_email_changed() returns trigger
+language plpgsql security definer set search_path = app, public, extensions as $$
+begin
+  if lower(btrim(coalesce(new.email::text, ''))) is distinct from lower(btrim(coalesce(old.email::text, ''))) then
+    update app.person_match_employers set consent_email = null where person_id = new.id and consent_email is not null;
+  end if;
+  return null;
+end $$;
+revoke execute on function app.match_employer_email_changed() from public, anon, authenticated;
+drop trigger if exists match_employer_email_changed on app.people;
+create trigger match_employer_email_changed after update of email on app.people
+  for each row execute function app.match_employer_email_changed();
+
+-- The first sign-in linked to the person (any linking function writes app.center_users): bound when its verified sign-in
+-- email is the snapshot (and still the email on file); either way the snapshot is used up, so no later sign-in binds.
+create or replace function app.match_employer_first_link() returns trigger
+language plpgsql security definer set search_path = app, public, extensions as $$
+declare e app.person_match_employers; v_signin text; v_on_file text;
+begin
+  if tg_op = 'UPDATE' and new.person_id is not distinct from old.person_id and new.user_id is not distinct from old.user_id then
+    return null;
+  end if;
+  select * into e from app.person_match_employers
+   where person_id = new.person_id and consent_email is not null and consented_by_user is null and employer_name is not null
+   for update;
+  if e.person_id is null then return null; end if;
+  v_signin := app._verified_signin_email(new.user_id);
+  select lower(btrim(p.email::text)) into v_on_file from app.people p where p.id = new.person_id;
+  update app.person_match_employers
+     -- Someone now under 18: nothing binds (the link itself is not refused).
+     set consented_by_user = case when v_signin = e.consent_email and v_on_file = e.consent_email
+                                   and not app.person_is_minor(new.person_id) then new.user_id end,
+         consent_email = null
+   where person_id = new.person_id;
+  return null;
+end $$;
+revoke execute on function app.match_employer_first_link() from public, anon, authenticated;
+drop trigger if exists match_employer_first_link on app.center_users;
+create trigger match_employer_first_link after insert or update of person_id, user_id on app.center_users
+  for each row execute function app.match_employer_first_link();
+
+-- ── Who may call what ────────────────────────────────────────────────────────
+revoke execute on function app._my_person_or_raise(uuid), app._match_employer_card(uuid, uuid),
+  app._put_match_employer(uuid, uuid, text, text, uuid, text), app._match_office_check(uuid, uuid)
+  from public, anon, authenticated;
+revoke execute on function app.my_match_employer(uuid), app.set_my_match_employer(uuid, text), app.remove_my_match_employer(uuid),
+  app.record_match_employer(uuid, uuid, text), app.withdraw_match_employer(uuid, uuid, text) from public, anon;
+grant execute on function app.my_match_employer(uuid), app.set_my_match_employer(uuid, text), app.remove_my_match_employer(uuid),
+  app.record_match_employer(uuid, uuid, text), app.withdraw_match_employer(uuid, uuid, text) to authenticated;
