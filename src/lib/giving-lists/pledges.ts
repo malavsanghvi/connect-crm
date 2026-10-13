@@ -207,7 +207,7 @@ export function pledgeRow(p: PledgeIn, family: Family | null, ctx: ListContext, 
   const primary: Act[] = [];
   const menu: Act[] = [];
   let note: string | null = null;
-  if (open && ctx.can.record) menu.push({ kind: "link", href: recordPaymentHref(p.householdId), label: "Record payment" });
+  if (open && ctx.can.record) menu.push({ kind: "record_payment", householdId: p.householdId, href: recordPaymentHref(p.householdId), label: "Record payment" });
   if (open && !p.writeOffBy && ctx.can.manage && openCents > 0) {
     menu.push({ kind: "request_write_off", id: p.id, openCents, reference: ref, label: "Write off…" });
   }
