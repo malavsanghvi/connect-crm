@@ -288,9 +288,10 @@ export const ACCESS = {
   /**
    * Settings › Automatic emails (0770): read by whoever reads one of the emails (Giving: giving.view or giving.manage; the
    * registration email: events.manage; settings.manage reads them all). Each email is switched and worded with its own
-   * permission, which the database checks (giving.manage, events.manage).
+   * permission, which the database checks (giving.manage, events.manage). 0771: scheduled emails are written with comms.send and
+   * switched on with comms.approve, each with giving.view or giving.manage.
    */
-  automaticEmails: ["settings.manage", "giving.view", "giving.manage", "events.manage"],
+  automaticEmails: ["settings.manage", "giving.view", "giving.manage", "events.manage", "comms.send", "comms.approve"],
   /** Setup checklist, Step 0 screens and go-live readiness (settings.manage; the owner too, in the database). */
   setup: ["settings.manage"],
   /** Setup › Lists (o-golive): each card checks its own writer — settings.manage, giving.manage (funds) or pathshala.manage (tracks). */

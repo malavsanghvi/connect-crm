@@ -17,13 +17,30 @@ export function isEmailTrigger(v: unknown): v is EmailTrigger {
   return typeof v === "string" && (EMAIL_TRIGGERS as readonly string[]).includes(v);
 }
 
+// Scheduled emails (0771): an audience the community chooses, with the data each household gets.
+export const SCHEDULE_AUDIENCES = ["pledges_due_soon", "pledges_past_due", "gave_recently"] as const;
+export type ScheduleAudience = (typeof SCHEDULE_AUDIENCES)[number];
+
+export function isScheduleAudience(v: unknown): v is ScheduleAudience {
+  return typeof v === "string" && (SCHEDULE_AUDIENCES as readonly string[]).includes(v);
+}
+
+/** What a placeholder list belongs to: an automatic email, or a scheduled email's audience ("schedule:pledges_due_soon"). */
+export type MergeKey = EmailTrigger | `schedule:${ScheduleAudience}`;
+
+export function scheduleKey(audience: ScheduleAudience): MergeKey {
+  return `schedule:${audience}`;
+}
+
 export type Placeholder = {
   /** What goes between the braces: {{payment_amount}}. */
   name: string;
   /** The picker's words. */
   label: string;
   /** The picker's group. */
-  group: "Community" | "Recipient" | "Household" | "Payment" | "Pledge" | "Event";
+  group: "Community" | "Recipient" | "Household" | "Payment" | "Pledge" | "Event" | "Pledges" | "Gifts";
+  /** A list, one line per item: in the email only, never the subject (the database refuses it there). */
+  multiline?: boolean;
   /** What a preview shows when there is no record to take the value from. */
   sample: string;
   /** What the email says when the record has no value (an empty string leaves the line blank). */
@@ -44,7 +61,7 @@ const PEOPLE: Placeholder[] = [
   { name: "household_number", label: "Household number", group: "Household", sample: "H-1042", missing: "not numbered yet" },
 ];
 
-export const PLACEHOLDERS: Record<EmailTrigger, Placeholder[]> = {
+export const PLACEHOLDERS: Record<MergeKey, Placeholder[]> = {
   payment_receipt: [
     ...COMMUNITY,
     ...PEOPLE,
@@ -79,20 +96,44 @@ export const PLACEHOLDERS: Record<EmailTrigger, Placeholder[]> = {
     { name: "event_place", label: "Place", group: "Event", sample: "Main Hall", missing: "place to be announced" },
     { name: "registration_count", label: "How many are registered", group: "Event", sample: "3", missing: "" },
   ],
+  "schedule:pledges_due_soon": [...COMMUNITY, ...PEOPLE, ...pledgeList("due soon")],
+  "schedule:pledges_past_due": [...COMMUNITY, ...PEOPLE, ...pledgeList("past due")],
+  "schedule:gave_recently": [
+    ...COMMUNITY,
+    ...PEOPLE,
+    { name: "gifts_list", label: "The gifts, one per line", group: "Gifts", multiline: true, sample: "October 3, 2026 · $250.00 · General Fund\nOctober 10, 2026 · $100.00 · Building Fund", missing: "" },
+    { name: "gifts_count", label: "How many gifts", group: "Gifts", sample: "2", missing: "" },
+    { name: "gifts_total", label: "Total given", group: "Gifts", sample: "$350.00", missing: "" },
+    { name: "gifts_period", label: "The dates it covers", group: "Gifts", sample: "September 13, 2026 – October 12, 2026", missing: "" },
+  ],
 };
 
-export function placeholdersFor(trigger: EmailTrigger): Placeholder[] {
-  return PLACEHOLDERS[trigger];
+function pledgeList(which: string): Placeholder[] {
+  return [
+    { name: "pledges_list", label: `The pledges ${which}, one per line`, group: "Pledges", multiline: true, sample: "P-2087 · Building Fund · $750.00 · December 31, 2026", missing: "" },
+    { name: "pledges_count", label: "How many pledges", group: "Pledges", sample: "1", missing: "" },
+    { name: "pledges_balance", label: "Total still to pay", group: "Pledges", sample: "$750.00", missing: "" },
+    { name: "next_due_date", label: "The earliest due date", group: "Pledges", sample: "December 31, 2026", missing: "" },
+  ];
 }
 
-export function placeholderNames(trigger: EmailTrigger): string[] {
-  return PLACEHOLDERS[trigger].map((p) => p.name);
+export function placeholdersFor(key: MergeKey): Placeholder[] {
+  return PLACEHOLDERS[key];
+}
+
+export function placeholderNames(key: MergeKey): string[] {
+  return PLACEHOLDERS[key].map((p) => p.name);
+}
+
+/** The list placeholders of this email (never in a subject). */
+export function multilineNames(key: MergeKey): string[] {
+  return PLACEHOLDERS[key].filter((p) => p.multiline).map((p) => p.name);
 }
 
 /** The picker's groups, in order, each with its placeholders. */
-export function placeholderGroups(trigger: EmailTrigger): { group: Placeholder["group"]; items: Placeholder[] }[] {
+export function placeholderGroups(key: MergeKey): { group: Placeholder["group"]; items: Placeholder[] }[] {
   const out: { group: Placeholder["group"]; items: Placeholder[] }[] = [];
-  for (const p of PLACEHOLDERS[trigger]) {
+  for (const p of PLACEHOLDERS[key]) {
     const g = out.find((x) => x.group === p.group);
     if (g) g.items.push(p);
     else out.push({ group: p.group, items: [p] });
@@ -124,3 +165,22 @@ export const TRIGGER_INFO: Record<EmailTrigger, { title: string; when: string; m
     view: ["events.view", "events.manage"],
   },
 };
+
+/** Each audience a scheduled email can go to, in the owner's words. */
+export const AUDIENCE_INFO: Record<ScheduleAudience, { title: string; describe: (p: ScheduleParams) => string }> = {
+  pledges_due_soon: {
+    title: "Pledges due soon",
+    describe: (p) =>
+      `Households with an open pledge due in the next ${p.days ?? 7} day${(p.days ?? 7) === 1 ? "" : "s"}${p.since ? `, made on or after ${p.since}` : ""}${p.include_imported ? ", imported pledges included" : ""}`,
+  },
+  pledges_past_due: {
+    title: "Pledges past due",
+    describe: (p) => `Households with an open pledge whose due date has passed${p.since ? `, made on or after ${p.since}` : ""}${p.include_imported ? ", imported pledges included" : ", imported pledges left out"}`,
+  },
+  gave_recently: {
+    title: "Givers since the last email",
+    describe: () => "Households that gave since the previous run (the day, week, month or year before each run), with what they gave",
+  },
+};
+
+export type ScheduleParams = { days?: number; since?: string | null; include_imported?: boolean };
