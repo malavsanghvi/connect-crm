@@ -121,15 +121,14 @@ describe("QuickBooks donor matches", () => {
   });
 });
 
-describe("Books and Bolis inside Giving's tab row (New look)", () => {
+describe("Books inside Giving's tab row (New look)", () => {
   const treasurer = ["giving.view", "giving.manage", "giving.record_offline", "accounting.close", "accounting.manage", "bolis.manage"];
   const tabCtx = (modulesOff: string[] = [], kind = NEUTRAL_KIND): TabContext => ({ permissions: treasurer, isPlatformAdmin: false, modulesOff, kind });
 
-  it("every Books address lights Books, every Bolis address lights Bolis", () => {
+  it("every Books address lights Books", () => {
     const tabs = givingTabs(tabCtx([], LEGACY_KIND));
     expect(activeGivingTab(tabs, "/accounting/close")).toBe("books");
     expect(activeGivingTab(tabs, "/accounting/qbo/matching")).toBe("books");
-    expect(activeGivingTab(tabs, "/bolis/upload")).toBe("bolis");
     expect(activeGivingTab(tabs, "/giving")).toBe("today");
   });
 

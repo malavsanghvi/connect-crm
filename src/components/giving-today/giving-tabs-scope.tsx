@@ -7,9 +7,9 @@ import { LOOK_COOKIE, parseLook } from "@/lib/look";
 import { loadSession } from "@/lib/session";
 
 /**
- * For the pages that sit inside Giving without living under /giving (Books = /accounting, Bolis = /bolis): in the New look their
- * header draws Giving's one tab row (src/lib/giving-today/tabs.ts) instead of the Giving · Bolis · Accounting pills. The classic
- * look is left exactly as it is.
+ * For pages that sit inside Giving without living under /giving (Books = /accounting): in the New look their header draws
+ * Giving's one tab row (src/lib/giving-today/tabs.ts) instead of the Giving · Bolis · Accounting pills. The classic look is
+ * left exactly as it is.
  */
 export async function GivingTabsScope({ children }: { children: ReactNode }) {
   const look = parseLook((await cookies()).get(LOOK_COOKIE)?.value);
