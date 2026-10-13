@@ -6,8 +6,8 @@ import { canAccess } from "@/lib/permissions";
 import type { CrmSession } from "@/lib/session";
 
 import { mayAddToAnyEvent, type AddSetup } from "./event-add";
+import { addToEventProps } from "./event-add-props";
 import type { FamilyModel } from "./family-model";
-import { detailHousehold, householdLine } from "./slideover";
 
 /**
  * Whether a page offers "Add to an event", and with what. Only with the Events module on and a role that can read events; then the
@@ -21,14 +21,5 @@ export async function eventAddSetup(session: CrmSession, model: FamilyModel | nu
   if (model.mergedIntoId) return { kind: "none" };
   const access = await loadEventAccess(session);
   if (!mayAddToAnyEvent(access)) return { kind: "view-only" };
-  return {
-    kind: "add",
-    props: {
-      householdId: model.id,
-      cardLine: householdLine(detailHousehold(model)),
-      people: [...model.adults, ...model.children].map((p) => ({ id: p.id, name: p.name, firstName: p.firstName, isChild: p.isChild, age: p.age, deceased: p.deceased })),
-      openedFrom,
-      timeZone: session.center.time_zone,
-    },
-  };
+  return { kind: "add", props: addToEventProps(model, openedFrom, session.center.time_zone) };
 }

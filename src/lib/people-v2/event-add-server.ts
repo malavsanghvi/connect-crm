@@ -19,6 +19,7 @@ import {
   isUpcoming,
   mayAddToAnyEvent,
   planAdd,
+  sayNames,
   windowNote,
   type AddLoad,
   type AddPlan,
@@ -275,7 +276,7 @@ async function write(ctx: AddContext, input: AddInput & { personIds: string[] },
   const eventDate = event.starts_at ? dateInTz(event.starts_at, center.time_zone) : null;
   const nowIso = now.toISOString();
   const flagsFor = (id: string) => attendeeFlags(byId.get(id)?.date_of_birth, eventDate);
-  const who = (list: readonly Candidate[]) => list.map((c) => c.firstName).join(", ");
+  const who = (list: readonly Candidate[]) => sayNames(list);
 
   // 1. The RSVP: reuse the family's, or make it.
   let target: { id: string; status: string } | null = rsvp ? { id: rsvp.id, status: rsvp.status } : null;

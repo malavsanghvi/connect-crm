@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { glanceHref } from "@/lib/giving-glance/period";
 import { tabPeriod, type GlancePrep } from "@/lib/giving-glance/page";
+import { tabDefaultPerson } from "@/lib/people-v2/event-add-props";
 import { eventAddSetup } from "@/lib/people-v2/event-add-setup";
 import { familyTabs, pickFamilyTab, type FamilyModel } from "@/lib/people-v2/family-model";
 import { isModuleEnabled } from "@/lib/modules";
@@ -75,7 +76,7 @@ export async function FamilyTabs({
       ) : null}
       {!legacyIds && active === "memberships" ? <MembershipsTab session={session} householdId={id} /> : null}
       {!legacyIds && active === "events" ? (
-        <EventsTab session={session} householdId={id} add={await eventAddSetup(session, model, (model.adults.find((a) => a.isPrimary) ?? model.adults[0])?.id ?? null)} />
+        <EventsTab session={session} householdId={id} add={await eventAddSetup(session, model, tabDefaultPerson(model))} />
       ) : null}
       {!legacyIds && active === "history" ? (
         <div>

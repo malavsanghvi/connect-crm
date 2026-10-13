@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useId, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState, type RefObject } from "react";
 import { createPortal } from "react-dom";
 
 import { useStepUp } from "@/components/step-up";
@@ -13,8 +13,10 @@ import {
   personChoices,
   planAdd,
   sayNames,
+  type AddPlan,
   type AddToEventProps,
   type EventChoice,
+  type PersonChoice,
 } from "@/lib/people-v2/event-add";
 import { NO_ACCESS_TEXT } from "@/lib/people-v2/slideover";
 
@@ -28,20 +30,50 @@ import { useFamilyActions } from "../family/actions";
 //
 // The family is shown with its card line (number, ids, adults, place), never by its name alone. Children are listed compactly and can be
 // chosen: this is the staff screen. Nothing here is sent to an assistant or an AI provider.
+//
+// Two parts: AddToEventView draws a state (no hooks, so the tests and the previews can draw every state), and AddToEvent holds the state
+// and talks to the server.
 
-type Load =
+export type Load =
   | { state: "idle" }
   | { state: "loading" }
   | { state: "ready"; events: EventChoice[] }
   | { state: "failed"; kind: "access" | "other"; error: string };
 
-type Failure = { kind: "access" | "full" | "busy" | "other"; error: string };
+export type Failure = { kind: "access" | "full" | "busy" | "other"; error: string };
+
+export type PanelState = {
+  open: boolean;
+  load: Load;
+  eventId: string | null;
+  chosen: ReadonlySet<string>;
+  confirmed: boolean;
+  step: "choose" | "ask" | "adding";
+  failure: Failure | null;
+  /** The sentence for the last add that worked (kept above the button until the next one). */
+  done: string | null;
+};
+
+export const CLOSED: PanelState = { open: false, load: { state: "idle" }, eventId: null, chosen: new Set(), confirmed: false, step: "choose", failure: null, done: null };
+
+export type PanelHandlers = {
+  show: () => void;
+  close: () => void;
+  retry: () => void;
+  pickEvent: (id: string) => void;
+  toggle: (id: string) => void;
+  chooseEveryone: (ids: string[]) => void;
+  setConfirmed: (v: boolean) => void;
+  ask: () => void;
+  back: () => void;
+  submit: () => void;
+};
 
 const BTN =
   "inline-flex min-h-11 items-center justify-center rounded-full px-6 text-[14.5px] font-bold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--v2-blue)] disabled:opacity-60";
 const LABEL = "block text-[12.5px] font-bold text-muted";
 
-function seatsText(e: EventChoice): { text: string; tone: "ok" | "warn" | "muted" } {
+export function seatsText(e: EventChoice): { text: string; tone: "ok" | "warn" | "muted" } {
   if (e.capacity === null) return { text: "No limit on places", tone: "muted" };
   if (e.seatsTaken === null) return { text: `${e.capacity} places`, tone: "muted" };
   const left = Math.max(0, e.capacity - e.seatsTaken);
@@ -49,61 +81,13 @@ function seatsText(e: EventChoice): { text: string; tone: "ok" | "warn" | "muted
   return { text: e.waitlist ? "Full · new RSVPs go on the waitlist" : "Full", tone: "warn" };
 }
 
-export function AddToEvent({ householdId, cardLine, people, openedFrom, timeZone }: AddToEventProps) {
-  const actions = useFamilyActions();
-  const stepUp = useStepUp();
-  const router = useRouter();
-  const uid = useId();
-  const yes = useRef<HTMLButtonElement>(null);
-  const busy = useRef(false);
-  const [open, setOpen] = useState(false);
-  const [load, setLoad] = useState<Load>({ state: "idle" });
-  const [eventId, setEventId] = useState<string | null>(null);
-  const [chosen, setChosen] = useState<ReadonlySet<string>>(new Set());
-  const [confirmed, setConfirmed] = useState(false);
-  const [step, setStep] = useState<"choose" | "ask" | "adding">("choose");
-  const [failure, setFailure] = useState<Failure | null>(null);
-  const [done, setDone] = useState<string | null>(null);
-  const [toast, setToast] = useState<string | null>(null);
-
-  const fetchEvents = useCallback(async () => {
-    setLoad({ state: "loading" });
-    try {
-      const r = await actions.eventAdd.load({ householdId });
-      if (r.ok) {
-        setLoad({ state: "ready", events: r.events });
-        setEventId((cur) => (cur && r.events.some((e) => e.id === cur && !e.problem) ? cur : r.events.length === 1 && !r.events[0].problem ? r.events[0].id : null));
-      } else {
-        setLoad({ state: "failed", kind: r.kind, error: r.error });
-      }
-    } catch (error) {
-      console.error("[event-add] the events could not be loaded:", error);
-      setLoad({ state: "failed", kind: "other", error: "Could not load the events — the server did not respond. Try again." });
-    }
-  }, [actions, householdId]);
-
-  function show() {
-    setOpen(true);
-    setDone(null);
-    setFailure(null);
-    setStep("choose");
-    setConfirmed(false);
-    setChosen(new Set(defaultChosen(personChoices(people, []), openedFrom)));
-    void fetchEvents();
-  }
-
-  function close() {
-    if (step === "adding") return;
-    setOpen(false);
-    setFailure(null);
-    setStep("choose");
-  }
-
-  const events = load.state === "ready" ? load.events : [];
-  const event = events.find((e) => e.id === eventId) ?? null;
+/** What follows from a state: the chosen event, who can be ticked, who is ticked, and what adding them would do. */
+export function derive(props: Pick<AddToEventProps, "people">, state: PanelState): { events: EventChoice[]; event: EventChoice | null; choices: PersonChoice[]; picked: PersonChoice[]; plan: AddPlan | null } {
+  const events = state.load.state === "ready" ? state.load.events : [];
+  const event = events.find((e) => e.id === state.eventId) ?? null;
   const onIt = new Set(event?.existing?.personIds ?? []);
-  const choices = personChoices(people, onIt);
-  const picked = choices.filter((c) => c.state === "free" && chosen.has(c.id));
+  const choices = personChoices(props.people, onIt);
+  const picked = choices.filter((c) => c.state === "free" && state.chosen.has(c.id));
   const plan = event
     ? planAdd({
         eventName: event.name,
@@ -113,66 +97,20 @@ export function AddToEvent({ householdId, cardLine, people, openedFrom, timeZone
         existingStatus: event.existing?.status ?? null,
         onIt,
         chosen: picked,
-        confirmed,
+        confirmed: state.confirmed,
       })
     : null;
+  return { events, event, choices, picked, plan };
+}
 
-  useEffect(() => {
-    if (step === "ask") yes.current?.focus();
-  }, [step]);
-
-  useEffect(() => {
-    if (!toast) return;
-    const t = window.setTimeout(() => setToast(null), 7000);
-    return () => window.clearTimeout(t);
-  }, [toast]);
-
-  function toggle(id: string) {
-    setChosen((cur) => {
-      const next = new Set(cur);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-    setFailure(null);
-    setStep("choose");
-  }
-
-  async function add() {
-    if (busy.current || !event || !plan || plan.kind !== "add") return;
-    busy.current = true;
-    setStep("adding");
-    setFailure(null);
-    const call = () => actions.eventAdd.add({ householdId, eventId: event.id, personIds: plan.toAdd.map((c) => c.id), confirmed });
-    try {
-      const r = stepUp ? await stepUp.run(call, "add people to an event") : await call();
-      if (r.ok) {
-        setDone(r.message);
-        setToast(r.toast);
-        setOpen(false);
-        setStep("choose");
-        router.refresh();
-      } else {
-        setFailure({ kind: r.kind, error: r.error });
-        // A refusal for places or a repeat click is settled by looking again; a half-finished add must show what is there.
-        setStep(r.kind === "full" || r.kind === "busy" ? "choose" : "ask");
-        if (r.kind === "full" || r.kind === "busy") void fetchEvents();
-        if (r.partial) router.refresh();
-      }
-    } catch (error) {
-      console.error("[event-add] adding did not complete:", error);
-      setFailure({
-        kind: "other",
-        error: `Could not add ${sayNames(plan.toAdd)} to ${event.name} — the server did not respond, so it is not known whether it worked. Check this family's Events before trying again.`,
-      });
-      setStep("ask");
-    }
-    busy.current = false;
-  }
-
+export function AddToEventView({ props, state, on, yesRef }: { props: AddToEventProps; state: PanelState; on: PanelHandlers; yesRef?: RefObject<HTMLButtonElement | null> }) {
+  const uid = useId();
+  const { load, step, failure, done, open, chosen, confirmed, eventId } = state;
+  const { events, event, choices, picked, plan } = derive(props, state);
   const adults = choices.filter((c) => !c.isChild);
   const children = choices.filter((c) => c.isChild);
   const everyoneFree = choices.filter((c) => c.state === "free");
+  const adding = step === "adding";
 
   return (
     <div
@@ -180,7 +118,7 @@ export function AddToEvent({ householdId, cardLine, people, openedFrom, timeZone
       onKeyDown={(e) => {
         if (e.key === "Escape" && open) {
           e.preventDefault();
-          close();
+          on.close();
         }
       }}
     >
@@ -193,7 +131,7 @@ export function AddToEvent({ householdId, cardLine, people, openedFrom, timeZone
           <span dir="auto" className="font-semibold">
             {done}
           </span>
-          <button type="button" onClick={show} className="font-bold underline">
+          <button type="button" onClick={on.show} className="font-bold underline">
             Add to another event
           </button>
         </div>
@@ -203,7 +141,7 @@ export function AddToEvent({ householdId, cardLine, people, openedFrom, timeZone
         done ? null : (
           <button
             type="button"
-            onClick={show}
+            onClick={on.show}
             className="inline-flex min-h-11 items-center gap-2 rounded-full border border-dashed border-[var(--v2-blue-border)] bg-transparent px-5 text-[14.5px] font-bold text-[var(--v2-blue)] hover:bg-[var(--v2-blue-tint)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--v2-blue)]"
           >
             <span aria-hidden="true" className="text-[18px] leading-none">
@@ -220,14 +158,15 @@ export function AddToEvent({ householdId, cardLine, people, openedFrom, timeZone
                 Add to an event
               </h3>
               <p data-testid="add-to-event-family" dir="auto" className="m-0 mt-0.5 text-[13px] leading-snug text-muted">
-                {cardLine.join(" · ")}
+                {props.cardLine.join(" · ")}
               </p>
             </div>
             <button
               type="button"
-              onClick={close}
+              onClick={on.close}
+              disabled={adding}
               aria-label="Cancel adding to an event"
-              className="-mr-2 -mt-2 grid size-11 shrink-0 place-items-center rounded-full text-muted hover:bg-[var(--v2-ground)] hover:text-ink"
+              className="-mr-2 -mt-2 grid size-11 shrink-0 place-items-center rounded-full text-muted hover:bg-[var(--v2-ground)] hover:text-ink disabled:opacity-60"
             >
               <span aria-hidden="true" className="text-[22px] leading-none">
                 ×
@@ -236,7 +175,7 @@ export function AddToEvent({ householdId, cardLine, people, openedFrom, timeZone
           </div>
 
           {load.state === "idle" || load.state === "loading" ? (
-            <p role="status" className="m-0 mt-3 text-[14px] text-muted">
+            <p role="status" data-testid="add-to-event-loading" className="m-0 mt-3 text-[14px] text-muted">
               Loading the upcoming events…
             </p>
           ) : null}
@@ -247,9 +186,9 @@ export function AddToEvent({ householdId, cardLine, people, openedFrom, timeZone
                 {NO_ACCESS_TEXT}
               </p>
             ) : (
-              <div role="alert" className="mt-3 rounded-[10px] border border-danger/30 bg-danger-50 px-3 py-2 text-[13px] text-danger">
+              <div role="alert" data-testid="add-to-event-load-error" className="mt-3 rounded-[10px] border border-danger/30 bg-danger-50 px-3 py-2 text-[13px] text-danger">
                 {load.error}{" "}
-                <button type="button" onClick={() => void fetchEvents()} className="font-bold underline">
+                <button type="button" onClick={on.retry} className="font-bold underline">
                   Try again
                 </button>
               </div>
@@ -282,19 +221,15 @@ export function AddToEvent({ householdId, cardLine, people, openedFrom, timeZone
                             name={`${uid}-event`}
                             value={e.id}
                             checked={selected}
-                            disabled={Boolean(e.problem) || step === "adding"}
-                            onChange={() => {
-                              setEventId(e.id);
-                              setFailure(null);
-                              setStep("choose");
-                            }}
+                            disabled={Boolean(e.problem) || adding}
+                            onChange={() => on.pickEvent(e.id)}
                             className="mt-1 size-4 shrink-0"
                           />
                           <span className="min-w-0 flex-1">
                             <span dir="auto" className="block text-[15px] font-bold text-ink">
                               {e.name}
                             </span>
-                            <span className="block text-[13px] text-ink-2">{formatDateTime(e.startsAt, timeZone)}</span>
+                            <span className="block text-[13px] text-ink-2">{formatDateTime(e.startsAt, props.timeZone)}</span>
                             <span className="mt-0.5 flex flex-wrap gap-x-3 gap-y-0.5 text-[12.5px]">
                               <span className={seats.tone === "ok" ? "font-semibold text-[var(--v2-green-ink)]" : seats.tone === "warn" ? "font-semibold text-[var(--v2-sun-ink)]" : "text-muted"}>
                                 {seats.text}
@@ -316,7 +251,7 @@ export function AddToEvent({ householdId, cardLine, people, openedFrom, timeZone
                 <legend className={`${LABEL} mb-1.5`}>Who is coming</legend>
                 <ul className="m-0 flex list-none flex-col gap-1 p-0">
                   {adults.map((c) => (
-                    <PersonRow key={c.id} c={c} checked={chosen.has(c.id) && c.state === "free"} onToggle={toggle} disabled={step === "adding"} />
+                    <PersonRow key={c.id} c={c} checked={chosen.has(c.id) && c.state === "free"} onToggle={on.toggle} disabled={adding} />
                   ))}
                 </ul>
                 {children.length > 0 ? (
@@ -324,7 +259,7 @@ export function AddToEvent({ householdId, cardLine, people, openedFrom, timeZone
                     <p className="m-0 mt-2 text-[11.5px] font-extrabold uppercase tracking-[0.06em] text-muted">Children · staff only</p>
                     <ul className="m-0 flex list-none flex-col p-0">
                       {children.map((c) => (
-                        <PersonRow key={c.id} c={c} compact checked={chosen.has(c.id) && c.state === "free"} onToggle={toggle} disabled={step === "adding"} />
+                        <PersonRow key={c.id} c={c} compact checked={chosen.has(c.id) && c.state === "free"} onToggle={on.toggle} disabled={adding} />
                       ))}
                     </ul>
                   </>
@@ -332,12 +267,9 @@ export function AddToEvent({ householdId, cardLine, people, openedFrom, timeZone
                 {everyoneFree.length > 1 ? (
                   <button
                     type="button"
-                    onClick={() => {
-                      setChosen(picked.length === everyoneFree.length ? new Set() : new Set(everyoneFree.map((c) => c.id)));
-                      setFailure(null);
-                      setStep("choose");
-                    }}
-                    className="mt-1 min-h-11 rounded-full px-1 text-[13.5px] font-bold text-[var(--v2-blue)] hover:underline md:min-h-9"
+                    disabled={adding}
+                    onClick={() => on.chooseEveryone(picked.length === everyoneFree.length ? [] : everyoneFree.map((c) => c.id))}
+                    className="mt-1 min-h-11 rounded-full px-1 text-[13.5px] font-bold text-[var(--v2-blue)] hover:underline disabled:opacity-60 md:min-h-9"
                   >
                     {picked.length === everyoneFree.length ? "Clear the choice" : "Choose the whole family"}
                   </button>
@@ -346,7 +278,7 @@ export function AddToEvent({ householdId, cardLine, people, openedFrom, timeZone
 
               {event && !event.existing ? (
                 <label className="mt-2 flex min-h-11 cursor-pointer items-center gap-3 text-[14px] text-ink-2">
-                  <input type="checkbox" checked={confirmed} onChange={(e) => setConfirmed(e.target.checked)} className="size-4 shrink-0" />
+                  <input type="checkbox" checked={confirmed} disabled={adding} onChange={(e) => on.setConfirmed(e.target.checked)} className="size-4 shrink-0" />
                   <span>The family has already said yes (mark the RSVP confirmed)</span>
                 </label>
               ) : null}
@@ -356,12 +288,6 @@ export function AddToEvent({ householdId, cardLine, people, openedFrom, timeZone
                   {plan.text}
                 </p>
               ) : null}
-              {plan?.kind === "unchanged" ? (
-                <p role="status" className="m-0 mt-3 rounded-[10px] bg-[var(--v2-ground)] px-3 py-2 text-[13.5px] text-ink-2">
-                  {plan.text}
-                </p>
-              ) : null}
-
               {failure ? (
                 <div role="alert" data-testid="add-to-event-error" className="mt-3 rounded-[10px] border border-danger/30 bg-danger-50 px-3 py-2 text-[13px] text-danger">
                   {failure.kind === "access" ? NO_ACCESS_TEXT : failure.error}
@@ -370,19 +296,14 @@ export function AddToEvent({ householdId, cardLine, people, openedFrom, timeZone
 
               {step === "choose" ? (
                 <div className="mt-4 flex flex-wrap items-center gap-3">
-                  <button
-                    type="button"
-                    disabled={plan?.kind !== "add"}
-                    onClick={() => setStep("ask")}
-                    className={`${BTN} bg-navy text-white hover:bg-navy-hover`}
-                  >
+                  <button type="button" disabled={plan?.kind !== "add"} onClick={on.ask} className={`${BTN} bg-navy text-white hover:bg-navy-hover`}>
                     {event ? `Add to ${event.name}` : "Choose an event"}
                   </button>
                   <span className="text-[12.5px] text-muted">Esc cancels.</span>
                 </div>
               ) : null}
 
-              {(step === "ask" || step === "adding") && plan?.kind === "add" && event ? (
+              {(step === "ask" || adding) && plan?.kind === "add" && event ? (
                 <div role="group" aria-labelledby={`${uid}-q`} data-testid="add-to-event-ask" className="mt-4 rounded-xl border border-[var(--v2-blue-border)] bg-[var(--v2-blue-tint)] p-3">
                   {plan.notes.map((n) => (
                     <p key={n} dir="auto" className="m-0 mb-1.5 text-[13.5px] text-ink-2">
@@ -393,18 +314,10 @@ export function AddToEvent({ householdId, cardLine, people, openedFrom, timeZone
                     {confirmQuestion(plan.toAdd, event.name)}
                   </p>
                   <div className="mt-3 flex flex-wrap items-center gap-3">
-                    <button ref={yes} type="button" onClick={() => void add()} disabled={step === "adding"} className={`${BTN} bg-navy text-white hover:bg-navy-hover`}>
-                      {step === "adding" ? "Adding…" : failure ? "Try again" : CONFIRM_YES}
+                    <button ref={yesRef} type="button" onClick={on.submit} disabled={adding} className={`${BTN} bg-navy text-white hover:bg-navy-hover`}>
+                      {adding ? "Adding…" : failure ? "Try again" : CONFIRM_YES}
                     </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setStep("choose");
-                        setFailure(null);
-                      }}
-                      disabled={step === "adding"}
-                      className={`${BTN} border border-[var(--v2-line-input)] bg-white text-ink-2 hover:border-[var(--v2-blue)]`}
-                    >
+                    <button type="button" onClick={on.back} disabled={adding} className={`${BTN} border border-[var(--v2-line-input)] bg-white text-ink-2 hover:border-[var(--v2-blue)]`}>
                       No, go back
                     </button>
                   </div>
@@ -414,24 +327,11 @@ export function AddToEvent({ householdId, cardLine, people, openedFrom, timeZone
           ) : null}
         </section>
       )}
-      <Toast text={toast} onClose={() => setToast(null)} />
     </div>
   );
 }
 
-function PersonRow({
-  c,
-  checked,
-  onToggle,
-  disabled,
-  compact = false,
-}: {
-  c: ReturnType<typeof personChoices>[number];
-  checked: boolean;
-  onToggle: (id: string) => void;
-  disabled: boolean;
-  compact?: boolean;
-}) {
+function PersonRow({ c, checked, onToggle, disabled, compact = false }: { c: PersonChoice; checked: boolean; onToggle: (id: string) => void; disabled: boolean; compact?: boolean }) {
   const off = c.state !== "free";
   return (
     <li>
@@ -448,8 +348,113 @@ function PersonRow({
   );
 }
 
+export function AddToEvent(props: AddToEventProps) {
+  const { householdId, people, openedFrom } = props;
+  const actions = useFamilyActions();
+  const stepUp = useStepUp();
+  const router = useRouter();
+  const yes = useRef<HTMLButtonElement>(null);
+  const busy = useRef(false);
+  const [state, setState] = useState<PanelState>(CLOSED);
+  const [toast, setToast] = useState<string | null>(null);
+  const patch = useCallback((p: Partial<PanelState>) => setState((s) => ({ ...s, ...p })), []);
+
+  const fetchEvents = useCallback(async () => {
+    patch({ load: { state: "loading" } });
+    try {
+      const r = await actions.eventAdd.load({ householdId });
+      if (r.ok) {
+        // Keep the chosen event if it is still there; with a single event, choose it.
+        setState((s) => ({
+          ...s,
+          load: { state: "ready", events: r.events },
+          eventId: s.eventId && r.events.some((e) => e.id === s.eventId && !e.problem) ? s.eventId : r.events.length === 1 && !r.events[0].problem ? r.events[0].id : null,
+        }));
+      } else {
+        patch({ load: { state: "failed", kind: r.kind, error: r.error } });
+      }
+    } catch (error) {
+      console.error("[event-add] the events could not be loaded:", error);
+      patch({ load: { state: "failed", kind: "other", error: "Could not load the events — the server did not respond. Try again." } });
+    }
+  }, [actions, householdId, patch]);
+
+  const show = useCallback(() => {
+    setState({ ...CLOSED, open: true, load: { state: "loading" }, chosen: new Set(defaultChosen(personChoices(people, []), openedFrom)) });
+    void fetchEvents();
+  }, [fetchEvents, people, openedFrom]);
+
+  useEffect(() => {
+    if (state.step === "ask") yes.current?.focus();
+  }, [state.step]);
+
+  useEffect(() => {
+    if (!toast) return;
+    const t = window.setTimeout(() => setToast(null), 7000);
+    return () => window.clearTimeout(t);
+  }, [toast]);
+
+  const submit = useCallback(async () => {
+    const { event, plan } = derive({ people }, state);
+    if (busy.current || !event || !plan || plan.kind !== "add") return;
+    busy.current = true;
+    patch({ step: "adding", failure: null });
+    const call = () => actions.eventAdd.add({ householdId, eventId: event.id, personIds: plan.toAdd.map((c) => c.id), confirmed: state.confirmed });
+    try {
+      const r = stepUp ? await stepUp.run(call, "add people to an event") : await call();
+      if (r.ok) {
+        setState({ ...CLOSED, done: r.message });
+        setToast(r.toast);
+        router.refresh();
+      } else {
+        // A refusal for places or a repeat click is settled by looking again; a half-finished add must show what is there.
+        const again = r.kind === "full" || r.kind === "busy";
+        patch({ failure: { kind: r.kind, error: r.error }, step: again ? "choose" : "ask" });
+        if (again) void fetchEvents();
+        if (r.partial) router.refresh();
+      }
+    } catch (error) {
+      console.error("[event-add] adding did not complete:", error);
+      patch({
+        failure: {
+          kind: "other",
+          error: `Could not add ${sayNames(plan.toAdd)} to ${event.name} — the server did not respond, so it is not known whether it worked. Check this family's Events before trying again.`,
+        },
+        step: "ask",
+      });
+    }
+    busy.current = false;
+  }, [actions, fetchEvents, householdId, patch, people, router, state, stepUp]);
+
+  const on: PanelHandlers = {
+    show,
+    close: () => setState((s) => (s.step === "adding" ? s : { ...CLOSED, done: s.done })),
+    retry: () => void fetchEvents(),
+    pickEvent: (id) => patch({ eventId: id, failure: null, step: "choose" }),
+    toggle: (id) =>
+      setState((s) => {
+        const next = new Set(s.chosen);
+        if (next.has(id)) next.delete(id);
+        else next.add(id);
+        return { ...s, chosen: next, failure: null, step: "choose" };
+      }),
+    chooseEveryone: (ids) => patch({ chosen: new Set(ids), failure: null, step: "choose" }),
+    setConfirmed: (v) => patch({ confirmed: v }),
+    ask: () => patch({ step: "ask" }),
+    back: () => patch({ step: "choose", failure: null }),
+    submit: () => void submit(),
+  };
+
+  return (
+    <>
+      <AddToEventView props={props} state={state} on={on} yesRef={yes} />
+      <Toast text={toast} onClose={() => setToast(null)} />
+    </>
+  );
+}
+
 /** What happened, for a few seconds, above the phone's bottom bars (the same place as the Undo bar). */
-function Toast({ text, onClose }: { text: string | null; onClose: () => void }) {
+export function Toast({ text, onClose }: { text: string | null; onClose: () => void }) {
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
   if (!mounted || !text) return null;

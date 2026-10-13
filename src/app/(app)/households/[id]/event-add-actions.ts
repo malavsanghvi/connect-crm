@@ -4,7 +4,7 @@ import { unstable_rethrow } from "next/navigation";
 
 import { eventActionContext } from "@/lib/data/events";
 import { failure } from "@/lib/errors";
-import { FormError } from "@/lib/events/forms";
+import { FormError } from "@/lib/events/form-fields";
 import { isModuleEnabled } from "@/lib/modules";
 import { mayAddToAnyEvent, mayAddToEvent, type AddLoad, type AddResult } from "@/lib/people-v2/event-add";
 import { addToEvent, loadAddChoices } from "@/lib/people-v2/event-add-server";
