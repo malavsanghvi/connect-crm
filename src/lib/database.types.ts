@@ -15446,6 +15446,18 @@ export type Database = {
         };
         Returns: string;
       };
+      staff_assign_membership: {
+        Args: {
+          p_household: string;
+          p_person: string;
+          p_type: string;
+          p_starts_on: string;
+          p_ends_on: string;
+          p_reason: string;
+          p_record_fee: boolean;
+        };
+        Returns: string;
+      };
       staff_household_search: {
         Args: {
           p_center: string;
@@ -15459,6 +15471,16 @@ export type Database = {
           p_ids: string[];
         };
         Returns: { person_id: string; name: string; household_id: string; household_name: string }[];
+      };
+      staff_update_membership: {
+        Args: {
+          p_membership: string;
+          p_starts_on: string;
+          p_ends_on: string;
+          p_notes: string;
+          p_reason: string;
+        };
+        Returns: undefined;
       };
       start_paypal_email_verification: {
         Args: {

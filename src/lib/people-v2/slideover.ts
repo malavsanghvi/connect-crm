@@ -161,7 +161,7 @@ export type SectionPlan = {
  * Giving at a glance is there only when the Giving module is on and the community reads giving by person, and never for a child (D2: giving is kept with the
  * household, and nothing about a child is shown there).
  */
-export function sectionPlan(o: { isChild: boolean; givingByPerson: boolean; givingOn: boolean; hasHistory: boolean }): SectionPlan[] {
+export function sectionPlan(o: { isChild: boolean; givingByPerson: boolean; givingOn: boolean; hasHistory: boolean; membershipOn?: boolean }): SectionPlan[] {
   const out: SectionPlan[] = [
     { key: "profile", title: "Profile", open: true },
     { key: "custom_fields", title: "Custom fields", open: true, reserved: "custom-fields" },
@@ -169,7 +169,9 @@ export function sectionPlan(o: { isChild: boolean; givingByPerson: boolean; givi
     { key: "roles", title: "Roles, teams and waivers", open: false },
     { key: "privacy", title: "Privacy and directory", open: false },
     { key: "ids", title: "IDs", open: false },
-    { key: "memberships", title: "Memberships held", open: false },
+    // Memberships: the person's and their family's, with the staff actions (assign, edit dates and notes, change tier) for a person
+    // who holds both people.approve and people.manage. Only with the Membership module on (`membershipOn`, true unless said).
+    ...(o.membershipOn === false ? [] : [{ key: "memberships" as const, title: "Memberships", open: false }]),
   ];
   if (o.givingByPerson && o.givingOn && !o.isChild) out.push({ key: "giving", title: "Giving at a glance", open: false });
   out.push({ key: "notes", title: "Notes", open: false, reserved: "notes" });

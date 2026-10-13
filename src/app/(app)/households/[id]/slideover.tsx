@@ -3,6 +3,7 @@ import Link from "next/link";
 import { PersonGlance } from "@/components/giving-glance/glance-panels";
 import { CustomFieldsSection } from "@/components/people-v2/custom/custom-group";
 import { PersonSlideOver } from "@/components/people-v2/slideover/person-slideover";
+import { MembershipsSection } from "@/components/people-v2/slideover/memberships-section";
 import { SlideOverMessage } from "@/components/people-v2/slideover/message";
 import { explainError } from "@/lib/errors";
 import { givingShowBy } from "@/lib/giving-glance/levels";
@@ -10,12 +11,14 @@ import type { GlancePrep } from "@/lib/giving-glance/page";
 import { isModuleEnabled } from "@/lib/modules";
 import type { CustomFieldsPayload } from "@/lib/people-v2/custom-fields";
 import type { FamilyModel } from "@/lib/people-v2/family-model";
+import { loadMembershipsPanel } from "@/lib/people-v2/memberships-load";
 import { sectionPlan, slideOverHref, closeHref as closeUrl } from "@/lib/people-v2/slideover";
 import { loadPersonDetail } from "@/lib/people-v2/slideover-load";
 import type { RawSearchParams } from "@/lib/search-params";
 import type { CrmSession } from "@/lib/session";
 
 import { AuditTab } from "./audit-tab";
+import { assignMembershipAction, changeTierAction, editMembershipAction } from "./membership-actions";
 
 /**
  * The person slide-over on the Family page (the New look): opened from a person's card or from the address (?person=<id>), so it can
@@ -73,7 +76,18 @@ export async function PersonSlideOverServer({
   const { detail } = loaded;
   const p = detail.person;
   const givingOn = isModuleEnabled(session, "giving");
-  const plan = sectionPlan({ isChild: p.isChild, givingByPerson: givingShowBy(session.center.rules) === "person", givingOn, hasHistory: true });
+  const membershipOn = isModuleEnabled(session, "membership");
+  const plan = sectionPlan({ isChild: p.isChild, givingByPerson: givingShowBy(session.center.rules) === "person", givingOn, hasHistory: true, membershipOn });
+  // The Memberships section: the person's and the family's memberships, and (for a person with both people.approve and people.manage)
+  // edit dates and notes, change tier and assign a membership. Drawn here so the Server Actions are passed down from the server.
+  const memberships = membershipOn ? (
+    <MembershipsSection
+      data={await loadMembershipsPanel(session, { person: p, model })}
+      person={{ id: p.id, firstName: p.firstName }}
+      timeZone={session.center.time_zone}
+      actions={{ edit: editMembershipAction, assign: assignMembershipAction, tier: changeTierAction }}
+    />
+  ) : undefined;
   const glance =
     prep && plan.some((s) => s.key === "giving") ? (
       <PersonGlance session={session} person={{ id: p.id, name: p.name, firstName: p.firstName, adult: !p.isChild }} householdIds={[model.id]} sp={sp} prep={prep} />
@@ -88,6 +102,7 @@ export async function PersonSlideOverServer({
       slots={{
         glance,
         history: <AuditTab session={session} householdId={model.id} personId={p.id} bare />,
+        memberships,
         customFields: custom ? <CustomFieldsSection payload={custom} personId={p.id} firstName={p.firstName} isChild={p.isChild} path={base} /> : undefined,
       }}
       closeHref={closeHref}

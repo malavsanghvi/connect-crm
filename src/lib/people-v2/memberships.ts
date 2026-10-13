@@ -129,6 +129,22 @@ export function liveOf(rows: readonly MembershipRow[], householdId: string, toda
   return live[0] ?? null;
 }
 
+/**
+ * A family's card line (never a name alone) from app.household_card: the name, the household number, the organization's own id, the
+ * primary member and the place. For a family other than the one the page is about.
+ */
+export function householdCardLine(c: {
+  household_name: string | null;
+  household_number: string | null;
+  org_household_id: string | null;
+  primary_member: string | null;
+  city: string | null;
+}): string[] {
+  return [c.household_name || "Unnamed household", c.household_number ? `No. ${c.household_number}` : "No household number yet", c.org_household_id, c.primary_member, c.city].filter(
+    (x): x is string => Boolean(x),
+  );
+}
+
 /** The family's card line as one phrase: "Hassan household (No. 0301 · RCC-H-1102 · Samira & Karim Hassan · Riverside)". */
 export function householdPhrase(line: readonly string[]): string {
   const [name, ...rest] = line;
@@ -218,7 +234,7 @@ export function checkEdit(m: MembershipRow, d: EditDraft, today: string, sibling
   const startChanged = starts !== m.startsOn;
   const endChanged = (ends || null) !== m.endsOn;
   const notes = clean(d.notes);
-  if (!startChanged && !endChanged && notes === clean(m.notes)) return bad("startsOn", "Change a date or the note first");
+  if (!startChanged && !endChanged && notes === clean(m.notes)) return bad("form", "Change a date or the note first");
 
   if (m.status === "active") {
     if (startChanged && starts > today) return bad("startsOn", "An active membership has already started, so it cannot start in the future. Choose today or an earlier date");

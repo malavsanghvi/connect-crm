@@ -36,6 +36,8 @@ export type SlideOverSlots = {
   glance?: ReactNode;
   /** The person's history (the audit trail with the person filter). */
   history?: ReactNode;
+  /** The Memberships section (server-rendered, with its Server Actions): memberships of the person and the family, and the staff actions. When absent, the older read-only list is drawn. */
+  memberships?: ReactNode;
   /** SLICE 2 (custom fields): the community's person fields, right under Profile. Not drawn until that slice passes a node. */
   customFields?: ReactNode;
   /** SLICES 10-13 (notes): that person's notes. Not drawn until those slices pass a node. */
@@ -254,7 +256,7 @@ function SectionFor({ s, detail, ctx, slots }: { s: SectionPlan; detail: PersonD
     case "memberships":
       return (
         <Section id="memberships" title={s.title} open={s.open}>
-          <MembershipsHeld detail={detail} />
+          {slots.memberships ?? <MembershipsHeld detail={detail} />}
         </Section>
       );
     case "giving":
