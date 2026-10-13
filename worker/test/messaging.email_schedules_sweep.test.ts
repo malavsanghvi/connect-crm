@@ -70,6 +70,7 @@ describe("messaging.email_schedules_sweep", () => {
     expect(out.runs[0]?.done).toBe(false);
     expect(queries(calls, "worker_email_schedule_batch")).toHaveLength(2);
     expect(queries(calls, "worker_email_schedule_done")).toHaveLength(0);
+    expect(queries(calls, "worker_email_schedule_release")).toHaveLength(1);
   });
 
   it("says why a run stopped (paused, changed, a module off) and finishes nothing", async () => {
@@ -77,5 +78,6 @@ describe("messaging.email_schedules_sweep", () => {
     const out = await sweep.run(job({ kind: sweep.kind }), ctx);
     expect(out.runs[0]?.stop).toMatch(/paused/);
     expect(queries(calls, "worker_email_schedule_done")).toHaveLength(0);
+    expect(queries(calls, "worker_email_schedule_release")).toHaveLength(1);
   });
 });

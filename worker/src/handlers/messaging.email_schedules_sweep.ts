@@ -4,7 +4,8 @@
 // (src/lib/merge/build.ts scheduleValues) and the email is queued through app.worker_email_enqueue (0770): once per household,
 // adult and run, with every consent rule of app.enqueue_notice. At most MAX_PER_RUN emails per scheduled email in one sweep
 // (whole households only, so no adult of a household is left behind); a larger audience goes on in the next sweep, in the same
-// run. When nothing is left, app.worker_email_schedule_done sets the next run. Platform-wide, scheduled by the generic `every`
+// run. The database claims each run for this sweep (two sweeps never take the same run); the sweep releases it when it stops
+// early. When nothing is left, app.worker_email_schedule_done sets the next run. Platform-wide, scheduled by the generic `every`
 // scheduler (worker/src/server.ts); no provider secret is needed here (messaging.send sends).
 
 import { ageOfMajority } from "../../../src/lib/age-of-majority";
@@ -39,6 +40,11 @@ function str(v: unknown): string | null {
   return typeof v === "string" && v.trim() !== "" ? v : null;
 }
 
+/** Let another sweep take the run (the database's 10-minute claim ends now). */
+async function release(due: Due, ctx: JobContext): Promise<void> {
+  await ctx.db.query("select app.worker_email_schedule_release($1::uuid)", [due.automation_id]);
+}
+
 async function runOne(due: Due, ctx: JobContext): Promise<RunResult> {
   const out: RunResult = { automation_id: due.automation_id, period: due.period, queued: 0, skipped: 0, duplicate: 0, done: false };
   if (!isScheduleAudience(due.audience)) throw new Error(`Unknown audience "${due.audience}".`);
@@ -53,6 +59,7 @@ async function runOne(due: Due, ctx: JobContext): Promise<RunResult> {
     ))[0]?.b ?? {};
     if (batch.stop) {
       out.stop = batch.stop;
+      await release(due, ctx);
       return out;
     }
     for (const h of batch.households ?? []) {
@@ -72,7 +79,10 @@ async function runOne(due: Due, ctx: JobContext): Promise<RunResult> {
       }
       // The rate limit, between households: the rest of this run waits for the next sweep (a household already written to is
       // not handed out again; one that was not is).
-      if (out.queued >= MAX_PER_RUN) return out;
+      if (out.queued >= MAX_PER_RUN) {
+        await release(due, ctx);
+        return out;
+      }
     }
     if (!batch.more) {
       await ctx.db.query("select app.worker_email_schedule_done($1::uuid, $2::text) as d", [due.automation_id, due.period]);
@@ -93,6 +103,7 @@ export async function run(_job: Job, ctx: JobContext): Promise<{ runs: RunResult
       const error = e instanceof Error ? e.message : String(e);
       runs.push({ automation_id: d.automation_id, period: d.period, queued: 0, skipped: 0, duplicate: 0, done: false, error });
       ctx.log.error("messaging.email_schedules_sweep: a run failed", { automation: d.automation_id, period: d.period, error });
+      await release(d, ctx).catch(() => undefined);
     }
   }
   if (runs.length > 0) ctx.log.info("messaging.email_schedules_sweep: scheduled emails queued", { runs });

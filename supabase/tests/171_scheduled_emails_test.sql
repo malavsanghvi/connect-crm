@@ -54,11 +54,16 @@ end $$;
 \set noel '''17100000-0000-4000-8000-0000000000b5'''
 \set ira '''17100000-0000-4000-8000-0000000000b6'''
 \set pat '''17100000-0000-4000-8000-0000000000b7'''
+\set sb '''17100000-0000-4000-8000-0000000000c3'''
+\set sbowner '''17100000-0000-4000-8000-000000000007'''
+\set hs '''17100000-0000-4000-8000-0000000000a6'''
+\set sam '''17100000-0000-4000-8000-0000000000b8'''
 
 -- ══ Fixtures ═════════════════════════════════════════════════════════════════
 insert into auth.users (id, email) values
   (:owner, 'owner171@temple.test'), (:admin, 'admin171@temple.test'), (:writer, 'writer171@temple.test'),
-  (:comms, 'comms171@temple.test'), (:treas, 'treasurer171@temple.test'), (:npadmin, 'admin171@chamber.test');
+  (:comms, 'comms171@temple.test'), (:treas, 'treasurer171@temple.test'), (:npadmin, 'admin171@chamber.test'),
+  (:sbowner, 'owner171@sandbox.test');
 insert into auth.mfa_factors (id, user_id, friendly_name, factor_type, status) values
   ('17100000-0000-4000-8000-0000000000f1', :owner, 'phone', 'totp', 'verified');
 insert into app.centers (id, slug, name, short_name, state_region, status, time_zone) values
@@ -66,6 +71,8 @@ insert into app.centers (id, slug, name, short_name, state_region, status, time_
 update app.organization_categories set active = true where key = 'chamber_of_commerce';
 insert into app.centers (id, slug, name, category_key, status, time_zone, currency, country, environment) values
   (:np, 'np171', 'Chamber 171', 'chamber_of_commerce', 'active', 'Europe/Madrid', 'EUR', 'ES', 'production');
+insert into app.centers (id, slug, name, environment, category_key, status, time_zone) values
+  (:sb, 'sb171-sandbox', 'Sandbox 171', 'sandbox', 'nonprofit_secular', 'onboarding', 'America/Chicago');
 -- A role that writes scheduled emails but cannot switch them on.
 insert into app.roles (key, tier, name, permissions) values ('comms_writer171', 'center', 'Comms writer 171', '["comms.send", "giving.view"]');
 -- The first center admin becomes the owner (0151); the second is an ordinary one (comms.send, comms.approve, giving.view).
@@ -73,10 +80,10 @@ insert into app.role_grants (center_id, user_id, role_key, reason) values (:jc, 
 insert into app.role_grants (center_id, user_id, role_key, reason) values
   (:jc, :admin, 'center_admin', 'test 171'), (:jc, :writer, 'comms_writer171', 'test 171'),
   (:jc, :comms, 'communications_officer', 'test 171'), (:jc, :treas, 'treasurer', 'test 171'),
-  (:np, :npadmin, 'center_admin', 'test 171');
+  (:np, :npadmin, 'center_admin', 'test 171'), (:sb, :sbowner, 'center_admin', 'test 171');
 insert into app.households (id, center_id, display_name) values
   (:h1, :jc, 'Member171, Mira & Kiran'), (:h2, :jc, 'Second171, Ravi & Asha'), (:h3, :jc, 'NoEmail171, Noel'),
-  (:h4, :jc, 'Other171, Ira'), (:hn, :np, 'Chamber171, Pat');
+  (:h4, :jc, 'Other171, Ira'), (:hn, :np, 'Chamber171, Pat'), (:hs, :sb, 'Sandbox171, Sam');
 insert into app.people (id, center_id, first_name, last_name, date_of_birth, email) values
   (:mira, :jc, 'Mira', 'Member171', date '1980-01-01', 'mira171@temple.test'),
   (:kiran, :jc, 'Kiran', 'Member171', (current_date - interval '10 years')::date, 'kiran171@temple.test'),
@@ -84,11 +91,13 @@ insert into app.people (id, center_id, first_name, last_name, date_of_birth, ema
   (:asha, :jc, 'Asha', 'Second171', date '1977-04-04', 'asha171@temple.test'),
   (:noel, :jc, 'Noel', 'NoEmail171', date '1970-05-05', null),
   (:ira, :jc, 'Ira', 'Other171', date '1971-06-06', 'ira171@temple.test'),
-  (:pat, :np, 'Pat', 'Chamber171', date '1970-02-02', 'pat171@chamber.test');
+  (:pat, :np, 'Pat', 'Chamber171', date '1970-02-02', 'pat171@chamber.test'),
+  (:sam, :sb, 'Sam', 'Sandbox171', date '1972-02-02', 'sam171@sandbox.test');
 insert into app.household_members (household_id, person_id, center_id, role, is_primary) values
   (:h1, :mira, :jc, 'primary', true), (:h1, :kiran, :jc, 'child', false),
   (:h2, :ravi, :jc, 'primary', true), (:h2, :asha, :jc, 'spouse', false),
-  (:h3, :noel, :jc, 'primary', true), (:h4, :ira, :jc, 'primary', true), (:hn, :pat, :np, 'primary', true);
+  (:h3, :noel, :jc, 'primary', true), (:h4, :ira, :jc, 'primary', true), (:hn, :pat, :np, 'primary', true),
+  (:hs, :sam, :sb, 'primary', true);
 -- Asha switched giving emails off in the app.
 insert into app.notification_preferences (center_id, person_id, topic_key, channel, enabled) values (:jc, :asha, 'giving', 'email', false);
 select (now() at time zone 'America/Chicago')::date as today \gset
@@ -101,7 +110,13 @@ insert into app.pledges (id, center_id, household_id, pledged_by_person_id, amou
   ('17100000-0000-4000-8000-000000000206', :jc, :h4, :ira, 9000, 0, 'general', :'today'::date + 2, 'CRM-171'),
   ('17100000-0000-4000-8000-000000000207', :jc, :h4, :ira, 9000, 0, 'pathshala_fee', :'today'::date + 2, null),
   ('17100000-0000-4000-8000-000000000208', :jc, :h2, :ravi, 9000, 9000, 'general', :'today'::date + 1, null),
-  ('17100000-0000-4000-8000-000000000209', :np, :hn, :pat, 70000, 0, 'general', :'today'::date + 4, null);
+  ('17100000-0000-4000-8000-000000000209', :np, :hn, :pat, 70000, 0, 'general', :'today'::date + 4, null),
+  ('17100000-0000-4000-8000-000000000210', :sb, :hs, :sam, 5000, 0, 'general', :'today'::date + 3, null);
+-- A pledge the import tool brought in: no CRM id; the tool records every row it writes in app.import_keys (0192).
+insert into app.pledges (id, center_id, household_id, pledged_by_person_id, amount_cents, paid_cents, source, due_on)
+values ('17100000-0000-4000-8000-000000000211', :jc, :h4, :ira, 9000, 0, 'general', :'today'::date + 2);
+insert into app.import_keys (center_id, entity, source_key, table_name, record_id)
+values (:jc, 'pledges', 'ROW-171-11', 'pledges', '17100000-0000-4000-8000-000000000211');
 insert into app.payments (id, center_id, household_id, payer_person_id, amount_cents, method, status, provider, receipt_number, received_on) values
   ('17100000-0000-4000-8000-000000000301', :jc, :h1, :mira, 2500, 'check', 'captured', 'offline', 'R-171-1', :'today'::date - 1),
   ('17100000-0000-4000-8000-000000000302', :jc, :h2, :ravi, 4000, 'check', 'captured', 'offline', 'R-171-2', :'today'::date - 40);
@@ -142,7 +157,7 @@ select pg_temp.assert_raises(format($$select app.save_email_schedule(%L, null, '
 select app.email_schedule_preview(:jc, 'pledges_due_soon', '{"days": 7}', 'weekly', 18) as pv \gset
 select pg_temp.assert((:'pv'::jsonb->>'households')::int = 3 and (:'pv'::jsonb->>'adults')::int = 3 and (:'pv'::jsonb->>'would_send')::int = 2
                       and :'pv'::jsonb->'skipped' = '{"no_email": 1, "switched_off": 1, "unsubscribed": 0}'::jsonb,
-  'C · due in 7 days: three households (an imported pledge, a fee, one paid off and one due later are left out), three adults (never the child), two would get it: one household has no email address, one adult switched giving emails off');
+  'C · due in 7 days: three households (a CRM import, a pledge the import tool brought in, a fee, one paid off and one due later are left out), three adults (never the child), two would get it: one household has no email address, one adult switched giving emails off');
 select pg_temp.assert(:'pv'::jsonb #> '{sample,household,minor_first_names}' = '["Kiran"]'
                       and not (:'pv'::jsonb #> '{sample,recipients,0}' ? 'address')
                       and jsonb_array_length(:'pv'::jsonb->'sample_households') = 2,
@@ -151,7 +166,7 @@ select pg_temp.assert((app.email_schedule_preview(:jc, 'pledges_past_due', '{}',
                       and (app.email_schedule_preview(:jc, 'pledges_past_due', format('{"since": "%s"}', :'today'::date + 1)::jsonb, 'monthly', 18)->>'households')::int = 0,
   'C · past due: one household; "made on or after" a later date leaves it out');
 select pg_temp.assert((app.email_schedule_preview(:jc, 'pledges_due_soon', '{"days": 7, "include_imported": true}', 'weekly', 18)->>'households')::int = 4,
-  'C · ticking "include imported" brings the imported pledge in');
+  'C · ticking "include imported" brings the imported pledges in');
 select pg_temp.claims(:treas);
 select pg_temp.assert_raises(format($$select app.email_schedule_preview(%L, 'pledges_due_soon', '{}', 'weekly', 18)$$, :jc), 'don''t have access',
   'C · the dry run needs a Communications permission too');
@@ -180,11 +195,15 @@ update app.email_automations set next_run_at = now() - interval '1 minute' where
 select to_char((now() - interval '1 minute') at time zone 'America/Chicago', 'YYYY-MM-DD') as period \gset
 set role connect_worker;
 select app.worker_email_schedules_due(20) as due \gset
+select app.worker_email_schedules_due(20) as due_again \gset
 select app.worker_email_schedule_batch(:'sid', :'period', 18, 100) as b1 \gset
 reset role;
 select pg_temp.assert(:'due'::jsonb @> jsonb_build_array(jsonb_build_object('automation_id', :'sid', 'period', :'period', 'audience', 'pledges_due_soon'))
                       and (select run_period = :'period' from app.email_automations where id = :'sid'),
   'E · the run is due: its period is the run''s date on the community''s clock');
+select pg_temp.assert(not (:'due_again'::jsonb @> jsonb_build_array(jsonb_build_object('automation_id', :'sid')))
+                      and (select run_claimed_until > now() from app.email_automations where id = :'sid'),
+  'E · two sweeps at once: the second takes nothing the first claimed');
 select pg_temp.assert(jsonb_array_length(:'b1'::jsonb->'households') = 2 and not (:'b1'::jsonb->>'more')::boolean
                       and (select count(*) from app.email_automation_sends where automation_id = :'sid' and ref_id = :h3 and outcome = 'skipped'
                              and reason like '%no adult of the household has an email%') = 1
@@ -262,6 +281,39 @@ select pg_temp.assert(not (:'due_off'::jsonb @> jsonb_build_array(jsonb_build_ob
   'F · a run that comes while Communications is off does not go; it waits for its next time and says why');
 rollback to savepoint comms_off;
 reset role;
+savepoint giving_off;
+set role authenticated;
+select pg_temp.claims(:owner, 60);
+select app.set_module_enabled(:jc, 'giving', false, 'Test 171: Giving elsewhere');
+select pg_temp.claims(:admin);
+select pg_temp.assert_raises(format($$select app.email_schedule_preview(%L, 'pledges_due_soon', '{}', 'weekly', 18)$$, :jc), 'Giving module',
+  'F · with Giving off the dry run says why');
+reset role;
+update app.email_automations set next_run_at = now() - interval '1 minute', run_period = :'period' where id = :'sid';
+set role connect_worker;
+select app.worker_email_schedules_due(20) as due_giving_off \gset
+reset role;
+select pg_temp.assert(not (:'due_giving_off'::jsonb @> jsonb_build_array(jsonb_build_object('automation_id', :'sid')))
+                      and (select run_period is null and next_run_at > now() and last_run->>'not_run' like '%Giving module%'
+                             from app.email_automations where id = :'sid'),
+  'F · a run going when Giving is switched off is closed, waits for its next time and says why');
+rollback to savepoint giving_off;
+reset role;
+
+-- A run still going when the next one is due (the service was down): closed, and the latest run starts with its own date.
+update app.email_automations
+   set run_period = to_char((now() - interval '8 days') at time zone 'America/Chicago', 'YYYY-MM-DD'),
+       next_run_at = now() - interval '8 days', run_claimed_until = null
+ where id = :'sid';
+select run_period as stale_period from app.email_automations where id = :'sid' \gset
+set role connect_worker;
+select app.worker_email_schedules_due(20) as due_stale \gset
+reset role;
+select pg_temp.assert((select run_period <> :'stale_period' and extract(dow from run_period::date) = 1 and next_run_at <= now()
+                              and last_run->>'not_run' like '%did not finish%' and last_run->>'period' = :'stale_period'
+                         from app.email_automations where id = :'sid')
+                      and :'due_stale'::jsonb @> jsonb_build_array(jsonb_build_object('automation_id', :'sid')),
+  'F · a stale run is closed with what it sent, and the latest Monday''s run starts instead of resuming an old date');
 select pg_temp.assert_raises($$select app.worker_email_schedules_due(1)$$, 'Only the background service', 'F · only the background service starts runs');
 
 -- ══ G. Givers since the last run; a non-faith community ═══════════════════════
@@ -283,5 +335,24 @@ select pg_temp.assert((app.email_schedule_preview(:np, 'pledges_due_soon', '{}',
                       and extract(day from (:'npa'::jsonb->>'next_run_at')::timestamptz at time zone 'Europe/Madrid') = 1,
   'G · a chamber of commerce in Spain writes its reminder in Spanish; it goes on the 1st at 10:00 Madrid time');
 reset role;
+
+-- A sandbox through the sweep: the run goes, and the email to someone who is not a verified test recipient is not sent.
+set role authenticated;
+select pg_temp.claims(:sbowner);
+select app.save_email_schedule(:sb, null, 'Sandbox reminder', 'pledges_due_soon', '{}', 'daily', null, null, null, 9, 'en',
+                               'Due soon', 'Hi {{recipient_first_name}}: {{pledges_list}}') as sbs \gset
+select app.approve_email_schedule(:sb, (:'sbs'::jsonb->>'id')::uuid);
+reset role;
+update app.email_automations set next_run_at = now() - interval '1 minute' where id = (:'sbs'::jsonb->>'id')::uuid;
+select jsonb_object_agg(n, 'v') as sbvars from unnest(app._email_placeholders('schedule:pledges_due_soon')) n \gset
+set role connect_worker;
+select app.worker_email_schedules_due(20) as due_sb \gset
+select (d->>'period') as sb_period from jsonb_array_elements(:'due_sb'::jsonb) d where d->>'automation_id' = :'sbs'::jsonb->>'id' \gset
+select app.worker_email_schedule_batch((:'sbs'::jsonb->>'id')::uuid, :'sb_period', 18, 100) as sbb \gset
+select app.worker_email_enqueue((:'sbs'::jsonb->>'id')::uuid, :hs, :'sb_period', :hs, :sam, 'sam171@sandbox.test', :'sbvars'::jsonb) as sbq \gset
+reset role;
+select pg_temp.assert(jsonb_array_length(:'sbb'::jsonb->'households') = 1
+                      and :'sbq'::jsonb->>'outcome' = 'skipped' and :'sbq'::jsonb->>'reason' like '%only to verified test recipients%',
+  'G · a sandbox''s run reaches its household, and the email to an unverified address is not sent and says why');
 
 rollback;

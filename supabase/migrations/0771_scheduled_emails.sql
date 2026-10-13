@@ -28,6 +28,10 @@
 --   unsubscribe link, and a sandbox reaches only its verified test recipients. Once per household, adult and run (the period:
 --   the run's date in the community's time zone), whatever happens. At most 500 emails per scheduled email in one sweep: a
 --   larger audience goes on in the next sweeps of the same run, never twice. When the audience is done, the next run is set.
+--   A run is claimed for 10 minutes by the sweep that takes it, so two sweeps at once never work on the same run. A run still
+--   going when the next one is due is closed (what it sent stays sent) and the new one starts with its own date; a service
+--   that was down runs once for the latest date, not once per missed date. Imported pledges and payments are those with a CRM
+--   id or written by the import tool (app.import_keys).
 --
 --   DRY RUN: app.email_schedule_preview says how many households and adults it would go to now and why the others would not
 --   (no email address, giving emails switched off, unsubscribed or opted out), with three households for the cards.
@@ -52,7 +56,8 @@ alter table app.email_automations
   add column if not exists next_run_at     timestamptz,
   add column if not exists run_period      text,
   add column if not exists last_run_at     timestamptz,
-  add column if not exists last_run        jsonb;
+  add column if not exists last_run        jsonb,
+  add column if not exists run_claimed_until timestamptz;
 alter table app.email_automations drop constraint if exists email_automations_status_check;
 alter table app.email_automations add constraint email_automations_status_check check (status in ('draft', 'active', 'paused'));
 alter table app.email_automations drop constraint if exists email_automations_schedule_check;
@@ -66,6 +71,8 @@ alter table app.email_automations add constraint email_automations_schedule_chec
     and (frequency not in ('monthly', 'yearly') or day_of_month between 1 and 28)
     and (frequency <> 'yearly' or month_of_year between 1 and 12)));
 create index if not exists email_automations_due_idx on app.email_automations (next_run_at) where kind = 'schedule' and status = 'active';
+comment on column app.email_automations.run_claimed_until is
+  'The background service is working on this run until then (app.worker_email_schedules_due claims it; done or release clears it), so two sweeps never take the same run.';
 comment on column app.email_automations.run_period is
   'A scheduled email''s run in progress: the run''s date in the community''s time zone (YYYY-MM-DD); null between runs. Each household and address gets one email per period (app.email_automation_sends).';
 
@@ -191,6 +198,15 @@ begin
 end $$;
 
 -- ══ The audiences: one row per household with what its email says ════════════
+-- Imported = brought in with a CRM id, or by the import tool (every row it writes is in app.import_keys, 0192).
+create index if not exists import_keys_record_idx on app.import_keys (center_id, table_name, record_id);
+create or replace function app._email_imported(p_center uuid, p_table text, p_id uuid, p_crm_external_id text) returns boolean
+language sql stable security definer set search_path = app, public, extensions as $$
+  select p_crm_external_id is not null
+      or exists (select 1 from app.import_keys k where k.center_id = p_center and k.table_name = p_table and k.record_id = p_id::text)
+$$;
+
+
 create or replace function app._email_audience(p_center uuid, p_audience text, p_params jsonb, p_today date, p_from date, p_to date)
 returns table (household_id uuid, data jsonb)
 language sql stable security definer set search_path = app, public, extensions as $$
@@ -203,7 +219,7 @@ language sql stable security definer set search_path = app, public, extensions a
      where p_audience in ('pledges_due_soon', 'pledges_past_due')
        and p.center_id = p_center and p.status in ('open', 'partially_paid') and p.amount_cents > p.paid_cents
        and p.due_on is not null and app._email_pledge_source_ok(p.source)
-       and (p.crm_external_id is null or coalesce((p_params->>'include_imported')::boolean, false))
+       and (coalesce((p_params->>'include_imported')::boolean, false) or not app._email_imported(p.center_id, 'pledges', p.id, p.crm_external_id))
        and (nullif(p_params->>'since', '') is null or p.pledged_at >= (p_params->>'since')::date)
        and case when p_audience = 'pledges_due_soon'
                 then p.due_on between p_today and p_today + coalesce((p_params->>'days')::int, 7)
@@ -217,6 +233,7 @@ language sql stable security definer set search_path = app, public, extensions a
       from app.payments pay
      where p_audience = 'gave_recently' and pay.center_id = p_center and app.statement_counted_status(pay.status)
        and not pay.is_opening_balance and not pay.is_historical and pay.amount_cents > pay.refunded_cents
+       and not app._email_imported(pay.center_id, 'payments', pay.id, pay.crm_external_id)
        and pay.received_on >= p_from and pay.received_on < p_to
   )
   select pl.hid, jsonb_build_object(
@@ -288,10 +305,10 @@ begin
              'switched_off', (select count(*) from judged where switched_off),
              'unsubscribed', (select count(*) from judged where unsubscribed and not switched_off)),
            'sample_households', coalesce((select jsonb_agg(x.household_id) from (select distinct household_id from rec order by household_id limit 3) x), '[]'::jsonb),
-           'sample', (select jsonb_build_object('center', app._email_center_facts(p_center),
+           'sample', (select app._email_preview_facts(jsonb_build_object('center', app._email_center_facts(p_center),
                                                 'household', app._email_schedule_household(hh.household_id, v_maj),
                                                 'recipients', coalesce((select jsonb_agg(rr - 'address') from jsonb_array_elements(app._email_recipients(hh.household_id, null, v_maj)) rr), '[]'::jsonb),
-                                                'data', hh.data)
+                                                'data', hh.data))
                         from hh where exists (select 1 from rec where rec.household_id = hh.household_id)
                         order by hh.household_id limit 1))
     into v_out;
@@ -422,7 +439,7 @@ begin
        set name = v_name, audience = p_audience, audience_params = v_params, frequency = p_frequency, day_of_week = v_dow,
            day_of_month = v_dom, month_of_year = v_moy, send_hour = p_hour,
            status = case when status = 'active' then 'draft' else status end,
-           enabled = false, approved_by = null, approved_at = null, next_run_at = null, run_period = null
+           enabled = false, approved_by = null, approved_at = null, next_run_at = null, run_period = null, run_claimed_until = null
      where id = p_id
     returning * into a;
   end if;
@@ -451,7 +468,7 @@ begin
   select c.time_zone into v_tz from app.centers c where c.id = p_center;
   perform app.set_audit_context('Scheduled email switched on: ' || a.name);
   update app.email_automations
-     set status = 'active', enabled = true, approved_by = auth.uid(), approved_at = now(), run_period = null,
+     set status = 'active', enabled = true, approved_by = auth.uid(), approved_at = now(), run_period = null, run_claimed_until = null,
          next_run_at = app._email_schedule_next(a.frequency, a.day_of_week, a.day_of_month, a.month_of_year, a.send_hour, v_tz, now())
    where id = a.id
   returning * into a;
@@ -470,7 +487,8 @@ begin
   if a.id is null or a.center_id is distinct from p_center or a.kind <> 'schedule' then raise exception 'That scheduled email was not found.'; end if;
   if a.status <> 'active' then return jsonb_build_object('id', a.id, 'status', a.status); end if;
   perform app.set_audit_context('Scheduled email paused: ' || a.name);
-  update app.email_automations set status = 'paused', enabled = false, next_run_at = null, run_period = null where id = a.id
+  update app.email_automations set status = 'paused', enabled = false, next_run_at = null, run_period = null, run_claimed_until = null
+   where id = a.id
   returning * into a;
   return jsonb_build_object('id', a.id, 'status', a.status);
 end $$;
@@ -497,32 +515,87 @@ begin
 end $$;
 
 -- ══ The background service (connect_worker only) ════════════════════════════
--- The runs to work on now: those already going, and those whose time has come (their period is set: the run's date on the
--- community's clock). A schedule whose Communications or Giving module is off waits for its next time instead.
+-- The last scheduled moment that is not in the future, starting from p_from (a service that was down for days runs once, for
+-- today, not once for each day it missed).
+create or replace function app._email_schedule_catch_up(a app.email_automations, p_tz text) returns timestamptz
+language plpgsql stable set search_path = app, public, extensions as $$
+declare v_at timestamptz := a.next_run_at; v_next timestamptz; i int;
+begin
+  for i in 1..1000 loop
+    v_next := app._email_schedule_next(a.frequency, a.day_of_week, a.day_of_month, a.month_of_year, a.send_hour, p_tz, v_at);
+    exit when v_next is null or v_next > now();
+    v_at := v_next;
+  end loop;
+  return v_at;
+end $$;
+
+-- What a run sent, for the last-run line.
+create or replace function app._email_schedule_summary(p_automation uuid, p_period text) returns jsonb
+language sql stable security definer set search_path = app, public, extensions as $$
+  select jsonb_build_object('period', p_period, 'queued', count(*) filter (where s.outcome = 'queued'),
+                            'skipped', count(*) filter (where s.outcome = 'skipped'), 'at', now())
+    from app.email_automation_sends s where s.automation_id = p_automation and s.period = p_period
+$$;
+
+-- The runs this call takes: those already going that nobody is working on, and those whose time has come (their period is
+-- the run's date on the community's clock). Each is claimed for 10 minutes, so a second sweep at the same time takes none of
+-- them. A run still going when the next one is due is closed (what it sent stays sent) and the new one starts; a run whose
+-- Communications or Giving module is off is closed and waits for its next time. Returns only the runs this call claimed.
 create or replace function app.worker_email_schedules_due(p_limit int default 20) returns jsonb
 language plpgsql security definer set search_path = app, public, extensions as $$
-declare a record; v_tz text;
+declare a app.email_automations; v_tz text; v_at timestamptz; v_period text; v_out jsonb := '[]'::jsonb; v_sum jsonb;
 begin
   perform app.assert_worker();
   perform set_config('app.client_app', 'job', true);
   for a in select e.* from app.email_automations e
-            where e.kind = 'schedule' and e.status = 'active' and e.run_period is null and e.next_run_at <= now()
-            order by e.next_run_at limit greatest(1, least(coalesce(p_limit, 20), 100))
+            where e.kind = 'schedule' and e.status = 'active'
+              and (e.run_period is not null or e.next_run_at <= now())
+              and (e.run_claimed_until is null or e.run_claimed_until < now())
+            order by e.next_run_at nulls last
+            limit greatest(1, least(coalesce(p_limit, 20), 100))
             for update skip locked loop
     select c.time_zone into v_tz from app.centers c where c.id = a.center_id;
+    v_tz := coalesce(v_tz, 'UTC');
     if not app._email_schedule_modules_on(a.center_id) then
       update app.email_automations
-         set next_run_at = app._email_schedule_next(a.frequency, a.day_of_week, a.day_of_month, a.month_of_year, a.send_hour, v_tz, now()),
-             last_run = jsonb_build_object('not_run', app._email_schedule_modules_message(a.center_id), 'at', now())
+         set run_period = null, run_claimed_until = null,
+             next_run_at = app._email_schedule_next(a.frequency, a.day_of_week, a.day_of_month, a.month_of_year, a.send_hour, v_tz, now()),
+             last_run = coalesce(case when a.run_period is not null then app._email_schedule_summary(a.id, a.run_period) end, '{}'::jsonb)
+                        || jsonb_build_object('not_run', app._email_schedule_modules_message(a.center_id), 'at', now())
+       where id = a.id;
+      continue;
+    end if;
+    if a.run_period is not null
+       and app._email_schedule_next(a.frequency, a.day_of_week, a.day_of_month, a.month_of_year, a.send_hour, v_tz, a.next_run_at) <= now() then
+      -- Stale: the next run is due before this one finished. Close it; the next starts below with its own date.
+      v_sum := app._email_schedule_summary(a.id, a.run_period);
+      update app.email_automations
+         set run_period = null, last_run_at = now(),
+             last_run = v_sum || jsonb_build_object('not_run', 'The run of ' || a.run_period || ' did not finish before the next one was due, so it was closed.')
+       where id = a.id;
+      a.run_period := null;
+    end if;
+    if a.run_period is null then
+      v_at := app._email_schedule_catch_up(a, v_tz);
+      v_period := to_char(v_at at time zone v_tz, 'YYYY-MM-DD');
+      update app.email_automations set run_period = v_period, next_run_at = v_at, run_claimed_until = now() + interval '10 minutes'
        where id = a.id;
     else
-      update app.email_automations set run_period = to_char(a.next_run_at at time zone coalesce(v_tz, 'UTC'), 'YYYY-MM-DD') where id = a.id;
+      v_period := a.run_period;
+      update app.email_automations set run_claimed_until = now() + interval '10 minutes' where id = a.id;
     end if;
+    v_out := v_out || jsonb_build_array(jsonb_build_object('automation_id', a.id, 'period', v_period, 'audience', a.audience));
   end loop;
-  return coalesce((select jsonb_agg(jsonb_build_object('automation_id', e.id, 'period', e.run_period, 'audience', e.audience) order by e.next_run_at)
-                     from (select * from app.email_automations
-                            where kind = 'schedule' and status = 'active' and run_period is not null
-                            order by next_run_at limit greatest(1, least(coalesce(p_limit, 20), 100))) e), '[]'::jsonb);
+  return v_out;
+end $$;
+
+-- The service stops working on a run for now (the rate limit, or an error): another sweep may take it.
+create or replace function app.worker_email_schedule_release(p_automation uuid) returns void
+language plpgsql security definer set search_path = app, public, extensions as $$
+begin
+  perform app.assert_worker();
+  perform set_config('app.client_app', 'job', true);
+  update app.email_automations set run_claimed_until = null where id = p_automation and run_claimed_until is not null;
 end $$;
 
 -- The next households of a run that have nothing yet for this period, with their adults and their data. A household with no
@@ -572,12 +645,12 @@ begin
   perform set_config('app.client_app', 'job', true);
   select * into a from app.email_automations where id = p_automation for update;
   if a.id is null or a.kind <> 'schedule' then return null; end if;
-  select jsonb_build_object('period', p_period, 'queued', count(*) filter (where s.outcome = 'queued'),
-                            'skipped', count(*) filter (where s.outcome = 'skipped'), 'at', now())
-    into v_sum from app.email_automation_sends s where s.automation_id = a.id and s.period = p_period;
+  v_sum := app._email_schedule_summary(a.id, p_period);
   select c.time_zone into v_tz from app.centers c where c.id = a.center_id;
   update app.email_automations
-     set last_run_at = now(), last_run = v_sum,
+     set last_run_at = case when run_period = p_period then now() else last_run_at end,
+         last_run = case when run_period = p_period then v_sum else last_run end,
+         run_claimed_until = case when run_period = p_period then null else run_claimed_until end,
          run_period = case when run_period = p_period then null else run_period end,
          next_run_at = case when status = 'active' and run_period = p_period
                             then app._email_schedule_next(frequency, day_of_week, day_of_month, month_of_year, send_hour, v_tz, now())
@@ -595,7 +668,9 @@ begin
     'app._email_list_placeholders()', 'app._email_schedule_can(uuid, text)', 'app._email_schedule_modules_on(uuid)',
     'app._email_schedule_modules_message(uuid)', 'app._email_schedule_next(text, integer, integer, integer, integer, text, timestamptz)',
     'app._email_schedule_window(text, date)', 'app._email_schedule_params(text, jsonb)',
-    'app._email_audience(uuid, text, jsonb, date, date, date)', 'app._email_schedule_household(uuid, integer)', 'app._email_center_facts(uuid)'] loop
+    'app._email_audience(uuid, text, jsonb, date, date, date)', 'app._email_schedule_household(uuid, integer)', 'app._email_center_facts(uuid)',
+    'app._email_imported(uuid, text, uuid, text)', 'app._email_schedule_catch_up(app.email_automations, text)',
+    'app._email_schedule_summary(uuid, text)'] loop
     execute format('revoke execute on function %s from public, anon, authenticated', f);
     execute format('grant execute on function %s to service_role', f);
   end loop;
@@ -608,7 +683,7 @@ begin
   end loop;
   foreach f in array array[
     'app.worker_email_schedules_due(integer)', 'app.worker_email_schedule_batch(uuid, text, integer, integer)',
-    'app.worker_email_schedule_done(uuid, text)'] loop
+    'app.worker_email_schedule_done(uuid, text)', 'app.worker_email_schedule_release(uuid)'] loop
     execute format('revoke execute on function %s from public, anon, authenticated, service_role', f);
     execute format('grant execute on function %s to connect_worker', f);
   end loop;
