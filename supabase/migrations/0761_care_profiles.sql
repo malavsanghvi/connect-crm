@@ -22,13 +22,13 @@ set client_min_messages = warning;
 
 -- ── The care profile ─────────────────────────────────────────────────────────
 create table if not exists app.care_profiles (
-  household_id      uuid primary key references app.households(id) on delete cascade,
+  household_id      uuid primary key references app.households(id) on delete no action,
   center_id         uuid not null references app.centers(id) on delete cascade,
   thanks            text check (thanks in ('in_person', 'call', 'card', 'message', 'none')),
   recognition       text check (recognition in ('public', 'private_only', 'anonymous')),
   channel           text check (channel in ('in_person', 'phone', 'text', 'email', 'whatsapp', 'post')),
   language          text check (language is null or (language ~ '^[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8}){0,4}$' and char_length(language) <= 35)),
-  contact_person_id uuid references app.people(id) on delete set null,
+  contact_person_id uuid references app.people(id) on delete no action,
   do_not_ask        boolean not null default false,
   rest_until        date,
   updated_by        uuid references auth.users(id) on delete set null,
@@ -90,8 +90,8 @@ insert into app.module_tables (table_name, module_key) values ('care_profiles', 
 create table if not exists app.care_notes (
   id           uuid primary key default gen_random_uuid(),
   center_id    uuid not null references app.centers(id) on delete cascade,
-  household_id uuid not null references app.households(id) on delete cascade,
-  person_id    uuid references app.people(id) on delete set null,
+  household_id uuid not null references app.households(id) on delete no action,
+  person_id    uuid references app.people(id) on delete no action,
   body         text not null check (char_length(btrim(body)) between 1 and 2000),
   created_by   uuid references auth.users(id) on delete set null,
   created_at   timestamptz not null default now(),
@@ -150,9 +150,10 @@ create or replace function app._care_profile_json(p_household uuid) returns json
 language sql stable security definer set search_path = app, public, extensions as $$
   select case when cp.household_id is null then null else jsonb_build_object(
     'thanks', cp.thanks, 'recognition', cp.recognition, 'channel', cp.channel, 'language', cp.language,
-    'contact_person_id', cp.contact_person_id,
-    'contact_name', (select coalesce(nullif(btrim(p.preferred_name), ''), p.first_name) || ' ' || p.last_name
-                       from app.people p where p.id = cp.contact_person_id),
+    -- Adults only, checked again when read: a contact who has left, or is under 18 by today's records, is not named.
+    'contact_person_id', case when ok.yes then cp.contact_person_id end,
+    'contact_name', case when ok.yes then (select coalesce(nullif(btrim(p.preferred_name), ''), p.first_name) || ' ' || p.last_name
+                                             from app.people p where p.id = cp.contact_person_id) end,
     'do_not_ask', cp.do_not_ask, 'rest_until', cp.rest_until,
     'resting', cp.do_not_ask and (cp.rest_until is null
                                   or cp.rest_until >= (now() at time zone coalesce(c.time_zone, 'America/Chicago'))::date),
@@ -161,6 +162,9 @@ language sql stable security definer set search_path = app, public, extensions a
     from app.households h
     join app.centers c on c.id = h.center_id
     left join app.care_profiles cp on cp.household_id = h.id
+    cross join lateral (select cp.contact_person_id is not null and not app.person_is_minor(cp.contact_person_id)
+                               and exists (select 1 from app.household_members hm where hm.household_id = h.id
+                                              and hm.person_id = cp.contact_person_id and hm.left_at is null) as yes) ok
    where h.id = p_household
 $$;
 
@@ -180,6 +184,13 @@ begin
   end loop;
   select * into cur from app.care_profiles where household_id = p_household for update;
   if cur.household_id is null then cur.household_id := p_household; cur.do_not_ask := false; end if;
+  -- A contact who has left the household, or is not an adult by today's records, is no longer the one to reach first.
+  if cur.contact_person_id is not null
+     and (app.person_is_minor(cur.contact_person_id)
+          or not exists (select 1 from app.household_members hm where hm.household_id = p_household
+                            and hm.person_id = cur.contact_person_id and hm.left_at is null)) then
+    cur.contact_person_id := null;
+  end if;
 
   if p_profile ? 'thanks' then cur.thanks := nullif(btrim(coalesce(p_profile->>'thanks', '')), ''); end if;
   if p_profile ? 'recognition' then cur.recognition := nullif(btrim(coalesce(p_profile->>'recognition', '')), ''); end if;

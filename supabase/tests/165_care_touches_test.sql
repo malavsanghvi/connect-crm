@@ -58,6 +58,12 @@ $$;
 \set sh1 '''16500000-0000-4000-8000-0000000000e3'''
 \set sh2 '''16500000-0000-4000-8000-0000000000e4'''
 \set pay '''16500000-0000-4000-8000-0000000000f1'''
+\set pay2 '''16500000-0000-4000-8000-0000000000f2'''
+\set pay3 '''16500000-0000-4000-8000-0000000000f3'''
+\set pf '''16500000-0000-4000-8000-0000000000a5'''
+\set pn '''16500000-0000-4000-8000-0000000000a6'''
+\set cc1 '''16500000-0000-4000-8000-0000000000d1'''
+\set cc2 '''16500000-0000-4000-8000-0000000000d2'''
 
 -- ══ Fixtures ═════════════════════════════════════════════════════════════════
 insert into auth.users (id, email) values
@@ -82,10 +88,14 @@ insert into app.households (id, center_id, display_name, physical_mail_opt_in) v
   (:h1, :c1, 'Mensah165, Ama', true), (:h2, :c1, 'Lee165, Jo', true);
 insert into app.people (id, center_id, first_name, last_name, date_of_birth) values
   (:pa, :c1, 'Ama', 'Mensah165', date '1981-01-01'), (:pb, :c1, 'Kofi', 'Mensah165', date '1978-02-02'),
-  (:pk, :c1, 'Esi', 'Mensah165', (current_date - interval '8 years')::date), (:pc, :c1, 'Jo', 'Lee165', date '1970-03-03');
-insert into app.household_members (household_id, person_id, center_id, role, is_primary) values
-  (:h1, :pa, :c1, 'primary', true), (:h1, :pb, :c1, 'spouse', false), (:h1, :pk, :c1, 'child', false),
-  (:h2, :pc, :c1, 'primary', true);
+  (:pk, :c1, 'Esi', 'Mensah165', (current_date - interval '8 years')::date), (:pc, :c1, 'Jo', 'Lee165', date '1970-03-03'),
+  (:pf, :c1, 'Fia', 'Mensah165', date '1999-09-09'), (:pn, :c1, 'Nana', 'Mensah165', null);
+-- Fia left this household ten days ago and lives with the Lees now; Nana is a child with no birth date on file (a child in
+-- a household and primary or spouse in none: app.person_is_minor counts her as under 18, 0587).
+insert into app.household_members (household_id, person_id, center_id, role, is_primary, joined_at, left_at) values
+  (:h1, :pa, :c1, 'primary', true, null, null), (:h1, :pb, :c1, 'spouse', false, null, null), (:h1, :pk, :c1, 'child', false, null, null),
+  (:h1, :pn, :c1, 'child', false, null, null), (:h1, :pf, :c1, 'other', false, current_date - 700, current_date - 10),
+  (:h2, :pc, :c1, 'primary', true, null, null), (:h2, :pf, :c1, 'other', false, current_date - 9, null);
 insert into app.care_owners (household_id, center_id, owner_user_id, assigned_by) values (:h1, :c1, :rel, :lead);
 -- People fields, where they live.
 update app.people set interests = array['gardening'], expertise_tags = array['law'], best_call_time = 'evening', language = 'es'
@@ -101,15 +111,31 @@ insert into app.special_days (center_id, household_id, person_id, kind, label, c
 insert into app.consents (center_id, person_id, kind, granted, source) values
   (:c1, :pa, 'marketing_email', true, 'app'), (:c1, :pb, 'sms', false, 'app');
 -- What Weaver already knows.
-insert into app.messages (center_id, person_id, channel, to_address, subject, body, status, scheduled_at, sent_at, opened_at, topic_key, template_key) values
-  (:c1, :pa, 'email', 'ama@example.org', 'Your pledge of $500', 'Body', 'sent', now() - interval '2 days', now() - interval '2 days', null, 'events', null),
-  (:c1, :pb, 'sms', '+15550100', 'Reminder', 'Body', 'delivered', now() - interval '1 day', now() - interval '1 day', now() - interval '20 hours', 'events', null),
-  (:c1, :pk, 'email', 'esi@example.org', 'For Esi', 'Body', 'sent', now() - interval '2 days', now() - interval '2 days', null, 'events', null),
-  (:c1, :pa, 'email', 'ama@example.org', 'Your receipt', 'Body', 'sent', now() - interval '3 days', now() - interval '3 days', null, null, 'receipt'),
-  (:c1, :pa, 'push', null, 'App notice', 'Body', 'sent', now() - interval '4 days', now() - interval '4 days', null, 'events', null),
-  (:c1, :pa, 'email', 'ama@example.org', 'Not yet', 'Body', 'queued', now() + interval '1 day', null, null, 'events', null);
+-- Campaigns: a newsletter (counts) and a class update (a learning programme: never counts).
+insert into app.comms_campaigns (id, center_id, kind, title, status) values
+  (:cc1, :c1, 'newsletter', 'Spring newsletter 165', 'sent'), (:cc2, :c1, 'pathshala_update', 'Class news 165', 'sent');
+insert into app.messages (center_id, campaign_id, purpose, person_id, channel, to_address, subject, body, status, scheduled_at, sent_at, opened_at, topic_key, template_key) values
+  -- count: the newsletter to Ama (its subject is never shown), a campaign text on an events topic to Kofi (opened)
+  (:c1, :cc1, 'campaign', :pa, 'email', 'ama@example.org', 'Your pledge of $500', 'Body', 'sent', now() - interval '2 days', now() - interval '2 days', null, null, null),
+  (:c1, null, 'campaign', :pb, 'sms', '+15550100', 'Reminder', 'Body', 'delivered', now() - interval '1 day', now() - interval '1 day', now() - interval '20 hours', 'events', null),
+  -- never: to a child, a receipt, a push, not sent yet, a learning programme, account and security, a learning topic,
+  -- a child with no birth date
+  (:c1, :cc1, 'campaign', :pk, 'email', 'esi@example.org', 'For Esi', 'Body', 'sent', now() - interval '2 days', now() - interval '2 days', null, null, null),
+  (:c1, null, 'receipt', :pa, 'email', 'ama@example.org', 'Your receipt', 'Body', 'sent', now() - interval '3 days', now() - interval '3 days', null, 'giving', 'receipt'),
+  (:c1, :cc1, 'campaign', :pa, 'push', null, 'App notice', 'Body', 'sent', now() - interval '4 days', now() - interval '4 days', null, null, null),
+  (:c1, :cc1, 'campaign', :pa, 'email', 'ama@example.org', 'Not yet', 'Body', 'queued', now() + interval '1 day', null, null, null, null),
+  (:c1, :cc2, 'campaign', :pa, 'email', 'ama@example.org', 'Class news', 'Body', 'sent', now() - interval '2 days', now() - interval '2 days', null, null, null),
+  (:c1, null, 'notification', :pa, 'email', 'ama@example.org', 'Your sign-in code', 'Body', 'sent', now() - interval '2 days', now() - interval '2 days', null, 'account', null),
+  (:c1, null, 'campaign', :pa, 'email', 'ama@example.org', 'Class reminder', 'Body', 'sent', now() - interval '2 days', now() - interval '2 days', null, 'pathshala', null),
+  (:c1, :cc1, 'campaign', :pn, 'email', 'nana@example.org', 'For Nana', 'Body', 'sent', now() - interval '2 days', now() - interval '2 days', null, null, null),
+  -- Fia: while she lived here (counts here), and after she left (counts for the Lees, not here)
+  (:c1, :cc1, 'campaign', :pf, 'email', 'fia@example.org', 'Winter newsletter', 'Body', 'sent', now() - interval '20 days', now() - interval '20 days', null, null, null),
+  (:c1, :cc1, 'campaign', :pf, 'email', 'fia@example.org', 'Spring newsletter', 'Body', 'sent', now() - interval '2 days', now() - interval '2 days', null, null, null);
 insert into app.payments (id, center_id, household_id, payer_person_id, amount_cents, method, status, provider, received_on, receipt_number, receipt_sent_at) values
-  (:pay, :c1, :h1, :pa, 5000, 'check', 'captured', 'offline', current_date - 3, 'R-165', now() - interval '3 days');
+  (:pay, :c1, :h1, :pa, 5000, 'check', 'captured', 'offline', current_date - 3, 'R-165', now() - interval '3 days'),
+  -- never: a failed payment, and a payment whose payer is a child
+  (:pay2, :c1, :h1, :pa, 7000, 'check', 'failed', 'offline', current_date - 4, 'R-166', now() - interval '4 days'),
+  (:pay3, :c1, :h1, :pk, 300, 'check', 'captured', 'offline', current_date - 4, 'R-167', now() - interval '4 days');
 insert into app.statements (center_id, household_id, kind, tax_year, generated_at) values (:c1, :h1, 'tax_year', 2025, now() - interval '6 days');
 insert into app.events (id, center_id, name, starts_at, ends_at, status) values
   (:ev, :c1, 'Harvest supper 165', now() - interval '5 days', now() - interval '5 days' + interval '3 hours', 'published');
@@ -146,6 +172,14 @@ select pg_temp.assert_raises(format($$select app.log_care_touch(%L, jsonb_build_
   'under 18', 'A · a touch is never with a child');
 select pg_temp.assert_raises(format($$select app.log_care_touch(%L, jsonb_build_object('kind', 'greeting', 'channel', 'phone', 'person_id', %L::text))$$, :h1, :pc),
   'not in this household', 'A · nor with someone of another household');
+select pg_temp.assert_raises(format($$select app.log_care_touch(%L, jsonb_build_object('kind', 'greeting', 'channel', 'phone', 'person_id', %L::text))$$, :h1, :pf),
+  'not in this household now', 'A · nor with someone who has left the household');
+select pg_temp.assert_raises(format($$select app.log_care_touch(%L, jsonb_build_object('kind', 'greeting', 'channel', 'phone', 'person_id', %L::text))$$, :h1, :pn),
+  'under 18', 'A · nor with a child who has no birth date on file (a child in the household, primary or spouse in none)');
+select pg_temp.assert_raises(format($$select app.save_care_profile(%L, jsonb_build_object('contact_person_id', %L::text))$$, :h1, :pf),
+  'not in this household now', 'A · a former member cannot be the one to reach first');
+select pg_temp.assert_raises(format($$select app.save_care_profile(%L, jsonb_build_object('contact_person_id', %L::text))$$, :h1, :pn),
+  'under 18', 'A · nor can a child with no birth date');
 select pg_temp.assert_raises(format($$select app.log_care_touch(%L, jsonb_build_object('kind', 'greeting', 'channel', 'phone', 'touched_at', (now() + interval '2 days')::text))$$, :h1),
   'cannot be in the future', 'A · nor in the future');
 select pg_temp.assert_raises(format($$select app.log_care_touch(%L, '{"kind":"ask","channel":"phone"}')$$, :h1),
@@ -174,33 +208,55 @@ select pg_temp.assert_raises($$delete from app.care_touches$$, 'permission denie
 select pg_temp.assert_raises($$update app.care_touches set note = 'x'$$, 'permission denied', 'A · or changes them directly');
 
 -- ══ B. The touches Weaver already knows ══════════════════════════════════════
+-- Every key of a household's log, page by page with the (at, key) cursor.
+create or replace function pg_temp.all_keys(p_h uuid, p_size int) returns text[] language plpgsql as $$
+declare v jsonb; v_at timestamptz; v_key text; v_keys text[] := '{}'; v_guard int := 0;
+begin
+  loop
+    v := app.care_household_touches(p_h, v_at, v_key, p_size);
+    v_keys := v_keys || array(select x.e->>'key' from jsonb_array_elements(v->'rows') with ordinality as x(e, i) order by x.i);
+    exit when not (v->>'more')::boolean or v_guard > 50;
+    v_at := (v->'rows'->-1->>'at')::timestamptz;
+    v_key := v->'rows'->-1->>'key';
+    v_guard := v_guard + 1;
+  end loop;
+  return v_keys;
+end $$;
+-- How many rows of a log come from this source.
+create or replace function pg_temp.n(j jsonb, src text) returns int language sql as $$
+  select count(*)::int from jsonb_array_elements(j->'rows') e where e->>'source' = src
+$$;
 select app.care_household_touches(:h1) as log1 \gset
-select pg_temp.assert(jsonb_array_length((:'log1'::jsonb)->'rows') = 8
-                      and (pg_temp.sources(:'log1'::jsonb))[1] = 'manual' and (pg_temp.sources(:'log1'::jsonb))[8] = 'manual',
-  'B · the log holds the two recorded touches and six that Weaver already knows, newest first');
-select pg_temp.assert((select count(*) from jsonb_array_elements((:'log1'::jsonb)->'rows') e where e->>'source' = 'manual') = 2
-                      and (select count(*) from jsonb_array_elements((:'log1'::jsonb)->'rows') e where e->>'source' = 'message') = 2
-                      and (select count(*) from jsonb_array_elements((:'log1'::jsonb)->'rows') e where e->>'source' = 'receipt') = 1
-                      and (select count(*) from jsonb_array_elements((:'log1'::jsonb)->'rows') e where e->>'source' = 'statement') = 1
-                      and (select count(*) from jsonb_array_elements((:'log1'::jsonb)->'rows') e where e->>'source' = 'check_in') = 1
-                      and (select count(*) from jsonb_array_elements((:'log1'::jsonb)->'rows') e where e->>'source' = 'volunteer') = 1
+select pg_temp.assert(jsonb_array_length((:'log1'::jsonb)->'rows') = 9 and (pg_temp.sources(:'log1'::jsonb))[1] = 'manual'
+                      and pg_temp.n(:'log1'::jsonb, 'manual') = 2 and pg_temp.n(:'log1'::jsonb, 'message') = 3
+                      and pg_temp.n(:'log1'::jsonb, 'receipt') = 1 and pg_temp.n(:'log1'::jsonb, 'statement') = 1
+                      and pg_temp.n(:'log1'::jsonb, 'check_in') = 1 and pg_temp.n(:'log1'::jsonb, 'volunteer') = 1
                       and not ((:'log1'::jsonb)->>'more')::boolean,
-  'B · two messages (not the push, the queued one or the receipt email), a receipt, a statement, a check-in, a shift worked; the removed touch is gone');
-select pg_temp.assert(position('Esi' in (:'log1'::jsonb)::text) = 0 and position('pledge of' in (:'log1'::jsonb)::text) = 0
-                      and position('$500' in (:'log1'::jsonb)::text) = 0,
-  'B · nothing about the child, and never a message''s subject');
-select pg_temp.assert((select e->>'label' = (select name from app.notification_topics where key = 'events') and e->>'person_name' = 'Ama Mensah165'
-                         and e->>'channel' = 'email' and e->>'outcome' = 'sent'
-                         from jsonb_array_elements((:'log1'::jsonb)->'rows') e where e->>'source' = 'message' and e->>'channel' = 'email')
+  'B · two recorded touches, three community messages, a receipt, a statement, a check-in and a shift; the removed touch is gone');
+select pg_temp.assert(position('Esi' in (:'log1'::jsonb)::text) = 0 and position('Nana' in (:'log1'::jsonb)::text) = 0
+                      and position('pledge of' in (:'log1'::jsonb)::text) = 0 and position('$500' in (:'log1'::jsonb)::text) = 0
+                      and position('Class news' in (:'log1'::jsonb)::text) = 0 and position('R-166' in (:'log1'::jsonb)::text) = 0
+                      and position('R-167' in (:'log1'::jsonb)::text) = 0,
+  'B · never a child (with or without a birth date), a subject, a learning programme, account or receipt message, a failed payment or a child''s payment');
+select pg_temp.assert((select e->>'label' = 'Spring newsletter 165' and e->>'outcome' = 'sent'
+                         from jsonb_array_elements((:'log1'::jsonb)->'rows') e where e->>'source' = 'message' and e->>'person_name' = 'Ama Mensah165')
                       and (select ((e->>'opened')::boolean) and e->>'outcome' = 'opened'
+                                  and e->>'label' = (select name from app.notification_topics where key = 'events')
                              from jsonb_array_elements((:'log1'::jsonb)->'rows') e where e->>'source' = 'message' and e->>'channel' = 'sms')
+                      and (select count(*) = 1 and bool_and(e->>'label' = 'Spring newsletter 165')
+                             from jsonb_array_elements((:'log1'::jsonb)->'rows') e where e->>'source' = 'message' and e->>'person_name' = 'Fia Mensah165')
                       and (select e->>'label' = 'Harvest supper 165' and e->>'person_name' = 'Ama Mensah165'
                              from jsonb_array_elements((:'log1'::jsonb)->'rows') e where e->>'source' = 'check_in')
                       and (select e->>'label' = 'Harvest supper 165 · kitchen' and e->>'person_name' = 'Kofi Mensah165'
                              from jsonb_array_elements((:'log1'::jsonb)->'rows') e where e->>'source' = 'volunteer')
                       and (select e->>'label' = 'Year-end statement 2025'
                              from jsonb_array_elements((:'log1'::jsonb)->'rows') e where e->>'source' = 'statement'),
-  'B · each known touch says what it was: the topic, opened or not, the event, the shift, the statement');
+  'B · each known touch says what it was: the campaign or topic, opened or not, the event, the shift, the statement; Fia only while she lived here');
+select app.care_household_touches(:h2) as logh2 \gset
+select pg_temp.assert(pg_temp.n(:'logh2'::jsonb, 'message') = 1
+                      and (select e->>'person_name' = 'Fia Mensah165' and (e->>'at')::timestamptz > now() - interval '3 days'
+                             from jsonb_array_elements((:'logh2'::jsonb)->'rows') e where e->>'source' = 'message'),
+  'B · after she moved, Fia''s messages belong to her new household, and her old ones stay with the old one');
 select pg_temp.assert((select e->'amount_cents' = 'null'::jsonb and e->>'label' = 'Receipt R-165'
                          from jsonb_array_elements((:'log1'::jsonb)->'rows') e where e->>'source' = 'receipt')
                       and not ((:'log1'::jsonb)->>'amounts')::boolean,
@@ -208,21 +264,25 @@ select pg_temp.assert((select e->'amount_cents' = 'null'::jsonb and e->>'label' 
 select pg_temp.assert((select bool_and((e->>'can_remove')::boolean = (e->>'source' = 'manual'))
                          from jsonb_array_elements((:'log1'::jsonb)->'rows') e),
   'B · only recorded touches can be removed, and a manager may remove them');
+select pg_temp.assert(pg_temp.all_keys(:h1, 2) = (select array_agg(x.e->>'key' order by x.i) from jsonb_array_elements((:'log1'::jsonb)->'rows') with ordinality as x(e, i))
+                      and cardinality(pg_temp.all_keys(:h1, 1)) = 9
+                      and (select count(distinct k) from unnest(pg_temp.all_keys(:h1, 2)) k) = 9,
+  'B · page by page, the log returns every row once, in order (two rows share a time)');
 select pg_temp.claims(:fin);
 select app.care_household_touches(:h1) as log2 \gset
 select pg_temp.assert((select (e->>'amount_cents')::bigint = 5000
                          from jsonb_array_elements((:'log2'::jsonb)->'rows') e where e->>'source' = 'receipt')
                       and ((:'log2'::jsonb)->>'amounts')::boolean,
   'B · with a giving role as well, the amount shows (care_amounts_can)');
-select app.care_household_touches(:h1, null, 3) as page1 \gset
-select app.care_household_touches(:h1, ((:'page1'::jsonb)->'rows'->2->>'at')::timestamptz, 3) as page2 \gset
+select app.care_household_touches(:h1, null, null, 3) as page1 \gset
+select app.care_household_touches(:h1, ((:'page1'::jsonb)->'rows'->2->>'at')::timestamptz, (:'page1'::jsonb)->'rows'->2->>'key', 3) as page2 \gset
 select pg_temp.assert(jsonb_array_length((:'page1'::jsonb)->'rows') = 3 and ((:'page1'::jsonb)->>'more')::boolean
                       and jsonb_array_length((:'page2'::jsonb)->'rows') = 3
-                      and ((:'page2'::jsonb)->'rows'->0->>'at')::timestamptz < ((:'page1'::jsonb)->'rows'->2->>'at')::timestamptz,
+                      and ((:'page2'::jsonb)->'rows'->0->>'at')::timestamptz <= ((:'page1'::jsonb)->'rows'->2->>'at')::timestamptz,
   'B · the log pages back in time');
 select pg_temp.claims(:rel);
 select app.care_household_touches(:h1) as log3 \gset
-select pg_temp.assert(jsonb_array_length((:'log3'::jsonb)->'rows') = 8
+select pg_temp.assert(jsonb_array_length((:'log3'::jsonb)->'rows') = 9
                       and (select bool_and((e->>'can_remove')::boolean = (e->>'source' = 'manual' and e->>'id' in (:'t2', :'t3')))
                              from jsonb_array_elements((:'log3'::jsonb)->'rows') e),
   'B · the owner sees the same log and may remove the touches they recorded');
@@ -261,6 +321,7 @@ select app.care_household_card(:h1) as card2 \gset
 select pg_temp.assert(((:'card2'::jsonb)->'access'->>'people')::boolean and ((:'card2'::jsonb)->'access'->>'amounts')::boolean
                       and jsonb_array_length((:'card2'::jsonb)->'people') = 2
                       and position('Esi' in (:'card2'::jsonb)::text) = 0 and position('football' in (:'card2'::jsonb)::text) = 0
+                      and position('Nana' in (:'card2'::jsonb)::text) = 0 and position('Fia' in (:'card2'::jsonb)::text) = 0
                       and not ((:'card2'::jsonb) ? 'amount_cents'),
   'C · with people.view, the adults'' People fields; never the child''s; the card itself holds no amount');
 select pg_temp.assert((select e->'interests' = '["gardening"]'::jsonb and e->'expertise' = '["law"]'::jsonb

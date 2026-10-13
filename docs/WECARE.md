@@ -76,7 +76,11 @@ record writes its touches, notes and profile (owner decision 2026-10-13). Reads 
 `app.care_households` and `app.care_household_touches`, each logged; the touches Weaver already knows (messages,
 receipts, statements, check-ins, volunteer shifts) are read live, adults only, receipt amounts only with
 `app.care_amounts_can`; People fields are read where they live and only with people.view. Portal: the Care card on the
-Family page and the WeCare area (`/care`), neither recorded in the activity stream. No export, no AI. The Marketplace card
+Family page and the WeCare area (`/care`), neither recorded in the activity stream. No export, no AI. Care records never
+disappear with a household or a person: deleting either is refused in plain words (an import undo too), and merging two
+households moves notes and touches to the survivor (its profile and owner win; the merged one fills blanks). The touch
+log counts only community messages (`app.care_message_kinds`: campaign kinds and topics as data, never learning or
+account messages) and each former member only for the time they lived in the household. The Marketplace card
 stays "Not built yet" until a separate catalog change (0764) after a sandbox check: that change emails the communities that
 asked to be told.
 

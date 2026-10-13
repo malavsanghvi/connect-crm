@@ -16,18 +16,23 @@
 --   app.care_households(center, filter, search, limit, offset)   the WeCare area's list: all (care.view), mine (the
 --       households I own or back up), needs an owner (care.view), resting (do not ask). A care.own holder always gets
 --       only their own households, whatever the filter.
---   app.care_household_touches(household, before, limit)   the touch log: the touches people recorded (0762), and the
---       touches Weaver already knows, read live from their own tables, never copied:
---         message     emails, texts and WhatsApp messages sent to the household's adults (sent, delivered or opened); the
---                     campaign or topic name, never the subject or the words (a subject can carry an amount); receipts
---                     sent by message are left out here because they come from the payment
---         receipt     a payment's receipt sent (payments.receipt_sent_at); the amount ONLY with app.care_amounts_can
+--   app.care_household_touches(household, before_at, before_key, limit)   the touch log, newest first, paged with an
+--       (at, key) cursor so rows with the same time are never skipped or repeated: the touches people recorded (0762),
+--       and the touches Weaver already knows, read live from their own tables, never copied:
+--         message     COMMUNITY messages only (email, text, WhatsApp; sent, delivered or opened), decided from the message's
+--                     own data by app.care_message_kinds (below): a campaign whose kind counts (appeals, newsletters,
+--                     announcements, event invitations), or a campaign send on a topic that counts. Never a message
+--                     without a campaign or a campaign purpose (receipts, codes, account and security, reminders), never a
+--                     topic about children or learning. The campaign or topic name, never the subject or the words.
+--         receipt     a completed payment's receipt sent (payments.receipt_sent_at), never one whose payer is under 18;
+--                     the amount ONLY with app.care_amounts_can
 --         statement   a statement prepared for the household
---         check_in    an adult of the household checked in at an event
---         volunteer   a volunteer shift an adult of the household worked (completed, or confirmed and over)
---       Each source only while its module is on for the community (Communications, Giving, Statements, Events,
---       Volunteers). Nothing about anyone under 18: only adults' messages, check-ins and shifts.
---   Amounts appear nowhere else in this slice. No export and no AI read any of this.
+--         check_in    an adult checked in at an event
+--         volunteer   a volunteer shift an adult worked (completed, or confirmed and over)
+--       People: the household's adults, each only for the time they belonged to THIS household (joined .. left), so a
+--       former member's later messages stay with their new household. Each source only while its module is on.
+--   Every name is checked again when read: a contact, or the person a note or touch names, who is under 18 by today's
+--   records is not named. Amounts appear nowhere else in this slice. No export and no AI read any of this.
 set client_min_messages = warning;
 
 -- The community's languages (Setup > Profile), the community's order; English when none were chosen.
@@ -128,7 +133,8 @@ begin
          and (s.person_id is null or not app.person_is_minor(s.person_id))) end,
     'notes', (select coalesce(jsonb_agg(jsonb_build_object(
                        'id', n.id, 'body', n.body, 'person_id', n.person_id,
-                       'person_name', case when n.person_id is not null then app._care_person_name(n.person_id) end,
+                       'person_name', case when n.person_id is not null and not app.person_is_minor(n.person_id)
+                                           then app._care_person_name(n.person_id) end,
                        'by', case when n.created_by is not null then app._user_label(v_center, n.created_by) end,
                        'mine', n.created_by = auth.uid(), 'created_at', n.created_at, 'edited_at', n.edited_at)
                      order by n.created_at desc), '[]'::jsonb)
@@ -225,51 +231,109 @@ language sql stable security definer set search_path = app, public, extensions a
   select app.module_enabled(p_center, coalesce((select mt.module_key from app.module_tables mt where mt.table_name = p_table), 'people'))
 $$;
 
--- Newest first; p_before (the "at" of the last row shown) pages further back. Returns {rows, more, amounts}.
-create or replace function app.care_household_touches(p_household uuid, p_before timestamptz default null, p_limit int default 30)
+-- Which messages are a community touch: an allowlist kept as data, from the campaign's own kind (comms_campaigns.kind) and
+-- the message's topic (messages.topic_key, notification_topics). Platform data, written only by migrations; read by WeCare.
+--   campaign_kind   counts: announcement, newsletter, appeal, event. Not: pathshala_update (a learning programme), alert,
+--                   survey.
+--   topic           counts: newsletter, giving, events, family. Not: pathshala and jain_way (learning and practice, which
+--                   children receive), timings, store, alerts, account (security and sign-in).
+-- A topic or kind not listed does not count (an allowlist), and a topic listed as not counting never counts.
+create table if not exists app.care_message_kinds (
+  source text not null check (source in ('campaign_kind', 'topic')),
+  key    text not null check (key ~ '^[a-z][a-z0-9_]{0,39}$'),
+  counts boolean not null,
+  primary key (source, key)
+);
+comment on table app.care_message_kinds is
+  'WeCare (0763): which messages count as a community touch in the touch log, by campaign kind and by topic. Platform data, written by migrations only.';
+insert into app.care_message_kinds (source, key, counts) values
+  ('campaign_kind', 'announcement', true), ('campaign_kind', 'newsletter', true), ('campaign_kind', 'appeal', true),
+  ('campaign_kind', 'event', true), ('campaign_kind', 'pathshala_update', false), ('campaign_kind', 'alert', false),
+  ('campaign_kind', 'survey', false),
+  ('topic', 'newsletter', true), ('topic', 'giving', true), ('topic', 'events', true), ('topic', 'family', true),
+  ('topic', 'pathshala', false), ('topic', 'jain_way', false), ('topic', 'timings', false), ('topic', 'store', false),
+  ('topic', 'alerts', false), ('topic', 'account', false)
+on conflict (source, key) do update set counts = excluded.counts;
+alter table app.care_message_kinds enable row level security;
+drop policy if exists care_message_kinds_read on app.care_message_kinds;
+create policy care_message_kinds_read on app.care_message_kinds for select to authenticated using (true);
+revoke all on app.care_message_kinds from public, anon, authenticated;
+grant select on app.care_message_kinds to authenticated;
+grant all on app.care_message_kinds to service_role;
+drop trigger if exists audit_care_message_kinds on app.care_message_kinds;
+create trigger audit_care_message_kinds after insert or update or delete on app.care_message_kinds
+  for each row execute function app.audit_row('source', 'key');
+insert into app.module_tables (table_name, module_key) values ('care_message_kinds', null)
+  on conflict (table_name) do update set module_key = excluded.module_key;
+
+-- Does this message count as a community touch? (Its purpose, campaign and topic; never its words.)
+create or replace function app._care_message_counts(p_purpose text, p_campaign_kind text, p_has_campaign boolean, p_topic text)
+returns boolean
+language sql stable security definer set search_path = app, public, extensions as $$
+  select coalesce(p_purpose, 'campaign') not in ('auth_code', 'sandbox_code', 'verification_code', 'receipt', 'test')
+     and not exists (select 1 from app.care_message_kinds k where k.source = 'topic' and k.key = p_topic and not k.counts)
+     and case when p_has_campaign
+              then exists (select 1 from app.care_message_kinds k where k.source = 'campaign_kind' and k.key = p_campaign_kind and k.counts)
+                   and (p_topic is null or exists (select 1 from app.care_message_kinds k where k.source = 'topic' and k.key = p_topic and k.counts))
+              else p_purpose = 'campaign'
+                   and exists (select 1 from app.care_message_kinds k where k.source = 'topic' and k.key = p_topic and k.counts) end
+$$;
+revoke execute on function app._care_message_counts(text, text, boolean, text) from public, anon, authenticated;
+
+-- Newest first. p_before_at and p_before_key (the "at" and "key" of the last row shown) page further back. Returns
+-- {rows, more, amounts}; each row has key = source:id.
+create or replace function app.care_household_touches(p_household uuid, p_before_at timestamptz default null,
+                                                      p_before_key text default null, p_limit int default 30)
 returns jsonb
 language plpgsql security definer set search_path = app, public, extensions as $$
-declare v_center uuid; v_adults uuid[]; v_amounts boolean; v_manage boolean; v_rows jsonb; v_n int;
+declare v_center uuid; v_tz text; v_amounts boolean; v_manage boolean; v_rows jsonb; v_n int;
   v_limit int := greatest(1, least(coalesce(p_limit, 30), 100));
-  v_before timestamptz := coalesce(p_before, now() + interval '1 day');
+  v_at timestamptz := coalesce(p_before_at, 'infinity'::timestamptz);
+  v_key text := coalesce(p_before_key, '');
   v_msgs boolean; v_giving boolean; v_statements boolean; v_events boolean; v_volunteers boolean;
 begin
   v_center := app._care_household_or_raise(p_household);
+  v_tz := coalesce((select nullif(c.time_zone, '') from app.centers c where c.id = v_center), 'America/Chicago');
   v_amounts := app.care_amounts_can(v_center);
   v_manage := app.care_can(v_center, 'manage');
-  -- Every adult who is or was in the household (D2: never anyone under 18).
-  select coalesce(array_agg(distinct hm.person_id), '{}'::uuid[]) into v_adults
-    from app.household_members hm
-   where hm.household_id = p_household and not app.person_is_minor(hm.person_id);
   v_msgs := app._care_source_on(v_center, 'messages');
   v_giving := app._care_source_on(v_center, 'payments');
   v_statements := app._care_source_on(v_center, 'statements');
   v_events := app._care_source_on(v_center, 'attendees');
   v_volunteers := app._care_source_on(v_center, 'volunteer_assignments');
 
-  with t as (
+  with adults as (
+    -- Every adult who is or was in THIS household, with the days they belonged to it (D2: never anyone under 18).
+    select hm.person_id, coalesce(hm.joined_at, '-infinity'::date) as from_day, coalesce(hm.left_at, 'infinity'::date) as to_day
+      from app.household_members hm
+     where hm.household_id = p_household and not app.person_is_minor(hm.person_id)
+  ), t as (
     select 'manual'::text as source, ct.id::text as id, ct.touched_at as at, ct.kind, ct.channel, ct.outcome, ct.is_ask,
-           ct.note, ct.by_user_id, ct.person_id, null::text as label, null::bigint as amount_cents, null::boolean as opened
+           ct.note, ct.by_user_id,
+           case when ct.person_id is not null and not app.person_is_minor(ct.person_id) then ct.person_id end as person_id,
+           null::text as label, null::bigint as amount_cents, null::boolean as opened
       from app.care_touches ct
-     where ct.household_id = p_household and ct.voided_at is null and ct.touched_at < v_before
+     where ct.household_id = p_household and ct.voided_at is null
     union all
     select 'message', m.id::text, coalesce(m.sent_at, m.scheduled_at), null, m.channel::text,
            case when m.opened_at is not null then 'opened' else m.status end, false, null, null, m.person_id,
            coalesce(cc.title, nt.name, 'A message'), null, m.opened_at is not null
       from app.messages m
+      join adults a on a.person_id = m.person_id
       left join app.comms_campaigns cc on cc.id = m.campaign_id
       left join app.notification_topics nt on nt.key = m.topic_key
-     where v_msgs and m.center_id = v_center and m.person_id = any (v_adults)
+     where v_msgs and m.center_id = v_center
        and m.channel in ('email', 'sms', 'whatsapp') and m.status in ('sent', 'delivered')
-       and coalesce(m.template_key, '') not like '%receipt%'
-       and coalesce(m.sent_at, m.scheduled_at) < v_before
+       and app._care_message_counts(m.purpose, cc.kind, m.campaign_id is not null, m.topic_key)
+       and (coalesce(m.sent_at, m.scheduled_at) at time zone v_tz)::date between a.from_day and a.to_day
     union all
-    select 'receipt', pay.id::text, pay.receipt_sent_at, null, null, 'done', false, null, null,
-           case when pay.payer_person_id = any (v_adults) then pay.payer_person_id end,
+    select 'receipt', pay.id::text, pay.receipt_sent_at, null, null, 'done', false, null, null, pay.payer_person_id,
            case when nullif(btrim(pay.receipt_number), '') is not null then 'Receipt ' || btrim(pay.receipt_number) else 'Receipt' end,
            case when v_amounts then pay.amount_cents end, null
       from app.payments pay
-     where v_giving and pay.household_id = p_household and pay.receipt_sent_at is not null and pay.receipt_sent_at < v_before
+     where v_giving and pay.household_id = p_household and pay.receipt_sent_at is not null
+       and pay.status not in ('failed', 'voided', 'authorized')
+       and (pay.payer_person_id is null or not app.person_is_minor(pay.payer_person_id))
     union all
     select 'statement', s.id::text, s.generated_at, null, null, 'done', false, null, null, null,
            case s.kind when 'tax_year' then 'Year-end statement' || coalesce(' ' || s.tax_year::text, '')
@@ -277,32 +341,38 @@ begin
                        when 'event' then 'Event statement' else 'Statement' end,
            null, null
       from app.statements s
-     where v_statements and s.household_id = p_household and s.generated_at < v_before
+     where v_statements and s.household_id = p_household
     union all
-    select 'check_in', a.id::text, a.checked_in_at, null, 'in_person', 'done', false, null, null, a.person_id, e.name, null, null
-      from app.attendees a join app.events e on e.id = a.event_id
-     where v_events and a.center_id = v_center and a.person_id = any (v_adults) and a.checked_in_at is not null
-       and not a.is_child_under_12 and a.checked_in_at < v_before
+    select 'check_in', a2.id::text, a2.checked_in_at, null, 'in_person', 'done', false, null, null, a2.person_id, e.name, null, null
+      from app.attendees a2
+      join adults a on a.person_id = a2.person_id
+      join app.events e on e.id = a2.event_id
+     where v_events and a2.center_id = v_center and a2.checked_in_at is not null and not a2.is_child_under_12
+       and (a2.checked_in_at at time zone v_tz)::date between a.from_day and a.to_day
     union all
     select 'volunteer', va.id::text, coalesce(vs.starts_at, va.created_at), null, 'in_person', 'done', false, null, null,
            va.person_id, e.name || coalesce(' · ' || nullif(btrim(vs.station), ''), ''), null, null
       from app.volunteer_assignments va
+      join adults a on a.person_id = va.person_id
       join app.volunteer_shifts vs on vs.id = va.shift_id
       join app.events e on e.id = vs.event_id
-     where v_volunteers and va.center_id = v_center and va.person_id = any (v_adults)
+     where v_volunteers and va.center_id = v_center
        and (va.status = 'completed' or (va.status = 'confirmed' and coalesce(vs.ends_at, vs.starts_at) < now()))
-       and coalesce(vs.starts_at, va.created_at) < v_before
+       and (coalesce(vs.starts_at, va.created_at) at time zone v_tz)::date between a.from_day and a.to_day
+  ), keyed as (
+    select t.*, t.source || ':' || t.id as key from t where t.at is not null
   ), page as (
-    select * from t where t.at is not null order by t.at desc, t.id desc limit v_limit + 1
+    select * from keyed k where (k.at, k.key) < (v_at, v_key) or (p_before_at is null)
+     order by k.at desc, k.key desc limit v_limit + 1
   )
   select coalesce(jsonb_agg(jsonb_build_object(
-           'source', p.source, 'id', p.id, 'at', p.at, 'kind', p.kind, 'channel', p.channel, 'outcome', p.outcome,
+           'source', p.source, 'id', p.id, 'key', p.key, 'at', p.at, 'kind', p.kind, 'channel', p.channel, 'outcome', p.outcome,
            'is_ask', p.is_ask, 'note', p.note,
            'by', case when p.by_user_id is not null then app._user_label(v_center, p.by_user_id) end,
            'person_name', case when p.person_id is not null then app._care_person_name(p.person_id) end,
            'label', p.label, 'amount_cents', p.amount_cents, 'opened', p.opened,
            'can_remove', p.source = 'manual' and (p.by_user_id = auth.uid() or v_manage))
-         order by p.at desc, p.id desc), '[]'::jsonb),
+         order by p.at desc, p.key desc), '[]'::jsonb),
          count(*)
     into v_rows, v_n
     from page p;
@@ -319,12 +389,12 @@ end $$;
 revoke execute on function app._care_languages(uuid), app._care_today(uuid), app._care_person_name(uuid), app._care_adults(uuid),
   app._care_household_head(uuid), app._care_source_on(uuid, text) from public, anon, authenticated;
 revoke execute on function app.care_household_card(uuid), app.care_households(uuid, text, text, int, int),
-  app.care_household_touches(uuid, timestamptz, int) from public, anon;
+  app.care_household_touches(uuid, timestamptz, text, int) from public, anon;
 grant execute on function app.care_household_card(uuid), app.care_households(uuid, text, text, int, int),
-  app.care_household_touches(uuid, timestamptz, int) to authenticated;
+  app.care_household_touches(uuid, timestamptz, text, int) to authenticated;
 
 comment on function app.care_household_card(uuid) is
   'WeCare (0763): the Care card of one household for a caller who may see its care record (0760). People fields only with people.view through the organization; adults only; no amounts. Each call is logged (app.log_private_read).';
-comment on function app.care_household_touches(uuid, timestamptz, int) is
+comment on function app.care_household_touches(uuid, timestamptz, text, int) is
   'WeCare (0763): the touch log, recorded touches plus those Weaver already knows read live from their own tables (messages, receipts, statements, check-ins, volunteer shifts); adults only; receipt amounts only with app.care_amounts_can. Each call is logged.';
 

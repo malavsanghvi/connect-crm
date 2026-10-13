@@ -13,7 +13,9 @@
 --   F. Care notes: adults only, the author corrects, the author or a manager archives, nothing deleted.
 --   G. Audit and reads: who, when and which columns, never the words; kept from platform admins and audit.view alone;
 --      every read logged without names.
---   H. WeCare paused or not granted: nothing, through the functions or the tables.
+--   H. Care records stay with their family: deleting a household or a person they name is refused in plain words
+--      (directly, by a platform admin, and when undoing an import); merging two households moves them.
+--   I. WeCare paused or not granted: nothing, through the functions or the tables.
 -- Everything runs in one transaction that is rolled back.
 \set ON_ERROR_STOP 1
 begin;
@@ -34,6 +36,13 @@ end $$;
 create or replace function pg_temp.claims(p_user uuid) returns void language plpgsql as $$
 begin
   perform set_config('request.jwt.claims', jsonb_build_object('sub', p_user, 'role', 'authenticated', 'aal', 'aal1')::text, true);
+  perform set_config('request.headers', '', true);
+end $$;
+-- A fresh 2FA check, for the steps that ask for one (merging households, undoing an import).
+create or replace function pg_temp.claims_up(p_user uuid) returns void language plpgsql as $$
+begin
+  perform set_config('request.jwt.claims', jsonb_build_object('sub', p_user, 'role', 'authenticated', 'aal', 'aal2',
+    'amr', jsonb_build_array(jsonb_build_object('method', 'totp', 'timestamp', extract(epoch from now())::bigint - 60)))::text, true);
   perform set_config('request.headers', '', true);
 end $$;
 create or replace function pg_temp.no_claims() returns void language plpgsql as $$
@@ -311,6 +320,16 @@ select pg_temp.claims(:lead);
 select app.care_households(:c1, 'resting') as resting \gset
 select pg_temp.assert(((:'resting'::jsonb)->>'total')::int = 1 and (:'resting'::jsonb)->'rows'->0->'household'->>'id' = :h1,
   'E · the list shows the households resting');
+select pg_temp.claims(:rel);
+select app.care_households(:c1, 'resting') as rel_resting \gset
+select app.care_households(:c1, 'mine', 'rivera164') as rel_found \gset
+select app.care_households(:c1, 'mine', 'okafor164') as rel_other \gset
+select app.care_households(:c1, 'mine', null, 50, 5) as rel_offset \gset
+select pg_temp.assert(((:'rel_resting'::jsonb)->>'total')::int = 1 and (:'rel_resting'::jsonb)->'rows'->0->'household'->>'id' = :h1
+                      and ((:'rel_found'::jsonb)->>'total')::int = 1
+                      and ((:'rel_other'::jsonb)->>'total')::int = 0
+                      and ((:'rel_offset'::jsonb)->>'total')::int = 1 and jsonb_array_length((:'rel_offset'::jsonb)->'rows') = 0,
+  'E · a care.own holder: resting, search and paging stay inside their own households');
 
 -- ══ F. Care notes ════════════════════════════════════════════════════════════
 select pg_temp.claims(:rel);
@@ -339,6 +358,9 @@ select pg_temp.assert(((:'card6'::jsonb)->>'notes_total')::int = 1 and (:'card6'
                       and (select count(*) from app.care_notes where household_id = :h1) = 2,
   'F · a manager archives a note: it leaves the card, the row stays');
 select pg_temp.assert_raises($$delete from app.care_notes$$, 'permission denied', 'F · nobody deletes notes through the API');
+select pg_temp.claims(:viewer);
+select pg_temp.assert_raises(format($$select app.edit_care_note(%L, 'Changed')$$, :'note2'),
+  'archived', 'F · an archived note cannot be corrected, even by its author');
 
 -- ══ G. Audit and reads ═══════════════════════════════════════════════════════
 reset role;
@@ -369,7 +391,102 @@ select pg_temp.claims(:owner);
 select pg_temp.assert((select count(*) from app.audit_log where center_id = :c1 and module = 'care') > 0,
   'G · the community''s owner does');
 
--- ══ H. WeCare paused or not granted ══════════════════════════════════════════
+-- ══ H. Care records stay with their family ═══════════════════════════════════
+\set run '''16400000-0000-4000-8000-0000000000e1'''
+\set h5 '''16400000-0000-4000-8000-0000000000b5'''
+\set h6 '''16400000-0000-4000-8000-0000000000b6'''
+\set h7 '''16400000-0000-4000-8000-0000000000b7'''
+\set h8 '''16400000-0000-4000-8000-0000000000b8'''
+\set h9 '''16400000-0000-4000-8000-0000000000b9'''
+\set p5 '''16400000-0000-4000-8000-0000000000a6'''
+\set p6 '''16400000-0000-4000-8000-0000000000a7'''
+\set p7 '''16400000-0000-4000-8000-0000000000a8'''
+\set p8 '''16400000-0000-4000-8000-0000000000a9'''
+\set p9 '''16400000-0000-4000-8000-0000000000aa'''
+reset role;
+select pg_temp.no_claims();
+select pg_temp.assert_raises(format($$delete from app.households where id = %L$$, :h1),
+  'This household has WeCare records, so it cannot be deleted', 'H · deleting a household with care records is refused in plain words');
+select pg_temp.assert_raises(format($$delete from app.people where id = %L$$, :pb),
+  'This person is named in WeCare records', 'H · so is deleting a person a care record names');
+set role authenticated;
+select pg_temp.claims(:plat);
+select pg_temp.assert_raises(format($$delete from app.households where id = %L$$, :h1),
+  'WeCare records', 'H · a platform admin, who may delete households, cannot delete this one');
+reset role;
+select pg_temp.no_claims();
+insert into app.import_runs (id, center_id, entity, tier, source, status, committed_at, file_name)
+values (:run, :c1, 'households', 'records', 'csv', 'committed', now(), 'families164.csv');
+insert into app.import_changes (center_id, run_id, table_name, record_id, op) values (:c1, :run, 'households', :h1, 'insert');
+set role authenticated;
+select pg_temp.claims_up(:owner);
+select pg_temp.assert_raises(format($$select app.import_undo(%L, 'Wrong file')$$, :run),
+  'This household has WeCare records, so undoing the import cannot remove it', 'H · undoing the import that added it says why it cannot');
+reset role;
+select pg_temp.no_claims();
+select pg_temp.assert((select status from app.import_runs where id = :run) = 'committed'
+                      and exists (select 1 from app.households where id = :h1)
+                      and (select count(*) from app.care_notes where household_id = :h1) = 2,
+  'H · and nothing was changed');
+
+-- Merging: h6 into h5 (h5 has a thin profile and no owner), h7 into h5 (h5 now has an owner), h8 into h9 (h9 has no profile).
+insert into app.households (id, center_id, display_name) values
+  (:h5, :c1, 'Keep164, Kay'), (:h6, :c1, 'Keep164, Kay (duplicate)'), (:h7, :c1, 'Keep164, K. (second duplicate)'),
+  (:h8, :c1, 'Pair164, Pat (duplicate)'), (:h9, :c1, 'Pair164, Pat');
+insert into app.people (id, center_id, first_name, last_name, date_of_birth) values
+  (:p5, :c1, 'Kay', 'Keep164', date '1970-05-05'), (:p6, :c1, 'Kim', 'Keep164', date '1972-06-06'),
+  (:p7, :c1, 'Kit', 'Keep164', date '1990-07-07'), (:p8, :c1, 'Pat', 'Pair164', date '1960-08-08'),
+  (:p9, :c1, 'Pam', 'Pair164', date '1961-09-09');
+insert into app.household_members (household_id, person_id, center_id, role, is_primary) values
+  (:h5, :p5, :c1, 'primary', true), (:h6, :p6, :c1, 'primary', true), (:h7, :p7, :c1, 'primary', true),
+  (:h8, :p8, :c1, 'primary', true), (:h9, :p9, :c1, 'primary', true);
+set role authenticated;
+select pg_temp.claims(:lead);
+select app.save_care_profile(:h5, '{"thanks":"call"}');
+select app.save_care_profile(:h6, jsonb_build_object('thanks', 'card', 'recognition', 'public', 'channel', 'email', 'language', 'es',
+                                                     'contact_person_id', :p6, 'rest_until', (current_date + 20)::text));
+select app.add_care_note(:h6, 'Kim asked to be called after six.', :p6) as note6 \gset
+select app.log_care_touch(:h6, jsonb_build_object('kind', 'welcome', 'channel', 'in_person', 'person_id', :p6)) as touch6 \gset
+select app.set_care_owner(:h6, :rel2, null);
+select app.set_care_owner(:h7, :rel, null);
+select app.save_care_profile(:h8, '{"thanks":"none","recognition":"anonymous"}');
+select pg_temp.claims_up(:owner);
+select app.merge_households(:h5, :h6);
+select pg_temp.claims(:lead);
+select pg_temp.assert((select household_id = :h5 and person_id = :p6 from app.care_notes where id = :'note6')
+                      and (select household_id = :h5 and person_id = :p6 from app.care_touches where id = :'touch6'),
+  'H · merging moves the notes and touches to the surviving household');
+select pg_temp.assert((select thanks = 'call' and recognition = 'public' and channel = 'email' and language = 'es'
+                              and contact_person_id = :p6 and do_not_ask and rest_until = current_date + 20
+                         from app.care_profiles where household_id = :h5)
+                      and (select thanks = 'card' from app.care_profiles where household_id = :h6),
+  'H · the survivor''s profile wins and the merged one fills only its blanks (the contact moved with the family; do not ask is kept)');
+select pg_temp.assert((select owner_user_id = :rel2 from app.care_owners where household_id = :h5),
+  'H · the survivor had no owner, so the merged household''s owner becomes its owner');
+select pg_temp.claims_up(:owner);
+select app.merge_households(:h5, :h7);
+select app.merge_households(:h9, :h8);
+select pg_temp.claims(:lead);
+select pg_temp.assert((select owner_user_id = :rel2 from app.care_owners where household_id = :h5)
+                      and (select owner_user_id = :rel from app.care_owners where household_id = :h7),
+  'H · a survivor that has an owner keeps it; the merged household''s row stays as history');
+select pg_temp.assert((select thanks = 'none' and recognition = 'anonymous' from app.care_profiles where household_id = :h9)
+                      and not exists (select 1 from app.care_profiles where household_id = :h8),
+  'H · with no survivor profile, the merged household''s profile moves over');
+select app.care_household_card(:h5) as card7 \gset
+select pg_temp.assert((:'card7'::jsonb)->'notes'->0->>'body' = 'Kim asked to be called after six.'
+                      and (:'card7'::jsonb)->'profile'->>'contact_name' = 'Kim Keep164',
+  'H · the survivor''s card shows what moved');
+reset role;
+select pg_temp.no_claims();
+select pg_temp.assert((select count(*) from app.audit_log l where l.record_table in ('care_notes', 'care_touches', 'care_profiles', 'care_owners')
+                         and l.action like '%.update' and l.module = 'care' and l.reason like 'Merged duplicate household%') >= 3
+                      or (select count(*) from app.audit_log l where l.record_table in ('care_notes', 'care_touches', 'care_profiles')
+                            and l.action like '%.update' and l.module = 'care'
+                            and l.record_id in (:'note6', :'touch6', :h5)) >= 3,
+  'H · every move is audited under WeCare');
+
+-- ══ I. WeCare paused or not granted ══════════════════════════════════════════
 reset role;
 select pg_temp.no_claims();
 insert into app.center_modules (center_id, module_key, enabled, reason) values (:c1, 'care', false, 'Test 164: paused')
@@ -378,12 +495,12 @@ set role authenticated;
 select pg_temp.claims(:lead);
 select pg_temp.assert(not app.care_household_can(:h1) and (select count(*) from app.care_owners) = 0
                       and (select count(*) from app.care_profiles) = 0,
-  'H · paused: a care lead sees nothing, through the functions or the tables');
+  'I · paused: a care lead sees nothing, through the functions or the tables');
 select pg_temp.assert_raises(format($$select app.care_household_card(%L)$$, :h1),
-  'is not on for this community', 'H · and is told why');
+  'is not on for this community', 'I · and is told why');
 select pg_temp.claims(:owner);
 select pg_temp.assert(not app.care_household_can(:h1) and (select count(*) from app.care_notes) = 0,
-  'H · so does the owner');
+  'I · so does the owner');
 reset role;
 select pg_temp.no_claims();
 rollback;

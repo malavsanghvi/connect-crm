@@ -29,14 +29,15 @@ set client_min_messages = warning;
 -- ── Shared row rules for every WeCare table ─────────────────────────────────
 
 -- A WeCare row belongs to its household's community (center_id is taken from the household, never from the caller), and
--- never moves to another household.
+-- never moves to another household, except to the household its own was merged into (0762's merge rule moves it there).
 create or replace function app.care_row_household() returns trigger
 language plpgsql security definer set search_path = app, public, extensions as $$
 declare v_center uuid;
 begin
   select h.center_id into v_center from app.households h where h.id = new.household_id;
   if v_center is null then raise exception 'That household was not found.' using errcode = '23503'; end if;
-  if tg_op = 'UPDATE' and new.household_id is distinct from old.household_id then
+  if tg_op = 'UPDATE' and new.household_id is distinct from old.household_id
+     and not exists (select 1 from app.households d where d.id = old.household_id and d.merged_into_id = new.household_id) then
     raise exception 'A care record belongs to one household and cannot be moved to another.' using errcode = '23514';
   end if;
   new.center_id := v_center;
@@ -44,16 +45,25 @@ begin
 end $$;
 revoke execute on function app.care_row_household() from public, anon, authenticated;
 
--- The person a WeCare row names (the column given as the trigger's argument) is an adult of that household, now or in the
--- past (D2: nothing about anyone under 18; app.person_is_minor of 0587). Empty is fine.
+-- The person a WeCare row names (the column given as the trigger's argument) is a CURRENT member of that household and an
+-- adult (D2: nothing about anyone under 18; app.person_is_minor of 0587, which also counts as a child someone with no birth
+-- date who is a child in a household and primary or spouse in none). Empty is fine. Checked when the person is set or
+-- changed; a row that only moves with its household (a merge) keeps the person it named.
 create or replace function app.care_row_adult() returns trigger
 language plpgsql security definer set search_path = app, public, extensions as $$
 declare v_person uuid;
 begin
   v_person := (to_jsonb(new) ->> tg_argv[0])::uuid;
   if v_person is null then return new; end if;
-  if not exists (select 1 from app.household_members hm where hm.household_id = new.household_id and hm.person_id = v_person) then
-    raise exception 'That person is not in this household.' using errcode = '23514';
+  if tg_op = 'UPDATE' and v_person is not distinct from (to_jsonb(old) ->> tg_argv[0])::uuid then return new; end if;
+  -- INSERT ... ON CONFLICT runs the insert trigger first: a profile's contact already on file is not checked again here.
+  if tg_op = 'INSERT' and tg_table_name = 'care_profiles'
+     and exists (select 1 from app.care_profiles x where x.household_id = new.household_id and x.contact_person_id = v_person) then
+    return new;
+  end if;
+  if not exists (select 1 from app.household_members hm
+                  where hm.household_id = new.household_id and hm.person_id = v_person and hm.left_at is null) then
+    raise exception 'That person is not in this household now.' using errcode = '23514';
   end if;
   if app.person_is_minor(v_person) then
     raise exception 'WeCare keeps nothing about anyone under 18. Choose an adult of the household.' using errcode = '23514';
@@ -64,7 +74,9 @@ revoke execute on function app.care_row_adult() from public, anon, authenticated
 
 -- ── Relationship owners ──────────────────────────────────────────────────────
 create table if not exists app.care_owners (
-  household_id   uuid primary key references app.households(id) on delete cascade,
+  -- No cascade: deleting a household never deletes its care records silently (0762 refuses it in plain words). NO ACTION
+  -- (checked at the end of the statement), so deleting a whole community still removes everything with it.
+  household_id   uuid primary key references app.households(id) on delete no action,
   center_id      uuid not null references app.centers(id) on delete cascade,
   owner_user_id  uuid references auth.users(id) on delete set null,
   backup_user_id uuid references auth.users(id) on delete set null,
