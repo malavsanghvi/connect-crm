@@ -85,8 +85,9 @@ export type GivingTodayModel = {
   tabs: GivingTab[];
   tabCounts: Partial<Record<GivingTabKey, number>>;
   queue: TodayQueue;
-  /** `find`: the large box on Today can look things up for this person (People, or the Giving lane). */
-  can: TodayCan & { record: boolean; find: boolean };
+  /** `find`: the large box on Today can look things up for this person (People, or the Giving lane). `countStart`: Start a count
+   * (giving.record_offline, Offering counts on; slice 5). */
+  can: TodayCan & { record: boolean; find: boolean; countStart: boolean };
   /** The kind's word for the counts tile and tab. */
   countsWord: string;
   /** A note for a limited role (a finance volunteer, a second approver only), or null. */
@@ -315,6 +316,7 @@ async function loadCounts(session: CrmSession): Promise<Part<CountIn[]>> {
     .eq("center_id", center.id)
     .is("deposit_ref", null)
     .is("payment_id", null)
+    .is("bank_transaction_id", null)
     .order("counted_on", { ascending: true })
     .limit(10);
   if (res.error) return err("Could not read the counts", res.error);
@@ -402,6 +404,7 @@ export function todayCan(session: CrmSession): TodayCan {
     allocate: canAccess(session, "allocatePayment"),
     countRecord: canAccess(session, "countingRecord"),
     closeManage: canAccess(session, "closeManage"),
+    countMatch: canAccess(session, "bankConfirm") && isModuleEnabled(session, GIVING_ADDONS.bank),
   };
 }
 
@@ -503,7 +506,7 @@ export async function loadGivingToday(session: CrmSession, opts: { show?: string
     tabs: givingTabs(session),
     tabCounts: { bank: tile("bank"), pledges: tile("pledges"), counts: tile("counts"), books: tile("books") },
     queue,
-    can: { ...can, record: canAccess(session, "recordPayment"), find: canAccess(session, "households") || canFindGiving(session) },
+    can: { ...can, record: canAccess(session, "recordPayment"), find: canAccess(session, "households") || canFindGiving(session), countStart: seesCounts && can.countRecord },
     countsWord,
     roleNote: roleNote(session, can),
     month: { label: longMonth(monthStart), recorded, open, matched },

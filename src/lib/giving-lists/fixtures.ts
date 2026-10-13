@@ -12,12 +12,10 @@ import { isModuleEnabled } from "@/lib/modules";
 import { formatCents } from "@/lib/money";
 import { canAccess, type ScopedContext } from "@/lib/permissions";
 import { hrefWith, type RawSearchParams } from "@/lib/search-params";
-import { countsWord } from "@/lib/wording";
 
 import { recordPaymentHref } from "./links";
 import { pager, switchedOff, type ListBody, type PaymentsModel, type PledgesModel } from "./model";
 import {
-  countRow,
   flaggedRow,
   grantRow,
   methodChip,
@@ -266,8 +264,6 @@ export function samplePaymentsModel(
     sources: [],
     statuses: [],
     flagged: [],
-    canCount: false,
-    countsWord: countsWord(c.kind),
   };
   if (!canAccess(tctx, "payments")) return { ...b, body: { state: "no_access", area: "Payments", access: "payments" } };
   const seesAll = canAccess(tctx, "paymentsAll");
@@ -276,14 +272,13 @@ export function samplePaymentsModel(
     refunds: seesAll || ctx.can.manage || ctx.can.approve ? "on" : "no_access",
     grants: !bankOn ? "off" : canAccess(tctx, "bank") ? "on" : "no_access",
     recurring: !isModuleEnabled(tctx, "giving_recurring") ? "off" : canAccess(tctx, "recurring") ? "on" : "no_access",
-    counts: !isModuleEnabled(tctx, "giving_counts") ? "off" : canAccess(tctx, "counting") ? "on" : "no_access",
   };
   // Row-level security: a finance volunteer reads only the payments they recorded.
   const visible = SAMPLE_PAYMENTS.filter((p) => seesAll || p.recordedBy === ctx.me).map((p) => ({ ...p, appliedCents: seesAll ? p.appliedFull : null }));
   const pending = visible.filter((p) => p.refundBy && p.refundedCents === 0).length;
   const shell = {
     ...b,
-    views: paymentViewChips(states, { refunds: (seesAll ? pending : 0) + SAMPLE_FLAGGED.length || null, grants: SAMPLE_GRANTS.filter((g) => g.status !== "matched").length || null }, view, b.countsWord, (v) =>
+    views: paymentViewChips(states, { refunds: (seesAll ? pending : 0) + SAMPLE_FLAGGED.length || null, grants: SAMPLE_GRANTS.filter((g) => g.status !== "matched").length || null }, view, (v) =>
       hrefWith(path, { tab: "payments" }, { view: v === "all" ? undefined : v }),
     ),
     note: seesAll ? null : "Limited view: you see the payments you recorded yourself. The rest are for the treasurer.",
@@ -291,8 +286,8 @@ export function samplePaymentsModel(
   if (view !== "all" && states[view] !== "on") {
     const body: ListBody =
       states[view] === "off"
-        ? switchedOff(c.kind, view === "grants" ? "giving_bank" : view === "recurring" ? "giving_recurring" : "giving_counts", c.name)
-        : { state: "no_access", area: view === "refunds" ? "Refunds" : view === "grants" ? "Grants to match" : view === "recurring" ? "Recurring gifts" : b.countsWord, access: view === "refunds" ? "paymentsAll" : view === "grants" ? "bank" : view === "recurring" ? "recurring" : "counting" };
+        ? switchedOff(c.kind, view === "grants" ? "giving_bank" : "giving_recurring", c.name)
+        : { state: "no_access", area: view === "refunds" ? "Refunds" : view === "grants" ? "Grants to match" : "Recurring gifts", access: view === "refunds" ? "paymentsAll" : view === "grants" ? "bank" : "recurring" };
     return { ...shell, body };
   }
   const search = readListSearch(q, c.currency);
@@ -325,27 +320,13 @@ export function samplePaymentsModel(
   if (view === "grants") {
     return { ...shell, searchLabel: "Find a grant by sender, memo or amount", body: { state: "ok", rows: SAMPLE_GRANTS.map((g) => grantRow(g, ctx)), empty: "No grants to match." } };
   }
-  if (view === "recurring") {
-    const status = recurringChipFromParam(typeof sp.rstatus === "string" ? sp.rstatus : undefined);
-    const rows = SAMPLE_RECURRING.filter((r) => status === "all" || r.status === status).filter((r) => hit(search, ids, { number: null, amountCents: r.amountCents, householdId: r.householdId }));
-    return {
-      ...shell,
-      searchLabel: "Find a recurring gift by family or amount",
-      statuses: RECURRING_CHIPS.map((x) => ({ key: x.key, label: x.label, href: chipHref("rstatus", x.key === "all" ? null : x.key), count: null, on: x.key === status })),
-      body: { state: "ok", rows: rows.map((r) => recurringRow(r, famById.get(r.householdId) ?? null, ctx)), empty: "No recurring gifts here." },
-    };
-  }
-  const canCount = canAccess(tctx, "countingRecord");
+  // Recurring: the last view (the counts have their own tab since slice 5).
+  const status = recurringChipFromParam(typeof sp.rstatus === "string" ? sp.rstatus : undefined);
+  const rows = SAMPLE_RECURRING.filter((r) => status === "all" || r.status === status).filter((r) => hit(search, ids, { number: null, amountCents: r.amountCents, householdId: r.householdId }));
   return {
     ...shell,
-    canCount,
-    body: {
-      state: "ok",
-      rows: [
-        countRow({ id: payId(60), countedOn: "2026-10-05", totalCents: 41_250, bags: ["118", "119"], counters: ["Sam Carter", "Linh Nguyen"], depositRef: null, paymentId: null }, { ...ctx, canCount }),
-        countRow({ id: payId(61), countedOn: "2026-09-28", totalCents: 38_000, bags: ["116", "117"], counters: ["Ama Mensah", "Tola Adeyemi"], depositRef: "SLIP-4471", paymentId: null }, { ...ctx, canCount }),
-      ],
-      empty: "No counts yet.",
-    },
+    searchLabel: "Find a recurring gift by family or amount",
+    statuses: RECURRING_CHIPS.map((x) => ({ key: x.key, label: x.label, href: chipHref("rstatus", x.key === "all" ? null : x.key), count: null, on: x.key === status })),
+    body: { state: "ok", rows: rows.map((r) => recurringRow(r, famById.get(r.householdId) ?? null, ctx)), empty: "No recurring gifts here." },
   };
 }

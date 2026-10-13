@@ -157,6 +157,8 @@ export const ACCESS = {
   paymentsAll: ["giving.view", "giving.manage"],
   recordPayment: ["giving.record_offline", "giving.manage"],
   allocatePayment: ["giving.manage"],
+  /** Record a pledge by hand (slice 7, 0745): giving.manage only (owner decision 2026-10-12; no second approver, it moves no money). */
+  recordPledge: ["giving.manage"],
   bank: ["giving.view", "giving.record_offline"],
   bankImport: ["giving.manage", "giving.record_offline"],
   bankConfirm: ["giving.record_offline", "giving.manage"],

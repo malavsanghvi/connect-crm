@@ -11,6 +11,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, type ReactNode } from "react";
 
+import { StartCountButton } from "@/components/giving-actions/count-acts";
 import { FamilyGivingLink, RecordPaymentButton } from "@/components/giving-actions/provider";
 import { RowButtons, RowInline, type ActContext } from "@/components/giving-actions/row-actions";
 import { useNiva } from "@/components/niva/niva-context";
@@ -158,11 +159,14 @@ export function TodayPage({ model }: { model: GivingTodayModel }) {
           <h1 className="m-0 font-display text-[30px] font-semibold leading-[1.15] text-ink">{model.title}</h1>
           <p className="m-0 text-[14px] text-muted">What needs you today. Each item acts in its own row.</p>
         </div>
-        {model.can.record ? (
-          <div className="hidden flex-wrap gap-2 md:flex">
-            <RecordPaymentButton href="/giving/payments" className={buttonClass("primary", "sm")}>
-              Record payment
-            </RecordPaymentButton>
+        {model.can.record || model.can.countStart ? (
+          <div className="hidden flex-wrap items-start gap-2 md:flex">
+            {model.can.countStart ? <StartCountButton labels={model.labels} className={buttonClass("ghost", "sm")} /> : null}
+            {model.can.record ? (
+              <RecordPaymentButton href="/giving/payments" className={buttonClass("primary", "sm")}>
+                Record payment
+              </RecordPaymentButton>
+            ) : null}
           </div>
         ) : null}
       </header>
@@ -295,6 +299,13 @@ export function TodayPage({ model }: { model: GivingTodayModel }) {
           <RecordPaymentButton href="/giving/payments" className={`${buttonClass("primary")} min-h-[44px] flex-1 justify-center`}>
             Record payment
           </RecordPaymentButton>
+        ) : null}
+        {model.can.countStart ? (
+          <span className="flex flex-1">
+            <StartCountButton labels={model.labels} full className={`${buttonClass("ghost")} min-h-[44px] w-full justify-center`}>
+              Count
+            </StartCountButton>
+          </span>
         ) : null}
         {model.can.find ? (
           <button type="button" onClick={focusFind} className={`${buttonClass("ghost")} min-h-[44px] flex-1 justify-center`}>

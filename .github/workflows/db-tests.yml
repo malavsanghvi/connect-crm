@@ -19,7 +19,9 @@ jobs:
           --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 10
     steps:
       - uses: actions/checkout@v4
-      - name: Migrations, seed, RLS and rule tests
+      # run_local.sh applies migrations and the seed with supabase/scripts/migrate.sh, as the
+      # deploy does (one transaction per file); keep it that way, not a loop of its own.
+      - name: Migrations (as the deploy applies them), seed, RLS and rule tests
         env:
           PGURL: postgres://postgres:postgres@localhost:5432
         run: bash supabase/tests/run_local.sh

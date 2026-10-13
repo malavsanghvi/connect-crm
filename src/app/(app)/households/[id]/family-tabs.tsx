@@ -70,7 +70,7 @@ export async function FamilyTabs({
       {legacyIds ? <IdentifiersTab session={session} householdId={id} household={{ display_name: model.name, household_number: model.number }} /> : null}
       {!legacyIds && active === "giving" ? (
         <div className="flex flex-col gap-4">
-          <PledgesTab session={session} householdId={id} period={period("giving")} />
+          <PledgesTab session={session} householdId={id} period={period("giving")} recordPledge />
           <PaymentsTab session={session} householdId={id} period={period("giving")} />
         </div>
       ) : null}

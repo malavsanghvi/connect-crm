@@ -11,6 +11,7 @@
 import type { HouseholdCard } from "@/lib/commands/types";
 import { currencySymbol, type CommunityFormat } from "@/lib/community-format";
 import { formatDate } from "@/lib/dates";
+import type { PledgeDesignation, RecordPledgeRequest } from "@/lib/giving-actions/record-pledge";
 import { householdRef, methodWord, type RecordPaymentRequest } from "@/lib/giving-actions/record-sheet";
 import {
   paymentDetail,
@@ -35,7 +36,7 @@ export type FindScope = "people" | "giving";
 export type GivingIntent =
   /** Record a payment: the Record payment sheet opens filled in. `who` is what to look the family up by (never used to pick one). */
   | { kind: "record"; ask: PaymentAsk; who: string | null; cents: number | null }
-  /** Record a pledge: not built here yet (slice 7). */
+  /** Record a pledge: the Record pledge sheet opens filled in (slice 7). `who` holds the family and fund words ("patel building fund"). */
   | { kind: "pledge"; cents: number | null; who: string | null }
   /** Ask for a refund: Payments opens on that receipt. */
   | { kind: "refund"; token: string | null; who: string | null }
@@ -219,6 +220,10 @@ export type GivingFound = {
   campaigns: CampaignHit[];
   /** Cards of the families the payments and pledges belong to. */
   cards: ReadonlyMap<string, GivingHousehold>;
+  /** For a pledge: the fund, campaign or opportunity the typed words named ("building fund"), when exactly one did. */
+  designation?: PledgeDesignation | null;
+  /** For a pledge: the words the families were looked up by once the fund's words were taken out ("patel"); null when none were left. */
+  pledgeWho?: string | null;
 };
 
 export const EMPTY_FOUND: GivingFound = { families: [], moreFamilies: false, payments: [], pledges: [], bank: [], campaigns: [], cards: new Map() };
@@ -226,6 +231,7 @@ export const EMPTY_FOUND: GivingFound = { families: [], moreFamilies: false, pay
 /** One row of the Giving lane. Every row about a family carries the family with its card line. */
 export type GivingRow =
   | { kind: "record"; key: string; title: string; detail: string; household: GivingHousehold | null; request: RecordPaymentRequest; best: boolean }
+  | { kind: "record_pledge"; key: string; title: string; detail: string; household: GivingHousehold | null; request: RecordPledgeRequest; best: boolean }
   | { kind: "payment"; key: string; id: string; title: string; detail: string; household: GivingHousehold | null; householdId: string | null; href: string }
   | { kind: "pledge"; key: string; id: string; title: string; detail: string; household: GivingHousehold | null; householdId: string | null; href: string }
   | { kind: "bank"; key: string; id: string; title: string; detail: string; href: string }
@@ -267,6 +273,8 @@ type LaneOptions = {
   canRecord: boolean;
   /** Who may start a campaign or an opportunity from the box (campaignsManage; Opportunities on for the second). */
   canCreate?: { campaign: boolean; opportunity: boolean };
+  /** giving.manage: may record a pledge by hand (slice 7). Left out: may not. */
+  canRecordPledge?: boolean;
 };
 
 function recordPrefill(i: Extract<GivingIntent, { kind: "record" }>): RecordPaymentRequest["prefill"] {
@@ -326,6 +334,60 @@ function recordRows(i: Extract<GivingIntent, { kind: "record" }>, found: GivingF
     understood: `record ${article}${what}`,
     notes: [],
     rows: [{ kind: "record", key: "record-none", title: `Record ${what}`, detail: details ? `${details} · ${none}` : none, household: null, request: { prefill }, best: true }],
+  };
+}
+
+/** A row that opens a sheet to record something (a payment or a pledge): drawn large, first, with "Opens the sheet". */
+export function isRecordRow(row: GivingRow): row is Extract<GivingRow, { kind: "record" | "record_pledge" }> {
+  return row.kind === "record" || row.kind === "record_pledge";
+}
+
+/**
+ * "pledge 500 patel building fund": the Record pledge sheet, filled in with the amount, the fund the words named and the family (one
+ * row per matching family, each with its card; never a family by name alone). Nothing is recorded until the sheet's own button.
+ */
+function pledgeRows(i: Extract<GivingIntent, { kind: "pledge" }>, found: GivingFound, o: LaneOptions): { rows: GivingRow[]; understood: string; notes: string[] } {
+  const amount = i.cents ? formatCents(i.cents, o.currency, o.locale) : null;
+  const what = amount ? `a ${amount} pledge` : "a pledge";
+  const designation = found.designation ?? null;
+  const to = designation ? ` to ${designation.name}` : "";
+  if (!o.canRecordPledge) {
+    return { rows: [], understood: `record ${what}`, notes: ["Recording a pledge needs the giving.manage permission."] };
+  }
+  const prefill: RecordPledgeRequest["prefill"] = { amount: i.cents ? (i.cents / 100).toFixed(2) : null, designation };
+  const opens = `${designation ? `For ${designation.name}. ` : ""}Opens the Record pledge sheet filled in; its own button records it.`;
+  const families = found.families.slice(0, MAX_FAMILY_ROWS);
+  const one = (f: GivingHousehold, best: boolean): GivingRow => ({
+    kind: "record_pledge",
+    key: `pledge-${f.id}`,
+    title: `Record ${what} for ${householdRef(f)}`,
+    detail: opens,
+    household: f,
+    request: { household: f, prefill },
+    best,
+  });
+  if (families.length === 1) {
+    return { understood: `record ${what} for ${householdRef(families[0])}${to}`, notes: [], rows: [one(families[0], true)] };
+  }
+  if (families.length > 1) {
+    const n = found.moreFamilies ? `${families.length}+` : String(families.length);
+    const choose: GivingRow = {
+      kind: "record_pledge",
+      key: "pledge-choose",
+      title: `Record ${what}${to}: choose the family`,
+      detail: `${n} families match. The sheet shows each household card to choose from.`,
+      household: null,
+      request: { candidates: families, prefill },
+      best: true,
+    };
+    return { understood: `record ${what}${to} · ${n} families match`, notes: [], rows: [choose, ...families.map((f) => one(f, false))] };
+  }
+  const who = found.pledgeWho !== undefined ? found.pledgeWho : i.who;
+  const none = who ? `No family matches “${who}”. The sheet opens on the family search.` : "Choose the family in the sheet.";
+  return {
+    understood: `record ${what}${to}`,
+    notes: [],
+    rows: [{ kind: "record_pledge", key: "pledge-none", title: `Record ${what}${to}`, detail: none, household: null, request: { prefill }, best: true }],
   };
 }
 
@@ -407,12 +469,8 @@ export function buildGivingLane(intent: GivingIntent, found: GivingFound, o: Lan
     return { understood, rows: [go], notes: [], first: true };
   }
   if (intent.kind === "pledge") {
-    return {
-      understood: intent.cents ? `record a pledge of ${money(intent.cents)}` : "record a pledge",
-      rows: [],
-      notes: ["Recording a pledge here is coming next."],
-      first: true,
-    };
+    const r = pledgeRows(intent, found, o);
+    return { understood: r.understood, rows: r.rows, notes: r.notes, first: true };
   }
   if (intent.kind === "refund") {
     const q = intent.token ?? intent.who;
@@ -452,6 +510,7 @@ export function buildGivingLane(intent: GivingIntent, found: GivingFound, o: Lan
 /** What Enter (or a click) does on a Giving row: open the sheet, the family's giving, or a list. Never a save. */
 export type GivingEnter =
   | { type: "record-payment"; request: RecordPaymentRequest; href: string }
+  | { type: "record-pledge"; request: RecordPledgeRequest; href: string }
   | { type: "family-giving"; householdId: string; focus: FamilyFocus | null; href: string }
   | { type: "open"; href: string };
 
@@ -460,6 +519,11 @@ export function givingEnter(row: GivingRow): GivingEnter {
     case "record": {
       const id = row.request.household?.id ?? null;
       return { type: "record-payment", request: row.request, href: id ? `/giving/payments?household=${id}` : "/giving/payments" };
+    }
+    case "record_pledge": {
+      // There is no Record pledge screen to fall back to: without the sheets the family's Pledges tab (or Pledges) opens.
+      const id = row.request.household?.id ?? null;
+      return { type: "record-pledge", request: row.request, href: id ? `/households/${id}?tab=pledges` : "/giving/pledges" };
     }
     case "payment":
     case "pledge":

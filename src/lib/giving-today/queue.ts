@@ -9,6 +9,7 @@
 
 import type { CardLabels } from "@/components/household-card";
 import { formatDate } from "@/lib/dates";
+import { MATCH_WHAT } from "@/lib/giving-counts/model";
 import type { Part } from "@/lib/giving-workspace/view";
 import { formatCents } from "@/lib/money";
 import type { GivingTaskDetail, HomeTask } from "@/lib/tasks";
@@ -148,7 +149,16 @@ export type TodayInput = {
 };
 
 /** What the person may do (UI convenience: the database refuses the rest anyway). */
-export type TodayCan = { approve: boolean; manage: boolean; bankConfirm: boolean; allocate: boolean; countRecord: boolean; closeManage: boolean };
+export type TodayCan = {
+  approve: boolean;
+  manage: boolean;
+  bankConfirm: boolean;
+  allocate: boolean;
+  countRecord: boolean;
+  closeManage: boolean;
+  /** Match a count to its bank deposit line (giving.record_offline or giving.manage, Bank reconciliation on; slice 5). */
+  countMatch?: boolean;
+};
 
 export type TodayContext = {
   can: TodayCan;
@@ -186,7 +196,11 @@ export type Act =
   | { kind: "gift"; txnId: string; amountCents: number; best: SuggestionView | null; others: SuggestionView[]; learnPayer: boolean; payerName: string | null }
   | { kind: "deposit"; txnId: string; amountCents: number; candidates: DepositCandidateView[]; exact: boolean; label: string }
   | { kind: "behind"; households: BehindView[] }
-  | { kind: "count_deposit"; id: string; totalCents: number | null; label: string; what: string }
+  /** `button`: the trigger's words ("Record the deposit" when left out); `secondary`: a ghost button next to Match its deposit. */
+  | { kind: "count_deposit"; id: string; totalCents: number | null; label: string; what: string; button?: string; secondary?: boolean }
+  /** Offering counts (slice 5): match a count to the bank line of exactly its amount; a treasurer undoes a wrong match. */
+  | { kind: "count_match"; id: string; totalCents: number; countedOn: string; label: string; what: string }
+  | { kind: "count_unmatch"; id: string; totalCents: number; label: string; what: string }
   | { kind: "apply"; paymentId: string; householdId: string; label: string; what: string }
   | { kind: "close"; month: string; items: CloseItemView[]; canMark: boolean }
   | { kind: "qbo_match"; matchId: string; qboName: string; label: string }
@@ -885,19 +899,36 @@ function countRows(list: CountIn[], ctx: TodayContext): QueueRow[] {
       ],
       family: null,
       since: since(c.countedOn, ctx, "Counted"),
-      acts: [
-        {
-          kind: "count_deposit" as const,
-          id: c.id,
-          totalCents: c.totalCents,
-          label: `Record the deposit for the ${date} count`,
-          what: "Enter the deposit slip or reference, and the counted total if it is not saved yet.",
-        },
-        { kind: "link" as const, href: "/giving/payments?view=counts", label: "Record a new count" },
-      ],
+      acts: countActs(c, date, ctx),
       count: 1,
     };
   });
+}
+
+/**
+ * A count waiting for its deposit (slice 5): with Bank reconciliation on, the counter picks the bank line of exactly the counted
+ * amount; the slip reference ("Mark deposited") stays for a deposit that holds more than one count.
+ */
+function countActs(c: CountIn, date: string, ctx: TodayContext): Act[] {
+  const mark: Act = {
+    kind: "count_deposit",
+    id: c.id,
+    totalCents: c.totalCents,
+    label: `Record the deposit for the ${date} count`,
+    what: "Enter the deposit slip or reference, and the counted total if it is not saved yet.",
+  };
+  if (!ctx.can.countMatch || c.totalCents === null) return [mark];
+  return [
+    {
+      kind: "count_match",
+      id: c.id,
+      totalCents: c.totalCents,
+      countedOn: c.countedOn,
+      label: `Match the ${date} count to its deposit`,
+      what: MATCH_WHAT,
+    },
+    { ...mark, button: "Mark deposited", secondary: true },
+  ];
 }
 
 function closeRows(c: CloseIn, ctx: TodayContext): QueueRow[] {

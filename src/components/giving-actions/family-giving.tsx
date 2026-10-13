@@ -32,6 +32,7 @@ export function FamilyGivingPanel({
   focus,
   onClose,
   onRecordPayment,
+  onRecordPledge,
 }: {
   ctx: GivingSheetContext;
   householdId: string;
@@ -39,6 +40,8 @@ export function FamilyGivingPanel({
   onClose: () => void;
   /** Opens the Record payment sheet for this family (the slide-over closes). Absent: the person cannot record payments. */
   onRecordPayment?: (family: Family) => void;
+  /** Opens the Record pledge sheet for this family (slice 7). Absent: the person cannot record pledges (giving.manage). */
+  onRecordPledge?: (family: Family) => void;
 }) {
   const backend = useGivingSheetBackend();
   const titleId = useId();
@@ -153,6 +156,11 @@ export function FamilyGivingPanel({
               {onRecordPayment ? (
                 <button type="button" onClick={() => onRecordPayment(fam)} className={`${buttonClass("primary")} min-h-[44px]`}>
                   Record payment
+                </button>
+              ) : null}
+              {onRecordPledge ? (
+                <button type="button" onClick={() => onRecordPledge(fam)} className={`${buttonClass("ghost")} min-h-[44px]`}>
+                  Record pledge
                 </button>
               ) : null}
               {ctx.canOpenFamily ? (

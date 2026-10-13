@@ -22,6 +22,7 @@ vi.mock("@/app/(app)/giving/payments/actions", () => ({ applyPaymentAction: vi.f
 vi.mock("@/app/(app)/giving/payments/bank/actions", () => ({ confirmBankMatchAction: vi.fn(), matchDepositAction: vi.fn() }));
 vi.mock("@/app/(app)/giving/payments/bank/zelle-actions", () => ({ confirmExactMatchesAction: vi.fn() }));
 vi.mock("@/app/(app)/giving/payments/counting-actions", () => ({ recordCountingDepositAction: vi.fn(), createCountingSessionAction: vi.fn() }));
+vi.mock("@/app/(app)/giving/counts/actions", () => ({ countSheetAction: vi.fn(), depositChoicesAction: vi.fn(), matchCountDepositAction: vi.fn(), unmatchCountDepositAction: vi.fn() }));
 vi.mock("@/app/(app)/accounting/close/actions", () => ({ setCloseItemAction: vi.fn() }));
 vi.mock("@/app/security-actions", () => ({ verifyStepUpAction: vi.fn() }));
 vi.mock("@/app/history-actions", () => ({ loadRecordHistoryAction: vi.fn() }));
@@ -132,7 +133,10 @@ describe("Giving › Payments", () => {
   it("lists every payment with the method and source chips and the views", () => {
     const out = html(h(PaymentsView, { model: samplePaymentsModel("treasurer") }));
     expect(out).toMatch(/aria-current="page"[^>]*>Payments</);
-    for (const t of ["All payments", "Refunds", "Grants to match", "Recurring", "Cash counts", "Check", "Zelle", "Recorded by hand"]) expect(out).toContain(`>${t}`);
+    for (const t of ["All payments", "Refunds", "Grants to match", "Recurring", "Check", "Zelle", "Recorded by hand"]) expect(out).toContain(`>${t}`);
+    // The counts have their own tab since slice 5: no counts view here, the tab row links to it.
+    expect(out).not.toContain("view=counts");
+    expect(out).toContain('href="/giving/counts"');
     expect(out).toContain("Refund $25.00 to Kim household 0398 through Stripe");
     expect(out).toContain("Apply $120.00 to Nguyen household 0441&#x27;s pledges");
     expect(out).toContain(">Refund…</button>");
@@ -157,12 +161,6 @@ describe("Giving › Payments", () => {
     const out = html(h(PaymentsView, { model: samplePaymentsModel("treasurer", { view: "recurring" }, undefined, { modulesOff: ["giving_recurring"] }) }));
     expect(out).toContain("Recurring gifts is switched off");
     expect(out).toContain('data-testid="view-switched-off"');
-  });
-
-  it("the counts stay reachable here until slice 5, with the route's New count form", () => {
-    const out = html(h(PaymentsView, { model: samplePaymentsModel("treasurer", { view: "counts" }), countSlot: h("p", null, "NEW COUNT FORM") }));
-    expect(out).toContain("Bags 118, 119");
-    expect(out).toContain("NEW COUNT FORM");
   });
 
   it("a finance volunteer reads a limited view", () => {
@@ -201,6 +199,12 @@ describe("the routes", () => {
   it("Recurring is a view of Payments in the New look", async () => {
     await expect(RecurringRoute({ searchParams: Promise.resolve({ status: "failed" }) })).rejects.toThrow("NEXT_REDIRECT");
     expect(redirected).toEqual(["/giving/payments?view=recurring&rstatus=failed"]);
+  });
+
+  it("the old counts view of Payments sends to the counts tab (slice 5)", async () => {
+    await expect(drawn(PaymentsRoute as Route, { view: "counts" })).rejects.toThrow("NEXT_REDIRECT");
+    expect(redirected).toContain("/giving/counts");
+    expect(loads).not.toContain("payments");
   });
 
   it("the dev preview is not served in production", async () => {
