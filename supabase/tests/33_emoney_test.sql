@@ -468,8 +468,9 @@ select pg_temp.assert((select status = 'queued' from app.ledger_postings where i
                       and app.qbo_post_ready(:c)->>'reason' like 'Accrual-basis posting%',
   'write-off (accrual): it waits in the queue while accrual posting as a whole is not switched on');
 delete from app.qbo_account_mappings where center_id = :c and purpose = 'pledge_writeoffs';
-select pg_temp.assert((app.qbo_posting_doc(:'je_post')->>'error') like 'The Pledge write-offs account is not mapped%',
-  'write-off: without the Pledge write-offs account the entry fails with a plain reason');
+select pg_temp.assert((app.qbo_posting_doc(:'je_post')->>'error') like 'Pledge write-offs has no QuickBooks account yet.%'
+                      and app.qbo_posting_doc(:'je_post')->>'needs_mapping' = 'role:pledge_writeoffs',
+  'write-off: without the Pledge write-offs account the entry fails with a plain reason and says which mapping it waits for (0779)');
 update app.integration_connections set settings = settings || '{"basis":"cash"}' where id = 'e3300000-0000-4000-8000-0000000000d1';
 
 -- ═════════════════════════════════════════════════════════════════════════════

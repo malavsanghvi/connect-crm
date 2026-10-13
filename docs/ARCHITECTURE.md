@@ -116,6 +116,18 @@ the `qbo-poster` edge function using the center's approved account mapping
 (`app.qbo_account_mappings`). Failures land in the treasurer's exception queue;
 closed months post as current-period adjustments. See `FEATURE_TRACEABILITY.md`.
 
+**Which account (0779, `docs/FUND_ACCOUNT_MAPPING_GAPS.md`).** Every account a posting
+uses comes from one place: `app.account_for_role(center, role)`, `app.account_for_fund(center, fund)`,
+`app.account_for_bank_account(center, bank_account)` and `app.class_for_fund(center, fund)`, over the
+catalog `app.account_roles` (labels in the organization's words). A missing or unusable account raises
+SQLSTATE `CCMAP` with a plain reason; the posting waits in the exception queue
+(`ledger_postings.needs_mapping`) and goes back in the queue when that account is confirmed: never a
+default account. Only a required account stops all posting. Once the mapping has been approved, every
+change is a request that a different person with `giving.approve` confirms
+(`app.request_account_mapping_change` / `decide_account_mapping_change`, a reason each, no fresh 2FA
+code); it applies to postings sent after it, and a posted entry keeps the document it was sent with
+(`ledger_postings.qbo_doc`). Screen: Giving › Books › Account mapping.
+
 ## Conventions for all three apps
 
 - **Supabase client**: `createClient<Database>(url, anonKey, { db: { schema: 'app' } })`.
