@@ -7,6 +7,7 @@ import { experienceLabel } from "@/lib/experiences";
 import { loadExperiences } from "@/lib/experiences-db";
 import { getSession } from "@/lib/session";
 
+import { ProductRequestsCard } from "./_components/product-requests-card";
 import { WaitingCard } from "./_components/waiting-card";
 import { PlatformNoAccess } from "./platform-no-access";
 import { SetupReminder } from "./setup-reminder";
@@ -69,6 +70,7 @@ export default async function PlatformCentersPage() {
       {header}
       <SetupReminder session={session} />
       <WaitingCard db={db} timeZone={session.center.time_zone} />
+      <ProductRequestsCard db={db} timeZone={session.center.time_zone} />
       {kinds.status !== "ok" ? (
         <div className="mb-4">
           <Alert tone="warning" title="The names of the kinds of organization could not be loaded">
@@ -126,6 +128,9 @@ export default async function PlatformCentersPage() {
                       <td>
                         <Link href={`/platform/centers/${c.id}/summary`} className="crm-link mr-3 text-[13px] font-semibold">
                           Summary
+                        </Link>
+                        <Link href={`/platform/centers/${c.id}/products`} className="crm-link mr-3 text-[13px] font-semibold">
+                          Products
                         </Link>
                         <Link href={`/platform/centers/${c.id}`} className="crm-link text-[13px] font-semibold">
                           Limits &amp; addresses
