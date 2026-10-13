@@ -325,7 +325,7 @@ select pg_temp.assert(not app.module_enabled(:g_none, 'ai') and not app.module_e
 insert into app.centers (id, slug, name, short_name, state_region, status, time_zone) values
   ('16000000-0000-4000-8000-0000000000c9', 'gy160', 'Fresh 160', 'GY', 'TX', 'active', 'America/Chicago');
 select pg_temp.assert_raises($$select app.assert_module_enabled('16000000-0000-4000-8000-0000000000c9', 'niva')$$,
-  'Niva assistant is off because iWeaver is off for this community.', 'D · and the RPC guard says why in plain words');
+  'AI features are part of iWeaver, which is not on for your community.', 'D · and the RPC guard says why in plain words (the iWeaver sentence, 0755)');
 
 insert into app.role_grants (center_id, user_id, role_key, reason) values
   (:g_none, :admin, 'center_admin', 'Test 160'), (:g_site, :admin, 'center_admin', 'Test 160'), (:g_wa, :admin, 'center_admin', 'Test 160');
